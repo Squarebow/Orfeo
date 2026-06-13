@@ -1,147 +1,161 @@
 import { useEffect, useRef } from 'react'
-import { Application, Graphics, Container } from 'pixi.js'
-import { useStore } from '@/store'
-import { hexToPixi } from '@/utils/colors'
+import { Application, Graphics } from 'pixi.js'
+import { useStore } from '../../store'
+import { isBlackKey } from '../../utils/midiParser'
 
-const NOTE_SPEED = 200
+const MIDI_MIN = 21
+const MIDI_MAX = 108
+const TOTAL_KEYS = MIDI_MAX - MIDI_MIN + 1
+const VISIBLE_SECONDS = 6
+const NOTE_RADIUS = 3
+const MIN_NOTE_H = 4
+const PLAYHEAD_RATIO = 0.80
+
+interface KeyLayout { x: number; width: number }
+
+function buildKeyLayout(W: number): KeyLayout[] {
+  const whites: number[] = []
+  for (let m = MIDI_MIN; m <= MIDI_MAX; m++) if (!isBlackKey(m)) whites.push(m)
+  const ww = W / whites.length
+  const bw = ww * 0.6
+  const layout: KeyLayout[] = new Array(TOTAL_KEYS)
+  let wi = 0
+  for (let m = MIDI_MIN; m <= MIDI_MAX; m++) {
+    const idx = m - MIDI_MIN
+    if (!isBlackKey(m)) { layout[idx] = { x: wi * ww, width: ww }; wi++ }
+    else layout[idx] = { x: wi * ww - bw / 2, width: bw }
+  }
+  return layout
+}
 
 export default function PianoRoll() {
   const containerRef = useRef<HTMLDivElement>(null)
   const appRef = useRef<Application | null>(null)
-  const notesContainerRef = useRef<Container | null>(null)
   const gridRef = useRef<Graphics | null>(null)
+  const notesRef = useRef<Graphics | null>(null)
   const playheadRef = useRef<Graphics | null>(null)
-  const initializedRef = useRef(false)
+  const keyLayoutRef = useRef<KeyLayout[]>([])
+  const storeRef = useRef(useStore.getState())
 
-  const { midiFile, tracks, position, tempo } = useStore()
+  // Keep storeRef current without causing re-renders
+  useEffect(() => useStore.subscribe((s) => { storeRef.current = s }), [])
 
   useEffect(() => {
-    if (!containerRef.current || initializedRef.current) return
-    initializedRef.current = true
-    const container = containerRef.current
-
+    if (!containerRef.current) return
+    const el = containerRef.current
     const app = new Application()
+    let roInstance: ResizeObserver
+
     app.init({
-      width: container.clientWidth || 800,
-      height: container.clientHeight || 400,
       background: 0x0f0f12,
+      width: el.clientWidth || 800,
+      height: el.clientHeight || 600,
       antialias: true,
-      autoDensity: true,
       resolution: window.devicePixelRatio || 1,
+      autoDensity: true,
     }).then(() => {
-      container.appendChild(app.canvas)
+      if (!containerRef.current) { app.destroy(false); return }
+      el.appendChild(app.canvas)
       appRef.current = app
 
       const grid = new Graphics()
-      app.stage.addChild(grid)
-      gridRef.current = grid
-
-      const notesContainer = new Container()
-      app.stage.addChild(notesContainer)
-      notesContainerRef.current = notesContainer
-
+      const notes = new Graphics()
       const playhead = new Graphics()
+      app.stage.addChild(grid)
+      app.stage.addChild(notes)
       app.stage.addChild(playhead)
+      gridRef.current = grid
+      notesRef.current = notes
       playheadRef.current = playhead
 
-      redrawGrid()
-
-      const ro = new ResizeObserver(() => {
-        app.renderer.resize(container.clientWidth, container.clientHeight)
-        redrawGrid()
-      })
-      ro.observe(container)
-    })
-
-    function redrawGrid() {
-      const grid = gridRef.current
-      const playhead = playheadRef.current
-      if (!appRef.current || !grid || !playhead) return
-      const { width, height } = appRef.current.screen
-
-      grid.clear()
-      const blackKeyIndices = [1, 3, 6, 8, 10]
-      for (let midi = 21; midi <= 108; midi++) {
-        if (blackKeyIndices.includes(midi % 12)) {
-          grid.rect(midiToX(midi, width), 0, getLaneWidth(width), height)
-          grid.fill({ color: 0x13131a })
+      const drawGrid = (W: number, H: number) => {
+        grid.clear()
+        keyLayoutRef.current = buildKeyLayout(W)
+        for (let m = MIDI_MIN; m <= MIDI_MAX; m++) {
+          const key = keyLayoutRef.current[m - MIDI_MIN]
+          if (!key) continue
+          const isC = m % 12 === 0
+          grid.rect(key.x, 0, 1, H)
+          grid.fill({ color: isC ? 0x3a3a50 : 0x1e1e2a, alpha: 1 })
         }
       }
-      for (let midi = 21; midi <= 108; midi++) {
-        grid.moveTo(midiToX(midi, width), 0)
-        grid.lineTo(midiToX(midi, width), height)
-        grid.stroke({ color: 0x2a2a36, alpha: 0.5, width: 1 })
+
+      const drawFrame = () => {
+        const { midi, currentTime, tracks } = storeRef.current
+        const W = app.screen.width
+        const H = app.screen.height
+        const py = H * PLAYHEAD_RATIO
+        const pps = py / VISIBLE_SECONDS
+
+        // Playhead
+        playhead.clear()
+        playhead.rect(0, py, W, 1)
+        playhead.fill({ color: 0xe8a027, alpha: 0.6 })
+
+        // Notes
+        notes.clear()
+        if (!midi) return
+
+        const visStart = currentTime - VISIBLE_SECONDS * (1 - PLAYHEAD_RATIO)
+        const visEnd = currentTime + VISIBLE_SECONDS * PLAYHEAD_RATIO
+
+        for (const track of midi.tracks) {
+          const ts = tracks.find((t) => t.index === track.index)
+          if (ts && (!ts.visible || ts.muted)) continue
+          const color = parseInt((ts?.color ?? track.color).replace('#', ''), 16)
+
+          for (const note of track.notes) {
+            if (note.time + note.duration < visStart || note.time > visEnd) continue
+            const idx = note.midi - MIDI_MIN
+            if (idx < 0 || idx >= TOTAL_KEYS) continue
+            const key = keyLayoutRef.current[idx]
+            if (!key) continue
+
+            // Distance from playhead: positive = above (future), negative = below (past)
+            const topY = py - (note.time + note.duration - currentTime) * pps
+            const botY = py - (note.time - currentTime) * pps
+            const noteH = Math.max(botY - topY, MIN_NOTE_H)
+
+            notes.roundRect(key.x + 1, topY, Math.max(key.width - 2, 1), noteH, NOTE_RADIUS)
+            notes.fill({ color, alpha: 0.9 })
+            // Bright top cap
+            notes.rect(key.x + 1, topY, Math.max(key.width - 2, 1), 2)
+            notes.fill({ color: 0xffffff, alpha: 0.25 })
+          }
+        }
       }
 
-      playhead.clear()
-      playhead.moveTo(0, height - 164)
-      playhead.lineTo(width, height - 164)
-      playhead.stroke({ color: 0xe8a027, alpha: 0.8, width: 2 })
-    }
+      // Initial grid draw
+      drawGrid(app.screen.width, app.screen.height)
+
+      // Ticker — runs every frame
+      app.ticker.add(() => drawFrame())
+
+      // Resize
+      roInstance = new ResizeObserver(() => {
+        if (!appRef.current) return
+        const w = el.clientWidth
+        const h = el.clientHeight
+        appRef.current.renderer.resize(w, h)
+        drawGrid(w, h)
+      })
+      roInstance.observe(el)
+    })
 
     return () => {
-      appRef.current?.destroy(true)
-      appRef.current = null
-      initializedRef.current = false
+      roInstance?.disconnect()
+      if (appRef.current) {
+        try { appRef.current.canvas.remove() } catch {}
+        try { appRef.current.destroy(false) } catch {}
+        appRef.current = null
+      }
     }
   }, [])
 
-  useEffect(() => {
-    const app = appRef.current
-    const notesContainer = notesContainerRef.current
-    if (!app || !notesContainer || !midiFile) return
-
-    notesContainer.removeChildren()
-    const { width, height } = app.screen
-    const keyboardY = height - 164
-    const tempoRatio = tempo / midiFile.bpm
-
-    tracks.forEach(track => {
-      if (track.muted || !track.visible) return
-      const color = hexToPixi(track.color)
-      track.notes.forEach(note => {
-        const secondsFromNow = note.time - position.seconds
-        const y = keyboardY - secondsFromNow * NOTE_SPEED * tempoRatio
-        const h = Math.max(4, note.duration * NOTE_SPEED * tempoRatio)
-        if (y < -h || y > height + h) return
-        const block = new Graphics()
-        block.roundRect(midiToX(note.midi, width) + 1, y - h, getLaneWidth(width) - 2, h - 1, 2)
-        block.fill({ color, alpha: 0.85 })
-        notesContainer.addChild(block)
-      })
-    })
-  }, [midiFile, tracks, position, tempo])
-
   return (
-    <div ref={containerRef} style={{ flex: 1, overflow: 'hidden', position: 'relative', background: '#0f0f12' }}>
-      {!midiFile && (
-        <div style={{
-          position: 'absolute', inset: 0, display: 'flex', flexDirection: 'column',
-          alignItems: 'center', justifyContent: 'center', gap: 12,
-          color: '#4a4a60', pointerEvents: 'none'
-        }}>
-          <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1">
-            <path d="M9 18V5l12-2v13"/>
-            <circle cx="6" cy="18" r="3"/>
-            <circle cx="18" cy="16" r="3"/>
-          </svg>
-          <div style={{ fontSize: 14 }}>Open a MIDI file to begin</div>
-          <div style={{ fontSize: 11, opacity: 0.6 }}>Click the folder icon in the top bar</div>
-        </div>
-      )}
-    </div>
+    <div
+      ref={containerRef}
+      style={{ width: '100%', height: '100%', background: '#0f0f12', overflow: 'hidden' }}
+    />
   )
-}
-
-function midiToX(midi: number, totalWidth: number): number {
-  return getWhiteKeyPosition(midi) * (totalWidth / 52)
-}
-function getLaneWidth(totalWidth: number): number {
-  return totalWidth / 88
-}
-function getWhiteKeyPosition(midi: number): number {
-  const octave = Math.floor((midi - 21) / 12)
-  const noteInOctave = (midi - 21) % 12
-  const whitePositions = [0, 0, 1, 1, 2, 3, 3, 4, 4, 5, 5, 6]
-  return octave * 7 + whitePositions[noteInOctave]
 }

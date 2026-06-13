@@ -1,74 +1,96 @@
-import { useCallback, useEffect, useRef } from 'react'
-import { useStore } from '@/store'
-import { secondsToBarBeat } from '@/utils/midiParser'
+import { useEffect, useRef, useCallback } from 'react'
+import { useStore } from '../store'
 
+/**
+ * usePlayback — drives the currentTime forward in real time.
+ * Uses requestAnimationFrame for smooth 60fps updates.
+ * Tempo ratio (bpm / originalBpm) is applied for pitch-independent speed.
+ */
 export function usePlayback() {
   const {
-    midiFile, playbackState, position, tempo,
-    setPlaybackState, setPosition, releaseAllKeys, pressKey, releaseKey,
-    tracks, setCurrentChord, settings
+    midi,
+    playbackState,
+    currentTime,
+    bpm,
+    originalBpm,
+    loopEnabled,
+    loopStart,
+    loopEnd,
+    setCurrentTime,
+    setPlaybackState,
   } = useStore()
 
-  const startTimeRef = useRef<number>(0)
-  const startOffsetRef = useRef<number>(0)
-  const animFrameRef = useRef<number>(0)
-  const scheduledNotes = useRef<Map<string, ReturnType<typeof setTimeout>>>(new Map())
+  const rafRef = useRef<number | null>(null)
+  const lastTimestampRef = useRef<number | null>(null)
+  const currentTimeRef = useRef(currentTime)
 
-  const getCurrentSeconds = useCallback(() => {
-    if (playbackState !== 'playing') return position.seconds
-    return startOffsetRef.current + (performance.now() - startTimeRef.current) / 1000
-  }, [playbackState, position.seconds])
-
-  const play = useCallback(() => {
-    if (!midiFile) return
-    startTimeRef.current = performance.now()
-    startOffsetRef.current = position.seconds
-    setPlaybackState('playing')
-  }, [midiFile, position.seconds, setPlaybackState])
-
-  const pause = useCallback(() => {
-    setPlaybackState('paused')
-    setPosition({
-      seconds: getCurrentSeconds(),
-      bar: position.bar,
-      beat: position.beat,
-    })
-    releaseAllKeys()
-    scheduledNotes.current.forEach(t => clearTimeout(t))
-    scheduledNotes.current.clear()
-    cancelAnimationFrame(animFrameRef.current)
-  }, [setPlaybackState, setPosition, getCurrentSeconds, position, releaseAllKeys])
+  // Keep ref in sync so the RAF loop always has latest value
+  currentTimeRef.current = currentTime
 
   const stop = useCallback(() => {
+    if (rafRef.current) {
+      cancelAnimationFrame(rafRef.current)
+      rafRef.current = null
+    }
+    lastTimestampRef.current = null
     setPlaybackState('stopped')
-    setPosition({ seconds: 0, bar: 1, beat: 1 })
-    releaseAllKeys()
-    scheduledNotes.current.forEach(t => clearTimeout(t))
-    scheduledNotes.current.clear()
-    cancelAnimationFrame(animFrameRef.current)
-  }, [setPlaybackState, setPosition, releaseAllKeys])
+    setCurrentTime(0)
+  }, [setPlaybackState, setCurrentTime])
 
-  // Animation loop — updates position display
+  const pause = useCallback(() => {
+    if (rafRef.current) {
+      cancelAnimationFrame(rafRef.current)
+      rafRef.current = null
+    }
+    lastTimestampRef.current = null
+    setPlaybackState('paused')
+  }, [setPlaybackState])
+
+  const play = useCallback(() => {
+    setPlaybackState('playing')
+  }, [setPlaybackState])
+
+  const seek = useCallback((time: number) => {
+    setCurrentTime(Math.max(0, time))
+  }, [setCurrentTime])
+
+  // Animation loop
   useEffect(() => {
-    if (playbackState !== 'playing' || !midiFile) return
+    if (playbackState !== 'playing' || !midi) return
 
-    const tick = () => {
-      const seconds = getCurrentSeconds()
-      if (seconds >= midiFile.duration) {
-        stop()
+    const tempoRatio = bpm / originalBpm
+
+    const tick = (timestamp: number) => {
+      if (lastTimestampRef.current === null) {
+        lastTimestampRef.current = timestamp
+      }
+
+      const delta = (timestamp - lastTimestampRef.current) / 1000 // seconds
+      lastTimestampRef.current = timestamp
+
+      let newTime = currentTimeRef.current + delta * tempoRatio
+
+      // Loop handling
+      if (loopEnabled && loopEnd > loopStart && newTime >= loopEnd) {
+        newTime = loopStart
+      } else if (newTime >= midi.duration) {
+        // Reached end — stop
+        setCurrentTime(midi.duration)
+        setPlaybackState('stopped')
         return
       }
-      const barBeat = secondsToBarBeat(
-        seconds, tempo, midiFile.timeSignature.numerator
-      )
-      const [bar, beat] = barBeat.split(':').map(Number)
-      setPosition({ seconds, bar, beat })
-      animFrameRef.current = requestAnimationFrame(tick)
+
+      setCurrentTime(newTime)
+      rafRef.current = requestAnimationFrame(tick)
     }
 
-    animFrameRef.current = requestAnimationFrame(tick)
-    return () => cancelAnimationFrame(animFrameRef.current)
-  }, [playbackState, midiFile, tempo, getCurrentSeconds, setPosition, stop])
+    rafRef.current = requestAnimationFrame(tick)
 
-  return { play, pause, stop, getCurrentSeconds }
+    return () => {
+      if (rafRef.current) cancelAnimationFrame(rafRef.current)
+      lastTimestampRef.current = null
+    }
+  }, [playbackState, midi, bpm, originalBpm, loopEnabled, loopStart, loopEnd, setCurrentTime, setPlaybackState])
+
+  return { play, pause, stop, seek }
 }

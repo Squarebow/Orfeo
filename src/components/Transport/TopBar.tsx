@@ -1,142 +1,189 @@
-import { FolderOpen, Play, Pause, Square, SkipBack, SkipForward,
-         Repeat, Metronome, Settings, Music, ChevronRight } from 'lucide-react'
-import { useStore } from '@/store'
-import { useMidiFile } from '@/hooks/useMidiFile'
-import { usePlayback } from '@/hooks/usePlayback'
-import { formatTime } from '@/utils/midiParser'
-import ChordDisplay from '@/components/ChordDisplay/ChordDisplay'
+import { useCallback } from 'react'
+import {
+  Play, Pause, Square, SkipBack, SkipForward, Repeat,
+  FolderOpen, Gauge, RotateCcw
+} from 'lucide-react'
+import { useStore } from '../../store'
+import { usePlayback } from '../../hooks/usePlayback'
+import { useMidiFile } from '../../hooks/useMidiFile'
+import { formatTime } from '../../utils/midiParser'
 
-interface TopBarProps {
-  midiConnected: boolean
-  deviceName: string | null
-}
+export default function TopBar() {
+  const midi = useStore((s) => s.midi)
+  const playbackState = useStore((s) => s.playbackState)
+  const currentTime = useStore((s) => s.currentTime)
+  const bpm = useStore((s) => s.bpm)
+  const originalBpm = useStore((s) => s.originalBpm)
+  const loopEnabled = useStore((s) => s.loopEnabled)
+  const setLoop = useStore((s) => s.setLoop)
+  const setBpm = useStore((s) => s.setBpm)
+  const resetBpm = useStore((s) => s.resetBpm)
 
-export default function TopBar({ midiConnected, deviceName }: TopBarProps) {
-  const {
-    midiFile, playbackState, position, tempo, tempoPercent,
-    setTempo, setTempoPercent, resetTempo,
-    toggleTrackPanel, toggleSettings, isTrackPanelOpen
-  } = useStore()
+  const { play, pause, stop, seek } = usePlayback()
+  const { openFile } = useMidiFile()
 
-  const { openFile, loading } = useMidiFile()
-  const { play, pause, stop } = usePlayback()
+  const handlePlayPause = useCallback(() => {
+    if (playbackState === 'playing') pause()
+    else play()
+  }, [playbackState, play, pause])
 
-  const isPlaying = playbackState === 'playing'
-  const progress = midiFile ? (position.seconds / midiFile.duration) * 100 : 0
+  const duration = midi?.duration ?? 0
+  const tempoPercent = Math.round((bpm / originalBpm) * 100)
+  const isTempoChanged = Math.abs(tempoPercent - 100) > 1
 
   return (
-    <header className="topbar panel-bottom" style={{
-      height: 'var(--topbar-height)',
-      background: 'var(--panel)',
-      borderBottom: '1px solid var(--border)',
-      display: 'flex',
-      alignItems: 'center',
-      gap: 8,
-      padding: '0 12px',
-      flexShrink: 0,
-    }}>
+    <div
+      className="flex items-center px-3 shrink-0"
+      style={{
+        height: 48,
+        background: '#13131a',
+        borderBottom: '1px solid #1e1e28',
+        WebkitAppRegion: 'drag',
+      } as React.CSSProperties}
+    >
+      {/* LEFT — Open button */}
+      <div className="flex items-center gap-2 w-48" style={{ WebkitAppRegion: 'no-drag' } as React.CSSProperties}>
+        <button
+          onClick={openFile}
+          className="flex items-center gap-1.5 px-2.5 py-1.5 rounded text-xs font-medium transition-colors"
+          style={{
+            background: '#1e1e2a',
+            color: '#808098',
+            border: '1px solid #2a2a3a',
+          }}
+          title="Open MIDI file (Ctrl+O)"
+        >
+          <FolderOpen size={13} />
+          Open
+        </button>
 
-      {/* ── File open ── */}
-      <button className="btn-icon" onClick={openFile} disabled={loading} title="Open MIDI file">
-        <FolderOpen size={16} />
-      </button>
-
-      {/* ── File info ── */}
-      <div style={{ minWidth: 180, maxWidth: 240 }}>
-        <div style={{ fontSize: 12, fontWeight: 500, color: 'var(--text-primary)',
-                      overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-          {midiFile?.name ?? 'No file loaded'}
-        </div>
-        {midiFile && (
-          <div style={{ fontSize: 10, color: 'var(--text-secondary)', fontFamily: 'JetBrains Mono, monospace' }}>
-            Bar {position.bar}:{position.beat}
-          </div>
+        {/* File name */}
+        {midi && (
+          <span
+            className="text-xs truncate max-w-32"
+            style={{ color: '#606075', fontFamily: 'Inter' }}
+            title={midi.fileName}
+          >
+            {midi.fileName.replace(/\.(mid|midi)$/i, '')}
+          </span>
         )}
       </div>
 
-      {/* ── Progress bar ── */}
-      <div style={{ flex: 1, maxWidth: 300, display: 'flex', flexDirection: 'column', gap: 4 }}>
-        <div style={{
-          height: 4, background: 'var(--border)', borderRadius: 2, overflow: 'hidden', cursor: 'pointer'
-        }}>
-          <div style={{
-            height: '100%', width: `${progress}%`,
-            background: 'var(--accent)', borderRadius: 2,
-            transition: 'width 0.1s linear'
-          }} />
+      {/* CENTER — Transport + scrub */}
+      <div
+        className="flex flex-col items-center justify-center flex-1 gap-1"
+        style={{ WebkitAppRegion: 'no-drag' } as React.CSSProperties}
+      >
+        {/* Transport buttons */}
+        <div className="flex items-center gap-0.5">
+          <TBtn onClick={() => seek(0)} disabled={!midi} title="Back to start">
+            <SkipBack size={13} />
+          </TBtn>
+          <TBtn onClick={handlePlayPause} disabled={!midi} accent title="Play / Pause">
+            {playbackState === 'playing' ? <Pause size={15} /> : <Play size={15} />}
+          </TBtn>
+          <TBtn onClick={stop} disabled={!midi} title="Stop">
+            <Square size={13} />
+          </TBtn>
+          <TBtn onClick={() => midi && seek(midi.duration)} disabled={!midi} title="Skip to end">
+            <SkipForward size={13} />
+          </TBtn>
+          <TBtn onClick={() => setLoop(!loopEnabled)} disabled={!midi} active={loopEnabled} title="Loop">
+            <Repeat size={13} />
+          </TBtn>
         </div>
-        {midiFile && (
-          <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 10,
-                        color: 'var(--text-secondary)', fontFamily: 'JetBrains Mono, monospace' }}>
-            <span>{formatTime(position.seconds)}</span>
-            <span>{formatTime(midiFile.duration)}</span>
-          </div>
-        )}
+
+        {/* Scrub bar + times */}
+        <div className="flex items-center gap-2">
+          <span
+            className="text-xs tabular-nums"
+            style={{ color: '#505065', fontFamily: 'JetBrains Mono', minWidth: 32, textAlign: 'right' }}
+          >
+            {formatTime(currentTime)}
+          </span>
+          <input
+            type="range"
+            min={0}
+            max={duration || 1}
+            step={0.1}
+            value={currentTime}
+            onChange={(e) => seek(parseFloat(e.target.value))}
+            className="scrub-slider"
+            style={{ width: 200 }}
+            disabled={!midi}
+          />
+          <span
+            className="text-xs tabular-nums"
+            style={{ color: '#505065', fontFamily: 'JetBrains Mono', minWidth: 32 }}
+          >
+            {formatTime(duration)}
+          </span>
+        </div>
       </div>
 
-      {/* ── Chord display ── */}
-      <ChordDisplay />
-
-      {/* ── Transport controls ── */}
-      <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-        <button className="btn-transport" onClick={stop} title="Stop">
-          <Square size={14} />
-        </button>
-        <button className="btn-transport" title="Skip back">
-          <SkipBack size={14} />
-        </button>
-        <button className="btn-transport play" onClick={isPlaying ? pause : play}
-                title={isPlaying ? 'Pause' : 'Play'} disabled={!midiFile}>
-          {isPlaying ? <Pause size={18} /> : <Play size={18} />}
-        </button>
-        <button className="btn-transport" title="Skip forward">
-          <SkipForward size={14} />
-        </button>
-        <button className="btn-transport" title="Loop">
-          <Repeat size={14} />
-        </button>
-      </div>
-
-      {/* ── Tempo ── */}
-      <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '0 8px',
-                    borderLeft: '1px solid var(--border)', marginLeft: 4 }}>
-        <span style={{ fontSize: 10, color: 'var(--text-secondary)' }}>♩</span>
-        <input type="range" min={20} max={300} value={tempo}
-               onChange={e => setTempo(Number(e.target.value))}
-               style={{ width: 80 }} title="Tempo" />
-        <span className="text-value" style={{ minWidth: 38, fontSize: 12 }}>
-          {tempo}
+      {/* RIGHT — Tempo */}
+      <div
+        className="flex items-center gap-2 w-48 justify-end"
+        style={{ WebkitAppRegion: 'no-drag' } as React.CSSProperties}
+      >
+        <Gauge size={12} style={{ color: '#404055' }} />
+        <input
+          type="range"
+          min={30}
+          max={300}
+          step={1}
+          value={bpm}
+          onChange={(e) => setBpm(Number(e.target.value))}
+          className="scrub-slider"
+          style={{ width: 72 }}
+          disabled={!midi}
+          title={`Tempo: ${bpm} BPM`}
+        />
+        <span
+          className="text-xs tabular-nums"
+          style={{
+            color: isTempoChanged ? '#e8a027' : '#505065',
+            fontFamily: 'JetBrains Mono',
+            minWidth: 36,
+          }}
+          title={`${bpm} BPM`}
+        >
+          {isTempoChanged ? `${tempoPercent}%` : `${Math.round(bpm)}`}
         </span>
-        <span style={{ fontSize: 10, color: 'var(--text-secondary)' }}>BPM</span>
-        <button className="btn-icon" onClick={resetTempo} title="Reset tempo"
-                style={{ fontSize: 10, width: 'auto', padding: '0 6px', color: 'var(--text-muted)' }}>
-          {tempoPercent}%
-        </button>
+        {isTempoChanged && (
+          <button onClick={resetBpm} title="Reset tempo" style={{ color: '#e8a027', opacity: 0.7 }}>
+            <RotateCcw size={11} />
+          </button>
+        )}
       </div>
+    </div>
+  )
+}
 
-      {/* ── MIDI device indicator ── */}
-      {midiConnected && (
-        <div style={{ display: 'flex', alignItems: 'center', gap: 4,
-                      fontSize: 10, color: 'var(--accent)' }}>
-          <div style={{ width: 6, height: 6, borderRadius: '50%', background: 'var(--accent)' }} />
-          {deviceName}
-        </div>
-      )}
-
-      {/* ── Right actions ── */}
-      <div style={{ display: 'flex', gap: 4, marginLeft: 'auto' }}>
-        <button className="btn-icon" onClick={toggleSettings} title="Settings">
-          <Settings size={16} />
-        </button>
-        <button className={`btn-icon ${isTrackPanelOpen ? 'active' : ''}`}
-                onClick={toggleTrackPanel} title="Track panel">
-          <ChevronRight size={16} style={{
-            transform: isTrackPanelOpen ? 'rotate(180deg)' : 'none',
-            transition: 'transform 0.2s'
-          }} />
-        </button>
-      </div>
-
-    </header>
+function TBtn({
+  children, onClick, disabled, accent, active, title,
+}: {
+  children: React.ReactNode
+  onClick?: () => void
+  disabled?: boolean
+  accent?: boolean
+  active?: boolean
+  title?: string
+}) {
+  return (
+    <button
+      onClick={onClick}
+      disabled={disabled}
+      title={title}
+      className="p-1.5 rounded transition-all"
+      style={{
+        color: active ? '#e8a027' : accent ? '#e8a027' : '#707088',
+        background: active ? '#e8a02718' : 'transparent',
+        opacity: disabled ? 0.25 : 1,
+        cursor: disabled ? 'default' : 'pointer',
+      }}
+    >
+      {children}
+    </button>
   )
 }

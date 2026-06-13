@@ -1,203 +1,147 @@
 import { create } from 'zustand'
-import { persist } from 'zustand/middleware'
 import type {
-  MidiFile, MidiTrack, PlaybackState, PlaybackPosition,
-  LoopRegion, AppSettings, DetectedChord, KeyState, KeyboardSize
-} from '@/types'
+  ParsedMidi,
+  ParsedTrack,
+  PlaybackState,
+  TrackState,
+  KeyboardSize,
+  KeyboardMode,
+  NoteNaming,
+} from '../types'
 
-// ─── Playback Slice ───────────────────────────────────────────────────────────
+// ─── Store Shape ─────────────────────────────────────────────────────────────
 
-interface PlaybackSlice {
-  midiFile: MidiFile | null
+interface OrfeoStore {
+  // MIDI data
+  midi: ParsedMidi | null
+  setMidi: (midi: ParsedMidi | null) => void
+
+  // Playback
   playbackState: PlaybackState
-  position: PlaybackPosition
-  tempo: number           // current BPM (may differ from file BPM)
-  tempoPercent: number    // % of original
-  loopRegion: LoopRegion
-  setMidiFile: (file: MidiFile) => void
+  currentTime: number       // seconds
+  bpm: number               // current (possibly adjusted) BPM
+  originalBpm: number       // BPM from MIDI file
+  loopEnabled: boolean
+  loopStart: number         // seconds
+  loopEnd: number           // seconds
+
   setPlaybackState: (state: PlaybackState) => void
-  setPosition: (pos: PlaybackPosition) => void
-  setTempo: (bpm: number) => void
-  setTempoPercent: (pct: number) => void
-  resetTempo: () => void
-  setLoopRegion: (region: Partial<LoopRegion>) => void
+  setCurrentTime: (time: number) => void
+  setBpm: (bpm: number) => void
+  resetBpm: () => void
+  setLoop: (enabled: boolean, start?: number, end?: number) => void
+
+  // Tracks
+  tracks: TrackState[]
+  setTracks: (tracks: TrackState[]) => void
+  updateTrack: (index: number, patch: Partial<TrackState>) => void
+
+  // Keyboard
+  keyboardSize: KeyboardSize
+  keyboardMode: KeyboardMode
+  activeKeys: Set<number>   // MIDI pitches currently lit
+
+  setKeyboardSize: (size: KeyboardSize) => void
+  setKeyboardMode: (mode: KeyboardMode) => void
+  setActiveKeys: (keys: Set<number>) => void
+
+  // Settings
+  noteNaming: NoteNaming
+  zoomLevel: number         // 1 = default, 0.5 = zoomed out, 2 = zoomed in
+
+  setNoteNaming: (naming: NoteNaming) => void
+  setZoomLevel: (zoom: number) => void
+
+  // UI
+  trackPanelOpen: boolean
+  settingsOpen: boolean
+  setTrackPanelOpen: (open: boolean) => void
+  setSettingsOpen: (open: boolean) => void
 }
 
-// ─── Track Slice ─────────────────────────────────────────────────────────────
+// ─── Track state factory ─────────────────────────────────────────────────────
 
-interface TrackSlice {
-  tracks: MidiTrack[]
-  setTracks: (tracks: MidiTrack[]) => void
-  updateTrack: (index: number, updates: Partial<MidiTrack>) => void
-  toggleMute: (index: number) => void
-  toggleSolo: (index: number) => void
-  toggleVisible: (index: number) => void
-  setTrackColor: (index: number, color: string) => void
-  setTrackVolume: (index: number, volume: number) => void
-  setTrackPan: (index: number, pan: number) => void
+function makeTrackState(track: ParsedTrack): TrackState {
+  return {
+    index: track.index,
+    name: track.name,
+    color: track.color,
+    muted: false,
+    solo: false,
+    visible: true,
+    volume: 1,
+    pan: 0,
+  }
 }
 
-// ─── Keyboard Slice ───────────────────────────────────────────────────────────
+// ─── Store ───────────────────────────────────────────────────────────────────
 
-interface KeyboardSlice {
-  activeKeys: Map<number, KeyState>
-  pressKey: (midi: number, color: string, source: KeyState['source']) => void
-  releaseKey: (midi: number) => void
-  releaseAllKeys: () => void
-}
+export const useStore = create<OrfeoStore>((set, get) => ({
+  // MIDI
+  midi: null,
+  setMidi: (midi) => {
+    if (!midi) {
+      set({ midi: null, tracks: [], currentTime: 0, playbackState: 'stopped' })
+      return
+    }
+    const tracks = midi.tracks.map(makeTrackState)
+    set({
+      midi,
+      tracks,
+      currentTime: 0,
+      playbackState: 'stopped',
+      bpm: midi.bpm,
+      originalBpm: midi.bpm,
+    })
+  },
 
-// ─── Chord Slice ─────────────────────────────────────────────────────────────
+  // Playback
+  playbackState: 'stopped',
+  currentTime: 0,
+  bpm: 120,
+  originalBpm: 120,
+  loopEnabled: false,
+  loopStart: 0,
+  loopEnd: 0,
 
-interface ChordSlice {
-  currentChord: DetectedChord | null
-  setCurrentChord: (chord: DetectedChord | null) => void
-}
+  setPlaybackState: (playbackState) => set({ playbackState }),
+  setCurrentTime: (currentTime) => set({ currentTime }),
+  setBpm: (bpm) => set({ bpm }),
+  resetBpm: () => set((s) => ({ bpm: s.originalBpm })),
+  setLoop: (loopEnabled, loopStart, loopEnd) =>
+    set((s) => ({
+      loopEnabled,
+      loopStart: loopStart ?? s.loopStart,
+      loopEnd: loopEnd ?? s.loopEnd,
+    })),
 
-// ─── Settings Slice ───────────────────────────────────────────────────────────
+  // Tracks
+  tracks: [],
+  setTracks: (tracks) => set({ tracks }),
+  updateTrack: (index, patch) =>
+    set((s) => ({
+      tracks: s.tracks.map((t) => (t.index === index ? { ...t, ...patch } : t)),
+    })),
 
-interface SettingsSlice {
-  settings: AppSettings
-  updateSettings: (updates: Partial<AppSettings>) => void
-  isTrackPanelOpen: boolean
-  isChordLibraryOpen: boolean
-  isSettingsOpen: boolean
-  toggleTrackPanel: () => void
-  toggleChordLibrary: () => void
-  toggleSettings: () => void
-}
-
-// ─── Combined Store ───────────────────────────────────────────────────────────
-
-type OrcheaStore = PlaybackSlice & TrackSlice & KeyboardSlice & ChordSlice & SettingsSlice
-
-const DEFAULT_SETTINGS: AppSettings = {
-  noteNaming: 'english',
-  noteDirection: 'down',
+  // Keyboard
   keyboardSize: 88,
   keyboardMode: 'docked',
-  keyboardPosition: { x: 0, y: 0 },
-  showChordDisplay: true,
-  showKeySignature: false,
-  showBarRuler: true,
-  metronomeEnabled: false,
-  countInBeats: 0,
-  theme: 'dark',
-}
+  activeKeys: new Set(),
 
-export const useStore = create<OrcheaStore>()(
-  persist(
-    (set, get) => ({
-      // ── Playback ──
-      midiFile: null,
-      playbackState: 'stopped',
-      position: { seconds: 0, bar: 1, beat: 1 },
-      tempo: 120,
-      tempoPercent: 100,
-      loopRegion: { startBar: 1, endBar: 4, active: false },
+  setKeyboardSize: (keyboardSize) => set({ keyboardSize }),
+  setKeyboardMode: (keyboardMode) => set({ keyboardMode }),
+  setActiveKeys: (activeKeys) => set({ activeKeys }),
 
-      setMidiFile: (file) => set({
-        midiFile: file,
-        tracks: file.tracks,
-        tempo: file.bpm,
-        tempoPercent: 100,
-        position: { seconds: 0, bar: 1, beat: 1 },
-        playbackState: 'stopped',
-      }),
+  // Settings
+  noteNaming: 'english',
+  zoomLevel: 1,
 
-      setPlaybackState: (state) => set({ playbackState: state }),
-      setPosition: (pos) => set({ position: pos }),
+  setNoteNaming: (noteNaming) => set({ noteNaming }),
+  setZoomLevel: (zoomLevel) => set({ zoomLevel }),
 
-      setTempo: (bpm) => set((s) => ({
-        tempo: bpm,
-        tempoPercent: s.midiFile
-          ? Math.round((bpm / s.midiFile.bpm) * 100)
-          : 100
-      })),
-
-      setTempoPercent: (pct) => set((s) => ({
-        tempoPercent: pct,
-        tempo: s.midiFile ? Math.round(s.midiFile.bpm * pct / 100) : 120
-      })),
-
-      resetTempo: () => set((s) => ({
-        tempo: s.midiFile?.bpm ?? 120,
-        tempoPercent: 100,
-      })),
-
-      setLoopRegion: (region) => set((s) => ({
-        loopRegion: { ...s.loopRegion, ...region }
-      })),
-
-      // ── Tracks ──
-      tracks: [],
-      setTracks: (tracks) => set({ tracks }),
-
-      updateTrack: (index, updates) => set((s) => ({
-        tracks: s.tracks.map((t, i) => i === index ? { ...t, ...updates } : t)
-      })),
-
-      toggleMute: (index) => set((s) => ({
-        tracks: s.tracks.map((t, i) => i === index ? { ...t, muted: !t.muted } : t)
-      })),
-
-      toggleSolo: (index) => set((s) => ({
-        tracks: s.tracks.map((t, i) => i === index ? { ...t, solo: !t.solo } : t)
-      })),
-
-      toggleVisible: (index) => set((s) => ({
-        tracks: s.tracks.map((t, i) => i === index ? { ...t, visible: !t.visible } : t)
-      })),
-
-      setTrackColor: (index, color) => set((s) => ({
-        tracks: s.tracks.map((t, i) => i === index ? { ...t, color } : t)
-      })),
-
-      setTrackVolume: (index, volume) => set((s) => ({
-        tracks: s.tracks.map((t, i) => i === index ? { ...t, volume } : t)
-      })),
-
-      setTrackPan: (index, pan) => set((s) => ({
-        tracks: s.tracks.map((t, i) => i === index ? { ...t, pan } : t)
-      })),
-
-      // ── Keyboard ──
-      activeKeys: new Map(),
-
-      pressKey: (midi, color, source) => set((s) => {
-        const next = new Map(s.activeKeys)
-        next.set(midi, { midi, pressed: true, color, source })
-        return { activeKeys: next }
-      }),
-
-      releaseKey: (midi) => set((s) => {
-        const next = new Map(s.activeKeys)
-        next.delete(midi)
-        return { activeKeys: next }
-      }),
-
-      releaseAllKeys: () => set({ activeKeys: new Map() }),
-
-      // ── Chord ──
-      currentChord: null,
-      setCurrentChord: (chord) => set({ currentChord: chord }),
-
-      // ── Settings ──
-      settings: DEFAULT_SETTINGS,
-      updateSettings: (updates) => set((s) => ({
-        settings: { ...s.settings, ...updates }
-      })),
-
-      isTrackPanelOpen: false,
-      isChordLibraryOpen: false,
-      isSettingsOpen: false,
-      toggleTrackPanel: () => set((s) => ({ isTrackPanelOpen: !s.isTrackPanelOpen })),
-      toggleChordLibrary: () => set((s) => ({ isChordLibraryOpen: !s.isChordLibraryOpen })),
-      toggleSettings: () => set((s) => ({ isSettingsOpen: !s.isSettingsOpen })),
-    }),
-    {
-      name: 'orfeo-settings',
-      // Only persist settings, not playback state
-      partialize: (s) => ({ settings: s.settings }),
-    }
-  )
-)
+  // UI
+  trackPanelOpen: true,
+  settingsOpen: false,
+  setTrackPanelOpen: (trackPanelOpen) => set({ trackPanelOpen }),
+  setSettingsOpen: (settingsOpen) => set({ settingsOpen }),
+}))

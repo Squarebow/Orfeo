@@ -1,161 +1,164 @@
-import { useStore } from '@/store'
-import { isBlackKey, getKeyLabel } from '@/utils/noteNames'
-import { useSoundfont } from '@/hooks/useSoundfont'
+import { useMemo } from 'react'
+import { useStore } from '../../store'
+import { isBlackKey } from '../../utils/midiParser'
+import { getNoteLabel } from '../../utils/noteNames'
 
-interface KeyboardProps {
-  floating?: boolean
+// ─── Key range definitions ────────────────────────────────────────────────────
+
+const RANGES: Record<number, { min: number; max: number }> = {
+  61: { min: 36, max: 96 },  // C2–C7
+  73: { min: 28, max: 103 }, // E1–G7
+  88: { min: 21, max: 108 }, // A0–C8
 }
 
-// Key ranges for each keyboard size
-const KEY_RANGES: Record<number, { start: number; end: number }> = {
-  61: { start: 36, end: 96 },   // C2 to C7
-  73: { start: 28, end: 103 },  // E1 to G7
-  88: { start: 21, end: 108 },  // A0 to C8
-}
+// ─── Component ────────────────────────────────────────────────────────────────
 
-export default function Keyboard({ floating = false }: KeyboardProps) {
-  const { settings, activeKeys, pressKey, releaseKey } = useStore()
-  const { playNote, stopNote } = useSoundfont()
+export default function Keyboard() {
+  const keyboardSize = useStore((s) => s.keyboardSize)
+  const activeKeys = useStore((s) => s.activeKeys)
+  const tracks = useStore((s) => s.tracks)
+  const noteNaming = useStore((s) => s.noteNaming)
+  const midi = useStore((s) => s.midi)
 
-  const size = settings.keyboardSize
-  const { start, end } = KEY_RANGES[size] ?? KEY_RANGES[88]
+  const { min, max } = RANGES[keyboardSize]
+
+  // Collect note colors from tracks (for active key coloring)
+  const trackColors = useMemo(() => {
+    const map = new Map<number, string>()
+    if (!midi) return map
+    for (const track of midi.tracks) {
+      const state = tracks.find((t) => t.index === track.index)
+      if (state && !state.muted && state.visible) {
+        map.set(track.index, state.color)
+      }
+    }
+    return map
+  }, [midi, tracks])
+
+  // Get the color for an active key (use first matching track)
+  const getKeyColor = (midi: number): string | null => {
+    if (!activeKeys.has(midi)) return null
+    // Return the color of the first active track
+    const color = trackColors.values().next().value
+    return color ?? '#e8a027'
+  }
 
   // Build key list
-  const keys: number[] = []
-  for (let midi = start; midi <= end; midi++) keys.push(midi)
+  const keys = useMemo(() => {
+    const list: { midi: number; isBlack: boolean }[] = []
+    for (let m = min; m <= max; m++) {
+      list.push({ midi: m, isBlack: isBlackKey(m) })
+    }
+    return list
+  }, [min, max])
 
-  const whiteKeys = keys.filter(m => !isBlackKey(m))
-  const totalWhite = whiteKeys.length
-  const whiteW = 100 / totalWhite // percent width per white key
-  const blackW = whiteW * 0.58
-  const blackH = 62  // percent of keyboard height
-
-  const getKeyState = (midi: number) => activeKeys.get(midi)
-  const getKeyColor = (midi: number) => {
-    const state = getKeyState(midi)
-    if (state?.pressed && state.color) return state.color
-    return null
-  }
-
-  const handleMouseDown = (midi: number) => {
-    pressKey(midi, 'var(--accent)', 'mouse')
-    playNote(midi, 80)
-  }
-
-  const handleMouseUp = (midi: number) => {
-    releaseKey(midi)
-    stopNote(midi)
-  }
-
-  const containerStyle: React.CSSProperties = floating ? {
-    position: 'fixed',
-    left: settings.keyboardPosition.x || 0,
-    top: settings.keyboardPosition.y || 'auto',
-    bottom: settings.keyboardPosition.y ? 'auto' : 60,
-    width: '80%',
-    zIndex: 100,
-    background: 'var(--panel)',
-    borderRadius: 8,
-    boxShadow: '0 8px 32px rgba(0,0,0,0.6)',
-    border: '1px solid var(--border)',
-  } : {
-    height: 'var(--keyboard-height)',
-    flexShrink: 0,
-    background: '#111116',
-    borderTop: '1px solid var(--border)',
-  }
+  const whiteKeys = keys.filter((k) => !k.isBlack)
+  const blackKeys = keys.filter((k) => k.isBlack)
 
   return (
-    <div style={containerStyle}>
-      <div style={{
-        position: 'relative',
-        width: '100%',
-        height: '100%',
-        padding: '8px 4px 4px',
-      }}>
-        <svg
-          viewBox={`0 0 ${totalWhite * 24} 120`}
-          preserveAspectRatio="none"
-          style={{ width: '100%', height: '100%', display: 'block' }}
-        >
-          {/* White keys */}
-          {whiteKeys.map((midi, i) => {
-            const activeColor = getKeyColor(midi)
-            const label = getKeyLabel(midi, settings.noteNaming, false)
-            return (
-              <g key={midi}
-                 onMouseDown={() => handleMouseDown(midi)}
-                 onMouseUp={() => handleMouseUp(midi)}
-                 style={{ cursor: 'pointer' }}>
-                <rect
-                  x={i * 24 + 0.5}
-                  y={0.5}
-                  width={23}
-                  height={119}
-                  rx={3}
-                  fill={activeColor ?? '#e8e8e2'}
-                  stroke="#555"
-                  strokeWidth={0.5}
-                  style={{
-                    filter: activeColor
-                      ? `drop-shadow(0 0 6px ${activeColor}99)`
-                      : undefined
-                  }}
-                />
-                {label && (
-                  <text
-                    x={i * 24 + 12}
-                    y={108}
-                    textAnchor="middle"
-                    fontSize={8}
-                    fill={activeColor ? '#fff' : '#888'}
-                    fontFamily="Inter, sans-serif"
-                    style={{ pointerEvents: 'none', userSelect: 'none' }}
-                  >
-                    {label}
-                  </text>
-                )}
-              </g>
-            )
-          })}
+    <div
+      className="relative w-full select-none"
+      style={{ height: 120, background: '#0f0f12', borderTop: '1px solid #252530' }}
+    >
+      {/* White keys */}
+      <div className="absolute inset-0 flex">
+        {whiteKeys.map((k) => {
+          const activeColor = getKeyColor(k.midi)
+          const isC = k.midi % 12 === 0
+          const label = isC ? getNoteLabel(k.midi, noteNaming) : null
 
-          {/* Black keys — rendered on top */}
-          {keys.filter(isBlackKey).map((midi) => {
-            const whiteIndex = getWhiteKeyIndexBefore(midi, whiteKeys)
-            const activeColor = getKeyColor(midi)
-            return (
-              <g key={midi}
-                 onMouseDown={() => handleMouseDown(midi)}
-                 onMouseUp={() => handleMouseUp(midi)}
-                 style={{ cursor: 'pointer' }}>
-                <rect
-                  x={whiteIndex * 24 + 15}
-                  y={0.5}
-                  width={18}
-                  height={72}
-                  rx={2}
-                  fill={activeColor ?? '#1a1a1e'}
-                  stroke="#000"
-                  strokeWidth={0.5}
+          return (
+            <div
+              key={k.midi}
+              className="relative flex-1 border-r border-[#252530] cursor-pointer flex flex-col justify-end items-center pb-1"
+              style={{
+                background: activeColor
+                  ? activeColor
+                  : '#e8e8e8',
+                boxShadow: activeColor
+                  ? `0 0 12px 2px ${activeColor}88`
+                  : 'none',
+                transition: 'background 0.04s, box-shadow 0.04s',
+                minWidth: 0,
+              }}
+            >
+              {label && (
+                <span
+                  className="text-[9px] font-mono font-semibold leading-none pointer-events-none"
                   style={{
-                    filter: activeColor
-                      ? `drop-shadow(0 0 8px ${activeColor}bb)`
-                      : undefined
+                    color: activeColor ? '#fff' : '#555',
+                    fontFamily: "'JetBrains Mono', monospace",
                   }}
-                />
-              </g>
-            )
-          })}
-        </svg>
+                >
+                  {label}
+                </span>
+              )}
+            </div>
+          )
+        })}
       </div>
+
+      {/* Black keys — positioned absolutely over white keys */}
+      <BlackKeyLayer
+        whiteKeys={whiteKeys}
+        blackKeys={keys.filter((k) => k.isBlack)}
+        getKeyColor={getKeyColor}
+        min={min}
+        max={max}
+      />
     </div>
   )
 }
 
-function getWhiteKeyIndexBefore(blackMidi: number, whiteKeys: number[]): number {
-  // Find the white key immediately to the left of this black key
-  for (let i = whiteKeys.length - 1; i >= 0; i--) {
-    if (whiteKeys[i] < blackMidi) return i
-  }
-  return 0
+// ─── Black key layer ─────────────────────────────────────────────────────────
+
+function BlackKeyLayer({
+  whiteKeys,
+  blackKeys,
+  getKeyColor,
+  min,
+  max,
+}: {
+  whiteKeys: { midi: number; isBlack: boolean }[]
+  blackKeys: { midi: number; isBlack: boolean }[]
+  getKeyColor: (midi: number) => string | null
+  min: number
+  max: number
+}) {
+  const totalWhite = whiteKeys.length
+
+  return (
+    <div className="absolute inset-0 pointer-events-none" style={{ zIndex: 2 }}>
+      {blackKeys.map((k) => {
+        // Find the white key index to the left of this black key
+        const whiteIdx = whiteKeys.findIndex((w) => w.midi > k.midi) - 1
+        if (whiteIdx < 0) return null
+
+        const leftPct = ((whiteIdx + 0.65) / totalWhite) * 100
+        const widthPct = (0.6 / totalWhite) * 100
+        const activeColor = getKeyColor(k.midi)
+
+        return (
+          <div
+            key={k.midi}
+            className="absolute top-0 cursor-pointer pointer-events-auto"
+            style={{
+              left: `${leftPct}%`,
+              width: `${widthPct}%`,
+              height: '65%',
+              background: activeColor ?? '#1a1a22',
+              borderRadius: '0 0 3px 3px',
+              border: '1px solid #0f0f12',
+              borderTop: 'none',
+              boxShadow: activeColor
+                ? `0 0 10px 2px ${activeColor}99`
+                : '0 4px 6px rgba(0,0,0,0.5)',
+              transition: 'background 0.04s, box-shadow 0.04s',
+              zIndex: 2,
+            }}
+          />
+        )
+      })}
+    </div>
+  )
 }
