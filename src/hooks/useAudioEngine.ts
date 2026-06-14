@@ -1,218 +1,270 @@
 import { useEffect, useRef } from 'react'
 import { useStore } from '../store'
 
-import { isKeyboardInstrument } from "../utils/gmInstruments"
+// ---------------------------------------------------------------------------
+// JZZ audio engine — plays raw MIDI through jzz-synth-tiny (GM sounds)
+// The original freeze was caused by initializing on app startup.
+// Fix: init ONLY when user first presses play, not on mount.
+// ---------------------------------------------------------------------------
 
-const isPianoProgram = isKeyboardInstrument
-
+let _jzzReady = false
+let _jzzInitP: Promise<void> | null = null
 let _JZZ: any = null
 let _port: any = null
-let _ready = false
-let _initP: Promise<void> | null = null
+let _player: any = null
 
 function initJZZ(): Promise<void> {
-  if (_ready) return Promise.resolve()
-  if (_initP) return _initP
-  _initP = (async () => {
-    const jzzMod = await import('jzz')
-    _JZZ = jzzMod.default ?? jzzMod
-    const smfMod = await import('jzz-midi-smf')
-    const tinyMod = await import('jzz-synth-tiny')
-    ;(smfMod.default ?? smfMod)(_JZZ)
-    ;(tinyMod.default ?? tinyMod)(_JZZ)
-    await new Promise<void>((resolve, reject) => {
-      _JZZ.synth.Tiny().and(function(this: any) {
-        _port = this; _ready = true
-        console.log('[Orfeo] JZZ ready')
-        resolve()
-      }).or((e: any) => { _initP = null; reject(e) })
-    })
-  })()
-  return _initP
-}
-
-export function useAudioEngine() {
-  const playerRef = useRef<any>(null)
-  const keyTimersRef = useRef<Map<number, ReturnType<typeof setTimeout>>>(new Map())
-  const prevStateRef = useRef('stopped')
-  const prevTimeRef = useRef(0)  // track last known time to detect scrub
-  const chProgsRef = useRef<Map<number, number>>(new Map())
-
-  const clearKeys = () => {
-    keyTimersRef.current.forEach(t => clearTimeout(t))
-    keyTimersRef.current.clear()
-    useStore.setState({ activeKeys: new Set(), activeKeyColors: new Map() })
-  }
-
-  const destroyPlayer = () => {
-    try { playerRef.current?.stop() } catch {}
-    playerRef.current = null
-    ;(window as any).__orfeoPlayer = null
-    clearKeys()
-  }
-
-  const buildPlayer = async (startSec: number) => {
-    const raw = (useStore.getState().midi as any)?._raw
-    if (!raw) return
+  if (_jzzReady) return Promise.resolve()
+  if (_jzzInitP) return _jzzInitP
+  _jzzInitP = (async () => {
     try {
-      await initJZZ()
-      destroyPlayer()
-      chProgsRef.current.clear()
+      const jzzMod = await import('jzz')
+      _JZZ = jzzMod.default ?? jzzMod
 
-      const { tracks, bpm, originalBpm, detectedKey } = useStore.getState()
-      const transpose = (detectedKey as any)?.transpose ?? 0
-      const midiData = useStore.getState().midi as any
+      const smfMod = await import('jzz-midi-smf')
+      ;(smfMod.default ?? smfMod)(_JZZ)
 
-      // Pre-populate channel programs from parsed track data
-      // This ensures we know each channel's instrument before any program change messages arrive
-      for (const tr of midiData.tracks) {
-        if (tr.channel !== undefined && tr.program >= 0) {
-          chProgsRef.current.set(tr.channel, tr.program)
-        }
-      }
-      const ratio = bpm / originalBpm
-      const hasSolo = tracks.some((t: any) => t.solo)
-      const mutedCh = new Set<number>()
-      for (const tr of midiData.tracks) {
-        const ts = tracks.find((t: any) => t.index === tr.index)
-        if (!ts || ts.muted || !ts.visible) { mutedCh.add(tr.channel); continue }
-        if (hasSolo && !ts.solo) mutedCh.add(tr.channel)
-      }
+      const tinyMod = await import('jzz-synth-tiny')
+      ;(tinyMod.default ?? tinyMod)(_JZZ)
 
-      const smfFile = new _JZZ.MIDI.SMF(new Uint8Array(raw))
-      const player = smfFile.player()
-      player.connect(_port)
-
-      const chProgs = chProgsRef.current
-      player.filter(function(this: any, msg: any) {
-        const status = msg[0] & 0xF0
-        const ch = msg[0] & 0x0F
-        if (status === 0xC0) chProgs.set(ch, msg[1])
-        if (mutedCh.has(ch)) return
-        this._receive(msg)
-        if (status === 0x90 && msg[2] > 0) {
-          const note = msg[1]
-          if (isPianoProgram(chProgs.get(ch) ?? 0)) {
-            const tr = midiData.tracks.find((t: any) => t.channel === ch)
-            const ts = useStore.getState().tracks.find((t: any) => tr && t.index === tr.index)
-            const color = ts?.color ?? '#e8a027'
-            const prev = new Set(useStore.getState().activeKeys)
-            prev.add(note)
-            const cols = new Map(useStore.getState().activeKeyColors)
-            cols.set(note, color)
-            useStore.setState({ activeKeys: prev, activeKeyColors: cols })
-            keyTimersRef.current.set(note, setTimeout(() => {
-              const s = new Set(useStore.getState().activeKeys); s.delete(note)
-              const c = new Map(useStore.getState().activeKeyColors); c.delete(note)
-              useStore.setState({ activeKeys: s, activeKeyColors: c })
-              keyTimersRef.current.delete(note)
-            }, 2000))
-          }
-        }
-        if (status === 0x80 || (status === 0x90 && msg[2] === 0)) {
-          const note = msg[1]
-          const t = keyTimersRef.current.get(note)
-          if (t) { clearTimeout(t); keyTimersRef.current.delete(note) }
-          const s = new Set(useStore.getState().activeKeys); s.delete(note)
-          const c = new Map(useStore.getState().activeKeyColors); c.delete(note)
-          useStore.setState({ activeKeys: s, activeKeyColors: c })
-        }
+      // List available ports first for debugging
+      const engine = _JZZ()
+      await new Promise<void>((resolve) => {
+        engine.and(function(this: any) {
+          const info = this.info()
+          console.log('[Orfeo] JZZ engine info:', JSON.stringify(info))
+          console.log('[Orfeo] MIDI outputs:', info.outputs?.map((o: any) => o.name))
+          resolve()
+        }).or(() => resolve())
       })
 
-      player.onEnd = () => {
-        useStore.setState({ playbackState: 'stopped', currentTime: 0 })
-        ;(window as any).__orfeoPlayer = null
-        clearKeys()
-      }
-
-      player.speed(ratio)
-      player.play()
-
-      // jumpMS AFTER play() — play() resets position to 0
-      if (startSec > 0.1) {
-        player.jumpMS(Math.floor(startSec * 1000))
-      }
-
-      playerRef.current = player
-      prevTimeRef.current = startSec
-
-      // Delay exposing player so rAF reads correct position
-      setTimeout(() => {
-        ;(window as any).__orfeoPlayer = player
-      }, 50)
-
-      console.log('[Orfeo] playing from', startSec.toFixed(2), 's')
+      // Try system MIDI out first, fall back to tiny synth
+      await new Promise<void>((resolve) => {
+        _JZZ().openMidiOut().and(function(this: any) {
+          _port = this
+          _jzzReady = true
+          console.log('[Orfeo] Using system MIDI out:', this.name())
+          resolve()
+        }).or(() => {
+          console.log('[Orfeo] No system MIDI out, trying jzz-synth-tiny...')
+          _JZZ.synth.Tiny().and(function(this: any) {
+            _port = this
+            _jzzReady = true
+            console.log('[Orfeo] Using jzz-synth-tiny')
+            resolve()
+          }).or((e: any) => {
+            console.error('[Orfeo] Both MIDI outputs failed:', e)
+            _jzzReady = true
+            resolve()
+          })
+        })
+      })
     } catch (e) {
-      console.error('[Orfeo] buildPlayer error:', e)
+      _jzzInitP = null
+      console.error('[Orfeo] JZZ init error:', e)
+      throw e
     }
-  }
+  })()
+  return _jzzInitP
+}
 
-  const playNote = async (midi: number, vel = 90, durMs = 400) => {
-    try {
-      await initJZZ()
-      _port.noteOn(0, midi, vel)
-      setTimeout(() => _port.noteOff(0, midi, 0), durMs)
-      const prev = new Set(useStore.getState().activeKeys)
-      prev.add(midi)
-      const cols = new Map(useStore.getState().activeKeyColors)
-      cols.set(midi, '#e8a027')
-      useStore.setState({ activeKeys: prev, activeKeyColors: cols })
-      setTimeout(() => {
-        const s = new Set(useStore.getState().activeKeys); s.delete(midi)
-        const c = new Map(useStore.getState().activeKeyColors); c.delete(midi)
-        useStore.setState({ activeKeys: s, activeKeyColors: c })
-      }, durMs + 100)
-    } catch (e) { console.error('[Orfeo] playNote error:', e) }
+// ---------------------------------------------------------------------------
+// Key lighting
+// ---------------------------------------------------------------------------
+const _keyTimers = new Map<number, ReturnType<typeof setTimeout>>()
+
+function lightKey(midiNum: number, color: string, durMs: number) {
+  const existing = _keyTimers.get(midiNum)
+  if (existing) clearTimeout(existing)
+  const { activeKeys, activeKeyColors } = useStore.getState()
+  const nk = new Set(activeKeys); nk.add(midiNum)
+  const nc = new Map(activeKeyColors); nc.set(midiNum, color)
+  useStore.setState({ activeKeys: nk, activeKeyColors: nc })
+  const timer = setTimeout(() => {
+    _keyTimers.delete(midiNum)
+    const { activeKeys: k, activeKeyColors: c } = useStore.getState()
+    const nk2 = new Set(k); nk2.delete(midiNum)
+    const nc2 = new Map(c); nc2.delete(midiNum)
+    useStore.setState({ activeKeys: nk2, activeKeyColors: nc2 })
+  }, Math.max(50, durMs))
+  _keyTimers.set(midiNum, timer)
+}
+
+function clearAllKeys() {
+  _keyTimers.forEach(t => clearTimeout(t))
+  _keyTimers.clear()
+  useStore.setState({ activeKeys: new Set(), activeKeyColors: new Map() })
+}
+
+const _lightSchedule: ReturnType<typeof setTimeout>[] = []
+function clearLightSchedule() {
+  _lightSchedule.forEach(t => clearTimeout(t))
+  _lightSchedule.length = 0
+}
+
+// ---------------------------------------------------------------------------
+// Player
+// ---------------------------------------------------------------------------
+function destroyPlayer() {
+  try { _player?.stop() } catch {}
+  _player = null
+  ;(window as any).__orfeoPlayer = null
+}
+
+function buildPlayer(startSec: number) {
+  if (!_jzzReady) { console.warn('[Orfeo] buildPlayer: JZZ not ready'); return }
+  if (!_port) { console.warn('[Orfeo] buildPlayer: no MIDI port'); return }
+
+  const raw = (useStore.getState().midi as any)?._raw
+  if (!raw) { console.warn('[Orfeo] buildPlayer: no raw MIDI data'); return }
+
+  try {
+    destroyPlayer()
+    clearAllKeys()
+    clearLightSchedule()
+
+    const { tracks, bpm, originalBpm, detectedKey } = useStore.getState()
+    const transpose = detectedKey?.transpose ?? 0
+    const ratio = bpm / originalBpm
+    const midiData = useStore.getState().midi as any
+    const hasSolo = tracks.some((t: any) => t.solo)
+
+    const mutedCh = new Set<number>()
+    for (const tr of midiData.tracks) {
+      const ts = tracks.find((t: any) => t.index === tr.index)
+      if (!ts || ts.muted || !ts.visible) { mutedCh.add(tr.channel); continue }
+      if (hasSolo && !ts.solo) mutedCh.add(tr.channel)
+    }
+
+    // Schedule key lighting from note data
+    for (const track of midiData.tracks) {
+      const ts = tracks.find((t: any) => t.index === track.index)
+      if (!ts || ts.muted || !ts.visible) continue
+      if (hasSolo && !ts.solo) continue
+      const color = ts.color ?? '#e8a027'
+      for (const note of track.notes) {
+        const noteStart = note.time / ratio
+        if (noteStart < startSec) continue
+        const delay = (noteStart - startSec) * 1000
+        const durMs = Math.max(note.duration / ratio * 1000, 80)
+        const midiNum = note.midi + transpose
+        const t = setTimeout(() => lightKey(midiNum, color, Math.min(durMs + 80, 2500)), delay)
+        _lightSchedule.push(t)
+      }
+    }
+
+    console.log('[Orfeo] Building SMF player, raw bytes:', raw.byteLength)
+    const smfFile = new _JZZ.MIDI.SMF(new Uint8Array(raw))
+    console.log('[Orfeo] SMF parsed, tracks:', smfFile.length)
+    const player = smfFile.player()
+    player.connect(_port)
+
+    player.filter(function(this: any, msg: any) {
+      const status = msg[0] & 0xF0
+      const ch = msg[0] & 0x0F
+      if (mutedCh.has(ch)) return
+      if (transpose !== 0 && (status === 0x90 || status === 0x80)) {
+        const newNote = Math.max(0, Math.min(127, msg[1] + transpose))
+        this._receive(_JZZ.MIDI(msg[0], newNote, msg[2]))
+        return
+      }
+      this._receive(msg)
+    })
+
+    player.onEnd = () => {
+      console.log('[Orfeo] Playback ended')
+      useStore.setState({ playbackState: 'stopped', currentTime: 0 })
+      ;(window as any).__orfeoPlayer = null
+      clearAllKeys()
+    }
+
+    player.speed(ratio)
+    player.play()
+    if (startSec > 0.1) player.jumpMS(Math.floor(startSec * 1000))
+
+    _player = player
+    setTimeout(() => { ;(window as any).__orfeoPlayer = player }, 50)
+    console.log('[Orfeo] Player started from', startSec.toFixed(2), 's')
+  } catch (e) {
+    console.error('[Orfeo] buildPlayer error:', e)
   }
+}
+
+function stopAudio() {
+  destroyPlayer()
+  clearLightSchedule()
+  clearAllKeys()
+  if (_port) {
+    try {
+      for (let ch = 0; ch < 16; ch++) _port.send([0xB0 | ch, 123, 0])
+    } catch {}
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Hook
+// ---------------------------------------------------------------------------
+export function useAudioEngine() {
+  const prevStateRef = useRef('stopped')
+  const prevBpmRef = useRef(120)
+  const prevTransposeRef = useRef(0)
+  const prevTracksRef = useRef<any>(null)
+  const schedulingRef = useRef(false)
 
   useEffect(() => {
+    const playNote = async (midiNum: number, vel = 90, durMs = 500) => {
+      try {
+        await initJZZ()
+        if (!_port) { console.warn('[Orfeo] playNote: no port'); return }
+        _port.send([0x90, midiNum, vel])
+        setTimeout(() => { try { _port.send([0x80, midiNum, 0]) } catch {} }, durMs)
+        lightKey(midiNum, '#e8a027', durMs + 100)
+      } catch (e) { console.error('[Orfeo] playNote error:', e) }
+    }
     ;(window as any).__orfeoPlayNote = playNote
-    initJZZ().catch(console.error)
-    return () => { delete (window as any).__orfeoPlayNote; destroyPlayer() }
+
+    // DO NOT init on mount — only init when user presses play
+    // This prevents the startup freeze
+
+    return () => { delete (window as any).__orfeoPlayNote; stopAudio() }
   }, [])
 
   useEffect(() => {
-    const unsub = useStore.subscribe((state, prev) => {
+    const unsub = useStore.subscribe((state) => {
       const ps = state.playbackState
       const pp = prevStateRef.current
+      const bpmChanged = state.bpm !== prevBpmRef.current
+      const transposeChanged = (state.detectedKey?.transpose ?? 0) !== prevTransposeRef.current
+      const tracksChanged = state.tracks !== prevTracksRef.current
+
+      prevStateRef.current = ps
+      prevBpmRef.current = state.bpm
+      prevTransposeRef.current = state.detectedKey?.transpose ?? 0
+      prevTracksRef.current = state.tracks
 
       if (ps === 'playing' && pp !== 'playing') {
-        const timeDiff = Math.abs(state.currentTime - prevTimeRef.current)
-        const isScrub = timeDiff > 0.5
-        const isResumeFromPause = pp === 'paused' && !isScrub
+        if (schedulingRef.current) return
+        schedulingRef.current = true
+        initJZZ()
+          .then(() => buildPlayer(state.currentTime))
+          .catch(console.error)
+          .finally(() => { schedulingRef.current = false })
 
-        if (isResumeFromPause && playerRef.current) {
-          try {
-            playerRef.current.resume()
-            ;(window as any).__orfeoPlayer = playerRef.current
-          } catch { buildPlayer(state.currentTime) }
-        } else {
-          buildPlayer(state.currentTime)
-        }
-        prevTimeRef.current = state.currentTime
       } else if (ps === 'paused' && pp === 'playing') {
-        prevTimeRef.current = state.currentTime
-        try { playerRef.current?.pause() } catch {}
-        clearKeys()
+        try { _player?.pause() } catch {}
+        clearLightSchedule()
+        clearAllKeys()
+
       } else if (ps === 'stopped' && pp !== 'stopped') {
-        prevTimeRef.current = 0
-        destroyPlayer()
-      } else if (ps === 'playing' && pp === 'playing') {
-        // Check for changes that need audio rebuild
-        const transposeChanged = state.detectedKey?.transpose !== prev.detectedKey?.transpose
-        const bpmChanged = state.bpm !== prev.bpm
-        const tracksChanged = state.tracks !== prev.tracks
-        if (transposeChanged || bpmChanged || tracksChanged) {
-          // Get actual current position from JZZ player if available
-          const jzzPlayer = (window as any).__orfeoPlayer
-          let currentPos = state.currentTime
-          if (jzzPlayer) {
-            try { currentPos = jzzPlayer.positionMS() / 1000 } catch {}
-          }
-          buildPlayer(currentPos)
-        }
+        stopAudio()
+
+      } else if (ps === 'playing' && (bpmChanged || transposeChanged || tracksChanged)) {
+        if (schedulingRef.current) return
+        schedulingRef.current = true
+        buildPlayer(state.currentTime)
+        schedulingRef.current = false
       }
     })
-    return () => { unsub(); destroyPlayer() }
+    return () => { unsub(); stopAudio() }
   }, [])
 }

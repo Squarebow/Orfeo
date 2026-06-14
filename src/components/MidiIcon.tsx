@@ -6,16 +6,21 @@ interface MidiIconProps {
 export default function MidiIcon({ connected, size = 22 }: MidiIconProps) {
   const color = connected ? '#e8a027' : '#353545'
   return (
-    <svg width={size} height={size} viewBox="0 0 800 800" fill="none" xmlns="http://www.w3.org/2000/svg">
-      <circle cx="400" cy="168.072" r="40" stroke={color} strokeMiterlimit="133.333" strokeWidth="42.382"/>
-      <circle cx="614.652" cy="361.138" r="40" stroke={color} strokeMiterlimit="133.333" strokeWidth="42.382"/>
-      <circle cx="185.711" cy="361.138" r="40" stroke={color} strokeMiterlimit="133.333" strokeWidth="42.382"/>
-      <circle cx="543.66" cy="228.17" r="40" stroke={color} strokeMiterlimit="133.333" strokeWidth="42.382"/>
-      <circle cx="256.34" cy="228.17" r="40" stroke={color} strokeMiterlimit="133.333" strokeWidth="42.382"/>
-      <path
-        d="M400,66.667c-174.89,0-316.667,141.776-316.667,316.667,0,133.592,82.729,247.855,199.748,294.373,27.494-34.169,69.649-56.041,116.919-56.041s89.425,21.872,116.919,56.041c117.018-46.518,199.748-160.78,199.748-294.373,0-174.89-141.776-316.667-316.667-316.667Z"
-        stroke={color} strokeMiterlimit="133.333" strokeWidth="50"
-      />
-    </svg>
+    <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+  <!-- DIN-5 connector housing: D-shape (circle with flat bottom) -->
+  <path d="M4 10 A8 8 0 0 1 20 10 L20 16 Q20 19 17 19 L7 19 Q4 19 4 16 Z"/>
+  <!-- 5 pins in DIN-5 layout -->
+  <!-- Top center -->
+  <circle cx="12" cy="8" r="1" fill="currentColor" stroke="none"/>
+  <!-- Upper left -->
+  <circle cx="8.5" cy="10.5" r="1" fill="currentColor" stroke="none"/>
+  <!-- Upper right -->
+  <circle cx="15.5" cy="10.5" r="1" fill="currentColor" stroke="none"/>
+  <!-- Lower left -->
+  <circle cx="9.5" cy="14" r="1" fill="currentColor" stroke="none"/>
+  <!-- Lower right -->
+  <circle cx="14.5" cy="14" r="1" fill="currentColor" stroke="none"/>
+</svg>
+
   )
 }

@@ -69,12 +69,12 @@ export default function TopBar() {
   return (
     <div
       style={{
-        height: 60,
+        height: 72,
         background: '#111116',
         borderBottom: '1px solid #222228',
         display: 'flex',
         alignItems: 'center',
-        padding: '0 8px 0 4px',
+        padding: '8px 12px',
         gap: 8,
         WebkitAppRegion: 'drag',
       } as React.CSSProperties}
@@ -315,8 +315,8 @@ export default function TopBar() {
         </span>
       </div>
 
-      {/* Right padding to avoid window controls overlap on Windows */}
-      <div style={{ width: 140, flexShrink: 0, WebkitAppRegion: 'drag' } as React.CSSProperties} />
+      {/* Right padding for Windows title bar controls (close/min/max) */}
+      <div style={{ width: 150, flexShrink: 0, WebkitAppRegion: 'drag' } as React.CSSProperties} />
     </div>
   )
 }
