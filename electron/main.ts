@@ -8,15 +8,14 @@ function createWindow() {
     height: 900,
     minWidth: 900,
     minHeight: 600,
-    backgroundColor: '#0f0f12',
+    backgroundColor: '#1a1a1a',
     titleBarStyle: 'hidden',
     titleBarOverlay: {
-      color: '#0f0f12',
+      color: '#111111',
       symbolColor: '#e8a027',
       height: 36,
     },
     webPreferences: {
-      // Try .js first, fall back to .mjs
       preload: join(__dirname, '../preload/preload.cjs'),
       contextIsolation: true,
       nodeIntegration: false,
@@ -38,19 +37,13 @@ ipcMain.handle('dialog:openMidi', async () => {
     properties: ['openFile'],
   })
   if (result.canceled || result.filePaths.length === 0) return null
-
   const filePath = result.filePaths[0]
   const fileName = filePath.split(/[\\/]/).pop() ?? filePath
   const buffer = readFileSync(filePath)
-  return {
-    fileName,
-    filePath,
-    base64: buffer.toString('base64'),
-  }
+  return { fileName, filePath, base64: buffer.toString('base64') }
 })
 
 app.whenReady().then(createWindow)
-
 app.on('window-all-closed', () => {
   if (process.platform !== 'darwin') app.quit()
 })

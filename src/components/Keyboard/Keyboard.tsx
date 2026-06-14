@@ -1,4 +1,4 @@
-import { useMemo } from 'react'
+import { useMemo, useCallback } from 'react'
 import { useStore } from '../../store'
 import { isBlackKey } from '../../utils/midiParser'
 import { getNoteLabel } from '../../utils/noteNames'
@@ -30,8 +30,16 @@ export default function Keyboard() {
     return activeKeyColors.get(midi) ?? '#e8a027'
   }
 
+  const handleKeyClick = useCallback((midi: number) => {
+    const playNote = (window as any).__orfeoPlayNote
+    if (playNote) playNote(midi, 90, 400)
+  }, [])
+
   return (
-    <div className="relative w-full select-none" style={{ height: 120, background: '#0f0f12', borderTop: '1px solid #1e1e28' }}>
+    <div
+      className="relative w-full select-none"
+      style={{ height: 130, background: '#111116', borderTop: '1px solid #2a2a35' }}
+    >
       {/* White keys */}
       <div className="absolute inset-0 flex">
         {whiteKeys.map((k) => {
@@ -41,18 +49,22 @@ export default function Keyboard() {
           return (
             <div
               key={k.midi}
-              className="relative flex-1 flex flex-col justify-end items-center pb-1"
+              onMouseDown={() => handleKeyClick(k.midi)}
+              title={getNoteLabel(k.midi, noteNaming) || undefined}
+              className="relative flex-1 flex flex-col justify-end items-center pb-1 cursor-pointer"
               style={{
                 background: color ?? '#e8e8e8',
-                borderRight: '1px solid #c0c0c0',
-                boxShadow: color ? `0 0 12px 3px ${color}88` : 'none',
-                transition: 'background 0.05s, box-shadow 0.05s',
+                borderRight: '1px solid #b0b0b0',
+                boxShadow: color ? `0 0 14px 4px ${color}99` : 'inset 0 -3px 6px rgba(0,0,0,0.1)',
+                transition: 'background 0.04s, box-shadow 0.04s',
                 minWidth: 0,
               }}
             >
               {label && (
-                <span className="text-[9px] font-mono font-semibold pointer-events-none"
-                  style={{ color: color ? '#fff' : '#999', fontFamily: 'JetBrains Mono' }}>
+                <span
+                  className="text-[9px] font-semibold pointer-events-none"
+                  style={{ color: color ? '#fff' : '#888', fontFamily: 'JetBrains Mono' }}
+                >
                   {label}
                 </span>
               )}
@@ -72,17 +84,19 @@ export default function Keyboard() {
           return (
             <div
               key={k.midi}
-              className="absolute top-0"
+              onMouseDown={() => handleKeyClick(k.midi)}
+              title={getNoteLabel(k.midi, noteNaming) || undefined}
+              className="absolute top-0 cursor-pointer pointer-events-auto"
               style={{
                 left: `${leftPct}%`,
                 width: `${widthPct}%`,
                 height: '65%',
                 background: color ?? '#1a1a22',
-                borderRadius: '0 0 3px 3px',
+                borderRadius: '0 0 4px 4px',
                 border: '1px solid #0a0a0f',
                 borderTop: 'none',
-                boxShadow: color ? `0 0 10px 3px ${color}99` : '0 4px 6px rgba(0,0,0,0.6)',
-                transition: 'background 0.05s, box-shadow 0.05s',
+                boxShadow: color ? `0 0 12px 3px ${color}aa` : '0 4px 8px rgba(0,0,0,0.7)',
+                transition: 'background 0.04s, box-shadow 0.04s',
                 zIndex: 2,
               }}
             />

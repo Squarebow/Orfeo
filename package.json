@@ -14,6 +14,10 @@
   },
   "dependencies": {
     "@tonejs/midi": "^2.0.28",
+    "jazz-midi-electron": "^2.0.3",
+    "jzz": "^1.9.6",
+    "jzz-midi-smf": "^1.9.9",
+    "jzz-synth-tiny": "^1.4.4",
     "pixi.js": "^8.0.0",
     "tonal": "^6.4.0",
     "tone": "^15.1.22",

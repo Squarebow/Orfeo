@@ -1,57 +1,60 @@
 import { useEffect, useRef, useCallback } from 'react'
-import * as Tone from 'tone'
 import { useStore } from '../store'
 
 export function usePlayback() {
   const rafRef = useRef<number | null>(null)
-  const startPerfRef = useRef<number>(0)
-  const startMidiRef = useRef<number>(0)
-  const tempoRatioRef = useRef<number>(1)
   const isRunningRef = useRef(false)
+  // Fallback clock when JZZ player not available yet
+  const fallbackStartPerfRef = useRef(0)
+  const fallbackStartTimeRef = useRef(0)
 
   const stopRaf = useCallback(() => {
-    if (rafRef.current) {
-      cancelAnimationFrame(rafRef.current)
-      rafRef.current = null
-    }
+    if (rafRef.current) cancelAnimationFrame(rafRef.current)
+    rafRef.current = null
     isRunningRef.current = false
   }, [])
 
-  const startRaf = useCallback((fromMidiTime: number) => {
+  const startRaf = useCallback(() => {
     stopRaf()
-    const { bpm, originalBpm } = useStore.getState()
-    tempoRatioRef.current = bpm / originalBpm
-    startPerfRef.current = performance.now()
-    startMidiRef.current = fromMidiTime
     isRunningRef.current = true
+    const { bpm, originalBpm, currentTime } = useStore.getState()
+    fallbackStartPerfRef.current = performance.now()
+    fallbackStartTimeRef.current = currentTime
+    const ratio = bpm / originalBpm
 
     const tick = () => {
       if (!isRunningRef.current) return
+      const { playbackState, midi } = useStore.getState()
+      if (playbackState !== 'playing') { stopRaf(); return }
 
-      const elapsed = (performance.now() - startPerfRef.current) / 1000
-      const newTime = startMidiRef.current + elapsed * tempoRatioRef.current
-      const { midi, loopEnabled, loopStart, loopEnd, playbackState } = useStore.getState()
-
-      // Stop RAF if state changed externally
-      if (playbackState !== 'playing') {
-        stopRaf()
-        return
+      const player = (window as any).__orfeoPlayer
+      if (player) {
+        // Sync from JZZ player clock
+        try {
+          const ms = player.positionMS()
+          if (typeof ms === 'number' && ms >= 0) {
+            const secs = ms / 1000
+            const duration = midi?.duration ?? 0
+            if (secs >= duration && duration > 0) {
+              useStore.setState({ currentTime: duration, playbackState: 'stopped' })
+              stopRaf(); return
+            }
+            useStore.setState({ currentTime: secs })
+            rafRef.current = requestAnimationFrame(tick)
+            return
+          }
+        } catch {}
       }
 
+      // Fallback: performance.now() based clock
+      const elapsed = (performance.now() - fallbackStartPerfRef.current) / 1000
+      const newTime = fallbackStartTimeRef.current + elapsed * ratio
       const duration = midi?.duration ?? 0
-
-      if (loopEnabled && loopEnd > loopStart && newTime >= loopEnd) {
-        startPerfRef.current = performance.now()
-        startMidiRef.current = loopStart
-        useStore.setState({ currentTime: loopStart })
-      } else if (newTime >= duration && duration > 0) {
+      if (newTime >= duration && duration > 0) {
         useStore.setState({ currentTime: duration, playbackState: 'stopped' })
-        stopRaf()
-        return
-      } else {
-        useStore.setState({ currentTime: newTime })
+        stopRaf(); return
       }
-
+      useStore.setState({ currentTime: newTime })
       rafRef.current = requestAnimationFrame(tick)
     }
 
@@ -59,10 +62,8 @@ export function usePlayback() {
   }, [stopRaf])
 
   const play = useCallback(async () => {
-    await Tone.start()
-    const t = useStore.getState().currentTime
     useStore.setState({ playbackState: 'playing' })
-    startRaf(t)
+    startRaf()
   }, [startRaf])
 
   const pause = useCallback(() => {
@@ -75,8 +76,8 @@ export function usePlayback() {
     useStore.setState({ playbackState: 'stopped', currentTime: 0 })
   }, [stopRaf])
 
-  const seek = useCallback((time: number) => {
-    const clamped = Math.max(0, time)
+  const seek = useCallback((timeSec: number) => {
+    const clamped = Math.max(0, timeSec)
     const wasPlaying = useStore.getState().playbackState === 'playing'
     stopRaf()
     if (wasPlaying) {
@@ -86,27 +87,29 @@ export function usePlayback() {
     }
   }, [stopRaf])
 
-  const seekAndPlay = useCallback((time: number) => {
-    const clamped = Math.max(0, time)
+  const seekAndPlay = useCallback((timeSec: number) => {
+    const clamped = Math.max(0, timeSec)
+    stopRaf()
+    fallbackStartPerfRef.current = performance.now()
+    fallbackStartTimeRef.current = clamped
     useStore.setState({ currentTime: clamped, playbackState: 'playing' })
-    startRaf(clamped)
-  }, [startRaf])
+    startRaf()
+  }, [stopRaf, startRaf])
 
-  // KEY FIX: subscribe to store and stop RAF whenever playbackState is not 'playing'
+  // Watch for external state changes
   useEffect(() => {
-    const unsubscribe = useStore.subscribe((state, prev) => {
-      if (prev.playbackState === 'playing' && state.playbackState !== 'playing') {
+    const unsub = useStore.subscribe((state, prev) => {
+      if (state.playbackState === 'playing' && prev.playbackState !== 'playing') {
+        fallbackStartPerfRef.current = performance.now()
+        fallbackStartTimeRef.current = state.currentTime
+        startRaf()
+      }
+      if (state.playbackState !== 'playing' && prev.playbackState === 'playing') {
         stopRaf()
       }
-      if (state.playbackState === 'playing' && prev.playbackState !== 'playing') {
-        startRaf(state.currentTime)
-      }
-      if (state.bpm !== prev.bpm && isRunningRef.current) {
-        startRaf(state.currentTime)
-      }
     })
-    return unsubscribe
-  }, [stopRaf, startRaf])
+    return unsub
+  }, [startRaf, stopRaf])
 
   useEffect(() => () => stopRaf(), [stopRaf])
 
