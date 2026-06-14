@@ -15,9 +15,9 @@
   "dependencies": {
     "@tonejs/midi": "^2.0.28",
     "pixi.js": "^8.0.0",
-    "soundfont-player": "^0.12.0",
     "tonal": "^6.4.0",
     "tone": "^15.1.22",
+    "webaudiofont": "^3.0.4",
     "zustand": "^5.0.3"
   },
   "devDependencies": {

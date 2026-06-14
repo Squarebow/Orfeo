@@ -1,96 +1,114 @@
 import { useEffect, useRef, useCallback } from 'react'
+import * as Tone from 'tone'
 import { useStore } from '../store'
 
-/**
- * usePlayback — drives the currentTime forward in real time.
- * Uses requestAnimationFrame for smooth 60fps updates.
- * Tempo ratio (bpm / originalBpm) is applied for pitch-independent speed.
- */
 export function usePlayback() {
-  const {
-    midi,
-    playbackState,
-    currentTime,
-    bpm,
-    originalBpm,
-    loopEnabled,
-    loopStart,
-    loopEnd,
-    setCurrentTime,
-    setPlaybackState,
-  } = useStore()
-
   const rafRef = useRef<number | null>(null)
-  const lastTimestampRef = useRef<number | null>(null)
-  const currentTimeRef = useRef(currentTime)
+  const startPerfRef = useRef<number>(0)
+  const startMidiRef = useRef<number>(0)
+  const tempoRatioRef = useRef<number>(1)
+  const isRunningRef = useRef(false)
 
-  // Keep ref in sync so the RAF loop always has latest value
-  currentTimeRef.current = currentTime
-
-  const stop = useCallback(() => {
+  const stopRaf = useCallback(() => {
     if (rafRef.current) {
       cancelAnimationFrame(rafRef.current)
       rafRef.current = null
     }
-    lastTimestampRef.current = null
-    setPlaybackState('stopped')
-    setCurrentTime(0)
-  }, [setPlaybackState, setCurrentTime])
+    isRunningRef.current = false
+  }, [])
 
-  const pause = useCallback(() => {
-    if (rafRef.current) {
-      cancelAnimationFrame(rafRef.current)
-      rafRef.current = null
-    }
-    lastTimestampRef.current = null
-    setPlaybackState('paused')
-  }, [setPlaybackState])
+  const startRaf = useCallback((fromMidiTime: number) => {
+    stopRaf()
+    const { bpm, originalBpm } = useStore.getState()
+    tempoRatioRef.current = bpm / originalBpm
+    startPerfRef.current = performance.now()
+    startMidiRef.current = fromMidiTime
+    isRunningRef.current = true
 
-  const play = useCallback(() => {
-    setPlaybackState('playing')
-  }, [setPlaybackState])
+    const tick = () => {
+      if (!isRunningRef.current) return
 
-  const seek = useCallback((time: number) => {
-    setCurrentTime(Math.max(0, time))
-  }, [setCurrentTime])
+      const elapsed = (performance.now() - startPerfRef.current) / 1000
+      const newTime = startMidiRef.current + elapsed * tempoRatioRef.current
+      const { midi, loopEnabled, loopStart, loopEnd, playbackState } = useStore.getState()
 
-  // Animation loop
-  useEffect(() => {
-    if (playbackState !== 'playing' || !midi) return
-
-    const tempoRatio = bpm / originalBpm
-
-    const tick = (timestamp: number) => {
-      if (lastTimestampRef.current === null) {
-        lastTimestampRef.current = timestamp
-      }
-
-      const delta = (timestamp - lastTimestampRef.current) / 1000 // seconds
-      lastTimestampRef.current = timestamp
-
-      let newTime = currentTimeRef.current + delta * tempoRatio
-
-      // Loop handling
-      if (loopEnabled && loopEnd > loopStart && newTime >= loopEnd) {
-        newTime = loopStart
-      } else if (newTime >= midi.duration) {
-        // Reached end — stop
-        setCurrentTime(midi.duration)
-        setPlaybackState('stopped')
+      // Stop RAF if state changed externally
+      if (playbackState !== 'playing') {
+        stopRaf()
         return
       }
 
-      setCurrentTime(newTime)
+      const duration = midi?.duration ?? 0
+
+      if (loopEnabled && loopEnd > loopStart && newTime >= loopEnd) {
+        startPerfRef.current = performance.now()
+        startMidiRef.current = loopStart
+        useStore.setState({ currentTime: loopStart })
+      } else if (newTime >= duration && duration > 0) {
+        useStore.setState({ currentTime: duration, playbackState: 'stopped' })
+        stopRaf()
+        return
+      } else {
+        useStore.setState({ currentTime: newTime })
+      }
+
       rafRef.current = requestAnimationFrame(tick)
     }
 
     rafRef.current = requestAnimationFrame(tick)
+  }, [stopRaf])
 
-    return () => {
-      if (rafRef.current) cancelAnimationFrame(rafRef.current)
-      lastTimestampRef.current = null
+  const play = useCallback(async () => {
+    await Tone.start()
+    const t = useStore.getState().currentTime
+    useStore.setState({ playbackState: 'playing' })
+    startRaf(t)
+  }, [startRaf])
+
+  const pause = useCallback(() => {
+    stopRaf()
+    useStore.setState({ playbackState: 'paused' })
+  }, [stopRaf])
+
+  const stop = useCallback(() => {
+    stopRaf()
+    useStore.setState({ playbackState: 'stopped', currentTime: 0 })
+  }, [stopRaf])
+
+  const seek = useCallback((time: number) => {
+    const clamped = Math.max(0, time)
+    const wasPlaying = useStore.getState().playbackState === 'playing'
+    stopRaf()
+    if (wasPlaying) {
+      useStore.setState({ currentTime: clamped, playbackState: 'paused' })
+    } else {
+      useStore.setState({ currentTime: clamped })
     }
-  }, [playbackState, midi, bpm, originalBpm, loopEnabled, loopStart, loopEnd, setCurrentTime, setPlaybackState])
+  }, [stopRaf])
 
-  return { play, pause, stop, seek }
+  const seekAndPlay = useCallback((time: number) => {
+    const clamped = Math.max(0, time)
+    useStore.setState({ currentTime: clamped, playbackState: 'playing' })
+    startRaf(clamped)
+  }, [startRaf])
+
+  // KEY FIX: subscribe to store and stop RAF whenever playbackState is not 'playing'
+  useEffect(() => {
+    const unsubscribe = useStore.subscribe((state, prev) => {
+      if (prev.playbackState === 'playing' && state.playbackState !== 'playing') {
+        stopRaf()
+      }
+      if (state.playbackState === 'playing' && prev.playbackState !== 'playing') {
+        startRaf(state.currentTime)
+      }
+      if (state.bpm !== prev.bpm && isRunningRef.current) {
+        startRaf(state.currentTime)
+      }
+    })
+    return unsubscribe
+  }, [stopRaf, startRaf])
+
+  useEffect(() => () => stopRaf(), [stopRaf])
+
+  return { play, pause, stop, seek, seekAndPlay }
 }
