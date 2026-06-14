@@ -9,12 +9,14 @@ import { useStore } from './store'
 import { useMidiFile } from './hooks/useMidiFile'
 import { usePlayback } from './hooks/usePlayback'
 import { useAudioEngine } from './hooks/useAudioEngine'
+import { useMetronome } from './hooks/useMetronome'
 
 export default function App() {
   const midi = useStore((s) => s.midi)
   const { openFile } = useMidiFile()
   const { play, pause, stop } = usePlayback()
   useAudioEngine()
+  useMetronome()
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -42,9 +44,11 @@ export default function App() {
   return (
     <div style={{ width: '100vw', height: '100vh', background: '#0f0f12', overflow: 'hidden', display: 'flex', flexDirection: 'column', fontFamily: "'Inter', system-ui, sans-serif" }}>
       <TopBar />
+      {/* Thin accent separator between topbar and content */}
+      <div style={{ height: 2, background: 'linear-gradient(90deg, #e8a02740, #e8a02720, transparent)', flexShrink: 0 }} />
       <div style={{ display: 'flex', flex: 1, minHeight: 0, overflow: 'hidden' }}>
         <div style={{ display: 'flex', flexDirection: 'column', flex: 1, minWidth: 0, overflow: 'hidden' }}>
-          <div style={{ flex: 1, minHeight: 0, position: 'relative' }}>
+          <div style={{ flex: 1, minHeight: 0, position: 'relative', paddingTop: 6 }}>
             {midi ? <PianoRoll /> : <EmptyState />}
           </div>
           <Keyboard />

@@ -1,7 +1,9 @@
 import { useEffect, useRef } from 'react'
 import { useStore } from '../store'
 
-const isPianoProgram = (p: number) => p >= 0 && p <= 7
+import { isKeyboardInstrument } from "../utils/gmInstruments"
+
+const isPianoProgram = isKeyboardInstrument
 
 let _JZZ: any = null
 let _port: any = null
@@ -57,8 +59,17 @@ export function useAudioEngine() {
       destroyPlayer()
       chProgsRef.current.clear()
 
-      const { tracks, bpm, originalBpm } = useStore.getState()
+      const { tracks, bpm, originalBpm, detectedKey } = useStore.getState()
+      const transpose = (detectedKey as any)?.transpose ?? 0
       const midiData = useStore.getState().midi as any
+
+      // Pre-populate channel programs from parsed track data
+      // This ensures we know each channel's instrument before any program change messages arrive
+      for (const tr of midiData.tracks) {
+        if (tr.channel !== undefined && tr.program >= 0) {
+          chProgsRef.current.set(tr.channel, tr.program)
+        }
+      }
       const ratio = bpm / originalBpm
       const hasSolo = tracks.some((t: any) => t.solo)
       const mutedCh = new Set<number>()
@@ -164,21 +175,18 @@ export function useAudioEngine() {
     const unsub = useStore.subscribe((state, prev) => {
       const ps = state.playbackState
       const pp = prevStateRef.current
-      prevStateRef.current = ps
 
       if (ps === 'playing' && pp !== 'playing') {
         const timeDiff = Math.abs(state.currentTime - prevTimeRef.current)
-        const isScrub = timeDiff > 0.5  // user moved time significantly
+        const isScrub = timeDiff > 0.5
         const isResumeFromPause = pp === 'paused' && !isScrub
 
         if (isResumeFromPause && playerRef.current) {
-          // True resume — reuse existing player, don't rebuild
           try {
             playerRef.current.resume()
             ;(window as any).__orfeoPlayer = playerRef.current
           } catch { buildPlayer(state.currentTime) }
         } else {
-          // New play or scrub — rebuild from new position
           buildPlayer(state.currentTime)
         }
         prevTimeRef.current = state.currentTime
@@ -189,8 +197,20 @@ export function useAudioEngine() {
       } else if (ps === 'stopped' && pp !== 'stopped') {
         prevTimeRef.current = 0
         destroyPlayer()
-      } else if (ps === 'playing' && (state.bpm !== prev.bpm || state.tracks !== prev.tracks)) {
-        buildPlayer(state.currentTime)
+      } else if (ps === 'playing' && pp === 'playing') {
+        // Check for changes that need audio rebuild
+        const transposeChanged = state.detectedKey?.transpose !== prev.detectedKey?.transpose
+        const bpmChanged = state.bpm !== prev.bpm
+        const tracksChanged = state.tracks !== prev.tracks
+        if (transposeChanged || bpmChanged || tracksChanged) {
+          // Get actual current position from JZZ player if available
+          const jzzPlayer = (window as any).__orfeoPlayer
+          let currentPos = state.currentTime
+          if (jzzPlayer) {
+            try { currentPos = jzzPlayer.positionMS() / 1000 } catch {}
+          }
+          buildPlayer(currentPos)
+        }
       }
     })
     return () => { unsub(); destroyPlayer() }

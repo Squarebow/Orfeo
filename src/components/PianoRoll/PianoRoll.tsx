@@ -40,6 +40,28 @@ export default function PianoRoll() {
   // Keep storeRef current without causing re-renders
   useEffect(() => useStore.subscribe((s) => { storeRef.current = s }), [])
 
+  // Wheel to scrub — native listener with passive:false so we can preventDefault
+  useEffect(() => {
+    const el = containerRef.current
+    if (!el) return
+    const onWheel = (e: WheelEvent) => {
+      e.preventDefault()
+      const { midi, currentTime, playbackState } = useStore.getState()
+      if (!midi) return
+      const step = e.shiftKey ? 10 : 2
+      const delta = e.deltaY > 0 ? -step : step
+      const newTime = Math.max(0, Math.min(midi.duration, currentTime + delta))
+      if (playbackState === 'playing') {
+        useStore.setState({ playbackState: 'paused' })
+        setTimeout(() => useStore.setState({ currentTime: newTime, playbackState: 'playing' }), 20)
+      } else {
+        useStore.setState({ currentTime: newTime })
+      }
+    }
+    el.addEventListener('wheel', onWheel, { passive: false })
+    return () => el.removeEventListener('wheel', onWheel)
+  }, [])
+
   useEffect(() => {
     if (!containerRef.current) return
     const el = containerRef.current
@@ -81,7 +103,8 @@ export default function PianoRoll() {
       }
 
       const drawFrame = () => {
-        const { midi, currentTime, tracks } = storeRef.current
+        const { midi, currentTime, tracks, detectedKey } = storeRef.current
+        const transpose = (detectedKey as any)?.transpose ?? 0
         const W = app.screen.width
         const H = app.screen.height
         const py = H * PLAYHEAD_RATIO
@@ -106,7 +129,7 @@ export default function PianoRoll() {
 
           for (const note of track.notes) {
             if (note.time + note.duration < visStart || note.time > visEnd) continue
-            const idx = note.midi - MIDI_MIN
+            const idx = (note.midi + (transpose ?? 0)) - MIDI_MIN
             if (idx < 0 || idx >= TOTAL_KEYS) continue
             const key = keyLayoutRef.current[idx]
             if (!key) continue
@@ -159,3 +182,4 @@ export default function PianoRoll() {
     />
   )
 }
+// Note: wheel scrub added below

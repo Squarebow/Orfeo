@@ -1,9 +1,11 @@
 import { Midi } from '@tonejs/midi'
 import type { ParsedMidi, ParsedTrack, ParsedNote } from '../types'
+import { getGMName, getGMGroup } from './gmInstruments'
 
 const TRACK_COLORS = [
   '#e8a027', '#6b7ab5', '#4ecdc4', '#e06c75',
   '#98c379', '#c678dd', '#61afef', '#e5c07b',
+  '#f0a500', '#7ec8e3', '#d4a5a5', '#a8d8a8',
 ]
 
 export function parseMidiBuffer(buffer: ArrayBuffer, fileName: string): ParsedMidi {
@@ -14,11 +16,25 @@ export function parseMidiBuffer(buffer: ArrayBuffer, fileName: string): ParsedMi
     ? midi.header.timeSignatures[0].timeSignature
     : [4, 4]
 
+  // Extract key signature from MIDI metadata
+  let keySignature: { key: number; scale: string } | null = null
+  try {
+    const ks = (midi.header as any).keySignatures
+    if (ks && ks.length > 0) {
+      keySignature = { key: ks[0].key ?? 0, scale: ks[0].scale ?? 'major' }
+    }
+  } catch {}
+
   const tracks: ParsedTrack[] = []
 
   midi.tracks.forEach((track, i) => {
     if (track.notes.length === 0) return
     const color = TRACK_COLORS[tracks.length % TRACK_COLORS.length]
+    const isDrum = track.channel === 9
+    const program = isDrum ? -1 : (track.instrument?.number ?? 0)
+    const gmName = isDrum ? 'Standard Drum Kit' : getGMName(program)
+    const group = getGMGroup(program, isDrum)
+
     const notes: ParsedNote[] = track.notes.map(n => ({
       midi: n.midi,
       time: n.time,
@@ -26,9 +42,14 @@ export function parseMidiBuffer(buffer: ArrayBuffer, fileName: string): ParsedMi
       velocity: n.velocity,
       trackIndex: tracks.length,
     }))
+
     tracks.push({
       index: tracks.length,
-      name: track.name || `Track ${i + 1}`,
+      name: track.name || gmName,
+      gmName,
+      program,
+      group,
+      isDrum,
       color,
       notes,
       channel: track.channel ?? i,
@@ -45,7 +66,7 @@ export function parseMidiBuffer(buffer: ArrayBuffer, fileName: string): ParsedMi
     }
   }
 
-  const result: ParsedMidi = {
+  const result: any = {
     fileName,
     duration,
     bpm,
@@ -53,9 +74,9 @@ export function parseMidiBuffer(buffer: ArrayBuffer, fileName: string): ParsedMi
     timeSignatureDenominator: timeSig[1],
     tracks,
     noteCount: tracks.reduce((sum, t) => sum + t.notes.length, 0),
-    // Store raw buffer for JZZ playback
     _raw: buffer,
-  } as any
+    _keySignature: keySignature,
+  }
 
   return result
 }

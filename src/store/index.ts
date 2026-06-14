@@ -3,6 +3,8 @@ import type {
   ParsedMidi, ParsedTrack, PlaybackState, TrackState,
   KeyboardSize, KeyboardMode, NoteNaming,
 } from '../types'
+import type { DetectedKey } from '../utils/keyDetection'
+import { isKeyboardInstrument } from '../utils/gmInstruments'
 
 interface OrfeoStore {
   midi: ParsedMidi | null
@@ -25,11 +27,12 @@ interface OrfeoStore {
   tracks: TrackState[]
   setTracks: (tracks: TrackState[]) => void
   updateTrack: (index: number, patch: Partial<TrackState>) => void
+  muteGroup: (group: string, muted: boolean) => void
 
   keyboardSize: KeyboardSize
   keyboardMode: KeyboardMode
   activeKeys: Set<number>
-  activeKeyColors: Map<number, string>  // midi -> track color
+  activeKeyColors: Map<number, string>
 
   setKeyboardSize: (size: KeyboardSize) => void
   setKeyboardMode: (mode: KeyboardMode) => void
@@ -41,6 +44,20 @@ interface OrfeoStore {
   setNoteNaming: (naming: NoteNaming) => void
   setZoomLevel: (zoom: number) => void
 
+  // Key & transpose
+  detectedKey: DetectedKey | null
+  setDetectedKey: (key: DetectedKey | null) => void
+  setTranspose: (semitones: number) => void
+
+  // Metronome
+  metronomeEnabled: boolean
+  setMetronomeEnabled: (enabled: boolean) => void
+
+  // External MIDI device
+  midiDeviceConnected: boolean
+  midiDeviceName: string
+  setMidiDevice: (connected: boolean, name?: string) => void
+
   trackPanelOpen: boolean
   settingsOpen: boolean
   setTrackPanelOpen: (open: boolean) => void
@@ -49,8 +66,19 @@ interface OrfeoStore {
 
 function makeTrackState(track: ParsedTrack): TrackState {
   return {
-    index: track.index, name: track.name, color: track.color,
-    muted: false, solo: false, visible: true, volume: 1, pan: 0,
+    index: track.index,
+    name: track.name,
+    gmName: track.gmName,
+    program: track.program,
+    group: track.group,
+    isDrum: track.isDrum,
+    color: track.color,
+    muted: false,
+    solo: false,
+    visible: true,
+    showOnKeyboard: !track.isDrum && isKeyboardInstrument(track.program),
+    volume: 1,
+    pan: 0,
   }
 }
 
@@ -59,9 +87,12 @@ export const useStore = create<OrfeoStore>((set, get) => ({
   setMidi: (midi) => {
     if (!midi) { set({ midi: null, tracks: [], currentTime: 0, playbackState: 'stopped' }); return }
     set({
-      midi, tracks: midi.tracks.map(makeTrackState),
-      currentTime: 0, playbackState: 'stopped',
-      bpm: midi.bpm, originalBpm: midi.bpm,
+      midi,
+      tracks: midi.tracks.map(makeTrackState),
+      currentTime: 0,
+      playbackState: 'stopped',
+      bpm: midi.bpm,
+      originalBpm: midi.bpm,
     })
   },
 
@@ -84,6 +115,8 @@ export const useStore = create<OrfeoStore>((set, get) => ({
   setTracks: (tracks) => set({ tracks }),
   updateTrack: (index, patch) =>
     set((s) => ({ tracks: s.tracks.map((t) => (t.index === index ? { ...t, ...patch } : t)) })),
+  muteGroup: (group, muted) =>
+    set((s) => ({ tracks: s.tracks.map((t) => t.group === group ? { ...t, muted } : t) })),
 
   keyboardSize: 88,
   keyboardMode: 'docked',
@@ -99,6 +132,19 @@ export const useStore = create<OrfeoStore>((set, get) => ({
   zoomLevel: 1,
   setNoteNaming: (noteNaming) => set({ noteNaming }),
   setZoomLevel: (zoomLevel) => set({ zoomLevel }),
+
+  detectedKey: null,
+  setDetectedKey: (detectedKey) => set({ detectedKey }),
+  setTranspose: (semitones) => set((s) => ({
+    detectedKey: s.detectedKey ? { ...s.detectedKey, transpose: s.detectedKey.transpose + semitones } : null
+  })),
+
+  metronomeEnabled: false,
+  setMetronomeEnabled: (metronomeEnabled) => set({ metronomeEnabled }),
+
+  midiDeviceConnected: false,
+  midiDeviceName: '',
+  setMidiDevice: (midiDeviceConnected, midiDeviceName = '') => set({ midiDeviceConnected, midiDeviceName }),
 
   trackPanelOpen: true,
   settingsOpen: false,
