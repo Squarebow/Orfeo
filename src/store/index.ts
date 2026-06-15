@@ -6,6 +6,16 @@ import type {
 import type { DetectedKey } from '../utils/keyDetection'
 import { isKeyboardInstrument } from '../utils/gmInstruments'
 
+// Groups that are muted by default when a file opens (too distracting)
+const DEFAULT_MUTED_GROUPS = new Set([
+  'strings', 'ensemble', 'brass', 'reed', 'pipe',
+  'synth_lead', 'synth_pad', 'synth_fx', 'ethnic',
+  'percussive', 'sfx',
+])
+
+// Only these groups light up the piano keyboard
+const KEYBOARD_DISPLAY_GROUPS = new Set(['piano', 'chromatic', 'organ'])
+
 interface OrfeoStore {
   midi: ParsedMidi | null
   setMidi: (midi: ParsedMidi | null) => void
@@ -44,16 +54,13 @@ interface OrfeoStore {
   setNoteNaming: (naming: NoteNaming) => void
   setZoomLevel: (zoom: number) => void
 
-  // Key & transpose
   detectedKey: DetectedKey | null
   setDetectedKey: (key: DetectedKey | null) => void
   setTranspose: (semitones: number) => void
 
-  // Metronome
   metronomeEnabled: boolean
   setMetronomeEnabled: (enabled: boolean) => void
 
-  // External MIDI device
   midiDeviceConnected: boolean
   midiDeviceName: string
   setMidiDevice: (connected: boolean, name?: string) => void
@@ -65,6 +72,10 @@ interface OrfeoStore {
 }
 
 function makeTrackState(track: ParsedTrack): TrackState {
+  const isKeyboard = isKeyboardInstrument(track.program)
+  const autoMuted = !track.isDrum && DEFAULT_MUTED_GROUPS.has(track.group ?? '')
+  const showOnKeyboard = KEYBOARD_DISPLAY_GROUPS.has(track.group ?? '') && !track.isDrum
+
   return {
     index: track.index,
     name: track.name,
@@ -73,10 +84,10 @@ function makeTrackState(track: ParsedTrack): TrackState {
     group: track.group,
     isDrum: track.isDrum,
     color: track.color,
-    muted: false,
+    muted: autoMuted,
     solo: false,
     visible: true,
-    showOnKeyboard: !track.isDrum && isKeyboardInstrument(track.program),
+    showOnKeyboard,
     volume: 1,
     pan: 0,
   }
@@ -118,7 +129,7 @@ export const useStore = create<OrfeoStore>((set, get) => ({
   muteGroup: (group, muted) =>
     set((s) => ({ tracks: s.tracks.map((t) => t.group === group ? { ...t, muted } : t) })),
 
-  keyboardSize: 88,
+  keyboardSize: 73,
   keyboardMode: 'docked',
   activeKeys: new Set(),
   activeKeyColors: new Map(),

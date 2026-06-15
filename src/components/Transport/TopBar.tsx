@@ -1,7 +1,8 @@
 import { useCallback, useRef } from 'react'
 import {
   Play, Pause, Square, SkipBack, SkipForward, Repeat,
-  FolderOpen, RotateCcw, ChevronUp, ChevronDown
+  FolderOpen, RotateCcw, ChevronUp, ChevronDown,
+  Rewind, FastForward,
 } from 'lucide-react'
 import { useStore } from '../../store'
 import { usePlayback } from '../../hooks/usePlayback'
@@ -10,6 +11,9 @@ import { formatTime } from '../../utils/midiParser'
 import { formatKey, transposeDetectedKey } from '../../utils/keyDetection'
 import OrfeoLogo from '../OrfeoLogo'
 import MidiIcon from '../MidiIcon'
+
+const SKIP_SECS = 5
+const SECTION_H = 60  // all side sections share this inner height for alignment
 
 export default function TopBar() {
   const midi = useStore((s) => s.midi)
@@ -22,7 +26,6 @@ export default function TopBar() {
   const setBpm = useStore((s) => s.setBpm)
   const resetBpm = useStore((s) => s.resetBpm)
   const detectedKey = useStore((s) => s.detectedKey)
-  const setDetectedKey = useStore((s) => s.setDetectedKey)
   const metronomeEnabled = useStore((s) => s.metronomeEnabled)
   const setMetronomeEnabled = useStore((s) => s.setMetronomeEnabled)
   const midiDeviceConnected = useStore((s) => s.midiDeviceConnected)
@@ -53,220 +56,177 @@ export default function TopBar() {
     else seek(t)
   }, [seek, seekAndPlay])
 
+  const handleSkip = useCallback((dir: 1 | -1) => {
+    if (!midi) return
+    const t = Math.max(0, Math.min(midi.duration, currentTime + dir * SKIP_SECS))
+    if (playbackState === 'playing') seekAndPlay(t)
+    else seek(t)
+  }, [midi, currentTime, playbackState, seek, seekAndPlay])
+
   const handleTranspose = (semitones: number) => {
     if (!detectedKey) return
-    const newKey = transposeDetectedKey(detectedKey, semitones)
-    // Update key in store — audio engine watches detectedKey.transpose
-    useStore.setState({ detectedKey: newKey })
+    useStore.setState({ detectedKey: transposeDetectedKey(detectedKey, semitones) })
   }
 
   const transpose = detectedKey?.transpose ?? 0
   const duration = midi?.duration ?? 0
-  const tempoPercent = Math.round((bpm / originalBpm) * 100)
-  const isTempoChanged = Math.abs(tempoPercent - 100) > 1
+  const isTempoChanged = Math.abs(Math.round((bpm / originalBpm) * 100) - 100) > 1
   const displayKey = detectedKey ? formatKey(detectedKey, noteNaming) : '—'
 
   return (
     <div
+      className="app-drag-region"
       style={{
-        height: 72,
+        height: 100,
         background: '#111116',
-        borderBottom: '1px solid #222228',
+        borderBottom: '1px solid #1e1e28',
         display: 'flex',
         alignItems: 'center',
-        padding: '8px 12px',
-        gap: 8,
-        WebkitAppRegion: 'drag',
-      } as React.CSSProperties}
+        padding: '0 174px 0 20px',
+        gap: 10,
+        flexShrink: 0,
+      }}
     >
       {/* ── LOGO + OPEN ── */}
-      <div
-        className="flex items-center gap-2 shrink-0"
-        style={{ WebkitAppRegion: 'no-drag', paddingLeft: 4 } as React.CSSProperties}
-      >
+      <div className="app-no-drag" style={{ display: 'flex', alignItems: 'center', gap: 8, flexShrink: 0 }}>
         <OrfeoLogo />
         <button
           onClick={openFile}
           title="Open MIDI file (Ctrl+O)"
-          className="flex items-center justify-center w-7 h-7 rounded transition-colors"
-          style={{ background: '#1e1e2a', color: '#808098', border: '1px solid #2a2a3a', flexShrink: 0 }}
+          style={{
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            width: 28, height: 28, borderRadius: 6,
+            background: 'transparent', border: 'none',
+            color: '#50506a', cursor: 'pointer', flexShrink: 0,
+          }}
+          onMouseEnter={e => (e.currentTarget.style.color = '#9090b0')}
+          onMouseLeave={e => (e.currentTarget.style.color = '#50506a')}
         >
-          <FolderOpen size={13} />
+          <FolderOpen size={16} />
         </button>
       </div>
 
       <Divider />
 
-      {/* ── BPM ── */}
+      {/* ── BPM + KEY on same row, stacked vertically ── */}
       <div
-        className="flex items-center gap-1.5 shrink-0"
-        style={{ WebkitAppRegion: 'no-drag' } as React.CSSProperties}
-        title={`Tempo: ${Math.round(bpm)} BPM${isTempoChanged ? ` (original: ${Math.round(originalBpm)} BPM)` : ''}`}
+        className="app-no-drag"
+        style={{ display: 'flex', flexDirection: 'column', justifyContent: 'center', gap: 6, flexShrink: 0, height: SECTION_H }}
       >
-        <span style={{ color: '#404055', fontSize: 9, textTransform: 'uppercase', letterSpacing: '0.08em' }}>BPM</span>
-        <span style={{
-          color: isTempoChanged ? '#e8a027' : '#c0c0d8',
-          fontFamily: 'JetBrains Mono', fontSize: 15, fontWeight: 700, minWidth: 36, textAlign: 'right'
-        }}>
-          {Math.round(bpm)}
-        </span>
-        <input
-          type="range" min={20} max={300} step={1} value={bpm}
-          onChange={(e) => setBpm(Number(e.target.value))}
-          className="scrub-slider" style={{ width: 60 }} disabled={!midi}
-          title="Drag to change tempo"
-        />
-        {isTempoChanged && (
-          <button onClick={resetBpm} title="Reset to original tempo" style={{ opacity: 0.7 }}>
-            <RotateCcw size={10} style={{ color: '#e8a027' }} />
-          </button>
-        )}
-      </div>
-
-      <Divider />
-
-      {/* ── KEY ── */}
-      <div
-        className="flex items-center gap-1 shrink-0"
-        style={{ WebkitAppRegion: 'no-drag' } as React.CSSProperties}
-        title={`Key: ${displayKey}${transpose !== 0 ? ` (${transpose > 0 ? '+' : ''}${transpose} semitones)` : ''}`}
-      >
-        <span style={{ color: '#404055', fontSize: 9, textTransform: 'uppercase', letterSpacing: '0.08em' }}>Key</span>
-        <span style={{
-          color: transpose !== 0 ? '#e8a027' : '#c0c0d8',
-          fontFamily: 'JetBrains Mono', fontSize: 15, fontWeight: 700, minWidth: 36, textAlign: 'center'
-        }}>
-          {displayKey}
-        </span>
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-          <button
-            onClick={() => handleTranspose(1)}
-            disabled={!midi || transpose >= 12}
-            title="Transpose up one semitone"
-            style={{
-              width: 16, height: 12, background: '#1e1e2a', color: '#606075',
-              border: 'none', borderRadius: 2, cursor: !midi ? 'default' : 'pointer',
-              opacity: !midi ? 0.3 : 1, display: 'flex', alignItems: 'center', justifyContent: 'center'
-            }}
-          >
-            <ChevronUp size={10} />
-          </button>
-          <button
-            onClick={() => handleTranspose(-1)}
-            disabled={!midi || transpose <= -12}
-            title="Transpose down one semitone"
-            style={{
-              width: 16, height: 12, background: '#1e1e2a', color: '#606075',
-              border: 'none', borderRadius: 2, cursor: !midi ? 'default' : 'pointer',
-              opacity: !midi ? 0.3 : 1, display: 'flex', alignItems: 'center', justifyContent: 'center'
-            }}
-          >
-            <ChevronDown size={10} />
-          </button>
+        {/* Row 1: BPM label + value + slider */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}
+          title={`Tempo: ${Math.round(bpm)} BPM${isTempoChanged ? ` (original: ${Math.round(originalBpm)} BPM)` : ''}`}
+        >
+          <span style={{ color: '#35354a', fontSize: 9, textTransform: 'uppercase', letterSpacing: '0.1em', width: 24 }}>BPM</span>
+          <span style={{ color: isTempoChanged ? '#e8a027' : '#b0b0cc', fontFamily: 'JetBrains Mono', fontSize: 18, fontWeight: 700, minWidth: 36, textAlign: 'right', lineHeight: 1 }}>
+            {Math.round(bpm)}
+          </span>
+          <input
+            type="range" min={20} max={300} step={1} value={bpm}
+            onChange={(e) => setBpm(Number(e.target.value))}
+            className="scrub-slider" style={{ width: 60 }} disabled={!midi}
+            title="Drag to change tempo"
+          />
+          {isTempoChanged && (
+            <button onClick={resetBpm} title="Reset tempo" style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 0, display: 'flex' }}>
+              <RotateCcw size={10} style={{ color: '#e8a027' }} />
+            </button>
+          )}
         </div>
-        {transpose !== 0 && (
-          <button
-            onClick={() => useStore.setState({ detectedKey: detectedKey ? { ...detectedKey, transpose: 0 } : null })}
-            title="Reset to original key"
-            style={{
-              display: 'flex', alignItems: 'center', gap: 3,
-              color: '#e8a027', background: '#e8a02715', border: '1px solid #e8a02730',
-              borderRadius: 4, padding: '2px 5px', fontSize: 9,
-              fontFamily: 'JetBrains Mono', cursor: 'pointer'
-            }}
-          >
-            <span>{transpose > 0 ? `+${transpose}` : transpose}</span>
-            <RotateCcw size={9} />
-          </button>
-        )}
+
+        {/* Row 2: KEY label + value + up/down arrows to the right */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}
+          title={`Key: ${displayKey}${transpose !== 0 ? ` (${transpose > 0 ? '+' : ''}${transpose} semitones)` : ''}`}
+        >
+          <span style={{ color: '#35354a', fontSize: 9, textTransform: 'uppercase', letterSpacing: '0.1em', width: 24 }}>KEY</span>
+          <span style={{ color: transpose !== 0 ? '#e8a027' : '#b0b0cc', fontFamily: 'JetBrains Mono', fontSize: 18, fontWeight: 700, minWidth: 36, textAlign: 'right', lineHeight: 1 }}>
+            {displayKey}
+          </span>
+          {/* Up/down arrows to the right of KEY value */}
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
+            <button onClick={() => handleTranspose(1)} disabled={!midi || transpose >= 12} title="Transpose up"
+              style={{ width: 18, height: 13, background: '#1a1a26', color: '#505068', border: 'none', borderRadius: 3, cursor: !midi ? 'default' : 'pointer', opacity: !midi ? 0.3 : 1, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+              <ChevronUp size={10} />
+            </button>
+            <button onClick={() => handleTranspose(-1)} disabled={!midi || transpose <= -12} title="Transpose down"
+              style={{ width: 18, height: 13, background: '#1a1a26', color: '#505068', border: 'none', borderRadius: 3, cursor: !midi ? 'default' : 'pointer', opacity: !midi ? 0.3 : 1, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+              <ChevronDown size={10} />
+            </button>
+          </div>
+          {transpose !== 0 && (
+            <button
+              onClick={() => useStore.setState({ detectedKey: detectedKey ? { ...detectedKey, transpose: 0 } : null })}
+              title="Reset key"
+              style={{ display: 'flex', alignItems: 'center', gap: 2, color: '#e8a027', background: '#e8a02715', border: '1px solid #e8a02730', borderRadius: 4, padding: '1px 5px', fontSize: 9, fontFamily: 'JetBrains Mono', cursor: 'pointer' }}
+            >
+              <RotateCcw size={8} />
+            </button>
+          )}
+        </div>
       </div>
 
       <Divider />
 
-      {/* ── CENTER: TRANSPORT + SONG NAME + SCRUB ── */}
+      {/* ── CENTER: transport / scrub / filename ── */}
       <div
-        className="flex flex-col items-center gap-1 flex-1 min-w-0"
-        style={{ WebkitAppRegion: 'no-drag' } as React.CSSProperties}
+        className="app-no-drag"
+        style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 6, flex: 1, minWidth: 0 }}
       >
         {/* Transport buttons */}
         <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
-          <TBtn onClick={stop} disabled={!midi} title="Stop & return to start">
-            <SkipBack size={18} />
-          </TBtn>
+          <TBtn onClick={stop} disabled={!midi} title="Go to start"><SkipBack size={16} /></TBtn>
+          <TBtn onClick={() => handleSkip(-1)} disabled={!midi} title={`Rewind ${SKIP_SECS}s`}><Rewind size={16} /></TBtn>
           <TBtn onClick={handlePlayPause} disabled={!midi} accent title="Play / Pause (Space)" large>
             {playbackState === 'playing'
-              ? <Pause size={22} fill="currentColor" />
-              : <Play size={22} fill="currentColor" />}
+              ? <Pause size={24} fill="currentColor" />
+              : <Play size={24} fill="currentColor" />}
           </TBtn>
-          <TBtn onClick={stop} disabled={!midi} title="Stop">
-            <Square size={18} fill="currentColor" />
-          </TBtn>
-          <TBtn onClick={() => midi && seekAndPlay(midi.duration)} disabled={!midi} title="Skip to end">
-            <SkipForward size={18} />
-          </TBtn>
-          <TBtn onClick={() => setLoop(!loopEnabled)} disabled={!midi} active={loopEnabled} title="Toggle loop">
-            <Repeat size={16} />
-          </TBtn>
+          <TBtn onClick={() => handleSkip(1)} disabled={!midi} title={`Forward ${SKIP_SECS}s`}><FastForward size={16} /></TBtn>
+          <TBtn onClick={() => midi && seek(midi.duration)} disabled={!midi} title="Go to end"><SkipForward size={16} /></TBtn>
+          <TBtn onClick={() => setLoop(!loopEnabled)} disabled={!midi} active={loopEnabled} title={loopEnabled ? 'Loop on' : 'Loop off'}><Repeat size={14} /></TBtn>
         </div>
 
-        {/* Song name frame + scrub */}
+        {/* Scrub slider */}
         <div style={{ display: 'flex', alignItems: 'center', gap: 6, width: '100%', justifyContent: 'center' }}>
-          <span style={{
-            color: '#505065', fontFamily: 'JetBrains Mono', fontSize: 10,
-            minWidth: 32, textAlign: 'right', flexShrink: 0
-          }}>
+          <span style={{ color: '#40405a', fontFamily: 'JetBrains Mono', fontSize: 10, minWidth: 34, textAlign: 'right', flexShrink: 0 }}>
             {formatTime(currentTime)}
           </span>
-
-          <div style={{
-            display: 'flex', alignItems: 'center', gap: 6, flex: 1, maxWidth: 340,
-            background: '#1a1a22', borderRadius: 6, border: '1px solid #252530',
-            padding: '2px 8px'
-          }}>
-            <span style={{
-              color: '#808098', fontSize: 11, fontFamily: 'Inter',
-              whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
-              flex: 1, minWidth: 0
-            }}
-              title={midi?.fileName}
-            >
-              {midi ? midi.fileName.replace(/\.(mid|midi)$/i, '') : 'No file open'}
-            </span>
-            <input
-              type="range" min={0} max={duration || 1} step={0.1} value={currentTime}
-              onMouseDown={handleScrubStart}
-              onChange={handleScrubChange}
-              onMouseUp={handleScrubEnd}
-              className="scrub-slider" style={{ width: 120, flexShrink: 0 }} disabled={!midi}
-              title="Scrub position"
-            />
-          </div>
-
-          <span style={{
-            color: '#505065', fontFamily: 'JetBrains Mono', fontSize: 10,
-            minWidth: 32, flexShrink: 0
-          }}>
+          <input
+            type="range" min={0} max={duration || 1} step={0.1} value={currentTime}
+            onMouseDown={handleScrubStart} onChange={handleScrubChange} onMouseUp={handleScrubEnd}
+            className="scrub-slider" style={{ flex: 1, maxWidth: 320 }} disabled={!midi}
+            title="Scrub position"
+          />
+          <span style={{ color: '#40405a', fontFamily: 'JetBrains Mono', fontSize: 10, minWidth: 34, flexShrink: 0 }}>
             {formatTime(duration)}
           </span>
         </div>
+
+        {/* File name */}
+        <span style={{ color: '#55556e', fontSize: 11, fontFamily: 'Inter', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: 340 }}
+          title={midi?.fileName}>
+          {midi ? midi.fileName.replace(/\.(mid|midi)$/i, '') : 'No file open'}
+        </span>
       </div>
 
       <Divider />
 
-      {/* ── TIME SIGNATURE ── */}
+      {/* ── TIME SIGNATURE — value centred, TIME label below ── */}
       <div
-        style={{ WebkitAppRegion: 'no-drag', flexShrink: 0 } as React.CSSProperties}
+        className="app-no-drag"
+        style={{ flexShrink: 0, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: SECTION_H }}
         title={`Time signature: ${midi?.timeSignatureNumerator ?? 4}/${midi?.timeSignatureDenominator ?? 4}`}
       >
         <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', lineHeight: 1 }}>
-          <span style={{ color: '#c0c0d8', fontFamily: 'JetBrains Mono', fontSize: 14, fontWeight: 700 }}>
+          <span style={{ color: '#b0b0cc', fontFamily: 'JetBrains Mono', fontSize: 16, fontWeight: 700 }}>
             {midi?.timeSignatureNumerator ?? 4}
           </span>
-          <div style={{ width: 18, height: 1, background: '#404055', margin: '1px 0' }} />
-          <span style={{ color: '#c0c0d8', fontFamily: 'JetBrains Mono', fontSize: 14, fontWeight: 700 }}>
+          <div style={{ width: 18, height: 1, background: '#30304a', margin: '2px 0' }} />
+          <span style={{ color: '#b0b0cc', fontFamily: 'JetBrains Mono', fontSize: 16, fontWeight: 700 }}>
             {midi?.timeSignatureDenominator ?? 4}
           </span>
         </div>
+        <span style={{ color: '#35354a', fontSize: 8, textTransform: 'uppercase', letterSpacing: '0.1em', marginTop: 4 }}>TIME</span>
       </div>
 
       <Divider />
@@ -274,16 +234,15 @@ export default function TopBar() {
       {/* ── METRONOME ── */}
       <button
         onClick={() => setMetronomeEnabled(!metronomeEnabled)}
-        title={metronomeEnabled ? 'Metronome on — click to disable' : 'Metronome off — click to enable'}
+        className="app-no-drag"
+        title={metronomeEnabled ? 'Metronome on — click to disable' : 'Metronome off'}
         style={{
-          WebkitAppRegion: 'no-drag',
-          flexShrink: 0,
-          display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 2,
-          padding: '4px 6px', borderRadius: 6, border: 'none', cursor: 'pointer',
-          background: metronomeEnabled ? '#e8a02718' : 'transparent',
-          color: metronomeEnabled ? '#e8a027' : '#404055',
-          transition: 'all 0.15s',
-        } as React.CSSProperties}
+          flexShrink: 0, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
+          gap: 4, height: SECTION_H,
+          padding: '0 8px', border: 'none', cursor: 'pointer',
+          background: 'transparent', color: metronomeEnabled ? '#e8a027' : '#35354a',
+          transition: 'color 0.15s',
+        }}
       >
         <svg width="16" height="20" viewBox="0 0 16 20" fill="none">
           <path d="M8 18 L8 4" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
@@ -301,57 +260,45 @@ export default function TopBar() {
 
       {/* ── MIDI DEVICE ── */}
       <div
-        title={midiDeviceConnected ? `MIDI keyboard connected: ${midiDeviceName}` : 'No MIDI keyboard connected — plug in via USB'}
+        className="app-no-drag"
+        title={midiDeviceConnected ? `MIDI: ${midiDeviceName}` : 'No MIDI keyboard connected'}
         style={{
-          WebkitAppRegion: 'no-drag',
-          flexShrink: 0,
-          display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 2,
-          padding: '4px 6px',
-        } as React.CSSProperties}
+          flexShrink: 0, display: 'flex', flexDirection: 'column', alignItems: 'center',
+          justifyContent: 'center', gap: 4, padding: '0 10px', height: SECTION_H,
+        }}
       >
-        <MidiIcon connected={midiDeviceConnected} size={24} />
-        <span style={{ fontSize: 8, fontFamily: 'JetBrains Mono', letterSpacing: '0.05em', color: midiDeviceConnected ? '#e8a027' : '#353545' }}>
+        <MidiIcon size={20} color={midiDeviceConnected ? '#e8a027' : '#35354a'} />
+        <span style={{ fontSize: 8, fontFamily: 'JetBrains Mono', letterSpacing: '0.05em', color: midiDeviceConnected ? '#e8a027' : '#35354a' }}>
           {midiDeviceConnected ? 'MIDI' : 'NO MIDI'}
         </span>
       </div>
-
-      {/* Right padding for Windows title bar controls (close/min/max) */}
-      <div style={{ width: 150, flexShrink: 0, WebkitAppRegion: 'drag' } as React.CSSProperties} />
     </div>
   )
 }
 
 function Divider() {
-  return (
-    <div style={{ width: 1, height: 28, background: '#222228', flexShrink: 0 }} />
-  )
+  return <div style={{ width: 1, height: 40, background: '#1e1e28', flexShrink: 0 }} />
 }
 
 function TBtn({ children, onClick, disabled, accent, active, title, large }: {
-  children: React.ReactNode
-  onClick?: () => void
-  disabled?: boolean
-  accent?: boolean
-  active?: boolean
-  title?: string
-  large?: boolean
+  children: React.ReactNode; onClick?: () => void; disabled?: boolean
+  accent?: boolean; active?: boolean; title?: string; large?: boolean
 }) {
-  const size = large ? 44 : 34
+  const size = large ? 46 : 34
   return (
     <button
-      onClick={onClick}
-      disabled={disabled}
-      title={title}
+      onClick={onClick} disabled={disabled} title={title}
       style={{
         width: size, height: size,
         display: 'flex', alignItems: 'center', justifyContent: 'center',
-        borderRadius: 8, border: accent ? '1px solid #e8a02830' : '1px solid transparent',
-        background: active ? '#e8a02718' : accent ? '#e8a02712' : 'transparent',
-        color: active ? '#e8a027' : accent ? '#e8a027' : '#909098',
+        borderRadius: 8, border: 'none', background: 'transparent',
+        color: active || accent ? '#e8a027' : '#70708a',
         opacity: disabled ? 0.2 : 1,
         cursor: disabled ? 'default' : 'pointer',
-        transition: 'all 0.1s',
+        transition: 'color 0.1s, background 0.1s',
       }}
+      onMouseEnter={e => { if (!disabled) e.currentTarget.style.background = '#ffffff0d' }}
+      onMouseLeave={e => { e.currentTarget.style.background = 'transparent' }}
     >
       {children}
     </button>

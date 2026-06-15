@@ -8,12 +8,12 @@ function createWindow() {
     height: 900,
     minWidth: 900,
     minHeight: 600,
-    backgroundColor: '#1a1a1a',
+    backgroundColor: '#111116',
     titleBarStyle: 'hidden',
     titleBarOverlay: {
       color: '#111116',
       symbolColor: '#e8a027',
-      height: 72,
+      height: 100,   // matches TopBar height exactly
     },
     webPreferences: {
       preload: join(__dirname, '../preload/preload.cjs'),

@@ -56,3 +56,10 @@ body {
   --color-text-dim: #808098;
   --color-text-muted: #404055;
 }
+/* Window drag region for frameless Electron window */
+.app-drag-region {
+  -webkit-app-region: drag;
+}
+.app-no-drag {
+  -webkit-app-region: no-drag;
+}

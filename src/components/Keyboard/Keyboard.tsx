@@ -1,8 +1,9 @@
 import { useMemo, useCallback, useState, useEffect, useRef } from 'react'
+import { ChevronLeft, ChevronRight, Play } from 'lucide-react'
 import { useStore } from '../../store'
 import { isBlackKey } from '../../utils/midiParser'
 import { getNoteLabel } from '../../utils/noteNames'
-import { detectChord, localizeChord } from '../../utils/chordDetection'
+import { detectChord, detectChordWithInversion, localizeChord } from '../../utils/chordDetection'
 
 const RANGES: Record<number, { min: number; max: number }> = {
   61: { min: 36, max: 96 },
@@ -10,18 +11,50 @@ const RANGES: Record<number, { min: number; max: number }> = {
   88: { min: 21, max: 108 },
 }
 
+const CHORD_MIN_NOTES = 3
+const CHORD_DEBOUNCE_MS = 320
+const CHORD_HOLD_MS = 1600
+
+// Build inversion of a set of MIDI notes (rotate lowest note up an octave)
+function nextInversion(notes: Set<number>): Set<number> {
+  const sorted = Array.from(notes).sort((a, b) => a - b)
+  const [lowest, ...rest] = sorted
+  return new Set([...rest, lowest + 12])
+}
+
+function prevInversion(notes: Set<number>): Set<number> {
+  const sorted = Array.from(notes).sort((a, b) => a - b)
+  const highest = sorted[sorted.length - 1]
+  const rest = sorted.slice(0, -1)
+  return new Set([highest - 12, ...rest])
+}
+
 export default function Keyboard() {
   const keyboardSize = useStore((s) => s.keyboardSize)
   const activeKeys = useStore((s) => s.activeKeys)
   const activeKeyColors = useStore((s) => s.activeKeyColors)
   const noteNaming = useStore((s) => s.noteNaming)
+  const playbackState = useStore((s) => s.playbackState)
 
-  // Shift-lock chord state — notes held down manually
   const [lockedKeys, setLockedKeys] = useState<Set<number>>(new Set())
   const [lockedColors, setLockedColors] = useState<Map<number, string>>(new Map())
   const shiftHeldRef = useRef(false)
 
-  // Track shift key
+  // Smart chord display
+  const [displayedChord, setDisplayedChord] = useState<string | null>(null)
+  const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const holdRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const [showTooltip, setShowTooltip] = useState(false)
+
+  // Clear chord when playback stops
+  useEffect(() => {
+    if (playbackState === 'stopped') {
+      if (debounceRef.current) clearTimeout(debounceRef.current)
+      if (holdRef.current) clearTimeout(holdRef.current)
+      setDisplayedChord(null)
+    }
+  }, [playbackState])
+
   useEffect(() => {
     const down = (e: KeyboardEvent) => { if (e.key === 'Shift') shiftHeldRef.current = true }
     const up = (e: KeyboardEvent) => { if (e.key === 'Shift') shiftHeldRef.current = false }
@@ -31,16 +64,13 @@ export default function Keyboard() {
   }, [])
 
   const { min, max } = RANGES[keyboardSize]
-
   const keys = useMemo(() => {
     const list: { midi: number; isBlack: boolean }[] = []
     for (let m = min; m <= max; m++) list.push({ midi: m, isBlack: isBlackKey(m) })
     return list
   }, [min, max])
-
   const whiteKeys = keys.filter(k => !k.isBlack)
 
-  // Merge active (from MIDI playback) + locked (from shift-click)
   const allActiveKeys = useMemo(() => {
     const merged = new Set(activeKeys)
     lockedKeys.forEach(k => merged.add(k))
@@ -58,14 +88,54 @@ export default function Keyboard() {
     return allActiveColors.get(midi) ?? '#e8a027'
   }
 
-  // Chord from locked keys (shift mode) or from playback
-  const displayKeys = lockedKeys.size > 0 ? lockedKeys : activeKeys
-  const rawChord = detectChord(displayKeys)
-  const chord = localizeChord(rawChord, noteNaming)
+  // Smart playback chord detection
+  useEffect(() => {
+    if (lockedKeys.size > 0) return
+    if (activeKeys.size >= CHORD_MIN_NOTES) {
+      if (debounceRef.current) clearTimeout(debounceRef.current)
+      if (holdRef.current) clearTimeout(holdRef.current)
+      debounceRef.current = setTimeout(() => {
+        const raw = detectChord(activeKeys)
+        const localized = localizeChord(raw, noteNaming)
+        if (localized) {
+          setDisplayedChord(localized)
+          holdRef.current = setTimeout(() => setDisplayedChord(null), CHORD_HOLD_MS)
+        }
+      }, CHORD_DEBOUNCE_MS)
+    } else {
+      if (debounceRef.current) { clearTimeout(debounceRef.current); debounceRef.current = null }
+    }
+  }, [activeKeys, lockedKeys.size, noteNaming])
+
+  const lockedChordInfo = lockedKeys.size > 0 ? detectChordWithInversion(lockedKeys) : null
+  const rawLockedChord = lockedChordInfo?.name ?? null
+  const lockedChord = localizeChord(rawLockedChord, noteNaming)
+  const lockedInvLabel = lockedChordInfo?.invLabel ?? ''
+  const shownChord = lockedKeys.size > 0 ? lockedChord : displayedChord
+  const shownInvLabel = lockedKeys.size > 0 ? lockedInvLabel : ''
+  const isLocked = lockedKeys.size > 0
+
+  // Play locked chord
+  const playLockedChord = useCallback(() => {
+    const playNote = (window as any).__orfeoPlayNote
+    if (!playNote) return
+    lockedKeys.forEach(midi => playNote(midi, 0.75, 800))
+  }, [lockedKeys])
+
+  // Inversion controls
+  const applyInversion = useCallback((fn: (n: Set<number>) => Set<number>) => {
+    const newKeys = fn(lockedKeys)
+    const newColors = new Map<number, string>()
+    newKeys.forEach(k => newColors.set(k, '#e8a027'))
+    setLockedKeys(newKeys)
+    setLockedColors(newColors)
+    // Auto-play the new inversion
+    const playNote = (window as any).__orfeoPlayNote
+    if (playNote) newKeys.forEach(midi => playNote(midi, 0.7, 600))
+  }, [lockedKeys])
 
   const handleKeyClick = useCallback((midi: number) => {
     if (shiftHeldRef.current) {
-      // Shift held: toggle this key in the locked chord
       setLockedKeys(prev => {
         const next = new Set(prev)
         if (next.has(midi)) {
@@ -74,14 +144,12 @@ export default function Keyboard() {
         } else {
           next.add(midi)
           setLockedColors(c => { const nc = new Map(c); nc.set(midi, '#e8a027'); return nc })
-          // Still play the note
           const playNote = (window as any).__orfeoPlayNote
           if (playNote) playNote(midi, 0.7, 600)
         }
         return next
       })
     } else {
-      // Normal click: clear lock, play note
       if (lockedKeys.size > 0) {
         setLockedKeys(new Set())
         setLockedColors(new Map())
@@ -91,69 +159,121 @@ export default function Keyboard() {
     }
   }, [lockedKeys])
 
-  const isLocked = lockedKeys.size > 0
-
   return (
     <div style={{ display: 'flex', flexDirection: 'column' }}>
-      {/* Chord + hint bar */}
+      {/* Chord bar */}
       <div style={{
-        height: 28,
+        height: 30,
         background: '#0d0d12',
         borderTop: '1px solid #1e1e28',
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'center',
-        gap: 12,
+        gap: 8,
+        padding: '0 12px',
         position: 'relative',
       }}>
-        {/* Chord display */}
-        <span style={{
-          fontFamily: 'JetBrains Mono',
-          fontSize: chord ? 14 : 11,
-          fontWeight: chord ? 700 : 400,
-          color: chord ? '#e8a027' : '#2a2a3a',
-          letterSpacing: chord ? '0.05em' : '0.03em',
-          transition: 'all 0.15s',
-          minWidth: 80,
-          textAlign: 'center',
-        }}>
-          {chord ?? (isLocked ? '—' : 'no chord')}
-        </span>
-
-        {/* Lock indicator */}
-        {isLocked && (
-          <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+        {/* CHORDS label + info icon — fixed left, amber */}
+        <div style={{ position: 'absolute', left: 10, display: 'flex', alignItems: 'center', gap: 4 }}>
+          <span style={{ fontFamily: 'Inter', fontSize: 9, fontWeight: 700, color: '#e8a027', letterSpacing: '0.12em', textTransform: 'uppercase' }}>
+            Chords
+          </span>
+          {/* Info icon right of CHORDS label */}
+          <div
+            style={{ display: 'flex', alignItems: 'center' }}
+            onMouseEnter={() => setShowTooltip(true)}
+            onMouseLeave={() => setShowTooltip(false)}
+          >
             <span style={{
-              fontSize: 10, color: '#e8a02788',
-              fontFamily: 'Inter', letterSpacing: '0.04em'
-            }}>
+              width: 13, height: 13, borderRadius: '50%',
+              border: '1px solid #e8a02750', color: '#e8a027', fontSize: 7,
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+              cursor: 'default', fontFamily: 'Inter', fontWeight: 700, userSelect: 'none',
+            }}>i</span>
+            {showTooltip && (
+              <div style={{
+                position: 'absolute', left: 72, bottom: 0,
+                background: '#1a1a2e', border: '1px solid #2a2a40',
+                borderRadius: 6, padding: '7px 10px',
+                whiteSpace: 'nowrap', zIndex: 100,
+                fontSize: 10, color: '#8080a8', fontFamily: 'Inter',
+                lineHeight: 1.6, pointerEvents: 'none',
+                boxShadow: '0 4px 16px rgba(0,0,0,0.6)',
+              }}>
+                Chord name appears here during playback (3+ notes)<br />
+                <span style={{ color: '#404060' }}>
+                  Shift+click keys to build &amp; lock a chord<br />
+                  Use ‹ › to cycle inversions · ▶ to hear it
+                </span>
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* Chord name — always centred */}
+        <div style={{ display: 'flex', alignItems: 'baseline', gap: 5, minWidth: 80, justifyContent: 'center' }}>
+          <span style={{
+            fontFamily: 'JetBrains Mono',
+            fontSize: shownChord ? 14 : 10,
+            fontWeight: shownChord ? 700 : 400,
+            color: shownChord ? '#e8a027' : '#222235',
+            letterSpacing: shownChord ? '0.05em' : '0.03em',
+            transition: 'color 0.2s, font-size 0.15s',
+            textAlign: 'center',
+          }}>
+            {shownChord ?? '— — —'}
+          </span>
+          {shownInvLabel && (
+            <span style={{ fontSize: 9, color: '#e8a02799', fontFamily: 'Inter', whiteSpace: 'nowrap' }}>
+              {shownInvLabel}
+            </span>
+          )}
+        </div>
+
+        {/* Lock controls — shown when locked */}
+        {isLocked && (
+          <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+            {/* Prev inversion */}
+            <button onClick={() => applyInversion(prevInversion)} title="Previous inversion"
+              style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#606080', padding: '2px 3px', borderRadius: 3, display: 'flex', alignItems: 'center' }}
+              onMouseEnter={e => e.currentTarget.style.color = '#e8a027'}
+              onMouseLeave={e => e.currentTarget.style.color = '#606080'}
+            >
+              <ChevronLeft size={13} />
+            </button>
+
+            <span style={{ fontSize: 9, color: '#e8a02770', fontFamily: 'Inter', letterSpacing: '0.04em' }}>
               CHORD LOCK
             </span>
-            <button
-              onClick={() => { setLockedKeys(new Set()); setLockedColors(new Map()) }}
+
+            {/* Play button */}
+            <button onClick={playLockedChord} title="Play this chord"
+              style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#606080', padding: '2px 3px', borderRadius: 3, display: 'flex', alignItems: 'center' }}
+              onMouseEnter={e => e.currentTarget.style.color = '#e8a027'}
+              onMouseLeave={e => e.currentTarget.style.color = '#606080'}
+            >
+              <Play size={11} fill="currentColor" />
+            </button>
+
+            {/* Next inversion */}
+            <button onClick={() => applyInversion(nextInversion)} title="Next inversion"
+              style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#606080', padding: '2px 3px', borderRadius: 3, display: 'flex', alignItems: 'center' }}
+              onMouseEnter={e => e.currentTarget.style.color = '#e8a027'}
+              onMouseLeave={e => e.currentTarget.style.color = '#606080'}
+            >
+              <ChevronRight size={13} />
+            </button>
+
+            <button onClick={() => { setLockedKeys(new Set()); setLockedColors(new Map()) }}
               title="Clear chord lock"
-              style={{
-                fontSize: 9, color: '#404055',
-                background: '#1a1a22', border: '1px solid #2a2a35',
-                borderRadius: 3, padding: '1px 5px', cursor: 'pointer',
-                fontFamily: 'Inter',
-              }}
+              style={{ fontSize: 8, color: '#40404e', background: '#1a1a22', border: '1px solid #2a2a35', borderRadius: 3, padding: '1px 5px', cursor: 'pointer', fontFamily: 'Inter' }}
             >
               clear
             </button>
           </div>
         )}
 
-        {/* Shift hint when not locked */}
-        {!isLocked && (
-          <span style={{
-            position: 'absolute', right: 10,
-            fontSize: 9, color: '#252535',
-            fontFamily: 'Inter', letterSpacing: '0.03em',
-          }}>
-            Shift+click to lock chord
-          </span>
-        )}
+
       </div>
 
       {/* Piano keys */}
@@ -187,10 +307,8 @@ export default function Keyboard() {
                 }}
               >
                 {label && (
-                  <span
-                    className="text-[9px] font-semibold pointer-events-none"
-                    style={{ color: color ? '#fff' : '#888', fontFamily: 'JetBrains Mono' }}
-                  >
+                  <span className="text-[9px] font-semibold pointer-events-none"
+                    style={{ color: color ? '#fff' : '#888', fontFamily: 'JetBrains Mono' }}>
                     {label}
                   </span>
                 )}
@@ -215,9 +333,7 @@ export default function Keyboard() {
                 title={getNoteLabel(k.midi, noteNaming) || undefined}
                 className="absolute top-0 cursor-pointer pointer-events-auto"
                 style={{
-                  left: `${leftPct}%`,
-                  width: `${widthPct}%`,
-                  height: '65%',
+                  left: `${leftPct}%`, width: `${widthPct}%`, height: '65%',
                   background: color ?? '#1a1a22',
                   borderRadius: '0 0 4px 4px',
                   border: locked ? `2px solid ${color}` : '1px solid #0a0a0f',

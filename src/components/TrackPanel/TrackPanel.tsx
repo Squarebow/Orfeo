@@ -1,16 +1,18 @@
 import { useMemo, useState } from 'react'
-import { ChevronRight, ChevronLeft, Eye, EyeOff, Volume2, VolumeX, ChevronDown, ChevronUp } from 'lucide-react'
+import { ChevronRight, ChevronLeft, Eye, EyeOff, Volume2, VolumeX, ChevronDown, Music2 } from 'lucide-react'
 import { useStore } from '../../store'
 import { GM_GROUPS } from '../../utils/gmInstruments'
 import type { TrackState } from '../../types'
 
-// Group order for display
 const GROUP_ORDER = [
   'piano', 'chromatic', 'organ', 'guitar', 'bass',
   'strings', 'ensemble', 'brass', 'reed', 'pipe',
   'synth_lead', 'synth_pad', 'synth_fx', 'ethnic',
   'percussive', 'sfx', 'drums',
 ]
+
+// Groups that show on keyboard by default
+const KEYBOARD_GROUPS = new Set(['piano', 'chromatic', 'organ'])
 
 export default function TrackPanel() {
   const tracks = useStore((s) => s.tracks)
@@ -19,10 +21,8 @@ export default function TrackPanel() {
   const setTrackPanelOpen = useStore((s) => s.setTrackPanelOpen)
   const updateTrack = useStore((s) => s.updateTrack)
   const muteGroup = useStore((s) => s.muteGroup)
-
   const [collapsedGroups, setCollapsedGroups] = useState<Set<string>>(new Set())
 
-  // Group tracks by GM group
   const grouped = useMemo(() => {
     const map = new Map<string, TrackState[]>()
     for (const track of tracks) {
@@ -30,7 +30,6 @@ export default function TrackPanel() {
       if (!map.has(g)) map.set(g, [])
       map.get(g)!.push(track)
     }
-    // Sort groups by GM_ORDER
     return GROUP_ORDER
       .filter(g => map.has(g))
       .map(g => ({ key: g, label: GM_GROUPS[g]?.label ?? g, tracks: map.get(g)! }))
@@ -41,8 +40,7 @@ export default function TrackPanel() {
   const toggleGroupCollapse = (group: string) => {
     setCollapsedGroups(prev => {
       const next = new Set(prev)
-      if (next.has(group)) next.delete(group)
-      else next.add(group)
+      if (next.has(group)) next.delete(group); else next.add(group)
       return next
     })
   }
@@ -50,52 +48,68 @@ export default function TrackPanel() {
   const isGroupMuted = (groupKey: string) =>
     tracks.filter(t => t.group === groupKey).every(t => t.muted)
 
-  const handleGroupMute = (groupKey: string) => {
-    muteGroup(groupKey, !isGroupMuted(groupKey))
-  }
-
   return (
     <div
-      className="flex flex-col shrink-0 relative"
       style={{
-        width: trackPanelOpen ? 240 : 32,
-        background: '#141418',
-        borderLeft: '1px solid #2a2a35',
+        width: trackPanelOpen ? 260 : 32,
+        background: '#13131a',
+        borderLeft: '1px solid #222230',
         transition: 'width 0.2s ease',
         overflow: 'hidden',
+        display: 'flex',
+        flexDirection: 'column',
+        flexShrink: 0,
+        position: 'relative',
       }}
     >
-      {/* Toggle arrow */}
+      {/* Collapse toggle */}
       <button
         onClick={() => setTrackPanelOpen(!trackPanelOpen)}
         title={trackPanelOpen ? 'Close track panel' : 'Open track panel'}
-        className="absolute top-2 left-0 z-10 p-1 rounded-r"
-        style={{ background: '#1e1e2a', border: '1px solid #2e2e3e', borderLeft: 'none', color: '#606075' }}
+        style={{
+          position: 'absolute', top: 10, left: 0, zIndex: 10,
+          padding: '4px 3px', borderRadius: '0 4px 4px 0',
+          background: '#1e1e2c', border: '1px solid #2a2a3a', borderLeft: 'none',
+          color: '#50506a', cursor: 'pointer',
+        }}
       >
-        {trackPanelOpen ? <ChevronRight size={14} /> : <ChevronLeft size={14} />}
+        {trackPanelOpen ? <ChevronRight size={13} /> : <ChevronLeft size={13} />}
       </button>
 
       {trackPanelOpen && (
-        <div className="flex flex-col h-full overflow-hidden">
+        <div style={{ display: 'flex', flexDirection: 'column', height: '100%', overflow: 'hidden' }}>
+
           {/* Header */}
-          <div
-            className="flex items-center px-3 shrink-0"
-            style={{ height: 36, borderBottom: '1px solid #252530' }}
-          >
-            <span className="text-xs font-semibold uppercase tracking-wider" style={{ color: '#505065' }}>
+          <div style={{
+            height: 40, display: 'flex', alignItems: 'center',
+            padding: '0 14px 0 36px',
+            borderBottom: '1px solid #1e1e2c', flexShrink: 0,
+            gap: 8,
+          }}>
+            <Music2 size={14} style={{ color: '#50506a', flexShrink: 0 }} />
+            <span style={{ color: '#8080a0', fontSize: 11, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.1em' }}>
               Tracks
             </span>
             {midi && (
-              <span className="ml-auto text-xs" style={{ color: '#404055', fontFamily: 'JetBrains Mono' }}>
+              <span style={{ marginLeft: 'auto', color: '#50506a', fontSize: 11, fontFamily: 'JetBrains Mono' }}>
                 {tracks.length}
               </span>
             )}
+            {/* Placeholder for soundfont switcher */}
+            <button
+              title="Switch soundfont — coming soon"
+              style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#30303e', padding: 2 }}
+            >
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/>
+              </svg>
+            </button>
           </div>
 
           {/* Track list */}
-          <div className="flex-1 overflow-y-auto">
+          <div style={{ flex: 1, overflowY: 'auto', padding: '4px 0' }}>
             {!midi && (
-              <div className="p-3 text-xs" style={{ color: '#3a3a50' }}>
+              <div style={{ padding: '12px 14px', fontSize: 11, color: '#35354a' }}>
                 Open a MIDI file to see tracks
               </div>
             )}
@@ -105,62 +119,50 @@ export default function TrackPanel() {
               const groupMuted = isGroupMuted(key)
 
               return (
-                <div key={key}>
-                  {/* Group header */}
-                  <div
-                    className="flex items-center gap-1 px-2 py-1 select-none"
-                    style={{
-                      background: '#1a1a22',
-                      borderBottom: '1px solid #252530',
-                      borderTop: '1px solid #252530',
-                    }}
-                  >
-                    {/* Collapse toggle */}
+                <div key={key} style={{ marginBottom: 2 }}>
+                  {/* Group header row */}
+                  <div style={{
+                    display: 'flex', alignItems: 'center', gap: 6,
+                    padding: '5px 10px 5px 10px',
+                    background: '#0e0e16',
+                    borderTop: '1px solid #1a1a26',
+                    borderBottom: '1px solid #1a1a26',
+                  }}>
                     <button
                       onClick={() => toggleGroupCollapse(key)}
-                      className="p-0.5 rounded opacity-60 hover:opacity-100"
-                      style={{ color: '#808098' }}
-                      title={collapsed ? 'Expand group' : 'Collapse group'}
+                      style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#50506a', padding: 0, display: 'flex', alignItems: 'center' }}
+                      title={collapsed ? 'Expand' : 'Collapse'}
                     >
-                      {collapsed ? <ChevronRight size={11} /> : <ChevronDown size={11} />}
+                      <ChevronDown size={11} style={{ transform: collapsed ? 'rotate(-90deg)' : 'none', transition: 'transform 0.15s' }} />
                     </button>
 
-                    {/* Group name */}
-                    <span
-                      className="flex-1 text-xs font-semibold uppercase tracking-wider"
-                      style={{ color: '#808098', letterSpacing: '0.08em' }}
-                    >
+                    <span style={{ flex: 1, fontSize: 10, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.1em', color: '#70709a' }}>
                       {label}
                     </span>
-
-                    {/* Track count */}
-                    <span className="text-xs mr-1" style={{ color: '#404055', fontFamily: 'JetBrains Mono' }}>
+                    <span style={{ fontSize: 10, color: '#40404e', fontFamily: 'JetBrains Mono' }}>
                       {groupTracks.length}
                     </span>
-
-                    {/* Group mute all */}
                     <button
-                      onClick={() => handleGroupMute(key)}
+                      onClick={() => muteGroup(key, !groupMuted)}
                       title={groupMuted ? `Unmute all ${label}` : `Mute all ${label}`}
-                      className="px-1.5 py-0.5 rounded text-[9px] font-bold transition-all"
                       style={{
-                        background: groupMuted ? '#e8a02730' : '#ffffff10',
-                        color: groupMuted ? '#e8a027' : '#505065',
-                        border: groupMuted ? '1px solid #e8a02750' : '1px solid transparent',
+                        background: 'none', border: 'none', cursor: 'pointer',
+                        padding: '2px 4px', display: 'flex', alignItems: 'center',
+                        color: groupMuted ? '#e8a027' : '#404055',
                       }}
                     >
-                      {groupMuted ? 'UNMUTE' : 'MUTE'}
+                      {groupMuted ? <VolumeX size={12} /> : <Volume2 size={12} />}
                     </button>
                   </div>
 
-                  {/* Tracks in group */}
+                  {/* Track rows */}
                   {!collapsed && groupTracks.map((track) => {
-                    const isEffectivelyMuted = track.muted || (hasSolo && !track.solo)
+                    const effectivelyMuted = track.muted || (hasSolo && !track.solo)
                     return (
                       <TrackRow
                         key={track.index}
                         track={track}
-                        dimmed={isEffectivelyMuted}
+                        dimmed={effectivelyMuted}
                         onMute={() => updateTrack(track.index, { muted: !track.muted })}
                         onSolo={() => updateTrack(track.index, { solo: !track.solo })}
                         onVisible={() => updateTrack(track.index, { visible: !track.visible })}
@@ -179,83 +181,84 @@ export default function TrackPanel() {
 }
 
 function TrackRow({ track, dimmed, onMute, onSolo, onVisible, onKeyboard }: {
-  track: TrackState
-  dimmed: boolean
-  onMute: () => void
-  onSolo: () => void
-  onVisible: () => void
-  onKeyboard: () => void
+  track: TrackState; dimmed: boolean
+  onMute: () => void; onSolo: () => void; onVisible: () => void; onKeyboard: () => void
 }) {
+  // Friendly channel/program label
+  const ch = (track as any).channel != null ? (track as any).channel + 1 : track.index + 1
+  const prog = track.isDrum ? 'drums' : `prog ${track.program + 1}`
+  const tooltip = `Track ${track.index + 1} · MIDI channel ${ch} · ${prog}`
+
   return (
     <div
-      className="flex items-center gap-1.5 px-2 py-1.5"
+      title={tooltip}
       style={{
-        borderBottom: '1px solid #1a1a24',
-        opacity: dimmed ? 0.4 : 1,
+        display: 'flex', alignItems: 'center', gap: 8,
+        padding: '6px 10px 6px 14px',
+        borderBottom: '1px solid #181822',
+        opacity: dimmed ? 0.45 : 1,
         transition: 'opacity 0.15s',
       }}
-      title={`${track.gmName} (ch ${track.channel ?? track.index + 1}, prog ${track.program >= 0 ? track.program + 1 : 'Drums'})`}
     >
-      {/* Color swatch */}
-      <div
-        className="shrink-0 rounded-sm"
-        style={{ width: 3, height: 28, background: track.color, opacity: dimmed ? 0.5 : 1 }}
-      />
+      {/* Color bar */}
+      <div style={{ width: 3, height: 30, background: track.color, borderRadius: 2, flexShrink: 0, opacity: dimmed ? 0.6 : 1 }} />
 
-      {/* Track info */}
-      <div className="flex-1 min-w-0">
-        <div className="text-xs truncate font-medium" style={{ color: '#c0c0d8' }}>
+      {/* Info */}
+      <div style={{ flex: 1, minWidth: 0 }}>
+        <div style={{ fontSize: 12, fontWeight: 500, color: '#c8c8e0', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
           {track.gmName}
         </div>
-        <div className="text-[9px]" style={{ color: '#404055', fontFamily: 'JetBrains Mono' }}>
-          #{track.index + 1} · ch {(track as any).channel ?? track.index}
-          {track.isDrum ? ' · drums' : ` · prog ${track.program + 1}`}
+        <div style={{ display: 'flex', gap: 6, marginTop: 2 }}>
+          <span style={{ fontSize: 9, color: '#404058', fontFamily: 'JetBrains Mono' }}>track {track.index + 1}</span>
+        </div>
+        <div style={{ display: 'flex', gap: 6, marginTop: 1 }}>
+          <span style={{ fontSize: 9, color: '#383850', fontFamily: 'JetBrains Mono' }}>ch {ch}</span>
+          <span style={{ fontSize: 9, color: '#383850', fontFamily: 'JetBrains Mono' }}>·</span>
+          <span style={{ fontSize: 9, color: '#383850', fontFamily: 'JetBrains Mono' }}>{prog}</span>
         </div>
       </div>
 
-      {/* Controls */}
-      <div className="flex items-center gap-0.5 shrink-0">
-        <TrkBtn onClick={onMute} active={track.muted} title={track.muted ? 'Unmute' : 'Mute'}>
-          {track.muted ? <VolumeX size={10} /> : <Volume2 size={10} />}
-        </TrkBtn>
-        <TrkBtn onClick={onSolo} active={track.solo} accent title={track.solo ? 'Unsolo' : 'Solo'}>
-          <span className="text-[9px] font-bold leading-none">S</span>
-        </TrkBtn>
-        <TrkBtn onClick={onVisible} active={!track.visible} title={track.visible ? 'Hide in roll' : 'Show in roll'}>
-          {track.visible ? <Eye size={10} /> : <EyeOff size={10} />}
-        </TrkBtn>
-        <TrkBtn onClick={onKeyboard} active={track.showOnKeyboard} accent title={track.showOnKeyboard ? 'Hide on keyboard' : 'Show on keyboard'}>
-          <svg width="11" height="8" viewBox="0 0 11 8" fill="none">
-            <rect x="0.5" y="0.5" width="10" height="7" rx="1" stroke="currentColor" strokeWidth="0.8"/>
-            <rect x="2" y="0.5" width="1.2" height="4" rx="0.3" fill="currentColor"/>
-            <rect x="4" y="0.5" width="1.2" height="4" rx="0.3" fill="currentColor"/>
-            <rect x="6" y="0.5" width="1.2" height="4" rx="0.3" fill="currentColor"/>
-            <rect x="8" y="0.5" width="1.2" height="4" rx="0.3" fill="currentColor"/>
+      {/* Control icons — no backgrounds, color = state */}
+      <div style={{ display: 'flex', alignItems: 'center', gap: 4, flexShrink: 0 }}>
+        <IBtn onClick={onMute} active={track.muted} title={track.muted ? 'Unmute' : 'Mute'} activeColor="#d04040">
+          <span style={{ fontSize: 11, fontWeight: 700, fontFamily: 'JetBrains Mono', lineHeight: 1 }}>M</span>
+        </IBtn>
+        <IBtn onClick={onSolo} active={track.solo} title={track.solo ? 'Unsolo' : 'Solo'} activeColor="#e8a027">
+          <span style={{ fontSize: 10, fontWeight: 700, fontFamily: 'JetBrains Mono', lineHeight: 1 }}>S</span>
+        </IBtn>
+        <IBtn onClick={onVisible} active={!track.visible} title={track.visible ? 'Hide in roll' : 'Show in roll'} activeColor="#6080c0">
+          {track.visible ? <Eye size={12} /> : <EyeOff size={12} />}
+        </IBtn>
+        <IBtn onClick={onKeyboard} active={track.showOnKeyboard} title={track.showOnKeyboard ? 'Lit on keyboard' : 'Not lit on keyboard'} activeColor="#e8a027">
+          {/* Mini piano icon */}
+          <svg width="13" height="9" viewBox="0 0 13 9" fill="none">
+            <rect x="0.5" y="0.5" width="12" height="8" rx="1" stroke="currentColor" strokeWidth="0.9"/>
+            <rect x="2.5" y="0.5" width="1.3" height="5" rx="0.4" fill="currentColor"/>
+            <rect x="5"   y="0.5" width="1.3" height="5" rx="0.4" fill="currentColor"/>
+            <rect x="7.5" y="0.5" width="1.3" height="5" rx="0.4" fill="currentColor"/>
+            <rect x="10"  y="0.5" width="1.3" height="5" rx="0.4" fill="currentColor"/>
           </svg>
-        </TrkBtn>
+        </IBtn>
       </div>
     </div>
   )
 }
 
-function TrkBtn({ children, onClick, active, accent, title }: {
-  children: React.ReactNode
-  onClick: () => void
-  active?: boolean
-  accent?: boolean
-  title?: string
+function IBtn({ children, onClick, active, title, activeColor = '#e8a027' }: {
+  children: React.ReactNode; onClick: () => void
+  active?: boolean; title?: string; activeColor?: string
 }) {
   return (
     <button
-      onClick={onClick}
-      title={title}
-      className="flex items-center justify-center rounded p-1 transition-colors"
+      onClick={onClick} title={title}
       style={{
-        background: active ? (accent ? '#e8a02720' : '#ffffff12') : 'transparent',
-        color: active ? (accent ? '#e8a027' : '#d0d0e0') : '#454560',
-        width: 20,
-        height: 20,
+        display: 'flex', alignItems: 'center', justifyContent: 'center',
+        width: 22, height: 22, background: 'none', border: 'none', cursor: 'pointer',
+        color: active ? activeColor : '#404058',
+        borderRadius: 4, transition: 'color 0.1s',
       }}
+      onMouseEnter={e => { if (!active) e.currentTarget.style.color = '#808098' }}
+      onMouseLeave={e => { e.currentTarget.style.color = active ? activeColor : '#404058' }}
     >
       {children}
     </button>

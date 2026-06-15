@@ -3,8 +3,7 @@ import { useStore } from '../store'
 
 // ---------------------------------------------------------------------------
 // JZZ audio engine — plays raw MIDI through jzz-synth-tiny (GM sounds)
-// The original freeze was caused by initializing on app startup.
-// Fix: init ONLY when user first presses play, not on mount.
+// Init ONLY when user first presses play (prevents startup freeze on Windows)
 // ---------------------------------------------------------------------------
 
 let _jzzReady = false
@@ -12,6 +11,7 @@ let _jzzInitP: Promise<void> | null = null
 let _JZZ: any = null
 let _port: any = null
 let _player: any = null
+let _notePortReady = false  // tracks whether we've sent program change for click playback
 
 function initJZZ(): Promise<void> {
   if (_jzzReady) return Promise.resolve()
@@ -27,7 +27,6 @@ function initJZZ(): Promise<void> {
       const tinyMod = await import('jzz-synth-tiny')
       ;(tinyMod.default ?? tinyMod)(_JZZ)
 
-      // List available ports first for debugging
       const engine = _JZZ()
       await new Promise<void>((resolve) => {
         engine.and(function(this: any) {
@@ -43,6 +42,7 @@ function initJZZ(): Promise<void> {
         _JZZ().openMidiOut().and(function(this: any) {
           _port = this
           _jzzReady = true
+          _notePortReady = false  // need to init program
           console.log('[Orfeo] Using system MIDI out:', this.name())
           resolve()
         }).or(() => {
@@ -50,6 +50,7 @@ function initJZZ(): Promise<void> {
           _JZZ.synth.Tiny().and(function(this: any) {
             _port = this
             _jzzReady = true
+            _notePortReady = false
             console.log('[Orfeo] Using jzz-synth-tiny')
             resolve()
           }).or((e: any) => {
@@ -66,6 +67,22 @@ function initJZZ(): Promise<void> {
     }
   })()
   return _jzzInitP
+}
+
+// Send Grand Piano program change on ch 9 (0-indexed) — dedicated click channel
+// Note: ch 9 (0-indexed) is normally drums in GM but we use it here for clicks
+// since jzz-synth-tiny doesn't enforce the ch10=drums rule strictly.
+// Actually safest: use ch 14 (0-indexed) = ch 15 in 1-indexed, avoids GM drum channel 9
+function ensureClickChannel() {
+  if (_notePortReady || !_port) return
+  try {
+    // Ch 14 (0-indexed), program 0 = Acoustic Grand Piano
+    _port.send([0xCE, 0])   // Program Change ch 14, prog 0
+    _notePortReady = true
+    console.log('[Orfeo] Click channel initialized (ch 14, Grand Piano)')
+  } catch (e) {
+    console.warn('[Orfeo] ensureClickChannel error:', e)
+  }
 }
 
 // ---------------------------------------------------------------------------
@@ -136,11 +153,12 @@ function buildPlayer(startSec: number) {
       if (hasSolo && !ts.solo) mutedCh.add(tr.channel)
     }
 
-    // Schedule key lighting from note data
+    // Schedule key lighting from note data (only for tracks with showOnKeyboard)
     for (const track of midiData.tracks) {
       const ts = tracks.find((t: any) => t.index === track.index)
       if (!ts || ts.muted || !ts.visible) continue
       if (hasSolo && !ts.solo) continue
+      if (!ts.showOnKeyboard) continue  // only keyboard-type tracks light keys
       const color = ts.color ?? '#e8a027'
       for (const note of track.notes) {
         const noteStart = note.time / ratio
@@ -176,6 +194,8 @@ function buildPlayer(startSec: number) {
       useStore.setState({ playbackState: 'stopped', currentTime: 0 })
       ;(window as any).__orfeoPlayer = null
       clearAllKeys()
+      // reset click channel ready flag so it re-inits after file playback
+      _notePortReady = false
     }
 
     player.speed(ratio)
@@ -199,6 +219,7 @@ function stopAudio() {
       for (let ch = 0; ch < 16; ch++) _port.send([0xB0 | ch, 123, 0])
     } catch {}
   }
+  _notePortReady = false
 }
 
 // ---------------------------------------------------------------------------
@@ -216,15 +237,17 @@ export function useAudioEngine() {
       try {
         await initJZZ()
         if (!_port) { console.warn('[Orfeo] playNote: no port'); return }
-        _port.send([0x90, midiNum, vel])
-        setTimeout(() => { try { _port.send([0x80, midiNum, 0]) } catch {} }, durMs)
+        // Ensure Grand Piano is set on our dedicated click channel (ch 15)
+        ensureClickChannel()
+        // Use ch 14 (0x9E = note on ch 14) — dedicated click channel with Grand Piano
+        _port.send([0x9E, midiNum, Math.round(vel * 127)])
+        setTimeout(() => {
+          try { _port.send([0x8E, midiNum, 0]) } catch {}
+        }, durMs)
         lightKey(midiNum, '#e8a027', durMs + 100)
       } catch (e) { console.error('[Orfeo] playNote error:', e) }
     }
     ;(window as any).__orfeoPlayNote = playNote
-
-    // DO NOT init on mount — only init when user presses play
-    // This prevents the startup freeze
 
     return () => { delete (window as any).__orfeoPlayNote; stopAudio() }
   }, [])
