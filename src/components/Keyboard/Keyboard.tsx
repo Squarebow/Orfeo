@@ -175,7 +175,7 @@ export default function Keyboard() {
       }}>
         {/* CHORDS label + info icon — fixed left, amber */}
         <div style={{ position: 'absolute', left: 10, display: 'flex', alignItems: 'center', gap: 4 }}>
-          <span style={{ fontFamily: 'Inter', fontSize: 9, fontWeight: 700, color: '#e8a027', letterSpacing: '0.12em', textTransform: 'uppercase' }}>
+          <span style={{ fontFamily: 'Inter', fontSize: 9, fontWeight: 700, color: '#707088', letterSpacing: '0.12em', textTransform: 'uppercase' }}>
             Chords
           </span>
           {/* Info icon right of CHORDS label */}

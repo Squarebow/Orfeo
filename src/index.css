@@ -7,9 +7,33 @@
   padding: 0;
 }
 
+:root {
+  /* Backgrounds */
+  --bg:        #0f0f12;
+  --bg-panel:  #13131a;
+  --bg-panel2: #1a1a22;
+  --bg-row:    #0e0e16;
+
+  /* Borders */
+  --border:    #1e1e28;
+  --border2:   #252530;
+
+  /* Text colours */
+  --text-default: #7070888;   /* default UI text — TRACKS header colour */
+  --text-active:  #b0b0cc;   /* active/value text — 120, 4/4 colour */
+  --text-muted:   #404055;   /* very dim — labels, hints */
+  --text-amber:   #e8a027;   /* accent */
+
+  /* Shorthand for JS inline styles */
+  --c-default: #707088;
+  --c-active:  #b0b0cc;
+  --c-muted:   #404055;
+  --c-amber:   #e8a027;
+}
+
 body {
-  background: #0f0f12;
-  color: #d0d0e8;
+  background: var(--bg);
+  color: var(--c-default);
   font-family: 'Inter', system-ui, sans-serif;
   overflow: hidden;
   user-select: none;
@@ -21,6 +45,7 @@ body {
 ::-webkit-scrollbar-thumb { background: #252535; border-radius: 3px; }
 ::-webkit-scrollbar-thumb:hover { background: #353548; }
 
+/* Range slider — used for scrub and BPM */
 .scrub-slider {
   -webkit-appearance: none;
   appearance: none;
@@ -41,25 +66,17 @@ body {
   transition: transform 0.1s;
   border: 2px solid #0f0f12;
 }
-.scrub-slider::-webkit-slider-thumb:hover { transform: scale(1.2); }
-.scrub-slider:disabled { opacity: 0.3; cursor: default; }
+.scrub-slider::-webkit-slider-thumb:hover { transform: scale(1.3); }
+.scrub-slider:disabled { opacity: 0.25; cursor: default; }
 
-:root {
-  --color-bg: #0f0f12;
-  --color-panel: #13131a;
-  --color-panel-2: #1a1a22;
-  --color-border: #252530;
-  --color-border-2: #1e1e28;
-  --color-accent: #e8a027;
-  --color-accent-dim: #e8a02740;
-  --color-text: #d0d0e8;
-  --color-text-dim: #808098;
-  --color-text-muted: #404055;
-}
-/* Window drag region for frameless Electron window */
-.app-drag-region {
-  -webkit-app-region: drag;
-}
-.app-no-drag {
-  -webkit-app-region: no-drag;
-}
+/* Electron window drag regions */
+.app-drag-region { -webkit-app-region: drag; }
+.app-no-drag     { -webkit-app-region: no-drag; }
+
+/* Remove all button outlines and focus rings */
+button:focus { outline: none; }
+button:focus-visible { outline: none; }
+
+/* Suppress default OS titlebar overlay button hover backgrounds */
+::-webkit-scrollbar-button { display: none; }
+.titlebar-button { background: transparent !important; }

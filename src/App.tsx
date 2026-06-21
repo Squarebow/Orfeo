@@ -44,8 +44,6 @@ export default function App() {
   return (
     <div style={{ width: '100vw', height: '100vh', background: '#0f0f12', overflow: 'hidden', display: 'flex', flexDirection: 'column', fontFamily: "'Inter', system-ui, sans-serif" }}>
       <TopBar />
-      {/* Thin accent separator between topbar and content */}
-      <div style={{ height: 1, background: '#e8a02728', flexShrink: 0 }} />
       <div style={{ display: 'flex', flex: 1, minHeight: 0, overflow: 'hidden' }}>
         <div style={{ display: 'flex', flexDirection: 'column', flex: 1, minWidth: 0, overflow: 'hidden' }}>
           <div style={{ flex: 1, minHeight: 0, position: 'relative', paddingTop: 6 }}>

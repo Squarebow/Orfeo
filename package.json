@@ -1,6 +1,6 @@
 {
   "name": "orfeo",
-  "version": "0.1.0",
+  "version": "0.2.1",
   "description": "Modern piano learning app with MIDI visualization",
   "author": "SquareBow",
   "license": "MIT",
@@ -10,7 +10,40 @@
     "dev": "electron-vite dev",
     "build": "electron-vite build",
     "preview": "electron-vite preview",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "dist": "electron-vite build && electron-builder"
+  },
+  "build": {
+    "appId": "com.squarebow.orfeo",
+    "productName": "Orfeo",
+    "directories": {
+      "output": "release"
+    },
+    "files": [
+      "out/**/*",
+      "package.json"
+    ],
+    "win": {
+      "target": [
+        {
+          "target": "nsis",
+          "arch": [
+            "x64"
+          ]
+        }
+      ],
+      "icon": "public/icon.ico"
+    },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true
+    },
+    "mac": {
+      "target": "dmg",
+      "icon": "public/icon.icns"
+    }
   },
   "dependencies": {
     "@tonejs/midi": "^2.0.28",
@@ -30,6 +63,7 @@
     "@types/react-dom": "^19.1.5",
     "@vitejs/plugin-react": "^4.5.2",
     "electron": "^35.7.5",
+    "electron-builder": "^25.1.8",
     "electron-vite": "^3.1.0",
     "lucide-react": "^0.503.0",
     "react": "^19.1.0",

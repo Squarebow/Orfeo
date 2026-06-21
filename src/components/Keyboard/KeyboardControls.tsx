@@ -15,7 +15,7 @@ export default function KeyboardControls() {
     <div
       style={{
         height: 34,
-        background: '#0e0e14',
+        background: '#0d0d12',
         borderTop: '1px solid #1a1a24',
         display: 'flex',
         alignItems: 'center',
@@ -33,7 +33,7 @@ export default function KeyboardControls() {
             style={{
               padding: '2px 8px', borderRadius: 4,
               background: 'transparent',
-              color: keyboardSize === size ? '#e8a027' : '#45455e',
+              color: keyboardSize === size ? '#e8a027' : '#707088',
               border: 'none',
               fontFamily: 'JetBrains Mono', fontSize: 12, fontWeight: 600,
               cursor: 'pointer', transition: 'color 0.1s',
@@ -44,7 +44,7 @@ export default function KeyboardControls() {
         ))}
       </div>
 
-      <div style={{ width: 1, height: 14, background: '#252535' }} />
+      <div style={{ width: 1, height: 14, background: '#1e1e28' }} />
 
       {/* Dock / Float toggle with icons */}
       <button
@@ -53,7 +53,7 @@ export default function KeyboardControls() {
         style={{
           display: 'flex', alignItems: 'center', gap: 5,
           background: 'transparent', border: 'none', cursor: 'pointer',
-          color: isDocked ? '#45455e' : '#e8a027',
+          color: isDocked ? '#707088' : '#e8a027',
           fontSize: 11, fontFamily: 'Inter',
           padding: '2px 6px', borderRadius: 4,
           transition: 'color 0.1s',
@@ -87,7 +87,7 @@ function NoteCounter() {
   const midi = useStore((s) => s.midi)
   if (!midi) return null
   return (
-    <span style={{ color: '#30303e', fontSize: 10, fontFamily: 'JetBrains Mono' }} title="Total notes in file">
+    <span style={{ color: '#404055', fontSize: 10, fontFamily: 'JetBrains Mono' }} title="Total notes in file">
       {midi.noteCount.toLocaleString()} notes · {midi.tracks.length} tracks
     </span>
   )

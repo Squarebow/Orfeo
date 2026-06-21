@@ -13,7 +13,7 @@ function createWindow() {
     titleBarOverlay: {
       color: '#111116',
       symbolColor: '#e8a027',
-      height: 100,   // matches TopBar height exactly
+      height: 100,
     },
     webPreferences: {
       preload: join(__dirname, '../preload/preload.cjs'),

@@ -96,7 +96,7 @@ function makeTrackState(track: ParsedTrack): TrackState {
 export const useStore = create<OrfeoStore>((set, get) => ({
   midi: null,
   setMidi: (midi) => {
-    if (!midi) { set({ midi: null, tracks: [], currentTime: 0, playbackState: 'stopped' }); return }
+    if (!midi) { set({ midi: null, tracks: [], currentTime: 0, playbackState: 'stopped', trackPanelOpen: false }); return }
     set({
       midi,
       tracks: midi.tracks.map(makeTrackState),
@@ -104,6 +104,7 @@ export const useStore = create<OrfeoStore>((set, get) => ({
       playbackState: 'stopped',
       bpm: midi.bpm,
       originalBpm: midi.bpm,
+      trackPanelOpen: true,   // auto-open drawer when file loads
     })
   },
 
@@ -157,7 +158,7 @@ export const useStore = create<OrfeoStore>((set, get) => ({
   midiDeviceName: '',
   setMidiDevice: (midiDeviceConnected, midiDeviceName = '') => set({ midiDeviceConnected, midiDeviceName }),
 
-  trackPanelOpen: true,
+  trackPanelOpen: false,
   settingsOpen: false,
   setTrackPanelOpen: (trackPanelOpen) => set({ trackPanelOpen }),
   setSettingsOpen: (settingsOpen) => set({ settingsOpen }),
