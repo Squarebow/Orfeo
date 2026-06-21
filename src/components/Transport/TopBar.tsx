@@ -37,6 +37,7 @@ export default function TopBar() {
   const midiDeviceConnected = useStore((s) => s.midiDeviceConnected)
   const midiDeviceName = useStore((s) => s.midiDeviceName)
   const noteNaming = useStore((s) => s.noteNaming)
+  const accidentals = useStore((s) => s.accidentals)
 
   const { play, pause, stop, seek, seekAndPlay } = usePlayback()
   const { openFile } = useMidiFile()
@@ -74,7 +75,7 @@ export default function TopBar() {
   const transpose = detectedKey?.transpose ?? 0
   const duration = midi?.duration ?? 0
   const isTempoChanged = Math.abs(Math.round((bpm / originalBpm) * 100) - 100) > 1
-  const displayKey = detectedKey ? formatKey(detectedKey, noteNaming) : '—'
+  const displayKey = detectedKey ? formatKey(detectedKey, noteNaming, accidentals) : '—'
 
   return (
     <div

@@ -1,5 +1,6 @@
 import { Chord, Note } from 'tonal'
-import type { NoteNaming } from '../types'
+import type { NoteNaming, Accidentals } from '../types'
+import { convertAccidentals } from './noteNames'
 
 // ---------------------------------------------------------------------------
 // Core logic:
@@ -121,32 +122,41 @@ export function detectChordWithInversion(midiNotes: Set<number>): { name: string
 }
 
 // ---------------------------------------------------------------------------
-// Localize chord name to user's note naming system
+// Localize chord name to user's note naming system + accidental preference
 // ---------------------------------------------------------------------------
-export function localizeChord(chord: string | null, naming: NoteNaming): string | null {
-  if (!chord || naming === 'english') return chord
+export function localizeChord(
+  chord: string | null,
+  naming: NoteNaming,
+  accidentals: Accidentals = 'flat',
+): string | null {
+  if (!chord) return null
   if (naming === 'hidden') return null
 
+  // Step 1: apply accidental conversion first (tonal returns sharps by default)
+  let result = convertAccidentals(chord, accidentals)
+
+  // Step 2: apply note naming system
   if (naming === 'central-european') {
-    return chord
+    // In CE system: Bb = B, B natural = H
+    result = result
       .replace(/Bb/g, 'B')
       .replace(/B(?!b)/g, 'H')
+    return result
   }
 
   if (naming === 'solfege') {
-    const map: Record<string, string> = {
-      'C#': 'Do#', 'Db': 'Reb', 'C': 'Do',
-      'D#': 'Re#', 'Eb': 'Mib', 'D': 'Re',
-      'E': 'Mi', 'F#': 'Fa#', 'Gb': 'Solb', 'F': 'Fa',
-      'G#': 'Sol#', 'Ab': 'Lab', 'G': 'Sol',
-      'A#': 'La#', 'Bb': 'Sib', 'A': 'La',
-      'B': 'Si',
+    // Map the root note to solfège — longest match first to avoid partial hits
+    const sharpMap: Record<string, string> = {
+      'Do#': 'Do#', 'Re#': 'Re#', 'Fa#': 'Fa#', 'Sol#': 'Sol#', 'La#': 'La#', // already correct if sharps
+      'C#': 'Do#', 'D#': 'Re#', 'F#': 'Fa#', 'G#': 'Sol#', 'A#': 'La#',
+      'Db': 'Reb', 'Eb': 'Mib', 'Gb': 'Solb', 'Ab': 'Lab', 'Bb': 'Sib',
+      'C': 'Do', 'D': 'Re', 'E': 'Mi', 'F': 'Fa', 'G': 'Sol', 'A': 'La', 'B': 'Si',
     }
-    const keys = Object.keys(map).sort((a, b) => b.length - a.length)
+    const keys = Object.keys(sharpMap).sort((a, b) => b.length - a.length)
     for (const k of keys) {
-      if (chord.startsWith(k)) return map[k] + chord.slice(k.length)
+      if (result.startsWith(k)) return sharpMap[k] + result.slice(k.length)
     }
   }
 
-  return chord
+  return result
 }

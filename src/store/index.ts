@@ -1,7 +1,7 @@
 import { create } from 'zustand'
 import type {
   ParsedMidi, ParsedTrack, PlaybackState, TrackState,
-  KeyboardSize, KeyboardMode, NoteNaming,
+  KeyboardSize, KeyboardMode, NoteNaming, Accidentals,
 } from '../types'
 import type { DetectedKey } from '../utils/keyDetection'
 import { isKeyboardInstrument } from '../utils/gmInstruments'
@@ -50,8 +50,10 @@ interface OrfeoStore {
   setActiveKeyColors: (colors: Map<number, string>) => void
 
   noteNaming: NoteNaming
+  accidentals: Accidentals
   zoomLevel: number
   setNoteNaming: (naming: NoteNaming) => void
+  setAccidentals: (accidentals: Accidentals) => void
   setZoomLevel: (zoom: number) => void
 
   detectedKey: DetectedKey | null
@@ -67,8 +69,10 @@ interface OrfeoStore {
 
   trackPanelOpen: boolean
   settingsOpen: boolean
+  settingsPanelOpen: boolean
   setTrackPanelOpen: (open: boolean) => void
   setSettingsOpen: (open: boolean) => void
+  setSettingsPanelOpen: (open: boolean) => void
 }
 
 function makeTrackState(track: ParsedTrack): TrackState {
@@ -141,8 +145,10 @@ export const useStore = create<OrfeoStore>((set, get) => ({
   setActiveKeyColors: (activeKeyColors) => set({ activeKeyColors }),
 
   noteNaming: 'english',
+  accidentals: 'flat',
   zoomLevel: 1,
   setNoteNaming: (noteNaming) => set({ noteNaming }),
+  setAccidentals: (accidentals) => set({ accidentals }),
   setZoomLevel: (zoomLevel) => set({ zoomLevel }),
 
   detectedKey: null,
@@ -160,6 +166,8 @@ export const useStore = create<OrfeoStore>((set, get) => ({
 
   trackPanelOpen: false,
   settingsOpen: false,
+  settingsPanelOpen: false,
   setTrackPanelOpen: (trackPanelOpen) => set({ trackPanelOpen }),
   setSettingsOpen: (settingsOpen) => set({ settingsOpen }),
+  setSettingsPanelOpen: (settingsPanelOpen) => set({ settingsPanelOpen }),
 }))

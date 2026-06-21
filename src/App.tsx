@@ -4,6 +4,7 @@ import PianoRoll from './components/PianoRoll/PianoRoll'
 import Keyboard from './components/Keyboard/Keyboard'
 import KeyboardControls from './components/Keyboard/KeyboardControls'
 import TrackPanel from './components/TrackPanel/TrackPanel'
+import SettingsPanel from './components/SettingsPanel/SettingsPanel'
 import EmptyState from './components/EmptyState'
 import { useStore } from './store'
 import { useMidiFile } from './hooks/useMidiFile'
@@ -45,6 +46,7 @@ export default function App() {
     <div style={{ width: '100vw', height: '100vh', background: '#0f0f12', overflow: 'hidden', display: 'flex', flexDirection: 'column', fontFamily: "'Inter', system-ui, sans-serif" }}>
       <TopBar />
       <div style={{ display: 'flex', flex: 1, minHeight: 0, overflow: 'hidden' }}>
+        <SettingsPanel />
         <div style={{ display: 'flex', flexDirection: 'column', flex: 1, minWidth: 0, overflow: 'hidden' }}>
           <div style={{ flex: 1, minHeight: 0, position: 'relative', paddingTop: 6 }}>
             {midi ? <PianoRoll /> : <EmptyState />}

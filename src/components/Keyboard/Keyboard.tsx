@@ -34,6 +34,7 @@ export default function Keyboard() {
   const activeKeys = useStore((s) => s.activeKeys)
   const activeKeyColors = useStore((s) => s.activeKeyColors)
   const noteNaming = useStore((s) => s.noteNaming)
+  const accidentals = useStore((s) => s.accidentals)
   const playbackState = useStore((s) => s.playbackState)
 
   const [lockedKeys, setLockedKeys] = useState<Set<number>>(new Set())
@@ -96,7 +97,7 @@ export default function Keyboard() {
       if (holdRef.current) clearTimeout(holdRef.current)
       debounceRef.current = setTimeout(() => {
         const raw = detectChord(activeKeys)
-        const localized = localizeChord(raw, noteNaming)
+        const localized = localizeChord(raw, noteNaming, accidentals)
         if (localized) {
           setDisplayedChord(localized)
           holdRef.current = setTimeout(() => setDisplayedChord(null), CHORD_HOLD_MS)
@@ -109,7 +110,7 @@ export default function Keyboard() {
 
   const lockedChordInfo = lockedKeys.size > 0 ? detectChordWithInversion(lockedKeys) : null
   const rawLockedChord = lockedChordInfo?.name ?? null
-  const lockedChord = localizeChord(rawLockedChord, noteNaming)
+  const lockedChord = localizeChord(rawLockedChord, noteNaming, accidentals)
   const lockedInvLabel = lockedChordInfo?.invLabel ?? ''
   const shownChord = lockedKeys.size > 0 ? lockedChord : displayedChord
   const shownInvLabel = lockedKeys.size > 0 ? lockedInvLabel : ''
@@ -287,12 +288,12 @@ export default function Keyboard() {
             const color = getColor(k.midi)
             const locked = lockedKeys.has(k.midi)
             const isC = k.midi % 12 === 0
-            const label = isC ? getNoteLabel(k.midi, noteNaming) : null
+            const label = isC ? getNoteLabel(k.midi, noteNaming, accidentals) : null
             return (
               <div
                 key={k.midi}
                 onMouseDown={() => handleKeyClick(k.midi)}
-                title={getNoteLabel(k.midi, noteNaming) || undefined}
+                title={getNoteLabel(k.midi, noteNaming, accidentals) || undefined}
                 className="relative flex-1 flex flex-col justify-end items-center pb-1 cursor-pointer"
                 style={{
                   background: color ?? '#e8e8e8',
@@ -330,7 +331,7 @@ export default function Keyboard() {
               <div
                 key={k.midi}
                 onMouseDown={() => handleKeyClick(k.midi)}
-                title={getNoteLabel(k.midi, noteNaming) || undefined}
+                title={getNoteLabel(k.midi, noteNaming, accidentals) || undefined}
                 className="absolute top-0 cursor-pointer pointer-events-auto"
                 style={{
                   left: `${leftPct}%`, width: `${widthPct}%`, height: '65%',

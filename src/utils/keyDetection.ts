@@ -1,20 +1,18 @@
-import type { NoteNaming } from '../types'
+import type { NoteNaming, Accidentals } from '../types'
 
 // All keys indexed by semitone (0=C)
-const MAJOR_ROOTS_SHARP = ['C','C#','D','D#','E','F','F#','G','G#','A','A#','B']
-const MAJOR_ROOTS_FLAT  = ['C','Db','D','Eb','E','F','Gb','G','Ab','A','Bb','B']
-const MAJOR_ROOTS_EU    = ['C','C#','D','D#','E','F','F#','G','G#','A','B','H']  // A#=B, B=H
-const MAJOR_ROOTS_SOLF  = ['Do','Do#','Re','Re#','Mi','Fa','Fa#','Sol','Sol#','La','La#','Si']
+const MAJOR_ROOTS_SHARP    = ['C','C#','D','D#','E','F','F#','G','G#','A','A#','B']
+const MAJOR_ROOTS_FLAT     = ['C','Db','D','Eb','E','F','Gb','G','Ab','A','Bb','B']
+const MAJOR_ROOTS_EU_SHARP = ['C','C#','D','D#','E','F','F#','G','G#','A','A#','H']
+const MAJOR_ROOTS_EU_FLAT  = ['C','Db','D','Eb','E','F','Gb','G','Ab','A','B',  'H']
+const MAJOR_ROOTS_SOLF_SHARP = ['Do','Do#','Re','Re#','Mi','Fa','Fa#','Sol','Sol#','La','La#','Si']
+const MAJOR_ROOTS_SOLF_FLAT  = ['Do','Reb','Re','Mib','Mi','Fa','Solb','Sol','Lab','La','Sib','Si']
 
-// Minor: relative minor is 3 semitones below major root
-// e.g. C major -> Am, G major -> Em etc
-const MINOR_OFFSET = 9 // minor root = (major_root_idx + 9) % 12 ... actually simpler:
-
-function getRootName(semitone: number, naming: NoteNaming, flat: boolean): string {
-  if (naming === 'solfege') return MAJOR_ROOTS_SOLF[semitone]
-  if (naming === 'central-european') return MAJOR_ROOTS_EU[semitone]
-  if (flat) return MAJOR_ROOTS_FLAT[semitone]
-  return MAJOR_ROOTS_SHARP[semitone]
+function getRootName(semitone: number, naming: NoteNaming, accidentals: Accidentals): string {
+  const useSharp = accidentals === 'sharp'
+  if (naming === 'solfege')          return useSharp ? MAJOR_ROOTS_SOLF_SHARP[semitone] : MAJOR_ROOTS_SOLF_FLAT[semitone]
+  if (naming === 'central-european') return useSharp ? MAJOR_ROOTS_EU_SHARP[semitone]   : MAJOR_ROOTS_EU_FLAT[semitone]
+  return useSharp ? MAJOR_ROOTS_SHARP[semitone] : MAJOR_ROOTS_FLAT[semitone]
 }
 
 // Krumhansl-Schmuckler profiles
@@ -69,16 +67,18 @@ export function parseKeySignature(ksKey: number, ksScale: string): DetectedKey {
   return { semitone: isMinor ? minorSemitone : semitone, isMinor, transpose: 0 }
 }
 
-export function formatKey(key: DetectedKey | null | undefined, naming: NoteNaming): string {
+export function formatKey(
+  key: DetectedKey | null | undefined,
+  naming: NoteNaming,
+  accidentals: Accidentals = 'flat',
+): string {
   if (!key || key.semitone === undefined || key.isMinor === undefined) return '—'
   try {
     const semitone = key.semitone ?? 0
     const isMinor = key.isMinor ?? false
     const transpose = key.transpose ?? 0
     const transposedSemitone = ((semitone + transpose) % 12 + 12) % 12
-    const flatKeys = new Set([1,3,8,10,6])
-    const useFlat = flatKeys.has(transposedSemitone) && naming === 'english'
-    const root = getRootName(transposedSemitone, naming, useFlat)
+    const root = getRootName(transposedSemitone, naming, accidentals)
     if (!root) return '—'
     if (naming === 'solfege') return root + (isMinor ? ' min' : ' maj')
     return root + (isMinor ? 'm' : '')
