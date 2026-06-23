@@ -8,7 +8,7 @@ const TRACK_COLORS = [
   '#f0a500', '#7ec8e3', '#d4a5a5', '#a8d8a8',
 ]
 
-export function parseMidiBuffer(buffer: ArrayBuffer, fileName: string): ParsedMidi {
+export function parseMidiBuffer(buffer: ArrayBuffer, fileName: string, filePath = ''): ParsedMidi {
   const midi = new Midi(buffer)
 
   const bpm = midi.header.tempos.length > 0 ? midi.header.tempos[0].bpm : 120
@@ -76,6 +76,8 @@ export function parseMidiBuffer(buffer: ArrayBuffer, fileName: string): ParsedMi
     noteCount: tracks.reduce((sum, t) => sum + t.notes.length, 0),
     _raw: buffer,
     _keySignature: keySignature,
+    _filePath: filePath,
+    _rawMidiTracks: midi.tracks,
   }
 
   return result

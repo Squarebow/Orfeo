@@ -10,8 +10,8 @@ export interface ParsedTrack {
   index: number
   name: string
   gmName: string
-  program: number      // GM program 0-127, -1 for drums
-  group: string        // GM group key (piano, guitar, drums, etc.)
+  program: number
+  group: string
   isDrum: boolean
   color: string
   notes: ParsedNote[]
@@ -41,7 +41,7 @@ export interface TrackState {
   muted: boolean
   solo: boolean
   visible: boolean
-  showOnKeyboard: boolean   // whether notes light up the piano keyboard
+  showOnKeyboard: boolean
   volume: number
   pan: number
 }
@@ -57,10 +57,23 @@ export interface MidiFileResult {
   base64: string
 }
 
+export interface LibraryFile {
+  name: string
+  path: string
+}
+
 declare global {
   interface Window {
     electronAPI: {
-      openMidiFile: () => Promise<MidiFileResult | null>
+      openMidiFile:     () => Promise<MidiFileResult | null>
+      getPrefs:         () => Promise<Record<string, any>>
+      setPrefs:         (data: Record<string, any>) => Promise<void>
+      openFolder:       () => Promise<string | null>
+      scanMidiFolder:   (path: string) => Promise<LibraryFile[]>
+      loadMidiFromPath: (path: string) => Promise<MidiFileResult | null>
+      windowMinimize:   () => Promise<void>
+      windowMaximize:   () => Promise<void>
+      windowClose:      () => Promise<void>
     }
   }
 }

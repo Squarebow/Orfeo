@@ -16,7 +16,7 @@ export function useMidiFile() {
       const bytes = new Uint8Array(binary.length)
       for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i)
 
-      const parsed = parseMidiBuffer(bytes.buffer, result.fileName)
+      const parsed = parseMidiBuffer(bytes.buffer, result.fileName, result.filePath ?? '')
       setMidi(parsed)
 
       // Detect key from MIDI metadata first, fallback to note analysis

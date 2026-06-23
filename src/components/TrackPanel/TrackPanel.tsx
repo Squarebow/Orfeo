@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react'
-import { ChevronRight, ChevronLeft, Eye, EyeOff, Volume2, VolumeX, ChevronDown, Music2 } from 'lucide-react'
+import { ChevronRight, ChevronLeft, Eye, EyeOff, Volume2, VolumeX, ChevronDown, Music2, Pencil } from 'lucide-react'
 import { useStore } from '../../store'
 import { GM_GROUPS } from '../../utils/gmInstruments'
 import type { TrackState } from '../../types'
@@ -22,6 +22,35 @@ export default function TrackPanel() {
   const updateTrack = useStore((s) => s.updateTrack)
   const muteGroup = useStore((s) => s.muteGroup)
   const [collapsedGroups, setCollapsedGroups] = useState<Set<string>>(new Set())
+
+  const handleOpenEditor = async () => {
+    if (!midi) return
+    const midiAny = midi as any
+    const data = {
+      fileName: midi.fileName,
+      filePath: midiAny._filePath ?? '',
+      tracks: tracks.map(t => {
+        const rawTrack = midiAny._rawMidiTracks?.[t.index]
+        return {
+          index: t.index,
+          name: t.name,
+          gmName: t.gmName,
+          program: t.program,
+          group: t.group ?? '',
+          isDrum: t.isDrum,
+          color: t.color,
+          channel: rawTrack?.channel ?? t.index,
+          noteCount: rawTrack?.notes?.length ?? 0,
+          muted: t.muted,
+        }
+      }),
+    }
+    try {
+      await window.electronAPI.openMidiEditor(data)
+    } catch (e) {
+      console.error('[Orfeo] Failed to open MIDI editor:', e)
+    }
+  }
 
   const grouped = useMemo(() => {
     const map = new Map<string, TrackState[]>()
@@ -116,6 +145,22 @@ export default function TrackPanel() {
                 <path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/>
               </svg>
             </button>
+            {midi && (
+              <button
+                onClick={handleOpenEditor}
+                title="Open MIDI Editor"
+                style={{
+                  background: 'none', border: 'none', cursor: 'pointer',
+                  color: '#505068', padding: '2px 4px',
+                  display: 'flex', alignItems: 'center',
+                  transition: 'color 0.15s',
+                }}
+                onMouseEnter={e => e.currentTarget.style.color = '#e8a027'}
+                onMouseLeave={e => e.currentTarget.style.color = '#505068'}
+              >
+                <Pencil size={13} strokeWidth={1.5} />
+              </button>
+            )}
           </div>
 
           {/* Track list */}

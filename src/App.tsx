@@ -7,6 +7,9 @@ import TrackPanel from './components/TrackPanel/TrackPanel'
 import SettingsPanel from './components/SettingsPanel/SettingsPanel'
 import EmptyState from './components/EmptyState'
 import { useStore } from './store'
+import MidiEditor from './components/MidiEditor/MidiEditor'
+import { parseMidiBuffer } from './utils/midiParser'
+import { detectKeyFromTracks, parseKeySignature } from './utils/keyDetection'
 import { useMidiFile } from './hooks/useMidiFile'
 import { usePlayback } from './hooks/usePlayback'
 import { useAudioEngine } from './hooks/useAudioEngine'
@@ -18,6 +21,24 @@ export default function App() {
   const { play, pause, stop } = usePlayback()
   useAudioEngine()
   useMetronome()
+
+  useEffect(() => {
+    if (!window.electronAPI?.onMidiReload) return
+    window.electronAPI.onMidiReload((result: any) => {
+      if (!result) return
+      const binary = atob(result.base64)
+      const bytes = new Uint8Array(binary.length)
+      for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i)
+      const parsed = parseMidiBuffer(bytes.buffer, result.fileName, result.filePath ?? '')
+      useStore.getState().setMidi(parsed)
+      const raw = parsed as any
+      if (raw._keySignature) {
+        useStore.getState().setDetectedKey(parseKeySignature(raw._keySignature.key, raw._keySignature.scale))
+      } else {
+        useStore.getState().setDetectedKey(detectKeyFromTracks(parsed.tracks))
+      }
+    })
+  }, [])
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -41,6 +62,8 @@ export default function App() {
     window.addEventListener('keydown', handleKeyDown)
     return () => window.removeEventListener('keydown', handleKeyDown)
   }, [play, pause, stop, openFile])
+
+  if (window.location.hash === '#/editor') return <MidiEditor />
 
   return (
     <div style={{ width: '100vw', height: '100vh', background: '#0f0f12', overflow: 'hidden', display: 'flex', flexDirection: 'column', fontFamily: "'Inter', system-ui, sans-serif" }}>

@@ -170,4 +170,66 @@ export const useStore = create<OrfeoStore>((set, get) => ({
   setTrackPanelOpen: (trackPanelOpen) => set({ trackPanelOpen }),
   setSettingsOpen: (settingsOpen) => set({ settingsOpen }),
   setSettingsPanelOpen: (settingsPanelOpen) => set({ settingsPanelOpen }),
+
+  audioEngine: 'gm',
+  setAudioEngine: (audioEngine) => set({ audioEngine }),
+
+  libraryFolder: null,
+  libraryFiles: [],
+  libraryFavourites: new Set(),
+  setLibraryFolder: (libraryFolder) => set({ libraryFolder }),
+  setLibraryFiles: (libraryFiles) => set({ libraryFiles }),
+  setLibraryFolderAndFiles: (libraryFolder, libraryFiles) => set({ libraryFolder, libraryFiles }),
+  toggleFavourite: (path) => set((s) => {
+    const next = new Set(s.libraryFavourites)
+    if (next.has(path)) next.delete(path); else next.add(path)
+    return { libraryFavourites: next }
+  }),
+  loadLibraryFile: async (filePath) => {
+    try {
+      const result = await window.electronAPI.loadMidiFromPath(filePath)
+      if (!result) return
+      const binary = atob(result.base64)
+      const bytes = new Uint8Array(binary.length)
+      for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i)
+      const parsed = parseMidiBuffer(bytes.buffer, result.fileName, result.filePath ?? '')
+      get().setMidi(parsed)
+      const raw = parsed as any
+      if (raw._keySignature != null) {
+        get().setDetectedKey(parseKeySignature(raw._keySignature.key, raw._keySignature.scale))
+      } else {
+        get().setDetectedKey(detectKeyFromTracks(parsed.tracks))
+      }
+    } catch (err) {
+      console.error('loadLibraryFile error:', err)
+    }
+  },
 }))
+
+// ── Restore persisted library on startup ──────────────────────────────────────
+async function restoreLibraryPrefs() {
+  try {
+    const prefs = await window.electronAPI?.getPrefs?.()
+    if (!prefs) return
+    const store = useStore.getState()
+    if (prefs.libraryFolder) {
+      const files = await window.electronAPI.scanMidiFolder(prefs.libraryFolder)
+      store.setLibraryFolderAndFiles(prefs.libraryFolder, files)
+    }
+    if (Array.isArray(prefs.libraryFavourites)) {
+      prefs.libraryFavourites.forEach((p: string) => store.toggleFavourite(p))
+    }
+  } catch (e) {
+    console.error('[Orfeo] restoreLibraryPrefs:', e)
+  }
+}
+setTimeout(restoreLibraryPrefs, 500)
+
+let _favTimer: ReturnType<typeof setTimeout> | null = null
+useStore.subscribe((state) => {
+  if (!state.libraryFolder) return
+  if (_favTimer) clearTimeout(_favTimer)
+  _favTimer = setTimeout(() => {
+    window.electronAPI?.setPrefs?.({ libraryFavourites: Array.from(state.libraryFavourites) }).catch(() => {})
+  }, 1000)
+})
