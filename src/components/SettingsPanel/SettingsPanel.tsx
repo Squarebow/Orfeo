@@ -122,7 +122,23 @@ function LibraryPanel() {
 
   const handleLoadFile = async (filePath: string) => {
     try {
-      await loadLibraryFile(filePath)
+      const result = await window.electronAPI.loadMidiFromPath(filePath)
+      if (!result) return
+      const binary = atob(result.base64)
+      const bytes = new Uint8Array(binary.length)
+      for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i)
+      // Dynamically import to avoid circular deps
+      const { parseMidiBuffer } = await import('../../utils/midiParser')
+      const { detectKeyFromTracks, parseKeySignature } = await import('../../utils/keyDetection')
+      const { useStore } = await import('../../store')
+      const parsed = parseMidiBuffer(bytes.buffer, result.fileName, result.filePath ?? '')
+      useStore.getState().setMidi(parsed)
+      const raw = parsed as any
+      if (raw._keySignature != null) {
+        useStore.getState().setDetectedKey(parseKeySignature(raw._keySignature.key, raw._keySignature.scale))
+      } else {
+        useStore.getState().setDetectedKey(detectKeyFromTracks(parsed.tracks))
+      }
     } catch (err) {
       console.error('Failed to load file:', err)
     }
