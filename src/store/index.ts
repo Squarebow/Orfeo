@@ -219,6 +219,8 @@ async function restoreLibraryPrefs() {
     if (Array.isArray(prefs.libraryFavourites)) {
       prefs.libraryFavourites.forEach((p: string) => store.toggleFavourite(p))
     }
+    if (prefs.noteNaming) store.setNoteNaming(prefs.noteNaming)
+    if (prefs.accidentals) store.setAccidentals(prefs.accidentals)
   } catch (e) {
     console.error('[Orfeo] restoreLibraryPrefs:', e)
   }
@@ -232,4 +234,22 @@ useStore.subscribe((state) => {
   _favTimer = setTimeout(() => {
     window.electronAPI?.setPrefs?.({ libraryFavourites: Array.from(state.libraryFavourites) }).catch(() => {})
   }, 1000)
+})
+
+// Persist display settings when they change
+// Use null sentinel so we never save on first subscriber fire (which would
+// overwrite the restored value before restoreLibraryPrefs has run)
+let _prevNoteNaming: string | null = null
+let _prevAccidentals: string | null = null
+useStore.subscribe((state) => {
+  // Skip the very first fire (app init) — restore handles loading saved values
+  if (_prevNoteNaming === null) { _prevNoteNaming = state.noteNaming; _prevAccidentals = state.accidentals; return }
+  if (state.noteNaming !== _prevNoteNaming || state.accidentals !== _prevAccidentals) {
+    _prevNoteNaming = state.noteNaming
+    _prevAccidentals = state.accidentals
+    window.electronAPI?.setPrefs?.({
+      noteNaming: state.noteNaming,
+      accidentals: state.accidentals,
+    }).catch(() => {})
+  }
 })

@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useMemo } from 'react'
 import {
   Settings2, ChevronLeft, Type, Piano, Palette, ZoomIn, Volume2,
   Music, FolderOpen, Star, ChevronRight, RefreshCw, FileMusic,
@@ -93,6 +93,7 @@ function LibraryPanel() {
   const loadLibraryFile = useStore((s) => s.loadLibraryFile)
   const [loading, setLoading] = useState(false)
   const [filter, setFilter] = useState<'all' | 'starred'>('all')
+  const [collapsedFolders, setCollapsedFolders] = useState<Set<string>>(new Set())
 
 
 
@@ -144,12 +145,42 @@ function LibraryPanel() {
     }
   }
 
-  const displayed: LibraryFile[] = filter === 'starred'
-    ? libraryFiles.filter(f => libraryFavourites.has(f.path))
-    : [
-        ...libraryFiles.filter(f => libraryFavourites.has(f.path)),
-        ...libraryFiles.filter(f => !libraryFavourites.has(f.path)),
-      ]
+  type FileGroup = { folder: string | null; files: LibraryFile[] }
+  const grouped: FileGroup[] = useMemo(() => {
+    const allFiles = filter === 'starred'
+      ? libraryFiles.filter(f => libraryFavourites.has(f.path))
+      : libraryFiles
+    const rootFiles: LibraryFile[] = []
+    const folderMap = new Map<string, LibraryFile[]>()
+    for (const file of allFiles) {
+      if (!libraryFolder) { rootFiles.push(file); continue }
+      // Normalize to forward slashes for cross-platform comparison
+      const normFile = file.path.replace(/\\/g, '/')
+      const normRoot = libraryFolder.replace(/\\/g, '/').replace(/\/$/, '')
+      const rel = normFile.startsWith(normRoot) ? normFile.slice(normRoot.length).replace(/^\//, '') : file.name
+      const parts = rel.split('/')
+      if (parts.length <= 1) {
+        rootFiles.push(file)
+      } else {
+        const folder = parts[0]
+        if (!folderMap.has(folder)) folderMap.set(folder, [])
+        folderMap.get(folder)!.push(file)
+      }
+    }
+    const starred = rootFiles.filter(f => libraryFavourites.has(f.path))
+    const unstarred = rootFiles.filter(f => !libraryFavourites.has(f.path))
+    const result: FileGroup[] = [{ folder: null, files: filter !== 'starred' ? [...starred, ...unstarred] : [...starred, ...unstarred] }]
+    Array.from(folderMap.entries()).sort((a, b) => a[0].localeCompare(b[0])).forEach(([folder, files]) => {
+      result.push({ folder, files })
+    })
+    return result
+  }, [libraryFiles, libraryFavourites, libraryFolder, filter])
+
+  const toggleFolder = (folder: string) => setCollapsedFolders(prev => {
+    const next = new Set(prev)
+    if (next.has(folder)) next.delete(folder); else next.add(folder)
+    return next
+  })
 
   const folderName = libraryFolder
     ? libraryFolder.split(/[\\/]/).pop() ?? libraryFolder
@@ -242,53 +273,70 @@ function LibraryPanel() {
 
       {/* File list */}
       <div style={{ flex: 1, overflowY: 'auto' }}>
-        {displayed.length === 0 && libraryFolder && (
+        {grouped.every(g => g.files.length === 0) && libraryFolder && (
           <div style={{ padding: '16px 14px', fontSize: 11, color: '#404055', textAlign: 'center' }}>
-            {filter === 'starred' ? 'No starred files yet.\nStar a file with ★' : 'No MIDI files found in this folder.'}
+            {filter === 'starred' ? 'No starred files yet. Star a file with ★' : 'No MIDI files found.'}
           </div>
         )}
 
-        {displayed.map((file) => {
-          const starred = libraryFavourites.has(file.path)
-          return (
-            <div
-              key={file.path}
-              style={{
-                display: 'flex', alignItems: 'center', gap: 6,
-                padding: '7px 10px 7px 12px',
-                borderBottom: '1px solid #181822',
-                cursor: 'pointer',
-                transition: 'background 0.1s',
-              }}
-              onMouseEnter={e => e.currentTarget.style.background = '#1a1a26'}
-              onMouseLeave={e => e.currentTarget.style.background = 'transparent'}
-              onClick={() => handleLoadFile(file.path)}
-            >
-              <FileMusic size={11} style={{ color: '#404055', flexShrink: 0 }} />
-              <span style={{
-                flex: 1, fontSize: 11, color: '#9090a8',
-                overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
-              }} title={file.name}>
-                {file.name.replace(/\.(mid|midi)$/i, '')}
-              </span>
-              <button
-                onClick={e => { e.stopPropagation(); toggleFavourite(file.path) }}
-                title={starred ? 'Remove from favourites' : 'Add to favourites'}
+        {grouped.map((group, gi) => (
+          <div key={group.folder ?? '__root__'}>
+            {group.folder && (
+              <div
+                onClick={() => toggleFolder(group.folder!)}
                 style={{
-                  background: 'none', border: 'none', cursor: 'pointer',
-                  color: starred ? '#e8a027' : '#303045',
-                  padding: 2, display: 'flex', alignItems: 'center', flexShrink: 0,
-                  fontSize: 12,
-                  transition: 'color 0.12s',
+                  display: 'flex', alignItems: 'center', gap: 5,
+                  padding: '5px 10px',
+                  background: '#0e0e16',
+                  borderBottom: '1px solid #1a1a26',
+                  borderTop: gi > 0 ? '1px solid #1a1a26' : 'none',
+                  cursor: 'pointer', userSelect: 'none',
                 }}
-                onMouseEnter={e => { if (!starred) e.currentTarget.style.color = '#707060' }}
-                onMouseLeave={e => { if (!starred) e.currentTarget.style.color = '#303045' }}
               >
-                ★
-              </button>
-            </div>
-          )
-        })}
+                {collapsedFolders.has(group.folder)
+                  ? <ChevronRight size={10} style={{ color: '#505068', flexShrink: 0 }} />
+                  : <ChevronDown size={10} style={{ color: '#505068', flexShrink: 0 }} />
+                }
+                <FolderOpen size={11} style={{ color: '#e8a02780', flexShrink: 0 }} />
+                <span style={{ flex: 1, fontSize: 10, color: '#707088', fontWeight: 600, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                  {group.folder}
+                </span>
+                <span style={{ fontSize: 9, color: '#404055', fontFamily: 'JetBrains Mono' }}>
+                  {group.files.length}
+                </span>
+              </div>
+            )}
+            {(!group.folder || !collapsedFolders.has(group.folder)) && group.files.map((file) => {
+              const starred = libraryFavourites.has(file.path)
+              return (
+                <div
+                  key={file.path}
+                  style={{
+                    display: 'flex', alignItems: 'center', gap: 6,
+                    padding: group.folder ? '6px 10px 6px 22px' : '7px 10px 7px 12px',
+                    borderBottom: '1px solid #181822',
+                    cursor: 'pointer', transition: 'background 0.1s',
+                  }}
+                  onMouseEnter={e => e.currentTarget.style.background = '#1a1a26'}
+                  onMouseLeave={e => e.currentTarget.style.background = 'transparent'}
+                  onClick={() => handleLoadFile(file.path)}
+                >
+                  <FileMusic size={11} style={{ color: '#404055', flexShrink: 0 }} />
+                  <span style={{ flex: 1, fontSize: 11, color: '#9090a8', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={file.name}>
+                    {file.name.replace(/\.(mid|midi)$/i, '')}
+                  </span>
+                  <button
+                    onClick={e => { e.stopPropagation(); toggleFavourite(file.path) }}
+                    title={starred ? 'Remove from favourites' : 'Add to favourites'}
+                    style={{ background: 'none', border: 'none', cursor: 'pointer', color: starred ? '#e8a027' : '#303045', padding: 2, display: 'flex', alignItems: 'center', flexShrink: 0, fontSize: 12, transition: 'color 0.12s' }}
+                    onMouseEnter={e => { if (!starred) e.currentTarget.style.color = '#707060' }}
+                    onMouseLeave={e => { if (!starred) e.currentTarget.style.color = '#303045' }}
+                  >★</button>
+                </div>
+              )
+            })}
+          </div>
+        ))}
       </div>
     </div>
   )

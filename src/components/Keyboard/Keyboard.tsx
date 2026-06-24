@@ -197,14 +197,14 @@ export default function Keyboard() {
                 background: '#1a1a2e', border: '1px solid #2a2a40',
                 borderRadius: 6, padding: '7px 10px',
                 whiteSpace: 'nowrap', zIndex: 100,
-                fontSize: 10, color: '#8080a8', fontFamily: 'Inter',
+                fontSize: 10, color: '#b0b0cc', fontFamily: 'Inter',
                 lineHeight: 1.6, pointerEvents: 'none',
                 boxShadow: '0 4px 16px rgba(0,0,0,0.6)',
               }}>
                 Chord name appears here during playback (3+ notes)<br />
-                <span style={{ color: '#404060' }}>
+                <span style={{ color: '#8888aa' }}>
                   Shift+click keys to build &amp; lock a chord<br />
-                  Use ‹ › to cycle inversions · ▶ to hear it
+                  Use <span style={{ color: '#e8a027' }}>‹ ›</span> to cycle inversions · <span style={{ color: '#e8a027' }}>▶</span> to hear it
                 </span>
               </div>
             )}
@@ -249,9 +249,9 @@ export default function Keyboard() {
 
             {/* Play button */}
             <button onClick={playLockedChord} title="Play this chord"
-              style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#606080', padding: '2px 3px', borderRadius: 3, display: 'flex', alignItems: 'center' }}
-              onMouseEnter={e => e.currentTarget.style.color = '#e8a027'}
-              onMouseLeave={e => e.currentTarget.style.color = '#606080'}
+              style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#e8a027', padding: '2px 3px', borderRadius: 3, display: 'flex', alignItems: 'center' }}
+              onMouseEnter={e => e.currentTarget.style.color = '#ffb84d'}
+              onMouseLeave={e => e.currentTarget.style.color = '#e8a027'}
             >
               <Play size={11} fill="currentColor" />
             </button>

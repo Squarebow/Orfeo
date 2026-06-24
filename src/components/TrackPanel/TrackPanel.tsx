@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { useMemo, useState, useEffect } from 'react'
 import { ChevronRight, ChevronLeft, Eye, EyeOff, Volume2, VolumeX, ChevronDown, Music2, Pencil } from 'lucide-react'
 import { useStore } from '../../store'
 import { GM_GROUPS } from '../../utils/gmInstruments'
@@ -22,6 +22,12 @@ export default function TrackPanel() {
   const updateTrack = useStore((s) => s.updateTrack)
   const muteGroup = useStore((s) => s.muteGroup)
   const [collapsedGroups, setCollapsedGroups] = useState<Set<string>>(new Set())
+  const [editorOpen, setEditorOpen] = useState(false)
+
+  useEffect(() => {
+    if (!window.electronAPI?.onEditorClosed) return
+    window.electronAPI.onEditorClosed(() => setEditorOpen(false))
+  }, [])
 
   const handleOpenEditor = async () => {
     if (!midi) return
@@ -46,9 +52,11 @@ export default function TrackPanel() {
       }),
     }
     try {
+      setEditorOpen(true)
       await window.electronAPI.openMidiEditor(data)
     } catch (e) {
       console.error('[Orfeo] Failed to open MIDI editor:', e)
+      setEditorOpen(false)
     }
   }
 
@@ -147,16 +155,18 @@ export default function TrackPanel() {
             </button>
             {midi && (
               <button
-                onClick={handleOpenEditor}
-                title="Open MIDI Editor"
+                onClick={editorOpen ? undefined : handleOpenEditor}
+                title={editorOpen ? 'MIDI Editor is open' : 'Open MIDI Editor'}
                 style={{
-                  background: 'none', border: 'none', cursor: 'pointer',
-                  color: '#505068', padding: '2px 4px',
+                  background: 'none', border: 'none',
+                  cursor: editorOpen ? 'default' : 'pointer',
+                  color: editorOpen ? '#e8a027' : '#505068',
+                  padding: '2px 4px',
                   display: 'flex', alignItems: 'center',
                   transition: 'color 0.15s',
                 }}
-                onMouseEnter={e => e.currentTarget.style.color = '#e8a027'}
-                onMouseLeave={e => e.currentTarget.style.color = '#505068'}
+                onMouseEnter={e => { if (!editorOpen) e.currentTarget.style.color = '#e8a027' }}
+                onMouseLeave={e => { if (!editorOpen) e.currentTarget.style.color = '#505068' }}
               >
                 <Pencil size={13} strokeWidth={1.5} />
               </button>
