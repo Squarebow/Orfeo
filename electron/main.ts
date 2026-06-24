@@ -1,4 +1,4 @@
-import { app, BrowserWindow, ipcMain, dialog } from 'electron'
+import { app, BrowserWindow, ipcMain, dialog, shell } from 'electron'
 import { join } from 'path'
 import { readFileSync, writeFileSync, existsSync, readdirSync } from 'fs'
 import { Midi } from '@tonejs/midi'
@@ -35,6 +35,7 @@ ipcMain.handle('prefs:get', async () => loadPrefs())
 ipcMain.handle('prefs:set', async (_e, data) => savePrefs(data))
 
 // ── Open MIDI file ─────────────────────────────────────────────────────────
+ipcMain.handle('shell:openExternal', (_e, url: string) => shell.openExternal(url))
 ipcMain.handle('dialog:openMidi', async () => {
   const result = await dialog.showOpenDialog({
     title: 'Open MIDI File',

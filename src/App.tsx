@@ -7,6 +7,7 @@ import TrackPanel from './components/TrackPanel/TrackPanel'
 import SettingsPanel from './components/SettingsPanel/SettingsPanel'
 import EmptyState from './components/EmptyState'
 import { useStore } from './store'
+import FloatingKeyboard from './components/Keyboard/FloatingKeyboard'
 import MidiEditor from './components/MidiEditor/MidiEditor'
 import { parseMidiBuffer } from './utils/midiParser'
 import { detectKeyFromTracks, parseKeySignature } from './utils/keyDetection'
@@ -17,6 +18,8 @@ import { useMetronome } from './hooks/useMetronome'
 
 export default function App() {
   const midi = useStore((s) => s.midi)
+  const keyboardMode = useStore((s) => s.keyboardMode)
+  const appTheme = useStore((s) => s.appTheme)
   const { openFile } = useMidiFile()
   const { play, pause, stop } = usePlayback()
   useAudioEngine()
@@ -66,7 +69,7 @@ export default function App() {
   if (window.location.hash === '#/editor') return <MidiEditor />
 
   return (
-    <div style={{ width: '100vw', height: '100vh', background: '#0f0f12', overflow: 'hidden', display: 'flex', flexDirection: 'column', fontFamily: "'Inter', system-ui, sans-serif" }}>
+    <div className={appTheme === 'warm' ? 'theme-warm' : ''} style={{ width: '100vw', height: '100vh', background: appTheme === 'warm' ? '#12100e' : '#0f0f12', overflow: 'hidden', display: 'flex', flexDirection: 'column', fontFamily: "'Inter', system-ui, sans-serif" }}>
       <TopBar />
       <div style={{ display: 'flex', flex: 1, minHeight: 0, overflow: 'hidden' }}>
         <SettingsPanel />
@@ -74,11 +77,12 @@ export default function App() {
           <div style={{ flex: 1, minHeight: 0, position: 'relative', paddingTop: 6 }}>
             {midi ? <PianoRoll /> : <EmptyState />}
           </div>
-          <Keyboard />
-          <KeyboardControls />
+          {keyboardMode === 'docked' && <Keyboard />}
+          {keyboardMode === 'docked' && <KeyboardControls />}
         </div>
         <TrackPanel />
       </div>
+      {keyboardMode === 'floating' && <FloatingKeyboard />}
     </div>
   )
 }

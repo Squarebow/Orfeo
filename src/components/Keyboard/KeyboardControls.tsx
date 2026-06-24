@@ -30,6 +30,7 @@ export default function KeyboardControls() {
           <button
             key={size}
             onClick={() => setKeyboardSize(size)}
+            title={`${size}-key keyboard layout`}
             style={{
               padding: '2px 8px', borderRadius: 4,
               background: 'transparent',

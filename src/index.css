@@ -10,6 +10,9 @@
 :root {
   /* Backgrounds */
   --bg:        #0f0f12;
+  --bg-warm:   #12100e;
+  --panel:     #13131a;
+  --panel-warm:#16120e;
   --bg-panel:  #13131a;
   --bg-panel2: #1a1a22;
   --bg-row:    #0e0e16;
@@ -29,6 +32,14 @@
   --c-active:  #b0b0cc;
   --c-muted:   #404055;
   --c-amber:   #e8a027;
+}
+
+/* Warm theme overrides */
+.theme-warm {
+  --bg: #12100e;
+}
+.theme-warm body {
+  background: var(--bg);
 }
 
 body {

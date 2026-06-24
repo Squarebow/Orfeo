@@ -1,5 +1,5 @@
 import { useMemo, useState, useEffect } from 'react'
-import { ChevronRight, ChevronLeft, Eye, EyeOff, Volume2, VolumeX, ChevronDown, Music2, Pencil } from 'lucide-react'
+import { ChevronRight, ChevronLeft, Eye, EyeOff, Volume2, VolumeX, ChevronDown, Music2, Pencil, SlidersHorizontal } from 'lucide-react'
 import { useStore } from '../../store'
 import { GM_GROUPS } from '../../utils/gmInstruments'
 import type { TrackState } from '../../types'
@@ -111,17 +111,12 @@ export default function TrackPanel() {
           display: 'flex', alignItems: 'center', justifyContent: 'center',
           transition: 'color 0.15s',
         }}
+        onMouseEnter={e => e.currentTarget.style.color = '#e8a027'}
+        onMouseLeave={e => e.currentTarget.style.color = '#707088'}
       >
         {trackPanelOpen
-          ? <ChevronRight size={13} />
-          : (
-            /* Playlist icon (amber) when drawer is closed */
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
-              <path d="M16 16.4286C16 17.8487 14.8807 19 13.5 19C12.1193 19 11 17.8487 11 16.4286C11 15.0084 12.1193 13.8571 13.5 13.8571C14.8807 13.8571 16 15.0084 16 16.4286ZM16 16.4286V10"/>
-              <path d="M18.675 7.116L16.92 7.958C16.579 8.122 16.408 8.204 16.285 8.331C16.185 8.432 16.109 8.553 16.06 8.687C16 8.853 16 9.042 16 9.421C16 10.298 16 10.736 16.191 10.999C16.342 11.207 16.567 11.348 16.82 11.395C17.14 11.453 17.535 11.263 18.325 10.884L20.08 10.042C20.421 9.878 20.592 9.796 20.716 9.67C20.815 9.568 20.891 9.447 20.94 9.314C21 9.148 21 8.958 21 8.579C21 7.703 21 7.264 20.809 7.001C20.658 6.794 20.433 6.652 20.18 6.606C19.86 6.547 19.465 6.737 18.675 7.116Z"/>
-              <path d="M15 5L3 5M13 9L3 9M9 13H3M8 17H3"/>
-            </svg>
-          )
+          ? <ChevronRight size={15} />
+          : <SlidersHorizontal size={20} />
         }
       </button>
 

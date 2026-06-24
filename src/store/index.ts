@@ -52,9 +52,11 @@ interface OrfeoStore {
   noteNaming: NoteNaming
   accidentals: Accidentals
   zoomLevel: number
+  appTheme: AppTheme
   setNoteNaming: (naming: NoteNaming) => void
   setAccidentals: (accidentals: Accidentals) => void
   setZoomLevel: (zoom: number) => void
+  setAppTheme: (theme: AppTheme) => void
 
   detectedKey: DetectedKey | null
   setDetectedKey: (key: DetectedKey | null) => void
@@ -147,9 +149,11 @@ export const useStore = create<OrfeoStore>((set, get) => ({
   noteNaming: 'english',
   accidentals: 'flat',
   zoomLevel: 1,
+  appTheme: 'dark',
   setNoteNaming: (noteNaming) => set({ noteNaming }),
   setAccidentals: (accidentals) => set({ accidentals }),
   setZoomLevel: (zoomLevel) => set({ zoomLevel }),
+  setAppTheme: (appTheme) => set({ appTheme }),
 
   detectedKey: null,
   setDetectedKey: (detectedKey) => set({ detectedKey }),
@@ -253,3 +257,7 @@ useStore.subscribe((state) => {
     }).catch(() => {})
   }
 })
+
+// ── Theme ─────────────────────────────────────────────────────────────────────
+// Exported so PianoRoll and App.tsx can read it without subscribing to full store
+export type AppTheme = 'dark' | 'warm'
