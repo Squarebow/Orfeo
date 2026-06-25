@@ -17,6 +17,18 @@ const PLAYHEAD_RATIO = 0.80
 
 interface KeyLayout { x: number; width: number }
 
+interface FlatNote { midi: number; time: number; duration: number; trackIndex: number }
+
+function lowerBound(notes: FlatNote[], target: number): number {
+  let lo = 0, hi = notes.length
+  while (lo < hi) {
+    const mid = (lo + hi) >> 1
+    if (notes[mid].time < target) lo = mid + 1
+    else hi = mid
+  }
+  return lo
+}
+
 // Build layout for only the visible key range, spanning full canvas width W
 function buildKeyLayout(W: number, midiMin: number, midiMax: number): KeyLayout[] {
   const totalKeys = midiMax - midiMin + 1
@@ -44,6 +56,8 @@ export default function PianoRoll() {
   const storeRef = useRef(useStore.getState())
   // Track last drawn keyboard size so we redraw grid on change
   const lastKeySizeRef = useRef<number>(0)
+  const lastMidiRef    = useRef<any>(null)
+  const flatNotesRef   = useRef<FlatNote[]>([])
 
   useEffect(() => useStore.subscribe((s) => { storeRef.current = s }), [])
 
@@ -152,29 +166,50 @@ export default function PianoRoll() {
         if (!midi) return
 
         const visStart = currentTime - visibleSecs * (1 - PLAYHEAD_RATIO)
-        const visEnd = currentTime + visibleSecs * PLAYHEAD_RATIO
+        const visEnd   = currentTime + visibleSecs * PLAYHEAD_RATIO
 
-        for (const track of midi.tracks) {
-          const ts = tracks.find((t) => t.index === track.index)
-          if (ts && (!ts.visible || ts.muted)) continue
-          const color = parseInt((ts?.color ?? track.color).replace('#', ''), 16)
-
-          for (const note of track.notes) {
-            if (note.time + note.duration < visStart || note.time > visEnd) continue
-            const idx = (note.midi + (transpose ?? 0)) - midiMin
-            if (idx < 0 || idx >= totalKeys) continue
-            const key = keyLayoutRef.current[idx]
-            if (!key) continue
-
-            const topY = py - (note.time + note.duration - currentTime) * pps
-            const botY = py - (note.time - currentTime) * pps
-            const noteH = Math.max(botY - topY, MIN_NOTE_H)
-
-            notes.roundRect(key.x + 1, topY, Math.max(key.width - 2, 1), noteH, NOTE_RADIUS)
-            notes.fill({ color, alpha: 0.9 })
-            notes.rect(key.x + 1, topY, Math.max(key.width - 2, 1), 2)
-            notes.fill({ color: 0xffffff, alpha: 0.25 })
+        // Rebuild flat sorted array once per midi file load
+        if (midi !== lastMidiRef.current) {
+          lastMidiRef.current = midi
+          const flat: FlatNote[] = []
+          for (const track of midi.tracks) {
+            for (const note of track.notes) {
+              flat.push({ midi: note.midi, time: note.time, duration: note.duration, trackIndex: track.index })
+            }
           }
+          flat.sort((a, b) => a.time - b.time)
+          flatNotesRef.current = flat
+        }
+
+        // O(1) track state + color lookup for this frame
+        const trackMap = new Map<number, { visible: boolean; muted: boolean; color: string }>()
+        for (const t of tracks) trackMap.set(t.index, t)
+
+        // Binary search to window start — O(log N) entry, then O(visible notes) only
+        const flat     = flatNotesRef.current
+        const startIdx = lowerBound(flat, visStart - visibleSecs) // one extra window back catches long sustained notes
+        for (let i = startIdx; i < flat.length; i++) {
+          const note = flat[i]
+          if (note.time > visEnd) break
+          if (note.time + note.duration < visStart) continue
+
+          const ts = trackMap.get(note.trackIndex)
+          if (ts && (!ts.visible || ts.muted)) continue
+
+          const idx = (note.midi + transpose) - midiMin
+          if (idx < 0 || idx >= totalKeys) continue
+          const key = keyLayoutRef.current[idx]
+          if (!key) continue
+
+          const color  = parseInt((ts?.color ?? '#e8a027').replace('#', ''), 16)
+          const topY   = py - (note.time + note.duration - currentTime) * pps
+          const botY   = py - (note.time - currentTime) * pps
+          const noteH  = Math.max(botY - topY, MIN_NOTE_H)
+
+          notes.roundRect(key.x + 1, topY, Math.max(key.width - 2, 1), noteH, NOTE_RADIUS)
+          notes.fill({ color, alpha: 0.9 })
+          notes.rect(key.x + 1, topY, Math.max(key.width - 2, 1), 2)
+          notes.fill({ color: 0xffffff, alpha: 0.25 })
         }
       }
 
