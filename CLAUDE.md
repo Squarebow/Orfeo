@@ -83,6 +83,32 @@ All Electron APIs are accessed through `window.electronAPI` (defined in `src/typ
 - **Design tokens**: `#e8a027` amber accent, `#707088` inactive UI, `#b0b0cc` active/value text, `#404055` dim labels. Defined in `src/index.css`.
 - **Drag region**: `.app-drag-region` / `.app-no-drag` CSS classes defined in `index.css` — the topbar is the drag region; interactive elements must carry `app-no-drag`.
 
+## Working conventions
+- Always show a plan before writing any code
+- One git branch per task: fix/description or feature/description
+- Test visually on the running app before marking anything done
+- Never touch JZZ.js playback engine or PixiJS waterfall unless explicitly asked
+- Do not add co-author attribution to commit messages
+
+## Note naming
+- Central European (EU) naming uses H for B natural — this is intentional, never change it
+- All note display routes through convertAccidentals() in noteNames.ts — never convert inline
+
+## Current status (June 2026)
+- v0.5.0 — core playback, keyboard, track panel, chord detection all working
+- Keyboard adjacent key border separators just fixed (Keyboard.tsx)
+- Next task: Chord Explorer modal (Session 2 prompt saved in Obsidian)
+- After that: Scale Explorer modal (Session 3 prompt saved in Obsidian)
+- Known unresolved: TrackPanel SVG crash
+
+## Audio
+- JZZ.js is the active MIDI playback engine (replaced Tone.js)
+- player.play() must precede player.jumpMS() for correct seek behaviour
+- Mute/solo via real-time filter callback — never rebuild the player
+- SF2 soundfont engine exists but partially implemented
+- window.__orfeoPlayNote routes click-to-play to active backend
+
 ## Git rules
 - Do not add co-author attribution to commit messages
 - Commit messages should be plain, no Claude signature
+- After every code edit, suggest a one-line git commit message summarising what was changed
