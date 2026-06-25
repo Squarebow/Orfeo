@@ -317,7 +317,7 @@ export default function Keyboard() {
       >
         {/* White keys */}
         <div className="absolute inset-0 flex">
-          {whiteKeys.map((k) => {
+          {whiteKeys.map((k, i) => {
             const color = getColor(k.midi)
             const locked = lockedKeys.has(k.midi)
             const isC = k.midi % 12 === 0
@@ -330,15 +330,14 @@ export default function Keyboard() {
                 className="relative flex-1 flex flex-col justify-end items-center pb-1 cursor-pointer"
                 style={{
                   background: color ?? '#e8e8e8',
-                  borderRight: '1px solid #b0b0b0',
+                  borderRight: !color ? '1px solid #b0b0b0' : allActiveKeys.has(whiteKeys[i + 1]?.midi) ? '1px solid rgba(0,0,0,0.12)' : '1px solid transparent',
+                  borderLeft: color && allActiveKeys.has(whiteKeys[i - 1]?.midi) ? '1px solid rgba(0,0,0,0.12)' : 'none',
                   boxShadow: color
                     ? `0 0 ${locked ? 18 : 12}px ${locked ? 6 : 4}px ${color}${locked ? 'cc' : '88'}`
                     : 'inset 0 -3px 6px rgba(0,0,0,0.1)',
                   transition: 'background 0.04s, box-shadow 0.04s',
                   minWidth: 0,
-                  outline: locked ? `2px solid ${color}` : 'none',
-                  outlineOffset: -2,
-                }}
+                  }}
               >
                 {label && (
                   <span className="text-[9px] font-semibold pointer-events-none"
@@ -370,7 +369,7 @@ export default function Keyboard() {
                   left: `${leftPct}%`, width: `${widthPct}%`, height: '65%',
                   background: color ?? '#1a1a22',
                   borderRadius: '0 0 4px 4px',
-                  border: locked ? `2px solid ${color}` : '1px solid #0a0a0f',
+                  border: color ? '1px solid rgba(0,0,0,0.18)' : '1px solid #0a0a0f',
                   borderTop: 'none',
                   boxShadow: color
                     ? `0 0 ${locked ? 14 : 10}px ${locked ? 4 : 3}px ${color}${locked ? 'bb' : '99'}`
