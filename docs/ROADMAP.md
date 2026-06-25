@@ -11,32 +11,36 @@
 - [x] Type definitions
 
 ### 1b — MIDI Playback
-- [ ] MIDI file open via native dialog
-- [ ] Note parsing and display in piano roll (PixiJS falling notes)
-- [ ] Basic playback (play/pause/stop)
-- [ ] Tempo control (BPM slider, % display, pitch-independent)
-- [ ] Loop region (drag to select bars)
-- [ ] Track mute/solo functional
-- [ ] Scrub/seek
+- [x] MIDI file open via native dialog
+- [x] Note parsing and display in piano roll (PixiJS falling notes)
+- [x] Basic playback (play/pause/stop)
+- [x] Tempo control (BPM ▲/▼ with long-press, pitch-independent via JZZ speed ratio)
+- [ ] Loop region (drag to select bars) — store state exists, no UI yet
+- [x] Track mute/solo functional
+- [ ] Scrub/seek — `seek()` exists in hook, no scrub bar UI yet
 
 ### 1c — Audio Engine
-- [ ] Tone.js integration
-- [ ] Default bundled soundfont (WAV samples)
-- [ ] Mouse click on keyboard produces sound
-- [ ] Notes play during MIDI playback
-- [ ] Per-track volume and pan
+- [ ] Default bundled soundfont (WAV/SF2 samples) — deferred; using jzz-synth-tiny (GM MIDI) for now
+- [x] Mouse click on keyboard produces sound (JZZ ch14, Grand Piano)
+- [x] Notes play during MIDI playback (JZZ SMF player + jzz-synth-tiny)
+- [x] Metronome with full tempo-map support
+- [ ] Per-track volume and pan — store fields exist, not yet wired to audio
 
 ### 1d — Hardware MIDI Input
-- [ ] Web MIDI API device detection
+- [ ] Web MIDI API / jazz-midi-electron device detection
 - [ ] Real-time key lighting on virtual keyboard
 - [ ] Real-time chord detection display
-- [ ] MIDI device indicator in top bar
+- [x] MIDI device indicator in top bar (shows device name when connected)
 
-### 1e — Polish
-- [ ] Keyboard floating/docking fully functional
-- [ ] 61/73/88 key switching
-- [ ] Note naming system switch (English/H/Solfège/Hidden)
-- [ ] MIDI export (save with muted tracks removed)
+### 1e — Polish ✅
+- [x] Keyboard floating/docking fully functional (draggable, width-resizable)
+- [x] 61/73/88 key switching (proportional key height via ResizeObserver)
+- [x] Note naming system switch (UK/US · EU · Solfège · Hidden) + ♭/♯ accidentals toggle
+- [x] MIDI export — track include/exclude, instrument reassignment, track merge (MIDI Playback Editor)
+- [x] Settings persistence across sessions (noteNaming, accidentals, library folder, favourites)
+- [x] MIDI file library with subfolder support, favourites, and one-click load
+- [x] Warm/dark theme toggle
+- [x] Chord display during playback + chord lock with inversion browser
 - [ ] Smooth animations, transitions
 
 ---
