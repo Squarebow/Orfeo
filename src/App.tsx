@@ -9,6 +9,7 @@ import EmptyState from './components/EmptyState'
 import { useStore } from './store'
 import FloatingKeyboard from './components/Keyboard/FloatingKeyboard'
 import ChordExplorer from './components/ChordExplorer'
+import ScaleExplorer from './components/ScaleExplorer'
 import MidiEditor from './components/MidiEditor/MidiEditor'
 import { parseMidiBuffer } from './utils/midiParser'
 import { detectKeyFromTracks, parseKeySignature } from './utils/keyDetection'
@@ -51,12 +52,12 @@ export default function App() {
       switch (e.key) {
         case ' ':
           e.preventDefault()
-          if (useStore.getState().chordExplorerOpen) break
+          if (useStore.getState().chordExplorerOpen || useStore.getState().scaleExplorerOpen) break
           if (playbackState === 'playing') pause()
           else play()
           break
         case 'Escape':
-          if (useStore.getState().chordExplorerOpen) break
+          if (useStore.getState().chordExplorerOpen || useStore.getState().scaleExplorerOpen) break
           stop()
           break
         case 'o':
@@ -87,6 +88,7 @@ export default function App() {
       </div>
       {keyboardMode === 'floating' && <FloatingKeyboard />}
       <ChordExplorer />
+      <ScaleExplorer />
     </div>
   )
 }

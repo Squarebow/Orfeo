@@ -40,6 +40,8 @@ export default function Keyboard() {
   const explorerKeyColors = useStore((s) => s.explorerKeyColors)
   const chordExplorerOpen = useStore((s) => s.chordExplorerOpen)
   const setChordExplorerOpen = useStore((s) => s.setChordExplorerOpen)
+  const scaleExplorerOpen = useStore((s) => s.scaleExplorerOpen)
+  const setScaleExplorerOpen = useStore((s) => s.setScaleExplorerOpen)
   const displayedChord = useStore((s) => s.displayedChord)
 
   const [lockedKeys, setLockedKeys] = useState<Set<number>>(new Set())
@@ -57,7 +59,7 @@ export default function Keyboard() {
     }
   }, [playbackState])
 
-  // Clear displayed chord when explorer closes
+  // Clear displayed chord when either explorer closes
   useEffect(() => {
     if (!chordExplorerOpen) {
       useStore.getState().setDisplayedChord(null)
@@ -65,6 +67,12 @@ export default function Keyboard() {
       if (holdRef.current) { clearTimeout(holdRef.current); holdRef.current = null }
     }
   }, [chordExplorerOpen])
+
+  useEffect(() => {
+    if (!scaleExplorerOpen) {
+      useStore.getState().setDisplayedChord(null)
+    }
+  }, [scaleExplorerOpen])
 
   useEffect(() => {
     const down = (e: KeyboardEvent) => { if (e.key === 'Shift') shiftHeldRef.current = true }
@@ -290,12 +298,21 @@ export default function Keyboard() {
           )}
         </div>
 
-        {/* Right: persistent help text when not locked */}
-        {!isLocked && (
-          <span style={{ position: 'absolute', right: 10, fontSize: 10, color: '#9090a8', fontFamily: 'Inter', whiteSpace: 'nowrap', userSelect: 'none' }}>
-            Shift+Click at least 3 keys to build &amp; lock a chord
+        {/* Right: SCALES trigger (always) + help text when not locked */}
+        <div style={{ position: 'absolute', right: 10, display: 'flex', alignItems: 'center', gap: 10 }}>
+          {!isLocked && (
+            <span style={{ fontSize: 10, color: '#9090a8', fontFamily: 'Inter', whiteSpace: 'nowrap', userSelect: 'none' }}>
+              Shift+Click at least 3 keys to build &amp; lock a chord
+            </span>
+          )}
+          <span
+            onClick={() => setScaleExplorerOpen(true)}
+            title="Open Scale Explorer"
+            style={{ fontFamily: 'Inter', fontSize: 9, fontWeight: 700, color: '#e8a027', letterSpacing: '0.12em', textTransform: 'uppercase', cursor: 'pointer', userSelect: 'none' }}
+          >
+            Scales
           </span>
-        )}
+        </div>
       </div>
 
       {/* Piano keys */}
@@ -332,7 +349,7 @@ export default function Keyboard() {
               >
                 {label && (
                   <span className="font-semibold pointer-events-none"
-                    style={{ color: color ? '#fff' : '#888', fontFamily: 'JetBrains Mono', fontSize: chordExplorerOpen ? 11 : 9 }}>
+                    style={{ color: color ? '#fff' : '#888', fontFamily: 'JetBrains Mono', fontSize: (chordExplorerOpen || scaleExplorerOpen) ? 11 : 9 }}>
                     {label}
                   </span>
                 )}
@@ -373,7 +390,7 @@ export default function Keyboard() {
                   <span style={{
                     position: 'absolute', bottom: 3, left: '50%',
                     transform: 'translateX(-50%)',
-                    fontSize: chordExplorerOpen ? 8 : 7, fontFamily: 'JetBrains Mono', fontWeight: 700,
+                    fontSize: (chordExplorerOpen || scaleExplorerOpen) ? 8 : 7, fontFamily: 'JetBrains Mono', fontWeight: 700,
                     color: 'rgba(255,255,255,0.88)', pointerEvents: 'none',
                     whiteSpace: 'nowrap', textShadow: '0 1px 2px rgba(0,0,0,0.95)',
                   }}>

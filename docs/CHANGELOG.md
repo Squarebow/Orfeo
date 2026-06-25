@@ -5,6 +5,29 @@ Format: [Semantic Versioning](https://semver.org)
 
 ---
 
+## [0.5.2] — 2026-06 — Scale Explorer
+
+### Added
+- **Scale Explorer modal** (`src/components/ScaleExplorer.tsx`) — 720px draggable modal, opens from "Scales" amber trigger on right side of the keyboard chord bar (mirrors "Chords" on the left)
+- **Circle of Fifths SVG** — 380×380 SVG with outer ring (major keys) and inner ring (relative minors); 12 wedge segments × 30°, C at top; clicking outer ring selects major key + Major scale, clicking inner ring selects minor key + Natural Minor; selected segment highlighted in amber; key signature symbols (♯/♭) shown outside outer ring, count respects accidentals setting
+- **10 scale types** — Major, Natural Minor, Harmonic Minor, Melodic Minor, Major Pentatonic, Minor Pentatonic, Dorian, Phrygian, Lydian, Mixolydian; selectable via buttons without changing the root; scale notes play ascending on root/scale change
+- **Diatonic chord grid** — 3-column grid of triads built by stacking thirds within the selected scale; chord quality detected via `Chord.detect()` from tonal; Roman numeral label shown per tile; clicking a tile lights the keyboard and plays the chord
+- **Info row** — shows root · scale name · all scale note names when a key is selected
+- **Filter row** — Hand (All / 1H / 2H) and Note count (Any / 3 / 4 / 5 / 6+) filters on diatonic grid
+- **Progressions row** — same 15 progressions as Chord Explorer; Slow/Med/Fast speed; Play/Stop; Roman numeral labels map to diatonic scale degrees via `ROMAN_TO_DEGREE` table; pentatonic scales clamp degree index with modulo
+- **Inversions** — Off / Sequential / Random per-progression; same logic as Chord Explorer
+- **Footer ‹ PLAY INVERSION ›** — cycles inversions on selected diatonic chord; ↺ resets; absolutely centred
+- **Modal switching** — "Chord Explorer →" in Scale Explorer footer and "Scale Explorer →" in Chord Explorer footer switch between modals without closing either explorer's state
+
+### Changed
+- `scaleExplorerOpen` / `setScaleExplorerOpen` added to Zustand store
+- Keyboard.tsx chord bar: "Scales" trigger added permanently to the right (absolute right: 10), mirroring "Chords" on the left; help text remains visible to the left of "Scales" when chord is not locked
+- Keyboard.tsx font size conditions updated to `chordExplorerOpen || scaleExplorerOpen` — both explorers enlarge key labels (white 11px, black 8px)
+- App.tsx Space / Escape keyboard guards now also check `scaleExplorerOpen`
+- ChordExplorer.tsx "Scale Explorer →" button wired up (was a no-op stub)
+
+---
+
 ## [0.5.1] — 2026-06 — Chord Explorer
 
 ### Added

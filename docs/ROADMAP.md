@@ -47,6 +47,8 @@
 
 ## Phase 2 — Commercial Features
 
+- [x] Chord Explorer — chord grid, 15 progressions, inversion modes, CoF-style layout (v0.5.1)
+- [x] Scale Explorer — Circle of Fifths SVG, 10 scale types, diatonic chord grid, progressions, inversions (v0.5.2)
 - [ ] Chord library window (all chords, inversions, arpeggio)
 - [ ] Licensing system (Keygen.sh + WooCommerce)
 - [ ] Free vs licensed feature gating
@@ -62,6 +64,7 @@
 
 - [ ] TrackPanel SVG crash — intermittent renderer crash when TrackPanel renders certain SVG elements; root cause unknown
 - [ ] Chord Explorer search — matching logic unreliable across naming systems; needs full rewrite to match composed chord names across English/CE/Solfège and b/♭/#
+- [ ] Scale Explorer visual testing pending — code complete, dev server started but visual confirmation not done before session ended
 
 ---
 

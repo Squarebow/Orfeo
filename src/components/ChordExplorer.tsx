@@ -140,6 +140,7 @@ const ROW: React.CSSProperties = {
 export default function ChordExplorer() {
   const chordExplorerOpen = useStore(s => s.chordExplorerOpen)
   const setChordExplorerOpen = useStore(s => s.setChordExplorerOpen)
+  const setScaleExplorerOpen = useStore(s => s.setScaleExplorerOpen)
   const setExplorerKeys = useStore(s => s.setExplorerKeys)
   const clearExplorerKeys = useStore(s => s.clearExplorerKeys)
   const clearDisplayedChord = useStore(s => s.clearDisplayedChord)
@@ -832,7 +833,7 @@ export default function ChordExplorer() {
 
         {/* Right: Scale Explorer placeholder */}
         <button
-          onClick={() => {}}
+          onClick={() => { setChordExplorerOpen(false); setScaleExplorerOpen(true) }}
           title="Switch to Scale Explorer"
           style={{
             background: 'none', border: 'none', cursor: 'pointer',

@@ -95,8 +95,8 @@ All Electron APIs are accessed through `window.electronAPI` (defined in `src/typ
 - All note display routes through convertAccidentals() in noteNames.ts — never convert inline
 
 ## Current status (June 2026)
-- v0.5.1 — Chord Explorer fully implemented: chord grid, progressions (15 patterns), inversion modes (Off/Sequential/Random), layout polish, displayedChord in store
-- Next task: Scale Explorer modal (Session 3 prompt saved in Obsidian)
+- v0.5.2 — Scale Explorer implemented: Circle of Fifths SVG, 10 scale types, diatonic chord grid, progressions, inversions, footer ‹ PLAY INVERSION ›, Chord Explorer ↔ Scale Explorer switching
+- Next task: Visual testing of Scale Explorer (dev server was started but session ended before confirming render); then whatever the user specifies
 - Known unresolved: TrackPanel SVG crash, Chord Explorer search unreliable
 
 ## Audio
@@ -106,9 +106,25 @@ All Electron APIs are accessed through `window.electronAPI` (defined in `src/typ
 - SF2 soundfont engine exists but partially implemented
 - window.__orfeoPlayNote routes click-to-play to active backend
 
+## Scale Explorer architecture (src/components/ScaleExplorer.tsx)
+- `scaleExplorerOpen` / `setScaleExplorerOpen` added to Zustand store (same pattern as `chordExplorerOpen`)
+- Triggered by "Scales" amber label on RIGHT side of Keyboard.tsx chord bar; "Chords" stays on LEFT
+- `cofPos: number | null` (0–11) + `cofRing: 'major' | 'minor' | null` — CoF selection state
+- `selectedRoot = cofRing === 'major' ? COF_MAJOR_PC[cofPos] : COF_MINOR_PC[cofPos]` (pitch class)
+- Clicking outer ring → root + Major scale; clicking inner ring → root + Natural Minor
+- `SCALES` array (10 entries): Major, Natural Minor, Harmonic Minor, Melodic Minor, Maj/Min Pentatonic, Dorian, Phrygian, Lydian, Mixolydian — each has `intervals[]` and `romans[]`
+- `buildDiatonicChord(root, intervals, degree, keyboardSize, naming, accidentals)` — stacks every-other scale degree (deg, deg+2, deg+4) for triad, uses `Chord.detect(Note.fromMidi[])` for chord quality
+- `ROMAN_TO_DEGREE` mapping drives progression playback — each progression label maps to scale degree index, clamped with `% diatonicChords.length` for pentatonic
+- `applyNthInversion` identical to ChordExplorer version
+- Footer ‹ PLAY INVERSION ›: same pattern as ChordExplorer, uses `inversionStep` state + `currentBaseMidi` from selected degree
+- ChordExplorer "Scale Explorer →" button: `setChordExplorerOpen(false); setScaleExplorerOpen(true)`; Scale Explorer "Chord Explorer →" does the reverse
+- Both explorers force 61-key layout; font size conditions in Keyboard.tsx use `chordExplorerOpen || scaleExplorerOpen`
+- Space/Escape in App.tsx is blocked when either explorer is open
+
 ## Known Issues
 - Chord Explorer search needs logic rewrite — currently unreliable across naming systems
 - TrackPanel SVG crash (pre-existing, unresolved)
+- Scale Explorer visual testing not yet confirmed (session ended before visual check)
 
 ## Git rules
 - Do not add co-author attribution to commit messages

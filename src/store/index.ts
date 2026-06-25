@@ -78,6 +78,8 @@ interface OrfeoStore {
 
   chordExplorerOpen: boolean
   setChordExplorerOpen: (open: boolean) => void
+  scaleExplorerOpen: boolean
+  setScaleExplorerOpen: (open: boolean) => void
   explorerKeys: Set<number>
   explorerKeyColors: Map<number, string>
   setExplorerKeys: (keys: Set<number>, colors: Map<number, string>) => void
@@ -187,9 +189,11 @@ export const useStore = create<OrfeoStore>((set, get) => ({
   setSettingsPanelOpen: (settingsPanelOpen) => set({ settingsPanelOpen }),
 
   chordExplorerOpen: false,
+  scaleExplorerOpen: false,
   explorerKeys: new Set(),
   explorerKeyColors: new Map(),
   setChordExplorerOpen: (chordExplorerOpen) => set({ chordExplorerOpen }),
+  setScaleExplorerOpen: (scaleExplorerOpen) => set({ scaleExplorerOpen }),
   setExplorerKeys: (explorerKeys, explorerKeyColors) => set({ explorerKeys, explorerKeyColors }),
   clearExplorerKeys: () => set({ explorerKeys: new Set(), explorerKeyColors: new Map() }),
   displayedChord: null,
@@ -202,7 +206,7 @@ export const useStore = create<OrfeoStore>((set, get) => ({
       activeKeys: new Set(), activeKeyColors: new Map(),
       explorerKeys: new Set(), explorerKeyColors: new Map(),
       displayedChord: null,
-      chordExplorerOpen: false, playbackState: 'stopped',
+      chordExplorerOpen: false, scaleExplorerOpen: false, playbackState: 'stopped',
       currentTime: 0, trackPanelOpen: false, settingsPanelOpen: false,
     })
   },
