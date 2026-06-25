@@ -95,11 +95,9 @@ All Electron APIs are accessed through `window.electronAPI` (defined in `src/typ
 - All note display routes through convertAccidentals() in noteNames.ts — never convert inline
 
 ## Current status (June 2026)
-- v0.5.0 — core playback, keyboard, track panel, chord detection all working
-- Keyboard adjacent key border separators just fixed (Keyboard.tsx)
-- Next task: Chord Explorer modal (Session 2 prompt saved in Obsidian)
-- After that: Scale Explorer modal (Session 3 prompt saved in Obsidian)
-- Known unresolved: TrackPanel SVG crash
+- v0.5.1 — Chord Explorer fully implemented: chord grid, progressions (15 patterns), inversion modes (Off/Sequential/Random), layout polish, displayedChord in store
+- Next task: Scale Explorer modal (Session 3 prompt saved in Obsidian)
+- Known unresolved: TrackPanel SVG crash, Chord Explorer search unreliable
 
 ## Audio
 - JZZ.js is the active MIDI playback engine (replaced Tone.js)
@@ -109,8 +107,7 @@ All Electron APIs are accessed through `window.electronAPI` (defined in `src/typ
 - window.__orfeoPlayNote routes click-to-play to active backend
 
 ## Known Issues
-- Chord Explorer search does not work reliably. Needs logic rewrite — match against
-  fully composed chord names across all naming/accidental systems before fixing.
+- Chord Explorer search needs logic rewrite — currently unreliable across naming systems
 - TrackPanel SVG crash (pre-existing, unresolved)
 
 ## Git rules

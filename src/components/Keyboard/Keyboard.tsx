@@ -40,13 +40,12 @@ export default function Keyboard() {
   const explorerKeyColors = useStore((s) => s.explorerKeyColors)
   const chordExplorerOpen = useStore((s) => s.chordExplorerOpen)
   const setChordExplorerOpen = useStore((s) => s.setChordExplorerOpen)
+  const displayedChord = useStore((s) => s.displayedChord)
 
   const [lockedKeys, setLockedKeys] = useState<Set<number>>(new Set())
   const [lockedColors, setLockedColors] = useState<Map<number, string>>(new Map())
   const shiftHeldRef = useRef(false)
 
-  // Smart chord display
-  const [displayedChord, setDisplayedChord] = useState<string | null>(null)
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const holdRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   // Clear chord when playback stops
@@ -54,14 +53,14 @@ export default function Keyboard() {
     if (playbackState === 'stopped') {
       if (debounceRef.current) clearTimeout(debounceRef.current)
       if (holdRef.current) clearTimeout(holdRef.current)
-      setDisplayedChord(null)
+      useStore.getState().setDisplayedChord(null)
     }
   }, [playbackState])
 
   // Clear displayed chord when explorer closes
   useEffect(() => {
     if (!chordExplorerOpen) {
-      setDisplayedChord(null)
+      useStore.getState().setDisplayedChord(null)
       if (debounceRef.current) { clearTimeout(debounceRef.current); debounceRef.current = null }
       if (holdRef.current) { clearTimeout(holdRef.current); holdRef.current = null }
     }
@@ -114,10 +113,10 @@ export default function Keyboard() {
         const raw = detectChord(activeKeys)
         const localized = localizeChord(raw, noteNaming, accidentals)
         if (localized) {
-          setDisplayedChord(localized)
+          useStore.getState().setDisplayedChord(localized)
           // During playback don't set a hold timeout — chord clears when keys release
           if (playbackState !== 'playing') {
-            holdRef.current = setTimeout(() => setDisplayedChord(null), CHORD_HOLD_MS)
+            holdRef.current = setTimeout(() => useStore.getState().setDisplayedChord(null), CHORD_HOLD_MS)
           }
         }
       }, delay)
@@ -126,7 +125,7 @@ export default function Keyboard() {
       // During playback, clear immediately when chord breaks; manual use hold
       if (playbackState === 'playing') {
         if (holdRef.current) { clearTimeout(holdRef.current); holdRef.current = null }
-        setDisplayedChord(null)
+        useStore.getState().setDisplayedChord(null)
       }
     }
   }, [activeKeys, lockedKeys.size, noteNaming, accidentals, playbackState])

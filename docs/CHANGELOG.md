@@ -8,27 +8,35 @@ Format: [Semantic Versioning](https://semver.org)
 ## [0.5.1] — 2026-06 — Chord Explorer
 
 ### Added
+- **Chord Progressions** — 15 common progressions (I–IV–V, I–V–vi–IV, 12-bar Blues, ii–V–I, etc.); Slow/Med/Fast speed; Play/Stop; active chord tile shows Roman numeral label; portalled dropdown to escape `overflow:hidden`; stops when root or chord changes; × to deselect
+- **Inversion modes for progressions** — Off (root position always) / Sequential (advances one inversion per full loop) / Random (random inversion per chord); merged with Progressions controls into a single row
+- **Scale Explorer placeholder** — "Scale Explorer →" button in footer right (onClick stub, wired up in next session)
 - **Chord Explorer modal** — draggable, no backdrop, opens from "Chords" label in the keyboard chord bar; auto-forces 61-key layout while open, restores on close; pauses playback on open
 - **Root selector** — 12 pitch-class buttons using active accidentals + note naming; clicking a root while a chord is selected re-plays it in the new key
 - **Chord grid** — Common / Extended tier toggle; 3-column grid of chord tiles; clicking a tile lights the keyboard and plays the chord
 - **Hand filter** — All / 1H / 2H filter (span-based heuristic); 1H icon rotated –20°, 2H icons angled inward
 - **Note count filter** — Any / 3 / 4 / 5 / 6+ buttons
-- **Search** — magnifier icon in header toggles an inline input; filters by composed chord name (root + suffix) with `b`→`♭` normalization
-- **Inversion browser** — `‹ PLAY INVERSION ›` centered in footer; cycles inversions via `nextInversion` / `prevInversion`; clear button (RotateCcw) deselects without closing modal
-- **Accidentals toggle** in footer — ♭ / # symbols only at 20px; active = amber, inactive = dim; writes back to store
-- **Explorer key lighting** — separate `explorerKeys` / `explorerKeyColors` store layer merged into Keyboard.tsx; does not interfere with playback lighting
-- **Logo click reset** — clicking the Orfeo logo resets all state (stops player, clears MIDI, closes panels)
-- **Keyboard note labels in explorer mode** — white key labels grow 9→11px, black key labels 7→8px when Chord Explorer is open
+- **Search** — magnifier icon in header toggles an inline input; filters by composed chord name (root + suffix) with `b`→`♭` normalisation
+- **Inversion browser** — `‹ PLAY INVERSION ›` centred in footer via `position:absolute`; cycles inversions; RotateCcw clears keyboard lighting and chord bar display
+- **Accidentals toggle** in footer — ♭ / # symbols; active = amber; writes back to store
+- **Explorer key lighting** — separate `explorerKeys` / `explorerKeyColors` store layer; does not interfere with playback lighting
+- **Logo click reset** — clicking the Orfeo logo resets all state
+- **Keyboard note labels in explorer mode** — white key labels 9→11px, black key labels 7→8px when Chord Explorer is open
 
 ### Changed
+- Explorer layout: all rows use `justifyContent: space-between` — label pinned left, controls pinned right
+- Modal width: 540 → 600px
+- ROOT row: 12 note buttons grouped in a right-aligned flex div
+- PROGRESSIONS + INVERSIONS merged into one row; FILTER row contains only tier/hand/notes filters
+- Footer: inversion controls absolutely centred; accidentals left; Scale Explorer → right
+- `displayedChord` moved from Keyboard.tsx local state to Zustand store (`displayedChord`, `setDisplayedChord`, `clearDisplayedChord`) — RotateCcw now correctly clears the chord bar above the keyboard
 - Keyboard chord bar label: `CHORD LOCK` → `Locked Chord`
 - Chord bar help text: `Shift+Click at least 3 keys to build & lock a chord`
 - Chord tile note name row: `fontSize 8→9`, `color #606078→#8080a0`
-- Play button in TopBar disabled while Chord Explorer is open
-- Space / Escape keys guarded in App.tsx — no longer trigger playback when Chord Explorer is open
 
 ### Fixed
-- Central European naming: pitch class 10 (A#/B♭) now always returns `'B'` in CE mode regardless of accidentals setting — `CENTRAL_EU_SHARP[10]` was incorrectly `'A#'`
+- Central European naming: pitch class 10 (A#/B♭) now always returns `'B'` in CE mode — `CENTRAL_EU_SHARP[10]` was incorrectly `'A#'`
+- RotateCcw clear button now clears the chord name displayed in the keyboard bar (previously only cleared key lighting)
 
 ---
 

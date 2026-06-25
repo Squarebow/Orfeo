@@ -60,7 +60,8 @@
 
 ## Known Issues
 
-- [ ] Chord Explorer search: matching logic unreliable — needs full rewrite
+- [ ] TrackPanel SVG crash — intermittent renderer crash when TrackPanel renders certain SVG elements; root cause unknown
+- [ ] Chord Explorer search — matching logic unreliable across naming systems; needs full rewrite to match composed chord names across English/CE/Solfège and b/♭/#
 
 ---
 

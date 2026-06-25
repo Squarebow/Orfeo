@@ -82,6 +82,9 @@ interface OrfeoStore {
   explorerKeyColors: Map<number, string>
   setExplorerKeys: (keys: Set<number>, colors: Map<number, string>) => void
   clearExplorerKeys: () => void
+  displayedChord: string | null
+  setDisplayedChord: (chord: string | null) => void
+  clearDisplayedChord: () => void
   resetAll: () => void
 }
 
@@ -189,12 +192,16 @@ export const useStore = create<OrfeoStore>((set, get) => ({
   setChordExplorerOpen: (chordExplorerOpen) => set({ chordExplorerOpen }),
   setExplorerKeys: (explorerKeys, explorerKeyColors) => set({ explorerKeys, explorerKeyColors }),
   clearExplorerKeys: () => set({ explorerKeys: new Set(), explorerKeyColors: new Map() }),
+  displayedChord: null,
+  setDisplayedChord: (displayedChord) => set({ displayedChord }),
+  clearDisplayedChord: () => set({ displayedChord: null }),
   resetAll: () => {
     ;(window as any).__orfeoPlayer?.stop?.()
     set({
       midi: null, tracks: [],
       activeKeys: new Set(), activeKeyColors: new Map(),
       explorerKeys: new Set(), explorerKeyColors: new Map(),
+      displayedChord: null,
       chordExplorerOpen: false, playbackState: 'stopped',
       currentTime: 0, trackPanelOpen: false, settingsPanelOpen: false,
     })
