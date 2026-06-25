@@ -82,3 +82,7 @@ All Electron APIs are accessed through `window.electronAPI` (defined in `src/typ
 - **Track colors**: assigned by index from `TRACK_COLORS` in `midiParser.ts` at parse time.
 - **Design tokens**: `#e8a027` amber accent, `#707088` inactive UI, `#b0b0cc` active/value text, `#404055` dim labels. Defined in `src/index.css`.
 - **Drag region**: `.app-drag-region` / `.app-no-drag` CSS classes defined in `index.css` — the topbar is the drag region; interactive elements must carry `app-no-drag`.
+
+## Git rules
+- Do not add co-author attribution to commit messages
+- Commit messages should be plain, no Claude signature
