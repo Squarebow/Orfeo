@@ -1,4 +1,4 @@
-import { app, BrowserWindow, ipcMain, dialog } from 'electron'
+import { app, BrowserWindow, ipcMain, dialog, shell } from 'electron'
 import { join } from 'path'
 import { readFileSync, writeFileSync, existsSync, readdirSync } from 'fs'
 import { Midi } from '@tonejs/midi'
@@ -35,6 +35,7 @@ ipcMain.handle('prefs:get', async () => loadPrefs())
 ipcMain.handle('prefs:set', async (_e, data) => savePrefs(data))
 
 // ── Open MIDI file ─────────────────────────────────────────────────────────
+ipcMain.handle('shell:openExternal', (_e, url: string) => shell.openExternal(url))
 ipcMain.handle('dialog:openMidi', async () => {
   const result = await dialog.showOpenDialog({
     title: 'Open MIDI File',
@@ -58,12 +59,21 @@ ipcMain.handle('dialog:openFolder', async () => {
   return folderPath
 })
 ipcMain.handle('fs:scanMidiFolder', async (_e, folderPath: string) => {
-  try {
-    return readdirSync(folderPath, { withFileTypes: true })
-      .filter(e => e.isFile() && /\.(mid|midi)$/i.test(e.name))
-      .map(e => ({ name: e.name, path: join(folderPath, e.name) }))
-      .sort((a, b) => a.name.localeCompare(b.name))
-  } catch { return [] }
+  function scanDir(dir: string): { name: string; path: string }[] {
+    try {
+      const results: { name: string; path: string }[] = []
+      const entries = readdirSync(dir, { withFileTypes: true })
+      for (const e of entries) {
+        if (e.isDirectory()) {
+          results.push(...scanDir(join(dir, e.name)))
+        } else if (e.isFile() && /\.(mid|midi)$/i.test(e.name)) {
+          results.push({ name: e.name, path: join(dir, e.name) })
+        }
+      }
+      return results
+    } catch { return [] }
+  }
+  return scanDir(folderPath).sort((a, b) => a.name.localeCompare(b.name))
 })
 ipcMain.handle('fs:loadMidiFromPath', async (_e, filePath: string) => {
   try {
@@ -99,7 +109,15 @@ ipcMain.handle('editor:open', async (_e, data: any) => {
   } else {
     editorWin.loadFile(join(__dirname, '../renderer/index.html'), { hash: 'editor' })
   }
-  editorWin.on('closed', () => { editorWin = null; _editorData = null })
+  editorWin.on('closed', () => {
+    editorWin = null
+    _editorData = null
+    // Signal main window that editor closed
+    const mainWin = BrowserWindow.getAllWindows().find(w => w !== editorWin)
+    if (mainWin && !mainWin.isDestroyed()) {
+      mainWin.webContents.send('editor:closed')
+    }
+  })
 })
 
 ipcMain.handle('editor:getData', async () => _editorData)

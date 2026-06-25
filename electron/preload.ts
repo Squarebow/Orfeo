@@ -20,4 +20,6 @@ contextBridge.exposeInMainWorld('electronAPI', {
   saveFileDialog:     (opts: any) => ipcRenderer.invoke('dialog:saveFile', opts),
   saveMidiEditor:     (payload: any) => ipcRenderer.invoke('editor:save', payload),
   onMidiReload:       (cb: (data: any) => void) => ipcRenderer.on('midi:reloadFile', (_e, data) => cb(data)),
+  onEditorClosed:     (cb: () => void) => ipcRenderer.on('editor:closed', () => cb()),
+  openExternal:       (url: string) => ipcRenderer.invoke('shell:openExternal', url),
 })

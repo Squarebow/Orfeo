@@ -1,10 +1,11 @@
-import { useState } from 'react'
+import { useState, useMemo, useRef, useEffect } from 'react'
 import {
-  Settings2, ChevronLeft, Type, Piano, Palette, ZoomIn, Volume2,
-  Music, FolderOpen, Star, ChevronRight, RefreshCw, FileMusic,
+  Settings2, ChevronLeft, ChevronDown, ChevronRight, Type, Piano, Palette, ZoomIn, Volume2,
+  Music, FolderOpen, RefreshCw, FileMusic, BookOpen, ListMusic,
 } from 'lucide-react'
 import { useStore } from '../../store'
 import type { NoteNaming, KeyboardSize, Accidentals } from '../../types'
+import type { AppTheme } from '../../store'
 
 // ─── Shared sub-components ──────────────────────────────────────────────────
 
@@ -86,15 +87,13 @@ function LibraryPanel() {
   const libraryFolder = useStore((s) => s.libraryFolder)
   const libraryFiles = useStore((s) => s.libraryFiles)
   const libraryFavourites = useStore((s) => s.libraryFavourites)
-  const setLibraryFolder = useStore((s) => s.setLibraryFolder)
   const setLibraryFiles = useStore((s) => s.setLibraryFiles)
   const setLibraryFolderAndFiles = useStore((s) => s.setLibraryFolderAndFiles)
   const toggleFavourite = useStore((s) => s.toggleFavourite)
-  const loadLibraryFile = useStore((s) => s.loadLibraryFile)
   const [loading, setLoading] = useState(false)
   const [filter, setFilter] = useState<'all' | 'starred'>('all')
-
-
+  // Folders start expanded (not in collapsed set)
+  const [expandedFolders, setExpandedFolders] = useState<Set<string>>(new Set())
 
   const handlePickFolder = async () => {
     try {
@@ -127,41 +126,85 @@ function LibraryPanel() {
       const binary = atob(result.base64)
       const bytes = new Uint8Array(binary.length)
       for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i)
-      // Dynamically import to avoid circular deps
       const { parseMidiBuffer } = await import('../../utils/midiParser')
       const { detectKeyFromTracks, parseKeySignature } = await import('../../utils/keyDetection')
-      const { useStore } = await import('../../store')
+      const { useStore: store } = await import('../../store')
       const parsed = parseMidiBuffer(bytes.buffer, result.fileName, result.filePath ?? '')
-      useStore.getState().setMidi(parsed)
+      store.getState().setMidi(parsed)
       const raw = parsed as any
       if (raw._keySignature != null) {
-        useStore.getState().setDetectedKey(parseKeySignature(raw._keySignature.key, raw._keySignature.scale))
+        store.getState().setDetectedKey(parseKeySignature(raw._keySignature.key, raw._keySignature.scale))
       } else {
-        useStore.getState().setDetectedKey(detectKeyFromTracks(parsed.tracks))
+        store.getState().setDetectedKey(detectKeyFromTracks(parsed.tracks))
       }
     } catch (err) {
       console.error('Failed to load file:', err)
     }
   }
 
-  const displayed: LibraryFile[] = filter === 'starred'
-    ? libraryFiles.filter(f => libraryFavourites.has(f.path))
-    : [
-        ...libraryFiles.filter(f => libraryFavourites.has(f.path)),
-        ...libraryFiles.filter(f => !libraryFavourites.has(f.path)),
-      ]
+  // Group files: root files first, then one entry per subfolder
+  type FileGroup = { folder: string | null; files: LibraryFile[] }
+  const grouped: FileGroup[] = useMemo(() => {
+    const allFiles = filter === 'starred'
+      ? libraryFiles.filter(f => libraryFavourites.has(f.path))
+      : libraryFiles
+
+    const rootFiles: LibraryFile[] = []
+    const folderMap = new Map<string, LibraryFile[]>()
+
+    for (const file of allFiles) {
+      if (!libraryFolder) { rootFiles.push(file); continue }
+      const normFile = file.path.replace(/\\/g, '/')
+      const normRoot = libraryFolder.replace(/\\/g, '/').replace(/\/$/, '')
+      const rel = normFile.startsWith(normRoot)
+        ? normFile.slice(normRoot.length).replace(/^\//, '')
+        : file.name
+      const parts = rel.split('/')
+      if (parts.length <= 1) {
+        rootFiles.push(file)
+      } else {
+        const folder = parts[0]
+        if (!folderMap.has(folder)) folderMap.set(folder, [])
+        folderMap.get(folder)!.push(file)
+      }
+    }
+
+    // Folders first, then root files
+    const starred = rootFiles.filter(f => libraryFavourites.has(f.path))
+    const unstarred = rootFiles.filter(f => !libraryFavourites.has(f.path))
+    const result: FileGroup[] = []
+
+    Array.from(folderMap.entries())
+      .sort((a, b) => a[0].localeCompare(b[0]))
+      .forEach(([folder, files]) => result.push({ folder, files }))
+
+    // Root files at the bottom
+    result.push({ folder: null, files: [...starred, ...unstarred] })
+
+    return result
+  }, [libraryFiles, libraryFavourites, libraryFolder, filter])
+
+  const toggleFolder = (folder: string) => setExpandedFolders(prev => {
+    const next = new Set(prev)
+    if (next.has(folder)) next.delete(folder); else next.add(folder)
+    return next
+  })
 
   const folderName = libraryFolder
-    ? libraryFolder.split(/[\\/]/).pop() ?? libraryFolder
+    ? libraryFolder.replace(/\\/g, '/').split('/').filter(Boolean).pop() ?? libraryFolder
     : null
+
+  const starredCount = Array.from(libraryFavourites).filter(p => libraryFiles.some(f => f.path === p)).length
+  const hasAnyFiles = grouped.some(g => g.files.length > 0)
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
 
-      {/* Folder picker row */}
+      {/* ── Folder picker row ── */}
       <div style={{ padding: '10px 12px', borderBottom: '1px solid #1a1a26', flexShrink: 0 }}>
         {libraryFolder ? (
           <div>
+            {/* Current folder display */}
             <div style={{
               display: 'flex', alignItems: 'center', gap: 6,
               padding: '5px 8px', background: '#0e0e16', borderRadius: 4,
@@ -203,7 +246,7 @@ function LibraryPanel() {
                     cursor: 'pointer', transition: 'all 0.12s',
                   }}
                 >
-                  {f === 'all' ? `All (${libraryFiles.length})` : `★ ${Array.from(libraryFavourites).filter(p => libraryFiles.some(f => f.path === p)).length}`}
+                  {f === 'all' ? `All (${libraryFiles.length})` : `★ ${starredCount}`}
                 </button>
               ))}
               <button
@@ -213,6 +256,7 @@ function LibraryPanel() {
                   padding: '3px 6px', borderRadius: 4, fontSize: 10,
                   border: '1px solid #252535', background: 'transparent',
                   color: '#505068', cursor: 'pointer',
+                  display: 'flex', alignItems: 'center', justifyContent: 'center',
                 }}
                 onMouseEnter={e => e.currentTarget.style.color = '#9090a8'}
                 onMouseLeave={e => e.currentTarget.style.color = '#505068'}
@@ -240,55 +284,95 @@ function LibraryPanel() {
         )}
       </div>
 
-      {/* File list */}
+      {/* ── File list ── */}
       <div style={{ flex: 1, overflowY: 'auto' }}>
-        {displayed.length === 0 && libraryFolder && (
+
+        {/* Empty state */}
+        {libraryFolder && !hasAnyFiles && (
           <div style={{ padding: '16px 14px', fontSize: 11, color: '#404055', textAlign: 'center' }}>
-            {filter === 'starred' ? 'No starred files yet.\nStar a file with ★' : 'No MIDI files found in this folder.'}
+            {filter === 'starred' ? 'No starred files yet.\nStar a file with ★' : 'No MIDI files found.'}
           </div>
         )}
 
-        {displayed.map((file) => {
-          const starred = libraryFavourites.has(file.path)
-          return (
-            <div
-              key={file.path}
-              style={{
-                display: 'flex', alignItems: 'center', gap: 6,
-                padding: '7px 10px 7px 12px',
-                borderBottom: '1px solid #181822',
-                cursor: 'pointer',
-                transition: 'background 0.1s',
-              }}
-              onMouseEnter={e => e.currentTarget.style.background = '#1a1a26'}
-              onMouseLeave={e => e.currentTarget.style.background = 'transparent'}
-              onClick={() => handleLoadFile(file.path)}
-            >
-              <FileMusic size={11} style={{ color: '#404055', flexShrink: 0 }} />
-              <span style={{
-                flex: 1, fontSize: 11, color: '#9090a8',
-                overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
-              }} title={file.name}>
-                {file.name.replace(/\.(mid|midi)$/i, '')}
-              </span>
-              <button
-                onClick={e => { e.stopPropagation(); toggleFavourite(file.path) }}
-                title={starred ? 'Remove from favourites' : 'Add to favourites'}
+        {grouped.map((group, gi) => (
+          <div key={group.folder ?? '__root__'}>
+
+            {/* Subfolder header — only for named folders */}
+            {group.folder && group.files.length > 0 && (
+              <div
+                onClick={() => toggleFolder(group.folder!)}
+                title={expandedFolders.has(group.folder!) ? 'Collapse folder' : 'Expand folder'}
                 style={{
-                  background: 'none', border: 'none', cursor: 'pointer',
-                  color: starred ? '#e8a027' : '#303045',
-                  padding: 2, display: 'flex', alignItems: 'center', flexShrink: 0,
-                  fontSize: 12,
-                  transition: 'color 0.12s',
+                  display: 'flex', alignItems: 'center', gap: 6,
+                  padding: '6px 10px',
+                  background: '#0e0e16',
+                  borderBottom: '1px solid #1a1a26',
+                  borderTop: gi > 0 ? '1px solid #1e1e2a' : 'none',
+                  cursor: 'pointer', userSelect: 'none',
                 }}
-                onMouseEnter={e => { if (!starred) e.currentTarget.style.color = '#707060' }}
-                onMouseLeave={e => { if (!starred) e.currentTarget.style.color = '#303045' }}
+                onMouseEnter={e => (e.currentTarget as HTMLElement).style.background = '#111120'}
+                onMouseLeave={e => (e.currentTarget as HTMLElement).style.background = '#0e0e16'}
               >
-                ★
-              </button>
-            </div>
-          )
-        })}
+                {expandedFolders.has(group.folder!)
+                  ? <ChevronDown size={11} style={{ color: '#505068', flexShrink: 0 }} />
+                  : <ChevronRight size={11} style={{ color: '#505068', flexShrink: 0 }} />
+                }
+                <FolderOpen size={12} style={{ color: '#e8a02770', flexShrink: 0 }} />
+                <span style={{
+                  flex: 1, fontSize: 11, color: '#8080a0', fontWeight: 600,
+                  overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+                }}>
+                  {group.folder}
+                </span>
+                <span style={{ fontSize: 9, color: '#404055', fontFamily: 'JetBrains Mono', flexShrink: 0 }}>
+                  {group.files.length}
+                </span>
+              </div>
+            )}
+
+            {/* Files inside this group — hidden when folder is collapsed */}
+            {(!group.folder || expandedFolders.has(group.folder)) && group.files.map((file) => {
+              const starred = libraryFavourites.has(file.path)
+              return (
+                <div
+                  key={file.path}
+                  title={file.name}
+                  style={{
+                    display: 'flex', alignItems: 'center', gap: 6,
+                    // Indent subfolder files slightly
+                    padding: group.folder ? '7px 10px 7px 26px' : '7px 10px 7px 12px',
+                    borderBottom: '1px solid #181822',
+                    cursor: 'pointer', transition: 'background 0.08s',
+                  }}
+                  onMouseEnter={e => (e.currentTarget as HTMLElement).style.background = '#1a1a28'}
+                  onMouseLeave={e => (e.currentTarget as HTMLElement).style.background = 'transparent'}
+                  onClick={() => handleLoadFile(file.path)}
+                >
+                  <FileMusic size={11} style={{ color: '#404055', flexShrink: 0 }} />
+                  <span style={{
+                    flex: 1, fontSize: 11, color: '#9090a8',
+                    overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+                  }}>
+                    {file.name.replace(/\.(mid|midi)$/i, '')}
+                  </span>
+                  <button
+                    onClick={e => { e.stopPropagation(); toggleFavourite(file.path) }}
+                    title={starred ? 'Remove from favourites' : 'Add to favourites'}
+                    style={{
+                      background: 'none', border: 'none', cursor: 'pointer',
+                      color: starred ? '#e8a027' : '#303045',
+                      padding: '2px 3px', display: 'flex', alignItems: 'center',
+                      flexShrink: 0, fontSize: 12, lineHeight: 1,
+                      transition: 'color 0.12s',
+                    }}
+                    onMouseEnter={e => { if (!starred) e.currentTarget.style.color = '#707060' }}
+                    onMouseLeave={e => { if (!starred) e.currentTarget.style.color = '#303045' }}
+                  >★</button>
+                </div>
+              )
+            })}
+          </div>
+        ))}
       </div>
     </div>
   )
@@ -309,13 +393,19 @@ export default function SettingsPanel() {
   const setKeyboardSize = useStore((s) => s.setKeyboardSize)
   const zoomLevel = useStore((s) => s.zoomLevel)
   const setZoomLevel = useStore((s) => s.setZoomLevel)
-  const [activeTab, setActiveTab] = useState<DrawerTab>('settings')
+  const appTheme = useStore((s) => s.appTheme)
+  const setAppTheme = useStore((s) => s.setAppTheme)
+  const [activeTab, setActiveTab] = useState<DrawerTab>('library')
+  const didInit = useRef(false)
+  useEffect(() => {
+    if (!didInit.current) { didInit.current = true; if (!settingsPanelOpen) setSettingsPanelOpen(true) }
+  }, [])
 
   const NOTE_NAMING_OPTIONS: { value: NoteNaming; label: string; hint: string }[] = [
-    { value: 'english',          label: 'English',  hint: 'C D E F G A B' },
-    { value: 'central-european', label: 'C. Euro',  hint: 'C D E F G A H' },
+    { value: 'english',          label: 'UK / US',  hint: 'C D E F G A B' },
+    { value: 'central-european', label: 'EU',        hint: 'C D E F G A H (B = B♭)' },
     { value: 'solfege',          label: 'Solfège',  hint: 'Do Re Mi Fa Sol La Si' },
-    { value: 'hidden',           label: 'Hidden',   hint: 'No labels shown' },
+    { value: 'hidden',           label: 'Hide',     hint: 'No labels shown' },
   ]
 
   const KEYBOARD_SIZES: KeyboardSize[] = [61, 73, 88]
@@ -323,7 +413,8 @@ export default function SettingsPanel() {
 
   return (
     <div style={{
-      width: settingsPanelOpen ? 220 : 32,
+      // Match TrackPanel width exactly: 260px open, 32px collapsed
+      width: settingsPanelOpen ? 260 : 32,
       background: '#13131a',
       borderRight: '1px solid #222230',
       transition: 'width 0.2s ease',
@@ -336,7 +427,7 @@ export default function SettingsPanel() {
       {/* Collapse toggle */}
       <button
         onClick={() => setSettingsPanelOpen(!settingsPanelOpen)}
-        title={settingsPanelOpen ? 'Close panel' : 'Open panel'}
+        title={settingsPanelOpen ? 'Close Library & Settings' : 'Open Library & Settings'}
         style={{
           position: 'absolute', top: 10, right: 0, zIndex: 10,
           padding: '4px 5px', borderRadius: '4px 0 0 4px',
@@ -348,19 +439,17 @@ export default function SettingsPanel() {
         onMouseEnter={e => e.currentTarget.style.color = '#e8a027'}
         onMouseLeave={e => e.currentTarget.style.color = '#707088'}
       >
-        {settingsPanelOpen ? <ChevronLeft size={13} /> : <Settings2 size={13} />}
+        {settingsPanelOpen ? <ChevronLeft size={15} /> : <ListMusic size={18} />}
       </button>
 
       {settingsPanelOpen && (
         <div style={{ display: 'flex', flexDirection: 'column', height: '100%', overflow: 'hidden' }}>
 
           {/* Tab bar */}
-          <div style={{
-            display: 'flex', borderBottom: '1px solid #1e1e2c', flexShrink: 0,
-          }}>
+          <div style={{ display: 'flex', borderBottom: '1px solid #1e1e2c', flexShrink: 0 }}>
             {([
-              { id: 'settings', icon: <Settings2 size={13} />, label: 'Settings' },
               { id: 'library',  icon: <Music size={13} />,    label: 'Library'  },
+              { id: 'settings', icon: <Settings2 size={13} />, label: 'Settings' },
             ] as { id: DrawerTab; icon: React.ReactNode; label: string }[]).map(tab => (
               <button
                 key={tab.id}
@@ -448,7 +537,7 @@ export default function SettingsPanel() {
 
                 {/* ── Piano Roll ── */}
                 <SectionHeader icon={<ZoomIn size={11} />} label="Piano Roll" />
-                <OptionRow label={`Zoom  —  ${Math.round(zoomLevel * 100)}%`} hint="Vertical space per beat">
+                <OptionRow label={`Zoom  —  ${Math.round(zoomLevel * 100)}%`} hint={`${Math.round(6 / zoomLevel * 10) / 10}s visible · higher = notes appear larger`}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                     <ZoomStepBtn
                       disabled={zoomLevel <= ZOOM_STEPS[0]}
@@ -483,19 +572,19 @@ export default function SettingsPanel() {
 
                 {/* ── Audio ── */}
                 <SectionHeader icon={<Volume2 size={11} />} label="Audio" />
-                <OptionRow label="Sound engine" hint="GeneralUser GS bundled (~31MB). Load your own .sf2 coming soon.">
+                <OptionRow label="Sound engine" hint="GM Synth (jzz-synth-tiny) — ships with app, no internet needed.">
                   <div style={{ display: 'flex', gap: 4 }}>
-                    <OptionBtn active={true} onClick={() => {}} title="Built-in GM synth">GM Synth</OptionBtn>
-                    <OptionBtn active={false} onClick={() => {}} title="Coming in Stage 5c" comingSoon>Samples</OptionBtn>
+                    <OptionBtn active={true} onClick={() => {}} title="Built-in GM synthesiser — always available offline">GM Synth</OptionBtn>
+                    <OptionBtn active={false} onClick={() => {}} title="GeneralUser GS soundfont — coming soon" comingSoon>SF2</OptionBtn>
                   </div>
                 </OptionRow>
 
                 {/* ── Appearance ── */}
                 <SectionHeader icon={<Palette size={11} />} label="Appearance" />
-                <OptionRow label="Background" hint="Coming soon">
+                <OptionRow label="Background">
                   <div style={{ display: 'flex', gap: 4 }}>
-                    <AppBgBtn color="#0f0f12" label="Dark" active={true} onClick={() => {}} />
-                    <AppBgBtn color="#1a1a1a" label="Warm" active={false} onClick={() => {}} comingSoon />
+                    <AppBgBtn color="#0f0f12" label="Dark" active={appTheme === 'dark'} onClick={() => setAppTheme('dark')} />
+                    <AppBgBtn color="#12100e" label="Warm" active={appTheme === 'warm'} onClick={() => setAppTheme('warm')} />
                   </div>
                 </OptionRow>
 
@@ -508,7 +597,7 @@ export default function SettingsPanel() {
                       <line x1="22" y1="50" x2="78" y2="50" stroke="#e8a027" strokeWidth="7" strokeLinecap="round"/>
                       <line x1="22" y1="62" x2="78" y2="62" stroke="#e8a027" strokeWidth="7" strokeLinecap="round"/>
                     </svg>
-                    <span style={{ color: '#50506a', fontSize: 10, fontFamily: 'JetBrains Mono' }}>Orfeo · v0.3.0</span>
+                    <span style={{ color: '#50506a', fontSize: 10, fontFamily: 'JetBrains Mono' }}>Orfeo · v0.5.0</span>
                   </div>
                   <div style={{ fontSize: 9, color: '#35354a', fontFamily: 'JetBrains Mono', lineHeight: 1.5 }}>
                     MIT License · github.com/SquareBow/orfeo
@@ -518,6 +607,31 @@ export default function SettingsPanel() {
               </div>
             )}
           </div>
+
+          {/* ── Manual link — always visible at drawer bottom ── */}
+          <div style={{
+            flexShrink: 0,
+            borderTop: '1px solid #1a1a26',
+            padding: '8px 14px',
+          }}>
+            <button
+              onClick={() => window.electronAPI.openExternal('https://github.com/SquareBow/orfeo/blob/main/docs/HOW_TO_USE.md')}
+              title="Open user manual on GitHub"
+              style={{
+                width: '100%', display: 'flex', alignItems: 'center', gap: 7,
+                background: 'transparent', border: 'none', cursor: 'pointer',
+                color: '#404055', padding: '4px 0',
+                transition: 'color 0.15s',
+              }}
+              onMouseEnter={e => e.currentTarget.style.color = '#e8a027'}
+              onMouseLeave={e => e.currentTarget.style.color = '#404055'}
+            >
+              <BookOpen size={11} strokeWidth={1.5} />
+              <span style={{ fontSize: 10, fontFamily: 'Inter', letterSpacing: '0.02em' }}>User Manual</span>
+              <span style={{ marginLeft: 'auto', fontSize: 9, fontFamily: 'JetBrains Mono', opacity: 0.5 }}>↗</span>
+            </button>
+          </div>
+
         </div>
       )}
     </div>

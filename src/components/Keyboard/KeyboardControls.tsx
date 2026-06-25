@@ -30,14 +30,17 @@ export default function KeyboardControls() {
           <button
             key={size}
             onClick={() => setKeyboardSize(size)}
+            title={`${size}-key keyboard layout`}
             style={{
               padding: '2px 8px', borderRadius: 4,
               background: 'transparent',
-              color: keyboardSize === size ? '#e8a027' : '#707088',
+              color: keyboardSize === size ? '#e8a027' : '#404055',
               border: 'none',
               fontFamily: 'JetBrains Mono', fontSize: 12, fontWeight: 600,
-              cursor: 'pointer', transition: 'color 0.1s',
+              cursor: 'pointer', transition: 'color 0.15s',
             }}
+            onMouseEnter={e => { if (keyboardSize !== size) e.currentTarget.style.color = '#c0c0d0' }}
+            onMouseLeave={e => { if (keyboardSize !== size) e.currentTarget.style.color = '#404055' }}
           >
             {size}
           </button>
@@ -53,11 +56,13 @@ export default function KeyboardControls() {
         style={{
           display: 'flex', alignItems: 'center', gap: 5,
           background: 'transparent', border: 'none', cursor: 'pointer',
-          color: isDocked ? '#707088' : '#e8a027',
+          color: isDocked ? '#404055' : '#e8a027',
           fontSize: 11, fontFamily: 'Inter',
           padding: '2px 6px', borderRadius: 4,
-          transition: 'color 0.1s',
+          transition: 'color 0.15s',
         }}
+        onMouseEnter={e => { if (isDocked) e.currentTarget.style.color = '#e8a027' }}
+        onMouseLeave={e => { if (isDocked) e.currentTarget.style.color = '#404055' }}
       >
         {isDocked ? (
           /* Pin icon = docked */
@@ -87,7 +92,7 @@ function NoteCounter() {
   const midi = useStore((s) => s.midi)
   if (!midi) return null
   return (
-    <span style={{ color: '#404055', fontSize: 10, fontFamily: 'JetBrains Mono' }} title="Total notes in file">
+    <span style={{ color: '#505068', fontSize: 10, fontFamily: 'JetBrains Mono' }} title="Total notes in file">
       {midi.noteCount.toLocaleString()} notes · {midi.tracks.length} tracks
     </span>
   )

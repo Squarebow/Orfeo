@@ -94,19 +94,29 @@ export default function Keyboard() {
     if (lockedKeys.size > 0) return
     if (activeKeys.size >= CHORD_MIN_NOTES) {
       if (debounceRef.current) clearTimeout(debounceRef.current)
-      if (holdRef.current) clearTimeout(holdRef.current)
+      if (holdRef.current) { clearTimeout(holdRef.current); holdRef.current = null }
+      // During playback use a very short debounce; manual use longer
+      const delay = playbackState === 'playing' ? 60 : CHORD_DEBOUNCE_MS
       debounceRef.current = setTimeout(() => {
         const raw = detectChord(activeKeys)
         const localized = localizeChord(raw, noteNaming, accidentals)
         if (localized) {
           setDisplayedChord(localized)
-          holdRef.current = setTimeout(() => setDisplayedChord(null), CHORD_HOLD_MS)
+          // During playback don't set a hold timeout — chord clears when keys release
+          if (playbackState !== 'playing') {
+            holdRef.current = setTimeout(() => setDisplayedChord(null), CHORD_HOLD_MS)
+          }
         }
-      }, CHORD_DEBOUNCE_MS)
+      }, delay)
     } else {
       if (debounceRef.current) { clearTimeout(debounceRef.current); debounceRef.current = null }
+      // During playback, clear immediately when chord breaks; manual use hold
+      if (playbackState === 'playing') {
+        if (holdRef.current) { clearTimeout(holdRef.current); holdRef.current = null }
+        setDisplayedChord(null)
+      }
     }
-  }, [activeKeys, lockedKeys.size, noteNaming])
+  }, [activeKeys, lockedKeys.size, noteNaming, accidentals, playbackState])
 
   const lockedChordInfo = lockedKeys.size > 0 ? detectChordWithInversion(lockedKeys) : null
   const rawLockedChord = lockedChordInfo?.name ?? null
@@ -160,6 +170,28 @@ export default function Keyboard() {
     }
   }, [lockedKeys])
 
+  const keyContainerRef = useRef<HTMLDivElement>(null)
+  const [keyHeight, setKeyHeight] = useState(130)
+
+  useEffect(() => {
+    const el = keyContainerRef.current
+    if (!el) return
+    const update = () => {
+      const w = el.clientWidth
+      if (!w) return
+      // Proportional to key width — ratio 4.0 gives natural-looking keys on screen
+      // (real piano is 1:6.4 but that's too tall for a UI element)
+      // Hard cap: min 80px, max 140px
+      const whiteW = w / whiteKeys.length
+      const h = Math.round(Math.max(80, Math.min(140, whiteW * 4.0)))
+      setKeyHeight(h)
+    }
+    update()
+    const ro = new ResizeObserver(update)
+    ro.observe(el)
+    return () => ro.disconnect()
+  }, [whiteKeys.length])
+
   return (
     <div style={{ display: 'flex', flexDirection: 'column' }}>
       {/* Chord bar */}
@@ -193,18 +225,18 @@ export default function Keyboard() {
             }}>i</span>
             {showTooltip && (
               <div style={{
-                position: 'absolute', left: 72, bottom: 0,
+                position: 'absolute', left: 72, top: '100%',
                 background: '#1a1a2e', border: '1px solid #2a2a40',
                 borderRadius: 6, padding: '7px 10px',
                 whiteSpace: 'nowrap', zIndex: 100,
-                fontSize: 10, color: '#8080a8', fontFamily: 'Inter',
+                fontSize: 10, color: '#b0b0cc', fontFamily: 'Inter',
                 lineHeight: 1.6, pointerEvents: 'none',
                 boxShadow: '0 4px 16px rgba(0,0,0,0.6)',
               }}>
                 Chord name appears here during playback (3+ notes)<br />
-                <span style={{ color: '#404060' }}>
+                <span style={{ color: '#8888aa' }}>
                   Shift+click keys to build &amp; lock a chord<br />
-                  Use ‹ › to cycle inversions · ▶ to hear it
+                  Use <span style={{ color: '#e8a027' }}>‹ ›</span> to cycle inversions · <span style={{ color: '#e8a027' }}>▶</span> to hear it
                 </span>
               </div>
             )}
@@ -249,9 +281,9 @@ export default function Keyboard() {
 
             {/* Play button */}
             <button onClick={playLockedChord} title="Play this chord"
-              style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#606080', padding: '2px 3px', borderRadius: 3, display: 'flex', alignItems: 'center' }}
-              onMouseEnter={e => e.currentTarget.style.color = '#e8a027'}
-              onMouseLeave={e => e.currentTarget.style.color = '#606080'}
+              style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#e8a027', padding: '2px 3px', borderRadius: 3, display: 'flex', alignItems: 'center' }}
+              onMouseEnter={e => e.currentTarget.style.color = '#ffb84d'}
+              onMouseLeave={e => e.currentTarget.style.color = '#e8a027'}
             >
               <Play size={11} fill="currentColor" />
             </button>
@@ -280,7 +312,8 @@ export default function Keyboard() {
       {/* Piano keys */}
       <div
         className="relative w-full select-none"
-        style={{ height: 130, background: '#111116', borderTop: '1px solid #2a2a35' }}
+        ref={keyContainerRef}
+        style={{ height: keyHeight, background: '#111116', borderTop: '1px solid #2a2a35', transition: 'height 0.15s' }}
       >
         {/* White keys */}
         <div className="absolute inset-0 flex">

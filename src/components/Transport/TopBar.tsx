@@ -1,4 +1,4 @@
-import { useCallback, useRef } from 'react'
+import { useCallback, useRef, useEffect } from 'react'
 import {
   Play, Pause, SkipBack, SkipForward, Repeat,
   FolderOpen, RotateCcw, ChevronUp, ChevronDown,
@@ -112,13 +112,16 @@ export default function TopBar() {
       {/* ── BPM ── */}
       <div className="app-no-drag" style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '0 12px', flexShrink: 0 }}
         title={`Tempo: ${Math.round(bpm)} BPM`}>
-        <span style={{ color: C.muted, fontSize: 9, textTransform: 'uppercase', letterSpacing: '0.1em', fontFamily: 'JetBrains Mono' }}>BPM</span>
+        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start', gap: 1 }}>
+          <span style={{ color: C.muted, fontSize: 8, textTransform: 'uppercase', letterSpacing: '0.1em', fontFamily: 'JetBrains Mono', lineHeight: 1 }}>BPM</span>
+          <span style={{ color: C.muted, fontSize: 8, textTransform: 'uppercase', letterSpacing: '0.1em', fontFamily: 'JetBrains Mono', lineHeight: 1 }}>TEMPO</span>
+        </div>
         <span style={{ color: isTempoChanged ? C.amber : C.active, fontFamily: 'JetBrains Mono', fontSize: 20, fontWeight: 700, minWidth: 36, textAlign: 'right', lineHeight: 1 }}>
           {Math.round(bpm)}
         </span>
         <div style={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
-          <ArrowBtn onClick={() => setBpm(Math.min(300, bpm + 1))} disabled={!midi} title="BPM +1"><ChevronUp size={10} /></ArrowBtn>
-          <ArrowBtn onClick={() => setBpm(Math.max(20, bpm - 1))} disabled={!midi} title="BPM -1"><ChevronDown size={10} /></ArrowBtn>
+          <LongPressArrow onStep={() => setBpm(Math.min(300, useStore.getState().bpm + 1))} disabled={!midi} title="BPM +1"><ChevronUp size={10} /></LongPressArrow>
+          <LongPressArrow onStep={() => setBpm(Math.max(20, useStore.getState().bpm - 1))} disabled={!midi} title="BPM -1"><ChevronDown size={10} /></LongPressArrow>
         </div>
         {isTempoChanged && (
           <button onClick={resetBpm} title="Reset tempo" style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 0, color: C.amber, display: 'flex' }}>
@@ -132,7 +135,10 @@ export default function TopBar() {
       {/* ── KEY ── */}
       <div className="app-no-drag" style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '0 12px', flexShrink: 0 }}
         title={`Key: ${displayKey}${transpose !== 0 ? ` (${transpose > 0 ? '+' : ''}${transpose} semitones)` : ''}`}>
-        <span style={{ color: C.muted, fontSize: 9, textTransform: 'uppercase', letterSpacing: '0.1em', fontFamily: 'JetBrains Mono' }}>KEY</span>
+        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start', gap: 1 }}>
+          <span style={{ color: C.muted, fontSize: 8, textTransform: 'uppercase', letterSpacing: '0.1em', fontFamily: 'JetBrains Mono', lineHeight: 1 }}>KEY</span>
+          <span style={{ color: C.muted, fontSize: 8, textTransform: 'uppercase', letterSpacing: '0.1em', fontFamily: 'JetBrains Mono', lineHeight: 1 }}>TRANSPOSE</span>
+        </div>
         <span style={{ color: transpose !== 0 ? C.amber : C.active, fontFamily: 'JetBrains Mono', fontSize: 20, fontWeight: 700, minWidth: 32, textAlign: 'right', lineHeight: 1 }}>
           {displayKey}
         </span>
@@ -221,12 +227,11 @@ export default function TopBar() {
             background: 'transparent', color: metronomeEnabled ? C.amber : C.default, transition: 'color 0.15s',
           }}
         >
-          <svg width="18" height="22" viewBox="0 0 16 20" fill="none">
-            <path d="M8 18 L8 4" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
-            <path d="M4 18 L12 18" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
-            <path d="M8 4 L5 2" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
-            <path d="M8 4 L11 6" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
-            <circle cx="8" cy="11" r="2" fill="currentColor"/>
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+            <path d="M12 11.4V9.1" />
+            <path d="m12 17 6.59-6.59" />
+            <path d="m15.05 5.7-.218-.691a3 3 0 0 0-5.663 0L4.418 19.695A1 1 0 0 0 5.37 21h13.253a1 1 0 0 0 .951-1.31L18.45 16.2" />
+            <circle cx="20" cy="9" r="2" />
           </svg>
           <span style={{ fontSize: 8, fontFamily: 'JetBrains Mono', letterSpacing: '0.08em', marginTop: 6 }}>
             {metronomeEnabled ? 'ON' : 'OFF'}
@@ -238,11 +243,11 @@ export default function TopBar() {
         {/* MIDI */}
         <div
           title={midiDeviceConnected ? `MIDI: ${midiDeviceName}` : 'No MIDI keyboard connected'}
-          style={{ flexShrink: 0, display: 'flex', flexDirection: 'column', alignItems: 'center', padding: '0 14px' }}
+          style={{ flexShrink: 0, display: 'flex', flexDirection: 'column', alignItems: 'center', padding: '0 14px', color: midiDeviceConnected ? C.amber : C.default }}
         >
-          <MidiIcon size={20} color={midiDeviceConnected ? C.amber : C.default} />
+          <MidiIcon size={24} color={midiDeviceConnected ? C.amber : C.default} />
           <span style={{ fontSize: 8, fontFamily: 'JetBrains Mono', letterSpacing: '0.08em', color: midiDeviceConnected ? C.amber : C.default, marginTop: 6 }}>
-            {midiDeviceConnected ? 'MIDI' : 'NO MIDI'}
+            {midiDeviceConnected ? (midiDeviceName?.split(' ')[0] ?? 'MIDI') : 'NO MIDI'}
           </span>
         </div>
 
@@ -253,6 +258,58 @@ export default function TopBar() {
 
 function VSep() {
   return <div style={{ width: 1, height: 44, background: '#1e1e28', flexShrink: 0 }} />
+}
+
+// Long-press button: single click = +1, hold = accelerating repeat
+function LongPressArrow({ children, onStep, disabled, title }: {
+  children: React.ReactNode; onStep: () => void; disabled?: boolean; title?: string
+}) {
+  const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null)
+  const timeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const stepsRef = useRef(0)
+
+  const stop = () => {
+    if (intervalRef.current) { clearInterval(intervalRef.current); intervalRef.current = null }
+    if (timeoutRef.current) { clearTimeout(timeoutRef.current); timeoutRef.current = null }
+    stepsRef.current = 0
+  }
+
+  const start = () => {
+    if (disabled) return
+    onStep()
+    stepsRef.current = 0
+    // After 400ms hold, start repeating
+    timeoutRef.current = setTimeout(() => {
+      intervalRef.current = setInterval(() => {
+        onStep()
+        stepsRef.current++
+      // Accelerate: start at 120ms, ramp down to 40ms after 20 steps
+      }, Math.max(40, 120 - stepsRef.current * 4))
+    }, 400)
+  }
+
+  useEffect(() => () => stop(), [])
+
+  return (
+    <button
+      title={title}
+      disabled={disabled}
+      onMouseDown={start}
+      onMouseUp={stop}
+      onMouseLeave={stop}
+      style={{
+        width: 16, height: 13, background: '#1a1a26', color: '#606075',
+        border: 'none', borderRadius: 3,
+        cursor: disabled ? 'default' : 'pointer',
+        opacity: disabled ? 0.25 : 1,
+        display: 'flex', alignItems: 'center', justifyContent: 'center',
+        transition: 'color 0.1s', userSelect: 'none',
+      }}
+      onMouseEnter={e => { if (!disabled) e.currentTarget.style.color = '#e8a027' }}
+    >
+      {children}
+    </button>
+  )
 }
 
 function ArrowBtn({ children, onClick, disabled, title }: {

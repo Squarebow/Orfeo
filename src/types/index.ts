@@ -18,6 +18,11 @@ export interface ParsedTrack {
   channel: number
 }
 
+export interface TempoEvent {
+  bpm: number
+  time: number
+}
+
 export interface ParsedMidi {
   fileName: string
   duration: number
@@ -26,6 +31,7 @@ export interface ParsedMidi {
   timeSignatureDenominator: number
   tracks: ParsedTrack[]
   noteCount: number
+  _tempoMap?: TempoEvent[]
 }
 
 export type PlaybackState = 'stopped' | 'playing' | 'paused'

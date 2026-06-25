@@ -10,71 +10,111 @@
  */
 
 import { useState, useEffect, useRef } from 'react'
-import { Check, X, Save, FolderOpen, AlertCircle, ChevronDown, ChevronRight, Search, Merge, Undo2 } from 'lucide-react'
+import { Check, X, Save, FolderOpen, AlertCircle, ChevronDown, ChevronRight, Search, Merge, Undo2, RotateCcw, Piano, Bell, Church, Guitar, Music2, AudioWaveform, Users, Megaphone, Wind, Feather, Cpu, Globe, Drum, Radio, Waves, Sparkles } from 'lucide-react'
 
 // ─── GM data (same as 5e) ─────────────────────────────────────────────────────
-const GM_FAMILIES: { key: string; label: string; icon: string; programs: { num: number; name: string }[] }[] = [
-  { key: 'piano', label: 'Piano', icon: '🎹', programs: [
+// Lucide icon component map for GM families
+const GM_FAMILY_ICONS: Record<string, React.ReactNode> = {
+  piano:      <Piano size={15} />,
+  chromatic:  <Bell size={15} />,
+  organ:      <Church size={15} />,
+  guitar:     <Guitar size={15} />,
+  bass:       <Music2 size={15} />,
+  strings:    <AudioWaveform size={15} />,
+  ensemble:   <Users size={15} />,
+  brass:      <Megaphone size={15} />,
+  reed:       <Wind size={15} />,
+  pipe:       <Feather size={15} />,
+  synth_lead: <Cpu size={15} />,
+  synth_pad:  <Waves size={15} />,
+  synth_fx:   <Sparkles size={15} />,
+  ethnic:     <Globe size={15} />,
+  percussive: <Drum size={15} />,
+  sound_fx:   <Radio size={15} />,
+}
+
+const GM_FAMILIES: { key: string; label: string; programs: { num: number; name: string }[] }[] = [
+  { key: 'piano', label: 'Piano', programs: [
     {num:0,name:'Acoustic Grand Piano'},{num:1,name:'Bright Acoustic Piano'},
     {num:2,name:'Electric Grand Piano'},{num:3,name:'Honky-tonk Piano'},
     {num:4,name:'Electric Piano 1'},{num:5,name:'Electric Piano 2'},
     {num:6,name:'Harpsichord'},{num:7,name:'Clavinet'},
   ]},
-  { key: 'chromatic', label: 'Chromatic Perc', icon: '🎼', programs: [
+  { key: 'chromatic', label: 'Chromatic Perc', programs: [
     {num:8,name:'Celesta'},{num:9,name:'Glockenspiel'},{num:10,name:'Music Box'},
     {num:11,name:'Vibraphone'},{num:12,name:'Marimba'},{num:13,name:'Xylophone'},
     {num:14,name:'Tubular Bells'},{num:15,name:'Dulcimer'},
   ]},
-  { key: 'organ', label: 'Organ', icon: '🎵', programs: [
+  { key: 'organ', label: 'Organ', programs: [
     {num:16,name:'Drawbar Organ'},{num:17,name:'Percussive Organ'},{num:18,name:'Rock Organ'},
     {num:19,name:'Church Organ'},{num:20,name:'Reed Organ'},{num:21,name:'Accordion'},
     {num:22,name:'Harmonica'},{num:23,name:'Tango Accordion'},
   ]},
-  { key: 'guitar', label: 'Guitar', icon: '🎸', programs: [
+  { key: 'guitar', label: 'Guitar', programs: [
     {num:24,name:'Nylon Guitar'},{num:25,name:'Steel Guitar'},{num:26,name:'Jazz Guitar'},
     {num:27,name:'Clean Guitar'},{num:28,name:'Muted Guitar'},{num:29,name:'Overdriven Guitar'},
     {num:30,name:'Distortion Guitar'},{num:31,name:'Guitar Harmonics'},
   ]},
-  { key: 'bass', label: 'Bass', icon: '🎻', programs: [
+  { key: 'bass', label: 'Bass', programs: [
     {num:32,name:'Acoustic Bass'},{num:33,name:'Finger Bass'},{num:34,name:'Pick Bass'},
     {num:35,name:'Fretless Bass'},{num:36,name:'Slap Bass 1'},{num:37,name:'Slap Bass 2'},
     {num:38,name:'Synth Bass 1'},{num:39,name:'Synth Bass 2'},
   ]},
-  { key: 'strings', label: 'Strings', icon: '🎻', programs: [
+  { key: 'strings', label: 'Strings', programs: [
     {num:40,name:'Violin'},{num:41,name:'Viola'},{num:42,name:'Cello'},{num:43,name:'Contrabass'},
     {num:44,name:'Tremolo Strings'},{num:45,name:'Pizzicato Strings'},
     {num:46,name:'Orchestral Harp'},{num:47,name:'Timpani'},
   ]},
-  { key: 'ensemble', label: 'Ensemble', icon: '🎶', programs: [
+  { key: 'ensemble', label: 'Ensemble', programs: [
     {num:48,name:'String Ensemble 1'},{num:49,name:'String Ensemble 2'},
     {num:50,name:'Synth Strings 1'},{num:51,name:'Synth Strings 2'},
     {num:52,name:'Choir Aahs'},{num:53,name:'Voice Oohs'},
     {num:54,name:'Synth Voice'},{num:55,name:'Orchestra Hit'},
   ]},
-  { key: 'brass', label: 'Brass', icon: '🎺', programs: [
+  { key: 'brass', label: 'Brass', programs: [
     {num:56,name:'Trumpet'},{num:57,name:'Trombone'},{num:58,name:'Tuba'},
     {num:59,name:'Muted Trumpet'},{num:60,name:'French Horn'},{num:61,name:'Brass Section'},
     {num:62,name:'Synth Brass 1'},{num:63,name:'Synth Brass 2'},
   ]},
-  { key: 'reed', label: 'Reed', icon: '🎷', programs: [
+  { key: 'reed', label: 'Reed', programs: [
     {num:64,name:'Soprano Sax'},{num:65,name:'Alto Sax'},{num:66,name:'Tenor Sax'},
     {num:67,name:'Baritone Sax'},{num:68,name:'Oboe'},{num:69,name:'English Horn'},
     {num:70,name:'Bassoon'},{num:71,name:'Clarinet'},
   ]},
-  { key: 'pipe', label: 'Pipe', icon: '🪈', programs: [
+  { key: 'pipe', label: 'Pipe', programs: [
     {num:72,name:'Piccolo'},{num:73,name:'Flute'},{num:74,name:'Recorder'},
     {num:75,name:'Pan Flute'},{num:76,name:'Blown Bottle'},{num:77,name:'Shakuhachi'},
     {num:78,name:'Whistle'},{num:79,name:'Ocarina'},
   ]},
-  { key: 'synth', label: 'Synth', icon: '🎛️', programs: [
+  { key: 'synth_lead', label: 'Synth Lead', programs: [
     {num:80,name:'Square Lead'},{num:81,name:'Sawtooth Lead'},{num:82,name:'Calliope Lead'},
-    {num:88,name:'New Age Pad'},{num:89,name:'Warm Pad'},{num:90,name:'Polysynth Pad'},
-    {num:91,name:'Choir Pad'},{num:92,name:'Bowed Pad'},
+    {num:83,name:'Chiff Lead'},{num:84,name:'Charang Lead'},{num:85,name:'Voice Lead'},
+    {num:86,name:'Fifths Lead'},{num:87,name:'Bass+Lead'},
   ]},
-  { key: 'ethnic', label: 'Ethnic', icon: '🪗', programs: [
+  { key: 'synth_pad', label: 'Synth Pad', programs: [
+    {num:88,name:'New Age Pad'},{num:89,name:'Warm Pad'},{num:90,name:'Polysynth Pad'},
+    {num:91,name:'Choir Pad'},{num:92,name:'Bowed Pad'},{num:93,name:'Metallic Pad'},
+    {num:94,name:'Halo Pad'},{num:95,name:'Sweep Pad'},
+  ]},
+  { key: 'synth_fx', label: 'Synth FX', programs: [
+    {num:96,name:'Rain FX'},{num:97,name:'Soundtrack FX'},{num:98,name:'Crystal FX'},
+    {num:99,name:'Atmosphere FX'},{num:100,name:'Brightness FX'},{num:101,name:'Goblins FX'},
+    {num:102,name:'Echoes FX'},{num:103,name:'Sci-fi FX'},
+  ]},
+  { key: 'ethnic', label: 'Ethnic', programs: [
     {num:104,name:'Sitar'},{num:105,name:'Banjo'},{num:106,name:'Shamisen'},
     {num:107,name:'Koto'},{num:108,name:'Kalimba'},{num:109,name:'Bag Pipe'},
     {num:110,name:'Fiddle'},{num:111,name:'Shanai'},
+  ]},
+  { key: 'percussive', label: 'Percussive', programs: [
+    {num:112,name:'Tinkle Bell'},{num:113,name:'Agogo'},{num:114,name:'Steel Drums'},
+    {num:115,name:'Woodblock'},{num:116,name:'Taiko Drum'},{num:117,name:'Melodic Tom'},
+    {num:118,name:'Synth Drum'},{num:119,name:'Reverse Cymbal'},
+  ]},
+  { key: 'sound_fx', label: 'Sound FX', programs: [
+    {num:120,name:'Guitar Fret Noise'},{num:121,name:'Breath Noise'},{num:122,name:'Seashore'},
+    {num:123,name:'Bird Tweet'},{num:124,name:'Telephone Ring'},{num:125,name:'Helicopter'},
+    {num:126,name:'Applause'},{num:127,name:'Gunshot'},
   ]},
 ]
 
@@ -99,7 +139,10 @@ interface EditorState {
 // Merge groups sent to main.ts: array of arrays of original indices
 type MergeGroup = number[]
 
-function orfeoName(p: string) { return p.replace(/\.(mid|midi)$/i, '_ORFEO.$1') || p + '_ORFEO' }
+function orfeoName(p: string, hasMerge = false) {
+  const suffix = hasMerge ? '_ORFEO_MERGED' : '_ORFEO'
+  return p.replace(/\.(mid|midi)$/i, suffix + '.$1') || p + suffix
+}
 function baseName(p: string) { return p.split(/[\\/]/).pop() ?? p }
 
 // ─── Instrument Picker ────────────────────────────────────────────────────────
@@ -172,7 +215,7 @@ function InstrumentPicker({ program, isDrum, onChange }: {
                 <div key={family.key}>
                   <div onClick={() => { if (!search) setExpandedFamily(expanded ? null : family.key) }}
                     style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '5px 10px', background: '#0e0e16', borderBottom: '1px solid #1a1a26', cursor: search ? 'default' : 'pointer', userSelect: 'none' }}>
-                    <span style={{ fontSize: 12 }}>{family.icon}</span>
+                    <span style={{ color: '#707088', display: 'flex', alignItems: 'center' }}>{GM_FAMILY_ICONS[family.key] ?? <Music2 size={12} />}</span>
                     <span style={{ flex: 1, fontSize: 10, fontWeight: 700, color: '#707088', textTransform: 'uppercase', letterSpacing: '0.08em' }}>{family.label}</span>
                     {!search && (expanded ? <ChevronDown size={9} style={{ color: '#505068' }} /> : <ChevronRight size={9} style={{ color: '#404055' }} />)}
                   </div>
@@ -207,7 +250,7 @@ function TrackRow({ track, onToggleIncluded, onToggleMerge, onChangeProgram, onU
 
   return (
     <div style={{
-      display: 'grid', gridTemplateColumns: '70px 56px 8px 1fr 200px',
+      display: 'grid', gridTemplateColumns: '70px 56px 8px 1fr 220px',
       alignItems: 'center', padding: '8px 14px', borderBottom: '1px solid #181822', gap: 6,
       opacity: track.included ? 1 : 0.4,
       background: track.isMerged ? '#101020' : track.mergeSelected ? '#1a1a08' : 'transparent',
@@ -260,7 +303,7 @@ function TrackRow({ track, onToggleIncluded, onToggleMerge, onChangeProgram, onU
             </span>
           )}
         </div>
-        <div style={{ display: 'flex', gap: 8, marginTop: 2, flexWrap: 'wrap' }}>
+        <div style={{ display: 'flex', gap: 8, marginTop: 2, flexWrap: 'wrap', alignItems: 'center' }}>
           {track.isMerged ? (
             <span style={{ fontSize: 9, color: '#404055', fontFamily: 'JetBrains Mono' }}>
               {track.mergedFromNames?.join(' + ')}
@@ -269,13 +312,40 @@ function TrackRow({ track, onToggleIncluded, onToggleMerge, onChangeProgram, onU
             <>
               <span style={{ fontSize: 9, color: '#404055', fontFamily: 'JetBrains Mono' }}>ch {track.channel + 1}</span>
               <span style={{ fontSize: 9, color: '#404055', fontFamily: 'JetBrains Mono' }}>{track.noteCount} notes</span>
-              {wasReassigned && <span style={{ fontSize: 9, color: '#e8a027', fontFamily: 'JetBrains Mono' }}>✎ reassigned</span>}
+              {!track.isDrum && track.newProgram !== track.program && (
+                <span style={{ display: 'flex', alignItems: 'center', gap: 3 }}>
+                  <span style={{ fontSize: 9, color: '#e8a027', fontFamily: 'JetBrains Mono' }}>✎ reassigned</span>
+                  <button
+                    onClick={() => onChangeProgram(track.program)}
+                    title={`Reset to original: ${track.gmName}`}
+                    style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#505068', padding: '0 2px', display: 'flex', alignItems: 'center', transition: 'color 0.15s' }}
+                    onMouseEnter={e => e.currentTarget.style.color = '#e8a027'}
+                    onMouseLeave={e => e.currentTarget.style.color = '#505068'}
+                  >
+                    <RotateCcw size={9} />
+                  </button>
+                </span>
+              )}
             </>
           )}
         </div>
       </div>
 
-      <InstrumentPicker program={track.newProgram} isDrum={track.isDrum} onChange={onChangeProgram} />
+      {track.isDrum ? (
+        <div
+          title="Not assignable — GM channel 10 is always drums"
+          style={{
+            padding: '4px 8px', borderRadius: 4,
+            border: '1px solid #252535', background: '#0d0d16',
+            color: '#505068', fontSize: 10, fontFamily: 'Inter',
+            cursor: 'default',
+          }}
+        >
+          Standard Drums
+        </div>
+      ) : (
+        <InstrumentPicker program={track.newProgram} isDrum={false} onChange={onChangeProgram} />
+      )}
     </div>
   )
 }
@@ -296,7 +366,7 @@ export default function MidiEditor() {
       const rows: EditorTrack[] = data.tracks.map((t: any) => ({
         ...t, included: !t.muted, mergeSelected: false, newProgram: t.program,
       }))
-      setState({ fileName: data.fileName, filePath: data.filePath, rows, outputPath: orfeoName(data.filePath) })
+      setState({ fileName: data.fileName, filePath: data.filePath, rows, outputPath: orfeoName(data.filePath, false) })
     })
   }, [])
 
@@ -335,20 +405,29 @@ export default function MidiEditor() {
       const firstIdx = s.rows.findIndex(r => r.index === first.index)
       const without = s.rows.filter(r => !selected.some(sel => sel.index === r.index))
       const newRows = [...without.slice(0, firstIdx), mergedRow, ...without.slice(firstIdx)]
-      return { ...s, rows: newRows }
+      const hasMerge = newRows.some(r => r.isMerged)
+      return { ...s, rows: newRows, outputPath: orfeoName(s.filePath, hasMerge) }
     })
   }
 
-  const handleUnmerge = (mergedIndex: number) => {
-    setState(s => {
-      if (!s) return s
-      const merged = s.rows.find(r => r.index === mergedIndex)
-      if (!merged?.isMerged || !merged.mergedFromIndices) return s
-      // We don't have the original rows anymore in state, so reconstruct from original data
-      // For simplicity: just remove the merged row (user must re-select originals)
-      // A more complete impl would store originals; this is acceptable UX with note below
-      return { ...s, rows: s.rows.filter(r => r.index !== mergedIndex) }
-    })
+  const handleUnmerge = async () => {
+    // Reload original track data in-place — no close/reopen needed
+    const originalData = await window.electronAPI.getMidiEditorData()
+    if (!originalData) return
+    const rows: EditorTrack[] = originalData.tracks.map((t: any) => ({
+      ...t,
+      included: !t.muted,
+      mergeSelected: false,
+      newProgram: t.program,
+      isMerged: false,
+      mergedFromIndices: undefined,
+      mergedFromNames: undefined,
+    }))
+    setState(s => s ? {
+      ...s,
+      rows,
+      outputPath: orfeoName(s.filePath, false),
+    } : s)
   }
 
   const mergeCount = state.rows.filter(t => t.mergeSelected && !t.isMerged).length
@@ -377,10 +456,15 @@ export default function MidiEditor() {
           includedTracks.push({ index: row.index, newProgram: row.newProgram })
         }
       }
+      const mergeGroups = buildMergeGroups()
+      const hasMerge = mergeGroups.length > 0
+      const finalOutput = hasMerge && (state.outputPath === orfeoName(state.filePath, false) || state.outputPath === orfeoName(state.filePath, true))
+        ? orfeoName(state.filePath, true)
+        : state.outputPath
       const result = await window.electronAPI.saveMidiEditor({
-        outputPath: state.outputPath,
+        outputPath: finalOutput,
         includedTracks,
-        mergeGroups: buildMergeGroups(),
+        mergeGroups,
       })
       setSaveResult({ ok: result.ok, msg: result.message })
       if (result.ok) setTimeout(() => window.electronAPI.closeMidiEditor?.(), 1200)
@@ -395,19 +479,19 @@ export default function MidiEditor() {
 
       {/* Title bar */}
       <div style={{ height: 48, flexShrink: 0, background: '#111116', borderBottom: '1px solid #1e1e28', display: 'flex', alignItems: 'center', padding: '0 16px 0 16px', gap: 10, WebkitAppRegion: 'drag' as any, paddingRight: 160 }}>
-        <svg width="20" height="20" viewBox="0 0 100 100" fill="none">
-          <circle cx="50" cy="50" r="44" stroke="#e8a027" strokeWidth="8"/>
-          <line x1="22" y1="38" x2="78" y2="38" stroke="#e8a027" strokeWidth="7" strokeLinecap="round"/>
-          <line x1="22" y1="50" x2="78" y2="50" stroke="#e8a027" strokeWidth="7" strokeLinecap="round"/>
-          <line x1="22" y1="62" x2="78" y2="62" stroke="#e8a027" strokeWidth="7" strokeLinecap="round"/>
+        <svg width="22" height="22" viewBox="0 0 100 100" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <circle cx="50" cy="50" r="42" stroke="#e8a027" strokeWidth="9" fill="none"/>
+          <line x1="24" y1="37" x2="76" y2="37" stroke="#e8a027" strokeWidth="8" strokeLinecap="round"/>
+          <line x1="24" y1="50" x2="76" y2="50" stroke="#e8a027" strokeWidth="8" strokeLinecap="round"/>
+          <line x1="24" y1="63" x2="76" y2="63" stroke="#e8a027" strokeWidth="8" strokeLinecap="round"/>
         </svg>
-        <span style={{ color: '#e8a027', fontSize: 12, fontWeight: 600, letterSpacing: '0.05em', WebkitAppRegion: 'no-drag' as any }}>ORFEO MIDI PLAYBACK EDITOR</span>
+        <span style={{ color: '#e8a027', fontSize: 12, fontWeight: 600, letterSpacing: '0.05em', WebkitAppRegion: 'no-drag' as any }}>MIDI PLAYBACK EDITOR</span>
         <span style={{ color: '#404055' }}>·</span>
         <span style={{ color: '#707088', fontSize: 11, fontFamily: 'JetBrains Mono', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', }}>{state.fileName}</span>
       </div>
 
       {/* Column headers */}
-      <div style={{ display: 'grid', gridTemplateColumns: '70px 56px 8px 1fr 200px', alignItems: 'center', padding: '6px 14px', borderBottom: '1px solid #1a1a26', background: '#0d0d12', flexShrink: 0, gap: 6 }}>
+      <div style={{ display: 'grid', gridTemplateColumns: '70px 56px 8px 1fr 220px', alignItems: 'center', padding: '6px 14px', borderBottom: '1px solid #1a1a26', background: '#0d0d12', flexShrink: 0, gap: 6 }}>
         {['Include', 'Merge', '', 'Track', 'Assign Instrument'].map((h, i) => (
           <span key={i} style={{ fontSize: 9, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.1em', color: '#404055' }}>{h}</span>
         ))}
@@ -420,7 +504,7 @@ export default function MidiEditor() {
             onToggleIncluded={() => update(track.index, { included: !track.included })}
             onToggleMerge={() => update(track.index, { mergeSelected: !track.mergeSelected })}
             onChangeProgram={p => update(track.index, { newProgram: p })}
-            onUnmerge={track.isMerged ? () => handleUnmerge(track.index) : undefined}
+            onUnmerge={track.isMerged ? () => handleUnmerge() : undefined}
           />
         ))}
       </div>

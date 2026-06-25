@@ -12,6 +12,10 @@ export function parseMidiBuffer(buffer: ArrayBuffer, fileName: string, filePath 
   const midi = new Midi(buffer)
 
   const bpm = midi.header.tempos.length > 0 ? midi.header.tempos[0].bpm : 120
+  // Full tempo map: [{bpm, time}] sorted by time — for tempo-change support
+  const tempoMap = midi.header.tempos
+    .map((t: any) => ({ bpm: t.bpm, time: t.time ?? 0 }))
+    .sort((a: any, b: any) => a.time - b.time)
   const timeSig = midi.header.timeSignatures.length > 0
     ? midi.header.timeSignatures[0].timeSignature
     : [4, 4]
@@ -78,6 +82,7 @@ export function parseMidiBuffer(buffer: ArrayBuffer, fileName: string, filePath 
     _keySignature: keySignature,
     _filePath: filePath,
     _rawMidiTracks: midi.tracks,
+    _tempoMap: tempoMap,
   }
 
   return result

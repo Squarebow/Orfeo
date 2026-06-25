@@ -52,9 +52,11 @@ interface OrfeoStore {
   noteNaming: NoteNaming
   accidentals: Accidentals
   zoomLevel: number
+  appTheme: AppTheme
   setNoteNaming: (naming: NoteNaming) => void
   setAccidentals: (accidentals: Accidentals) => void
   setZoomLevel: (zoom: number) => void
+  setAppTheme: (theme: AppTheme) => void
 
   detectedKey: DetectedKey | null
   setDetectedKey: (key: DetectedKey | null) => void
@@ -147,9 +149,11 @@ export const useStore = create<OrfeoStore>((set, get) => ({
   noteNaming: 'english',
   accidentals: 'flat',
   zoomLevel: 1,
+  appTheme: 'dark',
   setNoteNaming: (noteNaming) => set({ noteNaming }),
   setAccidentals: (accidentals) => set({ accidentals }),
   setZoomLevel: (zoomLevel) => set({ zoomLevel }),
+  setAppTheme: (appTheme) => set({ appTheme }),
 
   detectedKey: null,
   setDetectedKey: (detectedKey) => set({ detectedKey }),
@@ -219,6 +223,8 @@ async function restoreLibraryPrefs() {
     if (Array.isArray(prefs.libraryFavourites)) {
       prefs.libraryFavourites.forEach((p: string) => store.toggleFavourite(p))
     }
+    if (prefs.noteNaming) store.setNoteNaming(prefs.noteNaming)
+    if (prefs.accidentals) store.setAccidentals(prefs.accidentals)
   } catch (e) {
     console.error('[Orfeo] restoreLibraryPrefs:', e)
   }
@@ -233,3 +239,25 @@ useStore.subscribe((state) => {
     window.electronAPI?.setPrefs?.({ libraryFavourites: Array.from(state.libraryFavourites) }).catch(() => {})
   }, 1000)
 })
+
+// Persist display settings when they change
+// Use null sentinel so we never save on first subscriber fire (which would
+// overwrite the restored value before restoreLibraryPrefs has run)
+let _prevNoteNaming: string | null = null
+let _prevAccidentals: string | null = null
+useStore.subscribe((state) => {
+  // Skip the very first fire (app init) — restore handles loading saved values
+  if (_prevNoteNaming === null) { _prevNoteNaming = state.noteNaming; _prevAccidentals = state.accidentals; return }
+  if (state.noteNaming !== _prevNoteNaming || state.accidentals !== _prevAccidentals) {
+    _prevNoteNaming = state.noteNaming
+    _prevAccidentals = state.accidentals
+    window.electronAPI?.setPrefs?.({
+      noteNaming: state.noteNaming,
+      accidentals: state.accidentals,
+    }).catch(() => {})
+  }
+})
+
+// ── Theme ─────────────────────────────────────────────────────────────────────
+// Exported so PianoRoll and App.tsx can read it without subscribing to full store
+export type AppTheme = 'dark' | 'warm'

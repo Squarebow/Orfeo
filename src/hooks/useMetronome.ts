@@ -1,106 +1,123 @@
 import { useEffect, useRef } from 'react'
 import { useStore } from '../store'
 
-/**
- * useMetronome — Web Audio lookahead scheduler.
- * Runs an independent beat clock at the current BPM.
- * Resets when playback starts/stops. Adapts immediately when BPM changes.
- */
-export function useMetronome() {
-  const audioCtxRef = useRef<AudioContext | null>(null)
-  const schedulerRef = useRef<ReturnType<typeof setInterval> | null>(null)
-  const nextBeatRef = useRef(0)       // audioCtx time of next scheduled beat
-  const beatCountRef = useRef(0)      // for downbeat detection
-  const lastBpmRef = useRef(0)
-  const activeRef = useRef(false)
+function getBpmAtTime(tempoMap: { bpm: number; time: number }[], time: number): number {
+  if (!tempoMap || tempoMap.length === 0) return 120
+  let bpm = tempoMap[0].bpm
+  for (const event of tempoMap) {
+    if (event.time <= time) bpm = event.bpm
+    else break
+  }
+  return bpm
+}
 
-  function getCtx() {
-    if (!audioCtxRef.current || audioCtxRef.current.state === 'closed') {
-      audioCtxRef.current = new AudioContext()
+export function useMetronome() {
+  const ctxRef              = useRef<AudioContext | null>(null)
+  const intervalRef         = useRef<ReturnType<typeof setInterval> | null>(null)
+  const nextBeatRef         = useRef<number>(0)
+  const beatNumRef          = useRef<number>(0)
+  const lastDisplayedBpmRef = useRef<number>(0)
+  const bpmWriteTimer       = useRef<ReturnType<typeof setTimeout> | null>(null)
+  // Debounce stop so wheel-scrub pause/play cycles don't restart the metronome
+  const stopTimer           = useRef<ReturnType<typeof setTimeout> | null>(null)
+
+  function getCtx(): AudioContext {
+    if (!ctxRef.current || ctxRef.current.state === 'closed') {
+      ctxRef.current = new AudioContext()
     }
-    if (audioCtxRef.current.state === 'suspended') {
-      audioCtxRef.current.resume()
-    }
-    return audioCtxRef.current
+    if (ctxRef.current.state === 'suspended') ctxRef.current.resume()
+    return ctxRef.current
   }
 
-  function click(ctx: AudioContext, when: number, accent: boolean) {
-    const osc = ctx.createOscillator()
+  function scheduleClick(ctx: AudioContext, when: number, accent: boolean) {
+    const osc  = ctx.createOscillator()
     const gain = ctx.createGain()
     osc.connect(gain)
     gain.connect(ctx.destination)
-    osc.frequency.value = accent ? 1200 : 900
-    gain.gain.setValueAtTime(accent ? 0.55 : 0.3, when)
-    gain.gain.exponentialRampToValueAtTime(0.001, when + 0.035)
+    osc.frequency.value = accent ? 1400 : 1000
+    gain.gain.setValueAtTime(accent ? 0.9 : 0.6, when)
+    gain.gain.exponentialRampToValueAtTime(0.001, when + 0.04)
     osc.start(when)
-    osc.stop(when + 0.04)
+    osc.stop(when + 0.05)
   }
 
-  function startMetronome() {
-    if (activeRef.current) return
-    activeRef.current = true
+  function stopScheduler() {
+    if (intervalRef.current) { clearInterval(intervalRef.current); intervalRef.current = null }
+    if (bpmWriteTimer.current) { clearTimeout(bpmWriteTimer.current); bpmWriteTimer.current = null }
+    nextBeatRef.current         = 0
+    beatNumRef.current          = 0
+    lastDisplayedBpmRef.current = 0
+  }
 
+  function startScheduler() {
+    if (intervalRef.current) return
     const ctx = getCtx()
-    const { bpm, midi } = useStore.getState()
-    const numerator = midi?.timeSignatureNumerator ?? 4
+    nextBeatRef.current = ctx.currentTime + 0.05
+    beatNumRef.current  = 0
 
-    lastBpmRef.current = bpm
-    beatCountRef.current = 0
-    // Start first beat slightly in the future so audio context is warmed up
-    nextBeatRef.current = ctx.currentTime + 0.08
+    // Larger lookahead = clicks scheduled further ahead = smoother under JS jitter
+    const LOOKAHEAD = 0.15
 
-    schedulerRef.current = setInterval(() => {
-      const { metronomeEnabled, playbackState, bpm: curBpm, midi: curMidi } = useStore.getState()
+    intervalRef.current = setInterval(() => {
+      const { metronomeEnabled, playbackState, currentTime, midi, bpm, originalBpm } = useStore.getState()
 
       if (!metronomeEnabled || playbackState !== 'playing') {
-        stopMetronome()
+        stopScheduler()
         return
       }
 
-      const ctx2 = getCtx()
-      const num = curMidi?.timeSignatureNumerator ?? 4
+      const ctx = getCtx()
+      const now = ctx.currentTime
 
-      // BPM changed — reschedule from now without skipping a beat
-      if (curBpm !== lastBpmRef.current) {
-        lastBpmRef.current = curBpm
-        // Keep the same beat count but update next beat timing
-        nextBeatRef.current = ctx2.currentTime + 0.02
+      const tempoMap     = (midi as any)?._tempoMap as { bpm: number; time: number }[] | undefined
+      const rawBpm       = getBpmAtTime(tempoMap ?? [], currentTime)
+      const ratio        = originalBpm > 0 ? bpm / originalBpm : 1
+      const effectiveBpm = rawBpm * ratio
+      const spb          = 60 / effectiveBpm
+
+      // Update BPM display via debounced timeout — never setState inside audio loop
+      const roundedRaw = Math.round(rawBpm)
+      if (roundedRaw !== lastDisplayedBpmRef.current) {
+        lastDisplayedBpmRef.current = roundedRaw
+        if (Math.abs(ratio - 1) < 0.001) {
+          if (bpmWriteTimer.current) clearTimeout(bpmWriteTimer.current)
+          bpmWriteTimer.current = setTimeout(() => {
+            useStore.setState({ bpm: rawBpm, originalBpm: rawBpm })
+          }, 80)
+        }
       }
 
-      const spb = 60 / curBpm  // seconds per beat
-      const lookahead = ctx2.currentTime + 0.12  // schedule 120ms ahead
+      // Snap forward if nextBeat is stale (gap after seek/pause)
+      if (nextBeatRef.current < now - spb) {
+        nextBeatRef.current = now + 0.01
+        beatNumRef.current  = 0
+      }
 
-      while (nextBeatRef.current < lookahead) {
-        const isAccent = beatCountRef.current % num === 0
-        click(ctx2, nextBeatRef.current, isAccent)
+      const numerator = midi?.timeSignatureNumerator ?? 4
+
+      while (nextBeatRef.current < now + LOOKAHEAD) {
+        scheduleClick(ctx, nextBeatRef.current, beatNumRef.current % numerator === 0)
         nextBeatRef.current += spb
-        beatCountRef.current++
+        beatNumRef.current++
       }
     }, 25)
-  }
-
-  function stopMetronome() {
-    if (schedulerRef.current) {
-      clearInterval(schedulerRef.current)
-      schedulerRef.current = null
-    }
-    activeRef.current = false
-    lastBpmRef.current = 0
   }
 
   useEffect(() => {
     const unsub = useStore.subscribe((state) => {
       if (state.metronomeEnabled && state.playbackState === 'playing') {
-        startMetronome()
+        // Cancel any pending stop (e.g. from wheel scrub pause)
+        if (stopTimer.current) { clearTimeout(stopTimer.current); stopTimer.current = null }
+        if (!intervalRef.current) startScheduler()
       } else {
-        stopMetronome()
+        // Debounce stop by 80ms — ignores transient pauses from wheel scrub
+        if (stopTimer.current) clearTimeout(stopTimer.current)
+        stopTimer.current = setTimeout(() => {
+          stopScheduler()
+          stopTimer.current = null
+        }, 80)
       }
     })
-
-    return () => {
-      unsub()
-      stopMetronome()
-      audioCtxRef.current?.close()
-    }
+    return () => { unsub(); stopScheduler(); ctxRef.current?.close() }
   }, [])
 }
