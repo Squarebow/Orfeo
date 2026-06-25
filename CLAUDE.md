@@ -108,6 +108,11 @@ All Electron APIs are accessed through `window.electronAPI` (defined in `src/typ
 - SF2 soundfont engine exists but partially implemented
 - window.__orfeoPlayNote routes click-to-play to active backend
 
+## Known Issues
+- Chord Explorer search does not work reliably. Needs logic rewrite — match against
+  fully composed chord names across all naming/accidental systems before fixing.
+- TrackPanel SVG crash (pre-existing, unresolved)
+
 ## Git rules
 - Do not add co-author attribution to commit messages
 - Commit messages should be plain, no Claude signature

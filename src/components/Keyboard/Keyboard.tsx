@@ -2,7 +2,7 @@ import { useMemo, useCallback, useState, useEffect, useRef } from 'react'
 import { ChevronLeft, ChevronRight, Play } from 'lucide-react'
 import { useStore } from '../../store'
 import { isBlackKey } from '../../utils/midiParser'
-import { getNoteLabel } from '../../utils/noteNames'
+import { getNoteLabel, getNoteName } from '../../utils/noteNames'
 import { detectChord, detectChordWithInversion, localizeChord } from '../../utils/chordDetection'
 
 const RANGES: Record<number, { min: number; max: number }> = {
@@ -36,6 +36,10 @@ export default function Keyboard() {
   const noteNaming = useStore((s) => s.noteNaming)
   const accidentals = useStore((s) => s.accidentals)
   const playbackState = useStore((s) => s.playbackState)
+  const explorerKeys = useStore((s) => s.explorerKeys)
+  const explorerKeyColors = useStore((s) => s.explorerKeyColors)
+  const chordExplorerOpen = useStore((s) => s.chordExplorerOpen)
+  const setChordExplorerOpen = useStore((s) => s.setChordExplorerOpen)
 
   const [lockedKeys, setLockedKeys] = useState<Set<number>>(new Set())
   const [lockedColors, setLockedColors] = useState<Map<number, string>>(new Map())
@@ -45,8 +49,6 @@ export default function Keyboard() {
   const [displayedChord, setDisplayedChord] = useState<string | null>(null)
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const holdRef = useRef<ReturnType<typeof setTimeout> | null>(null)
-  const [showTooltip, setShowTooltip] = useState(false)
-
   // Clear chord when playback stops
   useEffect(() => {
     if (playbackState === 'stopped') {
@@ -55,6 +57,15 @@ export default function Keyboard() {
       setDisplayedChord(null)
     }
   }, [playbackState])
+
+  // Clear displayed chord when explorer closes
+  useEffect(() => {
+    if (!chordExplorerOpen) {
+      setDisplayedChord(null)
+      if (debounceRef.current) { clearTimeout(debounceRef.current); debounceRef.current = null }
+      if (holdRef.current) { clearTimeout(holdRef.current); holdRef.current = null }
+    }
+  }, [chordExplorerOpen])
 
   useEffect(() => {
     const down = (e: KeyboardEvent) => { if (e.key === 'Shift') shiftHeldRef.current = true }
@@ -75,14 +86,16 @@ export default function Keyboard() {
   const allActiveKeys = useMemo(() => {
     const merged = new Set(activeKeys)
     lockedKeys.forEach(k => merged.add(k))
+    explorerKeys.forEach(k => merged.add(k))
     return merged
-  }, [activeKeys, lockedKeys])
+  }, [activeKeys, lockedKeys, explorerKeys])
 
   const allActiveColors = useMemo(() => {
     const merged = new Map(activeKeyColors)
     lockedColors.forEach((c, k) => merged.set(k, c))
+    explorerKeyColors.forEach((c, k) => merged.set(k, c))
     return merged
-  }, [activeKeyColors, lockedColors])
+  }, [activeKeyColors, lockedColors, explorerKeyColors])
 
   const getColor = (midi: number): string | null => {
     if (!allActiveKeys.has(midi)) return null
@@ -206,41 +219,56 @@ export default function Keyboard() {
         padding: '0 12px',
         position: 'relative',
       }}>
-        {/* CHORDS label + info icon — fixed left, amber */}
-        <div style={{ position: 'absolute', left: 10, display: 'flex', alignItems: 'center', gap: 4 }}>
-          <span style={{ fontFamily: 'Inter', fontSize: 9, fontWeight: 700, color: '#707088', letterSpacing: '0.12em', textTransform: 'uppercase' }}>
+        {/* Left: CHORDS trigger + lock controls when locked */}
+        <div style={{ position: 'absolute', left: 10, display: 'flex', alignItems: 'center', gap: 8 }}>
+          <span
+            onClick={() => setChordExplorerOpen(true)}
+            title="Open Chord Explorer"
+            style={{ fontFamily: 'Inter', fontSize: 9, fontWeight: 700, color: '#e8a027', letterSpacing: '0.12em', textTransform: 'uppercase', cursor: 'pointer', userSelect: 'none' }}
+          >
             Chords
           </span>
-          {/* Info icon right of CHORDS label */}
-          <div
-            style={{ display: 'flex', alignItems: 'center' }}
-            onMouseEnter={() => setShowTooltip(true)}
-            onMouseLeave={() => setShowTooltip(false)}
-          >
-            <span style={{
-              width: 13, height: 13, borderRadius: '50%',
-              border: '1px solid #e8a02750', color: '#e8a027', fontSize: 7,
-              display: 'flex', alignItems: 'center', justifyContent: 'center',
-              cursor: 'default', fontFamily: 'Inter', fontWeight: 700, userSelect: 'none',
-            }}>i</span>
-            {showTooltip && (
-              <div style={{
-                position: 'absolute', left: 72, top: '100%',
-                background: '#1a1a2e', border: '1px solid #2a2a40',
-                borderRadius: 6, padding: '7px 10px',
-                whiteSpace: 'nowrap', zIndex: 100,
-                fontSize: 10, color: '#b0b0cc', fontFamily: 'Inter',
-                lineHeight: 1.6, pointerEvents: 'none',
-                boxShadow: '0 4px 16px rgba(0,0,0,0.6)',
-              }}>
-                Chord name appears here during playback (3+ notes)<br />
-                <span style={{ color: '#8888aa' }}>
-                  Shift+click keys to build &amp; lock a chord<br />
-                  Use <span style={{ color: '#e8a027' }}>‹ ›</span> to cycle inversions · <span style={{ color: '#e8a027' }}>▶</span> to hear it
-                </span>
-              </div>
-            )}
-          </div>
+
+          {isLocked && (
+            <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+              <span style={{ fontSize: 9, color: '#e8a02770', fontFamily: 'Inter', letterSpacing: '0.04em' }}>
+                Locked Chord
+              </span>
+
+              <button onClick={playLockedChord} title="Play this chord"
+                style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#e8a027', padding: '2px 3px', borderRadius: 3, display: 'flex', alignItems: 'center' }}
+                onMouseEnter={e => e.currentTarget.style.color = '#ffb84d'}
+                onMouseLeave={e => e.currentTarget.style.color = '#e8a027'}
+              >
+                <Play size={11} fill="currentColor" />
+              </button>
+
+              <button onClick={() => applyInversion(prevInversion)} title="Previous inversion"
+                style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#606080', padding: '2px 3px', borderRadius: 3, display: 'flex', alignItems: 'center' }}
+                onMouseEnter={e => e.currentTarget.style.color = '#e8a027'}
+                onMouseLeave={e => e.currentTarget.style.color = '#606080'}
+              >
+                <ChevronLeft size={13} />
+              </button>
+
+              <span style={{ fontSize: 8, color: '#e8a027', fontFamily: 'Inter', userSelect: 'none' }}>inv</span>
+
+              <button onClick={() => applyInversion(nextInversion)} title="Next inversion"
+                style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#606080', padding: '2px 3px', borderRadius: 3, display: 'flex', alignItems: 'center' }}
+                onMouseEnter={e => e.currentTarget.style.color = '#e8a027'}
+                onMouseLeave={e => e.currentTarget.style.color = '#606080'}
+              >
+                <ChevronRight size={13} />
+              </button>
+
+              <button onClick={() => { setLockedKeys(new Set()); setLockedColors(new Map()) }}
+                title="Clear chord lock"
+                style={{ fontSize: 8, color: '#9090a8', background: '#1a1a22', border: '1px solid #3a3a4a', borderRadius: 3, padding: '1px 5px', cursor: 'pointer', fontFamily: 'Inter' }}
+              >
+                clear
+              </button>
+            </div>
+          )}
         </div>
 
         {/* Chord name — always centred */}
@@ -263,50 +291,12 @@ export default function Keyboard() {
           )}
         </div>
 
-        {/* Lock controls — shown when locked */}
-        {isLocked && (
-          <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
-            {/* Prev inversion */}
-            <button onClick={() => applyInversion(prevInversion)} title="Previous inversion"
-              style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#606080', padding: '2px 3px', borderRadius: 3, display: 'flex', alignItems: 'center' }}
-              onMouseEnter={e => e.currentTarget.style.color = '#e8a027'}
-              onMouseLeave={e => e.currentTarget.style.color = '#606080'}
-            >
-              <ChevronLeft size={13} />
-            </button>
-
-            <span style={{ fontSize: 9, color: '#e8a02770', fontFamily: 'Inter', letterSpacing: '0.04em' }}>
-              CHORD LOCK
-            </span>
-
-            {/* Play button */}
-            <button onClick={playLockedChord} title="Play this chord"
-              style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#e8a027', padding: '2px 3px', borderRadius: 3, display: 'flex', alignItems: 'center' }}
-              onMouseEnter={e => e.currentTarget.style.color = '#ffb84d'}
-              onMouseLeave={e => e.currentTarget.style.color = '#e8a027'}
-            >
-              <Play size={11} fill="currentColor" />
-            </button>
-
-            {/* Next inversion */}
-            <button onClick={() => applyInversion(nextInversion)} title="Next inversion"
-              style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#606080', padding: '2px 3px', borderRadius: 3, display: 'flex', alignItems: 'center' }}
-              onMouseEnter={e => e.currentTarget.style.color = '#e8a027'}
-              onMouseLeave={e => e.currentTarget.style.color = '#606080'}
-            >
-              <ChevronRight size={13} />
-            </button>
-
-            <button onClick={() => { setLockedKeys(new Set()); setLockedColors(new Map()) }}
-              title="Clear chord lock"
-              style={{ fontSize: 8, color: '#40404e', background: '#1a1a22', border: '1px solid #2a2a35', borderRadius: 3, padding: '1px 5px', cursor: 'pointer', fontFamily: 'Inter' }}
-            >
-              clear
-            </button>
-          </div>
+        {/* Right: persistent help text when not locked */}
+        {!isLocked && (
+          <span style={{ position: 'absolute', right: 10, fontSize: 10, color: '#9090a8', fontFamily: 'Inter', whiteSpace: 'nowrap', userSelect: 'none' }}>
+            Shift+Click at least 3 keys to build &amp; lock a chord
+          </span>
         )}
-
-
       </div>
 
       {/* Piano keys */}
@@ -321,7 +311,9 @@ export default function Keyboard() {
             const color = getColor(k.midi)
             const locked = lockedKeys.has(k.midi)
             const isC = k.midi % 12 === 0
-            const label = isC ? getNoteLabel(k.midi, noteNaming, accidentals) : null
+            const label = color
+              ? (getNoteName(k.midi, noteNaming, accidentals) || null)
+              : (isC ? getNoteLabel(k.midi, noteNaming, accidentals) : null)
             return (
               <div
                 key={k.midi}
@@ -340,8 +332,8 @@ export default function Keyboard() {
                   }}
               >
                 {label && (
-                  <span className="text-[9px] font-semibold pointer-events-none"
-                    style={{ color: color ? '#fff' : '#888', fontFamily: 'JetBrains Mono' }}>
+                  <span className="font-semibold pointer-events-none"
+                    style={{ color: color ? '#fff' : '#888', fontFamily: 'JetBrains Mono', fontSize: chordExplorerOpen ? 11 : 9 }}>
                     {label}
                   </span>
                 )}
@@ -377,7 +369,19 @@ export default function Keyboard() {
                   transition: 'background 0.04s, box-shadow 0.04s',
                   zIndex: 2,
                 }}
-              />
+              >
+                {color && noteNaming !== 'hidden' && (
+                  <span style={{
+                    position: 'absolute', bottom: 3, left: '50%',
+                    transform: 'translateX(-50%)',
+                    fontSize: chordExplorerOpen ? 8 : 7, fontFamily: 'JetBrains Mono', fontWeight: 700,
+                    color: 'rgba(255,255,255,0.88)', pointerEvents: 'none',
+                    whiteSpace: 'nowrap', textShadow: '0 1px 2px rgba(0,0,0,0.95)',
+                  }}>
+                    {getNoteName(k.midi, noteNaming, accidentals)}
+                  </span>
+                )}
+              </div>
             )
           })}
         </div>

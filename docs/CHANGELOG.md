@@ -5,6 +5,33 @@ Format: [Semantic Versioning](https://semver.org)
 
 ---
 
+## [0.5.1] — 2026-06 — Chord Explorer
+
+### Added
+- **Chord Explorer modal** — draggable, no backdrop, opens from "Chords" label in the keyboard chord bar; auto-forces 61-key layout while open, restores on close; pauses playback on open
+- **Root selector** — 12 pitch-class buttons using active accidentals + note naming; clicking a root while a chord is selected re-plays it in the new key
+- **Chord grid** — Common / Extended tier toggle; 3-column grid of chord tiles; clicking a tile lights the keyboard and plays the chord
+- **Hand filter** — All / 1H / 2H filter (span-based heuristic); 1H icon rotated –20°, 2H icons angled inward
+- **Note count filter** — Any / 3 / 4 / 5 / 6+ buttons
+- **Search** — magnifier icon in header toggles an inline input; filters by composed chord name (root + suffix) with `b`→`♭` normalization
+- **Inversion browser** — `‹ PLAY INVERSION ›` centered in footer; cycles inversions via `nextInversion` / `prevInversion`; clear button (RotateCcw) deselects without closing modal
+- **Accidentals toggle** in footer — ♭ / # symbols only at 20px; active = amber, inactive = dim; writes back to store
+- **Explorer key lighting** — separate `explorerKeys` / `explorerKeyColors` store layer merged into Keyboard.tsx; does not interfere with playback lighting
+- **Logo click reset** — clicking the Orfeo logo resets all state (stops player, clears MIDI, closes panels)
+- **Keyboard note labels in explorer mode** — white key labels grow 9→11px, black key labels 7→8px when Chord Explorer is open
+
+### Changed
+- Keyboard chord bar label: `CHORD LOCK` → `Locked Chord`
+- Chord bar help text: `Shift+Click at least 3 keys to build & lock a chord`
+- Chord tile note name row: `fontSize 8→9`, `color #606078→#8080a0`
+- Play button in TopBar disabled while Chord Explorer is open
+- Space / Escape keys guarded in App.tsx — no longer trigger playback when Chord Explorer is open
+
+### Fixed
+- Central European naming: pitch class 10 (A#/B♭) now always returns `'B'` in CE mode regardless of accidentals setting — `CENTRAL_EU_SHARP[10]` was incorrectly `'A#'`
+
+---
+
 ## [0.5.0] — 2026-06 — UI Polish, Tempo Map Metronome, Piano Roll Range Fix
 
 ### Added

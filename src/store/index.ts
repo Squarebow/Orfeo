@@ -75,6 +75,14 @@ interface OrfeoStore {
   setTrackPanelOpen: (open: boolean) => void
   setSettingsOpen: (open: boolean) => void
   setSettingsPanelOpen: (open: boolean) => void
+
+  chordExplorerOpen: boolean
+  setChordExplorerOpen: (open: boolean) => void
+  explorerKeys: Set<number>
+  explorerKeyColors: Map<number, string>
+  setExplorerKeys: (keys: Set<number>, colors: Map<number, string>) => void
+  clearExplorerKeys: () => void
+  resetAll: () => void
 }
 
 function makeTrackState(track: ParsedTrack): TrackState {
@@ -174,6 +182,23 @@ export const useStore = create<OrfeoStore>((set, get) => ({
   setTrackPanelOpen: (trackPanelOpen) => set({ trackPanelOpen }),
   setSettingsOpen: (settingsOpen) => set({ settingsOpen }),
   setSettingsPanelOpen: (settingsPanelOpen) => set({ settingsPanelOpen }),
+
+  chordExplorerOpen: false,
+  explorerKeys: new Set(),
+  explorerKeyColors: new Map(),
+  setChordExplorerOpen: (chordExplorerOpen) => set({ chordExplorerOpen }),
+  setExplorerKeys: (explorerKeys, explorerKeyColors) => set({ explorerKeys, explorerKeyColors }),
+  clearExplorerKeys: () => set({ explorerKeys: new Set(), explorerKeyColors: new Map() }),
+  resetAll: () => {
+    ;(window as any).__orfeoPlayer?.stop?.()
+    set({
+      midi: null, tracks: [],
+      activeKeys: new Set(), activeKeyColors: new Map(),
+      explorerKeys: new Set(), explorerKeyColors: new Map(),
+      chordExplorerOpen: false, playbackState: 'stopped',
+      currentTime: 0, trackPanelOpen: false, settingsPanelOpen: false,
+    })
+  },
 
   audioEngine: 'gm',
   setAudioEngine: (audioEngine) => set({ audioEngine }),

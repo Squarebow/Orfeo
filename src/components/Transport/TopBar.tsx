@@ -38,6 +38,8 @@ export default function TopBar() {
   const midiDeviceName = useStore((s) => s.midiDeviceName)
   const noteNaming = useStore((s) => s.noteNaming)
   const accidentals = useStore((s) => s.accidentals)
+  const chordExplorerOpen = useStore((s) => s.chordExplorerOpen)
+  const resetAll = useStore((s) => s.resetAll)
 
   const { play, pause, stop, seek, seekAndPlay } = usePlayback()
   const { openFile } = useMidiFile()
@@ -94,7 +96,9 @@ export default function TopBar() {
     >
       {/* ── LOGO ── */}
       <div className="app-no-drag" style={{ display: 'flex', alignItems: 'center', gap: 10, flexShrink: 0, paddingRight: 12 }}>
-        <OrfeoLogo />
+        <span onClick={resetAll} title="Reset" className="app-no-drag" style={{ cursor: 'pointer', display: 'flex' }}>
+          <OrfeoLogo />
+        </span>
         <button
           onClick={openFile}
           title="Open MIDI file (Ctrl+O)"
@@ -163,7 +167,7 @@ export default function TopBar() {
         <div style={{ display: 'flex', alignItems: 'center', gap: 2 }}>
           <TBtn onClick={stop} disabled={!midi} title="Go to start"><SkipBack size={16} strokeWidth={1.5} /></TBtn>
           <TBtn onClick={() => handleSkip(-1)} disabled={!midi} title={`Rewind ${SKIP_SECS}s`}><Rewind size={15} strokeWidth={1.5} /></TBtn>
-          <TBtn onClick={handlePlayPause} disabled={!midi} accent title="Play / Pause (Space)" large>
+          <TBtn onClick={handlePlayPause} disabled={!midi || chordExplorerOpen} accent title="Play / Pause (Space)" large>
             {playbackState === 'playing'
               ? <Pause size={24} fill="currentColor" strokeWidth={0} />
               : <Play size={24} fill="currentColor" strokeWidth={0} />}

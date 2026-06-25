@@ -58,6 +58,12 @@
 
 ---
 
+## Known Issues
+
+- [ ] Chord Explorer search: matching logic unreliable — needs full rewrite
+
+---
+
 ## Phase 3 — VST3 Plugin
 
 - [ ] JUCE/C++ project setup
