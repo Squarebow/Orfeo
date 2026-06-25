@@ -112,3 +112,4 @@ All Electron APIs are accessed through `window.electronAPI` (defined in `src/typ
 - Do not add co-author attribution to commit messages
 - Commit messages should be plain, no Claude signature
 - After every code edit, suggest a one-line git commit message summarising what was changed
+- At the end of every session, update CHANGELOG.md with a brief summary of what was changed
