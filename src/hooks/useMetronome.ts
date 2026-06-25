@@ -52,11 +52,23 @@ export function useMetronome() {
   function startScheduler() {
     if (intervalRef.current) return
     const ctx = getCtx()
-    nextBeatRef.current = ctx.currentTime + 0.05
-    beatNumRef.current  = 0
 
-    // Larger lookahead = clicks scheduled further ahead = smoother under JS jitter
-    const LOOKAHEAD = 0.15
+    // Align first click to the current beat grid position in the song
+    const { currentTime, midi, bpm, originalBpm } = useStore.getState()
+    const tempoMap0  = (midi as any)?._tempoMap as { bpm: number; time: number }[] | undefined
+    const rawBpm0    = getBpmAtTime(tempoMap0 ?? [], currentTime)
+    const ratio0     = originalBpm > 0 ? bpm / originalBpm : 1
+    const spb0       = 60 / (rawBpm0 * ratio0)
+
+    const elapsedBeats   = currentTime / spb0
+    beatNumRef.current   = Math.floor(elapsedBeats)
+    const fracBeat       = elapsedBeats - beatNumRef.current
+    const timeToNextBeat = (1 - fracBeat) * spb0
+    // Schedule first click at next grid-aligned beat; ensure at least 20ms ahead
+    nextBeatRef.current  = ctx.currentTime + Math.max(0.02, timeToNextBeat)
+
+    // 300ms lookahead — enough buffer to absorb main-thread jitter from PixiJS rendering
+    const LOOKAHEAD = 0.30
 
     intervalRef.current = setInterval(() => {
       const { metronomeEnabled, playbackState, currentTime, midi, bpm, originalBpm } = useStore.getState()
@@ -87,10 +99,12 @@ export function useMetronome() {
         }
       }
 
-      // Snap forward if nextBeat is stale (gap after seek/pause)
+      // Snap forward if the scheduler fell a full beat behind (e.g. tab was hidden)
+      // Advance by whole beats to preserve accent alignment
       if (nextBeatRef.current < now - spb) {
-        nextBeatRef.current = now + 0.01
-        beatNumRef.current  = 0
+        const beatsSkipped   = Math.ceil((now - nextBeatRef.current) / spb)
+        nextBeatRef.current += beatsSkipped * spb
+        beatNumRef.current  += beatsSkipped
       }
 
       const numerator = midi?.timeSignatureNumerator ?? 4
