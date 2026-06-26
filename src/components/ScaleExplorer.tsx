@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback, useMemo, useRef } from 'react'
 import { createPortal } from 'react-dom'
 import { Chord, Note } from 'tonal'
-import { Hand, RotateCcw } from 'lucide-react'
+import { RotateCcw } from 'lucide-react'
 import { useStore } from '../store'
 import { getNoteName } from '../utils/noteNames'
 import type { NoteNaming, Accidentals } from '../types'
@@ -33,37 +33,42 @@ const SCALES: ScaleDef[] = [
   { name: 'Mixolydian',       intervals: [0,2,4,5,7,9,10], romans: ['I','ii','iii°','IV','v','vi','VII'] },
 ]
 
-// ── Circle of Fifths ────────────────────────────────────────────────────────
+// ── Circle of Fifths position tables ────────────────────────────────────────
 // 12 positions clockwise from top (C)
 const COF_MAJOR_PC  = [0, 7, 2, 9, 4, 11, 6,  1,  8, 3, 10, 5]
 const COF_MINOR_PC  = [9, 4,11, 6, 1,  8, 3, 10,  5, 0,  7, 2]
 // Key signature: positive = sharps, negative = flats
 const COF_KEYSIG    = [0, 1, 2, 3, 4,  5, 6, -5, -4,-3,  -2,-1]
 
-// ── Progressions (same 15 as ChordExplorer) ────────────────────────────────
+// ── Progressions ────────────────────────────────────────────────────────────
 interface Progression { name: string; labels: string[]; offsets: number[] }
 
 const PROGRESSIONS: Progression[] = [
-  { name: 'I–IV–V',        labels: ['I','IV','V'],                                        offsets: [0,5,7] },
-  { name: 'I–V–vi–IV',     labels: ['I','V','vi','IV'],                                   offsets: [0,7,9,5] },
-  { name: 'I–vi–IV–V',     labels: ['I','vi','IV','V'],                                   offsets: [0,9,5,7] },
-  { name: 'ii–V–I',        labels: ['ii','V','I'],                                        offsets: [2,7,0] },
-  { name: 'I–IV–vi–V',     labels: ['I','IV','vi','V'],                                   offsets: [0,5,9,7] },
-  { name: 'I–IV–I–V',      labels: ['I','IV','I','V'],                                    offsets: [0,5,0,7] },
-  { name: 'vi–IV–I–V',     labels: ['vi','IV','I','V'],                                   offsets: [9,5,0,7] },
-  { name: 'I–III–IV–iv',   labels: ['I','III','IV','iv'],                                 offsets: [0,4,5,5] },
-  { name: '12-bar Blues',  labels: ['I','I','I','I','IV','IV','I','I','V','IV','I','V'],  offsets: [0,0,0,0,5,5,0,0,7,5,0,7] },
-  { name: 'I–ii–IV–V',     labels: ['I','ii','IV','V'],                                   offsets: [0,2,5,7] },
-  { name: 'I–V–IV–V',      labels: ['I','V','IV','V'],                                    offsets: [0,7,5,7] },
-  { name: 'ii–IV–I',       labels: ['ii','IV','I'],                                       offsets: [2,5,0] },
-  { name: 'I–vi–ii–V',     labels: ['I','vi','ii','V'],                                   offsets: [0,9,2,7] },
-  { name: 'iii–vi–ii–V–I', labels: ['iii','vi','ii','V','I'],                             offsets: [4,9,2,7,0] },
-  { name: 'I–IV–V–IV',     labels: ['I','IV','V','IV'],                                   offsets: [0,5,7,5] },
+  { name: 'Pop',               labels: ['I','V','vi','IV'],                    offsets: [0,7,9,5] },
+  { name: 'Doo-Wop',           labels: ['I','vi','IV','V'],                    offsets: [0,9,5,7] },
+  { name: 'Rock · Blues',      labels: ['I','IV','V'],                         offsets: [0,5,7] },
+  { name: 'Jazz Standard',     labels: ['ii','V','I'],                         offsets: [2,7,0] },
+  { name: 'Andalusian',        labels: ['i','VII','VI','V'],                   offsets: [0,10,8,7] },
+  { name: 'Pachelbel',         labels: ['I','V','vi','iii','IV','I','IV','V'], offsets: [0,7,9,4,5,0,5,7] },
+  { name: 'Minor Pop',         labels: ['i','VI','III','VII'],                 offsets: [0,8,3,10] },
+  { name: 'Pop/Rock Inv.',     labels: ['vi','IV','I','V'],                    offsets: [9,5,0,7] },
+  { name: 'Epic · Heroic',     labels: ['VI','VII','i'],                       offsets: [8,10,0] },
+  { name: 'Royal Road',        labels: ['IV','V','iii','vi'],                  offsets: [5,7,4,9] },
+  { name: 'Sentimental',       labels: ['IV','V','I','vi'],                    offsets: [5,7,0,9] },
+  { name: 'Sad · Hopeful',     labels: ['I','vi','iii','IV'],                  offsets: [0,9,4,5] },
+  { name: 'Mixolydian Rock',   labels: ['I','bVII','IV'],                      offsets: [0,10,5] },
+  { name: 'Plagal Turnaround', labels: ['I','IV','I','V'],                     offsets: [0,5,0,7] },
+  { name: 'Minor Jazz',        labels: ['ii°','V','i'],                        offsets: [2,7,0] },
+  { name: 'Step-Down',         labels: ['i','v','IV','bIII'],                  offsets: [0,7,5,3] },
+  { name: 'Circle of Fifths',  labels: ['vi','ii','V','I'],                    offsets: [9,2,7,0] },
+  { name: 'Energetic Pop',     labels: ['I','IV','vi','V'],                    offsets: [0,5,9,7] },
+  { name: 'Minor Blues',       labels: ['i','iv','v'],                         offsets: [0,5,7] },
+  { name: 'Grunge · Modal',    labels: ['I','bIII','IV'],                      offsets: [0,3,5] },
 ]
 
 const SPEED_MS = { slow: 1500, med: 800, fast: 400 } as const
 
-// Maps roman numeral labels → 0-based scale degree index
+// ── Roman numeral → 0-based degree index ────────────────────────────────────
 const ROMAN_TO_DEGREE: Record<string, number> = {
   'I':0,'i':0,'II':1,'ii':1,'ii°':1,'III':2,'iii':2,'III+':2,'iii°':2,
   'IV':3,'iv':3,'#iv°':3,'V':4,'v':4,'v°':4,'VI':5,'vi':5,'vi°':5,
@@ -82,7 +87,7 @@ const ROW: React.CSSProperties = {
   borderBottom: '1px solid #1e1e2a',
 }
 
-// ── SVG helpers ─────────────────────────────────────────────────────────────
+// ── SVG wedge path for CoF rings ─────────────────────────────────────────────
 function wedgePath(cx: number, cy: number, r1: number, r2: number, a1Deg: number, a2Deg: number): string {
   const toRad = (d: number) => (d * Math.PI) / 180
   const a1 = toRad(a1Deg)
@@ -101,18 +106,19 @@ function wedgePath(cx: number, cy: number, r1: number, r2: number, a1Deg: number
   ].join(' ')
 }
 
+// ── SVG label position from centre + radius + angle ──────────────────────────
 function labelPos(cx: number, cy: number, r: number, angleDeg: number): { x: number; y: number } {
   const rad = (angleDeg * Math.PI) / 180
   return { x: cx + r * Math.cos(rad), y: cy + r * Math.sin(rad) }
 }
 
-// ── Diatonic chord building ─────────────────────────────────────────────────
+// ── Diatonic chord type ─────────────────────────────────────────────────────
 interface DiatonicChord {
   degree: number
   roman: string
   rootPC: number
   midiNotes: number[]
-  chordName: string  // localized root + suffix
+  chordName: string
   suffix: string
   noteCount: number
 }
@@ -126,6 +132,7 @@ const QUALITY_SUFFIX: Record<string, string> = {
   'power chord': '5',
 }
 
+// ── Build one triad from a scale degree, detect quality via tonal ────────────
 function buildDiatonicChord(
   root: number,
   scaleIntervals: number[],
@@ -186,6 +193,7 @@ function buildDiatonicChord(
   }
 }
 
+// ── Apply N-th inversion by rotating the lowest note up an octave ────────────
 function applyNthInversion(baseMidi: number[], n: number): number[] {
   if (n <= 0) return baseMidi
   let notes = [...baseMidi].sort((a, b) => a - b)
@@ -196,15 +204,10 @@ function applyNthInversion(baseMidi: number[], n: number): number[] {
   return notes
 }
 
-// ── Hand filter heuristic ────────────────────────────────────────────────────
-function handSpan(midiNotes: number[]): number {
-  if (midiNotes.length < 2) return 0
-  const sorted = [...midiNotes].sort((a, b) => a - b)
-  return sorted[sorted.length - 1] - sorted[0]
-}
 
 // ── Component ────────────────────────────────────────────────────────────────
 export default function ScaleExplorer() {
+  // ── Store subscriptions ───────────────────────────────────────────────────
   const scaleExplorerOpen = useStore(s => s.scaleExplorerOpen)
   const setScaleExplorerOpen = useStore(s => s.setScaleExplorerOpen)
   const setChordExplorerOpen = useStore(s => s.setChordExplorerOpen)
@@ -216,22 +219,19 @@ export default function ScaleExplorer() {
   const setKeyboardSize = useStore(s => s.setKeyboardSize)
   const keyboardSize = useStore(s => s.keyboardSize)
 
+  // ── Window drag position ──────────────────────────────────────────────────
   const [pos, setPos] = useState(() => ({
     x: Math.max(0, Math.floor((window.innerWidth - 720) / 2)),
     y: Math.max(0, Math.floor((window.innerHeight - 680) / 2)),
   }))
 
-  // Circle of fifths selection
+  // ── CoF + scale selection state ───────────────────────────────────────────
   const [cofPos, setCofPos] = useState<number | null>(null)
   const [cofRing, setCofRing] = useState<'major' | 'minor' | null>(null)
   const [selectedScaleIdx, setSelectedScaleIdx] = useState(0)
   const [selectedDegree, setSelectedDegree] = useState<number | null>(null)
 
-  // Filters
-  const [handFilter, setHandFilter] = useState<'all' | 'one' | 'two'>('all')
-  const [noteFilter, setNoteFilter] = useState<'any' | '3' | '4' | '5' | '6+'>('any')
-
-  // Progression state
+  // ── Progression state ─────────────────────────────────────────────────────
   const [selectedProg, setSelectedProg] = useState<number | null>(null)
   const [progDropdownOpen, setProgDropdownOpen] = useState(false)
   const [dropdownRect, setDropdownRect] = useState<{ top: number; left: number } | null>(null)
@@ -240,11 +240,17 @@ export default function ScaleExplorer() {
   const [progSpeed, setProgSpeed] = useState<'slow' | 'med' | 'fast'>('med')
   const [progInversionMode, setProgInversionMode] = useState<'off' | 'sequential' | 'random'>('off')
 
-  // Inversion browser (for footer ‹ PLAY INVERSION ›)
+  // ── Inversion browser state ───────────────────────────────────────────────
   const [inversionStep, setInversionStep] = useState(0)
 
+  // ── Info row: currently playing chord context ─────────────────────────────
+  const [infoRowChord, setInfoRowChord] = useState<{ progName: string; labels: string[]; notes: string[]; step: number } | null>(null)
+
+  // ── Refs ──────────────────────────────────────────────────────────────────
   const prevSizeRef = useRef<61 | 73 | 88 | null>(null)
   const progTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  // speedRef lets playProgStepAt read the live speed without restarting the chain
+  const speedRef = useRef<'slow' | 'med' | 'fast'>('med')
   const progRunningRef = useRef(false)
   const progTriggerRef = useRef<HTMLButtonElement>(null)
   const progDropRef = useRef<HTMLDivElement>(null)
@@ -253,7 +259,7 @@ export default function ScaleExplorer() {
 
   const displayNaming: NoteNaming = noteNaming === 'hidden' ? 'english' : noteNaming
 
-  // Derived root from CoF selection
+  // ── Derived root pitch class from CoF selection ───────────────────────────
   const selectedRoot = useMemo(() => {
     if (cofPos === null || cofRing === null) return null
     return cofRing === 'major' ? COF_MAJOR_PC[cofPos] : COF_MINOR_PC[cofPos]
@@ -261,7 +267,7 @@ export default function ScaleExplorer() {
 
   const scale = SCALES[selectedScaleIdx]
 
-  // Build diatonic chords whenever root/scale changes
+  // ── Build all diatonic triads when root or scale type changes ─────────────
   const diatonicChords = useMemo<DiatonicChord[]>(() => {
     if (selectedRoot === null) return []
     return scale.intervals.map((_, deg) =>
@@ -269,6 +275,7 @@ export default function ScaleExplorer() {
     )
   }, [selectedRoot, scale, displayNaming, accidentals])
 
+  // ── Stop progression and clear its timer ─────────────────────────────────
   const stopProgression = useCallback(() => {
     progRunningRef.current = false
     if (progTimerRef.current) { clearTimeout(progTimerRef.current); progTimerRef.current = null }
@@ -276,12 +283,13 @@ export default function ScaleExplorer() {
     setProgStep(0)
   }, [])
 
+  // ── Cancel all scheduled scale-play note timers ───────────────────────────
   const clearScalePlayTimers = useCallback(() => {
     scalePlayTimersRef.current.forEach(t => clearTimeout(t))
     scalePlayTimersRef.current = []
   }, [])
 
-  // On open: force 61 keys, pause playback, reset state
+  // ── On open: force 61 keys, pause playback, reset all transient state ─────
   useEffect(() => {
     if (scaleExplorerOpen) {
       prevSizeRef.current = useStore.getState().keyboardSize as 61 | 73 | 88
@@ -290,8 +298,6 @@ export default function ScaleExplorer() {
         ;(window as any).__orfeoPlayer?.pause?.()
         useStore.getState().setPlaybackState('paused')
       }
-      setHandFilter('all')
-      setNoteFilter('any')
       stopProgression()
       setSelectedProg(null)
       setProgDropdownOpen(false)
@@ -308,7 +314,7 @@ export default function ScaleExplorer() {
     }
   }, [scaleExplorerOpen, setKeyboardSize, stopProgression, clearScalePlayTimers, clearExplorerKeys])
 
-  // Play + light scale notes ascending when root/scale changes
+  // ── Play scale notes ascending and light keys when root/scale changes ──────
   useEffect(() => {
     if (!scaleExplorerOpen || selectedRoot === null) return
     clearScalePlayTimers()
@@ -317,15 +323,21 @@ export default function ScaleExplorer() {
     const noteMidis: number[] = []
     for (const interval of scale.intervals) {
       let m = selectedRoot + 60 + interval
-      // nudge into range
       while (m < min) m += 12
       while (m > max) m -= 12
       if (m >= min && m <= max) noteMidis.push(m)
     }
+    // Append octave root
+    if (noteMidis.length > 0) {
+      const octaveUp = noteMidis[0] + 12
+      const octaveDown = noteMidis[0] - 12
+      if (octaveUp <= max) noteMidis.push(octaveUp)
+      else if (octaveDown >= min) noteMidis.push(octaveDown)
+    }
     const keys = new Set(noteMidis)
     const colors = new Map<number, string>()
     noteMidis.forEach((m, i) => {
-      colors.set(m, i === 0 ? '#e8a027' : '#6080d0')
+      colors.set(m, i === 0 || i === noteMidis.length - 1 ? '#e8a027' : '#4a90d9')
     })
     setExplorerKeys(keys, colors)
     setSelectedDegree(null)
@@ -333,14 +345,14 @@ export default function ScaleExplorer() {
 
     if (playNote) {
       noteMidis.forEach((m, i) => {
-        const t = setTimeout(() => playNote(m, 0.6, 400), i * 80)
+        const t = setTimeout(() => playNote(m, 0.6, 400), i * 220)
         scalePlayTimersRef.current.push(t)
       })
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedRoot, selectedScaleIdx, scaleExplorerOpen])
 
-  // Play a diatonic chord tile
+  // ── Play a diatonic chord tile and light its keys ─────────────────────────
   const playDegree = useCallback((chord: DiatonicChord) => {
     setSelectedDegree(chord.degree)
     setInversionStep(0)
@@ -349,16 +361,23 @@ export default function ScaleExplorer() {
     chord.midiNotes.forEach(m => colors.set(m, '#6080d0'))
     if (chord.midiNotes[0] !== undefined) colors.set(chord.midiNotes[0], '#e8a027')
     setExplorerKeys(keys, colors)
+    setInfoRowChord({
+      progName: '',
+      labels: [chord.roman],
+      notes: chord.midiNotes.map(m => getNoteName(m, displayNaming, accidentals)),
+      step: 0,
+    })
     const playNote = (window as any).__orfeoPlayNote
     if (playNote) chord.midiNotes.forEach(m => playNote(m, 0.7, 600))
-  }, [setExplorerKeys])
+  }, [setExplorerKeys, displayNaming, accidentals])
 
-  // ── Inversion browser ──────────────────────────────────────────────────────
+  // ── Base MIDI notes for the currently selected degree (inversion source) ───
   const currentBaseMidi = useMemo(() => {
     if (selectedDegree === null || !diatonicChords[selectedDegree]) return []
     return diatonicChords[selectedDegree].midiNotes
   }, [selectedDegree, diatonicChords])
 
+  // ── Play a specific inversion of the selected chord ───────────────────────
   const playInversion = useCallback((step: number) => {
     if (!currentBaseMidi.length) return
     const notes = applyNthInversion(currentBaseMidi, step % currentBaseMidi.length)
@@ -370,23 +389,24 @@ export default function ScaleExplorer() {
     if (playNote) notes.forEach(m => playNote(m, 0.7, 600))
   }, [currentBaseMidi, setExplorerKeys])
 
+  // ── Step to previous inversion ────────────────────────────────────────────
   const handlePrevInversion = useCallback(() => {
     const next = ((inversionStep - 1) % (currentBaseMidi.length || 1) + (currentBaseMidi.length || 1)) % (currentBaseMidi.length || 1)
     setInversionStep(next)
     playInversion(next)
   }, [inversionStep, currentBaseMidi.length, playInversion])
 
+  // ── Step to next inversion ────────────────────────────────────────────────
   const handleNextInversion = useCallback(() => {
     const next = (inversionStep + 1) % (currentBaseMidi.length || 1)
     setInversionStep(next)
     playInversion(next)
   }, [inversionStep, currentBaseMidi.length, playInversion])
 
-  // ── Progression playback ───────────────────────────────────────────────────
+  // ── Play one progression step and schedule the next ──────────────────────
   const playProgStepAt = useCallback((
     step: number,
     progIndex: number,
-    speed: 'slow' | 'med' | 'fast',
     invMode: 'off' | 'sequential' | 'random',
     loopCount: number,
   ) => {
@@ -415,32 +435,40 @@ export default function ScaleExplorer() {
     setExplorerKeys(keys, colors)
     setProgStep(step)
     setSelectedDegree(clampedDeg)
+    setInfoRowChord({
+      progName: prog.name,
+      labels: prog.labels,
+      notes: notes.map(m => getNoteName(m, displayNaming, accidentals)),
+      step,
+    })
 
+    const currentSpeed = speedRef.current
     const playNote = (window as any).__orfeoPlayNote
-    if (playNote) notes.forEach(m => playNote(m, 0.75, SPEED_MS[speed] - 60))
+    if (playNote) notes.forEach(m => playNote(m, 0.75, SPEED_MS[currentSpeed] - 60))
 
     const nextStep = (step + 1) % labels.length
     const nextLoop = nextStep === 0 ? loopCount + 1 : loopCount
     progTimerRef.current = setTimeout(() => {
-      playProgStepAt(nextStep, progIndex, speed, invMode, nextLoop)
-    }, SPEED_MS[speed])
-  }, [diatonicChords, setExplorerKeys])
+      playProgStepAt(nextStep, progIndex, invMode, nextLoop)
+    }, SPEED_MS[speedRef.current])
+  }, [diatonicChords, setExplorerKeys, displayNaming, accidentals])
 
+  // ── Start progression from step 0 ────────────────────────────────────────
   const startProgression = useCallback(() => {
     if (selectedProg === null || diatonicChords.length === 0) return
     stopProgression()
     progRunningRef.current = true
     setProgPlaying(true)
-    playProgStepAt(0, selectedProg, progSpeed, progInversionMode, 0)
-  }, [selectedProg, diatonicChords.length, progSpeed, progInversionMode, stopProgression, playProgStepAt])
+    playProgStepAt(0, selectedProg, progInversionMode, 0)
+  }, [selectedProg, diatonicChords.length, progInversionMode, stopProgression, playProgStepAt])
 
-  // Stop progression if diatonic chords change (root/scale switched)
+  // ── Stop progression when root or scale type changes ──────────────────────
   useEffect(() => {
     if (progPlaying) stopProgression()
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedRoot, selectedScaleIdx])
 
-  // ── Close on outside click / dropdown ─────────────────────────────────────
+  // ── Close progression dropdown on outside click ───────────────────────────
   useEffect(() => {
     if (!progDropdownOpen) return
     const handler = (e: MouseEvent) => {
@@ -456,7 +484,7 @@ export default function ScaleExplorer() {
     return () => document.removeEventListener('mousedown', handler)
   }, [progDropdownOpen])
 
-  // ── Drag ──────────────────────────────────────────────────────────────────
+  // ── Window drag handler ───────────────────────────────────────────────────
   const onDragStart = useCallback((e: React.MouseEvent) => {
     e.preventDefault()
     dragRef.current = { ox: pos.x, oy: pos.y, mx: e.clientX, my: e.clientY }
@@ -476,36 +504,24 @@ export default function ScaleExplorer() {
     window.addEventListener('mouseup', onUp)
   }, [pos])
 
-  // ── Filters ───────────────────────────────────────────────────────────────
-  const filteredChords = useMemo(() => {
-    return diatonicChords.filter(chord => {
-      const span = handSpan(chord.midiNotes)
-      if (handFilter === 'one' && span > 12) return false
-      if (handFilter === 'two' && span <= 12) return false
-      const nc = chord.noteCount
-      if (noteFilter === '3' && nc !== 3) return false
-      if (noteFilter === '4' && nc !== 4) return false
-      if (noteFilter === '5' && nc !== 5) return false
-      if (noteFilter === '6+' && nc < 6) return false
-      return true
-    })
-  }, [diatonicChords, handFilter, noteFilter])
-
   // ── CoF label helpers ─────────────────────────────────────────────────────
-  function getMajorLabel(pos: number): string {
-    return getNoteName(60 + COF_MAJOR_PC[pos], displayNaming, accidentals)
+  // Major key name for outer ring position
+  function getMajorLabel(p: number): string {
+    return getNoteName(60 + COF_MAJOR_PC[p], displayNaming, accidentals)
   }
-  function getMinorLabel(pos: number): string {
-    return getNoteName(60 + COF_MINOR_PC[pos], displayNaming, accidentals) + 'm'
+  // Minor key name (with "m" suffix) for inner ring position
+  function getMinorLabel(p: number): string {
+    return getNoteName(60 + COF_MINOR_PC[p], displayNaming, accidentals) + 'm'
   }
-  function getKeySigSymbol(pos: number): string {
-    const sig = COF_KEYSIG[pos]
+  // Repeated sharp/flat symbols for the given key signature count
+  function getKeySigSymbol(p: number): string {
+    const sig = COF_KEYSIG[p]
     if (sig === 0) return ''
     if (sig > 0) return '♯'.repeat(sig)
     return '♭'.repeat(-sig)
   }
 
-  // ── Info row content ──────────────────────────────────────────────────────
+  // ── Scale info: root name, scale name, note list ──────────────────────────
   const infoText = useMemo(() => {
     if (selectedRoot === null) return null
     const rootName = getNoteName(60 + selectedRoot, displayNaming, accidentals)
@@ -518,19 +534,27 @@ export default function ScaleExplorer() {
 
   if (!scaleExplorerOpen) return null
 
-  // SVG geometry
+  // ── SVG geometry constants ─────────────────────────────────────────────────
+  // Circle centre in SVG coordinate space; viewBox offset (-40) keeps top symbols visible
   const CX = 190, CY = 190
   const R_OUTER1 = 110, R_OUTER2 = 175
   const R_INNER1 = 55,  R_INNER2 = 110
 
+  const speedIcons: Array<['slow' | 'med' | 'fast', string, string]> = [
+    ['slow', '›', 'Slow'],
+    ['med', '››', 'Medium'],
+    ['fast', '›››', 'Fast'],
+  ]
+
   return (
+    // ── Modal container ────────────────────────────────────────────────────
     <div
       style={{
         position: 'fixed',
         left: pos.x,
         top: pos.y,
         width: 720,
-        maxHeight: '85vh',
+        maxHeight: '96vh',
         background: '#13131c',
         border: '1px solid #2a2a3a',
         borderRadius: 10,
@@ -542,22 +566,13 @@ export default function ScaleExplorer() {
         fontFamily: 'Inter',
       }}
     >
-      {/* ── Header ─────────────────────────────────────────────────────────── */}
-      <div
-        onMouseDown={onDragStart}
-        style={{
-          flexShrink: 0,
-          height: 32,
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'space-between',
-          padding: '0 12px',
-          background: '#0f0f18',
-          borderBottom: '1px solid #1e1e2a',
-          cursor: 'grab',
-          userSelect: 'none',
-        }}
-      >
+      {/* Header — drag handle */}
+      <div onMouseDown={onDragStart} style={{
+        flexShrink: 0, height: 32, display: 'flex', alignItems: 'center',
+        justifyContent: 'space-between', padding: '0 12px',
+        background: '#0f0f18', borderBottom: '1px solid #1e1e2a',
+        cursor: 'grab', userSelect: 'none',
+      }}>
         <span style={{ fontFamily: 'Inter', fontSize: 9, fontWeight: 700, color: '#e8a027', letterSpacing: '0.14em', textTransform: 'uppercase' }}>
           Scale Explorer
         </span>
@@ -570,133 +585,36 @@ export default function ScaleExplorer() {
         >×</button>
       </div>
 
-      {/* ── Info row ───────────────────────────────────────────────────────── */}
-      <div style={{ ...ROW, height: 36, justifyContent: 'center', borderBottom: '1px solid #1e1e2a', padding: '0 16px' }}>
-        {infoText ? (
-          <div style={{ display: 'flex', alignItems: 'baseline', gap: 8 }}>
-            <span style={{ fontFamily: 'JetBrains Mono', fontSize: 13, fontWeight: 700, color: '#e8a027' }}>
-              {infoText.rootName}
-            </span>
-            <span style={{ fontSize: 11, color: '#9090a8' }}>{infoText.scaleName}</span>
-            <span style={{ fontSize: 9, color: '#505068', letterSpacing: '0.06em', fontFamily: 'JetBrains Mono' }}>
-              {infoText.noteNames.join(' · ')}
-            </span>
-          </div>
-        ) : (
-          <span style={{ fontSize: 10, color: '#404055' }}>Select a key from the circle below</span>
-        )}
-      </div>
-
-      {/* ── Circle of Fifths ───────────────────────────────────────────────── */}
-      <div style={{ flexShrink: 0, display: 'flex', justifyContent: 'center', padding: '8px 0', background: '#0f0f18', borderBottom: '1px solid #1e1e2a' }}>
-        <svg
-          width={380}
-          height={380}
-          viewBox="0 0 380 380"
-          style={{ overflow: 'visible' }}
-        >
-          {Array.from({ length: 12 }, (_, i) => {
-            const startDeg = -90 + i * 30
-            const endDeg   = startDeg + 30
-            const midDeg   = startDeg + 15
-            const isSelOuter = cofPos === i && cofRing === 'major'
-            const isSelInner = cofPos === i && cofRing === 'minor'
-
-            const outerFill   = isSelOuter ? '#e8a02722' : '#1e1e2a'
-            const outerStroke = isSelOuter ? '#e8a027'   : '#2a2a3a'
-            const innerFill   = isSelInner ? '#e8a02722' : '#181820'
-            const innerStroke = isSelInner ? '#e8a027'   : '#2a2a3a'
-
-            const outerLabel = labelPos(CX, CY, (R_OUTER1 + R_OUTER2) / 2, midDeg)
-            const innerLabel = labelPos(CX, CY, (R_INNER1 + R_INNER2) / 2, midDeg)
-            const sigLabel   = labelPos(CX, CY, R_OUTER2 + 18, midDeg)
-            const keySig = getKeySigSymbol(i)
-
-            return (
-              <g key={i}>
-                {/* Outer wedge — major */}
-                <path
-                  d={wedgePath(CX, CY, R_OUTER1, R_OUTER2, startDeg, endDeg)}
-                  fill={outerFill}
-                  stroke={outerStroke}
-                  strokeWidth={1}
-                  style={{ cursor: 'pointer', transition: 'fill 0.15s' }}
-                  onClick={() => {
-                    setCofPos(i)
-                    setCofRing('major')
-                    setSelectedScaleIdx(0)
-                  }}
-                  onMouseEnter={e => { if (!isSelOuter) (e.target as SVGPathElement).setAttribute('fill', '#2a2a3a') }}
-                  onMouseLeave={e => { if (!isSelOuter) (e.target as SVGPathElement).setAttribute('fill', '#1e1e2a') }}
-                />
-                {/* Inner wedge — minor */}
-                <path
-                  d={wedgePath(CX, CY, R_INNER1, R_INNER2, startDeg, endDeg)}
-                  fill={innerFill}
-                  stroke={innerStroke}
-                  strokeWidth={1}
-                  style={{ cursor: 'pointer', transition: 'fill 0.15s' }}
-                  onClick={() => {
-                    setCofPos(i)
-                    setCofRing('minor')
-                    setSelectedScaleIdx(1)
-                  }}
-                  onMouseEnter={e => { if (!isSelInner) (e.target as SVGPathElement).setAttribute('fill', '#222230') }}
-                  onMouseLeave={e => { if (!isSelInner) (e.target as SVGPathElement).setAttribute('fill', '#181820') }}
-                />
-                {/* Centre dot */}
-                <circle cx={CX} cy={CY} r={R_INNER1} fill="#0f0f18" stroke="#2a2a3a" strokeWidth={1} style={{ pointerEvents: 'none' }} />
-                {/* Outer label */}
-                <text
-                  x={outerLabel.x} y={outerLabel.y}
-                  textAnchor="middle" dominantBaseline="middle"
-                  fontSize={13} fontWeight={700} fontFamily="JetBrains Mono"
-                  fill={isSelOuter ? '#e8a027' : '#c0c0d8'}
-                  style={{ pointerEvents: 'none', userSelect: 'none' }}
-                >{getMajorLabel(i)}</text>
-                {/* Inner label */}
-                <text
-                  x={innerLabel.x} y={innerLabel.y}
-                  textAnchor="middle" dominantBaseline="middle"
-                  fontSize={9} fontFamily="Inter"
-                  fill={isSelInner ? '#e8a027' : '#707088'}
-                  style={{ pointerEvents: 'none', userSelect: 'none' }}
-                >{getMinorLabel(i)}</text>
-                {/* Key signature symbols */}
-                {keySig && (
-                  <text
-                    x={sigLabel.x} y={sigLabel.y}
-                    textAnchor="middle" dominantBaseline="middle"
-                    fontSize={8} fontFamily="Inter"
-                    fill="#505068"
-                    style={{ pointerEvents: 'none', userSelect: 'none' }}
-                  >{keySig}</text>
-                )}
-              </g>
-            )
-          })}
-          {/* Centre label */}
-          <text x={CX} y={CY} textAnchor="middle" dominantBaseline="middle"
-            fontSize={8} fontFamily="Inter" fill="#404055" style={{ userSelect: 'none' }}>
-            CoF
-          </text>
-        </svg>
-      </div>
-
-      {/* ── Scale type row ─────────────────────────────────────────────────── */}
-      <div style={{ ...ROW, alignItems: 'flex-start', padding: '6px 12px' }}>
-        <span style={{ ...ROW_LABEL, paddingTop: 4 }}>Scale</span>
-        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 3, justifyContent: 'flex-end', maxWidth: 600 }}>
+      {/* CoF section — scale buttons | Circle of Fifths SVG with info overlay */}
+      <div style={{
+        flexShrink: 0, display: 'flex', alignItems: 'center',
+        padding: '16px 16px 46px 12px',
+        background: '#0f0f18', borderBottom: '1px solid #1e1e2a',
+        gap: 8, overflow: 'visible', position: 'relative',
+      }}>
+        {/* Guideline text — absolute top-left of CoF section, always visible */}
+        <div style={{
+          position: 'absolute', top: 16, left: 12, right: 12,
+          fontFamily: 'Inter', fontSize: 9, color: '#707088', lineHeight: '1.6',
+          pointerEvents: 'none', zIndex: 5,
+        }}>
+          <div>Click a key on the circle to explore its scale and</div>
+          <div>diatonic chords. Select an inversion and click play</div>
+          <div>to hear the chords in the scale. Try inversions!</div>
+        </div>
+        {/* Scale type buttons — centred at CoF middle */}
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 1, minWidth: 116, flexShrink: 0, alignSelf: 'center', marginTop: 20 }}>
+          <span style={{ ...ROW_LABEL, marginBottom: 3 }}>Scale</span>
           {SCALES.map((s, i) => {
             const sel = selectedScaleIdx === i
             return (
               <button key={s.name} onClick={() => setSelectedScaleIdx(i)}
                 style={{
-                  fontFamily: 'Inter', fontSize: 10, padding: '2px 8px',
-                  background: sel ? '#e8a02722' : '#1a1a28',
+                  fontFamily: 'Inter', fontSize: 10, padding: '3px 6px',
+                  background: sel ? '#e8a02722' : 'none',
                   color: sel ? '#e8a027' : '#9090a8',
-                  border: `1px solid ${sel ? '#e8a027' : '#2a2a3a'}`,
-                  borderRadius: 4, cursor: 'pointer',
+                  border: `1px solid ${sel ? '#e8a027' : 'transparent'}`,
+                  borderRadius: 4, cursor: 'pointer', textAlign: 'left',
                 }}
                 onMouseEnter={e => { if (!sel) e.currentTarget.style.color = '#c0c0d8' }}
                 onMouseLeave={e => { if (!sel) e.currentTarget.style.color = '#9090a8' }}
@@ -704,60 +622,189 @@ export default function ScaleExplorer() {
             )
           })}
         </div>
-      </div>
 
-      {/* ── Filter row ─────────────────────────────────────────────────────── */}
-      <div style={ROW}>
-        <span style={ROW_LABEL}>Filter</span>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-          {/* Hand filter */}
-          <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
-            {(['all', 'one', 'two'] as const).map(v => {
-              const sel = handFilter === v
-              const label = v === 'all' ? 'All' : v === 'one'
-                ? <Hand size={12} style={{ transform: 'rotate(-20deg)' }} />
-                : <span style={{ display: 'flex', gap: 2 }}><Hand size={12} style={{ transform: 'rotate(-15deg)' }} /><Hand size={12} style={{ transform: 'rotate(15deg) scaleX(-1)' }} /></span>
+        {/* CoF SVG — flex:1 with relative positioning for the info overlay */}
+        <div style={{ flex: 1, display: 'flex', justifyContent: 'center', overflow: 'visible', position: 'relative' }}>
+          {/* Scale info — single line, top aligns with left guideline text, centred on CoF vertical axis */}
+          {infoText && (
+            <div style={{
+              position: 'absolute', top: 0, left: '50%', transform: 'translateX(-50%)',
+              display: 'flex', alignItems: 'baseline', gap: 8,
+              background: 'rgba(15,15,24,0.88)', borderRadius: 6, padding: '4px 10px',
+              zIndex: 10, pointerEvents: 'none', whiteSpace: 'nowrap',
+            }}>
+              <span style={{ fontFamily: 'JetBrains Mono', fontSize: 13, fontWeight: 700, color: '#e8a027' }}>
+                {infoText.rootName}
+              </span>
+              <span style={{ fontSize: 11, color: '#9090a8' }}>{infoText.scaleName}</span>
+              <span style={{ fontSize: 9, color: '#505068', letterSpacing: '0.06em', fontFamily: 'JetBrains Mono' }}>
+                {infoText.noteNames.join(' · ')}
+              </span>
+            </div>
+          )}
+          <svg width={380} height={420} viewBox="0 -40 380 420" style={{ overflow: 'visible', flexShrink: 0 }}>
+            {Array.from({ length: 12 }, (_, i) => {
+              const startDeg = -90 + i * 30
+              const endDeg   = startDeg + 30
+              const midDeg   = startDeg + 15
+              const isSelOuter = cofPos === i && cofRing === 'major'
+              const isSelInner = cofPos === i && cofRing === 'minor'
+              const outerFill = isSelOuter ? '#e8a02722' : '#1e1e2a'
+              const innerFill = isSelInner ? '#e8a02722' : '#181820'
+              const outerLabel = labelPos(CX, CY, (R_OUTER1 + R_OUTER2) / 2, midDeg)
+              const innerLabel = labelPos(CX, CY, (R_INNER1 + R_INNER2) / 2, midDeg)
+              const keySig = getKeySigSymbol(i)
+              // Shrink font for longer strings so inner text edge stays ~8px from ring for all lengths
+              const sigFontSize = keySig.length <= 3 ? 11 : keySig.length <= 5 ? 9 : 8
+              const sigCharHW = sigFontSize <= 8 ? 2.5 : sigFontSize <= 9 ? 2.75 : 3.5
+              const sigR = Math.round(R_OUTER2 + 8 + keySig.length * sigCharHW)
+              const sigLabel = labelPos(CX, CY, sigR, midDeg)
               return (
-                <button key={v} onClick={() => setHandFilter(v)}
-                  style={{
-                    fontFamily: 'Inter', fontSize: 10, padding: '2px 6px',
-                    background: sel ? '#e8a02722' : 'none',
-                    color: sel ? '#e8a027' : '#707088',
-                    border: `1px solid ${sel ? '#e8a027' : '#2a2a3a'}`,
-                    borderRadius: 4, cursor: 'pointer', display: 'flex', alignItems: 'center',
-                  }}
-                >{label}</button>
+                <g key={i}>
+                  {/* Outer ring wedge — major key */}
+                  <path
+                    d={wedgePath(CX, CY, R_OUTER1, R_OUTER2, startDeg, endDeg)}
+                    fill={outerFill} stroke="#2a2a3a" strokeWidth={1}
+                    style={{ cursor: 'pointer', transition: 'fill 0.15s' }}
+                    onClick={() => { setCofPos(i); setCofRing('major'); setSelectedScaleIdx(0) }}
+                    onMouseEnter={e => { if (!isSelOuter) (e.target as SVGPathElement).setAttribute('fill', '#2a2a3a') }}
+                    onMouseLeave={e => { if (!isSelOuter) (e.target as SVGPathElement).setAttribute('fill', '#1e1e2a') }}
+                  >
+                    <title>Harmonic Major</title>
+                  </path>
+                  {/* Inner ring wedge — minor key */}
+                  <path
+                    d={wedgePath(CX, CY, R_INNER1, R_INNER2, startDeg, endDeg)}
+                    fill={innerFill} stroke="#2a2a3a" strokeWidth={1}
+                    style={{ cursor: 'pointer', transition: 'fill 0.15s' }}
+                    onClick={() => { setCofPos(i); setCofRing('minor'); setSelectedScaleIdx(1) }}
+                    onMouseEnter={e => { if (!isSelInner) (e.target as SVGPathElement).setAttribute('fill', '#222230') }}
+                    onMouseLeave={e => { if (!isSelInner) (e.target as SVGPathElement).setAttribute('fill', '#181820') }}
+                  >
+                    <title>Natural Minor</title>
+                  </path>
+                  <circle cx={CX} cy={CY} r={R_INNER1} fill="#0f0f18" stroke="#2a2a3a" strokeWidth={1} style={{ pointerEvents: 'none' }} />
+                  {/* Major key label */}
+                  <text x={outerLabel.x} y={outerLabel.y}
+                    textAnchor="middle" dominantBaseline="middle"
+                    fontSize={13} fontWeight={700} fontFamily="JetBrains Mono"
+                    fill={isSelOuter ? '#e8a027' : '#e0e0e0'}
+                    style={{ pointerEvents: 'none', userSelect: 'none' }}
+                  >{getMajorLabel(i)}</text>
+                  {/* Minor key label */}
+                  <text x={innerLabel.x} y={innerLabel.y}
+                    textAnchor="middle" dominantBaseline="middle"
+                    fontSize={9} fontFamily="Inter"
+                    fill={isSelInner ? '#e8a027' : '#e0e0e0'}
+                    style={{ pointerEvents: 'none', userSelect: 'none' }}
+                  >{getMinorLabel(i)}</text>
+                  {/* Key signature accidentals — font scales with length to keep equal gap from ring */}
+                  {keySig && (
+                    <text x={sigLabel.x} y={sigLabel.y}
+                      textAnchor="middle" dominantBaseline="middle"
+                      fontSize={sigFontSize} fontFamily="Inter"
+                      fill="#e8a02799"
+                      style={{ pointerEvents: 'none', userSelect: 'none' }}
+                    >{keySig}</text>
+                  )}
+                </g>
               )
             })}
-          </div>
-
-          <span style={{ color: '#2a2a3a', fontSize: 14 }}>·</span>
-
-          {/* Note count filter */}
-          <div style={{ display: 'flex', alignItems: 'center', gap: 3 }}>
-            {(['any','3','4','5','6+'] as const).map(v => {
-              const sel = noteFilter === v
-              return (
-                <button key={v} onClick={() => setNoteFilter(v)}
-                  style={{
-                    fontFamily: 'Inter', fontSize: 10, padding: '2px 6px',
-                    background: sel ? '#e8a02722' : 'none',
-                    color: sel ? '#e8a027' : '#707088',
-                    border: `1px solid ${sel ? '#e8a027' : '#2a2a3a'}`,
-                    borderRadius: 4, cursor: 'pointer',
-                  }}
-                >{v === 'any' ? 'Any' : `${v} notes`}</button>
-              )
-            })}
-          </div>
+            {/* Centre label */}
+            <text x={CX} y={CY - 8} textAnchor="middle" dominantBaseline="middle"
+              fontSize={13} fontFamily="Inter" fontWeight={600} fill="#e8a027"
+              style={{ userSelect: 'none', pointerEvents: 'none' }}>Circle</text>
+            <text x={CX} y={CY + 8} textAnchor="middle" dominantBaseline="middle"
+              fontSize={13} fontFamily="Inter" fontWeight={600} fill="#e8a027"
+              style={{ userSelect: 'none', pointerEvents: 'none' }}>Of Fifths</text>
+          </svg>
+        </div>
+        {/* Chords in the Scale label — absolute at bottom of CoF section */}
+        <div style={{ position: 'absolute', bottom: 6, left: 12, pointerEvents: 'none' }}>
+          <span style={{ ...ROW_LABEL }}>Chords in the Scale</span>
         </div>
       </div>
 
-      {/* ── Progressions + Inversions row ──────────────────────────────────── */}
-      <div style={ROW}>
+      {/* Diatonic chord tiles — 7 tiles in a horizontal row */}
+      <div style={{ flexShrink: 0, padding: '4px 12px', minHeight: 44 }}>
+        {selectedRoot === null ? (
+          <div style={{ minHeight: 32, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+            <span style={{ fontSize: 11, color: '#404055' }}>Select a key from the circle above to see diatonic chords</span>
+          </div>
+        ) : (
+          <div style={{ display: 'flex', gap: 4 }}>
+            {diatonicChords.map(chord => {
+              const sel = selectedDegree === chord.degree
+              return (
+                // Chord tile: chord name left, notes + roman stacked right-aligned
+                <button
+                  key={chord.degree}
+                  onClick={() => playDegree(chord)}
+                  style={{
+                    flex: 1, background: sel ? '#1e2a3a' : '#1a1a28',
+                    border: `1px solid ${sel ? '#6080d0' : '#2a2a3a'}`,
+                    borderRadius: 6,
+                    paddingTop: 8, paddingBottom: 8, paddingLeft: 6, paddingRight: 6,
+                    cursor: 'pointer', textAlign: 'left',
+                    display: 'flex', flexDirection: 'row',
+                    justifyContent: 'space-between', alignItems: 'center', gap: 4,
+                  }}
+                  onMouseEnter={e => { if (!sel) e.currentTarget.style.borderColor = '#3a3a5a' }}
+                  onMouseLeave={e => { if (!sel) e.currentTarget.style.borderColor = '#2a2a3a' }}
+                >
+                  {/* Left: chord name */}
+                  <span style={{ fontFamily: 'Inter', fontSize: 13, fontWeight: 700, color: '#e0e0e0', lineHeight: 1, flexShrink: 0 }}>
+                    {chord.chordName}
+                  </span>
+                  {/* Right: note names + roman numeral stacked, right-aligned */}
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 1, minWidth: 0, alignItems: 'flex-end' }}>
+                    <span style={{ fontFamily: 'JetBrains Mono', fontSize: 9, color: '#9090a8', lineHeight: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', textAlign: 'right' }}>
+                      {chord.midiNotes.map(m => getNoteName(m, displayNaming, accidentals)).join(' ')}
+                    </span>
+                    <span style={{ fontFamily: 'Inter', fontSize: 10, color: '#e8a02799', lineHeight: 1, textAlign: 'right' }}>
+                      {chord.roman}
+                    </span>
+                  </div>
+                </button>
+              )
+            })}
+          </div>
+        )}
+      </div>
+
+      {/* Chord/inversion info display row */}
+      <div style={{
+        flexShrink: 0, minHeight: 44, display: 'flex', alignItems: 'center',
+        justifyContent: 'space-between', padding: '0 12px',
+        borderTop: '1px solid #1e1e2a', background: '#0d0d12',
+      }}>
+        {infoRowChord ? (
+          <>
+            <span style={{ fontFamily: 'Inter', fontSize: 9, color: '#707088', userSelect: 'none', minWidth: 180 }}>
+              {infoRowChord.progName ? `${infoRowChord.progName} · ` : ''}
+              {infoRowChord.labels.map((l, idx) => (
+                <span key={idx} style={{ color: idx === infoRowChord.step ? '#9090a8' : '#505068' }}>
+                  {l}{idx < infoRowChord.labels.length - 1 ? ' · ' : ''}
+                </span>
+              ))}
+            </span>
+            <span style={{ fontFamily: 'JetBrains Mono', fontSize: 11, color: '#b0b0cc', letterSpacing: '0.06em', userSelect: 'none' }}>
+              {infoRowChord.notes.join('  ')}
+            </span>
+            <span style={{ fontFamily: 'Inter', fontSize: 9, color: '#e8a027', userSelect: 'none', minWidth: 60, textAlign: 'right' }}>
+              {infoText ? `Key: ${infoText.rootName}` : ''}
+            </span>
+          </>
+        ) : (
+          <span style={{ fontSize: 10, color: '#303048', fontFamily: 'Inter', margin: '0 auto' }}>—</span>
+        )}
+      </div>
+
+      {/* Progressions + inversion mode row */}
+      <div style={{ ...ROW, minHeight: 44, borderTop: '1px solid #1e1e2a' }}>
         <span style={ROW_LABEL}>Progressions</span>
         <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-          {/* Dropdown trigger */}
+          {/* Pattern picker */}
           <button
             ref={progTriggerRef}
             onClick={() => {
@@ -770,10 +817,10 @@ export default function ScaleExplorer() {
               fontFamily: 'Inter', fontSize: 10, padding: '2px 8px',
               background: '#1a1a28', color: selectedProg !== null ? '#e8a027' : '#707088',
               border: '1px solid #2a2a3a', borderRadius: 4, cursor: 'pointer',
-              whiteSpace: 'nowrap', minWidth: 110,
+              whiteSpace: 'nowrap', minWidth: 130,
             }}
           >
-            {selectedProg !== null ? PROGRESSIONS[selectedProg].name : 'Select…'}
+            {selectedProg !== null ? PROGRESSIONS[selectedProg].name : 'Pick a pattern …'}
           </button>
           {selectedProg !== null && (
             <button onClick={() => { setSelectedProg(null); stopProgression() }}
@@ -783,38 +830,46 @@ export default function ScaleExplorer() {
             >×</button>
           )}
 
-          <span style={{ color: '#2a2a3a', margin: '0 3px' }}>·</span>
+          <span style={{ color: '#2a2a3a', margin: '0 2px' }}>·</span>
 
-          {/* Speed */}
-          {(['slow','med','fast'] as const).map(s => (
-            <button key={s} onClick={() => setProgSpeed(s)}
+          {/* Speed chevron buttons */}
+          {speedIcons.map(([s, icon, label]) => (
+            <button key={s} onClick={() => { setProgSpeed(s); speedRef.current = s }}
+              title={label}
               style={{
-                fontFamily: 'Inter', fontSize: 10, padding: '2px 6px',
-                background: progSpeed === s ? '#e8a02722' : 'none',
-                color: progSpeed === s ? '#e8a027' : '#707088',
-                border: `1px solid ${progSpeed === s ? '#e8a027' : '#2a2a3a'}`,
-                borderRadius: 4, cursor: 'pointer',
+                fontFamily: 'Inter', fontSize: 14, padding: '1px 4px',
+                background: 'none', border: 'none',
+                color: progSpeed === s ? '#e8a027' : '#505068',
+                cursor: 'pointer', letterSpacing: '-0.06em',
               }}
-            >{s.charAt(0).toUpperCase() + s.slice(1)}</button>
+            >{icon}</button>
           ))}
 
-          {/* Play/Stop */}
+          <span style={{ color: '#2a2a3a', margin: '0 2px' }}>·</span>
+
+          {/* Current step label — fixed width so play button doesn't jump */}
+          <span style={{ minWidth: 28, fontFamily: 'JetBrains Mono', fontSize: 10, color: '#9090a8', textAlign: 'right', userSelect: 'none' }}>
+            {progPlaying && selectedProg !== null ? PROGRESSIONS[selectedProg].labels[progStep] : ''}
+          </span>
+
+          {/* Play / Stop — red to distinguish from all other controls */}
           <button
             onClick={() => { if (progPlaying) stopProgression(); else startProgression() }}
             disabled={selectedProg === null || diatonicChords.length === 0}
             style={{
               fontFamily: 'Inter', fontSize: 10, padding: '2px 8px',
-              background: progPlaying ? '#e8a02733' : '#1a1a28',
-              color: progPlaying ? '#e8a027' : '#9090a8',
-              border: `1px solid ${progPlaying ? '#e8a027' : '#2a2a3a'}`,
-              borderRadius: 4, cursor: 'pointer',
+              background: '#c0392b', color: '#ffffff',
+              border: '1px solid #c0392b',
+              borderRadius: 4, cursor: 'pointer', minWidth: 40,
             }}
-          >{progPlaying ? `Stop  ${PROGRESSIONS[selectedProg!].labels[progStep]}` : 'Play'}</button>
+            onMouseEnter={e => { e.currentTarget.style.background = '#e74c3c'; e.currentTarget.style.borderColor = '#e74c3c' }}
+            onMouseLeave={e => { e.currentTarget.style.background = '#c0392b'; e.currentTarget.style.borderColor = '#c0392b' }}
+          >{progPlaying ? 'Stop' : 'Play'}</button>
 
           <span style={{ width: 1, height: 14, background: '#2a2a3a', margin: '0 4px' }} />
 
-          {/* Inversions */}
-          <span style={{ ...ROW_LABEL }}>Inversions</span>
+          <span style={{ ...ROW_LABEL }}>Inv</span>
+          {/* Inversion mode: off / sequential / random */}
           {(['off','sequential','random'] as const).map(v => (
             <button key={v} onClick={() => setProgInversionMode(v)}
               style={{
@@ -829,72 +884,20 @@ export default function ScaleExplorer() {
         </div>
       </div>
 
-      {/* ── Diatonic chord grid ─────────────────────────────────────────────── */}
-      <div style={{ flex: 1, minHeight: 0, overflowY: 'auto', padding: '8px 12px' }}>
-        {selectedRoot === null ? (
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%' }}>
-            <span style={{ fontSize: 11, color: '#404055' }}>Select a key from the circle above to see diatonic chords</span>
-          </div>
-        ) : filteredChords.length === 0 ? (
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%' }}>
-            <span style={{ fontSize: 11, color: '#404055' }}>No chords match the current filters</span>
-          </div>
-        ) : (
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 6 }}>
-            {filteredChords.map(chord => {
-              const sel = selectedDegree === chord.degree
-              return (
-                <button
-                  key={chord.degree}
-                  onClick={() => playDegree(chord)}
-                  style={{
-                    background: sel ? '#1e2a3a' : '#1a1a28',
-                    border: `1px solid ${sel ? '#6080d0' : '#2a2a3a'}`,
-                    borderRadius: 6, padding: '7px 10px',
-                    cursor: 'pointer', textAlign: 'left',
-                    display: 'flex', flexDirection: 'column', gap: 2,
-                  }}
-                  onMouseEnter={e => { if (!sel) e.currentTarget.style.borderColor = '#3a3a5a' }}
-                  onMouseLeave={e => { if (!sel) e.currentTarget.style.borderColor = '#2a2a3a' }}
-                >
-                  <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between' }}>
-                    <span style={{ fontFamily: 'JetBrains Mono', fontSize: 13, fontWeight: 700, color: sel ? '#a0b8e8' : '#c0c0d8' }}>
-                      {chord.chordName}
-                    </span>
-                    <span style={{ fontFamily: 'Inter', fontSize: 9, color: sel ? '#6080d0' : '#505068', fontStyle: 'italic' }}>
-                      {chord.roman}
-                    </span>
-                  </div>
-                  <span style={{ fontFamily: 'JetBrains Mono', fontSize: 9, color: '#606080' }}>
-                    {chord.midiNotes.map(m => getNoteName(m, displayNaming, accidentals)).join(' ')}
-                  </span>
-                </button>
-              )
-            })}
-          </div>
-        )}
-      </div>
-
-      {/* ── Footer ─────────────────────────────────────────────────────────── */}
+      {/* Footer — SHOW AS + inversion browser + Chord Explorer switch */}
       <div style={{
-        ...ROW,
-        height: 40,
-        borderTop: '1px solid #1e1e2a',
-        borderBottom: 'none',
-        background: '#0d0d12',
-        padding: '0 12px',
-        position: 'relative',
+        ...ROW, minHeight: 44,
+        borderTop: '1px solid #1e1e2a', borderBottom: 'none',
+        background: '#0d0d12', padding: '0 12px', position: 'relative',
       }}>
-        {/* Left: Show As ♭/# */}
+        {/* Accidentals toggle */}
         <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
           <span style={{ ...ROW_LABEL }}>Show As</span>
           {(['flat', 'sharp'] as const).map(v => (
             <button key={v} onClick={() => setAccidentals(v)}
               style={{
-                fontFamily: 'Inter', fontSize: 12,
-                background: 'none', border: 'none',
-                color: accidentals === v ? '#e8a027' : '#505068',
-                cursor: 'pointer', padding: '0 3px',
+                fontFamily: 'Inter', fontSize: 12, background: 'none', border: 'none',
+                color: accidentals === v ? '#e8a027' : '#505068', cursor: 'pointer', padding: '0 3px',
               }}
               onMouseEnter={e => { if (accidentals !== v) e.currentTarget.style.color = '#9090a8' }}
               onMouseLeave={e => { if (accidentals !== v) e.currentTarget.style.color = '#505068' }}
@@ -902,77 +905,52 @@ export default function ScaleExplorer() {
           ))}
         </div>
 
-        {/* Centre: ‹ PLAY INVERSION › ↺ — absolutely positioned */}
+        {/* Centre: inversion browser ‹ PLAY INVERSION › */}
         <div style={{ position: 'absolute', left: '50%', transform: 'translateX(-50%)', display: 'flex', alignItems: 'center', gap: 6 }}>
-          <button
-            onClick={handlePrevInversion}
-            disabled={!currentBaseMidi.length}
+          <button onClick={handlePrevInversion} disabled={!currentBaseMidi.length}
             style={{ background: 'none', border: 'none', color: currentBaseMidi.length ? '#e8a027' : '#303048', fontSize: 14, cursor: currentBaseMidi.length ? 'pointer' : 'default', padding: '0 2px' }}
           >‹</button>
           <span style={{ fontFamily: 'Inter', fontSize: 8, fontWeight: 700, color: '#505068', letterSpacing: '0.12em', textTransform: 'uppercase', userSelect: 'none' }}>
             Play Inversion
           </span>
-          <button
-            onClick={handleNextInversion}
-            disabled={!currentBaseMidi.length}
+          <button onClick={handleNextInversion} disabled={!currentBaseMidi.length}
             style={{ background: 'none', border: 'none', color: currentBaseMidi.length ? '#e8a027' : '#303048', fontSize: 14, cursor: currentBaseMidi.length ? 'pointer' : 'default', padding: '0 2px' }}
           >›</button>
           <button
-            onClick={() => {
-              setInversionStep(0)
-              clearExplorerKeys()
-              useStore.getState().clearDisplayedChord()
-              setSelectedDegree(null)
-            }}
+            onClick={() => { setInversionStep(0); clearExplorerKeys(); useStore.getState().clearDisplayedChord(); setSelectedDegree(null); setInfoRowChord(null) }}
             style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#505068', padding: '0 2px', display: 'flex', alignItems: 'center' }}
             onMouseEnter={e => e.currentTarget.style.color = '#e8a027'}
             onMouseLeave={e => e.currentTarget.style.color = '#505068'}
           ><RotateCcw size={13} /></button>
         </div>
 
-        {/* Right: Chord Explorer → */}
+        {/* Switch to Chord Explorer */}
         <button
           onClick={() => { setScaleExplorerOpen(false); setChordExplorerOpen(true) }}
           title="Switch to Chord Explorer"
-          style={{
-            background: 'none', border: 'none', cursor: 'pointer',
-            color: '#505068', fontFamily: 'Inter', fontSize: 9,
-            whiteSpace: 'nowrap', padding: 0,
-          }}
+          style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#505068', fontFamily: 'Inter', fontSize: 9, whiteSpace: 'nowrap', padding: 0 }}
           onMouseEnter={e => e.currentTarget.style.color = '#e8a027'}
           onMouseLeave={e => e.currentTarget.style.color = '#505068'}
         >Chord Explorer →</button>
       </div>
 
-      {/* Progression dropdown — portalled */}
+      {/* Progression dropdown — portalled to body to avoid modal clipping */}
       {progDropdownOpen && dropdownRect && createPortal(
-        <div
-          ref={progDropRef}
-          style={{
-            position: 'fixed',
-            top: dropdownRect.top,
-            left: dropdownRect.left,
-            background: '#1a1a26',
-            border: '1px solid #2a2a3a',
-            borderRadius: 6,
-            zIndex: 1000,
-            minWidth: 160,
-            maxHeight: 220,
-            overflowY: 'auto',
-            boxShadow: '0 4px 20px rgba(0,0,0,0.7)',
-          }}
-        >
+        <div ref={progDropRef} style={{
+          position: 'fixed', top: dropdownRect.top, left: dropdownRect.left,
+          background: '#1a1a26', border: '1px solid #2a2a3a',
+          borderRadius: 6, zIndex: 1000, minWidth: 160, maxHeight: 260,
+          overflowY: 'auto', boxShadow: '0 4px 20px rgba(0,0,0,0.7)',
+        }}>
           {PROGRESSIONS.map((p, i) => (
-            <button
-              key={p.name}
+            <button key={p.name}
               onClick={() => { setSelectedProg(i); setProgDropdownOpen(false); setDropdownRect(null) }}
               style={{
                 display: 'block', width: '100%', textAlign: 'left',
                 background: selectedProg === i ? '#2a2a3a' : 'none',
                 border: 'none', padding: '5px 10px',
                 color: selectedProg === i ? '#e8a027' : '#9090a8',
-                fontFamily: 'Inter', fontSize: 10, cursor: 'pointer',
-                whiteSpace: 'nowrap',
+                fontFamily: 'Inter', fontSize: 10, cursor: 'pointer', whiteSpace: 'nowrap',
               }}
               onMouseEnter={e => { e.currentTarget.style.background = '#2a2a3a'; e.currentTarget.style.color = '#e8a027' }}
               onMouseLeave={e => { e.currentTarget.style.background = selectedProg === i ? '#2a2a3a' : 'none'; e.currentTarget.style.color = selectedProg === i ? '#e8a027' : '#9090a8' }}

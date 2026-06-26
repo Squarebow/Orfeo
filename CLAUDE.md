@@ -25,6 +25,11 @@ Orfeo is an **Electron desktop app** (Windows-first). The three Electron process
 
 `electron-vite` handles the build pipeline and HMR. Output goes to `out/`, packaged app goes to `release/`.
 
+## Code Style
+- Add a brief comment above every function, hook, useEffect, useMemo, and major JSX
+  block explaining what it does. Use format: `// ── Description ────────────────────────`
+- When editing existing code, add missing comments to any uncommented blocks encountered.
+
 ### Two windows, one renderer bundle
 
 The **main window** and the **MIDI Playback Editor** both load the same renderer bundle. The editor is distinguished by the `#/editor` URL hash — `App.tsx` checks `window.location.hash === '#/editor'` and renders `<MidiEditor />` instead of the normal layout. In production the editor window is opened by `electron/main.ts` with `{ hash: 'editor' }`.
@@ -95,9 +100,9 @@ All Electron APIs are accessed through `window.electronAPI` (defined in `src/typ
 - All note display routes through convertAccidentals() in noteNames.ts — never convert inline
 
 ## Current status (June 2026)
-- v0.5.2 — Scale Explorer implemented: Circle of Fifths SVG, 10 scale types, diatonic chord grid, progressions, inversions, footer ‹ PLAY INVERSION ›, Chord Explorer ↔ Scale Explorer switching
-- Next task: Visual testing of Scale Explorer (dev server was started but session ended before confirming render); then whatever the user specifies
-- Known unresolved: TrackPanel SVG crash, Chord Explorer search unreliable
+- v0.5.2 — Scale Explorer implemented and layout-polished across multiple sessions
+- Scale Explorer layout is complete (4 rounds of annotation-driven fixes); **visual testing in the running app not yet done for the latest round** — start there next session
+- Next task: Launch dev server, visually verify Scale Explorer layout (guideline text, CoF height, scale column alignment, accidental gaps), then whatever the user specifies
 
 ## Audio
 - JZZ.js is the active MIDI playback engine (replaced Tone.js)
@@ -121,10 +126,20 @@ All Electron APIs are accessed through `window.electronAPI` (defined in `src/typ
 - Both explorers force 61-key layout; font size conditions in Keyboard.tsx use `chordExplorerOpen || scaleExplorerOpen`
 - Space/Escape in App.tsx is blocked when either explorer is open
 
+### CoF section layout (current, after all polish rounds)
+- SVG: `width={380} height={420} viewBox="0 -40 380 420"` — CY=190 renders at y_pixel=230 from SVG top
+- CoF section: `padding: '16px 16px 46px 12px'` — 46px bottom gives CHORDS label and lower accidentals room
+- Scale column: `alignSelf: 'center'` + `marginTop: 20` — corrects the 20px offset between alignSelf:center midpoint (210px) and CoF circle centre (230px) in the 420px flex line
+- Guideline text: always visible (`position: absolute, top: 16, left: 12`) — NOT conditional on `selectedRoot === null`
+- Info box (scale name + note list): absolute overlay, `top: 0, left: '50%', transform: 'translateX(-50%)'` inside CoF wrapper; only shown when `infoText !== null`
+- Accidental sigR formula: `sigFontSize = len ≤ 3 ? 11 : len ≤ 5 ? 9 : 8`; `sigCharHW = fs ≤ 8 ? 2.5 : fs ≤ 9 ? 2.75 : 3.5`; `sigR = round(R_OUTER2 + 8 + len * sigCharHW)` — keeps inner text edge at ~8–9px from ring for all 12 positions
+- Bottom 4 rows (in order): chord tiles → chord/inversion info → progressions+inversions → SHOW AS footer; all `minHeight: 44`
+- Play/Stop: always `background: '#c0392b'`, `color: '#ffffff'`, hover `'#e74c3c'`
+
 ## Known Issues
 - Chord Explorer search needs logic rewrite — currently unreliable across naming systems
 - TrackPanel SVG crash (pre-existing, unresolved)
-- Scale Explorer visual testing not yet confirmed (session ended before visual check)
+- Scale Explorer latest layout round (2026-06-26) not yet visually confirmed in running app
 
 ## Git rules
 - Do not add co-author attribution to commit messages

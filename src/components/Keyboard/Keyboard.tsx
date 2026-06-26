@@ -1,9 +1,8 @@
 import { useMemo, useCallback, useState, useEffect, useRef } from 'react'
-import { ChevronLeft, ChevronRight, Play } from 'lucide-react'
 import { useStore } from '../../store'
 import { isBlackKey } from '../../utils/midiParser'
 import { getNoteLabel, getNoteName } from '../../utils/noteNames'
-import { detectChord, detectChordWithInversion, localizeChord } from '../../utils/chordDetection'
+import { detectChord, localizeChord } from '../../utils/chordDetection'
 
 const RANGES: Record<number, { min: number; max: number }> = {
   61: { min: 36, max: 96 },
@@ -15,19 +14,6 @@ const CHORD_MIN_NOTES = 3
 const CHORD_DEBOUNCE_MS = 320
 const CHORD_HOLD_MS = 1600
 
-// Build inversion of a set of MIDI notes (rotate lowest note up an octave)
-function nextInversion(notes: Set<number>): Set<number> {
-  const sorted = Array.from(notes).sort((a, b) => a - b)
-  const [lowest, ...rest] = sorted
-  return new Set([...rest, lowest + 12])
-}
-
-function prevInversion(notes: Set<number>): Set<number> {
-  const sorted = Array.from(notes).sort((a, b) => a - b)
-  const highest = sorted[sorted.length - 1]
-  const rest = sorted.slice(0, -1)
-  return new Set([highest - 12, ...rest])
-}
 
 export default function Keyboard() {
   const keyboardSize = useStore((s) => s.keyboardSize)
@@ -43,9 +29,10 @@ export default function Keyboard() {
   const scaleExplorerOpen = useStore((s) => s.scaleExplorerOpen)
   const setScaleExplorerOpen = useStore((s) => s.setScaleExplorerOpen)
   const displayedChord = useStore((s) => s.displayedChord)
-
-  const [lockedKeys, setLockedKeys] = useState<Set<number>>(new Set())
-  const [lockedColors, setLockedColors] = useState<Map<number, string>>(new Map())
+  const lockedKeys = useStore((s) => s.lockedKeys)
+  const lockedColors = useStore((s) => s.lockedColors)
+  const setLockedKeysStore = useStore((s) => s.setLockedKeys)
+  const clearLockedKeys = useStore((s) => s.clearLockedKeys)
   const shiftHeldRef = useRef(false)
 
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null)
@@ -138,57 +125,27 @@ export default function Keyboard() {
     }
   }, [activeKeys, lockedKeys.size, noteNaming, accidentals, playbackState])
 
-  const lockedChordInfo = lockedKeys.size > 0 ? detectChordWithInversion(lockedKeys) : null
-  const rawLockedChord = lockedChordInfo?.name ?? null
-  const lockedChord = localizeChord(rawLockedChord, noteNaming, accidentals)
-  const lockedInvLabel = lockedChordInfo?.invLabel ?? ''
-  const shownChord = lockedKeys.size > 0 ? lockedChord : displayedChord
-  const shownInvLabel = lockedKeys.size > 0 ? lockedInvLabel : ''
-  const isLocked = lockedKeys.size > 0
-
-  // Play locked chord
-  const playLockedChord = useCallback(() => {
-    const playNote = (window as any).__orfeoPlayNote
-    if (!playNote) return
-    lockedKeys.forEach(midi => playNote(midi, 0.75, 800))
-  }, [lockedKeys])
-
-  // Inversion controls
-  const applyInversion = useCallback((fn: (n: Set<number>) => Set<number>) => {
-    const newKeys = fn(lockedKeys)
-    const newColors = new Map<number, string>()
-    newKeys.forEach(k => newColors.set(k, '#e8a027'))
-    setLockedKeys(newKeys)
-    setLockedColors(newColors)
-    // Auto-play the new inversion
-    const playNote = (window as any).__orfeoPlayNote
-    if (playNote) newKeys.forEach(midi => playNote(midi, 0.7, 600))
-  }, [lockedKeys])
 
   const handleKeyClick = useCallback((midi: number) => {
     if (shiftHeldRef.current) {
-      setLockedKeys(prev => {
-        const next = new Set(prev)
-        if (next.has(midi)) {
-          next.delete(midi)
-          setLockedColors(c => { const nc = new Map(c); nc.delete(midi); return nc })
-        } else {
-          next.add(midi)
-          setLockedColors(c => { const nc = new Map(c); nc.set(midi, '#e8a027'); return nc })
-          const playNote = (window as any).__orfeoPlayNote
-          if (playNote) playNote(midi, 0.7, 600)
-        }
-        return next
-      })
-    } else {
-      if (lockedKeys.size > 0) {
-        setLockedKeys(new Set())
-        setLockedColors(new Map())
+      const next = new Set(lockedKeys)
+      const nextColors = new Map(lockedColors)
+      if (next.has(midi)) {
+        next.delete(midi)
+        nextColors.delete(midi)
+      } else {
+        next.add(midi)
+        nextColors.set(midi, '#e8a027')
+        const playNote = (window as any).__orfeoPlayNote
+        if (playNote) playNote(midi, 0.7, 600)
       }
+      setLockedKeysStore(next, nextColors)
+    } else {
+      if (lockedKeys.size > 0) clearLockedKeys()
       const playNote = (window as any).__orfeoPlayNote
       if (playNote) playNote(midi, 0.7, 500)
     }
-  }, [lockedKeys])
+  }, [lockedKeys, lockedColors, setLockedKeysStore, clearLockedKeys])
 
   const keyContainerRef = useRef<HTMLDivElement>(null)
   const [keyHeight, setKeyHeight] = useState(130)
@@ -226,93 +183,38 @@ export default function Keyboard() {
         padding: '0 12px',
         position: 'relative',
       }}>
-        {/* Left: CHORDS trigger + lock controls when locked */}
-        <div style={{ position: 'absolute', left: 10, display: 'flex', alignItems: 'center', gap: 8 }}>
-          <span
-            onClick={() => setChordExplorerOpen(true)}
-            title="Open Chord Explorer"
-            style={{ fontFamily: 'Inter', fontSize: 9, fontWeight: 700, color: '#e8a027', letterSpacing: '0.12em', textTransform: 'uppercase', cursor: 'pointer', userSelect: 'none' }}
-          >
-            Chords
-          </span>
+        {/* Left: CHORDS trigger */}
+        <span
+          onClick={() => setChordExplorerOpen(true)}
+          title="Open Chord Explorer"
+          style={{ position: 'absolute', left: 10, fontFamily: 'Inter', fontSize: 9, fontWeight: 700, color: '#e8a027', letterSpacing: '0.12em', textTransform: 'uppercase', cursor: 'pointer', userSelect: 'none' }}
+        >
+          Chords
+        </span>
 
-          {isLocked && (
-            <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
-              <span style={{ fontSize: 9, color: '#e8a02770', fontFamily: 'Inter', letterSpacing: '0.04em' }}>
-                Locked Chord
-              </span>
-
-              <button onClick={playLockedChord} title="Play this chord"
-                style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#e8a027', padding: '2px 3px', borderRadius: 3, display: 'flex', alignItems: 'center' }}
-                onMouseEnter={e => e.currentTarget.style.color = '#ffb84d'}
-                onMouseLeave={e => e.currentTarget.style.color = '#e8a027'}
-              >
-                <Play size={11} fill="currentColor" />
-              </button>
-
-              <button onClick={() => applyInversion(prevInversion)} title="Previous inversion"
-                style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#606080', padding: '2px 3px', borderRadius: 3, display: 'flex', alignItems: 'center' }}
-                onMouseEnter={e => e.currentTarget.style.color = '#e8a027'}
-                onMouseLeave={e => e.currentTarget.style.color = '#606080'}
-              >
-                <ChevronLeft size={13} />
-              </button>
-
-              <span style={{ fontSize: 8, color: '#e8a027', fontFamily: 'Inter', userSelect: 'none' }}>inv</span>
-
-              <button onClick={() => applyInversion(nextInversion)} title="Next inversion"
-                style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#606080', padding: '2px 3px', borderRadius: 3, display: 'flex', alignItems: 'center' }}
-                onMouseEnter={e => e.currentTarget.style.color = '#e8a027'}
-                onMouseLeave={e => e.currentTarget.style.color = '#606080'}
-              >
-                <ChevronRight size={13} />
-              </button>
-
-              <button onClick={() => { setLockedKeys(new Set()); setLockedColors(new Map()) }}
-                title="Clear chord lock"
-                style={{ fontSize: 8, color: '#9090a8', background: '#1a1a22', border: '1px solid #3a3a4a', borderRadius: 3, padding: '1px 5px', cursor: 'pointer', fontFamily: 'Inter' }}
-              >
-                clear
-              </button>
-            </div>
-          )}
-        </div>
-
-        {/* Chord name — always centred */}
+        {/* Centre: chord name */}
         <div style={{ display: 'flex', alignItems: 'baseline', gap: 5, minWidth: 80, justifyContent: 'center' }}>
           <span style={{
             fontFamily: 'JetBrains Mono',
-            fontSize: shownChord ? 14 : 10,
-            fontWeight: shownChord ? 700 : 400,
-            color: shownChord ? '#e8a027' : '#222235',
-            letterSpacing: shownChord ? '0.05em' : '0.03em',
+            fontSize: displayedChord ? 14 : 10,
+            fontWeight: displayedChord ? 700 : 400,
+            color: displayedChord ? '#e8a027' : '#222235',
+            letterSpacing: displayedChord ? '0.05em' : '0.03em',
             transition: 'color 0.2s, font-size 0.15s',
             textAlign: 'center',
           }}>
-            {shownChord ?? '— — —'}
+            {displayedChord ?? '— — —'}
           </span>
-          {shownInvLabel && (
-            <span style={{ fontSize: 9, color: '#e8a02799', fontFamily: 'Inter', whiteSpace: 'nowrap' }}>
-              {shownInvLabel}
-            </span>
-          )}
         </div>
 
-        {/* Right: SCALES trigger (always) + help text when not locked */}
-        <div style={{ position: 'absolute', right: 10, display: 'flex', alignItems: 'center', gap: 10 }}>
-          {!isLocked && (
-            <span style={{ fontSize: 10, color: '#9090a8', fontFamily: 'Inter', whiteSpace: 'nowrap', userSelect: 'none' }}>
-              Shift+Click at least 3 keys to build &amp; lock a chord
-            </span>
-          )}
-          <span
-            onClick={() => setScaleExplorerOpen(true)}
-            title="Open Scale Explorer"
-            style={{ fontFamily: 'Inter', fontSize: 9, fontWeight: 700, color: '#e8a027', letterSpacing: '0.12em', textTransform: 'uppercase', cursor: 'pointer', userSelect: 'none' }}
-          >
-            Scales
-          </span>
-        </div>
+        {/* Right: SCALES trigger */}
+        <span
+          onClick={() => setScaleExplorerOpen(true)}
+          title="Open Scale Explorer"
+          style={{ position: 'absolute', right: 10, fontFamily: 'Inter', fontSize: 9, fontWeight: 700, color: '#e8a027', letterSpacing: '0.12em', textTransform: 'uppercase', cursor: 'pointer', userSelect: 'none' }}
+        >
+          Scales
+        </span>
       </div>
 
       {/* Piano keys */}
