@@ -599,7 +599,7 @@ export default function ScaleExplorer() {
           pointerEvents: 'none', zIndex: 5,
         }}>
           <div>Click a key on the circle to explore its scale and</div>
-          <div>diatonic chords. Select an inversion and click play</div>
+          <div>diatonic chords. Select a progression and click play</div>
           <div>to hear the chords in the scale. Try inversions!</div>
         </div>
         {/* Scale type buttons — centred at CoF middle */}
@@ -712,11 +712,11 @@ export default function ScaleExplorer() {
             })}
             {/* Centre label */}
             <text x={CX} y={CY - 8} textAnchor="middle" dominantBaseline="middle"
-              fontSize={13} fontFamily="Inter" fontWeight={600} fill="#e8a027"
+              fontSize={13} fontFamily="Inter" fontWeight={400} fill="#e8a027"
               style={{ userSelect: 'none', pointerEvents: 'none' }}>Circle</text>
             <text x={CX} y={CY + 8} textAnchor="middle" dominantBaseline="middle"
-              fontSize={13} fontFamily="Inter" fontWeight={600} fill="#e8a027"
-              style={{ userSelect: 'none', pointerEvents: 'none' }}>Of Fifths</text>
+              fontSize={13} fontFamily="Inter" fontWeight={400} fill="#e8a027"
+              style={{ userSelect: 'none', pointerEvents: 'none' }}>of Fifths</text>
           </svg>
         </div>
         {/* Chords in the Scale label — absolute at bottom of CoF section */}
@@ -896,7 +896,7 @@ export default function ScaleExplorer() {
           {(['flat', 'sharp'] as const).map(v => (
             <button key={v} onClick={() => setAccidentals(v)}
               style={{
-                fontFamily: 'Inter', fontSize: 12, background: 'none', border: 'none',
+                fontFamily: 'Inter', fontSize: 16, background: 'none', border: 'none',
                 color: accidentals === v ? '#e8a027' : '#505068', cursor: 'pointer', padding: '0 3px',
               }}
               onMouseEnter={e => { if (accidentals !== v) e.currentTarget.style.color = '#9090a8' }}
