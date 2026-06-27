@@ -92,6 +92,11 @@ interface OrfeoStore {
   lockedColors: Map<number, string>
   setLockedKeys: (keys: Set<number>, colors: Map<number, string>) => void
   clearLockedKeys: () => void
+  // ── Original chord identity preserved across inversion cycling ────────────
+  originalLockedChordName: string | null
+  setOriginalLockedChordName: (name: string | null) => void
+  lockedInversionCount: number
+  setLockedInversionCount: (n: number) => void
 
   resetAll: () => void
 }
@@ -209,7 +214,15 @@ export const useStore = create<OrfeoStore>((set, get) => ({
   lockedKeys: new Set(),
   lockedColors: new Map(),
   setLockedKeys: (lockedKeys, lockedColors) => set({ lockedKeys, lockedColors }),
-  clearLockedKeys: () => set({ lockedKeys: new Set(), lockedColors: new Map() }),
+  // ── Clears keys + resets the preserved identity state ────────────────────
+  clearLockedKeys: () => set({
+    lockedKeys: new Set(), lockedColors: new Map(),
+    originalLockedChordName: null, lockedInversionCount: 0,
+  }),
+  originalLockedChordName: null,
+  setOriginalLockedChordName: (originalLockedChordName) => set({ originalLockedChordName }),
+  lockedInversionCount: 0,
+  setLockedInversionCount: (lockedInversionCount) => set({ lockedInversionCount }),
 
   resetAll: () => {
     ;(window as any).__orfeoPlayer?.stop?.()
@@ -218,6 +231,7 @@ export const useStore = create<OrfeoStore>((set, get) => ({
       activeKeys: new Set(), activeKeyColors: new Map(),
       explorerKeys: new Set(), explorerKeyColors: new Map(),
       lockedKeys: new Set(), lockedColors: new Map(),
+      originalLockedChordName: null, lockedInversionCount: 0,
       displayedChord: null,
       chordExplorerOpen: false, scaleExplorerOpen: false, playbackState: 'stopped',
       currentTime: 0, trackPanelOpen: false, settingsPanelOpen: false,

@@ -37,11 +37,14 @@ export default function KeyboardControls() {
     lockedKeys.forEach(midi => playNote(midi, 0.75, 800))
   }, [lockedKeys])
 
-  const applyInversion = useCallback((fn: (n: Set<number>) => Set<number>) => {
+  // ── Rotate chord voicing + update inversion count in store ───────────────
+  const applyInversion = useCallback((fn: (n: Set<number>) => Set<number>, direction: 1 | -1) => {
     const newKeys = fn(lockedKeys)
     const newColors = new Map<number, string>()
     newKeys.forEach(k => newColors.set(k, '#e8a027'))
     setLockedKeys(newKeys, newColors)
+    const s = useStore.getState()
+    s.setLockedInversionCount(s.lockedInversionCount + direction)
     const playNote = (window as any).__orfeoPlayNote
     if (playNote) newKeys.forEach(midi => playNote(midi, 0.7, 600))
   }, [lockedKeys, setLockedKeys])
@@ -126,7 +129,7 @@ export default function KeyboardControls() {
               Locked chord
             </span>
             {/* Previous inversion — Play icon mirrored */}
-            <button onClick={() => applyInversion(prevInversion)} title="Previous inversion"
+            <button onClick={() => applyInversion(prevInversion, -1)} title="Previous inversion"
               style={{ background: 'none', border: 'none', color: '#e8a027', cursor: 'pointer', padding: '0 2px', display: 'flex', alignItems: 'center' }}
               onMouseEnter={e => e.currentTarget.style.color = '#ffb84d'}
               onMouseLeave={e => e.currentTarget.style.color = '#e8a027'}
@@ -138,7 +141,7 @@ export default function KeyboardControls() {
               onMouseLeave={e => { e.currentTarget.style.borderColor = '#e8a027'; e.currentTarget.style.color = '#e8a027' }}
             ><Play size={10} fill="currentColor" /> Play</button>
             {/* Next inversion — Play icon normal */}
-            <button onClick={() => applyInversion(nextInversion)} title="Next inversion"
+            <button onClick={() => applyInversion(nextInversion, 1)} title="Next inversion"
               style={{ background: 'none', border: 'none', color: '#e8a027', cursor: 'pointer', padding: '0 2px', display: 'flex', alignItems: 'center' }}
               onMouseEnter={e => e.currentTarget.style.color = '#ffb84d'}
               onMouseLeave={e => e.currentTarget.style.color = '#e8a027'}

@@ -2,6 +2,45 @@
 
 ## [Unreleased] — dev branch
 
+### 2026-06-27 — Chord inversion display fix (complete)
+
+Core principle: `Chord.detect()` called once on the root-position note set; original chord identity is preserved across all inversion cycling. Never re-detect on an already-inverted set. `stripMajorSuffix()` applied at every return point — no bare `CM`/`GM` in UI.
+
+**`src/utils/chordDetection.ts`** — rewrote inversion detection and added formatting helpers:
+- `detectChordWithInversion(midiNotes)` — always returns root-position name (never slash); inversion number derived from bass pitch class position in `Chord.get().notes` list; returns `{ name, invLabel, ordinal }`
+- `formatInversionDisplay(originalChordName, inversionNumber, bassNoteMidi, noteNaming, accidentals, showLabel)` — computes `{ chordLabel, invLabel, ordinal }` from stored original name + count; root position returns empty strings; inverted returns `C/E` slash notation + ordinal number
+- `ordinalSuffix(n)` — exported helper returning `'st'`/`'nd'`/`'rd'`/`'th'` for superscript rendering
+- `stripMajorSuffix()` applied at every return point in both functions
+
+**`src/store/index.ts`** — added locked-chord identity state:
+- `originalLockedChordName: string | null` + `setOriginalLockedChordName`
+- `lockedInversionCount: number` + `setLockedInversionCount`
+- `clearLockedKeys` resets both; `resetAll` resets both
+
+**`src/components/Keyboard/Keyboard.tsx`** — chord bar inversion display:
+- `lockedDisplay` useMemo calls `formatInversionDisplay` with `originalLockedChordName` + `lockedInversionCount` + live bass MIDI
+- Chord bar renders: amber `chordLabel` (slash notation when inverted) + ordinal superscript + `inv` label
+- `handleKeyClick` Shift branch stores `localizeChord(info.name)` as `originalLockedChordName` and resets `lockedInversionCount` to 0
+- Playback `displayedChord` (no inversion count known): root amber 14px + `/bass` lighter 11px, no ordinal
+
+**`src/components/Keyboard/KeyboardControls.tsx`** — inversion count tracking:
+- `applyInversion` callback updates `lockedInversionCount` in store (`+1` for next, `-1` for prev) after each voicing rotation
+
+**`src/components/ChordExplorer.tsx`** — inversion display in footer:
+- Local `originalChordName` + `inversionCount` state; set when a chord tile is clicked (`playChordAt`), reset on close/RotateCcw
+- `handleInversion` increments/decrements `inversionCount` by direction
+- Footer centre: `formatInversionDisplay` renders chord/bass label + ordinal superscript + `inv`; falls back to "Play Inversion" text when no chord is active
+
+**`src/components/ScaleExplorer.tsx`** — same inversion display pattern as ChordExplorer:
+- Local `originalChordName` + `inversionCount` state
+- `playDegree` stores `chord.chordName` as `originalChordName` and resets count to 0
+- CoF outer and inner ring onClick handlers reset both on key change
+- `handlePrevInversion` decrements count; `handleNextInversion` increments count
+- RotateCcw handler resets both alongside all other state
+- Footer "PLAY INVERSION" static span replaced with `formatInversionDisplay` dynamic rendering — shows slash notation + ordinal superscript when inverted, falls back to static label otherwise
+
+---
+
 ### 2026-06-27 — Manual chord lock mode redesign
 
 **`src/components/Keyboard/Keyboard.tsx`**

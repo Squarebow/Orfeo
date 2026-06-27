@@ -4,6 +4,7 @@ import { Chord, Note } from 'tonal'
 import { RotateCcw, Play, Square, CircleOff, ListOrdered, Shuffle, ArrowUpRight } from 'lucide-react'
 import { useStore } from '../store'
 import { getNoteName } from '../utils/noteNames'
+import { formatInversionDisplay, ordinalSuffix } from '../utils/chordDetection'
 import type { NoteNaming, Accidentals } from '../types'
 import SpeedControl from './SpeedControl'
 
@@ -234,6 +235,7 @@ export default function ScaleExplorer() {
   const scaleExplorerOpen = useStore(s => s.scaleExplorerOpen)
   const setScaleExplorerOpen = useStore(s => s.setScaleExplorerOpen)
   const setChordExplorerOpen = useStore(s => s.setChordExplorerOpen)
+  const explorerKeys = useStore(s => s.explorerKeys)
   const setExplorerKeys = useStore(s => s.setExplorerKeys)
   const clearExplorerKeys = useStore(s => s.clearExplorerKeys)
   const clearLockedKeys = useStore(s => s.clearLockedKeys)
@@ -266,6 +268,9 @@ export default function ScaleExplorer() {
 
   // ── Info row: currently playing chord context ─────────────────────────────
   const [infoRowChord, setInfoRowChord] = useState<{ progName: string; labels: string[]; notes: string[]; step: number } | null>(null)
+  // ── Original chord identity preserved across footer inversion cycling ─────
+  const [originalChordName, setOriginalChordName] = useState<string | null>(null)
+  const [inversionCount, setInversionCount] = useState(0)
 
   // ── Refs ──────────────────────────────────────────────────────────────────
   const prevSizeRef = useRef<61 | 73 | 88 | null>(null)
@@ -392,6 +397,9 @@ export default function ScaleExplorer() {
     chord.midiNotes.forEach(m => colors.set(m, '#6080d0'))
     if (chord.midiNotes[0] !== undefined) colors.set(chord.midiNotes[0], '#e8a027')
     setExplorerKeys(keys, colors)
+    // ── Store original chord name and reset inversion count ───────────────
+    setOriginalChordName(chord.chordName)
+    setInversionCount(0)
     setInfoRowChord({
       progName: '',
       labels: [chord.roman],
@@ -420,6 +428,7 @@ export default function ScaleExplorer() {
     const colors = new Map<number, string>()
     sorted.forEach((m, i) => colors.set(m, i === 0 ? '#e8a027' : '#6080d0'))
     setExplorerKeys(notes, colors)
+    setInversionCount(c => c - 1)
     const playNote = (window as any).__orfeoPlayNote
     if (playNote) sorted.forEach(m => playNote(m, 0.7, 600))
   }, [setExplorerKeys])
@@ -433,6 +442,7 @@ export default function ScaleExplorer() {
     const colors = new Map<number, string>()
     sorted.forEach((m, i) => colors.set(m, i === 0 ? '#e8a027' : '#6080d0'))
     setExplorerKeys(notes, colors)
+    setInversionCount(c => c + 1)
     const playNote = (window as any).__orfeoPlayNote
     if (playNote) sorted.forEach(m => playNote(m, 0.7, 600))
   }, [setExplorerKeys])
@@ -697,7 +707,7 @@ export default function ScaleExplorer() {
                     d={wedgePath(CX, CY, R_OUTER1, R_OUTER2, startDeg, endDeg)}
                     fill={outerFill} stroke="#2a2a3a" strokeWidth={1}
                     style={{ cursor: 'pointer', transition: 'fill 0.15s' }}
-                    onClick={() => { setCofPos(i); setCofRing('major'); setSelectedScaleIdx(0); setInfoRowChord(null); setSelectedDegree(null); playTriggerRef.current += 1; setPlayTrigger(playTriggerRef.current) }}
+                    onClick={() => { setCofPos(i); setCofRing('major'); setSelectedScaleIdx(0); setInfoRowChord(null); setSelectedDegree(null); setOriginalChordName(null); setInversionCount(0); playTriggerRef.current += 1; setPlayTrigger(playTriggerRef.current) }}
                     onMouseEnter={e => { if (!isSelOuter) (e.target as SVGPathElement).setAttribute('fill', '#2a2a3a') }}
                     onMouseLeave={e => { if (!isSelOuter) (e.target as SVGPathElement).setAttribute('fill', '#1e1e2a') }}
                   >
@@ -708,7 +718,7 @@ export default function ScaleExplorer() {
                     d={wedgePath(CX, CY, R_INNER1, R_INNER2, startDeg, endDeg)}
                     fill={innerFill} stroke="#2a2a3a" strokeWidth={1}
                     style={{ cursor: 'pointer', transition: 'fill 0.15s' }}
-                    onClick={() => { setCofPos(i); setCofRing('minor'); setSelectedScaleIdx(1); setInfoRowChord(null); setSelectedDegree(null); playTriggerRef.current += 1; setPlayTrigger(playTriggerRef.current) }}
+                    onClick={() => { setCofPos(i); setCofRing('minor'); setSelectedScaleIdx(1); setInfoRowChord(null); setSelectedDegree(null); setOriginalChordName(null); setInversionCount(0); playTriggerRef.current += 1; setPlayTrigger(playTriggerRef.current) }}
                     onMouseEnter={e => { if (!isSelInner) (e.target as SVGPathElement).setAttribute('fill', '#222230') }}
                     onMouseLeave={e => { if (!isSelInner) (e.target as SVGPathElement).setAttribute('fill', '#181820') }}
                   >
@@ -967,15 +977,31 @@ export default function ScaleExplorer() {
           ))}
         </div>
 
-        {/* Centre: inversion browser — Play (flipped) · PLAY INVERSION · Play */}
+        {/* Centre: inversion browser — Play (flipped) · chord label · Play */}
         <div style={{ position: 'absolute', left: '50%', transform: 'translateX(-50%)', display: 'flex', alignItems: 'center', gap: 6 }}>
           {/* Previous inversion — Play icon mirrored on vertical axis */}
           <button onClick={handlePrevInversion} disabled={!currentBaseMidi.length}
             style={{ background: 'none', border: 'none', color: currentBaseMidi.length ? '#e8a027' : '#303048', cursor: currentBaseMidi.length ? 'pointer' : 'default', padding: '0 2px', display: 'flex', alignItems: 'center' }}
           ><Play size={14} style={{ transform: 'scaleX(-1)' }} /></button>
-          <span style={{ fontFamily: 'Inter', fontSize: 8, fontWeight: 700, color: '#505068', letterSpacing: '0.12em', textTransform: 'uppercase', userSelect: 'none' }}>
-            Play Inversion
-          </span>
+          {/* ── Dynamic inversion label: chord/bass + ordinal when inverted ─── */}
+          {(() => {
+            const bassNoteMidi = explorerKeys.size > 0 ? Math.min(...explorerKeys) : 0
+            const inv = originalChordName && explorerKeys.size > 0
+              ? formatInversionDisplay(originalChordName, inversionCount, bassNoteMidi, displayNaming, accidentals, true)
+              : null
+            return inv ? (
+              <span style={{ fontFamily: 'JetBrains Mono', fontSize: 12, fontWeight: 700, color: '#e8a027', userSelect: 'none', letterSpacing: '0.04em' }}>
+                {inv.chordLabel}
+                {inv.invLabel && (
+                  <> <span style={{ fontSize: 9 }}>{inv.ordinal}<span style={{ fontSize: 7, verticalAlign: 'super' }}>{ordinalSuffix(Number(inv.ordinal))}</span> {inv.invLabel}</span></>
+                )}
+              </span>
+            ) : (
+              <span style={{ fontFamily: 'Inter', fontSize: 8, fontWeight: 700, color: '#505068', letterSpacing: '0.12em', textTransform: 'uppercase', userSelect: 'none' }}>
+                Play Inversion
+              </span>
+            )
+          })()}
           {/* Next inversion — Play icon normal */}
           <button onClick={handleNextInversion} disabled={!currentBaseMidi.length}
             style={{ background: 'none', border: 'none', color: currentBaseMidi.length ? '#e8a027' : '#303048', cursor: currentBaseMidi.length ? 'pointer' : 'default', padding: '0 2px', display: 'flex', alignItems: 'center' }}
@@ -986,7 +1012,7 @@ export default function ScaleExplorer() {
               setCofPos(null); setCofRing(null); setSelectedScaleIdx(0)
               setSelectedDegree(null); stopProgression(); setSelectedProg(null)
               setProgInversionMode('off'); setProgSpeed('med'); speedRef.current = 'med'
-              setInfoRowChord(null)
+              setInfoRowChord(null); setOriginalChordName(null); setInversionCount(0)
               clearExplorerKeys(); clearLockedKeys(); useStore.getState().clearDisplayedChord()
             }}
             title="Clear & reset"

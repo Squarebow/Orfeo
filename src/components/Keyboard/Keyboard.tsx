@@ -2,7 +2,7 @@ import { useMemo, useCallback, useState, useEffect, useRef } from 'react'
 import { useStore } from '../../store'
 import { isBlackKey } from '../../utils/midiParser'
 import { getNoteLabel, getNoteName } from '../../utils/noteNames'
-import { detectChord, detectChordWithInversion, localizeChord } from '../../utils/chordDetection'
+import { detectChord, detectChordWithInversion, formatInversionDisplay, localizeChord, ordinalSuffix } from '../../utils/chordDetection'
 
 const RANGES: Record<number, { min: number; max: number }> = {
   61: { min: 36, max: 96 },
@@ -33,15 +33,19 @@ export default function Keyboard() {
   const lockedColors = useStore((s) => s.lockedColors)
   const setLockedKeysStore = useStore((s) => s.setLockedKeys)
   const clearLockedKeys = useStore((s) => s.clearLockedKeys)
+  // ── Chord identity preserved across inversion cycling ─────────────────────
+  const originalLockedChordName = useStore((s) => s.originalLockedChordName)
+  const lockedInversionCount    = useStore((s) => s.lockedInversionCount)
   const shiftHeldRef = useRef(false)
 
-  // ── Locked chord display — computed for the chord bar above the keyboard ─────
-  const lockedChordInfo = useMemo(
-    () => lockedKeys.size > 0 ? detectChordWithInversion(lockedKeys) : null,
-    [lockedKeys]
-  )
-  const lockedChordName = localizeChord(lockedChordInfo?.name ?? null, noteNaming, accidentals)
-  const lockedInvLabel  = lockedChordInfo?.invLabel ?? ''
+  // ── Compute structured inversion display for locked chord in chord bar ─────
+  const lockedDisplay = useMemo(() => {
+    if (!originalLockedChordName || lockedKeys.size === 0) return null
+    const bassNoteMidi = Math.min(...lockedKeys)
+    return formatInversionDisplay(
+      originalLockedChordName, lockedInversionCount, bassNoteMidi, noteNaming, accidentals, true,
+    )
+  }, [originalLockedChordName, lockedInversionCount, lockedKeys, noteNaming, accidentals])
 
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const holdRef = useRef<ReturnType<typeof setTimeout> | null>(null)
@@ -148,12 +152,17 @@ export default function Keyboard() {
         if (playNote) playNote(midi, 0.7, 600)
       }
       setLockedKeysStore(next, nextColors)
+      // ── Detect chord once on the new note set; preserve name + reset count ─
+      const info = next.size >= 2 ? detectChordWithInversion(next) : null
+      const localized = info ? localizeChord(info.name, noteNaming, accidentals) : null
+      useStore.getState().setOriginalLockedChordName(localized)
+      useStore.getState().setLockedInversionCount(0)
     } else {
       if (lockedKeys.size > 0) clearLockedKeys()
       const playNote = (window as any).__orfeoPlayNote
       if (playNote) playNote(midi, 0.7, 500)
     }
-  }, [lockedKeys, lockedColors, setLockedKeysStore, clearLockedKeys])
+  }, [lockedKeys, lockedColors, noteNaming, accidentals, setLockedKeysStore, clearLockedKeys])
 
   const keyContainerRef = useRef<HTMLDivElement>(null)
   const [keyHeight, setKeyHeight] = useState(130)
@@ -200,22 +209,68 @@ export default function Keyboard() {
           Chords
         </span>
 
-        {/* Centre: chord name — shows locked chord when a manual lock is active */}
+        {/* Centre: chord name — locked takes priority over playback detection */}
         <div style={{ display: 'flex', alignItems: 'baseline', gap: 5, minWidth: 80, justifyContent: 'center' }}>
-          <span style={{
-            fontFamily: 'JetBrains Mono',
-            fontSize: (lockedChordName || displayedChord) ? 14 : 10,
-            fontWeight: (lockedChordName || displayedChord) ? 700 : 400,
-            color: (lockedChordName || displayedChord) ? '#e8a027' : '#222235',
-            letterSpacing: (lockedChordName || displayedChord) ? '0.05em' : '0.03em',
-            transition: 'color 0.2s, font-size 0.15s',
-            textAlign: 'center',
-          }}>
-            {lockedChordName ?? displayedChord ?? '— — —'}
-          </span>
-          {lockedChordName && lockedInvLabel && (
-            <span style={{ fontFamily: 'Inter', fontSize: 9, color: '#b0b0cc', userSelect: 'none' }}>
-              {lockedInvLabel}
+          {lockedDisplay ? (
+            // ── Locked chord: chord/bass amber + ordinal superscript + 'inv' ──
+            <>
+              <span style={{
+                fontFamily: 'JetBrains Mono', fontSize: 14, fontWeight: 700,
+                color: '#e8a027', letterSpacing: '0.05em', userSelect: 'none',
+              }}>
+                {lockedDisplay.chordLabel}
+              </span>
+              {lockedDisplay.ordinal && (
+                <span style={{ fontFamily: 'Inter', fontSize: 10, color: '#c0c0d0', userSelect: 'none' }}>
+                  {lockedDisplay.ordinal}
+                  <span style={{ fontSize: 7, verticalAlign: 'super' }}>
+                    {ordinalSuffix(Number(lockedDisplay.ordinal))}
+                  </span>
+                  {' inv'}
+                </span>
+              )}
+            </>
+          ) : displayedChord ? (
+            // ── Playback chord: slash split rendered, no ordinal label ─────────
+            (() => {
+              const slashIdx = displayedChord.indexOf('/')
+              if (slashIdx < 0) {
+                return (
+                  <span style={{
+                    fontFamily: 'JetBrains Mono', fontSize: 14, fontWeight: 700,
+                    color: '#e8a027', letterSpacing: '0.05em', userSelect: 'none',
+                  }}>
+                    {displayedChord}
+                  </span>
+                )
+              }
+              const root = displayedChord.slice(0, slashIdx)
+              const bass = displayedChord.slice(slashIdx)
+              return (
+                <>
+                  <span style={{
+                    fontFamily: 'JetBrains Mono', fontSize: 14, fontWeight: 700,
+                    color: '#e8a027', letterSpacing: '0.05em', userSelect: 'none',
+                  }}>
+                    {root}
+                  </span>
+                  <span style={{
+                    fontFamily: 'JetBrains Mono', fontSize: 11, fontWeight: 600,
+                    color: '#b0b0cc', letterSpacing: '0.04em', userSelect: 'none',
+                  }}>
+                    {bass}
+                  </span>
+                </>
+              )
+            })()
+          ) : (
+            // ── Empty state ────────────────────────────────────────────────────
+            <span style={{
+              fontFamily: 'JetBrains Mono', fontSize: 10, fontWeight: 400,
+              color: '#222235', letterSpacing: '0.03em',
+              transition: 'color 0.2s',
+            }}>
+              {'— — —'}
             </span>
           )}
         </div>
