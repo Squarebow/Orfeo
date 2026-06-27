@@ -103,7 +103,8 @@ All Electron APIs are accessed through `window.electronAPI` (defined in `src/typ
 ## Current status (June 2026)
 - v0.5.2 — Scale Explorer + ChordExplorer progressions row redesigned (2026-06-27)
 - This session: new `SpeedControl` SVG component; progressions row three-column layout (PLAY/STOP outlined, SpeedControl, icon inversion buttons); Chord Quality row shows full progression cycling; progressions dropdown two-column (name + roman numerals); ScaleExplorer footer Play icons, caps + ArrowUpRight on Chord Explorer link
-- Next task: fix ScaleExplorer chord keyboard range (should centre C3–C5, currently C4+) and inversion player (cycles only 2 inversions regardless of chord; ChordExplorer version works correctly)
+- Also fixed: chord keyboard range (octave order `[4,3,5,2]` → `[3,4,2,5]`, now C3–C5); inversion player rewritten to use live `explorerKeys` from store (same pattern as ChordExplorer), unlimited voicing traversal
+- Next task: whatever the user specifies
 
 ## Audio
 - JZZ.js is the active MIDI playback engine (replaced Tone.js)
@@ -146,8 +147,6 @@ All Electron APIs are accessed through `window.electronAPI` (defined in `src/typ
 ## Known Issues
 - Chord Explorer search needs logic rewrite — currently unreliable across naming systems
 - TrackPanel SVG crash (pre-existing, unresolved)
-- **ScaleExplorer chord keyboard range** — `buildDiatonicChord` octave loop `[4, 3, 5, 2]` places chords starting at C4+; should centre between C3 and C5. User will provide instructions.
-- **ScaleExplorer inversion player** — `handlePrevInversion` / `handleNextInversion` cycles only 2 inversions regardless of chord size or direction. ChordExplorer's `handleInversion` (uses live `explorerKeys` from store) works correctly — compare implementations.
 
 ## Git rules
 - Do not add co-author attribution to commit messages

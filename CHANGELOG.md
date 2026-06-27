@@ -2,6 +2,15 @@
 
 ## [Unreleased] — dev branch
 
+### 2026-06-27 — ScaleExplorer bug fixes
+
+**`src/components/ScaleExplorer.tsx`**
+
+- **Chord keyboard range** — `buildDiatonicChord` octave preference order changed from `[4,3,5,2]` to `[3,4,2,5]`; chord roots now land in C3–B3 (MIDI 48–59) by default, keeping full triads within the C3–C5 range instead of starting at C4 and climbing higher
+- **Inversion player** — removed `inversionStep` state and `playInversion` callback; `handlePrevInversion` / `handleNextInversion` now read live `explorerKeys` from the Zustand store and rotate in-place using `prevInversionSet` / `nextInversionSet` module helpers (identical pattern to ChordExplorer's `handleInversion`); voicings now traverse the full keyboard range in both directions indefinitely instead of wrapping after N chord tones
+
+---
+
 ### 2026-06-27 — Progressions row redesign + SpeedControl
 
 **New component: `src/components/SpeedControl.tsx`**
