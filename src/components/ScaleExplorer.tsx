@@ -33,6 +33,9 @@ const SCALES: ScaleDef[] = [
   { name: 'Mixolydian',       intervals: [0,2,4,5,7,9,10], romans: ['I','ii','iii°','IV','v','vi','VII'] },
 ]
 
+// ── Minor scale names — used to append 'm' to the Key display ───────────────
+const MINOR_SCALES = new Set(['Natural Minor', 'Harmonic Minor', 'Melodic Minor', 'Minor Pentatonic', 'Phrygian'])
+
 // ── Circle of Fifths position tables ────────────────────────────────────────
 // 12 positions clockwise from top (C)
 const COF_MAJOR_PC  = [0, 7, 2, 9, 4, 11, 6,  1,  8, 3, 10, 5]
@@ -540,6 +543,9 @@ export default function ScaleExplorer() {
     return { rootName, scaleName: scale.name, noteNames }
   }, [selectedRoot, scale, displayNaming, accidentals])
 
+  // ── Key quality suffix — 'm' for minor-family scales, '' for major-family ───
+  const keyQuality = MINOR_SCALES.has(scale.name) ? 'm' : ''
+
   if (!scaleExplorerOpen) return null
 
   // ── SVG geometry constants ─────────────────────────────────────────────────
@@ -785,23 +791,38 @@ export default function ScaleExplorer() {
         flexShrink: 0, minHeight: 44, display: 'flex', alignItems: 'center',
         justifyContent: 'space-between', padding: '0 12px',
         borderTop: '1px solid #1e1e2a', background: '#0d0d12',
+        position: 'relative',
       }}>
         {infoRowChord ? (
           <>
-            <span style={{ fontFamily: 'Inter', fontSize: 9, color: '#707088', userSelect: 'none', minWidth: 180 }}>
-              {infoRowChord.progName ? `${infoRowChord.progName} · ` : ''}
-              {infoRowChord.labels.map((l, idx) => (
-                <span key={idx} style={{ color: idx === infoRowChord.step ? '#9090a8' : '#505068' }}>
-                  {l}{idx < infoRowChord.labels.length - 1 ? ' · ' : ''}
-                </span>
-              ))}
-            </span>
-            <span style={{ fontFamily: 'JetBrains Mono', fontSize: 11, color: '#b0b0cc', letterSpacing: '0.06em', userSelect: 'none' }}>
+            {/* Left — CHORD QUALITY label + roman numeral on one line, centred */}
+            <div style={{ display: 'flex', flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 4, minWidth: 60 }}>
+              <span style={{ fontFamily: 'Inter', fontSize: 9, fontWeight: 700, color: '#707088', letterSpacing: '0.10em', textTransform: 'uppercase', userSelect: 'none' }}>
+                Chord Quality
+              </span>
+              <span style={{ fontFamily: 'Inter', fontSize: 12, fontWeight: 700, color: '#e8a027', userSelect: 'none', lineHeight: 1 }}>
+                {infoRowChord.labels[infoRowChord.step]}
+              </span>
+            </div>
+            {/* Centre — note names, large, absolutely centred in the row */}
+            <span style={{
+              position: 'absolute', left: '50%', transform: 'translateX(-50%)',
+              fontFamily: 'JetBrains Mono', fontSize: 16, color: '#b0b0cc',
+              letterSpacing: '0.06em', userSelect: 'none', whiteSpace: 'nowrap',
+            }}>
               {infoRowChord.notes.join('  ')}
             </span>
-            <span style={{ fontFamily: 'Inter', fontSize: 9, color: '#e8a027', userSelect: 'none', minWidth: 60, textAlign: 'right' }}>
-              {infoText ? `Key: ${infoText.rootName}` : ''}
-            </span>
+            {/* Right — chord name (when available) then fixed KEY: label */}
+            <div style={{ display: 'flex', flexDirection: 'row', alignItems: 'center', justifyContent: 'flex-end', gap: 4, minWidth: 60 }}>
+              {infoText && (
+                <span style={{ fontFamily: 'Inter', fontSize: 12, fontWeight: 700, color: '#e8a027', userSelect: 'none', lineHeight: 1 }}>
+                  {infoText.rootName}{keyQuality}
+                </span>
+              )}
+              <span style={{ fontFamily: 'Inter', fontSize: 9, fontWeight: 700, color: '#707088', letterSpacing: '0.10em', textTransform: 'uppercase', userSelect: 'none' }}>
+                Key
+              </span>
+            </div>
           </>
         ) : (
           <span style={{ fontSize: 10, color: '#303048', fontFamily: 'Inter', margin: '0 auto' }}>—</span>
