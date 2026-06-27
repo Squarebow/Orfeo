@@ -1,9 +1,13 @@
 import type { NoteNaming, Accidentals } from '../types'
 
-const ENGLISH_SHARP = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B']
+// ── Note name lookup tables ──────────────────────────────────────────────────
+// PC 10 (Bb/A#): always spelled 'Bb' in English — A# is theoretically valid
+// but essentially unused in practice (no standard key of A# major).
+const ENGLISH_SHARP = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'Bb', 'B']
 const ENGLISH_FLAT  = ['C', 'Db', 'D', 'Eb', 'E', 'F', 'Gb', 'G', 'Ab', 'A', 'Bb', 'B']
 
-// Central European: B♭ = B, B natural = H
+// Central European: B♭ = B, B natural = H — PC 10 is 'B' in both accidental
+// modes because the CE system uses B for Bb and H for B♮ regardless of sharps/flats.
 const CENTRAL_EU_SHARP = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'B',  'H']
 const CENTRAL_EU_FLAT  = ['C', 'Db', 'D', 'Eb', 'E', 'F', 'Gb', 'G', 'Ab', 'A', 'B',  'H']
 
@@ -48,15 +52,15 @@ export function convertAccidentals(name: string, accidentals: Accidentals): stri
   if (!name || name === '—') return name
 
   if (accidentals === 'sharp') {
-    // Replace flat names with sharp equivalents (longest match first to avoid partial matches)
+    // ── Sharp mode accidental conversion ────────────────────────────────────
+    // PC 10 exception: A# is always normalised to Bb (A# has no standard key).
+    // All other black keys use their sharp spelling.
     return name
-      .replace(/Bb/g, 'A#')
+      .replace(/A#/g, 'Bb')  // normalise any incoming A# (e.g. from tonal) to Bb
       .replace(/Eb/g, 'D#')
       .replace(/Ab/g, 'G#')
       .replace(/Db/g, 'C#')
       .replace(/Gb/g, 'F#')
-      // Central European: B (= Bb) → A# when using sharps
-      .replace(/(?<=[^A-GH])B(?!b|#|[a-z])|^B(?!b|#|[a-z])/g, 'A#')
   } else {
     // Replace sharp names with flat equivalents
     return name

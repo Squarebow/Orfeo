@@ -132,7 +132,9 @@ export function localizeChord(
   if (!chord) return null
   if (naming === 'hidden') return null
 
-  // Step 1: apply accidental conversion first (tonal returns sharps by default)
+  // ── Localise chord name to user's accidental + naming preferences ───────────
+  // Step 1: convert accidentals. convertAccidentals normalises A# → Bb (PC 10
+  // always spelled as Bb regardless of sharp/flat mode — see noteNames.ts).
   let result = convertAccidentals(chord, accidentals)
 
   // Step 2: apply note naming system

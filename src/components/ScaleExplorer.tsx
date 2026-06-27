@@ -256,6 +256,10 @@ export default function ScaleExplorer() {
   const progDropRef = useRef<HTMLDivElement>(null)
   const dragRef = useRef<{ ox: number; oy: number; mx: number; my: number } | null>(null)
   const scalePlayTimersRef = useRef<ReturnType<typeof setTimeout>[]>([])
+  // ── Scale replay trigger — incremented on every CoF click so the play ─────
+  // effect fires even when the same segment is clicked twice in a row
+  const playTriggerRef = useRef(0)
+  const [playTrigger, setPlayTrigger] = useState(0)
 
   const displayNaming: NoteNaming = noteNaming === 'hidden' ? 'english' : noteNaming
 
@@ -298,13 +302,17 @@ export default function ScaleExplorer() {
         ;(window as any).__orfeoPlayer?.pause?.()
         useStore.getState().setPlaybackState('paused')
       }
+      setCofPos(null); setCofRing(null); setSelectedScaleIdx(0)
       stopProgression()
       setSelectedProg(null)
       setProgDropdownOpen(false)
       setDropdownRect(null)
       setProgInversionMode('off')
+      setProgSpeed('med'); speedRef.current = 'med'
       setInversionStep(0)
       setSelectedDegree(null)
+      setInfoRowChord(null)
+      clearExplorerKeys()
     } else if (prevSizeRef.current !== null) {
       setKeyboardSize(prevSizeRef.current)
       prevSizeRef.current = null
@@ -350,7 +358,7 @@ export default function ScaleExplorer() {
       })
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [selectedRoot, selectedScaleIdx, scaleExplorerOpen])
+  }, [selectedRoot, selectedScaleIdx, scaleExplorerOpen, playTrigger])
 
   // ── Play a diatonic chord tile and light its keys ─────────────────────────
   const playDegree = useCallback((chord: DiatonicChord) => {
@@ -666,7 +674,7 @@ export default function ScaleExplorer() {
                     d={wedgePath(CX, CY, R_OUTER1, R_OUTER2, startDeg, endDeg)}
                     fill={outerFill} stroke="#2a2a3a" strokeWidth={1}
                     style={{ cursor: 'pointer', transition: 'fill 0.15s' }}
-                    onClick={() => { setCofPos(i); setCofRing('major'); setSelectedScaleIdx(0) }}
+                    onClick={() => { setCofPos(i); setCofRing('major'); setSelectedScaleIdx(0); playTriggerRef.current += 1; setPlayTrigger(playTriggerRef.current) }}
                     onMouseEnter={e => { if (!isSelOuter) (e.target as SVGPathElement).setAttribute('fill', '#2a2a3a') }}
                     onMouseLeave={e => { if (!isSelOuter) (e.target as SVGPathElement).setAttribute('fill', '#1e1e2a') }}
                   >
@@ -677,7 +685,7 @@ export default function ScaleExplorer() {
                     d={wedgePath(CX, CY, R_INNER1, R_INNER2, startDeg, endDeg)}
                     fill={innerFill} stroke="#2a2a3a" strokeWidth={1}
                     style={{ cursor: 'pointer', transition: 'fill 0.15s' }}
-                    onClick={() => { setCofPos(i); setCofRing('minor'); setSelectedScaleIdx(1) }}
+                    onClick={() => { setCofPos(i); setCofRing('minor'); setSelectedScaleIdx(1); playTriggerRef.current += 1; setPlayTrigger(playTriggerRef.current) }}
                     onMouseEnter={e => { if (!isSelInner) (e.target as SVGPathElement).setAttribute('fill', '#222230') }}
                     onMouseLeave={e => { if (!isSelInner) (e.target as SVGPathElement).setAttribute('fill', '#181820') }}
                   >
@@ -917,7 +925,13 @@ export default function ScaleExplorer() {
             style={{ background: 'none', border: 'none', color: currentBaseMidi.length ? '#e8a027' : '#303048', fontSize: 14, cursor: currentBaseMidi.length ? 'pointer' : 'default', padding: '0 2px' }}
           >›</button>
           <button
-            onClick={() => { setInversionStep(0); clearExplorerKeys(); useStore.getState().clearDisplayedChord(); setSelectedDegree(null); setInfoRowChord(null) }}
+            onClick={() => {
+              setCofPos(null); setCofRing(null); setSelectedScaleIdx(0)
+              setSelectedDegree(null); stopProgression(); setSelectedProg(null)
+              setProgInversionMode('off'); setProgSpeed('med'); speedRef.current = 'med'
+              setInversionStep(0); setInfoRowChord(null)
+              clearExplorerKeys(); useStore.getState().clearDisplayedChord()
+            }}
             style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#505068', padding: '0 2px', display: 'flex', alignItems: 'center' }}
             onMouseEnter={e => e.currentTarget.style.color = '#e8a027'}
             onMouseLeave={e => e.currentTarget.style.color = '#505068'}
