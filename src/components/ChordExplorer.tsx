@@ -1,10 +1,11 @@
 import { useState, useEffect, useCallback, useMemo, useRef } from 'react'
 import { createPortal } from 'react-dom'
 import { ChordType, Interval } from 'tonal'
-import { Search, Hand, RotateCcw } from 'lucide-react'
+import { Search, Hand, RotateCcw, Play, Square, CircleOff, ListOrdered, Shuffle } from 'lucide-react'
 import { useStore } from '../store'
 import { getNoteName } from '../utils/noteNames'
 import type { NoteNaming } from '../types'
+import SpeedControl from './SpeedControl'
 
 const RANGES: Record<number, { min: number; max: number }> = {
   61: { min: 36, max: 96 },
@@ -601,102 +602,91 @@ export default function ChordExplorer() {
         </div>
       </div>
 
-      {/* PROGRESSIONS + INVERSIONS row — merged */}
-      <div style={ROW}>
-        <span style={ROW_LABEL}>Progressions</span>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-          {/* Dropdown trigger + clear */}
-          <div style={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+      {/* PROGRESSIONS + INVERSIONS row — three-column layout */}
+      <div style={{ ...ROW, position: 'relative' }}>
+        {/* Left column: PROGRESSIONS label + pattern dropdown ─────────────── */}
+        <div style={{ flex: 1, display: 'flex', alignItems: 'center', gap: 6 }}>
+          <span style={ROW_LABEL}>Progressions</span>
+          {/* Dropdown trigger */}
+          <button
+            ref={progTriggerRef}
+            onClick={openProgDropdown}
+            style={{
+              ...btnBase(false),
+              color: activeProg ? '#e8a027' : '#9090a8',
+              padding: '2px 6px',
+              whiteSpace: 'nowrap',
+            }}
+            onMouseEnter={e => e.currentTarget.style.color = '#e8a027'}
+            onMouseLeave={e => { e.currentTarget.style.color = activeProg ? '#e8a027' : '#9090a8' }}
+          >
+            {activeProg ? activeProg.name : 'None'} ▾
+          </button>
+          {activeProg && (
             <button
-              ref={progTriggerRef}
-              onClick={openProgDropdown}
-              style={{
-                ...btnBase(false),
-                color: activeProg ? '#e8a027' : '#9090a8',
-                padding: '2px 6px',
-                whiteSpace: 'nowrap',
-              }}
+              onClick={() => { stopProgression(); setSelectedProg(null) }}
+              title="Clear progression"
+              style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#505068', fontSize: 14, lineHeight: 1, padding: '0 2px', fontFamily: 'Inter' }}
               onMouseEnter={e => e.currentTarget.style.color = '#e8a027'}
-              onMouseLeave={e => { e.currentTarget.style.color = activeProg ? '#e8a027' : '#9090a8' }}
-            >
-              {activeProg ? activeProg.name : 'None'} ▾
-            </button>
-            {activeProg && (
-              <button
-                onClick={() => { stopProgression(); setSelectedProg(null) }}
-                title="Clear progression"
-                style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#505068', fontSize: 14, lineHeight: 1, padding: '0 2px', fontFamily: 'Inter' }}
-                onMouseEnter={e => e.currentTarget.style.color = '#e8a027'}
-                onMouseLeave={e => e.currentTarget.style.color = '#505068'}
-              >×</button>
-            )}
-          </div>
-
-          <div style={{ width: 1, height: 16, background: '#2a2a3a' }} />
-
-          {/* Speed */}
-          <div style={{ display: 'flex', background: '#1a1a26', borderRadius: 4, padding: 2, gap: 1 }}>
-            {(['slow', 'med', 'fast'] as const).map(s => (
-              <button
-                key={s}
-                onClick={() => setProgSpeed(s)}
-                style={{ ...btnBase(progSpeed === s), minWidth: 32 }}
-              >
-                {s === 'slow' ? 'Slow' : s === 'med' ? 'Med' : 'Fast'}
-              </button>
-            ))}
-          </div>
-
-          {/* Play / Stop */}
-          {progPlaying ? (
-            <button
-              onClick={stopProgression}
-              style={{
-                padding: '2px 10px', borderRadius: 3, border: 'none',
-                background: '#2a2a3a', color: '#e8a027',
-                fontFamily: 'Inter', fontSize: 10, fontWeight: 600,
-                cursor: 'pointer',
-              }}
-            >■ Stop</button>
-          ) : (
-            <button
-              onClick={startProgression}
-              disabled={selectedProg === null}
-              style={{
-                padding: '2px 10px', borderRadius: 3, border: 'none',
-                background: selectedProg !== null ? '#2a2a3a' : '#181820',
-                color: selectedProg !== null ? '#e8a027' : '#404055',
-                fontFamily: 'Inter', fontSize: 10, fontWeight: 600,
-                cursor: selectedProg !== null ? 'pointer' : 'default',
-              }}
-              onMouseEnter={e => { if (selectedProg !== null) e.currentTarget.style.background = '#3a3a4a' }}
-              onMouseLeave={e => { e.currentTarget.style.background = selectedProg !== null ? '#2a2a3a' : '#181820' }}
-            >▶ Play</button>
+              onMouseLeave={e => e.currentTarget.style.color = '#505068'}
+            >×</button>
           )}
+        </div>
 
-          {/* Separator between progressions and inversions */}
-          <div style={{ width: 1, height: 16, background: '#2a2a3a', margin: '0 2px' }} />
+        {/* Centre column: PLAY/STOP button + SpeedControl — absolute centred ─ */}
+        <div style={{
+          position: 'absolute', left: '50%', transform: 'translateX(-50%)',
+          display: 'flex', alignItems: 'center', gap: 8,
+        }}>
+          {/* Outlined play/stop — amber at rest, red during playback */}
+          <button
+            onClick={() => progPlaying ? stopProgression() : startProgression()}
+            disabled={selectedProg === null && !progPlaying}
+            title={selectedProg === null ? 'Pick a pattern to play a progression' : undefined}
+            style={{
+              display: 'flex', alignItems: 'center', gap: 4,
+              fontFamily: 'Inter', fontSize: 10, fontWeight: 700, letterSpacing: '0.06em',
+              padding: '3px 10px', borderRadius: 4, cursor: selectedProg !== null || progPlaying ? 'pointer' : 'default',
+              background: 'none',
+              border: `1.5px solid ${progPlaying ? '#c0392b' : selectedProg !== null ? '#e8a027' : '#505068'}`,
+              boxShadow: progPlaying ? '0 0 6px #c0392b' : selectedProg !== null ? '0 0 6px #e8a027' : 'none',
+              color: progPlaying ? '#c0392b' : selectedProg !== null ? '#e8a027' : '#505068',
+            }}
+          >
+            {progPlaying ? <Square size={12} /> : <Play size={12} />}
+            {progPlaying ? 'STOP' : 'PLAY'}
+          </button>
+          {/* Speed selector SVG component */}
+          <SpeedControl value={progSpeed} onChange={setProgSpeed} />
+        </div>
 
+        {/* Right column: INVERSIONS label + icon buttons ────────────────────── */}
+        <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: 4 }}>
           <span style={ROW_LABEL}>Inversions</span>
-
-          {/* Off / Sequential / Random */}
-          <div style={{ display: 'flex', background: '#1a1a26', borderRadius: 4, padding: 2, gap: 1 }}>
-            <button
-              onClick={() => setProgInversionMode('off')}
-              title="No inversion cycling"
-              style={btnBase(progInversionMode === 'off')}
-            >Off</button>
-            <button
-              onClick={() => setProgInversionMode('sequential')}
-              title="Cycles root → 1st → 2nd inversion each loop"
-              style={btnBase(progInversionMode === 'sequential')}
-            >Sequential</button>
-            <button
-              onClick={() => setProgInversionMode('random')}
-              title="Random inversion each chord"
-              style={btnBase(progInversionMode === 'random')}
-            >Random</button>
-          </div>
+          {/* Off — CircleOff icon */}
+          <button
+            onClick={() => setProgInversionMode('off')}
+            title="Inversions off"
+            style={{ background: 'none', border: 'none', cursor: 'pointer', padding: '0 2px', display: 'flex', alignItems: 'center', color: progInversionMode === 'off' ? '#e8a027' : '#505068' }}
+            onMouseEnter={e => e.currentTarget.style.color = '#e8a027'}
+            onMouseLeave={e => e.currentTarget.style.color = progInversionMode === 'off' ? '#e8a027' : '#505068'}
+          ><CircleOff size={14} /></button>
+          {/* Sequential — ListOrdered icon */}
+          <button
+            onClick={() => setProgInversionMode('sequential')}
+            title="Sequential inversions"
+            style={{ background: 'none', border: 'none', cursor: 'pointer', padding: '0 2px', display: 'flex', alignItems: 'center', color: progInversionMode === 'sequential' ? '#e8a027' : '#505068' }}
+            onMouseEnter={e => e.currentTarget.style.color = '#e8a027'}
+            onMouseLeave={e => e.currentTarget.style.color = progInversionMode === 'sequential' ? '#e8a027' : '#505068'}
+          ><ListOrdered size={14} /></button>
+          {/* Random — Shuffle icon */}
+          <button
+            onClick={() => setProgInversionMode('random')}
+            title="Random inversions"
+            style={{ background: 'none', border: 'none', cursor: 'pointer', padding: '0 2px', display: 'flex', alignItems: 'center', color: progInversionMode === 'random' ? '#e8a027' : '#505068' }}
+            onMouseEnter={e => e.currentTarget.style.color = '#e8a027'}
+            onMouseLeave={e => e.currentTarget.style.color = progInversionMode === 'random' ? '#e8a027' : '#505068'}
+          ><Shuffle size={14} /></button>
         </div>
       </div>
 
@@ -862,6 +852,7 @@ export default function ChordExplorer() {
       </div>
 
       {/* Progression dropdown — portalled to body to escape overflow:hidden */}
+      {/* Progression dropdown — portalled to body to escape overflow:hidden */}
       {progDropdownOpen && dropdownRect && createPortal(
         <div
           ref={progDropRef}
@@ -873,7 +864,7 @@ export default function ChordExplorer() {
             border: '1px solid #2a2a3a',
             borderRadius: 6,
             zIndex: 1000,
-            minWidth: 160,
+            minWidth: 260,
             maxHeight: 220,
             overflowY: 'auto',
             boxShadow: '0 4px 20px rgba(0,0,0,0.7)',
@@ -884,17 +875,22 @@ export default function ChordExplorer() {
               key={p.name}
               onClick={() => { setSelectedProg(i); setProgDropdownOpen(false); setDropdownRect(null) }}
               style={{
-                display: 'block', width: '100%', textAlign: 'left',
+                display: 'flex', alignItems: 'center', gap: 16,
+                width: '100%', textAlign: 'left',
                 background: selectedProg === i ? '#2a2a3a' : 'none',
                 border: 'none', padding: '5px 10px',
                 color: selectedProg === i ? '#e8a027' : '#9090a8',
                 fontFamily: 'Inter', fontSize: 10, cursor: 'pointer',
-                whiteSpace: 'nowrap',
               }}
               onMouseEnter={e => { e.currentTarget.style.background = '#2a2a3a'; e.currentTarget.style.color = '#e8a027' }}
               onMouseLeave={e => { e.currentTarget.style.background = selectedProg === i ? '#2a2a3a' : 'none'; e.currentTarget.style.color = selectedProg === i ? '#e8a027' : '#9090a8' }}
             >
-              {p.name}
+              {/* Left column: progression name */}
+              <span style={{ minWidth: 90, flexShrink: 0, whiteSpace: 'nowrap' }}>{p.name}</span>
+              {/* Right column: roman numerals — dimmer, monospace */}
+              <span style={{ fontFamily: 'JetBrains Mono', fontSize: 9, opacity: 0.65, whiteSpace: 'nowrap' }}>
+                {p.labels.join('  ')}
+              </span>
             </button>
           ))}
         </div>,

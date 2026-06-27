@@ -101,10 +101,9 @@ All Electron APIs are accessed through `window.electronAPI` (defined in `src/typ
 - **PC 10 (Bb/A#) is always spelled Bb** — `ENGLISH_SHARP[10]` is `'Bb'`, not `'A#'`; `convertAccidentals` sharp mode normalises incoming `A#` → `Bb`. A# has no standard key and is never used.
 
 ## Current status (June 2026)
-- v0.5.2 — Scale Explorer visually verified and polished in this session (2026-06-27)
-- Scale Explorer layout confirmed working in the running app
-- This session: reset-on-open/clear-button wiring, Bb/A# fix, scale replay on repeated CoF click, info row redesign (chord quality + 16px notes + key display), stale chord info cleared on key change
-- Next task: whatever the user specifies
+- v0.5.2 — Scale Explorer + ChordExplorer progressions row redesigned (2026-06-27)
+- This session: new `SpeedControl` SVG component; progressions row three-column layout (PLAY/STOP outlined, SpeedControl, icon inversion buttons); Chord Quality row shows full progression cycling; progressions dropdown two-column (name + roman numerals); ScaleExplorer footer Play icons, caps + ArrowUpRight on Chord Explorer link
+- Next task: fix ScaleExplorer chord keyboard range (should centre C3–C5, currently C4+) and inversion player (cycles only 2 inversions regardless of chord; ChordExplorer version works correctly)
 
 ## Audio
 - JZZ.js is the active MIDI playback engine (replaced Tone.js)
@@ -131,6 +130,8 @@ All Electron APIs are accessed through `window.electronAPI` (defined in `src/typ
 - `playTriggerRef` + `playTrigger` state counter — incremented on every CoF onClick so scale play effect fires even when same key is re-clicked
 - Info row (chord/inversion row): three columns — left: CHORD QUALITY label + roman numeral (amber 12px bold) inline; centre: notes absolute-centred 16px JetBrains Mono; right: key root+quality (amber 12px bold) + KEY: label (dim #707088)
 - CoF onClick clears `infoRowChord` and `selectedDegree` immediately on key change
+- Modal positioning: `MODAL_WIDTH=720`, `MODAL_HEIGHT=600`; `pos` useState initialised AND recalculated in useEffect open branch (useState runs before maximize() fires — must use effect for correct live dimensions); formula: `x=(innerWidth-MODAL_WIDTH)/2, y=(innerHeight-MODAL_HEIGHT)/2-160`
+- `KEYBOARD_HEIGHT` constant exists in ScaleExplorer.tsx and ChordExplorer.tsx but is currently unused
 
 ### CoF section layout (current, after all polish rounds)
 - SVG: `width={380} height={420} viewBox="0 -40 380 420"` — CY=190 renders at y_pixel=230 from SVG top
@@ -145,6 +146,8 @@ All Electron APIs are accessed through `window.electronAPI` (defined in `src/typ
 ## Known Issues
 - Chord Explorer search needs logic rewrite — currently unreliable across naming systems
 - TrackPanel SVG crash (pre-existing, unresolved)
+- **ScaleExplorer chord keyboard range** — `buildDiatonicChord` octave loop `[4, 3, 5, 2]` places chords starting at C4+; should centre between C3 and C5. User will provide instructions.
+- **ScaleExplorer inversion player** — `handlePrevInversion` / `handleNextInversion` cycles only 2 inversions regardless of chord size or direction. ChordExplorer's `handleInversion` (uses live `explorerKeys` from store) works correctly — compare implementations.
 
 ## Git rules
 - Do not add co-author attribution to commit messages

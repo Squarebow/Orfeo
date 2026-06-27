@@ -1,10 +1,11 @@
 import { useState, useEffect, useCallback, useMemo, useRef } from 'react'
 import { createPortal } from 'react-dom'
 import { Chord, Note } from 'tonal'
-import { RotateCcw } from 'lucide-react'
+import { RotateCcw, Play, Square, CircleOff, ListOrdered, Shuffle, ArrowUpRight } from 'lucide-react'
 import { useStore } from '../store'
 import { getNoteName } from '../utils/noteNames'
 import type { NoteNaming, Accidentals } from '../types'
+import SpeedControl from './SpeedControl'
 
 // ── Keyboard range constants ────────────────────────────────────────────────
 const RANGES: Record<number, { min: number; max: number }> = {
@@ -564,12 +565,6 @@ export default function ScaleExplorer() {
   const R_OUTER1 = 110, R_OUTER2 = 175
   const R_INNER1 = 55,  R_INNER2 = 110
 
-  const speedIcons: Array<['slow' | 'med' | 'fast', string, string]> = [
-    ['slow', '›', 'Slow'],
-    ['med', '››', 'Medium'],
-    ['fast', '›››', 'Fast'],
-  ]
-
   return (
     // ── Modal container ────────────────────────────────────────────────────
     <div
@@ -805,14 +800,22 @@ export default function ScaleExplorer() {
       }}>
         {infoRowChord ? (
           <>
-            {/* Left — CHORD QUALITY label + roman numeral on one line, centred */}
-            <div style={{ display: 'flex', flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 4, minWidth: 60 }}>
-              <span style={{ fontFamily: 'Inter', fontSize: 9, fontWeight: 700, color: '#707088', letterSpacing: '0.10em', textTransform: 'uppercase', userSelect: 'none' }}>
+            {/* Left — CHORD QUALITY label + all progression steps on one line.
+                Active step amber/bold; inactive steps dim.
+                Single-tile clicks have labels.length === 1 so only one span renders. */}
+            <div style={{ display: 'flex', flexDirection: 'row', alignItems: 'baseline', gap: 4, minWidth: 60, flexWrap: 'wrap' }}>
+              <span style={{ fontFamily: 'Inter', fontSize: 9, fontWeight: 700, color: '#707088', letterSpacing: '0.10em', textTransform: 'uppercase', userSelect: 'none', flexShrink: 0 }}>
                 Chord Quality
               </span>
-              <span style={{ fontFamily: 'Inter', fontSize: 12, fontWeight: 700, color: '#e8a027', userSelect: 'none', lineHeight: 1 }}>
-                {infoRowChord.labels[infoRowChord.step]}
-              </span>
+              {infoRowChord.labels.map((label, i) => (
+                <span key={i} style={{
+                  fontFamily: 'Inter',
+                  fontSize: i === infoRowChord.step ? 12 : 11,
+                  fontWeight: i === infoRowChord.step ? 700 : 400,
+                  color: i === infoRowChord.step ? '#e8a027' : '#505068',
+                  userSelect: 'none', lineHeight: 1,
+                }}>{label}</span>
+              ))}
             </div>
             {/* Centre — note names, large, absolutely centred in the row */}
             <span style={{
@@ -839,11 +842,12 @@ export default function ScaleExplorer() {
         )}
       </div>
 
-      {/* Progressions + inversion mode row */}
-      <div style={{ ...ROW, minHeight: 44, borderTop: '1px solid #1e1e2a' }}>
-        <span style={ROW_LABEL}>Progressions</span>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-          {/* Pattern picker */}
+      {/* Progressions + inversion mode row — three-column layout */}
+      <div style={{ ...ROW, minHeight: 44, borderTop: '1px solid #1e1e2a', position: 'relative' }}>
+        {/* Left column: PROGRESSIONS label + pattern dropdown ─────────────── */}
+        <div style={{ flex: 1, display: 'flex', alignItems: 'center', gap: 6 }}>
+          <span style={ROW_LABEL}>Progressions</span>
+          {/* Pattern picker dropdown trigger */}
           <button
             ref={progTriggerRef}
             onClick={() => {
@@ -868,58 +872,65 @@ export default function ScaleExplorer() {
               onMouseLeave={e => e.currentTarget.style.color = '#505068'}
             >×</button>
           )}
+        </div>
 
-          <span style={{ color: '#2a2a3a', margin: '0 2px' }}>·</span>
-
-          {/* Speed chevron buttons */}
-          {speedIcons.map(([s, icon, label]) => (
-            <button key={s} onClick={() => { setProgSpeed(s); speedRef.current = s }}
-              title={label}
-              style={{
-                fontFamily: 'Inter', fontSize: 14, padding: '1px 4px',
-                background: 'none', border: 'none',
-                color: progSpeed === s ? '#e8a027' : '#505068',
-                cursor: 'pointer', letterSpacing: '-0.06em',
-              }}
-            >{icon}</button>
-          ))}
-
-          <span style={{ color: '#2a2a3a', margin: '0 2px' }}>·</span>
-
-          {/* Current step label — fixed width so play button doesn't jump */}
-          <span style={{ minWidth: 28, fontFamily: 'JetBrains Mono', fontSize: 10, color: '#9090a8', textAlign: 'right', userSelect: 'none' }}>
-            {progPlaying && selectedProg !== null ? PROGRESSIONS[selectedProg].labels[progStep] : ''}
-          </span>
-
-          {/* Play / Stop — red to distinguish from all other controls */}
+        {/* Centre column: PLAY/STOP button + SpeedControl — absolute centred ─ */}
+        <div style={{
+          position: 'absolute', left: '50%', transform: 'translateX(-50%)',
+          display: 'flex', alignItems: 'center', gap: 8,
+        }}>
+          {/* Outlined play/stop — amber at rest, red during playback */}
           <button
             onClick={() => { if (progPlaying) stopProgression(); else startProgression() }}
             disabled={selectedProg === null || diatonicChords.length === 0}
+            title={selectedProg === null ? 'Pick a pattern to play a progression' : undefined}
             style={{
-              fontFamily: 'Inter', fontSize: 10, padding: '2px 8px',
-              background: '#c0392b', color: '#ffffff',
-              border: '1px solid #c0392b',
-              borderRadius: 4, cursor: 'pointer', minWidth: 40,
+              display: 'flex', alignItems: 'center', gap: 4,
+              fontFamily: 'Inter', fontSize: 10, fontWeight: 700, letterSpacing: '0.06em',
+              padding: '3px 10px', borderRadius: 4, cursor: 'pointer',
+              background: 'none',
+              border: `1.5px solid ${progPlaying ? '#c0392b' : selectedProg !== null && diatonicChords.length > 0 ? '#e8a027' : '#505068'}`,
+              boxShadow: progPlaying ? '0 0 6px #c0392b' : selectedProg !== null && diatonicChords.length > 0 ? '0 0 6px #e8a027' : 'none',
+              color: progPlaying ? '#c0392b' : selectedProg !== null && diatonicChords.length > 0 ? '#e8a027' : '#505068',
             }}
-            onMouseEnter={e => { e.currentTarget.style.background = '#e74c3c'; e.currentTarget.style.borderColor = '#e74c3c' }}
-            onMouseLeave={e => { e.currentTarget.style.background = '#c0392b'; e.currentTarget.style.borderColor = '#c0392b' }}
-          >{progPlaying ? 'Stop' : 'Play'}</button>
+          >
+            {progPlaying ? <Square size={12} /> : <Play size={12} />}
+            {progPlaying ? 'STOP' : 'PLAY'}
+          </button>
+          {/* Speed selector SVG component */}
+          <SpeedControl
+            value={progSpeed}
+            onChange={v => { setProgSpeed(v); speedRef.current = v }}
+          />
+        </div>
 
-          <span style={{ width: 1, height: 14, background: '#2a2a3a', margin: '0 4px' }} />
-
-          <span style={{ ...ROW_LABEL }}>Inv</span>
-          {/* Inversion mode: off / sequential / random */}
-          {(['off','sequential','random'] as const).map(v => (
-            <button key={v} onClick={() => setProgInversionMode(v)}
-              style={{
-                fontFamily: 'Inter', fontSize: 10, padding: '2px 6px',
-                background: progInversionMode === v ? '#e8a02722' : 'none',
-                color: progInversionMode === v ? '#e8a027' : '#707088',
-                border: `1px solid ${progInversionMode === v ? '#e8a027' : '#2a2a3a'}`,
-                borderRadius: 4, cursor: 'pointer',
-              }}
-            >{v.charAt(0).toUpperCase() + v.slice(1)}</button>
-          ))}
+        {/* Right column: INVERSIONS label + icon buttons ────────────────────── */}
+        <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: 4 }}>
+          <span style={ROW_LABEL}>Inversions</span>
+          {/* Off — CircleOff icon */}
+          <button
+            onClick={() => setProgInversionMode('off')}
+            title="Inversions off"
+            style={{ background: 'none', border: 'none', cursor: 'pointer', padding: '0 2px', display: 'flex', alignItems: 'center', color: progInversionMode === 'off' ? '#e8a027' : '#505068' }}
+            onMouseEnter={e => e.currentTarget.style.color = '#e8a027'}
+            onMouseLeave={e => e.currentTarget.style.color = progInversionMode === 'off' ? '#e8a027' : '#505068'}
+          ><CircleOff size={14} /></button>
+          {/* Sequential — ListOrdered icon */}
+          <button
+            onClick={() => setProgInversionMode('sequential')}
+            title="Sequential inversions"
+            style={{ background: 'none', border: 'none', cursor: 'pointer', padding: '0 2px', display: 'flex', alignItems: 'center', color: progInversionMode === 'sequential' ? '#e8a027' : '#505068' }}
+            onMouseEnter={e => e.currentTarget.style.color = '#e8a027'}
+            onMouseLeave={e => e.currentTarget.style.color = progInversionMode === 'sequential' ? '#e8a027' : '#505068'}
+          ><ListOrdered size={14} /></button>
+          {/* Random — Shuffle icon */}
+          <button
+            onClick={() => setProgInversionMode('random')}
+            title="Random inversions"
+            style={{ background: 'none', border: 'none', cursor: 'pointer', padding: '0 2px', display: 'flex', alignItems: 'center', color: progInversionMode === 'random' ? '#e8a027' : '#505068' }}
+            onMouseEnter={e => e.currentTarget.style.color = '#e8a027'}
+            onMouseLeave={e => e.currentTarget.style.color = progInversionMode === 'random' ? '#e8a027' : '#505068'}
+          ><Shuffle size={14} /></button>
         </div>
       </div>
 
@@ -944,17 +955,20 @@ export default function ScaleExplorer() {
           ))}
         </div>
 
-        {/* Centre: inversion browser ‹ PLAY INVERSION › */}
+        {/* Centre: inversion browser — Play (flipped) · PLAY INVERSION · Play */}
         <div style={{ position: 'absolute', left: '50%', transform: 'translateX(-50%)', display: 'flex', alignItems: 'center', gap: 6 }}>
+          {/* Previous inversion — Play icon mirrored on vertical axis */}
           <button onClick={handlePrevInversion} disabled={!currentBaseMidi.length}
-            style={{ background: 'none', border: 'none', color: currentBaseMidi.length ? '#e8a027' : '#303048', fontSize: 14, cursor: currentBaseMidi.length ? 'pointer' : 'default', padding: '0 2px' }}
-          >‹</button>
+            style={{ background: 'none', border: 'none', color: currentBaseMidi.length ? '#e8a027' : '#303048', cursor: currentBaseMidi.length ? 'pointer' : 'default', padding: '0 2px', display: 'flex', alignItems: 'center' }}
+          ><Play size={14} style={{ transform: 'scaleX(-1)' }} /></button>
           <span style={{ fontFamily: 'Inter', fontSize: 8, fontWeight: 700, color: '#505068', letterSpacing: '0.12em', textTransform: 'uppercase', userSelect: 'none' }}>
             Play Inversion
           </span>
+          {/* Next inversion — Play icon normal */}
           <button onClick={handleNextInversion} disabled={!currentBaseMidi.length}
-            style={{ background: 'none', border: 'none', color: currentBaseMidi.length ? '#e8a027' : '#303048', fontSize: 14, cursor: currentBaseMidi.length ? 'pointer' : 'default', padding: '0 2px' }}
-          >›</button>
+            style={{ background: 'none', border: 'none', color: currentBaseMidi.length ? '#e8a027' : '#303048', cursor: currentBaseMidi.length ? 'pointer' : 'default', padding: '0 2px', display: 'flex', alignItems: 'center' }}
+          ><Play size={14} /></button>
+          {/* Reset button */}
           <button
             onClick={() => {
               setCofPos(null); setCofRing(null); setSelectedScaleIdx(0)
@@ -963,6 +977,7 @@ export default function ScaleExplorer() {
               setInversionStep(0); setInfoRowChord(null)
               clearExplorerKeys(); useStore.getState().clearDisplayedChord()
             }}
+            title="Clear & reset"
             style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#505068', padding: '0 2px', display: 'flex', alignItems: 'center' }}
             onMouseEnter={e => e.currentTarget.style.color = '#e8a027'}
             onMouseLeave={e => e.currentTarget.style.color = '#505068'}
@@ -973,10 +988,10 @@ export default function ScaleExplorer() {
         <button
           onClick={() => { setScaleExplorerOpen(false); setChordExplorerOpen(true) }}
           title="Switch to Chord Explorer"
-          style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#505068', fontFamily: 'Inter', fontSize: 9, whiteSpace: 'nowrap', padding: 0 }}
+          style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#505068', fontFamily: 'Inter', fontSize: 9, fontWeight: 700, letterSpacing: '0.10em', textTransform: 'uppercase', whiteSpace: 'nowrap', padding: 0, display: 'flex', alignItems: 'center', gap: 3 }}
           onMouseEnter={e => e.currentTarget.style.color = '#e8a027'}
           onMouseLeave={e => e.currentTarget.style.color = '#505068'}
-        >Chord Explorer →</button>
+        >Chord Explorer <ArrowUpRight size={11} /></button>
       </div>
 
       {/* Progression dropdown — portalled to body to avoid modal clipping */}
@@ -984,22 +999,30 @@ export default function ScaleExplorer() {
         <div ref={progDropRef} style={{
           position: 'fixed', top: dropdownRect.top, left: dropdownRect.left,
           background: '#1a1a26', border: '1px solid #2a2a3a',
-          borderRadius: 6, zIndex: 1000, minWidth: 160, maxHeight: 260,
+          borderRadius: 6, zIndex: 1000, minWidth: 260, maxHeight: 260,
           overflowY: 'auto', boxShadow: '0 4px 20px rgba(0,0,0,0.7)',
         }}>
           {PROGRESSIONS.map((p, i) => (
             <button key={p.name}
               onClick={() => { setSelectedProg(i); setProgDropdownOpen(false); setDropdownRect(null) }}
               style={{
-                display: 'block', width: '100%', textAlign: 'left',
+                display: 'flex', alignItems: 'center', gap: 16,
+                width: '100%', textAlign: 'left',
                 background: selectedProg === i ? '#2a2a3a' : 'none',
                 border: 'none', padding: '5px 10px',
                 color: selectedProg === i ? '#e8a027' : '#9090a8',
-                fontFamily: 'Inter', fontSize: 10, cursor: 'pointer', whiteSpace: 'nowrap',
+                fontFamily: 'Inter', fontSize: 10, cursor: 'pointer',
               }}
               onMouseEnter={e => { e.currentTarget.style.background = '#2a2a3a'; e.currentTarget.style.color = '#e8a027' }}
               onMouseLeave={e => { e.currentTarget.style.background = selectedProg === i ? '#2a2a3a' : 'none'; e.currentTarget.style.color = selectedProg === i ? '#e8a027' : '#9090a8' }}
-            >{p.name}</button>
+            >
+              {/* Left column: progression name */}
+              <span style={{ minWidth: 90, flexShrink: 0, whiteSpace: 'nowrap' }}>{p.name}</span>
+              {/* Right column: roman numerals — dimmer, monospace */}
+              <span style={{ fontFamily: 'JetBrains Mono', fontSize: 9, opacity: 0.65, whiteSpace: 'nowrap' }}>
+                {p.labels.join('  ')}
+              </span>
+            </button>
           ))}
         </div>,
         document.body
