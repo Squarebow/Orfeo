@@ -680,7 +680,7 @@ export default function ScaleExplorer() {
                     d={wedgePath(CX, CY, R_OUTER1, R_OUTER2, startDeg, endDeg)}
                     fill={outerFill} stroke="#2a2a3a" strokeWidth={1}
                     style={{ cursor: 'pointer', transition: 'fill 0.15s' }}
-                    onClick={() => { setCofPos(i); setCofRing('major'); setSelectedScaleIdx(0); playTriggerRef.current += 1; setPlayTrigger(playTriggerRef.current) }}
+                    onClick={() => { setCofPos(i); setCofRing('major'); setSelectedScaleIdx(0); setInfoRowChord(null); setSelectedDegree(null); playTriggerRef.current += 1; setPlayTrigger(playTriggerRef.current) }}
                     onMouseEnter={e => { if (!isSelOuter) (e.target as SVGPathElement).setAttribute('fill', '#2a2a3a') }}
                     onMouseLeave={e => { if (!isSelOuter) (e.target as SVGPathElement).setAttribute('fill', '#1e1e2a') }}
                   >
@@ -691,7 +691,7 @@ export default function ScaleExplorer() {
                     d={wedgePath(CX, CY, R_INNER1, R_INNER2, startDeg, endDeg)}
                     fill={innerFill} stroke="#2a2a3a" strokeWidth={1}
                     style={{ cursor: 'pointer', transition: 'fill 0.15s' }}
-                    onClick={() => { setCofPos(i); setCofRing('minor'); setSelectedScaleIdx(1); playTriggerRef.current += 1; setPlayTrigger(playTriggerRef.current) }}
+                    onClick={() => { setCofPos(i); setCofRing('minor'); setSelectedScaleIdx(1); setInfoRowChord(null); setSelectedDegree(null); playTriggerRef.current += 1; setPlayTrigger(playTriggerRef.current) }}
                     onMouseEnter={e => { if (!isSelInner) (e.target as SVGPathElement).setAttribute('fill', '#222230') }}
                     onMouseLeave={e => { if (!isSelInner) (e.target as SVGPathElement).setAttribute('fill', '#181820') }}
                   >
