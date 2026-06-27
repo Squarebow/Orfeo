@@ -161,9 +161,9 @@ function buildDiatonicChord(
     scalePCs[(degree + 4) % n],
   ]
 
-  // Place root in a playable octave
+  // Place root in a playable octave — prefer oct 3 (C3–B3) to centre chords in C3–C5
   let baseMidi = -1
-  for (const oct of [4, 3, 5, 2]) {
+  for (const oct of [3, 4, 2, 5]) {
     const m = triadPCs[0] + (oct + 1) * 12
     if (m >= min && m <= max) { baseMidi = m; break }
   }
@@ -213,6 +213,20 @@ function applyNthInversion(baseMidi: number[], n: number): number[] {
   return notes
 }
 
+// ── Inversion helpers — rotate live chord up or down one voicing ──────────────
+// Same pattern as ChordExplorer: operate on the live explorerKeys set so
+// inversions accumulate across octaves rather than wrapping at chord length.
+function nextInversionSet(notes: Set<number>): Set<number> {
+  const sorted = Array.from(notes).sort((a, b) => a - b)
+  const [lowest, ...rest] = sorted
+  return new Set([...rest, lowest + 12])
+}
+function prevInversionSet(notes: Set<number>): Set<number> {
+  const sorted = Array.from(notes).sort((a, b) => a - b)
+  const highest = sorted[sorted.length - 1]
+  return new Set([highest - 12, ...sorted.slice(0, -1)])
+}
+
 
 // ── Component ────────────────────────────────────────────────────────────────
 export default function ScaleExplorer() {
@@ -248,9 +262,6 @@ export default function ScaleExplorer() {
   const [progStep, setProgStep] = useState(0)
   const [progSpeed, setProgSpeed] = useState<'slow' | 'med' | 'fast'>('med')
   const [progInversionMode, setProgInversionMode] = useState<'off' | 'sequential' | 'random'>('off')
-
-  // ── Inversion browser state ───────────────────────────────────────────────
-  const [inversionStep, setInversionStep] = useState(0)
 
   // ── Info row: currently playing chord context ─────────────────────────────
   const [infoRowChord, setInfoRowChord] = useState<{ progName: string; labels: string[]; notes: string[]; step: number } | null>(null)
@@ -323,7 +334,6 @@ export default function ScaleExplorer() {
       setDropdownRect(null)
       setProgInversionMode('off')
       setProgSpeed('med'); speedRef.current = 'med'
-      setInversionStep(0)
       setSelectedDegree(null)
       setInfoRowChord(null)
       clearExplorerKeys()
@@ -363,7 +373,6 @@ export default function ScaleExplorer() {
     })
     setExplorerKeys(keys, colors)
     setSelectedDegree(null)
-    setInversionStep(0)
 
     if (playNote) {
       noteMidis.forEach((m, i) => {
@@ -377,7 +386,6 @@ export default function ScaleExplorer() {
   // ── Play a diatonic chord tile and light its keys ─────────────────────────
   const playDegree = useCallback((chord: DiatonicChord) => {
     setSelectedDegree(chord.degree)
-    setInversionStep(0)
     const keys = new Set(chord.midiNotes)
     const colors = new Map<number, string>()
     chord.midiNotes.forEach(m => colors.set(m, '#6080d0'))
@@ -399,31 +407,34 @@ export default function ScaleExplorer() {
     return diatonicChords[selectedDegree].midiNotes
   }, [selectedDegree, diatonicChords])
 
-  // ── Play a specific inversion of the selected chord ───────────────────────
-  const playInversion = useCallback((step: number) => {
-    if (!currentBaseMidi.length) return
-    const notes = applyNthInversion(currentBaseMidi, step % currentBaseMidi.length)
-    const keys = new Set(notes)
-    const colors = new Map<number, string>()
-    notes.forEach((m, i) => colors.set(m, i === 0 ? '#e8a027' : '#6080d0'))
-    setExplorerKeys(keys, colors)
-    const playNote = (window as any).__orfeoPlayNote
-    if (playNote) notes.forEach(m => playNote(m, 0.7, 600))
-  }, [currentBaseMidi, setExplorerKeys])
-
-  // ── Step to previous inversion ────────────────────────────────────────────
+  // ── Rotate the live chord voicing down (prev) or up (next) ──────────────
+  // Mirrors ChordExplorer's handleInversion: reads explorerKeys from the store
+  // each time so rotations accumulate across octaves instead of wrapping at
+  // chord length. Bass note is amber, upper notes are blue.
   const handlePrevInversion = useCallback(() => {
-    const next = ((inversionStep - 1) % (currentBaseMidi.length || 1) + (currentBaseMidi.length || 1)) % (currentBaseMidi.length || 1)
-    setInversionStep(next)
-    playInversion(next)
-  }, [inversionStep, currentBaseMidi.length, playInversion])
+    const current = useStore.getState().explorerKeys
+    if (current.size === 0) return
+    const notes = prevInversionSet(current)
+    const sorted = Array.from(notes).sort((a, b) => a - b)
+    const colors = new Map<number, string>()
+    sorted.forEach((m, i) => colors.set(m, i === 0 ? '#e8a027' : '#6080d0'))
+    setExplorerKeys(notes, colors)
+    const playNote = (window as any).__orfeoPlayNote
+    if (playNote) sorted.forEach(m => playNote(m, 0.7, 600))
+  }, [setExplorerKeys])
 
   // ── Step to next inversion ────────────────────────────────────────────────
   const handleNextInversion = useCallback(() => {
-    const next = (inversionStep + 1) % (currentBaseMidi.length || 1)
-    setInversionStep(next)
-    playInversion(next)
-  }, [inversionStep, currentBaseMidi.length, playInversion])
+    const current = useStore.getState().explorerKeys
+    if (current.size === 0) return
+    const notes = nextInversionSet(current)
+    const sorted = Array.from(notes).sort((a, b) => a - b)
+    const colors = new Map<number, string>()
+    sorted.forEach((m, i) => colors.set(m, i === 0 ? '#e8a027' : '#6080d0'))
+    setExplorerKeys(notes, colors)
+    const playNote = (window as any).__orfeoPlayNote
+    if (playNote) sorted.forEach(m => playNote(m, 0.7, 600))
+  }, [setExplorerKeys])
 
   // ── Play one progression step and schedule the next ──────────────────────
   const playProgStepAt = useCallback((
@@ -974,7 +985,7 @@ export default function ScaleExplorer() {
               setCofPos(null); setCofRing(null); setSelectedScaleIdx(0)
               setSelectedDegree(null); stopProgression(); setSelectedProg(null)
               setProgInversionMode('off'); setProgSpeed('med'); speedRef.current = 'med'
-              setInversionStep(0); setInfoRowChord(null)
+              setInfoRowChord(null)
               clearExplorerKeys(); useStore.getState().clearDisplayedChord()
             }}
             title="Clear & reset"
