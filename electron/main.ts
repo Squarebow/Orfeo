@@ -8,6 +8,7 @@ function createWindow() {
   const win = new BrowserWindow({
     width: 1400, height: 900, minWidth: 900, minHeight: 600,
     backgroundColor: '#111116',
+    show: false,
     titleBarStyle: 'hidden',
     titleBarOverlay: { color: '#111116', symbolColor: '#e8a027', height: 100 },
     webPreferences: {
@@ -20,6 +21,11 @@ function createWindow() {
   } else {
     win.loadFile(join(__dirname, '../renderer/index.html'))
   }
+  // ── Show maximized once renderer is ready — avoids white flash on launch ───
+  win.once('ready-to-show', () => {
+    win.maximize()
+    win.show()
+  })
 }
 
 // ── Prefs ──────────────────────────────────────────────────────────────────

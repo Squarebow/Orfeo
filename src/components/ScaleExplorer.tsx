@@ -13,6 +13,11 @@ const RANGES: Record<number, { min: number; max: number }> = {
   88: { min: 21, max: 108 },
 }
 
+// ── Modal dimensions for default positioning above the keyboard ───────────
+const MODAL_WIDTH = 720
+const MODAL_HEIGHT = 600
+const KEYBOARD_HEIGHT = 200
+
 // ── Scale definitions ───────────────────────────────────────────────────────
 interface ScaleDef {
   name: string
@@ -222,10 +227,10 @@ export default function ScaleExplorer() {
   const setKeyboardSize = useStore(s => s.setKeyboardSize)
   const keyboardSize = useStore(s => s.keyboardSize)
 
-  // ── Window drag position ──────────────────────────────────────────────────
+  // ── Window drag position — recomputed on every open against live dimensions
   const [pos, setPos] = useState(() => ({
-    x: Math.max(0, Math.floor((window.innerWidth - 720) / 2)),
-    y: Math.max(0, Math.floor((window.innerHeight - 680) / 2)),
+    x: Math.round((window.innerWidth - MODAL_WIDTH) / 2),
+    y: Math.round((window.innerHeight - MODAL_HEIGHT) / 2) - 160,
   }))
 
   // ── CoF + scale selection state ───────────────────────────────────────────
@@ -299,6 +304,11 @@ export default function ScaleExplorer() {
   // ── On open: force 61 keys, pause playback, reset all transient state ─────
   useEffect(() => {
     if (scaleExplorerOpen) {
+      // ── Recentre on live window dimensions every time modal opens ───────
+      setPos({
+        x: Math.round((window.innerWidth - MODAL_WIDTH) / 2),
+        y: Math.round((window.innerHeight - MODAL_HEIGHT) / 2) - 160,
+      })
       prevSizeRef.current = useStore.getState().keyboardSize as 61 | 73 | 88
       setKeyboardSize(61)
       if (useStore.getState().playbackState === 'playing') {

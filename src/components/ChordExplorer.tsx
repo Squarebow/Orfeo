@@ -12,6 +12,11 @@ const RANGES: Record<number, { min: number; max: number }> = {
   88: { min: 21, max: 108 },
 }
 
+// ── Modal dimensions for default positioning above the keyboard ───────────
+const MODAL_WIDTH = 600
+const MODAL_HEIGHT = 520
+const KEYBOARD_HEIGHT = 200
+
 const ROOT_MIDIS = [60, 61, 62, 63, 64, 65, 66, 67, 68, 69, 70, 71]
 
 const COMMON_TYPES = [
@@ -154,9 +159,10 @@ export default function ChordExplorer() {
   const setAccidentals = useStore(s => s.setAccidentals)
   const setKeyboardSize = useStore(s => s.setKeyboardSize)
 
+  // ── Window drag position — recomputed on every open against live dimensions
   const [pos, setPos] = useState(() => ({
-    x: Math.max(0, Math.floor((window.innerWidth - 600) / 2)),
-    y: Math.max(0, Math.floor((window.innerHeight - 500) / 2)),
+    x: Math.round((window.innerWidth - MODAL_WIDTH) / 2),
+    y: Math.round((window.innerHeight - MODAL_HEIGHT) / 2) - 160,
   }))
   const [selectedRoot, setSelectedRoot] = useState(0)
   const [tier, setTier] = useState<'common' | 'extended'>('common')
@@ -192,6 +198,11 @@ export default function ChordExplorer() {
   // Force 61-key while open; restore on close. Also reset transient state on each open.
   useEffect(() => {
     if (chordExplorerOpen) {
+      // ── Recentre on live window dimensions every time modal opens ───────
+      setPos({
+        x: Math.round((window.innerWidth - MODAL_WIDTH) / 2),
+        y: Math.round((window.innerHeight - MODAL_HEIGHT) / 2) - 160,
+      })
       prevSizeRef.current = useStore.getState().keyboardSize as 61 | 73 | 88
       setKeyboardSize(61)
       setSearch('')
