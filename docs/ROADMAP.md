@@ -65,6 +65,8 @@
 - [ ] TrackPanel SVG crash — intermittent renderer crash when TrackPanel renders certain SVG elements; root cause unknown
 - [ ] Chord Explorer search — matching logic unreliable across naming systems; needs full rewrite to match composed chord names across English/CE/Solfège and b/♭/#
 - [ ] Scale Explorer visual testing pending — code complete, dev server started but visual confirmation not done before session ended
+- [ ] CSS magic numbers: extract all hardcoded colors, spacing, font families and z-indexes into CSS variables in `index.css`. See `docs/MAGIC_NUMBERS_AUDIT.md` for full audit.
+- [ ] CSS Grid migration: replace flexbox layout in all multi-row/multi-column components (explorers, main shell, topbar, track panel, settings panel).
 
 ---
 
