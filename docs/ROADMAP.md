@@ -76,3 +76,8 @@
 - [ ] VST3 plugin shell
 - [ ] Shared visualization engine
 - [ ] DAW integration testing (Reaper, Cubase, Studio One)
+
+- [ ] Chord Explorer — Arpeggiator: rhythmic preset patterns (e.g. Who-style syncopated, 
+      Alberti bass, ascending/descending, octave jump) defined as step sequences with 
+      note duration and rest slots. BPM-configurable. Lights keys in real time. 
+      Mini step sequencer under the hood.
