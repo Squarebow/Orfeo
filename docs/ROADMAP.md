@@ -99,3 +99,8 @@
       Triggered by clicking an info icon (ℹ) in the topbar. Full HTML/CSS layout,
       images and video support. Content editable without touching React code.
       CSS Grid layout. IPC pattern: ipcRenderer.send('open-help') → main.ts opens window.
+- [ ] Implement finger numbers in the inversions to display them on the keyboard only. So 1-3-5, 1-2-5, 1-3-5 for major, minor and diminished chords. For septachords (7, four tones/fingers), there are three inversions: 1–2–3–5, 1–2–3–5, 1–2–4–5, 1–2–3–5
+- [ ] Add to ROADMAP.md under ## Planned Features:
+- [ ] Chord memory log: during MIDI playback, record detected chord name + bar number
+      in real time. Exportable as a simple text/PDF chord sheet showing bar-by-bar
+      chord changes. Viewable in a scrollable panel or separate window.
