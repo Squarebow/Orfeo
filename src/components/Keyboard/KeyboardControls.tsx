@@ -1,7 +1,6 @@
 import { useCallback } from 'react'
-import { Play, ChevronLeft, ChevronRight } from 'lucide-react'
+import { Play, RotateCcw } from 'lucide-react'
 import { useStore } from '../../store'
-import { detectChordWithInversion, localizeChord } from '../../utils/chordDetection'
 import type { KeyboardSize } from '../../types'
 
 const SIZES: KeyboardSize[] = [61, 73, 88]
@@ -24,8 +23,6 @@ export default function KeyboardControls() {
   const keyboardMode = useStore((s) => s.keyboardMode)
   const setKeyboardSize = useStore((s) => s.setKeyboardSize)
   const setKeyboardMode = useStore((s) => s.setKeyboardMode)
-  const noteNaming = useStore((s) => s.noteNaming)
-  const accidentals = useStore((s) => s.accidentals)
   const lockedKeys = useStore((s) => s.lockedKeys)
   const lockedColors = useStore((s) => s.lockedColors)
   const setLockedKeys = useStore((s) => s.setLockedKeys)
@@ -33,10 +30,6 @@ export default function KeyboardControls() {
 
   const isDocked = keyboardMode === 'docked'
   const isLocked = lockedKeys.size > 0
-
-  const lockedChordInfo = isLocked ? detectChordWithInversion(lockedKeys) : null
-  const lockedChord = localizeChord(lockedChordInfo?.name ?? null, noteNaming, accidentals)
-  const lockedInvLabel = lockedChordInfo?.invLabel ?? ''
 
   const playLockedChord = useCallback(() => {
     const playNote = (window as any).__orfeoPlayNote
@@ -121,53 +114,41 @@ export default function KeyboardControls() {
         {isDocked ? 'Docked' : 'Floating'}
       </button>
 
-      {/* Centre: help text or locked chord controls */}
+      {/* Centre: help text or locked chord controls — three visual groups */}
       <div style={{
         position: 'absolute', left: '50%', transform: 'translateX(-50%)',
-        display: 'flex', alignItems: 'center', gap: 6,
+        display: 'flex', alignItems: 'center', gap: 10,
       }}>
         {isLocked ? (
           <>
-            <span style={{ fontSize: 9, color: '#e8a02770', fontFamily: 'Inter', letterSpacing: '0.04em', userSelect: 'none' }}>
-              Locked Chord
+            {/* Left label */}
+            <span style={{ fontFamily: 'Inter', fontSize: 9, fontWeight: 700, color: '#707088', letterSpacing: '0.10em', textTransform: 'uppercase', userSelect: 'none' }}>
+              Locked chord
             </span>
-            {lockedChord && (
-              <span style={{ fontFamily: 'JetBrains Mono', fontSize: 12, fontWeight: 700, color: '#e8a027', userSelect: 'none' }}>
-                {lockedChord}
-              </span>
-            )}
-            {lockedInvLabel && (
-              <span style={{ fontSize: 9, color: '#e8a02799', fontFamily: 'Inter', userSelect: 'none' }}>
-                {lockedInvLabel}
-              </span>
-            )}
-            <button onClick={playLockedChord} title="Play this chord"
-              style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#e8a027', padding: '2px 3px', borderRadius: 3, display: 'flex', alignItems: 'center' }}
+            {/* Previous inversion — Play icon mirrored */}
+            <button onClick={() => applyInversion(prevInversion)} title="Previous inversion"
+              style={{ background: 'none', border: 'none', color: '#e8a027', cursor: 'pointer', padding: '0 2px', display: 'flex', alignItems: 'center' }}
               onMouseEnter={e => e.currentTarget.style.color = '#ffb84d'}
               onMouseLeave={e => e.currentTarget.style.color = '#e8a027'}
-            >
-              <Play size={11} fill="currentColor" />
-            </button>
-            <button onClick={() => applyInversion(prevInversion)} title="Previous inversion"
-              style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#606080', padding: '2px 3px', borderRadius: 3, display: 'flex', alignItems: 'center' }}
-              onMouseEnter={e => e.currentTarget.style.color = '#e8a027'}
-              onMouseLeave={e => e.currentTarget.style.color = '#606080'}
-            >
-              <ChevronLeft size={13} />
-            </button>
-            <span style={{ fontSize: 8, color: '#707088', fontFamily: 'Inter', userSelect: 'none' }}>inv</span>
+            ><Play size={13} style={{ transform: 'scaleX(-1)' }} /></button>
+            {/* Play chord button — outlined amber */}
+            <button onClick={playLockedChord} title="Play this chord"
+              style={{ background: 'transparent', border: '1px solid #e8a027', color: '#e8a027', borderRadius: 3, padding: '2px 8px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 4, fontFamily: 'Inter', fontSize: 9, fontWeight: 700, letterSpacing: '0.06em', textTransform: 'uppercase' }}
+              onMouseEnter={e => { e.currentTarget.style.borderColor = '#ffb84d'; e.currentTarget.style.color = '#ffb84d' }}
+              onMouseLeave={e => { e.currentTarget.style.borderColor = '#e8a027'; e.currentTarget.style.color = '#e8a027' }}
+            ><Play size={10} fill="currentColor" /> Play</button>
+            {/* Next inversion — Play icon normal */}
             <button onClick={() => applyInversion(nextInversion)} title="Next inversion"
-              style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#606080', padding: '2px 3px', borderRadius: 3, display: 'flex', alignItems: 'center' }}
+              style={{ background: 'none', border: 'none', color: '#e8a027', cursor: 'pointer', padding: '0 2px', display: 'flex', alignItems: 'center' }}
+              onMouseEnter={e => e.currentTarget.style.color = '#ffb84d'}
+              onMouseLeave={e => e.currentTarget.style.color = '#e8a027'}
+            ><Play size={13} /></button>
+            {/* Clear locked chord */}
+            <button onClick={clearLockedKeys} title="Clear locked chord"
+              style={{ background: 'none', border: 'none', color: '#505068', cursor: 'pointer', padding: '0 2px', display: 'flex', alignItems: 'center' }}
               onMouseEnter={e => e.currentTarget.style.color = '#e8a027'}
-              onMouseLeave={e => e.currentTarget.style.color = '#606080'}
-            >
-              <ChevronRight size={13} />
-            </button>
-            <button onClick={clearLockedKeys} title="Clear chord lock"
-              style={{ fontSize: 8, color: '#9090a8', background: '#1a1a22', border: '1px solid #3a3a4a', borderRadius: 3, padding: '1px 5px', cursor: 'pointer', fontFamily: 'Inter' }}
-            >
-              clear
-            </button>
+              onMouseLeave={e => e.currentTarget.style.color = '#505068'}
+            ><RotateCcw size={13} /></button>
           </>
         ) : (
           <span style={{ fontSize: 9, color: '#707088', fontFamily: 'Inter', userSelect: 'none' }}>

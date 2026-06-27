@@ -2,7 +2,7 @@ import { useMemo, useCallback, useState, useEffect, useRef } from 'react'
 import { useStore } from '../../store'
 import { isBlackKey } from '../../utils/midiParser'
 import { getNoteLabel, getNoteName } from '../../utils/noteNames'
-import { detectChord, localizeChord } from '../../utils/chordDetection'
+import { detectChord, detectChordWithInversion, localizeChord } from '../../utils/chordDetection'
 
 const RANGES: Record<number, { min: number; max: number }> = {
   61: { min: 36, max: 96 },
@@ -34,6 +34,14 @@ export default function Keyboard() {
   const setLockedKeysStore = useStore((s) => s.setLockedKeys)
   const clearLockedKeys = useStore((s) => s.clearLockedKeys)
   const shiftHeldRef = useRef(false)
+
+  // ── Locked chord display — computed for the chord bar above the keyboard ─────
+  const lockedChordInfo = useMemo(
+    () => lockedKeys.size > 0 ? detectChordWithInversion(lockedKeys) : null,
+    [lockedKeys]
+  )
+  const lockedChordName = localizeChord(lockedChordInfo?.name ?? null, noteNaming, accidentals)
+  const lockedInvLabel  = lockedChordInfo?.invLabel ?? ''
 
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const holdRef = useRef<ReturnType<typeof setTimeout> | null>(null)
@@ -192,19 +200,24 @@ export default function Keyboard() {
           Chords
         </span>
 
-        {/* Centre: chord name */}
+        {/* Centre: chord name — shows locked chord when a manual lock is active */}
         <div style={{ display: 'flex', alignItems: 'baseline', gap: 5, minWidth: 80, justifyContent: 'center' }}>
           <span style={{
             fontFamily: 'JetBrains Mono',
-            fontSize: displayedChord ? 14 : 10,
-            fontWeight: displayedChord ? 700 : 400,
-            color: displayedChord ? '#e8a027' : '#222235',
-            letterSpacing: displayedChord ? '0.05em' : '0.03em',
+            fontSize: (lockedChordName || displayedChord) ? 14 : 10,
+            fontWeight: (lockedChordName || displayedChord) ? 700 : 400,
+            color: (lockedChordName || displayedChord) ? '#e8a027' : '#222235',
+            letterSpacing: (lockedChordName || displayedChord) ? '0.05em' : '0.03em',
             transition: 'color 0.2s, font-size 0.15s',
             textAlign: 'center',
           }}>
-            {displayedChord ?? '— — —'}
+            {lockedChordName ?? displayedChord ?? '— — —'}
           </span>
+          {lockedChordName && lockedInvLabel && (
+            <span style={{ fontFamily: 'Inter', fontSize: 9, color: '#b0b0cc', userSelect: 'none' }}>
+              {lockedInvLabel}
+            </span>
+          )}
         </div>
 
         {/* Right: SCALES trigger */}

@@ -101,9 +101,8 @@ All Electron APIs are accessed through `window.electronAPI` (defined in `src/typ
 - **PC 10 (Bb/A#) is always spelled Bb** — `ENGLISH_SHARP[10]` is `'Bb'`, not `'A#'`; `convertAccidentals` sharp mode normalises incoming `A#` → `Bb`. A# has no standard key and is never used.
 
 ## Current status (June 2026)
-- v0.5.2 — Scale Explorer + ChordExplorer progressions row redesigned (2026-06-27)
-- This session: new `SpeedControl` SVG component; progressions row three-column layout (PLAY/STOP outlined, SpeedControl, icon inversion buttons); Chord Quality row shows full progression cycling; progressions dropdown two-column (name + roman numerals); ScaleExplorer footer Play icons, caps + ArrowUpRight on Chord Explorer link
-- Also fixed: chord keyboard range (octave order `[4,3,5,2]` → `[3,4,2,5]`, now C3–C5); inversion player rewritten to use live `explorerKeys` from store (same pattern as ChordExplorer), unlimited voicing traversal
+- v0.5.3 — Manual chord lock mode redesign (2026-06-27)
+- This session: chord name + inversion label moved to chord bar (Keyboard.tsx) via `lockedChordInfo` useMemo; KeyboardControls bottom row restructured (LOCKED CHORD label, Play-flipped/PLAY/Play inversion buttons, RotateCcw clear — all ScaleExplorer-styled); ChordExplorer no longer forces 61-key (61 is ScaleExplorer-only); RotateCcw in both explorers now also calls `clearLockedKeys`
 - Next task: whatever the user specifies
 
 ## Audio
@@ -125,7 +124,7 @@ All Electron APIs are accessed through `window.electronAPI` (defined in `src/typ
 - `applyNthInversion` identical to ChordExplorer version
 - Footer ‹ PLAY INVERSION ›: same pattern as ChordExplorer, uses `inversionStep` state + `currentBaseMidi` from selected degree
 - ChordExplorer "Scale Explorer →" button: `setChordExplorerOpen(false); setScaleExplorerOpen(true)`; Scale Explorer "Chord Explorer →" does the reverse
-- Both explorers force 61-key layout; font size conditions in Keyboard.tsx use `chordExplorerOpen || scaleExplorerOpen`
+- ScaleExplorer forces 61-key layout on open and restores previous size on close; ChordExplorer does NOT change keyboard size — font size conditions in Keyboard.tsx still use `chordExplorerOpen || scaleExplorerOpen`
 - Space/Escape in App.tsx is blocked when either explorer is open
 - `MINOR_SCALES` set (module-level) — Natural Minor, Harmonic Minor, Melodic Minor, Minor Pentatonic, Phrygian — drives `keyQuality` suffix ('m' or '') on Key display in info row
 - `playTriggerRef` + `playTrigger` state counter — incremented on every CoF onClick so scale play effect fires even when same key is re-clicked

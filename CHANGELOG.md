@@ -2,6 +2,25 @@
 
 ## [Unreleased] — dev branch
 
+### 2026-06-27 — Manual chord lock mode redesign
+
+**`src/components/Keyboard/Keyboard.tsx`**
+- Chord bar now shows the locked chord name + inversion label when a manual lock is active — computed via `detectChordWithInversion` + `useMemo` directly in the component; takes priority over `displayedChord` from playback
+
+**`src/components/Keyboard/KeyboardControls.tsx`**
+- Removed chord name / inversion display from the bottom row (moved to chord bar above)
+- Bottom row locked state restructured: `LOCKED CHORD` dim label left, then `[◂ Play] [PLAY outlined amber] [Play ▸]` inversion player, then `RotateCcw` clear — styled to match ScaleExplorer footer
+- Removed `detectChordWithInversion`, `localizeChord`, `ChevronLeft`, `ChevronRight` imports; added `RotateCcw`
+
+**`src/components/ChordExplorer.tsx`**
+- Removed `setKeyboardSize(61)` and prevSizeRef restore — ChordExplorer no longer forces 61-key (61-key is ScaleExplorer-only; default stays at 73)
+- RotateCcw reset button now also calls `clearLockedKeys()` when a chord is locked
+
+**`src/components/ScaleExplorer.tsx`**
+- RotateCcw reset button now also calls `clearLockedKeys()` when a chord is locked
+
+---
+
 ### 2026-06-27 — ScaleExplorer bug fixes
 
 **`src/components/ScaleExplorer.tsx`**

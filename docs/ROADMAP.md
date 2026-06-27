@@ -77,7 +77,25 @@
 - [ ] Shared visualization engine
 - [ ] DAW integration testing (Reaper, Cubase, Studio One)
 
+## Planned Features:
+- [ ] Settings panel rework: full redesign using CSS Grid, icon-based controls,
+      compact layout. Add the following new settings:
+      Display: light/dark theme toggle, UI density (compact/comfortable),
+      show/hide bar numbers.
+      Keyboard: default size on launch, default docked/floating, highlight color picker.
+      Playback: count-in bars (1/2/4), auto-scroll on/off, loop on/off by default,
+      MIDI output device selector.
+      Audio: master volume, note release time.
+      Notation: default accidentals (already in store, expose in UI).
+      Explorers: default scale type, default chord tier, remember last selection on/off.
+      Startup: welcome screen on/off, reopen last file on launch, window position memory.
+
 - [ ] Chord Explorer — Arpeggiator: rhythmic preset patterns (e.g. Who-style syncopated, 
       Alberti bass, ascending/descending, octave jump) defined as step sequences with 
       note duration and rest slots. BPM-configurable. Lights keys in real time. 
       Mini step sequencer under the hood.
+
+- [ ] Help window: separate Electron BrowserWindow loading public/help/index.html.
+      Triggered by clicking an info icon (ℹ) in the topbar. Full HTML/CSS layout,
+      images and video support. Content editable without touching React code.
+      CSS Grid layout. IPC pattern: ipcRenderer.send('open-help') → main.ts opens window.

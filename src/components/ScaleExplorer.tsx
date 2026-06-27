@@ -236,6 +236,7 @@ export default function ScaleExplorer() {
   const setChordExplorerOpen = useStore(s => s.setChordExplorerOpen)
   const setExplorerKeys = useStore(s => s.setExplorerKeys)
   const clearExplorerKeys = useStore(s => s.clearExplorerKeys)
+  const clearLockedKeys = useStore(s => s.clearLockedKeys)
   const noteNaming = useStore(s => s.noteNaming)
   const accidentals = useStore(s => s.accidentals)
   const setAccidentals = useStore(s => s.setAccidentals)
@@ -986,7 +987,7 @@ export default function ScaleExplorer() {
               setSelectedDegree(null); stopProgression(); setSelectedProg(null)
               setProgInversionMode('off'); setProgSpeed('med'); speedRef.current = 'med'
               setInfoRowChord(null)
-              clearExplorerKeys(); useStore.getState().clearDisplayedChord()
+              clearExplorerKeys(); clearLockedKeys(); useStore.getState().clearDisplayedChord()
             }}
             title="Clear & reset"
             style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#505068', padding: '0 2px', display: 'flex', alignItems: 'center' }}

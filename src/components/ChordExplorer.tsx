@@ -155,11 +155,10 @@ export default function ChordExplorer() {
   const setExplorerKeys = useStore(s => s.setExplorerKeys)
   const clearExplorerKeys = useStore(s => s.clearExplorerKeys)
   const clearDisplayedChord = useStore(s => s.clearDisplayedChord)
+  const clearLockedKeys = useStore(s => s.clearLockedKeys)
   const noteNaming = useStore(s => s.noteNaming)
   const accidentals = useStore(s => s.accidentals)
   const setAccidentals = useStore(s => s.setAccidentals)
-  const setKeyboardSize = useStore(s => s.setKeyboardSize)
-
   // ── Window drag position — recomputed on every open against live dimensions
   const [pos, setPos] = useState(() => ({
     x: Math.round((window.innerWidth - MODAL_WIDTH) / 2),
@@ -180,7 +179,6 @@ export default function ChordExplorer() {
   const [progSpeed, setProgSpeed] = useState<'slow' | 'med' | 'fast'>('med')
   const [progInversionMode, setProgInversionMode] = useState<'off' | 'sequential' | 'random'>('off')
 
-  const prevSizeRef = useRef<61 | 73 | 88 | null>(null)
   const searchRef = useRef<HTMLInputElement>(null)
   const progTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const progRunningRef = useRef(false)
@@ -196,7 +194,7 @@ export default function ChordExplorer() {
     setProgStep(0)
   }, [])
 
-  // Force 61-key while open; restore on close. Also reset transient state on each open.
+  // Reset transient state on open; no keyboard size change (61 is for ScaleExplorer only).
   useEffect(() => {
     if (chordExplorerOpen) {
       // ── Recentre on live window dimensions every time modal opens ───────
@@ -204,8 +202,6 @@ export default function ChordExplorer() {
         x: Math.round((window.innerWidth - MODAL_WIDTH) / 2),
         y: Math.round((window.innerHeight - MODAL_HEIGHT) / 2) - 160,
       })
-      prevSizeRef.current = useStore.getState().keyboardSize as 61 | 73 | 88
-      setKeyboardSize(61)
       setSearch('')
       setSearchOpen(false)
       setHandFilter('all')
@@ -215,12 +211,10 @@ export default function ChordExplorer() {
       setProgDropdownOpen(false)
       setDropdownRect(null)
       setProgInversionMode('off')
-    } else if (prevSizeRef.current !== null) {
-      setKeyboardSize(prevSizeRef.current)
-      prevSizeRef.current = null
+    } else {
       stopProgression()
     }
-  }, [chordExplorerOpen, setKeyboardSize, stopProgression])
+  }, [chordExplorerOpen, stopProgression])
 
   // Pause playback when modal opens
   useEffect(() => {
@@ -822,7 +816,7 @@ export default function ChordExplorer() {
             onMouseLeave={e => { e.currentTarget.style.color = selectedKey ? '#c0c0d0' : '#2a2a3a' }}
           >›</button>
           <button
-            onClick={() => { clearExplorerKeys(); clearDisplayedChord(); setSelectedKey(null) }}
+            onClick={() => { clearExplorerKeys(); clearDisplayedChord(); clearLockedKeys(); setSelectedKey(null) }}
             disabled={!selectedKey}
             title="Clear selection"
             style={{
