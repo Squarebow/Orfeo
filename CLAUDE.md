@@ -98,11 +98,13 @@ All Electron APIs are accessed through `window.electronAPI` (defined in `src/typ
 ## Note naming
 - Central European (EU) naming uses H for B natural — this is intentional, never change it
 - All note display routes through convertAccidentals() in noteNames.ts — never convert inline
+- **PC 10 (Bb/A#) is always spelled Bb** — `ENGLISH_SHARP[10]` is `'Bb'`, not `'A#'`; `convertAccidentals` sharp mode normalises incoming `A#` → `Bb`. A# has no standard key and is never used.
 
 ## Current status (June 2026)
-- v0.5.2 — Scale Explorer implemented and layout-polished across multiple sessions
-- Scale Explorer layout is complete (4 rounds of annotation-driven fixes); **visual testing in the running app not yet done for the latest round** — start there next session
-- Next task: Launch dev server, visually verify Scale Explorer layout (guideline text, CoF height, scale column alignment, accidental gaps), then whatever the user specifies
+- v0.5.2 — Scale Explorer visually verified and polished in this session (2026-06-27)
+- Scale Explorer layout confirmed working in the running app
+- This session: reset-on-open/clear-button wiring, Bb/A# fix, scale replay on repeated CoF click, info row redesign (chord quality + 16px notes + key display), stale chord info cleared on key change
+- Next task: whatever the user specifies
 
 ## Audio
 - JZZ.js is the active MIDI playback engine (replaced Tone.js)
@@ -125,6 +127,10 @@ All Electron APIs are accessed through `window.electronAPI` (defined in `src/typ
 - ChordExplorer "Scale Explorer →" button: `setChordExplorerOpen(false); setScaleExplorerOpen(true)`; Scale Explorer "Chord Explorer →" does the reverse
 - Both explorers force 61-key layout; font size conditions in Keyboard.tsx use `chordExplorerOpen || scaleExplorerOpen`
 - Space/Escape in App.tsx is blocked when either explorer is open
+- `MINOR_SCALES` set (module-level) — Natural Minor, Harmonic Minor, Melodic Minor, Minor Pentatonic, Phrygian — drives `keyQuality` suffix ('m' or '') on Key display in info row
+- `playTriggerRef` + `playTrigger` state counter — incremented on every CoF onClick so scale play effect fires even when same key is re-clicked
+- Info row (chord/inversion row): three columns — left: CHORD QUALITY label + roman numeral (amber 12px bold) inline; centre: notes absolute-centred 16px JetBrains Mono; right: key root+quality (amber 12px bold) + KEY: label (dim #707088)
+- CoF onClick clears `infoRowChord` and `selectedDegree` immediately on key change
 
 ### CoF section layout (current, after all polish rounds)
 - SVG: `width={380} height={420} viewBox="0 -40 380 420"` — CY=190 renders at y_pixel=230 from SVG top
@@ -139,7 +145,6 @@ All Electron APIs are accessed through `window.electronAPI` (defined in `src/typ
 ## Known Issues
 - Chord Explorer search needs logic rewrite — currently unreliable across naming systems
 - TrackPanel SVG crash (pre-existing, unresolved)
-- Scale Explorer latest layout round (2026-06-26) not yet visually confirmed in running app
 
 ## Git rules
 - Do not add co-author attribution to commit messages
