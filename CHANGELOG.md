@@ -192,3 +192,154 @@ All changes in `src/components/ScaleExplorer.tsx`:
 - Progressions, inversion modes, layout polish
 - `displayedChord` added to Zustand store
 - ChordExplorer search (known issue: unreliable across naming systems)
+
+## [0.5.2] — 2026-06 — Scale Explorer
+> Session 10 | Branch: dev
+
+### Added
+- Scale Explorer modal (`ScaleExplorer.tsx`) — 720px draggable; opens from "Scales" trigger right side of chord bar
+- Circle of Fifths SVG — 380×380; outer (major) + inner (relative minor) rings; amber selection; ♯/♭ symbols staggered at alternating radii
+- 10 scale types; notes play ascending including octave root note
+- Diatonic chord grid — 7 tiles; Roman numeral labels; click to light keyboard and play
+- Info row, chord/inversion display row, progressions (20 named), SpeedControl, modal switching
+- App launches maximized; both modals default-position above keyboard on open
+
+### Changed
+- "Scales" trigger added right side of keyboard chord bar
+- Key label font sizes enlarge when either explorer is open
+- App.tsx Space/Escape guards check `scaleExplorerOpen`
+
+### Fixed
+- Scale replays on every COF click (playTrigger counter)
+- Clear button resets all local Scale Explorer state
+- Explorers always open fresh via useEffect reset
+
+---
+
+## [0.5.1] — 2026-06 — Chord Explorer
+> Session 09 | Branch: dev
+
+### Added
+- Chord Explorer modal (`ChordExplorer.tsx`) — 600px draggable; pauses playback on open
+- Root selector, Common/Extended chord grid, Hand filter, Note count filter, Search
+- Inversion browser — `‹ PLAY INVERSION ›` centred footer; RotateCcw clears
+- Accidentals toggle in footer; Chord Progressions (15 named); Logo click reset
+
+### Changed
+- All rows: label-left / controls-right; modal width 540px → 600px
+- `displayedChord` moved to Zustand store; chord bar label → `Locked Chord`
+- PROGRESSIONS + INVERSIONS merged into one row
+
+### Fixed
+- CE naming: pitch class 10 always `'B'` (was `'A#'`)
+- RotateCcw clears chord bar display; explorer keys excluded from persistence
+
+---
+
+## [0.5.0] — 2026-06 — UI Polish, Tempo Map Metronome, Piano Roll Range Fix
+> Session 08 | Branch: dev → main
+
+### Added
+- Tempo map metronome — persistent 25ms interval; handles mid-file tempo changes
+- MIDI tempo map extraction (`_tempoMap`); BPM display tracks changes
+- BPM long-press — hold ▲/▼ to accelerate; `LongPressArrow` component
+- Warm theme functional; Zoom wired to PianoRoll renderer
+- Piano roll key range respects selected keyboard size (was hardcoded 88)
+- User Manual link; Floating keyboard width-only resize
+
+### Changed
+- Left drawer width 220px → 260px; Library tab default; opens on launch
+- Note naming buttons: UK/US, EU, Hide
+- Piano roll grid — black-key shading + C-note dividers; playhead 1px → 2px
+- Keyboard height proportional via ResizeObserver; metronome levels/pitch/lookahead tuned
+- `package.json` version 0.2.1 → 0.5.0
+
+### Fixed
+- Library subfolder `ChevronDown` missing import; chord tooltip direction
+
+---
+
+## [0.3.2] — 2026-06 — Floating Keyboard, Chord Display During Playback, Metronome Alignment
+> Session 07 | Branch: dev
+
+### Added
+- Floating keyboard (`FloatingKeyboard.tsx`) — draggable; boundary-clamped; pin and × re-dock
+- Keyboard size button tooltips
+
+### Changed
+- Chord debounce during playback 320ms → 60ms; clears immediately below 3 notes
+- `accidentals` added to chord display effect dependency array
+- Metronome aligns first click to next grid-aligned beat at current playback position
+
+### Fixed
+- Float button toggled store but no floating panel existed — now real
+
+---
+
+## [0.3.1] — 2026-06 — Library Subfolders, MIDI Editor Fixes, Settings Persistence
+> Sessions 05/06 | Branch: dev
+
+### Added
+- Library subfolder support — recursive scan; collapsible headers; Windows paths normalised
+- Full GM instrument list — all 128 programs across 16 families
+- Pencil icon turns amber when MIDI editor open; resets via `editor:closed` IPC
+
+### Changed
+- `noteNaming` + `accidentals` persisted with null sentinel fix; MIDI editor undo-merge in-place
+- Output filename dynamically switches `_ORFEO` / `_ORFEO_MERGED`
+- Drums show plain "Standard Drums"; GM family icons 12px → 15px
+
+### Fixed
+- Library file click silently failed; first subscriber fire overwrote saved prefs
+
+---
+
+## [0.3.0] — 2026-06 — Left Drawer, Library, MIDI Editor, UI Polish, Build Pipeline
+> Session 04 | Branch: dev → main
+
+### Added
+- Left settings/library drawer (`SettingsPanel.tsx`) — Settings + Library tabs
+- MIDI file library — folder picker, star toggle, persistent, click to load
+- Accidentals toggle — `convertAccidentals()` single source of truth
+- MIDI Playback Editor (`MidiEditor.tsx`) — separate Electron window; track include/exclude; GM reassignment; track merge; Save & Reload (`_ORFEO.mid`)
+- Build pipeline — `electron-builder` + NSIS; real app icon
+- SF2 audio engine scaffold; design token system; chord detection rewrite; chord lock
+
+### Changed
+- TopBar redesigned; track panel auto-opens on MIDI load; `titleBarStyle: 'hidden'`
+- Default keyboard size 73 keys; metronome rewritten (Web Audio API lookahead)
+
+### Fixed
+- `showOnKeyboard` flag before key lighting; mouse click uses channel 14 + Grand Piano
+
+---
+
+## [0.2.0] — 2026-06 — MIDI Playback, Audio Engine, Visual Polish
+> Sessions 02/03 | Branch: dev
+
+### Added
+- MIDI file open dialog; MIDI parser; PixiJS piano roll (falling notes, 60fps)
+- Visual clock (rAF + `performance.now()`); Tone.js audio engine (`Tone.Part` + `Tone.Transport`)
+- Key lighting — `activeKeys` / `activeKeyColors`; piano-family tracks only
+
+### Fixed
+- App freeze on startup (JZZ lazy init); infinite loop in Zustand subscriber
+- Transpose not affecting audio; topbar padding cramped by Windows titlebar overlay
+
+---
+
+## [0.1.0] — 2026-06 — Initial Scaffold
+> Session 01 | Branch: main
+
+### Added
+- Electron + Vite + React + TypeScript scaffold via electron-vite
+- PixiJS piano roll (WebGL); Zustand store; `@tonejs/midi` parser; `tonal.js` chord detection
+- Note naming: English, Central European (H), Solfège, Hidden
+- Virtual keyboard (61/73/88); track panel; amber `#e8a027` theme on `#0f0f12`
+- Inter + JetBrains Mono typography; CSS variables; Tailwind
+- README, CHANGELOG, ROADMAP, ARCHITECTURE
+
+### Technical Decisions
+- PixiJS over Canvas — WebGL for large MIDI files
+- Zustand over Redux — simpler boilerplate
+- Central European note naming (H = B natural) for Slovenian/German/Croatian users
