@@ -8,7 +8,4 @@ release/
 *.log
 .DS_Store
 Thumbs.db
-.claude/HANDOFF.md
 .claude/
-public/GeneralUser-GS.sf2
-public/spessasynth_processor.min.js
