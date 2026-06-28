@@ -2,6 +2,36 @@
 
 ## [Unreleased] — dev branch
 
+### 2026-06-28 — Inversion display architecture rework + locked chord seed fix
+
+**`src/store/index.ts`** — new fields:
+- `explorerChordDisplay: { name, invCount, noteCount } | null` + setters — single source of truth for chord above keyboard when an explorer is open; replaces the previous pattern where explorers called `setDisplayedChord` on an inverted note set
+- `lockedChordNoteCount: number` + setter — enables correct modulo wrapping for locked chord inversion labels; `clearLockedKeys` and `resetAll` reset it
+
+**`src/utils/chordDetection.ts`**:
+- `formatInversionDisplay` — added `noteCount` parameter; applies `((invCount % noteCount) + noteCount) % noteCount` so labels loop correctly for all chord sizes (3-note: root→1st→2nd→root…; 4-note: adds 3rd; 5/6+: same logic)
+- `stripMajorSuffix` — exported; applied at the end of `localizeChord` as a global safety net so `CM`/`GM` can never reach the UI
+- `stripMajorSuffix` now also applied inside the solfege branch of `localizeChord`
+
+**`src/components/Keyboard/Keyboard.tsx`**:
+- `handleKeyClick` Shift branch — seeds `lockedInversionCount` from `detectChordWithInversion().ordinal` instead of always 0; locking C-F-A (an F 2nd inv) now immediately shows "F/C 2nd inv" and cycles correctly from that position
+- Added `explorerDisplay` useMemo — reads `explorerChordDisplay` from store, calls `formatInversionDisplay` with stored noteCount; renders in chord bar with correct modulo label
+- Chord bar priority: locked → explorer → MIDI playback → empty; `Nth inv` ordinal label colour changed from `#c0c0d0` to `#707088` globally
+- Detection effect guarded: skips `activeKeys` re-detection while any explorer is open, preventing the active-keys path from overriding `explorerChordDisplay` with a wrong re-detected chord name (e.g. `G6` instead of `Em7/G`)
+
+**`src/components/ChordExplorer.tsx`**:
+- Removed local `originalChordName`/`inversionCount` state — replaced by `explorerChordDisplay` in store
+- `playChordAt` — calls `setExplorerChordDisplay({ name, invCount: 0, noteCount })` instead of local state
+- `handleInversion` — updates `explorerChordDisplay.invCount` in store via `useStore.getState()`
+- Footer centre restored to plain grey `PLAY INVERSION` text between two `<Play>` Lucide icons (matching ScaleExplorer); chord display removed from footer entirely
+
+**`src/components/ScaleExplorer.tsx`**:
+- Same store migration as ChordExplorer — local `originalChordName`/`inversionCount` removed
+- `playDegree`, `handlePrevInversion`, `handleNextInversion`, CoF onClick, RotateCcw, close — all wired to `setExplorerChordDisplay`/`clearExplorerChordDisplay`
+- Footer centre restored to same plain grey `PLAY INVERSION` text; added hover states to inversion play buttons
+
+---
+
 ### 2026-06-27 — Chord inversion display fix (complete)
 
 Core principle: `Chord.detect()` called once on the root-position note set; original chord identity is preserved across all inversion cycling. Never re-detect on an already-inverted set. `stripMajorSuffix()` applied at every return point — no bare `CM`/`GM` in UI.

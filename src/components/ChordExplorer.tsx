@@ -4,7 +4,6 @@ import { ChordType, Interval } from 'tonal'
 import { Search, Hand, RotateCcw, Play, Square, CircleOff, ListOrdered, Shuffle } from 'lucide-react'
 import { useStore } from '../store'
 import { getNoteName } from '../utils/noteNames'
-import { formatInversionDisplay, ordinalSuffix } from '../utils/chordDetection'
 import type { NoteNaming } from '../types'
 import SpeedControl from './SpeedControl'
 
@@ -158,6 +157,8 @@ export default function ChordExplorer() {
   const clearExplorerKeys = useStore(s => s.clearExplorerKeys)
   const clearDisplayedChord = useStore(s => s.clearDisplayedChord)
   const clearLockedKeys = useStore(s => s.clearLockedKeys)
+  const setExplorerChordDisplay = useStore(s => s.setExplorerChordDisplay)
+  const clearExplorerChordDisplay = useStore(s => s.clearExplorerChordDisplay)
   const noteNaming = useStore(s => s.noteNaming)
   const accidentals = useStore(s => s.accidentals)
   const setAccidentals = useStore(s => s.setAccidentals)
@@ -180,10 +181,6 @@ export default function ChordExplorer() {
   const [progStep, setProgStep] = useState(0)
   const [progSpeed, setProgSpeed] = useState<'slow' | 'med' | 'fast'>('med')
   const [progInversionMode, setProgInversionMode] = useState<'off' | 'sequential' | 'random'>('off')
-  // ── Original chord identity preserved across inversion cycling ────────────
-  const [originalChordName, setOriginalChordName] = useState<string | null>(null)
-  const [inversionCount, setInversionCount] = useState(0)
-
   const searchRef = useRef<HTMLInputElement>(null)
   const progTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const progRunningRef = useRef(false)
@@ -234,11 +231,10 @@ export default function ChordExplorer() {
   const close = useCallback(() => {
     stopProgression()
     clearExplorerKeys()
+    clearExplorerChordDisplay()
     setChordExplorerOpen(false)
     setSelectedKey(null)
-    setOriginalChordName(null)
-    setInversionCount(0)
-  }, [stopProgression, clearExplorerKeys, setChordExplorerOpen])
+  }, [stopProgression, clearExplorerKeys, clearExplorerChordDisplay, setChordExplorerOpen])
 
   useEffect(() => {
     if (!chordExplorerOpen) return
@@ -386,9 +382,9 @@ export default function ChordExplorer() {
     const colors = new Map(midiNotes.map(m => [m, '#e8a027'] as [number, string]))
     setExplorerKeys(keys, colors)
     setSelectedKey(chordKey)
-    // ── Store original chord name and reset inversion count ───────────────
-    setOriginalChordName(`${rootLabels.find(r => r.pitchClass === rootPitchClass)?.label ?? ''}${DISPLAY_SUFFIX[chordKey] ?? chordKey}`)
-    setInversionCount(0)
+    // ── Store chord identity in Zustand so Keyboard.tsx can display it ────
+    const chordName = `${rootLabels.find(r => r.pitchClass === rootPitchClass)?.label ?? ''}${DISPLAY_SUFFIX[chordKey] ?? chordKey}`
+    setExplorerChordDisplay({ name: chordName, invCount: 0, noteCount: midiNotes.length })
     const playNote = (window as any).__orfeoPlayNote
     if (playNote) midiNotes.forEach(m => playNote(m, 0.75, 1200))
   }, [stopProgression, setExplorerKeys, rootLabels])
@@ -405,13 +401,15 @@ export default function ChordExplorer() {
 
   const handleInversion = useCallback((dir: 'prev' | 'next') => {
     if (!selectedKey) return
-    const current = useStore.getState().explorerKeys
+    const state = useStore.getState()
+    const current = state.explorerKeys
     if (current.size === 0) return
     const newNotes = dir === 'next' ? nextInversion(current) : prevInversion(current)
     const colors = new Map(Array.from(newNotes).map(m => [m, '#e8a027'] as [number, string]))
     setExplorerKeys(newNotes, colors)
-    // ── Track inversion step for display ─────────────────────────────────
-    setInversionCount(c => c + (dir === 'next' ? 1 : -1))
+    // ── Update inversion count in store so Keyboard.tsx label updates ─────
+    const cd = state.explorerChordDisplay
+    if (cd) state.setExplorerChordDisplay({ ...cd, invCount: cd.invCount + (dir === 'next' ? 1 : -1) })
     const playNote = (window as any).__orfeoPlayNote
     if (playNote) Array.from(newNotes).forEach(m => playNote(m, 0.75, 1000))
   }, [selectedKey, setExplorerKeys])
@@ -792,67 +790,30 @@ export default function ChordExplorer() {
           position: 'absolute', left: '50%', transform: 'translateX(-50%)',
           display: 'flex', alignItems: 'center', gap: 6,
         }}>
+          {/* Previous inversion — Play icon mirrored */}
           <button
             onClick={() => handleInversion('prev')}
             disabled={!selectedKey}
             title="Previous inversion"
-            style={{
-              background: 'none', border: 'none',
-              cursor: selectedKey ? 'pointer' : 'default',
-              color: selectedKey ? '#c0c0d0' : '#2a2a3a',
-              fontSize: 18, lineHeight: 1, padding: '0 2px', fontFamily: 'Inter',
-              transition: 'color 0.1s',
-            }}
-            onMouseEnter={e => { if (selectedKey) e.currentTarget.style.color = '#e8a027' }}
-            onMouseLeave={e => { e.currentTarget.style.color = selectedKey ? '#c0c0d0' : '#2a2a3a' }}
-          >‹</button>
-          {/* ── Chord name with inversion label; falls back to PLAY INVERSION ── */}
-          {(() => {
-            const bassNoteMidi = explorerKeys.size > 0 ? Math.min(...explorerKeys) : 0
-            const inv = originalChordName && explorerKeys.size > 0
-              ? formatInversionDisplay(originalChordName, inversionCount, bassNoteMidi, displayNaming, accidentals, true)
-              : null
-            return inv ? (
-              <span style={{ display: 'flex', alignItems: 'baseline', gap: 3, userSelect: 'none' }}>
-                <span style={{ fontFamily: 'JetBrains Mono', fontSize: 12, fontWeight: 700, color: '#e8a027' }}>
-                  {inv.chordLabel}
-                </span>
-                {inv.ordinal && (
-                  <span style={{ fontFamily: 'Inter', fontSize: 9, color: '#c0c0d0' }}>
-                    {inv.ordinal}
-                    <span style={{ fontSize: 7, verticalAlign: 'super' }}>
-                      {ordinalSuffix(Number(inv.ordinal))}
-                    </span>
-                    {' inv'}
-                  </span>
-                )}
-              </span>
-            ) : (
-              <span style={{
-                fontFamily: 'Inter', fontSize: 9, fontWeight: 700,
-                color: selectedKey ? '#e8a027' : '#303040',
-                letterSpacing: '0.1em', textTransform: 'uppercase', userSelect: 'none',
-              }}>
-                Play Inversion
-              </span>
-            )
-          })()}
+            style={{ background: 'none', border: 'none', cursor: selectedKey ? 'pointer' : 'default', color: selectedKey ? '#e8a027' : '#303048', padding: '0 2px', display: 'flex', alignItems: 'center' }}
+            onMouseEnter={e => { if (selectedKey) e.currentTarget.style.color = '#ffb84d' }}
+            onMouseLeave={e => { e.currentTarget.style.color = selectedKey ? '#e8a027' : '#303048' }}
+          ><Play size={14} style={{ transform: 'scaleX(-1)' }} /></button>
+          {/* Static grey label — chord display is above the keyboard only */}
+          <span style={{ fontFamily: 'Inter', fontSize: 8, fontWeight: 700, color: '#505068', letterSpacing: '0.12em', textTransform: 'uppercase', userSelect: 'none' }}>
+            Play Inversion
+          </span>
+          {/* Next inversion — Play icon normal */}
           <button
             onClick={() => handleInversion('next')}
             disabled={!selectedKey}
             title="Next inversion"
-            style={{
-              background: 'none', border: 'none',
-              cursor: selectedKey ? 'pointer' : 'default',
-              color: selectedKey ? '#c0c0d0' : '#2a2a3a',
-              fontSize: 18, lineHeight: 1, padding: '0 2px', fontFamily: 'Inter',
-              transition: 'color 0.1s',
-            }}
-            onMouseEnter={e => { if (selectedKey) e.currentTarget.style.color = '#e8a027' }}
-            onMouseLeave={e => { e.currentTarget.style.color = selectedKey ? '#c0c0d0' : '#2a2a3a' }}
-          >›</button>
+            style={{ background: 'none', border: 'none', cursor: selectedKey ? 'pointer' : 'default', color: selectedKey ? '#e8a027' : '#303048', padding: '0 2px', display: 'flex', alignItems: 'center' }}
+            onMouseEnter={e => { if (selectedKey) e.currentTarget.style.color = '#ffb84d' }}
+            onMouseLeave={e => { e.currentTarget.style.color = selectedKey ? '#e8a027' : '#303048' }}
+          ><Play size={14} /></button>
           <button
-            onClick={() => { clearExplorerKeys(); clearDisplayedChord(); clearLockedKeys(); setSelectedKey(null); setOriginalChordName(null); setInversionCount(0) }}
+            onClick={() => { clearExplorerKeys(); clearDisplayedChord(); clearLockedKeys(); clearExplorerChordDisplay(); setSelectedKey(null) }}
             disabled={!selectedKey}
             title="Clear selection"
             style={{

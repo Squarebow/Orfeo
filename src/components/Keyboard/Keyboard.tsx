@@ -36,16 +36,30 @@ export default function Keyboard() {
   // ── Chord identity preserved across inversion cycling ─────────────────────
   const originalLockedChordName = useStore((s) => s.originalLockedChordName)
   const lockedInversionCount    = useStore((s) => s.lockedInversionCount)
+  const lockedChordNoteCount    = useStore((s) => s.lockedChordNoteCount)
+  // ── Explorer chord display — computed name + count from ChordExplorer/ScaleExplorer
+  const explorerChordDisplay    = useStore((s) => s.explorerChordDisplay)
   const shiftHeldRef = useRef(false)
 
-  // ── Compute structured inversion display for locked chord in chord bar ─────
+  // ── Compute structured inversion display for locked chord ─────────────────
   const lockedDisplay = useMemo(() => {
     if (!originalLockedChordName || lockedKeys.size === 0) return null
     const bassNoteMidi = Math.min(...lockedKeys)
     return formatInversionDisplay(
-      originalLockedChordName, lockedInversionCount, bassNoteMidi, noteNaming, accidentals, true,
+      originalLockedChordName, lockedInversionCount, lockedChordNoteCount,
+      bassNoteMidi, noteNaming, accidentals, true,
     )
-  }, [originalLockedChordName, lockedInversionCount, lockedKeys, noteNaming, accidentals])
+  }, [originalLockedChordName, lockedInversionCount, lockedChordNoteCount, lockedKeys, noteNaming, accidentals])
+
+  // ── Compute structured inversion display for explorer chord ───────────────
+  const explorerDisplay = useMemo(() => {
+    if (!explorerChordDisplay || explorerKeys.size === 0) return null
+    const bassNoteMidi = Math.min(...explorerKeys)
+    return formatInversionDisplay(
+      explorerChordDisplay.name, explorerChordDisplay.invCount, explorerChordDisplay.noteCount,
+      bassNoteMidi, noteNaming, accidentals, true,
+    )
+  }, [explorerChordDisplay, explorerKeys, noteNaming, accidentals])
 
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const holdRef = useRef<ReturnType<typeof setTimeout> | null>(null)
@@ -111,6 +125,8 @@ export default function Keyboard() {
   // Smart playback chord detection
   useEffect(() => {
     if (lockedKeys.size > 0) return
+    // ── Explorer manages its own chord display — skip detection while open ──
+    if (chordExplorerOpen || scaleExplorerOpen) return
     if (activeKeys.size >= CHORD_MIN_NOTES) {
       if (debounceRef.current) clearTimeout(debounceRef.current)
       if (holdRef.current) { clearTimeout(holdRef.current); holdRef.current = null }
@@ -135,7 +151,7 @@ export default function Keyboard() {
         useStore.getState().setDisplayedChord(null)
       }
     }
-  }, [activeKeys, lockedKeys.size, noteNaming, accidentals, playbackState])
+  }, [activeKeys, lockedKeys.size, chordExplorerOpen, scaleExplorerOpen, noteNaming, accidentals, playbackState])
 
 
   const handleKeyClick = useCallback((midi: number) => {
@@ -152,11 +168,14 @@ export default function Keyboard() {
         if (playNote) playNote(midi, 0.7, 600)
       }
       setLockedKeysStore(next, nextColors)
-      // ── Detect chord once on the new note set; preserve name + reset count ─
+      // ── Detect chord once on the new note set; seed inversion count from detection ─
+      // Must start at the detected inversion number, not 0 — locking C-F-A on an F
+      // chord is 2nd inversion; starting at 0 would miscount all subsequent cycling.
       const info = next.size >= 2 ? detectChordWithInversion(next) : null
       const localized = info ? localizeChord(info.name, noteNaming, accidentals) : null
       useStore.getState().setOriginalLockedChordName(localized)
-      useStore.getState().setLockedInversionCount(0)
+      useStore.getState().setLockedInversionCount(info?.ordinal ? Number(info.ordinal) : 0)
+      useStore.getState().setLockedChordNoteCount(next.size)
     } else {
       if (lockedKeys.size > 0) clearLockedKeys()
       const playNote = (window as any).__orfeoPlayNote
@@ -209,10 +228,10 @@ export default function Keyboard() {
           Chords
         </span>
 
-        {/* Centre: chord name — locked takes priority over playback detection */}
+        {/* Centre: chord name — priority: locked > explorer > playback > empty */}
         <div style={{ display: 'flex', alignItems: 'baseline', gap: 5, minWidth: 80, justifyContent: 'center' }}>
           {lockedDisplay ? (
-            // ── Locked chord: chord/bass amber + ordinal superscript + 'inv' ──
+            // ── Locked chord: chord/bass amber + ordinal grey ────────────────
             <>
               <span style={{
                 fontFamily: 'JetBrains Mono', fontSize: 14, fontWeight: 700,
@@ -221,10 +240,29 @@ export default function Keyboard() {
                 {lockedDisplay.chordLabel}
               </span>
               {lockedDisplay.ordinal && (
-                <span style={{ fontFamily: 'Inter', fontSize: 10, color: '#c0c0d0', userSelect: 'none' }}>
+                <span style={{ fontFamily: 'Inter', fontSize: 10, color: '#707088', userSelect: 'none' }}>
                   {lockedDisplay.ordinal}
                   <span style={{ fontSize: 7, verticalAlign: 'super' }}>
                     {ordinalSuffix(Number(lockedDisplay.ordinal))}
+                  </span>
+                  {' inv'}
+                </span>
+              )}
+            </>
+          ) : explorerDisplay ? (
+            // ── Explorer chord: chord/bass amber + ordinal grey ──────────────
+            <>
+              <span style={{
+                fontFamily: 'JetBrains Mono', fontSize: 14, fontWeight: 700,
+                color: '#e8a027', letterSpacing: '0.05em', userSelect: 'none',
+              }}>
+                {explorerDisplay.chordLabel}
+              </span>
+              {explorerDisplay.ordinal && (
+                <span style={{ fontFamily: 'Inter', fontSize: 10, color: '#707088', userSelect: 'none' }}>
+                  {explorerDisplay.ordinal}
+                  <span style={{ fontSize: 7, verticalAlign: 'super' }}>
+                    {ordinalSuffix(Number(explorerDisplay.ordinal))}
                   </span>
                   {' inv'}
                 </span>

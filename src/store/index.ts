@@ -97,6 +97,13 @@ interface OrfeoStore {
   setOriginalLockedChordName: (name: string | null) => void
   lockedInversionCount: number
   setLockedInversionCount: (n: number) => void
+  lockedChordNoteCount: number
+  setLockedChordNoteCount: (n: number) => void
+
+  // ── Explorer chord display — name + inversion tracking for above-keyboard ─
+  explorerChordDisplay: { name: string; invCount: number; noteCount: number } | null
+  setExplorerChordDisplay: (d: { name: string; invCount: number; noteCount: number } | null) => void
+  clearExplorerChordDisplay: () => void
 
   resetAll: () => void
 }
@@ -214,15 +221,21 @@ export const useStore = create<OrfeoStore>((set, get) => ({
   lockedKeys: new Set(),
   lockedColors: new Map(),
   setLockedKeys: (lockedKeys, lockedColors) => set({ lockedKeys, lockedColors }),
-  // ── Clears keys + resets the preserved identity state ────────────────────
+  // ── Clears keys + resets all locked chord identity state ─────────────────
   clearLockedKeys: () => set({
     lockedKeys: new Set(), lockedColors: new Map(),
-    originalLockedChordName: null, lockedInversionCount: 0,
+    originalLockedChordName: null, lockedInversionCount: 0, lockedChordNoteCount: 0,
   }),
   originalLockedChordName: null,
   setOriginalLockedChordName: (originalLockedChordName) => set({ originalLockedChordName }),
   lockedInversionCount: 0,
   setLockedInversionCount: (lockedInversionCount) => set({ lockedInversionCount }),
+  lockedChordNoteCount: 0,
+  setLockedChordNoteCount: (lockedChordNoteCount) => set({ lockedChordNoteCount }),
+
+  explorerChordDisplay: null,
+  setExplorerChordDisplay: (explorerChordDisplay) => set({ explorerChordDisplay }),
+  clearExplorerChordDisplay: () => set({ explorerChordDisplay: null }),
 
   resetAll: () => {
     ;(window as any).__orfeoPlayer?.stop?.()
@@ -231,7 +244,8 @@ export const useStore = create<OrfeoStore>((set, get) => ({
       activeKeys: new Set(), activeKeyColors: new Map(),
       explorerKeys: new Set(), explorerKeyColors: new Map(),
       lockedKeys: new Set(), lockedColors: new Map(),
-      originalLockedChordName: null, lockedInversionCount: 0,
+      originalLockedChordName: null, lockedInversionCount: 0, lockedChordNoteCount: 0,
+      explorerChordDisplay: null,
       displayedChord: null,
       chordExplorerOpen: false, scaleExplorerOpen: false, playbackState: 'stopped',
       currentTime: 0, trackPanelOpen: false, settingsPanelOpen: false,

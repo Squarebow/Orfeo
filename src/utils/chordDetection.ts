@@ -11,7 +11,7 @@ import { getNoteName, convertAccidentals } from './noteNames'
 // ---------------------------------------------------------------------------
 
 // ── Strip trailing M from plain major chord names (CM → C, GM → G) ──────────
-function stripMajorSuffix(chord: string): string {
+export function stripMajorSuffix(chord: string): string {
   return chord.replace(/^([A-G][b#]?)M$/, '$1')
 }
 
@@ -148,29 +148,36 @@ export function detectChordWithInversion(
 // ---------------------------------------------------------------------------
 // Format a chord name + inversion number for structured display.
 // originalChordName: already localized root+type string (e.g. "C", "Dm7")
-// inversionNumber:   0 = root; 1+ = nth inversion
+// inversionNumber:   raw cumulative count (may exceed noteCount or be negative)
+// noteCount:         number of distinct notes in chord — used to wrap the label
+//                    so a 3-note chord always cycles root→1st→2nd→root…
 // bassNoteMidi:      lowest MIDI note in the current voicing
 // showLabel:         pass false on MIDI playback path to suppress ordinal/label
 // ---------------------------------------------------------------------------
 export function formatInversionDisplay(
   originalChordName: string,
   inversionNumber: number,
+  noteCount: number,
   bassNoteMidi: number,
   noteNaming: NoteNaming,
   accidentals: Accidentals,
   showLabel = true,
 ): { chordLabel: string; invLabel: string; ordinal: string } {
-  if (inversionNumber === 0) {
+  // ── Wrap count so labels loop: root → 1st → 2nd → root… ─────────────────
+  const effectiveInv = noteCount > 0
+    ? ((inversionNumber % noteCount) + noteCount) % noteCount
+    : Math.abs(inversionNumber)
+
+  if (effectiveInv === 0) {
     return { chordLabel: originalChordName, invLabel: '', ordinal: '' }
   }
 
   const bassName = getNoteName(bassNoteMidi, noteNaming, accidentals)
   const chordLabel = bassName ? `${originalChordName}/${bassName}` : originalChordName
-  const n = Math.abs(inversionNumber)
   return {
     chordLabel,
     invLabel: showLabel ? 'inv' : '',
-    ordinal: showLabel ? String(n) : '',
+    ordinal: showLabel ? String(effectiveInv) : '',
   }
 }
 
@@ -204,9 +211,10 @@ export function localizeChord(
     }
     const keys = Object.keys(sharpMap).sort((a, b) => b.length - a.length)
     for (const k of keys) {
-      if (result.startsWith(k)) return sharpMap[k] + result.slice(k.length)
+      if (result.startsWith(k)) return stripMajorSuffix(sharpMap[k] + result.slice(k.length))
     }
   }
 
-  return result
+  // ── Final safety net — strip bare M suffix that slipped through ──────────
+  return stripMajorSuffix(result)
 }
