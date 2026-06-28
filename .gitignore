@@ -9,4 +9,4 @@ release/
 .DS_Store
 Thumbs.db
 .claude/HANDOFF.md
-.claude/settings.local.json
+.claude/
