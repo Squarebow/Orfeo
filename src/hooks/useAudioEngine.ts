@@ -1,23 +1,11 @@
-/**
- * Combined audio engine dispatcher for Orfeo (Stage 5c)
- *
- * Reads audioEngine from store ('gm' | 'sf2') and activates
- * the correct backend. The GM engine (JZZ) and SF2 engine
- * (soundfont-player) each run as separate hooks but only the
- * active one actually responds to playback state changes.
- *
- * The click note handler (window.__orfeoPlayNote) routes to
- * whichever backend is currently active.
- */
+// ── Combined audio engine dispatcher ─────────────────────────────────────────
+// Routes to the active backend (gm | samples). Each backend self-gates on its
+// own audioEngine value. The click handler (window.__orfeoPlayNote) forwards to
+// whichever backend is currently selected.
 
 import { useEffect, useRef } from 'react'
 import { useStore } from '../store'
-import { useSF2Engine } from './useSF2Engine'
-
-// ── Paste entire original JZZ engine below ────────────────────────────────
-// (all the _jzzReady, initJZZ, lightKey, buildPlayer, etc. code)
-// Only change: every subscriber check begins with:
-//   if (state.audioEngine !== 'gm') return
+import { useSamplesEngine } from './useSamplesEngine'
 
 let _jzzReady = false
 let _jzzInitP: Promise<void> | null = null
@@ -191,8 +179,8 @@ function stopAudio() {
 
 // ── Combined hook ─────────────────────────────────────────────────────────────
 export function useAudioEngine() {
-  // Always mount SF2 engine (it self-gates on audioEngine !== 'sf2')
-  useSF2Engine()
+  // Always mount Samples engine (it self-gates on audioEngine !== 'samples')
+  useSamplesEngine()
 
   const prevStateRef = useRef('stopped')
   const prevBpmRef = useRef(120)
@@ -200,13 +188,15 @@ export function useAudioEngine() {
   const prevTracksRef = useRef<any>(null)
   const prevVolumeRef = useRef<number>(useStore.getState().masterVolume)
   const schedulingRef = useRef(false)
+  // ── Track audioEngine so we can react to engine switches ────────────────
+  const prevAudioEngineRef = useRef<string>(useStore.getState().audioEngine)
 
   useEffect(() => {
     const playNote = async (midiNum: number, vel = 90, durMs = 500) => {
       const { audioEngine } = useStore.getState()
-      if (audioEngine === 'sf2') {
-        const fn = (window as any).__orfeoPlayNoteSF2
-        if (fn) { fn(midiNum, vel / 127, durMs); return }
+      if (audioEngine === 'samples') {
+        const fn = (window as any).__orfeoPlayNoteSamples
+        if (fn) { fn(midiNum, vel, durMs); return }
       }
       try {
         await initJZZ()
@@ -223,9 +213,19 @@ export function useAudioEngine() {
 
   useEffect(() => {
     const unsub = useStore.subscribe((state) => {
-      // GM engine only responds when audioEngine === 'gm'
-      if (state.audioEngine !== 'gm') return
+      const engineChanged = state.audioEngine !== prevAudioEngineRef.current
+      const prevEngine = prevAudioEngineRef.current
+      prevAudioEngineRef.current = state.audioEngine
 
+      if (state.audioEngine !== 'gm') {
+        // Engine leaving 'gm' — stop JZZ immediately so it doesn't keep playing
+        if (prevEngine === 'gm') {
+          stopAudio()
+        }
+        return
+      }
+
+      // audioEngine === 'gm' from here
       const ps = state.playbackState
       const pp = prevStateRef.current
       const bpmChanged = state.bpm !== prevBpmRef.current
@@ -237,7 +237,15 @@ export function useAudioEngine() {
       prevTransposeRef.current = state.detectedKey?.transpose ?? 0
       prevTracksRef.current = state.tracks
 
-      if (ps === 'playing' && pp !== 'playing') {
+      if (engineChanged && ps === 'playing') {
+        // Engine just switched TO gm while playback is active — rebuild player
+        if (schedulingRef.current) return
+        schedulingRef.current = true
+        initJZZ()
+          .then(() => buildPlayer(state.currentTime))
+          .catch(console.error)
+          .finally(() => { schedulingRef.current = false })
+      } else if (ps === 'playing' && pp !== 'playing') {
         if (schedulingRef.current) return
         schedulingRef.current = true
         initJZZ()

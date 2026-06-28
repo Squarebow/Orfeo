@@ -6,6 +6,7 @@ import {
 import { useStore } from '../../store'
 import type { NoteNaming, KeyboardSize, Accidentals } from '../../types'
 import type { AppTheme } from '../../store'
+import { initSamplesEngine } from '../../hooks/useSamplesEngine'
 
 // ─── Shared sub-components ──────────────────────────────────────────────────
 
@@ -395,6 +396,11 @@ export default function SettingsPanel() {
   const setZoomLevel = useStore((s) => s.setZoomLevel)
   const appTheme = useStore((s) => s.appTheme)
   const setAppTheme = useStore((s) => s.setAppTheme)
+  const audioEngine = useStore((s) => s.audioEngine)
+  const setAudioEngine = useStore((s) => s.setAudioEngine)
+  // ── Samples engine loading state ─────────────────────────────────────────
+  const [samplesStatus, setSamplesStatus] = useState<'idle' | 'loading' | 'ready' | 'error'>('idle')
+  const [samplesProgress, setSamplesProgress] = useState(0)
   const [activeTab, setActiveTab] = useState<DrawerTab>('library')
   const didInit = useRef(false)
   useEffect(() => {
@@ -572,11 +578,65 @@ export default function SettingsPanel() {
 
                 {/* ── Audio ── */}
                 <SectionHeader icon={<Volume2 size={11} />} label="Audio" />
-                <OptionRow label="Sound engine" hint="GM Synth (jzz-synth-tiny) — ships with app, no internet needed.">
+                <OptionRow label="Sound engine">
                   <div style={{ display: 'flex', gap: 4 }}>
-                    <OptionBtn active={true} onClick={() => {}} title="Built-in GM synthesiser — always available offline">GM Synth</OptionBtn>
-                    <OptionBtn active={false} onClick={() => {}} title="GeneralUser GS soundfont — coming soon" comingSoon>SF2</OptionBtn>
+                    {/* GM Synth — always available, switches back from Samples instantly */}
+                    <OptionBtn
+                      active={audioEngine === 'gm'}
+                      onClick={() => setAudioEngine('gm')}
+                      title="Built-in GM synthesiser (jzz-synth-tiny) — always available offline"
+                    >GM Synth</OptionBtn>
+                    {/* Samples — loads GeneralUser GS SF2 via spessasynth_lib on first click */}
+                    <OptionBtn
+                      active={audioEngine === 'samples'}
+                      onClick={async () => {
+                        if (audioEngine === 'samples') return
+                        if (samplesStatus === 'ready') { setAudioEngine('samples'); return }
+                        if (samplesStatus === 'loading') return
+                        setSamplesStatus('loading'); setSamplesProgress(0)
+                        try {
+                          await initSamplesEngine((p) => setSamplesProgress(p))
+                          setSamplesStatus('ready')
+                          setAudioEngine('samples')
+                        } catch (e) {
+                          console.error('[Orfeo Samples] init failed:', e)
+                          setSamplesStatus('error')
+                        }
+                      }}
+                      title="GeneralUser GS soundfont via spessasynth_lib — richer sound, loads once"
+                    >Samples</OptionBtn>
                   </div>
+                  {/* Loading progress / status block */}
+                  {samplesStatus === 'loading' && (
+                    <div style={{ marginTop: 7 }}>
+                      <div style={{ fontSize: 9, color: '#707088', fontFamily: 'JetBrains Mono', marginBottom: 4 }}>
+                        Loading soundfont… {Math.round(samplesProgress * 100)}%
+                      </div>
+                      <div style={{ height: 3, background: '#1e1e2c', borderRadius: 2, overflow: 'hidden' }}>
+                        <div style={{
+                          height: '100%', background: '#e8a027', borderRadius: 2,
+                          width: `${Math.round(samplesProgress * 100)}%`, transition: 'width 0.1s',
+                        }} />
+                      </div>
+                    </div>
+                  )}
+                  {samplesStatus === 'ready' && (
+                    <div style={{ marginTop: 5, fontSize: 9, color: '#404055', fontFamily: 'JetBrains Mono' }}>
+                      GeneralUser-GS.sf2 · 30.8 MB · loaded
+                    </div>
+                  )}
+                  {samplesStatus === 'error' && (
+                    <div style={{ marginTop: 5, fontSize: 9, color: '#c0392b', fontFamily: 'JetBrains Mono' }}>
+                      Failed to load soundfont — check console
+                    </div>
+                  )}
+                  {samplesStatus === 'idle' && (
+                    <div style={{ marginTop: 5, fontSize: 9, color: '#404055', fontFamily: 'JetBrains Mono' }}>
+                      {audioEngine === 'gm'
+                        ? 'GM Synth (jzz-synth-tiny) — ships with app, no internet needed.'
+                        : 'GeneralUser-GS.sf2 · 30.8 MB · click Samples to load'}
+                    </div>
+                  )}
                 </OptionRow>
 
                 {/* ── Appearance ── */}

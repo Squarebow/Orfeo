@@ -108,6 +108,9 @@ interface OrfeoStore {
   masterVolume: number
   setMasterVolume: (v: number) => void
 
+  audioEngine: 'gm' | 'samples'
+  setAudioEngine: (engine: 'gm' | 'samples') => void
+
   resetAll: () => void
 }
 

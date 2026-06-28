@@ -26,6 +26,12 @@ export default defineConfig({
       react(),
       tailwindcss(),
     ],
+    // Exclude spessasynth_lib and its peer dep from pre-bundling — they are
+    // large native-ESM packages and Vite's dep optimisation caused a mid-
+    // session page reload when first encountered in the renderer.
+    optimizeDeps: {
+      exclude: ['spessasynth_lib', 'spessasynth_core'],
+    },
     build: {
       rollupOptions: {
         input: {
