@@ -7,11 +7,12 @@
   "main": "out/main/main.js",
   "type": "module",
   "scripts": {
-    "dev": "electron-vite dev",
-    "build": "electron-vite build",
+    "copyworklet": "node -e \"const fs=require('fs');fs.copyFileSync('node_modules/spessasynth_lib/dist/spessasynth_processor.min.js','public/spessasynth_processor.min.js')\"",
+    "dev": "npm run copyworklet && electron-vite dev",
+    "build": "npm run copyworklet && electron-vite build",
     "preview": "electron-vite preview",
     "typecheck": "tsc --noEmit",
-    "dist": "electron-vite build && electron-builder"
+    "dist": "npm run copyworklet && electron-vite build && electron-builder"
   },
   "build": {
     "appId": "com.squarebow.orfeo",
@@ -53,6 +54,7 @@
     "jzz-synth-tiny": "^1.4.4",
     "pixi.js": "^8.0.0",
     "soundfont-player": "^0.12.0",
+    "spessasynth_lib": "^4.3.8",
     "tonal": "^6.4.0",
     "tone": "^15.1.22",
     "webaudiofont": "^3.0.4",

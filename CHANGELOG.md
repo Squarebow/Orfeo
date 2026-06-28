@@ -2,6 +2,39 @@
 
 ## [Unreleased] — dev branch
 
+### 2026-06-28 — Samples audio engine (spessasynth_lib + GeneralUser GS SF2)
+
+**New hook: `src/hooks/useSamplesEngine.ts`**
+- `initSamplesEngine(onProgress)` — creates AudioContext, loads AudioWorklet processor, dynamically imports `WorkletSynthesizer`, fetches `GeneralUser-GS.sf2` (30.8 MB) with streaming progress, adds soundbank, wires GainNode
+- `buildSamplesPlayer(startSec)` — schedules noteOn/noteOff for all unmuted tracks via setTimeout; respects mute/solo/transpose/BPM ratio; key lighting for `showOnKeyboard` tracks
+- `useSamplesEngine()` hook — three subscribers: playback state (play/pause/stop), engine switching (clears schedule when leaving 'samples'), master volume (updates GainNode gain)
+- **Volume normalisation**: `SAMPLES_BOOST = 3.0` constant applied to GainNode (`masterVolume × 3`) plus CC7=127 sent to all 16 channels at init and playback start, matching perceived loudness of the GM Synth
+- **Engine switching**: detects `audioEngine` transitions — leaving 'samples' calls `clearSchedule()` + `clearAllKeys()`; arriving at 'samples' while playing calls `buildSamplesPlayer(currentTime)`
+- **Recursive crash fix**: all `prev*` closure variables updated *before* the if-condition chain — prevents Zustand's synchronous subscriber re-entry from calling `buildSamplesPlayer` recursively when `clearAllKeys()` triggers `setState`
+- WorkletSynthesizer imported dynamically (not at module level) to prevent Vite from triggering a mid-session dep-optimisation page reload on first use
+
+**`src/hooks/useAudioEngine.ts`**
+- Engine switching: `prevAudioEngineRef` tracks the previous engine; when leaving 'gm' → `stopAudio()`; when arriving at 'gm' while playing → `buildPlayer(currentTime)`
+- Replaces `useSF2Engine` import with `useSamplesEngine`; click dispatcher routes to `__orfeoPlayNoteSamples` when `audioEngine === 'samples'`
+
+**`src/components/SettingsPanel/SettingsPanel.tsx`**
+- Audio section: functional GM Synth / Samples buttons; Samples click calls `initSamplesEngine` with inline progress bar and status line ("Loading soundfont… X%" → "GeneralUser-GS.sf2 · 30.8 MB · loaded")
+- `samplesStatus` / `samplesProgress` local state; switches engine automatically when loading completes
+
+**`src/store/index.ts`**
+- `audioEngine: 'gm' | 'samples'` and `setAudioEngine` added to `OrfeoStore` interface (implementation was already present)
+
+**`electron.vite.config.ts`**
+- `optimizeDeps.exclude: ['spessasynth_lib', 'spessasynth_core']` — prevents Vite from pre-bundling these large ESM packages, which was causing a mid-session page reload (black screen) on first engine activation
+
+**`package.json`**
+- `copyworklet` script copies `spessasynth_processor.min.js` from node_modules to `public/` before dev/build
+- `spessasynth_lib: ^4.3.8` added to dependencies
+
+**Deleted: `src/hooks/useSF2Engine.ts`** — replaced by useSamplesEngine
+
+---
+
 ### 2026-06-28 — Volume knob + TopBar reset fixes
 
 **New component: `src/components/VolumeKnob.tsx`**
