@@ -1,0 +1,64 @@
+Folder PATH listing for volume Squarebow
+Volume serial number is 0000012F 0E34:0684
+E:\_DEV\GITHUB\ORFEO\SRC
+|   App.tsx
+|   index.css
+|   main.tsx
+|   
++---components
+|   |   ChordExplorer.tsx
+|   |   EmptyState.tsx
+|   |   MidiIcon.tsx
+|   |   OrfeoLogo.tsx
+|   |   ScaleExplorer.tsx
+|   |   SpeedControl.tsx
+|   |   VolumeKnob.tsx
+|   |   
+|   +---Keyboard
+|   |       FloatingKeyboard.tsx
+|   |       Keyboard.tsx
+|   |       KeyboardControls.tsx
+|   |       
+|   +---MidiEditor
+|   |       MidiEditor.tsx
+|   |       
+|   +---PianoRoll
+|   |       PianoRoll.tsx
+|   |       
+|   +---SettingsPanel
+|   |       SettingsPanel.tsx
+|   |       
+|   +---TrackPanel
+|   |       TrackPanel.tsx
+|   |       
+|   \---Transport
+|           TopBar.tsx
+|           
++---hooks
+|       useAudioEngine.ts
+|       useMetronome.ts
+|       useMidiFile.ts
+|       usePlayback.ts
+|       useSF2Engine.ts
+|       
++---store
+|       index.ts
+|       
++---types
+|       index.ts
+|       
+\---utils
+        chordDetection.ts
+        gmInstruments.ts
+        keyDetection.ts
+        midiParser.ts
+        noteNames.ts
+        
+Folder PATH listing for volume Squarebow
+Volume serial number is 00000279 0E34:0684
+E:\_DEV\GITHUB\ORFEO\ELECTRON
+    main.ts
+    preload.ts
+    
+No subfolders exist 
+
