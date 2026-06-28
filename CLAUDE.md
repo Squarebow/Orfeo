@@ -102,7 +102,7 @@ All Electron APIs are accessed through `window.electronAPI` (defined in `src/typ
 
 ## Current status (June 2026)
 - v0.5.3 — Manual chord lock mode redesign (2026-06-27)
-- This session: chord name + inversion label moved to chord bar (Keyboard.tsx) via `lockedChordInfo` useMemo; KeyboardControls bottom row restructured (LOCKED CHORD label, Play-flipped/PLAY/Play inversion buttons, RotateCcw clear — all ScaleExplorer-styled); ChordExplorer no longer forces 61-key (61 is ScaleExplorer-only); RotateCcw in both explorers now also calls `clearLockedKeys`
+- 2026-06-28: Interactive volume knob added to app header (`src/components/VolumeKnob.tsx`); `masterVolume` in Zustand store, persisted to prefs; wired to JZZ via MIDI CC 7 on all 16 channels (`applyMasterVolume` in useAudioEngine); BPM/key reset on logo click; BPM shows `—` when no file loaded
 - Next task: whatever the user specifies
 
 ## Audio
