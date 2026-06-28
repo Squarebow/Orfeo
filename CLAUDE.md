@@ -25,6 +25,11 @@ Orfeo is an **Electron desktop app** (Windows-first). The three Electron process
 
 `electron-vite` handles the build pipeline and HMR. Output goes to `out/`, packaged app goes to `release/`.
 
+## Code Style
+- Add a brief comment above every function, hook, useEffect, useMemo, and major JSX
+  block explaining what it does. Use format: `// ── Description ────────────────────────`
+- When editing existing code, add missing comments to any uncommented blocks encountered.
+
 ### Two windows, one renderer bundle
 
 The **main window** and the **MIDI Playback Editor** both load the same renderer bundle. The editor is distinguished by the `#/editor` URL hash — `App.tsx` checks `window.location.hash === '#/editor'` and renders `<MidiEditor />` instead of the normal layout. In production the editor window is opened by `electron/main.ts` with `{ hash: 'editor' }`.
@@ -93,13 +98,12 @@ All Electron APIs are accessed through `window.electronAPI` (defined in `src/typ
 ## Note naming
 - Central European (EU) naming uses H for B natural — this is intentional, never change it
 - All note display routes through convertAccidentals() in noteNames.ts — never convert inline
+- **PC 10 (Bb/A#) is always spelled Bb** — `ENGLISH_SHARP[10]` is `'Bb'`, not `'A#'`; `convertAccidentals` sharp mode normalises incoming `A#` → `Bb`. A# has no standard key and is never used.
 
 ## Current status (June 2026)
-- v0.5.0 — core playback, keyboard, track panel, chord detection all working
-- Keyboard adjacent key border separators just fixed (Keyboard.tsx)
-- Next task: Chord Explorer modal (Session 2 prompt saved in Obsidian)
-- After that: Scale Explorer modal (Session 3 prompt saved in Obsidian)
-- Known unresolved: TrackPanel SVG crash
+- v0.5.3 — Manual chord lock mode redesign (2026-06-27)
+- 2026-06-28: Interactive volume knob added to app header (`src/components/VolumeKnob.tsx`); `masterVolume` in Zustand store, persisted to prefs; wired to JZZ via MIDI CC 7 on all 16 channels (`applyMasterVolume` in useAudioEngine); BPM/key reset on logo click; BPM shows `—` when no file loaded
+- Next task: whatever the user specifies
 
 ## Audio
 - JZZ.js is the active MIDI playback engine (replaced Tone.js)
@@ -107,6 +111,41 @@ All Electron APIs are accessed through `window.electronAPI` (defined in `src/typ
 - Mute/solo via real-time filter callback — never rebuild the player
 - SF2 soundfont engine exists but partially implemented
 - window.__orfeoPlayNote routes click-to-play to active backend
+
+## Scale Explorer architecture (src/components/ScaleExplorer.tsx)
+- `scaleExplorerOpen` / `setScaleExplorerOpen` added to Zustand store (same pattern as `chordExplorerOpen`)
+- Triggered by "Scales" amber label on RIGHT side of Keyboard.tsx chord bar; "Chords" stays on LEFT
+- `cofPos: number | null` (0–11) + `cofRing: 'major' | 'minor' | null` — CoF selection state
+- `selectedRoot = cofRing === 'major' ? COF_MAJOR_PC[cofPos] : COF_MINOR_PC[cofPos]` (pitch class)
+- Clicking outer ring → root + Major scale; clicking inner ring → root + Natural Minor
+- `SCALES` array (10 entries): Major, Natural Minor, Harmonic Minor, Melodic Minor, Maj/Min Pentatonic, Dorian, Phrygian, Lydian, Mixolydian — each has `intervals[]` and `romans[]`
+- `buildDiatonicChord(root, intervals, degree, keyboardSize, naming, accidentals)` — stacks every-other scale degree (deg, deg+2, deg+4) for triad, uses `Chord.detect(Note.fromMidi[])` for chord quality
+- `ROMAN_TO_DEGREE` mapping drives progression playback — each progression label maps to scale degree index, clamped with `% diatonicChords.length` for pentatonic
+- `applyNthInversion` identical to ChordExplorer version
+- Footer ‹ PLAY INVERSION ›: same pattern as ChordExplorer, uses `inversionStep` state + `currentBaseMidi` from selected degree
+- ChordExplorer "Scale Explorer →" button: `setChordExplorerOpen(false); setScaleExplorerOpen(true)`; Scale Explorer "Chord Explorer →" does the reverse
+- ScaleExplorer forces 61-key layout on open and restores previous size on close; ChordExplorer does NOT change keyboard size — font size conditions in Keyboard.tsx still use `chordExplorerOpen || scaleExplorerOpen`
+- Space/Escape in App.tsx is blocked when either explorer is open
+- `MINOR_SCALES` set (module-level) — Natural Minor, Harmonic Minor, Melodic Minor, Minor Pentatonic, Phrygian — drives `keyQuality` suffix ('m' or '') on Key display in info row
+- `playTriggerRef` + `playTrigger` state counter — incremented on every CoF onClick so scale play effect fires even when same key is re-clicked
+- Info row (chord/inversion row): three columns — left: CHORD QUALITY label + roman numeral (amber 12px bold) inline; centre: notes absolute-centred 16px JetBrains Mono; right: key root+quality (amber 12px bold) + KEY: label (dim #707088)
+- CoF onClick clears `infoRowChord` and `selectedDegree` immediately on key change
+- Modal positioning: `MODAL_WIDTH=720`, `MODAL_HEIGHT=600`; `pos` useState initialised AND recalculated in useEffect open branch (useState runs before maximize() fires — must use effect for correct live dimensions); formula: `x=(innerWidth-MODAL_WIDTH)/2, y=(innerHeight-MODAL_HEIGHT)/2-160`
+- `KEYBOARD_HEIGHT` constant exists in ScaleExplorer.tsx and ChordExplorer.tsx but is currently unused
+
+### CoF section layout (current, after all polish rounds)
+- SVG: `width={380} height={420} viewBox="0 -40 380 420"` — CY=190 renders at y_pixel=230 from SVG top
+- CoF section: `padding: '16px 16px 46px 12px'` — 46px bottom gives CHORDS label and lower accidentals room
+- Scale column: `alignSelf: 'center'` + `marginTop: 20` — corrects the 20px offset between alignSelf:center midpoint (210px) and CoF circle centre (230px) in the 420px flex line
+- Guideline text: always visible (`position: absolute, top: 16, left: 12`) — NOT conditional on `selectedRoot === null`
+- Info box (scale name + note list): absolute overlay, `top: 0, left: '50%', transform: 'translateX(-50%)'` inside CoF wrapper; only shown when `infoText !== null`
+- Accidental sigR formula: `sigFontSize = len ≤ 3 ? 11 : len ≤ 5 ? 9 : 8`; `sigCharHW = fs ≤ 8 ? 2.5 : fs ≤ 9 ? 2.75 : 3.5`; `sigR = round(R_OUTER2 + 8 + len * sigCharHW)` — keeps inner text edge at ~8–9px from ring for all 12 positions
+- Bottom 4 rows (in order): chord tiles → chord/inversion info → progressions+inversions → SHOW AS footer; all `minHeight: 44`
+- Play/Stop: always `background: '#c0392b'`, `color: '#ffffff'`, hover `'#e74c3c'`
+
+## Known Issues
+- Chord Explorer search needs logic rewrite — currently unreliable across naming systems
+- TrackPanel SVG crash (pre-existing, unresolved)
 
 ## Git rules
 - Do not add co-author attribution to commit messages

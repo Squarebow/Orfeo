@@ -75,6 +75,40 @@ interface OrfeoStore {
   setTrackPanelOpen: (open: boolean) => void
   setSettingsOpen: (open: boolean) => void
   setSettingsPanelOpen: (open: boolean) => void
+
+  chordExplorerOpen: boolean
+  setChordExplorerOpen: (open: boolean) => void
+  scaleExplorerOpen: boolean
+  setScaleExplorerOpen: (open: boolean) => void
+  explorerKeys: Set<number>
+  explorerKeyColors: Map<number, string>
+  setExplorerKeys: (keys: Set<number>, colors: Map<number, string>) => void
+  clearExplorerKeys: () => void
+  displayedChord: string | null
+  setDisplayedChord: (chord: string | null) => void
+  clearDisplayedChord: () => void
+
+  lockedKeys: Set<number>
+  lockedColors: Map<number, string>
+  setLockedKeys: (keys: Set<number>, colors: Map<number, string>) => void
+  clearLockedKeys: () => void
+  // ── Original chord identity preserved across inversion cycling ────────────
+  originalLockedChordName: string | null
+  setOriginalLockedChordName: (name: string | null) => void
+  lockedInversionCount: number
+  setLockedInversionCount: (n: number) => void
+  lockedChordNoteCount: number
+  setLockedChordNoteCount: (n: number) => void
+
+  // ── Explorer chord display — name + inversion tracking for above-keyboard ─
+  explorerChordDisplay: { name: string; invCount: number; noteCount: number } | null
+  setExplorerChordDisplay: (d: { name: string; invCount: number; noteCount: number } | null) => void
+  clearExplorerChordDisplay: () => void
+
+  masterVolume: number
+  setMasterVolume: (v: number) => void
+
+  resetAll: () => void
 }
 
 function makeTrackState(track: ParsedTrack): TrackState {
@@ -175,6 +209,56 @@ export const useStore = create<OrfeoStore>((set, get) => ({
   setSettingsOpen: (settingsOpen) => set({ settingsOpen }),
   setSettingsPanelOpen: (settingsPanelOpen) => set({ settingsPanelOpen }),
 
+  chordExplorerOpen: false,
+  scaleExplorerOpen: false,
+  explorerKeys: new Set(),
+  explorerKeyColors: new Map(),
+  setChordExplorerOpen: (chordExplorerOpen) => set({ chordExplorerOpen }),
+  setScaleExplorerOpen: (scaleExplorerOpen) => set({ scaleExplorerOpen }),
+  setExplorerKeys: (explorerKeys, explorerKeyColors) => set({ explorerKeys, explorerKeyColors }),
+  clearExplorerKeys: () => set({ explorerKeys: new Set(), explorerKeyColors: new Map() }),
+  displayedChord: null,
+  setDisplayedChord: (displayedChord) => set({ displayedChord }),
+  clearDisplayedChord: () => set({ displayedChord: null }),
+
+  lockedKeys: new Set(),
+  lockedColors: new Map(),
+  setLockedKeys: (lockedKeys, lockedColors) => set({ lockedKeys, lockedColors }),
+  // ── Clears keys + resets all locked chord identity state ─────────────────
+  clearLockedKeys: () => set({
+    lockedKeys: new Set(), lockedColors: new Map(),
+    originalLockedChordName: null, lockedInversionCount: 0, lockedChordNoteCount: 0,
+  }),
+  originalLockedChordName: null,
+  setOriginalLockedChordName: (originalLockedChordName) => set({ originalLockedChordName }),
+  lockedInversionCount: 0,
+  setLockedInversionCount: (lockedInversionCount) => set({ lockedInversionCount }),
+  lockedChordNoteCount: 0,
+  setLockedChordNoteCount: (lockedChordNoteCount) => set({ lockedChordNoteCount }),
+
+  explorerChordDisplay: null,
+  setExplorerChordDisplay: (explorerChordDisplay) => set({ explorerChordDisplay }),
+  clearExplorerChordDisplay: () => set({ explorerChordDisplay: null }),
+
+  masterVolume: 0.8,
+  setMasterVolume: (masterVolume) => set({ masterVolume: Math.max(0, Math.min(1, masterVolume)) }),
+
+  resetAll: () => {
+    ;(window as any).__orfeoPlayer?.stop?.()
+    set({
+      midi: null, tracks: [],
+      bpm: 120, originalBpm: 120, detectedKey: null,
+      activeKeys: new Set(), activeKeyColors: new Map(),
+      explorerKeys: new Set(), explorerKeyColors: new Map(),
+      lockedKeys: new Set(), lockedColors: new Map(),
+      originalLockedChordName: null, lockedInversionCount: 0, lockedChordNoteCount: 0,
+      explorerChordDisplay: null,
+      displayedChord: null,
+      chordExplorerOpen: false, scaleExplorerOpen: false, playbackState: 'stopped',
+      currentTime: 0, trackPanelOpen: false, settingsPanelOpen: false,
+    })
+  },
+
   audioEngine: 'gm',
   setAudioEngine: (audioEngine) => set({ audioEngine }),
 
@@ -225,6 +309,7 @@ async function restoreLibraryPrefs() {
     }
     if (prefs.noteNaming) store.setNoteNaming(prefs.noteNaming)
     if (prefs.accidentals) store.setAccidentals(prefs.accidentals)
+    if (typeof prefs.masterVolume === 'number') store.setMasterVolume(prefs.masterVolume)
   } catch (e) {
     console.error('[Orfeo] restoreLibraryPrefs:', e)
   }
@@ -245,15 +330,23 @@ useStore.subscribe((state) => {
 // overwrite the restored value before restoreLibraryPrefs has run)
 let _prevNoteNaming: string | null = null
 let _prevAccidentals: string | null = null
+let _prevMasterVolume: number | null = null
 useStore.subscribe((state) => {
   // Skip the very first fire (app init) — restore handles loading saved values
-  if (_prevNoteNaming === null) { _prevNoteNaming = state.noteNaming; _prevAccidentals = state.accidentals; return }
-  if (state.noteNaming !== _prevNoteNaming || state.accidentals !== _prevAccidentals) {
+  if (_prevNoteNaming === null) {
     _prevNoteNaming = state.noteNaming
     _prevAccidentals = state.accidentals
+    _prevMasterVolume = state.masterVolume
+    return
+  }
+  if (state.noteNaming !== _prevNoteNaming || state.accidentals !== _prevAccidentals || state.masterVolume !== _prevMasterVolume) {
+    _prevNoteNaming = state.noteNaming
+    _prevAccidentals = state.accidentals
+    _prevMasterVolume = state.masterVolume
     window.electronAPI?.setPrefs?.({
       noteNaming: state.noteNaming,
       accidentals: state.accidentals,
+      masterVolume: state.masterVolume,
     }).catch(() => {})
   }
 })

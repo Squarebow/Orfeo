@@ -11,6 +11,7 @@ import { formatTime } from '../../utils/midiParser'
 import { formatKey, transposeDetectedKey } from '../../utils/keyDetection'
 import OrfeoLogo from '../OrfeoLogo'
 import MidiIcon from '../MidiIcon'
+import VolumeKnob from '../VolumeKnob'
 
 // Design tokens — match index.css :root
 const C = {
@@ -38,6 +39,8 @@ export default function TopBar() {
   const midiDeviceName = useStore((s) => s.midiDeviceName)
   const noteNaming = useStore((s) => s.noteNaming)
   const accidentals = useStore((s) => s.accidentals)
+  const chordExplorerOpen = useStore((s) => s.chordExplorerOpen)
+  const resetAll = useStore((s) => s.resetAll)
 
   const { play, pause, stop, seek, seekAndPlay } = usePlayback()
   const { openFile } = useMidiFile()
@@ -74,7 +77,7 @@ export default function TopBar() {
 
   const transpose = detectedKey?.transpose ?? 0
   const duration = midi?.duration ?? 0
-  const isTempoChanged = Math.abs(Math.round((bpm / originalBpm) * 100) - 100) > 1
+  const isTempoChanged = !!midi && Math.abs(Math.round((bpm / originalBpm) * 100) - 100) > 1
   const displayKey = detectedKey ? formatKey(detectedKey, noteNaming, accidentals) : '—'
 
   return (
@@ -94,7 +97,9 @@ export default function TopBar() {
     >
       {/* ── LOGO ── */}
       <div className="app-no-drag" style={{ display: 'flex', alignItems: 'center', gap: 10, flexShrink: 0, paddingRight: 12 }}>
-        <OrfeoLogo />
+        <span onClick={resetAll} title="Reset" className="app-no-drag" style={{ cursor: 'pointer', display: 'flex' }}>
+          <OrfeoLogo />
+        </span>
         <button
           onClick={openFile}
           title="Open MIDI file (Ctrl+O)"
@@ -117,7 +122,7 @@ export default function TopBar() {
           <span style={{ color: C.muted, fontSize: 8, textTransform: 'uppercase', letterSpacing: '0.1em', fontFamily: 'JetBrains Mono', lineHeight: 1 }}>TEMPO</span>
         </div>
         <span style={{ color: isTempoChanged ? C.amber : C.active, fontFamily: 'JetBrains Mono', fontSize: 20, fontWeight: 700, minWidth: 36, textAlign: 'right', lineHeight: 1 }}>
-          {Math.round(bpm)}
+          {midi ? Math.round(bpm) : '—'}
         </span>
         <div style={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
           <LongPressArrow onStep={() => setBpm(Math.min(300, useStore.getState().bpm + 1))} disabled={!midi} title="BPM +1"><ChevronUp size={10} /></LongPressArrow>
@@ -157,13 +162,16 @@ export default function TopBar() {
 
       <VSep />
 
+      {/* ── VOLUME ── */}
+      <VolumeKnob />
+
       {/* ── CENTER: transport + scrub + filename ── */}
       <div className="app-no-drag" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 5, flex: 1, minWidth: 0 }}>
         {/* Transport */}
         <div style={{ display: 'flex', alignItems: 'center', gap: 2 }}>
           <TBtn onClick={stop} disabled={!midi} title="Go to start"><SkipBack size={16} strokeWidth={1.5} /></TBtn>
           <TBtn onClick={() => handleSkip(-1)} disabled={!midi} title={`Rewind ${SKIP_SECS}s`}><Rewind size={15} strokeWidth={1.5} /></TBtn>
-          <TBtn onClick={handlePlayPause} disabled={!midi} accent title="Play / Pause (Space)" large>
+          <TBtn onClick={handlePlayPause} disabled={!midi || chordExplorerOpen} accent title="Play / Pause (Space)" large>
             {playbackState === 'playing'
               ? <Pause size={24} fill="currentColor" strokeWidth={0} />
               : <Play size={24} fill="currentColor" strokeWidth={0} />}
@@ -250,6 +258,7 @@ export default function TopBar() {
             {midiDeviceConnected ? (midiDeviceName?.split(' ')[0] ?? 'MIDI') : 'NO MIDI'}
           </span>
         </div>
+
 
       </div>
     </div>

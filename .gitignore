@@ -3,9 +3,10 @@ dist/
 dist-electron/
 out/
 release/
-{electron,src/
 .env
 .env.local
 *.log
 .DS_Store
 Thumbs.db
+.claude/HANDOFF.md
+.claude/settings.local.json
