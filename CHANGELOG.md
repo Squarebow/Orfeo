@@ -2,6 +2,31 @@
 
 ## [Unreleased] — dev branch
 
+### 2026-06-28 — Volume knob + TopBar reset fixes
+
+**New component: `src/components/VolumeKnob.tsx`**
+- Interactive SVG dial: central amber circle with rotating dark notch indicator
+- 7 fixed dots in a 270° arc (7:30 → 4:30 clockwise); dots at or below the current level render in amber (`#e8a027`), headroom dots in dim tint (`#e8a02738`)
+- Drag-to-rotate: `mousedown` starts, document `mousemove` maps angle to 0–1 volume, `mouseup` ends; snaps immediately on click too
+- Label column mirrors BPM/KEY structure (8px spacer + VOLUME text) so the label baseline aligns with TEMPO/TRANSPOSE to its left
+- Positioned between KEY/TRANSPOSE and the centre transport section; no separator on the right
+
+**`src/store/index.ts`**
+- `masterVolume: number` (default `0.8`) + `setMasterVolume` — clamped to 0–1
+- Persisted to `orfeo-prefs.json` via the existing display-settings subscriber; restored on startup alongside `noteNaming`/`accidentals`
+- `resetAll` now also resets `bpm: 120`, `originalBpm: 120`, `detectedKey: null`
+
+**`src/hooks/useAudioEngine.ts`**
+- `applyMasterVolume(v)` — sends MIDI CC 7 (Main Volume) on all 16 channels via `_port`
+- Called in `buildPlayer` before `player.play()` so every new playback session inherits the knob position
+- New `useEffect` subscriber fires on every `masterVolume` change during live playback or key-click — no player rebuild needed
+
+**`src/components/Transport/TopBar.tsx`**
+- BPM value displays `—` when no MIDI file is loaded (matches KEY behaviour); `isTempoChanged` is always false without a file
+- VolumeKnob imported and placed after KEY section with `alignItems: center` parent so it sits on the header's horizontal centreline
+
+---
+
 ### 2026-06-28 — Inversion display architecture rework + locked chord seed fix
 
 **`src/store/index.ts`** — new fields:

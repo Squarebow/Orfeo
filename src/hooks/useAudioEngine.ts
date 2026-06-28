@@ -164,6 +164,7 @@ function buildPlayer(startSec: number) {
       _notePortReady = false
     }
     player.speed(ratio)
+    applyMasterVolume(useStore.getState().masterVolume)
     player.play()
     if (startSec > 0.1) player.jumpMS(Math.floor(startSec * 1000))
     _player = player
@@ -171,6 +172,13 @@ function buildPlayer(startSec: number) {
   } catch (e) {
     console.error('[Orfeo GM] buildPlayer error:', e)
   }
+}
+
+// ── MIDI CC 7 (Main Volume) on all 16 channels ───────────────────────────────
+function applyMasterVolume(v: number) {
+  if (!_port) return
+  const val = Math.round(Math.max(0, Math.min(1, v)) * 127)
+  try { for (let ch = 0; ch < 16; ch++) _port.send([0xB0 | ch, 7, val]) } catch {}
 }
 
 function stopAudio() {
@@ -190,6 +198,7 @@ export function useAudioEngine() {
   const prevBpmRef = useRef(120)
   const prevTransposeRef = useRef(0)
   const prevTracksRef = useRef<any>(null)
+  const prevVolumeRef = useRef<number>(useStore.getState().masterVolume)
   const schedulingRef = useRef(false)
 
   useEffect(() => {
@@ -248,5 +257,16 @@ export function useAudioEngine() {
       }
     })
     return () => { unsub(); stopAudio() }
+  }, [])
+
+  // ── Live volume changes — send CC 7 immediately while port is open ──────────
+  useEffect(() => {
+    const unsub = useStore.subscribe((state) => {
+      if (state.audioEngine !== 'gm') return
+      if (state.masterVolume === prevVolumeRef.current) return
+      prevVolumeRef.current = state.masterVolume
+      applyMasterVolume(state.masterVolume)
+    })
+    return () => unsub()
   }, [])
 }

@@ -105,6 +105,9 @@ interface OrfeoStore {
   setExplorerChordDisplay: (d: { name: string; invCount: number; noteCount: number } | null) => void
   clearExplorerChordDisplay: () => void
 
+  masterVolume: number
+  setMasterVolume: (v: number) => void
+
   resetAll: () => void
 }
 
@@ -237,10 +240,14 @@ export const useStore = create<OrfeoStore>((set, get) => ({
   setExplorerChordDisplay: (explorerChordDisplay) => set({ explorerChordDisplay }),
   clearExplorerChordDisplay: () => set({ explorerChordDisplay: null }),
 
+  masterVolume: 0.8,
+  setMasterVolume: (masterVolume) => set({ masterVolume: Math.max(0, Math.min(1, masterVolume)) }),
+
   resetAll: () => {
     ;(window as any).__orfeoPlayer?.stop?.()
     set({
       midi: null, tracks: [],
+      bpm: 120, originalBpm: 120, detectedKey: null,
       activeKeys: new Set(), activeKeyColors: new Map(),
       explorerKeys: new Set(), explorerKeyColors: new Map(),
       lockedKeys: new Set(), lockedColors: new Map(),
@@ -302,6 +309,7 @@ async function restoreLibraryPrefs() {
     }
     if (prefs.noteNaming) store.setNoteNaming(prefs.noteNaming)
     if (prefs.accidentals) store.setAccidentals(prefs.accidentals)
+    if (typeof prefs.masterVolume === 'number') store.setMasterVolume(prefs.masterVolume)
   } catch (e) {
     console.error('[Orfeo] restoreLibraryPrefs:', e)
   }
@@ -322,15 +330,23 @@ useStore.subscribe((state) => {
 // overwrite the restored value before restoreLibraryPrefs has run)
 let _prevNoteNaming: string | null = null
 let _prevAccidentals: string | null = null
+let _prevMasterVolume: number | null = null
 useStore.subscribe((state) => {
   // Skip the very first fire (app init) — restore handles loading saved values
-  if (_prevNoteNaming === null) { _prevNoteNaming = state.noteNaming; _prevAccidentals = state.accidentals; return }
-  if (state.noteNaming !== _prevNoteNaming || state.accidentals !== _prevAccidentals) {
+  if (_prevNoteNaming === null) {
     _prevNoteNaming = state.noteNaming
     _prevAccidentals = state.accidentals
+    _prevMasterVolume = state.masterVolume
+    return
+  }
+  if (state.noteNaming !== _prevNoteNaming || state.accidentals !== _prevAccidentals || state.masterVolume !== _prevMasterVolume) {
+    _prevNoteNaming = state.noteNaming
+    _prevAccidentals = state.accidentals
+    _prevMasterVolume = state.masterVolume
     window.electronAPI?.setPrefs?.({
       noteNaming: state.noteNaming,
       accidentals: state.accidentals,
+      masterVolume: state.masterVolume,
     }).catch(() => {})
   }
 })

@@ -11,6 +11,7 @@ import { formatTime } from '../../utils/midiParser'
 import { formatKey, transposeDetectedKey } from '../../utils/keyDetection'
 import OrfeoLogo from '../OrfeoLogo'
 import MidiIcon from '../MidiIcon'
+import VolumeKnob from '../VolumeKnob'
 
 // Design tokens — match index.css :root
 const C = {
@@ -76,7 +77,7 @@ export default function TopBar() {
 
   const transpose = detectedKey?.transpose ?? 0
   const duration = midi?.duration ?? 0
-  const isTempoChanged = Math.abs(Math.round((bpm / originalBpm) * 100) - 100) > 1
+  const isTempoChanged = !!midi && Math.abs(Math.round((bpm / originalBpm) * 100) - 100) > 1
   const displayKey = detectedKey ? formatKey(detectedKey, noteNaming, accidentals) : '—'
 
   return (
@@ -121,7 +122,7 @@ export default function TopBar() {
           <span style={{ color: C.muted, fontSize: 8, textTransform: 'uppercase', letterSpacing: '0.1em', fontFamily: 'JetBrains Mono', lineHeight: 1 }}>TEMPO</span>
         </div>
         <span style={{ color: isTempoChanged ? C.amber : C.active, fontFamily: 'JetBrains Mono', fontSize: 20, fontWeight: 700, minWidth: 36, textAlign: 'right', lineHeight: 1 }}>
-          {Math.round(bpm)}
+          {midi ? Math.round(bpm) : '—'}
         </span>
         <div style={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
           <LongPressArrow onStep={() => setBpm(Math.min(300, useStore.getState().bpm + 1))} disabled={!midi} title="BPM +1"><ChevronUp size={10} /></LongPressArrow>
@@ -160,6 +161,9 @@ export default function TopBar() {
       </div>
 
       <VSep />
+
+      {/* ── VOLUME ── */}
+      <VolumeKnob />
 
       {/* ── CENTER: transport + scrub + filename ── */}
       <div className="app-no-drag" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 5, flex: 1, minWidth: 0 }}>
@@ -254,6 +258,7 @@ export default function TopBar() {
             {midiDeviceConnected ? (midiDeviceName?.split(' ')[0] ?? 'MIDI') : 'NO MIDI'}
           </span>
         </div>
+
 
       </div>
     </div>
