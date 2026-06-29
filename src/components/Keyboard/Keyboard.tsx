@@ -40,6 +40,8 @@ export default function Keyboard() {
   // ── Explorer chord display — computed name + count from ChordExplorer/ScaleExplorer
   const explorerChordDisplay    = useStore((s) => s.explorerChordDisplay)
   const shiftHeldRef = useRef(false)
+  // ── Tracks whether the primary mouse button is held, enabling glissando drag ──
+  const isMouseDown = useRef(false)
 
   // ── Compute structured inversion display for locked chord ─────────────────
   const lockedDisplay = useMemo(() => {
@@ -87,12 +89,20 @@ export default function Keyboard() {
     }
   }, [scaleExplorerOpen])
 
+  // ── Tracks Shift key state for chord-lock mode ────────────────────────────
   useEffect(() => {
     const down = (e: KeyboardEvent) => { if (e.key === 'Shift') shiftHeldRef.current = true }
     const up = (e: KeyboardEvent) => { if (e.key === 'Shift') shiftHeldRef.current = false }
     window.addEventListener('keydown', down)
     window.addEventListener('keyup', up)
     return () => { window.removeEventListener('keydown', down); window.removeEventListener('keyup', up) }
+  }, [])
+
+  // ── Clears drag state when mouse is released anywhere on the page ─────────
+  useEffect(() => {
+    const up = () => { isMouseDown.current = false }
+    window.addEventListener('mouseup', up)
+    return () => window.removeEventListener('mouseup', up)
   }, [])
 
   const { min, max } = RANGES[keyboardSize]
@@ -341,7 +351,8 @@ export default function Keyboard() {
             return (
               <div
                 key={k.midi}
-                onMouseDown={() => handleKeyClick(k.midi)}
+                onMouseDown={() => { isMouseDown.current = true; handleKeyClick(k.midi) }}
+                onMouseEnter={() => { if (isMouseDown.current) handleKeyClick(k.midi) }}
                 title={getNoteLabel(k.midi, noteNaming, accidentals) || undefined}
                 className="relative flex-1 flex flex-col justify-end items-center pb-1 cursor-pointer"
                 style={{
@@ -378,7 +389,8 @@ export default function Keyboard() {
             return (
               <div
                 key={k.midi}
-                onMouseDown={() => handleKeyClick(k.midi)}
+                onMouseDown={() => { isMouseDown.current = true; handleKeyClick(k.midi) }}
+                onMouseEnter={() => { if (isMouseDown.current) handleKeyClick(k.midi) }}
                 title={getNoteLabel(k.midi, noteNaming, accidentals) || undefined}
                 className="absolute top-0 cursor-pointer pointer-events-auto"
                 style={{
