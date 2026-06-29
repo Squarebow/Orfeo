@@ -68,6 +68,12 @@ export interface LibraryFile {
   path: string
 }
 
+export interface ChordEvent {
+  time: number
+  name: string
+  notes: string[]
+}
+
 declare global {
   interface Window {
     electronAPI: {

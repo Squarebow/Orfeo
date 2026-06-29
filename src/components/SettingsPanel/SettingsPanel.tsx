@@ -400,6 +400,8 @@ export default function SettingsPanel() {
   const setAppTheme = useStore((s) => s.setAppTheme)
   const audioEngine = useStore((s) => s.audioEngine)
   const setAudioEngine = useStore((s) => s.setAudioEngine)
+  const chordPrompterEnabled = useStore((s) => s.chordPrompterEnabled)
+  const setChordPrompterEnabled = useStore((s) => s.setChordPrompterEnabled)
   // ── Samples engine loading state ─────────────────────────────────────────
   const [samplesStatus, setSamplesStatus] = useState<'idle' | 'loading' | 'ready' | 'error'>('idle')
   const [samplesProgress, setSamplesProgress] = useState(0)
@@ -656,6 +658,15 @@ export default function SettingsPanel() {
                         : 'GeneralUser-GS.sf2 · 30.8 MB · click Samples to load'}
                     </div>
                   )}
+                </OptionRow>
+
+                {/* ── Playback ── */}
+                <SectionHeader icon={<Music size={11} />} label="Playback" />
+                <OptionRow label="Chord Prompter" hint="Shows chord names during playback — past, current and upcoming chords.">
+                  <div style={{ display: 'flex', gap: 4 }}>
+                    <OptionBtn active={chordPrompterEnabled} onClick={() => setChordPrompterEnabled(true)}>On</OptionBtn>
+                    <OptionBtn active={!chordPrompterEnabled} onClick={() => setChordPrompterEnabled(false)}>Off</OptionBtn>
+                  </div>
                 </OptionRow>
 
                 {/* ── Appearance ── */}

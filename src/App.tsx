@@ -10,6 +10,7 @@ import { useStore } from './store'
 import FloatingKeyboard from './components/Keyboard/FloatingKeyboard'
 import ChordExplorer from './components/ChordExplorer'
 import ScaleExplorer from './components/ScaleExplorer'
+import ChordPrompter from './components/ChordPrompter'
 import MidiEditor from './components/MidiEditor/MidiEditor'
 import { parseMidiBuffer } from './utils/midiParser'
 import { detectKeyFromTracks, parseKeySignature } from './utils/keyDetection'
@@ -17,6 +18,7 @@ import { useMidiFile } from './hooks/useMidiFile'
 import { usePlayback } from './hooks/usePlayback'
 import { useAudioEngine } from './hooks/useAudioEngine'
 import { useMetronome } from './hooks/useMetronome'
+import { useChordSequence } from './hooks/useChordSequence'
 
 export default function App() {
   const midi = useStore((s) => s.midi)
@@ -26,6 +28,7 @@ export default function App() {
   const { play, pause, stop } = usePlayback()
   useAudioEngine()
   useMetronome()
+  useChordSequence()
 
   useEffect(() => {
     if (!window.electronAPI?.onMidiReload) return
@@ -89,6 +92,7 @@ export default function App() {
       {keyboardMode === 'floating' && <FloatingKeyboard />}
       <ChordExplorer />
       <ScaleExplorer />
+      <ChordPrompter />
     </div>
   )
 }

@@ -4,6 +4,53 @@
 
 ---
 
+### 29. 6. 2026 — Chord Prompter
+
+**`src/types/index.ts`**
+- Added `ChordEvent` interface: `{ time: number; name: string; notes: string[] }` — represents one chord in the pre-computed sequence
+
+**`src/store/index.ts`**
+- Added `chordPrompterEnabled: boolean` (default `false`, persisted to `orfeo-prefs.json`)
+- Added `chordPrompterOpen: boolean` (default `false`, not persisted) + setter
+- Added `chordSequence: ChordEvent[]` (default `[]`, not persisted) + setter
+- `setMidi(null)` and `resetAll` now clear `chordSequence` and `chordPrompterOpen`
+- `restoreLibraryPrefs` restores `chordPrompterEnabled` from saved prefs
+
+**`src/hooks/useChordSequence.ts`** (new)
+- `useChordSequence()` — effect on `[midi, noteNaming, accidentals]`; deferred with `setTimeout(0)` so it doesn't block the render thread
+- `computeChordSequence()`: collects non-drum note events, groups by 80ms cluster threshold, detects chord via `detectChord()`, localizes via `localizeChord()` (with `'hidden'` → `'english'` fallback), deduplicates consecutive identical names, builds `notes[]` from unique PCs via `getNoteName()`
+- Clears sequence when no MIDI loaded
+
+**`src/components/ChordPrompter.tsx`** (new)
+- Floating 500×110px panel; `position:fixed`, `zIndex:402`, default top-right above keyboard
+- Draggable via header (same mouse-event pattern as ChordExplorer)
+- Three-column layout: past 3 chords (fading left, opacity 0.5/0.3/0.15) | current chord (JetBrains Mono 22px bold amber, notes row below) | next 3 chords (fading right)
+- `resolveCurrentIndex()`: binary-search for last event where `event.time <= currentTime`, then enforces 2-second minimum hold by walking back
+- Freezes display on pause/stop via `frozenIndexRef` — never clears current chord
+- Three empty states: no file, no chords detected, not yet playing
+- Footer: disabled placeholder "Transcribe & Save PDF" button (`cursor:not-allowed`, `opacity:0.4`)
+
+**`src/components/Transport/TopBar.tsx`**
+- Added `ScrollText` (lucide-react) to imports
+- `ScrollText` icon button appears after the Loop button, only when `chordPrompterEnabled && midi !== null`
+- Toggles `chordPrompterOpen`; amber when open, `#707088` when closed; tooltip "Chord Prompter"
+
+**`src/components/SettingsPanel/SettingsPanel.tsx`**
+- Added new **Playback** section (between Audio and Appearance)
+- `OptionRow` "Chord Prompter" with On/Off toggle — enables/disables the transport icon and the prompter window
+
+**`src/App.tsx`**
+- Calls `useChordSequence()` alongside other lifecycle hooks
+- Renders `<ChordPrompter />` after `<ScaleExplorer />`
+
+**Refinements (same session):**
+- `resolveCurrentIndex` simplified to a plain binary search — removed 2-second minimum hold so the centre chord advances immediately in sync with the above-keyboard chord display; past chords persist naturally in the history column
+- Opacity ramp lifted from `[0.5, 0.3, 0.15]` to `[0.85, 0.55, 0.28]`; font size 11px Inter → 14px JetBrains Mono on side chords
+- Dot `·` separators between each chord in both past and next columns
+- "CHORD PROMPTER" header label coloured amber
+
+---
+
 ### 29. 6. 2026 — Bar numbers, bar counter, metronome fixes
 
 **`src/utils/midiParser.ts`**

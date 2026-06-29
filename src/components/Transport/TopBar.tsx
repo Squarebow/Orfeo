@@ -2,7 +2,7 @@ import { useCallback, useRef, useEffect } from 'react'
 import {
   Play, Pause, SkipBack, SkipForward, Repeat,
   FolderOpen, RotateCcw, ChevronUp, ChevronDown,
-  Rewind, FastForward,
+  Rewind, FastForward, ScrollText,
 } from 'lucide-react'
 import { useStore } from '../../store'
 import { usePlayback } from '../../hooks/usePlayback'
@@ -41,6 +41,9 @@ export default function TopBar() {
   const accidentals = useStore((s) => s.accidentals)
   const chordExplorerOpen = useStore((s) => s.chordExplorerOpen)
   const resetAll = useStore((s) => s.resetAll)
+  const chordPrompterEnabled = useStore((s) => s.chordPrompterEnabled)
+  const chordPrompterOpen = useStore((s) => s.chordPrompterOpen)
+  const setChordPrompterOpen = useStore((s) => s.setChordPrompterOpen)
   const barStarts = useStore((s) => s.barStarts)
 
   const { play, pause, stop, seek, seekAndPlay } = usePlayback()
@@ -205,6 +208,11 @@ export default function TopBar() {
           <TBtn onClick={() => handleSkip(1)} disabled={!midi} title={`Forward ${SKIP_SECS}s`}><FastForward size={15} strokeWidth={1.5} /></TBtn>
           <TBtn onClick={() => midi && seek(midi.duration)} disabled={!midi} title="Go to end"><SkipForward size={16} strokeWidth={1.5} /></TBtn>
           <TBtn onClick={() => setLoop(!loopEnabled)} disabled={!midi} active={loopEnabled} title={loopEnabled ? 'Loop on' : 'Loop off'}><Repeat size={13} strokeWidth={1.5} /></TBtn>
+          {chordPrompterEnabled && midi && (
+            <TBtn onClick={() => setChordPrompterOpen(!chordPrompterOpen)} active={chordPrompterOpen} title="Chord Prompter">
+              <ScrollText size={18} strokeWidth={1.5} />
+            </TBtn>
+          )}
         </div>
         {/* Scrub */}
         <div style={{ display: 'flex', alignItems: 'center', gap: 6, width: '100%', justifyContent: 'center' }}>

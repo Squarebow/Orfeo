@@ -183,6 +183,7 @@ All user-visible changes listed here. For full technical detail see [CHANGELOG.m
 ### v0.6.1 — 29. 6. 2026 (continued)
 
 **New**
+- **Chord Prompter** — a small floating panel that shows the chord sequence during playback: past 3 chords fade out to the left, the current chord is large and amber in the centre, the next 3 chords fade out to the right. Enable it in Settings → Playback, then click the scroll icon in the transport bar. Each chord is held for at least 2 seconds so fast harmonic changes don't flash. The panel is draggable and freezes in place on pause.
 - **Bar numbers & grid lines** — the piano roll now overlays bar numbers and horizontal bar lines that scroll with the notes. Current bar is highlighted in amber. Toggle Show/Hide in Settings → Piano Roll.
 - **Bar counter in transport bar** — live `current|total` bar display next to the TIME indicator, always visible when a file is loaded.
 

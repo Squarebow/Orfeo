@@ -1,7 +1,7 @@
 import { create } from 'zustand'
 import type {
   ParsedMidi, ParsedTrack, PlaybackState, TrackState,
-  KeyboardSize, KeyboardMode, NoteNaming, Accidentals,
+  KeyboardSize, KeyboardMode, NoteNaming, Accidentals, ChordEvent,
 } from '../types'
 import type { DetectedKey } from '../utils/keyDetection'
 import { isKeyboardInstrument } from '../utils/gmInstruments'
@@ -114,6 +114,13 @@ interface OrfeoStore {
   audioEngine: 'gm' | 'samples'
   setAudioEngine: (engine: 'gm' | 'samples') => void
 
+  chordPrompterEnabled: boolean
+  chordPrompterOpen: boolean
+  chordSequence: ChordEvent[]
+  setChordPrompterEnabled: (v: boolean) => void
+  setChordPrompterOpen: (v: boolean) => void
+  setChordSequence: (seq: ChordEvent[]) => void
+
   resetAll: () => void
 }
 
@@ -143,7 +150,7 @@ export const useStore = create<OrfeoStore>((set, get) => ({
   midi: null,
   barStarts: [],
   setMidi: (midi) => {
-    if (!midi) { set({ midi: null, tracks: [], currentTime: 0, playbackState: 'stopped', trackPanelOpen: false, barStarts: [] }); return }
+    if (!midi) { set({ midi: null, tracks: [], currentTime: 0, playbackState: 'stopped', trackPanelOpen: false, barStarts: [], chordSequence: [], chordPrompterOpen: false }); return }
     set({
       midi,
       tracks: midi.tracks.map(makeTrackState),
@@ -266,11 +273,19 @@ export const useStore = create<OrfeoStore>((set, get) => ({
       displayedChord: null,
       chordExplorerOpen: false, scaleExplorerOpen: false, playbackState: 'stopped',
       currentTime: 0, trackPanelOpen: false, settingsPanelOpen: false,
+      chordSequence: [], chordPrompterOpen: false,
     })
   },
 
   audioEngine: 'gm',
   setAudioEngine: (audioEngine) => set({ audioEngine }),
+
+  chordPrompterEnabled: false,
+  chordPrompterOpen: false,
+  chordSequence: [],
+  setChordPrompterEnabled: (chordPrompterEnabled) => set({ chordPrompterEnabled }),
+  setChordPrompterOpen: (chordPrompterOpen) => set({ chordPrompterOpen }),
+  setChordSequence: (chordSequence) => set({ chordSequence }),
 
   libraryFolder: null,
   libraryFiles: [],
@@ -322,6 +337,7 @@ async function restoreLibraryPrefs() {
     if (typeof prefs.masterVolume === 'number') store.setMasterVolume(prefs.masterVolume)
     if (prefs.audioEngine === 'samples') store.setAudioEngine('samples')
     if (typeof prefs.showBarNumbers === 'boolean') store.setShowBarNumbers(prefs.showBarNumbers)
+    if (typeof prefs.chordPrompterEnabled === 'boolean') store.setChordPrompterEnabled(prefs.chordPrompterEnabled)
   } catch (e) {
     console.error('[Orfeo] restoreLibraryPrefs:', e)
   }
@@ -345,6 +361,7 @@ let _prevAccidentals: string | null = null
 let _prevMasterVolume: number | null = null
 let _prevAudioEngine: string | null = null
 let _prevShowBarNumbers: boolean | null = null
+let _prevChordPrompterEnabled: boolean | null = null
 useStore.subscribe((state) => {
   // Skip the very first fire (app init) — restore handles loading saved values
   if (_prevNoteNaming === null) {
@@ -353,6 +370,7 @@ useStore.subscribe((state) => {
     _prevMasterVolume = state.masterVolume
     _prevAudioEngine = state.audioEngine
     _prevShowBarNumbers = state.showBarNumbers
+    _prevChordPrompterEnabled = state.chordPrompterEnabled
     return
   }
   if (
@@ -360,19 +378,22 @@ useStore.subscribe((state) => {
     state.accidentals !== _prevAccidentals ||
     state.masterVolume !== _prevMasterVolume ||
     state.audioEngine !== _prevAudioEngine ||
-    state.showBarNumbers !== _prevShowBarNumbers
+    state.showBarNumbers !== _prevShowBarNumbers ||
+    state.chordPrompterEnabled !== _prevChordPrompterEnabled
   ) {
     _prevNoteNaming = state.noteNaming
     _prevAccidentals = state.accidentals
     _prevMasterVolume = state.masterVolume
     _prevAudioEngine = state.audioEngine
     _prevShowBarNumbers = state.showBarNumbers
+    _prevChordPrompterEnabled = state.chordPrompterEnabled
     window.electronAPI?.setPrefs?.({
       noteNaming: state.noteNaming,
       accidentals: state.accidentals,
       masterVolume: state.masterVolume,
       audioEngine: state.audioEngine,
       showBarNumbers: state.showBarNumbers,
+      chordPrompterEnabled: state.chordPrompterEnabled,
     }).catch(() => {})
   }
 })
