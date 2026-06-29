@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback, useMemo, useRef } from 'react'
 import { createPortal } from 'react-dom'
 import { ChordType, Interval } from 'tonal'
 import { Search, Hand, RotateCcw, Play, Square, CircleOff, ListOrdered, Shuffle } from 'lucide-react'
+import Fuse from 'fuse.js'
 import { useStore } from '../store'
 import { getNoteName } from '../utils/noteNames'
 import type { NoteNaming } from '../types'
@@ -171,6 +172,7 @@ export default function ChordExplorer() {
   const [tier, setTier] = useState<'common' | 'extended'>('common')
   const [search, setSearch] = useState('')
   const [searchOpen, setSearchOpen] = useState(false)
+  const [searchScope, setSearchScope] = useState<'name' | 'notes' | 'both'>('both')
   const [selectedKey, setSelectedKey] = useState<string | null>(null)
   const [handFilter, setHandFilter] = useState<'all' | 'one' | 'two'>('all')
   const [noteFilter, setNoteFilter] = useState<'any' | '3' | '4' | '5' | '6+'>('any')
@@ -283,17 +285,56 @@ export default function ChordExplorer() {
 
   const tierChords = tier === 'common' ? COMMON_CHORDS : ALL_CHORDS
 
-  const filteredChords = useMemo(() => {
-    let result = tierChords
+  // ── Clear search whenever the user switches tiers ─────────────────────────
+  useEffect(() => {
+    setSearch('')
+    setSearchOpen(false)
+  }, [tier])
 
-    if (searchOpen) {
-      const q = search.trim()
-      if (q) {
-        const normalize = (s: string) => s.toLowerCase().replace(/b/g, '♭')
-        const qNorm = normalize(q)
-        const currentRoot = rootLabels.find(r => r.pitchClass === selectedRoot)?.label ?? ''
-        result = result.filter(c => normalize(`${currentRoot}${c.suffix}`).includes(qNorm))
-      }
+  // ── One searchable record per chord in the active tier ────────────────────
+  // Rebuilt whenever tier, root, naming system, or accidentals change so that
+  // displayed names, note spellings, and numeric tokens stay in sync.
+  // rootLabels is inlined directly (rootLabel() is defined later in the component).
+  // typeName is the bare suffix without root so name-scope search is root-independent.
+  const searchableChords = useMemo(() =>
+    tierChords.map(chord => ({
+      chord,
+      display: `${rootLabels.find(r => r.pitchClass === selectedRoot)?.label ?? ''}${chord.suffix}`,
+      typeName: chord.suffix,
+      aliases: chord.aliases,
+      notes: buildChordMidi(selectedRoot, chord.intervals, 61)
+        .map(m => getNoteName(m, displayNaming, accidentals)).filter(Boolean).join(' '),
+      numerics: (chord.suffix + ' ' + chord.aliases.join(' ')).match(/\d+/g)?.join(' ') ?? '',
+    })),
+    [tierChords, selectedRoot, rootLabels, displayNaming, accidentals]
+  )
+
+  // ── Fuse instance — keys vary by scope; rebuilt when data or scope changes ─
+  // aliases excluded: tonal.js aliases contain long English words ("minor",
+  // "dominant") that produce spurious matches for single letters like n/o/i/u.
+  const fuseInstance = useMemo(() => {
+    const keys =
+      searchScope === 'name'  ? ['typeName', 'numerics'] :
+      searchScope === 'notes' ? ['notes'] :
+      /* both */                ['display', 'typeName', 'notes', 'numerics']
+    return new Fuse(searchableChords, {
+      keys,
+      threshold: 0.2,
+      includeScore: true,
+      minMatchCharLength: 1,
+      ignoreLocation: true,
+      useExtendedSearch: false,
+    })
+  }, [searchableChords, searchScope])
+
+  // ── Filter chords: Fuse search + note-count + hand-span filters ───────────
+  const filteredChords = useMemo(() => {
+    let result: ChordInfo[]
+
+    if (searchOpen && search.trim()) {
+      result = fuseInstance.search(search.trim()).map(r => r.item.chord)
+    } else {
+      result = tierChords
     }
 
     if (noteFilter !== 'any') {
@@ -317,7 +358,7 @@ export default function ChordExplorer() {
     }
 
     return result
-  }, [tierChords, search, searchOpen, noteFilter, handFilter, selectedRoot, rootLabels])
+  }, [tierChords, search, searchOpen, noteFilter, handFilter, selectedRoot, fuseInstance])
 
   const playProgStepAt = useCallback((
     step: number,
@@ -490,6 +531,35 @@ export default function ChordExplorer() {
           onMouseDown={e => e.stopPropagation()}
           style={{ display: 'flex', alignItems: 'center', gap: 6 }}
         >
+          {/* ── Search scope toggle — visible when search bar is open ────── */}
+          {searchOpen && (
+            <div style={{ display: 'flex', background: '#1a1a26', borderRadius: 4, padding: 2, gap: 1 }}>
+              {(['name', 'notes', 'both'] as const).map(scope => (
+                <button
+                  key={scope}
+                  onClick={() => setSearchScope(scope)}
+                  title={
+                    scope === 'name'  ? 'Search by chord name and type (m7, maj7, dim…)' :
+                    scope === 'notes' ? 'Search by note names in chord for selected root' :
+                    'Search chord names and notes'
+                  }
+                  style={{
+                    padding: '2px 6px', borderRadius: 3, border: 'none',
+                    background: searchScope === scope ? '#2a2a3a' : 'transparent',
+                    color: searchScope === scope ? '#e8a027' : '#505068',
+                    fontFamily: 'Inter', fontSize: 9, fontWeight: 600,
+                    cursor: 'pointer', textTransform: 'capitalize',
+                    transition: 'color 0.12s, background 0.12s',
+                  }}
+                  onMouseEnter={e => { if (searchScope !== scope) e.currentTarget.style.color = '#9090a8' }}
+                  onMouseLeave={e => { if (searchScope !== scope) e.currentTarget.style.color = '#505068' }}
+                >
+                  {scope === 'name' ? 'Name' : scope === 'notes' ? 'Notes' : 'Both'}
+                </button>
+              ))}
+            </div>
+          )}
+          {/* ── Text input ───────────────────────────────────────────────── */}
           {searchOpen && (
             <input
               ref={searchRef}

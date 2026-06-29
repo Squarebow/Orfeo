@@ -407,6 +407,16 @@ export default function SettingsPanel() {
     if (!didInit.current) { didInit.current = true; if (!settingsPanelOpen) setSettingsPanelOpen(true) }
   }, [])
 
+  // ── Auto-init samples engine when prefs restore sets audioEngine='samples' ──
+  useEffect(() => {
+    if (audioEngine !== 'samples') return
+    if (samplesStatus !== 'idle') return
+    setSamplesStatus('loading'); setSamplesProgress(0)
+    initSamplesEngine((p) => setSamplesProgress(p))
+      .then(() => setSamplesStatus('ready'))
+      .catch(() => setSamplesStatus('error'))
+  }, [audioEngine])
+
   const NOTE_NAMING_OPTIONS: { value: NoteNaming; label: string; hint: string }[] = [
     { value: 'english',          label: 'UK / US',  hint: 'C D E F G A B' },
     { value: 'central-european', label: 'EU',        hint: 'C D E F G A H (B = B♭)' },
@@ -657,7 +667,7 @@ export default function SettingsPanel() {
                       <line x1="22" y1="50" x2="78" y2="50" stroke="#e8a027" strokeWidth="7" strokeLinecap="round"/>
                       <line x1="22" y1="62" x2="78" y2="62" stroke="#e8a027" strokeWidth="7" strokeLinecap="round"/>
                     </svg>
-                    <span style={{ color: '#50506a', fontSize: 10, fontFamily: 'JetBrains Mono' }}>Orfeo · v0.5.0</span>
+                    <span style={{ color: '#50506a', fontSize: 10, fontFamily: 'JetBrains Mono' }}>Orfeo · v0.6.1</span>
                   </div>
                   <div style={{ fontSize: 9, color: '#35354a', fontFamily: 'JetBrains Mono', lineHeight: 1.5 }}>
                     MIT License · github.com/SquareBow/orfeo

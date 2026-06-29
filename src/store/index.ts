@@ -313,6 +313,7 @@ async function restoreLibraryPrefs() {
     if (prefs.noteNaming) store.setNoteNaming(prefs.noteNaming)
     if (prefs.accidentals) store.setAccidentals(prefs.accidentals)
     if (typeof prefs.masterVolume === 'number') store.setMasterVolume(prefs.masterVolume)
+    if (prefs.audioEngine === 'samples') store.setAudioEngine('samples')
   } catch (e) {
     console.error('[Orfeo] restoreLibraryPrefs:', e)
   }
@@ -334,22 +335,31 @@ useStore.subscribe((state) => {
 let _prevNoteNaming: string | null = null
 let _prevAccidentals: string | null = null
 let _prevMasterVolume: number | null = null
+let _prevAudioEngine: string | null = null
 useStore.subscribe((state) => {
   // Skip the very first fire (app init) — restore handles loading saved values
   if (_prevNoteNaming === null) {
     _prevNoteNaming = state.noteNaming
     _prevAccidentals = state.accidentals
     _prevMasterVolume = state.masterVolume
+    _prevAudioEngine = state.audioEngine
     return
   }
-  if (state.noteNaming !== _prevNoteNaming || state.accidentals !== _prevAccidentals || state.masterVolume !== _prevMasterVolume) {
+  if (
+    state.noteNaming !== _prevNoteNaming ||
+    state.accidentals !== _prevAccidentals ||
+    state.masterVolume !== _prevMasterVolume ||
+    state.audioEngine !== _prevAudioEngine
+  ) {
     _prevNoteNaming = state.noteNaming
     _prevAccidentals = state.accidentals
     _prevMasterVolume = state.masterVolume
+    _prevAudioEngine = state.audioEngine
     window.electronAPI?.setPrefs?.({
       noteNaming: state.noteNaming,
       accidentals: state.accidentals,
       masterVolume: state.masterVolume,
+      audioEngine: state.audioEngine,
     }).catch(() => {})
   }
 })

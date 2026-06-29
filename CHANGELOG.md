@@ -2,6 +2,37 @@
 
 ## [Unreleased] — dev branch
 
+---
+
+### 29. 6. 2026 — Audio engine persistence + Chord Explorer search rewrite (v0.6.1)
+
+**`src/store/index.ts`**
+- `audioEngine` added to the display-settings prefs subscriber — saved alongside `noteNaming`/`accidentals`/`masterVolume` on every change
+- `restoreLibraryPrefs` now restores `audioEngine: 'samples'` from prefs on startup
+
+**`src/components/SettingsPanel/SettingsPanel.tsx`**
+- New `useEffect` on `[audioEngine]` — when prefs restore sets engine to `'samples'` and `samplesStatus` is still `'idle'`, auto-calls `initSamplesEngine`; SF2 loads in background on cold start, progress bar visible if Settings tab is open
+
+**`src/components/ChordExplorer.tsx`**
+- Replaced broken inline `includes()` filter with Fuse.js fuzzy search (`fuse.js` v7)
+- `searchableChords` useMemo builds one record per chord: `display` (root+suffix e.g. `Cm7`), `typeName` (suffix only, root-independent e.g. `m7`), `aliases` (tonal.js), `notes` (note names for selected root), `numerics` (digit substrings e.g. `7 11`)
+- `fuseInstance` useMemo — keys vary by `searchScope`: `name` → `['typeName','numerics']`; `notes` → `['notes']`; `both` → `['display','typeName','notes','numerics']`; `threshold: 0.2`, `minMatchCharLength: 1`, `ignoreLocation: true`
+- `aliases` excluded from all Fuse keys — tonal.js aliases contain long English words (`'minor'`, `'dominant'`) that caused spurious matches on single letters (n, o, i, u)
+- Search scope toggle `[Name | Notes | Both]` added inline to header search bar; `searchScope` state persists for the session, default `'both'`
+- `useEffect` on `[tier]` clears search when switching Common ↔ Extended
+- Bug: `searchableChords` useMemo initially referenced `rootLabel()` which is declared later in the component — caused ReferenceError (black screen) on first render; fixed by inlining `rootLabels.find()` directly
+
+**`electron.vite.config.ts`**
+- `optimizeDeps.include: ['fuse.js']` — pre-bundles fuse.js at dev server start, preventing mid-session dep-optimisation reload (black screen) when ChordExplorer mounts for the first time
+
+**`package.json`**
+- `fuse.js` added as dependency; version bumped `0.5.0` → `0.6.1`
+
+**`CLAUDE.md`**
+- Full redesign: concise structure, Key Files table, Note Naming section, Non-Obvious Architecture section (ParsedMidi private fields, RANGES sync rule, `#/editor` hash routing, Fuse aliases gotcha), Versioning section with MAJOR/MINOR/PATCH rules; removed resolved Known Issue (Chord Explorer search)
+
+---
+
 ### 2026-06-28 — Samples audio engine (spessasynth_lib + GeneralUser GS SF2)
 
 **New hook: `src/hooks/useSamplesEngine.ts`**

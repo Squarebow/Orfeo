@@ -2,7 +2,7 @@
 
 **A modern piano learning and MIDI visualization desktop app for Windows.**
 
-[![Version](https://img.shields.io/badge/Version-0.6.0-blue)](https://github.com/SquareBow/orfeo/releases)
+[![Version](https://img.shields.io/badge/Version-0.6.1-blue)](https://github.com/SquareBow/orfeo/releases)
 [![License](https://img.shields.io/badge/License-MIT-green)](LICENSE)
 [![Platform](https://img.shields.io/badge/Platform-Windows-lightgrey?logo=windows)](https://github.com/SquareBow/orfeo/releases)
 [![Status](https://img.shields.io/badge/Status-Beta-orange)](https://github.com/SquareBow/orfeo)
@@ -177,6 +177,15 @@ MIT © [SquareBow](https://github.com/SquareBow)
 ## Changelog
 
 All user-visible changes listed here. For full technical detail see [CHANGELOG.md](CHANGELOG.md).
+
+---
+
+### v0.6.1 — 29. 6. 2026
+
+**Improved**
+- Audio engine choice (GM Synth / Samples) is now remembered between sessions — Orfeo automatically loads the Samples soundfont on startup if it was active when you last closed the app.
+- Chord Explorer search completely rewritten — single characters and short queries now work correctly; results are accurate across all note naming systems.
+- New search scope filter in the Chord Explorer search bar: **Name** (find chord types by name — m7, maj7, sus4, regardless of selected root), **Notes** (find chords containing specific notes for the selected root), or **Both**.
 
 ---
 

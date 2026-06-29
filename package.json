@@ -1,6 +1,6 @@
 {
   "name": "orfeo",
-  "version": "0.5.0",
+  "version": "0.6.1",
   "description": "Modern piano learning app with MIDI visualization",
   "author": "SquareBow",
   "license": "MIT",
@@ -48,6 +48,7 @@
   },
   "dependencies": {
     "@tonejs/midi": "^2.0.28",
+    "fuse.js": "^7.4.2",
     "jazz-midi-electron": "^2.0.3",
     "jzz": "^1.9.6",
     "jzz-midi-smf": "^1.9.9",
