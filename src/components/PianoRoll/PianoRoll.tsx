@@ -52,16 +52,19 @@ export default function PianoRoll() {
   const gridRef = useRef<Graphics | null>(null)
   const notesRef = useRef<Graphics | null>(null)
   const playheadRef = useRef<Graphics | null>(null)
+  const overlayCanvasRef = useRef<HTMLCanvasElement | null>(null)
+  const overlayCtxRef = useRef<CanvasRenderingContext2D | null>(null)
   const keyLayoutRef = useRef<KeyLayout[]>([])
   const storeRef = useRef(useStore.getState())
   // Track last drawn keyboard size so we redraw grid on change
   const lastKeySizeRef = useRef<number>(0)
   const lastMidiRef    = useRef<any>(null)
   const flatNotesRef   = useRef<FlatNote[]>([])
+  const barStartsRef   = useRef<number[]>([])
 
   useEffect(() => useStore.subscribe((s) => { storeRef.current = s }), [])
 
-  // Wheel to scrub
+  // ── Wheel to scrub ───────────────────────────────────────────────────────────
   useEffect(() => {
     const el = containerRef.current
     if (!el) return
@@ -83,6 +86,7 @@ export default function PianoRoll() {
     return () => el.removeEventListener('wheel', onWheel)
   }, [])
 
+  // ── PixiJS canvas init ───────────────────────────────────────────────────────
   useEffect(() => {
     if (!containerRef.current) return
     const el = containerRef.current
@@ -101,6 +105,15 @@ export default function PianoRoll() {
       el.appendChild(app.canvas)
       appRef.current = app
 
+      // ── Canvas2D overlay for bar number labels (pointer-events: none) ────────
+      const overlay = document.createElement('canvas')
+      overlay.style.cssText = 'position:absolute;top:0;left:0;pointer-events:none'
+      overlay.width = el.clientWidth || 800
+      overlay.height = el.clientHeight || 600
+      el.appendChild(overlay)
+      overlayCanvasRef.current = overlay
+      overlayCtxRef.current = overlay.getContext('2d')
+
       const grid = new Graphics()
       const notes = new Graphics()
       const playhead = new Graphics()
@@ -111,10 +124,10 @@ export default function PianoRoll() {
       notesRef.current = notes
       playheadRef.current = playhead
 
+      // ── Static grid: black key shading + octave dividers ──────────────────
       const drawGrid = (W: number, H: number, midiMin: number, midiMax: number) => {
         grid.clear()
         keyLayoutRef.current = buildKeyLayout(W, midiMin, midiMax)
-        const totalKeys = midiMax - midiMin + 1
 
         // Black key column shading — subtle, shows piano structure
         for (let m = midiMin; m <= midiMax; m++) {
@@ -136,8 +149,9 @@ export default function PianoRoll() {
         }
       }
 
+      // ── Main render loop (runs every animation frame) ──────────────────────
       const drawFrame = () => {
-        const { midi, currentTime, tracks, detectedKey, zoomLevel, appTheme, keyboardSize } = storeRef.current
+        const { midi, currentTime, tracks, detectedKey, zoomLevel, appTheme, keyboardSize, showBarNumbers, barStarts: storeBars } = storeRef.current
         const transpose = (detectedKey as any)?.transpose ?? 0
         const W = app.screen.width
         const H = app.screen.height
@@ -148,7 +162,7 @@ export default function PianoRoll() {
         const { min: midiMin, max: midiMax } = RANGES[keyboardSize] ?? RANGES[88]
         const totalKeys = midiMax - midiMin + 1
 
-        // Redraw grid if keyboard size changed
+        // Redraw static grid if keyboard size changed
         if (keyboardSize !== lastKeySizeRef.current) {
           lastKeySizeRef.current = keyboardSize
           drawGrid(W, H, midiMin, midiMax)
@@ -163,14 +177,22 @@ export default function PianoRoll() {
 
         // Notes
         notes.clear()
+
+        // ── Clear bar label overlay every frame ───────────────────────────────
+        const ctx = overlayCtxRef.current
+        const ov = overlayCanvasRef.current
+        if (ctx && ov) ctx.clearRect(0, 0, ov.width, ov.height)
+
         if (!midi) return
 
         const visStart = currentTime - visibleSecs * (1 - PLAYHEAD_RATIO)
         const visEnd   = currentTime + visibleSecs * PLAYHEAD_RATIO
 
-        // Rebuild flat sorted array once per midi file load
+        // ── Rebuild flat note array once per MIDI file load ──────────────────
         if (midi !== lastMidiRef.current) {
           lastMidiRef.current = midi
+
+          // Flat sorted note array for O(log N) binary search per frame
           const flat: FlatNote[] = []
           for (const track of midi.tracks) {
             for (const note of track.notes) {
@@ -180,6 +202,9 @@ export default function PianoRoll() {
           flat.sort((a, b) => a.time - b.time)
           flatNotesRef.current = flat
         }
+
+        // ── Bar starts come from the store (computed once in parseMidiBuffer) ─
+        barStartsRef.current = storeBars
 
         // O(1) track state + color lookup for this frame
         const trackMap = new Map<number, { visible: boolean; muted: boolean; color: string }>()
@@ -211,6 +236,58 @@ export default function PianoRoll() {
           notes.rect(key.x + 1, topY, Math.max(key.width - 2, 1), 2)
           notes.fill({ color: 0xffffff, alpha: 0.25 })
         }
+
+        // ── Bar lines + bar number labels ────────────────────────────────────
+        if (!showBarNumbers || !ctx) return
+        const bStarts = barStartsRef.current
+        if (bStarts.length === 0) return
+
+        // Find which bar currentTime is in (scan all — no early break since times are ascending)
+        let currentBarIdx = 0
+        for (let i = 0; i < bStarts.length; i++) {
+          if (bStarts[i] <= currentTime) currentBarIdx = i
+        }
+
+        // Find first visible bar: last bar whose start is <= visEnd (bottom of viewport)
+        // then walk back until barY > H to find the first one in range
+        ctx.font = 'bold 11px "JetBrains Mono", monospace'
+        ctx.textBaseline = 'alphabetic'
+
+        for (let bi = 0; bi < bStarts.length; bi++) {
+          const barY = py - (bStarts[bi] - currentTime) * pps
+
+          // Skip bars whose line is below the visible area
+          if (barY > H + 20) continue
+          // Stop once we've gone past the top of the viewport
+          if (barY < -20) break
+
+          // ── Horizontal bar line ──────────────────────────────────────────
+          ctx.globalAlpha = 0.5
+          ctx.fillStyle = '#1e1e38'
+          ctx.fillRect(0, Math.round(barY), W, 1)
+
+          // ── Pill + label ─────────────────────────────────────────────────
+          const isCurrent = bi === currentBarIdx
+          const label = String(bi + 1)
+          const tw = ctx.measureText(label).width
+          const pillX = 4, pillY = Math.round(barY) - 18, pillW = tw + 8, pillH = 16
+
+          ctx.globalAlpha = isCurrent ? 1 : 0.8
+          ctx.fillStyle = isCurrent ? '#e8a027' : '#0d0d18'
+          ctx.beginPath()
+          if ((ctx as any).roundRect) {
+            ;(ctx as any).roundRect(pillX, pillY, pillW, pillH, 3)
+          } else {
+            ctx.rect(pillX, pillY, pillW, pillH)
+          }
+          ctx.fill()
+
+          ctx.globalAlpha = 1
+          ctx.fillStyle = isCurrent ? '#0f0f12' : '#e8a027'
+          ctx.fillText(label, pillX + 4, Math.round(barY) - 5)
+        }
+
+        ctx.globalAlpha = 1
       }
 
       // Initial draw using current keyboard size
@@ -229,12 +306,22 @@ export default function PianoRoll() {
         const { keyboardSize } = useStore.getState()
         const { min, max } = RANGES[keyboardSize] ?? RANGES[88]
         drawGrid(w, h, min, max)
+        // Resize overlay canvas to match
+        if (overlayCanvasRef.current) {
+          overlayCanvasRef.current.width = w
+          overlayCanvasRef.current.height = h
+        }
       })
       roInstance.observe(el)
     })
 
     return () => {
       roInstance?.disconnect()
+      if (overlayCanvasRef.current) {
+        try { overlayCanvasRef.current.remove() } catch {}
+        overlayCanvasRef.current = null
+        overlayCtxRef.current = null
+      }
       if (appRef.current) {
         try { appRef.current.canvas.remove() } catch {}
         try { appRef.current.destroy(false) } catch {}
@@ -246,7 +333,7 @@ export default function PianoRoll() {
   return (
     <div
       ref={containerRef}
-      style={{ width: '100%', height: '100%', background: 'var(--bg, #0f0f12)', overflow: 'hidden' }}
+      style={{ width: '100%', height: '100%', background: 'var(--bg, #0f0f12)', overflow: 'hidden', position: 'relative' }}
     />
   )
 }

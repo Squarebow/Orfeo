@@ -41,6 +41,7 @@ export default function TopBar() {
   const accidentals = useStore((s) => s.accidentals)
   const chordExplorerOpen = useStore((s) => s.chordExplorerOpen)
   const resetAll = useStore((s) => s.resetAll)
+  const barStarts = useStore((s) => s.barStarts)
 
   const { play, pause, stop, seek, seekAndPlay } = usePlayback()
   const { openFile } = useMidiFile()
@@ -80,6 +81,31 @@ export default function TopBar() {
   const isTempoChanged = !!midi && Math.abs(Math.round((bpm / originalBpm) * 100) - 100) > 1
   const displayKey = detectedKey ? formatKey(detectedKey, noteNaming, accidentals) : '—'
 
+  // ── Live BPM — reads current tempo from _tempoMap so rubato files update ─
+  const rawTempoMap = (midi as any)?._tempoMap as { bpm: number; time: number }[] | undefined
+  const currentFileBpm = rawTempoMap?.length
+    ? rawTempoMap.reduce(
+        (acc: number, e: { bpm: number; time: number }) => e.time <= currentTime ? e.bpm : acc,
+        rawTempoMap[0].bpm,
+      )
+    : bpm
+  const userRatio = originalBpm > 0 ? bpm / originalBpm : 1
+  const liveBpm = midi ? Math.round(currentFileBpm * userRatio) : 0
+
+  // ── Bar counter — uses same precomputed barStarts as PianoRoll ───────────
+  const totalBars = barStarts.length
+  // Binary search: find last index where barStarts[i] <= currentTime (= current bar index, 0-based)
+  let currentBar = 0
+  if (midi && barStarts.length > 0) {
+    let lo = 0, hi = barStarts.length - 1
+    while (lo < hi) {
+      const mid = (lo + hi + 1) >> 1
+      if (barStarts[mid] <= currentTime) lo = mid
+      else hi = mid - 1
+    }
+    currentBar = lo + 1
+  }
+
   return (
     <div
       className="app-drag-region"
@@ -116,13 +142,13 @@ export default function TopBar() {
 
       {/* ── BPM ── */}
       <div className="app-no-drag" style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '0 12px', flexShrink: 0 }}
-        title={`Tempo: ${Math.round(bpm)} BPM`}>
+        title={`Tempo: ${liveBpm || '—'} BPM`}>
         <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start', gap: 1 }}>
           <span style={{ color: C.muted, fontSize: 8, textTransform: 'uppercase', letterSpacing: '0.1em', fontFamily: 'JetBrains Mono', lineHeight: 1 }}>BPM</span>
           <span style={{ color: C.muted, fontSize: 8, textTransform: 'uppercase', letterSpacing: '0.1em', fontFamily: 'JetBrains Mono', lineHeight: 1 }}>TEMPO</span>
         </div>
         <span style={{ color: isTempoChanged ? C.amber : C.active, fontFamily: 'JetBrains Mono', fontSize: 20, fontWeight: 700, minWidth: 36, textAlign: 'right', lineHeight: 1 }}>
-          {midi ? Math.round(bpm) : '—'}
+          {midi ? liveBpm : '—'}
         </span>
         <div style={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
           <LongPressArrow onStep={() => setBpm(Math.min(300, useStore.getState().bpm + 1))} disabled={!midi} title="BPM +1"><ChevronUp size={10} /></LongPressArrow>
@@ -206,6 +232,32 @@ export default function TopBar() {
 
       {/* ── TIME + METRONOME + MIDI — bottoms aligned ── */}
       <div className="app-no-drag" style={{ display: 'flex', alignItems: 'flex-end', gap: 0, flexShrink: 0 }}>
+
+        {/* BAR COUNTER — only when a file is loaded */}
+        {midi && (
+          <>
+            <div
+              style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', padding: '0 12px' }}
+              title={`Bar ${currentBar} of ${totalBars}`}
+            >
+              <div style={{
+                background: '#1a1a26', borderRadius: 4, padding: '2px 6px',
+                display: 'flex', alignItems: 'baseline', gap: 0,
+              }}>
+                <span style={{ color: C.amber, fontFamily: 'JetBrains Mono', fontSize: 12, fontWeight: 700, lineHeight: 1 }}>
+                  {currentBar}
+                </span>
+                <span style={{ color: C.muted, fontFamily: 'JetBrains Mono', fontSize: 12, lineHeight: 1 }}>
+                  |{totalBars}
+                </span>
+              </div>
+              <span style={{ color: C.muted, fontSize: 8, fontFamily: 'Inter', textTransform: 'uppercase', letterSpacing: '0.1em', marginTop: 6 }}>
+                BAR
+              </span>
+            </div>
+            <div style={{ width: 1, height: 28, background: '#1e1e28', alignSelf: 'flex-end', marginBottom: 12 }} />
+          </>
+        )}
 
         {/* TIME SIGNATURE */}
         <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', padding: '0 14px' }}

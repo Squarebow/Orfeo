@@ -180,6 +180,20 @@ All user-visible changes listed here. For full technical detail see [CHANGELOG.m
 
 ---
 
+### v0.6.1 — 29. 6. 2026 (continued)
+
+**New**
+- **Bar numbers & grid lines** — the piano roll now overlays bar numbers and horizontal bar lines that scroll with the notes. Current bar is highlighted in amber. Toggle Show/Hide in Settings → Piano Roll.
+- **Bar counter in transport bar** — live `current|total` bar display next to the TIME indicator, always visible when a file is loaded.
+
+**Fixed**
+- Metronome accent now fires on beat 1 (the downbeat) of each bar instead of beat 2 or 3 — was off due to an alignment error in the beat scheduler.
+- Metronome no longer causes the BPM display to stutter or jump on MIDI files that have embedded tempo changes (common in sequenced intro rubato). Previously the metronome was incorrectly overwriting the stored BPM with each MIDI tempo event it encountered.
+- Metronome now stays in sync throughout MIDI files that have mid-song tempo changes (rubato intros, accelerandos, ritardandos). Previously the beat scheduler drifted badly after any tempo change, causing clicks to land on wrong beats and fall further out of sync the longer the file played.
+- BPM display now updates live during playback to reflect the current tempo from the MIDI file — files with tempo changes show the correct BPM as they play rather than staying locked at the opening value.
+
+---
+
 ### v0.6.1 — 29. 6. 2026
 
 **Improved**

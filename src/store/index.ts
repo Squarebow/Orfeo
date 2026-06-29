@@ -19,6 +19,7 @@ const KEYBOARD_DISPLAY_GROUPS = new Set(['piano', 'chromatic', 'organ'])
 interface OrfeoStore {
   midi: ParsedMidi | null
   setMidi: (midi: ParsedMidi | null) => void
+  barStarts: number[]
 
   playbackState: PlaybackState
   currentTime: number
@@ -53,10 +54,12 @@ interface OrfeoStore {
   accidentals: Accidentals
   zoomLevel: number
   appTheme: AppTheme
+  showBarNumbers: boolean
   setNoteNaming: (naming: NoteNaming) => void
   setAccidentals: (accidentals: Accidentals) => void
   setZoomLevel: (zoom: number) => void
   setAppTheme: (theme: AppTheme) => void
+  setShowBarNumbers: (v: boolean) => void
 
   detectedKey: DetectedKey | null
   setDetectedKey: (key: DetectedKey | null) => void
@@ -138,8 +141,9 @@ function makeTrackState(track: ParsedTrack): TrackState {
 
 export const useStore = create<OrfeoStore>((set, get) => ({
   midi: null,
+  barStarts: [],
   setMidi: (midi) => {
-    if (!midi) { set({ midi: null, tracks: [], currentTime: 0, playbackState: 'stopped', trackPanelOpen: false }); return }
+    if (!midi) { set({ midi: null, tracks: [], currentTime: 0, playbackState: 'stopped', trackPanelOpen: false, barStarts: [] }); return }
     set({
       midi,
       tracks: midi.tracks.map(makeTrackState),
@@ -148,6 +152,7 @@ export const useStore = create<OrfeoStore>((set, get) => ({
       bpm: midi.bpm,
       originalBpm: midi.bpm,
       trackPanelOpen: true,   // auto-open drawer when file loads
+      barStarts: (midi as any)._barStarts ?? [],
     })
   },
 
@@ -187,10 +192,12 @@ export const useStore = create<OrfeoStore>((set, get) => ({
   accidentals: 'flat',
   zoomLevel: 1,
   appTheme: 'dark',
+  showBarNumbers: true,
   setNoteNaming: (noteNaming) => set({ noteNaming }),
   setAccidentals: (accidentals) => set({ accidentals }),
   setZoomLevel: (zoomLevel) => set({ zoomLevel }),
   setAppTheme: (appTheme) => set({ appTheme }),
+  setShowBarNumbers: (showBarNumbers) => set({ showBarNumbers }),
 
   detectedKey: null,
   setDetectedKey: (detectedKey) => set({ detectedKey }),
@@ -249,7 +256,7 @@ export const useStore = create<OrfeoStore>((set, get) => ({
   resetAll: () => {
     ;(window as any).__orfeoPlayer?.stop?.()
     set({
-      midi: null, tracks: [],
+      midi: null, tracks: [], barStarts: [],
       bpm: 120, originalBpm: 120, detectedKey: null,
       activeKeys: new Set(), activeKeyColors: new Map(),
       explorerKeys: new Set(), explorerKeyColors: new Map(),
@@ -314,6 +321,7 @@ async function restoreLibraryPrefs() {
     if (prefs.accidentals) store.setAccidentals(prefs.accidentals)
     if (typeof prefs.masterVolume === 'number') store.setMasterVolume(prefs.masterVolume)
     if (prefs.audioEngine === 'samples') store.setAudioEngine('samples')
+    if (typeof prefs.showBarNumbers === 'boolean') store.setShowBarNumbers(prefs.showBarNumbers)
   } catch (e) {
     console.error('[Orfeo] restoreLibraryPrefs:', e)
   }
@@ -336,6 +344,7 @@ let _prevNoteNaming: string | null = null
 let _prevAccidentals: string | null = null
 let _prevMasterVolume: number | null = null
 let _prevAudioEngine: string | null = null
+let _prevShowBarNumbers: boolean | null = null
 useStore.subscribe((state) => {
   // Skip the very first fire (app init) — restore handles loading saved values
   if (_prevNoteNaming === null) {
@@ -343,23 +352,27 @@ useStore.subscribe((state) => {
     _prevAccidentals = state.accidentals
     _prevMasterVolume = state.masterVolume
     _prevAudioEngine = state.audioEngine
+    _prevShowBarNumbers = state.showBarNumbers
     return
   }
   if (
     state.noteNaming !== _prevNoteNaming ||
     state.accidentals !== _prevAccidentals ||
     state.masterVolume !== _prevMasterVolume ||
-    state.audioEngine !== _prevAudioEngine
+    state.audioEngine !== _prevAudioEngine ||
+    state.showBarNumbers !== _prevShowBarNumbers
   ) {
     _prevNoteNaming = state.noteNaming
     _prevAccidentals = state.accidentals
     _prevMasterVolume = state.masterVolume
     _prevAudioEngine = state.audioEngine
+    _prevShowBarNumbers = state.showBarNumbers
     window.electronAPI?.setPrefs?.({
       noteNaming: state.noteNaming,
       accidentals: state.accidentals,
       masterVolume: state.masterVolume,
       audioEngine: state.audioEngine,
+      showBarNumbers: state.showBarNumbers,
     }).catch(() => {})
   }
 })

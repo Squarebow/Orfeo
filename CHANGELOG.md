@@ -4,6 +4,46 @@
 
 ---
 
+### 29. 6. 2026 — Bar numbers, bar counter, metronome fixes
+
+**`src/utils/midiParser.ts`**
+- `parseMidiBuffer` now precomputes `_barStarts: number[]` — array of bar start times in seconds, built by walking `_tempoMap` with the time signature numerator; handles mid-song tempo changes correctly
+- Single source of truth: PianoRoll and TopBar both read this array, eliminating bar-count drift
+
+**`src/store/index.ts`**
+- Added `barStarts: number[]` field (default `[]`, not persisted) — set from `_barStarts` in `setMidi`, cleared in `resetMidi`/`resetAll`
+- Added `showBarNumbers: boolean` (default `true`) + `setShowBarNumbers` — persisted alongside other display prefs
+- `restoreLibraryPrefs` restores `showBarNumbers` from saved prefs
+
+**`src/components/PianoRoll/PianoRoll.tsx`**
+- Full rewrite of bar overlay layer: PixiJS `Text` pool replaced with a Canvas2D overlay (`position:absolute`, `pointer-events:none`) drawn every frame via `clearRect` + `fillRect`/`fillText` — reliable text rendering, no PixiJS texture sizing issues
+- Bar start times now read from `storeRef.current.barStarts` (no local recomputation)
+- `currentBarIdx` scan fixed: removed `else break` that caused early exit before scanning all events
+- Horizontal bar lines drawn in Canvas2D (`rgba(30,30,56,0.5)`) before pills; pills use `ctx.roundRect` with `ctx.rect` fallback
+- Container div gets `position: 'relative'` for overlay positioning; overlay resized in `ResizeObserver` callback
+
+**`src/components/Transport/TopBar.tsx`**
+- Added `barStarts` from store; replaced simple `Math.floor(currentTime/barDuration)+1` with binary search into `barStarts` — exact sync with PianoRoll
+- BAR counter moved inside the `alignItems:'flex-end'` right group div so its bottom aligns with TIME/METRONOME/MIDI labels
+
+**`src/components/SettingsPanel/SettingsPanel.tsx`**
+- "Bar numbers & grid lines" Show/Hide toggle added under Piano Roll section
+
+**`src/hooks/useMetronome.ts`** *(complete rewrite — full tempo-map awareness)*
+- **Bug fix:** Removed `useStore.setState({ bpm: rawBpm, originalBpm: rawBpm })` — the metronome was overwriting `originalBpm` on every tempo-change event in the MIDI, corrupting the user's tempo ratio and causing visible BPM stutter
+- **Bug fix:** Accent beat alignment — changed `Math.floor(elapsedBeats)` to `Math.ceil(elapsedBeats)` for initial `beatNumRef`; `timeToNextBeat` now uses `(ceil - elapsed) * spb` instead of `(1 - frac) * spb`; the old code scheduled beat 0's click one full beat late, causing the accent to land on beat 2 instead of beat 1 of each bar
+- **Root fix for rubato files:** `elapsedBeats = currentTime / localSpb` was wrong for files with tempo changes — it divided only by the current-segment BPM without integrating prior tempo events, causing `beatNumRef` to start at the wrong position; replaced with `getElapsedBeats()` which walks the full `_tempoMap`
+- Added `getElapsedBeats(tempoMap, time)`: integrates beats across all tempo segments up to `time` seconds (exported for TopBar)
+- Added `getSongTimeForBeat(tempoMap, targetBeat)`: inverse function, maps absolute beat number → file seconds; handles mid-file tempo changes exactly
+- Scheduler redesign — per-tick beat audio times computed via `audioOffsetRef + getSongTimeForBeat(tempoMap, bt) / ratio` (exact, tempo-aware) instead of accumulating `nextBeat += spb` (drifts across tempo changes); `lastScheduled` ref prevents double-firing; `audioOffsetRef = ctx.currentTime - currentTime/ratio` is a true invariant during uninterrupted playback
+- Removed `nextBeatRef`, replaced with per-beat exact computation; removed `beatNumRef` accumulation loop
+
+**`src/components/Transport/TopBar.tsx`** *(additional change)*
+- BPM display now shows live tempo from `_tempoMap` at `currentTime` instead of the static `bpm` store value; computed via `reduce` over `rawTempoMap`, scaled by user ratio (`bpm / originalBpm`); updates every frame as the song plays through tempo changes
+- `isTempoChanged` flag continues to reflect user tempo adjustment (ratio ≠ 1), not the file's internal tempo changes
+
+---
+
 ### 29. 6. 2026 — Audio engine persistence + Chord Explorer search rewrite (v0.6.1)
 
 **`src/store/index.ts`**

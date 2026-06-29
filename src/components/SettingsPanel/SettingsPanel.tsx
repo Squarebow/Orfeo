@@ -394,6 +394,8 @@ export default function SettingsPanel() {
   const setKeyboardSize = useStore((s) => s.setKeyboardSize)
   const zoomLevel = useStore((s) => s.zoomLevel)
   const setZoomLevel = useStore((s) => s.setZoomLevel)
+  const showBarNumbers = useStore((s) => s.showBarNumbers)
+  const setShowBarNumbers = useStore((s) => s.setShowBarNumbers)
   const appTheme = useStore((s) => s.appTheme)
   const setAppTheme = useStore((s) => s.setAppTheme)
   const audioEngine = useStore((s) => s.audioEngine)
@@ -583,6 +585,13 @@ export default function SettingsPanel() {
                       disabled={zoomLevel >= ZOOM_STEPS[ZOOM_STEPS.length - 1]}
                       onClick={() => { const i = ZOOM_STEPS.indexOf(zoomLevel); if (i < ZOOM_STEPS.length - 1) setZoomLevel(ZOOM_STEPS[i + 1]) }}
                     >+</ZoomStepBtn>
+                  </div>
+                </OptionRow>
+
+                <OptionRow label="Bar numbers & grid lines">
+                  <div style={{ display: 'flex', gap: 4 }}>
+                    <OptionBtn active={showBarNumbers} onClick={() => setShowBarNumbers(true)}>Show</OptionBtn>
+                    <OptionBtn active={!showBarNumbers} onClick={() => setShowBarNumbers(false)}>Hide</OptionBtn>
                   </div>
                 </OptionRow>
 
