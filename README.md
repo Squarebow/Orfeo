@@ -1,39 +1,125 @@
-# Orfeo 🎹
+# Orfeo
 
 **A modern piano learning and MIDI visualization desktop app for Windows.**
 
-Upload any MIDI file, watch notes fall onto a virtual keyboard in real time, follow along at your own pace, and learn piano the visual way.
+[![Version](https://img.shields.io/badge/Version-0.6.0-blue)](https://github.com/SquareBow/orfeo/releases)
+[![License](https://img.shields.io/badge/License-MIT-green)](LICENSE)
+[![Platform](https://img.shields.io/badge/Platform-Windows-lightgrey?logo=windows)](https://github.com/SquareBow/orfeo/releases)
+[![Status](https://img.shields.io/badge/Status-Beta-orange)](https://github.com/SquareBow/orfeo)
 
-> ⚠️ **Early development** — v0.1.0 scaffold. Not yet functional for end users.
+Upload any MIDI file, watch notes fall onto a virtual keyboard in real time, follow along at your own pace, and learn piano the visual way. Explore chords and scales interactively, build your own chord progressions, and hear everything through a high-quality sampled audio engine.
 
 ---
 
-## Features (in development)
+## Table of Contents
+
+- [Features](#features)
+- [Audio Engines](#audio-engines)
+- [Note Naming Systems](#note-naming-systems)
+- [Screenshots](#screenshots)
+- [Getting Started](#getting-started)
+- [Building from Source](#building-from-source)
+- [Contributing](#contributing)
+- [License](#license)
+- [Changelog](#changelog)
+
+---
+
+## Features
+
+### Piano Roll & Playback
 
 - 🎵 **MIDI file import** — open any `.mid` or `.midi` file
-- 🎹 **Falling note piano roll** — notes fall downward onto a 61/73/88 key virtual keyboard
-- 🎨 **Track manager** — mute, solo, recolor individual tracks
-- 🎼 **Real-time chord detection** — see the chord name as notes play
-- 🌍 **Note naming systems** — English (B), Central European (H), Solfège (Do Re Mi), or hidden
-- ⌨️ **Hardware MIDI keyboard** — plug in and keys light up automatically
-- 🎚️ **Tempo control** — slow down or speed up without changing pitch
-- 🔊 **High-quality audio** — WAV/AIFF samples, not GM soundfonts
+- 🎹 **Falling note piano roll** — notes fall downward onto a 61 / 73 / 88 key virtual keyboard in real time, perfectly aligned to each key
+- 🎚️ **Tempo control** — slow down or speed up without changing pitch; long-press the BPM arrows to accelerate
+- 🔁 **Loop playback** — set a loop region and repeat any section
+- 🥁 **Metronome** — tempo-map aware; follows mid-file tempo changes automatically
+- 🎼 **Track manager** — mute, solo, recolor, and show/hide individual tracks
 
-## Tech Stack
+### Interactive Keyboard
 
-- **Electron** + **Vite** + **React** + **TypeScript**
-- **PixiJS** for WebGL piano roll rendering
-- **Tone.js** for audio
-- **@tonejs/midi** for MIDI parsing
-- **tonal.js** for music theory / chord detection
-- **Zustand** for state management
-- **Tailwind CSS** for styling
+- 🖱️ **Click or drag to play** — click any key to hear it; drag across keys for glissando
+- 🎹 **Docked or floating** — keyboard docks at the bottom or floats freely as a draggable panel
+- 💡 **Key highlighting** — keys light up in track color as notes play; chord names displayed above
+- 🔤 **Note labels** — lit keys show note names in your chosen naming system
 
-## Development Setup
+### Chord & Scale Explorers
+
+- 🎵 **Chord Explorer** — browse and audition any chord in any key; filter by hand span, note count, or search; cycle inversions; play progressions
+- 🎵 **Scale Explorer** — interactive Circle of Fifths; select any key to see the scale, its diatonic chords, and play progressions
+- 🎼 **Real-time chord detection** — chord name displayed as notes play from a MIDI file or keyboard input
+- 🔄 **Chord inversions** — displayed in slash notation (C/E, Dm7/F) everywhere in the app
+
+### MIDI Editing
+
+- ✏️ **MIDI Playback Editor** — reassign instruments, include/exclude tracks, merge tracks; saves as `_ORFEO.mid` without touching the original
+- 📁 **File library** — browse a folder of MIDI files, star favourites, click to load
+
+### Audio
+
+- 🎛️ **Master volume** — SVG knob in the toolbar, persists across sessions
+- 🎼 **Two audio engines** — GM Synth (instant, no download) or Samples (SpessaSynth + GeneralUser GS SF2, ~31MB, richer sound)
+
+---
+
+## Audio Engines
+
+| Engine | Sound Quality | Setup | Best For |
+|---|---|---|---|
+| **GM Synth** | Good | Instant, no download | Quick playback, low resource use |
+| **Samples** | Excellent | ~31MB download on first use | Musical, expressive listening |
+
+Switch between engines in **Settings → Audio**. The Samples engine uses [SpessaSynth](https://github.com/spessasus/spessasynth_lib) with the [GeneralUser GS](http://www.schristiancollins.com/generaluser.php) soundfont. Settings and volume persist across sessions.
+
+---
+
+## Note Naming Systems
+
+A global setting applies everywhere — keyboard labels, chord names, chord explorer, scale explorer:
+
+| Setting | System | Example |
+|---|---|---|
+| **UK / US** | Standard English | C D E F G A **B** |
+| **EU** | Central European | C D E F G A **H** (B = B♭) |
+| **Solfège** | Latin | Do Re Mi Fa Sol La Si |
+| **Hide** | No labels | Keys shown without names |
+
+The accidentals toggle (♭ / ♯) applies separately and is remembered between sessions.
+
+---
+
+## Screenshots
+
+*Coming soon — screenshots will be added before the first public release.*
+
+---
+
+## Getting Started
+
+### Download
+
+Download the latest installer from the [Releases](https://github.com/SquareBow/orfeo/releases) page:
+
+- `Orfeo-Setup-x.x.x-Windows.exe` — standard installer
+- `Orfeo-Portable-x.x.x-Windows.exe` — portable, no installation required
+
+### Using Orfeo
+
+1. **Open a MIDI file** — click the folder icon in the top left or press `Ctrl+O`
+2. **Press Play** — notes fall onto the keyboard in sync with the music
+3. **Adjust tempo** — use the BPM arrows to slow down while learning
+4. **Explore chords** — click `CHORDS` above the keyboard to open the Chord Explorer
+5. **Explore scales** — click `SCALES` above the keyboard to open the Scale Explorer
+
+For a full guide see [docs/HOW_TO_USE.md](docs/HOW_TO_USE.md).
+
+---
+
+## Building from Source
 
 ### Prerequisites
 
-- [Node.js 24 LTS](https://nodejs.org)
+- [Node.js 20 LTS](https://nodejs.org) or higher
 - [Git](https://git-scm.com)
 
 ### Install & Run
@@ -46,28 +132,167 @@ cd orfeo
 # Install dependencies
 npm install
 
-# Start development server
+# Start development server (launches Electron app)
 npm run dev
 ```
 
-### Build
+### Build Commands
 
-```bash
-npm run build
-```
+| Command | Output |
+|---|---|
+| `npm run dev` | Development mode with hot reload |
+| `npm run build` | Compile TypeScript to `out/` |
+| `npm run dist` | Package to installer in `release/` |
+| `npm run dist -- --dir` | Unpack build for inspection (no installer) |
 
-## Roadmap
+### Tech Stack
 
-- **Phase 1** — Core app: MIDI playback, piano roll, keyboard visualization, audio
-- **Phase 2** — Chord library, licensing, playlist, installer
-- **Phase 3** — VST3 plugin (JUCE/C++)
+| Layer | Technology |
+|---|---|
+| App framework | Electron + Vite + React + TypeScript |
+| Piano roll rendering | PixiJS (WebGL) |
+| MIDI parsing | @tonejs/midi |
+| Audio engine | SpessaSynth + JZZ |
+| Music theory | tonal.js |
+| State management | Zustand |
+| Styling | Tailwind CSS |
+| Icons | Lucide React |
 
-See [docs/ROADMAP.md](docs/ROADMAP.md) for details.
+---
 
 ## Contributing
 
-Contributions welcome! Please open an issue before submitting a PR.
+Contributions welcome — see [CONTRIBUTING.md](CONTRIBUTING.md) for full setup and build instructions for all platforms (Windows, macOS, Linux).
+
+Please open an issue before submitting a PR. Check [docs/ROADMAP.md](docs/ROADMAP.md) to see what is already planned.
+
+---
 
 ## License
 
 MIT © [SquareBow](https://github.com/SquareBow)
+
+---
+
+## Changelog
+
+All user-visible changes listed here. For full technical detail see [CHANGELOG.md](CHANGELOG.md).
+
+---
+
+### v0.6.0 — June 2026
+
+**New**
+- **Samples audio engine** — real instrument sounds via SpessaSynth and the GeneralUser GS soundfont (~31MB, downloads once on first use). Switch between GM Synth and Samples in Settings. Noticeably richer and more musical than the built-in GM synth.
+- **Master volume knob** — interactive SVG dial in the toolbar between the key display and transport controls. Volume persists across sessions.
+- **Glissando** — drag the mouse across the virtual keyboard while holding the button to play notes continuously as you slide.
+
+**Improved**
+- Chord inversion display now always uses slash notation everywhere in the app — `C/E` for 1st inversion, `C/G` for 2nd. No more confusing re-detected chord names like `Em#5` or `Gsus4` for inverted chords.
+- Major chord suffix `M` removed globally — `C` instead of `CM`, `G` instead of `GM`.
+- Inversion label shown next to chord name above keyboard when cycling inversions manually (e.g. `C/E  1st inv`).
+
+---
+
+### v0.5.2 — June 2026
+
+**New**
+- **Scale Explorer** — opens from the `SCALES` label above the keyboard. Interactive Circle of Fifths: click any key to explore its scale and diatonic chords. Supports 10 scale types (Major, Natural Minor, Harmonic Minor, Melodic Minor, Dorian, Phrygian, Lydian, Mixolydian, Major and Minor Pentatonic).
+- Diatonic chord grid — 7 chord tiles per scale with Roman numeral labels; click any tile to hear and highlight it on the keyboard.
+- 20 named chord progressions (Pop, Jazz Standard, Andalusian, Pachelbel, 12-bar Blues and more) with Slow / Medium / Fast speed control and Sequential / Random inversion modes.
+- Switch directly between Chord Explorer and Scale Explorer without closing either.
+
+**Improved**
+- App now launches maximized.
+- Both explorer modals open positioned just above the keyboard by default, not covering it.
+
+---
+
+### v0.5.1 — June 2026
+
+**New**
+- **Chord Explorer** — opens from the `CHORDS` label above the keyboard. Browse all chord types for any root note; filter by hand span (one hand / two hands) or note count (3–6+); search by chord name; cycle through inversions.
+- 15 named chord progressions with Slow / Medium / Fast playback and Sequential / Random inversion modes.
+- Clicking the Orfeo logo resets the app to its initial state without restarting.
+- Accidentals toggle (♭ / ♯) in the Chord Explorer footer — changes apply everywhere instantly.
+
+**Fixed**
+- Central European note naming: B♭ (pitch class 10) now always displays as `B` in EU mode, never `A#`.
+- Closing the Chord Explorer now correctly clears the chord name display above the keyboard.
+
+---
+
+### v0.5.0 — June 2026
+
+**New**
+- **Zoom control** — zoom the piano roll time axis to see more or fewer bars at once.
+- **User Manual link** — bottom of the left drawer opens the guide in your browser.
+- **Warm theme** — optional warmer background color in Settings.
+
+**Improved**
+- Piano roll grid now correctly aligns to the selected keyboard size (61 / 73 / 88 keys).
+- Keyboard height is now proportional — resizes smoothly when the window changes size.
+- Metronome now aligns to the current playback position when started mid-file, and correctly follows tempo changes embedded in the MIDI file.
+- BPM arrows support long-press to accelerate through values quickly.
+- Library drawer opens by default and shows the Library tab first.
+- Left drawer widened to match the right track panel.
+
+**Fixed**
+- Library subfolder display was silently broken — now works correctly with collapsible folder headers.
+- Chord name tooltip was clipped at the top of the screen — now opens downward.
+
+---
+
+### v0.3.2 — June 2026
+
+**New**
+- **Floating keyboard** — click Float to detach the keyboard into a draggable panel anywhere on screen. Pin it back with one click.
+
+**Improved**
+- Chord detection during playback is faster and clears cleanly between chords.
+- Metronome now starts in phase with the current playback position.
+
+---
+
+### v0.3.1 — June 2026
+
+**Improved**
+- MIDI file library now scans subfolders recursively, with collapsible folder groups.
+- MIDI Playback Editor covers all 128 GM instruments across 16 families.
+- Track editor pencil icon turns amber while the editor is open.
+- Settings (note naming, accidentals) are now remembered between sessions.
+
+**Fixed**
+- Clicking a file in the library sometimes failed to load it.
+- Reopening the app could overwrite saved settings before they were restored.
+
+---
+
+### v0.3.0 — June 2026
+
+**New**
+- **Settings & Library drawer** — collapsible left panel with note naming, accidentals, zoom, keyboard size, and audio settings. Library tab for browsing and starring MIDI files.
+- **MIDI Playback Editor** — separate window to reassign instruments, include/exclude tracks, and merge tracks. Saves as `_ORFEO.mid` — originals are never modified.
+- **Chord lock** — Shift+click keys on the keyboard to build and lock a chord. Cycle inversions with the arrow buttons.
+- **Accidentals toggle** — switch between ♭ flats and ♯ sharps globally.
+- **Windows installer** — `npm run dist` produces a proper `.exe` installer.
+
+**Improved**
+- Toolbar redesigned with BPM and key display side by side.
+- Track panel opens automatically when a MIDI file loads.
+
+---
+
+### v0.2.0 — June 2026
+
+**New**
+- Open MIDI files via a native file dialog.
+- Falling note piano roll — notes animate downward onto the keyboard in sync with playback.
+- Audio playback with instrument sounds per track.
+- Keys light up as notes play; chord name shown above the keyboard.
+
+---
+
+### v0.1.0 — June 2026
+
+Initial release. Project scaffold, basic Electron app window, design system established.
