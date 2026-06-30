@@ -180,6 +180,11 @@ All user-visible changes listed here. For full technical detail see [CHANGELOG.m
 
 ---
 
+### v0.6.1 — 30. 6. 2026 (continued)
+
+**Changed**
+- **Chord Prompter** is now embedded in the chord bar above the keyboard instead of a separate floating panel. Enable it in Settings → Playback, then click the scroll icon (now in the chord bar, next to the CHORDS label) to expand into prompter mode: 4 past chords on the left, the current chord large and amber in the centre, 2 upcoming chords on the right — all in a single compact row. The bar smoothly animates between compact and expanded views. During regular playback the chord display reads from a pre-computed chord sequence (no more jitter from live key detection).
+
 ### v0.6.1 — 29. 6. 2026 (continued)
 
 **New**

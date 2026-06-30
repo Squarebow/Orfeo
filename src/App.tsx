@@ -10,7 +10,6 @@ import { useStore } from './store'
 import FloatingKeyboard from './components/Keyboard/FloatingKeyboard'
 import ChordExplorer from './components/ChordExplorer'
 import ScaleExplorer from './components/ScaleExplorer'
-import ChordPrompter from './components/ChordPrompter'
 import MidiEditor from './components/MidiEditor/MidiEditor'
 import { parseMidiBuffer } from './utils/midiParser'
 import { detectKeyFromTracks, parseKeySignature } from './utils/keyDetection'
@@ -92,7 +91,6 @@ export default function App() {
       {keyboardMode === 'floating' && <FloatingKeyboard />}
       <ChordExplorer />
       <ScaleExplorer />
-      <ChordPrompter />
     </div>
   )
 }

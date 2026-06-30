@@ -4,6 +4,46 @@
 
 ---
 
+### 30. 6. 2026 — Chord Prompter embedded in chord bar
+
+**`src/components/ChordPrompter.tsx`** — deleted; all display is now handled inline in `Keyboard.tsx`
+
+**`src/App.tsx`**
+- Removed `ChordPrompter` import and render
+
+**`src/components/Keyboard/Keyboard.tsx`**
+- Added `resolveCurrentIndex()` — binary search for `lastEvent.time <= currentTime`; same algorithm that was in the old floating panel
+- Added `frozenIndexRef` — freezes at last known chord index on pause/stop; resets to `-1` on file change via `useEffect([midi])`
+- Added store subscriptions: `midi`, `chordSequence`, `chordPrompterOpen`, `currentTime`
+- Removed playback chord detection from the live `activeKeys` effect; that effect now returns early when `playbackState === 'playing'` — playback chord display is now sourced entirely from the pre-computed `chordSequence`
+- Manual chord detection (Shift+click lock mode, mouse play when not playing) is unchanged
+- Chord bar is now dual-mode with a fluid `height: 0.2s ease` transition:
+  - **Simple** (`chordPrompterOpen === false`, 30 px): unchanged layout; chord name priority chain updated to `locked → explorer → sequenceChord → displayedChord → empty`; `sequenceChord` is used instead of the old live-detected `displayedChord` during playback
+  - **Extended** (`chordPrompterOpen === true`, 56 px): three-column teleprompter — 4 past chords (Inter 11px `#9090a8`) | `‹` | current chord (JetBrains Mono 20px bold amber) | `›` | 2 next chords; bottom 14px sub-row holds CHORDS / SCALES triggers; empty states: "Open a MIDI file" / "No chords detected" / "Press play"
+
+**`src/components/Transport/TopBar.tsx`**
+- Added `FileText` to Lucide imports
+- Added `FileText` placeholder icon immediately after the `ScrollText` button; only visible when `chordPrompterOpen === true`; `cursor:not-allowed`, `opacity:0.4`, `color:#505068`, tooltip "Transcribe & Save PDF"; no-op on click
+
+---
+
+### 30. 6. 2026 — Chord bar layout polish
+
+**`src/components/Keyboard/Keyboard.tsx`**
+- Extended mode collapsed from two stacked rows (56px total: 42px sequence + 14px CHORDS/SCALES sub-row separated by a border) into a single flat flex row (36px)
+- Single-row extended layout: `[CHORDS] [ScrollText toggle] [FileText placeholder]` left-anchored flex group | chord sequence (past `‹` current `›` next) centred flex-1 | `[SCALES]` right-anchored flex item — no separator, no sub-row
+- `ScrollText` prompter toggle icon moved from `TopBar` into the chord bar left group (size 13, `strokeWidth 1.5`): amber when `chordPrompterOpen === true`, `#707088` when false; shown only when `chordPrompterEnabled && midi`
+- Same toggle icon appears in extended mode left group (always amber, since open)
+- Simple mode height increased 30px → 34px for visual consistency with extended 36px
+- Added `chordPrompterEnabled`, `setChordPrompterOpen` store subscriptions; added `ScrollText` to Lucide imports
+
+**`src/components/Transport/TopBar.tsx`**
+- Removed `ScrollText` from Lucide imports
+- Removed `chordPrompterEnabled`, `chordPrompterOpen`, `setChordPrompterOpen` store subscriptions (all moved to `Keyboard.tsx`)
+- Removed `ScrollText` transport button entirely — toggle now lives in the chord bar
+
+---
+
 ### 29. 6. 2026 — Chord Prompter
 
 **`src/types/index.ts`**
