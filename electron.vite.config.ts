@@ -9,6 +9,12 @@ export default defineConfig({
       lib: {
         entry: 'electron/main.ts',
       },
+      // pdfkit uses __dirname to locate its font .afm files; bundling it inline
+      // would break that (resolves to out/main/ instead of node_modules/pdfkit/js/).
+      // Keep it as a runtime require() so its own __dirname stays correct.
+      rollupOptions: {
+        external: ['pdfkit'],
+      },
     },
   },
   preload: {

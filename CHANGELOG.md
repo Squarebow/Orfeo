@@ -4,6 +4,74 @@
 
 ---
 
+### 1. 7. 2026 — Chord Transcript PDF — layout & detection fixes (v3)
+
+**`public/fonts/`** — new directory; four font files added:
+- `Inter-Regular.ttf`, `Inter-Bold.ttf`, `Inter-Italic.ttf` — Inter v4.0 (rsms/inter GitHub release)
+- `JetBrainsMono-Regular.ttf` — JetBrains Mono v2.304 (JetBrains GitHub release)
+
+**`package.json`**
+- Added `extraResources: [{ from: "public/fonts", to: "fonts" }]` to electron-builder config so fonts are copied outside the asar in packaged builds and accessible via `process.resourcesPath`
+
+**`electron/main.ts`**
+- Added `pdfLegendKey(chord)` — `pdfStripMajor(chord.split('/')[0])`; single helper used in both legend dedup and consecutive-dedup in bar progression; collapses `C/E`, `GM/D` etc. to root
+- Updated `drawKeyboardThumbnail`: white key fill `#efefef`, stroke `#c0c0c0` 0.2pt; black key fill `#2a2a2a`, width fixed 4.5pt, height fixed 11pt (no longer derived from thumb dimensions); black keys no longer stroked
+- In `transcript:generate` IPC handler:
+  - Font registration via `doc.registerFont()` for `Inter`, `Inter-Bold`, `Inter-Italic`, `Mono`; resolved from `app.isPackaged ? process.resourcesPath/fonts : appPath/public/fonts`
+  - **Chord detection — consecutive dedup** now compares by `pdfLegendKey` (root+quality, ignoring inversion) instead of exact match; `C → C/E → C/G` collapses to one `C` entry
+  - **Legend dedup** now uses `pdfLegendKey` as the set key; `chordEn` field on `GridChord` set to the key-normalised value so the legend only holds root-position chords; 50+ legend entries reduced to ~8–15 for typical pop/rock files
+  - **`C_LINE`** changed `'#2a2a3a'` → `'#d0d0dc'`; added `C_INFO = '#909090'`; all grid `lineWidth` calls 0.3 → 0.2; header rule stays 0.3pt per spec
+  - **Dynamic row height** — fixed pre-computed `rowH` removed; per-bar: `rowH = Math.max(20, barChords.length * 11)`; page-break check uses the current bar's own `rowH`
+  - **Chord placement — contained within cell** — `doc.widthOfString()` to measure; font size tries 8 → 7 → 6pt until text fits `BEAT_COL_W - 4`; proportional x clamped to `[cellLeft+2, cellRight−tw−2]`; 3+ chords per cell use adaptive step `min(9, (rowH−14)/(n−1))` with hard ceiling/floor at `rowTop+3` / `rowBottom−3−fontSize`; rendered with `width: cellRight − drawX − 1` to prevent overflow
+  - **Fonts applied throughout**: header title `Inter-Bold 13pt`; subtitle `Inter-Italic 8pt`; info line `Inter 7pt`; section label `Inter 7pt C_DIM`; legend chord names `Inter-Bold 7pt`; legend note names `Inter 6pt`; beat header `Inter 6pt`; bar numbers `Mono 7pt`; grid chord names `Mono` 8/7/6pt; footer `Inter 7pt`
+
+---
+
+### 30. 6. 2026 — Chord Transcript PDF generation
+
+**New feature:** Clicking the `FileText` icon in the chord bar (extended mode) generates a PDF chord transcript of the loaded MIDI file and saves it next to the source file as `<filename>_CHORD_TRANSCRIPT.pdf`.
+
+**`npm install pdfkit @types/pdfkit`** — PDF generation dependency, main process only.
+
+**`src/types/index.ts`**
+- Added `TranscriptEntry { midiPath, transcriptPath, date }` interface
+- Added `transcriptGenerate(midiPath): Promise<{ success, path?, error? }>` to `Window.electronAPI` global declaration
+
+**`electron/preload.ts`**
+- Added `transcriptGenerate` IPC bridge for `transcript:generate`
+
+**`src/store/index.ts`**
+- Added `transcriptHistory: TranscriptEntry[]` and `addTranscriptEntry(entry)` — capped at 20 entries (newest first, oldest dropped); persists immediately to `orfeo-prefs.json` via direct `setPrefs` call inside the action
+- Restored `transcriptHistory` from prefs in `restoreLibraryPrefs`
+
+**`electron/main.ts`**
+- Added imports: `basename`, `createWriteStream`, `Chord`/`Note` from tonal, `PDFDocument` from pdfkit
+- Added `pdfStripMajor()`, `pdfPickBest()`, `pdfDetectChord()` — minimal chord detection duplicated from renderer-side `chordDetection.ts` (cannot import renderer code into main process); uses tonal.js `Chord.detect()` + shortest non-slash root-position name
+- Added `drawKeyboardThumbnail(doc, x, y, chordName)` — draws a C4–B4 one-octave keyboard using pdfkit vector rects (8 white keys, 5 black keys); chord tones filled amber, others grey/off-white
+- Added `formatTranscriptDate()` — date string in project format
+- `transcript:generate` IPC handler:
+  1. Parses MIDI with `@tonejs/midi`; collects notes from all non-percussion tracks
+  2. 80ms cluster window → `pdfDetectChord()` per cluster → filter `< 2` notes
+  3. Bar number from `Math.floor(time / secPerBar) + 1` using first tempo + time signature
+  4. Dedup consecutive identical chords; group remaining by bar (stack with `→` prefix for multiple chords per bar)
+  5. Collect unique chords in order of first appearance for legend
+  6. PDF via pdfkit (A4 portrait, 20mm margins): header (filename 18pt, subtitle 12pt grey, tempo/key/bars 10pt dim, rule), chord legend (keyboard thumbnails 5/row, chord name + note names), bar grid (4/row, 52pt cell height, stacked chords), footer (rule + attribution)
+  7. Writes to `midiFilePath.replace(/\.midi?$/i, '_CHORD_TRANSCRIPT.pdf')`
+  8. Returns `{ success, path }` or `{ success: false, error }`
+
+**`src/components/Keyboard/Keyboard.tsx`**
+- Injected `@keyframes orfeo-transcript-spin` style element at module level (guarded by `id` check)
+- Added `addTranscriptEntry` subscription
+- Added `transcriptState` (`'idle'|'loading'|'success'|'error'`) and `transcriptTooltip` local state; `transcriptRevertRef` for 3-second auto-revert
+- Replaced `FileText` no-op placeholder with active icon:
+  - Active only when `midi._filePath` is present; otherwise `opacity:0.35, cursor:not-allowed`
+  - Loading: spin animation, tooltip "Generating…"
+  - Success: green color, tooltip "✓ Saved — filename.pdf" for 3s, calls `addTranscriptEntry`
+  - Error: red color, tooltip shows error string for 3s
+  - Auto-reverts to idle state and default tooltip after 3s
+
+---
+
 ### 30. 6. 2026 — Chord Prompter embedded in chord bar
 
 **`src/components/ChordPrompter.tsx`** — deleted; all display is now handled inline in `Keyboard.tsx`

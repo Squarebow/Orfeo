@@ -1,6 +1,15 @@
 import React, { useMemo, useCallback, useState, useEffect, useRef } from 'react'
 import { FileText, ScrollText } from 'lucide-react'
 import { useStore } from '../../store'
+import type { TranscriptEntry } from '../../types'
+
+// ── Inject spin keyframe once for transcript loading animation ─────────────────
+if (typeof document !== 'undefined' && !document.getElementById('orfeo-transcript-anim')) {
+  const s = document.createElement('style')
+  s.id = 'orfeo-transcript-anim'
+  s.textContent = '@keyframes orfeo-transcript-spin { from { transform: rotate(0deg) } to { transform: rotate(360deg) } }'
+  document.head.appendChild(s)
+}
 import { isBlackKey } from '../../utils/midiParser'
 import { getNoteLabel, getNoteName } from '../../utils/noteNames'
 import { detectChord, detectChordWithInversion, formatInversionDisplay, localizeChord, ordinalSuffix } from '../../utils/chordDetection'
@@ -58,11 +67,16 @@ export default function Keyboard() {
   const chordPrompterOpen = useStore((s) => s.chordPrompterOpen)
   const setChordPrompterOpen = useStore((s) => s.setChordPrompterOpen)
   const currentTime = useStore((s) => s.currentTime)
+  const addTranscriptEntry = useStore((s) => s.addTranscriptEntry)
   const shiftHeldRef = useRef(false)
   // ── Tracks whether the primary mouse button is held, enabling glissando drag ──
   const isMouseDown = useRef(false)
   // ── Freeze prompter at last known chord index on pause/stop ──────────────────
   const frozenIndexRef = useRef<number>(-1)
+  // ── Transcript generation state ───────────────────────────────────────────────
+  const [transcriptState, setTranscriptState] = useState<'idle' | 'loading' | 'success' | 'error'>('idle')
+  const [transcriptTooltip, setTranscriptTooltip] = useState('Transcribe & Save PDF')
+  const transcriptRevertRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   // ── Compute structured inversion display for locked chord ─────────────────
   const lockedDisplay = useMemo(() => {
@@ -374,13 +388,61 @@ export default function Keyboard() {
               >
                 <ScrollText size={13} strokeWidth={1.5} />
               </div>
-              {/* ── Transcribe placeholder — cursor:not-allowed, no-op ────────── */}
-              <div
-                title="Transcribe & Save PDF"
-                style={{ cursor: 'not-allowed', opacity: 0.4, color: '#505068', display: 'flex', alignItems: 'center' }}
-              >
-                <FileText size={13} strokeWidth={1.5} />
-              </div>
+              {/* ── Transcribe icon — active when file is loaded with a path ──── */}
+              {(() => {
+                const filePath = midi ? (midi as any)._filePath as string | undefined : undefined
+                const canTranscribe = !!filePath && transcriptState !== 'loading'
+                const iconColor = transcriptState === 'success' ? '#4caf50'
+                  : transcriptState === 'error' ? '#f44336'
+                  : '#b0b0cc'
+                return (
+                  <div
+                    title={transcriptTooltip}
+                    onClick={async () => {
+                      if (!canTranscribe) return
+                      setTranscriptState('loading')
+                      setTranscriptTooltip('Generating…')
+                      if (transcriptRevertRef.current) clearTimeout(transcriptRevertRef.current)
+                      try {
+                        const result = await window.electronAPI.transcriptGenerate(filePath!, noteNaming, accidentals)
+                        if (result.success && result.path) {
+                          setTranscriptState('success')
+                          const fname = result.path.split(/[\\/]/).pop() ?? result.path
+                          setTranscriptTooltip(`✓ Saved — ${fname}`)
+                          const today = new Date()
+                          const entry: TranscriptEntry = {
+                            midiPath: filePath!,
+                            transcriptPath: result.path,
+                            date: `${today.getDate()}. ${today.getMonth() + 1}. ${today.getFullYear()}`,
+                          }
+                          addTranscriptEntry(entry)
+                        } else {
+                          setTranscriptState('error')
+                          setTranscriptTooltip(result.error ?? 'PDF generation failed')
+                        }
+                      } catch (err: any) {
+                        setTranscriptState('error')
+                        setTranscriptTooltip(err?.message ?? 'PDF generation failed')
+                      }
+                      transcriptRevertRef.current = setTimeout(() => {
+                        setTranscriptState('idle')
+                        setTranscriptTooltip('Transcribe & Save PDF')
+                      }, 3000)
+                    }}
+                    style={{
+                      cursor: canTranscribe ? 'pointer' : 'not-allowed',
+                      opacity: filePath ? 1 : 0.35,
+                      color: iconColor,
+                      display: 'flex',
+                      alignItems: 'center',
+                      transition: 'color 0.2s',
+                      animation: transcriptState === 'loading' ? 'orfeo-transcript-spin 1s linear infinite' : 'none',
+                    }}
+                  >
+                    <FileText size={13} strokeWidth={1.5} />
+                  </div>
+                )
+              })()}
             </div>
 
             {/* ── Centre: chord sequence (past | ‹ | current | › | next) ────────── */}

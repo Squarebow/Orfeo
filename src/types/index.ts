@@ -74,18 +74,25 @@ export interface ChordEvent {
   notes: string[]
 }
 
+export interface TranscriptEntry {
+  midiPath: string
+  transcriptPath: string
+  date: string
+}
+
 declare global {
   interface Window {
     electronAPI: {
-      openMidiFile:     () => Promise<MidiFileResult | null>
-      getPrefs:         () => Promise<Record<string, any>>
-      setPrefs:         (data: Record<string, any>) => Promise<void>
-      openFolder:       () => Promise<string | null>
-      scanMidiFolder:   (path: string) => Promise<LibraryFile[]>
-      loadMidiFromPath: (path: string) => Promise<MidiFileResult | null>
-      windowMinimize:   () => Promise<void>
-      windowMaximize:   () => Promise<void>
-      windowClose:      () => Promise<void>
+      openMidiFile:        () => Promise<MidiFileResult | null>
+      getPrefs:            () => Promise<Record<string, any>>
+      setPrefs:            (data: Record<string, any>) => Promise<void>
+      openFolder:          () => Promise<string | null>
+      scanMidiFolder:      (path: string) => Promise<LibraryFile[]>
+      loadMidiFromPath:    (path: string) => Promise<MidiFileResult | null>
+      windowMinimize:      () => Promise<void>
+      windowMaximize:      () => Promise<void>
+      windowClose:         () => Promise<void>
+      transcriptGenerate:  (midiPath: string, noteNaming: string, accidentals: string) => Promise<{ success: boolean; path?: string; error?: string }>
     }
   }
 }

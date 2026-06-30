@@ -22,4 +22,5 @@ contextBridge.exposeInMainWorld('electronAPI', {
   onMidiReload:       (cb: (data: any) => void) => ipcRenderer.on('midi:reloadFile', (_e, data) => cb(data)),
   onEditorClosed:     (cb: () => void) => ipcRenderer.on('editor:closed', () => cb()),
   openExternal:       (url: string) => ipcRenderer.invoke('shell:openExternal', url),
+  transcriptGenerate: (midiPath: string, noteNaming: string, accidentals: string) => ipcRenderer.invoke('transcript:generate', midiPath, noteNaming, accidentals),
 })

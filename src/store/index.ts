@@ -1,7 +1,7 @@
 import { create } from 'zustand'
 import type {
   ParsedMidi, ParsedTrack, PlaybackState, TrackState,
-  KeyboardSize, KeyboardMode, NoteNaming, Accidentals, ChordEvent,
+  KeyboardSize, KeyboardMode, NoteNaming, Accidentals, ChordEvent, TranscriptEntry,
 } from '../types'
 import type { DetectedKey } from '../utils/keyDetection'
 import { isKeyboardInstrument } from '../utils/gmInstruments'
@@ -120,6 +120,9 @@ interface OrfeoStore {
   setChordPrompterEnabled: (v: boolean) => void
   setChordPrompterOpen: (v: boolean) => void
   setChordSequence: (seq: ChordEvent[]) => void
+
+  transcriptHistory: TranscriptEntry[]
+  addTranscriptEntry: (entry: TranscriptEntry) => void
 
   resetAll: () => void
 }
@@ -287,6 +290,14 @@ export const useStore = create<OrfeoStore>((set, get) => ({
   setChordPrompterOpen: (chordPrompterOpen) => set({ chordPrompterOpen }),
   setChordSequence: (chordSequence) => set({ chordSequence }),
 
+  // ── Transcript history — max 20 entries, oldest dropped when full ─────────
+  transcriptHistory: [],
+  addTranscriptEntry: (entry) => {
+    const next = [entry, ...get().transcriptHistory].slice(0, 20)
+    set({ transcriptHistory: next })
+    window.electronAPI?.setPrefs?.({ transcriptHistory: next }).catch(() => {})
+  },
+
   libraryFolder: null,
   libraryFiles: [],
   libraryFavourites: new Set(),
@@ -338,6 +349,7 @@ async function restoreLibraryPrefs() {
     if (prefs.audioEngine === 'samples') store.setAudioEngine('samples')
     if (typeof prefs.showBarNumbers === 'boolean') store.setShowBarNumbers(prefs.showBarNumbers)
     if (typeof prefs.chordPrompterEnabled === 'boolean') store.setChordPrompterEnabled(prefs.chordPrompterEnabled)
+    if (Array.isArray(prefs.transcriptHistory)) useStore.setState({ transcriptHistory: prefs.transcriptHistory })
   } catch (e) {
     console.error('[Orfeo] restoreLibraryPrefs:', e)
   }

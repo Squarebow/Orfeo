@@ -24,6 +24,9 @@
       "out/**/*",
       "package.json"
     ],
+    "extraResources": [
+      { "from": "public/fonts", "to": "fonts" }
+    ],
     "win": {
       "target": [
         {
@@ -53,6 +56,7 @@
     "jzz": "^1.9.6",
     "jzz-midi-smf": "^1.9.9",
     "jzz-synth-tiny": "^1.4.4",
+    "pdfkit": "^0.19.1",
     "pixi.js": "^8.0.0",
     "soundfont-player": "^0.12.0",
     "spessasynth_lib": "^4.3.8",
@@ -63,6 +67,7 @@
   },
   "devDependencies": {
     "@tailwindcss/vite": "^4.3.1",
+    "@types/pdfkit": "^0.17.6",
     "@types/react": "^19.1.6",
     "@types/react-dom": "^19.1.5",
     "@vitejs/plugin-react": "^4.5.2",

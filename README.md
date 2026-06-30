@@ -180,7 +180,17 @@ All user-visible changes listed here. For full technical detail see [CHANGELOG.m
 
 ---
 
+### v0.6.1 — 1. 7. 2026 (continued)
+
+**Improved**
+- **Chord Transcript PDF** — the chord transcript now embeds Inter and JetBrains Mono fonts. The chord legend collapses inversions so the same chord in different positions counts as one entry (was showing 50+ entries, now 8–15 for a typical song). Grid lines are lighter and less dominant. Each bar row grows taller based on how many chord changes it contains. Chord names are now prevented from overflowing their beat cells.
+
+---
+
 ### v0.6.1 — 30. 6. 2026 (continued)
+
+**New**
+- **Chord Transcript PDF** — click the document icon in the chord bar (requires Chord Prompter to be open) to generate a PDF of the full chord sequence for the loaded MIDI file. The PDF is saved next to the MIDI file automatically. It includes: a one-octave keyboard thumbnail for each unique chord (chord tones highlighted in amber), a bar-by-bar chord grid showing what chord plays in every bar, and header info with tempo, key, and time signature. Works offline, no internet required.
 
 **Changed**
 - **Chord Prompter** is now embedded in the chord bar above the keyboard instead of a separate floating panel. Enable it in Settings → Playback, then click the scroll icon (now in the chord bar, next to the CHORDS label) to expand into prompter mode: 4 past chords on the left, the current chord large and amber in the centre, 2 upcoming chords on the right — all in a single compact row. The bar smoothly animates between compact and expanded views. During regular playback the chord display reads from a pre-computed chord sequence (no more jitter from live key detection).
