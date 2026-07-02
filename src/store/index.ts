@@ -121,6 +121,9 @@ interface OrfeoStore {
   setChordPrompterOpen: (v: boolean) => void
   setChordSequence: (seq: ChordEvent[]) => void
 
+  hideDemoFolder: boolean
+  setHideDemoFolder: (v: boolean) => void
+
   transcriptHistory: TranscriptEntry[]
   addTranscriptEntry: (entry: TranscriptEntry) => void
 
@@ -290,6 +293,10 @@ export const useStore = create<OrfeoStore>((set, get) => ({
   setChordPrompterOpen: (chordPrompterOpen) => set({ chordPrompterOpen }),
   setChordSequence: (chordSequence) => set({ chordSequence }),
 
+  // ── Demo folder visibility — persisted, default visible ───────────────────
+  hideDemoFolder: false,
+  setHideDemoFolder: (hideDemoFolder) => set({ hideDemoFolder }),
+
   // ── Transcript history — max 20 entries, oldest dropped when full ─────────
   transcriptHistory: [],
   addTranscriptEntry: (entry) => {
@@ -349,6 +356,7 @@ async function restoreLibraryPrefs() {
     if (prefs.audioEngine === 'samples') store.setAudioEngine('samples')
     if (typeof prefs.showBarNumbers === 'boolean') store.setShowBarNumbers(prefs.showBarNumbers)
     if (typeof prefs.chordPrompterEnabled === 'boolean') store.setChordPrompterEnabled(prefs.chordPrompterEnabled)
+    if (typeof prefs.hideDemoFolder === 'boolean') store.setHideDemoFolder(prefs.hideDemoFolder)
     if (Array.isArray(prefs.transcriptHistory)) useStore.setState({ transcriptHistory: prefs.transcriptHistory })
   } catch (e) {
     console.error('[Orfeo] restoreLibraryPrefs:', e)
@@ -374,6 +382,7 @@ let _prevMasterVolume: number | null = null
 let _prevAudioEngine: string | null = null
 let _prevShowBarNumbers: boolean | null = null
 let _prevChordPrompterEnabled: boolean | null = null
+let _prevHideDemoFolder: boolean | null = null
 useStore.subscribe((state) => {
   // Skip the very first fire (app init) — restore handles loading saved values
   if (_prevNoteNaming === null) {
@@ -383,6 +392,7 @@ useStore.subscribe((state) => {
     _prevAudioEngine = state.audioEngine
     _prevShowBarNumbers = state.showBarNumbers
     _prevChordPrompterEnabled = state.chordPrompterEnabled
+    _prevHideDemoFolder = state.hideDemoFolder
     return
   }
   if (
@@ -391,7 +401,8 @@ useStore.subscribe((state) => {
     state.masterVolume !== _prevMasterVolume ||
     state.audioEngine !== _prevAudioEngine ||
     state.showBarNumbers !== _prevShowBarNumbers ||
-    state.chordPrompterEnabled !== _prevChordPrompterEnabled
+    state.chordPrompterEnabled !== _prevChordPrompterEnabled ||
+    state.hideDemoFolder !== _prevHideDemoFolder
   ) {
     _prevNoteNaming = state.noteNaming
     _prevAccidentals = state.accidentals
@@ -399,6 +410,7 @@ useStore.subscribe((state) => {
     _prevAudioEngine = state.audioEngine
     _prevShowBarNumbers = state.showBarNumbers
     _prevChordPrompterEnabled = state.chordPrompterEnabled
+    _prevHideDemoFolder = state.hideDemoFolder
     window.electronAPI?.setPrefs?.({
       noteNaming: state.noteNaming,
       accidentals: state.accidentals,
@@ -406,6 +418,7 @@ useStore.subscribe((state) => {
       audioEngine: state.audioEngine,
       showBarNumbers: state.showBarNumbers,
       chordPrompterEnabled: state.chordPrompterEnabled,
+      hideDemoFolder: state.hideDemoFolder,
     }).catch(() => {})
   }
 })

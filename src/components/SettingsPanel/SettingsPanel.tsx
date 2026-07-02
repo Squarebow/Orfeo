@@ -91,6 +91,7 @@ function LibraryPanel() {
   const setLibraryFiles = useStore((s) => s.setLibraryFiles)
   const setLibraryFolderAndFiles = useStore((s) => s.setLibraryFolderAndFiles)
   const toggleFavourite = useStore((s) => s.toggleFavourite)
+  const hideDemoFolder  = useStore((s) => s.hideDemoFolder)
   const [loading, setLoading] = useState(false)
   const [filter, setFilter] = useState<'all' | 'starred'>('all')
   // Folders start expanded (not in collapsed set)
@@ -175,8 +176,13 @@ function LibraryPanel() {
     const unstarred = rootFiles.filter(f => !libraryFavourites.has(f.path))
     const result: FileGroup[] = []
 
+    // ── Sort folders: Demo pinned first, rest alphabetical ───────────────────
     Array.from(folderMap.entries())
-      .sort((a, b) => a[0].localeCompare(b[0]))
+      .sort((a, b) => {
+        if (a[0].toLowerCase() === 'demo') return -1
+        if (b[0].toLowerCase() === 'demo') return 1
+        return a[0].localeCompare(b[0])
+      })
       .forEach(([folder, files]) => result.push({ folder, files }))
 
     // Root files at the bottom
@@ -295,7 +301,8 @@ function LibraryPanel() {
           </div>
         )}
 
-        {grouped.map((group, gi) => (
+        {/* ── hideDemoFolder filters the Demo subfolder from display ───────── */}
+        {grouped.filter(g => !(hideDemoFolder && g.folder?.toLowerCase() === 'demo')).map((group, gi) => (
           <div key={group.folder ?? '__root__'}>
 
             {/* Subfolder header — only for named folders */}
@@ -402,6 +409,8 @@ export default function SettingsPanel() {
   const setAudioEngine = useStore((s) => s.setAudioEngine)
   const chordPrompterEnabled = useStore((s) => s.chordPrompterEnabled)
   const setChordPrompterEnabled = useStore((s) => s.setChordPrompterEnabled)
+  const hideDemoFolder      = useStore((s) => s.hideDemoFolder)
+  const setHideDemoFolder   = useStore((s) => s.setHideDemoFolder)
   // ── Samples engine loading state ─────────────────────────────────────────
   const [samplesStatus, setSamplesStatus] = useState<'idle' | 'loading' | 'ready' | 'error'>('idle')
   const [samplesProgress, setSamplesProgress] = useState(0)
@@ -497,6 +506,15 @@ export default function SettingsPanel() {
               <LibraryPanel />
             ) : (
               <div style={{ flex: 1, overflowY: 'auto', padding: '4px 0' }}>
+
+                {/* ── Library ── */}
+                <SectionHeader icon={<BookOpen size={11} />} label="Library" />
+                <OptionRow label="Demo folder" hint="Removes bundled demo songs from library view. Files are not deleted.">
+                  <div style={{ display: 'flex', gap: 4 }}>
+                    <OptionBtn active={!hideDemoFolder} onClick={() => setHideDemoFolder(false)}>Show</OptionBtn>
+                    <OptionBtn active={hideDemoFolder}  onClick={() => setHideDemoFolder(true)}>Hide</OptionBtn>
+                  </div>
+                </OptionRow>
 
                 {/* ── Note Names ── */}
                 <SectionHeader icon={<Type size={11} />} label="Note Names" />

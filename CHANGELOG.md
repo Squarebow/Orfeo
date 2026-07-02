@@ -4,6 +4,33 @@
 
 ---
 
+### 2. 7. 2026 — Demo folder + Orfeo subfolder for generated files
+
+**`electron/main.ts`**
+- Added `ensureDemoFolder()`: on first launch, copies bundled demo MIDI files from `public/demo/` (dev) or `app.asar.unpacked/public/demo/` (packaged) into `libraryFolder/Demo/`. Writes `.demo-installed` flag to userData so the copy runs exactly once. Safe-copy: skips files that already exist. Falls back to `userData/Demo/` if no library folder is configured yet. Called from `app.whenReady()` before `createWindow()`, wrapped in try/catch so a missing demo dir never blocks launch.
+- Added `getOrfeoOutputDir(sourceFilePath)` helper: resolves and auto-creates an `Orfeo/` subfolder next to the source file. If the source is already inside an `Orfeo/` subfolder, steps up to its parent — prevents `Orfeo/Orfeo/` nesting.
+- `editor:save` IPC handler: output path now computed from `_editorData.filePath` via `getOrfeoOutputDir()` instead of using `payload.outputPath` from the renderer. `writeFileSync`, the `midi:reloadFile` notification, and the return message all use the new local `outputPath`. Fixes bug where the Orfeo/ folder was created (by `getOrfeoOutputDir`) but files were written next to the source (because `payload.outputPath` was still referenced). Re-saving an already-generated `_ORFEO.mid` strips the suffix before appending a new one — prevents `_ORFEO_ORFEO` doubling.
+- `transcript:generate` IPC handler: output path moved into `Orfeo/` subfolder via `getOrfeoOutputDir()`. `songName` variable reused for the filename.
+- Expanded `fs/promises` import: added `access`, `copyFile`, `readdir`, `writeFile` alongside existing `mkdir`.
+
+**`package.json`**
+- `files` array: added `public/demo/**/*` and `public/spessasynth_processor.min.js`; removed stale `package.json` entry.
+- `asarUnpack`: added `public/demo/**/*` so demo files are accessible to `fs.copyFile` in packaged builds.
+
+**`src/store/index.ts`**
+- Added `hideDemoFolder: boolean` (default `false`) + `setHideDemoFolder` to `OrfeoStore`.
+- Restored from prefs in `restoreLibraryPrefs`.
+- Persisted in the null-sentinel subscribe callback alongside other display settings.
+
+**`src/components/SettingsPanel/SettingsPanel.tsx`**
+- `LibraryPanel`: `Demo` folder (case-insensitive) is sorted to position 0 in the folder list, pinned above `Orfeo/` and all user subfolders. When `hideDemoFolder` is true, the Demo group is filtered from the render — files remain on disk.
+- Settings tab: new **Library** section at the top with a Demo folder Show/Hide toggle.
+
+**`public/demo/`**
+- Bundled: Mozart - Rondo Alla Turca, Scott Joplin - Entertainer, Vivaldi 4 stagioni - Estate.
+
+---
+
 ### 2. 7. 2026 — Portable build target
 
 **`package.json`**

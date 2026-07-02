@@ -23,13 +23,16 @@
     },
     "files": [
       "out/**/*",
-      "package.json"
+      "public/spessasynth_processor.min.js",
+      "public/demo/**/*",
+      "!node_modules/**/*"
     ],
     "extraResources": [
       { "from": "public/fonts", "to": "fonts" }
     ],
     "asarUnpack": [
-      "out/renderer/spessasynth_processor.min.js"
+      "out/renderer/spessasynth_processor.min.js",
+      "public/demo/**/*"
     ],
     "win": {
       "target": [

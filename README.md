@@ -180,6 +180,12 @@ All user-visible changes listed here. For full technical detail see [CHANGELOG.m
 
 ---
 
+### 2. 7. 2026
+
+**New**
+- **Demo folder** — three bundled MIDI files (Mozart Rondo Alla Turca, Joplin Entertainer, Vivaldi Summer) are copied into a `Demo/` folder inside your library on first launch. The Demo folder always appears at the top of the library list. You can hide it from Settings → Library if you don't need it.
+- **Generated files stay tidy** — files created by Orfeo (`_ORFEO.mid`, `_ORFEO_MERGED.mid`, Chord Transcript PDFs) now save into an `Orfeo/` subfolder next to the source file instead of cluttering the same folder. The subfolder is created automatically on first save. Re-saving an already-generated file overwrites it cleanly in the same `Orfeo/` folder without doubling the suffix.
+
 ### v0.6.1 — 2. 7. 2026
 
 **New**

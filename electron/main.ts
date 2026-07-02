@@ -1,9 +1,51 @@
 import { app, BrowserWindow, ipcMain, dialog, shell } from 'electron'
-import { join, basename } from 'path'
+import { join, basename, dirname } from 'path'
 import { readFileSync, writeFileSync, existsSync, readdirSync, createWriteStream } from 'fs'
+import { mkdir, access, copyFile, readdir, writeFile } from 'fs/promises'
 import { Midi } from '@tonejs/midi'
 import { Chord, Note } from 'tonal'
 import PDFDocument from 'pdfkit'
+
+// ── Copy bundled demo MIDI files into the user's library on first launch ─────────
+// Writes a flag file to userData so this runs exactly once.
+// Target: libraryFolder/Demo/ if a library is configured, otherwise userData/Demo/.
+// Individual files are skipped if they already exist — no user file is overwritten.
+async function ensureDemoFolder(): Promise<void> {
+  const flagPath  = join(app.getPath('userData'), '.demo-installed')
+  const installed = await access(flagPath).then(() => true).catch(() => false)
+  if (installed) return
+
+  const prefs     = loadPrefs()
+  const libRoot   = prefs.libraryFolder || app.getPath('userData')
+  const targetDir = join(libRoot, 'Demo')
+  await mkdir(targetDir, { recursive: true })
+
+  // ── Source path: unpacked from asar in production, dev public/ directory ───
+  const srcDir = app.isPackaged
+    ? join(process.resourcesPath, 'app.asar.unpacked', 'public', 'demo')
+    : join(app.getAppPath(), 'public', 'demo')
+
+  const files = await readdir(srcDir)
+  for (const file of files) {
+    if (!/\.(mid|midi)$/i.test(file)) continue
+    const dest   = join(targetDir, file)
+    const exists = await access(dest).then(() => true).catch(() => false)
+    if (!exists) await copyFile(join(srcDir, file), dest)
+  }
+
+  await writeFile(flagPath, 'true')
+}
+
+// ── Resolve (and auto-create) the Orfeo output subfolder for a given source file ──
+// If the source is already inside an Orfeo/ subfolder, step up to its parent so
+// output always lands in a single Orfeo/ level — never Orfeo/Orfeo/.
+async function getOrfeoOutputDir(sourceFilePath: string): Promise<string> {
+  const sourceDir = dirname(sourceFilePath)
+  const baseDir   = basename(sourceDir).toLowerCase() === 'orfeo' ? dirname(sourceDir) : sourceDir
+  const orfeoDir  = join(baseDir, 'Orfeo')
+  await mkdir(orfeoDir, { recursive: true })
+  return orfeoDir
+}
 
 // ── Main window ────────────────────────────────────────────────────────────
 function createWindow() {
@@ -147,6 +189,15 @@ ipcMain.handle('editor:save', async (_e, payload: {
     if (!_editorData?.filePath) return { ok: false, message: 'No source file loaded' }
     const midi = new Midi(readFileSync(_editorData.filePath))
 
+    // ── Resolve output path into Orfeo/ subfolder ─────────────────────────────
+    // Strip any existing _ORFEO / _ORFEO_MERGED suffix before appending a new one
+    // so re-saving an already-generated file overwrites cleanly instead of doubling up.
+    const orfeoDir   = await getOrfeoOutputDir(_editorData.filePath)
+    const rawBase    = basename(_editorData.filePath).replace(/\.midi?$/i, '')
+    const baseName   = rawBase.replace(/_(ORFEO_MERGED|ORFEO)$/i, '')
+    const hasMerge   = (payload.mergeGroups ?? []).some(g => g.length >= 2)
+    const outputPath = join(orfeoDir, `${baseName}${hasMerge ? '_ORFEO_MERGED' : '_ORFEO'}.mid`)
+
     const noteTrackIndices: number[] = []
     midi.tracks.forEach((t, i) => { if (t.notes.length > 0) noteTrackIndices.push(i) })
 
@@ -181,14 +232,16 @@ ipcMain.handle('editor:save', async (_e, payload: {
     noteTrackIndices.filter(i => !includedSet.has(i)).sort((a, b) => b - a).forEach(i => midi.tracks.splice(i, 1))
 
     const outBuf = Buffer.from(midi.toArray())
-    writeFileSync(payload.outputPath, outBuf)
+    // ── Write to the resolved Orfeo/ subfolder path ───────────────────────────
+    writeFileSync(outputPath, outBuf)
 
+    // ── Notify main window to reload from the new path ────────────────────────
     const mainWin = BrowserWindow.getAllWindows().find(w => w !== editorWin)
     if (mainWin) {
-      const fileName = payload.outputPath.split(/[\\/]/).pop() ?? payload.outputPath
-      mainWin.webContents.send('midi:reloadFile', { fileName, filePath: payload.outputPath, base64: outBuf.toString('base64') })
+      const fileName = outputPath.split(/[\\/]/).pop() ?? outputPath
+      mainWin.webContents.send('midi:reloadFile', { fileName, filePath: outputPath, base64: outBuf.toString('base64') })
     }
-    return { ok: true, message: `Saved: ${payload.outputPath.split(/[\\/]/).pop()}` }
+    return { ok: true, message: `Saved: ${outputPath.split(/[\\/]/).pop()}` }
   } catch (e: any) {
     return { ok: false, message: e?.message ?? 'Save failed' }
   }
@@ -443,8 +496,9 @@ ipcMain.handle('transcript:generate', async (_e, midiFilePath: string, noteNamin
     }
 
     // ── 9. Generate PDF ────────────────────────────────────────────────────────
-    const outputPath = midiFilePath.replace(/\.midi?$/i, '_CHORD_TRANSCRIPT.pdf')
+    const orfeoDir   = await getOrfeoOutputDir(midiFilePath)
     const songName   = basename(midiFilePath).replace(/\.midi?$/i, '')
+    const outputPath = join(orfeoDir, `${songName}_CHORD_TRANSCRIPT.pdf`)
 
     // ── Font directory: project root in dev, resources/ in packaged app ────────
     const fontsDir = app.isPackaged
@@ -695,5 +749,9 @@ if (process.env.PORTABLE_EXECUTABLE_DIR) {
   app.setPath('userData', join(process.env.PORTABLE_EXECUTABLE_DIR, 'Orfeo-Data'))
 }
 
-app.whenReady().then(createWindow)
+// ── Launch: copy demo files on first run, then open main window ───────────────
+app.whenReady().then(async () => {
+  try { await ensureDemoFolder() } catch (e) { console.error('[Orfeo] ensureDemoFolder failed:', e) }
+  createWindow()
+})
 app.on('window-all-closed', () => { if (process.platform !== 'darwin') app.quit() })
