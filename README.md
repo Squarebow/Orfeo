@@ -2,7 +2,7 @@
 
 **A modern piano learning and MIDI visualization desktop app for Windows.**
 
-[![Version](https://img.shields.io/badge/Version-0.6.1-blue)](https://github.com/SquareBow/orfeo/releases)
+[![Version](https://img.shields.io/badge/Version-0.7.0-blue)](https://github.com/SquareBow/orfeo/releases)
 [![License](https://img.shields.io/badge/License-MIT-green)](LICENSE)
 [![Platform](https://img.shields.io/badge/Platform-Windows-lightgrey?logo=windows)](https://github.com/SquareBow/orfeo/releases)
 [![Status](https://img.shields.io/badge/Status-Beta-orange)](https://github.com/SquareBow/orfeo)
@@ -179,6 +179,21 @@ MIT © [SquareBow](https://github.com/SquareBow)
 All user-visible changes listed here. For full technical detail see [CHANGELOG.md](CHANGELOG.md).
 
 ---
+
+### v0.7.0 — 2. 7. 2026
+
+**New**
+- **Split Track** — the MIDI Playback Editor now has a Split button on piano, organ, and chromatic percussion tracks. Clicking it detects left-hand vs. right-hand notes automatically (based on a configurable split point, default C4) and saves a new file with the two hands as separate tracks (`_ORFEO_SPLIT.mid`). Tracks that don't have enough notes in both registers don't show the button.
+- **Split breakpoint setting** — a new Settings → MIDI Editor section lets you change the note where the hand split happens, from A0 to B7, one semitone at a time. Default is C4 (middle C).
+- **Portable build filename** — the portable `.exe` is now named `Orfeo-0.7.0-portable.exe` for clarity.
+
+**Improved**
+- **MIDI Editor merge button** — the `+` / `✓` text on each track's merge toggle has been replaced with the Merge icon for visual consistency.
+- **MIDI Editor track order** — keyboard and piano tracks now always appear at the top of the track list; drums sink to the bottom. Left Hand and Right Hand tracks are sorted to the top and in order when opening a split file.
+
+**Fixed**
+- **MIDI Editor icons** — the Merge and Split icons were too dark to see clearly; both are now lighter.
+- **Split button on split tracks** — Left Hand and Right Hand tracks no longer show a Split button since they are already the result of a split.
 
 ### 2. 7. 2026
 

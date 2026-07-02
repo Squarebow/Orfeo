@@ -1,16 +1,14 @@
 /**
- * MIDI Editor — Stage 5f: Track Merge
+ * MIDI Editor — Stage 5g: Track Split
  *
- * Full replacement. Adds functional merge:
- * - Select 2+ tracks with MERGE checkboxes
- * - Click "Merge selected" → tracks collapse into one merged row
- * - Merged row shows badge, uses first selected track's instrument+color
- * - Undo merge possible before saving
- * - On save, merge is applied in main.ts via note array concatenation
+ * Adds Split operation alongside existing Merge:
+ * - Piano/chromatic/organ tracks show a Split button when ≥15% notes in each register
+ * - Split saves {basename}_ORFEO_SPLIT.mid with LH + RH as separate tracks
+ * - Merge icon updated to Lucide Merge; Split uses Lucide Split
  */
 
 import { useState, useEffect, useRef } from 'react'
-import { Check, X, Save, FolderOpen, AlertCircle, ChevronDown, ChevronRight, Search, Merge, Undo2, RotateCcw, Piano, Bell, Church, Guitar, Music2, AudioWaveform, Users, Megaphone, Wind, Feather, Cpu, Globe, Drum, Radio, Waves, Sparkles } from 'lucide-react'
+import { Check, X, Save, FolderOpen, AlertCircle, ChevronDown, ChevronRight, Search, Merge, Split, Undo2, RotateCcw, Piano, Bell, Church, Guitar, Music2, AudioWaveform, Users, Megaphone, Wind, Feather, Cpu, Globe, Drum, Radio, Waves, Sparkles } from 'lucide-react'
 
 // ─── GM data (same as 5e) ─────────────────────────────────────────────────────
 // Lucide icon component map for GM families
@@ -239,12 +237,13 @@ function InstrumentPicker({ program, isDrum, onChange }: {
 
 // ─── Track Row ────────────────────────────────────────────────────────────────
 
-function TrackRow({ track, onToggleIncluded, onToggleMerge, onChangeProgram, onUnmerge }: {
+function TrackRow({ track, onToggleIncluded, onToggleMerge, onChangeProgram, onUnmerge, onSplit }: {
   track: EditorTrack
   onToggleIncluded: () => void
   onToggleMerge: () => void
   onChangeProgram: (p: number) => void
   onUnmerge?: () => void
+  onSplit?: () => void
 }) {
   const wasReassigned = track.newProgram !== track.program && !track.isMerged
 
@@ -282,11 +281,11 @@ function TrackRow({ track, onToggleIncluded, onToggleMerge, onChangeProgram, onU
           width: 24, height: 24, borderRadius: 4,
           border: `1.5px solid ${track.mergeSelected ? '#e8a02755' : '#252535'}`,
           background: track.mergeSelected ? '#e8a02714' : 'transparent',
-          color: track.mergeSelected ? '#e8a027' : '#353540',
+          color: track.mergeSelected ? '#e8a027' : '#606078',
           display: 'flex', alignItems: 'center', justifyContent: 'center',
-          cursor: 'pointer', fontSize: 11, fontWeight: 700, flexShrink: 0,
+          cursor: 'pointer', flexShrink: 0,
         }}>
-          {track.mergeSelected ? '✓' : '+'}
+          <Merge size={11} />
         </button>
       )}
 
@@ -301,6 +300,22 @@ function TrackRow({ track, onToggleIncluded, onToggleMerge, onChangeProgram, onU
             <span style={{ fontSize: 9, padding: '1px 5px', borderRadius: 3, background: '#20204a', color: '#8080cc', fontFamily: 'JetBrains Mono', flexShrink: 0 }}>
               ⊞ merged {track.mergedFromIndices?.length}
             </span>
+          )}
+          {onSplit && !track.isMerged && (
+            <button
+              onClick={onSplit}
+              title="Split into Left Hand / Right Hand"
+              style={{
+                background: 'none', border: '1px solid #252535', borderRadius: 3,
+                cursor: 'pointer', color: '#606078', padding: '1px 4px',
+                display: 'flex', alignItems: 'center', flexShrink: 0,
+                transition: 'all 0.12s',
+              }}
+              onMouseEnter={e => { e.currentTarget.style.color = '#e8a027'; e.currentTarget.style.borderColor = '#e8a02755' }}
+              onMouseLeave={e => { e.currentTarget.style.color = '#606078'; e.currentTarget.style.borderColor = '#252535' }}
+            >
+              <Split size={10} />
+            </button>
           )}
         </div>
         <div style={{ display: 'flex', gap: 8, marginTop: 2, flexWrap: 'wrap', alignItems: 'center' }}>
@@ -359,14 +374,28 @@ export default function MidiEditor() {
   const [state, setState] = useState<EditorState | null>(null)
   const [saving, setSaving] = useState(false)
   const [saveResult, setSaveResult] = useState<{ ok: boolean; msg: string } | null>(null)
+  const [splitBreakpoint, setSplitBreakpoint] = useState(60)
+  const [splitResult, setSplitResult] = useState<{ ok: boolean; msg: string } | null>(null)
 
   useEffect(() => {
     window.electronAPI.getMidiEditorData().then((data: any) => {
       if (!data) return
+      const KEYBOARD_GROUPS = ['piano', 'chromatic', 'organ']
       const rows: EditorTrack[] = data.tracks.map((t: any) => ({
         ...t, included: !t.muted, mergeSelected: false, newProgram: t.program,
-      }))
+      })).sort((a: EditorTrack, b: EditorTrack) => {
+        const aK = KEYBOARD_GROUPS.includes(a.group), bK = KEYBOARD_GROUPS.includes(b.group)
+        if (aK !== bK) return aK ? -1 : 1
+        if (a.isDrum !== b.isDrum) return a.isDrum ? 1 : -1
+        if (a.name === 'Left Hand' && b.name === 'Right Hand') return -1
+        if (a.name === 'Right Hand' && b.name === 'Left Hand') return 1
+        return 0
+      })
       setState({ fileName: data.fileName, filePath: data.filePath, rows, outputPath: orfeoName(data.filePath, false) })
+    })
+    // ── Load split breakpoint from persisted prefs ──────────────────────────
+    window.electronAPI.getPrefs().then((prefs: any) => {
+      if (typeof prefs?.globalSplitBreakpoint === 'number') setSplitBreakpoint(prefs.globalSplitBreakpoint)
     })
   }, [])
 
@@ -474,6 +503,18 @@ export default function MidiEditor() {
     setSaving(false)
   }
 
+  // ── Split a keyboard track into Left Hand / Right Hand ───────────────────
+  const handleSplit = async (trackIndex: number) => {
+    setSplitResult(null)
+    try {
+      const result = await window.electronAPI.splitMidiEditor({ trackIndex, breakpoint: splitBreakpoint })
+      setSplitResult({ ok: result.ok, msg: result.message })
+      if (result.ok) setTimeout(() => window.electronAPI.closeMidiEditor?.(), 1200)
+    } catch (e: any) {
+      setSplitResult({ ok: false, msg: e?.message ?? 'Split failed' })
+    }
+  }
+
   return (
     <div style={{ width: '100vw', height: '100vh', background: '#0f0f12', color: '#9090a8', fontFamily: 'Inter, system-ui', display: 'flex', flexDirection: 'column', fontSize: 12, userSelect: 'none' }}>
 
@@ -505,6 +546,7 @@ export default function MidiEditor() {
             onToggleMerge={() => update(track.index, { mergeSelected: !track.mergeSelected })}
             onChangeProgram={p => update(track.index, { newProgram: p })}
             onUnmerge={track.isMerged ? () => handleUnmerge() : undefined}
+            onSplit={!track.isMerged && ['piano', 'chromatic', 'organ'].includes(track.group) && track.name !== 'Left Hand' && track.name !== 'Right Hand' ? () => handleSplit(track.index) : undefined}
           />
         ))}
       </div>
@@ -555,6 +597,11 @@ export default function MidiEditor() {
           <AlertCircle size={10} style={{ color: '#505068', flexShrink: 0, marginTop: 1 }} />
           <span style={{ fontSize: 9, color: '#505068', fontFamily: 'JetBrains Mono', lineHeight: 1.5 }}>Original file is never modified. Saved as _ORFEO copy, auto-loads on save.</span>
         </div>
+        {splitResult && (
+          <div style={{ padding: '5px 8px', borderRadius: 4, marginBottom: 8, background: splitResult.ok ? '#0a200a' : '#200a0a', border: `1px solid ${splitResult.ok ? '#2a5a2a' : '#5a2a2a'}`, fontSize: 10, color: splitResult.ok ? '#60c060' : '#c06060', fontFamily: 'JetBrains Mono' }}>
+            {splitResult.ok ? '✓ ' : '✗ '}{splitResult.msg}
+          </div>
+        )}
         {saveResult && (
           <div style={{ padding: '5px 8px', borderRadius: 4, marginBottom: 8, background: saveResult.ok ? '#0a200a' : '#200a0a', border: `1px solid ${saveResult.ok ? '#2a5a2a' : '#5a2a2a'}`, fontSize: 10, color: saveResult.ok ? '#60c060' : '#c06060', fontFamily: 'JetBrains Mono' }}>
             {saveResult.ok ? '✓ ' : '✗ '}{saveResult.msg}

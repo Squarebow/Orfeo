@@ -4,6 +4,56 @@
 
 ---
 
+### 2. 7. 2026 — MIDI Editor polish: track sort + icon contrast + LH/RH split guard
+
+**`src/components/MidiEditor/MidiEditor.tsx`**
+- Track list now sorted on load: keyboard group (piano / chromatic / organ) at the top, drums at the bottom, original MIDI order preserved within each group. Within the keyboard group, "Left Hand" is pinned before "Right Hand" for split files.
+- Merge icon and Split icon color when inactive: `#353540` / `#505068` → `#606078` — both icons are now distinctly visible against the dark row background.
+- Split button is suppressed on tracks named "Left Hand" or "Right Hand" — a track that is already the result of a split does not need a split trigger.
+
+---
+
+### 2. 7. 2026 — Split Track + icon updates + portable build filename (v0.7.0)
+
+**`electron/main.ts`**
+- Added `editor:split` IPC handler: reads source MIDI via `_editorData.filePath`, finds the track by note-bearing index, splits notes into Left Hand (< breakpoint) and Right Hand (≥ breakpoint). Qualifies the split by requiring ≥15% notes in each register — returns a descriptive error if the track is too one-sided. Mutates the source track in-place (becomes LH), adds a new RH track via `midi.addTrack()`. Copies instrument program from source. Output path: `{baseName}_ORFEO_SPLIT.mid` in the Orfeo subfolder via `getOrfeoOutputDir()`. Strips `_(ORFEO_MERGED|ORFEO_SPLIT|ORFEO)` from basename before appending suffix. Sends `midi:reloadFile` to main window on success.
+- `editor:split` basename stripping: regex `_(ORFEO_MERGED|ORFEO_SPLIT|ORFEO)` — order matters, ORFEO_SPLIT must come before ORFEO or the shorter suffix matches first.
+
+**`electron/preload.ts`**
+- Added `splitMidiEditor: (payload) => ipcRenderer.invoke('editor:split', payload)`.
+
+**`src/types/index.ts`**
+- Added `splitMidiEditor: (payload: { trackIndex: number; breakpoint: number }) => Promise<{ ok: boolean; message: string }>` to `window.electronAPI` type.
+
+**`src/store/index.ts`**
+- Added `globalSplitBreakpoint: number` (default 60 — C4, middle C) + `setGlobalSplitBreakpoint` to `OrfeoStore`.
+- Setter clamps to 21–107 (A0–B7).
+- Restored in `restoreLibraryPrefs` from `prefs.globalSplitBreakpoint`.
+- Persisted in null-sentinel subscribe callback; `_prevGlobalSplitBreakpoint` added as sentinel variable.
+
+**`src/components/SettingsPanel/SettingsPanel.tsx`**
+- Added `Scissors` to lucide-react import.
+- Added `SPLIT_NOTE_NAMES` constant for MIDI-note-to-name conversion.
+- Reads `globalSplitBreakpoint` / `setGlobalSplitBreakpoint` from store.
+- New **MIDI Editor** section (between Playback and Appearance): shows current breakpoint note name (e.g. "C4") with − / + buttons to change by semitone. Hint explains the 15% detection threshold.
+- Version bumped to v0.7.0.
+
+**`src/components/MidiEditor/MidiEditor.tsx`**
+- Added `Split` to lucide-react import.
+- `TrackRow`: added `onSplit?: () => void` prop.
+- Merge toggle button: replaced `'+'` / `'✓'` text with `<Merge size={11} />` icon (Part 2).
+- Split button: appears inside the track name row for piano/chromatic/organ tracks (not merged rows). Amber hover, `<Split size={10} />` icon, tooltip "Split into Left Hand / Right Hand".
+- `MidiEditor` component: added `splitBreakpoint` state (loaded from prefs in `useEffect`), `splitResult` state.
+- Added `handleSplit(trackIndex)` — calls `window.electronAPI.splitMidiEditor`, sets result, closes editor on success after 1200ms.
+- Track list: passes `onSplit` to qualifying tracks (`['piano','chromatic','organ'].includes(group) && !isMerged`).
+- Footer: `splitResult` banner rendered above `saveResult` banner (same style).
+
+**`package.json`**
+- Added `"portable": { "artifactName": "${productName}-${version}-portable.${ext}" }` to `build` config. Portable exe will now be named `Orfeo-0.7.0-portable.exe` instead of the default `Orfeo 0.7.0.exe`.
+- Version bumped to `0.7.0`.
+
+---
+
 ### 2. 7. 2026 — Demo folder + Orfeo subfolder for generated files
 
 **`electron/main.ts`**

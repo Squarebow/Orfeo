@@ -1,7 +1,7 @@
 import { useState, useMemo, useRef, useEffect } from 'react'
 import {
   Settings2, ChevronLeft, ChevronDown, ChevronRight, Type, Piano, Palette, ZoomIn, Volume2,
-  Music, FolderOpen, RefreshCw, FileMusic, BookOpen, ListMusic,
+  Music, FolderOpen, RefreshCw, FileMusic, BookOpen, ListMusic, Scissors,
 } from 'lucide-react'
 import { useStore } from '../../store'
 import type { NoteNaming, KeyboardSize, Accidentals } from '../../types'
@@ -386,6 +386,9 @@ function LibraryPanel() {
   )
 }
 
+// ─── Split breakpoint note name helper ───────────────────────────────────────
+const SPLIT_NOTE_NAMES = ['C','C#','D','D#','E','F','F#','G','G#','A','A#','B']
+
 // ─── Settings Panel ──────────────────────────────────────────────────────────
 
 type DrawerTab = 'settings' | 'library'
@@ -409,8 +412,10 @@ export default function SettingsPanel() {
   const setAudioEngine = useStore((s) => s.setAudioEngine)
   const chordPrompterEnabled = useStore((s) => s.chordPrompterEnabled)
   const setChordPrompterEnabled = useStore((s) => s.setChordPrompterEnabled)
-  const hideDemoFolder      = useStore((s) => s.hideDemoFolder)
-  const setHideDemoFolder   = useStore((s) => s.setHideDemoFolder)
+  const hideDemoFolder           = useStore((s) => s.hideDemoFolder)
+  const setHideDemoFolder        = useStore((s) => s.setHideDemoFolder)
+  const globalSplitBreakpoint    = useStore((s) => s.globalSplitBreakpoint)
+  const setGlobalSplitBreakpoint = useStore((s) => s.setGlobalSplitBreakpoint)
   // ── Samples engine loading state ─────────────────────────────────────────
   const [samplesStatus, setSamplesStatus] = useState<'idle' | 'loading' | 'ready' | 'error'>('idle')
   const [samplesProgress, setSamplesProgress] = useState(0)
@@ -687,6 +692,30 @@ export default function SettingsPanel() {
                   </div>
                 </OptionRow>
 
+                {/* ── MIDI Editor ── */}
+                <SectionHeader icon={<Scissors size={11} />} label="MIDI Editor" />
+                <OptionRow
+                  label={`Split breakpoint — ${SPLIT_NOTE_NAMES[globalSplitBreakpoint % 12]}${Math.floor(globalSplitBreakpoint / 12) - 1}`}
+                  hint="Piano/organ tracks with ≥15% notes in each register show a Split button in the editor."
+                >
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                    <ZoomStepBtn
+                      disabled={globalSplitBreakpoint <= 21}
+                      onClick={() => setGlobalSplitBreakpoint(globalSplitBreakpoint - 1)}
+                    >−</ZoomStepBtn>
+                    <div style={{
+                      flex: 1, textAlign: 'center',
+                      fontFamily: 'JetBrains Mono', fontSize: 13, color: '#b0b0cc',
+                    }}>
+                      {SPLIT_NOTE_NAMES[globalSplitBreakpoint % 12]}{Math.floor(globalSplitBreakpoint / 12) - 1}
+                    </div>
+                    <ZoomStepBtn
+                      disabled={globalSplitBreakpoint >= 107}
+                      onClick={() => setGlobalSplitBreakpoint(globalSplitBreakpoint + 1)}
+                    >+</ZoomStepBtn>
+                  </div>
+                </OptionRow>
+
                 {/* ── Appearance ── */}
                 <SectionHeader icon={<Palette size={11} />} label="Appearance" />
                 <OptionRow label="Background">
@@ -705,7 +734,7 @@ export default function SettingsPanel() {
                       <line x1="22" y1="50" x2="78" y2="50" stroke="#e8a027" strokeWidth="7" strokeLinecap="round"/>
                       <line x1="22" y1="62" x2="78" y2="62" stroke="#e8a027" strokeWidth="7" strokeLinecap="round"/>
                     </svg>
-                    <span style={{ color: '#50506a', fontSize: 10, fontFamily: 'JetBrains Mono' }}>Orfeo · v0.6.1</span>
+                    <span style={{ color: '#50506a', fontSize: 10, fontFamily: 'JetBrains Mono' }}>Orfeo · v0.7.0</span>
                   </div>
                   <div style={{ fontSize: 9, color: '#35354a', fontFamily: 'JetBrains Mono', lineHeight: 1.5 }}>
                     MIT License · github.com/SquareBow/orfeo

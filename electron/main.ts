@@ -247,6 +247,68 @@ ipcMain.handle('editor:save', async (_e, payload: {
   }
 })
 
+// ── Split a single track into Left Hand / Right Hand by MIDI note breakpoint ──
+ipcMain.handle('editor:split', async (_e, payload: { trackIndex: number; breakpoint: number }) => {
+  try {
+    if (!_editorData?.filePath) return { ok: false, message: 'No source file loaded' }
+    const midi = new Midi(readFileSync(_editorData.filePath))
+
+    const noteTrackIndices: number[] = []
+    midi.tracks.forEach((t, i) => { if (t.notes.length > 0) noteTrackIndices.push(i) })
+
+    const origIdx = noteTrackIndices[payload.trackIndex]
+    if (origIdx === undefined) return { ok: false, message: 'Track not found' }
+
+    const srcTrack = midi.tracks[origIdx]
+    const allNotes = [...srcTrack.notes]
+    const bp = payload.breakpoint
+
+    if (allNotes.length === 0) return { ok: false, message: 'Track has no notes' }
+
+    const lhNotes = allNotes.filter(n => n.midi < bp)
+    const rhNotes = allNotes.filter(n => n.midi >= bp)
+    const lhPct = lhNotes.length / allNotes.length
+    const rhPct = rhNotes.length / allNotes.length
+
+    if (lhPct < 0.15 || rhPct < 0.15) {
+      return {
+        ok: false,
+        message: `Not enough notes in both registers (${Math.round(lhPct * 100)}% below / ${Math.round(rhPct * 100)}% above breakpoint)`,
+      }
+    }
+
+    // ── Rebuild source track as Left Hand (notes below breakpoint) ────────────
+    srcTrack.notes.splice(0)
+    srcTrack.name = 'Left Hand'
+    lhNotes.forEach(n => srcTrack.notes.push(n))
+
+    // ── Add Right Hand track (notes at or above breakpoint) ───────────────────
+    const rhTrack = midi.addTrack()
+    rhTrack.name = 'Right Hand'
+    rhTrack.instrument.number = srcTrack.instrument.number
+    rhNotes.forEach(n => rhTrack.notes.push(n))
+
+    // ── Resolve output path — strip existing ORFEO suffixes before appending ──
+    const orfeoDir    = await getOrfeoOutputDir(_editorData.filePath)
+    const rawBase     = basename(_editorData.filePath).replace(/\.midi?$/i, '')
+    const baseNameStr = rawBase.replace(/_(ORFEO_MERGED|ORFEO_SPLIT|ORFEO)$/i, '')
+    const outputPath  = join(orfeoDir, `${baseNameStr}_ORFEO_SPLIT.mid`)
+
+    const outBuf = Buffer.from(midi.toArray())
+    writeFileSync(outputPath, outBuf)
+
+    // ── Notify main window to reload the split file ────────────────────────────
+    const mainWin = BrowserWindow.getAllWindows().find(w => w !== editorWin)
+    if (mainWin) {
+      const fileName = outputPath.split(/[\\/]/).pop() ?? outputPath
+      mainWin.webContents.send('midi:reloadFile', { fileName, filePath: outputPath, base64: outBuf.toString('base64') })
+    }
+    return { ok: true, message: `Saved: ${outputPath.split(/[\\/]/).pop()}` }
+  } catch (e: any) {
+    return { ok: false, message: e?.message ?? 'Split failed' }
+  }
+})
+
 // ── Chord Transcript PDF generation ───────────────────────────────────────────
 
 // ── Strip trailing M from plain major chord names (CM → C, GM → G) ───────────

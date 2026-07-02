@@ -124,6 +124,9 @@ interface OrfeoStore {
   hideDemoFolder: boolean
   setHideDemoFolder: (v: boolean) => void
 
+  globalSplitBreakpoint: number
+  setGlobalSplitBreakpoint: (n: number) => void
+
   transcriptHistory: TranscriptEntry[]
   addTranscriptEntry: (entry: TranscriptEntry) => void
 
@@ -297,6 +300,10 @@ export const useStore = create<OrfeoStore>((set, get) => ({
   hideDemoFolder: false,
   setHideDemoFolder: (hideDemoFolder) => set({ hideDemoFolder }),
 
+  // ── MIDI Editor split breakpoint — MIDI note number, persisted ────────────
+  globalSplitBreakpoint: 60,
+  setGlobalSplitBreakpoint: (globalSplitBreakpoint) => set({ globalSplitBreakpoint: Math.max(21, Math.min(107, globalSplitBreakpoint)) }),
+
   // ── Transcript history — max 20 entries, oldest dropped when full ─────────
   transcriptHistory: [],
   addTranscriptEntry: (entry) => {
@@ -357,6 +364,7 @@ async function restoreLibraryPrefs() {
     if (typeof prefs.showBarNumbers === 'boolean') store.setShowBarNumbers(prefs.showBarNumbers)
     if (typeof prefs.chordPrompterEnabled === 'boolean') store.setChordPrompterEnabled(prefs.chordPrompterEnabled)
     if (typeof prefs.hideDemoFolder === 'boolean') store.setHideDemoFolder(prefs.hideDemoFolder)
+    if (typeof prefs.globalSplitBreakpoint === 'number') store.setGlobalSplitBreakpoint(prefs.globalSplitBreakpoint)
     if (Array.isArray(prefs.transcriptHistory)) useStore.setState({ transcriptHistory: prefs.transcriptHistory })
   } catch (e) {
     console.error('[Orfeo] restoreLibraryPrefs:', e)
@@ -383,6 +391,7 @@ let _prevAudioEngine: string | null = null
 let _prevShowBarNumbers: boolean | null = null
 let _prevChordPrompterEnabled: boolean | null = null
 let _prevHideDemoFolder: boolean | null = null
+let _prevGlobalSplitBreakpoint: number | null = null
 useStore.subscribe((state) => {
   // Skip the very first fire (app init) — restore handles loading saved values
   if (_prevNoteNaming === null) {
@@ -393,6 +402,7 @@ useStore.subscribe((state) => {
     _prevShowBarNumbers = state.showBarNumbers
     _prevChordPrompterEnabled = state.chordPrompterEnabled
     _prevHideDemoFolder = state.hideDemoFolder
+    _prevGlobalSplitBreakpoint = state.globalSplitBreakpoint
     return
   }
   if (
@@ -402,7 +412,8 @@ useStore.subscribe((state) => {
     state.audioEngine !== _prevAudioEngine ||
     state.showBarNumbers !== _prevShowBarNumbers ||
     state.chordPrompterEnabled !== _prevChordPrompterEnabled ||
-    state.hideDemoFolder !== _prevHideDemoFolder
+    state.hideDemoFolder !== _prevHideDemoFolder ||
+    state.globalSplitBreakpoint !== _prevGlobalSplitBreakpoint
   ) {
     _prevNoteNaming = state.noteNaming
     _prevAccidentals = state.accidentals
@@ -411,6 +422,7 @@ useStore.subscribe((state) => {
     _prevShowBarNumbers = state.showBarNumbers
     _prevChordPrompterEnabled = state.chordPrompterEnabled
     _prevHideDemoFolder = state.hideDemoFolder
+    _prevGlobalSplitBreakpoint = state.globalSplitBreakpoint
     window.electronAPI?.setPrefs?.({
       noteNaming: state.noteNaming,
       accidentals: state.accidentals,
@@ -419,6 +431,7 @@ useStore.subscribe((state) => {
       showBarNumbers: state.showBarNumbers,
       chordPrompterEnabled: state.chordPrompterEnabled,
       hideDemoFolder: state.hideDemoFolder,
+      globalSplitBreakpoint: state.globalSplitBreakpoint,
     }).catch(() => {})
   }
 })
