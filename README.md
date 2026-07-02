@@ -180,6 +180,21 @@ All user-visible changes listed here. For full technical detail see [CHANGELOG.m
 
 ---
 
+### v0.6.1 — 2. 7. 2026
+
+**New**
+- **Portable build** — Orfeo is now available as a portable single-file `.exe` with no installation required. Copy it to any Windows machine and run directly. Settings and preferences are stored in an `Orfeo-Data/` folder next to the exe, so they travel with it.
+
+**Fixed**
+- **MIDI Playback Editor** — the editor window now correctly loads the editor UI in packaged builds. Previously it would open a second copy of the main app instead.
+- **Samples audio engine** — the engine now initialises correctly in packaged builds. The worklet and soundfont files were being fetched from the wrong path when running as an installed app.
+- **Piano roll alignment** — black key note columns in the waterfall now line up exactly with the black keys on the keyboard for all three keyboard sizes.
+
+### v0.6.1 — 2. 7. 2026 (continued)
+
+**Fixed**
+- **Chord Transcript PDF** — three visual fixes: (1) the outer border around the bar grid is removed — only the lines between rows remain, giving a cleaner open-grid look. (2) Chord names that fell very close together in the same beat now push apart instead of merging into one unreadable string (e.g. `Dsus24CMadd9` now renders as two separate names). (3) Legend deduplication is more robust — the same chord in root position and an inversion is now guaranteed to appear only once.
+
 ### v0.6.1 — 1. 7. 2026 (continued)
 
 **Improved**

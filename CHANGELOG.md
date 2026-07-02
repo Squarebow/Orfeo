@@ -4,6 +4,46 @@
 
 ---
 
+### 2. 7. 2026 — Portable build target
+
+**`package.json`**
+- Added `"portable"` to `build.win.target` alongside `"nsis"`. Running `npm run dist` now produces both `Orfeo Setup x.x.x.exe` (NSIS installer) and `Orfeo x.x.x.exe` (portable single-file exe) in `release/`.
+- Added `dist:portable` script: same as `dist` but passes `--win portable` to electron-builder — builds the portable exe only, without the installer (faster iteration).
+
+**`electron/main.ts`**
+- Added portable userData redirect before `app.whenReady()`: when `PORTABLE_EXECUTABLE_DIR` is set (injected by electron-builder portable target at runtime), `app.setPath('userData', ...)` points to `Orfeo-Data/` next to the exe. This makes prefs (`orfeo-prefs.json`) and any cached files travel with the exe when copied to another machine. Has no effect on the NSIS installer build.
+
+---
+
+### 2. 7. 2026 — Build fixes — editor window, samples engine, keyboard alignment
+
+**`electron/main.ts`**
+- `editor:open` handler: `loadFile({ hash: 'editor' })` → `{ hash: '/editor' }`. `hash: 'editor'` produces `#editor` in the URL; `App.tsx` checks `window.location.hash === '#/editor'`, so the check always failed in packaged builds, causing the editor window to render the full main app instead of `<MidiEditor />`.
+
+**`src/hooks/useSamplesEngine.ts`**
+- Worklet URL: `new URL('/spessasynth_processor.min.js', location.href)` → `new URL('./spessasynth_processor.min.js', location.href)`. Leading `/` resolves to `file:///spessasynth_processor.min.js` (filesystem root) in packaged mode; `./` correctly resolves relative to `index.html` in the same directory.
+- SF2 URL: `fetch('/GeneralUser-GS.sf2')` → `fetch(new URL('./GeneralUser-GS.sf2', location.href).href)` — same root cause and same fix.
+- Added `console.log` of the resolved URL before each load and included the URL in the SF2 fetch error message for future debuggability.
+- Tightened catch block type to `e: any` so `.message` access compiles cleanly.
+
+**`package.json`**
+- Added `"asarUnpack": ["out/renderer/spessasynth_processor.min.js"]`. `AudioWorklet.addModule()` bypasses Electron's asar protocol handler and requires the file on the real filesystem; `fetch()` goes through the handler so the SF2 does not need unpacking.
+
+**`src/components/Keyboard/Keyboard.tsx`**
+- Black key left-position constant: `0.65` → `0.70`. PianoRoll's formula places each black key at `(wi − 0.30) × ww` (center at the white-key boundary); Keyboard was placing it at `(whiteIdx + 0.65) × ww = (wi − 0.35) × ww` — a consistent `0.05 × ww` offset per black key. The fix aligns the keyboard DOM element with the PixiJS note columns.
+
+---
+
+### 2. 7. 2026 — Chord Transcript PDF — styling fixes (v4)
+
+**`electron/main.ts`** (`transcript:generate` handler only)
+
+- **Fix 1 — Outer grid borders removed:** replaced `doc.rect()` (which drew all 4 edges) with a conditional `moveTo/lineTo` separator drawn only *between* rows (not above bar 1, not below last bar). Separator is full-bleed (x=0 to pageW), 0.15pt, `#c8c8d8`.
+- **Fix 2 — Chord name concatenation:** chords in each beat cell are now sorted by `xFrac` before placement. Added `prevDrawX`/`prevTW` tracking to detect x-overlap with the previous chord in the same cell. If `newX < prevX + prevTW + 3`: pushed right; if still overlapping after hard-clamp to `cellRight − tw − 2`: `forceStack = true` applies diagonal offset (`prevDrawX + 5`, `midY − ci*9`). Prevents `Dsus24CMadd9`-style visual concatenation.
+- **Fix 3 — Legend inversion collapsing:** step 8 now normalises each chord key explicitly with `pdfStripMajor(gc.chordEn.split('/')[0])` before inserting into the dedup set, rather than relying on `gc.chordEn` already being stripped. Makes the normalization self-contained and guards against future changes to step 6.
+
+---
+
 ### 1. 7. 2026 — Chord Transcript PDF — layout & detection fixes (v3)
 
 **`public/fonts/`** — new directory; four font files added:

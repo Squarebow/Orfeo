@@ -112,10 +112,12 @@ ipcMain.handle('editor:open', async (_e, data: any) => {
       contextIsolation: true, nodeIntegration: false, webSecurity: false,
     },
   })
+  // ── Load editor renderer — hash: '/editor' required; bare 'editor' produces #editor
+  // not #/editor, so App.tsx's hash check fails and the main app renders instead.
   if (process.env['ELECTRON_RENDERER_URL']) {
     editorWin.loadURL(process.env['ELECTRON_RENDERER_URL'] + '#/editor')
   } else {
-    editorWin.loadFile(join(__dirname, '../renderer/index.html'), { hash: 'editor' })
+    editorWin.loadFile(join(__dirname, '../renderer/index.html'), { hash: '/editor' })
   }
   editorWin.on('closed', () => {
     editorWin = null
@@ -429,13 +431,15 @@ ipcMain.handle('transcript:generate', async (_e, midiFilePath: string, noteNamin
       Math.ceil(midi.duration / secPerBar),
     )
 
-    // ── 8. Collect unique legend chords — root-position English, deduped ──────
-    // pdfLegendKey strips inversions; thumbnails only need root-position chords.
+    // ── 8. Collect unique legend chords — strip inversion + trailing M, dedup ──
+    // Normalize explicitly here: split on '/' (strip inversion), then strip
+    // trailing M — e.g. C/E → C, GM/D → G, Hmb6b9/C → Hmb6b9.
+    // Keep only first occurrence; thumbnails use the root-position English name.
     const legendKeySet = new Set<string>()
     const legendEn: string[] = []
     for (const gc of gridChords) {
-      const key = gc.chordEn  // already pdfLegendKey-normalised in step 6
-      if (!legendKeySet.has(key)) { legendKeySet.add(key); legendEn.push(key) }
+      const base = pdfStripMajor(gc.chordEn.split('/')[0])
+      if (!legendKeySet.has(base)) { legendKeySet.add(base); legendEn.push(base) }
     }
 
     // ── 9. Generate PDF ────────────────────────────────────────────────────────
@@ -571,10 +575,6 @@ ipcMain.handle('transcript:generate', async (_e, midiFilePath: string, noteNamin
           barRowY += BEAT_HDR_H
         }
 
-        // ── Row outer border ─────────────────────────────────────────────────
-        doc.rect(margin, barRowY, contentW, rowH)
-          .strokeColor(C_LINE).lineWidth(0.2).stroke()
-
         // ── Bar number column separator ──────────────────────────────────────
         doc.moveTo(margin + BAR_NUM_W, barRowY)
           .lineTo(margin + BAR_NUM_W, barRowY + rowH)
@@ -605,11 +605,18 @@ ipcMain.handle('transcript:generate', async (_e, midiFilePath: string, noteNamin
           const cellRight = cellLeft + BEAT_COL_W
           const midY      = barRowY + rowH / 2 - 4
 
+          // ── Sort left-to-right so overlap check is order-stable ───────────
+          const sorted = [...cellChords].sort((a, b) => a.xFrac - b.xFrac)
+
           // ── Adaptive stacking step: fits all chords in cell height ─────────
-          const n    = cellChords.length
+          const n    = sorted.length
           const step = n > 1 ? Math.min(9, (rowH - 6 - 8) / (n - 1)) : 0
 
-          cellChords.forEach((c, ci) => {
+          // ── Track previous chord's x and text-width for overlap detection ──
+          let prevDrawX = Number.NEGATIVE_INFINITY
+          let prevTW    = 0
+
+          sorted.forEach((c, ci) => {
             // ── Font size: shrink until chord name fits within beat cell ──────
             let fontSize = 8
             doc.font('Mono').fontSize(fontSize)
@@ -618,16 +625,30 @@ ipcMain.handle('transcript:generate', async (_e, midiFilePath: string, noteNamin
             if (tw > BEAT_COL_W - 4) { fontSize = 6; doc.fontSize(fontSize); tw = doc.widthOfString(c.chord) }
 
             // ── Horizontal position: proportional x, clamped to cell ─────────
-            const rawX  = cellLeft + 2 + c.xFrac * (BEAT_COL_W - 4)
-            const drawX = Math.max(cellLeft + 2, Math.min(rawX, cellRight - tw - 2))
+            const rawX = cellLeft + 2 + c.xFrac * (BEAT_COL_W - 4)
+            let drawX  = Math.max(cellLeft + 2, Math.min(rawX, cellRight - tw - 2))
 
-            // ── Vertical position: centre for 1–2 chords, stack for 3+ ──────
+            // ── Anti-overlap: push right if too close to previous chord ───────
+            let forceStack = false
+            if (ci > 0 && drawX < prevDrawX + prevTW + 3) {
+              drawX = Math.min(prevDrawX + prevTW + 3, cellRight - tw - 2)
+              // Still overlaps after clamping — apply diagonal stack offset
+              if (drawX < prevDrawX + prevTW) {
+                forceStack = true
+                drawX = Math.min(prevDrawX + 5, cellRight - tw - 2)
+              }
+            }
+
+            prevDrawX = drawX
+            prevTW    = tw
+
+            // ── Vertical position: centre, stack for 3+, or force-stack ──────
             let drawY: number
-            if (n <= 2) {
-              drawY = midY
-            } else {
-              drawY = midY - ci * step
+            if (n > 2 || forceStack) {
+              drawY = midY - ci * (forceStack ? 9 : step)
               drawY = Math.max(barRowY + 3, Math.min(barRowY + rowH - 3 - fontSize, drawY))
+            } else {
+              drawY = midY
             }
 
             // ── Render with hard right boundary — no overflow ─────────────────
@@ -635,6 +656,12 @@ ipcMain.handle('transcript:generate', async (_e, midiFilePath: string, noteNamin
               .text(c.chord, drawX, drawY,
                 { width: cellRight - drawX - 1, lineBreak: false })
           })
+        }
+
+        // ── Between-row separator — full-bleed, omit after last bar ────────────
+        if (bar < totalBars) {
+          doc.moveTo(0, barRowY + rowH).lineTo(pageW, barRowY + rowH)
+            .strokeColor('#c8c8d8').lineWidth(0.15).stroke()
         }
 
         barRowY += rowH
@@ -658,6 +685,15 @@ ipcMain.handle('transcript:generate', async (_e, midiFilePath: string, noteNamin
     return { success: false, error: e?.message ?? 'PDF generation failed' }
   }
 })
+
+// ── Portable mode: redirect userData to a folder next to the exe ─────────────
+// PORTABLE_EXECUTABLE_DIR is injected by electron-builder when running as a
+// portable exe. Storing prefs and cache there lets the user copy the exe +
+// Orfeo-Data/ folder to any machine and keep their settings intact.
+// Must be called before app.whenReady() so getPrefsPath() sees the correct path.
+if (process.env.PORTABLE_EXECUTABLE_DIR) {
+  app.setPath('userData', join(process.env.PORTABLE_EXECUTABLE_DIR, 'Orfeo-Data'))
+}
 
 app.whenReady().then(createWindow)
 app.on('window-all-closed', () => { if (process.platform !== 'darwin') app.quit() })

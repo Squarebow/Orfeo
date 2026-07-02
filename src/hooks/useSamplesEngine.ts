@@ -81,8 +81,14 @@ export async function initSamplesEngine(onProgress: (p: number) => void): Promis
     try {
       _ctx = new AudioContext()
 
-      // Worklet processor must be loaded before constructing WorkletSynthesizer
-      const workletUrl = new URL('/spessasynth_processor.min.js', location.href).href
+      // ── Worklet: use ./ relative path so it resolves correctly in both dev
+      // (http://localhost:5173/spessasynth_processor.min.js) and packaged
+      // (file:///…/app.asar/out/renderer/spessasynth_processor.min.js).
+      // Leading / resolves to filesystem root in file:// and breaks in packaged.
+      // The file must also be in asarUnpack — AudioWorklet.addModule() bypasses
+      // Electron's asar protocol handler and needs the real filesystem path.
+      const workletUrl = new URL('./spessasynth_processor.min.js', location.href).href
+      console.log('[Orfeo Samples] loading worklet from:', workletUrl)
       await _ctx.audioWorklet.addModule(workletUrl)
 
       // Dynamic import keeps spessasynth_lib out of the initial bundle
@@ -90,9 +96,12 @@ export async function initSamplesEngine(onProgress: (p: number) => void): Promis
       _synth = new WorkletSynthesizer(_ctx)
       await _synth.isReady
 
-      // Fetch the SF2 with progress tracking
-      const response = await fetch('/GeneralUser-GS.sf2')
-      if (!response.ok) throw new Error(`SF2 fetch failed: ${response.status}`)
+      // ── SF2: same relative-path fix; fetch() goes through Electron's file://
+      // protocol handler which supports asar, so no asarUnpack needed here.
+      const sf2Url = new URL('./GeneralUser-GS.sf2', location.href).href
+      console.log('[Orfeo Samples] fetching SF2 from:', sf2Url)
+      const response = await fetch(sf2Url)
+      if (!response.ok) throw new Error(`SF2 fetch failed: ${response.status} (url: ${sf2Url})`)
       const total = Number(response.headers.get('content-length') ?? 0)
       const reader = response.body!.getReader()
       const chunks: Uint8Array[] = []
@@ -121,9 +130,9 @@ export async function initSamplesEngine(onProgress: (p: number) => void): Promis
       _synthReady = true
       onProgress(1)
       console.log('[Orfeo Samples] spessasynth ready')
-    } catch (e) {
+    } catch (e: any) {
       _synthInitP = null
-      console.error('[Orfeo Samples] init error:', e)
+      console.error('[Orfeo Samples] init error:', e?.message ?? e)
       throw e
     }
   })()

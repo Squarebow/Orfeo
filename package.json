@@ -12,7 +12,8 @@
     "build": "npm run copyworklet && electron-vite build",
     "preview": "electron-vite preview",
     "typecheck": "tsc --noEmit",
-    "dist": "npm run copyworklet && electron-vite build && electron-builder"
+    "dist": "npm run copyworklet && electron-vite build && electron-builder",
+    "dist:portable": "npm run copyworklet && electron-vite build && electron-builder --win portable"
   },
   "build": {
     "appId": "com.squarebow.orfeo",
@@ -27,10 +28,19 @@
     "extraResources": [
       { "from": "public/fonts", "to": "fonts" }
     ],
+    "asarUnpack": [
+      "out/renderer/spessasynth_processor.min.js"
+    ],
     "win": {
       "target": [
         {
           "target": "nsis",
+          "arch": [
+            "x64"
+          ]
+        },
+        {
+          "target": "portable",
           "arch": [
             "x64"
           ]

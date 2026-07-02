@@ -571,7 +571,8 @@ export default function Keyboard() {
           {keys.filter(k => k.isBlack).map((k) => {
             const whiteIdx = whiteKeys.findIndex(w => w.midi > k.midi) - 1
             if (whiteIdx < 0) return null
-            const leftPct = ((whiteIdx + 0.65) / whiteKeys.length) * 100
+            // ── 0.70 matches PianoRoll's formula: (wi − 0.30) * ww ────────────
+            const leftPct = ((whiteIdx + 0.70) / whiteKeys.length) * 100
             const widthPct = (0.6 / whiteKeys.length) * 100
             const color = getColor(k.midi)
             const locked = lockedKeys.has(k.midi)
