@@ -15,14 +15,14 @@ async function ensureDemoFolder(): Promise<void> {
   const installed = await access(flagPath).then(() => true).catch(() => false)
   if (installed) return
 
-  const prefs     = loadPrefs()
-  const libRoot   = prefs.libraryFolder || app.getPath('userData')
+  const prefs   = loadPrefs()
+  const libRoot = prefs.libraryFolder || app.getPath('userData')
   const targetDir = join(libRoot, 'Demo')
   await mkdir(targetDir, { recursive: true })
 
-  // ── Source path: unpacked from asar in production, dev public/ directory ───
+  // ── Source path: extraResources lands at resources/demo/ in production ───
   const srcDir = app.isPackaged
-    ? join(process.resourcesPath, 'app.asar.unpacked', 'public', 'demo')
+    ? join(process.resourcesPath, 'demo')
     : join(app.getAppPath(), 'public', 'demo')
 
   const files = await readdir(srcDir)
@@ -83,6 +83,11 @@ function savePrefs(data: Record<string, any>) {
 }
 ipcMain.handle('prefs:get', async () => loadPrefs())
 ipcMain.handle('prefs:set', async (_e, data) => savePrefs(data))
+// ── Returns path to userData/Demo/ if demo files were installed, else null ───
+ipcMain.handle('app:getDemoFolder', async () => {
+  const demoPath = join(app.getPath('userData'), 'Demo')
+  return existsSync(demoPath) ? demoPath : null
+})
 
 // ── Open MIDI file ─────────────────────────────────────────────────────────
 ipcMain.handle('shell:openExternal', (_e, url: string) => shell.openExternal(url))

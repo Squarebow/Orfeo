@@ -92,6 +92,7 @@ function LibraryPanel() {
   const setLibraryFolderAndFiles = useStore((s) => s.setLibraryFolderAndFiles)
   const toggleFavourite = useStore((s) => s.toggleFavourite)
   const hideDemoFolder  = useStore((s) => s.hideDemoFolder)
+  const demoFiles       = useStore((s) => s.demoFiles)
   const [loading, setLoading] = useState(false)
   const [filter, setFilter] = useState<'all' | 'starred'>('all')
   // Folders start expanded (not in collapsed set)
@@ -298,6 +299,43 @@ function LibraryPanel() {
         {libraryFolder && !hasAnyFiles && (
           <div style={{ padding: '16px 14px', fontSize: 11, color: '#404055', textAlign: 'center' }}>
             {filter === 'starred' ? 'No starred files yet.\nStar a file with ★' : 'No MIDI files found.'}
+          </div>
+        )}
+
+        {/* ── Standalone demo section shown when no library folder is set ─────── */}
+        {!libraryFolder && !hideDemoFolder && demoFiles.length > 0 && (
+          <div>
+            <div style={{
+              display: 'flex', alignItems: 'center', gap: 6,
+              padding: '6px 10px', background: '#0e0e16',
+              borderBottom: '1px solid #1a1a26',
+            }}>
+              <FolderOpen size={12} style={{ color: '#e8a02770', flexShrink: 0 }} />
+              <span style={{ flex: 1, fontSize: 11, color: '#8080a0', fontWeight: 600 }}>Demo</span>
+              <span style={{ fontSize: 9, color: '#404055', fontFamily: 'JetBrains Mono' }}>{demoFiles.length}</span>
+            </div>
+            {demoFiles.map(file => (
+              <div
+                key={file.path}
+                title={file.name}
+                style={{
+                  display: 'flex', alignItems: 'center', gap: 6,
+                  padding: '7px 10px 7px 26px', borderBottom: '1px solid #181822',
+                  cursor: 'pointer', transition: 'background 0.08s',
+                }}
+                onMouseEnter={e => (e.currentTarget as HTMLElement).style.background = '#1a1a28'}
+                onMouseLeave={e => (e.currentTarget as HTMLElement).style.background = 'transparent'}
+                onClick={() => handleLoadFile(file.path)}
+              >
+                <FileMusic size={11} style={{ color: '#404055', flexShrink: 0 }} />
+                <span style={{
+                  flex: 1, fontSize: 11, color: '#9090a8',
+                  overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+                }}>
+                  {file.name.replace(/\.(mid|midi)$/i, '')}
+                </span>
+              </div>
+            ))}
           </div>
         )}
 

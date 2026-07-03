@@ -88,6 +88,7 @@ declare global {
       setPrefs:            (data: Record<string, any>) => Promise<void>
       openFolder:          () => Promise<string | null>
       scanMidiFolder:      (path: string) => Promise<LibraryFile[]>
+      getDemoFolder:       () => Promise<string | null>
       loadMidiFromPath:    (path: string) => Promise<MidiFileResult | null>
       windowMinimize:      () => Promise<void>
       windowMaximize:      () => Promise<void>

@@ -24,15 +24,33 @@
     "files": [
       "out/**/*",
       "public/spessasynth_processor.min.js",
-      "public/demo/**/*",
-      "!node_modules/**/*"
+      "!node_modules/**/*",
+      "node_modules/pdfkit/**/*",
+      "node_modules/@noble/**/*",
+      "node_modules/fontkit/**/*",
+      "node_modules/js-md5/**/*",
+      "node_modules/linebreak/**/*",
+      "node_modules/png-js/**/*",
+      "node_modules/@swc/helpers/**/*",
+      "node_modules/brotli/**/*",
+      "node_modules/clone/**/*",
+      "node_modules/dfa/**/*",
+      "node_modules/fast-deep-equal/**/*",
+      "node_modules/restructure/**/*",
+      "node_modules/tiny-inflate/**/*",
+      "node_modules/unicode-properties/**/*",
+      "node_modules/unicode-trie/**/*",
+      "node_modules/base64-js/**/*",
+      "node_modules/browserify-zlib/**/*",
+      "node_modules/pako/**/*",
+      "node_modules/tslib/**/*"
     ],
     "extraResources": [
-      { "from": "public/fonts", "to": "fonts" }
+      { "from": "public/fonts", "to": "fonts" },
+      { "from": "public/demo", "to": "demo" }
     ],
     "asarUnpack": [
-      "out/renderer/spessasynth_processor.min.js",
-      "public/demo/**/*"
+      "out/renderer/spessasynth_processor.min.js"
     ],
     "win": {
       "target": [

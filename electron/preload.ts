@@ -12,6 +12,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
   // Library
   openFolder:         () => ipcRenderer.invoke('dialog:openFolder'),
   scanMidiFolder:     (path: string) => ipcRenderer.invoke('fs:scanMidiFolder', path),
+  getDemoFolder:      () => ipcRenderer.invoke('app:getDemoFolder'),
   loadMidiFromPath:   (path: string) => ipcRenderer.invoke('fs:loadMidiFromPath', path),
   // MIDI Editor
   openMidiEditor:     (data: any) => ipcRenderer.invoke('editor:open', data),

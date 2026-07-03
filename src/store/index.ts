@@ -124,6 +124,9 @@ interface OrfeoStore {
   hideDemoFolder: boolean
   setHideDemoFolder: (v: boolean) => void
 
+  demoFiles: { name: string; path: string }[]
+  setDemoFiles: (files: { name: string; path: string }[]) => void
+
   globalSplitBreakpoint: number
   setGlobalSplitBreakpoint: (n: number) => void
 
@@ -300,6 +303,10 @@ export const useStore = create<OrfeoStore>((set, get) => ({
   hideDemoFolder: false,
   setHideDemoFolder: (hideDemoFolder) => set({ hideDemoFolder }),
 
+  // ── Standalone demo files (shown when no library folder is set) ───────────
+  demoFiles: [],
+  setDemoFiles: (demoFiles) => set({ demoFiles }),
+
   // ── MIDI Editor split breakpoint — MIDI note number, persisted ────────────
   globalSplitBreakpoint: 60,
   setGlobalSplitBreakpoint: (globalSplitBreakpoint) => set({ globalSplitBreakpoint: Math.max(21, Math.min(107, globalSplitBreakpoint)) }),
@@ -353,6 +360,12 @@ async function restoreLibraryPrefs() {
     if (prefs.libraryFolder) {
       const files = await window.electronAPI.scanMidiFolder(prefs.libraryFolder)
       store.setLibraryFolderAndFiles(prefs.libraryFolder, files)
+    }
+    // ── Always load demo files so they appear even before a library is chosen ─
+    const demoFolder = await window.electronAPI.getDemoFolder?.()
+    if (demoFolder) {
+      const demoFiles = await window.electronAPI.scanMidiFolder(demoFolder)
+      store.setDemoFiles(demoFiles)
     }
     if (Array.isArray(prefs.libraryFavourites)) {
       prefs.libraryFavourites.forEach((p: string) => store.toggleFavourite(p))
