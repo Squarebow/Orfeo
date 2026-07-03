@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect, useCallback, useMemo } from 'react'
+import React, { useState, useCallback, useMemo } from 'react'
 import { Play, RotateCcw, X } from 'lucide-react'
 import { useStore } from '../store'
 import { formatInversionDisplay, ordinalSuffix } from '../utils/chordDetection'
@@ -40,38 +40,6 @@ export default function LockedChordModal() {
     x: Math.round((window.innerWidth  - MODAL_WIDTH)  / 2),
     y: Math.round((window.innerHeight - MODAL_HEIGHT) / 2),
   }))
-
-  const wasPlayingRef  = useRef(false)
-  const prevIsOpenRef  = useRef(false)
-
-  // ── Pause on open; resume on close — exact same mechanism as ChordExplorer ─
-  useEffect(() => {
-    const wasOpen = prevIsOpenRef.current
-    prevIsOpenRef.current = isOpen
-
-    if (!wasOpen && isOpen) {
-      // ── Reset position to centre on every fresh open ──────────────────────
-      setPos({
-        x: Math.round((window.innerWidth  - MODAL_WIDTH)  / 2),
-        y: Math.round((window.innerHeight - MODAL_HEIGHT) / 2),
-      })
-      const state = useStore.getState()
-      if (state.playbackState === 'playing') {
-        wasPlayingRef.current = true
-        ;(window as any).__orfeoPlayer?.pause?.()
-        useStore.setState({ playbackState: 'paused' })
-      } else {
-        wasPlayingRef.current = false
-      }
-    } else if (wasOpen && !isOpen) {
-      // ── Resume from the position the JZZ player captured internally ───────
-      if (wasPlayingRef.current) {
-        wasPlayingRef.current = false
-        ;(window as any).__orfeoPlayer?.play?.()
-        useStore.setState({ playbackState: 'playing' })
-      }
-    }
-  }, [isOpen])
 
   // ── Compute structured inversion display ─────────────────────────────────
   const lockedDisplay = useMemo(() => {
@@ -116,7 +84,7 @@ export default function LockedChordModal() {
     if (playNote) newKeys.forEach(midi => playNote(midi, 0.7, 600))
   }, [lockedKeys, setLockedKeys])
 
-  // ── Close and unlock — resume is handled by the isOpen effect ────────────
+  // ── Close and unlock ──────────────────────────────────────────────────────
   const handleClose = useCallback(() => { clearLockedKeys() }, [clearLockedKeys])
 
   if (!isOpen) return null
@@ -133,11 +101,12 @@ export default function LockedChordModal() {
       zIndex: 401,
       display: 'flex',
       flexDirection: 'column',
-      boxShadow: '0 8px 40px rgba(0,0,0,0.8), 0 0 0 1px rgba(232,160,39,0.08)',
+      // ── Amber glow to distinguish from other floating panels ─────────────
+      boxShadow: '0 8px 40px rgba(0,0,0,0.8), 0 0 0 1px rgba(232,160,39,0.25), 0 0 18px rgba(232,160,39,0.12)',
       userSelect: 'none',
     }}>
 
-      {/* ── Header — drag handle + title + close ──────────────────────────────── */}
+      {/* ── Header — drag handle + amber title + close ────────────────────────── */}
       <div
         onMouseDown={startDrag}
         style={{
@@ -148,7 +117,8 @@ export default function LockedChordModal() {
           borderBottom: '1px solid #1e1e28',
         }}
       >
-        <span style={{ flex: 1, fontFamily: 'Inter', fontSize: 9, fontWeight: 700, color: '#707088', letterSpacing: '0.10em', textTransform: 'uppercase' }}>
+        {/* ── Title in amber to distinguish from other panels ──────────────── */}
+        <span style={{ flex: 1, fontFamily: 'Inter', fontSize: 9, fontWeight: 700, color: '#e8a027', letterSpacing: '0.10em', textTransform: 'uppercase' }}>
           Locked Chord
         </span>
         <button
@@ -176,15 +146,15 @@ export default function LockedChordModal() {
         )}
       </div>
 
-      {/* ── Controls: ‹ prev | play | next › | clear ─────────────────────────── */}
+      {/* ── Controls: ‹ prev | play | next › | clear — grey idle, amber hover ─── */}
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, padding: '0 10px 10px' }}>
         {/* Previous inversion — Play icon mirrored */}
         <button
           onClick={() => applyInversion(prevInversion, -1)}
           title="Previous inversion"
-          style={{ background: 'none', border: 'none', color: '#e8a027', cursor: 'pointer', padding: '0 2px', display: 'flex', alignItems: 'center' }}
-          onMouseEnter={e => (e.currentTarget.style.color = '#ffb84d')}
-          onMouseLeave={e => (e.currentTarget.style.color = '#e8a027')}
+          style={{ background: 'none', border: 'none', color: '#707088', cursor: 'pointer', padding: '0 2px', display: 'flex', alignItems: 'center', transition: 'color 0.12s' }}
+          onMouseEnter={e => (e.currentTarget.style.color = '#e8a027')}
+          onMouseLeave={e => (e.currentTarget.style.color = '#707088')}
         >
           <Play size={13} style={{ transform: 'scaleX(-1)' }} />
         </button>
@@ -192,9 +162,9 @@ export default function LockedChordModal() {
         <button
           onClick={playLockedChord}
           title="Play this chord"
-          style={{ background: 'transparent', border: '1px solid #e8a027', color: '#e8a027', borderRadius: 3, padding: '2px 10px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 4, fontFamily: 'Inter', fontSize: 9, fontWeight: 700, letterSpacing: '0.06em', textTransform: 'uppercase' }}
-          onMouseEnter={e => { e.currentTarget.style.borderColor = '#ffb84d'; e.currentTarget.style.color = '#ffb84d' }}
-          onMouseLeave={e => { e.currentTarget.style.borderColor = '#e8a027'; e.currentTarget.style.color = '#e8a027' }}
+          style={{ background: 'transparent', border: '1px solid #505068', color: '#707088', borderRadius: 3, padding: '2px 10px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 4, fontFamily: 'Inter', fontSize: 9, fontWeight: 700, letterSpacing: '0.06em', textTransform: 'uppercase', transition: 'color 0.12s, border-color 0.12s' }}
+          onMouseEnter={e => { e.currentTarget.style.borderColor = '#e8a027'; e.currentTarget.style.color = '#e8a027' }}
+          onMouseLeave={e => { e.currentTarget.style.borderColor = '#505068'; e.currentTarget.style.color = '#707088' }}
         >
           <Play size={10} fill="currentColor" /> Play
         </button>
@@ -202,9 +172,9 @@ export default function LockedChordModal() {
         <button
           onClick={() => applyInversion(nextInversion, 1)}
           title="Next inversion"
-          style={{ background: 'none', border: 'none', color: '#e8a027', cursor: 'pointer', padding: '0 2px', display: 'flex', alignItems: 'center' }}
-          onMouseEnter={e => (e.currentTarget.style.color = '#ffb84d')}
-          onMouseLeave={e => (e.currentTarget.style.color = '#e8a027')}
+          style={{ background: 'none', border: 'none', color: '#707088', cursor: 'pointer', padding: '0 2px', display: 'flex', alignItems: 'center', transition: 'color 0.12s' }}
+          onMouseEnter={e => (e.currentTarget.style.color = '#e8a027')}
+          onMouseLeave={e => (e.currentTarget.style.color = '#707088')}
         >
           <Play size={13} />
         </button>
@@ -212,7 +182,7 @@ export default function LockedChordModal() {
         <button
           onClick={handleClose}
           title="Clear locked chord"
-          style={{ background: 'none', border: 'none', color: '#505068', cursor: 'pointer', padding: '0 2px', display: 'flex', alignItems: 'center' }}
+          style={{ background: 'none', border: 'none', color: '#505068', cursor: 'pointer', padding: '0 2px', display: 'flex', alignItems: 'center', transition: 'color 0.12s' }}
           onMouseEnter={e => (e.currentTarget.style.color = '#e8a027')}
           onMouseLeave={e => (e.currentTarget.style.color = '#505068')}
         >
