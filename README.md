@@ -182,6 +182,12 @@ All user-visible changes listed here. For full technical detail see [CHANGELOG.m
 
 ### 3. 7. 2026
 
+**New**
+- **Left/Right Hand Labels** — a new Settings → Keyboard section groups the split zone controls together with a "Left/Right Hand Labels" toggle. When on, two amber glowing lines appear in the keyboard footer bar marking the hand boundary; an amber-tinted mixed zone fills the space between them in range mode. "LEFT HAND" and "RIGHT HAND" labels flank the lines in amber. The split zone setting (Single or Range, with note steppers) defines exactly where the boundary sits on the keyboard. The split zone controls now collapse from view when the toggle is off, keeping Settings tidy.
+
+**Improved**
+- **Hand Labels settings layout** — the Left/Right Hand Labels toggle now appears directly below Key range, and the split zone controls (mode + note steppers) only appear beneath it when the toggle is on.
+
 **Improved**
 - **Panel shortcut icons** — both side panels (Library/Settings on the left, Tracks on the right) now show a column of three icons when collapsed instead of a single generic icon. Clicking directly on the Library or Settings icon opens the left panel straight to that tab. The MIDI Editor button is also accessible in the collapsed track panel. Icons that lead to features not yet built show a "Coming soon" tooltip and are visually dimmed.
 - **Track panel layout** — the Tracks header icon and MIDI Editor icon have been updated; the decorative soundfont placeholder has been removed.

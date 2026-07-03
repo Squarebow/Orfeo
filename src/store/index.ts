@@ -139,6 +139,9 @@ interface OrfeoStore {
   splitBreakpointRangeEnd: number
   setSplitBreakpointRangeEnd: (n: number) => void
 
+  showHandLabels: boolean
+  setShowHandLabels: (v: boolean) => void
+
   transcriptHistory: TranscriptEntry[]
   addTranscriptEntry: (entry: TranscriptEntry) => void
 
@@ -330,6 +333,10 @@ export const useStore = create<OrfeoStore>((set, get) => ({
   splitBreakpointRangeEnd: 60,
   setSplitBreakpointRangeEnd: (n) => set((s) => ({ splitBreakpointRangeEnd: Math.max(s.splitBreakpointRangeStart + 1, Math.min(60, n)) })),
 
+  // ── Hand labels — show LEFT/RIGHT HAND labels on the keyboard ────────────
+  showHandLabels: false,
+  setShowHandLabels: (showHandLabels) => set({ showHandLabels }),
+
   // ── Transcript history — max 20 entries, oldest dropped when full ─────────
   transcriptHistory: [],
   addTranscriptEntry: (entry) => {
@@ -401,6 +408,7 @@ async function restoreLibraryPrefs() {
     if (typeof prefs.splitBreakpointNote === 'number') store.setSplitBreakpointNote(prefs.splitBreakpointNote)
     if (typeof prefs.splitBreakpointRangeStart === 'number') store.setSplitBreakpointRangeStart(prefs.splitBreakpointRangeStart)
     if (typeof prefs.splitBreakpointRangeEnd === 'number') store.setSplitBreakpointRangeEnd(prefs.splitBreakpointRangeEnd)
+    if (typeof prefs.showHandLabels === 'boolean') store.setShowHandLabels(prefs.showHandLabels)
     if (Array.isArray(prefs.transcriptHistory)) useStore.setState({ transcriptHistory: prefs.transcriptHistory })
   } catch (e) {
     console.error('[Orfeo] restoreLibraryPrefs:', e)
@@ -432,6 +440,7 @@ let _prevSplitBreakpointType: string | null = null
 let _prevSplitBreakpointNote: number | null = null
 let _prevSplitBreakpointRangeStart: number | null = null
 let _prevSplitBreakpointRangeEnd: number | null = null
+let _prevShowHandLabels: boolean | null = null
 useStore.subscribe((state) => {
   // Skip the very first fire (app init) — restore handles loading saved values
   if (_prevNoteNaming === null) {
@@ -447,6 +456,7 @@ useStore.subscribe((state) => {
     _prevSplitBreakpointNote = state.splitBreakpointNote
     _prevSplitBreakpointRangeStart = state.splitBreakpointRangeStart
     _prevSplitBreakpointRangeEnd = state.splitBreakpointRangeEnd
+    _prevShowHandLabels = state.showHandLabels
     return
   }
   if (
@@ -461,7 +471,8 @@ useStore.subscribe((state) => {
     state.splitBreakpointType !== _prevSplitBreakpointType ||
     state.splitBreakpointNote !== _prevSplitBreakpointNote ||
     state.splitBreakpointRangeStart !== _prevSplitBreakpointRangeStart ||
-    state.splitBreakpointRangeEnd !== _prevSplitBreakpointRangeEnd
+    state.splitBreakpointRangeEnd !== _prevSplitBreakpointRangeEnd ||
+    state.showHandLabels !== _prevShowHandLabels
   ) {
     _prevNoteNaming = state.noteNaming
     _prevAccidentals = state.accidentals
@@ -475,6 +486,7 @@ useStore.subscribe((state) => {
     _prevSplitBreakpointNote = state.splitBreakpointNote
     _prevSplitBreakpointRangeStart = state.splitBreakpointRangeStart
     _prevSplitBreakpointRangeEnd = state.splitBreakpointRangeEnd
+    _prevShowHandLabels = state.showHandLabels
     window.electronAPI?.setPrefs?.({
       noteNaming: state.noteNaming,
       accidentals: state.accidentals,
@@ -488,6 +500,7 @@ useStore.subscribe((state) => {
       splitBreakpointNote: state.splitBreakpointNote,
       splitBreakpointRangeStart: state.splitBreakpointRangeStart,
       splitBreakpointRangeEnd: state.splitBreakpointRangeEnd,
+      showHandLabels: state.showHandLabels,
     }).catch(() => {})
   }
 })

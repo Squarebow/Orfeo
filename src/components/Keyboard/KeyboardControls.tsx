@@ -1,5 +1,7 @@
+import React, { useMemo } from 'react'
 import { useStore } from '../../store'
 import type { KeyboardSize } from '../../types'
+import { getWhiteKeys, noteToLeftPct, detectHandBoundaries } from '../../utils/handBoundaries'
 
 const SIZES: KeyboardSize[] = [61, 73, 88]
 
@@ -9,6 +11,19 @@ export default function KeyboardControls() {
   const keyboardMode  = useStore((s) => s.keyboardMode)
   const setKeyboardSize = useStore((s) => s.setKeyboardSize)
   const setKeyboardMode = useStore((s) => s.setKeyboardMode)
+  const showHandLabels          = useStore((s) => s.showHandLabels)
+  const midi                    = useStore((s) => s.midi)
+  const splitBreakpointType     = useStore((s) => s.splitBreakpointType)
+  const splitBreakpointNote     = useStore((s) => s.splitBreakpointNote)
+  const splitBreakpointRangeStart = useStore((s) => s.splitBreakpointRangeStart)
+  const splitBreakpointRangeEnd   = useStore((s) => s.splitBreakpointRangeEnd)
+
+  // ── White key list + hand boundaries, recomputed only on relevant changes ────
+  const whiteKeys = useMemo(() => getWhiteKeys(keyboardSize), [keyboardSize])
+  const handBoundaries = useMemo(
+    () => detectHandBoundaries(midi, splitBreakpointType, splitBreakpointNote, splitBreakpointRangeStart, splitBreakpointRangeEnd),
+    [midi, splitBreakpointType, splitBreakpointNote, splitBreakpointRangeStart, splitBreakpointRangeEnd],
+  )
 
   const isDocked = keyboardMode === 'docked'
 
@@ -81,6 +96,69 @@ export default function KeyboardControls() {
       </button>
 
       <div style={{ flex: 1 }} />
+
+      {/* ── Hand boundary visual layer — amber lines + labels in footer bar ── */}
+      {showHandLabels && handBoundaries && (() => {
+        const AMBER = '#e8a027'
+        const lineStyle: React.CSSProperties = {
+          position: 'absolute', top: 0, bottom: 0, width: 2,
+          background: AMBER,
+          boxShadow: `0 0 7px 2px ${AMBER}88`,
+          pointerEvents: 'none', zIndex: 2,
+        }
+        const labelBase: React.CSSProperties = {
+          position: 'absolute', top: 0, bottom: 0,
+          display: 'flex', alignItems: 'center',
+          pointerEvents: 'none', zIndex: 2,
+        }
+        const textStyle: React.CSSProperties = {
+          fontSize: 8, fontWeight: 700, letterSpacing: '0.16em',
+          color: AMBER, fontFamily: 'Inter', textTransform: 'uppercase',
+          userSelect: 'none',
+        }
+        if (handBoundaries.type === 'single') {
+          const pct = noteToLeftPct(handBoundaries.note, whiteKeys)
+          return (
+            <>
+              {/* amber line */}
+              <div style={{ ...lineStyle, left: `${pct}%` }} />
+              {/* LEFT HAND — right-aligned up to the line */}
+              <div style={{ ...labelBase, left: 0, width: `${pct}%`, justifyContent: 'flex-end', paddingRight: 6 }}>
+                <span style={textStyle}>Left Hand</span>
+              </div>
+              {/* RIGHT HAND — left-aligned from the line */}
+              <div style={{ ...labelBase, left: `${pct}%`, right: 0, justifyContent: 'flex-start', paddingLeft: 8 }}>
+                <span style={textStyle}>Right Hand</span>
+              </div>
+            </>
+          )
+        }
+        const pct1 = noteToLeftPct(handBoundaries.start, whiteKeys)
+        const pct2 = noteToLeftPct(handBoundaries.end, whiteKeys)
+        return (
+          <>
+            {/* mixed zone fill */}
+            <div style={{
+              position: 'absolute', top: 0, bottom: 0,
+              left: `${pct1}%`, width: `${pct2 - pct1}%`,
+              background: `${AMBER}18`,
+              pointerEvents: 'none', zIndex: 1,
+            }} />
+            {/* left amber line */}
+            <div style={{ ...lineStyle, left: `${pct1}%` }} />
+            {/* right amber line */}
+            <div style={{ ...lineStyle, left: `${pct2}%` }} />
+            {/* LEFT HAND — right-aligned to left line */}
+            <div style={{ ...labelBase, left: 0, width: `${pct1}%`, justifyContent: 'flex-end', paddingRight: 6 }}>
+              <span style={textStyle}>Left Hand</span>
+            </div>
+            {/* RIGHT HAND — left-aligned from right line */}
+            <div style={{ ...labelBase, left: `${pct2}%`, right: 0, justifyContent: 'flex-start', paddingLeft: 8 }}>
+              <span style={textStyle}>Right Hand</span>
+            </div>
+          </>
+        )
+      })()}
 
       {/* ── Note counter ──────────────────────────────────────────────────────── */}
       <NoteCounter />

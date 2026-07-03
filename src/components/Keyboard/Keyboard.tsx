@@ -3,6 +3,7 @@ import { useStore } from '../../store'
 import { isBlackKey } from '../../utils/midiParser'
 import { getNoteLabel, getNoteName } from '../../utils/noteNames'
 import { detectChord, detectChordWithInversion, formatInversionDisplay, localizeChord, ordinalSuffix } from '../../utils/chordDetection'
+import { detectHandBoundaries, noteToLeftPct } from '../../utils/handBoundaries'
 
 const RANGES: Record<number, { min: number; max: number }> = {
   61: { min: 36, max: 96 },
@@ -53,6 +54,11 @@ export default function Keyboard() {
   const chordPrompterOpen = useStore((s) => s.chordPrompterOpen)
   const setChordPrompterOpen = useStore((s) => s.setChordPrompterOpen)
   const currentTime = useStore((s) => s.currentTime)
+  const showHandLabels          = useStore((s) => s.showHandLabels)
+  const splitBreakpointType     = useStore((s) => s.splitBreakpointType)
+  const splitBreakpointNote     = useStore((s) => s.splitBreakpointNote)
+  const splitBreakpointRangeStart = useStore((s) => s.splitBreakpointRangeStart)
+  const splitBreakpointRangeEnd   = useStore((s) => s.splitBreakpointRangeEnd)
   const shiftHeldRef = useRef(false)
   // ── Tracks whether the primary mouse button is held, enabling glissando drag ──
   const isMouseDown = useRef(false)
@@ -129,6 +135,12 @@ export default function Keyboard() {
     return list
   }, [min, max])
   const whiteKeys = keys.filter(k => !k.isBlack)
+
+  // ── Hand boundary detection — recomputed when file or breakpoint settings change ─
+  const handBoundaries = useMemo(
+    () => detectHandBoundaries(midi, splitBreakpointType, splitBreakpointNote, splitBreakpointRangeStart, splitBreakpointRangeEnd),
+    [midi, splitBreakpointType, splitBreakpointNote, splitBreakpointRangeStart, splitBreakpointRangeEnd],
+  )
 
   const allActiveKeys = useMemo(() => {
     const merged = new Set(activeKeys)

@@ -4,6 +4,68 @@
 
 ---
 
+### 3. 7. 2026 — Left/Right Hand Labels: settings reorder + split zone conditional visibility
+
+**`src/components/SettingsPanel/SettingsPanel.tsx`**
+- Moved "Left/Right Hand Labels" On/Off toggle to appear directly below "Key range", before the Split zone controls
+- Wrapped the entire Split zone section (mode selector + note/range steppers) in `{showHandLabels && (...)}` — collapses from view when Labels is OFF
+- Updated Labels hint to: "Shows amber hand boundary lines and labels in the keyboard footer."
+
+---
+
+### 3. 7. 2026 — Left/Right Hand Labels: footer redesign + settings relocation
+
+**`src/components/Keyboard/Keyboard.tsx`**
+- Removed the vertical separator line overlays from the piano key area entirely; visual layer now belongs exclusively to the footer bar
+
+**`src/components/Keyboard/KeyboardControls.tsx`**
+- Replaced dim centered labels with a full amber visual layer:
+  - Range mode: two 2px amber lines (`box-shadow: 0 0 7px 2px #e8a02788` glow), shaded mixed-zone fill (`#e8a02718`) between them, "LEFT HAND" right-aligned to the left line with 6px padding, "RIGHT HAND" left-aligned from the right line with 8px padding
+  - Single mode: one amber glowing line, same label placement, no zone fill
+  - All overlays: `zIndex: 2`, `pointerEvents: none` so controls remain clickable
+
+**`src/components/SettingsPanel/SettingsPanel.tsx`**
+- Moved the Split zone / Split note controls from the MIDI Editor section into the Keyboard section, positioned between "Key range" and "Left/Right Hand Labels"
+- Removed the now-empty MIDI Editor section header and `Scissors` import
+- Updated "Split mode" label to "Split zone" and rewrote hint text to reflect its role as a visual keyboard boundary rather than an editor operation hint
+- Updated range hint: "Notes inside the shaded zone may come from either hand."
+- Updated "Left/Right Hand Labels" hint: "Displays LEFT HAND / RIGHT HAND labels on the keyboard using the split zone above."
+
+---
+
+### 3. 7. 2026 — Left/Right Hand Labels on keyboard
+
+**`src/utils/handBoundaries.ts`** (NEW)
+- `getWhiteKeys(keyboardSize)` — derives white-key list from RANGES, matching Keyboard.tsx constants exactly
+- `noteToLeftPct(note, whiteKeys)` — converts a MIDI note to a left-edge % position; white keys use their index directly, black keys use the `(lowerWhiteIdx + 0.40) / len` formula matching the existing black-key geometry in Keyboard.tsx
+- `detectHandBoundaries(midi, bpType, bpNote, bpStart, bpEnd)` — returns `null | { type:'single', note } | { type:'range', start, end }`:
+  - Two-track case: finds a ≥85%-bass / ≥85%-treble keyboard track pair; derives boundary from their note ranges (touching → single, gap or overlap → range)
+  - Single-track case (or no qualifying pair): checks ≥15% notes in each register (split-eligible threshold); if yes, uses the global split breakpoint settings to produce a single or range result
+
+**`src/store/index.ts`**
+- Added `showHandLabels: boolean` (default `false`) and `setShowHandLabels` to `OrfeoStore`
+- Wired into null-sentinel subscriber: `_prevShowHandLabels` sentinel, change-detection condition, `setPrefs` payload
+- Wired into `restoreLibraryPrefs`: `if (typeof prefs.showHandLabels === 'boolean') store.setShowHandLabels(...)`
+
+**`src/components/SettingsPanel/SettingsPanel.tsx`**
+- Added `showHandLabels` / `setShowHandLabels` selectors
+- Added `OptionRow` "Left/Right Hand Labels" with On/Off buttons under the Keyboard section (below Key range)
+
+**`src/components/Keyboard/Keyboard.tsx`**
+- Added imports: `detectHandBoundaries`, `noteToLeftPct` from `handBoundaries.ts`
+- Added store selectors: `showHandLabels`, `splitBreakpointType`, `splitBreakpointNote`, `splitBreakpointRangeStart`, `splitBreakpointRangeEnd`
+- Added `handBoundaries` useMemo (depends on `midi` + breakpoint settings)
+- Inside the piano key container div: renders 1 or 2 `position: absolute, zIndex: 3` thin vertical lines at the computed `left: N%` positions when `showHandLabels && handBoundaries`
+
+**`src/components/Keyboard/KeyboardControls.tsx`**
+- Added imports: `React`, `useMemo`, `getWhiteKeys`, `noteToLeftPct`, `detectHandBoundaries`
+- Added store selectors: `showHandLabels`, `midi`, all four breakpoint fields
+- Added `whiteKeys` and `handBoundaries` useMemos
+- Renders LEFT HAND and RIGHT HAND labels as `position: absolute, zIndex: 0` overlays centered in their respective keyboard half-regions; `pointer-events: none`; dim `#404055` color
+- Works for both docked and floating keyboard modes (FloatingKeyboard renders the same two components)
+
+---
+
 ### 3. 7. 2026 — Drawer icons, layout & styling unification
 
 **`src/components/SettingsPanel/SettingsPanel.tsx`**
