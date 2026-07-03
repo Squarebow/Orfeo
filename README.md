@@ -182,6 +182,10 @@ All user-visible changes listed here. For full technical detail see [CHANGELOG.m
 
 ### 3. 7. 2026
 
+**New**
+- **Locked Chord modal** — locking a chord (Shift+Click 3+ keys) now opens a small draggable floating modal instead of showing the chord inline in the bar below the keyboard. The modal shows the chord name and inversion, with the same play, inversion cycling, and clear controls as before. Drag it anywhere on screen.
+- **Shift+Click hint** — the "Shift+Click at least 3 keys to build & lock a chord" hint has moved from the bottom control bar into the chord display bar, next to the SCALES label, where it's always visible.
+
 **Improved**
 - **Chord Transcript from file icon** — when Chord Transcription is turned on in Settings, the file icon next to each library entry becomes the transcript trigger (click to generate a PDF). No extra column is added to the library list.
 - **Scrolling filenames** — long MIDI filenames in the library now slide left on hover to reveal the full name, then slide back when you move away.

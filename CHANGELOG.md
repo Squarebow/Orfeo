@@ -4,6 +4,32 @@
 
 ---
 
+### 3. 7. 2026 — Locked Chord modal: draggable float + hint text + visual polish
+
+**`src/components/LockedChordModal.tsx`** (new)
+- Draggable floating modal replaces inline locked chord display in the chord bar and the locked chord controls in `KeyboardControls.tsx`.
+- All existing locked chord logic migrated verbatim: `nextInversion` / `prevInversion`, `applyInversion`, `playLockedChord`, `clearLockedKeys`, `formatInversionDisplay` / `ordinalSuffix` display. Behaviour is unchanged.
+- Layout: amber drag-handle header ("LOCKED CHORD" in amber) with × close button; large amber chord name + inversion ordinal; ‹ / PLAY / › / RotateCcw control row.
+- Control icons default to `#707088`; amber on hover. Play button border follows same pattern.
+- Border: amber outer ring + diffuse glow via `boxShadow` (`0 0 0 1px rgba(232,160,39,0.25), 0 0 18px rgba(232,160,39,0.12)`).
+- Default open position: centered on screen (resets on every fresh lock).
+- Drag pattern matches `ChordExplorer` exactly.
+- Auto-pause on open intentionally removed: it triggered `clearSchedule() → _synth.stopAll(true)` in the Samples engine, which can suspend the AudioContext and introduce noteOn latency. The old `KeyboardControls` locked chord controls never paused playback. Residual tiny delay observed under RDP — likely network overhead; flagged for local testing.
+
+**`src/components/Keyboard/Keyboard.tsx`**
+- Removed `lockedDisplay` useMemo and the `lockedDisplay ?` priority branch from the chord bar centre (simple mode) and `centreChord` in extended mode. Locked chord now displays exclusively in the modal.
+- Part 1: Shift+Click hint text moved from `KeyboardControls` into the chord bar right group, immediately left of the SCALES label — present in both simple and extended modes.
+- Fixed stale `<Maximize2>` reference in extended prompter mode (was left unreplaced in the previous session); replaced with the same inline SVG used in simple mode.
+
+**`src/components/Keyboard/KeyboardControls.tsx`**
+- Removed: `nextInversion`, `prevInversion`, `applyInversion`, `playLockedChord`, `isLocked`, the entire centre `position:absolute` group (hint text + locked chord controls), `Play` / `RotateCcw` lucide imports, `useCallback`, `lockedKeys` / `lockedColors` / `setLockedKeys` / `clearLockedKeys` store reads.
+- File now contains only: key size selector, dock/float toggle, NoteCounter.
+
+**`src/App.tsx`**
+- Added `<LockedChordModal />` import and render alongside `<ChordExplorer />` / `<ScaleExplorer />`.
+
+---
+
 ### 3. 7. 2026 — Library UX: transcript trigger on FileMusic icon, marquee filenames, fullscreen chord prompter icon
 
 **`src/components/SettingsPanel/SettingsPanel.tsx`**
