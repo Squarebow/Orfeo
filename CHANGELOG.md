@@ -4,6 +4,40 @@
 
 ---
 
+### 3. 7. 2026 — Split breakpoint: Single Note vs Range mode
+
+**`src/store/index.ts`**
+- Replaced `globalSplitBreakpoint: number` / `setGlobalSplitBreakpoint` with four new fields:
+  - `splitBreakpointType: 'single' | 'range'` (default `'single'`)
+  - `splitBreakpointNote: number` (default 60, clamped 48–60)
+  - `splitBreakpointRangeStart: number` (default 52/E3, clamped 48 to rangeEnd–1)
+  - `splitBreakpointRangeEnd: number` (default 60/C4, clamped rangeStart+1 to 60)
+- `setSplitBreakpointRangeStart` / `setSplitBreakpointRangeEnd` use `set(s => ...)` to read the opposing bound and enforce no-crossing invariant.
+- Null-sentinel subscriber updated: 4 new `_prev*` vars replace old `_prevGlobalSplitBreakpoint`; all 4 fields included in change-detection condition and `setPrefs` payload.
+- `restoreLibraryPrefs` restores all 4 new fields from prefs (old `globalSplitBreakpoint` key silently dropped; default 60 is valid for both old and new).
+
+**`src/components/SettingsPanel/SettingsPanel.tsx`**
+- MIDI Editor section split into two `OptionRow`s:
+  - Row 1 "Split mode": `[Single] [Range]` toggle buttons; hint explains the ≥15% register threshold.
+  - Row 2 (conditional): Single → one `− note +` stepper (range 48–60); Range → two side-by-side steppers ("Lower" / "Upper") with UI-level disabled guards that prevent the bounds from crossing.
+- All 8 new store fields wired to the UI.
+
+**`src/components/MidiEditor/MidiEditor.tsx`**
+- Replaced single `splitBreakpoint` local state with 4 local vars matching the store fields.
+- `getPrefs()` on mount now reads all 4 new pref keys.
+- `handleSplit` sends `{ trackIndex, breakpointType, breakpoint, rangeStart, rangeEnd }` to `splitMidiEditor` IPC.
+
+**`src/types/index.ts`**
+- Updated `Window.electronAPI.splitMidiEditor` payload type to include `breakpointType`, `rangeStart`, `rangeEnd`.
+
+**`electron/main.ts`**
+- `editor:split` handler payload type updated; note-assignment logic branches on `breakpointType`:
+  - Single: unchanged (notes < breakpoint → LH, ≥ → RH).
+  - Range: notes < rangeStart → LH; notes > rangeEnd → RH; notes in zone → assigned by proximity (`|note – rangeStart| ≤ |note – rangeEnd|` → LH, else RH; ties go to LH).
+- ≥15% gate still applied after assignment in both modes.
+
+---
+
 ### 3. 7. 2026 — Locked Chord modal: draggable float + hint text + visual polish
 
 **`src/components/LockedChordModal.tsx`** (new)

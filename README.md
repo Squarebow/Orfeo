@@ -183,6 +183,9 @@ All user-visible changes listed here. For full technical detail see [CHANGELOG.m
 ### 3. 7. 2026
 
 **New**
+- **Split breakpoint: Single vs Range mode** — the MIDI Editor split breakpoint setting in Settings now has two modes. Single mode works as before: one note divides LH and RH. Range mode lets you set a lower and upper bound; notes below the lower bound go to LH, above the upper bound go to RH, and notes in between are assigned to whichever hand's boundary they're closer to. All values are constrained to the C3–C4 octave where the real LH/RH split lives.
+
+**New**
 - **Locked Chord modal** — locking a chord (Shift+Click 3+ keys) now opens a small draggable floating modal instead of showing the chord inline in the bar below the keyboard. The modal shows the chord name and inversion, with the same play, inversion cycling, and clear controls as before. Drag it anywhere on screen.
 - **Shift+Click hint** — the "Shift+Click at least 3 keys to build & lock a chord" hint has moved from the bottom control bar into the chord display bar, next to the SCALES label, where it's always visible.
 

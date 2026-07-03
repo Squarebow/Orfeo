@@ -253,7 +253,13 @@ ipcMain.handle('editor:save', async (_e, payload: {
 })
 
 // ── Split a single track into Left Hand / Right Hand by MIDI note breakpoint ──
-ipcMain.handle('editor:split', async (_e, payload: { trackIndex: number; breakpoint: number }) => {
+ipcMain.handle('editor:split', async (_e, payload: {
+  trackIndex: number
+  breakpointType: 'single' | 'range'
+  breakpoint: number
+  rangeStart: number
+  rangeEnd: number
+}) => {
   try {
     if (!_editorData?.filePath) return { ok: false, message: 'No source file loaded' }
     const midi = new Midi(readFileSync(_editorData.filePath))
@@ -266,12 +272,25 @@ ipcMain.handle('editor:split', async (_e, payload: { trackIndex: number; breakpo
 
     const srcTrack = midi.tracks[origIdx]
     const allNotes = [...srcTrack.notes]
-    const bp = payload.breakpoint
 
     if (allNotes.length === 0) return { ok: false, message: 'Track has no notes' }
 
-    const lhNotes = allNotes.filter(n => n.midi < bp)
-    const rhNotes = allNotes.filter(n => n.midi >= bp)
+    // ── Assign notes to LH / RH based on breakpoint type ─────────────────────
+    let lhNotes: typeof allNotes
+    let rhNotes: typeof allNotes
+    if (payload.breakpointType === 'range') {
+      // Notes below rangeStart → LH; above rangeEnd → RH;
+      // inside the zone → closer bound wins (ties go to LH)
+      lhNotes = allNotes.filter(n => {
+        if (n.midi < payload.rangeStart) return true
+        if (n.midi > payload.rangeEnd)   return false
+        return Math.abs(n.midi - payload.rangeStart) <= Math.abs(n.midi - payload.rangeEnd)
+      })
+      rhNotes = allNotes.filter(n => !lhNotes.includes(n))
+    } else {
+      lhNotes = allNotes.filter(n => n.midi < payload.breakpoint)
+      rhNotes = allNotes.filter(n => n.midi >= payload.breakpoint)
+    }
     const lhPct = lhNotes.length / allNotes.length
     const rhPct = rhNotes.length / allNotes.length
 

@@ -130,8 +130,14 @@ interface OrfeoStore {
   demoFiles: { name: string; path: string }[]
   setDemoFiles: (files: { name: string; path: string }[]) => void
 
-  globalSplitBreakpoint: number
-  setGlobalSplitBreakpoint: (n: number) => void
+  splitBreakpointType: 'single' | 'range'
+  setSplitBreakpointType: (t: 'single' | 'range') => void
+  splitBreakpointNote: number
+  setSplitBreakpointNote: (n: number) => void
+  splitBreakpointRangeStart: number
+  setSplitBreakpointRangeStart: (n: number) => void
+  splitBreakpointRangeEnd: number
+  setSplitBreakpointRangeEnd: (n: number) => void
 
   transcriptHistory: TranscriptEntry[]
   addTranscriptEntry: (entry: TranscriptEntry) => void
@@ -314,9 +320,15 @@ export const useStore = create<OrfeoStore>((set, get) => ({
   demoFiles: [],
   setDemoFiles: (demoFiles) => set({ demoFiles }),
 
-  // ── MIDI Editor split breakpoint — MIDI note number, persisted ────────────
-  globalSplitBreakpoint: 60,
-  setGlobalSplitBreakpoint: (globalSplitBreakpoint) => set({ globalSplitBreakpoint: Math.max(21, Math.min(107, globalSplitBreakpoint)) }),
+  // ── MIDI Editor split breakpoint — type and note values, all persisted ──────
+  splitBreakpointType: 'single' as 'single' | 'range',
+  setSplitBreakpointType: (splitBreakpointType) => set({ splitBreakpointType }),
+  splitBreakpointNote: 60,
+  setSplitBreakpointNote: (n) => set({ splitBreakpointNote: Math.max(48, Math.min(60, n)) }),
+  splitBreakpointRangeStart: 52,
+  setSplitBreakpointRangeStart: (n) => set((s) => ({ splitBreakpointRangeStart: Math.max(48, Math.min(s.splitBreakpointRangeEnd - 1, n)) })),
+  splitBreakpointRangeEnd: 60,
+  setSplitBreakpointRangeEnd: (n) => set((s) => ({ splitBreakpointRangeEnd: Math.max(s.splitBreakpointRangeStart + 1, Math.min(60, n)) })),
 
   // ── Transcript history — max 20 entries, oldest dropped when full ─────────
   transcriptHistory: [],
@@ -385,7 +397,10 @@ async function restoreLibraryPrefs() {
     if (typeof prefs.chordPrompterEnabled === 'boolean') store.setChordPrompterEnabled(prefs.chordPrompterEnabled)
     if (typeof prefs.chordTranscriptionEnabled === 'boolean') store.setChordTranscriptionEnabled(prefs.chordTranscriptionEnabled)
     if (typeof prefs.hideDemoFolder === 'boolean') store.setHideDemoFolder(prefs.hideDemoFolder)
-    if (typeof prefs.globalSplitBreakpoint === 'number') store.setGlobalSplitBreakpoint(prefs.globalSplitBreakpoint)
+    if (prefs.splitBreakpointType === 'single' || prefs.splitBreakpointType === 'range') store.setSplitBreakpointType(prefs.splitBreakpointType)
+    if (typeof prefs.splitBreakpointNote === 'number') store.setSplitBreakpointNote(prefs.splitBreakpointNote)
+    if (typeof prefs.splitBreakpointRangeStart === 'number') store.setSplitBreakpointRangeStart(prefs.splitBreakpointRangeStart)
+    if (typeof prefs.splitBreakpointRangeEnd === 'number') store.setSplitBreakpointRangeEnd(prefs.splitBreakpointRangeEnd)
     if (Array.isArray(prefs.transcriptHistory)) useStore.setState({ transcriptHistory: prefs.transcriptHistory })
   } catch (e) {
     console.error('[Orfeo] restoreLibraryPrefs:', e)
@@ -413,7 +428,10 @@ let _prevShowBarNumbers: boolean | null = null
 let _prevChordPrompterEnabled: boolean | null = null
 let _prevChordTranscriptionEnabled: boolean | null = null
 let _prevHideDemoFolder: boolean | null = null
-let _prevGlobalSplitBreakpoint: number | null = null
+let _prevSplitBreakpointType: string | null = null
+let _prevSplitBreakpointNote: number | null = null
+let _prevSplitBreakpointRangeStart: number | null = null
+let _prevSplitBreakpointRangeEnd: number | null = null
 useStore.subscribe((state) => {
   // Skip the very first fire (app init) — restore handles loading saved values
   if (_prevNoteNaming === null) {
@@ -425,7 +443,10 @@ useStore.subscribe((state) => {
     _prevChordPrompterEnabled = state.chordPrompterEnabled
     _prevChordTranscriptionEnabled = state.chordTranscriptionEnabled
     _prevHideDemoFolder = state.hideDemoFolder
-    _prevGlobalSplitBreakpoint = state.globalSplitBreakpoint
+    _prevSplitBreakpointType = state.splitBreakpointType
+    _prevSplitBreakpointNote = state.splitBreakpointNote
+    _prevSplitBreakpointRangeStart = state.splitBreakpointRangeStart
+    _prevSplitBreakpointRangeEnd = state.splitBreakpointRangeEnd
     return
   }
   if (
@@ -437,7 +458,10 @@ useStore.subscribe((state) => {
     state.chordPrompterEnabled !== _prevChordPrompterEnabled ||
     state.chordTranscriptionEnabled !== _prevChordTranscriptionEnabled ||
     state.hideDemoFolder !== _prevHideDemoFolder ||
-    state.globalSplitBreakpoint !== _prevGlobalSplitBreakpoint
+    state.splitBreakpointType !== _prevSplitBreakpointType ||
+    state.splitBreakpointNote !== _prevSplitBreakpointNote ||
+    state.splitBreakpointRangeStart !== _prevSplitBreakpointRangeStart ||
+    state.splitBreakpointRangeEnd !== _prevSplitBreakpointRangeEnd
   ) {
     _prevNoteNaming = state.noteNaming
     _prevAccidentals = state.accidentals
@@ -447,7 +471,10 @@ useStore.subscribe((state) => {
     _prevChordPrompterEnabled = state.chordPrompterEnabled
     _prevChordTranscriptionEnabled = state.chordTranscriptionEnabled
     _prevHideDemoFolder = state.hideDemoFolder
-    _prevGlobalSplitBreakpoint = state.globalSplitBreakpoint
+    _prevSplitBreakpointType = state.splitBreakpointType
+    _prevSplitBreakpointNote = state.splitBreakpointNote
+    _prevSplitBreakpointRangeStart = state.splitBreakpointRangeStart
+    _prevSplitBreakpointRangeEnd = state.splitBreakpointRangeEnd
     window.electronAPI?.setPrefs?.({
       noteNaming: state.noteNaming,
       accidentals: state.accidentals,
@@ -457,7 +484,10 @@ useStore.subscribe((state) => {
       chordPrompterEnabled: state.chordPrompterEnabled,
       chordTranscriptionEnabled: state.chordTranscriptionEnabled,
       hideDemoFolder: state.hideDemoFolder,
-      globalSplitBreakpoint: state.globalSplitBreakpoint,
+      splitBreakpointType: state.splitBreakpointType,
+      splitBreakpointNote: state.splitBreakpointNote,
+      splitBreakpointRangeStart: state.splitBreakpointRangeStart,
+      splitBreakpointRangeEnd: state.splitBreakpointRangeEnd,
     }).catch(() => {})
   }
 })

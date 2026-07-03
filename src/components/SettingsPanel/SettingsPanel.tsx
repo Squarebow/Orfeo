@@ -581,8 +581,14 @@ export default function SettingsPanel() {
   const setChordTranscriptionEnabled = useStore((s) => s.setChordTranscriptionEnabled)
   const hideDemoFolder           = useStore((s) => s.hideDemoFolder)
   const setHideDemoFolder        = useStore((s) => s.setHideDemoFolder)
-  const globalSplitBreakpoint    = useStore((s) => s.globalSplitBreakpoint)
-  const setGlobalSplitBreakpoint = useStore((s) => s.setGlobalSplitBreakpoint)
+  const splitBreakpointType          = useStore((s) => s.splitBreakpointType)
+  const setSplitBreakpointType       = useStore((s) => s.setSplitBreakpointType)
+  const splitBreakpointNote          = useStore((s) => s.splitBreakpointNote)
+  const setSplitBreakpointNote       = useStore((s) => s.setSplitBreakpointNote)
+  const splitBreakpointRangeStart    = useStore((s) => s.splitBreakpointRangeStart)
+  const setSplitBreakpointRangeStart = useStore((s) => s.setSplitBreakpointRangeStart)
+  const splitBreakpointRangeEnd      = useStore((s) => s.splitBreakpointRangeEnd)
+  const setSplitBreakpointRangeEnd   = useStore((s) => s.setSplitBreakpointRangeEnd)
   // ── Samples engine loading state ─────────────────────────────────────────
   const [samplesStatus, setSamplesStatus] = useState<'idle' | 'loading' | 'ready' | 'error'>('idle')
   const [samplesProgress, setSamplesProgress] = useState(0)
@@ -868,27 +874,57 @@ export default function SettingsPanel() {
 
                 {/* ── MIDI Editor ── */}
                 <SectionHeader icon={<Scissors size={11} />} label="MIDI Editor" />
-                <OptionRow
-                  label={`Split breakpoint — ${SPLIT_NOTE_NAMES[globalSplitBreakpoint % 12]}${Math.floor(globalSplitBreakpoint / 12) - 1}`}
-                  hint="Piano/organ tracks with ≥15% notes in each register show a Split button in the editor."
-                >
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                    <ZoomStepBtn
-                      disabled={globalSplitBreakpoint <= 21}
-                      onClick={() => setGlobalSplitBreakpoint(globalSplitBreakpoint - 1)}
-                    >−</ZoomStepBtn>
-                    <div style={{
-                      flex: 1, textAlign: 'center',
-                      fontFamily: 'JetBrains Mono', fontSize: 13, color: '#b0b0cc',
-                    }}>
-                      {SPLIT_NOTE_NAMES[globalSplitBreakpoint % 12]}{Math.floor(globalSplitBreakpoint / 12) - 1}
-                    </div>
-                    <ZoomStepBtn
-                      disabled={globalSplitBreakpoint >= 107}
-                      onClick={() => setGlobalSplitBreakpoint(globalSplitBreakpoint + 1)}
-                    >+</ZoomStepBtn>
+                {/* ── Split mode toggle ────────────────────────────────────────── */}
+                <OptionRow label="Split mode" hint="Piano/organ tracks with ≥15% notes in each register show a Split button in the editor.">
+                  <div style={{ display: 'flex', gap: 4 }}>
+                    <OptionBtn active={splitBreakpointType === 'single'} onClick={() => setSplitBreakpointType('single')}>Single</OptionBtn>
+                    <OptionBtn active={splitBreakpointType === 'range'}  onClick={() => setSplitBreakpointType('range')}>Range</OptionBtn>
                   </div>
                 </OptionRow>
+                {/* ── Single: one note stepper ─────────────────────────────────── */}
+                {splitBreakpointType === 'single' ? (
+                  <OptionRow
+                    label={`Split note — ${SPLIT_NOTE_NAMES[splitBreakpointNote % 12]}${Math.floor(splitBreakpointNote / 12) - 1}`}
+                    hint="Notes below this pitch → LH, notes above → RH."
+                  >
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                      <ZoomStepBtn disabled={splitBreakpointNote <= 48} onClick={() => setSplitBreakpointNote(splitBreakpointNote - 1)}>−</ZoomStepBtn>
+                      <div style={{ flex: 1, textAlign: 'center', fontFamily: 'JetBrains Mono', fontSize: 13, color: '#b0b0cc' }}>
+                        {SPLIT_NOTE_NAMES[splitBreakpointNote % 12]}{Math.floor(splitBreakpointNote / 12) - 1}
+                      </div>
+                      <ZoomStepBtn disabled={splitBreakpointNote >= 60} onClick={() => setSplitBreakpointNote(splitBreakpointNote + 1)}>+</ZoomStepBtn>
+                    </div>
+                  </OptionRow>
+                ) : (
+                  /* ── Range: lower + upper steppers side-by-side ─────────────── */
+                  <OptionRow
+                    label={`Split zone — ${SPLIT_NOTE_NAMES[splitBreakpointRangeStart % 12]}${Math.floor(splitBreakpointRangeStart / 12) - 1} to ${SPLIT_NOTE_NAMES[splitBreakpointRangeEnd % 12]}${Math.floor(splitBreakpointRangeEnd / 12) - 1}`}
+                    hint="Notes inside the zone are assigned by proximity — closer to lower bound → LH, closer to upper → RH."
+                  >
+                    <div style={{ display: 'flex', gap: 8 }}>
+                      <div style={{ flex: 1 }}>
+                        <div style={{ fontSize: 9, color: '#707088', marginBottom: 4, fontFamily: 'Inter' }}>Lower</div>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+                          <ZoomStepBtn disabled={splitBreakpointRangeStart <= 48} onClick={() => setSplitBreakpointRangeStart(splitBreakpointRangeStart - 1)}>−</ZoomStepBtn>
+                          <div style={{ flex: 1, textAlign: 'center', fontFamily: 'JetBrains Mono', fontSize: 11, color: '#b0b0cc' }}>
+                            {SPLIT_NOTE_NAMES[splitBreakpointRangeStart % 12]}{Math.floor(splitBreakpointRangeStart / 12) - 1}
+                          </div>
+                          <ZoomStepBtn disabled={splitBreakpointRangeStart >= splitBreakpointRangeEnd - 1} onClick={() => setSplitBreakpointRangeStart(splitBreakpointRangeStart + 1)}>+</ZoomStepBtn>
+                        </div>
+                      </div>
+                      <div style={{ flex: 1 }}>
+                        <div style={{ fontSize: 9, color: '#707088', marginBottom: 4, fontFamily: 'Inter' }}>Upper</div>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+                          <ZoomStepBtn disabled={splitBreakpointRangeEnd <= splitBreakpointRangeStart + 1} onClick={() => setSplitBreakpointRangeEnd(splitBreakpointRangeEnd - 1)}>−</ZoomStepBtn>
+                          <div style={{ flex: 1, textAlign: 'center', fontFamily: 'JetBrains Mono', fontSize: 11, color: '#b0b0cc' }}>
+                            {SPLIT_NOTE_NAMES[splitBreakpointRangeEnd % 12]}{Math.floor(splitBreakpointRangeEnd / 12) - 1}
+                          </div>
+                          <ZoomStepBtn disabled={splitBreakpointRangeEnd >= 60} onClick={() => setSplitBreakpointRangeEnd(splitBreakpointRangeEnd + 1)}>+</ZoomStepBtn>
+                        </div>
+                      </div>
+                    </div>
+                  </OptionRow>
+                )}
 
                 {/* ── Appearance ── */}
                 <SectionHeader icon={<Palette size={11} />} label="Appearance" />

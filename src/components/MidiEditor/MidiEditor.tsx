@@ -374,7 +374,10 @@ export default function MidiEditor() {
   const [state, setState] = useState<EditorState | null>(null)
   const [saving, setSaving] = useState(false)
   const [saveResult, setSaveResult] = useState<{ ok: boolean; msg: string } | null>(null)
-  const [splitBreakpoint, setSplitBreakpoint] = useState(60)
+  const [splitBreakpointType, setSplitBreakpointType] = useState<'single' | 'range'>('single')
+  const [splitBreakpointNote, setSplitBreakpointNote] = useState(60)
+  const [splitBreakpointRangeStart, setSplitBreakpointRangeStart] = useState(52)
+  const [splitBreakpointRangeEnd, setSplitBreakpointRangeEnd] = useState(60)
   const [splitResult, setSplitResult] = useState<{ ok: boolean; msg: string } | null>(null)
 
   useEffect(() => {
@@ -393,9 +396,12 @@ export default function MidiEditor() {
       })
       setState({ fileName: data.fileName, filePath: data.filePath, rows, outputPath: orfeoName(data.filePath, false) })
     })
-    // ── Load split breakpoint from persisted prefs ──────────────────────────
+    // ── Load split breakpoint settings from persisted prefs ──────────────────
     window.electronAPI.getPrefs().then((prefs: any) => {
-      if (typeof prefs?.globalSplitBreakpoint === 'number') setSplitBreakpoint(prefs.globalSplitBreakpoint)
+      if (prefs?.splitBreakpointType === 'single' || prefs?.splitBreakpointType === 'range') setSplitBreakpointType(prefs.splitBreakpointType)
+      if (typeof prefs?.splitBreakpointNote === 'number') setSplitBreakpointNote(prefs.splitBreakpointNote)
+      if (typeof prefs?.splitBreakpointRangeStart === 'number') setSplitBreakpointRangeStart(prefs.splitBreakpointRangeStart)
+      if (typeof prefs?.splitBreakpointRangeEnd === 'number') setSplitBreakpointRangeEnd(prefs.splitBreakpointRangeEnd)
     })
   }, [])
 
@@ -507,7 +513,13 @@ export default function MidiEditor() {
   const handleSplit = async (trackIndex: number) => {
     setSplitResult(null)
     try {
-      const result = await window.electronAPI.splitMidiEditor({ trackIndex, breakpoint: splitBreakpoint })
+      const result = await window.electronAPI.splitMidiEditor({
+        trackIndex,
+        breakpointType: splitBreakpointType,
+        breakpoint: splitBreakpointNote,
+        rangeStart: splitBreakpointRangeStart,
+        rangeEnd: splitBreakpointRangeEnd,
+      })
       setSplitResult({ ok: result.ok, msg: result.message })
       if (result.ok) setTimeout(() => window.electronAPI.closeMidiEditor?.(), 1200)
     } catch (e: any) {

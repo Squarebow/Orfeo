@@ -94,7 +94,7 @@ declare global {
       windowMaximize:      () => Promise<void>
       windowClose:         () => Promise<void>
       transcriptGenerate:  (midiPath: string, noteNaming: string, accidentals: string) => Promise<{ success: boolean; path?: string; error?: string }>
-      splitMidiEditor:     (payload: { trackIndex: number; breakpoint: number }) => Promise<{ ok: boolean; message: string }>
+      splitMidiEditor:     (payload: { trackIndex: number; breakpointType: 'single' | 'range'; breakpoint: number; rangeStart: number; rangeEnd: number }) => Promise<{ ok: boolean; message: string }>
     }
   }
 }
