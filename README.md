@@ -2,7 +2,7 @@
 
 **A modern piano learning and MIDI visualization desktop app for Windows.**
 
-[![Version](https://img.shields.io/badge/Version-0.7.0-blue)](https://github.com/SquareBow/orfeo/releases)
+[![Version](https://img.shields.io/badge/Version-0.8.0-blue)](https://github.com/SquareBow/orfeo/releases)
 [![License](https://img.shields.io/badge/License-MIT-green)](LICENSE)
 [![Platform](https://img.shields.io/badge/Platform-Windows-lightgrey?logo=windows)](https://github.com/SquareBow/orfeo/releases)
 [![Status](https://img.shields.io/badge/Status-Beta-orange)](https://github.com/SquareBow/orfeo)
@@ -181,6 +181,9 @@ All user-visible changes listed here. For full technical detail see [CHANGELOG.m
 ---
 
 ### 3. 7. 2026
+
+**New**
+- **Loop Region Strip** — enable in Settings → Playback to show a thin interactive strip just above the song title. Drag across it to select a bar range; the edges snap to bar boundaries on release. Click the loop button (↺) to loop that section on repeat. Click the ↑↕ icon to the right to type in exact bar numbers manually. The selected range (e.g. "bars 8–24") is always shown next to the icon when a region is active. Turning the strip off or loading a new file clears the selection. Works with both audio engines.
 
 **New**
 - **Hardware MIDI keyboard input** — connect a MIDI keyboard and its notes light up on the on-screen keyboard in real time, with true sustain (key held = note sounds, key released = note stops immediately). Works with both audio engines. The MIDI device indicator in the top bar now reflects the live connection state. Multiple devices are all listened to simultaneously — no setup required.

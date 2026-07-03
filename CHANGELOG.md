@@ -4,6 +4,48 @@
 
 ---
 
+### 3. 7. 2026 — Loop Region Strip (v0.8.0)
+
+**`src/components/LoopRegionStrip.tsx`** (NEW)
+- Canvas-based 24px interactive strip rendered between the scrub bar and the filename in TopBar when `loopRegionEnabled` is true
+- Note density visualisation: note times bucketed into 2px columns, normalised height 4–12px, colour `#404058`
+- Drag-to-create: `handleMouseDown` classifies as `'new'` | `'left'` | `'right'` handle drag; `previewRef` holds live drag state separate from committed store state
+- Bar snapping: `snapToBar()` picks nearest bar boundary from `barStarts + duration` on mouseup; `displayEndBar()` subtracts 1 from raw bar index when `loopEnd` lands exactly on a bar start (avoids "bars 8–13" when user selected 8–12)
+- Handle geometry: `HANDLE_VIS_W = 4` (drawn), `HANDLE_HIT_W = 8` (mouse hit target)
+- Playhead: white 2px rect + amber downward triangle tracking `currentTime`
+- Global `mousemove`/`mouseup` in single `useEffect([], [])` — never re-registered on re-render; state via refs only
+- Icon button (ArrowUp01 SVG): amber when selection exists or popup open; tooltip "Select bar range manually"
+- Popup: "BAR RANGE" header; From/To rows with 48px `type="text"` inputs + amber `ChevronUp`/`ChevronDown` steppers (no background); amber Apply button; closes on click-outside
+- `applyBarRange()`: `startTime = barStarts[from-1]`, `endTime = to < totalBars ? barStarts[to] : midi.duration`
+- Bars DOM label: `bars {startBar}–{endBar}` in amber, right of the icon, only when selection exists; derived in render body from primitive selectors — not a `useStore` object selector (which breaks `useSyncExternalStore` snapshot invariant → renderer crash)
+- `draggable={false}` + `onDragStart={e => e.preventDefault()}` on canvas — blocks native HTML5 drag reaching Electron's file handler
+- Fragment return: canvas fills the shared 400px TopBar wrapper; icon+popup are `position: absolute, left: calc(100% + 8px)` anchored outside the wrapper's right edge
+
+**`src/components/Transport/TopBar.tsx`**
+- Scrub bar and strip share a `width: min(100%, 400px), position: relative` flex column wrapper — both have identical visual width (34+6+320+6+34 = 400px); `position: relative` is the containing block for the strip's absolutely-placed icon
+- TopBar height: `loopRegionEnabled ? 120 : 96`
+- Loop button now toggles `loopRegionActive`; tooltip is context-aware (shows bar range when region set, generic hint otherwise)
+
+**`src/hooks/usePlayback.ts`**
+- JZZ path: `loopRegionActive && secs >= loopEnd` → `player.play(); player.jumpMS(Math.floor(loopStart * 1000))` — in-place seek, no player rebuild
+- JZZ path: `loopRegionActive` + no region → seeks to 0 on end-of-file instead of stopping
+- Fallback/samples path: same logic via `playbackState: 'paused'` → `Promise.resolve().then(() => 'playing')` to trigger samples engine rebuild at new `currentTime`
+
+**`src/store/index.ts`**
+- New fields: `loopStart: number | null`, `loopEnd: number | null`, `loopRegionEnabled: boolean`, `loopRegionActive: boolean`
+- New actions: `setLoopRegionEnabled` (clears region when disabling), `setLoopRegionActive`, `setLoopRegion`, `clearLoopRegion`
+- `setMidi` (both branches) and `resetAll` reset loop state to null/false
+- `loopRegionEnabled` persisted via `_prevLoopRegionEnabled` sentinel; `loopStart`/`loopEnd`/`loopRegionActive` intentionally NOT persisted
+
+**`src/components/SettingsPanel/SettingsPanel.tsx`**
+- "Loop Region strip" On/Off toggle under Playback section
+
+**Bug fixed — native drag opens file dialog:** `draggable={false}` + `onDragStart` on the canvas stops the OS drag-and-drop event from surfacing to Electron's file handler mid-selection.
+
+**Bug fixed — renderer crash on selection commit:** `loopBarRange` selector was returning `{ startBar, endBar }` — a new object reference on every call. Zustand v4 / `useSyncExternalStore` calls `getSnapshot` multiple times and requires referential stability; always-new object → snapshot inconsistency → immediate renderer crash. Fixed: use three primitive selectors (`loopStartLabel`, `loopEndLabel`, `barStartsLabel`) and compute derived values in render body.
+
+---
+
 ### 3. 7. 2026 — Web MIDI hardware input capture (verified)
 
 **`src/hooks/useMidiInput.ts`** (NEW)

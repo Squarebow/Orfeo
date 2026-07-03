@@ -26,14 +26,20 @@ interface OrfeoStore {
   bpm: number
   originalBpm: number
   loopEnabled: boolean
-  loopStart: number
-  loopEnd: number
+  loopStart: number | null
+  loopEnd: number | null
+  loopRegionEnabled: boolean
+  loopRegionActive: boolean
 
   setPlaybackState: (state: PlaybackState) => void
   setCurrentTime: (time: number) => void
   setBpm: (bpm: number) => void
   resetBpm: () => void
   setLoop: (enabled: boolean, start?: number, end?: number) => void
+  setLoopRegionEnabled: (v: boolean) => void
+  setLoopRegionActive: (v: boolean) => void
+  setLoopRegion: (start: number, end: number) => void
+  clearLoopRegion: () => void
 
   tracks: TrackState[]
   setTracks: (tracks: TrackState[]) => void
@@ -174,7 +180,7 @@ export const useStore = create<OrfeoStore>((set, get) => ({
   midi: null,
   barStarts: [],
   setMidi: (midi) => {
-    if (!midi) { set({ midi: null, tracks: [], currentTime: 0, playbackState: 'stopped', trackPanelOpen: false, barStarts: [], chordSequence: [], chordPrompterOpen: false }); return }
+    if (!midi) { set({ midi: null, tracks: [], currentTime: 0, playbackState: 'stopped', trackPanelOpen: false, barStarts: [], chordSequence: [], chordPrompterOpen: false, loopStart: null, loopEnd: null, loopRegionActive: false }); return }
     set({
       midi,
       tracks: midi.tracks.map(makeTrackState),
@@ -184,6 +190,9 @@ export const useStore = create<OrfeoStore>((set, get) => ({
       originalBpm: midi.bpm,
       trackPanelOpen: true,   // auto-open drawer when file loads
       barStarts: (midi as any)._barStarts ?? [],
+      loopStart: null,
+      loopEnd: null,
+      loopRegionActive: false,
     })
   },
 
@@ -192,8 +201,10 @@ export const useStore = create<OrfeoStore>((set, get) => ({
   bpm: 120,
   originalBpm: 120,
   loopEnabled: false,
-  loopStart: 0,
-  loopEnd: 0,
+  loopStart: null,
+  loopEnd: null,
+  loopRegionEnabled: false,
+  loopRegionActive: false,
 
   setPlaybackState: (playbackState) => set({ playbackState }),
   setCurrentTime: (currentTime) => set({ currentTime }),
@@ -201,6 +212,14 @@ export const useStore = create<OrfeoStore>((set, get) => ({
   resetBpm: () => set((s) => ({ bpm: s.originalBpm })),
   setLoop: (loopEnabled, loopStart, loopEnd) =>
     set((s) => ({ loopEnabled, loopStart: loopStart ?? s.loopStart, loopEnd: loopEnd ?? s.loopEnd })),
+  // ── Loop region setters ───────────────────────────────────────────────────
+  setLoopRegionEnabled: (v) => set(v
+    ? { loopRegionEnabled: true }
+    : { loopRegionEnabled: false, loopRegionActive: false, loopStart: null, loopEnd: null }
+  ),
+  setLoopRegionActive: (loopRegionActive) => set({ loopRegionActive }),
+  setLoopRegion: (start, end) => set({ loopStart: start, loopEnd: end }),
+  clearLoopRegion: () => set({ loopStart: null, loopEnd: null, loopRegionActive: false }),
 
   tracks: [],
   setTracks: (tracks) => set({ tracks }),
@@ -298,6 +317,7 @@ export const useStore = create<OrfeoStore>((set, get) => ({
       chordExplorerOpen: false, scaleExplorerOpen: false, playbackState: 'stopped',
       currentTime: 0, trackPanelOpen: false, settingsPanelOpen: false,
       chordSequence: [], chordPrompterOpen: false,
+      loopStart: null, loopEnd: null, loopRegionActive: false,
     })
   },
 
@@ -409,6 +429,7 @@ async function restoreLibraryPrefs() {
     if (typeof prefs.splitBreakpointRangeStart === 'number') store.setSplitBreakpointRangeStart(prefs.splitBreakpointRangeStart)
     if (typeof prefs.splitBreakpointRangeEnd === 'number') store.setSplitBreakpointRangeEnd(prefs.splitBreakpointRangeEnd)
     if (typeof prefs.showHandLabels === 'boolean') store.setShowHandLabels(prefs.showHandLabels)
+    if (typeof prefs.loopRegionEnabled === 'boolean') store.setLoopRegionEnabled(prefs.loopRegionEnabled)
     if (Array.isArray(prefs.transcriptHistory)) useStore.setState({ transcriptHistory: prefs.transcriptHistory })
   } catch (e) {
     console.error('[Orfeo] restoreLibraryPrefs:', e)
@@ -441,6 +462,7 @@ let _prevSplitBreakpointNote: number | null = null
 let _prevSplitBreakpointRangeStart: number | null = null
 let _prevSplitBreakpointRangeEnd: number | null = null
 let _prevShowHandLabels: boolean | null = null
+let _prevLoopRegionEnabled: boolean | null = null
 useStore.subscribe((state) => {
   // Skip the very first fire (app init) — restore handles loading saved values
   if (_prevNoteNaming === null) {
@@ -457,6 +479,7 @@ useStore.subscribe((state) => {
     _prevSplitBreakpointRangeStart = state.splitBreakpointRangeStart
     _prevSplitBreakpointRangeEnd = state.splitBreakpointRangeEnd
     _prevShowHandLabels = state.showHandLabels
+    _prevLoopRegionEnabled = state.loopRegionEnabled
     return
   }
   if (
@@ -472,7 +495,8 @@ useStore.subscribe((state) => {
     state.splitBreakpointNote !== _prevSplitBreakpointNote ||
     state.splitBreakpointRangeStart !== _prevSplitBreakpointRangeStart ||
     state.splitBreakpointRangeEnd !== _prevSplitBreakpointRangeEnd ||
-    state.showHandLabels !== _prevShowHandLabels
+    state.showHandLabels !== _prevShowHandLabels ||
+    state.loopRegionEnabled !== _prevLoopRegionEnabled
   ) {
     _prevNoteNaming = state.noteNaming
     _prevAccidentals = state.accidentals
@@ -487,6 +511,7 @@ useStore.subscribe((state) => {
     _prevSplitBreakpointRangeStart = state.splitBreakpointRangeStart
     _prevSplitBreakpointRangeEnd = state.splitBreakpointRangeEnd
     _prevShowHandLabels = state.showHandLabels
+    _prevLoopRegionEnabled = state.loopRegionEnabled
     window.electronAPI?.setPrefs?.({
       noteNaming: state.noteNaming,
       accidentals: state.accidentals,
@@ -501,6 +526,7 @@ useStore.subscribe((state) => {
       splitBreakpointRangeStart: state.splitBreakpointRangeStart,
       splitBreakpointRangeEnd: state.splitBreakpointRangeEnd,
       showHandLabels: state.showHandLabels,
+      loopRegionEnabled: state.loopRegionEnabled,
     }).catch(() => {})
   }
 })

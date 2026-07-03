@@ -35,7 +35,28 @@ export function usePlayback() {
           if (typeof ms === 'number' && ms >= 0) {
             const secs = ms / 1000
             const duration = midi?.duration ?? 0
+            const { loopRegionActive, loopStart, loopEnd } = useStore.getState()
+
+            // ── Loop region seek — fires before end-of-file check ──────────────
+            if (loopRegionActive && loopStart !== null && loopEnd !== null && secs >= loopEnd) {
+              try { player.play(); player.jumpMS(Math.floor(loopStart * 1000)) } catch {}
+              fallbackStartPerfRef.current = performance.now()
+              fallbackStartTimeRef.current = loopStart
+              useStore.setState({ currentTime: loopStart })
+              rafRef.current = requestAnimationFrame(tick)
+              return
+            }
+
             if (secs >= duration && duration > 0) {
+              // ── Entire-file loop when active with no region set ────────────
+              if (loopRegionActive) {
+                try { player.play(); player.jumpMS(0) } catch {}
+                fallbackStartPerfRef.current = performance.now()
+                fallbackStartTimeRef.current = 0
+                useStore.setState({ currentTime: 0 })
+                rafRef.current = requestAnimationFrame(tick)
+                return
+              }
               useStore.setState({ currentTime: duration, playbackState: 'stopped' })
               stopRaf(); return
             }
@@ -50,7 +71,24 @@ export function usePlayback() {
       const elapsed = (performance.now() - fallbackStartPerfRef.current) / 1000
       const newTime = fallbackStartTimeRef.current + elapsed * ratio
       const duration = midi?.duration ?? 0
+      const { loopRegionActive, loopStart, loopEnd } = useStore.getState()
+
+      // ── Loop region seek (fallback/samples path) ─────────────────────────
+      if (loopRegionActive && loopStart !== null && loopEnd !== null && newTime >= loopEnd) {
+        stopRaf()
+        useStore.setState({ currentTime: loopStart, playbackState: 'paused' })
+        Promise.resolve().then(() => useStore.setState({ playbackState: 'playing' }))
+        return
+      }
+
       if (newTime >= duration && duration > 0) {
+        // ── Entire-file loop (fallback/samples path) ────────────────────────
+        if (loopRegionActive) {
+          stopRaf()
+          useStore.setState({ currentTime: 0, playbackState: 'paused' })
+          Promise.resolve().then(() => useStore.setState({ playbackState: 'playing' }))
+          return
+        }
         useStore.setState({ currentTime: duration, playbackState: 'stopped' })
         stopRaf(); return
       }

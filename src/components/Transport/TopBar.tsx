@@ -12,6 +12,7 @@ import { formatKey, transposeDetectedKey } from '../../utils/keyDetection'
 import OrfeoLogo from '../OrfeoLogo'
 import MidiIcon from '../MidiIcon'
 import VolumeKnob from '../VolumeKnob'
+import LoopRegionStrip from '../LoopRegionStrip'
 
 // Design tokens — match index.css :root
 const C = {
@@ -28,8 +29,11 @@ export default function TopBar() {
   const currentTime = useStore((s) => s.currentTime)
   const bpm = useStore((s) => s.bpm)
   const originalBpm = useStore((s) => s.originalBpm)
-  const loopEnabled = useStore((s) => s.loopEnabled)
-  const setLoop = useStore((s) => s.setLoop)
+  const loopRegionEnabled  = useStore((s) => s.loopRegionEnabled)
+  const loopRegionActive   = useStore((s) => s.loopRegionActive)
+  const loopStart          = useStore((s) => s.loopStart)
+  const loopEnd            = useStore((s) => s.loopEnd)
+  const setLoopRegionActive = useStore((s) => s.setLoopRegionActive)
   const setBpm = useStore((s) => s.setBpm)
   const resetBpm = useStore((s) => s.resetBpm)
   const detectedKey = useStore((s) => s.detectedKey)
@@ -81,6 +85,26 @@ export default function TopBar() {
   const isTempoChanged = !!midi && Math.abs(Math.round((bpm / originalBpm) * 100) - 100) > 1
   const displayKey = detectedKey ? formatKey(detectedKey, noteNaming, accidentals) : '—'
 
+  // ── Loop button tooltip — context-aware based on region state ─────────────
+  const loopStartBar = loopStart !== null ? (() => {
+    let bar = 1
+    for (let i = 0; i < barStarts.length; i++) { if (barStarts[i] <= loopStart) bar = i + 1 }
+    return bar
+  })() : null
+  const loopEndBar = (loopEnd !== null && loopStartBar !== null) ? (() => {
+    let rawBar = 1
+    for (let i = 0; i < barStarts.length; i++) { if (barStarts[i] <= loopEnd) rawBar = i + 1 }
+    const pastLastBarStart = barStarts.length === 0 || loopEnd > barStarts[barStarts.length - 1] + 0.001
+    return Math.max(loopStartBar, pastLastBarStart ? rawBar : rawBar - 1)
+  })() : null
+  const loopTooltip = loopRegionEnabled && loopStart !== null
+    ? (loopRegionActive
+        ? `Looping bars ${loopStartBar}–${loopEndBar} · Click to disable`
+        : `Loop bars ${loopStartBar}–${loopEndBar} · Click to enable`)
+    : loopRegionEnabled
+      ? 'Loop entire song · Drag the strip above to select a section'
+      : 'Loop entire song · Enable Loop Region in Settings to select a specific section'
+
   // ── Live BPM — reads current tempo from _tempoMap so rubato files update ─
   const rawTempoMap = (midi as any)?._tempoMap as { bpm: number; time: number }[] | undefined
   const currentFileBpm = rawTempoMap?.length
@@ -110,7 +134,7 @@ export default function TopBar() {
     <div
       className="app-drag-region"
       style={{
-        height: 96,
+        height: loopRegionEnabled ? 120 : 96,
         background: '#111116',
         borderBottom: `1px solid #1e1e28`,
         display: 'flex',
@@ -204,22 +228,29 @@ export default function TopBar() {
           </TBtn>
           <TBtn onClick={() => handleSkip(1)} disabled={!midi} title={`Forward ${SKIP_SECS}s`}><FastForward size={15} strokeWidth={1.5} /></TBtn>
           <TBtn onClick={() => midi && seek(midi.duration)} disabled={!midi} title="Go to end"><SkipForward size={16} strokeWidth={1.5} /></TBtn>
-          <TBtn onClick={() => setLoop(!loopEnabled)} disabled={!midi} active={loopEnabled} title={loopEnabled ? 'Loop on' : 'Loop off'}><Repeat size={13} strokeWidth={1.5} /></TBtn>
+          <TBtn onClick={() => setLoopRegionActive(!loopRegionActive)} disabled={!midi} active={loopRegionActive} title={loopTooltip}><Repeat size={13} strokeWidth={1.5} /></TBtn>
         </div>
-        {/* Scrub */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: 6, width: '100%', justifyContent: 'center' }}>
-          <span style={{ color: C.muted, fontFamily: 'JetBrains Mono', fontSize: 10, minWidth: 34, textAlign: 'right', flexShrink: 0 }}>
-            {formatTime(currentTime)}
-          </span>
-          <input
-            type="range" min={0} max={duration || 1} step={0.1} value={currentTime}
-            onMouseDown={handleScrubStart} onChange={handleScrubChange} onMouseUp={handleScrubEnd}
-            className="scrub-slider" style={{ flex: 1, maxWidth: 320 }} disabled={!midi}
-            title="Scrub position"
-          />
-          <span style={{ color: C.muted, fontFamily: 'JetBrains Mono', fontSize: 10, minWidth: 34, flexShrink: 0 }}>
-            {formatTime(duration)}
-          </span>
+        {/* Scrub + loop strip — shared column; width: min(100%, 400px) centers both at
+            the same visual width as the old scrub content (34+6+320+6+34 = 400px).
+            position: relative lets LoopRegionStrip anchor its icon outside this column. */}
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 5, width: 'min(100%, 400px)', position: 'relative' }}>
+          {/* Scrub */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+            <span style={{ color: C.muted, fontFamily: 'JetBrains Mono', fontSize: 10, minWidth: 34, textAlign: 'right', flexShrink: 0 }}>
+              {formatTime(currentTime)}
+            </span>
+            <input
+              type="range" min={0} max={duration || 1} step={0.1} value={currentTime}
+              onMouseDown={handleScrubStart} onChange={handleScrubChange} onMouseUp={handleScrubEnd}
+              className="scrub-slider" style={{ flex: 1, maxWidth: 320 }} disabled={!midi}
+              title="Scrub position"
+            />
+            <span style={{ color: C.muted, fontFamily: 'JetBrains Mono', fontSize: 10, minWidth: 34, flexShrink: 0 }}>
+              {formatTime(duration)}
+            </span>
+          </div>
+          {/* Loop Region Strip — visible only when enabled in Settings */}
+          {loopRegionEnabled && <LoopRegionStrip />}
         </div>
         {/* Filename */}
         <span style={{ color: C.default, fontSize: 11, fontFamily: 'Inter', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: 340 }}

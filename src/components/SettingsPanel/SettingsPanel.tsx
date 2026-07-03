@@ -577,6 +577,8 @@ export default function SettingsPanel() {
   const setAudioEngine = useStore((s) => s.setAudioEngine)
   const chordPrompterEnabled = useStore((s) => s.chordPrompterEnabled)
   const setChordPrompterEnabled = useStore((s) => s.setChordPrompterEnabled)
+  const loopRegionEnabled    = useStore((s) => s.loopRegionEnabled)
+  const setLoopRegionEnabled = useStore((s) => s.setLoopRegionEnabled)
   const chordTranscriptionEnabled = useStore((s) => s.chordTranscriptionEnabled)
   const setChordTranscriptionEnabled = useStore((s) => s.setChordTranscriptionEnabled)
   const hideDemoFolder           = useStore((s) => s.hideDemoFolder)
@@ -982,6 +984,13 @@ export default function SettingsPanel() {
                     <OptionBtn active={!chordPrompterEnabled} onClick={() => setChordPrompterEnabled(false)}>Off</OptionBtn>
                   </div>
                 </OptionRow>
+                {/* ── Loop Region strip toggle ──────────────────────────────── */}
+                <OptionRow label="Loop Region strip" hint="Show a strip above the song title to select and loop a section of the MIDI file.">
+                  <div style={{ display: 'flex', gap: 4 }}>
+                    <OptionBtn active={loopRegionEnabled}  onClick={() => setLoopRegionEnabled(true)}>On</OptionBtn>
+                    <OptionBtn active={!loopRegionEnabled} onClick={() => setLoopRegionEnabled(false)}>Off</OptionBtn>
+                  </div>
+                </OptionRow>
 
                 {/* ── Appearance ── */}
                 <SectionHeader icon={<Palette size={11} />} label="Appearance" />
@@ -1001,7 +1010,7 @@ export default function SettingsPanel() {
                       <line x1="22" y1="50" x2="78" y2="50" stroke="#e8a027" strokeWidth="7" strokeLinecap="round"/>
                       <line x1="22" y1="62" x2="78" y2="62" stroke="#e8a027" strokeWidth="7" strokeLinecap="round"/>
                     </svg>
-                    <span style={{ color: '#50506a', fontSize: 10, fontFamily: 'JetBrains Mono' }}>Orfeo · v0.7.0</span>
+                    <span style={{ color: '#50506a', fontSize: 10, fontFamily: 'JetBrains Mono' }}>Orfeo · v0.8.0</span>
                   </div>
                   <div style={{ fontSize: 9, color: '#35354a', fontFamily: 'JetBrains Mono', lineHeight: 1.5 }}>
                     MIT License · github.com/SquareBow/orfeo
