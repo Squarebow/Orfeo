@@ -4,6 +4,28 @@
 
 ---
 
+### 3. 7. 2026 — Drawer icons, layout & styling unification
+
+**`src/components/SettingsPanel/SettingsPanel.tsx`**
+- Removed single `ListMusic` toggle button; replaced with a conditional:
+  - Closed: full-height flex column — `Library` (→ library tab), `Settings` (→ settings tab), flex spacer, `Info` pinned at bottom ("Coming soon" tooltip, `opacity: 0.5`, `cursor: default`). All functional buttons: `#707088` default / `#e8a027` hover.
+  - Open: `ChevronLeft` only (no more dual-icon toggle); tooltip is now dynamic — `'Close Library'` or `'Close Settings'` based on `activeTab`.
+- Tab bar: icons swapped `Music → Library`, `Settings2 → Settings`; `justifyContent: 'center'` → `justifyContent: 'flex-start'` + `paddingLeft: 12` to left-align icon+label flush with panel content below (folder bar / filter buttons at 12px).
+- Imports: removed `Settings2`, `ListMusic`, `Music` (latter was the tab icon, not the Playback section header — `Music` is kept for that). Added `Library`, `Settings`, `Info`.
+
+**`src/components/TrackPanel/TrackPanel.tsx`**
+- Removed single `SlidersHorizontal` toggle button; replaced with conditional:
+  - Closed: full-height flex column — `AudioLines size={18}` (opens panel), `SlidersVertical size={18}` (coming soon, `opacity: 0.5`), `PencilSparkles size={18}` (MIDI editor; dim `#303042` when no midi, amber when editor open).
+  - Open: outer div restructured from flex-column to flex-row:
+    - Left icon strip (32px, `borderRight: '1px solid #1a1a26'`, `paddingTop: 10`): `ChevronRight` close button (styled with `background: '#1a1a24'`, `border: '1px solid #252535'`, `borderRight: 'none'`, `borderRadius: '0 4px 4px 0'`) + `SlidersVertical size={16}` coming soon + `PencilSparkles size={16}` MIDI editor.
+    - Content div (`flex: 1`, `flexDirection: 'column'`): header (`padding: '0 14px'`, previously `'0 14px 0 36px'`) + track list — both unchanged in content.
+- Soundfont placeholder button (SVG, color `#30303e`) removed from open header.
+- Header icon `Music2 size={14}` → `AudioLines size={14}`.
+- `PencilLine` → `PencilSparkles` throughout (both states, closed column and open strip). `PencilSparkles` is defined as an inline SVG component at file top (not yet shipped in the installed `lucide-react` version); uses the path data from the official Lucide `pencil-sparkles` icon.
+- Imports: removed `ChevronLeft` (was unused), `Pencil`, `SlidersHorizontal`, `Music2`, `PencilLine`. Added `AudioLines`, `SlidersVertical`. `PencilSparkles` is a local SVG component.
+
+---
+
 ### 3. 7. 2026 — Split breakpoint: Single Note vs Range mode
 
 **`src/store/index.ts`**

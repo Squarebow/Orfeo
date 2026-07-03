@@ -1,7 +1,7 @@
 import { useState, useMemo, useRef, useEffect } from 'react'
 import {
-  Settings2, ChevronLeft, ChevronDown, ChevronRight, Type, Piano, Palette, ZoomIn, Volume2,
-  Music, FolderOpen, RefreshCw, FileMusic, BookOpen, ListMusic, Scissors,
+  ChevronLeft, ChevronDown, ChevronRight, Type, Piano, Palette, ZoomIn, Volume2,
+  Music, FolderOpen, RefreshCw, FileMusic, BookOpen, Scissors, Library, Settings, Info,
 } from 'lucide-react'
 import { useStore } from '../../store'
 import type { NoteNaming, KeyboardSize, Accidentals, TranscriptEntry } from '../../types'
@@ -631,39 +631,88 @@ export default function SettingsPanel() {
       flexShrink: 0,
       position: 'relative',
     }}>
-      {/* Collapse toggle */}
-      <button
-        onClick={() => setSettingsPanelOpen(!settingsPanelOpen)}
-        title={settingsPanelOpen ? 'Close Library & Settings' : 'Open Library & Settings'}
-        style={{
-          position: 'absolute', top: 10, right: 0, zIndex: 10,
-          padding: '4px 5px', borderRadius: '4px 0 0 4px',
-          background: '#1a1a24', border: '1px solid #252535', borderRight: 'none',
-          color: '#707088', cursor: 'pointer',
-          display: 'flex', alignItems: 'center', justifyContent: 'center',
-          transition: 'color 0.15s',
-        }}
-        onMouseEnter={e => e.currentTarget.style.color = '#e8a027'}
-        onMouseLeave={e => e.currentTarget.style.color = '#707088'}
-      >
-        {settingsPanelOpen ? <ChevronLeft size={15} /> : <ListMusic size={18} />}
-      </button>
+      {/* ── Closed state: 3-icon column ────────────────────────────────────── */}
+      {!settingsPanelOpen && (
+        <div style={{
+          display: 'flex', flexDirection: 'column', alignItems: 'center',
+          height: '100%', paddingTop: 10, paddingBottom: 10,
+        }}>
+          <button
+            onClick={() => { setActiveTab('library'); setSettingsPanelOpen(true) }}
+            title="Open Library"
+            style={{
+              background: 'none', border: 'none', cursor: 'pointer',
+              color: '#707088', padding: 4,
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+              transition: 'color 0.15s',
+            }}
+            onMouseEnter={e => e.currentTarget.style.color = '#e8a027'}
+            onMouseLeave={e => e.currentTarget.style.color = '#707088'}
+          >
+            <Library size={18} />
+          </button>
+          <button
+            onClick={() => { setActiveTab('settings'); setSettingsPanelOpen(true) }}
+            title="Open Settings"
+            style={{
+              background: 'none', border: 'none', cursor: 'pointer',
+              color: '#707088', padding: 4, marginTop: 8,
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+              transition: 'color 0.15s',
+            }}
+            onMouseEnter={e => e.currentTarget.style.color = '#e8a027'}
+            onMouseLeave={e => e.currentTarget.style.color = '#707088'}
+          >
+            <Settings size={18} />
+          </button>
+          <div style={{ flex: 1 }} />
+          <button
+            title="Coming soon"
+            style={{
+              background: 'none', border: 'none', cursor: 'default',
+              color: '#505068', padding: 4, opacity: 0.5,
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+            }}
+          >
+            <Info size={18} />
+          </button>
+        </div>
+      )}
 
       {settingsPanelOpen && (
         <div style={{ display: 'flex', flexDirection: 'column', height: '100%', overflow: 'hidden' }}>
 
-          {/* Tab bar */}
+          {/* ── Collapse button: chevron only, dynamic tooltip ────────────────── */}
+          <button
+            onClick={() => setSettingsPanelOpen(false)}
+            title={activeTab === 'library' ? 'Close Library' : 'Close Settings'}
+            style={{
+              position: 'absolute', top: 10, right: 0, zIndex: 10,
+              padding: '4px 5px', borderRadius: '4px 0 0 4px',
+              background: '#1a1a24', border: '1px solid #252535', borderRight: 'none',
+              color: '#707088', cursor: 'pointer',
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+              transition: 'color 0.15s',
+            }}
+            onMouseEnter={e => e.currentTarget.style.color = '#e8a027'}
+            onMouseLeave={e => e.currentTarget.style.color = '#707088'}
+          >
+            <ChevronLeft size={15} />
+          </button>
+
+          {/* ── Tab bar: Library / Settings, left-aligned with content ─────── */}
           <div style={{ display: 'flex', borderBottom: '1px solid #1e1e2c', flexShrink: 0 }}>
             {([
-              { id: 'library',  icon: <Music size={13} />,    label: 'Library'  },
-              { id: 'settings', icon: <Settings2 size={13} />, label: 'Settings' },
+              { id: 'library',  icon: <Library size={13} />,  label: 'Library'  },
+              { id: 'settings', icon: <Settings size={13} />, label: 'Settings' },
             ] as { id: DrawerTab; icon: React.ReactNode; label: string }[]).map(tab => (
               <button
                 key={tab.id}
                 onClick={() => setActiveTab(tab.id)}
                 style={{
                   flex: 1, height: 40,
-                  display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 5,
+                  display: 'flex', alignItems: 'center', justifyContent: 'flex-start',
+                  paddingLeft: 12, gap: 5,
                   background: 'none', border: 'none', cursor: 'pointer',
                   borderBottom: activeTab === tab.id ? '2px solid #e8a027' : '2px solid transparent',
                   color: activeTab === tab.id ? '#e8a027' : '#505068',

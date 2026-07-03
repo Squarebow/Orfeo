@@ -182,6 +182,10 @@ All user-visible changes listed here. For full technical detail see [CHANGELOG.m
 
 ### 3. 7. 2026
 
+**Improved**
+- **Panel shortcut icons** — both side panels (Library/Settings on the left, Tracks on the right) now show a column of three icons when collapsed instead of a single generic icon. Clicking directly on the Library or Settings icon opens the left panel straight to that tab. The MIDI Editor button is also accessible in the collapsed track panel. Icons that lead to features not yet built show a "Coming soon" tooltip and are visually dimmed.
+- **Track panel layout** — the Tracks header icon and MIDI Editor icon have been updated; the decorative soundfont placeholder has been removed.
+
 **New**
 - **Split breakpoint: Single vs Range mode** — the MIDI Editor split breakpoint setting in Settings now has two modes. Single mode works as before: one note divides LH and RH. Range mode lets you set a lower and upper bound; notes below the lower bound go to LH, above the upper bound go to RH, and notes in between are assigned to whichever hand's boundary they're closer to. All values are constrained to the C3–C4 octave where the real LH/RH split lives.
 
