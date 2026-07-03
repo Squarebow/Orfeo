@@ -261,17 +261,21 @@ export default function TopBar() {
 
         {/* TIME SIGNATURE */}
         <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', padding: '0 14px' }}
-          title={`Time signature: ${midi?.timeSignatureNumerator ?? 4}/${midi?.timeSignatureDenominator ?? 4}`}
+          title={midi ? `Time signature: ${midi.timeSignatureNumerator ?? 4}/${midi.timeSignatureDenominator ?? 4}` : 'No file loaded'}
         >
-          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', lineHeight: 1 }}>
-            <span style={{ color: C.active, fontFamily: 'JetBrains Mono', fontSize: 13, fontWeight: 700 }}>
-              {midi?.timeSignatureNumerator ?? 4}
-            </span>
-            <div style={{ width: 14, height: 1, background: '#30304a', margin: '2px 0' }} />
-            <span style={{ color: C.active, fontFamily: 'JetBrains Mono', fontSize: 13, fontWeight: 700 }}>
-              {midi?.timeSignatureDenominator ?? 4}
-            </span>
-          </div>
+          {midi ? (
+            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', lineHeight: 1 }}>
+              <span style={{ color: C.active, fontFamily: 'JetBrains Mono', fontSize: 13, fontWeight: 700 }}>
+                {midi.timeSignatureNumerator ?? 4}
+              </span>
+              <div style={{ width: 14, height: 1, background: '#30304a', margin: '2px 0' }} />
+              <span style={{ color: C.active, fontFamily: 'JetBrains Mono', fontSize: 13, fontWeight: 700 }}>
+                {midi.timeSignatureDenominator ?? 4}
+              </span>
+            </div>
+          ) : (
+            <span style={{ color: C.muted, fontFamily: 'JetBrains Mono', fontSize: 20, fontWeight: 700, lineHeight: 1 }}>—</span>
+          )}
           <span style={{ color: C.default, fontSize: 8, fontFamily: 'JetBrains Mono', textTransform: 'uppercase', letterSpacing: '0.1em', marginTop: 6 }}>TIME</span>
         </div>
 
