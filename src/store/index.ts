@@ -121,6 +121,9 @@ interface OrfeoStore {
   setChordPrompterOpen: (v: boolean) => void
   setChordSequence: (seq: ChordEvent[]) => void
 
+  chordTranscriptionEnabled: boolean
+  setChordTranscriptionEnabled: (v: boolean) => void
+
   hideDemoFolder: boolean
   setHideDemoFolder: (v: boolean) => void
 
@@ -299,6 +302,10 @@ export const useStore = create<OrfeoStore>((set, get) => ({
   setChordPrompterOpen: (chordPrompterOpen) => set({ chordPrompterOpen }),
   setChordSequence: (chordSequence) => set({ chordSequence }),
 
+  // ── Chord Transcription — per-file PDF generation, persisted ─────────────
+  chordTranscriptionEnabled: false,
+  setChordTranscriptionEnabled: (chordTranscriptionEnabled) => set({ chordTranscriptionEnabled }),
+
   // ── Demo folder visibility — persisted, default visible ───────────────────
   hideDemoFolder: false,
   setHideDemoFolder: (hideDemoFolder) => set({ hideDemoFolder }),
@@ -376,6 +383,7 @@ async function restoreLibraryPrefs() {
     if (prefs.audioEngine === 'samples') store.setAudioEngine('samples')
     if (typeof prefs.showBarNumbers === 'boolean') store.setShowBarNumbers(prefs.showBarNumbers)
     if (typeof prefs.chordPrompterEnabled === 'boolean') store.setChordPrompterEnabled(prefs.chordPrompterEnabled)
+    if (typeof prefs.chordTranscriptionEnabled === 'boolean') store.setChordTranscriptionEnabled(prefs.chordTranscriptionEnabled)
     if (typeof prefs.hideDemoFolder === 'boolean') store.setHideDemoFolder(prefs.hideDemoFolder)
     if (typeof prefs.globalSplitBreakpoint === 'number') store.setGlobalSplitBreakpoint(prefs.globalSplitBreakpoint)
     if (Array.isArray(prefs.transcriptHistory)) useStore.setState({ transcriptHistory: prefs.transcriptHistory })
@@ -403,6 +411,7 @@ let _prevMasterVolume: number | null = null
 let _prevAudioEngine: string | null = null
 let _prevShowBarNumbers: boolean | null = null
 let _prevChordPrompterEnabled: boolean | null = null
+let _prevChordTranscriptionEnabled: boolean | null = null
 let _prevHideDemoFolder: boolean | null = null
 let _prevGlobalSplitBreakpoint: number | null = null
 useStore.subscribe((state) => {
@@ -414,6 +423,7 @@ useStore.subscribe((state) => {
     _prevAudioEngine = state.audioEngine
     _prevShowBarNumbers = state.showBarNumbers
     _prevChordPrompterEnabled = state.chordPrompterEnabled
+    _prevChordTranscriptionEnabled = state.chordTranscriptionEnabled
     _prevHideDemoFolder = state.hideDemoFolder
     _prevGlobalSplitBreakpoint = state.globalSplitBreakpoint
     return
@@ -425,6 +435,7 @@ useStore.subscribe((state) => {
     state.audioEngine !== _prevAudioEngine ||
     state.showBarNumbers !== _prevShowBarNumbers ||
     state.chordPrompterEnabled !== _prevChordPrompterEnabled ||
+    state.chordTranscriptionEnabled !== _prevChordTranscriptionEnabled ||
     state.hideDemoFolder !== _prevHideDemoFolder ||
     state.globalSplitBreakpoint !== _prevGlobalSplitBreakpoint
   ) {
@@ -434,6 +445,7 @@ useStore.subscribe((state) => {
     _prevAudioEngine = state.audioEngine
     _prevShowBarNumbers = state.showBarNumbers
     _prevChordPrompterEnabled = state.chordPrompterEnabled
+    _prevChordTranscriptionEnabled = state.chordTranscriptionEnabled
     _prevHideDemoFolder = state.hideDemoFolder
     _prevGlobalSplitBreakpoint = state.globalSplitBreakpoint
     window.electronAPI?.setPrefs?.({
@@ -443,6 +455,7 @@ useStore.subscribe((state) => {
       audioEngine: state.audioEngine,
       showBarNumbers: state.showBarNumbers,
       chordPrompterEnabled: state.chordPrompterEnabled,
+      chordTranscriptionEnabled: state.chordTranscriptionEnabled,
       hideDemoFolder: state.hideDemoFolder,
       globalSplitBreakpoint: state.globalSplitBreakpoint,
     }).catch(() => {})

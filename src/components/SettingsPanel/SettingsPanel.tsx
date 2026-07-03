@@ -1,12 +1,20 @@
 import { useState, useMemo, useRef, useEffect } from 'react'
 import {
   Settings2, ChevronLeft, ChevronDown, ChevronRight, Type, Piano, Palette, ZoomIn, Volume2,
-  Music, FolderOpen, RefreshCw, FileMusic, BookOpen, ListMusic, Scissors,
+  Music, FolderOpen, RefreshCw, FileMusic, FileText, BookOpen, ListMusic, Scissors,
 } from 'lucide-react'
 import { useStore } from '../../store'
-import type { NoteNaming, KeyboardSize, Accidentals } from '../../types'
+import type { NoteNaming, KeyboardSize, Accidentals, TranscriptEntry } from '../../types'
 import type { AppTheme } from '../../store'
 import { initSamplesEngine } from '../../hooks/useSamplesEngine'
+
+// ── Spin keyframe for transcript loading animation ────────────────────────────
+if (typeof document !== 'undefined' && !document.getElementById('orfeo-transcript-anim')) {
+  const s = document.createElement('style')
+  s.id = 'orfeo-transcript-anim'
+  s.textContent = '@keyframes orfeo-transcript-spin { from { transform: rotate(0deg) } to { transform: rotate(360deg) } }'
+  document.head.appendChild(s)
+}
 
 // ─── Shared sub-components ──────────────────────────────────────────────────
 
@@ -76,6 +84,73 @@ function OptionBtn({ active, onClick, children, title, comingSoon }: {
   )
 }
 
+// ─── Transcript icon — per-file, manages its own loading/success/error state ──
+function TranscriptIcon({ filePath, noteNaming, accidentals, addTranscriptEntry }: {
+  filePath: string
+  noteNaming: NoteNaming
+  accidentals: Accidentals
+  addTranscriptEntry: (entry: TranscriptEntry) => void
+}) {
+  const [state, setState] = useState<'idle' | 'loading' | 'success' | 'error'>('idle')
+  const [tooltip, setTooltip] = useState('Generate chord transcript PDF')
+  const revertRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+
+  useEffect(() => () => { if (revertRef.current) clearTimeout(revertRef.current) }, [])
+
+  // ── Trigger generation — stops row click propagation ─────────────────────
+  const handleClick = async () => {
+    if (state === 'loading') return
+    setState('loading')
+    setTooltip('Generating…')
+    if (revertRef.current) clearTimeout(revertRef.current)
+    try {
+      const result = await window.electronAPI.transcriptGenerate(filePath, noteNaming, accidentals)
+      if (result.success && result.path) {
+        setState('success')
+        const fname = result.path.split(/[\\/]/).pop() ?? result.path
+        setTooltip(`✓ Saved — ${fname}`)
+        const today = new Date()
+        addTranscriptEntry({
+          midiPath: filePath,
+          transcriptPath: result.path,
+          date: `${today.getDate()}. ${today.getMonth() + 1}. ${today.getFullYear()}`,
+        })
+      } else {
+        setState('error')
+        setTooltip(result.error ?? 'PDF generation failed')
+      }
+    } catch (err: any) {
+      setState('error')
+      setTooltip(err?.message ?? 'PDF generation failed')
+    }
+    revertRef.current = setTimeout(() => {
+      setState('idle')
+      setTooltip('Generate chord transcript PDF')
+    }, 3000)
+  }
+
+  const iconColor = state === 'success' ? '#4caf50' : state === 'error' ? '#f44336' : '#505068'
+
+  return (
+    <div
+      onClick={(e) => { e.stopPropagation(); void handleClick() }}
+      title={tooltip}
+      style={{
+        cursor: state === 'loading' ? 'wait' : 'pointer',
+        color: iconColor,
+        display: 'flex', alignItems: 'center',
+        padding: '2px 3px', flexShrink: 0,
+        transition: 'color 0.2s',
+        animation: state === 'loading' ? 'orfeo-transcript-spin 1s linear infinite' : 'none',
+      }}
+      onMouseEnter={e => { if (state === 'idle') (e.currentTarget as HTMLElement).style.color = '#b0b0cc' }}
+      onMouseLeave={e => { if (state === 'idle') (e.currentTarget as HTMLElement).style.color = '#505068' }}
+    >
+      <FileText size={11} strokeWidth={1.5} />
+    </div>
+  )
+}
+
 // ─── Library Panel ───────────────────────────────────────────────────────────
 
 interface LibraryFile {
@@ -93,6 +168,11 @@ function LibraryPanel() {
   const toggleFavourite = useStore((s) => s.toggleFavourite)
   const hideDemoFolder  = useStore((s) => s.hideDemoFolder)
   const demoFiles       = useStore((s) => s.demoFiles)
+  // ── Chord Transcription — needed to show per-file transcript icon ─────────
+  const chordTranscriptionEnabled = useStore((s) => s.chordTranscriptionEnabled)
+  const noteNaming                = useStore((s) => s.noteNaming)
+  const accidentals               = useStore((s) => s.accidentals)
+  const addTranscriptEntry        = useStore((s) => s.addTranscriptEntry)
   const [loading, setLoading] = useState(false)
   const [filter, setFilter] = useState<'all' | 'starred'>('all')
   // Folders start expanded (not in collapsed set)
@@ -334,6 +414,10 @@ function LibraryPanel() {
                 }}>
                   {file.name.replace(/\.(mid|midi)$/i, '')}
                 </span>
+                {/* ── Transcript icon — only when Chord Transcription is enabled ── */}
+                {chordTranscriptionEnabled && (
+                  <TranscriptIcon filePath={file.path} noteNaming={noteNaming} accidentals={accidentals} addTranscriptEntry={addTranscriptEntry} />
+                )}
               </div>
             ))}
           </div>
@@ -401,6 +485,10 @@ function LibraryPanel() {
                   }}>
                     {file.name.replace(/\.(mid|midi)$/i, '')}
                   </span>
+                  {/* ── Transcript icon — only when Chord Transcription is enabled ── */}
+                  {chordTranscriptionEnabled && (
+                    <TranscriptIcon filePath={file.path} noteNaming={noteNaming} accidentals={accidentals} addTranscriptEntry={addTranscriptEntry} />
+                  )}
                   <button
                     onClick={e => { e.stopPropagation(); toggleFavourite(file.path) }}
                     title={starred ? 'Remove from favourites' : 'Add to favourites'}
@@ -450,6 +538,8 @@ export default function SettingsPanel() {
   const setAudioEngine = useStore((s) => s.setAudioEngine)
   const chordPrompterEnabled = useStore((s) => s.chordPrompterEnabled)
   const setChordPrompterEnabled = useStore((s) => s.setChordPrompterEnabled)
+  const chordTranscriptionEnabled = useStore((s) => s.chordTranscriptionEnabled)
+  const setChordTranscriptionEnabled = useStore((s) => s.setChordTranscriptionEnabled)
   const hideDemoFolder           = useStore((s) => s.hideDemoFolder)
   const setHideDemoFolder        = useStore((s) => s.setHideDemoFolder)
   const globalSplitBreakpoint    = useStore((s) => s.globalSplitBreakpoint)
@@ -556,6 +646,13 @@ export default function SettingsPanel() {
                   <div style={{ display: 'flex', gap: 4 }}>
                     <OptionBtn active={!hideDemoFolder} onClick={() => setHideDemoFolder(false)}>Show</OptionBtn>
                     <OptionBtn active={hideDemoFolder}  onClick={() => setHideDemoFolder(true)}>Hide</OptionBtn>
+                  </div>
+                </OptionRow>
+                {/* ── Chord Transcription toggle ────────────────────────────────── */}
+                <OptionRow label="Chord Transcription" hint="Adds a transcript icon to every file in your library — click to generate a chord chart PDF.">
+                  <div style={{ display: 'flex', gap: 4 }}>
+                    <OptionBtn active={chordTranscriptionEnabled} onClick={() => setChordTranscriptionEnabled(true)}>On</OptionBtn>
+                    <OptionBtn active={!chordTranscriptionEnabled} onClick={() => setChordTranscriptionEnabled(false)}>Off</OptionBtn>
                   </div>
                 </OptionRow>
 
