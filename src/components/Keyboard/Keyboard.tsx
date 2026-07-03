@@ -44,10 +44,6 @@ export default function Keyboard() {
   const lockedColors = useStore((s) => s.lockedColors)
   const setLockedKeysStore = useStore((s) => s.setLockedKeys)
   const clearLockedKeys = useStore((s) => s.clearLockedKeys)
-  // ── Chord identity preserved across inversion cycling ─────────────────────
-  const originalLockedChordName = useStore((s) => s.originalLockedChordName)
-  const lockedInversionCount    = useStore((s) => s.lockedInversionCount)
-  const lockedChordNoteCount    = useStore((s) => s.lockedChordNoteCount)
   // ── Explorer chord display — computed name + count from ChordExplorer/ScaleExplorer
   const explorerChordDisplay    = useStore((s) => s.explorerChordDisplay)
   // ── Chord sequence + prompter state ──────────────────────────────────────────
@@ -62,16 +58,6 @@ export default function Keyboard() {
   const isMouseDown = useRef(false)
   // ── Freeze prompter at last known chord index on pause/stop ──────────────────
   const frozenIndexRef = useRef<number>(-1)
-
-  // ── Compute structured inversion display for locked chord ─────────────────
-  const lockedDisplay = useMemo(() => {
-    if (!originalLockedChordName || lockedKeys.size === 0) return null
-    const bassNoteMidi = Math.min(...lockedKeys)
-    return formatInversionDisplay(
-      originalLockedChordName, lockedInversionCount, lockedChordNoteCount,
-      bassNoteMidi, noteNaming, accidentals, true,
-    )
-  }, [originalLockedChordName, lockedInversionCount, lockedChordNoteCount, lockedKeys, noteNaming, accidentals])
 
   // ── Compute structured inversion display for explorer chord ───────────────
   const explorerDisplay = useMemo(() => {
@@ -280,23 +266,9 @@ export default function Keyboard() {
               )}
             </div>
 
-            {/* Centre: chord name — priority: locked > explorer > sequence > manual > empty */}
+            {/* Centre: chord name — priority: explorer > sequence > manual > empty */}
             <div style={{ display: 'flex', alignItems: 'baseline', gap: 5, minWidth: 80, justifyContent: 'center' }}>
-              {lockedDisplay ? (
-                // ── Locked chord: chord/bass amber + ordinal grey ──────────────
-                <>
-                  <span style={{ fontFamily: 'JetBrains Mono', fontSize: 14, fontWeight: 700, color: '#e8a027', letterSpacing: '0.05em', userSelect: 'none' }}>
-                    {lockedDisplay.chordLabel}
-                  </span>
-                  {lockedDisplay.ordinal && (
-                    <span style={{ fontFamily: 'Inter', fontSize: 10, color: '#707088', userSelect: 'none' }}>
-                      {lockedDisplay.ordinal}
-                      <span style={{ fontSize: 7, verticalAlign: 'super' }}>{ordinalSuffix(Number(lockedDisplay.ordinal))}</span>
-                      {' inv'}
-                    </span>
-                  )}
-                </>
-              ) : explorerDisplay ? (
+              {explorerDisplay ? (
                 // ── Explorer chord: chord/bass amber + ordinal grey ────────────
                 <>
                   <span style={{ fontFamily: 'JetBrains Mono', fontSize: 14, fontWeight: 700, color: '#e8a027', letterSpacing: '0.05em', userSelect: 'none' }}>
@@ -341,14 +313,19 @@ export default function Keyboard() {
               )}
             </div>
 
-            {/* Right: SCALES trigger */}
-            <span
-              onClick={() => setScaleExplorerOpen(true)}
-              title="Open Scale Explorer"
-              style={{ position: 'absolute', right: 10, fontFamily: 'Inter', fontSize: 9, fontWeight: 700, color: '#e8a027', letterSpacing: '0.12em', textTransform: 'uppercase', cursor: 'pointer', userSelect: 'none' }}
-            >
-              Scales
-            </span>
+            {/* ── Right: shift+click hint + SCALES trigger ─────────────────────── */}
+            <div style={{ position: 'absolute', right: 10, display: 'flex', alignItems: 'center', gap: 8 }}>
+              <span style={{ fontSize: 9, color: '#707088', fontFamily: 'Inter', userSelect: 'none', whiteSpace: 'nowrap' }}>
+                Shift+Click at least 3 keys to build &amp; lock a chord
+              </span>
+              <span
+                onClick={() => setScaleExplorerOpen(true)}
+                title="Open Scale Explorer"
+                style={{ fontFamily: 'Inter', fontSize: 9, fontWeight: 700, color: '#e8a027', letterSpacing: '0.12em', textTransform: 'uppercase', cursor: 'pointer', userSelect: 'none' }}
+              >
+                Scales
+              </span>
+            </div>
           </div>
         )}
 
@@ -371,7 +348,7 @@ export default function Keyboard() {
                 title="Chord Prompter"
                 style={{ cursor: 'pointer', color: '#e8a027', display: 'flex', alignItems: 'center', transition: 'color 0.12s' }}
               >
-                <Maximize2 size={13} strokeWidth={1.5} />
+                <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 7V5a2 2 0 0 1 2-2h2"/><path d="M17 3h2a2 2 0 0 1 2 2v2"/><path d="M21 17v2a2 2 0 0 1-2 2h-2"/><path d="M7 21H5a2 2 0 0 1-2-2v-2"/><rect width="10" height="8" x="7" y="8" rx="1"/></svg>
               </div>
             </div>
 
@@ -392,8 +369,8 @@ export default function Keyboard() {
                   )
                 }
 
-                // ── Priority: locked > explorer > sequence ─────────────────────
-                const centreChord = lockedDisplay?.chordLabel ?? explorerDisplay?.chordLabel ?? sequenceChord?.name ?? '—'
+                // ── Priority: explorer > sequence ─────────────────────────────
+                const centreChord = explorerDisplay?.chordLabel ?? sequenceChord?.name ?? '—'
                 const pastChords = currentIndex > 0 ? chordSequence.slice(Math.max(0, currentIndex - 4), currentIndex) : []
                 const nextChords = currentIndex >= 0 ? chordSequence.slice(currentIndex + 1, currentIndex + 3) : []
 
@@ -440,14 +417,19 @@ export default function Keyboard() {
               })()}
             </div>
 
-            {/* ── Right: SCALES trigger ─────────────────────────────────────────── */}
-            <span
-              onClick={() => setScaleExplorerOpen(true)}
-              title="Open Scale Explorer"
-              style={{ fontFamily: 'Inter', fontSize: 9, fontWeight: 700, color: '#e8a027', letterSpacing: '0.12em', textTransform: 'uppercase', cursor: 'pointer', userSelect: 'none', flexShrink: 0 }}
-            >
-              Scales
-            </span>
+            {/* ── Right: shift+click hint + SCALES trigger ──────────────────────── */}
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexShrink: 0 }}>
+              <span style={{ fontSize: 9, color: '#707088', fontFamily: 'Inter', userSelect: 'none', whiteSpace: 'nowrap' }}>
+                Shift+Click at least 3 keys to build &amp; lock a chord
+              </span>
+              <span
+                onClick={() => setScaleExplorerOpen(true)}
+                title="Open Scale Explorer"
+                style={{ fontFamily: 'Inter', fontSize: 9, fontWeight: 700, color: '#e8a027', letterSpacing: '0.12em', textTransform: 'uppercase', cursor: 'pointer', userSelect: 'none' }}
+              >
+                Scales
+              </span>
+            </div>
           </div>
         )}
       </div>
