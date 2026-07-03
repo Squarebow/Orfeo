@@ -4,6 +4,20 @@
 
 ---
 
+### 3. 7. 2026 — Library UX: transcript trigger on FileMusic icon, marquee filenames, fullscreen chord prompter icon
+
+**`src/components/SettingsPanel/SettingsPanel.tsx`**
+- `TranscriptIcon` component updated: icon changed from `FileText` to `FileMusic`; idle color `#707088`, amber hover `#e8a027`, IDLE_TOOLTIP constant for tooltip text. Spin animation keyframe injection moved here from `Keyboard.tsx`.
+- `MarqueeFilename` component added: `ResizeObserver` measures overflow between FileMusic icon and star button; on hover, CSS `transition: transform` scrolls the name left at 40 px/s with a 0.5 s delay; mouse-out smoothly snaps back. Duration computed as `max(1.5, scrollAmt / 40)` seconds.
+- Both demo file rows and library grouped file rows updated: when `chordTranscriptionEnabled` is off, shows a plain dim `<FileMusic>` icon; when on, mounts `<TranscriptIcon>` in place of it — no separate right-side column. `<MarqueeFilename>` replaces the plain filename `<span>`.
+- `FileText` removed from lucide-react imports; separate `TranscriptIcon` instances that were appended to the right of the row removed entirely.
+
+**`src/components/Keyboard/Keyboard.tsx`**
+- Chord prompter toggle icon: `Maximize2` (lucide-react) replaced by custom inline SVG (`lucide-fullscreen` path data, `width/height="13"`, `viewBox="0 0 24 24"`). `Maximize2` import removed.
+- Applied to both simple-mode (34 px chord bar) and extended-mode (36 px chord bar) toggle buttons.
+
+---
+
 ### 2. 7. 2026 — MIDI Editor polish: track sort + icon contrast + LH/RH split guard
 
 **`src/components/MidiEditor/MidiEditor.tsx`**

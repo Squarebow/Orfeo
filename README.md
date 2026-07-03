@@ -180,6 +180,15 @@ All user-visible changes listed here. For full technical detail see [CHANGELOG.m
 
 ---
 
+### 3. 7. 2026
+
+**Improved**
+- **Chord Transcript from file icon** — when Chord Transcription is turned on in Settings, the file icon next to each library entry becomes the transcript trigger (click to generate a PDF). No extra column is added to the library list.
+- **Scrolling filenames** — long MIDI filenames in the library now slide left on hover to reveal the full name, then slide back when you move away.
+- **Chord Prompter icon** — the expand button on the chord bar now uses a dedicated fullscreen icon.
+
+---
+
 ### v0.7.0 — 2. 7. 2026
 
 **New**
