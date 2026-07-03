@@ -1,5 +1,5 @@
 import React, { useMemo, useCallback, useState, useEffect, useRef } from 'react'
-import { ScrollText } from 'lucide-react'
+import { Maximize2 } from 'lucide-react'
 import { useStore } from '../../store'
 import { isBlackKey } from '../../utils/midiParser'
 import { getNoteLabel, getNoteName } from '../../utils/noteNames'
@@ -276,7 +276,7 @@ export default function Keyboard() {
                   title="Chord Prompter"
                   style={{ cursor: midi ? 'pointer' : 'default', color: chordPrompterOpen ? '#e8a027' : '#707088', opacity: midi ? 1 : 0.35, display: 'flex', alignItems: 'center', transition: 'color 0.12s' }}
                 >
-                  <ScrollText size={13} strokeWidth={1.5} />
+                  <Maximize2 size={13} strokeWidth={1.5} />
                 </div>
               )}
             </div>
@@ -372,7 +372,7 @@ export default function Keyboard() {
                 title="Chord Prompter"
                 style={{ cursor: 'pointer', color: '#e8a027', display: 'flex', alignItems: 'center', transition: 'color 0.12s' }}
               >
-                <ScrollText size={13} strokeWidth={1.5} />
+                <Maximize2 size={13} strokeWidth={1.5} />
               </div>
             </div>
 

@@ -1,7 +1,7 @@
 import { useState, useMemo, useRef, useEffect } from 'react'
 import {
   Settings2, ChevronLeft, ChevronDown, ChevronRight, Type, Piano, Palette, ZoomIn, Volume2,
-  Music, FolderOpen, RefreshCw, FileMusic, FileText, BookOpen, ListMusic, Scissors,
+  Music, FolderOpen, RefreshCw, FileMusic, BookOpen, ListMusic, Scissors,
 } from 'lucide-react'
 import { useStore } from '../../store'
 import type { NoteNaming, KeyboardSize, Accidentals, TranscriptEntry } from '../../types'
@@ -84,15 +84,16 @@ function OptionBtn({ active, onClick, children, title, comingSoon }: {
   )
 }
 
-// ─── Transcript icon — per-file, manages its own loading/success/error state ──
+// ─── Transcript icon — sits in the FileMusic slot; manages its own state ───────
 function TranscriptIcon({ filePath, noteNaming, accidentals, addTranscriptEntry }: {
   filePath: string
   noteNaming: NoteNaming
   accidentals: Accidentals
   addTranscriptEntry: (entry: TranscriptEntry) => void
 }) {
+  const IDLE_TOOLTIP = 'Click to create a chord transcript PDF in Orfeo folder.'
   const [state, setState] = useState<'idle' | 'loading' | 'success' | 'error'>('idle')
-  const [tooltip, setTooltip] = useState('Generate chord transcript PDF')
+  const [tooltip, setTooltip] = useState(IDLE_TOOLTIP)
   const revertRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   useEffect(() => () => { if (revertRef.current) clearTimeout(revertRef.current) }, [])
@@ -125,11 +126,11 @@ function TranscriptIcon({ filePath, noteNaming, accidentals, addTranscriptEntry 
     }
     revertRef.current = setTimeout(() => {
       setState('idle')
-      setTooltip('Generate chord transcript PDF')
+      setTooltip(IDLE_TOOLTIP)
     }, 3000)
   }
 
-  const iconColor = state === 'success' ? '#4caf50' : state === 'error' ? '#f44336' : '#505068'
+  const iconColor = state === 'success' ? '#4caf50' : state === 'error' ? '#f44336' : '#707088'
 
   return (
     <div
@@ -138,15 +139,61 @@ function TranscriptIcon({ filePath, noteNaming, accidentals, addTranscriptEntry 
       style={{
         cursor: state === 'loading' ? 'wait' : 'pointer',
         color: iconColor,
-        display: 'flex', alignItems: 'center',
-        padding: '2px 3px', flexShrink: 0,
+        display: 'flex', alignItems: 'center', flexShrink: 0,
         transition: 'color 0.2s',
         animation: state === 'loading' ? 'orfeo-transcript-spin 1s linear infinite' : 'none',
       }}
-      onMouseEnter={e => { if (state === 'idle') (e.currentTarget as HTMLElement).style.color = '#b0b0cc' }}
-      onMouseLeave={e => { if (state === 'idle') (e.currentTarget as HTMLElement).style.color = '#505068' }}
+      onMouseEnter={e => { if (state === 'idle') (e.currentTarget as HTMLElement).style.color = '#e8a027' }}
+      onMouseLeave={e => { if (state === 'idle') (e.currentTarget as HTMLElement).style.color = '#707088' }}
     >
-      <FileText size={11} strokeWidth={1.5} />
+      <FileMusic size={11} strokeWidth={1.5} />
+    </div>
+  )
+}
+
+// ─── Filename that scrolls left on hover when truncated ──────────────────────
+function MarqueeFilename({ name }: { name: string }) {
+  const outerRef = useRef<HTMLDivElement>(null)
+  const innerRef = useRef<HTMLSpanElement>(null)
+  const [scrollAmt, setScrollAmt] = useState(0)
+  const [hovered, setHovered] = useState(false)
+
+  useEffect(() => {
+    // ── Measure overflow and watch for resize ─────────────────────────────
+    const measure = () => {
+      const outer = outerRef.current
+      const inner = innerRef.current
+      if (!outer || !inner) return
+      setScrollAmt(Math.max(0, inner.scrollWidth - outer.clientWidth))
+    }
+    measure()
+    const ro = new ResizeObserver(measure)
+    if (outerRef.current) ro.observe(outerRef.current)
+    return () => ro.disconnect()
+  }, [name])
+
+  const duration = Math.max(1.5, scrollAmt / 40)
+
+  return (
+    <div
+      ref={outerRef}
+      style={{ flex: 1, overflow: 'hidden', minWidth: 0 }}
+      onMouseEnter={() => setHovered(true)}
+      onMouseLeave={() => setHovered(false)}
+    >
+      <span
+        ref={innerRef}
+        style={{
+          display: 'inline-block',
+          fontSize: 11, color: '#9090a8', whiteSpace: 'nowrap',
+          transition: hovered && scrollAmt > 0
+            ? `transform ${duration}s 0.5s linear`
+            : 'transform 0.2s ease',
+          transform: hovered && scrollAmt > 0 ? `translateX(-${scrollAmt}px)` : 'translateX(0)',
+        }}
+      >
+        {name}
+      </span>
     </div>
   )
 }
@@ -407,17 +454,13 @@ function LibraryPanel() {
                 onMouseLeave={e => (e.currentTarget as HTMLElement).style.background = 'transparent'}
                 onClick={() => handleLoadFile(file.path)}
               >
-                <FileMusic size={11} style={{ color: '#404055', flexShrink: 0 }} />
-                <span style={{
-                  flex: 1, fontSize: 11, color: '#9090a8',
-                  overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
-                }}>
-                  {file.name.replace(/\.(mid|midi)$/i, '')}
-                </span>
-                {/* ── Transcript icon — only when Chord Transcription is enabled ── */}
-                {chordTranscriptionEnabled && (
+                {/* ── FileMusic doubles as transcript trigger when feature is on ── */}
+                {chordTranscriptionEnabled ? (
                   <TranscriptIcon filePath={file.path} noteNaming={noteNaming} accidentals={accidentals} addTranscriptEntry={addTranscriptEntry} />
+                ) : (
+                  <FileMusic size={11} style={{ color: '#404055', flexShrink: 0 }} />
                 )}
+                <MarqueeFilename name={file.name.replace(/\.(mid|midi)$/i, '')} />
               </div>
             ))}
           </div>
@@ -478,17 +521,13 @@ function LibraryPanel() {
                   onMouseLeave={e => (e.currentTarget as HTMLElement).style.background = 'transparent'}
                   onClick={() => handleLoadFile(file.path)}
                 >
-                  <FileMusic size={11} style={{ color: '#404055', flexShrink: 0 }} />
-                  <span style={{
-                    flex: 1, fontSize: 11, color: '#9090a8',
-                    overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
-                  }}>
-                    {file.name.replace(/\.(mid|midi)$/i, '')}
-                  </span>
-                  {/* ── Transcript icon — only when Chord Transcription is enabled ── */}
-                  {chordTranscriptionEnabled && (
+                  {/* ── FileMusic doubles as transcript trigger when feature is on ── */}
+                  {chordTranscriptionEnabled ? (
                     <TranscriptIcon filePath={file.path} noteNaming={noteNaming} accidentals={accidentals} addTranscriptEntry={addTranscriptEntry} />
+                  ) : (
+                    <FileMusic size={11} style={{ color: '#404055', flexShrink: 0 }} />
                   )}
+                  <MarqueeFilename name={file.name.replace(/\.(mid|midi)$/i, '')} />
                   <button
                     onClick={e => { e.stopPropagation(); toggleFavourite(file.path) }}
                     title={starred ? 'Remove from favourites' : 'Add to favourites'}
