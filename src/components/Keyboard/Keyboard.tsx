@@ -1,5 +1,4 @@
 import React, { useMemo, useCallback, useState, useEffect, useRef } from 'react'
-import { Maximize2 } from 'lucide-react'
 import { useStore } from '../../store'
 import { isBlackKey } from '../../utils/midiParser'
 import { getNoteLabel, getNoteName } from '../../utils/noteNames'
@@ -276,7 +275,7 @@ export default function Keyboard() {
                   title="Chord Prompter"
                   style={{ cursor: midi ? 'pointer' : 'default', color: chordPrompterOpen ? '#e8a027' : '#707088', opacity: midi ? 1 : 0.35, display: 'flex', alignItems: 'center', transition: 'color 0.12s' }}
                 >
-                  <Maximize2 size={13} strokeWidth={1.5} />
+                  <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 7V5a2 2 0 0 1 2-2h2"/><path d="M17 3h2a2 2 0 0 1 2 2v2"/><path d="M21 17v2a2 2 0 0 1-2 2h-2"/><path d="M7 21H5a2 2 0 0 1-2-2v-2"/><rect width="10" height="8" x="7" y="8" rx="1"/></svg>
                 </div>
               )}
             </div>
