@@ -183,6 +183,9 @@ All user-visible changes listed here. For full technical detail see [CHANGELOG.m
 ### 3. 7. 2026
 
 **New**
+- **Hardware MIDI keyboard input** — connect a MIDI keyboard and its notes light up on the on-screen keyboard in real time, with true sustain (key held = note sounds, key released = note stops immediately). Works with both audio engines. The MIDI device indicator in the top bar now reflects the live connection state. Multiple devices are all listened to simultaneously — no setup required.
+
+**New**
 - **Left/Right Hand Labels** — a new Settings → Keyboard section groups the split zone controls together with a "Left/Right Hand Labels" toggle. When on, two amber glowing lines appear in the keyboard footer bar marking the hand boundary; an amber-tinted mixed zone fills the space between them in range mode. "LEFT HAND" and "RIGHT HAND" labels flank the lines in amber. The split zone setting (Single or Range, with note steppers) defines exactly where the boundary sits on the keyboard. The split zone controls now collapse from view when the toggle is off, keeping Settings tidy.
 
 **Improved**

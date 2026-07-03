@@ -4,6 +4,35 @@
 
 ---
 
+### 3. 7. 2026 — Web MIDI hardware input capture (verified)
+
+**`src/hooks/useMidiInput.ts`** (NEW)
+- `useMidiInput()` — requests `navigator.requestMIDIAccess()` on mount (skipped gracefully if API unavailable in the Electron context); attaches `midimessage` listener to every connected input port (all devices merged into one stream)
+- `pressNote(midiNum, vel)` — writes directly to `activeKeys` / `activeKeyColors` (amber `#e8a027`, no timer), then routes audio to `__orfeoNoteOnSamples` or `__orfeoNoteOn` based on current engine
+- `releaseNote(midiNum)` — removes from `activeKeys` / `activeKeyColors`, routes to `__orfeoNoteOffSamples` or `__orfeoNoteOff`
+- `syncInputs()` — re-enumerates on `onstatechange`; updates `setMidiDevice(connected, name)` — the topbar MIDI indicator is now live
+- Cleanup removes all per-port listeners and nulls `onstatechange` on unmount
+- Verified: key lighting, true sustain (note-off stops sound immediately), polyphony all confirmed via console test helper (helper removed before commit)
+
+**`src/hooks/useAudioEngine.ts`**
+- Added `_hwChannelReady` flag + `ensureHardwareChannel()` — sends program 0 on channel 15 (`[0xCF, 0]`) once; same sentinel pattern as `ensureClickChannel`
+- Added `window.__orfeoNoteOn(midiNum, vel)` — async, awaits `initJZZ()`, calls `ensureHardwareChannel()`, sends `[0x9F, midiNum, vel]` (ch 15); no timer
+- Added `window.__orfeoNoteOff(midiNum)` — sync, sends `[0x8F, midiNum, 0]`; immediate
+- Both registered/unregistered alongside `__orfeoPlayNote` in the same `useEffect`
+- Comment: channel 15 collision risk with MIDI files using channel 16 — accepted tradeoff
+
+**`src/hooks/useSamplesEngine.ts`**
+- Added `_hwChannelReady` flag + `ensureHwChannel()` — sends `programChange(15, 0)` + `controllerChange(15, 7, 127)` once on first hardware note-on
+- `__orfeoPlayNoteSamples` now calls `ensureHwChannel()` instead of inline `programChange`/`controllerChange` on every invocation
+- Added `window.__orfeoNoteOnSamples(midiNum, vel)` — calls `ensureHwChannel()`, then `_synth.noteOn(15, midiNum, vel)`; no timer
+- Added `window.__orfeoNoteOffSamples(midiNum)` — calls `_synth.noteOff(15, midiNum)` immediately
+- Same comment re channel 15 collision risk
+
+**`src/App.tsx`**
+- `useMidiInput()` mounted alongside `useAudioEngine()`
+
+---
+
 ### 3. 7. 2026 — Left/Right Hand Labels: settings reorder + split zone conditional visibility
 
 **`src/components/SettingsPanel/SettingsPanel.tsx`**

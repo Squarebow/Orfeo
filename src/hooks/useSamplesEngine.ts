@@ -21,6 +21,8 @@ let _gainNode: GainNode | null = null
 let _synth: WorkletSynthesizer | null = null
 let _synthInitP: Promise<void> | null = null
 let _synthReady = false
+// ch 15 = collision risk if a loaded MIDI file uses channel 16; accepted tradeoff
+let _hwChannelReady = false
 
 // ── Per-note key-light timers ─────────────────────────────────────────────────
 const _keyTimers = new Map<number, ReturnType<typeof setTimeout>>()
@@ -58,6 +60,16 @@ function clearSchedule() {
   _schedule.forEach(t => clearTimeout(t))
   _schedule.length = 0
   try { _synth?.stopAll(true) } catch {}
+}
+
+// ── One-time hardware-input channel setup — program 0, full volume on ch 15 ──
+function ensureHwChannel() {
+  if (_hwChannelReady || !_synth) return
+  try {
+    _synth.programChange(15, 0)
+    ;(_synth as any).controllerChange(15, 7, 127)
+    _hwChannelReady = true
+  } catch {}
 }
 
 // ── Send CC7=127 (max volume) to every MIDI channel ──────────────────────────
@@ -196,17 +208,31 @@ function buildSamplesPlayer(startSec: number) {
 
 // ── Hook: self-gates on audioEngine !== 'samples' ────────────────────────────
 export function useSamplesEngine() {
-  // ── Register global click-to-play handler ────────────────────────────────
+  // ── Register global click-to-play and hardware note-on/off handlers ─────────
   useEffect(() => {
     ;(window as any).__orfeoPlayNoteSamples = (midiNum: number, vel: number, durMs: number) => {
       if (!_synth || !_synthReady) return
-      _synth.programChange(15, 0)
-      ;(_synth as any).controllerChange(15, 7, 127)
+      ensureHwChannel()
       _synth.noteOn(15, midiNum, Math.round(vel * 127))
       setTimeout(() => _synth?.noteOff(15, midiNum), durMs)
       lightKey(midiNum, '#e8a027', durMs + 100)
     }
-    return () => { delete (window as any).__orfeoPlayNoteSamples }
+    // ── Sustained note-on for hardware MIDI input ────────────────────────────
+    ;(window as any).__orfeoNoteOnSamples = (midiNum: number, vel: number) => {
+      if (!_synth || !_synthReady) return
+      ensureHwChannel()
+      _synth.noteOn(15, midiNum, Math.round(vel * 127))
+    }
+    // ── Immediate note-off for hardware MIDI input ───────────────────────────
+    ;(window as any).__orfeoNoteOffSamples = (midiNum: number) => {
+      if (!_synth || !_synthReady) return
+      _synth.noteOff(15, midiNum)
+    }
+    return () => {
+      delete (window as any).__orfeoPlayNoteSamples
+      delete (window as any).__orfeoNoteOnSamples
+      delete (window as any).__orfeoNoteOffSamples
+    }
   }, [])
 
   // ── Subscribe to playback state and engine changes ───────────────────────
