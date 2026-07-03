@@ -283,12 +283,12 @@ export default function Keyboard() {
               >
                 Chords
               </span>
-              {/* ── Prompter toggle — amber when open, dim when closed ─────────── */}
-              {chordPrompterEnabled && midi && (
+              {/* ── Prompter toggle — amber when open, dim when closed, faded when no file ─ */}
+              {chordPrompterEnabled && (
                 <div
-                  onClick={() => setChordPrompterOpen(!chordPrompterOpen)}
+                  onClick={() => midi && setChordPrompterOpen(!chordPrompterOpen)}
                   title="Chord Prompter"
-                  style={{ cursor: 'pointer', color: chordPrompterOpen ? '#e8a027' : '#707088', display: 'flex', alignItems: 'center', transition: 'color 0.12s' }}
+                  style={{ cursor: midi ? 'pointer' : 'default', color: chordPrompterOpen ? '#e8a027' : '#707088', opacity: midi ? 1 : 0.35, display: 'flex', alignItems: 'center', transition: 'color 0.12s' }}
                 >
                   <ScrollText size={13} strokeWidth={1.5} />
                 </div>
