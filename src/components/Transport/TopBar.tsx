@@ -85,6 +85,9 @@ export default function TopBar() {
   const isTempoChanged = !!midi && Math.abs(Math.round((bpm / originalBpm) * 100) - 100) > 1
   const displayKey = detectedKey ? formatKey(detectedKey, noteNaming, accidentals) : '—'
 
+  // ── Nudge: region selected but loop not yet activated ─────────────────────
+  const nudgeLoop = loopRegionEnabled && !!midi && loopStart !== null && loopEnd !== null && !loopRegionActive
+
   // ── Loop button tooltip — context-aware based on region state ─────────────
   const loopStartBar = loopStart !== null ? (() => {
     let bar = 1
@@ -228,7 +231,16 @@ export default function TopBar() {
           </TBtn>
           <TBtn onClick={() => handleSkip(1)} disabled={!midi} title={`Forward ${SKIP_SECS}s`}><FastForward size={15} strokeWidth={1.5} /></TBtn>
           <TBtn onClick={() => midi && seek(midi.duration)} disabled={!midi} title="Go to end"><SkipForward size={16} strokeWidth={1.5} /></TBtn>
-          <TBtn onClick={() => setLoopRegionActive(!loopRegionActive)} disabled={!midi} active={loopRegionActive} title={loopTooltip}><Repeat size={13} strokeWidth={1.5} /></TBtn>
+          <TBtn onClick={() => setLoopRegionActive(!loopRegionActive)} disabled={!midi} active={loopRegionActive} blink={nudgeLoop} title={loopTooltip}><Repeat size={13} strokeWidth={1.5} /></TBtn>
+          {nudgeLoop && (
+            <span style={{
+              color: '#e8a027', fontSize: 9, fontFamily: 'Inter, sans-serif',
+              whiteSpace: 'nowrap', letterSpacing: '0.04em',
+              opacity: 0.85, pointerEvents: 'none', userSelect: 'none',
+            }}>
+              click to loop
+            </span>
+          )}
         </div>
         {/* Scrub + loop strip — shared column; width: min(100%, 400px) centers both at
             the same visual width as the old scrub content (34+6+320+6+34 = 400px).
@@ -338,11 +350,11 @@ export default function TopBar() {
         {/* MIDI */}
         <div
           title={midiDeviceConnected ? `MIDI: ${midiDeviceName}` : 'No MIDI keyboard connected'}
-          style={{ flexShrink: 0, display: 'flex', flexDirection: 'column', alignItems: 'center', padding: '0 14px', color: midiDeviceConnected ? C.amber : C.default }}
+          style={{ flexShrink: 0, display: 'flex', flexDirection: 'column', alignItems: 'center', padding: '0 8px', color: midiDeviceConnected ? C.amber : C.default }}
         >
           <MidiIcon size={24} color={midiDeviceConnected ? C.amber : C.default} />
-          <span style={{ fontSize: 8, fontFamily: 'JetBrains Mono', letterSpacing: '0.08em', color: midiDeviceConnected ? C.amber : C.default, marginTop: 6 }}>
-            {midiDeviceConnected ? (midiDeviceName?.split(' ')[0] ?? 'MIDI') : 'NO MIDI'}
+          <span style={{ fontSize: midiDeviceConnected ? 8 : 7, fontFamily: 'JetBrains Mono', letterSpacing: midiDeviceConnected ? '0.08em' : '0.05em', color: midiDeviceConnected ? C.amber : C.default, marginTop: 6, whiteSpace: 'nowrap' }}>
+            {midiDeviceConnected ? (midiDeviceName?.split(' ')[0] ?? 'MIDI') : 'CONNECT A KEYBOARD'}
           </span>
         </div>
 
@@ -429,24 +441,26 @@ function ArrowBtn({ children, onClick, disabled, title }: {
   )
 }
 
-function TBtn({ children, onClick, disabled, accent, active, title, large }: {
+function TBtn({ children, onClick, disabled, accent, active, blink, title, large }: {
   children: React.ReactNode; onClick?: () => void; disabled?: boolean
-  accent?: boolean; active?: boolean; title?: string; large?: boolean
+  accent?: boolean; active?: boolean; blink?: boolean; title?: string; large?: boolean
 }) {
   const sz = large ? 46 : 32
+  const isAmber = active || accent || blink
   return (
     <button onClick={onClick} disabled={disabled} title={title}
+      className={blink ? 'loop-nudge-blink' : undefined}
       style={{
         width: sz, height: sz,
         display: 'flex', alignItems: 'center', justifyContent: 'center',
         borderRadius: 6, border: 'none', background: 'transparent',
-        color: active || accent ? '#e8a027' : '#707088',
+        color: isAmber ? '#e8a027' : '#707088',
         opacity: disabled ? 0.2 : 1,
         cursor: disabled ? 'default' : 'pointer',
-        transition: 'color 0.1s',
+        transition: blink ? undefined : 'color 0.1s',
       }}
       onMouseEnter={e => { if (!disabled) e.currentTarget.style.color = '#e8a027' }}
-      onMouseLeave={e => { e.currentTarget.style.color = (active || accent) ? '#e8a027' : '#707088' }}
+      onMouseLeave={e => { e.currentTarget.style.color = isAmber ? '#e8a027' : '#707088' }}
     >
       {children}
     </button>

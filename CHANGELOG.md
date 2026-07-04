@@ -4,6 +4,26 @@
 
 ---
 
+### 4. 7. 2026 — Loop nudge blink, MIDI wordmark icon, label polish
+
+**`src/components/Transport/TopBar.tsx`**
+- `nudgeLoop` derived: `loopRegionEnabled && !!midi && loopStart !== null && loopEnd !== null && !loopRegionActive` — true when a region is selected but the user hasn't activated looping yet
+- Repeat (↺) button passes `blink={nudgeLoop}` to `TBtn`; when blinking, colour is forced amber and `loop-nudge-blink` CSS class applied; `transition: 'color 0.1s'` suppressed so the animation runs uncontested
+- "click to loop" span (9px Inter, 0.04em spacing, 85% opacity) rendered in the transport flex row to the right of the Repeat button when `nudgeLoop`; disappears on activation or region clear
+- `TBtn` extended with `blink?: boolean` prop; `isAmber = active || accent || blink`; `onMouseLeave` also uses `isAmber` so hover-out restores amber when blinking
+- MIDI icon: replaced stroke-based circle-dot SVG in `MidiIcon.tsx` with official MIDI wordmark (MIDI_LOGO.svg, viewBox `0 0 1000 455`); `height={size}`, `width={Math.round(size * (1000/455))}` (~53px at size 24) so height exactly matches the metronome SVG; `fill={color}` — all existing connection/colour logic in TopBar unchanged
+- MIDI label: `'NO MIDI'` → `'CONNECT A KEYBOARD'`; font-size drops to 7 (from 8) when not connected; letter-spacing tightens to `0.05em` (from `0.08em`); `whiteSpace: 'nowrap'` added; container padding reduced `'0 14px'` → `'0 8px'`
+
+**`src/index.css`**
+- `@keyframes orfeo-loop-blink`: `filter: brightness(1)` at 0%/100%, `filter: brightness(0.3)` at 50%; 1.4s ease-in-out infinite
+- `.loop-nudge-blink` applies the animation
+- `filter` chosen over `opacity`/`color` so inline React styles cannot override the keyframe
+
+**`src/components/MidiIcon.tsx`**
+- Full rewrite: four `<path>`/`<rect>` elements from MIDI_LOGO.svg; `fill={color}`, no stroke; props (`size`, `color`) unchanged
+
+---
+
 ### 3. 7. 2026 — Loop Region Strip (v0.8.0)
 
 **`src/components/LoopRegionStrip.tsx`** (NEW)

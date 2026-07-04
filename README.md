@@ -180,6 +180,14 @@ All user-visible changes listed here. For full technical detail see [CHANGELOG.m
 
 ---
 
+### 4. 7. 2026
+
+**Improved**
+- **Loop button nudge** — when a loop region is selected but looping is not yet active, the loop button (↺) pulses amber and a "click to loop" label appears next to it. Both disappear as soon as looping is activated or the region is cleared.
+- **MIDI indicator** — the MIDI icon in the top bar is now the official MIDI wordmark, sized to match the metronome. The idle status text has been updated from "No MIDI" to "CONNECT A KEYBOARD".
+
+---
+
 ### 3. 7. 2026
 
 **New**

@@ -91,3 +91,10 @@ button:focus-visible { outline: none; }
 /* Suppress default OS titlebar overlay button hover backgrounds */
 ::-webkit-scrollbar-button { display: none; }
 .titlebar-button { background: transparent !important; }
+
+/* Loop nudge blink — pulses via filter so inline color styles are unaffected */
+@keyframes orfeo-loop-blink {
+  0%, 100% { filter: brightness(1); }
+  50%       { filter: brightness(0.3); }
+}
+.loop-nudge-blink { animation: orfeo-loop-blink 1.4s ease-in-out infinite; }
