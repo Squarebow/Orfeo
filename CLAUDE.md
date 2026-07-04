@@ -35,11 +35,15 @@ The **main window** and the **MIDI Playback Editor** both load the same renderer
 | `src/store/index.ts` | Single Zustand store — all app state lives here |
 | `src/hooks/useAudioEngine.ts` | GM engine (JZZ); switches between backends |
 | `src/hooks/useSamplesEngine.ts` | SpessaSynth + GeneralUser GS SF2 engine |
-| `src/hooks/usePlayback.ts` | rAF loop syncing `currentTime` to player clock |
+| `src/hooks/usePlayback.ts` | rAF loop syncing `currentTime` to player clock; handles loop region repeat |
+| `src/hooks/useMidiInput.ts` | Web MIDI API hardware input — merges all devices, routes to active engine |
 | `src/utils/noteNames.ts` | All note name display — always use `convertAccidentals()` |
 | `src/utils/midiParser.ts` | `parseMidiBuffer()` — wraps @tonejs/midi, attaches private fields |
 | `src/utils/chordDetection.ts` | Chord detection, inversion display, `formatInversionDisplay()` |
+| `src/utils/handBoundaries.ts` | `detectHandBoundaries()` — two-track dominant-register + single-track split fallback |
 | `src/components/Keyboard/Keyboard.tsx` | Virtual piano keyboard + chord bar |
+| `src/components/Keyboard/KeyboardControls.tsx` | Footer bar: hand label lines, split-zone fill, key range controls |
+| `src/components/LoopRegionStrip.tsx` | 24px canvas strip for drag-to-select loop bar range; bar-snapping |
 | `src/components/PianoRoll/PianoRoll.tsx` | PixiJS WebGL waterfall |
 | `src/components/ChordExplorer.tsx` | Chord Explorer modal |
 | `src/components/ScaleExplorer.tsx` | Scale Explorer modal + Circle of Fifths SVG |
@@ -79,7 +83,10 @@ All display routes through `convertAccidentals()` in `src/utils/noteNames.ts`. N
 
 - `window.__orfeoPlayNote` — click-to-play; routes to whichever backend is active
 - `window.__orfeoPlayNoteSamples` — registered by `useSamplesEngine` for direct sample playback
+- `window.__orfeoNoteOn` / `window.__orfeoNoteOff` — registered by `useAudioEngine`; sustained note-on/off for hardware MIDI (JZZ ch 15)
+- `window.__orfeoNoteOnSamples` / `window.__orfeoNoteOffSamples` — registered by `useSamplesEngine`; sustained note-on/off for hardware MIDI (SpessaSynth ch 15)
 - Key lighting: driven by a parallel `setTimeout` schedule (`_lightSchedule`), not by MIDI events
+- Hardware MIDI: `useMidiInput.ts` uses Web MIDI API (no package needed in Electron); all devices merged; writes directly to `activeKeys`/`activeKeyColors`, routes audio via the `__orfeoNoteOn/Off` globals
 - `player.play()` **must** precede `player.jumpMS()` — reversing breaks seek
 
 ---
@@ -88,7 +95,7 @@ All display routes through `convertAccidentals()` in `src/utils/noteNames.ts`. N
 
 Single Zustand store at `src/store/index.ts`. Persisted to `orfeo-prefs.json` in Electron `userData` (`%APPDATA%\Orfeo`) via `prefs:get` / `prefs:set` IPC.
 
-Currently persisted: `libraryFolder`, `libraryFavourites`, `noteNaming`, `accidentals`, `masterVolume`, `audioEngine`.
+Currently persisted: `libraryFolder`, `libraryFavourites`, `noteNaming`, `accidentals`, `masterVolume`, `audioEngine`, `showBarNumbers`, `chordPrompterEnabled`, `chordTranscriptionEnabled`, `hideDemoFolder`, `splitBreakpointType`, `splitBreakpointNote`, `splitBreakpointRangeStart`, `splitBreakpointRangeEnd`, `showHandLabels`, `loopRegionEnabled`.
 
 Two `useStore.subscribe` callbacks at the bottom of `store/index.ts` write prefs on change. A **null sentinel** skips the very first fire (app init) to avoid overwriting values before `restoreLibraryPrefs` runs — do not remove it.
 
@@ -110,6 +117,12 @@ Two `useStore.subscribe` callbacks at the bottom of `store/index.ts` write prefs
 **BPM scaling** — `bpm / originalBpm` ratio applied in both the rAF clock and the samples schedule.
 
 **Chord Explorer search (Fuse.js)** — tonal.js `aliases` are excluded from Fuse keys because they contain long English words ("minor", "dominant") that produce spurious single-letter matches. Search keys: `typeName`, `notes`, `numerics` (and `display` in `both` scope).
+
+**Loop Region** — `loopStart` / `loopEnd` / `loopRegionActive` reset to null/false on every file load and app reset. `loopRegionEnabled` (whether the strip is active) is persisted. JZZ looping uses in-place seek; samples engine loops via pause → play state transition. `LoopRegionStrip.tsx` is a canvas element — set `draggable=false` and `onDragStart` preventDefault or native HTML5 drag reaches Electron's file-drop handler.
+
+**Hand Labels** — `detectHandBoundaries()` in `handBoundaries.ts` takes track data; tries two-track dominant-register detection first, falls back to single-track split at `splitBreakpointNote`. Result rendered as amber lines in `KeyboardControls.tsx`, not inside `Keyboard.tsx`.
+
+**Zustand + useSyncExternalStore** — never use an object selector (e.g. `useStore(s => ({ a: s.a, b: s.b }))`) as it creates a new object every render and breaks the snapshot invariant, crashing the renderer. Use separate primitive selectors and derive the combined value in the render body.
 
 ---
 
@@ -181,6 +194,8 @@ Both updates happen together. One commit message covers the code change — no s
 - **Black screens** are almost always a missing import, not a logic error — check imports first
 - **Vite dep optimisation:** `spessasynth_lib` and `spessasynth_core` are excluded from `optimizeDeps`; `fuse.js` is included. Adding a new heavy dependency requires adding it to `optimizeDeps.include` in `electron.vite.config.ts` or it will trigger a mid-session reload and black screen
 - **Samples engine auto-init:** on startup, if `audioEngine === 'samples'` is restored from prefs, `SettingsPanel` auto-calls `initSamplesEngine`. The SF2 must be re-read from disk on every cold start — no persistent audio buffer cache
+- **Zustand object selectors crash the renderer:** `useStore(s => ({ a: s.a, b: s.b }))` breaks the `useSyncExternalStore` snapshot invariant (new object every render). Always use primitive selectors and derive combined values in the render body.
+- **Canvas + Electron drag:** HTML canvas elements inside Electron receive native drag events — setting `draggable=false` and calling `onDragStart={e => e.preventDefault()}` is required or drag gestures reach Electron's file handler instead of the canvas `onMouseMove`.
 
 ---
 
