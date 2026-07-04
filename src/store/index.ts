@@ -148,6 +148,14 @@ interface OrfeoStore {
   showHandLabels: boolean
   setShowHandLabels: (v: boolean) => void
 
+  handLabelMode: 'practice' | 'performance'
+  setHandLabelMode: (mode: 'practice' | 'performance') => void
+  handBoundaryCurve: { time: number; boundary: number | null }[]
+  setHandBoundaryCurve: (curve: { time: number; boundary: number | null }[]) => void
+
+  performanceSplitSensitivity: number
+  setPerformanceSplitSensitivity: (n: number) => void
+
   transcriptHistory: TranscriptEntry[]
   addTranscriptEntry: (entry: TranscriptEntry) => void
 
@@ -357,6 +365,17 @@ export const useStore = create<OrfeoStore>((set, get) => ({
   showHandLabels: false,
   setShowHandLabels: (showHandLabels) => set({ showHandLabels }),
 
+  // ── Hand label mode — practice (static breakpoint) or performance (dynamic) ─
+  handLabelMode: 'practice' as 'practice' | 'performance',
+  setHandLabelMode: (handLabelMode) => set({ handLabelMode }),
+  // ── Precomputed boundary curve for Performance mode — not persisted ────────
+  handBoundaryCurve: [],
+  setHandBoundaryCurve: (handBoundaryCurve) => set({ handBoundaryCurve }),
+
+  // ── Performance split sensitivity — semitone gap threshold, persisted ──────
+  performanceSplitSensitivity: 8,
+  setPerformanceSplitSensitivity: (n) => set({ performanceSplitSensitivity: Math.max(2, Math.min(16, n)) }),
+
   // ── Transcript history — max 20 entries, oldest dropped when full ─────────
   transcriptHistory: [],
   addTranscriptEntry: (entry) => {
@@ -430,6 +449,8 @@ async function restoreLibraryPrefs() {
     if (typeof prefs.splitBreakpointRangeEnd === 'number') store.setSplitBreakpointRangeEnd(prefs.splitBreakpointRangeEnd)
     if (typeof prefs.showHandLabels === 'boolean') store.setShowHandLabels(prefs.showHandLabels)
     if (typeof prefs.loopRegionEnabled === 'boolean') store.setLoopRegionEnabled(prefs.loopRegionEnabled)
+    if (prefs.handLabelMode === 'practice' || prefs.handLabelMode === 'performance') store.setHandLabelMode(prefs.handLabelMode)
+    if (typeof prefs.performanceSplitSensitivity === 'number') store.setPerformanceSplitSensitivity(prefs.performanceSplitSensitivity)
     if (Array.isArray(prefs.transcriptHistory)) useStore.setState({ transcriptHistory: prefs.transcriptHistory })
   } catch (e) {
     console.error('[Orfeo] restoreLibraryPrefs:', e)
@@ -463,6 +484,8 @@ let _prevSplitBreakpointRangeStart: number | null = null
 let _prevSplitBreakpointRangeEnd: number | null = null
 let _prevShowHandLabels: boolean | null = null
 let _prevLoopRegionEnabled: boolean | null = null
+let _prevHandLabelMode: string | null = null
+let _prevPerformanceSplitSensitivity: number | null = null
 useStore.subscribe((state) => {
   // Skip the very first fire (app init) — restore handles loading saved values
   if (_prevNoteNaming === null) {
@@ -480,6 +503,8 @@ useStore.subscribe((state) => {
     _prevSplitBreakpointRangeEnd = state.splitBreakpointRangeEnd
     _prevShowHandLabels = state.showHandLabels
     _prevLoopRegionEnabled = state.loopRegionEnabled
+    _prevHandLabelMode = state.handLabelMode
+    _prevPerformanceSplitSensitivity = state.performanceSplitSensitivity
     return
   }
   if (
@@ -496,7 +521,9 @@ useStore.subscribe((state) => {
     state.splitBreakpointRangeStart !== _prevSplitBreakpointRangeStart ||
     state.splitBreakpointRangeEnd !== _prevSplitBreakpointRangeEnd ||
     state.showHandLabels !== _prevShowHandLabels ||
-    state.loopRegionEnabled !== _prevLoopRegionEnabled
+    state.loopRegionEnabled !== _prevLoopRegionEnabled ||
+    state.handLabelMode !== _prevHandLabelMode ||
+    state.performanceSplitSensitivity !== _prevPerformanceSplitSensitivity
   ) {
     _prevNoteNaming = state.noteNaming
     _prevAccidentals = state.accidentals
@@ -512,6 +539,8 @@ useStore.subscribe((state) => {
     _prevSplitBreakpointRangeEnd = state.splitBreakpointRangeEnd
     _prevShowHandLabels = state.showHandLabels
     _prevLoopRegionEnabled = state.loopRegionEnabled
+    _prevHandLabelMode = state.handLabelMode
+    _prevPerformanceSplitSensitivity = state.performanceSplitSensitivity
     window.electronAPI?.setPrefs?.({
       noteNaming: state.noteNaming,
       accidentals: state.accidentals,
@@ -527,6 +556,8 @@ useStore.subscribe((state) => {
       splitBreakpointRangeEnd: state.splitBreakpointRangeEnd,
       showHandLabels: state.showHandLabels,
       loopRegionEnabled: state.loopRegionEnabled,
+      handLabelMode: state.handLabelMode,
+      performanceSplitSensitivity: state.performanceSplitSensitivity,
     }).catch(() => {})
   }
 })

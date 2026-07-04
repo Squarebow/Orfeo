@@ -4,6 +4,131 @@
 
 ---
 
+### 4. 7. 2026 — Performance mode: ribbon rest state — full hide + midline + dimmed labels
+
+**`src/components/Keyboard/KeyboardControls.tsx`**
+- Added `isSilent` derived boolean: `activeKeys.size === 0`.
+- Added four refs for frozen last-known positions, mutated during render (no hook):
+  `hadBoundaryRef` (bool), `lastRibbonPctRef` (default 50%), `lastClusterLeftPctRef`, `lastClusterRightPctRef`. Updated whenever their source values are non-null.
+- Performance mode guard changed: `if (ribbonPct === null) return null` → `if (!isSilent && ribbonPct === null) return null`. Silent state now proceeds to render; only single-hand/no-boundary-while-active hides everything.
+- Gradient fill: switched from fixed `opacity: e6` to `opacity: isSilent ? 0 : 1` with `transition: 'opacity 0.25s ease'`. Position computed from `ribbonPct ?? lastRibbonPctRef.current` so it does not jump on silence entry.
+- Added resting midline: 1px `#404055` vertical line at `activePct`, `zIndex: 2`, rendered only when `isSilent`.
+- Labels now rendered from `clusterLeftPct ?? lastClusterLeftPctRef.current` and equivalent right — holds frozen cluster position during silence. `opacity: isSilent ? 0.55 : 1` with `transition: 'opacity 0.25s ease'`. Labels remain hidden if cluster position is null and no frozen position exists yet.
+
+---
+
+### 4. 7. 2026 — Performance mode: ribbon contrast fix + cluster-anchored stable labels
+
+**`src/utils/handBoundaries.ts`**
+- Added internal helper `computeClusterCenters(pitches, boundary)` — computes mean MIDI pitch of notes strictly below (left) and at/above (right) the boundary; returns null when either side is empty.
+- Added exported `computeClusterCenterCurve(midi, minGapSt)` — same sliding 2-second window scan as `computeHandBoundaryCurve`; at each sample stores `{ leftCenter, rightCenter }` instead of a midpoint; returns null entries when boundary is absent.
+- Added exported `lookupClusterAtTime(curve, t)` — binary-search nearest-past entry (not interpolated); returns `{ leftCenter: null, rightCenter: null }` when curve is empty.
+
+**`src/components/Keyboard/KeyboardControls.tsx`**
+- `useSmoothedBoundary` simplified: removed Tier 2 entirely (committed value, `committedRef`, `candidateRef`, `COMMIT_DELTA_ST`, `COMMIT_DELAY_MS`). Now returns `number | null` directly instead of `{ ribbonPct, committed }`.
+- Added constant `CLUSTER_SMOOTHING = 0.04`; removed `COMMIT_DELTA_ST` and `COMMIT_DELAY_MS`.
+- Added local hook `useSmoothedClusterCenters(rawLeftPct, rawRightPct)` — two independent long-lived rAF expo-smoothers at `CLUSTER_SMOOTHING`; snap-to-null on null input; snap-immediate on first non-null. Returns `{ clusterLeftPct, clusterRightPct }`.
+- Added `clusterCurve` local state (`useState`).
+- Extended `useEffect([midi, performanceSplitSensitivity])` to also call `computeClusterCenterCurve` and store result; sets `clusterCurve` to `[]` on null midi.
+- Raw cluster centers computed inline — hardware path: split `activeKeys` at `performanceBoundary` and take means; file path: `lookupClusterAtTime(clusterCurve, currentTime)`.
+- Cluster centers converted to pct via `noteToLeftPct(Math.round(center), whiteKeys)` then passed to `useSmoothedClusterCenters`.
+- Ribbon gradient opacity: `28` (15.7%) → `e6` (90.2%). Both SLATE and AMBER sides.
+- Dock/Float button: added `position: 'relative', zIndex: 3` so it renders above the absolute-positioned gradient ribbon (zIndex 1).
+- Performance mode labels: replaced centered-in-region model with `left: ${clusterPct}%; transform: translateX(-50%)` anchored at cluster mean; color changed from per-hand tint to `#ffffff` white; each label conditionally rendered — hidden when its cluster pct is null (e.g. single-hand texture or sparse region).
+
+---
+
+### 4. 7. 2026 — Performance mode: sensitivity range fix + two-tier jitter smoothing
+
+**`src/store/index.ts`**
+- `performanceSplitSensitivity` default lowered: `14` → `8`; clamp changed from `[8, 24]` to `[2, 16]`. The previous range was calibrated for 12-tone chromatic gaps; the tighter range better reflects real piano inter-hand spacings (perfect 2nd at 2 st through a minor 10th at 16 st).
+
+**`src/components/SettingsPanel/SettingsPanel.tsx`**
+- Slider `min`/`max` updated to `2`/`16`; end labels updated accordingly.
+
+**`src/components/Keyboard/KeyboardControls.tsx`**
+- Added constants `SMOOTHING_FACTOR = 0.18`, `COMMIT_DELTA_ST = 3`, `COMMIT_DELAY_MS = 400`.
+- Added local hook `useSmoothedBoundary(rawBoundary, whiteKeys)` — applied once to the merged `performanceBoundary` (both file-curve and live-hardware paths converge there; no per-source duplication).
+  - **Tier 1 ribbon pct** — exponential smoothing in pct space (not MIDI space, to keep motion visually uniform across black/white key geometry). `SMOOTHING_FACTOR = 0.18` reaches ~90% of a new target in ~175ms at 60fps. Null raw snaps to null immediately — no phantom ease-out.
+  - **Tier 2 committed** — hysteresis in MIDI-note space. Tracks a pending `candidate { value, since }`. Commits only when `|raw − committed| > 3 st` AND candidate has held for ≥ 400ms without itself jumping > 3 st. Null raw immediately clears committed and cancels any pending candidate.
+  - Single long-lived rAF loop; all reactive values accessed via refs so raw changes never restart the loop.
+- Performance mode render updated: line uses `ribbonPct`, labels use `noteToLeftPct(committed, whiteKeys)` with a `ribbonPct` fallback for the first ~400ms before first commit.
+
+---
+
+### 4. 7. 2026 — Performance mode: adjustable split sensitivity (v0.9.0)
+
+**`src/utils/handBoundaries.ts`**
+- `PERF_MIN_NOTES` lowered from 4 to 2. A single note has no measurable gap; 2+ notes always go through the gap check. The gap threshold alone handles false positives for small chords.
+- Removed module-level constant `PERF_MIN_GAP_ST`; threshold is now a live parameter on both functions.
+- `detectPerformanceBoundary(pitches, minGapSt)` — added `minGapSt: number` parameter; read fresh from the store on every call.
+- `computeHandBoundaryCurve(midi, minGapSt)` — added `minGapSt: number` parameter; passes it through to each `detectPerformanceBoundary` call inside the window loop.
+
+**`src/store/index.ts`**
+- `performanceSplitSensitivity: number` — new field; default 14 semitones; setter clamps to [8, 24]; persisted via the standard 5-point sentinel pattern (interface, store body with clamp, `_prevPerformanceSplitSensitivity` sentinel variable, subscriber comparison+update, `setPrefs` payload, `restoreLibraryPrefs`).
+
+**`src/components/Keyboard/KeyboardControls.tsx`**
+- Reads `performanceSplitSensitivity` from store via primitive selector.
+- Curve `useEffect` deps extended to `[midi, performanceSplitSensitivity]`; passes sensitivity to `computeHandBoundaryCurve`.
+- Live boundary `useEffect` deps extended to `[activeKeys, handLabelMode, performanceSplitSensitivity]`; passes sensitivity to `detectPerformanceBoundary`.
+
+**`src/components/SettingsPanel/SettingsPanel.tsx`**
+- Reads `performanceSplitSensitivity` / `setPerformanceSplitSensitivity` from store.
+- Performance mode section: description-only div replaced with a slider `OptionRow` (`Split Sensitivity — N semitones`, range 8–24, `accentColor: #e8a027`) plus a description div below it.
+
+---
+
+### 4. 7. 2026 — Performance mode: correct gap threshold (7 st, was 14)
+
+**`src/utils/handBoundaries.ts`**
+- `PERF_MIN_GAP_ST` lowered from 14 to 7. The 14-semitone (major 9th) threshold was too conservative: in a 2-second window with both hands present, the largest consecutive gap between the highest bass note and lowest treble note is typically 5–12 semitones, causing the entire curve to be null and the line to never appear. The original 3-note false-positive (C–E–G) is already blocked by `PERF_MIN_NOTES = 4`; common 4-note single-hand chords top out at 5-semitone consecutive gaps, so 7 (perfect 5th) is the correct threshold.
+
+---
+
+### 4. 7. 2026 — Performance mode: fix false hand-split on single-hand chords
+
+**`src/utils/handBoundaries.ts`**
+- Added constants `PERF_MIN_NOTES = 4` and `PERF_MIN_GAP_ST = 14` (major 9th).
+- Added `detectPerformanceBoundary(pitches: number[]): number | null` — shared function used by both the file-curve precomputation and the live hardware-input path. Returns null when fewer than 4 unique pitches are present, or when the largest consecutive pitch gap is < 14 semitones; returns the gap midpoint otherwise. Fixes the root cause: previously both call sites always emitted a split even for tight single-hand clusters (C–E–G = 4 st gap → false split).
+- `computeHandBoundaryCurve` return type changed to `{ time: number; boundary: number | null }[]`. Removed the `lastBoundary` carry-forward logic (each sample is now self-contained). Replaced 8-line inline gap loop with a single call to `detectPerformanceBoundary`. Empty or thin windows now produce null entries rather than carrying stale data.
+- `interpolateCurve` input type updated to match; added null-neighbor guard — returns null immediately if either surrounding curve point is null, preventing a phantom line from interpolating across a no-boundary segment.
+
+**`src/store/index.ts`**
+- `handBoundaryCurve` interface and setter type updated to `{ time: number; boundary: number | null }[]`.
+
+**`src/components/Keyboard/KeyboardControls.tsx`**
+- Imported `detectPerformanceBoundary`.
+- Live hardware `useEffect`: replaced inline 8-line gap loop with `detectPerformanceBoundary(pitches)`; removed early-return on thin pitch list — state is always updated (null or number) so tight single-hand clusters actively hide the line rather than holding a stale boundary.
+- `performanceBoundary` derivation simplified to `hasHardwareKeys ? lastLiveBoundary : curveBoundary` — removed `?? lastLiveBoundary` fallback so hardware-present null (tight cluster) correctly hides the line instead of falling back to the file curve.
+
+---
+
+### 4. 7. 2026 — Hand Labels: Performance mode (dynamic boundary)
+
+**`src/utils/handBoundaries.ts`**
+- `computeHandBoundaryCurve(midi)` — new export; slides a 2-second lookback window across the piece's keyboard-track notes, sampled every 250 ms; finds the largest pitch gap per window and returns the midpoint as a `{ time, boundary }[]` array. Used by Performance mode for file playback.
+- `interpolateCurve(curve, t)` — new export; binary-searches the curve for surrounding points and linearly interpolates. Returns `null` when the curve is empty.
+
+**`src/store/index.ts`**
+- `handLabelMode: 'practice' | 'performance'` — new store field; default `'practice'`; persisted via the existing 5-point sentinel pattern (sentinel var, subscriber init, comparison, update, setPrefs payload, restoreLibraryPrefs).
+- `handBoundaryCurve: { time, boundary }[]` — new store field; not persisted; reset to `[]` by the `useEffect` in `KeyboardControls` on every file change.
+
+**`src/components/Keyboard/KeyboardControls.tsx`**
+- Complete rewrite to add Performance mode rendering alongside Practice mode.
+- `useEffect([midi])` — computes and stores `handBoundaryCurve` via `computeHandBoundaryCurve` whenever the loaded file changes; clears to `[]` on null.
+- `useState(lastLiveBoundary)` + `useEffect([activeKeys, handLabelMode])` — tracks live boundary from currently held notes using the same largest-gap midpoint algorithm; holds last computed value when no notes are held.
+- Hardware key detection: `[...activeKeyColors.values()].some(c => c === '#e8a027')` — identifies hardware MIDI notes by their fixed amber color, taking priority over curve boundary when present.
+- Performance mode renders a single moving amber line; Practice mode is byte-for-byte unchanged.
+- `performanceHideControls` flag: when Performance is active and playing or hardware notes present, hides key-size selector and NoteCounter; dock/float button moves to far right via `marginLeft: 'auto'`.
+
+**`src/components/SettingsPanel/SettingsPanel.tsx`**
+- Reads `handLabelMode` / `setHandLabelMode` from store.
+- Adds "Mode" row (Practice / Performance toggle) below the Hand Labels on/off toggle, visible only when labels are on.
+- Practice: existing split zone controls shown unchanged.
+- Performance: split zone hidden; short description shown in its place.
+
+---
+
 ### 4. 7. 2026 — Loop nudge blink, MIDI wordmark icon, label polish
 
 **`src/components/Transport/TopBar.tsx`**

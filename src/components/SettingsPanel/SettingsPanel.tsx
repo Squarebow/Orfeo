@@ -593,6 +593,10 @@ export default function SettingsPanel() {
   const setSplitBreakpointRangeEnd   = useStore((s) => s.setSplitBreakpointRangeEnd)
   const showHandLabels               = useStore((s) => s.showHandLabels)
   const setShowHandLabels            = useStore((s) => s.setShowHandLabels)
+  const handLabelMode                        = useStore((s) => s.handLabelMode)
+  const setHandLabelMode                     = useStore((s) => s.setHandLabelMode)
+  const performanceSplitSensitivity          = useStore((s) => s.performanceSplitSensitivity)
+  const setPerformanceSplitSensitivity       = useStore((s) => s.setPerformanceSplitSensitivity)
   // ── Samples engine loading state ─────────────────────────────────────────
   const [samplesStatus, setSamplesStatus] = useState<'idle' | 'loading' | 'ready' | 'error'>('idle')
   const [samplesProgress, setSamplesProgress] = useState(0)
@@ -817,56 +821,90 @@ export default function SettingsPanel() {
                     <OptionBtn active={!showHandLabels} onClick={() => setShowHandLabels(false)}>Off</OptionBtn>
                   </div>
                 </OptionRow>
-                {/* ── Split zone — only visible when hand labels are on ─────────── */}
+                {/* ── Mode + split zone — only visible when hand labels are on ──── */}
                 {showHandLabels && (
                   <>
-                    <OptionRow label="Split zone" hint="Defines the boundary between Left Hand and Right Hand shown on the keyboard.">
+                    {/* ── Practice / Performance mode selector ─────────────────────── */}
+                    <OptionRow label="Mode" hint="Practice shows a fixed split zone. Performance tracks hand position live from the MIDI file or hardware keyboard.">
                       <div style={{ display: 'flex', gap: 4 }}>
-                        <OptionBtn active={splitBreakpointType === 'single'} onClick={() => setSplitBreakpointType('single')}>Single</OptionBtn>
-                        <OptionBtn active={splitBreakpointType === 'range'}  onClick={() => setSplitBreakpointType('range')}>Range</OptionBtn>
+                        <OptionBtn active={handLabelMode === 'practice'}     onClick={() => setHandLabelMode('practice')}>Practice</OptionBtn>
+                        <OptionBtn active={handLabelMode === 'performance'}  onClick={() => setHandLabelMode('performance')}>Performance</OptionBtn>
                       </div>
                     </OptionRow>
-                    {splitBreakpointType === 'single' ? (
-                      <OptionRow
-                        label={`Split note — ${SPLIT_NOTE_NAMES[splitBreakpointNote % 12]}${Math.floor(splitBreakpointNote / 12) - 1}`}
-                        hint="Notes below this pitch → Left Hand, notes above → Right Hand."
-                      >
-                        <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                          <ZoomStepBtn disabled={splitBreakpointNote <= 48} onClick={() => setSplitBreakpointNote(splitBreakpointNote - 1)}>−</ZoomStepBtn>
-                          <div style={{ flex: 1, textAlign: 'center', fontFamily: 'JetBrains Mono', fontSize: 13, color: '#b0b0cc' }}>
-                            {SPLIT_NOTE_NAMES[splitBreakpointNote % 12]}{Math.floor(splitBreakpointNote / 12) - 1}
+
+                    {/* ── Practice: manual split zone controls ─────────────────────── */}
+                    {handLabelMode === 'practice' && (
+                      <>
+                        <OptionRow label="Split zone" hint="Defines the boundary between Left Hand and Right Hand shown on the keyboard.">
+                          <div style={{ display: 'flex', gap: 4 }}>
+                            <OptionBtn active={splitBreakpointType === 'single'} onClick={() => setSplitBreakpointType('single')}>Single</OptionBtn>
+                            <OptionBtn active={splitBreakpointType === 'range'}  onClick={() => setSplitBreakpointType('range')}>Range</OptionBtn>
                           </div>
-                          <ZoomStepBtn disabled={splitBreakpointNote >= 60} onClick={() => setSplitBreakpointNote(splitBreakpointNote + 1)}>+</ZoomStepBtn>
-                        </div>
-                      </OptionRow>
-                    ) : (
-                      <OptionRow
-                        label={`Split zone — ${SPLIT_NOTE_NAMES[splitBreakpointRangeStart % 12]}${Math.floor(splitBreakpointRangeStart / 12) - 1} to ${SPLIT_NOTE_NAMES[splitBreakpointRangeEnd % 12]}${Math.floor(splitBreakpointRangeEnd / 12) - 1}`}
-                        hint="Notes inside the shaded zone may come from either hand. Notes below the lower bound → Left Hand, above the upper bound → Right Hand."
-                      >
-                        <div style={{ display: 'flex', gap: 8 }}>
-                          <div style={{ flex: 1 }}>
-                            <div style={{ fontSize: 9, color: '#707088', marginBottom: 4, fontFamily: 'Inter' }}>Lower</div>
-                            <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
-                              <ZoomStepBtn disabled={splitBreakpointRangeStart <= 48} onClick={() => setSplitBreakpointRangeStart(splitBreakpointRangeStart - 1)}>−</ZoomStepBtn>
-                              <div style={{ flex: 1, textAlign: 'center', fontFamily: 'JetBrains Mono', fontSize: 11, color: '#b0b0cc' }}>
-                                {SPLIT_NOTE_NAMES[splitBreakpointRangeStart % 12]}{Math.floor(splitBreakpointRangeStart / 12) - 1}
+                        </OptionRow>
+                        {splitBreakpointType === 'single' ? (
+                          <OptionRow
+                            label={`Split note — ${SPLIT_NOTE_NAMES[splitBreakpointNote % 12]}${Math.floor(splitBreakpointNote / 12) - 1}`}
+                            hint="Notes below this pitch → Left Hand, notes above → Right Hand."
+                          >
+                            <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                              <ZoomStepBtn disabled={splitBreakpointNote <= 48} onClick={() => setSplitBreakpointNote(splitBreakpointNote - 1)}>−</ZoomStepBtn>
+                              <div style={{ flex: 1, textAlign: 'center', fontFamily: 'JetBrains Mono', fontSize: 13, color: '#b0b0cc' }}>
+                                {SPLIT_NOTE_NAMES[splitBreakpointNote % 12]}{Math.floor(splitBreakpointNote / 12) - 1}
                               </div>
-                              <ZoomStepBtn disabled={splitBreakpointRangeStart >= splitBreakpointRangeEnd - 1} onClick={() => setSplitBreakpointRangeStart(splitBreakpointRangeStart + 1)}>+</ZoomStepBtn>
+                              <ZoomStepBtn disabled={splitBreakpointNote >= 60} onClick={() => setSplitBreakpointNote(splitBreakpointNote + 1)}>+</ZoomStepBtn>
                             </div>
-                          </div>
-                          <div style={{ flex: 1 }}>
-                            <div style={{ fontSize: 9, color: '#707088', marginBottom: 4, fontFamily: 'Inter' }}>Upper</div>
-                            <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
-                              <ZoomStepBtn disabled={splitBreakpointRangeEnd <= splitBreakpointRangeStart + 1} onClick={() => setSplitBreakpointRangeEnd(splitBreakpointRangeEnd - 1)}>−</ZoomStepBtn>
-                              <div style={{ flex: 1, textAlign: 'center', fontFamily: 'JetBrains Mono', fontSize: 11, color: '#b0b0cc' }}>
-                                {SPLIT_NOTE_NAMES[splitBreakpointRangeEnd % 12]}{Math.floor(splitBreakpointRangeEnd / 12) - 1}
+                          </OptionRow>
+                        ) : (
+                          <OptionRow
+                            label={`Split zone — ${SPLIT_NOTE_NAMES[splitBreakpointRangeStart % 12]}${Math.floor(splitBreakpointRangeStart / 12) - 1} to ${SPLIT_NOTE_NAMES[splitBreakpointRangeEnd % 12]}${Math.floor(splitBreakpointRangeEnd / 12) - 1}`}
+                            hint="Notes inside the shaded zone may come from either hand. Notes below the lower bound → Left Hand, above the upper bound → Right Hand."
+                          >
+                            <div style={{ display: 'flex', gap: 8 }}>
+                              <div style={{ flex: 1 }}>
+                                <div style={{ fontSize: 9, color: '#707088', marginBottom: 4, fontFamily: 'Inter' }}>Lower</div>
+                                <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+                                  <ZoomStepBtn disabled={splitBreakpointRangeStart <= 48} onClick={() => setSplitBreakpointRangeStart(splitBreakpointRangeStart - 1)}>−</ZoomStepBtn>
+                                  <div style={{ flex: 1, textAlign: 'center', fontFamily: 'JetBrains Mono', fontSize: 11, color: '#b0b0cc' }}>
+                                    {SPLIT_NOTE_NAMES[splitBreakpointRangeStart % 12]}{Math.floor(splitBreakpointRangeStart / 12) - 1}
+                                  </div>
+                                  <ZoomStepBtn disabled={splitBreakpointRangeStart >= splitBreakpointRangeEnd - 1} onClick={() => setSplitBreakpointRangeStart(splitBreakpointRangeStart + 1)}>+</ZoomStepBtn>
+                                </div>
                               </div>
-                              <ZoomStepBtn disabled={splitBreakpointRangeEnd >= 60} onClick={() => setSplitBreakpointRangeEnd(splitBreakpointRangeEnd + 1)}>+</ZoomStepBtn>
+                              <div style={{ flex: 1 }}>
+                                <div style={{ fontSize: 9, color: '#707088', marginBottom: 4, fontFamily: 'Inter' }}>Upper</div>
+                                <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+                                  <ZoomStepBtn disabled={splitBreakpointRangeEnd <= splitBreakpointRangeStart + 1} onClick={() => setSplitBreakpointRangeEnd(splitBreakpointRangeEnd - 1)}>−</ZoomStepBtn>
+                                  <div style={{ flex: 1, textAlign: 'center', fontFamily: 'JetBrains Mono', fontSize: 11, color: '#b0b0cc' }}>
+                                    {SPLIT_NOTE_NAMES[splitBreakpointRangeEnd % 12]}{Math.floor(splitBreakpointRangeEnd / 12) - 1}
+                                  </div>
+                                  <ZoomStepBtn disabled={splitBreakpointRangeEnd >= 60} onClick={() => setSplitBreakpointRangeEnd(splitBreakpointRangeEnd + 1)}>+</ZoomStepBtn>
+                                </div>
+                              </div>
                             </div>
+                          </OptionRow>
+                        )}
+                      </>
+                    )}
+
+                    {/* ── Performance: sensitivity slider + description ─────────────── */}
+                    {handLabelMode === 'performance' && (
+                      <>
+                        <OptionRow label={`Split Sensitivity — ${performanceSplitSensitivity} semitones`}>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                            <span style={{ fontSize: 9, color: '#505068', fontFamily: 'JetBrains Mono', flexShrink: 0 }}>2</span>
+                            <input
+                              type="range" min={2} max={16} step={1}
+                              value={performanceSplitSensitivity}
+                              onChange={e => setPerformanceSplitSensitivity(Number(e.target.value))}
+                              style={{ flex: 1, accentColor: '#e8a027', cursor: 'pointer' }}
+                            />
+                            <span style={{ fontSize: 9, color: '#505068', fontFamily: 'JetBrains Mono', flexShrink: 0 }}>16</span>
                           </div>
+                        </OptionRow>
+                        <div style={{ padding: '2px 12px 6px', color: '#505068', fontSize: 10, fontFamily: 'Inter', lineHeight: 1.5 }}>
+                          Lower values split hands more readily on moderate spreads. Higher values only split on very wide separations.
                         </div>
-                      </OptionRow>
+                      </>
                     )}
                   </>
                 )}
@@ -1010,7 +1048,7 @@ export default function SettingsPanel() {
                       <line x1="22" y1="50" x2="78" y2="50" stroke="#e8a027" strokeWidth="7" strokeLinecap="round"/>
                       <line x1="22" y1="62" x2="78" y2="62" stroke="#e8a027" strokeWidth="7" strokeLinecap="round"/>
                     </svg>
-                    <span style={{ color: '#50506a', fontSize: 10, fontFamily: 'JetBrains Mono' }}>Orfeo · v0.8.0</span>
+                    <span style={{ color: '#50506a', fontSize: 10, fontFamily: 'JetBrains Mono' }}>Orfeo · v0.9.0</span>
                   </div>
                   <div style={{ fontSize: 9, color: '#35354a', fontFamily: 'JetBrains Mono', lineHeight: 1.5 }}>
                     MIT License · github.com/SquareBow/orfeo

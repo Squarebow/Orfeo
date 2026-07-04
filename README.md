@@ -180,6 +180,20 @@ All user-visible changes listed here. For full technical detail see [CHANGELOG.m
 
 ---
 
+### 4. 7. 2026 (3)
+
+**New**
+- **Performance Mode — Split Sensitivity slider** — a new slider in Settings → Keyboard → Hand Labels → Mode (Performance) lets you tune how eagerly the moving boundary line appears. At low values (8 st) the line shows up whenever the two hands are a moderate distance apart; at high values (24 st) it only appears on very wide separations. The setting is saved and restored between sessions. Default is 14 semitones.
+
+---
+
+### 4. 7. 2026 (2)
+
+**New**
+- **Hand Labels — Performance Mode** — alongside the existing Practice mode (fixed split zone), a new Performance mode dynamically tracks where your hands actually are. During MIDI file playback, a single amber line slides across the keyboard following the live hand boundary, computed from a rolling window of notes. When a hardware MIDI keyboard is connected and notes are held, the line reacts in real time to the held notes instead, with hardware input taking priority over the file curve. While the moving line is active, the keyboard size buttons and note counter are hidden to reduce clutter; the Docked/Floating toggle moves to the far right. Switch between modes in Settings → Keyboard → Hand Labels → Mode.
+
+---
+
 ### 4. 7. 2026
 
 **Improved**
