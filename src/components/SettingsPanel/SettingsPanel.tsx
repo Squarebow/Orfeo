@@ -18,6 +18,25 @@ if (typeof document !== 'undefined' && !document.getElementById('orfeo-transcrip
 
 // ─── Shared sub-components ──────────────────────────────────────────────────
 
+// ── BETA badge — inline label pill for settings still being refined ──────────
+function BetaBadge() {
+  return (
+    <span style={{
+      fontSize: 8, fontWeight: 700, fontFamily: 'Inter',
+      letterSpacing: '0.1em', textTransform: 'uppercase',
+      color: 'var(--status-error)',
+      border: '1px solid var(--status-error)',
+      borderRadius: 'var(--radius-sm)',
+      padding: '1px 4px',
+      lineHeight: 1,
+      opacity: 0.85,
+      flexShrink: 0,
+    }}>
+      BETA
+    </span>
+  )
+}
+
 function SectionHeader({ icon, label }: { icon: React.ReactNode; label: string }) {
   return (
     <div style={{
@@ -38,13 +57,15 @@ function SectionHeader({ icon, label }: { icon: React.ReactNode; label: string }
   )
 }
 
-function OptionRow({ label, children, hint }: {
-  label: string; children: React.ReactNode; hint?: string
+function OptionRow({ label, children, hint, badge }: {
+  label: string; children: React.ReactNode; hint?: string; badge?: React.ReactNode
 }) {
   return (
     <div style={{ padding: '10px 14px', borderBottom: '1px solid #181822' }}>
-      <div style={{ fontSize: 11, color: '#707088', marginBottom: 6, fontWeight: 500, letterSpacing: '0.02em' }}>
+      {/* ── Label row — flex so an optional badge sits inline after the text ── */}
+      <div style={{ fontSize: 11, color: '#707088', marginBottom: 6, fontWeight: 500, letterSpacing: '0.02em', display: 'flex', alignItems: 'center', gap: 6 }}>
         {label}
+        {badge}
       </div>
       {children}
       {hint && (
@@ -751,7 +772,7 @@ export default function SettingsPanel() {
                   </div>
                 </OptionRow>
                 {/* ── Chord Transcription toggle ────────────────────────────────── */}
-                <OptionRow label="Chord Transcription" hint="Adds a transcript icon to every file in your library — click to generate a chord chart PDF.">
+                <OptionRow label="Chord Transcription" badge={<BetaBadge />} hint="Adds a transcript icon to every file in your library — click to generate a chord chart PDF.">
                   <div style={{ display: 'flex', gap: 4 }}>
                     <OptionBtn active={chordTranscriptionEnabled} onClick={() => setChordTranscriptionEnabled(true)}>On</OptionBtn>
                     <OptionBtn active={!chordTranscriptionEnabled} onClick={() => setChordTranscriptionEnabled(false)}>Off</OptionBtn>
@@ -815,7 +836,7 @@ export default function SettingsPanel() {
                   </div>
                 </OptionRow>
                 {/* ── Left/Right hand labels toggle ────────────────────────────── */}
-                <OptionRow label="Left/Right Hand Labels" hint="Shows amber hand boundary lines and labels in the keyboard footer.">
+                <OptionRow label="Left/Right Hand Labels" badge={<BetaBadge />} hint="Shows amber hand boundary lines and labels in the keyboard footer.">
                   <div style={{ display: 'flex', gap: 4 }}>
                     <OptionBtn active={showHandLabels}  onClick={() => setShowHandLabels(true)}>On</OptionBtn>
                     <OptionBtn active={!showHandLabels} onClick={() => setShowHandLabels(false)}>Off</OptionBtn>

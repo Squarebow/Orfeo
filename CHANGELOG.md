@@ -4,6 +4,15 @@
 
 ---
 
+### 5. 7. 2026 — Settings: BETA badges on Chord Transcription + Hand Labels (v0.10.1 continued)
+
+**`src/components/SettingsPanel/SettingsPanel.tsx`**
+- Added `BetaBadge` function component: small outlined red pill (`var(--status-error)` border + text, `var(--radius-sm)`, 8px Inter uppercase, 0.85 opacity). Placed in the shared sub-components block.
+- Extended `OptionRow` with an optional `badge?: React.ReactNode` prop. Label div changed to `display: flex; align-items: center; gap: 6` so the badge sits inline after the label text without disrupting existing rows (no badge = no visual change).
+- Applied `badge={<BetaBadge />}` to exactly two settings: **Chord Transcription** (Library section) and **Left/Right Hand Labels** (Keyboard section). No other settings receive the badge.
+
+---
+
 ### 5. 7. 2026 — CSS Variable Rollout: Stage 1 + Stage 2 (v0.10.1 continued)
 
 Replaced hardcoded hex colors and raw pixel values with design-system CSS variables across four components. Functional colors (piano key lighting, note highlight state, hand boundary visuals) are intentionally left as literals.
