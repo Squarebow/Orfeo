@@ -135,14 +135,61 @@ Two `useStore.subscribe` callbacks at the bottom of `store/index.ts` write prefs
 
 ## Design Tokens
 
+All tokens live in `src/index.css` `:root {}`. Use CSS variables in new code; fall back to hex only when inline React styles can't use `var()` (they can — inline style values accept CSS variable strings).
+
+**Colour**
 ```
-#e8a027  amber accent (active states, highlights)
-#707088  inactive UI text/icons
-#b0b0cc  active/value text
-#404055  dim labels
-#0f0f12  background (dark theme)
-#12100e  background (warm theme)
-#1a1a22  panel background
+--text-amber / #e8a027   amber accent (active states, highlights)
+--text-default / #c6c8c8  default UI text
+--text-active  / #f2f3f4  active/value text
+--text-muted   / #94979e  dim labels
+--status-success / #4a9060  green — ready/ok states
+--status-error   / #c0392b  red — stop/error states
+--bg:    #121212   app floor
+--panel: #1e1e1e   panel layer
+--bg-panel2: #2d2d2d  nested surface (cards, tiles)
+```
+Legacy hard-coded colours still used in existing components (do not introduce new usages):
+`#0f0f12` bg dark, `#12100e` bg warm, `#1a1a22` panel bg, `#707088` inactive text, `#b0b0cc` value text, `#404055` dim labels
+
+**Spacing** (4 px increments)
+```
+--space-1: 0.25rem  (4px)
+--space-2: 0.5rem   (8px)
+--space-3: 0.75rem  (12px)
+--space-4: 1rem     (16px)
+--space-5: 1.25rem  (20px)
+--space-6: 1.5rem   (24px)
+```
+
+**Typography**
+```
+--text-xs:   0.6875rem (11px) — tiny labels, hints
+--text-sm:   0.75rem   (12px) — standard small UI text
+--text-base: 0.8125rem (13px) — default body/label
+--text-md:   0.875rem  (14px) — slightly emphasised
+--text-lg:   1rem      (16px) — headings, chord names
+```
+
+**Border radius**
+```
+--radius-sm: 3px
+--radius-md: 5px
+--radius-lg: 8px
+```
+
+**Layout**
+```
+--row-height:    44px  — standard control row height (use for minHeight in explorer rows)
+--button-height: 28px  — standard button height
+```
+
+**Utility classes** (apply via `className`, not inline style)
+```
+.orfeo-row     — flex row, height var(--row-height), padding 0 var(--space-4)
+.orfeo-label   — dim uppercase label matching ROW_LABEL pattern
+.orfeo-button  — standard ghost button with amber hover
+.orfeo-value   — JetBrains Mono numeric display
 ```
 
 Fonts: Inter (UI), JetBrains Mono (values, chord names, note names)

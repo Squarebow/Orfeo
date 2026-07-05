@@ -8,31 +8,137 @@
 }
 
 :root {
-  /* Backgrounds */
-  --bg:        #0f0f12;
-  --bg-warm:   #12100e;
-  --panel:     #13131a;
-  --panel-warm:#16120e;
-  --bg-panel:  #13131a;
-  --bg-panel2: #1a1a22;
-  --bg-row:    #0e0e16;
+  /* ── Backgrounds — remapped to new lighter, layered scheme ─────────────── */
+  /* Existing variable names kept identical so nothing breaks — only the
+     values change. New --bg-input / --bg-highlight added for interactive
+     surfaces that didn't have a dedicated token before. */
+  --bg:        #121212;   /* App floor */
+  --bg-warm:   #12100e;   /* unchanged — warm theme variant, pending its own future update */
+  --panel:     #1e1e1e;   /* Panel layer */
+  --panel-warm:#16120e;   /* unchanged — warm theme variant, pending its own future update */
+  --bg-panel:  #1e1e1e;   /* kept in sync with --panel */
+  --bg-panel2: #2d2d2d;   /* Nested surface — cards, tiles inside a panel */
+  --bg-row:    #0e0e16;   /* unchanged — recessed row striping, darker than app floor by design */
+  --bg-input:  #58595b;   /* NEW — interactive surfaces: inputs, toggle pills */
+  --bg-highlight: #aeb0b5; /* NEW — sparing use only: small interactive highlight details */
 
-  /* Borders */
+  /* ── Borders — values unchanged, usage intentionally reduced app-wide ──── */
+  /* Kept for occasional/rare cases (selection outlines, focus states) —
+     general panel separation now comes from background layering instead. */
   --border:    #1e1e28;
   --border2:   #252530;
 
-  /* Text colours */
-  --text-default: #7070888;   /* default UI text — TRACKS header colour */
-  --text-active:  #b0b0cc;   /* active/value text — 120, 4/4 colour */
-  --text-muted:   #404055;   /* very dim — labels, hints */
-  --text-amber:   #e8a027;   /* accent */
+  /* ── Text colours — remapped to new readable 7-step scale ──────────────── */
+  /* Existing names kept identical so nothing breaks — values updated. */
+  --text-default: #c6c8c8;   /* was #707088 — default UI text */
+  --text-active:  #f2f3f4;   /* was #b0b0cc — active/value text */
+  --text-muted:   #94979e;   /* was #404055 — now genuinely readable */
+  --text-amber:   #e8a027;   /* accent — unchanged */
 
-  /* Shorthand for JS inline styles */
-  --c-default: #707088;
-  --c-active:  #b0b0cc;
-  --c-muted:   #404055;
-  --c-amber:   #e8a027;
+  /* Additional granularity for future targeted use during staged rollout */
+  --text-dimmest:  #94979e;
+  --text-dim:      #b5b7bc;
+  --text-standard: #c6c8c8;
+  --text-body:     #d7d8d3;
+  --text-primary:  #f2f3f4;
+  --text-bright:   #f8f8ff;
+  --text-white:    #fefefa;
+
+  /* Shorthand for JS inline styles — kept in sync with the text vars above */
+  --c-default: var(--text-default);
+  --c-active:  var(--text-active);
+  --c-muted:   var(--text-muted);
+  --c-amber:   var(--text-amber);
+
+  /* Knob accent tones — unchanged */
+  --knob-chorus: #2dd4bf;
+  --knob-reverb: #a78bfa;
+
+  /* VU meter levels — unchanged */
+  --meter-green:  #7ac040;
+  --meter-yellow: #c0a020;
+  --meter-orange: #c07a20;
+  --meter-red:    #c04040;
+
+  /* Semantic / status — unchanged */
+  --status-success: #4a9060;
+  --status-error:   #c0392b;
+  --status-error-hover: #e74c3c;
+
+/* Spacing scale — rem-based, 4px increments, everything scales together */
+--space-1: 0.25rem;   /* 4px  */
+--space-2: 0.5rem;    /* 8px  */
+--space-3: 0.75rem;   /* 12px */
+--space-4: 1rem;      /* 16px */
+--space-5: 1.25rem;   /* 20px */
+--space-6: 1.5rem;    /* 24px */
+
+/* Typography scale — rem-based, matches Orfeo's existing 8-14px range */
+--text-xs: 0.6875rem;  /* 11px — tiny labels, hints */
+--text-sm: 0.75rem;    /* 12px — standard small UI text */
+--text-base: 0.8125rem;/* 13px — default body/label size */
+--text-md: 0.875rem;   /* 14px — slightly emphasized text */
+--text-lg: 1rem;       /* 16px — headings, chord names */
+
+/* Border radius scale — consistent rounding across all elements */
+--radius-sm: 3px;
+--radius-md: 5px;
+--radius-lg: 8px;
+
+/* Standard row/button heights */
+--row-height: 44px;
+--button-height: 28px;
+
+/* ── Utility classes ── */
+
+/* Standard modal/panel row — use for any horizontal row of controls */
+.orfeo-row {
+  display: flex;
+  align-items: center;
+  height: var(--row-height);
+  padding: 0 var(--space-4);
+  gap: var(--space-3);
 }
+
+/* Standard label text — dim, uppercase, small — matches existing label pattern */
+.orfeo-label {
+  font-size: var(--text-xs);
+  color: var(--text-dimmest);
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  font-family: 'Inter', sans-serif;
+}
+
+/* Standard button — consistent padding, radius, height across the app */
+.orfeo-button {
+  height: var(--button-height);
+  padding: 0 var(--space-3);
+  border-radius: var(--radius-md);
+  font-family: 'Inter', sans-serif;
+  font-size: var(--text-sm);
+  font-weight: 500;
+  border: none;
+  background: transparent;
+  color: var(--text-standard);
+  cursor: pointer;
+  transition: color 0.15s;
+}
+.orfeo-button:hover {
+  color: var(--text-amber);
+}
+.orfeo-button.active {
+  color: var(--text-amber);
+}
+
+/* Standard value/number display — JetBrains Mono, consistent across BPM, bar counter, etc */
+.orfeo-value {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: var(--text-base);
+  color: var(--text-primary);
+  font-weight: 600;
+}
+
+  }
 
 /* Warm theme overrides */
 .theme-warm {
@@ -49,6 +155,17 @@ body {
   overflow: hidden;
   user-select: none;
   -webkit-font-smoothing: antialiased;
+  /* ── Dark-background readability: light text optically bleeds/spreads more
+     than dark-on-light — slight extra tracking compensates. Applies app-wide. */
+  letter-spacing: 0.03rem;
+}
+
+/* Utility class: apply where a bold weight was previously used for standard
+   body/label text, to avoid bleeding on dark backgrounds. Reserve true Bold
+   (700) for large headings and amber emphasis numbers only. */
+.text-weight-adjusted {
+  font-weight: 500; /* Medium, instead of 700 Bold */
+  letter-spacing: 0.04rem;
 }
 
 ::-webkit-scrollbar { width: 5px; height: 5px; }

@@ -187,6 +187,8 @@ All user-visible changes listed here. For full technical detail see [CHANGELOG.m
 - **Empty state screen** is now centred on the true viewport centre regardless of which side drawers are open or closed.
 - **Separator line** between the toolbar and the main area is now fully visible across the entire window width, including the top-right corner under the native Windows buttons.
 - **MIDI icon** in the keyboard connection section is now pixel-aligned with the label next to it.
+- **Chord Explorer row heights** unified — all control rows now match Scale Explorer's consistent 44 px rhythm; no row feels cramped or misaligned relative to the other.
+- **Progression Play button** now turns green when a pattern is selected and ready to play, and red only when actively playing/stopping — clearer at a glance.
 
 ---
 

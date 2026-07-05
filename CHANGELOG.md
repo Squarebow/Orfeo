@@ -4,6 +4,27 @@
 
 ---
 
+### 5. 7. 2026 — Design System Tokens + Explorer UI Polish (v0.10.1 continued)
+
+**`src/index.css`**
+- Added spacing scale: `--space-1` through `--space-6` (rem-based, 4 px increments).
+- Added typography scale: `--text-xs` (11 px) through `--text-lg` (16 px).
+- Added border-radius scale: `--radius-sm` (3 px), `--radius-md` (5 px), `--radius-lg` (8 px).
+- Added layout tokens: `--row-height: 44px`, `--button-height: 28px`.
+- Added utility classes: `.orfeo-row`, `.orfeo-label`, `.orfeo-button`, `.orfeo-value` — scoped inside `:root {}` so they resolve as `:root .orfeo-*` via CSS nesting (effective for all descendants).
+
+**`src/components/ChordExplorer.tsx`**
+- Progression Play/Stop button: ready state changed from amber (`#e8a027`) to green (`var(--status-success)`); stop state now uses `var(--status-error)` instead of hardcoded `#c0392b` — both states fully token-driven.
+- Row height consistency pass: Root row, Filter row, Progressions sub-row 1, Style sub-row 2, and Footer all given explicit `minHeight` values (`44` / `32`) matching Scale Explorer's established pattern. Root row unified to `{ ...ROW, minHeight: 44 }` (was `padding: '7px 12px'`, no height). Footer fixed from `height: 40` to `minHeight: 44`.
+
+**`src/components/ScaleExplorer.tsx`**
+- Progression Play/Stop button: same token swap as ChordExplorer — green ready, red stop, fully token-driven.
+
+**`CLAUDE.md`**
+- Design Tokens section expanded: added CSS variable names alongside hex values, full spacing/typography/radius/layout token tables, utility class reference, guidance to prefer `var()` in new code.
+
+---
+
 ### 5. 7. 2026 — UI Polish: Logo Mark, EmptyState, Separator, MidiIcon (v0.10.1)
 
 **`src/components/OrfeoMark.tsx`** (new)

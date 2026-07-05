@@ -740,14 +740,8 @@ export default function ChordExplorer() {
         </div>
       </div>
 
-      {/* ROOT row — label left, 12 buttons right */}
-      <div style={{
-        flexShrink: 0,
-        display: 'flex', alignItems: 'center',
-        justifyContent: 'space-between',
-        padding: '7px 12px',
-        borderBottom: '1px solid #1e1e2a',
-      }}>
+      {/* ── Root row — label left, 12 pitch-class buttons right ─────────────── */}
+      <div style={{ ...ROW, minHeight: 44 }}>
         <span style={ROW_LABEL}>Root</span>
         <div style={{ display: 'flex', gap: 4 }}>
           {rootLabels.map(({ pitchClass, label }) => {
@@ -775,8 +769,8 @@ export default function ChordExplorer() {
         </div>
       </div>
 
-      {/* FILTER row — label left, controls right */}
-      <div style={ROW}>
+      {/* ── Filter row — label left, tier / hand / notes controls right ──────── */}
+      <div style={{ ...ROW, minHeight: 44 }}>
         <span style={ROW_LABEL}>Filter</span>
         <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
           {/* Tier */}
@@ -822,8 +816,9 @@ export default function ChordExplorer() {
       {/* PROGRESSIONS + INVERSIONS row — two sub-rows; genre nested below ── */}
       <div style={{ flexShrink: 0, borderBottom: '1px solid #1e1e2a', opacity: isPowerMode ? 0.35 : 1, pointerEvents: isPowerMode ? 'none' : 'auto', transition: 'opacity 0.15s' }}>
 
-        {/* Sub-row 1: three-column layout ─────────────────────────────────── */}
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '5px 12px', position: 'relative' }}>
+        {/* ── Sub-row 1: Progressions / Play / Inversions — three-column layout ─ */}
+        {/* No borderBottom here — the outer container div owns the separator.   */}
+        <div style={{ flexShrink: 0, minHeight: 44, display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '5px 12px', position: 'relative' }}>
 
           {/* Left column: PROGRESSIONS label + pattern dropdown ─────────────── */}
           <div style={{ flex: 1, display: 'flex', alignItems: 'center', gap: 6 }}>
@@ -859,7 +854,7 @@ export default function ChordExplorer() {
             position: 'absolute', left: '50%', transform: 'translateX(-50%)',
             display: 'flex', alignItems: 'center', gap: 8,
           }}>
-            {/* Outlined play/stop — amber at rest, red during playback */}
+            {/* ── Progression play/stop button — green ready, red stop ─────────── */}
             <button
               onClick={() => progPlaying ? stopProgression() : startProgression()}
               disabled={selectedProg === null && !progPlaying}
@@ -869,9 +864,9 @@ export default function ChordExplorer() {
                 fontFamily: 'Inter', fontSize: 10, fontWeight: 700, letterSpacing: '0.06em',
                 padding: '3px 10px', borderRadius: 4, cursor: selectedProg !== null || progPlaying ? 'pointer' : 'default',
                 background: 'none',
-                border: `1.5px solid ${progPlaying ? '#c0392b' : selectedProg !== null ? '#e8a027' : '#505068'}`,
-                boxShadow: progPlaying ? '0 0 6px #c0392b' : selectedProg !== null ? '0 0 6px #e8a027' : 'none',
-                color: progPlaying ? '#c0392b' : selectedProg !== null ? '#e8a027' : '#505068',
+                border: `1.5px solid ${progPlaying ? 'var(--status-error)' : selectedProg !== null ? 'var(--status-success)' : '#505068'}`,
+                boxShadow: progPlaying ? '0 0 6px var(--status-error)' : selectedProg !== null ? '0 0 6px var(--status-success)' : 'none',
+                color: progPlaying ? 'var(--status-error)' : selectedProg !== null ? 'var(--status-success)' : '#505068',
               }}
             >
               {progPlaying ? <Square size={12} /> : <Play size={12} />}
@@ -911,9 +906,10 @@ export default function ChordExplorer() {
           </div>
         </div>
 
-        {/* Sub-row 2: genre voicing style — subordinate to progression selector */}
-        {/* Dimmed + non-interactive when no progression is selected            */}
+        {/* ── Sub-row 2: genre/style pills — compact secondary row ────────────── */}
+        {/* Dimmed + non-interactive when no progression is selected             */}
         <div style={{
+          flexShrink: 0, minHeight: 32,
           borderTop: '1px solid #1a1a22',
           padding: '4px 12px 5px',
           display: 'flex', alignItems: 'center', gap: 6,
@@ -1051,10 +1047,10 @@ export default function ChordExplorer() {
         )}
       </div>
 
-      {/* Footer — show-as left, play inversion centred, scale explorer right */}
+      {/* ── Footer — show-as left, play inversion centred, scale explorer right ─ */}
       <div style={{
         ...ROW,
-        height: 40,
+        minHeight: 44,
         borderTop: '1px solid #1e1e2a',
         borderBottom: 'none',
         background: '#0d0d12',

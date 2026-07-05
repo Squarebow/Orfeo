@@ -977,7 +977,7 @@ export default function ScaleExplorer() {
           position: 'absolute', left: '50%', transform: 'translateX(-50%)',
           display: 'flex', alignItems: 'center', gap: 8,
         }}>
-          {/* Outlined play/stop — amber at rest, red during playback */}
+          {/* ── Progression play/stop button — green ready, red stop ─────────── */}
           <button
             onClick={() => { if (progPlaying) stopProgression(); else startProgression() }}
             disabled={selectedProg === null || diatonicChords.length === 0}
@@ -987,9 +987,9 @@ export default function ScaleExplorer() {
               fontFamily: 'Inter', fontSize: 10, fontWeight: 700, letterSpacing: '0.06em',
               padding: '3px 10px', borderRadius: 4, cursor: 'pointer',
               background: 'none',
-              border: `1.5px solid ${progPlaying ? '#c0392b' : selectedProg !== null && diatonicChords.length > 0 ? '#e8a027' : '#505068'}`,
-              boxShadow: progPlaying ? '0 0 6px #c0392b' : selectedProg !== null && diatonicChords.length > 0 ? '0 0 6px #e8a027' : 'none',
-              color: progPlaying ? '#c0392b' : selectedProg !== null && diatonicChords.length > 0 ? '#e8a027' : '#505068',
+              border: `1.5px solid ${progPlaying ? 'var(--status-error)' : selectedProg !== null && diatonicChords.length > 0 ? 'var(--status-success)' : '#505068'}`,
+              boxShadow: progPlaying ? '0 0 6px var(--status-error)' : selectedProg !== null && diatonicChords.length > 0 ? '0 0 6px var(--status-success)' : 'none',
+              color: progPlaying ? 'var(--status-error)' : selectedProg !== null && diatonicChords.length > 0 ? 'var(--status-success)' : '#505068',
             }}
           >
             {progPlaying ? <Square size={12} /> : <Play size={12} />}
