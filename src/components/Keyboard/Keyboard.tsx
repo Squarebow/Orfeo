@@ -246,7 +246,7 @@ export default function Keyboard() {
       <div style={{
         height: chordPrompterOpen ? 36 : 34,
         background: '#0d0d12',
-        borderTop: '1px solid #1e1e28',
+        borderTop: '1px solid var(--border)',
         display: 'flex',
         flexDirection: 'column',
         position: 'relative',
@@ -256,13 +256,13 @@ export default function Keyboard() {
 
         {/* ── SIMPLE MODE: single chord name centred ──────────────────────────── */}
         {!chordPrompterOpen && (
-          <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, padding: '0 12px', position: 'relative' }}>
+          <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 'var(--space-2)', padding: '0 var(--space-3)', position: 'relative' }}>
             {/* ── Left: CHORDS trigger + prompter toggle ────────────────────────── */}
             <div style={{ position: 'absolute', left: 10, display: 'flex', alignItems: 'center', gap: 5 }}>
               <span
                 onClick={() => setChordExplorerOpen(true)}
                 title="Open Chord Explorer"
-                style={{ fontFamily: 'Inter', fontSize: 9, fontWeight: 700, color: '#e8a027', letterSpacing: '0.12em', textTransform: 'uppercase', cursor: 'pointer', userSelect: 'none' }}
+                style={{ fontFamily: 'Inter', fontSize: 9, fontWeight: 700, color: 'var(--text-amber)', letterSpacing: '0.12em', textTransform: 'uppercase', cursor: 'pointer', userSelect: 'none' }}
               >
                 Chords
               </span>
@@ -271,7 +271,7 @@ export default function Keyboard() {
                 <div
                   onClick={() => midi && setChordPrompterOpen(!chordPrompterOpen)}
                   title="Chord Prompter"
-                  style={{ cursor: midi ? 'pointer' : 'default', color: chordPrompterOpen ? '#e8a027' : '#707088', opacity: midi ? 1 : 0.35, display: 'flex', alignItems: 'center', transition: 'color 0.12s' }}
+                  style={{ cursor: midi ? 'pointer' : 'default', color: chordPrompterOpen ? 'var(--text-amber)' : 'var(--text-default)', opacity: midi ? 1 : 0.35, display: 'flex', alignItems: 'center', transition: 'color 0.12s' }}
                 >
                   <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 7V5a2 2 0 0 1 2-2h2"/><path d="M17 3h2a2 2 0 0 1 2 2v2"/><path d="M21 17v2a2 2 0 0 1-2 2h-2"/><path d="M7 21H5a2 2 0 0 1-2-2v-2"/><rect width="10" height="8" x="7" y="8" rx="1"/></svg>
                 </div>
@@ -283,11 +283,11 @@ export default function Keyboard() {
               {explorerDisplay ? (
                 // ── Explorer chord: chord/bass amber + ordinal grey ────────────
                 <>
-                  <span style={{ fontFamily: 'JetBrains Mono', fontSize: 14, fontWeight: 700, color: '#e8a027', letterSpacing: '0.05em', userSelect: 'none' }}>
+                  <span style={{ fontFamily: 'JetBrains Mono', fontSize: 'var(--text-md)', fontWeight: 700, color: 'var(--text-amber)', letterSpacing: '0.05em', userSelect: 'none' }}>
                     {explorerDisplay.chordLabel}
                   </span>
                   {explorerDisplay.ordinal && (
-                    <span style={{ fontFamily: 'Inter', fontSize: 10, color: '#707088', userSelect: 'none' }}>
+                    <span style={{ fontFamily: 'Inter', fontSize: 10, color: 'var(--text-default)', userSelect: 'none' }}>
                       {explorerDisplay.ordinal}
                       <span style={{ fontSize: 7, verticalAlign: 'super' }}>{ordinalSuffix(Number(explorerDisplay.ordinal))}</span>
                       {' inv'}
@@ -301,17 +301,17 @@ export default function Keyboard() {
                   const slashIdx = name.indexOf('/')
                   if (slashIdx < 0) {
                     return (
-                      <span style={{ fontFamily: 'JetBrains Mono', fontSize: 14, fontWeight: 700, color: '#e8a027', letterSpacing: '0.05em', userSelect: 'none' }}>
+                      <span style={{ fontFamily: 'JetBrains Mono', fontSize: 'var(--text-md)', fontWeight: 700, color: 'var(--text-amber)', letterSpacing: '0.05em', userSelect: 'none' }}>
                         {name}
                       </span>
                     )
                   }
                   return (
                     <>
-                      <span style={{ fontFamily: 'JetBrains Mono', fontSize: 14, fontWeight: 700, color: '#e8a027', letterSpacing: '0.05em', userSelect: 'none' }}>
+                      <span style={{ fontFamily: 'JetBrains Mono', fontSize: 'var(--text-md)', fontWeight: 700, color: 'var(--text-amber)', letterSpacing: '0.05em', userSelect: 'none' }}>
                         {name.slice(0, slashIdx)}
                       </span>
-                      <span style={{ fontFamily: 'JetBrains Mono', fontSize: 11, fontWeight: 600, color: '#b0b0cc', letterSpacing: '0.04em', userSelect: 'none' }}>
+                      <span style={{ fontFamily: 'JetBrains Mono', fontSize: 'var(--text-xs)', fontWeight: 600, color: 'var(--text-active)', letterSpacing: '0.04em', userSelect: 'none' }}>
                         {name.slice(slashIdx)}
                       </span>
                     </>
@@ -326,14 +326,14 @@ export default function Keyboard() {
             </div>
 
             {/* ── Right: shift+click hint + SCALES trigger ─────────────────────── */}
-            <div style={{ position: 'absolute', right: 10, display: 'flex', alignItems: 'center', gap: 8 }}>
-              <span style={{ fontSize: 9, color: '#707088', fontFamily: 'Inter', userSelect: 'none', whiteSpace: 'nowrap' }}>
+            <div style={{ position: 'absolute', right: 10, display: 'flex', alignItems: 'center', gap: 'var(--space-2)' }}>
+              <span style={{ fontSize: 9, color: 'var(--text-default)', fontFamily: 'Inter', userSelect: 'none', whiteSpace: 'nowrap' }}>
                 Shift+Click at least 3 keys to build &amp; lock a chord
               </span>
               <span
                 onClick={() => setScaleExplorerOpen(true)}
                 title="Open Scale Explorer"
-                style={{ fontFamily: 'Inter', fontSize: 9, fontWeight: 700, color: '#e8a027', letterSpacing: '0.12em', textTransform: 'uppercase', cursor: 'pointer', userSelect: 'none' }}
+                style={{ fontFamily: 'Inter', fontSize: 9, fontWeight: 700, color: 'var(--text-amber)', letterSpacing: '0.12em', textTransform: 'uppercase', cursor: 'pointer', userSelect: 'none' }}
               >
                 Scales
               </span>
@@ -350,7 +350,7 @@ export default function Keyboard() {
               <span
                 onClick={() => setChordExplorerOpen(true)}
                 title="Open Chord Explorer"
-                style={{ fontFamily: 'Inter', fontSize: 9, fontWeight: 700, color: '#e8a027', letterSpacing: '0.12em', textTransform: 'uppercase', cursor: 'pointer', userSelect: 'none' }}
+                style={{ fontFamily: 'Inter', fontSize: 9, fontWeight: 700, color: 'var(--text-amber)', letterSpacing: '0.12em', textTransform: 'uppercase', cursor: 'pointer', userSelect: 'none' }}
               >
                 Chords
               </span>
@@ -358,7 +358,7 @@ export default function Keyboard() {
               <div
                 onClick={() => setChordPrompterOpen(!chordPrompterOpen)}
                 title="Chord Prompter"
-                style={{ cursor: 'pointer', color: '#e8a027', display: 'flex', alignItems: 'center', transition: 'color 0.12s' }}
+                style={{ cursor: 'pointer', color: 'var(--text-amber)', display: 'flex', alignItems: 'center', transition: 'color 0.12s' }}
               >
                 <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 7V5a2 2 0 0 1 2-2h2"/><path d="M17 3h2a2 2 0 0 1 2 2v2"/><path d="M21 17v2a2 2 0 0 1-2 2h-2"/><path d="M7 21H5a2 2 0 0 1-2-2v-2"/><rect width="10" height="8" x="7" y="8" rx="1"/></svg>
               </div>
@@ -374,7 +374,7 @@ export default function Keyboard() {
                 if (noFile || noChords || notStarted) {
                   return (
                     <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                      <span style={{ fontSize: 11, color: '#404055', fontFamily: 'Inter' }}>
+                      <span style={{ fontSize: 'var(--text-xs)', color: 'var(--text-muted)', fontFamily: 'Inter' }}>
                         {noFile ? 'Open a MIDI file' : noChords ? 'No chords detected' : 'Press play'}
                       </span>
                     </div>
@@ -393,7 +393,7 @@ export default function Keyboard() {
                       {pastChords.map((ev, i) => (
                         <React.Fragment key={`${ev.time}-${ev.name}`}>
                           {i > 0 && <span style={{ color: '#303048', fontSize: 10, lineHeight: 1, flexShrink: 0 }}>·</span>}
-                          <span style={{ fontSize: 11, fontFamily: 'Inter', color: '#9090a8', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: 60 }}>
+                          <span style={{ fontSize: 'var(--text-xs)', fontFamily: 'Inter', color: '#9090a8', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: 60 }}>
                             {ev.name}
                           </span>
                         </React.Fragment>
@@ -401,7 +401,7 @@ export default function Keyboard() {
                     </div>
 
                     {/* ‹ separator */}
-                    <span style={{ color: '#303048', fontSize: 14, flexShrink: 0, lineHeight: 1, padding: '0 3px' }}>‹</span>
+                    <span style={{ color: '#303048', fontSize: 'var(--text-md)', flexShrink: 0, lineHeight: 1, padding: '0 3px' }}>‹</span>
 
                     {/* Current chord name only, no note names */}
                     <div style={{ flexShrink: 0, width: 100, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
@@ -411,14 +411,14 @@ export default function Keyboard() {
                     </div>
 
                     {/* › separator */}
-                    <span style={{ color: '#303048', fontSize: 14, flexShrink: 0, lineHeight: 1, padding: '0 3px' }}>›</span>
+                    <span style={{ color: '#303048', fontSize: 'var(--text-md)', flexShrink: 0, lineHeight: 1, padding: '0 3px' }}>›</span>
 
                     {/* Next 2 chords, left-aligned */}
                     <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'flex-start', gap: 5, minWidth: 0 }}>
                       {nextChords.map((ev, i) => (
                         <React.Fragment key={`${ev.time}-${ev.name}`}>
                           {i > 0 && <span style={{ color: '#303048', fontSize: 10, lineHeight: 1, flexShrink: 0 }}>·</span>}
-                          <span style={{ fontSize: 11, fontFamily: 'Inter', color: '#9090a8', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: 60 }}>
+                          <span style={{ fontSize: 'var(--text-xs)', fontFamily: 'Inter', color: '#9090a8', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: 60 }}>
                             {ev.name}
                           </span>
                         </React.Fragment>
@@ -430,14 +430,14 @@ export default function Keyboard() {
             </div>
 
             {/* ── Right: shift+click hint + SCALES trigger ──────────────────────── */}
-            <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexShrink: 0 }}>
-              <span style={{ fontSize: 9, color: '#707088', fontFamily: 'Inter', userSelect: 'none', whiteSpace: 'nowrap' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-2)', flexShrink: 0 }}>
+              <span style={{ fontSize: 9, color: 'var(--text-default)', fontFamily: 'Inter', userSelect: 'none', whiteSpace: 'nowrap' }}>
                 Shift+Click at least 3 keys to build &amp; lock a chord
               </span>
               <span
                 onClick={() => setScaleExplorerOpen(true)}
                 title="Open Scale Explorer"
-                style={{ fontFamily: 'Inter', fontSize: 9, fontWeight: 700, color: '#e8a027', letterSpacing: '0.12em', textTransform: 'uppercase', cursor: 'pointer', userSelect: 'none' }}
+                style={{ fontFamily: 'Inter', fontSize: 9, fontWeight: 700, color: 'var(--text-amber)', letterSpacing: '0.12em', textTransform: 'uppercase', cursor: 'pointer', userSelect: 'none' }}
               >
                 Scales
               </span>

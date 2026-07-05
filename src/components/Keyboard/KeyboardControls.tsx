@@ -249,8 +249,8 @@ export default function KeyboardControls() {
         borderTop: '1px solid #1a1a24',
         display: 'flex',
         alignItems: 'center',
-        padding: '0 16px',
-        gap: 12,
+        padding: '0 var(--space-4)',
+        gap: 'var(--space-3)',
         flexShrink: 0,
         position: 'relative',
       }}
@@ -258,28 +258,28 @@ export default function KeyboardControls() {
       {/* ── Key size selector — hidden in performance mode while active ──────── */}
       {!performanceHideControls && (
         <>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-1)' }}>
             {SIZES.map((size) => (
               <button
                 key={size}
                 onClick={() => setKeyboardSize(size)}
                 title={`${size}-key keyboard layout`}
                 style={{
-                  padding: '2px 8px', borderRadius: 4,
+                  padding: '2px var(--space-2)', borderRadius: 4,
                   background: 'transparent',
-                  color: keyboardSize === size ? '#e8a027' : '#404055',
+                  color: keyboardSize === size ? 'var(--text-amber)' : 'var(--text-muted)',
                   border: 'none',
-                  fontFamily: 'JetBrains Mono', fontSize: 12, fontWeight: 600,
+                  fontFamily: 'JetBrains Mono', fontSize: 'var(--text-sm)', fontWeight: 600,
                   cursor: 'pointer', transition: 'color 0.15s',
                 }}
                 onMouseEnter={e => { if (keyboardSize !== size) e.currentTarget.style.color = '#c0c0d0' }}
-                onMouseLeave={e => { if (keyboardSize !== size) e.currentTarget.style.color = '#404055' }}
+                onMouseLeave={e => { if (keyboardSize !== size) e.currentTarget.style.color = 'var(--text-muted)' }}
               >
                 {size}
               </button>
             ))}
           </div>
-          <div style={{ width: 1, height: 14, background: '#1e1e28' }} />
+          <div style={{ width: 1, height: 14, background: 'var(--border)' }} />
         </>
       )}
 
@@ -290,15 +290,15 @@ export default function KeyboardControls() {
         style={{
           display: 'flex', alignItems: 'center', gap: 5,
           background: 'transparent', border: 'none', cursor: 'pointer',
-          color: isDocked ? '#404055' : '#e8a027',
-          fontSize: 11, fontFamily: 'Inter',
+          color: isDocked ? 'var(--text-muted)' : 'var(--text-amber)',
+          fontSize: 'var(--text-xs)', fontFamily: 'Inter',
           padding: '2px 6px', borderRadius: 4,
           transition: 'color 0.15s',
           marginLeft: performanceHideControls ? 'auto' : undefined,
           position: 'relative', zIndex: 3,
         }}
-        onMouseEnter={e => { if (isDocked) e.currentTarget.style.color = '#e8a027' }}
-        onMouseLeave={e => { if (isDocked) e.currentTarget.style.color = '#404055' }}
+        onMouseEnter={e => { if (isDocked) e.currentTarget.style.color = 'var(--text-amber)' }}
+        onMouseLeave={e => { if (isDocked) e.currentTarget.style.color = 'var(--text-muted)' }}
       >
         {isDocked ? (
           <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
@@ -431,7 +431,7 @@ export default function KeyboardControls() {
                 <span style={textStyle}>Left Hand</span>
               </div>
               {/* RIGHT HAND — left-aligned from the line */}
-              <div style={{ ...labelBase, left: `${pct}%`, right: 0, justifyContent: 'flex-start', paddingLeft: 8 }}>
+              <div style={{ ...labelBase, left: `${pct}%`, right: 0, justifyContent: 'flex-start', paddingLeft: 'var(--space-2)' }}>
                 <span style={textStyle}>Right Hand</span>
               </div>
             </>
@@ -457,7 +457,7 @@ export default function KeyboardControls() {
               <span style={textStyle}>Left Hand</span>
             </div>
             {/* RIGHT HAND — left-aligned from right line */}
-            <div style={{ ...labelBase, left: `${pct2}%`, right: 0, justifyContent: 'flex-start', paddingLeft: 8 }}>
+            <div style={{ ...labelBase, left: `${pct2}%`, right: 0, justifyContent: 'flex-start', paddingLeft: 'var(--space-2)' }}>
               <span style={textStyle}>Right Hand</span>
             </div>
           </>

@@ -14,12 +14,12 @@ import MidiIcon from '../MidiIcon'
 import VolumeKnob from '../VolumeKnob'
 import LoopRegionStrip from '../LoopRegionStrip'
 
-// Design tokens — match index.css :root
+// Design tokens — CSS vars from index.css :root
 const C = {
-  default: '#707088',   // all inactive text, icons
-  active:  '#b0b0cc',   // values in use: BPM number, 4/4, key
-  muted:   '#404055',   // very dim labels
-  amber:   '#e8a027',   // accent, hover on interactive elements
+  default: 'var(--text-default)',
+  active:  'var(--text-active)',
+  muted:   'var(--text-muted)',
+  amber:   'var(--text-amber)',
 }
 const SKIP_SECS = 5
 
@@ -149,7 +149,7 @@ export default function TopBar() {
       }}
     >
       {/* ── LOGO ── */}
-      <div className="app-no-drag" style={{ display: 'flex', alignItems: 'center', gap: 10, flexShrink: 0, paddingRight: 12 }}>
+      <div className="app-no-drag" style={{ display: 'flex', alignItems: 'center', gap: 10, flexShrink: 0, paddingRight: 'var(--space-3)' }}>
         <span onClick={resetAll} title="Reset" className="app-no-drag" style={{ cursor: 'pointer', display: 'flex' }}>
           <OrfeoLogo />
         </span>
@@ -157,7 +157,7 @@ export default function TopBar() {
           onClick={openFile}
           title="Open MIDI file (Ctrl+O)"
           className="app-no-drag"
-          style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: 28, height: 28, borderRadius: 5, background: 'transparent', border: 'none', color: C.default, cursor: 'pointer', flexShrink: 0, transition: 'color 0.12s' }}
+          style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: 'var(--button-height)', height: 'var(--button-height)', borderRadius: 'var(--radius-md)', background: 'transparent', border: 'none', color: C.default, cursor: 'pointer', flexShrink: 0, transition: 'color 0.12s' }}
           onMouseEnter={e => e.currentTarget.style.color = C.amber}
           onMouseLeave={e => e.currentTarget.style.color = C.default}
         >
@@ -168,7 +168,7 @@ export default function TopBar() {
       <VSep />
 
       {/* ── BPM ── */}
-      <div className="app-no-drag" style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '0 12px', flexShrink: 0 }}
+      <div className="app-no-drag" style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '0 var(--space-3)', flexShrink: 0 }}
         title={`Tempo: ${liveBpm || '—'} BPM`}>
         <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start', gap: 1 }}>
           <span style={{ color: C.muted, fontSize: 8, textTransform: 'uppercase', letterSpacing: '0.1em', fontFamily: 'JetBrains Mono', lineHeight: 1 }}>BPM</span>
@@ -191,7 +191,7 @@ export default function TopBar() {
       <VSep />
 
       {/* ── KEY ── */}
-      <div className="app-no-drag" style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '0 12px', flexShrink: 0 }}
+      <div className="app-no-drag" style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '0 var(--space-3)', flexShrink: 0 }}
         title={`Key: ${displayKey}${transpose !== 0 ? ` (${transpose > 0 ? '+' : ''}${transpose} semitones)` : ''}`}>
         <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start', gap: 1 }}>
           <span style={{ color: C.muted, fontSize: 8, textTransform: 'uppercase', letterSpacing: '0.1em', fontFamily: 'JetBrains Mono', lineHeight: 1 }}>KEY</span>
@@ -234,7 +234,7 @@ export default function TopBar() {
           <TBtn onClick={() => setLoopRegionActive(!loopRegionActive)} disabled={!midi} active={loopRegionActive} blink={nudgeLoop} title={loopTooltip}><Repeat size={13} strokeWidth={1.5} /></TBtn>
           {nudgeLoop && (
             <span style={{
-              color: '#e8a027', fontSize: 9, fontFamily: 'Inter, sans-serif',
+              color: C.amber, fontSize: 9, fontFamily: 'Inter, sans-serif',
               whiteSpace: 'nowrap', letterSpacing: '0.04em',
               opacity: 0.85, pointerEvents: 'none', userSelect: 'none',
             }}>
@@ -265,7 +265,7 @@ export default function TopBar() {
           {loopRegionEnabled && <LoopRegionStrip />}
         </div>
         {/* Filename */}
-        <span style={{ color: C.default, fontSize: 11, fontFamily: 'Inter', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: 340 }}
+        <span style={{ color: C.default, fontSize: 'var(--text-xs)', fontFamily: 'Inter', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: 340 }}
           title={midi?.fileName}>
           {midi ? midi.fileName.replace(/\.(mid|midi)$/i, '') : 'No file open'}
         </span>
@@ -280,17 +280,17 @@ export default function TopBar() {
         {midi && (
           <>
             <div
-              style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', padding: '0 12px' }}
+              style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', padding: '0 var(--space-3)' }}
               title={`Bar ${currentBar} of ${totalBars}`}
             >
               <div style={{
                 background: '#1a1a26', borderRadius: 4, padding: '2px 6px',
                 display: 'flex', alignItems: 'baseline', gap: 0,
               }}>
-                <span style={{ color: C.amber, fontFamily: 'JetBrains Mono', fontSize: 12, fontWeight: 700, lineHeight: 1 }}>
+                <span style={{ color: C.amber, fontFamily: 'JetBrains Mono', fontSize: 'var(--text-sm)', fontWeight: 700, lineHeight: 1 }}>
                   {currentBar}
                 </span>
-                <span style={{ color: C.muted, fontFamily: 'JetBrains Mono', fontSize: 12, lineHeight: 1 }}>
+                <span style={{ color: C.muted, fontFamily: 'JetBrains Mono', fontSize: 'var(--text-sm)', lineHeight: 1 }}>
                   |{totalBars}
                 </span>
               </div>
@@ -298,7 +298,7 @@ export default function TopBar() {
                 BAR
               </span>
             </div>
-            <div style={{ width: 1, height: 28, background: '#1e1e28', alignSelf: 'flex-end', marginBottom: 12 }} />
+            <div style={{ width: 1, height: 'var(--button-height)', background: 'var(--border)', alignSelf: 'flex-end', marginBottom: 12 }} />
           </>
         )}
 
@@ -308,11 +308,11 @@ export default function TopBar() {
         >
           {midi ? (
             <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', lineHeight: 1 }}>
-              <span style={{ color: C.active, fontFamily: 'JetBrains Mono', fontSize: 13, fontWeight: 700 }}>
+              <span style={{ color: C.active, fontFamily: 'JetBrains Mono', fontSize: 'var(--text-base)', fontWeight: 700 }}>
                 {midi.timeSignatureNumerator ?? 4}
               </span>
               <div style={{ width: 14, height: 1, background: '#30304a', margin: '2px 0' }} />
-              <span style={{ color: C.active, fontFamily: 'JetBrains Mono', fontSize: 13, fontWeight: 700 }}>
+              <span style={{ color: C.active, fontFamily: 'JetBrains Mono', fontSize: 'var(--text-base)', fontWeight: 700 }}>
                 {midi.timeSignatureDenominator ?? 4}
               </span>
             </div>
@@ -322,7 +322,7 @@ export default function TopBar() {
           <span style={{ color: C.default, fontSize: 8, fontFamily: 'JetBrains Mono', textTransform: 'uppercase', letterSpacing: '0.1em', marginTop: 6 }}>TIME</span>
         </div>
 
-        <div style={{ width: 1, height: 28, background: '#1e1e28', alignSelf: 'flex-end', marginBottom: 12 }} />
+        <div style={{ width: 1, height: 'var(--button-height)', background: 'var(--border)', alignSelf: 'flex-end', marginBottom: 12 }} />
 
         {/* METRONOME */}
         <button
@@ -345,7 +345,7 @@ export default function TopBar() {
           </span>
         </button>
 
-        <div style={{ width: 1, height: 28, background: '#1e1e28', alignSelf: 'flex-end', marginBottom: 12 }} />
+        <div style={{ width: 1, height: 'var(--button-height)', background: 'var(--border)', alignSelf: 'flex-end', marginBottom: 12 }} />
 
         {/* MIDI */}
         <div
@@ -365,7 +365,7 @@ export default function TopBar() {
 }
 
 function VSep() {
-  return <div style={{ width: 1, height: 44, background: '#1e1e28', flexShrink: 0 }} />
+  return <div style={{ width: 1, height: 'var(--row-height)', background: 'var(--border)', flexShrink: 0 }} />
 }
 
 // Long-press button: single click = +1, hold = accelerating repeat
@@ -407,13 +407,13 @@ function LongPressArrow({ children, onStep, disabled, title }: {
       onMouseLeave={stop}
       style={{
         width: 16, height: 13, background: '#1a1a26', color: '#606075',
-        border: 'none', borderRadius: 3,
+        border: 'none', borderRadius: 'var(--radius-sm)',
         cursor: disabled ? 'default' : 'pointer',
         opacity: disabled ? 0.25 : 1,
         display: 'flex', alignItems: 'center', justifyContent: 'center',
         transition: 'color 0.1s', userSelect: 'none',
       }}
-      onMouseEnter={e => { if (!disabled) e.currentTarget.style.color = '#e8a027' }}
+      onMouseEnter={e => { if (!disabled) e.currentTarget.style.color = 'var(--text-amber)' }}
     >
       {children}
     </button>
@@ -427,13 +427,13 @@ function ArrowBtn({ children, onClick, disabled, title }: {
     <button onClick={onClick} disabled={disabled} title={title}
       style={{
         width: 16, height: 13, background: '#1a1a26', color: '#606075',
-        border: 'none', borderRadius: 3,
+        border: 'none', borderRadius: 'var(--radius-sm)',
         cursor: disabled ? 'default' : 'pointer',
         opacity: disabled ? 0.25 : 1,
         display: 'flex', alignItems: 'center', justifyContent: 'center',
         transition: 'color 0.1s',
       }}
-      onMouseEnter={e => { if (!disabled) e.currentTarget.style.color = '#e8a027' }}
+      onMouseEnter={e => { if (!disabled) e.currentTarget.style.color = 'var(--text-amber)' }}
       onMouseLeave={e => { e.currentTarget.style.color = '#606075' }}
     >
       {children}
@@ -454,13 +454,13 @@ function TBtn({ children, onClick, disabled, accent, active, blink, title, large
         width: sz, height: sz,
         display: 'flex', alignItems: 'center', justifyContent: 'center',
         borderRadius: 6, border: 'none', background: 'transparent',
-        color: isAmber ? '#e8a027' : '#707088',
+        color: isAmber ? 'var(--text-amber)' : 'var(--text-default)',
         opacity: disabled ? 0.2 : 1,
         cursor: disabled ? 'default' : 'pointer',
         transition: blink ? undefined : 'color 0.1s',
       }}
-      onMouseEnter={e => { if (!disabled) e.currentTarget.style.color = '#e8a027' }}
-      onMouseLeave={e => { e.currentTarget.style.color = isAmber ? '#e8a027' : '#707088' }}
+      onMouseEnter={e => { if (!disabled) e.currentTarget.style.color = 'var(--text-amber)' }}
+      onMouseLeave={e => { e.currentTarget.style.color = isAmber ? 'var(--text-amber)' : 'var(--text-default)' }}
     >
       {children}
     </button>

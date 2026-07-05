@@ -4,6 +4,54 @@
 
 ---
 
+### 5. 7. 2026 — CSS Variable Rollout: Stage 1 + Stage 2 (v0.10.1 continued)
+
+Replaced hardcoded hex colors and raw pixel values with design-system CSS variables across four components. Functional colors (piano key lighting, note highlight state, hand boundary visuals) are intentionally left as literals.
+
+**`src/components/Transport/TopBar.tsx`**
+- `C` constant object updated: all four values (`default`, `active`, `muted`, `amber`) now reference `var(--text-*)` tokens instead of old hex values. `C.default` / `C.active` / `C.muted` are semantically brighter as part of the design system upgrade.
+- `paddingRight: 12` → `var(--space-3)` on logo section; `padding: '0 12px'` → `'0 var(--space-3)'` on BPM, KEY, and BAR sections (3 places).
+- Open-file button: `width: 28, height: 28` → `var(--button-height)`; `borderRadius: 5` → `var(--radius-md)`.
+- `VSep` height: `44` → `var(--row-height)`; background `#1e1e28` → `var(--border)`.
+- Three inline column dividers (bar counter, time sig, metronome): `height: 28` → `var(--button-height)`; background `#1e1e28` → `var(--border)`.
+- Bar counter font sizes: `fontSize: 12` → `var(--text-sm)` ×2.
+- Time signature font sizes: `fontSize: 13` → `var(--text-base)` ×2.
+- Filename label: `fontSize: 11` → `var(--text-xs)`.
+- Nudge span: inline `#e8a027` → `C.amber`.
+- `LongPressArrow`, `ArrowBtn`: `borderRadius: 3` → `var(--radius-sm)`; `onMouseEnter` amber → `var(--text-amber)`.
+- `TBtn`: idle/active color `#e8a027`/`#707088` → `var(--text-amber)`/`var(--text-default)` in all three color references.
+
+**`src/components/Keyboard/Keyboard.tsx`** (chord bar chrome only — piano key rendering untouched)
+- Chord bar `borderTop: '#1e1e28'` → `var(--border)`.
+- Center container: `gap: 8` → `var(--space-2)`; `padding: '0 12px'` → `'0 var(--space-3)'`.
+- CHORDS/SCALES labels (×4, replace_all): color `#e8a027` → `var(--text-amber)`.
+- Prompter toggle (simple mode): conditional color `#e8a027`/`#707088` → `var(--text-amber)`/`var(--text-default)`.
+- Prompter toggle (extended mode): `#e8a027` → `var(--text-amber)`.
+- Explorer chord display and sequence chord names (×3): `fontSize: 14` → `var(--text-md)`; color `#e8a027` → `var(--text-amber)`.
+- `‹›` separators (×2): `fontSize: 14` → `var(--text-md)`.
+- Ordinal inv label: `#707088` → `var(--text-default)`.
+- Slash bass note span: `fontSize: 11` → `var(--text-xs)`; `#b0b0cc` → `var(--text-active)`.
+- Hint text (×2, replace_all): `#707088` → `var(--text-default)`.
+- Extended mode status text: `fontSize: 11` → `var(--text-xs)`; `#404055` → `var(--text-muted)`.
+- Past/next chord name spans (×2, replace_all): `fontSize: 11` → `var(--text-xs)`.
+- Right groups: `gap: 8` → `var(--space-2)` ×2.
+
+**`src/components/Keyboard/KeyboardControls.tsx`**
+- Container: `padding: '0 16px'` → `'0 var(--space-4)'`; `gap: 12` → `var(--space-3)`.
+- Key size button group: `gap: 4` → `var(--space-1)`.
+- Key size buttons: `padding: '2px 8px'` → `'2px var(--space-2)'`; `fontSize: 12` → `var(--text-sm)`; active `#e8a027` → `var(--text-amber)`; idle `#404055` → `var(--text-muted)` (including mouseLeave handler).
+- Column divider: `#1e1e28` → `var(--border)`.
+- Dock/float toggle: `fontSize: 11` → `var(--text-xs)`; colors `#404055`/`#e8a027` → `var(--text-muted)`/`var(--text-amber)` (including hover handlers).
+- Practice mode labels: `paddingLeft: 8` → `var(--space-2)` ×2 (replace_all).
+
+**`src/components/Keyboard/FloatingKeyboard.tsx`**
+- All `'#404055'` → `'var(--text-muted)'` (×5, replace_all): title label, pin/close button initial colors, and both mouseLeave handlers.
+- `'#e8a027'` → `'var(--text-amber)'` on pin button mouseEnter.
+- Both button `borderRadius: 3` → `'var(--radius-sm)'` (replace_all).
+- Button container `gap: 4` → `'var(--space-1)'`.
+
+---
+
 ### 5. 7. 2026 — Design System Tokens + Explorer UI Polish (v0.10.1 continued)
 
 **`src/index.css`**

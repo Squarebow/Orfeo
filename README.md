@@ -192,6 +192,13 @@ All user-visible changes listed here. For full technical detail see [CHANGELOG.m
 
 ---
 
+### 5. 7. 2026 (2)
+
+**Improved**
+- **Visual consistency** — text colours throughout the top bar, keyboard chord bar, key size selector, and floating keyboard panel are now brighter and more readable, following the updated colour system introduced earlier in this version. Labels that were very dim are now properly legible while maintaining the dark-background aesthetic.
+
+---
+
 ### 5. 7. 2026 (v0.10.0)
 
 **New**
