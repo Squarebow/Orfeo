@@ -1048,7 +1048,7 @@ export default function SettingsPanel() {
                       <line x1="22" y1="50" x2="78" y2="50" stroke="#e8a027" strokeWidth="7" strokeLinecap="round"/>
                       <line x1="22" y1="62" x2="78" y2="62" stroke="#e8a027" strokeWidth="7" strokeLinecap="round"/>
                     </svg>
-                    <span style={{ color: '#50506a', fontSize: 10, fontFamily: 'JetBrains Mono' }}>Orfeo · v0.9.0</span>
+                    <span style={{ color: '#50506a', fontSize: 10, fontFamily: 'JetBrains Mono' }}>Orfeo · v0.10.0</span>
                   </div>
                   <div style={{ fontSize: 9, color: '#35354a', fontFamily: 'JetBrains Mono', lineHeight: 1.5 }}>
                     MIT License · github.com/SquareBow/orfeo

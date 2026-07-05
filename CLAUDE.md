@@ -45,6 +45,7 @@ The **main window** and the **MIDI Playback Editor** both load the same renderer
 | `src/components/Keyboard/KeyboardControls.tsx` | Footer bar: hand label lines, split-zone fill, key range controls |
 | `src/components/LoopRegionStrip.tsx` | 24px canvas strip for drag-to-select loop bar range; bar-snapping |
 | `src/components/PianoRoll/PianoRoll.tsx` | PixiJS WebGL waterfall |
+| `src/utils/genreVoicing.ts` | Genre voicing maps — `getGenreVoicing(genre, romanLabel, baseKey)` |
 | `src/components/ChordExplorer.tsx` | Chord Explorer modal |
 | `src/components/ScaleExplorer.tsx` | Scale Explorer modal + Circle of Fifths SVG |
 | `electron/preload.ts` | Any new IPC channel must be added here + `main.ts` + `src/types/index.ts` |
@@ -123,6 +124,12 @@ Two `useStore.subscribe` callbacks at the bottom of `store/index.ts` write prefs
 **Hand Labels** — `detectHandBoundaries()` in `handBoundaries.ts` takes track data; tries two-track dominant-register detection first, falls back to single-track split at `splitBreakpointNote`. Result rendered as amber lines in `KeyboardControls.tsx`, not inside `Keyboard.tsx`.
 
 **Zustand + useSyncExternalStore** — never use an object selector (e.g. `useStore(s => ({ a: s.a, b: s.b }))`) as it creates a new object every render and breaks the snapshot invariant, crashing the renderer. Use separate primitive selectors and derive the combined value in the render body.
+
+**Genre Voicing System** — `getGenreVoicing(genre, romanLabel, baseKey)` in `genreVoicing.ts`. `parseRomanLabel` strips b/#/° affixes and classifies Roman numeral quality by case (uppercase=major, lowercase=minor, °=diminished). Classic returns plain 'major'/'minor'/'dim' — it never consults `baseKey`. Other genres look up (degree, quality) in their `DegreeMap` and fall back to `baseKey` when no override exists. All chord type strings are verified against tonal 6.4.3 `ChordType.all()`.
+
+**Chord Explorer progression playback** — `playProgStepAt` is a recursive `useCallback` that chains `setTimeout` calls. Its deps must include `setExplorerChordDisplay` and `rootLabels`, or those values go stale (classic React stale-closure bug). If the chord display above the keyboard stops updating during progression playback, check these deps first.
+
+**Chord Explorer Power tier** — when `tier === 'power'`, a single `isPowerMode` boolean gates the grid render (12 power chord tiles) and applies `opacity: 0.35, pointerEvents: 'none'` to Hand filter, Notes filter, Search, Progressions section, and Play Inversion footer. Entering Power mode also clears `selectedKey`/`explorerKeys`/`explorerChordDisplay` so stale chord highlights don't linger.
 
 ---
 

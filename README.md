@@ -2,7 +2,7 @@
 
 **A modern piano learning and MIDI visualization desktop app for Windows.**
 
-[![Version](https://img.shields.io/badge/Version-0.8.0-blue)](https://github.com/SquareBow/orfeo/releases)
+[![Version](https://img.shields.io/badge/Version-0.10.0-blue)](https://github.com/SquareBow/orfeo/releases)
 [![License](https://img.shields.io/badge/License-MIT-green)](LICENSE)
 [![Platform](https://img.shields.io/badge/Platform-Windows-lightgrey?logo=windows)](https://github.com/SquareBow/orfeo/releases)
 [![Status](https://img.shields.io/badge/Status-Beta-orange)](https://github.com/SquareBow/orfeo)
@@ -45,8 +45,8 @@ Upload any MIDI file, watch notes fall onto a virtual keyboard in real time, fol
 
 ### Chord & Scale Explorers
 
-- 🎵 **Chord Explorer** — browse and audition any chord in any key; filter by hand span, note count, or search; cycle inversions; play progressions
-- 🎵 **Scale Explorer** — interactive Circle of Fifths; select any key to see the scale, its diatonic chords, and play progressions
+- 🎵 **Chord Explorer** — browse and audition any chord in any key; filter by hand span, note count, or search; cycle inversions; play progressions with seven voicing styles (Classic, Coltrane, Cinematic, Roadhouse, Ipanema, Carnival, Velvet); Power tier shows all 12 root power chords
+- 🎵 **Scale Explorer** — interactive Circle of Fifths; select any key to see the scale, its diatonic chords, and play progressions; an 8th tile plays the tonic chord one octave up
 - 🎼 **Real-time chord detection** — chord name displayed as notes play from a MIDI file or keyboard input
 - 🔄 **Chord inversions** — displayed in slash notation (C/E, Dm7/F) everywhere in the app
 
@@ -177,6 +177,19 @@ MIT © [SquareBow](https://github.com/SquareBow)
 ## Changelog
 
 All user-visible changes listed here. For full technical detail see [CHANGELOG.md](CHANGELOG.md).
+
+---
+
+### 5. 7. 2026 (v0.10.0)
+
+**New**
+- **Chord Explorer — Style voicing system** — seven styles (Classic, Coltrane, Cinematic, Roadhouse, Ipanema, Carnival, Velvet) reshape how chord progressions sound without changing the root or key. Classic plays plain diatonic triads; Coltrane adds jazz 9ths and 13ths; Cinematic uses open add9 and sus chords; Roadhouse puts dominant 7ths on all blues chords; Ipanema brings bossa nova 9ths and a Lydian lift on IV; Carnival gives bright samba 7ths; Velvet goes deep with 11ths, 13ths, and an altered dominant on V. The Style row appears below the Progressions selector and is greyed out until a progression is chosen.
+- **Chord Explorer — Power Chord tier** — a new "Power" button in the Filter row (between Common and Extended) replaces the chord grid with 12 tiles, one for each root from C to B. Each tile plays root + perfect fifth (two notes only), lights the keyboard, and shows the name in the chord display above the keyboard (e.g. G5). All other controls are greyed out and non-interactive while Power is active.
+- **Scale Explorer — Octave tile** — an 8th tile at the end of the diatonic chord row plays the tonic chord one octave higher. Labelled with a superscript ⁸. Inversion buttons work on it as on any other tile.
+
+**Improved**
+- **Chord Explorer — Chord display during progressions** — the chord name shown above the keyboard now updates live as each progression step plays, correctly reflecting the sounded chord rather than staying frozen on the first selection.
+- **Chord Explorer — Progressions list reordered** — progressions are now grouped by family: Pop cluster, Rock/Blues cluster, Jazz cluster, then named/exotic progressions, making the dropdown easier to scan.
 
 ---
 

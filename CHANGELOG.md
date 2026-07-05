@@ -4,6 +4,67 @@
 
 ---
 
+### 5. 7. 2026 — Chord Explorer: Power Chord Tier (v0.10.0)
+
+**`src/components/ChordExplorer.tsx`**
+- Tier state type extended: `'common' | 'extended'` → `'common' | 'extended' | 'power'`.
+- New state: `selectedPowerRoot: number | null` — tracks which of the 12 tiles is active.
+- New derived: `isPowerMode = tier === 'power'`.
+- New `playPowerChord(pitchClass)` callback — computes root MIDI at oct 4, builds `[rootMidi, rootMidi+7]` (P5), calls `setExplorerKeys`/`setExplorerChordDisplay`/`__orfeoPlayNote`. Chord display shows e.g. `C5`.
+- Tier toggle now renders `['common', 'power', 'extended']` with Power positioned between the two existing options.
+- When `isPowerMode`:
+  - Results grid switches to 12 power chord tiles in a `repeat(4, 1fr)` layout; each tile shows root name + "5" heading and root+fifth note names; selected tile gets amber border.
+  - Hand filter, Notes filter, and Search button greyed out (`opacity: 0.35, pointerEvents: 'none'`).
+  - Entire Progressions section (both sub-rows, covering Progressions + Play + Inversions + Style) greyed out the same way.
+  - Play Inversion centre div in footer also greyed out.
+- Tier-change effect: on entry to Power mode, additionally clears `selectedKey`, `explorerKeys`, and `explorerChordDisplay` so previously selected chord tiles don't leave stale highlights.
+- Open-modal reset: `setSelectedPowerRoot(null)` added to the chordExplorerOpen reset block.
+
+---
+
+### 5. 7. 2026 — Scale Explorer: Octave-Completion Chord Tile
+
+**`src/components/ScaleExplorer.tsx`**
+- New state: `octaveTileSelected: boolean` — tracks whether the 8th tile is active.
+- New `playOctaveDegree` callback — takes the tonic chord from `diatonicChords[0]`, shifts all MIDI notes `+12`, plays them, lights the keyboard in the same colour scheme as regular degree tiles (root amber, others blue), displays chord name with no suffix change.
+- Info row label shows `{tonic.roman}⁸` (Unicode superscript 8, U+2078).
+- The 8th tile renders after the `diatonicChords.map` block, guarded by `diatonicChords[0]`. Roman numeral shown as `{tonic.roman}⁸`; note names computed at `+12` using existing `getNoteName` calls.
+- `currentBaseMidi` useMemo extended: when `octaveTileSelected && diatonicChords[0]`, returns tonic MIDI notes shifted `+12`. This keeps the inversion buttons enabled and pointing at the correct octave when the 8th tile is active.
+- Selecting any other degree tile sets `octaveTileSelected` to false via each tile's existing `setSelectedDegree` → the 8th tile deselects automatically.
+
+---
+
+### 5. 7. 2026 — Chord Explorer: Genre/Style Voicing System
+
+**`src/utils/genreVoicing.ts`** (new file)
+- `Genre` union type: `'classic' | 'coltrane' | 'cinematic' | 'roadhouse' | 'ipanema' | 'carnival' | 'velvet'`.
+- `GENRE_LABELS` record for display names.
+- `parseRomanLabel(label)` — strips `b`/`#` prefix and `°` suffix; classifies by case: uppercase=major, lowercase=minor, `°`=diminished.
+- `getGenreVoicing(genre, romanLabel, baseKey)` — Classic resolves to plain 'major'/'minor'/'dim' from Roman case (no chord type extension). All other genres look up `(degree, quality)` in their DegreeMap and fall back to `baseKey` when no override exists.
+- Style maps and their design intent:
+  - `COLTRANE_MAP` — maj9/m9/m7b5 on I; dom13 on V; maj7/m7/m7b5 elsewhere.
+  - `CINEMATIC_MAP` — Madd9/madd9 on I; Madd9/m7 on II–IV; 9sus4/m7 on V; Madd9/madd9 on VI. VII/dim fall through to Classic.
+  - `ROADHOUSE_MAP` — dom7 on I/IV/V for all qualities (intentional blues override).
+  - `IPANEMA_MAP` — maj9/m9 on I; m11 on minor II/IV; maj7#11 on major IV (Lydian lift); dom13 on V; VII gets maj7/m7b5.
+  - `CARNIVAL_MAP` — maj7/m7 on I–IV/VI; dom7/m7 on V; maj7/m7b5 on VII.
+  - `VELVET_MAP` — maj13/m13 on I/VI; maj9/m11 on II/III; maj9#11/m11 on IV; 7b9b13/m11 on V (altered dominant); maj7/m9b5 on VII.
+- All chord type strings verified against tonal 6.4.3 `ChordType.all()`.
+
+**`src/components/ChordExplorer.tsx`**
+- Imports `getGenreVoicing`, `GENRE_LABELS`, `Genre` from `genreVoicing.ts`.
+- `progGenre: Genre` state (default `'classic'`).
+- `playProgStepAt` applies `getGenreVoicing(genre, prog.labels[step], chordKey)` to derive `effectiveKey` before looking up the chord info. Falls back to the user's selected chord type when no genre override exists for that degree/quality.
+- `playProgStepAt` also calls `setExplorerChordDisplay` after MIDI notes are determined — previously the chord display above the keyboard stayed frozen on "C" during progression playback. Deps array updated to include `setExplorerChordDisplay` and `rootLabels` to fix the stale closure.
+- Standalone Genre row removed; replaced with two-sub-row Progressions container:
+  - Sub-row 1: three-column layout (Progressions dropdown + Play/Stop + SpeedControl + Inversions).
+  - Sub-row 2: Style buttons, dimmed (`opacity: 0.35, pointerEvents: 'none'`) when no progression is selected.
+- Style tooltips: each button has a `title` attribute describing the voicing character.
+- `PROGRESSIONS` array reordered into four family groups: Pop cluster → Rock/Blues cluster → Jazz cluster → Exotic/named progressions.
+- Rotation deduplication: `buildAllProgressions()` uses a Set of offset-sequence strings to deduplicate cyclic equivalents across different base progressions (e.g. Pop/Rock Inv. is a rotation of Pop — emitted zero extra rotations).
+- Bug fix — Classic style regression: previously `if (genre === 'classic') return baseKey` bypassed `parseRomanLabel` entirely, causing `vi` to play as a major chord. Fixed to return `'minor'`/`'dim'`/`'major'` based on Roman numeral case.
+
+---
+
 ### 4. 7. 2026 — Performance mode: ribbon rest state — full hide + midline + dimmed labels
 
 **`src/components/Keyboard/KeyboardControls.tsx`**

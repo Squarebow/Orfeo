@@ -270,6 +270,10 @@ export default function ScaleExplorer() {
   // ── Info row: currently playing chord context ─────────────────────────────
   const [infoRowChord, setInfoRowChord] = useState<{ progName: string; labels: string[]; notes: string[]; step: number } | null>(null)
 
+  // ── Octave tile selection — separate from selectedDegree (0-6) ────────────
+  // True when the 8th tile (tonic +12) is the active selection.
+  const [octaveTileSelected, setOctaveTileSelected] = useState(false)
+
   // ── Refs ──────────────────────────────────────────────────────────────────
   const prevSizeRef = useRef<61 | 73 | 88 | null>(null)
   const progTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
@@ -339,6 +343,7 @@ export default function ScaleExplorer() {
       setProgInversionMode('off')
       setProgSpeed('med'); speedRef.current = 'med'
       setSelectedDegree(null)
+      setOctaveTileSelected(false)
       setInfoRowChord(null)
       clearExplorerKeys()
       clearExplorerChordDisplay()
@@ -379,6 +384,7 @@ export default function ScaleExplorer() {
     })
     setExplorerKeys(keys, colors)
     setSelectedDegree(null)
+    setOctaveTileSelected(false)
 
     if (playNote) {
       noteMidis.forEach((m, i) => {
@@ -391,6 +397,7 @@ export default function ScaleExplorer() {
 
   // ── Play a diatonic chord tile and light its keys ─────────────────────────
   const playDegree = useCallback((chord: DiatonicChord) => {
+    setOctaveTileSelected(false)
     setSelectedDegree(chord.degree)
     const keys = new Set(chord.midiNotes)
     const colors = new Map<number, string>()
@@ -409,11 +416,39 @@ export default function ScaleExplorer() {
     if (playNote) chord.midiNotes.forEach(m => playNote(m, 0.7, 600))
   }, [setExplorerKeys, displayNaming, accidentals])
 
-  // ── Base MIDI notes for the currently selected degree (inversion source) ───
+  // ── Play the tonic chord one octave higher (8th tile) ────────────────────
+  // Transposes every MIDI note in diatonicChords[0] up by 12. Clears regular
+  // degree selection so only the octave tile appears highlighted.
+  const playOctaveDegree = useCallback(() => {
+    if (!diatonicChords[0]) return
+    const tonic = diatonicChords[0]
+    const octaveMidi = tonic.midiNotes.map(n => n + 12)
+    setSelectedDegree(null)
+    setOctaveTileSelected(true)
+    const keys = new Set(octaveMidi)
+    const colors = new Map<number, string>()
+    octaveMidi.forEach((m, i) => colors.set(m, i === 0 ? '#e8a027' : '#6080d0'))
+    setExplorerKeys(keys, colors)
+    // ── Store chord identity in Zustand so Keyboard.tsx can display it ────
+    setExplorerChordDisplay({ name: tonic.chordName, invCount: 0, noteCount: octaveMidi.length })
+    setInfoRowChord({
+      progName: '',
+      labels: [tonic.roman + '⁸'],
+      notes: octaveMidi.map(m => getNoteName(m, displayNaming, accidentals)),
+      step: 0,
+    })
+    const playNote = (window as any).__orfeoPlayNote
+    if (playNote) octaveMidi.forEach(m => playNote(m, 0.7, 600))
+  }, [diatonicChords, setExplorerKeys, displayNaming, accidentals])
+
+  // ── Base MIDI notes for the currently selected tile (inversion source) ─────
+  // Octave tile takes precedence: returns tonic notes +12 when that tile is
+  // active so the inversion buttons remain enabled and operate at the right pitch.
   const currentBaseMidi = useMemo(() => {
+    if (octaveTileSelected && diatonicChords[0]) return diatonicChords[0].midiNotes.map(n => n + 12)
     if (selectedDegree === null || !diatonicChords[selectedDegree]) return []
     return diatonicChords[selectedDegree].midiNotes
-  }, [selectedDegree, diatonicChords])
+  }, [selectedDegree, octaveTileSelected, diatonicChords])
 
   // ── Rotate the live chord voicing down (prev) or up (next) ──────────────
   // Mirrors ChordExplorer's handleInversion: reads explorerKeys from the store
@@ -810,6 +845,42 @@ export default function ScaleExplorer() {
                 </button>
               )
             })}
+            {/* ── 8th tile: tonic chord one octave higher — completes the run ── */}
+            {diatonicChords[0] && (() => {
+              const tonic = diatonicChords[0]
+              const sel = octaveTileSelected
+              const octaveMidi = tonic.midiNotes.map(n => n + 12)
+              return (
+                <button
+                  onClick={playOctaveDegree}
+                  style={{
+                    flex: 1, background: sel ? '#1e2a3a' : '#1a1a28',
+                    border: `1px solid ${sel ? '#6080d0' : '#2a2a3a'}`,
+                    borderRadius: 6,
+                    paddingTop: 8, paddingBottom: 8, paddingLeft: 6, paddingRight: 6,
+                    cursor: 'pointer', textAlign: 'left',
+                    display: 'flex', flexDirection: 'row',
+                    justifyContent: 'space-between', alignItems: 'center', gap: 4,
+                  }}
+                  onMouseEnter={e => { if (!sel) e.currentTarget.style.borderColor = '#3a3a5a' }}
+                  onMouseLeave={e => { if (!sel) e.currentTarget.style.borderColor = '#2a2a3a' }}
+                >
+                  {/* Left: chord name — same as tonic */}
+                  <span style={{ fontFamily: 'Inter', fontSize: 13, fontWeight: 700, color: '#e0e0e0', lineHeight: 1, flexShrink: 0 }}>
+                    {tonic.chordName}
+                  </span>
+                  {/* Right: octave note names + roman numeral with ⁸ superscript */}
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 1, minWidth: 0, alignItems: 'flex-end' }}>
+                    <span style={{ fontFamily: 'JetBrains Mono', fontSize: 9, color: '#9090a8', lineHeight: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', textAlign: 'right' }}>
+                      {octaveMidi.map(m => getNoteName(m, displayNaming, accidentals)).join(' ')}
+                    </span>
+                    <span style={{ fontFamily: 'Inter', fontSize: 10, color: '#e8a02799', lineHeight: 1, textAlign: 'right' }}>
+                      {tonic.roman}⁸
+                    </span>
+                  </div>
+                </button>
+              )
+            })()}
           </div>
         )}
       </div>
