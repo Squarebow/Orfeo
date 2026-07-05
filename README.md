@@ -180,6 +180,16 @@ All user-visible changes listed here. For full technical detail see [CHANGELOG.m
 
 ---
 
+### 5. 7. 2026 (v0.10.1)
+
+**Improved**
+- **Orfeo logo mark** now appears in the header of Chord Explorer, Scale Explorer, and MIDI Playback Editor modals — consistent branding across all panels.
+- **Empty state screen** is now centred on the true viewport centre regardless of which side drawers are open or closed.
+- **Separator line** between the toolbar and the main area is now fully visible across the entire window width, including the top-right corner under the native Windows buttons.
+- **MIDI icon** in the keyboard connection section is now pixel-aligned with the label next to it.
+
+---
+
 ### 5. 7. 2026 (v0.10.0)
 
 **New**

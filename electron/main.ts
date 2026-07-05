@@ -54,7 +54,7 @@ function createWindow() {
     backgroundColor: '#111116',
     show: false,
     titleBarStyle: 'hidden',
-    titleBarOverlay: { color: '#111116', symbolColor: '#e8a027', height: 100 },
+    titleBarOverlay: { color: '#111116', symbolColor: '#e8a027', height: 40 },
     webPreferences: {
       preload: join(__dirname, '../preload/preload.cjs'),
       contextIsolation: true, nodeIntegration: false, webSecurity: false,

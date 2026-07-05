@@ -4,6 +4,40 @@
 
 ---
 
+### 5. 7. 2026 — UI Polish: Logo Mark, EmptyState, Separator, MidiIcon (v0.10.1)
+
+**`src/components/OrfeoMark.tsx`** (new)
+- Extracted the Orfeo logo mark SVG into a shared reusable component (`height` + `style` props); aspect ratio 133.39/150 maintained via `Math.round(height * 133.39 / 150)`.
+
+**`src/components/EmptyState.tsx`**
+- Replaced inline `OrfeoMark` function definition with import from shared `OrfeoMark.tsx`.
+- Centering rewritten: outer div uses `position: absolute; inset: 0`; content wrapper uses `position: fixed; left: 50%; top: 50%; transform: translate(-50%, -50%)` — pins to true viewport centre regardless of drawer state.
+- Watermark size increased to 320px height; gap between watermark and text block set to 64px.
+
+**`src/components/ChordExplorer.tsx`**
+- Header title area now renders `<OrfeoMark height={14} />` + "Chord Explorer" label in a flex row (gap 7px), replacing the bare span.
+
+**`src/components/ScaleExplorer.tsx`**
+- Same pattern: `<OrfeoMark height={14} />` + "Scale Explorer" label in header flex row.
+
+**`src/components/MidiEditor/MidiEditor.tsx`**
+- Removed hand-drawn circle+lines icon SVG from title bar; replaced with `<OrfeoMark height={18} />`. Existing `gap: 10` on the title bar div provides spacing to the label.
+
+**`src/components/MidiIcon.tsx`**
+- viewBox trimmed from `0 0 1000 455` to `137 0 712 455` (glyph bounds) to eliminate ~13.7% empty whitespace on the left, making the SVG element's left edge flush with the M glyph's visual left edge for correct alignment with labels.
+
+**`src/components/Transport/TopBar.tsx`**
+- MIDI section `alignItems` changed to `flex-start`; padding adjusted to `0 14px`.
+- `borderBottom` removed from TopBar (separator moved to App.tsx sibling div).
+
+**`src/App.tsx`**
+- Added full-width 1px separator div as sibling of `<TopBar />` so it spans all columns (SettingsPanel, content, TrackPanel) reliably.
+
+**`electron/main.ts`**
+- `titleBarOverlay.height` reduced from 100 to 40 — the 100px tray background was painting over the separator line at y=96px (bottom of TopBar) in the top-right corner of the window.
+
+---
+
 ### 5. 7. 2026 — Chord Explorer: Power Chord Tier (v0.10.0)
 
 **`src/components/ChordExplorer.tsx`**

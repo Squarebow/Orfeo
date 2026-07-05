@@ -9,6 +9,7 @@
 
 import { useState, useEffect, useRef } from 'react'
 import { Check, X, Save, FolderOpen, AlertCircle, ChevronDown, ChevronRight, Search, Merge, Split, Undo2, RotateCcw, Piano, Bell, Church, Guitar, Music2, AudioWaveform, Users, Megaphone, Wind, Feather, Cpu, Globe, Drum, Radio, Waves, Sparkles } from 'lucide-react'
+import OrfeoMark from '../OrfeoMark'
 
 // ─── GM data (same as 5e) ─────────────────────────────────────────────────────
 // Lucide icon component map for GM families
@@ -532,12 +533,7 @@ export default function MidiEditor() {
 
       {/* Title bar */}
       <div style={{ height: 48, flexShrink: 0, background: '#111116', borderBottom: '1px solid #1e1e28', display: 'flex', alignItems: 'center', padding: '0 16px 0 16px', gap: 10, WebkitAppRegion: 'drag' as any, paddingRight: 160 }}>
-        <svg width="22" height="22" viewBox="0 0 100 100" fill="none" xmlns="http://www.w3.org/2000/svg">
-          <circle cx="50" cy="50" r="42" stroke="#e8a027" strokeWidth="9" fill="none"/>
-          <line x1="24" y1="37" x2="76" y2="37" stroke="#e8a027" strokeWidth="8" strokeLinecap="round"/>
-          <line x1="24" y1="50" x2="76" y2="50" stroke="#e8a027" strokeWidth="8" strokeLinecap="round"/>
-          <line x1="24" y1="63" x2="76" y2="63" stroke="#e8a027" strokeWidth="8" strokeLinecap="round"/>
-        </svg>
+        <OrfeoMark height={18} />
         <span style={{ color: '#e8a027', fontSize: 12, fontWeight: 600, letterSpacing: '0.05em', WebkitAppRegion: 'no-drag' as any }}>MIDI PLAYBACK EDITOR</span>
         <span style={{ color: '#404055' }}>·</span>
         <span style={{ color: '#707088', fontSize: 11, fontFamily: 'JetBrains Mono', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', }}>{state.fileName}</span>

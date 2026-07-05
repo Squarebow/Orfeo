@@ -6,6 +6,7 @@ import { useStore } from '../store'
 import { getNoteName } from '../utils/noteNames'
 import type { NoteNaming, Accidentals } from '../types'
 import SpeedControl from './SpeedControl'
+import OrfeoMark from './OrfeoMark'
 
 // ── Keyboard range constants ────────────────────────────────────────────────
 const RANGES: Record<number, { min: number; max: number }> = {
@@ -650,9 +651,12 @@ export default function ScaleExplorer() {
         background: '#0f0f18', borderBottom: '1px solid #1e1e2a',
         cursor: 'grab', userSelect: 'none',
       }}>
-        <span style={{ fontFamily: 'Inter', fontSize: 9, fontWeight: 700, color: '#e8a027', letterSpacing: '0.14em', textTransform: 'uppercase' }}>
-          Scale Explorer
-        </span>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 7 }}>
+          <OrfeoMark height={14} />
+          <span style={{ fontFamily: 'Inter', fontSize: 9, fontWeight: 700, color: '#e8a027', letterSpacing: '0.14em', textTransform: 'uppercase' }}>
+            Scale Explorer
+          </span>
+        </div>
         <button
           onMouseDown={e => e.stopPropagation()}
           onClick={() => { stopProgression(); clearExplorerKeys(); clearExplorerChordDisplay(); setScaleExplorerOpen(false) }}

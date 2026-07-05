@@ -9,6 +9,7 @@ import { getGenreVoicing, GENRE_LABELS } from '../utils/genreVoicing'
 import type { Genre } from '../utils/genreVoicing'
 import type { NoteNaming } from '../types'
 import SpeedControl from './SpeedControl'
+import OrfeoMark from './OrfeoMark'
 
 const RANGES: Record<number, { min: number; max: number }> = {
   61: { min: 36, max: 96 },
@@ -663,9 +664,12 @@ export default function ChordExplorer() {
           userSelect: 'none',
         }}
       >
-        <span style={{ fontFamily: 'Inter', fontSize: 9, fontWeight: 700, color: '#e8a027', letterSpacing: '0.12em', textTransform: 'uppercase' }}>
-          Chord Explorer
-        </span>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 7 }}>
+          <OrfeoMark height={14} />
+          <span style={{ fontFamily: 'Inter', fontSize: 9, fontWeight: 700, color: '#e8a027', letterSpacing: '0.12em', textTransform: 'uppercase' }}>
+            Chord Explorer
+          </span>
+        </div>
         <div
           onMouseDown={e => e.stopPropagation()}
           style={{ display: 'flex', alignItems: 'center', gap: 6 }}

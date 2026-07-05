@@ -80,6 +80,9 @@ export default function App() {
   return (
     <div className={appTheme === 'warm' ? 'theme-warm' : ''} style={{ width: '100vw', height: '100vh', background: appTheme === 'warm' ? '#12100e' : '#0f0f12', overflow: 'hidden', display: 'flex', flexDirection: 'column', fontFamily: "'Inter', system-ui, sans-serif" }}>
       <TopBar />
+      {/* ── Full-width separator — sibling to TopBar so it renders below the ─
+          Electron native title-bar chrome and spans all columns reliably ── */}
+      <div style={{ height: 1, background: '#2e2e3c', flexShrink: 0 }} />
       <div style={{ display: 'flex', flex: 1, minHeight: 0, overflow: 'hidden' }}>
         <SettingsPanel />
         <div style={{ display: 'flex', flexDirection: 'column', flex: 1, minWidth: 0, overflow: 'hidden' }}>

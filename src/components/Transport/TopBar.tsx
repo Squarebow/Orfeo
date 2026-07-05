@@ -139,7 +139,7 @@ export default function TopBar() {
       style={{
         height: loopRegionEnabled ? 120 : 96,
         background: '#111116',
-        borderBottom: `1px solid #1e1e28`,
+        borderBottom: 'none',
         display: 'flex',
         alignItems: 'center',
         // 174px right padding clears Win overlay buttons (–□×)
@@ -350,7 +350,7 @@ export default function TopBar() {
         {/* MIDI */}
         <div
           title={midiDeviceConnected ? `MIDI: ${midiDeviceName}` : 'No MIDI keyboard connected'}
-          style={{ flexShrink: 0, display: 'flex', flexDirection: 'column', alignItems: 'center', padding: '0 8px', color: midiDeviceConnected ? C.amber : C.default }}
+          style={{ flexShrink: 0, display: 'flex', flexDirection: 'column', alignItems: 'flex-start', padding: '0 14px', color: midiDeviceConnected ? C.amber : C.default }}
         >
           <MidiIcon size={24} color={midiDeviceConnected ? C.amber : C.default} />
           <span style={{ fontSize: midiDeviceConnected ? 8 : 7, fontFamily: 'JetBrains Mono', letterSpacing: midiDeviceConnected ? '0.08em' : '0.05em', color: midiDeviceConnected ? C.amber : C.default, marginTop: 6, whiteSpace: 'nowrap' }}>
