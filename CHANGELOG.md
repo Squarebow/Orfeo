@@ -4,6 +4,32 @@
 
 ---
 
+### 6. 7. 2026 — Types: electronAPI interface completed
+
+**`src/types/index.ts`**
+- Added 8 missing method signatures to the `electronAPI` interface in `declare global { interface Window }`:
+  - `openMidiEditor(data: any): Promise<void>` — opens the MIDI editor window with source data
+  - `getMidiEditorData(): Promise<any>` — returns `_editorData` set by `editor:open` handler
+  - `closeMidiEditor(): Promise<void>` — destroys the editor BrowserWindow
+  - `saveFileDialog(opts): Promise<string | null>` — `dialog.showSaveDialog` wrapper; opts: `{ defaultPath, filters }`
+  - `saveMidiEditor(payload): Promise<{ ok: boolean; message: string }>` — writes the edited MIDI to disk; payload: `{ outputPath, includedTracks: { index, newProgram }[], mergeGroups: number[][] }`
+  - `onMidiReload(cb): void` — `ipcRenderer.on('midi:reloadFile', ...)` listener; cb receives `MidiFileResult`
+  - `onEditorClosed(cb): void` — `ipcRenderer.on('editor:closed', ...)` listener
+  - `openExternal(url): Promise<void>` — `shell.openExternal` wrapper
+- All 8 methods were present in `electron/preload.ts` and had corresponding handlers in `electron/main.ts`; only the TypeScript declaration was missing.
+- Fixes three reported TS2339 errors (`onMidiReload`, `getMidiEditorData`, `saveMidiEditor`); five additional methods discovered during full audit.
+
+---
+
+### 5. 7. 2026 — Piano Roll: Defensive size-sync fix
+
+**Root cause:** Two perpetual `requestAnimationFrame` loops added in `KeyboardControls` (v0.9.0 performance ribbon) fire `setState` at 60 fps, causing sibling-component re-renders. Under certain timing conditions these re-renders produce transient DOM layout changes that diverge `app.screen.width/height` from `el.clientWidth/height` between `ResizeObserver` callbacks — resulting in the PixiJS renderer drawing to a canvas smaller than its CSS container. Visible symptoms: missing grid on the right portion, playhead not spanning full width, notes fragmenting near the playhead.
+
+**`src/components/PianoRoll/PianoRoll.tsx`**
+- Added defensive size-sync block at the top of `drawFrame`: reads `el.clientWidth/clientHeight` each tick and compares against `app.screen.width/height`. If they diverge and both container dimensions are > 0, calls `app.renderer.resize`, `drawGrid`, and updates the overlay canvas width/height, then returns early so the next frame renders at the correct size. The check costs two property reads + two comparisons per frame when dimensions are already correct (the common case).
+
+---
+
 ### 5. 7. 2026 — Settings: BETA badges on Chord Transcription + Hand Labels (v0.10.1 continued)
 
 **`src/components/SettingsPanel/SettingsPanel.tsx`**

@@ -151,6 +151,23 @@ export default function PianoRoll() {
 
       // ── Main render loop (runs every animation frame) ──────────────────────
       const drawFrame = () => {
+        // ── Defensive size sync — catches ResizeObserver timing gaps caused by ─
+        // 60fps rAF loops in sibling components (e.g. KeyboardControls smoothing
+        // hooks) that can produce transient layout changes between observer fires.
+        const cw = el.clientWidth
+        const ch = el.clientHeight
+        if (cw > 0 && ch > 0 && (app.screen.width !== cw || app.screen.height !== ch)) {
+          app.renderer.resize(cw, ch)
+          const { keyboardSize: ks } = storeRef.current
+          const { min: syncMin, max: syncMax } = RANGES[ks] ?? RANGES[88]
+          drawGrid(cw, ch, syncMin, syncMax)
+          if (overlayCanvasRef.current) {
+            overlayCanvasRef.current.width = cw
+            overlayCanvasRef.current.height = ch
+          }
+          return  // redraw with correct dimensions next frame
+        }
+
         const { midi, currentTime, tracks, detectedKey, zoomLevel, appTheme, keyboardSize, showBarNumbers, barStarts: storeBars } = storeRef.current
         const transpose = (detectedKey as any)?.transpose ?? 0
         const W = app.screen.width

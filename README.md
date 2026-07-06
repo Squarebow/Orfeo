@@ -180,6 +180,13 @@ All user-visible changes listed here. For full technical detail see [CHANGELOG.m
 
 ---
 
+### 6. 7. 2026
+
+**Fixed**
+- **Piano roll visual glitch** — on some systems the note waterfall would render with a gap on the right side, the playhead wouldn't span the full width, or notes near the playhead would fragment. Fixed.
+
+---
+
 ### 5. 7. 2026 (v0.10.1)
 
 **Improved**
