@@ -4,6 +4,25 @@
 
 ---
 
+### 6. 7. 2026 — CSS Variable Rollout: Batch 8 — EmptyState + LockedChordModal
+
+**`src/components/EmptyState.tsx`** — 5 substitutions (font colors + sizes only; layout/positioning/button structure intentionally excluded)
+
+- **Color tokens:** `'#707088'` → `var(--text-dimmest)` (heading "No file open"); `'#404055'` → `var(--text-muted)` (subtitle)
+- **Typography:** `fontSize: 13` → `var(--text-base)`, `fontSize: 12` → `var(--text-sm)` (subtitle), `fontSize: 11` → `var(--text-xs)` (Ctrl+O hint)
+- **Kept as literals (Group C):** `fontSize: 15` (between `--text-base` 13px and `--text-lg` 16px — intentional size); `color: '#0f0f12'` (dark text on amber button — no dark-on-amber token); `color: '#2a2a38'` (ultra-dim hint, darker than all text tokens)
+
+**`src/components/LockedChordModal.tsx`** — ~22 substitutions across layout, colors, event handlers
+
+- **Color tokens (replace_all):** `'#e8a027'` → `var(--text-amber)` (JSX color props); `'#707088'` → `var(--text-dimmest)` (ordinal text, dim icon); `'#505068'` → `var(--text-inactive)` (close/clear buttons, play border)
+- **Surfaces + structure:** `background: '#13131c'` → `var(--bg-modal)`; `border: '1px solid #2a2a3a'` → `var(--state-hover-bg)`; `borderRadius: 8` → `var(--radius-lg)`; `borderBottom: '1px solid #1e1e28'` → `var(--border)`; `border: '1px solid #505068'` → `var(--text-inactive)` (Play button); `borderRadius: 3` → `var(--radius-sm)`
+- **Spacing:** `gap: 8` → `var(--space-2)`; `gap: 4` → `var(--space-1)` (controls row)
+- **Event handler style mutations (replace_all):** `.style.color = '#e8a027'` → `'var(--text-amber)'`; `.style.color = '#707088'` → `'var(--text-dimmest)'`; `.style.color = '#505068'` → `'var(--text-inactive)'`; `.style.borderColor = '#e8a027'` → `'var(--text-amber)'`; `.style.borderColor = '#505068'` → `'var(--text-inactive)'`; targeted no-comma color in inversion ordinal span
+- **Code comment:** `// ── Position state` added before `const [pos, setPos] = useState(...)`
+- **Kept as literals (Group C):** `newColors.set(k, '#e8a027')` (functional keyboard key lighting — excluded per rollout rules); `boxShadow` rgba values (complex amber glow, no token); mixed padding values (10/6/2px — no tokens); font sizes 7/9/10/20; `gap: 5`
+
+---
+
 ### 6. 7. 2026 — CSS Variable Rollout: Batch 7 — VolumeKnob + LoopRegionStrip
 
 **`src/components/VolumeKnob.tsx`** — 2 substitutions
