@@ -89,6 +89,38 @@
 --row-height: 44px;
 --button-height: 28px;
 
+/* Modal-specific surfaces — distinct from general panel layering */
+--bg-modal: #13131c;         /* Modal container background (ChordExplorer, ScaleExplorer, etc) */
+--bg-modal-header: #0d0d12;  /* Header/footer bars within modals */
+--bg-tile: #1a1a26;          /* Interactive tile/pill/dropdown surface — pervasive across explorers */
+
+/* Interaction states — the actual missing category */
+--state-hover-bg: #2a2a3a;      /* Hover background for tiles/pills */
+--state-hover-border: #3a3a4a;  /* Hover border */
+--state-active-bg: #2a2a3a;     /* Active/pressed background */
+--state-selected-bg: #1f1a0e;   /* Amber-tinted selected tile background */
+--state-disabled: #303048;      /* Disabled control color */
+--accent-amber-hover: #ffb84d;  /* Lighter amber for hover states on amber elements */
+
+/* One intermediate text tone — sits between --text-dimmest and background */
+--text-inactive: #505068;   /* Inactive icons/buttons that need some visibility but less than dimmest label */
+
+/* ── Add to :root, alongside existing tokens ───────────────────────────────── */
+
+/* Status banners — three-part pattern (bg/border/text), reusable anywhere a
+   success or error message needs to display */
+--status-success-bg: #0a200a;
+--status-success-border: #2a5a2a;
+--status-success-text: #60c060;
+--status-error-banner-bg: #200a0a;
+--status-error-banner-border: #5a2a2a;
+--status-error-banner-text: #c06060;
+
+/* Amber alpha — standardized opacity tiers */
+--accent-amber-strong: #e8a02755;  /* ~33% — borders, glows, strong emphasis */
+--accent-amber-medium: #e8a02722;  /* ~13% — selected/active tinted backgrounds */
+--accent-amber-subtle: #e8a02708;  /* ~3%  — very light hover/open-state tints */
+
 /* ── Utility classes ── */
 
 /* Standard modal/panel row — use for any horizontal row of controls */

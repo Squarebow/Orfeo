@@ -164,7 +164,7 @@ function InstrumentPicker({ program, isDrum, onChange }: {
   }, [open])
 
   if (isDrum) return (
-    <div style={{ padding: '4px 8px', borderRadius: 4, border: '1px solid #252535', background: '#0d0d16', fontSize: 10, color: '#505068' }}>
+    <div style={{ padding: '4px 8px', borderRadius: 4, border: '1px solid var(--border2)', background: 'var(--bg-modal-header)', fontSize: 10, color: 'var(--text-inactive)' }}>
       🥁 Standard Drums
     </div>
   )
@@ -179,19 +179,19 @@ function InstrumentPicker({ program, isDrum, onChange }: {
     <div ref={ref} style={{ position: 'relative' }}>
       <button onClick={() => setOpen(o => !o)} style={{
         width: '100%', padding: '4px 8px', borderRadius: 4,
-        border: `1px solid ${open ? '#e8a02755' : '#252535'}`,
-        background: open ? '#e8a02708' : '#0d0d16',
+        border: `1px solid ${open ? 'var(--accent-amber-strong)' : 'var(--border2)'}`,
+        background: open ? 'var(--accent-amber-subtle)' : 'var(--bg-modal-header)',
         color: '#9090a8', fontSize: 10,
-        display: 'flex', alignItems: 'center', gap: 4, cursor: 'pointer', textAlign: 'left',
+        display: 'flex', alignItems: 'center', gap: 'var(--space-1)', cursor: 'pointer', textAlign: 'left',
       }}>
         <span style={{ flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{currentName}</span>
-        <ChevronDown size={10} style={{ flexShrink: 0, color: '#505068', transform: open ? 'rotate(180deg)' : 'none', transition: 'transform 0.15s' }} />
+        <ChevronDown size={10} style={{ flexShrink: 0, color: 'var(--text-inactive)', transform: open ? 'rotate(180deg)' : 'none', transition: 'transform 0.15s' }} />
       </button>
 
       {open && (
         <div style={{
           position: 'fixed', zIndex: 9999, width: 220, maxHeight: 320, overflow: 'hidden',
-          background: '#13131e', border: '1px solid #2a2a3a', borderRadius: 6,
+          background: 'var(--bg-modal)', border: '1px solid var(--state-hover-bg)', borderRadius: 6,
           boxShadow: '0 8px 32px rgba(0,0,0,0.6)', display: 'flex', flexDirection: 'column',
         }}
         ref={el => {
@@ -200,9 +200,9 @@ function InstrumentPicker({ program, isDrum, onChange }: {
           el.style.top = (r.bottom + 4) + 'px'
           el.style.left = Math.max(4, r.left - 60) + 'px'
         }}>
-          <div style={{ padding: '6px 8px', borderBottom: '1px solid #1e1e2c', flexShrink: 0 }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 5, background: '#0a0a10', border: '1px solid #252535', borderRadius: 4, padding: '3px 6px' }}>
-              <Search size={10} style={{ color: '#505068', flexShrink: 0 }} />
+          <div style={{ padding: '6px 8px', borderBottom: '1px solid var(--border)', flexShrink: 0 }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 5, background: '#0a0a10', border: '1px solid var(--border2)', borderRadius: 4, padding: '3px 6px' }}>
+              <Search size={10} style={{ color: 'var(--text-inactive)', flexShrink: 0 }} />
               <input autoFocus value={search} onChange={e => setSearch(e.target.value)} placeholder="Search…"
                 style={{ background: 'none', border: 'none', outline: 'none', color: '#9090a8', fontSize: 10, width: '100%', fontFamily: 'Inter, system-ui' }} />
             </div>
@@ -213,15 +213,15 @@ function InstrumentPicker({ program, isDrum, onChange }: {
               return (
                 <div key={family.key}>
                   <div onClick={() => { if (!search) setExpandedFamily(expanded ? null : family.key) }}
-                    style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '5px 10px', background: '#0e0e16', borderBottom: '1px solid #1a1a26', cursor: search ? 'default' : 'pointer', userSelect: 'none' }}>
-                    <span style={{ color: '#707088', display: 'flex', alignItems: 'center' }}>{GM_FAMILY_ICONS[family.key] ?? <Music2 size={12} />}</span>
-                    <span style={{ flex: 1, fontSize: 10, fontWeight: 700, color: '#707088', textTransform: 'uppercase', letterSpacing: '0.08em' }}>{family.label}</span>
-                    {!search && (expanded ? <ChevronDown size={9} style={{ color: '#505068' }} /> : <ChevronRight size={9} style={{ color: '#404055' }} />)}
+                    style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '5px 10px', background: 'var(--bg-row)', borderBottom: '1px solid var(--bg-tile)', cursor: search ? 'default' : 'pointer', userSelect: 'none' }}>
+                    <span style={{ color: 'var(--text-dimmest)', display: 'flex', alignItems: 'center' }}>{GM_FAMILY_ICONS[family.key] ?? <Music2 size={12} />}</span>
+                    <span style={{ flex: 1, fontSize: 10, fontWeight: 700, color: 'var(--text-dimmest)', textTransform: 'uppercase', letterSpacing: '0.08em' }}>{family.label}</span>
+                    {!search && (expanded ? <ChevronDown size={9} style={{ color: 'var(--text-inactive)' }} /> : <ChevronRight size={9} style={{ color: 'var(--text-muted)' }} />)}
                   </div>
                   {expanded && family.programs.map(p => (
                     <div key={p.num} onClick={() => { onChange(p.num); setOpen(false); setSearch('') }}
-                      style={{ padding: '5px 10px 5px 28px', fontSize: 10, color: p.num === program ? '#e8a027' : '#707088', background: p.num === program ? '#e8a02710' : 'transparent', cursor: 'pointer', borderLeft: p.num === program ? '2px solid #e8a027' : '2px solid transparent', transition: 'background 0.1s' }}
-                      onMouseEnter={e => { if (p.num !== program) e.currentTarget.style.background = '#1a1a26' }}
+                      style={{ padding: '5px 10px 5px 28px', fontSize: 10, color: p.num === program ? 'var(--text-amber)' : 'var(--text-dimmest)', background: p.num === program ? 'var(--accent-amber-subtle)' : 'transparent', cursor: 'pointer', borderLeft: p.num === program ? '2px solid var(--text-amber)' : '2px solid transparent', transition: 'background 0.1s' }}
+                      onMouseEnter={e => { if (p.num !== program) e.currentTarget.style.background = 'var(--bg-tile)' }}
                       onMouseLeave={e => { if (p.num !== program) e.currentTarget.style.background = 'transparent' }}>
                       {p.name}
                     </div>
@@ -280,9 +280,9 @@ function TrackRow({ track, onToggleIncluded, onToggleMerge, onChangeProgram, onU
       ) : (
         <button onClick={onToggleMerge} style={{
           width: 24, height: 24, borderRadius: 4,
-          border: `1.5px solid ${track.mergeSelected ? '#e8a02755' : '#252535'}`,
-          background: track.mergeSelected ? '#e8a02714' : 'transparent',
-          color: track.mergeSelected ? '#e8a027' : '#606078',
+          border: `1.5px solid ${track.mergeSelected ? 'var(--accent-amber-strong)' : 'var(--border2)'}`,
+          background: track.mergeSelected ? 'var(--accent-amber-medium)' : 'transparent',
+          color: track.mergeSelected ? 'var(--text-amber)' : '#606078',
           display: 'flex', alignItems: 'center', justifyContent: 'center',
           cursor: 'pointer', flexShrink: 0,
         }}>
@@ -294,11 +294,11 @@ function TrackRow({ track, onToggleIncluded, onToggleMerge, onChangeProgram, onU
 
       <div style={{ minWidth: 0 }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-          <span style={{ fontSize: 12, fontWeight: 500, color: '#9090a8', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+          <span style={{ fontSize: 'var(--text-sm)', fontWeight: 500, color: '#9090a8', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
             {track.name}
           </span>
           {track.isMerged && (
-            <span style={{ fontSize: 9, padding: '1px 5px', borderRadius: 3, background: '#20204a', color: '#8080cc', fontFamily: 'JetBrains Mono', flexShrink: 0 }}>
+            <span style={{ fontSize: 9, padding: '1px 5px', borderRadius: 'var(--radius-sm)', background: '#20204a', color: '#8080cc', fontFamily: 'JetBrains Mono', flexShrink: 0 }}>
               ⊞ merged {track.mergedFromIndices?.length}
             </span>
           )}
@@ -307,36 +307,36 @@ function TrackRow({ track, onToggleIncluded, onToggleMerge, onChangeProgram, onU
               onClick={onSplit}
               title="Split into Left Hand / Right Hand"
               style={{
-                background: 'none', border: '1px solid #252535', borderRadius: 3,
+                background: 'none', border: '1px solid var(--border2)', borderRadius: 'var(--radius-sm)',
                 cursor: 'pointer', color: '#606078', padding: '1px 4px',
                 display: 'flex', alignItems: 'center', flexShrink: 0,
                 transition: 'all 0.12s',
               }}
-              onMouseEnter={e => { e.currentTarget.style.color = '#e8a027'; e.currentTarget.style.borderColor = '#e8a02755' }}
-              onMouseLeave={e => { e.currentTarget.style.color = '#606078'; e.currentTarget.style.borderColor = '#252535' }}
+              onMouseEnter={e => { e.currentTarget.style.color = 'var(--text-amber)'; e.currentTarget.style.borderColor = 'var(--accent-amber-strong)' }}
+              onMouseLeave={e => { e.currentTarget.style.color = '#606078'; e.currentTarget.style.borderColor = 'var(--border2)' }}
             >
               <Split size={10} />
             </button>
           )}
         </div>
-        <div style={{ display: 'flex', gap: 8, marginTop: 2, flexWrap: 'wrap', alignItems: 'center' }}>
+        <div style={{ display: 'flex', gap: 'var(--space-2)', marginTop: 2, flexWrap: 'wrap', alignItems: 'center' }}>
           {track.isMerged ? (
-            <span style={{ fontSize: 9, color: '#404055', fontFamily: 'JetBrains Mono' }}>
+            <span style={{ fontSize: 9, color: 'var(--text-muted)', fontFamily: 'JetBrains Mono' }}>
               {track.mergedFromNames?.join(' + ')}
             </span>
           ) : (
             <>
-              <span style={{ fontSize: 9, color: '#404055', fontFamily: 'JetBrains Mono' }}>ch {track.channel + 1}</span>
-              <span style={{ fontSize: 9, color: '#404055', fontFamily: 'JetBrains Mono' }}>{track.noteCount} notes</span>
+              <span style={{ fontSize: 9, color: 'var(--text-muted)', fontFamily: 'JetBrains Mono' }}>ch {track.channel + 1}</span>
+              <span style={{ fontSize: 9, color: 'var(--text-muted)', fontFamily: 'JetBrains Mono' }}>{track.noteCount} notes</span>
               {!track.isDrum && track.newProgram !== track.program && (
                 <span style={{ display: 'flex', alignItems: 'center', gap: 3 }}>
-                  <span style={{ fontSize: 9, color: '#e8a027', fontFamily: 'JetBrains Mono' }}>✎ reassigned</span>
+                  <span style={{ fontSize: 9, color: 'var(--text-amber)', fontFamily: 'JetBrains Mono' }}>✎ reassigned</span>
                   <button
                     onClick={() => onChangeProgram(track.program)}
                     title={`Reset to original: ${track.gmName}`}
-                    style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#505068', padding: '0 2px', display: 'flex', alignItems: 'center', transition: 'color 0.15s' }}
-                    onMouseEnter={e => e.currentTarget.style.color = '#e8a027'}
-                    onMouseLeave={e => e.currentTarget.style.color = '#505068'}
+                    style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-inactive)', padding: '0 2px', display: 'flex', alignItems: 'center', transition: 'color 0.15s' }}
+                    onMouseEnter={e => e.currentTarget.style.color = 'var(--text-amber)'}
+                    onMouseLeave={e => e.currentTarget.style.color = 'var(--text-inactive)'}
                   >
                     <RotateCcw size={9} />
                   </button>
@@ -352,8 +352,8 @@ function TrackRow({ track, onToggleIncluded, onToggleMerge, onChangeProgram, onU
           title="Not assignable — GM channel 10 is always drums"
           style={{
             padding: '4px 8px', borderRadius: 4,
-            border: '1px solid #252535', background: '#0d0d16',
-            color: '#505068', fontSize: 10, fontFamily: 'Inter',
+            border: '1px solid var(--border2)', background: 'var(--bg-modal-header)',
+            color: 'var(--text-inactive)', fontSize: 10, fontFamily: 'Inter',
             cursor: 'default',
           }}
         >
@@ -407,7 +407,7 @@ export default function MidiEditor() {
   }, [])
 
   if (!state) return (
-    <div style={{ width: '100vw', height: '100vh', background: '#0f0f12', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#404055', fontFamily: 'Inter' }}>Loading…</div>
+    <div style={{ width: '100vw', height: '100vh', background: 'var(--bg-modal-header)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--text-muted)', fontFamily: 'Inter' }}>Loading…</div>
   )
 
   const update = (index: number, patch: Partial<EditorTrack>) =>
@@ -529,20 +529,20 @@ export default function MidiEditor() {
   }
 
   return (
-    <div style={{ width: '100vw', height: '100vh', background: '#0f0f12', color: '#9090a8', fontFamily: 'Inter, system-ui', display: 'flex', flexDirection: 'column', fontSize: 12, userSelect: 'none' }}>
+    <div style={{ width: '100vw', height: '100vh', background: 'var(--bg-modal-header)', color: '#9090a8', fontFamily: 'Inter, system-ui', display: 'flex', flexDirection: 'column', fontSize: 'var(--text-sm)', userSelect: 'none' }}>
 
       {/* Title bar */}
-      <div style={{ height: 48, flexShrink: 0, background: '#111116', borderBottom: '1px solid #1e1e28', display: 'flex', alignItems: 'center', padding: '0 16px 0 16px', gap: 10, WebkitAppRegion: 'drag' as any, paddingRight: 160 }}>
+      <div style={{ height: 48, flexShrink: 0, background: 'var(--bg-modal-header)', borderBottom: '1px solid var(--border)', display: 'flex', alignItems: 'center', padding: '0 var(--space-4)', gap: 10, WebkitAppRegion: 'drag' as any, paddingRight: 160 }}>
         <OrfeoMark height={18} />
-        <span style={{ color: '#e8a027', fontSize: 12, fontWeight: 600, letterSpacing: '0.05em', WebkitAppRegion: 'no-drag' as any }}>MIDI PLAYBACK EDITOR</span>
-        <span style={{ color: '#404055' }}>·</span>
-        <span style={{ color: '#707088', fontSize: 11, fontFamily: 'JetBrains Mono', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', }}>{state.fileName}</span>
+        <span style={{ color: 'var(--text-amber)', fontSize: 'var(--text-sm)', fontWeight: 600, letterSpacing: '0.05em', WebkitAppRegion: 'no-drag' as any }}>MIDI PLAYBACK EDITOR</span>
+        <span style={{ color: 'var(--text-muted)' }}>·</span>
+        <span style={{ color: 'var(--text-dimmest)', fontSize: 'var(--text-xs)', fontFamily: 'JetBrains Mono', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', }}>{state.fileName}</span>
       </div>
 
       {/* Column headers */}
-      <div style={{ display: 'grid', gridTemplateColumns: '70px 56px 8px 1fr 220px', alignItems: 'center', padding: '6px 14px', borderBottom: '1px solid #1a1a26', background: '#0d0d12', flexShrink: 0, gap: 6 }}>
+      <div style={{ display: 'grid', gridTemplateColumns: '70px 56px 8px 1fr 220px', alignItems: 'center', padding: '6px 14px', borderBottom: '1px solid var(--bg-tile)', background: 'var(--bg-modal-header)', flexShrink: 0, gap: 6 }}>
         {['Include', 'Merge', '', 'Track', 'Assign Instrument'].map((h, i) => (
-          <span key={i} style={{ fontSize: 9, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.1em', color: '#404055' }}>{h}</span>
+          <span key={i} style={{ fontSize: 9, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.1em', color: 'var(--text-muted)' }}>{h}</span>
         ))}
       </div>
 
@@ -561,11 +561,11 @@ export default function MidiEditor() {
 
       {/* Merge toolbar */}
       {mergeCount >= 2 && (
-        <div style={{ padding: '8px 14px', background: '#13131e', borderTop: '1px solid #252535', display: 'flex', alignItems: 'center', gap: 10, flexShrink: 0 }}>
-          <Merge size={13} style={{ color: '#e8a027', flexShrink: 0 }} />
+        <div style={{ padding: '8px 14px', background: 'var(--bg-modal)', borderTop: '1px solid var(--border2)', display: 'flex', alignItems: 'center', gap: 10, flexShrink: 0 }}>
+          <Merge size={13} style={{ color: 'var(--text-amber)', flexShrink: 0 }} />
           <div style={{ flex: 1, minWidth: 0 }}>
-            <div style={{ fontSize: 11, color: '#b0b0cc' }}>{mergeCount} tracks selected for merge</div>
-            <div style={{ fontSize: 9, color: '#505068', fontFamily: 'JetBrains Mono', marginTop: 2, lineHeight: 1.4 }}>
+            <div style={{ fontSize: 'var(--text-xs)', color: 'var(--text-dim)' }}>{mergeCount} tracks selected for merge</div>
+            <div style={{ fontSize: 9, color: 'var(--text-inactive)', fontFamily: 'JetBrains Mono', marginTop: 2, lineHeight: 1.4 }}>
               Combines selected tracks into one — all their notes play together on the keyboard.
               Useful when a melody and chords are split across separate tracks.
               To undo: close and reopen the editor (original file is never changed).
@@ -573,8 +573,8 @@ export default function MidiEditor() {
           </div>
           <button onClick={handleMerge} style={{
             padding: '4px 14px', borderRadius: 4, flexShrink: 0,
-            border: '1px solid #e8a02755', background: '#e8a02714',
-            color: '#e8a027', fontSize: 11, cursor: 'pointer', fontWeight: 600,
+            border: '1px solid var(--accent-amber-strong)', background: 'var(--accent-amber-medium)',
+            color: 'var(--text-amber)', fontSize: 'var(--text-xs)', cursor: 'pointer', fontWeight: 600,
           }}>
             Merge ({mergeCount})
           </button>
@@ -582,42 +582,42 @@ export default function MidiEditor() {
       )}
 
       {/* Select all / clear */}
-      <div style={{ padding: '6px 14px', borderTop: '1px solid #1a1a26', background: '#0d0d12', display: 'flex', alignItems: 'center', gap: 8, flexShrink: 0 }}>
-        <span style={{ fontSize: 10, color: '#505068', fontFamily: 'JetBrains Mono' }}>{includedCount}/{state.rows.length} included</span>
+      <div style={{ padding: '6px 14px', borderTop: '1px solid var(--bg-tile)', background: 'var(--bg-modal-header)', display: 'flex', alignItems: 'center', gap: 'var(--space-2)', flexShrink: 0 }}>
+        <span style={{ fontSize: 10, color: 'var(--text-inactive)', fontFamily: 'JetBrains Mono' }}>{includedCount}/{state.rows.length} included</span>
         <div style={{ flex: 1 }} />
         <TBtn onClick={() => setState(s => s && ({ ...s, rows: s.rows.map(t => ({ ...t, included: true })) }))}>Select all</TBtn>
         <TBtn onClick={() => setState(s => s && ({ ...s, rows: s.rows.map(t => ({ ...t, included: false })) }))}>Clear all</TBtn>
       </div>
 
       {/* Save footer */}
-      <div style={{ padding: '10px 14px 12px', borderTop: '1px solid #1e1e28', background: '#111116', flexShrink: 0 }}>
-        <div style={{ fontSize: 10, color: '#505068', marginBottom: 6, textTransform: 'uppercase', letterSpacing: '0.08em' }}>Save as</div>
+      <div style={{ padding: '10px 14px 12px', borderTop: '1px solid var(--border)', background: 'var(--bg-modal-header)', flexShrink: 0 }}>
+        <div style={{ fontSize: 10, color: 'var(--text-inactive)', marginBottom: 6, textTransform: 'uppercase', letterSpacing: '0.08em' }}>Save as</div>
         <div style={{ display: 'flex', gap: 6, marginBottom: 8 }}>
-          <div style={{ flex: 1, padding: '5px 8px', background: '#0a0a10', border: '1px solid #252535', borderRadius: 4, fontSize: 10, fontFamily: 'JetBrains Mono', color: '#9090a8', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={state.outputPath}>{baseName(state.outputPath)}</div>
+          <div style={{ flex: 1, padding: '5px 8px', background: '#0a0a10', border: '1px solid var(--border2)', borderRadius: 4, fontSize: 10, fontFamily: 'JetBrains Mono', color: '#9090a8', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={state.outputPath}>{baseName(state.outputPath)}</div>
           <button onClick={async () => {
             const p = await window.electronAPI.saveFileDialog({ defaultPath: state.outputPath, filters: [{ name: 'MIDI Files', extensions: ['mid'] }] })
             if (p) setState(s => s && ({ ...s, outputPath: p }))
-          }} style={{ padding: '5px 10px', borderRadius: 4, background: '#1a1a24', border: '1px solid #252535', color: '#707088', fontSize: 10, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 4 }}>
+          }} style={{ padding: '5px 10px', borderRadius: 4, background: 'var(--bg-tile)', border: '1px solid var(--border2)', color: 'var(--text-dimmest)', fontSize: 10, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 'var(--space-1)' }}>
             <FolderOpen size={11} /> Browse
           </button>
         </div>
-        <div style={{ display: 'flex', alignItems: 'flex-start', gap: 5, padding: '5px 8px', background: '#0d0d16', borderRadius: 4, border: '1px solid #1e1e2c', marginBottom: 8 }}>
-          <AlertCircle size={10} style={{ color: '#505068', flexShrink: 0, marginTop: 1 }} />
-          <span style={{ fontSize: 9, color: '#505068', fontFamily: 'JetBrains Mono', lineHeight: 1.5 }}>Original file is never modified. Saved as _ORFEO copy, auto-loads on save.</span>
+        <div style={{ display: 'flex', alignItems: 'flex-start', gap: 5, padding: '5px 8px', background: 'var(--bg-modal-header)', borderRadius: 4, border: '1px solid var(--border)', marginBottom: 8 }}>
+          <AlertCircle size={10} style={{ color: 'var(--text-inactive)', flexShrink: 0, marginTop: 1 }} />
+          <span style={{ fontSize: 9, color: 'var(--text-inactive)', fontFamily: 'JetBrains Mono', lineHeight: 1.5 }}>Original file is never modified. Saved as _ORFEO copy, auto-loads on save.</span>
         </div>
         {splitResult && (
-          <div style={{ padding: '5px 8px', borderRadius: 4, marginBottom: 8, background: splitResult.ok ? '#0a200a' : '#200a0a', border: `1px solid ${splitResult.ok ? '#2a5a2a' : '#5a2a2a'}`, fontSize: 10, color: splitResult.ok ? '#60c060' : '#c06060', fontFamily: 'JetBrains Mono' }}>
+          <div style={{ padding: '5px 8px', borderRadius: 4, marginBottom: 8, background: splitResult.ok ? 'var(--status-success-bg)' : 'var(--status-error-banner-bg)', border: `1px solid ${splitResult.ok ? 'var(--status-success-border)' : 'var(--status-error-banner-border)'}`, fontSize: 10, color: splitResult.ok ? 'var(--status-success-text)' : 'var(--status-error-banner-text)', fontFamily: 'JetBrains Mono' }}>
             {splitResult.ok ? '✓ ' : '✗ '}{splitResult.msg}
           </div>
         )}
         {saveResult && (
-          <div style={{ padding: '5px 8px', borderRadius: 4, marginBottom: 8, background: saveResult.ok ? '#0a200a' : '#200a0a', border: `1px solid ${saveResult.ok ? '#2a5a2a' : '#5a2a2a'}`, fontSize: 10, color: saveResult.ok ? '#60c060' : '#c06060', fontFamily: 'JetBrains Mono' }}>
+          <div style={{ padding: '5px 8px', borderRadius: 4, marginBottom: 8, background: saveResult.ok ? 'var(--status-success-bg)' : 'var(--status-error-banner-bg)', border: `1px solid ${saveResult.ok ? 'var(--status-success-border)' : 'var(--status-error-banner-border)'}`, fontSize: 10, color: saveResult.ok ? 'var(--status-success-text)' : 'var(--status-error-banner-text)', fontFamily: 'JetBrains Mono' }}>
             {saveResult.ok ? '✓ ' : '✗ '}{saveResult.msg}
           </div>
         )}
-        <div style={{ display: 'flex', gap: 8 }}>
-          <button onClick={() => window.electronAPI.closeMidiEditor?.()} style={{ flex: 1, padding: '7px 0', borderRadius: 5, background: 'transparent', border: '1px solid #252535', color: '#606078', fontSize: 12, cursor: 'pointer' }}>Cancel</button>
-          <button onClick={handleSave} disabled={saving} style={{ flex: 1, padding: '7px 0', borderRadius: 5, background: saving ? '#1a1a24' : '#e8a027', border: 'none', color: saving ? '#505068' : '#0a0a0a', fontSize: 12, fontWeight: 600, cursor: saving ? 'wait' : 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6 }}>
+        <div style={{ display: 'flex', gap: 'var(--space-2)' }}>
+          <button onClick={() => window.electronAPI.closeMidiEditor?.()} style={{ flex: 1, padding: '7px 0', borderRadius: 'var(--radius-md)', background: 'transparent', border: '1px solid var(--border2)', color: '#606078', fontSize: 'var(--text-sm)', cursor: 'pointer' }}>Cancel</button>
+          <button onClick={handleSave} disabled={saving} style={{ flex: 1, padding: '7px 0', borderRadius: 'var(--radius-md)', background: saving ? 'var(--bg-tile)' : 'var(--text-amber)', border: 'none', color: saving ? 'var(--text-inactive)' : '#0a0a0a', fontSize: 'var(--text-sm)', fontWeight: 600, cursor: saving ? 'wait' : 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6 }}>
             <Save size={13} /> {saving ? 'Saving…' : 'Save & Reload'}
           </button>
         </div>
@@ -628,9 +628,9 @@ export default function MidiEditor() {
 
 function TBtn({ onClick, children }: { onClick: () => void; children: React.ReactNode }) {
   return (
-    <button onClick={onClick} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#505068', fontSize: 10, padding: '2px 6px', borderRadius: 3 }}
+    <button onClick={onClick} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-inactive)', fontSize: 10, padding: '2px 6px', borderRadius: 'var(--radius-sm)' }}
       onMouseEnter={e => e.currentTarget.style.color = '#9090a8'}
-      onMouseLeave={e => e.currentTarget.style.color = '#505068'}>
+      onMouseLeave={e => e.currentTarget.style.color = 'var(--text-inactive)'}>
       {children}
     </button>
   )

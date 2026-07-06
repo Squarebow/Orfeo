@@ -4,6 +4,30 @@
 
 ---
 
+### 6. 7. 2026 — CSS Variable Rollout: Batch 5 — MidiEditor + new token groups
+
+**`src/index.css`** — 3 new token groups added to `:root`
+- **Modal surfaces:** `--bg-modal`, `--bg-modal-header`, `--bg-tile`
+- **Interaction states:** `--state-hover-bg`, `--state-hover-border`, `--state-active-bg`, `--state-selected-bg`, `--state-disabled`, `--accent-amber-hover`, `--text-inactive`
+- **Amber alpha tiers:** `--accent-amber-strong` (#e8a02755), `--accent-amber-medium` (#e8a02722), `--accent-amber-subtle` (#e8a02708)
+- **Status banners:** `--status-success-bg/border/text`, `--status-error-banner-bg/border/text` (6 vars)
+
+**`src/components/MidiEditor/MidiEditor.tsx`** — ~80 substitutions across InstrumentPicker, TrackRow, and main render
+
+- **Text/color (replace_all):** `'#e8a027'` → `var(--text-amber)`, `'#505068'` → `var(--text-inactive)`, `'#404055'` → `var(--text-muted)`, `'#707088'` → `var(--text-dimmest)`, `'#b0b0cc'` → `var(--text-dim)`
+- **Borders (embedded string replace):** `'1px solid #252535'` → `var(--border2)`, `'1px solid #1e1e28/1e1e2c'` → `var(--border)`, `'1px solid #1a1a26'` → `var(--bg-tile)`, `'1px solid #2a2a3a'` → `var(--state-hover-bg)`, `'1px solid #e8a02755'` → `var(--accent-amber-strong)`, `'2px solid #e8a027'` → `var(--text-amber)`
+- **Amber alpha (standalone):** `'#e8a02755'` → `var(--accent-amber-strong)`, `'#e8a02714'` → `var(--accent-amber-medium)`, `'#e8a02710/08'` → `var(--accent-amber-subtle)`
+- **Backgrounds:** `'#0f0f12'/'#111116'/'#0d0d12'/'#0d0d16'` → `var(--bg-modal-header)`, `'#13131e'` → `var(--bg-modal)`, `'#0e0e16'` → `var(--bg-row)`, `'#1a1a24'/'#1a1a26'` → `var(--bg-tile)`
+- **Status banners:** all 6 banner bg/border/text values replaced with new tokens
+- **Typography:** `fontSize: 11/12` → `var(--text-xs/sm)`
+- **Border radius:** `borderRadius: 3/5` → `var(--radius-sm/md)`
+- **Spacing:** `gap: 4/8` → `var(--space-1/2)`, title bar `padding: '0 16px 0 16px'` → `'0 var(--space-4)'`
+- **Group B near-match alignments applied:** `#0f0f12` → bg-modal-header, `#111116` → bg-modal-header, `#13131e` → bg-modal, `#0d0d16` → bg-modal-header, `#1a1a24` → bg-tile, `#252535` → border2, `#1e1e2c` → border
+
+**Kept as literals (Group C):** `#9090a8` (cool-blue grey, between tokens); `#606078` (between text-inactive and text-dimmest); `#0a0a0a` (near-black on amber save button); `#0a0a10` (very dark search/output bg); `#181822` (track row border — intentionally darker than `--border`); `#3a7a3a`/`#0d200d`/`#50c050`/`#353540` (include checkbox green/grey states); `#4040a0`/`#10102a`/`#8080cc`/`#20204a` (unmerge button + merged badge, custom blue-purple); `#101020`/`#1a1a08` (merged row bg variants); `#606078` (cancel text, split btn color); font sizes 9/10 (below token minimum); `borderRadius: 4/6/2` (between token values); padding/gap values with no token equivalents
+
+---
+
 ### 6. 7. 2026 — CSS Variable Rollout: Batch 4 — ScaleExplorer
 
 **`src/components/ScaleExplorer.tsx`** — ~55 substitutions
