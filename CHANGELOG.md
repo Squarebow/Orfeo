@@ -4,6 +4,40 @@
 
 ---
 
+### 6. 7. 2026 — CSS Variable Rollout: Batch 3 — ChordExplorer + SpeedControl
+
+**`src/components/ChordExplorer.tsx`**
+- `ROW_LABEL.color`: `#707088` → `var(--text-dimmest)` — consistent with TopBar batch; comment updated to `// ──` style
+- `ROW.borderBottom`: `#1e1e2a` → `var(--border)` — same semantic token applied to all 4 section borders (`borderBottom` on ROW, header bottom, progressions outer div, footer `borderTop`; `borderTop` on genre sub-row)
+- `btnBase`: `borderRadius: 3` → `var(--radius-sm)` + `color: active ? '#e8a027'` → `var(--text-amber)`; added `// ──` comment
+- All `minHeight: 44` (4 occurrences across root row, filter row, sub-row 1, footer) → `var(--row-height)`
+- Header `padding: '0 12px'` → `'0 var(--space-3)'`; footer same
+- "Chord Explorer" title `color: '#e8a027'` → `var(--text-amber)`
+- Search scope active pill text `'#e8a027'` → `var(--text-amber)`; button `borderRadius: 3` → `var(--radius-sm)`
+- Search input: `color: '#b0b0cc'` → `var(--text-dim)`, `caretColor: '#e8a027'` → `var(--text-amber)`
+- Search icon: `'#707088'` → `var(--text-dimmest)`, `'#e8a027'` hover → `var(--text-amber)` (both enter/leave)
+- Close button (×): `fontSize: 16` → `var(--text-lg)`, amber hover → `var(--text-amber)`
+- Root row: `gap: 4` → `var(--space-1)`; root btn selected `background: '#e8a027'` → `var(--text-amber)`, text `'#12121c'` → `var(--bg)`, `fontSize: 11` → `var(--text-xs)`
+- Filter row: `gap: 8` → `var(--space-2)`; tier container `borderRadius: 5` → `var(--radius-md)`
+- Results grid: `padding: '8px 12px'` → `'var(--space-2) var(--space-3)'`
+- Progressions dropdown trigger + clear-prog button: amber hovers → `var(--text-amber)`
+- Inversion mode buttons (CircleOff/ListOrdered/Shuffle): active/hover `'#e8a027'` → `var(--text-amber)` (6 occurrences)
+- Chord and power chord tiles: `border` template literal amber → `var(--text-amber)` (replace_all, 2 tiles); chord name `fontSize: 12` → `var(--text-sm)`, selected color `'#e8a027'` → `var(--text-amber)`, unselected `'#b0b0cc'` → `var(--text-dim)` (both tile types)
+- Chord tile roman numeral label: `color: '#e8a027'` → `var(--text-amber)`
+- Footer "Show as" label: `'#707088'` → `var(--text-dimmest)`
+- Accidentals button: selected `'#e8a027'` → `var(--text-amber)`, `fontSize: 16` → `var(--text-lg)`
+- Inversion prev/next buttons: active `'#e8a027'` → `var(--text-amber)` (4 occurrences across both buttons)
+- Clear selection button: hover `'#e8a027'` → `var(--text-amber)`
+- Scale Explorer → button: hover `'#e8a027'` → `var(--text-amber)`
+- Progression dropdown: `baseColor` selected branch `'#e8a027'` → `var(--text-amber)`; mouseEnter `'#e8a027'` → `var(--text-amber)`
+
+**Kept as literals (no matching token):** `#13131c` (modal bg), `#0d0d12` (header/footer deep bg), `#1a1a26` (pill/tile/dropdown surface), `#2a2a3a` (active pill bg, borders), `#505068` (inactive icons), `#404055` (sub-labels), `#9090a8` / `#c0c0d4` / `#8080a0` / `#3a3a4a` / `#303048` / `#ffb84d` / `#606078` / `#1f1a0e` (no token equivalents). Font sizes 8/9/10 and border-radius 4/6/10 also left as literals (below or between token values). `AMBER`/`DIM` JS constants in SpeedControl left as hex — SVG `fill`/`stroke`/`floodColor` attributes, not CSS properties.
+
+**`src/components/SpeedControl.tsx`**
+- "Speed" label `color: '#707088'` → `var(--text-dimmest)`
+
+---
+
 ### 6. 7. 2026 — Types: electronAPI interface completed
 
 **`src/types/index.ts`**

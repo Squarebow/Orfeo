@@ -28,7 +28,7 @@ export default function SpeedControl({ value, onChange }: SpeedControlProps) {
     // ── alignItems:'flex-end' right-aligns the Speed label above the fast (rightmost) node
     <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 2 }}>
       <span style={{
-        fontFamily: 'Inter', fontSize: 8, color: '#707088',
+        fontFamily: 'Inter', fontSize: 8, color: 'var(--text-dimmest)',
         letterSpacing: '0.08em', textTransform: 'uppercase', userSelect: 'none',
       }}>Speed</span>
       {/* ── SVG track + nodes ────────────────────────────────────────────── */}
