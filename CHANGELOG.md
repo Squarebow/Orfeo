@@ -4,6 +4,27 @@
 
 ---
 
+### 6. 7. 2026 — CSS Variable Rollout: Batch 4 — ScaleExplorer
+
+**`src/components/ScaleExplorer.tsx`** — ~55 substitutions
+
+- **Global replace_alls (9 passes):** `'#505068'` → `var(--text-inactive)`, `'#707088'` → `var(--text-dimmest)`, `'#303048'` → `var(--state-disabled)`, `'#ffb84d'` → `var(--accent-amber-hover)`, `'#b0b0cc'` → `var(--text-dim)`, `'#0d0d12'` → `var(--bg-modal-header)`, `padding: '0 12px'` → `'0 var(--space-3)'`, `'1px solid #1e1e2a'` → `'1px solid var(--border)'`, `.style.color = '#e8a027'` → `var(--text-amber)`
+- **Modal container** (prior session): `background: var(--bg-modal)`, `border: 1px solid var(--state-hover-bg)`
+- **Header:** `background: '#0f0f18'` → `var(--bg-modal-header)`, title `color: '#e8a027'` → `var(--text-amber)`
+- **CoF section:** `background: '#0f0f18'` → `var(--bg-modal-header)`, `gap: 8` → `var(--space-2)`
+- **Scale type buttons:** selected `color` and border template `'#e8a027'` → `var(--text-amber)`
+- **CoF info overlay:** root name `color: '#e8a027'` → `var(--text-amber)`
+- **Chord tile area:** outer `padding: '4px 12px'` → `var(--space-1) var(--space-3)`, empty-state `'#404055'` → `var(--text-muted)`, container `gap: 4` → `var(--space-1)`
+- **Chord tiles (regular + octave, both):** tile bg `'#1a1a28'` → `var(--bg-tile)`, border template `'#2a2a3a'` → `var(--state-hover-bg)`, `paddingTop/Bottom: 8` → `var(--space-2)`, tile gap `4` → `var(--space-1)`, leave borderColor `'#2a2a3a'` → `var(--state-hover-bg)`, chord name `fontSize: 13` → `var(--text-base)` (replace_all hits both tiles)
+- **Info row:** active step `'#e8a027'` → `var(--text-amber)`, note names `fontSize: 16` → `var(--text-lg)`, key name `color: '#e8a027'` + `fontSize: 12` → `var(--text-sm)`, left/right group `gap: 4` → `var(--space-1)`
+- **Progressions row:** prog trigger bg `'#1a1a28'` → `var(--bg-tile)`, border `'#2a2a3a'` → `var(--state-hover-bg)`, selected color `'#e8a027'` → `var(--text-amber)`; all 3 inversion mode buttons (off/sequential/random): active color + leave ternary `'#e8a027'` → `var(--text-amber)`
+- **Footer:** accidentals `fontSize: 16` → `var(--text-lg)`, selected color `'#e8a027'` → `var(--text-amber)`, `gap: 4` → `var(--space-1)`; inversion prev/next initial + leave `'#e8a027'` → `var(--text-amber)` (both buttons, replace_all)
+- **Dropdown:** bg `'#1a1a26'` → `var(--bg-tile)`, border `'#2a2a3a'` → `var(--state-hover-bg)`, selected/hover bg `'#2a2a3a'` → `var(--state-hover-bg)`, color `'#e8a027'` → `var(--text-amber)` (enter + leave ternary)
+
+**Kept as literals:** SVG `fill` attributes (CoF wedge colours, ring labels, key-sig symbols, centre labels); `colors.set(m, '#e8a027')` key-lighting calls (×6, functional state not UI chrome); semi-transparent variants `#e8a02722`/`#e8a02799` (alpha channel, no CSS var equivalent); selected tile bg `#1e2a3a` + note accent `#6080d0` (musical selection colours, no token); hover border `#3a3a5a` (blue-shifted variant, no exact token); `#9090a8` / `#c0c0d8` (no token); SVG `setAttribute('fill', ...)` calls for CoF ring hover (presentation attributes can't use CSS variables).
+
+---
+
 ### 6. 7. 2026 — CSS Variable Rollout: Batch 3 — ChordExplorer + SpeedControl
 
 **`src/components/ChordExplorer.tsx`**
