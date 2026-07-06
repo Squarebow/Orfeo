@@ -50,6 +50,7 @@ interface DragState {
   startedDragging: boolean
 }
 
+// ── LoopRegionStrip — canvas timeline for drag-to-select loop sections ───────
 export default function LoopRegionStrip() {
   const canvasRef    = useRef<HTMLCanvasElement>(null)
   const storeRef     = useRef(useStore.getState())
@@ -404,11 +405,11 @@ export default function LoopRegionStrip() {
               display: 'flex', alignItems: 'center', justifyContent: 'center',
               width: 20, height: STRIP_H,
               background: 'transparent', border: 'none', cursor: 'pointer', padding: 0,
-              color: hasSelection || popupOpen ? '#e8a027' : '#505068',
+              color: hasSelection || popupOpen ? 'var(--text-amber)' : 'var(--text-inactive)',
               transition: 'color 0.12s',
             }}
             onMouseEnter={e => { if (!hasSelection && !popupOpen) e.currentTarget.style.color = '#9090a8' }}
-            onMouseLeave={e => { if (!hasSelection && !popupOpen) e.currentTarget.style.color = '#505068' }}
+            onMouseLeave={e => { if (!hasSelection && !popupOpen) e.currentTarget.style.color = 'var(--text-inactive)' }}
           >
             {/* ArrowUp01 icon — ascending numeric sort */}
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -423,7 +424,7 @@ export default function LoopRegionStrip() {
           {/* Bars range label — visible only when selection exists, always amber */}
           {loopBarRange && (
             <span style={{
-              color: '#e8a027',
+              color: 'var(--text-amber)',
               fontFamily: '"JetBrains Mono", monospace',
               fontSize: 10,
               whiteSpace: 'nowrap',
@@ -441,7 +442,7 @@ export default function LoopRegionStrip() {
               position: 'absolute',
               top: STRIP_H + 4,
               right: 0,
-              background: '#1a1a24',
+              background: 'var(--bg-tile)',
               border: '1px solid #2e2e42',
               borderRadius: 6,
               padding: '10px 12px',
@@ -467,7 +468,7 @@ export default function LoopRegionStrip() {
 
             {/* From row */}
             <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-              <span style={{ fontSize: 10, color: '#707088', fontFamily: 'Inter, sans-serif', minWidth: 28 }}>From</span>
+              <span style={{ fontSize: 10, color: 'var(--text-dimmest)', fontFamily: 'Inter, sans-serif', minWidth: 28 }}>From</span>
               <input
                 type="text"
                 inputMode="numeric"
@@ -480,9 +481,9 @@ export default function LoopRegionStrip() {
                   if (toBar < v) setToBar(v)
                 }}
                 style={{
-                  width: 48, background: '#0e0e18', border: '1px solid #2e2e42',
-                  borderRadius: 4, color: '#b0b0cc', fontFamily: '"JetBrains Mono", monospace',
-                  fontSize: 12, padding: '3px 6px', outline: 'none', textAlign: 'center',
+                  width: 48, background: 'var(--bg-row)', border: '1px solid #2e2e42',
+                  borderRadius: 4, color: 'var(--text-dim)', fontFamily: '"JetBrains Mono", monospace',
+                  fontSize: 'var(--text-sm)', padding: '3px 6px', outline: 'none', textAlign: 'center',
                   flexShrink: 0,
                 }}
               />
@@ -490,13 +491,13 @@ export default function LoopRegionStrip() {
               <div style={{ display: 'flex', flexDirection: 'column', gap: 0 }}>
                 <button
                   onClick={() => { setFromBar(v => { const n = Math.min(totalBars, v + 1); if (toBar < n) setToBar(n); return n }) }}
-                  style={{ background: 'none', border: 'none', color: '#e8a027', cursor: 'pointer', padding: '1px 2px', lineHeight: 0, display: 'flex' }}
+                  style={{ background: 'none', border: 'none', color: 'var(--text-amber)', cursor: 'pointer', padding: '1px 2px', lineHeight: 0, display: 'flex' }}
                 >
                   <ChevronUp size={11} strokeWidth={2.5} />
                 </button>
                 <button
                   onClick={() => setFromBar(v => Math.max(1, v - 1))}
-                  style={{ background: 'none', border: 'none', color: '#e8a027', cursor: 'pointer', padding: '1px 2px', lineHeight: 0, display: 'flex' }}
+                  style={{ background: 'none', border: 'none', color: 'var(--text-amber)', cursor: 'pointer', padding: '1px 2px', lineHeight: 0, display: 'flex' }}
                 >
                   <ChevronDown size={11} strokeWidth={2.5} />
                 </button>
@@ -505,7 +506,7 @@ export default function LoopRegionStrip() {
 
             {/* To row */}
             <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-              <span style={{ fontSize: 10, color: '#707088', fontFamily: 'Inter, sans-serif', minWidth: 28 }}>To</span>
+              <span style={{ fontSize: 10, color: 'var(--text-dimmest)', fontFamily: 'Inter, sans-serif', minWidth: 28 }}>To</span>
               <input
                 type="text"
                 inputMode="numeric"
@@ -517,9 +518,9 @@ export default function LoopRegionStrip() {
                   setToBar(v)
                 }}
                 style={{
-                  width: 48, background: '#0e0e18', border: '1px solid #2e2e42',
-                  borderRadius: 4, color: '#b0b0cc', fontFamily: '"JetBrains Mono", monospace',
-                  fontSize: 12, padding: '3px 6px', outline: 'none', textAlign: 'center',
+                  width: 48, background: 'var(--bg-row)', border: '1px solid #2e2e42',
+                  borderRadius: 4, color: 'var(--text-dim)', fontFamily: '"JetBrains Mono", monospace',
+                  fontSize: 'var(--text-sm)', padding: '3px 6px', outline: 'none', textAlign: 'center',
                   flexShrink: 0,
                 }}
               />
@@ -527,13 +528,13 @@ export default function LoopRegionStrip() {
               <div style={{ display: 'flex', flexDirection: 'column', gap: 0 }}>
                 <button
                   onClick={() => setToBar(v => Math.min(totalBars, v + 1))}
-                  style={{ background: 'none', border: 'none', color: '#e8a027', cursor: 'pointer', padding: '1px 2px', lineHeight: 0, display: 'flex' }}
+                  style={{ background: 'none', border: 'none', color: 'var(--text-amber)', cursor: 'pointer', padding: '1px 2px', lineHeight: 0, display: 'flex' }}
                 >
                   <ChevronUp size={11} strokeWidth={2.5} />
                 </button>
                 <button
                   onClick={() => setToBar(v => Math.max(fromBar, v - 1))}
-                  style={{ background: 'none', border: 'none', color: '#e8a027', cursor: 'pointer', padding: '1px 2px', lineHeight: 0, display: 'flex' }}
+                  style={{ background: 'none', border: 'none', color: 'var(--text-amber)', cursor: 'pointer', padding: '1px 2px', lineHeight: 0, display: 'flex' }}
                 >
                   <ChevronDown size={11} strokeWidth={2.5} />
                 </button>
@@ -544,9 +545,9 @@ export default function LoopRegionStrip() {
             <button
               onClick={applyBarRange}
               style={{
-                background: '#e8a02718', border: '1px solid #e8a02750',
-                borderRadius: 4, color: '#e8a027', fontFamily: '"JetBrains Mono", monospace',
-                fontSize: 11, padding: '4px 0', cursor: 'pointer',
+                background: '#e8a02718', border: '1px solid var(--accent-amber-strong)',
+                borderRadius: 4, color: 'var(--text-amber)', fontFamily: '"JetBrains Mono", monospace',
+                fontSize: 'var(--text-xs)', padding: '4px 0', cursor: 'pointer',
                 transition: 'background 0.12s',
               }}
               onMouseEnter={e => e.currentTarget.style.background = '#e8a02732'}

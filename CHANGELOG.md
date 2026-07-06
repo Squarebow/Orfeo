@@ -4,6 +4,26 @@
 
 ---
 
+### 6. 7. 2026 — CSS Variable Rollout: Batch 7 — VolumeKnob + LoopRegionStrip
+
+**`src/components/VolumeKnob.tsx`** — 2 substitutions
+
+- `LABEL_COL = '#707088'` → `'var(--text-dimmest)'` (module-level constant; inline `color: LABEL_COL` auto-updated via constant)
+- `padding: '0 12px'` → `'0 var(--space-3)'` (outer wrapper)
+- **Code comments:** `// ──` added before `VolumeKnob` export and `handleMouseDown` callback
+- **Kept as literals (Group C):** `AMBER = '#e8a027'` + `AMBER_DIM = '#e8a02738'` (SVG `fill` presentation attrs — `var()` not supported; also functional state excluded per rollout rules); `fill="#111116"` notch dot (SVG attr); `gap: 5` / `gap: 1` / `fontSize: 8` (no matching tokens)
+
+**`src/components/LoopRegionStrip.tsx`** — 13 substitutions across icon button, bars label, popup, inputs, chevrons, Apply button
+
+- **Text/color (replace_all):** `'#e8a027'` (JSX color only, 6 occurrences) → `var(--text-amber)`; `'#707088'` → `var(--text-dimmest)` (From/To labels); `'#b0b0cc'` → `var(--text-dim)` (input text); `'#505068'` → `var(--text-inactive)` (icon btn inactive + leave handler)
+- **Backgrounds (replace_all + targeted):** `'#0e0e18'` → `var(--bg-row)` (input fields, Δ2 Group B); `'#1a1a24'` → `var(--bg-tile)` (popup bg, Δ2 Group B)
+- **Typography:** `fontSize: 12` → `var(--text-sm)` (inputs); `fontSize: 11` → `var(--text-xs)` (Apply button)
+- **Border:** `'1px solid #e8a02750'` → `var(--accent-amber-strong)` (Apply button border, Δ5 alpha, imperceptible)
+- **Code comment:** `// ──` added before `LoopRegionStrip` export
+- **Kept as literals (Group C):** All canvas `ctx.fillStyle` values (canvas can't resolve CSS vars; density ticks, loop overlay, handles, playhead all excluded per rollout rules); `'#9090a8'` hover grey (no token); `'#2e2e42'` popup/input borders (sits between `--border2` and `--state-hover-border`, neither is an exact semantic fit); `'#e8a02718'`/`'#e8a02732'` Apply btn bg (custom 9%/20% alpha, between tiers); `borderRadius: 4/6`, `gap: 6/10`, font sizes 9/10 (no tokens)
+
+---
+
 ### 6. 7. 2026 — CSS Variable Rollout: Batch 6 — SettingsPanel + TrackPanel
 
 **`src/components/SettingsPanel/SettingsPanel.tsx`** — ~60 substitutions across BetaBadge, SectionHeader, OptionRow, OptionBtn, LibraryPanel, SettingsPanel, ZoomStepBtn, AppBgBtn

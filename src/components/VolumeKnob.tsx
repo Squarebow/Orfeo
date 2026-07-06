@@ -3,7 +3,7 @@ import { useStore } from '../store'
 
 const AMBER     = '#e8a027'
 const AMBER_DIM = '#e8a02738'
-const LABEL_COL = '#707088'
+const LABEL_COL = 'var(--text-dimmest)'
 
 // Knob geometry
 const CX = 26, CY = 26                // SVG center
@@ -39,6 +39,7 @@ function angleToVolume(angleDeg: number): number {
   return angleDeg <= 90 ? 1 : 0
 }
 
+// ── VolumeKnob — interactive SVG amber knob for master volume control ────────
 export default function VolumeKnob() {
   const masterVolume    = useStore((s) => s.masterVolume)
   const setMasterVolume = useStore((s) => s.setMasterVolume)
@@ -69,6 +70,7 @@ export default function VolumeKnob() {
     return Math.max(0, Math.min(1, angleToVolume(deg)))
   }, [masterVolume])
 
+  // ── Mouse down — snaps volume to click position immediately on press ────────
   const handleMouseDown = useCallback((e: React.MouseEvent) => {
     e.preventDefault()
     draggingRef.current = true
@@ -100,7 +102,7 @@ export default function VolumeKnob() {
     // putting VOLUME at the same baseline as TEMPO / TRANSPOSE to its left.
     <div
       className="app-no-drag"
-      style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '0 12px', flexShrink: 0 }}
+      style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '0 var(--space-3)', flexShrink: 0 }}
       title={`Volume: ${pct}%`}
     >
       <svg
