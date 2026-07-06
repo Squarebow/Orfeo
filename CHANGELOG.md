@@ -4,6 +4,30 @@
 
 ---
 
+### 6. 7. 2026 — CSS Variable Rollout: Batch 6 — SettingsPanel + TrackPanel
+
+**`src/components/SettingsPanel/SettingsPanel.tsx`** — ~60 substitutions across BetaBadge, SectionHeader, OptionRow, OptionBtn, LibraryPanel, SettingsPanel, ZoomStepBtn, AppBgBtn
+
+- **Color tokens (replace_all):** `'#0e0e16'` → `var(--bg-row)`, `'#1a1a26'` → `var(--bg-tile)`, `'#13131c'` → `var(--bg-modal)`, `'#2a2a3a'` → `var(--state-hover-bg)`, `'#303048'` → `var(--state-disabled)`, `'#505068'` → `var(--text-inactive)`, `'#707088'` → `var(--text-dimmest)`, `'#b0b0cc'` → `var(--text-dim)`, `'#e8a027'` → `var(--text-amber)`, `'#e8a02755'` → `var(--accent-amber-strong)`, `'#e8a02722'` → `var(--accent-amber-medium)`, `'#c0392b'` → `var(--status-error)`
+- **Border strings (embedded):** `'1px solid #1e1e28'` → `var(--border)`, `'1px solid #252530'` → `var(--border2)`, `'1px solid #1a1a26'` → `var(--bg-tile)`, `'1px dashed #303048'` → `var(--state-disabled)`, `'1px solid #e8a02755'` → `var(--accent-amber-strong)`, `'2px solid #e8a027'` → `var(--text-amber)`
+- **Typography:** `fontSize: 11` → `var(--text-xs)`, `fontSize: 12` → `var(--text-sm)`, `fontSize: 13` → `var(--text-base)` (split note display), `fontSize: 16` → `var(--text-lg)` (ZoomStepBtn ±)
+- **Spacing:** `gap: 4` → `var(--space-1)` (all 16 occurrences), `gap: 8` → `var(--space-2)` (2 occurrences), `paddingLeft: 12` → `var(--space-3)` (tab bar)
+- **Border radius:** `borderRadius: 5` → `var(--radius-md)` (pick folder button), `borderRadius: 3` → `var(--radius-sm)` (AppBgBtn color swatch)
+- **Code comments:** `// ──` header comments added to SectionHeader, OptionRow, OptionBtn, handlePickFolder, handleRefresh, handleLoadFile, grouped useMemo, init useEffect, auto-init useEffect, ZoomStepBtn, AppBgBtn
+- **Confirmed:** BetaBadge already uses `var(--status-error)` for color and border — no change needed
+- **Kept as literals (Group C):** `#9090a8` (file/folder text, mid-grey); `#606078` (pick folder button); `#8080a0` (subfolder names); `#111120` (folder header hover); `#707060` (un-starred hover); `#35354a` (about legal text); `#4caf50`/`#f44336` (TranscriptIcon status — different from `--status-success/error`); font sizes 9/10 (below token minimum); `borderRadius: 4` (between token values); gap: 5/6 (between token values); SVG presentation attributes (`stroke="#e8a027"`)
+
+**`src/components/TrackPanel/TrackPanel.tsx`** — ~25 substitutions across TrackPanel, TrackRow, IBtn
+
+- **Color tokens (replace_all):** `'#0e0e16'` → `var(--bg-row)`, `'#1a1a26'` → `var(--bg-tile)`, `'#13131c'` → `var(--bg-modal)`, `'#252530'` → `var(--border2)`, `'#1e1e28'` → `var(--border)`, `'#505068'` → `var(--text-inactive)`, `'#707088'` → `var(--text-dimmest)`, `'#e8a027'` → `var(--text-amber)`, `'#303048'` → `var(--state-disabled)`
+- **Typography:** `fontSize: 11` → `var(--text-xs)`, `fontSize: 12` → `var(--text-sm)`
+- **Spacing:** `gap: 4` → `var(--space-1)`, `gap: 8` → `var(--space-2)` (both header and TrackRow outer div)
+- **Targeted:** `activeColor="#d04040"` (Mute button) → `activeColor="var(--status-error)"`; Solo button `activeColor="#e8a027"` (already as literal — already replaced by color pass)
+- **Code comments:** `// ──` header comments added to TrackPanel, handleOpenEditor, grouped useMemo, toggleGroupCollapse, isGroupMuted, editor-closed useEffect, TrackRow, IBtn
+- **Kept as literals (Group C):** `#35354a` (empty state text); `#40404e` (group track count); `#9090a8` (instrument name); `#454560` (channel/prog labels); `#404058` / `#808098` (IBtn inactive/hover); font sizes 9/10; gap 6; `borderRadius: 4`; per-track color swatches (`track.color`) — intentionally excluded
+
+---
+
 ### 6. 7. 2026 — CSS Variable Rollout: Batch 5 — MidiEditor + new token groups
 
 **`src/index.css`** — 3 new token groups added to `:root`

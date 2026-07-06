@@ -37,19 +37,20 @@ function BetaBadge() {
   )
 }
 
+// ── Section header — icon + uppercase group label row ──────────────────────
 function SectionHeader({ icon, label }: { icon: React.ReactNode; label: string }) {
   return (
     <div style={{
       display: 'flex', alignItems: 'center', gap: 6,
       padding: '5px 10px',
-      background: '#0e0e16',
-      borderTop: '1px solid #1a1a26',
-      borderBottom: '1px solid #1a1a26',
+      background: 'var(--bg-row)',
+      borderTop: '1px solid var(--bg-tile)',
+      borderBottom: '1px solid var(--bg-tile)',
     }}>
-      <span style={{ color: '#50506a', display: 'flex', alignItems: 'center' }}>{icon}</span>
+      <span style={{ color: 'var(--text-inactive)', display: 'flex', alignItems: 'center' }}>{icon}</span>
       <span style={{
         flex: 1, fontSize: 10, fontWeight: 700,
-        textTransform: 'uppercase', letterSpacing: '0.1em', color: '#707088',
+        textTransform: 'uppercase', letterSpacing: '0.1em', color: 'var(--text-dimmest)',
       }}>
         {label}
       </span>
@@ -57,19 +58,20 @@ function SectionHeader({ icon, label }: { icon: React.ReactNode; label: string }
   )
 }
 
+// ── Option row — labeled setting block with optional hint text and badge ───
 function OptionRow({ label, children, hint, badge }: {
   label: string; children: React.ReactNode; hint?: string; badge?: React.ReactNode
 }) {
   return (
     <div style={{ padding: '10px 14px', borderBottom: '1px solid #181822' }}>
       {/* ── Label row — flex so an optional badge sits inline after the text ── */}
-      <div style={{ fontSize: 11, color: '#707088', marginBottom: 6, fontWeight: 500, letterSpacing: '0.02em', display: 'flex', alignItems: 'center', gap: 6 }}>
+      <div style={{ fontSize: 'var(--text-xs)', color: 'var(--text-dimmest)', marginBottom: 6, fontWeight: 500, letterSpacing: '0.02em', display: 'flex', alignItems: 'center', gap: 6 }}>
         {label}
         {badge}
       </div>
       {children}
       {hint && (
-        <div style={{ fontSize: 9, color: '#404055', marginTop: 5, fontFamily: 'JetBrains Mono' }}>
+        <div style={{ fontSize: 9, color: 'var(--text-muted)', marginTop: 5, fontFamily: 'JetBrains Mono' }}>
           {hint}
         </div>
       )}
@@ -77,6 +79,7 @@ function OptionRow({ label, children, hint, badge }: {
   )
 }
 
+// ── Option button — amber-tinted pill toggle for multi-choice settings rows
 function OptionBtn({ active, onClick, children, title, comingSoon }: {
   active: boolean; onClick: () => void; children: React.ReactNode; title?: string; comingSoon?: boolean
 }) {
@@ -86,10 +89,10 @@ function OptionBtn({ active, onClick, children, title, comingSoon }: {
       title={title}
       style={{
         flex: 1, padding: '4px 0', borderRadius: 4,
-        border: active ? '1px solid #e8a02755' : '1px solid #252535',
-        background: active ? '#e8a02714' : '#131320',
-        color: active ? '#e8a027' : '#505068',
-        fontSize: 11,
+        border: active ? '1px solid var(--accent-amber-strong)' : '1px solid var(--border2)',
+        background: active ? 'var(--accent-amber-medium)' : 'var(--bg-modal)',
+        color: active ? 'var(--text-amber)' : 'var(--text-inactive)',
+        fontSize: 'var(--text-xs)',
         fontFamily: active ? 'JetBrains Mono' : 'Inter',
         fontWeight: active ? 700 : 400,
         cursor: comingSoon ? 'default' : 'pointer',
@@ -98,7 +101,7 @@ function OptionBtn({ active, onClick, children, title, comingSoon }: {
         whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
       }}
       onMouseEnter={e => { if (!active && !comingSoon) e.currentTarget.style.color = '#9090a8' }}
-      onMouseLeave={e => { if (!active && !comingSoon) e.currentTarget.style.color = '#505068' }}
+      onMouseLeave={e => { if (!active && !comingSoon) e.currentTarget.style.color = 'var(--text-inactive)' }}
     >
       {children}
     </button>
@@ -151,7 +154,7 @@ function TranscriptIcon({ filePath, noteNaming, accidentals, addTranscriptEntry 
     }, 3000)
   }
 
-  const iconColor = state === 'success' ? '#4caf50' : state === 'error' ? '#f44336' : '#707088'
+  const iconColor = state === 'success' ? '#4caf50' : state === 'error' ? '#f44336' : 'var(--text-dimmest)'
 
   return (
     <div
@@ -164,8 +167,8 @@ function TranscriptIcon({ filePath, noteNaming, accidentals, addTranscriptEntry 
         transition: 'color 0.2s',
         animation: state === 'loading' ? 'orfeo-transcript-spin 1s linear infinite' : 'none',
       }}
-      onMouseEnter={e => { if (state === 'idle') (e.currentTarget as HTMLElement).style.color = '#e8a027' }}
-      onMouseLeave={e => { if (state === 'idle') (e.currentTarget as HTMLElement).style.color = '#707088' }}
+      onMouseEnter={e => { if (state === 'idle') (e.currentTarget as HTMLElement).style.color = 'var(--text-amber)' }}
+      onMouseLeave={e => { if (state === 'idle') (e.currentTarget as HTMLElement).style.color = 'var(--text-dimmest)' }}
     >
       <FileMusic size={11} strokeWidth={1.5} />
     </div>
@@ -206,7 +209,7 @@ function MarqueeFilename({ name }: { name: string }) {
         ref={innerRef}
         style={{
           display: 'inline-block',
-          fontSize: 11, color: '#9090a8', whiteSpace: 'nowrap',
+          fontSize: 'var(--text-xs)', color: '#9090a8', whiteSpace: 'nowrap',
           transition: hovered && scrollAmt > 0
             ? `transform ${duration}s 0.5s linear`
             : 'transform 0.2s ease',
@@ -246,6 +249,7 @@ function LibraryPanel() {
   // Folders start expanded (not in collapsed set)
   const [expandedFolders, setExpandedFolders] = useState<Set<string>>(new Set())
 
+  // ── Folder picker — opens Electron folder dialog and scans for MIDI files ─
   const handlePickFolder = async () => {
     try {
       const result = await window.electronAPI.openFolder()
@@ -260,6 +264,7 @@ function LibraryPanel() {
     }
   }
 
+  // ── Refresh — re-scans the current folder for new or removed MIDI files ──
   const handleRefresh = async () => {
     if (!libraryFolder) return
     setLoading(true)
@@ -270,6 +275,7 @@ function LibraryPanel() {
     setLoading(false)
   }
 
+  // ── File loader — reads MIDI from disk and parses into store state ────────
   const handleLoadFile = async (filePath: string) => {
     try {
       const result = await window.electronAPI.loadMidiFromPath(filePath)
@@ -293,7 +299,7 @@ function LibraryPanel() {
     }
   }
 
-  // Group files: root files first, then one entry per subfolder
+  // ── Group files — root files first, then one entry per subfolder ─────────
   type FileGroup = { folder: string | null; files: LibraryFile[] }
   const grouped: FileGroup[] = useMemo(() => {
     const allFiles = filter === 'starred'
@@ -357,16 +363,16 @@ function LibraryPanel() {
     <div style={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
 
       {/* ── Folder picker row ── */}
-      <div style={{ padding: '10px 12px', borderBottom: '1px solid #1a1a26', flexShrink: 0 }}>
+      <div style={{ padding: '10px 12px', borderBottom: '1px solid var(--bg-tile)', flexShrink: 0 }}>
         {libraryFolder ? (
           <div>
             {/* Current folder display */}
             <div style={{
               display: 'flex', alignItems: 'center', gap: 6,
-              padding: '5px 8px', background: '#0e0e16', borderRadius: 4,
-              border: '1px solid #252535', marginBottom: 6,
+              padding: '5px 8px', background: 'var(--bg-row)', borderRadius: 4,
+              border: '1px solid var(--border2)', marginBottom: 6,
             }}>
-              <FolderOpen size={11} style={{ color: '#e8a027', flexShrink: 0 }} />
+              <FolderOpen size={11} style={{ color: 'var(--text-amber)', flexShrink: 0 }} />
               <span style={{
                 flex: 1, fontSize: 10, color: '#9090a8',
                 overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
@@ -379,26 +385,26 @@ function LibraryPanel() {
                 title="Refresh folder"
                 style={{
                   background: 'none', border: 'none', cursor: 'pointer',
-                  color: '#505068', padding: 2, display: 'flex', alignItems: 'center',
+                  color: 'var(--text-inactive)', padding: 2, display: 'flex', alignItems: 'center',
                 }}
-                onMouseEnter={e => e.currentTarget.style.color = '#e8a027'}
-                onMouseLeave={e => e.currentTarget.style.color = '#505068'}
+                onMouseEnter={e => e.currentTarget.style.color = 'var(--text-amber)'}
+                onMouseLeave={e => e.currentTarget.style.color = 'var(--text-inactive)'}
               >
                 <RefreshCw size={10} style={{ animation: loading ? 'spin 1s linear infinite' : 'none' }} />
               </button>
             </div>
 
             {/* Filter tabs */}
-            <div style={{ display: 'flex', gap: 4 }}>
+            <div style={{ display: 'flex', gap: 'var(--space-1)' }}>
               {(['all', 'starred'] as const).map(f => (
                 <button
                   key={f}
                   onClick={() => setFilter(f)}
                   style={{
                     flex: 1, padding: '3px 0', borderRadius: 4, fontSize: 10,
-                    border: filter === f ? '1px solid #e8a02755' : '1px solid #252535',
-                    background: filter === f ? '#e8a02714' : 'transparent',
-                    color: filter === f ? '#e8a027' : '#505068',
+                    border: filter === f ? '1px solid var(--accent-amber-strong)' : '1px solid var(--border2)',
+                    background: filter === f ? 'var(--accent-amber-medium)' : 'transparent',
+                    color: filter === f ? 'var(--text-amber)' : 'var(--text-inactive)',
                     cursor: 'pointer', transition: 'all 0.12s',
                   }}
                 >
@@ -410,12 +416,12 @@ function LibraryPanel() {
                 title="Change library folder"
                 style={{
                   padding: '3px 6px', borderRadius: 4, fontSize: 10,
-                  border: '1px solid #252535', background: 'transparent',
-                  color: '#505068', cursor: 'pointer',
+                  border: '1px solid var(--border2)', background: 'transparent',
+                  color: 'var(--text-inactive)', cursor: 'pointer',
                   display: 'flex', alignItems: 'center', justifyContent: 'center',
                 }}
                 onMouseEnter={e => e.currentTarget.style.color = '#9090a8'}
-                onMouseLeave={e => e.currentTarget.style.color = '#505068'}
+                onMouseLeave={e => e.currentTarget.style.color = 'var(--text-inactive)'}
               >
                 <FolderOpen size={10} />
               </button>
@@ -425,14 +431,14 @@ function LibraryPanel() {
           <button
             onClick={handlePickFolder}
             style={{
-              width: '100%', padding: '8px 0', borderRadius: 5,
-              border: '1px dashed #303045', background: 'transparent',
-              color: '#606078', fontSize: 11, cursor: 'pointer',
+              width: '100%', padding: '8px 0', borderRadius: 'var(--radius-md)',
+              border: '1px dashed var(--state-disabled)', background: 'transparent',
+              color: '#606078', fontSize: 'var(--text-xs)', cursor: 'pointer',
               display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6,
               transition: 'all 0.15s',
             }}
-            onMouseEnter={e => { e.currentTarget.style.borderColor = '#e8a027'; e.currentTarget.style.color = '#e8a027' }}
-            onMouseLeave={e => { e.currentTarget.style.borderColor = '#303045'; e.currentTarget.style.color = '#606078' }}
+            onMouseEnter={e => { e.currentTarget.style.borderColor = 'var(--text-amber)'; e.currentTarget.style.color = 'var(--text-amber)' }}
+            onMouseLeave={e => { e.currentTarget.style.borderColor = 'var(--state-disabled)'; e.currentTarget.style.color = '#606078' }}
           >
             <FolderOpen size={13} />
             Set MIDI folder
@@ -445,7 +451,7 @@ function LibraryPanel() {
 
         {/* Empty state */}
         {libraryFolder && !hasAnyFiles && (
-          <div style={{ padding: '16px 14px', fontSize: 11, color: '#404055', textAlign: 'center' }}>
+          <div style={{ padding: '16px 14px', fontSize: 'var(--text-xs)', color: 'var(--text-muted)', textAlign: 'center' }}>
             {filter === 'starred' ? 'No starred files yet.\nStar a file with ★' : 'No MIDI files found.'}
           </div>
         )}
@@ -455,12 +461,12 @@ function LibraryPanel() {
           <div>
             <div style={{
               display: 'flex', alignItems: 'center', gap: 6,
-              padding: '6px 10px', background: '#0e0e16',
-              borderBottom: '1px solid #1a1a26',
+              padding: '6px 10px', background: 'var(--bg-row)',
+              borderBottom: '1px solid var(--bg-tile)',
             }}>
               <FolderOpen size={12} style={{ color: '#e8a02770', flexShrink: 0 }} />
-              <span style={{ flex: 1, fontSize: 11, color: '#8080a0', fontWeight: 600 }}>Demo</span>
-              <span style={{ fontSize: 9, color: '#404055', fontFamily: 'JetBrains Mono' }}>{demoFiles.length}</span>
+              <span style={{ flex: 1, fontSize: 'var(--text-xs)', color: '#8080a0', fontWeight: 600 }}>Demo</span>
+              <span style={{ fontSize: 9, color: 'var(--text-muted)', fontFamily: 'JetBrains Mono' }}>{demoFiles.length}</span>
             </div>
             {demoFiles.map(file => (
               <div
@@ -471,7 +477,7 @@ function LibraryPanel() {
                   padding: '7px 10px 7px 26px', borderBottom: '1px solid #181822',
                   cursor: 'pointer', transition: 'background 0.08s',
                 }}
-                onMouseEnter={e => (e.currentTarget as HTMLElement).style.background = '#1a1a28'}
+                onMouseEnter={e => (e.currentTarget as HTMLElement).style.background = 'var(--bg-tile)'}
                 onMouseLeave={e => (e.currentTarget as HTMLElement).style.background = 'transparent'}
                 onClick={() => handleLoadFile(file.path)}
               >
@@ -479,7 +485,7 @@ function LibraryPanel() {
                 {chordTranscriptionEnabled ? (
                   <TranscriptIcon filePath={file.path} noteNaming={noteNaming} accidentals={accidentals} addTranscriptEntry={addTranscriptEntry} />
                 ) : (
-                  <FileMusic size={11} style={{ color: '#404055', flexShrink: 0 }} />
+                  <FileMusic size={11} style={{ color: 'var(--text-muted)', flexShrink: 0 }} />
                 )}
                 <MarqueeFilename name={file.name.replace(/\.(mid|midi)$/i, '')} />
               </div>
@@ -499,26 +505,26 @@ function LibraryPanel() {
                 style={{
                   display: 'flex', alignItems: 'center', gap: 6,
                   padding: '6px 10px',
-                  background: '#0e0e16',
-                  borderBottom: '1px solid #1a1a26',
-                  borderTop: gi > 0 ? '1px solid #1e1e2a' : 'none',
+                  background: 'var(--bg-row)',
+                  borderBottom: '1px solid var(--bg-tile)',
+                  borderTop: gi > 0 ? '1px solid var(--border)' : 'none',
                   cursor: 'pointer', userSelect: 'none',
                 }}
                 onMouseEnter={e => (e.currentTarget as HTMLElement).style.background = '#111120'}
-                onMouseLeave={e => (e.currentTarget as HTMLElement).style.background = '#0e0e16'}
+                onMouseLeave={e => (e.currentTarget as HTMLElement).style.background = 'var(--bg-row)'}
               >
                 {expandedFolders.has(group.folder!)
-                  ? <ChevronDown size={11} style={{ color: '#505068', flexShrink: 0 }} />
-                  : <ChevronRight size={11} style={{ color: '#505068', flexShrink: 0 }} />
+                  ? <ChevronDown size={11} style={{ color: 'var(--text-inactive)', flexShrink: 0 }} />
+                  : <ChevronRight size={11} style={{ color: 'var(--text-inactive)', flexShrink: 0 }} />
                 }
                 <FolderOpen size={12} style={{ color: '#e8a02770', flexShrink: 0 }} />
                 <span style={{
-                  flex: 1, fontSize: 11, color: '#8080a0', fontWeight: 600,
+                  flex: 1, fontSize: 'var(--text-xs)', color: '#8080a0', fontWeight: 600,
                   overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
                 }}>
                   {group.folder}
                 </span>
-                <span style={{ fontSize: 9, color: '#404055', fontFamily: 'JetBrains Mono', flexShrink: 0 }}>
+                <span style={{ fontSize: 9, color: 'var(--text-muted)', fontFamily: 'JetBrains Mono', flexShrink: 0 }}>
                   {group.files.length}
                 </span>
               </div>
@@ -538,7 +544,7 @@ function LibraryPanel() {
                     borderBottom: '1px solid #181822',
                     cursor: 'pointer', transition: 'background 0.08s',
                   }}
-                  onMouseEnter={e => (e.currentTarget as HTMLElement).style.background = '#1a1a28'}
+                  onMouseEnter={e => (e.currentTarget as HTMLElement).style.background = 'var(--bg-tile)'}
                   onMouseLeave={e => (e.currentTarget as HTMLElement).style.background = 'transparent'}
                   onClick={() => handleLoadFile(file.path)}
                 >
@@ -546,7 +552,7 @@ function LibraryPanel() {
                   {chordTranscriptionEnabled ? (
                     <TranscriptIcon filePath={file.path} noteNaming={noteNaming} accidentals={accidentals} addTranscriptEntry={addTranscriptEntry} />
                   ) : (
-                    <FileMusic size={11} style={{ color: '#404055', flexShrink: 0 }} />
+                    <FileMusic size={11} style={{ color: 'var(--text-muted)', flexShrink: 0 }} />
                   )}
                   <MarqueeFilename name={file.name.replace(/\.(mid|midi)$/i, '')} />
                   <button
@@ -554,13 +560,13 @@ function LibraryPanel() {
                     title={starred ? 'Remove from favourites' : 'Add to favourites'}
                     style={{
                       background: 'none', border: 'none', cursor: 'pointer',
-                      color: starred ? '#e8a027' : '#303045',
+                      color: starred ? 'var(--text-amber)' : 'var(--state-disabled)',
                       padding: '2px 3px', display: 'flex', alignItems: 'center',
-                      flexShrink: 0, fontSize: 12, lineHeight: 1,
+                      flexShrink: 0, fontSize: 'var(--text-sm)', lineHeight: 1,
                       transition: 'color 0.12s',
                     }}
                     onMouseEnter={e => { if (!starred) e.currentTarget.style.color = '#707060' }}
-                    onMouseLeave={e => { if (!starred) e.currentTarget.style.color = '#303045' }}
+                    onMouseLeave={e => { if (!starred) e.currentTarget.style.color = 'var(--state-disabled)' }}
                   >★</button>
                 </div>
               )
@@ -623,11 +629,12 @@ export default function SettingsPanel() {
   const [samplesProgress, setSamplesProgress] = useState(0)
   const [activeTab, setActiveTab] = useState<DrawerTab>('library')
   const didInit = useRef(false)
+  // ── Init — ensures panel is open on first mount ───────────────────────────
   useEffect(() => {
     if (!didInit.current) { didInit.current = true; if (!settingsPanelOpen) setSettingsPanelOpen(true) }
   }, [])
 
-  // ── Auto-init samples engine when prefs restore sets audioEngine='samples' ──
+  // ── Auto-init samples engine when prefs restore sets audioEngine='samples'
   useEffect(() => {
     if (audioEngine !== 'samples') return
     if (samplesStatus !== 'idle') return
@@ -651,8 +658,8 @@ export default function SettingsPanel() {
     <div style={{
       // Match TrackPanel width exactly: 260px open, 32px collapsed
       width: settingsPanelOpen ? 260 : 32,
-      background: '#13131a',
-      borderRight: '1px solid #222230',
+      background: 'var(--bg-modal)',
+      borderRight: '1px solid var(--border2)',
       transition: 'width 0.2s ease',
       overflow: 'hidden',
       display: 'flex',
@@ -671,12 +678,12 @@ export default function SettingsPanel() {
             title="Open Library"
             style={{
               background: 'none', border: 'none', cursor: 'pointer',
-              color: '#707088', padding: 4,
+              color: 'var(--text-dimmest)', padding: 4,
               display: 'flex', alignItems: 'center', justifyContent: 'center',
               transition: 'color 0.15s',
             }}
-            onMouseEnter={e => e.currentTarget.style.color = '#e8a027'}
-            onMouseLeave={e => e.currentTarget.style.color = '#707088'}
+            onMouseEnter={e => e.currentTarget.style.color = 'var(--text-amber)'}
+            onMouseLeave={e => e.currentTarget.style.color = 'var(--text-dimmest)'}
           >
             <Library size={18} />
           </button>
@@ -685,12 +692,12 @@ export default function SettingsPanel() {
             title="Open Settings"
             style={{
               background: 'none', border: 'none', cursor: 'pointer',
-              color: '#707088', padding: 4, marginTop: 8,
+              color: 'var(--text-dimmest)', padding: 4, marginTop: 8,
               display: 'flex', alignItems: 'center', justifyContent: 'center',
               transition: 'color 0.15s',
             }}
-            onMouseEnter={e => e.currentTarget.style.color = '#e8a027'}
-            onMouseLeave={e => e.currentTarget.style.color = '#707088'}
+            onMouseEnter={e => e.currentTarget.style.color = 'var(--text-amber)'}
+            onMouseLeave={e => e.currentTarget.style.color = 'var(--text-dimmest)'}
           >
             <Settings size={18} />
           </button>
@@ -699,7 +706,7 @@ export default function SettingsPanel() {
             title="Coming soon"
             style={{
               background: 'none', border: 'none', cursor: 'default',
-              color: '#505068', padding: 4, opacity: 0.5,
+              color: 'var(--text-inactive)', padding: 4, opacity: 0.5,
               display: 'flex', alignItems: 'center', justifyContent: 'center',
             }}
           >
@@ -718,19 +725,19 @@ export default function SettingsPanel() {
             style={{
               position: 'absolute', top: 10, right: 0, zIndex: 10,
               padding: '4px 5px', borderRadius: '4px 0 0 4px',
-              background: '#1a1a24', border: '1px solid #252535', borderRight: 'none',
-              color: '#707088', cursor: 'pointer',
+              background: 'var(--bg-tile)', border: '1px solid var(--border2)', borderRight: 'none',
+              color: 'var(--text-dimmest)', cursor: 'pointer',
               display: 'flex', alignItems: 'center', justifyContent: 'center',
               transition: 'color 0.15s',
             }}
-            onMouseEnter={e => e.currentTarget.style.color = '#e8a027'}
-            onMouseLeave={e => e.currentTarget.style.color = '#707088'}
+            onMouseEnter={e => e.currentTarget.style.color = 'var(--text-amber)'}
+            onMouseLeave={e => e.currentTarget.style.color = 'var(--text-dimmest)'}
           >
             <ChevronLeft size={15} />
           </button>
 
           {/* ── Tab bar: Library / Settings, left-aligned with content ─────── */}
-          <div style={{ display: 'flex', borderBottom: '1px solid #1e1e2c', flexShrink: 0 }}>
+          <div style={{ display: 'flex', borderBottom: '1px solid var(--border)', flexShrink: 0 }}>
             {([
               { id: 'library',  icon: <Library size={13} />,  label: 'Library'  },
               { id: 'settings', icon: <Settings size={13} />, label: 'Settings' },
@@ -741,10 +748,10 @@ export default function SettingsPanel() {
                 style={{
                   flex: 1, height: 40,
                   display: 'flex', alignItems: 'center', justifyContent: 'flex-start',
-                  paddingLeft: 12, gap: 5,
+                  paddingLeft: 'var(--space-3)', gap: 5,
                   background: 'none', border: 'none', cursor: 'pointer',
-                  borderBottom: activeTab === tab.id ? '2px solid #e8a027' : '2px solid transparent',
-                  color: activeTab === tab.id ? '#e8a027' : '#505068',
+                  borderBottom: activeTab === tab.id ? '2px solid var(--text-amber)' : '2px solid transparent',
+                  color: activeTab === tab.id ? 'var(--text-amber)' : 'var(--text-inactive)',
                   fontSize: 10, fontWeight: 600,
                   textTransform: 'uppercase', letterSpacing: '0.08em',
                   transition: 'color 0.15s',
@@ -766,14 +773,14 @@ export default function SettingsPanel() {
                 {/* ── Library ── */}
                 <SectionHeader icon={<BookOpen size={11} />} label="Library" />
                 <OptionRow label="Demo folder" hint="Removes bundled demo songs from library view. Files are not deleted.">
-                  <div style={{ display: 'flex', gap: 4 }}>
+                  <div style={{ display: 'flex', gap: 'var(--space-1)' }}>
                     <OptionBtn active={!hideDemoFolder} onClick={() => setHideDemoFolder(false)}>Show</OptionBtn>
                     <OptionBtn active={hideDemoFolder}  onClick={() => setHideDemoFolder(true)}>Hide</OptionBtn>
                   </div>
                 </OptionRow>
                 {/* ── Chord Transcription toggle ────────────────────────────────── */}
                 <OptionRow label="Chord Transcription" badge={<BetaBadge />} hint="Adds a transcript icon to every file in your library — click to generate a chord chart PDF.">
-                  <div style={{ display: 'flex', gap: 4 }}>
+                  <div style={{ display: 'flex', gap: 'var(--space-1)' }}>
                     <OptionBtn active={chordTranscriptionEnabled} onClick={() => setChordTranscriptionEnabled(true)}>On</OptionBtn>
                     <OptionBtn active={!chordTranscriptionEnabled} onClick={() => setChordTranscriptionEnabled(false)}>Off</OptionBtn>
                   </div>
@@ -782,7 +789,7 @@ export default function SettingsPanel() {
                 {/* ── Note Names ── */}
                 <SectionHeader icon={<Type size={11} />} label="Note Names" />
                 <OptionRow label="Display system">
-                  <div style={{ display: 'flex', gap: 4 }}>
+                  <div style={{ display: 'flex', gap: 'var(--space-1)' }}>
                     {NOTE_NAMING_OPTIONS.slice(0, 2).map(opt => (
                       <OptionBtn key={opt.value} active={noteNaming === opt.value}
                         onClick={() => setNoteNaming(opt.value)} title={opt.hint}>
@@ -790,7 +797,7 @@ export default function SettingsPanel() {
                       </OptionBtn>
                     ))}
                   </div>
-                  <div style={{ display: 'flex', gap: 4, marginTop: 4 }}>
+                  <div style={{ display: 'flex', gap: 'var(--space-1)', marginTop: 4 }}>
                     {NOTE_NAMING_OPTIONS.slice(2, 4).map(opt => (
                       <OptionBtn key={opt.value} active={noteNaming === opt.value}
                         onClick={() => setNoteNaming(opt.value)} title={opt.hint}>
@@ -800,9 +807,9 @@ export default function SettingsPanel() {
                   </div>
                   <div style={{
                     marginTop: 6, padding: '4px 8px',
-                    background: '#0e0e16', borderRadius: 4,
+                    background: 'var(--bg-row)', borderRadius: 4,
                     fontSize: 10, fontFamily: 'JetBrains Mono',
-                    color: '#b0b0cc', letterSpacing: '0.08em', textAlign: 'center',
+                    color: 'var(--text-dim)', letterSpacing: '0.08em', textAlign: 'center',
                   }}>
                     {noteNaming === 'english'          && 'C  D  E  F  G  A  B'}
                     {noteNaming === 'central-european' && 'C  D  E  F  G  A  H'}
@@ -816,7 +823,7 @@ export default function SettingsPanel() {
                     label="Accidentals"
                     hint={accidentals === 'flat' ? 'e.g.  Bb  Eb  Ab  Db  Gb' : 'e.g.  A#  D#  G#  C#  F#'}
                   >
-                    <div style={{ display: 'flex', gap: 4 }}>
+                    <div style={{ display: 'flex', gap: 'var(--space-1)' }}>
                       <OptionBtn active={accidentals === 'flat'} onClick={() => setAccidentals('flat')} title="Flat names">♭ Flats</OptionBtn>
                       <OptionBtn active={accidentals === 'sharp'} onClick={() => setAccidentals('sharp')} title="Sharp names">♯ Sharps</OptionBtn>
                     </div>
@@ -826,7 +833,7 @@ export default function SettingsPanel() {
                 {/* ── Keyboard ── */}
                 <SectionHeader icon={<Piano size={11} />} label="Keyboard" />
                 <OptionRow label="Key range" hint="Number of keys on the virtual keyboard">
-                  <div style={{ display: 'flex', gap: 4 }}>
+                  <div style={{ display: 'flex', gap: 'var(--space-1)' }}>
                     {KEYBOARD_SIZES.map(size => (
                       <OptionBtn key={size} active={keyboardSize === size}
                         onClick={() => setKeyboardSize(size)} title={`${size}-key keyboard`}>
@@ -837,7 +844,7 @@ export default function SettingsPanel() {
                 </OptionRow>
                 {/* ── Left/Right hand labels toggle ────────────────────────────── */}
                 <OptionRow label="Left/Right Hand Labels" badge={<BetaBadge />} hint="Shows amber hand boundary lines and labels in the keyboard footer.">
-                  <div style={{ display: 'flex', gap: 4 }}>
+                  <div style={{ display: 'flex', gap: 'var(--space-1)' }}>
                     <OptionBtn active={showHandLabels}  onClick={() => setShowHandLabels(true)}>On</OptionBtn>
                     <OptionBtn active={!showHandLabels} onClick={() => setShowHandLabels(false)}>Off</OptionBtn>
                   </div>
@@ -847,7 +854,7 @@ export default function SettingsPanel() {
                   <>
                     {/* ── Practice / Performance mode selector ─────────────────────── */}
                     <OptionRow label="Mode" hint="Practice shows a fixed split zone. Performance tracks hand position live from the MIDI file or hardware keyboard.">
-                      <div style={{ display: 'flex', gap: 4 }}>
+                      <div style={{ display: 'flex', gap: 'var(--space-1)' }}>
                         <OptionBtn active={handLabelMode === 'practice'}     onClick={() => setHandLabelMode('practice')}>Practice</OptionBtn>
                         <OptionBtn active={handLabelMode === 'performance'}  onClick={() => setHandLabelMode('performance')}>Performance</OptionBtn>
                       </div>
@@ -857,7 +864,7 @@ export default function SettingsPanel() {
                     {handLabelMode === 'practice' && (
                       <>
                         <OptionRow label="Split zone" hint="Defines the boundary between Left Hand and Right Hand shown on the keyboard.">
-                          <div style={{ display: 'flex', gap: 4 }}>
+                          <div style={{ display: 'flex', gap: 'var(--space-1)' }}>
                             <OptionBtn active={splitBreakpointType === 'single'} onClick={() => setSplitBreakpointType('single')}>Single</OptionBtn>
                             <OptionBtn active={splitBreakpointType === 'range'}  onClick={() => setSplitBreakpointType('range')}>Range</OptionBtn>
                           </div>
@@ -869,7 +876,7 @@ export default function SettingsPanel() {
                           >
                             <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
                               <ZoomStepBtn disabled={splitBreakpointNote <= 48} onClick={() => setSplitBreakpointNote(splitBreakpointNote - 1)}>−</ZoomStepBtn>
-                              <div style={{ flex: 1, textAlign: 'center', fontFamily: 'JetBrains Mono', fontSize: 13, color: '#b0b0cc' }}>
+                              <div style={{ flex: 1, textAlign: 'center', fontFamily: 'JetBrains Mono', fontSize: 'var(--text-base)', color: 'var(--text-dim)' }}>
                                 {SPLIT_NOTE_NAMES[splitBreakpointNote % 12]}{Math.floor(splitBreakpointNote / 12) - 1}
                               </div>
                               <ZoomStepBtn disabled={splitBreakpointNote >= 60} onClick={() => setSplitBreakpointNote(splitBreakpointNote + 1)}>+</ZoomStepBtn>
@@ -880,22 +887,22 @@ export default function SettingsPanel() {
                             label={`Split zone — ${SPLIT_NOTE_NAMES[splitBreakpointRangeStart % 12]}${Math.floor(splitBreakpointRangeStart / 12) - 1} to ${SPLIT_NOTE_NAMES[splitBreakpointRangeEnd % 12]}${Math.floor(splitBreakpointRangeEnd / 12) - 1}`}
                             hint="Notes inside the shaded zone may come from either hand. Notes below the lower bound → Left Hand, above the upper bound → Right Hand."
                           >
-                            <div style={{ display: 'flex', gap: 8 }}>
+                            <div style={{ display: 'flex', gap: 'var(--space-2)' }}>
                               <div style={{ flex: 1 }}>
-                                <div style={{ fontSize: 9, color: '#707088', marginBottom: 4, fontFamily: 'Inter' }}>Lower</div>
-                                <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+                                <div style={{ fontSize: 9, color: 'var(--text-dimmest)', marginBottom: 4, fontFamily: 'Inter' }}>Lower</div>
+                                <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-1)' }}>
                                   <ZoomStepBtn disabled={splitBreakpointRangeStart <= 48} onClick={() => setSplitBreakpointRangeStart(splitBreakpointRangeStart - 1)}>−</ZoomStepBtn>
-                                  <div style={{ flex: 1, textAlign: 'center', fontFamily: 'JetBrains Mono', fontSize: 11, color: '#b0b0cc' }}>
+                                  <div style={{ flex: 1, textAlign: 'center', fontFamily: 'JetBrains Mono', fontSize: 'var(--text-xs)', color: 'var(--text-dim)' }}>
                                     {SPLIT_NOTE_NAMES[splitBreakpointRangeStart % 12]}{Math.floor(splitBreakpointRangeStart / 12) - 1}
                                   </div>
                                   <ZoomStepBtn disabled={splitBreakpointRangeStart >= splitBreakpointRangeEnd - 1} onClick={() => setSplitBreakpointRangeStart(splitBreakpointRangeStart + 1)}>+</ZoomStepBtn>
                                 </div>
                               </div>
                               <div style={{ flex: 1 }}>
-                                <div style={{ fontSize: 9, color: '#707088', marginBottom: 4, fontFamily: 'Inter' }}>Upper</div>
-                                <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+                                <div style={{ fontSize: 9, color: 'var(--text-dimmest)', marginBottom: 4, fontFamily: 'Inter' }}>Upper</div>
+                                <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-1)' }}>
                                   <ZoomStepBtn disabled={splitBreakpointRangeEnd <= splitBreakpointRangeStart + 1} onClick={() => setSplitBreakpointRangeEnd(splitBreakpointRangeEnd - 1)}>−</ZoomStepBtn>
-                                  <div style={{ flex: 1, textAlign: 'center', fontFamily: 'JetBrains Mono', fontSize: 11, color: '#b0b0cc' }}>
+                                  <div style={{ flex: 1, textAlign: 'center', fontFamily: 'JetBrains Mono', fontSize: 'var(--text-xs)', color: 'var(--text-dim)' }}>
                                     {SPLIT_NOTE_NAMES[splitBreakpointRangeEnd % 12]}{Math.floor(splitBreakpointRangeEnd / 12) - 1}
                                   </div>
                                   <ZoomStepBtn disabled={splitBreakpointRangeEnd >= 60} onClick={() => setSplitBreakpointRangeEnd(splitBreakpointRangeEnd + 1)}>+</ZoomStepBtn>
@@ -912,17 +919,17 @@ export default function SettingsPanel() {
                       <>
                         <OptionRow label={`Split Sensitivity — ${performanceSplitSensitivity} semitones`}>
                           <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                            <span style={{ fontSize: 9, color: '#505068', fontFamily: 'JetBrains Mono', flexShrink: 0 }}>2</span>
+                            <span style={{ fontSize: 9, color: 'var(--text-inactive)', fontFamily: 'JetBrains Mono', flexShrink: 0 }}>2</span>
                             <input
                               type="range" min={2} max={16} step={1}
                               value={performanceSplitSensitivity}
                               onChange={e => setPerformanceSplitSensitivity(Number(e.target.value))}
-                              style={{ flex: 1, accentColor: '#e8a027', cursor: 'pointer' }}
+                              style={{ flex: 1, accentColor: 'var(--text-amber)', cursor: 'pointer' }}
                             />
-                            <span style={{ fontSize: 9, color: '#505068', fontFamily: 'JetBrains Mono', flexShrink: 0 }}>16</span>
+                            <span style={{ fontSize: 9, color: 'var(--text-inactive)', fontFamily: 'JetBrains Mono', flexShrink: 0 }}>16</span>
                           </div>
                         </OptionRow>
-                        <div style={{ padding: '2px 12px 6px', color: '#505068', fontSize: 10, fontFamily: 'Inter', lineHeight: 1.5 }}>
+                        <div style={{ padding: '2px 12px 6px', color: 'var(--text-inactive)', fontSize: 10, fontFamily: 'Inter', lineHeight: 1.5 }}>
                           Lower values split hands more readily on moderate spreads. Higher values only split on very wide separations.
                         </div>
                       </>
@@ -933,15 +940,15 @@ export default function SettingsPanel() {
                 {/* ── Piano Roll ── */}
                 <SectionHeader icon={<ZoomIn size={11} />} label="Piano Roll" />
                 <OptionRow label={`Zoom  —  ${Math.round(zoomLevel * 100)}%`} hint={`${Math.round(6 / zoomLevel * 10) / 10}s visible · higher = notes appear larger`}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-2)' }}>
                     <ZoomStepBtn
                       disabled={zoomLevel <= ZOOM_STEPS[0]}
                       onClick={() => { const i = ZOOM_STEPS.indexOf(zoomLevel); if (i > 0) setZoomLevel(ZOOM_STEPS[i - 1]) }}
                     >−</ZoomStepBtn>
-                    <div style={{ flex: 1, position: 'relative', height: 4, background: '#1e1e2c', borderRadius: 2 }}>
+                    <div style={{ flex: 1, position: 'relative', height: 4, background: 'var(--border)', borderRadius: 2 }}>
                       <div style={{
                         position: 'absolute', left: 0, top: 0, height: '100%', borderRadius: 2,
-                        background: '#e8a027',
+                        background: 'var(--text-amber)',
                         width: `${(ZOOM_STEPS.indexOf(zoomLevel) / (ZOOM_STEPS.length - 1)) * 100}%`,
                         transition: 'width 0.12s',
                       }} />
@@ -952,8 +959,8 @@ export default function SettingsPanel() {
                             left: `${(i / (ZOOM_STEPS.length - 1)) * 100}%`,
                             top: '50%', transform: 'translate(-50%, -50%)',
                             width: 10, height: 10, borderRadius: '50%',
-                            background: zoomLevel === step ? '#e8a027' : '#2a2a3a',
-                            border: `1.5px solid ${zoomLevel === step ? '#e8a027' : '#404055'}`,
+                            background: zoomLevel === step ? 'var(--text-amber)' : 'var(--state-hover-bg)',
+                            border: `1.5px solid ${zoomLevel === step ? 'var(--text-amber)' : 'var(--text-muted)'}`,
                             cursor: 'pointer', padding: 0, transition: 'all 0.12s',
                           }} />
                       ))}
@@ -966,7 +973,7 @@ export default function SettingsPanel() {
                 </OptionRow>
 
                 <OptionRow label="Bar numbers & grid lines">
-                  <div style={{ display: 'flex', gap: 4 }}>
+                  <div style={{ display: 'flex', gap: 'var(--space-1)' }}>
                     <OptionBtn active={showBarNumbers} onClick={() => setShowBarNumbers(true)}>Show</OptionBtn>
                     <OptionBtn active={!showBarNumbers} onClick={() => setShowBarNumbers(false)}>Hide</OptionBtn>
                   </div>
@@ -975,7 +982,7 @@ export default function SettingsPanel() {
                 {/* ── Audio ── */}
                 <SectionHeader icon={<Volume2 size={11} />} label="Audio" />
                 <OptionRow label="Sound engine">
-                  <div style={{ display: 'flex', gap: 4 }}>
+                  <div style={{ display: 'flex', gap: 'var(--space-1)' }}>
                     {/* GM Synth — always available, switches back from Samples instantly */}
                     <OptionBtn
                       active={audioEngine === 'gm'}
@@ -1005,29 +1012,29 @@ export default function SettingsPanel() {
                   {/* Loading progress / status block */}
                   {samplesStatus === 'loading' && (
                     <div style={{ marginTop: 7 }}>
-                      <div style={{ fontSize: 9, color: '#707088', fontFamily: 'JetBrains Mono', marginBottom: 4 }}>
+                      <div style={{ fontSize: 9, color: 'var(--text-dimmest)', fontFamily: 'JetBrains Mono', marginBottom: 4 }}>
                         Loading soundfont… {Math.round(samplesProgress * 100)}%
                       </div>
-                      <div style={{ height: 3, background: '#1e1e2c', borderRadius: 2, overflow: 'hidden' }}>
+                      <div style={{ height: 3, background: 'var(--border)', borderRadius: 2, overflow: 'hidden' }}>
                         <div style={{
-                          height: '100%', background: '#e8a027', borderRadius: 2,
+                          height: '100%', background: 'var(--text-amber)', borderRadius: 2,
                           width: `${Math.round(samplesProgress * 100)}%`, transition: 'width 0.1s',
                         }} />
                       </div>
                     </div>
                   )}
                   {samplesStatus === 'ready' && (
-                    <div style={{ marginTop: 5, fontSize: 9, color: '#404055', fontFamily: 'JetBrains Mono' }}>
+                    <div style={{ marginTop: 5, fontSize: 9, color: 'var(--text-muted)', fontFamily: 'JetBrains Mono' }}>
                       GeneralUser-GS.sf2 · 30.8 MB · loaded
                     </div>
                   )}
                   {samplesStatus === 'error' && (
-                    <div style={{ marginTop: 5, fontSize: 9, color: '#c0392b', fontFamily: 'JetBrains Mono' }}>
+                    <div style={{ marginTop: 5, fontSize: 9, color: 'var(--status-error)', fontFamily: 'JetBrains Mono' }}>
                       Failed to load soundfont — check console
                     </div>
                   )}
                   {samplesStatus === 'idle' && (
-                    <div style={{ marginTop: 5, fontSize: 9, color: '#404055', fontFamily: 'JetBrains Mono' }}>
+                    <div style={{ marginTop: 5, fontSize: 9, color: 'var(--text-muted)', fontFamily: 'JetBrains Mono' }}>
                       {audioEngine === 'gm'
                         ? 'GM Synth (jzz-synth-tiny) — ships with app, no internet needed.'
                         : 'GeneralUser-GS.sf2 · 30.8 MB · click Samples to load'}
@@ -1038,14 +1045,14 @@ export default function SettingsPanel() {
                 {/* ── Playback ── */}
                 <SectionHeader icon={<Music size={11} />} label="Playback" />
                 <OptionRow label="Chord Prompter" hint="Shows chord names during playback — past, current and upcoming chords.">
-                  <div style={{ display: 'flex', gap: 4 }}>
+                  <div style={{ display: 'flex', gap: 'var(--space-1)' }}>
                     <OptionBtn active={chordPrompterEnabled} onClick={() => setChordPrompterEnabled(true)}>On</OptionBtn>
                     <OptionBtn active={!chordPrompterEnabled} onClick={() => setChordPrompterEnabled(false)}>Off</OptionBtn>
                   </div>
                 </OptionRow>
                 {/* ── Loop Region strip toggle ──────────────────────────────── */}
                 <OptionRow label="Loop Region strip" hint="Show a strip above the song title to select and loop a section of the MIDI file.">
-                  <div style={{ display: 'flex', gap: 4 }}>
+                  <div style={{ display: 'flex', gap: 'var(--space-1)' }}>
                     <OptionBtn active={loopRegionEnabled}  onClick={() => setLoopRegionEnabled(true)}>On</OptionBtn>
                     <OptionBtn active={!loopRegionEnabled} onClick={() => setLoopRegionEnabled(false)}>Off</OptionBtn>
                   </div>
@@ -1054,14 +1061,14 @@ export default function SettingsPanel() {
                 {/* ── Appearance ── */}
                 <SectionHeader icon={<Palette size={11} />} label="Appearance" />
                 <OptionRow label="Background">
-                  <div style={{ display: 'flex', gap: 4 }}>
+                  <div style={{ display: 'flex', gap: 'var(--space-1)' }}>
                     <AppBgBtn color="#0f0f12" label="Dark" active={appTheme === 'dark'} onClick={() => setAppTheme('dark')} />
                     <AppBgBtn color="#12100e" label="Warm" active={appTheme === 'warm'} onClick={() => setAppTheme('warm')} />
                   </div>
                 </OptionRow>
 
                 {/* About */}
-                <div style={{ padding: '14px 14px 10px', borderTop: '1px solid #1a1a26', marginTop: 4 }}>
+                <div style={{ padding: '14px 14px 10px', borderTop: '1px solid var(--bg-tile)', marginTop: 4 }}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 4 }}>
                     <svg width="16" height="16" viewBox="0 0 100 100" fill="none">
                       <circle cx="50" cy="50" r="44" stroke="#e8a027" strokeWidth="8"/>
@@ -1069,7 +1076,7 @@ export default function SettingsPanel() {
                       <line x1="22" y1="50" x2="78" y2="50" stroke="#e8a027" strokeWidth="7" strokeLinecap="round"/>
                       <line x1="22" y1="62" x2="78" y2="62" stroke="#e8a027" strokeWidth="7" strokeLinecap="round"/>
                     </svg>
-                    <span style={{ color: '#50506a', fontSize: 10, fontFamily: 'JetBrains Mono' }}>Orfeo · v0.10.1</span>
+                    <span style={{ color: 'var(--text-inactive)', fontSize: 10, fontFamily: 'JetBrains Mono' }}>Orfeo · v0.10.1</span>
                   </div>
                   <div style={{ fontSize: 9, color: '#35354a', fontFamily: 'JetBrains Mono', lineHeight: 1.5 }}>
                     MIT License · github.com/SquareBow/orfeo
@@ -1083,7 +1090,7 @@ export default function SettingsPanel() {
           {/* ── Manual link — always visible at drawer bottom ── */}
           <div style={{
             flexShrink: 0,
-            borderTop: '1px solid #1a1a26',
+            borderTop: '1px solid var(--bg-tile)',
             padding: '8px 14px',
           }}>
             <button
@@ -1092,11 +1099,11 @@ export default function SettingsPanel() {
               style={{
                 width: '100%', display: 'flex', alignItems: 'center', gap: 7,
                 background: 'transparent', border: 'none', cursor: 'pointer',
-                color: '#404055', padding: '4px 0',
+                color: 'var(--text-muted)', padding: '4px 0',
                 transition: 'color 0.15s',
               }}
-              onMouseEnter={e => e.currentTarget.style.color = '#e8a027'}
-              onMouseLeave={e => e.currentTarget.style.color = '#404055'}
+              onMouseEnter={e => e.currentTarget.style.color = 'var(--text-amber)'}
+              onMouseLeave={e => e.currentTarget.style.color = 'var(--text-muted)'}
             >
               <BookOpen size={11} strokeWidth={1.5} />
               <span style={{ fontSize: 10, fontFamily: 'Inter', letterSpacing: '0.02em' }}>User Manual</span>
@@ -1110,15 +1117,16 @@ export default function SettingsPanel() {
   )
 }
 
+// ── Zoom step button — small +/− stepper for discrete-increment controls ──
 function ZoomStepBtn({ onClick, disabled, children }: {
   onClick: () => void; disabled: boolean; children: React.ReactNode
 }) {
   return (
     <button onClick={onClick} disabled={disabled} style={{
       width: 22, height: 22, borderRadius: 4,
-      background: '#131320', border: '1px solid #252535',
-      color: disabled ? '#303040' : '#707088',
-      fontSize: 16, lineHeight: 1,
+      background: 'var(--bg-modal)', border: '1px solid var(--border2)',
+      color: disabled ? 'var(--state-disabled)' : 'var(--text-dimmest)',
+      fontSize: 'var(--text-lg)', lineHeight: 1,
       cursor: disabled ? 'default' : 'pointer',
       display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0,
     }}>
@@ -1127,21 +1135,22 @@ function ZoomStepBtn({ onClick, disabled, children }: {
   )
 }
 
+// ── App background button — color swatch + label toggle for theme selection
 function AppBgBtn({ color, label, active, onClick, comingSoon }: {
   color: string; label: string; active: boolean; onClick: () => void; comingSoon?: boolean
 }) {
   return (
     <button onClick={comingSoon ? undefined : onClick} style={{
       flex: 1, padding: '6px 4px', borderRadius: 4,
-      border: active ? '1px solid #e8a02755' : '1px solid #252535',
-      background: active ? '#e8a02714' : '#131320',
-      color: active ? '#e8a027' : '#505068',
+      border: active ? '1px solid var(--accent-amber-strong)' : '1px solid var(--border2)',
+      background: active ? 'var(--accent-amber-medium)' : 'var(--bg-modal)',
+      color: active ? 'var(--text-amber)' : 'var(--text-inactive)',
       fontSize: 10, cursor: comingSoon ? 'default' : 'pointer',
       opacity: comingSoon ? 0.4 : 1,
-      display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4,
+      display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 'var(--space-1)',
       transition: 'all 0.12s',
     }}>
-      <div style={{ width: 28, height: 14, borderRadius: 3, background: color, border: '1px solid #303040' }} />
+      <div style={{ width: 28, height: 14, borderRadius: 'var(--radius-sm)', background: color, border: '1px solid var(--state-disabled)' }} />
       <span style={{ fontFamily: 'Inter', fontSize: 10 }}>{label}</span>
     </button>
   )

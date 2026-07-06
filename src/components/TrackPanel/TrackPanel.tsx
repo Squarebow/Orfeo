@@ -23,6 +23,7 @@ function PencilSparkles({ size = 16 }: { size?: number }) {
   )
 }
 
+// ── Track panel — collapsible right drawer with instrument group list and track controls
 export default function TrackPanel() {
   const tracks = useStore((s) => s.tracks)
   const midi = useStore((s) => s.midi)
@@ -33,11 +34,13 @@ export default function TrackPanel() {
   const [collapsedGroups, setCollapsedGroups] = useState<Set<string>>(new Set())
   const [editorOpen, setEditorOpen] = useState(false)
 
+  // ── Editor closed listener — syncs editorOpen when MIDI Editor window closes
   useEffect(() => {
     if (!window.electronAPI?.onEditorClosed) return
     window.electronAPI.onEditorClosed(() => setEditorOpen(false))
   }, [])
 
+  // ── Open editor — serialises track state and opens MIDI Editor window ─────
   const handleOpenEditor = async () => {
     if (!midi) return
     const midiAny = midi as any
@@ -69,6 +72,7 @@ export default function TrackPanel() {
     }
   }
 
+  // ── Group tracks — partition by GM group key, ordered by GROUP_ORDER ──────
   const grouped = useMemo(() => {
     const map = new Map<string, TrackState[]>()
     for (const track of tracks) {
@@ -83,6 +87,7 @@ export default function TrackPanel() {
 
   const hasSolo = tracks.some(t => t.solo)
 
+  // ── Toggle group collapse — adds/removes group key from collapsed set ─────
   const toggleGroupCollapse = (group: string) => {
     setCollapsedGroups(prev => {
       const next = new Set(prev)
@@ -91,6 +96,7 @@ export default function TrackPanel() {
     })
   }
 
+  // ── isGroupMuted — true when every track in the group is muted ───────────
   const isGroupMuted = (groupKey: string) =>
     tracks.filter(t => t.group === groupKey).every(t => t.muted)
 
@@ -98,8 +104,8 @@ export default function TrackPanel() {
     <div
       style={{
         width: trackPanelOpen ? 260 : 32,
-        background: '#13131a',
-        borderLeft: '1px solid #222230',
+        background: 'var(--bg-modal)',
+        borderLeft: '1px solid var(--border2)',
         transition: 'width 0.2s ease',
         overflow: 'hidden',
         display: 'flex',
@@ -119,12 +125,12 @@ export default function TrackPanel() {
             title="Open Tracks"
             style={{
               background: 'none', border: 'none', cursor: 'pointer',
-              color: '#707088', padding: 4,
+              color: 'var(--text-dimmest)', padding: 4,
               display: 'flex', alignItems: 'center', justifyContent: 'center',
               transition: 'color 0.15s',
             }}
-            onMouseEnter={e => e.currentTarget.style.color = '#e8a027'}
-            onMouseLeave={e => e.currentTarget.style.color = '#707088'}
+            onMouseEnter={e => e.currentTarget.style.color = 'var(--text-amber)'}
+            onMouseLeave={e => e.currentTarget.style.color = 'var(--text-dimmest)'}
           >
             <AudioLines size={18} />
           </button>
@@ -132,7 +138,7 @@ export default function TrackPanel() {
             title="Coming soon"
             style={{
               background: 'none', border: 'none', cursor: 'default',
-              color: '#505068', padding: 4, marginTop: 8, opacity: 0.5,
+              color: 'var(--text-inactive)', padding: 4, marginTop: 8, opacity: 0.5,
               display: 'flex', alignItems: 'center', justifyContent: 'center',
             }}
           >
@@ -144,13 +150,13 @@ export default function TrackPanel() {
             style={{
               background: 'none', border: 'none',
               cursor: !midi || editorOpen ? 'default' : 'pointer',
-              color: editorOpen ? '#e8a027' : !midi ? '#303042' : '#707088',
+              color: editorOpen ? 'var(--text-amber)' : !midi ? 'var(--state-disabled)' : 'var(--text-dimmest)',
               padding: 4, marginTop: 8,
               display: 'flex', alignItems: 'center', justifyContent: 'center',
               transition: 'color 0.15s',
             }}
-            onMouseEnter={e => { if (midi && !editorOpen) e.currentTarget.style.color = '#e8a027' }}
-            onMouseLeave={e => { if (midi && !editorOpen) e.currentTarget.style.color = '#707088'; else (e.currentTarget as HTMLElement).style.color = editorOpen ? '#e8a027' : !midi ? '#303042' : '#707088' }}
+            onMouseEnter={e => { if (midi && !editorOpen) e.currentTarget.style.color = 'var(--text-amber)' }}
+            onMouseLeave={e => { if (midi && !editorOpen) e.currentTarget.style.color = 'var(--text-dimmest)'; else (e.currentTarget as HTMLElement).style.color = editorOpen ? 'var(--text-amber)' : !midi ? 'var(--state-disabled)' : 'var(--text-dimmest)' }}
           >
             <PencilSparkles size={18} />
           </button>
@@ -165,20 +171,20 @@ export default function TrackPanel() {
             width: 32, flexShrink: 0,
             display: 'flex', flexDirection: 'column', alignItems: 'center',
             paddingTop: 10,
-            borderRight: '1px solid #1a1a26',
+            borderRight: '1px solid var(--bg-tile)',
           }}>
             <button
               onClick={() => setTrackPanelOpen(false)}
               title="Close Tracks"
               style={{
-                background: '#1a1a24', border: '1px solid #252535', borderRight: 'none',
+                background: 'var(--bg-tile)', border: '1px solid var(--border2)', borderRight: 'none',
                 borderRadius: '0 4px 4px 0',
-                cursor: 'pointer', color: '#707088', padding: '4px 5px',
+                cursor: 'pointer', color: 'var(--text-dimmest)', padding: '4px 5px',
                 display: 'flex', alignItems: 'center', justifyContent: 'center',
                 transition: 'color 0.15s',
               }}
-              onMouseEnter={e => e.currentTarget.style.color = '#e8a027'}
-              onMouseLeave={e => e.currentTarget.style.color = '#707088'}
+              onMouseEnter={e => e.currentTarget.style.color = 'var(--text-amber)'}
+              onMouseLeave={e => e.currentTarget.style.color = 'var(--text-dimmest)'}
             >
               <ChevronRight size={15} />
             </button>
@@ -186,7 +192,7 @@ export default function TrackPanel() {
               title="Coming soon"
               style={{
                 background: 'none', border: 'none', cursor: 'default',
-                color: '#505068', padding: 4, marginTop: 8, opacity: 0.5,
+                color: 'var(--text-inactive)', padding: 4, marginTop: 8, opacity: 0.5,
                 display: 'flex', alignItems: 'center', justifyContent: 'center',
               }}
             >
@@ -198,13 +204,13 @@ export default function TrackPanel() {
               style={{
                 background: 'none', border: 'none',
                 cursor: !midi || editorOpen ? 'default' : 'pointer',
-                color: editorOpen ? '#e8a027' : !midi ? '#303042' : '#707088',
+                color: editorOpen ? 'var(--text-amber)' : !midi ? 'var(--state-disabled)' : 'var(--text-dimmest)',
                 padding: 4, marginTop: 8,
                 display: 'flex', alignItems: 'center', justifyContent: 'center',
                 transition: 'color 0.15s',
               }}
-              onMouseEnter={e => { if (midi && !editorOpen) e.currentTarget.style.color = '#e8a027' }}
-              onMouseLeave={e => { if (midi && !editorOpen) e.currentTarget.style.color = '#707088'; else (e.currentTarget as HTMLElement).style.color = editorOpen ? '#e8a027' : !midi ? '#303042' : '#707088' }}
+              onMouseEnter={e => { if (midi && !editorOpen) e.currentTarget.style.color = 'var(--text-amber)' }}
+              onMouseLeave={e => { if (midi && !editorOpen) e.currentTarget.style.color = 'var(--text-dimmest)'; else (e.currentTarget as HTMLElement).style.color = editorOpen ? 'var(--text-amber)' : !midi ? 'var(--state-disabled)' : 'var(--text-dimmest)' }}
             >
               <PencilSparkles size={16} />
             </button>
@@ -217,15 +223,15 @@ export default function TrackPanel() {
           <div style={{
             height: 40, display: 'flex', alignItems: 'center',
             padding: '0 14px',
-            borderBottom: '1px solid #1e1e2c', flexShrink: 0,
-            gap: 8,
+            borderBottom: '1px solid var(--border)', flexShrink: 0,
+            gap: 'var(--space-2)',
           }}>
-            <AudioLines size={14} style={{ color: '#50506a', flexShrink: 0 }} />
-            <span style={{ color: '#707088', fontSize: 11, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.1em' }}>
+            <AudioLines size={14} style={{ color: 'var(--text-inactive)', flexShrink: 0 }} />
+            <span style={{ color: 'var(--text-dimmest)', fontSize: 'var(--text-xs)', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.1em' }}>
               Tracks
             </span>
             {midi && (
-              <span style={{ marginLeft: 'auto', color: '#50506a', fontSize: 11, fontFamily: 'JetBrains Mono' }}>
+              <span style={{ marginLeft: 'auto', color: 'var(--text-inactive)', fontSize: 'var(--text-xs)', fontFamily: 'JetBrains Mono' }}>
                 {tracks.length}
               </span>
             )}
@@ -234,7 +240,7 @@ export default function TrackPanel() {
           {/* Track list */}
           <div style={{ flex: 1, overflowY: 'auto', padding: '4px 0' }}>
             {!midi && (
-              <div style={{ padding: '12px 14px', fontSize: 11, color: '#35354a' }}>
+              <div style={{ padding: '12px 14px', fontSize: 'var(--text-xs)', color: '#35354a' }}>
                 Open a MIDI file to see tracks
               </div>
             )}
@@ -249,19 +255,19 @@ export default function TrackPanel() {
                   <div style={{
                     display: 'flex', alignItems: 'center', gap: 6,
                     padding: '5px 10px 5px 10px',
-                    background: '#0e0e16',
-                    borderTop: '1px solid #1a1a26',
-                    borderBottom: '1px solid #1a1a26',
+                    background: 'var(--bg-row)',
+                    borderTop: '1px solid var(--bg-tile)',
+                    borderBottom: '1px solid var(--bg-tile)',
                   }}>
                     <button
                       onClick={() => toggleGroupCollapse(key)}
-                      style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#50506a', padding: 0, display: 'flex', alignItems: 'center' }}
+                      style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-inactive)', padding: 0, display: 'flex', alignItems: 'center' }}
                       title={collapsed ? 'Expand' : 'Collapse'}
                     >
                       <ChevronDown size={11} style={{ transform: collapsed ? 'rotate(-90deg)' : 'none', transition: 'transform 0.15s' }} />
                     </button>
 
-                    <span style={{ flex: 1, fontSize: 10, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.1em', color: '#707088' }}>
+                    <span style={{ flex: 1, fontSize: 10, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.1em', color: 'var(--text-dimmest)' }}>
                       {label}
                     </span>
                     <span style={{ fontSize: 10, color: '#40404e', fontFamily: 'JetBrains Mono' }}>
@@ -273,7 +279,7 @@ export default function TrackPanel() {
                       style={{
                         background: 'none', border: 'none', cursor: 'pointer',
                         padding: '2px 4px', display: 'flex', alignItems: 'center',
-                        color: groupMuted ? '#e8a027' : '#404055',
+                        color: groupMuted ? 'var(--text-amber)' : 'var(--text-muted)',
                       }}
                     >
                       {groupMuted ? <VolumeX size={12} /> : <Volume2 size={12} />}
@@ -306,6 +312,7 @@ export default function TrackPanel() {
   )
 }
 
+// ── Track row — single track entry: color bar, instrument name, and I/M/S/V/K controls
 function TrackRow({ track, dimmed, onMute, onSolo, onVisible, onKeyboard }: {
   track: TrackState; dimmed: boolean
   onMute: () => void; onSolo: () => void; onVisible: () => void; onKeyboard: () => void
@@ -319,7 +326,7 @@ function TrackRow({ track, dimmed, onMute, onSolo, onVisible, onKeyboard }: {
     <div
       title={tooltip}
       style={{
-        display: 'flex', alignItems: 'center', gap: 8,
+        display: 'flex', alignItems: 'center', gap: 'var(--space-2)',
         padding: '6px 10px 6px 14px',
         borderBottom: '1px solid #181822',
         opacity: dimmed ? 0.45 : 1,
@@ -331,11 +338,11 @@ function TrackRow({ track, dimmed, onMute, onSolo, onVisible, onKeyboard }: {
 
       {/* Info */}
       <div style={{ flex: 1, minWidth: 0 }}>
-        <div style={{ fontSize: 12, fontWeight: 500, color: '#9090a8', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+        <div style={{ fontSize: 'var(--text-sm)', fontWeight: 500, color: '#9090a8', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
           {track.gmName}
         </div>
         <div style={{ display: 'flex', gap: 6, marginTop: 2 }}>
-          <span style={{ fontSize: 9, color: '#505068', fontFamily: 'JetBrains Mono' }}>track {track.index + 1}</span>
+          <span style={{ fontSize: 9, color: 'var(--text-inactive)', fontFamily: 'JetBrains Mono' }}>track {track.index + 1}</span>
         </div>
         <div style={{ display: 'flex', gap: 6, marginTop: 1 }}>
           <span style={{ fontSize: 9, color: '#454560', fontFamily: 'JetBrains Mono' }}>ch {ch}</span>
@@ -345,9 +352,9 @@ function TrackRow({ track, dimmed, onMute, onSolo, onVisible, onKeyboard }: {
       </div>
 
       {/* Control icons — no backgrounds, color = state */}
-      <div style={{ display: 'flex', alignItems: 'center', gap: 4, flexShrink: 0 }}>
-        <IBtn onClick={onMute} active={track.muted} title={track.muted ? 'Unmute' : 'Mute'} activeColor="#d04040">
-          <span style={{ fontSize: 11, fontWeight: 700, fontFamily: 'JetBrains Mono', lineHeight: 1 }}>M</span>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-1)', flexShrink: 0 }}>
+        <IBtn onClick={onMute} active={track.muted} title={track.muted ? 'Unmute' : 'Mute'} activeColor="var(--status-error)">
+          <span style={{ fontSize: 'var(--text-xs)', fontWeight: 700, fontFamily: 'JetBrains Mono', lineHeight: 1 }}>M</span>
         </IBtn>
         <IBtn onClick={onSolo} active={track.solo} title={track.solo ? 'Unsolo' : 'Solo'} activeColor="#e8a027">
           <span style={{ fontSize: 10, fontWeight: 700, fontFamily: 'JetBrains Mono', lineHeight: 1 }}>S</span>
@@ -370,7 +377,8 @@ function TrackRow({ track, dimmed, onMute, onSolo, onVisible, onKeyboard }: {
   )
 }
 
-function IBtn({ children, onClick, active, title, activeColor = '#e8a027' }: {
+// ── IBtn — icon button for track controls: color driven by active state ───
+function IBtn({ children, onClick, active, title, activeColor = 'var(--text-amber)' }: {
   children: React.ReactNode; onClick: () => void
   active?: boolean; title?: string; activeColor?: string
 }) {
