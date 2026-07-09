@@ -3,6 +3,7 @@ import { ChevronRight, Eye, EyeOff, Volume2, VolumeX, ChevronDown, AudioLines, S
 import { useStore } from '../../store'
 import { GM_GROUPS } from '../../utils/gmInstruments'
 import type { TrackState } from '../../types'
+import { MarqueeText } from '../MarqueeText'
 
 const GROUP_ORDER = [
   'piano', 'chromatic', 'organ', 'guitar', 'bass',
@@ -312,7 +313,7 @@ export default function TrackPanel() {
   )
 }
 
-// ── Track row — single track entry: color bar, instrument name, and I/M/S/V/K controls
+// ── Track row — three-line layout: name (top, full width) / track# + controls (mid) / ch+prog (bottom)
 function TrackRow({ track, dimmed, onMute, onSolo, onVisible, onKeyboard }: {
   track: TrackState; dimmed: boolean
   onMute: () => void; onSolo: () => void; onVisible: () => void; onKeyboard: () => void
@@ -326,52 +327,49 @@ function TrackRow({ track, dimmed, onMute, onSolo, onVisible, onKeyboard }: {
     <div
       title={tooltip}
       style={{
-        display: 'flex', alignItems: 'center', gap: 'var(--space-2)',
-        padding: '6px 10px 6px 14px',
+        padding: '6px 10px 5px 14px',
         borderBottom: '1px solid var(--border-row)',
         opacity: dimmed ? 0.45 : 1,
         transition: 'opacity 0.15s',
       }}
     >
-      {/* Color bar */}
-      <div style={{ width: 3, height: 30, background: track.color, borderRadius: 2, flexShrink: 0, opacity: dimmed ? 0.6 : 1 }} />
+      {/* ── Row 1: color bar + instrument name spanning full available width ── */}
+      <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+        <div style={{ width: 3, height: 20, background: track.color, borderRadius: 2, flexShrink: 0, opacity: dimmed ? 0.6 : 1 }} />
+        <MarqueeText name={track.gmName} spanStyle={{ fontSize: 'var(--text-sm)', fontWeight: 500, color: 'var(--text-muted)' }} />
+      </div>
 
-      {/* Info */}
-      <div style={{ flex: 1, minWidth: 0 }}>
-        <div style={{ fontSize: 'var(--text-sm)', fontWeight: 500, color: 'var(--text-muted)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-          {track.gmName}
-        </div>
-        <div style={{ display: 'flex', gap: 6, marginTop: 2 }}>
-          <span style={{ fontSize: 9, color: 'var(--text-inactive)', fontFamily: 'JetBrains Mono' }}>track {track.index + 1}</span>
-        </div>
-        <div style={{ display: 'flex', gap: 6, marginTop: 1 }}>
-          <span style={{ fontSize: 9, color: '#454560', fontFamily: 'JetBrains Mono' }}>ch {ch}</span>
-          <span style={{ fontSize: 9, color: '#454560', fontFamily: 'JetBrains Mono' }}>·</span>
-          <span style={{ fontSize: 9, color: '#454560', fontFamily: 'JetBrains Mono' }}>{prog}</span>
+      {/* ── Row 2: track number (left) + M/S/V/K controls (right) ─────────── */}
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginTop: 3, paddingLeft: 11 }}>
+        <span style={{ fontSize: 9, color: 'var(--text-inactive)', fontFamily: 'JetBrains Mono' }}>track {track.index + 1}</span>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-1)' }}>
+          <IBtn onClick={onMute} active={track.muted} title={track.muted ? 'Unmute' : 'Mute'} activeColor="var(--status-error)">
+            <span style={{ fontSize: 'var(--text-xs)', fontWeight: 700, fontFamily: 'JetBrains Mono', lineHeight: 1 }}>M</span>
+          </IBtn>
+          <IBtn onClick={onSolo} active={track.solo} title={track.solo ? 'Unsolo' : 'Solo'} activeColor="#e8a027">
+            <span style={{ fontSize: 10, fontWeight: 700, fontFamily: 'JetBrains Mono', lineHeight: 1 }}>S</span>
+          </IBtn>
+          <IBtn onClick={onVisible} active={!track.visible} title={track.visible ? 'Hide in roll' : 'Show in roll'} activeColor="#6080c0">
+            {track.visible ? <Eye size={12} /> : <EyeOff size={12} />}
+          </IBtn>
+          <IBtn onClick={onKeyboard} active={track.showOnKeyboard} title={track.showOnKeyboard ? 'Lit on keyboard' : 'Not lit on keyboard'} activeColor="#e8a027">
+            {/* Mini piano icon */}
+            <svg width="13" height="9" viewBox="0 0 13 9" fill="none">
+              <rect x="0.5" y="0.5" width="12" height="8" rx="1" stroke="currentColor" strokeWidth="0.9"/>
+              <rect x="2.5" y="0.5" width="1.3" height="5" rx="0.4" fill="currentColor"/>
+              <rect x="5"   y="0.5" width="1.3" height="5" rx="0.4" fill="currentColor"/>
+              <rect x="7.5" y="0.5" width="1.3" height="5" rx="0.4" fill="currentColor"/>
+              <rect x="10"  y="0.5" width="1.3" height="5" rx="0.4" fill="currentColor"/>
+            </svg>
+          </IBtn>
         </div>
       </div>
 
-      {/* Control icons — no backgrounds, color = state */}
-      <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-1)', flexShrink: 0 }}>
-        <IBtn onClick={onMute} active={track.muted} title={track.muted ? 'Unmute' : 'Mute'} activeColor="var(--status-error)">
-          <span style={{ fontSize: 'var(--text-xs)', fontWeight: 700, fontFamily: 'JetBrains Mono', lineHeight: 1 }}>M</span>
-        </IBtn>
-        <IBtn onClick={onSolo} active={track.solo} title={track.solo ? 'Unsolo' : 'Solo'} activeColor="#e8a027">
-          <span style={{ fontSize: 10, fontWeight: 700, fontFamily: 'JetBrains Mono', lineHeight: 1 }}>S</span>
-        </IBtn>
-        <IBtn onClick={onVisible} active={!track.visible} title={track.visible ? 'Hide in roll' : 'Show in roll'} activeColor="#6080c0">
-          {track.visible ? <Eye size={12} /> : <EyeOff size={12} />}
-        </IBtn>
-        <IBtn onClick={onKeyboard} active={track.showOnKeyboard} title={track.showOnKeyboard ? 'Lit on keyboard' : 'Not lit on keyboard'} activeColor="#e8a027">
-          {/* Mini piano icon */}
-          <svg width="13" height="9" viewBox="0 0 13 9" fill="none">
-            <rect x="0.5" y="0.5" width="12" height="8" rx="1" stroke="currentColor" strokeWidth="0.9"/>
-            <rect x="2.5" y="0.5" width="1.3" height="5" rx="0.4" fill="currentColor"/>
-            <rect x="5"   y="0.5" width="1.3" height="5" rx="0.4" fill="currentColor"/>
-            <rect x="7.5" y="0.5" width="1.3" height="5" rx="0.4" fill="currentColor"/>
-            <rect x="10"  y="0.5" width="1.3" height="5" rx="0.4" fill="currentColor"/>
-          </svg>
-        </IBtn>
+      {/* ── Row 3: MIDI channel + program ─────────────────────────────────── */}
+      <div style={{ display: 'flex', gap: 6, marginTop: 2, paddingLeft: 11 }}>
+        <span style={{ fontSize: 9, color: '#454560', fontFamily: 'JetBrains Mono' }}>ch {ch}</span>
+        <span style={{ fontSize: 9, color: '#454560', fontFamily: 'JetBrains Mono' }}>·</span>
+        <span style={{ fontSize: 9, color: '#454560', fontFamily: 'JetBrains Mono' }}>{prog}</span>
       </div>
     </div>
   )

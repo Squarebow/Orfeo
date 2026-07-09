@@ -7,6 +7,7 @@ import { useStore } from '../../store'
 import type { NoteNaming, KeyboardSize, Accidentals, TranscriptEntry } from '../../types'
 import type { AppTheme } from '../../store'
 import { initSamplesEngine } from '../../hooks/useSamplesEngine'
+import { MarqueeText } from '../MarqueeText'
 
 // ── Spin keyframe for transcript loading animation ────────────────────────────
 if (typeof document !== 'undefined' && !document.getElementById('orfeo-transcript-anim')) {
@@ -175,51 +176,10 @@ function TranscriptIcon({ filePath, noteNaming, accidentals, addTranscriptEntry 
   )
 }
 
-// ─── Filename that scrolls left on hover when truncated ──────────────────────
+// ── MarqueeFilename — alias for MarqueeText with library-specific font style ──
+const FILENAME_SPAN_STYLE: React.CSSProperties = { fontSize: 'var(--text-xs)', color: 'var(--text-muted)' }
 function MarqueeFilename({ name }: { name: string }) {
-  const outerRef = useRef<HTMLDivElement>(null)
-  const innerRef = useRef<HTMLSpanElement>(null)
-  const [scrollAmt, setScrollAmt] = useState(0)
-  const [hovered, setHovered] = useState(false)
-
-  useEffect(() => {
-    // ── Measure overflow and watch for resize ─────────────────────────────
-    const measure = () => {
-      const outer = outerRef.current
-      const inner = innerRef.current
-      if (!outer || !inner) return
-      setScrollAmt(Math.max(0, inner.scrollWidth - outer.clientWidth))
-    }
-    measure()
-    const ro = new ResizeObserver(measure)
-    if (outerRef.current) ro.observe(outerRef.current)
-    return () => ro.disconnect()
-  }, [name])
-
-  const duration = Math.max(1.5, scrollAmt / 40)
-
-  return (
-    <div
-      ref={outerRef}
-      style={{ flex: 1, overflow: 'hidden', minWidth: 0 }}
-      onMouseEnter={() => setHovered(true)}
-      onMouseLeave={() => setHovered(false)}
-    >
-      <span
-        ref={innerRef}
-        style={{
-          display: 'inline-block',
-          fontSize: 'var(--text-xs)', color: 'var(--text-muted)', whiteSpace: 'nowrap',
-          transition: hovered && scrollAmt > 0
-            ? `transform ${duration}s 0.5s linear`
-            : 'transform 0.2s ease',
-          transform: hovered && scrollAmt > 0 ? `translateX(-${scrollAmt}px)` : 'translateX(0)',
-        }}
-      >
-        {name}
-      </span>
-    </div>
-  )
+  return <MarqueeText name={name} spanStyle={FILENAME_SPAN_STYLE} />
 }
 
 // ─── Library Panel ───────────────────────────────────────────────────────────
@@ -1076,7 +1036,7 @@ export default function SettingsPanel() {
                       <line x1="22" y1="50" x2="78" y2="50" stroke="#e8a027" strokeWidth="7" strokeLinecap="round"/>
                       <line x1="22" y1="62" x2="78" y2="62" stroke="#e8a027" strokeWidth="7" strokeLinecap="round"/>
                     </svg>
-                    <span style={{ color: 'var(--text-inactive)', fontSize: 10, fontFamily: 'JetBrains Mono' }}>Orfeo · v0.10.2</span>
+                    <span style={{ color: 'var(--text-inactive)', fontSize: 10, fontFamily: 'JetBrains Mono' }}>Orfeo · v0.10.3</span>
                   </div>
                   <div style={{ fontSize: 9, color: '#35354a', fontFamily: 'JetBrains Mono', lineHeight: 1.5 }}>
                     MIT License · github.com/SquareBow/orfeo

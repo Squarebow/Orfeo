@@ -7,8 +7,9 @@ import type { DetectedKey } from '../utils/keyDetection'
 import { isKeyboardInstrument } from '../utils/gmInstruments'
 
 // Groups that are muted by default when a file opens (too distracting)
+// Unmuted by default: piano, chromatic, organ, bass, drums
 const DEFAULT_MUTED_GROUPS = new Set([
-  'strings', 'ensemble', 'brass', 'reed', 'pipe',
+  'guitar', 'strings', 'ensemble', 'brass', 'reed', 'pipe',
   'synth_lead', 'synth_pad', 'synth_fx', 'ethnic',
   'percussive', 'sfx',
 ])

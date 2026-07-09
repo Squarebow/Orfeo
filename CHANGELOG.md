@@ -4,6 +4,26 @@
 
 ---
 
+### 9. 7. 2026 — Track Panel: full instrument names + marquee + guitar auto-mute + v0.10.3
+
+**`src/components/MarqueeText.tsx`** *(new)* — shared `MarqueeText` component extracted from `SettingsPanel`'s local `MarqueeFilename`. Uses `ResizeObserver` to measure overflow; on hover, CSS-transitions the inner span by `translateX(-scrollAmt)` with duration `Math.max(1.5, scrollAmt / 40)` seconds. `spanStyle` prop lets callers control font/color while scroll mechanics are shared.
+
+**`src/components/SettingsPanel/SettingsPanel.tsx`** — removed 30-line local `MarqueeFilename` function; replaced with a 3-line `MarqueeFilename` alias that delegates to `MarqueeText` with the same `text-xs / text-muted` style. Both library list call sites unchanged.
+
+**`src/components/TrackPanel/TrackPanel.tsx`**
+- `TrackRow` restructured from a single flex row to a three-row block layout:
+  - **Row 1** — color bar + `MarqueeText` with `flex: 1`; instrument name has the full track content width (~192 px) to itself with no competing elements.
+  - **Row 2** — `justifyContent: space-between`: track number on the left, M/S/👁/🎹 controls always visible on the right.
+  - **Row 3** — MIDI channel + program info. Rows 2 and 3 indented 11 px (`paddingLeft: 11` = 3 px color bar + 8 px gap) to align with the name above.
+- Instrument names now display in full for all standard GM names; marquee scroll-on-hover is a fallback only for names that genuinely overflow.
+- Removed `rowHovered` state (hover-reveal controls experiment — reverted; controls are always visible in their own row).
+
+**`src/store/index.ts`** — added `'guitar'` to `DEFAULT_MUTED_GROUPS`. Guitar (GM programs 24–31) was an original omission; it is now muted by default on file load alongside the other non-keyboard families. Unmuted by default: `piano`, `chromatic`, `organ`, `bass`, `drums` only.
+
+**Version:** `0.10.2` → `0.10.3`
+
+---
+
 ### 9. 7. 2026 — CSS Variable Rollout: Closing Pass + v0.10.2
 
 **`src/index.css`** — 3 new tokens added to `:root`:

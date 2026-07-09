@@ -226,6 +226,16 @@ All user-visible changes listed here. For full technical detail see [CHANGELOG.m
 
 ---
 
+### 9. 7. 2026
+
+**Improved**
+- **Track panel — full instrument names** — instrument names in the Track panel now display in full. The panel layout was restructured so the name occupies its own full-width row, with track number + controls on the row below and channel info beneath that. Names that are too long to fit scroll left on hover to reveal the complete text.
+
+**Fixed**
+- **Guitar tracks now muted by default** — guitar tracks were incorrectly left unmuted when a MIDI file loaded, unlike other non-keyboard families (strings, brass, synths, etc.). Guitar is now included in the default auto-mute list alongside the other orchestral/band families.
+
+---
+
 ### 4. 7. 2026 (3)
 
 **New**
