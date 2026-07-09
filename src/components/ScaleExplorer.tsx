@@ -694,12 +694,12 @@ export default function ScaleExplorer() {
                 style={{
                   fontFamily: 'Inter', fontSize: 10, padding: '3px 6px',
                   background: sel ? '#e8a02722' : 'none',
-                  color: sel ? 'var(--text-amber)' : '#9090a8',
+                  color: sel ? 'var(--text-amber)' : 'var(--text-muted)',
                   border: `1px solid ${sel ? 'var(--text-amber)' : 'transparent'}`,
                   borderRadius: 4, cursor: 'pointer', textAlign: 'left',
                 }}
                 onMouseEnter={e => { if (!sel) e.currentTarget.style.color = '#c0c0d8' }}
-                onMouseLeave={e => { if (!sel) e.currentTarget.style.color = '#9090a8' }}
+                onMouseLeave={e => { if (!sel) e.currentTarget.style.color = 'var(--text-muted)' }}
               >{s.name}</button>
             )
           })}
@@ -718,7 +718,7 @@ export default function ScaleExplorer() {
               <span style={{ fontFamily: 'JetBrains Mono', fontSize: 13, fontWeight: 700, color: 'var(--text-amber)' }}>
                 {infoText.rootName}
               </span>
-              <span style={{ fontSize: 11, color: '#9090a8' }}>{infoText.scaleName}</span>
+              <span style={{ fontSize: 11, color: 'var(--text-muted)' }}>{infoText.scaleName}</span>
               <span style={{ fontSize: 9, color: 'var(--text-inactive)', letterSpacing: '0.06em', fontFamily: 'JetBrains Mono' }}>
                 {infoText.noteNames.join(' · ')}
               </span>
@@ -840,7 +840,7 @@ export default function ScaleExplorer() {
                   </span>
                   {/* Right: note names + roman numeral stacked, right-aligned */}
                   <div style={{ display: 'flex', flexDirection: 'column', gap: 1, minWidth: 0, alignItems: 'flex-end' }}>
-                    <span style={{ fontFamily: 'JetBrains Mono', fontSize: 9, color: '#9090a8', lineHeight: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', textAlign: 'right' }}>
+                    <span style={{ fontFamily: 'JetBrains Mono', fontSize: 9, color: 'var(--text-muted)', lineHeight: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', textAlign: 'right' }}>
                       {chord.midiNotes.map(m => getNoteName(m, displayNaming, accidentals)).join(' ')}
                     </span>
                     <span style={{ fontFamily: 'Inter', fontSize: 10, color: '#e8a02799', lineHeight: 1, textAlign: 'right' }}>
@@ -876,7 +876,7 @@ export default function ScaleExplorer() {
                   </span>
                   {/* Right: octave note names + roman numeral with ⁸ superscript */}
                   <div style={{ display: 'flex', flexDirection: 'column', gap: 1, minWidth: 0, alignItems: 'flex-end' }}>
-                    <span style={{ fontFamily: 'JetBrains Mono', fontSize: 9, color: '#9090a8', lineHeight: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', textAlign: 'right' }}>
+                    <span style={{ fontFamily: 'JetBrains Mono', fontSize: 9, color: 'var(--text-muted)', lineHeight: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', textAlign: 'right' }}>
                       {octaveMidi.map(m => getNoteName(m, displayNaming, accidentals)).join(' ')}
                     </span>
                     <span style={{ fontFamily: 'Inter', fontSize: 10, color: '#e8a02799', lineHeight: 1, textAlign: 'right' }}>
@@ -1048,7 +1048,7 @@ export default function ScaleExplorer() {
                 fontFamily: 'Inter', fontSize: 'var(--text-lg)', background: 'none', border: 'none',
                 color: accidentals === v ? 'var(--text-amber)' : 'var(--text-inactive)', cursor: 'pointer', padding: '0 3px',
               }}
-              onMouseEnter={e => { if (accidentals !== v) e.currentTarget.style.color = '#9090a8' }}
+              onMouseEnter={e => { if (accidentals !== v) e.currentTarget.style.color = 'var(--text-muted)' }}
               onMouseLeave={e => { if (accidentals !== v) e.currentTarget.style.color = 'var(--text-inactive)' }}
             >{v === 'flat' ? '♭' : '♯'}</button>
           ))}
@@ -1114,11 +1114,11 @@ export default function ScaleExplorer() {
                 width: '100%', textAlign: 'left',
                 background: selectedProg === i ? 'var(--state-hover-bg)' : 'none',
                 border: 'none', padding: '5px 10px',
-                color: selectedProg === i ? 'var(--text-amber)' : '#9090a8',
+                color: selectedProg === i ? 'var(--text-amber)' : 'var(--text-muted)',
                 fontFamily: 'Inter', fontSize: 10, cursor: 'pointer',
               }}
               onMouseEnter={e => { e.currentTarget.style.background = 'var(--state-hover-bg)'; e.currentTarget.style.color = 'var(--text-amber)' }}
-              onMouseLeave={e => { e.currentTarget.style.background = selectedProg === i ? 'var(--state-hover-bg)' : 'none'; e.currentTarget.style.color = selectedProg === i ? 'var(--text-amber)' : '#9090a8' }}
+              onMouseLeave={e => { e.currentTarget.style.background = selectedProg === i ? 'var(--state-hover-bg)' : 'none'; e.currentTarget.style.color = selectedProg === i ? 'var(--text-amber)' : 'var(--text-muted)' }}
             >
               {/* Left column: progression name */}
               <span style={{ minWidth: 90, flexShrink: 0, whiteSpace: 'nowrap' }}>{p.name}</span>

@@ -4,6 +4,36 @@
 
 ---
 
+### 9. 7. 2026 — CSS Variable Rollout: Closing Pass + v0.10.2
+
+**`src/index.css`** — 3 new tokens added to `:root`:
+- `--text-dim-control: #606078` — dim control labels, inactive action icons
+- `--border-row: #181822` — row separator borders within panels and editors
+- `--bg-deep: #111116` — deepest floor layer, below `--bg-modal`
+
+**Files updated — ~40 substitutions across 10 components:**
+
+- **`ChordExplorer.tsx`** — `#2a2a3a`→`--state-hover-bg`, `#1a1a26`→`--bg-tile`, `#13131c`→`--bg-modal`, `#404055`→`--text-muted`, `#9090a8`→`--text-muted` (consolidation), `#606078`→`--text-dim-control`; border string `'1px solid #2a2a3a'` handled separately from standalone `'#2a2a3a'`
+- **`ScaleExplorer.tsx`** — `#9090a8`→`--text-muted` in DOM spans and event handlers; Circle of Fifths SVG `stroke`/`setAttribute` calls excluded
+- **`FloatingKeyboard.tsx`** — border string `#2a2a3a`→`--state-hover-bg`
+- **`TopBar.tsx`** — `#111116`→`--bg-deep` (drag-region container), `#1a1a26`→`--bg-tile` (3 occurrences: search bg, bar-counter indicators)
+- **`KeyboardControls.tsx`** — `#404055`→`--text-muted` (silent-zone divider line background)
+- **`Keyboard.tsx`** — `#9090a8`→`--text-muted` (past/future chord spans in chord bar), `#111116`→`--bg-deep` (piano key container floor); `#2a2a35` border left intact (distinct value)
+- **`LoopRegionStrip.tsx`** — `#9090a8`→`--text-muted` (icon button hover, popup header label)
+- **`MidiEditor.tsx`** — `#9090a8`→`--text-muted`, `#181822`→`--border-row` (track row separators), `#606078`→`--text-dim-control` (merge button, split button, Cancel button)
+- **`SettingsPanel.tsx`** — `#9090a8`→`--text-muted`, `#606078`→`--text-dim-control` (pick-folder button), `#181822`→`--border-row` (OptionRow, file row separators)
+- **`TrackPanel.tsx`** — `#181822`→`--border-row`, `#9090a8`→`--text-muted`
+
+**Intentional exclusions (SVG context, `var()` not supported):**
+- `VolumeKnob.tsx` — `fill="#111116"` on SVG notch dot
+- `ScaleExplorer.tsx` — `stroke="#2a2a3a"` on Circle of Fifths wedge rings and inner circle; `setAttribute('fill', '#2a2a3a')` on SVGPathElement hover
+
+**Docs committed:** `docs/CSS_FINAL_SCAN.md`, `docs/CSS_TOKEN_CHEATSHEET.md` (scan results and token cheatsheet generated during rollout)
+
+**Version:** `0.10.1` → `0.10.2`
+
+---
+
 ### 6. 7. 2026 — CSS Variable Rollout: Batch 8 — EmptyState + LockedChordModal
 
 **`src/components/EmptyState.tsx`** — 5 substitutions (font colors + sizes only; layout/positioning/button structure intentionally excluded)

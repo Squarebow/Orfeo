@@ -121,6 +121,11 @@
 --accent-amber-medium: #e8a02722;  /* ~13% — selected/active tinted backgrounds */
 --accent-amber-subtle: #e8a02708;  /* ~3%  — very light hover/open-state tints */
 
+/* Control UI tones — not covered by the main text/status scale */
+--text-dim-control: #606078;   /* Dim control labels, inactive action icons */
+--border-row: #181822;          /* Row separator borders within panels and editors */
+--bg-deep: #111116;             /* Deepest floor — below --bg-modal */
+
 /* ── Utility classes ── */
 
 /* Standard modal/panel row — use for any horizontal row of controls */

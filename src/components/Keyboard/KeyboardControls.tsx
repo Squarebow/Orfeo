@@ -372,7 +372,7 @@ export default function KeyboardControls() {
                   position: 'absolute', top: 0, bottom: 0,
                   left: `${activePct}%`,
                   width: 1,
-                  background: '#404055',
+                  background: 'var(--text-muted)',
                   pointerEvents: 'none', zIndex: 2,
                 }} />
               )}

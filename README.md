@@ -180,6 +180,13 @@ All user-visible changes listed here. For full technical detail see [CHANGELOG.m
 
 ---
 
+### 9. 7. 2026 (v0.10.2)
+
+**Improved**
+- **Visual consistency** — the colour and spacing system is now applied uniformly throughout every panel, modal, and interactive control in the app. Labels, borders, and hover states use the same unified tokens everywhere.
+
+---
+
 ### 6. 7. 2026
 
 **Fixed**

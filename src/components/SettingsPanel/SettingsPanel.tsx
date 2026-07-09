@@ -63,7 +63,7 @@ function OptionRow({ label, children, hint, badge }: {
   label: string; children: React.ReactNode; hint?: string; badge?: React.ReactNode
 }) {
   return (
-    <div style={{ padding: '10px 14px', borderBottom: '1px solid #181822' }}>
+    <div style={{ padding: '10px 14px', borderBottom: '1px solid var(--border-row)' }}>
       {/* ── Label row — flex so an optional badge sits inline after the text ── */}
       <div style={{ fontSize: 'var(--text-xs)', color: 'var(--text-dimmest)', marginBottom: 6, fontWeight: 500, letterSpacing: '0.02em', display: 'flex', alignItems: 'center', gap: 6 }}>
         {label}
@@ -100,7 +100,7 @@ function OptionBtn({ active, onClick, children, title, comingSoon }: {
         transition: 'all 0.12s',
         whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
       }}
-      onMouseEnter={e => { if (!active && !comingSoon) e.currentTarget.style.color = '#9090a8' }}
+      onMouseEnter={e => { if (!active && !comingSoon) e.currentTarget.style.color = 'var(--text-muted)' }}
       onMouseLeave={e => { if (!active && !comingSoon) e.currentTarget.style.color = 'var(--text-inactive)' }}
     >
       {children}
@@ -209,7 +209,7 @@ function MarqueeFilename({ name }: { name: string }) {
         ref={innerRef}
         style={{
           display: 'inline-block',
-          fontSize: 'var(--text-xs)', color: '#9090a8', whiteSpace: 'nowrap',
+          fontSize: 'var(--text-xs)', color: 'var(--text-muted)', whiteSpace: 'nowrap',
           transition: hovered && scrollAmt > 0
             ? `transform ${duration}s 0.5s linear`
             : 'transform 0.2s ease',
@@ -374,7 +374,7 @@ function LibraryPanel() {
             }}>
               <FolderOpen size={11} style={{ color: 'var(--text-amber)', flexShrink: 0 }} />
               <span style={{
-                flex: 1, fontSize: 10, color: '#9090a8',
+                flex: 1, fontSize: 10, color: 'var(--text-muted)',
                 overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
                 fontFamily: 'JetBrains Mono',
               }} title={libraryFolder}>
@@ -420,7 +420,7 @@ function LibraryPanel() {
                   color: 'var(--text-inactive)', cursor: 'pointer',
                   display: 'flex', alignItems: 'center', justifyContent: 'center',
                 }}
-                onMouseEnter={e => e.currentTarget.style.color = '#9090a8'}
+                onMouseEnter={e => e.currentTarget.style.color = 'var(--text-muted)'}
                 onMouseLeave={e => e.currentTarget.style.color = 'var(--text-inactive)'}
               >
                 <FolderOpen size={10} />
@@ -433,12 +433,12 @@ function LibraryPanel() {
             style={{
               width: '100%', padding: '8px 0', borderRadius: 'var(--radius-md)',
               border: '1px dashed var(--state-disabled)', background: 'transparent',
-              color: '#606078', fontSize: 'var(--text-xs)', cursor: 'pointer',
+              color: 'var(--text-dim-control)', fontSize: 'var(--text-xs)', cursor: 'pointer',
               display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6,
               transition: 'all 0.15s',
             }}
             onMouseEnter={e => { e.currentTarget.style.borderColor = 'var(--text-amber)'; e.currentTarget.style.color = 'var(--text-amber)' }}
-            onMouseLeave={e => { e.currentTarget.style.borderColor = 'var(--state-disabled)'; e.currentTarget.style.color = '#606078' }}
+            onMouseLeave={e => { e.currentTarget.style.borderColor = 'var(--state-disabled)'; e.currentTarget.style.color = 'var(--text-dim-control)' }}
           >
             <FolderOpen size={13} />
             Set MIDI folder
@@ -474,7 +474,7 @@ function LibraryPanel() {
                 title={file.name}
                 style={{
                   display: 'flex', alignItems: 'center', gap: 6,
-                  padding: '7px 10px 7px 26px', borderBottom: '1px solid #181822',
+                  padding: '7px 10px 7px 26px', borderBottom: '1px solid var(--border-row)',
                   cursor: 'pointer', transition: 'background 0.08s',
                 }}
                 onMouseEnter={e => (e.currentTarget as HTMLElement).style.background = 'var(--bg-tile)'}
@@ -541,7 +541,7 @@ function LibraryPanel() {
                     display: 'flex', alignItems: 'center', gap: 6,
                     // Indent subfolder files slightly
                     padding: group.folder ? '7px 10px 7px 26px' : '7px 10px 7px 12px',
-                    borderBottom: '1px solid #181822',
+                    borderBottom: '1px solid var(--border-row)',
                     cursor: 'pointer', transition: 'background 0.08s',
                   }}
                   onMouseEnter={e => (e.currentTarget as HTMLElement).style.background = 'var(--bg-tile)'}
@@ -1076,7 +1076,7 @@ export default function SettingsPanel() {
                       <line x1="22" y1="50" x2="78" y2="50" stroke="#e8a027" strokeWidth="7" strokeLinecap="round"/>
                       <line x1="22" y1="62" x2="78" y2="62" stroke="#e8a027" strokeWidth="7" strokeLinecap="round"/>
                     </svg>
-                    <span style={{ color: 'var(--text-inactive)', fontSize: 10, fontFamily: 'JetBrains Mono' }}>Orfeo · v0.10.1</span>
+                    <span style={{ color: 'var(--text-inactive)', fontSize: 10, fontFamily: 'JetBrains Mono' }}>Orfeo · v0.10.2</span>
                   </div>
                   <div style={{ fontSize: 9, color: '#35354a', fontFamily: 'JetBrains Mono', lineHeight: 1.5 }}>
                     MIT License · github.com/SquareBow/orfeo

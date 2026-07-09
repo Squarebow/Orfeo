@@ -138,7 +138,7 @@ export default function TopBar() {
       className="app-drag-region"
       style={{
         height: loopRegionEnabled ? 120 : 96,
-        background: '#111116',
+        background: 'var(--bg-deep)',
         borderBottom: 'none',
         display: 'flex',
         alignItems: 'center',
@@ -284,7 +284,7 @@ export default function TopBar() {
               title={`Bar ${currentBar} of ${totalBars}`}
             >
               <div style={{
-                background: '#1a1a26', borderRadius: 4, padding: '2px 6px',
+                background: 'var(--bg-tile)', borderRadius: 4, padding: '2px 6px',
                 display: 'flex', alignItems: 'baseline', gap: 0,
               }}>
                 <span style={{ color: C.amber, fontFamily: 'JetBrains Mono', fontSize: 'var(--text-sm)', fontWeight: 700, lineHeight: 1 }}>
@@ -406,7 +406,7 @@ function LongPressArrow({ children, onStep, disabled, title }: {
       onMouseUp={stop}
       onMouseLeave={stop}
       style={{
-        width: 16, height: 13, background: '#1a1a26', color: '#606075',
+        width: 16, height: 13, background: 'var(--bg-tile)', color: '#606075',
         border: 'none', borderRadius: 'var(--radius-sm)',
         cursor: disabled ? 'default' : 'pointer',
         opacity: disabled ? 0.25 : 1,
@@ -426,7 +426,7 @@ function ArrowBtn({ children, onClick, disabled, title }: {
   return (
     <button onClick={onClick} disabled={disabled} title={title}
       style={{
-        width: 16, height: 13, background: '#1a1a26', color: '#606075',
+        width: 16, height: 13, background: 'var(--bg-tile)', color: '#606075',
         border: 'none', borderRadius: 'var(--radius-sm)',
         cursor: disabled ? 'default' : 'pointer',
         opacity: disabled ? 0.25 : 1,

@@ -408,7 +408,7 @@ export default function LoopRegionStrip() {
               color: hasSelection || popupOpen ? 'var(--text-amber)' : 'var(--text-inactive)',
               transition: 'color 0.12s',
             }}
-            onMouseEnter={e => { if (!hasSelection && !popupOpen) e.currentTarget.style.color = '#9090a8' }}
+            onMouseEnter={e => { if (!hasSelection && !popupOpen) e.currentTarget.style.color = 'var(--text-muted)' }}
             onMouseLeave={e => { if (!hasSelection && !popupOpen) e.currentTarget.style.color = 'var(--text-inactive)' }}
           >
             {/* ArrowUp01 icon — ascending numeric sort */}
@@ -457,7 +457,7 @@ export default function LoopRegionStrip() {
             {/* Header */}
             <div style={{
               fontSize: 9,
-              color: '#9090a8',
+              color: 'var(--text-muted)',
               fontFamily: 'Inter, sans-serif',
               fontWeight: 700,
               textTransform: 'uppercase',

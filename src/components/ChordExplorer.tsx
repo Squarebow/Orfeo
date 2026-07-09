@@ -625,7 +625,7 @@ export default function ChordExplorer() {
   // ── Pill button base — active: amber text + tinted bg; inactive: dim ─────────
   const btnBase = (active: boolean): React.CSSProperties => ({
     padding: '2px 7px', borderRadius: 'var(--radius-sm)', border: 'none',
-    background: active ? '#2a2a3a' : 'transparent',
+    background: active ? 'var(--state-hover-bg)' : 'transparent',
     color: active ? 'var(--text-amber)' : '#505068',
     fontFamily: 'Inter', fontSize: 10, fontWeight: 600,
     cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center',
@@ -643,8 +643,8 @@ export default function ChordExplorer() {
       top: pos.y,
       width: MODAL_WIDTH,
       maxHeight: '65vh',
-      background: '#13131c',
-      border: '1px solid #2a2a3a',
+      background: 'var(--bg-modal)',
+      border: '1px solid var(--state-hover-bg)',
       borderRadius: 10,
       zIndex: 401,
       display: 'flex', flexDirection: 'column',
@@ -677,7 +677,7 @@ export default function ChordExplorer() {
         >
           {/* ── Search scope toggle — visible when search bar is open ────── */}
           {searchOpen && (
-            <div style={{ display: 'flex', background: '#1a1a26', borderRadius: 4, padding: 2, gap: 1 }}>
+            <div style={{ display: 'flex', background: 'var(--bg-tile)', borderRadius: 4, padding: 2, gap: 1 }}>
               {(['name', 'notes', 'both'] as const).map(scope => (
                 <button
                   key={scope}
@@ -689,13 +689,13 @@ export default function ChordExplorer() {
                   }
                   style={{
                     padding: '2px 6px', borderRadius: 'var(--radius-sm)', border: 'none',
-                    background: searchScope === scope ? '#2a2a3a' : 'transparent',
+                    background: searchScope === scope ? 'var(--state-hover-bg)' : 'transparent',
                     color: searchScope === scope ? 'var(--text-amber)' : '#505068',
                     fontFamily: 'Inter', fontSize: 9, fontWeight: 600,
                     cursor: 'pointer', textTransform: 'capitalize',
                     transition: 'color 0.12s, background 0.12s',
                   }}
-                  onMouseEnter={e => { if (searchScope !== scope) e.currentTarget.style.color = '#9090a8' }}
+                  onMouseEnter={e => { if (searchScope !== scope) e.currentTarget.style.color = 'var(--text-muted)' }}
                   onMouseLeave={e => { if (searchScope !== scope) e.currentTarget.style.color = '#505068' }}
                 >
                   {scope === 'name' ? 'Name' : scope === 'notes' ? 'Notes' : 'Both'}
@@ -713,8 +713,8 @@ export default function ChordExplorer() {
               placeholder="Search …"
               style={{
                 height: 22, width: 120,
-                background: '#1a1a26',
-                border: '1px solid #2a2a3a',
+                background: 'var(--bg-tile)',
+                border: '1px solid var(--state-hover-bg)',
                 borderRadius: 4,
                 color: 'var(--text-dim)',
                 fontFamily: 'Inter', fontSize: 11,
@@ -726,7 +726,7 @@ export default function ChordExplorer() {
           <button
             onClick={isPowerMode ? undefined : toggleSearch}
             title={isPowerMode ? 'Search unavailable in Power mode' : searchOpen ? 'Close search' : 'Find a chord'}
-            style={{ background: 'none', border: 'none', cursor: isPowerMode ? 'default' : 'pointer', padding: '0 2px', display: 'flex', alignItems: 'center', color: isPowerMode ? '#404055' : searchOpen ? 'var(--text-amber)' : 'var(--text-dimmest)', opacity: isPowerMode ? 0.35 : 1, transition: 'opacity 0.15s' }}
+            style={{ background: 'none', border: 'none', cursor: isPowerMode ? 'default' : 'pointer', padding: '0 2px', display: 'flex', alignItems: 'center', color: isPowerMode ? 'var(--text-muted)' : searchOpen ? 'var(--text-amber)' : 'var(--text-dimmest)', opacity: isPowerMode ? 0.35 : 1, transition: 'opacity 0.15s' }}
             onMouseEnter={e => { if (!isPowerMode) e.currentTarget.style.color = 'var(--text-amber)' }}
             onMouseLeave={e => { if (!isPowerMode) e.currentTarget.style.color = searchOpen ? 'var(--text-amber)' : 'var(--text-dimmest)' }}
           >
@@ -755,13 +755,13 @@ export default function ChordExplorer() {
                   padding: '3px 7px',
                   borderRadius: 4, border: 'none',
                   background: isSel ? 'var(--text-amber)' : '#1e1e2a',
-                  color: isSel ? 'var(--bg)' : '#9090a8',
+                  color: isSel ? 'var(--bg)' : 'var(--text-muted)',
                   fontFamily: 'JetBrains Mono', fontSize: 'var(--text-xs)', fontWeight: 600,
                   cursor: 'pointer', transition: 'background 0.1s, color 0.1s',
                   minWidth: 30, textAlign: 'center',
                 }}
-                onMouseEnter={e => { if (!isSel) { e.currentTarget.style.background = '#2a2a3a'; e.currentTarget.style.color = '#c0c0d4' } }}
-                onMouseLeave={e => { if (!isSel) { e.currentTarget.style.background = '#1e1e2a'; e.currentTarget.style.color = '#9090a8' } }}
+                onMouseEnter={e => { if (!isSel) { e.currentTarget.style.background = 'var(--state-hover-bg)'; e.currentTarget.style.color = '#c0c0d4' } }}
+                onMouseLeave={e => { if (!isSel) { e.currentTarget.style.background = '#1e1e2a'; e.currentTarget.style.color = 'var(--text-muted)' } }}
               >
                 {label}
               </button>
@@ -775,7 +775,7 @@ export default function ChordExplorer() {
         <span style={ROW_LABEL}>Filter</span>
         <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-2)' }}>
           {/* Tier */}
-          <div style={{ display: 'flex', background: '#1a1a26', borderRadius: 'var(--radius-md)', padding: 2, gap: 1 }}>
+          <div style={{ display: 'flex', background: 'var(--bg-tile)', borderRadius: 'var(--radius-md)', padding: 2, gap: 1 }}>
             {(['common', 'power', 'extended'] as const).map(t => (
               <button key={t} onClick={() => setTier(t)} style={btnBase(tier === t)}>
                 {t === 'common' ? 'Common' : t === 'power' ? 'Power' : 'Extended'}
@@ -783,12 +783,12 @@ export default function ChordExplorer() {
             ))}
           </div>
 
-          <div style={{ width: 1, height: 16, background: '#2a2a3a' }} />
+          <div style={{ width: 1, height: 16, background: 'var(--state-hover-bg)' }} />
 
           {/* Hand */}
           <div style={{ display: 'flex', alignItems: 'center', gap: 4, opacity: isPowerMode ? 0.35 : 1, pointerEvents: isPowerMode ? 'none' : 'auto', transition: 'opacity 0.15s' }}>
-            <span style={{ fontSize: 8, color: '#404055', fontFamily: 'Inter', textTransform: 'uppercase', letterSpacing: '0.08em' }}>Hand</span>
-            <div style={{ display: 'flex', background: '#1a1a26', borderRadius: 4, padding: 2, gap: 1 }}>
+            <span style={{ fontSize: 8, color: 'var(--text-muted)', fontFamily: 'Inter', textTransform: 'uppercase', letterSpacing: '0.08em' }}>Hand</span>
+            <div style={{ display: 'flex', background: 'var(--bg-tile)', borderRadius: 4, padding: 2, gap: 1 }}>
               <button onClick={() => setHandFilter('all')} title="All chords" style={btnBase(handFilter === 'all')}>All</button>
               <button onClick={() => setHandFilter('one')} title="One-hand chords" style={btnBase(handFilter === 'one')}>
                 <span style={{ display: 'inline-flex', transform: 'rotate(-20deg)' }}><Hand size={12} /></span>
@@ -800,12 +800,12 @@ export default function ChordExplorer() {
             </div>
           </div>
 
-          <div style={{ width: 1, height: 16, background: '#2a2a3a' }} />
+          <div style={{ width: 1, height: 16, background: 'var(--state-hover-bg)' }} />
 
           {/* Notes */}
           <div style={{ display: 'flex', alignItems: 'center', gap: 4, opacity: isPowerMode ? 0.35 : 1, pointerEvents: isPowerMode ? 'none' : 'auto', transition: 'opacity 0.15s' }}>
-            <span style={{ fontSize: 8, color: '#404055', fontFamily: 'Inter', textTransform: 'uppercase', letterSpacing: '0.08em' }}>Notes</span>
-            <div style={{ display: 'flex', background: '#1a1a26', borderRadius: 4, padding: 2, gap: 1 }}>
+            <span style={{ fontSize: 8, color: 'var(--text-muted)', fontFamily: 'Inter', textTransform: 'uppercase', letterSpacing: '0.08em' }}>Notes</span>
+            <div style={{ display: 'flex', background: 'var(--bg-tile)', borderRadius: 4, padding: 2, gap: 1 }}>
               {(['any', '3', '4', '5', '6+'] as const).map(n => (
                 <button key={n} onClick={() => setNoteFilter(n)} style={{ ...btnBase(noteFilter === n), minWidth: 22 }}>{n}</button>
               ))}
@@ -830,12 +830,12 @@ export default function ChordExplorer() {
               onClick={openProgDropdown}
               style={{
                 ...btnBase(false),
-                color: activeProg ? 'var(--text-amber)' : '#9090a8',
+                color: activeProg ? 'var(--text-amber)' : 'var(--text-muted)',
                 padding: '2px 6px',
                 whiteSpace: 'nowrap',
               }}
               onMouseEnter={e => e.currentTarget.style.color = 'var(--text-amber)'}
-              onMouseLeave={e => { e.currentTarget.style.color = activeProg ? 'var(--text-amber)' : '#9090a8' }}
+              onMouseLeave={e => { e.currentTarget.style.color = activeProg ? 'var(--text-amber)' : 'var(--text-muted)' }}
             >
               {activeProg ? activeProg.name : 'None'} ▾
             </button>
@@ -919,7 +919,7 @@ export default function ChordExplorer() {
           transition: 'opacity 0.15s',
         }}>
           <span style={{ ...ROW_LABEL, fontSize: 8 }}>Style</span>
-          <div style={{ display: 'flex', background: '#1a1a26', borderRadius: 4, padding: 2, gap: 1 }}>
+          <div style={{ display: 'flex', background: 'var(--bg-tile)', borderRadius: 4, padding: 2, gap: 1 }}>
             {(Object.keys(GENRE_LABELS) as Genre[]).map(g => (
               <button
                 key={g}
@@ -966,7 +966,7 @@ export default function ChordExplorer() {
                 key={pc}
                 onClick={() => playPowerChord(pc)}
                 style={{
-                  background: isSel ? '#1f1a0e' : '#1a1a26',
+                  background: isSel ? '#1f1a0e' : 'var(--bg-tile)',
                   border: `1px solid ${isSel ? 'var(--text-amber)' : 'transparent'}`,
                   borderRadius: 6,
                   padding: '6px 8px',
@@ -1005,7 +1005,7 @@ export default function ChordExplorer() {
                   key={chord.key}
                   onClick={() => playChordAt(chord.key, selectedRoot)}
                   style={{
-                    background: isSel ? '#1f1a0e' : '#1a1a26',
+                    background: isSel ? '#1f1a0e' : 'var(--bg-tile)',
                     border: `1px solid ${isSel ? 'var(--text-amber)' : 'transparent'}`,
                     borderRadius: 6,
                     padding: '6px 8px',
@@ -1039,7 +1039,7 @@ export default function ChordExplorer() {
             {filteredChords.length === 0 && (
               <div style={{
                 gridColumn: '1 / -1', textAlign: 'center',
-                color: '#404055', fontSize: 11, fontFamily: 'Inter', padding: '20px 0',
+                color: 'var(--text-muted)', fontSize: 11, fontFamily: 'Inter', padding: '20px 0',
               }}>
                 No results
               </div>
@@ -1109,12 +1109,12 @@ export default function ChordExplorer() {
             style={{
               background: 'none', border: 'none',
               cursor: selectedKey ? 'pointer' : 'default',
-              color: selectedKey ? '#505068' : '#2a2a3a',
+              color: selectedKey ? '#505068' : 'var(--state-hover-bg)',
               padding: '0 2px', display: 'flex', alignItems: 'center',
               transition: 'color 0.1s',
             }}
             onMouseEnter={e => { if (selectedKey) e.currentTarget.style.color = 'var(--text-amber)' }}
-            onMouseLeave={e => { e.currentTarget.style.color = selectedKey ? '#505068' : '#2a2a3a' }}
+            onMouseLeave={e => { e.currentTarget.style.color = selectedKey ? '#505068' : 'var(--state-hover-bg)' }}
           ><RotateCcw size={13} /></button>
         </div>
 
@@ -1141,8 +1141,8 @@ export default function ChordExplorer() {
             position: 'fixed',
             top: dropdownRect.top,
             left: dropdownRect.left,
-            background: '#1a1a26',
-            border: '1px solid #2a2a3a',
+            background: 'var(--bg-tile)',
+            border: '1px solid var(--state-hover-bg)',
             borderRadius: 6,
             zIndex: 1000,
             minWidth: 300,
@@ -1154,7 +1154,7 @@ export default function ChordExplorer() {
           {/* ── Base progressions with their rotations indented below ─── */}
           {ALL_PROGRESSIONS.map((p, i) => {
             const isRot = !!p.isRotation
-            const baseColor = selectedProg === i ? 'var(--text-amber)' : (isRot ? '#606078' : '#9090a8')
+            const baseColor = selectedProg === i ? 'var(--text-amber)' : (isRot ? 'var(--text-dim-control)' : 'var(--text-muted)')
             const rotLabel = isRot ? p.name.replace(p.baseName! + ' ', '') : ''
             return (
               <button
@@ -1163,14 +1163,14 @@ export default function ChordExplorer() {
                 style={{
                   display: 'flex', alignItems: 'center', gap: 12,
                   width: '100%', textAlign: 'left',
-                  background: selectedProg === i ? '#2a2a3a' : 'none',
+                  background: selectedProg === i ? 'var(--state-hover-bg)' : 'none',
                   border: 'none',
                   padding: isRot ? '3px 10px 3px 22px' : '5px 10px',
                   color: baseColor,
                   fontFamily: 'Inter', fontSize: isRot ? 9 : 10, cursor: 'pointer',
                 }}
-                onMouseEnter={e => { e.currentTarget.style.background = '#2a2a3a'; e.currentTarget.style.color = 'var(--text-amber)' }}
-                onMouseLeave={e => { e.currentTarget.style.background = selectedProg === i ? '#2a2a3a' : 'none'; e.currentTarget.style.color = baseColor }}
+                onMouseEnter={e => { e.currentTarget.style.background = 'var(--state-hover-bg)'; e.currentTarget.style.color = 'var(--text-amber)' }}
+                onMouseLeave={e => { e.currentTarget.style.background = selectedProg === i ? 'var(--state-hover-bg)' : 'none'; e.currentTarget.style.color = baseColor }}
               >
                 {/* Left column: name — rotations show "↳ (vi start)" short form */}
                 <span style={{ minWidth: 110, flexShrink: 0, whiteSpace: 'nowrap' }}>

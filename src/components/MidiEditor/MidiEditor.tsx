@@ -181,7 +181,7 @@ function InstrumentPicker({ program, isDrum, onChange }: {
         width: '100%', padding: '4px 8px', borderRadius: 4,
         border: `1px solid ${open ? 'var(--accent-amber-strong)' : 'var(--border2)'}`,
         background: open ? 'var(--accent-amber-subtle)' : 'var(--bg-modal-header)',
-        color: '#9090a8', fontSize: 10,
+        color: 'var(--text-muted)', fontSize: 10,
         display: 'flex', alignItems: 'center', gap: 'var(--space-1)', cursor: 'pointer', textAlign: 'left',
       }}>
         <span style={{ flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{currentName}</span>
@@ -204,7 +204,7 @@ function InstrumentPicker({ program, isDrum, onChange }: {
             <div style={{ display: 'flex', alignItems: 'center', gap: 5, background: '#0a0a10', border: '1px solid var(--border2)', borderRadius: 4, padding: '3px 6px' }}>
               <Search size={10} style={{ color: 'var(--text-inactive)', flexShrink: 0 }} />
               <input autoFocus value={search} onChange={e => setSearch(e.target.value)} placeholder="Search…"
-                style={{ background: 'none', border: 'none', outline: 'none', color: '#9090a8', fontSize: 10, width: '100%', fontFamily: 'Inter, system-ui' }} />
+                style={{ background: 'none', border: 'none', outline: 'none', color: 'var(--text-muted)', fontSize: 10, width: '100%', fontFamily: 'Inter, system-ui' }} />
             </div>
           </div>
           <div style={{ flex: 1, overflowY: 'auto' }}>
@@ -251,7 +251,7 @@ function TrackRow({ track, onToggleIncluded, onToggleMerge, onChangeProgram, onU
   return (
     <div style={{
       display: 'grid', gridTemplateColumns: '70px 56px 8px 1fr 220px',
-      alignItems: 'center', padding: '8px 14px', borderBottom: '1px solid #181822', gap: 6,
+      alignItems: 'center', padding: '8px 14px', borderBottom: '1px solid var(--border-row)', gap: 6,
       opacity: track.included ? 1 : 0.4,
       background: track.isMerged ? '#101020' : track.mergeSelected ? '#1a1a08' : 'transparent',
       transition: 'opacity 0.15s',
@@ -282,7 +282,7 @@ function TrackRow({ track, onToggleIncluded, onToggleMerge, onChangeProgram, onU
           width: 24, height: 24, borderRadius: 4,
           border: `1.5px solid ${track.mergeSelected ? 'var(--accent-amber-strong)' : 'var(--border2)'}`,
           background: track.mergeSelected ? 'var(--accent-amber-medium)' : 'transparent',
-          color: track.mergeSelected ? 'var(--text-amber)' : '#606078',
+          color: track.mergeSelected ? 'var(--text-amber)' : 'var(--text-dim-control)',
           display: 'flex', alignItems: 'center', justifyContent: 'center',
           cursor: 'pointer', flexShrink: 0,
         }}>
@@ -294,7 +294,7 @@ function TrackRow({ track, onToggleIncluded, onToggleMerge, onChangeProgram, onU
 
       <div style={{ minWidth: 0 }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-          <span style={{ fontSize: 'var(--text-sm)', fontWeight: 500, color: '#9090a8', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+          <span style={{ fontSize: 'var(--text-sm)', fontWeight: 500, color: 'var(--text-muted)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
             {track.name}
           </span>
           {track.isMerged && (
@@ -308,12 +308,12 @@ function TrackRow({ track, onToggleIncluded, onToggleMerge, onChangeProgram, onU
               title="Split into Left Hand / Right Hand"
               style={{
                 background: 'none', border: '1px solid var(--border2)', borderRadius: 'var(--radius-sm)',
-                cursor: 'pointer', color: '#606078', padding: '1px 4px',
+                cursor: 'pointer', color: 'var(--text-dim-control)', padding: '1px 4px',
                 display: 'flex', alignItems: 'center', flexShrink: 0,
                 transition: 'all 0.12s',
               }}
               onMouseEnter={e => { e.currentTarget.style.color = 'var(--text-amber)'; e.currentTarget.style.borderColor = 'var(--accent-amber-strong)' }}
-              onMouseLeave={e => { e.currentTarget.style.color = '#606078'; e.currentTarget.style.borderColor = 'var(--border2)' }}
+              onMouseLeave={e => { e.currentTarget.style.color = 'var(--text-dim-control)'; e.currentTarget.style.borderColor = 'var(--border2)' }}
             >
               <Split size={10} />
             </button>
@@ -529,7 +529,7 @@ export default function MidiEditor() {
   }
 
   return (
-    <div style={{ width: '100vw', height: '100vh', background: 'var(--bg-modal-header)', color: '#9090a8', fontFamily: 'Inter, system-ui', display: 'flex', flexDirection: 'column', fontSize: 'var(--text-sm)', userSelect: 'none' }}>
+    <div style={{ width: '100vw', height: '100vh', background: 'var(--bg-modal-header)', color: 'var(--text-muted)', fontFamily: 'Inter, system-ui', display: 'flex', flexDirection: 'column', fontSize: 'var(--text-sm)', userSelect: 'none' }}>
 
       {/* Title bar */}
       <div style={{ height: 48, flexShrink: 0, background: 'var(--bg-modal-header)', borderBottom: '1px solid var(--border)', display: 'flex', alignItems: 'center', padding: '0 var(--space-4)', gap: 10, WebkitAppRegion: 'drag' as any, paddingRight: 160 }}>
@@ -593,7 +593,7 @@ export default function MidiEditor() {
       <div style={{ padding: '10px 14px 12px', borderTop: '1px solid var(--border)', background: 'var(--bg-modal-header)', flexShrink: 0 }}>
         <div style={{ fontSize: 10, color: 'var(--text-inactive)', marginBottom: 6, textTransform: 'uppercase', letterSpacing: '0.08em' }}>Save as</div>
         <div style={{ display: 'flex', gap: 6, marginBottom: 8 }}>
-          <div style={{ flex: 1, padding: '5px 8px', background: '#0a0a10', border: '1px solid var(--border2)', borderRadius: 4, fontSize: 10, fontFamily: 'JetBrains Mono', color: '#9090a8', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={state.outputPath}>{baseName(state.outputPath)}</div>
+          <div style={{ flex: 1, padding: '5px 8px', background: '#0a0a10', border: '1px solid var(--border2)', borderRadius: 4, fontSize: 10, fontFamily: 'JetBrains Mono', color: 'var(--text-muted)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={state.outputPath}>{baseName(state.outputPath)}</div>
           <button onClick={async () => {
             const p = await window.electronAPI.saveFileDialog({ defaultPath: state.outputPath, filters: [{ name: 'MIDI Files', extensions: ['mid'] }] })
             if (p) setState(s => s && ({ ...s, outputPath: p }))
@@ -616,7 +616,7 @@ export default function MidiEditor() {
           </div>
         )}
         <div style={{ display: 'flex', gap: 'var(--space-2)' }}>
-          <button onClick={() => window.electronAPI.closeMidiEditor?.()} style={{ flex: 1, padding: '7px 0', borderRadius: 'var(--radius-md)', background: 'transparent', border: '1px solid var(--border2)', color: '#606078', fontSize: 'var(--text-sm)', cursor: 'pointer' }}>Cancel</button>
+          <button onClick={() => window.electronAPI.closeMidiEditor?.()} style={{ flex: 1, padding: '7px 0', borderRadius: 'var(--radius-md)', background: 'transparent', border: '1px solid var(--border2)', color: 'var(--text-dim-control)', fontSize: 'var(--text-sm)', cursor: 'pointer' }}>Cancel</button>
           <button onClick={handleSave} disabled={saving} style={{ flex: 1, padding: '7px 0', borderRadius: 'var(--radius-md)', background: saving ? 'var(--bg-tile)' : 'var(--text-amber)', border: 'none', color: saving ? 'var(--text-inactive)' : '#0a0a0a', fontSize: 'var(--text-sm)', fontWeight: 600, cursor: saving ? 'wait' : 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6 }}>
             <Save size={13} /> {saving ? 'Saving…' : 'Save & Reload'}
           </button>
@@ -629,7 +629,7 @@ export default function MidiEditor() {
 function TBtn({ onClick, children }: { onClick: () => void; children: React.ReactNode }) {
   return (
     <button onClick={onClick} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-inactive)', fontSize: 10, padding: '2px 6px', borderRadius: 'var(--radius-sm)' }}
-      onMouseEnter={e => e.currentTarget.style.color = '#9090a8'}
+      onMouseEnter={e => e.currentTarget.style.color = 'var(--text-muted)'}
       onMouseLeave={e => e.currentTarget.style.color = 'var(--text-inactive)'}>
       {children}
     </button>

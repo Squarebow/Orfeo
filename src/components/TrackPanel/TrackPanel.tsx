@@ -328,7 +328,7 @@ function TrackRow({ track, dimmed, onMute, onSolo, onVisible, onKeyboard }: {
       style={{
         display: 'flex', alignItems: 'center', gap: 'var(--space-2)',
         padding: '6px 10px 6px 14px',
-        borderBottom: '1px solid #181822',
+        borderBottom: '1px solid var(--border-row)',
         opacity: dimmed ? 0.45 : 1,
         transition: 'opacity 0.15s',
       }}
@@ -338,7 +338,7 @@ function TrackRow({ track, dimmed, onMute, onSolo, onVisible, onKeyboard }: {
 
       {/* Info */}
       <div style={{ flex: 1, minWidth: 0 }}>
-        <div style={{ fontSize: 'var(--text-sm)', fontWeight: 500, color: '#9090a8', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+        <div style={{ fontSize: 'var(--text-sm)', fontWeight: 500, color: 'var(--text-muted)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
           {track.gmName}
         </div>
         <div style={{ display: 'flex', gap: 6, marginTop: 2 }}>

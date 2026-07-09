@@ -101,7 +101,7 @@ export default function FloatingKeyboard() {
         // NO fixed height — shrinks to content
         zIndex: 200,
         background: '#0d0d12',
-        border: '1px solid #2a2a3a',
+        border: '1px solid var(--state-hover-bg)',
         borderRadius: 10,
         boxShadow: '0 8px 40px rgba(0,0,0,0.7), 0 0 0 1px rgba(232,160,39,0.08)',
         overflow: 'hidden',

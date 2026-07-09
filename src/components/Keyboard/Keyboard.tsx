@@ -393,7 +393,7 @@ export default function Keyboard() {
                       {pastChords.map((ev, i) => (
                         <React.Fragment key={`${ev.time}-${ev.name}`}>
                           {i > 0 && <span style={{ color: '#303048', fontSize: 10, lineHeight: 1, flexShrink: 0 }}>·</span>}
-                          <span style={{ fontSize: 'var(--text-xs)', fontFamily: 'Inter', color: '#9090a8', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: 60 }}>
+                          <span style={{ fontSize: 'var(--text-xs)', fontFamily: 'Inter', color: 'var(--text-muted)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: 60 }}>
                             {ev.name}
                           </span>
                         </React.Fragment>
@@ -418,7 +418,7 @@ export default function Keyboard() {
                       {nextChords.map((ev, i) => (
                         <React.Fragment key={`${ev.time}-${ev.name}`}>
                           {i > 0 && <span style={{ color: '#303048', fontSize: 10, lineHeight: 1, flexShrink: 0 }}>·</span>}
-                          <span style={{ fontSize: 'var(--text-xs)', fontFamily: 'Inter', color: '#9090a8', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: 60 }}>
+                          <span style={{ fontSize: 'var(--text-xs)', fontFamily: 'Inter', color: 'var(--text-muted)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: 60 }}>
                             {ev.name}
                           </span>
                         </React.Fragment>
@@ -450,7 +450,7 @@ export default function Keyboard() {
       <div
         className="relative w-full select-none"
         ref={keyContainerRef}
-        style={{ height: keyHeight, background: '#111116', borderTop: '1px solid #2a2a35', transition: 'height 0.15s' }}
+        style={{ height: keyHeight, background: 'var(--bg-deep)', borderTop: '1px solid #2a2a35', transition: 'height 0.15s' }}
       >
         {/* White keys */}
         <div className="absolute inset-0 flex">
