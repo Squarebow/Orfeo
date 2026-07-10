@@ -2,7 +2,7 @@
 
 **A modern piano learning and MIDI visualization desktop app for Windows.**
 
-[![Version](https://img.shields.io/badge/Version-0.10.0-blue)](https://github.com/SquareBow/orfeo/releases)
+[![Version](https://img.shields.io/badge/Version-0.10.4-blue)](https://github.com/SquareBow/orfeo/releases)
 [![License](https://img.shields.io/badge/License-MIT-green)](LICENSE)
 [![Platform](https://img.shields.io/badge/Platform-Windows-lightgrey?logo=windows)](https://github.com/SquareBow/orfeo/releases)
 [![Status](https://img.shields.io/badge/Status-Beta-orange)](https://github.com/SquareBow/orfeo)
@@ -223,6 +223,15 @@ All user-visible changes listed here. For full technical detail see [CHANGELOG.m
 **Improved**
 - **Chord Explorer — Chord display during progressions** — the chord name shown above the keyboard now updates live as each progression step plays, correctly reflecting the sounded chord rather than staying frozen on the first selection.
 - **Chord Explorer — Progressions list reordered** — progressions are now grouped by family: Pop cluster, Rock/Blues cluster, Jazz cluster, then named/exotic progressions, making the dropdown easier to scan.
+
+---
+
+### 10. 7. 2026
+
+**Improved**
+- **Settings — collapsible sections** — all seven settings groups (MIDI Files & Library, Notation, Keyboard, Playback & Practice, Audio, Piano Roll, Appearance) now have clickable amber headers that expand or collapse the section. All start expanded; click the header row to toggle.
+- **Settings — eye toggles** — boolean settings (Demo folder, Chord Transcription, octave labels, note names on keyboard, Hand Labels, Chord Prompter, Loop region, Bar numbers) now use a green Eye / red Eye-off icon instead of text buttons, making each setting's on/off state readable at a glance.
+- **Settings — amber group headers** — section headers now render the icon, group name, and expand chevron in amber, matching Orfeo's accent colour.
 
 ---
 

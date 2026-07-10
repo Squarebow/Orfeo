@@ -2,6 +2,7 @@ import { useState, useMemo, useRef, useEffect } from 'react'
 import {
   ChevronLeft, ChevronDown, ChevronRight, Type, Piano, Palette, ZoomIn, Volume2,
   Music, FolderOpen, RefreshCw, FileMusic, BookOpen, Library, Settings, Info,
+  Eye, EyeOff,
 } from 'lucide-react'
 import { useStore } from '../../store'
 import type { NoteNaming, KeyboardSize, Accidentals, TranscriptEntry } from '../../types'
@@ -60,19 +61,82 @@ function SectionHeader({ icon, label }: { icon: React.ReactNode; label: string }
 }
 
 // ── Option row — labeled setting block with optional hint text and badge ───
-function OptionRow({ label, children, hint, badge }: {
-  label: string; children: React.ReactNode; hint?: string; badge?: React.ReactNode
+// Supports two variants:
+//   Standard:   label + children controls + optional hint below
+//   Eye-toggle: name + icon share one flex row; description sits below full-width
+function OptionRow({ label, children, hint, badge, eyeToggle, eyeValue, onEyeChange, description }: {
+  label: string
+  children?: React.ReactNode
+  hint?: string
+  badge?: React.ReactNode
+  eyeToggle?: boolean
+  eyeValue?: boolean
+  onEyeChange?: (val: boolean) => void
+  description?: string
 }) {
+  // ── Eye-toggle variant — name left + icon right on one row, description below ──
+  if (eyeToggle) {
+    return (
+      <div style={{ padding: '10px 14px', borderBottom: '1px solid var(--border-row)' }}>
+        {/* ── Name + icon row — space-between keeps icon flush to the right edge ── */}
+        <div style={{
+          display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+          marginBottom: description ? 4 : 0,
+        }}>
+          {/* ── Feature name — --text-default (bright) creates hierarchy over dim description ── */}
+          <div style={{
+            fontSize: 'var(--text-xs)', color: 'var(--text-default)',
+            fontWeight: 500, letterSpacing: '0.02em',
+            display: 'flex', alignItems: 'center', gap: 6,
+          }}>
+            {label}
+            {badge}
+          </div>
+          {/* ── Eye icon — same line as name, right-aligned ── */}
+          <button
+            onClick={() => onEyeChange?.(!eyeValue)}
+            title={eyeValue ? 'Click to hide' : 'Click to show'}
+            style={{
+              background: 'none', border: 'none', cursor: 'pointer', padding: 2,
+              color: eyeValue ? 'var(--status-success)' : 'var(--status-error)',
+              display: 'flex', alignItems: 'center', flexShrink: 0,
+              transition: 'opacity 0.12s',
+            }}
+            onMouseEnter={e => { e.currentTarget.style.opacity = '0.7' }}
+            onMouseLeave={e => { e.currentTarget.style.opacity = '1' }}
+          >
+            {eyeValue
+              ? <Eye    size={14} strokeWidth={1.5} />
+              : <EyeOff size={14} strokeWidth={1.5} />
+            }
+          </button>
+        </div>
+        {/* ── Description — --text-xs token (owned here, not by callers) + 85% width clears icon ── */}
+        {description && (
+          <div style={{
+            maxWidth: '85%',
+            fontSize: 'var(--text-xs)', color: 'var(--text-dimmest)',
+            lineHeight: 1.5, fontFamily: 'Inter',
+          }}>
+            {description}
+          </div>
+        )}
+      </div>
+    )
+  }
+
+  // ── Standard variant — label bright, hint dim; same token sizes as eye-toggle ──
   return (
     <div style={{ padding: '10px 14px', borderBottom: '1px solid var(--border-row)' }}>
-      {/* ── Label row — flex so an optional badge sits inline after the text ── */}
-      <div style={{ fontSize: 'var(--text-xs)', color: 'var(--text-dimmest)', marginBottom: 6, fontWeight: 500, letterSpacing: '0.02em', display: 'flex', alignItems: 'center', gap: 6 }}>
+      {/* ── Label row — --text-default (bright) to match eye-toggle name hierarchy ── */}
+      <div style={{ fontSize: 'var(--text-xs)', color: 'var(--text-default)', marginBottom: 6, fontWeight: 500, letterSpacing: '0.02em', display: 'flex', alignItems: 'center', gap: 6 }}>
         {label}
         {badge}
       </div>
       {children}
+      {/* ── Hint — --text-xs token + --text-dimmest matches description hierarchy ── */}
       {hint && (
-        <div style={{ fontSize: 9, color: 'var(--text-muted)', marginTop: 5, fontFamily: 'JetBrains Mono' }}>
+        <div style={{ fontSize: 'var(--text-xs)', color: 'var(--text-dimmest)', marginTop: 5, fontFamily: 'Inter' }}>
           {hint}
         </div>
       )}
@@ -80,19 +144,75 @@ function OptionRow({ label, children, hint, badge }: {
   )
 }
 
-// ── Option button — amber-tinted pill toggle for multi-choice settings rows
-function OptionBtn({ active, onClick, children, title, comingSoon }: {
-  active: boolean; onClick: () => void; children: React.ReactNode; title?: string; comingSoon?: boolean
+// ── Collapsible section — clickable header row (amber icon + label + chevron) that
+// mounts/unmounts children; amber color applied once here, propagates to all 7 groups.
+function CollapsibleSection({ icon, label, defaultCollapsed = false, children }: {
+  icon: React.ReactNode
+  label: string
+  defaultCollapsed?: boolean
+  children: React.ReactNode
 }) {
+  const [collapsed, setCollapsed] = useState(defaultCollapsed)
+
+  return (
+    <div>
+      {/* ── Header row — click anywhere to expand/collapse ── */}
+      <div
+        onClick={() => setCollapsed(c => !c)}
+        style={{
+          display: 'flex', alignItems: 'center', gap: 6,
+          padding: '5px 10px',
+          background: 'var(--bg-row)',
+          borderTop: '1px solid var(--bg-tile)',
+          borderBottom: '1px solid var(--bg-tile)',
+          cursor: 'pointer', userSelect: 'none',
+          transition: 'background 0.1s',
+        }}
+        onMouseEnter={e => (e.currentTarget as HTMLElement).style.background = 'var(--bg-tile)'}
+        onMouseLeave={e => (e.currentTarget as HTMLElement).style.background = 'var(--bg-row)'}
+      >
+        {/* ── Group icon — amber ── */}
+        <span style={{ color: 'var(--text-amber)', display: 'flex', alignItems: 'center' }}>{icon}</span>
+        {/* ── Group label — amber uppercase ── */}
+        <span style={{
+          flex: 1, fontSize: 10, fontWeight: 700,
+          textTransform: 'uppercase', letterSpacing: '0.1em', color: 'var(--text-amber)',
+        }}>
+          {label}
+        </span>
+        {/* ── Chevron — amber; down = expanded, right = collapsed ── */}
+        {collapsed
+          ? <ChevronRight size={11} style={{ color: 'var(--text-amber)', flexShrink: 0 }} />
+          : <ChevronDown  size={11} style={{ color: 'var(--text-amber)', flexShrink: 0 }} />
+        }
+      </div>
+      {/* ── Content — unmounted when collapsed ── */}
+      {!collapsed && children}
+    </div>
+  )
+}
+
+// ── Option button — green-tinted pill toggle for multi-choice settings rows
+// activeColor: 'success' (default, green) | 'error' (red — used for Hide/EyeOff)
+// No amber accent token exists for green-tint bg, so rgba fallback is intentional.
+function OptionBtn({ active, onClick, children, title, comingSoon, activeColor = 'success' }: {
+  active: boolean; onClick: () => void; children: React.ReactNode
+  title?: string; comingSoon?: boolean; activeColor?: 'success' | 'error'
+}) {
+  // ── Active colour tokens — green for selections, red for the Hide exception ──
+  const activeBorder = activeColor === 'error' ? 'var(--status-error)' : 'var(--status-success)'
+  const activeBg    = activeColor === 'error' ? 'rgba(192, 57, 43, 0.15)' : 'rgba(74, 144, 96, 0.13)'
+  const activeText  = activeColor === 'error' ? 'var(--status-error)'    : 'var(--status-success)'
+
   return (
     <button
       onClick={comingSoon ? undefined : onClick}
       title={title}
       style={{
         flex: 1, padding: '4px 0', borderRadius: 4,
-        border: active ? '1px solid var(--accent-amber-strong)' : '1px solid var(--border2)',
-        background: active ? 'var(--accent-amber-medium)' : 'var(--bg-modal)',
-        color: active ? 'var(--text-amber)' : 'var(--text-inactive)',
+        border: active ? `1px solid ${activeBorder}` : '1px solid var(--border2)',
+        background: active ? activeBg : 'var(--bg-modal)',
+        color: active ? activeText : 'var(--text-inactive)',
         fontSize: 'var(--text-xs)',
         fontFamily: active ? 'JetBrains Mono' : 'Inter',
         fontWeight: active ? 700 : 400,
@@ -100,6 +220,7 @@ function OptionBtn({ active, onClick, children, title, comingSoon }: {
         opacity: comingSoon ? 0.4 : 1,
         transition: 'all 0.12s',
         whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
+        display: 'flex', alignItems: 'center', justifyContent: 'center',
       }}
       onMouseEnter={e => { if (!active && !comingSoon) e.currentTarget.style.color = 'var(--text-muted)' }}
       onMouseLeave={e => { if (!active && !comingSoon) e.currentTarget.style.color = 'var(--text-inactive)' }}
@@ -580,6 +701,10 @@ export default function SettingsPanel() {
   const setSplitBreakpointRangeEnd   = useStore((s) => s.setSplitBreakpointRangeEnd)
   const showHandLabels               = useStore((s) => s.showHandLabels)
   const setShowHandLabels            = useStore((s) => s.setShowHandLabels)
+  const showOctaveLabels             = useStore((s) => s.showOctaveLabels)
+  const setShowOctaveLabels          = useStore((s) => s.setShowOctaveLabels)
+  const showNoteNamesOnKeyboard      = useStore((s) => s.showNoteNamesOnKeyboard)
+  const setShowNoteNamesOnKeyboard   = useStore((s) => s.setShowNoteNamesOnKeyboard)
   const handLabelMode                        = useStore((s) => s.handLabelMode)
   const setHandLabelMode                     = useStore((s) => s.setHandLabelMode)
   const performanceSplitSensitivity          = useStore((s) => s.performanceSplitSensitivity)
@@ -730,304 +855,347 @@ export default function SettingsPanel() {
             ) : (
               <div style={{ flex: 1, overflowY: 'auto', padding: '4px 0' }}>
 
-                {/* ── Library ── */}
-                <SectionHeader icon={<BookOpen size={11} />} label="Library" />
-                <OptionRow label="Demo folder" hint="Removes bundled demo songs from library view. Files are not deleted.">
-                  <div style={{ display: 'flex', gap: 'var(--space-1)' }}>
-                    <OptionBtn active={!hideDemoFolder} onClick={() => setHideDemoFolder(false)}>Show</OptionBtn>
-                    <OptionBtn active={hideDemoFolder}  onClick={() => setHideDemoFolder(true)}>Hide</OptionBtn>
-                  </div>
-                </OptionRow>
-                {/* ── Chord Transcription toggle ────────────────────────────────── */}
-                <OptionRow label="Chord Transcription" badge={<BetaBadge />} hint="Adds a transcript icon to every file in your library — click to generate a chord chart PDF.">
-                  <div style={{ display: 'flex', gap: 'var(--space-1)' }}>
-                    <OptionBtn active={chordTranscriptionEnabled} onClick={() => setChordTranscriptionEnabled(true)}>On</OptionBtn>
-                    <OptionBtn active={!chordTranscriptionEnabled} onClick={() => setChordTranscriptionEnabled(false)}>Off</OptionBtn>
-                  </div>
-                </OptionRow>
-
-                {/* ── Note Names ── */}
-                <SectionHeader icon={<Type size={11} />} label="Note Names" />
-                <OptionRow label="Display system">
-                  <div style={{ display: 'flex', gap: 'var(--space-1)' }}>
-                    {NOTE_NAMING_OPTIONS.slice(0, 2).map(opt => (
-                      <OptionBtn key={opt.value} active={noteNaming === opt.value}
-                        onClick={() => setNoteNaming(opt.value)} title={opt.hint}>
-                        {opt.label}
-                      </OptionBtn>
-                    ))}
-                  </div>
-                  <div style={{ display: 'flex', gap: 'var(--space-1)', marginTop: 4 }}>
-                    {NOTE_NAMING_OPTIONS.slice(2, 4).map(opt => (
-                      <OptionBtn key={opt.value} active={noteNaming === opt.value}
-                        onClick={() => setNoteNaming(opt.value)} title={opt.hint}>
-                        {opt.label}
-                      </OptionBtn>
-                    ))}
-                  </div>
-                  <div style={{
-                    marginTop: 6, padding: '4px 8px',
-                    background: 'var(--bg-row)', borderRadius: 4,
-                    fontSize: 10, fontFamily: 'JetBrains Mono',
-                    color: 'var(--text-dim)', letterSpacing: '0.08em', textAlign: 'center',
-                  }}>
-                    {noteNaming === 'english'          && 'C  D  E  F  G  A  B'}
-                    {noteNaming === 'central-european' && 'C  D  E  F  G  A  H'}
-                    {noteNaming === 'solfege'          && 'Do Re Mi Fa Sol La Si'}
-                    {noteNaming === 'hidden'           && '— labels hidden —'}
-                  </div>
-                </OptionRow>
-
-                {noteNaming !== 'hidden' && (
+                {/* ── 1. MIDI FILES & LIBRARY ────────────────────────────────────── */}
+                <CollapsibleSection icon={<BookOpen size={11} />} label="MIDI Files & Library">
+                  {/* ── Demo folder — eye-toggle: Eye=show, EyeOff=hidden ────────── */}
                   <OptionRow
-                    label="Accidentals"
-                    hint={accidentals === 'flat' ? 'e.g.  Bb  Eb  Ab  Db  Gb' : 'e.g.  A#  D#  G#  C#  F#'}
-                  >
+                    label="Demo folder"
+                    eyeToggle
+                    eyeValue={!hideDemoFolder}
+                    onEyeChange={(val) => setHideDemoFolder(!val)}
+                    description="Removes bundled demo songs from library view. Files are not deleted."
+                  />
+                  {/* ── Chord Transcription — eye-toggle with BETA badge ──────────── */}
+                  <OptionRow
+                    label="Chord Transcription"
+                    badge={<BetaBadge />}
+                    eyeToggle
+                    eyeValue={chordTranscriptionEnabled}
+                    onEyeChange={setChordTranscriptionEnabled}
+                    description="Adds a transcript icon to every file in your library — click to generate a chord chart PDF."
+                  />
+                </CollapsibleSection>
+
+                {/* ── 2. NOTATION ────────────────────────────────────────────────── */}
+                <CollapsibleSection icon={<Type size={11} />} label="Notation">
+                  {/* ── Display system — single 4-button row; Hide uses EyeOff icon ── */}
+                  <OptionRow label="Display system">
                     <div style={{ display: 'flex', gap: 'var(--space-1)' }}>
-                      <OptionBtn active={accidentals === 'flat'} onClick={() => setAccidentals('flat')} title="Flat names">♭ Flats</OptionBtn>
-                      <OptionBtn active={accidentals === 'sharp'} onClick={() => setAccidentals('sharp')} title="Sharp names">♯ Sharps</OptionBtn>
+                      {NOTE_NAMING_OPTIONS.slice(0, 3).map(opt => (
+                        <OptionBtn key={opt.value} active={noteNaming === opt.value}
+                          onClick={() => setNoteNaming(opt.value)} title={opt.hint}>
+                          {opt.label}
+                        </OptionBtn>
+                      ))}
+                      {/* ── Hide — EyeOff icon; red when active (hidden is a meaningful state) ── */}
+                      <OptionBtn
+                        active={noteNaming === 'hidden'}
+                        onClick={() => setNoteNaming('hidden')}
+                        activeColor="error"
+                        title="Hide note labels"
+                      >
+                        <EyeOff size={11} strokeWidth={1.5} />
+                      </OptionBtn>
+                    </div>
+                    {/* ── Note name preview — value display, JetBrains Mono intentional ── */}
+                    <div style={{
+                      marginTop: 6, padding: '4px 8px',
+                      background: 'var(--bg-row)', borderRadius: 4,
+                      fontSize: 10, fontFamily: 'JetBrains Mono',
+                      color: 'var(--text-dim)', letterSpacing: '0.08em', textAlign: 'center',
+                    }}>
+                      {noteNaming === 'english'          && 'C  D  E  F  G  A  B'}
+                      {noteNaming === 'central-european' && 'C  D  E  F  G  A  H'}
+                      {noteNaming === 'solfege'          && 'Do Re Mi Fa Sol La Si'}
+                      {noteNaming === 'hidden'           && '— labels hidden —'}
                     </div>
                   </OptionRow>
-                )}
-
-                {/* ── Keyboard ── */}
-                <SectionHeader icon={<Piano size={11} />} label="Keyboard" />
-                <OptionRow label="Key range" hint="Number of keys on the virtual keyboard">
-                  <div style={{ display: 'flex', gap: 'var(--space-1)' }}>
-                    {KEYBOARD_SIZES.map(size => (
-                      <OptionBtn key={size} active={keyboardSize === size}
-                        onClick={() => setKeyboardSize(size)} title={`${size}-key keyboard`}>
-                        {size}
-                      </OptionBtn>
-                    ))}
-                  </div>
-                </OptionRow>
-                {/* ── Left/Right hand labels toggle ────────────────────────────── */}
-                <OptionRow label="Left/Right Hand Labels" badge={<BetaBadge />} hint="Shows amber hand boundary lines and labels in the keyboard footer.">
-                  <div style={{ display: 'flex', gap: 'var(--space-1)' }}>
-                    <OptionBtn active={showHandLabels}  onClick={() => setShowHandLabels(true)}>On</OptionBtn>
-                    <OptionBtn active={!showHandLabels} onClick={() => setShowHandLabels(false)}>Off</OptionBtn>
-                  </div>
-                </OptionRow>
-                {/* ── Mode + split zone — only visible when hand labels are on ──── */}
-                {showHandLabels && (
-                  <>
-                    {/* ── Practice / Performance mode selector ─────────────────────── */}
-                    <OptionRow label="Mode" hint="Practice shows a fixed split zone. Performance tracks hand position live from the MIDI file or hardware keyboard.">
+                  {/* ── Accidentals — only shown when note names are visible ───────── */}
+                  {noteNaming !== 'hidden' && (
+                    <OptionRow
+                      label="Accidentals"
+                      hint={accidentals === 'flat' ? 'e.g.  Bb  Eb  Ab  Db  Gb' : 'e.g.  A#  D#  G#  C#  F#'}
+                    >
                       <div style={{ display: 'flex', gap: 'var(--space-1)' }}>
-                        <OptionBtn active={handLabelMode === 'practice'}     onClick={() => setHandLabelMode('practice')}>Practice</OptionBtn>
-                        <OptionBtn active={handLabelMode === 'performance'}  onClick={() => setHandLabelMode('performance')}>Performance</OptionBtn>
+                        <OptionBtn active={accidentals === 'flat'}  onClick={() => setAccidentals('flat')}  title="Flat names">♭ Flats</OptionBtn>
+                        <OptionBtn active={accidentals === 'sharp'} onClick={() => setAccidentals('sharp')} title="Sharp names">♯ Sharps</OptionBtn>
                       </div>
                     </OptionRow>
+                  )}
+                </CollapsibleSection>
 
-                    {/* ── Practice: manual split zone controls ─────────────────────── */}
-                    {handLabelMode === 'practice' && (
-                      <>
-                        <OptionRow label="Split zone" hint="Defines the boundary between Left Hand and Right Hand shown on the keyboard.">
-                          <div style={{ display: 'flex', gap: 'var(--space-1)' }}>
-                            <OptionBtn active={splitBreakpointType === 'single'} onClick={() => setSplitBreakpointType('single')}>Single</OptionBtn>
-                            <OptionBtn active={splitBreakpointType === 'range'}  onClick={() => setSplitBreakpointType('range')}>Range</OptionBtn>
-                          </div>
-                        </OptionRow>
-                        {splitBreakpointType === 'single' ? (
-                          <OptionRow
-                            label={`Split note — ${SPLIT_NOTE_NAMES[splitBreakpointNote % 12]}${Math.floor(splitBreakpointNote / 12) - 1}`}
-                            hint="Notes below this pitch → Left Hand, notes above → Right Hand."
-                          >
-                            <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                              <ZoomStepBtn disabled={splitBreakpointNote <= 48} onClick={() => setSplitBreakpointNote(splitBreakpointNote - 1)}>−</ZoomStepBtn>
-                              <div style={{ flex: 1, textAlign: 'center', fontFamily: 'JetBrains Mono', fontSize: 'var(--text-base)', color: 'var(--text-dim)' }}>
-                                {SPLIT_NOTE_NAMES[splitBreakpointNote % 12]}{Math.floor(splitBreakpointNote / 12) - 1}
-                              </div>
-                              <ZoomStepBtn disabled={splitBreakpointNote >= 60} onClick={() => setSplitBreakpointNote(splitBreakpointNote + 1)}>+</ZoomStepBtn>
-                            </div>
-                          </OptionRow>
-                        ) : (
-                          <OptionRow
-                            label={`Split zone — ${SPLIT_NOTE_NAMES[splitBreakpointRangeStart % 12]}${Math.floor(splitBreakpointRangeStart / 12) - 1} to ${SPLIT_NOTE_NAMES[splitBreakpointRangeEnd % 12]}${Math.floor(splitBreakpointRangeEnd / 12) - 1}`}
-                            hint="Notes inside the shaded zone may come from either hand. Notes below the lower bound → Left Hand, above the upper bound → Right Hand."
-                          >
-                            <div style={{ display: 'flex', gap: 'var(--space-2)' }}>
-                              <div style={{ flex: 1 }}>
-                                <div style={{ fontSize: 9, color: 'var(--text-dimmest)', marginBottom: 4, fontFamily: 'Inter' }}>Lower</div>
-                                <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-1)' }}>
-                                  <ZoomStepBtn disabled={splitBreakpointRangeStart <= 48} onClick={() => setSplitBreakpointRangeStart(splitBreakpointRangeStart - 1)}>−</ZoomStepBtn>
-                                  <div style={{ flex: 1, textAlign: 'center', fontFamily: 'JetBrains Mono', fontSize: 'var(--text-xs)', color: 'var(--text-dim)' }}>
-                                    {SPLIT_NOTE_NAMES[splitBreakpointRangeStart % 12]}{Math.floor(splitBreakpointRangeStart / 12) - 1}
-                                  </div>
-                                  <ZoomStepBtn disabled={splitBreakpointRangeStart >= splitBreakpointRangeEnd - 1} onClick={() => setSplitBreakpointRangeStart(splitBreakpointRangeStart + 1)}>+</ZoomStepBtn>
-                                </div>
-                              </div>
-                              <div style={{ flex: 1 }}>
-                                <div style={{ fontSize: 9, color: 'var(--text-dimmest)', marginBottom: 4, fontFamily: 'Inter' }}>Upper</div>
-                                <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-1)' }}>
-                                  <ZoomStepBtn disabled={splitBreakpointRangeEnd <= splitBreakpointRangeStart + 1} onClick={() => setSplitBreakpointRangeEnd(splitBreakpointRangeEnd - 1)}>−</ZoomStepBtn>
-                                  <div style={{ flex: 1, textAlign: 'center', fontFamily: 'JetBrains Mono', fontSize: 'var(--text-xs)', color: 'var(--text-dim)' }}>
-                                    {SPLIT_NOTE_NAMES[splitBreakpointRangeEnd % 12]}{Math.floor(splitBreakpointRangeEnd / 12) - 1}
-                                  </div>
-                                  <ZoomStepBtn disabled={splitBreakpointRangeEnd >= 60} onClick={() => setSplitBreakpointRangeEnd(splitBreakpointRangeEnd + 1)}>+</ZoomStepBtn>
-                                </div>
-                              </div>
-                            </div>
-                          </OptionRow>
-                        )}
-                      </>
-                    )}
-
-                    {/* ── Performance: sensitivity slider + description ─────────────── */}
-                    {handLabelMode === 'performance' && (
-                      <>
-                        <OptionRow label={`Split Sensitivity — ${performanceSplitSensitivity} semitones`}>
-                          <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                            <span style={{ fontSize: 9, color: 'var(--text-inactive)', fontFamily: 'JetBrains Mono', flexShrink: 0 }}>2</span>
-                            <input
-                              type="range" min={2} max={16} step={1}
-                              value={performanceSplitSensitivity}
-                              onChange={e => setPerformanceSplitSensitivity(Number(e.target.value))}
-                              style={{ flex: 1, accentColor: 'var(--text-amber)', cursor: 'pointer' }}
-                            />
-                            <span style={{ fontSize: 9, color: 'var(--text-inactive)', fontFamily: 'JetBrains Mono', flexShrink: 0 }}>16</span>
-                          </div>
-                        </OptionRow>
-                        <div style={{ padding: '2px 12px 6px', color: 'var(--text-inactive)', fontSize: 10, fontFamily: 'Inter', lineHeight: 1.5 }}>
-                          Lower values split hands more readily on moderate spreads. Higher values only split on very wide separations.
-                        </div>
-                      </>
-                    )}
-                  </>
-                )}
-
-                {/* ── Piano Roll ── */}
-                <SectionHeader icon={<ZoomIn size={11} />} label="Piano Roll" />
-                <OptionRow label={`Zoom  —  ${Math.round(zoomLevel * 100)}%`} hint={`${Math.round(6 / zoomLevel * 10) / 10}s visible · higher = notes appear larger`}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-2)' }}>
-                    <ZoomStepBtn
-                      disabled={zoomLevel <= ZOOM_STEPS[0]}
-                      onClick={() => { const i = ZOOM_STEPS.indexOf(zoomLevel); if (i > 0) setZoomLevel(ZOOM_STEPS[i - 1]) }}
-                    >−</ZoomStepBtn>
-                    <div style={{ flex: 1, position: 'relative', height: 4, background: 'var(--border)', borderRadius: 2 }}>
-                      <div style={{
-                        position: 'absolute', left: 0, top: 0, height: '100%', borderRadius: 2,
-                        background: 'var(--text-amber)',
-                        width: `${(ZOOM_STEPS.indexOf(zoomLevel) / (ZOOM_STEPS.length - 1)) * 100}%`,
-                        transition: 'width 0.12s',
-                      }} />
-                      {ZOOM_STEPS.map((step, i) => (
-                        <button key={step} onClick={() => setZoomLevel(step)} title={`${Math.round(step * 100)}%`}
-                          style={{
-                            position: 'absolute',
-                            left: `${(i / (ZOOM_STEPS.length - 1)) * 100}%`,
-                            top: '50%', transform: 'translate(-50%, -50%)',
-                            width: 10, height: 10, borderRadius: '50%',
-                            background: zoomLevel === step ? 'var(--text-amber)' : 'var(--state-hover-bg)',
-                            border: `1.5px solid ${zoomLevel === step ? 'var(--text-amber)' : 'var(--text-muted)'}`,
-                            cursor: 'pointer', padding: 0, transition: 'all 0.12s',
-                          }} />
+                {/* ── 3. KEYBOARD ────────────────────────────────────────────────── */}
+                <CollapsibleSection icon={<Piano size={11} />} label="Keyboard">
+                  {/* ── Key range — multi-choice selector, unchanged structure ───── */}
+                  <OptionRow label="Key range" hint="Number of keys on the virtual keyboard">
+                    <div style={{ display: 'flex', gap: 'var(--space-1)' }}>
+                      {KEYBOARD_SIZES.map(size => (
+                        <OptionBtn key={size} active={keyboardSize === size}
+                          onClick={() => setKeyboardSize(size)} title={`${size}-key keyboard`}>
+                          {size}
+                        </OptionBtn>
                       ))}
                     </div>
-                    <ZoomStepBtn
-                      disabled={zoomLevel >= ZOOM_STEPS[ZOOM_STEPS.length - 1]}
-                      onClick={() => { const i = ZOOM_STEPS.indexOf(zoomLevel); if (i < ZOOM_STEPS.length - 1) setZoomLevel(ZOOM_STEPS[i + 1]) }}
-                    >+</ZoomStepBtn>
+                  </OptionRow>
+                  {/* ── Labels sub-divider — thin uppercase label within the group ── */}
+                  <div style={{
+                    padding: '5px 14px 3px',
+                    fontSize: 9, color: 'var(--text-muted)', fontWeight: 600,
+                    letterSpacing: '0.1em', textTransform: 'uppercase', fontFamily: 'Inter',
+                    borderTop: '1px solid var(--border-row)',
+                  }}>
+                    Labels
                   </div>
-                </OptionRow>
+                  {/* ── Octave labels — show/hide octave numbers on virtual keyboard ─ */}
+                  <OptionRow
+                    label="Show octaves on keyboard"
+                    eyeToggle
+                    eyeValue={showOctaveLabels}
+                    onEyeChange={setShowOctaveLabels}
+                  />
+                  {/* ── Note name labels — show/hide note names on virtual keyboard ── */}
+                  <OptionRow
+                    label="Show note names on keyboard"
+                    eyeToggle
+                    eyeValue={showNoteNamesOnKeyboard}
+                    onEyeChange={setShowNoteNamesOnKeyboard}
+                  />
+                  {/* ── Left/Right Hand BETA — eye-toggle; sub-controls unchanged ─── */}
+                  <OptionRow
+                    label="Left/Right Hand"
+                    badge={<BetaBadge />}
+                    eyeToggle
+                    eyeValue={showHandLabels}
+                    onEyeChange={setShowHandLabels}
+                    description="Shows amber hand boundary lines and labels in the keyboard footer."
+                  />
+                  {/* ── Mode + split zone — only visible when hand labels are on ──── */}
+                  {showHandLabels && (
+                    <>
+                      {/* ── Practice / Performance mode selector ──────────────────── */}
+                      <OptionRow label="Mode" hint="Practice shows a fixed split zone. Performance tracks hand position live from the MIDI file or hardware keyboard.">
+                        <div style={{ display: 'flex', gap: 'var(--space-1)' }}>
+                          <OptionBtn active={handLabelMode === 'practice'}    onClick={() => setHandLabelMode('practice')}>Practice</OptionBtn>
+                          <OptionBtn active={handLabelMode === 'performance'} onClick={() => setHandLabelMode('performance')}>Performance</OptionBtn>
+                        </div>
+                      </OptionRow>
+                      {/* ── Practice: manual split zone controls ───────────────────── */}
+                      {handLabelMode === 'practice' && (
+                        <>
+                          <OptionRow label="Split zone" hint="Defines the boundary between Left Hand and Right Hand shown on the keyboard.">
+                            <div style={{ display: 'flex', gap: 'var(--space-1)' }}>
+                              <OptionBtn active={splitBreakpointType === 'single'} onClick={() => setSplitBreakpointType('single')}>Single</OptionBtn>
+                              <OptionBtn active={splitBreakpointType === 'range'}  onClick={() => setSplitBreakpointType('range')}>Range</OptionBtn>
+                            </div>
+                          </OptionRow>
+                          {splitBreakpointType === 'single' ? (
+                            <OptionRow
+                              label={`Split note — ${SPLIT_NOTE_NAMES[splitBreakpointNote % 12]}${Math.floor(splitBreakpointNote / 12) - 1}`}
+                              hint="Notes below this pitch → Left Hand, notes above → Right Hand."
+                            >
+                              <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                                <ZoomStepBtn disabled={splitBreakpointNote <= 48} onClick={() => setSplitBreakpointNote(splitBreakpointNote - 1)}>−</ZoomStepBtn>
+                                <div style={{ flex: 1, textAlign: 'center', fontFamily: 'JetBrains Mono', fontSize: 'var(--text-base)', color: 'var(--text-dim)' }}>
+                                  {SPLIT_NOTE_NAMES[splitBreakpointNote % 12]}{Math.floor(splitBreakpointNote / 12) - 1}
+                                </div>
+                                <ZoomStepBtn disabled={splitBreakpointNote >= 60} onClick={() => setSplitBreakpointNote(splitBreakpointNote + 1)}>+</ZoomStepBtn>
+                              </div>
+                            </OptionRow>
+                          ) : (
+                            <OptionRow
+                              label={`Split zone — ${SPLIT_NOTE_NAMES[splitBreakpointRangeStart % 12]}${Math.floor(splitBreakpointRangeStart / 12) - 1} to ${SPLIT_NOTE_NAMES[splitBreakpointRangeEnd % 12]}${Math.floor(splitBreakpointRangeEnd / 12) - 1}`}
+                              hint="Notes inside the shaded zone may come from either hand. Notes below the lower bound → Left Hand, above the upper bound → Right Hand."
+                            >
+                              <div style={{ display: 'flex', gap: 'var(--space-2)' }}>
+                                <div style={{ flex: 1 }}>
+                                  <div style={{ fontSize: 9, color: 'var(--text-dimmest)', marginBottom: 4, fontFamily: 'Inter' }}>Lower</div>
+                                  <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-1)' }}>
+                                    <ZoomStepBtn disabled={splitBreakpointRangeStart <= 48} onClick={() => setSplitBreakpointRangeStart(splitBreakpointRangeStart - 1)}>−</ZoomStepBtn>
+                                    <div style={{ flex: 1, textAlign: 'center', fontFamily: 'JetBrains Mono', fontSize: 'var(--text-xs)', color: 'var(--text-dim)' }}>
+                                      {SPLIT_NOTE_NAMES[splitBreakpointRangeStart % 12]}{Math.floor(splitBreakpointRangeStart / 12) - 1}
+                                    </div>
+                                    <ZoomStepBtn disabled={splitBreakpointRangeStart >= splitBreakpointRangeEnd - 1} onClick={() => setSplitBreakpointRangeStart(splitBreakpointRangeStart + 1)}>+</ZoomStepBtn>
+                                  </div>
+                                </div>
+                                <div style={{ flex: 1 }}>
+                                  <div style={{ fontSize: 9, color: 'var(--text-dimmest)', marginBottom: 4, fontFamily: 'Inter' }}>Upper</div>
+                                  <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-1)' }}>
+                                    <ZoomStepBtn disabled={splitBreakpointRangeEnd <= splitBreakpointRangeStart + 1} onClick={() => setSplitBreakpointRangeEnd(splitBreakpointRangeEnd - 1)}>−</ZoomStepBtn>
+                                    <div style={{ flex: 1, textAlign: 'center', fontFamily: 'JetBrains Mono', fontSize: 'var(--text-xs)', color: 'var(--text-dim)' }}>
+                                      {SPLIT_NOTE_NAMES[splitBreakpointRangeEnd % 12]}{Math.floor(splitBreakpointRangeEnd / 12) - 1}
+                                    </div>
+                                    <ZoomStepBtn disabled={splitBreakpointRangeEnd >= 60} onClick={() => setSplitBreakpointRangeEnd(splitBreakpointRangeEnd + 1)}>+</ZoomStepBtn>
+                                  </div>
+                                </div>
+                              </div>
+                            </OptionRow>
+                          )}
+                        </>
+                      )}
+                      {/* ── Performance: sensitivity slider + description ────────────── */}
+                      {handLabelMode === 'performance' && (
+                        <>
+                          <OptionRow label={`Split Sensitivity — ${performanceSplitSensitivity} semitones`}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                              <span style={{ fontSize: 9, color: 'var(--text-inactive)', fontFamily: 'JetBrains Mono', flexShrink: 0 }}>2</span>
+                              <input
+                                type="range" min={2} max={16} step={1}
+                                value={performanceSplitSensitivity}
+                                onChange={e => setPerformanceSplitSensitivity(Number(e.target.value))}
+                                style={{ flex: 1, accentColor: 'var(--text-amber)', cursor: 'pointer' }}
+                              />
+                              <span style={{ fontSize: 9, color: 'var(--text-inactive)', fontFamily: 'JetBrains Mono', flexShrink: 0 }}>16</span>
+                            </div>
+                          </OptionRow>
+                          <div style={{ padding: '2px 12px 6px', color: 'var(--text-inactive)', fontSize: 'var(--text-xs)', fontFamily: 'Inter', lineHeight: 1.5 }}>
+                            Lower values split hands more readily on moderate spreads. Higher values only split on very wide separations.
+                          </div>
+                        </>
+                      )}
+                    </>
+                  )}
+                </CollapsibleSection>
 
-                <OptionRow label="Bar numbers & grid lines">
-                  <div style={{ display: 'flex', gap: 'var(--space-1)' }}>
-                    <OptionBtn active={showBarNumbers} onClick={() => setShowBarNumbers(true)}>Show</OptionBtn>
-                    <OptionBtn active={!showBarNumbers} onClick={() => setShowBarNumbers(false)}>Hide</OptionBtn>
-                  </div>
-                </OptionRow>
+                {/* ── 4. PLAYBACK & PRACTICE ─────────────────────────────────────── */}
+                <CollapsibleSection icon={<Music size={11} />} label="Playback & Practice">
+                  {/* ── Chord Prompter — eye-toggle ───────────────────────────────── */}
+                  <OptionRow
+                    label="Chord Prompter"
+                    eyeToggle
+                    eyeValue={chordPrompterEnabled}
+                    onEyeChange={setChordPrompterEnabled}
+                    description="Shows chord names during playback — past, current and upcoming chords."
+                  />
+                  {/* ── Loop region — eye-toggle ──────────────────────────────────── */}
+                  <OptionRow
+                    label="Loop region"
+                    eyeToggle
+                    eyeValue={loopRegionEnabled}
+                    onEyeChange={setLoopRegionEnabled}
+                    description="Show a strip above the song title to select and loop a section of the MIDI file."
+                  />
+                </CollapsibleSection>
 
-                {/* ── Audio ── */}
-                <SectionHeader icon={<Volume2 size={11} />} label="Audio" />
-                <OptionRow label="Sound engine">
-                  <div style={{ display: 'flex', gap: 'var(--space-1)' }}>
-                    {/* GM Synth — always available, switches back from Samples instantly */}
-                    <OptionBtn
-                      active={audioEngine === 'gm'}
-                      onClick={() => setAudioEngine('gm')}
-                      title="Built-in GM synthesiser (jzz-synth-tiny) — always available offline"
-                    >GM Synth</OptionBtn>
-                    {/* Samples — loads GeneralUser GS SF2 via spessasynth_lib on first click */}
-                    <OptionBtn
-                      active={audioEngine === 'samples'}
-                      onClick={async () => {
-                        if (audioEngine === 'samples') return
-                        if (samplesStatus === 'ready') { setAudioEngine('samples'); return }
-                        if (samplesStatus === 'loading') return
-                        setSamplesStatus('loading'); setSamplesProgress(0)
-                        try {
-                          await initSamplesEngine((p) => setSamplesProgress(p))
-                          setSamplesStatus('ready')
-                          setAudioEngine('samples')
-                        } catch (e) {
-                          console.error('[Orfeo Samples] init failed:', e)
-                          setSamplesStatus('error')
-                        }
-                      }}
-                      title="GeneralUser GS soundfont via spessasynth_lib — richer sound, loads once"
-                    >Samples</OptionBtn>
-                  </div>
-                  {/* Loading progress / status block */}
-                  {samplesStatus === 'loading' && (
-                    <div style={{ marginTop: 7 }}>
-                      <div style={{ fontSize: 9, color: 'var(--text-dimmest)', fontFamily: 'JetBrains Mono', marginBottom: 4 }}>
-                        Loading soundfont… {Math.round(samplesProgress * 100)}%
+                {/* ── 5. AUDIO ───────────────────────────────────────────────────── */}
+                <CollapsibleSection icon={<Volume2 size={11} />} label="Audio">
+                  <OptionRow label="Sound engine">
+                    <div style={{ display: 'flex', gap: 'var(--space-1)' }}>
+                      {/* ── GM Synth — always available, switches back from Samples instantly ── */}
+                      <OptionBtn
+                        active={audioEngine === 'gm'}
+                        onClick={() => setAudioEngine('gm')}
+                        title="Built-in GM synthesiser (jzz-synth-tiny) — always available offline"
+                      >GM Synth</OptionBtn>
+                      {/* ── Samples — loads GeneralUser GS SF2 via spessasynth_lib on first click ── */}
+                      <OptionBtn
+                        active={audioEngine === 'samples'}
+                        onClick={async () => {
+                          if (audioEngine === 'samples') return
+                          if (samplesStatus === 'ready') { setAudioEngine('samples'); return }
+                          if (samplesStatus === 'loading') return
+                          setSamplesStatus('loading'); setSamplesProgress(0)
+                          try {
+                            await initSamplesEngine((p) => setSamplesProgress(p))
+                            setSamplesStatus('ready')
+                            setAudioEngine('samples')
+                          } catch (e) {
+                            console.error('[Orfeo Samples] init failed:', e)
+                            setSamplesStatus('error')
+                          }
+                        }}
+                        title="GeneralUser GS soundfont via spessasynth_lib — richer sound, loads once"
+                      >Samples</OptionBtn>
+                    </div>
+                    {/* ── Loading progress / status block ──────────────────────────── */}
+                    {samplesStatus === 'loading' && (
+                      <div style={{ marginTop: 7 }}>
+                        <div style={{ fontSize: 9, color: 'var(--text-dimmest)', fontFamily: 'Inter', marginBottom: 4 }}>
+                          Loading soundfont… {Math.round(samplesProgress * 100)}%
+                        </div>
+                        <div style={{ height: 3, background: 'var(--border)', borderRadius: 2, overflow: 'hidden' }}>
+                          <div style={{
+                            height: '100%', background: 'var(--text-amber)', borderRadius: 2,
+                            width: `${Math.round(samplesProgress * 100)}%`, transition: 'width 0.1s',
+                          }} />
+                        </div>
                       </div>
-                      <div style={{ height: 3, background: 'var(--border)', borderRadius: 2, overflow: 'hidden' }}>
+                    )}
+                    {samplesStatus === 'ready' && (
+                      <div style={{ marginTop: 5, fontSize: 9, color: 'var(--text-muted)', fontFamily: 'Inter' }}>
+                        {/* ── "loaded" goes green when Samples is the active engine ── */}
+                        GeneralUser-GS.sf2 · 30.8 MB · <span style={{ color: audioEngine === 'samples' ? 'var(--status-success)' : 'inherit' }}>loaded</span>
+                      </div>
+                    )}
+                    {samplesStatus === 'error' && (
+                      <div style={{ marginTop: 5, fontSize: 9, color: 'var(--status-error)', fontFamily: 'Inter' }}>
+                        Failed to load soundfont — check console
+                      </div>
+                    )}
+                    {samplesStatus === 'idle' && (
+                      <div style={{ marginTop: 5, fontSize: 9, color: 'var(--text-muted)', fontFamily: 'Inter' }}>
+                        {audioEngine === 'gm'
+                          ? 'GM Synth (jzz-synth-tiny) — ships with app, no internet needed.'
+                          : 'GeneralUser-GS.sf2 · 30.8 MB · click Samples to load'}
+                      </div>
+                    )}
+                  </OptionRow>
+                </CollapsibleSection>
+
+                {/* ── 6. PIANO ROLL ──────────────────────────────────────────────── */}
+                <CollapsibleSection icon={<ZoomIn size={11} />} label="Piano Roll">
+                  {/* ── Zoom slider — unchanged ───────────────────────────────────── */}
+                  <OptionRow label={`Zoom  —  ${Math.round(zoomLevel * 100)}%`} hint={`${Math.round(6 / zoomLevel * 10) / 10}s visible · higher = notes appear larger`}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-2)' }}>
+                      <ZoomStepBtn
+                        disabled={zoomLevel <= ZOOM_STEPS[0]}
+                        onClick={() => { const i = ZOOM_STEPS.indexOf(zoomLevel); if (i > 0) setZoomLevel(ZOOM_STEPS[i - 1]) }}
+                      >−</ZoomStepBtn>
+                      <div style={{ flex: 1, position: 'relative', height: 4, background: 'var(--border)', borderRadius: 2 }}>
                         <div style={{
-                          height: '100%', background: 'var(--text-amber)', borderRadius: 2,
-                          width: `${Math.round(samplesProgress * 100)}%`, transition: 'width 0.1s',
+                          position: 'absolute', left: 0, top: 0, height: '100%', borderRadius: 2,
+                          background: 'var(--text-amber)',
+                          width: `${(ZOOM_STEPS.indexOf(zoomLevel) / (ZOOM_STEPS.length - 1)) * 100}%`,
+                          transition: 'width 0.12s',
                         }} />
+                        {ZOOM_STEPS.map((step, i) => (
+                          <button key={step} onClick={() => setZoomLevel(step)} title={`${Math.round(step * 100)}%`}
+                            style={{
+                              position: 'absolute',
+                              left: `${(i / (ZOOM_STEPS.length - 1)) * 100}%`,
+                              top: '50%', transform: 'translate(-50%, -50%)',
+                              width: 10, height: 10, borderRadius: '50%',
+                              background: zoomLevel === step ? 'var(--text-amber)' : 'var(--state-hover-bg)',
+                              border: `1.5px solid ${zoomLevel === step ? 'var(--text-amber)' : 'var(--text-muted)'}`,
+                              cursor: 'pointer', padding: 0, transition: 'all 0.12s',
+                            }} />
+                        ))}
                       </div>
+                      <ZoomStepBtn
+                        disabled={zoomLevel >= ZOOM_STEPS[ZOOM_STEPS.length - 1]}
+                        onClick={() => { const i = ZOOM_STEPS.indexOf(zoomLevel); if (i < ZOOM_STEPS.length - 1) setZoomLevel(ZOOM_STEPS[i + 1]) }}
+                      >+</ZoomStepBtn>
                     </div>
-                  )}
-                  {samplesStatus === 'ready' && (
-                    <div style={{ marginTop: 5, fontSize: 9, color: 'var(--text-muted)', fontFamily: 'JetBrains Mono' }}>
-                      GeneralUser-GS.sf2 · 30.8 MB · loaded
-                    </div>
-                  )}
-                  {samplesStatus === 'error' && (
-                    <div style={{ marginTop: 5, fontSize: 9, color: 'var(--status-error)', fontFamily: 'JetBrains Mono' }}>
-                      Failed to load soundfont — check console
-                    </div>
-                  )}
-                  {samplesStatus === 'idle' && (
-                    <div style={{ marginTop: 5, fontSize: 9, color: 'var(--text-muted)', fontFamily: 'JetBrains Mono' }}>
-                      {audioEngine === 'gm'
-                        ? 'GM Synth (jzz-synth-tiny) — ships with app, no internet needed.'
-                        : 'GeneralUser-GS.sf2 · 30.8 MB · click Samples to load'}
-                    </div>
-                  )}
-                </OptionRow>
+                  </OptionRow>
+                  {/* ── Bar numbers & grid lines — eye-toggle, no description ─────── */}
+                  <OptionRow
+                    label="Bar numbers & grid lines"
+                    eyeToggle
+                    eyeValue={showBarNumbers}
+                    onEyeChange={setShowBarNumbers}
+                  />
+                </CollapsibleSection>
 
-                {/* ── Playback ── */}
-                <SectionHeader icon={<Music size={11} />} label="Playback" />
-                <OptionRow label="Chord Prompter" hint="Shows chord names during playback — past, current and upcoming chords.">
-                  <div style={{ display: 'flex', gap: 'var(--space-1)' }}>
-                    <OptionBtn active={chordPrompterEnabled} onClick={() => setChordPrompterEnabled(true)}>On</OptionBtn>
-                    <OptionBtn active={!chordPrompterEnabled} onClick={() => setChordPrompterEnabled(false)}>Off</OptionBtn>
-                  </div>
-                </OptionRow>
-                {/* ── Loop Region strip toggle ──────────────────────────────── */}
-                <OptionRow label="Loop Region strip" hint="Show a strip above the song title to select and loop a section of the MIDI file.">
-                  <div style={{ display: 'flex', gap: 'var(--space-1)' }}>
-                    <OptionBtn active={loopRegionEnabled}  onClick={() => setLoopRegionEnabled(true)}>On</OptionBtn>
-                    <OptionBtn active={!loopRegionEnabled} onClick={() => setLoopRegionEnabled(false)}>Off</OptionBtn>
-                  </div>
-                </OptionRow>
+                {/* ── 7. APPEARANCE — no content changes ─────────────────────────── */}
+                <CollapsibleSection icon={<Palette size={11} />} label="Appearance">
+                  <OptionRow label="Background">
+                    <div style={{ display: 'flex', gap: 'var(--space-1)' }}>
+                      <AppBgBtn color="#0f0f12" label="Dark" active={appTheme === 'dark'} onClick={() => setAppTheme('dark')} />
+                      <AppBgBtn color="#12100e" label="Warm" active={appTheme === 'warm'} onClick={() => setAppTheme('warm')} />
+                    </div>
+                  </OptionRow>
+                </CollapsibleSection>
 
-                {/* ── Appearance ── */}
-                <SectionHeader icon={<Palette size={11} />} label="Appearance" />
-                <OptionRow label="Background">
-                  <div style={{ display: 'flex', gap: 'var(--space-1)' }}>
-                    <AppBgBtn color="#0f0f12" label="Dark" active={appTheme === 'dark'} onClick={() => setAppTheme('dark')} />
-                    <AppBgBtn color="#12100e" label="Warm" active={appTheme === 'warm'} onClick={() => setAppTheme('warm')} />
-                  </div>
-                </OptionRow>
-
-                {/* About */}
+                {/* ── About ──────────────────────────────────────────────────────── */}
                 <div style={{ padding: '14px 14px 10px', borderTop: '1px solid var(--bg-tile)', marginTop: 4 }}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 4 }}>
                     <svg width="16" height="16" viewBox="0 0 100 100" fill="none">
@@ -1036,9 +1204,9 @@ export default function SettingsPanel() {
                       <line x1="22" y1="50" x2="78" y2="50" stroke="#e8a027" strokeWidth="7" strokeLinecap="round"/>
                       <line x1="22" y1="62" x2="78" y2="62" stroke="#e8a027" strokeWidth="7" strokeLinecap="round"/>
                     </svg>
-                    <span style={{ color: 'var(--text-inactive)', fontSize: 10, fontFamily: 'JetBrains Mono' }}>Orfeo · v0.10.3</span>
+                    <span style={{ color: 'var(--text-inactive)', fontSize: 10, fontFamily: 'JetBrains Mono' }}>Orfeo · v0.10.4</span>
                   </div>
-                  <div style={{ fontSize: 9, color: '#35354a', fontFamily: 'JetBrains Mono', lineHeight: 1.5 }}>
+                  <div style={{ fontSize: 9, color: '#35354a', fontFamily: 'Inter', lineHeight: 1.5 }}>
                     MIT License · github.com/SquareBow/orfeo
                   </div>
                 </div>

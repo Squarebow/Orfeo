@@ -4,6 +4,26 @@
 
 ---
 
+### 10. 7. 2026 — Settings panel redesign: collapsible groups, eye-toggles, amber headers + v0.10.4
+
+**`src/components/SettingsPanel/SettingsPanel.tsx`**
+- Added `OptionRow` eye-toggle variant — name + Eye/EyeOff icon share one flex row (`justifyContent: space-between`); description sits below at `maxWidth: 85%` to keep breathing room from the icon. Green Eye = feature on, red EyeOff = feature off.
+- Added `CollapsibleSection` component replacing all static `SectionHeader` instances. Click anywhere on the header row to expand/collapse; state is local `useState`; all groups default to expanded.
+- Group header icon, label text, and chevron changed from `--text-inactive`/`--text-dimmest` → `var(--text-amber)` (applied once at the component level, affects all 7 groups).
+- `OptionBtn` active-state color changed from amber → green (`var(--status-success)` border+text, `rgba(74, 144, 96, 0.13)` tint background). Added `activeColor?: 'success' | 'error'` prop for the Display / Hide button, which correctly stays red when active.
+- Settings groups reorganised into 7 `CollapsibleSection`s in new order: MIDI Files & Library, Notation, Keyboard, Playback & Practice, Audio, Piano Roll, Appearance.
+- Eye-toggle applied to: Demo folder, Chord Transcription, Show octave labels, Show note names on keyboard, Left / Right Hand, Chord Prompter, Loop region, Bar numbers.
+- Added Keyboard Labels sub-divider within the Keyboard group separating range controls from label toggles.
+- Description/hint prose normalised panel-wide: JetBrains Mono → Inter, raw pixel sizes (`9`, `10`) → `var(--text-xs)`, name color → `var(--text-default)`, description color → `var(--text-dimmest)`.
+
+**`src/store/index.ts`**
+- Added `showOctaveLabels: boolean` (default `true`) and `showNoteNamesOnKeyboard: boolean` (default `true`) to `OrfeoStore` interface and implementation.
+- Both fields persisted via the existing null-sentinel subscribe callback; `restoreLibraryPrefs` restores both on cold start.
+
+**Version:** `0.10.3` → `0.10.4`
+
+---
+
 ### 9. 7. 2026 — Track Panel: full instrument names + marquee + guitar auto-mute + v0.10.3
 
 **`src/components/MarqueeText.tsx`** *(new)* — shared `MarqueeText` component extracted from `SettingsPanel`'s local `MarqueeFilename`. Uses `ResizeObserver` to measure overflow; on hover, CSS-transitions the inner span by `translateX(-scrollAmt)` with duration `Math.max(1.5, scrollAmt / 40)` seconds. `spanStyle` prop lets callers control font/color while scroll mechanics are shared.

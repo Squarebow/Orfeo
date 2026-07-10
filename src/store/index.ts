@@ -149,6 +149,11 @@ interface OrfeoStore {
   showHandLabels: boolean
   setShowHandLabels: (v: boolean) => void
 
+  showOctaveLabels: boolean
+  setShowOctaveLabels: (v: boolean) => void
+  showNoteNamesOnKeyboard: boolean
+  setShowNoteNamesOnKeyboard: (v: boolean) => void
+
   handLabelMode: 'practice' | 'performance'
   setHandLabelMode: (mode: 'practice' | 'performance') => void
   handBoundaryCurve: { time: number; boundary: number | null }[]
@@ -366,6 +371,12 @@ export const useStore = create<OrfeoStore>((set, get) => ({
   showHandLabels: false,
   setShowHandLabels: (showHandLabels) => set({ showHandLabels }),
 
+  // ── Keyboard label visibility — octave numbers and note name labels ────────
+  showOctaveLabels: true,
+  setShowOctaveLabels: (showOctaveLabels) => set({ showOctaveLabels }),
+  showNoteNamesOnKeyboard: true,
+  setShowNoteNamesOnKeyboard: (showNoteNamesOnKeyboard) => set({ showNoteNamesOnKeyboard }),
+
   // ── Hand label mode — practice (static breakpoint) or performance (dynamic) ─
   handLabelMode: 'practice' as 'practice' | 'performance',
   setHandLabelMode: (handLabelMode) => set({ handLabelMode }),
@@ -452,6 +463,8 @@ async function restoreLibraryPrefs() {
     if (typeof prefs.loopRegionEnabled === 'boolean') store.setLoopRegionEnabled(prefs.loopRegionEnabled)
     if (prefs.handLabelMode === 'practice' || prefs.handLabelMode === 'performance') store.setHandLabelMode(prefs.handLabelMode)
     if (typeof prefs.performanceSplitSensitivity === 'number') store.setPerformanceSplitSensitivity(prefs.performanceSplitSensitivity)
+    if (typeof prefs.showOctaveLabels === 'boolean') store.setShowOctaveLabels(prefs.showOctaveLabels)
+    if (typeof prefs.showNoteNamesOnKeyboard === 'boolean') store.setShowNoteNamesOnKeyboard(prefs.showNoteNamesOnKeyboard)
     if (Array.isArray(prefs.transcriptHistory)) useStore.setState({ transcriptHistory: prefs.transcriptHistory })
   } catch (e) {
     console.error('[Orfeo] restoreLibraryPrefs:', e)
@@ -487,6 +500,8 @@ let _prevShowHandLabels: boolean | null = null
 let _prevLoopRegionEnabled: boolean | null = null
 let _prevHandLabelMode: string | null = null
 let _prevPerformanceSplitSensitivity: number | null = null
+let _prevShowOctaveLabels: boolean | null = null
+let _prevShowNoteNamesOnKeyboard: boolean | null = null
 useStore.subscribe((state) => {
   // Skip the very first fire (app init) — restore handles loading saved values
   if (_prevNoteNaming === null) {
@@ -506,6 +521,8 @@ useStore.subscribe((state) => {
     _prevLoopRegionEnabled = state.loopRegionEnabled
     _prevHandLabelMode = state.handLabelMode
     _prevPerformanceSplitSensitivity = state.performanceSplitSensitivity
+    _prevShowOctaveLabels = state.showOctaveLabels
+    _prevShowNoteNamesOnKeyboard = state.showNoteNamesOnKeyboard
     return
   }
   if (
@@ -524,7 +541,9 @@ useStore.subscribe((state) => {
     state.showHandLabels !== _prevShowHandLabels ||
     state.loopRegionEnabled !== _prevLoopRegionEnabled ||
     state.handLabelMode !== _prevHandLabelMode ||
-    state.performanceSplitSensitivity !== _prevPerformanceSplitSensitivity
+    state.performanceSplitSensitivity !== _prevPerformanceSplitSensitivity ||
+    state.showOctaveLabels !== _prevShowOctaveLabels ||
+    state.showNoteNamesOnKeyboard !== _prevShowNoteNamesOnKeyboard
   ) {
     _prevNoteNaming = state.noteNaming
     _prevAccidentals = state.accidentals
@@ -542,6 +561,8 @@ useStore.subscribe((state) => {
     _prevLoopRegionEnabled = state.loopRegionEnabled
     _prevHandLabelMode = state.handLabelMode
     _prevPerformanceSplitSensitivity = state.performanceSplitSensitivity
+    _prevShowOctaveLabels = state.showOctaveLabels
+    _prevShowNoteNamesOnKeyboard = state.showNoteNamesOnKeyboard
     window.electronAPI?.setPrefs?.({
       noteNaming: state.noteNaming,
       accidentals: state.accidentals,
@@ -559,6 +580,8 @@ useStore.subscribe((state) => {
       loopRegionEnabled: state.loopRegionEnabled,
       handLabelMode: state.handLabelMode,
       performanceSplitSensitivity: state.performanceSplitSensitivity,
+      showOctaveLabels: state.showOctaveLabels,
+      showNoteNamesOnKeyboard: state.showNoteNamesOnKeyboard,
     }).catch(() => {})
   }
 })
