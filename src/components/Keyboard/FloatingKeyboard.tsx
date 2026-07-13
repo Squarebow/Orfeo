@@ -101,7 +101,7 @@ export default function FloatingKeyboard() {
         // NO fixed height — shrinks to content
         zIndex: 200,
         background: '#0d0d12',
-        border: '1px solid #2a2a3a',
+        border: '1px solid var(--state-hover-bg)',
         borderRadius: 10,
         boxShadow: '0 8px 40px rgba(0,0,0,0.7), 0 0 0 1px rgba(232,160,39,0.08)',
         overflow: 'hidden',
@@ -130,17 +130,17 @@ export default function FloatingKeyboard() {
           flexShrink: 0,
         }}
       >
-        <span style={{ fontSize: 9, fontFamily: 'Inter', color: '#404055', letterSpacing: '0.1em', textTransform: 'uppercase' }}>
+        <span style={{ fontSize: 9, fontFamily: 'Inter', color: 'var(--text-muted)', letterSpacing: '0.1em', textTransform: 'uppercase' }}>
           Keyboard
         </span>
-        <div style={{ display: 'flex', gap: 4 }} data-no-drag="true">
+        <div style={{ display: 'flex', gap: 'var(--space-1)' }} data-no-drag="true">
           <button
             onClick={() => setKeyboardMode('docked')}
             title="Dock keyboard"
             data-no-drag="true"
-            style={{ width: 18, height: 18, background: 'transparent', border: 'none', cursor: 'pointer', color: '#404055', display: 'flex', alignItems: 'center', justifyContent: 'center', borderRadius: 3, transition: 'color 0.12s' }}
-            onMouseEnter={e => e.currentTarget.style.color = '#e8a027'}
-            onMouseLeave={e => e.currentTarget.style.color = '#404055'}
+            style={{ width: 18, height: 18, background: 'transparent', border: 'none', cursor: 'pointer', color: 'var(--text-muted)', display: 'flex', alignItems: 'center', justifyContent: 'center', borderRadius: 'var(--radius-sm)', transition: 'color 0.12s' }}
+            onMouseEnter={e => e.currentTarget.style.color = 'var(--text-amber)'}
+            onMouseLeave={e => e.currentTarget.style.color = 'var(--text-muted)'}
           >
             <Pin size={10} strokeWidth={1.8} />
           </button>
@@ -148,9 +148,9 @@ export default function FloatingKeyboard() {
             onClick={() => setKeyboardMode('docked')}
             title="Close floating keyboard"
             data-no-drag="true"
-            style={{ width: 18, height: 18, background: 'transparent', border: 'none', cursor: 'pointer', color: '#404055', display: 'flex', alignItems: 'center', justifyContent: 'center', borderRadius: 3, transition: 'color 0.12s' }}
+            style={{ width: 18, height: 18, background: 'transparent', border: 'none', cursor: 'pointer', color: 'var(--text-muted)', display: 'flex', alignItems: 'center', justifyContent: 'center', borderRadius: 'var(--radius-sm)', transition: 'color 0.12s' }}
             onMouseEnter={e => e.currentTarget.style.color = '#c05050'}
-            onMouseLeave={e => e.currentTarget.style.color = '#404055'}
+            onMouseLeave={e => e.currentTarget.style.color = 'var(--text-muted)'}
           >
             <X size={10} strokeWidth={1.8} />
           </button>

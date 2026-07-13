@@ -70,6 +70,20 @@ export function parseMidiBuffer(buffer: ArrayBuffer, fileName: string, filePath 
     }
   }
 
+  // ── Precompute bar start times using full tempo map ─────────────────────────
+  // Single source of truth consumed by PianoRoll and TopBar via the store.
+  const barStarts: number[] = []
+  {
+    const beatsPerBar = timeSig[0]
+    const effectiveTempoMap = tempoMap.length > 0 ? tempoMap : [{ bpm, time: 0 }]
+    let bt = 0, bti = 0
+    while (bt <= duration + 0.5) {
+      barStarts.push(bt)
+      while (bti + 1 < effectiveTempoMap.length && effectiveTempoMap[bti + 1].time <= bt) bti++
+      bt += (60 / effectiveTempoMap[bti].bpm) * beatsPerBar
+    }
+  }
+
   const result: any = {
     fileName,
     duration,
@@ -83,6 +97,7 @@ export function parseMidiBuffer(buffer: ArrayBuffer, fileName: string, filePath 
     _filePath: filePath,
     _rawMidiTracks: midi.tracks,
     _tempoMap: tempoMap,
+    _barStarts: barStarts,
   }
 
   return result

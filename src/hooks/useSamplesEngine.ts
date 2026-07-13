@@ -21,6 +21,8 @@ let _gainNode: GainNode | null = null
 let _synth: WorkletSynthesizer | null = null
 let _synthInitP: Promise<void> | null = null
 let _synthReady = false
+// ch 15 = collision risk if a loaded MIDI file uses channel 16; accepted tradeoff
+let _hwChannelReady = false
 
 // ── Per-note key-light timers ─────────────────────────────────────────────────
 const _keyTimers = new Map<number, ReturnType<typeof setTimeout>>()
@@ -60,6 +62,16 @@ function clearSchedule() {
   try { _synth?.stopAll(true) } catch {}
 }
 
+// ── One-time hardware-input channel setup — program 0, full volume on ch 15 ──
+function ensureHwChannel() {
+  if (_hwChannelReady || !_synth) return
+  try {
+    _synth.programChange(15, 0)
+    ;(_synth as any).controllerChange(15, 7, 127)
+    _hwChannelReady = true
+  } catch {}
+}
+
 // ── Send CC7=127 (max volume) to every MIDI channel ──────────────────────────
 // The gain node controls master level; CC7 controls the synth's internal level.
 function applyChannelVolumes() {
@@ -81,8 +93,14 @@ export async function initSamplesEngine(onProgress: (p: number) => void): Promis
     try {
       _ctx = new AudioContext()
 
-      // Worklet processor must be loaded before constructing WorkletSynthesizer
-      const workletUrl = new URL('/spessasynth_processor.min.js', location.href).href
+      // ── Worklet: use ./ relative path so it resolves correctly in both dev
+      // (http://localhost:5173/spessasynth_processor.min.js) and packaged
+      // (file:///…/app.asar/out/renderer/spessasynth_processor.min.js).
+      // Leading / resolves to filesystem root in file:// and breaks in packaged.
+      // The file must also be in asarUnpack — AudioWorklet.addModule() bypasses
+      // Electron's asar protocol handler and needs the real filesystem path.
+      const workletUrl = new URL('./spessasynth_processor.min.js', location.href).href
+      console.log('[Orfeo Samples] loading worklet from:', workletUrl)
       await _ctx.audioWorklet.addModule(workletUrl)
 
       // Dynamic import keeps spessasynth_lib out of the initial bundle
@@ -90,9 +108,12 @@ export async function initSamplesEngine(onProgress: (p: number) => void): Promis
       _synth = new WorkletSynthesizer(_ctx)
       await _synth.isReady
 
-      // Fetch the SF2 with progress tracking
-      const response = await fetch('/GeneralUser-GS.sf2')
-      if (!response.ok) throw new Error(`SF2 fetch failed: ${response.status}`)
+      // ── SF2: same relative-path fix; fetch() goes through Electron's file://
+      // protocol handler which supports asar, so no asarUnpack needed here.
+      const sf2Url = new URL('./GeneralUser-GS.sf2', location.href).href
+      console.log('[Orfeo Samples] fetching SF2 from:', sf2Url)
+      const response = await fetch(sf2Url)
+      if (!response.ok) throw new Error(`SF2 fetch failed: ${response.status} (url: ${sf2Url})`)
       const total = Number(response.headers.get('content-length') ?? 0)
       const reader = response.body!.getReader()
       const chunks: Uint8Array[] = []
@@ -121,9 +142,9 @@ export async function initSamplesEngine(onProgress: (p: number) => void): Promis
       _synthReady = true
       onProgress(1)
       console.log('[Orfeo Samples] spessasynth ready')
-    } catch (e) {
+    } catch (e: any) {
       _synthInitP = null
-      console.error('[Orfeo Samples] init error:', e)
+      console.error('[Orfeo Samples] init error:', e?.message ?? e)
       throw e
     }
   })()
@@ -187,17 +208,31 @@ function buildSamplesPlayer(startSec: number) {
 
 // ── Hook: self-gates on audioEngine !== 'samples' ────────────────────────────
 export function useSamplesEngine() {
-  // ── Register global click-to-play handler ────────────────────────────────
+  // ── Register global click-to-play and hardware note-on/off handlers ─────────
   useEffect(() => {
     ;(window as any).__orfeoPlayNoteSamples = (midiNum: number, vel: number, durMs: number) => {
       if (!_synth || !_synthReady) return
-      _synth.programChange(15, 0)
-      ;(_synth as any).controllerChange(15, 7, 127)
+      ensureHwChannel()
       _synth.noteOn(15, midiNum, Math.round(vel * 127))
       setTimeout(() => _synth?.noteOff(15, midiNum), durMs)
       lightKey(midiNum, '#e8a027', durMs + 100)
     }
-    return () => { delete (window as any).__orfeoPlayNoteSamples }
+    // ── Sustained note-on for hardware MIDI input ────────────────────────────
+    ;(window as any).__orfeoNoteOnSamples = (midiNum: number, vel: number) => {
+      if (!_synth || !_synthReady) return
+      ensureHwChannel()
+      _synth.noteOn(15, midiNum, Math.round(vel * 127))
+    }
+    // ── Immediate note-off for hardware MIDI input ───────────────────────────
+    ;(window as any).__orfeoNoteOffSamples = (midiNum: number) => {
+      if (!_synth || !_synthReady) return
+      _synth.noteOff(15, midiNum)
+    }
+    return () => {
+      delete (window as any).__orfeoPlayNoteSamples
+      delete (window as any).__orfeoNoteOnSamples
+      delete (window as any).__orfeoNoteOffSamples
+    }
   }, [])
 
   // ── Subscribe to playback state and engine changes ───────────────────────

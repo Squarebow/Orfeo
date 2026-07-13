@@ -13,6 +13,8 @@ let _JZZ: any = null
 let _port: any = null
 let _player: any = null
 let _notePortReady = false
+// ch 15 = collision risk if a loaded MIDI file uses channel 16; accepted tradeoff
+let _hwChannelReady = false
 
 function initJZZ(): Promise<void> {
   if (_jzzReady) return Promise.resolve()
@@ -61,6 +63,17 @@ function ensureClickChannel() {
     _notePortReady = true
   } catch (e) {
     console.warn('[Orfeo GM] ensureClickChannel error:', e)
+  }
+}
+
+// ── One-time hardware-input channel setup — program 0 on ch 15 ───────────────
+function ensureHardwareChannel() {
+  if (_hwChannelReady || !_port) return
+  try {
+    _port.send([0xCF, 0])
+    _hwChannelReady = true
+  } catch (e) {
+    console.warn('[Orfeo GM] ensureHardwareChannel error:', e)
   }
 }
 
@@ -192,6 +205,7 @@ export function useAudioEngine() {
   const prevAudioEngineRef = useRef<string>(useStore.getState().audioEngine)
 
   useEffect(() => {
+    // ── Timed click-to-play (shared by both engines) ─────────────────────────
     const playNote = async (midiNum: number, vel = 90, durMs = 500) => {
       const { audioEngine } = useStore.getState()
       if (audioEngine === 'samples') {
@@ -208,7 +222,27 @@ export function useAudioEngine() {
       } catch (e) { console.error('[Orfeo GM] playNote error:', e) }
     }
     ;(window as any).__orfeoPlayNote = playNote
-    return () => { delete (window as any).__orfeoPlayNote; stopAudio() }
+
+    // ── Sustained note-on for hardware MIDI input (GM path) ──────────────────
+    ;(window as any).__orfeoNoteOn = async (midiNum: number, vel: number) => {
+      try {
+        await initJZZ()
+        if (!_port) return
+        ensureHardwareChannel()
+        _port.send([0x9F, midiNum, Math.round(vel * 127)])
+      } catch (e) { console.error('[Orfeo GM] noteOn error:', e) }
+    }
+    // ── Immediate note-off for hardware MIDI input (GM path) ─────────────────
+    ;(window as any).__orfeoNoteOff = (midiNum: number) => {
+      try { _port?.send([0x8F, midiNum, 0]) } catch (e) { console.error('[Orfeo GM] noteOff error:', e) }
+    }
+
+    return () => {
+      delete (window as any).__orfeoPlayNote
+      delete (window as any).__orfeoNoteOn
+      delete (window as any).__orfeoNoteOff
+      stopAudio()
+    }
   }, [])
 
   useEffect(() => {

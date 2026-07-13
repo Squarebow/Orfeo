@@ -1,8 +1,9 @@
-import { useMemo, useCallback, useState, useEffect, useRef } from 'react'
+import React, { useMemo, useCallback, useState, useEffect, useRef } from 'react'
 import { useStore } from '../../store'
 import { isBlackKey } from '../../utils/midiParser'
 import { getNoteLabel, getNoteName } from '../../utils/noteNames'
 import { detectChord, detectChordWithInversion, formatInversionDisplay, localizeChord, ordinalSuffix } from '../../utils/chordDetection'
+import { detectHandBoundaries, noteToLeftPct } from '../../utils/handBoundaries'
 
 const RANGES: Record<number, { min: number; max: number }> = {
   61: { min: 36, max: 96 },
@@ -14,6 +15,17 @@ const CHORD_MIN_NOTES = 3
 const CHORD_DEBOUNCE_MS = 320
 const CHORD_HOLD_MS = 1600
 
+// ── Resolve current chord index: last event whose time <= currentTime ─────────
+function resolveCurrentIndex(seq: { time: number }[], currentTime: number): number {
+  if (seq.length === 0) return -1
+  let lo = 0, hi = seq.length - 1, idx = -1
+  while (lo <= hi) {
+    const mid = (lo + hi) >> 1
+    if (seq[mid].time <= currentTime) { idx = mid; lo = mid + 1 }
+    else hi = mid - 1
+  }
+  return idx
+}
 
 export default function Keyboard() {
   const keyboardSize = useStore((s) => s.keyboardSize)
@@ -33,23 +45,25 @@ export default function Keyboard() {
   const lockedColors = useStore((s) => s.lockedColors)
   const setLockedKeysStore = useStore((s) => s.setLockedKeys)
   const clearLockedKeys = useStore((s) => s.clearLockedKeys)
-  // ── Chord identity preserved across inversion cycling ─────────────────────
-  const originalLockedChordName = useStore((s) => s.originalLockedChordName)
-  const lockedInversionCount    = useStore((s) => s.lockedInversionCount)
-  const lockedChordNoteCount    = useStore((s) => s.lockedChordNoteCount)
   // ── Explorer chord display — computed name + count from ChordExplorer/ScaleExplorer
   const explorerChordDisplay    = useStore((s) => s.explorerChordDisplay)
+  // ── Chord sequence + prompter state ──────────────────────────────────────────
+  const midi = useStore((s) => s.midi)
+  const chordSequence = useStore((s) => s.chordSequence)
+  const chordPrompterEnabled = useStore((s) => s.chordPrompterEnabled)
+  const chordPrompterOpen = useStore((s) => s.chordPrompterOpen)
+  const setChordPrompterOpen = useStore((s) => s.setChordPrompterOpen)
+  const currentTime = useStore((s) => s.currentTime)
+  const showHandLabels          = useStore((s) => s.showHandLabels)
+  const splitBreakpointType     = useStore((s) => s.splitBreakpointType)
+  const splitBreakpointNote     = useStore((s) => s.splitBreakpointNote)
+  const splitBreakpointRangeStart = useStore((s) => s.splitBreakpointRangeStart)
+  const splitBreakpointRangeEnd   = useStore((s) => s.splitBreakpointRangeEnd)
   const shiftHeldRef = useRef(false)
-
-  // ── Compute structured inversion display for locked chord ─────────────────
-  const lockedDisplay = useMemo(() => {
-    if (!originalLockedChordName || lockedKeys.size === 0) return null
-    const bassNoteMidi = Math.min(...lockedKeys)
-    return formatInversionDisplay(
-      originalLockedChordName, lockedInversionCount, lockedChordNoteCount,
-      bassNoteMidi, noteNaming, accidentals, true,
-    )
-  }, [originalLockedChordName, lockedInversionCount, lockedChordNoteCount, lockedKeys, noteNaming, accidentals])
+  // ── Tracks whether the primary mouse button is held, enabling glissando drag ──
+  const isMouseDown = useRef(false)
+  // ── Freeze prompter at last known chord index on pause/stop ──────────────────
+  const frozenIndexRef = useRef<number>(-1)
 
   // ── Compute structured inversion display for explorer chord ───────────────
   const explorerDisplay = useMemo(() => {
@@ -61,8 +75,19 @@ export default function Keyboard() {
     )
   }, [explorerChordDisplay, explorerKeys, noteNaming, accidentals])
 
+  // ── Current chord from pre-computed sequence, frozen on pause/stop ───────────
+  const liveIndex = useMemo(
+    () => resolveCurrentIndex(chordSequence, currentTime),
+    [chordSequence, currentTime],
+  )
+  if (playbackState === 'playing') frozenIndexRef.current = liveIndex
+  const currentIndex = playbackState === 'playing' ? liveIndex : frozenIndexRef.current
+  const sequenceChord = currentIndex >= 0 ? chordSequence[currentIndex] : null
+
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const holdRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  // ── Reset frozen index on file change so stale positions don't persist ────────
+  useEffect(() => { frozenIndexRef.current = -1 }, [midi])
   // Clear chord when playback stops
   useEffect(() => {
     if (playbackState === 'stopped') {
@@ -87,12 +112,20 @@ export default function Keyboard() {
     }
   }, [scaleExplorerOpen])
 
+  // ── Tracks Shift key state for chord-lock mode ────────────────────────────
   useEffect(() => {
     const down = (e: KeyboardEvent) => { if (e.key === 'Shift') shiftHeldRef.current = true }
     const up = (e: KeyboardEvent) => { if (e.key === 'Shift') shiftHeldRef.current = false }
     window.addEventListener('keydown', down)
     window.addEventListener('keyup', up)
     return () => { window.removeEventListener('keydown', down); window.removeEventListener('keyup', up) }
+  }, [])
+
+  // ── Clears drag state when mouse is released anywhere on the page ─────────
+  useEffect(() => {
+    const up = () => { isMouseDown.current = false }
+    window.addEventListener('mouseup', up)
+    return () => window.removeEventListener('mouseup', up)
   }, [])
 
   const { min, max } = RANGES[keyboardSize]
@@ -102,6 +135,12 @@ export default function Keyboard() {
     return list
   }, [min, max])
   const whiteKeys = keys.filter(k => !k.isBlack)
+
+  // ── Hand boundary detection — recomputed when file or breakpoint settings change ─
+  const handBoundaries = useMemo(
+    () => detectHandBoundaries(midi, splitBreakpointType, splitBreakpointNote, splitBreakpointRangeStart, splitBreakpointRangeEnd),
+    [midi, splitBreakpointType, splitBreakpointNote, splitBreakpointRangeStart, splitBreakpointRangeEnd],
+  )
 
   const allActiveKeys = useMemo(() => {
     const merged = new Set(activeKeys)
@@ -122,34 +161,30 @@ export default function Keyboard() {
     return allActiveColors.get(midi) ?? '#e8a027'
   }
 
-  // Smart playback chord detection
+  // ── Manual chord detection — playback display is now sourced from chordSequence ─
   useEffect(() => {
     if (lockedKeys.size > 0) return
     // ── Explorer manages its own chord display — skip detection while open ──
     if (chordExplorerOpen || scaleExplorerOpen) return
+    // ── Skip during playback — sequenceChord handles display ─────────────────
+    if (playbackState === 'playing') {
+      if (debounceRef.current) { clearTimeout(debounceRef.current); debounceRef.current = null }
+      if (holdRef.current) { clearTimeout(holdRef.current); holdRef.current = null }
+      return
+    }
     if (activeKeys.size >= CHORD_MIN_NOTES) {
       if (debounceRef.current) clearTimeout(debounceRef.current)
       if (holdRef.current) { clearTimeout(holdRef.current); holdRef.current = null }
-      // During playback use a very short debounce; manual use longer
-      const delay = playbackState === 'playing' ? 60 : CHORD_DEBOUNCE_MS
       debounceRef.current = setTimeout(() => {
         const raw = detectChord(activeKeys)
         const localized = localizeChord(raw, noteNaming, accidentals)
         if (localized) {
           useStore.getState().setDisplayedChord(localized)
-          // During playback don't set a hold timeout — chord clears when keys release
-          if (playbackState !== 'playing') {
-            holdRef.current = setTimeout(() => useStore.getState().setDisplayedChord(null), CHORD_HOLD_MS)
-          }
+          holdRef.current = setTimeout(() => useStore.getState().setDisplayedChord(null), CHORD_HOLD_MS)
         }
-      }, delay)
+      }, CHORD_DEBOUNCE_MS)
     } else {
       if (debounceRef.current) { clearTimeout(debounceRef.current); debounceRef.current = null }
-      // During playback, clear immediately when chord breaks; manual use hold
-      if (playbackState === 'playing') {
-        if (holdRef.current) { clearTimeout(holdRef.current); holdRef.current = null }
-        useStore.getState().setDisplayedChord(null)
-      }
     }
   }, [activeKeys, lockedKeys.size, chordExplorerOpen, scaleExplorerOpen, noteNaming, accidentals, playbackState])
 
@@ -207,127 +242,215 @@ export default function Keyboard() {
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column' }}>
-      {/* Chord bar */}
+      {/* ── Chord bar — simple (34px) or extended prompter (36px, single row) ── */}
       <div style={{
-        height: 30,
+        height: chordPrompterOpen ? 36 : 34,
         background: '#0d0d12',
-        borderTop: '1px solid #1e1e28',
+        borderTop: '1px solid var(--border)',
         display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-        gap: 8,
-        padding: '0 12px',
+        flexDirection: 'column',
         position: 'relative',
+        transition: 'height 0.2s ease',
+        overflow: 'hidden',
       }}>
-        {/* Left: CHORDS trigger */}
-        <span
-          onClick={() => setChordExplorerOpen(true)}
-          title="Open Chord Explorer"
-          style={{ position: 'absolute', left: 10, fontFamily: 'Inter', fontSize: 9, fontWeight: 700, color: '#e8a027', letterSpacing: '0.12em', textTransform: 'uppercase', cursor: 'pointer', userSelect: 'none' }}
-        >
-          Chords
-        </span>
 
-        {/* Centre: chord name — priority: locked > explorer > playback > empty */}
-        <div style={{ display: 'flex', alignItems: 'baseline', gap: 5, minWidth: 80, justifyContent: 'center' }}>
-          {lockedDisplay ? (
-            // ── Locked chord: chord/bass amber + ordinal grey ────────────────
-            <>
-              <span style={{
-                fontFamily: 'JetBrains Mono', fontSize: 14, fontWeight: 700,
-                color: '#e8a027', letterSpacing: '0.05em', userSelect: 'none',
-              }}>
-                {lockedDisplay.chordLabel}
+        {/* ── SIMPLE MODE: single chord name centred ──────────────────────────── */}
+        {!chordPrompterOpen && (
+          <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 'var(--space-2)', padding: '0 var(--space-3)', position: 'relative' }}>
+            {/* ── Left: CHORDS trigger + prompter toggle ────────────────────────── */}
+            <div style={{ position: 'absolute', left: 10, display: 'flex', alignItems: 'center', gap: 5 }}>
+              <span
+                onClick={() => setChordExplorerOpen(true)}
+                title="Open Chord Explorer"
+                style={{ fontFamily: 'Inter', fontSize: 9, fontWeight: 700, color: 'var(--text-amber)', letterSpacing: '0.12em', textTransform: 'uppercase', cursor: 'pointer', userSelect: 'none' }}
+              >
+                Chords
               </span>
-              {lockedDisplay.ordinal && (
-                <span style={{ fontFamily: 'Inter', fontSize: 10, color: '#707088', userSelect: 'none' }}>
-                  {lockedDisplay.ordinal}
-                  <span style={{ fontSize: 7, verticalAlign: 'super' }}>
-                    {ordinalSuffix(Number(lockedDisplay.ordinal))}
-                  </span>
-                  {' inv'}
-                </span>
+              {/* ── Prompter toggle — amber when open, dim when closed, faded when no file ─ */}
+              {chordPrompterEnabled && (
+                <div
+                  onClick={() => midi && setChordPrompterOpen(!chordPrompterOpen)}
+                  title="Chord Prompter"
+                  style={{ cursor: midi ? 'pointer' : 'default', color: chordPrompterOpen ? 'var(--text-amber)' : 'var(--text-default)', opacity: midi ? 1 : 0.35, display: 'flex', alignItems: 'center', transition: 'color 0.12s' }}
+                >
+                  <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 7V5a2 2 0 0 1 2-2h2"/><path d="M17 3h2a2 2 0 0 1 2 2v2"/><path d="M21 17v2a2 2 0 0 1-2 2h-2"/><path d="M7 21H5a2 2 0 0 1-2-2v-2"/><rect width="10" height="8" x="7" y="8" rx="1"/></svg>
+                </div>
               )}
-            </>
-          ) : explorerDisplay ? (
-            // ── Explorer chord: chord/bass amber + ordinal grey ──────────────
-            <>
-              <span style={{
-                fontFamily: 'JetBrains Mono', fontSize: 14, fontWeight: 700,
-                color: '#e8a027', letterSpacing: '0.05em', userSelect: 'none',
-              }}>
-                {explorerDisplay.chordLabel}
-              </span>
-              {explorerDisplay.ordinal && (
-                <span style={{ fontFamily: 'Inter', fontSize: 10, color: '#707088', userSelect: 'none' }}>
-                  {explorerDisplay.ordinal}
-                  <span style={{ fontSize: 7, verticalAlign: 'super' }}>
-                    {ordinalSuffix(Number(explorerDisplay.ordinal))}
-                  </span>
-                  {' inv'}
-                </span>
-              )}
-            </>
-          ) : displayedChord ? (
-            // ── Playback chord: slash split rendered, no ordinal label ─────────
-            (() => {
-              const slashIdx = displayedChord.indexOf('/')
-              if (slashIdx < 0) {
-                return (
-                  <span style={{
-                    fontFamily: 'JetBrains Mono', fontSize: 14, fontWeight: 700,
-                    color: '#e8a027', letterSpacing: '0.05em', userSelect: 'none',
-                  }}>
-                    {displayedChord}
-                  </span>
-                )
-              }
-              const root = displayedChord.slice(0, slashIdx)
-              const bass = displayedChord.slice(slashIdx)
-              return (
+            </div>
+
+            {/* Centre: chord name — priority: explorer > sequence > manual > empty */}
+            <div style={{ display: 'flex', alignItems: 'baseline', gap: 5, minWidth: 80, justifyContent: 'center' }}>
+              {explorerDisplay ? (
+                // ── Explorer chord: chord/bass amber + ordinal grey ────────────
                 <>
-                  <span style={{
-                    fontFamily: 'JetBrains Mono', fontSize: 14, fontWeight: 700,
-                    color: '#e8a027', letterSpacing: '0.05em', userSelect: 'none',
-                  }}>
-                    {root}
+                  <span style={{ fontFamily: 'JetBrains Mono', fontSize: 'var(--text-md)', fontWeight: 700, color: 'var(--text-amber)', letterSpacing: '0.05em', userSelect: 'none' }}>
+                    {explorerDisplay.chordLabel}
                   </span>
-                  <span style={{
-                    fontFamily: 'JetBrains Mono', fontSize: 11, fontWeight: 600,
-                    color: '#b0b0cc', letterSpacing: '0.04em', userSelect: 'none',
-                  }}>
-                    {bass}
-                  </span>
+                  {explorerDisplay.ordinal && (
+                    <span style={{ fontFamily: 'Inter', fontSize: 10, color: 'var(--text-default)', userSelect: 'none' }}>
+                      {explorerDisplay.ordinal}
+                      <span style={{ fontSize: 7, verticalAlign: 'super' }}>{ordinalSuffix(Number(explorerDisplay.ordinal))}</span>
+                      {' inv'}
+                    </span>
+                  )}
                 </>
-              )
-            })()
-          ) : (
-            // ── Empty state ────────────────────────────────────────────────────
-            <span style={{
-              fontFamily: 'JetBrains Mono', fontSize: 10, fontWeight: 400,
-              color: '#222235', letterSpacing: '0.03em',
-              transition: 'color 0.2s',
-            }}>
-              {'— — —'}
-            </span>
-          )}
-        </div>
+              ) : (sequenceChord || displayedChord) ? (
+                // ── Sequence (playback) or manual chord: slash-split rendered ──
+                (() => {
+                  const name = sequenceChord?.name ?? displayedChord ?? ''
+                  const slashIdx = name.indexOf('/')
+                  if (slashIdx < 0) {
+                    return (
+                      <span style={{ fontFamily: 'JetBrains Mono', fontSize: 'var(--text-md)', fontWeight: 700, color: 'var(--text-amber)', letterSpacing: '0.05em', userSelect: 'none' }}>
+                        {name}
+                      </span>
+                    )
+                  }
+                  return (
+                    <>
+                      <span style={{ fontFamily: 'JetBrains Mono', fontSize: 'var(--text-md)', fontWeight: 700, color: 'var(--text-amber)', letterSpacing: '0.05em', userSelect: 'none' }}>
+                        {name.slice(0, slashIdx)}
+                      </span>
+                      <span style={{ fontFamily: 'JetBrains Mono', fontSize: 'var(--text-xs)', fontWeight: 600, color: 'var(--text-active)', letterSpacing: '0.04em', userSelect: 'none' }}>
+                        {name.slice(slashIdx)}
+                      </span>
+                    </>
+                  )
+                })()
+              ) : (
+                // ── Empty state ────────────────────────────────────────────────
+                <span style={{ fontFamily: 'JetBrains Mono', fontSize: 10, fontWeight: 400, color: '#222235', letterSpacing: '0.03em', transition: 'color 0.2s' }}>
+                  {'— — —'}
+                </span>
+              )}
+            </div>
 
-        {/* Right: SCALES trigger */}
-        <span
-          onClick={() => setScaleExplorerOpen(true)}
-          title="Open Scale Explorer"
-          style={{ position: 'absolute', right: 10, fontFamily: 'Inter', fontSize: 9, fontWeight: 700, color: '#e8a027', letterSpacing: '0.12em', textTransform: 'uppercase', cursor: 'pointer', userSelect: 'none' }}
-        >
-          Scales
-        </span>
+            {/* ── Right: shift+click hint + SCALES trigger ─────────────────────── */}
+            <div style={{ position: 'absolute', right: 10, display: 'flex', alignItems: 'center', gap: 'var(--space-2)' }}>
+              <span style={{ fontSize: 9, color: 'var(--text-default)', fontFamily: 'Inter', userSelect: 'none', whiteSpace: 'nowrap' }}>
+                Shift+Click at least 3 keys to build &amp; lock a chord
+              </span>
+              <span
+                onClick={() => setScaleExplorerOpen(true)}
+                title="Open Scale Explorer"
+                style={{ fontFamily: 'Inter', fontSize: 9, fontWeight: 700, color: 'var(--text-amber)', letterSpacing: '0.12em', textTransform: 'uppercase', cursor: 'pointer', userSelect: 'none' }}
+              >
+                Scales
+              </span>
+            </div>
+          </div>
+        )}
+
+        {/* ── EXTENDED MODE: single-row layout — CHORDS + icon | sequence | SCALES ─ */}
+        {chordPrompterOpen && (
+          <div style={{ flex: 1, display: 'flex', alignItems: 'center', padding: '0 10px', gap: 6, minWidth: 0, overflow: 'hidden' }}>
+
+            {/* ── Left: CHORDS trigger + prompter toggle ────────────────────── */}
+            <div style={{ display: 'flex', alignItems: 'center', gap: 5, flexShrink: 0 }}>
+              <span
+                onClick={() => setChordExplorerOpen(true)}
+                title="Open Chord Explorer"
+                style={{ fontFamily: 'Inter', fontSize: 9, fontWeight: 700, color: 'var(--text-amber)', letterSpacing: '0.12em', textTransform: 'uppercase', cursor: 'pointer', userSelect: 'none' }}
+              >
+                Chords
+              </span>
+              {/* ── Prompter toggle (amber — always active while open) ────────── */}
+              <div
+                onClick={() => setChordPrompterOpen(!chordPrompterOpen)}
+                title="Chord Prompter"
+                style={{ cursor: 'pointer', color: 'var(--text-amber)', display: 'flex', alignItems: 'center', transition: 'color 0.12s' }}
+              >
+                <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 7V5a2 2 0 0 1 2-2h2"/><path d="M17 3h2a2 2 0 0 1 2 2v2"/><path d="M21 17v2a2 2 0 0 1-2 2h-2"/><path d="M7 21H5a2 2 0 0 1-2-2v-2"/><rect width="10" height="8" x="7" y="8" rx="1"/></svg>
+              </div>
+            </div>
+
+            {/* ── Centre: chord sequence (past | ‹ | current | › | next) ────────── */}
+            <div style={{ flex: 1, display: 'flex', alignItems: 'center', minWidth: 0, overflow: 'hidden' }}>
+              {(() => {
+                const noFile = !midi
+                const noChords = !!midi && chordSequence.length === 0
+                const notStarted = !!midi && chordSequence.length > 0 && liveIndex < 0
+
+                if (noFile || noChords || notStarted) {
+                  return (
+                    <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                      <span style={{ fontSize: 'var(--text-xs)', color: 'var(--text-muted)', fontFamily: 'Inter' }}>
+                        {noFile ? 'Open a MIDI file' : noChords ? 'No chords detected' : 'Press play'}
+                      </span>
+                    </div>
+                  )
+                }
+
+                // ── Priority: explorer > sequence ─────────────────────────────
+                const centreChord = explorerDisplay?.chordLabel ?? sequenceChord?.name ?? '—'
+                const pastChords = currentIndex > 0 ? chordSequence.slice(Math.max(0, currentIndex - 4), currentIndex) : []
+                const nextChords = currentIndex >= 0 ? chordSequence.slice(currentIndex + 1, currentIndex + 3) : []
+
+                return (
+                  <>
+                    {/* Past 4 chords, right-aligned */}
+                    <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: 5, minWidth: 0 }}>
+                      {pastChords.map((ev, i) => (
+                        <React.Fragment key={`${ev.time}-${ev.name}`}>
+                          {i > 0 && <span style={{ color: '#303048', fontSize: 10, lineHeight: 1, flexShrink: 0 }}>·</span>}
+                          <span style={{ fontSize: 'var(--text-xs)', fontFamily: 'Inter', color: 'var(--text-muted)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: 60 }}>
+                            {ev.name}
+                          </span>
+                        </React.Fragment>
+                      ))}
+                    </div>
+
+                    {/* ‹ separator */}
+                    <span style={{ color: '#303048', fontSize: 'var(--text-md)', flexShrink: 0, lineHeight: 1, padding: '0 3px' }}>‹</span>
+
+                    {/* Current chord name only, no note names */}
+                    <div style={{ flexShrink: 0, width: 100, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                      <span style={{ fontFamily: 'JetBrains Mono', fontSize: 20, fontWeight: 700, color: '#e8a027', lineHeight: 1, whiteSpace: 'nowrap', maxWidth: 96, overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                        {centreChord}
+                      </span>
+                    </div>
+
+                    {/* › separator */}
+                    <span style={{ color: '#303048', fontSize: 'var(--text-md)', flexShrink: 0, lineHeight: 1, padding: '0 3px' }}>›</span>
+
+                    {/* Next 2 chords, left-aligned */}
+                    <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'flex-start', gap: 5, minWidth: 0 }}>
+                      {nextChords.map((ev, i) => (
+                        <React.Fragment key={`${ev.time}-${ev.name}`}>
+                          {i > 0 && <span style={{ color: '#303048', fontSize: 10, lineHeight: 1, flexShrink: 0 }}>·</span>}
+                          <span style={{ fontSize: 'var(--text-xs)', fontFamily: 'Inter', color: 'var(--text-muted)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: 60 }}>
+                            {ev.name}
+                          </span>
+                        </React.Fragment>
+                      ))}
+                    </div>
+                  </>
+                )
+              })()}
+            </div>
+
+            {/* ── Right: shift+click hint + SCALES trigger ──────────────────────── */}
+            <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-2)', flexShrink: 0 }}>
+              <span style={{ fontSize: 9, color: 'var(--text-default)', fontFamily: 'Inter', userSelect: 'none', whiteSpace: 'nowrap' }}>
+                Shift+Click at least 3 keys to build &amp; lock a chord
+              </span>
+              <span
+                onClick={() => setScaleExplorerOpen(true)}
+                title="Open Scale Explorer"
+                style={{ fontFamily: 'Inter', fontSize: 9, fontWeight: 700, color: 'var(--text-amber)', letterSpacing: '0.12em', textTransform: 'uppercase', cursor: 'pointer', userSelect: 'none' }}
+              >
+                Scales
+              </span>
+            </div>
+          </div>
+        )}
       </div>
 
       {/* Piano keys */}
       <div
         className="relative w-full select-none"
         ref={keyContainerRef}
-        style={{ height: keyHeight, background: '#111116', borderTop: '1px solid #2a2a35', transition: 'height 0.15s' }}
+        style={{ height: keyHeight, background: 'var(--bg-deep)', borderTop: '1px solid #2a2a35', transition: 'height 0.15s' }}
       >
         {/* White keys */}
         <div className="absolute inset-0 flex">
@@ -341,7 +464,8 @@ export default function Keyboard() {
             return (
               <div
                 key={k.midi}
-                onMouseDown={() => handleKeyClick(k.midi)}
+                onMouseDown={() => { isMouseDown.current = true; handleKeyClick(k.midi) }}
+                onMouseEnter={() => { if (isMouseDown.current) handleKeyClick(k.midi) }}
                 title={getNoteLabel(k.midi, noteNaming, accidentals) || undefined}
                 className="relative flex-1 flex flex-col justify-end items-center pb-1 cursor-pointer"
                 style={{
@@ -371,14 +495,16 @@ export default function Keyboard() {
           {keys.filter(k => k.isBlack).map((k) => {
             const whiteIdx = whiteKeys.findIndex(w => w.midi > k.midi) - 1
             if (whiteIdx < 0) return null
-            const leftPct = ((whiteIdx + 0.65) / whiteKeys.length) * 100
+            // ── 0.70 matches PianoRoll's formula: (wi − 0.30) * ww ────────────
+            const leftPct = ((whiteIdx + 0.70) / whiteKeys.length) * 100
             const widthPct = (0.6 / whiteKeys.length) * 100
             const color = getColor(k.midi)
             const locked = lockedKeys.has(k.midi)
             return (
               <div
                 key={k.midi}
-                onMouseDown={() => handleKeyClick(k.midi)}
+                onMouseDown={() => { isMouseDown.current = true; handleKeyClick(k.midi) }}
+                onMouseEnter={() => { if (isMouseDown.current) handleKeyClick(k.midi) }}
                 title={getNoteLabel(k.midi, noteNaming, accidentals) || undefined}
                 className="absolute top-0 cursor-pointer pointer-events-auto"
                 style={{

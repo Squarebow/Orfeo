@@ -1,4 +1,4 @@
-import { contextBridge, ipcRenderer } from 'electron'
+import { contextBridge, ipcRenderer, webUtils } from 'electron'
 
 contextBridge.exposeInMainWorld('electronAPI', {
   // Existing
@@ -12,6 +12,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
   // Library
   openFolder:         () => ipcRenderer.invoke('dialog:openFolder'),
   scanMidiFolder:     (path: string) => ipcRenderer.invoke('fs:scanMidiFolder', path),
+  getDemoFolder:      () => ipcRenderer.invoke('app:getDemoFolder'),
   loadMidiFromPath:   (path: string) => ipcRenderer.invoke('fs:loadMidiFromPath', path),
   // MIDI Editor
   openMidiEditor:     (data: any) => ipcRenderer.invoke('editor:open', data),
@@ -19,7 +20,12 @@ contextBridge.exposeInMainWorld('electronAPI', {
   closeMidiEditor:    () => ipcRenderer.invoke('editor:close'),
   saveFileDialog:     (opts: any) => ipcRenderer.invoke('dialog:saveFile', opts),
   saveMidiEditor:     (payload: any) => ipcRenderer.invoke('editor:save', payload),
+  splitMidiEditor:    (payload: any) => ipcRenderer.invoke('editor:split', payload),
   onMidiReload:       (cb: (data: any) => void) => ipcRenderer.on('midi:reloadFile', (_e, data) => cb(data)),
   onEditorClosed:     (cb: () => void) => ipcRenderer.on('editor:closed', () => cb()),
   openExternal:       (url: string) => ipcRenderer.invoke('shell:openExternal', url),
+  transcriptGenerate: (midiPath: string, noteNaming: string, accidentals: string) => ipcRenderer.invoke('transcript:generate', midiPath, noteNaming, accidentals),
+  // Drag-and-drop file import
+  getPathForFile:     (file: File) => webUtils.getPathForFile(file),
+  copyMidiToLibrary:  (sourcePath: string, libraryFolder: string) => ipcRenderer.invoke('fs:copyMidiToLibrary', sourcePath, libraryFolder),
 })

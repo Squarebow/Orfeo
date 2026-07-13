@@ -1,21 +1,19 @@
+// ── MIDI wordmark logo — viewBox trimmed to glyph bounds (x 137–849 of 1000) ─
+// Trimming eliminates the ~13% internal whitespace on both sides so that the
+// SVG element's left edge sits flush with the visual left edge of the M glyph.
+// This makes left-aligning the icon with a label below it visually accurate.
 const MidiIcon = ({ size = 24, color = 'currentColor' }: { size?: number; color?: string }) => (
   <svg
     xmlns="http://www.w3.org/2000/svg"
-    width={size}
     height={size}
-    viewBox="0 0 25.5 25.66"
-    fill="none"
-    stroke={color}
-    strokeWidth="1.5"
-    strokeLinecap="round"
-    strokeLinejoin="round"
+    width={Math.round(size * (712 / 455))}
+    viewBox="137 0 712 455"
+    fill={color}
   >
-    <path d="M12.75.75C6.12.75.75,6.32.75,13.19c0,5.25,3.13,9.74,7.57,11.56,1.04-1.34,2.64-2.2,4.43-2.2s3.39.86,4.43,2.2c4.43-1.83,7.57-6.32,7.57-11.56C24.75,6.32,19.38.75,12.75.75Z" />
-    <circle cx="4.63"  cy="12.32" r="2" fill={color} stroke="none" />
-    <circle cx="7.31"  cy="7.09"  r="2" fill={color} stroke="none" />
-    <circle cx="12.75" cy="4.73"  r="2" fill={color} stroke="none" />
-    <circle cx="18.19" cy="7.09"  r="2" fill={color} stroke="none" />
-    <circle cx="20.88" cy="12.32" r="2" fill={color} stroke="none" />
+    <path d="M137,96h233c19.6,0,31,16.9,31,37v229h-65v-199h-38v199h-59v-199h-37v199h-65V96Z" />
+    <rect x="433" y="96" width="65" height="266" />
+    <path d="M529,96h193c19.6,0,31,16.9,31,37v196c0,24.9-10.4,33-33,33h-191v-169h66v104h93v-141h-159v-60Z" />
+    <rect x="783" y="96" width="66" height="266" />
   </svg>
 )
 

@@ -9,6 +9,12 @@ export default defineConfig({
       lib: {
         entry: 'electron/main.ts',
       },
+      // pdfkit uses __dirname to locate its font .afm files; bundling it inline
+      // would break that (resolves to out/main/ instead of node_modules/pdfkit/js/).
+      // Keep it as a runtime require() so its own __dirname stays correct.
+      rollupOptions: {
+        external: ['pdfkit'],
+      },
     },
   },
   preload: {
@@ -26,11 +32,12 @@ export default defineConfig({
       react(),
       tailwindcss(),
     ],
-    // Exclude spessasynth_lib and its peer dep from pre-bundling — they are
-    // large native-ESM packages and Vite's dep optimisation caused a mid-
-    // session page reload when first encountered in the renderer.
+    // Exclude spessasynth from pre-bundling (large native-ESM, dynamic import).
+    // Include fuse.js so it is pre-bundled at dev server start and doesn't
+    // trigger a mid-session dep-optimisation reload when ChordExplorer mounts.
     optimizeDeps: {
       exclude: ['spessasynth_lib', 'spessasynth_core'],
+      include: ['fuse.js'],
     },
     build: {
       rollupOptions: {

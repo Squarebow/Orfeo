@@ -12,13 +12,14 @@ import { formatKey, transposeDetectedKey } from '../../utils/keyDetection'
 import OrfeoLogo from '../OrfeoLogo'
 import MidiIcon from '../MidiIcon'
 import VolumeKnob from '../VolumeKnob'
+import LoopRegionStrip from '../LoopRegionStrip'
 
-// Design tokens — match index.css :root
+// Design tokens — CSS vars from index.css :root
 const C = {
-  default: '#707088',   // all inactive text, icons
-  active:  '#b0b0cc',   // values in use: BPM number, 4/4, key
-  muted:   '#404055',   // very dim labels
-  amber:   '#e8a027',   // accent, hover on interactive elements
+  default: 'var(--text-default)',
+  active:  'var(--text-active)',
+  muted:   'var(--text-muted)',
+  amber:   'var(--text-amber)',
 }
 const SKIP_SECS = 5
 
@@ -28,8 +29,11 @@ export default function TopBar() {
   const currentTime = useStore((s) => s.currentTime)
   const bpm = useStore((s) => s.bpm)
   const originalBpm = useStore((s) => s.originalBpm)
-  const loopEnabled = useStore((s) => s.loopEnabled)
-  const setLoop = useStore((s) => s.setLoop)
+  const loopRegionEnabled  = useStore((s) => s.loopRegionEnabled)
+  const loopRegionActive   = useStore((s) => s.loopRegionActive)
+  const loopStart          = useStore((s) => s.loopStart)
+  const loopEnd            = useStore((s) => s.loopEnd)
+  const setLoopRegionActive = useStore((s) => s.setLoopRegionActive)
   const setBpm = useStore((s) => s.setBpm)
   const resetBpm = useStore((s) => s.resetBpm)
   const detectedKey = useStore((s) => s.detectedKey)
@@ -41,6 +45,7 @@ export default function TopBar() {
   const accidentals = useStore((s) => s.accidentals)
   const chordExplorerOpen = useStore((s) => s.chordExplorerOpen)
   const resetAll = useStore((s) => s.resetAll)
+  const barStarts = useStore((s) => s.barStarts)
 
   const { play, pause, stop, seek, seekAndPlay } = usePlayback()
   const { openFile } = useMidiFile()
@@ -80,13 +85,61 @@ export default function TopBar() {
   const isTempoChanged = !!midi && Math.abs(Math.round((bpm / originalBpm) * 100) - 100) > 1
   const displayKey = detectedKey ? formatKey(detectedKey, noteNaming, accidentals) : '—'
 
+  // ── Nudge: region selected but loop not yet activated ─────────────────────
+  const nudgeLoop = loopRegionEnabled && !!midi && loopStart !== null && loopEnd !== null && !loopRegionActive
+
+  // ── Loop button tooltip — context-aware based on region state ─────────────
+  const loopStartBar = loopStart !== null ? (() => {
+    let bar = 1
+    for (let i = 0; i < barStarts.length; i++) { if (barStarts[i] <= loopStart) bar = i + 1 }
+    return bar
+  })() : null
+  const loopEndBar = (loopEnd !== null && loopStartBar !== null) ? (() => {
+    let rawBar = 1
+    for (let i = 0; i < barStarts.length; i++) { if (barStarts[i] <= loopEnd) rawBar = i + 1 }
+    const pastLastBarStart = barStarts.length === 0 || loopEnd > barStarts[barStarts.length - 1] + 0.001
+    return Math.max(loopStartBar, pastLastBarStart ? rawBar : rawBar - 1)
+  })() : null
+  const loopTooltip = loopRegionEnabled && loopStart !== null
+    ? (loopRegionActive
+        ? `Looping bars ${loopStartBar}–${loopEndBar} · Click to disable`
+        : `Loop bars ${loopStartBar}–${loopEndBar} · Click to enable`)
+    : loopRegionEnabled
+      ? 'Loop entire song · Drag the strip above to select a section'
+      : 'Loop entire song · Enable Loop Region in Settings to select a specific section'
+
+  // ── Live BPM — reads current tempo from _tempoMap so rubato files update ─
+  const rawTempoMap = (midi as any)?._tempoMap as { bpm: number; time: number }[] | undefined
+  const currentFileBpm = rawTempoMap?.length
+    ? rawTempoMap.reduce(
+        (acc: number, e: { bpm: number; time: number }) => e.time <= currentTime ? e.bpm : acc,
+        rawTempoMap[0].bpm,
+      )
+    : bpm
+  const userRatio = originalBpm > 0 ? bpm / originalBpm : 1
+  const liveBpm = midi ? Math.round(currentFileBpm * userRatio) : 0
+
+  // ── Bar counter — uses same precomputed barStarts as PianoRoll ───────────
+  const totalBars = barStarts.length
+  // Binary search: find last index where barStarts[i] <= currentTime (= current bar index, 0-based)
+  let currentBar = 0
+  if (midi && barStarts.length > 0) {
+    let lo = 0, hi = barStarts.length - 1
+    while (lo < hi) {
+      const mid = (lo + hi + 1) >> 1
+      if (barStarts[mid] <= currentTime) lo = mid
+      else hi = mid - 1
+    }
+    currentBar = lo + 1
+  }
+
   return (
     <div
       className="app-drag-region"
       style={{
-        height: 96,
-        background: '#111116',
-        borderBottom: `1px solid #1e1e28`,
+        height: loopRegionEnabled ? 120 : 96,
+        background: 'var(--bg-deep)',
+        borderBottom: 'none',
         display: 'flex',
         alignItems: 'center',
         // 174px right padding clears Win overlay buttons (–□×)
@@ -96,7 +149,7 @@ export default function TopBar() {
       }}
     >
       {/* ── LOGO ── */}
-      <div className="app-no-drag" style={{ display: 'flex', alignItems: 'center', gap: 10, flexShrink: 0, paddingRight: 12 }}>
+      <div className="app-no-drag" style={{ display: 'flex', alignItems: 'center', gap: 10, flexShrink: 0, paddingRight: 'var(--space-3)' }}>
         <span onClick={resetAll} title="Reset" className="app-no-drag" style={{ cursor: 'pointer', display: 'flex' }}>
           <OrfeoLogo />
         </span>
@@ -104,7 +157,7 @@ export default function TopBar() {
           onClick={openFile}
           title="Open MIDI file (Ctrl+O)"
           className="app-no-drag"
-          style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: 28, height: 28, borderRadius: 5, background: 'transparent', border: 'none', color: C.default, cursor: 'pointer', flexShrink: 0, transition: 'color 0.12s' }}
+          style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: 'var(--button-height)', height: 'var(--button-height)', borderRadius: 'var(--radius-md)', background: 'transparent', border: 'none', color: C.default, cursor: 'pointer', flexShrink: 0, transition: 'color 0.12s' }}
           onMouseEnter={e => e.currentTarget.style.color = C.amber}
           onMouseLeave={e => e.currentTarget.style.color = C.default}
         >
@@ -115,14 +168,14 @@ export default function TopBar() {
       <VSep />
 
       {/* ── BPM ── */}
-      <div className="app-no-drag" style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '0 12px', flexShrink: 0 }}
-        title={`Tempo: ${Math.round(bpm)} BPM`}>
+      <div className="app-no-drag" style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '0 var(--space-3)', flexShrink: 0 }}
+        title={`Tempo: ${liveBpm || '—'} BPM`}>
         <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start', gap: 1 }}>
           <span style={{ color: C.muted, fontSize: 8, textTransform: 'uppercase', letterSpacing: '0.1em', fontFamily: 'JetBrains Mono', lineHeight: 1 }}>BPM</span>
           <span style={{ color: C.muted, fontSize: 8, textTransform: 'uppercase', letterSpacing: '0.1em', fontFamily: 'JetBrains Mono', lineHeight: 1 }}>TEMPO</span>
         </div>
         <span style={{ color: isTempoChanged ? C.amber : C.active, fontFamily: 'JetBrains Mono', fontSize: 20, fontWeight: 700, minWidth: 36, textAlign: 'right', lineHeight: 1 }}>
-          {midi ? Math.round(bpm) : '—'}
+          {midi ? liveBpm : '—'}
         </span>
         <div style={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
           <LongPressArrow onStep={() => setBpm(Math.min(300, useStore.getState().bpm + 1))} disabled={!midi} title="BPM +1"><ChevronUp size={10} /></LongPressArrow>
@@ -138,7 +191,7 @@ export default function TopBar() {
       <VSep />
 
       {/* ── KEY ── */}
-      <div className="app-no-drag" style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '0 12px', flexShrink: 0 }}
+      <div className="app-no-drag" style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '0 var(--space-3)', flexShrink: 0 }}
         title={`Key: ${displayKey}${transpose !== 0 ? ` (${transpose > 0 ? '+' : ''}${transpose} semitones)` : ''}`}>
         <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start', gap: 1 }}>
           <span style={{ color: C.muted, fontSize: 8, textTransform: 'uppercase', letterSpacing: '0.1em', fontFamily: 'JetBrains Mono', lineHeight: 1 }}>KEY</span>
@@ -178,25 +231,41 @@ export default function TopBar() {
           </TBtn>
           <TBtn onClick={() => handleSkip(1)} disabled={!midi} title={`Forward ${SKIP_SECS}s`}><FastForward size={15} strokeWidth={1.5} /></TBtn>
           <TBtn onClick={() => midi && seek(midi.duration)} disabled={!midi} title="Go to end"><SkipForward size={16} strokeWidth={1.5} /></TBtn>
-          <TBtn onClick={() => setLoop(!loopEnabled)} disabled={!midi} active={loopEnabled} title={loopEnabled ? 'Loop on' : 'Loop off'}><Repeat size={13} strokeWidth={1.5} /></TBtn>
+          <TBtn onClick={() => setLoopRegionActive(!loopRegionActive)} disabled={!midi} active={loopRegionActive} blink={nudgeLoop} title={loopTooltip}><Repeat size={13} strokeWidth={1.5} /></TBtn>
+          {nudgeLoop && (
+            <span style={{
+              color: C.amber, fontSize: 9, fontFamily: 'Inter, sans-serif',
+              whiteSpace: 'nowrap', letterSpacing: '0.04em',
+              opacity: 0.85, pointerEvents: 'none', userSelect: 'none',
+            }}>
+              click to loop
+            </span>
+          )}
         </div>
-        {/* Scrub */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: 6, width: '100%', justifyContent: 'center' }}>
-          <span style={{ color: C.muted, fontFamily: 'JetBrains Mono', fontSize: 10, minWidth: 34, textAlign: 'right', flexShrink: 0 }}>
-            {formatTime(currentTime)}
-          </span>
-          <input
-            type="range" min={0} max={duration || 1} step={0.1} value={currentTime}
-            onMouseDown={handleScrubStart} onChange={handleScrubChange} onMouseUp={handleScrubEnd}
-            className="scrub-slider" style={{ flex: 1, maxWidth: 320 }} disabled={!midi}
-            title="Scrub position"
-          />
-          <span style={{ color: C.muted, fontFamily: 'JetBrains Mono', fontSize: 10, minWidth: 34, flexShrink: 0 }}>
-            {formatTime(duration)}
-          </span>
+        {/* Scrub + loop strip — shared column; width: min(100%, 400px) centers both at
+            the same visual width as the old scrub content (34+6+320+6+34 = 400px).
+            position: relative lets LoopRegionStrip anchor its icon outside this column. */}
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 5, width: 'min(100%, 400px)', position: 'relative' }}>
+          {/* Scrub */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+            <span style={{ color: C.muted, fontFamily: 'JetBrains Mono', fontSize: 10, minWidth: 34, textAlign: 'right', flexShrink: 0 }}>
+              {formatTime(currentTime)}
+            </span>
+            <input
+              type="range" min={0} max={duration || 1} step={0.1} value={currentTime}
+              onMouseDown={handleScrubStart} onChange={handleScrubChange} onMouseUp={handleScrubEnd}
+              className="scrub-slider" style={{ flex: 1, maxWidth: 320 }} disabled={!midi}
+              title="Scrub position"
+            />
+            <span style={{ color: C.muted, fontFamily: 'JetBrains Mono', fontSize: 10, minWidth: 34, flexShrink: 0 }}>
+              {formatTime(duration)}
+            </span>
+          </div>
+          {/* Loop Region Strip — visible only when enabled in Settings */}
+          {loopRegionEnabled && <LoopRegionStrip />}
         </div>
         {/* Filename */}
-        <span style={{ color: C.default, fontSize: 11, fontFamily: 'Inter', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: 340 }}
+        <span style={{ color: C.default, fontSize: 'var(--text-xs)', fontFamily: 'Inter', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: 340 }}
           title={midi?.fileName}>
           {midi ? midi.fileName.replace(/\.(mid|midi)$/i, '') : 'No file open'}
         </span>
@@ -207,23 +276,53 @@ export default function TopBar() {
       {/* ── TIME + METRONOME + MIDI — bottoms aligned ── */}
       <div className="app-no-drag" style={{ display: 'flex', alignItems: 'flex-end', gap: 0, flexShrink: 0 }}>
 
+        {/* BAR COUNTER — only when a file is loaded */}
+        {midi && (
+          <>
+            <div
+              style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', padding: '0 var(--space-3)' }}
+              title={`Bar ${currentBar} of ${totalBars}`}
+            >
+              <div style={{
+                background: 'var(--bg-tile)', borderRadius: 4, padding: '2px 6px',
+                display: 'flex', alignItems: 'baseline', gap: 0,
+              }}>
+                <span style={{ color: C.amber, fontFamily: 'JetBrains Mono', fontSize: 'var(--text-sm)', fontWeight: 700, lineHeight: 1 }}>
+                  {currentBar}
+                </span>
+                <span style={{ color: C.muted, fontFamily: 'JetBrains Mono', fontSize: 'var(--text-sm)', lineHeight: 1 }}>
+                  |{totalBars}
+                </span>
+              </div>
+              <span style={{ color: C.muted, fontSize: 8, fontFamily: 'Inter', textTransform: 'uppercase', letterSpacing: '0.1em', marginTop: 6 }}>
+                BAR
+              </span>
+            </div>
+            <div style={{ width: 1, height: 'var(--button-height)', background: 'var(--border)', alignSelf: 'flex-end', marginBottom: 12 }} />
+          </>
+        )}
+
         {/* TIME SIGNATURE */}
         <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', padding: '0 14px' }}
-          title={`Time signature: ${midi?.timeSignatureNumerator ?? 4}/${midi?.timeSignatureDenominator ?? 4}`}
+          title={midi ? `Time signature: ${midi.timeSignatureNumerator ?? 4}/${midi.timeSignatureDenominator ?? 4}` : 'No file loaded'}
         >
-          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', lineHeight: 1 }}>
-            <span style={{ color: C.active, fontFamily: 'JetBrains Mono', fontSize: 13, fontWeight: 700 }}>
-              {midi?.timeSignatureNumerator ?? 4}
-            </span>
-            <div style={{ width: 14, height: 1, background: '#30304a', margin: '2px 0' }} />
-            <span style={{ color: C.active, fontFamily: 'JetBrains Mono', fontSize: 13, fontWeight: 700 }}>
-              {midi?.timeSignatureDenominator ?? 4}
-            </span>
-          </div>
+          {midi ? (
+            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', lineHeight: 1 }}>
+              <span style={{ color: C.active, fontFamily: 'JetBrains Mono', fontSize: 'var(--text-base)', fontWeight: 700 }}>
+                {midi.timeSignatureNumerator ?? 4}
+              </span>
+              <div style={{ width: 14, height: 1, background: '#30304a', margin: '2px 0' }} />
+              <span style={{ color: C.active, fontFamily: 'JetBrains Mono', fontSize: 'var(--text-base)', fontWeight: 700 }}>
+                {midi.timeSignatureDenominator ?? 4}
+              </span>
+            </div>
+          ) : (
+            <span style={{ color: C.muted, fontFamily: 'JetBrains Mono', fontSize: 20, fontWeight: 700, lineHeight: 1 }}>—</span>
+          )}
           <span style={{ color: C.default, fontSize: 8, fontFamily: 'JetBrains Mono', textTransform: 'uppercase', letterSpacing: '0.1em', marginTop: 6 }}>TIME</span>
         </div>
 
-        <div style={{ width: 1, height: 28, background: '#1e1e28', alignSelf: 'flex-end', marginBottom: 12 }} />
+        <div style={{ width: 1, height: 'var(--button-height)', background: 'var(--border)', alignSelf: 'flex-end', marginBottom: 12 }} />
 
         {/* METRONOME */}
         <button
@@ -246,16 +345,16 @@ export default function TopBar() {
           </span>
         </button>
 
-        <div style={{ width: 1, height: 28, background: '#1e1e28', alignSelf: 'flex-end', marginBottom: 12 }} />
+        <div style={{ width: 1, height: 'var(--button-height)', background: 'var(--border)', alignSelf: 'flex-end', marginBottom: 12 }} />
 
         {/* MIDI */}
         <div
           title={midiDeviceConnected ? `MIDI: ${midiDeviceName}` : 'No MIDI keyboard connected'}
-          style={{ flexShrink: 0, display: 'flex', flexDirection: 'column', alignItems: 'center', padding: '0 14px', color: midiDeviceConnected ? C.amber : C.default }}
+          style={{ flexShrink: 0, display: 'flex', flexDirection: 'column', alignItems: 'flex-start', padding: '0 14px', color: midiDeviceConnected ? C.amber : C.default }}
         >
           <MidiIcon size={24} color={midiDeviceConnected ? C.amber : C.default} />
-          <span style={{ fontSize: 8, fontFamily: 'JetBrains Mono', letterSpacing: '0.08em', color: midiDeviceConnected ? C.amber : C.default, marginTop: 6 }}>
-            {midiDeviceConnected ? (midiDeviceName?.split(' ')[0] ?? 'MIDI') : 'NO MIDI'}
+          <span style={{ fontSize: midiDeviceConnected ? 8 : 7, fontFamily: 'JetBrains Mono', letterSpacing: midiDeviceConnected ? '0.08em' : '0.05em', color: midiDeviceConnected ? C.amber : C.default, marginTop: 6, whiteSpace: 'nowrap' }}>
+            {midiDeviceConnected ? (midiDeviceName?.split(' ')[0] ?? 'MIDI') : 'CONNECT A KEYBOARD'}
           </span>
         </div>
 
@@ -266,7 +365,7 @@ export default function TopBar() {
 }
 
 function VSep() {
-  return <div style={{ width: 1, height: 44, background: '#1e1e28', flexShrink: 0 }} />
+  return <div style={{ width: 1, height: 'var(--row-height)', background: 'var(--border)', flexShrink: 0 }} />
 }
 
 // Long-press button: single click = +1, hold = accelerating repeat
@@ -307,14 +406,14 @@ function LongPressArrow({ children, onStep, disabled, title }: {
       onMouseUp={stop}
       onMouseLeave={stop}
       style={{
-        width: 16, height: 13, background: '#1a1a26', color: '#606075',
-        border: 'none', borderRadius: 3,
+        width: 16, height: 13, background: 'var(--bg-tile)', color: '#606075',
+        border: 'none', borderRadius: 'var(--radius-sm)',
         cursor: disabled ? 'default' : 'pointer',
         opacity: disabled ? 0.25 : 1,
         display: 'flex', alignItems: 'center', justifyContent: 'center',
         transition: 'color 0.1s', userSelect: 'none',
       }}
-      onMouseEnter={e => { if (!disabled) e.currentTarget.style.color = '#e8a027' }}
+      onMouseEnter={e => { if (!disabled) e.currentTarget.style.color = 'var(--text-amber)' }}
     >
       {children}
     </button>
@@ -327,14 +426,14 @@ function ArrowBtn({ children, onClick, disabled, title }: {
   return (
     <button onClick={onClick} disabled={disabled} title={title}
       style={{
-        width: 16, height: 13, background: '#1a1a26', color: '#606075',
-        border: 'none', borderRadius: 3,
+        width: 16, height: 13, background: 'var(--bg-tile)', color: '#606075',
+        border: 'none', borderRadius: 'var(--radius-sm)',
         cursor: disabled ? 'default' : 'pointer',
         opacity: disabled ? 0.25 : 1,
         display: 'flex', alignItems: 'center', justifyContent: 'center',
         transition: 'color 0.1s',
       }}
-      onMouseEnter={e => { if (!disabled) e.currentTarget.style.color = '#e8a027' }}
+      onMouseEnter={e => { if (!disabled) e.currentTarget.style.color = 'var(--text-amber)' }}
       onMouseLeave={e => { e.currentTarget.style.color = '#606075' }}
     >
       {children}
@@ -342,24 +441,26 @@ function ArrowBtn({ children, onClick, disabled, title }: {
   )
 }
 
-function TBtn({ children, onClick, disabled, accent, active, title, large }: {
+function TBtn({ children, onClick, disabled, accent, active, blink, title, large }: {
   children: React.ReactNode; onClick?: () => void; disabled?: boolean
-  accent?: boolean; active?: boolean; title?: string; large?: boolean
+  accent?: boolean; active?: boolean; blink?: boolean; title?: string; large?: boolean
 }) {
   const sz = large ? 46 : 32
+  const isAmber = active || accent || blink
   return (
     <button onClick={onClick} disabled={disabled} title={title}
+      className={blink ? 'loop-nudge-blink' : undefined}
       style={{
         width: sz, height: sz,
         display: 'flex', alignItems: 'center', justifyContent: 'center',
         borderRadius: 6, border: 'none', background: 'transparent',
-        color: active || accent ? '#e8a027' : '#707088',
+        color: isAmber ? 'var(--text-amber)' : 'var(--text-default)',
         opacity: disabled ? 0.2 : 1,
         cursor: disabled ? 'default' : 'pointer',
-        transition: 'color 0.1s',
+        transition: blink ? undefined : 'color 0.1s',
       }}
-      onMouseEnter={e => { if (!disabled) e.currentTarget.style.color = '#e8a027' }}
-      onMouseLeave={e => { e.currentTarget.style.color = (active || accent) ? '#e8a027' : '#707088' }}
+      onMouseEnter={e => { if (!disabled) e.currentTarget.style.color = 'var(--text-amber)' }}
+      onMouseLeave={e => { e.currentTarget.style.color = isAmber ? 'var(--text-amber)' : 'var(--text-default)' }}
     >
       {children}
     </button>

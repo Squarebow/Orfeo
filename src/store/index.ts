@@ -1,14 +1,15 @@
 import { create } from 'zustand'
 import type {
   ParsedMidi, ParsedTrack, PlaybackState, TrackState,
-  KeyboardSize, KeyboardMode, NoteNaming, Accidentals,
+  KeyboardSize, KeyboardMode, NoteNaming, Accidentals, ChordEvent, TranscriptEntry,
 } from '../types'
 import type { DetectedKey } from '../utils/keyDetection'
 import { isKeyboardInstrument } from '../utils/gmInstruments'
 
 // Groups that are muted by default when a file opens (too distracting)
+// Unmuted by default: piano, chromatic, organ, bass, drums
 const DEFAULT_MUTED_GROUPS = new Set([
-  'strings', 'ensemble', 'brass', 'reed', 'pipe',
+  'guitar', 'strings', 'ensemble', 'brass', 'reed', 'pipe',
   'synth_lead', 'synth_pad', 'synth_fx', 'ethnic',
   'percussive', 'sfx',
 ])
@@ -19,20 +20,27 @@ const KEYBOARD_DISPLAY_GROUPS = new Set(['piano', 'chromatic', 'organ'])
 interface OrfeoStore {
   midi: ParsedMidi | null
   setMidi: (midi: ParsedMidi | null) => void
+  barStarts: number[]
 
   playbackState: PlaybackState
   currentTime: number
   bpm: number
   originalBpm: number
   loopEnabled: boolean
-  loopStart: number
-  loopEnd: number
+  loopStart: number | null
+  loopEnd: number | null
+  loopRegionEnabled: boolean
+  loopRegionActive: boolean
 
   setPlaybackState: (state: PlaybackState) => void
   setCurrentTime: (time: number) => void
   setBpm: (bpm: number) => void
   resetBpm: () => void
   setLoop: (enabled: boolean, start?: number, end?: number) => void
+  setLoopRegionEnabled: (v: boolean) => void
+  setLoopRegionActive: (v: boolean) => void
+  setLoopRegion: (start: number, end: number) => void
+  clearLoopRegion: () => void
 
   tracks: TrackState[]
   setTracks: (tracks: TrackState[]) => void
@@ -53,10 +61,12 @@ interface OrfeoStore {
   accidentals: Accidentals
   zoomLevel: number
   appTheme: AppTheme
+  showBarNumbers: boolean
   setNoteNaming: (naming: NoteNaming) => void
   setAccidentals: (accidentals: Accidentals) => void
   setZoomLevel: (zoom: number) => void
   setAppTheme: (theme: AppTheme) => void
+  setShowBarNumbers: (v: boolean) => void
 
   detectedKey: DetectedKey | null
   setDetectedKey: (key: DetectedKey | null) => void
@@ -111,6 +121,50 @@ interface OrfeoStore {
   audioEngine: 'gm' | 'samples'
   setAudioEngine: (engine: 'gm' | 'samples') => void
 
+  chordPrompterEnabled: boolean
+  chordPrompterOpen: boolean
+  chordSequence: ChordEvent[]
+  setChordPrompterEnabled: (v: boolean) => void
+  setChordPrompterOpen: (v: boolean) => void
+  setChordSequence: (seq: ChordEvent[]) => void
+
+  chordTranscriptionEnabled: boolean
+  setChordTranscriptionEnabled: (v: boolean) => void
+
+  hideDemoFolder: boolean
+  setHideDemoFolder: (v: boolean) => void
+
+  demoFiles: { name: string; path: string }[]
+  setDemoFiles: (files: { name: string; path: string }[]) => void
+
+  splitBreakpointType: 'single' | 'range'
+  setSplitBreakpointType: (t: 'single' | 'range') => void
+  splitBreakpointNote: number
+  setSplitBreakpointNote: (n: number) => void
+  splitBreakpointRangeStart: number
+  setSplitBreakpointRangeStart: (n: number) => void
+  splitBreakpointRangeEnd: number
+  setSplitBreakpointRangeEnd: (n: number) => void
+
+  showHandLabels: boolean
+  setShowHandLabels: (v: boolean) => void
+
+  showOctaveLabels: boolean
+  setShowOctaveLabels: (v: boolean) => void
+  showNoteNamesOnKeyboard: boolean
+  setShowNoteNamesOnKeyboard: (v: boolean) => void
+
+  handLabelMode: 'practice' | 'performance'
+  setHandLabelMode: (mode: 'practice' | 'performance') => void
+  handBoundaryCurve: { time: number; boundary: number | null }[]
+  setHandBoundaryCurve: (curve: { time: number; boundary: number | null }[]) => void
+
+  performanceSplitSensitivity: number
+  setPerformanceSplitSensitivity: (n: number) => void
+
+  transcriptHistory: TranscriptEntry[]
+  addTranscriptEntry: (entry: TranscriptEntry) => void
+
   resetAll: () => void
 }
 
@@ -138,8 +192,9 @@ function makeTrackState(track: ParsedTrack): TrackState {
 
 export const useStore = create<OrfeoStore>((set, get) => ({
   midi: null,
+  barStarts: [],
   setMidi: (midi) => {
-    if (!midi) { set({ midi: null, tracks: [], currentTime: 0, playbackState: 'stopped', trackPanelOpen: false }); return }
+    if (!midi) { set({ midi: null, tracks: [], currentTime: 0, playbackState: 'stopped', trackPanelOpen: false, barStarts: [], chordSequence: [], chordPrompterOpen: false, loopStart: null, loopEnd: null, loopRegionActive: false }); return }
     set({
       midi,
       tracks: midi.tracks.map(makeTrackState),
@@ -148,6 +203,10 @@ export const useStore = create<OrfeoStore>((set, get) => ({
       bpm: midi.bpm,
       originalBpm: midi.bpm,
       trackPanelOpen: true,   // auto-open drawer when file loads
+      barStarts: (midi as any)._barStarts ?? [],
+      loopStart: null,
+      loopEnd: null,
+      loopRegionActive: false,
     })
   },
 
@@ -156,8 +215,10 @@ export const useStore = create<OrfeoStore>((set, get) => ({
   bpm: 120,
   originalBpm: 120,
   loopEnabled: false,
-  loopStart: 0,
-  loopEnd: 0,
+  loopStart: null,
+  loopEnd: null,
+  loopRegionEnabled: false,
+  loopRegionActive: false,
 
   setPlaybackState: (playbackState) => set({ playbackState }),
   setCurrentTime: (currentTime) => set({ currentTime }),
@@ -165,6 +226,14 @@ export const useStore = create<OrfeoStore>((set, get) => ({
   resetBpm: () => set((s) => ({ bpm: s.originalBpm })),
   setLoop: (loopEnabled, loopStart, loopEnd) =>
     set((s) => ({ loopEnabled, loopStart: loopStart ?? s.loopStart, loopEnd: loopEnd ?? s.loopEnd })),
+  // ── Loop region setters ───────────────────────────────────────────────────
+  setLoopRegionEnabled: (v) => set(v
+    ? { loopRegionEnabled: true }
+    : { loopRegionEnabled: false, loopRegionActive: false, loopStart: null, loopEnd: null }
+  ),
+  setLoopRegionActive: (loopRegionActive) => set({ loopRegionActive }),
+  setLoopRegion: (start, end) => set({ loopStart: start, loopEnd: end }),
+  clearLoopRegion: () => set({ loopStart: null, loopEnd: null, loopRegionActive: false }),
 
   tracks: [],
   setTracks: (tracks) => set({ tracks }),
@@ -187,10 +256,12 @@ export const useStore = create<OrfeoStore>((set, get) => ({
   accidentals: 'flat',
   zoomLevel: 1,
   appTheme: 'dark',
+  showBarNumbers: true,
   setNoteNaming: (noteNaming) => set({ noteNaming }),
   setAccidentals: (accidentals) => set({ accidentals }),
   setZoomLevel: (zoomLevel) => set({ zoomLevel }),
   setAppTheme: (appTheme) => set({ appTheme }),
+  setShowBarNumbers: (showBarNumbers) => set({ showBarNumbers }),
 
   detectedKey: null,
   setDetectedKey: (detectedKey) => set({ detectedKey }),
@@ -249,7 +320,7 @@ export const useStore = create<OrfeoStore>((set, get) => ({
   resetAll: () => {
     ;(window as any).__orfeoPlayer?.stop?.()
     set({
-      midi: null, tracks: [],
+      midi: null, tracks: [], barStarts: [],
       bpm: 120, originalBpm: 120, detectedKey: null,
       activeKeys: new Set(), activeKeyColors: new Map(),
       explorerKeys: new Set(), explorerKeyColors: new Map(),
@@ -259,11 +330,71 @@ export const useStore = create<OrfeoStore>((set, get) => ({
       displayedChord: null,
       chordExplorerOpen: false, scaleExplorerOpen: false, playbackState: 'stopped',
       currentTime: 0, trackPanelOpen: false, settingsPanelOpen: false,
+      chordSequence: [], chordPrompterOpen: false,
+      loopStart: null, loopEnd: null, loopRegionActive: false,
     })
   },
 
   audioEngine: 'gm',
   setAudioEngine: (audioEngine) => set({ audioEngine }),
+
+  chordPrompterEnabled: false,
+  chordPrompterOpen: false,
+  chordSequence: [],
+  setChordPrompterEnabled: (chordPrompterEnabled) => set({ chordPrompterEnabled }),
+  setChordPrompterOpen: (chordPrompterOpen) => set({ chordPrompterOpen }),
+  setChordSequence: (chordSequence) => set({ chordSequence }),
+
+  // ── Chord Transcription — per-file PDF generation, persisted ─────────────
+  chordTranscriptionEnabled: false,
+  setChordTranscriptionEnabled: (chordTranscriptionEnabled) => set({ chordTranscriptionEnabled }),
+
+  // ── Demo folder visibility — persisted, default visible ───────────────────
+  hideDemoFolder: false,
+  setHideDemoFolder: (hideDemoFolder) => set({ hideDemoFolder }),
+
+  // ── Standalone demo files (shown when no library folder is set) ───────────
+  demoFiles: [],
+  setDemoFiles: (demoFiles) => set({ demoFiles }),
+
+  // ── MIDI Editor split breakpoint — type and note values, all persisted ──────
+  splitBreakpointType: 'single' as 'single' | 'range',
+  setSplitBreakpointType: (splitBreakpointType) => set({ splitBreakpointType }),
+  splitBreakpointNote: 60,
+  setSplitBreakpointNote: (n) => set({ splitBreakpointNote: Math.max(48, Math.min(60, n)) }),
+  splitBreakpointRangeStart: 52,
+  setSplitBreakpointRangeStart: (n) => set((s) => ({ splitBreakpointRangeStart: Math.max(48, Math.min(s.splitBreakpointRangeEnd - 1, n)) })),
+  splitBreakpointRangeEnd: 60,
+  setSplitBreakpointRangeEnd: (n) => set((s) => ({ splitBreakpointRangeEnd: Math.max(s.splitBreakpointRangeStart + 1, Math.min(60, n)) })),
+
+  // ── Hand labels — show LEFT/RIGHT HAND labels on the keyboard ────────────
+  showHandLabels: false,
+  setShowHandLabels: (showHandLabels) => set({ showHandLabels }),
+
+  // ── Keyboard label visibility — octave numbers and note name labels ────────
+  showOctaveLabels: true,
+  setShowOctaveLabels: (showOctaveLabels) => set({ showOctaveLabels }),
+  showNoteNamesOnKeyboard: true,
+  setShowNoteNamesOnKeyboard: (showNoteNamesOnKeyboard) => set({ showNoteNamesOnKeyboard }),
+
+  // ── Hand label mode — practice (static breakpoint) or performance (dynamic) ─
+  handLabelMode: 'practice' as 'practice' | 'performance',
+  setHandLabelMode: (handLabelMode) => set({ handLabelMode }),
+  // ── Precomputed boundary curve for Performance mode — not persisted ────────
+  handBoundaryCurve: [],
+  setHandBoundaryCurve: (handBoundaryCurve) => set({ handBoundaryCurve }),
+
+  // ── Performance split sensitivity — semitone gap threshold, persisted ──────
+  performanceSplitSensitivity: 8,
+  setPerformanceSplitSensitivity: (n) => set({ performanceSplitSensitivity: Math.max(2, Math.min(16, n)) }),
+
+  // ── Transcript history — max 20 entries, oldest dropped when full ─────────
+  transcriptHistory: [],
+  addTranscriptEntry: (entry) => {
+    const next = [entry, ...get().transcriptHistory].slice(0, 20)
+    set({ transcriptHistory: next })
+    window.electronAPI?.setPrefs?.({ transcriptHistory: next }).catch(() => {})
+  },
 
   libraryFolder: null,
   libraryFiles: [],
@@ -276,6 +407,13 @@ export const useStore = create<OrfeoStore>((set, get) => ({
     if (next.has(path)) next.delete(path); else next.add(path)
     return { libraryFavourites: next }
   }),
+  // ── Persisted client-side exclusion list — file stays on disk, just hidden ─
+  hiddenLibraryFiles: [] as string[],
+  hideLibraryFile: (path: string) => set(((s: any) => ({
+    hiddenLibraryFiles: (s.hiddenLibraryFiles as string[]).includes(path)
+      ? s.hiddenLibraryFiles
+      : [...s.hiddenLibraryFiles, path],
+  })) as any),
   loadLibraryFile: async (filePath) => {
     try {
       const result = await window.electronAPI.loadMidiFromPath(filePath)
@@ -307,24 +445,54 @@ async function restoreLibraryPrefs() {
       const files = await window.electronAPI.scanMidiFolder(prefs.libraryFolder)
       store.setLibraryFolderAndFiles(prefs.libraryFolder, files)
     }
+    // ── Always load demo files so they appear even before a library is chosen ─
+    const demoFolder = await window.electronAPI.getDemoFolder?.()
+    if (demoFolder) {
+      const demoFiles = await window.electronAPI.scanMidiFolder(demoFolder)
+      store.setDemoFiles(demoFiles)
+    }
     if (Array.isArray(prefs.libraryFavourites)) {
       prefs.libraryFavourites.forEach((p: string) => store.toggleFavourite(p))
+    }
+    if (Array.isArray(prefs.hiddenLibraryFiles)) {
+      useStore.setState({ hiddenLibraryFiles: prefs.hiddenLibraryFiles } as any)
     }
     if (prefs.noteNaming) store.setNoteNaming(prefs.noteNaming)
     if (prefs.accidentals) store.setAccidentals(prefs.accidentals)
     if (typeof prefs.masterVolume === 'number') store.setMasterVolume(prefs.masterVolume)
+    if (prefs.audioEngine === 'samples') store.setAudioEngine('samples')
+    if (typeof prefs.showBarNumbers === 'boolean') store.setShowBarNumbers(prefs.showBarNumbers)
+    if (typeof prefs.chordPrompterEnabled === 'boolean') store.setChordPrompterEnabled(prefs.chordPrompterEnabled)
+    if (typeof prefs.chordTranscriptionEnabled === 'boolean') store.setChordTranscriptionEnabled(prefs.chordTranscriptionEnabled)
+    if (typeof prefs.hideDemoFolder === 'boolean') store.setHideDemoFolder(prefs.hideDemoFolder)
+    if (prefs.splitBreakpointType === 'single' || prefs.splitBreakpointType === 'range') store.setSplitBreakpointType(prefs.splitBreakpointType)
+    if (typeof prefs.splitBreakpointNote === 'number') store.setSplitBreakpointNote(prefs.splitBreakpointNote)
+    if (typeof prefs.splitBreakpointRangeStart === 'number') store.setSplitBreakpointRangeStart(prefs.splitBreakpointRangeStart)
+    if (typeof prefs.splitBreakpointRangeEnd === 'number') store.setSplitBreakpointRangeEnd(prefs.splitBreakpointRangeEnd)
+    if (typeof prefs.showHandLabels === 'boolean') store.setShowHandLabels(prefs.showHandLabels)
+    if (typeof prefs.loopRegionEnabled === 'boolean') store.setLoopRegionEnabled(prefs.loopRegionEnabled)
+    if (prefs.handLabelMode === 'practice' || prefs.handLabelMode === 'performance') store.setHandLabelMode(prefs.handLabelMode)
+    if (typeof prefs.performanceSplitSensitivity === 'number') store.setPerformanceSplitSensitivity(prefs.performanceSplitSensitivity)
+    if (typeof prefs.showOctaveLabels === 'boolean') store.setShowOctaveLabels(prefs.showOctaveLabels)
+    if (typeof prefs.showNoteNamesOnKeyboard === 'boolean') store.setShowNoteNamesOnKeyboard(prefs.showNoteNamesOnKeyboard)
+    if (Array.isArray(prefs.transcriptHistory)) useStore.setState({ transcriptHistory: prefs.transcriptHistory })
   } catch (e) {
     console.error('[Orfeo] restoreLibraryPrefs:', e)
   }
 }
 setTimeout(restoreLibraryPrefs, 500)
 
+// ── Persist library-list state — favourites + hidden exclusions ───────────────
+// Debounced 1 s; gated on libraryFolder so it only fires once a library is set.
 let _favTimer: ReturnType<typeof setTimeout> | null = null
 useStore.subscribe((state) => {
   if (!state.libraryFolder) return
   if (_favTimer) clearTimeout(_favTimer)
   _favTimer = setTimeout(() => {
-    window.electronAPI?.setPrefs?.({ libraryFavourites: Array.from(state.libraryFavourites) }).catch(() => {})
+    window.electronAPI?.setPrefs?.({
+      libraryFavourites:   Array.from(state.libraryFavourites),
+      hiddenLibraryFiles:  (state as any).hiddenLibraryFiles,
+    }).catch(() => {})
   }, 1000)
 })
 
@@ -334,22 +502,101 @@ useStore.subscribe((state) => {
 let _prevNoteNaming: string | null = null
 let _prevAccidentals: string | null = null
 let _prevMasterVolume: number | null = null
+let _prevAudioEngine: string | null = null
+let _prevShowBarNumbers: boolean | null = null
+let _prevChordPrompterEnabled: boolean | null = null
+let _prevChordTranscriptionEnabled: boolean | null = null
+let _prevHideDemoFolder: boolean | null = null
+let _prevSplitBreakpointType: string | null = null
+let _prevSplitBreakpointNote: number | null = null
+let _prevSplitBreakpointRangeStart: number | null = null
+let _prevSplitBreakpointRangeEnd: number | null = null
+let _prevShowHandLabels: boolean | null = null
+let _prevLoopRegionEnabled: boolean | null = null
+let _prevHandLabelMode: string | null = null
+let _prevPerformanceSplitSensitivity: number | null = null
+let _prevShowOctaveLabels: boolean | null = null
+let _prevShowNoteNamesOnKeyboard: boolean | null = null
 useStore.subscribe((state) => {
   // Skip the very first fire (app init) — restore handles loading saved values
   if (_prevNoteNaming === null) {
     _prevNoteNaming = state.noteNaming
     _prevAccidentals = state.accidentals
     _prevMasterVolume = state.masterVolume
+    _prevAudioEngine = state.audioEngine
+    _prevShowBarNumbers = state.showBarNumbers
+    _prevChordPrompterEnabled = state.chordPrompterEnabled
+    _prevChordTranscriptionEnabled = state.chordTranscriptionEnabled
+    _prevHideDemoFolder = state.hideDemoFolder
+    _prevSplitBreakpointType = state.splitBreakpointType
+    _prevSplitBreakpointNote = state.splitBreakpointNote
+    _prevSplitBreakpointRangeStart = state.splitBreakpointRangeStart
+    _prevSplitBreakpointRangeEnd = state.splitBreakpointRangeEnd
+    _prevShowHandLabels = state.showHandLabels
+    _prevLoopRegionEnabled = state.loopRegionEnabled
+    _prevHandLabelMode = state.handLabelMode
+    _prevPerformanceSplitSensitivity = state.performanceSplitSensitivity
+    _prevShowOctaveLabels = state.showOctaveLabels
+    _prevShowNoteNamesOnKeyboard = state.showNoteNamesOnKeyboard
     return
   }
-  if (state.noteNaming !== _prevNoteNaming || state.accidentals !== _prevAccidentals || state.masterVolume !== _prevMasterVolume) {
+  if (
+    state.noteNaming !== _prevNoteNaming ||
+    state.accidentals !== _prevAccidentals ||
+    state.masterVolume !== _prevMasterVolume ||
+    state.audioEngine !== _prevAudioEngine ||
+    state.showBarNumbers !== _prevShowBarNumbers ||
+    state.chordPrompterEnabled !== _prevChordPrompterEnabled ||
+    state.chordTranscriptionEnabled !== _prevChordTranscriptionEnabled ||
+    state.hideDemoFolder !== _prevHideDemoFolder ||
+    state.splitBreakpointType !== _prevSplitBreakpointType ||
+    state.splitBreakpointNote !== _prevSplitBreakpointNote ||
+    state.splitBreakpointRangeStart !== _prevSplitBreakpointRangeStart ||
+    state.splitBreakpointRangeEnd !== _prevSplitBreakpointRangeEnd ||
+    state.showHandLabels !== _prevShowHandLabels ||
+    state.loopRegionEnabled !== _prevLoopRegionEnabled ||
+    state.handLabelMode !== _prevHandLabelMode ||
+    state.performanceSplitSensitivity !== _prevPerformanceSplitSensitivity ||
+    state.showOctaveLabels !== _prevShowOctaveLabels ||
+    state.showNoteNamesOnKeyboard !== _prevShowNoteNamesOnKeyboard
+  ) {
     _prevNoteNaming = state.noteNaming
     _prevAccidentals = state.accidentals
     _prevMasterVolume = state.masterVolume
+    _prevAudioEngine = state.audioEngine
+    _prevShowBarNumbers = state.showBarNumbers
+    _prevChordPrompterEnabled = state.chordPrompterEnabled
+    _prevChordTranscriptionEnabled = state.chordTranscriptionEnabled
+    _prevHideDemoFolder = state.hideDemoFolder
+    _prevSplitBreakpointType = state.splitBreakpointType
+    _prevSplitBreakpointNote = state.splitBreakpointNote
+    _prevSplitBreakpointRangeStart = state.splitBreakpointRangeStart
+    _prevSplitBreakpointRangeEnd = state.splitBreakpointRangeEnd
+    _prevShowHandLabels = state.showHandLabels
+    _prevLoopRegionEnabled = state.loopRegionEnabled
+    _prevHandLabelMode = state.handLabelMode
+    _prevPerformanceSplitSensitivity = state.performanceSplitSensitivity
+    _prevShowOctaveLabels = state.showOctaveLabels
+    _prevShowNoteNamesOnKeyboard = state.showNoteNamesOnKeyboard
     window.electronAPI?.setPrefs?.({
       noteNaming: state.noteNaming,
       accidentals: state.accidentals,
       masterVolume: state.masterVolume,
+      audioEngine: state.audioEngine,
+      showBarNumbers: state.showBarNumbers,
+      chordPrompterEnabled: state.chordPrompterEnabled,
+      chordTranscriptionEnabled: state.chordTranscriptionEnabled,
+      hideDemoFolder: state.hideDemoFolder,
+      splitBreakpointType: state.splitBreakpointType,
+      splitBreakpointNote: state.splitBreakpointNote,
+      splitBreakpointRangeStart: state.splitBreakpointRangeStart,
+      splitBreakpointRangeEnd: state.splitBreakpointRangeEnd,
+      showHandLabels: state.showHandLabels,
+      loopRegionEnabled: state.loopRegionEnabled,
+      handLabelMode: state.handLabelMode,
+      performanceSplitSensitivity: state.performanceSplitSensitivity,
+      showOctaveLabels: state.showOctaveLabels,
+      showNoteNamesOnKeyboard: state.showNoteNamesOnKeyboard,
     }).catch(() => {})
   }
 })

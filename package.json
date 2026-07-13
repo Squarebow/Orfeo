@@ -1,6 +1,6 @@
 {
   "name": "orfeo",
-  "version": "0.5.0",
+  "version": "0.10.4",
   "description": "Modern piano learning app with MIDI visualization",
   "author": "SquareBow",
   "license": "MIT",
@@ -12,7 +12,8 @@
     "build": "npm run copyworklet && electron-vite build",
     "preview": "electron-vite preview",
     "typecheck": "tsc --noEmit",
-    "dist": "npm run copyworklet && electron-vite build && electron-builder"
+    "dist": "npm run copyworklet && electron-vite build && electron-builder",
+    "dist:portable": "npm run copyworklet && electron-vite build && electron-builder --win portable"
   },
   "build": {
     "appId": "com.squarebow.orfeo",
@@ -22,12 +23,45 @@
     },
     "files": [
       "out/**/*",
-      "package.json"
+      "public/spessasynth_processor.min.js",
+      "!node_modules/**/*",
+      "node_modules/pdfkit/**/*",
+      "node_modules/@noble/**/*",
+      "node_modules/fontkit/**/*",
+      "node_modules/js-md5/**/*",
+      "node_modules/linebreak/**/*",
+      "node_modules/png-js/**/*",
+      "node_modules/@swc/helpers/**/*",
+      "node_modules/brotli/**/*",
+      "node_modules/clone/**/*",
+      "node_modules/dfa/**/*",
+      "node_modules/fast-deep-equal/**/*",
+      "node_modules/restructure/**/*",
+      "node_modules/tiny-inflate/**/*",
+      "node_modules/unicode-properties/**/*",
+      "node_modules/unicode-trie/**/*",
+      "node_modules/base64-js/**/*",
+      "node_modules/browserify-zlib/**/*",
+      "node_modules/pako/**/*",
+      "node_modules/tslib/**/*"
+    ],
+    "extraResources": [
+      { "from": "public/fonts", "to": "fonts" },
+      { "from": "public/demo", "to": "demo" }
+    ],
+    "asarUnpack": [
+      "out/renderer/spessasynth_processor.min.js"
     ],
     "win": {
       "target": [
         {
           "target": "nsis",
+          "arch": [
+            "x64"
+          ]
+        },
+        {
+          "target": "portable",
           "arch": [
             "x64"
           ]
@@ -41,6 +75,9 @@
       "createDesktopShortcut": true,
       "createStartMenuShortcut": true
     },
+    "portable": {
+      "artifactName": "${productName}-${version}-portable.${ext}"
+    },
     "mac": {
       "target": "dmg",
       "icon": "public/icon.icns"
@@ -48,10 +85,12 @@
   },
   "dependencies": {
     "@tonejs/midi": "^2.0.28",
+    "fuse.js": "^7.4.2",
     "jazz-midi-electron": "^2.0.3",
     "jzz": "^1.9.6",
     "jzz-midi-smf": "^1.9.9",
     "jzz-synth-tiny": "^1.4.4",
+    "pdfkit": "^0.19.1",
     "pixi.js": "^8.0.0",
     "soundfont-player": "^0.12.0",
     "spessasynth_lib": "^4.3.8",
@@ -62,6 +101,7 @@
   },
   "devDependencies": {
     "@tailwindcss/vite": "^4.3.1",
+    "@types/pdfkit": "^0.17.6",
     "@types/react": "^19.1.6",
     "@types/react-dom": "^19.1.5",
     "@vitejs/plugin-react": "^4.5.2",
