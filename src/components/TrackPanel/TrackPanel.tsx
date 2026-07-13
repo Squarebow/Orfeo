@@ -1,6 +1,6 @@
 import { useMemo, useState, useEffect } from 'react'
 import { ChevronRight, Eye, EyeOff, Volume2, VolumeX, ChevronDown, AudioLines, SlidersVertical } from 'lucide-react'
-import { useStore } from '../../store'
+import { useStore, DEFAULT_MUTED_GROUPS } from '../../store'
 import { GM_GROUPS } from '../../utils/gmInstruments'
 import type { TrackState } from '../../types'
 import { MarqueeText } from '../MarqueeText'
@@ -32,6 +32,7 @@ export default function TrackPanel() {
   const setTrackPanelOpen = useStore((s) => s.setTrackPanelOpen)
   const updateTrack = useStore((s) => s.updateTrack)
   const muteGroup = useStore((s) => s.muteGroup)
+  const setTrackMuteFilter = useStore((s) => s.setTrackMuteFilter)
   const [collapsedGroups, setCollapsedGroups] = useState<Set<string>>(new Set())
   const [editorOpen, setEditorOpen] = useState(false)
 
@@ -87,6 +88,12 @@ export default function TrackPanel() {
   }, [tracks])
 
   const hasSolo = tracks.some(t => t.solo)
+
+  // ── isCurrentlyFiltered — true when all DEFAULT_MUTED_GROUPS tracks are muted ──
+  const isCurrentlyFiltered = useMemo(() => {
+    const filterable = tracks.filter(t => !t.isDrum && DEFAULT_MUTED_GROUPS.has(t.group ?? ''))
+    return filterable.length > 0 && filterable.every(t => t.muted)
+  }, [tracks])
 
   // ── Toggle group collapse — adds/removes group key from collapsed set ─────
   const toggleGroupCollapse = (group: string) => {
@@ -223,7 +230,7 @@ export default function TrackPanel() {
           {/* Header */}
           <div style={{
             height: 40, display: 'flex', alignItems: 'center',
-            padding: '0 14px',
+            padding: '0 10px 0 14px',
             borderBottom: '1px solid var(--border)', flexShrink: 0,
             gap: 'var(--space-2)',
           }}>
@@ -232,9 +239,37 @@ export default function TrackPanel() {
               Tracks
             </span>
             {midi && (
-              <span style={{ marginLeft: 'auto', color: 'var(--text-inactive)', fontSize: 'var(--text-xs)', fontFamily: 'JetBrains Mono' }}>
-                {tracks.length}
-              </span>
+              <>
+                <span style={{ color: 'var(--text-inactive)', fontSize: 'var(--text-xs)', fontFamily: 'JetBrains Mono' }}>
+                  {tracks.length}
+                </span>
+                {/* ── Mute-filter quick toggle — always amber; text shows current state ── */}
+                <button
+                  onClick={() => setTrackMuteFilter(!isCurrentlyFiltered)}
+                  title={isCurrentlyFiltered ? 'Play all tracks' : 'Play only piano, bass & drums'}
+                  style={{
+                    marginLeft: 'auto',
+                    padding: '2px 7px',
+                    borderRadius: 'var(--radius-sm)',
+                    border: 'none',
+                    background: 'var(--text-amber)',
+                    color: '#1a1000',
+                    fontSize: 9,
+                    fontWeight: 700,
+                    fontFamily: 'Inter',
+                    letterSpacing: '0.02em',
+                    cursor: 'pointer',
+                    whiteSpace: 'nowrap',
+                    lineHeight: '18px',
+                    flexShrink: 0,
+                    display: 'flex',
+                    alignItems: 'center',
+                  }}
+                >
+                  <svg width="6" height="7" viewBox="0 0 6 7" style={{ marginRight: 3, flexShrink: 0 }}><polygon points="0,0 6,3.5 0,7" fill="currentColor"/></svg>
+                  {isCurrentlyFiltered ? 'Selection' : 'All tracks'}
+                </button>
+              </>
             )}
           </div>
 

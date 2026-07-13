@@ -183,6 +183,13 @@ All user-visible changes listed here. For full technical detail see [CHANGELOG.m
 ### 13. 7. 2026
 
 **New**
+- **Auto-mute setting** — a new toggle in Settings › Audio lets you choose whether non-keyboard instrument tracks (strings, brass, guitar, etc.) are automatically muted when a file loads. Off by default — every track plays on load; turn it on if you prefer a focused piano/bass/drums mix.
+- **Track filter button** — the Tracks panel header now has an amber "All tracks / Selection" button. Click it mid-session to instantly switch between hearing all tracks and hearing only piano, bass & drums, without touching individual mute buttons or reloading the file. Works during playback too.
+
+**Improved**
+- **Live mute during playback** — muting or unmuting tracks (via the M buttons or the new filter toggle) now takes effect in the audio immediately, without interrupting playback or causing a gap.
+
+**New**
 - **Drag & drop MIDI files** — drag any `.mid` or `.midi` file from Windows Explorer directly onto the Orfeo window to load it instantly. Works whether the app is empty or a file is already playing. Files outside your library folder are automatically copied in so they show up in the sidebar. A confirmation prompt appears before replacing an already-loaded file.
 - **Drag & drop onto the Library sidebar** — drop a `.mid` or `.midi` file directly onto the file list in the Library panel to add it without interrupting playback. The file is copied into your library folder (with automatic duplicate renaming if needed) and appears in the list immediately.
 - **Active file highlight in Library** — the currently loaded file is highlighted in amber in the library list, making it easy to see which file is open at a glance regardless of play/pause state.

@@ -4,6 +4,33 @@
 
 ---
 
+### 13. 7. 2026 — Auto-mute setting + Track Panel filter toggle
+
+**`src/store/index.ts`**
+- Exported `DEFAULT_MUTED_GROUPS` so TrackPanel can read it without duplicating the set.
+- Added `autoMuteNonKeyboard: boolean` (default `false`) to `OrfeoStore` interface and store body, with `setAutoMuteNonKeyboard` setter and `setTrackMuteFilter(filtered: boolean)` batch action.
+- `makeTrackState` now takes a second `autoMute: boolean` argument; when `false` (the new default), all tracks start unmuted on file load.
+- `setMidi` passes `get().autoMuteNonKeyboard` to `makeTrackState`.
+- `setTrackMuteFilter`: single `set()` call mapping all tracks — `filtered` mode mutes every non-drum `DEFAULT_MUTED_GROUPS` track, `false` unmutes all.
+- Full persistence wiring: `_prevAutoMuteNonKeyboard` null-sentinel, subscriber diff/update/`setPrefs` payload, `restoreLibraryPrefs`.
+
+**`src/components/SettingsPanel/SettingsPanel.tsx`**
+- Added `autoMuteNonKeyboard` / `setAutoMuteNonKeyboard` selectors.
+- New eye-toggle `OptionRow` at the bottom of the Audio section — label "Piano, Bass & Drums Only", description "Automatically mutes all other instrument tracks when a file loads." Default off (EyeOff/red), matching the `false` default.
+
+**`src/components/TrackPanel/TrackPanel.tsx`**
+- Imports `DEFAULT_MUTED_GROUPS` from store.
+- Reads `setTrackMuteFilter` from store.
+- `isCurrentlyFiltered` useMemo: `true` when every filterable (non-drum `DEFAULT_MUTED_GROUPS`) track has `muted === true` and at least one such track exists.
+- Amber quick-toggle button in the Track Panel header (visible when a file is loaded): text "Selection" when filtered / "All tracks" when unfiltered; ▶ icon prepended in both states. Tooltip describes the action that clicking will take, not the current state. Clicking calls `setTrackMuteFilter(!isCurrentlyFiltered)`.
+
+**`src/hooks/useAudioEngine.ts`**
+- Promoted `_mutedCh` from a local variable inside `buildPlayer` to module scope; the JZZ player filter now reads the live module-level set.
+- Added `updateMutedChannels()`: repopulates `_mutedCh` from current store state and rebuilds the key-lighting schedule from `currentTime` — no player rebuild, no audio gap, instant effect.
+- Subscriber `tracksChanged` branch during playback: now calls `updateMutedChannels()` instead of `buildPlayer`. BPM and transpose changes still trigger a full `buildPlayer` rebuild (required for tempo/pitch timing). This is the "real-time JZZ filter callback" approach noted in CLAUDE.md.
+
+---
+
 ### 13. 7. 2026 — Library amber highlight + right-click Remove from Library
 
 **`src/store/index.ts`**

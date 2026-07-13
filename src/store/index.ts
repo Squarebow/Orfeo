@@ -6,9 +6,9 @@ import type {
 import type { DetectedKey } from '../utils/keyDetection'
 import { isKeyboardInstrument } from '../utils/gmInstruments'
 
-// Groups that are muted by default when a file opens (too distracting)
+// Groups muted when autoMuteNonKeyboard is on — exported so TrackPanel can read them
 // Unmuted by default: piano, chromatic, organ, bass, drums
-const DEFAULT_MUTED_GROUPS = new Set([
+export const DEFAULT_MUTED_GROUPS = new Set([
   'guitar', 'strings', 'ensemble', 'brass', 'reed', 'pipe',
   'synth_lead', 'synth_pad', 'synth_fx', 'ethnic',
   'percussive', 'sfx',
@@ -146,6 +146,11 @@ interface OrfeoStore {
   splitBreakpointRangeEnd: number
   setSplitBreakpointRangeEnd: (n: number) => void
 
+  autoMuteNonKeyboard: boolean
+  setAutoMuteNonKeyboard: (v: boolean) => void
+  // ── Instantly applies or clears the auto-mute filter on currently loaded tracks ──
+  setTrackMuteFilter: (filtered: boolean) => void
+
   showHandLabels: boolean
   setShowHandLabels: (v: boolean) => void
 
@@ -168,9 +173,11 @@ interface OrfeoStore {
   resetAll: () => void
 }
 
-function makeTrackState(track: ParsedTrack): TrackState {
-  const isKeyboard = isKeyboardInstrument(track.program)
-  const autoMuted = !track.isDrum && DEFAULT_MUTED_GROUPS.has(track.group ?? '')
+// ── makeTrackState — builds initial TrackState for a parsed track ────────────
+// autoMute controls whether DEFAULT_MUTED_GROUPS tracks start muted; when false
+// every track plays by default (safer for files with non-piano melody content).
+function makeTrackState(track: ParsedTrack, autoMute: boolean): TrackState {
+  const autoMuted = autoMute && !track.isDrum && DEFAULT_MUTED_GROUPS.has(track.group ?? '')
   const showOnKeyboard = KEYBOARD_DISPLAY_GROUPS.has(track.group ?? '') && !track.isDrum
 
   return {
@@ -197,7 +204,7 @@ export const useStore = create<OrfeoStore>((set, get) => ({
     if (!midi) { set({ midi: null, tracks: [], currentTime: 0, playbackState: 'stopped', trackPanelOpen: false, barStarts: [], chordSequence: [], chordPrompterOpen: false, loopStart: null, loopEnd: null, loopRegionActive: false }); return }
     set({
       midi,
-      tracks: midi.tracks.map(makeTrackState),
+      tracks: midi.tracks.map(t => makeTrackState(t, get().autoMuteNonKeyboard)),
       currentTime: 0,
       playbackState: 'stopped',
       bpm: midi.bpm,
@@ -367,6 +374,17 @@ export const useStore = create<OrfeoStore>((set, get) => ({
   splitBreakpointRangeEnd: 60,
   setSplitBreakpointRangeEnd: (n) => set((s) => ({ splitBreakpointRangeEnd: Math.max(s.splitBreakpointRangeStart + 1, Math.min(60, n)) })),
 
+  // ── Auto-mute on load — default false (play everything; restrictive mode is opt-in) ──
+  autoMuteNonKeyboard: false,
+  setAutoMuteNonKeyboard: (autoMuteNonKeyboard) => set({ autoMuteNonKeyboard }),
+  // ── setTrackMuteFilter — instant one-shot toggle on currently loaded tracks ─
+  setTrackMuteFilter: (filtered) => set((s) => ({
+    tracks: s.tracks.map(t => ({
+      ...t,
+      muted: filtered ? (!t.isDrum && DEFAULT_MUTED_GROUPS.has(t.group ?? '')) : false,
+    })),
+  })),
+
   // ── Hand labels — show LEFT/RIGHT HAND labels on the keyboard ────────────
   showHandLabels: false,
   setShowHandLabels: (showHandLabels) => set({ showHandLabels }),
@@ -475,6 +493,7 @@ async function restoreLibraryPrefs() {
     if (typeof prefs.performanceSplitSensitivity === 'number') store.setPerformanceSplitSensitivity(prefs.performanceSplitSensitivity)
     if (typeof prefs.showOctaveLabels === 'boolean') store.setShowOctaveLabels(prefs.showOctaveLabels)
     if (typeof prefs.showNoteNamesOnKeyboard === 'boolean') store.setShowNoteNamesOnKeyboard(prefs.showNoteNamesOnKeyboard)
+    if (typeof prefs.autoMuteNonKeyboard === 'boolean') store.setAutoMuteNonKeyboard(prefs.autoMuteNonKeyboard)
     if (Array.isArray(prefs.transcriptHistory)) useStore.setState({ transcriptHistory: prefs.transcriptHistory })
   } catch (e) {
     console.error('[Orfeo] restoreLibraryPrefs:', e)
@@ -517,6 +536,7 @@ let _prevHandLabelMode: string | null = null
 let _prevPerformanceSplitSensitivity: number | null = null
 let _prevShowOctaveLabels: boolean | null = null
 let _prevShowNoteNamesOnKeyboard: boolean | null = null
+let _prevAutoMuteNonKeyboard: boolean | null = null
 useStore.subscribe((state) => {
   // Skip the very first fire (app init) — restore handles loading saved values
   if (_prevNoteNaming === null) {
@@ -538,6 +558,7 @@ useStore.subscribe((state) => {
     _prevPerformanceSplitSensitivity = state.performanceSplitSensitivity
     _prevShowOctaveLabels = state.showOctaveLabels
     _prevShowNoteNamesOnKeyboard = state.showNoteNamesOnKeyboard
+    _prevAutoMuteNonKeyboard = state.autoMuteNonKeyboard
     return
   }
   if (
@@ -558,7 +579,8 @@ useStore.subscribe((state) => {
     state.handLabelMode !== _prevHandLabelMode ||
     state.performanceSplitSensitivity !== _prevPerformanceSplitSensitivity ||
     state.showOctaveLabels !== _prevShowOctaveLabels ||
-    state.showNoteNamesOnKeyboard !== _prevShowNoteNamesOnKeyboard
+    state.showNoteNamesOnKeyboard !== _prevShowNoteNamesOnKeyboard ||
+    state.autoMuteNonKeyboard !== _prevAutoMuteNonKeyboard
   ) {
     _prevNoteNaming = state.noteNaming
     _prevAccidentals = state.accidentals
@@ -578,6 +600,7 @@ useStore.subscribe((state) => {
     _prevPerformanceSplitSensitivity = state.performanceSplitSensitivity
     _prevShowOctaveLabels = state.showOctaveLabels
     _prevShowNoteNamesOnKeyboard = state.showNoteNamesOnKeyboard
+    _prevAutoMuteNonKeyboard = state.autoMuteNonKeyboard
     window.electronAPI?.setPrefs?.({
       noteNaming: state.noteNaming,
       accidentals: state.accidentals,
@@ -597,6 +620,7 @@ useStore.subscribe((state) => {
       performanceSplitSensitivity: state.performanceSplitSensitivity,
       showOctaveLabels: state.showOctaveLabels,
       showNoteNamesOnKeyboard: state.showNoteNamesOnKeyboard,
+      autoMuteNonKeyboard: state.autoMuteNonKeyboard,
     }).catch(() => {})
   }
 })

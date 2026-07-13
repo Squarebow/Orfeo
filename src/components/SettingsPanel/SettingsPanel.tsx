@@ -883,6 +883,8 @@ export default function SettingsPanel() {
   const setHandLabelMode                     = useStore((s) => s.setHandLabelMode)
   const performanceSplitSensitivity          = useStore((s) => s.performanceSplitSensitivity)
   const setPerformanceSplitSensitivity       = useStore((s) => s.setPerformanceSplitSensitivity)
+  const autoMuteNonKeyboard    = useStore((s) => s.autoMuteNonKeyboard)
+  const setAutoMuteNonKeyboard = useStore((s) => s.setAutoMuteNonKeyboard)
   // ── Samples engine loading state ─────────────────────────────────────────
   const [samplesStatus, setSamplesStatus] = useState<'idle' | 'loading' | 'ready' | 'error'>('idle')
   const [samplesProgress, setSamplesProgress] = useState(0)
@@ -1313,6 +1315,14 @@ export default function SettingsPanel() {
                       </div>
                     )}
                   </OptionRow>
+                  {/* ── Auto-mute — eye-toggle; default off = play everything on load ─ */}
+                  <OptionRow
+                    label="Piano, Bass & Drums Only"
+                    eyeToggle
+                    eyeValue={autoMuteNonKeyboard}
+                    onEyeChange={setAutoMuteNonKeyboard}
+                    description="Automatically mutes all other instrument tracks when a file loads."
+                  />
                 </CollapsibleSection>
 
                 {/* ── 6. PIANO ROLL ──────────────────────────────────────────────── */}

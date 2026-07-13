@@ -15,6 +15,8 @@ let _player: any = null
 let _notePortReady = false
 // ch 15 = collision risk if a loaded MIDI file uses channel 16; accepted tradeoff
 let _hwChannelReady = false
+// ── Module-level muted channel set — updated in-place so the live filter reads it ──
+let _mutedCh = new Set<number>()
 
 function initJZZ(): Promise<void> {
   if (_jzzReady) return Promise.resolve()
@@ -114,6 +116,38 @@ function destroyPlayer() {
   ;(window as any).__orfeoPlayer = null
 }
 
+// ── updateMutedChannels — live mute/solo update without rebuilding the player ──
+// Repopulates _mutedCh and rebuilds the key-lighting schedule from currentTime.
+// Called on track-state changes during playback so the filter takes effect instantly.
+function updateMutedChannels() {
+  const { midi, tracks, bpm, originalBpm, detectedKey, currentTime } = useStore.getState()
+  const midiData = midi as any
+  if (!midiData || !_player) return
+  const hasSolo = tracks.some((t: any) => t.solo)
+  const transpose = detectedKey?.transpose ?? 0
+  const ratio = bpm / originalBpm
+  _mutedCh.clear()
+  for (const tr of midiData.tracks) {
+    const ts = tracks.find((t: any) => t.index === tr.index)
+    if (!ts || ts.muted || !ts.visible || (hasSolo && !ts.solo)) _mutedCh.add(tr.channel)
+  }
+  clearLightSchedule(); clearAllKeys()
+  for (const track of midiData.tracks) {
+    const ts = tracks.find((t: any) => t.index === track.index)
+    if (!ts || ts.muted || !ts.visible || (hasSolo && !ts.solo) || !ts.showOnKeyboard) continue
+    const color = ts.color ?? '#e8a027'
+    for (const note of track.notes) {
+      const noteStart = note.time / ratio
+      if (noteStart < currentTime) continue
+      const delay = (noteStart - currentTime) * 1000
+      const durMs = Math.max(note.duration / ratio * 1000, 80)
+      const midiNum = note.midi + transpose
+      const t = setTimeout(() => lightKey(midiNum, color, Math.min(durMs + 80, 2500)), delay)
+      _lightSchedule.push(t)
+    }
+  }
+}
+
 function buildPlayer(startSec: number) {
   if (!_jzzReady || !_port) return
   const raw = (useStore.getState().midi as any)?._raw
@@ -125,10 +159,10 @@ function buildPlayer(startSec: number) {
     const ratio = bpm / originalBpm
     const midiData = useStore.getState().midi as any
     const hasSolo = tracks.some((t: any) => t.solo)
-    const mutedCh = new Set<number>()
+    _mutedCh = new Set<number>()
     for (const tr of midiData.tracks) {
       const ts = tracks.find((t: any) => t.index === tr.index)
-      if (!ts || ts.muted || !ts.visible || (hasSolo && !ts.solo)) mutedCh.add(tr.channel)
+      if (!ts || ts.muted || !ts.visible || (hasSolo && !ts.solo)) _mutedCh.add(tr.channel)
     }
     for (const track of midiData.tracks) {
       const ts = tracks.find((t: any) => t.index === track.index)
@@ -150,7 +184,7 @@ function buildPlayer(startSec: number) {
     player.filter(function(this: any, msg: any) {
       const status = msg[0] & 0xF0
       const ch = msg[0] & 0x0F
-      if (mutedCh.has(ch)) return
+      if (_mutedCh.has(ch)) return
       if (transpose !== 0 && (status === 0x90 || status === 0x80)) {
         const newNote = Math.max(0, Math.min(127, msg[1] + transpose))
         this._receive(_JZZ.MIDI(msg[0], newNote, msg[2]))
@@ -291,11 +325,15 @@ export function useAudioEngine() {
         clearLightSchedule(); clearAllKeys()
       } else if (ps === 'stopped' && pp !== 'stopped') {
         stopAudio()
-      } else if (ps === 'playing' && (bpmChanged || transposeChanged || tracksChanged)) {
+      } else if (ps === 'playing' && (bpmChanged || transposeChanged)) {
+        // BPM/transpose change requires a full rebuild (tempo/pitch affects note timing)
         if (schedulingRef.current) return
         schedulingRef.current = true
         buildPlayer(state.currentTime)
         schedulingRef.current = false
+      } else if (ps === 'playing' && tracksChanged) {
+        // Mute/solo/visible changed — update live filter + lighting without rebuilding player
+        updateMutedChannels()
       }
     })
     return () => { unsub(); stopAudio() }
