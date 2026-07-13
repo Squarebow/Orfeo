@@ -407,6 +407,13 @@ export const useStore = create<OrfeoStore>((set, get) => ({
     if (next.has(path)) next.delete(path); else next.add(path)
     return { libraryFavourites: next }
   }),
+  // ── Persisted client-side exclusion list — file stays on disk, just hidden ─
+  hiddenLibraryFiles: [] as string[],
+  hideLibraryFile: (path: string) => set(((s: any) => ({
+    hiddenLibraryFiles: (s.hiddenLibraryFiles as string[]).includes(path)
+      ? s.hiddenLibraryFiles
+      : [...s.hiddenLibraryFiles, path],
+  })) as any),
   loadLibraryFile: async (filePath) => {
     try {
       const result = await window.electronAPI.loadMidiFromPath(filePath)
@@ -447,6 +454,9 @@ async function restoreLibraryPrefs() {
     if (Array.isArray(prefs.libraryFavourites)) {
       prefs.libraryFavourites.forEach((p: string) => store.toggleFavourite(p))
     }
+    if (Array.isArray(prefs.hiddenLibraryFiles)) {
+      useStore.setState({ hiddenLibraryFiles: prefs.hiddenLibraryFiles } as any)
+    }
     if (prefs.noteNaming) store.setNoteNaming(prefs.noteNaming)
     if (prefs.accidentals) store.setAccidentals(prefs.accidentals)
     if (typeof prefs.masterVolume === 'number') store.setMasterVolume(prefs.masterVolume)
@@ -472,12 +482,17 @@ async function restoreLibraryPrefs() {
 }
 setTimeout(restoreLibraryPrefs, 500)
 
+// ── Persist library-list state — favourites + hidden exclusions ───────────────
+// Debounced 1 s; gated on libraryFolder so it only fires once a library is set.
 let _favTimer: ReturnType<typeof setTimeout> | null = null
 useStore.subscribe((state) => {
   if (!state.libraryFolder) return
   if (_favTimer) clearTimeout(_favTimer)
   _favTimer = setTimeout(() => {
-    window.electronAPI?.setPrefs?.({ libraryFavourites: Array.from(state.libraryFavourites) }).catch(() => {})
+    window.electronAPI?.setPrefs?.({
+      libraryFavourites:   Array.from(state.libraryFavourites),
+      hiddenLibraryFiles:  (state as any).hiddenLibraryFiles,
+    }).catch(() => {})
   }, 1000)
 })
 

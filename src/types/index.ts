@@ -103,6 +103,9 @@ declare global {
       onMidiReload:        (cb: (data: MidiFileResult) => void) => void
       onEditorClosed:      (cb: () => void) => void
       openExternal:        (url: string) => Promise<void>
+      // Drag-and-drop file import
+      getPathForFile:      (file: File) => string
+      copyMidiToLibrary:   (sourcePath: string, libraryFolder: string) => Promise<string>
     }
   }
 }

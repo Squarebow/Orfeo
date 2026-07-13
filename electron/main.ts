@@ -1,5 +1,5 @@
 import { app, BrowserWindow, ipcMain, dialog, shell } from 'electron'
-import { join, basename, dirname } from 'path'
+import { join, basename, dirname, extname } from 'path'
 import { readFileSync, writeFileSync, existsSync, readdirSync, createWriteStream } from 'fs'
 import { mkdir, access, copyFile, readdir, writeFile } from 'fs/promises'
 import { Midi } from '@tonejs/midi'
@@ -135,6 +135,27 @@ ipcMain.handle('fs:loadMidiFromPath', async (_e, filePath: string) => {
     const fileName = filePath.split(/[\\/]/).pop() ?? filePath
     return { fileName, filePath, base64: readFileSync(filePath).toString('base64') }
   } catch { return null }
+})
+
+// ── Copy a MIDI file into the library folder with collision-safe renaming ──────
+// Never moves or overwrites — source file is always left intact.
+// Returns the final destination path so the renderer can load it directly.
+ipcMain.handle('fs:copyMidiToLibrary', async (_e, sourcePath: string, libraryFolder: string) => {
+  const origName = basename(sourcePath)
+  const ext      = extname(origName)                     // '.mid' / '.midi'
+  const stem     = origName.slice(0, origName.length - ext.length)
+
+  let destName   = origName
+  let destPath   = join(libraryFolder, destName)
+  let counter    = 2
+  while (await access(destPath).then(() => true).catch(() => false)) {
+    destName = `${stem} (${counter})${ext}`
+    destPath = join(libraryFolder, destName)
+    counter++
+  }
+
+  await copyFile(sourcePath, destPath)
+  return destPath
 })
 
 // ── MIDI Editor window ─────────────────────────────────────────────────────

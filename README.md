@@ -180,6 +180,16 @@ All user-visible changes listed here. For full technical detail see [CHANGELOG.m
 
 ---
 
+### 13. 7. 2026
+
+**New**
+- **Drag & drop MIDI files** — drag any `.mid` or `.midi` file from Windows Explorer directly onto the Orfeo window to load it instantly. Works whether the app is empty or a file is already playing. Files outside your library folder are automatically copied in so they show up in the sidebar. A confirmation prompt appears before replacing an already-loaded file.
+- **Drag & drop onto the Library sidebar** — drop a `.mid` or `.midi` file directly onto the file list in the Library panel to add it without interrupting playback. The file is copied into your library folder (with automatic duplicate renaming if needed) and appears in the list immediately.
+- **Active file highlight in Library** — the currently loaded file is highlighted in amber in the library list, making it easy to see which file is open at a glance regardless of play/pause state.
+- **Remove from Library** — right-click any file in the library list and choose "Remove from Library" to hide it from the list. The file is never deleted or moved — it stays on disk and hidden files can be restored in a future update.
+
+---
+
 ### 9. 7. 2026 (v0.10.2)
 
 **Improved**

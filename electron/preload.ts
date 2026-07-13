@@ -1,4 +1,4 @@
-import { contextBridge, ipcRenderer } from 'electron'
+import { contextBridge, ipcRenderer, webUtils } from 'electron'
 
 contextBridge.exposeInMainWorld('electronAPI', {
   // Existing
@@ -25,4 +25,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
   onEditorClosed:     (cb: () => void) => ipcRenderer.on('editor:closed', () => cb()),
   openExternal:       (url: string) => ipcRenderer.invoke('shell:openExternal', url),
   transcriptGenerate: (midiPath: string, noteNaming: string, accidentals: string) => ipcRenderer.invoke('transcript:generate', midiPath, noteNaming, accidentals),
+  // Drag-and-drop file import
+  getPathForFile:     (file: File) => webUtils.getPathForFile(file),
+  copyMidiToLibrary:  (sourcePath: string, libraryFolder: string) => ipcRenderer.invoke('fs:copyMidiToLibrary', sourcePath, libraryFolder),
 })

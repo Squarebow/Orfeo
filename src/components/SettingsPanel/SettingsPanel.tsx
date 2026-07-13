@@ -311,6 +311,10 @@ interface LibraryFile {
   starred: boolean
 }
 
+// ── Filename span styles — active (amber) and default (muted) ─────────────────
+const FILENAME_SPAN_DEFAULT: React.CSSProperties = { fontSize: 'var(--text-xs)', color: 'var(--text-muted)' }
+const FILENAME_SPAN_ACTIVE:  React.CSSProperties = { fontSize: 'var(--text-xs)', color: 'var(--text-amber)', fontWeight: 500 }
+
 function LibraryPanel() {
   const libraryFolder = useStore((s) => s.libraryFolder)
   const libraryFiles = useStore((s) => s.libraryFiles)
@@ -325,10 +329,106 @@ function LibraryPanel() {
   const noteNaming                = useStore((s) => s.noteNaming)
   const accidentals               = useStore((s) => s.accidentals)
   const addTranscriptEntry        = useStore((s) => s.addTranscriptEntry)
+  // ── Active-file highlight — reads _filePath private field on parsed midi ──
+  const midi              = useStore((s) => s.midi)
+  const loadedFilePath    = (midi as any)?._filePath as string | undefined
+  // ── Hidden files — client-side exclusion list, no disk change ────────────
+  const hiddenLibraryFiles = useStore((s) => (s as any).hiddenLibraryFiles as string[])
+  const hideLibraryFile    = useStore((s) => (s as any).hideLibraryFile as (path: string) => void)
   const [loading, setLoading] = useState(false)
   const [filter, setFilter] = useState<'all' | 'starred'>('all')
   // Folders start expanded (not in collapsed set)
   const [expandedFolders, setExpandedFolders] = useState<Set<string>>(new Set())
+  // ── Context menu state — position + target path ───────────────────────────
+  const [contextMenu, setContextMenu] = useState<{ path: string; x: number; y: number } | null>(null)
+  const menuRef = useRef<HTMLDivElement>(null)
+
+  // ── Library sidebar drag-and-drop state ───────────────────────────────────
+  const [isDragOver, setIsDragOver]   = useState(false)
+  const [dropError, setDropError]     = useState<string | null>(null)
+  const dropErrorTimer                = useRef<ReturnType<typeof setTimeout> | null>(null)
+
+  // ── Show a timed error inside the panel, clearing any previous timer ──────
+  const showDropError = (msg: string) => {
+    if (dropErrorTimer.current) clearTimeout(dropErrorTimer.current)
+    setDropError(msg)
+    dropErrorTimer.current = setTimeout(() => setDropError(null), 2500)
+  }
+
+  // ── dragover: prevent browser default + light up the drop zone ────────────
+  const handleDragOver = (e: React.DragEvent<HTMLDivElement>) => {
+    e.preventDefault()
+    e.stopPropagation()
+    setIsDragOver(true)
+  }
+
+  // ── dragleave: clear highlight only when pointer leaves the container ──────
+  const handleDragLeave = (e: React.DragEvent<HTMLDivElement>) => {
+    if (e.currentTarget.contains(e.relatedTarget as Node)) return
+    setIsDragOver(false)
+  }
+
+  // ── drop: add file to library — never touches playback state ─────────────
+  // Reuses copyMidiToLibrary IPC (collision-safe copy) and getPathForFile
+  // from the main-area drop zone implementation. No confirmation modal needed.
+  const handleDrop = async (e: React.DragEvent<HTMLDivElement>) => {
+    e.preventDefault()
+    e.stopPropagation()
+    setIsDragOver(false)
+
+    const file = e.dataTransfer.files[0]
+    if (!file) return
+
+    if (!/\.(mid|midi)$/i.test(file.name)) {
+      showDropError('Only .mid / .midi files are supported.')
+      return
+    }
+
+    const currentLibraryFolder = (useStore.getState() as any).libraryFolder as string | null
+    if (!currentLibraryFolder) {
+      showDropError('Set a library folder first.')
+      return
+    }
+
+    const filePath = window.electronAPI.getPathForFile(file)
+    const normLib  = currentLibraryFolder.replace(/\\/g, '/').replace(/\/$/, '').toLowerCase()
+    const normFile = filePath.replace(/\\/g, '/').toLowerCase()
+    const isInside = normFile.startsWith(normLib + '/')
+
+    try {
+      if (!isInside) {
+        await window.electronAPI.copyMidiToLibrary(filePath, currentLibraryFolder)
+      }
+      const files = await window.electronAPI.scanMidiFolder(currentLibraryFolder)
+      setLibraryFiles(files)
+    } catch (err) {
+      console.error('[Orfeo] library sidebar drop failed:', err)
+      showDropError('Could not copy file into library.')
+    }
+  }
+
+  // ── Close context menu on outside click or Escape ────────────────────────
+  useEffect(() => {
+    if (!contextMenu) return
+    const handleDown = (e: MouseEvent) => {
+      if (menuRef.current && !menuRef.current.contains(e.target as Node)) {
+        setContextMenu(null)
+      }
+    }
+    const handleKey = (e: KeyboardEvent) => { if (e.key === 'Escape') setContextMenu(null) }
+    window.addEventListener('mousedown', handleDown)
+    window.addEventListener('keydown', handleKey)
+    return () => {
+      window.removeEventListener('mousedown', handleDown)
+      window.removeEventListener('keydown', handleKey)
+    }
+  }, [contextMenu])
+
+  // ── Open context menu at cursor position for a library file row ───────────
+  const handleContextMenu = (e: React.MouseEvent, filePath: string) => {
+    e.preventDefault()
+    setContextMenu({ path: filePath, x: e.clientX, y: e.clientY })
+  }
 
   // ── Folder picker — opens Electron folder dialog and scans for MIDI files ─
   const handlePickFolder = async () => {
@@ -381,11 +481,14 @@ function LibraryPanel() {
   }
 
   // ── Group files — root files first, then one entry per subfolder ─────────
+  // Hidden files are filtered here so the rest of the render sees a clean list.
   type FileGroup = { folder: string | null; files: LibraryFile[] }
   const grouped: FileGroup[] = useMemo(() => {
-    const allFiles = filter === 'starred'
-      ? libraryFiles.filter(f => libraryFavourites.has(f.path))
-      : libraryFiles
+    const hiddenSet = new Set(hiddenLibraryFiles)
+    const allFiles = (filter === 'starred'
+      ? libraryFiles.filter((f: LibraryFile) => libraryFavourites.has(f.path))
+      : libraryFiles as LibraryFile[]
+    ).filter((f: LibraryFile) => !hiddenSet.has(f.path))
 
     const rootFiles: LibraryFile[] = []
     const folderMap = new Map<string, LibraryFile[]>()
@@ -425,7 +528,7 @@ function LibraryPanel() {
     result.push({ folder: null, files: [...starred, ...unstarred] })
 
     return result
-  }, [libraryFiles, libraryFavourites, libraryFolder, filter])
+  }, [libraryFiles, libraryFavourites, libraryFolder, filter, hiddenLibraryFiles])
 
   const toggleFolder = (folder: string) => setExpandedFolders(prev => {
     const next = new Set(prev)
@@ -527,8 +630,69 @@ function LibraryPanel() {
         )}
       </div>
 
-      {/* ── File list ── */}
-      <div style={{ flex: 1, overflowY: 'auto' }}>
+      {/* ── File list — also the library drop zone ── */}
+      <div
+        style={{ flex: 1, overflowY: 'auto', position: 'relative' }}
+        onDragOver={handleDragOver}
+        onDragLeave={handleDragLeave}
+        onDrop={handleDrop}
+        onScroll={() => setContextMenu(null)}
+      >
+
+        {/* ── Drag-over highlight — amber border + tint, pointer-events none ─── */}
+        {isDragOver && (
+          <div style={{
+            position: 'absolute', inset: 0,
+            border: '2px solid var(--text-amber)',
+            background: 'rgba(232, 160, 39, 0.06)',
+            pointerEvents: 'none',
+            zIndex: 10,
+          }} />
+        )}
+
+        {/* ── Drop error toast — scoped inside the panel, auto-dismissed ─────── */}
+        {dropError && (
+          <div style={{
+            position: 'absolute', bottom: 8, left: 8, right: 8,
+            background: '#2d2d2d', border: '1px solid #404055',
+            borderRadius: 5, padding: '6px 10px',
+            color: 'var(--text-default)', fontSize: 'var(--text-xs)',
+            textAlign: 'center', pointerEvents: 'none',
+            zIndex: 11, boxShadow: '0 2px 8px rgba(0,0,0,0.4)',
+          }}>
+            {dropError}
+          </div>
+        )}
+
+        {/* ── Right-click context menu — position:fixed escapes panel overflow ── */}
+        {contextMenu && (
+          <div
+            ref={menuRef}
+            style={{
+              position: 'fixed', top: contextMenu.y, left: contextMenu.x,
+              background: 'var(--panel)', border: '1px solid #404055',
+              borderRadius: 'var(--radius-md)',
+              boxShadow: '0 4px 16px rgba(0,0,0,0.55)',
+              zIndex: 9500, minWidth: 160, overflow: 'hidden',
+            }}
+          >
+            <button
+              onClick={() => { hideLibraryFile(contextMenu.path); setContextMenu(null) }}
+              style={{
+                width: '100%', padding: '8px 14px',
+                background: 'none', border: 'none',
+                color: 'var(--text-default)', fontSize: 'var(--text-xs)',
+                textAlign: 'left', cursor: 'pointer',
+                display: 'flex', alignItems: 'center', gap: 8,
+                transition: 'background 0.1s',
+              }}
+              onMouseEnter={e => { e.currentTarget.style.background = 'var(--bg-tile)'; e.currentTarget.style.color = 'var(--text-amber)' }}
+              onMouseLeave={e => { e.currentTarget.style.background = 'none';           e.currentTarget.style.color = 'var(--text-default)' }}
+            >
+              Remove from Library
+            </button>
+          </div>
+        )}
 
         {/* Empty state */}
         {libraryFolder && !hasAnyFiles && (
@@ -549,28 +713,34 @@ function LibraryPanel() {
               <span style={{ flex: 1, fontSize: 'var(--text-xs)', color: '#8080a0', fontWeight: 600 }}>Demo</span>
               <span style={{ fontSize: 9, color: 'var(--text-muted)', fontFamily: 'JetBrains Mono' }}>{demoFiles.length}</span>
             </div>
-            {demoFiles.map(file => (
-              <div
-                key={file.path}
-                title={file.name}
-                style={{
-                  display: 'flex', alignItems: 'center', gap: 6,
-                  padding: '7px 10px 7px 26px', borderBottom: '1px solid var(--border-row)',
-                  cursor: 'pointer', transition: 'background 0.08s',
-                }}
-                onMouseEnter={e => (e.currentTarget as HTMLElement).style.background = 'var(--bg-tile)'}
-                onMouseLeave={e => (e.currentTarget as HTMLElement).style.background = 'transparent'}
-                onClick={() => handleLoadFile(file.path)}
-              >
-                {/* ── FileMusic doubles as transcript trigger when feature is on ── */}
-                {chordTranscriptionEnabled ? (
-                  <TranscriptIcon filePath={file.path} noteNaming={noteNaming} accidentals={accidentals} addTranscriptEntry={addTranscriptEntry} />
-                ) : (
-                  <FileMusic size={11} style={{ color: 'var(--text-muted)', flexShrink: 0 }} />
-                )}
-                <MarqueeFilename name={file.name.replace(/\.(mid|midi)$/i, '')} />
-              </div>
-            ))}
+            {demoFiles.filter((f: { name: string; path: string }) => !hiddenLibraryFiles.includes(f.path)).map(file => {
+              const isLoaded = !!loadedFilePath &&
+                file.path.replace(/\\/g, '/') === loadedFilePath.replace(/\\/g, '/')
+              return (
+                <div
+                  key={file.path}
+                  title={file.name}
+                  style={{
+                    display: 'flex', alignItems: 'center', gap: 6,
+                    padding: '7px 10px 7px 26px', borderBottom: '1px solid var(--border-row)',
+                    cursor: 'pointer', transition: 'background 0.08s',
+                    background: isLoaded ? 'var(--accent-amber-medium)' : 'transparent',
+                  }}
+                  onMouseEnter={e => (e.currentTarget as HTMLElement).style.background = isLoaded ? 'var(--accent-amber-medium)' : 'var(--bg-tile)'}
+                  onMouseLeave={e => (e.currentTarget as HTMLElement).style.background = isLoaded ? 'var(--accent-amber-medium)' : 'transparent'}
+                  onClick={() => handleLoadFile(file.path)}
+                  onContextMenu={e => handleContextMenu(e, file.path)}
+                >
+                  {/* ── FileMusic doubles as transcript trigger when feature is on ── */}
+                  {chordTranscriptionEnabled ? (
+                    <TranscriptIcon filePath={file.path} noteNaming={noteNaming} accidentals={accidentals} addTranscriptEntry={addTranscriptEntry} />
+                  ) : (
+                    <FileMusic size={11} style={{ color: isLoaded ? 'var(--text-amber)' : 'var(--text-muted)', flexShrink: 0 }} />
+                  )}
+                  <MarqueeText name={file.name.replace(/\.(mid|midi)$/i, '')} spanStyle={isLoaded ? FILENAME_SPAN_ACTIVE : FILENAME_SPAN_DEFAULT} />
+                </div>
+              )
+            })}
           </div>
         )}
 
@@ -613,7 +783,9 @@ function LibraryPanel() {
 
             {/* Files inside this group — hidden when folder is collapsed */}
             {(!group.folder || expandedFolders.has(group.folder)) && group.files.map((file) => {
-              const starred = libraryFavourites.has(file.path)
+              const starred   = libraryFavourites.has(file.path)
+              const isLoaded  = !!loadedFilePath &&
+                file.path.replace(/\\/g, '/') === loadedFilePath.replace(/\\/g, '/')
               return (
                 <div
                   key={file.path}
@@ -624,18 +796,20 @@ function LibraryPanel() {
                     padding: group.folder ? '7px 10px 7px 26px' : '7px 10px 7px 12px',
                     borderBottom: '1px solid var(--border-row)',
                     cursor: 'pointer', transition: 'background 0.08s',
+                    background: isLoaded ? 'var(--accent-amber-medium)' : 'transparent',
                   }}
-                  onMouseEnter={e => (e.currentTarget as HTMLElement).style.background = 'var(--bg-tile)'}
-                  onMouseLeave={e => (e.currentTarget as HTMLElement).style.background = 'transparent'}
+                  onMouseEnter={e => (e.currentTarget as HTMLElement).style.background = isLoaded ? 'var(--accent-amber-medium)' : 'var(--bg-tile)'}
+                  onMouseLeave={e => (e.currentTarget as HTMLElement).style.background = isLoaded ? 'var(--accent-amber-medium)' : 'transparent'}
                   onClick={() => handleLoadFile(file.path)}
+                  onContextMenu={e => handleContextMenu(e, file.path)}
                 >
                   {/* ── FileMusic doubles as transcript trigger when feature is on ── */}
                   {chordTranscriptionEnabled ? (
                     <TranscriptIcon filePath={file.path} noteNaming={noteNaming} accidentals={accidentals} addTranscriptEntry={addTranscriptEntry} />
                   ) : (
-                    <FileMusic size={11} style={{ color: 'var(--text-muted)', flexShrink: 0 }} />
+                    <FileMusic size={11} style={{ color: isLoaded ? 'var(--text-amber)' : 'var(--text-muted)', flexShrink: 0 }} />
                   )}
-                  <MarqueeFilename name={file.name.replace(/\.(mid|midi)$/i, '')} />
+                  <MarqueeText name={file.name.replace(/\.(mid|midi)$/i, '')} spanStyle={isLoaded ? FILENAME_SPAN_ACTIVE : FILENAME_SPAN_DEFAULT} />
                   <button
                     onClick={e => { e.stopPropagation(); toggleFavourite(file.path) }}
                     title={starred ? 'Remove from favourites' : 'Add to favourites'}

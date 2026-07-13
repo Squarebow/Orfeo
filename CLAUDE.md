@@ -96,7 +96,7 @@ All display routes through `convertAccidentals()` in `src/utils/noteNames.ts`. N
 
 Single Zustand store at `src/store/index.ts`. Persisted to `orfeo-prefs.json` in Electron `userData` (`%APPDATA%\Orfeo`) via `prefs:get` / `prefs:set` IPC.
 
-Currently persisted: `libraryFolder`, `libraryFavourites`, `noteNaming`, `accidentals`, `masterVolume`, `audioEngine`, `showBarNumbers`, `chordPrompterEnabled`, `chordTranscriptionEnabled`, `hideDemoFolder`, `splitBreakpointType`, `splitBreakpointNote`, `splitBreakpointRangeStart`, `splitBreakpointRangeEnd`, `showHandLabels`, `loopRegionEnabled`.
+Currently persisted: `libraryFolder`, `libraryFavourites`, `hiddenLibraryFiles`, `noteNaming`, `accidentals`, `masterVolume`, `audioEngine`, `showBarNumbers`, `chordPrompterEnabled`, `chordTranscriptionEnabled`, `hideDemoFolder`, `splitBreakpointType`, `splitBreakpointNote`, `splitBreakpointRangeStart`, `splitBreakpointRangeEnd`, `showHandLabels`, `loopRegionEnabled`.
 
 Two `useStore.subscribe` callbacks at the bottom of `store/index.ts` write prefs on change. A **null sentinel** skips the very first fire (app init) to avoid overwriting values before `restoreLibraryPrefs` runs — do not remove it.
 
@@ -130,6 +130,14 @@ Two `useStore.subscribe` callbacks at the bottom of `store/index.ts` write prefs
 **Chord Explorer progression playback** — `playProgStepAt` is a recursive `useCallback` that chains `setTimeout` calls. Its deps must include `setExplorerChordDisplay` and `rootLabels`, or those values go stale (classic React stale-closure bug). If the chord display above the keyboard stops updating during progression playback, check these deps first.
 
 **Chord Explorer Power tier** — when `tier === 'power'`, a single `isPowerMode` boolean gates the grid render (12 power chord tiles) and applies `opacity: 0.35, pointerEvents: 'none'` to Hand filter, Notes filter, Search, Progressions section, and Play Inversion footer. Entering Power mode also clears `selectedKey`/`explorerKeys`/`explorerChordDisplay` so stale chord highlights don't linger.
+
+**OrfeoStore interface gap** — library-related fields (`libraryFolder`, `libraryFiles`, `libraryFavourites`, `hiddenLibraryFiles`, `libraryFavourites`, etc.) exist in the store body but are NOT declared in the `OrfeoStore` TypeScript interface. Access them with `(s as any).field` in selectors and `useStore.getState() as any` in callbacks. Do not add them to the interface without also verifying every subscriber and selector that touches library state.
+
+**`store.loadLibraryFile` is broken** — it references `parseMidiBuffer`, `parseKeySignature`, and `detectKeyFromTracks` which are never imported in `store/index.ts`. It throws a ReferenceError at runtime (caught silently). Never call it. Use `loadFileIntoPlayer` in `App.tsx` instead — it has those utilities imported and mirrors the same logic as the `onMidiReload` handler.
+
+**Drag-and-drop file loading pattern** — main area drop (App.tsx) and library sidebar drop (SettingsPanel.tsx) both use `window.electronAPI.getPathForFile(file)` (via `webUtils.getPathForFile` in preload) to get the real OS path from the browser `File` object. Files dropped outside the library are copied in via `fs:copyMidiToLibrary` IPC (collision-safe naming: `Song.mid` → `Song (2).mid`). Only the main-area drop loads the file into the player; the sidebar drop is add-only. No auto-play on drop.
+
+**`_filePath` → library amber highlight** — `(midi as any)._filePath` (set by `parseMidiBuffer`) is the source of truth for which library row is currently loaded. Row comparison normalises both paths with `.replace(/\\/g, '/').toLowerCase()` before equality check to handle Windows backslash/case variation. The amber highlight is a background on the row, not a border.
 
 ---
 
@@ -250,6 +258,9 @@ Both updates happen together. One commit message covers the code change — no s
 - **Samples engine auto-init:** on startup, if `audioEngine === 'samples'` is restored from prefs, `SettingsPanel` auto-calls `initSamplesEngine`. The SF2 must be re-read from disk on every cold start — no persistent audio buffer cache
 - **Zustand object selectors crash the renderer:** `useStore(s => ({ a: s.a, b: s.b }))` breaks the `useSyncExternalStore` snapshot invariant (new object every render). Always use primitive selectors and derive combined values in the render body.
 - **Canvas + Electron drag:** HTML canvas elements inside Electron receive native drag events — setting `draggable=false` and calling `onDragStart={e => e.preventDefault()}` is required or drag gestures reach Electron's file handler instead of the canvas `onMouseMove`.
+- **`store.loadLibraryFile` silently fails at runtime:** Never call it. `parseMidiBuffer`, `parseKeySignature`, and `detectKeyFromTracks` are not imported in `store/index.ts` — the call throws `ReferenceError` caught silently, so the file appears in the library but never loads. Always use the `loadFileIntoPlayer` callback defined in `App.tsx` instead.
+- **Context menu clipped by `overflow: hidden`:** Use `position: fixed` (not `position: absolute`) for context menus inside panels with `overflow: hidden` — `fixed` escapes the clip entirely. Track `{path, x, y}` state and close on outside `mousedown`, `Escape`, and list scroll.
+- **`dragleave` flickering:** `if (e.currentTarget.contains(e.relatedTarget as Node)) return` prevents clearing drag-over state when the pointer moves over a child element inside the drop zone.
 
 ---
 

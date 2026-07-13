@@ -4,6 +4,70 @@
 
 ---
 
+### 13. 7. 2026 — Library amber highlight + right-click Remove from Library
+
+**`src/store/index.ts`**
+- Added `hiddenLibraryFiles: string[]` (default `[]`) and `hideLibraryFile(path)` to the store body. `hideLibraryFile` appends the path to the exclusion list (idempotent — no-op if already present). Follows the same undeclared-field convention as all other library state.
+- Extended the `_favTimer` subscriber to also persist `hiddenLibraryFiles` alongside `libraryFavourites` in the same debounced `setPrefs` call.
+- `restoreLibraryPrefs`: restores `hiddenLibraryFiles` via `useStore.setState` when found in prefs.
+
+**`src/components/SettingsPanel/SettingsPanel.tsx`**
+- Added `FILENAME_SPAN_DEFAULT` / `FILENAME_SPAN_ACTIVE` constants above `LibraryPanel` — amber + weight 500 for the active row.
+- `LibraryPanel` — new store reads: `midi` (for `_filePath`), `hiddenLibraryFiles`, `hideLibraryFile`.
+- Derived `loadedFilePath = (midi as any)?._filePath` — full path comparison (normalised backslash → forward-slash) detects the currently loaded file independent of play/pause state.
+- New state: `contextMenu: { path, x, y } | null` and `menuRef`.
+- `useEffect` — attaches `mousedown` (outside-click) and `keydown` (Escape) listeners to `window` when context menu is open; cleans up on close.
+- `handleContextMenu(e, filePath)` — `e.preventDefault()` + sets context menu position.
+- `grouped` useMemo — filters `hiddenLibraryFiles` via `Set` lookup before grouping; `hiddenLibraryFiles` added to deps.
+- All file rows (grouped library + demo): `isLoaded` comparison drives amber background (`var(--accent-amber-medium)`), amber `MarqueeText` span style, amber `FileMusic` icon, and `onContextMenu` handler.
+- Context menu: `position: fixed` div with `ref={menuRef}` — escapes panel `overflow: hidden`; single "Remove from Library" button with amber hover; calls `hideLibraryFile` + closes.
+- File list div: `onScroll={() => setContextMenu(null)}` closes context menu on scroll.
+- **Scope note:** No un-hide UI yet — a "Show hidden files" toggle in Settings is the planned follow-up.
+
+---
+
+### 13. 7. 2026 — Drag & Drop onto Library sidebar (add-only)
+
+**`src/components/SettingsPanel/SettingsPanel.tsx`** — all changes inside `LibraryPanel`:
+- Added `isDragOver`, `dropError`, `dropErrorTimer` state/ref.
+- `showDropError(msg)` — timed error display (2.5 s), cancels previous timer before setting a new one.
+- `handleDragOver` — `e.preventDefault()` + `e.stopPropagation()` + sets `isDragOver`.
+- `handleDragLeave` — `contains(relatedTarget)` guard to avoid flicker from child elements.
+- `handleDrop` — validates `.mid`/`.midi` extension; rejects with inline message if no library folder configured; calls `getPathForFile` (preload `webUtils` bridge) for real OS path; normalised path check (case-insensitive, backslash-normalised) to detect inside/outside library; if outside: `copyMidiToLibrary` IPC (same channel as main-area drop, collision-safe); always rescans with `scanMidiFolder` → `setLibraryFiles`. Zero playback state touched.
+- File list `<div>` gains `position: relative`, `onDragOver`, `onDragLeave`, `onDrop`.
+- Amber border + tint overlay (`position: absolute, inset: 0, pointer-events: none`) shown while `isDragOver`.
+- Error toast pinned `position: absolute, bottom: 8` inside the panel — does not escape the sidebar.
+
+---
+
+### 13. 7. 2026 — Drag & Drop MIDI files anywhere in the app
+
+**`electron/main.ts`**
+- Added `fs:copyMidiToLibrary` IPC handler — takes `(sourcePath, libraryFolder)`, copies the file into the library root with collision-safe numeric-suffix renaming (`Song.mid` → `Song (2).mid`), never moves or overwrites, returns the final destination path.
+- Added `extname` to `path` import.
+
+**`electron/preload.ts`**
+- Added `webUtils` to Electron import.
+- Exposed two new methods via `contextBridge`: `getPathForFile(file)` (calls `webUtils.getPathForFile` — returns the real OS path for a browser `File` object) and `copyMidiToLibrary(sourcePath, libraryFolder)`.
+
+**`src/types/index.ts`**
+- Added `getPathForFile: (file: File) => string` and `copyMidiToLibrary: (sourcePath: string, libraryFolder: string) => Promise<string>` to the `Window.electronAPI` interface.
+
+**`src/App.tsx`**
+- Added `useState`, `useCallback`, `useRef` imports.
+- Three new state values: `isDragOver` (amber highlight overlay), `dropConfirmPath` (path held while confirm modal is open), `dropError` (ephemeral toast message).
+- `showDropError(msg)` — shows error toast for 2.5 s, clears previous timer before setting a new one.
+- `loadDroppedFilePath(filePath)` — calls `stop()`, reads `libraryFolder` from store, normalises paths (backslash → forward-slash, case-insensitive) to determine inside/outside library, copies if external, rescans library (`scanMidiFolder` → `setLibraryFiles`), loads via `store.loadLibraryFile(path)`. No auto-play.
+- `handleDragOver` — `e.preventDefault()` + `e.stopPropagation()` + sets `isDragOver = true`.
+- `handleDragLeave` — only clears `isDragOver` when pointer leaves the container entirely (guards with `e.currentTarget.contains(e.relatedTarget)`).
+- `handleDrop` — validates `.mid`/`.midi` extension, gets OS path via `getPathForFile`, either shows confirm modal (if a file is loaded) or calls `loadDroppedFilePath` directly.
+- Drop zone: the outer flex row (SettingsPanel + centre column + TrackPanel) gains `onDragOver`, `onDragLeave`, `onDrop`, `position: relative`.
+- Amber border + subtle tint overlay rendered as `position: absolute, inset: 0, pointer-events: none` child of the drop zone while `isDragOver` is true.
+- Error toast rendered `position: fixed, bottom: 32` — auto-dismissed, pointer-events: none.
+- Confirm modal — dark panel, amber "Load File" button, ghost "Cancel" button; click outside = cancel.
+
+---
+
 ### 10. 7. 2026 — Settings panel redesign: collapsible groups, eye-toggles, amber headers + v0.10.4
 
 **`src/components/SettingsPanel/SettingsPanel.tsx`**
