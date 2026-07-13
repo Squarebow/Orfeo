@@ -182,9 +182,16 @@ All user-visible changes listed here. For full technical detail see [CHANGELOG.m
 
 ### 13. 7. 2026
 
+**Fixed**
+- **EU chord naming (Bb-rooted chords)** — with Central European notation active, chords rooted on B-flat (e.g. Bb minor, Bb major 7) were incorrectly showing "H" as the root instead of "B". The correct CE rule is: Bb → B, B-natural → H. Now fixed across all chord displays (Locked Chord modal, playback chord bar, Chord Explorer, Scale Explorer).
+- **Locked Chord — clear button** — clicking the RotateCcw icon in the Locked Chord modal now clears only the highlighted keys, leaving the modal open. Use the X in the title bar to close the modal entirely.
+
+**Improved**
+- **Selective Tracks Playback** — the "Piano, Bass & Drums Only" audio setting has been renamed to "Selective Tracks Playback". It now controls whether the All tracks / Selection quick-toggle button is shown in the Track Panel header, rather than setting an auto-mute default on file load. All tracks play on load by default; use the button to switch to a filtered mix at any time.
+- **Settings group memory** — the Settings panel now remembers which groups you left expanded or collapsed between app launches. "MIDI Files & Library" starts expanded on a fresh install; all other groups start collapsed.
+
 **New**
-- **Auto-mute setting** — a new toggle in Settings › Audio lets you choose whether non-keyboard instrument tracks (strings, brass, guitar, etc.) are automatically muted when a file loads. Off by default — every track plays on load; turn it on if you prefer a focused piano/bass/drums mix.
-- **Track filter button** — the Tracks panel header now has an amber "All tracks / Selection" button. Click it mid-session to instantly switch between hearing all tracks and hearing only piano, bass & drums, without touching individual mute buttons or reloading the file. Works during playback too.
+- **Track filter button** — the Tracks panel header has an amber "All tracks / Selection" button. Click it to instantly switch between hearing all tracks and hearing only piano, bass & drums, without touching individual mute buttons or reloading the file. Works during playback too.
 
 **Improved**
 - **Live mute during playback** — muting or unmuting tracks (via the M buttons or the new filter toggle) now takes effect in the audio immediately, without interrupting playback or causing a gap.

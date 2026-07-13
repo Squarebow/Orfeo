@@ -1,5 +1,5 @@
 import { useMemo, useState, useEffect } from 'react'
-import { ChevronRight, Eye, EyeOff, Volume2, VolumeX, ChevronDown, AudioLines, SlidersVertical } from 'lucide-react'
+import { ChevronRight, Eye, Volume2, VolumeX, ChevronDown, AudioLines, SlidersVertical } from 'lucide-react'
 import { useStore, DEFAULT_MUTED_GROUPS } from '../../store'
 import { GM_GROUPS } from '../../utils/gmInstruments'
 import type { TrackState } from '../../types'
@@ -14,6 +14,21 @@ const GROUP_ORDER = [
 
 // Groups that show on keyboard by default
 const KEYBOARD_GROUPS = new Set(['piano', 'chromatic', 'organ'])
+
+// ── EyeClosed — custom icon replacing lucide EyeOff ──────────────────────────
+function EyeClosed({ size = 24, strokeWidth = 2 }: { size?: number; strokeWidth?: number }) {
+  return (
+    <svg xmlns="http://www.w3.org/2000/svg" width={size} height={size} viewBox="0 0 24 24"
+      fill="none" stroke="currentColor" strokeWidth={strokeWidth}
+      strokeLinecap="round" strokeLinejoin="round">
+      <path d="m15 18-.722-3.25"/>
+      <path d="M2 8a10.645 10.645 0 0 0 20 0"/>
+      <path d="m20 15-1.726-2.05"/>
+      <path d="m4 15 1.726-2.05"/>
+      <path d="m9 18 .722-3.25"/>
+    </svg>
+  )
+}
 
 // ── Pencil-Sparkles icon (not yet in installed lucide-react version) ──────────
 function PencilSparkles({ size = 16 }: { size?: number }) {
@@ -33,6 +48,7 @@ export default function TrackPanel() {
   const updateTrack = useStore((s) => s.updateTrack)
   const muteGroup = useStore((s) => s.muteGroup)
   const setTrackMuteFilter = useStore((s) => s.setTrackMuteFilter)
+  const autoMuteNonKeyboard = useStore((s) => s.autoMuteNonKeyboard)
   const [collapsedGroups, setCollapsedGroups] = useState<Set<string>>(new Set())
   const [editorOpen, setEditorOpen] = useState(false)
 
@@ -243,32 +259,34 @@ export default function TrackPanel() {
                 <span style={{ color: 'var(--text-inactive)', fontSize: 'var(--text-xs)', fontFamily: 'JetBrains Mono' }}>
                   {tracks.length}
                 </span>
-                {/* ── Mute-filter quick toggle — always amber; text shows current state ── */}
-                <button
-                  onClick={() => setTrackMuteFilter(!isCurrentlyFiltered)}
-                  title={isCurrentlyFiltered ? 'Play all tracks' : 'Play only piano, bass & drums'}
-                  style={{
-                    marginLeft: 'auto',
-                    padding: '2px 7px',
-                    borderRadius: 'var(--radius-sm)',
-                    border: 'none',
-                    background: 'var(--text-amber)',
-                    color: '#1a1000',
-                    fontSize: 9,
-                    fontWeight: 700,
-                    fontFamily: 'Inter',
-                    letterSpacing: '0.02em',
-                    cursor: 'pointer',
-                    whiteSpace: 'nowrap',
-                    lineHeight: '18px',
-                    flexShrink: 0,
-                    display: 'flex',
-                    alignItems: 'center',
-                  }}
-                >
-                  <svg width="6" height="7" viewBox="0 0 6 7" style={{ marginRight: 3, flexShrink: 0 }}><polygon points="0,0 6,3.5 0,7" fill="currentColor"/></svg>
-                  {isCurrentlyFiltered ? 'Selection' : 'All tracks'}
-                </button>
+                {/* ── Mute-filter quick toggle — visible only when Selective Tracks Playback is on in Settings ── */}
+                {autoMuteNonKeyboard && (
+                  <button
+                    onClick={() => setTrackMuteFilter(!isCurrentlyFiltered)}
+                    title={isCurrentlyFiltered ? 'Play all tracks' : 'Play only piano, bass & drums'}
+                    style={{
+                      marginLeft: 'auto',
+                      padding: '2px 7px',
+                      borderRadius: 'var(--radius-sm)',
+                      border: 'none',
+                      background: 'var(--text-amber)',
+                      color: '#1a1000',
+                      fontSize: 9,
+                      fontWeight: 700,
+                      fontFamily: 'Inter',
+                      letterSpacing: '0.02em',
+                      cursor: 'pointer',
+                      whiteSpace: 'nowrap',
+                      lineHeight: '18px',
+                      flexShrink: 0,
+                      display: 'flex',
+                      alignItems: 'center',
+                    }}
+                  >
+                    <svg width="6" height="7" viewBox="0 0 6 7" style={{ marginRight: 3, flexShrink: 0 }}><polygon points="0,0 6,3.5 0,7" fill="currentColor"/></svg>
+                    {isCurrentlyFiltered ? 'Selection' : 'All tracks'}
+                  </button>
+                )}
               </>
             )}
           </div>
@@ -385,7 +403,7 @@ function TrackRow({ track, dimmed, onMute, onSolo, onVisible, onKeyboard }: {
             <span style={{ fontSize: 10, fontWeight: 700, fontFamily: 'JetBrains Mono', lineHeight: 1 }}>S</span>
           </IBtn>
           <IBtn onClick={onVisible} active={!track.visible} title={track.visible ? 'Hide in roll' : 'Show in roll'} activeColor="#6080c0">
-            {track.visible ? <Eye size={12} /> : <EyeOff size={12} />}
+            {track.visible ? <Eye size={12} /> : <EyeClosed size={12} />}
           </IBtn>
           <IBtn onClick={onKeyboard} active={track.showOnKeyboard} title={track.showOnKeyboard ? 'Lit on keyboard' : 'Not lit on keyboard'} activeColor="#e8a027">
             {/* Mini piano icon */}

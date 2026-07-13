@@ -4,6 +4,59 @@
 
 ---
 
+### 13. 7. 2026 — Locked Chord modal: clear button no longer dismisses modal
+
+**`src/components/LockedChordModal.tsx`**
+- Added `modalOpen` local state (default `false`); a `useEffect` sets it `true` whenever `lockedKeys.size > 0`, replacing the old derived `isOpen = lockedKeys.size > 0` guard.
+- Split the single `handleClose` into two callbacks: `handleClose` (X button — clears keys + sets `modalOpen false`) and `handleClear` (RotateCcw button — clears keys only, modal stays open showing `— — —`).
+- Re-opening after clear: next Shift+click re-locks keys, `useEffect` fires, modal reopens at its last dragged position.
+
+---
+
+### 13. 7. 2026 — Replace EyeOff icon globally with custom EyeClosed SVG
+
+**`src/components/SettingsPanel/SettingsPanel.tsx`**
+- Removed `EyeOff` from lucide-react import.
+- Added inline `EyeClosed` component (custom SVG — 5-path eye-closed design).
+- Replaced both `<EyeOff>` usages: eye-toggle in `OptionRow` (size 14) and "Hide" button in Notation's display system (size 11).
+
+**`src/components/TrackPanel/TrackPanel.tsx`**
+- Removed `EyeOff` from lucide-react import.
+- Added same inline `EyeClosed` component.
+- Replaced `<EyeOff size={12} />` in track visibility toggle.
+
+---
+
+### 13. 7. 2026 — Fix EU chord root display for pitch class 10 (Bb → "B" not "H")
+
+**`src/utils/chordDetection.ts`**
+- Bug: `localizeChord()` ran two sequential `.replace()` calls for Central European naming — first `Bb → B`, then `B(?!b) → H`. The second call caught the `B` produced by the first, turning every Bb-rooted chord name (e.g. "Bbm") into "Hm" instead of the correct "Bm".
+- Fix: replaced both calls with a single atomic pass `result.replace(/Bb|B/g, m => m === 'Bb' ? 'B' : 'H')`. The alternation tries `Bb` first at every position, so the newly-produced `B` is never revisited. Affects all display paths that go through `localizeChord()`: Locked Chord modal, playback chord bar, Chord Explorer, Scale Explorer.
+
+---
+
+### 13. 7. 2026 — Selective Tracks Playback reframe + Settings group persistence
+
+**`src/store/index.ts`**
+- `makeTrackState`: removed `autoMute` parameter — all tracks start unmuted on file load; selective filtering is user-initiated via the Track Panel button.
+- `setMidi`: updated call to `makeTrackState(t)` (no second arg).
+- `autoMuteNonKeyboard` default changed `false` → `true`; repurposed from "auto-mute on load" to "show/hide selective playback button in Track Panel". Comment updated.
+- Added `settingsGroupsCollapsed: Record<string, boolean>` to `OrfeoStore` interface and store body; default: `midi-files-library` expanded, all other groups collapsed.
+- Added `setSettingsGroupCollapsed(id, collapsed)` action.
+- Full persistence wiring for `settingsGroupsCollapsed`: `_prevSettingsGroupsCollapsed` null-sentinel (JSON-stringified for comparison), subscriber diff/update/`setPrefs` payload, `restoreLibraryPrefs` (merges saved values onto defaults so new groups always have a fallback).
+
+**`src/components/SettingsPanel/SettingsPanel.tsx`**
+- `CollapsibleSection`: added optional `collapsed?: boolean` and `onToggle?: () => void` props; controlled when provided, falls back to internal `useState` when not.
+- Added `settingsGroupsCollapsed` / `setSettingsGroupCollapsed` selectors.
+- All 7 `CollapsibleSection` instances now pass `collapsed` + `onToggle` from store.
+- Renamed eye-toggle from "Piano, Bass & Drums Only" → "Selective Tracks Playback"; updated description to "When active, select if you want to hear all MIDI tracks or only Piano, Bass & Drums. Can be overridden manually."
+
+**`src/components/TrackPanel/TrackPanel.tsx`**
+- Added `autoMuteNonKeyboard` selector.
+- Wrapped All Tracks / Selection amber button in `{autoMuteNonKeyboard && ...}` — button only renders when the Settings toggle is on.
+
+---
+
 ### 13. 7. 2026 — Auto-mute setting + Track Panel filter toggle
 
 **`src/store/index.ts`**

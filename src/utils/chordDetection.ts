@@ -195,10 +195,12 @@ export function localizeChord(
   // ── Convert accidentals first (normalises A# → Bb at PC 10) ─────────────
   let result = convertAccidentals(chord, accidentals)
 
+  // ── Central European localisation — single atomic pass ───────────────────────
+  // Two sequential replaces are wrong: Bb→B followed by B→H would catch the B
+  // just produced from Bb and turn it into H. The alternation Bb|B tries Bb first
+  // at every position, so Bb→'B' and bare B→'H' never interfere with each other.
   if (naming === 'central-european') {
-    result = result
-      .replace(/Bb/g, 'B')
-      .replace(/B(?!b)/g, 'H')
+    result = result.replace(/Bb|B/g, (m) => m === 'Bb' ? 'B' : 'H')
     return result
   }
 

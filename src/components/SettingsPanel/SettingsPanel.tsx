@@ -2,13 +2,28 @@ import { useState, useMemo, useRef, useEffect } from 'react'
 import {
   ChevronLeft, ChevronDown, ChevronRight, Type, Piano, Palette, ZoomIn, Volume2,
   Music, FolderOpen, RefreshCw, FileMusic, BookOpen, Library, Settings, Info,
-  Eye, EyeOff,
+  Eye,
 } from 'lucide-react'
 import { useStore } from '../../store'
 import type { NoteNaming, KeyboardSize, Accidentals, TranscriptEntry } from '../../types'
 import type { AppTheme } from '../../store'
 import { initSamplesEngine } from '../../hooks/useSamplesEngine'
 import { MarqueeText } from '../MarqueeText'
+
+// ── EyeClosed — custom icon replacing lucide EyeOff throughout settings ───────
+function EyeClosed({ size = 24, strokeWidth = 2 }: { size?: number; strokeWidth?: number }) {
+  return (
+    <svg xmlns="http://www.w3.org/2000/svg" width={size} height={size} viewBox="0 0 24 24"
+      fill="none" stroke="currentColor" strokeWidth={strokeWidth}
+      strokeLinecap="round" strokeLinejoin="round">
+      <path d="m15 18-.722-3.25"/>
+      <path d="M2 8a10.645 10.645 0 0 0 20 0"/>
+      <path d="m20 15-1.726-2.05"/>
+      <path d="m4 15 1.726-2.05"/>
+      <path d="m9 18 .722-3.25"/>
+    </svg>
+  )
+}
 
 // ── Spin keyframe for transcript loading animation ────────────────────────────
 if (typeof document !== 'undefined' && !document.getElementById('orfeo-transcript-anim')) {
@@ -107,7 +122,7 @@ function OptionRow({ label, children, hint, badge, eyeToggle, eyeValue, onEyeCha
           >
             {eyeValue
               ? <Eye    size={14} strokeWidth={1.5} />
-              : <EyeOff size={14} strokeWidth={1.5} />
+              : <EyeClosed size={14} strokeWidth={1.5} />
             }
           </button>
         </div>
@@ -146,19 +161,24 @@ function OptionRow({ label, children, hint, badge, eyeToggle, eyeValue, onEyeCha
 
 // ── Collapsible section — clickable header row (amber icon + label + chevron) that
 // mounts/unmounts children; amber color applied once here, propagates to all 7 groups.
-function CollapsibleSection({ icon, label, defaultCollapsed = false, children }: {
+function CollapsibleSection({ icon, label, defaultCollapsed = false, collapsed: controlledCollapsed, onToggle, children }: {
   icon: React.ReactNode
   label: string
   defaultCollapsed?: boolean
+  collapsed?: boolean
+  onToggle?: () => void
   children: React.ReactNode
 }) {
-  const [collapsed, setCollapsed] = useState(defaultCollapsed)
+  const [internalCollapsed, setInternalCollapsed] = useState(defaultCollapsed)
+  const isControlled = controlledCollapsed !== undefined
+  const collapsed = isControlled ? controlledCollapsed : internalCollapsed
+  const toggle = isControlled ? (onToggle ?? (() => {})) : () => setInternalCollapsed(c => !c)
 
   return (
     <div>
       {/* ── Header row — click anywhere to expand/collapse ── */}
       <div
-        onClick={() => setCollapsed(c => !c)}
+        onClick={toggle}
         style={{
           display: 'flex', alignItems: 'center', gap: 6,
           padding: '5px 10px',
@@ -883,8 +903,10 @@ export default function SettingsPanel() {
   const setHandLabelMode                     = useStore((s) => s.setHandLabelMode)
   const performanceSplitSensitivity          = useStore((s) => s.performanceSplitSensitivity)
   const setPerformanceSplitSensitivity       = useStore((s) => s.setPerformanceSplitSensitivity)
-  const autoMuteNonKeyboard    = useStore((s) => s.autoMuteNonKeyboard)
-  const setAutoMuteNonKeyboard = useStore((s) => s.setAutoMuteNonKeyboard)
+  const autoMuteNonKeyboard         = useStore((s) => s.autoMuteNonKeyboard)
+  const setAutoMuteNonKeyboard      = useStore((s) => s.setAutoMuteNonKeyboard)
+  const settingsGroupsCollapsed     = useStore((s) => s.settingsGroupsCollapsed)
+  const setSettingsGroupCollapsed   = useStore((s) => s.setSettingsGroupCollapsed)
   // ── Samples engine loading state ─────────────────────────────────────────
   const [samplesStatus, setSamplesStatus] = useState<'idle' | 'loading' | 'ready' | 'error'>('idle')
   const [samplesProgress, setSamplesProgress] = useState(0)
@@ -1032,7 +1054,10 @@ export default function SettingsPanel() {
               <div style={{ flex: 1, overflowY: 'auto', padding: '4px 0' }}>
 
                 {/* ── 1. MIDI FILES & LIBRARY ────────────────────────────────────── */}
-                <CollapsibleSection icon={<BookOpen size={11} />} label="MIDI Files & Library">
+                <CollapsibleSection icon={<BookOpen size={11} />} label="MIDI Files & Library"
+                  collapsed={settingsGroupsCollapsed['midi-files-library']}
+                  onToggle={() => setSettingsGroupCollapsed('midi-files-library', !settingsGroupsCollapsed['midi-files-library'])}
+                >
                   {/* ── Demo folder — eye-toggle: Eye=show, EyeOff=hidden ────────── */}
                   <OptionRow
                     label="Demo folder"
@@ -1053,7 +1078,10 @@ export default function SettingsPanel() {
                 </CollapsibleSection>
 
                 {/* ── 2. NOTATION ────────────────────────────────────────────────── */}
-                <CollapsibleSection icon={<Type size={11} />} label="Notation">
+                <CollapsibleSection icon={<Type size={11} />} label="Notation"
+                  collapsed={settingsGroupsCollapsed['notation']}
+                  onToggle={() => setSettingsGroupCollapsed('notation', !settingsGroupsCollapsed['notation'])}
+                >
                   {/* ── Display system — single 4-button row; Hide uses EyeOff icon ── */}
                   <OptionRow label="Display system">
                     <div style={{ display: 'flex', gap: 'var(--space-1)' }}>
@@ -1070,7 +1098,7 @@ export default function SettingsPanel() {
                         activeColor="error"
                         title="Hide note labels"
                       >
-                        <EyeOff size={11} strokeWidth={1.5} />
+                        <EyeClosed size={11} strokeWidth={1.5} />
                       </OptionBtn>
                     </div>
                     {/* ── Note name preview — value display, JetBrains Mono intentional ── */}
@@ -1101,7 +1129,10 @@ export default function SettingsPanel() {
                 </CollapsibleSection>
 
                 {/* ── 3. KEYBOARD ────────────────────────────────────────────────── */}
-                <CollapsibleSection icon={<Piano size={11} />} label="Keyboard">
+                <CollapsibleSection icon={<Piano size={11} />} label="Keyboard"
+                  collapsed={settingsGroupsCollapsed['keyboard']}
+                  onToggle={() => setSettingsGroupCollapsed('keyboard', !settingsGroupsCollapsed['keyboard'])}
+                >
                   {/* ── Key range — multi-choice selector, unchanged structure ───── */}
                   <OptionRow label="Key range" hint="Number of keys on the virtual keyboard">
                     <div style={{ display: 'flex', gap: 'var(--space-1)' }}>
@@ -1233,7 +1264,10 @@ export default function SettingsPanel() {
                 </CollapsibleSection>
 
                 {/* ── 4. PLAYBACK & PRACTICE ─────────────────────────────────────── */}
-                <CollapsibleSection icon={<Music size={11} />} label="Playback & Practice">
+                <CollapsibleSection icon={<Music size={11} />} label="Playback & Practice"
+                  collapsed={settingsGroupsCollapsed['playback-practice']}
+                  onToggle={() => setSettingsGroupCollapsed('playback-practice', !settingsGroupsCollapsed['playback-practice'])}
+                >
                   {/* ── Chord Prompter — eye-toggle ───────────────────────────────── */}
                   <OptionRow
                     label="Chord Prompter"
@@ -1253,7 +1287,10 @@ export default function SettingsPanel() {
                 </CollapsibleSection>
 
                 {/* ── 5. AUDIO ───────────────────────────────────────────────────── */}
-                <CollapsibleSection icon={<Volume2 size={11} />} label="Audio">
+                <CollapsibleSection icon={<Volume2 size={11} />} label="Audio"
+                  collapsed={settingsGroupsCollapsed['audio']}
+                  onToggle={() => setSettingsGroupCollapsed('audio', !settingsGroupsCollapsed['audio'])}
+                >
                   <OptionRow label="Sound engine">
                     <div style={{ display: 'flex', gap: 'var(--space-1)' }}>
                       {/* ── GM Synth — always available, switches back from Samples instantly ── */}
@@ -1315,18 +1352,21 @@ export default function SettingsPanel() {
                       </div>
                     )}
                   </OptionRow>
-                  {/* ── Auto-mute — eye-toggle; default off = play everything on load ─ */}
+                  {/* ── Selective Tracks Playback — eye-toggle; shows/hides quick-toggle button in Track Panel ─ */}
                   <OptionRow
-                    label="Piano, Bass & Drums Only"
+                    label="Selective Tracks Playback"
                     eyeToggle
                     eyeValue={autoMuteNonKeyboard}
                     onEyeChange={setAutoMuteNonKeyboard}
-                    description="Automatically mutes all other instrument tracks when a file loads."
+                    description="When active, select if you want to hear all MIDI tracks or only Piano, Bass & Drums. Can be overridden manually."
                   />
                 </CollapsibleSection>
 
                 {/* ── 6. PIANO ROLL ──────────────────────────────────────────────── */}
-                <CollapsibleSection icon={<ZoomIn size={11} />} label="Piano Roll">
+                <CollapsibleSection icon={<ZoomIn size={11} />} label="Piano Roll"
+                  collapsed={settingsGroupsCollapsed['piano-roll']}
+                  onToggle={() => setSettingsGroupCollapsed('piano-roll', !settingsGroupsCollapsed['piano-roll'])}
+                >
                   {/* ── Zoom slider — unchanged ───────────────────────────────────── */}
                   <OptionRow label={`Zoom  —  ${Math.round(zoomLevel * 100)}%`} hint={`${Math.round(6 / zoomLevel * 10) / 10}s visible · higher = notes appear larger`}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-2)' }}>
@@ -1370,7 +1410,10 @@ export default function SettingsPanel() {
                 </CollapsibleSection>
 
                 {/* ── 7. APPEARANCE — no content changes ─────────────────────────── */}
-                <CollapsibleSection icon={<Palette size={11} />} label="Appearance">
+                <CollapsibleSection icon={<Palette size={11} />} label="Appearance"
+                  collapsed={settingsGroupsCollapsed['appearance']}
+                  onToggle={() => setSettingsGroupCollapsed('appearance', !settingsGroupsCollapsed['appearance'])}
+                >
                   <OptionRow label="Background">
                     <div style={{ display: 'flex', gap: 'var(--space-1)' }}>
                       <AppBgBtn color="#0f0f12" label="Dark" active={appTheme === 'dark'} onClick={() => setAppTheme('dark')} />
