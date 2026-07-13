@@ -928,7 +928,7 @@ export default function SettingsPanel() {
   }, [audioEngine])
 
   const NOTE_NAMING_OPTIONS: { value: NoteNaming; label: string; hint: string }[] = [
-    { value: 'english',          label: 'UK / US',  hint: 'C D E F G A B' },
+    { value: 'english',          label: 'UK/US',  hint: 'C D E F G A B' },
     { value: 'central-european', label: 'EU',        hint: 'C D E F G A H (B = B♭)' },
     { value: 'solfege',          label: 'Solfège',  hint: 'Do Re Mi Fa Sol La Si' },
     { value: 'hidden',           label: 'Hide',     hint: 'No labels shown' },
