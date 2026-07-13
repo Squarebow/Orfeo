@@ -1155,14 +1155,14 @@ export default function SettingsPanel() {
                   </div>
                   {/* ── Octave labels — show/hide octave numbers on virtual keyboard ─ */}
                   <OptionRow
-                    label="Show octaves on keyboard"
+                    label="Show octaves"
                     eyeToggle
                     eyeValue={showOctaveLabels}
                     onEyeChange={setShowOctaveLabels}
                   />
                   {/* ── Note name labels — show/hide note names on virtual keyboard ── */}
                   <OptionRow
-                    label="Show note names on keyboard"
+                    label="Show note names"
                     eyeToggle
                     eyeValue={showNoteNamesOnKeyboard}
                     onEyeChange={setShowNoteNamesOnKeyboard}
