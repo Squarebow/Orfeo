@@ -4,6 +4,57 @@
 
 ---
 
+### 18. 7. 2026 — Mixer Console — ChannelStrip + MasterStrip
+
+**`src/components/Mixer/MixerKnob.tsx`** — geometry redesign + new props
+- Replaced dot-circle tick marks with radial line ticks. All ticks share `TICK_INR = 14.5` (inner edge, bottom-aligned); length distinguishes major from minor (`TICK_LONG = 4.0`, `TICK_SHORT = 1.8`). `STROKE_TICK = 0.5` hairline stroke.
+- Replaced circle notch indicator with filled triangle. Tip/base computed from `NOTCH_R` with perpendicular geometry; fills with `var(--bg-deep)` against the amber knob body.
+- **`dotCount?: number`** (default 7) — number of tick marks around the arc.
+- **`tickMajorEvery?: number`** (default 0 = all same) — every Nth tick renders at `TICK_LONG`; others at `TICK_SHORT`.
+- **`tickScale?: number`** (default 1) — multiplies both `TICK_LONG` and `TICK_SHORT`. Used on master volume (0.5) to halve tick height at large render size without affecting other knobs.
+- **`triScale?: number`** (default 1) — scales triangle indicator toward `NOTCH_R` axis. `tip_r = NOTCH_R + (TRI_TIP_R - NOTCH_R) × triScale`; similarly for base and half-width. Master volume uses `triScale={0.5}`.
+- **`label?: string`** — renders a dim uppercase 9px JetBrains Mono label below the SVG.
+
+**`src/components/Mixer/ChannelStrip.tsx`** — full implementation
+- Dimensions: `120 × 574 px`. Layout (top → bottom): track name bar (30px) → Chorus (66px) → Reverb (66px) → Pan (66px) → M/S/Eye/Kbd row (46px) → fader section (flex:1 ≈ 250px) → VOLUME label (24px) → track pill (26px).
+- **Props**: `{ trackIndex: number }` — reads all state from store via `useStore` selectors. Derives `track` (TrackState) and `parsedTrack` from `trackIndex`.
+- **Knob wiring**: Chorus/Reverb/Pan knobs are local state only (audio engine wiring deferred). Pan is bipolar. Volume knob seeded from `track.volume` (CC7), pan from `track.pan` (CC10).
+- **M/S/Eye/Kbd row**: `IBtn` component — `26 × 26 px` rounded-square with static `background: var(--bg-deep)`. Icon/font stays 14px; background never changes color. Gap 3px between buttons, row uses `justifyContent: center`. Eye icon: always `active={true}`, amber (`--text-amber`) when visible, red (`--status-error`) when hidden. M = red on mute, S = amber on solo, piano = amber when lit on keyboard.
+- **Fader**: `HANDLE_W = 46`, `HANDLE_H = 20`, `FADER_TOP_PAD = 24` (reserves space for dB pill). Handle is an amber pill (`--text-amber`) with 3 grip score lines; greys to `--state-disabled` when muted. `FADER_TICK_COUNT = 13`, major every 4th. CSS `top` transition disabled during drag (instant response); re-enabled on mouseup.
+- **dB pill**: `position: absolute, top: 0, zIndex: 1` above fader track, updates from `20 × log10(volume)`. Handle has `zIndex: 2`.
+- **VOLUME label**: mirrors fader row flex structure (same `padding: 0 8px`, `VU_W` spacer, `gap: 6`, `flex:1 center`) so "Volume" text is geometrically centered on the fader track's vertical line, not the strip centerline.
+- **VU meter**: `VU_W = 16 px` canvas, MIDI-event driven via `useStore.subscribe`. Scans `midi.tracks[trackIndex].notes` at `currentTime`; fires attack on level increase. rAF decay loop: level −0.013/frame, attack −0.06/frame. 4-zone color (green/yellow/orange/red). Canvas sized to `sectionH - 8` (8px top padding, 0 bottom).
+- **CC-seeded defaults**: `chorus`/`reverb` init from `parsedTrack._cc93/_cc91`; `pan`/`volume` from `track.pan/track.volume` (seeded by store from `_cc10/_cc7`).
+
+**`src/components/Mixer/MasterStrip.tsx`** (new file)
+- Dimensions: `160 × 574 px`. Layout: header "MASTER" (30px) → VU flex:1 → VU display toggle (28px) → spacer (34px) → FX row Chorus+Reverb (72px) → Tone EQ (60px) → Master Volume (230px).
+- **VU — spectrogram mode** (default): 8 columns × 14px wide, MIDI-event driven, same subscribe pattern as ChannelStrip. Column labels 1–8 below canvas. Toggle switches to mono (single centered column, max of all 8 levels).
+- **VU toggle**: iOS-style amber pill (26×13px) with sliding white dot. Label "VU DISPLAY" below.
+- **FX row**: Chorus + Reverb knobs side by side (size=52), "FX" micro-label centered between them. Both greyed on GM engine.
+- **Tone EQ**: size=52 bipolar knob, label "Tone". Greyed on GM.
+- **Master Volume**: size=200, `dotCount=36`, `tickMajorEvery=6`, `tickScale=0.5`, `triScale=0.5`. SVG extends 20px beyond strip on each side (clipped by `overflow:hidden`); the clipped region is pure empty SVG margin — tick ring fully visible with ~16px visual clearance. Label "MASTER VOLUME" below.
+
+**`src/hooks/useSamplesEngine.ts`**
+- Added `_filterNode: BiquadFilterNode | null` singleton. Created in `initSamplesEngine` as `highshelf` at 3000 Hz, gain=0 (flat). Audio chain: `_synth → _gainNode → _filterNode → _ctx.destination`.
+- **`setMasterChorus(v)`**: broadcasts CC93 = `round(v × 127)` to all 16 channels.
+- **`setMasterReverb(v)`**: broadcasts CC91 = `round(v × 127)` to all 16 channels.
+- **`setMasterPan(v)`**: broadcasts CC10 = `round((v+1)/2 × 127)` to all 16 channels. Bipolar −1…+1 → 0–127 (64=center).
+- **`setMasterTone(v)`**: sets `_filterNode.gain.value = v × 12` (±12 dB highshelf). Samples engine only.
+
+**`src/utils/midiParser.ts`**
+- Added `parseCC(n)` helper inside `forEach`: reads first occurrence of CC7/CC10/CC91/CC93 from `track.controlChanges[n]`. Attaches `_cc7/_cc10/_cc91/_cc93` as private fields on each parsed track. Values are @tonejs/midi normalized (0–1). CC10 center = 0.5.
+
+**`src/store/index.ts`**
+- `makeTrackState`: `volume` seeds from `(track as any)._cc7 ?? 1`; `pan` seeds from `((track as any)._cc10 - 0.5) * 2` when present, else 0.
+
+**`src/index.css`**
+- Added `--knob-tone: #5ba0c8` (steel-blue, distinct from `--knob-chorus` teal and `--knob-reverb` purple).
+
+**`src/App.tsx`**
+- Added `import MasterStrip`. Dev overlay (Ctrl+Shift+M) renders `<ChannelStrip trackIndex={0} />` + `<MasterStrip />` side by side with 8px gap. Guard changed to `showMixerDev && midi !== null`.
+
+---
+
 ### 18. 7. 2026 — Loop Region strip fixes
 
 **`src/components/LoopRegionStrip.tsx`**

@@ -17,6 +17,8 @@ const SAMPLES_BOOST = 3.0
 // ── Module-level singletons ───────────────────────────────────────────────────
 let _ctx: AudioContext | null = null
 let _gainNode: GainNode | null = null
+// High-shelf BiquadFilter for master tone control (Samples engine only)
+let _filterNode: BiquadFilterNode | null = null
 // type-only — runtime reference populated after dynamic import
 let _synth: WorkletSynthesizer | null = null
 let _synthInitP: Promise<void> | null = null
@@ -136,8 +138,16 @@ export async function initSamplesEngine(onProgress: (p: number) => void): Promis
       // Wire gain node — apply SAMPLES_BOOST so perceived level matches GM Synth
       _gainNode = _ctx.createGain()
       _gainNode.gain.value = useStore.getState().masterVolume * SAMPLES_BOOST
+
+      // High-shelf tone control — inserted between gain and destination
+      _filterNode = _ctx.createBiquadFilter()
+      _filterNode.type = 'highshelf'
+      _filterNode.frequency.value = 3000
+      _filterNode.gain.value = 0  // flat at center position
+
       _synth.connect(_gainNode)
-      _gainNode.connect(_ctx.destination)
+      _gainNode.connect(_filterNode)
+      _filterNode.connect(_ctx.destination)
 
       _synthReady = true
       onProgress(1)
@@ -204,6 +214,41 @@ function buildSamplesPlayer(startSec: number) {
       _schedule.push(t)
     }
   }
+}
+
+// ── setMasterChorus — broadcast CC93 to all 16 channels (Samples engine only) ─
+export function setMasterChorus(value: number): void {
+  if (!_synth || !_synthReady) return
+  const val = Math.round(Math.max(0, Math.min(1, value)) * 127)
+  for (let ch = 0; ch < 16; ch++) {
+    try { ;(_synth as any).controllerChange(ch, 93, val) } catch {}
+  }
+}
+
+// ── setMasterReverb — broadcast CC91 to all 16 channels (Samples engine only) ─
+export function setMasterReverb(value: number): void {
+  if (!_synth || !_synthReady) return
+  const val = Math.round(Math.max(0, Math.min(1, value)) * 127)
+  for (let ch = 0; ch < 16; ch++) {
+    try { ;(_synth as any).controllerChange(ch, 91, val) } catch {}
+  }
+}
+
+// ── setMasterPan — broadcast CC10 to all 16 channels (Samples engine only) ────
+// value: −1…+1 (bipolar knob); 0 = center; maps to CC10 0–127 (64 = center)
+export function setMasterPan(value: number): void {
+  if (!_synth || !_synthReady) return
+  const val = Math.round(((value + 1) / 2) * 127)
+  for (let ch = 0; ch < 16; ch++) {
+    try { ;(_synth as any).controllerChange(ch, 10, val) } catch {}
+  }
+}
+
+// ── setMasterTone — adjust high-shelf filter gain ±12 dB (Samples engine only) ─
+// value: −1…+1 (bipolar knob); 0 = flat; +1 = +12 dB treble boost
+export function setMasterTone(value: number): void {
+  if (!_filterNode) return
+  _filterNode.gain.value = value * 12
 }
 
 // ── Hook: self-gates on audioEngine !== 'samples' ────────────────────────────

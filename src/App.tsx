@@ -13,6 +13,7 @@ import ScaleExplorer from './components/ScaleExplorer'
 import LockedChordModal from './components/LockedChordModal'
 import MidiEditor from './components/MidiEditor/MidiEditor'
 import ChannelStrip from './components/Mixer/ChannelStrip'
+import MasterStrip from './components/Mixer/MasterStrip'
 import { parseMidiBuffer } from './utils/midiParser'
 import { detectKeyFromTracks, parseKeySignature } from './utils/keyDetection'
 import { useMidiFile } from './hooks/useMidiFile'
@@ -263,9 +264,10 @@ export default function App() {
         </div>
       )}
 
-      {/* ── DEV: Mixer Console Stage 1 — Ctrl+Shift+M to toggle ─────────────────
-          Remove this block once the full MixerConsole modal is built. ── */}
-      {showMixerDev && (
+      {/* ── DEV: Mixer Console Stage 3 — Ctrl+Shift+M to toggle ─────────────────
+          Shows ChannelStrip (track 0) + MasterStrip side by side for size
+          comparison. Remove once the full MixerConsole modal is built. ── */}
+      {showMixerDev && midi !== null && (
         <div
           style={{
             position: 'fixed', inset: 0,
@@ -275,14 +277,12 @@ export default function App() {
           }}
           onClick={() => setShowMixerDev(false)}
         >
-          <div onClick={e => e.stopPropagation()}>
-            <ChannelStrip
-              trackName="Acoustic Grand Piano"
-              gmName="Acoustic Grand Piano"
-              color="#4a9060"
-              muted={false} solo={false} visible={true} showOnKeyboard={true}
-              onMute={() => {}} onSolo={() => {}} onVisible={() => {}} onKeyboard={() => {}}
-            />
+          <div
+            onClick={e => e.stopPropagation()}
+            style={{ display: 'flex', gap: 8 }}
+          >
+            <ChannelStrip trackIndex={0} />
+            <MasterStrip />
           </div>
         </div>
       )}

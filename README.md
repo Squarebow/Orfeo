@@ -182,6 +182,10 @@ All user-visible changes listed here. For full technical detail see [CHANGELOG.m
 
 ### 18. 7. 2026
 
+**New**
+- **Mixer Console — Channel Strip**: each loaded track now has a dedicated mixer strip with Chorus, Reverb, Pan, and Volume fader controls, plus Mute, Solo, hide-in-roll, and keyboard-highlight toggles. Volume and pan seed from the MIDI file's embedded CC values when present. A per-track VU meter responds to note velocity during playback.
+- **Mixer Console — Master Strip**: a master strip sits alongside the channel strips with a spectrogram VU display (8 columns, one per track slot), global Chorus and Reverb controls, a Tone EQ (high-shelf ±12 dB), and a large Master Volume knob. All controls feed the Samples audio engine in real time. A toggle switches the VU between spectrogram and mono modes.
+
 **Fixed**
 - **Loop Region ticks** — density ticks on the loop region strip were invisible (too dark) and disappeared entirely after toggling the Loop Region setting off and back on. Both issues are now fixed: ticks render at the correct brightness and survive any number of toggle cycles.
 - **Bar range popup** — the manual bar-range popup (icon to the right of the strip) now opens to the right of the icon rather than leftward over the strip.

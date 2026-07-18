@@ -6,12 +6,11 @@ import { MarqueeText } from '../MarqueeText'
 
 // ── VU meter constants (canvas pixel units) ───────────────────────────────────
 // Driven from MIDI velocity data — MIDI-event-driven, NOT audio-FFT-based.
-// This is an architectural constraint: canvas can't read CSS vars, so colors
-// are hardcoded here to match the --meter-* tokens in index.css exactly.
-const SEG_H   = 4    // segment height in CSS px
-const SEG_GAP = 2    // gap between segments in CSS px
+// Colors match --meter-* tokens in index.css exactly (canvas can't read CSS vars).
+const SEG_H    = 4    // segment height in CSS px
+const SEG_GAP  = 2    // gap between segments in CSS px
 const SEG_UNIT = SEG_H + SEG_GAP
-const VU_W    = 14   // canvas CSS width in px
+const VU_W     = 16   // canvas CSS width in px
 const METER_GREEN  = '#7ac040'
 const METER_YELLOW = '#c0a020'
 const METER_ORANGE = '#c07a20'
@@ -92,7 +91,7 @@ function IBtn({ children, onClick, active, title, activeColor = 'var(--text-ambe
       onClick={onClick} title={title}
       style={{
         display: 'flex', alignItems: 'center', justifyContent: 'center',
-        width: 20, height: 20, background: 'none', border: 'none',
+        width: 26, height: 26, background: 'var(--bg-deep)', border: 'none',
         cursor: 'pointer', borderRadius: 4, transition: 'color 0.1s',
         color: active ? activeColor : '#404058', flexShrink: 0,
       }}
@@ -106,49 +105,59 @@ function IBtn({ children, onClick, active, title, activeColor = 'var(--text-ambe
 
 // ── Fader constants ───────────────────────────────────────────────────────────
 const HANDLE_H = 20
-const HANDLE_W = 42
+const HANDLE_W = 46
+
+// ── Fader tick marks — alternating major/minor on both sides of the track ────
+// Major ticks at every 4th position; minor between them.
+const FADER_TICK_COUNT = 13
+const FADER_MAJOR_EVERY = 4
+// Reserve space at the top of the fader so the dB pill and handle never overlap
+const FADER_TOP_PAD = 24
 
 // ── ChannelStrip props ────────────────────────────────────────────────────────
 export interface ChannelStripProps {
-  trackName: string
-  gmName: string
-  color: string        // track color swatch (3px left stripe)
-  muted: boolean
-  solo: boolean
-  visible: boolean
-  showOnKeyboard: boolean
-  onMute: () => void
-  onSolo: () => void
-  onVisible: () => void
-  onKeyboard: () => void
+  trackIndex: number
 }
 
 // ── ChannelStrip — single 108×480 mixer channel strip ────────────────────────
-export default function ChannelStrip({
-  trackName, gmName, color,
-  muted, solo, visible, showOnKeyboard,
-  onMute, onSolo, onVisible, onKeyboard,
-}: ChannelStripProps) {
+export default function ChannelStrip({ trackIndex }: ChannelStripProps) {
 
-  // ── GM engine check — disables Chorus/Reverb/Pan knobs ───────────────────
-  const audioEngine   = useStore(s => s.audioEngine)
+  // ── Store reads ───────────────────────────────────────────────────────────
+  const audioEngine  = useStore(s => s.audioEngine)
+  const tracks       = useStore(s => s.tracks)
+  const updateTrack  = useStore(s => s.updateTrack)
+  const midi         = useStore(s => s.midi)
+
+  const track       = tracks.find(t => t.index === trackIndex)
+  const parsedTrack = midi?.tracks.find((t: any) => t.index === trackIndex)
+
   const knobsDisabled = audioEngine === 'gm'
 
-  // ── Local knob/fader state (store wiring comes in a later stage) ──────────
-  const [chorus, setChorus] = useState(0.3)
-  const [reverb, setReverb] = useState(0.3)
-  const [pan,    setPan]    = useState(0)
-  const [volume, setVolume] = useState(0.8)
+  // ── Derived display data ──────────────────────────────────────────────────
+  const trackName  = (parsedTrack as any)?.name   ?? (track as any)?.name   ?? ''
+  const trackColor = (parsedTrack as any)?.color  ?? (track as any)?.color  ?? '#808080'
+
+  const muted        = track?.muted        ?? false
+  const solo         = track?.solo         ?? false
+  const visible      = track?.visible      ?? true
+  const showOnKeyboard = track?.showOnKeyboard ?? false
+
+  // ── Knob/fader state — initialized from CC data via store (seeded in midiParser) ──
+  const [dragging, setDragging] = useState(false)
+  const [chorus, setChorus] = useState(() => (parsedTrack as any)?._cc93 ?? 0)
+  const [reverb, setReverb] = useState(() => (parsedTrack as any)?._cc91 ?? 0)
+  const [pan,    setPan]    = useState(() => track?.pan ?? 0)
+  const [volume, setVolume] = useState(() => track?.volume ?? 1)
 
   // ── VU meter — refs avoid re-renders in the rAF loop ─────────────────────
-  const vuRef     = useRef<HTMLCanvasElement>(null)
-  const vuLevel   = useRef(0)
-  const vuAttack  = useRef(0)
-  const rafRef    = useRef(0)
+  const vuRef    = useRef<HTMLCanvasElement>(null)
+  const vuLevel  = useRef(0)
+  const vuAttack = useRef(0)
+  const rafRef   = useRef(0)
 
   // ── VU+Fader section height — measured via ResizeObserver ─────────────────
   const sectionRef = useRef<HTMLDivElement>(null)
-  const [sectionH, setSectionH] = useState(130)
+  const [sectionH, setSectionH] = useState(250)
 
   useLayoutEffect(() => {
     const el = sectionRef.current
@@ -160,7 +169,7 @@ export default function ChannelStrip({
   }, [])
 
   // Derived VU canvas dimensions from section height (8px padding on each side)
-  const vuCanvasH = Math.max(30, sectionH - 16)
+  const vuCanvasH = Math.max(30, sectionH - 8)
   const vuSegs    = Math.max(5, Math.floor(vuCanvasH / SEG_UNIT))
 
   // ── Resize canvas when section height changes ──────────────────────────────
@@ -174,20 +183,30 @@ export default function ChannelStrip({
     canvas.style.height = vuCanvasH + 'px'
   }, [vuCanvasH])
 
-  // ── PLACEHOLDER: simulated velocity pulses for visual testing ─────────────
-  // Replace with: per-track activeKeys velocity subscription from store.
-  // Real implementation: subscribe to store tracks, find this track's notes
-  // in activeKeys by MIDI channel, read velocity from note-on events.
+  // ── VU subscription — watches currentTime to scan active notes by velocity ─
+  // Uses useStore.subscribe (not useStore hook) so velocity updates don't cause
+  // re-renders; the rAF loop picks up the ref values each frame instead.
   useEffect(() => {
-    let timer: ReturnType<typeof setTimeout>
-    const pulse = () => {
-      vuLevel.current  = 0.25 + Math.random() * 0.70
-      vuAttack.current = 1
-      timer = setTimeout(pulse, 350 + Math.random() * 550)
-    }
-    timer = setTimeout(pulse, 200 + Math.random() * 400)
-    return () => clearTimeout(timer)
-  }, [])
+    const unsub = useStore.subscribe(state => {
+      const { currentTime, playbackState, midi: md, tracks: tks } = state
+      if (playbackState !== 'playing' || !md) return
+      const tr = tks.find(t => t.index === trackIndex)
+      if (!tr || tr.muted) return
+      const pt = md.tracks.find((t: any) => t.index === trackIndex)
+      if (!pt) return
+
+      let maxVel = 0
+      for (const note of pt.notes) {
+        // Notes are sorted by time — skip once past current window
+        if (note.time > currentTime + 0.02) break
+        if (currentTime < note.time + note.duration && note.velocity > maxVel)
+          maxVel = note.velocity
+      }
+      if (maxVel > vuLevel.current) vuAttack.current = 1
+      if (maxVel > 0) vuLevel.current = maxVel
+    })
+    return unsub
+  }, [trackIndex])
 
   // ── rAF decay loop — decays level + attack, redraws every frame ───────────
   useEffect(() => {
@@ -205,15 +224,17 @@ export default function ChannelStrip({
   const handleFaderMouseDown = useCallback((e: React.MouseEvent) => {
     if (muted) return
     e.preventDefault()
+    setDragging(true)
     const startY   = e.clientY
     const startVol = volume
-    const travel   = sectionH - 16 - HANDLE_H  // px of fader travel (minus padding)
+    const travel   = sectionH - 8 - HANDLE_H - FADER_TOP_PAD
 
     const onMove = (me: MouseEvent) => {
       const delta = -(me.clientY - startY) / travel
       setVolume(Math.max(0, Math.min(1, startVol + delta)))
     }
     const onUp = () => {
+      setDragging(false)
       document.removeEventListener('mousemove', onMove)
       document.removeEventListener('mouseup',   onUp)
     }
@@ -223,14 +244,14 @@ export default function ChannelStrip({
 
   // Muted → fader slides gracefully to bottom (0) in 150ms ease-out
   const visualVolume = muted ? 0 : volume
-  const handleTop    = (1 - visualVolume) * (sectionH - 16 - HANDLE_H)
+  const handleTop    = FADER_TOP_PAD + (1 - visualVolume) * (sectionH - 8 - HANDLE_H - FADER_TOP_PAD)
 
   // dB readout: standard unity mapping (volume 1 = 0 dB, 0 = −∞)
   const dbText = volume === 0 ? '−∞' : (20 * Math.log10(volume)).toFixed(1)
 
   return (
     <div style={{
-      width: 108, height: 480, flexShrink: 0,
+      width: 120, height: 574, flexShrink: 0,
       background: 'var(--bg-tile)',
       border: '1px solid var(--border2)',
       borderRadius: 'var(--radius-md)',
@@ -244,7 +265,7 @@ export default function ChannelStrip({
         height: 30, flexShrink: 0, display: 'flex', alignItems: 'center',
         borderBottom: '1px solid var(--border)', overflow: 'hidden',
       }}>
-        <div style={{ width: 3, alignSelf: 'stretch', background: color, flexShrink: 0 }} />
+        <div style={{ width: 3, alignSelf: 'stretch', background: trackColor, flexShrink: 0 }} />
         <div style={{ flex: 1, minWidth: 0, paddingLeft: 6, paddingRight: 4 }}>
           <MarqueeText
             name={trackName}
@@ -255,49 +276,88 @@ export default function ChannelStrip({
 
       {/* ── Chorus knob ───────────────────────────────────────────────────── */}
       <div style={{
-        height: 60, flexShrink: 0,
+        height: 66, flexShrink: 0,
         display: 'flex', alignItems: 'center', justifyContent: 'center',
-        borderBottom: '1px solid var(--border)',
+        overflow: 'hidden',
       }}>
         <MixerKnob
           value={chorus} onChange={setChorus}
-          accentColor="var(--knob-chorus)" size={36}
+          accentColor="var(--knob-chorus)" size={52}
           disabled={knobsDisabled} label="Chorus"
         />
       </div>
 
       {/* ── Reverb knob ───────────────────────────────────────────────────── */}
       <div style={{
-        height: 60, flexShrink: 0,
+        height: 66, flexShrink: 0,
         display: 'flex', alignItems: 'center', justifyContent: 'center',
-        borderBottom: '1px solid var(--border)',
+        overflow: 'hidden',
       }}>
         <MixerKnob
           value={reverb} onChange={setReverb}
-          accentColor="var(--knob-reverb)" size={36}
+          accentColor="var(--knob-reverb)" size={52}
           disabled={knobsDisabled} label="Reverb"
         />
       </div>
 
+      {/* ── Pan knob — L/R flanking labels ───────────────────────────────── */}
+      <div style={{
+        height: 66, flexShrink: 0,
+        display: 'flex', alignItems: 'center', justifyContent: 'center',
+        overflow: 'hidden',
+        gap: 6,
+      }}>
+        <span style={{
+          fontSize: 9, fontFamily: 'JetBrains Mono', letterSpacing: '0.06em',
+          color: 'var(--text-dimmest)', fontWeight: 700, lineHeight: 1,
+          marginBottom: 14,
+        }}>L</span>
+        <MixerKnob
+          value={pan} onChange={setPan}
+          accentColor="var(--text-amber)" size={52}
+          disabled={knobsDisabled} bipolar label="Pan"
+        />
+        <span style={{
+          fontSize: 9, fontFamily: 'JetBrains Mono', letterSpacing: '0.06em',
+          color: 'var(--text-dimmest)', fontWeight: 700, lineHeight: 1,
+          marginBottom: 14,
+        }}>R</span>
+      </div>
+
       {/* ── M / S / Eye / Keyboard buttons ───────────────────────────────── */}
       <div style={{
-        height: 32, flexShrink: 0,
-        display: 'flex', alignItems: 'center', justifyContent: 'space-evenly',
-        paddingLeft: 4, paddingRight: 4,
-        borderBottom: '1px solid var(--border)',
+        height: 46, flexShrink: 0,
+        display: 'flex', alignItems: 'center', justifyContent: 'center',
+        gap: 3, padding: 0,
       }}>
-        <IBtn onClick={onMute} active={muted} title={muted ? 'Unmute' : 'Mute'} activeColor="var(--status-error)">
-          <span style={{ fontSize: 10, fontWeight: 700, fontFamily: 'JetBrains Mono', lineHeight: 1 }}>M</span>
+        <IBtn
+          onClick={() => updateTrack(trackIndex, { muted: !muted })}
+          active={muted} title={muted ? 'Unmute' : 'Mute'}
+          activeColor="var(--status-error)"
+        >
+          <span style={{ fontSize: 14, fontWeight: 700, fontFamily: 'JetBrains Mono', lineHeight: 1 }}>M</span>
         </IBtn>
-        <IBtn onClick={onSolo} active={solo} title={solo ? 'Unsolo' : 'Solo'} activeColor="var(--text-amber)">
-          <span style={{ fontSize: 10, fontWeight: 700, fontFamily: 'JetBrains Mono', lineHeight: 1 }}>S</span>
+        <IBtn
+          onClick={() => updateTrack(trackIndex, { solo: !solo })}
+          active={solo} title={solo ? 'Unsolo' : 'Solo'}
+          activeColor="var(--text-amber)"
+        >
+          <span style={{ fontSize: 14, fontWeight: 700, fontFamily: 'JetBrains Mono', lineHeight: 1 }}>S</span>
         </IBtn>
-        <IBtn onClick={onVisible} active={!visible} title={visible ? 'Hide in roll' : 'Show in roll'} activeColor="#6080c0">
-          {visible ? <Eye size={11} /> : <EyeClosed size={11} />}
+        <IBtn
+          onClick={() => updateTrack(trackIndex, { visible: !visible })}
+          active={true} title={visible ? 'Hide in roll' : 'Show in roll'}
+          activeColor={visible ? 'var(--text-amber)' : 'var(--status-error)'}
+        >
+          {visible ? <Eye size={14} /> : <EyeClosed size={14} />}
         </IBtn>
-        <IBtn onClick={onKeyboard} active={showOnKeyboard} title={showOnKeyboard ? 'Lit on keyboard' : 'Not lit on keyboard'} activeColor="var(--text-amber)">
-          {/* Mini piano SVG — matches TrackPanel exactly */}
-          <svg width="13" height="9" viewBox="0 0 13 9" fill="none">
+        <IBtn
+          onClick={() => updateTrack(trackIndex, { showOnKeyboard: !showOnKeyboard })}
+          active={showOnKeyboard} title={showOnKeyboard ? 'Lit on keyboard' : 'Not lit on keyboard'}
+          activeColor="var(--text-amber)"
+        >
+          {/* Mini piano SVG — vectorEffect non-scaling-stroke preserved at all sizes */}
+          <svg width="18" height="13" viewBox="0 0 13 9" fill="none">
             <rect x="0.5" y="0.5" width="12" height="8" rx="1" stroke="currentColor" strokeWidth="0.9" vectorEffect="non-scaling-stroke"/>
             <rect x="2.5" y="0.5" width="1.3" height="5" rx="0.4" fill="currentColor"/>
             <rect x="5"   y="0.5" width="1.3" height="5" rx="0.4" fill="currentColor"/>
@@ -307,66 +367,61 @@ export default function ChannelStrip({
         </IBtn>
       </div>
 
-      {/* ── Pan knob ──────────────────────────────────────────────────────── */}
-      <div style={{
-        height: 52, flexShrink: 0,
-        display: 'flex', alignItems: 'center', justifyContent: 'center',
-        borderBottom: '1px solid var(--border)',
-      }}>
-        <MixerKnob
-          value={pan} onChange={setPan}
-          accentColor="var(--text-amber)" size={30}
-          disabled={knobsDisabled} bipolar label="Pan"
-        />
-      </div>
-
-      {/* ── Volume label + dB readout ──────────────────────────────────────── */}
-      <div style={{
-        height: 38, flexShrink: 0,
-        display: 'flex', flexDirection: 'column', alignItems: 'center',
-        justifyContent: 'center', gap: 4,
-      }}>
-        <span style={{
-          fontSize: 8, fontFamily: 'JetBrains Mono', letterSpacing: '0.1em',
-          textTransform: 'uppercase', color: 'var(--text-dimmest)',
-        }}>
-          Volume
-        </span>
-        <span style={{
-          fontSize: 'var(--text-xs)', fontFamily: 'JetBrains Mono',
-          color: 'var(--text-dim)',
-          background: 'var(--bg-modal)', borderRadius: 'var(--radius-sm)',
-          padding: '1px 6px', letterSpacing: '0.02em',
-          minWidth: 52, textAlign: 'center',
-        }}>
-          {dbText} dB
-        </span>
-      </div>
-
       {/* ── VU meter + Fader (flex-grow, fills remaining height) ──────────── */}
       <div ref={sectionRef} style={{
         flex: 1, minHeight: 0,
         display: 'flex', gap: 6,
-        padding: '8px 8px',
+        padding: '8px 8px 0',
       }}>
 
-        {/* VU meter — MIDI-velocity-driven; see PLACEHOLDER comment above */}
+        {/* VU meter — driven by MIDI velocity via useStore.subscribe */}
         <div style={{ display: 'flex', alignItems: 'flex-end', flexShrink: 0 }}>
           <canvas ref={vuRef} style={{ display: 'block', imageRendering: 'pixelated' }} />
         </div>
 
         {/* ── Fader ─────────────────────────────────────────────────────── */}
         <div style={{ flex: 1, position: 'relative', cursor: muted ? 'not-allowed' : 'default' }}>
+
+          {/* Fader tick marks — major every 4th, minor between, on both sides */}
+          {Array.from({ length: FADER_TICK_COUNT }, (_, i) => {
+            const travel   = sectionH - 8 - HANDLE_H - FADER_TOP_PAD
+            const y        = FADER_TOP_PAD + HANDLE_H / 2 + i * (travel / (FADER_TICK_COUNT - 1))
+            const isMajor  = i % FADER_MAJOR_EVERY === 0
+            const tickW    = isMajor ? 7 : 4
+            const tickH    = 1
+            const color    = isMajor ? '#3a3a58' : '#282840'
+            return (
+              <div key={i}>
+                {/* Left tick */}
+                <div style={{
+                  position: 'absolute',
+                  right: `calc(50% + 3.5px)`,
+                  top: y - tickH / 2,
+                  width: tickW, height: tickH,
+                  background: color, borderRadius: 1,
+                }} />
+                {/* Right tick */}
+                <div style={{
+                  position: 'absolute',
+                  left: `calc(50% + 3.5px)`,
+                  top: y - tickH / 2,
+                  width: tickW, height: tickH,
+                  background: color, borderRadius: 1,
+                }} />
+              </div>
+            )
+          })}
+
           {/* Fader track — thin vertical line, centered */}
           <div style={{
             position: 'absolute',
             left: '50%', transform: 'translateX(-50%)',
             width: 3, borderRadius: 2,
-            top: HANDLE_H / 2, bottom: HANDLE_H / 2,
+            top: FADER_TOP_PAD + HANDLE_H / 2, bottom: HANDLE_H / 2,
             background: 'var(--border2)',
           }} />
 
-          {/* Fader handle — amber pill, slides on mute via CSS transition */}
+          {/* Fader handle — amber pill with score lines; slides on mute */}
           <div
             onMouseDown={handleFaderMouseDown}
             style={{
@@ -378,26 +433,73 @@ export default function ChannelStrip({
               background: muted ? 'var(--state-disabled)' : 'var(--text-amber)',
               boxShadow: muted ? 'none' : '0 1px 5px rgba(232,160,39,0.4)',
               cursor: muted ? 'not-allowed' : 'grab',
-              // Graceful mute slide: 150ms ease-out as specified
-              transition: 'top 150ms ease-out, background 150ms ease-out, box-shadow 150ms ease-out',
+              zIndex: 2,
+              transition: dragging
+                ? 'background 150ms ease-out, box-shadow 150ms ease-out'
+                : 'top 150ms ease-out, background 150ms ease-out, box-shadow 150ms ease-out',
             }}
-          />
+          >
+            {/* Grip score lines */}
+            {[0, 1, 2].map(i => (
+              <div key={i} style={{
+                position: 'absolute',
+                left: 9, right: 9,
+                top: Math.round(5 + i * 4),
+                height: 1,
+                background: muted ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.18)',
+                borderRadius: 1,
+              }} />
+            ))}
+          </div>
+
+          {/* dB readout — absolute, top of fader area, centered on line */}
+          <div style={{
+            position: 'absolute',
+            left: '50%', transform: 'translateX(-50%)',
+            top: 0, zIndex: 1,
+            fontSize: 'var(--text-xs)', fontFamily: 'JetBrains Mono',
+            color: 'var(--text-dim)',
+            background: 'var(--bg-tile)', borderRadius: 'var(--radius-sm)',
+            padding: '1px 5px', letterSpacing: '0.02em',
+            whiteSpace: 'nowrap', pointerEvents: 'none',
+          }}>
+            {dbText} dB
+          </div>
+
         </div>
       </div>
 
-      {/* ── Instrument name pill ──────────────────────────────────────────── */}
+      {/* ── VOLUME label — mirrors fader row structure so text centers on fader track ── */}
+      <div style={{
+        height: 24, flexShrink: 0,
+        display: 'flex', padding: '0 8px', gap: 6,
+      }}>
+        {/* Spacer matching VU canvas width — shifts content right to fader zone */}
+        <div style={{ width: VU_W, flexShrink: 0 }} />
+        <div style={{ flex: 1, display: 'flex', alignItems: 'flex-start', justifyContent: 'center' }}>
+          <span style={{
+            fontSize: 8, fontFamily: 'JetBrains Mono', letterSpacing: '0.1em',
+            textTransform: 'uppercase', color: 'var(--text-dimmest)',
+          }}>
+            Volume
+          </span>
+        </div>
+      </div>
+
+      {/* ── Track identifier pill ─────────────────────────────────────────── */}
       <div style={{
         height: 26, flexShrink: 0,
         display: 'flex', alignItems: 'center', justifyContent: 'center',
-        borderTop: '1px solid var(--border)', padding: '0 6px',
+        padding: '0 6px',
       }}>
         <span style={{
-          fontSize: 8, fontFamily: 'JetBrains Mono', letterSpacing: '0.04em',
+          fontSize: 8, fontFamily: 'JetBrains Mono', letterSpacing: '0.08em',
           color: 'var(--text-dimmest)',
+          textTransform: 'uppercase',
           overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
           maxWidth: '100%', textAlign: 'center',
         }}>
-          {gmName}
+          Track {trackIndex + 1}
         </span>
       </div>
     </div>

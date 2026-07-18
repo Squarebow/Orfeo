@@ -54,6 +54,7 @@
   /* Knob accent tones — unchanged */
   --knob-chorus: #2dd4bf;
   --knob-reverb: #a78bfa;
+  --knob-tone:   #5ba0c8;
 
   /* VU meter levels — unchanged */
   --meter-green:  #7ac040;

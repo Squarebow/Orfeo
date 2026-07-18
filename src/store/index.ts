@@ -193,8 +193,8 @@ function makeTrackState(track: ParsedTrack): TrackState {
     solo: false,
     visible: true,
     showOnKeyboard,
-    volume: 1,
-    pan: 0,
+    volume: (track as any)._cc7 ?? 1,
+    pan: (track as any)._cc10 != null ? ((track as any)._cc10 - 0.5) * 2 : 0,
   }
 }
 
