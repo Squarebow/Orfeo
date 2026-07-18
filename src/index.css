@@ -36,6 +36,7 @@
   --text-amber:   #e8a027;   /* accent — unchanged */
 
   /* Additional granularity for future targeted use during staged rollout */
+  --text-faint:    #707088;   /* Below --text-dimmest — for hints, placeholder text, least-important UI */
   --text-dimmest:  #94979e;
   --text-dim:      #b5b7bc;
   --text-standard: #c6c8c8;
