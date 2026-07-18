@@ -12,6 +12,7 @@ import ChordExplorer from './components/ChordExplorer'
 import ScaleExplorer from './components/ScaleExplorer'
 import LockedChordModal from './components/LockedChordModal'
 import MidiEditor from './components/MidiEditor/MidiEditor'
+import ChannelStrip from './components/Mixer/ChannelStrip'
 import { parseMidiBuffer } from './utils/midiParser'
 import { detectKeyFromTracks, parseKeySignature } from './utils/keyDetection'
 import { useMidiFile } from './hooks/useMidiFile'
@@ -31,6 +32,10 @@ export default function App() {
   useMidiInput()
   useMetronome()
   useChordSequence()
+
+  // ── Dev overlay: Ctrl+Shift+M renders a single ChannelStrip for review ──────
+  // Remove this state + overlay once the full Mixer Console modal is built.
+  const [showMixerDev, setShowMixerDev] = useState(false)
 
   // ── Drag-and-drop state ───────────────────────────────────────────────────
   const [isDragOver, setIsDragOver]           = useState(false)
@@ -181,6 +186,10 @@ export default function App() {
         case 'O':
           if (e.ctrlKey) { e.preventDefault(); openFile() }
           break
+        case 'm':
+        case 'M':
+          if (e.ctrlKey && e.shiftKey) { e.preventDefault(); setShowMixerDev(v => !v) }
+          break
       }
     }
     window.addEventListener('keydown', handleKeyDown)
@@ -251,6 +260,30 @@ export default function App() {
           boxShadow: '0 4px 16px rgba(0,0,0,0.5)',
         }}>
           {dropError}
+        </div>
+      )}
+
+      {/* ── DEV: Mixer Console Stage 1 — Ctrl+Shift+M to toggle ─────────────────
+          Remove this block once the full MixerConsole modal is built. ── */}
+      {showMixerDev && (
+        <div
+          style={{
+            position: 'fixed', inset: 0,
+            background: 'rgba(0,0,0,0.85)',
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            zIndex: 9990,
+          }}
+          onClick={() => setShowMixerDev(false)}
+        >
+          <div onClick={e => e.stopPropagation()}>
+            <ChannelStrip
+              trackName="Acoustic Grand Piano"
+              gmName="Acoustic Grand Piano"
+              color="#4a9060"
+              muted={false} solo={false} visible={true} showOnKeyboard={true}
+              onMute={() => {}} onSolo={() => {}} onVisible={() => {}} onKeyboard={() => {}}
+            />
+          </div>
         </div>
       )}
 
