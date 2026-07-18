@@ -4,6 +4,15 @@
 
 ---
 
+### 18. 7. 2026 — Loop Region strip fixes
+
+**`src/components/LoopRegionStrip.tsx`**
+- **Tick color** — corrected density tick fill from `#404058` (near-invisible against dark bg) to `#b5b7bc`.
+- **Ticks blank after re-toggle** — `loopRegionEnabled` toggle fully unmounts/remounts `LoopRegionStrip`. The density `useStore.subscribe` callback only fires on future state changes, so on remount with no midi change `densityRef` stayed `[]` and no ticks were drawn. Fix: extracted subscriber body into `computeDensity`, call it immediately via `useStore.getState()` on mount, then subscribe for future changes.
+- **Bar range popup position** — changed popup anchor from `right: 0` to `left: 0` so the popup drops below and to the right of the icon instead of leftward over the region strip.
+
+---
+
 ### 13. 7. 2026 — Locked Chord modal: clear button no longer dismisses modal
 
 **`src/components/LockedChordModal.tsx`**

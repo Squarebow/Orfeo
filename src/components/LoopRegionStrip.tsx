@@ -68,8 +68,11 @@ export default function LoopRegionStrip() {
   useEffect(() => useStore.subscribe(s => { storeRef.current = s }), [])
 
   // ── Recompute density positions whenever midi changes ─────────────────────
+  // Also runs immediately on mount so ticks are populated after a re-toggle
+  // (component unmounts when loopRegionEnabled is off; subscribe alone won't
+  // fire on remount because midi itself hasn't changed).
   useEffect(() => {
-    return useStore.subscribe((s) => {
+    const computeDensity = (s: ReturnType<typeof useStore.getState>) => {
       if (!s.midi) { densityRef.current = []; return }
       const positions: number[] = []
       for (const t of s.midi.tracks) {
@@ -78,7 +81,9 @@ export default function LoopRegionStrip() {
         }
       }
       densityRef.current = positions
-    })
+    }
+    computeDensity(useStore.getState())
+    return useStore.subscribe(computeDensity)
   }, [])
 
   // ── rAF draw loop ──────────────────────────────────────────────────────────
@@ -126,7 +131,7 @@ export default function LoopRegionStrip() {
           if (bi >= 0 && bi < numBuckets) counts[bi]++
         }
         const maxCount = Math.max(1, ...counts)
-        ctx.fillStyle = '#404058'
+        ctx.fillStyle = '#b5b7bc'
         for (let i = 0; i < numBuckets; i++) {
           if (counts[i] === 0) continue
           const norm  = counts[i] / maxCount
@@ -441,7 +446,7 @@ export default function LoopRegionStrip() {
             style={{
               position: 'absolute',
               top: STRIP_H + 4,
-              right: 0,
+              left: 0,
               background: 'var(--bg-tile)',
               border: '1px solid #2e2e42',
               borderRadius: 6,

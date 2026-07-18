@@ -180,6 +180,14 @@ All user-visible changes listed here. For full technical detail see [CHANGELOG.m
 
 ---
 
+### 18. 7. 2026
+
+**Fixed**
+- **Loop Region ticks** — density ticks on the loop region strip were invisible (too dark) and disappeared entirely after toggling the Loop Region setting off and back on. Both issues are now fixed: ticks render at the correct brightness and survive any number of toggle cycles.
+- **Bar range popup** — the manual bar-range popup (icon to the right of the strip) now opens to the right of the icon rather than leftward over the strip.
+
+---
+
 ### 13. 7. 2026
 
 **Fixed**
