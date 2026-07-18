@@ -35,20 +35,23 @@
 ### Chord & Scale Features
 - [x] Real-time chord detection during playback and manual key presses
 - [x] Chord display above keyboard — slash notation (C/E), inversion labels (1st inv)
-- [x] Chord lock — Shift+click to build and lock a chord; now opens as a separate draggable mini modal (pauses MIDI playback on open, resumes from exact position on close)
+- [x] Chord lock — Shift+click to build and lock a chord; opens as a draggable mini modal; clear button no longer dismisses modal (shows `— — —`, re-opens on next Shift+click)
 - [x] Shift+Click hint text relocated to main chord display row (next to `SCALES`)
 - [x] Chord Explorer — 20 chord types (Common/Extended tiers), root selector, hand/note filters, search, progressions, inversion cycling
 - [x] Scale Explorer — Circle of Fifths SVG, 10 scale types, diatonic chord grid, Roman numeral labels, 20 named progressions, inversion cycling
+- [x] Scale Explorer — Octave tile (8th tile after 7-degree grid; plays tonic chord +12 semitones; label `{tonic.roman}⁸`; inversion buttons work correctly)
 - [x] Inversion display — slash notation everywhere; original chord identity preserved across all cycling; no re-detection on inverted sets
 - [x] Major chord suffix `M` removed globally (CM → C)
 - [x] Fixed: progression playback used wrong chord quality (ii-V-I now correctly plays Dm7-G7-Cmaj7 regardless of currently selected chord type — quality hardcoded per Roman numeral)
 - [x] Fixed: chord name display froze during progression playback (both explorers) — now updates live per step
 - [x] Fixed: Samples engine produced no audio during progression playback — routing bug resolved
 - [x] Chord Explorer search rewritten with Fuse.js fuzzy matching (single character returns results immediately)
-- [x] Power chord filter (`PWR`) in Chord Explorer Notes filter
+- [x] **Power Chord tier** — full `power` tier mode in Chord Explorer (12 power chord tiles; gates Hand filter, Notes filter, Search, Progressions, Play Inversion footer; clears stale highlights on entry)
+- [x] **Genre Voicing System** — 7 styles (Classic, Coltrane, Cinematic, Roadhouse, Ipanema, Carnival, Velvet) for Chord Explorer progression playback; `getGenreVoicing()` in `genreVoicing.ts`; all chord type strings verified against tonal 6.4.3
 - [x] Chord Prompter — integrated directly into the chord bar (not a separate modal); toggle in Settings + transport icon; shows past 4 chords / current / next 2 chords in one row; both simple and extended display now read from the same pre-computed chord sequence (fixed jitter in regular display too)
 - [x] Chord Transcript PDF — generates a full chord chart (legend with keyboard-diagram thumbnails, bar/beat grid, subtle full-bleed lines) for any file; triggered via icon next to each file in the Library; gated by a Settings toggle (default off); fonts embedded (Inter/JetBrains Mono); legend collapses inversions into one entry per chord; respects active accidentals setting
   - Styling flagged for a future polish pass (noted, not urgent)
+- [x] Fixed: EU naming Bb-rooted chord names (e.g. "Bbm") were incorrectly displayed as "Hm" — sequential `.replace()` in `localizeChord()` replaced with single atomic pass; affects chord bar, Locked Chord modal, Chord Explorer, Scale Explorer
 
 ### Note Naming & Accidentals
 - [x] Note naming systems — UK/US (English), EU (Central European H), Solfège, Hidden
@@ -61,6 +64,10 @@
 - [x] Split breakpoint — Single Note mode (adjustable C3–C4) AND Range mode (lower/upper bound, mixed zone), both persistent and user-selectable in Settings
 - [x] Split / Merge Lucide icons in MIDI Editor
 - [x] MIDI file library — folder picker, subfolder scanning, star favourites, one-click load
+- [x] **Library amber highlight** — currently loaded file row shows amber background + amber filename + amber icon; comparison normalises Windows backslash/case
+- [x] **Right-click "Remove from Library"** — context menu on any library row hides the file from the list (persisted to prefs); `position: fixed` menu escapes panel `overflow: hidden`
+- [x] **Drag & drop MIDI files** — drop anywhere on the app to load; if a file is already open a confirm modal appears; external files auto-copied to library via `fs:copyMidiToLibrary` IPC (collision-safe naming)
+- [x] **Drag & drop onto Library sidebar** — add-only; amber border overlay while dragging; error toast for non-MIDI or no-folder cases; `dragleave` flickering prevented with `contains(relatedTarget)` guard
 - [x] Auto-created `Orfeo/` subfolder — all app-generated files save here automatically, keeping the source library tidy; library displays `.mid` files from it, hides PDFs
 - [x] Bundled `Demo/` folder — 5 MIDI files auto-copied on first launch, always sorted to top of library, hideable via Settings toggle
 - [x] Settings persistence — note naming, accidentals, library folder, favourites, master volume, audio engine, all new toggles saved to `orfeo-prefs.json`
@@ -76,6 +83,14 @@
 - [x] Fixed: MIDI Playback Editor opening main app/Library instead of the editor in packaged builds
 - [x] Fixed: Floating keyboard waterfall/piano-roll misalignment
 - [x] User Manual link in left drawer
+- [x] **Settings panel redesign** — 7 collapsible sections (MIDI Files & Library, Notation, Keyboard, Playback & Practice, Audio, Piano Roll, Appearance); eye-toggle controls (green = on, red = off); amber section headers; collapse state persisted per group; `OptionBtn` active state uses green for features, red for hide/disable actions
+- [x] **Show Octave Labels / Show Note Names on Keyboard** toggles — persisted settings; eye-toggle UI in Settings Keyboard group
+- [x] **Selective Tracks Playback** — eye-toggle in Settings Audio group; amber "Selection / All tracks" button in Track Panel header; `setTrackMuteFilter()` batch action mutes/unmutes all non-keyboard GM families in one call; real-time JZZ filter (no player rebuild)
+- [x] **Guitar tracks auto-muted** — `'guitar'` (GM programs 24–31) added to `DEFAULT_MUTED_GROUPS`
+- [x] **Track Panel full instrument names + marquee** — three-row `TrackRow` layout (name row / controls row / channel+program row); `MarqueeText` shared component (scroll-on-hover via `ResizeObserver`); instrument names show in full, marquee only activates on overflow
+- [x] **Loop Region Strip** — 24px canvas strip between scrub bar and song title; note-density tick marks; drag-to-select with bar-snapping; bar range popup; persisted enable/disable toggle; resets on file load; tick color and remount density fix applied
+- [x] Custom `EyeClosed` SVG — replaces Lucide `EyeOff` across Settings panel and Track Panel (5-path inline design)
+- [x] **Global CSS variable migration** — all design tokens extracted to `src/index.css :root`; no hex literals remain in DOM/inline-style context; SVG presentation attributes excluded (intentional); new tokens: `--text-dim-control`, `--border-row`, `--bg-deep`, modal surfaces, interaction states, amber alpha tiers, status banners
 
 ### Documentation & Tooling
 - [x] `CLAUDE.md` — trimmed to essentials, Gotchas section, Versioning rules, automatic changelog/README-split rule on every commit
@@ -90,7 +105,6 @@
 ## Designed — Not Yet Built
 
 - [ ] Mixer Console — full implementation pending. Design fully finalized: 1120x552px modal, 8 channel strips @ 108x480px + 1 master strip @ 160x480px, 8px gaps, 16px padding, 40px header; complete color palette with swatch reference file; master strip mono-meter/spectrogram toggle designed; knob reuse plan (VolumeKnob component for Chorus/Reverb/Pan, scaled up for Master Volume); all VU meters to be MIDI-event-driven (velocity-based), not audio-FFT-based
-- [ ] Loop Region Strip — full prompt written and ready to run. 24px strip between scrub bar and song title; note-density ticks; drag-to-select with bar-snapping; reuses existing loop icon with context-aware tooltip/behaviour; tempo/transpose unaffected by looping; resets on close
 - [ ] Drawer restyle — detailed icon/layout spec written (Library/Settings icons + Onboarding placeholder on left drawer; Tracks/Console-placeholder/MIDI-Editor icons on right drawer; alignment fixes to match content columns below)
 
 ---
@@ -103,17 +117,16 @@
 | 8 | Performance mode ribbon rest state — needs polish. Current behavior: colored fills fade out on silence, dim midline appears, labels dim to 55% opacity at last known cluster positions. Needs visual review (actual opacity levels, midline weight/color, transition timing) — cannot be fully validated without video capture of the live app. Flag for a dedicated polish pass once testable on hardware. | Low |
 | 2 | TrackPanel SVG — intermittent renderer crash on certain MIDI files; root cause unknown | High |
 | 3 | Chord name inconsistency between Chord Explorer tiles and live chord bar display in some edge cases | Medium |
-| 4 | Loop region (full file) — store state exists, no dedicated UI yet (superseded by Loop Region Strip above) | Medium |
 | 5 | Per-track volume and pan — store fields exist, not yet wired to audio (pending Mixer Console) | Medium |
-| 6 | CSS magic numbers — hardcoded colors/spacing/z-indexes need extracting into CSS variables; full migration plan written, deferred until all functionality/layout work is complete | Low |
 | 7 | CSS Grid migration — replace flexbox in multi-row components (explorers, topbar, mixer, settings, track panel) | Low |
+| 9 | Library "Remove from Library" has no undo / "Show hidden files" UI — files hidden via right-click context menu accumulate in prefs with no way to restore them from within the app | Low |
 
 ---
 
 ## Planned Features
 
 ### Near Term
-- [ ] Settings panel rework — full redesign using CSS Grid, icon-based compact controls. New settings: light/dark theme toggle, UI density (compact/comfortable), show/hide bar numbers, default keyboard size/mode on launch, key highlight color picker, count-in bars (1/2/4), auto-scroll on/off, loop-on-by-default, MIDI output device selector, note release time, default accidentals exposed in UI, default scale type / chord tier for explorers, remember-last-selection toggle, welcome screen on/off, reopen-last-file-on-launch, window position memory
+- [ ] Settings panel rework *(partially done — collapsible groups, eye-toggles, amber headers, group collapse persistence all shipped in v0.10.4)* — remaining: CSS Grid layout, MIDI output device selector, key highlight color picker, count-in bars, auto-scroll, default keyboard size/mode on launch, reopen-last-file-on-launch, window position memory, welcome screen on/off, UI density toggle
 - [ ] Finger numbers on keyboard — display suggested fingering on lit keys during chord/inversion display: 1-3-5 (major/minor/diminished triads), 1-2-3-5 / 1-2-4-5 (seventh-chord inversions); inversion-aware
 - [ ] Onboarding / Welcome screen — placeholder icon designed in drawer spec; actual screen content not yet built; shown on first launch only, toggleable from Settings
 
@@ -127,7 +140,7 @@
 - [ ] GitHub Actions — automated multi-platform builds (Windows/macOS/Linux) on release tag push, auto-attached to GitHub Releases
 - [ ] macOS .dmg build (contributor or CI)
 - [ ] Linux .AppImage build (contributor or CI)
-- [ ] Global CSS variable migration (see Known Issues #6)
+- [x] Global CSS variable migration — complete as of v0.10.2 (see Completed above)
 - [ ] CSS Grid migration (see Known Issues #7)
 - [ ] Beta label on Chord Transcript feature (low priority)
 
