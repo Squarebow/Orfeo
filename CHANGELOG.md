@@ -4,6 +4,28 @@
 
 ---
 
+### 18. 7. 2026 — Mixer Console Stage 4 — full modal shell
+
+**`src/components/Mixer/MixerConsole.tsx`** (new)
+- Full modal component: `{ open: boolean; onClose: () => void }` props.
+- Backdrop: `position: fixed, inset: 0, rgba(0,0,0,0.85), zIndex: 9990`. Click backdrop to close; Escape key also closes.
+- Modal: `width: min(90vw, 1400px)`, `--bg-modal`, `1px solid --border2`, borderRadius 10, drop shadow.
+- Header (40px): `--bg-modal-header`, `borderBottom 1px --border`. Left: "MIXER CONSOLE" amber JetBrains Mono label. Right: `<X size={16} />` close button. Matches ChordExplorer/ScaleExplorer header convention.
+- Body: 16px padding all sides, flex row, `gap: 8px`.
+- **Scrollable channel strip area**: `flex: 1`, `overflowX: auto`, flex row with `gap: 8px`. Tracks sorted via `useMemo`: unmuted first (stable by `index`), muted at end. Empty state message when no MIDI loaded.
+- **Drag-to-pan**: `onMouseDown` records `dragStartX` + `scrollLeft`; `mousemove`/`mouseup` attached to `document` during pan so pointer can leave the row. Cursor switches `grab` ↔ `grabbing` via `useState`. Vertical mouse wheel mapped to `scrollLeft` for horizontal scroll.
+- **Master strip**: `flexShrink: 0` wrapper, always visible at the fixed right end — does not participate in horizontal scroll.
+- Scrollbar: `.mixer-scroll` class — 4px height, transparent track, `--border2` thumb.
+
+**`src/App.tsx`**
+- Replaced direct `ChannelStrip` + `MasterStrip` imports and inline dev overlay with `import MixerConsole` + `<MixerConsole open={showMixerDev} onClose={…} />`.
+- `showMixerDev` state and Ctrl+Shift+M shortcut unchanged.
+
+**`src/index.css`**
+- Added `.mixer-scroll` scrollbar rules (4px, thin, dark theme, hover brightens thumb).
+
+---
+
 ### 18. 7. 2026 — Mixer Console — ChannelStrip + MasterStrip
 
 **`src/components/Mixer/MixerKnob.tsx`** — geometry redesign + new props

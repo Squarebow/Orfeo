@@ -199,6 +199,13 @@ body {
   letter-spacing: 0.03rem;
 }
 
+/* ── Mixer Console — scrollable channel strip row ────────────────────────────
+   Thin dark scrollbar; auto-shows only when content overflows.               */
+.mixer-scroll::-webkit-scrollbar        { height: 4px }
+.mixer-scroll::-webkit-scrollbar-track  { background: transparent }
+.mixer-scroll::-webkit-scrollbar-thumb  { background: var(--border2); border-radius: 2px }
+.mixer-scroll::-webkit-scrollbar-thumb:hover { background: var(--text-dimmest) }
+
 /* Utility class: apply where a bold weight was previously used for standard
    body/label text, to avoid bleeding on dark backgrounds. Reserve true Bold
    (700) for large headings and amber emphasis numbers only. */

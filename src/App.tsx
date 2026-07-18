@@ -12,8 +12,7 @@ import ChordExplorer from './components/ChordExplorer'
 import ScaleExplorer from './components/ScaleExplorer'
 import LockedChordModal from './components/LockedChordModal'
 import MidiEditor from './components/MidiEditor/MidiEditor'
-import ChannelStrip from './components/Mixer/ChannelStrip'
-import MasterStrip from './components/Mixer/MasterStrip'
+import MixerConsole from './components/Mixer/MixerConsole'
 import { parseMidiBuffer } from './utils/midiParser'
 import { detectKeyFromTracks, parseKeySignature } from './utils/keyDetection'
 import { useMidiFile } from './hooks/useMidiFile'
@@ -34,8 +33,7 @@ export default function App() {
   useMetronome()
   useChordSequence()
 
-  // ── Dev overlay: Ctrl+Shift+M renders a single ChannelStrip for review ──────
-  // Remove this state + overlay once the full Mixer Console modal is built.
+  // ── Mixer Console — Ctrl+Shift+M to open, Escape/backdrop to close ──────────
   const [showMixerDev, setShowMixerDev] = useState(false)
 
   // ── Drag-and-drop state ───────────────────────────────────────────────────
@@ -264,28 +262,8 @@ export default function App() {
         </div>
       )}
 
-      {/* ── DEV: Mixer Console Stage 3 — Ctrl+Shift+M to toggle ─────────────────
-          Shows ChannelStrip (track 0) + MasterStrip side by side for size
-          comparison. Remove once the full MixerConsole modal is built. ── */}
-      {showMixerDev && midi !== null && (
-        <div
-          style={{
-            position: 'fixed', inset: 0,
-            background: 'rgba(0,0,0,0.85)',
-            display: 'flex', alignItems: 'center', justifyContent: 'center',
-            zIndex: 9990,
-          }}
-          onClick={() => setShowMixerDev(false)}
-        >
-          <div
-            onClick={e => e.stopPropagation()}
-            style={{ display: 'flex', gap: 8 }}
-          >
-            <ChannelStrip trackIndex={0} />
-            <MasterStrip />
-          </div>
-        </div>
-      )}
+      {/* ── Mixer Console modal — Ctrl+Shift+M (dev shortcut, Stage 4) ─────────── */}
+      <MixerConsole open={showMixerDev} onClose={() => setShowMixerDev(false)} />
 
       {/* ── Drop confirmation modal — shown when a file is already loaded ────── */}
       {dropConfirmPath && (
