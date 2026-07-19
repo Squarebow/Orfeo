@@ -528,6 +528,12 @@ export default function MidiEditor() {
     }
   }
 
+  // ── Prevent body scrollbars — window is transparent so body must not scroll ──
+  useEffect(() => {
+    document.documentElement.style.overflow = 'hidden'
+    document.body.style.overflow = 'hidden'
+  }, [])
+
   return (
     <div
       className="orfeo-modal-glow"

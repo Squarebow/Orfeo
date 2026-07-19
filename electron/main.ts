@@ -167,7 +167,7 @@ ipcMain.handle('editor:open', async (_e, data: any) => {
   if (editorWin && !editorWin.isDestroyed()) { editorWin.focus(); return }
   editorWin = new BrowserWindow({
     width: 760, height: 600, minWidth: 640, minHeight: 480,
-    resizable: true, backgroundColor: '#0f0f12',
+    resizable: true, transparent: true,
     title: 'Orfeo MIDI Playback Editor',
     titleBarStyle: 'hidden',
     titleBarOverlay: {
