@@ -11,6 +11,7 @@ import OrfeoMark from '../OrfeoMark'
 import { useStore } from '../../store'
 import { parseMidiBuffer } from '../../utils/midiParser'
 import { detectKeyFromTracks, parseKeySignature } from '../../utils/keyDetection'
+import { bringToFront, MODAL_BASE_Z } from '../../utils/modalFocus'
 
 const MODAL_W = 760
 const MODAL_H = 620
@@ -196,7 +197,7 @@ function InstrumentPicker({ program, isDrum, onChange }: {
 
       {open && (
         <div style={{
-          position: 'fixed', zIndex: 9999, width: 220, maxHeight: 320, overflow: 'hidden',
+          position: 'fixed', zIndex: 50000, width: 220, maxHeight: 320, overflow: 'hidden',
           background: 'var(--bg-modal)', border: '1px solid var(--state-hover-bg)', borderRadius: 6,
           boxShadow: '0 8px 32px rgba(0,0,0,0.6)', display: 'flex', flexDirection: 'column',
         }}
@@ -318,7 +319,7 @@ function TrackRow({ track, onToggleIncluded, onToggleMerge, onChangeProgram, onU
               onMouseEnter={e => { e.currentTarget.style.color = 'var(--text-amber)'; e.currentTarget.style.borderColor = 'var(--accent-amber-strong)' }}
               onMouseLeave={e => { e.currentTarget.style.color = 'var(--text-dim-control)'; e.currentTarget.style.borderColor = 'var(--border2)' }}
             >
-              <Split size={16} />
+              <Split size={11} />
             </button>
           )}
         </div>
@@ -390,6 +391,9 @@ export default function MidiEditor() {
   const [saveResult, setSaveResult] = useState<{ ok: boolean; msg: string } | null>(null)
   const [splitResult, setSplitResult] = useState<{ ok: boolean; msg: string } | null>(null)
   const [pendingSplitIndex, setPendingSplitIndex] = useState<number | null>(null)
+
+  // ── Z-index — bringToFront on mousedown so last-clicked modal is on top ────
+  const [zIndex, setZIndex] = useState(MODAL_BASE_Z)
 
   // ── Drag state ───────────────────────────────────────────────────────────────
   const [pos, setPos] = useState({ x: 0, y: 0 })
@@ -595,10 +599,11 @@ export default function MidiEditor() {
     <div
       ref={panelRef}
       className="orfeo-modal-glow"
+      onMouseDown={() => setZIndex(bringToFront())}
       style={{
         position: 'fixed', left: pos.x, top: pos.y,
         width: MODAL_W, height: MODAL_H,
-        zIndex: 600,
+        zIndex,
         background: 'var(--bg-modal-header)',
         border: '1px solid var(--state-hover-bg)',
         borderRadius: 10,
@@ -621,8 +626,10 @@ export default function MidiEditor() {
           cursor: 'grab',
         }}
       >
-        <OrfeoMark height={16} />
-        <span style={{ color: 'var(--text-amber)', fontSize: 'var(--text-sm)', fontWeight: 600, letterSpacing: '0.05em' }}>
+        <div style={{ flexShrink: 0, display: 'flex', alignItems: 'center', marginRight: 0 }}>
+          <OrfeoMark height={22} />
+        </div>
+        <span style={{ color: 'var(--text-amber)', fontSize: 'var(--text-sm)', fontWeight: 700, letterSpacing: '0.14em', textTransform: 'uppercase' }}>
           MIDI PLAYBACK EDITOR
         </span>
         <span style={{ color: 'var(--text-muted)' }}>·</span>
@@ -633,11 +640,11 @@ export default function MidiEditor() {
           data-no-drag="true"
           onClick={() => setMidiEditorOpen(false)}
           title="Close editor"
-          style={{ width: 20, height: 20, background: 'transparent', border: 'none', cursor: 'pointer', color: 'var(--text-muted)', display: 'flex', alignItems: 'center', justifyContent: 'center', borderRadius: 'var(--radius-sm)', flexShrink: 0, transition: 'color 0.12s' }}
-          onMouseEnter={e => e.currentTarget.style.color = '#c05050'}
-          onMouseLeave={e => e.currentTarget.style.color = 'var(--text-muted)'}
+          style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#505068', lineHeight: 1, padding: '0 2px', display: 'flex', alignItems: 'center', transition: 'color 0.15s', flexShrink: 0 }}
+          onMouseEnter={e => e.currentTarget.style.color = 'var(--text-default)'}
+          onMouseLeave={e => e.currentTarget.style.color = '#505068'}
         >
-          <X size={12} strokeWidth={1.8} />
+          <X size={16} />
         </button>
       </div>
 

@@ -1,6 +1,7 @@
 import { useRef, useState, useEffect, useMemo, useCallback, type CSSProperties } from 'react'
 import { X, Minus } from 'lucide-react'
 import { useStore } from '../../store'
+import { bringToFront, MODAL_BASE_Z } from '../../utils/modalFocus'
 import ChannelStrip from './ChannelStrip'
 import MasterStrip from './MasterStrip'
 import OrfeoMark from '../OrfeoMark'
@@ -74,6 +75,9 @@ export default function MixerConsole() {
     }
   })
 
+  // ── Z-index — bringToFront on mousedown so last-clicked modal is on top ────
+  const [zIndex, setZIndex] = useState(MODAL_BASE_Z)
+
   // ── Drag-to-pan state for the channel strip row ───────────────────────────
   const scrollRef    = useRef<HTMLDivElement>(null)
   const dragStartX   = useRef(0)
@@ -140,6 +144,7 @@ export default function MixerConsole() {
   return (
     <div
       className="orfeo-modal-glow"
+      onMouseDown={() => setZIndex(bringToFront())}
       style={{
         position: 'fixed',
         left: pos.x, top: pos.y,
@@ -151,7 +156,7 @@ export default function MixerConsole() {
         flexDirection: 'column',
         overflow: 'hidden',
         userSelect: 'none',
-        zIndex: 9990,
+        zIndex,
         '--_modal-shadow': '0 8px 40px rgba(0,0,0,0.8)',
       } as CSSProperties}
     >
@@ -176,7 +181,7 @@ export default function MixerConsole() {
 
         {/* ── Title ──────────────────────────────────────────────────────── */}
         <span style={{
-          fontFamily: 'JetBrains Mono', fontSize: 10, fontWeight: 700,
+          fontFamily: 'JetBrains Mono', fontSize: 'var(--text-sm)', fontWeight: 700,
           color: 'var(--text-amber)', letterSpacing: '0.14em', textTransform: 'uppercase',
           flex: 1,
         }}>
