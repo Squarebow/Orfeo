@@ -10,17 +10,19 @@ import {
   setChannelVolume,
 } from '../../hooks/useSamplesEngine'
 
-// ── VU canvas width ───────────────────────────────────────────────────────────
-const VU_W = 16   // CSS px
+// ── VU meter constants ────────────────────────────────────────────────────────
+const SEG_H    = 4    // segment height in CSS px
+const SEG_GAP  = 2    // gap between segments
+const SEG_UNIT = SEG_H + SEG_GAP
+const VU_W     = 16   // canvas CSS width in px
 
-// ── Draw wave VU — smooth colored fill with glow, peak-hold, idle breathing ───
-// level/peak are 0-1 (MIDI velocity, already normalized by @tonejs/midi).
-// breathOffset is a small sine value applied when signal is absent.
-function drawWave(
+// ── Draw VU — segmented bars in track color, no zone gradient ────────────────
+// Active segments at full track color; inactive at dim (alpha 0.08).
+function drawVU(
   canvas: HTMLCanvasElement,
   level: number,
-  breathOffset: number,
   color: string,
+  segs: number,
   canvasH: number,
 ) {
   const dpr = window.devicePixelRatio || 1
@@ -28,34 +30,16 @@ function drawWave(
   if (!ctx) return
   ctx.clearRect(0, 0, canvas.width, canvas.height)
 
-  const W = VU_W * dpr
-  const H = canvasH * dpr
+  const activeSeg = Math.floor(level * segs)
+  const w = VU_W * dpr
 
-  const displayLevel = Math.min(1, Math.max(0, level + breathOffset))
-  const y = H * (1 - displayLevel)
-
-  // Gradient: track color at top, near-black at bottom
-  const grad = ctx.createLinearGradient(0, 0, 0, H)
-  grad.addColorStop(0, color)
-  grad.addColorStop(1, 'rgba(0,0,0,0.08)')
-
-  // Glow — shadow is contained within the canvas pixel buffer
-  ctx.shadowColor = color
-  ctx.shadowBlur  = 10 * dpr
-
-  ctx.beginPath()
-  ctx.moveTo(0, H)
-  ctx.lineTo(0, y)
-  ctx.lineTo(W, y)
-  ctx.lineTo(W, H)
-  ctx.closePath()
-  ctx.fillStyle   = grad
-  ctx.globalAlpha = 0.85
-  ctx.fill()
-  ctx.shadowBlur  = 0
-  ctx.shadowColor = 'transparent'
+  ctx.fillStyle = color
+  for (let i = 0; i < segs; i++) {
+    const y = (canvasH - (i + 1) * SEG_UNIT) * dpr
+    ctx.globalAlpha = i < activeSeg ? 1 : 0.08
+    ctx.fillRect(0, y, w, SEG_H * dpr)
+  }
   ctx.globalAlpha = 1
-
 }
 
 // ── EyeClosed — copied from TrackPanel (not yet exported from there) ──────────
@@ -151,12 +135,10 @@ export default function ChannelStrip({ trackIndex }: ChannelStripProps) {
   const handlePan    = useCallback((v: number) => { setPanState(v);    setChannelPan(midiChannel, v)    }, [midiChannel])
 
   // ── VU meter — refs avoid re-renders in the rAF loop ─────────────────────
-  const vuRef       = useRef<HTMLCanvasElement>(null)
-  const vuLevel     = useRef(0)
-  const breathPhase = useRef(0)
-  const breathAmp   = useRef(0)
-  const colorRef    = useRef(trackColor)
-  const rafRef      = useRef(0)
+  const vuRef    = useRef<HTMLCanvasElement>(null)
+  const vuLevel  = useRef(0)
+  const colorRef = useRef(trackColor)
+  const rafRef   = useRef(0)
 
   // ── Keep colorRef current so rAF closure always sees the latest track color ─
   useEffect(() => { colorRef.current = trackColor }, [trackColor])
@@ -176,6 +158,7 @@ export default function ChannelStrip({ trackIndex }: ChannelStripProps) {
 
   // Derived VU canvas height from section height (8px top padding, 0px bottom)
   const vuCanvasH = Math.max(30, sectionH - 8)
+  const vuSegs    = Math.max(5, Math.floor(vuCanvasH / SEG_UNIT))
 
   // ── Resize canvas when section height changes ──────────────────────────────
   useLayoutEffect(() => {
@@ -212,23 +195,18 @@ export default function ChannelStrip({ trackIndex }: ChannelStripProps) {
     return unsub
   }, [trackIndex])
 
-  // ── rAF decay loop — decays level + peak, advances breathing, redraws ─────
+  // ── rAF decay loop — decays level each frame, redraws segmented bars ────────
   useEffect(() => {
     const loop = () => {
-      vuLevel.current  = Math.max(0, vuLevel.current - 0.013)
-      // Idle breathing — amplitude lerps in when silent, out when active
-      const isIdle = vuLevel.current < 0.04
-      breathAmp.current   += ((isIdle ? 0.018 : 0) - breathAmp.current) * 0.02
-      breathPhase.current += 0.018
-      const breathOffset   = Math.sin(breathPhase.current) * breathAmp.current
+      vuLevel.current = Math.max(0, vuLevel.current - 0.013)
       if (vuRef.current) {
-        drawWave(vuRef.current, vuLevel.current, breathOffset, colorRef.current, vuCanvasH)
+        drawVU(vuRef.current, vuLevel.current, colorRef.current, vuSegs, vuCanvasH)
       }
       rafRef.current = requestAnimationFrame(loop)
     }
     rafRef.current = requestAnimationFrame(loop)
     return () => { if (rafRef.current) cancelAnimationFrame(rafRef.current) }
-  }, [vuCanvasH])
+  }, [vuSegs, vuCanvasH])
 
   // ── Fader drag ────────────────────────────────────────────────────────────
   const handleFaderMouseDown = useCallback((e: React.MouseEvent) => {
