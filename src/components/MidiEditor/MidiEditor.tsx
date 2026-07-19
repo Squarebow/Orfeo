@@ -7,7 +7,7 @@
  * - Merge icon updated to Lucide Merge; Split uses Lucide Split
  */
 
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect, useRef, type CSSProperties } from 'react'
 import { Check, X, Save, FolderOpen, AlertCircle, ChevronDown, ChevronRight, Search, Merge, Split, Undo2, RotateCcw, Piano, Bell, Church, Guitar, Music2, AudioWaveform, Users, Megaphone, Wind, Feather, Cpu, Globe, Drum, Radio, Waves, Sparkles } from 'lucide-react'
 import OrfeoMark from '../OrfeoMark'
 
@@ -529,7 +529,19 @@ export default function MidiEditor() {
   }
 
   return (
-    <div style={{ width: '100vw', height: '100vh', background: 'var(--bg-modal-header)', color: 'var(--text-muted)', fontFamily: 'Inter, system-ui', display: 'flex', flexDirection: 'column', fontSize: 'var(--text-sm)', userSelect: 'none', border: '1px solid var(--state-hover-bg)', boxShadow: 'inset 0 0 18px 4px var(--accent-amber-medium), inset 0 0 5px 1px var(--accent-amber-strong)' }}>
+    <div
+      className="orfeo-modal-glow"
+      style={{
+        width: 'calc(100vw - 16px)', height: 'calc(100vh - 16px)', margin: 8,
+        background: 'var(--bg-modal-header)',
+        border: '1px solid var(--state-hover-bg)',
+        borderRadius: 8, overflow: 'hidden',
+        color: 'var(--text-muted)', fontFamily: 'Inter, system-ui',
+        display: 'flex', flexDirection: 'column',
+        fontSize: 'var(--text-sm)', userSelect: 'none',
+        '--_modal-shadow': '0 0 0 0 transparent',
+      } as CSSProperties}
+    >
 
       {/* Title bar */}
       <div style={{ height: 48, flexShrink: 0, background: 'var(--bg-modal-header)', borderBottom: '1px solid var(--border)', display: 'flex', alignItems: 'center', padding: '0 var(--space-4)', gap: 10, WebkitAppRegion: 'drag' as any, paddingRight: 160 }}>
