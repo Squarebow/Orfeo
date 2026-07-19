@@ -36,8 +36,8 @@ export default function MixerConsole() {
   const tracks          = useStore(s => s.tracks)
 
   // ── Mount guard — don't render until first open ───────────────────────────
-  // Minimize calls setMixerOpen(false) — component stays mounted via everOpened,
-  // so all internal state (pos, knob values, scroll) survives the hide/show cycle.
+  // everOpened keeps the component mounted after first open so all internal state
+  // (pos, knob values, scroll) survives hide/show cycles.
   const [everOpened, setEverOpened] = useState(false)
 
   // ── Mark ever-opened on first open ───────────────────────────────────────
@@ -128,7 +128,7 @@ export default function MixerConsole() {
         background: 'var(--bg-modal)',
         border: '1px solid var(--border2)',
         borderRadius: 10,
-        display: (mixerOpen && !mixerMinimized) ? 'flex' : 'none',
+        display: mixerOpen ? 'flex' : 'none',
         flexDirection: 'column',
         overflow: 'hidden',
         boxShadow: '0 8px 40px rgba(0,0,0,0.8), 0 0 0 1px rgba(232,160,39,0.06)',
@@ -137,13 +137,14 @@ export default function MixerConsole() {
       }}
     >
 
-      {/* ── Header — drag handle ──────────────────────────────────────────── */}
+      {/* ── Header — drag handle; double-click restores when minimized ─────── */}
       <div
         onMouseDown={startDrag}
+        onDoubleClick={() => { if (mixerMinimized) setMixerMinimized(false) }}
         style={{
           height: 40, flexShrink: 0,
           background: 'var(--bg-modal-header)',
-          borderBottom: '1px solid var(--border)',
+          borderBottom: mixerMinimized ? 'none' : '1px solid var(--border)',
           display: 'flex', alignItems: 'center',
           padding: '0 var(--space-3)',
           cursor: 'grab',
@@ -169,8 +170,8 @@ export default function MixerConsole() {
           onMouseDown={e => e.stopPropagation()}
         >
           <button
-            onClick={() => setMixerMinimized(true)}
-            title="Minimize"
+            onClick={() => setMixerMinimized(!mixerMinimized)}
+            title={mixerMinimized ? 'Restore' : 'Minimize'}
             style={{
               background: 'none', border: 'none', cursor: 'pointer',
               color: '#505068', lineHeight: 1,
@@ -199,9 +200,9 @@ export default function MixerConsole() {
         </div>
       </div>
 
-      {/* ── Body — strip row + master ─────────────────────────────────────── */}
+      {/* ── Body — hidden when minimized; only header bar remains visible ───── */}
       <div style={{
-        display: 'flex', gap: STRIP_GAP,
+        display: mixerMinimized ? 'none' : 'flex', gap: STRIP_GAP,
         padding: BODY_PAD,
         alignItems: 'flex-start',
       }}>

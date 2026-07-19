@@ -375,26 +375,25 @@ export default function MasterStrip() {
       }}>
         <span style={{
           fontSize: 9, fontFamily: 'JetBrains Mono', letterSpacing: '0.08em',
-          color: 'var(--text-dimmest)', whiteSpace: 'nowrap',
-          textTransform: 'uppercase',
+          color: 'var(--text-amber)', whiteSpace: 'nowrap',
+          textTransform: 'uppercase', fontWeight: 700,
         }}>
-          VU display
+          {vuDisplayMode === 'wave' ? 'Wave' : 'Bars'}
         </span>
         <div
           onClick={() => setVuDisplayMode(vuDisplayMode === 'bars' ? 'wave' : 'bars')}
           title={vuDisplayMode === 'wave' ? 'Switch to bars' : 'Switch to wave'}
           style={{
             width: 26, height: 13, borderRadius: 7, flexShrink: 0,
-            background: vuDisplayMode === 'wave' ? 'var(--text-amber)' : '#303048',
+            background: '#303048',
             position: 'relative', cursor: 'pointer',
-            transition: 'background 0.15s',
           }}
         >
           <div style={{
             position: 'absolute', top: 2,
             left: vuDisplayMode === 'wave' ? 13 : 2,
             width: 9, height: 9,
-            background: '#fff', borderRadius: '50%',
+            background: 'var(--text-amber)', borderRadius: '50%',
             transition: 'left 0.15s',
           }} />
         </div>
