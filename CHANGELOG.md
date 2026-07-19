@@ -4,6 +4,52 @@
 
 ---
 
+### 19. 7. 2026 — MIDI Editor column rework, modal header unification, z-index focus
+
+**MIDI Editor — column layout:**
+- `MidiEditor.tsx`: introduced shared constant `ROW_COLS = '44px 1fr 44px 44px 220px'` used by both the header row and every `TrackRow`, so columns are always pixel-perfectly aligned.
+- New column order: **Include | Track | Merge | Split | Assign Instrument** (previously Include | Merge | color-bar spacer | Track | Assign Instrument).
+- Split button moved out of the Track name row and into its own dedicated grid column. It is now a `24×24` square button with the same border/color/hover style as the Merge button. Tracks that cannot be split (drums, merged, already split) render an empty `<div />` placeholder to keep grid alignment.
+- Color bar (4×32px) moved from its own 8px spacer column into the Track cell as a flex child to the left of the name text.
+- `track.name` (raw MIDI name) replaced with `track.gmName` (resolved GM instrument name) in TrackRow display — same fix as MixerConsole's `ChannelStrip`.
+
+**Modal header unification (`MidiEditor.tsx`, `MixerConsole.tsx`):**
+- `MidiEditor.tsx` header: `OrfeoMark height={16}` → `height={22}` (matches Console). Title: `fontWeight: 700`, `letterSpacing: '0.14em'`, `textTransform: 'uppercase'` (matches Console style). Close button: replaced 20×20 bordered ghost button (`X size={12} strokeWidth={1.8}`, hover to `#c05050`) with Console's borderless style (`X size={16}`, `color: #505068`, hover to `var(--text-default)`).
+- `MixerConsole.tsx` title: `fontSize: 10` → `fontSize: 'var(--text-sm)'` (12px) — matches MidiEditor title size.
+
+**Click-to-front z-index (`src/utils/modalFocus.ts`):**
+- New utility module: module-level counter `_nextZ = 9900`; `bringToFront()` increments and returns the new value.
+- Both `MidiEditor` and `MixerConsole` hold local `zIndex` state initialised to `MODAL_BASE_Z = 9900`. Each modal's outer container has `onMouseDown={() => setZIndex(bringToFront())}`. Whichever modal is clicked last gets the highest z-index and renders on top.
+- `InstrumentPicker` dropdown z-index raised from `9999` to `50000` to always clear the floating modals regardless of click count.
+
+**Followup fixes (same session):**
+- `TopBar.tsx`: VSep separator before TIME/METRONOME/MIDI section — removed `alignSelf: 'flex-end', marginBottom: 12` so it inherits the TopBar root's `alignItems: 'center'` and sits vertically centred.
+- `MixerConsole.tsx`: width formula corrected by `+2` (1px left + 1px right `border: 1px solid` with `border-box` sizing was eating 2px from content area, causing the 5th/7th strip to overflow and trigger the horizontal scrollbar).
+- `MidiEditor.tsx`: Split icon size corrected to `size={11}` (same as Merge) — previously bumped to 16 which made the button rect-shaped.
+
+---
+
+### 19. 7. 2026 — Bug fixes: TopBar, Mixer Console, MIDI Editor
+
+**TopBar:**
+- `VolumeKnob.tsx`: replaced dot-arc SVG (filled circles around the ring + dark dot notch) with line ticks + triangle notch — now identical rendering to `MixerKnob`. Constants: TICK_INR=14.5, TICK_LONG=4.0, STROKE_TICK=0.5, TRI_TIP_R/TRI_BASE_R/TRI_HW matching MixerKnob. Drag logic and outer layout unchanged.
+- `TopBar.tsx`: replaced `<VSep />` (44px, full row height) before the TIME/METRONOME/MIDI section with an inline div matching the three neighbouring separators (`height: var(--button-height), alignSelf: flex-end, marginBottom: 12`). All separators in that section are now bottom-aligned at uniform height.
+
+**Mixer Console:**
+- `MixerConsole.tsx`: removed hardcoded `VISIBLE_STRIPS = 8` / `MODAL_W = 1216`. Modal width now computed reactively as `BODY_PAD * 2 + n * STRIP_W + (n−1) * STRIP_GAP + STRIP_GAP + MASTER_W` where `n = Math.min(tracks.length, MAX_STRIPS)`. Width shrinks for files with fewer than 8 tracks and caps at 8.
+- `MixerConsole.tsx`: `sortedTracks` previously sorted by `a.index - b.index` (raw file order). Now sorted by GROUP_ORDER — same array as TrackPanel — with index as tiebreaker. Piano/keyboard groups appear first, drums last.
+- `ChannelStrip.tsx`: `trackName` previously resolved to `parsedTrack?.name` (raw MIDI track name). Now resolves to `track?.gmName` (resolved GM instrument name from store), matching what TrackPanel displays.
+
+**Audio engine — visibility/audio decoupled:**
+- `useAudioEngine.ts` (lines in `updateMutedChannels` and `buildPlayer`): removed `!ts.visible` from all four audio-gate conditions. Hiding a track in the waterfall no longer silences it.
+- `useSamplesEngine.ts` (lines in `scheduleTracks`): removed `!ts.visible` from both audio-gate conditions. Same fix.
+- The eye button and MasterStrip's global hide-all now only affect piano roll visibility, not audio playback. Mute button remains the only audio gate.
+
+**MIDI Editor:**
+- `MidiEditor.tsx`: added `title` to Include button (`"Include or exclude this track from the saved file"`) and Merge button (`"Select two or more tracks to merge them into one"`). Changed `<Split size={10} />` to `size={11}` to match Merge icon size.
+
+---
+
 ### 19. 7. 2026 — MIDI Playback Editor — rebuilt as floating modal
 
 **Motivation:** The editor was a separate `BrowserWindow`, which caused it to appear as a distinct OS window in the Windows taskbar and made it impossible to apply the amber outer glow used by all other Orfeo panels (CSS `box-shadow` is clipped at the OS window boundary).

@@ -180,6 +180,30 @@ All user-visible changes listed here. For full technical detail see [CHANGELOG.m
 
 ---
 
+### 19. 7. 2026 (3)
+
+**Fixed**
+- MIDI Playback Editor: Split now has its own dedicated column instead of being squeezed next to the track name. All columns are now properly aligned: Include, Track, Merge, Split, Assign Instrument.
+- MIDI Playback Editor: track names now show the resolved GM instrument name (e.g. "Grand Piano") instead of the raw name from the file — consistent with the Tracks panel and Mixer Console.
+- MIDI Playback Editor and Mixer Console headers are now visually consistent — same logo size, same title font size, same close button style.
+- When both the MIDI Editor and Mixer Console are open at the same time, clicking either one brings it to the front. Previously the editor would always appear behind the console.
+- The vertical separator before the Time/Metronome/MIDI section in the top bar is now vertically centred instead of pinned to the bottom.
+- Mixer Console no longer shows a horizontal scrollbar for files with 5 or 7 tracks (the last strip was cut off by a 2-pixel width calculation error).
+
+---
+
+### 19. 7. 2026 (2)
+
+**Fixed**
+- The Volume knob in the top bar now looks identical to the Mixer Console knobs — tick lines and triangle notch instead of the old dot-ring style.
+- Mixer Console no longer opens at a fixed width sized for 8 tracks — it now adapts its width to how many tracks are in the file, up to a maximum of 8 visible strips.
+- Mixer Console channel strips are now sorted in the same order as the Tracks panel (piano and keyboard instruments first, drums last), instead of the raw file order.
+- Channel strip names now show the resolved GM instrument name (e.g. "Grand Piano") instead of the raw MIDI track name embedded in the file.
+- Hiding a track from the waterfall (eye button or global hide-all) no longer silences it during playback. Visibility and muting are now independent — only the Mute button affects audio.
+- Tooltips added to the Include and Merge buttons in the MIDI Playback Editor.
+
+---
+
 ### 19. 7. 2026
 
 **New**

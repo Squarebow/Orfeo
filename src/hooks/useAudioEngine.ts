@@ -129,12 +129,12 @@ function updateMutedChannels() {
   _mutedCh.clear()
   for (const tr of midiData.tracks) {
     const ts = tracks.find((t: any) => t.index === tr.index)
-    if (!ts || ts.muted || !ts.visible || (hasSolo && !ts.solo)) _mutedCh.add(tr.channel)
+    if (!ts || ts.muted || (hasSolo && !ts.solo)) _mutedCh.add(tr.channel)
   }
   clearLightSchedule(); clearAllKeys()
   for (const track of midiData.tracks) {
     const ts = tracks.find((t: any) => t.index === track.index)
-    if (!ts || ts.muted || !ts.visible || (hasSolo && !ts.solo) || !ts.showOnKeyboard) continue
+    if (!ts || ts.muted || (hasSolo && !ts.solo) || !ts.showOnKeyboard) continue
     const color = ts.color ?? '#e8a027'
     for (const note of track.notes) {
       const noteStart = note.time / ratio
@@ -162,11 +162,11 @@ function buildPlayer(startSec: number) {
     _mutedCh = new Set<number>()
     for (const tr of midiData.tracks) {
       const ts = tracks.find((t: any) => t.index === tr.index)
-      if (!ts || ts.muted || !ts.visible || (hasSolo && !ts.solo)) _mutedCh.add(tr.channel)
+      if (!ts || ts.muted || (hasSolo && !ts.solo)) _mutedCh.add(tr.channel)
     }
     for (const track of midiData.tracks) {
       const ts = tracks.find((t: any) => t.index === track.index)
-      if (!ts || ts.muted || !ts.visible || (hasSolo && !ts.solo) || !ts.showOnKeyboard) continue
+      if (!ts || ts.muted || (hasSolo && !ts.solo) || !ts.showOnKeyboard) continue
       const color = ts.color ?? '#e8a027'
       for (const note of track.notes) {
         const noteStart = note.time / ratio
