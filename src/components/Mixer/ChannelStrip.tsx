@@ -13,7 +13,6 @@ const VU_W = 16   // CSS px
 function drawWave(
   canvas: HTMLCanvasElement,
   level: number,
-  peak: number,
   breathOffset: number,
   color: string,
   canvasH: number,
@@ -51,14 +50,6 @@ function drawWave(
   ctx.shadowColor = 'transparent'
   ctx.globalAlpha = 1
 
-  // Peak-hold line — thin bright line at held peak position
-  if (peak > 0.02) {
-    const peakY = H * (1 - peak)
-    ctx.fillStyle   = color
-    ctx.globalAlpha = 0.9
-    ctx.fillRect(0, peakY - dpr, W, 2 * dpr)
-    ctx.globalAlpha = 1
-  }
 }
 
 // ── EyeClosed — copied from TrackPanel (not yet exported from there) ──────────
@@ -149,7 +140,6 @@ export default function ChannelStrip({ trackIndex }: ChannelStripProps) {
   // ── VU meter — refs avoid re-renders in the rAF loop ─────────────────────
   const vuRef       = useRef<HTMLCanvasElement>(null)
   const vuLevel     = useRef(0)
-  const vuPeak      = useRef(0)
   const breathPhase = useRef(0)
   const breathAmp   = useRef(0)
   const colorRef    = useRef(trackColor)
@@ -204,10 +194,7 @@ export default function ChannelStrip({ trackIndex }: ChannelStripProps) {
         if (currentTime < note.time + note.duration && note.velocity > maxVel)
           maxVel = note.velocity
       }
-      if (maxVel > 0) {
-        vuLevel.current = maxVel
-        if (maxVel > vuPeak.current) vuPeak.current = maxVel
-      }
+      if (maxVel > 0) vuLevel.current = maxVel
     })
     return unsub
   }, [trackIndex])
@@ -216,14 +203,13 @@ export default function ChannelStrip({ trackIndex }: ChannelStripProps) {
   useEffect(() => {
     const loop = () => {
       vuLevel.current  = Math.max(0, vuLevel.current - 0.013)
-      vuPeak.current   = Math.max(0, vuPeak.current  - 0.003)
       // Idle breathing — amplitude lerps in when silent, out when active
       const isIdle = vuLevel.current < 0.04
       breathAmp.current   += ((isIdle ? 0.018 : 0) - breathAmp.current) * 0.02
       breathPhase.current += 0.018
       const breathOffset   = Math.sin(breathPhase.current) * breathAmp.current
       if (vuRef.current) {
-        drawWave(vuRef.current, vuLevel.current, vuPeak.current, breathOffset, colorRef.current, vuCanvasH)
+        drawWave(vuRef.current, vuLevel.current, breathOffset, colorRef.current, vuCanvasH)
       }
       rafRef.current = requestAnimationFrame(loop)
     }

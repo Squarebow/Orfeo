@@ -128,13 +128,12 @@ function drawBars(
   ctx.globalAlpha = 1
 }
 
-// ── Draw wave VU — bezier fill with glow, peak-hold lines, idle breathing ────
-// levels: smoothly lerped 0-1 values per band; peaks: held peak per band;
+// ── Draw wave VU — bezier fill with glow and idle breathing ──────────────────
+// levels: smoothly lerped 0-1 values per band;
 // breathOffsets: per-band sine offsets applied when signal is absent.
 function drawWave(
   canvas: HTMLCanvasElement,
   levels: number[],
-  peaks: number[],
   breathOffsets: number[],
   canvasH: number, canvasW: number,
 ) {
@@ -184,16 +183,6 @@ function drawWave(
   ctx.shadowColor = 'transparent'
   ctx.globalAlpha = 1
 
-  // Peak-hold lines — one per band, centered on each band's x position
-  const halfW = (BAR_COL_W / 2) * dpr
-  for (let i = 0; i < N; i++) {
-    if (peaks[i] < 0.02) continue
-    const peakY = H * (1 - peaks[i])
-    ctx.fillStyle   = '#ffffff'
-    ctx.globalAlpha = 0.72
-    ctx.fillRect(pts[i].x - halfW, peakY - dpr, BAR_COL_W * dpr, 2 * dpr)
-    ctx.globalAlpha = 1
-  }
 }
 
 // ── MasterStrip — 160×574 ─────────────────────────────────────────────────────
@@ -223,7 +212,6 @@ export default function MasterStrip() {
   const vuAttacks    = useRef<number[]>(Array(BAND_COUNT).fill(0))
   const waveTargets  = useRef<number[]>(Array(BAND_COUNT).fill(0))
   const waveLevels   = useRef<number[]>(Array(BAND_COUNT).fill(0))
-  const wavePeaks    = useRef<number[]>(Array(BAND_COUNT).fill(0))
   const breathPhase  = useRef(0)
   const breathAmp    = useRef(0)
   const rafRef       = useRef(0)
@@ -291,7 +279,7 @@ export default function MasterStrip() {
         if (targets[i] > 0) vuLevels.current[i] = targets[i]
         // Wave targets track peak; rAF decay brings them down gradually
         if (targets[i] > waveTargets.current[i]) waveTargets.current[i] = targets[i]
-        if (targets[i] > wavePeaks.current[i])   wavePeaks.current[i]   = targets[i]
+
       }
     })
     return unsub
@@ -307,7 +295,6 @@ export default function MasterStrip() {
         // Wave: decay target, lerp display level, slow peak decay
         waveTargets.current[i] = Math.max(0, waveTargets.current[i] - 0.013)
         waveLevels.current[i] += (waveTargets.current[i] - waveLevels.current[i]) * 0.12
-        wavePeaks.current[i]   = Math.max(0, wavePeaks.current[i]  - 0.003)
       }
       // Idle breathing — amplitude lerps in when all bands silent, out when active
       const maxLevel = Math.max(...waveLevels.current)
@@ -319,7 +306,7 @@ export default function MasterStrip() {
       )
       if (vuRef.current) {
         if (vuDisplayMode === 'wave') {
-          drawWave(vuRef.current, waveLevels.current, wavePeaks.current, breathOffsets, vuCanvasH, sectionW)
+          drawWave(vuRef.current, waveLevels.current, breathOffsets, vuCanvasH, sectionW)
         } else {
           drawBars(vuRef.current, vuLevels.current, vuAttacks.current, vuSegs, vuCanvasH, sectionW)
         }
