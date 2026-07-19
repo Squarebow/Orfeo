@@ -11,19 +11,20 @@ import OrfeoMark from '../OrfeoMark'
 // Width locked to show exactly 8 channel strips + master.
 
 // ── Modal dimensions — derived from strip geometry ────────────────────────────
-// 8 strips × 120px + 7 inter-strip gaps × 8px + body-gap 8px + master 160px + padding 2×16px
-const STRIP_W     = 120
-const STRIP_GAP   = 8
-const MASTER_W    = 160
-const BODY_PAD    = 16
-const VISIBLE_STRIPS = 8
-const MODAL_W =
-  BODY_PAD * 2 +
-  VISIBLE_STRIPS * STRIP_W +
-  (VISIBLE_STRIPS - 1) * STRIP_GAP +
-  STRIP_GAP +  // gap between scrollable row and master
-  MASTER_W
-// = 32 + 960 + 56 + 8 + 160 = 1216
+// n strips × 120px + (n−1) inter-strip gaps × 8px + body-gap 8px + master 160px + padding 2×16px
+const STRIP_W   = 120
+const STRIP_GAP = 8
+const MASTER_W  = 160
+const BODY_PAD  = 16
+const MAX_STRIPS = 8
+
+// ── Track sort order — matches TrackPanel GROUP_ORDER ────────────────────────
+const GROUP_ORDER = [
+  'piano', 'chromatic', 'organ', 'guitar', 'bass',
+  'strings', 'ensemble', 'brass', 'reed', 'pipe',
+  'synth_lead', 'synth_pad', 'synth_fx', 'ethnic',
+  'percussive', 'sfx', 'drums',
+]
 
 const MODAL_H_APPROX = 650  // header 40 + body-pad 16*2 + strip 574 + scrollbar ~4
 
@@ -45,16 +46,32 @@ export default function MixerConsole() {
     if (mixerOpen) setEverOpened(true)
   }, [mixerOpen])
 
-  // ── Drag position — initialized to viewport center on first render ────────
-  const [pos, setPos] = useState(() => ({
-    x: Math.max(0, Math.round((window.innerWidth  - MODAL_W)         / 2)),
-    y: Math.max(0, Math.round((window.innerHeight - MODAL_H_APPROX)  / 2)),
-  }))
-
-  // ── Sort: stable index order — mute never reorders strips ───────────────────
+  // ── Sort by GROUP_ORDER — matches TrackPanel display order ──────────────────
   const sortedTracks = useMemo(() =>
-    [...tracks].sort((a, b) => a.index - b.index),
+    [...tracks].sort((a, b) => {
+      const ai = GROUP_ORDER.indexOf(a.group ?? '')
+      const bi = GROUP_ORDER.indexOf(b.group ?? '')
+      const ao = ai === -1 ? GROUP_ORDER.length : ai
+      const bo = bi === -1 ? GROUP_ORDER.length : bi
+      return ao !== bo ? ao - bo : a.index - b.index
+    }),
   [tracks])
+
+  // ── Modal width — adapts to track count, capped at MAX_STRIPS ────────────
+  const modalW = useMemo(() => {
+    const n = Math.min(Math.max(sortedTracks.length, 1), MAX_STRIPS)
+    return BODY_PAD * 2 + n * STRIP_W + (n - 1) * STRIP_GAP + STRIP_GAP + MASTER_W
+  }, [sortedTracks.length])
+
+  // ── Drag position — initialized to viewport center on first render ────────
+  const [pos, setPos] = useState(() => {
+    const n = Math.min(Math.max(useStore.getState().tracks.length, 1), MAX_STRIPS)
+    const w = BODY_PAD * 2 + n * STRIP_W + (n - 1) * STRIP_GAP + STRIP_GAP + MASTER_W
+    return {
+      x: Math.max(0, Math.round((window.innerWidth  - w) / 2)),
+      y: Math.max(0, Math.round((window.innerHeight - MODAL_H_APPROX) / 2)),
+    }
+  })
 
   // ── Drag-to-pan state for the channel strip row ───────────────────────────
   const scrollRef    = useRef<HTMLDivElement>(null)
@@ -125,7 +142,7 @@ export default function MixerConsole() {
       style={{
         position: 'fixed',
         left: pos.x, top: pos.y,
-        width: MODAL_W,
+        width: modalW,
         background: 'var(--bg-modal)',
         border: '1px solid var(--border2)',
         borderRadius: 10,

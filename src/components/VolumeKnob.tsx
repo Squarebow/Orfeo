@@ -2,22 +2,27 @@ import { useRef, useEffect, useCallback } from 'react'
 import { useStore } from '../store'
 
 const AMBER     = '#e8a027'
-const AMBER_DIM = '#e8a02738'
 const LABEL_COL = 'var(--text-dimmest)'
+const DIM_TICK  = '#303048'
 
-// Knob geometry
-const CX = 26, CY = 26                // SVG center
-const OUTER_R  = 21                   // radius for surrounding dot ring
-const DOT_R    = 3                    // radius of each surrounding dot
-const KNOB_R   = 13                   // radius of central amber circle
-const NOTCH_R  = 8.5                  // distance of notch indicator from center
-const NOTCH_DOT_R = 2.5              // radius of notch indicator dot
+// Knob geometry — matches MixerKnob exactly
+const CX = 26, CY = 26
+const KNOB_R    = 13
+const NOTCH_R   = 8.5
+const ARC_START = 135
+const ARC_SWEEP = 270
+const DOT_COUNT = 7
 
-// Arc geometry: 7:30 clock = 135° SVG, 4:30 clock = 45° SVG, 270° sweep clockwise
-const ARC_START  = 135               // SVG degrees — 7:30 position (minimum)
-const ARC_SWEEP  = 270               // total sweep in degrees
-const DOT_COUNT  = 7
-const DOT_STEP   = ARC_SWEEP / (DOT_COUNT - 1)  // 45° between each dot
+// Tick mark geometry (same constants as MixerKnob)
+const TICK_GAP   = 1.5
+const TICK_INR   = KNOB_R + TICK_GAP   // = 14.5
+const TICK_LONG  = 4.0
+const STROKE_TICK = 0.5
+
+// Triangle notch (same constants as MixerKnob)
+const TRI_TIP_R  = NOTCH_R + 3.2
+const TRI_BASE_R = NOTCH_R - 2.8
+const TRI_HW     = 2.8
 
 // ── Convert polar (angle in SVG degrees) to Cartesian ────────────────────────
 function polarToXY(cx: number, cy: number, r: number, angleDeg: number) {
@@ -46,17 +51,25 @@ export default function VolumeKnob() {
   const draggingRef     = useRef(false)
   const svgRef          = useRef<SVGSVGElement>(null)
 
-  // ── Precompute dot positions and active states ────────────────────────────
-  const dots = Array.from({ length: DOT_COUNT }, (_, i) => {
-    const angle  = ARC_START + i * DOT_STEP
-    const pos    = polarToXY(CX, CY, OUTER_R, angle)
+  // ── Tick marks — active (≤ level) in amber, inactive in dim ─────────────
+  const ticks = Array.from({ length: DOT_COUNT }, (_, i) => {
+    const angle  = ARC_START + i * (ARC_SWEEP / (DOT_COUNT - 1))
+    const inner  = polarToXY(CX, CY, TICK_INR, angle)
+    const outer  = polarToXY(CX, CY, TICK_INR + TICK_LONG, angle)
     const active = (i / (DOT_COUNT - 1)) <= masterVolume
-    return { ...pos, active }
+    return { inner, outer, active }
   })
 
-  // ── Notch indicator position ──────────────────────────────────────────────
+  // ── Triangle notch indicator ──────────────────────────────────────────────
   const notchAngle = ARC_START + masterVolume * ARC_SWEEP
-  const notchPos   = polarToXY(CX, CY, NOTCH_R, notchAngle)
+  const notchRad   = notchAngle * (Math.PI / 180)
+  const perpRad    = (notchAngle + 90) * (Math.PI / 180)
+  const triTip     = { x: CX + TRI_TIP_R  * Math.cos(notchRad), y: CY + TRI_TIP_R  * Math.sin(notchRad) }
+  const baseCx     = CX + TRI_BASE_R * Math.cos(notchRad)
+  const baseCy     = CY + TRI_BASE_R * Math.sin(notchRad)
+  const triL       = { x: baseCx + TRI_HW * Math.cos(perpRad), y: baseCy + TRI_HW * Math.sin(perpRad) }
+  const triR       = { x: baseCx - TRI_HW * Math.cos(perpRad), y: baseCy - TRI_HW * Math.sin(perpRad) }
+  const triPts     = `${triTip.x},${triTip.y} ${triL.x},${triL.y} ${triR.x},${triR.y}`
 
   // ── Convert mouse event to volume via SVG-relative angle ─────────────────
   const getVolumeFromMouse = useCallback((e: MouseEvent): number => {
@@ -112,18 +125,21 @@ export default function VolumeKnob() {
         style={{ cursor: 'pointer', flexShrink: 0, display: 'block' }}
         onMouseDown={handleMouseDown}
       >
-        {/* Fixed dots around arc — amber when active (≤ level), dim tint for headroom */}
-        {dots.map((dot, i) => (
-          <circle
+        {/* Tick ring — active ticks in amber */}
+        {ticks.map((t, i) => (
+          <line
             key={i}
-            cx={dot.x} cy={dot.y} r={DOT_R}
-            fill={dot.active ? AMBER : AMBER_DIM}
+            x1={t.inner.x} y1={t.inner.y}
+            x2={t.outer.x} y2={t.outer.y}
+            strokeWidth={STROKE_TICK}
+            strokeLinecap="round"
+            style={{ stroke: t.active ? AMBER : DIM_TICK }}
           />
         ))}
-        {/* Central amber knob circle */}
+        {/* Central amber knob body */}
         <circle cx={CX} cy={CY} r={KNOB_R} fill={AMBER} />
-        {/* Rotating notch indicator — dark dot on knob perimeter */}
-        <circle cx={notchPos.x} cy={notchPos.y} r={NOTCH_DOT_R} fill="#111116" />
+        {/* Triangle notch indicator */}
+        <polygon points={triPts} fill="var(--bg-deep)" />
       </svg>
 
       {/* Two-row label column: empty top row shifts VOLUME to TEMPO/TRANSPOSE height */}

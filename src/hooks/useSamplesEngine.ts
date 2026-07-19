@@ -180,7 +180,7 @@ function buildSamplesPlayer(startSec: number) {
   // Send programChange for each active track
   for (const track of midiData.tracks) {
     const ts = tracks.find(t => t.index === track.index)
-    if (!ts || ts.muted || !ts.visible || (hasSolo && !ts.solo)) continue
+    if (!ts || ts.muted || (hasSolo && !ts.solo)) continue
     if (!track.isDrum) {
       try { _synth.programChange(track.channel, ts.program) } catch {}
     }
@@ -189,7 +189,7 @@ function buildSamplesPlayer(startSec: number) {
   // Schedule noteOn / noteOff / key lights via setTimeout
   for (const track of midiData.tracks) {
     const ts = tracks.find(t => t.index === track.index)
-    if (!ts || ts.muted || !ts.visible || (hasSolo && !ts.solo)) continue
+    if (!ts || ts.muted || (hasSolo && !ts.solo)) continue
     const color = ts.color ?? '#e8a027'
     const ch = track.channel
 

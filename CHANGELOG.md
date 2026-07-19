@@ -4,6 +4,27 @@
 
 ---
 
+### 19. 7. 2026 — Bug fixes: TopBar, Mixer Console, MIDI Editor
+
+**TopBar:**
+- `VolumeKnob.tsx`: replaced dot-arc SVG (filled circles around the ring + dark dot notch) with line ticks + triangle notch — now identical rendering to `MixerKnob`. Constants: TICK_INR=14.5, TICK_LONG=4.0, STROKE_TICK=0.5, TRI_TIP_R/TRI_BASE_R/TRI_HW matching MixerKnob. Drag logic and outer layout unchanged.
+- `TopBar.tsx`: replaced `<VSep />` (44px, full row height) before the TIME/METRONOME/MIDI section with an inline div matching the three neighbouring separators (`height: var(--button-height), alignSelf: flex-end, marginBottom: 12`). All separators in that section are now bottom-aligned at uniform height.
+
+**Mixer Console:**
+- `MixerConsole.tsx`: removed hardcoded `VISIBLE_STRIPS = 8` / `MODAL_W = 1216`. Modal width now computed reactively as `BODY_PAD * 2 + n * STRIP_W + (n−1) * STRIP_GAP + STRIP_GAP + MASTER_W` where `n = Math.min(tracks.length, MAX_STRIPS)`. Width shrinks for files with fewer than 8 tracks and caps at 8.
+- `MixerConsole.tsx`: `sortedTracks` previously sorted by `a.index - b.index` (raw file order). Now sorted by GROUP_ORDER — same array as TrackPanel — with index as tiebreaker. Piano/keyboard groups appear first, drums last.
+- `ChannelStrip.tsx`: `trackName` previously resolved to `parsedTrack?.name` (raw MIDI track name). Now resolves to `track?.gmName` (resolved GM instrument name from store), matching what TrackPanel displays.
+
+**Audio engine — visibility/audio decoupled:**
+- `useAudioEngine.ts` (lines in `updateMutedChannels` and `buildPlayer`): removed `!ts.visible` from all four audio-gate conditions. Hiding a track in the waterfall no longer silences it.
+- `useSamplesEngine.ts` (lines in `scheduleTracks`): removed `!ts.visible` from both audio-gate conditions. Same fix.
+- The eye button and MasterStrip's global hide-all now only affect piano roll visibility, not audio playback. Mute button remains the only audio gate.
+
+**MIDI Editor:**
+- `MidiEditor.tsx`: added `title` to Include button (`"Include or exclude this track from the saved file"`) and Merge button (`"Select two or more tracks to merge them into one"`). Changed `<Split size={10} />` to `size={11}` to match Merge icon size.
+
+---
+
 ### 19. 7. 2026 — MIDI Playback Editor — rebuilt as floating modal
 
 **Motivation:** The editor was a separate `BrowserWindow`, which caused it to appear as a distinct OS window in the Windows taskbar and made it impossible to apply the amber outer glow used by all other Orfeo panels (CSS `box-shadow` is clipped at the OS window boundary).

@@ -180,6 +180,19 @@ All user-visible changes listed here. For full technical detail see [CHANGELOG.m
 
 ---
 
+### 19. 7. 2026 (2)
+
+**Fixed**
+- The Volume knob in the top bar now looks identical to the Mixer Console knobs — tick lines and triangle notch instead of the old dot-ring style.
+- The vertical separator before the Time/Metronome/MIDI section in the top bar is now the same height as all the other separators in that group (bottom-aligned, shorter).
+- Mixer Console no longer opens at a fixed width sized for 8 tracks — it now adapts its width to how many tracks are in the file, up to a maximum of 8 visible strips.
+- Mixer Console channel strips are now sorted in the same order as the Tracks panel (piano and keyboard instruments first, drums last), instead of the raw file order.
+- Channel strip names now show the resolved GM instrument name (e.g. "Grand Piano") instead of the raw MIDI track name embedded in the file.
+- Hiding a track from the waterfall (eye button or global hide-all) no longer silences it during playback. Visibility and muting are now independent — only the Mute button affects audio.
+- Tooltips added to the Include and Merge buttons in the MIDI Playback Editor.
+
+---
+
 ### 19. 7. 2026
 
 **New**

@@ -260,7 +260,7 @@ function TrackRow({ track, onToggleIncluded, onToggleMerge, onChangeProgram, onU
       background: track.isMerged ? '#101020' : track.mergeSelected ? '#1a1a08' : 'transparent',
       transition: 'opacity 0.15s',
     }}>
-      <button onClick={onToggleIncluded} style={{
+      <button onClick={onToggleIncluded} title="Include or exclude this track from the saved file" style={{
         width: 24, height: 24, borderRadius: 4,
         border: `1.5px solid ${track.included ? '#3a7a3a' : '#353540'}`,
         background: track.included ? '#0d200d' : 'transparent',
@@ -281,7 +281,7 @@ function TrackRow({ track, onToggleIncluded, onToggleMerge, onChangeProgram, onU
           <Undo2 size={11} />
         </button>
       ) : (
-        <button onClick={onToggleMerge} style={{
+        <button onClick={onToggleMerge} title="Select two or more tracks to merge them into one" style={{
           width: 24, height: 24, borderRadius: 4,
           border: `1.5px solid ${track.mergeSelected ? 'var(--accent-amber-strong)' : 'var(--border2)'}`,
           background: track.mergeSelected ? 'var(--accent-amber-medium)' : 'transparent',
@@ -318,7 +318,7 @@ function TrackRow({ track, onToggleIncluded, onToggleMerge, onChangeProgram, onU
               onMouseEnter={e => { e.currentTarget.style.color = 'var(--text-amber)'; e.currentTarget.style.borderColor = 'var(--accent-amber-strong)' }}
               onMouseLeave={e => { e.currentTarget.style.color = 'var(--text-dim-control)'; e.currentTarget.style.borderColor = 'var(--border2)' }}
             >
-              <Split size={10} />
+              <Split size={11} />
             </button>
           )}
         </div>
