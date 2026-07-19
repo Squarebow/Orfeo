@@ -4,6 +4,23 @@
 
 ---
 
+### 19. 7. 2026 — Mixer channel VU — solid-color segmented bars per track
+
+**`src/components/Mixer/ChannelStrip.tsx`**
+- Reverted wave/breathing display in favour of segmented bars, now rendered in the track's accent colour.
+- `drawVU(canvas, level, color, segs, canvasH)` replaces `drawWave`. Active segments fill solid at `globalAlpha 1`; inactive at `0.08`. No glow, no breathing, no zone gradient.
+- Removed refs: `breathPhase`, `breathAmp`. Removed breathing block from rAF loop.
+- Restored `vuSegs = Math.max(5, Math.floor(vuCanvasH / SEG_UNIT))`.
+- rAF deps: `[vuSegs, vuCanvasH]` (was `[vuCanvasH]`).
+- Constants `SEG_H = 4`, `SEG_GAP = 2`, `SEG_UNIT = 6`, `VU_W = 16` retained at top of file.
+- Level decay (`−0.013/frame`) and velocity-driven `vuLevel` subscribe logic unchanged.
+
+**`src/components/Mixer/MasterStrip.tsx`**
+- VU toggle label corrected from `'FFT'` → `'Bars/FFT'`; toggle `title` attrs capitalised.
+- Wave display on MasterStrip left untouched.
+
+---
+
 ### 19. 7. 2026 — Mixer channel-strip CC wiring — chorus, reverb, pan, volume
 
 **Root cause:** ChannelStrip knobs (chorus, reverb, pan) and the volume fader were wired to plain React `useState` setters only — no audio engine calls. Deferred from the original visual-shell pass and now completed.
