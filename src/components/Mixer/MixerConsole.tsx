@@ -29,9 +29,11 @@ const MODAL_H_APPROX = 650  // header 40 + body-pad 16*2 + strip 574 + scrollbar
 
 // ── MixerConsole ──────────────────────────────────────────────────────────────
 export default function MixerConsole() {
-  const mixerOpen    = useStore(s => s.mixerOpen)
-  const setMixerOpen = useStore(s => s.setMixerOpen)
-  const tracks       = useStore(s => s.tracks)
+  const mixerOpen       = useStore(s => s.mixerOpen)
+  const mixerMinimized  = useStore(s => s.mixerMinimized)
+  const setMixerOpen    = useStore(s => s.setMixerOpen)
+  const setMixerMinimized = useStore(s => s.setMixerMinimized)
+  const tracks          = useStore(s => s.tracks)
 
   // ── Mount guard — don't render until first open ───────────────────────────
   // Minimize calls setMixerOpen(false) — component stays mounted via everOpened,
@@ -49,12 +51,9 @@ export default function MixerConsole() {
     y: Math.max(0, Math.round((window.innerHeight - MODAL_H_APPROX)  / 2)),
   }))
 
-  // ── Sort: unmuted tracks left, muted tracks right; stable within each group ──
+  // ── Sort: stable index order — mute never reorders strips ───────────────────
   const sortedTracks = useMemo(() =>
-    [...tracks].sort((a, b) => {
-      if (a.muted === b.muted) return a.index - b.index
-      return a.muted ? 1 : -1
-    }),
+    [...tracks].sort((a, b) => a.index - b.index),
   [tracks])
 
   // ── Drag-to-pan state for the channel strip row ───────────────────────────
@@ -129,7 +128,7 @@ export default function MixerConsole() {
         background: 'var(--bg-modal)',
         border: '1px solid var(--border2)',
         borderRadius: 10,
-        display: mixerOpen ? 'flex' : 'none',
+        display: (mixerOpen && !mixerMinimized) ? 'flex' : 'none',
         flexDirection: 'column',
         overflow: 'hidden',
         boxShadow: '0 8px 40px rgba(0,0,0,0.8), 0 0 0 1px rgba(232,160,39,0.06)',
@@ -170,7 +169,7 @@ export default function MixerConsole() {
           onMouseDown={e => e.stopPropagation()}
         >
           <button
-            onClick={() => setMixerOpen(false)}
+            onClick={() => setMixerMinimized(true)}
             title="Minimize"
             style={{
               background: 'none', border: 'none', cursor: 'pointer',

@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback, useMemo, useRef } from 'react'
 import { createPortal } from 'react-dom'
 import { Chord, Note } from 'tonal'
-import { RotateCcw, Play, Square, CircleOff, ListOrdered, Shuffle, ArrowUpRight } from 'lucide-react'
+import { RotateCcw, Play, Square, CircleOff, ListOrdered, Shuffle, ArrowUpRight, Minus } from 'lucide-react'
 import { useStore } from '../store'
 import { getNoteName } from '../utils/noteNames'
 import type { NoteNaming, Accidentals } from '../types'
@@ -233,9 +233,11 @@ function prevInversionSet(notes: Set<number>): Set<number> {
 // ── Component ────────────────────────────────────────────────────────────────
 export default function ScaleExplorer() {
   // ── Store subscriptions ───────────────────────────────────────────────────
-  const scaleExplorerOpen = useStore(s => s.scaleExplorerOpen)
-  const setScaleExplorerOpen = useStore(s => s.setScaleExplorerOpen)
-  const setChordExplorerOpen = useStore(s => s.setChordExplorerOpen)
+  const scaleExplorerOpen       = useStore(s => s.scaleExplorerOpen)
+  const scaleExplorerMinimized  = useStore(s => s.scaleExplorerMinimized)
+  const setScaleExplorerOpen    = useStore(s => s.setScaleExplorerOpen)
+  const setScaleExplorerMinimized = useStore(s => s.setScaleExplorerMinimized)
+  const setChordExplorerOpen    = useStore(s => s.setChordExplorerOpen)
   const explorerKeys = useStore(s => s.explorerKeys)
   const setExplorerKeys = useStore(s => s.setExplorerKeys)
   const clearExplorerKeys = useStore(s => s.clearExplorerKeys)
@@ -617,6 +619,7 @@ export default function ScaleExplorer() {
   // ── Key quality suffix — 'm' for minor-family scales, '' for major-family ───
   const keyQuality = MINOR_SCALES.has(scale.name) ? 'm' : ''
 
+  // Closed (open=false): unmount entirely. Minimized (open=true, minimized=true): render but hide.
   if (!scaleExplorerOpen) return null
 
   // ── SVG geometry constants ─────────────────────────────────────────────────
@@ -639,7 +642,7 @@ export default function ScaleExplorer() {
         borderRadius: 10,
         boxShadow: '0 8px 48px rgba(0,0,0,0.85)',
         zIndex: 200,
-        display: 'flex',
+        display: scaleExplorerMinimized ? 'none' : 'flex',
         flexDirection: 'column',
         overflow: 'hidden',
         fontFamily: 'Inter',
@@ -658,6 +661,14 @@ export default function ScaleExplorer() {
             Scale Explorer
           </span>
         </div>
+        <button
+          onMouseDown={e => e.stopPropagation()}
+          onClick={() => setScaleExplorerMinimized(true)}
+          title="Minimize"
+          style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#505068', lineHeight: 1, padding: '0 4px 2px', display: 'flex', alignItems: 'flex-end', transition: 'color 0.15s' }}
+          onMouseEnter={e => e.currentTarget.style.color = 'var(--text-default)'}
+          onMouseLeave={e => e.currentTarget.style.color = '#505068'}
+        ><Minus size={14} /></button>
         <button
           onMouseDown={e => e.stopPropagation()}
           onClick={() => { stopProgression(); clearExplorerKeys(); clearExplorerChordDisplay(); setScaleExplorerOpen(false) }}

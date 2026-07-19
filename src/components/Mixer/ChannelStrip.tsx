@@ -50,10 +50,9 @@ function drawVU(
       ctx.fillStyle = segColor(i, segs)
       ctx.globalAlpha = 1
     } else if (i === activeSeg && attack > 0) {
-      // Attack flash: top active segment briefly flares bright
-      const t = attack
-      ctx.fillStyle = `rgb(${Math.round(180 + 75 * t)}, ${Math.round(220 + 35 * t)}, ${Math.round(100 + 80 * t)})`
-      ctx.globalAlpha = 0.65 + 0.35 * t
+      // Attack flash uses the correct zone color — prevents white bleed on red segments
+      ctx.fillStyle = segColor(i, segs)
+      ctx.globalAlpha = 0.5 + 0.5 * attack
     } else {
       // Inactive segment — very dim ghost
       ctx.fillStyle = segColor(i, segs)
@@ -258,6 +257,7 @@ export default function ChannelStrip({ trackIndex }: ChannelStripProps) {
       display: 'flex', flexDirection: 'column',
       overflow: 'hidden',
       userSelect: 'none',
+      position: 'relative',
     }}>
 
       {/* ── Track name bar ────────────────────────────────────────────────── */}
@@ -324,11 +324,23 @@ export default function ChannelStrip({ trackIndex }: ChannelStripProps) {
         }}>R</span>
       </div>
 
+      {/* ── Mute overlay — grey wash over entire strip; M button sits above it ── */}
+      {muted && (
+        <div style={{
+          position: 'absolute', inset: 0,
+          background: 'rgba(0, 0, 0, 0.45)',
+          borderRadius: 'var(--radius-md)',
+          pointerEvents: 'none',
+          zIndex: 1,
+        }} />
+      )}
+
       {/* ── M / S / Eye / Keyboard buttons ───────────────────────────────── */}
       <div style={{
         height: 46, flexShrink: 0,
         display: 'flex', alignItems: 'center', justifyContent: 'center',
         gap: 3, padding: 0,
+        position: 'relative', zIndex: 2,
       }}>
         <IBtn
           onClick={() => updateTrack(trackIndex, { muted: !muted })}

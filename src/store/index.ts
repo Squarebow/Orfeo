@@ -87,11 +87,19 @@ interface OrfeoStore {
   setSettingsPanelOpen: (open: boolean) => void
 
   chordExplorerOpen: boolean
+  chordExplorerMinimized: boolean
   setChordExplorerOpen: (open: boolean) => void
+  setChordExplorerMinimized: (v: boolean) => void
   scaleExplorerOpen: boolean
+  scaleExplorerMinimized: boolean
   setScaleExplorerOpen: (open: boolean) => void
+  setScaleExplorerMinimized: (v: boolean) => void
   mixerOpen: boolean
+  mixerMinimized: boolean
   setMixerOpen: (open: boolean) => void
+  setMixerMinimized: (v: boolean) => void
+  vuDisplayMode: 'bars' | 'wave'
+  setVuDisplayMode: (mode: 'bars' | 'wave') => void
   explorerKeys: Set<number>
   explorerKeyColors: Map<number, string>
   setExplorerKeys: (keys: Set<number>, colors: Map<number, string>) => void
@@ -294,13 +302,25 @@ export const useStore = create<OrfeoStore>((set, get) => ({
   setSettingsPanelOpen: (settingsPanelOpen) => set({ settingsPanelOpen }),
 
   chordExplorerOpen: false,
+  chordExplorerMinimized: false,
   scaleExplorerOpen: false,
+  scaleExplorerMinimized: false,
   mixerOpen: false,
+  mixerMinimized: false,
+  vuDisplayMode: 'bars',
   explorerKeys: new Set(),
   explorerKeyColors: new Map(),
-  setChordExplorerOpen: (chordExplorerOpen) => set({ chordExplorerOpen }),
-  setScaleExplorerOpen: (scaleExplorerOpen) => set({ scaleExplorerOpen }),
-  setMixerOpen: (mixerOpen) => set({ mixerOpen }),
+  // ── Opening always clears the minimized flag so restore-from-minimize works ──
+  setChordExplorerOpen: (chordExplorerOpen) =>
+    set(chordExplorerOpen ? { chordExplorerOpen, chordExplorerMinimized: false } : { chordExplorerOpen }),
+  setChordExplorerMinimized: (chordExplorerMinimized) => set({ chordExplorerMinimized }),
+  setScaleExplorerOpen: (scaleExplorerOpen) =>
+    set(scaleExplorerOpen ? { scaleExplorerOpen, scaleExplorerMinimized: false } : { scaleExplorerOpen }),
+  setScaleExplorerMinimized: (scaleExplorerMinimized) => set({ scaleExplorerMinimized }),
+  setMixerOpen: (mixerOpen) =>
+    set(mixerOpen ? { mixerOpen, mixerMinimized: false } : { mixerOpen }),
+  setMixerMinimized: (mixerMinimized) => set({ mixerMinimized }),
+  setVuDisplayMode: (vuDisplayMode) => set({ vuDisplayMode }),
   setExplorerKeys: (explorerKeys, explorerKeyColors) => set({ explorerKeys, explorerKeyColors }),
   clearExplorerKeys: () => set({ explorerKeys: new Set(), explorerKeyColors: new Map() }),
   displayedChord: null,

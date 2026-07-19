@@ -13,11 +13,15 @@ const SEG_H    = 4
 const SEG_GAP  = 2
 const SEG_UNIT = SEG_H + SEG_GAP
 
-const SPEC_COLS    = 8
-const SPEC_COL_W   = 14
-const SPEC_COL_GAP = 2
-const SPEC_TOTAL_W = SPEC_COLS * SPEC_COL_W + (SPEC_COLS - 1) * SPEC_COL_GAP  // 126px
-const SPEC_LABEL_H = 14
+// ── Aggregate pitch-band constants — 8 bands covering MIDI 21–108 ─────────────
+// Each band represents ~11 semitones; column visuals reuse bars-mode dimensions.
+const BAND_COUNT  = 8
+const BAND_MIN    = 21   // A0
+const BAND_STEP   = 11   // semitones per band
+
+const BAR_COL_W   = 14
+const BAR_COL_GAP = 2
+const BAR_TOTAL_W = BAND_COUNT * BAR_COL_W + (BAND_COUNT - 1) * BAR_COL_GAP  // 126px
 
 const METER_GREEN  = '#7ac040'
 const METER_YELLOW = '#c0a020'
@@ -85,54 +89,22 @@ function segColor(i: number, total: number): string {
   return METER_GREEN
 }
 
-// ── Draw mono VU — single wide centered column ────────────────────────────────
-function drawMono(
-  canvas: HTMLCanvasElement,
-  level: number, attack: number,
-  segs: number, canvasH: number, canvasW: number,
-) {
-  const dpr    = window.devicePixelRatio || 1
-  const ctx    = canvas.getContext('2d')
-  if (!ctx) return
-  ctx.clearRect(0, 0, canvas.width, canvas.height)
-
-  const COL_W     = 24 * dpr
-  const xStart    = (canvasW * dpr - COL_W) / 2
-  const activeSeg = Math.floor(level * segs)
-
-  for (let i = 0; i < segs; i++) {
-    const y = (canvasH - (i + 1) * SEG_UNIT) * dpr
-    const h = SEG_H * dpr
-    if (i < activeSeg) {
-      ctx.fillStyle = segColor(i, segs); ctx.globalAlpha = 1
-    } else if (i === activeSeg && attack > 0) {
-      const t = attack
-      ctx.fillStyle = `rgb(${Math.round(180 + 75 * t)},${Math.round(220 + 35 * t)},${Math.round(100 + 80 * t)})`
-      ctx.globalAlpha = 0.65 + 0.35 * t
-    } else {
-      ctx.fillStyle = segColor(i, segs); ctx.globalAlpha = 0.08
-    }
-    ctx.fillRect(xStart, y, COL_W, h)
-  }
-  ctx.globalAlpha = 1
-}
-
-// ── Draw spectrogram VU — 8 columns, one per track slot ──────────────────────
-function drawSpectro(
+// ── Draw aggregate bars VU — 8 pitch-band columns ────────────────────────────
+function drawBars(
   canvas: HTMLCanvasElement,
   levels: number[], attacks: number[],
   segs: number, canvasH: number, canvasW: number,
 ) {
-  const dpr    = window.devicePixelRatio || 1
-  const ctx    = canvas.getContext('2d')
+  const dpr = window.devicePixelRatio || 1
+  const ctx = canvas.getContext('2d')
   if (!ctx) return
   ctx.clearRect(0, 0, canvas.width, canvas.height)
 
-  const xStart = ((canvasW - SPEC_TOTAL_W) / 2) * dpr
-  const colW   = SPEC_COL_W * dpr
-  const gap    = SPEC_COL_GAP * dpr
+  const xStart = ((canvasW - BAR_TOTAL_W) / 2) * dpr
+  const colW   = BAR_COL_W * dpr
+  const gap    = BAR_COL_GAP * dpr
 
-  for (let col = 0; col < SPEC_COLS; col++) {
+  for (let col = 0; col < BAND_COUNT; col++) {
     const level     = levels[col] ?? 0
     const attack    = attacks[col] ?? 0
     const activeSeg = Math.floor(level * segs)
@@ -144,9 +116,9 @@ function drawSpectro(
       if (i < activeSeg) {
         ctx.fillStyle = segColor(i, segs); ctx.globalAlpha = 1
       } else if (i === activeSeg && attack > 0) {
-        const t = attack
-        ctx.fillStyle = `rgb(${Math.round(180 + 75 * t)},${Math.round(220 + 35 * t)},${Math.round(100 + 80 * t)})`
-        ctx.globalAlpha = 0.65 + 0.35 * t
+        // Attack flash uses zone color — prevents white bleed on red segments
+        ctx.fillStyle = segColor(i, segs)
+        ctx.globalAlpha = 0.5 + 0.5 * attack
       } else {
         ctx.fillStyle = segColor(i, segs); ctx.globalAlpha = 0.08
       }
@@ -156,33 +128,81 @@ function drawSpectro(
   ctx.globalAlpha = 1
 }
 
+// ── Draw wave VU — smooth bezier curve filled with gradient ──────────────────
+// Driven by smoothly interpolated pitch-band levels (waveLevels), not hard bars.
+function drawWave(
+  canvas: HTMLCanvasElement,
+  levels: number[],
+  canvasH: number, canvasW: number,
+) {
+  const dpr = window.devicePixelRatio || 1
+  const ctx = canvas.getContext('2d')
+  if (!ctx) return
+  ctx.clearRect(0, 0, canvas.width, canvas.height)
+
+  const W = canvasW * dpr
+  const H = canvasH * dpr
+  const N = levels.length
+
+  // Map band levels to canvas points — bottom = silence, top = full level
+  const pts = levels.map((v, i) => ({
+    x: (N === 1 ? W / 2 : (i / (N - 1)) * W),
+    y: H * (1 - v),
+  }))
+
+  // Vertical gradient: red at top, dark green at bottom
+  const grad = ctx.createLinearGradient(0, 0, 0, H)
+  grad.addColorStop(0,    METER_RED)
+  grad.addColorStop(0.25, METER_ORANGE)
+  grad.addColorStop(0.45, METER_YELLOW)
+  grad.addColorStop(1,    '#1a3a12')
+
+  ctx.beginPath()
+  ctx.moveTo(0, H)
+  ctx.lineTo(pts[0].x, pts[0].y)
+
+  // Bezier smoothing between adjacent band points
+  for (let i = 0; i < N - 1; i++) {
+    const mx = (pts[i].x + pts[i + 1].x) / 2
+    ctx.bezierCurveTo(mx, pts[i].y, mx, pts[i + 1].y, pts[i + 1].x, pts[i + 1].y)
+  }
+
+  ctx.lineTo(W, H)
+  ctx.closePath()
+  ctx.fillStyle = grad
+  ctx.globalAlpha = 0.88
+  ctx.fill()
+  ctx.globalAlpha = 1
+}
+
 // ── MasterStrip — 160×574 ─────────────────────────────────────────────────────
 export default function MasterStrip() {
 
   // ── Store reads ───────────────────────────────────────────────────────────
-  const audioEngine          = useStore(s => s.audioEngine)
-  const masterVolume         = useStore(s => s.masterVolume)
-  const setMasterVolume      = useStore(s => s.setMasterVolume)
-  const tracks               = useStore(s => s.tracks)
-  const updateTrack          = useStore(s => s.updateTrack)
-  const autoMuteNonKeyboard  = useStore(s => s.autoMuteNonKeyboard)
-  const setTrackMuteFilter   = useStore(s => s.setTrackMuteFilter)
+  const audioEngine         = useStore(s => s.audioEngine)
+  const masterVolume        = useStore(s => s.masterVolume)
+  const setMasterVolume     = useStore(s => s.setMasterVolume)
+  const tracks              = useStore(s => s.tracks)
+  const updateTrack         = useStore(s => s.updateTrack)
+  const autoMuteNonKeyboard = useStore(s => s.autoMuteNonKeyboard)
+  const setTrackMuteFilter  = useStore(s => s.setTrackMuteFilter)
+  const vuDisplayMode       = useStore(s => s.vuDisplayMode)
+  const setVuDisplayMode    = useStore(s => s.setVuDisplayMode)
 
   const knobsDisabled = audioEngine === 'gm'
-
-  // ── VU display mode — spectro default ────────────────────────────────────
-  const [vuMode, setVuMode] = useState<'mono' | 'spectro'>('spectro')
 
   // ── Knob local state ──────────────────────────────────────────────────────
   const [chorus, setChorusState] = useState(0)
   const [reverb, setReverbState] = useState(0)
   const [tone,   setToneState]   = useState(0)
 
-  // ── VU refs ───────────────────────────────────────────────────────────────
-  const vuRef     = useRef<HTMLCanvasElement>(null)
-  const vuLevels  = useRef<number[]>(Array(SPEC_COLS).fill(0))
-  const vuAttacks = useRef<number[]>(Array(SPEC_COLS).fill(0))
-  const rafRef    = useRef(0)
+  // ── VU refs — bars mode uses hard levels + attacks, wave uses smooth lerp ─
+  const vuRef        = useRef<HTMLCanvasElement>(null)
+  const vuLevels     = useRef<number[]>(Array(BAND_COUNT).fill(0))
+  const vuAttacks    = useRef<number[]>(Array(BAND_COUNT).fill(0))
+  const waveTargets  = useRef<number[]>(Array(BAND_COUNT).fill(0))
+  const waveLevels   = useRef<number[]>(Array(BAND_COUNT).fill(0))
+  const rafRef       = useRef(0)
 
   // ── VU section dimensions — measured via ResizeObserver ──────────────────
   const sectionRef = useRef<HTMLDivElement>(null)
@@ -202,9 +222,9 @@ export default function MasterStrip() {
     return () => ro.disconnect()
   }, [])
 
-  const labelReserve = vuMode === 'spectro' ? SPEC_LABEL_H + 2 : 0
-  const vuCanvasH    = Math.max(30, sectionH - 12 - labelReserve)
-  const vuSegs       = Math.max(5, Math.floor(vuCanvasH / SEG_UNIT))
+  // No label row in either mode — full canvas height used
+  const vuCanvasH = Math.max(30, sectionH - 12)
+  const vuSegs    = Math.max(5, Math.floor(vuCanvasH / SEG_UNIT))
 
   // ── Resize canvas ─────────────────────────────────────────────────────────
   useLayoutEffect(() => {
@@ -217,48 +237,64 @@ export default function MasterStrip() {
     canvas.style.height = vuCanvasH + 'px'
   }, [sectionW, vuCanvasH])
 
-  // ── VU subscription — per-track velocity at currentTime ──────────────────
+  // ── VU subscription — aggregate pitch-band levels across all non-muted tracks ──
+  // Scans every non-muted track's notes at currentTime, maps each sounding note
+  // to one of BAND_COUNT pitch bands; both bars and wave targets are updated here.
   useEffect(() => {
     const unsub = useStore.subscribe(state => {
       const { currentTime, playbackState, midi: md, tracks: tks } = state
       if (playbackState !== 'playing' || !md) return
-      for (let i = 0; i < SPEC_COLS; i++) {
-        const tr = tks.find(t => t.index === i)
-        if (!tr || tr.muted) continue
-        const pt = md.tracks.find((t: any) => t.index === i)
+
+      const targets = new Array(BAND_COUNT).fill(0)
+
+      for (const tr of tks) {
+        if (tr.muted) continue
+        const pt = md.tracks.find((t: any) => t.index === tr.index)
         if (!pt) continue
-        let maxVel = 0
         for (const note of pt.notes) {
           if (note.time > currentTime + 0.02) break
-          if (currentTime < note.time + note.duration && note.velocity > maxVel)
-            maxVel = note.velocity
+          if (currentTime >= note.time && currentTime < note.time + note.duration) {
+            const band = Math.min(BAND_COUNT - 1, Math.max(0,
+              Math.floor((note.midi - BAND_MIN) / BAND_STEP),
+            ))
+            if (note.velocity > targets[band]) targets[band] = note.velocity
+          }
         }
-        if (maxVel > vuLevels.current[i]) vuAttacks.current[i] = 1
-        if (maxVel > 0) vuLevels.current[i] = maxVel
+      }
+
+      for (let i = 0; i < BAND_COUNT; i++) {
+        if (targets[i] > vuLevels.current[i]) vuAttacks.current[i] = 1
+        if (targets[i] > 0) vuLevels.current[i] = targets[i]
+        // Wave targets track peak; rAF decay brings them down gradually
+        if (targets[i] > waveTargets.current[i]) waveTargets.current[i] = targets[i]
       }
     })
     return unsub
   }, [])
 
-  // ── rAF decay loop ────────────────────────────────────────────────────────
+  // ── rAF loop — decay bars + lerp wave, redraw every frame ─────────────────
   useEffect(() => {
     const loop = () => {
-      for (let i = 0; i < SPEC_COLS; i++) {
-        vuLevels.current[i]  = Math.max(0, vuLevels.current[i]  - 0.013)
-        vuAttacks.current[i] = Math.max(0, vuAttacks.current[i] - 0.06)
+      for (let i = 0; i < BAND_COUNT; i++) {
+        // Bars: hard decay
+        vuLevels.current[i]    = Math.max(0, vuLevels.current[i]  - 0.013)
+        vuAttacks.current[i]   = Math.max(0, vuAttacks.current[i] - 0.06)
+        // Wave: decay target, then lerp display level toward target
+        waveTargets.current[i] = Math.max(0, waveTargets.current[i] - 0.013)
+        waveLevels.current[i] += (waveTargets.current[i] - waveLevels.current[i]) * 0.12
       }
       if (vuRef.current) {
-        if (vuMode === 'mono') {
-          drawMono(vuRef.current, Math.max(...vuLevels.current), Math.max(...vuAttacks.current), vuSegs, vuCanvasH, sectionW)
+        if (vuDisplayMode === 'wave') {
+          drawWave(vuRef.current, waveLevels.current, vuCanvasH, sectionW)
         } else {
-          drawSpectro(vuRef.current, vuLevels.current, vuAttacks.current, vuSegs, vuCanvasH, sectionW)
+          drawBars(vuRef.current, vuLevels.current, vuAttacks.current, vuSegs, vuCanvasH, sectionW)
         }
       }
       rafRef.current = requestAnimationFrame(loop)
     }
     rafRef.current = requestAnimationFrame(loop)
     return () => { if (rafRef.current) cancelAnimationFrame(rafRef.current) }
-  }, [vuMode, vuSegs, vuCanvasH, sectionW])
+  }, [vuDisplayMode, vuSegs, vuCanvasH, sectionW])
 
   // ── Knob handlers ─────────────────────────────────────────────────────────
   const handleChorus = useCallback((v: number) => { setChorusState(v); setMasterChorus(v) }, [])
@@ -317,7 +353,7 @@ export default function MasterStrip() {
         </span>
       </div>
 
-      {/* ── 2. VU section (flex-grow, ~127px) ───────────────────────────────── */}
+      {/* ── 2. VU section (flex:1.3, ~127px) ─────────────────────────────── */}
       <div ref={sectionRef} style={{
         flex: 1.3, minHeight: 0,
         display: 'flex', flexDirection: 'column',
@@ -325,29 +361,12 @@ export default function MasterStrip() {
         paddingTop: 6, paddingBottom: 6,
       }}>
         <canvas ref={vuRef} style={{ display: 'block', imageRendering: 'pixelated', flexShrink: 0 }} />
-        {vuMode === 'spectro' && (
-          <div style={{
-            width: SPEC_TOTAL_W, height: SPEC_LABEL_H,
-            display: 'flex', justifyContent: 'space-between',
-            marginTop: 2, flexShrink: 0,
-          }}>
-            {Array.from({ length: SPEC_COLS }, (_, i) => (
-              <span key={i} style={{
-                width: SPEC_COL_W, textAlign: 'center',
-                fontSize: 7, fontFamily: 'JetBrains Mono',
-                color: '#404058', lineHeight: 1, flexShrink: 0,
-              }}>
-                {i + 1}
-              </span>
-            ))}
-          </div>
-        )}
       </div>
 
-      {/* ── Spacer — breathing room between VU canvas and toggle row ──────── */}
+      {/* ── Spacer ────────────────────────────────────────────────────────── */}
       <div style={{ height: 8, flexShrink: 0 }} />
 
-      {/* ── 3. VU display toggle (28px) — label left, toggle right, single row ─ */}
+      {/* ── 3. VU display toggle (28px) — BARS / WAVE ─────────────────────── */}
       <div style={{
         height: 28, flexShrink: 0,
         display: 'flex', flexDirection: 'row',
@@ -362,17 +381,18 @@ export default function MasterStrip() {
           VU display
         </span>
         <div
-          onClick={() => setVuMode(v => v === 'mono' ? 'spectro' : 'mono')}
+          onClick={() => setVuDisplayMode(vuDisplayMode === 'bars' ? 'wave' : 'bars')}
+          title={vuDisplayMode === 'wave' ? 'Switch to bars' : 'Switch to wave'}
           style={{
             width: 26, height: 13, borderRadius: 7, flexShrink: 0,
-            background: vuMode === 'spectro' ? 'var(--text-amber)' : '#303048',
+            background: vuDisplayMode === 'wave' ? 'var(--text-amber)' : '#303048',
             position: 'relative', cursor: 'pointer',
             transition: 'background 0.15s',
           }}
         >
           <div style={{
             position: 'absolute', top: 2,
-            left: vuMode === 'spectro' ? 13 : 2,
+            left: vuDisplayMode === 'wave' ? 13 : 2,
             width: 9, height: 9,
             background: '#fff', borderRadius: '50%',
             transition: 'left 0.15s',
@@ -380,7 +400,7 @@ export default function MasterStrip() {
         </div>
       </div>
 
-      {/* ── Spacer — gap between VU toggle and global icons ────────────── */}
+      {/* ── Spacer ────────────────────────────────────────────────────────── */}
       <div style={{ height: 8, flexShrink: 0 }} />
 
       {/* ── 4. Global icons row (36px) — mute all / waterfall all / kbd all ── */}
@@ -488,9 +508,7 @@ export default function MasterStrip() {
         />
       </div>
 
-      {/* ── 8. Master Volume — flex:2 so it gets ~2/3 of shared space (~223px) ── */}
-      {/* The knob wrapper uses position:relative + top:30 to shift the knob   */}
-      {/* 30px down from its natural flex position without moving the label.    */}
+      {/* ── 8. Master Volume — flex:2 (~195px); knob shifted down via top:30 ── */}
       <div style={{
         flex: 2, minHeight: 0,
         display: 'flex', flexDirection: 'column',

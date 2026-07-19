@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback, useMemo, useRef } from 'react'
 import { createPortal } from 'react-dom'
 import { ChordType, Interval } from 'tonal'
-import { Search, Hand, RotateCcw, Play, Square, CircleOff, ListOrdered, Shuffle } from 'lucide-react'
+import { Search, Hand, RotateCcw, Play, Square, CircleOff, ListOrdered, Shuffle, Minus } from 'lucide-react'
 import Fuse from 'fuse.js'
 import { useStore } from '../store'
 import { getNoteName } from '../utils/noteNames'
@@ -239,9 +239,11 @@ const ROW: React.CSSProperties = {
 }
 
 export default function ChordExplorer() {
-  const chordExplorerOpen = useStore(s => s.chordExplorerOpen)
-  const setChordExplorerOpen = useStore(s => s.setChordExplorerOpen)
-  const setScaleExplorerOpen = useStore(s => s.setScaleExplorerOpen)
+  const chordExplorerOpen       = useStore(s => s.chordExplorerOpen)
+  const chordExplorerMinimized  = useStore(s => s.chordExplorerMinimized)
+  const setChordExplorerOpen    = useStore(s => s.setChordExplorerOpen)
+  const setChordExplorerMinimized = useStore(s => s.setChordExplorerMinimized)
+  const setScaleExplorerOpen    = useStore(s => s.setScaleExplorerOpen)
   const explorerKeys = useStore(s => s.explorerKeys)
   const setExplorerKeys = useStore(s => s.setExplorerKeys)
   const clearExplorerKeys = useStore(s => s.clearExplorerKeys)
@@ -631,6 +633,7 @@ export default function ChordExplorer() {
     cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center',
   })
 
+  // Closed (open=false): unmount entirely. Minimized (open=true, minimized=true): render but hide.
   if (!chordExplorerOpen) return null
 
   const isPowerMode = tier === 'power'
@@ -647,7 +650,7 @@ export default function ChordExplorer() {
       border: '1px solid var(--state-hover-bg)',
       borderRadius: 10,
       zIndex: 401,
-      display: 'flex', flexDirection: 'column',
+      display: chordExplorerMinimized ? 'none' : 'flex', flexDirection: 'column',
       overflow: 'hidden',
       boxShadow: '0 8px 40px rgba(0,0,0,0.8), 0 0 0 1px rgba(232,160,39,0.08)',
     }}>
@@ -732,6 +735,13 @@ export default function ChordExplorer() {
           >
             <Search size={14} />
           </button>
+          <button
+            onClick={() => setChordExplorerMinimized(true)}
+            title="Minimize"
+            style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#505068', lineHeight: 1, padding: '0 4px 2px', display: 'flex', alignItems: 'flex-end', transition: 'color 0.15s' }}
+            onMouseEnter={e => e.currentTarget.style.color = 'var(--text-default)'}
+            onMouseLeave={e => e.currentTarget.style.color = '#505068'}
+          ><Minus size={14} /></button>
           <button
             onClick={close}
             style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#505068', fontSize: 'var(--text-lg)', lineHeight: 1, padding: '0 2px', fontFamily: 'Inter' }}

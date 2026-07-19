@@ -4,6 +4,44 @@
 
 ---
 
+### 19. 7. 2026 — Mixer Console Round 2 — VU fixes, wave mode, real minimize
+
+**`src/store/index.ts`**
+- Added `mixerMinimized` / `setMixerMinimized`, `chordExplorerMinimized` / `setChordExplorerMinimized`, `scaleExplorerMinimized` / `setScaleExplorerMinimized` to `OrfeoStore` interface and body.
+- Added `vuDisplayMode: 'bars' | 'wave'` / `setVuDisplayMode` (global, shared by MasterStrip).
+- Modified `setMixerOpen`, `setChordExplorerOpen`, `setScaleExplorerOpen`: when called with `true`, also clears the corresponding minimized flag — ensures re-open via icon always restores from minimized state without a stale-state race.
+
+**`src/App.tsx`**
+- Ctrl+Shift+M toggle is now 3-way: minimized → restore (`setMixerMinimized(false)`); open → close (`setMixerOpen(false)`); closed → open (`setMixerOpen(true)`).
+
+**`src/components/Mixer/MixerConsole.tsx`**
+- Removed muted-first sort: strips now always render in stable `track.index` order — muting never causes reflow.
+- Minimize (–) button now calls `setMixerMinimized(true)` instead of `setMixerOpen(false)`. Console stays mounted with all state intact (position, knobs, scroll). Display guard: `mixerOpen && !mixerMinimized`.
+- Close (×) still calls `setMixerOpen(false)` which clears minimized via the modified action.
+
+**`src/components/Mixer/ChannelStrip.tsx`**
+- **VU attack color fix**: replaced `rgb(180+75t, 220+35t, 100+80t)` formula with `segColor(i, segs)` at `alpha = 0.5 + 0.5 * attack`. Top segments now flash the correct zone color (red) instead of white/yellow.
+- **Full-strip mute overlay**: added `position: 'relative'` to root div. When `muted`, an absolute `rgba(0,0,0,0.45)` overlay covers the entire strip with `pointerEvents: 'none'`. M/S/Eye/Kbd row raised to `zIndex: 2` — M button stays fully bright and clickable above the overlay.
+
+**`src/components/Mixer/MasterStrip.tsx`** (VU refactor)
+- Removed `drawMono` and `drawSpectro`. Added `drawBars` (aggregate pitch-band columns, same column geometry as old spectro) and `drawWave` (smooth bezier-filled gradient wave).
+- Removed per-track column mapping (`SPEC_COLS = 8` slot-by-track). Replaced with `BAND_COUNT = 8` pitch bands covering MIDI 21–108 in 11-semitone steps. Subscribe now scans ALL non-muted tracks' notes, maps each sounding note by pitch to its band, and takes the max velocity per band. Works correctly for any track count.
+- Attack color bug fixed in `drawBars`: same `segColor` flash fix as ChannelStrip.
+- Wave mode: separate `waveTargets` and `waveLevels` refs. Subscribe sets `waveTargets` on peak; rAF loop decays `waveTargets` and lerps `waveLevels` toward them at 0.12/frame — produces fluid eased motion without audio FFT.
+- `vuDisplayMode` read from store (global); toggle updates store. Local `vuMode` state removed.
+- Removed channel-number label row below VU (labels 1–8 no longer meaningful in aggregate mode); `labelReserve` eliminated, giving canvas ~16px extra height.
+
+**`src/components/ChordExplorer.tsx`**
+- Added `Minus` import from lucide-react.
+- Added `chordExplorerMinimized` / `setChordExplorerMinimized` store reads.
+- Added (–) minimize button in header, left of close ×. Calls `setChordExplorerMinimized(true)`.
+- Root div: `display: chordExplorerMinimized ? 'none' : 'flex'` — component stays mounted with all state (search, selected chord, progression) when minimized. Early `return null` still fires on real close (`chordExplorerOpen = false`).
+
+**`src/components/ScaleExplorer.tsx`**
+- Same minimize pattern as ChordExplorer: `Minus` import, `scaleExplorerMinimized` store reads, (–) button, `display: none` when minimized.
+
+---
+
 ### 19. 7. 2026 — Mixer Console Stage 5 — draggable modal, real trigger, global controls
 
 **`src/store/index.ts`**
