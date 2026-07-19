@@ -378,11 +378,11 @@ export default function MasterStrip() {
           color: 'var(--text-amber)', whiteSpace: 'nowrap',
           textTransform: 'uppercase', fontWeight: 700,
         }}>
-          {vuDisplayMode === 'wave' ? 'Wave' : 'Bars'}
+          {vuDisplayMode === 'wave' ? 'Wave' : 'FFT'}
         </span>
         <div
           onClick={() => setVuDisplayMode(vuDisplayMode === 'bars' ? 'wave' : 'bars')}
-          title={vuDisplayMode === 'wave' ? 'Switch to bars' : 'Switch to wave'}
+          title={vuDisplayMode === 'wave' ? 'Switch to bars/FFT' : 'Switch to wave'}
           style={{
             width: 26, height: 13, borderRadius: 7, flexShrink: 0,
             background: '#303048',

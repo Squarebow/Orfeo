@@ -186,6 +186,12 @@ All user-visible changes listed here. For full technical detail see [CHANGELOG.m
 - **Mixer Console is now accessible from the app**: click the Console icon (sliders) in the right drawer to open it, or press Ctrl+Shift+M. The console is a floating window that can be dragged anywhere on screen, minimized to get it out of the way without losing any settings, and restored by clicking the icon or shortcut again.
 - **Master strip — global track controls**: three new buttons at the top of the master strip let you mute all tracks at once, hide all tracks from the waterfall, or remove all tracks from keyboard highlighting — with a single click. Each is a toggle, so clicking again undoes the action.
 - **Master strip — track filter button**: the "All tracks / Selection" button (also in the Tracks panel header) is now duplicated in the master strip, so you can switch between full playback and piano/bass/drums-only without opening the Tracks panel.
+- **Master strip — VU wave mode**: the VU display now has two modes toggled by the FFT/Wave button. FFT mode shows 8 pitch-band columns (bass to treble, aggregated across all tracks). Wave mode shows a smooth animated bezier-curve fill that rises and falls with the music, coloured red at peaks fading to dark green at silence.
+- **Minimize for Chord Explorer and Scale Explorer**: all three floating windows (Mixer Console, Chord Explorer, Scale Explorer) now have a (–) minimize button. Minimizing collapses the window to its header bar — the window stays on screen, all settings are preserved, and clicking (–) again or double-clicking the header restores it.
+
+**Fixed**
+- Muted channel strips now show a dark overlay across the entire strip, making it immediately clear which tracks are silent.
+- Minimizing the Mixer Console now collapses it to just the header bar instead of hiding it entirely — it behaves like a standard floating window rather than closing.
 
 ---
 

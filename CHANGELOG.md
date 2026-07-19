@@ -4,6 +4,22 @@
 
 ---
 
+### 19. 7. 2026 — Mixer Console polish — window-shade minimize, VU label rename
+
+**`src/components/Mixer/MixerConsole.tsx`**
+- Window-shade minimize: outer div is now always `display: mixerOpen ? 'flex' : 'none'`; only the body div gets `display: mixerMinimized ? 'none' : 'flex'`. Header bar stays visible and draggable at its current screen position when minimized — matching standard floating-window UX.
+- Header `onDoubleClick`: calls `setMixerMinimized(false)` when minimized — restores without needing to find the icon.
+- Header `borderBottom`: suppressed (`none`) while minimized so the header floats cleanly.
+- (–) button changed from `setMixerMinimized(true)` to `setMixerMinimized(!mixerMinimized)` — acts as a toggle (Minimize / Restore). `title` is dynamic: `'Restore'` when minimized, `'Minimize'` otherwise.
+
+**`src/components/Mixer/MasterStrip.tsx`**
+- VU toggle label is now dynamic: renders `'Wave'` or `'FFT'` (bars mode renamed from `'Bars'`) in amber bold (`color: 'var(--text-amber)'`, `fontWeight: 700`). Uppercase via `textTransform: 'uppercase'`.
+- Toggle track stays always-dark (`background: '#303048'`) — no color flip on click.
+- Toggle dot stays always amber (`background: 'var(--text-amber)'`) — only `left` transitions (`transition: 'left 0.15s'`). Visual state communicated by dot position alone, not color.
+- `vuDisplayMode === 'bars'` branch label updated from `'Bars'` to `'FFT'`; tooltip updated to `'Switch to bars/FFT'`.
+
+---
+
 ### 19. 7. 2026 — Mixer Console Round 2 — VU fixes, wave mode, real minimize
 
 **`src/store/index.ts`**
