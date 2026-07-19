@@ -245,6 +245,10 @@ function InstrumentPicker({ program, isDrum, onChange }: {
 
 // ─── Track Row ────────────────────────────────────────────────────────────────
 
+// ── Column grid shared by header row and every TrackRow ──────────────────────
+// Include | Track | Merge | Split | Assign Instrument
+const ROW_COLS = '44px 1fr 44px 44px 220px'
+
 function TrackRow({ track, onToggleIncluded, onToggleMerge, onChangeProgram, onUnmerge, onSplit }: {
   track: EditorTrack
   onToggleIncluded: () => void
@@ -255,12 +259,14 @@ function TrackRow({ track, onToggleIncluded, onToggleMerge, onChangeProgram, onU
 }) {
   return (
     <div style={{
-      display: 'grid', gridTemplateColumns: '70px 56px 8px 1fr 220px',
+      display: 'grid', gridTemplateColumns: ROW_COLS,
       alignItems: 'center', padding: '8px 14px', borderBottom: '1px solid var(--border-row)', gap: 6,
       opacity: track.included ? 1 : 0.4,
       background: track.isMerged ? '#101020' : track.mergeSelected ? '#1a1a08' : 'transparent',
       transition: 'opacity 0.15s',
     }}>
+
+      {/* ── Col 1: Include ───────────────────────────────────────────────────── */}
       <button onClick={onToggleIncluded} title="Include or exclude this track from the saved file" style={{
         width: 24, height: 24, borderRadius: 4,
         border: `1.5px solid ${track.included ? '#3a7a3a' : '#353540'}`,
@@ -272,6 +278,50 @@ function TrackRow({ track, onToggleIncluded, onToggleMerge, onChangeProgram, onU
         {track.included ? <Check size={13} /> : <X size={12} />}
       </button>
 
+      {/* ── Col 2: Track name + meta ──────────────────────────────────────────── */}
+      <div style={{ display: 'flex', alignItems: 'center', gap: 6, minWidth: 0 }}>
+        <div style={{ width: 4, height: 32, background: track.color, borderRadius: 2, flexShrink: 0 }} />
+        <div style={{ minWidth: 0 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+            <span style={{ fontSize: 'var(--text-sm)', fontWeight: 500, color: 'var(--text-muted)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+              {track.gmName}
+            </span>
+            {track.isMerged && (
+              <span style={{ fontSize: 9, padding: '1px 5px', borderRadius: 'var(--radius-sm)', background: '#20204a', color: '#8080cc', fontFamily: 'JetBrains Mono', flexShrink: 0 }}>
+                ⊞ merged {track.mergedFromIndices?.length}
+              </span>
+            )}
+          </div>
+          <div style={{ display: 'flex', gap: 'var(--space-2)', marginTop: 2, flexWrap: 'wrap', alignItems: 'center' }}>
+            {track.isMerged ? (
+              <span style={{ fontSize: 9, color: 'var(--text-muted)', fontFamily: 'JetBrains Mono' }}>
+                {track.mergedFromNames?.join(' + ')}
+              </span>
+            ) : (
+              <>
+                <span style={{ fontSize: 9, color: 'var(--text-muted)', fontFamily: 'JetBrains Mono' }}>ch {track.channel + 1}</span>
+                <span style={{ fontSize: 9, color: 'var(--text-muted)', fontFamily: 'JetBrains Mono' }}>{track.noteCount} notes</span>
+                {!track.isDrum && track.newProgram !== track.program && (
+                  <span style={{ display: 'flex', alignItems: 'center', gap: 3 }}>
+                    <span style={{ fontSize: 9, color: 'var(--text-amber)', fontFamily: 'JetBrains Mono' }}>✎ reassigned</span>
+                    <button
+                      onClick={() => onChangeProgram(track.program)}
+                      title={`Reset to original: ${track.gmName}`}
+                      style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-inactive)', padding: '0 2px', display: 'flex', alignItems: 'center', transition: 'color 0.15s' }}
+                      onMouseEnter={e => e.currentTarget.style.color = 'var(--text-amber)'}
+                      onMouseLeave={e => e.currentTarget.style.color = 'var(--text-inactive)'}
+                    >
+                      <RotateCcw size={9} />
+                    </button>
+                  </span>
+                )}
+              </>
+            )}
+          </div>
+        </div>
+      </div>
+
+      {/* ── Col 3: Merge / Unmerge ───────────────────────────────────────────── */}
       {track.isMerged ? (
         <button onClick={onUnmerge} title="Undo merge" style={{
           width: 24, height: 24, borderRadius: 4,
@@ -294,63 +344,28 @@ function TrackRow({ track, onToggleIncluded, onToggleMerge, onChangeProgram, onU
         </button>
       )}
 
-      <div style={{ width: 4, height: 32, background: track.color, borderRadius: 2, flexShrink: 0 }} />
+      {/* ── Col 4: Split — only for splittable tracks ─────────────────────────── */}
+      {onSplit && !track.isMerged ? (
+        <button
+          onClick={onSplit}
+          title="Split into Left Hand / Right Hand"
+          style={{
+            width: 24, height: 24, borderRadius: 4,
+            border: '1.5px solid var(--border2)', background: 'transparent',
+            color: 'var(--text-dim-control)',
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            cursor: 'pointer', flexShrink: 0, transition: 'all 0.12s',
+          }}
+          onMouseEnter={e => { e.currentTarget.style.color = 'var(--text-amber)'; e.currentTarget.style.borderColor = 'var(--accent-amber-strong)' }}
+          onMouseLeave={e => { e.currentTarget.style.color = 'var(--text-dim-control)'; e.currentTarget.style.borderColor = 'var(--border2)' }}
+        >
+          <Split size={11} />
+        </button>
+      ) : (
+        <div />
+      )}
 
-      <div style={{ minWidth: 0 }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-          <span style={{ fontSize: 'var(--text-sm)', fontWeight: 500, color: 'var(--text-muted)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-            {track.name}
-          </span>
-          {track.isMerged && (
-            <span style={{ fontSize: 9, padding: '1px 5px', borderRadius: 'var(--radius-sm)', background: '#20204a', color: '#8080cc', fontFamily: 'JetBrains Mono', flexShrink: 0 }}>
-              ⊞ merged {track.mergedFromIndices?.length}
-            </span>
-          )}
-          {onSplit && !track.isMerged && (
-            <button
-              onClick={onSplit}
-              title="Split into Left Hand / Right Hand"
-              style={{
-                background: 'none', border: '1px solid var(--border2)', borderRadius: 'var(--radius-sm)',
-                cursor: 'pointer', color: 'var(--text-dim-control)', padding: '1px 4px',
-                display: 'flex', alignItems: 'center', flexShrink: 0,
-                transition: 'all 0.12s',
-              }}
-              onMouseEnter={e => { e.currentTarget.style.color = 'var(--text-amber)'; e.currentTarget.style.borderColor = 'var(--accent-amber-strong)' }}
-              onMouseLeave={e => { e.currentTarget.style.color = 'var(--text-dim-control)'; e.currentTarget.style.borderColor = 'var(--border2)' }}
-            >
-              <Split size={11} />
-            </button>
-          )}
-        </div>
-        <div style={{ display: 'flex', gap: 'var(--space-2)', marginTop: 2, flexWrap: 'wrap', alignItems: 'center' }}>
-          {track.isMerged ? (
-            <span style={{ fontSize: 9, color: 'var(--text-muted)', fontFamily: 'JetBrains Mono' }}>
-              {track.mergedFromNames?.join(' + ')}
-            </span>
-          ) : (
-            <>
-              <span style={{ fontSize: 9, color: 'var(--text-muted)', fontFamily: 'JetBrains Mono' }}>ch {track.channel + 1}</span>
-              <span style={{ fontSize: 9, color: 'var(--text-muted)', fontFamily: 'JetBrains Mono' }}>{track.noteCount} notes</span>
-              {!track.isDrum && track.newProgram !== track.program && (
-                <span style={{ display: 'flex', alignItems: 'center', gap: 3 }}>
-                  <span style={{ fontSize: 9, color: 'var(--text-amber)', fontFamily: 'JetBrains Mono' }}>✎ reassigned</span>
-                  <button
-                    onClick={() => onChangeProgram(track.program)}
-                    title={`Reset to original: ${track.gmName}`}
-                    style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-inactive)', padding: '0 2px', display: 'flex', alignItems: 'center', transition: 'color 0.15s' }}
-                    onMouseEnter={e => e.currentTarget.style.color = 'var(--text-amber)'}
-                    onMouseLeave={e => e.currentTarget.style.color = 'var(--text-inactive)'}
-                  >
-                    <RotateCcw size={9} />
-                  </button>
-                </span>
-              )}
-            </>
-          )}
-        </div>
-      </div>
-
+      {/* ── Col 5: Assign Instrument ──────────────────────────────────────────── */}
       {track.isDrum ? (
         <div
           title="Not assignable — GM channel 10 is always drums"
@@ -649,8 +664,8 @@ export default function MidiEditor() {
       </div>
 
       {/* ── Column headers ───────────────────────────────────────────────────── */}
-      <div style={{ display: 'grid', gridTemplateColumns: '70px 56px 8px 1fr 220px', alignItems: 'center', padding: '6px 14px', borderBottom: '1px solid var(--bg-tile)', background: 'var(--bg-modal-header)', flexShrink: 0, gap: 6 }}>
-        {['Include', 'Merge', '', 'Track', 'Assign Instrument'].map((h, i) => (
+      <div style={{ display: 'grid', gridTemplateColumns: ROW_COLS, alignItems: 'center', padding: '6px 14px', borderBottom: '1px solid var(--bg-tile)', background: 'var(--bg-modal-header)', flexShrink: 0, gap: 6 }}>
+        {['Include', 'Track', 'Merge', 'Split', 'Assign Instrument'].map((h, i) => (
           <span key={i} style={{ fontSize: 9, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.1em', color: 'var(--text-muted)' }}>{h}</span>
         ))}
       </div>
