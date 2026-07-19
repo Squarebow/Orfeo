@@ -174,7 +174,7 @@ export default function TrackPanel() {
           </button>
           <button
             onClick={midi && !editorOpen ? handleOpenEditor : undefined}
-            title={!midi ? 'Load a MIDI file first' : editorOpen ? 'MIDI Editor is open' : 'Open MIDI Editor'}
+            title={!midi ? 'Open a MIDI file first' : editorOpen ? 'MIDI PlaybackEditor is open' : 'Open MIDI Playback Editor'}
             style={{
               background: 'none', border: 'none',
               cursor: !midi || editorOpen ? 'default' : 'pointer',
@@ -232,7 +232,7 @@ export default function TrackPanel() {
             </button>
             <button
               onClick={midi && !editorOpen ? handleOpenEditor : undefined}
-              title={!midi ? 'Load a MIDI file first' : editorOpen ? 'MIDI Editor is open' : 'Open MIDI Editor'}
+              title={!midi ? 'Open a MIDI file first' : editorOpen ? 'MIDI Playback Editor is open' : 'Open MIDI Playback Editor'}
               style={{
                 background: 'none', border: 'none',
                 cursor: !midi || editorOpen ? 'default' : 'pointer',

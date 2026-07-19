@@ -1064,7 +1064,7 @@ export default function SettingsPanel() {
                     eyeToggle
                     eyeValue={!hideDemoFolder}
                     onEyeChange={(val) => setHideDemoFolder(!val)}
-                    description="Removes bundled demo songs from library view. Files are not deleted."
+                    description="Hides bundled demo songs from library view. Files are not deleted."
                   />
                   {/* ── Chord Transcription — eye-toggle with BETA badge ──────────── */}
                   <OptionRow
