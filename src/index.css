@@ -91,6 +91,16 @@
 --row-height: 44px;
 --button-height: 28px;
 
+/* TopBar right-section tones */
+--topbar-bar-number:      var(--text-amber);   /* current bar number — always-amber, unlike BPM/KEY which are conditional */
+--topbar-bar-total:       var(--text-muted);   /* "|totalBars" portion of the bar counter */
+--topbar-bar-label:       var(--text-muted);   /* "BAR" label under the counter */
+--topbar-metronome-on:    var(--text-amber);   /* metronome icon + "ON" label when enabled */
+--topbar-metronome-off:   var(--text-default); /* metronome icon + "OFF" label when disabled */
+--topbar-midi-on:         var(--text-amber);   /* MIDI icon + device name when a hardware keyboard is connected */
+--topbar-midi-off:        var(--text-default); /* MIDI icon + "CONNECT A KEYBOARD" label when idle */
+--topbar-timesig-divider: #30304a;             /* small line between time-signature numerator/denominator — was a raw hex value, now a token */
+
 /* Modal-specific surfaces — distinct from general panel layering */
 --bg-modal: #13131c;         /* Modal container background (ChordExplorer, ScaleExplorer, etc) */
 --bg-modal-header: #0d0d12;  /* Header/footer bars within modals */

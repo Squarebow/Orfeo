@@ -14,13 +14,10 @@ import MidiIcon from '../MidiIcon'
 import VolumeKnob from '../VolumeKnob'
 import LoopRegionStrip from '../LoopRegionStrip'
 
-// Design tokens — CSS vars from index.css :root
-const C = {
-  default: 'var(--text-default)',
-  active:  'var(--text-active)',
-  muted:   'var(--text-muted)',
-  amber:   'var(--text-amber)',
-}
+// NOTE: no more `C` shorthand object — every color below is a literal
+// `var(--token-name)` string written directly at its point of use, so the
+// token being referenced is visible right here in the JSX without having to
+// cross-reference a lookup table elsewhere in the file.
 const SKIP_SECS = 5
 
 export default function TopBar() {
@@ -157,9 +154,9 @@ export default function TopBar() {
           onClick={openFile}
           title="Open MIDI file (Ctrl+O)"
           className="app-no-drag"
-          style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: 'var(--button-height)', height: 'var(--button-height)', borderRadius: 'var(--radius-md)', background: 'transparent', border: 'none', color: C.default, cursor: 'pointer', flexShrink: 0, transition: 'color 0.12s' }}
-          onMouseEnter={e => e.currentTarget.style.color = C.amber}
-          onMouseLeave={e => e.currentTarget.style.color = C.default}
+          style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: 'var(--button-height)', height: 'var(--button-height)', borderRadius: 'var(--radius-md)', background: 'transparent', border: 'none', color: 'var(--text-default)', cursor: 'pointer', flexShrink: 0, transition: 'color 0.12s' }}
+          onMouseEnter={e => e.currentTarget.style.color = 'var(--text-amber)'}
+          onMouseLeave={e => e.currentTarget.style.color = 'var(--text-default)'}
         >
           <FolderOpen size={16} strokeWidth={1.5} />
         </button>
@@ -171,10 +168,10 @@ export default function TopBar() {
       <div className="app-no-drag" style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '0 var(--space-3)', flexShrink: 0 }}
         title={`Tempo: ${liveBpm || '—'} BPM`}>
         <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start', gap: 1 }}>
-          <span style={{ color: C.muted, fontSize: 8, textTransform: 'uppercase', letterSpacing: '0.1em', fontFamily: 'JetBrains Mono', lineHeight: 1 }}>BPM</span>
-          <span style={{ color: C.muted, fontSize: 8, textTransform: 'uppercase', letterSpacing: '0.1em', fontFamily: 'JetBrains Mono', lineHeight: 1 }}>TEMPO</span>
+          <span style={{ color: 'var(--text-muted)', fontSize: 8, textTransform: 'uppercase', letterSpacing: '0.1em', fontFamily: 'JetBrains Mono', lineHeight: 1 }}>BPM</span>
+          <span style={{ color: 'var(--text-muted)', fontSize: 8, textTransform: 'uppercase', letterSpacing: '0.1em', fontFamily: 'JetBrains Mono', lineHeight: 1 }}>TEMPO</span>
         </div>
-        <span style={{ color: isTempoChanged ? C.amber : C.active, fontFamily: 'JetBrains Mono', fontSize: 20, fontWeight: 700, minWidth: 36, textAlign: 'right', lineHeight: 1 }}>
+        <span style={{ color: isTempoChanged ? 'var(--text-amber)' : 'var(--text-active)', fontFamily: 'JetBrains Mono', fontSize: 20, fontWeight: 700, minWidth: 36, textAlign: 'right', lineHeight: 1 }}>
           {midi ? liveBpm : '—'}
         </span>
         <div style={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
@@ -182,7 +179,7 @@ export default function TopBar() {
           <LongPressArrow onStep={() => setBpm(Math.max(20, useStore.getState().bpm - 1))} disabled={!midi} title="BPM -1"><ChevronDown size={10} /></LongPressArrow>
         </div>
         {isTempoChanged && (
-          <button onClick={resetBpm} title="Reset tempo" style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 0, color: C.amber, display: 'flex' }}>
+          <button onClick={resetBpm} title="Reset tempo" style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 0, color: 'var(--text-amber)', display: 'flex' }}>
             <RotateCcw size={9} />
           </button>
         )}
@@ -194,10 +191,10 @@ export default function TopBar() {
       <div className="app-no-drag" style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '0 var(--space-3)', flexShrink: 0 }}
         title={`Key: ${displayKey}${transpose !== 0 ? ` (${transpose > 0 ? '+' : ''}${transpose} semitones)` : ''}`}>
         <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start', gap: 1 }}>
-          <span style={{ color: C.muted, fontSize: 8, textTransform: 'uppercase', letterSpacing: '0.1em', fontFamily: 'JetBrains Mono', lineHeight: 1 }}>KEY</span>
-          <span style={{ color: C.muted, fontSize: 8, textTransform: 'uppercase', letterSpacing: '0.1em', fontFamily: 'JetBrains Mono', lineHeight: 1 }}>TRANSPOSE</span>
+          <span style={{ color: 'var(--text-muted)', fontSize: 8, textTransform: 'uppercase', letterSpacing: '0.1em', fontFamily: 'JetBrains Mono', lineHeight: 1 }}>KEY</span>
+          <span style={{ color: 'var(--text-muted)', fontSize: 8, textTransform: 'uppercase', letterSpacing: '0.1em', fontFamily: 'JetBrains Mono', lineHeight: 1 }}>TRANSPOSE</span>
         </div>
-        <span style={{ color: transpose !== 0 ? C.amber : C.active, fontFamily: 'JetBrains Mono', fontSize: 20, fontWeight: 700, minWidth: 32, textAlign: 'right', lineHeight: 1 }}>
+        <span style={{ color: transpose !== 0 ? 'var(--text-amber)' : 'var(--text-active)', fontFamily: 'JetBrains Mono', fontSize: 20, fontWeight: 700, minWidth: 32, textAlign: 'right', lineHeight: 1 }}>
           {displayKey}
         </span>
         <div style={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
@@ -207,7 +204,7 @@ export default function TopBar() {
         {transpose !== 0 && (
           <button onClick={() => useStore.setState({ detectedKey: detectedKey ? { ...detectedKey, transpose: 0 } : null })}
             title="Reset key"
-            style={{ display: 'flex', alignItems: 'center', color: C.amber, background: '#e8a02715', border: '1px solid #e8a02730', borderRadius: 4, padding: '1px 5px', fontSize: 9, cursor: 'pointer' }}>
+            style={{ display: 'flex', alignItems: 'center', color: 'var(--text-amber)', background: 'var(--accent-amber-subtle)', border: '1px solid var(--accent-amber-medium)', borderRadius: 4, padding: '1px 5px', fontSize: 9, cursor: 'pointer' }}>
             <RotateCcw size={8} />
           </button>
         )}
@@ -234,7 +231,7 @@ export default function TopBar() {
           <TBtn onClick={() => setLoopRegionActive(!loopRegionActive)} disabled={!midi} active={loopRegionActive} blink={nudgeLoop} title={loopTooltip}><Repeat size={13} strokeWidth={1.5} /></TBtn>
           {nudgeLoop && (
             <span style={{
-              color: C.amber, fontSize: 9, fontFamily: 'Inter, sans-serif',
+              color: 'var(--text-amber)', fontSize: 9, fontFamily: 'Inter, sans-serif',
               whiteSpace: 'nowrap', letterSpacing: '0.04em',
               opacity: 0.85, pointerEvents: 'none', userSelect: 'none',
             }}>
@@ -248,7 +245,7 @@ export default function TopBar() {
         <div style={{ display: 'flex', flexDirection: 'column', gap: 5, width: 'min(100%, 400px)', position: 'relative' }}>
           {/* Scrub */}
           <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-            <span style={{ color: C.muted, fontFamily: 'JetBrains Mono', fontSize: 10, minWidth: 34, textAlign: 'right', flexShrink: 0 }}>
+            <span style={{ color: 'var(--text-muted)', fontFamily: 'JetBrains Mono', fontSize: 10, minWidth: 34, textAlign: 'right', flexShrink: 0 }}>
               {formatTime(currentTime)}
             </span>
             <input
@@ -257,7 +254,7 @@ export default function TopBar() {
               className="scrub-slider" style={{ flex: 1, maxWidth: 320 }} disabled={!midi}
               title="Scrub position"
             />
-            <span style={{ color: C.muted, fontFamily: 'JetBrains Mono', fontSize: 10, minWidth: 34, flexShrink: 0 }}>
+            <span style={{ color: 'var(--text-muted)', fontFamily: 'JetBrains Mono', fontSize: 10, minWidth: 34, flexShrink: 0 }}>
               {formatTime(duration)}
             </span>
           </div>
@@ -265,7 +262,7 @@ export default function TopBar() {
           {loopRegionEnabled && <LoopRegionStrip />}
         </div>
         {/* Filename */}
-        <span style={{ color: C.default, fontSize: 'var(--text-xs)', fontFamily: 'Inter', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: 340 }}
+        <span style={{ color: 'var(--text-default)', fontSize: 'var(--text-xs)', fontFamily: 'Inter', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: 340 }}
           title={midi?.fileName}>
           {midi ? midi.fileName.replace(/\.(mid|midi)$/i, '') : 'No file open'}
         </span>
@@ -287,14 +284,14 @@ export default function TopBar() {
                 background: 'var(--bg-tile)', borderRadius: 4, padding: '2px 6px',
                 display: 'flex', alignItems: 'baseline', gap: 0,
               }}>
-                <span style={{ color: C.amber, fontFamily: 'JetBrains Mono', fontSize: 'var(--text-sm)', fontWeight: 700, lineHeight: 1 }}>
+                <span style={{ color: 'var(--topbar-bar-number)', fontFamily: 'JetBrains Mono', fontSize: 'var(--text-sm)', fontWeight: 700, lineHeight: 1 }}>
                   {currentBar}
                 </span>
-                <span style={{ color: C.muted, fontFamily: 'JetBrains Mono', fontSize: 'var(--text-sm)', lineHeight: 1 }}>
+                <span style={{ color: 'var(--topbar-bar-total)', fontFamily: 'JetBrains Mono', fontSize: 'var(--text-sm)', lineHeight: 1 }}>
                   |{totalBars}
                 </span>
               </div>
-              <span style={{ color: C.muted, fontSize: 8, fontFamily: 'Inter', textTransform: 'uppercase', letterSpacing: '0.1em', marginTop: 6 }}>
+              <span style={{ color: 'var(--topbar-bar-label)', fontSize: 8, fontFamily: 'Inter', textTransform: 'uppercase', letterSpacing: '0.1em', marginTop: 6 }}>
                 BAR
               </span>
             </div>
@@ -308,18 +305,18 @@ export default function TopBar() {
         >
           {midi ? (
             <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', lineHeight: 1 }}>
-              <span style={{ color: C.active, fontFamily: 'JetBrains Mono', fontSize: 'var(--text-base)', fontWeight: 700 }}>
+              <span style={{ color: 'var(--text-active)', fontFamily: 'JetBrains Mono', fontSize: 'var(--text-base)', fontWeight: 700 }}>
                 {midi.timeSignatureNumerator ?? 4}
               </span>
-              <div style={{ width: 14, height: 1, background: '#30304a', margin: '2px 0' }} />
-              <span style={{ color: C.active, fontFamily: 'JetBrains Mono', fontSize: 'var(--text-base)', fontWeight: 700 }}>
+              <div style={{ width: 14, height: 1, background: 'var(--topbar-timesig-divider)', margin: '2px 0' }} />
+              <span style={{ color: 'var(--text-active)', fontFamily: 'JetBrains Mono', fontSize: 'var(--text-base)', fontWeight: 700 }}>
                 {midi.timeSignatureDenominator ?? 4}
               </span>
             </div>
           ) : (
-            <span style={{ color: C.muted, fontFamily: 'JetBrains Mono', fontSize: 20, fontWeight: 700, lineHeight: 1 }}>—</span>
+            <span style={{ color: 'var(--text-muted)', fontFamily: 'JetBrains Mono', fontSize: 20, fontWeight: 700, lineHeight: 1 }}>—</span>
           )}
-          <span style={{ color: C.default, fontSize: 8, fontFamily: 'JetBrains Mono', textTransform: 'uppercase', letterSpacing: '0.1em', marginTop: 6 }}>TIME</span>
+          <span style={{ color: 'var(--text-default)', fontSize: 8, fontFamily: 'JetBrains Mono', textTransform: 'uppercase', letterSpacing: '0.1em', marginTop: 6 }}>TIME</span>
         </div>
 
         <div style={{ width: 1, height: 'var(--button-height)', background: 'var(--border)', alignSelf: 'flex-end', marginBottom: 12 }} />
@@ -331,7 +328,7 @@ export default function TopBar() {
           style={{
             flexShrink: 0, display: 'flex', flexDirection: 'column', alignItems: 'center',
             padding: '0 14px', border: 'none', cursor: 'pointer',
-            background: 'transparent', color: metronomeEnabled ? C.amber : C.default, transition: 'color 0.15s',
+            background: 'transparent', color: metronomeEnabled ? 'var(--topbar-metronome-on)' : 'var(--topbar-metronome-off)', transition: 'color 0.15s',
           }}
         >
           <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
@@ -350,10 +347,10 @@ export default function TopBar() {
         {/* MIDI */}
         <div
           title={midiDeviceConnected ? `MIDI: ${midiDeviceName}` : 'No MIDI keyboard connected'}
-          style={{ flexShrink: 0, display: 'flex', flexDirection: 'column', alignItems: 'flex-start', padding: '0 14px', color: midiDeviceConnected ? C.amber : C.default }}
+          style={{ flexShrink: 0, display: 'flex', flexDirection: 'column', alignItems: 'flex-start', padding: '0 14px', color: midiDeviceConnected ? 'var(--topbar-midi-on)' : 'var(--topbar-midi-off)' }}
         >
-          <MidiIcon size={24} color={midiDeviceConnected ? C.amber : C.default} />
-          <span style={{ fontSize: midiDeviceConnected ? 8 : 7, fontFamily: 'JetBrains Mono', letterSpacing: midiDeviceConnected ? '0.08em' : '0.05em', color: midiDeviceConnected ? C.amber : C.default, marginTop: 6, whiteSpace: 'nowrap' }}>
+          <MidiIcon size={24} color={midiDeviceConnected ? 'var(--topbar-midi-on)' : 'var(--topbar-midi-off)'} />
+          <span style={{ fontSize: midiDeviceConnected ? 8 : 7, fontFamily: 'JetBrains Mono', letterSpacing: midiDeviceConnected ? '0.08em' : '0.05em', color: midiDeviceConnected ? 'var(--topbar-midi-on)' : 'var(--topbar-midi-off)', marginTop: 6, whiteSpace: 'nowrap' }}>
             {midiDeviceConnected ? (midiDeviceName?.split(' ')[0] ?? 'MIDI') : 'CONNECT A KEYBOARD'}
           </span>
         </div>
@@ -406,7 +403,7 @@ function LongPressArrow({ children, onStep, disabled, title }: {
       onMouseUp={stop}
       onMouseLeave={stop}
       style={{
-        width: 16, height: 13, background: 'var(--bg-tile)', color: '#606075',
+        width: 16, height: 13, background: 'var(--bg-tile)', color: 'var(--text-dim-control)',
         border: 'none', borderRadius: 'var(--radius-sm)',
         cursor: disabled ? 'default' : 'pointer',
         opacity: disabled ? 0.25 : 1,
@@ -426,7 +423,7 @@ function ArrowBtn({ children, onClick, disabled, title }: {
   return (
     <button onClick={onClick} disabled={disabled} title={title}
       style={{
-        width: 16, height: 13, background: 'var(--bg-tile)', color: '#606075',
+        width: 16, height: 13, background: 'var(--bg-tile)', color: 'var(--text-dim-control)',
         border: 'none', borderRadius: 'var(--radius-sm)',
         cursor: disabled ? 'default' : 'pointer',
         opacity: disabled ? 0.25 : 1,
@@ -434,7 +431,7 @@ function ArrowBtn({ children, onClick, disabled, title }: {
         transition: 'color 0.1s',
       }}
       onMouseEnter={e => { if (!disabled) e.currentTarget.style.color = 'var(--text-amber)' }}
-      onMouseLeave={e => { e.currentTarget.style.color = '#606075' }}
+      onMouseLeave={e => { e.currentTarget.style.color = 'var(--text-dim-control)' }}
     >
       {children}
     </button>
