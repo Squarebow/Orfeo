@@ -268,7 +268,7 @@ export default function TopBar() {
         </span>
       </div>
 
-      <div style={{ width: 1, height: 'var(--button-height)', background: 'var(--border)', alignSelf: 'flex-end', marginBottom: 12, flexShrink: 0 }} />
+      <div style={{ width: 1, height: 'var(--button-height)', background: 'var(--border)', flexShrink: 0 }} />
 
       {/* ── TIME + METRONOME + MIDI — bottoms aligned ── */}
       <div className="app-no-drag" style={{ display: 'flex', alignItems: 'flex-end', gap: 0, flexShrink: 0 }}>

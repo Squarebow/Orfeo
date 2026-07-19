@@ -60,13 +60,14 @@ export default function MixerConsole() {
   // ── Modal width — adapts to track count, capped at MAX_STRIPS ────────────
   const modalW = useMemo(() => {
     const n = Math.min(Math.max(sortedTracks.length, 1), MAX_STRIPS)
-    return BODY_PAD * 2 + n * STRIP_W + (n - 1) * STRIP_GAP + STRIP_GAP + MASTER_W
+    // +2 accounts for 1px left + 1px right border (border-box sizing)
+    return BODY_PAD * 2 + n * STRIP_W + (n - 1) * STRIP_GAP + STRIP_GAP + MASTER_W + 2
   }, [sortedTracks.length])
 
   // ── Drag position — initialized to viewport center on first render ────────
   const [pos, setPos] = useState(() => {
     const n = Math.min(Math.max(useStore.getState().tracks.length, 1), MAX_STRIPS)
-    const w = BODY_PAD * 2 + n * STRIP_W + (n - 1) * STRIP_GAP + STRIP_GAP + MASTER_W
+    const w = BODY_PAD * 2 + n * STRIP_W + (n - 1) * STRIP_GAP + STRIP_GAP + MASTER_W + 2
     return {
       x: Math.max(0, Math.round((window.innerWidth  - w) / 2)),
       y: Math.max(0, Math.round((window.innerHeight - MODAL_H_APPROX) / 2)),

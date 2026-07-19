@@ -318,7 +318,7 @@ function TrackRow({ track, onToggleIncluded, onToggleMerge, onChangeProgram, onU
               onMouseEnter={e => { e.currentTarget.style.color = 'var(--text-amber)'; e.currentTarget.style.borderColor = 'var(--accent-amber-strong)' }}
               onMouseLeave={e => { e.currentTarget.style.color = 'var(--text-dim-control)'; e.currentTarget.style.borderColor = 'var(--border2)' }}
             >
-              <Split size={11} />
+              <Split size={16} />
             </button>
           )}
         </div>
