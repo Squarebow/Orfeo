@@ -529,7 +529,7 @@ export default function MidiEditor() {
   }
 
   return (
-    <div style={{ width: '100vw', height: '100vh', background: 'var(--bg-modal-header)', color: 'var(--text-muted)', fontFamily: 'Inter, system-ui', display: 'flex', flexDirection: 'column', fontSize: 'var(--text-sm)', userSelect: 'none' }}>
+    <div style={{ width: '100vw', height: '100vh', background: 'var(--bg-modal-header)', color: 'var(--text-muted)', fontFamily: 'Inter, system-ui', display: 'flex', flexDirection: 'column', fontSize: 'var(--text-sm)', userSelect: 'none', border: '1px solid var(--state-hover-bg)', boxShadow: 'inset 0 0 18px 4px var(--accent-amber-medium), inset 0 0 5px 1px var(--accent-amber-strong)' }}>
 
       {/* Title bar */}
       <div style={{ height: 48, flexShrink: 0, background: 'var(--bg-modal-header)', borderBottom: '1px solid var(--border)', display: 'flex', alignItems: 'center', padding: '0 var(--space-4)', gap: 10, WebkitAppRegion: 'drag' as any, paddingRight: 160 }}>
