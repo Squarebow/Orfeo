@@ -33,8 +33,7 @@ export default function App() {
   useMetronome()
   useChordSequence()
 
-  // ── Mixer Console — Ctrl+Shift+M to open, Escape/backdrop to close ──────────
-  const [showMixerDev, setShowMixerDev] = useState(false)
+  // ── Mixer Console — Ctrl+Shift+M toggles open; also wired to the Console drawer icon ──
 
   // ── Drag-and-drop state ───────────────────────────────────────────────────
   const [isDragOver, setIsDragOver]           = useState(false)
@@ -187,7 +186,7 @@ export default function App() {
           break
         case 'm':
         case 'M':
-          if (e.ctrlKey && e.shiftKey) { e.preventDefault(); setShowMixerDev(v => !v) }
+          if (e.ctrlKey && e.shiftKey) { e.preventDefault(); useStore.getState().setMixerOpen(!useStore.getState().mixerOpen) }
           break
       }
     }
@@ -262,8 +261,8 @@ export default function App() {
         </div>
       )}
 
-      {/* ── Mixer Console modal — Ctrl+Shift+M (dev shortcut, Stage 4) ─────────── */}
-      <MixerConsole open={showMixerDev} onClose={() => setShowMixerDev(false)} />
+      {/* ── Mixer Console — floating modal, toggled via Ctrl+Shift+M or Console drawer icon ── */}
+      <MixerConsole />
 
       {/* ── Drop confirmation modal — shown when a file is already loaded ────── */}
       {dropConfirmPath && (

@@ -1,5 +1,6 @@
-import { useState, useRef, useLayoutEffect, useEffect, useCallback } from 'react'
-import { useStore } from '../../store'
+import { useState, useRef, useLayoutEffect, useEffect, useCallback, useMemo } from 'react'
+import { Eye, VolumeX, Volume2 } from 'lucide-react'
+import { useStore, DEFAULT_MUTED_GROUPS } from '../../store'
 import MixerKnob from './MixerKnob'
 import {
   setMasterChorus,
@@ -22,6 +23,58 @@ const METER_GREEN  = '#7ac040'
 const METER_YELLOW = '#c0a020'
 const METER_ORANGE = '#c07a20'
 const METER_RED    = '#c04040'
+
+// ── EyeClosed — matching the one in ChannelStrip ─────────────────────────────
+function EyeClosed({ size = 12 }: { size?: number }) {
+  return (
+    <svg xmlns="http://www.w3.org/2000/svg" width={size} height={size} viewBox="0 0 24 24"
+      fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
+      <path d="m15 18-.722-3.25"/>
+      <path d="M2 8a10.645 10.645 0 0 0 20 0"/>
+      <path d="m20 15-1.726-2.05"/>
+      <path d="m4 15 1.726-2.05"/>
+      <path d="m9 18 .722-3.25"/>
+    </svg>
+  )
+}
+
+// ── Mini piano SVG — identical to ChannelStrip's Kbd button icon ──────────────
+function PianoIcon() {
+  return (
+    <svg width="18" height="13" viewBox="0 0 13 9" fill="none">
+      <rect x="0.5" y="0.5" width="12" height="8" rx="1" stroke="currentColor" strokeWidth="0.9" vectorEffect="non-scaling-stroke"/>
+      <rect x="2.5" y="0.5" width="1.3" height="5" rx="0.4" fill="currentColor"/>
+      <rect x="5"   y="0.5" width="1.3" height="5" rx="0.4" fill="currentColor"/>
+      <rect x="7.5" y="0.5" width="1.3" height="5" rx="0.4" fill="currentColor"/>
+      <rect x="10"  y="0.5" width="1.3" height="5" rx="0.4" fill="currentColor"/>
+    </svg>
+  )
+}
+
+// ── IBtn — icon button matching ChannelStrip's IBtn ───────────────────────────
+function IBtn({ children, onClick, active, title, activeColor = 'var(--text-amber)' }: {
+  children: React.ReactNode
+  onClick: () => void
+  active?: boolean
+  title?: string
+  activeColor?: string
+}) {
+  return (
+    <button
+      onClick={onClick} title={title}
+      style={{
+        display: 'flex', alignItems: 'center', justifyContent: 'center',
+        width: 26, height: 26, background: 'var(--bg-deep)', border: 'none',
+        cursor: 'pointer', borderRadius: 4, transition: 'color 0.1s',
+        color: active ? activeColor : '#404058', flexShrink: 0,
+      }}
+      onMouseEnter={e => { if (!active) e.currentTarget.style.color = '#808098' }}
+      onMouseLeave={e => { e.currentTarget.style.color = active ? activeColor : '#404058' }}
+    >
+      {children}
+    </button>
+  )
+}
 
 // ── Segment color by normalized position ──────────────────────────────────────
 function segColor(i: number, total: number): string {
@@ -103,13 +156,17 @@ function drawSpectro(
   ctx.globalAlpha = 1
 }
 
-// ── MasterStrip — 160×480 ────────────────────────────────────────────────────
+// ── MasterStrip — 160×574 ─────────────────────────────────────────────────────
 export default function MasterStrip() {
 
   // ── Store reads ───────────────────────────────────────────────────────────
-  const audioEngine     = useStore(s => s.audioEngine)
-  const masterVolume    = useStore(s => s.masterVolume)
-  const setMasterVolume = useStore(s => s.setMasterVolume)
+  const audioEngine          = useStore(s => s.audioEngine)
+  const masterVolume         = useStore(s => s.masterVolume)
+  const setMasterVolume      = useStore(s => s.setMasterVolume)
+  const tracks               = useStore(s => s.tracks)
+  const updateTrack          = useStore(s => s.updateTrack)
+  const autoMuteNonKeyboard  = useStore(s => s.autoMuteNonKeyboard)
+  const setTrackMuteFilter   = useStore(s => s.setTrackMuteFilter)
 
   const knobsDisabled = audioEngine === 'gm'
 
@@ -208,6 +265,33 @@ export default function MasterStrip() {
   const handleReverb = useCallback((v: number) => { setReverbState(v); setMasterReverb(v) }, [])
   const handleTone   = useCallback((v: number) => { setToneState(v);   setMasterTone(v)   }, [])
 
+  // ── Global action state — derived from all track states ───────────────────
+  const allMuted       = tracks.length > 0 && tracks.every(t => t.muted)
+  const allVisible     = tracks.length > 0 && tracks.every(t => t.visible)
+  const allOnKeyboard  = tracks.length > 0 && tracks.every(t => t.showOnKeyboard)
+
+  // ── Global action handlers ─────────────────────────────────────────────────
+  const handleMuteAll = useCallback(() => {
+    const target = !allMuted
+    tracks.forEach(t => updateTrack(t.index, { muted: target }))
+  }, [allMuted, tracks, updateTrack])
+
+  const handleVisibleAll = useCallback(() => {
+    const target = !allVisible
+    tracks.forEach(t => updateTrack(t.index, { visible: target }))
+  }, [allVisible, tracks, updateTrack])
+
+  const handleKeyboardAll = useCallback(() => {
+    const target = !allOnKeyboard
+    tracks.forEach(t => updateTrack(t.index, { showOnKeyboard: target }))
+  }, [allOnKeyboard, tracks, updateTrack])
+
+  // ── Mute-filter state — mirrors TrackPanel's isCurrentlyFiltered ──────────
+  const isCurrentlyFiltered = useMemo(() => {
+    const filterable = tracks.filter(t => !t.isDrum && DEFAULT_MUTED_GROUPS.has(t.group ?? ''))
+    return filterable.length > 0 && filterable.every(t => t.muted)
+  }, [tracks])
+
   return (
     <div style={{
       width: 160, height: 574, flexShrink: 0,
@@ -233,9 +317,9 @@ export default function MasterStrip() {
         </span>
       </div>
 
-      {/* ── 2. VU section (flex-grow, ~150px) ────────────────────────────── */}
+      {/* ── 2. VU section (flex-grow, ~127px) ───────────────────────────────── */}
       <div ref={sectionRef} style={{
-        flex: 1, minHeight: 0,
+        flex: 1.3, minHeight: 0,
         display: 'flex', flexDirection: 'column',
         alignItems: 'center',
         paddingTop: 6, paddingBottom: 6,
@@ -260,13 +344,23 @@ export default function MasterStrip() {
         )}
       </div>
 
-      {/* ── 3. VU display toggle — centered, label below (28px) ──────────── */}
+      {/* ── Spacer — breathing room between VU canvas and toggle row ──────── */}
+      <div style={{ height: 8, flexShrink: 0 }} />
+
+      {/* ── 3. VU display toggle (28px) — label left, toggle right, single row ─ */}
       <div style={{
         height: 28, flexShrink: 0,
-        display: 'flex', flexDirection: 'column',
+        display: 'flex', flexDirection: 'row',
         alignItems: 'center', justifyContent: 'center',
-        gap: 3,
+        gap: 8,
       }}>
+        <span style={{
+          fontSize: 9, fontFamily: 'JetBrains Mono', letterSpacing: '0.08em',
+          color: 'var(--text-dimmest)', whiteSpace: 'nowrap',
+          textTransform: 'uppercase',
+        }}>
+          VU display
+        </span>
         <div
           onClick={() => setVuMode(v => v === 'mono' ? 'spectro' : 'mono')}
           style={{
@@ -284,21 +378,81 @@ export default function MasterStrip() {
             transition: 'left 0.15s',
           }} />
         </div>
-        <span style={{
-          fontSize: 9, fontFamily: 'JetBrains Mono', letterSpacing: '0.08em',
-          color: 'var(--text-dimmest)', whiteSpace: 'nowrap',
-          textTransform: 'uppercase',
-        }}>
-          VU display
-        </span>
       </div>
 
-      {/* ── 3b. Spacer — pushes FX section down to match channel strip height ── */}
-      <div style={{ height: 34, flexShrink: 0 }} />
+      {/* ── Spacer — gap between VU toggle and global icons ────────────── */}
+      <div style={{ height: 8, flexShrink: 0 }} />
 
-      {/* ── 4. FX row — Chorus + Reverb side by side, "FX" between (72px) ── */}
+      {/* ── 4. Global icons row (36px) — mute all / waterfall all / kbd all ── */}
       <div style={{
-        height: 72, flexShrink: 0,
+        height: 36, flexShrink: 0,
+        display: 'flex', alignItems: 'center', justifyContent: 'center',
+        gap: 4,
+      }}>
+        <IBtn
+          onClick={handleMuteAll}
+          active={allMuted}
+          title={allMuted ? 'Unmute all tracks' : 'Mute all tracks'}
+          activeColor="var(--status-error)"
+        >
+          {allMuted ? <VolumeX size={13} /> : <Volume2 size={13} />}
+        </IBtn>
+        <IBtn
+          onClick={handleVisibleAll}
+          active={allVisible}
+          title={allVisible ? 'Hide all in waterfall' : 'Show all in waterfall'}
+          activeColor="var(--text-amber)"
+        >
+          {allVisible ? <Eye size={13} /> : <EyeClosed size={13} />}
+        </IBtn>
+        <IBtn
+          onClick={handleKeyboardAll}
+          active={allOnKeyboard}
+          title={allOnKeyboard ? 'Hide all on keyboard' : 'Show all on keyboard'}
+          activeColor="var(--text-amber)"
+        >
+          <PianoIcon />
+        </IBtn>
+      </div>
+
+      {/* ── 5. Mute-filter toggle row (34px) — cloned from TrackPanel header ─ */}
+      <div style={{
+        height: 34, flexShrink: 0,
+        display: 'flex', alignItems: 'center', justifyContent: 'center',
+        marginBottom: 8,
+      }}>
+        {autoMuteNonKeyboard && (
+          <button
+            onClick={() => setTrackMuteFilter(!isCurrentlyFiltered)}
+            title={isCurrentlyFiltered ? 'Play all tracks' : 'Play only piano, bass & drums'}
+            style={{
+              padding: '2px 10px',
+              borderRadius: 'var(--radius-sm)',
+              border: 'none',
+              background: 'var(--text-amber)',
+              color: '#1a1000',
+              fontSize: 9,
+              fontWeight: 700,
+              fontFamily: 'Inter',
+              letterSpacing: '0.02em',
+              cursor: 'pointer',
+              whiteSpace: 'nowrap',
+              lineHeight: '18px',
+              display: 'flex',
+              alignItems: 'center',
+            }}
+          >
+            <svg width="6" height="7" viewBox="0 0 6 7" style={{ marginRight: 3, flexShrink: 0 }}>
+              <polygon points="0,0 6,3.5 0,7" fill="currentColor"/>
+            </svg>
+            {isCurrentlyFiltered ? 'Selection' : 'All tracks'}
+          </button>
+        )}
+      </div>
+
+      {/* ── 6. FX row — Chorus + Reverb side by side (56px) ──────────────── */}
+      <div style={{
+        height: 56, flexShrink: 0,
         display: 'flex', alignItems: 'center', justifyContent: 'center',
         gap: 0,
       }}>
@@ -311,7 +465,7 @@ export default function MasterStrip() {
           fontSize: 9, fontFamily: 'JetBrains Mono', letterSpacing: '0.1em',
           color: 'var(--text-muted)', textTransform: 'uppercase',
           padding: '0 10px', flexShrink: 0,
-          marginBottom: 12,  /* align with knob centers, above the label row */
+          marginBottom: 12,
         }}>
           FX
         </span>
@@ -322,9 +476,9 @@ export default function MasterStrip() {
         />
       </div>
 
-      {/* ── 5. Tone EQ row (60px) — same knob size as Chorus/Reverb ─────── */}
+      {/* ── 7. Tone EQ row (44px) ─────────────────────────────────────────── */}
       <div style={{
-        height: 60, flexShrink: 0,
+        height: 44, flexShrink: 0,
         display: 'flex', alignItems: 'center', justifyContent: 'center',
       }}>
         <MixerKnob
@@ -334,22 +488,27 @@ export default function MasterStrip() {
         />
       </div>
 
-      {/* ── 6. Master Volume — size=200, dense tick ring (230px) ──────────── */}
-      {/* dotCount=36 / tickMajorEvery=6 → 6 major ticks + 5 minor between each */}
+      {/* ── 8. Master Volume — flex:2 so it gets ~2/3 of shared space (~223px) ── */}
+      {/* The knob wrapper uses position:relative + top:30 to shift the knob   */}
+      {/* 30px down from its natural flex position without moving the label.    */}
       <div style={{
-        height: 230, flexShrink: 0,
+        flex: 2, minHeight: 0,
         display: 'flex', flexDirection: 'column',
         alignItems: 'center', justifyContent: 'flex-end',
-        gap: 5, paddingBottom: 10,
+        overflow: 'hidden',
+        paddingBottom: 16,
       }}>
-        <MixerKnob
-          value={masterVolume} onChange={setMasterVolume}
-          accentColor="var(--text-amber)" size={200}
-          dotCount={36} tickMajorEvery={6} tickScale={0.5} triScale={0.5}
-        />
+        <div style={{ position: 'relative', top: 30, flexShrink: 0 }}>
+          <MixerKnob
+            value={masterVolume} onChange={setMasterVolume}
+            accentColor="var(--text-amber)" size={200}
+            dotCount={36} tickMajorEvery={6} tickScale={0.5} triScale={0.5}
+          />
+        </div>
         <span style={{
           fontSize: 8, fontFamily: 'JetBrains Mono', letterSpacing: '0.08em',
           textTransform: 'uppercase', color: 'var(--text-dimmest)',
+          marginTop: 4,
         }}>
           Master Volume
         </span>

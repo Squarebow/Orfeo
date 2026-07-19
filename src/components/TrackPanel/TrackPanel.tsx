@@ -159,12 +159,16 @@ export default function TrackPanel() {
             <AudioLines size={18} />
           </button>
           <button
-            title="Coming soon"
+            onClick={() => useStore.getState().setMixerOpen(true)}
+            title="Console"
             style={{
-              background: 'none', border: 'none', cursor: 'default',
-              color: 'var(--text-inactive)', padding: 4, marginTop: 8, opacity: 0.5,
+              background: 'none', border: 'none', cursor: 'pointer',
+              color: 'var(--text-dimmest)', padding: 4, marginTop: 8,
               display: 'flex', alignItems: 'center', justifyContent: 'center',
+              transition: 'color 0.15s',
             }}
+            onMouseEnter={e => e.currentTarget.style.color = 'var(--text-amber)'}
+            onMouseLeave={e => e.currentTarget.style.color = 'var(--text-dimmest)'}
           >
             <SlidersVertical size={18} />
           </button>
@@ -213,12 +217,16 @@ export default function TrackPanel() {
               <ChevronRight size={15} />
             </button>
             <button
-              title="Coming soon"
+              onClick={() => useStore.getState().setMixerOpen(true)}
+              title="Console"
               style={{
-                background: 'none', border: 'none', cursor: 'default',
-                color: 'var(--text-inactive)', padding: 4, marginTop: 8, opacity: 0.5,
+                background: 'none', border: 'none', cursor: 'pointer',
+                color: 'var(--text-dimmest)', padding: 4, marginTop: 8,
                 display: 'flex', alignItems: 'center', justifyContent: 'center',
+                transition: 'color 0.15s',
               }}
+              onMouseEnter={e => e.currentTarget.style.color = 'var(--text-amber)'}
+              onMouseLeave={e => e.currentTarget.style.color = 'var(--text-dimmest)'}
             >
               <SlidersVertical size={16} />
             </button>

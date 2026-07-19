@@ -4,6 +4,39 @@
 
 ---
 
+### 19. 7. 2026 — Mixer Console Stage 5 — draggable modal, real trigger, global controls
+
+**`src/store/index.ts`**
+- Added `mixerOpen: boolean` + `setMixerOpen: (open: boolean) => void` to `OrfeoStore` interface and store body (same pattern as `chordExplorerOpen`). Not reset on file load — console stays open across MIDI swaps.
+
+**`src/App.tsx`**
+- Removed `showMixerDev` local state.
+- `Ctrl+Shift+M` handler now reads/writes `mixerOpen` directly via `useStore.getState()`.
+- `<MixerConsole />` is now always rendered with no props — reads state from store.
+
+**`src/components/TrackPanel/TrackPanel.tsx`**
+- Both "coming soon" `SlidersVertical` buttons (collapsed icon strip + open icon strip) are now wired: `onClick={() => useStore.getState().setMixerOpen(true)}`, title "Console", amber hover, normal opacity/cursor.
+
+**`src/components/Mixer/MixerConsole.tsx`** (major rework)
+- Props removed — reads `mixerOpen`/`setMixerOpen` from store.
+- `everOpened` state: component never mounts until first open (avoids rAF cost at startup); never unmounts after that — internal state (knob values, scroll position, drag pos) is fully preserved across open/close cycles.
+- **No `minimized` state**: both Minimize (`<Minus>`) and Close (`<X>`) buttons call `setMixerOpen(false)`. `everOpened` keeps the component mounted. Re-opening calls `setMixerOpen(true)` which flips `display` back to `flex` — no stale state risk.
+- Removed backdrop overlay — modal is now a free-floating `position: fixed` window.
+- `pos` state `{x, y}` initialized to viewport center; `startDrag` header mousedown handler (window mousemove/mouseup pattern from LockedChordModal).
+- Button group has `onMouseDown={e.stopPropagation()}` to prevent accidental header drag when clicking minimize/close.
+- Fixed `width: 1216px` — derived: `2×16 (body-pad) + 8×120 (strips) + 7×8 (inter-strip gaps) + 8 (body-gap) + 160 (master) = 1216`. Exactly 8 channel strips visible before horizontal scroll.
+- Title: "Console". `<OrfeoMark height={22} />` added to header left corner.
+- Escape key calls `setMixerOpen(false)`.
+
+**`src/components/Mixer/MasterStrip.tsx`** (two new rows, height 574px)
+- Added **global icons row** (36px, between VU toggle and global-icons): three `IBtn` buttons — Mute All (`VolumeX`/`Volume2`, red active), Show/Hide Waterfall All (`Eye`/`EyeClosed`, amber active), Show/Hide Keyboard All (mini piano SVG, amber active). Each is an all-or-nothing toggle. Calls `updateTrack` for every loaded track.
+- Added **mute-filter toggle row** (34px): clone of the amber "All tracks / Selection" button from TrackPanel header. Reads `autoMuteNonKeyboard`, `setTrackMuteFilter`, computes `isCurrentlyFiltered` identically to TrackPanel. Shown only when `autoMuteNonKeyboard` is true.
+- Added `EyeClosed`, `PianoIcon`, `IBtn` helpers (matching ChannelStrip implementations exactly).
+- Layout fixed rows (top→bottom): Header 30 + Spacer 8 + VU toggle 28 + Spacer 8 + Icons 36 + Mute-filter 34 + marginBottom 8 + FX 56 + Tone 44 = 252px fixed. Remaining 322px shared: VU `flex: 1.3` (~127px, 16 segments) + MV `flex: 2` (~195px).
+- VU section `flex: 1.3` (up from `flex: 1`): gives canvas ~99px → 16 segments (was 13, +3). MV tick ring fully visible — ring top at SVG_y 28.8px, clip reaches only SVG_y 2.8px.
+
+---
+
 ### 18. 7. 2026 — Mixer Console Stage 4 — full modal shell
 
 **`src/components/Mixer/MixerConsole.tsx`** (new)
