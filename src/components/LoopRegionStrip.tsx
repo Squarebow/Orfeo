@@ -4,7 +4,7 @@
 // Drag to create a region; drag handles to adjust; click outside to clear.
 // Selection endpoints snap to nearest bar boundary on release.
 
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useRef, useState, type CSSProperties } from 'react'
 import { ChevronUp, ChevronDown } from 'lucide-react'
 import { useStore } from '../store'
 
@@ -443,6 +443,7 @@ export default function LoopRegionStrip() {
         {popupOpen && (
           <div
             ref={popupRef}
+            className="orfeo-modal-glow"
             style={{
               position: 'absolute',
               top: STRIP_H + 4,
@@ -453,11 +454,11 @@ export default function LoopRegionStrip() {
               padding: '10px 12px',
               zIndex: 200,
               width: 158,
-              boxShadow: '0 6px 20px rgba(0,0,0,0.6)',
               display: 'flex',
               flexDirection: 'column',
               gap: 10,
-            }}
+              '--_modal-shadow': '0 6px 20px rgba(0,0,0,0.6)',
+            } as CSSProperties}
           >
             {/* Header */}
             <div style={{

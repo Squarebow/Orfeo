@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useMemo, useRef } from 'react'
+import { useState, useEffect, useCallback, useMemo, useRef, type CSSProperties } from 'react'
 import { createPortal } from 'react-dom'
 import { Chord, Note } from 'tonal'
 import { RotateCcw, Play, Square, CircleOff, ListOrdered, Shuffle, ArrowUpRight, Minus } from 'lucide-react'
@@ -631,6 +631,7 @@ export default function ScaleExplorer() {
   return (
     // ── Modal container ────────────────────────────────────────────────────
     <div
+      className="orfeo-modal-glow"
       style={{
         position: 'fixed',
         left: pos.x,
@@ -640,13 +641,13 @@ export default function ScaleExplorer() {
         background: 'var(--bg-modal)',
         border: '1px solid var(--state-hover-bg)',
         borderRadius: 10,
-        boxShadow: '0 8px 48px rgba(0,0,0,0.85)',
         zIndex: 200,
         display: scaleExplorerMinimized ? 'none' : 'flex',
         flexDirection: 'column',
         overflow: 'hidden',
         fontFamily: 'Inter',
-      }}
+        '--_modal-shadow': '0 8px 48px rgba(0,0,0,0.85)',
+      } as CSSProperties}
     >
       {/* Header — drag handle */}
       <div onMouseDown={onDragStart} style={{

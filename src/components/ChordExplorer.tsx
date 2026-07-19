@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useMemo, useRef } from 'react'
+import { useState, useEffect, useCallback, useMemo, useRef, type CSSProperties } from 'react'
 import { createPortal } from 'react-dom'
 import { ChordType, Interval } from 'tonal'
 import { Search, Hand, RotateCcw, Play, Square, CircleOff, ListOrdered, Shuffle, Minus } from 'lucide-react'
@@ -640,7 +640,7 @@ export default function ChordExplorer() {
   const activeProg = selectedProg !== null ? ALL_PROGRESSIONS[selectedProg] : null
 
   return (
-    <div style={{
+    <div className="orfeo-modal-glow" style={{
       position: 'fixed',
       left: pos.x,
       top: pos.y,
@@ -652,8 +652,8 @@ export default function ChordExplorer() {
       zIndex: 401,
       display: chordExplorerMinimized ? 'none' : 'flex', flexDirection: 'column',
       overflow: 'hidden',
-      boxShadow: '0 8px 40px rgba(0,0,0,0.8), 0 0 0 1px rgba(232,160,39,0.08)',
-    }}>
+      '--_modal-shadow': '0 8px 40px rgba(0,0,0,0.8)',
+    } as CSSProperties}>
 
       {/* Header — draggable */}
       <div

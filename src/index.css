@@ -140,6 +140,17 @@
 
 /* ── Utility classes ── */
 
+/* ── Amber outer glow — apply className to every modal/floating panel ──────
+   The base elevation shadow varies per component; pass it via the CSS custom
+   property --_modal-shadow in the element's inline style. The two amber layers
+   are fixed by this class. Future floating panels should use this class.      */
+.orfeo-modal-glow {
+  box-shadow:
+    var(--_modal-shadow, 0 8px 32px rgba(0, 0, 0, 0.78)),
+    0 0 12px 2px var(--accent-amber-subtle),
+    0 0 4px 0px var(--accent-amber-medium);
+}
+
 /* Standard modal/panel row — use for any horizontal row of controls */
 .orfeo-row {
   display: flex;

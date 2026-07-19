@@ -1,4 +1,4 @@
-import { useRef, useState, useEffect, useMemo, useCallback } from 'react'
+import { useRef, useState, useEffect, useMemo, useCallback, type CSSProperties } from 'react'
 import { X, Minus } from 'lucide-react'
 import { useStore } from '../../store'
 import ChannelStrip from './ChannelStrip'
@@ -121,6 +121,7 @@ export default function MixerConsole() {
 
   return (
     <div
+      className="orfeo-modal-glow"
       style={{
         position: 'fixed',
         left: pos.x, top: pos.y,
@@ -131,10 +132,10 @@ export default function MixerConsole() {
         display: mixerOpen ? 'flex' : 'none',
         flexDirection: 'column',
         overflow: 'hidden',
-        boxShadow: '0 8px 40px rgba(0,0,0,0.8), 0 0 0 1px rgba(232,160,39,0.06)',
         userSelect: 'none',
         zIndex: 9990,
-      }}
+        '--_modal-shadow': '0 8px 40px rgba(0,0,0,0.8)',
+      } as CSSProperties}
     >
 
       {/* ── Header — drag handle; double-click restores when minimized ─────── */}

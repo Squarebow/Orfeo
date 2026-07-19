@@ -3,7 +3,7 @@
  * Height auto-fits to keyboard content — no fixed height, no empty space.
  * Width-only resize; keyboard height follows proportionally via its own ResizeObserver.
  */
-import { useEffect, useRef, useState, useCallback } from 'react'
+import { useEffect, useRef, useState, useCallback, type CSSProperties } from 'react'
 import { X, Pin } from 'lucide-react'
 import { useStore } from '../../store'
 import Keyboard from './Keyboard'
@@ -93,6 +93,7 @@ export default function FloatingKeyboard() {
   return (
     <div
       ref={panelRef}
+      className="orfeo-modal-glow"
       style={{
         position: 'fixed',
         left: pos.x,
@@ -103,12 +104,12 @@ export default function FloatingKeyboard() {
         background: '#0d0d12',
         border: '1px solid var(--state-hover-bg)',
         borderRadius: 10,
-        boxShadow: '0 8px 40px rgba(0,0,0,0.7), 0 0 0 1px rgba(232,160,39,0.08)',
         overflow: 'hidden',
         userSelect: dragState.current ? 'none' : 'auto',
         display: 'flex',
         flexDirection: 'column',
-      }}
+        '--_modal-shadow': '0 8px 40px rgba(0,0,0,0.7)',
+      } as CSSProperties}
     >
       {/* Left resize handle */}
       <div onMouseDown={startResizeW} style={{ position: 'absolute', left: 0, top: 0, bottom: 0, width: HANDLE_PX, cursor: 'ew-resize', zIndex: 10 }} />
