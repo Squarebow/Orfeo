@@ -528,26 +528,17 @@ export default function MidiEditor() {
     }
   }
 
-  // ── Prevent body scrollbars — window is transparent so body must not scroll ──
-  useEffect(() => {
-    document.documentElement.style.overflow = 'hidden'
-    document.body.style.overflow = 'hidden'
-  }, [])
-
   return (
-    <div
-      className="orfeo-modal-glow"
-      style={{
-        width: 'calc(100vw - 16px)', height: 'calc(100vh - 16px)', margin: 8,
-        background: 'var(--bg-modal-header)',
-        border: '1px solid var(--state-hover-bg)',
-        borderRadius: 8, overflow: 'hidden',
-        color: 'var(--text-muted)', fontFamily: 'Inter, system-ui',
-        display: 'flex', flexDirection: 'column',
-        fontSize: 'var(--text-sm)', userSelect: 'none',
-        '--_modal-shadow': '0 0 0 0 transparent',
-      } as CSSProperties}
-    >
+    <div style={{ width: '100vw', height: '100vh', background: 'var(--bg-modal-header)', color: 'var(--text-muted)', fontFamily: 'Inter, system-ui', display: 'flex', flexDirection: 'column', fontSize: 'var(--text-sm)', userSelect: 'none', position: 'relative' }}>
+
+      {/* ── Amber window-edge glow — fixed overlay, pointer-events:none so it
+          never blocks interaction. Inset shadow fades inward from all four
+          edges of the OS window, matching the outer-glow look of floating
+          modals without requiring a transparent Electron window.           */}
+      <div style={{
+        position: 'fixed', inset: 0, pointerEvents: 'none', zIndex: 9999,
+        boxShadow: 'inset 0 0 18px 4px var(--accent-amber-medium), inset 0 0 5px 1px var(--accent-amber-strong)',
+      }} />
 
       {/* Title bar */}
       <div style={{ height: 48, flexShrink: 0, background: 'var(--bg-modal-header)', borderBottom: '1px solid var(--border)', display: 'flex', alignItems: 'center', padding: '0 var(--space-4)', gap: 10, WebkitAppRegion: 'drag' as any, paddingRight: 160 }}>
