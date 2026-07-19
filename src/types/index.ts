@@ -94,14 +94,9 @@ declare global {
       windowMaximize:      () => Promise<void>
       windowClose:         () => Promise<void>
       transcriptGenerate:  (midiPath: string, noteNaming: string, accidentals: string) => Promise<{ success: boolean; path?: string; error?: string }>
-      splitMidiEditor:     (payload: { trackIndex: number; breakpointType: 'single' | 'range'; breakpoint: number; rangeStart: number; rangeEnd: number }) => Promise<{ ok: boolean; message: string }>
-      openMidiEditor:      (data: any) => Promise<void>
-      getMidiEditorData:   () => Promise<any>
-      closeMidiEditor:     () => Promise<void>
+      splitMidiEditor:     (payload: { filePath: string; trackIndex: number; breakpointType: 'single' | 'range'; breakpoint: number; rangeStart: number; rangeEnd: number }) => Promise<{ ok: boolean; message: string; filePath?: string; fileName?: string; base64?: string }>
       saveFileDialog:      (opts: { defaultPath: string; filters: { name: string; extensions: string[] }[] }) => Promise<string | null>
-      saveMidiEditor:      (payload: { outputPath: string; includedTracks: { index: number; newProgram: number }[]; mergeGroups: number[][] }) => Promise<{ ok: boolean; message: string }>
-      onMidiReload:        (cb: (data: MidiFileResult) => void) => void
-      onEditorClosed:      (cb: () => void) => void
+      saveMidiEditor:      (payload: { filePath: string; outputPath: string; includedTracks: { index: number; newProgram: number }[]; mergeGroups: number[][] }) => Promise<{ ok: boolean; message: string; filePath?: string; fileName?: string; base64?: string }>
       openExternal:        (url: string) => Promise<void>
       // Drag-and-drop file import
       getPathForFile:      (file: File) => string

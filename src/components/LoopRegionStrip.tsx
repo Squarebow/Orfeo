@@ -4,7 +4,7 @@
 // Drag to create a region; drag handles to adjust; click outside to clear.
 // Selection endpoints snap to nearest bar boundary on release.
 
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useRef, useState, type CSSProperties } from 'react'
 import { ChevronUp, ChevronDown } from 'lucide-react'
 import { useStore } from '../store'
 
@@ -68,8 +68,11 @@ export default function LoopRegionStrip() {
   useEffect(() => useStore.subscribe(s => { storeRef.current = s }), [])
 
   // ── Recompute density positions whenever midi changes ─────────────────────
+  // Also runs immediately on mount so ticks are populated after a re-toggle
+  // (component unmounts when loopRegionEnabled is off; subscribe alone won't
+  // fire on remount because midi itself hasn't changed).
   useEffect(() => {
-    return useStore.subscribe((s) => {
+    const computeDensity = (s: ReturnType<typeof useStore.getState>) => {
       if (!s.midi) { densityRef.current = []; return }
       const positions: number[] = []
       for (const t of s.midi.tracks) {
@@ -78,7 +81,9 @@ export default function LoopRegionStrip() {
         }
       }
       densityRef.current = positions
-    })
+    }
+    computeDensity(useStore.getState())
+    return useStore.subscribe(computeDensity)
   }, [])
 
   // ── rAF draw loop ──────────────────────────────────────────────────────────
@@ -126,7 +131,7 @@ export default function LoopRegionStrip() {
           if (bi >= 0 && bi < numBuckets) counts[bi]++
         }
         const maxCount = Math.max(1, ...counts)
-        ctx.fillStyle = '#404058'
+        ctx.fillStyle = '#b5b7bc'
         for (let i = 0; i < numBuckets; i++) {
           if (counts[i] === 0) continue
           const norm  = counts[i] / maxCount
@@ -438,21 +443,22 @@ export default function LoopRegionStrip() {
         {popupOpen && (
           <div
             ref={popupRef}
+            className="orfeo-modal-glow"
             style={{
               position: 'absolute',
               top: STRIP_H + 4,
-              right: 0,
+              left: 0,
               background: 'var(--bg-tile)',
               border: '1px solid #2e2e42',
               borderRadius: 6,
               padding: '10px 12px',
               zIndex: 200,
               width: 158,
-              boxShadow: '0 6px 20px rgba(0,0,0,0.6)',
               display: 'flex',
               flexDirection: 'column',
               gap: 10,
-            }}
+              '--_modal-shadow': '0 6px 20px rgba(0,0,0,0.6)',
+            } as CSSProperties}
           >
             {/* Header */}
             <div style={{

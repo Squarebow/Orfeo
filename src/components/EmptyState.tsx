@@ -41,8 +41,8 @@ export default function EmptyState() {
           textAlign: 'center',
           pointerEvents: 'auto',
         }}>
-          <span style={{ fontSize: 15, fontWeight: 500, color: 'var(--text-dimmest)' }}>No file open</span>
-          <span style={{ fontSize: 'var(--text-sm)', color: 'var(--text-muted)' }}>Open a .mid or .midi file to get started</span>
+          <span style={{ fontSize: 15, fontWeight: 500, color: 'var(--text-standard)' }}>Let's get started</span>
+          <span style={{ fontSize: 'var(--text-sm)', color: 'var(--text-muted)' }}>Drag a .mid or .midi file here, or click Open MIDI file to begin</span>
 
           <button
             onClick={openFile}
@@ -67,7 +67,7 @@ export default function EmptyState() {
             Open MIDI file
           </button>
 
-          <span style={{ fontSize: 'var(--text-xs)', color: '#2a2a38', marginTop: 2 }}>Ctrl+O</span>
+          <span style={{ fontSize: 'var(--text-xs)', color: 'var(--text-faint)', marginTop: 2 }}>Ctrl+O</span>
         </div>
 
       </div>

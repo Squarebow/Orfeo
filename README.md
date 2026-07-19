@@ -2,7 +2,7 @@
 
 **A modern piano learning and MIDI visualization desktop app for Windows.**
 
-[![Version](https://img.shields.io/badge/Version-0.10.4-blue)](https://github.com/SquareBow/orfeo/releases)
+[![Version](https://img.shields.io/badge/Version-0.11.0-blue)](https://github.com/SquareBow/orfeo/releases)
 [![License](https://img.shields.io/badge/License-MIT-green)](LICENSE)
 [![Platform](https://img.shields.io/badge/Platform-Windows-lightgrey?logo=windows)](https://github.com/SquareBow/orfeo/releases)
 [![Status](https://img.shields.io/badge/Status-Beta-orange)](https://github.com/SquareBow/orfeo)
@@ -180,7 +180,52 @@ All user-visible changes listed here. For full technical detail see [CHANGELOG.m
 
 ---
 
+### 19. 7. 2026
+
+**New**
+- **MIDI Playback Editor is now a floating panel**: instead of opening in a separate OS window, the editor opens as a floating modal inside the main app — the same style as the Mixer Console and Chord Explorer. You can drag it anywhere on screen. Clicking the split icon on a track now shows a confirmation step before executing, and the editor stays open after a split so you can review the result before closing.
+- **Mixer Console is now accessible from the app**: click the Console icon (sliders) in the right drawer to open it, or press Ctrl+Shift+M. The console is a floating window that can be dragged anywhere on screen, minimized to get it out of the way without losing any settings, and restored by clicking the icon or shortcut again.
+- **Master strip — global track controls**: three new buttons at the top of the master strip let you mute all tracks at once, hide all tracks from the waterfall, or remove all tracks from keyboard highlighting — with a single click. Each is a toggle, so clicking again undoes the action.
+- **Master strip — track filter button**: the "All tracks / Selection" button (also in the Tracks panel header) is now duplicated in the master strip, so you can switch between full playback and piano/bass/drums-only without opening the Tracks panel.
+- **Master strip — VU wave mode**: the VU display now has two modes toggled by the Bars/Wave button. Bars mode shows 8 pitch-band columns (bass to treble). Wave mode shows a smooth animated fill that rises and falls with the music, with a glow effect at peaks and a gentle breathing animation when silent.
+- **Minimize for Chord Explorer and Scale Explorer**: all three floating windows (Mixer Console, Chord Explorer, Scale Explorer) now have a (–) minimize button. Minimizing collapses the window to its header bar — the window stays on screen, all settings are preserved, and clicking (–) again or double-clicking the header restores it.
+- **Mixer channel effects now work**: Chorus, Reverb, Pan, and Volume controls on each channel strip are now fully wired to the audio engine — adjusting them produces an immediate audible effect during playback.
+- **Channel VU meters now show per-track color**: each channel strip's VU meter displays in that track's color, making it easy to see which instrument is active at a glance.
+
+**Fixed**
+- Muted channel strips now show a dark overlay across the entire strip, making it immediately clear which tracks are silent.
+- Minimizing the Mixer Console now collapses it to just the header bar instead of hiding it entirely — it behaves like a standard floating window rather than closing.
+- Adjusting a knob or fader in the Mixer Console no longer accidentally pans the strip view sideways.
+
+---
+
+### 18. 7. 2026
+
+**New**
+- **Mixer Console — Channel Strip**: each loaded track now has a dedicated mixer strip with Chorus, Reverb, Pan, and Volume fader controls, plus Mute, Solo, hide-in-roll, and keyboard-highlight toggles. Volume and pan seed from the MIDI file's embedded CC values when present. A per-track VU meter responds to note velocity during playback.
+- **Mixer Console — Master Strip**: a master strip sits alongside the channel strips with a spectrogram VU display (8 columns, one per track slot), global Chorus and Reverb controls, a Tone EQ (high-shelf ±12 dB), and a large Master Volume knob. All controls feed the Samples audio engine in real time. A toggle switches the VU between spectrogram and mono modes.
+
+**Fixed**
+- **Loop Region ticks** — density ticks on the loop region strip were invisible (too dark) and disappeared entirely after toggling the Loop Region setting off and back on. Both issues are now fixed: ticks render at the correct brightness and survive any number of toggle cycles.
+- **Bar range popup** — the manual bar-range popup (icon to the right of the strip) now opens to the right of the icon rather than leftward over the strip.
+
+---
+
 ### 13. 7. 2026
+
+**Fixed**
+- **EU chord naming (Bb-rooted chords)** — with Central European notation active, chords rooted on B-flat (e.g. Bb minor, Bb major 7) were incorrectly showing "H" as the root instead of "B". The correct CE rule is: Bb → B, B-natural → H. Now fixed across all chord displays (Locked Chord modal, playback chord bar, Chord Explorer, Scale Explorer).
+- **Locked Chord — clear button** — clicking the RotateCcw icon in the Locked Chord modal now clears only the highlighted keys, leaving the modal open. Use the X in the title bar to close the modal entirely.
+
+**Improved**
+- **Selective Tracks Playback** — the "Piano, Bass & Drums Only" audio setting has been renamed to "Selective Tracks Playback". It now controls whether the All tracks / Selection quick-toggle button is shown in the Track Panel header, rather than setting an auto-mute default on file load. All tracks play on load by default; use the button to switch to a filtered mix at any time.
+- **Settings group memory** — the Settings panel now remembers which groups you left expanded or collapsed between app launches. "MIDI Files & Library" starts expanded on a fresh install; all other groups start collapsed.
+
+**New**
+- **Track filter button** — the Tracks panel header has an amber "All tracks / Selection" button. Click it to instantly switch between hearing all tracks and hearing only piano, bass & drums, without touching individual mute buttons or reloading the file. Works during playback too.
+
+**Improved**
+- **Live mute during playback** — muting or unmuting tracks (via the M buttons or the new filter toggle) now takes effect in the audio immediately, without interrupting playback or causing a gap.
 
 **New**
 - **Drag & drop MIDI files** — drag any `.mid` or `.midi` file from Windows Explorer directly onto the Orfeo window to load it instantly. Works whether the app is empty or a file is already playing. Files outside your library folder are automatically copied in so they show up in the sidebar. A confirmation prompt appears before replacing an already-loaded file.

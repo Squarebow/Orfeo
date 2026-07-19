@@ -12,6 +12,7 @@ import ChordExplorer from './components/ChordExplorer'
 import ScaleExplorer from './components/ScaleExplorer'
 import LockedChordModal from './components/LockedChordModal'
 import MidiEditor from './components/MidiEditor/MidiEditor'
+import MixerConsole from './components/Mixer/MixerConsole'
 import { parseMidiBuffer } from './utils/midiParser'
 import { detectKeyFromTracks, parseKeySignature } from './utils/keyDetection'
 import { useMidiFile } from './hooks/useMidiFile'
@@ -31,6 +32,8 @@ export default function App() {
   useMidiInput()
   useMetronome()
   useChordSequence()
+
+  // ── Mixer Console — Ctrl+Shift+M toggles open; also wired to the Console drawer icon ──
 
   // ── Drag-and-drop state ───────────────────────────────────────────────────
   const [isDragOver, setIsDragOver]           = useState(false)
@@ -144,23 +147,6 @@ export default function App() {
     }
   }, [loadDroppedFilePath, showDropError])
 
-  useEffect(() => {
-    if (!window.electronAPI?.onMidiReload) return
-    window.electronAPI.onMidiReload((result: any) => {
-      if (!result) return
-      const binary = atob(result.base64)
-      const bytes = new Uint8Array(binary.length)
-      for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i)
-      const parsed = parseMidiBuffer(bytes.buffer, result.fileName, result.filePath ?? '')
-      useStore.getState().setMidi(parsed)
-      const raw = parsed as any
-      if (raw._keySignature) {
-        useStore.getState().setDetectedKey(parseKeySignature(raw._keySignature.key, raw._keySignature.scale))
-      } else {
-        useStore.getState().setDetectedKey(detectKeyFromTracks(parsed.tracks))
-      }
-    })
-  }, [])
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -181,13 +167,22 @@ export default function App() {
         case 'O':
           if (e.ctrlKey) { e.preventDefault(); openFile() }
           break
+        case 'm':
+        case 'M':
+          if (e.ctrlKey && e.shiftKey) {
+            e.preventDefault()
+            const s = useStore.getState()
+            // Minimized → restore; Open → close; Closed → open
+            if (s.mixerOpen && s.mixerMinimized) s.setMixerMinimized(false)
+            else if (s.mixerOpen) s.setMixerOpen(false)
+            else s.setMixerOpen(true)
+          }
+          break
       }
     }
     window.addEventListener('keydown', handleKeyDown)
     return () => window.removeEventListener('keydown', handleKeyDown)
   }, [play, pause, stop, openFile])
-
-  if (window.location.hash === '#/editor') return <MidiEditor />
 
   // ── Truncate long filenames for the confirm modal title ───────────────────
   const confirmFileName = dropConfirmPath
@@ -253,6 +248,12 @@ export default function App() {
           {dropError}
         </div>
       )}
+
+      {/* ── Mixer Console — floating modal, toggled via Ctrl+Shift+M or Console drawer icon ── */}
+      <MixerConsole />
+
+      {/* ── MIDI Playback Editor — floating modal, opened via Track Panel pencil icon ── */}
+      <MidiEditor />
 
       {/* ── Drop confirmation modal — shown when a file is already loaded ────── */}
       {dropConfirmPath && (

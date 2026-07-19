@@ -327,7 +327,7 @@ export default function Keyboard() {
 
             {/* ── Right: shift+click hint + SCALES trigger ─────────────────────── */}
             <div style={{ position: 'absolute', right: 10, display: 'flex', alignItems: 'center', gap: 'var(--space-2)' }}>
-              <span style={{ fontSize: 9, color: 'var(--text-default)', fontFamily: 'Inter', userSelect: 'none', whiteSpace: 'nowrap' }}>
+              <span style={{ fontSize: 9, color: 'var(--text-faint)', fontFamily: 'Inter', userSelect: 'none', whiteSpace: 'nowrap' }}>
                 Shift+Click at least 3 keys to build &amp; lock a chord
               </span>
               <span

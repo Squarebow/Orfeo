@@ -6,9 +6,9 @@ import type {
 import type { DetectedKey } from '../utils/keyDetection'
 import { isKeyboardInstrument } from '../utils/gmInstruments'
 
-// Groups that are muted by default when a file opens (too distracting)
+// Groups muted when autoMuteNonKeyboard is on — exported so TrackPanel can read them
 // Unmuted by default: piano, chromatic, organ, bass, drums
-const DEFAULT_MUTED_GROUPS = new Set([
+export const DEFAULT_MUTED_GROUPS = new Set([
   'guitar', 'strings', 'ensemble', 'brass', 'reed', 'pipe',
   'synth_lead', 'synth_pad', 'synth_fx', 'ethnic',
   'percussive', 'sfx',
@@ -87,9 +87,21 @@ interface OrfeoStore {
   setSettingsPanelOpen: (open: boolean) => void
 
   chordExplorerOpen: boolean
+  chordExplorerMinimized: boolean
   setChordExplorerOpen: (open: boolean) => void
+  setChordExplorerMinimized: (v: boolean) => void
   scaleExplorerOpen: boolean
+  scaleExplorerMinimized: boolean
   setScaleExplorerOpen: (open: boolean) => void
+  setScaleExplorerMinimized: (v: boolean) => void
+  mixerOpen: boolean
+  mixerMinimized: boolean
+  setMixerOpen: (open: boolean) => void
+  setMixerMinimized: (v: boolean) => void
+  midiEditorOpen: boolean
+  setMidiEditorOpen: (open: boolean) => void
+  vuDisplayMode: 'bars' | 'wave'
+  setVuDisplayMode: (mode: 'bars' | 'wave') => void
   explorerKeys: Set<number>
   explorerKeyColors: Map<number, string>
   setExplorerKeys: (keys: Set<number>, colors: Map<number, string>) => void
@@ -146,6 +158,14 @@ interface OrfeoStore {
   splitBreakpointRangeEnd: number
   setSplitBreakpointRangeEnd: (n: number) => void
 
+  autoMuteNonKeyboard: boolean
+  setAutoMuteNonKeyboard: (v: boolean) => void
+  // ── Instantly applies or clears the auto-mute filter on currently loaded tracks ──
+  setTrackMuteFilter: (filtered: boolean) => void
+
+  settingsGroupsCollapsed: Record<string, boolean>
+  setSettingsGroupCollapsed: (id: string, collapsed: boolean) => void
+
   showHandLabels: boolean
   setShowHandLabels: (v: boolean) => void
 
@@ -168,9 +188,9 @@ interface OrfeoStore {
   resetAll: () => void
 }
 
+// ── makeTrackState — builds initial TrackState for a parsed track ────────────
+// All tracks start unmuted; selective filtering is applied via the quick-toggle button.
 function makeTrackState(track: ParsedTrack): TrackState {
-  const isKeyboard = isKeyboardInstrument(track.program)
-  const autoMuted = !track.isDrum && DEFAULT_MUTED_GROUPS.has(track.group ?? '')
   const showOnKeyboard = KEYBOARD_DISPLAY_GROUPS.has(track.group ?? '') && !track.isDrum
 
   return {
@@ -181,12 +201,12 @@ function makeTrackState(track: ParsedTrack): TrackState {
     group: track.group,
     isDrum: track.isDrum,
     color: track.color,
-    muted: autoMuted,
+    muted: false,
     solo: false,
     visible: true,
     showOnKeyboard,
-    volume: 1,
-    pan: 0,
+    volume: (track as any)._cc7 ?? 1,
+    pan: (track as any)._cc10 != null ? ((track as any)._cc10 - 0.5) * 2 : 0,
   }
 }
 
@@ -197,7 +217,7 @@ export const useStore = create<OrfeoStore>((set, get) => ({
     if (!midi) { set({ midi: null, tracks: [], currentTime: 0, playbackState: 'stopped', trackPanelOpen: false, barStarts: [], chordSequence: [], chordPrompterOpen: false, loopStart: null, loopEnd: null, loopRegionActive: false }); return }
     set({
       midi,
-      tracks: midi.tracks.map(makeTrackState),
+      tracks: midi.tracks.map(t => makeTrackState(t)),
       currentTime: 0,
       playbackState: 'stopped',
       bpm: midi.bpm,
@@ -284,11 +304,27 @@ export const useStore = create<OrfeoStore>((set, get) => ({
   setSettingsPanelOpen: (settingsPanelOpen) => set({ settingsPanelOpen }),
 
   chordExplorerOpen: false,
+  chordExplorerMinimized: false,
   scaleExplorerOpen: false,
+  scaleExplorerMinimized: false,
+  mixerOpen: false,
+  mixerMinimized: false,
+  vuDisplayMode: 'bars',
   explorerKeys: new Set(),
   explorerKeyColors: new Map(),
-  setChordExplorerOpen: (chordExplorerOpen) => set({ chordExplorerOpen }),
-  setScaleExplorerOpen: (scaleExplorerOpen) => set({ scaleExplorerOpen }),
+  // ── Opening always clears the minimized flag so restore-from-minimize works ──
+  setChordExplorerOpen: (chordExplorerOpen) =>
+    set(chordExplorerOpen ? { chordExplorerOpen, chordExplorerMinimized: false } : { chordExplorerOpen }),
+  setChordExplorerMinimized: (chordExplorerMinimized) => set({ chordExplorerMinimized }),
+  setScaleExplorerOpen: (scaleExplorerOpen) =>
+    set(scaleExplorerOpen ? { scaleExplorerOpen, scaleExplorerMinimized: false } : { scaleExplorerOpen }),
+  setScaleExplorerMinimized: (scaleExplorerMinimized) => set({ scaleExplorerMinimized }),
+  setMixerOpen: (mixerOpen) =>
+    set(mixerOpen ? { mixerOpen, mixerMinimized: false } : { mixerOpen }),
+  setMixerMinimized: (mixerMinimized) => set({ mixerMinimized }),
+  midiEditorOpen: false,
+  setMidiEditorOpen: (midiEditorOpen) => set({ midiEditorOpen }),
+  setVuDisplayMode: (vuDisplayMode) => set({ vuDisplayMode }),
   setExplorerKeys: (explorerKeys, explorerKeyColors) => set({ explorerKeys, explorerKeyColors }),
   clearExplorerKeys: () => set({ explorerKeys: new Set(), explorerKeyColors: new Map() }),
   displayedChord: null,
@@ -366,6 +402,31 @@ export const useStore = create<OrfeoStore>((set, get) => ({
   setSplitBreakpointRangeStart: (n) => set((s) => ({ splitBreakpointRangeStart: Math.max(48, Math.min(s.splitBreakpointRangeEnd - 1, n)) })),
   splitBreakpointRangeEnd: 60,
   setSplitBreakpointRangeEnd: (n) => set((s) => ({ splitBreakpointRangeEnd: Math.max(s.splitBreakpointRangeStart + 1, Math.min(60, n)) })),
+
+  // ── Selective playback button visibility — true = show quick-toggle in Track Panel ──
+  autoMuteNonKeyboard: true,
+  setAutoMuteNonKeyboard: (autoMuteNonKeyboard) => set({ autoMuteNonKeyboard }),
+  // ── setTrackMuteFilter — instant one-shot toggle on currently loaded tracks ─
+  setTrackMuteFilter: (filtered) => set((s) => ({
+    tracks: s.tracks.map(t => ({
+      ...t,
+      muted: filtered ? (!t.isDrum && DEFAULT_MUTED_GROUPS.has(t.group ?? '')) : false,
+    })),
+  })),
+
+  // ── Settings group collapse state — keyed by group id; true = collapsed ────
+  settingsGroupsCollapsed: {
+    'midi-files-library': false,
+    notation: true,
+    keyboard: true,
+    'playback-practice': true,
+    audio: true,
+    'piano-roll': true,
+    appearance: true,
+  },
+  setSettingsGroupCollapsed: (id, collapsed) => set((s) => ({
+    settingsGroupsCollapsed: { ...s.settingsGroupsCollapsed, [id]: collapsed },
+  })),
 
   // ── Hand labels — show LEFT/RIGHT HAND labels on the keyboard ────────────
   showHandLabels: false,
@@ -475,6 +536,11 @@ async function restoreLibraryPrefs() {
     if (typeof prefs.performanceSplitSensitivity === 'number') store.setPerformanceSplitSensitivity(prefs.performanceSplitSensitivity)
     if (typeof prefs.showOctaveLabels === 'boolean') store.setShowOctaveLabels(prefs.showOctaveLabels)
     if (typeof prefs.showNoteNamesOnKeyboard === 'boolean') store.setShowNoteNamesOnKeyboard(prefs.showNoteNamesOnKeyboard)
+    if (typeof prefs.autoMuteNonKeyboard === 'boolean') store.setAutoMuteNonKeyboard(prefs.autoMuteNonKeyboard)
+    if (prefs.settingsGroupsCollapsed && typeof prefs.settingsGroupsCollapsed === 'object' && !Array.isArray(prefs.settingsGroupsCollapsed)) {
+      const defaults = store.settingsGroupsCollapsed
+      useStore.setState({ settingsGroupsCollapsed: { ...defaults, ...prefs.settingsGroupsCollapsed } })
+    }
     if (Array.isArray(prefs.transcriptHistory)) useStore.setState({ transcriptHistory: prefs.transcriptHistory })
   } catch (e) {
     console.error('[Orfeo] restoreLibraryPrefs:', e)
@@ -517,6 +583,8 @@ let _prevHandLabelMode: string | null = null
 let _prevPerformanceSplitSensitivity: number | null = null
 let _prevShowOctaveLabels: boolean | null = null
 let _prevShowNoteNamesOnKeyboard: boolean | null = null
+let _prevAutoMuteNonKeyboard: boolean | null = null
+let _prevSettingsGroupsCollapsed: string | null = null
 useStore.subscribe((state) => {
   // Skip the very first fire (app init) — restore handles loading saved values
   if (_prevNoteNaming === null) {
@@ -538,6 +606,8 @@ useStore.subscribe((state) => {
     _prevPerformanceSplitSensitivity = state.performanceSplitSensitivity
     _prevShowOctaveLabels = state.showOctaveLabels
     _prevShowNoteNamesOnKeyboard = state.showNoteNamesOnKeyboard
+    _prevAutoMuteNonKeyboard = state.autoMuteNonKeyboard
+    _prevSettingsGroupsCollapsed = JSON.stringify(state.settingsGroupsCollapsed)
     return
   }
   if (
@@ -558,7 +628,9 @@ useStore.subscribe((state) => {
     state.handLabelMode !== _prevHandLabelMode ||
     state.performanceSplitSensitivity !== _prevPerformanceSplitSensitivity ||
     state.showOctaveLabels !== _prevShowOctaveLabels ||
-    state.showNoteNamesOnKeyboard !== _prevShowNoteNamesOnKeyboard
+    state.showNoteNamesOnKeyboard !== _prevShowNoteNamesOnKeyboard ||
+    state.autoMuteNonKeyboard !== _prevAutoMuteNonKeyboard ||
+    JSON.stringify(state.settingsGroupsCollapsed) !== _prevSettingsGroupsCollapsed
   ) {
     _prevNoteNaming = state.noteNaming
     _prevAccidentals = state.accidentals
@@ -578,6 +650,8 @@ useStore.subscribe((state) => {
     _prevPerformanceSplitSensitivity = state.performanceSplitSensitivity
     _prevShowOctaveLabels = state.showOctaveLabels
     _prevShowNoteNamesOnKeyboard = state.showNoteNamesOnKeyboard
+    _prevAutoMuteNonKeyboard = state.autoMuteNonKeyboard
+    _prevSettingsGroupsCollapsed = JSON.stringify(state.settingsGroupsCollapsed)
     window.electronAPI?.setPrefs?.({
       noteNaming: state.noteNaming,
       accidentals: state.accidentals,
@@ -597,6 +671,8 @@ useStore.subscribe((state) => {
       performanceSplitSensitivity: state.performanceSplitSensitivity,
       showOctaveLabels: state.showOctaveLabels,
       showNoteNamesOnKeyboard: state.showNoteNamesOnKeyboard,
+      autoMuteNonKeyboard: state.autoMuteNonKeyboard,
+      settingsGroupsCollapsed: state.settingsGroupsCollapsed,
     }).catch(() => {})
   }
 })

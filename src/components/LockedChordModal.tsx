@@ -1,4 +1,4 @@
-import React, { useState, useCallback, useMemo } from 'react'
+import React, { useState, useCallback, useMemo, useEffect } from 'react'
 import { Play, RotateCcw, X } from 'lucide-react'
 import { useStore } from '../store'
 import { formatInversionDisplay, ordinalSuffix } from '../utils/chordDetection'
@@ -33,8 +33,10 @@ export default function LockedChordModal() {
   const noteNaming              = useStore((s) => s.noteNaming)
   const accidentals             = useStore((s) => s.accidentals)
 
-  // ── Derived open state — modal is visible whenever any key is locked ──────
-  const isOpen = lockedKeys.size > 0
+  // ── Modal visibility — auto-opens when keys are locked; only closes via X ──
+  // Clearing the chord (RotateCcw) keeps the modal open showing "— — —".
+  const [modalOpen, setModalOpen] = useState(false)
+  useEffect(() => { if (lockedKeys.size > 0) setModalOpen(true) }, [lockedKeys.size])
 
   // ── Position state — draggable float position, initialised to viewport centre
   const [pos, setPos] = useState(() => ({
@@ -85,10 +87,13 @@ export default function LockedChordModal() {
     if (playNote) newKeys.forEach(midi => playNote(midi, 0.7, 600))
   }, [lockedKeys, setLockedKeys])
 
-  // ── Close and unlock ──────────────────────────────────────────────────────
-  const handleClose = useCallback(() => { clearLockedKeys() }, [clearLockedKeys])
+  // ── X button — clears keys and dismisses modal ───────────────────────────
+  const handleClose = useCallback(() => { clearLockedKeys(); setModalOpen(false) }, [clearLockedKeys])
 
-  if (!isOpen) return null
+  // ── Clear button — clears locked keys only; modal stays open ─────────────
+  const handleClear = useCallback(() => { clearLockedKeys() }, [clearLockedKeys])
+
+  if (!modalOpen) return null
 
   return (
     <div style={{
@@ -179,9 +184,9 @@ export default function LockedChordModal() {
         >
           <Play size={13} />
         </button>
-        {/* Clear locked chord */}
+        {/* Clear locked chord — removes highlighted keys, modal stays open */}
         <button
-          onClick={handleClose}
+          onClick={handleClear}
           title="Clear locked chord"
           style={{ background: 'none', border: 'none', color: 'var(--text-inactive)', cursor: 'pointer', padding: '0 2px', display: 'flex', alignItems: 'center', transition: 'color 0.12s' }}
           onMouseEnter={e => (e.currentTarget.style.color = 'var(--text-amber)')}

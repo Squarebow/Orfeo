@@ -4,6 +4,365 @@
 
 ---
 
+### 19. 7. 2026 — MIDI Playback Editor — rebuilt as floating modal
+
+**Motivation:** The editor was a separate `BrowserWindow`, which caused it to appear as a distinct OS window in the Windows taskbar and made it impossible to apply the amber outer glow used by all other Orfeo panels (CSS `box-shadow` is clipped at the OS window boundary).
+
+**Architecture change — removed:**
+- `editorWin: BrowserWindow` and `_editorData` module-level variable in `electron/main.ts`
+- `ipcMain.handle('editor:open', ...)` — created the BrowserWindow
+- `ipcMain.handle('editor:getData', ...)` — returned `_editorData` to the renderer
+- `ipcMain.handle('editor:close', ...)` — closed the window
+- `editor:closed` IPC event (sent to main window on BrowserWindow close)
+- `midi:reloadFile` IPC event send from `editor:save` and `editor:split` — renderer now reloads inline
+- `electron/preload.ts`: removed `openMidiEditor`, `getMidiEditorData`, `closeMidiEditor`, `onMidiReload`, `onEditorClosed`
+- `src/types/index.ts`: removed those five from `window.electronAPI`
+- `src/App.tsx`: removed `if (window.location.hash === '#/editor') return <MidiEditor />` hash route; removed `onMidiReload` listener useEffect
+- `src/components/TrackPanel/TrackPanel.tsx`: removed `editorOpen` local state, `onEditorClosed` listener, and the full IPC-based `handleOpenEditor` function
+
+**Architecture change — adapted:**
+- `ipcMain.handle('editor:save', ...)`: now reads `filePath` from payload (not `_editorData`); returns `{ ok, message, filePath, fileName, base64 }` instead of sending `midi:reloadFile`
+- `ipcMain.handle('editor:split', ...)`: same pattern — `filePath` from payload; returns file data on success
+- `src/types/index.ts`: updated `saveMidiEditor` and `splitMidiEditor` return types to include optional `filePath`, `fileName`, `base64`
+
+**New floating modal — `src/components/MidiEditor/MidiEditor.tsx`:**
+- Full rewrite. Same architecture as `ChordExplorer` / `MixerConsole` / `FloatingKeyboard`
+- `position: fixed`, `760 × 620px`, draggable title bar, `.orfeo-modal-glow` class
+- Reads `midi`, `tracks`, and all `splitBreakpoint*` values from Zustand store — no IPC data fetch on mount
+- `buildRows()` helper constructs `EditorTrack[]` from store state; called on open and on unmerge
+- Re-initialises state on every open (`useEffect` on `midiEditorOpen`) so track list always reflects current file
+- Centred on first open; position persists across closes within the session
+- `handleUnmerge`: rebuilds from store state (replaces async `getMidiEditorData()` call)
+- `handleSave`: passes `filePath: state.filePath` in payload; on success calls `reloadFile(base64, fileName, filePath)` inline then `setMidiEditorOpen(false)` after 1.2s
+- `handleSplitRequest` / `handleSplitConfirm`: two-step split — clicking the split icon arms a confirmation toolbar; confirming executes; modal stays open after split so user can review the result
+- Cancel button and title-bar X both call `setMidiEditorOpen(false)`
+- `reloadFile()` mirrors `loadFileIntoPlayer` in App.tsx: `parseMidiBuffer` → `setMidi` → key detection → `setDetectedKey`
+- `InstrumentPicker` dropdown unchanged; uses `position: fixed` to escape `overflow: hidden`
+
+**Store — `src/store/index.ts`:**
+- Added `midiEditorOpen: boolean` / `setMidiEditorOpen: (open: boolean) => void` to interface and implementation
+
+**TrackPanel — `src/components/TrackPanel/TrackPanel.tsx`:**
+- `handleOpenEditor` now calls `useStore.getState().setMidiEditorOpen(true)` — zero serialisation, zero IPC
+- Buttons reference `midiEditorOpen` from store instead of local `editorOpen` state for amber highlight and cursor
+- Removed `useState`, `useEffect` imports that were only used for editor state
+
+**App.tsx:**
+- `<MidiEditor />` rendered permanently alongside `<MixerConsole />` (hooks run even when returning null, so state re-initialises correctly on open)
+- `parseMidiBuffer`, `detectKeyFromTracks`, `parseKeySignature` imports retained — still used by `loadFileIntoPlayer`
+
+---
+
+### 19. 7. 2026 — Mixer channel VU — solid-color segmented bars per track
+
+**`src/components/Mixer/ChannelStrip.tsx`**
+- Reverted wave/breathing display in favour of segmented bars, now rendered in the track's accent colour.
+- `drawVU(canvas, level, color, segs, canvasH)` replaces `drawWave`. Active segments fill solid at `globalAlpha 1`; inactive at `0.08`. No glow, no breathing, no zone gradient.
+- Removed refs: `breathPhase`, `breathAmp`. Removed breathing block from rAF loop.
+- Restored `vuSegs = Math.max(5, Math.floor(vuCanvasH / SEG_UNIT))`.
+- rAF deps: `[vuSegs, vuCanvasH]` (was `[vuCanvasH]`).
+- Constants `SEG_H = 4`, `SEG_GAP = 2`, `SEG_UNIT = 6`, `VU_W = 16` retained at top of file.
+- Level decay (`−0.013/frame`) and velocity-driven `vuLevel` subscribe logic unchanged.
+
+**`src/components/Mixer/MasterStrip.tsx`**
+- VU toggle label corrected from `'FFT'` → `'Bars/FFT'`; toggle `title` attrs capitalised.
+- Wave display on MasterStrip left untouched.
+
+---
+
+### 19. 7. 2026 — Mixer channel-strip CC wiring — chorus, reverb, pan, volume
+
+**Root cause:** ChannelStrip knobs (chorus, reverb, pan) and the volume fader were wired to plain React `useState` setters only — no audio engine calls. Deferred from the original visual-shell pass and now completed.
+
+**`src/hooks/useSamplesEngine.ts`**
+- Added `setChannelChorus(ch, value)` → CC93 on a single MIDI channel
+- Added `setChannelReverb(ch, value)` → CC91 on a single MIDI channel
+- Added `setChannelPan(ch, value)` → CC10 on a single MIDI channel; value −1…+1 bipolar → 0–127 (64 = center), matching the master pan formula
+- Added `setChannelVolume(ch, value)` → CC7 on a single MIDI channel; value 0…1 → 0–127
+- All four guard on `!_synth || !_synthReady` and wrap the call in try/catch, matching the master function pattern
+- `ch` is the MIDI channel from the parsed track (`track.channel`, 0-based from the file) — NOT `trackIndex`
+
+**`src/components/Mixer/ChannelStrip.tsx`**
+- Imports the four new functions from `useSamplesEngine`
+- Derives `midiChannel = (parsedTrack as any)?.channel ?? 0` alongside existing `trackName`/`trackColor`
+- Renamed `setChorus/setReverb/setPan` state setters to `setChorusState/setReverbState/setPanState` to avoid name collisions
+- Added `handleChorus`, `handleReverb`, `handlePan` callbacks (each calls the state setter + the engine function, with `midiChannel` in deps)
+- Volume fader `onMove`: now calls `setChannelVolume(midiChannel, v)` alongside `setVolume(v)`
+- Knob `onChange` props updated: `setChorus/setReverb/setPan` → `handleChorus/handleReverb/handlePan`
+
+---
+
+### 19. 7. 2026 — Mixer wave VU polish — glow, peak-hold, track color, idle breathing
+
+**`src/components/Mixer/ChannelStrip.tsx`**
+- Replaced segmented bars VU (`drawVU`) with smooth wave fill (`drawWave`). Canvas renders a single filled shape from the bottom to the current level — no segments.
+- Removed: `SEG_H`, `SEG_GAP`, `SEG_UNIT`, `METER_GREEN/YELLOW/ORANGE/RED` constants; `segColor` helper; `vuAttack` ref; `vuSegs` derived value.
+- **Track color fill**: gradient from `trackColor` at top to `rgba(0,0,0,0.08)` at bottom. `trackColor` comes from `parsedTrack.color ?? track.color ?? '#808080'`, kept current via `colorRef` + `useEffect` so the rAF closure sees color changes without restarting the loop.
+- **Glow**: `ctx.shadowColor = trackColor; ctx.shadowBlur = 10 * dpr` set before `ctx.fill()`, cleared immediately after — contained within canvas pixel buffer.
+- **Peak-hold line**: `vuPeak` ref, decays at `−0.003/frame` (≈5.5s from 1→0 at 60fps, independent of and slower than `vuLevel`'s `−0.013/frame`). Drawn as a 2px bright line at `H * (1 − peak)` using the track color at `globalAlpha 0.9`.
+- **Idle breathing**: `breathPhase` increments `+0.018/frame` (~5.8s/cycle); `breathAmp` lerps toward `0.018` when `vuLevel < 0.04` and toward `0` when active (fade rate `0.02/frame` → ~1.7s engagement lag). `Math.sin(breathPhase) × breathAmp` added to displayed level each frame.
+- Subscribe: removed `vuAttack` assignment; added `vuPeak` update when `maxVel > vuPeak.current`.
+- rAF deps reduced from `[vuSegs, vuCanvasH]` to `[vuCanvasH]`.
+
+**`src/components/Mixer/MasterStrip.tsx`**
+- `drawWave` signature extended: `(canvas, levels, peaks, breathOffsets, canvasH, canvasW)`.
+- **Glow**: `ctx.shadowColor = METER_RED; ctx.shadowBlur = 14 * dpr` set before `ctx.fill()`, cleared after — peaks bloom red.
+- **Peak-hold lines**: `wavePeaks` ref (8 values), set in subscribe when `targets[i] > wavePeaks.current[i]`, decayed at `−0.003/frame` in rAF. Drawn as 2px white (`globalAlpha 0.72`) lines centered at each band's `pts[i].x` position, `BAR_COL_W` wide.
+- **Idle breathing**: same pattern as ChannelStrip but per-band — `breathOffsets[i] = sin(breathPhase + i × 0.5) × breathAmp` creates a rolling undulation across the 8 bands when signal is absent, rather than all bands pulsing in sync.
+- **Breathing offsets applied before computing `pts`** — bezier smoothing then follows the offset shape naturally.
+- New refs: `wavePeaks`, `breathPhase`, `breathAmp` (all initialized to 0).
+
+---
+
+### 19. 7. 2026 — Mixer Console polish — window-shade minimize, VU label rename
+
+**`src/components/Mixer/MixerConsole.tsx`**
+- Window-shade minimize: outer div is now always `display: mixerOpen ? 'flex' : 'none'`; only the body div gets `display: mixerMinimized ? 'none' : 'flex'`. Header bar stays visible and draggable at its current screen position when minimized — matching standard floating-window UX.
+- Header `onDoubleClick`: calls `setMixerMinimized(false)` when minimized — restores without needing to find the icon.
+- Header `borderBottom`: suppressed (`none`) while minimized so the header floats cleanly.
+- (–) button changed from `setMixerMinimized(true)` to `setMixerMinimized(!mixerMinimized)` — acts as a toggle (Minimize / Restore). `title` is dynamic: `'Restore'` when minimized, `'Minimize'` otherwise.
+
+**`src/components/Mixer/MasterStrip.tsx`**
+- VU toggle label is now dynamic: renders `'Wave'` or `'FFT'` (bars mode renamed from `'Bars'`) in amber bold (`color: 'var(--text-amber)'`, `fontWeight: 700`). Uppercase via `textTransform: 'uppercase'`.
+- Toggle track stays always-dark (`background: '#303048'`) — no color flip on click.
+- Toggle dot stays always amber (`background: 'var(--text-amber)'`) — only `left` transitions (`transition: 'left 0.15s'`). Visual state communicated by dot position alone, not color.
+- `vuDisplayMode === 'bars'` branch label updated from `'Bars'` to `'FFT'`; tooltip updated to `'Switch to bars/FFT'`.
+
+---
+
+### 19. 7. 2026 — Mixer Console Round 2 — VU fixes, wave mode, real minimize
+
+**`src/store/index.ts`**
+- Added `mixerMinimized` / `setMixerMinimized`, `chordExplorerMinimized` / `setChordExplorerMinimized`, `scaleExplorerMinimized` / `setScaleExplorerMinimized` to `OrfeoStore` interface and body.
+- Added `vuDisplayMode: 'bars' | 'wave'` / `setVuDisplayMode` (global, shared by MasterStrip).
+- Modified `setMixerOpen`, `setChordExplorerOpen`, `setScaleExplorerOpen`: when called with `true`, also clears the corresponding minimized flag — ensures re-open via icon always restores from minimized state without a stale-state race.
+
+**`src/App.tsx`**
+- Ctrl+Shift+M toggle is now 3-way: minimized → restore (`setMixerMinimized(false)`); open → close (`setMixerOpen(false)`); closed → open (`setMixerOpen(true)`).
+
+**`src/components/Mixer/MixerConsole.tsx`**
+- Removed muted-first sort: strips now always render in stable `track.index` order — muting never causes reflow.
+- Minimize (–) button now calls `setMixerMinimized(true)` instead of `setMixerOpen(false)`. Console stays mounted with all state intact (position, knobs, scroll). Display guard: `mixerOpen && !mixerMinimized`.
+- Close (×) still calls `setMixerOpen(false)` which clears minimized via the modified action.
+
+**`src/components/Mixer/ChannelStrip.tsx`**
+- **VU attack color fix**: replaced `rgb(180+75t, 220+35t, 100+80t)` formula with `segColor(i, segs)` at `alpha = 0.5 + 0.5 * attack`. Top segments now flash the correct zone color (red) instead of white/yellow.
+- **Full-strip mute overlay**: added `position: 'relative'` to root div. When `muted`, an absolute `rgba(0,0,0,0.45)` overlay covers the entire strip with `pointerEvents: 'none'`. M/S/Eye/Kbd row raised to `zIndex: 2` — M button stays fully bright and clickable above the overlay.
+
+**`src/components/Mixer/MasterStrip.tsx`** (VU refactor)
+- Removed `drawMono` and `drawSpectro`. Added `drawBars` (aggregate pitch-band columns, same column geometry as old spectro) and `drawWave` (smooth bezier-filled gradient wave).
+- Removed per-track column mapping (`SPEC_COLS = 8` slot-by-track). Replaced with `BAND_COUNT = 8` pitch bands covering MIDI 21–108 in 11-semitone steps. Subscribe now scans ALL non-muted tracks' notes, maps each sounding note by pitch to its band, and takes the max velocity per band. Works correctly for any track count.
+- Attack color bug fixed in `drawBars`: same `segColor` flash fix as ChannelStrip.
+- Wave mode: separate `waveTargets` and `waveLevels` refs. Subscribe sets `waveTargets` on peak; rAF loop decays `waveTargets` and lerps `waveLevels` toward them at 0.12/frame — produces fluid eased motion without audio FFT.
+- `vuDisplayMode` read from store (global); toggle updates store. Local `vuMode` state removed.
+- Removed channel-number label row below VU (labels 1–8 no longer meaningful in aggregate mode); `labelReserve` eliminated, giving canvas ~16px extra height.
+
+**`src/components/ChordExplorer.tsx`**
+- Added `Minus` import from lucide-react.
+- Added `chordExplorerMinimized` / `setChordExplorerMinimized` store reads.
+- Added (–) minimize button in header, left of close ×. Calls `setChordExplorerMinimized(true)`.
+- Root div: `display: chordExplorerMinimized ? 'none' : 'flex'` — component stays mounted with all state (search, selected chord, progression) when minimized. Early `return null` still fires on real close (`chordExplorerOpen = false`).
+
+**`src/components/ScaleExplorer.tsx`**
+- Same minimize pattern as ChordExplorer: `Minus` import, `scaleExplorerMinimized` store reads, (–) button, `display: none` when minimized.
+
+---
+
+### 19. 7. 2026 — Mixer Console Stage 5 — draggable modal, real trigger, global controls
+
+**`src/store/index.ts`**
+- Added `mixerOpen: boolean` + `setMixerOpen: (open: boolean) => void` to `OrfeoStore` interface and store body (same pattern as `chordExplorerOpen`). Not reset on file load — console stays open across MIDI swaps.
+
+**`src/App.tsx`**
+- Removed `showMixerDev` local state.
+- `Ctrl+Shift+M` handler now reads/writes `mixerOpen` directly via `useStore.getState()`.
+- `<MixerConsole />` is now always rendered with no props — reads state from store.
+
+**`src/components/TrackPanel/TrackPanel.tsx`**
+- Both "coming soon" `SlidersVertical` buttons (collapsed icon strip + open icon strip) are now wired: `onClick={() => useStore.getState().setMixerOpen(true)}`, title "Console", amber hover, normal opacity/cursor.
+
+**`src/components/Mixer/MixerConsole.tsx`** (major rework)
+- Props removed — reads `mixerOpen`/`setMixerOpen` from store.
+- `everOpened` state: component never mounts until first open (avoids rAF cost at startup); never unmounts after that — internal state (knob values, scroll position, drag pos) is fully preserved across open/close cycles.
+- **No `minimized` state**: both Minimize (`<Minus>`) and Close (`<X>`) buttons call `setMixerOpen(false)`. `everOpened` keeps the component mounted. Re-opening calls `setMixerOpen(true)` which flips `display` back to `flex` — no stale state risk.
+- Removed backdrop overlay — modal is now a free-floating `position: fixed` window.
+- `pos` state `{x, y}` initialized to viewport center; `startDrag` header mousedown handler (window mousemove/mouseup pattern from LockedChordModal).
+- Button group has `onMouseDown={e.stopPropagation()}` to prevent accidental header drag when clicking minimize/close.
+- Fixed `width: 1216px` — derived: `2×16 (body-pad) + 8×120 (strips) + 7×8 (inter-strip gaps) + 8 (body-gap) + 160 (master) = 1216`. Exactly 8 channel strips visible before horizontal scroll.
+- Title: "Console". `<OrfeoMark height={22} />` added to header left corner.
+- Escape key calls `setMixerOpen(false)`.
+
+**`src/components/Mixer/MasterStrip.tsx`** (two new rows, height 574px)
+- Added **global icons row** (36px, between VU toggle and global-icons): three `IBtn` buttons — Mute All (`VolumeX`/`Volume2`, red active), Show/Hide Waterfall All (`Eye`/`EyeClosed`, amber active), Show/Hide Keyboard All (mini piano SVG, amber active). Each is an all-or-nothing toggle. Calls `updateTrack` for every loaded track.
+- Added **mute-filter toggle row** (34px): clone of the amber "All tracks / Selection" button from TrackPanel header. Reads `autoMuteNonKeyboard`, `setTrackMuteFilter`, computes `isCurrentlyFiltered` identically to TrackPanel. Shown only when `autoMuteNonKeyboard` is true.
+- Added `EyeClosed`, `PianoIcon`, `IBtn` helpers (matching ChannelStrip implementations exactly).
+- Layout fixed rows (top→bottom): Header 30 + Spacer 8 + VU toggle 28 + Spacer 8 + Icons 36 + Mute-filter 34 + marginBottom 8 + FX 56 + Tone 44 = 252px fixed. Remaining 322px shared: VU `flex: 1.3` (~127px, 16 segments) + MV `flex: 2` (~195px).
+- VU section `flex: 1.3` (up from `flex: 1`): gives canvas ~99px → 16 segments (was 13, +3). MV tick ring fully visible — ring top at SVG_y 28.8px, clip reaches only SVG_y 2.8px.
+
+---
+
+### 18. 7. 2026 — Mixer Console Stage 4 — full modal shell
+
+**`src/components/Mixer/MixerConsole.tsx`** (new)
+- Full modal component: `{ open: boolean; onClose: () => void }` props.
+- Backdrop: `position: fixed, inset: 0, rgba(0,0,0,0.85), zIndex: 9990`. Click backdrop to close; Escape key also closes.
+- Modal: `width: min(90vw, 1400px)`, `--bg-modal`, `1px solid --border2`, borderRadius 10, drop shadow.
+- Header (40px): `--bg-modal-header`, `borderBottom 1px --border`. Left: "MIXER CONSOLE" amber JetBrains Mono label. Right: `<X size={16} />` close button. Matches ChordExplorer/ScaleExplorer header convention.
+- Body: 16px padding all sides, flex row, `gap: 8px`.
+- **Scrollable channel strip area**: `flex: 1`, `overflowX: auto`, flex row with `gap: 8px`. Tracks sorted via `useMemo`: unmuted first (stable by `index`), muted at end. Empty state message when no MIDI loaded.
+- **Drag-to-pan**: `onMouseDown` records `dragStartX` + `scrollLeft`; `mousemove`/`mouseup` attached to `document` during pan so pointer can leave the row. Cursor switches `grab` ↔ `grabbing` via `useState`. Vertical mouse wheel mapped to `scrollLeft` for horizontal scroll.
+- **Master strip**: `flexShrink: 0` wrapper, always visible at the fixed right end — does not participate in horizontal scroll.
+- Scrollbar: `.mixer-scroll` class — 4px height, transparent track, `--border2` thumb.
+
+**`src/App.tsx`**
+- Replaced direct `ChannelStrip` + `MasterStrip` imports and inline dev overlay with `import MixerConsole` + `<MixerConsole open={showMixerDev} onClose={…} />`.
+- `showMixerDev` state and Ctrl+Shift+M shortcut unchanged.
+
+**`src/index.css`**
+- Added `.mixer-scroll` scrollbar rules (4px, thin, dark theme, hover brightens thumb).
+
+---
+
+### 18. 7. 2026 — Mixer Console — ChannelStrip + MasterStrip
+
+**`src/components/Mixer/MixerKnob.tsx`** — geometry redesign + new props
+- Replaced dot-circle tick marks with radial line ticks. All ticks share `TICK_INR = 14.5` (inner edge, bottom-aligned); length distinguishes major from minor (`TICK_LONG = 4.0`, `TICK_SHORT = 1.8`). `STROKE_TICK = 0.5` hairline stroke.
+- Replaced circle notch indicator with filled triangle. Tip/base computed from `NOTCH_R` with perpendicular geometry; fills with `var(--bg-deep)` against the amber knob body.
+- **`dotCount?: number`** (default 7) — number of tick marks around the arc.
+- **`tickMajorEvery?: number`** (default 0 = all same) — every Nth tick renders at `TICK_LONG`; others at `TICK_SHORT`.
+- **`tickScale?: number`** (default 1) — multiplies both `TICK_LONG` and `TICK_SHORT`. Used on master volume (0.5) to halve tick height at large render size without affecting other knobs.
+- **`triScale?: number`** (default 1) — scales triangle indicator toward `NOTCH_R` axis. `tip_r = NOTCH_R + (TRI_TIP_R - NOTCH_R) × triScale`; similarly for base and half-width. Master volume uses `triScale={0.5}`.
+- **`label?: string`** — renders a dim uppercase 9px JetBrains Mono label below the SVG.
+
+**`src/components/Mixer/ChannelStrip.tsx`** — full implementation
+- Dimensions: `120 × 574 px`. Layout (top → bottom): track name bar (30px) → Chorus (66px) → Reverb (66px) → Pan (66px) → M/S/Eye/Kbd row (46px) → fader section (flex:1 ≈ 250px) → VOLUME label (24px) → track pill (26px).
+- **Props**: `{ trackIndex: number }` — reads all state from store via `useStore` selectors. Derives `track` (TrackState) and `parsedTrack` from `trackIndex`.
+- **Knob wiring**: Chorus/Reverb/Pan knobs are local state only (audio engine wiring deferred). Pan is bipolar. Volume knob seeded from `track.volume` (CC7), pan from `track.pan` (CC10).
+- **M/S/Eye/Kbd row**: `IBtn` component — `26 × 26 px` rounded-square with static `background: var(--bg-deep)`. Icon/font stays 14px; background never changes color. Gap 3px between buttons, row uses `justifyContent: center`. Eye icon: always `active={true}`, amber (`--text-amber`) when visible, red (`--status-error`) when hidden. M = red on mute, S = amber on solo, piano = amber when lit on keyboard.
+- **Fader**: `HANDLE_W = 46`, `HANDLE_H = 20`, `FADER_TOP_PAD = 24` (reserves space for dB pill). Handle is an amber pill (`--text-amber`) with 3 grip score lines; greys to `--state-disabled` when muted. `FADER_TICK_COUNT = 13`, major every 4th. CSS `top` transition disabled during drag (instant response); re-enabled on mouseup.
+- **dB pill**: `position: absolute, top: 0, zIndex: 1` above fader track, updates from `20 × log10(volume)`. Handle has `zIndex: 2`.
+- **VOLUME label**: mirrors fader row flex structure (same `padding: 0 8px`, `VU_W` spacer, `gap: 6`, `flex:1 center`) so "Volume" text is geometrically centered on the fader track's vertical line, not the strip centerline.
+- **VU meter**: `VU_W = 16 px` canvas, MIDI-event driven via `useStore.subscribe`. Scans `midi.tracks[trackIndex].notes` at `currentTime`; fires attack on level increase. rAF decay loop: level −0.013/frame, attack −0.06/frame. 4-zone color (green/yellow/orange/red). Canvas sized to `sectionH - 8` (8px top padding, 0 bottom).
+- **CC-seeded defaults**: `chorus`/`reverb` init from `parsedTrack._cc93/_cc91`; `pan`/`volume` from `track.pan/track.volume` (seeded by store from `_cc10/_cc7`).
+
+**`src/components/Mixer/MasterStrip.tsx`** (new file)
+- Dimensions: `160 × 574 px`. Layout: header "MASTER" (30px) → VU flex:1 → VU display toggle (28px) → spacer (34px) → FX row Chorus+Reverb (72px) → Tone EQ (60px) → Master Volume (230px).
+- **VU — spectrogram mode** (default): 8 columns × 14px wide, MIDI-event driven, same subscribe pattern as ChannelStrip. Column labels 1–8 below canvas. Toggle switches to mono (single centered column, max of all 8 levels).
+- **VU toggle**: iOS-style amber pill (26×13px) with sliding white dot. Label "VU DISPLAY" below.
+- **FX row**: Chorus + Reverb knobs side by side (size=52), "FX" micro-label centered between them. Both greyed on GM engine.
+- **Tone EQ**: size=52 bipolar knob, label "Tone". Greyed on GM.
+- **Master Volume**: size=200, `dotCount=36`, `tickMajorEvery=6`, `tickScale=0.5`, `triScale=0.5`. SVG extends 20px beyond strip on each side (clipped by `overflow:hidden`); the clipped region is pure empty SVG margin — tick ring fully visible with ~16px visual clearance. Label "MASTER VOLUME" below.
+
+**`src/hooks/useSamplesEngine.ts`**
+- Added `_filterNode: BiquadFilterNode | null` singleton. Created in `initSamplesEngine` as `highshelf` at 3000 Hz, gain=0 (flat). Audio chain: `_synth → _gainNode → _filterNode → _ctx.destination`.
+- **`setMasterChorus(v)`**: broadcasts CC93 = `round(v × 127)` to all 16 channels.
+- **`setMasterReverb(v)`**: broadcasts CC91 = `round(v × 127)` to all 16 channels.
+- **`setMasterPan(v)`**: broadcasts CC10 = `round((v+1)/2 × 127)` to all 16 channels. Bipolar −1…+1 → 0–127 (64=center).
+- **`setMasterTone(v)`**: sets `_filterNode.gain.value = v × 12` (±12 dB highshelf). Samples engine only.
+
+**`src/utils/midiParser.ts`**
+- Added `parseCC(n)` helper inside `forEach`: reads first occurrence of CC7/CC10/CC91/CC93 from `track.controlChanges[n]`. Attaches `_cc7/_cc10/_cc91/_cc93` as private fields on each parsed track. Values are @tonejs/midi normalized (0–1). CC10 center = 0.5.
+
+**`src/store/index.ts`**
+- `makeTrackState`: `volume` seeds from `(track as any)._cc7 ?? 1`; `pan` seeds from `((track as any)._cc10 - 0.5) * 2` when present, else 0.
+
+**`src/index.css`**
+- Added `--knob-tone: #5ba0c8` (steel-blue, distinct from `--knob-chorus` teal and `--knob-reverb` purple).
+
+**`src/App.tsx`**
+- Added `import MasterStrip`. Dev overlay (Ctrl+Shift+M) renders `<ChannelStrip trackIndex={0} />` + `<MasterStrip />` side by side with 8px gap. Guard changed to `showMixerDev && midi !== null`.
+
+---
+
+### 18. 7. 2026 — Loop Region strip fixes
+
+**`src/components/LoopRegionStrip.tsx`**
+- **Tick color** — corrected density tick fill from `#404058` (near-invisible against dark bg) to `#b5b7bc`.
+- **Ticks blank after re-toggle** — `loopRegionEnabled` toggle fully unmounts/remounts `LoopRegionStrip`. The density `useStore.subscribe` callback only fires on future state changes, so on remount with no midi change `densityRef` stayed `[]` and no ticks were drawn. Fix: extracted subscriber body into `computeDensity`, call it immediately via `useStore.getState()` on mount, then subscribe for future changes.
+- **Bar range popup position** — changed popup anchor from `right: 0` to `left: 0` so the popup drops below and to the right of the icon instead of leftward over the region strip.
+
+---
+
+### 13. 7. 2026 — Locked Chord modal: clear button no longer dismisses modal
+
+**`src/components/LockedChordModal.tsx`**
+- Added `modalOpen` local state (default `false`); a `useEffect` sets it `true` whenever `lockedKeys.size > 0`, replacing the old derived `isOpen = lockedKeys.size > 0` guard.
+- Split the single `handleClose` into two callbacks: `handleClose` (X button — clears keys + sets `modalOpen false`) and `handleClear` (RotateCcw button — clears keys only, modal stays open showing `— — —`).
+- Re-opening after clear: next Shift+click re-locks keys, `useEffect` fires, modal reopens at its last dragged position.
+
+---
+
+### 13. 7. 2026 — Replace EyeOff icon globally with custom EyeClosed SVG
+
+**`src/components/SettingsPanel/SettingsPanel.tsx`**
+- Removed `EyeOff` from lucide-react import.
+- Added inline `EyeClosed` component (custom SVG — 5-path eye-closed design).
+- Replaced both `<EyeOff>` usages: eye-toggle in `OptionRow` (size 14) and "Hide" button in Notation's display system (size 11).
+
+**`src/components/TrackPanel/TrackPanel.tsx`**
+- Removed `EyeOff` from lucide-react import.
+- Added same inline `EyeClosed` component.
+- Replaced `<EyeOff size={12} />` in track visibility toggle.
+
+---
+
+### 13. 7. 2026 — Fix EU chord root display for pitch class 10 (Bb → "B" not "H")
+
+**`src/utils/chordDetection.ts`**
+- Bug: `localizeChord()` ran two sequential `.replace()` calls for Central European naming — first `Bb → B`, then `B(?!b) → H`. The second call caught the `B` produced by the first, turning every Bb-rooted chord name (e.g. "Bbm") into "Hm" instead of the correct "Bm".
+- Fix: replaced both calls with a single atomic pass `result.replace(/Bb|B/g, m => m === 'Bb' ? 'B' : 'H')`. The alternation tries `Bb` first at every position, so the newly-produced `B` is never revisited. Affects all display paths that go through `localizeChord()`: Locked Chord modal, playback chord bar, Chord Explorer, Scale Explorer.
+
+---
+
+### 13. 7. 2026 — Selective Tracks Playback reframe + Settings group persistence
+
+**`src/store/index.ts`**
+- `makeTrackState`: removed `autoMute` parameter — all tracks start unmuted on file load; selective filtering is user-initiated via the Track Panel button.
+- `setMidi`: updated call to `makeTrackState(t)` (no second arg).
+- `autoMuteNonKeyboard` default changed `false` → `true`; repurposed from "auto-mute on load" to "show/hide selective playback button in Track Panel". Comment updated.
+- Added `settingsGroupsCollapsed: Record<string, boolean>` to `OrfeoStore` interface and store body; default: `midi-files-library` expanded, all other groups collapsed.
+- Added `setSettingsGroupCollapsed(id, collapsed)` action.
+- Full persistence wiring for `settingsGroupsCollapsed`: `_prevSettingsGroupsCollapsed` null-sentinel (JSON-stringified for comparison), subscriber diff/update/`setPrefs` payload, `restoreLibraryPrefs` (merges saved values onto defaults so new groups always have a fallback).
+
+**`src/components/SettingsPanel/SettingsPanel.tsx`**
+- `CollapsibleSection`: added optional `collapsed?: boolean` and `onToggle?: () => void` props; controlled when provided, falls back to internal `useState` when not.
+- Added `settingsGroupsCollapsed` / `setSettingsGroupCollapsed` selectors.
+- All 7 `CollapsibleSection` instances now pass `collapsed` + `onToggle` from store.
+- Renamed eye-toggle from "Piano, Bass & Drums Only" → "Selective Tracks Playback"; updated description to "When active, select if you want to hear all MIDI tracks or only Piano, Bass & Drums. Can be overridden manually."
+
+**`src/components/TrackPanel/TrackPanel.tsx`**
+- Added `autoMuteNonKeyboard` selector.
+- Wrapped All Tracks / Selection amber button in `{autoMuteNonKeyboard && ...}` — button only renders when the Settings toggle is on.
+
+---
+
+### 13. 7. 2026 — Auto-mute setting + Track Panel filter toggle
+
+**`src/store/index.ts`**
+- Exported `DEFAULT_MUTED_GROUPS` so TrackPanel can read it without duplicating the set.
+- Added `autoMuteNonKeyboard: boolean` (default `false`) to `OrfeoStore` interface and store body, with `setAutoMuteNonKeyboard` setter and `setTrackMuteFilter(filtered: boolean)` batch action.
+- `makeTrackState` now takes a second `autoMute: boolean` argument; when `false` (the new default), all tracks start unmuted on file load.
+- `setMidi` passes `get().autoMuteNonKeyboard` to `makeTrackState`.
+- `setTrackMuteFilter`: single `set()` call mapping all tracks — `filtered` mode mutes every non-drum `DEFAULT_MUTED_GROUPS` track, `false` unmutes all.
+- Full persistence wiring: `_prevAutoMuteNonKeyboard` null-sentinel, subscriber diff/update/`setPrefs` payload, `restoreLibraryPrefs`.
+
+**`src/components/SettingsPanel/SettingsPanel.tsx`**
+- Added `autoMuteNonKeyboard` / `setAutoMuteNonKeyboard` selectors.
+- New eye-toggle `OptionRow` at the bottom of the Audio section — label "Piano, Bass & Drums Only", description "Automatically mutes all other instrument tracks when a file loads." Default off (EyeOff/red), matching the `false` default.
+
+**`src/components/TrackPanel/TrackPanel.tsx`**
+- Imports `DEFAULT_MUTED_GROUPS` from store.
+- Reads `setTrackMuteFilter` from store.
+- `isCurrentlyFiltered` useMemo: `true` when every filterable (non-drum `DEFAULT_MUTED_GROUPS`) track has `muted === true` and at least one such track exists.
+- Amber quick-toggle button in the Track Panel header (visible when a file is loaded): text "Selection" when filtered / "All tracks" when unfiltered; ▶ icon prepended in both states. Tooltip describes the action that clicking will take, not the current state. Clicking calls `setTrackMuteFilter(!isCurrentlyFiltered)`.
+
+**`src/hooks/useAudioEngine.ts`**
+- Promoted `_mutedCh` from a local variable inside `buildPlayer` to module scope; the JZZ player filter now reads the live module-level set.
+- Added `updateMutedChannels()`: repopulates `_mutedCh` from current store state and rebuilds the key-lighting schedule from `currentTime` — no player rebuild, no audio gap, instant effect.
+- Subscriber `tracksChanged` branch during playback: now calls `updateMutedChannels()` instead of `buildPlayer`. BPM and transpose changes still trigger a full `buildPlayer` rebuild (required for tempo/pitch timing). This is the "real-time JZZ filter callback" approach noted in CLAUDE.md.
+
+---
+
 ### 13. 7. 2026 — Library amber highlight + right-click Remove from Library
 
 **`src/store/index.ts`**

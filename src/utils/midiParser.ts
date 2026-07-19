@@ -47,7 +47,16 @@ export function parseMidiBuffer(buffer: ArrayBuffer, fileName: string, filePath 
       trackIndex: tracks.length,
     }))
 
-    tracks.push({
+    // ── Extract first-occurrence CC values for mixer initialization ───────────
+    // @tonejs/midi normalizes CC values to 0–1. CC10 pan: 0.5 = center.
+    const parseCC = (n: number): number | undefined => {
+      const ccs = (track as any).controlChanges
+      if (!ccs) return undefined
+      const arr = ccs[n]
+      return Array.isArray(arr) && arr.length > 0 ? arr[0].value : undefined
+    }
+
+    const parsedTrack: any = {
       index: tracks.length,
       name: track.name || gmName,
       gmName,
@@ -57,7 +66,13 @@ export function parseMidiBuffer(buffer: ArrayBuffer, fileName: string, filePath 
       color,
       notes,
       channel: track.channel ?? i,
-    })
+      _cc7:  parseCC(7),
+      _cc10: parseCC(10),
+      _cc91: parseCC(91),
+      _cc93: parseCC(93),
+    }
+
+    tracks.push(parsedTrack)
   })
 
   let duration = midi.duration

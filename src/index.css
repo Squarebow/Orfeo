@@ -36,6 +36,7 @@
   --text-amber:   #e8a027;   /* accent — unchanged */
 
   /* Additional granularity for future targeted use during staged rollout */
+  --text-faint:    #707088;   /* Below --text-dimmest — for hints, placeholder text, least-important UI */
   --text-dimmest:  #94979e;
   --text-dim:      #b5b7bc;
   --text-standard: #c6c8c8;
@@ -53,6 +54,7 @@
   /* Knob accent tones — unchanged */
   --knob-chorus: #2dd4bf;
   --knob-reverb: #a78bfa;
+  --knob-tone:   #5ba0c8;
 
   /* VU meter levels — unchanged */
   --meter-green:  #7ac040;
@@ -88,6 +90,16 @@
 /* Standard row/button heights */
 --row-height: 44px;
 --button-height: 28px;
+
+/* TopBar right-section tones */
+--topbar-bar-number:      var(--text-amber);   /* current bar number — always-amber, unlike BPM/KEY which are conditional */
+--topbar-bar-total:       var(--text-muted);   /* "|totalBars" portion of the bar counter */
+--topbar-bar-label:       var(--text-muted);   /* "BAR" label under the counter */
+--topbar-metronome-on:    var(--text-amber);   /* metronome icon + "ON" label when enabled */
+--topbar-metronome-off:   var(--text-default); /* metronome icon + "OFF" label when disabled */
+--topbar-midi-on:         var(--text-amber);   /* MIDI icon + device name when a hardware keyboard is connected */
+--topbar-midi-off:        var(--text-default); /* MIDI icon + "CONNECT A KEYBOARD" label when idle */
+--topbar-timesig-divider: #30304a;             /* small line between time-signature numerator/denominator — was a raw hex value, now a token */
 
 /* Modal-specific surfaces — distinct from general panel layering */
 --bg-modal: #13131c;         /* Modal container background (ChordExplorer, ScaleExplorer, etc) */
@@ -127,6 +139,17 @@
 --bg-deep: #111116;             /* Deepest floor — below --bg-modal */
 
 /* ── Utility classes ── */
+
+/* ── Amber outer glow — apply className to every modal/floating panel ──────
+   The base elevation shadow varies per component; pass it via the CSS custom
+   property --_modal-shadow in the element's inline style. The two amber layers
+   are fixed by this class. Future floating panels should use this class.      */
+.orfeo-modal-glow {
+  box-shadow:
+    var(--_modal-shadow, 0 8px 32px rgba(0, 0, 0, 0.78)),
+    0 0 18px 4px var(--accent-amber-medium),
+    0 0 5px 1px var(--accent-amber-strong);
+}
 
 /* Standard modal/panel row — use for any horizontal row of controls */
 .orfeo-row {
@@ -196,6 +219,13 @@ body {
      than dark-on-light — slight extra tracking compensates. Applies app-wide. */
   letter-spacing: 0.03rem;
 }
+
+/* ── Mixer Console — scrollable channel strip row ────────────────────────────
+   Thin dark scrollbar; auto-shows only when content overflows.               */
+.mixer-scroll::-webkit-scrollbar        { height: 4px }
+.mixer-scroll::-webkit-scrollbar-track  { background: transparent }
+.mixer-scroll::-webkit-scrollbar-thumb  { background: var(--border2); border-radius: 2px }
+.mixer-scroll::-webkit-scrollbar-thumb:hover { background: var(--text-dimmest) }
 
 /* Utility class: apply where a bold weight was previously used for standard
    body/label text, to avoid bleeding on dark backgrounds. Reserve true Bold

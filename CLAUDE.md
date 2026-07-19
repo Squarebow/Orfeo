@@ -24,7 +24,7 @@ Three Electron processes:
 - **Preload** (`electron/preload.ts`) — exposes `window.electronAPI` to the renderer
 - **Renderer** (`src/`) — the entire React UI
 
-The **main window** and the **MIDI Playback Editor** both load the same renderer bundle. The editor is distinguished by the `#/editor` URL hash — `App.tsx` checks `window.location.hash === '#/editor'` and renders `<MidiEditor />` instead of the normal layout.
+The **main window** is the only Electron `BrowserWindow`. The MIDI Playback Editor is a floating modal inside the renderer, not a separate OS window — it uses the same `position: fixed` / Zustand flag pattern as ChordExplorer and MixerConsole.
 
 ---
 
@@ -44,10 +44,15 @@ The **main window** and the **MIDI Playback Editor** both load the same renderer
 | `src/components/Keyboard/Keyboard.tsx` | Virtual piano keyboard + chord bar |
 | `src/components/Keyboard/KeyboardControls.tsx` | Footer bar: hand label lines, split-zone fill, key range controls |
 | `src/components/LoopRegionStrip.tsx` | 24px canvas strip for drag-to-select loop bar range; bar-snapping |
+| `src/components/Mixer/MixerConsole.tsx` | Full mixer modal — scrollable strip row, drag-to-pan, master strip pinned right |
+| `src/components/Mixer/ChannelStrip.tsx` | 120×574px per-track mixer strip — knobs, fader, VU, M/S/Eye/Kbd |
+| `src/components/Mixer/MasterStrip.tsx` | 160×574px master strip — spectrogram VU, FX knobs, master volume |
+| `src/components/Mixer/MixerKnob.tsx` | SVG rotary knob — radial ticks, triangle notch, tickScale/triScale props |
 | `src/components/PianoRoll/PianoRoll.tsx` | PixiJS WebGL waterfall |
 | `src/utils/genreVoicing.ts` | Genre voicing maps — `getGenreVoicing(genre, romanLabel, baseKey)` |
 | `src/components/ChordExplorer.tsx` | Chord Explorer modal |
 | `src/components/ScaleExplorer.tsx` | Scale Explorer modal + Circle of Fifths SVG |
+| `src/components/MidiEditor/MidiEditor.tsx` | MIDI Playback Editor — floating modal, reads from store, reloads file inline |
 | `electron/preload.ts` | Any new IPC channel must be added here + `main.ts` + `src/types/index.ts` |
 
 ---
@@ -112,6 +117,10 @@ Two `useStore.subscribe` callbacks at the bottom of `store/index.ts` write prefs
 - `_rawMidiTracks` — raw @tonejs/midi track objects for the editor
 - `_tempoMap: TempoEvent[]` — full tempo change map from MIDI header
 - `_keySignature` — first key signature event, if present
+- `_cc7: number | undefined` — first CC7 (volume) value, 0–1 normalised (@tonejs/midi scale)
+- `_cc10: number | undefined` — first CC10 (pan) value, 0–1 (0.5 = center)
+- `_cc91: number | undefined` — first CC91 (reverb send), 0–1
+- `_cc93: number | undefined` — first CC93 (chorus send), 0–1
 
 **Mute/solo** — handled via real-time JZZ filter callback; never rebuild the player for this.
 
@@ -134,6 +143,26 @@ Two `useStore.subscribe` callbacks at the bottom of `store/index.ts` write prefs
 **OrfeoStore interface gap** — library-related fields (`libraryFolder`, `libraryFiles`, `libraryFavourites`, `hiddenLibraryFiles`, `libraryFavourites`, etc.) exist in the store body but are NOT declared in the `OrfeoStore` TypeScript interface. Access them with `(s as any).field` in selectors and `useStore.getState() as any` in callbacks. Do not add them to the interface without also verifying every subscriber and selector that touches library state.
 
 **`store.loadLibraryFile` is broken** — it references `parseMidiBuffer`, `parseKeySignature`, and `detectKeyFromTracks` which are never imported in `store/index.ts`. It throws a ReferenceError at runtime (caught silently). Never call it. Use `loadFileIntoPlayer` in `App.tsx` instead — it has those utilities imported and mirrors the same logic as the `onMidiReload` handler.
+
+**Mixer Console architecture** — Accessible via Ctrl+Shift+M (dev shortcut). Real trigger icon wiring is Stage 5/6.
+- `MixerConsole` (`MixerConsole.tsx`) is the modal shell: `{ open, onClose }` props, `width: min(90vw, 1400px)`, scrollable channel strip row with drag-to-pan, master strip pinned at the right. Tracks sorted via `useMemo` (unmuted first, stable by index). Backdrop click and Escape key close the modal.
+- `ChannelStrip` takes `{ trackIndex: number }` and reads all state from the store. One strip per track.
+- `MixerKnob` viewBox is 52×52 with the knob body at CX=CY=26, KNOB_R=13. The tick ring outer edge sits at radius ~16.5–18.5, leaving 7.5–9.5 viewBox units of **internal empty margin** between the ticks and the SVG edge. At large sizes (e.g. master volume size=200) this margin is 36px per side — do not try to eliminate it by widening the strip; the SVG clips cleanly via `overflow:hidden` and the ticks remain fully visible.
+- `ChannelStrip` fader formula uses `sectionH - 8` (not `sectionH - 16`) because the fader section has 8px top padding and 0px bottom padding. If you change fader section vertical padding, update all four `sectionH - 8` references in the component.
+- `setMasterChorus` / `setMasterReverb` / `setMasterPan` / `setMasterTone` are exported from `useSamplesEngine.ts` and called directly from MasterStrip's knob `onChange` handlers — they are not wired through the store.
+- `setChannelChorus` / `setChannelReverb` / `setChannelPan` / `setChannelVolume` are also exported from `useSamplesEngine.ts` and wired to ChannelStrip's knob `onChange` handlers and volume fader. They use `midiChannel = (parsedTrack as any)?.channel ?? 0` (0-based MIDI channel from file) — NOT `trackIndex`.
+- ChannelStrip VU meter: solid-color segmented bars using `trackColor`. `drawVU(canvas, level, color, segs, canvasH)` — SEG_H=4, SEG_GAP=2, SEG_UNIT=6, VU_W=16. Active segments at full alpha; inactive at 0.08. `colorRef` pattern keeps track color accessible in rAF closure without restarting the loop.
+- MasterStrip VU: wave mode is a bezier-curve smooth fill with glow and per-band idle breathing. Do not apply wave render to ChannelStrip — they use different drawVU/drawWave functions intentionally.
+
+**MIDI Playback Editor architecture** — floating modal, `position: fixed`, 760×620px, non-resizable, draggable header.
+- Opened via `setMidiEditorOpen(true)` (store flag); `<MidiEditor />` always rendered in `App.tsx` alongside `<MixerConsole />`.
+- On open: `useEffect` on `midiEditorOpen` rebuilds `EditorState` from store `midi` + `tracks` via `buildRows()`. No IPC data fetch.
+- Split breakpoint values (`splitBreakpointType`, `splitBreakpointNote`, `splitBreakpointRangeStart`, `splitBreakpointRangeEnd`) read directly from store — no local state or `getPrefs()` call.
+- `handleSave` / `handleSplitConfirm` pass `filePath: state.filePath` in payload; response includes `{ filePath, fileName, base64 }`. Renderer calls `reloadFile()` inline (mirrors `loadFileIntoPlayer` in App.tsx).
+- Split is two-step: clicking the split icon sets `pendingSplitIndex` which shows a confirmation toolbar; confirming executes. Modal stays open after split — only Save auto-closes.
+- `handleUnmerge`: calls `buildRows()` synchronously from current store state — no async IPC needed.
+- `editor:save` and `editor:split` IPC handlers in `main.ts` no longer send `midi:reloadFile`; they return file data in the response instead.
+- `InstrumentPicker` dropdown uses `position: fixed` to escape `overflow: hidden` — do not change to `absolute`.
 
 **Drag-and-drop file loading pattern** — main area drop (App.tsx) and library sidebar drop (SettingsPanel.tsx) both use `window.electronAPI.getPathForFile(file)` (via `webUtils.getPathForFile` in preload) to get the real OS path from the browser `File` object. Files dropped outside the library are copied in via `fs:copyMidiToLibrary` IPC (collision-safe naming: `Song.mid` → `Song (2).mid`). Only the main-area drop loads the file into the player; the sidebar drop is add-only. No auto-play on drop.
 
@@ -258,9 +287,15 @@ Both updates happen together. One commit message covers the code change — no s
 - **Samples engine auto-init:** on startup, if `audioEngine === 'samples'` is restored from prefs, `SettingsPanel` auto-calls `initSamplesEngine`. The SF2 must be re-read from disk on every cold start — no persistent audio buffer cache
 - **Zustand object selectors crash the renderer:** `useStore(s => ({ a: s.a, b: s.b }))` breaks the `useSyncExternalStore` snapshot invariant (new object every render). Always use primitive selectors and derive combined values in the render body.
 - **Canvas + Electron drag:** HTML canvas elements inside Electron receive native drag events — setting `draggable=false` and calling `onDragStart={e => e.preventDefault()}` is required or drag gestures reach Electron's file handler instead of the canvas `onMouseMove`.
+- **`LoopRegionStrip` fully unmounts when `loopRegionEnabled` is off:** The strip is rendered as `{loopRegionEnabled && <LoopRegionStrip />}` in `TopBar.tsx` — toggling the setting destroys and recreates the component. The density `useStore.subscribe` callback only fires on future state changes, so on remount (midi unchanged) `densityRef` would stay empty and ticks wouldn't draw. Fix: call `computeDensity(useStore.getState())` immediately on mount before subscribing.
 - **`store.loadLibraryFile` silently fails at runtime:** Never call it. `parseMidiBuffer`, `parseKeySignature`, and `detectKeyFromTracks` are not imported in `store/index.ts` — the call throws `ReferenceError` caught silently, so the file appears in the library but never loads. Always use the `loadFileIntoPlayer` callback defined in `App.tsx` instead.
+- **MixerKnob internal SVG margin:** The knob's tick ring only extends to radius ~16.5–18.5 in a 26-unit half-viewBox, leaving significant empty space toward the SVG edges. At large render sizes (master volume, size=200) this becomes ~36px of empty margin per side inside the SVG. Widening the strip to "give the knob room" doubles the whitespace. The correct approach: keep the strip at its designed width; let the SVG overflow and be clipped by `overflow:hidden` — the clipped region is always empty margin, ticks are never cut.
 - **Context menu clipped by `overflow: hidden`:** Use `position: fixed` (not `position: absolute`) for context menus inside panels with `overflow: hidden` — `fixed` escapes the clip entirely. Track `{path, x, y}` state and close on outside `mousedown`, `Escape`, and list scroll.
 - **`dragleave` flickering:** `if (e.currentTarget.contains(e.relatedTarget as Node)) return` prevents clearing drag-over state when the pointer moves over a child element inside the drop zone.
+- **MixerConsole knob/fader drag conflicts with strip scroll-pan:** `mousedown` on a knob or fader bubbles to the scroll container's `handleScrollMouseDown`, causing the whole strip row to pan instead of adjusting the control. Fix: `e.stopPropagation()` in `MixerKnob.handleMouseDown` and `ChannelStrip.handleFaderMouseDown`. Any new draggable control inside MixerConsole must also call `e.stopPropagation()` on mousedown.
+- **ChannelStrip CC channel vs trackIndex:** the MIDI channel to send CC to is `(parsedTrack as any)?.channel ?? 0` (from the file, 0-based), NOT `trackIndex` (array sort position). These differ whenever tracks are reordered or the file uses non-sequential channels.
+- **MidiEditor split is two-step by design:** clicking the Split icon sets `pendingSplitIndex` and shows a confirmation toolbar — it does not execute immediately. Only `handleSplitConfirm` (triggered by the "Split" button in the toolbar) actually calls the IPC. If you add a new destructive per-track action, follow this same pattern.
+- **MidiEditor hooks run even when returning null:** the component is always mounted in `App.tsx`; `return null` when `!midiEditorOpen` produces no DOM but all hooks (including `useEffect`) still run. This is how state re-initialises correctly each time the editor opens.
 
 ---
 

@@ -1,18 +1,22 @@
 /**
- * MIDI Editor — Stage 5g: Track Split
+ * MIDI Playback Editor — floating modal (same architecture as ChordExplorer / MixerConsole)
  *
- * Adds Split operation alongside existing Merge:
- * - Piano/chromatic/organ tracks show a Split button when ≥15% notes in each register
- * - Split saves {basename}_ORFEO_SPLIT.mid with LH + RH as separate tracks
- * - Merge icon updated to Lucide Merge; Split uses Lucide Split
+ * Replaces the previous separate BrowserWindow. Reads MIDI and track state directly
+ * from the Zustand store; save/split return file data so the renderer reloads inline.
  */
 
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect, useRef, useCallback, type CSSProperties } from 'react'
 import { Check, X, Save, FolderOpen, AlertCircle, ChevronDown, ChevronRight, Search, Merge, Split, Undo2, RotateCcw, Piano, Bell, Church, Guitar, Music2, AudioWaveform, Users, Megaphone, Wind, Feather, Cpu, Globe, Drum, Radio, Waves, Sparkles } from 'lucide-react'
 import OrfeoMark from '../OrfeoMark'
+import { useStore } from '../../store'
+import { parseMidiBuffer } from '../../utils/midiParser'
+import { detectKeyFromTracks, parseKeySignature } from '../../utils/keyDetection'
 
-// ─── GM data (same as 5e) ─────────────────────────────────────────────────────
-// Lucide icon component map for GM families
+const MODAL_W = 760
+const MODAL_H = 620
+
+// ─── GM data ──────────────────────────────────────────────────────────────────
+
 const GM_FAMILY_ICONS: Record<string, React.ReactNode> = {
   piano:      <Piano size={15} />,
   chromatic:  <Bell size={15} />,
@@ -123,26 +127,28 @@ interface EditorTrack {
   index: number; name: string; gmName: string; program: number
   group: string; isDrum: boolean; color: string; channel: number; noteCount: number
   included: boolean; mergeSelected: boolean; newProgram: number
-  // Merge metadata
-  isMerged?: boolean           // this row IS the result of a merge
-  mergedFromIndices?: number[] // original track indices that were merged in
-  mergedFromNames?: string[]   // display only
+  isMerged?: boolean
+  mergedFromIndices?: number[]
+  mergedFromNames?: string[]
 }
 
 interface EditorState {
   fileName: string; filePath: string
-  rows: EditorTrack[]    // what's currently displayed (may have merged rows)
+  rows: EditorTrack[]
   outputPath: string
 }
 
-// Merge groups sent to main.ts: array of arrays of original indices
 type MergeGroup = number[]
+
+// ─── Helpers ──────────────────────────────────────────────────────────────────
 
 function orfeoName(p: string, hasMerge = false) {
   const suffix = hasMerge ? '_ORFEO_MERGED' : '_ORFEO'
   return p.replace(/\.(mid|midi)$/i, suffix + '.$1') || p + suffix
 }
 function baseName(p: string) { return p.split(/[\\/]/).pop() ?? p }
+
+const KEYBOARD_GROUPS = ['piano', 'chromatic', 'organ']
 
 // ─── Instrument Picker ────────────────────────────────────────────────────────
 
@@ -246,8 +252,6 @@ function TrackRow({ track, onToggleIncluded, onToggleMerge, onChangeProgram, onU
   onUnmerge?: () => void
   onSplit?: () => void
 }) {
-  const wasReassigned = track.newProgram !== track.program && !track.isMerged
-
   return (
     <div style={{
       display: 'grid', gridTemplateColumns: '70px 56px 8px 1fr 220px',
@@ -267,7 +271,6 @@ function TrackRow({ track, onToggleIncluded, onToggleMerge, onChangeProgram, onU
         {track.included ? <Check size={13} /> : <X size={12} />}
       </button>
 
-      {/* Merge col: show undo if merged row, else checkbox */}
       {track.isMerged ? (
         <button onClick={onUnmerge} title="Undo merge" style={{
           width: 24, height: 24, borderRadius: 4,
@@ -368,47 +371,122 @@ function TrackRow({ track, onToggleIncluded, onToggleMerge, onChangeProgram, onU
 
 // ─── Main ─────────────────────────────────────────────────────────────────────
 
-// nextId counter for merged rows (they need a stable unique index)
 let _mergeIdCounter = 1000
 
 export default function MidiEditor() {
+  // ── Store reads ──────────────────────────────────────────────────────────────
+  const midi             = useStore((s) => s.midi)
+  const tracks           = useStore((s) => s.tracks)
+  const midiEditorOpen   = useStore((s) => s.midiEditorOpen)
+  const setMidiEditorOpen = useStore((s) => s.setMidiEditorOpen)
+  const splitBreakpointType       = useStore((s) => s.splitBreakpointType)
+  const splitBreakpointNote       = useStore((s) => s.splitBreakpointNote)
+  const splitBreakpointRangeStart = useStore((s) => s.splitBreakpointRangeStart)
+  const splitBreakpointRangeEnd   = useStore((s) => s.splitBreakpointRangeEnd)
+
+  // ── Editor state ─────────────────────────────────────────────────────────────
   const [state, setState] = useState<EditorState | null>(null)
   const [saving, setSaving] = useState(false)
   const [saveResult, setSaveResult] = useState<{ ok: boolean; msg: string } | null>(null)
-  const [splitBreakpointType, setSplitBreakpointType] = useState<'single' | 'range'>('single')
-  const [splitBreakpointNote, setSplitBreakpointNote] = useState(60)
-  const [splitBreakpointRangeStart, setSplitBreakpointRangeStart] = useState(52)
-  const [splitBreakpointRangeEnd, setSplitBreakpointRangeEnd] = useState(60)
   const [splitResult, setSplitResult] = useState<{ ok: boolean; msg: string } | null>(null)
+  const [pendingSplitIndex, setPendingSplitIndex] = useState<number | null>(null)
 
-  useEffect(() => {
-    window.electronAPI.getMidiEditorData().then((data: any) => {
-      if (!data) return
-      const KEYBOARD_GROUPS = ['piano', 'chromatic', 'organ']
-      const rows: EditorTrack[] = data.tracks.map((t: any) => ({
-        ...t, included: !t.muted, mergeSelected: false, newProgram: t.program,
-      })).sort((a: EditorTrack, b: EditorTrack) => {
-        const aK = KEYBOARD_GROUPS.includes(a.group), bK = KEYBOARD_GROUPS.includes(b.group)
-        if (aK !== bK) return aK ? -1 : 1
-        if (a.isDrum !== b.isDrum) return a.isDrum ? 1 : -1
-        if (a.name === 'Left Hand' && b.name === 'Right Hand') return -1
-        if (a.name === 'Right Hand' && b.name === 'Left Hand') return 1
-        return 0
-      })
-      setState({ fileName: data.fileName, filePath: data.filePath, rows, outputPath: orfeoName(data.filePath, false) })
+  // ── Drag state ───────────────────────────────────────────────────────────────
+  const [pos, setPos] = useState({ x: 0, y: 0 })
+  const panelRef  = useRef<HTMLDivElement>(null)
+  const positioned = useRef(false)
+  const dragState = useRef<{ startX: number; startY: number; startPosX: number; startPosY: number } | null>(null)
+
+  // ── Build rows from store state ───────────────────────────────────────────────
+  const buildRows = useCallback((): EditorTrack[] => {
+    if (!midi) return []
+    const midiAny = midi as any
+    return tracks.map(t => {
+      const rawTrack = midiAny._rawMidiTracks?.[t.index]
+      return {
+        index: t.index, name: t.name, gmName: t.gmName, program: t.program,
+        group: t.group ?? '', isDrum: t.isDrum, color: t.color,
+        channel: rawTrack?.channel ?? t.index,
+        noteCount: rawTrack?.notes?.length ?? 0,
+        included: !t.muted, mergeSelected: false, newProgram: t.program,
+      }
+    }).sort((a, b) => {
+      const aK = KEYBOARD_GROUPS.includes(a.group), bK = KEYBOARD_GROUPS.includes(b.group)
+      if (aK !== bK) return aK ? -1 : 1
+      if (a.isDrum !== b.isDrum) return a.isDrum ? 1 : -1
+      if (a.name === 'Left Hand' && b.name === 'Right Hand') return -1
+      if (a.name === 'Right Hand' && b.name === 'Left Hand') return 1
+      return 0
     })
-    // ── Load split breakpoint settings from persisted prefs ──────────────────
-    window.electronAPI.getPrefs().then((prefs: any) => {
-      if (prefs?.splitBreakpointType === 'single' || prefs?.splitBreakpointType === 'range') setSplitBreakpointType(prefs.splitBreakpointType)
-      if (typeof prefs?.splitBreakpointNote === 'number') setSplitBreakpointNote(prefs.splitBreakpointNote)
-      if (typeof prefs?.splitBreakpointRangeStart === 'number') setSplitBreakpointRangeStart(prefs.splitBreakpointRangeStart)
-      if (typeof prefs?.splitBreakpointRangeEnd === 'number') setSplitBreakpointRangeEnd(prefs.splitBreakpointRangeEnd)
+  }, [midi, tracks])
+
+  // ── Re-initialise state whenever the editor opens ─────────────────────────────
+  useEffect(() => {
+    if (!midiEditorOpen || !midi) return
+    const filePath = (midi as any)._filePath ?? ''
+    const rows = buildRows()
+    setState({ fileName: midi.fileName, filePath, rows, outputPath: orfeoName(filePath, false) })
+    setSaveResult(null)
+    setSplitResult(null)
+    setPendingSplitIndex(null)
+
+    // Centre the modal on first open
+    if (!positioned.current) {
+      positioned.current = true
+      setPos({
+        x: Math.max(0, (window.innerWidth - MODAL_W) / 2),
+        y: Math.max(20, (window.innerHeight - MODAL_H) / 2),
+      })
+    }
+  }, [midiEditorOpen])
+
+  // ── Drag: mousemove / mouseup ─────────────────────────────────────────────────
+  const onMouseMove = useCallback((e: MouseEvent) => {
+    const ds = dragState.current
+    if (!ds) return
+    const panelW = panelRef.current?.offsetWidth ?? MODAL_W
+    const panelH = panelRef.current?.offsetHeight ?? MODAL_H
+    setPos({
+      x: Math.max(0, Math.min(window.innerWidth - panelW, ds.startPosX + (e.clientX - ds.startX))),
+      y: Math.max(0, Math.min(window.innerHeight - panelH, ds.startPosY + (e.clientY - ds.startY))),
     })
   }, [])
+  const onMouseUp = useCallback(() => { dragState.current = null }, [])
 
-  if (!state) return (
-    <div style={{ width: '100vw', height: '100vh', background: 'var(--bg-modal-header)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--text-muted)', fontFamily: 'Inter' }}>Loading…</div>
-  )
+  useEffect(() => {
+    window.addEventListener('mousemove', onMouseMove)
+    window.addEventListener('mouseup', onMouseUp)
+    return () => {
+      window.removeEventListener('mousemove', onMouseMove)
+      window.removeEventListener('mouseup', onMouseUp)
+    }
+  }, [onMouseMove, onMouseUp])
+
+  const startMove = (e: React.MouseEvent) => {
+    if ((e.target as HTMLElement).closest('[data-no-drag]')) return
+    e.preventDefault()
+    dragState.current = { startX: e.clientX, startY: e.clientY, startPosX: pos.x, startPosY: pos.y }
+  }
+
+  // ── Reload file after save/split ─────────────────────────────────────────────
+  const reloadFile = useCallback((base64: string, fileName: string, filePath: string) => {
+    const binary = atob(base64)
+    const bytes  = new Uint8Array(binary.length)
+    for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i)
+    const parsed = parseMidiBuffer(bytes.buffer, fileName, filePath)
+    useStore.getState().setMidi(parsed)
+    const raw = parsed as any
+    if (raw._keySignature) {
+      useStore.getState().setDetectedKey(parseKeySignature(raw._keySignature.key, raw._keySignature.scale))
+    } else {
+      useStore.getState().setDetectedKey(detectKeyFromTracks(parsed.tracks))
+    }
+  }, [])
+
+  // ── Not open and never initialised → nothing to render ───────────────────────
+  if (!midiEditorOpen || !state) return null
+
+  // ── Editor operations ─────────────────────────────────────────────────────────
 
   const update = (index: number, patch: Partial<EditorTrack>) =>
     setState(s => s && ({ ...s, rows: s.rows.map(t => t.index === index ? { ...t, ...patch } : t) }))
@@ -423,68 +501,39 @@ export default function MidiEditor() {
       const mergedRow: EditorTrack = {
         index: _mergeIdCounter++,
         name: selected.map(t => t.name).join(' + '),
-        gmName: first.gmName,
-        program: first.program,
-        group: first.group,
-        isDrum: first.isDrum,
-        color: first.color,
-        channel: first.channel,
-        noteCount: totalNotes,
-        included: true,
-        mergeSelected: false,
-        newProgram: first.newProgram,
-        isMerged: true,
-        mergedFromIndices: selected.map(t => t.index),
-        mergedFromNames: selected.map(t => t.name),
+        gmName: first.gmName, program: first.program,
+        group: first.group, isDrum: first.isDrum, color: first.color, channel: first.channel,
+        noteCount: totalNotes, included: true, mergeSelected: false, newProgram: first.newProgram,
+        isMerged: true, mergedFromIndices: selected.map(t => t.index), mergedFromNames: selected.map(t => t.name),
       }
-      // Remove selected originals, insert merged row where first was
       const firstIdx = s.rows.findIndex(r => r.index === first.index)
-      const without = s.rows.filter(r => !selected.some(sel => sel.index === r.index))
-      const newRows = [...without.slice(0, firstIdx), mergedRow, ...without.slice(firstIdx)]
+      const without  = s.rows.filter(r => !selected.some(sel => sel.index === r.index))
+      const newRows  = [...without.slice(0, firstIdx), mergedRow, ...without.slice(firstIdx)]
       const hasMerge = newRows.some(r => r.isMerged)
       return { ...s, rows: newRows, outputPath: orfeoName(s.filePath, hasMerge) }
     })
   }
 
-  const handleUnmerge = async () => {
-    // Reload original track data in-place — no close/reopen needed
-    const originalData = await window.electronAPI.getMidiEditorData()
-    if (!originalData) return
-    const rows: EditorTrack[] = originalData.tracks.map((t: any) => ({
-      ...t,
-      included: !t.muted,
-      mergeSelected: false,
-      newProgram: t.program,
-      isMerged: false,
-      mergedFromIndices: undefined,
-      mergedFromNames: undefined,
-    }))
-    setState(s => s ? {
-      ...s,
-      rows,
-      outputPath: orfeoName(s.filePath, false),
-    } : s)
+  // ── Unmerge: reset rows from current store state (no IPC needed) ──────────────
+  const handleUnmerge = () => {
+    const rows = buildRows()
+    setState(s => s ? { ...s, rows, outputPath: orfeoName(s.filePath, false) } : s)
   }
 
-  const mergeCount = state.rows.filter(t => t.mergeSelected && !t.isMerged).length
+  const mergeCount    = state.rows.filter(t => t.mergeSelected && !t.isMerged).length
   const includedCount = state.rows.filter(t => t.included).length
 
-  // Build merge groups for save payload (array of original index arrays)
-  const buildMergeGroups = (): MergeGroup[] => {
-    return state.rows
-      .filter(r => r.isMerged && r.mergedFromIndices)
-      .map(r => r.mergedFromIndices!)
-  }
+  const buildMergeGroups = (): MergeGroup[] =>
+    state.rows.filter(r => r.isMerged && r.mergedFromIndices).map(r => r.mergedFromIndices!)
 
+  // ── Save ──────────────────────────────────────────────────────────────────────
   const handleSave = async () => {
     if (includedCount === 0) { setSaveResult({ ok: false, msg: 'Select at least one track.' }); return }
     setSaving(true); setSaveResult(null)
     try {
-      // For merged rows: expand back to included individual tracks for the payload
       const includedTracks: { index: number; newProgram: number }[] = []
       for (const row of state.rows.filter(r => r.included)) {
         if (row.isMerged && row.mergedFromIndices) {
-          // Each original track gets the merged row's newProgram
           for (const origIdx of row.mergedFromIndices) {
             includedTracks.push({ index: origIdx, newProgram: row.newProgram })
           }
@@ -493,28 +542,37 @@ export default function MidiEditor() {
         }
       }
       const mergeGroups = buildMergeGroups()
-      const hasMerge = mergeGroups.length > 0
+      const hasMerge    = mergeGroups.length > 0
       const finalOutput = hasMerge && (state.outputPath === orfeoName(state.filePath, false) || state.outputPath === orfeoName(state.filePath, true))
         ? orfeoName(state.filePath, true)
         : state.outputPath
       const result = await window.electronAPI.saveMidiEditor({
-        outputPath: finalOutput,
-        includedTracks,
-        mergeGroups,
+        filePath: state.filePath, outputPath: finalOutput, includedTracks, mergeGroups,
       })
       setSaveResult({ ok: result.ok, msg: result.message })
-      if (result.ok) setTimeout(() => window.electronAPI.closeMidiEditor?.(), 1200)
+      if (result.ok && result.base64 && result.fileName && result.filePath) {
+        reloadFile(result.base64, result.fileName, result.filePath)
+        setTimeout(() => setMidiEditorOpen(false), 1200)
+      }
     } catch (e: any) {
       setSaveResult({ ok: false, msg: e?.message ?? 'Save failed' })
     }
     setSaving(false)
   }
 
-  // ── Split a keyboard track into Left Hand / Right Hand ───────────────────
-  const handleSplit = async (trackIndex: number) => {
+  // ── Split — two-step: first click arms confirmation, second executes ─────────
+  const handleSplitRequest = (trackIndex: number) => {
+    setPendingSplitIndex(trackIndex)
     setSplitResult(null)
+  }
+
+  const handleSplitConfirm = async () => {
+    if (pendingSplitIndex === null) return
+    const trackIndex = pendingSplitIndex
+    setPendingSplitIndex(null)
     try {
       const result = await window.electronAPI.splitMidiEditor({
+        filePath: state.filePath,
         trackIndex,
         breakpointType: splitBreakpointType,
         breakpoint: splitBreakpointNote,
@@ -522,31 +580,75 @@ export default function MidiEditor() {
         rangeEnd: splitBreakpointRangeEnd,
       })
       setSplitResult({ ok: result.ok, msg: result.message })
-      if (result.ok) setTimeout(() => window.electronAPI.closeMidiEditor?.(), 1200)
+      if (result.ok && result.base64 && result.fileName && result.filePath) {
+        reloadFile(result.base64, result.fileName, result.filePath)
+        // Modal stays open — user closes manually after reviewing the result
+      }
     } catch (e: any) {
       setSplitResult({ ok: false, msg: e?.message ?? 'Split failed' })
     }
   }
 
-  return (
-    <div style={{ width: '100vw', height: '100vh', background: 'var(--bg-modal-header)', color: 'var(--text-muted)', fontFamily: 'Inter, system-ui', display: 'flex', flexDirection: 'column', fontSize: 'var(--text-sm)', userSelect: 'none' }}>
+  // ── Render ────────────────────────────────────────────────────────────────────
 
-      {/* Title bar */}
-      <div style={{ height: 48, flexShrink: 0, background: 'var(--bg-modal-header)', borderBottom: '1px solid var(--border)', display: 'flex', alignItems: 'center', padding: '0 var(--space-4)', gap: 10, WebkitAppRegion: 'drag' as any, paddingRight: 160 }}>
-        <OrfeoMark height={18} />
-        <span style={{ color: 'var(--text-amber)', fontSize: 'var(--text-sm)', fontWeight: 600, letterSpacing: '0.05em', WebkitAppRegion: 'no-drag' as any }}>MIDI PLAYBACK EDITOR</span>
+  return (
+    <div
+      ref={panelRef}
+      className="orfeo-modal-glow"
+      style={{
+        position: 'fixed', left: pos.x, top: pos.y,
+        width: MODAL_W, height: MODAL_H,
+        zIndex: 600,
+        background: 'var(--bg-modal-header)',
+        border: '1px solid var(--state-hover-bg)',
+        borderRadius: 10,
+        overflow: 'hidden',
+        display: 'flex', flexDirection: 'column',
+        color: 'var(--text-muted)', fontFamily: 'Inter, system-ui',
+        fontSize: 'var(--text-sm)', userSelect: 'none',
+        '--_modal-shadow': '0 8px 40px rgba(0,0,0,0.85)',
+      } as CSSProperties}
+    >
+      {/* ── Draggable title bar ──────────────────────────────────────────────── */}
+      <div
+        onMouseDown={startMove}
+        style={{
+          height: 36, flexShrink: 0,
+          background: 'var(--bg-modal-header)',
+          borderBottom: '1px solid var(--border)',
+          display: 'flex', alignItems: 'center',
+          padding: '0 var(--space-3)', gap: 10,
+          cursor: 'grab',
+        }}
+      >
+        <OrfeoMark height={16} />
+        <span style={{ color: 'var(--text-amber)', fontSize: 'var(--text-sm)', fontWeight: 600, letterSpacing: '0.05em' }}>
+          MIDI PLAYBACK EDITOR
+        </span>
         <span style={{ color: 'var(--text-muted)' }}>·</span>
-        <span style={{ color: 'var(--text-dimmest)', fontSize: 'var(--text-xs)', fontFamily: 'JetBrains Mono', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', }}>{state.fileName}</span>
+        <span style={{ color: 'var(--text-dimmest)', fontSize: 'var(--text-xs)', fontFamily: 'JetBrains Mono', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', flex: 1 }}>
+          {state.fileName}
+        </span>
+        <button
+          data-no-drag="true"
+          onClick={() => setMidiEditorOpen(false)}
+          title="Close editor"
+          style={{ width: 20, height: 20, background: 'transparent', border: 'none', cursor: 'pointer', color: 'var(--text-muted)', display: 'flex', alignItems: 'center', justifyContent: 'center', borderRadius: 'var(--radius-sm)', flexShrink: 0, transition: 'color 0.12s' }}
+          onMouseEnter={e => e.currentTarget.style.color = '#c05050'}
+          onMouseLeave={e => e.currentTarget.style.color = 'var(--text-muted)'}
+        >
+          <X size={12} strokeWidth={1.8} />
+        </button>
       </div>
 
-      {/* Column headers */}
+      {/* ── Column headers ───────────────────────────────────────────────────── */}
       <div style={{ display: 'grid', gridTemplateColumns: '70px 56px 8px 1fr 220px', alignItems: 'center', padding: '6px 14px', borderBottom: '1px solid var(--bg-tile)', background: 'var(--bg-modal-header)', flexShrink: 0, gap: 6 }}>
         {['Include', 'Merge', '', 'Track', 'Assign Instrument'].map((h, i) => (
           <span key={i} style={{ fontSize: 9, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.1em', color: 'var(--text-muted)' }}>{h}</span>
         ))}
       </div>
 
-      {/* Track list */}
+      {/* ── Track list — scrollable ───────────────────────────────────────────── */}
       <div style={{ flex: 1, overflowY: 'auto' }}>
         {state.rows.map(track => (
           <TrackRow key={track.index} track={track}
@@ -554,12 +656,12 @@ export default function MidiEditor() {
             onToggleMerge={() => update(track.index, { mergeSelected: !track.mergeSelected })}
             onChangeProgram={p => update(track.index, { newProgram: p })}
             onUnmerge={track.isMerged ? () => handleUnmerge() : undefined}
-            onSplit={!track.isMerged && ['piano', 'chromatic', 'organ'].includes(track.group) && track.name !== 'Left Hand' && track.name !== 'Right Hand' ? () => handleSplit(track.index) : undefined}
+            onSplit={!track.isMerged && KEYBOARD_GROUPS.includes(track.group) && track.name !== 'Left Hand' && track.name !== 'Right Hand' ? () => handleSplitRequest(track.index) : undefined}
           />
         ))}
       </div>
 
-      {/* Merge toolbar */}
+      {/* ── Merge toolbar ────────────────────────────────────────────────────── */}
       {mergeCount >= 2 && (
         <div style={{ padding: '8px 14px', background: 'var(--bg-modal)', borderTop: '1px solid var(--border2)', display: 'flex', alignItems: 'center', gap: 10, flexShrink: 0 }}>
           <Merge size={13} style={{ color: 'var(--text-amber)', flexShrink: 0 }} />
@@ -567,8 +669,6 @@ export default function MidiEditor() {
             <div style={{ fontSize: 'var(--text-xs)', color: 'var(--text-dim)' }}>{mergeCount} tracks selected for merge</div>
             <div style={{ fontSize: 9, color: 'var(--text-inactive)', fontFamily: 'JetBrains Mono', marginTop: 2, lineHeight: 1.4 }}>
               Combines selected tracks into one — all their notes play together on the keyboard.
-              Useful when a melody and chords are split across separate tracks.
-              To undo: close and reopen the editor (original file is never changed).
             </div>
           </div>
           <button onClick={handleMerge} style={{
@@ -581,7 +681,27 @@ export default function MidiEditor() {
         </div>
       )}
 
-      {/* Select all / clear */}
+      {/* ── Split confirmation toolbar ───────────────────────────────────────── */}
+      {pendingSplitIndex !== null && (() => {
+        const trackName = state.rows.find(r => r.index === pendingSplitIndex)?.name ?? 'track'
+        return (
+          <div style={{ padding: '8px 14px', background: 'var(--bg-modal)', borderTop: '1px solid var(--border2)', display: 'flex', alignItems: 'center', gap: 10, flexShrink: 0 }}>
+            <Split size={13} style={{ color: 'var(--text-amber)', flexShrink: 0 }} />
+            <div style={{ flex: 1, minWidth: 0 }}>
+              <div style={{ fontSize: 'var(--text-xs)', color: 'var(--text-dim)' }}>Split "{trackName}" into Left Hand + Right Hand?</div>
+              <div style={{ fontSize: 9, color: 'var(--text-inactive)', fontFamily: 'JetBrains Mono', marginTop: 2 }}>
+                Saves a new _ORFEO_SPLIT.mid and reloads it. Original file is never modified.
+              </div>
+            </div>
+            <button onClick={() => setPendingSplitIndex(null)} style={{ padding: '4px 10px', borderRadius: 4, flexShrink: 0, border: '1px solid var(--border2)', background: 'transparent', color: 'var(--text-dim-control)', fontSize: 'var(--text-xs)', cursor: 'pointer' }}>Cancel</button>
+            <button onClick={handleSplitConfirm} style={{ padding: '4px 14px', borderRadius: 4, flexShrink: 0, border: '1px solid var(--accent-amber-strong)', background: 'var(--accent-amber-medium)', color: 'var(--text-amber)', fontSize: 'var(--text-xs)', cursor: 'pointer', fontWeight: 600 }}>
+              Split
+            </button>
+          </div>
+        )
+      })()}
+
+      {/* ── Select all / clear ───────────────────────────────────────────────── */}
       <div style={{ padding: '6px 14px', borderTop: '1px solid var(--bg-tile)', background: 'var(--bg-modal-header)', display: 'flex', alignItems: 'center', gap: 'var(--space-2)', flexShrink: 0 }}>
         <span style={{ fontSize: 10, color: 'var(--text-inactive)', fontFamily: 'JetBrains Mono' }}>{includedCount}/{state.rows.length} included</span>
         <div style={{ flex: 1 }} />
@@ -589,7 +709,7 @@ export default function MidiEditor() {
         <TBtn onClick={() => setState(s => s && ({ ...s, rows: s.rows.map(t => ({ ...t, included: false })) }))}>Clear all</TBtn>
       </div>
 
-      {/* Save footer */}
+      {/* ── Save footer ──────────────────────────────────────────────────────── */}
       <div style={{ padding: '10px 14px 12px', borderTop: '1px solid var(--border)', background: 'var(--bg-modal-header)', flexShrink: 0 }}>
         <div style={{ fontSize: 10, color: 'var(--text-inactive)', marginBottom: 6, textTransform: 'uppercase', letterSpacing: '0.08em' }}>Save as</div>
         <div style={{ display: 'flex', gap: 6, marginBottom: 8 }}>
@@ -616,7 +736,7 @@ export default function MidiEditor() {
           </div>
         )}
         <div style={{ display: 'flex', gap: 'var(--space-2)' }}>
-          <button onClick={() => window.electronAPI.closeMidiEditor?.()} style={{ flex: 1, padding: '7px 0', borderRadius: 'var(--radius-md)', background: 'transparent', border: '1px solid var(--border2)', color: 'var(--text-dim-control)', fontSize: 'var(--text-sm)', cursor: 'pointer' }}>Cancel</button>
+          <button onClick={() => setMidiEditorOpen(false)} style={{ flex: 1, padding: '7px 0', borderRadius: 'var(--radius-md)', background: 'transparent', border: '1px solid var(--border2)', color: 'var(--text-dim-control)', fontSize: 'var(--text-sm)', cursor: 'pointer' }}>Cancel</button>
           <button onClick={handleSave} disabled={saving} style={{ flex: 1, padding: '7px 0', borderRadius: 'var(--radius-md)', background: saving ? 'var(--bg-tile)' : 'var(--text-amber)', border: 'none', color: saving ? 'var(--text-inactive)' : '#0a0a0a', fontSize: 'var(--text-sm)', fontWeight: 600, cursor: saving ? 'wait' : 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6 }}>
             <Save size={13} /> {saving ? 'Saving…' : 'Save & Reload'}
           </button>
