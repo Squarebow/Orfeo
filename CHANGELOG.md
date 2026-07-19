@@ -4,6 +4,28 @@
 
 ---
 
+### 19. 7. 2026 — Mixer channel-strip CC wiring — chorus, reverb, pan, volume
+
+**Root cause:** ChannelStrip knobs (chorus, reverb, pan) and the volume fader were wired to plain React `useState` setters only — no audio engine calls. Deferred from the original visual-shell pass and now completed.
+
+**`src/hooks/useSamplesEngine.ts`**
+- Added `setChannelChorus(ch, value)` → CC93 on a single MIDI channel
+- Added `setChannelReverb(ch, value)` → CC91 on a single MIDI channel
+- Added `setChannelPan(ch, value)` → CC10 on a single MIDI channel; value −1…+1 bipolar → 0–127 (64 = center), matching the master pan formula
+- Added `setChannelVolume(ch, value)` → CC7 on a single MIDI channel; value 0…1 → 0–127
+- All four guard on `!_synth || !_synthReady` and wrap the call in try/catch, matching the master function pattern
+- `ch` is the MIDI channel from the parsed track (`track.channel`, 0-based from the file) — NOT `trackIndex`
+
+**`src/components/Mixer/ChannelStrip.tsx`**
+- Imports the four new functions from `useSamplesEngine`
+- Derives `midiChannel = (parsedTrack as any)?.channel ?? 0` alongside existing `trackName`/`trackColor`
+- Renamed `setChorus/setReverb/setPan` state setters to `setChorusState/setReverbState/setPanState` to avoid name collisions
+- Added `handleChorus`, `handleReverb`, `handlePan` callbacks (each calls the state setter + the engine function, with `midiChannel` in deps)
+- Volume fader `onMove`: now calls `setChannelVolume(midiChannel, v)` alongside `setVolume(v)`
+- Knob `onChange` props updated: `setChorus/setReverb/setPan` → `handleChorus/handleReverb/handlePan`
+
+---
+
 ### 19. 7. 2026 — Mixer wave VU polish — glow, peak-hold, track color, idle breathing
 
 **`src/components/Mixer/ChannelStrip.tsx`**

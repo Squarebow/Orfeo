@@ -3,6 +3,12 @@ import { Eye } from 'lucide-react'
 import { useStore } from '../../store'
 import MixerKnob from './MixerKnob'
 import { MarqueeText } from '../MarqueeText'
+import {
+  setChannelChorus,
+  setChannelReverb,
+  setChannelPan,
+  setChannelVolume,
+} from '../../hooks/useSamplesEngine'
 
 // ── VU canvas width ───────────────────────────────────────────────────────────
 const VU_W = 16   // CSS px
@@ -122,8 +128,10 @@ export default function ChannelStrip({ trackIndex }: ChannelStripProps) {
   const knobsDisabled = audioEngine === 'gm'
 
   // ── Derived display data ──────────────────────────────────────────────────
-  const trackName  = (parsedTrack as any)?.name   ?? (track as any)?.name   ?? ''
-  const trackColor = (parsedTrack as any)?.color  ?? (track as any)?.color  ?? '#808080'
+  const trackName   = (parsedTrack as any)?.name    ?? (track as any)?.name    ?? ''
+  const trackColor  = (parsedTrack as any)?.color   ?? (track as any)?.color   ?? '#808080'
+  // MIDI channel from the file (0-based) — NOT the same as trackIndex
+  const midiChannel = (parsedTrack as any)?.channel ?? 0
 
   const muted        = track?.muted        ?? false
   const solo         = track?.solo         ?? false
@@ -132,10 +140,15 @@ export default function ChannelStrip({ trackIndex }: ChannelStripProps) {
 
   // ── Knob/fader state — initialized from CC data via store (seeded in midiParser) ──
   const [dragging, setDragging] = useState(false)
-  const [chorus, setChorus] = useState(() => (parsedTrack as any)?._cc93 ?? 0)
-  const [reverb, setReverb] = useState(() => (parsedTrack as any)?._cc91 ?? 0)
-  const [pan,    setPan]    = useState(() => track?.pan ?? 0)
-  const [volume, setVolume] = useState(() => track?.volume ?? 1)
+  const [chorus, setChorusState] = useState(() => (parsedTrack as any)?._cc93 ?? 0)
+  const [reverb, setReverbState] = useState(() => (parsedTrack as any)?._cc91 ?? 0)
+  const [pan,    setPanState]    = useState(() => track?.pan ?? 0)
+  const [volume, setVolume]      = useState(() => track?.volume ?? 1)
+
+  // ── Knob handlers — update local state and send CC to the Samples engine ──
+  const handleChorus = useCallback((v: number) => { setChorusState(v); setChannelChorus(midiChannel, v) }, [midiChannel])
+  const handleReverb = useCallback((v: number) => { setReverbState(v); setChannelReverb(midiChannel, v) }, [midiChannel])
+  const handlePan    = useCallback((v: number) => { setPanState(v);    setChannelPan(midiChannel, v)    }, [midiChannel])
 
   // ── VU meter — refs avoid re-renders in the rAF loop ─────────────────────
   const vuRef       = useRef<HTMLCanvasElement>(null)
@@ -227,8 +240,9 @@ export default function ChannelStrip({ trackIndex }: ChannelStripProps) {
     const travel   = sectionH - 8 - HANDLE_H - FADER_TOP_PAD
 
     const onMove = (me: MouseEvent) => {
-      const delta = -(me.clientY - startY) / travel
-      setVolume(Math.max(0, Math.min(1, startVol + delta)))
+      const v = Math.max(0, Math.min(1, startVol + -(me.clientY - startY) / travel))
+      setVolume(v)
+      setChannelVolume(midiChannel, v)
     }
     const onUp = () => {
       setDragging(false)
@@ -279,7 +293,7 @@ export default function ChannelStrip({ trackIndex }: ChannelStripProps) {
         overflow: 'hidden',
       }}>
         <MixerKnob
-          value={chorus} onChange={setChorus}
+          value={chorus} onChange={handleChorus}
           accentColor="var(--knob-chorus)" size={52}
           disabled={knobsDisabled} label="Chorus"
         />
@@ -292,7 +306,7 @@ export default function ChannelStrip({ trackIndex }: ChannelStripProps) {
         overflow: 'hidden',
       }}>
         <MixerKnob
-          value={reverb} onChange={setReverb}
+          value={reverb} onChange={handleReverb}
           accentColor="var(--knob-reverb)" size={52}
           disabled={knobsDisabled} label="Reverb"
         />
@@ -311,7 +325,7 @@ export default function ChannelStrip({ trackIndex }: ChannelStripProps) {
           marginBottom: 14,
         }}>L</span>
         <MixerKnob
-          value={pan} onChange={setPan}
+          value={pan} onChange={handlePan}
           accentColor="var(--text-amber)" size={52}
           disabled={knobsDisabled} bipolar label="Pan"
         />

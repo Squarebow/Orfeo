@@ -251,6 +251,37 @@ export function setMasterTone(value: number): void {
   _filterNode.gain.value = value * 12
 }
 
+// ── setChannelChorus — CC93 on a single MIDI channel (Samples engine only) ────
+// ch: track.channel from the parsed MIDI file (0-based, NOT trackIndex)
+export function setChannelChorus(ch: number, value: number): void {
+  if (!_synth || !_synthReady) return
+  const val = Math.round(Math.max(0, Math.min(1, value)) * 127)
+  try { ;(_synth as any).controllerChange(ch, 93, val) } catch {}
+}
+
+// ── setChannelReverb — CC91 on a single MIDI channel (Samples engine only) ────
+export function setChannelReverb(ch: number, value: number): void {
+  if (!_synth || !_synthReady) return
+  const val = Math.round(Math.max(0, Math.min(1, value)) * 127)
+  try { ;(_synth as any).controllerChange(ch, 91, val) } catch {}
+}
+
+// ── setChannelPan — CC10 on a single MIDI channel (Samples engine only) ───────
+// value: −1…+1 (bipolar knob); 0 = center; maps to CC10 0–127 (64 = center)
+export function setChannelPan(ch: number, value: number): void {
+  if (!_synth || !_synthReady) return
+  const val = Math.round(((value + 1) / 2) * 127)
+  try { ;(_synth as any).controllerChange(ch, 10, val) } catch {}
+}
+
+// ── setChannelVolume — CC7 on a single MIDI channel (Samples engine only) ─────
+// value: 0…1 (fader); maps to CC7 0–127
+export function setChannelVolume(ch: number, value: number): void {
+  if (!_synth || !_synthReady) return
+  const val = Math.round(Math.max(0, Math.min(1, value)) * 127)
+  try { ;(_synth as any).controllerChange(ch, 7, val) } catch {}
+}
+
 // ── Hook: self-gates on audioEngine !== 'samples' ────────────────────────────
 export function useSamplesEngine() {
   // ── Register global click-to-play and hardware note-on/off handlers ─────────
