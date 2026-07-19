@@ -53,6 +53,7 @@ The **main window** is the only Electron `BrowserWindow`. The MIDI Playback Edit
 | `src/components/ChordExplorer.tsx` | Chord Explorer modal |
 | `src/components/ScaleExplorer.tsx` | Scale Explorer modal + Circle of Fifths SVG |
 | `src/components/MidiEditor/MidiEditor.tsx` | MIDI Playback Editor — floating modal, reads from store, reloads file inline |
+| `src/utils/modalFocus.ts` | `bringToFront()` — module-level z-index counter for click-to-front across floating modals |
 | `electron/preload.ts` | Any new IPC channel must be added here + `main.ts` + `src/types/index.ts` |
 
 ---
@@ -144,9 +145,9 @@ Two `useStore.subscribe` callbacks at the bottom of `store/index.ts` write prefs
 
 **`store.loadLibraryFile` is broken** — it references `parseMidiBuffer`, `parseKeySignature`, and `detectKeyFromTracks` which are never imported in `store/index.ts`. It throws a ReferenceError at runtime (caught silently). Never call it. Use `loadFileIntoPlayer` in `App.tsx` instead — it has those utilities imported and mirrors the same logic as the `onMidiReload` handler.
 
-**Mixer Console architecture** — Accessible via Ctrl+Shift+M (dev shortcut). Real trigger icon wiring is Stage 5/6.
-- `MixerConsole` (`MixerConsole.tsx`) is the modal shell: `{ open, onClose }` props, `width: min(90vw, 1400px)`, scrollable channel strip row with drag-to-pan, master strip pinned at the right. Tracks sorted via `useMemo` (unmuted first, stable by index). Backdrop click and Escape key close the modal.
-- `ChannelStrip` takes `{ trackIndex: number }` and reads all state from the store. One strip per track.
+**Mixer Console architecture** — Accessible via Ctrl+Shift+M.
+- `MixerConsole` (`MixerConsole.tsx`) is the modal shell: scrollable channel strip row with drag-to-pan, master strip pinned right. Width is computed dynamically: `BODY_PAD*2 + n*STRIP_W + (n-1)*STRIP_GAP + STRIP_GAP + MASTER_W + 2` where `n = Math.min(tracks.length, 8)` — the `+2` accounts for the 1px left+right border under `border-box` sizing. Tracks sorted by `GROUP_ORDER` (piano first, drums last) with index as tiebreaker, matching TrackPanel. Escape key closes.
+- `ChannelStrip` takes `{ trackIndex: number }` and reads all state from the store. One strip per track. Displays `track.gmName` (resolved GM instrument name), not `parsedTrack.name` (raw MIDI name).
 - `MixerKnob` viewBox is 52×52 with the knob body at CX=CY=26, KNOB_R=13. The tick ring outer edge sits at radius ~16.5–18.5, leaving 7.5–9.5 viewBox units of **internal empty margin** between the ticks and the SVG edge. At large sizes (e.g. master volume size=200) this margin is 36px per side — do not try to eliminate it by widening the strip; the SVG clips cleanly via `overflow:hidden` and the ticks remain fully visible.
 - `ChannelStrip` fader formula uses `sectionH - 8` (not `sectionH - 16`) because the fader section has 8px top padding and 0px bottom padding. If you change fader section vertical padding, update all four `sectionH - 8` references in the component.
 - `setMasterChorus` / `setMasterReverb` / `setMasterPan` / `setMasterTone` are exported from `useSamplesEngine.ts` and called directly from MasterStrip's knob `onChange` handlers — they are not wired through the store.
@@ -157,12 +158,14 @@ Two `useStore.subscribe` callbacks at the bottom of `store/index.ts` write prefs
 **MIDI Playback Editor architecture** — floating modal, `position: fixed`, 760×620px, non-resizable, draggable header.
 - Opened via `setMidiEditorOpen(true)` (store flag); `<MidiEditor />` always rendered in `App.tsx` alongside `<MixerConsole />`.
 - On open: `useEffect` on `midiEditorOpen` rebuilds `EditorState` from store `midi` + `tracks` via `buildRows()`. No IPC data fetch.
+- Track rows display `track.gmName` (resolved GM instrument name), not `track.name` (raw MIDI name).
+- Column layout: `ROW_COLS = '44px 1fr 44px 44px 220px'` — **Include | Track | Merge | Split | Assign Instrument**. Split is its own column with a 24×24 button matching Merge style; tracks that cannot be split render an empty `<div />` placeholder to keep grid alignment. Do not embed the Split button back inside the Track cell.
 - Split breakpoint values (`splitBreakpointType`, `splitBreakpointNote`, `splitBreakpointRangeStart`, `splitBreakpointRangeEnd`) read directly from store — no local state or `getPrefs()` call.
 - `handleSave` / `handleSplitConfirm` pass `filePath: state.filePath` in payload; response includes `{ filePath, fileName, base64 }`. Renderer calls `reloadFile()` inline (mirrors `loadFileIntoPlayer` in App.tsx).
 - Split is two-step: clicking the split icon sets `pendingSplitIndex` which shows a confirmation toolbar; confirming executes. Modal stays open after split — only Save auto-closes.
 - `handleUnmerge`: calls `buildRows()` synchronously from current store state — no async IPC needed.
 - `editor:save` and `editor:split` IPC handlers in `main.ts` no longer send `midi:reloadFile`; they return file data in the response instead.
-- `InstrumentPicker` dropdown uses `position: fixed` to escape `overflow: hidden` — do not change to `absolute`.
+- `InstrumentPicker` dropdown uses `position: fixed`, `zIndex: 50000` to always clear the floating modals — do not change to `absolute` or lower the z-index.
 
 **Drag-and-drop file loading pattern** — main area drop (App.tsx) and library sidebar drop (SettingsPanel.tsx) both use `window.electronAPI.getPathForFile(file)` (via `webUtils.getPathForFile` in preload) to get the real OS path from the browser `File` object. Files dropped outside the library are copied in via `fs:copyMidiToLibrary` IPC (collision-safe naming: `Song.mid` → `Song (2).mid`). Only the main-area drop loads the file into the player; the sidebar drop is add-only. No auto-play on drop.
 
@@ -296,6 +299,9 @@ Both updates happen together. One commit message covers the code change — no s
 - **ChannelStrip CC channel vs trackIndex:** the MIDI channel to send CC to is `(parsedTrack as any)?.channel ?? 0` (from the file, 0-based), NOT `trackIndex` (array sort position). These differ whenever tracks are reordered or the file uses non-sequential channels.
 - **MidiEditor split is two-step by design:** clicking the Split icon sets `pendingSplitIndex` and shows a confirmation toolbar — it does not execute immediately. Only `handleSplitConfirm` (triggered by the "Split" button in the toolbar) actually calls the IPC. If you add a new destructive per-track action, follow this same pattern.
 - **MidiEditor hooks run even when returning null:** the component is always mounted in `App.tsx`; `return null` when `!midiEditorOpen` produces no DOM but all hooks (including `useEffect`) still run. This is how state re-initialises correctly each time the editor opens.
+- **`track.visible` does NOT gate audio** — `visible` only controls piano roll waterfall display. Both audio engines (`useAudioEngine.ts`, `useSamplesEngine.ts`) gate audio solely on `ts.muted` and `ts.solo`. Do not re-add `!ts.visible` to audio conditions — the eye button and global hide-all are waterfall-only.
+- **Modal z-index focus (`src/utils/modalFocus.ts`)** — `bringToFront()` returns an ever-incrementing integer starting at 9900. Both `MixerConsole` and `MidiEditor` hold a local `zIndex` state and call `bringToFront()` on the modal container's `onMouseDown`. Any new floating modal must use the same pattern. The `InstrumentPicker` dropdown sits at `zIndex: 50000` to always clear both modals regardless of click count.
+- **MixerConsole modal width border-box trap** — the modal has `border: 1px solid`. Under `border-box` sizing, `width: N` means content area = `N - 2`. The formula must include `+2` to compensate; without it, the last strip overflows by 2px and triggers a horizontal scrollbar. Formula: `BODY_PAD*2 + n*STRIP_W + (n-1)*STRIP_GAP + STRIP_GAP + MASTER_W + 2`.
 
 ---
 
