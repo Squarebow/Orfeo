@@ -1,6 +1,6 @@
 {
   "name": "orfeo",
-  "version": "0.11.0",
+  "version": "0.12.0",
   "description": "Modern piano learning app with MIDI visualization",
   "author": "SquareBow",
   "license": "MIT",
@@ -46,8 +46,14 @@
       "node_modules/tslib/**/*"
     ],
     "extraResources": [
-      { "from": "public/fonts", "to": "fonts" },
-      { "from": "public/demo", "to": "demo" }
+      {
+        "from": "public/fonts",
+        "to": "fonts"
+      },
+      {
+        "from": "public/demo",
+        "to": "demo"
+      }
     ],
     "asarUnpack": [
       "out/renderer/spessasynth_processor.min.js"
