@@ -4,6 +4,55 @@
 
 ---
 
+### 19. 7. 2026 — MIDI Playback Editor — rebuilt as floating modal
+
+**Motivation:** The editor was a separate `BrowserWindow`, which caused it to appear as a distinct OS window in the Windows taskbar and made it impossible to apply the amber outer glow used by all other Orfeo panels (CSS `box-shadow` is clipped at the OS window boundary).
+
+**Architecture change — removed:**
+- `editorWin: BrowserWindow` and `_editorData` module-level variable in `electron/main.ts`
+- `ipcMain.handle('editor:open', ...)` — created the BrowserWindow
+- `ipcMain.handle('editor:getData', ...)` — returned `_editorData` to the renderer
+- `ipcMain.handle('editor:close', ...)` — closed the window
+- `editor:closed` IPC event (sent to main window on BrowserWindow close)
+- `midi:reloadFile` IPC event send from `editor:save` and `editor:split` — renderer now reloads inline
+- `electron/preload.ts`: removed `openMidiEditor`, `getMidiEditorData`, `closeMidiEditor`, `onMidiReload`, `onEditorClosed`
+- `src/types/index.ts`: removed those five from `window.electronAPI`
+- `src/App.tsx`: removed `if (window.location.hash === '#/editor') return <MidiEditor />` hash route; removed `onMidiReload` listener useEffect
+- `src/components/TrackPanel/TrackPanel.tsx`: removed `editorOpen` local state, `onEditorClosed` listener, and the full IPC-based `handleOpenEditor` function
+
+**Architecture change — adapted:**
+- `ipcMain.handle('editor:save', ...)`: now reads `filePath` from payload (not `_editorData`); returns `{ ok, message, filePath, fileName, base64 }` instead of sending `midi:reloadFile`
+- `ipcMain.handle('editor:split', ...)`: same pattern — `filePath` from payload; returns file data on success
+- `src/types/index.ts`: updated `saveMidiEditor` and `splitMidiEditor` return types to include optional `filePath`, `fileName`, `base64`
+
+**New floating modal — `src/components/MidiEditor/MidiEditor.tsx`:**
+- Full rewrite. Same architecture as `ChordExplorer` / `MixerConsole` / `FloatingKeyboard`
+- `position: fixed`, `760 × 620px`, draggable title bar, `.orfeo-modal-glow` class
+- Reads `midi`, `tracks`, and all `splitBreakpoint*` values from Zustand store — no IPC data fetch on mount
+- `buildRows()` helper constructs `EditorTrack[]` from store state; called on open and on unmerge
+- Re-initialises state on every open (`useEffect` on `midiEditorOpen`) so track list always reflects current file
+- Centred on first open; position persists across closes within the session
+- `handleUnmerge`: rebuilds from store state (replaces async `getMidiEditorData()` call)
+- `handleSave`: passes `filePath: state.filePath` in payload; on success calls `reloadFile(base64, fileName, filePath)` inline then `setMidiEditorOpen(false)` after 1.2s
+- `handleSplitRequest` / `handleSplitConfirm`: two-step split — clicking the split icon arms a confirmation toolbar; confirming executes; modal stays open after split so user can review the result
+- Cancel button and title-bar X both call `setMidiEditorOpen(false)`
+- `reloadFile()` mirrors `loadFileIntoPlayer` in App.tsx: `parseMidiBuffer` → `setMidi` → key detection → `setDetectedKey`
+- `InstrumentPicker` dropdown unchanged; uses `position: fixed` to escape `overflow: hidden`
+
+**Store — `src/store/index.ts`:**
+- Added `midiEditorOpen: boolean` / `setMidiEditorOpen: (open: boolean) => void` to interface and implementation
+
+**TrackPanel — `src/components/TrackPanel/TrackPanel.tsx`:**
+- `handleOpenEditor` now calls `useStore.getState().setMidiEditorOpen(true)` — zero serialisation, zero IPC
+- Buttons reference `midiEditorOpen` from store instead of local `editorOpen` state for amber highlight and cursor
+- Removed `useState`, `useEffect` imports that were only used for editor state
+
+**App.tsx:**
+- `<MidiEditor />` rendered permanently alongside `<MixerConsole />` (hooks run even when returning null, so state re-initialises correctly on open)
+- `parseMidiBuffer`, `detectKeyFromTracks`, `parseKeySignature` imports retained — still used by `loadFileIntoPlayer`
+
+---
+
 ### 19. 7. 2026 — Mixer channel VU — solid-color segmented bars per track
 
 **`src/components/Mixer/ChannelStrip.tsx`**

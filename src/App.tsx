@@ -147,23 +147,6 @@ export default function App() {
     }
   }, [loadDroppedFilePath, showDropError])
 
-  useEffect(() => {
-    if (!window.electronAPI?.onMidiReload) return
-    window.electronAPI.onMidiReload((result: any) => {
-      if (!result) return
-      const binary = atob(result.base64)
-      const bytes = new Uint8Array(binary.length)
-      for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i)
-      const parsed = parseMidiBuffer(bytes.buffer, result.fileName, result.filePath ?? '')
-      useStore.getState().setMidi(parsed)
-      const raw = parsed as any
-      if (raw._keySignature) {
-        useStore.getState().setDetectedKey(parseKeySignature(raw._keySignature.key, raw._keySignature.scale))
-      } else {
-        useStore.getState().setDetectedKey(detectKeyFromTracks(parsed.tracks))
-      }
-    })
-  }, [])
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -200,8 +183,6 @@ export default function App() {
     window.addEventListener('keydown', handleKeyDown)
     return () => window.removeEventListener('keydown', handleKeyDown)
   }, [play, pause, stop, openFile])
-
-  if (window.location.hash === '#/editor') return <MidiEditor />
 
   // ── Truncate long filenames for the confirm modal title ───────────────────
   const confirmFileName = dropConfirmPath
@@ -270,6 +251,9 @@ export default function App() {
 
       {/* ── Mixer Console — floating modal, toggled via Ctrl+Shift+M or Console drawer icon ── */}
       <MixerConsole />
+
+      {/* ── MIDI Playback Editor — floating modal, opened via Track Panel pencil icon ── */}
+      <MidiEditor />
 
       {/* ── Drop confirmation modal — shown when a file is already loaded ────── */}
       {dropConfirmPath && (

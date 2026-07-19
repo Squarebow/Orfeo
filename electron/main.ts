@@ -158,68 +158,26 @@ ipcMain.handle('fs:copyMidiToLibrary', async (_e, sourcePath: string, libraryFol
   return destPath
 })
 
-// ── MIDI Editor window ─────────────────────────────────────────────────────
-let editorWin: BrowserWindow | null = null
-let _editorData: any = null
-
-ipcMain.handle('editor:open', async (_e, data: any) => {
-  _editorData = data
-  if (editorWin && !editorWin.isDestroyed()) { editorWin.focus(); return }
-  editorWin = new BrowserWindow({
-    width: 760, height: 600, minWidth: 640, minHeight: 480,
-    resizable: true, backgroundColor: '#0f0f12',
-    title: 'Orfeo MIDI Playback Editor',
-    titleBarStyle: 'hidden',
-    titleBarOverlay: {
-      color: '#111116',
-      symbolColor: '#707088',
-      height: 48,
-    },
-    webPreferences: {
-      preload: join(__dirname, '../preload/preload.cjs'),
-      contextIsolation: true, nodeIntegration: false, webSecurity: false,
-    },
-  })
-  // ── Load editor renderer — hash: '/editor' required; bare 'editor' produces #editor
-  // not #/editor, so App.tsx's hash check fails and the main app renders instead.
-  if (process.env['ELECTRON_RENDERER_URL']) {
-    editorWin.loadURL(process.env['ELECTRON_RENDERER_URL'] + '#/editor')
-  } else {
-    editorWin.loadFile(join(__dirname, '../renderer/index.html'), { hash: '/editor' })
-  }
-  editorWin.on('closed', () => {
-    editorWin = null
-    _editorData = null
-    // Signal main window that editor closed
-    const mainWin = BrowserWindow.getAllWindows().find(w => w !== editorWin)
-    if (mainWin && !mainWin.isDestroyed()) {
-      mainWin.webContents.send('editor:closed')
-    }
-  })
-})
-
-ipcMain.handle('editor:getData', async () => _editorData)
-ipcMain.handle('editor:close', async () => editorWin?.close())
-
 ipcMain.handle('dialog:saveFile', async (_e, opts: { defaultPath: string; filters: any[] }) => {
   const result = await dialog.showSaveDialog({ defaultPath: opts.defaultPath, filters: opts.filters })
   return result.canceled ? null : result.filePath
 })
 
 ipcMain.handle('editor:save', async (_e, payload: {
+  filePath: string
   outputPath: string
   includedTracks: { index: number; newProgram: number }[]
   mergeGroups: number[][]
 }) => {
   try {
-    if (!_editorData?.filePath) return { ok: false, message: 'No source file loaded' }
-    const midi = new Midi(readFileSync(_editorData.filePath))
+    if (!payload.filePath) return { ok: false, message: 'No source file loaded' }
+    const midi = new Midi(readFileSync(payload.filePath))
 
     // ── Resolve output path into Orfeo/ subfolder ─────────────────────────────
     // Strip any existing _ORFEO / _ORFEO_MERGED suffix before appending a new one
     // so re-saving an already-generated file overwrites cleanly instead of doubling up.
-    const orfeoDir   = await getOrfeoOutputDir(_editorData.filePath)
-    const rawBase    = basename(_editorData.filePath).replace(/\.midi?$/i, '')
+    const orfeoDir   = await getOrfeoOutputDir(payload.filePath)
+    const rawBase    = basename(payload.filePath).replace(/\.midi?$/i, '')
     const baseName   = rawBase.replace(/_(ORFEO_MERGED|ORFEO)$/i, '')
     const hasMerge   = (payload.mergeGroups ?? []).some(g => g.length >= 2)
     const outputPath = join(orfeoDir, `${baseName}${hasMerge ? '_ORFEO_MERGED' : '_ORFEO'}.mid`)
@@ -258,16 +216,11 @@ ipcMain.handle('editor:save', async (_e, payload: {
     noteTrackIndices.filter(i => !includedSet.has(i)).sort((a, b) => b - a).forEach(i => midi.tracks.splice(i, 1))
 
     const outBuf = Buffer.from(midi.toArray())
-    // ── Write to the resolved Orfeo/ subfolder path ───────────────────────────
     writeFileSync(outputPath, outBuf)
 
-    // ── Notify main window to reload from the new path ────────────────────────
-    const mainWin = BrowserWindow.getAllWindows().find(w => w !== editorWin)
-    if (mainWin) {
-      const fileName = outputPath.split(/[\\/]/).pop() ?? outputPath
-      mainWin.webContents.send('midi:reloadFile', { fileName, filePath: outputPath, base64: outBuf.toString('base64') })
-    }
-    return { ok: true, message: `Saved: ${outputPath.split(/[\\/]/).pop()}` }
+    // ── Return file data so the renderer can reload inline ────────────────────
+    const fileName = outputPath.split(/[\\/]/).pop() ?? outputPath
+    return { ok: true, message: `Saved: ${fileName}`, filePath: outputPath, fileName, base64: outBuf.toString('base64') }
   } catch (e: any) {
     return { ok: false, message: e?.message ?? 'Save failed' }
   }
@@ -275,6 +228,7 @@ ipcMain.handle('editor:save', async (_e, payload: {
 
 // ── Split a single track into Left Hand / Right Hand by MIDI note breakpoint ──
 ipcMain.handle('editor:split', async (_e, payload: {
+  filePath: string
   trackIndex: number
   breakpointType: 'single' | 'range'
   breakpoint: number
@@ -282,13 +236,13 @@ ipcMain.handle('editor:split', async (_e, payload: {
   rangeEnd: number
 }) => {
   try {
-    if (!_editorData?.filePath) return { ok: false, message: 'No source file loaded' }
-    const midi = new Midi(readFileSync(_editorData.filePath))
+    if (!payload.filePath) return { ok: false, message: 'No source file loaded' }
+    const midi = new Midi(readFileSync(payload.filePath))
 
     const noteTrackIndices: number[] = []
     midi.tracks.forEach((t, i) => { if (t.notes.length > 0) noteTrackIndices.push(i) })
 
-    const origIdx = noteTrackIndices[payload.trackIndex]
+    const origIdx = noteTrackIndices[payload.trackIndex ?? 0]
     if (origIdx === undefined) return { ok: false, message: 'Track not found' }
 
     const srcTrack = midi.tracks[origIdx]
@@ -334,21 +288,17 @@ ipcMain.handle('editor:split', async (_e, payload: {
     rhNotes.forEach(n => rhTrack.notes.push(n))
 
     // ── Resolve output path — strip existing ORFEO suffixes before appending ──
-    const orfeoDir    = await getOrfeoOutputDir(_editorData.filePath)
-    const rawBase     = basename(_editorData.filePath).replace(/\.midi?$/i, '')
+    const orfeoDir    = await getOrfeoOutputDir(payload.filePath)
+    const rawBase     = basename(payload.filePath).replace(/\.midi?$/i, '')
     const baseNameStr = rawBase.replace(/_(ORFEO_MERGED|ORFEO_SPLIT|ORFEO)$/i, '')
     const outputPath  = join(orfeoDir, `${baseNameStr}_ORFEO_SPLIT.mid`)
 
     const outBuf = Buffer.from(midi.toArray())
     writeFileSync(outputPath, outBuf)
 
-    // ── Notify main window to reload the split file ────────────────────────────
-    const mainWin = BrowserWindow.getAllWindows().find(w => w !== editorWin)
-    if (mainWin) {
-      const fileName = outputPath.split(/[\\/]/).pop() ?? outputPath
-      mainWin.webContents.send('midi:reloadFile', { fileName, filePath: outputPath, base64: outBuf.toString('base64') })
-    }
-    return { ok: true, message: `Saved: ${outputPath.split(/[\\/]/).pop()}` }
+    // ── Return file data so the renderer can reload inline ────────────────────
+    const fileName = outputPath.split(/[\\/]/).pop() ?? outputPath
+    return { ok: true, message: `Saved: ${fileName}`, filePath: outputPath, fileName, base64: outBuf.toString('base64') }
   } catch (e: any) {
     return { ok: false, message: e?.message ?? 'Split failed' }
   }

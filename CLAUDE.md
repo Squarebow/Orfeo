@@ -24,7 +24,7 @@ Three Electron processes:
 - **Preload** (`electron/preload.ts`) — exposes `window.electronAPI` to the renderer
 - **Renderer** (`src/`) — the entire React UI
 
-The **main window** and the **MIDI Playback Editor** both load the same renderer bundle. The editor is distinguished by the `#/editor` URL hash — `App.tsx` checks `window.location.hash === '#/editor'` and renders `<MidiEditor />` instead of the normal layout.
+The **main window** is the only Electron `BrowserWindow`. The MIDI Playback Editor is a floating modal inside the renderer, not a separate OS window — it uses the same `position: fixed` / Zustand flag pattern as ChordExplorer and MixerConsole.
 
 ---
 
@@ -52,6 +52,7 @@ The **main window** and the **MIDI Playback Editor** both load the same renderer
 | `src/utils/genreVoicing.ts` | Genre voicing maps — `getGenreVoicing(genre, romanLabel, baseKey)` |
 | `src/components/ChordExplorer.tsx` | Chord Explorer modal |
 | `src/components/ScaleExplorer.tsx` | Scale Explorer modal + Circle of Fifths SVG |
+| `src/components/MidiEditor/MidiEditor.tsx` | MIDI Playback Editor — floating modal, reads from store, reloads file inline |
 | `electron/preload.ts` | Any new IPC channel must be added here + `main.ts` + `src/types/index.ts` |
 
 ---
@@ -152,6 +153,16 @@ Two `useStore.subscribe` callbacks at the bottom of `store/index.ts` write prefs
 - `setChannelChorus` / `setChannelReverb` / `setChannelPan` / `setChannelVolume` are also exported from `useSamplesEngine.ts` and wired to ChannelStrip's knob `onChange` handlers and volume fader. They use `midiChannel = (parsedTrack as any)?.channel ?? 0` (0-based MIDI channel from file) — NOT `trackIndex`.
 - ChannelStrip VU meter: solid-color segmented bars using `trackColor`. `drawVU(canvas, level, color, segs, canvasH)` — SEG_H=4, SEG_GAP=2, SEG_UNIT=6, VU_W=16. Active segments at full alpha; inactive at 0.08. `colorRef` pattern keeps track color accessible in rAF closure without restarting the loop.
 - MasterStrip VU: wave mode is a bezier-curve smooth fill with glow and per-band idle breathing. Do not apply wave render to ChannelStrip — they use different drawVU/drawWave functions intentionally.
+
+**MIDI Playback Editor architecture** — floating modal, `position: fixed`, 760×620px, non-resizable, draggable header.
+- Opened via `setMidiEditorOpen(true)` (store flag); `<MidiEditor />` always rendered in `App.tsx` alongside `<MixerConsole />`.
+- On open: `useEffect` on `midiEditorOpen` rebuilds `EditorState` from store `midi` + `tracks` via `buildRows()`. No IPC data fetch.
+- Split breakpoint values (`splitBreakpointType`, `splitBreakpointNote`, `splitBreakpointRangeStart`, `splitBreakpointRangeEnd`) read directly from store — no local state or `getPrefs()` call.
+- `handleSave` / `handleSplitConfirm` pass `filePath: state.filePath` in payload; response includes `{ filePath, fileName, base64 }`. Renderer calls `reloadFile()` inline (mirrors `loadFileIntoPlayer` in App.tsx).
+- Split is two-step: clicking the split icon sets `pendingSplitIndex` which shows a confirmation toolbar; confirming executes. Modal stays open after split — only Save auto-closes.
+- `handleUnmerge`: calls `buildRows()` synchronously from current store state — no async IPC needed.
+- `editor:save` and `editor:split` IPC handlers in `main.ts` no longer send `midi:reloadFile`; they return file data in the response instead.
+- `InstrumentPicker` dropdown uses `position: fixed` to escape `overflow: hidden` — do not change to `absolute`.
 
 **Drag-and-drop file loading pattern** — main area drop (App.tsx) and library sidebar drop (SettingsPanel.tsx) both use `window.electronAPI.getPathForFile(file)` (via `webUtils.getPathForFile` in preload) to get the real OS path from the browser `File` object. Files dropped outside the library are copied in via `fs:copyMidiToLibrary` IPC (collision-safe naming: `Song.mid` → `Song (2).mid`). Only the main-area drop loads the file into the player; the sidebar drop is add-only. No auto-play on drop.
 
@@ -283,6 +294,8 @@ Both updates happen together. One commit message covers the code change — no s
 - **`dragleave` flickering:** `if (e.currentTarget.contains(e.relatedTarget as Node)) return` prevents clearing drag-over state when the pointer moves over a child element inside the drop zone.
 - **MixerConsole knob/fader drag conflicts with strip scroll-pan:** `mousedown` on a knob or fader bubbles to the scroll container's `handleScrollMouseDown`, causing the whole strip row to pan instead of adjusting the control. Fix: `e.stopPropagation()` in `MixerKnob.handleMouseDown` and `ChannelStrip.handleFaderMouseDown`. Any new draggable control inside MixerConsole must also call `e.stopPropagation()` on mousedown.
 - **ChannelStrip CC channel vs trackIndex:** the MIDI channel to send CC to is `(parsedTrack as any)?.channel ?? 0` (from the file, 0-based), NOT `trackIndex` (array sort position). These differ whenever tracks are reordered or the file uses non-sequential channels.
+- **MidiEditor split is two-step by design:** clicking the Split icon sets `pendingSplitIndex` and shows a confirmation toolbar — it does not execute immediately. Only `handleSplitConfirm` (triggered by the "Split" button in the toolbar) actually calls the IPC. If you add a new destructive per-track action, follow this same pattern.
+- **MidiEditor hooks run even when returning null:** the component is always mounted in `App.tsx`; `return null` when `!midiEditorOpen` produces no DOM but all hooks (including `useEffect`) still run. This is how state re-initialises correctly each time the editor opens.
 
 ---
 

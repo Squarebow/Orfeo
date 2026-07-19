@@ -183,6 +183,7 @@ All user-visible changes listed here. For full technical detail see [CHANGELOG.m
 ### 19. 7. 2026
 
 **New**
+- **MIDI Playback Editor is now a floating panel**: instead of opening in a separate OS window, the editor opens as a floating modal inside the main app — the same style as the Mixer Console and Chord Explorer. You can drag it anywhere on screen. Clicking the split icon on a track now shows a confirmation step before executing, and the editor stays open after a split so you can review the result before closing.
 - **Mixer Console is now accessible from the app**: click the Console icon (sliders) in the right drawer to open it, or press Ctrl+Shift+M. The console is a floating window that can be dragged anywhere on screen, minimized to get it out of the way without losing any settings, and restored by clicking the icon or shortcut again.
 - **Master strip — global track controls**: three new buttons at the top of the master strip let you mute all tracks at once, hide all tracks from the waterfall, or remove all tracks from keyboard highlighting — with a single click. Each is a toggle, so clicking again undoes the action.
 - **Master strip — track filter button**: the "All tracks / Selection" button (also in the Tracks panel header) is now duplicated in the master strip, so you can switch between full playback and piano/bass/drums-only without opening the Tracks panel.

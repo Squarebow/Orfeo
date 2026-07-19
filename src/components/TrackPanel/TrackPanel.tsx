@@ -1,4 +1,4 @@
-import { useMemo, useState, useEffect } from 'react'
+import { useMemo, useState } from 'react'
 import { ChevronRight, Eye, Volume2, VolumeX, ChevronDown, AudioLines, SlidersVertical } from 'lucide-react'
 import { useStore, DEFAULT_MUTED_GROUPS } from '../../store'
 import { GM_GROUPS } from '../../utils/gmInstruments'
@@ -50,44 +50,12 @@ export default function TrackPanel() {
   const setTrackMuteFilter = useStore((s) => s.setTrackMuteFilter)
   const autoMuteNonKeyboard = useStore((s) => s.autoMuteNonKeyboard)
   const [collapsedGroups, setCollapsedGroups] = useState<Set<string>>(new Set())
-  const [editorOpen, setEditorOpen] = useState(false)
+  const midiEditorOpen = useStore((s) => s.midiEditorOpen)
 
-  // ── Editor closed listener — syncs editorOpen when MIDI Editor window closes
-  useEffect(() => {
-    if (!window.electronAPI?.onEditorClosed) return
-    window.electronAPI.onEditorClosed(() => setEditorOpen(false))
-  }, [])
-
-  // ── Open editor — serialises track state and opens MIDI Editor window ─────
-  const handleOpenEditor = async () => {
+  // ── Open editor — sets store flag; MidiEditor floating modal reads from store ─
+  const handleOpenEditor = () => {
     if (!midi) return
-    const midiAny = midi as any
-    const data = {
-      fileName: midi.fileName,
-      filePath: midiAny._filePath ?? '',
-      tracks: tracks.map(t => {
-        const rawTrack = midiAny._rawMidiTracks?.[t.index]
-        return {
-          index: t.index,
-          name: t.name,
-          gmName: t.gmName,
-          program: t.program,
-          group: t.group ?? '',
-          isDrum: t.isDrum,
-          color: t.color,
-          channel: rawTrack?.channel ?? t.index,
-          noteCount: rawTrack?.notes?.length ?? 0,
-          muted: t.muted,
-        }
-      }),
-    }
-    try {
-      setEditorOpen(true)
-      await window.electronAPI.openMidiEditor(data)
-    } catch (e) {
-      console.error('[Orfeo] Failed to open MIDI editor:', e)
-      setEditorOpen(false)
-    }
+    useStore.getState().setMidiEditorOpen(true)
   }
 
   // ── Group tracks — partition by GM group key, ordered by GROUP_ORDER ──────
@@ -173,18 +141,18 @@ export default function TrackPanel() {
             <SlidersVertical size={18} />
           </button>
           <button
-            onClick={midi && !editorOpen ? handleOpenEditor : undefined}
-            title={!midi ? 'Open a MIDI file first' : editorOpen ? 'MIDI PlaybackEditor is open' : 'Open MIDI Playback Editor'}
+            onClick={midi && !midiEditorOpen ? handleOpenEditor : undefined}
+            title={!midi ? 'Open a MIDI file first' : midiEditorOpen ? 'MIDI PlaybackEditor is open' : 'Open MIDI Playback Editor'}
             style={{
               background: 'none', border: 'none',
-              cursor: !midi || editorOpen ? 'default' : 'pointer',
-              color: editorOpen ? 'var(--text-amber)' : !midi ? 'var(--state-disabled)' : 'var(--text-dimmest)',
+              cursor: !midi || midiEditorOpen ? 'default' : 'pointer',
+              color: midiEditorOpen ? 'var(--text-amber)' : !midi ? 'var(--state-disabled)' : 'var(--text-dimmest)',
               padding: 4, marginTop: 8,
               display: 'flex', alignItems: 'center', justifyContent: 'center',
               transition: 'color 0.15s',
             }}
-            onMouseEnter={e => { if (midi && !editorOpen) e.currentTarget.style.color = 'var(--text-amber)' }}
-            onMouseLeave={e => { if (midi && !editorOpen) e.currentTarget.style.color = 'var(--text-dimmest)'; else (e.currentTarget as HTMLElement).style.color = editorOpen ? 'var(--text-amber)' : !midi ? 'var(--state-disabled)' : 'var(--text-dimmest)' }}
+            onMouseEnter={e => { if (midi && !midiEditorOpen) e.currentTarget.style.color = 'var(--text-amber)' }}
+            onMouseLeave={e => { if (midi && !midiEditorOpen) e.currentTarget.style.color = 'var(--text-dimmest)'; else (e.currentTarget as HTMLElement).style.color = midiEditorOpen ? 'var(--text-amber)' : !midi ? 'var(--state-disabled)' : 'var(--text-dimmest)' }}
           >
             <PencilSparkles size={18} />
           </button>
@@ -231,18 +199,18 @@ export default function TrackPanel() {
               <SlidersVertical size={16} />
             </button>
             <button
-              onClick={midi && !editorOpen ? handleOpenEditor : undefined}
-              title={!midi ? 'Open a MIDI file first' : editorOpen ? 'MIDI Playback Editor is open' : 'Open MIDI Playback Editor'}
+              onClick={midi && !midiEditorOpen ? handleOpenEditor : undefined}
+              title={!midi ? 'Open a MIDI file first' : midiEditorOpen ? 'MIDI Playback Editor is open' : 'Open MIDI Playback Editor'}
               style={{
                 background: 'none', border: 'none',
-                cursor: !midi || editorOpen ? 'default' : 'pointer',
-                color: editorOpen ? 'var(--text-amber)' : !midi ? 'var(--state-disabled)' : 'var(--text-dimmest)',
+                cursor: !midi || midiEditorOpen ? 'default' : 'pointer',
+                color: midiEditorOpen ? 'var(--text-amber)' : !midi ? 'var(--state-disabled)' : 'var(--text-dimmest)',
                 padding: 4, marginTop: 8,
                 display: 'flex', alignItems: 'center', justifyContent: 'center',
                 transition: 'color 0.15s',
               }}
-              onMouseEnter={e => { if (midi && !editorOpen) e.currentTarget.style.color = 'var(--text-amber)' }}
-              onMouseLeave={e => { if (midi && !editorOpen) e.currentTarget.style.color = 'var(--text-dimmest)'; else (e.currentTarget as HTMLElement).style.color = editorOpen ? 'var(--text-amber)' : !midi ? 'var(--state-disabled)' : 'var(--text-dimmest)' }}
+              onMouseEnter={e => { if (midi && !midiEditorOpen) e.currentTarget.style.color = 'var(--text-amber)' }}
+              onMouseLeave={e => { if (midi && !midiEditorOpen) e.currentTarget.style.color = 'var(--text-dimmest)'; else (e.currentTarget as HTMLElement).style.color = midiEditorOpen ? 'var(--text-amber)' : !midi ? 'var(--state-disabled)' : 'var(--text-dimmest)' }}
             >
               <PencilSparkles size={16} />
             </button>
