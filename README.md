@@ -186,12 +186,15 @@ All user-visible changes listed here. For full technical detail see [CHANGELOG.m
 - **Mixer Console is now accessible from the app**: click the Console icon (sliders) in the right drawer to open it, or press Ctrl+Shift+M. The console is a floating window that can be dragged anywhere on screen, minimized to get it out of the way without losing any settings, and restored by clicking the icon or shortcut again.
 - **Master strip — global track controls**: three new buttons at the top of the master strip let you mute all tracks at once, hide all tracks from the waterfall, or remove all tracks from keyboard highlighting — with a single click. Each is a toggle, so clicking again undoes the action.
 - **Master strip — track filter button**: the "All tracks / Selection" button (also in the Tracks panel header) is now duplicated in the master strip, so you can switch between full playback and piano/bass/drums-only without opening the Tracks panel.
-- **Master strip — VU wave mode**: the VU display now has two modes toggled by the FFT/Wave button. FFT mode shows 8 pitch-band columns (bass to treble, aggregated across all tracks). Wave mode shows a smooth animated bezier-curve fill that rises and falls with the music, coloured red at peaks fading to dark green at silence.
+- **Master strip — VU wave mode**: the VU display now has two modes toggled by the Bars/Wave button. Bars mode shows 8 pitch-band columns (bass to treble). Wave mode shows a smooth animated fill that rises and falls with the music, with a glow effect at peaks and a gentle breathing animation when silent.
 - **Minimize for Chord Explorer and Scale Explorer**: all three floating windows (Mixer Console, Chord Explorer, Scale Explorer) now have a (–) minimize button. Minimizing collapses the window to its header bar — the window stays on screen, all settings are preserved, and clicking (–) again or double-clicking the header restores it.
+- **Mixer channel effects now work**: Chorus, Reverb, Pan, and Volume controls on each channel strip are now fully wired to the audio engine — adjusting them produces an immediate audible effect during playback.
+- **Channel VU meters now show per-track color**: each channel strip's VU meter displays in that track's color, making it easy to see which instrument is active at a glance.
 
 **Fixed**
 - Muted channel strips now show a dark overlay across the entire strip, making it immediately clear which tracks are silent.
 - Minimizing the Mixer Console now collapses it to just the header bar instead of hiding it entirely — it behaves like a standard floating window rather than closing.
+- Adjusting a knob or fader in the Mixer Console no longer accidentally pans the strip view sideways.
 
 ---
 
