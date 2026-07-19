@@ -234,6 +234,7 @@ export default function ChannelStrip({ trackIndex }: ChannelStripProps) {
   const handleFaderMouseDown = useCallback((e: React.MouseEvent) => {
     if (muted) return
     e.preventDefault()
+    e.stopPropagation()
     setDragging(true)
     const startY   = e.clientY
     const startVol = volume

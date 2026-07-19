@@ -110,6 +110,7 @@ export default function MixerKnob({
   const handleMouseDown = useCallback((e: React.MouseEvent) => {
     if (disabled) return
     e.preventDefault()
+    e.stopPropagation()
     dragging.current = true
     onChange(getValueFromMouse(e.nativeEvent))
   }, [disabled, onChange, getValueFromMouse])
