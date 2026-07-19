@@ -4,33 +4,18 @@ import { useStore } from '../../store'
 import MixerKnob from './MixerKnob'
 import { MarqueeText } from '../MarqueeText'
 
-// ── VU meter constants (canvas pixel units) ───────────────────────────────────
-// Driven from MIDI velocity data — MIDI-event-driven, NOT audio-FFT-based.
-// Colors match --meter-* tokens in index.css exactly (canvas can't read CSS vars).
-const SEG_H    = 4    // segment height in CSS px
-const SEG_GAP  = 2    // gap between segments in CSS px
-const SEG_UNIT = SEG_H + SEG_GAP
-const VU_W     = 16   // canvas CSS width in px
-const METER_GREEN  = '#7ac040'
-const METER_YELLOW = '#c0a020'
-const METER_ORANGE = '#c07a20'
-const METER_RED    = '#c04040'
+// ── VU canvas width ───────────────────────────────────────────────────────────
+const VU_W = 16   // CSS px
 
-// ── Segment color by position ─────────────────────────────────────────────────
-function segColor(i: number, total: number): string {
-  const pct = i / total
-  if (pct >= 0.88) return METER_RED
-  if (pct >= 0.75) return METER_ORANGE
-  if (pct >= 0.60) return METER_YELLOW
-  return METER_GREEN
-}
-
-// ── Draw VU meter canvas ──────────────────────────────────────────────────────
-function drawVU(
+// ── Draw wave VU — smooth colored fill with glow, peak-hold, idle breathing ───
+// level/peak are 0-1 (MIDI velocity, already normalized by @tonejs/midi).
+// breathOffset is a small sine value applied when signal is absent.
+function drawWave(
   canvas: HTMLCanvasElement,
   level: number,
-  attack: number,
-  segs: number,
+  peak: number,
+  breathOffset: number,
+  color: string,
   canvasH: number,
 ) {
   const dpr = window.devicePixelRatio || 1
@@ -38,29 +23,42 @@ function drawVU(
   if (!ctx) return
   ctx.clearRect(0, 0, canvas.width, canvas.height)
 
-  const activeSeg = Math.floor(level * segs)
+  const W = VU_W * dpr
+  const H = canvasH * dpr
 
-  for (let i = 0; i < segs; i++) {
-    // Draw bottom-up: segment 0 = bottom, (segs-1) = top
-    const y = (canvasH - (i + 1) * SEG_UNIT) * dpr
-    const h = SEG_H * dpr
-    const w = VU_W * dpr
+  const displayLevel = Math.min(1, Math.max(0, level + breathOffset))
+  const y = H * (1 - displayLevel)
 
-    if (i < activeSeg) {
-      ctx.fillStyle = segColor(i, segs)
-      ctx.globalAlpha = 1
-    } else if (i === activeSeg && attack > 0) {
-      // Attack flash uses the correct zone color — prevents white bleed on red segments
-      ctx.fillStyle = segColor(i, segs)
-      ctx.globalAlpha = 0.5 + 0.5 * attack
-    } else {
-      // Inactive segment — very dim ghost
-      ctx.fillStyle = segColor(i, segs)
-      ctx.globalAlpha = 0.08
-    }
-    ctx.fillRect(0, y, w, h)
-  }
+  // Gradient: track color at top, near-black at bottom
+  const grad = ctx.createLinearGradient(0, 0, 0, H)
+  grad.addColorStop(0, color)
+  grad.addColorStop(1, 'rgba(0,0,0,0.08)')
+
+  // Glow — shadow is contained within the canvas pixel buffer
+  ctx.shadowColor = color
+  ctx.shadowBlur  = 10 * dpr
+
+  ctx.beginPath()
+  ctx.moveTo(0, H)
+  ctx.lineTo(0, y)
+  ctx.lineTo(W, y)
+  ctx.lineTo(W, H)
+  ctx.closePath()
+  ctx.fillStyle   = grad
+  ctx.globalAlpha = 0.85
+  ctx.fill()
+  ctx.shadowBlur  = 0
+  ctx.shadowColor = 'transparent'
   ctx.globalAlpha = 1
+
+  // Peak-hold line — thin bright line at held peak position
+  if (peak > 0.02) {
+    const peakY = H * (1 - peak)
+    ctx.fillStyle   = color
+    ctx.globalAlpha = 0.9
+    ctx.fillRect(0, peakY - dpr, W, 2 * dpr)
+    ctx.globalAlpha = 1
+  }
 }
 
 // ── EyeClosed — copied from TrackPanel (not yet exported from there) ──────────
@@ -149,10 +147,16 @@ export default function ChannelStrip({ trackIndex }: ChannelStripProps) {
   const [volume, setVolume] = useState(() => track?.volume ?? 1)
 
   // ── VU meter — refs avoid re-renders in the rAF loop ─────────────────────
-  const vuRef    = useRef<HTMLCanvasElement>(null)
-  const vuLevel  = useRef(0)
-  const vuAttack = useRef(0)
-  const rafRef   = useRef(0)
+  const vuRef       = useRef<HTMLCanvasElement>(null)
+  const vuLevel     = useRef(0)
+  const vuPeak      = useRef(0)
+  const breathPhase = useRef(0)
+  const breathAmp   = useRef(0)
+  const colorRef    = useRef(trackColor)
+  const rafRef      = useRef(0)
+
+  // ── Keep colorRef current so rAF closure always sees the latest track color ─
+  useEffect(() => { colorRef.current = trackColor }, [trackColor])
 
   // ── VU+Fader section height — measured via ResizeObserver ─────────────────
   const sectionRef = useRef<HTMLDivElement>(null)
@@ -167,9 +171,8 @@ export default function ChannelStrip({ trackIndex }: ChannelStripProps) {
     return () => ro.disconnect()
   }, [])
 
-  // Derived VU canvas dimensions from section height (8px padding on each side)
+  // Derived VU canvas height from section height (8px top padding, 0px bottom)
   const vuCanvasH = Math.max(30, sectionH - 8)
-  const vuSegs    = Math.max(5, Math.floor(vuCanvasH / SEG_UNIT))
 
   // ── Resize canvas when section height changes ──────────────────────────────
   useLayoutEffect(() => {
@@ -201,23 +204,32 @@ export default function ChannelStrip({ trackIndex }: ChannelStripProps) {
         if (currentTime < note.time + note.duration && note.velocity > maxVel)
           maxVel = note.velocity
       }
-      if (maxVel > vuLevel.current) vuAttack.current = 1
-      if (maxVel > 0) vuLevel.current = maxVel
+      if (maxVel > 0) {
+        vuLevel.current = maxVel
+        if (maxVel > vuPeak.current) vuPeak.current = maxVel
+      }
     })
     return unsub
   }, [trackIndex])
 
-  // ── rAF decay loop — decays level + attack, redraws every frame ───────────
+  // ── rAF decay loop — decays level + peak, advances breathing, redraws ─────
   useEffect(() => {
     const loop = () => {
-      vuLevel.current  = Math.max(0, vuLevel.current  - 0.013)
-      vuAttack.current = Math.max(0, vuAttack.current - 0.06)
-      if (vuRef.current) drawVU(vuRef.current, vuLevel.current, vuAttack.current, vuSegs, vuCanvasH)
+      vuLevel.current  = Math.max(0, vuLevel.current - 0.013)
+      vuPeak.current   = Math.max(0, vuPeak.current  - 0.003)
+      // Idle breathing — amplitude lerps in when silent, out when active
+      const isIdle = vuLevel.current < 0.04
+      breathAmp.current   += ((isIdle ? 0.018 : 0) - breathAmp.current) * 0.02
+      breathPhase.current += 0.018
+      const breathOffset   = Math.sin(breathPhase.current) * breathAmp.current
+      if (vuRef.current) {
+        drawWave(vuRef.current, vuLevel.current, vuPeak.current, breathOffset, colorRef.current, vuCanvasH)
+      }
       rafRef.current = requestAnimationFrame(loop)
     }
     rafRef.current = requestAnimationFrame(loop)
     return () => { if (rafRef.current) cancelAnimationFrame(rafRef.current) }
-  }, [vuSegs, vuCanvasH])
+  }, [vuCanvasH])
 
   // ── Fader drag ────────────────────────────────────────────────────────────
   const handleFaderMouseDown = useCallback((e: React.MouseEvent) => {

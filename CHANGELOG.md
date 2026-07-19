@@ -4,6 +4,28 @@
 
 ---
 
+### 19. 7. 2026 — Mixer wave VU polish — glow, peak-hold, track color, idle breathing
+
+**`src/components/Mixer/ChannelStrip.tsx`**
+- Replaced segmented bars VU (`drawVU`) with smooth wave fill (`drawWave`). Canvas renders a single filled shape from the bottom to the current level — no segments.
+- Removed: `SEG_H`, `SEG_GAP`, `SEG_UNIT`, `METER_GREEN/YELLOW/ORANGE/RED` constants; `segColor` helper; `vuAttack` ref; `vuSegs` derived value.
+- **Track color fill**: gradient from `trackColor` at top to `rgba(0,0,0,0.08)` at bottom. `trackColor` comes from `parsedTrack.color ?? track.color ?? '#808080'`, kept current via `colorRef` + `useEffect` so the rAF closure sees color changes without restarting the loop.
+- **Glow**: `ctx.shadowColor = trackColor; ctx.shadowBlur = 10 * dpr` set before `ctx.fill()`, cleared immediately after — contained within canvas pixel buffer.
+- **Peak-hold line**: `vuPeak` ref, decays at `−0.003/frame` (≈5.5s from 1→0 at 60fps, independent of and slower than `vuLevel`'s `−0.013/frame`). Drawn as a 2px bright line at `H * (1 − peak)` using the track color at `globalAlpha 0.9`.
+- **Idle breathing**: `breathPhase` increments `+0.018/frame` (~5.8s/cycle); `breathAmp` lerps toward `0.018` when `vuLevel < 0.04` and toward `0` when active (fade rate `0.02/frame` → ~1.7s engagement lag). `Math.sin(breathPhase) × breathAmp` added to displayed level each frame.
+- Subscribe: removed `vuAttack` assignment; added `vuPeak` update when `maxVel > vuPeak.current`.
+- rAF deps reduced from `[vuSegs, vuCanvasH]` to `[vuCanvasH]`.
+
+**`src/components/Mixer/MasterStrip.tsx`**
+- `drawWave` signature extended: `(canvas, levels, peaks, breathOffsets, canvasH, canvasW)`.
+- **Glow**: `ctx.shadowColor = METER_RED; ctx.shadowBlur = 14 * dpr` set before `ctx.fill()`, cleared after — peaks bloom red.
+- **Peak-hold lines**: `wavePeaks` ref (8 values), set in subscribe when `targets[i] > wavePeaks.current[i]`, decayed at `−0.003/frame` in rAF. Drawn as 2px white (`globalAlpha 0.72`) lines centered at each band's `pts[i].x` position, `BAR_COL_W` wide.
+- **Idle breathing**: same pattern as ChannelStrip but per-band — `breathOffsets[i] = sin(breathPhase + i × 0.5) × breathAmp` creates a rolling undulation across the 8 bands when signal is absent, rather than all bands pulsing in sync.
+- **Breathing offsets applied before computing `pts`** — bezier smoothing then follows the offset shape naturally.
+- New refs: `wavePeaks`, `breathPhase`, `breathAmp` (all initialized to 0).
+
+---
+
 ### 19. 7. 2026 — Mixer Console polish — window-shade minimize, VU label rename
 
 **`src/components/Mixer/MixerConsole.tsx`**
