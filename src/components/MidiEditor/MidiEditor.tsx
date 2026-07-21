@@ -125,7 +125,7 @@ const GM_FAMILIES: { key: string; label: string; programs: { num: number; name: 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
 interface EditorTrack {
-  index: number; name: string; gmName: string; program: number
+  index: number; name: string; gmName: string; trackName: string; program: number
   group: string; isDrum: boolean; color: string; channel: number; noteCount: number
   included: boolean; mergeSelected: boolean; newProgram: number
   isMerged?: boolean
@@ -249,14 +249,30 @@ function InstrumentPicker({ program, isDrum, onChange }: {
 // Include | Track | Merge | Split | Assign Instrument
 const ROW_COLS = '44px 1fr 44px 44px 220px'
 
-function TrackRow({ track, onToggleIncluded, onToggleMerge, onChangeProgram, onUnmerge, onSplit }: {
+function TrackRow({ track, onToggleIncluded, onToggleMerge, onChangeProgram, onUnmerge, onSplit, onRename }: {
   track: EditorTrack
   onToggleIncluded: () => void
   onToggleMerge: () => void
   onChangeProgram: (p: number) => void
   onUnmerge?: () => void
   onSplit?: () => void
+  onRename: (name: string) => void
 }) {
+  // ── Inline rename state ──────────────────────────────────────────────────────
+  const [editingName, setEditingName] = useState(false)
+  const [editValue, setEditValue]     = useState('')
+  const inputRef = useRef<HTMLInputElement>(null)
+
+  const startEdit = () => { setEditValue(track.trackName); setEditingName(true) }
+  const commitEdit = () => {
+    const trimmed = editValue.trim()
+    if (trimmed && trimmed !== track.trackName) onRename(trimmed)
+    setEditingName(false)
+  }
+  const cancelEdit = () => setEditingName(false)
+
+  useEffect(() => { if (editingName) inputRef.current?.select() }, [editingName])
+
   return (
     <div style={{
       display: 'grid', gridTemplateColumns: ROW_COLS,
@@ -283,9 +299,30 @@ function TrackRow({ track, onToggleIncluded, onToggleMerge, onChangeProgram, onU
         <div style={{ width: 4, height: 32, background: track.color, borderRadius: 2, flexShrink: 0 }} />
         <div style={{ minWidth: 0 }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-            <span style={{ fontSize: 'var(--text-sm)', fontWeight: 500, color: 'var(--text-muted)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-              {track.gmName}
-            </span>
+            {editingName ? (
+              <input
+                ref={inputRef}
+                value={editValue}
+                onChange={e => setEditValue(e.target.value)}
+                onBlur={commitEdit}
+                onKeyDown={e => { if (e.key === 'Enter') commitEdit(); if (e.key === 'Escape') cancelEdit() }}
+                data-no-drag
+                style={{
+                  fontSize: 'var(--text-sm)', fontWeight: 500, fontFamily: 'Inter, sans-serif',
+                  color: 'var(--text-active)', background: 'var(--bg-row)',
+                  border: '1px solid var(--accent-amber-strong)', borderRadius: 3,
+                  padding: '1px 5px', outline: 'none', width: '100%',
+                }}
+              />
+            ) : (
+              <span
+                title="Double-click to rename the track"
+                onDoubleClick={startEdit}
+                style={{ fontSize: 'var(--text-sm)', fontWeight: 500, color: 'var(--text-muted)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', cursor: 'text' }}
+              >
+                {track.trackName}
+              </span>
+            )}
             {track.isMerged && (
               <span style={{ fontSize: 9, padding: '1px 5px', borderRadius: 'var(--radius-sm)', background: '#20204a', color: '#8080cc', fontFamily: 'JetBrains Mono', flexShrink: 0 }}>
                 ⊞ merged {track.mergedFromIndices?.length}
@@ -423,7 +460,7 @@ export default function MidiEditor() {
     return tracks.map(t => {
       const rawTrack = midiAny._rawMidiTracks?.[t.index]
       return {
-        index: t.index, name: t.name, gmName: t.gmName, program: t.program,
+        index: t.index, name: t.name, gmName: t.gmName, trackName: t.trackName, program: t.program,
         group: t.group ?? '', isDrum: t.isDrum, color: t.color,
         channel: rawTrack?.channel ?? t.index,
         noteCount: rawTrack?.notes?.length ?? 0,
@@ -520,7 +557,7 @@ export default function MidiEditor() {
       const mergedRow: EditorTrack = {
         index: _mergeIdCounter++,
         name: selected.map(t => t.name).join(' + '),
-        gmName: first.gmName, program: first.program,
+        gmName: first.gmName, trackName: first.trackName, program: first.program,
         group: first.group, isDrum: first.isDrum, color: first.color, channel: first.channel,
         noteCount: totalNotes, included: true, mergeSelected: false, newProgram: first.newProgram,
         isMerged: true, mergedFromIndices: selected.map(t => t.index), mergedFromNames: selected.map(t => t.name),
@@ -565,8 +602,18 @@ export default function MidiEditor() {
       const finalOutput = hasMerge && (state.outputPath === orfeoName(state.filePath, false) || state.outputPath === orfeoName(state.filePath, true))
         ? orfeoName(state.filePath, true)
         : state.outputPath
+
+      // ── Build trackNames map: editorIndex → trackName for all included rows ───
+      // Merged rows contribute the name keyed by their first source track index,
+      // which is the index main.ts uses to represent the merged output track.
+      const trackNames: Record<number, string> = {}
+      for (const row of state.rows.filter(r => r.included)) {
+        const key = row.isMerged && row.mergedFromIndices ? row.mergedFromIndices[0] : row.index
+        trackNames[key] = row.trackName
+      }
+
       const result = await window.electronAPI.saveMidiEditor({
-        filePath: state.filePath, outputPath: finalOutput, includedTracks, mergeGroups,
+        filePath: state.filePath, outputPath: finalOutput, includedTracks, mergeGroups, trackNames,
       })
       setSaveResult({ ok: result.ok, msg: result.message })
       if (result.ok && result.base64 && result.fileName && result.filePath) {
@@ -679,6 +726,10 @@ export default function MidiEditor() {
             onChangeProgram={p => update(track.index, { newProgram: p })}
             onUnmerge={track.isMerged ? () => handleUnmerge() : undefined}
             onSplit={!track.isMerged && KEYBOARD_GROUPS.includes(track.group) && track.name !== 'Left Hand' && track.name !== 'Right Hand' ? () => handleSplitRequest(track.index) : undefined}
+            onRename={newName => {
+              update(track.index, { trackName: newName })
+              useStore.getState().updateTrack(track.index, { trackName: newName })
+            }}
           />
         ))}
       </div>

@@ -180,6 +180,13 @@ All user-visible changes listed here. For full technical detail see [CHANGELOG.m
 
 ---
 
+### 21. 7. 2026 (2)
+
+**New**
+- **Rename tracks in the MIDI Playback Editor**: double-click any track name in the editor to rename it. The new name shows immediately in the Tracks panel and Mixer Console, and is saved into the file when you use Save & Reload — future loads of that file will restore your names automatically.
+
+---
+
 ### 21. 7. 2026
 
 **New**

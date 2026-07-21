@@ -99,6 +99,22 @@ export function parseMidiBuffer(buffer: ArrayBuffer, fileName: string, filePath 
     }
   }
 
+  // ── Restore Orfeo custom track names from header text meta-events ────────────
+  // Format: ORFEO_TRACK_NAME:N:name — type-0x01 text events injected by editor:save.
+  // Only present in files previously saved through Orfeo; ignored for all other files.
+  const orfeoTrackNames: Record<number, string> = {}
+  for (const meta of (midi.header as any).meta ?? []) {
+    if (typeof meta.text === 'string' && meta.text.startsWith('ORFEO_TRACK_NAME:')) {
+      const rest = meta.text.slice('ORFEO_TRACK_NAME:'.length)
+      const colonIdx = rest.indexOf(':')
+      if (colonIdx >= 0) {
+        const idx = parseInt(rest.slice(0, colonIdx), 10)
+        const name = rest.slice(colonIdx + 1)
+        if (!isNaN(idx) && name) orfeoTrackNames[idx] = name
+      }
+    }
+  }
+
   const result: any = {
     fileName,
     duration,
@@ -113,6 +129,7 @@ export function parseMidiBuffer(buffer: ArrayBuffer, fileName: string, filePath 
     _rawMidiTracks: midi.tracks,
     _tempoMap: tempoMap,
     _barStarts: barStarts,
+    _orfeoTrackNames: Object.keys(orfeoTrackNames).length > 0 ? orfeoTrackNames : undefined,
   }
 
   return result

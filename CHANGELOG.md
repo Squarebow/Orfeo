@@ -4,6 +4,41 @@
 
 ---
 
+### 21. 7. 2026 — Track rename in MIDI Playback Editor
+
+**New: user-editable track names (`TrackState.trackName`)**
+
+**`src/types/index.ts`:**
+- Added `trackName: string` to `TrackState` interface — user-visible label, independent from `gmName` (GM resolution) and `name` (raw MIDI name). Never affects audio.
+- Added `trackNames?: Record<number, string>` to `saveMidiEditor` payload type.
+
+**`src/utils/midiParser.ts`:**
+- Added ORFEO_TRACK_NAME parsing block before building `result`: reads `midi.header.meta[]` for type-0x01 text events matching `ORFEO_TRACK_NAME:N:name` format. Parsing splits on first two colons so names containing colons survive. Result stored as `result._orfeoTrackNames: Record<number,string> | undefined`.
+
+**`src/store/index.ts`:**
+- `makeTrackState`: added `trackName: track.gmName` — defaults to GM instrument name on load.
+- `setMidi`: reads `(midi as any)._orfeoTrackNames` and applies overrides after `makeTrackState` — so files previously saved through Orfeo restore their custom names.
+
+**`src/components/MidiEditor/MidiEditor.tsx`:**
+- `EditorTrack` interface: added `trackName: string`.
+- `buildRows()`: passes `trackName: t.trackName` from store track state.
+- `handleMerge`: merged row inherits `trackName: first.trackName`.
+- `handleSave`: builds `trackNames: Record<number, string>` from all included rows (merged rows keyed by `mergedFromIndices[0]`); passes in `saveMidiEditor` payload.
+- `TrackRow` component: added `onRename: (name: string) => void` prop; inline rename via `editingName` state + `<input>` on double-click; commits on Enter/blur, cancels on Escape; amber border while editing.
+- Parent `<TrackRow>` render: wires `onRename` to call both `update(track.index, { trackName })` (editor state) and `useStore.getState().updateTrack(track.index, { trackName })` (live store — updates Tracks panel and Mixer Console immediately).
+
+**`electron/main.ts`:**
+- `editor:save` handler: added `trackNames?: Record<number, string>` to payload type.
+- After merge step: builds `rawIdxToName` (raw MIDI index → name) from `payload.trackNames` + `noteTrackIndices`; computes `includedInOrder`; strips old `ORFEO_TRACK_NAME:*` events from `midi.header.meta`; pushes new `{ type: 'text', text: 'ORFEO_TRACK_NAME:N:name', ticks: 0 }` entries in output-track order. Format round-trips cleanly through `@tonejs/midi`'s `toArray()`.
+
+**`src/components/Mixer/ChannelStrip.tsx` and `src/components/TrackPanel/TrackPanel.tsx`:**
+- Both already updated in a prior session to read `track.trackName` — confirmed in place.
+
+**Storage format:**
+- `ORFEO_TRACK_NAME:N:name` stored as type-0x01 text meta-event in `midi.header.meta` at ticks=0, one per output track. N is 0-based output track index (matching parser's track array). Standard DAWs ignore type-0x01 header events; Orfeo recognises the prefix on load.
+
+---
+
 ### 21. 7. 2026 — Loop region overhaul: waterfall overlay, Alt+drag, draggable boundaries, tooltips
 
 **Bar counter fix (`TopBar.tsx`):**
