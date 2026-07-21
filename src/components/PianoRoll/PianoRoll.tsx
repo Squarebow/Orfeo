@@ -46,53 +46,100 @@ function buildKeyLayout(W: number, midiMin: number, midiMax: number): KeyLayout[
   return layout
 }
 
-// ── LoopOverlay — amber band + boundary lines over the waterfall ──────────────
+// ── LoopOverlay — amber band + draggable boundary lines over the waterfall ────
 // Rendered as an HTML layer (not PixiJS) so it never touches the canvas internals.
 // Uses the same time→Y formula as the PixiJS render loop.
+// The two boundary lines have a 12px hit area and can be dragged up/down to
+// adjust loopEnd (top line) and loopStart (bottom line) independently.
 function LoopOverlay() {
-  const loopStart      = useStore(s => s.loopStart)
-  const loopEnd        = useStore(s => s.loopEnd)
+  const loopStart        = useStore(s => s.loopStart)
+  const loopEnd          = useStore(s => s.loopEnd)
   const loopRegionActive = useStore(s => s.loopRegionActive)
-  const currentTime    = useStore(s => s.currentTime)
-  const zoomLevel      = useStore(s => s.zoomLevel)
+  const currentTime      = useStore(s => s.currentTime)
+  const zoomLevel        = useStore(s => s.zoomLevel)
+
+  const overlayRef  = useRef<HTMLDivElement>(null)
+  const draggingRef = useRef<'start' | 'end' | null>(null)
+
+  // ── Global drag handlers — read everything from store so values are never stale ─
+  useEffect(() => {
+    const yToTime = (clientY: number): number => {
+      const el = overlayRef.current
+      if (!el) return 0
+      const rect = el.getBoundingClientRect()
+      const pct  = Math.max(0, Math.min(100, (clientY - rect.top) / rect.height * 100))
+      const s    = useStore.getState()
+      const vs   = VISIBLE_SECONDS / (s.zoomLevel ?? 1)
+      return s.currentTime + vs * (1 - pct / (PLAYHEAD_RATIO * 100))
+    }
+
+    const onMove = (e: MouseEvent) => {
+      const which = draggingRef.current
+      if (!which) return
+      const st  = useStore.getState()
+      const dur = st.midi?.duration ?? Infinity
+      const t   = Math.max(0, Math.min(dur, yToTime(e.clientY)))
+      const ls  = st.loopStart ?? 0
+      const le  = st.loopEnd   ?? 0
+      if (which === 'end')   st.setLoopRegion(ls, Math.max(t, ls + 0.01))
+      else                   st.setLoopRegion(Math.min(t, le - 0.01), le)
+    }
+
+    const onUp = () => { draggingRef.current = null }
+
+    window.addEventListener('mousemove', onMove)
+    window.addEventListener('mouseup',   onUp)
+    return () => {
+      window.removeEventListener('mousemove', onMove)
+      window.removeEventListener('mouseup',   onUp)
+    }
+  }, [])
 
   if (loopStart === null || loopEnd === null) return null
 
-  const visibleSecs  = VISIBLE_SECONDS / (zoomLevel ?? 1)
-  // Convert a song time to a top-% position in the container.
-  // Playhead sits at PLAYHEAD_RATIO from the top; future notes are above it (lower %).
-  const timeToPct = (t: number) =>
+  const visibleSecs = VISIBLE_SECONDS / (zoomLevel ?? 1)
+  const timeToPct   = (t: number) =>
     PLAYHEAD_RATIO * 100 - ((t - currentTime) / visibleSecs) * (PLAYHEAD_RATIO * 100)
 
-  const topPct = Math.max(0, Math.min(100, timeToPct(loopEnd)))
-  const botPct = Math.max(0, Math.min(100, timeToPct(loopStart)))
+  const topPct    = Math.max(0, Math.min(100, timeToPct(loopEnd)))
+  const botPct    = Math.max(0, Math.min(100, timeToPct(loopStart)))
   const heightPct = botPct - topPct
   if (heightPct <= 0) return null
 
-  const amber      = loopRegionActive ? 'rgba(232,160,39,0.55)' : 'rgba(232,160,39,0.30)'
-  const amberFill  = loopRegionActive ? 'rgba(232,160,39,0.07)' : 'rgba(232,160,39,0.04)'
+  const amber     = loopRegionActive ? 'rgba(232,160,39,0.55)' : 'rgba(232,160,39,0.30)'
+  const amberFill = loopRegionActive ? 'rgba(232,160,39,0.07)' : 'rgba(232,160,39,0.04)'
+
+  // ── Shared style for draggable handle: 12px hit area centered on 2px visual line ─
+  const handleWrap = (topPct: number): React.CSSProperties => ({
+    position: 'absolute', left: 0, right: 0,
+    top: `${topPct}%`, height: 12,
+    transform: 'translateY(-6px)',
+    cursor: 'ns-resize', pointerEvents: 'auto',
+    display: 'flex', alignItems: 'center',
+  })
 
   return (
-    <div style={{ position: 'absolute', inset: 0, pointerEvents: 'none', overflow: 'hidden' }}>
+    <div ref={overlayRef} style={{ position: 'absolute', inset: 0, pointerEvents: 'none', overflow: 'hidden' }}>
       {/* Tinted band */}
       <div style={{
         position: 'absolute', left: 0, right: 0,
         top: `${topPct}%`, height: `${heightPct}%`,
         background: amberFill,
       }} />
-      {/* Top boundary line (loopEnd) */}
-      <div style={{
-        position: 'absolute', left: 0, right: 0,
-        top: `${topPct}%`, height: 2,
-        background: amber,
-      }} />
-      {/* Bottom boundary line (loopStart) */}
-      <div style={{
-        position: 'absolute', left: 0, right: 0,
-        top: `${botPct}%`, height: 2,
-        background: amber,
-        transform: 'translateY(-2px)',
-      }} />
+      {/* Top boundary line — controls loopEnd */}
+      <div
+        onMouseDown={e => { e.preventDefault(); e.stopPropagation(); draggingRef.current = 'end' }}
+        style={handleWrap(topPct)}
+      >
+        <div style={{ width: '100%', height: 2, background: amber }} />
+      </div>
+      {/* Bottom boundary line — controls loopStart */}
+      <div
+        onMouseDown={e => { e.preventDefault(); e.stopPropagation(); draggingRef.current = 'start' }}
+        style={handleWrap(botPct)}
+      >
+        <div style={{ width: '100%', height: 2, background: amber }} />
+      </div>
     </div>
   )
 }
