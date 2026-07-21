@@ -228,7 +228,15 @@ export default function TopBar() {
           </TBtn>
           <TBtn onClick={() => handleSkip(1)} disabled={!midi} title={`Forward ${SKIP_SECS}s`}><FastForward size={15} strokeWidth={1.5} /></TBtn>
           <TBtn onClick={() => midi && seek(midi.duration)} disabled={!midi} title="Go to end"><SkipForward size={16} strokeWidth={1.5} /></TBtn>
-          <TBtn onClick={() => setLoopRegionActive(!loopRegionActive)} disabled={!midi} active={loopRegionActive} blink={nudgeLoop} title={loopTooltip}><Repeat size={13} strokeWidth={1.5} /></TBtn>
+          <TBtn
+            onClick={() => {
+              const newActive = !loopRegionActive
+              setLoopRegionActive(newActive)
+              // Jump to loop start and begin playback when activating with a selection
+              if (newActive && loopStart !== null) seekAndPlay(loopStart)
+            }}
+            disabled={!midi} active={loopRegionActive} blink={nudgeLoop} title={loopTooltip}
+          ><Repeat size={13} strokeWidth={1.5} /></TBtn>
           {nudgeLoop && (
             <span style={{
               color: 'var(--text-amber)', fontSize: 9, fontFamily: 'Inter, sans-serif',
