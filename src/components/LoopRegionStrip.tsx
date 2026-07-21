@@ -88,6 +88,7 @@ interface DragState {
   anchorX: number
   anchorTime: number
   startedDragging: boolean
+  freeSnap: boolean  // true when Alt held at drag start → skip bar snapping on release
 }
 
 // ── LoopRegionStrip — canvas timeline for drag-to-select loop sections ───────
@@ -296,8 +297,8 @@ export default function LoopRegionStrip() {
       previewRef.current = null
       if (!preview) return
 
-      const snappedStart = snapToBar(preview.start, barStarts, midi.duration)
-      const snappedEnd   = snapToBar(preview.end,   barStarts, midi.duration)
+      const snappedStart = drag.freeSnap ? preview.start : snapToBar(preview.start, barStarts, midi.duration)
+      const snappedEnd   = drag.freeSnap ? preview.end   : snapToBar(preview.end,   barStarts, midi.duration)
 
       if (Math.abs(snappedStart - snappedEnd) < 0.01) {
         useStore.getState().clearLoopRegion()
@@ -392,7 +393,7 @@ export default function LoopRegionStrip() {
       }
     }
 
-    dragRef.current = { mode, anchorX: x, anchorTime: time, startedDragging: false }
+    dragRef.current = { mode, anchorX: x, anchorTime: time, startedDragging: false, freeSnap: e.altKey }
   }
 
   // ── Cursor feedback over handles ──────────────────────────────────────────

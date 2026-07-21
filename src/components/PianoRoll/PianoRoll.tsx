@@ -1,4 +1,4 @@
-import { useEffect, useRef } from 'react'
+import React, { useEffect, useRef } from 'react'
 import { Application, Graphics } from 'pixi.js'
 import { useStore } from '../../store'
 import { isBlackKey } from '../../utils/midiParser'
@@ -44,6 +44,57 @@ function buildKeyLayout(W: number, midiMin: number, midiMax: number): KeyLayout[
     else layout[idx] = { x: wi * ww - bw / 2, width: bw }
   }
   return layout
+}
+
+// ── LoopOverlay — amber band + boundary lines over the waterfall ──────────────
+// Rendered as an HTML layer (not PixiJS) so it never touches the canvas internals.
+// Uses the same time→Y formula as the PixiJS render loop.
+function LoopOverlay() {
+  const loopStart      = useStore(s => s.loopStart)
+  const loopEnd        = useStore(s => s.loopEnd)
+  const loopRegionActive = useStore(s => s.loopRegionActive)
+  const currentTime    = useStore(s => s.currentTime)
+  const zoomLevel      = useStore(s => s.zoomLevel)
+
+  if (loopStart === null || loopEnd === null) return null
+
+  const visibleSecs  = VISIBLE_SECONDS / (zoomLevel ?? 1)
+  // Convert a song time to a top-% position in the container.
+  // Playhead sits at PLAYHEAD_RATIO from the top; future notes are above it (lower %).
+  const timeToPct = (t: number) =>
+    PLAYHEAD_RATIO * 100 - ((t - currentTime) / visibleSecs) * (PLAYHEAD_RATIO * 100)
+
+  const topPct = Math.max(0, Math.min(100, timeToPct(loopEnd)))
+  const botPct = Math.max(0, Math.min(100, timeToPct(loopStart)))
+  const heightPct = botPct - topPct
+  if (heightPct <= 0) return null
+
+  const amber      = loopRegionActive ? 'rgba(232,160,39,0.55)' : 'rgba(232,160,39,0.30)'
+  const amberFill  = loopRegionActive ? 'rgba(232,160,39,0.07)' : 'rgba(232,160,39,0.04)'
+
+  return (
+    <div style={{ position: 'absolute', inset: 0, pointerEvents: 'none', overflow: 'hidden' }}>
+      {/* Tinted band */}
+      <div style={{
+        position: 'absolute', left: 0, right: 0,
+        top: `${topPct}%`, height: `${heightPct}%`,
+        background: amberFill,
+      }} />
+      {/* Top boundary line (loopEnd) */}
+      <div style={{
+        position: 'absolute', left: 0, right: 0,
+        top: `${topPct}%`, height: 2,
+        background: amber,
+      }} />
+      {/* Bottom boundary line (loopStart) */}
+      <div style={{
+        position: 'absolute', left: 0, right: 0,
+        top: `${botPct}%`, height: 2,
+        background: amber,
+        transform: 'translateY(-2px)',
+      }} />
+    </div>
+  )
 }
 
 export default function PianoRoll() {
@@ -351,6 +402,8 @@ export default function PianoRoll() {
     <div
       ref={containerRef}
       style={{ width: '100%', height: '100%', background: 'var(--bg, #0f0f12)', overflow: 'hidden', position: 'relative' }}
-    />
+    >
+      <LoopOverlay />
+    </div>
   )
 }
