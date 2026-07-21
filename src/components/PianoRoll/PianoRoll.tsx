@@ -1,4 +1,4 @@
-import React, { useEffect, useRef } from 'react'
+import React, { useEffect, useRef, useState } from 'react'
 import { Application, Graphics } from 'pixi.js'
 import { useStore } from '../../store'
 import { isBlackKey } from '../../utils/midiParser'
@@ -49,8 +49,10 @@ function buildKeyLayout(W: number, midiMin: number, midiMax: number): KeyLayout[
 // ── LoopOverlay — amber band + draggable boundary lines over the waterfall ────
 // Rendered as an HTML layer (not PixiJS) so it never touches the canvas internals.
 // Uses the same time→Y formula as the PixiJS render loop.
-// The two boundary lines have a 12px hit area and can be dragged up/down to
-// adjust loopEnd (top line) and loopStart (bottom line) independently.
+//
+// Three interaction modes:
+//   • Boundary drag  — grab either amber line to adjust loopEnd / loopStart
+//   • Alt + drag     — click anywhere in the waterfall to draw a new selection
 function LoopOverlay() {
   const loopStart        = useStore(s => s.loopStart)
   const loopEnd          = useStore(s => s.loopEnd)
@@ -60,8 +62,23 @@ function LoopOverlay() {
 
   const overlayRef  = useRef<HTMLDivElement>(null)
   const draggingRef = useRef<'start' | 'end' | null>(null)
+  const newDragRef  = useRef<{ anchorTime: number } | null>(null)
+  const [altDown, setAltDown] = useState(false)
 
-  // ── Global drag handlers — read everything from store so values are never stale ─
+  // ── Track Alt key — enables waterfall draw mode ────────────────────────────
+  useEffect(() => {
+    const down = (e: KeyboardEvent) => {
+      if (e.key === 'Alt') { e.preventDefault(); setAltDown(true) }
+    }
+    const up = (e: KeyboardEvent) => {
+      if (e.key === 'Alt') { setAltDown(false); newDragRef.current = null }
+    }
+    window.addEventListener('keydown', down)
+    window.addEventListener('keyup',   up)
+    return () => { window.removeEventListener('keydown', down); window.removeEventListener('keyup', up) }
+  }, [])
+
+  // ── Global mouse handlers — all state read live from store, never stale ────
   useEffect(() => {
     const yToTime = (clientY: number): number => {
       const el = overlayRef.current
@@ -74,18 +91,31 @@ function LoopOverlay() {
     }
 
     const onMove = (e: MouseEvent) => {
-      const which = draggingRef.current
-      if (!which) return
       const st  = useStore.getState()
       const dur = st.midi?.duration ?? Infinity
-      const t   = Math.max(0, Math.min(dur, yToTime(e.clientY)))
-      const ls  = st.loopStart ?? 0
-      const le  = st.loopEnd   ?? 0
-      if (which === 'end')   st.setLoopRegion(ls, Math.max(t, ls + 0.01))
-      else                   st.setLoopRegion(Math.min(t, le - 0.01), le)
+
+      // Boundary handle drag
+      const which = draggingRef.current
+      if (which) {
+        const t  = Math.max(0, Math.min(dur, yToTime(e.clientY)))
+        const ls = st.loopStart ?? 0
+        const le = st.loopEnd   ?? 0
+        if (which === 'end') st.setLoopRegion(ls, Math.max(t, ls + 0.01))
+        else                 st.setLoopRegion(Math.min(t, le - 0.01), le)
+        return
+      }
+
+      // New-region drag (Alt+drag in waterfall)
+      const nd = newDragRef.current
+      if (nd) {
+        const t     = Math.max(0, Math.min(dur, yToTime(e.clientY)))
+        const start = Math.min(nd.anchorTime, t)
+        const end   = Math.max(nd.anchorTime, t)
+        if (end - start > 0.01) st.setLoopRegion(start, end)
+      }
     }
 
-    const onUp = () => { draggingRef.current = null }
+    const onUp = () => { draggingRef.current = null; newDragRef.current = null }
 
     window.addEventListener('mousemove', onMove)
     window.addEventListener('mouseup',   onUp)
@@ -95,51 +125,74 @@ function LoopOverlay() {
     }
   }, [])
 
-  if (loopStart === null || loopEnd === null) return null
+  // ── Waterfall mousedown — seeds a new region when Alt is held ─────────────
+  const handleOverlayMouseDown = (e: React.MouseEvent<HTMLDivElement>) => {
+    if (!e.altKey) return
+    e.preventDefault()
+    const el = overlayRef.current
+    if (!el) return
+    const rect = el.getBoundingClientRect()
+    const pct  = Math.max(0, Math.min(100, (e.clientY - rect.top) / rect.height * 100))
+    const s    = useStore.getState()
+    const vs   = VISIBLE_SECONDS / (s.zoomLevel ?? 1)
+    newDragRef.current = { anchorTime: s.currentTime + vs * (1 - pct / (PLAYHEAD_RATIO * 100)) }
+  }
 
-  const visibleSecs = VISIBLE_SECONDS / (zoomLevel ?? 1)
-  const timeToPct   = (t: number) =>
-    PLAYHEAD_RATIO * 100 - ((t - currentTime) / visibleSecs) * (PLAYHEAD_RATIO * 100)
-
-  const topPct    = Math.max(0, Math.min(100, timeToPct(loopEnd)))
-  const botPct    = Math.max(0, Math.min(100, timeToPct(loopStart)))
-  const heightPct = botPct - topPct
-  if (heightPct <= 0) return null
-
-  const amber     = loopRegionActive ? 'rgba(232,160,39,0.55)' : 'rgba(232,160,39,0.30)'
-  const amberFill = loopRegionActive ? 'rgba(232,160,39,0.07)' : 'rgba(232,160,39,0.04)'
-
-  // ── Shared style for draggable handle: 12px hit area centered on 2px visual line ─
-  const handleWrap = (topPct: number): React.CSSProperties => ({
+  // ── Shared style for a draggable boundary handle ───────────────────────────
+  const handleWrap = (pct: number): React.CSSProperties => ({
     position: 'absolute', left: 0, right: 0,
-    top: `${topPct}%`, height: 12,
+    top: `${pct}%`, height: 12,
     transform: 'translateY(-6px)',
     cursor: 'ns-resize', pointerEvents: 'auto',
     display: 'flex', alignItems: 'center',
   })
 
+  // ── Derive visual positions ────────────────────────────────────────────────
+  const hasSelection = loopStart !== null && loopEnd !== null
+  const visibleSecs  = VISIBLE_SECONDS / (zoomLevel ?? 1)
+  const timeToPct    = (t: number) =>
+    PLAYHEAD_RATIO * 100 - ((t - currentTime) / visibleSecs) * (PLAYHEAD_RATIO * 100)
+
+  const topPct    = hasSelection ? Math.max(0, Math.min(100, timeToPct(loopEnd!)))   : 0
+  const botPct    = hasSelection ? Math.max(0, Math.min(100, timeToPct(loopStart!))) : 0
+  const heightPct = botPct - topPct
+
+  const amber     = loopRegionActive ? 'rgba(232,160,39,0.55)' : 'rgba(232,160,39,0.30)'
+  const amberFill = loopRegionActive ? 'rgba(232,160,39,0.07)' : 'rgba(232,160,39,0.04)'
+
   return (
-    <div ref={overlayRef} style={{ position: 'absolute', inset: 0, pointerEvents: 'none', overflow: 'hidden' }}>
-      {/* Tinted band */}
-      <div style={{
-        position: 'absolute', left: 0, right: 0,
-        top: `${topPct}%`, height: `${heightPct}%`,
-        background: amberFill,
-      }} />
-      {/* Top boundary line — controls loopEnd */}
-      <div
-        onMouseDown={e => { e.preventDefault(); e.stopPropagation(); draggingRef.current = 'end' }}
-        style={handleWrap(topPct)}
-      >
-        <div style={{ width: '100%', height: 2, background: amber }} />
-      </div>
-      {/* Bottom boundary line — controls loopStart */}
-      <div
-        onMouseDown={e => { e.preventDefault(); e.stopPropagation(); draggingRef.current = 'start' }}
-        style={handleWrap(botPct)}
-      >
-        <div style={{ width: '100%', height: 2, background: amber }} />
-      </div>
+    <div
+      ref={overlayRef}
+      onMouseDown={handleOverlayMouseDown}
+      style={{
+        position: 'absolute', inset: 0, overflow: 'hidden',
+        // Capture clicks only when Alt is held; otherwise pass through to PixiJS canvas
+        pointerEvents: altDown ? 'auto' : 'none',
+        cursor: altDown ? 'crosshair' : 'default',
+      }}
+    >
+      {/* Tinted band + boundary handles — only when a selection exists */}
+      {hasSelection && heightPct > 0 && (<>
+        <div style={{
+          position: 'absolute', left: 0, right: 0,
+          top: `${topPct}%`, height: `${heightPct}%`,
+          background: amberFill, pointerEvents: 'none',
+        }} />
+        {/* Top boundary line — controls loopEnd */}
+        <div
+          onMouseDown={e => { e.preventDefault(); e.stopPropagation(); draggingRef.current = 'end' }}
+          style={handleWrap(topPct)}
+        >
+          <div style={{ width: '100%', height: 2, background: amber }} />
+        </div>
+        {/* Bottom boundary line — controls loopStart */}
+        <div
+          onMouseDown={e => { e.preventDefault(); e.stopPropagation(); draggingRef.current = 'start' }}
+          style={handleWrap(botPct)}
+        >
+          <div style={{ width: '100%', height: 2, background: amber }} />
+        </div>
+      </>)}
     </div>
   )
 }
