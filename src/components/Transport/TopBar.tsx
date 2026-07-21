@@ -284,7 +284,7 @@ export default function TopBar() {
                 background: 'var(--bg-tile)', borderRadius: 4, padding: '2px 6px',
                 display: 'flex', alignItems: 'baseline', gap: 0,
               }}>
-                <span style={{ color: 'var(--topbar-bar-number)', fontFamily: 'JetBrains Mono', fontSize: 'var(--text-sm)', fontWeight: 700, lineHeight: 1 }}>
+                <span style={{ color: 'var(--topbar-bar-number)', fontFamily: 'JetBrains Mono', fontSize: 'var(--text-sm)', fontWeight: 700, lineHeight: 1, minWidth: '3ch', textAlign: 'right', display: 'inline-block' }}>
                   {currentBar}
                 </span>
                 <span style={{ color: 'var(--topbar-bar-total)', fontFamily: 'JetBrains Mono', fontSize: 'var(--text-sm)', lineHeight: 1 }}>
