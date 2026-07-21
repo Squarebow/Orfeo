@@ -288,7 +288,7 @@ export default function PianoRoll() {
         // Playhead — full width
         playhead.clear()
         playhead.rect(0, py, W + 1, 2)
-        playhead.fill({ color: 0xe8a027, alpha: 0.85 })
+        playhead.fill({ color: 0xc6c8c8, alpha: 0.90 })
 
         // Notes
         notes.clear()
