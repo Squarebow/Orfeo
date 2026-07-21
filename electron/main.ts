@@ -168,6 +168,7 @@ ipcMain.handle('editor:save', async (_e, payload: {
   outputPath: string
   includedTracks: { index: number; newProgram: number }[]
   mergeGroups: number[][]
+  trackNames?: Record<number, string>
 }) => {
   try {
     if (!payload.filePath) return { ok: false, message: 'No source file loaded' }
@@ -210,6 +211,27 @@ ipcMain.handle('editor:save', async (_e, payload: {
         base.notes.sort((a: any, b: any) => a.time - b.time)
         includedSet.delete(idxs[i])
       }
+    }
+
+    // ── Inject ORFEO_TRACK_NAME text meta-events for each output track ────────
+    // Build rawIdx → name from payload.trackNames (keyed by editor index)
+    if (payload.trackNames && Object.keys(payload.trackNames).length > 0) {
+      const rawIdxToName: Record<number, string> = {}
+      for (const [edIdxStr, name] of Object.entries(payload.trackNames)) {
+        const rawIdx = noteTrackIndices[parseInt(edIdxStr, 10)]
+        if (rawIdx !== undefined) rawIdxToName[rawIdx] = name
+      }
+      // Surviving output tracks in file order
+      const includedInOrder = noteTrackIndices.filter(i => includedSet.has(i))
+      // Strip any existing ORFEO_TRACK_NAME entries then push fresh ones
+      const existingMeta = (midi.header as any).meta ?? []
+      ;(midi.header as any).meta = existingMeta.filter(
+        (m: any) => !(typeof m.text === 'string' && m.text.startsWith('ORFEO_TRACK_NAME:'))
+      )
+      includedInOrder.forEach((rawIdx, outIdx) => {
+        const name = rawIdxToName[rawIdx]
+        if (name) (midi.header as any).meta.push({ type: 'text', text: `ORFEO_TRACK_NAME:${outIdx}:${name}`, ticks: 0 })
+      })
     }
 
     // Remove excluded

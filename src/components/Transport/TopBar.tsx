@@ -82,8 +82,8 @@ export default function TopBar() {
   const isTempoChanged = !!midi && Math.abs(Math.round((bpm / originalBpm) * 100) - 100) > 1
   const displayKey = detectedKey ? formatKey(detectedKey, noteNaming, accidentals) : '—'
 
-  // ── Nudge: region selected but loop not yet activated ─────────────────────
-  const nudgeLoop = loopRegionEnabled && !!midi && loopStart !== null && loopEnd !== null && !loopRegionActive
+  // ── Nudge: region selected but loop not yet activated (regardless of strip visibility) ──
+  const nudgeLoop = !!midi && loopStart !== null && loopEnd !== null && !loopRegionActive
 
   // ── Loop button tooltip — context-aware based on region state ─────────────
   const loopStartBar = loopStart !== null ? (() => {
@@ -97,13 +97,13 @@ export default function TopBar() {
     const pastLastBarStart = barStarts.length === 0 || loopEnd > barStarts[barStarts.length - 1] + 0.001
     return Math.max(loopStartBar, pastLastBarStart ? rawBar : rawBar - 1)
   })() : null
-  const loopTooltip = loopRegionEnabled && loopStart !== null
+  const loopTooltip = loopStart !== null
     ? (loopRegionActive
         ? `Looping bars ${loopStartBar}–${loopEndBar} · Click to disable`
         : `Loop bars ${loopStartBar}–${loopEndBar} · Click to enable`)
     : loopRegionEnabled
       ? 'Loop entire song · Drag the strip above to select a section'
-      : 'Loop entire song · Enable Loop Region in Settings to select a specific section'
+      : 'Loop entire song · Alt+drag on the waterfall to select a section'
 
   // ── Live BPM — reads current tempo from _tempoMap so rubato files update ─
   const rawTempoMap = (midi as any)?._tempoMap as { bpm: number; time: number }[] | undefined
@@ -228,7 +228,15 @@ export default function TopBar() {
           </TBtn>
           <TBtn onClick={() => handleSkip(1)} disabled={!midi} title={`Forward ${SKIP_SECS}s`}><FastForward size={15} strokeWidth={1.5} /></TBtn>
           <TBtn onClick={() => midi && seek(midi.duration)} disabled={!midi} title="Go to end"><SkipForward size={16} strokeWidth={1.5} /></TBtn>
-          <TBtn onClick={() => setLoopRegionActive(!loopRegionActive)} disabled={!midi} active={loopRegionActive} blink={nudgeLoop} title={loopTooltip}><Repeat size={13} strokeWidth={1.5} /></TBtn>
+          <TBtn
+            onClick={() => {
+              const newActive = !loopRegionActive
+              setLoopRegionActive(newActive)
+              // Jump to loop start when activating with a selection, without forcing playback
+              if (newActive && loopStart !== null) seek(loopStart)
+            }}
+            disabled={!midi} active={loopRegionActive} blink={nudgeLoop} title={loopTooltip}
+          ><Repeat size={13} strokeWidth={1.5} /></TBtn>
           {nudgeLoop && (
             <span style={{
               color: 'var(--text-amber)', fontSize: 9, fontFamily: 'Inter, sans-serif',
@@ -284,7 +292,7 @@ export default function TopBar() {
                 background: 'var(--bg-tile)', borderRadius: 4, padding: '2px 6px',
                 display: 'flex', alignItems: 'baseline', gap: 0,
               }}>
-                <span style={{ color: 'var(--topbar-bar-number)', fontFamily: 'JetBrains Mono', fontSize: 'var(--text-sm)', fontWeight: 700, lineHeight: 1 }}>
+                <span style={{ color: 'var(--topbar-bar-number)', fontFamily: 'JetBrains Mono', fontSize: 'var(--text-sm)', fontWeight: 700, lineHeight: 1, minWidth: '3ch', textAlign: 'right', display: 'inline-block' }}>
                   {currentBar}
                 </span>
                 <span style={{ color: 'var(--topbar-bar-total)', fontFamily: 'JetBrains Mono', fontSize: 'var(--text-sm)', lineHeight: 1 }}>

@@ -365,7 +365,7 @@ function TrackRow({ track, dimmed, onMute, onSolo, onVisible, onKeyboard }: {
       {/* ── Row 1: color bar + instrument name spanning full available width ── */}
       <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
         <div style={{ width: 3, height: 20, background: track.color, borderRadius: 2, flexShrink: 0, opacity: dimmed ? 0.6 : 1 }} />
-        <MarqueeText name={track.gmName} spanStyle={{ fontSize: 'var(--text-sm)', fontWeight: 500, color: 'var(--text-muted)' }} />
+        <MarqueeText name={track.trackName ?? track.gmName} spanStyle={{ fontSize: 'var(--text-sm)', fontWeight: 500, color: 'var(--text-muted)' }} />
       </div>
 
       {/* ── Row 2: track number (left) + M/S/V/K controls (right) ─────────── */}

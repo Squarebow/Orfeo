@@ -197,6 +197,7 @@ function makeTrackState(track: ParsedTrack): TrackState {
     index: track.index,
     name: track.name,
     gmName: track.gmName,
+    trackName: track.gmName,  // user label — defaults to GM name, overridden on load if file has ORFEO_TRACK_NAME
     program: track.program,
     group: track.group,
     isDrum: track.isDrum,
@@ -215,9 +216,15 @@ export const useStore = create<OrfeoStore>((set, get) => ({
   barStarts: [],
   setMidi: (midi) => {
     if (!midi) { set({ midi: null, tracks: [], currentTime: 0, playbackState: 'stopped', trackPanelOpen: false, barStarts: [], chordSequence: [], chordPrompterOpen: false, loopStart: null, loopEnd: null, loopRegionActive: false }); return }
+    // ── Apply ORFEO_TRACK_NAME overrides parsed from the file's header meta-events ─
+    const orfeoNames = (midi as any)._orfeoTrackNames as Record<number, string> | undefined
     set({
       midi,
-      tracks: midi.tracks.map(t => makeTrackState(t)),
+      tracks: midi.tracks.map((t, i) => {
+        const ts = makeTrackState(t)
+        if (orfeoNames?.[i]) ts.trackName = orfeoNames[i]
+        return ts
+      }),
       currentTime: 0,
       playbackState: 'stopped',
       bpm: midi.bpm,

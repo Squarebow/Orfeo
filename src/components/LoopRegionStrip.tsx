@@ -4,13 +4,53 @@
 // Drag to create a region; drag handles to adjust; click outside to clear.
 // Selection endpoints snap to nearest bar boundary on release.
 
-import { useEffect, useRef, useState, type CSSProperties } from 'react'
+import React, { useEffect, useRef, useState, useCallback, type CSSProperties } from 'react'
 import { ChevronUp, ChevronDown } from 'lucide-react'
 import { useStore } from '../store'
 
 const STRIP_H       = 24
 const HANDLE_VIS_W  = 4   // drawn width — thin enough not to hide small selections
 const HANDLE_HIT_W  = 8   // mouse hit radius — wider for usability
+
+// ── Long-press chevron: click = single step, hold = accelerating repeat ───────
+function LongPressChevron({ children, onStep }: { children: React.ReactNode; onStep: () => void }) {
+  const onStepRef = useRef(onStep)
+  useEffect(() => { onStepRef.current = onStep }, [onStep])
+
+  const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null)
+  const timeoutRef  = useRef<ReturnType<typeof setTimeout>  | null>(null)
+  const stepsRef    = useRef(0)
+
+  const stop = useCallback(() => {
+    if (intervalRef.current) { clearInterval(intervalRef.current); intervalRef.current = null }
+    if (timeoutRef.current)  { clearTimeout(timeoutRef.current);   timeoutRef.current  = null }
+    stepsRef.current = 0
+  }, [])
+
+  const start = useCallback(() => {
+    onStepRef.current()
+    stepsRef.current = 0
+    timeoutRef.current = setTimeout(() => {
+      intervalRef.current = setInterval(() => {
+        onStepRef.current()
+        stepsRef.current++
+      }, Math.max(40, 120 - stepsRef.current * 4))
+    }, 400)
+  }, [])
+
+  useEffect(() => () => stop(), [stop])
+
+  return (
+    <button
+      onMouseDown={start}
+      onMouseUp={stop}
+      onMouseLeave={stop}
+      style={{ background: 'none', border: 'none', color: 'var(--text-amber)', cursor: 'pointer', padding: '1px 2px', lineHeight: 0, display: 'flex' }}
+    >
+      {children}
+    </button>
+  )
+}
 
 // ── Snap a time value to the nearest bar boundary ─────────────────────────────
 function snapToBar(time: number, barStarts: number[], duration: number): number {
@@ -48,6 +88,7 @@ interface DragState {
   anchorX: number
   anchorTime: number
   startedDragging: boolean
+  freeSnap: boolean  // true when Alt held at drag start → skip bar snapping on release
 }
 
 // ── LoopRegionStrip — canvas timeline for drag-to-select loop sections ───────
@@ -256,8 +297,8 @@ export default function LoopRegionStrip() {
       previewRef.current = null
       if (!preview) return
 
-      const snappedStart = snapToBar(preview.start, barStarts, midi.duration)
-      const snappedEnd   = snapToBar(preview.end,   barStarts, midi.duration)
+      const snappedStart = drag.freeSnap ? preview.start : snapToBar(preview.start, barStarts, midi.duration)
+      const snappedEnd   = drag.freeSnap ? preview.end   : snapToBar(preview.end,   barStarts, midi.duration)
 
       if (Math.abs(snappedStart - snappedEnd) < 0.01) {
         useStore.getState().clearLoopRegion()
@@ -352,7 +393,7 @@ export default function LoopRegionStrip() {
       }
     }
 
-    dragRef.current = { mode, anchorX: x, anchorTime: time, startedDragging: false }
+    dragRef.current = { mode, anchorX: x, anchorTime: time, startedDragging: false, freeSnap: e.altKey }
   }
 
   // ── Cursor feedback over handles ──────────────────────────────────────────
@@ -394,8 +435,12 @@ export default function LoopRegionStrip() {
         ref={canvasRef}
         onMouseDown={handleMouseDown}
         onMouseMove={handleMouseMoveCanvas}
+        onDoubleClick={() => useStore.getState().clearLoopRegion()}
         onDragStart={e => e.preventDefault()}
         draggable={false}
+        title={hasSelection
+          ? 'Click outside selection to reset · Drag handles to adjust'
+          : 'Drag to select a bar range · Alt+drag on waterfall for precise timing'}
         style={{ display: 'block', width: '100%', height: STRIP_H, cursor: 'crosshair' }}
       />
 
@@ -495,18 +540,12 @@ export default function LoopRegionStrip() {
               />
               {/* Amber chevron steppers */}
               <div style={{ display: 'flex', flexDirection: 'column', gap: 0 }}>
-                <button
-                  onClick={() => { setFromBar(v => { const n = Math.min(totalBars, v + 1); if (toBar < n) setToBar(n); return n }) }}
-                  style={{ background: 'none', border: 'none', color: 'var(--text-amber)', cursor: 'pointer', padding: '1px 2px', lineHeight: 0, display: 'flex' }}
-                >
+                <LongPressChevron onStep={() => { setFromBar(v => { const n = Math.min(totalBars, v + 1); if (toBar < n) setToBar(n); return n }) }}>
                   <ChevronUp size={11} strokeWidth={2.5} />
-                </button>
-                <button
-                  onClick={() => setFromBar(v => Math.max(1, v - 1))}
-                  style={{ background: 'none', border: 'none', color: 'var(--text-amber)', cursor: 'pointer', padding: '1px 2px', lineHeight: 0, display: 'flex' }}
-                >
+                </LongPressChevron>
+                <LongPressChevron onStep={() => setFromBar(v => Math.max(1, v - 1))}>
                   <ChevronDown size={11} strokeWidth={2.5} />
-                </button>
+                </LongPressChevron>
               </div>
             </div>
 
@@ -532,18 +571,12 @@ export default function LoopRegionStrip() {
               />
               {/* Amber chevron steppers */}
               <div style={{ display: 'flex', flexDirection: 'column', gap: 0 }}>
-                <button
-                  onClick={() => setToBar(v => Math.min(totalBars, v + 1))}
-                  style={{ background: 'none', border: 'none', color: 'var(--text-amber)', cursor: 'pointer', padding: '1px 2px', lineHeight: 0, display: 'flex' }}
-                >
+                <LongPressChevron onStep={() => setToBar(v => Math.min(totalBars, v + 1))}>
                   <ChevronUp size={11} strokeWidth={2.5} />
-                </button>
-                <button
-                  onClick={() => setToBar(v => Math.max(fromBar, v - 1))}
-                  style={{ background: 'none', border: 'none', color: 'var(--text-amber)', cursor: 'pointer', padding: '1px 2px', lineHeight: 0, display: 'flex' }}
-                >
+                </LongPressChevron>
+                <LongPressChevron onStep={() => setToBar(v => Math.max(fromBar, v - 1))}>
                   <ChevronDown size={11} strokeWidth={2.5} />
-                </button>
+                </LongPressChevron>
               </div>
             </div>
 

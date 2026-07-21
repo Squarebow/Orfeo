@@ -4,6 +4,82 @@
 
 ---
 
+### 21. 7. 2026 — Loop icon blink + tooltip fix for waterfall Alt+drag selections
+
+**`src/components/Transport/TopBar.tsx`:**
+- `nudgeLoop`: removed `loopRegionEnabled` gate — loop icon now blinks amber whenever a region is selected (`loopStart !== null`) and loop is not yet active, regardless of whether the Loop Region strip is visible in Settings.
+- `loopTooltip`: branching now leads with `loopStart !== null` check instead of `loopRegionEnabled`, so bar numbers always appear when a selection exists. No-selection fallback when strip is hidden now reads "Alt+drag on the waterfall to select a section" instead of directing the user to Settings.
+
+---
+
+### 21. 7. 2026 — Track rename in MIDI Playback Editor
+
+**New: user-editable track names (`TrackState.trackName`)**
+
+**`src/types/index.ts`:**
+- Added `trackName: string` to `TrackState` interface — user-visible label, independent from `gmName` (GM resolution) and `name` (raw MIDI name). Never affects audio.
+- Added `trackNames?: Record<number, string>` to `saveMidiEditor` payload type.
+
+**`src/utils/midiParser.ts`:**
+- Added ORFEO_TRACK_NAME parsing block before building `result`: reads `midi.header.meta[]` for type-0x01 text events matching `ORFEO_TRACK_NAME:N:name` format. Parsing splits on first two colons so names containing colons survive. Result stored as `result._orfeoTrackNames: Record<number,string> | undefined`.
+
+**`src/store/index.ts`:**
+- `makeTrackState`: added `trackName: track.gmName` — defaults to GM instrument name on load.
+- `setMidi`: reads `(midi as any)._orfeoTrackNames` and applies overrides after `makeTrackState` — so files previously saved through Orfeo restore their custom names.
+
+**`src/components/MidiEditor/MidiEditor.tsx`:**
+- `EditorTrack` interface: added `trackName: string`.
+- `buildRows()`: passes `trackName: t.trackName` from store track state.
+- `handleMerge`: merged row inherits `trackName: first.trackName`.
+- `handleSave`: builds `trackNames: Record<number, string>` from all included rows (merged rows keyed by `mergedFromIndices[0]`); passes in `saveMidiEditor` payload.
+- `TrackRow` component: added `onRename: (name: string) => void` prop; inline rename via `editingName` state + `<input>` on double-click; commits on Enter/blur, cancels on Escape; amber border while editing.
+- Parent `<TrackRow>` render: wires `onRename` to call both `update(track.index, { trackName })` (editor state) and `useStore.getState().updateTrack(track.index, { trackName })` (live store — updates Tracks panel and Mixer Console immediately).
+
+**`electron/main.ts`:**
+- `editor:save` handler: added `trackNames?: Record<number, string>` to payload type.
+- After merge step: builds `rawIdxToName` (raw MIDI index → name) from `payload.trackNames` + `noteTrackIndices`; computes `includedInOrder`; strips old `ORFEO_TRACK_NAME:*` events from `midi.header.meta`; pushes new `{ type: 'text', text: 'ORFEO_TRACK_NAME:N:name', ticks: 0 }` entries in output-track order. Format round-trips cleanly through `@tonejs/midi`'s `toArray()`.
+
+**`src/components/Mixer/ChannelStrip.tsx` and `src/components/TrackPanel/TrackPanel.tsx`:**
+- Both already updated in a prior session to read `track.trackName` — confirmed in place.
+
+**Storage format:**
+- `ORFEO_TRACK_NAME:N:name` stored as type-0x01 text meta-event in `midi.header.meta` at ticks=0, one per output track. N is 0-based output track index (matching parser's track array). Standard DAWs ignore type-0x01 header events; Orfeo recognises the prefix on load.
+
+---
+
+### 21. 7. 2026 — Loop region overhaul: waterfall overlay, Alt+drag, draggable boundaries, tooltips
+
+**Bar counter fix (`TopBar.tsx`):**
+- `currentBar` span: added `minWidth: '3ch'` + `display: 'inline-block'` + `textAlign: 'right'` — reserves space for 3 digits at all times so the counter growing from 1→2→3 digits no longer shifts the playback controls.
+
+**Loop region bar-range popup (`LoopRegionStrip.tsx`):**
+- Added `LongPressChevron` component (identical pattern to `LongPressArrow` in TopBar): mousedown fires once immediately, hold for 400ms starts an accelerating repeat interval (120ms → 40ms). Wired to all four chevrons in the From/To popup — no longer requires repeated individual clicks.
+
+**Alt+drag free selection in the loop region strip (`LoopRegionStrip.tsx`):**
+- Added `freeSnap: boolean` field to `DragState`. Set from `e.altKey` on `handleMouseDown`.
+- In `onUp`: when `drag.freeSnap` is true, skips `snapToBar()` and commits raw times — allows sub-bar / beat-level precision. Normal drag still snaps to bar boundaries.
+
+**Waterfall overlay (`PianoRoll.tsx`):**
+- New `LoopOverlay` component rendered as an HTML `div` with `position: absolute; inset: 0; pointer-events: none` inside the PianoRoll container. Never touches PixiJS internals.
+- Time→Y mapping: `timeToPct(t) = PLAYHEAD_RATIO * 100 − ((t − currentTime) / visibleSecs) * (PLAYHEAD_RATIO * 100)` — mirrors the PixiJS render formula.
+- Renders: amber tinted band + two 2px amber boundary lines (loopEnd at top, loopStart at bottom). Fill and line opacity increase when `loopRegionActive` is true.
+- Boundary lines: wrapped in a 12px hit-area div (`transform: translateY(-6px)`) with `cursor: ns-resize`. `onMouseDown` sets `draggingRef.current` to `'end'` or `'start'`. Global `mousemove`/`mouseup` handlers (registered once in `useEffect`) read live values from `useStore.getState()` and call `setLoopRegion()` on each frame.
+- **Alt+drag to draw new region**: tracks `altDown` state via `keydown`/`keyup` listeners. When `altDown`, root overlay switches to `pointer-events: auto` + `cursor: crosshair`. `onMouseDown` seeds `newDragRef.current = { anchorTime }`. `onMove` updates the region live from anchor to current mouse position. `onUp` clears the drag.
+- Boundary handle `onMouseDown` calls `e.stopPropagation()` — takes priority over the new-region handler even when Alt is held.
+
+**Playhead color (`PianoRoll.tsx`):**
+- PixiJS playhead fill changed from `0xe8a027` (amber) to `0xc6c8c8` (`--text-default`, light grey) to visually distinguish the playhead line from the amber loop region boundaries.
+
+**Loop activation behaviour (`TopBar.tsx`):**
+- Loop icon `onClick`: when toggling loop ON and `loopStart !== null`, calls `seek(loopStart)` — positions the playhead at the start of the selection without forcing playback. Space / play button still controls play/pause.
+
+**Tooltips and double-click reset:**
+- `LoopRegionStrip.tsx` canvas: dynamic `title` — "Click outside selection to reset · Drag handles to adjust" when a selection exists; "Drag to select a bar range · Alt+drag on waterfall for precise timing" otherwise. `onDoubleClick` calls `clearLoopRegion()`.
+- `LoopOverlay` root div: `title="Drag to select loop region · Double-click to reset"` when `altDown`. `onDoubleClick` calls `clearLoopRegion()`.
+- Both boundary handle divs: `title="Drag to adjust · Double-click to reset"` + `onDoubleClick` → `clearLoopRegion()`. These always have `pointer-events: auto` so double-click reset works without holding Alt.
+
+---
+
 ### 19. 7. 2026 — MIDI Editor column rework, modal header unification, z-index focus
 
 **MIDI Editor — column layout:**
