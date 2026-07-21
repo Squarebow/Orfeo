@@ -180,6 +180,23 @@ All user-visible changes listed here. For full technical detail see [CHANGELOG.m
 
 ---
 
+### 21. 7. 2026
+
+**New**
+- **Loop region visible on the waterfall**: when a loop region is set, an amber tinted band with two boundary lines appears directly on the falling-note waterfall, so you can see exactly which notes are inside the selection as it scrolls past.
+- **Drag loop boundaries on the waterfall**: the two amber boundary lines can be grabbed and dragged up or down to fine-tune the loop start and end points while seeing the notes.
+- **Alt+drag to draw a loop region on the waterfall**: hold Alt and drag up or down anywhere on the waterfall to draw a new loop region directly — notes are fully visible while you select.
+- **Alt+drag for precise loop selection in the top bar strip**: hold Alt while dragging in the loop region strip to bypass bar-snapping and select at any exact time position (useful for phrases that start before the downbeat or ring past the bar line).
+- **Activating the loop jumps to the start**: clicking the loop icon when a region is selected now positions the playhead at the start of the region. Play/pause still works normally.
+- **Double-click to reset the loop region**: double-click anywhere on the loop region strip, on either amber boundary line, or on the waterfall (while holding Alt) to clear the selection.
+- **Long-press bar range chevrons**: holding the up/down arrows in the bar range popup now increments/decrements continuously instead of requiring a click for each step.
+
+**Fixed**
+- Bar counter in the top bar no longer shifts the playback controls when the number grows from one to two or three digits — space is now always reserved for three digits.
+- The playhead line on the waterfall is now light grey instead of amber, making it clearly distinct from the amber loop region boundary lines.
+
+---
+
 ### 19. 7. 2026 (3)
 
 **Fixed**

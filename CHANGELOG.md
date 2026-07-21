@@ -4,6 +4,39 @@
 
 ---
 
+### 21. 7. 2026 — Loop region overhaul: waterfall overlay, Alt+drag, draggable boundaries, tooltips
+
+**Bar counter fix (`TopBar.tsx`):**
+- `currentBar` span: added `minWidth: '3ch'` + `display: 'inline-block'` + `textAlign: 'right'` — reserves space for 3 digits at all times so the counter growing from 1→2→3 digits no longer shifts the playback controls.
+
+**Loop region bar-range popup (`LoopRegionStrip.tsx`):**
+- Added `LongPressChevron` component (identical pattern to `LongPressArrow` in TopBar): mousedown fires once immediately, hold for 400ms starts an accelerating repeat interval (120ms → 40ms). Wired to all four chevrons in the From/To popup — no longer requires repeated individual clicks.
+
+**Alt+drag free selection in the loop region strip (`LoopRegionStrip.tsx`):**
+- Added `freeSnap: boolean` field to `DragState`. Set from `e.altKey` on `handleMouseDown`.
+- In `onUp`: when `drag.freeSnap` is true, skips `snapToBar()` and commits raw times — allows sub-bar / beat-level precision. Normal drag still snaps to bar boundaries.
+
+**Waterfall overlay (`PianoRoll.tsx`):**
+- New `LoopOverlay` component rendered as an HTML `div` with `position: absolute; inset: 0; pointer-events: none` inside the PianoRoll container. Never touches PixiJS internals.
+- Time→Y mapping: `timeToPct(t) = PLAYHEAD_RATIO * 100 − ((t − currentTime) / visibleSecs) * (PLAYHEAD_RATIO * 100)` — mirrors the PixiJS render formula.
+- Renders: amber tinted band + two 2px amber boundary lines (loopEnd at top, loopStart at bottom). Fill and line opacity increase when `loopRegionActive` is true.
+- Boundary lines: wrapped in a 12px hit-area div (`transform: translateY(-6px)`) with `cursor: ns-resize`. `onMouseDown` sets `draggingRef.current` to `'end'` or `'start'`. Global `mousemove`/`mouseup` handlers (registered once in `useEffect`) read live values from `useStore.getState()` and call `setLoopRegion()` on each frame.
+- **Alt+drag to draw new region**: tracks `altDown` state via `keydown`/`keyup` listeners. When `altDown`, root overlay switches to `pointer-events: auto` + `cursor: crosshair`. `onMouseDown` seeds `newDragRef.current = { anchorTime }`. `onMove` updates the region live from anchor to current mouse position. `onUp` clears the drag.
+- Boundary handle `onMouseDown` calls `e.stopPropagation()` — takes priority over the new-region handler even when Alt is held.
+
+**Playhead color (`PianoRoll.tsx`):**
+- PixiJS playhead fill changed from `0xe8a027` (amber) to `0xc6c8c8` (`--text-default`, light grey) to visually distinguish the playhead line from the amber loop region boundaries.
+
+**Loop activation behaviour (`TopBar.tsx`):**
+- Loop icon `onClick`: when toggling loop ON and `loopStart !== null`, calls `seek(loopStart)` — positions the playhead at the start of the selection without forcing playback. Space / play button still controls play/pause.
+
+**Tooltips and double-click reset:**
+- `LoopRegionStrip.tsx` canvas: dynamic `title` — "Click outside selection to reset · Drag handles to adjust" when a selection exists; "Drag to select a bar range · Alt+drag on waterfall for precise timing" otherwise. `onDoubleClick` calls `clearLoopRegion()`.
+- `LoopOverlay` root div: `title="Drag to select loop region · Double-click to reset"` when `altDown`. `onDoubleClick` calls `clearLoopRegion()`.
+- Both boundary handle divs: `title="Drag to adjust · Double-click to reset"` + `onDoubleClick` → `clearLoopRegion()`. These always have `pointer-events: auto` so double-click reset works without holding Alt.
+
+---
+
 ### 19. 7. 2026 — MIDI Editor column rework, modal header unification, z-index focus
 
 **MIDI Editor — column layout:**
