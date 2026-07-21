@@ -232,8 +232,8 @@ export default function TopBar() {
             onClick={() => {
               const newActive = !loopRegionActive
               setLoopRegionActive(newActive)
-              // Jump to loop start and begin playback when activating with a selection
-              if (newActive && loopStart !== null) seekAndPlay(loopStart)
+              // Jump to loop start when activating with a selection, without forcing playback
+              if (newActive && loopStart !== null) seek(loopStart)
             }}
             disabled={!midi} active={loopRegionActive} blink={nudgeLoop} title={loopTooltip}
           ><Repeat size={13} strokeWidth={1.5} /></TBtn>
