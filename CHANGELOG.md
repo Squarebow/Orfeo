@@ -4,6 +4,89 @@
 
 ---
 
+### 21. 7. 2026 — Note Editor Phase 1: dev overlay + single-track editing canvas
+
+**New directory: `src/components/NoteEditor/`**
+
+`NoteEditorCanvas.tsx`:
+- Standalone PixiJS 8 Application (separate from PianoRoll — no shared state)
+- Frozen time layout: time = 0 at top of canvas, increases downward (chronological reading order)
+- Renders note rectangles using the same `buildKeyLayout` + pitch→pixel mapping as PianoRoll; black key column shading, C-note octave dividers, horizontal bar lines per time signature
+- Notes drawn in track colour at 85% alpha; hovered and dragged notes at 100% alpha with amber halo (1px hover, 2px drag)
+- White highlight stripe at note top — matches PianoRoll visual style
+- `redrawRef` pattern: latest `redraw()` function held in a ref so all event handlers always call the current version without stale closures
+- **Add note**: click empty canvas space → pitch from X (`xToMidi` with black-key priority), start tick from Y + scroll offset, default 1-beat duration + 0.8 velocity
+- **Retime drag**: pointerdown on note → axis locks to 'time' when |dy| ≥ |dx| > 4px threshold; note.ticks updated live during drag + array re-sorted; single `NoteCommand` pushed to history on pointerup with original/final ticks
+- **Repitch drag**: axis locks to 'pitch' when |dx| > |dy|; note.midi derived from `xToMidi(origNoteX + dx, ...)` so drag snaps to actual key layout
+- **Delete**: right-click or Delete/Backspace while note is hovered
+- `setPointerCapture` / `releasePointerCapture` ensures drag events continue even when cursor leaves canvas
+- Mouse-wheel scroll: vertical, clamped to content height
+- Keyboard: Ctrl+Z undo, Ctrl+Y / Ctrl+Shift+Z redo (in addition to toolbar buttons)
+
+`NoteEditorOverlay.tsx`:
+- Full-screen `position: fixed` overlay, `zIndex: 9600`, dark backdrop
+- `buildSession(rawBuffer)` creates fresh `Midi` copy + `NoteEditorHistory` each open; session is discarded on close — not persisted to store
+- `useReducer` force-update pattern for undo/redo button state (Undo/Redo disabled when `canUndo`/`canRedo` is false)
+- Toolbar: "Note Editor" label · track name (gmName fallback) · note count · Undo · Redo · Close
+- Hint bar: five one-line interaction reminders below toolbar
+- `onKeyDown` stopPropagation on overlay root prevents global shortcuts (Space, Escape, Ctrl+O) from firing while editing
+- Track colour borrowed from `store.tracks[0].color` (first non-empty parsed track)
+- Phase 1: hardcoded to first `@tonejs/midi` track with notes; track selector deferred to Phase 4
+
+**Modified files:**
+
+`src/App.tsx`:
+- Added `NoteEditorOverlay` import
+- Added `noteEditorOpen` useState flag
+- Added `case 'n'/'N'` to keydown handler: Ctrl+Shift+N toggles the overlay (same pattern as Ctrl+Shift+M for Mixer)
+- Mounted `<NoteEditorOverlay open={noteEditorOpen} onClose={...} />` alongside MixerConsole and MidiEditor
+
+**v1 CC list confirmed:** CC11 (expression), CC7 (volume), CC64 (sustain) — for Phase 3 CC lane implementation.
+
+---
+
+### 21. 7. 2026 — Note Editor Phase 0: groundwork
+
+Internal groundwork only — no user-visible changes. Establishes the command and history layers that Note Editor phases 1–5 will build on.
+
+**Architecture decision recorded:** Dropped `@signal-app/core` + `midifile-ts` in favour of building directly on `@tonejs/midi` (already installed). No new runtime dependencies required. `@tonejs/midi`'s `Midi` class is parsed fresh when the editor opens (dual-parse strategy: the existing parse for playback is untouched), mutated via the command system, and re-encoded via `midi.toArray()`.
+
+**New files:**
+
+`src/utils/noteEditorCommands.ts`:
+- `NoteCommand` interface — `apply()`, `revert()`, `description`; all `cmd*` functions return this
+- `NoteSpec` interface — tick-based spec for creating a note (midi, ticks, durationTicks, velocity)
+- `ToneNote` type alias — `Track['notes'][number]` without a non-barrel import
+- `cmdAddNote(track, spec)` — inserts in tick-sorted order via `track.addNote()`, captures the inserted `Note` instance by set-difference for clean undo
+- `cmdRemoveNote(track, note)` — splices out, undo re-inserts via `track.addNote()` restoring sort order
+- `cmdMoveNote(track, note, newTicks)` — sets `note.ticks` directly then re-sorts `track.notes[]`; undo restores and re-sorts
+- `cmdRepitchNote(note, newMidi)` — direct assignment, undo restores
+- `cmdResizeNote(note, newDurationTicks)` — direct assignment, undo restores
+- `cmdSetNoteVelocity(note, newVelocity)` — clamped to [0, 1], undo restores
+- `cmdSetRangeVelocity(notes[], newVelocity)` — batch velocity, stores originals per-note for undo
+- `midiToEditableCopy(rawBuffer)` — `new Midi(rawBuffer)`; creates an independent mutable copy from `_raw`
+- `editableCopyToBuffer(midi)` — `midi.toArray()` → `ArrayBuffer` via `.slice()` (safe for non-zero byteOffset)
+
+`src/utils/noteEditorHistory.ts`:
+- `NoteEditorHistory` interface — `push`, `undo`, `redo`, `canUndo`, `canRedo`, `clear`, `debugStack`
+- `createNoteEditorHistory(maxSize?)` — array + cursor undo stack; push discards redo branch; oldest entries trimmed at maxSize; `debugStack()` returns labelled entries with cursor marker
+
+`src/utils/noteEditorRoundTripTest.ts`:
+- `runNoteEditorRoundTripTest()` — Phase 0 proof-of-concept: reads `midi._raw` from store, parses fresh `Midi` instance, applies velocity + addNote commands, encodes to buffer, re-parses and verifies track/note counts and velocity round-trip, confirms `parseMidiBuffer()` accepts the output, exercises full undo + redo chain
+
+`THIRD_PARTY_LICENSES.md` — created; credits `@tonejs/midi` (MIT, Yotam Mann) with full license text.
+
+**Modified files:**
+
+`src/App.tsx`:
+- Added import of `runNoteEditorRoundTripTest`
+- Added `useEffect` (runs once on mount) that exposes `window.__orfeoNoteEditorRoundTripTest` in dev mode only
+
+`tsconfig.json`:
+- Added `"types": ["vite/client"]` — required for `import.meta.env.DEV` typecheck in dev-only guards
+
+---
+
 ### 21. 7. 2026 — Loop icon blink + tooltip fix for waterfall Alt+drag selections
 
 **`src/components/Transport/TopBar.tsx`:**

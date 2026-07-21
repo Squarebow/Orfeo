@@ -13,6 +13,7 @@ import ScaleExplorer from './components/ScaleExplorer'
 import LockedChordModal from './components/LockedChordModal'
 import MidiEditor from './components/MidiEditor/MidiEditor'
 import MixerConsole from './components/Mixer/MixerConsole'
+import NoteEditorOverlay from './components/NoteEditor/NoteEditorOverlay'
 import { parseMidiBuffer } from './utils/midiParser'
 import { detectKeyFromTracks, parseKeySignature } from './utils/keyDetection'
 import { useMidiFile } from './hooks/useMidiFile'
@@ -21,6 +22,7 @@ import { useAudioEngine } from './hooks/useAudioEngine'
 import { useMetronome } from './hooks/useMetronome'
 import { useChordSequence } from './hooks/useChordSequence'
 import { useMidiInput } from './hooks/useMidiInput'
+import { runNoteEditorRoundTripTest } from './utils/noteEditorRoundTripTest'
 
 export default function App() {
   const midi = useStore((s) => s.midi)
@@ -36,6 +38,7 @@ export default function App() {
   // ── Mixer Console — Ctrl+Shift+M toggles open; also wired to the Console drawer icon ──
 
   // ── Drag-and-drop state ───────────────────────────────────────────────────
+  const [noteEditorOpen, setNoteEditorOpen]   = useState(false)
   const [isDragOver, setIsDragOver]           = useState(false)
   const [dropConfirmPath, setDropConfirmPath] = useState<string | null>(null)
   const [dropError, setDropError]             = useState<string | null>(null)
@@ -148,6 +151,13 @@ export default function App() {
   }, [loadDroppedFilePath, showDropError])
 
 
+  // ── Dev-only: expose Phase 0 round-trip test on window ───────────────────
+  useEffect(() => {
+    if (import.meta.env.DEV) {
+      (window as any).__orfeoNoteEditorRoundTripTest = runNoteEditorRoundTripTest
+    }
+  }, [])
+
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) return
@@ -176,6 +186,13 @@ export default function App() {
             if (s.mixerOpen && s.mixerMinimized) s.setMixerMinimized(false)
             else if (s.mixerOpen) s.setMixerOpen(false)
             else s.setMixerOpen(true)
+          }
+          break
+        case 'n':
+        case 'N':
+          if (e.ctrlKey && e.shiftKey) {
+            e.preventDefault()
+            setNoteEditorOpen(v => !v)
           }
           break
       }
@@ -254,6 +271,9 @@ export default function App() {
 
       {/* ── MIDI Playback Editor — floating modal, opened via Track Panel pencil icon ── */}
       <MidiEditor />
+
+      {/* ── Note Editor — dev overlay, toggled via Ctrl+Shift+N ──────────────── */}
+      <NoteEditorOverlay open={noteEditorOpen} onClose={() => setNoteEditorOpen(false)} />
 
       {/* ── Drop confirmation modal — shown when a file is already loaded ────── */}
       {dropConfirmPath && (
