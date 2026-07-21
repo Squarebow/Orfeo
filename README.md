@@ -180,6 +180,14 @@ All user-visible changes listed here. For full technical detail see [CHANGELOG.m
 
 ---
 
+### 21. 7. 2026 (3)
+
+**Fixed**
+- The loop icon in the playback bar now blinks amber whenever a loop region is selected — even when the Loop Region strip is hidden in Settings (e.g. after drawing a selection with Alt+drag on the waterfall). Previously it only blinked when the strip was enabled.
+- The loop icon tooltip now shows the selected bar range in all cases where a selection exists. When no selection is active and the strip is hidden, the tooltip now hints at Alt+drag on the waterfall instead of directing you to Settings.
+
+---
+
 ### 21. 7. 2026 (2)
 
 **New**

@@ -4,6 +4,14 @@
 
 ---
 
+### 21. 7. 2026 — Loop icon blink + tooltip fix for waterfall Alt+drag selections
+
+**`src/components/Transport/TopBar.tsx`:**
+- `nudgeLoop`: removed `loopRegionEnabled` gate — loop icon now blinks amber whenever a region is selected (`loopStart !== null`) and loop is not yet active, regardless of whether the Loop Region strip is visible in Settings.
+- `loopTooltip`: branching now leads with `loopStart !== null` check instead of `loopRegionEnabled`, so bar numbers always appear when a selection exists. No-selection fallback when strip is hidden now reads "Alt+drag on the waterfall to select a section" instead of directing the user to Settings.
+
+---
+
 ### 21. 7. 2026 — Track rename in MIDI Playback Editor
 
 **New: user-editable track names (`TrackState.trackName`)**

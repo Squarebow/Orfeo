@@ -82,8 +82,8 @@ export default function TopBar() {
   const isTempoChanged = !!midi && Math.abs(Math.round((bpm / originalBpm) * 100) - 100) > 1
   const displayKey = detectedKey ? formatKey(detectedKey, noteNaming, accidentals) : '—'
 
-  // ── Nudge: region selected but loop not yet activated ─────────────────────
-  const nudgeLoop = loopRegionEnabled && !!midi && loopStart !== null && loopEnd !== null && !loopRegionActive
+  // ── Nudge: region selected but loop not yet activated (regardless of strip visibility) ──
+  const nudgeLoop = !!midi && loopStart !== null && loopEnd !== null && !loopRegionActive
 
   // ── Loop button tooltip — context-aware based on region state ─────────────
   const loopStartBar = loopStart !== null ? (() => {
@@ -97,13 +97,13 @@ export default function TopBar() {
     const pastLastBarStart = barStarts.length === 0 || loopEnd > barStarts[barStarts.length - 1] + 0.001
     return Math.max(loopStartBar, pastLastBarStart ? rawBar : rawBar - 1)
   })() : null
-  const loopTooltip = loopRegionEnabled && loopStart !== null
+  const loopTooltip = loopStart !== null
     ? (loopRegionActive
         ? `Looping bars ${loopStartBar}–${loopEndBar} · Click to disable`
         : `Loop bars ${loopStartBar}–${loopEndBar} · Click to enable`)
     : loopRegionEnabled
       ? 'Loop entire song · Drag the strip above to select a section'
-      : 'Loop entire song · Enable Loop Region in Settings to select a specific section'
+      : 'Loop entire song · Alt+drag on the waterfall to select a section'
 
   // ── Live BPM — reads current tempo from _tempoMap so rubato files update ─
   const rawTempoMap = (midi as any)?._tempoMap as { bpm: number; time: number }[] | undefined
