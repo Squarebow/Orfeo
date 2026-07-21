@@ -435,8 +435,12 @@ export default function LoopRegionStrip() {
         ref={canvasRef}
         onMouseDown={handleMouseDown}
         onMouseMove={handleMouseMoveCanvas}
+        onDoubleClick={() => useStore.getState().clearLoopRegion()}
         onDragStart={e => e.preventDefault()}
         draggable={false}
+        title={hasSelection
+          ? 'Click outside selection to reset · Drag handles to adjust'
+          : 'Drag to select a bar range · Alt+drag on waterfall for precise timing'}
         style={{ display: 'block', width: '100%', height: STRIP_H, cursor: 'crosshair' }}
       />
 

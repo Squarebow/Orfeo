@@ -164,6 +164,8 @@ function LoopOverlay() {
     <div
       ref={overlayRef}
       onMouseDown={handleOverlayMouseDown}
+      onDoubleClick={() => useStore.getState().clearLoopRegion()}
+      title={altDown ? 'Drag to select loop region · Double-click to reset' : undefined}
       style={{
         position: 'absolute', inset: 0, overflow: 'hidden',
         // Capture clicks only when Alt is held; otherwise pass through to PixiJS canvas
@@ -181,6 +183,8 @@ function LoopOverlay() {
         {/* Top boundary line — controls loopEnd */}
         <div
           onMouseDown={e => { e.preventDefault(); e.stopPropagation(); draggingRef.current = 'end' }}
+          onDoubleClick={e => { e.stopPropagation(); useStore.getState().clearLoopRegion() }}
+          title="Drag to adjust · Double-click to reset"
           style={handleWrap(topPct)}
         >
           <div style={{ width: '100%', height: 2, background: amber }} />
@@ -188,6 +192,8 @@ function LoopOverlay() {
         {/* Bottom boundary line — controls loopStart */}
         <div
           onMouseDown={e => { e.preventDefault(); e.stopPropagation(); draggingRef.current = 'start' }}
+          onDoubleClick={e => { e.stopPropagation(); useStore.getState().clearLoopRegion() }}
+          title="Drag to adjust · Double-click to reset"
           style={handleWrap(botPct)}
         >
           <div style={{ width: '100%', height: 2, background: amber }} />
