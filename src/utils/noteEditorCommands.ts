@@ -157,6 +157,43 @@ export function midiToEditableCopy(rawBuffer: ArrayBuffer): Midi {
   return new Midi(rawBuffer)
 }
 
+// ── cmdRemoveNotes ────────────────────────────────────────────────────────────
+// Removes multiple notes as a single undoable step.  Each note's spec is
+// captured before removal so revert() can re-add them all via addNote().
+// Note: revert() creates new Note instances (same limitation as cmdRemoveNote).
+export function cmdRemoveNotes(track: Track, notes: ToneNote[]): NoteCommand {
+  const snapshots: NoteSpec[] = notes.map(n => ({
+    midi:             n.midi,
+    ticks:            n.ticks,
+    durationTicks:    n.durationTicks,
+    velocity:         n.velocity,
+    noteOffVelocity:  n.noteOffVelocity,
+  }))
+
+  return {
+    description: `Remove ${notes.length} note${notes.length > 1 ? 's' : ''}`,
+
+    apply() {
+      for (const n of notes) {
+        const idx = track.notes.indexOf(n)
+        if (idx !== -1) track.notes.splice(idx, 1)
+      }
+    },
+
+    revert() {
+      for (const snap of snapshots) {
+        track.addNote({
+          midi:             snap.midi,
+          ticks:            snap.ticks,
+          durationTicks:    snap.durationTicks,
+          velocity:         snap.velocity,
+          noteOffVelocity:  snap.noteOffVelocity ?? 0,
+        })
+      }
+    },
+  }
+}
+
 // ── editableCopyToBuffer ──────────────────────────────────────────────────────
 // Encodes a mutable Midi instance back to an ArrayBuffer suitable for passing
 // to parseMidiBuffer() or Orfeo's reloadFile() path.

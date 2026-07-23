@@ -4,6 +4,56 @@
 
 ---
 
+### 23. 7. 2026 — Note Editor Phase 1.5 bug pass: selection color, note names, spacebar, draw order
+
+**`src/App.tsx`:**
+- Spacebar no longer triggers playback when the Note Editor is open — `noteEditorOpen` added to the guard condition alongside `chordExplorerOpen`/`scaleExplorerOpen`; `noteEditorOpen` added to `useEffect` deps
+
+**`src/components/NoteEditor/NoteEditorCanvas.tsx` — second pass:**
+- **Selection color**: changed from amber `0xe8a027` to blue `0x4488ee` for both selection outlines and marquee rectangle; amber was overloaded with hover/drag highlight
+- **Selection rect bounds**: tightened to match note body exactly (`key.x + 1`, `key.width - 2`) — was 1px wider on all sides, producing visible overflow into adjacent key columns
+- **Note draw order**: white key notes drawn first, black key notes on top — matches physical piano key layering; prevents black key note bodies from rendering underneath adjacent white notes
+- **Note alpha**: raised from 0.85 to 0.9
+- **Note names — switched from Canvas2D overlay to PixiJS Text pool**: Canvas2D rendered immediately while PixiJS updates on next ticker tick, causing a one-frame stale-label flash after undo. New approach: 512 `Text` objects in a `noteNamesContainer` (added between `selectG` and `barNumsContainer`); same pipeline, no desync. Labels centered via `anchor.set(0.5, 0.5)` at `key.x + key.width/2, topY + noteH/2`; color `#111008` (dark, readable on amber note bodies)
+- **Spacebar blocked at canvas level**: `onKey` registered with `{ capture: true }` + `e.stopImmediatePropagation()` for spacebar — fires before App-level bubble listener regardless of listener registration order
+- Removed Canvas2D `<canvas>` overlay element from JSX (no longer needed)
+
+**`src/components/NoteEditor/NoteEditorOverlay.tsx`:**
+- "Note names" button: label changed from `A4` → `Note names`; title tooltip simplified to `"Show note names"`
+- Tool button titles simplified: `"Pencil tool"`, `"Select tool"` (removed verbose implementation detail)
+- Hint bar: added `justifyContent: 'center'` — hints now centered in the row
+
+---
+
+### 23. 7. 2026 — Note Editor Phase 1.5: toolbar redesign, tool modes, snap, bar numbers
+
+**`src/utils/noteEditorCommands.ts`:**
+- Added `cmdRemoveNotes(track, notes[])` — proper batch delete command; captures specs of all N notes before removal; `revert()` re-adds all via `track.addNote()`; a single undo step regardless of selection size
+
+**`src/components/NoteEditor/NoteEditorCanvas.tsx` — major rewrite:**
+- New props (all refs, no PixiJS restart on change): `toolModeRef`, `snapRef`, `quantizeDivisorRef`, `redrawRef`
+- `redrawRef.current` set to `redraw` after PixiJS init; overlay undo/redo buttons call `redrawRef.current?.()` to sync the canvas — fixes Phase 1 bug where toolbar undo/redo did not trigger a canvas redraw
+- Extended `DragState` with `mode: 'note-move' | 'note-resize' | 'selection-move'` and `selectionSnapshot` for multi-note moves
+- Added `MarqueeState` for selection rectangle
+- Added `selectG` Graphics layer (selection amber outlines) and `barNumsContainer` Container above `notesG`
+- **Bar numbers**: pool of 64 `Text` objects (JetBrains Mono 10px `#505570`) positioned at each bar line y; labels show bar index (1-based); hidden/reused on scroll via visibility toggle — no Text creation per frame
+- **Snap**: `snapTick(t) = round(t / (ppq / divisor)) * (ppq / divisor)` when snap on; applied to Alt+click add, note-move time axis, note-resize end-tick, selection-move
+- **Pencil mode**: bare click on empty does nothing; Alt+click → add note (snapped); hover bottom 6px of note → `ns-resize` cursor → drag → `note-resize` mode calling `cmdResizeNote` shape; right-click note → remove; Delete while hovering → remove
+- **Select mode**: click note → select (amber `selectG` outline), Shift+click → add to selection; click empty → clear + start marquee; drag marquee → `updateMarqueeSelection()` live during move + on up; drag selected note → `selection-move` (time axis, snapped), pushes multi-note batch command on up; Delete → `cmdRemoveNotes` on entire selection, single undo step
+- `updateHoverCursor()` helper manages cursor shape per tool + hover position
+
+**`src/components/NoteEditor/NoteEditorOverlay.tsx` — toolbar redesign:**
+- Added state + paired refs for `toolMode`, `snapEnabled`, `quantizeDivisor`; setter functions keep state (re-render) and ref (canvas reads) in sync without restarting the PixiJS effect
+- Toolbar layout (left→right): [✏] [⬚] | [⌇ SNAP] [1/8▾] | [↺] [↻] | Note Editor · track · (N) — [spacer] — [✕ Close]
+- Tool buttons: amber border + background when active; SVG icons (pencil, dashed marquee rect)
+- SNAP button: amber icon + text when enabled, muted when disabled; `title` tooltip
+- Quantize dropdown: `position: fixed`, positioned from `getBoundingClientRect()` on open; `onMouseDown stopPropagation` inside dropdown prevents outside-click handler from closing it before item click; closes on outside mousedown via `useEffect` document listener
+- Undo (↺) and Redo (↻) icon buttons: 28×26px, disabled+dimmed at 0.45 opacity when unavailable; `title` shows keyboard shortcut; call `redrawRef.current?.()` before `handleHistoryChange()` — canvas redraws correctly from toolbar buttons
+- Hint bar: dynamic per tool mode — 6 pencil hints vs 5 select hints; updates instantly on tool switch
+- Inline SVG icons: `IconPencil`, `IconMarquee`, `IconSnap` defined as React components at file top
+
+---
+
 ### 21. 7. 2026 — Note Editor Phase 1: dev overlay + single-track editing canvas
 
 **New directory: `src/components/NoteEditor/`**

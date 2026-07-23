@@ -165,7 +165,7 @@ export default function App() {
       switch (e.key) {
         case ' ':
           e.preventDefault()
-          if (useStore.getState().chordExplorerOpen || useStore.getState().scaleExplorerOpen) break
+          if (useStore.getState().chordExplorerOpen || useStore.getState().scaleExplorerOpen || noteEditorOpen) break
           if (playbackState === 'playing') pause()
           else play()
           break
@@ -199,7 +199,7 @@ export default function App() {
     }
     window.addEventListener('keydown', handleKeyDown)
     return () => window.removeEventListener('keydown', handleKeyDown)
-  }, [play, pause, stop, openFile])
+  }, [play, pause, stop, openFile, noteEditorOpen])
 
   // ── Truncate long filenames for the confirm modal title ───────────────────
   const confirmFileName = dropConfirmPath
