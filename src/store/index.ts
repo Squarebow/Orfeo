@@ -100,6 +100,10 @@ interface OrfeoStore {
   setMixerMinimized: (v: boolean) => void
   midiEditorOpen: boolean
   setMidiEditorOpen: (open: boolean) => void
+  noteEditorEnabled: boolean
+  setNoteEditorEnabled: (v: boolean) => void
+  noteEditorActive: boolean
+  setNoteEditorActive: (v: boolean) => void
   vuDisplayMode: 'bars' | 'wave'
   setVuDisplayMode: (mode: 'bars' | 'wave') => void
   explorerKeys: Set<number>
@@ -381,6 +385,11 @@ export const useStore = create<OrfeoStore>((set, get) => ({
   audioEngine: 'gm',
   setAudioEngine: (audioEngine) => set({ audioEngine }),
 
+  noteEditorEnabled: false,
+  setNoteEditorEnabled: (noteEditorEnabled) => set({ noteEditorEnabled }),
+  noteEditorActive: false,
+  setNoteEditorActive: (noteEditorActive) => set({ noteEditorActive }),
+
   chordPrompterEnabled: false,
   chordPrompterOpen: false,
   chordSequence: [],
@@ -530,6 +539,7 @@ async function restoreLibraryPrefs() {
     if (typeof prefs.masterVolume === 'number') store.setMasterVolume(prefs.masterVolume)
     if (prefs.audioEngine === 'samples') store.setAudioEngine('samples')
     if (typeof prefs.showBarNumbers === 'boolean') store.setShowBarNumbers(prefs.showBarNumbers)
+    if (typeof prefs.noteEditorEnabled === 'boolean') store.setNoteEditorEnabled(prefs.noteEditorEnabled)
     if (typeof prefs.chordPrompterEnabled === 'boolean') store.setChordPrompterEnabled(prefs.chordPrompterEnabled)
     if (typeof prefs.chordTranscriptionEnabled === 'boolean') store.setChordTranscriptionEnabled(prefs.chordTranscriptionEnabled)
     if (typeof prefs.hideDemoFolder === 'boolean') store.setHideDemoFolder(prefs.hideDemoFolder)
@@ -577,6 +587,7 @@ let _prevAccidentals: string | null = null
 let _prevMasterVolume: number | null = null
 let _prevAudioEngine: string | null = null
 let _prevShowBarNumbers: boolean | null = null
+let _prevNoteEditorEnabled:    boolean | null = null
 let _prevChordPrompterEnabled: boolean | null = null
 let _prevChordTranscriptionEnabled: boolean | null = null
 let _prevHideDemoFolder: boolean | null = null
@@ -600,6 +611,7 @@ useStore.subscribe((state) => {
     _prevMasterVolume = state.masterVolume
     _prevAudioEngine = state.audioEngine
     _prevShowBarNumbers = state.showBarNumbers
+    _prevNoteEditorEnabled = state.noteEditorEnabled
     _prevChordPrompterEnabled = state.chordPrompterEnabled
     _prevChordTranscriptionEnabled = state.chordTranscriptionEnabled
     _prevHideDemoFolder = state.hideDemoFolder
@@ -623,6 +635,7 @@ useStore.subscribe((state) => {
     state.masterVolume !== _prevMasterVolume ||
     state.audioEngine !== _prevAudioEngine ||
     state.showBarNumbers !== _prevShowBarNumbers ||
+    state.noteEditorEnabled !== _prevNoteEditorEnabled ||
     state.chordPrompterEnabled !== _prevChordPrompterEnabled ||
     state.chordTranscriptionEnabled !== _prevChordTranscriptionEnabled ||
     state.hideDemoFolder !== _prevHideDemoFolder ||
@@ -644,6 +657,7 @@ useStore.subscribe((state) => {
     _prevMasterVolume = state.masterVolume
     _prevAudioEngine = state.audioEngine
     _prevShowBarNumbers = state.showBarNumbers
+    _prevNoteEditorEnabled = state.noteEditorEnabled
     _prevChordPrompterEnabled = state.chordPrompterEnabled
     _prevChordTranscriptionEnabled = state.chordTranscriptionEnabled
     _prevHideDemoFolder = state.hideDemoFolder
@@ -665,6 +679,7 @@ useStore.subscribe((state) => {
       masterVolume: state.masterVolume,
       audioEngine: state.audioEngine,
       showBarNumbers: state.showBarNumbers,
+      noteEditorEnabled: state.noteEditorEnabled,
       chordPrompterEnabled: state.chordPrompterEnabled,
       chordTranscriptionEnabled: state.chordTranscriptionEnabled,
       hideDemoFolder: state.hideDemoFolder,

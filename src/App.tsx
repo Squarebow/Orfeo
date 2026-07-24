@@ -13,7 +13,7 @@ import ScaleExplorer from './components/ScaleExplorer'
 import LockedChordModal from './components/LockedChordModal'
 import MidiEditor from './components/MidiEditor/MidiEditor'
 import MixerConsole from './components/Mixer/MixerConsole'
-import NoteEditorOverlay from './components/NoteEditor/NoteEditorOverlay'
+import NoteEditorToolbar from './components/NoteEditor/NoteEditorToolbar'
 import { parseMidiBuffer } from './utils/midiParser'
 import { detectKeyFromTracks, parseKeySignature } from './utils/keyDetection'
 import { useMidiFile } from './hooks/useMidiFile'
@@ -23,6 +23,7 @@ import { useMetronome } from './hooks/useMetronome'
 import { useChordSequence } from './hooks/useChordSequence'
 import { useMidiInput } from './hooks/useMidiInput'
 import { runNoteEditorRoundTripTest } from './utils/noteEditorRoundTripTest'
+import { NES } from './utils/noteEditorState'
 
 export default function App() {
   const midi = useStore((s) => s.midi)
@@ -36,9 +37,10 @@ export default function App() {
   useChordSequence()
 
   // ── Mixer Console — Ctrl+Shift+M toggles open; also wired to the Console drawer icon ──
+  const noteEditorActive    = useStore((s) => s.noteEditorActive)
+  const setNoteEditorActive = useStore((s) => s.setNoteEditorActive)
 
   // ── Drag-and-drop state ───────────────────────────────────────────────────
-  const [noteEditorOpen, setNoteEditorOpen]   = useState(false)
   const [isDragOver, setIsDragOver]           = useState(false)
   const [dropConfirmPath, setDropConfirmPath] = useState<string | null>(null)
   const [dropError, setDropError]             = useState<string | null>(null)
@@ -165,7 +167,7 @@ export default function App() {
       switch (e.key) {
         case ' ':
           e.preventDefault()
-          if (useStore.getState().chordExplorerOpen || useStore.getState().scaleExplorerOpen || noteEditorOpen) break
+          if (useStore.getState().chordExplorerOpen || useStore.getState().scaleExplorerOpen || noteEditorActive) break
           if (playbackState === 'playing') pause()
           else play()
           break
@@ -192,14 +194,19 @@ export default function App() {
         case 'N':
           if (e.ctrlKey && e.shiftKey) {
             e.preventDefault()
-            setNoteEditorOpen(v => !v)
+            if (noteEditorActive) {
+              setNoteEditorActive(false); NES.reset()
+            } else if (useStore.getState().midi) {
+              if (playbackState === 'playing') pause()
+              setNoteEditorActive(true); NES.reset()
+            }
           }
           break
       }
     }
     window.addEventListener('keydown', handleKeyDown)
     return () => window.removeEventListener('keydown', handleKeyDown)
-  }, [play, pause, stop, openFile, noteEditorOpen])
+  }, [play, pause, stop, openFile, noteEditorActive])
 
   // ── Truncate long filenames for the confirm modal title ───────────────────
   const confirmFileName = dropConfirmPath
@@ -272,8 +279,8 @@ export default function App() {
       {/* ── MIDI Playback Editor — floating modal, opened via Track Panel pencil icon ── */}
       <MidiEditor />
 
-      {/* ── Note Editor — dev overlay, toggled via Ctrl+Shift+N ──────────────── */}
-      <NoteEditorOverlay open={noteEditorOpen} onClose={() => setNoteEditorOpen(false)} />
+      {/* ── Note Editor Toolbar — floating draggable toolbar, toggled via pencil icon or Ctrl+Shift+N ── */}
+      <NoteEditorToolbar />
 
       {/* ── Drop confirmation modal — shown when a file is already loaded ────── */}
       {dropConfirmPath && (

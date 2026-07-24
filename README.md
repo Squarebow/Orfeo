@@ -180,6 +180,19 @@ All user-visible changes listed here. For full technical detail see [CHANGELOG.m
 
 ---
 
+### 24. 7. 2026 (2)
+
+**New**
+- **Note Editor** (Settings → Playback & Practice → Note Editor): enables a pencil icon in the top bar. Click the pencil while a file is open to enter note-editing mode directly on the waterfall — no separate window. Playback pauses and notes become interactive.
+  - **Pencil tool**: click to move or resize notes; Alt+click empty space to add a note; right-click a note to delete it.
+  - **Select tool**: click to select, Shift+click to add to selection, drag to marquee-select; Delete key removes selected notes.
+  - **Snap & Quantize**: snap toggle and grid selector (1/4, 1/8, 1/16, 1/32) in the floating toolbar.
+  - **Undo/Redo**: Ctrl+Z / Ctrl+Y (or toolbar buttons).
+  - Unsaved new notes show a dashed border; the toolbar label shows a dot (●) when there are uncommitted changes.
+  - Edits are in-memory only — use the MIDI Editor Save & Reload to write them to disk.
+
+---
+
 ### 24. 7. 2026
 
 **Fixed**

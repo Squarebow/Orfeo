@@ -2,7 +2,7 @@ import { useCallback, useRef, useEffect } from 'react'
 import {
   Play, Pause, SkipBack, SkipForward, Repeat,
   FolderOpen, RotateCcw, ChevronUp, ChevronDown,
-  Rewind, FastForward,
+  Rewind, FastForward, Pencil,
 } from 'lucide-react'
 import { useStore } from '../../store'
 import { usePlayback } from '../../hooks/usePlayback'
@@ -13,6 +13,7 @@ import OrfeoLogo from '../OrfeoLogo'
 import MidiIcon from '../MidiIcon'
 import VolumeKnob from '../VolumeKnob'
 import LoopRegionStrip from '../LoopRegionStrip'
+import { NES } from '../../utils/noteEditorState'
 
 // NOTE: no more `C` shorthand object — every color below is a literal
 // `var(--token-name)` string written directly at its point of use, so the
@@ -43,6 +44,10 @@ export default function TopBar() {
   const chordExplorerOpen = useStore((s) => s.chordExplorerOpen)
   const resetAll = useStore((s) => s.resetAll)
   const barStarts = useStore((s) => s.barStarts)
+
+  const noteEditorEnabled = useStore((s) => s.noteEditorEnabled)
+  const noteEditorActive  = useStore((s) => s.noteEditorActive)
+  const setNoteEditorActive = useStore((s) => s.setNoteEditorActive)
 
   const { play, pause, stop, seek, seekAndPlay } = usePlayback()
   const { openFile } = useMidiFile()
@@ -277,6 +282,39 @@ export default function TopBar() {
       </div>
 
       <div style={{ width: 1, height: 'var(--button-height)', background: 'var(--border)', flexShrink: 0 }} />
+
+      {/* ── NOTE EDITOR toggle — pencil icon, left of bar counter ── */}
+      {noteEditorEnabled && midi && (
+        <>
+          <div style={{ width: 1, height: 'var(--button-height)', background: 'var(--border)', flexShrink: 0 }} />
+          <button
+            onClick={() => {
+              if (noteEditorActive) {
+                setNoteEditorActive(false)
+                NES.reset()
+              } else {
+                if (playbackState === 'playing') pause()
+                setNoteEditorActive(true)
+                NES.reset()
+              }
+            }}
+            title={noteEditorActive ? 'Exit note edit mode' : 'Enter note edit mode'}
+            className="app-no-drag"
+            style={{
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+              width: 'var(--button-height)', height: 'var(--button-height)',
+              borderRadius: 'var(--radius-md)', background: noteEditorActive ? 'rgba(232,160,39,0.10)' : 'transparent',
+              border: noteEditorActive ? '1px solid rgba(232,160,39,0.40)' : '1px solid transparent',
+              color: noteEditorActive ? 'var(--text-amber)' : 'var(--text-default)',
+              cursor: 'pointer', flexShrink: 0, transition: 'color 0.12s, background 0.12s',
+            }}
+            onMouseEnter={e => { if (!noteEditorActive) e.currentTarget.style.color = 'var(--text-amber)' }}
+            onMouseLeave={e => { if (!noteEditorActive) e.currentTarget.style.color = 'var(--text-default)' }}
+          >
+            <Pencil size={14} strokeWidth={1.5} />
+          </button>
+        </>
+      )}
 
       {/* ── TIME + METRONOME + MIDI — bottoms aligned ── */}
       <div className="app-no-drag" style={{ display: 'flex', alignItems: 'flex-end', gap: 0, flexShrink: 0 }}>

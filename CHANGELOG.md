@@ -4,6 +4,67 @@
 
 ---
 
+### 24. 7. 2026 — Note Editor Phase 2: in-place editing on live PianoRoll canvas
+
+**Architecture reset** — scrapped the standalone `NoteEditorCanvas.tsx`/`NoteEditorOverlay.tsx` approach (duplicate renderer, drifting geometry). All editing now happens directly on the live `PianoRoll.tsx` PixiJS canvas.
+
+**Deleted:**
+- `src/components/NoteEditor/NoteEditorCanvas.tsx`
+- `src/components/NoteEditor/NoteEditorOverlay.tsx`
+
+**`src/utils/noteEditorState.ts`** (new):
+- Module-level singleton `NES` bridging `NoteEditorToolbar` ↔ `PianoRoll` without prop threading.
+- Fields: `toolModeRef`, `snapRef`, `quantizeDivisorRef`, `showNoteNamesRef`, `history`, `dirty`, `newNotes` Set, `needsFlatRebuild` flag, `onHistoryChange` callback.
+- `reset()` clears all ephemeral state — called on edit mode enter/exit.
+
+**`src/components/NoteEditor/NoteEditorToolbar.tsx`** (new):
+- Floating draggable toolbar, `position: fixed`, appears only when `noteEditorActive`.
+- Drag handle (3-dot grip), `EDIT ●` dirty indicator, Pencil/Select tool buttons, Snap toggle, Quantize dropdown (1/4–1/32), Undo/Redo, Note names toggle, Close button.
+- Subscribes to `NES.onHistoryChange` for re-renders via `useReducer` force-update.
+- Reads/writes `NES.*` refs directly; no prop threading.
+
+**`src/store/index.ts`:**
+- Added `noteEditorEnabled: boolean` (default `false`, persisted).
+- Added `noteEditorActive: boolean` (default `false`, NOT persisted — ephemeral edit session state).
+- Both have setters (`setNoteEditorEnabled`, `setNoteEditorActive`).
+- `restoreLibraryPrefs` restores `noteEditorEnabled` from prefs.
+
+**`src/components/PianoRoll/PianoRoll.tsx`** — major additions:
+- New interfaces: `EditFlatNote`, `EditDragState` (with `origMidi` field), `EditMarqueeState`.
+- New helpers in PixiJS closure: `snapTick()`, `syncNoteTimes()`, `buildEditFlatNotes()`, `editHitTest()`, `drawDashedRect()`, `drawEditOverlay()`, `history_push()`.
+- `editG: Graphics` overlay layer added to stage (rendered on top of notes and playhead).
+- `drawFrame()` extended: checks `NES.needsFlatRebuild` to force `lastMidiRef.current = null` (triggers flatNotes rebuild); calls `drawEditOverlay()` every frame.
+- `LoopOverlay` returns `null` in edit mode to pass pointer events through to PixiJS canvas.
+- Wheel scrub disabled in edit mode.
+- Pointer handlers on `app.canvas`: `onEditDown`, `onEditMove`, `onEditUp`, `onEditContext`.
+- Window `keydown` capture handler: Ctrl+Z/Y undo/redo, Delete to remove selected notes.
+- Edit mode gate: all handlers early-return when `noteEditorActive` is false.
+- Pencil tool: click to move/resize (RESIZE_ZONE_PX=6 at top/bottom edges), Alt+click to add, right-click to delete.
+- Select tool: click to select, Shift+click additive, drag to marquee, selection-move drag.
+- New notes (unsaved) get dashed white border via `drawDashedRect()`.
+- Selection highlighted with blue stroke (SEL_COLOR=0x4488ee).
+- `syncNoteTimes()` is called after every ticks mutation — @tonejs/midi fields are NOT auto-linked.
+
+**`src/components/SettingsPanel/SettingsPanel.tsx`:**
+- Added `noteEditorEnabled` / `setNoteEditorEnabled` selectors.
+- Added `OptionRow` eye-toggle for "Note Editor" in the Playback & Practice section.
+
+**`src/components/Transport/TopBar.tsx`:**
+- Added `Pencil` import from lucide-react; `NES` import from noteEditorState.
+- Added `noteEditorEnabled`, `noteEditorActive`, `setNoteEditorActive` selectors.
+- Pencil button rendered between volume knob VSep and TIME/METRONOME/MIDI group, gated on `noteEditorEnabled && midi`.
+- Active state: amber fill + border. Clicking toggles edit mode; entering pauses playback.
+
+**`src/App.tsx`:**
+- Removed `NoteEditorOverlay` import/render; removed `noteEditorOpen` state.
+- Added `NoteEditorToolbar` import/render (always mounted; returns `null` when inactive).
+- Added `NES` import.
+- `noteEditorActive` now comes from store, not local state.
+- Spacebar blocks on `noteEditorActive` (same guard as chordExplorer/scaleExplorer).
+- Ctrl+Shift+N dev shortcut now toggles `noteEditorActive` via store + `NES.reset()`, pausing playback on enter.
+
+---
+
 ### 24. 7. 2026 — Key-layout unification + background stripe alignment + spacebar listener leak fix
 
 **`src/utils/keyLayout.ts`** — rewritten:

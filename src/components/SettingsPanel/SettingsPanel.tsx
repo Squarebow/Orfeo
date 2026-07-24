@@ -881,6 +881,8 @@ export default function SettingsPanel() {
   const setChordPrompterEnabled = useStore((s) => s.setChordPrompterEnabled)
   const loopRegionEnabled    = useStore((s) => s.loopRegionEnabled)
   const setLoopRegionEnabled = useStore((s) => s.setLoopRegionEnabled)
+  const noteEditorEnabled    = useStore((s) => s.noteEditorEnabled)
+  const setNoteEditorEnabled = useStore((s) => s.setNoteEditorEnabled)
   const chordTranscriptionEnabled = useStore((s) => s.chordTranscriptionEnabled)
   const setChordTranscriptionEnabled = useStore((s) => s.setChordTranscriptionEnabled)
   const hideDemoFolder           = useStore((s) => s.hideDemoFolder)
@@ -1283,6 +1285,14 @@ export default function SettingsPanel() {
                     eyeValue={loopRegionEnabled}
                     onEyeChange={setLoopRegionEnabled}
                     description="Show a strip above the song title to select and loop a section of the MIDI file."
+                  />
+                  {/* ── Note Editor — eye-toggle ──────────────────────────────────── */}
+                  <OptionRow
+                    label="Note Editor"
+                    eyeToggle
+                    eyeValue={noteEditorEnabled}
+                    onEyeChange={setNoteEditorEnabled}
+                    description="Show a pencil icon in the top bar to enter note-editing mode directly on the waterfall."
                   />
                 </CollapsibleSection>
 
