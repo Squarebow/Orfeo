@@ -2,18 +2,13 @@ import { useEffect, useRef } from 'react'
 import { Application, Container, Graphics, Text, TextStyle } from 'pixi.js'
 import type { Midi } from '@tonejs/midi'
 import { isBlackKey } from '../../utils/midiParser'
+import { buildKeyLayout, PIANO_RANGES as RANGES, type KeyLayout } from '../../utils/keyLayout'
 import {
   cmdAddNote, cmdRemoveNote, cmdRemoveNotes,
   type ToneNote,
 } from '../../utils/noteEditorCommands'
 import type { NoteEditorHistory } from '../../utils/noteEditorHistory'
 
-// ── Constants — RANGES matches PianoRoll.tsx and Keyboard.tsx exactly ─────────
-const RANGES: Record<number, { min: number; max: number }> = {
-  61: { min: 36, max: 96 },
-  73: { min: 28, max: 103 },
-  88: { min: 21, max: 108 },
-}
 const NOTE_RADIUS      = 3
 const MIN_NOTE_H       = 4
 const DRAG_THRESHOLD   = 4
@@ -23,25 +18,6 @@ const MAX_BAR_LABELS   = 64
 const MAX_NOTE_LABELS  = 512
 const NOTE_NAME_MIN_H  = 14   // notes shorter than this get tooltip, not inline label
 const SEL_COLOR        = 0x4488ee  // blue selection / marquee
-
-interface KeyLayout { x: number; width: number }
-
-// ── buildKeyLayout — identical to PianoRoll.tsx ───────────────────────────────
-function buildKeyLayout(W: number, midiMin: number, midiMax: number): KeyLayout[] {
-  const whites: number[] = []
-  for (let m = midiMin; m <= midiMax; m++) if (!isBlackKey(m)) whites.push(m)
-  const ww  = W / whites.length
-  const bw  = ww * 0.6
-  const len = midiMax - midiMin + 1
-  const out = new Array<KeyLayout>(len)
-  let wi = 0
-  for (let m = midiMin; m <= midiMax; m++) {
-    const i = m - midiMin
-    if (!isBlackKey(m)) { out[i] = { x: wi * ww, width: ww }; wi++ }
-    else                  out[i] = { x: wi * ww - bw / 2, width: bw }
-  }
-  return out
-}
 
 // ── xToMidi ───────────────────────────────────────────────────────────────────
 function xToMidi(x: number, layout: KeyLayout[], midiMin: number, midiMax: number): number {
@@ -150,6 +126,7 @@ export default function NoteEditorCanvas({
     }
 
     const app = new Application()
+    let unmounted         = false   // guards against listeners leaking from async app.init()
     let gridG:            Graphics
     let notesG:           Graphics
     let selectG:          Graphics
@@ -166,14 +143,29 @@ export default function NoteEditorCanvas({
       const W = app.screen.width
       const H = app.screen.height
 
-      // ── Background grid: black key columns + octave lines + bar lines ──────
+      // ── Background grid: column fills + octave lines + bar lines ────────────
+      // Mirrors Keyboard.tsx draw order: white fills first, black keys on top.
       gridG.clear()
+
+      // White key fills — same buildKeyLayout positions as notes; each is ww = W/n wide
       for (let m = midiMin; m <= midiMax; m++) {
+        if (isBlackKey(m)) continue
         const key = layout[m - midiMin]
-        if (!key || !isBlackKey(m)) continue
+        if (!key) continue
         gridG.rect(key.x, 0, key.width, H)
-        gridG.fill({ color: 0x161620, alpha: 1 })
+        gridG.fill({ color: 0x171720, alpha: 1 })
       }
+
+      // Black key fills — same position and width as Keyboard.tsx; drawn on top
+      for (let m = midiMin; m <= midiMax; m++) {
+        if (!isBlackKey(m)) continue
+        const key = layout[m - midiMin]
+        if (!key) continue
+        gridG.rect(Math.round(key.x), 0, Math.round(key.width), H)
+        gridG.fill({ color: 0x0d0d10, alpha: 1 })
+      }
+
+      // C-note octave dividers
       for (let m = midiMin; m <= midiMax; m++) {
         if (m % 12 !== 0) continue
         const key = layout[m - midiMin]
@@ -297,6 +289,10 @@ export default function NoteEditorCanvas({
       resolution:  window.devicePixelRatio || 1,
       autoDensity: true,
     }).then(() => {
+      // If the component unmounted while app.init() was in flight, bail out.
+      // Without this guard the async callback would still register event listeners
+      // that can never be cleaned up, permanently breaking the global spacebar.
+      if (unmounted) { try { app.destroy(false) } catch {} return }
       if (!containerRef.current) { app.destroy(false); return }
 
       el.appendChild(app.canvas)
@@ -667,6 +663,7 @@ export default function NoteEditorCanvas({
     })
 
     return () => {
+      unmounted = true          // prevent in-flight app.init() from registering listeners
       redrawRef.current = null
       cleanupListeners?.()
       ro?.disconnect()

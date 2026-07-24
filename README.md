@@ -180,6 +180,14 @@ All user-visible changes listed here. For full technical detail see [CHANGELOG.m
 
 ---
 
+### 24. 7. 2026
+
+**Fixed**
+- Spacebar play/pause now works correctly after the Note Editor has been opened and closed. Previously, opening the editor could leave a hidden keyboard listener permanently active, silently swallowing spacebar presses for the rest of the session.
+- The piano roll and Note Editor background stripes (white/black key columns) now align exactly with the physical keyboard drawn below — all three components share one canonical layout formula so they can no longer drift apart.
+
+---
+
 ### 21. 7. 2026 (3)
 
 **Fixed**

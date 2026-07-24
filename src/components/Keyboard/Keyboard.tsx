@@ -4,12 +4,7 @@ import { isBlackKey } from '../../utils/midiParser'
 import { getNoteLabel, getNoteName } from '../../utils/noteNames'
 import { detectChord, detectChordWithInversion, formatInversionDisplay, localizeChord, ordinalSuffix } from '../../utils/chordDetection'
 import { detectHandBoundaries, noteToLeftPct } from '../../utils/handBoundaries'
-
-const RANGES: Record<number, { min: number; max: number }> = {
-  61: { min: 36, max: 96 },
-  73: { min: 28, max: 103 },
-  88: { min: 21, max: 108 },
-}
+import { buildKeyLayoutRatios, PIANO_RANGES as RANGES } from '../../utils/keyLayout'
 
 const CHORD_MIN_NOTES = 3
 const CHORD_DEBOUNCE_MS = 320
@@ -135,6 +130,11 @@ export default function Keyboard() {
     return list
   }, [min, max])
   const whiteKeys = keys.filter(k => !k.isBlack)
+
+  // ── Key layout ratios — same formula as PianoRoll and NoteEditorCanvas ────────
+  // buildKeyLayoutRatios is the single canonical source; multiplying by 100 gives
+  // the CSS percentages that position black keys absolutely over the white key flex row.
+  const keyRatios = useMemo(() => buildKeyLayoutRatios(min, max), [min, max])
 
   // ── Hand boundary detection — recomputed when file or breakpoint settings change ─
   const handBoundaries = useMemo(
@@ -493,11 +493,11 @@ export default function Keyboard() {
         {/* Black keys */}
         <div className="absolute inset-0 pointer-events-none" style={{ zIndex: 2 }}>
           {keys.filter(k => k.isBlack).map((k) => {
-            const whiteIdx = whiteKeys.findIndex(w => w.midi > k.midi) - 1
-            if (whiteIdx < 0) return null
-            // ── 0.70 matches PianoRoll's formula: (wi − 0.30) * ww ────────────
-            const leftPct = ((whiteIdx + 0.70) / whiteKeys.length) * 100
-            const widthPct = (0.6 / whiteKeys.length) * 100
+            // ── Positions come from the same buildKeyLayoutRatios as PianoRoll ──
+            const ratio = keyRatios[k.midi - min]
+            if (!ratio) return null
+            const leftPct  = ratio.x * 100
+            const widthPct = ratio.width * 100
             const color = getColor(k.midi)
             const locked = lockedKeys.has(k.midi)
             return (

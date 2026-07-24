@@ -2,20 +2,12 @@ import React, { useEffect, useRef, useState } from 'react'
 import { Application, Graphics } from 'pixi.js'
 import { useStore } from '../../store'
 import { isBlackKey } from '../../utils/midiParser'
-
-// These match Keyboard.tsx exactly
-const RANGES: Record<number, { min: number; max: number }> = {
-  61: { min: 36, max: 96 },
-  73: { min: 28, max: 103 },
-  88: { min: 21, max: 108 },
-}
+import { buildKeyLayout, PIANO_RANGES as RANGES, type KeyLayout } from '../../utils/keyLayout'
 
 const VISIBLE_SECONDS = 6
 const NOTE_RADIUS = 3
 const MIN_NOTE_H = 4
 const PLAYHEAD_RATIO = 0.80
-
-interface KeyLayout { x: number; width: number }
 
 interface FlatNote { midi: number; time: number; duration: number; trackIndex: number }
 
@@ -27,23 +19,6 @@ function lowerBound(notes: FlatNote[], target: number): number {
     else hi = mid
   }
   return lo
-}
-
-// Build layout for only the visible key range, spanning full canvas width W
-function buildKeyLayout(W: number, midiMin: number, midiMax: number): KeyLayout[] {
-  const totalKeys = midiMax - midiMin + 1
-  const whites: number[] = []
-  for (let m = midiMin; m <= midiMax; m++) if (!isBlackKey(m)) whites.push(m)
-  const ww = W / whites.length
-  const bw = ww * 0.6
-  const layout: KeyLayout[] = new Array(totalKeys)
-  let wi = 0
-  for (let m = midiMin; m <= midiMax; m++) {
-    const idx = m - midiMin
-    if (!isBlackKey(m)) { layout[idx] = { x: wi * ww, width: ww }; wi++ }
-    else layout[idx] = { x: wi * ww - bw / 2, width: bw }
-  }
-  return layout
 }
 
 // ── LoopOverlay — amber band + draggable boundary lines over the waterfall ────
@@ -285,21 +260,32 @@ export default function PianoRoll() {
       const drawGrid = (W: number, H: number, midiMin: number, midiMax: number) => {
         grid.clear()
         keyLayoutRef.current = buildKeyLayout(W, midiMin, midiMax)
+        const kl = keyLayoutRef.current
 
-        // Black key column shading — subtle, shows piano structure
+        // ── Mirroring Keyboard.tsx draw order: white fills first, black on top ──
+        // White keys — same buildKeyLayout positions as notes; each is ww = W/n wide
         for (let m = midiMin; m <= midiMax; m++) {
-          const key = keyLayoutRef.current[m - midiMin]
+          if (isBlackKey(m)) continue
+          const key = kl[m - midiMin]
           if (!key) continue
-          if (isBlackKey(m)) {
-            grid.rect(key.x, 0, key.width, H)
-            grid.fill({ color: 0x161620, alpha: 1 })
-          }
+          grid.rect(key.x, 0, key.width, H)
+          grid.fill({ color: 0x171720, alpha: 1 })
+        }
+
+        // Black keys — same position and width as Keyboard.tsx's black key divs;
+        // drawn on top, exactly matching the keyboard's visual overlay behaviour.
+        for (let m = midiMin; m <= midiMax; m++) {
+          if (!isBlackKey(m)) continue
+          const key = kl[m - midiMin]
+          if (!key) continue
+          grid.rect(Math.round(key.x), 0, Math.round(key.width), H)
+          grid.fill({ color: 0x0d0d10, alpha: 1 })
         }
 
         // C-note octave dividers — one per octave boundary
         for (let m = midiMin; m <= midiMax; m++) {
-          if (m % 12 !== 0) continue  // C notes only
-          const key = keyLayoutRef.current[m - midiMin]
+          if (m % 12 !== 0) continue
+          const key = kl[m - midiMin]
           if (!key) continue
           grid.rect(Math.round(key.x), 0, 1, H)
           grid.fill({ color: 0x2e2e48, alpha: 1 })

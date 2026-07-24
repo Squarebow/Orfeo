@@ -4,6 +4,28 @@
 
 ---
 
+### 24. 7. 2026 — Key-layout unification + background stripe alignment + spacebar listener leak fix
+
+**`src/utils/keyLayout.ts`** — rewritten:
+- Added `buildKeyLayoutRatios(midiMin, midiMax): KeyLayout[]` — the **canonical formula**, extracted verbatim from `Keyboard.tsx`'s inline CSS math. Returns positions as 0–1 fractions of container width. White keys: `x = wi/n, width = 1/n`. Black keys: `x = (wi−0.30)/n, width = 0.60/n` (mirrors Keyboard.tsx `((whiteIdx + 0.70) / n) * 100%`).
+- `buildKeyLayout(W, midiMin, midiMax)` now delegates to `buildKeyLayoutRatios` and multiplies by W — thin wrapper; formula lives in one place only.
+- Removed the `// must stay in sync with Keyboard.tsx` comment on `PIANO_RANGES` — Keyboard.tsx now imports `PIANO_RANGES` from here, making drift impossible.
+
+**`src/components/Keyboard/Keyboard.tsx`:**
+- Removed local `RANGES` constant — now imports `PIANO_RANGES as RANGES` from `keyLayout.ts`.
+- Black key positions computed from `buildKeyLayoutRatios(min, max)` via a `keyRatios` useMemo; `ratio.x * 100` and `ratio.width * 100` replace the previous inline `((whiteIdx + 0.70) / n) * 100` / `(0.6 / n) * 100` calculation. The `whiteIdx = whiteKeys.findIndex(w => w.midi > k.midi) - 1` lookup is gone.
+- All three consumers (Keyboard.tsx, PianoRoll.tsx, NoteEditorCanvas.tsx) now run the identical formula path.
+
+**`src/components/PianoRoll/PianoRoll.tsx` — `drawGrid`:**
+- Background column fill now mirrors Keyboard.tsx draw order: white key fills (`0x171720`) at full `ww` width drawn first, then black key fills (`0x0d0d10`) at exact `buildKeyLayout` positions overlaid on top. C-note octave dividers unchanged.
+- Previously had no column fills (uniform dark canvas background).
+
+**`src/components/NoteEditor/NoteEditorCanvas.tsx` — `redraw` grid section:**
+- Same column fill change as PianoRoll.tsx.
+- **Spacebar listener leak fix**: added `let unmounted = false` before `app.init()`. The `.then()` callback now checks `if (unmounted) return` as its first statement — if the component unmounted while PixiJS was still initialising (guaranteed in React StrictMode dev, possible in production if init is slow), the async callback exits immediately without registering any event listeners. The cleanup `return () => { ... }` sets `unmounted = true` before calling `cleanupListeners?.()`. Root cause: async Promise callbacks can't be cancelled; without this guard, `window.addEventListener('keydown', onKey, { capture: true })` was registered after cleanup already ran, permanently blocking spacebar globally.
+
+---
+
 ### 23. 7. 2026 — Note Editor Phase 1.5 bug pass: selection color, note names, spacebar, draw order
 
 **`src/App.tsx`:**
