@@ -1077,6 +1077,14 @@ export default function SettingsPanel() {
                     onEyeChange={setChordTranscriptionEnabled}
                     description="Adds a transcript icon to every file in your library — click to generate a chord chart PDF."
                   />
+                  {/* ── Note Editor — eye-toggle: unlocks pencil icon in TopBar ──── */}
+                  <OptionRow
+                    label="Note Editor"
+                    eyeToggle
+                    eyeValue={noteEditorEnabled}
+                    onEyeChange={setNoteEditorEnabled}
+                    description="Show a pencil icon in the top bar to enter note-editing mode directly on the waterfall."
+                  />
                 </CollapsibleSection>
 
                 {/* ── 2. NOTATION ────────────────────────────────────────────────── */}
@@ -1285,14 +1293,6 @@ export default function SettingsPanel() {
                     eyeValue={loopRegionEnabled}
                     onEyeChange={setLoopRegionEnabled}
                     description="Show a strip above the song title to select and loop a section of the MIDI file."
-                  />
-                  {/* ── Note Editor — eye-toggle ──────────────────────────────────── */}
-                  <OptionRow
-                    label="Note Editor"
-                    eyeToggle
-                    eyeValue={noteEditorEnabled}
-                    onEyeChange={setNoteEditorEnabled}
-                    description="Show a pencil icon in the top bar to enter note-editing mode directly on the waterfall."
                   />
                 </CollapsibleSection>
 

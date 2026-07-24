@@ -23,7 +23,6 @@ import { useMetronome } from './hooks/useMetronome'
 import { useChordSequence } from './hooks/useChordSequence'
 import { useMidiInput } from './hooks/useMidiInput'
 import { runNoteEditorRoundTripTest } from './utils/noteEditorRoundTripTest'
-import { NES } from './utils/noteEditorState'
 
 export default function App() {
   const midi = useStore((s) => s.midi)
@@ -37,8 +36,6 @@ export default function App() {
   useChordSequence()
 
   // ── Mixer Console — Ctrl+Shift+M toggles open; also wired to the Console drawer icon ──
-  const noteEditorActive    = useStore((s) => s.noteEditorActive)
-  const setNoteEditorActive = useStore((s) => s.setNoteEditorActive)
 
   // ── Drag-and-drop state ───────────────────────────────────────────────────
   const [isDragOver, setIsDragOver]           = useState(false)
@@ -167,7 +164,7 @@ export default function App() {
       switch (e.key) {
         case ' ':
           e.preventDefault()
-          if (useStore.getState().chordExplorerOpen || useStore.getState().scaleExplorerOpen || noteEditorActive) break
+          if (useStore.getState().chordExplorerOpen || useStore.getState().scaleExplorerOpen) break
           if (playbackState === 'playing') pause()
           else play()
           break
@@ -190,23 +187,11 @@ export default function App() {
             else s.setMixerOpen(true)
           }
           break
-        case 'n':
-        case 'N':
-          if (e.ctrlKey && e.shiftKey) {
-            e.preventDefault()
-            if (noteEditorActive) {
-              setNoteEditorActive(false); NES.reset()
-            } else if (useStore.getState().midi) {
-              if (playbackState === 'playing') pause()
-              setNoteEditorActive(true); NES.reset()
-            }
-          }
-          break
       }
     }
     window.addEventListener('keydown', handleKeyDown)
     return () => window.removeEventListener('keydown', handleKeyDown)
-  }, [play, pause, stop, openFile, noteEditorActive])
+  }, [play, pause, stop, openFile])
 
   // ── Truncate long filenames for the confirm modal title ───────────────────
   const confirmFileName = dropConfirmPath

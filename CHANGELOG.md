@@ -4,6 +4,46 @@
 
 ---
 
+### 24. 7. 2026 — Note Editor Phase 2.5: NES.editMidi + bug fixes
+
+**Root cause fixed: undo/redo, ticks, and add-note were all silently broken** because the edit system was targeting `ParsedNote[]` (plain copied objects with no `ticks`/`durationTicks`, no `addNote()`, no `header`) instead of real `@tonejs/midi` Note/Track instances.
+
+**`src/utils/noteEditorState.ts`:**
+- Added `editMidi: ReturnType<typeof midiToEditableCopy> | null` — a proper `@tonejs/midi Midi` instance. Created via `midiToEditableCopy((parsedMidi as any)._raw)` when entering edit mode; nulled on exit. All edit operations route through `editMidi.tracks` instead of `parsedMidi.tracks`.
+- `reset()` now clears `editMidi`.
+
+**`src/components/PianoRoll/PianoRoll.tsx`:**
+- Added `prevNoteEditorActive` tracking in PixiJS closure. On enter: creates `NES.editMidi`, sets `needsFlatRebuild`. On exit: nulls `NES.editMidi`, forces `lastMidiRef.current = null` to restore ParsedMidi display.
+- `NES.needsFlatRebuild` handler: rebuilds `flatNotesRef` directly from `NES.editMidi.tracks` (position-based index mapping `editMidi.tracks[i]` ↔ `parsedMidi.tracks[i]`) instead of setting `lastMidiRef.current = null`.
+- `snapTick()`, `syncNoteTimes()`: now use `(NES.editMidi as any)?.header` — `ParsedMidi` has no `header`, so these were silently no-ops before.
+- `buildEditFlatNotes()`: dropped `midi` param; iterates `NES.editMidi.tracks` with position-based `parsedIdx` lookup for visibility/color.
+- `drawEditOverlay()`: dropped `midi` param; guards on `NES.editMidi` presence.
+- Alt+click add note: uses `NES.editMidi.tracks` (real Track with `addNote()`).
+- `onEditUp` `header`: uses `(NES.editMidi as any)?.header`.
+- `selection-move` closures: `editDrag!.track` → `track` (captured local) — fixes stale-closure null crash on undo/redo.
+- Added `editDragActiveRef` (component-level `useRef`) shared between wheel handler and PixiJS closure. Wheel now only blocks during active drag (`editDragActiveRef.current`), not entire edit mode.
+- Added `editDragActiveRef.current = true/false` on drag start/end.
+- `EditDragState.trackIndex`: new field (parsedTrack.index) for per-channel audio preview.
+- `getTrackChannel()` helper: looks up `parsedTrack.channel` by `trackIndex` for note preview calls.
+- All `__orfeoPlayNote?.(note.midi)` calls in edit handlers now pass the track's MIDI channel.
+- Note names (Issue 4): at bottom of `drawFrame`, when `noteEditorActive && NES.showNoteNamesRef.current`, draws note labels via Canvas2D overlay using `getNoteLabel()`.
+
+**`src/hooks/useAudioEngine.ts`:**
+- `playNote()` 4th param `channel?: number` (default 14). Passes `channel` to `__orfeoPlayNoteSamples`; GM path uses `0x90 | ch` / `0x80 | ch`.
+
+**`src/hooks/useSamplesEngine.ts`:**
+- `__orfeoPlayNoteSamples` 4th param `channel?: number` (default 15). Uses `ch` instead of hardcoded 15.
+
+**`src/components/SettingsPanel/SettingsPanel.tsx`:**
+- Moved Note Editor OptionRow from "Playback & Practice" to "MIDI Files & Library" section (after Chord Transcription).
+
+**`src/App.tsx`:**
+- Removed `|| noteEditorActive` from spacebar block — spacebar play/pause works in edit mode.
+- Removed Ctrl+Shift+N dev shortcut entirely — entry is now Settings toggle + TopBar pencil icon.
+- Removed `noteEditorActive`, `setNoteEditorActive`, and `NES` imports from App.tsx (no longer needed here).
+
+---
+
 ### 24. 7. 2026 — Note Editor Phase 2: in-place editing on live PianoRoll canvas
 
 **Architecture reset** — scrapped the standalone `NoteEditorCanvas.tsx`/`NoteEditorOverlay.tsx` approach (duplicate renderer, drifting geometry). All editing now happens directly on the live `PianoRoll.tsx` PixiJS canvas.

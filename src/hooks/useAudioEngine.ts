@@ -240,18 +240,22 @@ export function useAudioEngine() {
 
   useEffect(() => {
     // ── Timed click-to-play (shared by both engines) ─────────────────────────
-    const playNote = async (midiNum: number, vel = 90, durMs = 500) => {
+    // channel: MIDI channel 0-based. Undefined = preview channel (14 GM / 15 samples).
+    const playNote = async (midiNum: number, vel = 90, durMs = 500, channel?: number) => {
       const { audioEngine } = useStore.getState()
       if (audioEngine === 'samples') {
         const fn = (window as any).__orfeoPlayNoteSamples
-        if (fn) { fn(midiNum, vel, durMs); return }
+        if (fn) { fn(midiNum, vel, durMs, channel); return }
       }
+      // GM: ch 14 is the dedicated preview channel (piano); other channels
+      // use whatever program the JZZ player last set on that channel.
+      const ch = channel ?? 14
       try {
         await initJZZ()
         if (!_port) return
-        ensureClickChannel()
-        _port.send([0x9E, midiNum, Math.round(vel * 127)])
-        setTimeout(() => { try { _port.send([0x8E, midiNum, 0]) } catch {} }, durMs)
+        if (ch === 14) ensureClickChannel()
+        _port.send([0x90 | ch, midiNum, Math.round(vel * 127)])
+        setTimeout(() => { try { _port.send([0x80 | ch, midiNum, 0]) } catch {} }, durMs)
         lightKey(midiNum, '#e8a027', durMs + 100)
       } catch (e) { console.error('[Orfeo GM] playNote error:', e) }
     }

@@ -1,4 +1,5 @@
 import { createNoteEditorHistory } from './noteEditorHistory'
+import { midiToEditableCopy } from './noteEditorCommands'
 import type { ToneNote } from './noteEditorCommands'
 
 export type NETool     = 'pencil' | 'select'
@@ -16,6 +17,11 @@ export const NES = {
   dirty:              false,
   newNotes:           new Set<ToneNote>(),
 
+  // ── Live @tonejs/midi Midi copy — created from _raw when entering edit mode.
+  // All edit operations target this instead of ParsedMidi (which uses plain objects
+  // with no ticks/addNote/header). Null when not in edit mode.
+  editMidi: null as ReturnType<typeof midiToEditableCopy> | null,
+
   // ── Set by any edit command; checked by PianoRoll drawFrame to force flatNotes rebuild ──
   needsFlatRebuild: false,
 
@@ -27,6 +33,7 @@ export const NES = {
     this.history.clear()
     this.dirty              = false
     this.newNotes.clear()
+    this.editMidi           = null
     this.needsFlatRebuild   = false
     this.toolModeRef.current        = 'pencil'
     this.snapRef.current            = true

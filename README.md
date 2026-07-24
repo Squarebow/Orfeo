@@ -180,10 +180,22 @@ All user-visible changes listed here. For full technical detail see [CHANGELOG.m
 
 ---
 
+### 24. 7. 2026 (3)
+
+**Fixed**
+- Undo/redo in the Note Editor now works correctly. The previous build's undo/redo, add-note, and drag operations were silently broken because the editor was operating on read-only copied data rather than the live note objects. This is fully resolved.
+- Note preview sounds (clicking a note while editing) now play back on the correct instrument channel instead of always sounding like piano.
+- Spacebar play/pause now works while the Note Editor is open — it was incorrectly blocked during edit mode.
+- Wheel scrolling (timeline scrub) now works normally in edit mode; it was also incorrectly blocked.
+- The Note names toggle in the editor toolbar now shows note labels on the waterfall.
+- The Note Editor enable toggle has moved from Settings → Playback & Practice to Settings → MIDI Files & Library.
+
+---
+
 ### 24. 7. 2026 (2)
 
 **New**
-- **Note Editor** (Settings → Playback & Practice → Note Editor): enables a pencil icon in the top bar. Click the pencil while a file is open to enter note-editing mode directly on the waterfall — no separate window. Playback pauses and notes become interactive.
+- **Note Editor** (Settings → MIDI Files & Library → Note Editor): enables a pencil icon in the top bar. Click the pencil while a file is open to enter note-editing mode directly on the waterfall — no separate window. Playback pauses and notes become interactive.
   - **Pencil tool**: click to move or resize notes; Alt+click empty space to add a note; right-click a note to delete it.
   - **Select tool**: click to select, Shift+click to add to selection, drag to marquee-select; Delete key removes selected notes.
   - **Snap & Quantize**: snap toggle and grid selector (1/4, 1/8, 1/16, 1/32) in the floating toolbar.

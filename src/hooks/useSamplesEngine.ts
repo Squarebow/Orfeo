@@ -286,11 +286,13 @@ export function setChannelVolume(ch: number, value: number): void {
 export function useSamplesEngine() {
   // ── Register global click-to-play and hardware note-on/off handlers ─────────
   useEffect(() => {
-    ;(window as any).__orfeoPlayNoteSamples = (midiNum: number, vel: number, durMs: number) => {
+    // channel: MIDI channel 0-based. Undefined = dedicated preview channel (15).
+    ;(window as any).__orfeoPlayNoteSamples = (midiNum: number, vel: number, durMs: number, channel?: number) => {
       if (!_synth || !_synthReady) return
-      ensureHwChannel()
-      _synth.noteOn(15, midiNum, Math.round(vel * 127))
-      setTimeout(() => _synth?.noteOff(15, midiNum), durMs)
+      const ch = channel ?? 15
+      if (ch === 15) ensureHwChannel()
+      _synth.noteOn(ch, midiNum, Math.round(vel * 127))
+      setTimeout(() => _synth?.noteOff(ch, midiNum), durMs)
       lightKey(midiNum, '#e8a027', durMs + 100)
     }
     // ── Sustained note-on for hardware MIDI input ────────────────────────────
