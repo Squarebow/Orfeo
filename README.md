@@ -2,7 +2,7 @@
 
 **A modern piano learning and MIDI visualization desktop app for Windows.**
 
-[![Version](https://img.shields.io/badge/Version-0.11.0-blue)](https://github.com/SquareBow/orfeo/releases)
+[![Version](https://img.shields.io/badge/Version-0.12.1-blue)](https://github.com/SquareBow/orfeo/releases)
 [![License](https://img.shields.io/badge/License-MIT-green)](LICENSE)
 [![Platform](https://img.shields.io/badge/Platform-Windows-lightgrey?logo=windows)](https://github.com/SquareBow/orfeo/releases)
 [![Status](https://img.shields.io/badge/Status-Beta-orange)](https://github.com/SquareBow/orfeo)
@@ -177,6 +177,20 @@ MIT © [SquareBow](https://github.com/SquareBow)
 ## Changelog
 
 All user-visible changes listed here. For full technical detail see [CHANGELOG.md](CHANGELOG.md).
+
+---
+
+### 25. 7. 2026
+
+**Fixed**
+- Note Editor: clicking any note in edit mode before pressing Play for the first time now correctly plays that note's instrument. Previously all notes sounded like piano regardless of track. Affected both the Samples engine (SpessaSynth) and GM Synth (JZZ) paths.
+- Note Editor: Alt+click to add a note no longer recolors all existing notes. The bug was a track-mapping index error in the add-note path — the fourth instance of the same class of bug, now fully eliminated across all four code paths.
+- Note Editor: selected notes can now be dragged horizontally (pitch) as well as vertically (time). Drag direction is determined by the gesture — move further left/right to shift pitch, up/down to shift time. Multi-note selection respects the same delta for all selected notes.
+- Note Editor: newly added notes show a red dashed outline (consistent with the red selection highlight) instead of the previous neutral white.
+
+**Improved**
+- Note Editor toolbar: Save button now uses the correct Lucide SavePlus icon at the right visual weight.
+- Note Editor toolbar: Close (✕) button turns amber on hover.
 
 ---
 

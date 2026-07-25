@@ -6,6 +6,9 @@ import { Midi } from '@tonejs/midi'
 import { Chord, Note } from 'tonal'
 import PDFDocument from 'pdfkit'
 
+// ── Module-level window reference — needed by the close handler and IPC send ──────
+let mainWin: BrowserWindow | null = null
+
 // ── Copy bundled demo MIDI files into the user's library on first launch ─────────
 // Writes a flag file to userData so this runs exactly once.
 // Target: libraryFolder/Demo/ if a library is configured, otherwise userData/Demo/.
@@ -60,6 +63,7 @@ function createWindow() {
       contextIsolation: true, nodeIntegration: false, webSecurity: false,
     },
   })
+  mainWin = win
   if (process.env['ELECTRON_RENDERER_URL']) {
     win.loadURL(process.env['ELECTRON_RENDERER_URL'])
   } else {
@@ -69,6 +73,23 @@ function createWindow() {
   win.once('ready-to-show', () => {
     win.maximize()
     win.show()
+  })
+  // ── Intercept close to prompt for unsaved note editor edits ────────────────
+  win.on('close', async (e) => {
+    const dirty = await win.webContents.executeJavaScript('window.__orfeoNoteEditorDirty?.() ?? false').catch(() => false)
+    if (!dirty) return
+    e.preventDefault()
+    const { response } = await dialog.showMessageBox(win, {
+      type: 'question',
+      buttons: ['Save', 'Discard', 'Cancel'],
+      defaultId: 0, cancelId: 2,
+      message: 'Save unsaved note edits?',
+      detail: 'Your note edits will be lost if you close without saving.',
+    })
+    if (response === 2) return          // Cancel — keep window open
+    if (response === 1) { win.destroy(); return }  // Discard
+    // Save — tell renderer to run its save flow, then call app:confirm-close when done
+    win.webContents.send('app:save-before-close')
   })
 }
 
@@ -817,6 +838,33 @@ ipcMain.handle('transcript:generate', async (_e, midiFilePath: string, noteNamin
   } catch (e: any) {
     return { success: false, error: e?.message ?? 'PDF generation failed' }
   }
+})
+
+// ── Note Editor save — write a MIDI buffer to the chosen output path ──────────
+ipcMain.handle('noteEditor:save', async (_e, payload: { outputPath: string; base64: string }) => {
+  try {
+    const buf = Buffer.from(payload.base64, 'base64')
+    await mkdir(dirname(payload.outputPath), { recursive: true })
+    writeFileSync(payload.outputPath, buf)
+    const fileName = payload.outputPath.split(/[\\/]/).pop() ?? ''
+    return { ok: true, filePath: payload.outputPath, fileName, base64: buf.toString('base64') }
+  } catch (e: any) {
+    return { ok: false, message: e?.message ?? 'Save failed' }
+  }
+})
+
+// ── Native message-box dialog — wraps dialog.showMessageBox for renderer use ──
+ipcMain.handle('dialog:messageBox', async (_e, opts: {
+  type?: string; buttons: string[]; defaultId?: number; cancelId?: number; message: string; detail?: string
+}) => {
+  const win = mainWin
+  if (!win) return { response: opts.cancelId ?? opts.buttons.length - 1 }
+  return dialog.showMessageBox(win, opts as any)
+})
+
+// ── App force-close — called by renderer after completing a save-before-close ─
+ipcMain.handle('app:confirm-close', () => {
+  mainWin?.destroy()
 })
 
 // ── Portable mode: redirect userData to a folder next to the exe ─────────────

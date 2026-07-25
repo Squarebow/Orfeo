@@ -17,7 +17,8 @@ const MIN_NOTE_H       = 4
 const PLAYHEAD_RATIO   = 0.80
 const RESIZE_ZONE_PX   = 6
 const DRAG_THRESHOLD   = 4
-const SEL_COLOR        = 0x4488ee
+const SEL_NOTE_COLOR    = 0xdd2244   // red — actively selected/dragged notes
+const SEL_MARQUEE_COLOR = 0x7788aa   // neutral — drag-select rectangle
 
 // ── FlatNote — used for the main render O(log N) binary search ────────────────
 interface FlatNote { midi: number; time: number; duration: number; trackIndex: number }
@@ -49,7 +50,7 @@ interface EditDragState {
   startClientX:      number
   startClientY:      number
   axis:              'time' | 'pitch' | null
-  selectionSnapshot?: Array<{ note: ToneNote; origTime: number; origTicks: number }>
+  selectionSnapshot?: Array<{ note: ToneNote; origTime: number; origTicks: number; origMidi: number }>
 }
 
 interface EditMarqueeState {
@@ -348,8 +349,10 @@ export default function PianoRoll() {
         const visEnd    = currentTime + (VISIBLE_SECONDS / (storeRef.current.zoomLevel ?? 1)) * PLAYHEAD_RATIO
         const totalKeys = midiMax - midiMin + 1
 
-        for (let i = 0; i < editMidi.tracks.length; i++) {
-          const track    = editMidi.tracks[i]
+        // Mirror parseMidiBuffer's empty-track filter so position-based index mapping stays in sync
+        const nonEmptyEditTracks = (editMidi.tracks as any[]).filter((t: any) => t.notes.length > 0)
+        for (let i = 0; i < nonEmptyEditTracks.length; i++) {
+          const track    = nonEmptyEditTracks[i]
           const parsedIdx = parsedMidi?.tracks?.[i]?.index ?? i
           const ts = trackMap.get(parsedIdx)
           if (!ts || !ts.visible || ts.muted) continue   // same gate as drawFrame
@@ -421,6 +424,10 @@ export default function PianoRoll() {
         // Rebuild flat notes every frame — ensures drag-move preview is always current.
         buildEditFlatNotes(py, pps, currentTime, midiMin, midiMax, transpose)
 
+        // Pulsate selected-note border via sine wave — driven purely by wall-clock time,
+        // no extra state needed since drawFrame already runs on rAF every frame.
+        const pulse = 0.55 + 0.30 * Math.sin(Date.now() / 250)
+
         for (const ef of editFlatNotes) {
           const { note, key, topY, noteH } = ef
           const isSelected = editSelectedNotes.has(note)
@@ -429,12 +436,12 @@ export default function PianoRoll() {
 
           if (isSelected || isDragged) {
             editG.roundRect(key.x + 1, topY - 1, Math.max(key.width - 2, 1), noteH + 2, NOTE_RADIUS)
-            editG.stroke({ color: SEL_COLOR, width: 2, alpha: 0.85 })
+            editG.stroke({ color: SEL_NOTE_COLOR, width: 2, alpha: pulse })
           }
           if (isNew) {
             drawDashedRect(
               editG, key.x + 1, topY, Math.max(key.width - 2, 1), noteH,
-              0xdddddd, 0.80,
+              0xdd2244, 0.80,
             )
           }
         }
@@ -446,9 +453,9 @@ export default function PianoRoll() {
           const mw = Math.abs(editMarquee.endX - editMarquee.startX)
           const mh = Math.abs(editMarquee.endY - editMarquee.startY)
           editG.rect(mx, my, mw, mh)
-          editG.fill({ color: SEL_COLOR, alpha: 0.07 })
+          editG.fill({ color: SEL_MARQUEE_COLOR, alpha: 0.07 })
           editG.rect(mx, my, mw, mh)
-          editG.stroke({ color: SEL_COLOR, width: 1, alpha: 0.45 })
+          editG.stroke({ color: SEL_MARQUEE_COLOR, width: 1, alpha: 0.45 })
         }
       }
 
@@ -517,6 +524,9 @@ export default function PianoRoll() {
             NES.editMidi = midiToEditableCopy(rawBuffer)
           }
           NES.needsFlatRebuild = true
+          // Prime GM channel programs via a silent SMF player so notes preview
+          // on the correct instrument before the user presses Play for the first time.
+          ;(window as any).__orfeoWarmupEditChannels?.()
         }
         if (!noteEditorActive && prevNoteEditorActive) {
           NES.editMidi = null
@@ -530,8 +540,10 @@ export default function PianoRoll() {
           if (NES.editMidi) {
             const parsedMidi = storeRef.current.midi as any
             const flat: FlatNote[] = []
-            for (let i = 0; i < (NES.editMidi as any).tracks.length; i++) {
-              const et = (NES.editMidi as any).tracks[i]
+            // Mirror parseMidiBuffer's empty-track filter so position-based index mapping stays in sync
+            const nonEmpty = ((NES.editMidi as any).tracks as any[]).filter((t: any) => t.notes.length > 0)
+            for (let i = 0; i < nonEmpty.length; i++) {
+              const et = nonEmpty[i]
               const parsedIdx = parsedMidi?.tracks?.[i]?.index ?? i
               for (const note of et.notes) {
                 flat.push({ midi: note.midi, time: note.time, duration: note.duration, trackIndex: parsedIdx })
@@ -618,7 +630,7 @@ export default function PianoRoll() {
           ctx.fillStyle = 'rgba(255,255,255,0.85)'
           for (const ef of editFlatNotes) {
             if (ef.noteH < 14) continue
-            const label = getNoteLabel(ef.note.midi, noteNaming, accidentals)
+            const label = getNoteLabel(ef.note.midi, noteNaming, accidentals).replace(/\d+$/, '')
             if (!label) continue
             ctx.fillText(label, ef.key.x + ef.key.width / 2, ef.topY + ef.noteH / 2)
           }
@@ -765,11 +777,14 @@ export default function PianoRoll() {
             const ppq       = header.ppq ?? 480
             const dur       = ppq
 
-            // Find the first editable track (visible, not muted) in editMidi
+            // Find the first editable track (visible, not muted) in editMidi.
+            // Must filter to non-empty tracks first — same as buildEditFlatNotes — so
+            // position-based index mapping stays in sync with parsedMidi.tracks[i].
             const { tracks } = storeRef.current
             const parsedMidi = storeRef.current.midi as any
             const trackMap   = new Map(tracks.map((t: any) => [t.index, t]))
-            const editTrack  = editMidi.tracks.find((_t: any, i: number) => {
+            const nonEmptyForAdd = (editMidi.tracks as any[]).filter((t: any) => t.notes.length > 0)
+            const editTrack  = nonEmptyForAdd.find((_t: any, i: number) => {
               const parsedIdx = parsedMidi?.tracks?.[i]?.index ?? i
               const ts = trackMap.get(parsedIdx)
               return ts && ts.visible && !ts.muted
@@ -808,8 +823,8 @@ export default function PianoRoll() {
               origMidi: note.midi,
               origNoteX: key.x + key.width / 2,
               startClientX: e.clientX, startClientY: e.clientY,
-              axis: 'time',
-              selectionSnapshot: [...editSelectedNotes].map(n => ({ note: n, origTime: n.time, origTicks: n.ticks })),
+              axis: null,
+              selectionSnapshot: [...editSelectedNotes].map(n => ({ note: n, origTime: n.time, origTicks: n.ticks, origMidi: n.midi })),
             }
             editDragActiveRef.current = true
             app.canvas.setPointerCapture(e.pointerId)
@@ -889,8 +904,26 @@ export default function PianoRoll() {
         }
 
         if (editDrag.mode === 'selection-move') {
-          for (const snap of editDrag.selectionSnapshot!) {
-            snap.note.time = Math.max(0, snap.origTime + (-dy / pps))
+          if (editDrag.axis === null &&
+              (Math.abs(dx) > DRAG_THRESHOLD || Math.abs(dy) > DRAG_THRESHOLD)) {
+            editDrag.axis = Math.abs(dy) >= Math.abs(dx) ? 'time' : 'pitch'
+            app.canvas.style.cursor = editDrag.axis === 'time' ? 'ns-resize' : 'ew-resize'
+          }
+          if (editDrag.axis === null) return
+          if (editDrag.axis === 'time') {
+            for (const snap of editDrag.selectionSnapshot!) {
+              snap.note.time = Math.max(0, snap.origTime + (-dy / pps))
+            }
+          } else {
+            const { midiMin, midiMax } = getViewParams()
+            const newPrimaryMidi = Math.max(midiMin, Math.min(midiMax,
+              xToMidi(editDrag.origNoteX + dx, keyLayoutRef.current, midiMin, midiMax)))
+            const deltaMidi = newPrimaryMidi - editDrag.origMidi
+            if (deltaMidi !== 0) {
+              for (const snap of editDrag.selectionSnapshot!) {
+                snap.note.midi = Math.max(midiMin, Math.min(midiMax, snap.origMidi + deltaMidi))
+              }
+            }
           }
         }
       }
@@ -986,25 +1019,40 @@ export default function PianoRoll() {
         }
 
         else if (editDrag.mode === 'selection-move') {
-          const snapshot  = editDrag.selectionSnapshot!
-          const anyMoved  = snapshot.some(s => s.note.time !== s.origTime)
-          if (anyMoved) {
-            const finalTicks = snapshot.map(s => timeToSnappedTick(s.note.time))
-            snapshot.forEach((s, i) => { s.note.ticks = finalTicks[i]; syncNoteTimes(s.note) })
-            track.notes.sort((a: any, b: any) => a.ticks - b.ticks)
-            history_push({ note, track,
-              apply()  {
-                snapshot.forEach((s, i) => { s.note.ticks = finalTicks[i]; syncNoteTimes(s.note) })
-                track.notes.sort((a: any, b: any) => a.ticks - b.ticks)   // track captured above, not editDrag
-              },
-              revert() {
-                snapshot.forEach(s => { s.note.ticks = s.origTicks; syncNoteTimes(s.note) })
-                track.notes.sort((a: any, b: any) => a.ticks - b.ticks)
-              },
-              description: `Move ${snapshot.length} notes`,
-            })
+          const snapshot = editDrag.selectionSnapshot!
+          if (editDrag.axis === 'pitch') {
+            const anyRepitched = snapshot.some(s => s.note.midi !== s.origMidi)
+            if (anyRepitched) {
+              const finalMidis = snapshot.map(s => s.note.midi)
+              history_push({ note, track,
+                apply()  { snapshot.forEach((s, i) => { s.note.midi = finalMidis[i] }) },
+                revert() { snapshot.forEach(s => { s.note.midi = s.origMidi }) },
+                description: `Repitch ${snapshot.length} notes`,
+              })
+            } else {
+              snapshot.forEach(s => { s.note.midi = s.origMidi })
+            }
           } else {
-            snapshot.forEach(s => { s.note.time = s.origTime })
+            // time axis or no drag started
+            const anyMoved = snapshot.some(s => s.note.time !== s.origTime)
+            if (anyMoved) {
+              const finalTicks = snapshot.map(s => timeToSnappedTick(s.note.time))
+              snapshot.forEach((s, i) => { s.note.ticks = finalTicks[i]; syncNoteTimes(s.note) })
+              track.notes.sort((a: any, b: any) => a.ticks - b.ticks)
+              history_push({ note, track,
+                apply()  {
+                  snapshot.forEach((s, i) => { s.note.ticks = finalTicks[i]; syncNoteTimes(s.note) })
+                  track.notes.sort((a: any, b: any) => a.ticks - b.ticks)
+                },
+                revert() {
+                  snapshot.forEach(s => { s.note.ticks = s.origTicks; syncNoteTimes(s.note) })
+                  track.notes.sort((a: any, b: any) => a.ticks - b.ticks)
+                },
+                description: `Move ${snapshot.length} notes`,
+              })
+            } else {
+              snapshot.forEach(s => { s.note.time = s.origTime })
+            }
           }
         }
 

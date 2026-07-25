@@ -1,4 +1,5 @@
-import { useState, useMemo, useRef, useEffect } from 'react'
+import { useState, useMemo, useRef, useEffect, useCallback } from 'react'
+import { NES } from '../../utils/noteEditorState'
 import {
   ChevronLeft, ChevronDown, ChevronRight, Type, Piano, Palette, ZoomIn, Volume2,
   Music, FolderOpen, RefreshCw, FileMusic, BookOpen, Library, Settings, Info,
@@ -477,7 +478,24 @@ function LibraryPanel() {
   }
 
   // ── File loader — reads MIDI from disk and parses into store state ────────
-  const handleLoadFile = async (filePath: string) => {
+  const handleLoadFile = useCallback(async (filePath: string) => {
+    // Guard: prompt if there are unsaved note editor edits
+    if (NES.dirty) {
+      const { response } = await window.electronAPI.showMessageBox({
+        type: 'question',
+        buttons: ['Save', 'Discard', 'Cancel'],
+        defaultId: 0, cancelId: 2,
+        message: 'Save changes before opening this file?',
+        detail: 'Your note edits will be lost if you discard.',
+      })
+      if (response === 2) return  // Cancel — do nothing
+      if (response === 0) {       // Save — trigger toolbar save flow
+        const ok = await NES.onSaveRequest?.()
+        if (!ok) return           // Save was cancelled or failed — abort load
+      }
+      // Discard (response === 1) — fall through
+      NES.dirty = false
+    }
     try {
       const result = await window.electronAPI.loadMidiFromPath(filePath)
       if (!result) return
@@ -498,7 +516,7 @@ function LibraryPanel() {
     } catch (err) {
       console.error('Failed to load file:', err)
     }
-  }
+  }, [])
 
   // ── Group files — root files first, then one entry per subfolder ─────────
   // Hidden files are filtered here so the rest of the render sees a clean list.
@@ -1441,7 +1459,7 @@ export default function SettingsPanel() {
                       <line x1="22" y1="50" x2="78" y2="50" stroke="#e8a027" strokeWidth="7" strokeLinecap="round"/>
                       <line x1="22" y1="62" x2="78" y2="62" stroke="#e8a027" strokeWidth="7" strokeLinecap="round"/>
                     </svg>
-                    <span style={{ color: 'var(--text-inactive)', fontSize: 10, fontFamily: 'JetBrains Mono' }}>Orfeo · v0.12.0</span>
+                    <span style={{ color: 'var(--text-inactive)', fontSize: 10, fontFamily: 'JetBrains Mono' }}>Orfeo · v0.12.1</span>
                   </div>
                   <div style={{ fontSize: 9, color: '#35354a', fontFamily: 'Inter', lineHeight: 1.5 }}>
                     MIT License · github.com/SquareBow/orfeo

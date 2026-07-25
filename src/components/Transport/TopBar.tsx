@@ -281,12 +281,9 @@ export default function TopBar() {
         </span>
       </div>
 
-      <div style={{ width: 1, height: 'var(--button-height)', background: 'var(--border)', flexShrink: 0 }} />
-
-      {/* ── NOTE EDITOR toggle — pencil icon, left of bar counter ── */}
-      {noteEditorEnabled && midi && (
-        <>
-          <div style={{ width: 1, height: 'var(--button-height)', background: 'var(--border)', flexShrink: 0 }} />
+      {/* ── NOTE EDITOR toggle — always a fixed-width slot when enabled so nothing shifts ── */}
+      {noteEditorEnabled && (
+        <div style={{ width: 'var(--button-height)', height: 'var(--button-height)', flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', opacity: midi ? 1 : 0, pointerEvents: midi ? 'auto' : 'none' }}>
           <button
             onClick={() => {
               if (noteEditorActive) {
@@ -313,7 +310,7 @@ export default function TopBar() {
           >
             <Pencil size={14} strokeWidth={1.5} />
           </button>
-        </>
+        </div>
       )}
 
       {/* ── TIME + METRONOME + MIDI — bottoms aligned ── */}

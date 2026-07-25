@@ -1,6 +1,9 @@
 import { useEffect, useState, useReducer, useRef, useCallback } from 'react'
 import { useStore } from '../../store'
 import { NES } from '../../utils/noteEditorState'
+import { editableCopyToBuffer } from '../../utils/noteEditorCommands'
+import { parseMidiBuffer } from '../../utils/midiParser'
+import { detectKeyFromTracks, parseKeySignature } from '../../utils/keyDetection'
 
 // ── Toolbar SVG icons ─────────────────────────────────────────────────────────
 const IconPencil = () => (
@@ -33,12 +36,40 @@ const IconSnap = () => (
 
 const QUANT_LABELS: Record<number, string> = { 4: '1/4', 8: '1/8', 16: '1/16', 32: '1/32' }
 
+const IconSavePlus = () => (
+  <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="var(--text-amber, #e8a027)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+    <path d="M12.5 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h10.2a2 2 0 0 1 1.4.6l3.8 3.8a2 2 0 0 1 .6 1.4V12" />
+    <path d="M16 13H8a1 1 0 0 0-1 1v7" />
+    <path d="M19 22v-6" />
+    <path d="M22 19h-6" />
+    <path d="M7 3v4a1 1 0 0 0 1 1h7" />
+  </svg>
+)
+
+// ── Compute the next versioned _ORFEO save path from the current source path ──
+function computeSavePath(sourcePath: string): string {
+  const norm = sourcePath.replace(/\\/g, '/')
+  const slash = norm.lastIndexOf('/')
+  const dir   = norm.substring(0, slash + 1)
+  const base  = norm.substring(slash + 1).replace(/\.midi?$/i, '')
+  const stripped = base.replace(/_ORFEO(_V\d+)?$/i, '')
+  const vMatch   = base.match(/_ORFEO_V(\d+)$/i)
+  const isOrfeo  = /_ORFEO$/i.test(base)
+  const suffix   = vMatch ? `_ORFEO_V${parseInt(vMatch[1]) + 1}` : isOrfeo ? '_ORFEO_V2' : '_ORFEO'
+  const outDir   = dir.endsWith('/Orfeo/') ? dir : `${dir}Orfeo/`
+  return `${outDir}${stripped}${suffix}.mid`
+}
+
 // ── NoteEditorToolbar ─────────────────────────────────────────────────────────
 // Floating draggable toolbar — appears when noteEditorActive is true.
 // Reads/writes NES.* directly; subscribes to NES.onHistoryChange for re-renders.
 export default function NoteEditorToolbar() {
-  const noteEditorActive = useStore(s => s.noteEditorActive)
-  const setNoteEditorActive = useStore(s => s.setNoteEditorActive)
+  const noteEditorActive        = useStore(s => s.noteEditorActive)
+  const setNoteEditorActive     = useStore(s => s.setNoteEditorActive)
+  const noteEditorEnabled       = useStore(s => s.noteEditorEnabled)
+  const noteEditorToolbarX      = useStore(s => s.noteEditorToolbarX)
+  const noteEditorToolbarY      = useStore(s => s.noteEditorToolbarY)
+  const setNoteEditorToolbarPos = useStore(s => s.setNoteEditorToolbarPos)
 
   // ── Force re-render on history changes (push/undo/redo) ───────────────────
   const [, forceUpdate] = useReducer((x: number) => x + 1, 0)
@@ -57,8 +88,65 @@ export default function NoteEditorToolbar() {
     return () => { if (NES.onHistoryChange === forceUpdate as unknown as (() => void)) NES.onHistoryChange = null }
   }, [])
 
+  // ── Force-exit edit mode when noteEditorEnabled is toggled off ────────────
+  useEffect(() => {
+    if (!noteEditorEnabled && noteEditorActive) {
+      setNoteEditorActive(false)
+      NES.reset()
+    }
+  }, [noteEditorEnabled, noteEditorActive, setNoteEditorActive])
+
+  // ── Save handler — shown as a button in the toolbar, also registered on NES ──
+  // Returns true on successful save, false if cancelled or failed.
+  const handleSave = useCallback(async (): Promise<boolean> => {
+    const sourcePath = (useStore.getState().midi as any)?._filePath as string | undefined
+    if (!sourcePath || !NES.editMidi) return false
+
+    const defaultPath = computeSavePath(sourcePath)
+    const outputPath  = await window.electronAPI.saveFileDialog({
+      defaultPath,
+      filters: [{ name: 'MIDI Files', extensions: ['mid', 'midi'] }],
+    })
+    if (!outputPath) return false
+
+    const buf    = editableCopyToBuffer(NES.editMidi)
+    const bytes  = new Uint8Array(buf)
+    let binary   = ''
+    for (let i = 0; i < bytes.length; i++) binary += String.fromCharCode(bytes[i])
+    const base64 = btoa(binary)
+
+    const result = await window.electronAPI.saveNoteEditor({ outputPath, base64 })
+    if (!result.ok) return false
+
+    NES.dirty = false
+    NES.onHistoryChange?.()  // refresh dirty indicator in toolbar
+
+    // Reload the saved file so the editor and library highlight update
+    if (result.base64 && result.fileName && result.filePath) {
+      const b   = atob(result.base64)
+      const arr = new Uint8Array(b.length)
+      for (let i = 0; i < b.length; i++) arr[i] = b.charCodeAt(i)
+      const parsed = parseMidiBuffer(arr.buffer, result.fileName, result.filePath)
+      useStore.getState().setMidi(parsed)
+      const raw = parsed as any
+      if (raw._keySignature != null) {
+        useStore.getState().setDetectedKey(parseKeySignature(raw._keySignature.key, raw._keySignature.scale))
+      } else {
+        useStore.getState().setDetectedKey(detectKeyFromTracks(parsed.tracks))
+      }
+    }
+    return true
+  }, [])
+
+  // ── Register save handler on NES so SettingsPanel and app-close can call it ──
+  useEffect(() => {
+    NES.onSaveRequest = handleSave
+    return () => { if (NES.onSaveRequest === handleSave) NES.onSaveRequest = null }
+  }, [handleSave])
+
   // ── Drag state ────────────────────────────────────────────────────────────
-  const [pos, setPos]   = useState({ x: 24, y: 80 })
+  const [pos, setPos]   = useState({ x: noteEditorToolbarX, y: noteEditorToolbarY })
+  const posRef          = useRef({ x: noteEditorToolbarX, y: noteEditorToolbarY })
   const panelRef        = useRef<HTMLDivElement>(null)
   const dragState       = useRef<{ startX: number; startY: number; startPosX: number; startPosY: number } | null>(null)
 
@@ -67,12 +155,19 @@ export default function NoteEditorToolbar() {
     if (!ds) return
     const panelW = panelRef.current?.offsetWidth ?? 400
     const panelH = panelRef.current?.offsetHeight ?? 44
-    setPos({
+    const next = {
       x: Math.max(0, Math.min(window.innerWidth - panelW, ds.startPosX + (e.clientX - ds.startX))),
       y: Math.max(0, Math.min(window.innerHeight - panelH, ds.startPosY + (e.clientY - ds.startY))),
-    })
+    }
+    posRef.current = next
+    setPos(next)
   }, [])
-  const onMouseUp = useCallback(() => { dragState.current = null }, [])
+  const onMouseUp = useCallback(() => {
+    if (dragState.current) {
+      dragState.current = null
+      setNoteEditorToolbarPos(posRef.current.x, posRef.current.y)
+    }
+  }, [setNoteEditorToolbarPos])
 
   useEffect(() => {
     window.addEventListener('mousemove', onMouseMove)
@@ -142,6 +237,7 @@ export default function NoteEditorToolbar() {
   return (
     <div
       ref={panelRef}
+      className="orfeo-modal-glow"
       style={{
         position: 'fixed',
         left: pos.x, top: pos.y,
@@ -149,7 +245,6 @@ export default function NoteEditorToolbar() {
         background: 'var(--panel, #1e1e1e)',
         border: '1px solid #3a3a4c',
         borderRadius: 'var(--radius-md, 5px)',
-        boxShadow: '0 4px 20px rgba(0,0,0,0.6)',
         display: 'flex',
         alignItems: 'center',
         height: 38,
@@ -196,6 +291,11 @@ export default function NoteEditorToolbar() {
       {/* ── Select tool ──────────────────────────────────────────────────── */}
       <ToolBtn active={toolMode === 'select'} onClick={() => setTool('select')} title="Select tool — click to select, drag to marquee, Del to remove">
         <IconMarquee />
+      </ToolBtn>
+
+      {/* ── Save ─────────────────────────────────────────────────────────── */}
+      <ToolBtn active={false} onClick={() => void handleSave()} title="Save note edits as new MIDI file (_ORFEO versioned copy)">
+        <IconSavePlus />
       </ToolBtn>
 
       <VSep />
@@ -279,6 +379,8 @@ export default function NoteEditorToolbar() {
         onClick={doClose}
         title="Exit edit mode"
         style={{ ...btnBase, paddingLeft: 10, paddingRight: 10, color: 'var(--text-muted, #94979e)' }}
+        onMouseEnter={e => { e.currentTarget.style.color = 'var(--text-amber, #e8a027)' }}
+        onMouseLeave={e => { e.currentTarget.style.color = 'var(--text-muted, #94979e)' }}
       >
         ✕
       </button>

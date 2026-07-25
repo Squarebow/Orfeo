@@ -20,6 +20,12 @@ contextBridge.exposeInMainWorld('electronAPI', {
   splitMidiEditor:    (payload: any) => ipcRenderer.invoke('editor:split', payload),
   openExternal:       (url: string) => ipcRenderer.invoke('shell:openExternal', url),
   transcriptGenerate: (midiPath: string, noteNaming: string, accidentals: string) => ipcRenderer.invoke('transcript:generate', midiPath, noteNaming, accidentals),
+  // Note Editor
+  saveNoteEditor:      (payload: any) => ipcRenderer.invoke('noteEditor:save', payload),
+  showMessageBox:      (opts: any)    => ipcRenderer.invoke('dialog:messageBox', opts),
+  confirmClose:        ()             => ipcRenderer.invoke('app:confirm-close'),
+  onSaveBeforeClose:   (fn: () => void) => ipcRenderer.on('app:save-before-close', () => fn()),
+  offSaveBeforeClose:  ()             => ipcRenderer.removeAllListeners('app:save-before-close'),
   // Drag-and-drop file import
   getPathForFile:     (file: File) => webUtils.getPathForFile(file),
   copyMidiToLibrary:  (sourcePath: string, libraryFolder: string) => ipcRenderer.invoke('fs:copyMidiToLibrary', sourcePath, libraryFolder),

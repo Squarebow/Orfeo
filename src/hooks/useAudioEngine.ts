@@ -17,6 +17,11 @@ let _notePortReady = false
 let _hwChannelReady = false
 // ── Module-level muted channel set — updated in-place so the live filter reads it ──
 let _mutedCh = new Set<number>()
+// ── Promise for the channel-warmup operation triggered on edit-mode enter ────
+// Null = warmup not yet started; resolved promise = warmup done.
+// Cleared in destroyPlayer so the next edit-mode entry after a file reload
+// or playback-stop re-warms correctly.
+let _warmupPromise: Promise<void> | null = null
 
 function initJZZ(): Promise<void> {
   if (_jzzReady) return Promise.resolve()
@@ -114,6 +119,7 @@ function destroyPlayer() {
   try { _player?.stop() } catch {}
   _player = null
   ;(window as any).__orfeoPlayer = null
+  _warmupPromise = null   // allow re-warm on next edit-mode entry
 }
 
 // ── updateMutedChannels — live mute/solo update without rebuilding the player ──
@@ -224,6 +230,41 @@ function stopAudio() {
   _notePortReady = false
 }
 
+// ── warmupEditChannels — prime GM channel programs before first note-editor click ──
+// Sends program changes through a real JZZ SMF player (the same path buildPlayer
+// uses) so jzz-synth-tiny's internal pipeline is correctly activated.  A filter
+// blocks all note events so no sound is emitted.  The promise is stored in
+// _warmupPromise so playNote can await it if the user clicks before the 150 ms
+// settling window has elapsed.
+async function warmupEditChannels() {
+  // Skip if a player is active — its SMF events have already set programs.
+  // Skip if warmup already in flight / done for this file session.
+  if (_player || _warmupPromise) return
+  _warmupPromise = (async () => {
+    try {
+      await initJZZ()
+      if (!_port || !_JZZ) return
+      const raw = (useStore.getState().midi as any)?._raw as ArrayBuffer | undefined
+      if (!raw) return
+      const smfFile = new _JZZ.MIDI.SMF(new Uint8Array(raw))
+      const wPlayer = smfFile.player()
+      wPlayer.connect(_port)
+      // Only let program changes and bank-select CCs through — no notes emitted
+      wPlayer.filter(function(this: any, msg: any) {
+        const status = msg[0] & 0xF0
+        if (status === 0xC0) { this._receive(msg); return }
+        if (status === 0xB0 && (msg[1] === 0 || msg[1] === 32)) { this._receive(msg) }
+      })
+      wPlayer.play()
+      // Program changes live at tick 0 and are dispatched immediately after play();
+      // 150 ms is ample time for all of them to reach the synthesizer.
+      await new Promise<void>(r => setTimeout(r, 150))
+      try { wPlayer.stop() } catch {}
+    } catch (e) { console.warn('[Orfeo GM] warmupEditChannels error:', e) }
+  })()
+  return _warmupPromise
+}
+
 // ── Combined hook ─────────────────────────────────────────────────────────────
 export function useAudioEngine() {
   // Always mount Samples engine (it self-gates on audioEngine !== 'samples')
@@ -247,10 +288,13 @@ export function useAudioEngine() {
         const fn = (window as any).__orfeoPlayNoteSamples
         if (fn) { fn(midiNum, vel, durMs, channel); return }
       }
-      // GM: ch 14 is the dedicated preview channel (piano); other channels
-      // use whatever program the JZZ player last set on that channel.
+      // GM: ch 14 is the dedicated preview channel (piano). Track channels have
+      // correct programs after __orfeoWarmupEditChannels runs on edit-mode enter.
       const ch = channel ?? 14
       try {
+        // If a channel warmup is in flight, wait for it before sending note-on
+        // so the program change arrives before the note on the first click.
+        if (channel !== undefined && _warmupPromise) await _warmupPromise
         await initJZZ()
         if (!_port) return
         if (ch === 14) ensureClickChannel()
@@ -275,8 +319,14 @@ export function useAudioEngine() {
       try { _port?.send([0x8F, midiNum, 0]) } catch (e) { console.error('[Orfeo GM] noteOff error:', e) }
     }
 
+    // ── Warm up GM channels via a temporary silent SMF player ────────────────
+    ;(window as any).__orfeoWarmupEditChannels = () => {
+      if (useStore.getState().audioEngine === 'gm') warmupEditChannels()
+    }
+
     return () => {
       delete (window as any).__orfeoPlayNote
+      delete (window as any).__orfeoWarmupEditChannels
       delete (window as any).__orfeoNoteOn
       delete (window as any).__orfeoNoteOff
       stopAudio()

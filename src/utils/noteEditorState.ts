@@ -28,6 +28,9 @@ export const NES = {
   // ── Registered by NoteEditorToolbar — fires on every history push/undo/redo ────────────
   onHistoryChange: null as (() => void) | null,
 
+  // ── Registered by NoteEditorToolbar — called by SettingsPanel / App close to trigger save ──
+  onSaveRequest: null as (() => Promise<boolean>) | null,
+
   // ── Reset all ephemeral state — call on edit mode enter/exit and on file load ──────────
   reset() {
     this.history.clear()

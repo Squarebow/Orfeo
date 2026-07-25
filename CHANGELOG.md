@@ -4,6 +4,108 @@
 
 ---
 
+### 25. 7. 2026 — Note Editor: instrument audio fix, alt+click mapping, selection pitch drag, UI polish
+
+**Root cause — instrument audio (both engines):** clicking a note in the editor before ever pressing Play always sounded like piano on all tracks. Two separate bugs, one per engine:
+
+- **Samples engine (`useSamplesEngine.ts`):** `__orfeoPlayNoteSamples` called `_synth.noteOn(ch, ...)` without ever sending `_synth.programChange()` first. SpessaSynth defaults all channels to program 0 (piano). `programChange` was only called inside `buildSamplesPlayer` (playback start). Fix: module-level `_samplesChanInit: Set<number>` — on first `noteOn` for a channel (when ch ≠ 15), look up the track's `program` from the store and call `_synth.programChange(ch, program)` before `noteOn`. `buildSamplesPlayer` clears this set and repopulates it as part of its own program-change loop.
+- **GM engine (`useAudioEngine.ts`):** `_port.send([0xC0|ch, program])` is silently discarded before any JZZ player has been connected to `_port` — the synthesizer's internal event pipeline isn't activated until `player.connect(port)` is first called (inside `buildPlayer`). Fix: `warmupEditChannels()` — creates a temporary JZZ SMF player, connects it to `_port`, plays the raw MIDI through a filter that blocks all note events but passes program changes and bank-select CCs. After 150 ms (ample for tick-0 events), the player is stopped. `_warmupPromise` stores the in-flight promise; `playNote` awaits it if the user clicks before 150 ms elapses. Called from PianoRoll on edit mode enter via `window.__orfeoWarmupEditChannels`.
+
+**Root cause — alt+click recolors all notes (fourth unpatched position-based mapping path):** in `onEditDown` (alt+click), `editMidi.tracks.find((_t, i) => parsedMidi.tracks[i].index ...)` used raw track array position without the non-empty filter. Adding a note to the wrong track made the set of non-empty tracks change, shifting all `trackIndex` assignments in the next `needsFlatRebuild` and recoloring everything. Fix: filter `editMidi.tracks` to non-empty first (`nonEmptyForAdd`) before `.find()`, matching `buildEditFlatNotes` and the `needsFlatRebuild` block.
+
+**`src/hooks/useSamplesEngine.ts`:**
+- Added module-level `const _samplesChanInit = new Set<number>()`.
+- `__orfeoPlayNoteSamples`: lazy programChange on first use of each non-preview channel.
+- `buildSamplesPlayer`: clears `_samplesChanInit`, then re-populates as it sends programChanges.
+
+**`src/hooks/useAudioEngine.ts`:**
+- Added module-level `let _warmupPromise: Promise<void> | null = null`.
+- `destroyPlayer`: resets `_warmupPromise = null` so next edit-mode entry re-warms.
+- Added `warmupEditChannels()`: temporary filtered SMF player primes GM channels.
+- Registered `window.__orfeoWarmupEditChannels` (GM only) in the playNote useEffect.
+- `playNote`: removed failed lazy-init attempt; awaits `_warmupPromise` if channel is specified and warmup is in flight.
+
+**`src/components/PianoRoll/PianoRoll.tsx`:**
+- Edit mode enter now calls `window.__orfeoWarmupEditChannels?.()`.
+- **alt+click fix:** `nonEmptyForAdd` filter applied before track `.find()`.
+- **New-note dashed border:** `drawDashedRect` color changed from `0xdddddd` to `0xdd2244` (red, matching selected-note color family).
+- **Selection-move pitch axis:** `axis` starts `null` instead of `'time'`; axis is determined by gesture (first crossing `DRAG_THRESHOLD`). Horizontal drag shifts all selected notes by the same pitch delta relative to `origMidi`. Commit: pitch repitch logged to history via `description: 'Repitch N notes'`.
+- `EditDragState.selectionSnapshot` type: added `origMidi: number` per entry.
+- Snapshot creation: `[...editSelectedNotes].map(n => ({ ..., origMidi: n.midi }))`.
+- `onEditUp` selection-move: branches on `axis === 'pitch'` vs time; pitch path logs finalMidis to history.
+
+**`src/components/NoteEditor/NoteEditorToolbar.tsx`:**
+- Save icon replaced with exact Lucide SavePlus SVG (5-path, `viewBox="0 0 24 24"`, 15×15, stroke hardcoded to `var(--text-amber)`).
+- Close (✕) button: amber color on hover via `onMouseEnter`/`onMouseLeave`.
+
+---
+
+### 25. 7. 2026 — Note Editor: selection highlight, save flow, unsaved-change guards, TopBar fix, amber glow
+
+**`src/components/PianoRoll/PianoRoll.tsx`:**
+- `SEL_COLOR` split into `SEL_NOTE_COLOR = 0xdd2244` (red, selected notes) and `SEL_MARQUEE_COLOR = 0x7788aa` (neutral, drag-select rect).
+- Selection border pulsates via `0.55 + 0.30 * Math.sin(Date.now() / 250)` applied to stroke alpha each rAF frame — zero extra state.
+
+**`src/utils/noteEditorState.ts`:**
+- Added `onSaveRequest: (() => Promise<boolean>) | null` — registered by NoteEditorToolbar so SettingsPanel and the close handler can trigger a save without importing the toolbar.
+
+**`src/components/NoteEditor/NoteEditorToolbar.tsx`:**
+- Added `IconSave` SVG and `computeSavePath()` (versioned `_ORFEO` / `_ORFEO_V2` / `_ORFEO_V3...` suffix, placed in `Orfeo/` subfolder).
+- `handleSave()` — shows `saveFileDialog`, encodes `NES.editMidi` via `editableCopyToBuffer`, calls `noteEditor:save` IPC, reloads file into store on success, clears `NES.dirty`.
+- Save button inserted after Select (marquee) icon.
+- Registers `NES.onSaveRequest = handleSave` on mount (cleared on unmount).
+- Added amber glow via `className="orfeo-modal-glow"`, removed inline `boxShadow`.
+
+**`src/components/Transport/TopBar.tsx`:**
+- Removed permanent divider between filename area and pencil slot.
+- Pencil slot now renders whenever `noteEditorEnabled` (not also gated on `midi`): `opacity: 0; pointerEvents: none` when no file is loaded — slot always occupies `var(--button-height)` width, eliminating all layout shifts.
+
+**`src/components/SettingsPanel/SettingsPanel.tsx`:**
+- Imported `NES` from `noteEditorState`.
+- `handleLoadFile` wrapped in `useCallback`; checks `NES.dirty` first — shows `showMessageBox` native dialog (Save/Discard/Cancel); Save calls `NES.onSaveRequest?.()`, Discard clears dirty and loads, Cancel returns.
+
+**`src/App.tsx`:**
+- Imported `NES`.
+- `useEffect` registers `window.__orfeoNoteEditorDirty = () => NES.dirty` and subscribes to `app:save-before-close` IPC — calls `NES.onSaveRequest?.()` then `electronAPI.confirmClose()`.
+
+**`electron/main.ts`:**
+- `mainWin` module-level ref to `BrowserWindow`.
+- `win.on('close')` — checks dirty via `executeJavaScript`, shows native dialog if dirty; Discard → `win.destroy()`; Save → `win.webContents.send('app:save-before-close')`.
+- New `ipcMain.handle('noteEditor:save')` — writes base64 buffer, returns file data for renderer reload.
+- New `ipcMain.handle('dialog:messageBox')` — wraps `dialog.showMessageBox` for renderer confirm dialogs.
+- New `ipcMain.handle('app:confirm-close')` — destroys `mainWin` after renderer save completes.
+
+**`electron/preload.ts`:** Added `saveNoteEditor`, `showMessageBox`, `confirmClose`, `onSaveBeforeClose`, `offSaveBeforeClose`.
+
+**`src/types/index.ts`:** Typed all five new IPC methods.
+
+---
+
+### 25. 7. 2026 — Note Editor: track-order fix + toolbar persistence + UI polish
+
+**Root cause diagnosed and fixed (issues 3, 4, 6):** `buildEditFlatNotes` and the `needsFlatRebuild` block both used a position-based mapping `NES.editMidi.tracks[i] ↔ parsedMidi.tracks[i]`. `midiToEditableCopy` returns a raw `@tonejs/midi Midi` with ALL tracks including empty tempo/marker tracks; `parseMidiBuffer` filters them via `if (track.notes.length === 0) return`. For any MIDI file with empty leading tracks the indices diverged, causing wrong colors, wrong instrument channels, and notes silently dropped from `editFlatNotes` (no hit-test, no label, no audio).
+
+**`src/components/PianoRoll/PianoRoll.tsx`:**
+- Fixed `buildEditFlatNotes`: filter `editMidi.tracks` to non-empty before the position loop (`nonEmptyEditTracks`).
+- Fixed `needsFlatRebuild` block: same filter applied to `nonEmpty` before building `flatNotesRef`.
+- Note name labels now strip the octave digit (`.replace(/\d+$/, '')`) — shows `F`, `G#`, `Bb` instead of `F4`, `G#5`.
+
+**`src/components/NoteEditor/NoteEditorToolbar.tsx`:**
+- Toolbar initial position now reads from `noteEditorToolbarX/Y` store (instead of hardcoded 24/80).
+- Added `posRef` to track current position without stale-closure in `onMouseUp`.
+- `onMouseUp` now calls `setNoteEditorToolbarPos` to persist final drag position.
+- Added `useEffect` on `noteEditorEnabled`: when the Settings toggle goes false while edit mode is active, calls `setNoteEditorActive(false)` + `NES.reset()` immediately.
+
+**`src/components/Transport/TopBar.tsx`:**
+- Pencil icon wrapped in a fixed-width container (`width: var(--button-height)`) so toggling the icon on/off never shifts the playback controls. Removed the extra divider that was sitting to its left.
+
+**`src/store/index.ts`:**
+- Added `noteEditorToolbarX: number`, `noteEditorToolbarY: number`, `setNoteEditorToolbarPos` to interface, store body, `_prev` sentinels, change-detection, save, and restore — persisted to `orfeo-prefs.json` on drag-end.
+
+**`CLAUDE.md`:** Added Note Editor Architecture section; updated track-mapping note to document the empty-track filter requirement.
+
+---
+
 ### 24. 7. 2026 — Note Editor Phase 2.5: NES.editMidi + bug fixes
 
 **Root cause fixed: undo/redo, ticks, and add-note were all silently broken** because the edit system was targeting `ParsedNote[]` (plain copied objects with no `ticks`/`durationTicks`, no `addNote()`, no `header`) instead of real `@tonejs/midi` Note/Track instances.

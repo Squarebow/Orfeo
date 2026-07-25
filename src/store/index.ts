@@ -104,6 +104,9 @@ interface OrfeoStore {
   setNoteEditorEnabled: (v: boolean) => void
   noteEditorActive: boolean
   setNoteEditorActive: (v: boolean) => void
+  noteEditorToolbarX: number
+  noteEditorToolbarY: number
+  setNoteEditorToolbarPos: (x: number, y: number) => void
   vuDisplayMode: 'bars' | 'wave'
   setVuDisplayMode: (mode: 'bars' | 'wave') => void
   explorerKeys: Set<number>
@@ -389,6 +392,9 @@ export const useStore = create<OrfeoStore>((set, get) => ({
   setNoteEditorEnabled: (noteEditorEnabled) => set({ noteEditorEnabled }),
   noteEditorActive: false,
   setNoteEditorActive: (noteEditorActive) => set({ noteEditorActive }),
+  noteEditorToolbarX: 24,
+  noteEditorToolbarY: 80,
+  setNoteEditorToolbarPos: (noteEditorToolbarX, noteEditorToolbarY) => set({ noteEditorToolbarX, noteEditorToolbarY }),
 
   chordPrompterEnabled: false,
   chordPrompterOpen: false,
@@ -540,6 +546,7 @@ async function restoreLibraryPrefs() {
     if (prefs.audioEngine === 'samples') store.setAudioEngine('samples')
     if (typeof prefs.showBarNumbers === 'boolean') store.setShowBarNumbers(prefs.showBarNumbers)
     if (typeof prefs.noteEditorEnabled === 'boolean') store.setNoteEditorEnabled(prefs.noteEditorEnabled)
+    if (typeof prefs.noteEditorToolbarX === 'number' && typeof prefs.noteEditorToolbarY === 'number') store.setNoteEditorToolbarPos(prefs.noteEditorToolbarX, prefs.noteEditorToolbarY)
     if (typeof prefs.chordPrompterEnabled === 'boolean') store.setChordPrompterEnabled(prefs.chordPrompterEnabled)
     if (typeof prefs.chordTranscriptionEnabled === 'boolean') store.setChordTranscriptionEnabled(prefs.chordTranscriptionEnabled)
     if (typeof prefs.hideDemoFolder === 'boolean') store.setHideDemoFolder(prefs.hideDemoFolder)
@@ -588,6 +595,8 @@ let _prevMasterVolume: number | null = null
 let _prevAudioEngine: string | null = null
 let _prevShowBarNumbers: boolean | null = null
 let _prevNoteEditorEnabled:    boolean | null = null
+let _prevNoteEditorToolbarX:   number  | null = null
+let _prevNoteEditorToolbarY:   number  | null = null
 let _prevChordPrompterEnabled: boolean | null = null
 let _prevChordTranscriptionEnabled: boolean | null = null
 let _prevHideDemoFolder: boolean | null = null
@@ -612,6 +621,8 @@ useStore.subscribe((state) => {
     _prevAudioEngine = state.audioEngine
     _prevShowBarNumbers = state.showBarNumbers
     _prevNoteEditorEnabled = state.noteEditorEnabled
+    _prevNoteEditorToolbarX = state.noteEditorToolbarX
+    _prevNoteEditorToolbarY = state.noteEditorToolbarY
     _prevChordPrompterEnabled = state.chordPrompterEnabled
     _prevChordTranscriptionEnabled = state.chordTranscriptionEnabled
     _prevHideDemoFolder = state.hideDemoFolder
@@ -636,6 +647,8 @@ useStore.subscribe((state) => {
     state.audioEngine !== _prevAudioEngine ||
     state.showBarNumbers !== _prevShowBarNumbers ||
     state.noteEditorEnabled !== _prevNoteEditorEnabled ||
+    state.noteEditorToolbarX !== _prevNoteEditorToolbarX ||
+    state.noteEditorToolbarY !== _prevNoteEditorToolbarY ||
     state.chordPrompterEnabled !== _prevChordPrompterEnabled ||
     state.chordTranscriptionEnabled !== _prevChordTranscriptionEnabled ||
     state.hideDemoFolder !== _prevHideDemoFolder ||
@@ -658,6 +671,8 @@ useStore.subscribe((state) => {
     _prevAudioEngine = state.audioEngine
     _prevShowBarNumbers = state.showBarNumbers
     _prevNoteEditorEnabled = state.noteEditorEnabled
+    _prevNoteEditorToolbarX = state.noteEditorToolbarX
+    _prevNoteEditorToolbarY = state.noteEditorToolbarY
     _prevChordPrompterEnabled = state.chordPrompterEnabled
     _prevChordTranscriptionEnabled = state.chordTranscriptionEnabled
     _prevHideDemoFolder = state.hideDemoFolder
@@ -680,6 +695,8 @@ useStore.subscribe((state) => {
       audioEngine: state.audioEngine,
       showBarNumbers: state.showBarNumbers,
       noteEditorEnabled: state.noteEditorEnabled,
+      noteEditorToolbarX: state.noteEditorToolbarX,
+      noteEditorToolbarY: state.noteEditorToolbarY,
       chordPrompterEnabled: state.chordPrompterEnabled,
       chordTranscriptionEnabled: state.chordTranscriptionEnabled,
       hideDemoFolder: state.hideDemoFolder,

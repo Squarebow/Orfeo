@@ -23,6 +23,7 @@ import { useMetronome } from './hooks/useMetronome'
 import { useChordSequence } from './hooks/useChordSequence'
 import { useMidiInput } from './hooks/useMidiInput'
 import { runNoteEditorRoundTripTest } from './utils/noteEditorRoundTripTest'
+import { NES } from './utils/noteEditorState'
 
 export default function App() {
   const midi = useStore((s) => s.midi)
@@ -154,6 +155,20 @@ export default function App() {
   useEffect(() => {
     if (import.meta.env.DEV) {
       (window as any).__orfeoNoteEditorRoundTripTest = runNoteEditorRoundTripTest
+    }
+  }, [])
+
+  // ── Expose dirty flag for main-process close handler + listen for save-before-close ──
+  useEffect(() => {
+    ;(window as any).__orfeoNoteEditorDirty = () => NES.dirty
+    const handler = async () => {
+      await NES.onSaveRequest?.()
+      window.electronAPI.confirmClose()
+    }
+    window.electronAPI.onSaveBeforeClose(handler)
+    return () => {
+      delete (window as any).__orfeoNoteEditorDirty
+      window.electronAPI.offSaveBeforeClose()
     }
   }, [])
 
