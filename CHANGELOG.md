@@ -4,6 +4,25 @@
 
 ---
 
+### 27. 7. 2026 — Note Editor tooltip fixes + SpeedControl icon redesign
+
+**`src/components/PianoRoll/PianoRoll.tsx`:**
+- Fixed tooltip never appearing on small notes (drums etc.): `updateHoverState` and `onEditDown` now guard resize-zone detection with `canResize = noteH >= RESIZE_ZONE_PX * 2` (12px). Notes shorter than this — `MIN_NOTE_H = 4` for drum notes — were always matching `atEnd || atStart` and landing in the resize branch which called `setEditTooltip(null)`.
+- Tooltip now strips trailing octave digit (`.replace(/\d+$/, '')`) to match inline canvas text style.
+- Tooltip now gated on `NES.showNoteNamesRef.current` — hidden when the Note names toggle is off.
+
+**`src/components/Transport/TopBar.tsx`:**
+- Fixed note-names icon showing active on re-entry while names were not drawn: `NES.reset()` is now called *before* `setNoteEditorActive(true)`. The previous order (activate → reset) caused Zustand's synchronous subscriber to mount the toolbar and read the stale `showNoteNamesRef = true` from the prior session before the reset ran.
+
+**`src/components/SpeedControl.tsx`:**
+- Full redesign: replaced SVG track-and-circle selector (three filled nodes on a horizontal line) with three play-chevron icon buttons (1×, 2×, 3× forward arrows) sourced from `Slow.svg` / `Medium.svg` / `Fast.svg` assets.
+- All three icons share viewBox height = 26, rendered at H = 13px — identical stroke weight across all speeds.
+- Active icon renders in `--text-amber` with `drop-shadow` glow; inactive icons are muted at 0.65 opacity.
+- "SPEED" label removed. Gap = 8px between buttons.
+- Props interface, `value`/`onChange` contract, `title`/`aria-label`/`aria-pressed` accessibility attributes all unchanged.
+
+---
+
 ### 26. 7. 2026 — Note Editor: single-tool redesign, live hint line, track solo, axis-free drag
 
 **`src/components/NoteEditor/NoteEditorToolbar.tsx`:**

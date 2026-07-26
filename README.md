@@ -180,6 +180,18 @@ All user-visible changes listed here. For full technical detail see [CHANGELOG.m
 
 ---
 
+### 27. 7. 2026
+
+**Improved**
+- **Speed selector in Chord/Scale Explorer:** The three-dot speed selector for progression playback has been replaced with 1×/2×/3× chevron-arrow icons that make the speed options immediately recognisable at a glance. Active speed lights up in amber.
+
+**Fixed**
+- **Note Editor — note-name tooltip on small notes:** Hovering over very short notes (e.g. drum hits) in the note editor now correctly shows a floating note-name tooltip. Previously, drum notes were always classified as resize targets due to their height being smaller than the resize zone, preventing the tooltip from ever appearing.
+- **Note Editor — note names toggle respected by tooltip:** The floating note-name tooltip no longer appears when the Note Names toggle is off.
+- **Note Editor — note names state on re-entry:** Reopening the note editor no longer shows the Note Names button as active while names are not drawn on the roll.
+
+---
+
 ### 26. 7. 2026 (2)
 
 **Improved**
