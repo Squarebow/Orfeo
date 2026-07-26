@@ -4,6 +4,46 @@
 
 ---
 
+### 26. 7. 2026 — Presentation Mode (distraction-free fullscreen)
+
+**New feature: Presentation Mode — fullscreen, distraction-free view for live playing and screen recording.**
+
+**`electron/main.ts`:**
+- Added `window:setFullScreen` IPC handler (`ipcMain.handle`) — calls `mainWin.setFullScreen(value)`.
+
+**`electron/preload.ts`:**
+- Exposed `setFullScreen(value: boolean)` on `window.electronAPI`.
+
+**`src/types/index.ts`:**
+- Added `setFullScreen` to the `Window.electronAPI` interface.
+
+**`src/store/index.ts`:**
+- Added `presentationMode: boolean` + `setPresentationMode(v)` to `OrfeoStore` interface and store body. Initialized `false`, not persisted.
+
+**`src/App.tsx`:**
+- Added `presentationMode` selector from store.
+- Added `headerVisible: boolean` local state and `hideHeaderTimerRef` for hover-reveal debounce.
+- Added `enterPresentationMode()` async callback: guards against unsaved Note Editor edits (Save/Discard/Cancel dialog, mirrors `SettingsPanel.handleLoadFile`), then calls `setPresentationMode(true)`.
+- Added `useEffect` on `presentationMode`: calls `window.electronAPI.setFullScreen`, hides header on enter, force-exits Note Editor via `setNoteEditorActive(false)`.
+- `handleKeyDown`: added `F11` → toggle PM (with dirty-check guard on enter); `Escape` → exit PM first (before existing Escape handlers).
+- JSX: in PM, `<TopBar />` rendered in a `position: fixed` wrapper with CSS `transform: translateY()` slide animation. An 8px invisible hover zone at `top: 0` reveals the header on hover; a 400ms debounce hides it again when the cursor leaves. In normal mode, `<TopBar />` and the separator render in-flow as before.
+- `<SettingsPanel />` and `<TrackPanel />` skipped when `presentationMode`.
+
+**`src/components/Keyboard/Keyboard.tsx`:**
+- Added `presentationMode` selector.
+- Chord bar div (34/36px, containing CHORDS/chord name/SCALES row) wrapped in `{!presentationMode && ...}` — collapses to zero height, no empty stripe.
+
+**`src/components/Keyboard/KeyboardControls.tsx`:**
+- Added `presentationMode` and `setPresentationMode` selectors.
+- Key-range selector (61/73/88): always shown in PM regardless of `performanceHideControls` state.
+- Dock/Float button: hidden in PM (`{!presentationMode && <button ...>}`).
+- Flex-1 spacer: hidden in PM.
+- Hand-label visualization: hidden in PM (beta, needs rework).
+- Note counter: hidden in PM.
+- New PM toggle button at far right: amber Lucide Expand icon (enter PM) / Lucide Shrink icon (exit PM), `marginLeft: 'auto'` in PM to push to right edge; `opacity: 0.65` with hover to `1`. Shows tooltip with key hint (F11 / Esc).
+
+---
+
 ### 26. 7. 2026 — Loop region tooltip + right-click, TopBar centering fix, keyboard label toggles wired
 
 **`src/components/PianoRoll/PianoRoll.tsx` — LoopOverlay:**

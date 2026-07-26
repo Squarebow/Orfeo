@@ -867,6 +867,11 @@ ipcMain.handle('app:confirm-close', () => {
   mainWin?.destroy()
 })
 
+// ── OS-level fullscreen — toggled by Presentation Mode ───────────────────────
+ipcMain.handle('window:setFullScreen', (_e, value: boolean) => {
+  mainWin?.setFullScreen(value)
+})
+
 // ── Portable mode: redirect userData to a folder next to the exe ─────────────
 // PORTABLE_EXECUTABLE_DIR is injected by electron-builder when running as a
 // portable exe. Storing prefs and cache there lets the user copy the exe +

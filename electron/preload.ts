@@ -24,6 +24,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
   saveNoteEditor:      (payload: any) => ipcRenderer.invoke('noteEditor:save', payload),
   showMessageBox:      (opts: any)    => ipcRenderer.invoke('dialog:messageBox', opts),
   confirmClose:        ()             => ipcRenderer.invoke('app:confirm-close'),
+  setFullScreen:       (value: boolean) => ipcRenderer.invoke('window:setFullScreen', value),
   onSaveBeforeClose:   (fn: () => void) => ipcRenderer.on('app:save-before-close', () => fn()),
   offSaveBeforeClose:  ()             => ipcRenderer.removeAllListeners('app:save-before-close'),
   // Drag-and-drop file import

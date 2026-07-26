@@ -56,6 +56,7 @@ export default function Keyboard() {
   const splitBreakpointNote     = useStore((s) => s.splitBreakpointNote)
   const splitBreakpointRangeStart = useStore((s) => s.splitBreakpointRangeStart)
   const splitBreakpointRangeEnd   = useStore((s) => s.splitBreakpointRangeEnd)
+  const presentationMode = useStore((s) => s.presentationMode)
   const shiftHeldRef = useRef(false)
   // ── Tracks whether the primary mouse button is held, enabling glissando drag ──
   const isMouseDown = useRef(false)
@@ -244,8 +245,8 @@ export default function Keyboard() {
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column' }}>
-      {/* ── Chord bar — simple (34px) or extended prompter (36px, single row) ── */}
-      <div style={{
+      {/* ── Chord bar — hidden in Presentation Mode; simple (34px) or extended prompter (36px) ── */}
+      {!presentationMode && <div style={{
         height: chordPrompterOpen ? 36 : 34,
         background: '#0d0d12',
         borderTop: '1px solid var(--border)',
@@ -446,7 +447,7 @@ export default function Keyboard() {
             </div>
           </div>
         )}
-      </div>
+      </div>}
 
       {/* Piano keys */}
       <div

@@ -29,6 +29,7 @@ export default function App() {
   const midi = useStore((s) => s.midi)
   const keyboardMode = useStore((s) => s.keyboardMode)
   const appTheme = useStore((s) => s.appTheme)
+  const presentationMode = useStore((s) => s.presentationMode)
   const { openFile } = useMidiFile()
   const { play, pause, stop } = usePlayback()
   useAudioEngine()
@@ -43,6 +44,10 @@ export default function App() {
   const [dropConfirmPath, setDropConfirmPath] = useState<string | null>(null)
   const [dropError, setDropError]             = useState<string | null>(null)
   const dropErrorTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
+
+  // ── Presentation Mode header hover reveal ─────────────────────────────────
+  const [headerVisible, setHeaderVisible] = useState(false)
+  const hideHeaderTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   // ── Show a timed error message, clearing any previous timer ──────────────
   const showDropError = useCallback((msg: string) => {
@@ -172,11 +177,48 @@ export default function App() {
     }
   }, [])
 
+  // ── Presentation Mode side effects — OS fullscreen + Note Editor teardown ──
+  useEffect(() => {
+    window.electronAPI.setFullScreen(presentationMode)
+    if (presentationMode) {
+      setHeaderVisible(false)
+      useStore.getState().setNoteEditorActive(false)
+    }
+  }, [presentationMode])
+
+  // ── Enter Presentation Mode with NES dirty-check guard ───────────────────
+  // If Note Editor has unsaved changes, prompts Save/Discard/Cancel before
+  // entering. Mirrors the pattern in SettingsPanel.handleLoadFile.
+  const enterPresentationMode = useCallback(async () => {
+    const { noteEditorActive } = useStore.getState()
+    if (noteEditorActive && NES.dirty) {
+      const { response } = await window.electronAPI.showMessageBox({
+        type: 'question',
+        buttons: ['Save', 'Discard', 'Cancel'],
+        defaultId: 0, cancelId: 2,
+        message: 'Save note editor changes before entering Presentation Mode?',
+        detail: 'Your edits will be preserved in the file.',
+      })
+      if (response === 2) return
+      if (response === 0) {
+        const ok = await NES.onSaveRequest?.()
+        if (!ok) return
+      }
+      NES.dirty = false
+    }
+    useStore.getState().setPresentationMode(true)
+  }, [])
+
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) return
       const { playbackState } = useStore.getState()
       switch (e.key) {
+        case 'F11':
+          e.preventDefault()
+          if (useStore.getState().presentationMode) useStore.getState().setPresentationMode(false)
+          else enterPresentationMode()
+          break
         case ' ':
           e.preventDefault()
           if (useStore.getState().chordExplorerOpen || useStore.getState().scaleExplorerOpen) break
@@ -184,6 +226,7 @@ export default function App() {
           else play()
           break
         case 'Escape':
+          if (useStore.getState().presentationMode) { useStore.getState().setPresentationMode(false); break }
           if (useStore.getState().chordExplorerOpen || useStore.getState().scaleExplorerOpen) break
           stop()
           break
@@ -206,7 +249,7 @@ export default function App() {
     }
     window.addEventListener('keydown', handleKeyDown)
     return () => window.removeEventListener('keydown', handleKeyDown)
-  }, [play, pause, stop, openFile])
+  }, [play, pause, stop, openFile, enterPresentationMode])
 
   // ── Truncate long filenames for the confirm modal title ───────────────────
   const confirmFileName = dropConfirmPath
@@ -218,10 +261,50 @@ export default function App() {
 
   return (
     <div className={appTheme === 'warm' ? 'theme-warm' : ''} style={{ width: '100vw', height: '100vh', background: appTheme === 'warm' ? '#12100e' : '#0f0f12', overflow: 'hidden', display: 'flex', flexDirection: 'column', fontFamily: "'Inter', system-ui, sans-serif" }}>
-      <TopBar />
-      {/* ── Full-width separator — sibling to TopBar so it renders below the ─
-          Electron native title-bar chrome and spans all columns reliably ── */}
-      <div style={{ height: 1, background: '#2e2e3c', flexShrink: 0 }} />
+
+      {/* ── Presentation Mode: TopBar slides in from top on hover ─────────────
+          In normal mode TopBar is in-flow; in PM it becomes a fixed overlay. ── */}
+      {presentationMode ? (
+        <>
+          {/* Hover zone — 8px strip at top edge that reveals the header ────── */}
+          <div
+            style={{
+              position: 'fixed', top: 0, left: 0, right: 0, height: 8,
+              zIndex: 10001,
+              pointerEvents: headerVisible ? 'none' : 'auto',
+            }}
+            onMouseEnter={() => {
+              if (hideHeaderTimerRef.current) clearTimeout(hideHeaderTimerRef.current)
+              setHeaderVisible(true)
+            }}
+          />
+          {/* Sliding TopBar wrapper — translates up when hidden ────────────── */}
+          <div
+            style={{
+              position: 'fixed', top: 0, left: 0, right: 0, zIndex: 10000,
+              transform: headerVisible ? 'translateY(0)' : 'translateY(-100%)',
+              transition: 'transform 0.25s ease',
+            }}
+            onMouseEnter={() => {
+              if (hideHeaderTimerRef.current) clearTimeout(hideHeaderTimerRef.current)
+            }}
+            onMouseLeave={() => {
+              if (hideHeaderTimerRef.current) clearTimeout(hideHeaderTimerRef.current)
+              hideHeaderTimerRef.current = setTimeout(() => setHeaderVisible(false), 400)
+            }}
+          >
+            <TopBar />
+            <div style={{ height: 1, background: '#2e2e3c' }} />
+          </div>
+        </>
+      ) : (
+        <>
+          <TopBar />
+          {/* ── Full-width separator — sibling to TopBar so it renders below the ─
+              Electron native title-bar chrome and spans all columns reliably ── */}
+          <div style={{ height: 1, background: '#2e2e3c', flexShrink: 0 }} />
+        </>
+      )}
 
       {/* ── Drop zone — spans the full area below TopBar including both drawers ── */}
       <div
@@ -230,7 +313,7 @@ export default function App() {
         onDragLeave={handleDragLeave}
         onDrop={handleDrop}
       >
-        <SettingsPanel />
+        {!presentationMode && <SettingsPanel />}
         <div style={{ display: 'flex', flexDirection: 'column', flex: 1, minWidth: 0, overflow: 'hidden' }}>
           <div style={{ flex: 1, minHeight: 0, position: 'relative', paddingTop: 6 }}>
             {midi ? <PianoRoll /> : <EmptyState />}
@@ -238,7 +321,7 @@ export default function App() {
           {keyboardMode === 'docked' && <Keyboard />}
           {keyboardMode === 'docked' && <KeyboardControls />}
         </div>
-        <TrackPanel />
+        {!presentationMode && <TrackPanel />}
 
         {/* ── Drag-over highlight overlay — pointer-events none so it doesn't ─
             block any child interaction; visible only while dragging ── */}

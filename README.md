@@ -182,6 +182,9 @@ All user-visible changes listed here. For full technical detail see [CHANGELOG.m
 
 ### 26. 7. 2026
 
+**New**
+- **Presentation Mode** — a distraction-free fullscreen view for live playing and screen recording. Press F11 or click the expand icon in the bottom-right corner of the footer to enter. All sidebars, the chord bar, and the header are hidden; the piano roll expands to fill the screen and the keyboard stays at the bottom. The header slides back in when you hover the top edge of the screen. Key-range selector (61/73/88) remains active and resizes the keyboard live. Press Esc or the shrink icon to exit.
+
 **Fixed**
 - Loop region on the piano roll: hovering now shows a cursor tooltip explaining Alt+drag to set a region and right-click to clear it. Right-click anywhere on the waterfall now clears the loop region directly.
 - Playback controls (transport buttons, scrub bar) no longer shift left when the Note Editor feature is enabled in Settings.

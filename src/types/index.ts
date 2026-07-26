@@ -101,6 +101,7 @@ declare global {
       saveNoteEditor:      (payload: { outputPath: string; base64: string }) => Promise<{ ok: boolean; message?: string; filePath?: string; fileName?: string; base64?: string }>
       showMessageBox:      (opts: { type?: string; buttons: string[]; defaultId?: number; cancelId?: number; message: string; detail?: string }) => Promise<{ response: number }>
       confirmClose:        () => Promise<void>
+      setFullScreen:       (value: boolean) => Promise<void>
       onSaveBeforeClose:   (fn: () => void) => void
       offSaveBeforeClose:  () => void
       openExternal:        (url: string) => Promise<void>

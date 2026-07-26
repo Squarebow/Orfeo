@@ -100,6 +100,8 @@ interface OrfeoStore {
   setMixerMinimized: (v: boolean) => void
   midiEditorOpen: boolean
   setMidiEditorOpen: (open: boolean) => void
+  presentationMode: boolean
+  setPresentationMode: (v: boolean) => void
   noteEditorEnabled: boolean
   setNoteEditorEnabled: (v: boolean) => void
   noteEditorActive: boolean
@@ -338,6 +340,8 @@ export const useStore = create<OrfeoStore>((set, get) => ({
   setMixerMinimized: (mixerMinimized) => set({ mixerMinimized }),
   midiEditorOpen: false,
   setMidiEditorOpen: (midiEditorOpen) => set({ midiEditorOpen }),
+  presentationMode: false,
+  setPresentationMode: (presentationMode) => set({ presentationMode }),
   setVuDisplayMode: (vuDisplayMode) => set({ vuDisplayMode }),
   setExplorerKeys: (explorerKeys, explorerKeyColors) => set({ explorerKeys, explorerKeyColors }),
   clearExplorerKeys: () => set({ explorerKeys: new Set(), explorerKeyColors: new Map() }),

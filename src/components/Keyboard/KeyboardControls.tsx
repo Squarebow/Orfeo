@@ -133,6 +133,8 @@ export default function KeyboardControls() {
   const keyboardMode  = useStore((s) => s.keyboardMode)
   const setKeyboardSize = useStore((s) => s.setKeyboardSize)
   const setKeyboardMode = useStore((s) => s.setKeyboardMode)
+  const presentationMode    = useStore((s) => s.presentationMode)
+  const setPresentationMode = useStore((s) => s.setPresentationMode)
   const showHandLabels          = useStore((s) => s.showHandLabels)
   const handLabelMode           = useStore((s) => s.handLabelMode)
   const midi                    = useStore((s) => s.midi)
@@ -255,8 +257,8 @@ export default function KeyboardControls() {
         position: 'relative',
       }}
     >
-      {/* ── Key size selector — hidden in performance mode while active ──────── */}
-      {!performanceHideControls && (
+      {/* ── Key size selector — always shown in PM; hidden in performance mode while active otherwise ── */}
+      {(presentationMode || !performanceHideControls) && (
         <>
           <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-1)' }}>
             {SIZES.map((size) => (
@@ -283,8 +285,8 @@ export default function KeyboardControls() {
         </>
       )}
 
-      {/* ── Dock / Float toggle — pinned to far right in performance mode ─────── */}
-      <button
+      {/* ── Dock / Float toggle — hidden in Presentation Mode ────────────────── */}
+      {!presentationMode && <button
         onClick={() => setKeyboardMode(isDocked ? 'floating' : 'docked')}
         title={isDocked ? 'Float keyboard (detach)' : 'Dock keyboard (attach to bottom)'}
         style={{
@@ -312,13 +314,13 @@ export default function KeyboardControls() {
           </svg>
         )}
         {isDocked ? 'Docked' : 'Floating'}
-      </button>
+      </button>}
 
-      {/* ── Spacer — omitted in performance mode (marginLeft:auto on button handles it) ─ */}
-      {!performanceHideControls && <div style={{ flex: 1 }} />}
+      {/* ── Spacer — omitted in performance and presentation modes ───────────── */}
+      {!performanceHideControls && !presentationMode && <div style={{ flex: 1 }} />}
 
-      {/* ── Hand boundary visual layer — amber lines + labels in footer bar ── */}
-      {showHandLabels && (() => {
+      {/* ── Hand boundary visual layer — hidden in Presentation Mode (beta, needs rework) ── */}
+      {showHandLabels && !presentationMode && (() => {
         const AMBER = '#e8a027'
         const lineStyle: React.CSSProperties = {
           position: 'absolute', top: 0, bottom: 0, width: 2,
@@ -464,8 +466,48 @@ export default function KeyboardControls() {
         )
       })()}
 
-      {/* ── Note counter — hidden in performance mode while active ─────────────── */}
-      {!performanceHideControls && <NoteCounter />}
+      {/* ── Note counter — hidden in performance and presentation modes ───────── */}
+      {!performanceHideControls && !presentationMode && <NoteCounter />}
+
+      {/* ── Presentation Mode toggle — replaces Docked/NoteCounter in PM footer ─ */}
+      <button
+        onClick={() => setPresentationMode(!presentationMode)}
+        title={presentationMode ? 'Exit Presentation Mode (Esc)' : 'Enter Presentation Mode (F11)'}
+        style={{
+          display: 'flex', alignItems: 'center',
+          background: 'transparent', border: 'none', cursor: 'pointer',
+          color: 'var(--text-amber)',
+          padding: '2px 4px', borderRadius: 4,
+          marginLeft: presentationMode ? 'auto' : undefined,
+          transition: 'opacity 0.15s',
+          opacity: 0.65,
+          position: 'relative', zIndex: 3,
+        }}
+        onMouseEnter={e => { e.currentTarget.style.opacity = '1' }}
+        onMouseLeave={e => { e.currentTarget.style.opacity = '0.65' }}
+      >
+        {presentationMode ? (
+          // ── Lucide Shrink — exit fullscreen ────────────────────────────────
+          <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <path d="m15 15 6 6m-6-6v4.8m0-4.8h4.8"/>
+            <path d="M9 19.8V15m0 0H4.2M9 15l-6 6"/>
+            <path d="M15 4.2V9m0 0h4.8M15 9l6-6"/>
+            <path d="M9 4.2V9m0 0H4.2M9 9 3 3"/>
+          </svg>
+        ) : (
+          // ── Lucide Expand — enter fullscreen ───────────────────────────────
+          <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <path d="m15 15 6 6"/>
+            <path d="m15 9 6-6"/>
+            <path d="M21 16v5h-5"/>
+            <path d="M21 8V3h-5"/>
+            <path d="M3 16v5h5"/>
+            <path d="m3 21 6-6"/>
+            <path d="M3 8V3h5"/>
+            <path d="M9 9 3 3"/>
+          </svg>
+        )}
+      </button>
     </div>
   )
 }
