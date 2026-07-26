@@ -293,6 +293,9 @@ export default function PianoRoll() {
   // ── Shared between wheel-handler effect and PixiJS-closure drag handlers ──────
   const editDragActiveRef = useRef(false)
 
+  // ── Note-name tooltip for notes too small to show inline text ────────────────
+  const [editTooltip, setEditTooltip] = useState<{ x: number; y: number; label: string } | null>(null)
+
   useEffect(() => useStore.subscribe((s) => { storeRef.current = s }), [])
 
   // ── Wheel to scrub — disabled in edit mode ───────────────────────────────────
@@ -754,8 +757,8 @@ export default function PianoRoll() {
         return { currentTime, py, pps, midiMin, midiMax, transpose }
       }
 
-      const updateHoverState = (cx: number, cy: number, ef: EditFlatNote | null) => {
-        if (!storeRef.current.noteEditorActive) { app.canvas.style.cursor = 'default'; return }
+      const updateHoverState = (cx: number, cy: number, ef: EditFlatNote | null, clientX?: number, clientY?: number) => {
+        if (!storeRef.current.noteEditorActive) { app.canvas.style.cursor = 'default'; setEditTooltip(null); return }
         let hint: string
         if (ef) {
           const atEnd   = cy <= ef.topY + RESIZE_ZONE_PX
@@ -763,15 +766,26 @@ export default function PianoRoll() {
           if (atEnd || atStart) {
             app.canvas.style.cursor = 'ns-resize'
             hint = 'Drag to resize'
+            setEditTooltip(null)
           } else {
             app.canvas.style.cursor = 'move'
             hint = editNewNotes.has(ef.note)
               ? 'Drag to move · Right-click to delete'
               : 'Drag to move · Select + Delete key to remove'
+            // Show tooltip when note is too small for inline text
+            if (ef.noteH < 14 && clientX !== undefined && clientY !== undefined) {
+              const { noteNaming, accidentals } = storeRef.current
+              const naming = noteNaming === 'hidden' ? 'english' : noteNaming
+              const label  = getNoteLabel(ef.note.midi, naming, accidentals)
+              setEditTooltip({ x: clientX, y: clientY, label })
+            } else {
+              setEditTooltip(null)
+            }
           }
         } else {
           app.canvas.style.cursor = 'crosshair'
           hint = 'Alt+click to add note · Drag to select'
+          setEditTooltip(null)
         }
         if (NES.hoverHint !== hint) {
           NES.hoverHint = hint
@@ -805,6 +819,7 @@ export default function PianoRoll() {
       const onEditDown = (e: PointerEvent) => {
         if (!storeRef.current.noteEditorActive) return
         if (e.button !== 0) return
+        setEditTooltip(null)
         const { cx, cy } = toCanvas(e.clientX, e.clientY)
         const { py, pps, midiMin, midiMax, currentTime } = getViewParams()
         const ef = editHitTest(cx, cy)
@@ -920,7 +935,7 @@ export default function PianoRoll() {
 
         if (!editDrag && !editMarquee) {
           const ef = editHitTest(cx, cy)
-          updateHoverState(cx, cy, ef)
+          updateHoverState(cx, cy, ef, e.clientX, e.clientY)
           return
         }
 
@@ -1194,6 +1209,7 @@ export default function PianoRoll() {
       // ── Reset hint when cursor leaves the canvas ──────────────────────────
       const onCanvasLeave = () => {
         if (!storeRef.current.noteEditorActive) return
+        setEditTooltip(null)
         if (NES.hoverHint !== NES.defaultHint) {
           NES.hoverHint = NES.defaultHint
           NES.onHintChange?.()
@@ -1253,6 +1269,28 @@ export default function PianoRoll() {
       style={{ width: '100%', height: '100%', background: 'var(--bg, #0f0f12)', overflow: 'hidden', position: 'relative' }}
     >
       <LoopOverlay />
+      {/* ── Note-name tooltip — shown in edit mode when note is too small for inline text ── */}
+      {editTooltip && (
+        <div style={{
+          position: 'fixed',
+          left: editTooltip.x + 14,
+          top:  editTooltip.y - 28,
+          zIndex: 9500,
+          background: '#1e1e2e',
+          border: '1px solid #3a3a4c',
+          borderRadius: 'var(--radius-sm, 3px)',
+          padding: '2px 7px',
+          fontSize: 'var(--text-xs, 0.6875rem)',
+          fontFamily: "'JetBrains Mono', monospace",
+          color: 'var(--text-default, #c6c8c8)',
+          pointerEvents: 'none',
+          userSelect: 'none',
+          whiteSpace: 'nowrap',
+          boxShadow: '0 2px 8px rgba(0,0,0,0.5)',
+        }}>
+          {editTooltip.label}
+        </div>
+      )}
     </div>
   )
 }
