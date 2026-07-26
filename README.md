@@ -180,6 +180,18 @@ All user-visible changes listed here. For full technical detail see [CHANGELOG.m
 
 ---
 
+### 26. 7. 2026 (2)
+
+**Improved**
+- **Note Editor — single-tool interaction:** The editor no longer has separate Pencil and Select tool buttons. Clicking a note selects it and lets you drag it; Shift+click adds to or removes from the selection; drag on the edge resizes; drag a multi-note selection moves all selected notes together. Alt+click on empty space adds a new note. Right-clicking a newly added note removes it; Alt+right-click removes any note; right-clicking empty space clears the selection.
+- **Note Editor — axis-free drag:** Notes can now be dragged diagonally — pitch (left/right) and time (up/down) update simultaneously with no axis lock. A single undo step captures the combined move.
+- **Note Editor — live hint line:** A contextual hint line appears below the toolbar buttons showing what the current action is based on where the cursor is hovering in the roll (e.g. "Alt+click to add note · Drag to select").
+- **Note Editor — track solo for editing:** In edit mode, clicking a track row in the Tracks panel soloes that track (hides all others from the roll). Click it again to restore. The amber left-border highlights which track is currently focused.
+- **Note Editor — Reset button:** A Reset button (circular arrow) in the toolbar discards all edits and restores the original file content. Asks for confirmation if there are unsaved changes.
+- **Note Editor — unsaved-changes close guard:** Clicking the ✕ close button when there are unsaved changes now shows an inline prompt with Save & Exit, Discard, and Cancel options instead of silently discarding changes.
+
+---
+
 ### 26. 7. 2026
 
 **New**

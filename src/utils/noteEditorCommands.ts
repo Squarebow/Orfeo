@@ -21,9 +21,20 @@ export interface NoteCommand {
   description: string
 }
 
+// ── insertSorted — splice a Note back into a tick-sorted notes array ─────────
+// Used by cmd revert/redo paths to preserve the exact Note object reference
+// instead of calling track.addNote() (which creates a new object and breaks
+// identity checks like NES.newNotes.has(note) after undo/redo).
+function insertSorted(track: Track, note: ToneNote) {
+  const idx = track.notes.findIndex(n => n.ticks > note.ticks)
+  if (idx === -1) track.notes.push(note)
+  else track.notes.splice(idx, 0, note)
+}
+
 // ── cmdAddNote ────────────────────────────────────────────────────────────────
-// Inserts a note in tick-sorted order via track.addNote(), captures the
-// resulting Note instance for reliable identity in revert().
+// First apply: inserts via track.addNote(), captures the resulting Note.
+// Subsequent apply (redo): splices the SAME Note reference back via insertSorted
+// so NES.newNotes identity checks survive undo/redo cycles.
 export function cmdAddNote(track: Track, spec: NoteSpec): NoteCommand {
   let addedNote: ToneNote | null = null
 
@@ -31,37 +42,37 @@ export function cmdAddNote(track: Track, spec: NoteSpec): NoteCommand {
     description: `Add note midi=${spec.midi} at tick=${spec.ticks}`,
 
     apply() {
-      const before = new Set(track.notes)
-      track.addNote({
-        midi: spec.midi,
-        ticks: spec.ticks,
-        durationTicks: spec.durationTicks,
-        velocity: spec.velocity,
-        noteOffVelocity: spec.noteOffVelocity ?? 0,
-      })
-      addedNote = track.notes.find(n => !before.has(n)) ?? null
+      if (addedNote === null) {
+        // ── First apply: create via addNote(), find the resulting instance ───
+        const before = new Set(track.notes)
+        track.addNote({
+          midi: spec.midi,
+          ticks: spec.ticks,
+          durationTicks: spec.durationTicks,
+          velocity: spec.velocity,
+          noteOffVelocity: spec.noteOffVelocity ?? 0,
+        })
+        addedNote = track.notes.find(n => !before.has(n)) ?? null
+      } else {
+        // ── Redo: splice the same Note reference back in sorted position ─────
+        insertSorted(track, addedNote)
+      }
     },
 
     revert() {
       if (!addedNote) return
       const idx = track.notes.indexOf(addedNote)
       if (idx !== -1) track.notes.splice(idx, 1)
-      addedNote = null
+      // Keep addedNote reference — redo needs it
     },
   }
 }
 
 // ── cmdRemoveNote ─────────────────────────────────────────────────────────────
-// Splices the note out; revert re-inserts via addNote() (restores sort order).
+// Splices the note out; revert re-inserts the SAME Note reference via
+// insertSorted so identity checks (NES.newNotes.has, track.notes.indexOf)
+// continue to work after undo/redo. No addNote() call — no new object created.
 export function cmdRemoveNote(track: Track, note: ToneNote): NoteCommand {
-  const snapshot: NoteSpec = {
-    midi: note.midi,
-    ticks: note.ticks,
-    durationTicks: note.durationTicks,
-    velocity: note.velocity,
-    noteOffVelocity: note.noteOffVelocity,
-  }
-
   return {
     description: `Remove note midi=${note.midi} at tick=${note.ticks}`,
 
@@ -71,13 +82,7 @@ export function cmdRemoveNote(track: Track, note: ToneNote): NoteCommand {
     },
 
     revert() {
-      track.addNote({
-        midi: snapshot.midi,
-        ticks: snapshot.ticks,
-        durationTicks: snapshot.durationTicks,
-        velocity: snapshot.velocity,
-        noteOffVelocity: snapshot.noteOffVelocity ?? 0,
-      })
+      insertSorted(track, note)
     },
   }
 }
@@ -158,18 +163,9 @@ export function midiToEditableCopy(rawBuffer: ArrayBuffer): Midi {
 }
 
 // ── cmdRemoveNotes ────────────────────────────────────────────────────────────
-// Removes multiple notes as a single undoable step.  Each note's spec is
-// captured before removal so revert() can re-add them all via addNote().
-// Note: revert() creates new Note instances (same limitation as cmdRemoveNote).
+// Removes multiple notes as a single undoable step.
+// revert() re-inserts the same Note references via insertSorted.
 export function cmdRemoveNotes(track: Track, notes: ToneNote[]): NoteCommand {
-  const snapshots: NoteSpec[] = notes.map(n => ({
-    midi:             n.midi,
-    ticks:            n.ticks,
-    durationTicks:    n.durationTicks,
-    velocity:         n.velocity,
-    noteOffVelocity:  n.noteOffVelocity,
-  }))
-
   return {
     description: `Remove ${notes.length} note${notes.length > 1 ? 's' : ''}`,
 
@@ -181,15 +177,7 @@ export function cmdRemoveNotes(track: Track, notes: ToneNote[]): NoteCommand {
     },
 
     revert() {
-      for (const snap of snapshots) {
-        track.addNote({
-          midi:             snap.midi,
-          ticks:            snap.ticks,
-          durationTicks:    snap.durationTicks,
-          velocity:         snap.velocity,
-          noteOffVelocity:  snap.noteOffVelocity ?? 0,
-        })
-      }
+      for (const n of notes) insertSorted(track, n)
     },
   }
 }

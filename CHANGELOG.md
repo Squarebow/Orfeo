@@ -4,6 +4,50 @@
 
 ---
 
+### 26. 7. 2026 — Note Editor: single-tool redesign, live hint line, track solo, axis-free drag
+
+**`src/components/NoteEditor/NoteEditorToolbar.tsx`:**
+- Removed Pencil/Select tool buttons and `toolMode` local state. The editor now uses one context-sensitive tool — no mode switching.
+- Added `hintText` state subscribed to `NES.onHintChange`: renders a dim italic hint line below the icon row showing context-sensitive instructions from PianoRoll hover.
+- Added `showCloseConfirm` state: clicking ✕ when `NES.dirty` reveals an inline strip with Save & Exit / Discard / Cancel buttons instead of closing immediately.
+- `doClose` is now an `async useCallback` defined before the early return (`if (!noteEditorActive) return null`) so it obeys hook rules. Calls `unsoloTrackForEdit()` before `setNoteEditorActive(false)`.
+- Added Reset button (RotateCcw icon): clears history + `NES.dirty` + `editMidi` via `NES.onResetRequest?.()`. Uses `window.confirm` when dirty.
+- Added Velocity placeholder button (Activity icon, `opacity: 0.3`, disabled, `pointerEvents: none`) before Save — marks velocity editing as coming soon.
+- Added Info placeholder button (Info icon, `opacity: 0.2`, disabled) before Close.
+- Toolbar outer div changed from fixed-height flex row to `flexDirection: column` with icon row (38px) + optional confirm strip + optional hint line below.
+
+**`src/utils/noteEditorState.ts`:** (done in prior session)
+- Removed `toolModeRef` / `NETool` type. Added `hoverHint`, `defaultHint`, `onHintChange`, `onResetRequest`. Updated `reset()`.
+
+**`src/components/PianoRoll/PianoRoll.tsx`:**
+- `updateHoverCursor` renamed to `updateHoverState`: same cursor logic + sets `NES.hoverHint` + fires `NES.onHintChange`. Hint strings: note body (new) → "Drag to move · Right-click to delete", note body (saved) → "Drag to move · Select + Delete key to remove", note edge → "Drag to resize", empty space → "Alt+click to add note · Drag to select".
+- `onEditDown`: unified single-tool handler replacing the old pencil/select branch. Click note edge → resize; Shift+click note → toggle selection; click note in multi-selection → selection-move; click note solo → select + note-move; Alt+click empty → add note; click empty → marquee + clear selection.
+- `onEditMove`: removed axis locking entirely. `note-move` and `selection-move` now update both pitch (x) and time (y) simultaneously every frame.
+- `onEditUp` note-move: single combined undo command capturing both `timeChanged` and `pitchChanged` booleans. Revert restores both tick and midi.
+- `onEditUp` selection-move: single combined command with `anyTimeMoved || anyPitchMoved` guard; revert restores both `origTicks` and `origMidi` for all selected notes.
+- `onEditContext`: removed `toolModeRef` guard. Right-click on a note only deletes if `editNewNotes.has(note) || e.altKey`. Right-click empty space clears selection.
+- Registered `NES.onResetRequest`: rebuilds `NES.editMidi` from `_raw`, clears history/dirty/newNotes, sets `needsFlatRebuild`, fires both `onHistoryChange` and `onHintChange`.
+- Registered `onCanvasLeave` (mouseleave): resets `NES.hoverHint` to `NES.defaultHint` and fires `onHintChange`.
+- Cleanup: added `NES.onResetRequest = null` to the return cleanup function.
+
+**`src/components/TrackPanel/TrackPanel.tsx`:**
+- Added `noteEditorActive`, `noteEditorSoloTrackIndex`, `soloTrackForEdit` selectors from store.
+- `IBtn` click handler now calls `e.stopPropagation()` before delegating to `onClick` — prevents M/S/V/K button clicks from bubbling to the new row-level solo handler.
+- `TrackRow`: accepts `onSoloForEdit?` and `isSoloedForEdit?` props. Row div gains `onClick={onSoloForEdit}`, pointer cursor, hover tint, and amber left-border + background when soloed for edit.
+- Parent passes `onSoloForEdit={noteEditorActive ? () => soloTrackForEdit(track.index) : undefined}` and `isSoloedForEdit={noteEditorSoloTrackIndex === track.index}` to each row.
+
+**`src/App.tsx`:**
+- Added `useStore.subscribe` effect that calls `unsoloTrackForEdit()` on the false-transition of `noteEditorActive` — cleans up track visibility whenever the editor closes for any reason.
+
+**`src/store/index.ts`:** (done in prior session + additions this session)
+- Added `noteEditorWalkthroughSeen` / `setNoteEditorWalkthroughSeen` to the prefs persist subscribe block (sentinel init + change detection + `setPrefs` payload + `restoreLibraryPrefs` restore).
+- Added `soloTrackForEdit`, `unsoloTrackForEdit`, `noteEditorSoloTrackIndex`, `preSoloTrackVisibility` in interface and store body.
+
+**`src/utils/noteEditorCommands.ts`:** (done in prior session)
+- Added `insertSorted` helper. Fixed `cmdAddNote`, `cmdRemoveNote`, `cmdRemoveNotes` to preserve Note object references across undo/redo cycles.
+
+---
+
 ### 26. 7. 2026 — Presentation Mode (distraction-free fullscreen)
 
 **New feature: Presentation Mode — fullscreen, distraction-free view for live playing and screen recording.**

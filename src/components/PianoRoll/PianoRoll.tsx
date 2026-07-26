@@ -754,19 +754,28 @@ export default function PianoRoll() {
         return { currentTime, py, pps, midiMin, midiMax, transpose }
       }
 
-      const updateHoverCursor = (cx: number, cy: number, ef: EditFlatNote | null) => {
+      const updateHoverState = (cx: number, cy: number, ef: EditFlatNote | null) => {
         if (!storeRef.current.noteEditorActive) { app.canvas.style.cursor = 'default'; return }
-        const tool = NES.toolModeRef.current
-        if (tool === 'pencil') {
-          if (ef) {
-            const atEnd   = cy <= ef.topY + RESIZE_ZONE_PX
-            const atStart = cy >= ef.topY + ef.noteH - RESIZE_ZONE_PX
-            app.canvas.style.cursor = (atEnd || atStart) ? 'ns-resize' : 'move'
+        let hint: string
+        if (ef) {
+          const atEnd   = cy <= ef.topY + RESIZE_ZONE_PX
+          const atStart = cy >= ef.topY + ef.noteH - RESIZE_ZONE_PX
+          if (atEnd || atStart) {
+            app.canvas.style.cursor = 'ns-resize'
+            hint = 'Drag to resize'
           } else {
-            app.canvas.style.cursor = 'crosshair'
+            app.canvas.style.cursor = 'move'
+            hint = editNewNotes.has(ef.note)
+              ? 'Drag to move · Right-click to delete'
+              : 'Drag to move · Select + Delete key to remove'
           }
         } else {
-          app.canvas.style.cursor = ef ? 'move' : 'crosshair'
+          app.canvas.style.cursor = 'crosshair'
+          hint = 'Alt+click to add note · Drag to select'
+        }
+        if (NES.hoverHint !== hint) {
+          NES.hoverHint = hint
+          NES.onHintChange?.()
         }
       }
 
@@ -798,18 +807,17 @@ export default function PianoRoll() {
         if (e.button !== 0) return
         const { cx, cy } = toCanvas(e.clientX, e.clientY)
         const { py, pps, midiMin, midiMax, currentTime } = getViewParams()
-        const tool = NES.toolModeRef.current
-        const ef   = editHitTest(cx, cy)
+        const ef = editHitTest(cx, cy)
 
-        if (tool === 'pencil') {
-          if (ef) {
-            const { note, track, key, topY, noteH } = ef
-            ;(window as any).__orfeoPlayNote?.(note.midi, 90, 500, getTrackChannel(ef.trackIndex))
-            const atEnd   = cy <= topY + RESIZE_ZONE_PX
-            const atStart = cy >= topY + noteH - RESIZE_ZONE_PX
-            const mode: EditDragState['mode'] = atEnd   ? 'note-resize-end'
-                                              : atStart ? 'note-resize-start'
-                                              : 'note-move'
+        if (ef) {
+          const { note, track, key, topY, noteH } = ef
+          ;(window as any).__orfeoPlayNote?.(note.midi, 90, 500, getTrackChannel(ef.trackIndex))
+          const atEnd   = cy <= topY + RESIZE_ZONE_PX
+          const atStart = cy >= topY + noteH - RESIZE_ZONE_PX
+
+          if (atEnd || atStart) {
+            // ── Resize drag ───────────────────────────────────────────────
+            const mode: EditDragState['mode'] = atEnd ? 'note-resize-end' : 'note-resize-start'
             editDrag = {
               mode, note, track, trackIndex: ef.trackIndex,
               origTime: note.time, origDuration: note.duration,
@@ -821,57 +829,13 @@ export default function PianoRoll() {
             }
             editDragActiveRef.current = true
             app.canvas.setPointerCapture(e.pointerId)
-            app.canvas.style.cursor = (atEnd || atStart) ? 'ns-resize' : 'move'
-          } else if (e.altKey) {
-            // ── Alt+click: add a new note to NES.editMidi ─────────────────
-            const editMidi = NES.editMidi as any
-            if (!editMidi) return
-            const clickTime = currentTime + (py - cy) / pps
-            const header    = editMidi.header
-            const rawTick   = Math.round(header.secondsToTicks(Math.max(0, clickTime)))
-            const startTick = snapTick(rawTick)
-            const ppq       = header.ppq ?? 480
-            const dur       = ppq
-
-            // Find the first editable track (visible, not muted) in editMidi.
-            // Must filter to non-empty tracks first — same as buildEditFlatNotes — so
-            // position-based index mapping stays in sync with parsedMidi.tracks[i].
-            const { tracks } = storeRef.current
-            const parsedMidi = storeRef.current.midi as any
-            const trackMap   = new Map(tracks.map((t: any) => [t.index, t]))
-            const nonEmptyForAdd = (editMidi.tracks as any[]).filter((t: any) => t.notes.length > 0)
-            const editTrack  = nonEmptyForAdd.find((_t: any, i: number) => {
-              const parsedIdx = parsedMidi?.tracks?.[i]?.index ?? i
-              const ts = trackMap.get(parsedIdx)
-              return ts && ts.visible && !ts.muted
-            })
-            if (!editTrack) return
-
-            const midiNum = xToMidi(cx, keyLayoutRef.current, midiMin, midiMax)
-            ;(window as any).__orfeoPlayNote?.(midiNum)
-
-            const beforeSet = new Set(editTrack.notes)
-            const cmd = cmdAddNote(editTrack as any, { midi: midiNum, ticks: startTick, durationTicks: dur, velocity: 0.8 })
-            cmd.apply()
-            const addedNote = editTrack.notes.find((n: ToneNote) => !beforeSet.has(n)) as ToneNote | undefined
-            if (addedNote) {
-              syncNoteTimes(addedNote)
-              editNewNotes.add(addedNote)
-            }
-            NES.history.push(cmd)
-            NES.dirty              = true
-            NES.needsFlatRebuild   = true
-            NES.onHistoryChange?.()
-          } else {
-            if (editSelectedNotes.size > 0) editSelectedNotes.clear()
-          }
-        } else {
-          // ── Select tool ───────────────────────────────────────────────────
-          if (ef) {
-            const { note, track, key } = ef
-            ;(window as any).__orfeoPlayNote?.(note.midi, 90, 500, getTrackChannel(ef.trackIndex))
-            if (!e.shiftKey && !editSelectedNotes.has(note)) editSelectedNotes.clear()
-            editSelectedNotes.add(note)
+            app.canvas.style.cursor = 'ns-resize'
+          } else if (e.shiftKey) {
+            // ── Shift+click: toggle selection membership, no drag ─────────
+            if (editSelectedNotes.has(note)) editSelectedNotes.delete(note)
+            else editSelectedNotes.add(note)
+          } else if (editSelectedNotes.has(note) && editSelectedNotes.size > 1) {
+            // ── Already in multi-selection: move the whole selection ───────
             editDrag = {
               mode: 'selection-move', note, track, trackIndex: ef.trackIndex,
               origTime: note.time, origDuration: note.duration,
@@ -886,9 +850,66 @@ export default function PianoRoll() {
             app.canvas.setPointerCapture(e.pointerId)
             app.canvas.style.cursor = 'move'
           } else {
-            editMarquee = { startX: cx, startY: cy, endX: cx, endY: cy, additive: e.shiftKey }
-            if (!e.shiftKey) editSelectedNotes.clear()
+            // ── Click: select this note, move it ──────────────────────────
+            editSelectedNotes.clear()
+            editSelectedNotes.add(note)
+            editDrag = {
+              mode: 'note-move', note, track, trackIndex: ef.trackIndex,
+              origTime: note.time, origDuration: note.duration,
+              origTicks: note.ticks, origDurationTicks: note.durationTicks,
+              origMidi: note.midi,
+              origNoteX: key.x + key.width / 2,
+              startClientX: e.clientX, startClientY: e.clientY,
+              axis: null,
+            }
+            editDragActiveRef.current = true
+            app.canvas.setPointerCapture(e.pointerId)
+            app.canvas.style.cursor = 'move'
           }
+        } else if (e.altKey) {
+          // ── Alt+click empty: add a new note to NES.editMidi ──────────────
+          const editMidi = NES.editMidi as any
+          if (!editMidi) return
+          const clickTime = currentTime + (py - cy) / pps
+          const header    = editMidi.header
+          const rawTick   = Math.round(header.secondsToTicks(Math.max(0, clickTime)))
+          const startTick = snapTick(rawTick)
+          const ppq       = header.ppq ?? 480
+          const dur       = ppq
+
+          // Find the first editable track (visible, not muted) in editMidi.
+          // Must filter to non-empty tracks first — same as buildEditFlatNotes — so
+          // position-based index mapping stays in sync with parsedMidi.tracks[i].
+          const { tracks } = storeRef.current
+          const parsedMidi = storeRef.current.midi as any
+          const trackMap   = new Map(tracks.map((t: any) => [t.index, t]))
+          const nonEmptyForAdd = (editMidi.tracks as any[]).filter((t: any) => t.notes.length > 0)
+          const editTrack  = nonEmptyForAdd.find((_t: any, i: number) => {
+            const parsedIdx = parsedMidi?.tracks?.[i]?.index ?? i
+            const ts = trackMap.get(parsedIdx)
+            return ts && ts.visible && !ts.muted
+          })
+          if (!editTrack) return
+
+          const midiNum = xToMidi(cx, keyLayoutRef.current, midiMin, midiMax)
+          ;(window as any).__orfeoPlayNote?.(midiNum)
+
+          const beforeSet = new Set(editTrack.notes)
+          const cmd = cmdAddNote(editTrack as any, { midi: midiNum, ticks: startTick, durationTicks: dur, velocity: 0.8 })
+          cmd.apply()
+          const addedNote = editTrack.notes.find((n: ToneNote) => !beforeSet.has(n)) as ToneNote | undefined
+          if (addedNote) {
+            syncNoteTimes(addedNote)
+            editNewNotes.add(addedNote)
+          }
+          NES.history.push(cmd)
+          NES.dirty              = true
+          NES.needsFlatRebuild   = true
+          NES.onHistoryChange?.()
+        } else {
+          // ── Click empty: start marquee, clear selection ───────────────────
+          editMarquee = { startX: cx, startY: cy, endX: cx, endY: cy, additive: e.shiftKey }
+          if (!e.shiftKey) editSelectedNotes.clear()
         }
       }
 
@@ -899,7 +920,7 @@ export default function PianoRoll() {
 
         if (!editDrag && !editMarquee) {
           const ef = editHitTest(cx, cy)
-          updateHoverCursor(cx, cy, ef)
+          updateHoverState(cx, cy, ef)
           return
         }
 
@@ -936,49 +957,29 @@ export default function PianoRoll() {
         }
 
         if (editDrag.mode === 'note-move') {
-          if (editDrag.axis === null &&
-              (Math.abs(dx) > DRAG_THRESHOLD || Math.abs(dy) > DRAG_THRESHOLD)) {
-            editDrag.axis = Math.abs(dy) >= Math.abs(dx) ? 'time' : 'pitch'
-            app.canvas.style.cursor = editDrag.axis === 'time' ? 'ns-resize' : 'ew-resize'
+          // Update both pitch and time simultaneously — no axis lock
+          const { midiMin, midiMax } = getViewParams()
+          editDrag.note.time = Math.max(0, editDrag.origTime + (-dy / pps))
+          const newMidi = Math.max(midiMin, Math.min(midiMax,
+            xToMidi(editDrag.origNoteX + dx, keyLayoutRef.current, midiMin, midiMax)))
+          if (newMidi !== lastGlissandoMidi) {
+            ;(window as any).__orfeoPlayNote?.(newMidi, 90, 500, getTrackChannel(editDrag.trackIndex))
+            lastGlissandoMidi = newMidi
           }
-          if (editDrag.axis === null) return
-
-          if (editDrag.axis === 'time') {
-            // Moving UP (dy<0) = later time in PianoRoll coordinates
-            editDrag.note.time = Math.max(0, editDrag.origTime + (-dy / pps))
-            editDrag.note.duration = editDrag.origDuration
-          } else {
-            const { midiMin, midiMax } = getViewParams()
-            const newMidi = Math.max(midiMin, Math.min(midiMax,
-              xToMidi(editDrag.origNoteX + dx, keyLayoutRef.current, midiMin, midiMax)))
-            if (newMidi !== lastGlissandoMidi) {
-              ;(window as any).__orfeoPlayNote?.(newMidi, 90, 500, getTrackChannel(editDrag.trackIndex))
-              lastGlissandoMidi = newMidi
-            }
-            editDrag.note.midi = newMidi
-          }
+          editDrag.note.midi = newMidi
         }
 
         if (editDrag.mode === 'selection-move') {
-          if (editDrag.axis === null &&
-              (Math.abs(dx) > DRAG_THRESHOLD || Math.abs(dy) > DRAG_THRESHOLD)) {
-            editDrag.axis = Math.abs(dy) >= Math.abs(dx) ? 'time' : 'pitch'
-            app.canvas.style.cursor = editDrag.axis === 'time' ? 'ns-resize' : 'ew-resize'
+          const { midiMin, midiMax } = getViewParams()
+          for (const snap of editDrag.selectionSnapshot!) {
+            snap.note.time = Math.max(0, snap.origTime + (-dy / pps))
           }
-          if (editDrag.axis === null) return
-          if (editDrag.axis === 'time') {
+          const newPrimaryMidi = Math.max(midiMin, Math.min(midiMax,
+            xToMidi(editDrag.origNoteX + dx, keyLayoutRef.current, midiMin, midiMax)))
+          const deltaMidi = newPrimaryMidi - editDrag.origMidi
+          if (deltaMidi !== 0) {
             for (const snap of editDrag.selectionSnapshot!) {
-              snap.note.time = Math.max(0, snap.origTime + (-dy / pps))
-            }
-          } else {
-            const { midiMin, midiMax } = getViewParams()
-            const newPrimaryMidi = Math.max(midiMin, Math.min(midiMax,
-              xToMidi(editDrag.origNoteX + dx, keyLayoutRef.current, midiMin, midiMax)))
-            const deltaMidi = newPrimaryMidi - editDrag.origMidi
-            if (deltaMidi !== 0) {
-              for (const snap of editDrag.selectionSnapshot!) {
-                snap.note.midi = Math.max(midiMin, Math.min(midiMax, snap.origMidi + deltaMidi))
-              }
+              snap.note.midi = Math.max(midiMin, Math.min(midiMax, snap.origMidi + deltaMidi))
             }
           }
         }
@@ -1045,70 +1046,60 @@ export default function PianoRoll() {
         }
 
         else if (editDrag.mode === 'note-move') {
-          if (editDrag.axis === 'time') {
-            const newTick  = timeToSnappedTick(note.time)
-            const origTick = editDrag.origTicks
-            if (newTick !== origTick) {
-              note.ticks = newTick; syncNoteTimes(note)
-              track.notes.sort((a: any, b: any) => a.ticks - b.ticks)
-              history_push({ note, track,
-                apply()  { note.ticks = newTick;  syncNoteTimes(note); track.notes.sort((a: any, b: any) => a.ticks - b.ticks) },
-                revert() { note.ticks = origTick; syncNoteTimes(note); track.notes.sort((a: any, b: any) => a.ticks - b.ticks) },
-                description: `Move note time midi=${note.midi}`,
-              })
-            } else {
-              note.ticks = origTick; syncNoteTimes(note)
-            }
-          } else if (editDrag.axis === 'pitch') {
-            const om = editDrag.origMidi
-            if (note.midi !== om) {
-              const fm = note.midi
-              history_push({ note, track,
-                apply()  { note.midi = fm },
-                revert() { note.midi = om },
-                description: `Repitch midi ${om} → ${fm}`,
-              })
-            } else {
-              note.midi = om
-            }
+          const newTick      = timeToSnappedTick(note.time)
+          const origTick     = editDrag.origTicks
+          const origMidi     = editDrag.origMidi
+          const newMidi      = note.midi
+          const timeChanged  = newTick !== origTick
+          const pitchChanged = newMidi !== origMidi
+          if (timeChanged || pitchChanged) {
+            note.ticks = timeChanged ? newTick : origTick
+            syncNoteTimes(note)
+            if (timeChanged) track.notes.sort((a: any, b: any) => a.ticks - b.ticks)
+            history_push({ note, track,
+              apply()  {
+                note.ticks = timeChanged  ? newTick  : origTick
+                note.midi  = pitchChanged ? newMidi  : origMidi
+                syncNoteTimes(note)
+                if (timeChanged) track.notes.sort((a: any, b: any) => a.ticks - b.ticks)
+              },
+              revert() {
+                note.ticks = origTick
+                note.midi  = origMidi
+                syncNoteTimes(note)
+                if (timeChanged) track.notes.sort((a: any, b: any) => a.ticks - b.ticks)
+              },
+              description: `Move note midi=${origMidi}→${newMidi} tick=${origTick}→${newTick}`,
+            })
+          } else {
+            note.ticks = origTick
+            note.midi  = origMidi
+            syncNoteTimes(note)
           }
         }
 
         else if (editDrag.mode === 'selection-move') {
-          const snapshot = editDrag.selectionSnapshot!
-          if (editDrag.axis === 'pitch') {
-            const anyRepitched = snapshot.some(s => s.note.midi !== s.origMidi)
-            if (anyRepitched) {
-              const finalMidis = snapshot.map(s => s.note.midi)
-              history_push({ note, track,
-                apply()  { snapshot.forEach((s, i) => { s.note.midi = finalMidis[i] }) },
-                revert() { snapshot.forEach(s => { s.note.midi = s.origMidi }) },
-                description: `Repitch ${snapshot.length} notes`,
-              })
-            } else {
-              snapshot.forEach(s => { s.note.midi = s.origMidi })
-            }
+          const snapshot    = editDrag.selectionSnapshot!
+          const finalTicks  = snapshot.map(s => timeToSnappedTick(s.note.time))
+          const finalMidis  = snapshot.map(s => s.note.midi)
+          const anyTimeMoved  = finalTicks.some((t, i) => t !== snapshot[i].origTicks)
+          const anyPitchMoved = finalMidis.some((m, i) => m !== snapshot[i].origMidi)
+          if (anyTimeMoved || anyPitchMoved) {
+            snapshot.forEach((s, i) => { s.note.ticks = finalTicks[i]; s.note.midi = finalMidis[i]; syncNoteTimes(s.note) })
+            track.notes.sort((a: any, b: any) => a.ticks - b.ticks)
+            history_push({ note, track,
+              apply()  {
+                snapshot.forEach((s, i) => { s.note.ticks = finalTicks[i]; s.note.midi = finalMidis[i]; syncNoteTimes(s.note) })
+                track.notes.sort((a: any, b: any) => a.ticks - b.ticks)
+              },
+              revert() {
+                snapshot.forEach(s => { s.note.ticks = s.origTicks; s.note.midi = s.origMidi; syncNoteTimes(s.note) })
+                track.notes.sort((a: any, b: any) => a.ticks - b.ticks)
+              },
+              description: `Move ${snapshot.length} notes`,
+            })
           } else {
-            // time axis or no drag started
-            const anyMoved = snapshot.some(s => s.note.time !== s.origTime)
-            if (anyMoved) {
-              const finalTicks = snapshot.map(s => timeToSnappedTick(s.note.time))
-              snapshot.forEach((s, i) => { s.note.ticks = finalTicks[i]; syncNoteTimes(s.note) })
-              track.notes.sort((a: any, b: any) => a.ticks - b.ticks)
-              history_push({ note, track,
-                apply()  {
-                  snapshot.forEach((s, i) => { s.note.ticks = finalTicks[i]; syncNoteTimes(s.note) })
-                  track.notes.sort((a: any, b: any) => a.ticks - b.ticks)
-                },
-                revert() {
-                  snapshot.forEach(s => { s.note.ticks = s.origTicks; syncNoteTimes(s.note) })
-                  track.notes.sort((a: any, b: any) => a.ticks - b.ticks)
-                },
-                description: `Move ${snapshot.length} notes`,
-              })
-            } else {
-              snapshot.forEach(s => { s.note.time = s.origTime })
-            }
+            snapshot.forEach(s => { s.note.time = s.origTime; s.note.midi = s.origMidi })
           }
         }
 
@@ -1123,11 +1114,16 @@ export default function PianoRoll() {
       const onEditContext = (e: MouseEvent) => {
         if (!storeRef.current.noteEditorActive) return
         e.preventDefault()
-        if (NES.toolModeRef.current !== 'pencil') return
         const { cx, cy } = toCanvas(e.clientX, e.clientY)
         const ef = editHitTest(cx, cy)
-        if (!ef) return
+        if (!ef) {
+          // Right-click empty space: clear selection
+          editSelectedNotes.clear()
+          return
+        }
         const { note, track } = ef
+        // Right-click deletes only newly added notes; Alt+right-click deletes any note
+        if (!editNewNotes.has(note) && !e.altKey) return
         editSelectedNotes.delete(note)
         editNewNotes.delete(note)
         const cmd = cmdRemoveNote(track, note)
@@ -1181,12 +1177,36 @@ export default function PianoRoll() {
         NES.onHistoryChange?.()
       }
 
+      // ── Register reset handler — toolbar Reset button rebuilds editMidi from _raw ──
+      NES.onResetRequest = () => {
+        const raw = (storeRef.current.midi as any)?._raw as ArrayBuffer | undefined
+        if (!raw) return
+        NES.editMidi         = midiToEditableCopy(raw)
+        NES.history.clear()
+        NES.dirty            = false
+        NES.newNotes.clear()
+        NES.needsFlatRebuild = true
+        NES.hoverHint        = NES.defaultHint
+        NES.onHistoryChange?.()
+        NES.onHintChange?.()
+      }
+
+      // ── Reset hint when cursor leaves the canvas ──────────────────────────
+      const onCanvasLeave = () => {
+        if (!storeRef.current.noteEditorActive) return
+        if (NES.hoverHint !== NES.defaultHint) {
+          NES.hoverHint = NES.defaultHint
+          NES.onHintChange?.()
+        }
+      }
+
       // ── Register edit handlers ────────────────────────────────────────────
       app.canvas.addEventListener('pointerdown',   onEditDown)
       app.canvas.addEventListener('pointermove',   onEditMove)
       app.canvas.addEventListener('pointerup',     onEditUp)
       app.canvas.addEventListener('pointercancel', onEditUp)
       app.canvas.addEventListener('contextmenu',   onEditContext)
+      app.canvas.addEventListener('mouseleave',    onCanvasLeave)
       window.addEventListener('keydown', onEditKey, { capture: true })
 
       // ── Initial draw ──────────────────────────────────────────────────────
@@ -1213,6 +1233,7 @@ export default function PianoRoll() {
 
     return () => {
       roInstance?.disconnect()
+      NES.onResetRequest = null
       if (overlayCanvasRef.current) {
         try { overlayCanvasRef.current.remove() } catch {}
         overlayCanvasRef.current = null

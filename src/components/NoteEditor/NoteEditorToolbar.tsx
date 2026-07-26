@@ -6,26 +6,6 @@ import { parseMidiBuffer } from '../../utils/midiParser'
 import { detectKeyFromTracks, parseKeySignature } from '../../utils/keyDetection'
 
 // ── Toolbar SVG icons ─────────────────────────────────────────────────────────
-const IconPencil = () => (
-  <svg width="13" height="13" viewBox="0 0 13 13" fill="currentColor" aria-hidden="true">
-    <path d="M10 1 L12 3 L4.5 10.5 L2 11 L2.5 8.5 Z" />
-    <rect x="1" y="12" width="11" height="1" rx="0.5" />
-  </svg>
-)
-
-const IconMarquee = () => (
-  <svg width="13" height="13" viewBox="0 0 13 13" fill="none" stroke="currentColor" strokeWidth="1.5" aria-hidden="true">
-    <path d="M1 2 L1 4" /><path d="M1 2 L3 2" />
-    <path d="M12 2 L10 2" /><path d="M12 2 L12 4" />
-    <path d="M1 11 L1 9" /><path d="M1 11 L3 11" />
-    <path d="M12 11 L10 11" /><path d="M12 11 L12 9" />
-    <line x1="5" y1="2" x2="8" y2="2" strokeDasharray="1.5 1.5" />
-    <line x1="5" y1="11" x2="8" y2="11" strokeDasharray="1.5 1.5" />
-    <line x1="1" y1="6" x2="1" y2="8" strokeDasharray="1.5 1.5" />
-    <line x1="12" y1="6" x2="12" y2="8" strokeDasharray="1.5 1.5" />
-  </svg>
-)
-
 const IconSnap = () => (
   <svg width="13" height="13" viewBox="0 0 13 13" fill="currentColor" aria-hidden="true">
     <rect x="1.5" y="2" width="2" height="9" rx="1" />
@@ -33,8 +13,6 @@ const IconSnap = () => (
     <rect x="9.5" y="2" width="2" height="9" rx="1" />
   </svg>
 )
-
-const QUANT_LABELS: Record<number, string> = { 4: '1/4', 8: '1/8', 16: '1/16', 32: '1/32' }
 
 const IconSavePlus = () => (
   <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="var(--text-amber, #e8a027)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
@@ -45,6 +23,29 @@ const IconSavePlus = () => (
     <path d="M7 3v4a1 1 0 0 0 1 1h7" />
   </svg>
 )
+
+const IconReset = () => (
+  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+    <path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/>
+    <path d="M3 3v5h5"/>
+  </svg>
+)
+
+const IconVelocity = () => (
+  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+    <path d="M22 12h-4l-3 9L9 3l-3 9H2"/>
+  </svg>
+)
+
+const IconInfo = () => (
+  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+    <circle cx="12" cy="12" r="10"/>
+    <path d="M12 16v-4"/>
+    <path d="M12 8h.01"/>
+  </svg>
+)
+
+const QUANT_LABELS: Record<number, string> = { 4: '1/4', 8: '1/8', 16: '1/16', 32: '1/32' }
 
 // ── Compute the next versioned _ORFEO save path from the current source path ──
 function computeSavePath(sourcePath: string): string {
@@ -70,22 +71,31 @@ export default function NoteEditorToolbar() {
   const noteEditorToolbarX      = useStore(s => s.noteEditorToolbarX)
   const noteEditorToolbarY      = useStore(s => s.noteEditorToolbarY)
   const setNoteEditorToolbarPos = useStore(s => s.setNoteEditorToolbarPos)
+  const unsoloTrackForEdit      = useStore(s => s.unsoloTrackForEdit)
 
   // ── Force re-render on history changes (push/undo/redo) ───────────────────
   const [, forceUpdate] = useReducer((x: number) => x + 1, 0)
 
-  // ── Local display state — mirrors NES refs so React re-renders on change ──
-  const [toolMode,        setToolModeDisplay] = useState(NES.toolModeRef.current)
-  const [snapEnabled,     setSnapDisplay]     = useState(NES.snapRef.current)
+  // ── Local display state ───────────────────────────────────────────────────
+  const [hintText,        setHintText]      = useState(NES.hoverHint)
+  const [snapEnabled,     setSnapDisplay]   = useState(NES.snapRef.current)
   const [quantize,        setQuantizeDisplay] = useState(NES.quantizeDivisorRef.current)
   const [showNoteNames,   setNoteNamesDisplay] = useState(NES.showNoteNamesRef.current)
-  const [quantizeOpen,    setQuantizeOpen]    = useState(false)
-  const [quantizePos,     setQuantizePos]     = useState({ top: 0, left: 0 })
+  const [quantizeOpen,    setQuantizeOpen]  = useState(false)
+  const [quantizePos,     setQuantizePos]   = useState({ top: 0, left: 0 })
+  const [showCloseConfirm, setShowCloseConfirm] = useState(false)
   const quantizeBtnRef = useRef<HTMLButtonElement>(null)
 
   useEffect(() => {
     NES.onHistoryChange = () => forceUpdate()
     return () => { if (NES.onHistoryChange === forceUpdate as unknown as (() => void)) NES.onHistoryChange = null }
+  }, [])
+
+  // ── Subscribe to hover hint changes from PianoRoll ───────────────────────
+  useEffect(() => {
+    const handler = () => setHintText(NES.hoverHint)
+    NES.onHintChange = handler
+    return () => { if (NES.onHintChange === handler) NES.onHintChange = null }
   }, [])
 
   // ── Force-exit edit mode when noteEditorEnabled is toggled off ────────────
@@ -119,9 +129,8 @@ export default function NoteEditorToolbar() {
     if (!result.ok) return false
 
     NES.dirty = false
-    NES.onHistoryChange?.()  // refresh dirty indicator in toolbar
+    NES.onHistoryChange?.()
 
-    // Reload the saved file so the editor and library highlight update
     if (result.base64 && result.fileName && result.filePath) {
       const b   = atob(result.base64)
       const arr = new Uint8Array(b.length)
@@ -143,6 +152,33 @@ export default function NoteEditorToolbar() {
     NES.onSaveRequest = handleSave
     return () => { if (NES.onSaveRequest === handleSave) NES.onSaveRequest = null }
   }, [handleSave])
+
+  // ── Close handler — defined before early return (it's a useCallback/hook) ─
+  const doClose = useCallback(async () => {
+    if (NES.dirty) {
+      setShowCloseConfirm(true)
+      return
+    }
+    unsoloTrackForEdit()
+    setNoteEditorActive(false)
+    NES.reset()
+  }, [setNoteEditorActive, unsoloTrackForEdit])
+
+  const doConfirmSaveAndClose = useCallback(async () => {
+    setShowCloseConfirm(false)
+    const saved = await handleSave()
+    if (!saved) return   // user cancelled save dialog — stay in editor
+    unsoloTrackForEdit()
+    setNoteEditorActive(false)
+    NES.reset()
+  }, [handleSave, setNoteEditorActive, unsoloTrackForEdit])
+
+  const doConfirmDiscardAndClose = useCallback(() => {
+    setShowCloseConfirm(false)
+    unsoloTrackForEdit()
+    setNoteEditorActive(false)
+    NES.reset()
+  }, [setNoteEditorActive, unsoloTrackForEdit])
 
   // ── Drag state ────────────────────────────────────────────────────────────
   const [pos, setPos]   = useState({ x: noteEditorToolbarX, y: noteEditorToolbarY })
@@ -178,7 +214,7 @@ export default function NoteEditorToolbar() {
     }
   }, [onMouseMove, onMouseUp])
 
-  // ── Close quantize dropdown on outside click ───────────────────────────────
+  // ── Close quantize dropdown on outside click ──────────────────────────────
   useEffect(() => {
     if (!quantizeOpen) return
     const handle = (e: MouseEvent) => {
@@ -193,10 +229,6 @@ export default function NoteEditorToolbar() {
   if (!noteEditorActive) return null
 
   // ── Setters — update NES ref AND local display state ──────────────────────
-  const setTool = (m: typeof NES.toolModeRef.current) => {
-    NES.toolModeRef.current = m
-    setToolModeDisplay(m)
-  }
   const setSnap = (v: boolean) => {
     NES.snapRef.current = v
     setSnapDisplay(v)
@@ -217,11 +249,10 @@ export default function NoteEditorToolbar() {
   const doRedo = () => {
     if (NES.history.redo()) { NES.needsFlatRebuild = true; NES.onHistoryChange?.() }
   }
-  const doClose = () => {
-    setNoteEditorActive(false)
-    NES.reset()
+  const doReset = () => {
+    if (NES.dirty && !window.confirm('Discard all edits and reset to original?')) return
+    NES.onResetRequest?.()
   }
-
   const openQuantize = () => {
     if (quantizeBtnRef.current) {
       const r = quantizeBtnRef.current.getBoundingClientRect()
@@ -246,144 +277,207 @@ export default function NoteEditorToolbar() {
         border: '1px solid #3a3a4c',
         borderRadius: 'var(--radius-md, 5px)',
         display: 'flex',
-        alignItems: 'center',
-        height: 38,
-        padding: '0 6px',
-        gap: 3,
+        flexDirection: 'column',
         userSelect: 'none',
         cursor: 'default',
+        minWidth: 0,
       }}
     >
-      {/* ── Drag handle ──────────────────────────────────────────────────── */}
-      <div
-        onMouseDown={e => {
-          e.preventDefault()
-          dragState.current = { startX: e.clientX, startY: e.clientY, startPosX: pos.x, startPosY: pos.y }
-        }}
-        title="Drag to move"
-        style={{
-          width: 16, height: 28,
-          display: 'flex', flexDirection: 'column', justifyContent: 'center', gap: 3,
-          cursor: 'grab', flexShrink: 0, padding: '0 2px',
-        }}
-      >
-        {[0,1,2].map(i => (
-          <div key={i} style={{ width: 12, height: 2, borderRadius: 1, background: '#404055' }} />
-        ))}
-      </div>
+      {/* ── Icon row ─────────────────────────────────────────────────────── */}
+      <div style={{ display: 'flex', alignItems: 'center', height: 38, padding: '0 6px', gap: 3 }}>
 
-      {/* ── Edit label ───────────────────────────────────────────────────── */}
-      <span style={{
-        fontSize: 10, fontWeight: 700, letterSpacing: '0.08em',
-        color: 'var(--text-amber, #e8a027)', textTransform: 'uppercase',
-        paddingRight: 4, flexShrink: 0,
-      }}>
-        EDIT{dirty ? ' ●' : ''}
-      </span>
-
-      <VSep />
-
-      {/* ── Pencil tool ──────────────────────────────────────────────────── */}
-      <ToolBtn active={toolMode === 'pencil'} onClick={() => setTool('pencil')} title="Pencil tool — click to move/resize, Alt+click to add, right-click to delete">
-        <IconPencil />
-      </ToolBtn>
-
-      {/* ── Select tool ──────────────────────────────────────────────────── */}
-      <ToolBtn active={toolMode === 'select'} onClick={() => setTool('select')} title="Select tool — click to select, drag to marquee, Del to remove">
-        <IconMarquee />
-      </ToolBtn>
-
-      {/* ── Save ─────────────────────────────────────────────────────────── */}
-      <ToolBtn active={false} onClick={() => void handleSave()} title="Save note edits as new MIDI file (_ORFEO versioned copy)">
-        <IconSavePlus />
-      </ToolBtn>
-
-      <VSep />
-
-      {/* ── Snap toggle ──────────────────────────────────────────────────── */}
-      <button
-        onClick={() => setSnap(!snapEnabled)}
-        title={snapEnabled ? 'Snap: ON — click to disable' : 'Snap: OFF — click to enable'}
-        style={{
-          ...btnBase,
-          gap: 4, paddingLeft: 7, paddingRight: 7,
-          color:       snapEnabled ? 'var(--text-amber, #e8a027)' : 'var(--text-muted, #94979e)',
-          borderColor: snapEnabled ? 'rgba(232,160,39,0.35)'      : '#2e2e3c',
-        }}
-      >
-        <IconSnap />
-        <span style={{ fontSize: 10, fontWeight: 700, letterSpacing: '0.06em' }}>SNAP</span>
-      </button>
-
-      {/* ── Quantize dropdown ────────────────────────────────────────────── */}
-      <div style={{ position: 'relative' }}>
-        <button
-          ref={quantizeBtnRef}
-          onClick={openQuantize}
-          title="Quantize grid"
-          style={{ ...btnBase, minWidth: 44, fontFamily: "'JetBrains Mono', monospace", fontSize: 11 }}
+        {/* ── Drag handle ────────────────────────────────────────────────── */}
+        <div
+          onMouseDown={e => {
+            e.preventDefault()
+            dragState.current = { startX: e.clientX, startY: e.clientY, startPosX: pos.x, startPosY: pos.y }
+          }}
+          title="Drag to move"
+          style={{
+            width: 16, height: 28,
+            display: 'flex', flexDirection: 'column', justifyContent: 'center', gap: 3,
+            cursor: 'grab', flexShrink: 0, padding: '0 2px',
+          }}
         >
-          {QUANT_LABELS[quantize]} ▾
+          {[0,1,2].map(i => (
+            <div key={i} style={{ width: 12, height: 2, borderRadius: 1, background: '#404055' }} />
+          ))}
+        </div>
+
+        {/* ── Edit label ─────────────────────────────────────────────────── */}
+        <span style={{
+          fontSize: 10, fontWeight: 700, letterSpacing: '0.08em',
+          color: 'var(--text-amber, #e8a027)', textTransform: 'uppercase',
+          paddingRight: 4, flexShrink: 0,
+        }}>
+          EDIT{dirty ? ' ●' : ''}
+        </span>
+
+        <VSep />
+
+        {/* ── Snap toggle ────────────────────────────────────────────────── */}
+        <button
+          onClick={() => setSnap(!snapEnabled)}
+          title={snapEnabled ? 'Snap: ON — click to disable' : 'Snap: OFF — click to enable'}
+          style={{
+            ...btnBase,
+            gap: 4, paddingLeft: 7, paddingRight: 7,
+            color:       snapEnabled ? 'var(--text-amber, #e8a027)' : 'var(--text-muted, #94979e)',
+            borderColor: snapEnabled ? 'rgba(232,160,39,0.35)'      : '#2e2e3c',
+          }}
+        >
+          <IconSnap />
+          <span style={{ fontSize: 10, fontWeight: 700, letterSpacing: '0.06em' }}>SNAP</span>
         </button>
-        {quantizeOpen && (
-          <div
-            onMouseDown={e => e.stopPropagation()}
-            style={{
-              position: 'fixed',
-              top: quantizePos.top, left: quantizePos.left,
-              zIndex: 50001,
-              background: '#1e1e1e', border: '1px solid #3a3a4c',
-              borderRadius: 4, overflow: 'hidden', minWidth: 64,
-              boxShadow: '0 4px 16px rgba(0,0,0,0.55)',
-            }}
+
+        {/* ── Quantize dropdown ──────────────────────────────────────────── */}
+        <div style={{ position: 'relative' }}>
+          <button
+            ref={quantizeBtnRef}
+            onClick={openQuantize}
+            title="Quantize grid"
+            style={{ ...btnBase, minWidth: 44, fontFamily: "'JetBrains Mono', monospace", fontSize: 11 }}
           >
-            {([4, 8, 16, 32] as const).map(d => (
-              <div
-                key={d}
-                onClick={() => setQuantize(d)}
-                style={{
-                  padding: '6px 14px', cursor: 'pointer', fontSize: 12,
-                  fontFamily: "'JetBrains Mono', monospace",
-                  color:      d === quantize ? 'var(--text-amber, #e8a027)' : 'var(--text-default, #c6c8c8)',
-                  background: d === quantize ? 'rgba(232,160,39,0.08)' : 'transparent',
-                }}
-                onMouseEnter={e => { (e.currentTarget as HTMLElement).style.background = 'rgba(255,255,255,0.05)' }}
-                onMouseLeave={e => { (e.currentTarget as HTMLElement).style.background = d === quantize ? 'rgba(232,160,39,0.08)' : 'transparent' }}
-              >
-                1/{d}
-              </div>
-            ))}
-          </div>
-        )}
+            {QUANT_LABELS[quantize]} ▾
+          </button>
+          {quantizeOpen && (
+            <div
+              onMouseDown={e => e.stopPropagation()}
+              style={{
+                position: 'fixed',
+                top: quantizePos.top, left: quantizePos.left,
+                zIndex: 50001,
+                background: '#1e1e1e', border: '1px solid #3a3a4c',
+                borderRadius: 4, overflow: 'hidden', minWidth: 64,
+                boxShadow: '0 4px 16px rgba(0,0,0,0.55)',
+              }}
+            >
+              {([4, 8, 16, 32] as const).map(d => (
+                <div
+                  key={d}
+                  onClick={() => setQuantize(d)}
+                  style={{
+                    padding: '6px 14px', cursor: 'pointer', fontSize: 12,
+                    fontFamily: "'JetBrains Mono', monospace",
+                    color:      d === quantize ? 'var(--text-amber, #e8a027)' : 'var(--text-default, #c6c8c8)',
+                    background: d === quantize ? 'rgba(232,160,39,0.08)' : 'transparent',
+                  }}
+                  onMouseEnter={e => { (e.currentTarget as HTMLElement).style.background = 'rgba(255,255,255,0.05)' }}
+                  onMouseLeave={e => { (e.currentTarget as HTMLElement).style.background = d === quantize ? 'rgba(232,160,39,0.08)' : 'transparent' }}
+                >
+                  1/{d}
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+
+        <VSep />
+
+        {/* ── Undo / Redo / Reset ────────────────────────────────────────── */}
+        <button onClick={doUndo} disabled={!canUndo} title="Undo (Ctrl+Z)" style={iconBtnStyle(!canUndo)}>↺</button>
+        <button onClick={doRedo} disabled={!canRedo} title="Redo (Ctrl+Y)" style={iconBtnStyle(!canRedo)}>↻</button>
+        <button
+          onClick={doReset}
+          title="Reset — discard all edits and restore original"
+          style={iconBtnStyle(false)}
+        >
+          <IconReset />
+        </button>
+
+        <VSep />
+
+        {/* ── Note names toggle ──────────────────────────────────────────── */}
+        <ToolBtn active={showNoteNames} onClick={toggleNoteNames} title="Show note names on notes" wide>
+          <span style={{ fontSize: 10, fontFamily: "'JetBrains Mono', monospace", fontWeight: 700, letterSpacing: '0.03em' }}>
+            Note names
+          </span>
+        </ToolBtn>
+
+        <VSep />
+
+        {/* ── Velocity placeholder (coming soon) ─────────────────────────── */}
+        <button
+          disabled
+          title="Velocity editing (coming soon)"
+          style={{ ...iconBtnStyle(true), opacity: 0.3, cursor: 'default', pointerEvents: 'none' }}
+        >
+          <IconVelocity />
+        </button>
+
+        {/* ── Save ───────────────────────────────────────────────────────── */}
+        <ToolBtn active={false} onClick={() => void handleSave()} title="Save note edits as new MIDI file (_ORFEO versioned copy)">
+          <IconSavePlus />
+        </ToolBtn>
+
+        <VSep />
+
+        {/* ── Info placeholder (coming soon) ─────────────────────────────── */}
+        <button
+          disabled
+          title="Help (coming soon)"
+          style={{ ...iconBtnStyle(true), opacity: 0.2, cursor: 'default', pointerEvents: 'none' }}
+        >
+          <IconInfo />
+        </button>
+
+        {/* ── Close ──────────────────────────────────────────────────────── */}
+        <button
+          onClick={() => void doClose()}
+          title="Exit edit mode"
+          style={{ ...btnBase, paddingLeft: 10, paddingRight: 10, color: 'var(--text-muted, #94979e)' }}
+          onMouseEnter={e => { e.currentTarget.style.color = 'var(--text-amber, #e8a027)' }}
+          onMouseLeave={e => { e.currentTarget.style.color = 'var(--text-muted, #94979e)' }}
+        >
+          ✕
+        </button>
       </div>
 
-      <VSep />
+      {/* ── Unsaved-changes close confirmation strip ──────────────────────── */}
+      {showCloseConfirm && (
+        <div style={{
+          display: 'flex', alignItems: 'center', gap: 6,
+          height: 32, padding: '0 10px',
+          borderTop: '1px solid #2e2e3c',
+          background: 'rgba(232,160,39,0.06)',
+        }}>
+          <span style={{ fontSize: 11, color: 'var(--text-muted, #94979e)', flexShrink: 0 }}>
+            Unsaved changes —
+          </span>
+          <button
+            onClick={() => void doConfirmSaveAndClose()}
+            style={{ ...btnBase, borderColor: 'rgba(232,160,39,0.45)', color: 'var(--text-amber, #e8a027)', background: 'rgba(232,160,39,0.07)', fontSize: 11 }}
+          >
+            Save & Exit
+          </button>
+          <button
+            onClick={doConfirmDiscardAndClose}
+            style={{ ...btnBase, borderColor: 'rgba(192,57,43,0.4)', color: '#c0392b', fontSize: 11 }}
+          >
+            Discard
+          </button>
+          <button
+            onClick={() => setShowCloseConfirm(false)}
+            style={{ ...btnBase, fontSize: 11 }}
+          >
+            Cancel
+          </button>
+        </div>
+      )}
 
-      {/* ── Undo / Redo ──────────────────────────────────────────────────── */}
-      <button onClick={doUndo} disabled={!canUndo} title="Undo (Ctrl+Z)" style={iconBtnStyle(!canUndo)}>↺</button>
-      <button onClick={doRedo} disabled={!canRedo} title="Redo (Ctrl+Y)" style={iconBtnStyle(!canRedo)}>↻</button>
-
-      <VSep />
-
-      {/* ── Note names toggle ────────────────────────────────────────────── */}
-      <ToolBtn active={showNoteNames} onClick={toggleNoteNames} title="Show note names on notes" wide>
-        <span style={{ fontSize: 10, fontFamily: "'JetBrains Mono', monospace", fontWeight: 700, letterSpacing: '0.03em' }}>
-          Note names
-        </span>
-      </ToolBtn>
-
-      <VSep />
-
-      {/* ── Close ────────────────────────────────────────────────────────── */}
-      <button
-        onClick={doClose}
-        title="Exit edit mode"
-        style={{ ...btnBase, paddingLeft: 10, paddingRight: 10, color: 'var(--text-muted, #94979e)' }}
-        onMouseEnter={e => { e.currentTarget.style.color = 'var(--text-amber, #e8a027)' }}
-        onMouseLeave={e => { e.currentTarget.style.color = 'var(--text-muted, #94979e)' }}
-      >
-        ✕
-      </button>
+      {/* ── Hint line ────────────────────────────────────────────────────── */}
+      {hintText && (
+        <div style={{
+          fontSize: 'var(--text-xs, 0.6875rem)',
+          color: 'var(--text-muted, #94979e)',
+          fontStyle: 'italic',
+          padding: '2px 24px 4px',
+          borderTop: '1px solid #2e2e3c',
+          whiteSpace: 'nowrap',
+        }}>
+          {hintText}
+        </div>
+      )}
     </div>
   )
 }

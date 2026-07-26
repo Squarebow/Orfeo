@@ -109,6 +109,12 @@ interface OrfeoStore {
   noteEditorToolbarX: number
   noteEditorToolbarY: number
   setNoteEditorToolbarPos: (x: number, y: number) => void
+  noteEditorSoloTrackIndex: number | null
+  preSoloTrackVisibility: boolean[] | null
+  soloTrackForEdit: (index: number) => void
+  unsoloTrackForEdit: () => void
+  noteEditorWalkthroughSeen: boolean
+  setNoteEditorWalkthroughSeen: (v: boolean) => void
   vuDisplayMode: 'bars' | 'wave'
   setVuDisplayMode: (mode: 'bars' | 'wave') => void
   explorerKeys: Set<number>
@@ -400,6 +406,35 @@ export const useStore = create<OrfeoStore>((set, get) => ({
   noteEditorToolbarY: 80,
   setNoteEditorToolbarPos: (noteEditorToolbarX, noteEditorToolbarY) => set({ noteEditorToolbarX, noteEditorToolbarY }),
 
+  // ── Note Editor: track solo + first-run walkthrough ───────────────────────
+  noteEditorSoloTrackIndex: null,
+  preSoloTrackVisibility: null,
+  soloTrackForEdit: (index) => {
+    const s = get()
+    if (s.noteEditorSoloTrackIndex === index) {
+      // ── Un-solo: restore pre-solo visibility ────────────────────────────
+      const restored = s.preSoloTrackVisibility
+        ? s.tracks.map((t, i) => ({ ...t, visible: s.preSoloTrackVisibility![i] ?? true }))
+        : s.tracks
+      set({ tracks: restored, noteEditorSoloTrackIndex: null, preSoloTrackVisibility: null })
+    } else {
+      // ── Solo: snapshot visibility, hide all tracks except target ────────
+      const preSolo   = s.tracks.map(t => t.visible)
+      const soloed    = s.tracks.map(t => ({ ...t, visible: t.index === index }))
+      set({ tracks: soloed, noteEditorSoloTrackIndex: index, preSoloTrackVisibility: preSolo })
+    }
+  },
+  unsoloTrackForEdit: () => {
+    const s = get()
+    if (s.noteEditorSoloTrackIndex === null) return
+    const restored = s.preSoloTrackVisibility
+      ? s.tracks.map((t, i) => ({ ...t, visible: s.preSoloTrackVisibility![i] ?? true }))
+      : s.tracks
+    set({ tracks: restored, noteEditorSoloTrackIndex: null, preSoloTrackVisibility: null })
+  },
+  noteEditorWalkthroughSeen: false,
+  setNoteEditorWalkthroughSeen: (noteEditorWalkthroughSeen) => set({ noteEditorWalkthroughSeen }),
+
   chordPrompterEnabled: false,
   chordPrompterOpen: false,
   chordSequence: [],
@@ -570,6 +605,7 @@ async function restoreLibraryPrefs() {
       useStore.setState({ settingsGroupsCollapsed: { ...defaults, ...prefs.settingsGroupsCollapsed } })
     }
     if (Array.isArray(prefs.transcriptHistory)) useStore.setState({ transcriptHistory: prefs.transcriptHistory })
+    if (typeof prefs.noteEditorWalkthroughSeen === 'boolean') store.setNoteEditorWalkthroughSeen(prefs.noteEditorWalkthroughSeen)
   } catch (e) {
     console.error('[Orfeo] restoreLibraryPrefs:', e)
   }
@@ -616,6 +652,7 @@ let _prevShowOctaveLabels: boolean | null = null
 let _prevShowNoteNamesOnKeyboard: boolean | null = null
 let _prevAutoMuteNonKeyboard: boolean | null = null
 let _prevSettingsGroupsCollapsed: string | null = null
+let _prevNoteEditorWalkthroughSeen: boolean | null = null
 useStore.subscribe((state) => {
   // Skip the very first fire (app init) — restore handles loading saved values
   if (_prevNoteNaming === null) {
@@ -642,6 +679,7 @@ useStore.subscribe((state) => {
     _prevShowNoteNamesOnKeyboard = state.showNoteNamesOnKeyboard
     _prevAutoMuteNonKeyboard = state.autoMuteNonKeyboard
     _prevSettingsGroupsCollapsed = JSON.stringify(state.settingsGroupsCollapsed)
+    _prevNoteEditorWalkthroughSeen = state.noteEditorWalkthroughSeen
     return
   }
   if (
@@ -667,7 +705,8 @@ useStore.subscribe((state) => {
     state.showOctaveLabels !== _prevShowOctaveLabels ||
     state.showNoteNamesOnKeyboard !== _prevShowNoteNamesOnKeyboard ||
     state.autoMuteNonKeyboard !== _prevAutoMuteNonKeyboard ||
-    JSON.stringify(state.settingsGroupsCollapsed) !== _prevSettingsGroupsCollapsed
+    JSON.stringify(state.settingsGroupsCollapsed) !== _prevSettingsGroupsCollapsed ||
+    state.noteEditorWalkthroughSeen !== _prevNoteEditorWalkthroughSeen
   ) {
     _prevNoteNaming = state.noteNaming
     _prevAccidentals = state.accidentals
@@ -692,6 +731,7 @@ useStore.subscribe((state) => {
     _prevShowNoteNamesOnKeyboard = state.showNoteNamesOnKeyboard
     _prevAutoMuteNonKeyboard = state.autoMuteNonKeyboard
     _prevSettingsGroupsCollapsed = JSON.stringify(state.settingsGroupsCollapsed)
+    _prevNoteEditorWalkthroughSeen = state.noteEditorWalkthroughSeen
     window.electronAPI?.setPrefs?.({
       noteNaming: state.noteNaming,
       accidentals: state.accidentals,
@@ -716,6 +756,7 @@ useStore.subscribe((state) => {
       showNoteNamesOnKeyboard: state.showNoteNamesOnKeyboard,
       autoMuteNonKeyboard: state.autoMuteNonKeyboard,
       settingsGroupsCollapsed: state.settingsGroupsCollapsed,
+      noteEditorWalkthroughSeen: state.noteEditorWalkthroughSeen,
     }).catch(() => {})
   }
 })

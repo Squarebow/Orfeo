@@ -186,6 +186,15 @@ export default function App() {
     }
   }, [presentationMode])
 
+  // ── Unsolo edit track when Note Editor exits ─────────────────────────────
+  useEffect(() => {
+    let prev = useStore.getState().noteEditorActive
+    return useStore.subscribe((s) => {
+      if (!s.noteEditorActive && prev) useStore.getState().unsoloTrackForEdit()
+      prev = s.noteEditorActive
+    })
+  }, [])
+
   // ── Enter Presentation Mode with NES dirty-check guard ───────────────────
   // If Note Editor has unsaved changes, prompts Save/Discard/Cancel before
   // entering. Mirrors the pattern in SettingsPanel.handleLoadFile.

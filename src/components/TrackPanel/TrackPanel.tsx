@@ -50,7 +50,10 @@ export default function TrackPanel() {
   const setTrackMuteFilter = useStore((s) => s.setTrackMuteFilter)
   const autoMuteNonKeyboard = useStore((s) => s.autoMuteNonKeyboard)
   const [collapsedGroups, setCollapsedGroups] = useState<Set<string>>(new Set())
-  const midiEditorOpen = useStore((s) => s.midiEditorOpen)
+  const midiEditorOpen          = useStore((s) => s.midiEditorOpen)
+  const noteEditorActive        = useStore((s) => s.noteEditorActive)
+  const noteEditorSoloTrackIndex = useStore((s) => s.noteEditorSoloTrackIndex)
+  const soloTrackForEdit        = useStore((s) => s.soloTrackForEdit)
 
   // ── Open editor — sets store flag; MidiEditor floating modal reads from store ─
   const handleOpenEditor = () => {
@@ -328,6 +331,8 @@ export default function TrackPanel() {
                         onSolo={() => updateTrack(track.index, { solo: !track.solo })}
                         onVisible={() => updateTrack(track.index, { visible: !track.visible })}
                         onKeyboard={() => updateTrack(track.index, { showOnKeyboard: !track.showOnKeyboard })}
+                        onSoloForEdit={noteEditorActive ? () => soloTrackForEdit(track.index) : undefined}
+                        isSoloedForEdit={noteEditorSoloTrackIndex === track.index}
                       />
                     )
                   })}
@@ -343,9 +348,10 @@ export default function TrackPanel() {
 }
 
 // ── Track row — three-line layout: name (top, full width) / track# + controls (mid) / ch+prog (bottom)
-function TrackRow({ track, dimmed, onMute, onSolo, onVisible, onKeyboard }: {
+function TrackRow({ track, dimmed, onMute, onSolo, onVisible, onKeyboard, onSoloForEdit, isSoloedForEdit }: {
   track: TrackState; dimmed: boolean
   onMute: () => void; onSolo: () => void; onVisible: () => void; onKeyboard: () => void
+  onSoloForEdit?: () => void; isSoloedForEdit?: boolean
 }) {
   // Friendly channel/program label
   const ch = (track as any).channel != null ? (track as any).channel + 1 : track.index + 1
@@ -355,12 +361,18 @@ function TrackRow({ track, dimmed, onMute, onSolo, onVisible, onKeyboard }: {
   return (
     <div
       title={tooltip}
+      onClick={onSoloForEdit}
       style={{
         padding: '6px 10px 5px 14px',
         borderBottom: '1px solid var(--border-row)',
         opacity: dimmed ? 0.45 : 1,
-        transition: 'opacity 0.15s',
+        transition: 'opacity 0.15s, background 0.1s',
+        cursor: onSoloForEdit ? 'pointer' : 'default',
+        background: isSoloedForEdit ? 'rgba(232,160,39,0.08)' : 'transparent',
+        borderLeft: isSoloedForEdit ? '2px solid var(--text-amber, #e8a027)' : '2px solid transparent',
       }}
+      onMouseEnter={e => { if (onSoloForEdit && !isSoloedForEdit) (e.currentTarget as HTMLElement).style.background = 'rgba(255,255,255,0.03)' }}
+      onMouseLeave={e => { if (onSoloForEdit && !isSoloedForEdit) (e.currentTarget as HTMLElement).style.background = 'transparent' }}
     >
       {/* ── Row 1: color bar + instrument name spanning full available width ── */}
       <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
@@ -411,7 +423,7 @@ function IBtn({ children, onClick, active, title, activeColor = 'var(--text-ambe
 }) {
   return (
     <button
-      onClick={onClick} title={title}
+      onClick={e => { e.stopPropagation(); onClick() }} title={title}
       style={{
         display: 'flex', alignItems: 'center', justifyContent: 'center',
         width: 22, height: 22, background: 'none', border: 'none', cursor: 'pointer',
