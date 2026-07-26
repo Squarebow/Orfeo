@@ -290,8 +290,8 @@ export default function TopBar() {
                 NES.reset()
               } else {
                 if (playbackState === 'playing') pause()
-                setNoteEditorActive(true)
                 NES.reset()
+                setNoteEditorActive(true)
               }
             }}
             title={noteEditorActive ? 'Exit note edit mode' : 'Enter note edit mode'}

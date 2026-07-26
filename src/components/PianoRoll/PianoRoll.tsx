@@ -761,8 +761,9 @@ export default function PianoRoll() {
         if (!storeRef.current.noteEditorActive) { app.canvas.style.cursor = 'default'; setEditTooltip(null); return }
         let hint: string
         if (ef) {
-          const atEnd   = cy <= ef.topY + RESIZE_ZONE_PX
-          const atStart = cy >= ef.topY + ef.noteH - RESIZE_ZONE_PX
+          const canResize = ef.noteH >= RESIZE_ZONE_PX * 2
+          const atEnd   = canResize && cy <= ef.topY + RESIZE_ZONE_PX
+          const atStart = canResize && cy >= ef.topY + ef.noteH - RESIZE_ZONE_PX
           if (atEnd || atStart) {
             app.canvas.style.cursor = 'ns-resize'
             hint = 'Drag to resize'
@@ -772,11 +773,11 @@ export default function PianoRoll() {
             hint = editNewNotes.has(ef.note)
               ? 'Drag to move · Right-click to delete'
               : 'Drag to move · Select + Delete key to remove'
-            // Show tooltip when note is too small for inline text
-            if (ef.noteH < 14 && clientX !== undefined && clientY !== undefined) {
+            // Show tooltip when note is too small for inline text (respects note-names toggle)
+            if (NES.showNoteNamesRef.current && ef.noteH < 14 && clientX !== undefined && clientY !== undefined) {
               const { noteNaming, accidentals } = storeRef.current
               const naming = noteNaming === 'hidden' ? 'english' : noteNaming
-              const label  = getNoteLabel(ef.note.midi, naming, accidentals)
+              const label  = getNoteLabel(ef.note.midi, naming, accidentals).replace(/\d+$/, '')
               setEditTooltip({ x: clientX, y: clientY, label })
             } else {
               setEditTooltip(null)
@@ -827,8 +828,9 @@ export default function PianoRoll() {
         if (ef) {
           const { note, track, key, topY, noteH } = ef
           ;(window as any).__orfeoPlayNote?.(note.midi, 90, 500, getTrackChannel(ef.trackIndex))
-          const atEnd   = cy <= topY + RESIZE_ZONE_PX
-          const atStart = cy >= topY + noteH - RESIZE_ZONE_PX
+          const canResize = noteH >= RESIZE_ZONE_PX * 2
+          const atEnd   = canResize && cy <= topY + RESIZE_ZONE_PX
+          const atStart = canResize && cy >= topY + noteH - RESIZE_ZONE_PX
 
           if (atEnd || atStart) {
             // ── Resize drag ───────────────────────────────────────────────
