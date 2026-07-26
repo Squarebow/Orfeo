@@ -84,17 +84,19 @@ function xToMidi(x: number, layout: KeyLayout[], midiMin: number, midiMax: numbe
 
 // ── LoopOverlay — amber band + draggable boundary lines over the waterfall ────
 function LoopOverlay() {
-  const loopStart        = useStore(s => s.loopStart)
-  const loopEnd          = useStore(s => s.loopEnd)
-  const loopRegionActive = useStore(s => s.loopRegionActive)
-  const currentTime      = useStore(s => s.currentTime)
-  const zoomLevel        = useStore(s => s.zoomLevel)
-  const noteEditorActive = useStore(s => s.noteEditorActive)
+  const loopStart          = useStore(s => s.loopStart)
+  const loopEnd            = useStore(s => s.loopEnd)
+  const loopRegionActive   = useStore(s => s.loopRegionActive)
+  const loopRegionEnabled  = useStore(s => s.loopRegionEnabled)
+  const currentTime        = useStore(s => s.currentTime)
+  const zoomLevel          = useStore(s => s.zoomLevel)
+  const noteEditorActive   = useStore(s => s.noteEditorActive)
 
   const overlayRef  = useRef<HTMLDivElement>(null)
   const draggingRef = useRef<'start' | 'end' | null>(null)
   const newDragRef  = useRef<{ anchorTime: number } | null>(null)
-  const [altDown, setAltDown] = useState(false)
+  const [altDown,   setAltDown]   = useState(false)
+  const [mousePos,  setMousePos]  = useState<{ x: number; y: number } | null>(null)
 
   // ── Track Alt key — enables waterfall draw mode ────────────────────────────
   useEffect(() => {
@@ -109,7 +111,7 @@ function LoopOverlay() {
     return () => { window.removeEventListener('keydown', down); window.removeEventListener('keyup', up) }
   }, [])
 
-  // ── Global mouse handlers ─────────────────────────────────────────────────
+  // ── Global mouse handlers — drag logic + cursor tooltip tracking ──────────
   useEffect(() => {
     const yToTime = (clientY: number): number => {
       const el = overlayRef.current
@@ -138,12 +140,40 @@ function LoopOverlay() {
         const start = Math.min(nd.anchorTime, t)
         const end   = Math.max(nd.anchorTime, t)
         if (end - start > 0.01) st.setLoopRegion(start, end)
+        return
+      }
+      // Track position for cursor tooltip (only when inside overlay bounds)
+      const el = overlayRef.current
+      if (el) {
+        const rect = el.getBoundingClientRect()
+        if (e.clientX >= rect.left && e.clientX <= rect.right &&
+            e.clientY >= rect.top  && e.clientY <= rect.bottom) {
+          setMousePos({ x: e.clientX, y: e.clientY })
+        } else {
+          setMousePos(null)
+        }
       }
     }
     const onUp = () => { draggingRef.current = null; newDragRef.current = null }
-    window.addEventListener('mousemove', onMove)
-    window.addEventListener('mouseup',   onUp)
-    return () => { window.removeEventListener('mousemove', onMove); window.removeEventListener('mouseup', onUp) }
+    // Right-click anywhere over the overlay clears the loop region
+    const onContextMenu = (e: MouseEvent) => {
+      const el = overlayRef.current
+      if (!el) return
+      const rect = el.getBoundingClientRect()
+      if (e.clientX >= rect.left && e.clientX <= rect.right &&
+          e.clientY >= rect.top  && e.clientY <= rect.bottom) {
+        e.preventDefault()
+        useStore.getState().clearLoopRegion()
+      }
+    }
+    window.addEventListener('mousemove',   onMove)
+    window.addEventListener('mouseup',     onUp)
+    window.addEventListener('contextmenu', onContextMenu)
+    return () => {
+      window.removeEventListener('mousemove',   onMove)
+      window.removeEventListener('mouseup',     onUp)
+      window.removeEventListener('contextmenu', onContextMenu)
+    }
   }, [])
 
   const handleOverlayMouseDown = (e: React.MouseEvent<HTMLDivElement>) => {
@@ -178,6 +208,9 @@ function LoopOverlay() {
   const amber     = loopRegionActive ? 'rgba(232,160,39,0.55)' : 'rgba(232,160,39,0.30)'
   const amberFill = loopRegionActive ? 'rgba(232,160,39,0.07)' : 'rgba(232,160,39,0.04)'
 
+  // Tooltip visibility: show when hovering, loop strip is on, Alt not held, not dragging
+  const showTooltip = loopRegionEnabled && !noteEditorActive && !altDown && mousePos !== null
+
   // Edit mode disables loop overlay pointer events to pass them to PixiJS
   if (noteEditorActive) return null
 
@@ -186,7 +219,6 @@ function LoopOverlay() {
       ref={overlayRef}
       onMouseDown={handleOverlayMouseDown}
       onDoubleClick={() => useStore.getState().clearLoopRegion()}
-      title={altDown ? 'Drag to select loop region · Double-click to reset' : undefined}
       style={{
         position: 'absolute', inset: 0, overflow: 'hidden',
         pointerEvents: altDown ? 'auto' : 'none',
@@ -202,7 +234,6 @@ function LoopOverlay() {
         <div
           onMouseDown={e => { e.preventDefault(); e.stopPropagation(); draggingRef.current = 'end' }}
           onDoubleClick={e => { e.stopPropagation(); useStore.getState().clearLoopRegion() }}
-          title="Drag to adjust · Double-click to reset"
           style={handleWrap(topPct)}
         >
           <div style={{ width: '100%', height: 2, background: amber }} />
@@ -210,12 +241,37 @@ function LoopOverlay() {
         <div
           onMouseDown={e => { e.preventDefault(); e.stopPropagation(); draggingRef.current = 'start' }}
           onDoubleClick={e => { e.stopPropagation(); useStore.getState().clearLoopRegion() }}
-          title="Drag to adjust · Double-click to reset"
           style={handleWrap(botPct)}
         >
           <div style={{ width: '100%', height: 2, background: amber }} />
         </div>
       </>)}
+
+      {/* ── Cursor tooltip — hints Alt+drag and right-click when loop strip is on ── */}
+      {showTooltip && mousePos && (
+        <div style={{
+          position: 'fixed',
+          left: mousePos.x + 14,
+          top:  mousePos.y + 14,
+          pointerEvents: 'none',
+          zIndex: 99999,
+          background: 'rgba(18,18,18,0.92)',
+          border: '1px solid rgba(232,160,39,0.35)',
+          borderRadius: 4,
+          padding: '4px 8px',
+          display: 'flex', flexDirection: 'column', gap: 2,
+          whiteSpace: 'nowrap',
+        }}>
+          <span style={{ fontFamily: 'Inter, sans-serif', fontSize: 11, color: 'rgba(232,160,39,0.9)' }}>
+            Alt+drag · set loop region
+          </span>
+          {hasSelection && (
+            <span style={{ fontFamily: 'Inter, sans-serif', fontSize: 11, color: 'rgba(198,200,200,0.65)' }}>
+              Right-click · clear
+            </span>
+          )}
+        </div>
+      )}
     </div>
   )
 }

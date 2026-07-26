@@ -180,6 +180,15 @@ All user-visible changes listed here. For full technical detail see [CHANGELOG.m
 
 ---
 
+### 26. 7. 2026
+
+**Fixed**
+- Loop region on the piano roll: hovering now shows a cursor tooltip explaining Alt+drag to set a region and right-click to clear it. Right-click anywhere on the waterfall now clears the loop region directly.
+- Playback controls (transport buttons, scrub bar) no longer shift left when the Note Editor feature is enabled in Settings.
+- Keyboard label toggles in Settings now work: "Show Octaves" correctly hides/shows octave labels (C4, C5…) on the piano keyboard, and "Note Names on Keyboard" hides/shows note names on active (highlighted) keys.
+
+---
+
 ### 25. 7. 2026
 
 **Fixed**

@@ -26,8 +26,10 @@ export default function Keyboard() {
   const keyboardSize = useStore((s) => s.keyboardSize)
   const activeKeys = useStore((s) => s.activeKeys)
   const activeKeyColors = useStore((s) => s.activeKeyColors)
-  const noteNaming = useStore((s) => s.noteNaming)
-  const accidentals = useStore((s) => s.accidentals)
+  const noteNaming              = useStore((s) => s.noteNaming)
+  const accidentals             = useStore((s) => s.accidentals)
+  const showOctaveLabels        = useStore((s) => s.showOctaveLabels)
+  const showNoteNamesOnKeyboard = useStore((s) => s.showNoteNamesOnKeyboard)
   const playbackState = useStore((s) => s.playbackState)
   const explorerKeys = useStore((s) => s.explorerKeys)
   const explorerKeyColors = useStore((s) => s.explorerKeyColors)
@@ -459,8 +461,8 @@ export default function Keyboard() {
             const locked = lockedKeys.has(k.midi)
             const isC = k.midi % 12 === 0
             const label = color
-              ? (getNoteName(k.midi, noteNaming, accidentals) || null)
-              : (isC ? getNoteLabel(k.midi, noteNaming, accidentals) : null)
+              ? (showNoteNamesOnKeyboard ? (getNoteName(k.midi, noteNaming, accidentals) || null) : null)
+              : (isC && showOctaveLabels ? getNoteLabel(k.midi, noteNaming, accidentals) : null)
             return (
               <div
                 key={k.midi}
@@ -520,7 +522,7 @@ export default function Keyboard() {
                   zIndex: 2,
                 }}
               >
-                {color && noteNaming !== 'hidden' && (
+                {color && showNoteNamesOnKeyboard && noteNaming !== 'hidden' && (
                   <span style={{
                     position: 'absolute', bottom: 3, left: '50%',
                     transform: 'translateX(-50%)',

@@ -281,9 +281,8 @@ export default function TopBar() {
         </span>
       </div>
 
-      {/* ── NOTE EDITOR toggle — always a fixed-width slot when enabled so nothing shifts ── */}
-      {noteEditorEnabled && (
-        <div style={{ width: 'var(--button-height)', height: 'var(--button-height)', flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', opacity: midi ? 1 : 0, pointerEvents: midi ? 'auto' : 'none' }}>
+      {/* ── NOTE EDITOR toggle — slot always reserves its 28px so center never shifts ── */}
+      <div style={{ width: 'var(--button-height)', height: 'var(--button-height)', flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', visibility: noteEditorEnabled ? 'visible' : 'hidden', opacity: noteEditorEnabled && midi ? 1 : 0, pointerEvents: noteEditorEnabled && midi ? 'auto' : 'none' }}>
           <button
             onClick={() => {
               if (noteEditorActive) {
@@ -310,8 +309,7 @@ export default function TopBar() {
           >
             <Pencil size={14} strokeWidth={1.5} />
           </button>
-        </div>
-      )}
+      </div>
 
       {/* ── TIME + METRONOME + MIDI — bottoms aligned ── */}
       <div className="app-no-drag" style={{ display: 'flex', alignItems: 'flex-end', gap: 0, flexShrink: 0 }}>

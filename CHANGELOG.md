@@ -4,6 +4,25 @@
 
 ---
 
+### 26. 7. 2026 — Loop region tooltip + right-click, TopBar centering fix, keyboard label toggles wired
+
+**`src/components/PianoRoll/PianoRoll.tsx` — LoopOverlay:**
+- Added `mousePos` state; global `mousemove` handler now tracks cursor position inside the overlay rect.
+- Cursor-following tooltip renders via `position: fixed` when `loopRegionEnabled` is true, Alt is not held, and the cursor is over the piano roll. Shows "Alt+drag · set loop region" always; adds "Right-click · clear" line when a region exists.
+- Added `window` `contextmenu` listener: right-click inside the overlay bounds calls `clearLoopRegion()` with `preventDefault()` — works regardless of whether Alt is held.
+- Removed per-handle `title` attributes (superseded by the cursor tooltip).
+
+**`src/components/Transport/TopBar.tsx`:**
+- Note editor slot changed from conditional render (`{noteEditorEnabled && <div>}`) to always-rendered `<div>` with `visibility: noteEditorEnabled ? 'visible' : 'hidden'`. The slot always occupies `var(--button-height)` (28 px) in the flex row, so the center section width never changes regardless of feature enable state — eliminates the leftward shift of transport controls when the note editor is enabled.
+
+**`src/components/Keyboard/Keyboard.tsx`:**
+- Added `showOctaveLabels` and `showNoteNamesOnKeyboard` selectors from store.
+- White key label logic: octave label (C4, C5…) now gated by `showOctaveLabels`; active-key note name gated by `showNoteNamesOnKeyboard`.
+- Black key note name span: gated by `showNoteNamesOnKeyboard` in addition to existing `noteNaming !== 'hidden'` check.
+- Both Settings toggles (Keyboard Labels → Show Octaves / Note Names on Keyboard) now take effect immediately.
+
+---
+
 ### 25. 7. 2026 — Note Editor: instrument audio fix, alt+click mapping, selection pitch drag, UI polish
 
 **Root cause — instrument audio (both engines):** clicking a note in the editor before ever pressing Play always sounded like piano on all tracks. Two separate bugs, one per engine:
