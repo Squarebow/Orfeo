@@ -71,6 +71,7 @@
 - [x] Auto-created `Orfeo/` subfolder — all app-generated files save here automatically, keeping the source library tidy; library displays `.mid` files from it, hides PDFs
 - [x] Bundled `Demo/` folder — 5 MIDI files auto-copied on first launch, always sorted to top of library, hideable via Settings toggle
 - [x] Settings persistence — note naming, accidentals, library folder, favourites, master volume, audio engine, all new toggles saved to `orfeo-prefs.json`
+- [x] **Foreign format import** (29. 7. 2026) — MusicXML (`.musicxml`, `.xml`, `.mxl`), Guitar Pro (`.gp`, `.gp3`, `.gp4`, `.gp5`, `.gpx`), and karaoke MIDI (`.kar`) files now import directly; alphaTab 1.8.4 converts to SMF bytes at load time; cache stored in `Orfeo/` subfolder with mtime invalidation; KAR pass-through (zero conversion, extension whitelist only); library icons distinguish imported files; user prompted to save on file switch/app close with unsaved converted bytes
 
 ### Note Editor
 - [x] **Note Editor** — in-place MIDI editing directly on the PianoRoll canvas; enabled via Settings → MIDI Files & Library (eye toggle); activated via PencilSparkles icon in TopBar

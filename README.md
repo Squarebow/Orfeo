@@ -180,6 +180,13 @@ All user-visible changes listed here. For full technical detail see [CHANGELOG.m
 
 ---
 
+### 29. 7. 2026
+
+**New**
+- **Import MusicXML, Guitar Pro, and KAR files:** Orfeo now accepts MusicXML (`.musicxml`, `.xml`, `.mxl`), Guitar Pro (`.gp`, `.gp3`, `.gp4`, `.gp5`, `.gpx`), and karaoke MIDI (`.kar`) files in addition to standard `.mid` files. Drag them into the app or add them to your library — they play just like any MIDI file. Converted files are cached automatically so re-opening is instant.
+
+---
+
 ### 27. 7. 2026
 
 **Improved**

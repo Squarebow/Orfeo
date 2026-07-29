@@ -4,6 +4,31 @@
 
 ---
 
+### 29. 7. 2026 — Foreign Format Import (MusicXML / KAR / Guitar Pro)
+
+**Files changed:** `electron/main.ts`, `electron/preload.ts`, `src/types/index.ts`, `src/App.tsx`, `src/components/SettingsPanel/SettingsPanel.tsx`, `src/utils/foreignFormatImport.ts`, package.json dependency
+
+**New dependency:** `@coderline/alphaTab` v1.8.4 — used import-only (no renderer, no audio engine); loaded lazily via dynamic `import()` to keep startup bundle lean (~1.1 MB).
+
+**New IPC channels:** `fs:getCachedImport`, `fs:writeCachedImport`
+
+**Architecture:**
+- Foreign formats converted to SMF bytes at load time via `alphaTab.importer.ScoreLoader` + `MidiFileGenerator` + `AlphaSynthMidiFileHandler`.
+- Converted bytes cached as `<stem>_ORFEO_IMPORTED.mid` alongside source in `Orfeo/` subfolder. Cache invalidated when source `mtime` is newer than cache `mtime`.
+- KAR pass-through: zero conversion, extension whitelist only. `@tonejs/midi` silently ignores lyric meta-events.
+- `_filePath` on `ParsedMidi` is always the original source path, not the cache path — library amber-highlight logic is unaffected.
+- Critical fix: `NoteBendEvent` filter required before `midiFile.toBinary()`. alphaTab 1.8.4 emits neutral MIDI 2.0 per-note pitch bend events even when there is no actual pitch bend; SMF 1.0 export cannot represent these. The filter is safe: genuine pitch-bend expression from GP files is encoded as `PitchBendEvent` (SMF 1.0 compatible), not `NoteBendEvent`.
+
+**Extension whitelist added to:** `dialog:openMidi` filter, `fs:scanMidiFolder` regex, demo folder filter, `isSupportedFile()` in App.tsx, library drop handler in SettingsPanel.tsx.
+
+**Error handling:** Corrupt/unsupported files surface via existing `showDropError()` toast. Empty conversion results load as zero-note MIDI without crashing (handled by existing `parseMidiBuffer` empty-track skip).
+
+**Converted file prompt on switch/close:** pending import bytes held in memory as `pendingImportedFile` store field (session-only, not persisted). User prompted "Save as MID / Don't Save / Cancel" when loading a different file or closing the app with unsaved converted bytes. Save writes to `Orfeo/` subfolder with mkdirSync. Same-file reload skips prompt.
+
+**Known limitations:** Very large orchestral MusicXML scores may be slow to convert (no special handling). MIDI Editor split/merge/instrument assign not tested on imported files.
+
+---
+
 ### 27. 7. 2026 — Note Editor tooltip fixes + SpeedControl icon redesign
 
 **`src/components/PianoRoll/PianoRoll.tsx`:**
