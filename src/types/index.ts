@@ -108,6 +108,9 @@ declare global {
       // Drag-and-drop file import
       getPathForFile:      (file: File) => string
       copyMidiToLibrary:   (sourcePath: string, libraryFolder: string) => Promise<string>
+      // Foreign format import cache
+      getCachedImport:     (sourcePath: string, cachePath: string) => Promise<string | null>
+      writeCachedImport:   (destPath: string, base64: string) => Promise<void>
     }
   }
 }

@@ -497,21 +497,50 @@ function LibraryPanel() {
       NES.dirty = false
     }
     try {
+      const { confirmPendingImportBeforeSwitch } = await import('../../utils/foreignFormatImport')
+      const proceed = await confirmPendingImportBeforeSwitch(filePath)
+      if (!proceed) return
+
       const result = await window.electronAPI.loadMidiFromPath(filePath)
       if (!result) return
-      const binary = atob(result.base64)
-      const bytes = new Uint8Array(binary.length)
-      for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i)
+
+      let base64    = result.base64
+      const parseName = result.fileName
+      const { useStore: storeModule } = await import('../../store')
+      const libraryFolder = (storeModule.getState() as any).libraryFolder as string | null ?? null
+
+      const { resolveToMidiBase64, detectForeignFormat, base64ToBytes } =
+        await import('../../utils/foreignFormatImport')
+
+      try {
+        const resolved = await resolveToMidiBase64(filePath, base64, libraryFolder)
+        base64 = resolved.base64
+
+        if (resolved.isPendingSave) {
+          storeModule.getState().setPendingImportedFile({
+            sourcePath: filePath,
+            format: detectForeignFormat(filePath)!,
+            midiBase64: base64,
+            fileName: result.fileName,
+          })
+        } else {
+          storeModule.getState().setPendingImportedFile(null)
+        }
+      } catch (e: any) {
+        console.error('[Orfeo] Foreign format conversion failed:', e)
+        return
+      }
+
       const { parseMidiBuffer } = await import('../../utils/midiParser')
       const { detectKeyFromTracks, parseKeySignature } = await import('../../utils/keyDetection')
-      const { useStore: store } = await import('../../store')
-      const parsed = parseMidiBuffer(bytes.buffer, result.fileName, result.filePath ?? '')
-      store.getState().setMidi(parsed)
+      const bytes  = base64ToBytes(base64)
+      const parsed = parseMidiBuffer(bytes.buffer as ArrayBuffer, parseName, filePath) // _filePath = original source
+      storeModule.getState().setMidi(parsed)
       const raw = parsed as any
       if (raw._keySignature != null) {
-        store.getState().setDetectedKey(parseKeySignature(raw._keySignature.key, raw._keySignature.scale))
+        storeModule.getState().setDetectedKey(parseKeySignature(raw._keySignature.key, raw._keySignature.scale))
       } else {
-        store.getState().setDetectedKey(detectKeyFromTracks(parsed.tracks))
+        storeModule.getState().setDetectedKey(detectKeyFromTracks(parsed.tracks))
       }
     } catch (err) {
       console.error('Failed to load file:', err)

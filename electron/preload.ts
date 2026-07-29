@@ -30,4 +30,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
   // Drag-and-drop file import
   getPathForFile:     (file: File) => webUtils.getPathForFile(file),
   copyMidiToLibrary:  (sourcePath: string, libraryFolder: string) => ipcRenderer.invoke('fs:copyMidiToLibrary', sourcePath, libraryFolder),
+  // Foreign format import cache
+  getCachedImport:    (sourcePath: string, cachePath: string) => ipcRenderer.invoke('fs:getCachedImport', sourcePath, cachePath),
+  writeCachedImport:  (destPath: string, base64: string) => ipcRenderer.invoke('fs:writeCachedImport', destPath, base64),
 })

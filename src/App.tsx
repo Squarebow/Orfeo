@@ -16,6 +16,13 @@ import MixerConsole from './components/Mixer/MixerConsole'
 import NoteEditorToolbar from './components/NoteEditor/NoteEditorToolbar'
 import { parseMidiBuffer } from './utils/midiParser'
 import { detectKeyFromTracks, parseKeySignature } from './utils/keyDetection'
+import {
+  resolveToMidiBase64,
+  confirmPendingImportBeforeSwitch,
+  detectForeignFormat,
+  base64ToBytes,
+  getCachePath,
+} from './utils/foreignFormatImport'
 import { useMidiFile } from './hooks/useMidiFile'
 import { usePlayback } from './hooks/usePlayback'
 import { useAudioEngine } from './hooks/useAudioEngine'
@@ -57,15 +64,41 @@ export default function App() {
   }, [])
 
   // ── Parse and load a MIDI file by OS path into the player ───────────────
-  // Uses the same utilities as App.tsx's onMidiReload handler — parseMidiBuffer
-  // and key detection are imported here, unlike store/index.ts where they are not.
+  // Handles foreign formats (MusicXML, Guitar Pro) by converting via alphaTab.
+  // Checks for a valid on-disk cache before converting; sets pendingImportedFile
+  // when conversion is done in-memory and not yet written to disk.
   const loadFileIntoPlayer = useCallback(async (filePath: string) => {
+    const proceed = await confirmPendingImportBeforeSwitch(filePath)
+    if (!proceed) return // user cancelled — stay on current file
+
     const result = await window.electronAPI.loadMidiFromPath(filePath)
     if (!result) return
-    const binary = atob(result.base64)
-    const bytes  = new Uint8Array(binary.length)
-    for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i)
-    const parsed = parseMidiBuffer(bytes.buffer, result.fileName, result.filePath ?? '')
+
+    let base64    = result.base64
+    const parseName = result.fileName
+    const libraryFolder = (useStore.getState() as any).libraryFolder as string | null ?? null
+
+    try {
+      const resolved = await resolveToMidiBase64(filePath, base64, libraryFolder)
+      base64 = resolved.base64
+
+      if (resolved.isPendingSave) {
+        useStore.getState().setPendingImportedFile({
+          sourcePath: filePath,
+          format: detectForeignFormat(filePath)!,
+          midiBase64: base64,
+          fileName: result.fileName,
+        })
+      } else {
+        useStore.getState().setPendingImportedFile(null)
+      }
+    } catch (e: any) {
+      showDropError(e?.message ?? 'Could not convert this file to MIDI.')
+      return
+    }
+
+    const bytes  = base64ToBytes(base64)
+    const parsed = parseMidiBuffer(bytes.buffer as ArrayBuffer, parseName, filePath) // _filePath = original source
     useStore.getState().setMidi(parsed)
     const raw = parsed as any
     if (raw._keySignature != null) {
@@ -73,7 +106,7 @@ export default function App() {
     } else {
       useStore.getState().setDetectedKey(detectKeyFromTracks(parsed.tracks))
     }
-  }, [])
+  }, [showDropError])
 
   // ── Load a dropped file by its real OS path ───────────────────────────────
   // Stops playback, copies into the library if the file is external, rescans,
@@ -174,6 +207,23 @@ export default function App() {
     return () => {
       delete (window as any).__orfeoNoteEditorDirty
       window.electronAPI.offSaveBeforeClose()
+    }
+  }, [])
+
+  // ── Expose pending imported file to main process for close handler ────────
+  useEffect(() => {
+    ;(window as any).__orfeoPendingImportedFile = () => {
+      const p = useStore.getState().pendingImportedFile
+      if (!p) return null
+      const libraryFolder = (useStore.getState() as any).libraryFolder as string | null ?? null
+      return {
+        cachePath: getCachePath(p.sourcePath, libraryFolder),
+        base64: p.midiBase64,
+        fileName: p.fileName,
+      }
+    }
+    return () => {
+      delete (window as any).__orfeoPendingImportedFile
     }
   }, [])
 
