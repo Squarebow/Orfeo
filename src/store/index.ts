@@ -100,6 +100,20 @@ interface OrfeoStore {
   setMixerMinimized: (v: boolean) => void
   midiEditorOpen: boolean
   setMidiEditorOpen: (open: boolean) => void
+  pendingImportedFile: {
+    sourcePath: string;
+    format: 'musicxml' | 'guitarpro';
+    midiBase64: string;
+    fileName: string;
+  } | null
+  setPendingImportedFile: (
+    value: {
+      sourcePath: string;
+      format: 'musicxml' | 'guitarpro';
+      midiBase64: string;
+      fileName: string;
+    } | null
+  ) => void
   presentationMode: boolean
   setPresentationMode: (v: boolean) => void
   noteEditorEnabled: boolean
@@ -346,6 +360,11 @@ export const useStore = create<OrfeoStore>((set, get) => ({
   setMixerMinimized: (mixerMinimized) => set({ mixerMinimized }),
   midiEditorOpen: false,
   setMidiEditorOpen: (midiEditorOpen) => set({ midiEditorOpen }),
+  // ── Pending imported file — session-only, not persisted ──────────────────
+  // Set when a foreign format (MusicXML, GP) is converted in-memory but not
+  // yet saved to disk as a .mid cache file. Cleared on save or discard.
+  pendingImportedFile: null,
+  setPendingImportedFile: (value) => set({ pendingImportedFile: value }),
   presentationMode: false,
   setPresentationMode: (presentationMode) => set({ presentationMode }),
   setVuDisplayMode: (vuDisplayMode) => set({ vuDisplayMode }),
