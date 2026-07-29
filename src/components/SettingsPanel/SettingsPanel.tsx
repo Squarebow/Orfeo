@@ -400,8 +400,8 @@ function LibraryPanel() {
     const file = e.dataTransfer.files[0]
     if (!file) return
 
-    if (!/\.(mid|midi)$/i.test(file.name)) {
-      showDropError('Only .mid / .midi files are supported.')
+    if (!/\.(mid|midi|kar|musicxml|xml|mxl|gp|gp3|gp4|gp5|gpx)$/i.test(file.name)) {
+      showDropError('Unsupported file type. Orfeo accepts .mid, .musicxml, .mxl, .gp/.gp5, and .kar files.')
       return
     }
 

@@ -113,9 +113,9 @@ export default function App() {
     }
   }, [stop, showDropError, loadFileIntoPlayer])
 
-  // ── Validate that a DataTransfer item is a .mid / .midi file ─────────────
-  function isMidiFile(file: File): boolean {
-    return /\.(mid|midi)$/i.test(file.name)
+  // ── Validate that a DataTransfer item is a supported file format ─────────────
+  function isSupportedFile(file: File): boolean {
+    return /\.(mid|midi|kar|musicxml|xml|mxl|gp|gp3|gp4|gp5|gpx)$/i.test(file.name)
   }
 
   // ── dragover: prevent browser default navigation + show highlight ─────────
@@ -140,8 +140,8 @@ export default function App() {
     const file = e.dataTransfer.files[0]
     if (!file) return
 
-    if (!isMidiFile(file)) {
-      showDropError('Only .mid / .midi files are supported.')
+    if (!isSupportedFile(file)) {
+      showDropError('Unsupported file type. Orfeo accepts .mid, .musicxml, .mxl, .gp/.gp5, and .kar files.')
       return
     }
 

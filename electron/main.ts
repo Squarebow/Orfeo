@@ -30,7 +30,7 @@ async function ensureDemoFolder(): Promise<void> {
 
   const files = await readdir(srcDir)
   for (const file of files) {
-    if (!/\.(mid|midi)$/i.test(file)) continue
+    if (!/\.(mid|midi|kar|musicxml|xml|mxl|gp|gp3|gp4|gp5|gpx)$/i.test(file)) continue
     const dest   = join(targetDir, file)
     const exists = await access(dest).then(() => true).catch(() => false)
     if (!exists) await copyFile(join(srcDir, file), dest)
@@ -115,7 +115,9 @@ ipcMain.handle('shell:openExternal', (_e, url: string) => shell.openExternal(url
 ipcMain.handle('dialog:openMidi', async () => {
   const result = await dialog.showOpenDialog({
     title: 'Open MIDI File',
-    filters: [{ name: 'MIDI Files', extensions: ['mid', 'midi'] }],
+    filters: [
+      { name: 'MIDI & Score Files', extensions: ['mid', 'midi', 'kar', 'musicxml', 'xml', 'mxl', 'gp', 'gp3', 'gp4', 'gp5', 'gpx'] },
+    ],
     properties: ['openFile'],
   })
   if (result.canceled || !result.filePaths[0]) return null
@@ -142,7 +144,7 @@ ipcMain.handle('fs:scanMidiFolder', async (_e, folderPath: string) => {
       for (const e of entries) {
         if (e.isDirectory()) {
           results.push(...scanDir(join(dir, e.name)))
-        } else if (e.isFile() && /\.(mid|midi)$/i.test(e.name)) {
+        } else if (e.isFile() && /\.(mid|midi|kar|musicxml|xml|mxl|gp|gp3|gp4|gp5|gpx)$/i.test(e.name)) {
           results.push({ name: e.name, path: join(dir, e.name) })
         }
       }
