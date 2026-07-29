@@ -9,6 +9,9 @@ const TRACK_COLORS = [
 ]
 
 export function parseMidiBuffer(buffer: ArrayBuffer, fileName: string, filePath = ''): ParsedMidi {
+  // FUTURE: KAR lyric events (meta type 0x05 = lyrics, 0x01 = text) could
+  // be extracted here for a karaoke display overlay. Not in scope currently.
+  // @tonejs/midi v2.x handles these silently via the underlying midi-file parser.
   const midi = new Midi(buffer)
 
   const bpm = midi.header.tempos.length > 0 ? midi.header.tempos[0].bpm : 120
