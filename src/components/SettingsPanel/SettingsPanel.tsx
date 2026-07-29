@@ -2,7 +2,7 @@ import { useState, useMemo, useRef, useEffect, useCallback } from 'react'
 import { NES } from '../../utils/noteEditorState'
 import {
   ChevronLeft, ChevronDown, ChevronRight, Type, Piano, Palette, ZoomIn, Volume2,
-  Music, FolderOpen, RefreshCw, FileMusic, BookOpen, Library, Settings, Info,
+  Music, FolderOpen, RefreshCw, FileMusic, FileCode2, Guitar, BookOpen, Library, Settings, Info,
   Eye,
 } from 'lucide-react'
 import { useStore } from '../../store'
@@ -10,6 +10,7 @@ import type { NoteNaming, KeyboardSize, Accidentals, TranscriptEntry } from '../
 import type { AppTheme } from '../../store'
 import { initSamplesEngine } from '../../hooks/useSamplesEngine'
 import { MarqueeText } from '../MarqueeText'
+import { detectForeignFormat } from '../../utils/foreignFormatImport'
 
 // ── EyeClosed — custom icon replacing lucide EyeOff throughout settings ───────
 function EyeClosed({ size = 24, strokeWidth = 2 }: { size?: number; strokeWidth?: number }) {
@@ -783,10 +784,15 @@ function LibraryPanel() {
             {demoFiles.filter((f: { name: string; path: string }) => !hiddenLibraryFiles.includes(f.path)).map(file => {
               const isLoaded = !!loadedFilePath &&
                 file.path.replace(/\\/g, '/') === loadedFilePath.replace(/\\/g, '/')
+              const fmt = detectForeignFormat(file.path)
+              const RowIcon = fmt === 'musicxml' ? FileCode2 : fmt === 'guitarpro' ? Guitar : FileMusic
+              const rowTitle = fmt === 'musicxml'  ? `${file.name} (MusicXML — imported)`
+                             : fmt === 'guitarpro' ? `${file.name} (Guitar Pro — imported)`
+                             : file.name
               return (
                 <div
                   key={file.path}
-                  title={file.name}
+                  title={rowTitle}
                   style={{
                     display: 'flex', alignItems: 'center', gap: 6,
                     padding: '7px 10px 7px 26px', borderBottom: '1px solid var(--border-row)',
@@ -798,11 +804,11 @@ function LibraryPanel() {
                   onClick={() => handleLoadFile(file.path)}
                   onContextMenu={e => handleContextMenu(e, file.path)}
                 >
-                  {/* ── FileMusic doubles as transcript trigger when feature is on ── */}
+                  {/* ── Icon doubles as transcript trigger when transcription is on; otherwise shows format-specific icon ── */}
                   {chordTranscriptionEnabled ? (
                     <TranscriptIcon filePath={file.path} noteNaming={noteNaming} accidentals={accidentals} addTranscriptEntry={addTranscriptEntry} />
                   ) : (
-                    <FileMusic size={11} style={{ color: isLoaded ? 'var(--text-amber)' : 'var(--text-muted)', flexShrink: 0 }} />
+                    <RowIcon size={11} strokeWidth={1.5} style={{ color: isLoaded ? 'var(--text-amber)' : 'var(--text-muted)', flexShrink: 0 }} />
                   )}
                   <MarqueeText name={file.name.replace(/\.(mid|midi)$/i, '')} spanStyle={isLoaded ? FILENAME_SPAN_ACTIVE : FILENAME_SPAN_DEFAULT} />
                 </div>
@@ -853,10 +859,15 @@ function LibraryPanel() {
               const starred   = libraryFavourites.has(file.path)
               const isLoaded  = !!loadedFilePath &&
                 file.path.replace(/\\/g, '/') === loadedFilePath.replace(/\\/g, '/')
+              const fmt = detectForeignFormat(file.path)
+              const RowIcon = fmt === 'musicxml' ? FileCode2 : fmt === 'guitarpro' ? Guitar : FileMusic
+              const rowTitle = fmt === 'musicxml'  ? `${file.name} (MusicXML — imported)`
+                             : fmt === 'guitarpro' ? `${file.name} (Guitar Pro — imported)`
+                             : file.name
               return (
                 <div
                   key={file.path}
-                  title={file.name}
+                  title={rowTitle}
                   style={{
                     display: 'flex', alignItems: 'center', gap: 6,
                     // Indent subfolder files slightly
@@ -870,11 +881,11 @@ function LibraryPanel() {
                   onClick={() => handleLoadFile(file.path)}
                   onContextMenu={e => handleContextMenu(e, file.path)}
                 >
-                  {/* ── FileMusic doubles as transcript trigger when feature is on ── */}
+                  {/* ── Icon doubles as transcript trigger when transcription is on; otherwise shows format-specific icon ── */}
                   {chordTranscriptionEnabled ? (
                     <TranscriptIcon filePath={file.path} noteNaming={noteNaming} accidentals={accidentals} addTranscriptEntry={addTranscriptEntry} />
                   ) : (
-                    <FileMusic size={11} style={{ color: isLoaded ? 'var(--text-amber)' : 'var(--text-muted)', flexShrink: 0 }} />
+                    <RowIcon size={11} strokeWidth={1.5} style={{ color: isLoaded ? 'var(--text-amber)' : 'var(--text-muted)', flexShrink: 0 }} />
                   )}
                   <MarqueeText name={file.name.replace(/\.(mid|midi)$/i, '')} spanStyle={isLoaded ? FILENAME_SPAN_ACTIVE : FILENAME_SPAN_DEFAULT} />
                   <button
