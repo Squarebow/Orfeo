@@ -14,6 +14,8 @@ import LockedChordModal from './components/LockedChordModal'
 import MidiEditor from './components/MidiEditor/MidiEditor'
 import MixerConsole from './components/Mixer/MixerConsole'
 import NoteEditorToolbar from './components/NoteEditor/NoteEditorToolbar'
+import { ConfirmDialogHost } from './components/ConfirmDialog'
+import { confirmDialog } from './utils/confirmController'
 import { parseMidiBuffer } from './utils/midiParser'
 import { detectKeyFromTracks, parseKeySignature } from './utils/keyDetection'
 import {
@@ -47,9 +49,8 @@ export default function App() {
   // ── Mixer Console — Ctrl+Shift+M toggles open; also wired to the Console drawer icon ──
 
   // ── Drag-and-drop state ───────────────────────────────────────────────────
-  const [isDragOver, setIsDragOver]           = useState(false)
-  const [dropConfirmPath, setDropConfirmPath] = useState<string | null>(null)
-  const [dropError, setDropError]             = useState<string | null>(null)
+  const [isDragOver, setIsDragOver] = useState(false)
+  const [dropError, setDropError]   = useState<string | null>(null)
   const dropErrorTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   // ── Presentation Mode header hover reveal ─────────────────────────────────
@@ -182,7 +183,13 @@ export default function App() {
 
     if (useStore.getState().midi !== null) {
       // A file is already loaded — ask before replacing
-      setDropConfirmPath(filePath)
+      const fileName = filePath.replace(/\\/g, '/').split('/').pop() ?? filePath
+      const label    = fileName.length > 40 ? fileName.slice(0, 37) + '…' : fileName
+      const choice   = await confirmDialog({
+        message: `Load "${label}"? This will replace the currently open file.`,
+        buttons: ['Load File', 'Cancel'],
+      })
+      if (choice === 0) await loadDroppedFilePath(filePath)
     } else {
       await loadDroppedFilePath(filePath)
     }
@@ -196,35 +203,50 @@ export default function App() {
     }
   }, [])
 
-  // ── Expose dirty flag for main-process close handler + listen for save-before-close ──
+  // ── Resolve all pending state before closing — single authoritative handler ─
+  // main.ts sends app:save-before-close on every close attempt; this handler
+  // runs each check in sequence via confirmDialog() and only calls confirmClose()
+  // when everything is resolved. Returning without calling confirmClose() leaves
+  // the app open (user cancelled one of the dialogs).
   useEffect(() => {
-    ;(window as any).__orfeoNoteEditorDirty = () => NES.dirty
     const handler = async () => {
-      await NES.onSaveRequest?.()
+      // 1. Note Editor unsaved changes
+      if (NES.dirty) {
+        const choice = await confirmDialog({
+          title: 'Unsaved Changes',
+          message: 'You have unsaved changes in the Note Editor.',
+          buttons: ['Save', 'Discard', 'Cancel'],
+        })
+        if (choice === 2) return  // Cancel — leave app open
+        if (choice === 0) {
+          const ok = await NES.onSaveRequest?.()
+          if (!ok) return         // save failed or cancelled — leave app open
+        }
+        // Discard (1) or successful save — fall through
+      }
+
+      // 2. Pending imported file (MusicXML/GP converted but not yet saved as .mid)
+      const pending = useStore.getState().pendingImportedFile
+      if (pending) {
+        const libraryFolder = (useStore.getState() as any).libraryFolder as string | null ?? null
+        const cachePath = getCachePath(pending.sourcePath, libraryFolder)
+        const choice = await confirmDialog({
+          message: `Save imported file "${pending.fileName}" as a MIDI file?`,
+          detail: `The original file is never modified.`,
+          buttons: ['Save as MID', "Don't Save", 'Cancel'],
+        })
+        if (choice === 2) return  // Cancel — leave app open
+        if (choice === 0) {
+          await (window.electronAPI as any).writeCachedImport(cachePath, pending.midiBase64)
+        }
+        useStore.getState().setPendingImportedFile(null)
+      }
+
+      // Nothing left pending — tell main process it is safe to close
       window.electronAPI.confirmClose()
     }
     window.electronAPI.onSaveBeforeClose(handler)
-    return () => {
-      delete (window as any).__orfeoNoteEditorDirty
-      window.electronAPI.offSaveBeforeClose()
-    }
-  }, [])
-
-  // ── Expose pending imported file to main process for close handler ────────
-  useEffect(() => {
-    ;(window as any).__orfeoPendingImportedFile = () => {
-      const p = useStore.getState().pendingImportedFile
-      if (!p) return null
-      const libraryFolder = (useStore.getState() as any).libraryFolder as string | null ?? null
-      return {
-        cachePath: getCachePath(p.sourcePath, libraryFolder),
-        base64: p.midiBase64,
-        fileName: p.fileName,
-      }
-    }
-    return () => {
-      delete (window as any).__orfeoPendingImportedFile
-    }
+    return () => window.electronAPI.offSaveBeforeClose()
   }, [])
 
   // ── Presentation Mode side effects — OS fullscreen + Note Editor teardown ──
@@ -251,15 +273,14 @@ export default function App() {
   const enterPresentationMode = useCallback(async () => {
     const { noteEditorActive } = useStore.getState()
     if (noteEditorActive && NES.dirty) {
-      const { response } = await window.electronAPI.showMessageBox({
-        type: 'question',
-        buttons: ['Save', 'Discard', 'Cancel'],
-        defaultId: 0, cancelId: 2,
+      const choice = await confirmDialog({
+        title: 'Unsaved Changes',
         message: 'Save note editor changes before entering Presentation Mode?',
         detail: 'Your edits will be preserved in the file.',
+        buttons: ['Save', 'Discard', 'Cancel'],
       })
-      if (response === 2) return
-      if (response === 0) {
+      if (choice === 2) return
+      if (choice === 0) {
         const ok = await NES.onSaveRequest?.()
         if (!ok) return
       }
@@ -309,14 +330,6 @@ export default function App() {
     window.addEventListener('keydown', handleKeyDown)
     return () => window.removeEventListener('keydown', handleKeyDown)
   }, [play, pause, stop, openFile, enterPresentationMode])
-
-  // ── Truncate long filenames for the confirm modal title ───────────────────
-  const confirmFileName = dropConfirmPath
-    ? dropConfirmPath.replace(/\\/g, '/').split('/').pop() ?? dropConfirmPath
-    : ''
-  const confirmLabel = confirmFileName.length > 40
-    ? confirmFileName.slice(0, 37) + '…'
-    : confirmFileName
 
   return (
     <div className={appTheme === 'warm' ? 'theme-warm' : ''} style={{ width: '100vw', height: '100vh', background: appTheme === 'warm' ? '#12100e' : '#0f0f12', overflow: 'hidden', display: 'flex', flexDirection: 'column', fontFamily: "'Inter', system-ui, sans-serif" }}>
@@ -424,72 +437,9 @@ export default function App() {
       {/* ── Note Editor Toolbar — floating draggable toolbar, toggled via pencil icon or Ctrl+Shift+N ── */}
       <NoteEditorToolbar />
 
-      {/* ── Drop confirmation modal — shown when a file is already loaded ────── */}
-      {dropConfirmPath && (
-        <div
-          style={{
-            position: 'fixed', inset: 0,
-            background: 'rgba(0,0,0,0.55)',
-            display: 'flex', alignItems: 'center', justifyContent: 'center',
-            zIndex: 9800,
-          }}
-          onClick={() => setDropConfirmPath(null)}
-        >
-          <div
-            style={{
-              background: 'var(--panel)',
-              border: '1px solid #404055',
-              borderRadius: 8,
-              padding: '24px 28px',
-              minWidth: 320, maxWidth: 420,
-              display: 'flex', flexDirection: 'column', gap: 8,
-              boxShadow: '0 8px 32px rgba(0,0,0,0.6)',
-            }}
-            onClick={e => e.stopPropagation()}
-          >
-            {/* ── Modal header ─────────────────────────────────────────────── */}
-            <div style={{ fontSize: 'var(--text-md)', fontWeight: 600, color: 'var(--text-active)' }}>
-              Load "{confirmLabel}"?
-            </div>
-            <div style={{ fontSize: 'var(--text-sm)', color: 'var(--text-muted)', marginBottom: 12 }}>
-              This will stop playback and replace the current file.
-            </div>
-            {/* ── Buttons ──────────────────────────────────────────────────── */}
-            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 10 }}>
-              <button
-                onClick={() => setDropConfirmPath(null)}
-                style={{
-                  padding: '7px 18px', borderRadius: 5,
-                  border: '1px solid #404055', background: 'transparent',
-                  color: 'var(--text-muted)', fontSize: 'var(--text-sm)',
-                  cursor: 'pointer', fontFamily: 'Inter',
-                }}
-                onMouseEnter={e => e.currentTarget.style.color = 'var(--text-default)'}
-                onMouseLeave={e => e.currentTarget.style.color = 'var(--text-muted)'}
-              >
-                Cancel
-              </button>
-              <button
-                onClick={async () => {
-                  const path = dropConfirmPath
-                  setDropConfirmPath(null)
-                  await loadDroppedFilePath(path)
-                }}
-                style={{
-                  padding: '7px 18px', borderRadius: 5,
-                  border: 'none', background: 'var(--text-amber)',
-                  color: '#0f0f12', fontSize: 'var(--text-sm)', fontWeight: 600,
-                  cursor: 'pointer', fontFamily: 'Inter',
-                }}
-                onMouseEnter={e => e.currentTarget.style.opacity = '0.85'}
-                onMouseLeave={e => e.currentTarget.style.opacity = '1'}
-              >
-                Load File
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+      {/* ── Confirm Dialog — themed replace for all native confirm/messageBox popups ── */}
+      <ConfirmDialogHost />
+
     </div>
   )
 }
