@@ -6,7 +6,10 @@
  */
 
 import { useState, useEffect, useRef, useCallback, type CSSProperties } from 'react'
-import { Check, X, Save, FolderOpen, AlertCircle, ChevronDown, ChevronRight, Search, Merge, Split, Undo2, RotateCcw, Piano, Bell, Church, Guitar, Music2, AudioWaveform, Users, Megaphone, Wind, Feather, Cpu, Globe, Drum, Radio, Waves, Sparkles } from 'lucide-react'
+import { createPortal } from 'react-dom'
+import { Check, X, Save, FolderOpen, AlertCircle, ChevronDown, ChevronRight, Search, Merge, Split, Undo2, RotateCcw, Piano, Bell, Church, Guitar, Music2, AudioWaveform, Users, Megaphone, Wind, Feather, Cpu, Globe, Drum, Radio, Waves, Sparkles, Palette } from 'lucide-react'
+import { PENCIL_CURSOR } from '../../utils/cursors'
+import { TRACK_COLOR_PALETTE } from '../../utils/colors'
 import OrfeoMark from '../OrfeoMark'
 import { useStore } from '../../store'
 import { parseMidiBuffer } from '../../utils/midiParser'
@@ -126,7 +129,8 @@ const GM_FAMILIES: { key: string; label: string; programs: { num: number; name: 
 
 interface EditorTrack {
   index: number; name: string; gmName: string; trackName: string; program: number
-  group: string; isDrum: boolean; color: string; channel: number; noteCount: number
+  group: string; isDrum: boolean; color: string; colorSource: 'default' | 'palette' | 'custom'
+  channel: number; noteCount: number
   included: boolean; mergeSelected: boolean; newProgram: number
   isMerged?: boolean
   mergedFromIndices?: number[]
@@ -243,13 +247,132 @@ function InstrumentPicker({ program, isDrum, onChange }: {
   )
 }
 
+// ─── Color Popover ────────────────────────────────────────────────────────────
+
+const HEX_RE = /^#[0-9a-fA-F]{6}$/
+
+function ColorPopover({ trackIndex, trackColor, anchor, onApplyColor, onClose }: {
+  trackIndex: number
+  trackColor: string
+  anchor: DOMRect
+  onApplyColor: (trackIndex: number, color: string, source: 'palette' | 'custom') => void
+  onClose: () => void
+}) {
+  const [hexInput, setHexInput]   = useState(trackColor)
+  const [hexError, setHexError]   = useState(false)
+  const ref = useRef<HTMLDivElement>(null)
+
+  // ── Close on outside click ───────────────────────────────────────────────────
+  useEffect(() => {
+    const handler = (e: MouseEvent) => {
+      if (ref.current && !ref.current.contains(e.target as Node)) onClose()
+    }
+    document.addEventListener('mousedown', handler)
+    return () => document.removeEventListener('mousedown', handler)
+  }, [onClose])
+
+  // ── Close on Escape ──────────────────────────────────────────────────────────
+  useEffect(() => {
+    const handler = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose() }
+    document.addEventListener('keydown', handler)
+    return () => document.removeEventListener('keydown', handler)
+  }, [onClose])
+
+  const handlePaletteClick = (color: string) => {
+    setHexInput(color)
+    setHexError(false)
+    onApplyColor(trackIndex, color, 'palette')
+  }
+
+  const handleHexChange = (value: string) => {
+    setHexInput(value)
+    if (HEX_RE.test(value)) {
+      setHexError(false)
+      onApplyColor(trackIndex, value, 'custom')
+    } else {
+      setHexError(true)
+    }
+  }
+
+  // ── Position: below trigger, flip up near bottom edge ───────────────────────
+  const POP_W = 204
+  const POP_H = 170
+  const left  = Math.min(Math.max(8, anchor.left), window.innerWidth - POP_W - 8)
+  const top   = anchor.bottom + 6 + POP_H > window.innerHeight
+    ? anchor.top - POP_H - 6
+    : anchor.bottom + 6
+
+  const previewColor = HEX_RE.test(hexInput) ? hexInput : trackColor
+
+  return createPortal(
+    <div
+      ref={ref}
+      data-no-drag
+      style={{
+        position: 'fixed', zIndex: 60000,
+        left, top, width: POP_W,
+        background: 'var(--bg-modal)',
+        border: '1px solid var(--border2)',
+        borderRadius: 'var(--radius-md)',
+        boxShadow: '0 8px 32px rgba(0,0,0,0.7)',
+        padding: 10,
+        display: 'flex', flexDirection: 'column', gap: 8,
+      }}
+    >
+      {/* ── Palette grid ──────────────────────────────────────────────────────── */}
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: 4 }}>
+        {TRACK_COLOR_PALETTE.map(c => (
+          <div
+            key={c}
+            onClick={() => handlePaletteClick(c)}
+            title={c}
+            style={{
+              height: 28, background: c, borderRadius: 3, cursor: 'pointer', boxSizing: 'border-box',
+              border: `2px solid ${c === trackColor ? '#ffffff' : 'transparent'}`,
+              transition: 'transform 0.1s, border-color 0.1s',
+            }}
+            onMouseEnter={e => { e.currentTarget.style.transform = 'scale(1.12)'; if (c !== trackColor) e.currentTarget.style.borderColor = 'rgba(255,255,255,0.35)' }}
+            onMouseLeave={e => { e.currentTarget.style.transform = 'scale(1)'; if (c !== trackColor) e.currentTarget.style.borderColor = 'transparent' }}
+          />
+        ))}
+      </div>
+
+      {/* ── Custom hex input ──────────────────────────────────────────────────── */}
+      <div>
+        <div style={{ fontSize: 9, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 5 }}>Custom</div>
+        <div style={{ display: 'flex', gap: 5, alignItems: 'center' }}>
+          <div style={{ width: 22, height: 22, background: previewColor, borderRadius: 3, flexShrink: 0, border: '1px solid var(--border2)' }} />
+          <input
+            value={hexInput}
+            onChange={e => handleHexChange(e.target.value)}
+            placeholder="#rrggbb"
+            spellCheck={false}
+            style={{
+              flex: 1, background: '#0a0a10',
+              border: `1px solid ${hexError ? '#c05050' : 'var(--border2)'}`,
+              borderRadius: 3,
+              color: hexError ? '#c05050' : 'var(--text-muted)',
+              fontSize: 10, fontFamily: 'JetBrains Mono',
+              padding: '3px 6px', outline: 'none',
+            }}
+          />
+        </div>
+        {hexError && (
+          <div style={{ fontSize: 9, color: '#c05050', marginTop: 3 }}>Enter a valid hex (#rrggbb)</div>
+        )}
+      </div>
+    </div>,
+    document.body
+  )
+}
+
 // ─── Track Row ────────────────────────────────────────────────────────────────
 
 // ── Column grid shared by header row and every TrackRow ──────────────────────
-// Include | Track | Merge | Split | Assign Instrument
-const ROW_COLS = '44px 1fr 44px 44px 220px'
+// Include | Track | Color | Merge | Split | Assign Instrument
+const ROW_COLS = '44px 1fr 44px 44px 44px 220px'
 
-function TrackRow({ track, onToggleIncluded, onToggleMerge, onChangeProgram, onUnmerge, onSplit, onRename }: {
+function TrackRow({ track, onToggleIncluded, onToggleMerge, onChangeProgram, onUnmerge, onSplit, onRename, onPickColor }: {
   track: EditorTrack
   onToggleIncluded: () => void
   onToggleMerge: () => void
@@ -257,6 +380,7 @@ function TrackRow({ track, onToggleIncluded, onToggleMerge, onChangeProgram, onU
   onUnmerge?: () => void
   onSplit?: () => void
   onRename: (name: string) => void
+  onPickColor: (trackIndex: number, anchorRect: DOMRect) => void
 }) {
   // ── Inline rename state ──────────────────────────────────────────────────────
   const [editingName, setEditingName] = useState(false)
@@ -296,7 +420,11 @@ function TrackRow({ track, onToggleIncluded, onToggleMerge, onChangeProgram, onU
 
       {/* ── Col 2: Track name + meta ──────────────────────────────────────────── */}
       <div style={{ display: 'flex', alignItems: 'center', gap: 6, minWidth: 0 }}>
-        <div style={{ width: 4, height: 32, background: track.color, borderRadius: 2, flexShrink: 0 }} />
+        <div
+          onClick={e => onPickColor(track.index, e.currentTarget.getBoundingClientRect())}
+          title="Click to change track color"
+          style={{ width: 4, height: 32, background: track.color, borderRadius: 2, flexShrink: 0, cursor: 'pointer' }}
+        />
         <div style={{ minWidth: 0 }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
             {editingName ? (
@@ -316,9 +444,9 @@ function TrackRow({ track, onToggleIncluded, onToggleMerge, onChangeProgram, onU
               />
             ) : (
               <span
-                title="Double-click to rename the track"
+                title="Double-click to rename"
                 onDoubleClick={startEdit}
-                style={{ fontSize: 'var(--text-sm)', fontWeight: 500, color: 'var(--text-muted)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', cursor: 'text' }}
+                style={{ fontSize: 'var(--text-sm)', fontWeight: 500, color: 'var(--text-muted)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', cursor: PENCIL_CURSOR }}
               >
                 {track.trackName}
               </span>
@@ -358,7 +486,24 @@ function TrackRow({ track, onToggleIncluded, onToggleMerge, onChangeProgram, onU
         </div>
       </div>
 
-      {/* ── Col 3: Merge / Unmerge ───────────────────────────────────────────── */}
+      {/* ── Col 3: Color picker trigger ──────────────────────────────────────── */}
+      <button
+        onClick={e => onPickColor(track.index, e.currentTarget.getBoundingClientRect())}
+        title="Change track color"
+        style={{
+          width: 24, height: 24, borderRadius: 4,
+          border: '1.5px solid var(--border2)', background: 'transparent',
+          color: 'var(--text-dim-control)',
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
+          cursor: 'pointer', flexShrink: 0, transition: 'all 0.12s',
+        }}
+        onMouseEnter={e => { e.currentTarget.style.color = track.color; e.currentTarget.style.borderColor = track.color }}
+        onMouseLeave={e => { e.currentTarget.style.color = 'var(--text-dim-control)'; e.currentTarget.style.borderColor = 'var(--border2)' }}
+      >
+        <Palette size={11} />
+      </button>
+
+      {/* ── Col 4: Merge / Unmerge ───────────────────────────────────────────── */}
       {track.isMerged ? (
         <button onClick={onUnmerge} title="Undo merge" style={{
           width: 24, height: 24, borderRadius: 4,
@@ -381,7 +526,7 @@ function TrackRow({ track, onToggleIncluded, onToggleMerge, onChangeProgram, onU
         </button>
       )}
 
-      {/* ── Col 4: Split — only for splittable tracks ─────────────────────────── */}
+      {/* ── Col 5: Split — only for splittable tracks ─────────────────────────── */}
       {onSplit && !track.isMerged ? (
         <button
           onClick={onSplit}
@@ -402,7 +547,7 @@ function TrackRow({ track, onToggleIncluded, onToggleMerge, onChangeProgram, onU
         <div />
       )}
 
-      {/* ── Col 5: Assign Instrument ──────────────────────────────────────────── */}
+      {/* ── Col 6: Assign Instrument ──────────────────────────────────────────── */}
       {track.isDrum ? (
         <div
           title="Not assignable — GM channel 10 is always drums"
@@ -461,7 +606,7 @@ export default function MidiEditor() {
       const rawTrack = midiAny._rawMidiTracks?.[t.index]
       return {
         index: t.index, name: t.name, gmName: t.gmName, trackName: t.trackName, program: t.program,
-        group: t.group ?? '', isDrum: t.isDrum, color: t.color,
+        group: t.group ?? '', isDrum: t.isDrum, color: t.color, colorSource: t.colorSource ?? 'default',
         channel: rawTrack?.channel ?? t.index,
         noteCount: rawTrack?.notes?.length ?? 0,
         included: !t.muted, mergeSelected: false, newProgram: t.program,
@@ -539,6 +684,20 @@ export default function MidiEditor() {
     }
   }, [])
 
+  // ── Color popover state ──────────────────────────────────────────────────────
+  const [colorPopover, setColorPopover] = useState<{ trackIndex: number; trackColor: string; anchor: DOMRect } | null>(null)
+
+  const openColorPopover = useCallback((trackIndex: number, anchor: DOMRect) => {
+    const track = useStore.getState().tracks.find(t => t.index === trackIndex)
+    setColorPopover({ trackIndex, trackColor: track?.color ?? '#e8a027', anchor })
+  }, [])
+
+  const handleApplyColor = useCallback((trackIndex: number, color: string, source: 'palette' | 'custom') => {
+    useStore.getState().updateTrack(trackIndex, { color, colorSource: source })
+    setState(s => s ? { ...s, rows: s.rows.map(r => r.index === trackIndex ? { ...r, color } : r) } : s)
+    setColorPopover(prev => prev && prev.trackIndex === trackIndex ? { ...prev, trackColor: color } : prev)
+  }, [])
+
   // ── Not open and never initialised → nothing to render ───────────────────────
   if (!midiEditorOpen || !state) return null
 
@@ -558,7 +717,7 @@ export default function MidiEditor() {
         index: _mergeIdCounter++,
         name: selected.map(t => t.name).join(' + '),
         gmName: first.gmName, trackName: first.trackName, program: first.program,
-        group: first.group, isDrum: first.isDrum, color: first.color, channel: first.channel,
+        group: first.group, isDrum: first.isDrum, color: first.color, colorSource: first.colorSource, channel: first.channel,
         noteCount: totalNotes, included: true, mergeSelected: false, newProgram: first.newProgram,
         isMerged: true, mergedFromIndices: selected.map(t => t.index), mergedFromNames: selected.map(t => t.name),
       }
@@ -712,7 +871,7 @@ export default function MidiEditor() {
 
       {/* ── Column headers ───────────────────────────────────────────────────── */}
       <div style={{ display: 'grid', gridTemplateColumns: ROW_COLS, alignItems: 'center', padding: '6px 14px', borderBottom: '1px solid var(--bg-tile)', background: 'var(--bg-modal-header)', flexShrink: 0, gap: 6 }}>
-        {['Include', 'Track', 'Merge', 'Split', 'Assign Instrument'].map((h, i) => (
+        {['Include', 'Track', 'Color', 'Merge', 'Split', 'Assign Instrument'].map((h, i) => (
           <span key={i} style={{ fontSize: 9, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.1em', color: 'var(--text-muted)' }}>{h}</span>
         ))}
       </div>
@@ -730,6 +889,7 @@ export default function MidiEditor() {
               update(track.index, { trackName: newName })
               useStore.getState().updateTrack(track.index, { trackName: newName })
             }}
+            onPickColor={openColorPopover}
           />
         ))}
       </div>
@@ -781,6 +941,17 @@ export default function MidiEditor() {
         <TBtn onClick={() => setState(s => s && ({ ...s, rows: s.rows.map(t => ({ ...t, included: true })) }))}>Select all</TBtn>
         <TBtn onClick={() => setState(s => s && ({ ...s, rows: s.rows.map(t => ({ ...t, included: false })) }))}>Clear all</TBtn>
       </div>
+
+      {/* ── Color popover ────────────────────────────────────────────────────── */}
+      {colorPopover && (
+        <ColorPopover
+          trackIndex={colorPopover.trackIndex}
+          trackColor={colorPopover.trackColor}
+          anchor={colorPopover.anchor}
+          onApplyColor={handleApplyColor}
+          onClose={() => setColorPopover(null)}
+        />
+      )}
 
       {/* ── Save footer ──────────────────────────────────────────────────────── */}
       <div style={{ padding: '10px 14px 12px', borderTop: '1px solid var(--border)', background: 'var(--bg-modal-header)', flexShrink: 0 }}>

@@ -4,6 +4,32 @@
 
 ---
 
+### 30. 7. 2026 — Color Editor in MIDI Playback Editor (Phase 2) + pencil cursor
+
+**New files:** `src/utils/colors.ts`
+
+**Files changed:** `src/types/index.ts`, `src/store/index.ts`, `src/utils/cursors.ts`, `src/components/MidiEditor/MidiEditor.tsx`, `docs/Track Color System.md`
+
+**Pencil cursor on track name (Task 1):**
+- `src/utils/cursors.ts`: new module with `PENCIL_CURSOR` — amber SVG cursor built from exact Lucide 0.503.0 Pencil paths, encoded as a CSS `url(data:image/svg+xml,...)`. Hotspot (2, 18) places click point at the pencil tip. Fallback: `text`.
+- `MidiEditor.tsx`: track name span switches from `cursor: 'text'` to `cursor: PENCIL_CURSOR` when not in inline-edit mode. Title text updated to "Double-click to rename".
+
+**COLOR column in MIDI Playback Editor (Task 2):**
+- `ROW_COLS` updated from 5 to 6 columns: `'44px 1fr 44px 44px 44px 220px'` (Include | Track | Color | Merge | Split | Assign Instrument).
+- Column header added: `'Color'`.
+- Existing 4×32px color bar in Track cell (Col 2) gains `onClick`, `cursor: pointer`, and title "Click to change track color".
+- New Col 3 button: 24×24 Palette icon, same style as Merge/Split buttons. Hover: icon and border tint to the track's current color. Every track gets this column (no conditional).
+- Both triggers call `openColorPopover(trackIndex, anchorRect)`.
+
+**Track color popover — Phase 2 (Task 3):**
+- `src/utils/colors.ts`: `TRACK_COLOR_PALETTE` — 10 muted/desaturated colors (Amber, Teal, Slate Violet, Rose, Sky Blue, Sage Green, Coral, Mauve, Steel Blue, Warm Gold). Typed `as const`.
+- `TrackState` in `src/types/index.ts`: added `colorSource: 'default' | 'palette' | 'custom'`.
+- `makeTrackState` in `src/store/index.ts`: initialises `colorSource: 'default'`.
+- `EditorTrack` interface and `buildRows()` in `MidiEditor.tsx`: include `colorSource`.
+- `ColorPopover` component (portal at `zIndex: 60000`): 10-swatch 5-col grid + custom hex input with `#rrggbb` validation (red inline error for invalid). Live preview: swatch preview div updates as user types. Selecting a palette color sets `colorSource: 'palette'`; valid hex sets `'custom'`. Position: anchored below trigger; auto-flips above near bottom viewport edge.
+- `handleApplyColor` in `MidiEditor`: calls `updateTrack` on the store (propagates to PianoRoll + Mixer via `t.color` — single source of truth) and mirrors the color into local `EditorTrack` state for immediate row swatch update.
+- `docs/Track Color System.md`: Phase 2 trigger section updated to document MidiEditor as the anchor point.
+
 ### 30. 7. 2026 — Custom Confirm Dialogs + Empty State copy update
 
 **New files:** `src/utils/confirmController.ts`, `src/components/ConfirmDialog.tsx`

@@ -231,6 +231,7 @@ function makeTrackState(track: ParsedTrack): TrackState {
     group: track.group,
     isDrum: track.isDrum,
     color: track.color,
+    colorSource: 'default' as const,
     muted: false,
     solo: false,
     visible: true,

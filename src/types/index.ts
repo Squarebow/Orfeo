@@ -45,6 +45,7 @@ export interface TrackState {
   group: string
   isDrum: boolean
   color: string
+  colorSource: 'default' | 'palette' | 'custom'
   muted: boolean
   solo: boolean
   visible: boolean
