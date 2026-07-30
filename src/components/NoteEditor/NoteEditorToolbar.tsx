@@ -1,6 +1,7 @@
 import { useEffect, useState, useReducer, useRef, useCallback } from 'react'
 import { useStore } from '../../store'
 import { NES } from '../../utils/noteEditorState'
+import { confirmDialog } from '../../utils/confirmController'
 import { editableCopyToBuffer } from '../../utils/noteEditorCommands'
 import { parseMidiBuffer } from '../../utils/midiParser'
 import { detectKeyFromTracks, parseKeySignature } from '../../utils/keyDetection'
@@ -251,8 +252,16 @@ export default function NoteEditorToolbar() {
   const doRedo = () => {
     if (NES.history.redo()) { NES.needsFlatRebuild = true; NES.onHistoryChange?.() }
   }
-  const doReset = () => {
-    if (NES.dirty && !window.confirm('Discard all edits and reset to original?')) return
+  const doReset = async () => {
+    if (NES.dirty) {
+      const choice = await confirmDialog({
+        title: 'Reset Note Editor',
+        message: 'Discard all changes in this editing session?',
+        buttons: ['Discard', 'Cancel'],
+        destructiveIndex: 0,
+      })
+      if (choice !== 0) return
+    }
     NES.onResetRequest?.()
   }
   const openQuantize = () => {
@@ -380,7 +389,7 @@ export default function NoteEditorToolbar() {
         <button onClick={doUndo} disabled={!canUndo} title="Undo (Ctrl+Z)" style={iconBtnStyle(!canUndo)}>↺</button>
         <button onClick={doRedo} disabled={!canRedo} title="Redo (Ctrl+Y)" style={iconBtnStyle(!canRedo)}>↻</button>
         <button
-          onClick={doReset}
+          onClick={() => void doReset()}
           title="Reset — discard all edits and restore original"
           style={iconBtnStyle(false)}
         >

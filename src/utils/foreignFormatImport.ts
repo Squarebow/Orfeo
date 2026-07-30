@@ -4,6 +4,7 @@
 // Loaded lazily via dynamic import() to keep it out of the startup bundle.
 
 import { useStore } from '../store';
+import { confirmDialog } from './confirmController';
 
 export type ForeignFormat = 'musicxml' | 'guitarpro';
 
@@ -155,22 +156,19 @@ export async function confirmPendingImportBeforeSwitch(
 
   const cachePath = getCachePath(pendingImportedFile.sourcePath, libraryFolder);
 
-  const { response } = await window.electronAPI.showMessageBox({
-    type: 'question',
-    buttons: ['Save as MID', "Don't Save", 'Cancel'],
-    defaultId: 0,
-    cancelId: 2,
+  const choice = await confirmDialog({
     message: `Save imported file "${pendingImportedFile.fileName}" as a MIDI file?`,
     detail: `This saves a copy at:\n${cachePath}\n\nThe original ${pendingImportedFile.fileName} is never modified.`,
+    buttons: ['Save as MID', "Don't Save", 'Cancel'],
   });
 
-  if (response === 2) return false; // Cancel
+  if (choice === 2) return false; // Cancel
 
-  if (response === 0) {
-    // Save as MID — write cache to disk via IPC (wired in Task 5)
+  if (choice === 0) {
+    // Save as MID — write cache to disk via IPC
     await (window.electronAPI as any).writeCachedImport(cachePath, pendingImportedFile.midiBase64);
   }
-  // Don't Save (response === 1) — discard, fall through
+  // Don't Save (choice === 1) — discard, fall through
 
   setPendingImportedFile(null);
   return true;

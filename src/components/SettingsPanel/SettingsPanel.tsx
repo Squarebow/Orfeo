@@ -1,5 +1,6 @@
 import { useState, useMemo, useRef, useEffect, useCallback } from 'react'
 import { NES } from '../../utils/noteEditorState'
+import { confirmDialog } from '../../utils/confirmController'
 import {
   ChevronLeft, ChevronDown, ChevronRight, Type, Piano, Palette, ZoomIn, Volume2,
   Music, FolderOpen, RefreshCw, FileMusic, FileCode2, Guitar, BookOpen, Library, Settings, Info,
@@ -482,19 +483,18 @@ function LibraryPanel() {
   const handleLoadFile = useCallback(async (filePath: string) => {
     // Guard: prompt if there are unsaved note editor edits
     if (NES.dirty) {
-      const { response } = await window.electronAPI.showMessageBox({
-        type: 'question',
-        buttons: ['Save', 'Discard', 'Cancel'],
-        defaultId: 0, cancelId: 2,
+      const choice = await confirmDialog({
+        title: 'Unsaved Changes',
         message: 'Save changes before opening this file?',
         detail: 'Your note edits will be lost if you discard.',
+        buttons: ['Save', 'Discard', 'Cancel'],
       })
-      if (response === 2) return  // Cancel — do nothing
-      if (response === 0) {       // Save — trigger toolbar save flow
+      if (choice === 2) return  // Cancel — do nothing
+      if (choice === 0) {       // Save — trigger toolbar save flow
         const ok = await NES.onSaveRequest?.()
         if (!ok) return           // Save was cancelled or failed — abort load
       }
-      // Discard (response === 1) — fall through
+      // Discard (choice === 1) — fall through
       NES.dirty = false
     }
     try {
