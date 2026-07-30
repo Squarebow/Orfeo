@@ -13,6 +13,7 @@ import OrfeoLogo from '../OrfeoLogo'
 import MidiIcon from '../MidiIcon'
 import VolumeKnob from '../VolumeKnob'
 import LoopRegionStrip from '../LoopRegionStrip'
+import { NES } from '../../utils/noteEditorState'
 
 // NOTE: no more `C` shorthand object — every color below is a literal
 // `var(--token-name)` string written directly at its point of use, so the
@@ -43,6 +44,10 @@ export default function TopBar() {
   const chordExplorerOpen = useStore((s) => s.chordExplorerOpen)
   const resetAll = useStore((s) => s.resetAll)
   const barStarts = useStore((s) => s.barStarts)
+
+  const noteEditorEnabled = useStore((s) => s.noteEditorEnabled)
+  const noteEditorActive  = useStore((s) => s.noteEditorActive)
+  const setNoteEditorActive = useStore((s) => s.setNoteEditorActive)
 
   const { play, pause, stop, seek, seekAndPlay } = usePlayback()
   const { openFile } = useMidiFile()
@@ -276,7 +281,37 @@ export default function TopBar() {
         </span>
       </div>
 
-      <div style={{ width: 1, height: 'var(--button-height)', background: 'var(--border)', flexShrink: 0 }} />
+      {/* ── NOTE EDITOR toggle — slot always reserves its 28px so center never shifts ── */}
+      <div style={{ width: 'var(--button-height)', height: 'var(--button-height)', flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', visibility: noteEditorEnabled ? 'visible' : 'hidden', opacity: noteEditorEnabled && midi ? 1 : 0, pointerEvents: noteEditorEnabled && midi ? 'auto' : 'none' }}>
+          <button
+            onClick={() => {
+              if (noteEditorActive) {
+                setNoteEditorActive(false)
+                NES.reset()
+              } else {
+                if (playbackState === 'playing') pause()
+                NES.reset()
+                setNoteEditorActive(true)
+              }
+            }}
+            title={noteEditorActive ? 'Exit note edit mode' : 'Enter note edit mode'}
+            className="app-no-drag"
+            style={{
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+              width: 'var(--button-height)', height: 'var(--button-height)',
+              borderRadius: 'var(--radius-md)', background: noteEditorActive ? 'rgba(232,160,39,0.10)' : 'transparent',
+              border: noteEditorActive ? '1px solid rgba(232,160,39,0.40)' : '1px solid transparent',
+              color: noteEditorActive ? 'var(--text-amber)' : 'var(--text-default)',
+              cursor: 'pointer', flexShrink: 0, transition: 'color 0.12s, background 0.12s',
+            }}
+            onMouseEnter={e => { if (!noteEditorActive) e.currentTarget.style.color = 'var(--text-amber)' }}
+            onMouseLeave={e => { if (!noteEditorActive) e.currentTarget.style.color = 'var(--text-default)' }}
+          >
+            <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+              <path d="M10 3H8"/><path d="m15.007 5.008 3.987 3.986"/><path d="M20 15v4"/><path d="M21.174 6.813a2.82 2.82 0 0 0-3.986-3.987L3.842 16.175a2 2 0 0 0-.5.83l-1.321 4.352a.5.5 0 0 0 .623.622l4.353-1.32a2 2 0 0 0 .83-.497z"/><path d="M22 17h-4"/><path d="M4 5v4"/><path d="M6 7H2"/><path d="M9 2v2"/>
+            </svg>
+          </button>
+      </div>
 
       {/* ── TIME + METRONOME + MIDI — bottoms aligned ── */}
       <div className="app-no-drag" style={{ display: 'flex', alignItems: 'flex-end', gap: 0, flexShrink: 0 }}>

@@ -98,10 +98,19 @@ declare global {
       splitMidiEditor:     (payload: { filePath: string; trackIndex: number; breakpointType: 'single' | 'range'; breakpoint: number; rangeStart: number; rangeEnd: number }) => Promise<{ ok: boolean; message: string; filePath?: string; fileName?: string; base64?: string }>
       saveFileDialog:      (opts: { defaultPath: string; filters: { name: string; extensions: string[] }[] }) => Promise<string | null>
       saveMidiEditor:      (payload: { filePath: string; outputPath: string; includedTracks: { index: number; newProgram: number }[]; mergeGroups: number[][]; trackNames?: Record<number, string> }) => Promise<{ ok: boolean; message: string; filePath?: string; fileName?: string; base64?: string }>
+      saveNoteEditor:      (payload: { outputPath: string; base64: string }) => Promise<{ ok: boolean; message?: string; filePath?: string; fileName?: string; base64?: string }>
+      showMessageBox:      (opts: { type?: string; buttons: string[]; defaultId?: number; cancelId?: number; message: string; detail?: string }) => Promise<{ response: number }>
+      confirmClose:        () => Promise<void>
+      setFullScreen:       (value: boolean) => Promise<void>
+      onSaveBeforeClose:   (fn: () => void) => void
+      offSaveBeforeClose:  () => void
       openExternal:        (url: string) => Promise<void>
       // Drag-and-drop file import
       getPathForFile:      (file: File) => string
       copyMidiToLibrary:   (sourcePath: string, libraryFolder: string) => Promise<string>
+      // Foreign format import cache
+      getCachedImport:     (sourcePath: string, cachePath: string) => Promise<string | null>
+      writeCachedImport:   (destPath: string, base64: string) => Promise<void>
     }
   }
 }

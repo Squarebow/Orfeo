@@ -2,7 +2,7 @@
 
 **A modern piano learning and MIDI visualization desktop app for Windows.**
 
-[![Version](https://img.shields.io/badge/Version-0.11.0-blue)](https://github.com/SquareBow/orfeo/releases)
+[![Version](https://img.shields.io/badge/Version-0.12.1-blue)](https://github.com/SquareBow/orfeo/releases)
 [![License](https://img.shields.io/badge/License-MIT-green)](LICENSE)
 [![Platform](https://img.shields.io/badge/Platform-Windows-lightgrey?logo=windows)](https://github.com/SquareBow/orfeo/releases)
 [![Status](https://img.shields.io/badge/Status-Beta-orange)](https://github.com/SquareBow/orfeo)
@@ -177,6 +177,103 @@ MIT © [SquareBow](https://github.com/SquareBow)
 ## Changelog
 
 All user-visible changes listed here. For full technical detail see [CHANGELOG.md](CHANGELOG.md).
+
+---
+
+### 30. 7. 2026
+
+**Improved**
+- **Themed confirm dialogs:** All confirmation prompts throughout the app (loading a file over unsaved note edits, saving a converted file, the note editor reset, drag-and-drop replace, app close) now appear as a styled dark modal that matches the rest of Orfeo's interface, instead of the operating system's default dialog box.
+
+---
+
+### 29. 7. 2026
+
+**New**
+- **Import MusicXML, Guitar Pro, and KAR files:** Orfeo now accepts MusicXML (`.musicxml`, `.xml`, `.mxl`), Guitar Pro (`.gp`, `.gp3`, `.gp4`, `.gp5`, `.gpx`), and karaoke MIDI (`.kar`) files in addition to standard `.mid` files. Drag them into the app or add them to your library — they play just like any MIDI file. Converted files are cached automatically so re-opening is instant.
+
+---
+
+### 27. 7. 2026
+
+**Improved**
+- **Speed selector in Chord/Scale Explorer:** The three-dot speed selector for progression playback has been replaced with 1×/2×/3× chevron-arrow icons that make the speed options immediately recognisable at a glance. Active speed lights up in amber.
+
+**Fixed**
+- **Note Editor — note-name tooltip on small notes:** Hovering over very short notes (e.g. drum hits) in the note editor now correctly shows a floating note-name tooltip. Previously, drum notes were always classified as resize targets due to their height being smaller than the resize zone, preventing the tooltip from ever appearing.
+- **Note Editor — note names toggle respected by tooltip:** The floating note-name tooltip no longer appears when the Note Names toggle is off.
+- **Note Editor — note names state on re-entry:** Reopening the note editor no longer shows the Note Names button as active while names are not drawn on the roll.
+
+---
+
+### 26. 7. 2026 (2)
+
+**Improved**
+- **Note Editor — single-tool interaction:** The editor no longer has separate Pencil and Select tool buttons. Clicking a note selects it and lets you drag it; Shift+click adds to or removes from the selection; drag on the edge resizes; drag a multi-note selection moves all selected notes together. Alt+click on empty space adds a new note. Right-clicking a newly added note removes it; Alt+right-click removes any note; right-clicking empty space clears the selection.
+- **Note Editor — axis-free drag:** Notes can now be dragged diagonally — pitch (left/right) and time (up/down) update simultaneously with no axis lock. A single undo step captures the combined move.
+- **Note Editor — live hint line:** A contextual hint line appears below the toolbar buttons showing what the current action is based on where the cursor is hovering in the roll (e.g. "Alt+click to add note · Drag to select").
+- **Note Editor — track solo for editing:** In edit mode, clicking a track row in the Tracks panel soloes that track (hides all others from the roll). Click it again to restore. The amber left-border highlights which track is currently focused.
+- **Note Editor — Reset button:** A Reset button (circular arrow) in the toolbar discards all edits and restores the original file content. Asks for confirmation if there are unsaved changes.
+- **Note Editor — unsaved-changes close guard:** Clicking the ✕ close button when there are unsaved changes now shows an inline prompt with Save & Exit, Discard, and Cancel options instead of silently discarding changes.
+
+---
+
+### 26. 7. 2026
+
+**New**
+- **Presentation Mode** — a distraction-free fullscreen view for live playing and screen recording. Press F11 or click the expand icon in the bottom-right corner of the footer to enter. All sidebars, the chord bar, and the header are hidden; the piano roll expands to fill the screen and the keyboard stays at the bottom. The header slides back in when you hover the top edge of the screen. Key-range selector (61/73/88) remains active and resizes the keyboard live. Press Esc or the shrink icon to exit.
+
+**Fixed**
+- Loop region on the piano roll: hovering now shows a cursor tooltip explaining Alt+drag to set a region and right-click to clear it. Right-click anywhere on the waterfall now clears the loop region directly.
+- Playback controls (transport buttons, scrub bar) no longer shift left when the Note Editor feature is enabled in Settings.
+- Keyboard label toggles in Settings now work: "Show Octaves" correctly hides/shows octave labels (C4, C5…) on the piano keyboard, and "Note Names on Keyboard" hides/shows note names on active (highlighted) keys.
+
+---
+
+### 25. 7. 2026
+
+**Fixed**
+- Note Editor: clicking any note in edit mode before pressing Play for the first time now correctly plays that note's instrument. Previously all notes sounded like piano regardless of track. Affected both the Samples engine (SpessaSynth) and GM Synth (JZZ) paths.
+- Note Editor: Alt+click to add a note no longer recolors all existing notes. The bug was a track-mapping index error in the add-note path — the fourth instance of the same class of bug, now fully eliminated across all four code paths.
+- Note Editor: selected notes can now be dragged horizontally (pitch) as well as vertically (time). Drag direction is determined by the gesture — move further left/right to shift pitch, up/down to shift time. Multi-note selection respects the same delta for all selected notes.
+- Note Editor: newly added notes show a red dashed outline (consistent with the red selection highlight) instead of the previous neutral white.
+
+**Improved**
+- Note Editor toolbar: Save button now uses the correct Lucide SavePlus icon at the right visual weight.
+- Note Editor toolbar: Close (✕) button turns amber on hover.
+
+---
+
+### 24. 7. 2026 (3)
+
+**Fixed**
+- Undo/redo in the Note Editor now works correctly. The previous build's undo/redo, add-note, and drag operations were silently broken because the editor was operating on read-only copied data rather than the live note objects. This is fully resolved.
+- Note preview sounds (clicking a note while editing) now play back on the correct instrument channel instead of always sounding like piano.
+- Spacebar play/pause now works while the Note Editor is open — it was incorrectly blocked during edit mode.
+- Wheel scrolling (timeline scrub) now works normally in edit mode; it was also incorrectly blocked.
+- The Note names toggle in the editor toolbar now shows note labels on the waterfall.
+- The Note Editor enable toggle has moved from Settings → Playback & Practice to Settings → MIDI Files & Library.
+
+---
+
+### 24. 7. 2026 (2)
+
+**New**
+- **Note Editor** (Settings → MIDI Files & Library → Note Editor): enables a pencil icon in the top bar. Click the pencil while a file is open to enter note-editing mode directly on the waterfall — no separate window. Playback pauses and notes become interactive.
+  - **Pencil tool**: click to move or resize notes; Alt+click empty space to add a note; right-click a note to delete it.
+  - **Select tool**: click to select, Shift+click to add to selection, drag to marquee-select; Delete key removes selected notes.
+  - **Snap & Quantize**: snap toggle and grid selector (1/4, 1/8, 1/16, 1/32) in the floating toolbar.
+  - **Undo/Redo**: Ctrl+Z / Ctrl+Y (or toolbar buttons).
+  - Unsaved new notes show a dashed border; the toolbar label shows a dot (●) when there are uncommitted changes.
+  - Edits are in-memory only — use the MIDI Editor Save & Reload to write them to disk.
+
+---
+
+### 24. 7. 2026
+
+**Fixed**
+- Spacebar play/pause now works correctly after the Note Editor has been opened and closed. Previously, opening the editor could leave a hidden keyboard listener permanently active, silently swallowing spacebar presses for the rest of the session.
+- The piano roll and Note Editor background stripes (white/black key columns) now align exactly with the physical keyboard drawn below — all three components share one canonical layout formula so they can no longer drift apart.
 
 ---
 

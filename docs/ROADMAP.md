@@ -19,6 +19,7 @@
 - [x] Track mute / solo / visible per track
 - [x] Track panel — auto-opens on file load; auto-mutes non-keyboard groups
 - [x] MIDI device indicator in top bar — shows device name when connected
+- [x] **Speed control redesign** — three chevron-arrow buttons (1×/2×/3×) replace SVG track-and-circle selector; active button glows amber
 
 ### Keyboard & Audio
 - [x] Virtual keyboard — 61 / 73 / 88 keys, proportional height, ResizeObserver
@@ -59,10 +60,9 @@
 - [x] Central European: pitch class 10 always displays as `B`, never `A#`
 
 ### MIDI Editing & Library
-- [x] MIDI Playback Editor — separate window; track include/exclude, instrument reassignment (all 128 GM programs), track merge; saves as `_ORFEO.mid`/`_ORFEO_MERGED.mid`, never modifies originals
-- [x] Split Track — auto-detects single piano tracks spanning both bass/treble registers, splits into Left Hand / Right Hand tracks, saves as `_ORFEO_SPLIT.mid`
+- [x] **MIDI Playback Editor** — rebuilt as floating modal (760×620px, draggable); track include/exclude, instrument reassignment (all 128 GM programs), track merge, track rename, split; saves as `_ORFEO.mid`/`_ORFEO_MERGED.mid`/`_ORFEO_SPLIT.mid`, never modifies originals; unified modal header with click-to-front z-index focus
+- [x] Split Track — auto-detects single piano tracks spanning both bass/treble registers, splits into Left Hand / Right Hand tracks; two-step flow (icon → confirmation toolbar) to prevent accidental splits
 - [x] Split breakpoint — Single Note mode (adjustable C3–C4) AND Range mode (lower/upper bound, mixed zone), both persistent and user-selectable in Settings
-- [x] Split / Merge Lucide icons in MIDI Editor
 - [x] MIDI file library — folder picker, subfolder scanning, star favourites, one-click load
 - [x] **Library amber highlight** — currently loaded file row shows amber background + amber filename + amber icon; comparison normalises Windows backslash/case
 - [x] **Right-click "Remove from Library"** — context menu on any library row hides the file from the list (persisted to prefs); `position: fixed` menu escapes panel `overflow: hidden`
@@ -71,6 +71,33 @@
 - [x] Auto-created `Orfeo/` subfolder — all app-generated files save here automatically, keeping the source library tidy; library displays `.mid` files from it, hides PDFs
 - [x] Bundled `Demo/` folder — 5 MIDI files auto-copied on first launch, always sorted to top of library, hideable via Settings toggle
 - [x] Settings persistence — note naming, accidentals, library folder, favourites, master volume, audio engine, all new toggles saved to `orfeo-prefs.json`
+- [x] **Foreign format import** (29. 7. 2026) — MusicXML (`.musicxml`, `.xml`, `.mxl`), Guitar Pro (`.gp`, `.gp3`, `.gp4`, `.gp5`, `.gpx`), and karaoke MIDI (`.kar`) files now import directly; alphaTab 1.8.4 converts to SMF bytes at load time; cache stored in `Orfeo/` subfolder with mtime invalidation; KAR pass-through (zero conversion, extension whitelist only); library icons distinguish imported files; user prompted to save on file switch/app close with unsaved converted bytes
+
+### Note Editor
+- [x] **Note Editor** — in-place MIDI editing directly on the PianoRoll canvas; enabled via Settings → MIDI Files & Library (eye toggle); activated via PencilSparkles icon in TopBar
+  - Single-tool interaction model: edge drag = resize; click note = move; Shift+click = selection toggle; Alt+click empty = add note; click empty = marquee select; right-click = delete (new notes) or alt+delete (any note)
+  - Axis-free drag — pitch (x) and time (y) update simultaneously; single combined undo command per drag
+  - Marquee selection with multi-note group move
+  - Full undo/redo history (`NoteEditorToolbar` Undo/Redo buttons)
+  - Track solo — clicking a track row in TrackPanel during edit solos it for editing focus; auto-restores on editor close
+  - Live hint line below toolbar — context-sensitive text ("Drag to move", "Alt+click to add note", etc.) updates in real time as the cursor moves
+  - Instrument audio preview on note click — correct instrument per track (both GM and Samples engines); GM warmup fix for pre-play channel priming
+  - Reset button — rebuilds `NES.editMidi` from original file bytes; clears all history/dirty state
+  - Velocity editing — placeholder button visible (deferred, not yet implemented)
+  - Save flow — versioned `_ORFEO` suffix; `noteEditor:save` IPC; file reloads inline after save
+  - Unsaved-changes guard — closing or loading another file when dirty shows Save & Exit / Discard / Cancel strip
+  - Tooltip — shows note name when note is too narrow to display inline text; gated on "Note Names" toggle; strips octave digit for compact display
+  - Note Editor active state persists correctly on re-entry (NES.reset order fixed)
+
+### Mixer Console
+- [x] **Mixer Console** (Ctrl+Shift+M) — full implementation: floating modal with 8 channel strips + 1 master strip
+  - `ChannelStrip` — 120×574px; knobs (chorus, reverb, pan) + volume fader + VU meter + M/S/Eye/Kbd controls; displays resolved GM instrument name
+  - `MasterStrip` — 160×574px; spectrogram wave-mode VU with glow + idle breathing; master volume knob; FX knobs
+  - `MixerKnob` — SVG rotary knob with radial ticks and triangle notch; `tickScale`/`triScale` props for sizing
+  - Channel CC wiring — chorus, reverb, pan, volume all wired to Samples engine via `setChannel*` functions exported from `useSamplesEngine.ts`; uses MIDI channel from file (not track index)
+  - VU meter — solid-color segmented bars per track; `drawVU(canvas, level, color, segs, canvasH)` with active/inactive segments
+  - Click-to-front z-index focus — `bringToFront()` module counter shared with MIDI Editor
+  - `stopPropagation` on knob/fader `mousedown` prevents scroll-pan conflicts
 
 ### UI & Infrastructure
 - [x] Logo click — resets app to initial state, preserves user preferences
@@ -84,11 +111,24 @@
 - [x] Fixed: Floating keyboard waterfall/piano-roll misalignment
 - [x] User Manual link in left drawer
 - [x] **Settings panel redesign** — 7 collapsible sections (MIDI Files & Library, Notation, Keyboard, Playback & Practice, Audio, Piano Roll, Appearance); eye-toggle controls (green = on, red = off); amber section headers; collapse state persisted per group; `OptionBtn` active state uses green for features, red for hide/disable actions
-- [x] **Show Octave Labels / Show Note Names on Keyboard** toggles — persisted settings; eye-toggle UI in Settings Keyboard group
+- [x] **Show Octave Labels / Show Note Names on Keyboard** toggles — persisted settings; eye-toggle UI in Settings Keyboard group; take effect immediately
+- [x] **Left/Right Hand Labels** — amber lines in keyboard footer marking hand boundary; `detectHandBoundaries()` in `handBoundaries.ts`; single-note and range breakpoint modes; persistent breakpoint settings; Settings integration
 - [x] **Selective Tracks Playback** — eye-toggle in Settings Audio group; amber "Selection / All tracks" button in Track Panel header; `setTrackMuteFilter()` batch action mutes/unmutes all non-keyboard GM families in one call; real-time JZZ filter (no player rebuild)
 - [x] **Guitar tracks auto-muted** — `'guitar'` (GM programs 24–31) added to `DEFAULT_MUTED_GROUPS`
 - [x] **Track Panel full instrument names + marquee** — three-row `TrackRow` layout (name row / controls row / channel+program row); `MarqueeText` shared component (scroll-on-hover via `ResizeObserver`); instrument names show in full, marquee only activates on overflow
-- [x] **Loop Region Strip** — 24px canvas strip between scrub bar and song title; note-density tick marks; drag-to-select with bar-snapping; bar range popup; persisted enable/disable toggle; resets on file load; tick color and remount density fix applied
+- [x] **Loop Region Strip** — 24px canvas strip between scrub bar and song title; note-density tick marks; bar-snapping; bar range popup with long-press chevrons; persisted enable/disable toggle; resets on file load; tick color and remount density fix applied
+  - Alt+drag on waterfall — draw loop region directly on the piano roll; amber overlay + handles
+  - Draggable boundary handles on waterfall overlay
+  - Cursor-following tooltip ("Alt+drag · set loop region", "Right-click · clear")
+  - Right-click inside overlay to clear loop region
+  - Double-click to reset loop region; free selection in loop strip
+  - Activating loop jumps to loop start and begins playback
+- [x] **Drawer restyle** — 3-icon collapsed columns; unified icon set (PencilSparkles, FileMusic, etc.); tab alignment fixes
+- [x] **Presentation Mode** (F11) — distraction-free OS-level fullscreen for live playing and screen recording
+  - TopBar hover-reveal: 8px invisible strip at top; 400ms debounce hide on mouse leave
+  - Hides SettingsPanel, TrackPanel, chord bar, Dock/Float button, hand-label visualization, note counter
+  - Keyboard and key-range selector always visible; PM toggle (Expand/Shrink) pinned to right edge
+  - F11 toggles; Esc exits; Note Editor dirty-check guard on enter
 - [x] Custom `EyeClosed` SVG — replaces Lucide `EyeOff` across Settings panel and Track Panel (5-path inline design)
 - [x] **Global CSS variable migration** — all design tokens extracted to `src/index.css :root`; no hex literals remain in DOM/inline-style context; SVG presentation attributes excluded (intentional); new tokens: `--text-dim-control`, `--border-row`, `--bg-deep`, modal surfaces, interaction states, amber alpha tiers, status banners
 
@@ -102,23 +142,14 @@
 
 ---
 
-## Designed — Not Yet Built
-
-- [ ] Mixer Console — full implementation pending. Design fully finalized: 1120x552px modal, 8 channel strips @ 108x480px + 1 master strip @ 160x480px, 8px gaps, 16px padding, 40px header; complete color palette with swatch reference file; master strip mono-meter/spectrogram toggle designed; knob reuse plan (VolumeKnob component for Chorus/Reverb/Pan, scaled up for Master Volume); all VU meters to be MIDI-event-driven (velocity-based), not audio-FFT-based
-- [ ] Drawer restyle — detailed icon/layout spec written (Library/Settings icons + Onboarding placeholder on left drawer; Tracks/Console-placeholder/MIDI-Editor icons on right drawer; alignment fixes to match content columns below)
-
----
-
 ## Known Issues
 
 | # | Issue | Priority |
 |---|---|---|
-| 1 | Left/Right Hand Labels not rendering visually — full detection + data model built (single note or range breakpoint, persistent settings), but on-screen keyboard shows no lines/labels on first test. Debugging in progress. | High |
-| 8 | Performance mode ribbon rest state — needs polish. Current behavior: colored fills fade out on silence, dim midline appears, labels dim to 55% opacity at last known cluster positions. Needs visual review (actual opacity levels, midline weight/color, transition timing) — cannot be fully validated without video capture of the live app. Flag for a dedicated polish pass once testable on hardware. | Low |
 | 2 | TrackPanel SVG — intermittent renderer crash on certain MIDI files; root cause unknown | High |
 | 3 | Chord name inconsistency between Chord Explorer tiles and live chord bar display in some edge cases | Medium |
-| 5 | Per-track volume and pan — store fields exist, not yet wired to audio (pending Mixer Console) | Medium |
 | 7 | CSS Grid migration — replace flexbox in multi-row components (explorers, topbar, mixer, settings, track panel) | Low |
+| 8 | Performance mode ribbon rest state — colored fills fade out on silence, dim midline appears, labels dim to 55% opacity at last known cluster positions. Needs visual review once testable on hardware. | Low |
 | 9 | Library "Remove from Library" has no undo / "Show hidden files" UI — files hidden via right-click context menu accumulate in prefs with no way to restore them from within the app | Low |
 
 ---
@@ -126,23 +157,35 @@
 ## Planned Features
 
 ### Near Term
-- [ ] Settings panel rework *(partially done — collapsible groups, eye-toggles, amber headers, group collapse persistence all shipped in v0.10.4)* — remaining: CSS Grid layout, MIDI output device selector, key highlight color picker, count-in bars, auto-scroll, default keyboard size/mode on launch, reopen-last-file-on-launch, window position memory, welcome screen on/off, UI density toggle
+- [ ] **Note Editor velocity editing** — per-note velocity bars at the bottom of the edit canvas; drag to adjust; placeholder button already visible in toolbar
+- [ ] **Note Editor walkthrough overlay** — first-time tooltip sequence; `noteEditorWalkthroughSeen` store flag already wired
+- [ ] Settings panel remaining items — CSS Grid layout, MIDI output device selector, key highlight color picker, count-in bars, auto-scroll, default keyboard size/mode on launch, reopen-last-file-on-launch, window position memory, welcome screen on/off, UI density toggle
 - [ ] Finger numbers on keyboard — display suggested fingering on lit keys during chord/inversion display: 1-3-5 (major/minor/diminished triads), 1-2-3-5 / 1-2-4-5 (seventh-chord inversions); inversion-aware
-- [ ] Onboarding / Welcome screen — placeholder icon designed in drawer spec; actual screen content not yet built; shown on first launch only, toggleable from Settings
+- [ ] Onboarding / Welcome screen — shown on first launch only, toggleable from Settings; placeholder icon in drawer spec
+- [ ] **Adding additional sample libraries** App ships with tested and in-built support for Timbres of Heaven (429 MB) and Arachno Soundfont (155 MB), user choses what to download and install. Brief instructuctions how/where to install & test. Settings > Audio
+- [ ] **Track Color System** - Editable only in Playback editor! Orfeo tracks currently have an assigned color used in the track drawer, the piano roll notes, keyboard (???),Console and the channel strips. This feature adds full user control over track color, a curated palette, and smarter defaults for duplicate instruments.
+- [ ] **Playbar Toggle & Visual Effects** - Phase 1 — Hidable Playbar, Phase 2 — Note-Hit Visual Effects
 
-### Larger Features
-- [ ] Play-Along "Wait Mode" — now unblocked since Hardware MIDI Input is complete. Pauses playback at each note/chord group; compares live hardware input against required notes; advances only when matched. Needs: matching strictness rules (exact vs subset), per-hand independent gating (using existing hand-detection infrastructure), timing tolerance window for near-simultaneous notes. Realistically multiple sessions.
-  - [ ] Prerequisite fix — file playback vs hardware input color conflict: `activeKeys`/`activeKeyColors` currently receives writes from both MIDI file playback and live hardware input simultaneously with no coordination, causing key-color overwrites when both are active at once. Must be resolved (clean source separation or explicit priority rule) before Play-Along Wait Mode can reliably distinguish "notes from the file" vs "notes the user just played" on the keyboard. Flagged during Hand Labels Performance Mode work.
-- [ ] Arpeggiator — rhythmic preset patterns (Alberti bass, ascending/descending, octave jump, syncopated) as step sequences with note duration and rest slots; BPM-configurable; lights keys in real time
-- [ ] Help window — separate Electron BrowserWindow loading public/help/index.html; triggered by info icon; full HTML/CSS layout with images/video; content editable without touching React code
+### More testing, polish and improvements needed
+- [ ] Chord Transcript styling polish pass (flagged as deferred during initial implementation)
+- [ ] Beta label on Chord Transcript and Hand Labels settings - the functionality itself needs more testing and polish
+- [ ] Progressions fix in Chord and Scale explorer (now they play chords up and go back instead of always up, inversions not used)
+- [ ] Left/Right hand indicator and logic in the footer
+- [ ] Restyling Chords and Scale explorer
+
+### Larger Features (after initial launch)
+- [ ] **Play-Along "Wait Mode"** — unblocked since Hardware MIDI Input is complete. Pauses playback at each note/chord group; compares live hardware input against required notes; advances only when matched. Needs: matching strictness rules (exact vs subset), per-hand independent gating (using existing hand-detection infrastructure), timing tolerance window for near-simultaneous notes.
+  - [ ] Prerequisite fix — file playback vs hardware input color conflict: `activeKeys`/`activeKeyColors` currently receives writes from both MIDI file playback and live hardware input simultaneously with no coordination, causing key-color overwrites when both are active at once. Must be resolved before Play-Along can distinguish "notes from the file" vs "notes the user just played"
+- [ ] **Arpeggiator** — rhythmic preset patterns (Alberti bass, ascending/descending, octave jump, syncopated) as step sequences with note duration and rest slots; BPM-configurable; lights keys in real time - Hooked into chords and scales explorer
+- [ ] Help window — separate Electron BrowserWindow loading `public/help/index.html`; triggered by info icon; full HTML/CSS layout with images/video; content editable without touching React code
+Performance Recording
+- [ ] **Performance recording** - Record a live performance from a connected hardware MIDI keyboard (and optionally the on-screen virtual keyboard) and export it as a standalone `.mid` file.
 
 ### Infrastructure
 - [ ] GitHub Actions — automated multi-platform builds (Windows/macOS/Linux) on release tag push, auto-attached to GitHub Releases
 - [ ] macOS .dmg build (contributor or CI)
 - [ ] Linux .AppImage build (contributor or CI)
-- [x] Global CSS variable migration — complete as of v0.10.2 (see Completed above)
 - [ ] CSS Grid migration (see Known Issues #7)
-- [ ] Beta label on Chord Transcript feature (low priority)
 
 ---
 

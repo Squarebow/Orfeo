@@ -1,7 +1,9 @@
-import { useState, useMemo, useRef, useEffect } from 'react'
+import { useState, useMemo, useRef, useEffect, useCallback } from 'react'
+import { NES } from '../../utils/noteEditorState'
+import { confirmDialog } from '../../utils/confirmController'
 import {
   ChevronLeft, ChevronDown, ChevronRight, Type, Piano, Palette, ZoomIn, Volume2,
-  Music, FolderOpen, RefreshCw, FileMusic, BookOpen, Library, Settings, Info,
+  Music, FolderOpen, RefreshCw, FileMusic, FileCode2, Guitar, BookOpen, Library, Settings, Info,
   Eye,
 } from 'lucide-react'
 import { useStore } from '../../store'
@@ -9,6 +11,7 @@ import type { NoteNaming, KeyboardSize, Accidentals, TranscriptEntry } from '../
 import type { AppTheme } from '../../store'
 import { initSamplesEngine } from '../../hooks/useSamplesEngine'
 import { MarqueeText } from '../MarqueeText'
+import { detectForeignFormat } from '../../utils/foreignFormatImport'
 
 // ── EyeClosed — custom icon replacing lucide EyeOff throughout settings ───────
 function EyeClosed({ size = 24, strokeWidth = 2 }: { size?: number; strokeWidth?: number }) {
@@ -399,8 +402,8 @@ function LibraryPanel() {
     const file = e.dataTransfer.files[0]
     if (!file) return
 
-    if (!/\.(mid|midi)$/i.test(file.name)) {
-      showDropError('Only .mid / .midi files are supported.')
+    if (!/\.(mid|midi|kar|musicxml|xml|mxl|gp|gp3|gp4|gp5|gpx)$/i.test(file.name)) {
+      showDropError('Unsupported file type. Orfeo accepts .mid, .musicxml, .mxl, .gp/.gp5, and .kar files.')
       return
     }
 
@@ -477,28 +480,73 @@ function LibraryPanel() {
   }
 
   // ── File loader — reads MIDI from disk and parses into store state ────────
-  const handleLoadFile = async (filePath: string) => {
+  const handleLoadFile = useCallback(async (filePath: string) => {
+    // Guard: prompt if there are unsaved note editor edits
+    if (NES.dirty) {
+      const choice = await confirmDialog({
+        title: 'Unsaved Changes',
+        message: 'Save changes before opening this file?',
+        detail: 'Your note edits will be lost if you discard.',
+        buttons: ['Save', 'Discard', 'Cancel'],
+      })
+      if (choice === 2) return  // Cancel — do nothing
+      if (choice === 0) {       // Save — trigger toolbar save flow
+        const ok = await NES.onSaveRequest?.()
+        if (!ok) return           // Save was cancelled or failed — abort load
+      }
+      // Discard (choice === 1) — fall through
+      NES.dirty = false
+    }
     try {
+      const { confirmPendingImportBeforeSwitch } = await import('../../utils/foreignFormatImport')
+      const proceed = await confirmPendingImportBeforeSwitch(filePath)
+      if (!proceed) return
+
       const result = await window.electronAPI.loadMidiFromPath(filePath)
       if (!result) return
-      const binary = atob(result.base64)
-      const bytes = new Uint8Array(binary.length)
-      for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i)
+
+      let base64    = result.base64
+      const parseName = result.fileName
+      const { useStore: storeModule } = await import('../../store')
+      const libraryFolder = (storeModule.getState() as any).libraryFolder as string | null ?? null
+
+      const { resolveToMidiBase64, detectForeignFormat, base64ToBytes } =
+        await import('../../utils/foreignFormatImport')
+
+      try {
+        const resolved = await resolveToMidiBase64(filePath, base64, libraryFolder)
+        base64 = resolved.base64
+
+        if (resolved.isPendingSave) {
+          storeModule.getState().setPendingImportedFile({
+            sourcePath: filePath,
+            format: detectForeignFormat(filePath)!,
+            midiBase64: base64,
+            fileName: result.fileName,
+          })
+        } else {
+          storeModule.getState().setPendingImportedFile(null)
+        }
+      } catch (e: any) {
+        console.error('[Orfeo] Foreign format conversion failed:', e)
+        return
+      }
+
       const { parseMidiBuffer } = await import('../../utils/midiParser')
       const { detectKeyFromTracks, parseKeySignature } = await import('../../utils/keyDetection')
-      const { useStore: store } = await import('../../store')
-      const parsed = parseMidiBuffer(bytes.buffer, result.fileName, result.filePath ?? '')
-      store.getState().setMidi(parsed)
+      const bytes  = base64ToBytes(base64)
+      const parsed = parseMidiBuffer(bytes.buffer as ArrayBuffer, parseName, filePath) // _filePath = original source
+      storeModule.getState().setMidi(parsed)
       const raw = parsed as any
       if (raw._keySignature != null) {
-        store.getState().setDetectedKey(parseKeySignature(raw._keySignature.key, raw._keySignature.scale))
+        storeModule.getState().setDetectedKey(parseKeySignature(raw._keySignature.key, raw._keySignature.scale))
       } else {
-        store.getState().setDetectedKey(detectKeyFromTracks(parsed.tracks))
+        storeModule.getState().setDetectedKey(detectKeyFromTracks(parsed.tracks))
       }
     } catch (err) {
       console.error('Failed to load file:', err)
     }
-  }
+  }, [])
 
   // ── Group files — root files first, then one entry per subfolder ─────────
   // Hidden files are filtered here so the rest of the render sees a clean list.
@@ -736,10 +784,15 @@ function LibraryPanel() {
             {demoFiles.filter((f: { name: string; path: string }) => !hiddenLibraryFiles.includes(f.path)).map(file => {
               const isLoaded = !!loadedFilePath &&
                 file.path.replace(/\\/g, '/') === loadedFilePath.replace(/\\/g, '/')
+              const fmt = detectForeignFormat(file.path)
+              const RowIcon = fmt === 'musicxml' ? FileCode2 : fmt === 'guitarpro' ? Guitar : FileMusic
+              const rowTitle = fmt === 'musicxml'  ? `${file.name} (MusicXML — imported)`
+                             : fmt === 'guitarpro' ? `${file.name} (Guitar Pro — imported)`
+                             : file.name
               return (
                 <div
                   key={file.path}
-                  title={file.name}
+                  title={rowTitle}
                   style={{
                     display: 'flex', alignItems: 'center', gap: 6,
                     padding: '7px 10px 7px 26px', borderBottom: '1px solid var(--border-row)',
@@ -751,11 +804,11 @@ function LibraryPanel() {
                   onClick={() => handleLoadFile(file.path)}
                   onContextMenu={e => handleContextMenu(e, file.path)}
                 >
-                  {/* ── FileMusic doubles as transcript trigger when feature is on ── */}
+                  {/* ── Icon doubles as transcript trigger when transcription is on; otherwise shows format-specific icon ── */}
                   {chordTranscriptionEnabled ? (
                     <TranscriptIcon filePath={file.path} noteNaming={noteNaming} accidentals={accidentals} addTranscriptEntry={addTranscriptEntry} />
                   ) : (
-                    <FileMusic size={11} style={{ color: isLoaded ? 'var(--text-amber)' : 'var(--text-muted)', flexShrink: 0 }} />
+                    <RowIcon size={11} strokeWidth={1.5} style={{ color: isLoaded ? 'var(--text-amber)' : 'var(--text-muted)', flexShrink: 0 }} />
                   )}
                   <MarqueeText name={file.name.replace(/\.(mid|midi)$/i, '')} spanStyle={isLoaded ? FILENAME_SPAN_ACTIVE : FILENAME_SPAN_DEFAULT} />
                 </div>
@@ -806,10 +859,15 @@ function LibraryPanel() {
               const starred   = libraryFavourites.has(file.path)
               const isLoaded  = !!loadedFilePath &&
                 file.path.replace(/\\/g, '/') === loadedFilePath.replace(/\\/g, '/')
+              const fmt = detectForeignFormat(file.path)
+              const RowIcon = fmt === 'musicxml' ? FileCode2 : fmt === 'guitarpro' ? Guitar : FileMusic
+              const rowTitle = fmt === 'musicxml'  ? `${file.name} (MusicXML — imported)`
+                             : fmt === 'guitarpro' ? `${file.name} (Guitar Pro — imported)`
+                             : file.name
               return (
                 <div
                   key={file.path}
-                  title={file.name}
+                  title={rowTitle}
                   style={{
                     display: 'flex', alignItems: 'center', gap: 6,
                     // Indent subfolder files slightly
@@ -823,11 +881,11 @@ function LibraryPanel() {
                   onClick={() => handleLoadFile(file.path)}
                   onContextMenu={e => handleContextMenu(e, file.path)}
                 >
-                  {/* ── FileMusic doubles as transcript trigger when feature is on ── */}
+                  {/* ── Icon doubles as transcript trigger when transcription is on; otherwise shows format-specific icon ── */}
                   {chordTranscriptionEnabled ? (
                     <TranscriptIcon filePath={file.path} noteNaming={noteNaming} accidentals={accidentals} addTranscriptEntry={addTranscriptEntry} />
                   ) : (
-                    <FileMusic size={11} style={{ color: isLoaded ? 'var(--text-amber)' : 'var(--text-muted)', flexShrink: 0 }} />
+                    <RowIcon size={11} strokeWidth={1.5} style={{ color: isLoaded ? 'var(--text-amber)' : 'var(--text-muted)', flexShrink: 0 }} />
                   )}
                   <MarqueeText name={file.name.replace(/\.(mid|midi)$/i, '')} spanStyle={isLoaded ? FILENAME_SPAN_ACTIVE : FILENAME_SPAN_DEFAULT} />
                   <button
@@ -881,6 +939,8 @@ export default function SettingsPanel() {
   const setChordPrompterEnabled = useStore((s) => s.setChordPrompterEnabled)
   const loopRegionEnabled    = useStore((s) => s.loopRegionEnabled)
   const setLoopRegionEnabled = useStore((s) => s.setLoopRegionEnabled)
+  const noteEditorEnabled    = useStore((s) => s.noteEditorEnabled)
+  const setNoteEditorEnabled = useStore((s) => s.setNoteEditorEnabled)
   const chordTranscriptionEnabled = useStore((s) => s.chordTranscriptionEnabled)
   const setChordTranscriptionEnabled = useStore((s) => s.setChordTranscriptionEnabled)
   const hideDemoFolder           = useStore((s) => s.hideDemoFolder)
@@ -1074,6 +1134,14 @@ export default function SettingsPanel() {
                     eyeValue={chordTranscriptionEnabled}
                     onEyeChange={setChordTranscriptionEnabled}
                     description="Adds a transcript icon to every file in your library — click to generate a chord chart PDF."
+                  />
+                  {/* ── Note Editor — eye-toggle: unlocks pencil icon in TopBar ──── */}
+                  <OptionRow
+                    label="Note Editor"
+                    eyeToggle
+                    eyeValue={noteEditorEnabled}
+                    onEyeChange={setNoteEditorEnabled}
+                    description="Show a pencil icon in the top bar to enter note-editing mode directly on the waterfall."
                   />
                 </CollapsibleSection>
 
@@ -1431,7 +1499,7 @@ export default function SettingsPanel() {
                       <line x1="22" y1="50" x2="78" y2="50" stroke="#e8a027" strokeWidth="7" strokeLinecap="round"/>
                       <line x1="22" y1="62" x2="78" y2="62" stroke="#e8a027" strokeWidth="7" strokeLinecap="round"/>
                     </svg>
-                    <span style={{ color: 'var(--text-inactive)', fontSize: 10, fontFamily: 'JetBrains Mono' }}>Orfeo · v0.12.0</span>
+                    <span style={{ color: 'var(--text-inactive)', fontSize: 10, fontFamily: 'JetBrains Mono' }}>Orfeo · v0.13.1</span>
                   </div>
                   <div style={{ fontSize: 9, color: '#35354a', fontFamily: 'Inter', lineHeight: 1.5 }}>
                     MIT License · github.com/SquareBow/orfeo

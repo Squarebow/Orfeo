@@ -4,12 +4,7 @@ import { isBlackKey } from '../../utils/midiParser'
 import { getNoteLabel, getNoteName } from '../../utils/noteNames'
 import { detectChord, detectChordWithInversion, formatInversionDisplay, localizeChord, ordinalSuffix } from '../../utils/chordDetection'
 import { detectHandBoundaries, noteToLeftPct } from '../../utils/handBoundaries'
-
-const RANGES: Record<number, { min: number; max: number }> = {
-  61: { min: 36, max: 96 },
-  73: { min: 28, max: 103 },
-  88: { min: 21, max: 108 },
-}
+import { buildKeyLayoutRatios, PIANO_RANGES as RANGES } from '../../utils/keyLayout'
 
 const CHORD_MIN_NOTES = 3
 const CHORD_DEBOUNCE_MS = 320
@@ -31,8 +26,10 @@ export default function Keyboard() {
   const keyboardSize = useStore((s) => s.keyboardSize)
   const activeKeys = useStore((s) => s.activeKeys)
   const activeKeyColors = useStore((s) => s.activeKeyColors)
-  const noteNaming = useStore((s) => s.noteNaming)
-  const accidentals = useStore((s) => s.accidentals)
+  const noteNaming              = useStore((s) => s.noteNaming)
+  const accidentals             = useStore((s) => s.accidentals)
+  const showOctaveLabels        = useStore((s) => s.showOctaveLabels)
+  const showNoteNamesOnKeyboard = useStore((s) => s.showNoteNamesOnKeyboard)
   const playbackState = useStore((s) => s.playbackState)
   const explorerKeys = useStore((s) => s.explorerKeys)
   const explorerKeyColors = useStore((s) => s.explorerKeyColors)
@@ -59,6 +56,7 @@ export default function Keyboard() {
   const splitBreakpointNote     = useStore((s) => s.splitBreakpointNote)
   const splitBreakpointRangeStart = useStore((s) => s.splitBreakpointRangeStart)
   const splitBreakpointRangeEnd   = useStore((s) => s.splitBreakpointRangeEnd)
+  const presentationMode = useStore((s) => s.presentationMode)
   const shiftHeldRef = useRef(false)
   // ── Tracks whether the primary mouse button is held, enabling glissando drag ──
   const isMouseDown = useRef(false)
@@ -135,6 +133,11 @@ export default function Keyboard() {
     return list
   }, [min, max])
   const whiteKeys = keys.filter(k => !k.isBlack)
+
+  // ── Key layout ratios — same formula as PianoRoll and NoteEditorCanvas ────────
+  // buildKeyLayoutRatios is the single canonical source; multiplying by 100 gives
+  // the CSS percentages that position black keys absolutely over the white key flex row.
+  const keyRatios = useMemo(() => buildKeyLayoutRatios(min, max), [min, max])
 
   // ── Hand boundary detection — recomputed when file or breakpoint settings change ─
   const handBoundaries = useMemo(
@@ -242,8 +245,8 @@ export default function Keyboard() {
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column' }}>
-      {/* ── Chord bar — simple (34px) or extended prompter (36px, single row) ── */}
-      <div style={{
+      {/* ── Chord bar — hidden in Presentation Mode; simple (34px) or extended prompter (36px) ── */}
+      {!presentationMode && <div style={{
         height: chordPrompterOpen ? 36 : 34,
         background: '#0d0d12',
         borderTop: '1px solid var(--border)',
@@ -444,7 +447,7 @@ export default function Keyboard() {
             </div>
           </div>
         )}
-      </div>
+      </div>}
 
       {/* Piano keys */}
       <div
@@ -459,8 +462,8 @@ export default function Keyboard() {
             const locked = lockedKeys.has(k.midi)
             const isC = k.midi % 12 === 0
             const label = color
-              ? (getNoteName(k.midi, noteNaming, accidentals) || null)
-              : (isC ? getNoteLabel(k.midi, noteNaming, accidentals) : null)
+              ? (showNoteNamesOnKeyboard ? (getNoteName(k.midi, noteNaming, accidentals) || null) : null)
+              : (isC && showOctaveLabels ? getNoteLabel(k.midi, noteNaming, accidentals) : null)
             return (
               <div
                 key={k.midi}
@@ -493,11 +496,11 @@ export default function Keyboard() {
         {/* Black keys */}
         <div className="absolute inset-0 pointer-events-none" style={{ zIndex: 2 }}>
           {keys.filter(k => k.isBlack).map((k) => {
-            const whiteIdx = whiteKeys.findIndex(w => w.midi > k.midi) - 1
-            if (whiteIdx < 0) return null
-            // ── 0.70 matches PianoRoll's formula: (wi − 0.30) * ww ────────────
-            const leftPct = ((whiteIdx + 0.70) / whiteKeys.length) * 100
-            const widthPct = (0.6 / whiteKeys.length) * 100
+            // ── Positions come from the same buildKeyLayoutRatios as PianoRoll ──
+            const ratio = keyRatios[k.midi - min]
+            if (!ratio) return null
+            const leftPct  = ratio.x * 100
+            const widthPct = ratio.width * 100
             const color = getColor(k.midi)
             const locked = lockedKeys.has(k.midi)
             return (
@@ -520,7 +523,7 @@ export default function Keyboard() {
                   zIndex: 2,
                 }}
               >
-                {color && noteNaming !== 'hidden' && (
+                {color && showNoteNamesOnKeyboard && noteNaming !== 'hidden' && (
                   <span style={{
                     position: 'absolute', bottom: 3, left: '50%',
                     transform: 'translateX(-50%)',

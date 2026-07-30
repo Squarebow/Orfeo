@@ -30,11 +30,14 @@ function EyeClosed({ size = 24, strokeWidth = 2 }: { size?: number; strokeWidth?
   )
 }
 
-// ── Pencil-Sparkles icon (not yet in installed lucide-react version) ──────────
-function PencilSparkles({ size = 16 }: { size?: number }) {
+// ── FileMusic icon — open MIDI Playback Editor ────────────────────────────────
+function FileMusicIcon({ size = 16 }: { size?: number }) {
   return (
     <svg xmlns="http://www.w3.org/2000/svg" width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-      <path d="M10 3H8"/><path d="m15.007 5.008 3.987 3.986"/><path d="M20 15v4"/><path d="M21.174 6.813a2.82 2.82 0 0 0-3.986-3.987L3.842 16.175a2 2 0 0 0-.5.83l-1.321 4.352a.5.5 0 0 0 .623.622l4.353-1.32a2 2 0 0 0 .83-.497z"/><path d="M22 17h-4"/><path d="M4 5v4"/><path d="M6 7H2"/><path d="M9 2v2"/>
+      <path d="M11.65 22H18a2 2 0 0 0 2-2V8a2.4 2.4 0 0 0-.706-1.706l-3.588-3.588A2.4 2.4 0 0 0 14 2H6a2 2 0 0 0-2 2v10.35"/>
+      <path d="M14 2v5a1 1 0 0 0 1 1h5"/>
+      <path d="M8 20v-7l3 1.474"/>
+      <circle cx="6" cy="20" r="2"/>
     </svg>
   )
 }
@@ -50,7 +53,10 @@ export default function TrackPanel() {
   const setTrackMuteFilter = useStore((s) => s.setTrackMuteFilter)
   const autoMuteNonKeyboard = useStore((s) => s.autoMuteNonKeyboard)
   const [collapsedGroups, setCollapsedGroups] = useState<Set<string>>(new Set())
-  const midiEditorOpen = useStore((s) => s.midiEditorOpen)
+  const midiEditorOpen          = useStore((s) => s.midiEditorOpen)
+  const noteEditorActive        = useStore((s) => s.noteEditorActive)
+  const noteEditorSoloTrackIndex = useStore((s) => s.noteEditorSoloTrackIndex)
+  const soloTrackForEdit        = useStore((s) => s.soloTrackForEdit)
 
   // ── Open editor — sets store flag; MidiEditor floating modal reads from store ─
   const handleOpenEditor = () => {
@@ -154,7 +160,7 @@ export default function TrackPanel() {
             onMouseEnter={e => { if (midi && !midiEditorOpen) e.currentTarget.style.color = 'var(--text-amber)' }}
             onMouseLeave={e => { if (midi && !midiEditorOpen) e.currentTarget.style.color = 'var(--text-dimmest)'; else (e.currentTarget as HTMLElement).style.color = midiEditorOpen ? 'var(--text-amber)' : !midi ? 'var(--state-disabled)' : 'var(--text-dimmest)' }}
           >
-            <PencilSparkles size={18} />
+            <FileMusicIcon size={18} />
           </button>
         </div>
       )}
@@ -212,7 +218,7 @@ export default function TrackPanel() {
               onMouseEnter={e => { if (midi && !midiEditorOpen) e.currentTarget.style.color = 'var(--text-amber)' }}
               onMouseLeave={e => { if (midi && !midiEditorOpen) e.currentTarget.style.color = 'var(--text-dimmest)'; else (e.currentTarget as HTMLElement).style.color = midiEditorOpen ? 'var(--text-amber)' : !midi ? 'var(--state-disabled)' : 'var(--text-dimmest)' }}
             >
-              <PencilSparkles size={16} />
+              <FileMusicIcon size={16} />
             </button>
           </div>
 
@@ -328,6 +334,8 @@ export default function TrackPanel() {
                         onSolo={() => updateTrack(track.index, { solo: !track.solo })}
                         onVisible={() => updateTrack(track.index, { visible: !track.visible })}
                         onKeyboard={() => updateTrack(track.index, { showOnKeyboard: !track.showOnKeyboard })}
+                        onSoloForEdit={noteEditorActive ? () => soloTrackForEdit(track.index) : undefined}
+                        isSoloedForEdit={noteEditorSoloTrackIndex === track.index}
                       />
                     )
                   })}
@@ -343,9 +351,10 @@ export default function TrackPanel() {
 }
 
 // ── Track row — three-line layout: name (top, full width) / track# + controls (mid) / ch+prog (bottom)
-function TrackRow({ track, dimmed, onMute, onSolo, onVisible, onKeyboard }: {
+function TrackRow({ track, dimmed, onMute, onSolo, onVisible, onKeyboard, onSoloForEdit, isSoloedForEdit }: {
   track: TrackState; dimmed: boolean
   onMute: () => void; onSolo: () => void; onVisible: () => void; onKeyboard: () => void
+  onSoloForEdit?: () => void; isSoloedForEdit?: boolean
 }) {
   // Friendly channel/program label
   const ch = (track as any).channel != null ? (track as any).channel + 1 : track.index + 1
@@ -355,12 +364,18 @@ function TrackRow({ track, dimmed, onMute, onSolo, onVisible, onKeyboard }: {
   return (
     <div
       title={tooltip}
+      onClick={onSoloForEdit}
       style={{
         padding: '6px 10px 5px 14px',
         borderBottom: '1px solid var(--border-row)',
         opacity: dimmed ? 0.45 : 1,
-        transition: 'opacity 0.15s',
+        transition: 'opacity 0.15s, background 0.1s',
+        cursor: onSoloForEdit ? 'pointer' : 'default',
+        background: isSoloedForEdit ? 'rgba(232,160,39,0.08)' : 'transparent',
+        borderLeft: isSoloedForEdit ? '2px solid var(--text-amber, #e8a027)' : '2px solid transparent',
       }}
+      onMouseEnter={e => { if (onSoloForEdit && !isSoloedForEdit) (e.currentTarget as HTMLElement).style.background = 'rgba(255,255,255,0.03)' }}
+      onMouseLeave={e => { if (onSoloForEdit && !isSoloedForEdit) (e.currentTarget as HTMLElement).style.background = 'transparent' }}
     >
       {/* ── Row 1: color bar + instrument name spanning full available width ── */}
       <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
@@ -411,7 +426,7 @@ function IBtn({ children, onClick, active, title, activeColor = 'var(--text-ambe
 }) {
   return (
     <button
-      onClick={onClick} title={title}
+      onClick={e => { e.stopPropagation(); onClick() }} title={title}
       style={{
         display: 'flex', alignItems: 'center', justifyContent: 'center',
         width: 22, height: 22, background: 'none', border: 'none', cursor: 'pointer',

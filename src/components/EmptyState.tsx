@@ -42,7 +42,10 @@ export default function EmptyState() {
           pointerEvents: 'auto',
         }}>
           <span style={{ fontSize: 15, fontWeight: 500, color: 'var(--text-standard)' }}>Let's get started</span>
-          <span style={{ fontSize: 'var(--text-sm)', color: 'var(--text-muted)' }}>Drag a .mid or .midi file here, or click Open MIDI file to begin</span>
+          <span style={{ fontSize: 'var(--text-sm)', color: 'var(--text-muted)' }}>
+            Drag a .mid file here, or click Open MIDI file to begin.<br />
+            You can also drag in .kar, .musicxml, .mxl, and Guitar Pro (.gp, .gp3–.gp5, .gpx) files.
+          </span>
 
           <button
             onClick={openFile}

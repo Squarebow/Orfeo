@@ -100,6 +100,35 @@ interface OrfeoStore {
   setMixerMinimized: (v: boolean) => void
   midiEditorOpen: boolean
   setMidiEditorOpen: (open: boolean) => void
+  pendingImportedFile: {
+    sourcePath: string;
+    format: 'musicxml' | 'guitarpro';
+    midiBase64: string;
+    fileName: string;
+  } | null
+  setPendingImportedFile: (
+    value: {
+      sourcePath: string;
+      format: 'musicxml' | 'guitarpro';
+      midiBase64: string;
+      fileName: string;
+    } | null
+  ) => void
+  presentationMode: boolean
+  setPresentationMode: (v: boolean) => void
+  noteEditorEnabled: boolean
+  setNoteEditorEnabled: (v: boolean) => void
+  noteEditorActive: boolean
+  setNoteEditorActive: (v: boolean) => void
+  noteEditorToolbarX: number
+  noteEditorToolbarY: number
+  setNoteEditorToolbarPos: (x: number, y: number) => void
+  noteEditorSoloTrackIndex: number | null
+  preSoloTrackVisibility: boolean[] | null
+  soloTrackForEdit: (index: number) => void
+  unsoloTrackForEdit: () => void
+  noteEditorWalkthroughSeen: boolean
+  setNoteEditorWalkthroughSeen: (v: boolean) => void
   vuDisplayMode: 'bars' | 'wave'
   setVuDisplayMode: (mode: 'bars' | 'wave') => void
   explorerKeys: Set<number>
@@ -331,6 +360,13 @@ export const useStore = create<OrfeoStore>((set, get) => ({
   setMixerMinimized: (mixerMinimized) => set({ mixerMinimized }),
   midiEditorOpen: false,
   setMidiEditorOpen: (midiEditorOpen) => set({ midiEditorOpen }),
+  // ── Pending imported file — session-only, not persisted ──────────────────
+  // Set when a foreign format (MusicXML, GP) is converted in-memory but not
+  // yet saved to disk as a .mid cache file. Cleared on save or discard.
+  pendingImportedFile: null,
+  setPendingImportedFile: (value) => set({ pendingImportedFile: value }),
+  presentationMode: false,
+  setPresentationMode: (presentationMode) => set({ presentationMode }),
   setVuDisplayMode: (vuDisplayMode) => set({ vuDisplayMode }),
   setExplorerKeys: (explorerKeys, explorerKeyColors) => set({ explorerKeys, explorerKeyColors }),
   clearExplorerKeys: () => set({ explorerKeys: new Set(), explorerKeyColors: new Map() }),
@@ -380,6 +416,43 @@ export const useStore = create<OrfeoStore>((set, get) => ({
 
   audioEngine: 'gm',
   setAudioEngine: (audioEngine) => set({ audioEngine }),
+
+  noteEditorEnabled: false,
+  setNoteEditorEnabled: (noteEditorEnabled) => set({ noteEditorEnabled }),
+  noteEditorActive: false,
+  setNoteEditorActive: (noteEditorActive) => set({ noteEditorActive }),
+  noteEditorToolbarX: 24,
+  noteEditorToolbarY: 80,
+  setNoteEditorToolbarPos: (noteEditorToolbarX, noteEditorToolbarY) => set({ noteEditorToolbarX, noteEditorToolbarY }),
+
+  // ── Note Editor: track solo + first-run walkthrough ───────────────────────
+  noteEditorSoloTrackIndex: null,
+  preSoloTrackVisibility: null,
+  soloTrackForEdit: (index) => {
+    const s = get()
+    if (s.noteEditorSoloTrackIndex === index) {
+      // ── Un-solo: restore pre-solo visibility ────────────────────────────
+      const restored = s.preSoloTrackVisibility
+        ? s.tracks.map((t, i) => ({ ...t, visible: s.preSoloTrackVisibility![i] ?? true }))
+        : s.tracks
+      set({ tracks: restored, noteEditorSoloTrackIndex: null, preSoloTrackVisibility: null })
+    } else {
+      // ── Solo: snapshot visibility, hide all tracks except target ────────
+      const preSolo   = s.tracks.map(t => t.visible)
+      const soloed    = s.tracks.map(t => ({ ...t, visible: t.index === index }))
+      set({ tracks: soloed, noteEditorSoloTrackIndex: index, preSoloTrackVisibility: preSolo })
+    }
+  },
+  unsoloTrackForEdit: () => {
+    const s = get()
+    if (s.noteEditorSoloTrackIndex === null) return
+    const restored = s.preSoloTrackVisibility
+      ? s.tracks.map((t, i) => ({ ...t, visible: s.preSoloTrackVisibility![i] ?? true }))
+      : s.tracks
+    set({ tracks: restored, noteEditorSoloTrackIndex: null, preSoloTrackVisibility: null })
+  },
+  noteEditorWalkthroughSeen: false,
+  setNoteEditorWalkthroughSeen: (noteEditorWalkthroughSeen) => set({ noteEditorWalkthroughSeen }),
 
   chordPrompterEnabled: false,
   chordPrompterOpen: false,
@@ -530,6 +603,8 @@ async function restoreLibraryPrefs() {
     if (typeof prefs.masterVolume === 'number') store.setMasterVolume(prefs.masterVolume)
     if (prefs.audioEngine === 'samples') store.setAudioEngine('samples')
     if (typeof prefs.showBarNumbers === 'boolean') store.setShowBarNumbers(prefs.showBarNumbers)
+    if (typeof prefs.noteEditorEnabled === 'boolean') store.setNoteEditorEnabled(prefs.noteEditorEnabled)
+    if (typeof prefs.noteEditorToolbarX === 'number' && typeof prefs.noteEditorToolbarY === 'number') store.setNoteEditorToolbarPos(prefs.noteEditorToolbarX, prefs.noteEditorToolbarY)
     if (typeof prefs.chordPrompterEnabled === 'boolean') store.setChordPrompterEnabled(prefs.chordPrompterEnabled)
     if (typeof prefs.chordTranscriptionEnabled === 'boolean') store.setChordTranscriptionEnabled(prefs.chordTranscriptionEnabled)
     if (typeof prefs.hideDemoFolder === 'boolean') store.setHideDemoFolder(prefs.hideDemoFolder)
@@ -549,6 +624,7 @@ async function restoreLibraryPrefs() {
       useStore.setState({ settingsGroupsCollapsed: { ...defaults, ...prefs.settingsGroupsCollapsed } })
     }
     if (Array.isArray(prefs.transcriptHistory)) useStore.setState({ transcriptHistory: prefs.transcriptHistory })
+    if (typeof prefs.noteEditorWalkthroughSeen === 'boolean') store.setNoteEditorWalkthroughSeen(prefs.noteEditorWalkthroughSeen)
   } catch (e) {
     console.error('[Orfeo] restoreLibraryPrefs:', e)
   }
@@ -577,6 +653,9 @@ let _prevAccidentals: string | null = null
 let _prevMasterVolume: number | null = null
 let _prevAudioEngine: string | null = null
 let _prevShowBarNumbers: boolean | null = null
+let _prevNoteEditorEnabled:    boolean | null = null
+let _prevNoteEditorToolbarX:   number  | null = null
+let _prevNoteEditorToolbarY:   number  | null = null
 let _prevChordPrompterEnabled: boolean | null = null
 let _prevChordTranscriptionEnabled: boolean | null = null
 let _prevHideDemoFolder: boolean | null = null
@@ -592,6 +671,7 @@ let _prevShowOctaveLabels: boolean | null = null
 let _prevShowNoteNamesOnKeyboard: boolean | null = null
 let _prevAutoMuteNonKeyboard: boolean | null = null
 let _prevSettingsGroupsCollapsed: string | null = null
+let _prevNoteEditorWalkthroughSeen: boolean | null = null
 useStore.subscribe((state) => {
   // Skip the very first fire (app init) — restore handles loading saved values
   if (_prevNoteNaming === null) {
@@ -600,6 +680,9 @@ useStore.subscribe((state) => {
     _prevMasterVolume = state.masterVolume
     _prevAudioEngine = state.audioEngine
     _prevShowBarNumbers = state.showBarNumbers
+    _prevNoteEditorEnabled = state.noteEditorEnabled
+    _prevNoteEditorToolbarX = state.noteEditorToolbarX
+    _prevNoteEditorToolbarY = state.noteEditorToolbarY
     _prevChordPrompterEnabled = state.chordPrompterEnabled
     _prevChordTranscriptionEnabled = state.chordTranscriptionEnabled
     _prevHideDemoFolder = state.hideDemoFolder
@@ -615,6 +698,7 @@ useStore.subscribe((state) => {
     _prevShowNoteNamesOnKeyboard = state.showNoteNamesOnKeyboard
     _prevAutoMuteNonKeyboard = state.autoMuteNonKeyboard
     _prevSettingsGroupsCollapsed = JSON.stringify(state.settingsGroupsCollapsed)
+    _prevNoteEditorWalkthroughSeen = state.noteEditorWalkthroughSeen
     return
   }
   if (
@@ -623,6 +707,9 @@ useStore.subscribe((state) => {
     state.masterVolume !== _prevMasterVolume ||
     state.audioEngine !== _prevAudioEngine ||
     state.showBarNumbers !== _prevShowBarNumbers ||
+    state.noteEditorEnabled !== _prevNoteEditorEnabled ||
+    state.noteEditorToolbarX !== _prevNoteEditorToolbarX ||
+    state.noteEditorToolbarY !== _prevNoteEditorToolbarY ||
     state.chordPrompterEnabled !== _prevChordPrompterEnabled ||
     state.chordTranscriptionEnabled !== _prevChordTranscriptionEnabled ||
     state.hideDemoFolder !== _prevHideDemoFolder ||
@@ -637,13 +724,17 @@ useStore.subscribe((state) => {
     state.showOctaveLabels !== _prevShowOctaveLabels ||
     state.showNoteNamesOnKeyboard !== _prevShowNoteNamesOnKeyboard ||
     state.autoMuteNonKeyboard !== _prevAutoMuteNonKeyboard ||
-    JSON.stringify(state.settingsGroupsCollapsed) !== _prevSettingsGroupsCollapsed
+    JSON.stringify(state.settingsGroupsCollapsed) !== _prevSettingsGroupsCollapsed ||
+    state.noteEditorWalkthroughSeen !== _prevNoteEditorWalkthroughSeen
   ) {
     _prevNoteNaming = state.noteNaming
     _prevAccidentals = state.accidentals
     _prevMasterVolume = state.masterVolume
     _prevAudioEngine = state.audioEngine
     _prevShowBarNumbers = state.showBarNumbers
+    _prevNoteEditorEnabled = state.noteEditorEnabled
+    _prevNoteEditorToolbarX = state.noteEditorToolbarX
+    _prevNoteEditorToolbarY = state.noteEditorToolbarY
     _prevChordPrompterEnabled = state.chordPrompterEnabled
     _prevChordTranscriptionEnabled = state.chordTranscriptionEnabled
     _prevHideDemoFolder = state.hideDemoFolder
@@ -659,12 +750,16 @@ useStore.subscribe((state) => {
     _prevShowNoteNamesOnKeyboard = state.showNoteNamesOnKeyboard
     _prevAutoMuteNonKeyboard = state.autoMuteNonKeyboard
     _prevSettingsGroupsCollapsed = JSON.stringify(state.settingsGroupsCollapsed)
+    _prevNoteEditorWalkthroughSeen = state.noteEditorWalkthroughSeen
     window.electronAPI?.setPrefs?.({
       noteNaming: state.noteNaming,
       accidentals: state.accidentals,
       masterVolume: state.masterVolume,
       audioEngine: state.audioEngine,
       showBarNumbers: state.showBarNumbers,
+      noteEditorEnabled: state.noteEditorEnabled,
+      noteEditorToolbarX: state.noteEditorToolbarX,
+      noteEditorToolbarY: state.noteEditorToolbarY,
       chordPrompterEnabled: state.chordPrompterEnabled,
       chordTranscriptionEnabled: state.chordTranscriptionEnabled,
       hideDemoFolder: state.hideDemoFolder,
@@ -680,6 +775,7 @@ useStore.subscribe((state) => {
       showNoteNamesOnKeyboard: state.showNoteNamesOnKeyboard,
       autoMuteNonKeyboard: state.autoMuteNonKeyboard,
       settingsGroupsCollapsed: state.settingsGroupsCollapsed,
+      noteEditorWalkthroughSeen: state.noteEditorWalkthroughSeen,
     }).catch(() => {})
   }
 })

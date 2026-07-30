@@ -6,6 +6,11 @@ import { Midi } from '@tonejs/midi'
 import { Chord, Note } from 'tonal'
 import PDFDocument from 'pdfkit'
 
+// ── Module-level window reference — needed by the close handler and IPC send ──────
+let mainWin: BrowserWindow | null = null
+// ── Set by app:confirm-close so the renderer-triggered re-close passes through ──
+let allowClose = false
+
 // ── Copy bundled demo MIDI files into the user's library on first launch ─────────
 // Writes a flag file to userData so this runs exactly once.
 // Target: libraryFolder/Demo/ if a library is configured, otherwise userData/Demo/.
@@ -27,7 +32,7 @@ async function ensureDemoFolder(): Promise<void> {
 
   const files = await readdir(srcDir)
   for (const file of files) {
-    if (!/\.(mid|midi)$/i.test(file)) continue
+    if (!/\.(mid|midi|kar|musicxml|xml|mxl|gp|gp3|gp4|gp5|gpx)$/i.test(file)) continue
     const dest   = join(targetDir, file)
     const exists = await access(dest).then(() => true).catch(() => false)
     if (!exists) await copyFile(join(srcDir, file), dest)
@@ -60,6 +65,7 @@ function createWindow() {
       contextIsolation: true, nodeIntegration: false, webSecurity: false,
     },
   })
+  mainWin = win
   if (process.env['ELECTRON_RENDERER_URL']) {
     win.loadURL(process.env['ELECTRON_RENDERER_URL'])
   } else {
@@ -69,6 +75,15 @@ function createWindow() {
   win.once('ready-to-show', () => {
     win.maximize()
     win.show()
+  })
+  // ── Intercept close: delegate all confirm dialogs to the renderer ─────────
+  // Prevents the close, tells the renderer to resolve any pending state
+  // (Note Editor unsaved edits, pending imported file), then waits for the
+  // renderer to call app:confirm-close when it is safe to actually close.
+  win.on('close', (e) => {
+    if (allowClose) return // set by app:confirm-close — let it through
+    e.preventDefault()
+    win.webContents.send('app:save-before-close')
   })
 }
 
@@ -94,7 +109,9 @@ ipcMain.handle('shell:openExternal', (_e, url: string) => shell.openExternal(url
 ipcMain.handle('dialog:openMidi', async () => {
   const result = await dialog.showOpenDialog({
     title: 'Open MIDI File',
-    filters: [{ name: 'MIDI Files', extensions: ['mid', 'midi'] }],
+    filters: [
+      { name: 'MIDI & Score Files', extensions: ['mid', 'midi', 'kar', 'musicxml', 'xml', 'mxl', 'gp', 'gp3', 'gp4', 'gp5', 'gpx'] },
+    ],
     properties: ['openFile'],
   })
   if (result.canceled || !result.filePaths[0]) return null
@@ -121,7 +138,7 @@ ipcMain.handle('fs:scanMidiFolder', async (_e, folderPath: string) => {
       for (const e of entries) {
         if (e.isDirectory()) {
           results.push(...scanDir(join(dir, e.name)))
-        } else if (e.isFile() && /\.(mid|midi)$/i.test(e.name)) {
+        } else if (e.isFile() && /\.(mid|midi|kar|musicxml|xml|mxl|gp|gp3|gp4|gp5|gpx)$/i.test(e.name)) {
           results.push({ name: e.name, path: join(dir, e.name) })
         }
       }
@@ -135,6 +152,29 @@ ipcMain.handle('fs:loadMidiFromPath', async (_e, filePath: string) => {
     const fileName = filePath.split(/[\\/]/).pop() ?? filePath
     return { fileName, filePath, base64: readFileSync(filePath).toString('base64') }
   } catch { return null }
+})
+
+// ── Foreign format import cache — read ────────────────────────────────────────
+// Returns base64 of the cached MIDI if it exists and is not stale
+// (cache mtime >= source mtime). Returns null if conversion is needed.
+ipcMain.handle('fs:getCachedImport',
+  async (_e, sourcePath: string, cachePath: string): Promise<string | null> => {
+  try {
+    const { statSync: s } = require('fs') as typeof import('fs')
+    const srcMtime   = s(sourcePath).mtimeMs
+    const cacheMtime = s(cachePath).mtimeMs
+    if (cacheMtime < srcMtime) return null // stale
+    return readFileSync(cachePath).toString('base64')
+  } catch {
+    return null // source or cache doesn't exist
+  }
+})
+
+// ── Foreign format import cache — write ───────────────────────────────────────
+// Writes converted MIDI bytes (base64-encoded) to destPath.
+ipcMain.handle('fs:writeCachedImport',
+  async (_e, destPath: string, base64: string): Promise<void> => {
+  writeFileSync(destPath, Buffer.from(base64, 'base64'))
 })
 
 // ── Copy a MIDI file into the library folder with collision-safe renaming ──────
@@ -817,6 +857,40 @@ ipcMain.handle('transcript:generate', async (_e, midiFilePath: string, noteNamin
   } catch (e: any) {
     return { success: false, error: e?.message ?? 'PDF generation failed' }
   }
+})
+
+// ── Note Editor save — write a MIDI buffer to the chosen output path ──────────
+ipcMain.handle('noteEditor:save', async (_e, payload: { outputPath: string; base64: string }) => {
+  try {
+    const buf = Buffer.from(payload.base64, 'base64')
+    await mkdir(dirname(payload.outputPath), { recursive: true })
+    writeFileSync(payload.outputPath, buf)
+    const fileName = payload.outputPath.split(/[\\/]/).pop() ?? ''
+    return { ok: true, filePath: payload.outputPath, fileName, base64: buf.toString('base64') }
+  } catch (e: any) {
+    return { ok: false, message: e?.message ?? 'Save failed' }
+  }
+})
+
+// ── Native message-box dialog — wraps dialog.showMessageBox for renderer use ──
+ipcMain.handle('dialog:messageBox', async (_e, opts: {
+  type?: string; buttons: string[]; defaultId?: number; cancelId?: number; message: string; detail?: string
+}) => {
+  const win = mainWin
+  if (!win) return { response: opts.cancelId ?? opts.buttons.length - 1 }
+  return dialog.showMessageBox(win, opts as any)
+})
+
+// ── App confirm-close — renderer calls this after resolving all pending state ─
+// Sets the module-level allowClose flag so the next close event passes through.
+ipcMain.handle('app:confirm-close', () => {
+  allowClose = true
+  mainWin?.close()
+})
+
+// ── OS-level fullscreen — toggled by Presentation Mode ───────────────────────
+ipcMain.handle('window:setFullScreen', (_e, value: boolean) => {
+  mainWin?.setFullScreen(value)
 })
 
 // ── Portable mode: redirect userData to a folder next to the exe ─────────────

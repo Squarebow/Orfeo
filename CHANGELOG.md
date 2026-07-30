@@ -4,6 +4,540 @@
 
 ---
 
+### 30. 7. 2026 — Custom Confirm Dialogs + Empty State copy update
+
+**New files:** `src/utils/confirmController.ts`, `src/components/ConfirmDialog.tsx`
+
+**Files changed:** `electron/main.ts`, `src/App.tsx`, `src/components/EmptyState.tsx`, `src/components/NoteEditor/NoteEditorToolbar.tsx`, `src/components/SettingsPanel/SettingsPanel.tsx`, `src/utils/foreignFormatImport.ts`
+
+**Architecture — ConfirmDialog system:**
+- `confirmController.ts`: imperative singleton, same pattern family as `noteEditorState.ts`. `confirmDialog(options)` returns a `Promise<number>` resolving to the clicked button index (or `buttons.length - 1` for Escape / backdrop click). Notifies `subscribeConfirm` listeners.
+- `ConfirmDialog.tsx`: exports `<ConfirmDialogHost />` — always-mounted portal at `zIndex: 99999`. Styled with `--bg-modal`, `--border2`, `--radius-lg`, `--text-amber` title; JetBrains Mono header. Backdrop `mousedown` and `keydown` Escape both resolve to safe index. `destructiveIndex` prop renders a button in `#c05050`.
+
+**Architecture — main.ts is now a thin dispatcher:**
+- `win.on('close')` reduced to 3 lines: if `allowClose` (module-level flag), let through; else `e.preventDefault()` + send `app:save-before-close` to renderer.
+- `ipcMain.handle('app:confirm-close')` sets `allowClose = true` then calls `mainWin?.close()` (fires the event again; passes through).
+- `dialog.showMessageBox` removed from `main.ts` entirely. `executeJavaScript` dirty probe and `__orfeoNoteEditorDirty` / `__orfeoPendingImportedFile` globals removed.
+
+**Renderer close handler (`App.tsx`) is now the single authority:**
+Resolves in sequence: (1) NES dirty check → Save / Discard / Cancel; (2) pending imported file → Save as MID / Don't Save / Cancel. Calls `confirmClose()` only after both pass. Cancelling either leaves the app open with all state intact.
+
+**Native dialogs replaced:**
+- `window.confirm` in NoteEditorToolbar Reset button → `confirmDialog`
+- `window.electronAPI.showMessageBox` in `SettingsPanel.handleLoadFile` (NES dirty guard) → `confirmDialog`
+- `window.electronAPI.showMessageBox` in `App.enterPresentationMode` (NES dirty guard) → `confirmDialog`
+- `window.electronAPI.showMessageBox` in `foreignFormatImport.confirmPendingImportBeforeSwitch` → `confirmDialog`
+- Inline drag-drop confirm modal in `App.tsx` (60-line JSX + `dropConfirmPath` state) → `confirmDialog`; `dropConfirmPath` state removed entirely.
+
+**EmptyState copy:** subtitle now mentions `.kar`, `.musicxml`, `.mxl`, and Guitar Pro formats in a second line.
+
+---
+
+### 29. 7. 2026 — Foreign Format Import (MusicXML / KAR / Guitar Pro)
+
+**Files changed:** `electron/main.ts`, `electron/preload.ts`, `src/types/index.ts`, `src/App.tsx`, `src/components/SettingsPanel/SettingsPanel.tsx`, `src/utils/foreignFormatImport.ts`, package.json dependency
+
+**New dependency:** `@coderline/alphaTab` v1.8.4 — used import-only (no renderer, no audio engine); loaded lazily via dynamic `import()` to keep startup bundle lean (~1.1 MB).
+
+**New IPC channels:** `fs:getCachedImport`, `fs:writeCachedImport`
+
+**Architecture:**
+- Foreign formats converted to SMF bytes at load time via `alphaTab.importer.ScoreLoader` + `MidiFileGenerator` + `AlphaSynthMidiFileHandler`.
+- Converted bytes cached as `<stem>_ORFEO_IMPORTED.mid` alongside source in `Orfeo/` subfolder. Cache invalidated when source `mtime` is newer than cache `mtime`.
+- KAR pass-through: zero conversion, extension whitelist only. `@tonejs/midi` silently ignores lyric meta-events.
+- `_filePath` on `ParsedMidi` is always the original source path, not the cache path — library amber-highlight logic is unaffected.
+- Critical fix: `NoteBendEvent` filter required before `midiFile.toBinary()`. alphaTab 1.8.4 emits neutral MIDI 2.0 per-note pitch bend events even when there is no actual pitch bend; SMF 1.0 export cannot represent these. The filter is safe: genuine pitch-bend expression from GP files is encoded as `PitchBendEvent` (SMF 1.0 compatible), not `NoteBendEvent`.
+
+**Extension whitelist added to:** `dialog:openMidi` filter, `fs:scanMidiFolder` regex, demo folder filter, `isSupportedFile()` in App.tsx, library drop handler in SettingsPanel.tsx.
+
+**Error handling:** Corrupt/unsupported files surface via existing `showDropError()` toast. Empty conversion results load as zero-note MIDI without crashing (handled by existing `parseMidiBuffer` empty-track skip).
+
+**Converted file prompt on switch/close:** pending import bytes held in memory as `pendingImportedFile` store field (session-only, not persisted). User prompted "Save as MID / Don't Save / Cancel" when loading a different file or closing the app with unsaved converted bytes. Save writes to `Orfeo/` subfolder with mkdirSync. Same-file reload skips prompt.
+
+**Known limitations:** Very large orchestral MusicXML scores may be slow to convert (no special handling). MIDI Editor split/merge/instrument assign not tested on imported files.
+
+---
+
+### 27. 7. 2026 — Note Editor tooltip fixes + SpeedControl icon redesign
+
+**`src/components/PianoRoll/PianoRoll.tsx`:**
+- Fixed tooltip never appearing on small notes (drums etc.): `updateHoverState` and `onEditDown` now guard resize-zone detection with `canResize = noteH >= RESIZE_ZONE_PX * 2` (12px). Notes shorter than this — `MIN_NOTE_H = 4` for drum notes — were always matching `atEnd || atStart` and landing in the resize branch which called `setEditTooltip(null)`.
+- Tooltip now strips trailing octave digit (`.replace(/\d+$/, '')`) to match inline canvas text style.
+- Tooltip now gated on `NES.showNoteNamesRef.current` — hidden when the Note names toggle is off.
+
+**`src/components/Transport/TopBar.tsx`:**
+- Fixed note-names icon showing active on re-entry while names were not drawn: `NES.reset()` is now called *before* `setNoteEditorActive(true)`. The previous order (activate → reset) caused Zustand's synchronous subscriber to mount the toolbar and read the stale `showNoteNamesRef = true` from the prior session before the reset ran.
+
+**`src/components/SpeedControl.tsx`:**
+- Full redesign: replaced SVG track-and-circle selector (three filled nodes on a horizontal line) with three play-chevron icon buttons (1×, 2×, 3× forward arrows) sourced from `Slow.svg` / `Medium.svg` / `Fast.svg` assets.
+- All three icons share viewBox height = 26, rendered at H = 13px — identical stroke weight across all speeds.
+- Active icon renders in `--text-amber` with `drop-shadow` glow; inactive icons are muted at 0.65 opacity.
+- "SPEED" label removed. Gap = 8px between buttons.
+- Props interface, `value`/`onChange` contract, `title`/`aria-label`/`aria-pressed` accessibility attributes all unchanged.
+
+---
+
+### 26. 7. 2026 — Note Editor: single-tool redesign, live hint line, track solo, axis-free drag
+
+**`src/components/NoteEditor/NoteEditorToolbar.tsx`:**
+- Removed Pencil/Select tool buttons and `toolMode` local state. The editor now uses one context-sensitive tool — no mode switching.
+- Added `hintText` state subscribed to `NES.onHintChange`: renders a dim italic hint line below the icon row showing context-sensitive instructions from PianoRoll hover.
+- Added `showCloseConfirm` state: clicking ✕ when `NES.dirty` reveals an inline strip with Save & Exit / Discard / Cancel buttons instead of closing immediately.
+- `doClose` is now an `async useCallback` defined before the early return (`if (!noteEditorActive) return null`) so it obeys hook rules. Calls `unsoloTrackForEdit()` before `setNoteEditorActive(false)`.
+- Added Reset button (RotateCcw icon): clears history + `NES.dirty` + `editMidi` via `NES.onResetRequest?.()`. Used `window.confirm` when dirty (replaced by `confirmDialog()` on 30.7.2026).
+- Added Velocity placeholder button (Activity icon, `opacity: 0.3`, disabled, `pointerEvents: none`) before Save — marks velocity editing as coming soon.
+- Added Info placeholder button (Info icon, `opacity: 0.2`, disabled) before Close.
+- Toolbar outer div changed from fixed-height flex row to `flexDirection: column` with icon row (38px) + optional confirm strip + optional hint line below.
+
+**`src/utils/noteEditorState.ts`:** (done in prior session)
+- Removed `toolModeRef` / `NETool` type. Added `hoverHint`, `defaultHint`, `onHintChange`, `onResetRequest`. Updated `reset()`.
+
+**`src/components/PianoRoll/PianoRoll.tsx`:**
+- `updateHoverCursor` renamed to `updateHoverState`: same cursor logic + sets `NES.hoverHint` + fires `NES.onHintChange`. Hint strings: note body (new) → "Drag to move · Right-click to delete", note body (saved) → "Drag to move · Select + Delete key to remove", note edge → "Drag to resize", empty space → "Alt+click to add note · Drag to select".
+- `onEditDown`: unified single-tool handler replacing the old pencil/select branch. Click note edge → resize; Shift+click note → toggle selection; click note in multi-selection → selection-move; click note solo → select + note-move; Alt+click empty → add note; click empty → marquee + clear selection.
+- `onEditMove`: removed axis locking entirely. `note-move` and `selection-move` now update both pitch (x) and time (y) simultaneously every frame.
+- `onEditUp` note-move: single combined undo command capturing both `timeChanged` and `pitchChanged` booleans. Revert restores both tick and midi.
+- `onEditUp` selection-move: single combined command with `anyTimeMoved || anyPitchMoved` guard; revert restores both `origTicks` and `origMidi` for all selected notes.
+- `onEditContext`: removed `toolModeRef` guard. Right-click on a note only deletes if `editNewNotes.has(note) || e.altKey`. Right-click empty space clears selection.
+- Registered `NES.onResetRequest`: rebuilds `NES.editMidi` from `_raw`, clears history/dirty/newNotes, sets `needsFlatRebuild`, fires both `onHistoryChange` and `onHintChange`.
+- Registered `onCanvasLeave` (mouseleave): resets `NES.hoverHint` to `NES.defaultHint` and fires `onHintChange`.
+- Cleanup: added `NES.onResetRequest = null` to the return cleanup function.
+
+**`src/components/TrackPanel/TrackPanel.tsx`:**
+- Added `noteEditorActive`, `noteEditorSoloTrackIndex`, `soloTrackForEdit` selectors from store.
+- `IBtn` click handler now calls `e.stopPropagation()` before delegating to `onClick` — prevents M/S/V/K button clicks from bubbling to the new row-level solo handler.
+- `TrackRow`: accepts `onSoloForEdit?` and `isSoloedForEdit?` props. Row div gains `onClick={onSoloForEdit}`, pointer cursor, hover tint, and amber left-border + background when soloed for edit.
+- Parent passes `onSoloForEdit={noteEditorActive ? () => soloTrackForEdit(track.index) : undefined}` and `isSoloedForEdit={noteEditorSoloTrackIndex === track.index}` to each row.
+
+**`src/App.tsx`:**
+- Added `useStore.subscribe` effect that calls `unsoloTrackForEdit()` on the false-transition of `noteEditorActive` — cleans up track visibility whenever the editor closes for any reason.
+
+**`src/store/index.ts`:** (done in prior session + additions this session)
+- Added `noteEditorWalkthroughSeen` / `setNoteEditorWalkthroughSeen` to the prefs persist subscribe block (sentinel init + change detection + `setPrefs` payload + `restoreLibraryPrefs` restore).
+- Added `soloTrackForEdit`, `unsoloTrackForEdit`, `noteEditorSoloTrackIndex`, `preSoloTrackVisibility` in interface and store body.
+
+**`src/utils/noteEditorCommands.ts`:** (done in prior session)
+- Added `insertSorted` helper. Fixed `cmdAddNote`, `cmdRemoveNote`, `cmdRemoveNotes` to preserve Note object references across undo/redo cycles.
+
+---
+
+### 26. 7. 2026 — Presentation Mode (distraction-free fullscreen)
+
+**New feature: Presentation Mode — fullscreen, distraction-free view for live playing and screen recording.**
+
+**`electron/main.ts`:**
+- Added `window:setFullScreen` IPC handler (`ipcMain.handle`) — calls `mainWin.setFullScreen(value)`.
+
+**`electron/preload.ts`:**
+- Exposed `setFullScreen(value: boolean)` on `window.electronAPI`.
+
+**`src/types/index.ts`:**
+- Added `setFullScreen` to the `Window.electronAPI` interface.
+
+**`src/store/index.ts`:**
+- Added `presentationMode: boolean` + `setPresentationMode(v)` to `OrfeoStore` interface and store body. Initialized `false`, not persisted.
+
+**`src/App.tsx`:**
+- Added `presentationMode` selector from store.
+- Added `headerVisible: boolean` local state and `hideHeaderTimerRef` for hover-reveal debounce.
+- Added `enterPresentationMode()` async callback: guards against unsaved Note Editor edits (Save/Discard/Cancel dialog, mirrors `SettingsPanel.handleLoadFile`), then calls `setPresentationMode(true)`.
+- Added `useEffect` on `presentationMode`: calls `window.electronAPI.setFullScreen`, hides header on enter, force-exits Note Editor via `setNoteEditorActive(false)`.
+- `handleKeyDown`: added `F11` → toggle PM (with dirty-check guard on enter); `Escape` → exit PM first (before existing Escape handlers).
+- JSX: in PM, `<TopBar />` rendered in a `position: fixed` wrapper with CSS `transform: translateY()` slide animation. An 8px invisible hover zone at `top: 0` reveals the header on hover; a 400ms debounce hides it again when the cursor leaves. In normal mode, `<TopBar />` and the separator render in-flow as before.
+- `<SettingsPanel />` and `<TrackPanel />` skipped when `presentationMode`.
+
+**`src/components/Keyboard/Keyboard.tsx`:**
+- Added `presentationMode` selector.
+- Chord bar div (34/36px, containing CHORDS/chord name/SCALES row) wrapped in `{!presentationMode && ...}` — collapses to zero height, no empty stripe.
+
+**`src/components/Keyboard/KeyboardControls.tsx`:**
+- Added `presentationMode` and `setPresentationMode` selectors.
+- Key-range selector (61/73/88): always shown in PM regardless of `performanceHideControls` state.
+- Dock/Float button: hidden in PM (`{!presentationMode && <button ...>}`).
+- Flex-1 spacer: hidden in PM.
+- Hand-label visualization: hidden in PM (beta, needs rework).
+- Note counter: hidden in PM.
+- New PM toggle button at far right: amber Lucide Expand icon (enter PM) / Lucide Shrink icon (exit PM), `marginLeft: 'auto'` in PM to push to right edge; `opacity: 0.65` with hover to `1`. Shows tooltip with key hint (F11 / Esc).
+
+---
+
+### 26. 7. 2026 — Loop region tooltip + right-click, TopBar centering fix, keyboard label toggles wired
+
+**`src/components/PianoRoll/PianoRoll.tsx` — LoopOverlay:**
+- Added `mousePos` state; global `mousemove` handler now tracks cursor position inside the overlay rect.
+- Cursor-following tooltip renders via `position: fixed` when `loopRegionEnabled` is true, Alt is not held, and the cursor is over the piano roll. Shows "Alt+drag · set loop region" always; adds "Right-click · clear" line when a region exists.
+- Added `window` `contextmenu` listener: right-click inside the overlay bounds calls `clearLoopRegion()` with `preventDefault()` — works regardless of whether Alt is held.
+- Removed per-handle `title` attributes (superseded by the cursor tooltip).
+
+**`src/components/Transport/TopBar.tsx`:**
+- Note editor slot changed from conditional render (`{noteEditorEnabled && <div>}`) to always-rendered `<div>` with `visibility: noteEditorEnabled ? 'visible' : 'hidden'`. The slot always occupies `var(--button-height)` (28 px) in the flex row, so the center section width never changes regardless of feature enable state — eliminates the leftward shift of transport controls when the note editor is enabled.
+
+**`src/components/Keyboard/Keyboard.tsx`:**
+- Added `showOctaveLabels` and `showNoteNamesOnKeyboard` selectors from store.
+- White key label logic: octave label (C4, C5…) now gated by `showOctaveLabels`; active-key note name gated by `showNoteNamesOnKeyboard`.
+- Black key note name span: gated by `showNoteNamesOnKeyboard` in addition to existing `noteNaming !== 'hidden'` check.
+- Both Settings toggles (Keyboard Labels → Show Octaves / Note Names on Keyboard) now take effect immediately.
+
+---
+
+### 25. 7. 2026 — Note Editor: instrument audio fix, alt+click mapping, selection pitch drag, UI polish
+
+**Root cause — instrument audio (both engines):** clicking a note in the editor before ever pressing Play always sounded like piano on all tracks. Two separate bugs, one per engine:
+
+- **Samples engine (`useSamplesEngine.ts`):** `__orfeoPlayNoteSamples` called `_synth.noteOn(ch, ...)` without ever sending `_synth.programChange()` first. SpessaSynth defaults all channels to program 0 (piano). `programChange` was only called inside `buildSamplesPlayer` (playback start). Fix: module-level `_samplesChanInit: Set<number>` — on first `noteOn` for a channel (when ch ≠ 15), look up the track's `program` from the store and call `_synth.programChange(ch, program)` before `noteOn`. `buildSamplesPlayer` clears this set and repopulates it as part of its own program-change loop.
+- **GM engine (`useAudioEngine.ts`):** `_port.send([0xC0|ch, program])` is silently discarded before any JZZ player has been connected to `_port` — the synthesizer's internal event pipeline isn't activated until `player.connect(port)` is first called (inside `buildPlayer`). Fix: `warmupEditChannels()` — creates a temporary JZZ SMF player, connects it to `_port`, plays the raw MIDI through a filter that blocks all note events but passes program changes and bank-select CCs. After 150 ms (ample for tick-0 events), the player is stopped. `_warmupPromise` stores the in-flight promise; `playNote` awaits it if the user clicks before 150 ms elapses. Called from PianoRoll on edit mode enter via `window.__orfeoWarmupEditChannels`.
+
+**Root cause — alt+click recolors all notes (fourth unpatched position-based mapping path):** in `onEditDown` (alt+click), `editMidi.tracks.find((_t, i) => parsedMidi.tracks[i].index ...)` used raw track array position without the non-empty filter. Adding a note to the wrong track made the set of non-empty tracks change, shifting all `trackIndex` assignments in the next `needsFlatRebuild` and recoloring everything. Fix: filter `editMidi.tracks` to non-empty first (`nonEmptyForAdd`) before `.find()`, matching `buildEditFlatNotes` and the `needsFlatRebuild` block.
+
+**`src/hooks/useSamplesEngine.ts`:**
+- Added module-level `const _samplesChanInit = new Set<number>()`.
+- `__orfeoPlayNoteSamples`: lazy programChange on first use of each non-preview channel.
+- `buildSamplesPlayer`: clears `_samplesChanInit`, then re-populates as it sends programChanges.
+
+**`src/hooks/useAudioEngine.ts`:**
+- Added module-level `let _warmupPromise: Promise<void> | null = null`.
+- `destroyPlayer`: resets `_warmupPromise = null` so next edit-mode entry re-warms.
+- Added `warmupEditChannels()`: temporary filtered SMF player primes GM channels.
+- Registered `window.__orfeoWarmupEditChannels` (GM only) in the playNote useEffect.
+- `playNote`: removed failed lazy-init attempt; awaits `_warmupPromise` if channel is specified and warmup is in flight.
+
+**`src/components/PianoRoll/PianoRoll.tsx`:**
+- Edit mode enter now calls `window.__orfeoWarmupEditChannels?.()`.
+- **alt+click fix:** `nonEmptyForAdd` filter applied before track `.find()`.
+- **New-note dashed border:** `drawDashedRect` color changed from `0xdddddd` to `0xdd2244` (red, matching selected-note color family).
+- **Selection-move pitch axis:** `axis` starts `null` instead of `'time'`; axis is determined by gesture (first crossing `DRAG_THRESHOLD`). Horizontal drag shifts all selected notes by the same pitch delta relative to `origMidi`. Commit: pitch repitch logged to history via `description: 'Repitch N notes'`.
+- `EditDragState.selectionSnapshot` type: added `origMidi: number` per entry.
+- Snapshot creation: `[...editSelectedNotes].map(n => ({ ..., origMidi: n.midi }))`.
+- `onEditUp` selection-move: branches on `axis === 'pitch'` vs time; pitch path logs finalMidis to history.
+
+**`src/components/NoteEditor/NoteEditorToolbar.tsx`:**
+- Save icon replaced with exact Lucide SavePlus SVG (5-path, `viewBox="0 0 24 24"`, 15×15, stroke hardcoded to `var(--text-amber)`).
+- Close (✕) button: amber color on hover via `onMouseEnter`/`onMouseLeave`.
+
+---
+
+### 25. 7. 2026 — Note Editor: selection highlight, save flow, unsaved-change guards, TopBar fix, amber glow
+
+**`src/components/PianoRoll/PianoRoll.tsx`:**
+- `SEL_COLOR` split into `SEL_NOTE_COLOR = 0xdd2244` (red, selected notes) and `SEL_MARQUEE_COLOR = 0x7788aa` (neutral, drag-select rect).
+- Selection border pulsates via `0.55 + 0.30 * Math.sin(Date.now() / 250)` applied to stroke alpha each rAF frame — zero extra state.
+
+**`src/utils/noteEditorState.ts`:**
+- Added `onSaveRequest: (() => Promise<boolean>) | null` — registered by NoteEditorToolbar so SettingsPanel and the close handler can trigger a save without importing the toolbar.
+
+**`src/components/NoteEditor/NoteEditorToolbar.tsx`:**
+- Added `IconSave` SVG and `computeSavePath()` (versioned `_ORFEO` / `_ORFEO_V2` / `_ORFEO_V3...` suffix, placed in `Orfeo/` subfolder).
+- `handleSave()` — shows `saveFileDialog`, encodes `NES.editMidi` via `editableCopyToBuffer`, calls `noteEditor:save` IPC, reloads file into store on success, clears `NES.dirty`.
+- Save button inserted after Select (marquee) icon.
+- Registers `NES.onSaveRequest = handleSave` on mount (cleared on unmount).
+- Added amber glow via `className="orfeo-modal-glow"`, removed inline `boxShadow`.
+
+**`src/components/Transport/TopBar.tsx`:**
+- Removed permanent divider between filename area and pencil slot.
+- Pencil slot now renders whenever `noteEditorEnabled` (not also gated on `midi`): `opacity: 0; pointerEvents: none` when no file is loaded — slot always occupies `var(--button-height)` width, eliminating all layout shifts.
+
+**`src/components/SettingsPanel/SettingsPanel.tsx`:**
+- Imported `NES` from `noteEditorState`.
+- `handleLoadFile` wrapped in `useCallback`; checks `NES.dirty` first — shows `showMessageBox` native dialog (Save/Discard/Cancel); Save calls `NES.onSaveRequest?.()`, Discard clears dirty and loads, Cancel returns.
+
+**`src/App.tsx`:**
+- Imported `NES`.
+- `useEffect` registers `window.__orfeoNoteEditorDirty = () => NES.dirty` and subscribes to `app:save-before-close` IPC — calls `NES.onSaveRequest?.()` then `electronAPI.confirmClose()`.
+
+**`electron/main.ts`:**
+- `mainWin` module-level ref to `BrowserWindow`.
+- `win.on('close')` — checks dirty via `executeJavaScript`, shows native dialog if dirty; Discard → `win.destroy()`; Save → `win.webContents.send('app:save-before-close')`.
+- New `ipcMain.handle('noteEditor:save')` — writes base64 buffer, returns file data for renderer reload.
+- New `ipcMain.handle('dialog:messageBox')` — wraps `dialog.showMessageBox` for renderer confirm dialogs.
+- New `ipcMain.handle('app:confirm-close')` — destroys `mainWin` after renderer save completes.
+
+**`electron/preload.ts`:** Added `saveNoteEditor`, `showMessageBox`, `confirmClose`, `onSaveBeforeClose`, `offSaveBeforeClose`.
+
+**`src/types/index.ts`:** Typed all five new IPC methods.
+
+---
+
+### 25. 7. 2026 — Note Editor: track-order fix + toolbar persistence + UI polish
+
+**Root cause diagnosed and fixed (issues 3, 4, 6):** `buildEditFlatNotes` and the `needsFlatRebuild` block both used a position-based mapping `NES.editMidi.tracks[i] ↔ parsedMidi.tracks[i]`. `midiToEditableCopy` returns a raw `@tonejs/midi Midi` with ALL tracks including empty tempo/marker tracks; `parseMidiBuffer` filters them via `if (track.notes.length === 0) return`. For any MIDI file with empty leading tracks the indices diverged, causing wrong colors, wrong instrument channels, and notes silently dropped from `editFlatNotes` (no hit-test, no label, no audio).
+
+**`src/components/PianoRoll/PianoRoll.tsx`:**
+- Fixed `buildEditFlatNotes`: filter `editMidi.tracks` to non-empty before the position loop (`nonEmptyEditTracks`).
+- Fixed `needsFlatRebuild` block: same filter applied to `nonEmpty` before building `flatNotesRef`.
+- Note name labels now strip the octave digit (`.replace(/\d+$/, '')`) — shows `F`, `G#`, `Bb` instead of `F4`, `G#5`.
+
+**`src/components/NoteEditor/NoteEditorToolbar.tsx`:**
+- Toolbar initial position now reads from `noteEditorToolbarX/Y` store (instead of hardcoded 24/80).
+- Added `posRef` to track current position without stale-closure in `onMouseUp`.
+- `onMouseUp` now calls `setNoteEditorToolbarPos` to persist final drag position.
+- Added `useEffect` on `noteEditorEnabled`: when the Settings toggle goes false while edit mode is active, calls `setNoteEditorActive(false)` + `NES.reset()` immediately.
+
+**`src/components/Transport/TopBar.tsx`:**
+- Pencil icon wrapped in a fixed-width container (`width: var(--button-height)`) so toggling the icon on/off never shifts the playback controls. Removed the extra divider that was sitting to its left.
+
+**`src/store/index.ts`:**
+- Added `noteEditorToolbarX: number`, `noteEditorToolbarY: number`, `setNoteEditorToolbarPos` to interface, store body, `_prev` sentinels, change-detection, save, and restore — persisted to `orfeo-prefs.json` on drag-end.
+
+**`CLAUDE.md`:** Added Note Editor Architecture section; updated track-mapping note to document the empty-track filter requirement.
+
+---
+
+### 24. 7. 2026 — Note Editor Phase 2.5: NES.editMidi + bug fixes
+
+**Root cause fixed: undo/redo, ticks, and add-note were all silently broken** because the edit system was targeting `ParsedNote[]` (plain copied objects with no `ticks`/`durationTicks`, no `addNote()`, no `header`) instead of real `@tonejs/midi` Note/Track instances.
+
+**`src/utils/noteEditorState.ts`:**
+- Added `editMidi: ReturnType<typeof midiToEditableCopy> | null` — a proper `@tonejs/midi Midi` instance. Created via `midiToEditableCopy((parsedMidi as any)._raw)` when entering edit mode; nulled on exit. All edit operations route through `editMidi.tracks` instead of `parsedMidi.tracks`.
+- `reset()` now clears `editMidi`.
+
+**`src/components/PianoRoll/PianoRoll.tsx`:**
+- Added `prevNoteEditorActive` tracking in PixiJS closure. On enter: creates `NES.editMidi`, sets `needsFlatRebuild`. On exit: nulls `NES.editMidi`, forces `lastMidiRef.current = null` to restore ParsedMidi display.
+- `NES.needsFlatRebuild` handler: rebuilds `flatNotesRef` directly from `NES.editMidi.tracks` (position-based index mapping `editMidi.tracks[i]` ↔ `parsedMidi.tracks[i]`) instead of setting `lastMidiRef.current = null`.
+- `snapTick()`, `syncNoteTimes()`: now use `(NES.editMidi as any)?.header` — `ParsedMidi` has no `header`, so these were silently no-ops before.
+- `buildEditFlatNotes()`: dropped `midi` param; iterates `NES.editMidi.tracks` with position-based `parsedIdx` lookup for visibility/color.
+- `drawEditOverlay()`: dropped `midi` param; guards on `NES.editMidi` presence.
+- Alt+click add note: uses `NES.editMidi.tracks` (real Track with `addNote()`).
+- `onEditUp` `header`: uses `(NES.editMidi as any)?.header`.
+- `selection-move` closures: `editDrag!.track` → `track` (captured local) — fixes stale-closure null crash on undo/redo.
+- Added `editDragActiveRef` (component-level `useRef`) shared between wheel handler and PixiJS closure. Wheel now only blocks during active drag (`editDragActiveRef.current`), not entire edit mode.
+- Added `editDragActiveRef.current = true/false` on drag start/end.
+- `EditDragState.trackIndex`: new field (parsedTrack.index) for per-channel audio preview.
+- `getTrackChannel()` helper: looks up `parsedTrack.channel` by `trackIndex` for note preview calls.
+- All `__orfeoPlayNote?.(note.midi)` calls in edit handlers now pass the track's MIDI channel.
+- Note names (Issue 4): at bottom of `drawFrame`, when `noteEditorActive && NES.showNoteNamesRef.current`, draws note labels via Canvas2D overlay using `getNoteLabel()`.
+
+**`src/hooks/useAudioEngine.ts`:**
+- `playNote()` 4th param `channel?: number` (default 14). Passes `channel` to `__orfeoPlayNoteSamples`; GM path uses `0x90 | ch` / `0x80 | ch`.
+
+**`src/hooks/useSamplesEngine.ts`:**
+- `__orfeoPlayNoteSamples` 4th param `channel?: number` (default 15). Uses `ch` instead of hardcoded 15.
+
+**`src/components/SettingsPanel/SettingsPanel.tsx`:**
+- Moved Note Editor OptionRow from "Playback & Practice" to "MIDI Files & Library" section (after Chord Transcription).
+
+**`src/App.tsx`:**
+- Removed `|| noteEditorActive` from spacebar block — spacebar play/pause works in edit mode.
+- Removed Ctrl+Shift+N dev shortcut entirely — entry is now Settings toggle + TopBar pencil icon.
+- Removed `noteEditorActive`, `setNoteEditorActive`, and `NES` imports from App.tsx (no longer needed here).
+
+---
+
+### 24. 7. 2026 — Note Editor Phase 2: in-place editing on live PianoRoll canvas
+
+**Architecture reset** — scrapped the standalone `NoteEditorCanvas.tsx`/`NoteEditorOverlay.tsx` approach (duplicate renderer, drifting geometry). All editing now happens directly on the live `PianoRoll.tsx` PixiJS canvas.
+
+**Deleted:**
+- `src/components/NoteEditor/NoteEditorCanvas.tsx`
+- `src/components/NoteEditor/NoteEditorOverlay.tsx`
+
+**`src/utils/noteEditorState.ts`** (new):
+- Module-level singleton `NES` bridging `NoteEditorToolbar` ↔ `PianoRoll` without prop threading.
+- Fields: `toolModeRef`, `snapRef`, `quantizeDivisorRef`, `showNoteNamesRef`, `history`, `dirty`, `newNotes` Set, `needsFlatRebuild` flag, `onHistoryChange` callback.
+- `reset()` clears all ephemeral state — called on edit mode enter/exit.
+
+**`src/components/NoteEditor/NoteEditorToolbar.tsx`** (new):
+- Floating draggable toolbar, `position: fixed`, appears only when `noteEditorActive`.
+- Drag handle (3-dot grip), `EDIT ●` dirty indicator, Pencil/Select tool buttons, Snap toggle, Quantize dropdown (1/4–1/32), Undo/Redo, Note names toggle, Close button.
+- Subscribes to `NES.onHistoryChange` for re-renders via `useReducer` force-update.
+- Reads/writes `NES.*` refs directly; no prop threading.
+
+**`src/store/index.ts`:**
+- Added `noteEditorEnabled: boolean` (default `false`, persisted).
+- Added `noteEditorActive: boolean` (default `false`, NOT persisted — ephemeral edit session state).
+- Both have setters (`setNoteEditorEnabled`, `setNoteEditorActive`).
+- `restoreLibraryPrefs` restores `noteEditorEnabled` from prefs.
+
+**`src/components/PianoRoll/PianoRoll.tsx`** — major additions:
+- New interfaces: `EditFlatNote`, `EditDragState` (with `origMidi` field), `EditMarqueeState`.
+- New helpers in PixiJS closure: `snapTick()`, `syncNoteTimes()`, `buildEditFlatNotes()`, `editHitTest()`, `drawDashedRect()`, `drawEditOverlay()`, `history_push()`.
+- `editG: Graphics` overlay layer added to stage (rendered on top of notes and playhead).
+- `drawFrame()` extended: checks `NES.needsFlatRebuild` to force `lastMidiRef.current = null` (triggers flatNotes rebuild); calls `drawEditOverlay()` every frame.
+- `LoopOverlay` returns `null` in edit mode to pass pointer events through to PixiJS canvas.
+- Wheel scrub disabled in edit mode.
+- Pointer handlers on `app.canvas`: `onEditDown`, `onEditMove`, `onEditUp`, `onEditContext`.
+- Window `keydown` capture handler: Ctrl+Z/Y undo/redo, Delete to remove selected notes.
+- Edit mode gate: all handlers early-return when `noteEditorActive` is false.
+- Pencil tool: click to move/resize (RESIZE_ZONE_PX=6 at top/bottom edges), Alt+click to add, right-click to delete.
+- Select tool: click to select, Shift+click additive, drag to marquee, selection-move drag.
+- New notes (unsaved) get dashed white border via `drawDashedRect()`.
+- Selection highlighted with blue stroke (SEL_COLOR=0x4488ee).
+- `syncNoteTimes()` is called after every ticks mutation — @tonejs/midi fields are NOT auto-linked.
+
+**`src/components/SettingsPanel/SettingsPanel.tsx`:**
+- Added `noteEditorEnabled` / `setNoteEditorEnabled` selectors.
+- Added `OptionRow` eye-toggle for "Note Editor" in the Playback & Practice section.
+
+**`src/components/Transport/TopBar.tsx`:**
+- Added `Pencil` import from lucide-react; `NES` import from noteEditorState.
+- Added `noteEditorEnabled`, `noteEditorActive`, `setNoteEditorActive` selectors.
+- Pencil button rendered between volume knob VSep and TIME/METRONOME/MIDI group, gated on `noteEditorEnabled && midi`.
+- Active state: amber fill + border. Clicking toggles edit mode; entering pauses playback.
+
+**`src/App.tsx`:**
+- Removed `NoteEditorOverlay` import/render; removed `noteEditorOpen` state.
+- Added `NoteEditorToolbar` import/render (always mounted; returns `null` when inactive).
+- Added `NES` import.
+- `noteEditorActive` now comes from store, not local state.
+- Spacebar blocks on `noteEditorActive` (same guard as chordExplorer/scaleExplorer).
+- Ctrl+Shift+N dev shortcut now toggles `noteEditorActive` via store + `NES.reset()`, pausing playback on enter.
+
+---
+
+### 24. 7. 2026 — Key-layout unification + background stripe alignment + spacebar listener leak fix
+
+**`src/utils/keyLayout.ts`** — rewritten:
+- Added `buildKeyLayoutRatios(midiMin, midiMax): KeyLayout[]` — the **canonical formula**, extracted verbatim from `Keyboard.tsx`'s inline CSS math. Returns positions as 0–1 fractions of container width. White keys: `x = wi/n, width = 1/n`. Black keys: `x = (wi−0.30)/n, width = 0.60/n` (mirrors Keyboard.tsx `((whiteIdx + 0.70) / n) * 100%`).
+- `buildKeyLayout(W, midiMin, midiMax)` now delegates to `buildKeyLayoutRatios` and multiplies by W — thin wrapper; formula lives in one place only.
+- Removed the `// must stay in sync with Keyboard.tsx` comment on `PIANO_RANGES` — Keyboard.tsx now imports `PIANO_RANGES` from here, making drift impossible.
+
+**`src/components/Keyboard/Keyboard.tsx`:**
+- Removed local `RANGES` constant — now imports `PIANO_RANGES as RANGES` from `keyLayout.ts`.
+- Black key positions computed from `buildKeyLayoutRatios(min, max)` via a `keyRatios` useMemo; `ratio.x * 100` and `ratio.width * 100` replace the previous inline `((whiteIdx + 0.70) / n) * 100` / `(0.6 / n) * 100` calculation. The `whiteIdx = whiteKeys.findIndex(w => w.midi > k.midi) - 1` lookup is gone.
+- All three consumers (Keyboard.tsx, PianoRoll.tsx, NoteEditorCanvas.tsx) now run the identical formula path.
+
+**`src/components/PianoRoll/PianoRoll.tsx` — `drawGrid`:**
+- Background column fill now mirrors Keyboard.tsx draw order: white key fills (`0x171720`) at full `ww` width drawn first, then black key fills (`0x0d0d10`) at exact `buildKeyLayout` positions overlaid on top. C-note octave dividers unchanged.
+- Previously had no column fills (uniform dark canvas background).
+
+**`src/components/NoteEditor/NoteEditorCanvas.tsx` — `redraw` grid section:**
+- Same column fill change as PianoRoll.tsx.
+- **Spacebar listener leak fix**: added `let unmounted = false` before `app.init()`. The `.then()` callback now checks `if (unmounted) return` as its first statement — if the component unmounted while PixiJS was still initialising (guaranteed in React StrictMode dev, possible in production if init is slow), the async callback exits immediately without registering any event listeners. The cleanup `return () => { ... }` sets `unmounted = true` before calling `cleanupListeners?.()`. Root cause: async Promise callbacks can't be cancelled; without this guard, `window.addEventListener('keydown', onKey, { capture: true })` was registered after cleanup already ran, permanently blocking spacebar globally.
+
+---
+
+### 23. 7. 2026 — Note Editor Phase 1.5 bug pass: selection color, note names, spacebar, draw order
+
+**`src/App.tsx`:**
+- Spacebar no longer triggers playback when the Note Editor is open — `noteEditorOpen` added to the guard condition alongside `chordExplorerOpen`/`scaleExplorerOpen`; `noteEditorOpen` added to `useEffect` deps
+
+**`src/components/NoteEditor/NoteEditorCanvas.tsx` — second pass:**
+- **Selection color**: changed from amber `0xe8a027` to blue `0x4488ee` for both selection outlines and marquee rectangle; amber was overloaded with hover/drag highlight
+- **Selection rect bounds**: tightened to match note body exactly (`key.x + 1`, `key.width - 2`) — was 1px wider on all sides, producing visible overflow into adjacent key columns
+- **Note draw order**: white key notes drawn first, black key notes on top — matches physical piano key layering; prevents black key note bodies from rendering underneath adjacent white notes
+- **Note alpha**: raised from 0.85 to 0.9
+- **Note names — switched from Canvas2D overlay to PixiJS Text pool**: Canvas2D rendered immediately while PixiJS updates on next ticker tick, causing a one-frame stale-label flash after undo. New approach: 512 `Text` objects in a `noteNamesContainer` (added between `selectG` and `barNumsContainer`); same pipeline, no desync. Labels centered via `anchor.set(0.5, 0.5)` at `key.x + key.width/2, topY + noteH/2`; color `#111008` (dark, readable on amber note bodies)
+- **Spacebar blocked at canvas level**: `onKey` registered with `{ capture: true }` + `e.stopImmediatePropagation()` for spacebar — fires before App-level bubble listener regardless of listener registration order
+- Removed Canvas2D `<canvas>` overlay element from JSX (no longer needed)
+
+**`src/components/NoteEditor/NoteEditorOverlay.tsx`:**
+- "Note names" button: label changed from `A4` → `Note names`; title tooltip simplified to `"Show note names"`
+- Tool button titles simplified: `"Pencil tool"`, `"Select tool"` (removed verbose implementation detail)
+- Hint bar: added `justifyContent: 'center'` — hints now centered in the row
+
+---
+
+### 23. 7. 2026 — Note Editor Phase 1.5: toolbar redesign, tool modes, snap, bar numbers
+
+**`src/utils/noteEditorCommands.ts`:**
+- Added `cmdRemoveNotes(track, notes[])` — proper batch delete command; captures specs of all N notes before removal; `revert()` re-adds all via `track.addNote()`; a single undo step regardless of selection size
+
+**`src/components/NoteEditor/NoteEditorCanvas.tsx` — major rewrite:**
+- New props (all refs, no PixiJS restart on change): `toolModeRef`, `snapRef`, `quantizeDivisorRef`, `redrawRef`
+- `redrawRef.current` set to `redraw` after PixiJS init; overlay undo/redo buttons call `redrawRef.current?.()` to sync the canvas — fixes Phase 1 bug where toolbar undo/redo did not trigger a canvas redraw
+- Extended `DragState` with `mode: 'note-move' | 'note-resize' | 'selection-move'` and `selectionSnapshot` for multi-note moves
+- Added `MarqueeState` for selection rectangle
+- Added `selectG` Graphics layer (selection amber outlines) and `barNumsContainer` Container above `notesG`
+- **Bar numbers**: pool of 64 `Text` objects (JetBrains Mono 10px `#505570`) positioned at each bar line y; labels show bar index (1-based); hidden/reused on scroll via visibility toggle — no Text creation per frame
+- **Snap**: `snapTick(t) = round(t / (ppq / divisor)) * (ppq / divisor)` when snap on; applied to Alt+click add, note-move time axis, note-resize end-tick, selection-move
+- **Pencil mode**: bare click on empty does nothing; Alt+click → add note (snapped); hover bottom 6px of note → `ns-resize` cursor → drag → `note-resize` mode calling `cmdResizeNote` shape; right-click note → remove; Delete while hovering → remove
+- **Select mode**: click note → select (amber `selectG` outline), Shift+click → add to selection; click empty → clear + start marquee; drag marquee → `updateMarqueeSelection()` live during move + on up; drag selected note → `selection-move` (time axis, snapped), pushes multi-note batch command on up; Delete → `cmdRemoveNotes` on entire selection, single undo step
+- `updateHoverCursor()` helper manages cursor shape per tool + hover position
+
+**`src/components/NoteEditor/NoteEditorOverlay.tsx` — toolbar redesign:**
+- Added state + paired refs for `toolMode`, `snapEnabled`, `quantizeDivisor`; setter functions keep state (re-render) and ref (canvas reads) in sync without restarting the PixiJS effect
+- Toolbar layout (left→right): [✏] [⬚] | [⌇ SNAP] [1/8▾] | [↺] [↻] | Note Editor · track · (N) — [spacer] — [✕ Close]
+- Tool buttons: amber border + background when active; SVG icons (pencil, dashed marquee rect)
+- SNAP button: amber icon + text when enabled, muted when disabled; `title` tooltip
+- Quantize dropdown: `position: fixed`, positioned from `getBoundingClientRect()` on open; `onMouseDown stopPropagation` inside dropdown prevents outside-click handler from closing it before item click; closes on outside mousedown via `useEffect` document listener
+- Undo (↺) and Redo (↻) icon buttons: 28×26px, disabled+dimmed at 0.45 opacity when unavailable; `title` shows keyboard shortcut; call `redrawRef.current?.()` before `handleHistoryChange()` — canvas redraws correctly from toolbar buttons
+- Hint bar: dynamic per tool mode — 6 pencil hints vs 5 select hints; updates instantly on tool switch
+- Inline SVG icons: `IconPencil`, `IconMarquee`, `IconSnap` defined as React components at file top
+
+---
+
+### 21. 7. 2026 — Note Editor Phase 1: dev overlay + single-track editing canvas
+
+**New directory: `src/components/NoteEditor/`**
+
+`NoteEditorCanvas.tsx`:
+- Standalone PixiJS 8 Application (separate from PianoRoll — no shared state)
+- Frozen time layout: time = 0 at top of canvas, increases downward (chronological reading order)
+- Renders note rectangles using the same `buildKeyLayout` + pitch→pixel mapping as PianoRoll; black key column shading, C-note octave dividers, horizontal bar lines per time signature
+- Notes drawn in track colour at 85% alpha; hovered and dragged notes at 100% alpha with amber halo (1px hover, 2px drag)
+- White highlight stripe at note top — matches PianoRoll visual style
+- `redrawRef` pattern: latest `redraw()` function held in a ref so all event handlers always call the current version without stale closures
+- **Add note**: click empty canvas space → pitch from X (`xToMidi` with black-key priority), start tick from Y + scroll offset, default 1-beat duration + 0.8 velocity
+- **Retime drag**: pointerdown on note → axis locks to 'time' when |dy| ≥ |dx| > 4px threshold; note.ticks updated live during drag + array re-sorted; single `NoteCommand` pushed to history on pointerup with original/final ticks
+- **Repitch drag**: axis locks to 'pitch' when |dx| > |dy|; note.midi derived from `xToMidi(origNoteX + dx, ...)` so drag snaps to actual key layout
+- **Delete**: right-click or Delete/Backspace while note is hovered
+- `setPointerCapture` / `releasePointerCapture` ensures drag events continue even when cursor leaves canvas
+- Mouse-wheel scroll: vertical, clamped to content height
+- Keyboard: Ctrl+Z undo, Ctrl+Y / Ctrl+Shift+Z redo (in addition to toolbar buttons)
+
+`NoteEditorOverlay.tsx`:
+- Full-screen `position: fixed` overlay, `zIndex: 9600`, dark backdrop
+- `buildSession(rawBuffer)` creates fresh `Midi` copy + `NoteEditorHistory` each open; session is discarded on close — not persisted to store
+- `useReducer` force-update pattern for undo/redo button state (Undo/Redo disabled when `canUndo`/`canRedo` is false)
+- Toolbar: "Note Editor" label · track name (gmName fallback) · note count · Undo · Redo · Close
+- Hint bar: five one-line interaction reminders below toolbar
+- `onKeyDown` stopPropagation on overlay root prevents global shortcuts (Space, Escape, Ctrl+O) from firing while editing
+- Track colour borrowed from `store.tracks[0].color` (first non-empty parsed track)
+- Phase 1: hardcoded to first `@tonejs/midi` track with notes; track selector deferred to Phase 4
+
+**Modified files:**
+
+`src/App.tsx`:
+- Added `NoteEditorOverlay` import
+- Added `noteEditorOpen` useState flag
+- Added `case 'n'/'N'` to keydown handler: Ctrl+Shift+N toggles the overlay (same pattern as Ctrl+Shift+M for Mixer)
+- Mounted `<NoteEditorOverlay open={noteEditorOpen} onClose={...} />` alongside MixerConsole and MidiEditor
+
+**v1 CC list confirmed:** CC11 (expression), CC7 (volume), CC64 (sustain) — for Phase 3 CC lane implementation.
+
+---
+
+### 21. 7. 2026 — Note Editor Phase 0: groundwork
+
+Internal groundwork only — no user-visible changes. Establishes the command and history layers that Note Editor phases 1–5 will build on.
+
+**Architecture decision recorded:** Dropped `@signal-app/core` + `midifile-ts` in favour of building directly on `@tonejs/midi` (already installed). No new runtime dependencies required. `@tonejs/midi`'s `Midi` class is parsed fresh when the editor opens (dual-parse strategy: the existing parse for playback is untouched), mutated via the command system, and re-encoded via `midi.toArray()`.
+
+**New files:**
+
+`src/utils/noteEditorCommands.ts`:
+- `NoteCommand` interface — `apply()`, `revert()`, `description`; all `cmd*` functions return this
+- `NoteSpec` interface — tick-based spec for creating a note (midi, ticks, durationTicks, velocity)
+- `ToneNote` type alias — `Track['notes'][number]` without a non-barrel import
+- `cmdAddNote(track, spec)` — inserts in tick-sorted order via `track.addNote()`, captures the inserted `Note` instance by set-difference for clean undo
+- `cmdRemoveNote(track, note)` — splices out, undo re-inserts via `track.addNote()` restoring sort order
+- `cmdMoveNote(track, note, newTicks)` — sets `note.ticks` directly then re-sorts `track.notes[]`; undo restores and re-sorts
+- `cmdRepitchNote(note, newMidi)` — direct assignment, undo restores
+- `cmdResizeNote(note, newDurationTicks)` — direct assignment, undo restores
+- `cmdSetNoteVelocity(note, newVelocity)` — clamped to [0, 1], undo restores
+- `cmdSetRangeVelocity(notes[], newVelocity)` — batch velocity, stores originals per-note for undo
+- `midiToEditableCopy(rawBuffer)` — `new Midi(rawBuffer)`; creates an independent mutable copy from `_raw`
+- `editableCopyToBuffer(midi)` — `midi.toArray()` → `ArrayBuffer` via `.slice()` (safe for non-zero byteOffset)
+
+`src/utils/noteEditorHistory.ts`:
+- `NoteEditorHistory` interface — `push`, `undo`, `redo`, `canUndo`, `canRedo`, `clear`, `debugStack`
+- `createNoteEditorHistory(maxSize?)` — array + cursor undo stack; push discards redo branch; oldest entries trimmed at maxSize; `debugStack()` returns labelled entries with cursor marker
+
+`src/utils/noteEditorRoundTripTest.ts`:
+- `runNoteEditorRoundTripTest()` — Phase 0 proof-of-concept: reads `midi._raw` from store, parses fresh `Midi` instance, applies velocity + addNote commands, encodes to buffer, re-parses and verifies track/note counts and velocity round-trip, confirms `parseMidiBuffer()` accepts the output, exercises full undo + redo chain
+
+`THIRD_PARTY_LICENSES.md` — created; credits `@tonejs/midi` (MIT, Yotam Mann) with full license text.
+
+**Modified files:**
+
+`src/App.tsx`:
+- Added import of `runNoteEditorRoundTripTest`
+- Added `useEffect` (runs once on mount) that exposes `window.__orfeoNoteEditorRoundTripTest` in dev mode only
+
+`tsconfig.json`:
+- Added `"types": ["vite/client"]` — required for `import.meta.env.DEV` typecheck in dev-only guards
+
+---
+
 ### 21. 7. 2026 — Loop icon blink + tooltip fix for waterfall Alt+drag selections
 
 **`src/components/Transport/TopBar.tsx`:**

@@ -25,6 +25,10 @@ let _synthInitP: Promise<void> | null = null
 let _synthReady = false
 // ch 15 = collision risk if a loaded MIDI file uses channel 16; accepted tradeoff
 let _hwChannelReady = false
+// ── Tracks which channels have had programChange sent since last buildSamplesPlayer ──
+// SpessaSynth defaults every channel to program 0 (piano). Before first playback,
+// edit-mode clicks must send programChange themselves — this set prevents redundant calls.
+const _samplesChanInit = new Set<number>()
 
 // ── Per-note key-light timers ─────────────────────────────────────────────────
 const _keyTimers = new Map<number, ReturnType<typeof setTimeout>>()
@@ -177,12 +181,15 @@ function buildSamplesPlayer(startSec: number) {
   const ratio = bpm / originalBpm
   const hasSolo = tracks.some(t => t.solo)
 
-  // Send programChange for each active track
+  // Send programChange for each active track — also marks channels as initialized
+  // so edit-mode lazy init doesn't redundantly override them.
+  _samplesChanInit.clear()
   for (const track of midiData.tracks) {
     const ts = tracks.find(t => t.index === track.index)
     if (!ts || ts.muted || (hasSolo && !ts.solo)) continue
     if (!track.isDrum) {
       try { _synth.programChange(track.channel, ts.program) } catch {}
+      _samplesChanInit.add(track.channel)
     }
   }
 
@@ -286,11 +293,22 @@ export function setChannelVolume(ch: number, value: number): void {
 export function useSamplesEngine() {
   // ── Register global click-to-play and hardware note-on/off handlers ─────────
   useEffect(() => {
-    ;(window as any).__orfeoPlayNoteSamples = (midiNum: number, vel: number, durMs: number) => {
+    // channel: MIDI channel 0-based. Undefined = dedicated preview channel (15).
+    ;(window as any).__orfeoPlayNoteSamples = (midiNum: number, vel: number, durMs: number, channel?: number) => {
       if (!_synth || !_synthReady) return
-      ensureHwChannel()
-      _synth.noteOn(15, midiNum, Math.round(vel * 127))
-      setTimeout(() => _synth?.noteOff(15, midiNum), durMs)
+      const ch = channel ?? 15
+      if (ch === 15) {
+        ensureHwChannel()
+      } else if (!_samplesChanInit.has(ch)) {
+        // SpessaSynth defaults all channels to program 0 (piano).
+        // Send programChange now — buildSamplesPlayer hasn't run yet (pre-first-play).
+        const midi = useStore.getState().midi as any
+        const track = (midi?.tracks as any[] | undefined)?.find((t: any) => t.channel === ch && !t.isDrum)
+        try { _synth.programChange(ch, track?.program ?? 0) } catch {}
+        _samplesChanInit.add(ch)
+      }
+      _synth.noteOn(ch, midiNum, Math.round(vel * 127))
+      setTimeout(() => _synth?.noteOff(ch, midiNum), durMs)
       lightKey(midiNum, '#e8a027', durMs + 100)
     }
     // ── Sustained note-on for hardware MIDI input ────────────────────────────
