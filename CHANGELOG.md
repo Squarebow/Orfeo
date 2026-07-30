@@ -4,6 +4,8 @@
 
 ---
 
+## [0.14.0] — 30. 7. 2026 — Track Color Editor
+
 ### 30. 7. 2026 — Color Editor in MIDI Playback Editor (Phase 2) + pencil cursor
 
 **New files:** `src/utils/colors.ts`
@@ -26,9 +28,17 @@
 - `TrackState` in `src/types/index.ts`: added `colorSource: 'default' | 'palette' | 'custom'`.
 - `makeTrackState` in `src/store/index.ts`: initialises `colorSource: 'default'`.
 - `EditorTrack` interface and `buildRows()` in `MidiEditor.tsx`: include `colorSource`.
-- `ColorPopover` component (portal at `zIndex: 60000`): 10-swatch 5-col grid + custom hex input with `#rrggbb` validation (red inline error for invalid). Live preview: swatch preview div updates as user types. Selecting a palette color sets `colorSource: 'palette'`; valid hex sets `'custom'`. Position: anchored below trigger; auto-flips above near bottom viewport edge.
+- `ColorPopover` component (portal at `zIndex: 60000`): 10-swatch 5-col grid + HSV rainbow picker + hex input. Position: anchored below trigger; auto-flips above near bottom viewport edge. Selecting a palette color sets `colorSource: 'palette'`; valid hex or picker selection sets `'custom'`.
 - `handleApplyColor` in `MidiEditor`: calls `updateTrack` on the store (propagates to PianoRoll + Mixer via `t.color` — single source of truth) and mirrors the color into local `EditorTrack` state for immediate row swatch update.
 - `docs/Track Color System.md`: Phase 2 trigger section updated to document MidiEditor as the anchor point.
+
+### 30. 7. 2026 — Color editor refinements
+
+**Files changed:** `src/components/MidiEditor/MidiEditor.tsx`
+
+- **Track name hover:** span transitions to `var(--text-amber)` on mouseover (0.12s transition) — makes the rename affordance visible before double-clicking.
+- **SwatchBook icon:** replaced `Palette` with `SwatchBook` (Lucide 0.503.0; paths verified from `node_modules`) in the COLOR column button.
+- **HSV rainbow picker in ColorPopover:** `HsvPicker` component — 120px SV gradient square (CSS overlay gradients: `hsl(H, 100%, 50%)` base + white→transparent horizontal + transparent→black vertical) and a 14px hue rainbow slider. Both support click-and-drag via `window` `mousemove`/`mouseup`. `lastEmitted` ref guards the `useEffect` sync to prevent the color prop feedback loop. `hexToHsv` / `hsvToHex` utilities inline (no new dependencies, no canvas). Picker sits between palette grid and hex input; hex input and palette both sync the picker via the `color` prop effect. `POP_W`: 204 → 220px, `POP_H`: 170 → 330px.
 
 ### 30. 7. 2026 — Custom Confirm Dialogs + Empty State copy update
 

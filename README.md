@@ -2,7 +2,7 @@
 
 **A modern piano learning and MIDI visualization desktop app for Windows.**
 
-[![Version](https://img.shields.io/badge/Version-0.12.1-blue)](https://github.com/SquareBow/orfeo/releases)
+[![Version](https://img.shields.io/badge/Version-0.14.0-blue)](https://github.com/SquareBow/orfeo/releases)
 [![License](https://img.shields.io/badge/License-MIT-green)](LICENSE)
 [![Platform](https://img.shields.io/badge/Platform-Windows-lightgrey?logo=windows)](https://github.com/SquareBow/orfeo/releases)
 [![Status](https://img.shields.io/badge/Status-Beta-orange)](https://github.com/SquareBow/orfeo)
@@ -183,10 +183,10 @@ All user-visible changes listed here. For full technical detail see [CHANGELOG.m
 ### 30. 7. 2026
 
 **New**
-- **Track color editor in the MIDI Playback Editor:** Each track row now has a Color column with a palette button. Clicking it (or clicking the colored bar next to the track name) opens a popover with 10 curated colors to choose from, plus a custom hex input field. Color changes update the piano roll, mixer strip, and all other views instantly.
+- **Track color editor in the MIDI Playback Editor:** Each track row now has a Color column. Clicking the palette button or the colored bar opens a popover with a 10-color curated palette, a full HSV rainbow color picker (saturation/value square + hue slider), and a hex input field. Color changes update the piano roll, mixer strip, and all other views instantly.
 
 **Improved**
-- **Pencil cursor on track names in the MIDI Playback Editor:** Hovering over a track name now shows a pencil cursor instead of the default text cursor, making it clearer that you can double-click to rename.
+- **Track name rename hint in the MIDI Playback Editor:** Hovering over a track name now shows a pencil cursor and highlights the text in amber, making the double-click-to-rename affordance obvious.
 - **Themed confirm dialogs:** All confirmation prompts throughout the app (loading a file over unsaved note edits, saving a converted file, the note editor reset, drag-and-drop replace, app close) now appear as a styled dark modal that matches the rest of Orfeo's interface, instead of the operating system's default dialog box.
 
 ---
