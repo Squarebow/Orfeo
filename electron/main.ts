@@ -8,6 +8,8 @@ import PDFDocument from 'pdfkit'
 
 // ── Module-level window reference — needed by the close handler and IPC send ──────
 let mainWin: BrowserWindow | null = null
+// ── Set by app:confirm-close so the renderer-triggered re-close passes through ──
+let allowClose = false
 
 // ── Copy bundled demo MIDI files into the user's library on first launch ─────────
 // Writes a flag file to userData so this runs exactly once.
@@ -74,58 +76,14 @@ function createWindow() {
     win.maximize()
     win.show()
   })
-  // ── Intercept close: check Note Editor dirty state, then pending import ────
-  win.on('close', async (e) => {
-    const dirty = await win.webContents.executeJavaScript('window.__orfeoNoteEditorDirty?.() ?? false').catch(() => false)
-    if (dirty) {
-      e.preventDefault()
-      const { response } = await dialog.showMessageBox(win, {
-        type: 'question',
-        buttons: ['Save', 'Discard', 'Cancel'],
-        defaultId: 0, cancelId: 2,
-        message: 'Save unsaved note edits?',
-        detail: 'Your note edits will be lost if you close without saving.',
-      })
-      if (response === 2) return          // Cancel — keep window open
-      if (response === 1) { win.destroy(); return }  // Discard
-      // Save — tell renderer to run its save flow, then call app:confirm-close when done
-      win.webContents.send('app:save-before-close')
-      return
-    }
-
-    // ── Check for a pending imported file (MusicXML/GP converted but not saved) ──
-    const pendingImport = await win.webContents.executeJavaScript(
-      'window.__orfeoPendingImportedFile ? window.__orfeoPendingImportedFile() : null'
-    ).catch(() => null)
-
-    if (!pendingImport) return // nothing pending — allow close normally
-
+  // ── Intercept close: delegate all confirm dialogs to the renderer ─────────
+  // Prevents the close, tells the renderer to resolve any pending state
+  // (Note Editor unsaved edits, pending imported file), then waits for the
+  // renderer to call app:confirm-close when it is safe to actually close.
+  win.on('close', (e) => {
+    if (allowClose) return // set by app:confirm-close — let it through
     e.preventDefault()
-    const { response } = await dialog.showMessageBox(win, {
-      type: 'question',
-      buttons: ['Save as MID', "Don't Save", 'Cancel'],
-      defaultId: 0,
-      cancelId: 2,
-      message: `Save imported file "${pendingImport.fileName}" as a MIDI file before closing?`,
-      detail: `This saves a copy at:\n${pendingImport.cachePath}\n\nThe original ${pendingImport.fileName} is never modified.`,
-    })
-
-    if (response === 2) return // Cancel — keep app open
-
-    if (response === 0) {
-      try {
-        // Ensure the Orfeo/ subfolder exists before writing
-        const cacheDir = pendingImport.cachePath.replace(/\\/g, '/').split('/').slice(0, -1).join('/')
-        const { mkdirSync } = require('fs') as typeof import('fs')
-        mkdirSync(cacheDir, { recursive: true })
-        writeFileSync(pendingImport.cachePath, Buffer.from(pendingImport.base64, 'base64'))
-      } catch (err) {
-        console.error('[Orfeo] Failed to save imported MIDI on close:', err)
-        // Don't block the close over a failed save
-      }
-    }
-    // Don't Save (response === 1) or save completed — destroy
-    win.destroy()
+    win.webContents.send('app:save-before-close')
   })
 }
 
@@ -923,9 +881,11 @@ ipcMain.handle('dialog:messageBox', async (_e, opts: {
   return dialog.showMessageBox(win, opts as any)
 })
 
-// ── App force-close — called by renderer after completing a save-before-close ─
+// ── App confirm-close — renderer calls this after resolving all pending state ─
+// Sets the module-level allowClose flag so the next close event passes through.
 ipcMain.handle('app:confirm-close', () => {
-  mainWin?.destroy()
+  allowClose = true
+  mainWin?.close()
 })
 
 // ── OS-level fullscreen — toggled by Presentation Mode ───────────────────────
