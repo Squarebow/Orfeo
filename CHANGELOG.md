@@ -4,6 +4,35 @@
 
 ---
 
+### 30. 7. 2026 — Custom Confirm Dialogs + Empty State copy update
+
+**New files:** `src/utils/confirmController.ts`, `src/components/ConfirmDialog.tsx`
+
+**Files changed:** `electron/main.ts`, `src/App.tsx`, `src/components/EmptyState.tsx`, `src/components/NoteEditor/NoteEditorToolbar.tsx`, `src/components/SettingsPanel/SettingsPanel.tsx`, `src/utils/foreignFormatImport.ts`
+
+**Architecture — ConfirmDialog system:**
+- `confirmController.ts`: imperative singleton, same pattern family as `noteEditorState.ts`. `confirmDialog(options)` returns a `Promise<number>` resolving to the clicked button index (or `buttons.length - 1` for Escape / backdrop click). Notifies `subscribeConfirm` listeners.
+- `ConfirmDialog.tsx`: exports `<ConfirmDialogHost />` — always-mounted portal at `zIndex: 99999`. Styled with `--bg-modal`, `--border2`, `--radius-lg`, `--text-amber` title; JetBrains Mono header. Backdrop `mousedown` and `keydown` Escape both resolve to safe index. `destructiveIndex` prop renders a button in `#c05050`.
+
+**Architecture — main.ts is now a thin dispatcher:**
+- `win.on('close')` reduced to 3 lines: if `allowClose` (module-level flag), let through; else `e.preventDefault()` + send `app:save-before-close` to renderer.
+- `ipcMain.handle('app:confirm-close')` sets `allowClose = true` then calls `mainWin?.close()` (fires the event again; passes through).
+- `dialog.showMessageBox` removed from `main.ts` entirely. `executeJavaScript` dirty probe and `__orfeoNoteEditorDirty` / `__orfeoPendingImportedFile` globals removed.
+
+**Renderer close handler (`App.tsx`) is now the single authority:**
+Resolves in sequence: (1) NES dirty check → Save / Discard / Cancel; (2) pending imported file → Save as MID / Don't Save / Cancel. Calls `confirmClose()` only after both pass. Cancelling either leaves the app open with all state intact.
+
+**Native dialogs replaced:**
+- `window.confirm` in NoteEditorToolbar Reset button → `confirmDialog`
+- `window.electronAPI.showMessageBox` in `SettingsPanel.handleLoadFile` (NES dirty guard) → `confirmDialog`
+- `window.electronAPI.showMessageBox` in `App.enterPresentationMode` (NES dirty guard) → `confirmDialog`
+- `window.electronAPI.showMessageBox` in `foreignFormatImport.confirmPendingImportBeforeSwitch` → `confirmDialog`
+- Inline drag-drop confirm modal in `App.tsx` (60-line JSX + `dropConfirmPath` state) → `confirmDialog`; `dropConfirmPath` state removed entirely.
+
+**EmptyState copy:** subtitle now mentions `.kar`, `.musicxml`, `.mxl`, and Guitar Pro formats in a second line.
+
+---
+
 ### 29. 7. 2026 — Foreign Format Import (MusicXML / KAR / Guitar Pro)
 
 **Files changed:** `electron/main.ts`, `electron/preload.ts`, `src/types/index.ts`, `src/App.tsx`, `src/components/SettingsPanel/SettingsPanel.tsx`, `src/utils/foreignFormatImport.ts`, package.json dependency
@@ -55,7 +84,7 @@
 - Added `hintText` state subscribed to `NES.onHintChange`: renders a dim italic hint line below the icon row showing context-sensitive instructions from PianoRoll hover.
 - Added `showCloseConfirm` state: clicking ✕ when `NES.dirty` reveals an inline strip with Save & Exit / Discard / Cancel buttons instead of closing immediately.
 - `doClose` is now an `async useCallback` defined before the early return (`if (!noteEditorActive) return null`) so it obeys hook rules. Calls `unsoloTrackForEdit()` before `setNoteEditorActive(false)`.
-- Added Reset button (RotateCcw icon): clears history + `NES.dirty` + `editMidi` via `NES.onResetRequest?.()`. Uses `window.confirm` when dirty.
+- Added Reset button (RotateCcw icon): clears history + `NES.dirty` + `editMidi` via `NES.onResetRequest?.()`. Used `window.confirm` when dirty (replaced by `confirmDialog()` on 30.7.2026).
 - Added Velocity placeholder button (Activity icon, `opacity: 0.3`, disabled, `pointerEvents: none`) before Save — marks velocity editing as coming soon.
 - Added Info placeholder button (Info icon, `opacity: 0.2`, disabled) before Close.
 - Toolbar outer div changed from fixed-height flex row to `flexDirection: column` with icon row (38px) + optional confirm strip + optional hint line below.

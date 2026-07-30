@@ -180,6 +180,13 @@ All user-visible changes listed here. For full technical detail see [CHANGELOG.m
 
 ---
 
+### 30. 7. 2026
+
+**Improved**
+- **Themed confirm dialogs:** All confirmation prompts throughout the app (loading a file over unsaved note edits, saving a converted file, the note editor reset, drag-and-drop replace, app close) now appear as a styled dark modal that matches the rest of Orfeo's interface, instead of the operating system's default dialog box.
+
+---
+
 ### 29. 7. 2026
 
 **New**
