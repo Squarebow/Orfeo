@@ -7,7 +7,7 @@
 
 import { useState, useEffect, useRef, useCallback, type CSSProperties } from 'react'
 import { createPortal } from 'react-dom'
-import { Check, X, Save, FolderOpen, AlertCircle, ChevronDown, ChevronRight, Search, Merge, Split, Undo2, RotateCcw, Piano, Bell, Church, Guitar, Music2, AudioWaveform, Users, Megaphone, Wind, Feather, Cpu, Globe, Drum, Radio, Waves, Sparkles, Palette } from 'lucide-react'
+import { Check, X, Save, FolderOpen, AlertCircle, ChevronDown, ChevronRight, Search, Merge, Split, Undo2, RotateCcw, Piano, Bell, Church, Guitar, Music2, AudioWaveform, Users, Megaphone, Wind, Feather, Cpu, Globe, Drum, Radio, Waves, Sparkles, SwatchBook } from 'lucide-react'
 import { PENCIL_CURSOR } from '../../utils/cursors'
 import { TRACK_COLOR_PALETTE } from '../../utils/colors'
 import OrfeoMark from '../OrfeoMark'
@@ -247,9 +247,127 @@ function InstrumentPicker({ program, isDrum, onChange }: {
   )
 }
 
-// ─── Color Popover ────────────────────────────────────────────────────────────
+// ─── HSV ↔ Hex utilities ─────────────────────────────────────────────────────
 
 const HEX_RE = /^#[0-9a-fA-F]{6}$/
+
+function hexToHsv(hex: string): [number, number, number] {
+  const r = parseInt(hex.slice(1, 3), 16) / 255
+  const g = parseInt(hex.slice(3, 5), 16) / 255
+  const b = parseInt(hex.slice(5, 7), 16) / 255
+  const max = Math.max(r, g, b), min = Math.min(r, g, b), d = max - min
+  let h = 0
+  if (d > 0) {
+    if      (max === r) h = ((g - b) / d + 6) % 6
+    else if (max === g) h = (b - r) / d + 2
+    else                h = (r - g) / d + 4
+    h *= 60
+  }
+  return [h, max === 0 ? 0 : d / max, max]
+}
+
+function hsvToHex(h: number, s: number, v: number): string {
+  const f = (n: number) => {
+    const k = (n + h / 60) % 6
+    const c = v - v * s * Math.max(0, Math.min(k, 4 - k, 1))
+    return Math.round(c * 255).toString(16).padStart(2, '0')
+  }
+  return `#${f(5)}${f(3)}${f(1)}`
+}
+
+// ─── HSV Picker (rainbow square + hue slider) ─────────────────────────────────
+
+function HsvPicker({ color, onChange }: { color: string; onChange: (hex: string) => void }) {
+  const [hsv, setHsv] = useState<[number, number, number]>(() => hexToHsv(HEX_RE.test(color) ? color : '#e8a027'))
+  const svBoxRef  = useRef<HTMLDivElement>(null)
+  const hueBoxRef = useRef<HTMLDivElement>(null)
+  const dragging  = useRef<'sv' | 'hue' | null>(null)
+  const hsvRef    = useRef(hsv)
+  hsvRef.current  = hsv
+
+  // ── Sync when color prop changes externally (palette click / hex input) ───────
+  const lastEmitted = useRef(color)
+  useEffect(() => {
+    if (color === lastEmitted.current || !HEX_RE.test(color)) return
+    lastEmitted.current = color
+    setHsv(hexToHsv(color))
+  }, [color])
+
+  const applySv = useCallback((e: MouseEvent) => {
+    if (!svBoxRef.current) return
+    const r = svBoxRef.current.getBoundingClientRect()
+    const s = Math.max(0, Math.min(1, (e.clientX - r.left) / r.width))
+    const v = Math.max(0, Math.min(1, 1 - (e.clientY - r.top) / r.height))
+    const next: [number, number, number] = [hsvRef.current[0], s, v]
+    hsvRef.current = next
+    setHsv(next)
+    const hex = hsvToHex(...next)
+    lastEmitted.current = hex
+    onChange(hex)
+  }, [onChange])
+
+  const applyHue = useCallback((e: MouseEvent) => {
+    if (!hueBoxRef.current) return
+    const r = hueBoxRef.current.getBoundingClientRect()
+    const h = Math.max(0, Math.min(360, ((e.clientX - r.left) / r.width) * 360))
+    const next: [number, number, number] = [h, hsvRef.current[1], hsvRef.current[2]]
+    hsvRef.current = next
+    setHsv(next)
+    const hex = hsvToHex(...next)
+    lastEmitted.current = hex
+    onChange(hex)
+  }, [onChange])
+
+  useEffect(() => {
+    const onMove = (e: MouseEvent) => {
+      if (dragging.current === 'sv')  applySv(e)
+      if (dragging.current === 'hue') applyHue(e)
+    }
+    const onUp = () => { dragging.current = null }
+    window.addEventListener('mousemove', onMove)
+    window.addEventListener('mouseup', onUp)
+    return () => { window.removeEventListener('mousemove', onMove); window.removeEventListener('mouseup', onUp) }
+  }, [applySv, applyHue])
+
+  const [h, s, v] = hsv
+
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+      {/* SV square */}
+      <div
+        ref={svBoxRef}
+        onMouseDown={e => { e.preventDefault(); dragging.current = 'sv'; applySv(e.nativeEvent) }}
+        style={{ width: '100%', height: 120, position: 'relative', borderRadius: 4, cursor: 'crosshair', userSelect: 'none', background: `hsl(${h}, 100%, 50%)` }}
+      >
+        <div style={{ position: 'absolute', inset: 0, borderRadius: 4, background: 'linear-gradient(to right, #fff, transparent)' }} />
+        <div style={{ position: 'absolute', inset: 0, borderRadius: 4, background: 'linear-gradient(to bottom, transparent, #000)' }} />
+        <div style={{
+          position: 'absolute', left: `${s * 100}%`, top: `${(1 - v) * 100}%`,
+          width: 10, height: 10, borderRadius: '50%',
+          border: '2px solid #fff', boxShadow: '0 0 0 1px rgba(0,0,0,0.6)',
+          transform: 'translate(-50%, -50%)', pointerEvents: 'none',
+        }} />
+      </div>
+      {/* Hue slider */}
+      <div
+        ref={hueBoxRef}
+        onMouseDown={e => { e.preventDefault(); dragging.current = 'hue'; applyHue(e.nativeEvent) }}
+        style={{ width: '100%', height: 14, borderRadius: 4, cursor: 'crosshair', userSelect: 'none', position: 'relative', background: 'linear-gradient(to right, #f00, #ff0, #0f0, #0ff, #00f, #f0f, #f00)' }}
+      >
+        <div style={{
+          position: 'absolute', top: '50%', left: `${(h / 360) * 100}%`,
+          transform: 'translate(-50%, -50%)',
+          width: 14, height: 14, borderRadius: '50%',
+          background: `hsl(${h}, 100%, 50%)`,
+          border: '2px solid #fff', boxShadow: '0 0 0 1px rgba(0,0,0,0.6)',
+          pointerEvents: 'none',
+        }} />
+      </div>
+    </div>
+  )
+}
+
+// ─── Color Popover ────────────────────────────────────────────────────────────
 
 function ColorPopover({ trackIndex, trackColor, anchor, onApplyColor, onClose }: {
   trackIndex: number
@@ -295,8 +413,8 @@ function ColorPopover({ trackIndex, trackColor, anchor, onApplyColor, onClose }:
   }
 
   // ── Position: below trigger, flip up near bottom edge ───────────────────────
-  const POP_W = 204
-  const POP_H = 170
+  const POP_W = 220
+  const POP_H = 330
   const left  = Math.min(Math.max(8, anchor.left), window.innerWidth - POP_W - 8)
   const top   = anchor.bottom + 6 + POP_H > window.innerHeight
     ? anchor.top - POP_H - 6
@@ -327,19 +445,24 @@ function ColorPopover({ trackIndex, trackColor, anchor, onApplyColor, onClose }:
             onClick={() => handlePaletteClick(c)}
             title={c}
             style={{
-              height: 28, background: c, borderRadius: 3, cursor: 'pointer', boxSizing: 'border-box',
+              height: 26, background: c, borderRadius: 3, cursor: 'pointer', boxSizing: 'border-box',
               border: `2px solid ${c === trackColor ? '#ffffff' : 'transparent'}`,
               transition: 'transform 0.1s, border-color 0.1s',
             }}
-            onMouseEnter={e => { e.currentTarget.style.transform = 'scale(1.12)'; if (c !== trackColor) e.currentTarget.style.borderColor = 'rgba(255,255,255,0.35)' }}
+            onMouseEnter={e => { e.currentTarget.style.transform = 'scale(1.1)'; if (c !== trackColor) e.currentTarget.style.borderColor = 'rgba(255,255,255,0.35)' }}
             onMouseLeave={e => { e.currentTarget.style.transform = 'scale(1)'; if (c !== trackColor) e.currentTarget.style.borderColor = 'transparent' }}
           />
         ))}
       </div>
 
-      {/* ── Custom hex input ──────────────────────────────────────────────────── */}
+      {/* ── Rainbow picker ────────────────────────────────────────────────────── */}
+      <HsvPicker
+        color={previewColor}
+        onChange={hex => { setHexInput(hex); setHexError(false); onApplyColor(trackIndex, hex, 'custom') }}
+      />
+
+      {/* ── Hex input ─────────────────────────────────────────────────────────── */}
       <div>
-        <div style={{ fontSize: 9, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 5 }}>Custom</div>
         <div style={{ display: 'flex', gap: 5, alignItems: 'center' }}>
           <div style={{ width: 22, height: 22, background: previewColor, borderRadius: 3, flexShrink: 0, border: '1px solid var(--border2)' }} />
           <input
@@ -446,7 +569,9 @@ function TrackRow({ track, onToggleIncluded, onToggleMerge, onChangeProgram, onU
               <span
                 title="Double-click to rename"
                 onDoubleClick={startEdit}
-                style={{ fontSize: 'var(--text-sm)', fontWeight: 500, color: 'var(--text-muted)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', cursor: PENCIL_CURSOR }}
+                onMouseEnter={e => { e.currentTarget.style.color = 'var(--text-amber)' }}
+                onMouseLeave={e => { e.currentTarget.style.color = 'var(--text-muted)' }}
+                style={{ fontSize: 'var(--text-sm)', fontWeight: 500, color: 'var(--text-muted)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', cursor: PENCIL_CURSOR, transition: 'color 0.12s' }}
               >
                 {track.trackName}
               </span>
@@ -500,7 +625,7 @@ function TrackRow({ track, onToggleIncluded, onToggleMerge, onChangeProgram, onU
         onMouseEnter={e => { e.currentTarget.style.color = track.color; e.currentTarget.style.borderColor = track.color }}
         onMouseLeave={e => { e.currentTarget.style.color = 'var(--text-dim-control)'; e.currentTarget.style.borderColor = 'var(--border2)' }}
       >
-        <Palette size={11} />
+        <SwatchBook size={11} />
       </button>
 
       {/* ── Col 4: Merge / Unmerge ───────────────────────────────────────────── */}
