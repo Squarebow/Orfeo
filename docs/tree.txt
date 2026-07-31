@@ -1,0 +1,123 @@
+Structure of: E:\_DEV\GitHub\Orfeo
+├── docs
+│   ├── LR Hand rework
+│   │   ├── Bruce Hornsby - The Way It Is (1)_ORFEO.mid
+│   │   ├── Hand-Split Engine & Related Fixes - Staged Prompts.md
+│   │   ├── LR Hand Split — Forensic Analysis & Algorithm Design (+chord detection, visual delay).md
+│   │   └── My_Foolish_Heart_–_Bill_Evans_(Head_&_Coda_Transcription).mid
+│   ├── superpowers
+│   │   └── plans
+│   │       └── 2026-07-29-foreign-format-import.md
+│   ├── ARCHITECTURE.md
+│   ├── CSS_FINAL_SCAN.md
+│   ├── CSS_TOKEN_CHEATSHEET.md
+│   ├── HOW_TO_USE.md
+│   ├── RESEARCH_alphatab-import.md
+│   ├── ROADMAP.md
+│   ├── Track Color System.md
+│   ├── tree.txt
+│   └── UI_STRINGS_AUDIT.md
+├── electron
+│   ├── main.ts
+│   └── preload.ts
+├── public
+│   ├── Demo
+│   │   ├── Mozart - Rondo Alla Turca .mid
+│   │   ├── Scott Joplin - Entertainer.mid
+│   │   └── Vivaldi 4 stagioni - Estate.mid
+│   ├── fonts
+│   │   ├── Inter-Bold.ttf
+│   │   ├── Inter-Italic.ttf
+│   │   ├── Inter-Regular.ttf
+│   │   └── JetBrainsMono-Regular.ttf
+│   ├── GeneralUser-GS.sf2
+│   ├── icon.ico
+│   └── spessasynth_processor.min.js
+├── src
+│   ├── assets
+│   │   └── Orfeo_logo_NEW.svg
+│   ├── components
+│   │   ├── Keyboard
+│   │   │   ├── FloatingKeyboard.tsx
+│   │   │   ├── Keyboard.tsx
+│   │   │   └── KeyboardControls.tsx
+│   │   ├── MidiEditor
+│   │   │   └── MidiEditor.tsx
+│   │   ├── Mixer
+│   │   │   ├── ChannelStrip.tsx
+│   │   │   ├── MasterStrip.tsx
+│   │   │   ├── MixerConsole.tsx
+│   │   │   └── MixerKnob.tsx
+│   │   ├── NoteEditor
+│   │   │   └── NoteEditorToolbar.tsx
+│   │   ├── PianoRoll
+│   │   │   └── PianoRoll.tsx
+│   │   ├── SettingsPanel
+│   │   │   └── SettingsPanel.tsx
+│   │   ├── TrackPanel
+│   │   │   └── TrackPanel.tsx
+│   │   ├── Transport
+│   │   │   └── TopBar.tsx
+│   │   ├── ChordExplorer.tsx
+│   │   ├── ConfirmDialog.tsx
+│   │   ├── EmptyState.tsx
+│   │   ├── LockedChordModal.tsx
+│   │   ├── LoopRegionStrip.tsx
+│   │   ├── MarqueeText.tsx
+│   │   ├── MidiIcon.tsx
+│   │   ├── OrfeoLogo.tsx
+│   │   ├── OrfeoMark.tsx
+│   │   ├── ScaleExplorer.tsx
+│   │   ├── SpeedControl.tsx
+│   │   └── VolumeKnob.tsx
+│   ├── hooks
+│   │   ├── useAudioEngine.ts
+│   │   ├── useChordSequence.ts
+│   │   ├── useMetronome.ts
+│   │   ├── useMidiFile.ts
+│   │   ├── useMidiInput.ts
+│   │   ├── usePlayback.ts
+│   │   └── useSamplesEngine.ts
+│   ├── store
+│   │   └── index.ts
+│   ├── types
+│   │   └── index.ts
+│   ├── utils
+│   │   ├── chordDetection.ts
+│   │   ├── colors.ts
+│   │   ├── confirmController.ts
+│   │   ├── cursors.ts
+│   │   ├── foreignFormatImport.ts
+│   │   ├── genreVoicing.ts
+│   │   ├── gmInstruments.ts
+│   │   ├── handAssignment.ts
+│   │   ├── handAssignmentTest.ts
+│   │   ├── handBoundaries.ts
+│   │   ├── handMetadata.ts
+│   │   ├── handMetadataTest.ts
+│   │   ├── handPreview.ts
+│   │   ├── keyboardGroups.ts
+│   │   ├── keyDetection.ts
+│   │   ├── keyLayout.ts
+│   │   ├── midiParser.ts
+│   │   ├── modalFocus.ts
+│   │   ├── noteEditorCommands.ts
+│   │   ├── noteEditorHistory.ts
+│   │   ├── noteEditorRoundTripTest.ts
+│   │   ├── noteEditorState.ts
+│   │   └── noteNames.ts
+│   ├── App.tsx
+│   ├── index.css
+│   └── main.tsx
+├── CHANGELOG.md
+├── electron.vite.config.ts
+├── index.html
+├── LICENSE
+├── package-lock.json
+├── package.json
+├── README.md
+├── skills-lock.json
+├── tailwind.config.ts
+├── THIRD_PARTY_LICENSES.md
+├── tsconfig.json
+└── tsconfig.node.json

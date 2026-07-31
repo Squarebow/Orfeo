@@ -10,6 +10,9 @@ import {
   type ToneNote,
 } from '../../utils/noteEditorCommands'
 import { getNoteLabel } from '../../utils/noteNames'
+import type { Hand } from '../../types'
+
+const HAND_COLOR: Record<Hand, number> = { L: 0x4a7fff, R: 0xe8a027 }
 
 const VISIBLE_SECONDS  = 6
 const NOTE_RADIUS      = 3
@@ -21,7 +24,7 @@ const SEL_NOTE_COLOR    = 0xdd2244   // red — actively selected/dragged notes
 const SEL_MARQUEE_COLOR = 0x7788aa   // neutral — drag-select rectangle
 
 // ── FlatNote — used for the main render O(log N) binary search ────────────────
-interface FlatNote { midi: number; time: number; duration: number; trackIndex: number }
+interface FlatNote { midi: number; time: number; duration: number; trackIndex: number; hand?: Hand }
 
 // ── EditFlatNote — actual @tonejs/midi Note references for edit hit-testing ───
 interface EditFlatNote {
@@ -562,7 +565,7 @@ export default function PianoRoll() {
           return
         }
 
-        const { midi, currentTime, tracks, detectedKey, zoomLevel, appTheme, keyboardSize, showBarNumbers, barStarts: storeBars, noteEditorActive } = storeRef.current
+        const { midi, currentTime, tracks, detectedKey, zoomLevel, appTheme, keyboardSize, showBarNumbers, barStarts: storeBars, noteEditorActive, showHandLabels } = storeRef.current
         const transpose   = (detectedKey as any)?.transpose ?? 0
         const W = app.screen.width, H = app.screen.height
         const py          = H * PLAYHEAD_RATIO
@@ -638,7 +641,7 @@ export default function PianoRoll() {
           const flat: FlatNote[] = []
           for (const track of midi.tracks) {
             for (const note of track.notes) {
-              flat.push({ midi: note.midi, time: note.time, duration: note.duration, trackIndex: track.index })
+              flat.push({ midi: note.midi, time: note.time, duration: note.duration, trackIndex: track.index, hand: note.hand })
             }
           }
           flat.sort((a, b) => a.time - b.time)
@@ -665,7 +668,12 @@ export default function PianoRoll() {
           const key = keyLayoutRef.current[idx]
           if (!key) continue
 
-          const color  = parseInt((ts?.color ?? '#e8a027').replace('#', ''), 16)
+          // ── Hand-colored mode (beta) — overrides track color with L/R tint when
+          // the note carries a hand tag. This is the actual visible effect behind
+          // "Keep one track, hand-colored": tags alone are invisible without it.
+          const color  = (showHandLabels && note.hand)
+            ? HAND_COLOR[note.hand]
+            : parseInt((ts?.color ?? '#e8a027').replace('#', ''), 16)
           const topY   = py - (note.time + note.duration - currentTime) * pps
           const botY   = py - (note.time - currentTime) * pps
           const noteH  = Math.max(botY - topY, MIN_NOTE_H)

@@ -205,8 +205,6 @@ interface OrfeoStore {
 
   handLabelMode: 'practice' | 'performance'
   setHandLabelMode: (mode: 'practice' | 'performance') => void
-  handBoundaryCurve: { time: number; boundary: number | null }[]
-  setHandBoundaryCurve: (curve: { time: number; boundary: number | null }[]) => void
 
   performanceSplitSensitivity: number
   setPerformanceSplitSensitivity: (n: number) => void
@@ -519,14 +517,13 @@ export const useStore = create<OrfeoStore>((set, get) => ({
   showNoteNamesOnKeyboard: true,
   setShowNoteNamesOnKeyboard: (showNoteNamesOnKeyboard) => set({ showNoteNamesOnKeyboard }),
 
-  // ── Hand label mode — practice (static breakpoint) or performance (dynamic) ─
+  // ── Hand label mode — practice (static, tag-based) or performance (per-note, live) ─
   handLabelMode: 'practice' as 'practice' | 'performance',
   setHandLabelMode: (handLabelMode) => set({ handLabelMode }),
-  // ── Precomputed boundary curve for Performance mode — not persisted ────────
-  handBoundaryCurve: [],
-  setHandBoundaryCurve: (handBoundaryCurve) => set({ handBoundaryCurve }),
 
-  // ── Performance split sensitivity — semitone gap threshold, persisted ──────
+  // ── Performance split sensitivity — hardware-input fallback only (file notes
+  // read their exact stored tag, no sensitivity involved); semitone gap
+  // threshold, persisted ──────────────────────────────────────────────────────
   performanceSplitSensitivity: 8,
   setPerformanceSplitSensitivity: (n) => set({ performanceSplitSensitivity: Math.max(2, Math.min(16, n)) }),
 

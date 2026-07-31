@@ -4,6 +4,29 @@
 
 ---
 
+## [0.15.0] — 31. 7. 2026 — Hand-Split Engine (beta)
+
+### 31. 7. 2026 — Unified L/R hand-assignment engine, split/merge/color rewire, indicator rewire
+
+**New files:** `src/utils/handAssignment.ts`, `src/utils/handAssignmentTest.ts`, `src/utils/handMetadata.ts`, `src/utils/handMetadataTest.ts`, `src/utils/handPreview.ts`, `src/utils/keyboardGroups.ts`, `docs/LR Hand rework/` (analysis + implementation-summary docs, two reference MIDI files)
+
+**Files changed:** `electron/main.ts`, `src/App.tsx`, `src/components/Keyboard/Keyboard.tsx`, `src/components/Keyboard/KeyboardControls.tsx`, `src/components/MidiEditor/MidiEditor.tsx`, `src/components/PianoRoll/PianoRoll.tsx`, `src/components/SettingsPanel/SettingsPanel.tsx`, `src/store/index.ts`, `src/types/index.ts`, `src/utils/handBoundaries.ts`, `src/utils/midiParser.ts`
+
+Replaces three previously-separate, duplicated implementations (crude pitch-threshold split in `electron/main.ts`, naive note-concat merge, live per-frame pitch-gap-guessing L/R keyboard indicator) with one shared engine.
+
+**Engine (`assignHands()`):**
+- Fast path for already-split 2-track/2-channel input (avg-pitch gap + unison-collision check).
+- Real path: onset clustering + Viterbi DP over per-cluster L/R partitions. Strict mode (default) restricts partitions to pitch-sorted prefix splits — structural "hands never cross." Cost function: quadratic span-violation penalty, hand-movement cost (charged from the piece-wide mean when a hand's never played yet — closes a "free first activation" loophole), a flat penalty for splitting a cluster across hands when it already fits in one hand's reach, and a flat penalty for switching hands between consecutive monophonic clusters.
+- Per-cluster confidence (DP cost margin, best vs. runner-up).
+
+**Persistence:** `hand`/`handConfidence` sidecar fields on `ParsedNote`. Portable export hint — name-suffix for homogeneous (split) tracks, `ORFEO_HAND_MAP:<version>:<trackIndex>:<RLE>` text meta for mixed (colored) tracks. Explicitly not real MIDI clef data (SMF has no clef event). Versioned (`HAND_ENGINE_VERSION`) so an algorithm fix doesn't get masked forever by a previously-saved file's stale hint.
+
+**UI:** `MidiEditor.tsx` split action now runs `assignHands()` instead of a pitch-threshold; merge and plain save now hand-tag every surviving keyboard-group track. New hand-split preview panel: colored timeline, low-confidence passages flagged with a red band, two output choices ("Split into two tracks" / "Keep one track, hand-colored" — disabled with a tooltip when the Left/Right Hand setting is off). One-slot undo (snapshot-before-apply, since split/merge never touch the original file). `PianoRoll.tsx` colors notes by hand tag when Left/Right Hand is on. `Keyboard.tsx` shows a per-active-key hand stripe in Performance mode (reads the tag; falls back to live gap-inference only for hardware MIDI input, which has no backing file note). `KeyboardControls.tsx` Practice mode shows a moving split line — sliding-window average of real tags, replacing both the old static-heuristic line and the old live-guessing ribbon.
+
+**Known issues** (see `docs/LR Hand rework/Implementation Summary & Known Issues.md`): hand-label identity can drift/swap across a long single-hand passage; Practice-mode line can linger a couple seconds into a brief solo passage before the window clears. Both pending a proper ground-truth-annotated test corpus (in progress) before further tuning.
+
+---
+
 ## [0.14.0] — 30. 7. 2026 — Track Color Editor
 
 ### 30. 7. 2026 — Color Editor in MIDI Playback Editor (Phase 2) + pencil cursor

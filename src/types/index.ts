@@ -1,9 +1,24 @@
+// L = left hand, R = right hand. Canonical location for this type — the hand
+// engine (utils/handAssignment.ts) and metadata round-trip (utils/handMetadata.ts)
+// both import it from here rather than declaring their own.
+export type Hand = 'L' | 'R'
+
 export interface ParsedNote {
   midi: number
   time: number
   duration: number
   velocity: number
   trackIndex: number
+  // ── Hand-assignment sidecar — authoritative in-memory source of truth ──────
+  // Set either by utils/handAssignment.ts (assignHands()) or restored from an
+  // exported hint on reimport (utils/handMetadata.ts). Absent until one of
+  // those has run; absence is not itself meaningful (not yet decided, not "no hand").
+  hand?: Hand
+  // 0..1, present only alongside `hand`. Sidecar-only — never written to the
+  // exported MIDI file. Re-derivable from the algorithm, not authoritative
+  // once a human has accepted a split, so there's no case for spending an
+  // SMF meta-event slot on it.
+  handConfidence?: number
 }
 
 export interface ParsedTrack {

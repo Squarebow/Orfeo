@@ -3,8 +3,12 @@ import { useStore } from '../../store'
 import { isBlackKey } from '../../utils/midiParser'
 import { getNoteLabel, getNoteName } from '../../utils/noteNames'
 import { detectChord, detectChordWithInversion, formatInversionDisplay, localizeChord, ordinalSuffix } from '../../utils/chordDetection'
-import { detectHandBoundaries, noteToLeftPct } from '../../utils/handBoundaries'
 import { buildKeyLayoutRatios, PIANO_RANGES as RANGES } from '../../utils/keyLayout'
+import { buildPitchHandIndex, lookupNoteHandAtTime, detectPerformanceBoundary } from '../../utils/handBoundaries'
+import type { Hand } from '../../types'
+
+const HAND_SLATE = '#4a7fff'
+const HAND_AMBER = '#e8a027'
 
 const CHORD_MIN_NOTES = 3
 const CHORD_DEBOUNCE_MS = 320
@@ -51,11 +55,9 @@ export default function Keyboard() {
   const chordPrompterOpen = useStore((s) => s.chordPrompterOpen)
   const setChordPrompterOpen = useStore((s) => s.setChordPrompterOpen)
   const currentTime = useStore((s) => s.currentTime)
-  const showHandLabels          = useStore((s) => s.showHandLabels)
-  const splitBreakpointType     = useStore((s) => s.splitBreakpointType)
-  const splitBreakpointNote     = useStore((s) => s.splitBreakpointNote)
-  const splitBreakpointRangeStart = useStore((s) => s.splitBreakpointRangeStart)
-  const splitBreakpointRangeEnd   = useStore((s) => s.splitBreakpointRangeEnd)
+  const showHandLabels = useStore((s) => s.showHandLabels)
+  const handLabelMode = useStore((s) => s.handLabelMode)
+  const performanceSplitSensitivity = useStore((s) => s.performanceSplitSensitivity)
   const presentationMode = useStore((s) => s.presentationMode)
   const shiftHeldRef = useRef(false)
   // ── Tracks whether the primary mouse button is held, enabling glissando drag ──
@@ -139,12 +141,6 @@ export default function Keyboard() {
   // the CSS percentages that position black keys absolutely over the white key flex row.
   const keyRatios = useMemo(() => buildKeyLayoutRatios(min, max), [min, max])
 
-  // ── Hand boundary detection — recomputed when file or breakpoint settings change ─
-  const handBoundaries = useMemo(
-    () => detectHandBoundaries(midi, splitBreakpointType, splitBreakpointNote, splitBreakpointRangeStart, splitBreakpointRangeEnd),
-    [midi, splitBreakpointType, splitBreakpointNote, splitBreakpointRangeStart, splitBreakpointRangeEnd],
-  )
-
   const allActiveKeys = useMemo(() => {
     const merged = new Set(activeKeys)
     lockedKeys.forEach(k => merged.add(k))
@@ -162,6 +158,26 @@ export default function Keyboard() {
   const getColor = (midi: number): string | null => {
     if (!allActiveKeys.has(midi)) return null
     return allActiveColors.get(midi) ?? '#e8a027'
+  }
+
+  // ── Performance mode: per-note hand indicator — reads the stored tag for
+  // whichever file note is actually sounding at this pitch right now, instead
+  // of inferring a boundary from the live pitch spread every frame. A hardware
+  // MIDI key has no backing file note (lookupNoteHandAtTime returns null), so
+  // that's the one case still falling back to live gap inference — there's
+  // nothing to look up for a key that was never in the file.
+  const pitchHandIndex = useMemo(() => (midi ? buildPitchHandIndex(midi) : null), [midi])
+  const hardwareBoundary = useMemo(() => {
+    if (handLabelMode !== 'performance') return null
+    return detectPerformanceBoundary([...activeKeys].sort((a, b) => a - b), performanceSplitSensitivity)
+  }, [activeKeys, handLabelMode, performanceSplitSensitivity])
+
+  const getHand = (noteMidi: number): Hand | null => {
+    if (!showHandLabels || handLabelMode !== 'performance' || !allActiveKeys.has(noteMidi)) return null
+    const tagged = pitchHandIndex ? lookupNoteHandAtTime(pitchHandIndex, noteMidi, currentTime) : null
+    if (tagged) return tagged
+    if (hardwareBoundary === null) return null
+    return noteMidi < hardwareBoundary ? 'L' : 'R'
   }
 
   // ── Manual chord detection — playback display is now sourced from chordSequence ─
@@ -459,6 +475,7 @@ export default function Keyboard() {
         <div className="absolute inset-0 flex">
           {whiteKeys.map((k, i) => {
             const color = getColor(k.midi)
+            const hand = getHand(k.midi)
             const locked = lockedKeys.has(k.midi)
             const isC = k.midi % 12 === 0
             const label = color
@@ -482,6 +499,12 @@ export default function Keyboard() {
                   minWidth: 0,
                   }}
               >
+                {hand && (
+                  <span className="pointer-events-none" style={{
+                    position: 'absolute', top: 0, left: 0, right: 0, height: 3,
+                    background: hand === 'L' ? HAND_SLATE : HAND_AMBER,
+                  }} />
+                )}
                 {label && (
                   <span className="font-semibold pointer-events-none"
                     style={{ color: color ? '#fff' : '#888', fontFamily: 'JetBrains Mono', fontSize: (chordExplorerOpen || scaleExplorerOpen) ? 11 : 9 }}>
@@ -502,6 +525,7 @@ export default function Keyboard() {
             const leftPct  = ratio.x * 100
             const widthPct = ratio.width * 100
             const color = getColor(k.midi)
+            const hand = getHand(k.midi)
             const locked = lockedKeys.has(k.midi)
             return (
               <div
@@ -523,6 +547,13 @@ export default function Keyboard() {
                   zIndex: 2,
                 }}
               >
+                {hand && (
+                  <span className="pointer-events-none" style={{
+                    position: 'absolute', top: 0, left: 0, right: 0, height: 3,
+                    background: hand === 'L' ? HAND_SLATE : HAND_AMBER,
+                    borderRadius: '2px 2px 0 0',
+                  }} />
+                )}
                 {color && showNoteNamesOnKeyboard && noteNaming !== 'hidden' && (
                   <span style={{
                     position: 'absolute', bottom: 3, left: '50%',
