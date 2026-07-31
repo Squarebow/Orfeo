@@ -1,8 +1,0 @@
-{
-  "files.exclude": {
-    "**/.graphify-out": true
-  },
-  "search.exclude": {
-    "**/.graphify-out": true
-  }
-}

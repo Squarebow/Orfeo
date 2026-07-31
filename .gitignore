@@ -10,8 +10,21 @@ release/
 Thumbs.db
 .claude/
 .continue/
+.vscode/
 skills-lock.json
 graphify-out/
-docs/superpowers/
 assets/CLAUDE.md
 CLAUDE.md
+
+# ── Internal/planning docs — repo stays clean for public visitors ───────────
+# Only docs describing the shipped app itself are tracked (ARCHITECTURE.md,
+# HOW_TO_USE.md). Everything else here is local-only working material.
+docs/superpowers/
+docs/LR Hand rework/
+docs/CSS_FINAL_SCAN.md
+docs/CSS_TOKEN_CHEATSHEET.md
+docs/RESEARCH_alphatab-import.md
+docs/ROADMAP.md
+docs/Track Color System.md
+docs/UI_STRINGS_AUDIT.md
+docs/tree.txt
