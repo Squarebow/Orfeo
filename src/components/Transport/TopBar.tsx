@@ -66,8 +66,8 @@ export default function TopBar() {
     useStore.setState({ currentTime: parseFloat(e.target.value) })
   }, [])
 
-  const handleScrubEnd = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
-    const t = parseFloat(e.target.value)
+  const handleScrubEnd = useCallback((e: React.MouseEvent<HTMLInputElement>) => {
+    const t = parseFloat(e.currentTarget.value)
     if (wasPlayingRef.current) seekAndPlay(t); else seek(t)
   }, [seek, seekAndPlay])
 

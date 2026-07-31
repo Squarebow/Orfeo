@@ -923,18 +923,20 @@ export default function MidiEditor() {
         ? orfeoName(state.filePath, true)
         : state.outputPath
 
-      // ── Build trackNames map: editorIndex → trackName for all included rows ───
-      // Merged rows contribute the name keyed by their first source track index,
+      // ── Build trackNames/trackColors maps: editorIndex → value for all included
+      // rows. Merged rows contribute keyed by their first source track index,
       // which is the index main.ts uses to represent the merged output track.
       const trackNames: Record<number, string> = {}
+      const trackColors: Record<number, string> = {}
       for (const row of state.rows.filter(r => r.included)) {
         const key = row.isMerged && row.mergedFromIndices ? row.mergedFromIndices[0] : row.index
         trackNames[key] = row.trackName
+        trackColors[key] = row.color
       }
 
       const preApply = snapshotCurrentFile()
       const result = await window.electronAPI.saveMidiEditor({
-        filePath: state.filePath, outputPath: finalOutput, includedTracks, mergeGroups, trackNames,
+        filePath: state.filePath, outputPath: finalOutput, includedTracks, mergeGroups, trackNames, trackColors,
       })
       setSaveResult({ ok: result.ok, msg: result.message })
       if (result.ok && result.base64 && result.fileName && result.filePath) {

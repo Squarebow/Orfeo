@@ -11,6 +11,8 @@ import {
 } from '../../utils/noteEditorCommands'
 import { getNoteLabel } from '../../utils/noteNames'
 import type { Hand } from '../../types'
+import { HitEffectsRenderer } from './HitEffects'
+import { drainHitEffects } from '../../utils/hitEffectQueue'
 
 const HAND_COLOR: Record<Hand, number> = { L: 0x4a7fff, R: 0xe8a027 }
 
@@ -288,6 +290,7 @@ export default function PianoRoll() {
   const overlayCanvasRef  = useRef<HTMLCanvasElement | null>(null)
   const overlayCtxRef     = useRef<CanvasRenderingContext2D | null>(null)
   const keyLayoutRef      = useRef<KeyLayout[]>([])
+  const hitEffectsRef     = useRef<HitEffectsRenderer | null>(null)
   const storeRef          = useRef(useStore.getState())
   const lastKeySizeRef    = useRef<number>(0)
   const lastMidiRef       = useRef<any>(null)
@@ -359,6 +362,8 @@ export default function PianoRoll() {
       app.stage.addChild(grid)
       app.stage.addChild(notes)
       app.stage.addChild(playhead)
+      const hitEffects = new HitEffectsRenderer(app.stage)   // above playhead, below edit overlay
+      hitEffectsRef.current = hitEffects
       app.stage.addChild(editG)
       gridRef.current     = grid
       notesRef.current    = notes
@@ -565,18 +570,49 @@ export default function PianoRoll() {
           return
         }
 
-        const { midi, currentTime, tracks, detectedKey, zoomLevel, appTheme, keyboardSize, showBarNumbers, barStarts: storeBars, noteEditorActive, showHandLabels } = storeRef.current
+        const { midi, currentTime, tracks, detectedKey, zoomLevel, appTheme, keyboardSize, showBarNumbers, barStarts: storeBars, noteEditorActive, showHandLabels, playbarVisible, keyboardTopY, hitEffectsEnabled, hitEffectPattern, hitEffectBloomThreshold, hitEffectBloomIntensity, hitEffectBloomSpread } = storeRef.current
         const transpose   = (detectedKey as any)?.transpose ?? 0
         const W = app.screen.width, H = app.screen.height
-        const py          = H * PLAYHEAD_RATIO
+        // ── Hit-line Y position — fixed 80% line by default (unchanged), or the
+        // live keyboard top edge when the playbar is hidden. `pps` (pixels per
+        // second, i.e. how fast/compressed notes fall) always derives from the
+        // FIXED ratio regardless — only where the line/notes visually land
+        // moves, per the feature's own scope ("only where the trigger
+        // threshold is read from", not how notes are drawn or fall).
+        const staticPy    = H * PLAYHEAD_RATIO
         const visibleSecs = VISIBLE_SECONDS / (zoomLevel ?? 1)
-        const pps         = py / visibleSecs
+        const pps         = staticPy / visibleSecs
+        let py = staticPy
+        if (!playbarVisible && keyboardTopY !== null) {
+          const rect = el.getBoundingClientRect()
+          py = Math.max(20, Math.min(H - 4, keyboardTopY - rect.top))
+        }
         const { min: midiMin, max: midiMax } = RANGES[keyboardSize] ?? RANGES[88]
         const totalKeys   = midiMax - midiMin + 1
 
         if (keyboardSize !== lastKeySizeRef.current) {
           lastKeySizeRef.current = keyboardSize
           drawGrid(W, H, midiMin, midiMax)
+        }
+
+        // ── Note-hit visual effects (Phase 2) — spawn from the same trigger as
+        // the key glow (drained queue, see utils/hitEffectQueue.ts), positioned
+        // at the hit note's key X and the CURRENT hit line's Y (playbar or
+        // keyboard-derived, per Phase 1 above) — so the effect always lands
+        // exactly where the glow itself is. Skipped entirely when the setting
+        // is off. Each spawned effect drives its own lifecycle via GSAP from
+        // here on — nothing to poll per-frame from this loop.
+        if (hitEffectsEnabled) {
+          hitEffects.setBloomParams({ threshold: hitEffectBloomThreshold, intensity: hitEffectBloomIntensity, spread: hitEffectBloomSpread })
+          const hits = drainHitEffects()
+          for (const hit of hits) {
+            const idx = hit.midi - midiMin
+            if (idx < 0 || idx >= totalKeys) continue
+            const key = keyLayoutRef.current[idx]
+            if (!key) continue
+            const colorHex = parseInt(hit.color.replace('#', ''), 16)
+            hitEffects.spawn(hitEffectPattern, key.x + key.width / 2, py, colorHex)
+          }
         }
 
         // ── Edit mode enter/exit — create or destroy NES.editMidi ────────────
@@ -621,8 +657,10 @@ export default function PianoRoll() {
         app.renderer.background.color = appTheme === 'warm' ? 0x12100e : 0x0f0f12
 
         playhead.clear()
-        playhead.rect(0, py, W + 1, 2)
-        playhead.fill({ color: 0xc6c8c8, alpha: 0.90 })
+        if (playbarVisible) {
+          playhead.rect(0, py, W + 1, 2)
+          playhead.fill({ color: 0xc6c8c8, alpha: 0.90 })
+        }
 
         notes.clear()
 
@@ -1265,6 +1303,8 @@ export default function PianoRoll() {
         overlayCanvasRef.current = null
         overlayCtxRef.current    = null
       }
+      try { hitEffectsRef.current?.destroy() } catch {}
+      hitEffectsRef.current = null
       if (appRef.current) {
         try { appRef.current.canvas.remove() } catch {}
         try { appRef.current.destroy(false) } catch {}

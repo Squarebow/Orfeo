@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react'
-import { ChevronRight, Eye, Volume2, VolumeX, ChevronDown, AudioLines, SlidersVertical } from 'lucide-react'
+import { ChevronRight, Eye, Volume2, VolumeX, ChevronDown, AudioLines, SlidersVertical, GripVertical } from 'lucide-react'
 import { useStore, DEFAULT_MUTED_GROUPS } from '../../store'
 import { GM_GROUPS } from '../../utils/gmInstruments'
 import type { TrackState } from '../../types'
@@ -53,6 +53,14 @@ export default function TrackPanel() {
   const setTrackMuteFilter = useStore((s) => s.setTrackMuteFilter)
   const autoMuteNonKeyboard = useStore((s) => s.autoMuteNonKeyboard)
   const [collapsedGroups, setCollapsedGroups] = useState<Set<string>>(new Set())
+  // ── Drag-to-reorder — session-only display order, never written to the file.
+  // Piano/keys always stays pinned first (see `grouped` below) — group drag is
+  // simply disabled for it, and it's excluded from any custom order snapshot.
+  const [customGroupOrder, setCustomGroupOrder] = useState<string[] | null>(null)
+  const [customTrackOrder, setCustomTrackOrder] = useState<Record<string, number[]>>({})
+  const [draggedGroup, setDraggedGroup] = useState<string | null>(null)
+  const [draggedTrack, setDraggedTrack] = useState<{ group: string; index: number } | null>(null)
+  const [hoveredHandle, setHoveredHandle] = useState<string | null>(null)
   const midiEditorOpen          = useStore((s) => s.midiEditorOpen)
   const noteEditorActive        = useStore((s) => s.noteEditorActive)
   const noteEditorSoloTrackIndex = useStore((s) => s.noteEditorSoloTrackIndex)
@@ -64,7 +72,9 @@ export default function TrackPanel() {
     useStore.getState().setMidiEditorOpen(true)
   }
 
-  // ── Group tracks — partition by GM group key, ordered by GROUP_ORDER ──────
+  // ── Group tracks — partition by GM group key. Default order is GROUP_ORDER;
+  // customGroupOrder/customTrackOrder (drag-reorder, session-only) override it
+  // when present. Piano always renders first regardless — pinned, not draggable.
   const grouped = useMemo(() => {
     const map = new Map<string, TrackState[]>()
     for (const track of tracks) {
@@ -72,10 +82,46 @@ export default function TrackPanel() {
       if (!map.has(g)) map.set(g, [])
       map.get(g)!.push(track)
     }
-    return GROUP_ORDER
-      .filter(g => map.has(g))
-      .map(g => ({ key: g, label: GM_GROUPS[g]?.label ?? g, tracks: map.get(g)! }))
-  }, [tracks])
+    const present = GROUP_ORDER.filter(g => map.has(g))
+    const nonPiano = present.filter(g => g !== 'piano')
+    const orderedNonPiano = customGroupOrder
+      ? [...customGroupOrder.filter(g => nonPiano.includes(g)), ...nonPiano.filter(g => !customGroupOrder!.includes(g))]
+      : nonPiano
+    const orderedKeys = present.includes('piano') ? ['piano', ...orderedNonPiano] : orderedNonPiano
+
+    return orderedKeys.map(g => {
+      const groupTracks = map.get(g)!
+      const order = customTrackOrder[g]
+      const orderedTracks = order
+        ? [...order.map(idx => groupTracks.find(t => t.index === idx)).filter((t): t is TrackState => !!t),
+           ...groupTracks.filter(t => !order.includes(t.index))]
+        : groupTracks
+      return { key: g, label: GM_GROUPS[g]?.label ?? g, tracks: orderedTracks }
+    })
+  }, [tracks, customGroupOrder, customTrackOrder])
+
+  // ── Group drag-to-reorder — piano is never draggable and never a valid drop
+  // target's displacement (it's excluded from the reorderable list entirely,
+  // so nothing can end up ahead of it). ────────────────────────────────────
+  const reorderGroups = (draggedKey: string, targetKey: string) => {
+    if (draggedKey === targetKey || draggedKey === 'piano' || targetKey === 'piano') return
+    const base = customGroupOrder ?? grouped.filter(g => g.key !== 'piano').map(g => g.key)
+    const without = base.filter(k => k !== draggedKey)
+    const targetIdx = without.indexOf(targetKey)
+    without.splice(targetIdx, 0, draggedKey)
+    setCustomGroupOrder(without)
+  }
+
+  // ── Track drag-to-reorder within a single group ───────────────────────────
+  const reorderTracks = (groupKey: string, draggedIndex: number, targetIndex: number) => {
+    if (draggedIndex === targetIndex) return
+    const groupTracksNow = grouped.find(g => g.key === groupKey)?.tracks.map(t => t.index) ?? []
+    const base = customTrackOrder[groupKey] ?? groupTracksNow
+    const without = base.filter(i => i !== draggedIndex)
+    const targetIdx = without.indexOf(targetIndex)
+    without.splice(targetIdx, 0, draggedIndex)
+    setCustomTrackOrder(prev => ({ ...prev, [groupKey]: without }))
+  }
 
   const hasSolo = tracks.some(t => t.solo)
 
@@ -284,9 +330,16 @@ export default function TrackPanel() {
             {grouped.map(({ key, label, tracks: groupTracks }) => {
               const collapsed = collapsedGroups.has(key)
               const groupMuted = isGroupMuted(key)
+              const isPiano = key === 'piano'
+              const handleId = `group:${key}`
 
               return (
-                <div key={key} style={{ marginBottom: 2 }}>
+                <div
+                  key={key}
+                  style={{ marginBottom: 2, opacity: draggedGroup === key ? 0.4 : 1 }}
+                  onDragOver={!isPiano ? (e) => e.preventDefault() : undefined}
+                  onDrop={!isPiano ? () => { if (draggedGroup) reorderGroups(draggedGroup, key); setDraggedGroup(null) } : undefined}
+                >
                   {/* Group header row */}
                   <div style={{
                     display: 'flex', alignItems: 'center', gap: 6,
@@ -297,15 +350,37 @@ export default function TrackPanel() {
                   }}>
                     <button
                       onClick={() => toggleGroupCollapse(key)}
-                      style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-inactive)', padding: 0, display: 'flex', alignItems: 'center' }}
-                      title={collapsed ? 'Expand' : 'Collapse'}
+                      draggable={!isPiano}
+                      onDragStart={!isPiano ? () => setDraggedGroup(key) : undefined}
+                      onDragEnd={() => setDraggedGroup(null)}
+                      onMouseEnter={() => setHoveredHandle(handleId)}
+                      onMouseLeave={() => setHoveredHandle(h => h === handleId ? null : h)}
+                      style={{
+                        background: 'none', border: 'none', padding: 0, display: 'flex', alignItems: 'center',
+                        color: 'var(--text-inactive)',
+                        cursor: isPiano ? 'pointer' : (hoveredHandle === handleId ? 'grab' : 'pointer'),
+                      }}
+                      title={isPiano ? (collapsed ? 'Expand' : 'Collapse') : (collapsed ? 'Expand (drag to reorder)' : 'Collapse (drag to reorder)')}
                     >
-                      <ChevronDown size={11} style={{ transform: collapsed ? 'rotate(-90deg)' : 'none', transition: 'transform 0.15s' }} />
+                      {!isPiano && hoveredHandle === handleId
+                        ? <GripVertical size={11} />
+                        : <ChevronDown size={11} style={{ transform: collapsed ? 'rotate(-90deg)' : 'none', transition: 'transform 0.15s' }} />}
                     </button>
 
                     <span style={{ flex: 1, fontSize: 10, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.1em', color: 'var(--text-dimmest)' }}>
                       {label}
                     </span>
+
+                    {/* ── Collapsed: colored square per track — visual legend only ── */}
+                    {collapsed && (
+                      <div style={{ display: 'flex', gap: 2, cursor: 'pointer' }} onClick={() => toggleGroupCollapse(key)}>
+                        {groupTracks.map(t => (
+                          <div key={t.index} title={t.trackName ?? t.gmName}
+                            style={{ width: 7, height: 7, borderRadius: 2, background: t.color, flexShrink: 0 }} />
+                        ))}
+                      </div>
+                    )}
+
                     <span style={{ fontSize: 10, color: '#40404e', fontFamily: 'JetBrains Mono' }}>
                       {groupTracks.length}
                     </span>
@@ -336,6 +411,13 @@ export default function TrackPanel() {
                         onKeyboard={() => updateTrack(track.index, { showOnKeyboard: !track.showOnKeyboard })}
                         onSoloForEdit={noteEditorActive ? () => soloTrackForEdit(track.index) : undefined}
                         isSoloedForEdit={noteEditorSoloTrackIndex === track.index}
+                        isDragging={draggedTrack?.group === key && draggedTrack.index === track.index}
+                        isHandleHovered={hoveredHandle === `track:${key}:${track.index}`}
+                        onHandleHover={(hovered) => setHoveredHandle(hovered ? `track:${key}:${track.index}` : null)}
+                        onDragStart={() => setDraggedTrack({ group: key, index: track.index })}
+                        onDragEnd={() => setDraggedTrack(null)}
+                        onDragOverRow={(e) => e.preventDefault()}
+                        onDropRow={() => { if (draggedTrack && draggedTrack.group === key) reorderTracks(key, draggedTrack.index, track.index); setDraggedTrack(null) }}
                       />
                     )
                   })}
@@ -351,10 +433,16 @@ export default function TrackPanel() {
 }
 
 // ── Track row — three-line layout: name (top, full width) / track# + controls (mid) / ch+prog (bottom)
-function TrackRow({ track, dimmed, onMute, onSolo, onVisible, onKeyboard, onSoloForEdit, isSoloedForEdit }: {
+function TrackRow({
+  track, dimmed, onMute, onSolo, onVisible, onKeyboard, onSoloForEdit, isSoloedForEdit,
+  isDragging, isHandleHovered, onHandleHover, onDragStart, onDragEnd, onDragOverRow, onDropRow,
+}: {
   track: TrackState; dimmed: boolean
   onMute: () => void; onSolo: () => void; onVisible: () => void; onKeyboard: () => void
   onSoloForEdit?: () => void; isSoloedForEdit?: boolean
+  isDragging?: boolean; isHandleHovered?: boolean; onHandleHover?: (hovered: boolean) => void
+  onDragStart?: () => void; onDragEnd?: () => void
+  onDragOverRow?: (e: React.DragEvent) => void; onDropRow?: () => void
 }) {
   // Friendly channel/program label
   const ch = (track as any).channel != null ? (track as any).channel + 1 : track.index + 1
@@ -365,10 +453,12 @@ function TrackRow({ track, dimmed, onMute, onSolo, onVisible, onKeyboard, onSolo
     <div
       title={tooltip}
       onClick={onSoloForEdit}
+      onDragOver={onDragOverRow}
+      onDrop={onDropRow}
       style={{
-        padding: '6px 10px 5px 14px',
+        padding: '6px 10px 5px 8px',
         borderBottom: '1px solid var(--border-row)',
-        opacity: dimmed ? 0.45 : 1,
+        opacity: isDragging ? 0.4 : dimmed ? 0.45 : 1,
         transition: 'opacity 0.15s, background 0.1s',
         cursor: onSoloForEdit ? 'pointer' : 'default',
         background: isSoloedForEdit ? 'rgba(232,160,39,0.08)' : 'transparent',
@@ -377,14 +467,30 @@ function TrackRow({ track, dimmed, onMute, onSolo, onVisible, onKeyboard, onSolo
       onMouseEnter={e => { if (onSoloForEdit && !isSoloedForEdit) (e.currentTarget as HTMLElement).style.background = 'rgba(255,255,255,0.03)' }}
       onMouseLeave={e => { if (onSoloForEdit && !isSoloedForEdit) (e.currentTarget as HTMLElement).style.background = 'transparent' }}
     >
-      {/* ── Row 1: color bar + instrument name spanning full available width ── */}
-      <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+      {/* ── Row 1: drag handle + color bar + instrument name ──────────────── */}
+      <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+        <div
+          draggable
+          onDragStart={e => { e.stopPropagation(); onDragStart?.() }}
+          onDragEnd={() => onDragEnd?.()}
+          onMouseEnter={() => onHandleHover?.(true)}
+          onMouseLeave={() => onHandleHover?.(false)}
+          onClick={e => e.stopPropagation()}
+          title="Drag to reorder"
+          style={{
+            width: 11, display: 'flex', alignItems: 'center', justifyContent: 'center',
+            flexShrink: 0, cursor: isHandleHovered ? 'grab' : 'default',
+            color: isHandleHovered ? 'var(--text-inactive)' : 'transparent',
+          }}
+        >
+          <GripVertical size={11} />
+        </div>
         <div style={{ width: 3, height: 20, background: track.color, borderRadius: 2, flexShrink: 0, opacity: dimmed ? 0.6 : 1 }} />
         <MarqueeText name={track.trackName ?? track.gmName} spanStyle={{ fontSize: 'var(--text-sm)', fontWeight: 500, color: 'var(--text-muted)' }} />
       </div>
 
       {/* ── Row 2: track number (left) + M/S/V/K controls (right) ─────────── */}
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginTop: 3, paddingLeft: 11 }}>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginTop: 3, paddingLeft: 26 }}>
         <span style={{ fontSize: 9, color: 'var(--text-inactive)', fontFamily: 'JetBrains Mono' }}>track {track.index + 1}</span>
         <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-1)' }}>
           <IBtn onClick={onMute} active={track.muted} title={track.muted ? 'Unmute' : 'Mute'} activeColor="var(--status-error)">
@@ -410,7 +516,7 @@ function TrackRow({ track, dimmed, onMute, onSolo, onVisible, onKeyboard, onSolo
       </div>
 
       {/* ── Row 3: MIDI channel + program ─────────────────────────────────── */}
-      <div style={{ display: 'flex', gap: 6, marginTop: 2, paddingLeft: 11 }}>
+      <div style={{ display: 'flex', gap: 6, marginTop: 2, paddingLeft: 26 }}>
         <span style={{ fontSize: 9, color: '#454560', fontFamily: 'JetBrains Mono' }}>ch {ch}</span>
         <span style={{ fontSize: 9, color: '#454560', fontFamily: 'JetBrains Mono' }}>·</span>
         <span style={{ fontSize: 9, color: '#454560', fontFamily: 'JetBrains Mono' }}>{prog}</span>

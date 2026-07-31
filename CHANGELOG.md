@@ -4,6 +4,50 @@
 
 ---
 
+## [0.16.0] — 31. 7. 2026 — Note-hit VFX rewrite, downloadable soundfonts, track reorder, playback polish
+
+### Downloadable extra soundfonts (Samples engine)
+Settings → Audio → "Sound library": FluidR3 GM (142MB) and MuseScore General (38MB), both MIT-licensed GM soundfonts, one-click download + select. Neither is bundled in the build (would bloat the installer by hundreds of MB) — downloaded on demand into `userData/soundfonts/` (portable build: `<exeDir>/Orfeo-Data/soundfonts/`). Selecting a downloaded soundfont layers it over the always-bundled GeneralUser GS via `soundBankManager.addSoundBank` + `priorityOrder` (GeneralUser GS stays loaded as fallback for any preset the extra bank doesn't cover); switching back unloads it. Selection persists across restarts. Two well-known premium libraries (Timbres of Heaven, Arachno) were researched and rejected — both are "all rights reserved, no redistribution without permission," so only MIT-licensed alternatives were integrated.
+
+**New/changed:** `electron/main.ts` (soundfont catalog + `soundfont:list/download/delete/read` IPC, redirect-following HTTPS downloader), `electron/preload.ts`, `src/hooks/useSamplesEngine.ts` (`loadSelectedSoundfont`), `src/store/index.ts` (`selectedSoundfont`), `src/types/index.ts` (`SoundfontId`, `SoundfontInfo`), `src/components/SettingsPanel/SettingsPanel.tsx`.
+
+### Note-hit visual effects — GSAP + pixi-filters rewrite
+Replaced the original hand-rolled per-frame effect update loop with GSAP-driven tweens and a shared `AdvancedBloomFilter` (pixi-filters) on the effects layer. Grew from 3 to 7 selectable patterns: Glow Bloom, Ripple Ring, Particle Burst, Smoke Plume, Color Aura, Starburst Nova, Comet Trail — each with a tooltip description. Effect pattern picker converted from buttons to a dropdown (names were too long). Bloom controls (Intensity/Spread/Threshold sliders) apply globally since all patterns share one filtered container — labels de-duplicated ("Bloom" removed, kept only in the Threshold hint text).
+
+**New:** `src/components/PianoRoll/HitEffects.ts` (full rewrite), `src/utils/hitEffectQueue.ts`. **Changed:** `src/components/PianoRoll/PianoRoll.tsx`, `src/hooks/useAudioEngine.ts` (GM engine now also pushes hit effects), `src/store/index.ts`, `src/types/index.ts` (`HitEffectPattern`), `package.json` (+`gsap`, +`pixi-filters`).
+
+### Library drawer search + folder-open fix
+Fuzzy search box (Fuse.js, same config as Chord Explorer) added to the library drawer between the MIDI icon and refresh icon. Folder-name button regained its lost tooltip and now opens the folder in the OS file explorer (`shell:openFolder` IPC, previously not implemented at all).
+
+**Changed:** `src/components/SettingsPanel/SettingsPanel.tsx`, `electron/main.ts`, `electron/preload.ts`, `src/types/index.ts` (`openFolderInExplorer`).
+
+### Glissando "amber blob" fix (mouse-drag) + GM-engine audio/visual sync fix
+Drag-glissando on the keyboard now short-rings each crossed key (60ms) instead of the full 500ms click duration — fixes many keys lighting simultaneously during a fast drag. Separately, the GM engine's light-timers were being scheduled *before* `player.play()`/`jumpMS()` anchor JZZ's internal clock, coupling visual sync to however long SMF parsing took; audio setup now runs first.
+
+**Changed:** `src/components/Keyboard/Keyboard.tsx`, `src/hooks/useAudioEngine.ts`.
+
+### Chord display legibility fix
+Two independent bugs fixed: fast passages with closely-spaced distinct chords flickered faster than readable (no minimum display floor); slow passages could silently swap chord name with zero visual cue. Added a 450ms minimum hold + a 350ms text-glow flash on genuine change. Fixed-width chord name box was also clipping longer names (e.g. "F#dim7/A") — now intrinsic-width with neighboring boxes yielding space.
+
+**Changed:** `src/components/Keyboard/Keyboard.tsx`.
+
+### Phase 1 — hidable playbar
+Playbar can be hidden; when hidden, the piano roll tracks the keyboard's live top-edge Y (rAF poll, zero overhead when playbar is visible — the default) so the piano roll's hit-line still lines up with the physical keyboard position, docked or floating.
+
+**New:** `src/hooks/useKeyboardHitLine.ts`. **Changed:** `src/store/index.ts` (`playbarVisible`, `keyboardTopY`), `src/components/Keyboard/Keyboard.tsx`.
+
+### Track panel — drag-to-reorder + collapsed-group legend
+Groups and individual tracks within a group can be drag-reordered (session-only, never written to file). Piano/keys group is pinned first and not draggable. Collapsed groups now show a small colored-square legend per track.
+
+**Changed:** `src/components/TrackPanel/TrackPanel.tsx`.
+
+### Track color file-persistence fix
+Track colors picked in the color popover only ever lived in the Zustand store — any save+reload silently discarded them back to the palette default. Colors are now written to a `ORFEO_TRACK_COLOR:N:#hex` header meta-event (same convention as `ORFEO_TRACK_NAME`) on save and restored on parse.
+
+**Changed:** `src/utils/midiParser.ts`, `src/components/MidiEditor/MidiEditor.tsx`, `src/components/Mixer/ChannelStrip.tsx`.
+
+---
+
 ## [0.15.0] — 31. 7. 2026 — Hand-Split Engine (beta)
 
 ### 31. 7. 2026 — Unified L/R hand-assignment engine, split/merge/color rewire, indicator rewire

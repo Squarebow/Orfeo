@@ -9,6 +9,7 @@
 import { useEffect } from 'react'
 import type { WorkletSynthesizer } from 'spessasynth_lib'
 import { useStore } from '../store'
+import { pushHitEffect } from '../utils/hitEffectQueue'
 
 // ── GeneralUser GS outputs at a lower reference level than jzz-synth-tiny.
 // This constant normalises perceived loudness at equal masterVolume settings.
@@ -25,6 +26,9 @@ let _synthInitP: Promise<void> | null = null
 let _synthReady = false
 // ch 15 = collision risk if a loaded MIDI file uses channel 16; accepted tradeoff
 let _hwChannelReady = false
+// ── Extra downloadable soundfont currently layered over GeneralUser-GS ──────
+// null = only the bundled default is loaded. See loadSelectedSoundfont().
+let _activeExtraBankId: string | null = null
 // ── Tracks which channels have had programChange sent since last buildSamplesPlayer ──
 // SpessaSynth defaults every channel to program 0 (piano). Before first playback,
 // edit-mode clicks must send programChange themselves — this set prevents redundant calls.
@@ -44,6 +48,7 @@ function lightKey(midiNum: number, color: string, durMs: number) {
   const nk = new Set(activeKeys); nk.add(midiNum)
   const nc = new Map(activeKeyColors); nc.set(midiNum, color)
   useStore.setState({ activeKeys: nk, activeKeyColors: nc })
+  pushHitEffect(midiNum, color)
   const timer = setTimeout(() => {
     _keyTimers.delete(midiNum)
     const { activeKeys: k, activeKeyColors: c } = useStore.getState()
@@ -156,6 +161,9 @@ export async function initSamplesEngine(onProgress: (p: number) => void): Promis
       _synthReady = true
       onProgress(1)
       console.log('[Orfeo Samples] spessasynth ready')
+
+      const wanted = useStore.getState().selectedSoundfont
+      if (wanted !== 'generaluser-gs') loadSelectedSoundfont(wanted).catch(() => {})
     } catch (e: any) {
       _synthInitP = null
       console.error('[Orfeo Samples] init error:', e?.message ?? e)
@@ -163,6 +171,28 @@ export async function initSamplesEngine(onProgress: (p: number) => void): Promis
     }
   })()
   return _synthInitP
+}
+
+// ── Swap the active soundfont — 'generaluser-gs' is the bundled default and
+// always stays loaded; the other IDs are downloaded extras read from userData
+// via IPC and layered on top with higher priority. GeneralUser-GS remains as
+// fallback for any preset the extra bank doesn't cover.
+export async function loadSelectedSoundfont(id: string): Promise<void> {
+  if (!_synth || !_synthReady) return
+  if (id === _activeExtraBankId || (id === 'generaluser-gs' && !_activeExtraBankId)) return
+
+  if (_activeExtraBankId) {
+    try { await _synth.soundBankManager.deleteSoundBank(_activeExtraBankId) } catch {}
+    _activeExtraBankId = null
+  }
+  if (id === 'generaluser-gs') return
+
+  const raw = await window.electronAPI.readSoundfont(id as any)
+  if (!raw) { console.warn('[Orfeo Samples] soundfont not downloaded:', id); return }
+  const bytes = new Uint8Array(raw)
+  await _synth.soundBankManager.addSoundBank(bytes.buffer, id)
+  _synth.soundBankManager.priorityOrder = [id, 'GeneralUser-GS']
+  _activeExtraBankId = id
 }
 
 // ── Schedule all MIDI notes from store for playback starting at startSec ──────
@@ -204,7 +234,7 @@ function buildSamplesPlayer(startSec: number) {
       const noteStart = note.time / ratio
       if (noteStart < startSec) continue
       const delay = (noteStart - startSec) * 1000
-      const durMs = Math.max(note.duration / ratio * 1000, 50)
+      const durMs = Math.max(note.duration / ratio * 1000, 40)
       const midiNum = note.midi + transpose
 
       const t = setTimeout(() => {
@@ -213,7 +243,7 @@ function buildSamplesPlayer(startSec: number) {
           _synth.noteOn(ch, midiNum, Math.round(note.velocity * 127))
           const offT = setTimeout(() => { try { _synth?.noteOff(ch, midiNum) } catch {} }, durMs)
           _schedule.push(offT)
-          if (ts.showOnKeyboard) lightKey(midiNum, color, Math.min(durMs + 80, 2500))
+          if (ts.showOnKeyboard) lightKey(midiNum, color, Math.min(durMs + 30, 2500))
         } catch (e) {
           console.error('[Orfeo Samples] noteOn error:', e)
         }
@@ -379,6 +409,17 @@ export function useSamplesEngine() {
       }
     })
     return () => { unsub(); clearSchedule(); clearAllKeys() }
+  }, [])
+
+  // ── Live soundfont switching (Settings panel dropdown) ────────────────────
+  useEffect(() => {
+    let prevId = useStore.getState().selectedSoundfont
+    const unsub = useStore.subscribe((state) => {
+      if (state.selectedSoundfont === prevId) return
+      prevId = state.selectedSoundfont
+      if (_synthReady) loadSelectedSoundfont(prevId).catch(() => {})
+    })
+    return () => unsub()
   }, [])
 
   // ── Live master volume changes via GainNode ───────────────────────────────

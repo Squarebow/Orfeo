@@ -121,6 +121,24 @@ export function parseMidiBuffer(buffer: ArrayBuffer, fileName: string, filePath 
     }
   }
 
+  // ── Restore Orfeo custom track colors from header text meta-events ──────────
+  // Format: ORFEO_TRACK_COLOR:N:#hexcolor — same convention as ORFEO_TRACK_NAME.
+  // Without this, a color picked in the color popover only ever lived in the
+  // Zustand store — any save+reload silently discarded it back to the
+  // palette default, since nothing wrote it into the file at all.
+  const orfeoTrackColors: Record<number, string> = {}
+  for (const meta of (midi.header as any).meta ?? []) {
+    if (typeof meta.text === 'string' && meta.text.startsWith('ORFEO_TRACK_COLOR:')) {
+      const rest = meta.text.slice('ORFEO_TRACK_COLOR:'.length)
+      const colonIdx = rest.indexOf(':')
+      if (colonIdx >= 0) {
+        const idx = parseInt(rest.slice(0, colonIdx), 10)
+        const color = rest.slice(colonIdx + 1)
+        if (!isNaN(idx) && /^#[0-9a-fA-F]{6}$/.test(color)) orfeoTrackColors[idx] = color
+      }
+    }
+  }
+
   // ── Restore hand tags from an Orfeo export hint, if this file has one ───────
   // Track-name " (RH)"/" (LH)" suffix or ORFEO_HAND_MAP text meta — see
   // utils/handMetadata.ts. Neither is real MIDI clef data, just a breadcrumb.
@@ -158,6 +176,7 @@ export function parseMidiBuffer(buffer: ArrayBuffer, fileName: string, filePath 
     _tempoMap: tempoMap,
     _barStarts: barStarts,
     _orfeoTrackNames: Object.keys(orfeoTrackNames).length > 0 ? orfeoTrackNames : undefined,
+    _orfeoTrackColors: Object.keys(orfeoTrackColors).length > 0 ? orfeoTrackColors : undefined,
     _handTagsRestored: handTagsRestored,
   }
 

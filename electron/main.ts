@@ -111,6 +111,97 @@ ipcMain.handle('app:getDemoFolder', async () => {
 
 // ── Open MIDI file ─────────────────────────────────────────────────────────
 ipcMain.handle('shell:openExternal', (_e, url: string) => shell.openExternal(url))
+ipcMain.handle('shell:openFolder', (_e, folderPath: string) => shell.openPath(folderPath))
+
+// ── Downloadable extra soundfonts (Samples engine) ────────────────────────────
+// Both are MIT-licensed GM soundfonts — safe to redistribute. Never bundled at
+// build time (148MB / 38MB would bloat the installer); downloaded on demand
+// into userData/soundfonts/ and loaded at runtime via soundBankManager.
+const SOUNDFONT_CATALOG: Record<string, { name: string; filename: string; sizeMB: number; url: string }> = {
+  'fluidr3-gm': {
+    name: 'FluidR3 GM',
+    filename: 'FluidR3_GM.sf2',
+    sizeMB: 142,
+    url: 'https://github.com/fhunleth/midi_synth/releases/download/v0.1.0/FluidR3_GM.sf2',
+  },
+  'musescore-general': {
+    name: 'MuseScore General',
+    filename: 'MuseScore_General.sf3',
+    sizeMB: 38,
+    url: 'https://ftp.osuosl.org/pub/musescore/soundfont/MuseScore_General/MuseScore_General.sf3',
+  },
+}
+function soundfontsDir() {
+  const dir = join(app.getPath('userData'), 'soundfonts')
+  if (!existsSync(dir)) require('fs').mkdirSync(dir, { recursive: true })
+  return dir
+}
+function soundfontPath(id: string) {
+  const entry = SOUNDFONT_CATALOG[id]
+  return entry ? join(soundfontsDir(), entry.filename) : null
+}
+
+ipcMain.handle('soundfont:list', () => {
+  return Object.entries(SOUNDFONT_CATALOG).map(([id, entry]) => ({
+    id, name: entry.name, sizeMB: entry.sizeMB,
+    downloaded: existsSync(join(soundfontsDir(), entry.filename)),
+  }))
+})
+
+ipcMain.handle('soundfont:delete', (_e, id: string) => {
+  const p = soundfontPath(id)
+  if (p && existsSync(p)) require('fs').unlinkSync(p)
+})
+
+ipcMain.handle('soundfont:read', (_e, id: string) => {
+  const p = soundfontPath(id)
+  if (!p || !existsSync(p)) return null
+  return readFileSync(p)
+})
+
+// Follows redirects manually (GitHub release assets 302 to a signed CDN URL).
+function httpsGetFollow(url: string, onResponse: (res: import('http').IncomingMessage) => void, hopsLeft = 5) {
+  const https = require('https')
+  https.get(url, (res: import('http').IncomingMessage) => {
+    if (res.statusCode && res.statusCode >= 300 && res.statusCode < 400 && res.headers.location && hopsLeft > 0) {
+      res.resume()
+      httpsGetFollow(res.headers.location, onResponse, hopsLeft - 1)
+      return
+    }
+    onResponse(res)
+  }).on('error', (e: Error) => onResponse({ statusCode: 0, message: e.message } as any))
+}
+
+ipcMain.handle('soundfont:download', (e, id: string) => {
+  const entry = SOUNDFONT_CATALOG[id]
+  const destPath = soundfontPath(id)
+  if (!entry || !destPath) return Promise.resolve({ ok: false, error: 'Unknown soundfont' })
+  return new Promise<{ ok: boolean; error?: string }>((resolve) => {
+    httpsGetFollow(entry.url, (res) => {
+      if (!res.statusCode || res.statusCode >= 400) {
+        resolve({ ok: false, error: `Download failed: HTTP ${res.statusCode ?? (res as any).message ?? 'unknown'}` })
+        return
+      }
+      const total = Number(res.headers?.['content-length'] ?? 0)
+      let loaded = 0
+      const tmpPath = destPath + '.download'
+      const file = createWriteStream(tmpPath)
+      res.on('data', (chunk: Buffer) => {
+        loaded += chunk.length
+        if (total > 0) e.sender.send('soundfont:progress', { id, progress: loaded / total })
+      })
+      res.pipe(file)
+      file.on('finish', () => {
+        file.close(() => {
+          require('fs').renameSync(tmpPath, destPath)
+          e.sender.send('soundfont:progress', { id, progress: 1 })
+          resolve({ ok: true })
+        })
+      })
+      file.on('error', (err: Error) => resolve({ ok: false, error: err.message }))
+    })
+  })
+})
 ipcMain.handle('dialog:openMidi', async () => {
   const result = await dialog.showOpenDialog({
     title: 'Open MIDI File',
@@ -214,6 +305,7 @@ ipcMain.handle('editor:save', async (_e, payload: {
   includedTracks: { index: number; newProgram: number }[]
   mergeGroups: number[][]
   trackNames?: Record<number, string>
+  trackColors?: Record<number, string>
 }) => {
   try {
     if (!payload.filePath) return { ok: false, message: 'No source file loaded' }
@@ -305,6 +397,26 @@ ipcMain.handle('editor:save', async (_e, payload: {
       includedInOrder.forEach((rawIdx, outIdx) => {
         const name = rawIdxToName[rawIdx]
         if (name) (midi.header as any).meta.push({ type: 'text', text: `ORFEO_TRACK_NAME:${outIdx}:${name}`, ticks: 0 })
+      })
+    }
+
+    // ── Inject ORFEO_TRACK_COLOR text meta-events for each output track ───────
+    // Same convention as ORFEO_TRACK_NAME. Without this, a color picked in the
+    // color popover only ever lived in the renderer's store — save+reload
+    // silently discarded it back to the default palette color.
+    if (payload.trackColors && Object.keys(payload.trackColors).length > 0) {
+      const rawIdxToColor: Record<number, string> = {}
+      for (const [edIdxStr, color] of Object.entries(payload.trackColors)) {
+        const rawIdx = noteTrackIndices[parseInt(edIdxStr, 10)]
+        if (rawIdx !== undefined) rawIdxToColor[rawIdx] = color
+      }
+      const existingMeta = (midi.header as any).meta ?? []
+      ;(midi.header as any).meta = existingMeta.filter(
+        (m: any) => !(typeof m.text === 'string' && m.text.startsWith('ORFEO_TRACK_COLOR:'))
+      )
+      includedInOrder.forEach((rawIdx, outIdx) => {
+        const color = rawIdxToColor[rawIdx]
+        if (color) (midi.header as any).meta.push({ type: 'text', text: `ORFEO_TRACK_COLOR:${outIdx}:${color}`, ticks: 0 })
       })
     }
 

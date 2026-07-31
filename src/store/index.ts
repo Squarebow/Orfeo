@@ -1,10 +1,12 @@
 import { create } from 'zustand'
 import type {
   ParsedMidi, ParsedTrack, PlaybackState, TrackState,
-  KeyboardSize, KeyboardMode, NoteNaming, Accidentals, ChordEvent, TranscriptEntry,
+  KeyboardSize, KeyboardMode, NoteNaming, Accidentals, ChordEvent, TranscriptEntry, LibraryFile, HitEffectPattern, SoundfontId,
 } from '../types'
 import type { DetectedKey } from '../utils/keyDetection'
+import { detectKeyFromTracks, parseKeySignature } from '../utils/keyDetection'
 import { isKeyboardInstrument } from '../utils/gmInstruments'
+import { parseMidiBuffer } from '../utils/midiParser'
 
 // Groups muted when autoMuteNonKeyboard is on — exported so TrackPanel can read them
 // Unmuted by default: piano, chromatic, organ, bass, drums
@@ -178,6 +180,17 @@ interface OrfeoStore {
   demoFiles: { name: string; path: string }[]
   setDemoFiles: (files: { name: string; path: string }[]) => void
 
+  libraryFolder: string | null
+  libraryFiles: LibraryFile[]
+  libraryFavourites: Set<string>
+  setLibraryFolder: (folder: string | null) => void
+  setLibraryFiles: (files: LibraryFile[]) => void
+  setLibraryFolderAndFiles: (folder: string | null, files: LibraryFile[]) => void
+  toggleFavourite: (path: string) => void
+  hiddenLibraryFiles: string[]
+  hideLibraryFile: (path: string) => void
+  loadLibraryFile: (filePath: string) => Promise<void>
+
   splitBreakpointType: 'single' | 'range'
   setSplitBreakpointType: (t: 'single' | 'range') => void
   splitBreakpointNote: number
@@ -197,6 +210,38 @@ interface OrfeoStore {
 
   showHandLabels: boolean
   setShowHandLabels: (v: boolean) => void
+
+  // ── Hidable playbar (Phase 1) — off (hidden) means the piano roll's hit
+  // line tracks the live keyboard position instead of a fixed line; default
+  // true keeps today's behavior byte-for-byte unchanged.
+  playbarVisible: boolean
+  setPlaybarVisible: (v: boolean) => void
+  // Viewport-space Y of the keyboard's top edge, kept live by whichever
+  // Keyboard instance is mounted (docked or floating) while playbarVisible
+  // is false. Null until measured, or whenever playbarVisible is true (no
+  // measurement loop runs — zero overhead when the feature is off).
+  keyboardTopY: number | null
+  setKeyboardTopY: (y: number | null) => void
+
+  // ── Note-hit visual effects (Phase 2) — additive layer on top of the
+  // existing lightKey() glow; off by default.
+  hitEffectsEnabled: boolean
+  setHitEffectsEnabled: (v: boolean) => void
+  hitEffectPattern: HitEffectPattern
+  setHitEffectPattern: (p: HitEffectPattern) => void
+
+  // ── Bloom controls (AdvancedBloomFilter, applied to the whole effects layer) ─
+  hitEffectBloomThreshold: number
+  setHitEffectBloomThreshold: (v: number) => void
+  hitEffectBloomIntensity: number
+  setHitEffectBloomIntensity: (v: number) => void
+  hitEffectBloomSpread: number
+  setHitEffectBloomSpread: (v: number) => void
+
+  // ── Active soundfont (Samples engine) — 'generaluser-gs' is always bundled;
+  // the other two are downloaded on demand via window.electronAPI.
+  selectedSoundfont: SoundfontId
+  setSelectedSoundfont: (id: SoundfontId) => void
 
   showOctaveLabels: boolean
   setShowOctaveLabels: (v: boolean) => void
@@ -244,13 +289,15 @@ export const useStore = create<OrfeoStore>((set, get) => ({
   barStarts: [],
   setMidi: (midi) => {
     if (!midi) { set({ midi: null, tracks: [], currentTime: 0, playbackState: 'stopped', trackPanelOpen: false, barStarts: [], chordSequence: [], chordPrompterOpen: false, loopStart: null, loopEnd: null, loopRegionActive: false }); return }
-    // ── Apply ORFEO_TRACK_NAME overrides parsed from the file's header meta-events ─
+    // ── Apply ORFEO_TRACK_NAME / ORFEO_TRACK_COLOR overrides from header meta ──
     const orfeoNames = (midi as any)._orfeoTrackNames as Record<number, string> | undefined
+    const orfeoColors = (midi as any)._orfeoTrackColors as Record<number, string> | undefined
     set({
       midi,
       tracks: midi.tracks.map((t, i) => {
         const ts = makeTrackState(t)
         if (orfeoNames?.[i]) ts.trackName = orfeoNames[i]
+        if (orfeoColors?.[i]) { ts.color = orfeoColors[i]; ts.colorSource = 'custom' }
         return ts
       }),
       currentTime: 0,
@@ -511,6 +558,26 @@ export const useStore = create<OrfeoStore>((set, get) => ({
   showHandLabels: false,
   setShowHandLabels: (showHandLabels) => set({ showHandLabels }),
 
+  playbarVisible: true,
+  setPlaybarVisible: (playbarVisible) => set({ playbarVisible }),
+  keyboardTopY: null,
+  setKeyboardTopY: (keyboardTopY) => set({ keyboardTopY }),
+
+  hitEffectsEnabled: false,
+  setHitEffectsEnabled: (hitEffectsEnabled) => set({ hitEffectsEnabled }),
+  hitEffectPattern: 'glowBloom',
+  setHitEffectPattern: (hitEffectPattern) => set({ hitEffectPattern }),
+
+  hitEffectBloomThreshold: 0.4,
+  setHitEffectBloomThreshold: (v) => set({ hitEffectBloomThreshold: Math.max(0, Math.min(1, v)) }),
+  hitEffectBloomIntensity: 1.5,
+  setHitEffectBloomIntensity: (v) => set({ hitEffectBloomIntensity: Math.max(0, Math.min(4, v)) }),
+
+  selectedSoundfont: 'generaluser-gs',
+  setSelectedSoundfont: (selectedSoundfont) => set({ selectedSoundfont }),
+  hitEffectBloomSpread: 4,
+  setHitEffectBloomSpread: (v) => set({ hitEffectBloomSpread: Math.max(0, Math.min(12, v)) }),
+
   // ── Keyboard label visibility — octave numbers and note name labels ────────
   showOctaveLabels: true,
   setShowOctaveLabels: (showOctaveLabels) => set({ showOctaveLabels }),
@@ -547,12 +614,12 @@ export const useStore = create<OrfeoStore>((set, get) => ({
     return { libraryFavourites: next }
   }),
   // ── Persisted client-side exclusion list — file stays on disk, just hidden ─
-  hiddenLibraryFiles: [] as string[],
-  hideLibraryFile: (path: string) => set(((s: any) => ({
-    hiddenLibraryFiles: (s.hiddenLibraryFiles as string[]).includes(path)
+  hiddenLibraryFiles: [],
+  hideLibraryFile: (path) => set((s) => ({
+    hiddenLibraryFiles: s.hiddenLibraryFiles.includes(path)
       ? s.hiddenLibraryFiles
       : [...s.hiddenLibraryFiles, path],
-  })) as any),
+  })),
   loadLibraryFile: async (filePath) => {
     try {
       const result = await window.electronAPI.loadMidiFromPath(filePath)
@@ -594,7 +661,7 @@ async function restoreLibraryPrefs() {
       prefs.libraryFavourites.forEach((p: string) => store.toggleFavourite(p))
     }
     if (Array.isArray(prefs.hiddenLibraryFiles)) {
-      useStore.setState({ hiddenLibraryFiles: prefs.hiddenLibraryFiles } as any)
+      useStore.setState({ hiddenLibraryFiles: prefs.hiddenLibraryFiles })
     }
     if (prefs.noteNaming) store.setNoteNaming(prefs.noteNaming)
     if (prefs.accidentals) store.setAccidentals(prefs.accidentals)
@@ -623,6 +690,14 @@ async function restoreLibraryPrefs() {
     }
     if (Array.isArray(prefs.transcriptHistory)) useStore.setState({ transcriptHistory: prefs.transcriptHistory })
     if (typeof prefs.noteEditorWalkthroughSeen === 'boolean') store.setNoteEditorWalkthroughSeen(prefs.noteEditorWalkthroughSeen)
+    if (typeof prefs.playbarVisible === 'boolean') store.setPlaybarVisible(prefs.playbarVisible)
+    if (typeof prefs.hitEffectsEnabled === 'boolean') store.setHitEffectsEnabled(prefs.hitEffectsEnabled)
+    const validPatterns: HitEffectPattern[] = ['glowBloom', 'rippleRing', 'particleBurst', 'smokePlume', 'colorAura', 'starburstNova', 'cometTrail']
+    if (validPatterns.includes(prefs.hitEffectPattern)) store.setHitEffectPattern(prefs.hitEffectPattern)
+    if (typeof prefs.hitEffectBloomThreshold === 'number') store.setHitEffectBloomThreshold(prefs.hitEffectBloomThreshold)
+    if (typeof prefs.hitEffectBloomIntensity === 'number') store.setHitEffectBloomIntensity(prefs.hitEffectBloomIntensity)
+    if (typeof prefs.hitEffectBloomSpread === 'number') store.setHitEffectBloomSpread(prefs.hitEffectBloomSpread)
+    if (prefs.selectedSoundfont === 'fluidr3-gm' || prefs.selectedSoundfont === 'musescore-general') store.setSelectedSoundfont(prefs.selectedSoundfont)
   } catch (e) {
     console.error('[Orfeo] restoreLibraryPrefs:', e)
   }
@@ -638,7 +713,7 @@ useStore.subscribe((state) => {
   _favTimer = setTimeout(() => {
     window.electronAPI?.setPrefs?.({
       libraryFavourites:   Array.from(state.libraryFavourites),
-      hiddenLibraryFiles:  (state as any).hiddenLibraryFiles,
+      hiddenLibraryFiles:  state.hiddenLibraryFiles,
     }).catch(() => {})
   }, 1000)
 })
@@ -670,6 +745,13 @@ let _prevShowNoteNamesOnKeyboard: boolean | null = null
 let _prevAutoMuteNonKeyboard: boolean | null = null
 let _prevSettingsGroupsCollapsed: string | null = null
 let _prevNoteEditorWalkthroughSeen: boolean | null = null
+let _prevPlaybarVisible: boolean | null = null
+let _prevHitEffectsEnabled: boolean | null = null
+let _prevHitEffectPattern: string | null = null
+let _prevHitEffectBloomThreshold: number | null = null
+let _prevHitEffectBloomIntensity: number | null = null
+let _prevHitEffectBloomSpread: number | null = null
+let _prevSelectedSoundfont: string | null = null
 useStore.subscribe((state) => {
   // Skip the very first fire (app init) — restore handles loading saved values
   if (_prevNoteNaming === null) {
@@ -697,6 +779,13 @@ useStore.subscribe((state) => {
     _prevAutoMuteNonKeyboard = state.autoMuteNonKeyboard
     _prevSettingsGroupsCollapsed = JSON.stringify(state.settingsGroupsCollapsed)
     _prevNoteEditorWalkthroughSeen = state.noteEditorWalkthroughSeen
+    _prevPlaybarVisible = state.playbarVisible
+    _prevHitEffectsEnabled = state.hitEffectsEnabled
+    _prevHitEffectPattern = state.hitEffectPattern
+    _prevHitEffectBloomThreshold = state.hitEffectBloomThreshold
+    _prevHitEffectBloomIntensity = state.hitEffectBloomIntensity
+    _prevHitEffectBloomSpread = state.hitEffectBloomSpread
+    _prevSelectedSoundfont = state.selectedSoundfont
     return
   }
   if (
@@ -723,7 +812,14 @@ useStore.subscribe((state) => {
     state.showNoteNamesOnKeyboard !== _prevShowNoteNamesOnKeyboard ||
     state.autoMuteNonKeyboard !== _prevAutoMuteNonKeyboard ||
     JSON.stringify(state.settingsGroupsCollapsed) !== _prevSettingsGroupsCollapsed ||
-    state.noteEditorWalkthroughSeen !== _prevNoteEditorWalkthroughSeen
+    state.noteEditorWalkthroughSeen !== _prevNoteEditorWalkthroughSeen ||
+    state.playbarVisible !== _prevPlaybarVisible ||
+    state.hitEffectsEnabled !== _prevHitEffectsEnabled ||
+    state.hitEffectPattern !== _prevHitEffectPattern ||
+    state.hitEffectBloomThreshold !== _prevHitEffectBloomThreshold ||
+    state.hitEffectBloomIntensity !== _prevHitEffectBloomIntensity ||
+    state.hitEffectBloomSpread !== _prevHitEffectBloomSpread ||
+    state.selectedSoundfont !== _prevSelectedSoundfont
   ) {
     _prevNoteNaming = state.noteNaming
     _prevAccidentals = state.accidentals
@@ -749,6 +845,13 @@ useStore.subscribe((state) => {
     _prevAutoMuteNonKeyboard = state.autoMuteNonKeyboard
     _prevSettingsGroupsCollapsed = JSON.stringify(state.settingsGroupsCollapsed)
     _prevNoteEditorWalkthroughSeen = state.noteEditorWalkthroughSeen
+    _prevPlaybarVisible = state.playbarVisible
+    _prevHitEffectsEnabled = state.hitEffectsEnabled
+    _prevHitEffectPattern = state.hitEffectPattern
+    _prevHitEffectBloomThreshold = state.hitEffectBloomThreshold
+    _prevHitEffectBloomIntensity = state.hitEffectBloomIntensity
+    _prevHitEffectBloomSpread = state.hitEffectBloomSpread
+    _prevSelectedSoundfont = state.selectedSoundfont
     window.electronAPI?.setPrefs?.({
       noteNaming: state.noteNaming,
       accidentals: state.accidentals,
@@ -774,6 +877,13 @@ useStore.subscribe((state) => {
       autoMuteNonKeyboard: state.autoMuteNonKeyboard,
       settingsGroupsCollapsed: state.settingsGroupsCollapsed,
       noteEditorWalkthroughSeen: state.noteEditorWalkthroughSeen,
+      playbarVisible: state.playbarVisible,
+      hitEffectsEnabled: state.hitEffectsEnabled,
+      hitEffectPattern: state.hitEffectPattern,
+      hitEffectBloomThreshold: state.hitEffectBloomThreshold,
+      hitEffectBloomIntensity: state.hitEffectBloomIntensity,
+      hitEffectBloomSpread: state.hitEffectBloomSpread,
+      selectedSoundfont: state.selectedSoundfont,
     }).catch(() => {})
   }
 })

@@ -59,6 +59,7 @@ export default function Keyboard() {
   const handLabelMode = useStore((s) => s.handLabelMode)
   const performanceSplitSensitivity = useStore((s) => s.performanceSplitSensitivity)
   const presentationMode = useStore((s) => s.presentationMode)
+  const playbarVisible = useStore((s) => s.playbarVisible)
   const shiftHeldRef = useRef(false)
   // ── Tracks whether the primary mouse button is held, enabling glissando drag ──
   const isMouseDown = useRef(false)
@@ -83,6 +84,55 @@ export default function Keyboard() {
   if (playbackState === 'playing') frozenIndexRef.current = liveIndex
   const currentIndex = playbackState === 'playing' ? liveIndex : frozenIndexRef.current
   const sequenceChord = currentIndex >= 0 ? chordSequence[currentIndex] : null
+
+  // ── Chord-display legibility fix (two independent root causes, both real):
+  // 1. sequenceChord flips the instant currentTime crosses into a new chord
+  //    event, with no floor — a fast passage with closely-spaced distinct
+  //    chords flickers faster than a human can read.
+  // 2. Nothing ever signalled "this just changed" — a slow passage's chord
+  //    can silently swap (e.g. Am → Am7) with zero visual cue, reading as
+  //    stuck even though it genuinely updated.
+  // heldChordEvent enforces a minimum real (wall-clock, not track-time —
+  // legibility is about human perception, not playback speed) display
+  // duration; justChanged pulses briefly on every actual value change.
+  const MIN_CHORD_DISPLAY_MS = 450
+  const CHORD_FLASH_MS = 350
+  const [heldChordEvent, setHeldChordEvent] = useState<typeof sequenceChord>(null)
+  const [chordJustChanged, setChordJustChanged] = useState(false)
+  const lastChordChangeAtRef = useRef(0)
+  const chordHoldTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const chordFlashTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+
+  useEffect(() => {
+    if (!sequenceChord) {
+      if (chordHoldTimeoutRef.current) clearTimeout(chordHoldTimeoutRef.current)
+      setHeldChordEvent(null)
+      return
+    }
+    if (heldChordEvent && heldChordEvent.time === sequenceChord.time && heldChordEvent.name === sequenceChord.name) return
+
+    const apply = () => {
+      setHeldChordEvent(sequenceChord)
+      lastChordChangeAtRef.current = performance.now()
+      setChordJustChanged(true)
+      if (chordFlashTimeoutRef.current) clearTimeout(chordFlashTimeoutRef.current)
+      chordFlashTimeoutRef.current = setTimeout(() => setChordJustChanged(false), CHORD_FLASH_MS)
+    }
+
+    const elapsed = performance.now() - lastChordChangeAtRef.current
+    if (elapsed >= MIN_CHORD_DISPLAY_MS) {
+      apply()
+    } else {
+      if (chordHoldTimeoutRef.current) clearTimeout(chordHoldTimeoutRef.current)
+      chordHoldTimeoutRef.current = setTimeout(apply, MIN_CHORD_DISPLAY_MS - elapsed)
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [sequenceChord])
+
+  useEffect(() => () => {
+    if (chordHoldTimeoutRef.current) clearTimeout(chordHoldTimeoutRef.current)
+    if (chordFlashTimeoutRef.current) clearTimeout(chordFlashTimeoutRef.current)
+  }, [])
 
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const holdRef = useRef<ReturnType<typeof setTimeout> | null>(null)
@@ -208,7 +258,14 @@ export default function Keyboard() {
   }, [activeKeys, lockedKeys.size, chordExplorerOpen, scaleExplorerOpen, noteNaming, accidentals, playbackState])
 
 
-  const handleKeyClick = useCallback((midi: number) => {
+  // isGlissando: true when triggered by a drag-continuation (mouse held down,
+  // entering a new key) rather than the initial mousedown. A drag-glissando
+  // fires this for every key it crosses, and each one used to ring the same
+  // fixed 500ms/600ms (visual) duration as a single deliberate click — with
+  // keys crossed every 20-50ms during a fast drag, that's many keys lit
+  // simultaneously (the reported "amber blob"). Short-ring glissando notes
+  // instead, matching the same floor already used for scheduled playback.
+  const handleKeyClick = useCallback((midi: number, isGlissando = false) => {
     if (shiftHeldRef.current) {
       const next = new Set(lockedKeys)
       const nextColors = new Map(lockedColors)
@@ -233,7 +290,7 @@ export default function Keyboard() {
     } else {
       if (lockedKeys.size > 0) clearLockedKeys()
       const playNote = (window as any).__orfeoPlayNote
-      if (playNote) playNote(midi, 0.7, 500)
+      if (playNote) playNote(midi, 0.7, isGlissando ? 60 : 500)
     }
   }, [lockedKeys, lockedColors, noteNaming, accidentals, setLockedKeysStore, clearLockedKeys])
 
@@ -258,6 +315,36 @@ export default function Keyboard() {
     ro.observe(el)
     return () => ro.disconnect()
   }, [whiteKeys.length])
+
+  // ── Live keyboard top-edge tracking (Phase 1: hidable playbar) ─────────────
+  // Only runs while the playbar is actually hidden — zero overhead (no rAF
+  // loop at all) when playbarVisible is true, which is the default. A plain
+  // rAF poll covers both docked layout changes and floating-panel drag in one
+  // code path, since dragging FloatingKeyboard only moves this same element
+  // via CSS position — no separate drag-event wiring needed here.
+  useEffect(() => {
+    if (!playbarVisible) return
+    useStore.getState().setKeyboardTopY(null)
+  }, [playbarVisible])
+
+  useEffect(() => {
+    if (playbarVisible) return
+    let rafId: number
+    let lastY: number | null = null
+    const tick = () => {
+      const el = keyContainerRef.current
+      if (el) {
+        const top = Math.round(el.getBoundingClientRect().top)
+        if (top !== lastY) {
+          lastY = top
+          useStore.getState().setKeyboardTopY(top)
+        }
+      }
+      rafId = requestAnimationFrame(tick)
+    }
+    rafId = requestAnimationFrame(tick)
+    return () => cancelAnimationFrame(rafId)
+  }, [playbarVisible])
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column' }}>
@@ -313,23 +400,25 @@ export default function Keyboard() {
                     </span>
                   )}
                 </>
-              ) : (sequenceChord || displayedChord) ? (
+              ) : (heldChordEvent || displayedChord) ? (
                 // ── Sequence (playback) or manual chord: slash-split rendered ──
+                // Brief glow on genuine change — heldChordEvent already enforces
+                // the minimum legible display duration (see effect above).
                 (() => {
-                  const name = sequenceChord?.name ?? displayedChord ?? ''
+                  const name = heldChordEvent?.name ?? displayedChord ?? ''
+                  const flash = chordJustChanged && !!heldChordEvent
                   const slashIdx = name.indexOf('/')
+                  const mainStyle: React.CSSProperties = {
+                    fontFamily: 'JetBrains Mono', fontSize: 'var(--text-md)', fontWeight: 700, color: 'var(--text-amber)', letterSpacing: '0.05em', userSelect: 'none',
+                    textShadow: flash ? '0 0 8px var(--text-amber)' : 'none',
+                    transition: 'text-shadow 0.35s ease-out',
+                  }
                   if (slashIdx < 0) {
-                    return (
-                      <span style={{ fontFamily: 'JetBrains Mono', fontSize: 'var(--text-md)', fontWeight: 700, color: 'var(--text-amber)', letterSpacing: '0.05em', userSelect: 'none' }}>
-                        {name}
-                      </span>
-                    )
+                    return <span style={mainStyle}>{name}</span>
                   }
                   return (
                     <>
-                      <span style={{ fontFamily: 'JetBrains Mono', fontSize: 'var(--text-md)', fontWeight: 700, color: 'var(--text-amber)', letterSpacing: '0.05em', userSelect: 'none' }}>
-                        {name.slice(0, slashIdx)}
-                      </span>
+                      <span style={mainStyle}>{name.slice(0, slashIdx)}</span>
                       <span style={{ fontFamily: 'JetBrains Mono', fontSize: 'var(--text-xs)', fontWeight: 600, color: 'var(--text-active)', letterSpacing: '0.04em', userSelect: 'none' }}>
                         {name.slice(slashIdx)}
                       </span>
@@ -401,7 +490,10 @@ export default function Keyboard() {
                 }
 
                 // ── Priority: explorer > sequence ─────────────────────────────
-                const centreChord = explorerDisplay?.chordLabel ?? sequenceChord?.name ?? '—'
+                // heldChordEvent (not raw sequenceChord) enforces the minimum
+                // legible display duration — see the effect above.
+                const centreChord = explorerDisplay?.chordLabel ?? heldChordEvent?.name ?? '—'
+                const centreFlash = chordJustChanged && !explorerDisplay && !!heldChordEvent
                 const pastChords = currentIndex > 0 ? chordSequence.slice(Math.max(0, currentIndex - 4), currentIndex) : []
                 const nextChords = currentIndex >= 0 ? chordSequence.slice(currentIndex + 1, currentIndex + 3) : []
 
@@ -412,7 +504,7 @@ export default function Keyboard() {
                       {pastChords.map((ev, i) => (
                         <React.Fragment key={`${ev.time}-${ev.name}`}>
                           {i > 0 && <span style={{ color: '#303048', fontSize: 10, lineHeight: 1, flexShrink: 0 }}>·</span>}
-                          <span style={{ fontSize: 'var(--text-xs)', fontFamily: 'Inter', color: 'var(--text-muted)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: 60 }}>
+                          <span style={{ fontSize: 'var(--text-xs)', fontFamily: 'Inter', color: 'var(--text-muted)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: 90 }}>
                             {ev.name}
                           </span>
                         </React.Fragment>
@@ -422,9 +514,18 @@ export default function Keyboard() {
                     {/* ‹ separator */}
                     <span style={{ color: '#303048', fontSize: 'var(--text-md)', flexShrink: 0, lineHeight: 1, padding: '0 3px' }}>‹</span>
 
-                    {/* Current chord name only, no note names */}
-                    <div style={{ flexShrink: 0, width: 100, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                      <span style={{ fontFamily: 'JetBrains Mono', fontSize: 20, fontWeight: 700, color: '#e8a027', lineHeight: 1, whiteSpace: 'nowrap', maxWidth: 96, overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                    {/* Current chord name only, no note names — width is intrinsic
+                        to content (min 100 so short names stay centered/stable),
+                        never clipped: a fixed 100px box with an ellipsis'd inner
+                        span was truncating anything past ~8-9 monospace chars
+                        (e.g. "F#dim7/A", "Bbm7b5"). Neighboring past/next boxes
+                        are flex:1 so they yield space to this when it grows. */}
+                    <div style={{ flexShrink: 0, minWidth: 100, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '0 4px' }}>
+                      <span style={{
+                        fontFamily: 'JetBrains Mono', fontSize: 20, fontWeight: 700, color: '#e8a027', lineHeight: 1, whiteSpace: 'nowrap',
+                        textShadow: centreFlash ? '0 0 10px #e8a027' : 'none',
+                        transition: 'text-shadow 0.35s ease-out',
+                      }}>
                         {centreChord}
                       </span>
                     </div>
@@ -437,7 +538,7 @@ export default function Keyboard() {
                       {nextChords.map((ev, i) => (
                         <React.Fragment key={`${ev.time}-${ev.name}`}>
                           {i > 0 && <span style={{ color: '#303048', fontSize: 10, lineHeight: 1, flexShrink: 0 }}>·</span>}
-                          <span style={{ fontSize: 'var(--text-xs)', fontFamily: 'Inter', color: 'var(--text-muted)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: 60 }}>
+                          <span style={{ fontSize: 'var(--text-xs)', fontFamily: 'Inter', color: 'var(--text-muted)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: 90 }}>
                             {ev.name}
                           </span>
                         </React.Fragment>
@@ -485,7 +586,7 @@ export default function Keyboard() {
               <div
                 key={k.midi}
                 onMouseDown={() => { isMouseDown.current = true; handleKeyClick(k.midi) }}
-                onMouseEnter={() => { if (isMouseDown.current) handleKeyClick(k.midi) }}
+                onMouseEnter={() => { if (isMouseDown.current) handleKeyClick(k.midi, true) }}
                 title={getNoteLabel(k.midi, noteNaming, accidentals) || undefined}
                 className="relative flex-1 flex flex-col justify-end items-center pb-1 cursor-pointer"
                 style={{
@@ -531,7 +632,7 @@ export default function Keyboard() {
               <div
                 key={k.midi}
                 onMouseDown={() => { isMouseDown.current = true; handleKeyClick(k.midi) }}
-                onMouseEnter={() => { if (isMouseDown.current) handleKeyClick(k.midi) }}
+                onMouseEnter={() => { if (isMouseDown.current) handleKeyClick(k.midi, true) }}
                 title={getNoteLabel(k.midi, noteNaming, accidentals) || undefined}
                 className="absolute top-0 cursor-pointer pointer-events-auto"
                 style={{
