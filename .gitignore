@@ -9,6 +9,9 @@ release/
 .DS_Store
 Thumbs.db
 .claude/
+.continue/
+skills-lock.json
 graphify-out/
+docs/superpowers/
 assets/CLAUDE.md
 CLAUDE.md
