@@ -6,6 +6,7 @@
 import { useEffect, useRef } from 'react'
 import { useStore } from '../store'
 import { useSamplesEngine } from './useSamplesEngine'
+import { pushHitEffect } from '../utils/hitEffectQueue'
 
 let _jzzReady = false
 let _jzzInitP: Promise<void> | null = null
@@ -93,6 +94,7 @@ function lightKey(midiNum: number, color: string, durMs: number) {
   const nk = new Set(activeKeys); nk.add(midiNum)
   const nc = new Map(activeKeyColors); nc.set(midiNum, color)
   useStore.setState({ activeKeys: nk, activeKeyColors: nc })
+  pushHitEffect(midiNum, color)
   const timer = setTimeout(() => {
     _keyTimers.delete(midiNum)
     const { activeKeys: k, activeKeyColors: c } = useStore.getState()
@@ -146,9 +148,9 @@ function updateMutedChannels() {
       const noteStart = note.time / ratio
       if (noteStart < currentTime) continue
       const delay = (noteStart - currentTime) * 1000
-      const durMs = Math.max(note.duration / ratio * 1000, 80)
+      const durMs = Math.max(note.duration / ratio * 1000, 40)
       const midiNum = note.midi + transpose
-      const t = setTimeout(() => lightKey(midiNum, color, Math.min(durMs + 80, 2500)), delay)
+      const t = setTimeout(() => lightKey(midiNum, color, Math.min(durMs + 30, 2500)), delay)
       _lightSchedule.push(t)
     }
   }
@@ -170,20 +172,14 @@ function buildPlayer(startSec: number) {
       const ts = tracks.find((t: any) => t.index === tr.index)
       if (!ts || ts.muted || (hasSolo && !ts.solo)) _mutedCh.add(tr.channel)
     }
-    for (const track of midiData.tracks) {
-      const ts = tracks.find((t: any) => t.index === track.index)
-      if (!ts || ts.muted || (hasSolo && !ts.solo) || !ts.showOnKeyboard) continue
-      const color = ts.color ?? '#e8a027'
-      for (const note of track.notes) {
-        const noteStart = note.time / ratio
-        if (noteStart < startSec) continue
-        const delay = (noteStart - startSec) * 1000
-        const durMs = Math.max(note.duration / ratio * 1000, 80)
-        const midiNum = note.midi + transpose
-        const t = setTimeout(() => lightKey(midiNum, color, Math.min(durMs + 80, 2500)), delay)
-        _lightSchedule.push(t)
-      }
-    }
+    // ── Start the real audio clock BEFORE scheduling any light timers ─────────
+    // JZZ's player anchors its internal tick clock (_t0) the instant play()/
+    // jumpMS() run. Building the SMF (parses the whole file, builds its tempo
+    // table) and player.play() must happen first — previously the light
+    // setTimeouts were all registered *before* this, computed relative to an
+    // earlier "now" than the audio clock's actual anchor, coupling visual
+    // sync to however long SMF construction + the note loop took. Doing audio
+    // setup first minimizes that gap instead of leaving it to chance.
     const smfFile = new _JZZ.MIDI.SMF(new Uint8Array(raw))
     const player = smfFile.player()
     player.connect(_port)
@@ -210,6 +206,21 @@ function buildPlayer(startSec: number) {
     if (startSec > 0.1) player.jumpMS(Math.floor(startSec * 1000))
     _player = player
     setTimeout(() => { ;(window as any).__orfeoPlayer = player }, 50)
+
+    for (const track of midiData.tracks) {
+      const ts = tracks.find((t: any) => t.index === track.index)
+      if (!ts || ts.muted || (hasSolo && !ts.solo) || !ts.showOnKeyboard) continue
+      const color = ts.color ?? '#e8a027'
+      for (const note of track.notes) {
+        const noteStart = note.time / ratio
+        if (noteStart < startSec) continue
+        const delay = (noteStart - startSec) * 1000
+        const durMs = Math.max(note.duration / ratio * 1000, 40)
+        const midiNum = note.midi + transpose
+        const t = setTimeout(() => lightKey(midiNum, color, Math.min(durMs + 30, 2500)), delay)
+        _lightSchedule.push(t)
+      }
+    }
   } catch (e) {
     console.error('[Orfeo GM] buildPlayer error:', e)
   }

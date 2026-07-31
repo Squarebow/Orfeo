@@ -5,6 +5,11 @@ import { mkdir, access, copyFile, readdir, writeFile } from 'fs/promises'
 import { Midi } from '@tonejs/midi'
 import { Chord, Note } from 'tonal'
 import PDFDocument from 'pdfkit'
+import { assignHands } from '../src/utils/handAssignment'
+import { buildHandExportHint, withHandSuffix } from '../src/utils/handMetadata'
+import { getGMGroup } from '../src/utils/gmInstruments'
+import { KEYBOARD_GROUPS } from '../src/utils/keyboardGroups'
+import type { Hand } from '../src/types'
 
 // ── Module-level window reference — needed by the close handler and IPC send ──────
 let mainWin: BrowserWindow | null = null
@@ -106,6 +111,97 @@ ipcMain.handle('app:getDemoFolder', async () => {
 
 // ── Open MIDI file ─────────────────────────────────────────────────────────
 ipcMain.handle('shell:openExternal', (_e, url: string) => shell.openExternal(url))
+ipcMain.handle('shell:openFolder', (_e, folderPath: string) => shell.openPath(folderPath))
+
+// ── Downloadable extra soundfonts (Samples engine) ────────────────────────────
+// Both are MIT-licensed GM soundfonts — safe to redistribute. Never bundled at
+// build time (148MB / 38MB would bloat the installer); downloaded on demand
+// into userData/soundfonts/ and loaded at runtime via soundBankManager.
+const SOUNDFONT_CATALOG: Record<string, { name: string; filename: string; sizeMB: number; url: string }> = {
+  'fluidr3-gm': {
+    name: 'FluidR3 GM',
+    filename: 'FluidR3_GM.sf2',
+    sizeMB: 142,
+    url: 'https://github.com/fhunleth/midi_synth/releases/download/v0.1.0/FluidR3_GM.sf2',
+  },
+  'musescore-general': {
+    name: 'MuseScore General',
+    filename: 'MuseScore_General.sf3',
+    sizeMB: 38,
+    url: 'https://ftp.osuosl.org/pub/musescore/soundfont/MuseScore_General/MuseScore_General.sf3',
+  },
+}
+function soundfontsDir() {
+  const dir = join(app.getPath('userData'), 'soundfonts')
+  if (!existsSync(dir)) require('fs').mkdirSync(dir, { recursive: true })
+  return dir
+}
+function soundfontPath(id: string) {
+  const entry = SOUNDFONT_CATALOG[id]
+  return entry ? join(soundfontsDir(), entry.filename) : null
+}
+
+ipcMain.handle('soundfont:list', () => {
+  return Object.entries(SOUNDFONT_CATALOG).map(([id, entry]) => ({
+    id, name: entry.name, sizeMB: entry.sizeMB,
+    downloaded: existsSync(join(soundfontsDir(), entry.filename)),
+  }))
+})
+
+ipcMain.handle('soundfont:delete', (_e, id: string) => {
+  const p = soundfontPath(id)
+  if (p && existsSync(p)) require('fs').unlinkSync(p)
+})
+
+ipcMain.handle('soundfont:read', (_e, id: string) => {
+  const p = soundfontPath(id)
+  if (!p || !existsSync(p)) return null
+  return readFileSync(p)
+})
+
+// Follows redirects manually (GitHub release assets 302 to a signed CDN URL).
+function httpsGetFollow(url: string, onResponse: (res: import('http').IncomingMessage) => void, hopsLeft = 5) {
+  const https = require('https')
+  https.get(url, (res: import('http').IncomingMessage) => {
+    if (res.statusCode && res.statusCode >= 300 && res.statusCode < 400 && res.headers.location && hopsLeft > 0) {
+      res.resume()
+      httpsGetFollow(res.headers.location, onResponse, hopsLeft - 1)
+      return
+    }
+    onResponse(res)
+  }).on('error', (e: Error) => onResponse({ statusCode: 0, message: e.message } as any))
+}
+
+ipcMain.handle('soundfont:download', (e, id: string) => {
+  const entry = SOUNDFONT_CATALOG[id]
+  const destPath = soundfontPath(id)
+  if (!entry || !destPath) return Promise.resolve({ ok: false, error: 'Unknown soundfont' })
+  return new Promise<{ ok: boolean; error?: string }>((resolve) => {
+    httpsGetFollow(entry.url, (res) => {
+      if (!res.statusCode || res.statusCode >= 400) {
+        resolve({ ok: false, error: `Download failed: HTTP ${res.statusCode ?? (res as any).message ?? 'unknown'}` })
+        return
+      }
+      const total = Number(res.headers?.['content-length'] ?? 0)
+      let loaded = 0
+      const tmpPath = destPath + '.download'
+      const file = createWriteStream(tmpPath)
+      res.on('data', (chunk: Buffer) => {
+        loaded += chunk.length
+        if (total > 0) e.sender.send('soundfont:progress', { id, progress: loaded / total })
+      })
+      res.pipe(file)
+      file.on('finish', () => {
+        file.close(() => {
+          require('fs').renameSync(tmpPath, destPath)
+          e.sender.send('soundfont:progress', { id, progress: 1 })
+          resolve({ ok: true })
+        })
+      })
+      file.on('error', (err: Error) => resolve({ ok: false, error: err.message }))
+    })
+  })
+})
 ipcMain.handle('dialog:openMidi', async () => {
   const result = await dialog.showOpenDialog({
     title: 'Open MIDI File',
@@ -209,6 +305,7 @@ ipcMain.handle('editor:save', async (_e, payload: {
   includedTracks: { index: number; newProgram: number }[]
   mergeGroups: number[][]
   trackNames?: Record<number, string>
+  trackColors?: Record<number, string>
 }) => {
   try {
     if (!payload.filePath) return { ok: false, message: 'No source file loaded' }
@@ -240,7 +337,11 @@ ipcMain.handle('editor:save', async (_e, payload: {
       }
     }
 
-    // Merge
+    // Merge — collects each merged group's combined notes into one stream and
+    // runs them through the same hand-assignment engine that backs split and
+    // hand-colored rendering (src/utils/handAssignment.ts), instead of the
+    // merge simply concatenating notes with no hand awareness at all.
+    const handsByRawIdx = new Map<number, Hand[]>()
     for (const group of (payload.mergeGroups ?? [])) {
       if (group.length < 2) continue
       const idxs = group.map(i => noteTrackIndices[i]).filter((i): i is number => i !== undefined && includedSet.has(i))
@@ -251,6 +352,33 @@ ipcMain.handle('editor:save', async (_e, payload: {
         base.notes.sort((a: any, b: any) => a.time - b.time)
         includedSet.delete(idxs[i])
       }
+
+      const { assignments } = assignHands(base.notes)
+      const handByNote = new Map(assignments.map(a => [a.note, a.hand]))
+      handsByRawIdx.set(idxs[0], base.notes.map((n: any) => handByNote.get(n)!))
+    }
+
+    // Surviving output tracks in file order — shared by both meta-injection
+    // blocks below (their outIdx numbering must match, it's what the parser's
+    // ParsedTrack.index will be on reimport).
+    const includedInOrder = noteTrackIndices.filter(i => includedSet.has(i))
+
+    // ── Hand-tag every surviving keyboard-group track the merge loop above
+    // didn't already tag — this is what makes "keep one track, hand-colored"
+    // (Stage 4) persist through an ordinary save, not just a merge: every
+    // piano/chromatic/organ track gets the same assignHands() pass and export
+    // hint as a merged one, using the classification midiParser.ts uses on
+    // reimport so the two sides agree on what counts as "keyboard-group".
+    for (const rawIdx of includedInOrder) {
+      if (handsByRawIdx.has(rawIdx)) continue
+      const track = midi.tracks[rawIdx]
+      const isDrum = (track as any).channel === 9
+      if (isDrum || track.notes.length === 0) continue
+      const group = getGMGroup(track.instrument?.number ?? 0, isDrum)
+      if (!KEYBOARD_GROUPS.has(group)) continue
+      const { assignments } = assignHands(track.notes)
+      const handByNote = new Map(assignments.map(a => [a.note, a.hand]))
+      handsByRawIdx.set(rawIdx, track.notes.map((n: any) => handByNote.get(n)!))
     }
 
     // ── Inject ORFEO_TRACK_NAME text meta-events for each output track ────────
@@ -261,8 +389,6 @@ ipcMain.handle('editor:save', async (_e, payload: {
         const rawIdx = noteTrackIndices[parseInt(edIdxStr, 10)]
         if (rawIdx !== undefined) rawIdxToName[rawIdx] = name
       }
-      // Surviving output tracks in file order
-      const includedInOrder = noteTrackIndices.filter(i => includedSet.has(i))
       // Strip any existing ORFEO_TRACK_NAME entries then push fresh ones
       const existingMeta = (midi.header as any).meta ?? []
       ;(midi.header as any).meta = existingMeta.filter(
@@ -271,6 +397,45 @@ ipcMain.handle('editor:save', async (_e, payload: {
       includedInOrder.forEach((rawIdx, outIdx) => {
         const name = rawIdxToName[rawIdx]
         if (name) (midi.header as any).meta.push({ type: 'text', text: `ORFEO_TRACK_NAME:${outIdx}:${name}`, ticks: 0 })
+      })
+    }
+
+    // ── Inject ORFEO_TRACK_COLOR text meta-events for each output track ───────
+    // Same convention as ORFEO_TRACK_NAME. Without this, a color picked in the
+    // color popover only ever lived in the renderer's store — save+reload
+    // silently discarded it back to the default palette color.
+    if (payload.trackColors && Object.keys(payload.trackColors).length > 0) {
+      const rawIdxToColor: Record<number, string> = {}
+      for (const [edIdxStr, color] of Object.entries(payload.trackColors)) {
+        const rawIdx = noteTrackIndices[parseInt(edIdxStr, 10)]
+        if (rawIdx !== undefined) rawIdxToColor[rawIdx] = color
+      }
+      const existingMeta = (midi.header as any).meta ?? []
+      ;(midi.header as any).meta = existingMeta.filter(
+        (m: any) => !(typeof m.text === 'string' && m.text.startsWith('ORFEO_TRACK_COLOR:'))
+      )
+      includedInOrder.forEach((rawIdx, outIdx) => {
+        const color = rawIdxToColor[rawIdx]
+        if (color) (midi.header as any).meta.push({ type: 'text', text: `ORFEO_TRACK_COLOR:${outIdx}:${color}`, ticks: 0 })
+      })
+    }
+
+    // ── Inject hand-assignment export hint for every tagged track ─────────────
+    // Homogeneous track (every note the same hand) → " (RH)"/" (LH)" name
+    // suffix. Mixed track → ORFEO_HAND_MAP RLE text meta. Neither is real MIDI
+    // clef data — see src/utils/handMetadata.ts.
+    if (handsByRawIdx.size > 0) {
+      const existingMeta = (midi.header as any).meta ?? []
+      ;(midi.header as any).meta = existingMeta.filter(
+        (m: any) => !(typeof m.text === 'string' && m.text.startsWith('ORFEO_HAND_MAP:'))
+      )
+      includedInOrder.forEach((rawIdx, outIdx) => {
+        const hands = handsByRawIdx.get(rawIdx)
+        if (!hands) return
+        const track = midi.tracks[rawIdx]
+        const hint = buildHandExportHint(outIdx, track.name, hands.map(h => ({ hand: h })))
+        track.name = hint.name
+        if (hint.meta) (midi.header as any).meta.push(hint.meta)
       })
     }
 
@@ -288,7 +453,12 @@ ipcMain.handle('editor:save', async (_e, payload: {
   }
 })
 
-// ── Split a single track into Left Hand / Right Hand by MIDI note breakpoint ──
+// ── Split a single track into Left Hand / Right Hand via the shared hand-
+// assignment engine (src/utils/handAssignment.ts) — same engine backing
+// merge and hand-colored rendering, not a separate pitch-threshold pass.
+// breakpointType/breakpoint/rangeStart/rangeEnd are no longer used by the
+// algorithm; kept in the payload shape so the existing renderer call site
+// (MidiEditor.tsx) keeps compiling unchanged until its UI is reworked.
 ipcMain.handle('editor:split', async (_e, payload: {
   filePath: string
   trackIndex: number
@@ -308,44 +478,25 @@ ipcMain.handle('editor:split', async (_e, payload: {
     if (origIdx === undefined) return { ok: false, message: 'Track not found' }
 
     const srcTrack = midi.tracks[origIdx]
-    const allNotes = [...srcTrack.notes]
+    if (srcTrack.notes.length === 0) return { ok: false, message: 'Track has no notes' }
 
-    if (allNotes.length === 0) return { ok: false, message: 'Track has no notes' }
+    const { assignments } = assignHands(srcTrack.notes)
+    const lhNotes = assignments.filter(a => a.hand === 'L').map(a => a.note)
+    const rhNotes = assignments.filter(a => a.hand === 'R').map(a => a.note)
 
-    // ── Assign notes to LH / RH based on breakpoint type ─────────────────────
-    let lhNotes: typeof allNotes
-    let rhNotes: typeof allNotes
-    if (payload.breakpointType === 'range') {
-      // Notes below rangeStart → LH; above rangeEnd → RH;
-      // inside the zone → closer bound wins (ties go to LH)
-      lhNotes = allNotes.filter(n => {
-        if (n.midi < payload.rangeStart) return true
-        if (n.midi > payload.rangeEnd)   return false
-        return Math.abs(n.midi - payload.rangeStart) <= Math.abs(n.midi - payload.rangeEnd)
-      })
-      rhNotes = allNotes.filter(n => !lhNotes.includes(n))
-    } else {
-      lhNotes = allNotes.filter(n => n.midi < payload.breakpoint)
-      rhNotes = allNotes.filter(n => n.midi >= payload.breakpoint)
-    }
-    const lhPct = lhNotes.length / allNotes.length
-    const rhPct = rhNotes.length / allNotes.length
-
-    if (lhPct < 0.15 || rhPct < 0.15) {
-      return {
-        ok: false,
-        message: `Not enough notes in both registers (${Math.round(lhPct * 100)}% below / ${Math.round(rhPct * 100)}% above breakpoint)`,
-      }
+    if (lhNotes.length === 0 || rhNotes.length === 0) {
+      return { ok: false, message: 'Could not find two independent hands in this track' }
     }
 
-    // ── Rebuild source track as Left Hand (notes below breakpoint) ────────────
+    // ── Rebuild source track as Left Hand ─────────────────────────────────────
+    const origTrackName = srcTrack.name
     srcTrack.notes.splice(0)
-    srcTrack.name = 'Left Hand'
+    srcTrack.name = withHandSuffix(origTrackName, 'L')
     lhNotes.forEach(n => srcTrack.notes.push(n))
 
-    // ── Add Right Hand track (notes at or above breakpoint) ───────────────────
+    // ── Add Right Hand track ───────────────────────────────────────────────────
     const rhTrack = midi.addTrack()
-    rhTrack.name = 'Right Hand'
+    rhTrack.name = withHandSuffix(origTrackName, 'R')
     rhTrack.instrument.number = srcTrack.instrument.number
     rhNotes.forEach(n => rhTrack.notes.push(n))
 

@@ -4,6 +4,109 @@
 
 ---
 
+## [0.16.0] — 31. 7. 2026 — Note-hit VFX rewrite, downloadable soundfonts, track reorder, playback polish
+
+### Downloadable extra soundfonts (Samples engine)
+Settings → Audio → "Sound library": FluidR3 GM (142MB) and MuseScore General (38MB), both MIT-licensed GM soundfonts, one-click download + select. Neither is bundled in the build (would bloat the installer by hundreds of MB) — downloaded on demand into `userData/soundfonts/` (portable build: `<exeDir>/Orfeo-Data/soundfonts/`). Selecting a downloaded soundfont layers it over the always-bundled GeneralUser GS via `soundBankManager.addSoundBank` + `priorityOrder` (GeneralUser GS stays loaded as fallback for any preset the extra bank doesn't cover); switching back unloads it. Selection persists across restarts. Two well-known premium libraries (Timbres of Heaven, Arachno) were researched and rejected — both are "all rights reserved, no redistribution without permission," so only MIT-licensed alternatives were integrated.
+
+**New/changed:** `electron/main.ts` (soundfont catalog + `soundfont:list/download/delete/read` IPC, redirect-following HTTPS downloader), `electron/preload.ts`, `src/hooks/useSamplesEngine.ts` (`loadSelectedSoundfont`), `src/store/index.ts` (`selectedSoundfont`), `src/types/index.ts` (`SoundfontId`, `SoundfontInfo`), `src/components/SettingsPanel/SettingsPanel.tsx`.
+
+### Note-hit visual effects — GSAP + pixi-filters rewrite
+Replaced the original hand-rolled per-frame effect update loop with GSAP-driven tweens and a shared `AdvancedBloomFilter` (pixi-filters) on the effects layer. Grew from 3 to 7 selectable patterns: Glow Bloom, Ripple Ring, Particle Burst, Smoke Plume, Color Aura, Starburst Nova, Comet Trail — each with a tooltip description. Effect pattern picker converted from buttons to a dropdown (names were too long). Bloom controls (Intensity/Spread/Threshold sliders) apply globally since all patterns share one filtered container — labels de-duplicated ("Bloom" removed, kept only in the Threshold hint text).
+
+**New:** `src/components/PianoRoll/HitEffects.ts` (full rewrite), `src/utils/hitEffectQueue.ts`. **Changed:** `src/components/PianoRoll/PianoRoll.tsx`, `src/hooks/useAudioEngine.ts` (GM engine now also pushes hit effects), `src/store/index.ts`, `src/types/index.ts` (`HitEffectPattern`), `package.json` (+`gsap`, +`pixi-filters`).
+
+### Library drawer search + folder-open fix
+Fuzzy search box (Fuse.js, same config as Chord Explorer) added to the library drawer between the MIDI icon and refresh icon. Folder-name button regained its lost tooltip and now opens the folder in the OS file explorer (`shell:openFolder` IPC, previously not implemented at all).
+
+**Changed:** `src/components/SettingsPanel/SettingsPanel.tsx`, `electron/main.ts`, `electron/preload.ts`, `src/types/index.ts` (`openFolderInExplorer`).
+
+### Glissando "amber blob" fix (mouse-drag) + GM-engine audio/visual sync fix
+Drag-glissando on the keyboard now short-rings each crossed key (60ms) instead of the full 500ms click duration — fixes many keys lighting simultaneously during a fast drag. Separately, the GM engine's light-timers were being scheduled *before* `player.play()`/`jumpMS()` anchor JZZ's internal clock, coupling visual sync to however long SMF parsing took; audio setup now runs first.
+
+**Changed:** `src/components/Keyboard/Keyboard.tsx`, `src/hooks/useAudioEngine.ts`.
+
+### Chord display legibility fix
+Two independent bugs fixed: fast passages with closely-spaced distinct chords flickered faster than readable (no minimum display floor); slow passages could silently swap chord name with zero visual cue. Added a 450ms minimum hold + a 350ms text-glow flash on genuine change. Fixed-width chord name box was also clipping longer names (e.g. "F#dim7/A") — now intrinsic-width with neighboring boxes yielding space.
+
+**Changed:** `src/components/Keyboard/Keyboard.tsx`.
+
+### Phase 1 — hidable playbar
+Playbar can be hidden; when hidden, the piano roll tracks the keyboard's live top-edge Y (rAF poll, zero overhead when playbar is visible — the default) so the piano roll's hit-line still lines up with the physical keyboard position, docked or floating.
+
+**New:** `src/hooks/useKeyboardHitLine.ts`. **Changed:** `src/store/index.ts` (`playbarVisible`, `keyboardTopY`), `src/components/Keyboard/Keyboard.tsx`.
+
+### Track panel — drag-to-reorder + collapsed-group legend
+Groups and individual tracks within a group can be drag-reordered (session-only, never written to file). Piano/keys group is pinned first and not draggable. Collapsed groups now show a small colored-square legend per track.
+
+**Changed:** `src/components/TrackPanel/TrackPanel.tsx`.
+
+### Track color file-persistence fix
+Track colors picked in the color popover only ever lived in the Zustand store — any save+reload silently discarded them back to the palette default. Colors are now written to a `ORFEO_TRACK_COLOR:N:#hex` header meta-event (same convention as `ORFEO_TRACK_NAME`) on save and restored on parse.
+
+**Changed:** `src/utils/midiParser.ts`, `src/components/MidiEditor/MidiEditor.tsx`, `src/components/Mixer/ChannelStrip.tsx`.
+
+---
+
+## [0.15.0] — 31. 7. 2026 — Hand-Split Engine (beta)
+
+### 31. 7. 2026 — Unified L/R hand-assignment engine, split/merge/color rewire, indicator rewire
+
+**New files:** `src/utils/handAssignment.ts`, `src/utils/handAssignmentTest.ts`, `src/utils/handMetadata.ts`, `src/utils/handMetadataTest.ts`, `src/utils/handPreview.ts`, `src/utils/keyboardGroups.ts`, `docs/LR Hand rework/` (analysis + implementation-summary docs, two reference MIDI files)
+
+**Files changed:** `electron/main.ts`, `src/App.tsx`, `src/components/Keyboard/Keyboard.tsx`, `src/components/Keyboard/KeyboardControls.tsx`, `src/components/MidiEditor/MidiEditor.tsx`, `src/components/PianoRoll/PianoRoll.tsx`, `src/components/SettingsPanel/SettingsPanel.tsx`, `src/store/index.ts`, `src/types/index.ts`, `src/utils/handBoundaries.ts`, `src/utils/midiParser.ts`
+
+Replaces three previously-separate, duplicated implementations (crude pitch-threshold split in `electron/main.ts`, naive note-concat merge, live per-frame pitch-gap-guessing L/R keyboard indicator) with one shared engine.
+
+**Engine (`assignHands()`):**
+- Fast path for already-split 2-track/2-channel input (avg-pitch gap + unison-collision check).
+- Real path: onset clustering + Viterbi DP over per-cluster L/R partitions. Strict mode (default) restricts partitions to pitch-sorted prefix splits — structural "hands never cross." Cost function: quadratic span-violation penalty, hand-movement cost (charged from the piece-wide mean when a hand's never played yet — closes a "free first activation" loophole), a flat penalty for splitting a cluster across hands when it already fits in one hand's reach, and a flat penalty for switching hands between consecutive monophonic clusters.
+- Per-cluster confidence (DP cost margin, best vs. runner-up).
+
+**Persistence:** `hand`/`handConfidence` sidecar fields on `ParsedNote`. Portable export hint — name-suffix for homogeneous (split) tracks, `ORFEO_HAND_MAP:<version>:<trackIndex>:<RLE>` text meta for mixed (colored) tracks. Explicitly not real MIDI clef data (SMF has no clef event). Versioned (`HAND_ENGINE_VERSION`) so an algorithm fix doesn't get masked forever by a previously-saved file's stale hint.
+
+**UI:** `MidiEditor.tsx` split action now runs `assignHands()` instead of a pitch-threshold; merge and plain save now hand-tag every surviving keyboard-group track. New hand-split preview panel: colored timeline, low-confidence passages flagged with a red band, two output choices ("Split into two tracks" / "Keep one track, hand-colored" — disabled with a tooltip when the Left/Right Hand setting is off). One-slot undo (snapshot-before-apply, since split/merge never touch the original file). `PianoRoll.tsx` colors notes by hand tag when Left/Right Hand is on. `Keyboard.tsx` shows a per-active-key hand stripe in Performance mode (reads the tag; falls back to live gap-inference only for hardware MIDI input, which has no backing file note). `KeyboardControls.tsx` Practice mode shows a moving split line — sliding-window average of real tags, replacing both the old static-heuristic line and the old live-guessing ribbon.
+
+**Known issues** (see `docs/LR Hand rework/Implementation Summary & Known Issues.md`): hand-label identity can drift/swap across a long single-hand passage; Practice-mode line can linger a couple seconds into a brief solo passage before the window clears. Both pending a proper ground-truth-annotated test corpus (in progress) before further tuning.
+
+---
+
+## [0.14.0] — 30. 7. 2026 — Track Color Editor
+
+### 30. 7. 2026 — Color Editor in MIDI Playback Editor (Phase 2) + pencil cursor
+
+**New files:** `src/utils/colors.ts`
+
+**Files changed:** `src/types/index.ts`, `src/store/index.ts`, `src/utils/cursors.ts`, `src/components/MidiEditor/MidiEditor.tsx`, `docs/Track Color System.md`
+
+**Pencil cursor on track name (Task 1):**
+- `src/utils/cursors.ts`: new module with `PENCIL_CURSOR` — amber SVG cursor built from exact Lucide 0.503.0 Pencil paths, encoded as a CSS `url(data:image/svg+xml,...)`. Hotspot (2, 18) places click point at the pencil tip. Fallback: `text`.
+- `MidiEditor.tsx`: track name span switches from `cursor: 'text'` to `cursor: PENCIL_CURSOR` when not in inline-edit mode. Title text updated to "Double-click to rename".
+
+**COLOR column in MIDI Playback Editor (Task 2):**
+- `ROW_COLS` updated from 5 to 6 columns: `'44px 1fr 44px 44px 44px 220px'` (Include | Track | Color | Merge | Split | Assign Instrument).
+- Column header added: `'Color'`.
+- Existing 4×32px color bar in Track cell (Col 2) gains `onClick`, `cursor: pointer`, and title "Click to change track color".
+- New Col 3 button: 24×24 Palette icon, same style as Merge/Split buttons. Hover: icon and border tint to the track's current color. Every track gets this column (no conditional).
+- Both triggers call `openColorPopover(trackIndex, anchorRect)`.
+
+**Track color popover — Phase 2 (Task 3):**
+- `src/utils/colors.ts`: `TRACK_COLOR_PALETTE` — 10 muted/desaturated colors (Amber, Teal, Slate Violet, Rose, Sky Blue, Sage Green, Coral, Mauve, Steel Blue, Warm Gold). Typed `as const`.
+- `TrackState` in `src/types/index.ts`: added `colorSource: 'default' | 'palette' | 'custom'`.
+- `makeTrackState` in `src/store/index.ts`: initialises `colorSource: 'default'`.
+- `EditorTrack` interface and `buildRows()` in `MidiEditor.tsx`: include `colorSource`.
+- `ColorPopover` component (portal at `zIndex: 60000`): 10-swatch 5-col grid + HSV rainbow picker + hex input. Position: anchored below trigger; auto-flips above near bottom viewport edge. Selecting a palette color sets `colorSource: 'palette'`; valid hex or picker selection sets `'custom'`.
+- `handleApplyColor` in `MidiEditor`: calls `updateTrack` on the store (propagates to PianoRoll + Mixer via `t.color` — single source of truth) and mirrors the color into local `EditorTrack` state for immediate row swatch update.
+- `docs/Track Color System.md`: Phase 2 trigger section updated to document MidiEditor as the anchor point.
+
+### 30. 7. 2026 — Color editor refinements
+
+**Files changed:** `src/components/MidiEditor/MidiEditor.tsx`
+
+- **Track name hover:** span transitions to `var(--text-amber)` on mouseover (0.12s transition) — makes the rename affordance visible before double-clicking.
+- **SwatchBook icon:** replaced `Palette` with `SwatchBook` (Lucide 0.503.0; paths verified from `node_modules`) in the COLOR column button.
+- **HSV rainbow picker in ColorPopover:** `HsvPicker` component — 120px SV gradient square (CSS overlay gradients: `hsl(H, 100%, 50%)` base + white→transparent horizontal + transparent→black vertical) and a 14px hue rainbow slider. Both support click-and-drag via `window` `mousemove`/`mouseup`. `lastEmitted` ref guards the `useEffect` sync to prevent the color prop feedback loop. `hexToHsv` / `hsvToHex` utilities inline (no new dependencies, no canvas). Picker sits between palette grid and hex input; hex input and palette both sync the picker via the `color` prop effect. `POP_W`: 204 → 220px, `POP_H`: 170 → 330px.
+
 ### 30. 7. 2026 — Custom Confirm Dialogs + Empty State copy update
 
 **New files:** `src/utils/confirmController.ts`, `src/components/ConfirmDialog.tsx`

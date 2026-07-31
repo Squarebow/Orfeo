@@ -113,7 +113,7 @@ export default function ChannelStrip({ trackIndex }: ChannelStripProps) {
 
   // ── Derived display data ──────────────────────────────────────────────────
   const trackName   = track?.trackName ?? track?.gmName ?? (parsedTrack as any)?.name ?? ''
-  const trackColor  = (parsedTrack as any)?.color   ?? (track as any)?.color   ?? '#808080'
+  const trackColor  = (track as any)?.color   ?? (parsedTrack as any)?.color   ?? '#808080'
   // MIDI channel from the file (0-based) — NOT the same as trackIndex
   const midiChannel = (parsedTrack as any)?.channel ?? 0
 

@@ -32,6 +32,8 @@ import { useMetronome } from './hooks/useMetronome'
 import { useChordSequence } from './hooks/useChordSequence'
 import { useMidiInput } from './hooks/useMidiInput'
 import { runNoteEditorRoundTripTest } from './utils/noteEditorRoundTripTest'
+import { runHandAssignmentTest } from './utils/handAssignmentTest'
+import { runHandMetadataTest } from './utils/handMetadataTest'
 import { NES } from './utils/noteEditorState'
 
 export default function App() {
@@ -200,6 +202,8 @@ export default function App() {
   useEffect(() => {
     if (import.meta.env.DEV) {
       (window as any).__orfeoNoteEditorRoundTripTest = runNoteEditorRoundTripTest
+      ;(window as any).__orfeoHandAssignmentTest = runHandAssignmentTest
+      ;(window as any).__orfeoHandMetadataTest = runHandMetadataTest
     }
   }, [])
 

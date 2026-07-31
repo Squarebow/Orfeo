@@ -1,15 +1,16 @@
 import { useState, useMemo, useRef, useEffect, useCallback } from 'react'
+import Fuse from 'fuse.js'
 import { NES } from '../../utils/noteEditorState'
 import { confirmDialog } from '../../utils/confirmController'
 import {
   ChevronLeft, ChevronDown, ChevronRight, Type, Piano, Palette, ZoomIn, Volume2,
   Music, FolderOpen, RefreshCw, FileMusic, FileCode2, Guitar, BookOpen, Library, Settings, Info,
-  Eye,
+  Eye, Search, X,
 } from 'lucide-react'
 import { useStore } from '../../store'
-import type { NoteNaming, KeyboardSize, Accidentals, TranscriptEntry } from '../../types'
+import type { NoteNaming, KeyboardSize, Accidentals, TranscriptEntry, LibraryFile, HitEffectPattern, SoundfontId, SoundfontInfo } from '../../types'
 import type { AppTheme } from '../../store'
-import { initSamplesEngine } from '../../hooks/useSamplesEngine'
+import { initSamplesEngine, loadSelectedSoundfont } from '../../hooks/useSamplesEngine'
 import { MarqueeText } from '../MarqueeText'
 import { detectForeignFormat } from '../../utils/foreignFormatImport'
 
@@ -328,12 +329,6 @@ function MarqueeFilename({ name }: { name: string }) {
 
 // ─── Library Panel ───────────────────────────────────────────────────────────
 
-interface LibraryFile {
-  name: string
-  path: string
-  starred: boolean
-}
-
 // ── Filename span styles — active (amber) and default (muted) ─────────────────
 const FILENAME_SPAN_DEFAULT: React.CSSProperties = { fontSize: 'var(--text-xs)', color: 'var(--text-muted)' }
 const FILENAME_SPAN_ACTIVE:  React.CSSProperties = { fontSize: 'var(--text-xs)', color: 'var(--text-amber)', fontWeight: 500 }
@@ -356,10 +351,11 @@ function LibraryPanel() {
   const midi              = useStore((s) => s.midi)
   const loadedFilePath    = (midi as any)?._filePath as string | undefined
   // ── Hidden files — client-side exclusion list, no disk change ────────────
-  const hiddenLibraryFiles = useStore((s) => (s as any).hiddenLibraryFiles as string[])
-  const hideLibraryFile    = useStore((s) => (s as any).hideLibraryFile as (path: string) => void)
+  const hiddenLibraryFiles = useStore((s) => s.hiddenLibraryFiles)
+  const hideLibraryFile    = useStore((s) => s.hideLibraryFile)
   const [loading, setLoading] = useState(false)
   const [filter, setFilter] = useState<'all' | 'starred'>('all')
+  const [librarySearch, setLibrarySearch] = useState('')
   // Folders start expanded (not in collapsed set)
   const [expandedFolders, setExpandedFolders] = useState<Set<string>>(new Set())
   // ── Context menu state — position + target path ───────────────────────────
@@ -548,11 +544,35 @@ function LibraryPanel() {
     }
   }, [])
 
+  // ── Fuzzy search — same Fuse.js convention as ChordExplorer (threshold 0.2,
+  // ignoreLocation so a match anywhere in the name counts, not just a prefix).
+  // Searches by filename only — that's what "artist/song name" resolves to,
+  // since library entries don't carry separate metadata.
+  const libraryFuse = useMemo(() => new Fuse(libraryFiles, {
+    keys: ['name'],
+    threshold: 0.2,
+    includeScore: true,
+    minMatchCharLength: 1,
+    ignoreLocation: true,
+    useExtendedSearch: false,
+  }), [libraryFiles])
+
   // ── Group files — root files first, then one entry per subfolder ─────────
   // Hidden files are filtered here so the rest of the render sees a clean list.
+  // While actively searching, folder grouping is bypassed entirely — a
+  // fuzzy match can live in any subfolder, so results render as one flat
+  // list instead (this is what "search the whole midi folder" means).
   type FileGroup = { folder: string | null; files: LibraryFile[] }
   const grouped: FileGroup[] = useMemo(() => {
     const hiddenSet = new Set(hiddenLibraryFiles)
+
+    if (librarySearch.trim()) {
+      const matches = libraryFuse.search(librarySearch.trim())
+        .map(r => r.item)
+        .filter(f => !hiddenSet.has(f.path))
+      return [{ folder: null, files: matches }]
+    }
+
     const allFiles = (filter === 'starred'
       ? libraryFiles.filter((f: LibraryFile) => libraryFavourites.has(f.path))
       : libraryFiles as LibraryFile[]
@@ -596,7 +616,7 @@ function LibraryPanel() {
     result.push({ folder: null, files: [...starred, ...unstarred] })
 
     return result
-  }, [libraryFiles, libraryFavourites, libraryFolder, filter, hiddenLibraryFiles])
+  }, [libraryFiles, libraryFavourites, libraryFolder, filter, hiddenLibraryFiles, librarySearch, libraryFuse])
 
   const toggleFolder = (folder: string) => setExpandedFolders(prev => {
     const next = new Set(prev)
@@ -624,14 +644,41 @@ function LibraryPanel() {
               padding: '5px 8px', background: 'var(--bg-row)', borderRadius: 4,
               border: '1px solid var(--border2)', marginBottom: 6,
             }}>
-              <FolderOpen size={11} style={{ color: 'var(--text-amber)', flexShrink: 0 }} />
-              <span style={{
-                flex: 1, fontSize: 10, color: 'var(--text-muted)',
-                overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
-                fontFamily: 'JetBrains Mono',
-              }} title={libraryFolder}>
-                {folderName}
-              </span>
+              <button
+                onClick={() => libraryFolder && window.electronAPI.openFolderInExplorer(libraryFolder)}
+                title={libraryFolder ?? undefined}
+                style={{ background: 'none', border: 'none', cursor: libraryFolder ? 'pointer' : 'default', padding: 0, display: 'flex', flexShrink: 0 }}
+              >
+                <FolderOpen size={11} style={{ color: 'var(--text-amber)' }} />
+              </button>
+              {/* ── Fuzzy search — any artist/song/filename, across all subfolders ── */}
+              <div style={{
+                flex: 1, display: 'flex', alignItems: 'center', gap: 4,
+                border: '1px solid var(--border2)', borderRadius: 4,
+                padding: '2px 6px', background: 'var(--bg-modal-header)',
+                minWidth: 0,
+              }}>
+                <Search size={10} style={{ color: 'var(--text-inactive)', flexShrink: 0 }} />
+                <input
+                  type="text"
+                  value={librarySearch}
+                  onChange={e => setLibrarySearch(e.target.value)}
+                  placeholder={folderName ?? 'Search'}
+                  style={{
+                    flex: 1, minWidth: 0, background: 'none', border: 'none', outline: 'none',
+                    fontSize: 10, color: 'var(--text-muted)', fontFamily: 'JetBrains Mono',
+                  }}
+                />
+                {librarySearch && (
+                  <button
+                    onClick={() => setLibrarySearch('')}
+                    title="Clear search"
+                    style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 0, display: 'flex', color: 'var(--text-inactive)' }}
+                  >
+                    <X size={10} />
+                  </button>
+                )}
+              </div>
               <button
                 onClick={handleRefresh}
                 title="Refresh folder"
@@ -765,7 +812,9 @@ function LibraryPanel() {
         {/* Empty state */}
         {libraryFolder && !hasAnyFiles && (
           <div style={{ padding: '16px 14px', fontSize: 'var(--text-xs)', color: 'var(--text-muted)', textAlign: 'center' }}>
-            {filter === 'starred' ? 'No starred files yet.\nStar a file with ★' : 'No MIDI files found.'}
+            {librarySearch.trim()
+              ? `No files matching "${librarySearch.trim()}".`
+              : filter === 'starred' ? 'No starred files yet.\nStar a file with ★' : 'No MIDI files found.'}
           </div>
         )}
 
@@ -911,12 +960,19 @@ function LibraryPanel() {
   )
 }
 
-// ─── Split breakpoint note name helper ───────────────────────────────────────
-const SPLIT_NOTE_NAMES = ['C','C#','D','D#','E','F','F#','G','G#','A','A#','B']
-
 // ─── Settings Panel ──────────────────────────────────────────────────────────
 
 type DrawerTab = 'settings' | 'library'
+
+const HIT_EFFECT_DESCRIPTIONS: Record<HitEffectPattern, string> = {
+  glowBloom: 'Soft radial glow that blooms outward and fades.',
+  rippleRing: 'Expanding concentric rings, like a ripple in water.',
+  particleBurst: 'Small particles spray upward and fall back down with gravity.',
+  smokePlume: 'Soft blurred smoke wisps drift upward, shifting color as they dissipate.',
+  colorAura: 'A soft glowing blob that pulses outward while cycling through colors.',
+  starburstNova: 'Sharp radiating rays with a bright flash — explosive and energetic.',
+  cometTrail: 'A bright streak shoots upward with a fading trail behind it.',
+}
 
 export default function SettingsPanel() {
   const settingsPanelOpen = useStore((s) => s.settingsPanelOpen)
@@ -931,10 +987,24 @@ export default function SettingsPanel() {
   const setZoomLevel = useStore((s) => s.setZoomLevel)
   const showBarNumbers = useStore((s) => s.showBarNumbers)
   const setShowBarNumbers = useStore((s) => s.setShowBarNumbers)
+  const playbarVisible = useStore((s) => s.playbarVisible)
+  const setPlaybarVisible = useStore((s) => s.setPlaybarVisible)
+  const hitEffectsEnabled = useStore((s) => s.hitEffectsEnabled)
+  const setHitEffectsEnabled = useStore((s) => s.setHitEffectsEnabled)
+  const hitEffectPattern = useStore((s) => s.hitEffectPattern)
+  const setHitEffectPattern = useStore((s) => s.setHitEffectPattern)
+  const hitEffectBloomThreshold = useStore((s) => s.hitEffectBloomThreshold)
+  const setHitEffectBloomThreshold = useStore((s) => s.setHitEffectBloomThreshold)
+  const hitEffectBloomIntensity = useStore((s) => s.hitEffectBloomIntensity)
+  const setHitEffectBloomIntensity = useStore((s) => s.setHitEffectBloomIntensity)
+  const hitEffectBloomSpread = useStore((s) => s.hitEffectBloomSpread)
+  const setHitEffectBloomSpread = useStore((s) => s.setHitEffectBloomSpread)
   const appTheme = useStore((s) => s.appTheme)
   const setAppTheme = useStore((s) => s.setAppTheme)
   const audioEngine = useStore((s) => s.audioEngine)
   const setAudioEngine = useStore((s) => s.setAudioEngine)
+  const selectedSoundfont = useStore((s) => s.selectedSoundfont)
+  const setSelectedSoundfont = useStore((s) => s.setSelectedSoundfont)
   const chordPrompterEnabled = useStore((s) => s.chordPrompterEnabled)
   const setChordPrompterEnabled = useStore((s) => s.setChordPrompterEnabled)
   const loopRegionEnabled    = useStore((s) => s.loopRegionEnabled)
@@ -945,14 +1015,6 @@ export default function SettingsPanel() {
   const setChordTranscriptionEnabled = useStore((s) => s.setChordTranscriptionEnabled)
   const hideDemoFolder           = useStore((s) => s.hideDemoFolder)
   const setHideDemoFolder        = useStore((s) => s.setHideDemoFolder)
-  const splitBreakpointType          = useStore((s) => s.splitBreakpointType)
-  const setSplitBreakpointType       = useStore((s) => s.setSplitBreakpointType)
-  const splitBreakpointNote          = useStore((s) => s.splitBreakpointNote)
-  const setSplitBreakpointNote       = useStore((s) => s.setSplitBreakpointNote)
-  const splitBreakpointRangeStart    = useStore((s) => s.splitBreakpointRangeStart)
-  const setSplitBreakpointRangeStart = useStore((s) => s.setSplitBreakpointRangeStart)
-  const splitBreakpointRangeEnd      = useStore((s) => s.splitBreakpointRangeEnd)
-  const setSplitBreakpointRangeEnd   = useStore((s) => s.setSplitBreakpointRangeEnd)
   const showHandLabels               = useStore((s) => s.showHandLabels)
   const setShowHandLabels            = useStore((s) => s.setShowHandLabels)
   const showOctaveLabels             = useStore((s) => s.showOctaveLabels)
@@ -976,6 +1038,37 @@ export default function SettingsPanel() {
   useEffect(() => {
     if (!didInit.current) { didInit.current = true; if (!settingsPanelOpen) setSettingsPanelOpen(true) }
   }, [])
+
+  // ── Downloadable extra soundfonts (FluidR3 GM, MuseScore General) ─────────
+  const [extraSoundfonts, setExtraSoundfonts] = useState<SoundfontInfo[]>([])
+  const [sfDownloadingId, setSfDownloadingId] = useState<SoundfontId | null>(null)
+  const [sfDownloadProgress, setSfDownloadProgress] = useState(0)
+  const [sfError, setSfError] = useState<string | null>(null)
+  const refreshSoundfonts = useCallback(() => {
+    window.electronAPI.listSoundfonts().then(setExtraSoundfonts).catch(() => {})
+  }, [])
+  useEffect(() => {
+    refreshSoundfonts()
+    window.electronAPI.onSoundfontProgress(({ id, progress }) => {
+      setSfDownloadProgress(progress)
+      if (progress >= 1) { setSfDownloadingId(null); refreshSoundfonts() }
+    })
+    return () => window.electronAPI.offSoundfontProgress()
+  }, [refreshSoundfonts])
+  async function handleDownloadSoundfont(id: SoundfontId) {
+    setSfError(null); setSfDownloadingId(id); setSfDownloadProgress(0)
+    const res = await window.electronAPI.downloadSoundfont(id)
+    if (!res.ok) { setSfError(res.error ?? 'Download failed'); setSfDownloadingId(null) }
+  }
+  async function handleSelectSoundfont(id: SoundfontId) {
+    setSelectedSoundfont(id)
+    if (audioEngine === 'samples') loadSelectedSoundfont(id).catch(() => {})
+  }
+  async function handleDeleteSoundfont(id: SoundfontId) {
+    if (selectedSoundfont === id) await handleSelectSoundfont('generaluser-gs')
+    await window.electronAPI.deleteSoundfont(id)
+    refreshSoundfonts()
+  }
 
   // ── Auto-init samples engine when prefs restore sets audioEngine='samples'
   useEffect(() => {
@@ -1242,75 +1335,27 @@ export default function SettingsPanel() {
                     eyeToggle
                     eyeValue={showHandLabels}
                     onEyeChange={setShowHandLabels}
-                    description="Shows amber hand boundary lines and labels in the keyboard footer."
+                    description="Shows which hand each note belongs to, read from the file's hand-assignment tags."
                   />
-                  {/* ── Mode + split zone — only visible when hand labels are on ──── */}
+                  {/* ── Mode — only visible when hand labels are on ─────────────────── */}
                   {showHandLabels && (
                     <>
                       {/* ── Practice / Performance mode selector ──────────────────── */}
-                      <OptionRow label="Mode" hint="Practice shows a fixed split zone. Performance tracks hand position live from the MIDI file or hardware keyboard.">
+                      <OptionRow label="Mode" hint="Practice shows a split line that moves with the piece, averaged over a few seconds of hand tags. Performance colors each note on the keyboard by its own hand tag as it plays.">
                         <div style={{ display: 'flex', gap: 'var(--space-1)' }}>
                           <OptionBtn active={handLabelMode === 'practice'}    onClick={() => setHandLabelMode('practice')}>Practice</OptionBtn>
                           <OptionBtn active={handLabelMode === 'performance'} onClick={() => setHandLabelMode('performance')}>Performance</OptionBtn>
                         </div>
                       </OptionRow>
-                      {/* ── Practice: manual split zone controls ───────────────────── */}
                       {handLabelMode === 'practice' && (
-                        <>
-                          <OptionRow label="Split zone" hint="Defines the boundary between Left Hand and Right Hand shown on the keyboard.">
-                            <div style={{ display: 'flex', gap: 'var(--space-1)' }}>
-                              <OptionBtn active={splitBreakpointType === 'single'} onClick={() => setSplitBreakpointType('single')}>Single</OptionBtn>
-                              <OptionBtn active={splitBreakpointType === 'range'}  onClick={() => setSplitBreakpointType('range')}>Range</OptionBtn>
-                            </div>
-                          </OptionRow>
-                          {splitBreakpointType === 'single' ? (
-                            <OptionRow
-                              label={`Split note — ${SPLIT_NOTE_NAMES[splitBreakpointNote % 12]}${Math.floor(splitBreakpointNote / 12) - 1}`}
-                              hint="Notes below this pitch → Left Hand, notes above → Right Hand."
-                            >
-                              <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                                <ZoomStepBtn disabled={splitBreakpointNote <= 48} onClick={() => setSplitBreakpointNote(splitBreakpointNote - 1)}>−</ZoomStepBtn>
-                                <div style={{ flex: 1, textAlign: 'center', fontFamily: 'JetBrains Mono', fontSize: 'var(--text-base)', color: 'var(--text-dim)' }}>
-                                  {SPLIT_NOTE_NAMES[splitBreakpointNote % 12]}{Math.floor(splitBreakpointNote / 12) - 1}
-                                </div>
-                                <ZoomStepBtn disabled={splitBreakpointNote >= 60} onClick={() => setSplitBreakpointNote(splitBreakpointNote + 1)}>+</ZoomStepBtn>
-                              </div>
-                            </OptionRow>
-                          ) : (
-                            <OptionRow
-                              label={`Split zone — ${SPLIT_NOTE_NAMES[splitBreakpointRangeStart % 12]}${Math.floor(splitBreakpointRangeStart / 12) - 1} to ${SPLIT_NOTE_NAMES[splitBreakpointRangeEnd % 12]}${Math.floor(splitBreakpointRangeEnd / 12) - 1}`}
-                              hint="Notes inside the shaded zone may come from either hand. Notes below the lower bound → Left Hand, above the upper bound → Right Hand."
-                            >
-                              <div style={{ display: 'flex', gap: 'var(--space-2)' }}>
-                                <div style={{ flex: 1 }}>
-                                  <div style={{ fontSize: 9, color: 'var(--text-dimmest)', marginBottom: 4, fontFamily: 'Inter' }}>Lower</div>
-                                  <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-1)' }}>
-                                    <ZoomStepBtn disabled={splitBreakpointRangeStart <= 48} onClick={() => setSplitBreakpointRangeStart(splitBreakpointRangeStart - 1)}>−</ZoomStepBtn>
-                                    <div style={{ flex: 1, textAlign: 'center', fontFamily: 'JetBrains Mono', fontSize: 'var(--text-xs)', color: 'var(--text-dim)' }}>
-                                      {SPLIT_NOTE_NAMES[splitBreakpointRangeStart % 12]}{Math.floor(splitBreakpointRangeStart / 12) - 1}
-                                    </div>
-                                    <ZoomStepBtn disabled={splitBreakpointRangeStart >= splitBreakpointRangeEnd - 1} onClick={() => setSplitBreakpointRangeStart(splitBreakpointRangeStart + 1)}>+</ZoomStepBtn>
-                                  </div>
-                                </div>
-                                <div style={{ flex: 1 }}>
-                                  <div style={{ fontSize: 9, color: 'var(--text-dimmest)', marginBottom: 4, fontFamily: 'Inter' }}>Upper</div>
-                                  <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-1)' }}>
-                                    <ZoomStepBtn disabled={splitBreakpointRangeEnd <= splitBreakpointRangeStart + 1} onClick={() => setSplitBreakpointRangeEnd(splitBreakpointRangeEnd - 1)}>−</ZoomStepBtn>
-                                    <div style={{ flex: 1, textAlign: 'center', fontFamily: 'JetBrains Mono', fontSize: 'var(--text-xs)', color: 'var(--text-dim)' }}>
-                                      {SPLIT_NOTE_NAMES[splitBreakpointRangeEnd % 12]}{Math.floor(splitBreakpointRangeEnd / 12) - 1}
-                                    </div>
-                                    <ZoomStepBtn disabled={splitBreakpointRangeEnd >= 60} onClick={() => setSplitBreakpointRangeEnd(splitBreakpointRangeEnd + 1)}>+</ZoomStepBtn>
-                                  </div>
-                                </div>
-                              </div>
-                            </OptionRow>
-                          )}
-                        </>
+                        <div style={{ padding: '2px 12px 6px', color: 'var(--text-inactive)', fontSize: 'var(--text-xs)', fontFamily: 'Inter', lineHeight: 1.5 }}>
+                          The line tracks the average pitch split between left- and right-hand notes in a ~3-second window around the playhead — not user-adjustable, it comes straight from the hand-assignment engine's tags.
+                        </div>
                       )}
-                      {/* ── Performance: sensitivity slider + description ────────────── */}
+                      {/* ── Performance: sensitivity slider — hardware input only ────── */}
                       {handLabelMode === 'performance' && (
                         <>
-                          <OptionRow label={`Split Sensitivity — ${performanceSplitSensitivity} semitones`}>
+                          <OptionRow label={`Hardware Split Sensitivity — ${performanceSplitSensitivity} semitones`}>
                             <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
                               <span style={{ fontSize: 9, color: 'var(--text-inactive)', fontFamily: 'JetBrains Mono', flexShrink: 0 }}>2</span>
                               <input
@@ -1323,7 +1368,7 @@ export default function SettingsPanel() {
                             </div>
                           </OptionRow>
                           <div style={{ padding: '2px 12px 6px', color: 'var(--text-inactive)', fontSize: 'var(--text-xs)', fontFamily: 'Inter', lineHeight: 1.5 }}>
-                            Lower values split hands more readily on moderate spreads. Higher values only split on very wide separations.
+                            Only affects notes played on a physical MIDI keyboard, which have no file tag to read. Notes from the loaded file are always colored by their exact stored hand tag, regardless of this setting.
                           </div>
                         </>
                       )}
@@ -1420,6 +1465,49 @@ export default function SettingsPanel() {
                       </div>
                     )}
                   </OptionRow>
+
+                  {/* ── Sound library — extra downloadable SF2/SF3s, Samples engine only ── */}
+                  <OptionRow label="Sound library" hint="Extra GM soundfonts, downloaded on demand. Only affects the Samples engine.">
+                    {[
+                      { id: 'generaluser-gs' as SoundfontId, name: 'GeneralUser GS', sizeMB: 30.8, downloaded: true },
+                      ...extraSoundfonts,
+                    ].map((sf) => {
+                      const isActive = selectedSoundfont === sf.id
+                      const isDownloading = sfDownloadingId === sf.id
+                      return (
+                        <div key={sf.id} style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-2)', marginBottom: 5 }}>
+                          <OptionBtn
+                            active={isActive}
+                            onClick={() => sf.downloaded && handleSelectSoundfont(sf.id)}
+                            title={sf.downloaded ? `Use ${sf.name} for the Samples engine` : `Download ${sf.name} first`}
+                          >{sf.name}</OptionBtn>
+                          <span style={{ fontSize: 9, color: 'var(--text-dimmest)', fontFamily: 'Inter', minWidth: 48 }}>{sf.sizeMB} MB</span>
+                          {sf.id === 'generaluser-gs' ? (
+                            <span style={{ fontSize: 9, color: 'var(--text-muted)', fontFamily: 'Inter' }}>bundled</span>
+                          ) : sf.downloaded ? (
+                            <button
+                              onClick={() => handleDeleteSoundfont(sf.id)}
+                              title="Delete downloaded file"
+                              style={{ fontSize: 9, color: 'var(--text-dimmest)', fontFamily: 'Inter', background: 'none', border: 'none', cursor: 'pointer', padding: 0 }}
+                            >remove</button>
+                          ) : isDownloading ? (
+                            <div style={{ flex: 1, height: 3, background: 'var(--border)', borderRadius: 2, overflow: 'hidden', maxWidth: 80 }}>
+                              <div style={{ height: '100%', background: 'var(--text-amber)', borderRadius: 2, width: `${Math.round(sfDownloadProgress * 100)}%`, transition: 'width 0.1s' }} />
+                            </div>
+                          ) : (
+                            <button
+                              onClick={() => handleDownloadSoundfont(sf.id)}
+                              title={`Download ${sf.name} (${sf.sizeMB} MB, MIT licensed)`}
+                              style={{ fontSize: 9, color: 'var(--text-amber)', fontFamily: 'Inter', background: 'none', border: 'none', cursor: 'pointer', padding: 0 }}
+                            >download</button>
+                          )}
+                        </div>
+                      )
+                    })}
+                    {sfError && (
+                      <div style={{ fontSize: 9, color: 'var(--status-error)', fontFamily: 'Inter', marginTop: 2 }}>{sfError}</div>
+                    )}
+                  </OptionRow>
                   {/* ── Selective Tracks Playback — eye-toggle; shows/hides quick-toggle button in Track Panel ─ */}
                   <OptionRow
                     label="Selective Tracks Playback"
@@ -1475,6 +1563,78 @@ export default function SettingsPanel() {
                     eyeValue={showBarNumbers}
                     onEyeChange={setShowBarNumbers}
                   />
+                  {/* ── Show Playbar — eye-toggle; off tracks the hit line to the ──
+                       live keyboard position instead (docked or floating). */}
+                  <OptionRow
+                    label="Show Playbar"
+                    eyeToggle
+                    eyeValue={playbarVisible}
+                    onEyeChange={setPlaybarVisible}
+                    description="When off, notes fall toward the keyboard's actual on-screen position instead of a fixed line."
+                  />
+                  {/* ── Note Hit Effects — eye-toggle, off by default; pattern picker ──
+                       only shown when on. */}
+                  <OptionRow
+                    label="Note Hit Effects"
+                    eyeToggle
+                    eyeValue={hitEffectsEnabled}
+                    onEyeChange={setHitEffectsEnabled}
+                    description="An extra animated flourish where each note hits, alongside the existing key glow."
+                  />
+                  {hitEffectsEnabled && (
+                    <OptionRow label="Effect Pattern">
+                      <select
+                        value={hitEffectPattern}
+                        onChange={e => setHitEffectPattern(e.target.value as typeof hitEffectPattern)}
+                        style={{
+                          width: '100%', padding: '4px 6px', borderRadius: 4,
+                          border: '1px solid var(--border2)', background: 'var(--bg-modal)',
+                          color: 'var(--text-muted)', fontSize: 'var(--text-xs)',
+                          fontFamily: 'Inter', cursor: 'pointer',
+                        }}
+                      >
+                        <option value="glowBloom" title={HIT_EFFECT_DESCRIPTIONS.glowBloom}>Glow Bloom</option>
+                        <option value="rippleRing" title={HIT_EFFECT_DESCRIPTIONS.rippleRing}>Ripple Ring</option>
+                        <option value="particleBurst" title={HIT_EFFECT_DESCRIPTIONS.particleBurst}>Particle Burst</option>
+                        <option value="smokePlume" title={HIT_EFFECT_DESCRIPTIONS.smokePlume}>Smoke Plume</option>
+                        <option value="colorAura" title={HIT_EFFECT_DESCRIPTIONS.colorAura}>Color Aura</option>
+                        <option value="starburstNova" title={HIT_EFFECT_DESCRIPTIONS.starburstNova}>Starburst Nova</option>
+                        <option value="cometTrail" title={HIT_EFFECT_DESCRIPTIONS.cometTrail}>Comet Trail</option>
+                      </select>
+                      <div style={{ padding: '2px 12px 0', color: 'var(--text-inactive)', fontSize: 'var(--text-xs)', fontFamily: 'Inter', lineHeight: 1.5 }}>
+                        {HIT_EFFECT_DESCRIPTIONS[hitEffectPattern]}
+                      </div>
+                    </OptionRow>
+                  )}
+                  {/* ── Bloom controls — real bloom (pixi-filters AdvancedBloomFilter) ── */}
+                  {hitEffectsEnabled && (
+                    <>
+                      <OptionRow label={`Intensity — ${hitEffectBloomIntensity.toFixed(1)}`}>
+                        <input
+                          type="range" min={0} max={4} step={0.1}
+                          value={hitEffectBloomIntensity}
+                          onChange={e => setHitEffectBloomIntensity(Number(e.target.value))}
+                          style={{ width: '100%', accentColor: 'var(--text-amber)', cursor: 'pointer' }}
+                        />
+                      </OptionRow>
+                      <OptionRow label={`Spread — ${hitEffectBloomSpread.toFixed(1)}`}>
+                        <input
+                          type="range" min={0} max={12} step={0.5}
+                          value={hitEffectBloomSpread}
+                          onChange={e => setHitEffectBloomSpread(Number(e.target.value))}
+                          style={{ width: '100%', accentColor: 'var(--text-amber)', cursor: 'pointer' }}
+                        />
+                      </OptionRow>
+                      <OptionRow label={`Threshold — ${hitEffectBloomThreshold.toFixed(2)}`} hint="Lower values make more of the effect glow; higher values only bloom the brightest parts.">
+                        <input
+                          type="range" min={0} max={1} step={0.05}
+                          value={hitEffectBloomThreshold}
+                          onChange={e => setHitEffectBloomThreshold(Number(e.target.value))}
+                          style={{ width: '100%', accentColor: 'var(--text-amber)', cursor: 'pointer' }}
+                        />
+                      </OptionRow>
+                    </>
+                  )}
                 </CollapsibleSection>
 
                 {/* ── 7. APPEARANCE — no content changes ─────────────────────────── */}
@@ -1499,7 +1659,7 @@ export default function SettingsPanel() {
                       <line x1="22" y1="50" x2="78" y2="50" stroke="#e8a027" strokeWidth="7" strokeLinecap="round"/>
                       <line x1="22" y1="62" x2="78" y2="62" stroke="#e8a027" strokeWidth="7" strokeLinecap="round"/>
                     </svg>
-                    <span style={{ color: 'var(--text-inactive)', fontSize: 10, fontFamily: 'JetBrains Mono' }}>Orfeo · v0.13.1</span>
+                    <span style={{ color: 'var(--text-inactive)', fontSize: 10, fontFamily: 'JetBrains Mono' }}>Orfeo · v0.14.0</span>
                   </div>
                   <div style={{ fontSize: 9, color: '#35354a', fontFamily: 'Inter', lineHeight: 1.5 }}>
                     MIT License · github.com/SquareBow/orfeo

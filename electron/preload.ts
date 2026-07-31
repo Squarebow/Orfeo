@@ -19,6 +19,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
   saveMidiEditor:     (payload: any) => ipcRenderer.invoke('editor:save', payload),
   splitMidiEditor:    (payload: any) => ipcRenderer.invoke('editor:split', payload),
   openExternal:       (url: string) => ipcRenderer.invoke('shell:openExternal', url),
+  openFolderInExplorer: (folderPath: string) => ipcRenderer.invoke('shell:openFolder', folderPath),
   transcriptGenerate: (midiPath: string, noteNaming: string, accidentals: string) => ipcRenderer.invoke('transcript:generate', midiPath, noteNaming, accidentals),
   // Note Editor
   saveNoteEditor:      (payload: any) => ipcRenderer.invoke('noteEditor:save', payload),
@@ -33,4 +34,11 @@ contextBridge.exposeInMainWorld('electronAPI', {
   // Foreign format import cache
   getCachedImport:    (sourcePath: string, cachePath: string) => ipcRenderer.invoke('fs:getCachedImport', sourcePath, cachePath),
   writeCachedImport:  (destPath: string, base64: string) => ipcRenderer.invoke('fs:writeCachedImport', destPath, base64),
+  // Downloadable extra soundfonts
+  listSoundfonts:     () => ipcRenderer.invoke('soundfont:list'),
+  downloadSoundfont:  (id: string) => ipcRenderer.invoke('soundfont:download', id),
+  deleteSoundfont:    (id: string) => ipcRenderer.invoke('soundfont:delete', id),
+  readSoundfont:      (id: string) => ipcRenderer.invoke('soundfont:read', id),
+  onSoundfontProgress: (fn: (data: { id: string; progress: number }) => void) => ipcRenderer.on('soundfont:progress', (_e, data) => fn(data)),
+  offSoundfontProgress: () => ipcRenderer.removeAllListeners('soundfont:progress'),
 })

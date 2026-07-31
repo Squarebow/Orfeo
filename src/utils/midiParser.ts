@@ -1,6 +1,9 @@
 import { Midi } from '@tonejs/midi'
 import type { ParsedMidi, ParsedTrack, ParsedNote } from '../types'
 import { getGMName, getGMGroup } from './gmInstruments'
+import { restoreHandTagsFromHints } from './handMetadata'
+import { assignHands } from './handAssignment'
+import { KEYBOARD_GROUPS } from './keyboardGroups'
 
 const TRACK_COLORS = [
   '#e8a027', '#6b7ab5', '#4ecdc4', '#e06c75',
@@ -118,6 +121,46 @@ export function parseMidiBuffer(buffer: ArrayBuffer, fileName: string, filePath 
     }
   }
 
+  // ── Restore Orfeo custom track colors from header text meta-events ──────────
+  // Format: ORFEO_TRACK_COLOR:N:#hexcolor — same convention as ORFEO_TRACK_NAME.
+  // Without this, a color picked in the color popover only ever lived in the
+  // Zustand store — any save+reload silently discarded it back to the
+  // palette default, since nothing wrote it into the file at all.
+  const orfeoTrackColors: Record<number, string> = {}
+  for (const meta of (midi.header as any).meta ?? []) {
+    if (typeof meta.text === 'string' && meta.text.startsWith('ORFEO_TRACK_COLOR:')) {
+      const rest = meta.text.slice('ORFEO_TRACK_COLOR:'.length)
+      const colonIdx = rest.indexOf(':')
+      if (colonIdx >= 0) {
+        const idx = parseInt(rest.slice(0, colonIdx), 10)
+        const color = rest.slice(colonIdx + 1)
+        if (!isNaN(idx) && /^#[0-9a-fA-F]{6}$/.test(color)) orfeoTrackColors[idx] = color
+      }
+    }
+  }
+
+  // ── Restore hand tags from an Orfeo export hint, if this file has one ───────
+  // Track-name " (RH)"/" (LH)" suffix or ORFEO_HAND_MAP text meta — see
+  // utils/handMetadata.ts. Neither is real MIDI clef data, just a breadcrumb.
+  // When this returns false, no hint was found (or it was stale) and the
+  // assignment engine still needs to run — that happens where the split/
+  // color/merge UI actually calls it, not here in the parser.
+  const handTagsRestored = restoreHandTagsFromHints(tracks, (midi.header as any).meta ?? [])
+
+  // ── Tag whatever a hint didn't already cover — same engine as split/merge ──
+  // Every keyboard-group track's notes end up carrying a `hand` tag by the
+  // time this function returns, either restored above or freshly computed
+  // here. This is what lets the keyboard's L/R indicator just read the tag
+  // instead of inferring it live every frame (see handBoundaries.ts).
+  const kbNotesNeedingAssignment = tracks
+    .filter(t => KEYBOARD_GROUPS.has(t.group) && !t.isDrum)
+    .flatMap(t => t.notes)
+    .filter(n => n.hand === undefined)
+  if (kbNotesNeedingAssignment.length > 0) {
+    const { assignments } = assignHands(kbNotesNeedingAssignment)
+    for (const a of assignments) { a.note.hand = a.hand; a.note.handConfidence = a.confidence }
+  }
+
   const result: any = {
     fileName,
     duration,
@@ -133,6 +176,8 @@ export function parseMidiBuffer(buffer: ArrayBuffer, fileName: string, filePath 
     _tempoMap: tempoMap,
     _barStarts: barStarts,
     _orfeoTrackNames: Object.keys(orfeoTrackNames).length > 0 ? orfeoTrackNames : undefined,
+    _orfeoTrackColors: Object.keys(orfeoTrackColors).length > 0 ? orfeoTrackColors : undefined,
+    _handTagsRestored: handTagsRestored,
   }
 
   return result
