@@ -44,6 +44,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
   downloadSoundfont:  (id: string) => ipcRenderer.invoke('soundfont:download', id),
   deleteSoundfont:    (id: string) => ipcRenderer.invoke('soundfont:delete', id),
   readSoundfont:      (id: string) => ipcRenderer.invoke('soundfont:read', id),
+  importSoundfont:    () => ipcRenderer.invoke('soundfont:import'),
   onSoundfontProgress: (fn: (data: { id: string; progress: number }) => void) => ipcRenderer.on('soundfont:progress', (_e, data) => fn(data)),
   offSoundfontProgress: () => ipcRenderer.removeAllListeners('soundfont:progress'),
 })

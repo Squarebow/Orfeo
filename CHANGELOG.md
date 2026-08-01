@@ -4,6 +4,27 @@
 
 ---
 
+## [0.18.0] — 1. 8. 2026 — Audio settings rework: dynamic status, dropdown library, SF2/SF3 import
+
+### Sound engine status — dynamic, no longer hardcoded
+The "loaded" status line under Sound engine always printed `GeneralUser-GS.sf2 · 30.8 MB`, regardless of which soundfont was actually active — switching to FluidR3 GM (or any other library) left the status silently wrong. Both the `ready` and `idle` status lines now look up the actually-selected soundfont and print its real name/size; styling unchanged.
+
+**Changed:** `src/components/SettingsPanel/SettingsPanel.tsx`.
+
+### Sound Fonts Library — dropdown selector, aligned metadata, dimmed under GM
+- Description moved above the list (was rendered below it via `OptionRow`'s trailing hint slot).
+- Selection is now a single `<select>` dropdown (green border/background, same "active" look as before) instead of one pill-button per library — several library names didn't fit the old fixed-width buttons. The full catalog, including not-yet-downloaded entries, still renders below as a per-item list (size, bundled/download-with-progress/remove), now column-aligned via CSS grid regardless of name length.
+- The whole section dims to 40% opacity and goes inert (`pointer-events: none`) whenever GM Synth is the active engine, since none of it does anything until you switch to Samples — hovering anywhere in the section (including the label) shows "Switch to Samples engine for better audio quality".
+
+**Changed:** `src/components/SettingsPanel/SettingsPanel.tsx`.
+
+### Import your own SF2/SF3
+New "Import your own .sf2 / .sf3" button (tooltip warns to only import soundfonts you have the rights to use). Native file picker → collision-safe copy into the same `userData/soundfonts/` directory and load path already used by the catalog downloads — imported fonts show up in both the dropdown and the metadata list exactly like a downloaded catalog entry, with a "remove" action. `SoundfontId` widened from a fixed 3-value union to `string` to allow the dynamic `custom:<filename>` ids this needs.
+
+**New:** `soundfont:import` IPC (`electron/main.ts`), `window.electronAPI.importSoundfont` (`electron/preload.ts`). **Changed:** `electron/main.ts` (`soundfont:list/delete/read` now resolve custom ids, with a path-traversal guard), `src/types/index.ts` (`SoundfontId`, `SoundfontInfo.custom`), `src/components/SettingsPanel/SettingsPanel.tsx`.
+
+---
+
 ## [0.17.0] — 1. 8. 2026 — Library folder management, sidebar fixes, i18n scaffolding
 
 ### Library folder management — create, rename, delete, move, undo

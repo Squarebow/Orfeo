@@ -136,16 +136,41 @@ function soundfontsDir() {
   if (!existsSync(dir)) require('fs').mkdirSync(dir, { recursive: true })
   return dir
 }
-function soundfontPath(id: string) {
+// Custom (user-uploaded) soundfonts are identified by 'custom:<filename>' rather
+// than a catalog key — soundfontPath resolves both forms to the same directory.
+const CUSTOM_SF_PREFIX = 'custom:'
+function soundfontPath(id: string): string | null {
+  if (id.startsWith(CUSTOM_SF_PREFIX)) {
+    const filename = id.slice(CUSTOM_SF_PREFIX.length)
+    const p = join(soundfontsDir(), filename)
+    // Guard against a filename smuggling a path traversal — must resolve to a
+    // direct child of soundfontsDir(), same defense used by the library-folder IPC.
+    return basename(p) === filename && dirname(p) === soundfontsDir() ? p : null
+  }
   const entry = SOUNDFONT_CATALOG[id]
   return entry ? join(soundfontsDir(), entry.filename) : null
 }
 
 ipcMain.handle('soundfont:list', () => {
-  return Object.entries(SOUNDFONT_CATALOG).map(([id, entry]) => ({
+  const catalogEntries = Object.entries(SOUNDFONT_CATALOG).map(([id, entry]) => ({
     id, name: entry.name, sizeMB: entry.sizeMB,
     downloaded: existsSync(join(soundfontsDir(), entry.filename)),
+    custom: false,
   }))
+  const knownFilenames = new Set(Object.values(SOUNDFONT_CATALOG).map(e => e.filename))
+  const customEntries = readdirSync(soundfontsDir())
+    .filter(f => /\.(sf2|sf3)$/i.test(f) && !knownFilenames.has(f))
+    .map(f => {
+      const stat = require('fs').statSync(join(soundfontsDir(), f))
+      return {
+        id: `${CUSTOM_SF_PREFIX}${f}`,
+        name: f.replace(/\.(sf2|sf3)$/i, ''),
+        sizeMB: Math.round((stat.size / (1024 * 1024)) * 10) / 10,
+        downloaded: true,
+        custom: true,
+      }
+    })
+  return [...catalogEntries, ...customEntries]
 })
 
 ipcMain.handle('soundfont:delete', (_e, id: string) => {
@@ -157,6 +182,33 @@ ipcMain.handle('soundfont:read', (_e, id: string) => {
   const p = soundfontPath(id)
   if (!p || !existsSync(p)) return null
   return readFileSync(p)
+})
+
+// ── Import a user's own .sf2/.sf3 into soundfontsDir(), collision-safe — same
+// copy pattern as fs:copyMidiToLibrary. Returns the new entry's id, or null if
+// the user cancelled the picker. ───────────────────────────────────────────────
+ipcMain.handle('soundfont:import', async () => {
+  const result = await dialog.showOpenDialog({
+    title: 'Import SoundFont',
+    filters: [{ name: 'SoundFont', extensions: ['sf2', 'sf3'] }],
+    properties: ['openFile'],
+  })
+  if (result.canceled || !result.filePaths[0]) return null
+
+  const sourcePath = result.filePaths[0]
+  const origName = basename(sourcePath)
+  const ext = extname(origName)
+  const stem = origName.slice(0, origName.length - ext.length)
+  let destName = origName
+  let destPath = join(soundfontsDir(), destName)
+  let counter = 2
+  while (await access(destPath).then(() => true).catch(() => false)) {
+    destName = `${stem} (${counter})${ext}`
+    destPath = join(soundfontsDir(), destName)
+    counter++
+  }
+  await copyFile(sourcePath, destPath)
+  return `${CUSTOM_SF_PREFIX}${destName}`
 })
 
 // Follows redirects manually (GitHub release assets 302 to a signed CDN URL).

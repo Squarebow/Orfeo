@@ -5,7 +5,7 @@ import { confirmDialog } from '../../utils/confirmController'
 import {
   ChevronLeft, ChevronDown, ChevronRight, Type, Piano, Palette, ZoomIn, Volume2,
   Music, FolderOpen, Folders, RefreshCw, FileMusic, FileCode2, Guitar, BookOpen, Library, Settings, Info,
-  Eye, Search, X, Undo2,
+  Eye, Search, X, Undo2, Upload,
 } from 'lucide-react'
 import { useStore } from '../../store'
 import type { NoteNaming, KeyboardSize, Accidentals, TranscriptEntry, LibraryFile, HitEffectPattern, SoundfontId, SoundfontInfo } from '../../types'
@@ -1561,6 +1561,20 @@ export default function SettingsPanel() {
     await window.electronAPI.deleteSoundfont(id)
     refreshSoundfonts()
   }
+  async function handleImportSoundfont() {
+    setSfError(null)
+    const id = await window.electronAPI.importSoundfont()
+    if (!id) return // user cancelled the picker
+    refreshSoundfonts()
+    await handleSelectSoundfont(id)
+  }
+  // ── Bundled default + downloaded extras + user imports, in list order.
+  // Used both for the dropdown (downloaded-only) and the status line below. ──
+  const allSoundfonts: SoundfontInfo[] = [
+    { id: 'generaluser-gs', name: 'GeneralUser GS', sizeMB: 30.8, downloaded: true },
+    ...extraSoundfonts,
+  ]
+  const activeSoundfontEntry = allSoundfonts.find(sf => sf.id === selectedSoundfont)
 
   // ── Auto-init samples engine when prefs restore sets audioEngine='samples'
   useEffect(() => {
@@ -1940,8 +1954,8 @@ export default function SettingsPanel() {
                     )}
                     {samplesStatus === 'ready' && (
                       <div style={{ marginTop: 5, fontSize: 9, color: 'var(--text-muted)', fontFamily: 'Inter' }}>
-                        {/* ── "loaded" goes green when Samples is the active engine ── */}
-                        GeneralUser-GS.sf2 · 30.8 MB · <span style={{ color: audioEngine === 'samples' ? 'var(--status-success)' : 'inherit' }}>loaded</span>
+                        {/* ── Always prints the actually-active soundfont — "loaded" goes green when Samples is the active engine ── */}
+                        {activeSoundfontEntry?.name ?? selectedSoundfont} · {activeSoundfontEntry?.sizeMB ?? '?'} MB · <span style={{ color: audioEngine === 'samples' ? 'var(--status-success)' : 'inherit' }}>loaded</span>
                       </div>
                     )}
                     {samplesStatus === 'error' && (
@@ -1953,53 +1967,119 @@ export default function SettingsPanel() {
                       <div style={{ marginTop: 5, fontSize: 9, color: 'var(--text-muted)', fontFamily: 'Inter' }}>
                         {audioEngine === 'gm'
                           ? 'GM Synth (jzz-synth-tiny) — ships with app, no internet needed.'
-                          : 'GeneralUser-GS.sf2 · 30.8 MB · click Samples to load'}
+                          : `${activeSoundfontEntry?.name ?? selectedSoundfont} · ${activeSoundfontEntry?.sizeMB ?? '?'} MB · click Samples to load`}
                       </div>
                     )}
                   </OptionRow>
 
                   {/* ── Sound library — extra downloadable SF2/SF3s, Samples engine only ── */}
-                  <OptionRow label="Sound Fonts Library" hint="Extra GM sf2 soundfonts, downloaded on demand. Only affects the Sample engine.">
-                    {[
-                      { id: 'generaluser-gs' as SoundfontId, name: 'GeneralUser GS', sizeMB: 30.8, downloaded: true },
-                      ...extraSoundfonts,
-                    ].map((sf) => {
-                      const isActive = selectedSoundfont === sf.id
-                      const isDownloading = sfDownloadingId === sf.id
-                      return (
-                        <div key={sf.id} style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-2)', marginBottom: 5 }}>
-                          <OptionBtn
-                            active={isActive}
-                            onClick={() => sf.downloaded && handleSelectSoundfont(sf.id)}
-                            title={sf.downloaded ? `Use ${sf.name} for the Samples engine` : `Download ${sf.name} first`}
-                          >{sf.name}</OptionBtn>
-                          <span style={{ fontSize: 9, color: 'var(--text-dimmest)', fontFamily: 'Inter', minWidth: 48 }}>{sf.sizeMB} MB</span>
-                          {sf.id === 'generaluser-gs' ? (
-                            <span style={{ fontSize: 9, color: 'var(--text-muted)', fontFamily: 'Inter' }}>bundled</span>
-                          ) : sf.downloaded ? (
-                            <button
-                              onClick={() => handleDeleteSoundfont(sf.id)}
-                              title="Delete downloaded file"
-                              style={{ fontSize: 9, color: 'var(--text-dimmest)', fontFamily: 'Inter', background: 'none', border: 'none', cursor: 'pointer', padding: 0 }}
-                            >remove</button>
-                          ) : isDownloading ? (
-                            <div style={{ flex: 1, height: 3, background: 'var(--border)', borderRadius: 2, overflow: 'hidden', maxWidth: 80 }}>
-                              <div style={{ height: '100%', background: 'var(--text-amber)', borderRadius: 2, width: `${Math.round(sfDownloadProgress * 100)}%`, transition: 'width 0.1s' }} />
-                            </div>
-                          ) : (
-                            <button
-                              onClick={() => handleDownloadSoundfont(sf.id)}
-                              title={`Download ${sf.name} (${sf.sizeMB} MB, MIT licensed)`}
-                              style={{ fontSize: 9, color: 'var(--text-amber)', fontFamily: 'Inter', background: 'none', border: 'none', cursor: 'pointer', padding: 0 }}
-                            >download</button>
-                          )}
-                        </div>
-                      )
-                    })}
+                  {/* Title sits on this outer wrapper (covers the label too) rather than the inner
+                      dimmed div — a tooltip anchored only to the dimmed/inert body wouldn't fire
+                      when hovering the "Sound Fonts Library" label itself. ── */}
+                  <div title={audioEngine === 'samples' ? undefined : 'Switch to Samples engine for better audio quality'}>
+                  <OptionRow label="Sound Fonts Library">
+                  {/* ── Dimmed + inert whenever GM Synth is active — this library only affects
+                      the Samples engine, so there's nothing useful to click here otherwise. ── */}
+                  <div
+                    style={{
+                      opacity: audioEngine === 'samples' ? 1 : 0.4,
+                      pointerEvents: audioEngine === 'samples' ? 'auto' : 'none',
+                      transition: 'opacity 0.15s',
+                    }}
+                  >
+                    {/* ── Description — moved above the list (was a trailing hint below it) ── */}
+                    <div style={{ fontSize: 'var(--text-xs)', color: 'var(--text-dimmest)', fontFamily: 'Inter', marginBottom: 8 }}>
+                      Extra GM sf2 soundfonts, downloaded on demand. Only affects the Sample engine.
+                    </div>
+
+                    {/* ── Active selection — a dropdown instead of pill buttons, since library
+                        names don't reliably fit a fixed-width button. Only lists soundfonts
+                        that are actually downloaded/importable right now; green border+background
+                        mirrors the old per-item "active" pill styling. ── */}
+                    <select
+                      value={selectedSoundfont}
+                      onChange={e => handleSelectSoundfont(e.target.value)}
+                      title="Soundfont used by the Samples engine"
+                      style={{
+                        width: '100%', padding: '5px 8px', borderRadius: 4,
+                        border: '1px solid var(--status-success)',
+                        background: 'rgba(74, 144, 96, 0.13)',
+                        color: 'var(--status-success)',
+                        fontSize: 'var(--text-xs)', fontFamily: 'JetBrains Mono', fontWeight: 700,
+                        cursor: 'pointer', marginBottom: 8,
+                      }}
+                    >
+                      {allSoundfonts.filter(sf => sf.downloaded).map(sf => (
+                        <option key={sf.id} value={sf.id}>{sf.name} — {sf.sizeMB} MB</option>
+                      ))}
+                    </select>
+
+                    {/* ── Full catalog, incl. not-yet-downloaded — grid columns keep name/size/action
+                        aligned regardless of name length, which a row of fixed-width buttons couldn't. ── */}
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr auto auto', columnGap: 'var(--space-2)', rowGap: 5, alignItems: 'center' }}>
+                      {allSoundfonts.map((sf) => {
+                        const isActive = selectedSoundfont === sf.id
+                        const isDownloading = sfDownloadingId === sf.id
+                        return (
+                          <div key={sf.id} style={{ display: 'contents' }}>
+                            <span
+                              title={sf.downloaded ? `Use ${sf.name} for the Samples engine` : `Download ${sf.name} first`}
+                              style={{
+                                fontSize: 'var(--text-xs)', fontFamily: 'Inter',
+                                color: isActive ? 'var(--status-success)' : 'var(--text-inactive)',
+                                fontWeight: isActive ? 600 : 400,
+                                overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+                              }}
+                            >{sf.name}</span>
+                            <span style={{ fontSize: 9, color: 'var(--text-dimmest)', fontFamily: 'Inter', textAlign: 'right' }}>{sf.sizeMB} MB</span>
+                            {sf.id === 'generaluser-gs' ? (
+                              <span style={{ fontSize: 9, color: 'var(--text-muted)', fontFamily: 'Inter', textAlign: 'right' }}>bundled</span>
+                            ) : sf.downloaded ? (
+                              <button
+                                onClick={() => handleDeleteSoundfont(sf.id)}
+                                title={sf.custom ? 'Remove imported file' : 'Delete downloaded file'}
+                                style={{ fontSize: 9, color: 'var(--text-dimmest)', fontFamily: 'Inter', background: 'none', border: 'none', cursor: 'pointer', padding: 0, textAlign: 'right' }}
+                              >remove</button>
+                            ) : isDownloading ? (
+                              <div style={{ width: 60, height: 3, background: 'var(--border)', borderRadius: 2, overflow: 'hidden' }}>
+                                <div style={{ height: '100%', background: 'var(--text-amber)', borderRadius: 2, width: `${Math.round(sfDownloadProgress * 100)}%`, transition: 'width 0.1s' }} />
+                              </div>
+                            ) : (
+                              <button
+                                onClick={() => handleDownloadSoundfont(sf.id)}
+                                title={`Download ${sf.name} (${sf.sizeMB} MB, MIT licensed)`}
+                                style={{ fontSize: 9, color: 'var(--text-amber)', fontFamily: 'Inter', background: 'none', border: 'none', cursor: 'pointer', padding: 0, textAlign: 'right' }}
+                              >download</button>
+                            )}
+                          </div>
+                        )
+                      })}
+                    </div>
+
                     {sfError && (
-                      <div style={{ fontSize: 9, color: 'var(--status-error)', fontFamily: 'Inter', marginTop: 2 }}>{sfError}</div>
+                      <div style={{ fontSize: 9, color: 'var(--status-error)', fontFamily: 'Inter', marginTop: 5 }}>{sfError}</div>
                     )}
+
+                    {/* ── Import a user's own .sf2/.sf3 — same storage/loading path as the catalog entries ── */}
+                    <button
+                      onClick={handleImportSoundfont}
+                      title="Only import soundfonts you have the rights to use — most free GM soundfonts are MIT/CC-licensed, but check before importing anything you didn't make yourself or verify as freely redistributable."
+                      style={{
+                        display: 'flex', alignItems: 'center', gap: 6,
+                        marginTop: 8, padding: '5px 8px', width: '100%',
+                        borderRadius: 4, border: '1px dashed var(--border2)', background: 'transparent',
+                        color: 'var(--text-inactive)', fontSize: 'var(--text-xs)', fontFamily: 'Inter',
+                        cursor: 'pointer', justifyContent: 'center',
+                      }}
+                      onMouseEnter={e => { e.currentTarget.style.color = 'var(--text-amber)'; e.currentTarget.style.borderColor = 'var(--text-amber)' }}
+                      onMouseLeave={e => { e.currentTarget.style.color = 'var(--text-inactive)'; e.currentTarget.style.borderColor = 'var(--border2)' }}
+                    >
+                      <Upload size={11} strokeWidth={1.5} />
+                      Import your own .sf2 / .sf3
+                    </button>
+                  </div>
                   </OptionRow>
+                  </div>
                   {/* ── Selective Tracks Playback — eye-toggle; shows/hides quick-toggle button in Track Panel ─ */}
                   <OptionRow
                     label="Selective Tracks Playback"

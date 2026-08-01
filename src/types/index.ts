@@ -10,14 +10,17 @@ export type HitEffectPattern =
   | 'smokePlume' | 'colorAura' | 'starburstNova' | 'cometTrail'
 
 // Downloadable extra SF2/SF3 sound libraries (Samples engine). 'generaluser-gs'
-// is the always-bundled default and is never downloaded/deleted.
-export type SoundfontId = 'generaluser-gs' | 'fluidr3-gm' | 'musescore-general'
+// is the always-bundled default and is never downloaded/deleted. User-imported
+// soundfonts get a dynamic 'custom:<filename>' id, so this is a plain string
+// rather than a fixed union.
+export type SoundfontId = string
 
 export interface SoundfontInfo {
   id: SoundfontId
   name: string
   sizeMB: number
   downloaded: boolean
+  custom?: boolean
 }
 
 export interface ParsedNote {
@@ -150,6 +153,7 @@ declare global {
       downloadSoundfont:   (id: SoundfontId) => Promise<{ ok: boolean; error?: string }>
       deleteSoundfont:     (id: SoundfontId) => Promise<void>
       readSoundfont:       (id: SoundfontId) => Promise<ArrayBuffer | null>
+      importSoundfont:     () => Promise<SoundfontId | null>
       onSoundfontProgress: (fn: (data: { id: SoundfontId; progress: number }) => void) => void
       offSoundfontProgress: () => void
       // Drag-and-drop file import
