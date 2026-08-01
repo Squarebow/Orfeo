@@ -570,7 +570,7 @@ export default function PianoRoll() {
           return
         }
 
-        const { midi, currentTime, tracks, detectedKey, zoomLevel, appTheme, keyboardSize, showBarNumbers, barStarts: storeBars, noteEditorActive, showHandLabels, playbarVisible, keyboardTopY, hitEffectsEnabled, hitEffectPattern, hitEffectBloomThreshold, hitEffectBloomIntensity, hitEffectBloomSpread } = storeRef.current
+        const { midi, currentTime, tracks, detectedKey, zoomLevel, appTheme, keyboardSize, showBarNumbers, barStarts: storeBars, noteEditorActive, showHandLabels, playbarVisible, keyboardTopY, hitEffectsEnabled, hitEffectPattern, hitEffectBloomThreshold, hitEffectBloomIntensity, hitEffectBloomSpread, hitEffectColor } = storeRef.current
         const transpose   = (detectedKey as any)?.transpose ?? 0
         const W = app.screen.width, H = app.screen.height
         // ── Hit-line Y position — fixed 80% line by default (unchanged), or the
@@ -605,12 +605,15 @@ export default function PianoRoll() {
         if (hitEffectsEnabled) {
           hitEffects.setBloomParams({ threshold: hitEffectBloomThreshold, intensity: hitEffectBloomIntensity, spread: hitEffectBloomSpread })
           const hits = drainHitEffects()
+          // hitEffectColor overrides the particle color only — leaves the queued
+          // per-track color (and the key glow, a separate render path) untouched.
+          const overrideHex = hitEffectColor ? parseInt(hitEffectColor.replace('#', ''), 16) : null
           for (const hit of hits) {
             const idx = hit.midi - midiMin
             if (idx < 0 || idx >= totalKeys) continue
             const key = keyLayoutRef.current[idx]
             if (!key) continue
-            const colorHex = parseInt(hit.color.replace('#', ''), 16)
+            const colorHex = overrideHex ?? parseInt(hit.color.replace('#', ''), 16)
             hitEffects.spawn(hitEffectPattern, key.x + key.width / 2, py, colorHex)
           }
         }

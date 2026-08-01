@@ -5,7 +5,7 @@ import { confirmDialog } from '../../utils/confirmController'
 import {
   ChevronLeft, ChevronDown, ChevronRight, Type, Piano, Palette, ZoomIn, Volume2,
   Music, FolderOpen, Folders, RefreshCw, FileMusic, FileCode2, Guitar, BookOpen, Library, Settings, Info,
-  Eye, Search, X, Undo2, Upload,
+  Eye, Search, X, Undo2, Upload, ToggleLeft, ToggleRight,
 } from 'lucide-react'
 import { useStore } from '../../store'
 import type { NoteNaming, KeyboardSize, Accidentals, TranscriptEntry, LibraryFile, HitEffectPattern, SoundfontId, SoundfontInfo } from '../../types'
@@ -13,6 +13,7 @@ import type { AppTheme } from '../../store'
 import { initSamplesEngine, loadSelectedSoundfont } from '../../hooks/useSamplesEngine'
 import { MarqueeText } from '../MarqueeText'
 import { detectForeignFormat } from '../../utils/foreignFormatImport'
+import { TRACK_COLOR_PALETTE } from '../../utils/colors'
 
 // ── EyeClosed — custom icon replacing lucide EyeOff throughout settings ───────
 function EyeClosed({ size = 24, strokeWidth = 2 }: { size?: number; strokeWidth?: number }) {
@@ -251,6 +252,84 @@ function OptionBtn({ active, onClick, children, title, comingSoon, activeColor =
     >
       {children}
     </button>
+  )
+}
+
+// ─── Hit-effect color picker — swatch trigger + in-app popover (hex + palette).
+// Deliberately NOT a native <input type="color"> — that opens an OS-level dialog
+// which was blurring the app window and closing the whole Settings drawer out
+// from under it. Self-contained popover with its own outside-click/Escape close,
+// same approach as MidiEditor's track ColorPopover. ─────────────────────────────
+function HitEffectColorSwatch({ color, onChange }: { color: string | null; onChange: (c: string) => void }) {
+  const [open, setOpen] = useState(false)
+  const [hexInput, setHexInput] = useState(color ?? '#e8a027')
+  const ref = useRef<HTMLDivElement>(null)
+
+  useEffect(() => {
+    if (!open) return
+    const handleDown = (e: MouseEvent) => { if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false) }
+    const handleKey = (e: KeyboardEvent) => { if (e.key === 'Escape') setOpen(false) }
+    window.addEventListener('mousedown', handleDown)
+    window.addEventListener('keydown', handleKey)
+    return () => { window.removeEventListener('mousedown', handleDown); window.removeEventListener('keydown', handleKey) }
+  }, [open])
+
+  const commitHex = (v: string) => {
+    setHexInput(v)
+    if (/^#[0-9a-fA-F]{6}$/.test(v)) onChange(v)
+  }
+
+  return (
+    <div ref={ref} style={{ position: 'relative', flexShrink: 0 }}>
+      <button
+        onClick={() => { setHexInput(color ?? '#e8a027'); setOpen(o => !o) }}
+        title="Effect particle color — overrides every track's color for the flourish only, not the falling notes or key glow"
+        style={{
+          display: 'flex', alignItems: 'center', gap: 5, padding: 0, marginLeft: 6,
+          border: 'none', background: 'none', cursor: 'pointer',
+        }}
+      >
+        <Palette size={13} strokeWidth={1.5} style={{ color: 'var(--text-amber)', flexShrink: 0 }} />
+        <span style={{ fontSize: 'var(--text-xs)', color: 'var(--text-default)', fontFamily: 'Inter', whiteSpace: 'nowrap' }}>Color</span>
+        <span style={{
+          width: 14, height: 14, borderRadius: 3, flexShrink: 0,
+          background: color ?? 'repeating-conic-gradient(#666 0% 25%, #999 0% 50%) 50% / 6px 6px',
+          border: '1px solid var(--border2)',
+        }} />
+      </button>
+      {open && (
+        <div style={{
+          position: 'absolute', top: '100%', right: 0, marginTop: 4, zIndex: 20,
+          background: 'var(--panel)', border: '1px solid #404055', borderRadius: 'var(--radius-md)',
+          boxShadow: '0 4px 16px rgba(0,0,0,0.55)', padding: 10, width: 150,
+          display: 'flex', flexDirection: 'column', gap: 8,
+        }}>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: 4 }}>
+            {TRACK_COLOR_PALETTE.map(c => (
+              <div
+                key={c}
+                onClick={() => { commitHex(c); onChange(c) }}
+                title={c}
+                style={{
+                  height: 22, background: c, borderRadius: 3, cursor: 'pointer', boxSizing: 'border-box',
+                  border: `2px solid ${c.toLowerCase() === color?.toLowerCase() ? '#ffffff' : 'transparent'}`,
+                }}
+              />
+            ))}
+          </div>
+          <input
+            value={hexInput}
+            onChange={e => commitHex(e.target.value)}
+            placeholder="#e8a027"
+            style={{
+              width: '100%', padding: '4px 6px', borderRadius: 4, border: '1px solid var(--border2)',
+              background: 'var(--bg-modal)', color: 'var(--text-default)', fontSize: 'var(--text-xs)',
+              fontFamily: 'JetBrains Mono', boxSizing: 'border-box',
+            }}
+          />
+        </div>
+      )}
+    </div>
   )
 }
 
@@ -1485,6 +1564,10 @@ export default function SettingsPanel() {
   const setHitEffectsEnabled = useStore((s) => s.setHitEffectsEnabled)
   const hitEffectPattern = useStore((s) => s.hitEffectPattern)
   const setHitEffectPattern = useStore((s) => s.setHitEffectPattern)
+  const hitEffectScope = useStore((s) => s.hitEffectScope)
+  const setHitEffectScope = useStore((s) => s.setHitEffectScope)
+  const hitEffectColor = useStore((s) => s.hitEffectColor)
+  const setHitEffectColor = useStore((s) => s.setHitEffectColor)
   const hitEffectBloomThreshold = useStore((s) => s.hitEffectBloomThreshold)
   const setHitEffectBloomThreshold = useStore((s) => s.setHitEffectBloomThreshold)
   const hitEffectBloomIntensity = useStore((s) => s.hitEffectBloomIntensity)
@@ -2154,15 +2237,67 @@ export default function SettingsPanel() {
                     description="An extra animated flourish where each note hits, alongside the existing key glow."
                   />
                   {hitEffectsEnabled && (
+                    <OptionRow label="Effect Scope & Color">
+                      <div style={{ display: 'flex', gap: 'var(--space-2)', alignItems: 'stretch' }}>
+                        {/* ── Left: which tracks spawn effects — purely visual, doesn't touch
+                            which notes actually sound or light the keyboard. Compact icon
+                            toggle instead of a pair of pill buttons. ── */}
+                        <button
+                          onClick={() => setHitEffectScope(hitEffectScope === 'keyboard' ? 'all' : 'keyboard')}
+                          title={hitEffectScope === 'keyboard'
+                            ? 'Effects on keyboard tracks only — click to include every track in the file'
+                            : 'Effects on every track in the file — click to limit to keyboard tracks only'}
+                          style={{
+                            // Fixed width (fits the longer label) instead of flex — otherwise
+                            // toggling between "Keyboard tracks" and "All tracks" shifts every
+                            // control to its right left/right on each click.
+                            width: 116, flexShrink: 0,
+                            display: 'flex', alignItems: 'center', gap: 6, padding: 0,
+                            border: 'none', background: 'none',
+                            fontSize: 'var(--text-xs)', fontFamily: 'Inter', cursor: 'pointer',
+                          }}
+                        >
+                          {hitEffectScope === 'keyboard'
+                            ? <ToggleLeft size={16} strokeWidth={1.5} style={{ flexShrink: 0, color: 'var(--text-amber)' }} />
+                            : <ToggleRight size={16} strokeWidth={1.5} style={{ flexShrink: 0, color: 'var(--text-amber)' }} />
+                          }
+                          <span style={{ color: 'var(--text-default)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', textAlign: 'left' }}>
+                            {hitEffectScope === 'keyboard' ? 'Keyboard tracks' : 'All tracks'}
+                          </span>
+                        </button>
+                        {/* ── Right: overrides the effect particle color for every track at once
+                            — never touches the falling-note color or the key glow. ── */}
+                        <HitEffectColorSwatch color={hitEffectColor} onChange={setHitEffectColor} />
+                        {hitEffectColor && (
+                          <button
+                            onClick={() => setHitEffectColor(null)}
+                            title="Use each track's own color again"
+                            style={{
+                              display: 'flex', alignItems: 'center',
+                              color: 'var(--text-dimmest)',
+                              background: 'none', border: 'none', cursor: 'pointer', padding: '0 2px', flexShrink: 0,
+                            }}
+                            onMouseEnter={e => e.currentTarget.style.color = 'var(--text-amber)'}
+                            onMouseLeave={e => e.currentTarget.style.color = 'var(--text-dimmest)'}
+                          >
+                            <Undo2 size={11} />
+                          </button>
+                        )}
+                      </div>
+                    </OptionRow>
+                  )}
+                  {hitEffectsEnabled && (
                     <OptionRow label="Effect Pattern">
                       <select
                         value={hitEffectPattern}
                         onChange={e => setHitEffectPattern(e.target.value as typeof hitEffectPattern)}
                         style={{
-                          width: '100%', padding: '4px 6px', borderRadius: 4,
-                          border: '1px solid var(--border2)', background: 'var(--bg-modal)',
-                          color: 'var(--text-muted)', fontSize: 'var(--text-xs)',
-                          fontFamily: 'Inter', cursor: 'pointer',
+                          width: '100%', padding: '5px 8px', borderRadius: 4,
+                          border: '1px solid var(--status-success)',
+                          background: 'rgba(74, 144, 96, 0.13)',
+                          color: 'var(--status-success)',
+                          fontSize: 'var(--text-xs)', fontFamily: 'JetBrains Mono', fontWeight: 700,
+                          cursor: 'pointer',
                         }}
                       >
                         <option value="glowBloom" title={HIT_EFFECT_DESCRIPTIONS.glowBloom}>Glow Bloom</option>

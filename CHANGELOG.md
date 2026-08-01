@@ -4,6 +4,25 @@
 
 ---
 
+## [0.19.0] — 1. 8. 2026 — Note Hit Effects: track scope toggle + global color override
+
+### Effect scope — keyboard tracks only, or every track in the file
+New "Effect Scope & Color" row in Note Hit Effects (Piano Roll settings). A compact icon toggle (`ToggleLeft`/`ToggleRight`, amber, no button chrome) switches between the existing behavior — effects only for tracks currently shown/lit on the keyboard — and a new "all tracks" mode that spawns effects for every track in the file, even ones not mapped to the keyboard. Purely visual: doesn't change which notes actually sound, and doesn't light keys for tracks that aren't shown on the keyboard, only spawns the particle flourish at their note's key position.
+
+**Changed:** `src/hooks/useAudioEngine.ts` (both `updateMutedChannels` and `buildPlayer` — the track-level `showOnKeyboard` skip now only gates the key-light call, not the whole scheduling loop, so non-keyboard tracks can still queue a hit effect when scope is `'all'`), `src/hooks/useSamplesEngine.ts` (same split in `buildSamplesPlayer`), `src/store/index.ts` (`hitEffectScope`, persisted).
+
+### Effect color override — particles only, independent of track/note color
+New color swatch next to the scope toggle overrides the hit-effect particle color for every track at once, leaving the falling-note color and the key glow (separate render paths) untouched — applied at the single point effects are actually spawned in `PianoRoll.tsx`, not at the trigger/queue level, so nothing else in the per-track color pipeline needed to change. Built as a self-contained in-app popover (palette grid + hex input) rather than a native `<input type="color">` — the native OS color dialog was blurring the Electron window and closing the whole Settings drawer out from under it.
+
+**New:** `HitEffectColorSwatch` component (`SettingsPanel.tsx`). **Changed:** `src/components/PianoRoll/PianoRoll.tsx` (color override applied at `hitEffects.spawn()`), `src/store/index.ts` (`hitEffectColor`, persisted), `src/components/SettingsPanel/SettingsPanel.tsx`.
+
+### Effect Pattern dropdown — active-selection styling
+Matches the Sound Fonts Library selector introduced in 0.18.0: green border/background/text for the active pattern, instead of the previous neutral dropdown styling.
+
+**Changed:** `src/components/SettingsPanel/SettingsPanel.tsx`.
+
+---
+
 ## [0.18.0] — 1. 8. 2026 — Audio settings rework: dynamic status, dropdown library, SF2/SF3 import
 
 ### Sound engine status — dynamic, no longer hardcoded

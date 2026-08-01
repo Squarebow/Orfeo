@@ -244,6 +244,17 @@ interface OrfeoStore {
   hitEffectBloomSpread: number
   setHitEffectBloomSpread: (v: number) => void
 
+  // ── Which tracks spawn effects: only ones actively lit on the keyboard
+  // (default, matches existing key-glow scoping), or every track in the file
+  // regardless of showOnKeyboard — purely visual, doesn't touch key lighting. ──
+  hitEffectScope: 'keyboard' | 'all'
+  setHitEffectScope: (v: 'keyboard' | 'all') => void
+  // ── Overrides the effect particle color for every track at once — null means
+  // "inherit each note's track color" (existing/default behavior). Never touches
+  // the falling-note color or the key glow, only what HitEffects.spawn() renders. ──
+  hitEffectColor: string | null
+  setHitEffectColor: (v: string | null) => void
+
   // ── Active soundfont (Samples engine) — 'generaluser-gs' is always bundled;
   // the other two are downloaded on demand via window.electronAPI.
   selectedSoundfont: SoundfontId
@@ -583,6 +594,10 @@ export const useStore = create<OrfeoStore>((set, get) => ({
   setSelectedSoundfont: (selectedSoundfont) => set({ selectedSoundfont }),
   hitEffectBloomSpread: 4,
   setHitEffectBloomSpread: (v) => set({ hitEffectBloomSpread: Math.max(0, Math.min(12, v)) }),
+  hitEffectScope: 'keyboard',
+  setHitEffectScope: (hitEffectScope) => set({ hitEffectScope }),
+  hitEffectColor: null,
+  setHitEffectColor: (hitEffectColor) => set({ hitEffectColor }),
 
   // ── Keyboard label visibility — octave numbers and note name labels ────────
   showOctaveLabels: true,
@@ -730,6 +745,8 @@ async function restoreLibraryPrefs() {
     if (typeof prefs.hitEffectBloomThreshold === 'number') store.setHitEffectBloomThreshold(prefs.hitEffectBloomThreshold)
     if (typeof prefs.hitEffectBloomIntensity === 'number') store.setHitEffectBloomIntensity(prefs.hitEffectBloomIntensity)
     if (typeof prefs.hitEffectBloomSpread === 'number') store.setHitEffectBloomSpread(prefs.hitEffectBloomSpread)
+    if (prefs.hitEffectScope === 'keyboard' || prefs.hitEffectScope === 'all') store.setHitEffectScope(prefs.hitEffectScope)
+    if (typeof prefs.hitEffectColor === 'string' || prefs.hitEffectColor === null) store.setHitEffectColor(prefs.hitEffectColor)
     if (prefs.selectedSoundfont === 'fluidr3-gm' || prefs.selectedSoundfont === 'musescore-general') store.setSelectedSoundfont(prefs.selectedSoundfont)
   } catch (e) {
     console.error('[Orfeo] restoreLibraryPrefs:', e)
@@ -784,6 +801,8 @@ let _prevHitEffectPattern: string | null = null
 let _prevHitEffectBloomThreshold: number | null = null
 let _prevHitEffectBloomIntensity: number | null = null
 let _prevHitEffectBloomSpread: number | null = null
+let _prevHitEffectScope: string | null = null
+let _prevHitEffectColor: string | null | undefined = undefined
 let _prevSelectedSoundfont: string | null = null
 useStore.subscribe((state) => {
   // Skip the very first fire (app init) — restore handles loading saved values
@@ -818,6 +837,8 @@ useStore.subscribe((state) => {
     _prevHitEffectBloomThreshold = state.hitEffectBloomThreshold
     _prevHitEffectBloomIntensity = state.hitEffectBloomIntensity
     _prevHitEffectBloomSpread = state.hitEffectBloomSpread
+    _prevHitEffectScope = state.hitEffectScope
+    _prevHitEffectColor = state.hitEffectColor
     _prevSelectedSoundfont = state.selectedSoundfont
     return
   }
@@ -852,6 +873,8 @@ useStore.subscribe((state) => {
     state.hitEffectBloomThreshold !== _prevHitEffectBloomThreshold ||
     state.hitEffectBloomIntensity !== _prevHitEffectBloomIntensity ||
     state.hitEffectBloomSpread !== _prevHitEffectBloomSpread ||
+    state.hitEffectScope !== _prevHitEffectScope ||
+    state.hitEffectColor !== _prevHitEffectColor ||
     state.selectedSoundfont !== _prevSelectedSoundfont
   ) {
     _prevNoteNaming = state.noteNaming
@@ -884,6 +907,8 @@ useStore.subscribe((state) => {
     _prevHitEffectBloomThreshold = state.hitEffectBloomThreshold
     _prevHitEffectBloomIntensity = state.hitEffectBloomIntensity
     _prevHitEffectBloomSpread = state.hitEffectBloomSpread
+    _prevHitEffectScope = state.hitEffectScope
+    _prevHitEffectColor = state.hitEffectColor
     _prevSelectedSoundfont = state.selectedSoundfont
     window.electronAPI?.setPrefs?.({
       noteNaming: state.noteNaming,
@@ -916,6 +941,8 @@ useStore.subscribe((state) => {
       hitEffectBloomThreshold: state.hitEffectBloomThreshold,
       hitEffectBloomIntensity: state.hitEffectBloomIntensity,
       hitEffectBloomSpread: state.hitEffectBloomSpread,
+      hitEffectScope: state.hitEffectScope,
+      hitEffectColor: state.hitEffectColor,
       selectedSoundfont: state.selectedSoundfont,
     }).catch(() => {})
   }
