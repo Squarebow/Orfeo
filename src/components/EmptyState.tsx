@@ -43,7 +43,7 @@ export default function EmptyState() {
         }}>
           <span style={{ fontSize: 15, fontWeight: 500, color: 'var(--text-standard)' }}>Let's get started</span>
           <span style={{ fontSize: 'var(--text-sm)', color: 'var(--text-muted)' }}>
-            Orfeo supports .mid, .kar, .musicxml, .mxl, and Guitar Pro (.gp, .gp3–gp5, .gpx) file formats.<br />
+            Orfeo supports .mid, .kar, .mxl (MusicXML), and .gp, .gp3–gp5, .gpx (Guitar Pro) file formats.<br />
             Drag any supported file here, or click Open a file to begin.
           </span>
 
