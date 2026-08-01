@@ -43,8 +43,8 @@ export default function EmptyState() {
         }}>
           <span style={{ fontSize: 15, fontWeight: 500, color: 'var(--text-standard)' }}>Let's get started</span>
           <span style={{ fontSize: 'var(--text-sm)', color: 'var(--text-muted)' }}>
-            Drag a .mid file here, or click Open MIDI file to begin.<br />
-            You can also drag in .kar, .musicxml, .mxl, and Guitar Pro (.gp, .gp3–.gp5, .gpx) files.
+            Orfeo supports .mid, .kar, .musicxml, .mxl, and Guitar Pro (.gp, .gp3–gp5, .gpx) file formats.<br />
+            Drag any supported file here, or click Open a file to begin.
           </span>
 
           <button
@@ -67,7 +67,7 @@ export default function EmptyState() {
             <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
               <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/>
             </svg>
-            Open MIDI file
+            Open a file
           </button>
 
           <span style={{ fontSize: 'var(--text-xs)', color: 'var(--text-faint)', marginTop: 2 }}>Ctrl+O</span>
