@@ -39,6 +39,11 @@ export default defineConfig({
       exclude: ['spessasynth_lib', 'spessasynth_core'],
       include: ['fuse.js'],
     },
+    server: {
+      watch: {
+        ignored: ['**/release/**'],
+      },
+    },
     build: {
       rollupOptions: {
         input: {
