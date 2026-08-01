@@ -4,8 +4,8 @@ import { NES } from '../../utils/noteEditorState'
 import { confirmDialog } from '../../utils/confirmController'
 import {
   ChevronLeft, ChevronDown, ChevronRight, Type, Piano, Palette, ZoomIn, Volume2,
-  Music, FolderOpen, RefreshCw, FileMusic, FileCode2, Guitar, BookOpen, Library, Settings, Info,
-  Eye, Search, X,
+  Music, FolderOpen, Folders, RefreshCw, FileMusic, FileCode2, Guitar, BookOpen, Library, Settings, Info,
+  Eye, Search, X, Undo2,
 } from 'lucide-react'
 import { useStore } from '../../store'
 import type { NoteNaming, KeyboardSize, Accidentals, TranscriptEntry, LibraryFile, HitEffectPattern, SoundfontId, SoundfontInfo } from '../../types'
@@ -333,6 +333,15 @@ function MarqueeFilename({ name }: { name: string }) {
 const FILENAME_SPAN_DEFAULT: React.CSSProperties = { fontSize: 'var(--text-xs)', color: 'var(--text-muted)' }
 const FILENAME_SPAN_ACTIVE:  React.CSSProperties = { fontSize: 'var(--text-xs)', color: 'var(--text-amber)', fontWeight: 500 }
 
+const MENU_ITEM_STYLE: React.CSSProperties = {
+  width: '100%', padding: '8px 14px',
+  background: 'none', border: 'none',
+  color: 'var(--text-default)', fontSize: 'var(--text-xs)',
+  textAlign: 'left', cursor: 'pointer',
+  display: 'flex', alignItems: 'center', gap: 8,
+  transition: 'background 0.1s',
+}
+
 function LibraryPanel() {
   const libraryFolder = useStore((s) => s.libraryFolder)
   const libraryFiles = useStore((s) => s.libraryFiles)
@@ -353,14 +362,38 @@ function LibraryPanel() {
   // ── Hidden files — client-side exclusion list, no disk change ────────────
   const hiddenLibraryFiles = useStore((s) => s.hiddenLibraryFiles)
   const hideLibraryFile    = useStore((s) => s.hideLibraryFile)
+  const remapLibraryPaths  = useStore((s) => s.remapLibraryPaths)
+  const setFavourites      = useStore((s) => s.setFavourites)
+  const lastFolderOf       = useStore((s) => s.lastFolderOf)
+  const setLastFolderOf    = useStore((s) => s.setLastFolderOf)
+  const foldersWithUndo    = useStore((s) => s.foldersWithUndo)
   const [loading, setLoading] = useState(false)
   const [filter, setFilter] = useState<'all' | 'starred'>('all')
   const [librarySearch, setLibrarySearch] = useState('')
   // Folders start expanded (not in collapsed set)
   const [expandedFolders, setExpandedFolders] = useState<Set<string>>(new Set())
-  // ── Context menu state — position + target path ───────────────────────────
+  // ── Context menu state — file/multi-select menu (path+x+y) or folder menu (folder+x+y) ──
   const [contextMenu, setContextMenu] = useState<{ path: string; x: number; y: number } | null>(null)
+  const [folderContextMenu, setFolderContextMenu] = useState<{ folder: string; x: number; y: number } | null>(null)
   const menuRef = useRef<HTMLDivElement>(null)
+  const folderMenuRef = useRef<HTMLDivElement>(null)
+
+  // ── Multi-select + folder organization state ──────────────────────────────
+  const PROTECTED_FOLDERS = ['demo', 'orfeo']
+  const isProtectedFolder = (name: string | null | undefined) => !!name && PROTECTED_FOLDERS.includes(name.toLowerCase())
+  const [selectedPaths, setSelectedPaths] = useState<Set<string>>(new Set())
+  const [selectionAnchor, setSelectionAnchor] = useState<string | null>(null)
+  const [draggingPaths, setDraggingPaths] = useState<string[] | null>(null)
+  const [dragOverFolder, setDragOverFolder] = useState<string | null>(null)
+  const [renamingFolder, setRenamingFolder] = useState<string | null>(null)
+  const [renameDraft, setRenameDraft] = useState('')
+  // Real subfolder names from disk — includes empty folders, which the file-derived
+  // `grouped` list below can't see on its own (it only knows about folders that hold midi files).
+  const [libraryFolderNames, setLibraryFolderNames] = useState<string[]>([])
+  useEffect(() => {
+    if (!libraryFolder) { setLibraryFolderNames([]); return }
+    window.electronAPI.listLibraryFolders(libraryFolder).then(setLibraryFolderNames).catch(() => {})
+  }, [libraryFolder, libraryFiles])
 
   // ── Library sidebar drag-and-drop state ───────────────────────────────────
   const [isDragOver, setIsDragOver]   = useState(false)
@@ -375,7 +408,12 @@ function LibraryPanel() {
   }
 
   // ── dragover: prevent browser default + light up the drop zone ────────────
+  // Only for real OS file drags (dataTransfer carries a "Files" type) — our own
+  // internal row-to-folder drags use "text/plain" and must not trigger this
+  // panel-wide overlay, or the whole library flashes an amber border on every
+  // internal drag instead of just the target folder.
   const handleDragOver = (e: React.DragEvent<HTMLDivElement>) => {
+    if (!e.dataTransfer.types.includes('Files')) return
     e.preventDefault()
     e.stopPropagation()
     setIsDragOver(true)
@@ -383,6 +421,7 @@ function LibraryPanel() {
 
   // ── dragleave: clear highlight only when pointer leaves the container ──────
   const handleDragLeave = (e: React.DragEvent<HTMLDivElement>) => {
+    if (!e.dataTransfer.types.includes('Files')) return
     if (e.currentTarget.contains(e.relatedTarget as Node)) return
     setIsDragOver(false)
   }
@@ -391,6 +430,7 @@ function LibraryPanel() {
   // Reuses copyMidiToLibrary IPC (collision-safe copy) and getPathForFile
   // from the main-area drop zone implementation. No confirmation modal needed.
   const handleDrop = async (e: React.DragEvent<HTMLDivElement>) => {
+    if (!e.dataTransfer.types.includes('Files')) return
     e.preventDefault()
     e.stopPropagation()
     setIsDragOver(false)
@@ -428,25 +468,217 @@ function LibraryPanel() {
 
   // ── Close context menu on outside click or Escape ────────────────────────
   useEffect(() => {
-    if (!contextMenu) return
+    if (!contextMenu && !folderContextMenu) return
     const handleDown = (e: MouseEvent) => {
-      if (menuRef.current && !menuRef.current.contains(e.target as Node)) {
-        setContextMenu(null)
-      }
+      if (menuRef.current && !menuRef.current.contains(e.target as Node)) setContextMenu(null)
+      if (folderMenuRef.current && !folderMenuRef.current.contains(e.target as Node)) setFolderContextMenu(null)
     }
-    const handleKey = (e: KeyboardEvent) => { if (e.key === 'Escape') setContextMenu(null) }
+    const handleKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') { setContextMenu(null); setFolderContextMenu(null) }
+    }
     window.addEventListener('mousedown', handleDown)
     window.addEventListener('keydown', handleKey)
     return () => {
       window.removeEventListener('mousedown', handleDown)
       window.removeEventListener('keydown', handleKey)
     }
-  }, [contextMenu])
+  }, [contextMenu, folderContextMenu])
 
   // ── Open context menu at cursor position for a library file row ───────────
+  // Right-clicking a file that isn't part of the current selection replaces the
+  // selection with just that file (standard Explorer behavior).
   const handleContextMenu = (e: React.MouseEvent, filePath: string) => {
     e.preventDefault()
+    setSelectedPaths(prev => prev.has(filePath) ? prev : new Set([filePath]))
     setContextMenu({ path: filePath, x: e.clientX, y: e.clientY })
+  }
+
+  const handleFolderContextMenu = (e: React.MouseEvent, folder: string) => {
+    e.preventDefault()
+    if (isProtectedFolder(folder)) return
+    setFolderContextMenu({ folder, x: e.clientX, y: e.clientY })
+  }
+
+  // ── Refresh + remap favourites/hidden after any create/rename/delete/move ──
+  const refreshAfterFolderOp = async (pairs?: { oldPath: string; newPath: string }[]) => {
+    if (pairs && pairs.length > 0) remapLibraryPaths(pairs)
+    if (!libraryFolder) return
+    try {
+      const files = await window.electronAPI.scanMidiFolder(libraryFolder)
+      setLibraryFiles(files)
+    } catch { /* keep stale list rather than clearing it on a transient scan error */ }
+  }
+
+  const handleCreateFolder = async (namePrefill?: string) => {
+    if (!libraryFolder) return
+    const name = await window.electronAPI.createLibraryFolder(libraryFolder, namePrefill ?? 'New Folder')
+    await refreshAfterFolderOp()
+    setExpandedFolders(prev => new Set(prev).add(name))
+    setRenamingFolder(name)
+    setRenameDraft(name)
+    return name
+  }
+
+  const commitFolderRename = async () => {
+    const folder = renamingFolder
+    const draft = renameDraft.trim()
+    setRenamingFolder(null)
+    if (!libraryFolder || !folder || !draft || draft === folder) return
+    const result = await window.electronAPI.renameLibraryFolder(libraryFolder, folder, draft)
+    if (!result.ok) return
+    // Renaming a folder changes every contained file's path — remap lastFolderOf's
+    // keys (files that live in it) and values (files elsewhere whose recorded undo
+    // destination was this folder) to the new name, same for foldersWithUndo, or a
+    // rename silently wipes undo state that should last the whole session.
+    const pairs = result.pairs ?? []
+    const pathRemap = new Map(pairs.map(p => [p.oldPath, p.newPath]))
+    const nextLastFolderOf = new Map<string, string | null>()
+    for (const [path, prevFolder] of useStore.getState().lastFolderOf) {
+      const newPath = pathRemap.get(path) ?? path
+      const newPrevFolder = prevFolder === folder ? result.name ?? draft : prevFolder
+      nextLastFolderOf.set(newPath, newPrevFolder)
+    }
+    useStore.getState().setLastFolderOf(nextLastFolderOf)
+    const nextFoldersWithUndo = new Set(useStore.getState().foldersWithUndo)
+    if (nextFoldersWithUndo.has(folder)) { nextFoldersWithUndo.delete(folder); nextFoldersWithUndo.add(result.name ?? draft) }
+    useStore.getState().setFoldersWithUndo(nextFoldersWithUndo)
+    await refreshAfterFolderOp(pairs)
+  }
+
+  const handleDeleteFolder = async (folder: string) => {
+    if (!libraryFolder) return
+    const result = await window.electronAPI.deleteLibraryFolder(libraryFolder, folder)
+    if (!result.ok) return
+    // Drop any "undo would send this file back to <folder>" entries — that
+    // destination no longer exists, so the undo icon would otherwise keep
+    // showing on those (now-root) files for a move that can never succeed.
+    const purged = new Map(useStore.getState().lastFolderOf)
+    for (const [path, prevFolder] of purged) if (prevFolder === folder) purged.delete(path)
+    useStore.getState().setLastFolderOf(purged)
+    const purgedFolders = new Set(useStore.getState().foldersWithUndo)
+    purgedFolders.delete(folder)
+    useStore.getState().setFoldersWithUndo(purgedFolders)
+    await refreshAfterFolderOp()
+  }
+
+  // ── Move a set of file paths into destFolder (null = library root) ────────
+  const moveFilesToFolder = async (paths: string[], destFolder: string | null) => {
+    if (!libraryFolder || paths.length === 0) return
+    const movable = paths.filter(p => !isProtectedFolder(currentFolderOf(p)) && currentFolderOf(p) !== destFolder)
+    if (movable.length === 0) return
+    const prevFolders = new Map(movable.map(p => [p, currentFolderOf(p)]))
+    const pairs = await window.electronAPI.moveLibraryFiles(movable, libraryFolder, destFolder)
+    // Read/write via getState() rather than the reactive `lastFolderOf` closure — this
+    // function can run several times back-to-back within one handler (folder-level undo),
+    // and a stale closure would make each call clobber the previous one's update.
+    const nextLastFolderOf = new Map(useStore.getState().lastFolderOf)
+    for (const { oldPath, newPath } of pairs) nextLastFolderOf.set(newPath, prevFolders.get(oldPath) ?? null)
+    useStore.getState().setLastFolderOf(nextLastFolderOf)
+    // ── Folder-level undo flag — tracked directly by name rather than derived by
+    // matching file paths against lastFolderOf on every render (which requires the
+    // moved file's *new* path to exactly match what the next rescan reports back;
+    // this is simpler and can't silently drift out of sync with that). ───────────
+    if (destFolder && pairs.length > 0) {
+      const nextFoldersWithUndo = new Set(useStore.getState().foldersWithUndo)
+      nextFoldersWithUndo.add(destFolder)
+      useStore.getState().setFoldersWithUndo(nextFoldersWithUndo)
+    }
+    await refreshAfterFolderOp(pairs)
+    setSelectedPaths(new Set())
+  }
+
+  // ── Undo (or redo, if run twice) the most recent move of a single file ────
+  const handleUndoMove = (filePath: string) => {
+    const prevFolder = lastFolderOf.get(filePath)
+    if (prevFolder === undefined) return
+    moveFilesToFolder([filePath], prevFolder)
+  }
+
+  // ── Undo every file currently sitting in `folder`, each back to its own
+  // recorded previous location (not necessarily all the same place). Falls back
+  // to library root for any file missing a specific record — this button only
+  // shows when the folder is flagged undo-eligible at all (moved into this
+  // session), so every file here got here somehow and root is always a safe,
+  // reversible destination even if the exact origin wasn't captured. Grouped by
+  // destination and awaited sequentially — moveFilesToFolder reads fresh state
+  // via getState() so back-to-back calls don't race each other. ────────────────
+  const handleUndoFolder = async (folder: string, filesInFolder: LibraryFile[]) => {
+    const byDest = new Map<string | null, string[]>()
+    for (const file of filesInFolder) {
+      const prevFolder = lastFolderOf.get(file.path) ?? null
+      const list = byDest.get(prevFolder) ?? []
+      list.push(file.path)
+      byDest.set(prevFolder, list)
+    }
+    for (const [dest, paths] of byDest) await moveFilesToFolder(paths, dest)
+    const nextFoldersWithUndo = new Set(useStore.getState().foldersWithUndo)
+    nextFoldersWithUndo.delete(folder)
+    useStore.getState().setFoldersWithUndo(nextFoldersWithUndo)
+  }
+
+  // ── Bulk-favourite toggle for a folder's contents — stars everything if any
+  // file isn't starred yet, otherwise unstars everything (checkbox-style). ───
+  const handleToggleFolderFavourites = (filesInFolder: LibraryFile[]) => {
+    const paths = filesInFolder.map(f => f.path)
+    const allStarred = paths.length > 0 && paths.every(p => libraryFavourites.has(p))
+    setFavourites(paths, !allStarred)
+  }
+
+  // ── Which library subfolder (name only, null = root) a file path currently lives in ──
+  const currentFolderOf = (filePath: string): string | null => {
+    if (!libraryFolder) return null
+    const normRoot = libraryFolder.replace(/\\/g, '/').replace(/\/$/, '')
+    const normFile = filePath.replace(/\\/g, '/')
+    const rel = normFile.startsWith(normRoot + '/') ? normFile.slice(normRoot.length + 1) : normFile
+    const slash = rel.indexOf('/')
+    return slash === -1 ? null : rel.slice(0, slash)
+  }
+
+  // ── Row click: plain click loads the file (existing behavior, unchanged) and
+  // selects only that row; Ctrl/Cmd toggles it in the selection; Shift selects
+  // the range from the last anchor. Modifier clicks never load a file. ────────
+  const handleRowClick = (e: React.MouseEvent, filePath: string, orderedPaths: string[]) => {
+    e.stopPropagation() // don't let the list-background click-to-clear handler fire right after this
+    if (e.shiftKey && selectionAnchor) {
+      const ai = orderedPaths.indexOf(selectionAnchor)
+      const ci = orderedPaths.indexOf(filePath)
+      if (ai !== -1 && ci !== -1) {
+        const [lo, hi] = ai < ci ? [ai, ci] : [ci, ai]
+        setSelectedPaths(new Set(orderedPaths.slice(lo, hi + 1)))
+      }
+      return
+    }
+    if (e.ctrlKey || e.metaKey) {
+      setSelectedPaths(prev => {
+        const next = new Set(prev)
+        if (next.has(filePath)) next.delete(filePath); else next.add(filePath)
+        return next
+      })
+      setSelectionAnchor(filePath)
+      return
+    }
+    setSelectedPaths(new Set([filePath]))
+    setSelectionAnchor(filePath)
+    handleLoadFile(filePath)
+  }
+
+  const handleFileDragStart = (e: React.DragEvent, filePath: string) => {
+    if (isProtectedFolder(currentFolderOf(filePath))) { e.preventDefault(); return }
+    const paths = selectedPaths.has(filePath) ? Array.from(selectedPaths) : [filePath]
+    if (!selectedPaths.has(filePath)) { setSelectedPaths(new Set([filePath])); setSelectionAnchor(filePath) }
+    setDraggingPaths(paths)
+    e.dataTransfer.effectAllowed = 'move'
+    e.dataTransfer.setData('text/plain', filePath) // OS drag needs a payload even though we read draggingPaths directly
+  }
+
+  const handleFolderDrop = async (e: React.DragEvent, folder: string | null) => {
+    e.preventDefault()
+    e.stopPropagation()
+    setDragOverFolder(null)
+    const paths = draggingPaths
+    setDraggingPaths(null)
+    if (!paths || paths.length === 0) return
+    await moveFilesToFolder(paths, folder)
   }
 
   // ── Folder picker — opens Electron folder dialog and scans for MIDI files ─
@@ -573,10 +805,15 @@ function LibraryPanel() {
       return [{ folder: null, files: matches }]
     }
 
-    const allFiles = (filter === 'starred'
-      ? libraryFiles.filter((f: LibraryFile) => libraryFavourites.has(f.path))
-      : libraryFiles as LibraryFile[]
-    ).filter((f: LibraryFile) => !hiddenSet.has(f.path))
+    // ── Starred filter — flat list across all folders, not grouped by folder.
+    // Files stay physically wherever they are on disk; this tab is just a
+    // cross-folder view of everything currently favourited. ─────────────────
+    if (filter === 'starred') {
+      const matches = libraryFiles.filter(f => libraryFavourites.has(f.path) && !hiddenSet.has(f.path))
+      return [{ folder: null, files: matches }]
+    }
+
+    const allFiles = libraryFiles.filter((f: LibraryFile) => !hiddenSet.has(f.path))
 
     const rootFiles: LibraryFile[] = []
     const folderMap = new Map<string, LibraryFile[]>()
@@ -598,9 +835,15 @@ function LibraryPanel() {
       }
     }
 
-    // Folders first, then root files
-    const starred = rootFiles.filter(f => libraryFavourites.has(f.path))
-    const unstarred = rootFiles.filter(f => !libraryFavourites.has(f.path))
+    // ── Include empty folders too (no midi files yet), so a freshly-created or
+    // pre-existing-on-disk empty folder still gets a row to drop files into ──
+    if (!librarySearch.trim()) {
+      for (const name of libraryFolderNames) if (!folderMap.has(name)) folderMap.set(name, [])
+    }
+
+    // Folders first, then root files — root stays in natural (alphabetical, since
+    // scanMidiFolder already sorts that way) order regardless of favourite status.
+    // Starred-first grouping only applies inside the dedicated "starred" filter tab.
     const result: FileGroup[] = []
 
     // ── Sort folders: Demo pinned first, rest alphabetical ───────────────────
@@ -613,20 +856,25 @@ function LibraryPanel() {
       .forEach(([folder, files]) => result.push({ folder, files }))
 
     // Root files at the bottom
-    result.push({ folder: null, files: [...starred, ...unstarred] })
+    result.push({ folder: null, files: rootFiles })
 
     return result
-  }, [libraryFiles, libraryFavourites, libraryFolder, filter, hiddenLibraryFiles, librarySearch, libraryFuse])
+  }, [libraryFiles, libraryFavourites, libraryFolder, filter, hiddenLibraryFiles, librarySearch, libraryFuse, libraryFolderNames])
+
+  // ── Flat visible file order (collapsed folders excluded) — anchors Shift-range select ──
+  const visibleFilePaths = useMemo(
+    () => grouped.flatMap(g => (!g.folder || expandedFolders.has(g.folder)) ? g.files.map(f => f.path) : []),
+    [grouped, expandedFolders],
+  )
+
+  const realFolders = libraryFolderNames.filter(f => !isProtectedFolder(f)).sort((a, b) => a.localeCompare(b))
+  const folderIsEmpty = (folder: string) => (grouped.find(g => g.folder === folder)?.files.length ?? 0) === 0
 
   const toggleFolder = (folder: string) => setExpandedFolders(prev => {
     const next = new Set(prev)
     if (next.has(folder)) next.delete(folder); else next.add(folder)
     return next
   })
-
-  const folderName = libraryFolder
-    ? libraryFolder.replace(/\\/g, '/').split('/').filter(Boolean).pop() ?? libraryFolder
-    : null
 
   const starredCount = Array.from(libraryFavourites).filter(p => libraryFiles.some(f => f.path === p)).length
   const hasAnyFiles = grouped.some(g => g.files.length > 0)
@@ -645,9 +893,9 @@ function LibraryPanel() {
               border: '1px solid var(--border2)', marginBottom: 6,
             }}>
               <button
-                onClick={() => libraryFolder && window.electronAPI.openFolderInExplorer(libraryFolder)}
-                title={libraryFolder ?? undefined}
-                style={{ background: 'none', border: 'none', cursor: libraryFolder ? 'pointer' : 'default', padding: 0, display: 'flex', flexShrink: 0 }}
+                onClick={handlePickFolder}
+                title="Change library folder"
+                style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 0, display: 'flex', flexShrink: 0 }}
               >
                 <FolderOpen size={11} style={{ color: 'var(--text-amber)' }} />
               </button>
@@ -663,7 +911,7 @@ function LibraryPanel() {
                   type="text"
                   value={librarySearch}
                   onChange={e => setLibrarySearch(e.target.value)}
-                  placeholder={folderName ?? 'Search'}
+                  placeholder="Search your library"
                   style={{
                     flex: 1, minWidth: 0, background: 'none', border: 'none', outline: 'none',
                     fontSize: 10, color: 'var(--text-muted)', fontFamily: 'JetBrains Mono',
@@ -693,12 +941,28 @@ function LibraryPanel() {
               </button>
             </div>
 
+            {/* Active library path — click opens it in Explorer (shows files; the folder-picker dialog above never does, that's OS-level) */}
+            <div
+              onClick={() => libraryFolder && window.electronAPI.openFolderInExplorer(libraryFolder)}
+              title="Open in File Explorer"
+              style={{
+                fontSize: 9, color: 'var(--text-muted)', fontFamily: 'JetBrains Mono',
+                padding: '0 2px', marginBottom: 6, cursor: 'pointer',
+                overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+              }}
+              onMouseEnter={e => e.currentTarget.style.color = 'var(--text-amber)'}
+              onMouseLeave={e => e.currentTarget.style.color = 'var(--text-muted)'}
+            >
+              {libraryFolder}
+            </div>
+
             {/* Filter tabs */}
             <div style={{ display: 'flex', gap: 'var(--space-1)' }}>
               {(['all', 'starred'] as const).map(f => (
                 <button
                   key={f}
                   onClick={() => setFilter(f)}
+                  title={f === 'all' ? 'Show all library files' : 'Show favorites only'}
                   style={{
                     flex: 1, padding: '3px 0', borderRadius: 4, fontSize: 10,
                     border: filter === f ? '1px solid var(--accent-amber-strong)' : '1px solid var(--border2)',
@@ -711,18 +975,18 @@ function LibraryPanel() {
                 </button>
               ))}
               <button
-                onClick={handlePickFolder}
-                title="Change library folder"
+                onClick={() => handleCreateFolder()}
+                title="New folder"
                 style={{
                   padding: '3px 6px', borderRadius: 4, fontSize: 10,
                   border: '1px solid var(--border2)', background: 'transparent',
                   color: 'var(--text-inactive)', cursor: 'pointer',
                   display: 'flex', alignItems: 'center', justifyContent: 'center',
                 }}
-                onMouseEnter={e => e.currentTarget.style.color = 'var(--text-muted)'}
+                onMouseEnter={e => e.currentTarget.style.color = 'var(--text-amber)'}
                 onMouseLeave={e => e.currentTarget.style.color = 'var(--text-inactive)'}
               >
-                <FolderOpen size={10} />
+                <Folders size={10} />
               </button>
             </div>
           </div>
@@ -752,6 +1016,7 @@ function LibraryPanel() {
         onDragLeave={handleDragLeave}
         onDrop={handleDrop}
         onScroll={() => setContextMenu(null)}
+        onClick={() => setSelectedPaths(new Set())}
       >
 
         {/* ── Drag-over highlight — amber border + tint, pointer-events none ─── */}
@@ -793,18 +1058,117 @@ function LibraryPanel() {
           >
             <button
               onClick={() => { hideLibraryFile(contextMenu.path); setContextMenu(null) }}
-              style={{
-                width: '100%', padding: '8px 14px',
-                background: 'none', border: 'none',
-                color: 'var(--text-default)', fontSize: 'var(--text-xs)',
-                textAlign: 'left', cursor: 'pointer',
-                display: 'flex', alignItems: 'center', gap: 8,
-                transition: 'background 0.1s',
-              }}
+              title="Hides this file from the library list — stays on disk, unaffected"
+              style={MENU_ITEM_STYLE}
               onMouseEnter={e => { e.currentTarget.style.background = 'var(--bg-tile)'; e.currentTarget.style.color = 'var(--text-amber)' }}
               onMouseLeave={e => { e.currentTarget.style.background = 'none';           e.currentTarget.style.color = 'var(--text-default)' }}
             >
               Remove from Library
+            </button>
+
+            {lastFolderOf.has(contextMenu.path) && (
+              <button
+                onClick={() => { const path = contextMenu.path; setContextMenu(null); handleUndoMove(path) }}
+                title="Moves this file back to where it was before its last move (this session only)"
+                style={MENU_ITEM_STYLE}
+                onMouseEnter={e => { e.currentTarget.style.background = 'var(--bg-tile)'; e.currentTarget.style.color = 'var(--text-amber)' }}
+                onMouseLeave={e => { e.currentTarget.style.background = 'none';           e.currentTarget.style.color = 'var(--text-default)' }}
+              >
+                Undo move
+              </button>
+            )}
+
+            {/* ── Organize actions — hidden entirely if the selection touches a protected (Demo/Orfeo) file ── */}
+            {!Array.from(selectedPaths.size > 0 ? selectedPaths : [contextMenu.path]).some(p => isProtectedFolder(currentFolderOf(p))) && (
+              <>
+                <div style={{ borderTop: '1px solid var(--border2)', margin: '4px 0' }} />
+                <button
+                  onClick={async () => {
+                    const moveSet = Array.from(selectedPaths.size > 0 ? selectedPaths : [contextMenu.path])
+                    setContextMenu(null)
+                    const name = await handleCreateFolder()
+                    if (name) await moveFilesToFolder(moveSet, name)
+                  }}
+                  title="Creates a new folder and moves the selected file(s) into it"
+                  style={MENU_ITEM_STYLE}
+                  onMouseEnter={e => { e.currentTarget.style.background = 'var(--bg-tile)'; e.currentTarget.style.color = 'var(--text-amber)' }}
+                  onMouseLeave={e => { e.currentTarget.style.background = 'none';           e.currentTarget.style.color = 'var(--text-default)' }}
+                >
+                  New folder from selection
+                </button>
+                {realFolders.length > 0 && (
+                  <>
+                    <div style={{ padding: '6px 14px 2px', fontSize: 9, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.06em' }}>
+                      Move to folder
+                    </div>
+                    {realFolders.map(folder => (
+                      <button
+                        key={folder}
+                        onClick={() => { const moveSet = Array.from(selectedPaths.size > 0 ? selectedPaths : [contextMenu.path]); setContextMenu(null); moveFilesToFolder(moveSet, folder) }}
+                        title={`Moves the selected file(s) into "${folder}"`}
+                        style={MENU_ITEM_STYLE}
+                        onMouseEnter={e => { e.currentTarget.style.background = 'var(--bg-tile)'; e.currentTarget.style.color = 'var(--text-amber)' }}
+                        onMouseLeave={e => { e.currentTarget.style.background = 'none';           e.currentTarget.style.color = 'var(--text-default)' }}
+                      >
+                        {folder}
+                      </button>
+                    ))}
+                    <button
+                      onClick={() => { const moveSet = Array.from(selectedPaths.size > 0 ? selectedPaths : [contextMenu.path]); setContextMenu(null); moveFilesToFolder(moveSet, null) }}
+                      title="Moves the selected file(s) out of their folder, back to the library root"
+                      style={MENU_ITEM_STYLE}
+                      onMouseEnter={e => { e.currentTarget.style.background = 'var(--bg-tile)'; e.currentTarget.style.color = 'var(--text-amber)' }}
+                      onMouseLeave={e => { e.currentTarget.style.background = 'none';           e.currentTarget.style.color = 'var(--text-default)' }}
+                    >
+                      Library root
+                    </button>
+                  </>
+                )}
+              </>
+            )}
+          </div>
+        )}
+
+        {/* ── Folder right-click menu — Rename / Move selection here / Delete ── */}
+        {folderContextMenu && (
+          <div
+            ref={folderMenuRef}
+            style={{
+              position: 'fixed', top: folderContextMenu.y, left: folderContextMenu.x,
+              background: 'var(--panel)', border: '1px solid #404055',
+              borderRadius: 'var(--radius-md)',
+              boxShadow: '0 4px 16px rgba(0,0,0,0.55)',
+              zIndex: 9500, minWidth: 180, overflow: 'hidden',
+            }}
+          >
+            <button
+              onClick={() => { setRenamingFolder(folderContextMenu.folder); setRenameDraft(folderContextMenu.folder); setFolderContextMenu(null) }}
+              title="Renames this folder on disk"
+              style={MENU_ITEM_STYLE}
+              onMouseEnter={e => { e.currentTarget.style.background = 'var(--bg-tile)'; e.currentTarget.style.color = 'var(--text-amber)' }}
+              onMouseLeave={e => { e.currentTarget.style.background = 'none';           e.currentTarget.style.color = 'var(--text-default)' }}
+            >
+              Rename
+            </button>
+            <button
+              onClick={() => { const folder = folderContextMenu.folder; setFolderContextMenu(null); moveFilesToFolder(Array.from(selectedPaths), folder) }}
+              disabled={selectedPaths.size === 0}
+              title={selectedPaths.size === 0 ? 'Select file(s) first' : `Moves the ${selectedPaths.size} selected file(s) into this folder`}
+              style={{ ...MENU_ITEM_STYLE, opacity: selectedPaths.size === 0 ? 0.4 : 1, cursor: selectedPaths.size === 0 ? 'default' : 'pointer' }}
+              onMouseEnter={e => { if (selectedPaths.size > 0) { e.currentTarget.style.background = 'var(--bg-tile)'; e.currentTarget.style.color = 'var(--text-amber)' } }}
+              onMouseLeave={e => { e.currentTarget.style.background = 'none'; e.currentTarget.style.color = 'var(--text-default)' }}
+            >
+              Move {selectedPaths.size || ''} selected files here
+            </button>
+            <button
+              onClick={() => { const folder = folderContextMenu.folder; setFolderContextMenu(null); handleDeleteFolder(folder) }}
+              disabled={!folderIsEmpty(folderContextMenu.folder)}
+              title={!folderIsEmpty(folderContextMenu.folder) ? 'Move files out first' : 'Deletes this empty folder from disk'}
+              style={{ ...MENU_ITEM_STYLE, opacity: !folderIsEmpty(folderContextMenu.folder) ? 0.4 : 1, cursor: !folderIsEmpty(folderContextMenu.folder) ? 'default' : 'pointer' }}
+              onMouseEnter={e => { if (folderIsEmpty(folderContextMenu.folder)) { e.currentTarget.style.background = 'var(--bg-tile)'; e.currentTarget.style.color = '#e05a5a' } }}
+              onMouseLeave={e => { e.currentTarget.style.background = 'none'; e.currentTarget.style.color = 'var(--text-default)' }}
+            >
+              Delete
             </button>
           </div>
         )}
@@ -867,67 +1231,161 @@ function LibraryPanel() {
         )}
 
         {/* ── hideDemoFolder filters the Demo subfolder from display ───────── */}
-        {grouped.filter(g => !(hideDemoFolder && g.folder?.toLowerCase() === 'demo')).map((group, gi) => (
+        {grouped.filter(g => !(hideDemoFolder && g.folder?.toLowerCase() === 'demo')).map((group, gi) => {
+          const protectedFolder = isProtectedFolder(group.folder)
+          const isDropTarget = !!group.folder && !protectedFolder && dragOverFolder === group.folder
+          return (
           <div key={group.folder ?? '__root__'}>
 
-            {/* Subfolder header — only for named folders */}
-            {group.folder && group.files.length > 0 && (
-              <div
-                onClick={() => toggleFolder(group.folder!)}
-                title={expandedFolders.has(group.folder!) ? 'Collapse folder' : 'Expand folder'}
-                style={{
-                  display: 'flex', alignItems: 'center', gap: 6,
-                  padding: '6px 10px',
-                  background: 'var(--bg-row)',
-                  borderBottom: '1px solid var(--bg-tile)',
-                  borderTop: gi > 0 ? '1px solid var(--border)' : 'none',
-                  cursor: 'pointer', userSelect: 'none',
-                }}
-                onMouseEnter={e => (e.currentTarget as HTMLElement).style.background = '#111120'}
-                onMouseLeave={e => (e.currentTarget as HTMLElement).style.background = 'var(--bg-row)'}
-              >
-                {expandedFolders.has(group.folder!)
-                  ? <ChevronDown size={11} style={{ color: 'var(--text-inactive)', flexShrink: 0 }} />
-                  : <ChevronRight size={11} style={{ color: 'var(--text-inactive)', flexShrink: 0 }} />
-                }
-                <FolderOpen size={12} style={{ color: '#e8a02770', flexShrink: 0 }} />
-                <span style={{
-                  flex: 1, fontSize: 'var(--text-xs)', color: '#8080a0', fontWeight: 600,
-                  overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
-                }}>
-                  {group.folder}
-                </span>
-                <span style={{ fontSize: 9, color: 'var(--text-muted)', fontFamily: 'JetBrains Mono', flexShrink: 0 }}>
-                  {group.files.length}
-                </span>
-              </div>
-            )}
+            {/* Subfolder header — only for named folders (includes empty ones). Drag/drop
+                and the undo/star icons stay live even while renaming — a folder created via
+                "New folder"/"New folder from selection" auto-enters rename mode immediately,
+                and files dropped or moved into it during that window need to still work and
+                still show their undo affordance, not silently no-op behind a bare input. ── */}
+            {group.folder && (() => {
+                const isRenaming = renamingFolder === group.folder
+                const isProtectedHover = protectedFolder && dragOverFolder === group.folder
+                const folderHasUndo = foldersWithUndo.has(group.folder!)
+                const folderAllStarred = group.files.length > 0 && group.files.every(f => libraryFavourites.has(f.path))
+                return (
+                <div
+                  onClick={e => { e.stopPropagation(); if (!isRenaming) toggleFolder(group.folder!) }}
+                  onContextMenu={e => handleFolderContextMenu(e, group.folder!)}
+                  onDragOver={e => {
+                    setDragOverFolder(group.folder!)
+                    if (!protectedFolder) e.preventDefault() // protected: no preventDefault → OS shows its own "no drop" cursor
+                  }}
+                  onDragLeave={e => { if (!e.currentTarget.contains(e.relatedTarget as Node)) setDragOverFolder(null) }}
+                  onDrop={e => !protectedFolder && handleFolderDrop(e, group.folder!)}
+                  title={isRenaming ? undefined : protectedFolder ? `${group.folder} — protected, cannot be modified` : (expandedFolders.has(group.folder!) ? 'Collapse folder — right-click for rename/delete/move options' : 'Expand folder — right-click for rename/delete/move options')}
+                  style={{
+                    display: 'flex', alignItems: 'center', gap: 6,
+                    padding: '6px 10px',
+                    background: isDropTarget ? 'var(--accent-amber-subtle)' : isProtectedHover ? 'rgba(224,90,90,0.10)' : 'var(--bg-row)',
+                    outline: isDropTarget ? '1px solid var(--accent-amber-strong)' : isProtectedHover ? '1px solid #e05a5a' : 'none',
+                    outlineOffset: -1,
+                    borderBottom: '1px solid var(--bg-tile)',
+                    borderTop: gi > 0 ? '1px solid var(--border)' : 'none',
+                    cursor: isRenaming ? 'default' : 'pointer', userSelect: 'none',
+                  }}
+                  onMouseEnter={e => { if (!isDropTarget && !isProtectedHover) (e.currentTarget as HTMLElement).style.background = '#111120' }}
+                  onMouseLeave={e => { if (!isDropTarget && !isProtectedHover) (e.currentTarget as HTMLElement).style.background = 'var(--bg-row)' }}
+                >
+                  {isRenaming ? <span style={{ width: 11, flexShrink: 0 }} /> : (
+                    expandedFolders.has(group.folder!)
+                      ? <ChevronDown size={11} style={{ color: 'var(--text-inactive)', flexShrink: 0 }} />
+                      : <ChevronRight size={11} style={{ color: 'var(--text-inactive)', flexShrink: 0 }} />
+                  )}
+                  <FolderOpen size={12} style={{ color: '#e8a02770', flexShrink: 0 }} />
+                  {isRenaming ? (
+                    <input
+                      autoFocus
+                      value={renameDraft}
+                      onClick={e => e.stopPropagation()}
+                      onChange={e => setRenameDraft(e.target.value)}
+                      onFocus={e => e.currentTarget.select()}
+                      onBlur={commitFolderRename}
+                      onKeyDown={e => {
+                        if (e.key === 'Enter') e.currentTarget.blur()
+                        if (e.key === 'Escape') setRenamingFolder(null)
+                      }}
+                      style={{
+                        flex: 1, minWidth: 0, background: 'var(--bg-modal-header)',
+                        border: '1px solid var(--accent-amber-strong)', borderRadius: 3,
+                        color: 'var(--text-default)', fontSize: 'var(--text-xs)', padding: '2px 5px',
+                      }}
+                    />
+                  ) : (
+                    <span style={{
+                      flex: 1, fontSize: 'var(--text-xs)', color: '#8080a0', fontWeight: 600,
+                      overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+                    }}>
+                      {group.folder}
+                    </span>
+                  )}
+                  {/* ── Live drag feedback — native title tooltips don't reliably show mid-drag ── */}
+                  {isProtectedHover && (
+                    <span style={{ fontSize: 9, color: '#e05a5a', flexShrink: 0, whiteSpace: 'nowrap' }}>Can't move to system folder</span>
+                  )}
+                  {isDropTarget && (
+                    <span style={{ fontSize: 9, color: 'var(--text-amber)', flexShrink: 0, whiteSpace: 'nowrap' }}>Move to {group.folder}</span>
+                  )}
+                  {!protectedFolder && folderHasUndo && (
+                    <button
+                      onClick={e => { e.stopPropagation(); handleUndoFolder(group.folder!, group.files) }}
+                      title="Undo all moves into this folder (this session only)"
+                      style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-inactive)', padding: '1px 2px', display: 'flex', alignItems: 'center', flexShrink: 0 }}
+                      onMouseEnter={e => e.currentTarget.style.color = 'var(--text-amber)'}
+                      onMouseLeave={e => e.currentTarget.style.color = 'var(--text-inactive)'}
+                    >
+                      <Undo2 size={10} />
+                    </button>
+                  )}
+                  {!protectedFolder && group.files.length > 0 && (
+                    <button
+                      onClick={e => { e.stopPropagation(); handleToggleFolderFavourites(group.files) }}
+                      title={folderAllStarred ? 'Unstar all songs in this folder' : 'Star all songs in this folder'}
+                      style={{
+                        background: 'none', border: 'none', cursor: 'pointer',
+                        color: folderAllStarred ? 'var(--text-amber)' : 'var(--state-disabled)',
+                        padding: '1px 2px', display: 'flex', alignItems: 'center', flexShrink: 0,
+                        fontSize: 'var(--text-sm)', lineHeight: 1,
+                      }}
+                      onMouseEnter={e => { if (!folderAllStarred) e.currentTarget.style.color = '#707060' }}
+                      onMouseLeave={e => { if (!folderAllStarred) e.currentTarget.style.color = 'var(--state-disabled)' }}
+                    >★</button>
+                  )}
+                  <span style={{ fontSize: 9, color: 'var(--text-muted)', fontFamily: 'JetBrains Mono', flexShrink: 0 }}>
+                    {group.files.length}
+                  </span>
+                </div>
+                )
+              })()}
 
             {/* Files inside this group — hidden when folder is collapsed */}
             {(!group.folder || expandedFolders.has(group.folder)) && group.files.map((file) => {
               const starred   = libraryFavourites.has(file.path)
               const isLoaded  = !!loadedFilePath &&
                 file.path.replace(/\\/g, '/') === loadedFilePath.replace(/\\/g, '/')
+              const isSelected = selectedPaths.has(file.path)
               const fmt = detectForeignFormat(file.path)
               const RowIcon = fmt === 'musicxml' ? FileCode2 : fmt === 'guitarpro' ? Guitar : FileMusic
               const rowTitle = fmt === 'musicxml'  ? `${file.name} (MusicXML — imported)`
                              : fmt === 'guitarpro' ? `${file.name} (Guitar Pro — imported)`
                              : file.name
+              const rowBg = isLoaded ? 'var(--accent-amber-medium)' : isSelected ? 'var(--accent-amber-subtle)' : 'transparent'
+              // ── Draw one bordered "box" around each contiguous run of selected rows,
+              // instead of an outline on every individual row — top/bottom border only
+              // where the neighbor in visual order isn't also selected. ────────────────
+              const rowIndex = visibleFilePaths.indexOf(file.path)
+              const prevSelected = isSelected && rowIndex > 0 && selectedPaths.has(visibleFilePaths[rowIndex - 1])
+              const nextSelected = isSelected && rowIndex < visibleFilePaths.length - 1 && selectedPaths.has(visibleFilePaths[rowIndex + 1])
+              const selectionBorder = '2px solid var(--accent-amber-strong)'
               return (
                 <div
                   key={file.path}
-                  title={rowTitle}
+                  title={`${rowTitle} · Right-click for options`}
+                  draggable={!protectedFolder}
+                  onDragStart={e => handleFileDragStart(e, file.path)}
+                  onDragEnd={() => setDraggingPaths(null)}
                   style={{
                     display: 'flex', alignItems: 'center', gap: 6,
                     // Indent subfolder files slightly
                     padding: group.folder ? '7px 10px 7px 26px' : '7px 10px 7px 12px',
-                    borderBottom: '1px solid var(--border-row)',
                     cursor: 'pointer', transition: 'background 0.08s',
-                    background: isLoaded ? 'var(--accent-amber-medium)' : 'transparent',
+                    background: rowBg,
+                    borderLeft: isSelected ? selectionBorder : 'none',
+                    borderRight: isSelected ? selectionBorder : 'none',
+                    borderTop: isSelected && !prevSelected ? selectionBorder : 'none',
+                    borderBottom: isSelected && !nextSelected ? selectionBorder : '1px solid var(--border-row)',
+                    marginTop: isSelected && !prevSelected ? -1 : 0,
                   }}
-                  onMouseEnter={e => (e.currentTarget as HTMLElement).style.background = isLoaded ? 'var(--accent-amber-medium)' : 'var(--bg-tile)'}
-                  onMouseLeave={e => (e.currentTarget as HTMLElement).style.background = isLoaded ? 'var(--accent-amber-medium)' : 'transparent'}
-                  onClick={() => handleLoadFile(file.path)}
+                  // Hover only repaints plain (unselected, unloaded) rows — selected/loaded rows
+                  // keep their amber background on hover instead of flashing to the same gray
+                  // used for plain hover, which is what made "selected" read as gray before.
+                  onMouseEnter={e => { if (!isLoaded && !isSelected) (e.currentTarget as HTMLElement).style.background = 'var(--bg-tile)' }}
+                  onMouseLeave={e => { if (!isLoaded && !isSelected) (e.currentTarget as HTMLElement).style.background = 'transparent' }}
+                  onClick={e => handleRowClick(e, file.path, visibleFilePaths)}
                   onContextMenu={e => handleContextMenu(e, file.path)}
                 >
                   {/* ── Icon doubles as transcript trigger when transcription is on; otherwise shows format-specific icon ── */}
@@ -937,6 +1395,22 @@ function LibraryPanel() {
                     <RowIcon size={11} strokeWidth={1.5} style={{ color: isLoaded ? 'var(--text-amber)' : 'var(--text-muted)', flexShrink: 0 }} />
                   )}
                   <MarqueeText name={file.name.replace(/\.(mid|midi)$/i, '')} spanStyle={isLoaded ? FILENAME_SPAN_ACTIVE : FILENAME_SPAN_DEFAULT} />
+                  {lastFolderOf.has(file.path) && (
+                    <button
+                      onClick={e => { e.stopPropagation(); handleUndoMove(file.path) }}
+                      title={`Move back to ${lastFolderOf.get(file.path) ?? 'library root'}`}
+                      style={{
+                        background: 'none', border: 'none', cursor: 'pointer',
+                        color: 'var(--text-inactive)', padding: '2px 3px',
+                        display: 'flex', alignItems: 'center', flexShrink: 0,
+                        transition: 'color 0.12s',
+                      }}
+                      onMouseEnter={e => e.currentTarget.style.color = 'var(--text-amber)'}
+                      onMouseLeave={e => e.currentTarget.style.color = 'var(--text-inactive)'}
+                    >
+                      <Undo2 size={11} />
+                    </button>
+                  )}
                   <button
                     onClick={e => { e.stopPropagation(); toggleFavourite(file.path) }}
                     title={starred ? 'Remove from favourites' : 'Add to favourites'}
@@ -954,7 +1428,25 @@ function LibraryPanel() {
               )
             })}
           </div>
-        ))}
+          )
+        })}
+
+        {/* ── Library-root drop zone — moves dragged files back to root ─────── */}
+        {draggingPaths && (
+          <div
+            onDragOver={e => { e.preventDefault(); e.stopPropagation(); setDragOverFolder('__root__') }}
+            onDragLeave={() => setDragOverFolder(null)}
+            onDrop={e => handleFolderDrop(e, null)}
+            style={{
+              padding: '10px', margin: '6px 10px', borderRadius: 4, textAlign: 'center',
+              fontSize: 9, color: 'var(--text-muted)', fontFamily: 'JetBrains Mono',
+              border: `1px dashed ${dragOverFolder === '__root__' ? 'var(--accent-amber-strong)' : 'var(--border2)'}`,
+              background: dragOverFolder === '__root__' ? 'var(--accent-amber-subtle)' : 'transparent',
+            }}
+          >
+            Drop here to move to library root
+          </div>
+        )}
       </div>
     </div>
   )

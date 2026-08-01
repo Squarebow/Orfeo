@@ -20,6 +20,11 @@ contextBridge.exposeInMainWorld('electronAPI', {
   splitMidiEditor:    (payload: any) => ipcRenderer.invoke('editor:split', payload),
   openExternal:       (url: string) => ipcRenderer.invoke('shell:openExternal', url),
   openFolderInExplorer: (folderPath: string) => ipcRenderer.invoke('shell:openFolder', folderPath),
+  listLibraryFolders: (libraryFolder: string) => ipcRenderer.invoke('fs:listLibraryFolders', libraryFolder),
+  createLibraryFolder: (libraryFolder: string, name: string) => ipcRenderer.invoke('fs:createLibraryFolder', libraryFolder, name),
+  renameLibraryFolder: (libraryFolder: string, oldName: string, newName: string) => ipcRenderer.invoke('fs:renameLibraryFolder', libraryFolder, oldName, newName),
+  deleteLibraryFolder: (libraryFolder: string, name: string) => ipcRenderer.invoke('fs:deleteLibraryFolder', libraryFolder, name),
+  moveLibraryFiles: (filePaths: string[], libraryFolder: string, destFolderName: string | null) => ipcRenderer.invoke('fs:moveLibraryFiles', filePaths, libraryFolder, destFolderName),
   transcriptGenerate: (midiPath: string, noteNaming: string, accidentals: string) => ipcRenderer.invoke('transcript:generate', midiPath, noteNaming, accidentals),
   // Note Editor
   saveNoteEditor:      (payload: any) => ipcRenderer.invoke('noteEditor:save', payload),

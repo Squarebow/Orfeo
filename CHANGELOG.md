@@ -4,6 +4,34 @@
 
 ---
 
+## [0.17.0] — 1. 8. 2026 — Library folder management, sidebar fixes, i18n scaffolding
+
+### Library folder management — create, rename, delete, move, undo
+The library sidebar now supports organizing MIDI files into subfolders entirely from within Orfeo, mirrored live on disk under the library root:
+
+- **Create** via the `<Folders/>` icon (filter-tabs row) or right-click a file selection → "New folder from selection" (creates + moves in one step). Both auto-enter inline rename.
+- **Move** by dragging a selection onto a folder row (or the library-root drop zone that appears while dragging), or via the right-click "Move to folder ▸" submenu / a folder's "Move N selected files here". Standard Explorer multi-select: click / Ctrl-click / Shift-range.
+- **Rename** inline (row label swaps for a text input); **delete** only when empty (blocked + tooltipped otherwise).
+- **`Demo` and `Orfeo` are protected**: never renamed/deleted, never a drop target, their files aren't draggable — enforced in both the renderer and the IPC handlers.
+- **Per-session undo** (until the app closes, not persisted): an Undo icon appears on any moved file and on any folder that received a move (covers drag-in and "New folder from selection" alike), reversing that specific move. Renaming a folder remaps its undo records to the new name rather than orphaning them; deleting a folder purges undo records that pointed at it.
+- **Bulk favourite**: a ★ on each folder header stars/unstars every file inside at once. The "starred" filter tab is now a flat cross-folder list (files never move on disk just from starring — only the star lights up in place); the library root itself stays plain alphabetical regardless of favourite status (previously starred-first).
+- Drag-over feedback: target folder gets an amber border + "Move to `<name>`" badge; `Demo`/`Orfeo` show a red border + "Can't move to system folder" instead of silently rejecting.
+- Selected rows get an amber box around the whole contiguous selection (not per-row outlines); right-click menus and hover states carry explanatory tooltips throughout.
+
+**New:** `src/utils/i18n.ts`. **Changed:** `electron/main.ts` (`fs:createLibraryFolder/renameLibraryFolder/deleteLibraryFolder/moveLibraryFiles/listLibraryFolders`), `electron/preload.ts`, `src/types/index.ts`, `src/store/index.ts` (`lastFolderOf`, `foldersWithUndo`, `setFavourites`, `remapLibraryPaths`), `src/components/SettingsPanel/SettingsPanel.tsx`.
+
+### Library folder-picker icon — behavior fix
+The folder icon next to the search bar had silently drifted into two different-looking buttons doing two different things (one opened the folder in Explorer, one opened the change-folder dialog). Consolidated: the icon changes the library folder; the path text underneath it opens that folder in Explorer (where files are actually visible — Windows' native folder-picker dialog never shows files, by OS design).
+
+**Changed:** `src/components/SettingsPanel/SettingsPanel.tsx`.
+
+### i18n — new-code convention (no user-facing change yet)
+Added a no-op `t()` placeholder (mirrors `ttag`'s tagged-template API) so new UI strings can be wrapped in translation-ready form as they're written, without installing real translation tooling yet. Existing strings are untouched — the full PO/MO wrapping pass is deferred until the app is feature-frozen (see `docs/I18N_PLAN.md`, gitignored/local-only).
+
+**New:** `src/utils/i18n.ts`.
+
+---
+
 ## [0.16.0] — 31. 7. 2026 — Note-hit VFX rewrite, downloadable soundfonts, track reorder, playback polish
 
 ### Downloadable extra soundfonts (Samples engine)

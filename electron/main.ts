@@ -1,7 +1,7 @@
 import { app, BrowserWindow, ipcMain, dialog, shell } from 'electron'
 import { join, basename, dirname, extname } from 'path'
 import { readFileSync, writeFileSync, existsSync, readdirSync, createWriteStream } from 'fs'
-import { mkdir, access, copyFile, readdir, writeFile } from 'fs/promises'
+import { mkdir, access, copyFile, readdir, writeFile, rename, rmdir } from 'fs/promises'
 import { Midi } from '@tonejs/midi'
 import { Chord, Note } from 'tonal'
 import PDFDocument from 'pdfkit'
@@ -292,6 +292,112 @@ ipcMain.handle('fs:copyMidiToLibrary', async (_e, sourcePath: string, libraryFol
 
   await copyFile(sourcePath, destPath)
   return destPath
+})
+
+// ── Library folder management — create/rename/delete/move, all scoped to
+// libraryFolder. `Demo` and `Orfeo` are reserved: never renamed, deleted, or
+// used as a move destination; files inside them are never moved out. ──────────
+function isProtectedFolderName(name: string): boolean {
+  const n = name.toLowerCase()
+  return n === 'demo' || n === 'orfeo'
+}
+
+function listFilesRecursive(dir: string): string[] {
+  const results: string[] = []
+  try {
+    for (const e of readdirSync(dir, { withFileTypes: true })) {
+      const full = join(dir, e.name)
+      if (e.isDirectory()) results.push(...listFilesRecursive(full))
+      else results.push(full)
+    }
+  } catch { /* folder vanished mid-walk — skip */ }
+  return results
+}
+
+// Finds a collision-free name for `libraryFolder/<baseName>` (or its "(2)" etc. variants).
+async function uniqueFolderName(libraryFolder: string, baseName: string): Promise<string> {
+  let name = baseName
+  let counter = 2
+  while (await access(join(libraryFolder, name)).then(() => true).catch(() => false)) {
+    name = `${baseName} (${counter})`
+    counter++
+  }
+  return name
+}
+
+// Real subfolder names at libraryFolder root (one level) — includes empty folders,
+// unlike the file-derived grouping the renderer builds from scanMidiFolder results.
+ipcMain.handle('fs:listLibraryFolders', async (_e, libraryFolder: string) => {
+  try {
+    return readdirSync(libraryFolder, { withFileTypes: true })
+      .filter(e => e.isDirectory())
+      .map(e => e.name)
+  } catch { return [] }
+})
+
+ipcMain.handle('fs:createLibraryFolder', async (_e, libraryFolder: string, name: string) => {
+  const baseName = basename(name).trim() || 'New Folder'
+  const finalName = await uniqueFolderName(libraryFolder, baseName)
+  await mkdir(join(libraryFolder, finalName))
+  return finalName
+})
+
+ipcMain.handle('fs:renameLibraryFolder', async (_e, libraryFolder: string, oldName: string, newName: string) => {
+  if (isProtectedFolderName(oldName) || isProtectedFolderName(newName)) {
+    return { ok: false, reason: 'protected' }
+  }
+  const oldPath = join(libraryFolder, basename(oldName))
+  const baseName = basename(newName).trim() || oldName
+  const finalName = await uniqueFolderName(libraryFolder, baseName)
+  const newPath = join(libraryFolder, finalName)
+
+  const oldFiles = listFilesRecursive(oldPath)
+  await rename(oldPath, newPath)
+  const pairs = oldFiles.map(f => ({ oldPath: f, newPath: join(newPath, f.slice(oldPath.length + 1)) }))
+  return { ok: true, name: finalName, pairs }
+})
+
+ipcMain.handle('fs:deleteLibraryFolder', async (_e, libraryFolder: string, name: string) => {
+  if (isProtectedFolderName(name)) return { ok: false, reason: 'protected' }
+  const target = join(libraryFolder, basename(name))
+  try {
+    if (readdirSync(target).length > 0) return { ok: false, reason: 'not-empty' }
+    await rmdir(target)
+    return { ok: true }
+  } catch {
+    return { ok: false, reason: 'error' }
+  }
+})
+
+// Moves files (by absolute source path) into libraryFolder/destFolderName, or
+// library root if destFolderName is null. Per-file try/catch — one failure
+// doesn't abort the batch. Returns only the {oldPath,newPath} pairs that succeeded.
+ipcMain.handle('fs:moveLibraryFiles', async (
+  _e, filePaths: string[], libraryFolder: string, destFolderName: string | null,
+) => {
+  if (destFolderName && isProtectedFolderName(destFolderName)) return []
+  const destDir = destFolderName ? join(libraryFolder, basename(destFolderName)) : libraryFolder
+
+  const results: { oldPath: string; newPath: string }[] = []
+  for (const srcPath of filePaths) {
+    if (isProtectedFolderName(basename(dirname(srcPath)))) continue
+    try {
+      const origName = basename(srcPath)
+      const ext      = extname(origName)
+      const stem     = origName.slice(0, origName.length - ext.length)
+      let destName   = origName
+      let destPath   = join(destDir, destName)
+      let counter    = 2
+      while (await access(destPath).then(() => true).catch(() => false)) {
+        destName = `${stem} (${counter})${ext}`
+        destPath = join(destDir, destName)
+        counter++
+      }
+      await rename(srcPath, destPath)
+      results.push({ oldPath: srcPath, newPath: destPath })
+    } catch { /* skip this file, continue with the rest */ }
+  }
+  return results
 })
 
 ipcMain.handle('dialog:saveFile', async (_e, opts: { defaultPath: string; filters: any[] }) => {

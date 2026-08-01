@@ -139,6 +139,12 @@ declare global {
       offSaveBeforeClose:  () => void
       openExternal:        (url: string) => Promise<void>
       openFolderInExplorer: (folderPath: string) => Promise<string>
+      // Library folder management — create/rename/delete/move, scoped to libraryFolder
+      listLibraryFolders:  (libraryFolder: string) => Promise<string[]>
+      createLibraryFolder: (libraryFolder: string, name: string) => Promise<string>
+      renameLibraryFolder: (libraryFolder: string, oldName: string, newName: string) => Promise<{ ok: boolean; reason?: string; name?: string; pairs?: { oldPath: string; newPath: string }[] }>
+      deleteLibraryFolder: (libraryFolder: string, name: string) => Promise<{ ok: boolean; reason?: string }>
+      moveLibraryFiles:    (filePaths: string[], libraryFolder: string, destFolderName: string | null) => Promise<{ oldPath: string; newPath: string }[]>
       // Downloadable extra soundfonts (Samples engine)
       listSoundfonts:      () => Promise<SoundfontInfo[]>
       downloadSoundfont:   (id: SoundfontId) => Promise<{ ok: boolean; error?: string }>

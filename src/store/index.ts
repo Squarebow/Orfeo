@@ -187,8 +187,14 @@ interface OrfeoStore {
   setLibraryFiles: (files: LibraryFile[]) => void
   setLibraryFolderAndFiles: (folder: string | null, files: LibraryFile[]) => void
   toggleFavourite: (path: string) => void
+  setFavourites: (paths: string[], starred: boolean) => void
   hiddenLibraryFiles: string[]
   hideLibraryFile: (path: string) => void
+  remapLibraryPaths: (pairs: { oldPath: string; newPath: string }[]) => void
+  lastFolderOf: Map<string, string | null>
+  setLastFolderOf: (map: Map<string, string | null>) => void
+  foldersWithUndo: Set<string>
+  setFoldersWithUndo: (folders: Set<string>) => void
   loadLibraryFile: (filePath: string) => Promise<void>
 
   splitBreakpointType: 'single' | 'range'
@@ -613,6 +619,22 @@ export const useStore = create<OrfeoStore>((set, get) => ({
     if (next.has(path)) next.delete(path); else next.add(path)
     return { libraryFavourites: next }
   }),
+  // ── Bulk favourite/unfavourite — used by "star all files in this folder" ──
+  setFavourites: (paths, starred) => set((s) => {
+    const next = new Set(s.libraryFavourites)
+    for (const p of paths) { if (starred) next.add(p); else next.delete(p) }
+    return { libraryFavourites: next }
+  }),
+  // ── Per-session "undo last move" map — lives in the store (not component
+  // state) so it survives LibraryPanel unmounting when Settings tabs switch.
+  // Never persisted; resets on app restart. ─────────────────────────────────
+  lastFolderOf: new Map(),
+  setLastFolderOf: (lastFolderOf) => set({ lastFolderOf }),
+  // ── Folder-level "has an undoable move" flag — tracked directly by folder name
+  // rather than derived by matching file paths against lastFolderOf, so it can't
+  // drift out of sync with a rescan. Session-only, same lifetime as lastFolderOf. ──
+  foldersWithUndo: new Set(),
+  setFoldersWithUndo: (foldersWithUndo) => set({ foldersWithUndo }),
   // ── Persisted client-side exclusion list — file stays on disk, just hidden ─
   hiddenLibraryFiles: [],
   hideLibraryFile: (path) => set((s) => ({
@@ -620,6 +642,17 @@ export const useStore = create<OrfeoStore>((set, get) => ({
       ? s.hiddenLibraryFiles
       : [...s.hiddenLibraryFiles, path],
   })),
+  // ── Applies old→new path pairs after a folder move/rename, so a starred or
+  // hidden file doesn't silently lose that state when its path changes. ──────
+  remapLibraryPaths: (pairs) => set((s) => {
+    if (pairs.length === 0) return {}
+    const map = new Map(pairs.map(p => [p.oldPath, p.newPath]))
+    const nextFavourites = new Set(
+      Array.from(s.libraryFavourites, p => map.get(p) ?? p),
+    )
+    const nextHidden = s.hiddenLibraryFiles.map(p => map.get(p) ?? p)
+    return { libraryFavourites: nextFavourites, hiddenLibraryFiles: nextHidden }
+  }),
   loadLibraryFile: async (filePath) => {
     try {
       const result = await window.electronAPI.loadMidiFromPath(filePath)
