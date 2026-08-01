@@ -1902,8 +1902,8 @@ export default function SettingsPanel() {
                       <OptionBtn
                         active={audioEngine === 'gm'}
                         onClick={() => setAudioEngine('gm')}
-                        title="Built-in GM synthesiser (jzz-synth-tiny) — always available offline"
-                      >GM Synth</OptionBtn>
+                        title="Generic, synthetic sound (JZZ-Synth-Tiny)"
+                      >General MIDI</OptionBtn>
                       {/* ── Samples — loads GeneralUser GS SF2 via spessasynth_lib on first click ── */}
                       <OptionBtn
                         active={audioEngine === 'samples'}
@@ -1921,8 +1921,8 @@ export default function SettingsPanel() {
                             setSamplesStatus('error')
                           }
                         }}
-                        title="GeneralUser GS soundfont via spessasynth_lib — richer sound, loads once"
-                      >Samples</OptionBtn>
+                        title="High-fidelity, realistic audio (SpessaSynth)"
+                      >Sample Engine</OptionBtn>
                     </div>
                     {/* ── Loading progress / status block ──────────────────────────── */}
                     {samplesStatus === 'loading' && (
@@ -1959,7 +1959,7 @@ export default function SettingsPanel() {
                   </OptionRow>
 
                   {/* ── Sound library — extra downloadable SF2/SF3s, Samples engine only ── */}
-                  <OptionRow label="Sound library" hint="Extra GM soundfonts, downloaded on demand. Only affects the Samples engine.">
+                  <OptionRow label="Sound Fonts Library" hint="Extra GM sf2 soundfonts, downloaded on demand. Only affects the Sample engine.">
                     {[
                       { id: 'generaluser-gs' as SoundfontId, name: 'GeneralUser GS', sizeMB: 30.8, downloaded: true },
                       ...extraSoundfonts,
