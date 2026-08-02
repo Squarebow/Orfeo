@@ -594,7 +594,7 @@ export default function Keyboard() {
                   borderRight: !color ? '1px solid var(--key-white-border)' : allActiveKeys.has(whiteKeys[i + 1]?.midi) ? '1px solid var(--key-active-border)' : '1px solid transparent',
                   borderLeft: color && allActiveKeys.has(whiteKeys[i - 1]?.midi) ? '1px solid var(--key-active-border)' : 'none',
                   boxShadow: color
-                    ? `0 0 ${locked ? 18 : 12}px ${locked ? 6 : 4}px ${color}${locked ? 'cc' : '88'}`
+                    ? `0 0 ${locked ? 18 : 12}px ${locked ? 6 : 4}px color-mix(in srgb, ${color} ${locked ? 80 : 53}%, transparent)`
                     : 'inset 0 -3px 6px rgba(0,0,0,0.1)',
                   transition: 'background 0.04s, box-shadow 0.04s',
                   minWidth: 0,
@@ -642,7 +642,7 @@ export default function Keyboard() {
                   border: color ? '1px solid var(--key-black-active-border)' : '1px solid var(--bg-modal-header)',
                   borderTop: 'none',
                   boxShadow: color
-                    ? `0 0 ${locked ? 14 : 10}px ${locked ? 4 : 3}px ${color}${locked ? 'bb' : '99'}`
+                    ? `0 0 ${locked ? 14 : 10}px ${locked ? 4 : 3}px color-mix(in srgb, ${color} ${locked ? 73 : 60}%, transparent)`
                     : '0 4px 8px rgba(0,0,0,0.7)',
                   transition: 'background 0.04s, box-shadow 0.04s',
                   zIndex: 2,

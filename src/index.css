@@ -154,7 +154,7 @@
 --accent-amber-glow-inner: rgba(232, 160, 39, 0.12); /* LockedChordModal box-shadow soft blur glow */
 --accent-amber-shadow: #e8a02766;   /* ~40% — Mixer ChannelStrip fader-handle box-shadow tint */
 --accent-amber-tint-bg: #e8a0270f;      /* ~6%  — NoteEditorToolbar close-confirm strip background */
---accent-amber-selected-bg: #e8a02714;  /* ~8%  — NoteEditorToolbar quantize-dropdown selected item */
+--accent-amber-selected-bg: #e8a02714;  /* ~8%  — NoteEditorToolbar quantize-dropdown selected item; also TrackPanel.tsx track row background when soloed for note-editor editing */
 --accent-amber-active-border: #e8a02773; /* ~45% — NoteEditorToolbar active ToolBtn / Save&Exit border */
 --accent-amber-active-bg: #e8a02712;    /* ~7%  — NoteEditorToolbar active ToolBtn / Save&Exit bg; also PianoRoll loop-region fill (active) */
 --accent-amber-loop-border: #e8a0278c;      /* ~55% — PianoRoll loop-region boundary line (active) */
@@ -178,7 +178,7 @@
 --fader-tick-minor: #282840;    /* ChannelStrip fader minor tick mark */
 --text-on-amber: #1a1000;       /* Dark text for content sitting on amber/accent backgrounds (e.g. mute-filter pill) */
 
-/* MIDI/Note editors — batch 3 */
+/* MIDI/Note editors */
 --hand-slate: #4a7fff;       /* Left-hand indicator — MidiEditor split-preview timeline; shared with Keyboard.tsx hand-highlight */
 --flag-red: #e05252;         /* Low-confidence hand-split passage flag (MidiEditor) */
 --bg-field: #0a0a10;         /* Recessed input/display field background — search box, hex input, output-path readout */
@@ -209,7 +209,7 @@
 --bg-tooltip: #121212eb;      /* ~92% — PianoRoll Alt+drag cursor-tooltip background */
 --text-tooltip-secondary: #c6c8c8a6; /* ~65% — PianoRoll cursor-tooltip secondary line ("Right-click · clear") */
 
-/* ── Batch 4 — Keyboard ── */
+/* ── Keyboard-specific tones ── */
 --text-chord-placeholder: #222235;  /* Keyboard.tsx — empty chord-bar "— — —" placeholder text */
 --key-white-bg: #e8e8e8;            /* Keyboard.tsx — white key default (unlit) fill */
 --key-white-border: #b0b0b0;        /* Keyboard.tsx — white key default (unlit) right border */
@@ -219,7 +219,7 @@
 --key-note-name-color: rgba(255,255,255,0.88); /* Keyboard.tsx — black key note-name label text */
 --text-key-hover: #c0c0d0;          /* KeyboardControls.tsx — key-size selector button hover text */
 
-/* ── Batch 5 — Settings/Panels ── */
+/* ── Settings/Panels-specific tones ── */
 --border-popup: #2e2e42;            /* LoopRegionStrip.tsx — bar-range popup border + numeric inputs */
 --status-error-tint-bg: rgba(192, 57, 43, 0.15);  /* SettingsPanel.tsx OptionBtn — error-active tinted background; RGB matches --status-error */
 --status-success-tint-bg: rgba(74, 144, 96, 0.13); /* SettingsPanel.tsx OptionBtn — success-active tinted background; RGB matches --status-success */
@@ -229,7 +229,6 @@
 --accent-amber-strip-apply-bg: #e8a02718;        /* ~9%  — LoopRegionStrip.tsx bar-range popup Apply button background */
 --accent-amber-strip-apply-bg-hover: #e8a02732;  /* ~20% — LoopRegionStrip.tsx bar-range popup Apply button hover background */
 --state-star-hover: #707060;        /* SettingsPanel.tsx — library favourite-star hover color (unstarred) */
---state-solo-edit-bg: rgba(232, 160, 39, 0.08); /* TrackPanel.tsx — track row background when soloed for note-editor editing */
 --state-row-hover-overlay: rgba(255, 255, 255, 0.03); /* TrackPanel.tsx — subtle white hover overlay on soloable-for-edit track rows */
 --text-track-count: #40404e;        /* TrackPanel.tsx — per-group track count text */
 --text-track-meta: #454560;         /* TrackPanel.tsx — track row channel/program meta text */

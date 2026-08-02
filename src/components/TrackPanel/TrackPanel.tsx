@@ -461,7 +461,7 @@ function TrackRow({
         opacity: isDragging ? 0.4 : dimmed ? 0.45 : 1,
         transition: 'opacity 0.15s, background 0.1s',
         cursor: onSoloForEdit ? 'pointer' : 'default',
-        background: isSoloedForEdit ? 'var(--state-solo-edit-bg)' : 'transparent',
+        background: isSoloedForEdit ? 'var(--accent-amber-selected-bg)' : 'transparent',
         borderLeft: isSoloedForEdit ? '2px solid var(--text-amber)' : '2px solid transparent',
       }}
       onMouseEnter={e => { if (onSoloForEdit && !isSoloedForEdit) (e.currentTarget as HTMLElement).style.background = 'var(--state-row-hover-overlay)' }}
