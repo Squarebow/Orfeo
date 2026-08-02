@@ -336,7 +336,7 @@ export default function App() {
   }, [play, pause, stop, openFile, enterPresentationMode])
 
   return (
-    <div className={appTheme === 'warm' ? 'theme-warm' : ''} style={{ width: '100vw', height: '100vh', background: appTheme === 'warm' ? '#12100e' : '#0f0f12', overflow: 'hidden', display: 'flex', flexDirection: 'column', fontFamily: "'Inter', system-ui, sans-serif" }}>
+    <div className={appTheme === 'warm' ? 'theme-warm' : ''} style={{ width: '100vw', height: '100vh', background: appTheme === 'warm' ? 'var(--bg-warm)' : 'var(--bg-modal-header)', overflow: 'hidden', display: 'flex', flexDirection: 'column', fontFamily: "'Inter', system-ui, sans-serif" }}>
 
       {/* ── Presentation Mode: TopBar slides in from top on hover ─────────────
           In normal mode TopBar is in-flow; in PM it becomes a fixed overlay. ── */}
@@ -370,7 +370,7 @@ export default function App() {
             }}
           >
             <TopBar />
-            <div style={{ height: 1, background: '#2e2e3c' }} />
+            <div style={{ height: 1, background: 'var(--state-hover-bg)' }} />
           </div>
         </>
       ) : (
@@ -378,7 +378,7 @@ export default function App() {
           <TopBar />
           {/* ── Full-width separator — sibling to TopBar so it renders below the ─
               Electron native title-bar chrome and spans all columns reliably ── */}
-          <div style={{ height: 1, background: '#2e2e3c', flexShrink: 0 }} />
+          <div style={{ height: 1, background: 'var(--state-hover-bg)', flexShrink: 0 }} />
         </>
       )}
 
@@ -406,7 +406,7 @@ export default function App() {
             position: 'absolute', inset: 0,
             border: '2px solid var(--text-amber)',
             borderRadius: 4,
-            background: 'rgba(232, 160, 39, 0.06)',
+            background: 'var(--accent-amber-tint-bg)',
             pointerEvents: 'none',
             zIndex: 9000,
           }} />
@@ -422,7 +422,7 @@ export default function App() {
       {dropError && (
         <div style={{
           position: 'fixed', bottom: 32, left: '50%', transform: 'translateX(-50%)',
-          background: '#2d2d2d', border: '1px solid #404055',
+          background: 'var(--bg-panel2)', border: '1px solid var(--drag-handle-dot)',
           borderRadius: 6, padding: '8px 18px',
           color: 'var(--text-default)', fontSize: 'var(--text-sm)',
           pointerEvents: 'none', zIndex: 9900,
