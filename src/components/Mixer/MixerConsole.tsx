@@ -198,12 +198,12 @@ export default function MixerConsole() {
             title={mixerMinimized ? 'Restore' : 'Minimize'}
             style={{
               background: 'none', border: 'none', cursor: 'pointer',
-              color: '#505068', lineHeight: 1,
+              color: 'var(--text-inactive)', lineHeight: 1,
               padding: '0 4px 2px', display: 'flex', alignItems: 'flex-end',
               transition: 'color 0.15s',
             }}
             onMouseEnter={e => e.currentTarget.style.color = 'var(--text-default)'}
-            onMouseLeave={e => e.currentTarget.style.color = '#505068'}
+            onMouseLeave={e => e.currentTarget.style.color = 'var(--text-inactive)'}
           >
             <Minus size={14} />
           </button>
@@ -212,12 +212,12 @@ export default function MixerConsole() {
             title="Close"
             style={{
               background: 'none', border: 'none', cursor: 'pointer',
-              color: '#505068', lineHeight: 1,
+              color: 'var(--text-inactive)', lineHeight: 1,
               padding: '0 2px', display: 'flex', alignItems: 'center',
               transition: 'color 0.15s',
             }}
             onMouseEnter={e => e.currentTarget.style.color = 'var(--text-default)'}
-            onMouseLeave={e => e.currentTarget.style.color = '#505068'}
+            onMouseLeave={e => e.currentTarget.style.color = 'var(--text-inactive)'}
           >
             <X size={16} />
           </button>

@@ -23,6 +23,8 @@ const BAR_COL_W   = 14
 const BAR_COL_GAP = 2
 const BAR_TOTAL_W = BAND_COUNT * BAR_COL_W + (BAND_COUNT - 1) * BAR_COL_GAP  // 126px
 
+// Kept as literal hex, in sync with var(--meter-green/yellow/orange/red) in index.css —
+// these feed Canvas 2D fillStyle/gradient/shadowColor below, which cannot resolve CSS var().
 const METER_GREEN  = '#7ac040'
 const METER_YELLOW = '#c0a020'
 const METER_ORANGE = '#c07a20'
@@ -70,10 +72,10 @@ function IBtn({ children, onClick, active, title, activeColor = 'var(--text-ambe
         display: 'flex', alignItems: 'center', justifyContent: 'center',
         width: 26, height: 26, background: 'var(--bg-deep)', border: 'none',
         cursor: 'pointer', borderRadius: 4, transition: 'color 0.1s',
-        color: active ? activeColor : '#404058', flexShrink: 0,
+        color: active ? activeColor : 'var(--text-icon-inactive)', flexShrink: 0,
       }}
-      onMouseEnter={e => { if (!active) e.currentTarget.style.color = '#808098' }}
-      onMouseLeave={e => { e.currentTarget.style.color = active ? activeColor : '#404058' }}
+      onMouseEnter={e => { if (!active) e.currentTarget.style.color = 'var(--text-icon-hover)' }}
+      onMouseLeave={e => { e.currentTarget.style.color = active ? activeColor : 'var(--text-icon-inactive)' }}
     >
       {children}
     </button>
@@ -160,7 +162,7 @@ function drawWave(
   grad.addColorStop(0,    METER_RED)
   grad.addColorStop(0.25, METER_ORANGE)
   grad.addColorStop(0.45, METER_YELLOW)
-  grad.addColorStop(1,    '#1a3a12')
+  grad.addColorStop(1,    '#1a3a12') // kept in sync with var(--meter-green-dark) — Canvas gradient can't resolve CSS var()
 
   // Build bezier path
   ctx.beginPath()
@@ -406,7 +408,7 @@ export default function MasterStrip() {
           title={vuDisplayMode === 'wave' ? 'Switch to Bars/FFT' : 'Switch to Wave'}
           style={{
             width: 26, height: 13, borderRadius: 7, flexShrink: 0,
-            background: '#303048',
+            background: 'var(--state-disabled)',
             position: 'relative', cursor: 'pointer',
           }}
         >
@@ -470,7 +472,7 @@ export default function MasterStrip() {
               borderRadius: 'var(--radius-sm)',
               border: 'none',
               background: 'var(--text-amber)',
-              color: '#1a1000',
+              color: 'var(--text-on-amber)',
               fontSize: 9,
               fontWeight: 700,
               fontFamily: 'Inter',

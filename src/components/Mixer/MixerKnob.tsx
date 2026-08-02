@@ -22,7 +22,7 @@ const TRI_TIP_R  = NOTCH_R + 3.2   // tip extends this far from center
 const TRI_BASE_R = NOTCH_R - 2.8   // base sits this far from center
 const TRI_HW     = 2.8              // half-width of triangle base
 
-const DIM_TICK = '#303048'
+const DIM_TICK = 'var(--state-disabled)'
 
 // ── Convert polar angle to Cartesian ─────────────────────────────────────────
 function polarToXY(cx: number, cy: number, r: number, angleDeg: number) {

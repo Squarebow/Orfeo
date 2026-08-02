@@ -148,11 +148,24 @@
 --accent-amber-bold: #e8a02799;    /* ~60% — ScaleExplorer CoF key-signature text + roman-numeral subtext */
 --accent-amber-glow-outer: rgba(232, 160, 39, 0.25); /* LockedChordModal box-shadow outer glow ring */
 --accent-amber-glow-inner: rgba(232, 160, 39, 0.12); /* LockedChordModal box-shadow soft blur glow */
+--accent-amber-shadow: #e8a02766;   /* ~40% — Mixer ChannelStrip fader-handle box-shadow tint */
 
 /* Control UI tones — not covered by the main text/status scale */
 --text-dim-control: #606078;   /* Dim control labels, inactive action icons */
 --border-row: #181822;          /* Row separator borders within panels and editors */
 --bg-deep: #111116;             /* Deepest floor — below --bg-modal */
+
+/* Mixer Console — channel/master strip specific tones */
+--text-icon-inactive: #404058;  /* Mixer IBtn default (non-active) icon color — ChannelStrip + MasterStrip */
+--text-icon-hover: #808098;     /* Mixer IBtn hover icon color — ChannelStrip + MasterStrip */
+--track-color-fallback: #808080; /* Sentinel accent for tracks with no assigned color. Also fed into
+   Canvas VU-meter fillStyle in ChannelStrip.tsx — the CSS Canvas 2D API cannot resolve var(), so that
+   call site keeps the literal hex with a comment pointing back here; keep both in sync by hand. */
+--fader-tick-major: #3a3a58;    /* ChannelStrip fader major tick mark */
+--fader-tick-minor: #282840;    /* ChannelStrip fader minor tick mark */
+--meter-green-dark: #1a3a12;    /* MasterStrip wave-mode VU gradient bottom stop. Canvas gradient
+   addColorStop() cannot resolve var() either — same manual-sync caveat as --track-color-fallback. */
+--text-on-amber: #1a1000;       /* Dark text for content sitting on amber/accent backgrounds (e.g. mute-filter pill) */
 
 /* ── Utility classes ── */
 

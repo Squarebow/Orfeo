@@ -71,10 +71,10 @@ function IBtn({ children, onClick, active, title, activeColor = 'var(--text-ambe
         display: 'flex', alignItems: 'center', justifyContent: 'center',
         width: 26, height: 26, background: 'var(--bg-deep)', border: 'none',
         cursor: 'pointer', borderRadius: 4, transition: 'color 0.1s',
-        color: active ? activeColor : '#404058', flexShrink: 0,
+        color: active ? activeColor : 'var(--text-icon-inactive)', flexShrink: 0,
       }}
-      onMouseEnter={e => { if (!active) e.currentTarget.style.color = '#808098' }}
-      onMouseLeave={e => { e.currentTarget.style.color = active ? activeColor : '#404058' }}
+      onMouseEnter={e => { if (!active) e.currentTarget.style.color = 'var(--text-icon-hover)' }}
+      onMouseLeave={e => { e.currentTarget.style.color = active ? activeColor : 'var(--text-icon-inactive)' }}
     >
       {children}
     </button>
@@ -113,6 +113,8 @@ export default function ChannelStrip({ trackIndex }: ChannelStripProps) {
 
   // ── Derived display data ──────────────────────────────────────────────────
   const trackName   = track?.trackName ?? track?.gmName ?? (parsedTrack as any)?.name ?? ''
+  // '#808080' fallback kept in sync with var(--track-color-fallback) in index.css — this value
+  // also feeds the Canvas VU-meter fillStyle below, and Canvas 2D can't resolve CSS var().
   const trackColor  = (track as any)?.color   ?? (parsedTrack as any)?.color   ?? '#808080'
   // MIDI channel from the file (0-based) — NOT the same as trackIndex
   const midiChannel = (parsedTrack as any)?.channel ?? 0
@@ -392,7 +394,7 @@ export default function ChannelStrip({ trackIndex }: ChannelStripProps) {
             const isMajor  = i % FADER_MAJOR_EVERY === 0
             const tickW    = isMajor ? 7 : 4
             const tickH    = 1
-            const color    = isMajor ? '#3a3a58' : '#282840'
+            const color    = isMajor ? 'var(--fader-tick-major)' : 'var(--fader-tick-minor)'
             return (
               <div key={i}>
                 {/* Left tick */}
@@ -434,7 +436,7 @@ export default function ChannelStrip({ trackIndex }: ChannelStripProps) {
               width: HANDLE_W, height: HANDLE_H,
               borderRadius: HANDLE_H / 2,
               background: muted ? 'var(--state-disabled)' : 'var(--text-amber)',
-              boxShadow: muted ? 'none' : '0 1px 5px rgba(232,160,39,0.4)',
+              boxShadow: muted ? 'none' : '0 1px 5px var(--accent-amber-shadow)',
               cursor: muted ? 'not-allowed' : 'grab',
               zIndex: 2,
               transition: dragging
