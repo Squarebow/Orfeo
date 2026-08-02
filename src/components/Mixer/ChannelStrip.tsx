@@ -111,11 +111,22 @@ export default function ChannelStrip({ trackIndex }: ChannelStripProps) {
 
   const knobsDisabled = audioEngine === 'gm'
 
+  // ── Fallback track color — resolved from var(--track-color-fallback) once on mount ───
+  // Canvas 2D fillStyle (VU meter, below) can't consume a var() string directly, so this
+  // ref caches the resolved value; index.css stays the single source of truth for it.
+  const fallbackColorRef = useRef('#808080')
+  useEffect(() => {
+    const v = getComputedStyle(document.documentElement).getPropertyValue('--track-color-fallback').trim()
+    if (v) fallbackColorRef.current = v
+  }, [])
+
   // ── Derived display data ──────────────────────────────────────────────────
   const trackName   = track?.trackName ?? track?.gmName ?? (parsedTrack as any)?.name ?? ''
-  // '#808080' fallback kept in sync with var(--track-color-fallback) in index.css — this value
-  // also feeds the Canvas VU-meter fillStyle below, and Canvas 2D can't resolve CSS var().
-  const trackColor  = (track as any)?.color   ?? (parsedTrack as any)?.color   ?? '#808080'
+  // Fallback color for tracks with no assigned color — also feeds the Canvas VU-meter
+  // fillStyle below, and Canvas 2D can't resolve a var() string, so fallbackColorRef
+  // resolves var(--track-color-fallback) from index.css once on mount (see below);
+  // '#808080' here only covers the sliver of first render before that effect runs.
+  const trackColor  = (track as any)?.color   ?? (parsedTrack as any)?.color   ?? fallbackColorRef.current
   // MIDI channel from the file (0-based) — NOT the same as trackIndex
   const midiChannel = (parsedTrack as any)?.channel ?? 0
 

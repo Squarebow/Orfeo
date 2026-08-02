@@ -61,6 +61,7 @@
   --meter-yellow: #c0a020;
   --meter-orange: #c07a20;
   --meter-red:    #c04040;
+  --meter-green-dark: #1a3a12; /* MasterStrip wave-mode VU gradient bottom stop */
 
   /* Semantic / status — unchanged */
   --status-success: #4a9060;
@@ -158,13 +159,11 @@
 /* Mixer Console — channel/master strip specific tones */
 --text-icon-inactive: #404058;  /* Mixer IBtn default (non-active) icon color — ChannelStrip + MasterStrip */
 --text-icon-hover: #808098;     /* Mixer IBtn hover icon color — ChannelStrip + MasterStrip */
---track-color-fallback: #808080; /* Sentinel accent for tracks with no assigned color. Also fed into
-   Canvas VU-meter fillStyle in ChannelStrip.tsx — the CSS Canvas 2D API cannot resolve var(), so that
-   call site keeps the literal hex with a comment pointing back here; keep both in sync by hand. */
+--track-color-fallback: #808080; /* Sentinel accent for tracks with no assigned color. Also feeds the
+   Canvas VU-meter fillStyle in ChannelStrip.tsx — Canvas 2D can't resolve var(), so that component
+   reads this token via getComputedStyle once on mount instead of duplicating the literal. */
 --fader-tick-major: #3a3a58;    /* ChannelStrip fader major tick mark */
 --fader-tick-minor: #282840;    /* ChannelStrip fader minor tick mark */
---meter-green-dark: #1a3a12;    /* MasterStrip wave-mode VU gradient bottom stop. Canvas gradient
-   addColorStop() cannot resolve var() either — same manual-sync caveat as --track-color-fallback. */
 --text-on-amber: #1a1000;       /* Dark text for content sitting on amber/accent backgrounds (e.g. mute-filter pill) */
 
 /* ── Utility classes ── */

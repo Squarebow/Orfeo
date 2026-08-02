@@ -23,12 +23,26 @@ const BAR_COL_W   = 14
 const BAR_COL_GAP = 2
 const BAR_TOTAL_W = BAND_COUNT * BAR_COL_W + (BAND_COUNT - 1) * BAR_COL_GAP  // 126px
 
-// Kept as literal hex, in sync with var(--meter-green/yellow/orange/red) in index.css —
-// these feed Canvas 2D fillStyle/gradient/shadowColor below, which cannot resolve CSS var().
-const METER_GREEN  = '#7ac040'
-const METER_YELLOW = '#c0a020'
-const METER_ORANGE = '#c07a20'
-const METER_RED    = '#c04040'
+// Canvas 2D fillStyle/gradient/shadowColor (used below in drawBars/drawWave/segColor)
+// cannot resolve CSS var() strings directly, so these are resolved once from index.css's
+// --meter-* tokens via getComputedStyle (see resolveMeterColorsFromCSS, called on mount) —
+// index.css stays the single source of truth; these are just its canvas-usable cache.
+// Defaults here only cover the sliver before the mount effect runs.
+let METER_GREEN      = '#7ac040'
+let METER_YELLOW     = '#c0a020'
+let METER_ORANGE     = '#c07a20'
+let METER_RED        = '#c04040'
+let METER_GREEN_DARK = '#1a3a12'
+
+function resolveMeterColorsFromCSS() {
+  const cs = getComputedStyle(document.documentElement)
+  const read = (name: string, fallback: string) => cs.getPropertyValue(name).trim() || fallback
+  METER_GREEN      = read('--meter-green',      METER_GREEN)
+  METER_YELLOW     = read('--meter-yellow',     METER_YELLOW)
+  METER_ORANGE     = read('--meter-orange',     METER_ORANGE)
+  METER_RED        = read('--meter-red',        METER_RED)
+  METER_GREEN_DARK = read('--meter-green-dark', METER_GREEN_DARK)
+}
 
 // ── EyeClosed — matching the one in ChannelStrip ─────────────────────────────
 function EyeClosed({ size = 12 }: { size?: number }) {
@@ -162,7 +176,7 @@ function drawWave(
   grad.addColorStop(0,    METER_RED)
   grad.addColorStop(0.25, METER_ORANGE)
   grad.addColorStop(0.45, METER_YELLOW)
-  grad.addColorStop(1,    '#1a3a12') // kept in sync with var(--meter-green-dark) — Canvas gradient can't resolve CSS var()
+  grad.addColorStop(1,    METER_GREEN_DARK)
 
   // Build bezier path
   ctx.beginPath()
@@ -200,6 +214,9 @@ export default function MasterStrip() {
   const setTrackMuteFilter  = useStore(s => s.setTrackMuteFilter)
   const vuDisplayMode       = useStore(s => s.vuDisplayMode)
   const setVuDisplayMode    = useStore(s => s.setVuDisplayMode)
+
+  // ── Resolve meter colors from CSS tokens once on mount — see resolveMeterColorsFromCSS ──
+  useEffect(() => { resolveMeterColorsFromCSS() }, [])
 
   const knobsDisabled = audioEngine === 'gm'
 
