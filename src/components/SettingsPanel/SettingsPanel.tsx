@@ -225,7 +225,7 @@ function OptionBtn({ active, onClick, children, title, comingSoon, activeColor =
 }) {
   // ── Active colour tokens — green for selections, red for the Hide exception ──
   const activeBorder = activeColor === 'error' ? 'var(--status-error)' : 'var(--status-success)'
-  const activeBg    = activeColor === 'error' ? 'rgba(192, 57, 43, 0.15)' : 'rgba(74, 144, 96, 0.13)'
+  const activeBg    = activeColor === 'error' ? 'var(--status-error-tint-bg)' : 'var(--status-success-tint-bg)'
   const activeText  = activeColor === 'error' ? 'var(--status-error)'    : 'var(--status-success)'
 
   return (
@@ -300,7 +300,8 @@ function TranscriptIcon({ filePath, noteNaming, accidentals, addTranscriptEntry 
     }, 3000)
   }
 
-  const iconColor = state === 'success' ? '#4caf50' : state === 'error' ? '#f44336' : 'var(--text-dimmest)'
+  // Unified with the app-wide success/error status tokens (was a divergent literal pair) — see task-5 report.
+  const iconColor = state === 'success' ? 'var(--status-success)' : state === 'error' ? 'var(--status-error)' : 'var(--text-dimmest)'
 
   return (
     <div
@@ -759,7 +760,7 @@ function LibraryPanel() {
           <div style={{
             position: 'absolute', inset: 0,
             border: '2px solid var(--text-amber)',
-            background: 'rgba(232, 160, 39, 0.06)',
+            background: 'var(--accent-amber-tint-bg)',
             pointerEvents: 'none',
             zIndex: 10,
           }} />
@@ -769,7 +770,7 @@ function LibraryPanel() {
         {dropError && (
           <div style={{
             position: 'absolute', bottom: 8, left: 8, right: 8,
-            background: '#2d2d2d', border: '1px solid #404055',
+            background: 'var(--bg-panel2)', border: '1px solid var(--border-overlay)',
             borderRadius: 5, padding: '6px 10px',
             color: 'var(--text-default)', fontSize: 'var(--text-xs)',
             textAlign: 'center', pointerEvents: 'none',
@@ -785,7 +786,7 @@ function LibraryPanel() {
             ref={menuRef}
             style={{
               position: 'fixed', top: contextMenu.y, left: contextMenu.x,
-              background: 'var(--panel)', border: '1px solid #404055',
+              background: 'var(--panel)', border: '1px solid var(--border-overlay)',
               borderRadius: 'var(--radius-md)',
               boxShadow: '0 4px 16px rgba(0,0,0,0.55)',
               zIndex: 9500, minWidth: 160, overflow: 'hidden',
@@ -826,8 +827,8 @@ function LibraryPanel() {
               padding: '6px 10px', background: 'var(--bg-row)',
               borderBottom: '1px solid var(--bg-tile)',
             }}>
-              <FolderOpen size={12} style={{ color: '#e8a02770', flexShrink: 0 }} />
-              <span style={{ flex: 1, fontSize: 'var(--text-xs)', color: '#8080a0', fontWeight: 600 }}>Demo</span>
+              <FolderOpen size={12} style={{ color: 'var(--accent-amber-icon-dim)', flexShrink: 0 }} />
+              <span style={{ flex: 1, fontSize: 'var(--text-xs)', color: 'var(--text-tile-subtext)', fontWeight: 600 }}>Demo</span>
               <span style={{ fontSize: 9, color: 'var(--text-muted)', fontFamily: 'JetBrains Mono' }}>{demoFiles.length}</span>
             </div>
             {demoFiles.filter((f: { name: string; path: string }) => !hiddenLibraryFiles.includes(f.path)).map(file => {
@@ -883,16 +884,16 @@ function LibraryPanel() {
                   borderTop: gi > 0 ? '1px solid var(--border)' : 'none',
                   cursor: 'pointer', userSelect: 'none',
                 }}
-                onMouseEnter={e => (e.currentTarget as HTMLElement).style.background = '#111120'}
+                onMouseEnter={e => (e.currentTarget as HTMLElement).style.background = 'var(--bg-modal)'}
                 onMouseLeave={e => (e.currentTarget as HTMLElement).style.background = 'var(--bg-row)'}
               >
                 {expandedFolders.has(group.folder!)
                   ? <ChevronDown size={11} style={{ color: 'var(--text-inactive)', flexShrink: 0 }} />
                   : <ChevronRight size={11} style={{ color: 'var(--text-inactive)', flexShrink: 0 }} />
                 }
-                <FolderOpen size={12} style={{ color: '#e8a02770', flexShrink: 0 }} />
+                <FolderOpen size={12} style={{ color: 'var(--accent-amber-icon-dim)', flexShrink: 0 }} />
                 <span style={{
-                  flex: 1, fontSize: 'var(--text-xs)', color: '#8080a0', fontWeight: 600,
+                  flex: 1, fontSize: 'var(--text-xs)', color: 'var(--text-tile-subtext)', fontWeight: 600,
                   overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
                 }}>
                   {group.folder}
@@ -947,7 +948,7 @@ function LibraryPanel() {
                       flexShrink: 0, fontSize: 'var(--text-sm)', lineHeight: 1,
                       transition: 'color 0.12s',
                     }}
-                    onMouseEnter={e => { if (!starred) e.currentTarget.style.color = '#707060' }}
+                    onMouseEnter={e => { if (!starred) e.currentTarget.style.color = 'var(--state-star-hover)' }}
                     onMouseLeave={e => { if (!starred) e.currentTarget.style.color = 'var(--state-disabled)' }}
                   >★</button>
                 </div>
@@ -1644,8 +1645,8 @@ export default function SettingsPanel() {
                 >
                   <OptionRow label="Background">
                     <div style={{ display: 'flex', gap: 'var(--space-1)' }}>
-                      <AppBgBtn color="#0f0f12" label="Dark" active={appTheme === 'dark'} onClick={() => setAppTheme('dark')} />
-                      <AppBgBtn color="#12100e" label="Warm" active={appTheme === 'warm'} onClick={() => setAppTheme('warm')} />
+                      <AppBgBtn color="var(--bg-modal-header)" label="Dark" active={appTheme === 'dark'} onClick={() => setAppTheme('dark')} />
+                      <AppBgBtn color="var(--bg-warm)" label="Warm" active={appTheme === 'warm'} onClick={() => setAppTheme('warm')} />
                     </div>
                   </OptionRow>
                 </CollapsibleSection>
@@ -1654,14 +1655,14 @@ export default function SettingsPanel() {
                 <div style={{ padding: '14px 14px 10px', borderTop: '1px solid var(--bg-tile)', marginTop: 4 }}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 4 }}>
                     <svg width="16" height="16" viewBox="0 0 100 100" fill="none">
-                      <circle cx="50" cy="50" r="44" stroke="#e8a027" strokeWidth="8"/>
-                      <line x1="22" y1="38" x2="78" y2="38" stroke="#e8a027" strokeWidth="7" strokeLinecap="round"/>
-                      <line x1="22" y1="50" x2="78" y2="50" stroke="#e8a027" strokeWidth="7" strokeLinecap="round"/>
-                      <line x1="22" y1="62" x2="78" y2="62" stroke="#e8a027" strokeWidth="7" strokeLinecap="round"/>
+                      <circle cx="50" cy="50" r="44" stroke="var(--text-amber)" strokeWidth="8"/>
+                      <line x1="22" y1="38" x2="78" y2="38" stroke="var(--text-amber)" strokeWidth="7" strokeLinecap="round"/>
+                      <line x1="22" y1="50" x2="78" y2="50" stroke="var(--text-amber)" strokeWidth="7" strokeLinecap="round"/>
+                      <line x1="22" y1="62" x2="78" y2="62" stroke="var(--text-amber)" strokeWidth="7" strokeLinecap="round"/>
                     </svg>
                     <span style={{ color: 'var(--text-inactive)', fontSize: 10, fontFamily: 'JetBrains Mono' }}>Orfeo · v0.14.0</span>
                   </div>
-                  <div style={{ fontSize: 9, color: '#35354a', fontFamily: 'Inter', lineHeight: 1.5 }}>
+                  <div style={{ fontSize: 9, color: 'var(--topbar-timesig-divider)', fontFamily: 'Inter', lineHeight: 1.5 }}>
                     MIT License · github.com/SquareBow/orfeo
                   </div>
                 </div>

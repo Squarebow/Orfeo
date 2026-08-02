@@ -218,6 +218,23 @@
 --key-note-name-color: rgba(255,255,255,0.88); /* Keyboard.tsx — black key note-name label text */
 --text-key-hover: #c0c0d0;          /* KeyboardControls.tsx — key-size selector button hover text */
 
+/* ── Batch 5 — Settings/Panels ── */
+--border-overlay: #404055;          /* SettingsPanel.tsx — small floating overlay borders (drop-error toast, library context menu) */
+--border-popup: #2e2e42;            /* LoopRegionStrip.tsx — bar-range popup border + numeric inputs */
+--status-error-tint-bg: rgba(192, 57, 43, 0.15);  /* SettingsPanel.tsx OptionBtn — error-active tinted background; RGB matches --status-error */
+--status-success-tint-bg: rgba(74, 144, 96, 0.13); /* SettingsPanel.tsx OptionBtn — success-active tinted background; RGB matches --status-success */
+--accent-amber-icon-dim: #e8a02770;     /* ~44% — SettingsPanel.tsx library folder-row icon tint */
+--accent-amber-strip-fill: rgba(232, 160, 39, 0.15);   /* LoopRegionStrip.tsx canvas — selection region fill */
+--accent-amber-strip-border: rgba(232, 160, 39, 0.85); /* LoopRegionStrip.tsx canvas — selection region top/bottom border */
+--accent-amber-strip-apply-bg: #e8a02718;        /* ~9%  — LoopRegionStrip.tsx bar-range popup Apply button background */
+--accent-amber-strip-apply-bg-hover: #e8a02732;  /* ~20% — LoopRegionStrip.tsx bar-range popup Apply button hover background */
+--state-star-hover: #707060;        /* SettingsPanel.tsx — library favourite-star hover color (unstarred) */
+--state-solo-edit-bg: rgba(232, 160, 39, 0.08); /* TrackPanel.tsx — track row background when soloed for note-editor editing */
+--state-row-hover-overlay: rgba(255, 255, 255, 0.03); /* TrackPanel.tsx — subtle white hover overlay on soloable-for-edit track rows */
+--text-track-count: #40404e;        /* TrackPanel.tsx — per-group track count text */
+--text-track-meta: #454560;         /* TrackPanel.tsx — track row channel/program meta text */
+--icon-visibility-active: #6080c0;  /* TrackPanel.tsx — "Show/Hide in roll" active icon color */
+
 /* ── Utility classes ── */
 
 /* ── Amber outer glow — apply className to every modal/floating panel ──────

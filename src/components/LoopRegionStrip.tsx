@@ -12,6 +12,30 @@ const STRIP_H       = 24
 const HANDLE_VIS_W  = 4   // drawn width — thin enough not to hide small selections
 const HANDLE_HIT_W  = 8   // mouse hit radius — wider for usability
 
+// ── Canvas colors resolved from CSS custom properties ─────────────────────────
+// Canvas2D ctx.fillStyle can't resolve a var() string directly, so these are
+// resolved once from index.css tokens via getComputedStyle (called on mount) —
+// index.css stays the single source of truth. Defaults here only cover the
+// sliver of first render before the mount effect runs. Same pattern as
+// ChannelStrip.tsx / MasterStrip.tsx / PianoRoll.tsx.
+let BG_COLOR           = '#0d0d16'  // --bg-row (near-match snap)
+let DENSITY_TICK_COLOR = '#b5b7bc'  // --text-dim
+let SELECTION_FILL     = 'rgba(232, 160, 39, 0.15)'  // --accent-amber-strip-fill
+let SELECTION_BORDER   = 'rgba(232, 160, 39, 0.85)'  // --accent-amber-strip-border
+let HANDLE_COLOR       = '#e8a027'  // --text-amber
+let PLAYHEAD_LINE_COLOR = '#e8e8e8' // --key-white-bg (exact match, shared with Keyboard.tsx)
+
+function resolveLoopStripColorsFromCSS() {
+  const cs = getComputedStyle(document.documentElement)
+  const read = (name: string, fallback: string) => cs.getPropertyValue(name).trim() || fallback
+  BG_COLOR            = read('--bg-row', BG_COLOR)
+  DENSITY_TICK_COLOR  = read('--text-dim', DENSITY_TICK_COLOR)
+  SELECTION_FILL      = read('--accent-amber-strip-fill', SELECTION_FILL)
+  SELECTION_BORDER    = read('--accent-amber-strip-border', SELECTION_BORDER)
+  HANDLE_COLOR        = read('--text-amber', HANDLE_COLOR)
+  PLAYHEAD_LINE_COLOR = read('--key-white-bg', PLAYHEAD_LINE_COLOR)
+}
+
 // ── Long-press chevron: click = single step, hold = accelerating repeat ───────
 function LongPressChevron({ children, onStep }: { children: React.ReactNode; onStep: () => void }) {
   const onStepRef = useRef(onStep)
@@ -130,6 +154,7 @@ export default function LoopRegionStrip() {
   // ── rAF draw loop ──────────────────────────────────────────────────────────
   useEffect(() => {
     let animId: number
+    resolveLoopStripColorsFromCSS()
 
     const draw = () => {
       const canvas = canvasRef.current
@@ -159,7 +184,7 @@ export default function LoopRegionStrip() {
       const displayEnd   = preview?.end   ?? loopEnd
 
       // ── Background ────────────────────────────────────────────────────────
-      ctx.fillStyle = '#0d0d16'
+      ctx.fillStyle = BG_COLOR
       ctx.fillRect(0, 0, W, H)
 
       // ── Note density ticks ────────────────────────────────────────────────
@@ -172,7 +197,7 @@ export default function LoopRegionStrip() {
           if (bi >= 0 && bi < numBuckets) counts[bi]++
         }
         const maxCount = Math.max(1, ...counts)
-        ctx.fillStyle = '#b5b7bc'
+        ctx.fillStyle = DENSITY_TICK_COLOR
         for (let i = 0; i < numBuckets; i++) {
           if (counts[i] === 0) continue
           const norm  = counts[i] / maxCount
@@ -187,20 +212,20 @@ export default function LoopRegionStrip() {
         const x2 = (displayEnd   / duration) * W
 
         // Amber fill
-        ctx.fillStyle = 'rgba(232, 160, 39, 0.15)'
+        ctx.fillStyle = SELECTION_FILL
         ctx.fillRect(x1, 0, x2 - x1, H)
 
         // Top + bottom amber border
-        ctx.fillStyle = 'rgba(232, 160, 39, 0.85)'
+        ctx.fillStyle = SELECTION_BORDER
         ctx.fillRect(x1, 0, x2 - x1, 2)
         ctx.fillRect(x1, H - 2, x2 - x1, 2)
 
         // Left handle — thin vertical bar centered on boundary
-        ctx.fillStyle = '#e8a027'
+        ctx.fillStyle = HANDLE_COLOR
         ctx.fillRect(x1 - HANDLE_VIS_W / 2, 0, HANDLE_VIS_W, H)
 
         // Right handle
-        ctx.fillStyle = '#e8a027'
+        ctx.fillStyle = HANDLE_COLOR
         ctx.fillRect(x2 - HANDLE_VIS_W / 2, 0, HANDLE_VIS_W, H)
 
       }
@@ -208,9 +233,9 @@ export default function LoopRegionStrip() {
       // ── Playhead — white line + amber triangle pointer at top ─────────────
       if (duration > 0 && midi) {
         const px = (currentTime / duration) * W
-        ctx.fillStyle = '#e8e8e8'
+        ctx.fillStyle = PLAYHEAD_LINE_COLOR
         ctx.fillRect(Math.round(px), 0, 2, H)
-        ctx.fillStyle = '#e8a027'
+        ctx.fillStyle = HANDLE_COLOR
         ctx.beginPath()
         ctx.moveTo(px - 4, 0)
         ctx.lineTo(px + 5, 0)
@@ -494,7 +519,7 @@ export default function LoopRegionStrip() {
               top: STRIP_H + 4,
               left: 0,
               background: 'var(--bg-tile)',
-              border: '1px solid #2e2e42',
+              border: '1px solid var(--border-popup)',
               borderRadius: 6,
               padding: '10px 12px',
               zIndex: 200,
@@ -532,7 +557,7 @@ export default function LoopRegionStrip() {
                   if (toBar < v) setToBar(v)
                 }}
                 style={{
-                  width: 48, background: 'var(--bg-row)', border: '1px solid #2e2e42',
+                  width: 48, background: 'var(--bg-row)', border: '1px solid var(--border-popup)',
                   borderRadius: 4, color: 'var(--text-dim)', fontFamily: '"JetBrains Mono", monospace',
                   fontSize: 'var(--text-sm)', padding: '3px 6px', outline: 'none', textAlign: 'center',
                   flexShrink: 0,
@@ -563,7 +588,7 @@ export default function LoopRegionStrip() {
                   setToBar(v)
                 }}
                 style={{
-                  width: 48, background: 'var(--bg-row)', border: '1px solid #2e2e42',
+                  width: 48, background: 'var(--bg-row)', border: '1px solid var(--border-popup)',
                   borderRadius: 4, color: 'var(--text-dim)', fontFamily: '"JetBrains Mono", monospace',
                   fontSize: 'var(--text-sm)', padding: '3px 6px', outline: 'none', textAlign: 'center',
                   flexShrink: 0,
@@ -584,13 +609,13 @@ export default function LoopRegionStrip() {
             <button
               onClick={applyBarRange}
               style={{
-                background: '#e8a02718', border: '1px solid var(--accent-amber-strong)',
+                background: 'var(--accent-amber-strip-apply-bg)', border: '1px solid var(--accent-amber-strong)',
                 borderRadius: 4, color: 'var(--text-amber)', fontFamily: '"JetBrains Mono", monospace',
                 fontSize: 'var(--text-xs)', padding: '4px 0', cursor: 'pointer',
                 transition: 'background 0.12s',
               }}
-              onMouseEnter={e => e.currentTarget.style.background = '#e8a02732'}
-              onMouseLeave={e => e.currentTarget.style.background = '#e8a02718'}
+              onMouseEnter={e => e.currentTarget.style.background = 'var(--accent-amber-strip-apply-bg-hover)'}
+              onMouseLeave={e => e.currentTarget.style.background = 'var(--accent-amber-strip-apply-bg)'}
             >
               Apply
             </button>

@@ -88,9 +88,9 @@ export function ConfirmDialogHost() {
                   borderRadius: 'var(--radius-sm)',
                   fontSize: 'var(--text-sm)',
                   cursor: 'pointer',
-                  border:      isPrimary ? 'none' : '1px solid var(--text-inactive, #404055)',
+                  border:      isPrimary ? 'none' : '1px solid var(--text-inactive)',
                   background:  isPrimary ? 'var(--text-amber)' : 'transparent',
-                  color:       isPrimary ? '#0f0f12' : isDestructive ? '#c05050' : 'var(--text-default)',
+                  color:       isPrimary ? 'var(--bg-modal-header)' : isDestructive ? 'var(--color-input-error)' : 'var(--text-default)',
                   fontWeight:  isPrimary ? 600 : 400,
                   fontFamily:  "'Inter', system-ui, sans-serif",
                 }}

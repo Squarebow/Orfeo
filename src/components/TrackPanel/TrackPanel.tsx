@@ -298,7 +298,7 @@ export default function TrackPanel() {
                       borderRadius: 'var(--radius-sm)',
                       border: 'none',
                       background: 'var(--text-amber)',
-                      color: '#1a1000',
+                      color: 'var(--text-on-amber)',
                       fontSize: 9,
                       fontWeight: 700,
                       fontFamily: 'Inter',
@@ -322,7 +322,7 @@ export default function TrackPanel() {
           {/* Track list */}
           <div style={{ flex: 1, overflowY: 'auto', padding: '4px 0' }}>
             {!midi && (
-              <div style={{ padding: '12px 14px', fontSize: 'var(--text-xs)', color: '#35354a' }}>
+              <div style={{ padding: '12px 14px', fontSize: 'var(--text-xs)', color: 'var(--topbar-timesig-divider)' }}>
                 Open a MIDI file to see tracks
               </div>
             )}
@@ -381,7 +381,7 @@ export default function TrackPanel() {
                       </div>
                     )}
 
-                    <span style={{ fontSize: 10, color: '#40404e', fontFamily: 'JetBrains Mono' }}>
+                    <span style={{ fontSize: 10, color: 'var(--text-track-count)', fontFamily: 'JetBrains Mono' }}>
                       {groupTracks.length}
                     </span>
                     <button
@@ -461,10 +461,10 @@ function TrackRow({
         opacity: isDragging ? 0.4 : dimmed ? 0.45 : 1,
         transition: 'opacity 0.15s, background 0.1s',
         cursor: onSoloForEdit ? 'pointer' : 'default',
-        background: isSoloedForEdit ? 'rgba(232,160,39,0.08)' : 'transparent',
-        borderLeft: isSoloedForEdit ? '2px solid var(--text-amber, #e8a027)' : '2px solid transparent',
+        background: isSoloedForEdit ? 'var(--state-solo-edit-bg)' : 'transparent',
+        borderLeft: isSoloedForEdit ? '2px solid var(--text-amber)' : '2px solid transparent',
       }}
-      onMouseEnter={e => { if (onSoloForEdit && !isSoloedForEdit) (e.currentTarget as HTMLElement).style.background = 'rgba(255,255,255,0.03)' }}
+      onMouseEnter={e => { if (onSoloForEdit && !isSoloedForEdit) (e.currentTarget as HTMLElement).style.background = 'var(--state-row-hover-overlay)' }}
       onMouseLeave={e => { if (onSoloForEdit && !isSoloedForEdit) (e.currentTarget as HTMLElement).style.background = 'transparent' }}
     >
       {/* ── Row 1: drag handle + color bar + instrument name ──────────────── */}
@@ -496,13 +496,13 @@ function TrackRow({
           <IBtn onClick={onMute} active={track.muted} title={track.muted ? 'Unmute' : 'Mute'} activeColor="var(--status-error)">
             <span style={{ fontSize: 'var(--text-xs)', fontWeight: 700, fontFamily: 'JetBrains Mono', lineHeight: 1 }}>M</span>
           </IBtn>
-          <IBtn onClick={onSolo} active={track.solo} title={track.solo ? 'Unsolo' : 'Solo'} activeColor="#e8a027">
+          <IBtn onClick={onSolo} active={track.solo} title={track.solo ? 'Unsolo' : 'Solo'} activeColor="var(--text-amber)">
             <span style={{ fontSize: 10, fontWeight: 700, fontFamily: 'JetBrains Mono', lineHeight: 1 }}>S</span>
           </IBtn>
-          <IBtn onClick={onVisible} active={!track.visible} title={track.visible ? 'Hide in roll' : 'Show in roll'} activeColor="#6080c0">
+          <IBtn onClick={onVisible} active={!track.visible} title={track.visible ? 'Hide in roll' : 'Show in roll'} activeColor="var(--icon-visibility-active)">
             {track.visible ? <Eye size={12} /> : <EyeClosed size={12} />}
           </IBtn>
-          <IBtn onClick={onKeyboard} active={track.showOnKeyboard} title={track.showOnKeyboard ? 'Lit on keyboard' : 'Not lit on keyboard'} activeColor="#e8a027">
+          <IBtn onClick={onKeyboard} active={track.showOnKeyboard} title={track.showOnKeyboard ? 'Lit on keyboard' : 'Not lit on keyboard'} activeColor="var(--text-amber)">
             {/* Mini piano icon */}
             <svg width="13" height="9" viewBox="0 0 13 9" fill="none">
               <rect x="0.5" y="0.5" width="12" height="8" rx="1" stroke="currentColor" strokeWidth="0.9"/>
@@ -517,9 +517,9 @@ function TrackRow({
 
       {/* ── Row 3: MIDI channel + program ─────────────────────────────────── */}
       <div style={{ display: 'flex', gap: 6, marginTop: 2, paddingLeft: 26 }}>
-        <span style={{ fontSize: 9, color: '#454560', fontFamily: 'JetBrains Mono' }}>ch {ch}</span>
-        <span style={{ fontSize: 9, color: '#454560', fontFamily: 'JetBrains Mono' }}>·</span>
-        <span style={{ fontSize: 9, color: '#454560', fontFamily: 'JetBrains Mono' }}>{prog}</span>
+        <span style={{ fontSize: 9, color: 'var(--text-track-meta)', fontFamily: 'JetBrains Mono' }}>ch {ch}</span>
+        <span style={{ fontSize: 9, color: 'var(--text-track-meta)', fontFamily: 'JetBrains Mono' }}>·</span>
+        <span style={{ fontSize: 9, color: 'var(--text-track-meta)', fontFamily: 'JetBrains Mono' }}>{prog}</span>
       </div>
     </div>
   )
@@ -536,11 +536,11 @@ function IBtn({ children, onClick, active, title, activeColor = 'var(--text-ambe
       style={{
         display: 'flex', alignItems: 'center', justifyContent: 'center',
         width: 22, height: 22, background: 'none', border: 'none', cursor: 'pointer',
-        color: active ? activeColor : '#404058',
+        color: active ? activeColor : 'var(--text-icon-inactive)',
         borderRadius: 4, transition: 'color 0.1s',
       }}
-      onMouseEnter={e => { if (!active) e.currentTarget.style.color = '#808098' }}
-      onMouseLeave={e => { e.currentTarget.style.color = active ? activeColor : '#404058' }}
+      onMouseEnter={e => { if (!active) e.currentTarget.style.color = 'var(--text-icon-hover)' }}
+      onMouseLeave={e => { e.currentTarget.style.color = active ? activeColor : 'var(--text-icon-inactive)' }}
     >
       {children}
     </button>
