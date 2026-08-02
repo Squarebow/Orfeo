@@ -219,7 +219,6 @@
 --text-key-hover: #c0c0d0;          /* KeyboardControls.tsx — key-size selector button hover text */
 
 /* ── Batch 5 — Settings/Panels ── */
---border-overlay: #404055;          /* SettingsPanel.tsx — small floating overlay borders (drop-error toast, library context menu) */
 --border-popup: #2e2e42;            /* LoopRegionStrip.tsx — bar-range popup border + numeric inputs */
 --status-error-tint-bg: rgba(192, 57, 43, 0.15);  /* SettingsPanel.tsx OptionBtn — error-active tinted background; RGB matches --status-error */
 --status-success-tint-bg: rgba(74, 144, 96, 0.13); /* SettingsPanel.tsx OptionBtn — success-active tinted background; RGB matches --status-success */

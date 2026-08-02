@@ -770,7 +770,7 @@ function LibraryPanel() {
         {dropError && (
           <div style={{
             position: 'absolute', bottom: 8, left: 8, right: 8,
-            background: 'var(--bg-panel2)', border: '1px solid var(--border-overlay)',
+            background: 'var(--bg-panel2)', border: '1px solid var(--drag-handle-dot)',
             borderRadius: 5, padding: '6px 10px',
             color: 'var(--text-default)', fontSize: 'var(--text-xs)',
             textAlign: 'center', pointerEvents: 'none',
@@ -786,7 +786,7 @@ function LibraryPanel() {
             ref={menuRef}
             style={{
               position: 'fixed', top: contextMenu.y, left: contextMenu.x,
-              background: 'var(--panel)', border: '1px solid var(--border-overlay)',
+              background: 'var(--panel)', border: '1px solid var(--drag-handle-dot)',
               borderRadius: 'var(--radius-md)',
               boxShadow: '0 4px 16px rgba(0,0,0,0.55)',
               zIndex: 9500, minWidth: 160, overflow: 'hidden',
