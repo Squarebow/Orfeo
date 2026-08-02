@@ -150,6 +150,14 @@
 --accent-amber-glow-outer: rgba(232, 160, 39, 0.25); /* LockedChordModal box-shadow outer glow ring */
 --accent-amber-glow-inner: rgba(232, 160, 39, 0.12); /* LockedChordModal box-shadow soft blur glow */
 --accent-amber-shadow: #e8a02766;   /* ~40% — Mixer ChannelStrip fader-handle box-shadow tint */
+--accent-amber-tint-bg: #e8a0270f;      /* ~6%  — NoteEditorToolbar close-confirm strip background */
+--accent-amber-selected-bg: #e8a02714;  /* ~8%  — NoteEditorToolbar quantize-dropdown selected item */
+--accent-amber-active-border: #e8a02773; /* ~45% — NoteEditorToolbar active ToolBtn / Save&Exit border */
+--accent-amber-active-bg: #e8a02712;    /* ~7%  — NoteEditorToolbar active ToolBtn / Save&Exit bg; also PianoRoll loop-region fill (active) */
+--accent-amber-loop-border: #e8a0278c;      /* ~55% — PianoRoll loop-region boundary line (active) */
+--accent-amber-loop-border-dim: #e8a0274d;  /* ~30% — PianoRoll loop-region boundary line (inactive) */
+--accent-amber-loop-fill-dim: #e8a0270a;    /* ~4%  — PianoRoll loop-region fill (inactive) */
+--accent-amber-tooltip-text: #e8a027e6;     /* ~90% — PianoRoll Alt+drag cursor-tooltip amber text */
 
 /* Control UI tones — not covered by the main text/status scale */
 --text-dim-control: #606078;   /* Dim control labels, inactive action icons */
@@ -165,6 +173,37 @@
 --fader-tick-major: #3a3a58;    /* ChannelStrip fader major tick mark */
 --fader-tick-minor: #282840;    /* ChannelStrip fader minor tick mark */
 --text-on-amber: #1a1000;       /* Dark text for content sitting on amber/accent backgrounds (e.g. mute-filter pill) */
+
+/* MIDI/Note editors — batch 3 */
+--hand-slate: #4a7fff;       /* Left-hand indicator — MidiEditor split-preview timeline; shared with Keyboard.tsx hand-highlight */
+--flag-red: #e05252;         /* Low-confidence hand-split passage flag (MidiEditor) */
+--bg-field: #0a0a10;         /* Recessed input/display field background — search box, hex input, output-path readout */
+--color-input-error: #c05050; /* Invalid hex-color input state (border + text) in MidiEditor's color popover */
+--track-included-border: #3a7a3a;   /* MidiEditor track-include toggle — included (true) border */
+--track-included-bg: #0d200d;       /* MidiEditor track-include toggle — included (true) background */
+--track-included-color: #50c050;    /* MidiEditor track-include toggle — included (true) icon color */
+--track-excluded: #353540;          /* MidiEditor track-include toggle — excluded (false) border + icon color */
+--track-merged-row-bg: #101020;     /* MidiEditor track row background when merged */
+--track-mergeselected-row-bg: #1a1a08; /* MidiEditor track row background when selected for merge */
+--merge-badge-bg: #20204a;    /* MidiEditor "merged" badge background */
+--merge-badge-text: #8080cc;  /* MidiEditor "merged" badge text + Unmerge button icon color */
+--unmerge-border: #4040a0;    /* MidiEditor Unmerge button border */
+--unmerge-bg: #10102a;        /* MidiEditor Unmerge button background */
+--hand-note-neutral: #555555; /* MidiEditor split-preview timeline — notes with no hand tag yet */
+--drag-handle-dot: #404055;   /* NoteEditorToolbar drag-handle grip dots */
+--text-disabled-icon: #666688; /* NoteEditorToolbar disabled icon-button color */
+--status-error-border: #c0392b66; /* ~40% — NoteEditorToolbar "Discard" close-confirm button border */
+--state-hover-border-white: #ffffff59; /* ~35% — MidiEditor color-swatch hover border */
+--state-hover-overlay-white: #ffffff0d; /* ~5% — NoteEditorToolbar quantize-item hover overlay */
+--pianoroll-key-row: #171720;       /* PianoRoll canvas — white-key row shading */
+--pianoroll-octave-divider: #2e2e48; /* PianoRoll canvas — octave divider line */
+--pianoroll-barline: #1e1e38;       /* PianoRoll canvas — bar-line marker */
+--pianoroll-tooltip-bg: #1e1e2e;    /* PianoRoll edit-mode note-name tooltip background */
+--note-select-red: #dd2244;   /* PianoRoll canvas — selected/dragged note outline + new-note dashed border */
+--note-marquee-blue: #7788aa; /* PianoRoll canvas — drag-select marquee rectangle */
+--text-canvas-label: #ffffffd9; /* ~85% — PianoRoll canvas — in-note-name label text (edit mode) */
+--bg-tooltip: #121212eb;      /* ~92% — PianoRoll Alt+drag cursor-tooltip background */
+--text-tooltip-secondary: #c6c8c8a6; /* ~65% — PianoRoll cursor-tooltip secondary line ("Right-click · clear") */
 
 /* ── Utility classes ── */
 

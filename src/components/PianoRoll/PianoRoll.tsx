@@ -14,16 +14,73 @@ import type { Hand } from '../../types'
 import { HitEffectsRenderer } from './HitEffects'
 import { drainHitEffects } from '../../utils/hitEffectQueue'
 
-const HAND_COLOR: Record<Hand, number> = { L: 0x4a7fff, R: 0xe8a027 }
-
 const VISIBLE_SECONDS  = 6
 const NOTE_RADIUS      = 3
 const MIN_NOTE_H       = 4
 const PLAYHEAD_RATIO   = 0.80
 const RESIZE_ZONE_PX   = 6
 const DRAG_THRESHOLD   = 4
-const SEL_NOTE_COLOR    = 0xdd2244   // red — actively selected/dragged notes
-const SEL_MARQUEE_COLOR = 0x7788aa   // neutral — drag-select rectangle
+
+// ── Canvas/PixiJS colors resolved from CSS custom properties ─────────────────
+// PixiJS Graphics.fill({color}) needs a numeric 0xRRGGBB and Canvas2D ctx.fillStyle
+// needs a literal color string — neither can resolve a var() string directly, so
+// these are resolved once from index.css tokens via getComputedStyle (see
+// resolvePianoRollColorsFromCSS, called on mount) — index.css stays the single
+// source of truth; these are just its canvas-usable cache. Defaults here only
+// cover the sliver of first render before the mount effect runs. Same pattern as
+// ChannelStrip.tsx / MasterStrip.tsx.
+let HAND_SLATE_COLOR    = 0x4a7fff   // --hand-slate
+let HAND_AMBER_COLOR    = 0xe8a027   // --text-amber
+let SEL_NOTE_COLOR       = 0xdd2244   // --note-select-red — actively selected/dragged notes
+let SEL_MARQUEE_COLOR    = 0x7788aa   // --note-marquee-blue — drag-select rectangle
+let KEY_ROW_COLOR        = 0x171720   // --pianoroll-key-row — white-key row shading
+let KEY_ROW_DARK_COLOR   = 0x0d0d10   // --bg-modal-header (near-match snap) — black-key row shading
+let OCTAVE_DIVIDER_COLOR = 0x2e2e48   // --pianoroll-octave-divider
+let PLAYHEAD_COLOR       = 0xc6c8c8   // --text-default
+let NOTE_HIGHLIGHT_COLOR = 0xffffff   // --text-white (near-match snap) — note top-edge highlight strip
+let CANVAS_BG_COLOR      = 0x0f0f12   // --bg-modal-header (near-match snap) — non-warm PixiJS floor
+let CANVAS_BG_WARM_COLOR = 0x12100e   // --bg-warm — warm-theme PixiJS floor
+
+let HAND_AMBER_HEX_STR         = '#e8a027'   // --text-amber (string form, for Canvas2D fillStyle)
+let BARLINE_COLOR             = '#1e1e38'   // --pianoroll-barline
+let BAR_PILL_BG_COLOR         = '#0d0d18'   // --bg-row (near-match snap)
+let BAR_PILL_TEXT_DARK_COLOR  = '#0f0f12'   // --bg-modal-header (near-match snap)
+let NOTE_LABEL_COLOR          = 'rgba(255,255,255,0.85)'   // --text-canvas-label
+
+function hexVarToNumber(raw: string, fallback: number): number {
+  const h = raw.trim().replace('#', '')
+  if (h.length !== 6 && h.length !== 3) return fallback
+  const full = h.length === 3 ? h.split('').map(c => c + c).join('') : h
+  const n = parseInt(full, 16)
+  return Number.isNaN(n) ? fallback : n
+}
+
+function resolvePianoRollColorsFromCSS() {
+  const cs = getComputedStyle(document.documentElement)
+  const readNum = (name: string, fallback: number) => {
+    const raw = cs.getPropertyValue(name).trim()
+    return raw ? hexVarToNumber(raw, fallback) : fallback
+  }
+  const readStr = (name: string, fallback: string) => cs.getPropertyValue(name).trim() || fallback
+
+  HAND_SLATE_COLOR    = readNum('--hand-slate', HAND_SLATE_COLOR)
+  HAND_AMBER_COLOR    = readNum('--text-amber', HAND_AMBER_COLOR)
+  SEL_NOTE_COLOR       = readNum('--note-select-red', SEL_NOTE_COLOR)
+  SEL_MARQUEE_COLOR    = readNum('--note-marquee-blue', SEL_MARQUEE_COLOR)
+  KEY_ROW_COLOR        = readNum('--pianoroll-key-row', KEY_ROW_COLOR)
+  KEY_ROW_DARK_COLOR   = readNum('--bg-modal-header', KEY_ROW_DARK_COLOR)
+  OCTAVE_DIVIDER_COLOR = readNum('--pianoroll-octave-divider', OCTAVE_DIVIDER_COLOR)
+  PLAYHEAD_COLOR       = readNum('--text-default', PLAYHEAD_COLOR)
+  NOTE_HIGHLIGHT_COLOR = readNum('--text-white', NOTE_HIGHLIGHT_COLOR)
+  CANVAS_BG_COLOR      = readNum('--bg-modal-header', CANVAS_BG_COLOR)
+  CANVAS_BG_WARM_COLOR = readNum('--bg-warm', CANVAS_BG_WARM_COLOR)
+
+  HAND_AMBER_HEX_STR       = readStr('--text-amber', HAND_AMBER_HEX_STR)
+  BARLINE_COLOR            = readStr('--pianoroll-barline', BARLINE_COLOR)
+  BAR_PILL_BG_COLOR        = readStr('--bg-row', BAR_PILL_BG_COLOR)
+  BAR_PILL_TEXT_DARK_COLOR = readStr('--bg-modal-header', BAR_PILL_TEXT_DARK_COLOR)
+  NOTE_LABEL_COLOR         = readStr('--text-canvas-label', NOTE_LABEL_COLOR)
+}
 
 // ── FlatNote — used for the main render O(log N) binary search ────────────────
 interface FlatNote { midi: number; time: number; duration: number; trackIndex: number; hand?: Hand }
@@ -210,8 +267,8 @@ function LoopOverlay() {
   const botPct    = hasSelection ? Math.max(0, Math.min(100, timeToPct(loopStart!))) : 0
   const heightPct = botPct - topPct
 
-  const amber     = loopRegionActive ? 'rgba(232,160,39,0.55)' : 'rgba(232,160,39,0.30)'
-  const amberFill = loopRegionActive ? 'rgba(232,160,39,0.07)' : 'rgba(232,160,39,0.04)'
+  const amber     = loopRegionActive ? 'var(--accent-amber-loop-border)' : 'var(--accent-amber-loop-border-dim)'
+  const amberFill = loopRegionActive ? 'var(--accent-amber-active-bg)'   : 'var(--accent-amber-loop-fill-dim)'
 
   // Tooltip visibility: show when hovering, loop strip is on, Alt not held, not dragging
   const showTooltip = loopRegionEnabled && !noteEditorActive && !altDown && mousePos !== null
@@ -260,18 +317,18 @@ function LoopOverlay() {
           top:  mousePos.y + 14,
           pointerEvents: 'none',
           zIndex: 99999,
-          background: 'rgba(18,18,18,0.92)',
-          border: '1px solid rgba(232,160,39,0.35)',
+          background: 'var(--bg-tooltip)',
+          border: '1px solid var(--accent-amber-strong)',
           borderRadius: 4,
           padding: '4px 8px',
           display: 'flex', flexDirection: 'column', gap: 2,
           whiteSpace: 'nowrap',
         }}>
-          <span style={{ fontFamily: 'Inter, sans-serif', fontSize: 11, color: 'rgba(232,160,39,0.9)' }}>
+          <span style={{ fontFamily: 'Inter, sans-serif', fontSize: 11, color: 'var(--accent-amber-tooltip-text)' }}>
             Alt+drag · set loop region
           </span>
           {hasSelection && (
-            <span style={{ fontFamily: 'Inter, sans-serif', fontSize: 11, color: 'rgba(198,200,200,0.65)' }}>
+            <span style={{ fontFamily: 'Inter, sans-serif', fontSize: 11, color: 'var(--text-tooltip-secondary)' }}>
               Right-click · clear
             </span>
           )}
@@ -329,13 +386,14 @@ export default function PianoRoll() {
 
   // ── PixiJS canvas init ───────────────────────────────────────────────────────
   useEffect(() => {
+    resolvePianoRollColorsFromCSS()
     if (!containerRef.current) return
     const el = containerRef.current
     const app = new Application()
     let roInstance: ResizeObserver
 
     app.init({
-      background: 0x0f0f12,
+      background: CANVAS_BG_COLOR,
       width:  el.clientWidth  || 800,
       height: el.clientHeight || 600,
       antialias:   true,
@@ -508,7 +566,7 @@ export default function PianoRoll() {
           if (isNew) {
             drawDashedRect(
               editG, key.x + 1, topY, Math.max(key.width - 2, 1), noteH,
-              0xdd2244, 0.80,
+              SEL_NOTE_COLOR, 0.80,
             )
           }
         }
@@ -537,21 +595,21 @@ export default function PianoRoll() {
           const key = kl[m - midiMin]
           if (!key) continue
           grid.rect(key.x, 0, key.width, H)
-          grid.fill({ color: 0x171720, alpha: 1 })
+          grid.fill({ color: KEY_ROW_COLOR, alpha: 1 })
         }
         for (let m = midiMin; m <= midiMax; m++) {
           if (!isBlackKey(m)) continue
           const key = kl[m - midiMin]
           if (!key) continue
           grid.rect(Math.round(key.x), 0, Math.round(key.width), H)
-          grid.fill({ color: 0x0d0d10, alpha: 1 })
+          grid.fill({ color: KEY_ROW_DARK_COLOR, alpha: 1 })
         }
         for (let m = midiMin; m <= midiMax; m++) {
           if (m % 12 !== 0) continue
           const key = kl[m - midiMin]
           if (!key) continue
           grid.rect(Math.round(key.x), 0, 1, H)
-          grid.fill({ color: 0x2e2e48, alpha: 1 })
+          grid.fill({ color: OCTAVE_DIVIDER_COLOR, alpha: 1 })
         }
       }
 
@@ -654,12 +712,12 @@ export default function PianoRoll() {
           }
         }
 
-        app.renderer.background.color = appTheme === 'warm' ? 0x12100e : 0x0f0f12
+        app.renderer.background.color = appTheme === 'warm' ? CANVAS_BG_WARM_COLOR : CANVAS_BG_COLOR
 
         playhead.clear()
         if (playbarVisible) {
           playhead.rect(0, py, W + 1, 2)
-          playhead.fill({ color: 0xc6c8c8, alpha: 0.90 })
+          playhead.fill({ color: PLAYHEAD_COLOR, alpha: 0.90 })
         }
 
         notes.clear()
@@ -710,7 +768,7 @@ export default function PianoRoll() {
           // the note carries a hand tag. This is the actual visible effect behind
           // "Keep one track, hand-colored": tags alone are invisible without it.
           const color  = (showHandLabels && note.hand)
-            ? HAND_COLOR[note.hand]
+            ? (note.hand === 'L' ? HAND_SLATE_COLOR : HAND_AMBER_COLOR)
             : parseInt((ts?.color ?? '#e8a027').replace('#', ''), 16)
           const topY   = py - (note.time + note.duration - currentTime) * pps
           const botY   = py - (note.time - currentTime) * pps
@@ -719,7 +777,7 @@ export default function PianoRoll() {
           notes.roundRect(key.x + 1, topY, Math.max(key.width - 2, 1), noteH, NOTE_RADIUS)
           notes.fill({ color, alpha: 0.9 })
           notes.rect(key.x + 1, topY, Math.max(key.width - 2, 1), 2)
-          notes.fill({ color: 0xffffff, alpha: 0.25 })
+          notes.fill({ color: NOTE_HIGHLIGHT_COLOR, alpha: 0.25 })
         }
 
         // ── Edit overlay (drawn after notes so it renders on top) ─────────────
@@ -732,7 +790,7 @@ export default function PianoRoll() {
           ctx.font = '9px "JetBrains Mono", monospace'
           ctx.textAlign = 'center'
           ctx.textBaseline = 'middle'
-          ctx.fillStyle = 'rgba(255,255,255,0.85)'
+          ctx.fillStyle = NOTE_LABEL_COLOR
           for (const ef of editFlatNotes) {
             if (ef.noteH < 14) continue
             const label = getNoteLabel(ef.note.midi, noteNaming, accidentals).replace(/\d+$/, '')
@@ -761,7 +819,7 @@ export default function PianoRoll() {
           if (barY < -20) break
 
           ctx.globalAlpha = 0.5
-          ctx.fillStyle = '#1e1e38'
+          ctx.fillStyle = BARLINE_COLOR
           ctx.fillRect(0, Math.round(barY), W, 1)
 
           const isCurrent = bi === currentBarIdx
@@ -770,14 +828,14 @@ export default function PianoRoll() {
           const pillX = 4, pillY = Math.round(barY) - 18, pillW = tw + 8, pillH = 16
 
           ctx.globalAlpha = isCurrent ? 1 : 0.8
-          ctx.fillStyle = isCurrent ? '#e8a027' : '#0d0d18'
+          ctx.fillStyle = isCurrent ? HAND_AMBER_HEX_STR : BAR_PILL_BG_COLOR
           ctx.beginPath()
           if ((ctx as any).roundRect) { ;(ctx as any).roundRect(pillX, pillY, pillW, pillH, 3) }
           else { ctx.rect(pillX, pillY, pillW, pillH) }
           ctx.fill()
 
           ctx.globalAlpha = 1
-          ctx.fillStyle = isCurrent ? '#0f0f12' : '#e8a027'
+          ctx.fillStyle = isCurrent ? BAR_PILL_TEXT_DARK_COLOR : HAND_AMBER_HEX_STR
           ctx.fillText(label, pillX + 4, Math.round(barY) - 5)
         }
 
@@ -1316,7 +1374,7 @@ export default function PianoRoll() {
   return (
     <div
       ref={containerRef}
-      style={{ width: '100%', height: '100%', background: 'var(--bg, #0f0f12)', overflow: 'hidden', position: 'relative' }}
+      style={{ width: '100%', height: '100%', background: 'var(--bg)', overflow: 'hidden', position: 'relative' }}
     >
       <LoopOverlay />
       {/* ── Note-name tooltip — shown in edit mode when note is too small for inline text ── */}
@@ -1326,13 +1384,13 @@ export default function PianoRoll() {
           left: editTooltip.x + 14,
           top:  editTooltip.y - 28,
           zIndex: 9500,
-          background: '#1e1e2e',
-          border: '1px solid #3a3a4c',
-          borderRadius: 'var(--radius-sm, 3px)',
+          background: 'var(--pianoroll-tooltip-bg)',
+          border: '1px solid var(--state-hover-border)',
+          borderRadius: 'var(--radius-sm)',
           padding: '2px 7px',
-          fontSize: 'var(--text-xs, 0.6875rem)',
+          fontSize: 'var(--text-xs)',
           fontFamily: "'JetBrains Mono', monospace",
-          color: 'var(--text-default, #c6c8c8)',
+          color: 'var(--text-default)',
           pointerEvents: 'none',
           userSelect: 'none',
           whiteSpace: 'nowrap',

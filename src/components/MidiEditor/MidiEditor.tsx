@@ -213,7 +213,7 @@ function InstrumentPicker({ program, isDrum, onChange }: {
           el.style.left = Math.max(4, r.left - 60) + 'px'
         }}>
           <div style={{ padding: '6px 8px', borderBottom: '1px solid var(--border)', flexShrink: 0 }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 5, background: '#0a0a10', border: '1px solid var(--border2)', borderRadius: 4, padding: '3px 6px' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 5, background: 'var(--bg-field)', border: '1px solid var(--border2)', borderRadius: 4, padding: '3px 6px' }}>
               <Search size={10} style={{ color: 'var(--text-inactive)', flexShrink: 0 }} />
               <input autoFocus value={search} onChange={e => setSearch(e.target.value)} placeholder="Search…"
                 style={{ background: 'none', border: 'none', outline: 'none', color: 'var(--text-muted)', fontSize: 10, width: '100%', fontFamily: 'Inter, system-ui' }} />
@@ -345,7 +345,7 @@ function HsvPicker({ color, onChange }: { color: string; onChange: (hex: string)
         <div style={{
           position: 'absolute', left: `${s * 100}%`, top: `${(1 - v) * 100}%`,
           width: 10, height: 10, borderRadius: '50%',
-          border: '2px solid #fff', boxShadow: '0 0 0 1px rgba(0,0,0,0.6)',
+          border: '2px solid var(--text-white)', boxShadow: '0 0 0 1px rgba(0,0,0,0.6)',
           transform: 'translate(-50%, -50%)', pointerEvents: 'none',
         }} />
       </div>
@@ -360,7 +360,7 @@ function HsvPicker({ color, onChange }: { color: string; onChange: (hex: string)
           transform: 'translate(-50%, -50%)',
           width: 14, height: 14, borderRadius: '50%',
           background: `hsl(${h}, 100%, 50%)`,
-          border: '2px solid #fff', boxShadow: '0 0 0 1px rgba(0,0,0,0.6)',
+          border: '2px solid var(--text-white)', boxShadow: '0 0 0 1px rgba(0,0,0,0.6)',
           pointerEvents: 'none',
         }} />
       </div>
@@ -447,10 +447,10 @@ function ColorPopover({ trackIndex, trackColor, anchor, onApplyColor, onClose }:
             title={c}
             style={{
               height: 26, background: c, borderRadius: 3, cursor: 'pointer', boxSizing: 'border-box',
-              border: `2px solid ${c === trackColor ? '#ffffff' : 'transparent'}`,
+              border: `2px solid ${c === trackColor ? 'var(--text-white)' : 'transparent'}`,
               transition: 'transform 0.1s, border-color 0.1s',
             }}
-            onMouseEnter={e => { e.currentTarget.style.transform = 'scale(1.1)'; if (c !== trackColor) e.currentTarget.style.borderColor = 'rgba(255,255,255,0.35)' }}
+            onMouseEnter={e => { e.currentTarget.style.transform = 'scale(1.1)'; if (c !== trackColor) e.currentTarget.style.borderColor = 'var(--state-hover-border-white)' }}
             onMouseLeave={e => { e.currentTarget.style.transform = 'scale(1)'; if (c !== trackColor) e.currentTarget.style.borderColor = 'transparent' }}
           />
         ))}
@@ -472,17 +472,17 @@ function ColorPopover({ trackIndex, trackColor, anchor, onApplyColor, onClose }:
             placeholder="#rrggbb"
             spellCheck={false}
             style={{
-              flex: 1, background: '#0a0a10',
-              border: `1px solid ${hexError ? '#c05050' : 'var(--border2)'}`,
+              flex: 1, background: 'var(--bg-field)',
+              border: `1px solid ${hexError ? 'var(--color-input-error)' : 'var(--border2)'}`,
               borderRadius: 3,
-              color: hexError ? '#c05050' : 'var(--text-muted)',
+              color: hexError ? 'var(--color-input-error)' : 'var(--text-muted)',
               fontSize: 10, fontFamily: 'JetBrains Mono',
               padding: '3px 6px', outline: 'none',
             }}
           />
         </div>
         {hexError && (
-          <div style={{ fontSize: 9, color: '#c05050', marginTop: 3 }}>Enter a valid hex (#rrggbb)</div>
+          <div style={{ fontSize: 9, color: 'var(--color-input-error)', marginTop: 3 }}>Enter a valid hex (#rrggbb)</div>
         )}
       </div>
     </div>,
@@ -526,16 +526,16 @@ function TrackRow({ track, onToggleIncluded, onToggleMerge, onChangeProgram, onU
       display: 'grid', gridTemplateColumns: ROW_COLS,
       alignItems: 'center', padding: '8px 14px', borderBottom: '1px solid var(--border-row)', gap: 6,
       opacity: track.included ? 1 : 0.4,
-      background: track.isMerged ? '#101020' : track.mergeSelected ? '#1a1a08' : 'transparent',
+      background: track.isMerged ? 'var(--track-merged-row-bg)' : track.mergeSelected ? 'var(--track-mergeselected-row-bg)' : 'transparent',
       transition: 'opacity 0.15s',
     }}>
 
       {/* ── Col 1: Include ───────────────────────────────────────────────────── */}
       <button onClick={onToggleIncluded} title="Include or exclude this track from the saved file" style={{
         width: 24, height: 24, borderRadius: 4,
-        border: `1.5px solid ${track.included ? '#3a7a3a' : '#353540'}`,
-        background: track.included ? '#0d200d' : 'transparent',
-        color: track.included ? '#50c050' : '#353540',
+        border: `1.5px solid ${track.included ? 'var(--track-included-border)' : 'var(--track-excluded)'}`,
+        background: track.included ? 'var(--track-included-bg)' : 'transparent',
+        color: track.included ? 'var(--track-included-color)' : 'var(--track-excluded)',
         display: 'flex', alignItems: 'center', justifyContent: 'center',
         cursor: 'pointer', transition: 'all 0.12s', flexShrink: 0,
       }}>
@@ -578,7 +578,7 @@ function TrackRow({ track, onToggleIncluded, onToggleMerge, onChangeProgram, onU
               </span>
             )}
             {track.isMerged && (
-              <span style={{ fontSize: 9, padding: '1px 5px', borderRadius: 'var(--radius-sm)', background: '#20204a', color: '#8080cc', fontFamily: 'JetBrains Mono', flexShrink: 0 }}>
+              <span style={{ fontSize: 9, padding: '1px 5px', borderRadius: 'var(--radius-sm)', background: 'var(--merge-badge-bg)', color: 'var(--merge-badge-text)', fontFamily: 'JetBrains Mono', flexShrink: 0 }}>
                 ⊞ merged {track.mergedFromIndices?.length}
               </span>
             )}
@@ -633,8 +633,8 @@ function TrackRow({ track, onToggleIncluded, onToggleMerge, onChangeProgram, onU
       {track.isMerged ? (
         <button onClick={onUnmerge} title="Undo merge" style={{
           width: 24, height: 24, borderRadius: 4,
-          border: '1.5px solid #4040a0', background: '#10102a',
-          color: '#8080cc', display: 'flex', alignItems: 'center', justifyContent: 'center',
+          border: '1.5px solid var(--unmerge-border)', background: 'var(--unmerge-bg)',
+          color: 'var(--merge-badge-text)', display: 'flex', alignItems: 'center', justifyContent: 'center',
           cursor: 'pointer', flexShrink: 0,
         }}>
           <Undo2 size={11} />
@@ -847,7 +847,7 @@ export default function MidiEditor() {
 
   const openColorPopover = useCallback((trackIndex: number, anchor: DOMRect) => {
     const track = useStore.getState().tracks.find(t => t.index === trackIndex)
-    setColorPopover({ trackIndex, trackColor: track?.color ?? '#e8a027', anchor })
+    setColorPopover({ trackIndex, trackColor: track?.color ?? 'var(--text-amber)', anchor })
   }, [])
 
   const handleApplyColor = useCallback((trackIndex: number, color: string, source: 'palette' | 'custom') => {
@@ -1041,9 +1041,9 @@ export default function MidiEditor() {
           data-no-drag="true"
           onClick={() => setMidiEditorOpen(false)}
           title="Close editor"
-          style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#505068', lineHeight: 1, padding: '0 2px', display: 'flex', alignItems: 'center', transition: 'color 0.15s', flexShrink: 0 }}
+          style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-inactive)', lineHeight: 1, padding: '0 2px', display: 'flex', alignItems: 'center', transition: 'color 0.15s', flexShrink: 0 }}
           onMouseEnter={e => e.currentTarget.style.color = 'var(--text-default)'}
-          onMouseLeave={e => e.currentTarget.style.color = '#505068'}
+          onMouseLeave={e => e.currentTarget.style.color = 'var(--text-inactive)'}
         >
           <X size={16} />
         </button>
@@ -1103,9 +1103,9 @@ export default function MidiEditor() {
         const passages = getLowConfidencePassages(notes)
         const duration = midi?.duration ?? 0
 
-        const SLATE = '#4a7fff'
-        const AMBER = '#e8a027'
-        const FLAG_RED = '#e05252'
+        const SLATE = 'var(--hand-slate)'
+        const AMBER = 'var(--text-amber)'
+        const FLAG_RED = 'var(--flag-red)'
 
         return (
           <div style={{ padding: '10px 14px', background: 'var(--bg-modal)', borderTop: '1px solid var(--border2)', display: 'flex', flexDirection: 'column', gap: 8, flexShrink: 0 }}>
@@ -1137,7 +1137,7 @@ export default function MidiEditor() {
                   <rect key={i}
                     x={(n.time / duration) * 1000} y={n.hand === 'L' ? 21 : 2}
                     width={1.4} height={17}
-                    fill={n.hand === 'L' ? SLATE : n.hand === 'R' ? AMBER : '#555'}
+                    fill={n.hand === 'L' ? SLATE : n.hand === 'R' ? AMBER : 'var(--hand-note-neutral)'}
                   />
                 ))}
               </svg>
@@ -1201,7 +1201,7 @@ export default function MidiEditor() {
       <div style={{ padding: '10px 14px 12px', borderTop: '1px solid var(--border)', background: 'var(--bg-modal-header)', flexShrink: 0 }}>
         <div style={{ fontSize: 10, color: 'var(--text-inactive)', marginBottom: 6, textTransform: 'uppercase', letterSpacing: '0.08em' }}>Save as</div>
         <div style={{ display: 'flex', gap: 6, marginBottom: 8 }}>
-          <div style={{ flex: 1, padding: '5px 8px', background: '#0a0a10', border: '1px solid var(--border2)', borderRadius: 4, fontSize: 10, fontFamily: 'JetBrains Mono', color: 'var(--text-muted)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={state.outputPath}>{baseName(state.outputPath)}</div>
+          <div style={{ flex: 1, padding: '5px 8px', background: 'var(--bg-field)', border: '1px solid var(--border2)', borderRadius: 4, fontSize: 10, fontFamily: 'JetBrains Mono', color: 'var(--text-muted)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={state.outputPath}>{baseName(state.outputPath)}</div>
           <button onClick={async () => {
             const p = await window.electronAPI.saveFileDialog({ defaultPath: state.outputPath, filters: [{ name: 'MIDI Files', extensions: ['mid'] }] })
             if (p) setState(s => s && ({ ...s, outputPath: p }))
@@ -1235,7 +1235,7 @@ export default function MidiEditor() {
         )}
         <div style={{ display: 'flex', gap: 'var(--space-2)' }}>
           <button onClick={() => setMidiEditorOpen(false)} style={{ flex: 1, padding: '7px 0', borderRadius: 'var(--radius-md)', background: 'transparent', border: '1px solid var(--border2)', color: 'var(--text-dim-control)', fontSize: 'var(--text-sm)', cursor: 'pointer' }}>Cancel</button>
-          <button onClick={handleSave} disabled={saving} style={{ flex: 1, padding: '7px 0', borderRadius: 'var(--radius-md)', background: saving ? 'var(--bg-tile)' : 'var(--text-amber)', border: 'none', color: saving ? 'var(--text-inactive)' : '#0a0a0a', fontSize: 'var(--text-sm)', fontWeight: 600, cursor: saving ? 'wait' : 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6 }}>
+          <button onClick={handleSave} disabled={saving} style={{ flex: 1, padding: '7px 0', borderRadius: 'var(--radius-md)', background: saving ? 'var(--bg-tile)' : 'var(--text-amber)', border: 'none', color: saving ? 'var(--text-inactive)' : 'var(--text-on-amber)', fontSize: 'var(--text-sm)', fontWeight: 600, cursor: saving ? 'wait' : 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6 }}>
             <Save size={13} /> {saving ? 'Saving…' : 'Save & Reload'}
           </button>
         </div>

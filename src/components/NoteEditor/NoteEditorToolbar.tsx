@@ -16,7 +16,7 @@ const IconSnap = () => (
 )
 
 const IconSavePlus = () => (
-  <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="var(--text-amber, #e8a027)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+  <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="var(--text-amber)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
     <path d="M12.5 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h10.2a2 2 0 0 1 1.4.6l3.8 3.8a2 2 0 0 1 .6 1.4V12" />
     <path d="M16 13H8a1 1 0 0 0-1 1v7" />
     <path d="M19 22v-6" />
@@ -284,9 +284,9 @@ export default function NoteEditorToolbar() {
         position: 'fixed',
         left: pos.x, top: pos.y,
         zIndex: 9700,
-        background: 'var(--panel, #1e1e1e)',
-        border: '1px solid #3a3a4c',
-        borderRadius: 'var(--radius-md, 5px)',
+        background: 'var(--panel)',
+        border: '1px solid var(--state-hover-border)',
+        borderRadius: 'var(--radius-md)',
         display: 'flex',
         flexDirection: 'column',
         userSelect: 'none',
@@ -311,14 +311,14 @@ export default function NoteEditorToolbar() {
           }}
         >
           {[0,1,2].map(i => (
-            <div key={i} style={{ width: 12, height: 2, borderRadius: 1, background: '#404055' }} />
+            <div key={i} style={{ width: 12, height: 2, borderRadius: 1, background: 'var(--drag-handle-dot)' }} />
           ))}
         </div>
 
         {/* ── Edit label ─────────────────────────────────────────────────── */}
         <span style={{
           fontSize: 10, fontWeight: 700, letterSpacing: '0.08em',
-          color: 'var(--text-amber, #e8a027)', textTransform: 'uppercase',
+          color: 'var(--text-amber)', textTransform: 'uppercase',
           paddingRight: 4, flexShrink: 0,
         }}>
           EDIT{dirty ? ' ●' : ''}
@@ -333,8 +333,8 @@ export default function NoteEditorToolbar() {
           style={{
             ...btnBase,
             gap: 4, paddingLeft: 7, paddingRight: 7,
-            color:       snapEnabled ? 'var(--text-amber, #e8a027)' : 'var(--text-muted, #94979e)',
-            borderColor: snapEnabled ? 'rgba(232,160,39,0.35)'      : '#2e2e3c',
+            color:       snapEnabled ? 'var(--text-amber)' : 'var(--text-muted)',
+            borderColor: snapEnabled ? 'var(--accent-amber-strong)' : 'var(--state-hover-bg)',
           }}
         >
           <IconSnap />
@@ -358,7 +358,7 @@ export default function NoteEditorToolbar() {
                 position: 'fixed',
                 top: quantizePos.top, left: quantizePos.left,
                 zIndex: 50001,
-                background: '#1e1e1e', border: '1px solid #3a3a4c',
+                background: 'var(--panel)', border: '1px solid var(--state-hover-border)',
                 borderRadius: 4, overflow: 'hidden', minWidth: 64,
                 boxShadow: '0 4px 16px rgba(0,0,0,0.55)',
               }}
@@ -370,11 +370,11 @@ export default function NoteEditorToolbar() {
                   style={{
                     padding: '6px 14px', cursor: 'pointer', fontSize: 12,
                     fontFamily: "'JetBrains Mono', monospace",
-                    color:      d === quantize ? 'var(--text-amber, #e8a027)' : 'var(--text-default, #c6c8c8)',
-                    background: d === quantize ? 'rgba(232,160,39,0.08)' : 'transparent',
+                    color:      d === quantize ? 'var(--text-amber)' : 'var(--text-default)',
+                    background: d === quantize ? 'var(--accent-amber-selected-bg)' : 'transparent',
                   }}
-                  onMouseEnter={e => { (e.currentTarget as HTMLElement).style.background = 'rgba(255,255,255,0.05)' }}
-                  onMouseLeave={e => { (e.currentTarget as HTMLElement).style.background = d === quantize ? 'rgba(232,160,39,0.08)' : 'transparent' }}
+                  onMouseEnter={e => { (e.currentTarget as HTMLElement).style.background = 'var(--state-hover-overlay-white)' }}
+                  onMouseLeave={e => { (e.currentTarget as HTMLElement).style.background = d === quantize ? 'var(--accent-amber-selected-bg)' : 'transparent' }}
                 >
                   1/{d}
                 </div>
@@ -436,9 +436,9 @@ export default function NoteEditorToolbar() {
         <button
           onClick={() => void doClose()}
           title="Exit edit mode"
-          style={{ ...btnBase, paddingLeft: 10, paddingRight: 10, color: 'var(--text-muted, #94979e)' }}
-          onMouseEnter={e => { e.currentTarget.style.color = 'var(--text-amber, #e8a027)' }}
-          onMouseLeave={e => { e.currentTarget.style.color = 'var(--text-muted, #94979e)' }}
+          style={{ ...btnBase, paddingLeft: 10, paddingRight: 10, color: 'var(--text-muted)' }}
+          onMouseEnter={e => { e.currentTarget.style.color = 'var(--text-amber)' }}
+          onMouseLeave={e => { e.currentTarget.style.color = 'var(--text-muted)' }}
         >
           ✕
         </button>
@@ -449,21 +449,21 @@ export default function NoteEditorToolbar() {
         <div style={{
           display: 'flex', alignItems: 'center', gap: 6,
           height: 32, padding: '0 10px',
-          borderTop: '1px solid #2e2e3c',
-          background: 'rgba(232,160,39,0.06)',
+          borderTop: '1px solid var(--state-hover-bg)',
+          background: 'var(--accent-amber-tint-bg)',
         }}>
-          <span style={{ fontSize: 11, color: 'var(--text-muted, #94979e)', flexShrink: 0 }}>
+          <span style={{ fontSize: 11, color: 'var(--text-muted)', flexShrink: 0 }}>
             Unsaved changes —
           </span>
           <button
             onClick={() => void doConfirmSaveAndClose()}
-            style={{ ...btnBase, borderColor: 'rgba(232,160,39,0.45)', color: 'var(--text-amber, #e8a027)', background: 'rgba(232,160,39,0.07)', fontSize: 11 }}
+            style={{ ...btnBase, borderColor: 'var(--accent-amber-active-border)', color: 'var(--text-amber)', background: 'var(--accent-amber-active-bg)', fontSize: 11 }}
           >
             Save & Exit
           </button>
           <button
             onClick={doConfirmDiscardAndClose}
-            style={{ ...btnBase, borderColor: 'rgba(192,57,43,0.4)', color: '#c0392b', fontSize: 11 }}
+            style={{ ...btnBase, borderColor: 'var(--status-error-border)', color: 'var(--status-error)', fontSize: 11 }}
           >
             Discard
           </button>
@@ -479,11 +479,11 @@ export default function NoteEditorToolbar() {
       {/* ── Hint line ────────────────────────────────────────────────────── */}
       {hintText && (
         <div style={{
-          fontSize: 'var(--text-xs, 0.6875rem)',
-          color: 'var(--text-muted, #94979e)',
+          fontSize: 'var(--text-xs)',
+          color: 'var(--text-muted)',
           fontStyle: 'italic',
           padding: '2px 24px 4px',
-          borderTop: '1px solid #2e2e3c',
+          borderTop: '1px solid var(--state-hover-bg)',
           whiteSpace: 'nowrap',
         }}>
           {hintText}
@@ -497,9 +497,9 @@ export default function NoteEditorToolbar() {
 const btnBase: React.CSSProperties = {
   height: 26, padding: '0 8px', fontSize: 11,
   fontFamily: "'Inter', system-ui, sans-serif",
-  background: 'transparent', border: '1px solid #2e2e3c',
-  borderRadius: 'var(--radius-sm, 3px)',
-  color: 'var(--text-default, #c6c8c8)',
+  background: 'transparent', border: '1px solid var(--state-hover-bg)',
+  borderRadius: 'var(--radius-sm)',
+  color: 'var(--text-default)',
   cursor: 'pointer', display: 'flex', alignItems: 'center',
   transition: 'border-color 0.1s, color 0.1s', flexShrink: 0,
 }
@@ -508,9 +508,9 @@ function iconBtnStyle(disabled: boolean): React.CSSProperties {
   return {
     width: 28, height: 26, padding: 0, fontSize: 16, lineHeight: 1,
     fontFamily: 'system-ui, sans-serif',
-    background: 'transparent', border: '1px solid #2e2e3c',
-    borderRadius: 'var(--radius-sm, 3px)',
-    color:   disabled ? '#666688' : 'var(--text-default, #c6c8c8)',
+    background: 'transparent', border: '1px solid var(--state-hover-bg)',
+    borderRadius: 'var(--radius-sm)',
+    color:   disabled ? 'var(--text-disabled-icon)' : 'var(--text-default)',
     cursor:  disabled ? 'default' : 'pointer',
     opacity: disabled ? 0.65 : 1,
     display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0,
@@ -526,9 +526,9 @@ function ToolBtn({ active, onClick, title, children, wide }: {
       style={{
         ...btnBase,
         width: wide ? 'auto' : 28, padding: wide ? '0 8px' : 0, justifyContent: 'center',
-        color:       active ? 'var(--text-amber, #e8a027)' : 'var(--text-muted, #94979e)',
-        borderColor: active ? 'rgba(232,160,39,0.45)'      : '#2e2e3c',
-        background:  active ? 'rgba(232,160,39,0.07)'      : 'transparent',
+        color:       active ? 'var(--text-amber)' : 'var(--text-muted)',
+        borderColor: active ? 'var(--accent-amber-active-border)' : 'var(--state-hover-bg)',
+        background:  active ? 'var(--accent-amber-active-bg)'     : 'transparent',
       }}
     >
       {children}
@@ -537,5 +537,5 @@ function ToolBtn({ active, onClick, title, children, wide }: {
 }
 
 function VSep() {
-  return <div style={{ width: 1, height: 20, background: '#2e2e3c', margin: '0 3px', flexShrink: 0 }} />
+  return <div style={{ width: 1, height: 20, background: 'var(--state-hover-bg)', margin: '0 3px', flexShrink: 0 }} />
 }
