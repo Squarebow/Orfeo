@@ -847,7 +847,10 @@ export default function MidiEditor() {
 
   const openColorPopover = useCallback((trackIndex: number, anchor: DOMRect) => {
     const track = useStore.getState().tracks.find(t => t.index === trackIndex)
-    setColorPopover({ trackIndex, trackColor: track?.color ?? 'var(--text-amber)', anchor })
+    // '#e8a027' fallback must stay a literal hex string, not var(--text-amber) — it seeds
+    // ColorPopover's hexInput text state (HEX_RE-tested, rendered into a text <input>), so a
+    // CSS var reference would leak as literal text "var(--text-amber)" in the input box.
+    setColorPopover({ trackIndex, trackColor: track?.color ?? '#e8a027', anchor })
   }, [])
 
   const handleApplyColor = useCallback((trackIndex: number, color: string, source: 'palette' | 'custom') => {
@@ -1235,7 +1238,7 @@ export default function MidiEditor() {
         )}
         <div style={{ display: 'flex', gap: 'var(--space-2)' }}>
           <button onClick={() => setMidiEditorOpen(false)} style={{ flex: 1, padding: '7px 0', borderRadius: 'var(--radius-md)', background: 'transparent', border: '1px solid var(--border2)', color: 'var(--text-dim-control)', fontSize: 'var(--text-sm)', cursor: 'pointer' }}>Cancel</button>
-          <button onClick={handleSave} disabled={saving} style={{ flex: 1, padding: '7px 0', borderRadius: 'var(--radius-md)', background: saving ? 'var(--bg-tile)' : 'var(--text-amber)', border: 'none', color: saving ? 'var(--text-inactive)' : 'var(--text-on-amber)', fontSize: 'var(--text-sm)', fontWeight: 600, cursor: saving ? 'wait' : 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6 }}>
+          <button onClick={handleSave} disabled={saving} style={{ flex: 1, padding: '7px 0', borderRadius: 'var(--radius-md)', background: saving ? 'var(--bg-tile)' : 'var(--text-amber)', border: 'none', color: saving ? 'var(--text-inactive)' : 'var(--text-near-black)', fontSize: 'var(--text-sm)', fontWeight: 600, cursor: saving ? 'wait' : 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6 }}>
             <Save size={13} /> {saving ? 'Saving…' : 'Save & Reload'}
           </button>
         </div>

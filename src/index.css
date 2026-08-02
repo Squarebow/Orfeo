@@ -44,6 +44,9 @@
   --text-primary:  #f2f3f4;
   --text-bright:   #f8f8ff;
   --text-white:    #fefefa;
+  --text-near-black: #0a0a0a; /* MidiEditor Save-button label text on its amber background — distinct from
+                                  --text-on-amber (#1a1000, warm near-black, owned by the mute-filter pill);
+                                  a real hue difference, not a near-match snap */
 
   /* Shorthand for JS inline styles — kept in sync with the text vars above */
   --c-default: var(--text-default);
