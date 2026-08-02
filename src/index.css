@@ -217,7 +217,6 @@
 --key-black-active-border: rgba(0,0,0,0.18); /* Keyboard.tsx — black key border when lit */
 --key-note-name-color: rgba(255,255,255,0.88); /* Keyboard.tsx — black key note-name label text */
 --text-key-hover: #c0c0d0;          /* KeyboardControls.tsx — key-size selector button hover text */
---danger-hover: #c05050;            /* Close/danger hover accent — FloatingKeyboard close button; shared role with ConfirmDialog (batch 5) */
 
 /* ── Utility classes ── */
 

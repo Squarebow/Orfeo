@@ -150,7 +150,7 @@ export default function FloatingKeyboard() {
             title="Close floating keyboard"
             data-no-drag="true"
             style={{ width: 18, height: 18, background: 'transparent', border: 'none', cursor: 'pointer', color: 'var(--text-muted)', display: 'flex', alignItems: 'center', justifyContent: 'center', borderRadius: 'var(--radius-sm)', transition: 'color 0.12s' }}
-            onMouseEnter={e => e.currentTarget.style.color = 'var(--danger-hover)'}
+            onMouseEnter={e => e.currentTarget.style.color = 'var(--color-input-error)'}
             onMouseLeave={e => e.currentTarget.style.color = 'var(--text-muted)'}
           >
             <X size={10} strokeWidth={1.8} />
