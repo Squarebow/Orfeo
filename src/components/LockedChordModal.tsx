@@ -79,7 +79,7 @@ export default function LockedChordModal() {
   const applyInversion = useCallback((fn: (n: Set<number>) => Set<number>, direction: 1 | -1) => {
     const newKeys = fn(lockedKeys)
     const newColors = new Map<number, string>()
-    newKeys.forEach(k => newColors.set(k, '#e8a027'))
+    newKeys.forEach(k => newColors.set(k, 'var(--text-amber)'))
     setLockedKeys(newKeys, newColors)
     const s = useStore.getState()
     s.setLockedInversionCount(s.lockedInversionCount + direction)
@@ -108,7 +108,7 @@ export default function LockedChordModal() {
       display: 'flex',
       flexDirection: 'column',
       // ── Amber glow to distinguish from other floating panels ─────────────
-      boxShadow: '0 8px 40px rgba(0,0,0,0.8), 0 0 0 1px rgba(232,160,39,0.25), 0 0 18px rgba(232,160,39,0.12)',
+      boxShadow: '0 8px 40px rgba(0,0,0,0.8), 0 0 0 1px var(--accent-amber-glow-outer), 0 0 18px var(--accent-amber-glow-inner)',
       userSelect: 'none',
     }}>
 

@@ -384,7 +384,7 @@ export default function ScaleExplorer() {
     const keys = new Set(noteMidis)
     const colors = new Map<number, string>()
     noteMidis.forEach((m, i) => {
-      colors.set(m, i === 0 || i === noteMidis.length - 1 ? '#e8a027' : '#4a90d9')
+      colors.set(m, i === 0 || i === noteMidis.length - 1 ? 'var(--text-amber)' : 'var(--accent-scale-note)')
     })
     setExplorerKeys(keys, colors)
     setSelectedDegree(null)
@@ -405,8 +405,8 @@ export default function ScaleExplorer() {
     setSelectedDegree(chord.degree)
     const keys = new Set(chord.midiNotes)
     const colors = new Map<number, string>()
-    chord.midiNotes.forEach(m => colors.set(m, '#6080d0'))
-    if (chord.midiNotes[0] !== undefined) colors.set(chord.midiNotes[0], '#e8a027')
+    chord.midiNotes.forEach(m => colors.set(m, 'var(--accent-chord-note)'))
+    if (chord.midiNotes[0] !== undefined) colors.set(chord.midiNotes[0], 'var(--text-amber)')
     setExplorerKeys(keys, colors)
     // ── Store chord identity in Zustand so Keyboard.tsx can display it ────
     setExplorerChordDisplay({ name: chord.chordName, invCount: 0, noteCount: chord.midiNotes.length })
@@ -431,7 +431,7 @@ export default function ScaleExplorer() {
     setOctaveTileSelected(true)
     const keys = new Set(octaveMidi)
     const colors = new Map<number, string>()
-    octaveMidi.forEach((m, i) => colors.set(m, i === 0 ? '#e8a027' : '#6080d0'))
+    octaveMidi.forEach((m, i) => colors.set(m, i === 0 ? 'var(--text-amber)' : 'var(--accent-chord-note)'))
     setExplorerKeys(keys, colors)
     // ── Store chord identity in Zustand so Keyboard.tsx can display it ────
     setExplorerChordDisplay({ name: tonic.chordName, invCount: 0, noteCount: octaveMidi.length })
@@ -464,7 +464,7 @@ export default function ScaleExplorer() {
     const notes = prevInversionSet(state.explorerKeys)
     const sorted = Array.from(notes).sort((a, b) => a - b)
     const colors = new Map<number, string>()
-    sorted.forEach((m, i) => colors.set(m, i === 0 ? '#e8a027' : '#6080d0'))
+    sorted.forEach((m, i) => colors.set(m, i === 0 ? 'var(--text-amber)' : 'var(--accent-chord-note)'))
     setExplorerKeys(notes, colors)
     const cd = state.explorerChordDisplay
     if (cd) state.setExplorerChordDisplay({ ...cd, invCount: cd.invCount - 1 })
@@ -479,7 +479,7 @@ export default function ScaleExplorer() {
     const notes = nextInversionSet(state.explorerKeys)
     const sorted = Array.from(notes).sort((a, b) => a - b)
     const colors = new Map<number, string>()
-    sorted.forEach((m, i) => colors.set(m, i === 0 ? '#e8a027' : '#6080d0'))
+    sorted.forEach((m, i) => colors.set(m, i === 0 ? 'var(--text-amber)' : 'var(--accent-chord-note)'))
     setExplorerKeys(notes, colors)
     const cd = state.explorerChordDisplay
     if (cd) state.setExplorerChordDisplay({ ...cd, invCount: cd.invCount + 1 })
@@ -515,7 +515,7 @@ export default function ScaleExplorer() {
 
     const keys = new Set(notes)
     const colors = new Map<number, string>()
-    notes.forEach((m, i) => colors.set(m, i === 0 ? '#e8a027' : '#6080d0'))
+    notes.forEach((m, i) => colors.set(m, i === 0 ? 'var(--text-amber)' : 'var(--accent-chord-note)'))
     setExplorerKeys(keys, colors)
     setProgStep(step)
     setSelectedDegree(clampedDeg)
@@ -666,9 +666,9 @@ export default function ScaleExplorer() {
           onMouseDown={e => e.stopPropagation()}
           onClick={() => setScaleExplorerMinimized(true)}
           title="Minimize"
-          style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#505068', lineHeight: 1, padding: '0 4px 2px', display: 'flex', alignItems: 'flex-end', transition: 'color 0.15s' }}
+          style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-inactive)', lineHeight: 1, padding: '0 4px 2px', display: 'flex', alignItems: 'flex-end', transition: 'color 0.15s' }}
           onMouseEnter={e => e.currentTarget.style.color = 'var(--text-default)'}
-          onMouseLeave={e => e.currentTarget.style.color = '#505068'}
+          onMouseLeave={e => e.currentTarget.style.color = 'var(--text-inactive)'}
         ><Minus size={14} /></button>
         <button
           onMouseDown={e => e.stopPropagation()}
@@ -705,12 +705,12 @@ export default function ScaleExplorer() {
               <button key={s.name} onClick={() => setSelectedScaleIdx(i)}
                 style={{
                   fontFamily: 'Inter', fontSize: 10, padding: '3px 6px',
-                  background: sel ? '#e8a02722' : 'none',
+                  background: sel ? 'var(--accent-amber-medium)' : 'none',
                   color: sel ? 'var(--text-amber)' : 'var(--text-muted)',
                   border: `1px solid ${sel ? 'var(--text-amber)' : 'transparent'}`,
                   borderRadius: 4, cursor: 'pointer', textAlign: 'left',
                 }}
-                onMouseEnter={e => { if (!sel) e.currentTarget.style.color = '#c0c0d8' }}
+                onMouseEnter={e => { if (!sel) e.currentTarget.style.color = 'var(--text-list-hover)' }}
                 onMouseLeave={e => { if (!sel) e.currentTarget.style.color = 'var(--text-muted)' }}
               >{s.name}</button>
             )
@@ -724,7 +724,7 @@ export default function ScaleExplorer() {
             <div style={{
               position: 'absolute', top: 0, left: '50%', transform: 'translateX(-50%)',
               display: 'flex', alignItems: 'baseline', gap: 8,
-              background: 'rgba(15,15,24,0.88)', borderRadius: 6, padding: '4px 10px',
+              background: 'var(--bg-info-overlay)', borderRadius: 6, padding: '4px 10px',
               zIndex: 10, pointerEvents: 'none', whiteSpace: 'nowrap',
             }}>
               <span style={{ fontFamily: 'JetBrains Mono', fontSize: 13, fontWeight: 700, color: 'var(--text-amber)' }}>
@@ -743,8 +743,8 @@ export default function ScaleExplorer() {
               const midDeg   = startDeg + 15
               const isSelOuter = cofPos === i && cofRing === 'major'
               const isSelInner = cofPos === i && cofRing === 'minor'
-              const outerFill = isSelOuter ? '#e8a02722' : '#1e1e2a'
-              const innerFill = isSelInner ? '#e8a02722' : '#181820'
+              const outerFill = isSelOuter ? 'var(--accent-amber-medium)' : 'var(--border)'
+              const innerFill = isSelInner ? 'var(--accent-amber-medium)' : 'var(--border-row)'
               const outerLabel = labelPos(CX, CY, (R_OUTER1 + R_OUTER2) / 2, midDeg)
               const innerLabel = labelPos(CX, CY, (R_INNER1 + R_INNER2) / 2, midDeg)
               const keySig = getKeySigSymbol(i)
@@ -758,38 +758,38 @@ export default function ScaleExplorer() {
                   {/* Outer ring wedge — major key */}
                   <path
                     d={wedgePath(CX, CY, R_OUTER1, R_OUTER2, startDeg, endDeg)}
-                    fill={outerFill} stroke="#2a2a3a" strokeWidth={1}
+                    fill={outerFill} stroke="var(--state-hover-bg)" strokeWidth={1}
                     style={{ cursor: 'pointer', transition: 'fill 0.15s' }}
                     onClick={() => { setCofPos(i); setCofRing('major'); setSelectedScaleIdx(0); setInfoRowChord(null); setSelectedDegree(null); clearExplorerChordDisplay(); playTriggerRef.current += 1; setPlayTrigger(playTriggerRef.current) }}
-                    onMouseEnter={e => { if (!isSelOuter) (e.target as SVGPathElement).setAttribute('fill', '#2a2a3a') }}
-                    onMouseLeave={e => { if (!isSelOuter) (e.target as SVGPathElement).setAttribute('fill', '#1e1e2a') }}
+                    onMouseEnter={e => { if (!isSelOuter) (e.target as SVGPathElement).setAttribute('fill', 'var(--state-hover-bg)') }}
+                    onMouseLeave={e => { if (!isSelOuter) (e.target as SVGPathElement).setAttribute('fill', 'var(--border)') }}
                   >
                     <title>Harmonic Major</title>
                   </path>
                   {/* Inner ring wedge — minor key */}
                   <path
                     d={wedgePath(CX, CY, R_INNER1, R_INNER2, startDeg, endDeg)}
-                    fill={innerFill} stroke="#2a2a3a" strokeWidth={1}
+                    fill={innerFill} stroke="var(--state-hover-bg)" strokeWidth={1}
                     style={{ cursor: 'pointer', transition: 'fill 0.15s' }}
                     onClick={() => { setCofPos(i); setCofRing('minor'); setSelectedScaleIdx(1); setInfoRowChord(null); setSelectedDegree(null); clearExplorerChordDisplay(); playTriggerRef.current += 1; setPlayTrigger(playTriggerRef.current) }}
-                    onMouseEnter={e => { if (!isSelInner) (e.target as SVGPathElement).setAttribute('fill', '#222230') }}
-                    onMouseLeave={e => { if (!isSelInner) (e.target as SVGPathElement).setAttribute('fill', '#181820') }}
+                    onMouseEnter={e => { if (!isSelInner) (e.target as SVGPathElement).setAttribute('fill', 'var(--state-hover-bg-inner)') }}
+                    onMouseLeave={e => { if (!isSelInner) (e.target as SVGPathElement).setAttribute('fill', 'var(--border-row)') }}
                   >
                     <title>Natural Minor</title>
                   </path>
-                  <circle cx={CX} cy={CY} r={R_INNER1} fill="#0f0f18" stroke="#2a2a3a" strokeWidth={1} style={{ pointerEvents: 'none' }} />
+                  <circle cx={CX} cy={CY} r={R_INNER1} fill="var(--bg-circle-center)" stroke="var(--state-hover-bg)" strokeWidth={1} style={{ pointerEvents: 'none' }} />
                   {/* Major key label */}
                   <text x={outerLabel.x} y={outerLabel.y}
                     textAnchor="middle" dominantBaseline="middle"
                     fontSize={13} fontWeight={700} fontFamily="JetBrains Mono"
-                    fill={isSelOuter ? '#e8a027' : '#e0e0e0'}
+                    fill={isSelOuter ? 'var(--text-amber)' : 'var(--text-key-label)'}
                     style={{ pointerEvents: 'none', userSelect: 'none' }}
                   >{getMajorLabel(i)}</text>
                   {/* Minor key label */}
                   <text x={innerLabel.x} y={innerLabel.y}
                     textAnchor="middle" dominantBaseline="middle"
                     fontSize={9} fontFamily="Inter"
-                    fill={isSelInner ? '#e8a027' : '#e0e0e0'}
+                    fill={isSelInner ? 'var(--text-amber)' : 'var(--text-key-label)'}
                     style={{ pointerEvents: 'none', userSelect: 'none' }}
                   >{getMinorLabel(i)}</text>
                   {/* Key signature accidentals — font scales with length to keep equal gap from ring */}
@@ -797,7 +797,7 @@ export default function ScaleExplorer() {
                     <text x={sigLabel.x} y={sigLabel.y}
                       textAnchor="middle" dominantBaseline="middle"
                       fontSize={sigFontSize} fontFamily="Inter"
-                      fill="#e8a02799"
+                      fill="var(--accent-amber-bold)"
                       style={{ pointerEvents: 'none', userSelect: 'none' }}
                     >{keySig}</text>
                   )}
@@ -806,10 +806,10 @@ export default function ScaleExplorer() {
             })}
             {/* Centre label */}
             <text x={CX} y={CY - 8} textAnchor="middle" dominantBaseline="middle"
-              fontSize={13} fontFamily="Inter" fontWeight={400} fill="#e8a027"
+              fontSize={13} fontFamily="Inter" fontWeight={400} fill="var(--text-amber)"
               style={{ userSelect: 'none', pointerEvents: 'none' }}>Circle</text>
             <text x={CX} y={CY + 8} textAnchor="middle" dominantBaseline="middle"
-              fontSize={13} fontFamily="Inter" fontWeight={400} fill="#e8a027"
+              fontSize={13} fontFamily="Inter" fontWeight={400} fill="var(--text-amber)"
               style={{ userSelect: 'none', pointerEvents: 'none' }}>of Fifths</text>
           </svg>
         </div>
@@ -835,19 +835,19 @@ export default function ScaleExplorer() {
                   key={chord.degree}
                   onClick={() => playDegree(chord)}
                   style={{
-                    flex: 1, background: sel ? '#1e2a3a' : 'var(--bg-tile)',
-                    border: `1px solid ${sel ? '#6080d0' : 'var(--state-hover-bg)'}`,
+                    flex: 1, background: sel ? 'var(--state-selected-blue-bg)' : 'var(--bg-tile)',
+                    border: `1px solid ${sel ? 'var(--accent-chord-note)' : 'var(--state-hover-bg)'}`,
                     borderRadius: 6,
                     paddingTop: 'var(--space-2)', paddingBottom: 'var(--space-2)', paddingLeft: 6, paddingRight: 6,
                     cursor: 'pointer', textAlign: 'left',
                     display: 'flex', flexDirection: 'row',
                     justifyContent: 'space-between', alignItems: 'center', gap: 'var(--space-1)',
                   }}
-                  onMouseEnter={e => { if (!sel) e.currentTarget.style.borderColor = '#3a3a5a' }}
+                  onMouseEnter={e => { if (!sel) e.currentTarget.style.borderColor = 'var(--state-hover-border-blue)' }}
                   onMouseLeave={e => { if (!sel) e.currentTarget.style.borderColor = 'var(--state-hover-bg)' }}
                 >
                   {/* Left: chord name */}
-                  <span style={{ fontFamily: 'Inter', fontSize: 'var(--text-base)', fontWeight: 700, color: '#e0e0e0', lineHeight: 1, flexShrink: 0 }}>
+                  <span style={{ fontFamily: 'Inter', fontSize: 'var(--text-base)', fontWeight: 700, color: 'var(--text-key-label)', lineHeight: 1, flexShrink: 0 }}>
                     {chord.chordName}
                   </span>
                   {/* Right: note names + roman numeral stacked, right-aligned */}
@@ -855,7 +855,7 @@ export default function ScaleExplorer() {
                     <span style={{ fontFamily: 'JetBrains Mono', fontSize: 9, color: 'var(--text-muted)', lineHeight: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', textAlign: 'right' }}>
                       {chord.midiNotes.map(m => getNoteName(m, displayNaming, accidentals)).join(' ')}
                     </span>
-                    <span style={{ fontFamily: 'Inter', fontSize: 10, color: '#e8a02799', lineHeight: 1, textAlign: 'right' }}>
+                    <span style={{ fontFamily: 'Inter', fontSize: 10, color: 'var(--accent-amber-bold)', lineHeight: 1, textAlign: 'right' }}>
                       {chord.roman}
                     </span>
                   </div>
@@ -871,19 +871,19 @@ export default function ScaleExplorer() {
                 <button
                   onClick={playOctaveDegree}
                   style={{
-                    flex: 1, background: sel ? '#1e2a3a' : 'var(--bg-tile)',
-                    border: `1px solid ${sel ? '#6080d0' : 'var(--state-hover-bg)'}`,
+                    flex: 1, background: sel ? 'var(--state-selected-blue-bg)' : 'var(--bg-tile)',
+                    border: `1px solid ${sel ? 'var(--accent-chord-note)' : 'var(--state-hover-bg)'}`,
                     borderRadius: 6,
                     paddingTop: 'var(--space-2)', paddingBottom: 'var(--space-2)', paddingLeft: 6, paddingRight: 6,
                     cursor: 'pointer', textAlign: 'left',
                     display: 'flex', flexDirection: 'row',
                     justifyContent: 'space-between', alignItems: 'center', gap: 'var(--space-1)',
                   }}
-                  onMouseEnter={e => { if (!sel) e.currentTarget.style.borderColor = '#3a3a5a' }}
+                  onMouseEnter={e => { if (!sel) e.currentTarget.style.borderColor = 'var(--state-hover-border-blue)' }}
                   onMouseLeave={e => { if (!sel) e.currentTarget.style.borderColor = 'var(--state-hover-bg)' }}
                 >
                   {/* Left: chord name — same as tonic */}
-                  <span style={{ fontFamily: 'Inter', fontSize: 'var(--text-base)', fontWeight: 700, color: '#e0e0e0', lineHeight: 1, flexShrink: 0 }}>
+                  <span style={{ fontFamily: 'Inter', fontSize: 'var(--text-base)', fontWeight: 700, color: 'var(--text-key-label)', lineHeight: 1, flexShrink: 0 }}>
                     {tonic.chordName}
                   </span>
                   {/* Right: octave note names + roman numeral with ⁸ superscript */}
@@ -891,7 +891,7 @@ export default function ScaleExplorer() {
                     <span style={{ fontFamily: 'JetBrains Mono', fontSize: 9, color: 'var(--text-muted)', lineHeight: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', textAlign: 'right' }}>
                       {octaveMidi.map(m => getNoteName(m, displayNaming, accidentals)).join(' ')}
                     </span>
-                    <span style={{ fontFamily: 'Inter', fontSize: 10, color: '#e8a02799', lineHeight: 1, textAlign: 'right' }}>
+                    <span style={{ fontFamily: 'Inter', fontSize: 10, color: 'var(--accent-amber-bold)', lineHeight: 1, textAlign: 'right' }}>
                       {tonic.roman}⁸
                     </span>
                   </div>

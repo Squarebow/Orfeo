@@ -105,6 +105,8 @@
 --bg-modal: #13131c;         /* Modal container background (ChordExplorer, ScaleExplorer, etc) */
 --bg-modal-header: #0d0d12;  /* Header/footer bars within modals */
 --bg-tile: #1a1a26;          /* Interactive tile/pill/dropdown surface — pervasive across explorers */
+--bg-circle-center: #0f0f18;  /* ScaleExplorer — Circle-of-Fifths center dot fill */
+--bg-info-overlay: rgba(15, 15, 24, 0.88); /* ScaleExplorer — floating scale-info overlay backdrop, same base tone as --bg-circle-center */
 
 /* Interaction states — the actual missing category */
 --state-hover-bg: #2a2a3a;      /* Hover background for tiles/pills */
@@ -113,9 +115,20 @@
 --state-selected-bg: #1f1a0e;   /* Amber-tinted selected tile background */
 --state-disabled: #303048;      /* Disabled control color */
 --accent-amber-hover: #ffb84d;  /* Lighter amber for hover states on amber elements */
+--state-hover-bg-inner: #222230;    /* ScaleExplorer — Circle-of-Fifths inner-ring (minor key) hover fill */
+--state-selected-blue-bg: #1e2a3a;  /* ScaleExplorer — selected diatonic chord/octave tile background */
+--state-hover-border-blue: #3a3a5a; /* ScaleExplorer — diatonic chord tile hover border */
 
 /* One intermediate text tone — sits between --text-dimmest and background */
 --text-inactive: #505068;   /* Inactive icons/buttons that need some visibility but less than dimmest label */
+--text-tile-subtext: #8080a0;  /* ChordExplorer — dim note-name subtext under chord/power-chord tile names */
+--text-pill-hover: #c0c0d4;    /* ChordExplorer — hover text color for unselected root pitch-class pills */
+--text-list-hover: #c0c0d8;    /* ScaleExplorer — hover text color for unselected scale-list buttons */
+--text-key-label: #e0e0e0;     /* ScaleExplorer — Circle-of-Fifths key labels + diatonic chord tile names */
+
+/* Blue accent — ScaleExplorer keyboard-highlight family (distinct roles, not alpha variants of each other) */
+--accent-scale-note: #4a90d9;  /* Non-root scale notes played from the Circle-of-Fifths scale ring */
+--accent-chord-note: #6080d0;  /* Non-root chord/inversion notes + selected diatonic-tile border */
 
 /* ── Add to :root, alongside existing tokens ───────────────────────────────── */
 
@@ -132,6 +145,9 @@
 --accent-amber-strong: #e8a02755;  /* ~33% — borders, glows, strong emphasis */
 --accent-amber-medium: #e8a02722;  /* ~13% — selected/active tinted backgrounds */
 --accent-amber-subtle: #e8a02708;  /* ~3%  — very light hover/open-state tints */
+--accent-amber-bold: #e8a02799;    /* ~60% — ScaleExplorer CoF key-signature text + roman-numeral subtext */
+--accent-amber-glow-outer: rgba(232, 160, 39, 0.25); /* LockedChordModal box-shadow outer glow ring */
+--accent-amber-glow-inner: rgba(232, 160, 39, 0.12); /* LockedChordModal box-shadow soft blur glow */
 
 /* Control UI tones — not covered by the main text/status scale */
 --text-dim-control: #606078;   /* Dim control labels, inactive action icons */
