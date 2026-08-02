@@ -10,6 +10,7 @@ import {
   type ToneNote,
 } from '../../utils/noteEditorCommands'
 import { getNoteLabel } from '../../utils/noteNames'
+import { PENCIL_CURSOR } from '../../utils/cursors'
 import type { Hand } from '../../types'
 import { HitEffectsRenderer } from './HitEffects'
 import { drainHitEffects } from '../../utils/hitEffectQueue'
@@ -833,7 +834,7 @@ export default function PianoRoll() {
             }
           }
         } else {
-          app.canvas.style.cursor = 'crosshair'
+          app.canvas.style.cursor = PENCIL_CURSOR
           hint = 'Alt+click to add note · Drag to select'
           setEditTooltip(null)
         }
@@ -1170,7 +1171,7 @@ export default function PianoRoll() {
         }
 
         app.canvas.releasePointerCapture(e.pointerId)
-        app.canvas.style.cursor = 'crosshair'
+        app.canvas.style.cursor = PENCIL_CURSOR
         editDrag                  = null
         editDragActiveRef.current = false
         lastGlissandoMidi         = null

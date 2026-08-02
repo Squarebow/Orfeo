@@ -2,6 +2,11 @@
 
 ## [Unreleased] — dev branch
 
+### Icon swap + pen cursor in note editing
+Note-edit-mode toggle (TopBar) now uses Lucide's `SquarePen`; the Playback Editor open button (TrackPanel) uses a pencil-sparkles icon (inlined — not present in the installed lucide-react version). Piano Roll canvas now shows the same pen cursor as the Playback Editor's track-rename field while in note-edit mode and idle over empty space (previously `crosshair`).
+
+**Changed:** `src/components/Transport/TopBar.tsx`, `src/components/TrackPanel/TrackPanel.tsx`, `src/components/PianoRoll/PianoRoll.tsx`.
+
 ---
 
 ## [0.19.0] — 1. 8. 2026 — Note Hit Effects: track scope toggle + global color override
