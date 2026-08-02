@@ -6,7 +6,7 @@
 import { useEffect, useRef } from 'react'
 import { useStore } from '../store'
 
-const HARDWARE_COLOR = '#e8a027'
+const HARDWARE_COLOR = 'var(--text-amber)'
 
 // ── Write a note-on into activeKeys and route audio to the active engine ──────
 function pressNote(midiNum: number, vel: number) {

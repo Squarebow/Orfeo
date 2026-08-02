@@ -299,8 +299,8 @@ export default function TopBar() {
             style={{
               display: 'flex', alignItems: 'center', justifyContent: 'center',
               width: 'var(--button-height)', height: 'var(--button-height)',
-              borderRadius: 'var(--radius-md)', background: noteEditorActive ? 'rgba(232,160,39,0.10)' : 'transparent',
-              border: noteEditorActive ? '1px solid rgba(232,160,39,0.40)' : '1px solid transparent',
+              borderRadius: 'var(--radius-md)', background: noteEditorActive ? 'var(--accent-amber-toggle-active-bg)' : 'transparent',
+              border: noteEditorActive ? '1px solid var(--accent-amber-shadow)' : '1px solid transparent',
               color: noteEditorActive ? 'var(--text-amber)' : 'var(--text-default)',
               cursor: 'pointer', flexShrink: 0, transition: 'color 0.12s, background 0.12s',
             }}

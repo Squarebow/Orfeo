@@ -6,7 +6,7 @@
 import { useEffect, useRef } from 'react'
 import { useStore } from '../store'
 import { useSamplesEngine } from './useSamplesEngine'
-import { pushHitEffect } from '../utils/hitEffectQueue'
+import { pushHitEffect, amberHex } from '../utils/hitEffectQueue'
 
 let _jzzReady = false
 let _jzzInitP: Promise<void> | null = null
@@ -143,7 +143,7 @@ function updateMutedChannels() {
   for (const track of midiData.tracks) {
     const ts = tracks.find((t: any) => t.index === track.index)
     if (!ts || ts.muted || (hasSolo && !ts.solo) || !ts.showOnKeyboard) continue
-    const color = ts.color ?? '#e8a027'
+    const color = ts.color ?? amberHex()
     for (const note of track.notes) {
       const noteStart = note.time / ratio
       if (noteStart < currentTime) continue
@@ -210,7 +210,7 @@ function buildPlayer(startSec: number) {
     for (const track of midiData.tracks) {
       const ts = tracks.find((t: any) => t.index === track.index)
       if (!ts || ts.muted || (hasSolo && !ts.solo) || !ts.showOnKeyboard) continue
-      const color = ts.color ?? '#e8a027'
+      const color = ts.color ?? amberHex()
       for (const note of track.notes) {
         const noteStart = note.time / ratio
         if (noteStart < startSec) continue
@@ -311,7 +311,7 @@ export function useAudioEngine() {
         if (ch === 14) ensureClickChannel()
         _port.send([0x90 | ch, midiNum, Math.round(vel * 127)])
         setTimeout(() => { try { _port.send([0x80 | ch, midiNum, 0]) } catch {} }, durMs)
-        lightKey(midiNum, '#e8a027', durMs + 100)
+        lightKey(midiNum, amberHex(), durMs + 100)
       } catch (e) { console.error('[Orfeo GM] playNote error:', e) }
     }
     ;(window as any).__orfeoPlayNote = playNote

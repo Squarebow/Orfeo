@@ -1,9 +1,9 @@
 import { useRef, useEffect, useCallback } from 'react'
 import { useStore } from '../store'
 
-const AMBER     = '#e8a027'
+const AMBER     = 'var(--text-amber)'
 const LABEL_COL = 'var(--text-dimmest)'
-const DIM_TICK  = '#303048'
+const DIM_TICK  = 'var(--state-disabled)'
 
 // Knob geometry — matches MixerKnob exactly
 const CX = 26, CY = 26

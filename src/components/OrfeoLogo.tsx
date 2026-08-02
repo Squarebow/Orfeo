@@ -8,7 +8,7 @@ export default function OrfeoLogo() {
         fontSize="18"
         fontWeight="700"
         letterSpacing="2"
-        fill="#e8a027"
+        fill="var(--text-amber)"
       >
         ORFEO
       </text>

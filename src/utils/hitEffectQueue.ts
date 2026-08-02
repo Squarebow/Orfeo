@@ -19,6 +19,20 @@ export interface HitEffectEvent {
 
 let _queue: HitEffectEvent[] = []
 
+// ── Resolve --text-amber to a real hex string, once, cached ──────────────────
+// Events pushed here end up in PianoRoll's parseInt(hit.color.replace('#',''), 16)
+// for PixiJS's numeric fill color — a var() string can't be parsed as hex there,
+// so the "no track color" fallback used by useAudioEngine.ts / useSamplesEngine.ts
+// resolves the token to a literal hex once instead of hardcoding it a second time.
+// Same rationale as PianoRoll.tsx's resolvePianoRollColorsFromCSS().
+let _amberHex: string | null = null
+export function amberHex(): string {
+  if (!_amberHex) {
+    _amberHex = getComputedStyle(document.documentElement).getPropertyValue('--text-amber').trim() || '#e8a027'
+  }
+  return _amberHex
+}
+
 // Called from lightKey() itself, so every lighting call site (scheduled
 // playback notes and manual click-preview) is covered automatically. No-ops
 // entirely when the setting is off — "skip all effect instantiation, not

@@ -9,7 +9,7 @@
 import { useEffect } from 'react'
 import type { WorkletSynthesizer } from 'spessasynth_lib'
 import { useStore } from '../store'
-import { pushHitEffect } from '../utils/hitEffectQueue'
+import { pushHitEffect, amberHex } from '../utils/hitEffectQueue'
 
 // ── GeneralUser GS outputs at a lower reference level than jzz-synth-tiny.
 // This constant normalises perceived loudness at equal masterVolume settings.
@@ -227,7 +227,7 @@ function buildSamplesPlayer(startSec: number) {
   for (const track of midiData.tracks) {
     const ts = tracks.find(t => t.index === track.index)
     if (!ts || ts.muted || (hasSolo && !ts.solo)) continue
-    const color = ts.color ?? '#e8a027'
+    const color = ts.color ?? amberHex()
     const ch = track.channel
 
     for (const note of track.notes) {
@@ -339,7 +339,7 @@ export function useSamplesEngine() {
       }
       _synth.noteOn(ch, midiNum, Math.round(vel * 127))
       setTimeout(() => _synth?.noteOff(ch, midiNum), durMs)
-      lightKey(midiNum, '#e8a027', durMs + 100)
+      lightKey(midiNum, amberHex(), durMs + 100)
     }
     // ── Sustained note-on for hardware MIDI input ────────────────────────────
     ;(window as any).__orfeoNoteOnSamples = (midiNum: number, vel: number) => {

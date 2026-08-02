@@ -3,6 +3,12 @@
 // match --text-amber (#e8a027) at the time of writing. If the amber token
 // value ever changes, update this literal too.
 //
+// Documented exception to CSS tokenization Phase 1 (docs/superpowers/specs/
+// 2026-08-02-css-tokenization-phase1-design.md): this hex lives inside a
+// data-URI SVG string, not a rendered DOM/JSX element — data-URI SVGs render
+// standalone with no access to the page's CSS custom properties, so var()
+// cannot resolve here. Left as a hardcoded literal by design, not a miss.
+//
 // SVG paths are taken verbatim from lucide-react v0.503.0 (pencil.js).
 // Do not hand-edit; re-verify against the installed icon if Lucide is ever upgraded.
 

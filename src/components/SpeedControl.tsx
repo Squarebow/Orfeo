@@ -7,8 +7,8 @@ interface SpeedControlProps {
   onChange: (v: 'slow' | 'med' | 'fast') => void
 }
 
-const AMBER = '#e8a027'
-const MUTED = '#606070'
+const AMBER = 'var(--text-amber)'
+const MUTED = 'var(--text-dim-control)'
 const H     = 13
 
 // Slow.svg — single chevron, viewBox 0 0 17 26
