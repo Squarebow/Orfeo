@@ -7,8 +7,8 @@ import { buildKeyLayoutRatios, PIANO_RANGES as RANGES } from '../../utils/keyLay
 import { buildPitchHandIndex, lookupNoteHandAtTime, detectPerformanceBoundary } from '../../utils/handBoundaries'
 import type { Hand } from '../../types'
 
-const HAND_SLATE = '#4a7fff'
-const HAND_AMBER = '#e8a027'
+const HAND_SLATE = 'var(--hand-slate)'
+const HAND_AMBER = 'var(--text-amber)'
 
 const CHORD_MIN_NOTES = 3
 const CHORD_DEBOUNCE_MS = 320
@@ -207,7 +207,7 @@ export default function Keyboard() {
 
   const getColor = (midi: number): string | null => {
     if (!allActiveKeys.has(midi)) return null
-    return allActiveColors.get(midi) ?? '#e8a027'
+    return allActiveColors.get(midi) ?? 'var(--text-amber)'
   }
 
   // ── Performance mode: per-note hand indicator — reads the stored tag for
@@ -274,7 +274,7 @@ export default function Keyboard() {
         nextColors.delete(midi)
       } else {
         next.add(midi)
-        nextColors.set(midi, '#e8a027')
+        nextColors.set(midi, 'var(--text-amber)')
         const playNote = (window as any).__orfeoPlayNote
         if (playNote) playNote(midi, 0.7, 600)
       }
@@ -351,7 +351,7 @@ export default function Keyboard() {
       {/* ── Chord bar — hidden in Presentation Mode; simple (34px) or extended prompter (36px) ── */}
       {!presentationMode && <div style={{
         height: chordPrompterOpen ? 36 : 34,
-        background: '#0d0d12',
+        background: 'var(--bg-modal-header)',
         borderTop: '1px solid var(--border)',
         display: 'flex',
         flexDirection: 'column',
@@ -427,7 +427,7 @@ export default function Keyboard() {
                 })()
               ) : (
                 // ── Empty state ────────────────────────────────────────────────
-                <span style={{ fontFamily: 'JetBrains Mono', fontSize: 10, fontWeight: 400, color: '#222235', letterSpacing: '0.03em', transition: 'color 0.2s' }}>
+                <span style={{ fontFamily: 'JetBrains Mono', fontSize: 10, fontWeight: 400, color: 'var(--text-chord-placeholder)', letterSpacing: '0.03em', transition: 'color 0.2s' }}>
                   {'— — —'}
                 </span>
               )}
@@ -503,7 +503,7 @@ export default function Keyboard() {
                     <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: 5, minWidth: 0 }}>
                       {pastChords.map((ev, i) => (
                         <React.Fragment key={`${ev.time}-${ev.name}`}>
-                          {i > 0 && <span style={{ color: '#303048', fontSize: 10, lineHeight: 1, flexShrink: 0 }}>·</span>}
+                          {i > 0 && <span style={{ color: 'var(--state-disabled)', fontSize: 10, lineHeight: 1, flexShrink: 0 }}>·</span>}
                           <span style={{ fontSize: 'var(--text-xs)', fontFamily: 'Inter', color: 'var(--text-muted)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: 90 }}>
                             {ev.name}
                           </span>
@@ -512,7 +512,7 @@ export default function Keyboard() {
                     </div>
 
                     {/* ‹ separator */}
-                    <span style={{ color: '#303048', fontSize: 'var(--text-md)', flexShrink: 0, lineHeight: 1, padding: '0 3px' }}>‹</span>
+                    <span style={{ color: 'var(--state-disabled)', fontSize: 'var(--text-md)', flexShrink: 0, lineHeight: 1, padding: '0 3px' }}>‹</span>
 
                     {/* Current chord name only, no note names — width is intrinsic
                         to content (min 100 so short names stay centered/stable),
@@ -522,8 +522,8 @@ export default function Keyboard() {
                         are flex:1 so they yield space to this when it grows. */}
                     <div style={{ flexShrink: 0, minWidth: 100, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '0 4px' }}>
                       <span style={{
-                        fontFamily: 'JetBrains Mono', fontSize: 20, fontWeight: 700, color: '#e8a027', lineHeight: 1, whiteSpace: 'nowrap',
-                        textShadow: centreFlash ? '0 0 10px #e8a027' : 'none',
+                        fontFamily: 'JetBrains Mono', fontSize: 20, fontWeight: 700, color: 'var(--text-amber)', lineHeight: 1, whiteSpace: 'nowrap',
+                        textShadow: centreFlash ? '0 0 10px var(--text-amber)' : 'none',
                         transition: 'text-shadow 0.35s ease-out',
                       }}>
                         {centreChord}
@@ -531,13 +531,13 @@ export default function Keyboard() {
                     </div>
 
                     {/* › separator */}
-                    <span style={{ color: '#303048', fontSize: 'var(--text-md)', flexShrink: 0, lineHeight: 1, padding: '0 3px' }}>›</span>
+                    <span style={{ color: 'var(--state-disabled)', fontSize: 'var(--text-md)', flexShrink: 0, lineHeight: 1, padding: '0 3px' }}>›</span>
 
                     {/* Next 2 chords, left-aligned */}
                     <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'flex-start', gap: 5, minWidth: 0 }}>
                       {nextChords.map((ev, i) => (
                         <React.Fragment key={`${ev.time}-${ev.name}`}>
-                          {i > 0 && <span style={{ color: '#303048', fontSize: 10, lineHeight: 1, flexShrink: 0 }}>·</span>}
+                          {i > 0 && <span style={{ color: 'var(--state-disabled)', fontSize: 10, lineHeight: 1, flexShrink: 0 }}>·</span>}
                           <span style={{ fontSize: 'var(--text-xs)', fontFamily: 'Inter', color: 'var(--text-muted)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: 90 }}>
                             {ev.name}
                           </span>
@@ -570,7 +570,7 @@ export default function Keyboard() {
       <div
         className="relative w-full select-none"
         ref={keyContainerRef}
-        style={{ height: keyHeight, background: 'var(--bg-deep)', borderTop: '1px solid #2a2a35', transition: 'height 0.15s' }}
+        style={{ height: keyHeight, background: 'var(--bg-deep)', borderTop: '1px solid var(--state-hover-bg)', transition: 'height 0.15s' }}
       >
         {/* White keys */}
         <div className="absolute inset-0 flex">
@@ -590,9 +590,9 @@ export default function Keyboard() {
                 title={getNoteLabel(k.midi, noteNaming, accidentals) || undefined}
                 className="relative flex-1 flex flex-col justify-end items-center pb-1 cursor-pointer"
                 style={{
-                  background: color ?? '#e8e8e8',
-                  borderRight: !color ? '1px solid #b0b0b0' : allActiveKeys.has(whiteKeys[i + 1]?.midi) ? '1px solid rgba(0,0,0,0.12)' : '1px solid transparent',
-                  borderLeft: color && allActiveKeys.has(whiteKeys[i - 1]?.midi) ? '1px solid rgba(0,0,0,0.12)' : 'none',
+                  background: color ?? 'var(--key-white-bg)',
+                  borderRight: !color ? '1px solid var(--key-white-border)' : allActiveKeys.has(whiteKeys[i + 1]?.midi) ? '1px solid var(--key-active-border)' : '1px solid transparent',
+                  borderLeft: color && allActiveKeys.has(whiteKeys[i - 1]?.midi) ? '1px solid var(--key-active-border)' : 'none',
                   boxShadow: color
                     ? `0 0 ${locked ? 18 : 12}px ${locked ? 6 : 4}px ${color}${locked ? 'cc' : '88'}`
                     : 'inset 0 -3px 6px rgba(0,0,0,0.1)',
@@ -608,7 +608,7 @@ export default function Keyboard() {
                 )}
                 {label && (
                   <span className="font-semibold pointer-events-none"
-                    style={{ color: color ? '#fff' : '#888', fontFamily: 'JetBrains Mono', fontSize: (chordExplorerOpen || scaleExplorerOpen) ? 11 : 9 }}>
+                    style={{ color: color ? 'var(--text-white)' : 'var(--key-label-dim)', fontFamily: 'JetBrains Mono', fontSize: (chordExplorerOpen || scaleExplorerOpen) ? 11 : 9 }}>
                     {label}
                   </span>
                 )}
@@ -637,9 +637,9 @@ export default function Keyboard() {
                 className="absolute top-0 cursor-pointer pointer-events-auto"
                 style={{
                   left: `${leftPct}%`, width: `${widthPct}%`, height: '65%',
-                  background: color ?? '#1a1a22',
+                  background: color ?? 'var(--border-row)',
                   borderRadius: '0 0 4px 4px',
-                  border: color ? '1px solid rgba(0,0,0,0.18)' : '1px solid #0a0a0f',
+                  border: color ? '1px solid var(--key-black-active-border)' : '1px solid var(--bg-modal-header)',
                   borderTop: 'none',
                   boxShadow: color
                     ? `0 0 ${locked ? 14 : 10}px ${locked ? 4 : 3}px ${color}${locked ? 'bb' : '99'}`
@@ -660,7 +660,7 @@ export default function Keyboard() {
                     position: 'absolute', bottom: 3, left: '50%',
                     transform: 'translateX(-50%)',
                     fontSize: (chordExplorerOpen || scaleExplorerOpen) ? 8 : 7, fontFamily: 'JetBrains Mono', fontWeight: 700,
-                    color: 'rgba(255,255,255,0.88)', pointerEvents: 'none',
+                    color: 'var(--key-note-name-color)', pointerEvents: 'none',
                     whiteSpace: 'nowrap', textShadow: '0 1px 2px rgba(0,0,0,0.95)',
                   }}>
                     {getNoteName(k.midi, noteNaming, accidentals)}

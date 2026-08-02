@@ -208,6 +208,17 @@
 --bg-tooltip: #121212eb;      /* ~92% — PianoRoll Alt+drag cursor-tooltip background */
 --text-tooltip-secondary: #c6c8c8a6; /* ~65% — PianoRoll cursor-tooltip secondary line ("Right-click · clear") */
 
+/* ── Batch 4 — Keyboard ── */
+--text-chord-placeholder: #222235;  /* Keyboard.tsx — empty chord-bar "— — —" placeholder text */
+--key-white-bg: #e8e8e8;            /* Keyboard.tsx — white key default (unlit) fill */
+--key-white-border: #b0b0b0;        /* Keyboard.tsx — white key default (unlit) right border */
+--key-label-dim: #888888;           /* Keyboard.tsx — note-name label on an unlit key */
+--key-active-border: rgba(0,0,0,0.12); /* Keyboard.tsx — white key divider border between two lit neighbors */
+--key-black-active-border: rgba(0,0,0,0.18); /* Keyboard.tsx — black key border when lit */
+--key-note-name-color: rgba(255,255,255,0.88); /* Keyboard.tsx — black key note-name label text */
+--text-key-hover: #c0c0d0;          /* KeyboardControls.tsx — key-size selector button hover text */
+--danger-hover: #c05050;            /* Close/danger hover accent — FloatingKeyboard close button; shared role with ConfirmDialog (batch 5) */
+
 /* ── Utility classes ── */
 
 /* ── Amber outer glow — apply className to every modal/floating panel ──────

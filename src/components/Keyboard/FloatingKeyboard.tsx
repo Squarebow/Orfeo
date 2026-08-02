@@ -101,7 +101,7 @@ export default function FloatingKeyboard() {
         width: w,
         // NO fixed height — shrinks to content
         zIndex: 200,
-        background: '#0d0d12',
+        background: 'var(--bg-modal-header)',
         border: '1px solid var(--state-hover-bg)',
         borderRadius: 10,
         overflow: 'hidden',
@@ -121,8 +121,8 @@ export default function FloatingKeyboard() {
         onMouseDown={startMove}
         style={{
           height: 26,
-          background: '#111118',
-          borderBottom: '1px solid #1e1e2a',
+          background: 'var(--bg-deep)',
+          borderBottom: '1px solid var(--border)',
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'space-between',
@@ -150,7 +150,7 @@ export default function FloatingKeyboard() {
             title="Close floating keyboard"
             data-no-drag="true"
             style={{ width: 18, height: 18, background: 'transparent', border: 'none', cursor: 'pointer', color: 'var(--text-muted)', display: 'flex', alignItems: 'center', justifyContent: 'center', borderRadius: 'var(--radius-sm)', transition: 'color 0.12s' }}
-            onMouseEnter={e => e.currentTarget.style.color = '#c05050'}
+            onMouseEnter={e => e.currentTarget.style.color = 'var(--danger-hover)'}
             onMouseLeave={e => e.currentTarget.style.color = 'var(--text-muted)'}
           >
             <X size={10} strokeWidth={1.8} />

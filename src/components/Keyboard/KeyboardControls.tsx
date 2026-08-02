@@ -71,8 +71,8 @@ export default function KeyboardControls() {
     <div
       style={{
         height: 34,
-        background: '#0d0d12',
-        borderTop: '1px solid #1a1a24',
+        background: 'var(--bg-modal-header)',
+        borderTop: '1px solid var(--bg-tile)',
         display: 'flex',
         alignItems: 'center',
         padding: '0 var(--space-4)',
@@ -96,7 +96,7 @@ export default function KeyboardControls() {
               fontFamily: 'JetBrains Mono', fontSize: 'var(--text-sm)', fontWeight: 600,
               cursor: 'pointer', transition: 'color 0.15s',
             }}
-            onMouseEnter={e => { if (keyboardSize !== size) e.currentTarget.style.color = '#c0c0d0' }}
+            onMouseEnter={e => { if (keyboardSize !== size) e.currentTarget.style.color = 'var(--text-key-hover)' }}
             onMouseLeave={e => { if (keyboardSize !== size) e.currentTarget.style.color = 'var(--text-muted)' }}
           >
             {size}
@@ -141,7 +141,7 @@ export default function KeyboardControls() {
       {/* ── Practice mode: moving split line from stored hand tags ──────────── */}
       {/* (beta, needs rework — hidden in Presentation Mode) ─────────────────── */}
       {showHandLabels && handLabelMode === 'practice' && !presentationMode && smoothedPct !== null && (() => {
-        const AMBER = '#e8a027'
+        const AMBER = 'var(--text-amber)'
         const pct = smoothedPct
         const lineStyle: CSSProperties = {
           position: 'absolute', top: 0, bottom: 0, width: 2,
@@ -223,7 +223,7 @@ function NoteCounter() {
   const midi = useStore((s) => s.midi)
   if (!midi) return null
   return (
-    <span style={{ color: '#505068', fontSize: 10, fontFamily: 'JetBrains Mono' }} title="Total notes in file">
+    <span style={{ color: 'var(--text-inactive)', fontSize: 10, fontFamily: 'JetBrains Mono' }} title="Total notes in file">
       {midi.noteCount.toLocaleString()} notes · {midi.tracks.length} tracks
     </span>
   )
