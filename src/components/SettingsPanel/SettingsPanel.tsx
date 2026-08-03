@@ -5,9 +5,10 @@ import { confirmDialog } from '../../utils/confirmController'
 import {
   ChevronLeft, ChevronDown, ChevronRight, Music2, Piano, Palette, Columns3, Volume2,
   Music, FolderOpen, Folders, RefreshCw, FileMusic, FileCode2, Guitar, BookOpen, Library, Settings, Info,
-  Search, X, Undo2, Upload, ToggleLeft, ToggleRight,
+  Search, X, Undo2, Upload, ToggleLeft, ToggleRight, CloudDownload,
 } from 'lucide-react'
 import { useStore } from '../../store'
+import OrfeoMark from '../OrfeoMark'
 import type { NoteNaming, KeyboardSize, Accidentals, TranscriptEntry, LibraryFile, HitEffectPattern, SoundfontId, SoundfontInfo } from '../../types'
 import type { AppTheme } from '../../store'
 import { initSamplesEngine, loadSelectedSoundfont } from '../../hooks/useSamplesEngine'
@@ -2391,27 +2392,29 @@ export default function SettingsPanel() {
                   collapsed={settingsGroupsCollapsed['appearance']}
                   onToggle={() => setSettingsGroupCollapsed('appearance', !settingsGroupsCollapsed['appearance'])}
                 >
-                  <OptionRow label="Background">
+                  <OptionRow label="Theme">
                     <div style={{ display: 'flex', gap: 'var(--space-1)' }}>
                       <AppBgBtn color="var(--bg-modal-header)" label="Dark" active={appTheme === 'dark'} onClick={() => setAppTheme('dark')} />
-                      <AppBgBtn color="var(--bg-warm)" label="Warm" active={appTheme === 'warm'} onClick={() => setAppTheme('warm')} />
+                      <AppBgBtn color="var(--bg-warm)" label="Coming soon" active={false} onClick={() => {}} comingSoon />
                     </div>
                   </OptionRow>
                 </CollapsibleSection>
 
                 {/* ── About ──────────────────────────────────────────────────────── */}
                 <div style={{ padding: '14px 14px 10px', borderTop: '1px solid var(--bg-tile)', marginTop: 4 }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 4 }}>
-                    <svg width="16" height="16" viewBox="0 0 100 100" fill="none">
-                      <circle cx="50" cy="50" r="44" stroke="var(--text-amber)" strokeWidth="8"/>
-                      <line x1="22" y1="38" x2="78" y2="38" stroke="var(--text-amber)" strokeWidth="7" strokeLinecap="round"/>
-                      <line x1="22" y1="50" x2="78" y2="50" stroke="var(--text-amber)" strokeWidth="7" strokeLinecap="round"/>
-                      <line x1="22" y1="62" x2="78" y2="62" stroke="var(--text-amber)" strokeWidth="7" strokeLinecap="round"/>
-                    </svg>
-                    <span style={{ color: 'var(--text-inactive)', fontSize: 10, fontFamily: 'JetBrains Mono' }}>Orfeo · v0.14.0</span>
-                  </div>
+                  <button
+                    onClick={() => window.electronAPI.openExternal('https://github.com/SquareBow/orfeo')}
+                    title="Open Orfeo on GitHub"
+                    style={{
+                      display: 'flex', alignItems: 'center', gap: 6, marginBottom: 4,
+                      background: 'none', border: 'none', cursor: 'pointer', padding: 0,
+                    }}
+                  >
+                    <OrfeoMark height={16} />
+                    <span style={{ color: 'var(--text-inactive)', fontSize: 10, fontFamily: 'JetBrains Mono' }}>Orfeo · v{__APP_VERSION__}</span>
+                  </button>
                   <div style={{ fontSize: 9, color: 'var(--topbar-timesig-divider)', fontFamily: 'Inter', lineHeight: 1.5 }}>
-                    MIT License · github.com/SquareBow/orfeo
+                    by SquareBow
                   </div>
                 </div>
 
@@ -2419,17 +2422,18 @@ export default function SettingsPanel() {
             )}
           </div>
 
-          {/* ── Manual link — always visible at drawer bottom ── */}
+          {/* ── Manual link + update check — always visible at drawer bottom ── */}
           <div style={{
             flexShrink: 0,
             borderTop: '1px solid var(--bg-tile)',
             padding: '8px 14px',
+            display: 'flex', alignItems: 'center', gap: 6,
           }}>
             <button
               onClick={() => window.electronAPI.openExternal('https://github.com/SquareBow/orfeo/blob/main/docs/HOW_TO_USE.md')}
               title="Open user manual on GitHub"
               style={{
-                width: '100%', display: 'flex', alignItems: 'center', gap: 7,
+                flex: 1, minWidth: 0, display: 'flex', alignItems: 'center', gap: 7,
                 background: 'transparent', border: 'none', cursor: 'pointer',
                 color: 'var(--text-muted)', padding: '4px 0',
                 transition: 'color 0.15s',
@@ -2439,7 +2443,20 @@ export default function SettingsPanel() {
             >
               <BookOpen size={11} strokeWidth={1.5} />
               <span style={{ fontSize: 10, fontFamily: 'Inter', letterSpacing: '0.02em' }}>User Manual</span>
-              <span style={{ marginLeft: 'auto', fontSize: 9, fontFamily: 'JetBrains Mono', opacity: 0.5 }}>↗</span>
+            </button>
+            <button
+              onClick={() => window.electronAPI.openExternal('https://github.com/SquareBow/orfeo/releases')}
+              title="Check for updates"
+              style={{
+                flexShrink: 0, display: 'flex', alignItems: 'center',
+                background: 'transparent', border: 'none', cursor: 'pointer',
+                color: 'var(--text-muted)', padding: '4px 2px',
+                transition: 'color 0.15s',
+              }}
+              onMouseEnter={e => e.currentTarget.style.color = 'var(--text-amber)'}
+              onMouseLeave={e => e.currentTarget.style.color = 'var(--text-muted)'}
+            >
+              <CloudDownload size={13} strokeWidth={1.5} />
             </button>
           </div>
 

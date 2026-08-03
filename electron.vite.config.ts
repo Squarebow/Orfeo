@@ -2,6 +2,11 @@ import { defineConfig } from 'electron-vite'
 import react from '@vitejs/plugin-react'
 import tailwindcss from '@tailwindcss/vite'
 import { resolve } from 'path'
+import { readFileSync } from 'fs'
+
+// ── App version, read once at build time so the Settings "About" section
+// never drifts from package.json — no manual edit needed on every bump. ────
+const pkg = JSON.parse(readFileSync(resolve(__dirname, 'package.json'), 'utf-8'))
 
 export default defineConfig({
   main: {
@@ -28,6 +33,9 @@ export default defineConfig({
   },
   renderer: {
     root: '.',
+    define: {
+      __APP_VERSION__: JSON.stringify(pkg.version),
+    },
     plugins: [
       react(),
       tailwindcss(),
