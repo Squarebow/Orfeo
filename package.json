@@ -21,6 +21,11 @@
     "directories": {
       "output": "release"
     },
+    "publish": {
+      "provider": "github",
+      "owner": "SquareBow",
+      "repo": "orfeo"
+    },
     "files": [
       "out/**/*",
       "public/spessasynth_processor.min.js",
@@ -92,6 +97,7 @@
   "dependencies": {
     "@coderline/alphatab": "^1.8.4",
     "@tonejs/midi": "^2.0.28",
+    "electron-updater": "^6.8.9",
     "fuse.js": "^7.4.2",
     "gsap": "^3.15.0",
     "jazz-midi-electron": "^2.0.3",

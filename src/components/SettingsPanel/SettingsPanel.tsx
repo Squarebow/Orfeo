@@ -10,7 +10,7 @@ import {
 import { useStore } from '../../store'
 import OrfeoMark from '../OrfeoMark'
 import NoteEditorIcon from '../NoteEditorIcon'
-import type { NoteNaming, KeyboardSize, Accidentals, TranscriptEntry, LibraryFile, HitEffectPattern, SoundfontId, SoundfontInfo } from '../../types'
+import type { NoteNaming, KeyboardSize, Accidentals, TranscriptEntry, LibraryFile, HitEffectPattern, SoundfontId, SoundfontInfo, UpdateStatus } from '../../types'
 import type { AppTheme } from '../../store'
 import { initSamplesEngine, loadSelectedSoundfont } from '../../hooks/useSamplesEngine'
 import { MarqueeText } from '../MarqueeText'
@@ -1554,6 +1554,27 @@ const HIT_EFFECT_DESCRIPTIONS: Record<HitEffectPattern, string> = {
 }
 
 export default function SettingsPanel() {
+  // ── Auto-update — status pushed from main via IPC (electron/main.ts), see
+  // electron-updater wiring there. 'idle' shows the plain cloud icon; other
+  // states badge/animate it and drive the tooltip + click behavior below. ──
+  const [updateStatus, setUpdateStatus] = useState<UpdateStatus>({ state: 'idle' })
+  useEffect(() => {
+    const handler = (data: UpdateStatus) => setUpdateStatus(data)
+    window.electronAPI.onUpdateStatus(handler)
+    return () => window.electronAPI.offUpdateStatus()
+  }, [])
+  const handleCheckForUpdates = async () => {
+    setUpdateStatus({ state: 'checking' })
+    await window.electronAPI.checkForUpdates()
+  }
+  // ── 'up to date' and 'unavailable' (dev/portable) are transient states —
+  // fade back to the plain icon after a few seconds instead of sticking. ────
+  useEffect(() => {
+    if (updateStatus.state !== 'up-to-date' && updateStatus.state !== 'unavailable') return
+    const t = setTimeout(() => setUpdateStatus({ state: 'idle' }), 3000)
+    return () => clearTimeout(t)
+  }, [updateStatus.state])
+
   const settingsPanelOpen = useStore((s) => s.settingsPanelOpen)
   const setSettingsPanelOpen = useStore((s) => s.setSettingsPanelOpen)
   const noteNaming = useStore((s) => s.noteNaming)
@@ -2464,19 +2485,52 @@ export default function SettingsPanel() {
               <BookOpen size={11} strokeWidth={1.5} />
               <span style={{ fontSize: 10, fontFamily: 'JetBrains Mono', letterSpacing: '0.02em' }}>User Manual</span>
             </button>
+            {updateStatus.state === 'up-to-date' && (
+              <span style={{ fontSize: 9, color: 'var(--text-faint)', fontFamily: 'Inter', whiteSpace: 'nowrap' }}>
+                Orfeo is up to date
+              </span>
+            )}
+            {updateStatus.state === 'ready' && (
+              <span style={{ fontSize: 9, color: 'var(--text-amber)', fontFamily: 'Inter', whiteSpace: 'nowrap' }}>
+                Update ready — click to install
+              </span>
+            )}
             <button
-              onClick={() => window.electronAPI.openExternal('https://github.com/SquareBow/orfeo/releases')}
-              title="Check for updates"
+              onClick={() => {
+                if (updateStatus.state === 'ready') { window.electronAPI.installUpdate(); return }
+                if (updateStatus.state === 'unavailable') { window.electronAPI.openExternal('https://github.com/SquareBow/orfeo/releases'); return }
+                void handleCheckForUpdates()
+              }}
+              title={
+                updateStatus.state === 'checking'    ? 'Checking for updates…' :
+                updateStatus.state === 'downloading' ? `Downloading update${updateStatus.percent ? ` — ${Math.round(updateStatus.percent)}%` : '…'}` :
+                updateStatus.state === 'ready'       ? `Update ${updateStatus.version ?? ''} ready — click to restart and install` :
+                updateStatus.state === 'error'       ? `Update check failed: ${updateStatus.message ?? 'unknown error'} — click to open releases page` :
+                updateStatus.state === 'unavailable' ? 'Open GitHub releases page' :
+                'Check for updates'
+              }
               style={{
+                position: 'relative',
                 flexShrink: 0, display: 'flex', alignItems: 'center',
                 background: 'transparent', border: 'none', cursor: 'pointer',
-                color: 'var(--text-muted)', padding: '4px 2px',
+                color: updateStatus.state === 'ready' ? 'var(--text-amber)' : 'var(--text-muted)',
+                padding: '4px 2px',
                 transition: 'color 0.15s',
               }}
               onMouseEnter={e => e.currentTarget.style.color = 'var(--text-amber)'}
-              onMouseLeave={e => e.currentTarget.style.color = 'var(--text-muted)'}
+              onMouseLeave={e => { if (updateStatus.state !== 'ready') e.currentTarget.style.color = 'var(--text-muted)' }}
             >
               <CloudDownload size={13} strokeWidth={1.5} />
+              {(updateStatus.state === 'downloading' || updateStatus.state === 'ready') && (
+                <span
+                  className={updateStatus.state === 'downloading' ? 'loop-nudge-blink' : undefined}
+                  style={{
+                    position: 'absolute', top: 1, right: 0,
+                    width: 6, height: 6, borderRadius: '50%',
+                    background: 'var(--text-amber)',
+                  }}
+                />
+              )}
             </button>
           </div>
 

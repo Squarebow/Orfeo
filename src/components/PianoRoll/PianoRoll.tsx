@@ -150,7 +150,6 @@ function LoopOverlay() {
   const loopStart          = useStore(s => s.loopStart)
   const loopEnd            = useStore(s => s.loopEnd)
   const loopRegionActive   = useStore(s => s.loopRegionActive)
-  const loopRegionEnabled  = useStore(s => s.loopRegionEnabled)
   const currentTime        = useStore(s => s.currentTime)
   const zoomLevel          = useStore(s => s.zoomLevel)
   const noteEditorActive   = useStore(s => s.noteEditorActive)
@@ -271,8 +270,12 @@ function LoopOverlay() {
   const amber     = loopRegionActive ? 'var(--accent-amber-loop-border)' : 'var(--accent-amber-loop-border-dim)'
   const amberFill = loopRegionActive ? 'var(--accent-amber-active-bg)'   : 'var(--accent-amber-loop-fill-dim)'
 
-  // Tooltip visibility: show when hovering, loop strip is on, Alt not held, not dragging
-  const showTooltip = loopRegionEnabled && !noteEditorActive && !altDown && mousePos !== null
+  // Tooltip visibility: show when hovering, Alt not held, not dragging. The
+  // Alt+drag loop-select gesture itself works regardless of the Loop region
+  // setting (that setting only toggles the separate strip UI in TopBar), so
+  // this hint isn't gated on it either — was previously hidden whenever the
+  // setting was off even though the interaction still worked.
+  const showTooltip = !noteEditorActive && !altDown && mousePos !== null
 
   // Edit mode disables loop overlay pointer events to pass them to PixiJS
   if (noteEditorActive) return null

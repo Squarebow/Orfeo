@@ -1,4 +1,5 @@
 import { app, BrowserWindow, ipcMain, dialog, shell } from 'electron'
+import { autoUpdater } from 'electron-updater'
 import { join, basename, dirname, extname } from 'path'
 import { readFileSync, writeFileSync, existsSync, readdirSync, createWriteStream } from 'fs'
 import { mkdir, access, copyFile, readdir, writeFile, rename, rmdir } from 'fs/promises'
@@ -1200,6 +1201,39 @@ ipcMain.handle('window:setFullScreen', (_e, value: boolean) => {
   mainWin?.setFullScreen(value)
 })
 
+// ── Auto-update — GitHub Releases as the update feed (see package.json's
+// build.publish). Portable builds have no installer/uninstaller for
+// electron-updater to work with, so auto-update is skipped there — the
+// Settings "Check for updates" button falls back to just opening the
+// releases page for those (handled renderer-side once it sees
+// available:false with a null reason vs. an actual error). ──────────────────
+const isPortable = !!process.env.PORTABLE_EXECUTABLE_DIR
+autoUpdater.autoDownload = true
+autoUpdater.autoInstallOnAppQuit = false
+
+function sendUpdateStatus(payload: Record<string, unknown>) {
+  mainWin?.webContents.send('update:status', payload)
+}
+
+if (app.isPackaged && !isPortable) {
+  autoUpdater.on('checking-for-update', () => sendUpdateStatus({ state: 'checking' }))
+  autoUpdater.on('update-available', (info) => sendUpdateStatus({ state: 'downloading', version: info.version }))
+  autoUpdater.on('update-not-available', () => sendUpdateStatus({ state: 'up-to-date' }))
+  autoUpdater.on('download-progress', (p) => sendUpdateStatus({ state: 'downloading', percent: p.percent }))
+  autoUpdater.on('update-downloaded', (info) => sendUpdateStatus({ state: 'ready', version: info.version }))
+  autoUpdater.on('error', (err) => sendUpdateStatus({ state: 'error', message: err?.message ?? 'Update check failed' }))
+}
+
+ipcMain.handle('update:check', () => {
+  if (!app.isPackaged) { sendUpdateStatus({ state: 'unavailable', reason: 'dev' }); return }
+  if (isPortable) { sendUpdateStatus({ state: 'unavailable', reason: 'portable' }); return }
+  autoUpdater.checkForUpdates().catch((err) => sendUpdateStatus({ state: 'error', message: err?.message ?? 'Update check failed' }))
+})
+
+ipcMain.handle('update:install', () => {
+  autoUpdater.quitAndInstall()
+})
+
 // ── Portable mode: redirect userData to a folder next to the exe ─────────────
 // PORTABLE_EXECUTABLE_DIR is injected by electron-builder when running as a
 // portable exe. Storing prefs and cache there lets the user copy the exe +
@@ -1213,5 +1247,10 @@ if (process.env.PORTABLE_EXECUTABLE_DIR) {
 app.whenReady().then(async () => {
   try { await ensureDemoFolder() } catch (e) { console.error('[Orfeo] ensureDemoFolder failed:', e) }
   createWindow()
+  if (app.isPackaged && !isPortable) {
+    // Delayed so it doesn't compete with the app's own startup work; silent
+    // by design — the UI only shows anything once a real update is found.
+    setTimeout(() => { autoUpdater.checkForUpdates().catch(() => {}) }, 5000)
+  }
 })
 app.on('window-all-closed', () => { if (process.platform !== 'darwin') app.quit() })

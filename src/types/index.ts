@@ -162,6 +162,19 @@ declare global {
       // Foreign format import cache
       getCachedImport:     (sourcePath: string, cachePath: string) => Promise<string | null>
       writeCachedImport:   (destPath: string, base64: string) => Promise<void>
+      // Auto-update (GitHub Releases)
+      checkForUpdates:     () => Promise<void>
+      installUpdate:       () => Promise<void>
+      onUpdateStatus:      (fn: (data: UpdateStatus) => void) => void
+      offUpdateStatus:     () => void
     }
   }
+}
+
+export type UpdateStatus = {
+  state: 'idle' | 'checking' | 'up-to-date' | 'downloading' | 'ready' | 'error' | 'unavailable'
+  version?: string
+  percent?: number
+  reason?: string
+  message?: string
 }
