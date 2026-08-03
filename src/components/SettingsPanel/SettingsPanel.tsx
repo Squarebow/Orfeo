@@ -3,7 +3,7 @@ import Fuse from 'fuse.js'
 import { NES } from '../../utils/noteEditorState'
 import { confirmDialog } from '../../utils/confirmController'
 import {
-  ChevronLeft, ChevronDown, ChevronRight, Music2, Piano, Palette, ZoomIn, Volume2,
+  ChevronLeft, ChevronDown, ChevronRight, Music2, Piano, Palette, Columns3, Volume2,
   Music, FolderOpen, Folders, RefreshCw, FileMusic, FileCode2, Guitar, BookOpen, Library, Settings, Info,
   Search, X, Undo2, Upload, ToggleLeft, ToggleRight,
 } from 'lucide-react'
@@ -2215,7 +2215,7 @@ export default function SettingsPanel() {
                 </CollapsibleSection>
 
                 {/* ── 6. PIANO ROLL ──────────────────────────────────────────────── */}
-                <CollapsibleSection icon={<ZoomIn size={11} />} label="Piano Roll"
+                <CollapsibleSection icon={<Columns3 size={11} />} label="Piano Roll"
                   collapsed={settingsGroupsCollapsed['piano-roll']}
                   onToggle={() => setSettingsGroupCollapsed('piano-roll', !settingsGroupsCollapsed['piano-roll'])}
                 >
@@ -2252,12 +2252,13 @@ export default function SettingsPanel() {
                       >+</ZoomStepBtn>
                     </div>
                   </OptionRow>
-                  {/* ── Bar numbers & grid lines — eye-toggle, no description ─────── */}
+                  {/* ── Bar numbers & grid lines — eye-toggle ──────────────────────── */}
                   <OptionRow
                     label="Bar numbers & grid lines"
                     eyeToggle
                     eyeValue={showBarNumbers}
                     onEyeChange={setShowBarNumbers}
+                    description="Lorem ipsum dolor sit amet, consectetur adipiscing elit."
                   />
                   {/* ── Show Playbar — eye-toggle; off tracks the hit line to the ──
                        live keyboard position instead (docked or floating). */}
@@ -2362,7 +2363,7 @@ export default function SettingsPanel() {
                           type="range" min={0} max={4} step={0.1}
                           value={hitEffectBloomIntensity}
                           onChange={e => setHitEffectBloomIntensity(Number(e.target.value))}
-                          style={{ width: '100%', accentColor: 'var(--text-amber)', cursor: 'pointer' }}
+                          style={{ width: '100%', accentColor: 'var(--text-amber)', cursor: 'pointer', outline: 'none', border: 'none' }}
                         />
                       </OptionRow>
                       <OptionRow label={`Spread — ${hitEffectBloomSpread.toFixed(1)}`}>
@@ -2370,7 +2371,7 @@ export default function SettingsPanel() {
                           type="range" min={0} max={12} step={0.5}
                           value={hitEffectBloomSpread}
                           onChange={e => setHitEffectBloomSpread(Number(e.target.value))}
-                          style={{ width: '100%', accentColor: 'var(--text-amber)', cursor: 'pointer' }}
+                          style={{ width: '100%', accentColor: 'var(--text-amber)', cursor: 'pointer', outline: 'none', border: 'none' }}
                         />
                       </OptionRow>
                       <OptionRow label={`Threshold — ${hitEffectBloomThreshold.toFixed(2)}`} hint="Lower values make more of the effect glow; higher values only bloom the brightest parts.">
@@ -2378,7 +2379,7 @@ export default function SettingsPanel() {
                           type="range" min={0} max={1} step={0.05}
                           value={hitEffectBloomThreshold}
                           onChange={e => setHitEffectBloomThreshold(Number(e.target.value))}
-                          style={{ width: '100%', accentColor: 'var(--text-amber)', cursor: 'pointer' }}
+                          style={{ width: '100%', accentColor: 'var(--text-amber)', cursor: 'pointer', outline: 'none', border: 'none' }}
                         />
                       </OptionRow>
                     </>
