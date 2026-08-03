@@ -3,9 +3,70 @@
 ## [Unreleased] — dev branch
 
 ### Icon swap + pen cursor in note editing
-Note-edit-mode toggle (TopBar) now uses Lucide's `SquarePen`; the Playback Editor open button (TrackPanel) uses a pencil-sparkles icon (inlined — not present in the installed lucide-react version). Piano Roll canvas now shows the same pen cursor as the Playback Editor's track-rename field while in note-edit mode and idle over empty space (previously `crosshair`).
+The Playback Editor open button (TrackPanel) uses a pencil-sparkles icon (inlined — not present in the installed lucide-react version). Piano Roll canvas now shows the same pen cursor as the Playback Editor's track-rename field while in note-edit mode and idle over empty space (previously `crosshair`). *Superseded below*: the note-edit-mode toggle itself has since moved from TopBar into the Tracks panel, with its own custom icon — see "Note-edit toggle moved to Tracks panel".
 
 **Changed:** `src/components/Transport/TopBar.tsx`, `src/components/TrackPanel/TrackPanel.tsx`, `src/components/PianoRoll/PianoRoll.tsx`.
+
+---
+
+## Design-audit follow-up — Settings overhaul, save versioning, modal positioning (2026-08-03)
+
+A single long session working directly on `dev` (no worktree/PR — by request), driven by a self-audit the user did of the Settings drawer and general app UX. Grouped by theme; commits `179205b..3507f93`.
+
+### Settings panel — global consistency sweep
+All `OptionRow` labels now render uppercase; eye/EyeOff feature toggles replaced everywhere with a `ToggleLeft`/`ToggleRight` icon pair (amber when on, dim when off) matching the pattern already used by Effect Scope & Color; every green "success"-tinted control (`OptionBtn`'s active state, the soundfont/Effect-Pattern dropdowns) recolored to the amber accent tokens — green is now reserved for track colors/Console only. Description/hint text uses a darker `--text-faint` color (was `--text-dimmest`) to read as visually subordinate to the (now uppercase) row labels above it, font kept as Inter after a brief detour through JetBrains Mono.
+
+**New:** `labelSmall` and `hintCenter` props on `OptionRow` (`SettingsPanel.tsx`) for subgroup-style rows (smaller, muted) and centered hint text.
+**Changed:** `src/components/SettingsPanel/SettingsPanel.tsx`.
+
+### Settings panel — per-section rework
+- **Notation**: section icon swapped `Type` → `Music2`; description text added under "Display system".
+- **Accidentals**: flat/sharp buttons replaced with a borderless "♭ Flats / toggle / Sharps ♯" layout, labels 20px off the toggle icon and centered as a unit; the ♭/♯ glyphs themselves render 50% larger than the label text; hint text dropped its redundant "e.g." prefix and centers under the row.
+- **Keyboard**: "Labels" (containing Show octaves/Show note names) promoted to full row-label weight since it's a real subgroup heading, not a thin divider; the two rows under it use `labelSmall` instead. Left/Right Hand section (plus its Mode/sensitivity sub-controls) moved out of Keyboard into Playback & Practice, below Loop region. New **Close panels on playback** toggle: auto-hides the Tracks *and* Settings/Library panels while playing, restores whichever were actually open on pause/stop/new-file-load (`autoCollapseDrawers` in the store, debounced 150ms against the brief real playbackState blips seek operations cause — see below).
+- **Piano Roll**: loupe+ icon → `Columns3`; description added under "Bar numbers & grid lines"; the "Visual Effects" subsection (Effect Scope & Color / Effect Pattern / Intensity / Spread / Threshold) uses `labelSmall` throughout; the three bloom sliders got a custom `.orfeo-slider-amber` CSS class (transparent-amber fill over a gray track via WebKit track/thumb pseudo-elements) replacing `accentColor`, which couldn't give the fill its own opacity independent of the solid thumb, and dropped the stray default track border.
+- **Appearance**: Warm theme button dimmed/disabled, relabeled "Coming soon"; "Background" label renamed to "Theme"; About icon replaced with the real `OrfeoMark` SVG logo (clickable → opens the GitHub repo); **version string is now injected at build time from `package.json`** via Vite's `define` (`electron.vite.config.ts` → `__APP_VERSION__`, declared in `src/jzz.d.ts`) instead of being hand-typed and drifting; footer reads "by SquareBow" (no link, styled identically to the version line — same font/color/size, including the preceding dot); the northeast-arrow icon detached from the User Manual button into its own `CloudDownload` button ("Check for updates" tooltip, opens the GitHub releases page — full auto-update-checking wasn't built, just the manual fallback); User Manual label switched to JetBrains Mono to match.
+
+**New:** `src/components/NoteEditorIcon.tsx`. **Changed:** `src/components/SettingsPanel/SettingsPanel.tsx`, `src/store/index.ts`, `electron.vite.config.ts`, `src/jzz.d.ts`.
+
+### Note-edit toggle moved to Tracks panel
+The enter/exit-note-edit-mode control moved out of TopBar into TrackPanel, under the MIDI Playback Editor icon (both collapsed and expanded drawer states) — same enable/visibility gating as before (only shown when the Note Editor setting is on and a file is loaded). Icon swapped from lucide `SquarePen` to a custom stylized piano-roll icon (`src/components/NoteEditorIcon.tsx`, ported from a user-supplied `public/midi-editor.svg` with `currentColor` so it themes like every other icon), later bumped 18→22 / 16→20 since the thinner custom glyph read visually smaller than its lucide neighbors at the same numeric size. Track rows now also show their note count in the channel/program line (`<n> notes`).
+
+**Changed:** `src/components/TrackPanel/TrackPanel.tsx`, `src/components/Transport/TopBar.tsx`.
+
+### `_ORFEO_vN` save-versioning unification
+Three editing tools each hand-rolled their own save-suffix logic and disagreed: MidiEditor's merge/instrument-reassign save always overwrote the same `_ORFEO`/`_ORFEO_MERGED` file (no versioning at all), split always overwrote `_ORFEO_SPLIT`, and only the note editor incremented at all — using uppercase `_ORFEO_V2` and skipping straight past a `_v1`. Unified into `src/utils/orfeoVersioning.ts`, shared by `electron/main.ts` (`editor:save` and `editor:split`) and `NoteEditorToolbar.tsx`: every edit now produces the next `_ORFEO_v{N}`; legacy suffixes (`_ORFEO`, `_ORFEO_MERGED`, `_ORFEO_SPLIT`, `_ORFEO_V2`, `_ORFEO_IMPORTED`) are recognized and stripped so re-saving an old-scheme file starts a clean v1 instead of stacking. Also added `confirmPendingImportBeforeEdit` (`src/utils/foreignFormatImport.ts`) — opening the MIDI Playback Editor or Note Editor on a foreign-format file (MusicXML/Guitar Pro) still only in memory now prompts to save it as a real `.mid` first.
+
+**New:** `src/utils/orfeoVersioning.ts`. **Changed:** `electron/main.ts`, `src/components/NoteEditor/NoteEditorToolbar.tsx`, `src/components/MidiEditor/MidiEditor.tsx`, `src/utils/foreignFormatImport.ts`.
+
+### Modal/popup default-position overhaul
+Every floating modal used to default-position against the whole window, independent of the layout around it. New shared anchors (`src/utils/modalAnchors.ts`), read from the DOM once at open time via `data-piano-roll-area` (`App.tsx`) and `data-keyboard-header` (`Keyboard.tsx`'s chord/scale bar): ChordExplorer, ScaleExplorer, MixerConsole, and LockedChordModal bottom-align to the keyboard header and horizontally center on the piano roll; FloatingKeyboard bottom-aligns to the fixed-ratio playbar line (doesn't move when the playbar is hidden) and horizontally centers on the piano roll; MidiEditor centers on the whole screen with a fixed 220px top offset (simplified after the piano-roll-relative version kept landing partially off-screen); NoteEditorToolbar horizontally centers on the piano roll and always recomputes on open rather than persisting a dragged position across app restarts (it used to, which meant any test-drag got permanently "stuck" and reappeared in what looked like a random spot on the next launch), and is re-clamped into the viewport on mount/resize so a position saved at a larger window size can't render half off-screen after the window shrinks. Undocking the keyboard is now blocked (dimmed, explanatory tooltip) while any of those bottom-anchored modals except LockedChordModal is open — they share the same anchor, floating the keyboard out from under them would look broken; re-docking is always allowed. ConfirmDialog is now screen-centered *and* has the amber `orfeo-modal-glow` it was missing (as does LockedChordModal, which had its own bespoke, dimmer glow implementation that never actually matched the others — now uses the shared class, and the two now-dead `--accent-amber-glow-outer/inner` tokens that fed it were removed).
+
+**New:** `src/utils/modalAnchors.ts`. **Changed:** `src/App.tsx`, `src/components/Keyboard/Keyboard.tsx`, `src/components/Keyboard/FloatingKeyboard.tsx`, `src/components/Keyboard/KeyboardControls.tsx`, `src/components/ChordExplorer.tsx`, `src/components/ScaleExplorer.tsx`, `src/components/Mixer/MixerConsole.tsx`, `src/components/MidiEditor/MidiEditor.tsx`, `src/components/LockedChordModal.tsx`, `src/components/ConfirmDialog.tsx`, `src/components/NoteEditor/NoteEditorToolbar.tsx`, `src/index.css`.
+
+### Playback: skip-while-playing actually seeks now
+`seekAndPlay()` (TopBar's ±5s skip buttons, and scrub-release while playing) set `playbackState` straight to `'playing'` even when it was already `'playing'` — a no-op transition. `useAudioEngine` only rebuilds/repositions the real player on an actual transition *into* `'playing'`, so the store's `currentTime` jumped visually but the real player kept going from its old position, silently undoing the skip. Now forces the same brief `playing→paused→playing` blip that PianoRoll's wheel-scrub handler already relied on internally (the only reason wheel-scrub-while-playing worked at all) — both are "the same playback function" now, as intended. That blip legitimately toggles `playbackState` away from `'playing'` for ~20ms, which the new auto-collapse-drawers feature (above) treated as a real pause and briefly re-opened the panels for; its restore now debounces 150ms and bails if playback is already back to `'playing'` by then.
+
+**Changed:** `src/hooks/usePlayback.ts`, `src/store/index.ts`.
+
+### Note editor: solo-for-edit auto-seeks to the track's first note
+Soloing a track for note editing now seeks playback to 2s before that track's first note. Previously, soloing a track whose notes started much later than the current playhead (or sat in a pitch range not currently visible) showed an apparently-empty piano roll until playback caught up on its own.
+
+**Changed:** `src/store/index.ts` (`soloTrackForEdit`).
+
+### MAJOR: Piano Roll bar-number grid lines were drawing over falling notes
+The horizontal bar-line was drawn on the 2D overlay canvas, which sits above the entire Pixi canvas — so it always rendered on top of falling notes, making them look split by a dark line. Moved to a dedicated Pixi `Graphics` layer inserted behind the notes layer; the number pills stay on the overlay.
+
+**Changed:** `src/components/PianoRoll/PianoRoll.tsx`.
+
+### Library: single-click selection no longer shows the multi-select styling
+Single-click file selection now only highlights the icon and filename in amber. The bordered/background-tinted cell treatment is reserved for actual multi-select (2+ files, the drag/create-folder gesture) — previously applied to every selected row regardless of count.
+
+**Changed:** `src/components/SettingsPanel/SettingsPanel.tsx`.
+
+### Dev-session fix: HMR-safe store subscriptions
+`store/index.ts`'s module-scope `useStore.subscribe()` calls now dispose on hot-reload (`import.meta.hot.dispose`). Repeated edits to this file during a dev session were leaving old subscriber closures alive alongside new ones — each with its own stale tracking state, fighting each other and visibly flickering the Tracks/Settings panels during playback. Not a `dev`-branch runtime bug (only affects an active `npm run dev` session across many edits), but worth knowing about if panel state ever looks haunted mid-session — restart clears it regardless.
+
+**Changed:** `src/store/index.ts`.
 
 ---
 
