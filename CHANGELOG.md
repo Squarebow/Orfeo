@@ -1,6 +1,6 @@
 # Changelog
 
-## [Unreleased] — dev branch
+## [0.19.1] — 3. 8. 2026 — Design-audit follow-up: Settings overhaul, save versioning, modal positioning, auto-update, note-editor velocity lane
 
 ### Icon swap + pen cursor in note editing
 The Playback Editor open button (TrackPanel) uses a pencil-sparkles icon (inlined — not present in the installed lucide-react version). Piano Roll canvas now shows the same pen cursor as the Playback Editor's track-rename field while in note-edit mode and idle over empty space (previously `crosshair`). *Superseded below*: the note-edit-mode toggle itself has since moved from TopBar into the Tracks panel, with its own custom icon — see "Note-edit toggle moved to Tracks panel".
@@ -9,7 +9,7 @@ The Playback Editor open button (TrackPanel) uses a pencil-sparkles icon (inline
 
 ---
 
-## Design-audit follow-up — Settings overhaul, save versioning, modal positioning (2026-08-03)
+### Settings overhaul, save versioning, modal positioning
 
 A single long session working directly on `dev` (no worktree/PR — by request), driven by a self-audit the user did of the Settings drawer and general app UX. Grouped by theme; commits `179205b..3507f93`.
 
@@ -67,6 +67,26 @@ Single-click file selection now only highlights the icon and filename in amber. 
 `store/index.ts`'s module-scope `useStore.subscribe()` calls now dispose on hot-reload (`import.meta.hot.dispose`). Repeated edits to this file during a dev session were leaving old subscriber closures alive alongside new ones — each with its own stale tracking state, fighting each other and visibly flickering the Tracks/Settings panels during playback. Not a `dev`-branch runtime bug (only affects an active `npm run dev` session across many edits), but worth knowing about if panel state ever looks haunted mid-session — restart clears it regardless.
 
 **Changed:** `src/store/index.ts`.
+
+### Playback: skip-while-playing actually seeks now
+`seekAndPlay()` (TopBar's ±5s skip buttons, and scrub-release while playing) set `playbackState` straight to `'playing'` even when it was already `'playing'` — a no-op transition, so `useAudioEngine` (which only rebuilds the real player on an actual transition *into* `'playing'`) never picked up the new position: the store's `currentTime` jumped visually but the real player kept going from where it was. Now forces the same brief `playing→paused→playing` blip PianoRoll's wheel-scrub handler already relied on internally (the only reason wheel-scrub-while-playing worked at all) — both are "the same playback function" now. That blip legitimately toggles `playbackState` away from `'playing'` for ~20ms, which the new auto-collapse-drawers feature above treated as a real pause and briefly re-opened the panels for; its restore now debounces 150ms and bails if playback is already back to `'playing'` by then.
+
+**Changed:** `src/hooks/usePlayback.ts`, `src/store/index.ts`.
+
+### Loop region: Alt+drag tooltip
+The cursor-following "Alt+drag · set loop region" tooltip was gated on the Loop region *setting*, even though the underlying Alt+drag gesture itself isn't — that setting only toggles the separate strip UI in TopBar, the gesture works regardless. Un-gating it from the setting initially introduced a regression where the tooltip could show with no file loaded and Alt not held; fixed to require both a loaded file and Alt actually held down, otherwise it's a plain pointer with no persistent hint.
+
+**Changed:** `src/components/PianoRoll/PianoRoll.tsx`.
+
+### Auto-update (Windows) + CONTRIBUTING.md
+Orfeo can now check GitHub Releases for updates and install them in-app, via `electron-updater` — Windows only, by design. Checks silently 5s after launch (nothing shows unless a real update is found) and on demand via Settings' `CloudDownload` icon, which now reflects live state (checking / downloading with a blinking dot / ready-to-install, amber / error) instead of always just opening the releases page; clicking it re-checks, and shows "Orfeo is up to date" briefly if there's nothing new. macOS/Linux builds are community-contributed and never go through Orfeo's own release pipeline, so pointing the updater at the official feed for them would be wrong regardless of whether the app is packaged — those platforms (and portable Windows builds, and dev) fall back to opening the releases page manually. `CONTRIBUTING.md` was referenced from `README.md` but never existed; added it with build commands per platform and a "Releases & auto-update" section spelling out the policy above — what maintainers do to cut a real Windows release (`GH_TOKEN` + `npm run dist`, why the `latest.yml` manifest matters), and what community macOS/Linux builders should do instead. Caveat: the app isn't code-signed, so the downloaded installer still trips Windows SmartScreen — unrelated to auto-update itself, same warning a manual download already got. Untested end-to-end pending a real tagged release.
+
+**New:** `CONTRIBUTING.md`. **Changed:** `package.json` (`build.publish`, new `electron-updater` dependency), `electron/main.ts`, `electron/preload.ts`, `src/types/index.ts`, `src/components/SettingsPanel/SettingsPanel.tsx`.
+
+### Note editor: velocity lane
+New advanced editing technique, opened on demand: while a track is soloed for note editing, a toolbar icon blinks (amber) to indicate it's available; clicking it opens a lane covering the whole piano-roll area below the playhead, showing one thin (5px) bar per note of the soloed track — aligned to the *same* X/pitch position as the falling notes and keyboard below it (one continuous vertical line: keyboard key → note → velocity bar), rather than a horizontal-time-axis lane like a typical DAW. That's a deliberate fit to Orfeo's own vertical-scrolling roll (Y=time, X=pitch) instead of porting Signal/Ableton/Logic's exact layout, which assumes a horizontal-scrolling roll Orfeo doesn't have. Drag a bar vertically to change that note's velocity (0–127 MIDI range, real note-on velocity — persists as actual MIDI data on save, playable in any app/DAW), with a live numeric readout while dragging, undo/redo support, grab/grabbing cursor, and five subtle reference gridlines (0/32/64/96/127) with edge value markers. Scoped to one soloed track at a time — editing velocity across a whole orchestration with many tracks and thousands of notes isn't practically usable any other way. Two upgrades flagged, not built: no independent pan/zoom to browse a soloed track's full note list while paused (bars only reflect the same live time-window the falling view already computes); the lane overlays the bottom of the falling-notes canvas rather than reserving real space for it (shrinking the roll safely touches pervasive height-based math across the file).
+
+**New:** velocity lane rendering + interaction in `src/components/PianoRoll/PianoRoll.tsx` (reuses the already-existing `cmdSetNoteVelocity`/`cmdSetRangeVelocity` command layer, previously unused outside a round-trip test), `velocityPanelOpen` in `src/store/index.ts`. **Changed:** `src/components/NoteEditor/NoteEditorToolbar.tsx` (toggle icon).
 
 ---
 
