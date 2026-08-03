@@ -131,6 +131,10 @@ interface OrfeoStore {
   unsoloTrackForEdit: () => void
   noteEditorWalkthroughSeen: boolean
   setNoteEditorWalkthroughSeen: (v: boolean) => void
+  // Velocity lane — manual toggle; only meaningful while a track is soloed
+  // for edit (noteEditorSoloTrackIndex !== null), see PianoRoll.tsx.
+  velocityPanelOpen: boolean
+  setVelocityPanelOpen: (v: boolean) => void
   vuDisplayMode: 'bars' | 'wave'
   setVuDisplayMode: (mode: 'bars' | 'wave') => void
   explorerKeys: Set<number>
@@ -490,7 +494,7 @@ export const useStore = create<OrfeoStore>((set, get) => ({
   noteEditorEnabled: false,
   setNoteEditorEnabled: (noteEditorEnabled) => set({ noteEditorEnabled }),
   noteEditorActive: false,
-  setNoteEditorActive: (noteEditorActive) => set({ noteEditorActive }),
+  setNoteEditorActive: (noteEditorActive) => set(noteEditorActive ? { noteEditorActive } : { noteEditorActive, velocityPanelOpen: false }),
   noteEditorToolbarX: 24,
   noteEditorToolbarY: 80,
   setNoteEditorToolbarPos: (noteEditorToolbarX, noteEditorToolbarY) => set({ noteEditorToolbarX, noteEditorToolbarY }),
@@ -533,6 +537,8 @@ export const useStore = create<OrfeoStore>((set, get) => ({
   },
   noteEditorWalkthroughSeen: false,
   setNoteEditorWalkthroughSeen: (noteEditorWalkthroughSeen) => set({ noteEditorWalkthroughSeen }),
+  velocityPanelOpen: false,
+  setVelocityPanelOpen: (velocityPanelOpen) => set({ velocityPanelOpen }),
 
   chordPrompterEnabled: false,
   chordPrompterOpen: false,

@@ -36,6 +36,12 @@ const IconReset = () => (
   </svg>
 )
 
+const IconVelocity = () => (
+  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+    <path d="M22 12h-4l-3 9L9 3l-3 9H2"/>
+  </svg>
+)
+
 const IconInfo = () => (
   <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
     <circle cx="12" cy="12" r="10"/>
@@ -67,6 +73,9 @@ export default function NoteEditorToolbar() {
   const noteEditorToolbarY      = useStore(s => s.noteEditorToolbarY)
   const setNoteEditorToolbarPos = useStore(s => s.setNoteEditorToolbarPos)
   const unsoloTrackForEdit      = useStore(s => s.unsoloTrackForEdit)
+  const noteEditorSoloTrackIndex = useStore(s => s.noteEditorSoloTrackIndex)
+  const velocityPanelOpen       = useStore(s => s.velocityPanelOpen)
+  const setVelocityPanelOpen    = useStore(s => s.setVelocityPanelOpen)
 
   // ── Force re-render on history changes (push/undo/redo) ───────────────────
   const [, forceUpdate] = useReducer((x: number) => x + 1, 0)
@@ -432,6 +441,27 @@ export default function NoteEditorToolbar() {
             Note names
           </span>
         </ToolBtn>
+
+        <VSep />
+
+        {/* ── Velocity lane toggle — blinks once a track is soloed (available
+            to edit) and the lane isn't already open; matches the loop-nudge
+            blink used elsewhere. Panel itself shows a "solo a track" hint
+            when nothing's soloed, so opening it early isn't a dead end. ─── */}
+        <button
+          onClick={() => setVelocityPanelOpen(!velocityPanelOpen)}
+          title={velocityPanelOpen ? 'Hide velocity lane' : noteEditorSoloTrackIndex !== null ? 'Edit velocity for the soloed track' : 'Velocity lane (solo a track to edit)'}
+          className={noteEditorSoloTrackIndex !== null && !velocityPanelOpen ? 'loop-nudge-blink' : undefined}
+          style={{
+            ...btnBase,
+            width: 28, padding: 0, justifyContent: 'center',
+            color:       velocityPanelOpen ? 'var(--text-amber)' : 'var(--text-muted)',
+            borderColor: velocityPanelOpen ? 'var(--accent-amber-active-border)' : 'var(--state-hover-bg)',
+            background:  velocityPanelOpen ? 'var(--accent-amber-active-bg)'     : 'transparent',
+          }}
+        >
+          <IconVelocity />
+        </button>
 
         <VSep />
 

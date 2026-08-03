@@ -1344,14 +1344,28 @@ export default function PianoRoll() {
         NES.onHistoryChange?.()
       }
 
-      // ── Velocity lane — draws bars for the current selection, one per note ──
+      // ── Velocity lane — advanced technique, toggled on demand (toolbar icon),
+      // only meaningful while a track is soloed for edit. Bars align to the
+      // SAME pitch/X position as the falling notes and keyboard above/below —
+      // one continuous vertical line through keyboard key → note → velocity
+      // bar, matching this roll's vertical (Y=time, X=pitch) orientation
+      // rather than porting a horizontal-DAW-style time-axis lane. Scoped to
+      // one soloed track at a time — with large files (many tracks, thousands
+      // of notes) editing velocity across everything at once isn't
+      // practically usable anyway. Notes shown are whatever's in the same
+      // visible time-window the falling view already computes (editFlatNotes)
+      // — bars scroll/update live with playback; there's no independent
+      // pan/zoom to browse the rest of the track while paused (that's the
+      // flagged upgrade — a real secondary time-axis mini-editor, closer to
+      // Signal/Ableton/Logic's lane, if ever wanted). ───────────────────────
       const drawVelocityLane = () => {
         const canvas = velocityCanvasRef.current
         const ctx    = velocityCtxRef.current
         if (!canvas || !ctx) return
-        const active = storeRef.current.noteEditorActive
-        canvas.style.display = active ? 'block' : 'none'
-        if (!active) { velBars = []; return }
+        const { noteEditorActive, velocityPanelOpen, noteEditorSoloTrackIndex } = storeRef.current
+        const visible = noteEditorActive && velocityPanelOpen
+        canvas.style.display = visible ? 'block' : 'none'
+        if (!visible) { velBars = []; return }
 
         const W = canvas.width, H = VELOCITY_LANE_H
         ctx.clearRect(0, 0, W, H)
@@ -1360,40 +1374,47 @@ export default function PianoRoll() {
         ctx.strokeStyle = BARLINE_COLOR
         ctx.beginPath(); ctx.moveTo(0, 0.5); ctx.lineTo(W, 0.5); ctx.stroke()
 
-        const selected = [...editSelectedNotes]
-        if (selected.length === 0) {
+        if (noteEditorSoloTrackIndex === null) {
           velBars = []
           ctx.fillStyle = NOTE_LABEL_COLOR
           ctx.font = '10px Inter, sans-serif'
           ctx.textAlign = 'center'
           ctx.textBaseline = 'middle'
-          ctx.fillText('Select a note to edit velocity', W / 2, H / 2)
+          ctx.fillText('Solo a track to edit its velocity', W / 2, H / 2)
           return
         }
 
         velBars = []
-        const barSlot = VELOCITY_BAR_W + VELOCITY_BAR_GAP
-        const totalW  = selected.length * barSlot - VELOCITY_BAR_GAP
-        let x = Math.max(8, (W - totalW) / 2)
         const trackTop = 18, trackH = H - trackTop - 6
 
-        for (const note of selected) {
+        // editFlatNotes already excludes every track except the soloed one —
+        // soloTrackForEdit hides all others (ts.visible=false), and
+        // buildEditFlatNotes gates on ts.visible the same way the main
+        // falling view does. No extra track filtering needed here.
+        for (const ef of editFlatNotes) {
+          const note = ef.note
           const vel  = Math.max(0, Math.min(1, note.velocity))
+          const barW = Math.max(6, Math.round(ef.key.width * 0.7))
+          const x    = ef.key.x + (ef.key.width - barW) / 2
           const barH = Math.max(2, Math.round(vel * trackH))
           const y    = trackTop + (trackH - barH)
           const isDragging = note === velDragNote
 
           ctx.fillStyle = isDragging ? HAND_AMBER_HEX_STR : `${HAND_AMBER_HEX_STR}bb`
-          ctx.fillRect(x, y, VELOCITY_BAR_W, barH)
+          ctx.fillRect(x, y, barW, barH)
 
-          ctx.fillStyle = NOTE_LABEL_COLOR
-          ctx.font = '9px "JetBrains Mono", monospace'
-          ctx.textAlign = 'center'
-          ctx.textBaseline = 'alphabetic'
-          ctx.fillText(String(Math.round(vel * 127)), x + VELOCITY_BAR_W / 2, trackTop - 5)
+          // Numeric readout only for the bar actively being dragged — with a
+          // whole track's worth of bars packed key-width apart, labeling
+          // every single one would be unreadable clutter.
+          if (isDragging) {
+            ctx.fillStyle = NOTE_LABEL_COLOR
+            ctx.font = '9px "JetBrains Mono", monospace'
+            ctx.textAlign = 'center'
+            ctx.textBaseline = 'alphabetic'
+            ctx.fillText(String(Math.round(vel * 127)), x + barW / 2, Math.max(10, y - 4))
+          }
 
-          velBars.push({ note, x, w: VELOCITY_BAR_W })
-          x += barSlot
+          velBars.push({ note, x, w: barW })
         }
       }
 
@@ -1403,7 +1424,9 @@ export default function PianoRoll() {
         if (!canvas) return
         const r  = canvas.getBoundingClientRect()
         const cx = e.clientX - r.left
-        const hit = velBars.find(b => cx >= b.x && cx <= b.x + b.w)
+        // Last match wins (matches draw order — later entries render on top).
+        let hit: { note: ToneNote; x: number; w: number } | undefined
+        for (const b of velBars) { if (cx >= b.x && cx <= b.x + b.w) hit = b }
         if (!hit) return
         velDragNote    = hit.note
         velDragStartY  = e.clientY
