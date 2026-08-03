@@ -1,4 +1,4 @@
-import React, { useState, useCallback, useMemo, useEffect, useRef } from 'react'
+import React, { useState, useCallback, useMemo, useEffect, useRef, type CSSProperties } from 'react'
 import { Play, RotateCcw, X } from 'lucide-react'
 import { useStore } from '../store'
 import { formatInversionDisplay, ordinalSuffix } from '../utils/chordDetection'
@@ -50,7 +50,7 @@ export default function LockedChordModal() {
       positioned.current = true
       setPos({
         x: Math.round(getPianoRollCenterX() - MODAL_WIDTH / 2),
-        y: Math.round(getKeyboardHeaderTop() - MODAL_HEIGHT) - 7,
+        y: Math.round(getKeyboardHeaderTop() - MODAL_HEIGHT) - 23,
       })
     }
   }, [lockedKeys.size])
@@ -107,7 +107,7 @@ export default function LockedChordModal() {
   if (!modalOpen) return null
 
   return (
-    <div style={{
+    <div className="orfeo-modal-glow" style={{
       position: 'fixed',
       left: pos.x,
       top: pos.y,
@@ -118,10 +118,9 @@ export default function LockedChordModal() {
       zIndex: 401,
       display: 'flex',
       flexDirection: 'column',
-      // ── Amber glow to distinguish from other floating panels ─────────────
-      boxShadow: 'var(--elevation-modal), 0 0 0 1px var(--accent-amber-glow-outer), 0 0 18px var(--accent-amber-glow-inner)',
+      '--_modal-shadow': 'var(--elevation-modal)',
       userSelect: 'none',
-    }}>
+    } as CSSProperties}>
 
       {/* ── Header — drag handle + amber title + close ────────────────────────── */}
       <div

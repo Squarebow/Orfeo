@@ -254,7 +254,7 @@ export default function ScaleExplorer() {
   // centered on the piano roll; recomputed each time the modal opens. ───────
   const [pos, setPos] = useState(() => ({
     x: Math.round(getPianoRollCenterX() - MODAL_WIDTH / 2),
-    y: Math.round(getKeyboardHeaderTop() - MODAL_HEIGHT),
+    y: Math.round(getKeyboardHeaderTop() - MODAL_HEIGHT) - 100,
   }))
 
   // ── CoF + scale selection state ───────────────────────────────────────────
@@ -331,7 +331,7 @@ export default function ScaleExplorer() {
       // ── Recompute anchor position every time the modal opens ────────────
       setPos({
         x: Math.round(getPianoRollCenterX() - MODAL_WIDTH / 2),
-        y: Math.round(getKeyboardHeaderTop() - MODAL_HEIGHT),
+        y: Math.round(getKeyboardHeaderTop() - MODAL_HEIGHT) - 100,
       })
       if (useStore.getState().playbackState === 'playing') {
         ;(window as any).__orfeoPlayer?.pause?.()

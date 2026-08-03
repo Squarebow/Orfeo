@@ -150,8 +150,6 @@
 --accent-amber-medium: #e8a02722;  /* ~13% — selected/active tinted backgrounds */
 --accent-amber-subtle: #e8a02708;  /* ~3%  — very light hover/open-state tints */
 --accent-amber-bold: #e8a02799;    /* ~60% — ScaleExplorer CoF key-signature text + roman-numeral subtext */
---accent-amber-glow-outer: rgba(232, 160, 39, 0.25); /* LockedChordModal box-shadow outer glow ring */
---accent-amber-glow-inner: rgba(232, 160, 39, 0.12); /* LockedChordModal box-shadow soft blur glow */
 --accent-amber-shadow: #e8a02766;   /* ~40% — Mixer ChannelStrip fader-handle box-shadow tint */
 --accent-amber-tint-bg: #e8a0270f;      /* ~6%  — NoteEditorToolbar close-confirm strip background */
 --accent-amber-selected-bg: #e8a02714;  /* ~8%  — NoteEditorToolbar quantize-dropdown selected item; also TrackPanel.tsx track row background when soloed for note-editor editing */

@@ -1899,15 +1899,15 @@ export default function SettingsPanel() {
                             cursor: 'pointer', fontSize: 'var(--text-xs)', fontFamily: 'Inter', fontWeight: 600,
                             color: accidentals === 'flat' ? 'var(--text-amber)' : 'var(--text-inactive)',
                           }}
-                        >♭ Flats</span>
+                        ><span style={{ fontSize: 'calc(var(--text-xs) * 1.5)' }}>♭</span> Flats</span>
                         <button
                           onClick={() => setAccidentals(accidentals === 'flat' ? 'sharp' : 'flat')}
                           title={accidentals === 'flat' ? 'Switch to sharps' : 'Switch to flats'}
                           style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 2, display: 'flex', alignItems: 'center', color: 'var(--text-amber)' }}
                         >
                           {accidentals === 'flat'
-                            ? <ToggleLeft  size={24} strokeWidth={1.5} />
-                            : <ToggleRight size={24} strokeWidth={1.5} />
+                            ? <ToggleLeft  size={16} strokeWidth={1.5} />
+                            : <ToggleRight size={16} strokeWidth={1.5} />
                           }
                         </button>
                         <span
@@ -1917,7 +1917,7 @@ export default function SettingsPanel() {
                             cursor: 'pointer', fontSize: 'var(--text-xs)', fontFamily: 'Inter', fontWeight: 600,
                             color: accidentals === 'sharp' ? 'var(--text-amber)' : 'var(--text-inactive)',
                           }}
-                        >♯ Sharps</span>
+                        ><span style={{ fontSize: 'calc(var(--text-xs) * 1.5)' }}>♯</span> Sharps</span>
                       </div>
                     </OptionRow>
                   )}
