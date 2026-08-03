@@ -137,8 +137,8 @@ function OptionRow({ label, children, hint, badge, eyeToggle, eyeValue, onEyeCha
         {description && (
           <div style={{
             maxWidth: '85%',
-            fontSize: 'var(--text-xs)', color: 'var(--text-dimmest)',
-            lineHeight: 1.5, fontFamily: 'Inter',
+            fontSize: 'var(--text-xs)', color: 'var(--text-faint)',
+            lineHeight: 1.5, fontFamily: 'JetBrains Mono',
           }}>
             {description}
           </div>
@@ -1841,7 +1841,7 @@ export default function SettingsPanel() {
                 >
                   {/* ── Display system — single 4-button row; Hide uses EyeOff icon ── */}
                   <OptionRow label="Display system">
-                    <div style={{ fontSize: 'var(--text-xs)', color: 'var(--text-dimmest)', lineHeight: 1.5, fontFamily: 'Inter', marginBottom: 6 }}>
+                    <div style={{ fontSize: 'var(--text-xs)', color: 'var(--text-faint)', lineHeight: 1.5, fontFamily: 'JetBrains Mono', marginBottom: 6 }}>
                       Lorem ipsum dolor sit amet, consectetur adipiscing elit.
                     </div>
                     <div style={{ display: 'flex', gap: 'var(--space-1)' }}>
@@ -1880,7 +1880,7 @@ export default function SettingsPanel() {
                       label="Accidentals"
                       hint={accidentals === 'flat' ? 'e.g.  Bb  Eb  Ab  Db  Gb' : 'e.g.  A#  D#  G#  C#  F#'}
                     >
-                      <div style={{ fontSize: 'var(--text-xs)', color: 'var(--text-dimmest)', lineHeight: 1.5, fontFamily: 'Inter', marginBottom: 6 }}>
+                      <div style={{ fontSize: 'var(--text-xs)', color: 'var(--text-faint)', lineHeight: 1.5, fontFamily: 'JetBrains Mono', marginBottom: 6 }}>
                         Lorem ipsum dolor sit amet, consectetur adipiscing elit.
                       </div>
                       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 'var(--space-2)' }}>
