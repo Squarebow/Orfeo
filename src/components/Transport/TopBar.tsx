@@ -2,7 +2,7 @@ import { useCallback, useRef, useEffect } from 'react'
 import {
   Play, Pause, SkipBack, SkipForward, Repeat,
   FolderOpen, RotateCcw, ChevronUp, ChevronDown,
-  Rewind, FastForward, SquarePen,
+  Rewind, FastForward,
 } from 'lucide-react'
 import { useStore } from '../../store'
 import { usePlayback } from '../../hooks/usePlayback'
@@ -13,7 +13,6 @@ import OrfeoLogo from '../OrfeoLogo'
 import MidiIcon from '../MidiIcon'
 import VolumeKnob from '../VolumeKnob'
 import LoopRegionStrip from '../LoopRegionStrip'
-import { NES } from '../../utils/noteEditorState'
 
 // NOTE: no more `C` shorthand object — every color below is a literal
 // `var(--token-name)` string written directly at its point of use, so the
@@ -45,9 +44,6 @@ export default function TopBar() {
   const resetAll = useStore((s) => s.resetAll)
   const barStarts = useStore((s) => s.barStarts)
 
-  const noteEditorEnabled = useStore((s) => s.noteEditorEnabled)
-  const noteEditorActive  = useStore((s) => s.noteEditorActive)
-  const setNoteEditorActive = useStore((s) => s.setNoteEditorActive)
 
   const { play, pause, stop, seek, seekAndPlay } = usePlayback()
   const { openFile } = useMidiFile()
@@ -279,36 +275,6 @@ export default function TopBar() {
           title={midi?.fileName}>
           {midi ? midi.fileName.replace(/\.(mid|midi)$/i, '') : 'No file open'}
         </span>
-      </div>
-
-      {/* ── NOTE EDITOR toggle — slot always reserves its 28px so center never shifts ── */}
-      <div style={{ width: 'var(--button-height)', height: 'var(--button-height)', flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', visibility: noteEditorEnabled ? 'visible' : 'hidden', opacity: noteEditorEnabled && midi ? 1 : 0, pointerEvents: noteEditorEnabled && midi ? 'auto' : 'none' }}>
-          <button
-            onClick={() => {
-              if (noteEditorActive) {
-                setNoteEditorActive(false)
-                NES.reset()
-              } else {
-                if (playbackState === 'playing') pause()
-                NES.reset()
-                setNoteEditorActive(true)
-              }
-            }}
-            title={noteEditorActive ? 'Exit note edit mode' : 'Enter note edit mode'}
-            className="app-no-drag"
-            style={{
-              display: 'flex', alignItems: 'center', justifyContent: 'center',
-              width: 'var(--button-height)', height: 'var(--button-height)',
-              borderRadius: 'var(--radius-md)', background: noteEditorActive ? 'var(--accent-amber-toggle-active-bg)' : 'transparent',
-              border: noteEditorActive ? '1px solid var(--accent-amber-shadow)' : '1px solid transparent',
-              color: noteEditorActive ? 'var(--text-amber)' : 'var(--text-default)',
-              cursor: 'pointer', flexShrink: 0, transition: 'color 0.12s, background 0.12s',
-            }}
-            onMouseEnter={e => { if (!noteEditorActive) e.currentTarget.style.color = 'var(--text-amber)' }}
-            onMouseLeave={e => { if (!noteEditorActive) e.currentTarget.style.color = 'var(--text-default)' }}
-          >
-            <SquarePen size={14} strokeWidth={1.5} />
-          </button>
       </div>
 
       {/* ── TIME + METRONOME + MIDI — bottoms aligned ── */}

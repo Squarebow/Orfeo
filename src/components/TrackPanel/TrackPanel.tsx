@@ -4,6 +4,9 @@ import { useStore, DEFAULT_MUTED_GROUPS } from '../../store'
 import { GM_GROUPS } from '../../utils/gmInstruments'
 import type { TrackState } from '../../types'
 import { MarqueeText } from '../MarqueeText'
+import { usePlayback } from '../../hooks/usePlayback'
+import { NES } from '../../utils/noteEditorState'
+import NoteEditorIcon from '../NoteEditorIcon'
 
 const GROUP_ORDER = [
   'piano', 'chromatic', 'organ', 'guitar', 'bass',
@@ -59,14 +62,31 @@ export default function TrackPanel() {
   const [draggedTrack, setDraggedTrack] = useState<{ group: string; index: number } | null>(null)
   const [hoveredHandle, setHoveredHandle] = useState<string | null>(null)
   const midiEditorOpen          = useStore((s) => s.midiEditorOpen)
+  const noteEditorEnabled       = useStore((s) => s.noteEditorEnabled)
   const noteEditorActive        = useStore((s) => s.noteEditorActive)
+  const setNoteEditorActive     = useStore((s) => s.setNoteEditorActive)
   const noteEditorSoloTrackIndex = useStore((s) => s.noteEditorSoloTrackIndex)
   const soloTrackForEdit        = useStore((s) => s.soloTrackForEdit)
+  const playbackState           = useStore((s) => s.playbackState)
+  const { pause } = usePlayback()
 
   // ── Open editor — sets store flag; MidiEditor floating modal reads from store ─
   const handleOpenEditor = () => {
     if (!midi) return
     useStore.getState().setMidiEditorOpen(true)
+  }
+
+  // ── Toggle note edit mode — moved here from TopBar; same gating (only
+  // visible/enabled when noteEditorEnabled in Settings, and a file is loaded) ──
+  const handleToggleNoteEditor = () => {
+    if (noteEditorActive) {
+      setNoteEditorActive(false)
+      NES.reset()
+    } else {
+      if (playbackState === 'playing') pause()
+      NES.reset()
+      setNoteEditorActive(true)
+    }
   }
 
   // ── Group tracks — partition by GM group key. Default order is GROUP_ORDER;
@@ -205,6 +225,23 @@ export default function TrackPanel() {
           >
             <PencilSparklesIcon size={18} />
           </button>
+          {noteEditorEnabled && midi && (
+            <button
+              onClick={handleToggleNoteEditor}
+              title={noteEditorActive ? 'Exit note edit mode' : 'Enter note edit mode'}
+              style={{
+                background: 'none', border: 'none', cursor: 'pointer',
+                color: noteEditorActive ? 'var(--text-amber)' : 'var(--text-dimmest)',
+                padding: 4, marginTop: 8,
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                transition: 'color 0.15s',
+              }}
+              onMouseEnter={e => { if (!noteEditorActive) e.currentTarget.style.color = 'var(--text-amber)' }}
+              onMouseLeave={e => { if (!noteEditorActive) e.currentTarget.style.color = 'var(--text-dimmest)' }}
+            >
+              <NoteEditorIcon size={18} />
+            </button>
+          )}
         </div>
       )}
 
@@ -263,6 +300,23 @@ export default function TrackPanel() {
             >
               <PencilSparklesIcon size={16} />
             </button>
+            {noteEditorEnabled && midi && (
+              <button
+                onClick={handleToggleNoteEditor}
+                title={noteEditorActive ? 'Exit note edit mode' : 'Enter note edit mode'}
+                style={{
+                  background: 'none', border: 'none', cursor: 'pointer',
+                  color: noteEditorActive ? 'var(--text-amber)' : 'var(--text-dimmest)',
+                  padding: 4, marginTop: 8,
+                  display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  transition: 'color 0.15s',
+                }}
+                onMouseEnter={e => { if (!noteEditorActive) e.currentTarget.style.color = 'var(--text-amber)' }}
+                onMouseLeave={e => { if (!noteEditorActive) e.currentTarget.style.color = 'var(--text-dimmest)' }}
+              >
+                <NoteEditorIcon size={16} />
+              </button>
+            )}
           </div>
 
           {/* ── Track content ─────────────────────────────────────────────── */}

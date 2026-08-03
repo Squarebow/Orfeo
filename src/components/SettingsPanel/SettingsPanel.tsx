@@ -9,6 +9,7 @@ import {
 } from 'lucide-react'
 import { useStore } from '../../store'
 import OrfeoMark from '../OrfeoMark'
+import NoteEditorIcon from '../NoteEditorIcon'
 import type { NoteNaming, KeyboardSize, Accidentals, TranscriptEntry, LibraryFile, HitEffectPattern, SoundfontId, SoundfontInfo } from '../../types'
 import type { AppTheme } from '../../store'
 import { initSamplesEngine, loadSelectedSoundfont } from '../../hooks/useSamplesEngine'
@@ -93,7 +94,7 @@ function OptionRow({ label, children, hint, badge, eyeToggle, eyeValue, onEyeCha
   eyeToggle?: boolean
   eyeValue?: boolean
   onEyeChange?: (val: boolean) => void
-  description?: string
+  description?: React.ReactNode
 }) {
   // ── Eye-toggle variant — name left + icon right on one row, description below ──
   if (eyeToggle) {
@@ -1819,13 +1820,17 @@ export default function SettingsPanel() {
                     onEyeChange={setChordTranscriptionEnabled}
                     description="Adds a transcript icon to every file in your library — click to generate a chord chart PDF."
                   />
-                  {/* ── Note Editor — eye-toggle: unlocks pencil icon in TopBar ──── */}
+                  {/* ── Note Editor — eye-toggle: unlocks the note-edit icon in the Tracks panel ── */}
                   <OptionRow
                     label="Note Editor"
                     eyeToggle
                     eyeValue={noteEditorEnabled}
                     onEyeChange={setNoteEditorEnabled}
-                    description="Show a pencil icon in the top bar to enter note-editing mode directly on the waterfall."
+                    description={
+                      <>
+                        Show <span style={{ display: 'inline-flex', verticalAlign: 'middle' }}><NoteEditorIcon size={11} /></span> in the Tracks panel to enter note-editing mode directly on the waterfall.
+                      </>
+                    }
                   />
                 </CollapsibleSection>
 
