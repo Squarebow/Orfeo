@@ -775,8 +775,8 @@ export default function MidiEditor() {
     if (!positioned.current) {
       positioned.current = true
       setPos({
-        x: Math.max(0, Math.round(getPianoRollCenterX() - MODAL_W / 2)),
-        y: Math.max(20, Math.round(getKeyboardHeaderTop() - MODAL_H)),
+        x: Math.max(0, Math.round(getPianoRollCenterX() - MODAL_W / 2) - 362),
+        y: Math.max(20, Math.round(getKeyboardHeaderTop() - MODAL_H) - 12),
       })
     }
   }, [midiEditorOpen])

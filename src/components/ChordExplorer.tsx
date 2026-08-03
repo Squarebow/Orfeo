@@ -260,7 +260,7 @@ export default function ChordExplorer() {
   // while it's open (side-panel toggles don't move it). ─────────────────────
   const [pos, setPos] = useState(() => ({
     x: Math.round(getPianoRollCenterX() - MODAL_WIDTH / 2),
-    y: Math.round(getKeyboardHeaderTop() - MODAL_HEIGHT),
+    y: Math.round(getKeyboardHeaderTop() - MODAL_HEIGHT) - 62,
   }))
   const [selectedRoot, setSelectedRoot] = useState(0)
   const [tier, setTier] = useState<'common' | 'extended' | 'power'>('common')
@@ -300,7 +300,7 @@ export default function ChordExplorer() {
       // ── Recompute anchor position every time the modal opens ────────────
       setPos({
         x: Math.round(getPianoRollCenterX() - MODAL_WIDTH / 2),
-        y: Math.round(getKeyboardHeaderTop() - MODAL_HEIGHT),
+        y: Math.round(getKeyboardHeaderTop() - MODAL_HEIGHT) - 62,
       })
       setSearch('')
       setSearchOpen(false)

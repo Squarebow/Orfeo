@@ -1906,8 +1906,8 @@ export default function SettingsPanel() {
                           style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 2, display: 'flex', alignItems: 'center', color: 'var(--text-amber)' }}
                         >
                           {accidentals === 'flat'
-                            ? <ToggleLeft  size={16} strokeWidth={1.5} />
-                            : <ToggleRight size={16} strokeWidth={1.5} />
+                            ? <ToggleLeft  size={24} strokeWidth={1.5} />
+                            : <ToggleRight size={24} strokeWidth={1.5} />
                           }
                         </button>
                         <span
@@ -2433,7 +2433,7 @@ export default function SettingsPanel() {
                     <OrfeoMark height={16} />
                     <span style={{ color: 'var(--text-inactive)', fontSize: 10, fontFamily: 'JetBrains Mono' }}>Orfeo · v{__APP_VERSION__}</span>
                   </button>
-                  <span style={{ fontSize: 9, color: 'var(--topbar-timesig-divider)', fontFamily: 'Inter' }}>
+                  <span style={{ color: 'var(--text-inactive)', fontSize: 10, fontFamily: 'JetBrains Mono' }}>
                     · by SquareBow
                   </span>
                 </div>

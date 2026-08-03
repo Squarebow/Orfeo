@@ -42,10 +42,23 @@ export default function MixerConsole() {
   // everOpened keeps the component mounted after first open so all internal state
   // (pos, knob values, scroll) survives hide/show cycles.
   const [everOpened, setEverOpened] = useState(false)
+  const positioned = useRef(false)
 
-  // ── Mark ever-opened on first open ───────────────────────────────────────
+  // ── Mark ever-opened on first open; also finalize position then, using the
+  // real track count — the mount-time initializer below runs before any file
+  // is loaded (0 tracks), so its width guess was never right once a real
+  // file's tracks were in. ───────────────────────────────────────────────────
   useEffect(() => {
-    if (mixerOpen) setEverOpened(true)
+    if (!mixerOpen) return
+    setEverOpened(true)
+    if (positioned.current) return
+    positioned.current = true
+    const n = Math.min(Math.max(useStore.getState().tracks.length, 1), MAX_STRIPS)
+    const w = BODY_PAD * 2 + n * STRIP_W + (n - 1) * STRIP_GAP + STRIP_GAP + MASTER_W + 2
+    setPos({
+      x: Math.round(getPianoRollCenterX() - w / 2),
+      y: Math.round(getKeyboardHeaderTop() - MODAL_H_APPROX) - 55,
+    })
   }, [mixerOpen])
 
   // ── Sort by GROUP_ORDER — matches TrackPanel display order ──────────────────

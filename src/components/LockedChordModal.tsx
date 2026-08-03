@@ -50,7 +50,7 @@ export default function LockedChordModal() {
       positioned.current = true
       setPos({
         x: Math.round(getPianoRollCenterX() - MODAL_WIDTH / 2),
-        y: Math.round(getKeyboardHeaderTop() - MODAL_HEIGHT),
+        y: Math.round(getKeyboardHeaderTop() - MODAL_HEIGHT) - 7,
       })
     }
   }, [lockedKeys.size])

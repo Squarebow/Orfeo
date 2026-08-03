@@ -248,7 +248,6 @@ export default function ScaleExplorer() {
   const noteNaming = useStore(s => s.noteNaming)
   const accidentals = useStore(s => s.accidentals)
   const setAccidentals = useStore(s => s.setAccidentals)
-  const setKeyboardSize = useStore(s => s.setKeyboardSize)
   const keyboardSize = useStore(s => s.keyboardSize)
 
   // ── Window drag position — bottom edge on the keyboard header, horizontally
@@ -281,7 +280,6 @@ export default function ScaleExplorer() {
   const [octaveTileSelected, setOctaveTileSelected] = useState(false)
 
   // ── Refs ──────────────────────────────────────────────────────────────────
-  const prevSizeRef = useRef<61 | 73 | 88 | null>(null)
   const progTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   // speedRef lets playProgStepAt read the live speed without restarting the chain
   const speedRef = useRef<'slow' | 'med' | 'fast'>('med')
@@ -327,7 +325,7 @@ export default function ScaleExplorer() {
     scalePlayTimersRef.current = []
   }, [])
 
-  // ── On open: force 61 keys, pause playback, reset all transient state ─────
+  // ── On open: pause playback, reset all transient state ────────────────────
   useEffect(() => {
     if (scaleExplorerOpen) {
       // ── Recompute anchor position every time the modal opens ────────────
@@ -335,8 +333,6 @@ export default function ScaleExplorer() {
         x: Math.round(getPianoRollCenterX() - MODAL_WIDTH / 2),
         y: Math.round(getKeyboardHeaderTop() - MODAL_HEIGHT),
       })
-      prevSizeRef.current = useStore.getState().keyboardSize as 61 | 73 | 88
-      setKeyboardSize(61)
       if (useStore.getState().playbackState === 'playing') {
         ;(window as any).__orfeoPlayer?.pause?.()
         useStore.getState().setPlaybackState('paused')
@@ -353,15 +349,13 @@ export default function ScaleExplorer() {
       setInfoRowChord(null)
       clearExplorerKeys()
       clearExplorerChordDisplay()
-    } else if (prevSizeRef.current !== null) {
-      setKeyboardSize(prevSizeRef.current)
-      prevSizeRef.current = null
+    } else {
       stopProgression()
       clearScalePlayTimers()
       clearExplorerKeys()
       clearExplorerChordDisplay()
     }
-  }, [scaleExplorerOpen, setKeyboardSize, stopProgression, clearScalePlayTimers, clearExplorerKeys, clearExplorerChordDisplay])
+  }, [scaleExplorerOpen, stopProgression, clearScalePlayTimers, clearExplorerKeys, clearExplorerChordDisplay])
 
   // ── Play scale notes ascending and light keys when root/scale changes ──────
   useEffect(() => {

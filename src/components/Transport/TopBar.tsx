@@ -80,7 +80,7 @@ export default function TopBar() {
 
   const transpose = detectedKey?.transpose ?? 0
   const duration = midi?.duration ?? 0
-  const isTempoChanged = !!midi && Math.abs(Math.round((bpm / originalBpm) * 100) - 100) > 1
+  const isTempoChanged = !!midi && bpm !== originalBpm
   const displayKey = detectedKey ? formatKey(detectedKey, noteNaming, accidentals) : '—'
 
   // ── Nudge: region selected but loop not yet activated (regardless of strip visibility) ──
@@ -179,11 +179,19 @@ export default function TopBar() {
           <LongPressArrow onStep={() => setBpm(Math.min(300, useStore.getState().bpm + 1))} disabled={!midi} title="BPM +1"><ChevronUp size={10} /></LongPressArrow>
           <LongPressArrow onStep={() => setBpm(Math.max(20, useStore.getState().bpm - 1))} disabled={!midi} title="BPM -1"><ChevronDown size={10} /></LongPressArrow>
         </div>
-        {isTempoChanged && (
-          <button onClick={resetBpm} title="Reset tempo" style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 0, color: 'var(--text-amber)', display: 'flex' }}>
-            <RotateCcw size={9} />
-          </button>
-        )}
+        {/* ── Reset — space always reserved so its appearance never shifts the transport controls ── */}
+        <button
+          onClick={resetBpm} title="Reset tempo"
+          disabled={!isTempoChanged}
+          style={{
+            background: 'none', border: 'none', padding: 0, color: 'var(--text-amber)', display: 'flex',
+            cursor: isTempoChanged ? 'pointer' : 'default',
+            visibility: isTempoChanged ? 'visible' : 'hidden',
+            flexShrink: 0,
+          }}
+        >
+          <RotateCcw size={9} />
+        </button>
       </div>
 
       <VSep />
@@ -202,13 +210,21 @@ export default function TopBar() {
           <ArrowBtn onClick={() => handleTranspose(1)} disabled={!midi || transpose >= 12} title="Transpose up"><ChevronUp size={10} /></ArrowBtn>
           <ArrowBtn onClick={() => handleTranspose(-1)} disabled={!midi || transpose <= -12} title="Transpose down"><ChevronDown size={10} /></ArrowBtn>
         </div>
-        {transpose !== 0 && (
-          <button onClick={() => useStore.setState({ detectedKey: detectedKey ? { ...detectedKey, transpose: 0 } : null })}
-            title="Reset key"
-            style={{ display: 'flex', alignItems: 'center', color: 'var(--text-amber)', background: 'var(--accent-amber-subtle)', border: '1px solid var(--accent-amber-medium)', borderRadius: 4, padding: '1px 5px', fontSize: 9, cursor: 'pointer' }}>
-            <RotateCcw size={8} />
-          </button>
-        )}
+        {/* ── Reset — space always reserved so its appearance never shifts the transport controls ── */}
+        <button
+          onClick={() => useStore.setState({ detectedKey: detectedKey ? { ...detectedKey, transpose: 0 } : null })}
+          title="Reset key"
+          disabled={transpose === 0}
+          style={{
+            display: 'flex', alignItems: 'center', color: 'var(--text-amber)',
+            background: 'var(--accent-amber-subtle)', border: '1px solid var(--accent-amber-medium)',
+            borderRadius: 4, padding: '1px 5px', fontSize: 9,
+            cursor: transpose !== 0 ? 'pointer' : 'default',
+            visibility: transpose !== 0 ? 'visible' : 'hidden',
+            flexShrink: 0,
+          }}>
+          <RotateCcw size={8} />
+        </button>
       </div>
 
       <VSep />
