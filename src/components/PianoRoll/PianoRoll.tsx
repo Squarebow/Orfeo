@@ -1378,14 +1378,14 @@ export default function PianoRoll() {
         ctx.strokeStyle = BARLINE_COLOR
         ctx.beginPath(); ctx.moveTo(0, 0.5); ctx.lineTo(W, 0.5); ctx.stroke()
 
-        // ── Label — top-right corner, amber caps, no icon ──────────────────
+        // ── Label — top center, amber caps, no icon ────────────────────────
         ctx.fillStyle = HAND_AMBER_HEX_STR
         ctx.font = 'bold 9px Inter, sans-serif'
-        ctx.textAlign = 'right'
+        ctx.textAlign = 'center'
         ctx.textBaseline = 'alphabetic'
         ctx.save()
         ctx.letterSpacing = '0.1em' as any
-        ctx.fillText('VELOCITY EDITOR', W - 8, 14)
+        ctx.fillText('VELOCITY EDITOR', W / 2, 14)
         ctx.restore()
 
         if (noteEditorSoloTrackIndex === null) {
@@ -1400,6 +1400,26 @@ export default function PianoRoll() {
 
         velBars = []
         const trackTop = 20, trackH = H - trackTop - 6
+
+        // ── Guideline gridlines — 0/32/64/96/127, barely-visible horizontal
+        // lines + value markers on both edges, same idea as the main roll's
+        // bar-number lines but much subtler (this is a background reference,
+        // not a primary UI element). ────────────────────────────────────────
+        ctx.font = '8px "JetBrains Mono", monospace'
+        ctx.textBaseline = 'middle'
+        for (const v of [0, 32, 64, 96, 127]) {
+          const gy = trackTop + trackH - (v / 127) * trackH
+          ctx.globalAlpha = 0.25
+          ctx.strokeStyle = BARLINE_COLOR
+          ctx.beginPath(); ctx.moveTo(0, Math.round(gy) + 0.5); ctx.lineTo(W, Math.round(gy) + 0.5); ctx.stroke()
+          ctx.globalAlpha = 0.4
+          ctx.fillStyle = NOTE_LABEL_COLOR
+          ctx.textAlign = 'left'
+          ctx.fillText(String(v), 4, gy)
+          ctx.textAlign = 'right'
+          ctx.fillText(String(v), W - 4, gy)
+        }
+        ctx.globalAlpha = 1
 
         // editFlatNotes already excludes every track except the soloed one —
         // soloTrackForEdit hides all others (ts.visible=false), and
@@ -1445,12 +1465,22 @@ export default function PianoRoll() {
         velDragNote    = hit.note
         velDragStartY  = e.clientY
         velDragStartVel = hit.note.velocity
+        canvas.style.cursor = 'grabbing'
         canvas.setPointerCapture(e.pointerId)
       }
       const onVelPointerMove = (e: PointerEvent) => {
-        if (!velDragNote) return
-        const laneH  = velocityCanvasRef.current?.height ?? 56
-        const trackH = laneH - 20 - 6
+        const canvas = velocityCanvasRef.current
+        if (!canvas) return
+        if (!velDragNote) {
+          // Not dragging — just update the hover cursor (grab over a bar).
+          const r  = canvas.getBoundingClientRect()
+          const cx = e.clientX - r.left
+          let hovering = false
+          for (const b of velBars) { if (cx >= b.x && cx <= b.x + b.w) hovering = true }
+          canvas.style.cursor = hovering ? 'grab' : 'default'
+          return
+        }
+        const trackH = canvas.height - 20 - 6
         const delta  = (velDragStartY - e.clientY) / trackH
         velDragNote.velocity = Math.max(0, Math.min(1, velDragStartVel + delta))
       }
@@ -1460,6 +1490,7 @@ export default function PianoRoll() {
         const originalVel = velDragStartVel
         const finalVel    = note.velocity
         velDragNote = null
+        if (velocityCanvasRef.current) velocityCanvasRef.current.style.cursor = 'default'
         try { velocityCanvasRef.current?.releasePointerCapture(e.pointerId) } catch {}
         if (Math.abs(finalVel - originalVel) < 0.001) return
         history_push({
