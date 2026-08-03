@@ -768,7 +768,7 @@ setTimeout(restoreLibraryPrefs, 500)
 // ── Persist library-list state — favourites + hidden exclusions ───────────────
 // Debounced 1 s; gated on libraryFolder so it only fires once a library is set.
 let _favTimer: ReturnType<typeof setTimeout> | null = null
-useStore.subscribe((state) => {
+const _unsubFav = useStore.subscribe((state) => {
   if (!state.libraryFolder) return
   if (_favTimer) clearTimeout(_favTimer)
   _favTimer = setTimeout(() => {
@@ -816,7 +816,7 @@ let _prevHitEffectBloomSpread: number | null = null
 let _prevHitEffectScope: string | null = null
 let _prevHitEffectColor: string | null | undefined = undefined
 let _prevSelectedSoundfont: string | null = null
-useStore.subscribe((state) => {
+const _unsubPrefs = useStore.subscribe((state) => {
   // Skip the very first fire (app init) — restore handles loading saved values
   if (_prevNoteNaming === null) {
     _prevNoteNaming = state.noteNaming
@@ -972,7 +972,7 @@ let _prevMidiForCollapse: unknown = null
 let _drawersAutoCollapsed = false
 let _preCollapseTrackPanelOpen = false
 let _preCollapseSettingsPanelOpen = false
-useStore.subscribe((state) => {
+const _unsubCollapse = useStore.subscribe((state) => {
   if (!state.autoCollapseDrawers) { _drawersAutoCollapsed = false; return }
 
   if (state.midi !== _prevMidiForCollapse) {
@@ -1002,6 +1002,22 @@ useStore.subscribe((state) => {
     }
   }
 })
+
+// ── HMR safety — this module registers module-scope useStore.subscribe()
+// listeners above. Vite hot-reloading this file re-runs all of that top-level
+// code without tearing down the previous run's subscriptions first, so
+// repeated edits during a dev session accumulate duplicate listeners, each
+// with its own stale closure state (e.g. _drawersAutoCollapsed out of sync
+// with a newer copy) — fighting each other and visibly flickering panel
+// open/close state. Disposing the old module's subscriptions before Vite
+// swaps it in prevents that pile-up. ──────────────────────────────────────────
+if (import.meta.hot) {
+  import.meta.hot.dispose(() => {
+    _unsubFav()
+    _unsubPrefs()
+    _unsubCollapse()
+  })
+}
 
 // ── Theme ─────────────────────────────────────────────────────────────────────
 // Exported so PianoRoll and App.tsx can read it without subscribing to full store
