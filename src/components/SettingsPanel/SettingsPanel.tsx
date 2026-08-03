@@ -5,7 +5,7 @@ import { confirmDialog } from '../../utils/confirmController'
 import {
   ChevronLeft, ChevronDown, ChevronRight, Type, Piano, Palette, ZoomIn, Volume2,
   Music, FolderOpen, Folders, RefreshCw, FileMusic, FileCode2, Guitar, BookOpen, Library, Settings, Info,
-  Eye, Search, X, Undo2, Upload, ToggleLeft, ToggleRight,
+  Search, X, Undo2, Upload, ToggleLeft, ToggleRight,
 } from 'lucide-react'
 import { useStore } from '../../store'
 import type { NoteNaming, KeyboardSize, Accidentals, TranscriptEntry, LibraryFile, HitEffectPattern, SoundfontId, SoundfontInfo } from '../../types'
@@ -106,19 +106,19 @@ function OptionRow({ label, children, hint, badge, eyeToggle, eyeValue, onEyeCha
           {/* ── Feature name — --text-default (bright) creates hierarchy over dim description ── */}
           <div style={{
             fontSize: 'var(--text-xs)', color: 'var(--text-default)',
-            fontWeight: 500, letterSpacing: '0.02em',
+            fontWeight: 500, letterSpacing: '0.02em', textTransform: 'uppercase',
             display: 'flex', alignItems: 'center', gap: 6,
           }}>
             {label}
             {badge}
           </div>
-          {/* ── Eye icon — same line as name, right-aligned ── */}
+          {/* ── Toggle icon — same line as name, right-aligned ── */}
           <button
             onClick={() => onEyeChange?.(!eyeValue)}
-            title={eyeValue ? 'Click to hide' : 'Click to show'}
+            title={eyeValue ? 'Click to turn off' : 'Click to turn on'}
             style={{
               background: 'none', border: 'none', cursor: 'pointer', padding: 2,
-              color: eyeValue ? 'var(--status-success)' : 'var(--status-error)',
+              color: eyeValue ? 'var(--text-amber)' : 'var(--text-inactive)',
               display: 'flex', alignItems: 'center', flexShrink: 0,
               transition: 'opacity 0.12s',
             }}
@@ -126,8 +126,8 @@ function OptionRow({ label, children, hint, badge, eyeToggle, eyeValue, onEyeCha
             onMouseLeave={e => { e.currentTarget.style.opacity = '1' }}
           >
             {eyeValue
-              ? <Eye    size={14} strokeWidth={1.5} />
-              : <EyeClosed size={14} strokeWidth={1.5} />
+              ? <ToggleRight size={16} strokeWidth={1.5} />
+              : <ToggleLeft  size={16} strokeWidth={1.5} />
             }
           </button>
         </div>
@@ -149,7 +149,7 @@ function OptionRow({ label, children, hint, badge, eyeToggle, eyeValue, onEyeCha
   return (
     <div style={{ padding: '10px 14px', borderBottom: '1px solid var(--border-row)' }}>
       {/* ── Label row — --text-default (bright) to match eye-toggle name hierarchy ── */}
-      <div style={{ fontSize: 'var(--text-xs)', color: 'var(--text-default)', marginBottom: 6, fontWeight: 500, letterSpacing: '0.02em', display: 'flex', alignItems: 'center', gap: 6 }}>
+      <div style={{ fontSize: 'var(--text-xs)', color: 'var(--text-default)', marginBottom: 6, fontWeight: 500, letterSpacing: '0.02em', textTransform: 'uppercase', display: 'flex', alignItems: 'center', gap: 6 }}>
         {label}
         {badge}
       </div>
@@ -217,17 +217,16 @@ function CollapsibleSection({ icon, label, defaultCollapsed = false, collapsed: 
   )
 }
 
-// ── Option button — green-tinted pill toggle for multi-choice settings rows
-// activeColor: 'success' (default, green) | 'error' (red — used for Hide/EyeOff)
-// No amber accent token exists for green-tint bg, so rgba fallback is intentional.
-function OptionBtn({ active, onClick, children, title, comingSoon, activeColor = 'success' }: {
+// ── Option button — amber-tinted pill toggle for multi-choice settings rows
+// activeColor: 'accent' (default, amber) | 'error' (red — used for Hide/EyeOff)
+function OptionBtn({ active, onClick, children, title, comingSoon, activeColor = 'accent' }: {
   active: boolean; onClick: () => void; children: React.ReactNode
-  title?: string; comingSoon?: boolean; activeColor?: 'success' | 'error'
+  title?: string; comingSoon?: boolean; activeColor?: 'accent' | 'error'
 }) {
-  // ── Active colour tokens — green for selections, red for the Hide exception ──
-  const activeBorder = activeColor === 'error' ? 'var(--status-error)' : 'var(--status-success)'
-  const activeBg    = activeColor === 'error' ? 'var(--status-error-tint-bg)' : 'var(--status-success-tint-bg)'
-  const activeText  = activeColor === 'error' ? 'var(--status-error)'    : 'var(--status-success)'
+  // ── Active colour tokens — amber for selections, red for the Hide exception ──
+  const activeBorder = activeColor === 'error' ? 'var(--status-error)' : 'var(--accent-amber-strong)'
+  const activeBg    = activeColor === 'error' ? 'var(--status-error-tint-bg)' : 'var(--accent-amber-medium)'
+  const activeText  = activeColor === 'error' ? 'var(--status-error)'    : 'var(--text-amber)'
 
   return (
     <button
@@ -379,8 +378,7 @@ function TranscriptIcon({ filePath, noteNaming, accidentals, addTranscriptEntry 
     }, 3000)
   }
 
-  // Unified with the app-wide success/error status tokens (was a divergent literal pair) — see task-5 report.
-  const iconColor = state === 'success' ? 'var(--status-success)' : state === 'error' ? 'var(--status-error)' : 'var(--text-dimmest)'
+  const iconColor = state === 'success' ? 'var(--text-amber)' : state === 'error' ? 'var(--status-error)' : 'var(--text-dimmest)'
 
   return (
     <div
@@ -1009,7 +1007,7 @@ function LibraryPanel() {
               </div>
               <button
                 onClick={handleRefresh}
-                title="Refresh folder"
+                title="Refresh library"
                 style={{
                   background: 'none', border: 'none', cursor: 'pointer',
                   color: 'var(--text-inactive)', padding: 2, display: 'flex', alignItems: 'center',
@@ -1024,7 +1022,7 @@ function LibraryPanel() {
             {/* Active library path — click opens it in Explorer (shows files; the folder-picker dialog above never does, that's OS-level) */}
             <div
               onClick={() => libraryFolder && window.electronAPI.openFolderInExplorer(libraryFolder)}
-              title="Open in File Explorer"
+              title="Open in Explorer"
               style={{
                 fontSize: 9, color: 'var(--text-muted)', fontFamily: 'JetBrains Mono',
                 padding: '0 2px', marginBottom: 6, cursor: 'pointer',
@@ -1042,7 +1040,7 @@ function LibraryPanel() {
                 <button
                   key={f}
                   onClick={() => setFilter(f)}
-                  title={f === 'all' ? 'Show all library files' : 'Show favorites only'}
+                  title={f === 'all' ? 'Show all files' : 'Show favorites only'}
                   style={{
                     flex: 1, padding: '3px 0', borderRadius: 4, fontSize: 10,
                     border: filter === f ? '1px solid var(--accent-amber-strong)' : '1px solid var(--border2)',
@@ -2038,8 +2036,8 @@ export default function SettingsPanel() {
                     )}
                     {samplesStatus === 'ready' && (
                       <div style={{ marginTop: 5, fontSize: 9, color: 'var(--text-muted)', fontFamily: 'Inter' }}>
-                        {/* ── Always prints the actually-active soundfont — "loaded" goes green when Samples is the active engine ── */}
-                        {activeSoundfontEntry?.name ?? selectedSoundfont} · {activeSoundfontEntry?.sizeMB ?? '?'} MB · <span style={{ color: audioEngine === 'samples' ? 'var(--status-success)' : 'inherit' }}>loaded</span>
+                        {/* ── Always prints the actually-active soundfont — "loaded" goes amber when Samples is the active engine ── */}
+                        {activeSoundfontEntry?.name ?? selectedSoundfont} · {activeSoundfontEntry?.sizeMB ?? '?'} MB · <span style={{ color: audioEngine === 'samples' ? 'var(--text-amber)' : 'inherit' }}>loaded</span>
                       </div>
                     )}
                     {samplesStatus === 'error' && (
@@ -2078,7 +2076,7 @@ export default function SettingsPanel() {
 
                     {/* ── Active selection — a dropdown instead of pill buttons, since library
                         names don't reliably fit a fixed-width button. Only lists soundfonts
-                        that are actually downloaded/importable right now; green border+background
+                        that are actually downloaded/importable right now; amber border+background
                         mirrors the old per-item "active" pill styling. ── */}
                     <select
                       value={selectedSoundfont}
@@ -2086,9 +2084,9 @@ export default function SettingsPanel() {
                       title="Soundfont used by the Samples engine"
                       style={{
                         width: '100%', padding: '5px 8px', borderRadius: 4,
-                        border: '1px solid var(--status-success)',
-                        background: 'rgba(74, 144, 96, 0.13)',
-                        color: 'var(--status-success)',
+                        border: '1px solid var(--accent-amber-strong)',
+                        background: 'var(--accent-amber-medium)',
+                        color: 'var(--text-amber)',
                         fontSize: 'var(--text-xs)', fontFamily: 'JetBrains Mono', fontWeight: 700,
                         cursor: 'pointer', marginBottom: 8,
                       }}
@@ -2110,7 +2108,7 @@ export default function SettingsPanel() {
                               title={sf.downloaded ? `Use ${sf.name} for the Samples engine` : `Download ${sf.name} first`}
                               style={{
                                 fontSize: 'var(--text-xs)', fontFamily: 'Inter',
-                                color: isActive ? 'var(--status-success)' : 'var(--text-inactive)',
+                                color: isActive ? 'var(--text-amber)' : 'var(--text-inactive)',
                                 fontWeight: isActive ? 600 : 400,
                                 overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
                               }}
@@ -2170,7 +2168,7 @@ export default function SettingsPanel() {
                     eyeToggle
                     eyeValue={autoMuteNonKeyboard}
                     onEyeChange={setAutoMuteNonKeyboard}
-                    description="When active, select if you want to hear all MIDI tracks or only Piano, Bass & Drums. Can be overridden manually."
+                    description="When active, a toggle button appears in the Tracks panel and Console (All tracks/Selection). Selectif you want to hear all MIDI tracks or only Keys, Bass & Drums. Can be overridden manually."
                   />
                 </CollapsibleSection>
 
@@ -2294,9 +2292,9 @@ export default function SettingsPanel() {
                         onChange={e => setHitEffectPattern(e.target.value as typeof hitEffectPattern)}
                         style={{
                           width: '100%', padding: '5px 8px', borderRadius: 4,
-                          border: '1px solid var(--status-success)',
-                          background: 'rgba(74, 144, 96, 0.13)',
-                          color: 'var(--status-success)',
+                          border: '1px solid var(--accent-amber-strong)',
+                          background: 'var(--accent-amber-medium)',
+                          color: 'var(--text-amber)',
                           fontSize: 'var(--text-xs)', fontFamily: 'JetBrains Mono', fontWeight: 700,
                           cursor: 'pointer',
                         }}
