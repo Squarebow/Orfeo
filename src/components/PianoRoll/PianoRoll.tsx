@@ -21,18 +21,19 @@ const MIN_NOTE_H       = 4
 const PLAYHEAD_RATIO   = 0.80
 const RESIZE_ZONE_PX   = 6
 const DRAG_THRESHOLD   = 4
-// ── Velocity lane (edit mode only) — v1 shows only the currently-selected
-// note(s), one bar each, drag vertically to adjust. Deliberately not a
-// dense per-visible-note bar chart like a standard horizontal-scrolling DAW
-// roll: this app's roll scrolls vertically (Y=time, X=pitch), so there's no
-// single natural X-axis to place one bar per note the way a DAW would —
-// doing that properly would mean reworking the roll's whole coordinate
-// system, a bigger upgrade for later if it's ever wanted. Selection-driven
-// is the version that fits the existing click-select-then-adjust workflow
-// (matches how move/resize/pitch already work) and ships correctly now. ───
-const VELOCITY_LANE_H  = 56
-const VELOCITY_BAR_W   = 18
-const VELOCITY_BAR_GAP = 6
+// ── Velocity lane (edit mode, toggled on demand) — one thin bar per note of
+// whichever track is currently soloed for edit, aligned to the same X/pitch
+// position as the falling notes and keyboard (one continuous vertical line
+// through keyboard key → note → velocity bar). Height is computed live each
+// frame as the piano-roll canvas height minus the playhead Y — it covers the
+// whole area below the playhead, not a fixed strip; that's the area that's
+// visually "spent" once a note has fallen through anyway, and playback is
+// paused while editing regardless. Bars only reflect whatever's in the same
+// live time-window the falling view already computes — no independent pan/
+// zoom to browse the rest of a soloed track's notes while paused; a real
+// secondary time-axis mini-editor (closer to Signal/Ableton/Logic's lane)
+// is the flagged upgrade if that's ever wanted. ───────────────────────────
+const VELOCITY_BAR_W   = 5
 
 // ── Canvas/PixiJS colors resolved from CSS custom properties ─────────────────
 // PixiJS Graphics.fill({color}) needs a numeric 0xRRGGBB and Canvas2D ctx.fillStyle
@@ -59,6 +60,7 @@ let BARLINE_COLOR             = '#1e1e38'   // --pianoroll-barline
 let BAR_PILL_BG_COLOR         = '#0d0d18'   // --bg-row (near-match snap)
 let BAR_PILL_TEXT_DARK_COLOR  = '#0f0f12'   // --bg-modal-header (near-match snap)
 let NOTE_LABEL_COLOR          = 'rgba(255,255,255,0.85)'   // --text-canvas-label
+let VELOCITY_BAR_HEX_STR      = '#8080cc'   // --merge-badge-text (same blue as MidiEditor's Undo-merge icon)
 
 function hexVarToNumber(raw: string, fallback: number): number {
   const h = raw.trim().replace('#', '')
@@ -93,6 +95,7 @@ function resolvePianoRollColorsFromCSS() {
   BAR_PILL_BG_COLOR        = readStr('--bg-row', BAR_PILL_BG_COLOR)
   BAR_PILL_TEXT_DARK_COLOR = readStr('--bg-modal-header', BAR_PILL_TEXT_DARK_COLOR)
   NOTE_LABEL_COLOR         = readStr('--text-canvas-label', NOTE_LABEL_COLOR)
+  VELOCITY_BAR_HEX_STR     = readStr('--merge-badge-text', VELOCITY_BAR_HEX_STR)
 }
 
 // ── FlatNote — used for the main render O(log N) binary search ────────────────
@@ -165,6 +168,7 @@ function LoopOverlay() {
   const currentTime        = useStore(s => s.currentTime)
   const zoomLevel          = useStore(s => s.zoomLevel)
   const noteEditorActive   = useStore(s => s.noteEditorActive)
+  const midi               = useStore(s => s.midi)
 
   const overlayRef  = useRef<HTMLDivElement>(null)
   const draggingRef = useRef<'start' | 'end' | null>(null)
@@ -282,12 +286,11 @@ function LoopOverlay() {
   const amber     = loopRegionActive ? 'var(--accent-amber-loop-border)' : 'var(--accent-amber-loop-border-dim)'
   const amberFill = loopRegionActive ? 'var(--accent-amber-active-bg)'   : 'var(--accent-amber-loop-fill-dim)'
 
-  // Tooltip visibility: show when hovering, Alt not held, not dragging. The
-  // Alt+drag loop-select gesture itself works regardless of the Loop region
-  // setting (that setting only toggles the separate strip UI in TopBar), so
-  // this hint isn't gated on it either — was previously hidden whenever the
-  // setting was off even though the interaction still worked.
-  const showTooltip = !noteEditorActive && !altDown && mousePos !== null
+  // Tooltip visibility: only while a file is loaded AND Alt is actually held
+  // down — otherwise it's just a normal pointer, no persistent hint. (Not a
+  // discovery hint shown on plain hover anymore — that read as a stray
+  // tooltip appearing on app open with no file loaded, which is wrong.)
+  const showTooltip = !!midi && !noteEditorActive && altDown && mousePos !== null
 
   // Edit mode disables loop overlay pointer events to pass them to PixiJS
   if (noteEditorActive) return null
@@ -435,7 +438,7 @@ export default function PianoRoll() {
       const velCanvas = document.createElement('canvas')
       velCanvas.style.cssText = 'position:absolute;left:0;bottom:0;display:none'
       velCanvas.width  = el.clientWidth || 800
-      velCanvas.height = VELOCITY_LANE_H
+      velCanvas.height = Math.round((el.clientHeight || 600) * (1 - PLAYHEAD_RATIO))
       el.appendChild(velCanvas)
       velocityCanvasRef.current = velCanvas
       velocityCtxRef.current    = velCanvas.getContext('2d')
@@ -1365,14 +1368,25 @@ export default function PianoRoll() {
         const { noteEditorActive, velocityPanelOpen, noteEditorSoloTrackIndex } = storeRef.current
         const visible = noteEditorActive && velocityPanelOpen
         canvas.style.display = visible ? 'block' : 'none'
+        canvas.title = visible ? 'Drag up/down to edit velocity' : ''
         if (!visible) { velBars = []; return }
 
-        const W = canvas.width, H = VELOCITY_LANE_H
+        const W = canvas.width, H = canvas.height
         ctx.clearRect(0, 0, W, H)
         ctx.fillStyle = BAR_PILL_BG_COLOR
         ctx.fillRect(0, 0, W, H)
         ctx.strokeStyle = BARLINE_COLOR
         ctx.beginPath(); ctx.moveTo(0, 0.5); ctx.lineTo(W, 0.5); ctx.stroke()
+
+        // ── Label — top-right corner, amber caps, no icon ──────────────────
+        ctx.fillStyle = HAND_AMBER_HEX_STR
+        ctx.font = 'bold 9px Inter, sans-serif'
+        ctx.textAlign = 'right'
+        ctx.textBaseline = 'alphabetic'
+        ctx.save()
+        ctx.letterSpacing = '0.1em' as any
+        ctx.fillText('VELOCITY EDITOR', W - 8, 14)
+        ctx.restore()
 
         if (noteEditorSoloTrackIndex === null) {
           velBars = []
@@ -1385,7 +1399,7 @@ export default function PianoRoll() {
         }
 
         velBars = []
-        const trackTop = 18, trackH = H - trackTop - 6
+        const trackTop = 20, trackH = H - trackTop - 6
 
         // editFlatNotes already excludes every track except the soloed one —
         // soloTrackForEdit hides all others (ts.visible=false), and
@@ -1394,13 +1408,13 @@ export default function PianoRoll() {
         for (const ef of editFlatNotes) {
           const note = ef.note
           const vel  = Math.max(0, Math.min(1, note.velocity))
-          const barW = Math.max(6, Math.round(ef.key.width * 0.7))
+          const barW = VELOCITY_BAR_W
           const x    = ef.key.x + (ef.key.width - barW) / 2
           const barH = Math.max(2, Math.round(vel * trackH))
           const y    = trackTop + (trackH - barH)
           const isDragging = note === velDragNote
 
-          ctx.fillStyle = isDragging ? HAND_AMBER_HEX_STR : `${HAND_AMBER_HEX_STR}bb`
+          ctx.fillStyle = isDragging ? VELOCITY_BAR_HEX_STR : `${VELOCITY_BAR_HEX_STR}bb`
           ctx.fillRect(x, y, barW, barH)
 
           // Numeric readout only for the bar actively being dragged — with a
@@ -1435,7 +1449,8 @@ export default function PianoRoll() {
       }
       const onVelPointerMove = (e: PointerEvent) => {
         if (!velDragNote) return
-        const trackH = VELOCITY_LANE_H - 18 - 6
+        const laneH  = velocityCanvasRef.current?.height ?? 56
+        const trackH = laneH - 20 - 6
         const delta  = (velDragStartY - e.clientY) / trackH
         velDragNote.velocity = Math.max(0, Math.min(1, velDragStartVel + delta))
       }
@@ -1511,7 +1526,8 @@ export default function PianoRoll() {
           overlayCanvasRef.current.height = h
         }
         if (velocityCanvasRef.current) {
-          velocityCanvasRef.current.width = w
+          velocityCanvasRef.current.width  = w
+          velocityCanvasRef.current.height = Math.round(h * (1 - PLAYHEAD_RATIO))
         }
       })
       roInstance.observe(el)

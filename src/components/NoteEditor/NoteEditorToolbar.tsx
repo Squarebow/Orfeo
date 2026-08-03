@@ -455,7 +455,7 @@ export default function NoteEditorToolbar() {
           style={{
             ...btnBase,
             width: 28, padding: 0, justifyContent: 'center',
-            color:       velocityPanelOpen ? 'var(--text-amber)' : 'var(--text-muted)',
+            color:       velocityPanelOpen || noteEditorSoloTrackIndex !== null ? 'var(--text-amber)' : 'var(--text-muted)',
             borderColor: velocityPanelOpen ? 'var(--accent-amber-active-border)' : 'var(--state-hover-bg)',
             background:  velocityPanelOpen ? 'var(--accent-amber-active-bg)'     : 'transparent',
           }}
