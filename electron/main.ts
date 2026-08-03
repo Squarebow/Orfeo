@@ -9,6 +9,7 @@ import { assignHands } from '../src/utils/handAssignment'
 import { buildHandExportHint, withHandSuffix } from '../src/utils/handMetadata'
 import { getGMGroup } from '../src/utils/gmInstruments'
 import { KEYBOARD_GROUPS } from '../src/utils/keyboardGroups'
+import { nextOrfeoBaseName } from '../src/utils/orfeoVersioning'
 import type { Hand } from '../src/types'
 
 // ── Module-level window reference — needed by the close handler and IPC send ──────
@@ -469,14 +470,11 @@ ipcMain.handle('editor:save', async (_e, payload: {
     if (!payload.filePath) return { ok: false, message: 'No source file loaded' }
     const midi = new Midi(readFileSync(payload.filePath))
 
-    // ── Resolve output path into Orfeo/ subfolder ─────────────────────────────
-    // Strip any existing _ORFEO / _ORFEO_MERGED suffix before appending a new one
-    // so re-saving an already-generated file overwrites cleanly instead of doubling up.
+    // ── Resolve output path into Orfeo/ subfolder — always the next _ORFEO_vN,
+    // never overwrites a prior save (see src/utils/orfeoVersioning.ts). ────────
     const orfeoDir   = await getOrfeoOutputDir(payload.filePath)
     const rawBase    = basename(payload.filePath).replace(/\.midi?$/i, '')
-    const baseName   = rawBase.replace(/_(ORFEO_MERGED|ORFEO)$/i, '')
-    const hasMerge   = (payload.mergeGroups ?? []).some(g => g.length >= 2)
-    const outputPath = join(orfeoDir, `${baseName}${hasMerge ? '_ORFEO_MERGED' : '_ORFEO'}.mid`)
+    const outputPath = join(orfeoDir, `${nextOrfeoBaseName(rawBase)}.mid`)
 
     const noteTrackIndices: number[] = []
     midi.tracks.forEach((t, i) => { if (t.notes.length > 0) noteTrackIndices.push(i) })
@@ -658,11 +656,11 @@ ipcMain.handle('editor:split', async (_e, payload: {
     rhTrack.instrument.number = srcTrack.instrument.number
     rhNotes.forEach(n => rhTrack.notes.push(n))
 
-    // ── Resolve output path — strip existing ORFEO suffixes before appending ──
+    // ── Resolve output path — always the next _ORFEO_vN, same rule as every
+    // other editing tool (see src/utils/orfeoVersioning.ts). ──────────────────
     const orfeoDir    = await getOrfeoOutputDir(payload.filePath)
     const rawBase     = basename(payload.filePath).replace(/\.midi?$/i, '')
-    const baseNameStr = rawBase.replace(/_(ORFEO_MERGED|ORFEO_SPLIT|ORFEO)$/i, '')
-    const outputPath  = join(orfeoDir, `${baseNameStr}_ORFEO_SPLIT.mid`)
+    const outputPath  = join(orfeoDir, `${nextOrfeoBaseName(rawBase)}.mid`)
 
     const outBuf = Buffer.from(midi.toArray())
     writeFileSync(outputPath, outBuf)

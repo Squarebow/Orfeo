@@ -5,6 +5,7 @@ import { confirmDialog } from '../../utils/confirmController'
 import { editableCopyToBuffer } from '../../utils/noteEditorCommands'
 import { parseMidiBuffer } from '../../utils/midiParser'
 import { detectKeyFromTracks, parseKeySignature } from '../../utils/keyDetection'
+import { nextOrfeoBaseName } from '../../utils/orfeoVersioning'
 
 // ── Toolbar SVG icons ─────────────────────────────────────────────────────────
 const IconSnap = () => (
@@ -56,12 +57,8 @@ function computeSavePath(sourcePath: string): string {
   const slash = norm.lastIndexOf('/')
   const dir   = norm.substring(0, slash + 1)
   const base  = norm.substring(slash + 1).replace(/\.midi?$/i, '')
-  const stripped = base.replace(/_ORFEO(_V\d+)?$/i, '')
-  const vMatch   = base.match(/_ORFEO_V(\d+)$/i)
-  const isOrfeo  = /_ORFEO$/i.test(base)
-  const suffix   = vMatch ? `_ORFEO_V${parseInt(vMatch[1]) + 1}` : isOrfeo ? '_ORFEO_V2' : '_ORFEO'
-  const outDir   = dir.endsWith('/Orfeo/') ? dir : `${dir}Orfeo/`
-  return `${outDir}${stripped}${suffix}.mid`
+  const outDir = dir.endsWith('/Orfeo/') ? dir : `${dir}Orfeo/`
+  return `${outDir}${nextOrfeoBaseName(base)}.mid`
 }
 
 // ── NoteEditorToolbar ─────────────────────────────────────────────────────────

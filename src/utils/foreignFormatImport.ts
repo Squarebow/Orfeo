@@ -173,3 +173,33 @@ export async function confirmPendingImportBeforeSwitch(
   setPendingImportedFile(null);
   return true;
 }
+
+// ── Gate before opening any Orfeo editing tool (MIDI Playback Editor, Note
+// Editor) on the currently loaded file — editing an imported foreign-format
+// file that only exists in memory has nowhere real to save its _ORFEO_v1,
+// so it must be written to disk as an actual .mid first. Unlike
+// confirmPendingImportBeforeSwitch, "Don't Save" isn't offered here — there's
+// no sensible "edit but don't save the base file" option. Returns true (and
+// patches the store's midi._filePath to the new on-disk cache path, so save
+// operations compute their suffix from a real .mid name) if the caller
+// should proceed, false if the user cancelled. ─────────────────────────────
+export async function confirmPendingImportBeforeEdit(): Promise<boolean> {
+  const { pendingImportedFile, setPendingImportedFile, midi } = useStore.getState();
+  if (!pendingImportedFile) return true;
+
+  const libraryFolder = (useStore.getState() as any).libraryFolder as string | null ?? null;
+  const cachePath = getCachePath(pendingImportedFile.sourcePath, libraryFolder);
+
+  const choice = await confirmDialog({
+    message: `Save "${pendingImportedFile.fileName}" as a MIDI file before editing?`,
+    detail: `Orfeo's editing tools only work on real .mid files. This saves a copy at:\n${cachePath}\n\nThe original ${pendingImportedFile.fileName} is never modified.`,
+    buttons: ['Save as MID', 'Cancel'],
+  });
+
+  if (choice !== 0) return false; // Cancel
+
+  await (window.electronAPI as any).writeCachedImport(cachePath, pendingImportedFile.midiBase64);
+  setPendingImportedFile(null);
+  if (midi) useStore.setState({ midi: { ...(midi as any), _filePath: cachePath } as any });
+  return true;
+}

@@ -71,22 +71,28 @@ export default function TrackPanel() {
   const { pause } = usePlayback()
 
   // ── Open editor — sets store flag; MidiEditor floating modal reads from store ─
-  const handleOpenEditor = () => {
+  // Gated on confirmPendingImportBeforeEdit: an imported foreign-format file
+  // must be saved as a real .mid before any Orfeo editing tool can touch it.
+  const handleOpenEditor = async () => {
     if (!midi) return
+    const { confirmPendingImportBeforeEdit } = await import('../../utils/foreignFormatImport')
+    if (!(await confirmPendingImportBeforeEdit())) return
     useStore.getState().setMidiEditorOpen(true)
   }
 
   // ── Toggle note edit mode — moved here from TopBar; same gating (only
   // visible/enabled when noteEditorEnabled in Settings, and a file is loaded) ──
-  const handleToggleNoteEditor = () => {
+  const handleToggleNoteEditor = async () => {
     if (noteEditorActive) {
       setNoteEditorActive(false)
       NES.reset()
-    } else {
-      if (playbackState === 'playing') pause()
-      NES.reset()
-      setNoteEditorActive(true)
+      return
     }
+    const { confirmPendingImportBeforeEdit } = await import('../../utils/foreignFormatImport')
+    if (!(await confirmPendingImportBeforeEdit())) return
+    if (playbackState === 'playing') pause()
+    NES.reset()
+    setNoteEditorActive(true)
   }
 
   // ── Group tracks — partition by GM group key. Default order is GROUP_ORDER;

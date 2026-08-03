@@ -16,6 +16,7 @@ import { parseMidiBuffer } from '../../utils/midiParser'
 import { detectKeyFromTracks, parseKeySignature } from '../../utils/keyDetection'
 import { bringToFront, MODAL_BASE_Z } from '../../utils/modalFocus'
 import { KEYBOARD_GROUPS } from '../../utils/keyboardGroups'
+import { nextOrfeoBaseName } from '../../utils/orfeoVersioning'
 import { getHandPreviewStats, getLowConfidencePassages } from '../../utils/handPreview'
 
 const MODAL_W = 760
@@ -149,9 +150,14 @@ type MergeGroup = number[]
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
-function orfeoName(p: string, hasMerge = false) {
-  const suffix = hasMerge ? '_ORFEO_MERGED' : '_ORFEO'
-  return p.replace(/\.(mid|midi)$/i, suffix + '.$1') || p + suffix
+// ── Preview only — the actual save (electron/main.ts editor:save) computes
+// its own output path with the same rule (src/utils/orfeoVersioning.ts),
+// this just keeps what's shown here accurate to that. ─────────────────────
+function orfeoName(p: string) {
+  const norm = p.replace(/\\/g, '/')
+  const slash = norm.lastIndexOf('/')
+  const base = norm.substring(slash + 1).replace(/\.midi?$/i, '')
+  return `${nextOrfeoBaseName(base)}.mid`
 }
 function baseName(p: string) { return p.split(/[\\/]/).pop() ?? p }
 
@@ -759,7 +765,7 @@ export default function MidiEditor() {
     if (!midiEditorOpen || !midi) return
     const filePath = (midi as any)._filePath ?? ''
     const rows = buildRows()
-    setState({ fileName: midi.fileName, filePath, rows, outputPath: orfeoName(filePath, false) })
+    setState({ fileName: midi.fileName, filePath, rows, outputPath: orfeoName(filePath) })
     setSaveResult(null)
     setSplitResult(null)
     setPendingSplitIndex(null)
@@ -786,7 +792,7 @@ export default function MidiEditor() {
   useEffect(() => {
     if (!midiEditorOpen || !midi) return
     const filePath = (midi as any)._filePath ?? ''
-    setState(s => s ? { ...s, rows: buildRows(), filePath, fileName: midi.fileName, outputPath: orfeoName(filePath, false) } : s)
+    setState(s => s ? { ...s, rows: buildRows(), filePath, fileName: midi.fileName, outputPath: orfeoName(filePath) } : s)
   }, [midi])
 
   // ── Drag: mousemove / mouseup ─────────────────────────────────────────────────
@@ -885,15 +891,14 @@ export default function MidiEditor() {
       const firstIdx = s.rows.findIndex(r => r.index === first.index)
       const without  = s.rows.filter(r => !selected.some(sel => sel.index === r.index))
       const newRows  = [...without.slice(0, firstIdx), mergedRow, ...without.slice(firstIdx)]
-      const hasMerge = newRows.some(r => r.isMerged)
-      return { ...s, rows: newRows, outputPath: orfeoName(s.filePath, hasMerge) }
+      return { ...s, rows: newRows, outputPath: orfeoName(s.filePath) }
     })
   }
 
   // ── Unmerge: reset rows from current store state (no IPC needed) ──────────────
   const handleUnmerge = () => {
     const rows = buildRows()
-    setState(s => s ? { ...s, rows, outputPath: orfeoName(s.filePath, false) } : s)
+    setState(s => s ? { ...s, rows, outputPath: orfeoName(s.filePath) } : s)
   }
 
   const mergeCount    = state.rows.filter(t => t.mergeSelected && !t.isMerged).length
@@ -921,10 +926,7 @@ export default function MidiEditor() {
         }
       }
       const mergeGroups = buildMergeGroups()
-      const hasMerge    = mergeGroups.length > 0
-      const finalOutput = hasMerge && (state.outputPath === orfeoName(state.filePath, false) || state.outputPath === orfeoName(state.filePath, true))
-        ? orfeoName(state.filePath, true)
-        : state.outputPath
+      const finalOutput = state.outputPath
 
       // ── Build trackNames/trackColors maps: editorIndex → value for all included
       // rows. Merged rows contribute keyed by their first source track index,
@@ -1214,7 +1216,7 @@ export default function MidiEditor() {
         </div>
         <div style={{ display: 'flex', alignItems: 'flex-start', gap: 5, padding: '5px 8px', background: 'var(--bg-modal-header)', borderRadius: 4, border: '1px solid var(--border)', marginBottom: 8 }}>
           <AlertCircle size={10} style={{ color: 'var(--text-inactive)', flexShrink: 0, marginTop: 1 }} />
-          <span style={{ fontSize: 9, color: 'var(--text-inactive)', fontFamily: 'JetBrains Mono', lineHeight: 1.5 }}>Original file is never modified. Saved as _ORFEO copy, auto-loads on save.</span>
+          <span style={{ fontSize: 9, color: 'var(--text-inactive)', fontFamily: 'JetBrains Mono', lineHeight: 1.5 }}>Original file is never modified. Saved as a new _ORFEO_vN copy each time, auto-loads on save.</span>
         </div>
         {splitResult && (
           <div style={{ padding: '5px 8px', borderRadius: 4, marginBottom: 8, background: splitResult.ok ? 'var(--status-success-bg)' : 'var(--status-error-banner-bg)', border: `1px solid ${splitResult.ok ? 'var(--status-success-border)' : 'var(--status-error-banner-border)'}`, fontSize: 10, color: splitResult.ok ? 'var(--status-success-text)' : 'var(--status-error-banner-text)', fontFamily: 'JetBrains Mono' }}>
