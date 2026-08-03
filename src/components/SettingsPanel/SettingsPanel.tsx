@@ -1288,7 +1288,7 @@ function LibraryPanel() {
                   title={rowTitle}
                   style={{
                     display: 'flex', alignItems: 'center', gap: 6,
-                    padding: '7px 10px 7px 26px', borderBottom: '1px solid var(--border-row)',
+                    padding: '8px 10px 8px 26px', borderBottom: '1px solid var(--border-row)',
                     cursor: 'pointer', transition: 'background 0.08s',
                     background: isLoaded ? 'var(--accent-amber-medium)' : 'transparent',
                   }}
@@ -1451,7 +1451,7 @@ function LibraryPanel() {
                   style={{
                     display: 'flex', alignItems: 'center', gap: 6,
                     // Indent subfolder files slightly
-                    padding: group.folder ? '7px 10px 7px 26px' : '7px 10px 7px 12px',
+                    padding: group.folder ? '8px 10px 8px 26px' : '8px 10px 8px 12px',
                     cursor: 'pointer', transition: 'background 0.08s',
                     background: rowBg,
                     borderLeft: isSelected ? selectionBorder : 'none',

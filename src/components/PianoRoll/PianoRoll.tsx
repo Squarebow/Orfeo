@@ -1392,7 +1392,7 @@ export default function PianoRoll() {
           background: 'var(--pianoroll-tooltip-bg)',
           border: '1px solid var(--state-hover-border)',
           borderRadius: 'var(--radius-sm)',
-          padding: '2px 7px',
+          padding: '2px 8px',
           fontSize: 'var(--text-xs)',
           fontFamily: "'JetBrains Mono', monospace",
           color: 'var(--text-default)',

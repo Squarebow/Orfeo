@@ -109,7 +109,7 @@ export default function LockedChordModal() {
       display: 'flex',
       flexDirection: 'column',
       // ── Amber glow to distinguish from other floating panels ─────────────
-      boxShadow: '0 8px 40px rgba(0,0,0,0.8), 0 0 0 1px var(--accent-amber-glow-outer), 0 0 18px var(--accent-amber-glow-inner)',
+      boxShadow: 'var(--elevation-modal), 0 0 0 1px var(--accent-amber-glow-outer), 0 0 18px var(--accent-amber-glow-inner)',
       userSelect: 'none',
     }}>
 

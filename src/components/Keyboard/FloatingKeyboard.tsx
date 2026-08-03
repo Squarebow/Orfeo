@@ -109,7 +109,7 @@ export default function FloatingKeyboard() {
         userSelect: dragState.current ? 'none' : 'auto',
         display: 'flex',
         flexDirection: 'column',
-        '--_modal-shadow': '0 8px 40px rgba(0,0,0,0.7)',
+        '--_modal-shadow': 'var(--elevation-floating-light)',
       } as CSSProperties}
     >
       {/* Left resize handle */}

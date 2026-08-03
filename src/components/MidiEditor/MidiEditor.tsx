@@ -1015,7 +1015,7 @@ export default function MidiEditor() {
         display: 'flex', flexDirection: 'column',
         color: 'var(--text-muted)', fontFamily: 'Inter, system-ui',
         fontSize: 'var(--text-sm)', userSelect: 'none',
-        '--_modal-shadow': '0 8px 40px rgba(0,0,0,0.85)',
+        '--_modal-shadow': 'var(--elevation-modal-heavy)',
       } as CSSProperties}
     >
       {/* ── Draggable title bar ──────────────────────────────────────────────── */}
@@ -1237,8 +1237,8 @@ export default function MidiEditor() {
           </div>
         )}
         <div style={{ display: 'flex', gap: 'var(--space-2)' }}>
-          <button onClick={() => setMidiEditorOpen(false)} style={{ flex: 1, padding: '7px 0', borderRadius: 'var(--radius-md)', background: 'transparent', border: '1px solid var(--border2)', color: 'var(--text-dim-control)', fontSize: 'var(--text-sm)', cursor: 'pointer' }}>Cancel</button>
-          <button onClick={handleSave} disabled={saving} style={{ flex: 1, padding: '7px 0', borderRadius: 'var(--radius-md)', background: saving ? 'var(--bg-tile)' : 'var(--text-amber)', border: 'none', color: saving ? 'var(--text-inactive)' : 'var(--text-near-black)', fontSize: 'var(--text-sm)', fontWeight: 600, cursor: saving ? 'wait' : 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6 }}>
+          <button onClick={() => setMidiEditorOpen(false)} style={{ flex: 1, padding: '8px 0', borderRadius: 'var(--radius-md)', background: 'transparent', border: '1px solid var(--border2)', color: 'var(--text-dim-control)', fontSize: 'var(--text-sm)', cursor: 'pointer' }}>Cancel</button>
+          <button onClick={handleSave} disabled={saving} style={{ flex: 1, padding: '8px 0', borderRadius: 'var(--radius-md)', background: saving ? 'var(--bg-tile)' : 'var(--text-amber)', border: 'none', color: saving ? 'var(--text-inactive)' : 'var(--text-near-black)', fontSize: 'var(--text-sm)', fontWeight: 600, cursor: saving ? 'wait' : 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6 }}>
             <Save size={13} /> {saving ? 'Saving…' : 'Save & Reload'}
           </button>
         </div>

@@ -10,6 +10,7 @@ import type { Genre } from '../utils/genreVoicing'
 import type { NoteNaming } from '../types'
 import SpeedControl from './SpeedControl'
 import OrfeoMark from './OrfeoMark'
+import { MINIMIZE_BUTTON_STYLE } from '../utils/modalHeaderStyles'
 
 const RANGES: Record<number, { min: number; max: number }> = {
   61: { min: 36, max: 96 },
@@ -626,7 +627,7 @@ export default function ChordExplorer() {
 
   // ── Pill button base — active: amber text + tinted bg; inactive: dim ─────────
   const btnBase = (active: boolean): React.CSSProperties => ({
-    padding: '2px 7px', borderRadius: 'var(--radius-sm)', border: 'none',
+    padding: '2px 8px', borderRadius: 'var(--radius-sm)', border: 'none',
     background: active ? 'var(--state-hover-bg)' : 'transparent',
     color: active ? 'var(--text-amber)' : 'var(--text-inactive)',
     fontFamily: 'Inter', fontSize: 10, fontWeight: 600,
@@ -652,7 +653,7 @@ export default function ChordExplorer() {
       zIndex: 401,
       display: chordExplorerMinimized ? 'none' : 'flex', flexDirection: 'column',
       overflow: 'hidden',
-      '--_modal-shadow': '0 8px 40px rgba(0,0,0,0.8)',
+      '--_modal-shadow': 'var(--elevation-modal)',
     } as CSSProperties}>
 
       {/* Header — draggable */}
@@ -721,7 +722,7 @@ export default function ChordExplorer() {
                 borderRadius: 4,
                 color: 'var(--text-dim)',
                 fontFamily: 'Inter', fontSize: 11,
-                padding: '0 7px', outline: 'none',
+                padding: '0 8px', outline: 'none',
                 caretColor: 'var(--text-amber)',
               }}
             />
@@ -738,7 +739,7 @@ export default function ChordExplorer() {
           <button
             onClick={() => setChordExplorerMinimized(true)}
             title="Minimize"
-            style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-inactive)', lineHeight: 1, padding: '0 4px 2px', display: 'flex', alignItems: 'flex-end', transition: 'color 0.15s' }}
+            style={MINIMIZE_BUTTON_STYLE}
             onMouseEnter={e => e.currentTarget.style.color = 'var(--text-default)'}
             onMouseLeave={e => e.currentTarget.style.color = 'var(--text-inactive)'}
           ><Minus size={14} /></button>
@@ -762,7 +763,7 @@ export default function ChordExplorer() {
                 key={pitchClass}
                 onClick={() => handleRootChange(pitchClass)}
                 style={{
-                  padding: '3px 7px',
+                  padding: '3px 8px',
                   borderRadius: 4, border: 'none',
                   background: isSel ? 'var(--text-amber)' : 'var(--border)',
                   color: isSel ? 'var(--bg)' : 'var(--text-muted)',

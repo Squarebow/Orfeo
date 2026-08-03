@@ -146,7 +146,7 @@ export default function KeyboardControls() {
         const lineStyle: CSSProperties = {
           position: 'absolute', top: 0, bottom: 0, width: 2,
           background: AMBER,
-          boxShadow: `0 0 7px 2px ${AMBER}88`,
+          boxShadow: `0 0 8px 2px ${AMBER}88`,
           pointerEvents: 'none', zIndex: 2,
         }
         const labelBase: CSSProperties = {

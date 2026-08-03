@@ -527,7 +527,7 @@ export default function LoopRegionStrip() {
               display: 'flex',
               flexDirection: 'column',
               gap: 10,
-              '--_modal-shadow': '0 6px 20px rgba(0,0,0,0.6)',
+              '--_modal-shadow': 'var(--elevation-strip)',
             } as CSSProperties}
           >
             {/* Header */}

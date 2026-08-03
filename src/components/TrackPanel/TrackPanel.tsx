@@ -291,7 +291,7 @@ export default function TrackPanel() {
                     title={isCurrentlyFiltered ? 'Play all tracks' : 'Play only piano, bass & drums'}
                     style={{
                       marginLeft: 'auto',
-                      padding: '2px 7px',
+                      padding: '2px 8px',
                       borderRadius: 'var(--radius-sm)',
                       border: 'none',
                       background: 'var(--text-amber)',

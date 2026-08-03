@@ -234,15 +234,26 @@
 --text-track-meta: #454560;         /* TrackPanel.tsx — track row channel/program meta text */
 --icon-visibility-active: #6080c0;  /* TrackPanel.tsx — "Show/Hide in roll" active icon color */
 
+/* ── Elevation — named base shadows for floating panels ─────────────────────
+   Each was independently hand-rolled per component before this token set;
+   values are preserved as-is (no visual change), just given shared names so
+   future panels reuse one instead of inventing a new literal. */
+--elevation-modal: 0 8px 40px rgba(0, 0, 0, 0.8);          /* ChordExplorer, MixerConsole, LockedChordModal */
+--elevation-modal-heavy: 0 8px 40px rgba(0, 0, 0, 0.85);   /* MidiEditor */
+--elevation-explorer: 0 8px 48px rgba(0, 0, 0, 0.85);      /* ScaleExplorer — wider blur */
+--elevation-floating-light: 0 8px 40px rgba(0, 0, 0, 0.7); /* FloatingKeyboard */
+--elevation-strip: 0 6px 20px rgba(0, 0, 0, 0.6);          /* LoopRegionStrip popup — smaller than a full modal */
+
 /* ── Utility classes ── */
 
 /* ── Amber outer glow — apply className to every modal/floating panel ──────
    The base elevation shadow varies per component; pass it via the CSS custom
-   property --_modal-shadow in the element's inline style. The two amber layers
-   are fixed by this class. Future floating panels should use this class.      */
+   property --_modal-shadow in the element's inline style (see --elevation-*
+   tokens above). The two amber layers are fixed by this class. Future
+   floating panels should use this class.      */
 .orfeo-modal-glow {
   box-shadow:
-    var(--_modal-shadow, 0 8px 32px rgba(0, 0, 0, 0.78)),
+    var(--_modal-shadow, var(--elevation-modal)),
     0 0 18px 4px var(--accent-amber-medium),
     0 0 5px 1px var(--accent-amber-strong);
 }

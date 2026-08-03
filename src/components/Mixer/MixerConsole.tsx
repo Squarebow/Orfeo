@@ -157,7 +157,7 @@ export default function MixerConsole() {
         overflow: 'hidden',
         userSelect: 'none',
         zIndex,
-        '--_modal-shadow': '0 8px 40px rgba(0,0,0,0.8)',
+        '--_modal-shadow': 'var(--elevation-modal)',
       } as CSSProperties}
     >
 

@@ -7,6 +7,7 @@ import { getNoteName } from '../utils/noteNames'
 import type { NoteNaming, Accidentals } from '../types'
 import SpeedControl from './SpeedControl'
 import OrfeoMark from './OrfeoMark'
+import { MINIMIZE_BUTTON_STYLE } from '../utils/modalHeaderStyles'
 
 // ── Keyboard range constants ────────────────────────────────────────────────
 const RANGES: Record<number, { min: number; max: number }> = {
@@ -646,7 +647,7 @@ export default function ScaleExplorer() {
         flexDirection: 'column',
         overflow: 'hidden',
         fontFamily: 'Inter',
-        '--_modal-shadow': '0 8px 48px rgba(0,0,0,0.85)',
+        '--_modal-shadow': 'var(--elevation-explorer)',
       } as CSSProperties}
     >
       {/* Header — drag handle */}
@@ -666,7 +667,7 @@ export default function ScaleExplorer() {
           onMouseDown={e => e.stopPropagation()}
           onClick={() => setScaleExplorerMinimized(true)}
           title="Minimize"
-          style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-inactive)', lineHeight: 1, padding: '0 4px 2px', display: 'flex', alignItems: 'flex-end', transition: 'color 0.15s' }}
+          style={MINIMIZE_BUTTON_STYLE}
           onMouseEnter={e => e.currentTarget.style.color = 'var(--text-default)'}
           onMouseLeave={e => e.currentTarget.style.color = 'var(--text-inactive)'}
         ><Minus size={14} /></button>
