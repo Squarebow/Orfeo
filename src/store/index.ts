@@ -265,6 +265,13 @@ interface OrfeoStore {
   showNoteNamesOnKeyboard: boolean
   setShowNoteNamesOnKeyboard: (v: boolean) => void
 
+  // ── Auto-collapse left/right drawers (library/settings + tracks) while
+  // playing, restore them on pause/stop/new-file-load. _preAutoCollapse*
+  // remembers what was actually open before auto-collapse hid it, so we
+  // only reopen what the user had open, not force both open unconditionally.
+  autoCollapseDrawers: boolean
+  setAutoCollapseDrawers: (v: boolean) => void
+
   handLabelMode: 'practice' | 'performance'
   setHandLabelMode: (mode: 'practice' | 'performance') => void
 
@@ -605,6 +612,9 @@ export const useStore = create<OrfeoStore>((set, get) => ({
   showNoteNamesOnKeyboard: true,
   setShowNoteNamesOnKeyboard: (showNoteNamesOnKeyboard) => set({ showNoteNamesOnKeyboard }),
 
+  autoCollapseDrawers: false,
+  setAutoCollapseDrawers: (autoCollapseDrawers) => set({ autoCollapseDrawers }),
+
   // ── Hand label mode — practice (static, tag-based) or performance (per-note, live) ─
   handLabelMode: 'practice' as 'practice' | 'performance',
   setHandLabelMode: (handLabelMode) => set({ handLabelMode }),
@@ -731,6 +741,7 @@ async function restoreLibraryPrefs() {
     if (typeof prefs.performanceSplitSensitivity === 'number') store.setPerformanceSplitSensitivity(prefs.performanceSplitSensitivity)
     if (typeof prefs.showOctaveLabels === 'boolean') store.setShowOctaveLabels(prefs.showOctaveLabels)
     if (typeof prefs.showNoteNamesOnKeyboard === 'boolean') store.setShowNoteNamesOnKeyboard(prefs.showNoteNamesOnKeyboard)
+    if (typeof prefs.autoCollapseDrawers === 'boolean') store.setAutoCollapseDrawers(prefs.autoCollapseDrawers)
     if (typeof prefs.autoMuteNonKeyboard === 'boolean') store.setAutoMuteNonKeyboard(prefs.autoMuteNonKeyboard)
     if (prefs.settingsGroupsCollapsed && typeof prefs.settingsGroupsCollapsed === 'object' && !Array.isArray(prefs.settingsGroupsCollapsed)) {
       const defaults = store.settingsGroupsCollapsed
@@ -792,6 +803,7 @@ let _prevHandLabelMode: string | null = null
 let _prevPerformanceSplitSensitivity: number | null = null
 let _prevShowOctaveLabels: boolean | null = null
 let _prevShowNoteNamesOnKeyboard: boolean | null = null
+let _prevAutoCollapseDrawers: boolean | null = null
 let _prevAutoMuteNonKeyboard: boolean | null = null
 let _prevSettingsGroupsCollapsed: string | null = null
 let _prevNoteEditorWalkthroughSeen: boolean | null = null
@@ -828,6 +840,7 @@ useStore.subscribe((state) => {
     _prevPerformanceSplitSensitivity = state.performanceSplitSensitivity
     _prevShowOctaveLabels = state.showOctaveLabels
     _prevShowNoteNamesOnKeyboard = state.showNoteNamesOnKeyboard
+    _prevAutoCollapseDrawers = state.autoCollapseDrawers
     _prevAutoMuteNonKeyboard = state.autoMuteNonKeyboard
     _prevSettingsGroupsCollapsed = JSON.stringify(state.settingsGroupsCollapsed)
     _prevNoteEditorWalkthroughSeen = state.noteEditorWalkthroughSeen
@@ -864,6 +877,7 @@ useStore.subscribe((state) => {
     state.performanceSplitSensitivity !== _prevPerformanceSplitSensitivity ||
     state.showOctaveLabels !== _prevShowOctaveLabels ||
     state.showNoteNamesOnKeyboard !== _prevShowNoteNamesOnKeyboard ||
+    state.autoCollapseDrawers !== _prevAutoCollapseDrawers ||
     state.autoMuteNonKeyboard !== _prevAutoMuteNonKeyboard ||
     JSON.stringify(state.settingsGroupsCollapsed) !== _prevSettingsGroupsCollapsed ||
     state.noteEditorWalkthroughSeen !== _prevNoteEditorWalkthroughSeen ||
@@ -898,6 +912,7 @@ useStore.subscribe((state) => {
     _prevPerformanceSplitSensitivity = state.performanceSplitSensitivity
     _prevShowOctaveLabels = state.showOctaveLabels
     _prevShowNoteNamesOnKeyboard = state.showNoteNamesOnKeyboard
+    _prevAutoCollapseDrawers = state.autoCollapseDrawers
     _prevAutoMuteNonKeyboard = state.autoMuteNonKeyboard
     _prevSettingsGroupsCollapsed = JSON.stringify(state.settingsGroupsCollapsed)
     _prevNoteEditorWalkthroughSeen = state.noteEditorWalkthroughSeen
@@ -932,6 +947,7 @@ useStore.subscribe((state) => {
       performanceSplitSensitivity: state.performanceSplitSensitivity,
       showOctaveLabels: state.showOctaveLabels,
       showNoteNamesOnKeyboard: state.showNoteNamesOnKeyboard,
+      autoCollapseDrawers: state.autoCollapseDrawers,
       autoMuteNonKeyboard: state.autoMuteNonKeyboard,
       settingsGroupsCollapsed: state.settingsGroupsCollapsed,
       noteEditorWalkthroughSeen: state.noteEditorWalkthroughSeen,
@@ -945,6 +961,45 @@ useStore.subscribe((state) => {
       hitEffectColor: state.hitEffectColor,
       selectedSoundfont: state.selectedSoundfont,
     }).catch(() => {})
+  }
+})
+
+// ── Auto-collapse drawers on playback — remembers which of settings/tracks
+// were actually open before collapsing, so restore only reopens those, not
+// both unconditionally. Restores on pause, stop, or a new file loading. ──────
+let _prevPlaybackStateForCollapse: PlaybackState | null = null
+let _prevMidiForCollapse: unknown = null
+let _drawersAutoCollapsed = false
+let _preCollapseSettingsOpen = false
+let _preCollapseTrackPanelOpen = false
+useStore.subscribe((state) => {
+  if (!state.autoCollapseDrawers) { _drawersAutoCollapsed = false; return }
+
+  if (state.midi !== _prevMidiForCollapse) {
+    _prevMidiForCollapse = state.midi
+    if (_drawersAutoCollapsed) {
+      _drawersAutoCollapsed = false
+      if (_preCollapseSettingsOpen) state.setSettingsOpen(true)
+      if (_preCollapseTrackPanelOpen) state.setTrackPanelOpen(true)
+    }
+  }
+
+  if (state.playbackState !== _prevPlaybackStateForCollapse) {
+    const wasPlaying = _prevPlaybackStateForCollapse === 'playing'
+    const isPlaying = state.playbackState === 'playing'
+    _prevPlaybackStateForCollapse = state.playbackState
+
+    if (isPlaying && !_drawersAutoCollapsed) {
+      _preCollapseSettingsOpen = state.settingsOpen
+      _preCollapseTrackPanelOpen = state.trackPanelOpen
+      _drawersAutoCollapsed = true
+      if (state.settingsOpen) state.setSettingsOpen(false)
+      if (state.trackPanelOpen) state.setTrackPanelOpen(false)
+    } else if (!isPlaying && wasPlaying && _drawersAutoCollapsed) {
+      _drawersAutoCollapsed = false
+      if (_preCollapseSettingsOpen) state.setSettingsOpen(true)
+      if (_preCollapseTrackPanelOpen) state.setTrackPanelOpen(true)
+    }
   }
 })
 

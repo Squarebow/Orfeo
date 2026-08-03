@@ -3,7 +3,7 @@ import Fuse from 'fuse.js'
 import { NES } from '../../utils/noteEditorState'
 import { confirmDialog } from '../../utils/confirmController'
 import {
-  ChevronLeft, ChevronDown, ChevronRight, Type, Piano, Palette, ZoomIn, Volume2,
+  ChevronLeft, ChevronDown, ChevronRight, Music2, Piano, Palette, ZoomIn, Volume2,
   Music, FolderOpen, Folders, RefreshCw, FileMusic, FileCode2, Guitar, BookOpen, Library, Settings, Info,
   Search, X, Undo2, Upload, ToggleLeft, ToggleRight,
 } from 'lucide-react'
@@ -1595,6 +1595,8 @@ export default function SettingsPanel() {
   const setShowOctaveLabels          = useStore((s) => s.setShowOctaveLabels)
   const showNoteNamesOnKeyboard      = useStore((s) => s.showNoteNamesOnKeyboard)
   const setShowNoteNamesOnKeyboard   = useStore((s) => s.setShowNoteNamesOnKeyboard)
+  const autoCollapseDrawers          = useStore((s) => s.autoCollapseDrawers)
+  const setAutoCollapseDrawers       = useStore((s) => s.setAutoCollapseDrawers)
   const handLabelMode                        = useStore((s) => s.handLabelMode)
   const setHandLabelMode                     = useStore((s) => s.setHandLabelMode)
   const performanceSplitSensitivity          = useStore((s) => s.performanceSplitSensitivity)
@@ -1827,12 +1829,15 @@ export default function SettingsPanel() {
                 </CollapsibleSection>
 
                 {/* ── 2. NOTATION ────────────────────────────────────────────────── */}
-                <CollapsibleSection icon={<Type size={11} />} label="Notation"
+                <CollapsibleSection icon={<Music2 size={11} />} label="Notation"
                   collapsed={settingsGroupsCollapsed['notation']}
                   onToggle={() => setSettingsGroupCollapsed('notation', !settingsGroupsCollapsed['notation'])}
                 >
                   {/* ── Display system — single 4-button row; Hide uses EyeOff icon ── */}
                   <OptionRow label="Display system">
+                    <div style={{ fontSize: 'var(--text-xs)', color: 'var(--text-dimmest)', lineHeight: 1.5, fontFamily: 'Inter', marginBottom: 6 }}>
+                      Lorem ipsum dolor sit amet, consectetur adipiscing elit.
+                    </div>
                     <div style={{ display: 'flex', gap: 'var(--space-1)' }}>
                       {NOTE_NAMING_OPTIONS.slice(0, 3).map(opt => (
                         <OptionBtn key={opt.value} active={noteNaming === opt.value}
@@ -1869,9 +1874,36 @@ export default function SettingsPanel() {
                       label="Accidentals"
                       hint={accidentals === 'flat' ? 'e.g.  Bb  Eb  Ab  Db  Gb' : 'e.g.  A#  D#  G#  C#  F#'}
                     >
-                      <div style={{ display: 'flex', gap: 'var(--space-1)' }}>
-                        <OptionBtn active={accidentals === 'flat'}  onClick={() => setAccidentals('flat')}  title="Flat names">♭ Flats</OptionBtn>
-                        <OptionBtn active={accidentals === 'sharp'} onClick={() => setAccidentals('sharp')} title="Sharp names">♯ Sharps</OptionBtn>
+                      <div style={{ fontSize: 'var(--text-xs)', color: 'var(--text-dimmest)', lineHeight: 1.5, fontFamily: 'Inter', marginBottom: 6 }}>
+                        Lorem ipsum dolor sit amet, consectetur adipiscing elit.
+                      </div>
+                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 'var(--space-2)' }}>
+                        <span
+                          onClick={() => setAccidentals('flat')}
+                          title="Flat names"
+                          style={{
+                            cursor: 'pointer', fontSize: 'var(--text-xs)', fontFamily: 'Inter', fontWeight: 600,
+                            color: accidentals === 'flat' ? 'var(--text-amber)' : 'var(--text-inactive)',
+                          }}
+                        >♭ Flats</span>
+                        <button
+                          onClick={() => setAccidentals(accidentals === 'flat' ? 'sharp' : 'flat')}
+                          title={accidentals === 'flat' ? 'Switch to sharps' : 'Switch to flats'}
+                          style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 2, display: 'flex', alignItems: 'center', color: 'var(--text-amber)' }}
+                        >
+                          {accidentals === 'flat'
+                            ? <ToggleLeft  size={16} strokeWidth={1.5} />
+                            : <ToggleRight size={16} strokeWidth={1.5} />
+                          }
+                        </button>
+                        <span
+                          onClick={() => setAccidentals('sharp')}
+                          title="Sharp names"
+                          style={{
+                            cursor: 'pointer', fontSize: 'var(--text-xs)', fontFamily: 'Inter', fontWeight: 600,
+                            color: accidentals === 'sharp' ? 'var(--text-amber)' : 'var(--text-inactive)',
+                          }}
+                        >♯ Sharps</span>
                       </div>
                     </OptionRow>
                   )}
@@ -1908,6 +1940,7 @@ export default function SettingsPanel() {
                     eyeToggle
                     eyeValue={showOctaveLabels}
                     onEyeChange={setShowOctaveLabels}
+                    description="Lorem ipsum dolor sit amet, consectetur adipiscing elit."
                   />
                   {/* ── Note name labels — show/hide note names on virtual keyboard ── */}
                   <OptionRow
@@ -1915,7 +1948,23 @@ export default function SettingsPanel() {
                     eyeToggle
                     eyeValue={showNoteNamesOnKeyboard}
                     onEyeChange={setShowNoteNamesOnKeyboard}
+                    description="Lorem ipsum dolor sit amet, consectetur adipiscing elit."
                   />
+                  {/* ── Auto-collapse drawers — collapses library/settings + tracks on
+                      playback, restores them on pause/new file load ────────────────── */}
+                  <OptionRow
+                    label="Auto-collapse drawers on playback"
+                    eyeToggle
+                    eyeValue={autoCollapseDrawers}
+                    onEyeChange={setAutoCollapseDrawers}
+                  />
+                </CollapsibleSection>
+
+                {/* ── 4. PLAYBACK & PRACTICE ─────────────────────────────────────── */}
+                <CollapsibleSection icon={<Music size={11} />} label="Playback & Practice"
+                  collapsed={settingsGroupsCollapsed['playback-practice']}
+                  onToggle={() => setSettingsGroupCollapsed('playback-practice', !settingsGroupsCollapsed['playback-practice'])}
+                >
                   {/* ── Left/Right Hand BETA — eye-toggle; sub-controls unchanged ─── */}
                   <OptionRow
                     label="Left/Right Hand"
@@ -1962,13 +2011,6 @@ export default function SettingsPanel() {
                       )}
                     </>
                   )}
-                </CollapsibleSection>
-
-                {/* ── 4. PLAYBACK & PRACTICE ─────────────────────────────────────── */}
-                <CollapsibleSection icon={<Music size={11} />} label="Playback & Practice"
-                  collapsed={settingsGroupsCollapsed['playback-practice']}
-                  onToggle={() => setSettingsGroupCollapsed('playback-practice', !settingsGroupsCollapsed['playback-practice'])}
-                >
                   {/* ── Chord Prompter — eye-toggle ───────────────────────────────── */}
                   <OptionRow
                     label="Chord Prompter"
