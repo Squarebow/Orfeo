@@ -1,4 +1,4 @@
-import { useState, useMemo, useRef, useEffect, useCallback } from 'react'
+import { useState, useMemo, useRef, useEffect, useCallback, type CSSProperties } from 'react'
 import Fuse from 'fuse.js'
 import { NES } from '../../utils/noteEditorState'
 import { confirmDialog } from '../../utils/confirmController'
@@ -138,7 +138,7 @@ function OptionRow({ label, children, hint, badge, eyeToggle, eyeValue, onEyeCha
           <div style={{
             maxWidth: '85%',
             fontSize: 'var(--text-xs)', color: 'var(--text-faint)',
-            lineHeight: 1.5, fontFamily: 'JetBrains Mono',
+            lineHeight: 1.5, fontFamily: 'Inter',
           }}>
             {description}
           </div>
@@ -158,7 +158,7 @@ function OptionRow({ label, children, hint, badge, eyeToggle, eyeValue, onEyeCha
       {children}
       {/* ── Hint — --text-xs token + --text-dimmest matches description hierarchy ── */}
       {hint && (
-        <div style={{ fontSize: 'var(--text-xs)', color: 'var(--text-dimmest)', marginTop: 5, fontFamily: 'Inter' }}>
+        <div style={{ fontSize: 'var(--text-xs)', color: 'var(--text-faint)', marginTop: 5, fontFamily: 'Inter' }}>
           {hint}
         </div>
       )}
@@ -291,7 +291,7 @@ function HitEffectColorSwatch({ color, onChange }: { color: string | null; onCha
         }}
       >
         <Palette size={13} strokeWidth={1.5} style={{ color: 'var(--text-amber)', flexShrink: 0 }} />
-        <span style={{ fontSize: 'var(--text-xs)', color: 'var(--text-default)', fontFamily: 'Inter', whiteSpace: 'nowrap' }}>Color</span>
+        <span style={{ fontSize: 'var(--text-xs)', color: 'var(--text-faint)', fontFamily: 'Inter', whiteSpace: 'nowrap' }}>Color</span>
         <span style={{
           width: 14, height: 14, borderRadius: 3, flexShrink: 0,
           background: color ?? 'repeating-conic-gradient(#666 0% 25%, #999 0% 50%) 50% / 6px 6px',
@@ -1822,13 +1822,13 @@ export default function SettingsPanel() {
                   />
                   {/* ── Note Editor — eye-toggle: unlocks the note-edit icon in the Tracks panel ── */}
                   <OptionRow
-                    label="Note Editor"
+                    label="MIDI Note Editor"
                     eyeToggle
                     eyeValue={noteEditorEnabled}
                     onEyeChange={setNoteEditorEnabled}
                     description={
                       <>
-                        Show <span style={{ display: 'inline-flex', verticalAlign: 'middle' }}><NoteEditorIcon size={11} /></span> in the Tracks panel to enter note-editing mode directly on the waterfall.
+                        Shows <span style={{ display: 'inline-flex', verticalAlign: 'middle' }}><NoteEditorIcon size={11} /></span> in the Tracks panel to enter MIDI note-editing mode directly on the piano roll.
                       </>
                     }
                   />
@@ -1841,8 +1841,8 @@ export default function SettingsPanel() {
                 >
                   {/* ── Display system — single 4-button row; Hide uses EyeOff icon ── */}
                   <OptionRow label="Display system">
-                    <div style={{ fontSize: 'var(--text-xs)', color: 'var(--text-faint)', lineHeight: 1.5, fontFamily: 'JetBrains Mono', marginBottom: 6 }}>
-                      Lorem ipsum dolor sit amet, consectetur adipiscing elit.
+                    <div style={{ fontSize: 'var(--text-xs)', color: 'var(--text-faint)', lineHeight: 1.5, fontFamily: 'Inter', marginBottom: 6 }}>
+                      Select your preferred note naming system for notation and labels.
                     </div>
                     <div style={{ display: 'flex', gap: 'var(--space-1)' }}>
                       {NOTE_NAMING_OPTIONS.slice(0, 3).map(opt => (
@@ -1880,8 +1880,8 @@ export default function SettingsPanel() {
                       label="Accidentals"
                       hint={accidentals === 'flat' ? 'e.g.  Bb  Eb  Ab  Db  Gb' : 'e.g.  A#  D#  G#  C#  F#'}
                     >
-                      <div style={{ fontSize: 'var(--text-xs)', color: 'var(--text-faint)', lineHeight: 1.5, fontFamily: 'JetBrains Mono', marginBottom: 6 }}>
-                        Lorem ipsum dolor sit amet, consectetur adipiscing elit.
+                      <div style={{ fontSize: 'var(--text-xs)', color: 'var(--text-faint)', lineHeight: 1.5, fontFamily: 'Inter', marginBottom: 6 }}>
+                        Select your preferred enharmonic spelling for black keys: sharps or flats.
                       </div>
                       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 'var(--space-2)' }}>
                         <span
@@ -1946,7 +1946,7 @@ export default function SettingsPanel() {
                     eyeToggle
                     eyeValue={showOctaveLabels}
                     onEyeChange={setShowOctaveLabels}
-                    description="Lorem ipsum dolor sit amet, consectetur adipiscing elit."
+                    description="Display octave numbers (e.g. C3, C4, C5) on the virtual keyboard"
                   />
                   {/* ── Note name labels — show/hide note names on virtual keyboard ── */}
                   <OptionRow
@@ -1954,15 +1954,16 @@ export default function SettingsPanel() {
                     eyeToggle
                     eyeValue={showNoteNamesOnKeyboard}
                     onEyeChange={setShowNoteNamesOnKeyboard}
-                    description="Lorem ipsum dolor sit amet, consectetur adipiscing elit."
+                    description="Display note names on the virtual keyboard for easier identification"
                   />
                   {/* ── Auto-collapse drawers — collapses library/settings + tracks on
                       playback, restores them on pause/new file load ────────────────── */}
                   <OptionRow
-                    label="Auto-collapse drawers on playback"
+                    label="Close panels on playback"
                     eyeToggle
                     eyeValue={autoCollapseDrawers}
                     onEyeChange={setAutoCollapseDrawers}
+                    description="Automatically hide the left and right panels during playback to maximize the piano roll view"
                   />
                 </CollapsibleSection>
 
@@ -2118,7 +2119,7 @@ export default function SettingsPanel() {
                     }}
                   >
                     {/* ── Description — moved above the list (was a trailing hint below it) ── */}
-                    <div style={{ fontSize: 'var(--text-xs)', color: 'var(--text-dimmest)', fontFamily: 'Inter', marginBottom: 8 }}>
+                    <div style={{ fontSize: 'var(--text-xs)', color: 'var(--text-faint)', fontFamily: 'Inter', marginBottom: 8 }}>
                       Extra GM sf2 soundfonts, downloaded on demand. Only affects the Sample engine.
                     </div>
 
@@ -2212,11 +2213,11 @@ export default function SettingsPanel() {
                   </div>
                   {/* ── Selective Tracks Playback — eye-toggle; shows/hides quick-toggle button in Track Panel ─ */}
                   <OptionRow
-                    label="Selective Tracks Playback"
+                    label="Selective Playback"
                     eyeToggle
                     eyeValue={autoMuteNonKeyboard}
                     onEyeChange={setAutoMuteNonKeyboard}
-                    description="When active, a toggle button appears in the Tracks panel and Console (All tracks/Selection). Selectif you want to hear all MIDI tracks or only Keys, Bass & Drums. Can be overridden manually."
+                    description="A toggle button appears in the Tracks panel and Console (All tracks/Selection). Select if you want to hear all MIDI tracks or only Keys, Bass & Drums."
                   />
                 </CollapsibleSection>
 
@@ -2264,7 +2265,7 @@ export default function SettingsPanel() {
                     eyeToggle
                     eyeValue={showBarNumbers}
                     onEyeChange={setShowBarNumbers}
-                    description="Lorem ipsum dolor sit amet, consectetur adipiscing elit."
+                    description="Turn on to see bar numbers and horizontal lines in piano roll."
                   />
                   {/* ── Show Playbar — eye-toggle; off tracks the hit line to the ──
                        live keyboard position instead (docked or floating). */}
@@ -2273,16 +2274,16 @@ export default function SettingsPanel() {
                     eyeToggle
                     eyeValue={playbarVisible}
                     onEyeChange={setPlaybarVisible}
-                    description="When off, notes fall toward the keyboard's actual on-screen position instead of a fixed line."
+                    description="When off, notes fall toward the keyboard's actual on-screen position instead on a fixed line."
                   />
                   {/* ── Note Hit Effects — eye-toggle, off by default; pattern picker ──
                        only shown when on. */}
                   <OptionRow
-                    label="Note Hit Effects"
+                    label="Visual Effects"
                     eyeToggle
                     eyeValue={hitEffectsEnabled}
                     onEyeChange={setHitEffectsEnabled}
-                    description="An extra animated flourish where each note hits, alongside the existing key glow."
+                    description="Animated flourish when notes hit the playbar during playback."
                   />
                   {hitEffectsEnabled && (
                     <OptionRow label="Effect Scope & Color">
@@ -2309,7 +2310,7 @@ export default function SettingsPanel() {
                             ? <ToggleLeft size={16} strokeWidth={1.5} style={{ flexShrink: 0, color: 'var(--text-amber)' }} />
                             : <ToggleRight size={16} strokeWidth={1.5} style={{ flexShrink: 0, color: 'var(--text-amber)' }} />
                           }
-                          <span style={{ color: 'var(--text-default)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', textAlign: 'left' }}>
+                          <span style={{ color: 'var(--text-faint)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', textAlign: 'left' }}>
                             {hitEffectScope === 'keyboard' ? 'Keyboard tracks' : 'All tracks'}
                           </span>
                         </button>
@@ -2369,7 +2370,8 @@ export default function SettingsPanel() {
                           type="range" min={0} max={4} step={0.1}
                           value={hitEffectBloomIntensity}
                           onChange={e => setHitEffectBloomIntensity(Number(e.target.value))}
-                          style={{ width: '100%', accentColor: 'var(--text-amber)', cursor: 'pointer', outline: 'none', border: 'none' }}
+                          className="orfeo-slider-amber"
+                          style={{ '--fill': `${(hitEffectBloomIntensity / 4) * 100}%` } as CSSProperties}
                         />
                       </OptionRow>
                       <OptionRow label={`Spread — ${hitEffectBloomSpread.toFixed(1)}`}>
@@ -2377,7 +2379,8 @@ export default function SettingsPanel() {
                           type="range" min={0} max={12} step={0.5}
                           value={hitEffectBloomSpread}
                           onChange={e => setHitEffectBloomSpread(Number(e.target.value))}
-                          style={{ width: '100%', accentColor: 'var(--text-amber)', cursor: 'pointer', outline: 'none', border: 'none' }}
+                          className="orfeo-slider-amber"
+                          style={{ '--fill': `${(hitEffectBloomSpread / 12) * 100}%` } as CSSProperties}
                         />
                       </OptionRow>
                       <OptionRow label={`Threshold — ${hitEffectBloomThreshold.toFixed(2)}`} hint="Lower values make more of the effect glow; higher values only bloom the brightest parts.">
@@ -2385,7 +2388,8 @@ export default function SettingsPanel() {
                           type="range" min={0} max={1} step={0.05}
                           value={hitEffectBloomThreshold}
                           onChange={e => setHitEffectBloomThreshold(Number(e.target.value))}
-                          style={{ width: '100%', accentColor: 'var(--text-amber)', cursor: 'pointer', outline: 'none', border: 'none' }}
+                          className="orfeo-slider-amber"
+                          style={{ '--fill': `${hitEffectBloomThreshold * 100}%` } as CSSProperties}
                         />
                       </OptionRow>
                     </>
@@ -2406,21 +2410,21 @@ export default function SettingsPanel() {
                 </CollapsibleSection>
 
                 {/* ── About ──────────────────────────────────────────────────────── */}
-                <div style={{ padding: '14px 14px 10px', borderTop: '1px solid var(--bg-tile)', marginTop: 4 }}>
+                <div style={{ padding: '14px 14px 10px', borderTop: '1px solid var(--bg-tile)', marginTop: 4, display: 'flex', alignItems: 'center', gap: 6 }}>
                   <button
                     onClick={() => window.electronAPI.openExternal('https://github.com/SquareBow/orfeo')}
                     title="Open Orfeo on GitHub"
                     style={{
-                      display: 'flex', alignItems: 'center', gap: 6, marginBottom: 4,
+                      display: 'flex', alignItems: 'center', gap: 6,
                       background: 'none', border: 'none', cursor: 'pointer', padding: 0,
                     }}
                   >
                     <OrfeoMark height={16} />
                     <span style={{ color: 'var(--text-inactive)', fontSize: 10, fontFamily: 'JetBrains Mono' }}>Orfeo · v{__APP_VERSION__}</span>
                   </button>
-                  <div style={{ fontSize: 9, color: 'var(--topbar-timesig-divider)', fontFamily: 'Inter', lineHeight: 1.5 }}>
-                    by SquareBow
-                  </div>
+                  <span style={{ fontSize: 9, color: 'var(--topbar-timesig-divider)', fontFamily: 'Inter' }}>
+                    · by SquareBow
+                  </span>
                 </div>
 
               </div>

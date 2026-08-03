@@ -258,6 +258,37 @@
     0 0 5px 1px var(--accent-amber-strong);
 }
 
+/* ── Amber range slider — transparent-amber fill over a gray track, solid
+   (opaque) thumb. `accent-color` alone can't give the fill its own opacity
+   independent of the thumb, so this restyles the WebKit track/thumb
+   directly. Caller sets --fill (0%-100%) inline per render from its value. */
+.orfeo-slider-amber {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 100%;
+  background: transparent;
+  cursor: pointer;
+}
+.orfeo-slider-amber::-webkit-slider-runnable-track {
+  height: 4px;
+  border-radius: 2px;
+  background: linear-gradient(
+    to right,
+    var(--accent-amber-bold) var(--fill, 50%),
+    var(--border) var(--fill, 50%)
+  );
+}
+.orfeo-slider-amber::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  width: 12px;
+  height: 12px;
+  margin-top: -4px;
+  border-radius: 50%;
+  background: var(--text-amber);
+  border: none;
+  cursor: pointer;
+}
+
 /* Standard modal/panel row — use for any horizontal row of controls */
 .orfeo-row {
   display: flex;
