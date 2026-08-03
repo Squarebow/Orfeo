@@ -2043,7 +2043,7 @@ export default function SettingsPanel() {
                     eyeToggle
                     eyeValue={autoCollapseDrawers}
                     onEyeChange={setAutoCollapseDrawers}
-                    description="Automatically hide the Tracks panel during playback to maximize the piano roll view"
+                    description="Automatically hide the Tracks and Settings/Library panels during playback to maximize the piano roll view"
                   />
                 </CollapsibleSection>
 

@@ -17,7 +17,7 @@ import { detectKeyFromTracks, parseKeySignature } from '../../utils/keyDetection
 import { bringToFront, MODAL_BASE_Z } from '../../utils/modalFocus'
 import { KEYBOARD_GROUPS } from '../../utils/keyboardGroups'
 import { nextOrfeoBaseName } from '../../utils/orfeoVersioning'
-import { getPianoRollCenterX, getKeyboardHeaderTop } from '../../utils/modalAnchors'
+import { getPianoRollCenterX } from '../../utils/modalAnchors'
 import { getHandPreviewStats, getLowConfidencePassages } from '../../utils/handPreview'
 
 const MODAL_W = 760
@@ -771,12 +771,13 @@ export default function MidiEditor() {
     setSplitResult(null)
     setPendingSplitIndex(null)
 
-    // Centre the modal on first open
+    // Centre the modal on first open — horizontally on the piano roll,
+    // fixed 120px down from the top of the app window.
     if (!positioned.current) {
       positioned.current = true
       setPos({
         x: Math.max(0, Math.round(getPianoRollCenterX() - MODAL_W / 2)),
-        y: Math.max(20, Math.round(getKeyboardHeaderTop() - MODAL_H)),
+        y: 120,
       })
     }
   }, [midiEditorOpen])
