@@ -1,8 +1,9 @@
-import React, { useState, useCallback, useMemo, useEffect } from 'react'
+import React, { useState, useCallback, useMemo, useEffect, useRef } from 'react'
 import { Play, RotateCcw, X } from 'lucide-react'
 import { useStore } from '../store'
 import { formatInversionDisplay, ordinalSuffix } from '../utils/chordDetection'
 import OrfeoMark from './OrfeoMark'
+import { getPianoRollCenterX, getKeyboardHeaderTop } from '../utils/modalAnchors'
 
 const MODAL_WIDTH  = 220
 const MODAL_HEIGHT = 100
@@ -37,13 +38,22 @@ export default function LockedChordModal() {
   // ── Modal visibility — auto-opens when keys are locked; only closes via X ──
   // Clearing the chord (RotateCcw) keeps the modal open showing "— — —".
   const [modalOpen, setModalOpen] = useState(false)
-  useEffect(() => { if (lockedKeys.size > 0) setModalOpen(true) }, [lockedKeys.size])
-
-  // ── Position state — draggable float position, initialised to viewport centre
-  const [pos, setPos] = useState(() => ({
-    x: Math.round((window.innerWidth  - MODAL_WIDTH)  / 2),
-    y: Math.round((window.innerHeight - MODAL_HEIGHT) / 2),
-  }))
+  // ── Position state — bottom edge on the keyboard header, horizontally
+  // centered on the piano roll; computed on first actual open (not at app
+  // mount, so the layout is settled), then left alone. ───────────────────────
+  const [pos, setPos] = useState({ x: 0, y: 0 })
+  const positioned = useRef(false)
+  useEffect(() => {
+    if (lockedKeys.size === 0) return
+    setModalOpen(true)
+    if (!positioned.current) {
+      positioned.current = true
+      setPos({
+        x: Math.round(getPianoRollCenterX() - MODAL_WIDTH / 2),
+        y: Math.round(getKeyboardHeaderTop() - MODAL_HEIGHT),
+      })
+    }
+  }, [lockedKeys.size])
 
   // ── Compute structured inversion display ─────────────────────────────────
   const lockedDisplay = useMemo(() => {

@@ -53,6 +53,15 @@ export default function KeyboardControls() {
   const handLabelMode           = useStore((s) => s.handLabelMode)
   const midi                    = useStore((s) => s.midi)
   const currentTime             = useStore((s) => s.currentTime)
+  // ── Undocking is blocked while any bottom-anchored modal is open (they all
+  // share the keyboard-header anchor, so floating the keyboard out from under
+  // them would be visually broken) — LockedChordModal is excluded, it's small
+  // and doesn't compete for that space. Re-docking is always allowed. ────────
+  const chordExplorerOpen = useStore((s) => s.chordExplorerOpen)
+  const scaleExplorerOpen = useStore((s) => s.scaleExplorerOpen)
+  const mixerOpen         = useStore((s) => s.mixerOpen)
+  const midiEditorOpen    = useStore((s) => s.midiEditorOpen)
+  const undockBlocked = chordExplorerOpen || scaleExplorerOpen || mixerOpen || midiEditorOpen
 
   // ── Practice mode: moving boundary from stored hand tags, sliding-window
   // averaged (not one static whole-file number) — see computeTaggedBoundaryCurve.
@@ -107,18 +116,23 @@ export default function KeyboardControls() {
 
       {/* ── Dock / Float toggle — hidden in Presentation Mode ────────────────── */}
       {!presentationMode && <button
-        onClick={() => setKeyboardMode(isDocked ? 'floating' : 'docked')}
-        title={isDocked ? 'Float keyboard (detach)' : 'Dock keyboard (attach to bottom)'}
+        onClick={() => { if (isDocked && undockBlocked) return; setKeyboardMode(isDocked ? 'floating' : 'docked') }}
+        disabled={isDocked && undockBlocked}
+        title={isDocked
+          ? (undockBlocked ? 'Close the open modal to float the keyboard' : 'Float keyboard (detach)')
+          : 'Dock keyboard (attach to bottom)'}
         style={{
           display: 'flex', alignItems: 'center', gap: 5,
-          background: 'transparent', border: 'none', cursor: 'pointer',
+          background: 'transparent', border: 'none',
+          cursor: isDocked && undockBlocked ? 'default' : 'pointer',
+          opacity: isDocked && undockBlocked ? 0.35 : 1,
           color: isDocked ? 'var(--text-muted)' : 'var(--text-amber)',
           fontSize: 'var(--text-xs)', fontFamily: 'Inter',
           padding: '2px 6px', borderRadius: 4,
           transition: 'color 0.15s',
           position: 'relative', zIndex: 3,
         }}
-        onMouseEnter={e => { if (isDocked) e.currentTarget.style.color = 'var(--text-amber)' }}
+        onMouseEnter={e => { if (isDocked && !undockBlocked) e.currentTarget.style.color = 'var(--text-amber)' }}
         onMouseLeave={e => { if (isDocked) e.currentTarget.style.color = 'var(--text-muted)' }}
       >
         {isDocked ? (

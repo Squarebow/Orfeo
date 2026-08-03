@@ -2,7 +2,7 @@
 // Mount <ConfirmDialogHost /> once in App.tsx; it renders nothing when idle.
 // Trigger via confirmDialog() from confirmController.ts (imperative API).
 
-import { useEffect, useState } from 'react'
+import { useEffect, useState, type CSSProperties } from 'react'
 import { createPortal } from 'react-dom'
 import { subscribeConfirm, type ConfirmState } from '../utils/confirmController'
 
@@ -38,6 +38,7 @@ export function ConfirmDialogHost() {
       onMouseDown={(e) => { if (e.target === e.currentTarget) state.resolve(safeIndex) }}
     >
       <div
+        className="orfeo-modal-glow"
         style={{
           background: 'var(--bg-modal)',
           border: '1px solid var(--border2)',
@@ -45,8 +46,8 @@ export function ConfirmDialogHost() {
           padding: '20px 22px',
           minWidth: 340,
           maxWidth: 460,
-          boxShadow: '0 8px 32px rgba(0,0,0,0.5)',
-        }}
+          '--_modal-shadow': 'var(--elevation-modal)',
+        } as CSSProperties}
         onMouseDown={(e) => e.stopPropagation()}
       >
         {state.title && (

@@ -349,7 +349,7 @@ export default function Keyboard() {
   return (
     <div style={{ display: 'flex', flexDirection: 'column' }}>
       {/* ── Chord bar — hidden in Presentation Mode; simple (34px) or extended prompter (36px) ── */}
-      {!presentationMode && <div style={{
+      {!presentationMode && <div data-keyboard-header style={{
         height: chordPrompterOpen ? 36 : 34,
         background: 'var(--bg-modal-header)',
         borderTop: '1px solid var(--border)',

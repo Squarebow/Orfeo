@@ -6,6 +6,7 @@ import { editableCopyToBuffer } from '../../utils/noteEditorCommands'
 import { parseMidiBuffer } from '../../utils/midiParser'
 import { detectKeyFromTracks, parseKeySignature } from '../../utils/keyDetection'
 import { nextOrfeoBaseName } from '../../utils/orfeoVersioning'
+import { getPianoRollAreaRect } from '../../utils/modalAnchors'
 
 // ── Toolbar SVG icons ─────────────────────────────────────────────────────────
 const IconSnap = () => (
@@ -185,6 +186,21 @@ export default function NoteEditorToolbar() {
   const posRef          = useRef({ x: noteEditorToolbarX, y: noteEditorToolbarY })
   const panelRef        = useRef<HTMLDivElement>(null)
   const dragState       = useRef<{ startX: number; startY: number; startPosX: number; startPosY: number } | null>(null)
+
+  // ── Default position: top-right corner of the piano roll, under the top
+  // bar, left of the Tracks panel — only applied while the stored position
+  // is still the untouched default (24, 80); a real user drag is never
+  // overridden. Recomputed each time edit mode is entered (this component
+  // mounts fresh per session), but never while already open. ────────────────
+  useEffect(() => {
+    if (noteEditorToolbarX !== 24 || noteEditorToolbarY !== 80) return
+    const roll = getPianoRollAreaRect()
+    if (!roll) return
+    const w = panelRef.current?.offsetWidth ?? 400
+    const next = { x: Math.max(0, Math.round(roll.right - w - 16)), y: Math.round(roll.top + 12) }
+    posRef.current = next
+    setPos(next)
+  }, [])
 
   const onMouseMove = useCallback((e: MouseEvent) => {
     const ds = dragState.current

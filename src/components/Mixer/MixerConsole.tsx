@@ -5,6 +5,7 @@ import { bringToFront, MODAL_BASE_Z } from '../../utils/modalFocus'
 import ChannelStrip from './ChannelStrip'
 import MasterStrip from './MasterStrip'
 import OrfeoMark from '../OrfeoMark'
+import { getPianoRollCenterX, getKeyboardHeaderTop } from '../../utils/modalAnchors'
 
 // ── MixerConsole — floating draggable modal ───────────────────────────────────
 // Opened via Ctrl+Shift+M or the Console (SlidersVertical) icon in the TrackPanel.
@@ -65,13 +66,14 @@ export default function MixerConsole() {
     return BODY_PAD * 2 + n * STRIP_W + (n - 1) * STRIP_GAP + STRIP_GAP + MASTER_W + 2
   }, [sortedTracks.length])
 
-  // ── Drag position — initialized to viewport center on first render ────────
+  // ── Drag position — bottom edge on the keyboard header, horizontally
+  // centered on the piano roll; set once on first render. ───────────────────
   const [pos, setPos] = useState(() => {
     const n = Math.min(Math.max(useStore.getState().tracks.length, 1), MAX_STRIPS)
     const w = BODY_PAD * 2 + n * STRIP_W + (n - 1) * STRIP_GAP + STRIP_GAP + MASTER_W + 2
     return {
-      x: Math.max(0, Math.round((window.innerWidth  - w) / 2)),
-      y: Math.max(0, Math.round((window.innerHeight - MODAL_H_APPROX) / 2)),
+      x: Math.max(0, Math.round(getPianoRollCenterX() - w / 2)),
+      y: Math.max(0, Math.round(getKeyboardHeaderTop() - MODAL_H_APPROX)),
     }
   })
 

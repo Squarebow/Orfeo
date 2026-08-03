@@ -9,6 +9,7 @@ import { useStore } from '../../store'
 import Keyboard from './Keyboard'
 import KeyboardControls from './KeyboardControls'
 import OrfeoMark from '../OrfeoMark'
+import { getPianoRollCenterX, getPlaybarY } from '../../utils/modalAnchors'
 
 const DEFAULT_W = 860
 const MIN_W = 650
@@ -18,7 +19,11 @@ const HANDLE_PX = 8
 export default function FloatingKeyboard() {
   const setKeyboardMode = useStore((s) => s.setKeyboardMode)
 
-  const [pos, setPos] = useState({ x: 60, y: -1 })
+  // ── Default position: horizontally centered on the piano roll, bottom
+  // edge aligned to the (fixed-ratio) playbar line — set once at open time,
+  // never recalculated on side-panel toggle. y is finalized once height is
+  // known (below); x can be computed immediately from the known default width. ──
+  const [pos, setPos] = useState({ x: Math.round(getPianoRollCenterX() - DEFAULT_W / 2), y: -1 })
   const [w, setW]     = useState(DEFAULT_W)
   const panelRef      = useRef<HTMLDivElement>(null)
   const initialised   = useRef(false)
@@ -32,12 +37,12 @@ export default function FloatingKeyboard() {
     startPosY: number
   } | null>(null)
 
-  // Set initial Y on first render so panel sits near bottom
+  // Set initial Y on first render so panel's bottom edge sits on the playbar line
   useEffect(() => {
     if (initialised.current) return
     initialised.current = true
     const h = panelRef.current?.offsetHeight ?? 220
-    setPos(p => ({ ...p, y: Math.max(20, window.innerHeight - h - 60) }))
+    setPos(p => ({ ...p, y: Math.max(20, getPlaybarY() - h) }))
   }, [])
 
   const onMouseMove = useCallback((e: MouseEvent) => {

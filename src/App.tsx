@@ -391,7 +391,7 @@ export default function App() {
       >
         {!presentationMode && <SettingsPanel />}
         <div style={{ display: 'flex', flexDirection: 'column', flex: 1, minWidth: 0, overflow: 'hidden' }}>
-          <div style={{ flex: 1, minHeight: 0, position: 'relative', paddingTop: 6 }}>
+          <div data-piano-roll-area style={{ flex: 1, minHeight: 0, position: 'relative', paddingTop: 6 }}>
             {midi ? <PianoRoll /> : <EmptyState />}
           </div>
           {keyboardMode === 'docked' && <Keyboard />}

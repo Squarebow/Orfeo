@@ -11,6 +11,7 @@ import type { NoteNaming } from '../types'
 import SpeedControl from './SpeedControl'
 import OrfeoMark from './OrfeoMark'
 import { MINIMIZE_BUTTON_STYLE } from '../utils/modalHeaderStyles'
+import { getPianoRollCenterX, getKeyboardHeaderTop } from '../utils/modalAnchors'
 
 const RANGES: Record<number, { min: number; max: number }> = {
   61: { min: 36, max: 96 },
@@ -21,7 +22,6 @@ const RANGES: Record<number, { min: number; max: number }> = {
 // ── Modal dimensions for default positioning above the keyboard ───────────
 const MODAL_WIDTH = 700
 const MODAL_HEIGHT = 520
-const KEYBOARD_HEIGHT = 200
 
 const ROOT_MIDIS = [60, 61, 62, 63, 64, 65, 66, 67, 68, 69, 70, 71]
 
@@ -255,10 +255,12 @@ export default function ChordExplorer() {
   const noteNaming = useStore(s => s.noteNaming)
   const accidentals = useStore(s => s.accidentals)
   const setAccidentals = useStore(s => s.setAccidentals)
-  // ── Window drag position — recomputed on every open against live dimensions
+  // ── Window drag position — bottom edge on the keyboard header, horizontally
+  // centered on the piano roll; recomputed each time the modal opens, but not
+  // while it's open (side-panel toggles don't move it). ─────────────────────
   const [pos, setPos] = useState(() => ({
-    x: Math.round((window.innerWidth - MODAL_WIDTH) / 2),
-    y: Math.round((window.innerHeight - MODAL_HEIGHT) / 2) - 160,
+    x: Math.round(getPianoRollCenterX() - MODAL_WIDTH / 2),
+    y: Math.round(getKeyboardHeaderTop() - MODAL_HEIGHT),
   }))
   const [selectedRoot, setSelectedRoot] = useState(0)
   const [tier, setTier] = useState<'common' | 'extended' | 'power'>('common')
@@ -295,10 +297,10 @@ export default function ChordExplorer() {
   // Reset transient state on open; no keyboard size change (61 is for ScaleExplorer only).
   useEffect(() => {
     if (chordExplorerOpen) {
-      // ── Recentre on live window dimensions every time modal opens ───────
+      // ── Recompute anchor position every time the modal opens ────────────
       setPos({
-        x: Math.round((window.innerWidth - MODAL_WIDTH) / 2),
-        y: Math.round((window.innerHeight - MODAL_HEIGHT) / 2) - 160,
+        x: Math.round(getPianoRollCenterX() - MODAL_WIDTH / 2),
+        y: Math.round(getKeyboardHeaderTop() - MODAL_HEIGHT),
       })
       setSearch('')
       setSearchOpen(false)
