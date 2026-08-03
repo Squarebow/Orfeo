@@ -245,7 +245,7 @@ export default function TrackPanel() {
               onMouseEnter={e => { if (!noteEditorActive) e.currentTarget.style.color = 'var(--text-amber)' }}
               onMouseLeave={e => { if (!noteEditorActive) e.currentTarget.style.color = 'var(--text-dimmest)' }}
             >
-              <NoteEditorIcon size={18} />
+              <NoteEditorIcon size={22} />
             </button>
           )}
         </div>
@@ -320,7 +320,7 @@ export default function TrackPanel() {
                 onMouseEnter={e => { if (!noteEditorActive) e.currentTarget.style.color = 'var(--text-amber)' }}
                 onMouseLeave={e => { if (!noteEditorActive) e.currentTarget.style.color = 'var(--text-dimmest)' }}
               >
-                <NoteEditorIcon size={16} />
+                <NoteEditorIcon size={20} />
               </button>
             )}
           </div>
@@ -504,6 +504,7 @@ function TrackRow({
   // Friendly channel/program label
   const ch = (track as any).channel != null ? (track as any).channel + 1 : track.index + 1
   const prog = track.isDrum ? 'drums' : `prog ${track.program + 1}`
+  const noteCount = useStore(s => (s.midi as any)?.tracks?.find((t: any) => t.index === track.index)?.notes?.length ?? 0)
   const tooltip = `Track ${track.index + 1} · MIDI channel ${ch} · ${prog}`
 
   return (
@@ -572,11 +573,13 @@ function TrackRow({
         </div>
       </div>
 
-      {/* ── Row 3: MIDI channel + program ─────────────────────────────────── */}
+      {/* ── Row 3: MIDI channel + program + note count ────────────────────── */}
       <div style={{ display: 'flex', gap: 6, marginTop: 2, paddingLeft: 26 }}>
         <span style={{ fontSize: 9, color: 'var(--text-track-meta)', fontFamily: 'JetBrains Mono' }}>ch {ch}</span>
         <span style={{ fontSize: 9, color: 'var(--text-track-meta)', fontFamily: 'JetBrains Mono' }}>·</span>
         <span style={{ fontSize: 9, color: 'var(--text-track-meta)', fontFamily: 'JetBrains Mono' }}>{prog}</span>
+        <span style={{ fontSize: 9, color: 'var(--text-track-meta)', fontFamily: 'JetBrains Mono' }}>·</span>
+        <span style={{ fontSize: 9, color: 'var(--text-track-meta)', fontFamily: 'JetBrains Mono' }}>notes {noteCount}</span>
       </div>
     </div>
   )

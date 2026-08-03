@@ -511,6 +511,16 @@ export const useStore = create<OrfeoStore>((set, get) => ({
       const preSolo   = s.tracks.map(t => t.visible)
       const soloed    = s.tracks.map(t => ({ ...t, visible: t.index === index }))
       set({ tracks: soloed, noteEditorSoloTrackIndex: index, preSoloTrackVisibility: preSolo })
+
+      // ── Jump playback to just before this track's first note — otherwise
+      // soloing a track whose notes start much later than the current
+      // playhead (or sit outside the currently-visible pitch range) shows an
+      // apparently-empty piano roll until playback catches up on its own. ──
+      const rawTrack = (s.midi as any)?.tracks?.find((t: any) => t.index === index)
+      const firstNoteTime = rawTrack?.notes?.[0]?.time
+      if (typeof firstNoteTime === 'number') {
+        set({ currentTime: Math.max(0, firstNoteTime - 2) })
+      }
     }
   },
   unsoloTrackForEdit: () => {
