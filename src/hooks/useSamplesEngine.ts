@@ -203,7 +203,7 @@ function buildSamplesPlayer(startSec: number) {
   clearSchedule(); clearAllKeys()
   applyChannelVolumes()
 
-  const { midi, tracks, bpm, originalBpm, detectedKey } = useStore.getState()
+  const { midi, tracks, bpm, originalBpm, detectedKey, hitEffectScope } = useStore.getState()
   const midiData = midi as any
   if (!midiData) return
 
@@ -244,6 +244,7 @@ function buildSamplesPlayer(startSec: number) {
           const offT = setTimeout(() => { try { _synth?.noteOff(ch, midiNum) } catch {} }, durMs)
           _schedule.push(offT)
           if (ts.showOnKeyboard) lightKey(midiNum, color, Math.min(durMs + 30, 2500))
+          else if (hitEffectScope === 'all') pushHitEffect(midiNum, color)
         } catch (e) {
           console.error('[Orfeo Samples] noteOn error:', e)
         }

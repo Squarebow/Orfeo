@@ -187,8 +187,14 @@ interface OrfeoStore {
   setLibraryFiles: (files: LibraryFile[]) => void
   setLibraryFolderAndFiles: (folder: string | null, files: LibraryFile[]) => void
   toggleFavourite: (path: string) => void
+  setFavourites: (paths: string[], starred: boolean) => void
   hiddenLibraryFiles: string[]
   hideLibraryFile: (path: string) => void
+  remapLibraryPaths: (pairs: { oldPath: string; newPath: string }[]) => void
+  lastFolderOf: Map<string, string | null>
+  setLastFolderOf: (map: Map<string, string | null>) => void
+  foldersWithUndo: Set<string>
+  setFoldersWithUndo: (folders: Set<string>) => void
   loadLibraryFile: (filePath: string) => Promise<void>
 
   splitBreakpointType: 'single' | 'range'
@@ -237,6 +243,17 @@ interface OrfeoStore {
   setHitEffectBloomIntensity: (v: number) => void
   hitEffectBloomSpread: number
   setHitEffectBloomSpread: (v: number) => void
+
+  // ── Which tracks spawn effects: only ones actively lit on the keyboard
+  // (default, matches existing key-glow scoping), or every track in the file
+  // regardless of showOnKeyboard — purely visual, doesn't touch key lighting. ──
+  hitEffectScope: 'keyboard' | 'all'
+  setHitEffectScope: (v: 'keyboard' | 'all') => void
+  // ── Overrides the effect particle color for every track at once — null means
+  // "inherit each note's track color" (existing/default behavior). Never touches
+  // the falling-note color or the key glow, only what HitEffects.spawn() renders. ──
+  hitEffectColor: string | null
+  setHitEffectColor: (v: string | null) => void
 
   // ── Active soundfont (Samples engine) — 'generaluser-gs' is always bundled;
   // the other two are downloaded on demand via window.electronAPI.
@@ -577,6 +594,10 @@ export const useStore = create<OrfeoStore>((set, get) => ({
   setSelectedSoundfont: (selectedSoundfont) => set({ selectedSoundfont }),
   hitEffectBloomSpread: 4,
   setHitEffectBloomSpread: (v) => set({ hitEffectBloomSpread: Math.max(0, Math.min(12, v)) }),
+  hitEffectScope: 'keyboard',
+  setHitEffectScope: (hitEffectScope) => set({ hitEffectScope }),
+  hitEffectColor: null,
+  setHitEffectColor: (hitEffectColor) => set({ hitEffectColor }),
 
   // ── Keyboard label visibility — octave numbers and note name labels ────────
   showOctaveLabels: true,
@@ -613,6 +634,22 @@ export const useStore = create<OrfeoStore>((set, get) => ({
     if (next.has(path)) next.delete(path); else next.add(path)
     return { libraryFavourites: next }
   }),
+  // ── Bulk favourite/unfavourite — used by "star all files in this folder" ──
+  setFavourites: (paths, starred) => set((s) => {
+    const next = new Set(s.libraryFavourites)
+    for (const p of paths) { if (starred) next.add(p); else next.delete(p) }
+    return { libraryFavourites: next }
+  }),
+  // ── Per-session "undo last move" map — lives in the store (not component
+  // state) so it survives LibraryPanel unmounting when Settings tabs switch.
+  // Never persisted; resets on app restart. ─────────────────────────────────
+  lastFolderOf: new Map(),
+  setLastFolderOf: (lastFolderOf) => set({ lastFolderOf }),
+  // ── Folder-level "has an undoable move" flag — tracked directly by folder name
+  // rather than derived by matching file paths against lastFolderOf, so it can't
+  // drift out of sync with a rescan. Session-only, same lifetime as lastFolderOf. ──
+  foldersWithUndo: new Set(),
+  setFoldersWithUndo: (foldersWithUndo) => set({ foldersWithUndo }),
   // ── Persisted client-side exclusion list — file stays on disk, just hidden ─
   hiddenLibraryFiles: [],
   hideLibraryFile: (path) => set((s) => ({
@@ -620,6 +657,17 @@ export const useStore = create<OrfeoStore>((set, get) => ({
       ? s.hiddenLibraryFiles
       : [...s.hiddenLibraryFiles, path],
   })),
+  // ── Applies old→new path pairs after a folder move/rename, so a starred or
+  // hidden file doesn't silently lose that state when its path changes. ──────
+  remapLibraryPaths: (pairs) => set((s) => {
+    if (pairs.length === 0) return {}
+    const map = new Map(pairs.map(p => [p.oldPath, p.newPath]))
+    const nextFavourites = new Set(
+      Array.from(s.libraryFavourites, p => map.get(p) ?? p),
+    )
+    const nextHidden = s.hiddenLibraryFiles.map(p => map.get(p) ?? p)
+    return { libraryFavourites: nextFavourites, hiddenLibraryFiles: nextHidden }
+  }),
   loadLibraryFile: async (filePath) => {
     try {
       const result = await window.electronAPI.loadMidiFromPath(filePath)
@@ -697,6 +745,8 @@ async function restoreLibraryPrefs() {
     if (typeof prefs.hitEffectBloomThreshold === 'number') store.setHitEffectBloomThreshold(prefs.hitEffectBloomThreshold)
     if (typeof prefs.hitEffectBloomIntensity === 'number') store.setHitEffectBloomIntensity(prefs.hitEffectBloomIntensity)
     if (typeof prefs.hitEffectBloomSpread === 'number') store.setHitEffectBloomSpread(prefs.hitEffectBloomSpread)
+    if (prefs.hitEffectScope === 'keyboard' || prefs.hitEffectScope === 'all') store.setHitEffectScope(prefs.hitEffectScope)
+    if (typeof prefs.hitEffectColor === 'string' || prefs.hitEffectColor === null) store.setHitEffectColor(prefs.hitEffectColor)
     if (prefs.selectedSoundfont === 'fluidr3-gm' || prefs.selectedSoundfont === 'musescore-general') store.setSelectedSoundfont(prefs.selectedSoundfont)
   } catch (e) {
     console.error('[Orfeo] restoreLibraryPrefs:', e)
@@ -751,6 +801,8 @@ let _prevHitEffectPattern: string | null = null
 let _prevHitEffectBloomThreshold: number | null = null
 let _prevHitEffectBloomIntensity: number | null = null
 let _prevHitEffectBloomSpread: number | null = null
+let _prevHitEffectScope: string | null = null
+let _prevHitEffectColor: string | null | undefined = undefined
 let _prevSelectedSoundfont: string | null = null
 useStore.subscribe((state) => {
   // Skip the very first fire (app init) — restore handles loading saved values
@@ -785,6 +837,8 @@ useStore.subscribe((state) => {
     _prevHitEffectBloomThreshold = state.hitEffectBloomThreshold
     _prevHitEffectBloomIntensity = state.hitEffectBloomIntensity
     _prevHitEffectBloomSpread = state.hitEffectBloomSpread
+    _prevHitEffectScope = state.hitEffectScope
+    _prevHitEffectColor = state.hitEffectColor
     _prevSelectedSoundfont = state.selectedSoundfont
     return
   }
@@ -819,6 +873,8 @@ useStore.subscribe((state) => {
     state.hitEffectBloomThreshold !== _prevHitEffectBloomThreshold ||
     state.hitEffectBloomIntensity !== _prevHitEffectBloomIntensity ||
     state.hitEffectBloomSpread !== _prevHitEffectBloomSpread ||
+    state.hitEffectScope !== _prevHitEffectScope ||
+    state.hitEffectColor !== _prevHitEffectColor ||
     state.selectedSoundfont !== _prevSelectedSoundfont
   ) {
     _prevNoteNaming = state.noteNaming
@@ -851,6 +907,8 @@ useStore.subscribe((state) => {
     _prevHitEffectBloomThreshold = state.hitEffectBloomThreshold
     _prevHitEffectBloomIntensity = state.hitEffectBloomIntensity
     _prevHitEffectBloomSpread = state.hitEffectBloomSpread
+    _prevHitEffectScope = state.hitEffectScope
+    _prevHitEffectColor = state.hitEffectColor
     _prevSelectedSoundfont = state.selectedSoundfont
     window.electronAPI?.setPrefs?.({
       noteNaming: state.noteNaming,
@@ -883,6 +941,8 @@ useStore.subscribe((state) => {
       hitEffectBloomThreshold: state.hitEffectBloomThreshold,
       hitEffectBloomIntensity: state.hitEffectBloomIntensity,
       hitEffectBloomSpread: state.hitEffectBloomSpread,
+      hitEffectScope: state.hitEffectScope,
+      hitEffectColor: state.hitEffectColor,
       selectedSoundfont: state.selectedSoundfont,
     }).catch(() => {})
   }

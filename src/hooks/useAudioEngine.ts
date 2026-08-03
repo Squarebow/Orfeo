@@ -128,7 +128,7 @@ function destroyPlayer() {
 // Repopulates _mutedCh and rebuilds the key-lighting schedule from currentTime.
 // Called on track-state changes during playback so the filter takes effect instantly.
 function updateMutedChannels() {
-  const { midi, tracks, bpm, originalBpm, detectedKey, currentTime } = useStore.getState()
+  const { midi, tracks, bpm, originalBpm, detectedKey, currentTime, hitEffectScope } = useStore.getState()
   const midiData = midi as any
   if (!midiData || !_player) return
   const hasSolo = tracks.some((t: any) => t.solo)
@@ -142,7 +142,10 @@ function updateMutedChannels() {
   clearLightSchedule(); clearAllKeys()
   for (const track of midiData.tracks) {
     const ts = tracks.find((t: any) => t.index === track.index)
-    if (!ts || ts.muted || (hasSolo && !ts.solo) || !ts.showOnKeyboard) continue
+    if (!ts || ts.muted || (hasSolo && !ts.solo)) continue
+    // hitEffectScope === 'all' lets non-keyboard tracks still spawn hit effects
+    // (purely visual, at the note's key position) without lighting the key itself.
+    if (!ts.showOnKeyboard && hitEffectScope !== 'all') continue
     const color = ts.color ?? amberHex()
     for (const note of track.notes) {
       const noteStart = note.time / ratio
@@ -150,7 +153,10 @@ function updateMutedChannels() {
       const delay = (noteStart - currentTime) * 1000
       const durMs = Math.max(note.duration / ratio * 1000, 40)
       const midiNum = note.midi + transpose
-      const t = setTimeout(() => lightKey(midiNum, color, Math.min(durMs + 30, 2500)), delay)
+      const t = setTimeout(() => {
+        if (ts.showOnKeyboard) lightKey(midiNum, color, Math.min(durMs + 30, 2500))
+        else pushHitEffect(midiNum, color)
+      }, delay)
       _lightSchedule.push(t)
     }
   }
@@ -162,7 +168,7 @@ function buildPlayer(startSec: number) {
   if (!raw) return
   try {
     destroyPlayer(); clearAllKeys(); clearLightSchedule()
-    const { tracks, bpm, originalBpm, detectedKey } = useStore.getState()
+    const { tracks, bpm, originalBpm, detectedKey, hitEffectScope } = useStore.getState()
     const transpose = detectedKey?.transpose ?? 0
     const ratio = bpm / originalBpm
     const midiData = useStore.getState().midi as any
@@ -209,7 +215,8 @@ function buildPlayer(startSec: number) {
 
     for (const track of midiData.tracks) {
       const ts = tracks.find((t: any) => t.index === track.index)
-      if (!ts || ts.muted || (hasSolo && !ts.solo) || !ts.showOnKeyboard) continue
+      if (!ts || ts.muted || (hasSolo && !ts.solo)) continue
+      if (!ts.showOnKeyboard && hitEffectScope !== 'all') continue
       const color = ts.color ?? amberHex()
       for (const note of track.notes) {
         const noteStart = note.time / ratio
@@ -217,7 +224,10 @@ function buildPlayer(startSec: number) {
         const delay = (noteStart - startSec) * 1000
         const durMs = Math.max(note.duration / ratio * 1000, 40)
         const midiNum = note.midi + transpose
-        const t = setTimeout(() => lightKey(midiNum, color, Math.min(durMs + 30, 2500)), delay)
+        const t = setTimeout(() => {
+          if (ts.showOnKeyboard) lightKey(midiNum, color, Math.min(durMs + 30, 2500))
+          else pushHitEffect(midiNum, color)
+        }, delay)
         _lightSchedule.push(t)
       }
     }

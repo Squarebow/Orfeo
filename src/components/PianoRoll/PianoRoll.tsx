@@ -10,6 +10,7 @@ import {
   type ToneNote,
 } from '../../utils/noteEditorCommands'
 import { getNoteLabel } from '../../utils/noteNames'
+import { PENCIL_CURSOR } from '../../utils/cursors'
 import type { Hand } from '../../types'
 import { HitEffectsRenderer } from './HitEffects'
 import { drainHitEffects } from '../../utils/hitEffectQueue'
@@ -628,7 +629,7 @@ export default function PianoRoll() {
           return
         }
 
-        const { midi, currentTime, tracks, detectedKey, zoomLevel, appTheme, keyboardSize, showBarNumbers, barStarts: storeBars, noteEditorActive, showHandLabels, playbarVisible, keyboardTopY, hitEffectsEnabled, hitEffectPattern, hitEffectBloomThreshold, hitEffectBloomIntensity, hitEffectBloomSpread } = storeRef.current
+        const { midi, currentTime, tracks, detectedKey, zoomLevel, appTheme, keyboardSize, showBarNumbers, barStarts: storeBars, noteEditorActive, showHandLabels, playbarVisible, keyboardTopY, hitEffectsEnabled, hitEffectPattern, hitEffectBloomThreshold, hitEffectBloomIntensity, hitEffectBloomSpread, hitEffectColor } = storeRef.current
         const transpose   = (detectedKey as any)?.transpose ?? 0
         const W = app.screen.width, H = app.screen.height
         // ── Hit-line Y position — fixed 80% line by default (unchanged), or the
@@ -663,12 +664,15 @@ export default function PianoRoll() {
         if (hitEffectsEnabled) {
           hitEffects.setBloomParams({ threshold: hitEffectBloomThreshold, intensity: hitEffectBloomIntensity, spread: hitEffectBloomSpread })
           const hits = drainHitEffects()
+          // hitEffectColor overrides the particle color only — leaves the queued
+          // per-track color (and the key glow, a separate render path) untouched.
+          const overrideHex = hitEffectColor ? parseInt(hitEffectColor.replace('#', ''), 16) : null
           for (const hit of hits) {
             const idx = hit.midi - midiMin
             if (idx < 0 || idx >= totalKeys) continue
             const key = keyLayoutRef.current[idx]
             if (!key) continue
-            const colorHex = parseInt(hit.color.replace('#', ''), 16)
+            const colorHex = overrideHex ?? parseInt(hit.color.replace('#', ''), 16)
             hitEffects.spawn(hitEffectPattern, key.x + key.width / 2, py, colorHex)
           }
         }
@@ -888,7 +892,7 @@ export default function PianoRoll() {
             }
           }
         } else {
-          app.canvas.style.cursor = 'crosshair'
+          app.canvas.style.cursor = PENCIL_CURSOR
           hint = 'Alt+click to add note · Drag to select'
           setEditTooltip(null)
         }
@@ -1225,7 +1229,7 @@ export default function PianoRoll() {
         }
 
         app.canvas.releasePointerCapture(e.pointerId)
-        app.canvas.style.cursor = 'crosshair'
+        app.canvas.style.cursor = PENCIL_CURSOR
         editDrag                  = null
         editDragActiveRef.current = false
         lastGlissandoMidi         = null

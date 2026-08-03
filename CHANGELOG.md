@@ -2,6 +2,79 @@
 
 ## [Unreleased] — dev branch
 
+### Icon swap + pen cursor in note editing
+Note-edit-mode toggle (TopBar) now uses Lucide's `SquarePen`; the Playback Editor open button (TrackPanel) uses a pencil-sparkles icon (inlined — not present in the installed lucide-react version). Piano Roll canvas now shows the same pen cursor as the Playback Editor's track-rename field while in note-edit mode and idle over empty space (previously `crosshair`).
+
+**Changed:** `src/components/Transport/TopBar.tsx`, `src/components/TrackPanel/TrackPanel.tsx`, `src/components/PianoRoll/PianoRoll.tsx`.
+
+---
+
+## [0.19.0] — 1. 8. 2026 — Note Hit Effects: track scope toggle + global color override
+
+### Effect scope — keyboard tracks only, or every track in the file
+New "Effect Scope & Color" row in Note Hit Effects (Piano Roll settings). A compact icon toggle (`ToggleLeft`/`ToggleRight`, amber, no button chrome) switches between the existing behavior — effects only for tracks currently shown/lit on the keyboard — and a new "all tracks" mode that spawns effects for every track in the file, even ones not mapped to the keyboard. Purely visual: doesn't change which notes actually sound, and doesn't light keys for tracks that aren't shown on the keyboard, only spawns the particle flourish at their note's key position.
+
+**Changed:** `src/hooks/useAudioEngine.ts` (both `updateMutedChannels` and `buildPlayer` — the track-level `showOnKeyboard` skip now only gates the key-light call, not the whole scheduling loop, so non-keyboard tracks can still queue a hit effect when scope is `'all'`), `src/hooks/useSamplesEngine.ts` (same split in `buildSamplesPlayer`), `src/store/index.ts` (`hitEffectScope`, persisted).
+
+### Effect color override — particles only, independent of track/note color
+New color swatch next to the scope toggle overrides the hit-effect particle color for every track at once, leaving the falling-note color and the key glow (separate render paths) untouched — applied at the single point effects are actually spawned in `PianoRoll.tsx`, not at the trigger/queue level, so nothing else in the per-track color pipeline needed to change. Built as a self-contained in-app popover (palette grid + hex input) rather than a native `<input type="color">` — the native OS color dialog was blurring the Electron window and closing the whole Settings drawer out from under it.
+
+**New:** `HitEffectColorSwatch` component (`SettingsPanel.tsx`). **Changed:** `src/components/PianoRoll/PianoRoll.tsx` (color override applied at `hitEffects.spawn()`), `src/store/index.ts` (`hitEffectColor`, persisted), `src/components/SettingsPanel/SettingsPanel.tsx`.
+
+### Effect Pattern dropdown — active-selection styling
+Matches the Sound Fonts Library selector introduced in 0.18.0: green border/background/text for the active pattern, instead of the previous neutral dropdown styling.
+
+**Changed:** `src/components/SettingsPanel/SettingsPanel.tsx`.
+
+---
+
+## [0.18.0] — 1. 8. 2026 — Audio settings rework: dynamic status, dropdown library, SF2/SF3 import
+
+### Sound engine status — dynamic, no longer hardcoded
+The "loaded" status line under Sound engine always printed `GeneralUser-GS.sf2 · 30.8 MB`, regardless of which soundfont was actually active — switching to FluidR3 GM (or any other library) left the status silently wrong. Both the `ready` and `idle` status lines now look up the actually-selected soundfont and print its real name/size; styling unchanged.
+
+**Changed:** `src/components/SettingsPanel/SettingsPanel.tsx`.
+
+### Sound Fonts Library — dropdown selector, aligned metadata, dimmed under GM
+- Description moved above the list (was rendered below it via `OptionRow`'s trailing hint slot).
+- Selection is now a single `<select>` dropdown (green border/background, same "active" look as before) instead of one pill-button per library — several library names didn't fit the old fixed-width buttons. The full catalog, including not-yet-downloaded entries, still renders below as a per-item list (size, bundled/download-with-progress/remove), now column-aligned via CSS grid regardless of name length.
+- The whole section dims to 40% opacity and goes inert (`pointer-events: none`) whenever GM Synth is the active engine, since none of it does anything until you switch to Samples — hovering anywhere in the section (including the label) shows "Switch to Samples engine for better audio quality".
+
+**Changed:** `src/components/SettingsPanel/SettingsPanel.tsx`.
+
+### Import your own SF2/SF3
+New "Import your own .sf2 / .sf3" button (tooltip warns to only import soundfonts you have the rights to use). Native file picker → collision-safe copy into the same `userData/soundfonts/` directory and load path already used by the catalog downloads — imported fonts show up in both the dropdown and the metadata list exactly like a downloaded catalog entry, with a "remove" action. `SoundfontId` widened from a fixed 3-value union to `string` to allow the dynamic `custom:<filename>` ids this needs.
+
+**New:** `soundfont:import` IPC (`electron/main.ts`), `window.electronAPI.importSoundfont` (`electron/preload.ts`). **Changed:** `electron/main.ts` (`soundfont:list/delete/read` now resolve custom ids, with a path-traversal guard), `src/types/index.ts` (`SoundfontId`, `SoundfontInfo.custom`), `src/components/SettingsPanel/SettingsPanel.tsx`.
+
+---
+
+## [0.17.0] — 1. 8. 2026 — Library folder management, sidebar fixes, i18n scaffolding
+
+### Library folder management — create, rename, delete, move, undo
+The library sidebar now supports organizing MIDI files into subfolders entirely from within Orfeo, mirrored live on disk under the library root:
+
+- **Create** via the `<Folders/>` icon (filter-tabs row) or right-click a file selection → "New folder from selection" (creates + moves in one step). Both auto-enter inline rename.
+- **Move** by dragging a selection onto a folder row (or the library-root drop zone that appears while dragging), or via the right-click "Move to folder ▸" submenu / a folder's "Move N selected files here". Standard Explorer multi-select: click / Ctrl-click / Shift-range.
+- **Rename** inline (row label swaps for a text input); **delete** only when empty (blocked + tooltipped otherwise).
+- **`Demo` and `Orfeo` are protected**: never renamed/deleted, never a drop target, their files aren't draggable — enforced in both the renderer and the IPC handlers.
+- **Per-session undo** (until the app closes, not persisted): an Undo icon appears on any moved file and on any folder that received a move (covers drag-in and "New folder from selection" alike), reversing that specific move. Renaming a folder remaps its undo records to the new name rather than orphaning them; deleting a folder purges undo records that pointed at it.
+- **Bulk favourite**: a ★ on each folder header stars/unstars every file inside at once. The "starred" filter tab is now a flat cross-folder list (files never move on disk just from starring — only the star lights up in place); the library root itself stays plain alphabetical regardless of favourite status (previously starred-first).
+- Drag-over feedback: target folder gets an amber border + "Move to `<name>`" badge; `Demo`/`Orfeo` show a red border + "Can't move to system folder" instead of silently rejecting.
+- Selected rows get an amber box around the whole contiguous selection (not per-row outlines); right-click menus and hover states carry explanatory tooltips throughout.
+
+**New:** `src/utils/i18n.ts`. **Changed:** `electron/main.ts` (`fs:createLibraryFolder/renameLibraryFolder/deleteLibraryFolder/moveLibraryFiles/listLibraryFolders`), `electron/preload.ts`, `src/types/index.ts`, `src/store/index.ts` (`lastFolderOf`, `foldersWithUndo`, `setFavourites`, `remapLibraryPaths`), `src/components/SettingsPanel/SettingsPanel.tsx`.
+
+### Library folder-picker icon — behavior fix
+The folder icon next to the search bar had silently drifted into two different-looking buttons doing two different things (one opened the folder in Explorer, one opened the change-folder dialog). Consolidated: the icon changes the library folder; the path text underneath it opens that folder in Explorer (where files are actually visible — Windows' native folder-picker dialog never shows files, by OS design).
+
+**Changed:** `src/components/SettingsPanel/SettingsPanel.tsx`.
+
+### i18n — new-code convention (no user-facing change yet)
+Added a no-op `t()` placeholder (mirrors `ttag`'s tagged-template API) so new UI strings can be wrapped in translation-ready form as they're written, without installing real translation tooling yet. Existing strings are untouched — the full PO/MO wrapping pass is deferred until the app is feature-frozen (see `docs/I18N_PLAN.md`, gitignored/local-only).
+
+**New:** `src/utils/i18n.ts`.
+
 ---
 
 ## [0.16.0] — 31. 7. 2026 — Note-hit VFX rewrite, downloadable soundfonts, track reorder, playback polish
