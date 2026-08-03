@@ -691,6 +691,7 @@ export default function PianoRoll() {
         if (!noteEditorActive && prevNoteEditorActive) {
           NES.editMidi = null
           lastMidiRef.current = null   // force rebuild from ParsedMidi on exit
+          app.canvas.style.cursor = 'default'
         }
         prevNoteEditorActive = noteEditorActive
 
