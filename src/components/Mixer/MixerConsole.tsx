@@ -166,7 +166,7 @@ export default function MixerConsole() {
         onMouseDown={startDrag}
         onDoubleClick={() => { if (mixerMinimized) setMixerMinimized(false) }}
         style={{
-          height: 40, flexShrink: 0,
+          height: 36, flexShrink: 0,
           background: 'var(--bg-modal-header)',
           borderBottom: mixerMinimized ? 'none' : '1px solid var(--border)',
           display: 'flex', alignItems: 'center',

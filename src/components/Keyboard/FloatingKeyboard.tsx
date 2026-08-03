@@ -8,6 +8,7 @@ import { X, Pin } from 'lucide-react'
 import { useStore } from '../../store'
 import Keyboard from './Keyboard'
 import KeyboardControls from './KeyboardControls'
+import OrfeoMark from '../OrfeoMark'
 
 const DEFAULT_W = 860
 const MIN_W = 650
@@ -120,20 +121,23 @@ export default function FloatingKeyboard() {
       <div
         onMouseDown={startMove}
         style={{
-          height: 26,
-          background: 'var(--bg-deep)',
+          height: 36,
+          background: 'var(--bg-modal-header)',
           borderBottom: '1px solid var(--border)',
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'space-between',
-          padding: '0 10px',
+          padding: '0 var(--space-3)',
           cursor: 'grab',
           flexShrink: 0,
         }}
       >
-        <span style={{ fontSize: 9, fontFamily: 'Inter', color: 'var(--text-muted)', letterSpacing: '0.1em', textTransform: 'uppercase' }}>
-          Keyboard
-        </span>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 7 }}>
+          <OrfeoMark height={22} />
+          <span style={{ fontFamily: 'Inter', fontSize: 9, fontWeight: 700, color: 'var(--text-amber)', letterSpacing: '0.14em', textTransform: 'uppercase' }}>
+            Keyboard
+          </span>
+        </div>
         <div style={{ display: 'flex', gap: 'var(--space-1)' }} data-no-drag="true">
           <button
             onClick={() => setKeyboardMode('docked')}

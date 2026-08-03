@@ -651,13 +651,13 @@ export default function ScaleExplorer() {
     >
       {/* Header — drag handle */}
       <div onMouseDown={onDragStart} style={{
-        flexShrink: 0, height: 32, display: 'flex', alignItems: 'center',
+        flexShrink: 0, height: 36, display: 'flex', alignItems: 'center',
         justifyContent: 'space-between', padding: '0 var(--space-3)',
         background: 'var(--bg-modal-header)', borderBottom: '1px solid var(--border)',
         cursor: 'grab', userSelect: 'none',
       }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 7 }}>
-          <OrfeoMark height={14} />
+          <OrfeoMark height={22} />
           <span style={{ fontFamily: 'Inter', fontSize: 9, fontWeight: 700, color: 'var(--text-amber)', letterSpacing: '0.14em', textTransform: 'uppercase' }}>
             Scale Explorer
           </span>

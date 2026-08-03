@@ -2,6 +2,7 @@ import React, { useState, useCallback, useMemo, useEffect } from 'react'
 import { Play, RotateCcw, X } from 'lucide-react'
 import { useStore } from '../store'
 import { formatInversionDisplay, ordinalSuffix } from '../utils/chordDetection'
+import OrfeoMark from './OrfeoMark'
 
 const MODAL_WIDTH  = 220
 const MODAL_HEIGHT = 100
@@ -116,13 +117,15 @@ export default function LockedChordModal() {
       <div
         onMouseDown={startDrag}
         style={{
-          height: 28,
-          display: 'flex', alignItems: 'center',
-          padding: '0 8px 0 10px',
+          height: 36,
+          background: 'var(--bg-modal-header)',
+          display: 'flex', alignItems: 'center', gap: 7,
+          padding: '0 var(--space-3)',
           cursor: 'grab',
           borderBottom: '1px solid var(--border)',
         }}
       >
+        <OrfeoMark height={22} />
         {/* ── Title in amber to distinguish from other panels ──────────────── */}
         <span style={{ flex: 1, fontFamily: 'Inter', fontSize: 9, fontWeight: 700, color: 'var(--text-amber)', letterSpacing: '0.10em', textTransform: 'uppercase' }}>
           Locked Chord

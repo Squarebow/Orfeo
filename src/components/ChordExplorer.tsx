@@ -659,7 +659,7 @@ export default function ChordExplorer() {
       <div
         onMouseDown={startDrag}
         style={{
-          height: 32, flexShrink: 0,
+          height: 36, flexShrink: 0,
           background: 'var(--bg-modal-header)',
           borderBottom: '1px solid var(--border)',
           display: 'flex', alignItems: 'center', justifyContent: 'space-between',
@@ -669,7 +669,7 @@ export default function ChordExplorer() {
         }}
       >
         <div style={{ display: 'flex', alignItems: 'center', gap: 7 }}>
-          <OrfeoMark height={14} />
+          <OrfeoMark height={22} />
           <span style={{ fontFamily: 'Inter', fontSize: 9, fontWeight: 700, color: 'var(--text-amber)', letterSpacing: '0.12em', textTransform: 'uppercase' }}>
             Chord Explorer
           </span>
