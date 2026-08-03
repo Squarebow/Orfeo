@@ -188,12 +188,12 @@ export default function NoteEditorToolbar() {
   const dragState       = useRef<{ startX: number; startY: number; startPosX: number; startPosY: number } | null>(null)
 
   // ── Default position: top-right corner of the piano roll, under the top
-  // bar, left of the Tracks panel — only applied while the stored position
-  // is still the untouched default (24, 80); a real user drag is never
-  // overridden. Recomputed each time edit mode is entered (this component
-  // mounts fresh per session), but never while already open. ────────────────
+  // bar, left of the Tracks panel. Always recomputed on open, same as every
+  // other modal in the app (ChordExplorer, ScaleExplorer, etc. — none of
+  // them persist a dragged position across sessions either); dragging
+  // during one test session used to get permanently stuck in the prefs
+  // file and reappear "randomly" positioned on the next restart. ───────────
   useEffect(() => {
-    if (noteEditorToolbarX !== 24 || noteEditorToolbarY !== 80) return
     const roll = getPianoRollAreaRect()
     if (!roll) return
     const w = panelRef.current?.offsetWidth ?? 400

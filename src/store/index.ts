@@ -972,12 +972,21 @@ let _prevMidiForCollapse: unknown = null
 let _drawersAutoCollapsed = false
 let _preCollapseTrackPanelOpen = false
 let _preCollapseSettingsPanelOpen = false
+// Seek operations (wheel-scrub, skip buttons) force a brief real
+// playing->paused->playing transition to get the audio engine to rebuild at
+// the new position — without this debounce, every one of those ~20ms blips
+// would restore the panels and immediately re-collapse them, visibly
+// flashing open. Only actually restore if playback is still non-playing
+// after the debounce window.
+let _restoreTimer: ReturnType<typeof setTimeout> | null = null
+const RESTORE_DEBOUNCE_MS = 150
 const _unsubCollapse = useStore.subscribe((state) => {
   if (!state.autoCollapseDrawers) { _drawersAutoCollapsed = false; return }
 
   if (state.midi !== _prevMidiForCollapse) {
     _prevMidiForCollapse = state.midi
     if (_drawersAutoCollapsed) {
+      if (_restoreTimer) { clearTimeout(_restoreTimer); _restoreTimer = null }
       _drawersAutoCollapsed = false
       if (_preCollapseTrackPanelOpen) state.setTrackPanelOpen(true)
       if (_preCollapseSettingsPanelOpen) state.setSettingsPanelOpen(true)
@@ -989,16 +998,24 @@ const _unsubCollapse = useStore.subscribe((state) => {
     const isPlaying = state.playbackState === 'playing'
     _prevPlaybackStateForCollapse = state.playbackState
 
-    if (isPlaying && !_drawersAutoCollapsed) {
-      _preCollapseTrackPanelOpen = state.trackPanelOpen
-      _preCollapseSettingsPanelOpen = state.settingsPanelOpen
-      _drawersAutoCollapsed = true
-      if (state.trackPanelOpen) state.setTrackPanelOpen(false)
-      if (state.settingsPanelOpen) state.setSettingsPanelOpen(false)
-    } else if (!isPlaying && wasPlaying && _drawersAutoCollapsed) {
-      _drawersAutoCollapsed = false
-      if (_preCollapseTrackPanelOpen) state.setTrackPanelOpen(true)
-      if (_preCollapseSettingsPanelOpen) state.setSettingsPanelOpen(true)
+    if (isPlaying) {
+      if (_restoreTimer) { clearTimeout(_restoreTimer); _restoreTimer = null }
+      if (!_drawersAutoCollapsed) {
+        _preCollapseTrackPanelOpen = state.trackPanelOpen
+        _preCollapseSettingsPanelOpen = state.settingsPanelOpen
+        _drawersAutoCollapsed = true
+        if (state.trackPanelOpen) state.setTrackPanelOpen(false)
+        if (state.settingsPanelOpen) state.setSettingsPanelOpen(false)
+      }
+    } else if (wasPlaying && _drawersAutoCollapsed) {
+      if (_restoreTimer) clearTimeout(_restoreTimer)
+      _restoreTimer = setTimeout(() => {
+        _restoreTimer = null
+        if (useStore.getState().playbackState === 'playing') return // was just a blip
+        _drawersAutoCollapsed = false
+        if (_preCollapseTrackPanelOpen) useStore.getState().setTrackPanelOpen(true)
+        if (_preCollapseSettingsPanelOpen) useStore.getState().setSettingsPanelOpen(true)
+      }, RESTORE_DEBOUNCE_MS)
     }
   }
 })
@@ -1016,6 +1033,7 @@ if (import.meta.hot) {
     _unsubFav()
     _unsubPrefs()
     _unsubCollapse()
+    if (_restoreTimer) clearTimeout(_restoreTimer)
   })
 }
 

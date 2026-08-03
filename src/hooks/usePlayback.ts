@@ -128,10 +128,22 @@ export function usePlayback() {
   const seekAndPlay = useCallback((timeSec: number) => {
     const clamped = Math.max(0, timeSec)
     stopRaf()
-    fallbackStartPerfRef.current = performance.now()
-    fallbackStartTimeRef.current = clamped
-    useStore.setState({ currentTime: clamped, playbackState: 'playing' })
-    startRaf()
+    // useAudioEngine only rebuilds/repositions the actual player on a real
+    // playbackState transition INTO 'playing' (ps === 'playing' && pp !==
+    // 'playing') — setting playbackState straight to 'playing' while it's
+    // already 'playing' (the common case: skip/scrub while mid-playback) is
+    // a no-op transition, so the store's currentTime jumps but the real
+    // player keeps going from its old position. Force a brief 'paused' blip
+    // first so there's always a genuine transition to rebuild from, same
+    // trick PianoRoll's wheel-scrub handler already uses (and which is the
+    // only reason wheel-scrub-while-playing actually works today).
+    useStore.setState({ playbackState: 'paused' })
+    setTimeout(() => {
+      fallbackStartPerfRef.current = performance.now()
+      fallbackStartTimeRef.current = clamped
+      useStore.setState({ currentTime: clamped, playbackState: 'playing' })
+      startRaf()
+    }, 20)
   }, [stopRaf, startRaf])
 
   // Watch for external state changes
