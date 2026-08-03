@@ -57,7 +57,7 @@ export default function MixerConsole() {
     const w = BODY_PAD * 2 + n * STRIP_W + (n - 1) * STRIP_GAP + STRIP_GAP + MASTER_W + 2
     setPos({
       x: Math.round(getPianoRollCenterX() - w / 2),
-      y: Math.round(getKeyboardHeaderTop() - MODAL_H_APPROX) - 5,
+      y: Math.round(getKeyboardHeaderTop() - MODAL_H_APPROX) - 11,
     })
   }, [mixerOpen])
 
@@ -86,7 +86,7 @@ export default function MixerConsole() {
     const w = BODY_PAD * 2 + n * STRIP_W + (n - 1) * STRIP_GAP + STRIP_GAP + MASTER_W + 2
     return {
       x: Math.max(0, Math.round(getPianoRollCenterX() - w / 2)),
-      y: Math.max(0, Math.round(getKeyboardHeaderTop() - MODAL_H_APPROX) - 5),
+      y: Math.max(0, Math.round(getKeyboardHeaderTop() - MODAL_H_APPROX) - 11),
     }
   })
 

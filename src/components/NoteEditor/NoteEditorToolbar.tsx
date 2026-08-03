@@ -202,6 +202,31 @@ export default function NoteEditorToolbar() {
     setPos(next)
   }, [])
 
+  // ── Clamp into the current viewport — a position saved while the window
+  // was larger (e.g. OS fullscreen) can otherwise render half off-screen
+  // once the window shrinks back down. Runs on mount and on resize/
+  // fullscreen transitions, for both the default and a user-dragged
+  // position alike. ─────────────────────────────────────────────────────────
+  useEffect(() => {
+    const clamp = () => {
+      const panelW = panelRef.current?.offsetWidth ?? 400
+      const panelH = panelRef.current?.offsetHeight ?? 44
+      setPos(p => {
+        const next = {
+          x: Math.max(0, Math.min(window.innerWidth - panelW, p.x)),
+          y: Math.max(0, Math.min(window.innerHeight - panelH, p.y)),
+        }
+        if (next.x === p.x && next.y === p.y) return p
+        posRef.current = next
+        return next
+      })
+    }
+    clamp()
+    const raf = requestAnimationFrame(clamp) // re-clamp once the panel's real size is measured
+    window.addEventListener('resize', clamp)
+    return () => { cancelAnimationFrame(raf); window.removeEventListener('resize', clamp) }
+  }, [])
+
   const onMouseMove = useCallback((e: MouseEvent) => {
     const ds = dragState.current
     if (!ds) return
