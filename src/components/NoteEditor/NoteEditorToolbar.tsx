@@ -36,12 +36,6 @@ const IconReset = () => (
   </svg>
 )
 
-const IconVelocity = () => (
-  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-    <path d="M22 12h-4l-3 9L9 3l-3 9H2"/>
-  </svg>
-)
-
 const IconInfo = () => (
   <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
     <circle cx="12" cy="12" r="10"/>
@@ -440,15 +434,6 @@ export default function NoteEditorToolbar() {
         </ToolBtn>
 
         <VSep />
-
-        {/* ── Velocity placeholder (coming soon) ─────────────────────────── */}
-        <button
-          disabled
-          title="Velocity editing (coming soon)"
-          style={{ ...iconBtnStyle(true), opacity: 0.3, cursor: 'default', pointerEvents: 'none' }}
-        >
-          <IconVelocity />
-        </button>
 
         {/* ── Save ───────────────────────────────────────────────────────── */}
         <ToolBtn active={false} onClick={() => void handleSave()} title="Save note edits as new MIDI file (_ORFEO versioned copy)">

@@ -21,6 +21,18 @@ const MIN_NOTE_H       = 4
 const PLAYHEAD_RATIO   = 0.80
 const RESIZE_ZONE_PX   = 6
 const DRAG_THRESHOLD   = 4
+// ── Velocity lane (edit mode only) — v1 shows only the currently-selected
+// note(s), one bar each, drag vertically to adjust. Deliberately not a
+// dense per-visible-note bar chart like a standard horizontal-scrolling DAW
+// roll: this app's roll scrolls vertically (Y=time, X=pitch), so there's no
+// single natural X-axis to place one bar per note the way a DAW would —
+// doing that properly would mean reworking the roll's whole coordinate
+// system, a bigger upgrade for later if it's ever wanted. Selection-driven
+// is the version that fits the existing click-select-then-adjust workflow
+// (matches how move/resize/pitch already work) and ships correctly now. ───
+const VELOCITY_LANE_H  = 56
+const VELOCITY_BAR_W   = 18
+const VELOCITY_BAR_GAP = 6
 
 // ── Canvas/PixiJS colors resolved from CSS custom properties ─────────────────
 // PixiJS Graphics.fill({color}) needs a numeric 0xRRGGBB and Canvas2D ctx.fillStyle
@@ -350,6 +362,8 @@ export default function PianoRoll() {
   const playheadRef       = useRef<Graphics | null>(null)
   const overlayCanvasRef  = useRef<HTMLCanvasElement | null>(null)
   const overlayCtxRef     = useRef<CanvasRenderingContext2D | null>(null)
+  const velocityCanvasRef = useRef<HTMLCanvasElement | null>(null)
+  const velocityCtxRef    = useRef<CanvasRenderingContext2D | null>(null)
   const keyLayoutRef      = useRef<KeyLayout[]>([])
   const hitEffectsRef     = useRef<HitEffectsRenderer | null>(null)
   const storeRef          = useRef(useStore.getState())
@@ -417,6 +431,15 @@ export default function PianoRoll() {
       overlayCanvasRef.current = overlay
       overlayCtxRef.current    = overlay.getContext('2d')
 
+      // ── Canvas2D velocity lane — edit-mode only, hidden otherwise ─────────
+      const velCanvas = document.createElement('canvas')
+      velCanvas.style.cssText = 'position:absolute;left:0;bottom:0;display:none'
+      velCanvas.width  = el.clientWidth || 800
+      velCanvas.height = VELOCITY_LANE_H
+      el.appendChild(velCanvas)
+      velocityCanvasRef.current = velCanvas
+      velocityCtxRef.current    = velCanvas.getContext('2d')
+
       const grid     = new Graphics()
       const barLines = new Graphics()   // bar dividers — behind notes, above key grid
       const notes    = new Graphics()
@@ -441,6 +464,13 @@ export default function PianoRoll() {
       let editMarquee:          EditMarqueeState | null = null
       let lastGlissandoMidi:    number | null   = null
       let prevNoteEditorActive: boolean         = false
+
+      // ── Velocity lane state — bars rebuilt each draw from the current
+      // selection; drag state tracks which note (if any) is being adjusted. ──
+      let velBars: { note: ToneNote; x: number; w: number }[] = []
+      let velDragNote:      ToneNote | null = null
+      let velDragStartY     = 0
+      let velDragStartVel   = 0
 
       // ── snapTick — quantize a tick value to the grid ──────────────────────
       const snapTick = (tick: number): number => {
@@ -1314,6 +1344,94 @@ export default function PianoRoll() {
         NES.onHistoryChange?.()
       }
 
+      // ── Velocity lane — draws bars for the current selection, one per note ──
+      const drawVelocityLane = () => {
+        const canvas = velocityCanvasRef.current
+        const ctx    = velocityCtxRef.current
+        if (!canvas || !ctx) return
+        const active = storeRef.current.noteEditorActive
+        canvas.style.display = active ? 'block' : 'none'
+        if (!active) { velBars = []; return }
+
+        const W = canvas.width, H = VELOCITY_LANE_H
+        ctx.clearRect(0, 0, W, H)
+        ctx.fillStyle = BAR_PILL_BG_COLOR
+        ctx.fillRect(0, 0, W, H)
+        ctx.strokeStyle = BARLINE_COLOR
+        ctx.beginPath(); ctx.moveTo(0, 0.5); ctx.lineTo(W, 0.5); ctx.stroke()
+
+        const selected = [...editSelectedNotes]
+        if (selected.length === 0) {
+          velBars = []
+          ctx.fillStyle = NOTE_LABEL_COLOR
+          ctx.font = '10px Inter, sans-serif'
+          ctx.textAlign = 'center'
+          ctx.textBaseline = 'middle'
+          ctx.fillText('Select a note to edit velocity', W / 2, H / 2)
+          return
+        }
+
+        velBars = []
+        const barSlot = VELOCITY_BAR_W + VELOCITY_BAR_GAP
+        const totalW  = selected.length * barSlot - VELOCITY_BAR_GAP
+        let x = Math.max(8, (W - totalW) / 2)
+        const trackTop = 18, trackH = H - trackTop - 6
+
+        for (const note of selected) {
+          const vel  = Math.max(0, Math.min(1, note.velocity))
+          const barH = Math.max(2, Math.round(vel * trackH))
+          const y    = trackTop + (trackH - barH)
+          const isDragging = note === velDragNote
+
+          ctx.fillStyle = isDragging ? HAND_AMBER_HEX_STR : `${HAND_AMBER_HEX_STR}bb`
+          ctx.fillRect(x, y, VELOCITY_BAR_W, barH)
+
+          ctx.fillStyle = NOTE_LABEL_COLOR
+          ctx.font = '9px "JetBrains Mono", monospace'
+          ctx.textAlign = 'center'
+          ctx.textBaseline = 'alphabetic'
+          ctx.fillText(String(Math.round(vel * 127)), x + VELOCITY_BAR_W / 2, trackTop - 5)
+
+          velBars.push({ note, x, w: VELOCITY_BAR_W })
+          x += barSlot
+        }
+      }
+
+      const onVelPointerDown = (e: PointerEvent) => {
+        if (!storeRef.current.noteEditorActive) return
+        const canvas = velocityCanvasRef.current
+        if (!canvas) return
+        const r  = canvas.getBoundingClientRect()
+        const cx = e.clientX - r.left
+        const hit = velBars.find(b => cx >= b.x && cx <= b.x + b.w)
+        if (!hit) return
+        velDragNote    = hit.note
+        velDragStartY  = e.clientY
+        velDragStartVel = hit.note.velocity
+        canvas.setPointerCapture(e.pointerId)
+      }
+      const onVelPointerMove = (e: PointerEvent) => {
+        if (!velDragNote) return
+        const trackH = VELOCITY_LANE_H - 18 - 6
+        const delta  = (velDragStartY - e.clientY) / trackH
+        velDragNote.velocity = Math.max(0, Math.min(1, velDragStartVel + delta))
+      }
+      const onVelPointerUp = (e: PointerEvent) => {
+        if (!velDragNote) return
+        const note        = velDragNote
+        const originalVel = velDragStartVel
+        const finalVel    = note.velocity
+        velDragNote = null
+        try { velocityCanvasRef.current?.releasePointerCapture(e.pointerId) } catch {}
+        if (Math.abs(finalVel - originalVel) < 0.001) return
+        history_push({
+          note,
+          description: `Velocity note midi=${note.midi}: ${originalVel.toFixed(2)} → ${finalVel.toFixed(2)}`,
+          apply()  { note.velocity = finalVel },
+          revert() { note.velocity = originalVel },
+        })
+      }
+
       // ── Register reset handler — toolbar Reset button rebuilds editMidi from _raw ──
       NES.onResetRequest = () => {
         const raw = (storeRef.current.midi as any)?._raw as ArrayBuffer | undefined
@@ -1346,13 +1464,17 @@ export default function PianoRoll() {
       app.canvas.addEventListener('contextmenu',   onEditContext)
       app.canvas.addEventListener('mouseleave',    onCanvasLeave)
       window.addEventListener('keydown', onEditKey, { capture: true })
+      velCanvas.addEventListener('pointerdown',   onVelPointerDown)
+      velCanvas.addEventListener('pointermove',   onVelPointerMove)
+      velCanvas.addEventListener('pointerup',     onVelPointerUp)
+      velCanvas.addEventListener('pointercancel', onVelPointerUp)
 
       // ── Initial draw ──────────────────────────────────────────────────────
       const { keyboardSize } = useStore.getState()
       const { min: initMin, max: initMax } = RANGES[keyboardSize] ?? RANGES[88]
       lastKeySizeRef.current = keyboardSize
       drawGrid(app.screen.width, app.screen.height, initMin, initMax)
-      app.ticker.add(() => drawFrame())
+      app.ticker.add(() => { drawFrame(); drawVelocityLane() })
 
       roInstance = new ResizeObserver(() => {
         if (!appRef.current) return
@@ -1365,6 +1487,9 @@ export default function PianoRoll() {
           overlayCanvasRef.current.width  = w
           overlayCanvasRef.current.height = h
         }
+        if (velocityCanvasRef.current) {
+          velocityCanvasRef.current.width = w
+        }
       })
       roInstance.observe(el)
     })
@@ -1376,6 +1501,11 @@ export default function PianoRoll() {
         try { overlayCanvasRef.current.remove() } catch {}
         overlayCanvasRef.current = null
         overlayCtxRef.current    = null
+      }
+      if (velocityCanvasRef.current) {
+        try { velocityCanvasRef.current.remove() } catch {}
+        velocityCanvasRef.current = null
+        velocityCtxRef.current    = null
       }
       try { hitEffectsRef.current?.destroy() } catch {}
       hitEffectsRef.current = null
