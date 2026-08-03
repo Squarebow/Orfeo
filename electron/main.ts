@@ -1202,12 +1202,21 @@ ipcMain.handle('window:setFullScreen', (_e, value: boolean) => {
 })
 
 // ── Auto-update — GitHub Releases as the update feed (see package.json's
-// build.publish). Portable builds have no installer/uninstaller for
-// electron-updater to work with, so auto-update is skipped there — the
-// Settings "Check for updates" button falls back to just opening the
-// releases page for those (handled renderer-side once it sees
-// available:false with a null reason vs. an actual error). ──────────────────
+// build.publish). Only Windows gets real auto-update: that's the only
+// platform SquareBow actually builds, signs (nominally), and publishes
+// artifacts for via `npm run dist`. macOS/Linux builds are community-
+// contributed unofficial binaries — nobody controls their provenance or
+// update channel, so pointing electron-updater at the official GitHub feed
+// for them would be actively wrong (could offer an "update" that doesn't
+// match how that binary was built, or silently never fire since community
+// builds usually aren't uploaded as electron-updater-recognized artifacts
+// at all). Portable builds have no installer/uninstaller for
+// electron-updater to work with either. All three fall back to the
+// Settings "Check for updates" button just opening the releases page for
+// a manual look — see docs/CONTRIBUTING.md's "Releases & auto-update"
+// section. ─────────────────────────────────────────────────────────────────
 const isPortable = !!process.env.PORTABLE_EXECUTABLE_DIR
+const supportsAutoUpdate = process.platform === 'win32' && !isPortable
 autoUpdater.autoDownload = true
 autoUpdater.autoInstallOnAppQuit = false
 
@@ -1215,7 +1224,7 @@ function sendUpdateStatus(payload: Record<string, unknown>) {
   mainWin?.webContents.send('update:status', payload)
 }
 
-if (app.isPackaged && !isPortable) {
+if (app.isPackaged && supportsAutoUpdate) {
   autoUpdater.on('checking-for-update', () => sendUpdateStatus({ state: 'checking' }))
   autoUpdater.on('update-available', (info) => sendUpdateStatus({ state: 'downloading', version: info.version }))
   autoUpdater.on('update-not-available', () => sendUpdateStatus({ state: 'up-to-date' }))
@@ -1226,7 +1235,7 @@ if (app.isPackaged && !isPortable) {
 
 ipcMain.handle('update:check', () => {
   if (!app.isPackaged) { sendUpdateStatus({ state: 'unavailable', reason: 'dev' }); return }
-  if (isPortable) { sendUpdateStatus({ state: 'unavailable', reason: 'portable' }); return }
+  if (!supportsAutoUpdate) { sendUpdateStatus({ state: 'unavailable', reason: isPortable ? 'portable' : 'unsupported-platform' }); return }
   autoUpdater.checkForUpdates().catch((err) => sendUpdateStatus({ state: 'error', message: err?.message ?? 'Update check failed' }))
 })
 
@@ -1247,7 +1256,7 @@ if (process.env.PORTABLE_EXECUTABLE_DIR) {
 app.whenReady().then(async () => {
   try { await ensureDemoFolder() } catch (e) { console.error('[Orfeo] ensureDemoFolder failed:', e) }
   createWindow()
-  if (app.isPackaged && !isPortable) {
+  if (app.isPackaged && supportsAutoUpdate) {
     // Delayed so it doesn't compete with the app's own startup work; silent
     // by design — the UI only shows anything once a real update is found.
     setTimeout(() => { autoUpdater.checkForUpdates().catch(() => {}) }, 5000)
