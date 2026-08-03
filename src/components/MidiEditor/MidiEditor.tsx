@@ -778,7 +778,7 @@ export default function MidiEditor() {
       positioned.current = true
       setPos({
         x: Math.max(0, Math.round((window.innerWidth - MODAL_W) / 2)),
-        y: 120,
+        y: 220,
       })
     }
   }, [midiEditorOpen])

@@ -6,7 +6,7 @@ import { editableCopyToBuffer } from '../../utils/noteEditorCommands'
 import { parseMidiBuffer } from '../../utils/midiParser'
 import { detectKeyFromTracks, parseKeySignature } from '../../utils/keyDetection'
 import { nextOrfeoBaseName } from '../../utils/orfeoVersioning'
-import { getPianoRollAreaRect } from '../../utils/modalAnchors'
+import { getPianoRollAreaRect, getPianoRollCenterX } from '../../utils/modalAnchors'
 
 // ── Toolbar SVG icons ─────────────────────────────────────────────────────────
 const IconSnap = () => (
@@ -187,17 +187,13 @@ export default function NoteEditorToolbar() {
   const panelRef        = useRef<HTMLDivElement>(null)
   const dragState       = useRef<{ startX: number; startY: number; startPosX: number; startPosY: number } | null>(null)
 
-  // ── Default position: top-right corner of the piano roll, under the top
-  // bar, left of the Tracks panel. Always recomputed on open, same as every
-  // other modal in the app (ChordExplorer, ScaleExplorer, etc. — none of
-  // them persist a dragged position across sessions either); dragging
-  // during one test session used to get permanently stuck in the prefs
-  // file and reappear "randomly" positioned on the next restart. ───────────
+  // ── Default position: horizontally centered on the piano roll. Always
+  // recomputed on open, same as every other modal in the app. ──────────────
   useEffect(() => {
     const roll = getPianoRollAreaRect()
     if (!roll) return
     const w = panelRef.current?.offsetWidth ?? 400
-    const next = { x: Math.max(0, Math.round(roll.right - w - 16)), y: Math.round(roll.top + 12) }
+    const next = { x: Math.max(0, Math.round(getPianoRollCenterX() - w / 2)), y: Math.round(roll.top + 12) }
     posRef.current = next
     setPos(next)
   }, [])
