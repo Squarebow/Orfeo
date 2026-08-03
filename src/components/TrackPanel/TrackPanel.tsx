@@ -579,7 +579,7 @@ function TrackRow({
         <span style={{ fontSize: 9, color: 'var(--text-track-meta)', fontFamily: 'JetBrains Mono' }}>·</span>
         <span style={{ fontSize: 9, color: 'var(--text-track-meta)', fontFamily: 'JetBrains Mono' }}>{prog}</span>
         <span style={{ fontSize: 9, color: 'var(--text-track-meta)', fontFamily: 'JetBrains Mono' }}>·</span>
-        <span style={{ fontSize: 9, color: 'var(--text-track-meta)', fontFamily: 'JetBrains Mono' }}>notes {noteCount}</span>
+        <span style={{ fontSize: 9, color: 'var(--text-track-meta)', fontFamily: 'JetBrains Mono' }}>{noteCount} notes</span>
       </div>
     </div>
   )
