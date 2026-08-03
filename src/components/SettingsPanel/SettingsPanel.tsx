@@ -86,15 +86,17 @@ function SectionHeader({ icon, label }: { icon: React.ReactNode; label: string }
 // Supports two variants:
 //   Standard:   label + children controls + optional hint below
 //   Eye-toggle: name + icon share one flex row; description sits below full-width
-function OptionRow({ label, children, hint, badge, eyeToggle, eyeValue, onEyeChange, description }: {
+function OptionRow({ label, children, hint, hintCenter, badge, eyeToggle, eyeValue, onEyeChange, description, labelSmall }: {
   label: string
   children?: React.ReactNode
   hint?: string
+  hintCenter?: boolean
   badge?: React.ReactNode
   eyeToggle?: boolean
   eyeValue?: boolean
   onEyeChange?: (val: boolean) => void
   description?: React.ReactNode
+  labelSmall?: boolean
 }) {
   // ── Eye-toggle variant — name left + icon right on one row, description below ──
   if (eyeToggle) {
@@ -105,10 +107,11 @@ function OptionRow({ label, children, hint, badge, eyeToggle, eyeValue, onEyeCha
           display: 'flex', alignItems: 'center', justifyContent: 'space-between',
           marginBottom: description ? 4 : 0,
         }}>
-          {/* ── Feature name — --text-default (bright) creates hierarchy over dim description ── */}
+          {/* ── Feature name — --text-default (bright) creates hierarchy over dim description;
+              labelSmall opts into the muted sub-heading look instead (see "Labels" divider). ── */}
           <div style={{
-            fontSize: 'var(--text-xs)', color: 'var(--text-default)',
-            fontWeight: 500, letterSpacing: '0.02em', textTransform: 'uppercase',
+            fontSize: labelSmall ? 9 : 'var(--text-xs)', color: labelSmall ? 'var(--text-muted)' : 'var(--text-default)',
+            fontWeight: labelSmall ? 600 : 500, letterSpacing: labelSmall ? '0.1em' : '0.02em', textTransform: 'uppercase',
             display: 'flex', alignItems: 'center', gap: 6,
           }}>
             {label}
@@ -151,14 +154,14 @@ function OptionRow({ label, children, hint, badge, eyeToggle, eyeValue, onEyeCha
   return (
     <div style={{ padding: '10px 14px', borderBottom: '1px solid var(--border-row)' }}>
       {/* ── Label row — --text-default (bright) to match eye-toggle name hierarchy ── */}
-      <div style={{ fontSize: 'var(--text-xs)', color: 'var(--text-default)', marginBottom: 6, fontWeight: 500, letterSpacing: '0.02em', textTransform: 'uppercase', display: 'flex', alignItems: 'center', gap: 6 }}>
+      <div style={{ fontSize: labelSmall ? 9 : 'var(--text-xs)', color: labelSmall ? 'var(--text-muted)' : 'var(--text-default)', marginBottom: 6, fontWeight: labelSmall ? 600 : 500, letterSpacing: labelSmall ? '0.1em' : '0.02em', textTransform: 'uppercase', display: 'flex', alignItems: 'center', gap: 6 }}>
         {label}
         {badge}
       </div>
       {children}
       {/* ── Hint — --text-xs token + --text-dimmest matches description hierarchy ── */}
       {hint && (
-        <div style={{ fontSize: 'var(--text-xs)', color: 'var(--text-faint)', marginTop: 5, fontFamily: 'Inter' }}>
+        <div style={{ fontSize: 'var(--text-xs)', color: 'var(--text-faint)', marginTop: 5, fontFamily: 'Inter', textAlign: hintCenter ? 'center' : 'left' }}>
           {hint}
         </div>
       )}
@@ -1428,18 +1431,22 @@ function LibraryPanel() {
               const isLoaded  = !!loadedFilePath &&
                 file.path.replace(/\\/g, '/') === loadedFilePath.replace(/\\/g, '/')
               const isSelected = selectedPaths.has(file.path)
+              // ── Cell border+background is reserved for multi-select (2+ files, the
+              // drag/create-folder gesture) — a single selected/loaded file only gets
+              // its icon+filename highlighted amber, no cell decoration. ─────────────
+              const isMultiSelected = isSelected && selectedPaths.size >= 2
               const fmt = detectForeignFormat(file.path)
               const RowIcon = fmt === 'musicxml' ? FileCode2 : fmt === 'guitarpro' ? Guitar : FileMusic
               const rowTitle = fmt === 'musicxml'  ? `${file.name} (MusicXML — imported)`
                              : fmt === 'guitarpro' ? `${file.name} (Guitar Pro — imported)`
                              : file.name
-              const rowBg = isLoaded ? 'var(--accent-amber-medium)' : isSelected ? 'var(--accent-amber-subtle)' : 'transparent'
+              const rowBg = isLoaded ? 'var(--accent-amber-medium)' : isMultiSelected ? 'var(--accent-amber-subtle)' : 'transparent'
               // ── Draw one bordered "box" around each contiguous run of selected rows,
               // instead of an outline on every individual row — top/bottom border only
               // where the neighbor in visual order isn't also selected. ────────────────
               const rowIndex = visibleFilePaths.indexOf(file.path)
-              const prevSelected = isSelected && rowIndex > 0 && selectedPaths.has(visibleFilePaths[rowIndex - 1])
-              const nextSelected = isSelected && rowIndex < visibleFilePaths.length - 1 && selectedPaths.has(visibleFilePaths[rowIndex + 1])
+              const prevSelected = isMultiSelected && rowIndex > 0 && selectedPaths.has(visibleFilePaths[rowIndex - 1])
+              const nextSelected = isMultiSelected && rowIndex < visibleFilePaths.length - 1 && selectedPaths.has(visibleFilePaths[rowIndex + 1])
               const selectionBorder = '2px solid var(--accent-amber-strong)'
               return (
                 <div
@@ -1454,17 +1461,17 @@ function LibraryPanel() {
                     padding: group.folder ? '8px 10px 8px 26px' : '8px 10px 8px 12px',
                     cursor: 'pointer', transition: 'background 0.08s',
                     background: rowBg,
-                    borderLeft: isSelected ? selectionBorder : 'none',
-                    borderRight: isSelected ? selectionBorder : 'none',
-                    borderTop: isSelected && !prevSelected ? selectionBorder : 'none',
-                    borderBottom: isSelected && !nextSelected ? selectionBorder : '1px solid var(--border-row)',
-                    marginTop: isSelected && !prevSelected ? -1 : 0,
+                    borderLeft: isMultiSelected ? selectionBorder : 'none',
+                    borderRight: isMultiSelected ? selectionBorder : 'none',
+                    borderTop: isMultiSelected && !prevSelected ? selectionBorder : 'none',
+                    borderBottom: isMultiSelected && !nextSelected ? selectionBorder : '1px solid var(--border-row)',
+                    marginTop: isMultiSelected && !prevSelected ? -1 : 0,
                   }}
                   // Hover only repaints plain (unselected, unloaded) rows — selected/loaded rows
                   // keep their amber background on hover instead of flashing to the same gray
                   // used for plain hover, which is what made "selected" read as gray before.
-                  onMouseEnter={e => { if (!isLoaded && !isSelected) (e.currentTarget as HTMLElement).style.background = 'var(--bg-tile)' }}
-                  onMouseLeave={e => { if (!isLoaded && !isSelected) (e.currentTarget as HTMLElement).style.background = 'transparent' }}
+                  onMouseEnter={e => { if (!isLoaded && !isMultiSelected) (e.currentTarget as HTMLElement).style.background = 'var(--bg-tile)' }}
+                  onMouseLeave={e => { if (!isLoaded && !isMultiSelected) (e.currentTarget as HTMLElement).style.background = 'transparent' }}
                   onClick={e => handleRowClick(e, file.path, visibleFilePaths)}
                   onContextMenu={e => handleContextMenu(e, file.path)}
                 >
@@ -1472,9 +1479,9 @@ function LibraryPanel() {
                   {chordTranscriptionEnabled ? (
                     <TranscriptIcon filePath={file.path} noteNaming={noteNaming} accidentals={accidentals} addTranscriptEntry={addTranscriptEntry} />
                   ) : (
-                    <RowIcon size={11} strokeWidth={1.5} style={{ color: isLoaded ? 'var(--text-amber)' : 'var(--text-muted)', flexShrink: 0 }} />
+                    <RowIcon size={11} strokeWidth={1.5} style={{ color: isLoaded || isSelected ? 'var(--text-amber)' : 'var(--text-muted)', flexShrink: 0 }} />
                   )}
-                  <MarqueeText name={file.name.replace(/\.(mid|midi)$/i, '')} spanStyle={isLoaded ? FILENAME_SPAN_ACTIVE : FILENAME_SPAN_DEFAULT} />
+                  <MarqueeText name={file.name.replace(/\.(mid|midi)$/i, '')} spanStyle={isLoaded || isSelected ? FILENAME_SPAN_ACTIVE : FILENAME_SPAN_DEFAULT} />
                   {lastFolderOf.has(file.path) && (
                     <button
                       onClick={e => { e.stopPropagation(); handleUndoMove(file.path) }}
@@ -1828,7 +1835,7 @@ export default function SettingsPanel() {
                     onEyeChange={setNoteEditorEnabled}
                     description={
                       <>
-                        Shows <span style={{ display: 'inline-flex', verticalAlign: 'middle' }}><NoteEditorIcon size={11} /></span> in the Tracks panel to enter MIDI note-editing mode directly on the piano roll.
+                        Shows <span style={{ display: 'inline-flex', verticalAlign: 'middle', color: 'var(--text-amber)' }}><NoteEditorIcon size={11} /></span> in the Tracks panel to enter MIDI note-editing mode directly on the piano roll.
                       </>
                     }
                   />
@@ -1878,12 +1885,13 @@ export default function SettingsPanel() {
                   {noteNaming !== 'hidden' && (
                     <OptionRow
                       label="Accidentals"
-                      hint={accidentals === 'flat' ? 'e.g.  Bb  Eb  Ab  Db  Gb' : 'e.g.  A#  D#  G#  C#  F#'}
+                      hint={accidentals === 'flat' ? 'Bb  Eb  Ab  Db  Gb' : 'A#  D#  G#  C#  F#'}
+                      hintCenter
                     >
                       <div style={{ fontSize: 'var(--text-xs)', color: 'var(--text-faint)', lineHeight: 1.5, fontFamily: 'Inter', marginBottom: 6 }}>
                         Select your preferred enharmonic spelling for black keys: sharps or flats.
                       </div>
-                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 'var(--space-2)' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 20 }}>
                         <span
                           onClick={() => setAccidentals('flat')}
                           title="Flat names"
@@ -1931,11 +1939,12 @@ export default function SettingsPanel() {
                       ))}
                     </div>
                   </OptionRow>
-                  {/* ── Labels sub-divider — thin uppercase label within the group ── */}
+                  {/* ── Labels sub-group heading — contains Show octaves + Show note names,
+                      so it gets the same weight as a real heading, not a thin divider ── */}
                   <div style={{
                     padding: '5px 14px 3px',
-                    fontSize: 9, color: 'var(--text-muted)', fontWeight: 600,
-                    letterSpacing: '0.1em', textTransform: 'uppercase', fontFamily: 'Inter',
+                    fontSize: 'var(--text-xs)', color: 'var(--text-default)', fontWeight: 500,
+                    letterSpacing: '0.02em', textTransform: 'uppercase', fontFamily: 'Inter',
                     borderTop: '1px solid var(--border-row)',
                   }}>
                     Labels
@@ -1943,6 +1952,7 @@ export default function SettingsPanel() {
                   {/* ── Octave labels — show/hide octave numbers on virtual keyboard ─ */}
                   <OptionRow
                     label="Show octaves"
+                    labelSmall
                     eyeToggle
                     eyeValue={showOctaveLabels}
                     onEyeChange={setShowOctaveLabels}
@@ -1951,19 +1961,11 @@ export default function SettingsPanel() {
                   {/* ── Note name labels — show/hide note names on virtual keyboard ── */}
                   <OptionRow
                     label="Show note names"
+                    labelSmall
                     eyeToggle
                     eyeValue={showNoteNamesOnKeyboard}
                     onEyeChange={setShowNoteNamesOnKeyboard}
                     description="Display note names on the virtual keyboard for easier identification"
-                  />
-                  {/* ── Auto-collapse drawers — collapses library/settings + tracks on
-                      playback, restores them on pause/new file load ────────────────── */}
-                  <OptionRow
-                    label="Close panels on playback"
-                    eyeToggle
-                    eyeValue={autoCollapseDrawers}
-                    onEyeChange={setAutoCollapseDrawers}
-                    description="Automatically hide the left and right panels during playback to maximize the piano roll view"
                   />
                 </CollapsibleSection>
 
@@ -2033,6 +2035,15 @@ export default function SettingsPanel() {
                     eyeValue={loopRegionEnabled}
                     onEyeChange={setLoopRegionEnabled}
                     description="Show a strip above the song title to select and loop a section of the MIDI file."
+                  />
+                  {/* ── Auto-collapse drawers — collapses the Tracks panel on
+                      playback, restores it on pause/new file load ──────────────── */}
+                  <OptionRow
+                    label="Close panels on playback"
+                    eyeToggle
+                    eyeValue={autoCollapseDrawers}
+                    onEyeChange={setAutoCollapseDrawers}
+                    description="Automatically hide the Tracks panel during playback to maximize the piano roll view"
                   />
                 </CollapsibleSection>
 
@@ -2286,7 +2297,7 @@ export default function SettingsPanel() {
                     description="Animated flourish when notes hit the playbar during playback."
                   />
                   {hitEffectsEnabled && (
-                    <OptionRow label="Effect Scope & Color">
+                    <OptionRow label="Effect Scope & Color" labelSmall>
                       <div style={{ display: 'flex', gap: 'var(--space-2)', alignItems: 'stretch' }}>
                         {/* ── Left: which tracks spawn effects — purely visual, doesn't touch
                             which notes actually sound or light the keyboard. Compact icon
@@ -2336,7 +2347,7 @@ export default function SettingsPanel() {
                     </OptionRow>
                   )}
                   {hitEffectsEnabled && (
-                    <OptionRow label="Effect Pattern">
+                    <OptionRow label="Effect Pattern" labelSmall>
                       <select
                         value={hitEffectPattern}
                         onChange={e => setHitEffectPattern(e.target.value as typeof hitEffectPattern)}
@@ -2365,7 +2376,7 @@ export default function SettingsPanel() {
                   {/* ── Bloom controls — real bloom (pixi-filters AdvancedBloomFilter) ── */}
                   {hitEffectsEnabled && (
                     <>
-                      <OptionRow label={`Intensity — ${hitEffectBloomIntensity.toFixed(1)}`}>
+                      <OptionRow label={`Intensity — ${hitEffectBloomIntensity.toFixed(1)}`} labelSmall>
                         <input
                           type="range" min={0} max={4} step={0.1}
                           value={hitEffectBloomIntensity}
@@ -2374,7 +2385,7 @@ export default function SettingsPanel() {
                           style={{ '--fill': `${(hitEffectBloomIntensity / 4) * 100}%` } as CSSProperties}
                         />
                       </OptionRow>
-                      <OptionRow label={`Spread — ${hitEffectBloomSpread.toFixed(1)}`}>
+                      <OptionRow label={`Spread — ${hitEffectBloomSpread.toFixed(1)}`} labelSmall>
                         <input
                           type="range" min={0} max={12} step={0.5}
                           value={hitEffectBloomSpread}
@@ -2383,7 +2394,7 @@ export default function SettingsPanel() {
                           style={{ '--fill': `${(hitEffectBloomSpread / 12) * 100}%` } as CSSProperties}
                         />
                       </OptionRow>
-                      <OptionRow label={`Threshold — ${hitEffectBloomThreshold.toFixed(2)}`} hint="Lower values make more of the effect glow; higher values only bloom the brightest parts.">
+                      <OptionRow label={`Threshold — ${hitEffectBloomThreshold.toFixed(2)}`} labelSmall hint="Lower values make more of the effect glow; higher values only bloom the brightest parts.">
                         <input
                           type="range" min={0} max={1} step={0.05}
                           value={hitEffectBloomThreshold}
@@ -2451,7 +2462,7 @@ export default function SettingsPanel() {
               onMouseLeave={e => e.currentTarget.style.color = 'var(--text-muted)'}
             >
               <BookOpen size={11} strokeWidth={1.5} />
-              <span style={{ fontSize: 10, fontFamily: 'Inter', letterSpacing: '0.02em' }}>User Manual</span>
+              <span style={{ fontSize: 10, fontFamily: 'JetBrains Mono', letterSpacing: '0.02em' }}>User Manual</span>
             </button>
             <button
               onClick={() => window.electronAPI.openExternal('https://github.com/SquareBow/orfeo/releases')}

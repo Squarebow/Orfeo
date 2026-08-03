@@ -964,13 +964,12 @@ useStore.subscribe((state) => {
   }
 })
 
-// ── Auto-collapse drawers on playback — remembers which of settings/tracks
-// were actually open before collapsing, so restore only reopens those, not
-// both unconditionally. Restores on pause, stop, or a new file loading. ──────
+// ── Auto-collapse drawers on playback — closes the Tracks panel only
+// (Settings/library stays put) while playing, restores it on pause, stop,
+// or a new file loading. ──────────────────────────────────────────────────
 let _prevPlaybackStateForCollapse: PlaybackState | null = null
 let _prevMidiForCollapse: unknown = null
 let _drawersAutoCollapsed = false
-let _preCollapseSettingsOpen = false
 let _preCollapseTrackPanelOpen = false
 useStore.subscribe((state) => {
   if (!state.autoCollapseDrawers) { _drawersAutoCollapsed = false; return }
@@ -979,7 +978,6 @@ useStore.subscribe((state) => {
     _prevMidiForCollapse = state.midi
     if (_drawersAutoCollapsed) {
       _drawersAutoCollapsed = false
-      if (_preCollapseSettingsOpen) state.setSettingsOpen(true)
       if (_preCollapseTrackPanelOpen) state.setTrackPanelOpen(true)
     }
   }
@@ -990,14 +988,11 @@ useStore.subscribe((state) => {
     _prevPlaybackStateForCollapse = state.playbackState
 
     if (isPlaying && !_drawersAutoCollapsed) {
-      _preCollapseSettingsOpen = state.settingsOpen
       _preCollapseTrackPanelOpen = state.trackPanelOpen
       _drawersAutoCollapsed = true
-      if (state.settingsOpen) state.setSettingsOpen(false)
       if (state.trackPanelOpen) state.setTrackPanelOpen(false)
     } else if (!isPlaying && wasPlaying && _drawersAutoCollapsed) {
       _drawersAutoCollapsed = false
-      if (_preCollapseSettingsOpen) state.setSettingsOpen(true)
       if (_preCollapseTrackPanelOpen) state.setTrackPanelOpen(true)
     }
   }

@@ -415,10 +415,12 @@ export default function PianoRoll() {
       overlayCtxRef.current    = overlay.getContext('2d')
 
       const grid     = new Graphics()
+      const barLines = new Graphics()   // bar dividers — behind notes, above key grid
       const notes    = new Graphics()
       const playhead = new Graphics()
       const editG    = new Graphics()   // edit overlay — must be last (on top)
       app.stage.addChild(grid)
+      app.stage.addChild(barLines)
       app.stage.addChild(notes)
       app.stage.addChild(playhead)
       const hitEffects = new HitEffectsRenderer(app.stage)   // above playhead, below edit overlay
@@ -806,6 +808,13 @@ export default function PianoRoll() {
         }
 
         // ── Bar lines + bar number labels ─────────────────────────────────────
+        // The line itself is drawn in Pixi (barLines, behind the notes layer) —
+        // it used to be drawn on the 2D overlay canvas, which sits visually
+        // above the whole Pixi canvas, so it always rendered on top of falling
+        // notes (looked like a dark line splitting notes in two). Number pills
+        // stay on the overlay — small text drawn on the overlay canvas needing
+        // font metrics, and not the thing that was actually reported as broken.
+        barLines.clear()
         if (!showBarNumbers || !ctx) return
         const bStarts = barStartsRef.current
         if (bStarts.length === 0) return
@@ -823,9 +832,8 @@ export default function PianoRoll() {
           if (barY > H + 20) continue
           if (barY < -20) break
 
-          ctx.globalAlpha = 0.5
-          ctx.fillStyle = BARLINE_COLOR
-          ctx.fillRect(0, Math.round(barY), W, 1)
+          barLines.rect(0, Math.round(barY), W, 1)
+          barLines.fill({ color: BARLINE_COLOR, alpha: 0.5 })
 
           const isCurrent = bi === currentBarIdx
           const label = String(bi + 1)
