@@ -1340,7 +1340,7 @@ function LibraryPanel() {
                   }}
                   onDragLeave={e => { if (!e.currentTarget.contains(e.relatedTarget as Node)) setDragOverFolder(null) }}
                   onDrop={e => !protectedFolder && handleFolderDrop(e, group.folder!)}
-                  title={isRenaming ? undefined : protectedFolder ? `${group.folder} — protected, cannot be modified` : (expandedFolders.has(group.folder!) ? 'Collapse folder — right-click for rename/delete/move options' : 'Expand folder — right-click for rename/delete/move options')}
+                  title={isRenaming ? undefined : protectedFolder ? `${group.folder} — cannot be modified` : (expandedFolders.has(group.folder!) ? 'Collapse folder — right-click for rename/delete/move options' : 'Expand folder — right-click for rename/delete/move options')}
                   style={{
                     display: 'flex', alignItems: 'center', gap: 6,
                     padding: '6px 10px',
@@ -1833,7 +1833,7 @@ export default function SettingsPanel() {
                 >
                   {/* ── Demo folder — eye-toggle: Eye=show, EyeOff=hidden ────────── */}
                   <OptionRow
-                    label="Demo folder"
+                    label="Demo content"
                     eyeToggle
                     eyeValue={!hideDemoFolder}
                     onEyeChange={(val) => setHideDemoFolder(!val)}
@@ -1846,7 +1846,7 @@ export default function SettingsPanel() {
                     eyeToggle
                     eyeValue={chordTranscriptionEnabled}
                     onEyeChange={setChordTranscriptionEnabled}
-                    description="Adds a transcript icon to every file in your library — click to generate a chord chart PDF."
+                    description="Adds a transcript icon to every file in your library — click to generate a chord chart PDF in ORFEO folder."
                   />
                   {/* ── Note Editor — eye-toggle: unlocks the note-edit icon in the Tracks panel ── */}
                   <OptionRow
@@ -1856,7 +1856,7 @@ export default function SettingsPanel() {
                     onEyeChange={setNoteEditorEnabled}
                     description={
                       <>
-                        Shows <span style={{ display: 'inline-flex', verticalAlign: 'middle', color: 'var(--text-amber)' }}><NoteEditorIcon size={11} /></span> in the Tracks panel to enter MIDI note-editing mode directly on the piano roll.
+                        Shows <span style={{ display: 'inline-flex', verticalAlign: 'middle', color: 'var(--text-amber)' }}><NoteEditorIcon size={11} /></span> icon in the Tracks panel. Enables MIDI note-editing mode directly on the piano roll.
                       </>
                     }
                   />
@@ -1977,7 +1977,7 @@ export default function SettingsPanel() {
                     eyeToggle
                     eyeValue={showOctaveLabels}
                     onEyeChange={setShowOctaveLabels}
-                    description="Display octave numbers (e.g. C3, C4, C5) on the virtual keyboard"
+                    description="Display octave numbers (e.g. C3, C4, C5) on the virtual keyboard."
                   />
                   {/* ── Note name labels — show/hide note names on virtual keyboard ── */}
                   <OptionRow
@@ -1986,7 +1986,7 @@ export default function SettingsPanel() {
                     eyeToggle
                     eyeValue={showNoteNamesOnKeyboard}
                     onEyeChange={setShowNoteNamesOnKeyboard}
-                    description="Display note names on the virtual keyboard for easier identification"
+                    description="Display note names on the virtual keyboard for easier identification."
                   />
                 </CollapsibleSection>
 
@@ -2047,7 +2047,7 @@ export default function SettingsPanel() {
                     eyeToggle
                     eyeValue={chordPrompterEnabled}
                     onEyeChange={setChordPrompterEnabled}
-                    description="Shows chord names during playback — past, current and upcoming chords."
+                    description="Shows past, current and upcoming chords during playback. Click [icon] to enable it."
                   />
                   {/* ── Loop region — eye-toggle ──────────────────────────────────── */}
                   <OptionRow
@@ -2055,7 +2055,7 @@ export default function SettingsPanel() {
                     eyeToggle
                     eyeValue={loopRegionEnabled}
                     onEyeChange={setLoopRegionEnabled}
-                    description="Show a strip above the song title to select and loop a section of the MIDI file."
+                    description="A strip above the song title allows you to select and loop-play a section. Alt+Click & drag to select."
                   />
                   {/* ── Auto-collapse drawers — collapses the Tracks panel on
                       playback, restores it on pause/new file load ──────────────── */}
@@ -2064,7 +2064,7 @@ export default function SettingsPanel() {
                     eyeToggle
                     eyeValue={autoCollapseDrawers}
                     onEyeChange={setAutoCollapseDrawers}
-                    description="Automatically hide the Tracks and Settings/Library panels during playback to maximize the piano roll view"
+                    description="Automatically hide side panels during playback to maximize the piano roll view"
                   />
                 </CollapsibleSection>
 
@@ -2079,7 +2079,7 @@ export default function SettingsPanel() {
                       <OptionBtn
                         active={audioEngine === 'gm'}
                         onClick={() => setAudioEngine('gm')}
-                        title="Generic, synthetic sound (JZZ-Synth-Tiny)"
+                        title="Sounds like Pac-Man, generic and synthetic"
                       >General MIDI</OptionBtn>
                       {/* ── Samples — loads GeneralUser GS SF2 via spessasynth_lib on first click ── */}
                       <OptionBtn
@@ -2098,8 +2098,8 @@ export default function SettingsPanel() {
                             setSamplesStatus('error')
                           }
                         }}
-                        title="High-fidelity, realistic audio (SpessaSynth)"
-                      >Sample Engine</OptionBtn>
+                        title="High-fidelity, realistic audio (recommended)"
+                      >Samples</OptionBtn>
                     </div>
                     {/* ── Loading progress / status block ──────────────────────────── */}
                     {samplesStatus === 'loading' && (
@@ -2139,8 +2139,8 @@ export default function SettingsPanel() {
                   {/* Title sits on this outer wrapper (covers the label too) rather than the inner
                       dimmed div — a tooltip anchored only to the dimmed/inert body wouldn't fire
                       when hovering the "Sound Fonts Library" label itself. ── */}
-                  <div title={audioEngine === 'samples' ? undefined : 'Switch to Samples engine for better audio quality'}>
-                  <OptionRow label="Sound Fonts Library">
+                  <div title={audioEngine === 'samples' ? undefined : 'Switch to Samples for better audio quality'}>
+                  <OptionRow label="Sound Fonts">
                   {/* ── Dimmed + inert whenever GM Synth is active — this library only affects
                       the Samples engine, so there's nothing useful to click here otherwise. ── */}
                   <div
@@ -2152,7 +2152,7 @@ export default function SettingsPanel() {
                   >
                     {/* ── Description — moved above the list (was a trailing hint below it) ── */}
                     <div style={{ fontSize: 'var(--text-xs)', color: 'var(--text-faint)', fontFamily: 'Inter', marginBottom: 8 }}>
-                      Extra GM sf2 soundfonts, downloaded on demand. Only affects the Sample engine.
+                      Add sf2 soundfonts, downloaded on demand. Samples engine exclusive.
                     </div>
 
                     {/* ── Active selection — a dropdown instead of pill buttons, since library
@@ -2249,7 +2249,7 @@ export default function SettingsPanel() {
                     eyeToggle
                     eyeValue={autoMuteNonKeyboard}
                     onEyeChange={setAutoMuteNonKeyboard}
-                    description="A toggle button appears in the Tracks panel and Console (All tracks/Selection). Select if you want to hear all MIDI tracks or only Keys, Bass & Drums."
+                    description="A toggle in Tracks panel and Console allows you to select if you want to hear/see all tracks or only Keys, Bass & Drums."
                   />
                 </CollapsibleSection>
 
@@ -2318,7 +2318,7 @@ export default function SettingsPanel() {
                     description="Animated flourish when notes hit the playbar during playback."
                   />
                   {hitEffectsEnabled && (
-                    <OptionRow label="Effect Scope & Color" labelSmall>
+                    <OptionRow label="Scope & Color" labelSmall>
                       <div style={{ display: 'flex', gap: 'var(--space-2)', alignItems: 'stretch' }}>
                         {/* ── Left: which tracks spawn effects — purely visual, doesn't touch
                             which notes actually sound or light the keyboard. Compact icon
@@ -2343,7 +2343,7 @@ export default function SettingsPanel() {
                             : <ToggleRight size={16} strokeWidth={1.5} style={{ flexShrink: 0, color: 'var(--text-amber)' }} />
                           }
                           <span style={{ color: 'var(--text-faint)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', textAlign: 'left' }}>
-                            {hitEffectScope === 'keyboard' ? 'Keyboard tracks' : 'All tracks'}
+                            {hitEffectScope === 'keyboard' ? 'Piano only' : 'All tracks'}
                           </span>
                         </button>
                         {/* ── Right: overrides the effect particle color for every track at once
@@ -2368,7 +2368,7 @@ export default function SettingsPanel() {
                     </OptionRow>
                   )}
                   {hitEffectsEnabled && (
-                    <OptionRow label="Effect Pattern" labelSmall>
+                    <OptionRow label="Pattern" labelSmall>
                       <select
                         value={hitEffectPattern}
                         onChange={e => setHitEffectPattern(e.target.value as typeof hitEffectPattern)}

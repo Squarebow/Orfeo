@@ -189,7 +189,7 @@ export default function TrackPanel() {
         }}>
           <button
             onClick={() => setTrackPanelOpen(true)}
-            title="Open Tracks"
+            title="Open Tracks panel"
             style={{
               background: 'none', border: 'none', cursor: 'pointer',
               color: 'var(--text-dimmest)', padding: 4,
@@ -203,7 +203,7 @@ export default function TrackPanel() {
           </button>
           <button
             onClick={() => useStore.getState().setMixerOpen(true)}
-            title="Console"
+            title="Open Console Mixer"
             style={{
               background: 'none', border: 'none', cursor: 'pointer',
               color: 'var(--text-dimmest)', padding: 4, marginTop: 8,
@@ -234,7 +234,7 @@ export default function TrackPanel() {
           {noteEditorEnabled && midi && (
             <button
               onClick={handleToggleNoteEditor}
-              title={noteEditorActive ? 'Exit note edit mode' : 'Enter note edit mode'}
+              title={noteEditorActive ? 'Exit note edit mode' : 'Open MIDI note editor'}
               style={{
                 background: 'none', border: 'none', cursor: 'pointer',
                 color: noteEditorActive ? 'var(--text-amber)' : 'var(--text-dimmest)',
@@ -278,7 +278,7 @@ export default function TrackPanel() {
             </button>
             <button
               onClick={() => useStore.getState().setMixerOpen(true)}
-              title="Console"
+              title="Open Console Mixer"
               style={{
                 background: 'none', border: 'none', cursor: 'pointer',
                 color: 'var(--text-dimmest)', padding: 4, marginTop: 8,
@@ -309,7 +309,7 @@ export default function TrackPanel() {
             {noteEditorEnabled && midi && (
               <button
                 onClick={handleToggleNoteEditor}
-                title={noteEditorActive ? 'Exit note edit mode' : 'Enter note edit mode'}
+                title={noteEditorActive ? 'Exit note edit mode' : 'Open MIDI note editor'}
                 style={{
                   background: 'none', border: 'none', cursor: 'pointer',
                   color: noteEditorActive ? 'var(--text-amber)' : 'var(--text-dimmest)',

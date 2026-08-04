@@ -367,7 +367,7 @@ export default function Keyboard() {
             <div style={{ position: 'absolute', left: 10, display: 'flex', alignItems: 'center', gap: 5 }}>
               <span
                 onClick={() => setChordExplorerOpen(true)}
-                title="Open Chord Explorer"
+                title="Open Chords Explorer"
                 style={{ fontFamily: 'Inter', fontSize: 9, fontWeight: 700, color: 'var(--text-amber)', letterSpacing: '0.12em', textTransform: 'uppercase', cursor: 'pointer', userSelect: 'none' }}
               >
                 Chords
@@ -440,7 +440,7 @@ export default function Keyboard() {
               </span>
               <span
                 onClick={() => setScaleExplorerOpen(true)}
-                title="Open Scale Explorer"
+                title="Open Scales Explorer"
                 style={{ fontFamily: 'Inter', fontSize: 9, fontWeight: 700, color: 'var(--text-amber)', letterSpacing: '0.12em', textTransform: 'uppercase', cursor: 'pointer', userSelect: 'none' }}
               >
                 Scales
@@ -457,7 +457,7 @@ export default function Keyboard() {
             <div style={{ display: 'flex', alignItems: 'center', gap: 5, flexShrink: 0 }}>
               <span
                 onClick={() => setChordExplorerOpen(true)}
-                title="Open Chord Explorer"
+                title="Open Chords Explorer"
                 style={{ fontFamily: 'Inter', fontSize: 9, fontWeight: 700, color: 'var(--text-amber)', letterSpacing: '0.12em', textTransform: 'uppercase', cursor: 'pointer', userSelect: 'none' }}
               >
                 Chords
@@ -556,7 +556,7 @@ export default function Keyboard() {
               </span>
               <span
                 onClick={() => setScaleExplorerOpen(true)}
-                title="Open Scale Explorer"
+                title="Open Scales Explorer"
                 style={{ fontFamily: 'Inter', fontSize: 9, fontWeight: 700, color: 'var(--text-amber)', letterSpacing: '0.12em', textTransform: 'uppercase', cursor: 'pointer', userSelect: 'none' }}
               >
                 Scales

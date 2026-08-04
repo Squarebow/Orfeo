@@ -200,7 +200,7 @@ export default function MixerConsole() {
           color: 'var(--text-amber)', letterSpacing: '0.14em', textTransform: 'uppercase',
           flex: 1,
         }}>
-          Console
+          Console Mixer
         </span>
 
         {/* ── Minimize + Close buttons — bottom-aligned so the dash sits at X level ── */}

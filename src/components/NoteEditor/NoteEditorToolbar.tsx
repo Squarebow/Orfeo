@@ -358,7 +358,7 @@ export default function NoteEditorToolbar() {
           color: 'var(--text-amber)', textTransform: 'uppercase',
           paddingRight: 4, flexShrink: 0,
         }}>
-          EDIT{dirty ? ' ●' : ''}
+          NOTE EDITOR{dirty ? ' ●' : ''}
         </span>
 
         <VSep />
@@ -438,7 +438,7 @@ export default function NoteEditorToolbar() {
         {/* ── Note names toggle ──────────────────────────────────────────── */}
         <ToolBtn active={showNoteNames} onClick={toggleNoteNames} title="Show note names on notes" wide>
           <span style={{ fontSize: 10, fontFamily: "'JetBrains Mono', monospace", fontWeight: 700, letterSpacing: '0.03em' }}>
-            Note names
+            Show names
           </span>
         </ToolBtn>
 
