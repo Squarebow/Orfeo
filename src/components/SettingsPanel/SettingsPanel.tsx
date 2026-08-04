@@ -2226,7 +2226,7 @@ export default function SettingsPanel() {
                     {/* ── Import a user's own .sf2/.sf3 — same storage/loading path as the catalog entries ── */}
                     <button
                       onClick={handleImportSoundfont}
-                      title="Only import soundfonts you have the rights to use — most free GM soundfonts are MIT/CC-licensed, but check before importing anything you didn't make yourself or verify as freely redistributable."
+                      title="Only import soundfonts you have the rights to use."
                       style={{
                         display: 'flex', alignItems: 'center', gap: 6,
                         marginTop: 8, padding: '5px 8px', width: '100%',
