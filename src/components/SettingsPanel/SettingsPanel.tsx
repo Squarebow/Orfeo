@@ -2238,7 +2238,7 @@ export default function SettingsPanel() {
                       onMouseLeave={e => { e.currentTarget.style.color = 'var(--text-inactive)'; e.currentTarget.style.borderColor = 'var(--border2)' }}
                     >
                       <Upload size={11} strokeWidth={1.5} />
-                      Import your own .sf2 / .sf3
+                      Import your own .sf2/.sf3
                     </button>
                   </div>
                   </OptionRow>
