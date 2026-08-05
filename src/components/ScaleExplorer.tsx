@@ -690,7 +690,7 @@ export default function ScaleExplorer() {
         }}>
           <div>Click a key on the circle to explore its scale and</div>
           <div>diatonic chords. Select a progression and click play</div>
-          <div>to hear the chords in the scale. Try inversions!</div>
+          <div>to hear the chords in the scale. Try chord inversions and variations!</div>
         </div>
         {/* Scale type buttons — centred at CoF middle */}
         <div style={{ display: 'flex', flexDirection: 'column', gap: 1, minWidth: 116, flexShrink: 0, alignSelf: 'center', marginTop: 20 }}>
@@ -970,7 +970,7 @@ export default function ScaleExplorer() {
               whiteSpace: 'nowrap', minWidth: 130,
             }}
           >
-            {selectedProg !== null ? PROGRESSIONS[selectedProg].name : 'Pick a pattern …'}
+            {selectedProg !== null ? PROGRESSIONS[selectedProg].name : 'Select ...'}
           </button>
           {selectedProg !== null && (
             <button onClick={() => { setSelectedProg(null); stopProgression() }}
@@ -1013,11 +1013,11 @@ export default function ScaleExplorer() {
 
         {/* Right column: INVERSIONS label + icon buttons ────────────────────── */}
         <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: 4 }}>
-          <span style={ROW_LABEL}>Inversions</span>
+          <span style={ROW_LABEL}>Variations</span>
           {/* Off — CircleOff icon */}
           <button
             onClick={() => setProgInversionMode('off')}
-            title="Inversions off"
+            title="Variations off"
             style={{ background: 'none', border: 'none', cursor: 'pointer', padding: '0 2px', display: 'flex', alignItems: 'center', color: progInversionMode === 'off' ? 'var(--text-amber)' : 'var(--text-inactive)' }}
             onMouseEnter={e => e.currentTarget.style.color = 'var(--text-amber)'}
             onMouseLeave={e => e.currentTarget.style.color = progInversionMode === 'off' ? 'var(--text-amber)' : 'var(--text-inactive)'}
@@ -1025,7 +1025,7 @@ export default function ScaleExplorer() {
           {/* Sequential — ListOrdered icon */}
           <button
             onClick={() => setProgInversionMode('sequential')}
-            title="Sequential inversions"
+            title="Sequential variations"
             style={{ background: 'none', border: 'none', cursor: 'pointer', padding: '0 2px', display: 'flex', alignItems: 'center', color: progInversionMode === 'sequential' ? 'var(--text-amber)' : 'var(--text-inactive)' }}
             onMouseEnter={e => e.currentTarget.style.color = 'var(--text-amber)'}
             onMouseLeave={e => e.currentTarget.style.color = progInversionMode === 'sequential' ? 'var(--text-amber)' : 'var(--text-inactive)'}
@@ -1033,7 +1033,7 @@ export default function ScaleExplorer() {
           {/* Random — Shuffle icon */}
           <button
             onClick={() => setProgInversionMode('random')}
-            title="Random inversions"
+            title="Random variations"
             style={{ background: 'none', border: 'none', cursor: 'pointer', padding: '0 2px', display: 'flex', alignItems: 'center', color: progInversionMode === 'random' ? 'var(--text-amber)' : 'var(--text-inactive)' }}
             onMouseEnter={e => e.currentTarget.style.color = 'var(--text-amber)'}
             onMouseLeave={e => e.currentTarget.style.color = progInversionMode === 'random' ? 'var(--text-amber)' : 'var(--text-inactive)'}
@@ -1072,7 +1072,7 @@ export default function ScaleExplorer() {
           ><Play size={14} style={{ transform: 'scaleX(-1)' }} /></button>
           {/* Static grey label — chord display is above the keyboard only */}
           <span style={{ fontFamily: 'Inter', fontSize: 8, fontWeight: 700, color: 'var(--text-inactive)', letterSpacing: '0.12em', textTransform: 'uppercase', userSelect: 'none' }}>
-            Play Inversion
+            Play  Chord Inversions
           </span>
           {/* Next inversion — Play icon normal */}
           <button onClick={handleNextInversion} disabled={!currentBaseMidi.length}
