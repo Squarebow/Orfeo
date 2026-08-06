@@ -181,6 +181,11 @@ interface OrfeoStore {
   hideDemoFolder: boolean
   setHideDemoFolder: (v: boolean) => void
 
+  // ── Blinks the Library refresh icon after any resave (foreign-import save,
+  // MidiEditor save, Note Editor save) — cleared once the user clicks refresh. ──
+  libraryNeedsRefresh: boolean
+  setLibraryNeedsRefresh: (v: boolean) => void
+
   demoFiles: { name: string; path: string }[]
   setDemoFiles: (files: { name: string; path: string }[]) => void
 
@@ -199,7 +204,6 @@ interface OrfeoStore {
   setLastFolderOf: (map: Map<string, string | null>) => void
   foldersWithUndo: Set<string>
   setFoldersWithUndo: (folders: Set<string>) => void
-  loadLibraryFile: (filePath: string) => Promise<void>
 
   splitBreakpointType: 'single' | 'range'
   setSplitBreakpointType: (t: 'single' | 'range') => void
@@ -555,6 +559,9 @@ export const useStore = create<OrfeoStore>((set, get) => ({
   hideDemoFolder: false,
   setHideDemoFolder: (hideDemoFolder) => set({ hideDemoFolder }),
 
+  libraryNeedsRefresh: false,
+  setLibraryNeedsRefresh: (libraryNeedsRefresh) => set({ libraryNeedsRefresh }),
+
   // ── Standalone demo files (shown when no library folder is set) ───────────
   demoFiles: [],
   setDemoFiles: (demoFiles) => set({ demoFiles }),
@@ -603,7 +610,7 @@ export const useStore = create<OrfeoStore>((set, get) => ({
   keyboardTopY: null,
   setKeyboardTopY: (keyboardTopY) => set({ keyboardTopY }),
 
-  hitEffectsEnabled: false,
+  hitEffectsEnabled: true,
   setHitEffectsEnabled: (hitEffectsEnabled) => set({ hitEffectsEnabled }),
   hitEffectPattern: 'glowBloom',
   setHitEffectPattern: (hitEffectPattern) => set({ hitEffectPattern }),
@@ -694,25 +701,6 @@ export const useStore = create<OrfeoStore>((set, get) => ({
     const nextHidden = s.hiddenLibraryFiles.map(p => map.get(p) ?? p)
     return { libraryFavourites: nextFavourites, hiddenLibraryFiles: nextHidden }
   }),
-  loadLibraryFile: async (filePath) => {
-    try {
-      const result = await window.electronAPI.loadMidiFromPath(filePath)
-      if (!result) return
-      const binary = atob(result.base64)
-      const bytes = new Uint8Array(binary.length)
-      for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i)
-      const parsed = parseMidiBuffer(bytes.buffer, result.fileName, result.filePath ?? '')
-      get().setMidi(parsed)
-      const raw = parsed as any
-      if (raw._keySignature != null) {
-        get().setDetectedKey(parseKeySignature(raw._keySignature.key, raw._keySignature.scale))
-      } else {
-        get().setDetectedKey(detectKeyFromTracks(parsed.tracks))
-      }
-    } catch (err) {
-      console.error('loadLibraryFile error:', err)
-    }
-  },
 }))
 
 // ── Restore persisted library on startup ──────────────────────────────────────

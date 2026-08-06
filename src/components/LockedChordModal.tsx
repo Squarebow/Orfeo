@@ -83,7 +83,7 @@ export default function LockedChordModal() {
   const playLockedChord = useCallback(() => {
     const playNote = (window as any).__orfeoPlayNote
     if (!playNote) return
-    lockedKeys.forEach(midi => playNote(midi, 0.75, 800))
+    lockedKeys.forEach(midi => playNote(midi, 0.75, 800, undefined, false))
   }, [lockedKeys])
 
   // ── Cycle inversion voicing + update inversion count in store ────────────
@@ -95,7 +95,7 @@ export default function LockedChordModal() {
     const s = useStore.getState()
     s.setLockedInversionCount(s.lockedInversionCount + direction)
     const playNote = (window as any).__orfeoPlayNote
-    if (playNote) newKeys.forEach(midi => playNote(midi, 0.7, 600))
+    if (playNote) newKeys.forEach(midi => playNote(midi, 0.7, 600, undefined, false))
   }, [lockedKeys, setLockedKeys])
 
   // ── X button — clears keys and dismisses modal ───────────────────────────

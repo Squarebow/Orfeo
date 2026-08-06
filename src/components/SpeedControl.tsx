@@ -1,55 +1,46 @@
 // ── SpeedControl ─────────────────────────────────────────────────────────────
-// Three chevron-arrow speed buttons (1×, 2×, 3×) from Slow/Medium/Fast.svg.
-// All viewBoxes share height=26; rendered at H=16px so line weight is uniform.
+// Three chevron speed buttons (>, >>, >>>) for Slow/Medium/Fast. Simple open
+// angle-bracket strokes (not the rounded teardrop path) so they stay crisp
+// chevrons rather than reading as solid triangles at small sizes.
 
 interface SpeedControlProps {
   value: 'slow' | 'med' | 'fast'
   onChange: (v: 'slow' | 'med' | 'fast') => void
+  size?: number
 }
 
 const AMBER = 'var(--text-amber)'
 const MUTED = 'var(--text-dim-control)'
-const H     = 13
+const DEFAULT_H = 13
 
-// Slow.svg — single chevron, viewBox 0 0 17 26
-const IconSlow = () => (
-  <svg viewBox="0 0 17 26" width={Math.round(H * 17 / 26)} height={H} fill="none" aria-hidden="true">
+// One ">" angle-bracket stroke, viewBox 0 0 10 16
+function Chevron({ x = 0 }: { x?: number }) {
+  return (
     <path
-      d="M1,4c0-1.66,1.34-3,3-3,.8,0,1.56.32,2.12.88l9,9c1.17,1.17,1.17,3.07,0,4.24l-9,9c-1.17,1.17-3.07,1.17-4.24,0-.56-.56-.88-1.33-.88-2.12V4Z"
-      stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round"
+      d="M2,2 L8,8 L2,14" transform={`translate(${x} 0)`}
+      stroke="currentColor" strokeWidth={2.5} strokeLinecap="round" strokeLinejoin="round" fill="none"
     />
+  )
+}
+
+const IconSlow = ({ h }: { h: number }) => (
+  <svg viewBox="0 0 10 16" width={Math.round(h * 10 / 16)} height={h} fill="none" aria-hidden="true">
+    <Chevron />
   </svg>
 )
 
-// Medium.svg — double chevron, viewBox 0 0 32 26
-const IconMedium = () => (
-  <svg viewBox="0 0 32 26" width={Math.round(H * 32 / 26)} height={H} fill="none" aria-hidden="true">
-    <path
-      d="M16,4c0-1.66,1.34-3,3-3,.8,0,1.56.32,2.12.88l9,9c1.17,1.17,1.17,3.07,0,4.24l-9,9c-1.17,1.17-3.07,1.17-4.24,0-.56-.56-.88-1.33-.88-2.12V4Z"
-      stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round"
-    />
-    <path
-      d="M1,4c0-1.66,1.34-3,3-3,.8,0,1.56.32,2.12.88l9,9c1.17,1.17,1.17,3.07,0,4.24l-9,9c-1.17,1.17-3.07,1.17-4.24,0-.56-.56-.88-1.33-.88-2.12V4Z"
-      stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round"
-    />
+const IconMedium = ({ h }: { h: number }) => (
+  <svg viewBox="0 0 18 16" width={Math.round(h * 18 / 16)} height={h} fill="none" aria-hidden="true">
+    <Chevron />
+    <Chevron x={8} />
   </svg>
 )
 
-// Fast.svg — triple chevron, viewBox 0 0 47 26
-const IconFast = () => (
-  <svg viewBox="0 0 47 26" width={Math.round(H * 47 / 26)} height={H} fill="none" aria-hidden="true">
-    <path
-      d="M16,4c0-1.66,1.34-3,3-3,.8,0,1.56.32,2.12.88l9,9c1.17,1.17,1.17,3.07,0,4.24l-9,9c-1.17,1.17-3.07,1.17-4.24,0-.56-.56-.88-1.33-.88-2.12V4Z"
-      stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round"
-    />
-    <path
-      d="M1,4c0-1.66,1.34-3,3-3,.8,0,1.56.32,2.12.88l9,9c1.17,1.17,1.17,3.07,0,4.24l-9,9c-1.17,1.17-3.07,1.17-4.24,0-.56-.56-.88-1.33-.88-2.12V4Z"
-      stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round"
-    />
-    <path
-      d="M31,4c0-1.66,1.34-3,3-3,.8,0,1.56.32,2.12.88l9,9c1.17,1.17,1.17,3.07,0,4.24l-9,9c-1.17,1.17-3.07,1.17-4.24,0-.56-.56-.88-1.33-.88-2.12V4Z"
-      stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round"
-    />
+const IconFast = ({ h }: { h: number }) => (
+  <svg viewBox="0 0 26 16" width={Math.round(h * 26 / 16)} height={h} fill="none" aria-hidden="true">
+    <Chevron />
+    <Chevron x={8} />
+    <Chevron x={16} />
   </svg>
 )
 
@@ -61,7 +52,7 @@ const SPEEDS: Array<['slow' | 'med' | 'fast', string]> = [
 ]
 
 // ── SpeedControl component ────────────────────────────────────────────────────
-export default function SpeedControl({ value, onChange }: SpeedControlProps) {
+export default function SpeedControl({ value, onChange, size = DEFAULT_H }: SpeedControlProps) {
   return (
     <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
       {SPEEDS.map(([v, label]) => {
@@ -87,7 +78,7 @@ export default function SpeedControl({ value, onChange }: SpeedControlProps) {
               opacity:    active ? 1 : 0.65,
             }}
           >
-            <Icon />
+            <Icon h={size} />
           </button>
         )
       })}

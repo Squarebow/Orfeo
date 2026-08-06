@@ -61,12 +61,11 @@ function EyeClosed({ size = 12 }: { size?: number }) {
 // ── Mini piano SVG — identical to ChannelStrip's Kbd button icon ──────────────
 function PianoIcon() {
   return (
-    <svg width="18" height="13" viewBox="0 0 13 9" fill="none">
+    <svg width="15" height="11" viewBox="0 0 13 9" fill="none">
       <rect x="0.5" y="0.5" width="12" height="8" rx="1" stroke="currentColor" strokeWidth="0.9" vectorEffect="non-scaling-stroke"/>
-      <rect x="2.5" y="0.5" width="1.3" height="5" rx="0.4" fill="currentColor"/>
-      <rect x="5"   y="0.5" width="1.3" height="5" rx="0.4" fill="currentColor"/>
-      <rect x="7.5" y="0.5" width="1.3" height="5" rx="0.4" fill="currentColor"/>
-      <rect x="10"  y="0.5" width="1.3" height="5" rx="0.4" fill="currentColor"/>
+      <rect x="3" y="0.5" width="1.3" height="5" rx="0.4" fill="currentColor"/>
+      <rect x="6" y="0.5" width="1.3" height="5" rx="0.4" fill="currentColor"/>
+      <rect x="9" y="0.5" width="1.3" height="5" rx="0.4" fill="currentColor"/>
     </svg>
   )
 }

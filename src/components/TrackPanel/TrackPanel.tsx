@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react'
-import { ChevronRight, Eye, Volume2, VolumeX, ChevronDown, AudioLines, SlidersVertical, GripVertical } from 'lucide-react'
+import { ChevronRight, Eye, Volume2, VolumeX, ChevronDown, AudioLines, SlidersVertical, GripVertical, Sparkles } from 'lucide-react'
 import { useStore, DEFAULT_MUTED_GROUPS } from '../../store'
 import { GM_GROUPS } from '../../utils/gmInstruments'
 import type { TrackState } from '../../types'
@@ -248,6 +248,16 @@ export default function TrackPanel() {
               <NoteEditorIcon size={22} />
             </button>
           )}
+          <div
+            title="Coming soon — practice mode"
+            style={{
+              color: 'var(--state-disabled)', padding: 4, marginTop: 8,
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+              cursor: 'default',
+            }}
+          >
+            <Sparkles size={18} />
+          </div>
         </div>
       )}
 
@@ -323,6 +333,16 @@ export default function TrackPanel() {
                 <NoteEditorIcon size={20} />
               </button>
             )}
+            <div
+              title="Coming soon — practice mode"
+              style={{
+                color: 'var(--state-disabled)', padding: 4, marginTop: 8,
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                cursor: 'default',
+              }}
+            >
+              <Sparkles size={20} />
+            </div>
           </div>
 
           {/* ── Track content ─────────────────────────────────────────────── */}
@@ -473,8 +493,17 @@ export default function TrackPanel() {
                         onHandleHover={(hovered) => setHoveredHandle(hovered ? `track:${key}:${track.index}` : null)}
                         onDragStart={() => setDraggedTrack({ group: key, index: track.index })}
                         onDragEnd={() => setDraggedTrack(null)}
-                        onDragOverRow={(e) => e.preventDefault()}
-                        onDropRow={() => { if (draggedTrack && draggedTrack.group === key) reorderTracks(key, draggedTrack.index, track.index); setDraggedTrack(null) }}
+                        onDragOverRow={(e) => {
+                          e.preventDefault()
+                          e.dataTransfer.dropEffect = 'move'
+                          // Live reflow — reorder as the dragged row passes over others,
+                          // matching how modern apps visibly move rows before drop.
+                          if (draggedTrack && draggedTrack.group === key && draggedTrack.index !== track.index) {
+                            reorderTracks(key, draggedTrack.index, track.index)
+                            setDraggedTrack({ group: key, index: draggedTrack.index })
+                          }
+                        }}
+                        onDropRow={() => setDraggedTrack(null)}
                       />
                     )
                   })}

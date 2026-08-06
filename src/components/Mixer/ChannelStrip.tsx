@@ -372,13 +372,13 @@ export default function ChannelStrip({ trackIndex }: ChannelStripProps) {
           active={showOnKeyboard} title={showOnKeyboard ? 'Lit on keyboard' : 'Not lit on keyboard'}
           activeColor="var(--text-amber)"
         >
-          {/* Mini piano SVG — vectorEffect non-scaling-stroke preserved at all sizes */}
-          <svg width="18" height="13" viewBox="0 0 13 9" fill="none">
+          {/* Mini piano SVG — vectorEffect non-scaling-stroke preserved at all sizes;
+              one black key fewer, scaled down to match the M/S/Eye icons beside it ── */}
+          <svg width="15" height="11" viewBox="0 0 13 9" fill="none">
             <rect x="0.5" y="0.5" width="12" height="8" rx="1" stroke="currentColor" strokeWidth="0.9" vectorEffect="non-scaling-stroke"/>
-            <rect x="2.5" y="0.5" width="1.3" height="5" rx="0.4" fill="currentColor"/>
-            <rect x="5"   y="0.5" width="1.3" height="5" rx="0.4" fill="currentColor"/>
-            <rect x="7.5" y="0.5" width="1.3" height="5" rx="0.4" fill="currentColor"/>
-            <rect x="10"  y="0.5" width="1.3" height="5" rx="0.4" fill="currentColor"/>
+            <rect x="3" y="0.5" width="1.3" height="5" rx="0.4" fill="currentColor"/>
+            <rect x="6" y="0.5" width="1.3" height="5" rx="0.4" fill="currentColor"/>
+            <rect x="9" y="0.5" width="1.3" height="5" rx="0.4" fill="currentColor"/>
           </svg>
         </IBtn>
       </div>

@@ -325,7 +325,9 @@ export function useSamplesEngine() {
   // ── Register global click-to-play and hardware note-on/off handlers ─────────
   useEffect(() => {
     // channel: MIDI channel 0-based. Undefined = dedicated preview channel (15).
-    ;(window as any).__orfeoPlayNoteSamples = (midiNum: number, vel: number, durMs: number, channel?: number) => {
+    // visual = false skips the timed key-light — glissando drives the keyboard
+    // light itself (instant swap, no fade timer) instead of this note-duration ring.
+    ;(window as any).__orfeoPlayNoteSamples = (midiNum: number, vel: number, durMs: number, channel?: number, visual = true) => {
       if (!_synth || !_synthReady) return
       const ch = channel ?? 15
       if (ch === 15) {
@@ -340,7 +342,7 @@ export function useSamplesEngine() {
       }
       _synth.noteOn(ch, midiNum, Math.round(vel * 127))
       setTimeout(() => _synth?.noteOff(ch, midiNum), durMs)
-      lightKey(midiNum, amberHex(), durMs + 100)
+      if (visual) lightKey(midiNum, amberHex(), durMs + 100)
     }
     // ── Sustained note-on for hardware MIDI input ────────────────────────────
     ;(window as any).__orfeoNoteOnSamples = (midiNum: number, vel: number) => {

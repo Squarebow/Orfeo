@@ -19,9 +19,8 @@ import { confirmDialog } from './utils/confirmController'
 import { parseMidiBuffer } from './utils/midiParser'
 import { detectKeyFromTracks, parseKeySignature } from './utils/keyDetection'
 import {
-  resolveToMidiBase64,
+  resolveAndTrackImport,
   confirmPendingImportBeforeSwitch,
-  detectForeignFormat,
   base64ToBytes,
   getCachePath,
 } from './utils/foreignFormatImport'
@@ -34,7 +33,7 @@ import { useMidiInput } from './hooks/useMidiInput'
 import { runNoteEditorRoundTripTest } from './utils/noteEditorRoundTripTest'
 import { runHandAssignmentTest } from './utils/handAssignmentTest'
 import { runHandMetadataTest } from './utils/handMetadataTest'
-import { NES } from './utils/noteEditorState'
+import { NES, confirmDiscardDirtyNoteEdits } from './utils/noteEditorState'
 
 export default function App() {
   const midi = useStore((s) => s.midi)
@@ -71,6 +70,9 @@ export default function App() {
   // Checks for a valid on-disk cache before converting; sets pendingImportedFile
   // when conversion is done in-memory and not yet written to disk.
   const loadFileIntoPlayer = useCallback(async (filePath: string) => {
+    const canDiscard = await confirmDiscardDirtyNoteEdits('Save changes before opening this file?')
+    if (!canDiscard) return
+
     const proceed = await confirmPendingImportBeforeSwitch(filePath)
     if (!proceed) return // user cancelled — stay on current file
 
@@ -82,19 +84,7 @@ export default function App() {
     const libraryFolder = (useStore.getState() as any).libraryFolder as string | null ?? null
 
     try {
-      const resolved = await resolveToMidiBase64(filePath, base64, libraryFolder)
-      base64 = resolved.base64
-
-      if (resolved.isPendingSave) {
-        useStore.getState().setPendingImportedFile({
-          sourcePath: filePath,
-          format: detectForeignFormat(filePath)!,
-          midiBase64: base64,
-          fileName: result.fileName,
-        })
-      } else {
-        useStore.getState().setPendingImportedFile(null)
-      }
+      base64 = await resolveAndTrackImport(filePath, base64, result.fileName, libraryFolder)
     } catch (e: any) {
       showDropError(e?.message ?? 'Could not convert this file to MIDI.')
       return
@@ -155,7 +145,10 @@ export default function App() {
   }
 
   // ── dragover: prevent browser default navigation + show highlight ─────────
+  // Only for OS file drags — an internal track-row drag (TrackPanel reorder)
+  // has no 'Files' type and must never trigger the app-wide import overlay.
   const handleDragOver = useCallback((e: React.DragEvent<HTMLDivElement>) => {
+    if (!e.dataTransfer.types.includes('Files')) return
     e.preventDefault()
     e.stopPropagation()
     setIsDragOver(true)
@@ -163,12 +156,14 @@ export default function App() {
 
   // ── dragleave: only clear highlight when leaving the container entirely ────
   const handleDragLeave = useCallback((e: React.DragEvent<HTMLDivElement>) => {
+    if (!e.dataTransfer.types.includes('Files')) return
     if (e.currentTarget.contains(e.relatedTarget as Node)) return
     setIsDragOver(false)
   }, [])
 
   // ── drop: validate, then load or confirm ─────────────────────────────────
   const handleDrop = useCallback(async (e: React.DragEvent<HTMLDivElement>) => {
+    if (!e.dataTransfer.types.includes('Files')) return
     e.preventDefault()
     e.stopPropagation()
     setIsDragOver(false)

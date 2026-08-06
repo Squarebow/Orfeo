@@ -142,6 +142,46 @@ export async function resolveToMidiBase64(
   return { base64: midiBase64, resolvedPath: filePath, isPendingSave: true };
 }
 
+// ── Resolve a freshly-loaded file's bytes to playable MIDI, tracking + immediately
+// prompting to save any freshly-converted foreign format ("on load", not deferred
+// to the next file switch). Every load entry point (Ctrl+O / EmptyState open dialog,
+// drag-drop, library click) must route through this single function so the
+// save-as-midi prompt behaves identically everywhere. ─────────────────────────────
+export async function resolveAndTrackImport(
+  filePath: string,
+  originalBase64: string,
+  fileName: string,
+  libraryFolder: string | null,
+): Promise<string> {
+  const resolved = await resolveToMidiBase64(filePath, originalBase64, libraryFolder);
+
+  if (!resolved.isPendingSave) {
+    useStore.getState().setPendingImportedFile(null);
+    return resolved.base64;
+  }
+
+  useStore.getState().setPendingImportedFile({
+    sourcePath: filePath,
+    format: detectForeignFormat(filePath)!,
+    midiBase64: resolved.base64,
+    fileName,
+  });
+
+  const cachePath = getCachePath(filePath, libraryFolder);
+  const choice = await confirmDialog({
+    message: `Save "${fileName}" as a MIDI file?`,
+    detail: `This saves a copy at:\n${cachePath}\n\nThe original ${fileName} is never modified. You can save it later too — via the Library refresh icon.`,
+    buttons: ['Save as MID', "Don't Save"],
+  });
+  if (choice === 0) {
+    await (window.electronAPI as any).writeCachedImport(cachePath, resolved.base64);
+    useStore.getState().setPendingImportedFile(null);
+    useStore.getState().setLibraryNeedsRefresh(true);
+  }
+
+  return resolved.base64;
+}
+
 // ── Prompt to save pending imported file before switching to another file ─
 // Returns true if the caller should proceed with the load, false if the
 // user hit Cancel (abort the switch entirely).
@@ -167,6 +207,7 @@ export async function confirmPendingImportBeforeSwitch(
   if (choice === 0) {
     // Save as MID — write cache to disk via IPC
     await (window.electronAPI as any).writeCachedImport(cachePath, pendingImportedFile.midiBase64);
+    useStore.getState().setLibraryNeedsRefresh(true);
   }
   // Don't Save (choice === 1) — discard, fall through
 
@@ -200,6 +241,7 @@ export async function confirmPendingImportBeforeEdit(): Promise<boolean> {
 
   await (window.electronAPI as any).writeCachedImport(cachePath, pendingImportedFile.midiBase64);
   setPendingImportedFile(null);
+  useStore.getState().setLibraryNeedsRefresh(true);
   if (midi) useStore.setState({ midi: { ...(midi as any), _filePath: cachePath } as any });
   return true;
 }

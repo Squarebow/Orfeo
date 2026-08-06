@@ -951,6 +951,7 @@ export default function MidiEditor() {
         if (preApply) setUndoSnapshot(preApply)
         setPendingSplitIndex(null)
         reloadFile(result.base64, result.fileName, result.filePath)
+        useStore.getState().setLibraryNeedsRefresh(true)
         if (opts.closeOnSuccess) setTimeout(() => setMidiEditorOpen(false), 1200)
       }
     } catch (e: any) {

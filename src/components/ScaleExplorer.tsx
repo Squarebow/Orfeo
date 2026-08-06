@@ -1,13 +1,12 @@
 import { useState, useEffect, useCallback, useMemo, useRef, type CSSProperties } from 'react'
 import { createPortal } from 'react-dom'
 import { Chord, Note } from 'tonal'
-import { RotateCcw, Play, Square, CircleOff, ListOrdered, Shuffle, ArrowUpRight, Minus } from 'lucide-react'
+import { RotateCcw, Play, Square, CircleOff, ListOrdered, Shuffle, ArrowUpRight } from 'lucide-react'
 import { useStore } from '../store'
 import { getNoteName } from '../utils/noteNames'
 import type { NoteNaming, Accidentals } from '../types'
 import SpeedControl from './SpeedControl'
 import OrfeoMark from './OrfeoMark'
-import { MINIMIZE_BUTTON_STYLE } from '../utils/modalHeaderStyles'
 import { getPianoRollCenterX, getKeyboardHeaderTop } from '../utils/modalAnchors'
 
 // ── Keyboard range constants ────────────────────────────────────────────────
@@ -97,6 +96,23 @@ const ROW: React.CSSProperties = {
   flexShrink: 0, display: 'flex', alignItems: 'center',
   justifyContent: 'space-between', padding: '5px 12px',
   borderBottom: '1px solid var(--border)',
+}
+
+// ── Single-chevron play icon — same shape as SpeedControl's "slow" icon,
+// reused for the Progressions PLAY button and the prev/next inversion
+// buttons so all three share one visual language. ──────────────────────────
+function ChevronPlayIcon({ size = 14, mirrored = false }: { size?: number; mirrored?: boolean }) {
+  return (
+    <svg
+      viewBox="0 0 17 26" width={Math.round(size * 17 / 26)} height={size} fill="none" aria-hidden="true"
+      style={mirrored ? { transform: 'scaleX(-1)' } : undefined}
+    >
+      <path
+        d="M1,4c0-1.66,1.34-3,3-3,.8,0,1.56.32,2.12.88l9,9c1.17,1.17,1.17,3.07,0,4.24l-9,9c-1.17,1.17-3.07,1.17-4.24,0-.56-.56-.88-1.33-.88-2.12V4Z"
+        stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round"
+      />
+    </svg>
+  )
 }
 
 // ── SVG wedge path for CoF rings ─────────────────────────────────────────────
@@ -237,7 +253,6 @@ export default function ScaleExplorer() {
   const scaleExplorerOpen       = useStore(s => s.scaleExplorerOpen)
   const scaleExplorerMinimized  = useStore(s => s.scaleExplorerMinimized)
   const setScaleExplorerOpen    = useStore(s => s.setScaleExplorerOpen)
-  const setScaleExplorerMinimized = useStore(s => s.setScaleExplorerMinimized)
   const setChordExplorerOpen    = useStore(s => s.setChordExplorerOpen)
   const explorerKeys = useStore(s => s.explorerKeys)
   const setExplorerKeys = useStore(s => s.setExplorerKeys)
@@ -254,7 +269,7 @@ export default function ScaleExplorer() {
   // centered on the piano roll; recomputed each time the modal opens. ───────
   const [pos, setPos] = useState(() => ({
     x: Math.round(getPianoRollCenterX() - MODAL_WIDTH / 2),
-    y: Math.round(getKeyboardHeaderTop() - MODAL_HEIGHT) - 100,
+    y: Math.max(8, Math.round(getKeyboardHeaderTop() - MODAL_HEIGHT) - 152),
   }))
 
   // ── CoF + scale selection state ───────────────────────────────────────────
@@ -279,6 +294,11 @@ export default function ScaleExplorer() {
   // True when the 8th tile (tonic +12) is the active selection.
   const [octaveTileSelected, setOctaveTileSelected] = useState(false)
 
+  // ── Which note-names-row note is currently sounding during scale playback —
+  // index into [...scale.intervals, octaveRoot], -1 = none. Drives the
+  // sequential amber highlight on the note-names row. ───────────────────────
+  const [scalePlayIndex, setScalePlayIndex] = useState(-1)
+
   // ── Refs ──────────────────────────────────────────────────────────────────
   const progTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   // speedRef lets playProgStepAt read the live speed without restarting the chain
@@ -288,6 +308,7 @@ export default function ScaleExplorer() {
   const progDropRef = useRef<HTMLDivElement>(null)
   const dragRef = useRef<{ ox: number; oy: number; mx: number; my: number } | null>(null)
   const scalePlayTimersRef = useRef<ReturnType<typeof setTimeout>[]>([])
+  const chordSeqTimersRef = useRef<ReturnType<typeof setTimeout>[]>([])
   // ── Scale replay trigger — incremented on every CoF click so the play ─────
   // effect fires even when the same segment is clicked twice in a row
   const playTriggerRef = useRef(0)
@@ -325,19 +346,28 @@ export default function ScaleExplorer() {
     scalePlayTimersRef.current = []
   }, [])
 
+  // ── Cancel the chords-in-scale auto-sequence ───────────────────────────────
+  const stopChordSequence = useCallback(() => {
+    chordSeqTimersRef.current.forEach(t => clearTimeout(t))
+    chordSeqTimersRef.current = []
+  }, [])
+
   // ── On open: pause playback, reset all transient state ────────────────────
   useEffect(() => {
     if (scaleExplorerOpen) {
       // ── Recompute anchor position every time the modal opens ────────────
       setPos({
         x: Math.round(getPianoRollCenterX() - MODAL_WIDTH / 2),
-        y: Math.round(getKeyboardHeaderTop() - MODAL_HEIGHT) - 100,
+        y: Math.max(8, Math.round(getKeyboardHeaderTop() - MODAL_HEIGHT) - 152),
       })
       if (useStore.getState().playbackState === 'playing') {
         ;(window as any).__orfeoPlayer?.pause?.()
         useStore.getState().setPlaybackState('paused')
       }
-      setCofPos(null); setCofRing(null); setSelectedScaleIdx(0)
+      // ── Default to C major, as if it were already clicked — keeps the modal
+      // at its fully-expanded height on open instead of the empty placeholder
+      // state. COF_MAJOR_PC[0] === 0 (C), so position 0 on the major ring. ────
+      setCofPos(0); setCofRing('major'); setSelectedScaleIdx(0)
       stopProgression()
       setSelectedProg(null)
       setProgDropdownOpen(false)
@@ -352,10 +382,12 @@ export default function ScaleExplorer() {
     } else {
       stopProgression()
       clearScalePlayTimers()
+      stopChordSequence()
+      setScalePlayIndex(-1)
       clearExplorerKeys()
       clearExplorerChordDisplay()
     }
-  }, [scaleExplorerOpen, stopProgression, clearScalePlayTimers, clearExplorerKeys, clearExplorerChordDisplay])
+  }, [scaleExplorerOpen, stopProgression, clearScalePlayTimers, stopChordSequence, clearExplorerKeys, clearExplorerChordDisplay])
 
   // ── Play scale notes ascending and light keys when root/scale changes ──────
   useEffect(() => {
@@ -386,11 +418,14 @@ export default function ScaleExplorer() {
     setSelectedDegree(null)
     setOctaveTileSelected(false)
 
+    setScalePlayIndex(-1)
     if (playNote) {
       noteMidis.forEach((m, i) => {
-        const t = setTimeout(() => playNote(m, 0.6, 400), i * 220)
+        const t = setTimeout(() => { playNote(m, 0.6, 400); setScalePlayIndex(i) }, i * 220)
         scalePlayTimersRef.current.push(t)
       })
+      const resetT = setTimeout(() => setScalePlayIndex(-1), noteMidis.length * 220 + 400)
+      scalePlayTimersRef.current.push(resetT)
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedRoot, selectedScaleIdx, scaleExplorerOpen, playTrigger])
@@ -399,10 +434,10 @@ export default function ScaleExplorer() {
   const playDegree = useCallback((chord: DiatonicChord) => {
     setOctaveTileSelected(false)
     setSelectedDegree(chord.degree)
+    // ── Uniform amber for a direct tile click — the amber-root/blue-rest split
+    // is reserved for full-progression playback (Play button / Spacebar). ────
     const keys = new Set(chord.midiNotes)
-    const colors = new Map<number, string>()
-    chord.midiNotes.forEach(m => colors.set(m, 'var(--accent-chord-note)'))
-    if (chord.midiNotes[0] !== undefined) colors.set(chord.midiNotes[0], 'var(--text-amber)')
+    const colors = new Map(chord.midiNotes.map(m => [m, 'var(--text-amber)'] as const))
     setExplorerKeys(keys, colors)
     // ── Store chord identity in Zustand so Keyboard.tsx can display it ────
     setExplorerChordDisplay({ name: chord.chordName, invCount: 0, noteCount: chord.midiNotes.length })
@@ -413,7 +448,7 @@ export default function ScaleExplorer() {
       step: 0,
     })
     const playNote = (window as any).__orfeoPlayNote
-    if (playNote) chord.midiNotes.forEach(m => playNote(m, 0.7, 600))
+    if (playNote) chord.midiNotes.forEach(m => playNote(m, 0.7, 600, undefined, false))
   }, [setExplorerKeys, displayNaming, accidentals])
 
   // ── Play the tonic chord one octave higher (8th tile) ────────────────────
@@ -425,9 +460,9 @@ export default function ScaleExplorer() {
     const octaveMidi = tonic.midiNotes.map(n => n + 12)
     setSelectedDegree(null)
     setOctaveTileSelected(true)
+    // ── Uniform amber — see playDegree note above. ─────────────────────────
     const keys = new Set(octaveMidi)
-    const colors = new Map<number, string>()
-    octaveMidi.forEach((m, i) => colors.set(m, i === 0 ? 'var(--text-amber)' : 'var(--accent-chord-note)'))
+    const colors = new Map(octaveMidi.map(m => [m, 'var(--text-amber)'] as const))
     setExplorerKeys(keys, colors)
     // ── Store chord identity in Zustand so Keyboard.tsx can display it ────
     setExplorerChordDisplay({ name: tonic.chordName, invCount: 0, noteCount: octaveMidi.length })
@@ -438,8 +473,23 @@ export default function ScaleExplorer() {
       step: 0,
     })
     const playNote = (window as any).__orfeoPlayNote
-    if (playNote) octaveMidi.forEach(m => playNote(m, 0.7, 600))
+    if (playNote) octaveMidi.forEach(m => playNote(m, 0.7, 600, undefined, false))
   }, [diatonicChords, setExplorerKeys, displayNaming, accidentals])
+
+  // ── Auto-play all chords in the scale, one after another — the "Chords in
+  // the Scale" row's play button. Runs the 7 diatonic tiles plus the octave
+  // tile, in tile order, each ringing for 700ms before the next starts. ─────
+  const playChordsInSequence = useCallback(() => {
+    if (diatonicChords.length === 0) return
+    stopChordSequence()
+    const STEP_MS = 700
+    diatonicChords.forEach((chord, i) => {
+      const t = setTimeout(() => playDegree(chord), i * STEP_MS)
+      chordSeqTimersRef.current.push(t)
+    })
+    const t = setTimeout(() => playOctaveDegree(), diatonicChords.length * STEP_MS)
+    chordSeqTimersRef.current.push(t)
+  }, [diatonicChords, stopChordSequence, playDegree, playOctaveDegree])
 
   // ── Base MIDI notes for the currently selected tile (inversion source) ─────
   // Octave tile takes precedence: returns tonic notes +12 when that tile is
@@ -459,13 +509,12 @@ export default function ScaleExplorer() {
     if (state.explorerKeys.size === 0) return
     const notes = prevInversionSet(state.explorerKeys)
     const sorted = Array.from(notes).sort((a, b) => a - b)
-    const colors = new Map<number, string>()
-    sorted.forEach((m, i) => colors.set(m, i === 0 ? 'var(--text-amber)' : 'var(--accent-chord-note)'))
+    const colors = new Map(sorted.map(m => [m, 'var(--text-amber)'] as const))
     setExplorerKeys(notes, colors)
     const cd = state.explorerChordDisplay
     if (cd) state.setExplorerChordDisplay({ ...cd, invCount: cd.invCount - 1 })
     const playNote = (window as any).__orfeoPlayNote
-    if (playNote) sorted.forEach(m => playNote(m, 0.7, 600))
+    if (playNote) sorted.forEach(m => playNote(m, 0.7, 600, undefined, false))
   }, [setExplorerKeys])
 
   // ── Step to next inversion ────────────────────────────────────────────────
@@ -474,13 +523,12 @@ export default function ScaleExplorer() {
     if (state.explorerKeys.size === 0) return
     const notes = nextInversionSet(state.explorerKeys)
     const sorted = Array.from(notes).sort((a, b) => a - b)
-    const colors = new Map<number, string>()
-    sorted.forEach((m, i) => colors.set(m, i === 0 ? 'var(--text-amber)' : 'var(--accent-chord-note)'))
+    const colors = new Map(sorted.map(m => [m, 'var(--text-amber)'] as const))
     setExplorerKeys(notes, colors)
     const cd = state.explorerChordDisplay
     if (cd) state.setExplorerChordDisplay({ ...cd, invCount: cd.invCount + 1 })
     const playNote = (window as any).__orfeoPlayNote
-    if (playNote) sorted.forEach(m => playNote(m, 0.7, 600))
+    if (playNote) sorted.forEach(m => playNote(m, 0.7, 600, undefined, false))
   }, [setExplorerKeys])
 
   // ── Play one progression step and schedule the next ──────────────────────
@@ -515,6 +563,10 @@ export default function ScaleExplorer() {
     setExplorerKeys(keys, colors)
     setProgStep(step)
     setSelectedDegree(clampedDeg)
+    // ── Octave tile has its own bool, independent of selectedDegree — must be
+    // cleared explicitly or it stays stuck "selected" (stale highlight) once a
+    // progression starts stepping through the regular 0-6 degree tiles. ──────
+    setOctaveTileSelected(false)
     setInfoRowChord({
       progName: prog.name,
       labels: prog.labels,
@@ -524,7 +576,7 @@ export default function ScaleExplorer() {
 
     const currentSpeed = speedRef.current
     const playNote = (window as any).__orfeoPlayNote
-    if (playNote) notes.forEach(m => playNote(m, 0.75, SPEED_MS[currentSpeed] - 60))
+    if (playNote) notes.forEach(m => playNote(m, 0.75, SPEED_MS[currentSpeed] - 60, undefined, false))
 
     const nextStep = (step + 1) % labels.length
     const nextLoop = nextStep === 0 ? loopCount + 1 : loopCount
@@ -563,6 +615,20 @@ export default function ScaleExplorer() {
     document.addEventListener('mousedown', handler)
     return () => document.removeEventListener('mousedown', handler)
   }, [progDropdownOpen])
+
+  // ── Spacebar plays/pauses the progression while this modal is open ────────
+  useEffect(() => {
+    if (!scaleExplorerOpen) return
+    const handler = (e: KeyboardEvent) => {
+      if (e.code !== 'Space') return
+      if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) return
+      if (selectedProg === null) return
+      e.preventDefault()
+      if (progPlaying) stopProgression(); else startProgression()
+    }
+    window.addEventListener('keydown', handler)
+    return () => window.removeEventListener('keydown', handler)
+  }, [scaleExplorerOpen, selectedProg, progPlaying, stopProgression, startProgression])
 
   // ── Window drag handler ───────────────────────────────────────────────────
   const onDragStart = useCallback((e: React.MouseEvent) => {
@@ -660,14 +726,6 @@ export default function ScaleExplorer() {
         </div>
         <button
           onMouseDown={e => e.stopPropagation()}
-          onClick={() => setScaleExplorerMinimized(true)}
-          title="Minimize"
-          style={MINIMIZE_BUTTON_STYLE}
-          onMouseEnter={e => e.currentTarget.style.color = 'var(--text-default)'}
-          onMouseLeave={e => e.currentTarget.style.color = 'var(--text-inactive)'}
-        ><Minus size={14} /></button>
-        <button
-          onMouseDown={e => e.stopPropagation()}
           onClick={() => { stopProgression(); clearExplorerKeys(); clearExplorerChordDisplay(); setScaleExplorerOpen(false) }}
           style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-inactive)', fontSize: 16, lineHeight: 1, padding: '0 2px' }}
           onMouseEnter={e => e.currentTarget.style.color = 'var(--text-amber)'}
@@ -675,32 +733,31 @@ export default function ScaleExplorer() {
         >×</button>
       </div>
 
-      {/* CoF section — scale buttons | Circle of Fifths SVG with info overlay */}
+      {/* CoF section — scale buttons | Circle of Fifths SVG + note names, right-aligned */}
       <div style={{
         flexShrink: 0, display: 'flex', alignItems: 'center',
-        padding: '16px 16px 46px 12px',
+        padding: '16px 50px 46px 12px',
         background: 'var(--bg-modal-header)', borderBottom: '1px solid var(--border)',
         gap: 'var(--space-2)', overflow: 'visible', position: 'relative',
       }}>
-        {/* Guideline text — absolute top-left of CoF section, always visible */}
+        {/* Guideline text — contained to its own width so it wraps naturally
+            instead of running under the CoF/note-names block on the right. ── */}
         <div style={{
-          position: 'absolute', top: 16, left: 12, right: 12,
-          fontFamily: 'Inter', fontSize: 9, color: 'var(--text-dimmest)', lineHeight: '1.6',
+          position: 'absolute', top: 16, left: 12, width: 200,
+          fontFamily: 'Inter', fontSize: 11, color: 'var(--text-dimmest)', opacity: 0.75, lineHeight: '1.6',
           pointerEvents: 'none', zIndex: 5,
         }}>
-          <div>Click a key on the circle to explore its scale and</div>
-          <div>diatonic chords. Select a progression and click play</div>
-          <div>to hear the chords in the scale. Try chord inversions and variations!</div>
+          Click a key on the circle to explore its scale and diatonic chords. Select a progression and click play to hear the chords in the scale. Try chord inversions and variations!
         </div>
         {/* Scale type buttons — centred at CoF middle */}
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 1, minWidth: 116, flexShrink: 0, alignSelf: 'center', marginTop: 20 }}>
-          <span style={{ ...ROW_LABEL, marginBottom: 3 }}>Scale</span>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 1, minWidth: 116, flexShrink: 0, alignSelf: 'center', marginTop: 55 }}>
+          <span style={{ ...ROW_LABEL, fontSize: 10, marginBottom: 3 }}>Scale</span>
           {SCALES.map((s, i) => {
             const sel = selectedScaleIdx === i
             return (
               <button key={s.name} onClick={() => setSelectedScaleIdx(i)}
                 style={{
-                  fontFamily: 'Inter', fontSize: 10, padding: '3px 6px',
+                  fontFamily: 'Inter', fontSize: 11, padding: '4px 6px',
                   background: sel ? 'var(--accent-amber-medium)' : 'none',
                   color: sel ? 'var(--text-amber)' : 'var(--text-muted)',
                   border: `1px solid ${sel ? 'var(--text-amber)' : 'transparent'}`,
@@ -713,25 +770,10 @@ export default function ScaleExplorer() {
           })}
         </div>
 
-        {/* CoF SVG — flex:1 with relative positioning for the info overlay */}
-        <div style={{ flex: 1, display: 'flex', justifyContent: 'center', overflow: 'visible', position: 'relative' }}>
-          {/* Scale info — single line, top aligns with left guideline text, centred on CoF vertical axis */}
-          {infoText && (
-            <div style={{
-              position: 'absolute', top: 0, left: '50%', transform: 'translateX(-50%)',
-              display: 'flex', alignItems: 'baseline', gap: 8,
-              background: 'var(--bg-info-overlay)', borderRadius: 6, padding: '4px 10px',
-              zIndex: 10, pointerEvents: 'none', whiteSpace: 'nowrap',
-            }}>
-              <span style={{ fontFamily: 'JetBrains Mono', fontSize: 13, fontWeight: 700, color: 'var(--text-amber)' }}>
-                {infoText.rootName}
-              </span>
-              <span style={{ fontSize: 11, color: 'var(--text-muted)' }}>{infoText.scaleName}</span>
-              <span style={{ fontSize: 9, color: 'var(--text-inactive)', letterSpacing: '0.06em', fontFamily: 'JetBrains Mono' }}>
-                {infoText.noteNames.join(' · ')}
-              </span>
-            </div>
-          )}
+        {/* Right block: CoF SVG on top, note-names row below it — both right-aligned,
+            50px from the modal's right border via the container's own padding. ────── */}
+        <div style={{ flex: 1, display: 'flex', justifyContent: 'flex-end', overflow: 'visible' }}>
+          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', width: 380, gap: 40 }}>
           <svg width={380} height={420} viewBox="0 -40 380 420" style={{ overflow: 'visible', flexShrink: 0 }}>
             {Array.from({ length: 12 }, (_, i) => {
               const startDeg = -90 + i * 30
@@ -808,10 +850,54 @@ export default function ScaleExplorer() {
               fontSize={13} fontFamily="Inter" fontWeight={400} fill="var(--text-amber)"
               style={{ userSelect: 'none', pointerEvents: 'none' }}>of Fifths</text>
           </svg>
+          {/* Note-names row — centred under the CoF (same column, same width),
+              pushed down below it. Trailing octave-repeat note completes the
+              run; each note highlights amber in sequence as the scale plays. ── */}
+          {infoText && (
+            <div style={{
+              display: 'flex', alignItems: 'baseline', gap: 8,
+              background: 'var(--bg-info-overlay)', borderRadius: 6, padding: '4px 10px',
+            }}>
+              <span style={{ fontFamily: 'JetBrains Mono', fontSize: 14, fontWeight: 700, color: 'var(--text-amber)' }}>
+                {infoText.rootName}
+              </span>
+              <span style={{ fontSize: 11, color: 'var(--text-muted)' }}>{infoText.scaleName}</span>
+              <span style={{ fontSize: 11, letterSpacing: '0.06em', fontFamily: 'JetBrains Mono', whiteSpace: 'nowrap' }}>
+                {infoText.noteNames.map((n, i) => (
+                  <span key={i} style={{ color: i === scalePlayIndex ? 'var(--text-amber)' : 'var(--text-inactive)' }}>
+                    {n}{i < infoText.noteNames.length - 1 ? ' ' : ''}
+                  </span>
+                ))}
+                <span style={{ color: 'var(--text-inactive)' }}> · </span>
+                <span style={{ color: scalePlayIndex === infoText.noteNames.length ? 'var(--text-amber)' : 'var(--text-inactive)' }}>
+                  {infoText.rootName}
+                </span>
+              </span>
+            </div>
+          )}
+          </div>
         </div>
-        {/* Chords in the Scale label — absolute at bottom of CoF section */}
-        <div style={{ position: 'absolute', bottom: 6, left: 12, pointerEvents: 'none' }}>
-          <span style={{ ...ROW_LABEL }}>Chords in the Scale</span>
+        {/* Chords in the Scale — two stacked rows: label + play icon on top,
+            dimmed instruction text below. Absolute at bottom of CoF section. ── */}
+        <div style={{ position: 'absolute', bottom: 6, left: 12, right: 50, display: 'flex', flexDirection: 'column', gap: 2 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+            <span style={{ ...ROW_LABEL, fontSize: 11 }}>Chords in the Scale</span>
+            <button
+              onClick={playChordsInSequence}
+              disabled={selectedRoot === null}
+              title="Play all chords in the scale, in sequence"
+              style={{
+                background: 'none', border: 'none', padding: 0, display: 'flex', alignItems: 'center',
+                cursor: selectedRoot === null ? 'default' : 'pointer',
+                color: selectedRoot === null ? 'var(--state-disabled)' : 'var(--text-amber)',
+              }}
+              onMouseEnter={e => { if (selectedRoot !== null) e.currentTarget.style.color = 'var(--accent-amber-hover)' }}
+              onMouseLeave={e => { e.currentTarget.style.color = selectedRoot === null ? 'var(--state-disabled)' : 'var(--text-amber)' }}
+            ><Play size={13} fill="currentColor" strokeWidth={0} /></button>
+          </div>
+          <span style={{ fontFamily: 'Inter', fontSize: 10, color: 'var(--text-dimmest)', opacity: 0.75, pointerEvents: 'none' }}>
+            Click tiles to hear chords or play them in sequence
+          </span>
         </div>
       </div>
 
@@ -829,7 +915,7 @@ export default function ScaleExplorer() {
                 // Chord tile: chord name left, notes + roman stacked right-aligned
                 <button
                   key={chord.degree}
-                  onClick={() => playDegree(chord)}
+                  onClick={() => { stopChordSequence(); playDegree(chord) }}
                   style={{
                     flex: 1, background: sel ? 'var(--state-selected-blue-bg)' : 'var(--bg-tile)',
                     border: `1px solid ${sel ? 'var(--accent-chord-note)' : 'var(--state-hover-bg)'}`,
@@ -865,7 +951,7 @@ export default function ScaleExplorer() {
               const octaveMidi = tonic.midiNotes.map(n => n + 12)
               return (
                 <button
-                  onClick={playOctaveDegree}
+                  onClick={() => { stopChordSequence(); playOctaveDegree() }}
                   style={{
                     flex: 1, background: sel ? 'var(--state-selected-blue-bg)' : 'var(--bg-tile)',
                     border: `1px solid ${sel ? 'var(--accent-chord-note)' : 'var(--state-hover-bg)'}`,
@@ -932,15 +1018,14 @@ export default function ScaleExplorer() {
             }}>
               {infoRowChord.notes.join('  ')}
             </span>
-            {/* Right — chord name (when available) then fixed KEY: label */}
+            {/* Right — fixed "KEY OF [root]" label; root sits in a fixed-width
+                slot (worst case: 3 chars, e.g. "C#m") so it never shifts. ──── */}
             <div style={{ display: 'flex', flexDirection: 'row', alignItems: 'center', justifyContent: 'flex-end', gap: 'var(--space-1)', minWidth: 60 }}>
-              {infoText && (
-                <span style={{ fontFamily: 'Inter', fontSize: 'var(--text-sm)', fontWeight: 700, color: 'var(--text-amber)', userSelect: 'none', lineHeight: 1 }}>
-                  {infoText.rootName}{keyQuality}
-                </span>
-              )}
               <span style={{ fontFamily: 'Inter', fontSize: 9, fontWeight: 700, color: 'var(--text-dimmest)', letterSpacing: '0.10em', textTransform: 'uppercase', userSelect: 'none' }}>
-                Key
+                Key Of
+              </span>
+              <span style={{ fontFamily: 'Inter', fontSize: 'var(--text-sm)', fontWeight: 700, color: 'var(--text-amber)', userSelect: 'none', lineHeight: 1, minWidth: '3ch', display: 'inline-block' }}>
+                {infoText ? `${infoText.rootName}${keyQuality}` : ''}
               </span>
             </div>
           </>
@@ -964,13 +1049,17 @@ export default function ScaleExplorer() {
               setProgDropdownOpen(true)
             }}
             style={{
-              fontFamily: 'Inter', fontSize: 10, padding: '2px 8px',
-              background: 'var(--bg-tile)', color: selectedProg !== null ? 'var(--text-amber)' : 'var(--text-dimmest)',
-              border: '1px solid var(--state-hover-bg)', borderRadius: 4, cursor: 'pointer',
-              whiteSpace: 'nowrap', minWidth: 130,
+              padding: '2px 8px', borderRadius: 'var(--radius-sm)', border: 'none',
+              background: 'transparent',
+              color: selectedProg !== null ? 'var(--text-amber)' : 'var(--text-inactive)',
+              fontFamily: 'Inter', fontSize: 10, fontWeight: 600,
+              cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center',
+              whiteSpace: 'nowrap',
             }}
+            onMouseEnter={e => e.currentTarget.style.color = 'var(--text-amber)'}
+            onMouseLeave={e => { e.currentTarget.style.color = selectedProg !== null ? 'var(--text-amber)' : 'var(--text-inactive)' }}
           >
-            {selectedProg !== null ? PROGRESSIONS[selectedProg].name : 'Select ...'}
+            {selectedProg !== null ? PROGRESSIONS[selectedProg].name : 'None'} ▾
           </button>
           {selectedProg !== null && (
             <button onClick={() => { setSelectedProg(null); stopProgression() }}
@@ -1001,13 +1090,14 @@ export default function ScaleExplorer() {
               color: progPlaying ? 'var(--status-error)' : selectedProg !== null && diatonicChords.length > 0 ? 'var(--status-success)' : 'var(--text-inactive)',
             }}
           >
-            {progPlaying ? <Square size={12} /> : <Play size={12} />}
+            {progPlaying ? <Square size={12} /> : <ChevronPlayIcon size={12} />}
             {progPlaying ? 'STOP' : 'PLAY'}
           </button>
-          {/* Speed selector SVG component */}
+          {/* Speed selector SVG component — half the Play/Inversion chevron size */}
           <SpeedControl
             value={progSpeed}
             onChange={v => { setProgSpeed(v); speedRef.current = v }}
+            size={7}
           />
         </div>
 
@@ -1069,7 +1159,7 @@ export default function ScaleExplorer() {
             style={{ background: 'none', border: 'none', color: currentBaseMidi.length ? 'var(--text-amber)' : 'var(--state-disabled)', cursor: currentBaseMidi.length ? 'pointer' : 'default', padding: '0 2px', display: 'flex', alignItems: 'center' }}
             onMouseEnter={e => { if (currentBaseMidi.length) e.currentTarget.style.color = 'var(--accent-amber-hover)' }}
             onMouseLeave={e => { e.currentTarget.style.color = currentBaseMidi.length ? 'var(--text-amber)' : 'var(--state-disabled)' }}
-          ><Play size={14} style={{ transform: 'scaleX(-1)' }} /></button>
+          ><ChevronPlayIcon size={14} mirrored /></button>
           {/* Static grey label — chord display is above the keyboard only */}
           <span style={{ fontFamily: 'Inter', fontSize: 8, fontWeight: 700, color: 'var(--text-inactive)', letterSpacing: '0.12em', textTransform: 'uppercase', userSelect: 'none' }}>
             Play  Chord Inversions
@@ -1079,7 +1169,7 @@ export default function ScaleExplorer() {
             style={{ background: 'none', border: 'none', color: currentBaseMidi.length ? 'var(--text-amber)' : 'var(--state-disabled)', cursor: currentBaseMidi.length ? 'pointer' : 'default', padding: '0 2px', display: 'flex', alignItems: 'center' }}
             onMouseEnter={e => { if (currentBaseMidi.length) e.currentTarget.style.color = 'var(--accent-amber-hover)' }}
             onMouseLeave={e => { e.currentTarget.style.color = currentBaseMidi.length ? 'var(--text-amber)' : 'var(--state-disabled)' }}
-          ><Play size={14} /></button>
+          ><ChevronPlayIcon size={14} /></button>
           {/* Reset button */}
           <button
             onClick={() => {

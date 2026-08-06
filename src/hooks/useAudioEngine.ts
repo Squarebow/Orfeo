@@ -303,11 +303,14 @@ export function useAudioEngine() {
   useEffect(() => {
     // ── Timed click-to-play (shared by both engines) ─────────────────────────
     // channel: MIDI channel 0-based. Undefined = preview channel (14 GM / 15 samples).
-    const playNote = async (midiNum: number, vel = 90, durMs = 500, channel?: number) => {
+    // visual = false skips the timed key-light entirely — used for glissando,
+    // which drives the keyboard light itself (instant swap, no fade timer)
+    // instead of relying on this note-duration-based ring.
+    const playNote = async (midiNum: number, vel = 90, durMs = 500, channel?: number, visual = true) => {
       const { audioEngine } = useStore.getState()
       if (audioEngine === 'samples') {
         const fn = (window as any).__orfeoPlayNoteSamples
-        if (fn) { fn(midiNum, vel, durMs, channel); return }
+        if (fn) { fn(midiNum, vel, durMs, channel, visual); return }
       }
       // GM: ch 14 is the dedicated preview channel (piano). Track channels have
       // correct programs after __orfeoWarmupEditChannels runs on edit-mode enter.
@@ -321,7 +324,7 @@ export function useAudioEngine() {
         if (ch === 14) ensureClickChannel()
         _port.send([0x90 | ch, midiNum, Math.round(vel * 127)])
         setTimeout(() => { try { _port.send([0x80 | ch, midiNum, 0]) } catch {} }, durMs)
-        lightKey(midiNum, amberHex(), durMs + 100)
+        if (visual) lightKey(midiNum, amberHex(), durMs + 100)
       } catch (e) { console.error('[Orfeo GM] playNote error:', e) }
     }
     ;(window as any).__orfeoPlayNote = playNote

@@ -2,7 +2,7 @@
 
 **A modern piano learning and MIDI visualization desktop app for Windows.**
 
-[![Version](https://img.shields.io/badge/Version-0.14.0-blue)](https://github.com/SquareBow/orfeo/releases)
+[![Version](https://img.shields.io/badge/Version-1.0.0--pre-blue)](https://github.com/SquareBow/orfeo/releases)
 [![License](https://img.shields.io/badge/License-MIT-green)](LICENSE)
 [![Platform](https://img.shields.io/badge/Platform-Windows-lightgrey?logo=windows)](https://github.com/SquareBow/orfeo/releases)
 [![Status](https://img.shields.io/badge/Status-Beta-orange)](https://github.com/SquareBow/orfeo)
@@ -102,6 +102,8 @@ Download the latest installer from the [Releases](https://github.com/SquareBow/o
 
 - `Orfeo-Setup-x.x.x-Windows.exe` — standard installer
 - `Orfeo-Portable-x.x.x-Windows.exe` — portable, no installation required
+
+Not sure which one to grab, or want to know how they differ (auto-updates, where settings are stored, etc.)? See [docs/INSTALLATION.md](docs/INSTALLATION.md).
 
 ### Using Orfeo
 

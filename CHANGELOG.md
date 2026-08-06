@@ -1,5 +1,59 @@
 # Changelog
 
+## [1.0.0-pre] — 6. 8. 2026 — Final polish for public release: TopBar/Settings restyle, bugfixes, Scales & Chords Explorer overhaul
+
+A full pass across the app driven by a comprehensive pre-release review, done in four phases (styling/layout, bugfixes, Scales Explorer, Chords Explorer) plus an extended round of live pixel-level feedback on both explorers. Tagged as the first public pre-release.
+
+### TopBar restyle
+BPM/Key chevrons render amber whenever a file is loaded (was hover-only, with a color-swap-on-hover bug). Volume relocated from the left section to the right, icon-only (no label), vertically centered against the left-section items. Separator heights unified to the right side's value. Transport controls are now absolutely centered on the TopBar's true midpoint, independent of left/right content width.
+
+**Changed:** `src/components/Transport/TopBar.tsx`, `src/components/VolumeKnob.tsx`.
+
+### Settings panel restyle
+Transcript icon blinks on the currently-loaded file's row when chord transcription is on. Chord Prompter's description has the actual bracket-corner icon inlined mid-sentence. Sound Fonts and Effect Pattern native `<select>`s — unstylable Windows-native popups — replaced with a custom `SettingsDropdown` popover. Disabled `<Sparkles />` "Coming soon — practice mode" icon added to the TrackPanel rail.
+
+**New:** `SettingsDropdown` component (`SettingsPanel.tsx`). **Changed:** `src/components/SettingsPanel/SettingsPanel.tsx`, `src/components/TrackPanel/TrackPanel.tsx`.
+
+### Console icon redraw
+ChannelStrip/MasterStrip mini-piano icon redrawn with 3 black keys (was 4), scaled down to match the M/S/Eye icons beside it.
+
+**Changed:** `src/components/Mixer/ChannelStrip.tsx`, `src/components/Mixer/MasterStrip.tsx`.
+
+### Foreign-format import — real root-cause fix
+Found a third, previously unaudited load path: `useMidiFile.ts`'s `openFile()` (Ctrl+O / the Open button) whose file-picker filter allows `.mxl`/`.gp*` but skipped foreign-format conversion entirely. All three load paths (Open dialog, drag-drop, library click) now funnel through one shared `resolveAndTrackImport()`, which also fixes the save prompt firing on the *next* file switch instead of immediately on load. Deleted a dead, broken `loadLibraryFile` store action that duplicated this without any foreign-format handling.
+
+**New:** `resolveAndTrackImport()` (`src/utils/foreignFormatImport.ts`). **Changed:** `src/App.tsx`, `src/hooks/useMidiFile.ts`, `src/components/SettingsPanel/SettingsPanel.tsx`, `src/store/index.ts`.
+
+### Library refresh blink + unsaved-changes guard
+New `libraryNeedsRefresh` store flag blinks the Library refresh icon after any resave (foreign-import save, MidiEditor save, Note Editor save), clears on click. Extracted a shared `confirmDiscardDirtyNoteEdits()` and wired it into every place that changes/discards the loaded file — TopBar logo reset, drag-drop load, Ctrl+O/Open dialog, and library click (previously only library click had this guard).
+
+**New:** `confirmDiscardDirtyNoteEdits()` (`src/utils/noteEditorState.ts`). **Changed:** `src/store/index.ts`, `src/components/Transport/TopBar.tsx`, `src/App.tsx`, `src/hooks/useMidiFile.ts`, `src/components/SettingsPanel/SettingsPanel.tsx`, `src/components/MidiEditor/MidiEditor.tsx`, `src/components/NoteEditor/NoteEditorToolbar.tsx`.
+
+### Track drag-reorder fix
+`App.tsx`'s file-import overlay now gates on `e.dataTransfer.types.includes('Files')`, so an internal track-row drag never triggers the app-wide amber import highlight. `dropEffect = 'move'` set in the row's dragover handler (was showing the OS no-drop cursor). Reordering now reflows live during dragover instead of only committing on drop.
+
+**Changed:** `src/App.tsx`, `src/components/TrackPanel/TrackPanel.tsx`.
+
+### Glissando and rapid chord/inversion highlight lag — two real bugs
+Glissando's keyboard light was timer-based (ring-and-fade), so a fast mouse sweep still overlapped several keys' fade windows — replaced with an instant single-key swap tied directly to mouse position, no timer at all (`lightGlissandoKey`/`clearGlissandoKey` in `Keyboard.tsx`). Separately — and worse — every chord/inversion click in both Explorers and the Locked Chord modal already had a correct instant-replace highlight (`setExplorerKeys`/`setLockedKeys`) but *also* independently lit the same notes via the old timer-based path, so rapid clicks stacked up several still-decaying highlights (600–1200ms each) on top of the current chord. `playNote()` gained a 5th `visual` param (default `true`); all ~10 explorer/locked-chord call sites now pass `visual: false` since their own state already drives the highlight.
+
+**Changed:** `src/hooks/useAudioEngine.ts`, `src/hooks/useSamplesEngine.ts`, `src/components/Keyboard/Keyboard.tsx`, `src/components/ChordExplorer.tsx`, `src/components/ScaleExplorer.tsx`, `src/components/LockedChordModal.tsx`.
+
+### Scale Explorer — full restyle
+Minimize button removed (X only). Circle of Fifths + note-names row moved to the right side (50px from the modal's right border), note-names row centered under the CoF and pushed down between it and the chord tiles, with a trailing octave-root repeat and sequential amber highlight during scale playback. Modal opens pre-selected to C major so it's at full height immediately instead of an empty placeholder state. "Chords in the Scale" row: bigger label, dimmed instruction text, new auto-play-sequence button. Progression speed control rebuilt with genuine open-chevron icons (was a closed teardrop path that read as solid triangles at small size). "KEY OF [root]" reordered with a fixed-width root slot. Spacebar plays/pauses the progression. Progression selector restyled to a compact "None ▾" dropdown trigger. Fixed: chord-tile/inversion clicks now use uniform highlighting (the amber-root/blue-rest split is reserved for actual progression playback); the octave tile no longer keeps a stale highlight after a progression starts stepping through other tiles.
+
+**Changed:** `src/components/ScaleExplorer.tsx`, `src/components/SpeedControl.tsx`.
+
+### Chords Explorer — full restyle, built on Scales Explorer's results
+Minimize button removed. Modal width matched exactly to Scale Explorer (720px). Filter row: tooltips added throughout. Progressions row regrouped: Progressions/Style/Inversions together on the left, playback controls (chevron play icon + chevron speed control, matching Scale Explorer) in the right corner. Genre voicing row rebuilt as a CSS Grid row (three equal `minmax(0,1fr)` columns — not flex, and not `1fr auto 1fr`, which lets unequal-content side columns drag an `auto`-sized center off true center) showing, left to right: roman-numeral progression display, a SEQUENCE/NOTES legend, and the currently-sounding chord's notes in real order. Chord-tile playback indicator moved from a third row inside the tile to a corner overlay, sized up, no tile resize. Footer restyled to match Scale Explorer's exact icon/font treatment.
+
+**Changed:** `src/components/ChordExplorer.tsx`.
+
+### Docs & versioning
+New `docs/INSTALLATION.md` — full vs. portable build comparison for end users, linked from the README. `docs/ROADMAP.md` created (gitignored) noting Console CC persistence as deferred, non-trivial future scope. Tagged `v1.0.0-pre` as the first public pre-release.
+
+---
+
 ## [0.19.1] — 3. 8. 2026 — Design-audit follow-up: Settings overhaul, save versioning, modal positioning, auto-update, note-editor velocity lane
 
 ### Icon swap + pen cursor in note editing

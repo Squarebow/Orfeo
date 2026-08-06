@@ -1,6 +1,6 @@
 import { useState, useMemo, useRef, useEffect, useCallback, type CSSProperties } from 'react'
 import Fuse from 'fuse.js'
-import { NES } from '../../utils/noteEditorState'
+import { confirmDiscardDirtyNoteEdits } from '../../utils/noteEditorState'
 import { confirmDialog } from '../../utils/confirmController'
 import {
   ChevronLeft, ChevronDown, ChevronRight, Music2, Piano, Palette, Columns3, Volume2,
@@ -338,11 +338,12 @@ function HitEffectColorSwatch({ color, onChange }: { color: string | null; onCha
 }
 
 // ─── Transcript icon — sits in the FileMusic slot; manages its own state ───────
-function TranscriptIcon({ filePath, noteNaming, accidentals, addTranscriptEntry }: {
+function TranscriptIcon({ filePath, noteNaming, accidentals, addTranscriptEntry, isLoaded }: {
   filePath: string
   noteNaming: NoteNaming
   accidentals: Accidentals
   addTranscriptEntry: (entry: TranscriptEntry) => void
+  isLoaded?: boolean
 }) {
   const IDLE_TOOLTIP = 'Click to create a chord transcript PDF in Orfeo folder.'
   const [state, setState] = useState<'idle' | 'loading' | 'success' | 'error'>('idle')
@@ -388,7 +389,8 @@ function TranscriptIcon({ filePath, noteNaming, accidentals, addTranscriptEntry 
   return (
     <div
       onClick={(e) => { e.stopPropagation(); void handleClick() }}
-      title={tooltip}
+      title={isLoaded && state === 'idle' ? 'Chord transcription active for this file — click to create a PDF' : tooltip}
+      className={isLoaded && state === 'idle' ? 'loop-nudge-blink' : undefined}
       style={{
         cursor: state === 'loading' ? 'wait' : 'pointer',
         color: iconColor,
@@ -408,6 +410,83 @@ function TranscriptIcon({ filePath, noteNaming, accidentals, addTranscriptEntry 
 const FILENAME_SPAN_STYLE: React.CSSProperties = { fontSize: 'var(--text-xs)', color: 'var(--text-muted)' }
 function MarqueeFilename({ name }: { name: string }) {
   return <MarqueeText name={name} spanStyle={FILENAME_SPAN_STYLE} />
+}
+
+// ── SettingsDropdown — custom popover replacing native <select> ───────────────
+// Native <select> option lists render via the OS (Windows' own blue-hover
+// scheme on Chromium) and can't be restyled with CSS. Same visual shell as
+// the old <select> (amber border/background trigger), options styled to
+// match the app's own hover/selected palette instead of the OS default.
+function SettingsDropdown<T extends string>({ value, options, onChange, title }: {
+  value: T
+  options: { value: T; label: string; title?: string }[]
+  onChange: (v: T) => void
+  title?: string
+}) {
+  const [open, setOpen] = useState(false)
+  const wrapRef = useRef<HTMLDivElement>(null)
+
+  useEffect(() => {
+    if (!open) return
+    const onDoc = (e: MouseEvent) => {
+      if (wrapRef.current && !wrapRef.current.contains(e.target as Node)) setOpen(false)
+    }
+    document.addEventListener('mousedown', onDoc)
+    return () => document.removeEventListener('mousedown', onDoc)
+  }, [open])
+
+  const selected = options.find(o => o.value === value)
+
+  return (
+    <div ref={wrapRef} style={{ position: 'relative', marginBottom: 8 }}>
+      <button
+        type="button"
+        onClick={() => setOpen(v => !v)}
+        title={title}
+        style={{
+          width: '100%', padding: '5px 8px', borderRadius: 4,
+          border: '1px solid var(--accent-amber-strong)',
+          background: 'var(--accent-amber-medium)',
+          color: 'var(--text-amber)',
+          fontSize: 'var(--text-xs)', fontFamily: 'JetBrains Mono', fontWeight: 700,
+          cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 6,
+        }}
+      >
+        <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{selected?.label ?? value}</span>
+        <span style={{ flexShrink: 0, fontSize: 9 }}>▾</span>
+      </button>
+      {open && (
+        <div
+          onMouseDown={e => e.stopPropagation()}
+          style={{
+            position: 'absolute', top: '100%', left: 0, right: 0, marginTop: 2,
+            zIndex: 50001,
+            background: 'var(--panel)', border: '1px solid var(--state-hover-border)',
+            borderRadius: 4, overflow: 'hidden auto', maxHeight: 240,
+            boxShadow: '0 4px 16px rgba(0,0,0,0.55)',
+          }}
+        >
+          {options.map(o => (
+            <div
+              key={o.value}
+              title={o.title}
+              onClick={() => { onChange(o.value); setOpen(false) }}
+              style={{
+                padding: '6px 10px', cursor: 'pointer', fontSize: 'var(--text-xs)',
+                fontFamily: 'JetBrains Mono', fontWeight: o.value === value ? 700 : 400,
+                color:      o.value === value ? 'var(--text-amber)' : 'var(--text-default)',
+                background: o.value === value ? 'var(--accent-amber-selected-bg)' : 'transparent',
+              }}
+              onMouseEnter={e => { (e.currentTarget as HTMLElement).style.background = 'var(--state-hover-overlay-white)' }}
+              onMouseLeave={e => { (e.currentTarget as HTMLElement).style.background = o.value === value ? 'var(--accent-amber-selected-bg)' : 'transparent' }}
+            >
+              {o.label}
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  )
 }
 
 // ─── Library Panel ───────────────────────────────────────────────────────────
@@ -434,6 +513,8 @@ function LibraryPanel() {
   const toggleFavourite = useStore((s) => s.toggleFavourite)
   const hideDemoFolder  = useStore((s) => s.hideDemoFolder)
   const demoFiles       = useStore((s) => s.demoFiles)
+  const libraryNeedsRefresh    = useStore((s) => s.libraryNeedsRefresh)
+  const setLibraryNeedsRefresh = useStore((s) => s.setLibraryNeedsRefresh)
   // ── Chord Transcription — needed to show per-file transcript icon ─────────
   const chordTranscriptionEnabled = useStore((s) => s.chordTranscriptionEnabled)
   const noteNaming                = useStore((s) => s.noteNaming)
@@ -783,6 +864,7 @@ function LibraryPanel() {
   const handleRefresh = async () => {
     if (!libraryFolder) return
     setLoading(true)
+    setLibraryNeedsRefresh(false)
     try {
       const files = await window.electronAPI.scanMidiFolder(libraryFolder)
       setLibraryFiles(files)
@@ -792,22 +874,8 @@ function LibraryPanel() {
 
   // ── File loader — reads MIDI from disk and parses into store state ────────
   const handleLoadFile = useCallback(async (filePath: string) => {
-    // Guard: prompt if there are unsaved note editor edits
-    if (NES.dirty) {
-      const choice = await confirmDialog({
-        title: 'Unsaved Changes',
-        message: 'Save changes before opening this file?',
-        detail: 'Your note edits will be lost if you discard.',
-        buttons: ['Save', 'Discard', 'Cancel'],
-      })
-      if (choice === 2) return  // Cancel — do nothing
-      if (choice === 0) {       // Save — trigger toolbar save flow
-        const ok = await NES.onSaveRequest?.()
-        if (!ok) return           // Save was cancelled or failed — abort load
-      }
-      // Discard (choice === 1) — fall through
-      NES.dirty = false
-    }
+    const canDiscard = await confirmDiscardDirtyNoteEdits('Save changes before opening this file?')
+    if (!canDiscard) return
     try {
       const { confirmPendingImportBeforeSwitch } = await import('../../utils/foreignFormatImport')
       const proceed = await confirmPendingImportBeforeSwitch(filePath)
@@ -821,23 +889,10 @@ function LibraryPanel() {
       const { useStore: storeModule } = await import('../../store')
       const libraryFolder = (storeModule.getState() as any).libraryFolder as string | null ?? null
 
-      const { resolveToMidiBase64, detectForeignFormat, base64ToBytes } =
-        await import('../../utils/foreignFormatImport')
+      const { resolveAndTrackImport, base64ToBytes } = await import('../../utils/foreignFormatImport')
 
       try {
-        const resolved = await resolveToMidiBase64(filePath, base64, libraryFolder)
-        base64 = resolved.base64
-
-        if (resolved.isPendingSave) {
-          storeModule.getState().setPendingImportedFile({
-            sourcePath: filePath,
-            format: detectForeignFormat(filePath)!,
-            midiBase64: base64,
-            fileName: result.fileName,
-          })
-        } else {
-          storeModule.getState().setPendingImportedFile(null)
-        }
+        base64 = await resolveAndTrackImport(filePath, base64, result.fileName, libraryFolder)
       } catch (e: any) {
         console.error('[Orfeo] Foreign format conversion failed:', e)
         return
@@ -1012,13 +1067,14 @@ function LibraryPanel() {
               </div>
               <button
                 onClick={handleRefresh}
-                title="Refresh library"
+                title={libraryNeedsRefresh ? 'A file was saved — click to refresh the library' : 'Refresh library'}
+                className={libraryNeedsRefresh ? 'loop-nudge-blink' : undefined}
                 style={{
                   background: 'none', border: 'none', cursor: 'pointer',
-                  color: 'var(--text-inactive)', padding: 2, display: 'flex', alignItems: 'center',
+                  color: libraryNeedsRefresh ? 'var(--text-amber)' : 'var(--text-inactive)', padding: 2, display: 'flex', alignItems: 'center',
                 }}
                 onMouseEnter={e => e.currentTarget.style.color = 'var(--text-amber)'}
-                onMouseLeave={e => e.currentTarget.style.color = 'var(--text-inactive)'}
+                onMouseLeave={e => e.currentTarget.style.color = libraryNeedsRefresh ? 'var(--text-amber)' : 'var(--text-inactive)'}
               >
                 <RefreshCw size={10} style={{ animation: loading ? 'spin 1s linear infinite' : 'none' }} />
               </button>
@@ -1302,7 +1358,7 @@ function LibraryPanel() {
                 >
                   {/* ── Icon doubles as transcript trigger when transcription is on; otherwise shows format-specific icon ── */}
                   {chordTranscriptionEnabled ? (
-                    <TranscriptIcon filePath={file.path} noteNaming={noteNaming} accidentals={accidentals} addTranscriptEntry={addTranscriptEntry} />
+                    <TranscriptIcon filePath={file.path} noteNaming={noteNaming} accidentals={accidentals} addTranscriptEntry={addTranscriptEntry} isLoaded={isLoaded} />
                   ) : (
                     <RowIcon size={11} strokeWidth={1.5} style={{ color: isLoaded ? 'var(--text-amber)' : 'var(--text-muted)', flexShrink: 0 }} />
                   )}
@@ -1477,7 +1533,7 @@ function LibraryPanel() {
                 >
                   {/* ── Icon doubles as transcript trigger when transcription is on; otherwise shows format-specific icon ── */}
                   {chordTranscriptionEnabled ? (
-                    <TranscriptIcon filePath={file.path} noteNaming={noteNaming} accidentals={accidentals} addTranscriptEntry={addTranscriptEntry} />
+                    <TranscriptIcon filePath={file.path} noteNaming={noteNaming} accidentals={accidentals} addTranscriptEntry={addTranscriptEntry} isLoaded={isLoaded} />
                   ) : (
                     <RowIcon size={11} strokeWidth={1.5} style={{ color: isLoaded || isSelected ? 'var(--text-amber)' : 'var(--text-muted)', flexShrink: 0 }} />
                   )}
@@ -2047,7 +2103,11 @@ export default function SettingsPanel() {
                     eyeToggle
                     eyeValue={chordPrompterEnabled}
                     onEyeChange={setChordPrompterEnabled}
-                    description="Shows past, current and upcoming chords during playback. Click [icon] to enable it."
+                    description={<>
+                      Shows past, current and upcoming chords during playback. Click{' '}
+                      <svg xmlns="http://www.w3.org/2000/svg" width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ display: 'inline', verticalAlign: '-2px', margin: '0 2px' }}><path d="M3 7V5a2 2 0 0 1 2-2h2"/><path d="M17 3h2a2 2 0 0 1 2 2v2"/><path d="M21 17v2a2 2 0 0 1-2 2h-2"/><path d="M7 21H5a2 2 0 0 1-2-2v-2"/><rect width="10" height="8" x="7" y="8" rx="1"/></svg>
+                      {' '}to enable it.
+                    </>}
                   />
                   {/* ── Loop region — eye-toggle ──────────────────────────────────── */}
                   <OptionRow
@@ -2159,23 +2219,14 @@ export default function SettingsPanel() {
                         names don't reliably fit a fixed-width button. Only lists soundfonts
                         that are actually downloaded/importable right now; amber border+background
                         mirrors the old per-item "active" pill styling. ── */}
-                    <select
+                    <SettingsDropdown
                       value={selectedSoundfont}
-                      onChange={e => handleSelectSoundfont(e.target.value)}
+                      onChange={handleSelectSoundfont}
                       title="Soundfont used by the Samples engine"
-                      style={{
-                        width: '100%', padding: '5px 8px', borderRadius: 4,
-                        border: '1px solid var(--accent-amber-strong)',
-                        background: 'var(--accent-amber-medium)',
-                        color: 'var(--text-amber)',
-                        fontSize: 'var(--text-xs)', fontFamily: 'JetBrains Mono', fontWeight: 700,
-                        cursor: 'pointer', marginBottom: 8,
-                      }}
-                    >
-                      {allSoundfonts.filter(sf => sf.downloaded).map(sf => (
-                        <option key={sf.id} value={sf.id}>{sf.name} — {sf.sizeMB} MB</option>
-                      ))}
-                    </select>
+                      options={allSoundfonts.filter(sf => sf.downloaded).map(sf => ({
+                        value: sf.id, label: `${sf.name} — ${sf.sizeMB} MB`,
+                      }))}
+                    />
 
                     {/* ── Full catalog, incl. not-yet-downloaded — grid columns keep name/size/action
                         aligned regardless of name length, which a row of fixed-width buttons couldn't. ── */}
@@ -2369,26 +2420,19 @@ export default function SettingsPanel() {
                   )}
                   {hitEffectsEnabled && (
                     <OptionRow label="Pattern" labelSmall>
-                      <select
+                      <SettingsDropdown
                         value={hitEffectPattern}
-                        onChange={e => setHitEffectPattern(e.target.value as typeof hitEffectPattern)}
-                        style={{
-                          width: '100%', padding: '5px 8px', borderRadius: 4,
-                          border: '1px solid var(--accent-amber-strong)',
-                          background: 'var(--accent-amber-medium)',
-                          color: 'var(--text-amber)',
-                          fontSize: 'var(--text-xs)', fontFamily: 'JetBrains Mono', fontWeight: 700,
-                          cursor: 'pointer',
-                        }}
-                      >
-                        <option value="glowBloom" title={HIT_EFFECT_DESCRIPTIONS.glowBloom}>Glow Bloom</option>
-                        <option value="rippleRing" title={HIT_EFFECT_DESCRIPTIONS.rippleRing}>Ripple Ring</option>
-                        <option value="particleBurst" title={HIT_EFFECT_DESCRIPTIONS.particleBurst}>Particle Burst</option>
-                        <option value="smokePlume" title={HIT_EFFECT_DESCRIPTIONS.smokePlume}>Smoke Plume</option>
-                        <option value="colorAura" title={HIT_EFFECT_DESCRIPTIONS.colorAura}>Color Aura</option>
-                        <option value="starburstNova" title={HIT_EFFECT_DESCRIPTIONS.starburstNova}>Starburst Nova</option>
-                        <option value="cometTrail" title={HIT_EFFECT_DESCRIPTIONS.cometTrail}>Comet Trail</option>
-                      </select>
+                        onChange={v => setHitEffectPattern(v as typeof hitEffectPattern)}
+                        options={[
+                          { value: 'glowBloom',     label: 'Glow Bloom',     title: HIT_EFFECT_DESCRIPTIONS.glowBloom },
+                          { value: 'rippleRing',    label: 'Ripple Ring',    title: HIT_EFFECT_DESCRIPTIONS.rippleRing },
+                          { value: 'particleBurst', label: 'Particle Burst', title: HIT_EFFECT_DESCRIPTIONS.particleBurst },
+                          { value: 'smokePlume',    label: 'Smoke Plume',    title: HIT_EFFECT_DESCRIPTIONS.smokePlume },
+                          { value: 'colorAura',     label: 'Color Aura',     title: HIT_EFFECT_DESCRIPTIONS.colorAura },
+                          { value: 'starburstNova', label: 'Starburst Nova', title: HIT_EFFECT_DESCRIPTIONS.starburstNova },
+                          { value: 'cometTrail',    label: 'Comet Trail',    title: HIT_EFFECT_DESCRIPTIONS.cometTrail },
+                        ]}
+                      />
                       <div style={{ padding: '2px 12px 0', color: 'var(--text-inactive)', fontSize: 'var(--text-xs)', fontFamily: 'Inter', lineHeight: 1.5 }}>
                         {HIT_EFFECT_DESCRIPTIONS[hitEffectPattern]}
                       </div>

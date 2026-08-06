@@ -63,6 +63,31 @@ export default function Keyboard() {
   const shiftHeldRef = useRef(false)
   // ── Tracks whether the primary mouse button is held, enabling glissando drag ──
   const isMouseDown = useRef(false)
+  // ── Glissando keyboard light — instant swap, no fade timer. A timer-based
+  // ring (even a short one) still overlaps neighboring keys during a fast
+  // sweep since keys cross faster than any ring duration; only the currently-
+  // entered key should ever be lit, extinguished the instant the next one is. ──
+  const glissandoKeyRef = useRef<number | null>(null)
+  const lightGlissandoKey = useCallback((midi: number) => {
+    const prev = glissandoKeyRef.current
+    const { activeKeys, activeKeyColors } = useStore.getState()
+    const nk = new Set(activeKeys)
+    const nc = new Map(activeKeyColors)
+    if (prev !== null && prev !== midi) { nk.delete(prev); nc.delete(prev) }
+    nk.add(midi)
+    nc.set(midi, HAND_AMBER)
+    useStore.setState({ activeKeys: nk, activeKeyColors: nc })
+    glissandoKeyRef.current = midi
+  }, [])
+  const clearGlissandoKey = useCallback(() => {
+    const prev = glissandoKeyRef.current
+    if (prev === null) return
+    const { activeKeys, activeKeyColors } = useStore.getState()
+    const nk = new Set(activeKeys); nk.delete(prev)
+    const nc = new Map(activeKeyColors); nc.delete(prev)
+    useStore.setState({ activeKeys: nk, activeKeyColors: nc })
+    glissandoKeyRef.current = null
+  }, [])
   // ── Freeze prompter at last known chord index on pause/stop ──────────────────
   const frozenIndexRef = useRef<number>(-1)
 
@@ -173,7 +198,7 @@ export default function Keyboard() {
 
   // ── Clears drag state when mouse is released anywhere on the page ─────────
   useEffect(() => {
-    const up = () => { isMouseDown.current = false }
+    const up = () => { isMouseDown.current = false; clearGlissandoKey() }
     window.addEventListener('mouseup', up)
     return () => window.removeEventListener('mouseup', up)
   }, [])
@@ -259,12 +284,10 @@ export default function Keyboard() {
 
 
   // isGlissando: true when triggered by a drag-continuation (mouse held down,
-  // entering a new key) rather than the initial mousedown. A drag-glissando
-  // fires this for every key it crosses, and each one used to ring the same
-  // fixed 500ms/600ms (visual) duration as a single deliberate click — with
-  // keys crossed every 20-50ms during a fast drag, that's many keys lit
-  // simultaneously (the reported "amber blob"). Short-ring glissando notes
-  // instead, matching the same floor already used for scheduled playback.
+  // entering a new key) rather than the initial mousedown. The visual light
+  // for these is driven directly here (lightGlissandoKey — instant swap, no
+  // fade timer) instead of the normal timed ring, since any timer duration
+  // still overlaps neighboring keys during a fast sweep.
   const handleKeyClick = useCallback((midi: number, isGlissando = false) => {
     if (shiftHeldRef.current) {
       const next = new Set(lockedKeys)
@@ -276,7 +299,7 @@ export default function Keyboard() {
         next.add(midi)
         nextColors.set(midi, 'var(--text-amber)')
         const playNote = (window as any).__orfeoPlayNote
-        if (playNote) playNote(midi, 0.7, 600)
+        if (playNote) playNote(midi, 0.7, 600, undefined, false)
       }
       setLockedKeysStore(next, nextColors)
       // ── Detect chord once on the new note set; seed inversion count from detection ─
@@ -290,9 +313,14 @@ export default function Keyboard() {
     } else {
       if (lockedKeys.size > 0) clearLockedKeys()
       const playNote = (window as any).__orfeoPlayNote
-      if (playNote) playNote(midi, 0.7, isGlissando ? 60 : 500)
+      if (isGlissando) {
+        lightGlissandoKey(midi)
+        if (playNote) playNote(midi, 0.7, 60, undefined, false)
+      } else {
+        if (playNote) playNote(midi, 0.7, 500)
+      }
     }
-  }, [lockedKeys, lockedColors, noteNaming, accidentals, setLockedKeysStore, clearLockedKeys])
+  }, [lockedKeys, lockedColors, noteNaming, accidentals, setLockedKeysStore, clearLockedKeys, lightGlissandoKey])
 
   const keyContainerRef = useRef<HTMLDivElement>(null)
   const [keyHeight, setKeyHeight] = useState(130)

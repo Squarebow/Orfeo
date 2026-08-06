@@ -1,6 +1,7 @@
 import { createNoteEditorHistory } from './noteEditorHistory'
 import { midiToEditableCopy } from './noteEditorCommands'
 import type { ToneNote } from './noteEditorCommands'
+import { confirmDialog } from './confirmController'
 
 export type NEQuantize = 4 | 8 | 16 | 32
 
@@ -54,4 +55,26 @@ export const NES = {
     this.quantizeDivisorRef.current = 8
     this.showNoteNamesRef.current   = false
   },
+}
+
+// ── Shared unsaved-changes guard — logo reset, load a different file, drag a
+// new file in all funnel through this so "Save changes?" behaves identically
+// everywhere. Returns true if the caller should proceed, false if the user
+// cancelled. Scoped to Note Editor's NES.dirty only (not MidiEditor's
+// uncommitted track-panel state). ───────────────────────────────────────────
+export async function confirmDiscardDirtyNoteEdits(message: string): Promise<boolean> {
+  if (!NES.dirty) return true
+  const choice = await confirmDialog({
+    title: 'Unsaved Changes',
+    message,
+    detail: 'Your note edits will be lost if you discard.',
+    buttons: ['Save', 'Discard', 'Cancel'],
+  })
+  if (choice === 2) return false // Cancel
+  if (choice === 0) {            // Save
+    const ok = await NES.onSaveRequest?.()
+    if (!ok) return false
+  }
+  NES.dirty = false // Discard, or successful save
+  return true
 }

@@ -110,18 +110,17 @@ export default function VolumeKnob() {
   const pct = Math.round(masterVolume * 100)
 
   return (
-    // ── Mirrors BPM/KEY structure: knob left, label column right ─────────────
-    // alignItems:center means the 17px label column centers against the 44px SVG,
-    // putting VOLUME at the same baseline as TEMPO / TRANSPOSE to its left.
+    // ── No label — icon only, vertically centered against the left-section
+    // items (BPM/KEY), not bottom-aligned with the right section's columns. ──
     <div
       className="app-no-drag"
-      style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '0 var(--space-3)', flexShrink: 0 }}
+      style={{ display: 'flex', alignItems: 'center', alignSelf: 'center', padding: '0 14px', flexShrink: 0 }}
       title={`Volume: ${pct}%`}
     >
       <svg
         ref={svgRef}
-        width={44} height={44}
-        viewBox="0 0 52 52"
+        width={34} height={34}
+        viewBox="7.5 7.5 37 37"
         style={{ cursor: 'pointer', flexShrink: 0, display: 'block' }}
         onMouseDown={handleMouseDown}
       >
@@ -141,22 +140,6 @@ export default function VolumeKnob() {
         {/* Triangle notch indicator */}
         <polygon points={triPts} fill="var(--bg-deep)" />
       </svg>
-
-      {/* Two-row label column: empty top row shifts VOLUME to TEMPO/TRANSPOSE height */}
-      <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start', gap: 1 }}>
-        <span style={{ fontSize: 8, lineHeight: 1 }}>&nbsp;</span>
-        <span style={{
-          color: LABEL_COL,
-          fontSize: 8,
-          fontFamily: 'JetBrains Mono',
-          letterSpacing: '0.1em',
-          textTransform: 'uppercase',
-          lineHeight: 1,
-          userSelect: 'none',
-        }}>
-          VOLUME
-        </span>
-      </div>
     </div>
   )
 }

@@ -134,6 +134,7 @@ export default function NoteEditorToolbar() {
 
     NES.dirty = false
     NES.onHistoryChange?.()
+    useStore.getState().setLibraryNeedsRefresh(true)
 
     if (result.base64 && result.fileName && result.filePath) {
       const b   = atob(result.base64)

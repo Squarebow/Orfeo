@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback, useMemo, useRef, type CSSProperties } from 'react'
 import { createPortal } from 'react-dom'
 import { ChordType, Interval } from 'tonal'
-import { Search, Hand, RotateCcw, Play, Square, CircleOff, ListOrdered, Shuffle, Minus } from 'lucide-react'
+import { Search, Hand, RotateCcw, Square, CircleOff, ListOrdered, Shuffle, ArrowUpRight, ChevronLeft, ChevronRight } from 'lucide-react'
 import Fuse from 'fuse.js'
 import { useStore } from '../store'
 import { getNoteName } from '../utils/noteNames'
@@ -10,7 +10,6 @@ import type { Genre } from '../utils/genreVoicing'
 import type { NoteNaming } from '../types'
 import SpeedControl from './SpeedControl'
 import OrfeoMark from './OrfeoMark'
-import { MINIMIZE_BUTTON_STYLE } from '../utils/modalHeaderStyles'
 import { getPianoRollCenterX, getKeyboardHeaderTop } from '../utils/modalAnchors'
 
 const RANGES: Record<number, { min: number; max: number }> = {
@@ -20,8 +19,8 @@ const RANGES: Record<number, { min: number; max: number }> = {
 }
 
 // ── Modal dimensions for default positioning above the keyboard ───────────
-const MODAL_WIDTH = 700
-const MODAL_HEIGHT = 520
+const MODAL_WIDTH = 720
+const MODAL_HEIGHT = 532
 
 const ROOT_MIDIS = [60, 61, 62, 63, 64, 65, 66, 67, 68, 69, 70, 71]
 
@@ -61,6 +60,23 @@ interface Progression {
   offsets: number[]
   isRotation?: true
   baseName?: string
+}
+
+// ── Single-chevron play icon — matches Scale Explorer's icon exactly, same
+// shape as SpeedControl's "slow" icon, reused for the Progressions PLAY
+// button and the footer's prev/next inversion buttons. ─────────────────────
+function ChevronPlayIcon({ size = 14, mirrored = false }: { size?: number; mirrored?: boolean }) {
+  return (
+    <svg
+      viewBox="0 0 17 26" width={Math.round(size * 17 / 26)} height={size} fill="none" aria-hidden="true"
+      style={mirrored ? { transform: 'scaleX(-1)' } : undefined}
+    >
+      <path
+        d="M1,4c0-1.66,1.34-3,3-3,.8,0,1.56.32,2.12.88l9,9c1.17,1.17,1.17,3.07,0,4.24l-9,9c-1.17,1.17-3.07,1.17-4.24,0-.56-.56-.88-1.33-.88-2.12V4Z"
+        stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round"
+      />
+    </svg>
+  )
 }
 
 function resolveChord(key: string): ChordInfo | null {
@@ -220,6 +236,18 @@ const ALL_PROGRESSIONS = buildAllProgressions()
 
 const SPEED_MS = { slow: 1500, med: 800, fast: 400 } as const
 
+// ── Genre voicing descriptions — shared by the Style dropdown's trigger
+// tooltip and its two-column list (name left / description right). ─────────
+const GENRE_DESCRIPTIONS: Record<Genre, string> = {
+  classic:   'Plain diatonic triads — no extensions',
+  coltrane:  'Adds 9ths and 13ths for sophisticated jazz harmony',
+  cinematic: 'Open, clean voicings — add9 and suspended chords',
+  roadhouse: 'Dominant 7ths on the I and IV chords — classic blues sound',
+  ipanema:   'Smooth 9ths and 11ths with a tritone-substitution lean — bossa nova character',
+  carnival:  'Bright, festive 7th chords — samba character',
+  velvet:    'Deep 11ths and 13ths, mellow and laid-back — neo-soul character',
+}
+
 const COMMON_CHORDS = COMMON_TYPES.map(resolveChord).filter((c): c is ChordInfo => c !== null)
 const ALL_CHORDS = [...COMMON_CHORDS, ...EXTENDED_ADD.map(resolveChord).filter((c): c is ChordInfo => c !== null)]
 
@@ -243,7 +271,6 @@ export default function ChordExplorer() {
   const chordExplorerOpen       = useStore(s => s.chordExplorerOpen)
   const chordExplorerMinimized  = useStore(s => s.chordExplorerMinimized)
   const setChordExplorerOpen    = useStore(s => s.setChordExplorerOpen)
-  const setChordExplorerMinimized = useStore(s => s.setChordExplorerMinimized)
   const setScaleExplorerOpen    = useStore(s => s.setScaleExplorerOpen)
   const explorerKeys = useStore(s => s.explorerKeys)
   const setExplorerKeys = useStore(s => s.setExplorerKeys)
@@ -279,11 +306,18 @@ export default function ChordExplorer() {
   const [progSpeed, setProgSpeed] = useState<'slow' | 'med' | 'fast'>('med')
   const [progInversionMode, setProgInversionMode] = useState<'off' | 'sequential' | 'random'>('off')
   const [progGenre, setProgGenre] = useState<Genre>('classic')
+  // ── Currently-sounding notes, in real ascending sounding order — drives the
+  // fixed-width note-names slot in the style row's right corner. ────────────
+  const [playingNotes, setPlayingNotes] = useState<number[]>([])
+  const [styleDropdownOpen, setStyleDropdownOpen] = useState(false)
+  const [styleDropdownRect, setStyleDropdownRect] = useState<{ top: number; left: number } | null>(null)
   const searchRef = useRef<HTMLInputElement>(null)
   const progTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const progRunningRef = useRef(false)
   const progTriggerRef = useRef<HTMLButtonElement>(null)
   const progDropRef = useRef<HTMLDivElement>(null)
+  const styleTriggerRef = useRef<HTMLButtonElement>(null)
+  const styleDropRef = useRef<HTMLDivElement>(null)
 
   const displayNaming: NoteNaming = noteNaming === 'hidden' ? 'english' : noteNaming
 
@@ -292,6 +326,7 @@ export default function ChordExplorer() {
     if (progTimerRef.current) { clearTimeout(progTimerRef.current); progTimerRef.current = null }
     setProgPlaying(false)
     setProgStep(0)
+    setPlayingNotes([])
   }, [])
 
   // Reset transient state on open; no keyboard size change (61 is for ScaleExplorer only).
@@ -361,6 +396,21 @@ export default function ChordExplorer() {
     document.addEventListener('mousedown', handler)
     return () => document.removeEventListener('mousedown', handler)
   }, [progDropdownOpen])
+
+  // Outside-click to close style dropdown
+  useEffect(() => {
+    if (!styleDropdownOpen) return
+    const handler = (e: MouseEvent) => {
+      if (
+        styleDropRef.current?.contains(e.target as Node) ||
+        styleTriggerRef.current?.contains(e.target as Node)
+      ) return
+      setStyleDropdownOpen(false)
+      setStyleDropdownRect(null)
+    }
+    document.addEventListener('mousedown', handler)
+    return () => document.removeEventListener('mousedown', handler)
+  }, [styleDropdownOpen])
 
   const toggleSearch = () => {
     if (searchOpen) {
@@ -514,8 +564,11 @@ export default function ChordExplorer() {
       const rootLbl = rootLabels.find(r => r.pitchClass === actualRoot)?.label ?? ''
       const chordSuffix = DISPLAY_SUFFIX[info.key] ?? info.key
       setExplorerChordDisplay({ name: `${rootLbl}${chordSuffix}`, invCount: 0, noteCount: midiNotes.length })
+      // ── Real sounding order (ascending, matches inversion voicing) for the
+      // style row's fixed-width note-names slot. ────────────────────────────
+      setPlayingNotes([...midiNotes].sort((a, b) => a - b))
       const playNote = (window as any).__orfeoPlayNote
-      if (playNote) midiNotes.forEach(m => playNote(m, 0.75, Math.round(durationMs * 0.9)))
+      if (playNote) midiNotes.forEach(m => playNote(m, 0.75, Math.round(durationMs * 0.9), undefined, false))
     }
     setProgStep(step)
 
@@ -536,6 +589,20 @@ export default function ChordExplorer() {
     playProgStepAt(0, selectedProg, chordKey, selectedRoot, progSpeed, progInversionMode, progGenre, 0, null)
   }, [selectedProg, selectedKey, selectedRoot, progSpeed, progInversionMode, progGenre, stopProgression, playProgStepAt])
 
+  // ── Spacebar plays/pauses the progression while this modal is open ────────
+  useEffect(() => {
+    if (!chordExplorerOpen) return
+    const handler = (e: KeyboardEvent) => {
+      if (e.code !== 'Space') return
+      if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) return
+      if (selectedProg === null) return
+      e.preventDefault()
+      if (progPlaying) stopProgression(); else startProgression()
+    }
+    window.addEventListener('keydown', handler)
+    return () => window.removeEventListener('keydown', handler)
+  }, [chordExplorerOpen, selectedProg, progPlaying, stopProgression, startProgression])
+
   const playChordAt = useCallback((chordKey: string, rootPitchClass: number) => {
     stopProgression()
     const info = ALL_CHORDS.find(c => c.key === chordKey)
@@ -550,7 +617,7 @@ export default function ChordExplorer() {
     const chordName = `${rootLabels.find(r => r.pitchClass === rootPitchClass)?.label ?? ''}${DISPLAY_SUFFIX[chordKey] ?? chordKey}`
     setExplorerChordDisplay({ name: chordName, invCount: 0, noteCount: midiNotes.length })
     const playNote = (window as any).__orfeoPlayNote
-    if (playNote) midiNotes.forEach(m => playNote(m, 0.75, 1200))
+    if (playNote) midiNotes.forEach(m => playNote(m, 0.75, 1200, undefined, false))
   }, [stopProgression, setExplorerKeys, rootLabels])
 
   // ── Play a power chord (root + P5) for the given pitch class ─────────────
@@ -571,7 +638,7 @@ export default function ChordExplorer() {
     const rootLbl = rootLabels.find(r => r.pitchClass === pitchClass)?.label ?? ''
     setExplorerChordDisplay({ name: `${rootLbl}5`, invCount: 0, noteCount: midiNotes.length })
     const playNote = (window as any).__orfeoPlayNote
-    if (playNote) midiNotes.forEach(m => playNote(m, 0.75, 1200))
+    if (playNote) midiNotes.forEach(m => playNote(m, 0.75, 1200, undefined, false))
   }, [stopProgression, setExplorerKeys, rootLabels, setExplorerChordDisplay])
 
   const handleRootChange = (pitchClass: number) => {
@@ -596,7 +663,7 @@ export default function ChordExplorer() {
     const cd = state.explorerChordDisplay
     if (cd) state.setExplorerChordDisplay({ ...cd, invCount: cd.invCount + (dir === 'next' ? 1 : -1) })
     const playNote = (window as any).__orfeoPlayNote
-    if (playNote) Array.from(newNotes).forEach(m => playNote(m, 0.75, 1000))
+    if (playNote) Array.from(newNotes).forEach(m => playNote(m, 0.75, 1000, undefined, false))
   }, [selectedKey, setExplorerKeys])
 
   const openProgDropdown = () => {
@@ -739,13 +806,6 @@ export default function ChordExplorer() {
             <Search size={14} />
           </button>
           <button
-            onClick={() => setChordExplorerMinimized(true)}
-            title="Minimize"
-            style={MINIMIZE_BUTTON_STYLE}
-            onMouseEnter={e => e.currentTarget.style.color = 'var(--text-default)'}
-            onMouseLeave={e => e.currentTarget.style.color = 'var(--text-inactive)'}
-          ><Minus size={14} /></button>
-          <button
             onClick={close}
             style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-inactive)', fontSize: 'var(--text-lg)', lineHeight: 1, padding: '0 2px', fontFamily: 'Inter' }}
             onMouseEnter={e => e.currentTarget.style.color = 'var(--text-amber)'}
@@ -764,6 +824,7 @@ export default function ChordExplorer() {
               <button
                 key={pitchClass}
                 onClick={() => handleRootChange(pitchClass)}
+                title={`Root: ${label}`}
                 style={{
                   padding: '3px 8px',
                   borderRadius: 4, border: 'none',
@@ -790,7 +851,14 @@ export default function ChordExplorer() {
           {/* Tier */}
           <div style={{ display: 'flex', background: 'var(--bg-tile)', borderRadius: 'var(--radius-md)', padding: 2, gap: 1 }}>
             {(['common', 'power', 'extended'] as const).map(t => (
-              <button key={t} onClick={() => setTier(t)} style={btnBase(tier === t)}>
+              <button
+                key={t} onClick={() => setTier(t)} style={btnBase(tier === t)}
+                title={
+                  t === 'common'   ? 'Common chord types — triads, sevenths, everyday voicings' :
+                  t === 'power'    ? 'Power chords — root + fifth, one per pitch class' :
+                                     'Extended chord types — 9ths, 11ths, 13ths, altered tensions'
+                }
+              >
                 {t === 'common' ? 'Common' : t === 'power' ? 'Power' : 'Extended'}
               </button>
             ))}
@@ -820,7 +888,10 @@ export default function ChordExplorer() {
             <span style={{ fontSize: 8, color: 'var(--text-muted)', fontFamily: 'Inter', textTransform: 'uppercase', letterSpacing: '0.08em' }}>Notes</span>
             <div style={{ display: 'flex', background: 'var(--bg-tile)', borderRadius: 4, padding: 2, gap: 1 }}>
               {(['any', '3', '4', '5', '6+'] as const).map(n => (
-                <button key={n} onClick={() => setNoteFilter(n)} style={{ ...btnBase(noteFilter === n), minWidth: 22 }}>{n}</button>
+                <button
+                  key={n} onClick={() => setNoteFilter(n)} style={{ ...btnBase(noteFilter === n), minWidth: 22 }}
+                  title={n === 'any' ? 'Any note count' : n === '6+' ? '6 or more notes' : `Exactly ${n} notes`}
+                >{n}</button>
               ))}
             </div>
           </div>
@@ -834,8 +905,9 @@ export default function ChordExplorer() {
         {/* No borderBottom here — the outer container div owns the separator.   */}
         <div style={{ flexShrink: 0, minHeight: 'var(--row-height)', display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '5px 12px', position: 'relative' }}>
 
-          {/* Left column: PROGRESSIONS label + pattern dropdown ─────────────── */}
-          <div style={{ flex: 1, display: 'flex', alignItems: 'center', gap: 6 }}>
+          {/* Left group: PROGRESSIONS dropdown | STYLE dropdown | INVERSIONS —
+              all in sequence, separated by thin dividers. ────────────────── */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
             <span style={ROW_LABEL}>Progressions</span>
             {/* Dropdown trigger */}
             <button
@@ -861,37 +933,24 @@ export default function ChordExplorer() {
                 onMouseLeave={e => e.currentTarget.style.color = 'var(--text-inactive)'}
               >×</button>
             )}
-          </div>
-
-          {/* Centre column: PLAY/STOP button + SpeedControl — absolute centred ─ */}
-          <div style={{
-            position: 'absolute', left: '50%', transform: 'translateX(-50%)',
-            display: 'flex', alignItems: 'center', gap: 8,
-          }}>
-            {/* ── Progression play/stop button — green ready, red stop ─────────── */}
+            <span style={{ width: 1, height: 14, background: 'var(--state-hover-bg)', margin: '0 16px' }} />
+            <span style={ROW_LABEL}>Style</span>
             <button
-              onClick={() => progPlaying ? stopProgression() : startProgression()}
-              disabled={selectedProg === null && !progPlaying}
-              title={selectedProg === null ? 'Pick a pattern to play a progression' : undefined}
-              style={{
-                display: 'flex', alignItems: 'center', gap: 4,
-                fontFamily: 'Inter', fontSize: 10, fontWeight: 700, letterSpacing: '0.06em',
-                padding: '3px 10px', borderRadius: 4, cursor: selectedProg !== null || progPlaying ? 'pointer' : 'default',
-                background: 'none',
-                border: `1.5px solid ${progPlaying ? 'var(--status-error)' : selectedProg !== null ? 'var(--status-success)' : 'var(--text-inactive)'}`,
-                boxShadow: progPlaying ? '0 0 6px var(--status-error)' : selectedProg !== null ? '0 0 6px var(--status-success)' : 'none',
-                color: progPlaying ? 'var(--status-error)' : selectedProg !== null ? 'var(--status-success)' : 'var(--text-inactive)',
+              ref={styleTriggerRef}
+              onClick={() => {
+                if (styleDropdownOpen) { setStyleDropdownOpen(false); setStyleDropdownRect(null); return }
+                const r = styleTriggerRef.current?.getBoundingClientRect()
+                if (r) setStyleDropdownRect({ top: r.bottom + 2, left: r.left })
+                setStyleDropdownOpen(true)
               }}
+              title={GENRE_DESCRIPTIONS[progGenre]}
+              style={{ ...btnBase(false), color: 'var(--text-amber)', padding: '2px 6px', whiteSpace: 'nowrap', textTransform: 'uppercase' }}
+              onMouseEnter={e => e.currentTarget.style.color = 'var(--text-amber)'}
+              onMouseLeave={e => e.currentTarget.style.color = 'var(--text-amber)'}
             >
-              {progPlaying ? <Square size={12} /> : <Play size={12} />}
-              {progPlaying ? 'STOP' : 'PLAY'}
+              {GENRE_LABELS[progGenre]} ▾
             </button>
-            {/* Speed selector SVG component */}
-            <SpeedControl value={progSpeed} onChange={setProgSpeed} />
-          </div>
-
-          {/* Right column: INVERSIONS label + icon buttons ────────────────────── */}
-          <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: 4 }}>
+            <span style={{ width: 1, height: 14, background: 'var(--state-hover-bg)', margin: '0 16px' }} />
             <span style={ROW_LABEL}>Inversions</span>
             {/* Off — CircleOff icon */}
             <button
@@ -918,39 +977,93 @@ export default function ChordExplorer() {
               onMouseLeave={e => e.currentTarget.style.color = progInversionMode === 'random' ? 'var(--text-amber)' : 'var(--text-inactive)'}
             ><Shuffle size={14} /></button>
           </div>
+
+          {/* Right corner: PLAY/STOP button + SpeedControl — swapped with
+              Inversions, which moved into the left group above. ──────────── */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+            {/* ── Progression play/stop button — green ready, red stop ─────────── */}
+            <button
+              onClick={() => progPlaying ? stopProgression() : startProgression()}
+              disabled={selectedProg === null && !progPlaying}
+              title={selectedProg === null ? 'Pick a pattern to play a progression' : undefined}
+              style={{
+                display: 'flex', alignItems: 'center', gap: 4,
+                fontFamily: 'Inter', fontSize: 10, fontWeight: 700, letterSpacing: '0.06em',
+                padding: '3px 10px', borderRadius: 4, cursor: selectedProg !== null || progPlaying ? 'pointer' : 'default',
+                background: 'none',
+                border: `1.5px solid ${progPlaying ? 'var(--status-error)' : selectedProg !== null ? 'var(--status-success)' : 'var(--text-inactive)'}`,
+                boxShadow: progPlaying ? '0 0 6px var(--status-error)' : selectedProg !== null ? '0 0 6px var(--status-success)' : 'none',
+                color: progPlaying ? 'var(--status-error)' : selectedProg !== null ? 'var(--status-success)' : 'var(--text-inactive)',
+              }}
+            >
+              {progPlaying ? <Square size={12} /> : <ChevronPlayIcon size={12} />}
+              {progPlaying ? 'STOP' : 'PLAY'}
+            </button>
+            {/* Speed selector — chevrons, matching Scale Explorer's sizing */}
+            <SpeedControl value={progSpeed} onChange={setProgSpeed} size={7} />
+          </div>
         </div>
 
-        {/* ── Sub-row 2: genre/style pills — compact secondary row ────────────── */}
-        {/* Dimmed + non-interactive when no progression is selected             */}
+        {/* ── Sub-row 2: roman numerals | sequence/notes legend | note names ──── */}
+        {/* CSS grid, three real columns (1fr / auto / 1fr) — the centre column
+            is structurally centered by grid layout itself, not computed via
+            position:absolute + transform math. Row height matches the other
+            three rows exactly (same minHeight/padding/border-box model). ──── */}
         <div style={{
-          flexShrink: 0, minHeight: 32,
+          minHeight: 'var(--row-height)', display: 'grid', gridTemplateColumns: 'minmax(0,1fr) minmax(0,1fr) minmax(0,1fr)', alignItems: 'center',
           borderTop: '1px solid var(--border)',
-          padding: '4px 12px 5px',
-          display: 'flex', alignItems: 'center', gap: 6,
-          opacity: selectedProg === null ? 0.35 : 1,
+          padding: '5px 12px',
           pointerEvents: selectedProg === null ? 'none' : 'auto',
-          transition: 'opacity 0.15s',
         }}>
-          <span style={{ ...ROW_LABEL, fontSize: 8 }}>Style</span>
-          <div style={{ display: 'flex', background: 'var(--bg-tile)', borderRadius: 4, padding: 2, gap: 1 }}>
-            {(Object.keys(GENRE_LABELS) as Genre[]).map(g => (
-              <button
-                key={g}
-                onClick={() => setProgGenre(g)}
-                title={
-                  g === 'classic'   ? 'Plain diatonic triads — no extensions' :
-                  g === 'coltrane'  ? 'Adds 9ths and 13ths for sophisticated jazz harmony' :
-                  g === 'cinematic' ? 'Open, clean voicings — add9 and suspended chords' :
-                  g === 'roadhouse' ? 'Dominant 7ths on the I and IV chords — classic blues sound' :
-                  g === 'ipanema'   ? 'Smooth 9ths and 11ths with a tritone-substitution lean — bossa nova character' :
-                  g === 'carnival'  ? 'Bright, festive 7th chords — samba character' :
-                                      'Deep 11ths and 13ths, mellow and laid-back — neo-soul character'
-                }
-                style={btnBase(progGenre === g)}
-              >
-                {GENRE_LABELS[g]}
-              </button>
+          {/* Left: roman-numeral progression display, active step amber ──────── */}
+          <div style={{
+            display: 'flex', alignItems: 'baseline', gap: 6, justifySelf: 'start',
+            opacity: selectedProg === null ? 0.35 : 1, transition: 'opacity 0.15s',
+          }}>
+            {activeProg?.labels.map((label, i) => (
+              <span key={i} style={{
+                fontFamily: 'Inter',
+                fontSize: i === progStep && progPlaying ? 14 : 13,
+                fontWeight: i === progStep && progPlaying ? 700 : 400,
+                color: i === progStep && progPlaying ? 'var(--text-amber)' : 'var(--text-inactive)',
+                userSelect: 'none', lineHeight: 1,
+              }}>{label}</span>
             ))}
+          </div>
+
+          {/* Centre: SEQUENCE / NOTES legend — labels what's on the left (roman
+              numeral sequence) and right (note names) of this row, amber
+              arrows pointing outward toward each. Own grid column, so it's
+              genuinely centered between the other two regardless of their
+              content width. No alignSelf override — inherits the grid's
+              alignItems:center, same as the left/right columns, so all three
+              sit on the same vertical centerline. ────────────────────────── */}
+          <div style={{
+            display: 'flex', alignItems: 'center', justifySelf: 'center', gap: 6,
+            opacity: selectedProg === null ? 0.35 : 1, transition: 'opacity 0.15s',
+          }}>
+            <ChevronLeft size={12} color="var(--text-amber)" />
+            <span style={ROW_LABEL}>Sequence</span>
+            <span style={{ color: 'var(--text-inactive)', fontSize: 10 }}>|</span>
+            <span style={ROW_LABEL}>Notes</span>
+            <ChevronRight size={12} color="var(--text-amber)" />
+          </div>
+
+          {/* Right: currently-sounding note names, real order, amber, sized to
+              match the roman numerals on the left. Fixed-width reserved slot
+              sized for a realistic worst case (extended chord, several notes)
+              so the centred legend never shifts. ──────────────────────────── */}
+          <div style={{
+            display: 'flex', justifyContent: 'flex-end', justifySelf: 'end',
+            opacity: selectedProg === null ? 0.35 : 1, transition: 'opacity 0.15s',
+          }}>
+            <span style={{
+              minWidth: '11ch', textAlign: 'right',
+              fontFamily: 'JetBrains Mono', fontSize: 11, letterSpacing: '0.04em',
+              color: 'var(--text-amber)', userSelect: 'none', whiteSpace: 'nowrap',
+            }}>
+              {playingNotes.map(m => getNoteName(m, displayNaming, accidentals)).join(' ')}
+            </span>
           </div>
         </div>
 
@@ -1018,6 +1131,7 @@ export default function ChordExplorer() {
                   key={chord.key}
                   onClick={() => playChordAt(chord.key, selectedRoot)}
                   style={{
+                    position: 'relative',
                     background: isSel ? 'var(--state-selected-bg)' : 'var(--bg-tile)',
                     border: `1px solid ${isSel ? 'var(--text-amber)' : 'transparent'}`,
                     borderRadius: 6,
@@ -1030,6 +1144,17 @@ export default function ChordExplorer() {
                   onMouseEnter={e => { if (!isSel) e.currentTarget.style.borderColor = 'var(--state-hover-border)' }}
                   onMouseLeave={e => { if (!isSel) e.currentTarget.style.borderColor = 'transparent' }}
                 >
+                  {/* ── Current roman numeral during progression playback — top-right
+                      corner overlay, bigger than the chord name, no tile resize. ── */}
+                  {showRoman && (
+                    <span style={{
+                      position: 'absolute', top: 4, right: 6,
+                      fontFamily: 'Inter', fontSize: 'var(--text-base)', fontWeight: 700,
+                      color: 'var(--text-amber)', lineHeight: 1,
+                    }}>
+                      {ALL_PROGRESSIONS[selectedProg!].labels[progStep]}
+                    </span>
+                  )}
                   <span style={{
                     fontFamily: 'Inter', fontSize: 'var(--text-sm)', fontWeight: 700,
                     color: isSel ? 'var(--text-amber)' : 'var(--text-dim)',
@@ -1040,11 +1165,6 @@ export default function ChordExplorer() {
                   <span style={{ fontFamily: 'Inter', fontSize: 9, color: 'var(--text-tile-subtext)', lineHeight: 1.3 }}>
                     {noteNames || chord.name}
                   </span>
-                  {showRoman && (
-                    <span style={{ fontFamily: 'Inter', fontSize: 8, fontWeight: 700, color: 'var(--text-amber)', lineHeight: 1 }}>
-                      {ALL_PROGRESSIONS[selectedProg!].labels[progStep]}
-                    </span>
-                  )}
                 </button>
               )
             })}
@@ -1073,7 +1193,7 @@ export default function ChordExplorer() {
       }}>
         {/* Left: accidentals */}
         <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-          <span style={{ ...ROW_LABEL, fontSize: 8, color: 'var(--text-dimmest)' }}>Show as</span>
+          <span style={ROW_LABEL}>Show as</span>
           {(['flat', 'sharp'] as const).map(a => (
             <button key={a} onClick={() => setAccidentals(a)} style={{
               background: 'none', border: 'none', padding: '0 4px',
@@ -1101,7 +1221,7 @@ export default function ChordExplorer() {
             style={{ background: 'none', border: 'none', cursor: selectedKey ? 'pointer' : 'default', color: selectedKey ? 'var(--text-amber)' : 'var(--state-disabled)', padding: '0 2px', display: 'flex', alignItems: 'center' }}
             onMouseEnter={e => { if (selectedKey) e.currentTarget.style.color = 'var(--accent-amber-hover)' }}
             onMouseLeave={e => { e.currentTarget.style.color = selectedKey ? 'var(--text-amber)' : 'var(--state-disabled)' }}
-          ><Play size={14} style={{ transform: 'scaleX(-1)' }} /></button>
+          ><ChevronPlayIcon size={14} mirrored /></button>
           {/* Static grey label — chord display is above the keyboard only */}
           <span style={{ fontFamily: 'Inter', fontSize: 8, fontWeight: 700, color: 'var(--text-inactive)', letterSpacing: '0.12em', textTransform: 'uppercase', userSelect: 'none' }}>
             Play Inversion
@@ -1114,7 +1234,7 @@ export default function ChordExplorer() {
             style={{ background: 'none', border: 'none', cursor: selectedKey ? 'pointer' : 'default', color: selectedKey ? 'var(--text-amber)' : 'var(--state-disabled)', padding: '0 2px', display: 'flex', alignItems: 'center' }}
             onMouseEnter={e => { if (selectedKey) e.currentTarget.style.color = 'var(--accent-amber-hover)' }}
             onMouseLeave={e => { e.currentTarget.style.color = selectedKey ? 'var(--text-amber)' : 'var(--state-disabled)' }}
-          ><Play size={14} /></button>
+          ><ChevronPlayIcon size={14} /></button>
           <button
             onClick={() => { clearExplorerKeys(); clearDisplayedChord(); clearLockedKeys(); clearExplorerChordDisplay(); setSelectedKey(null) }}
             disabled={!selectedKey}
@@ -1131,18 +1251,14 @@ export default function ChordExplorer() {
           ><RotateCcw size={13} /></button>
         </div>
 
-        {/* Right: Scale Explorer placeholder */}
+        {/* Right: Scale Explorer switch — matches ScaleExplorer's own footer link */}
         <button
           onClick={() => { setChordExplorerOpen(false); setScaleExplorerOpen(true) }}
           title="Switch to Scale Explorer"
-          style={{
-            background: 'none', border: 'none', cursor: 'pointer',
-            color: 'var(--text-inactive)', fontFamily: 'Inter', fontSize: 9,
-            whiteSpace: 'nowrap', padding: 0,
-          }}
+          style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-inactive)', fontFamily: 'Inter', fontSize: 9, fontWeight: 700, letterSpacing: '0.10em', textTransform: 'uppercase', whiteSpace: 'nowrap', padding: 0, display: 'flex', alignItems: 'center', gap: 3 }}
           onMouseEnter={e => e.currentTarget.style.color = 'var(--text-amber)'}
           onMouseLeave={e => e.currentTarget.style.color = 'var(--text-inactive)'}
-        >Scale Explorer →</button>
+        >Scale Explorer <ArrowUpRight size={11} /></button>
       </div>
 
       {/* Progression dropdown — portalled to body to escape overflow:hidden */}
@@ -1193,6 +1309,53 @@ export default function ChordExplorer() {
                 <span style={{ fontFamily: 'JetBrains Mono', fontSize: 9, opacity: isRot ? 0.40 : 0.65, whiteSpace: 'nowrap' }}>
                   {p.labels.join('  ')}
                 </span>
+              </button>
+            )
+          })}
+        </div>,
+        document.body
+      )}
+
+      {/* Style (genre voicing) dropdown — portalled, two columns: name left,
+          description right — matches the progression dropdown above it. ──── */}
+      {styleDropdownOpen && styleDropdownRect && createPortal(
+        <div
+          ref={styleDropRef}
+          style={{
+            position: 'fixed',
+            top: styleDropdownRect.top,
+            left: styleDropdownRect.left,
+            background: 'var(--bg-tile)',
+            border: '1px solid var(--state-hover-bg)',
+            borderRadius: 6,
+            zIndex: 1000,
+            minWidth: 340,
+            maxHeight: 340,
+            overflowY: 'auto',
+            boxShadow: '0 4px 20px rgba(0,0,0,0.7)',
+          }}
+        >
+          {(Object.keys(GENRE_LABELS) as Genre[]).map(g => {
+            const sel = progGenre === g
+            return (
+              <button
+                key={g}
+                onClick={() => { setProgGenre(g); setStyleDropdownOpen(false); setStyleDropdownRect(null) }}
+                style={{
+                  display: 'flex', alignItems: 'baseline', gap: 12,
+                  width: '100%', textAlign: 'left',
+                  background: sel ? 'var(--state-hover-bg)' : 'none',
+                  border: 'none', padding: '5px 10px',
+                  color: sel ? 'var(--text-amber)' : 'var(--text-muted)',
+                  fontFamily: 'Inter', fontSize: 10, cursor: 'pointer',
+                }}
+                onMouseEnter={e => { e.currentTarget.style.background = 'var(--state-hover-bg)'; e.currentTarget.style.color = 'var(--text-amber)' }}
+                onMouseLeave={e => { e.currentTarget.style.background = sel ? 'var(--state-hover-bg)' : 'none'; e.currentTarget.style.color = sel ? 'var(--text-amber)' : 'var(--text-muted)' }}
+              >
+                {/* Left column: genre name */}
+                <span style={{ minWidth: 80, flexShrink: 0, whiteSpace: 'nowrap', fontWeight: 600, textTransform: 'uppercase' }}>{GENRE_LABELS[g]}</span>
+                {/* Right column: description */}
+                <span style={{ fontSize: 9, opacity: 0.7, color: 'var(--text-muted)' }}>{GENRE_DESCRIPTIONS[g]}</span>
               </button>
             )
           })}
