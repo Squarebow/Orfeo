@@ -14,7 +14,7 @@ import type { Hand, ParsedTrack } from '../types'
 //    so there is no "real" way to write hand/clef into a standard MIDI file.
 //    What follows are two breadcrumbs any other tool safely ignores:
 //
-//    a. Track name suffix " (RH)" / " (LH)" — for a track that is
+//    a. Track name suffix " RH" / " LH" — for a track that is
 //       homogeneously one hand (the "split into two tracks" output). Matches
 //       the convention notation software already uses.
 //    b. `ORFEO_HAND_MAP:<trackIndex>:<RLE>` type-0x01 text meta-event, ticks
@@ -32,10 +32,19 @@ import type { Hand, ParsedTrack } from '../types'
 // Confidence is never exported: it's a re-derivable diagnostic about how
 // forced the engine's decision was, not authoritative once a human has
 // accepted a split, and standard MIDI has no honest slot for it anyway.
+//
+// That said, a restored note's confidence must never be reported as a real
+// number — RESTORED_CONFIDENCE marks "trusted from a prior accept, not
+// re-scored this session" so the UI can say that honestly instead of
+// silently showing "0 low-confidence passages," which reads as "the engine
+// was certain everywhere" when it was never asked the question at all. This
+// was a real bug: the same split-preview panel showed real confidence flags
+// on a fresh file and zero flags on that same file reopened after one save
+// — not flaky, just two different (and differently labeled) code paths.
 
 // ── Track-name hint (whole-track hand) ────────────────────────────────────────
-const HAND_SUFFIX: Record<Hand, string> = { L: ' (LH)', R: ' (RH)' }
-const HAND_SUFFIX_RE = /\s*\((LH|RH)\)\s*$/i
+const HAND_SUFFIX: Record<Hand, string> = { L: ' LH', R: ' RH' }
+const HAND_SUFFIX_RE = /\s+(LH|RH)\s*$/i
 
 export function stripHandSuffix(name: string): string {
   return name.replace(HAND_SUFFIX_RE, '')
@@ -79,6 +88,12 @@ export function decodeHandRLE(rle: string): Hand[] {
   return hands
 }
 
+// Sentinel `handConfidence` for a hint-restored note — deliberately outside
+// the real 0..1 range so it can never be mistaken for an actual score.
+// isLowConfidence() (handPreview.ts) and any other confidence consumer must
+// treat this as "unknown," not "high."
+export const RESTORED_CONFIDENCE = -1
+
 const HAND_MAP_PREFIX = 'ORFEO_HAND_MAP:'
 
 // Bump whenever handAssignment.ts's cost function changes meaningfully. A
@@ -87,7 +102,7 @@ const HAND_MAP_PREFIX = 'ORFEO_HAND_MAP:'
 // saved before an algorithm fix would carry the old, wrong tags forever,
 // since the whole point of the hint is to *skip* recomputing. Cheap to
 // recompute (same single track, no merge), so there's no reason not to.
-export const HAND_ENGINE_VERSION = 1
+export const HAND_ENGINE_VERSION = 7
 
 export interface TextMeta {
   type: 'text'
@@ -149,7 +164,7 @@ export function restoreHandTagsFromHints(
   for (const track of tracks) {
     const hand = nameHandFromSuffix(track.name)
     if (!hand) continue
-    for (const note of track.notes) { note.hand = hand; note.handConfidence = 1 }
+    for (const note of track.notes) { note.hand = hand; note.handConfidence = RESTORED_CONFIDENCE }
     restoredAny = true
   }
 
@@ -159,7 +174,7 @@ export function restoreHandTagsFromHints(
     if (!parsed) continue
     const track = tracks.find(t => t.index === parsed.trackIndex)
     if (!track || parsed.hands.length !== track.notes.length) continue
-    track.notes.forEach((note, i) => { note.hand = parsed.hands[i]; note.handConfidence = 1 })
+    track.notes.forEach((note, i) => { note.hand = parsed.hands[i]; note.handConfidence = RESTORED_CONFIDENCE })
     restoredAny = true
   }
 

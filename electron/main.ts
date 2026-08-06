@@ -466,6 +466,8 @@ ipcMain.handle('editor:save', async (_e, payload: {
   mergeGroups: number[][]
   trackNames?: Record<number, string>
   trackColors?: Record<number, string>
+  rhMaxFingers?: number
+  lhMaxFingers?: number
 }) => {
   try {
     if (!payload.filePath) return { ok: false, message: 'No source file loaded' }
@@ -510,7 +512,7 @@ ipcMain.handle('editor:save', async (_e, payload: {
         includedSet.delete(idxs[i])
       }
 
-      const { assignments } = assignHands(base.notes)
+      const { assignments } = assignHands(base.notes, { rhMaxFingers: payload.rhMaxFingers, lhMaxFingers: payload.lhMaxFingers })
       const handByNote = new Map(assignments.map(a => [a.note, a.hand]))
       handsByRawIdx.set(idxs[0], base.notes.map((n: any) => handByNote.get(n)!))
     }
@@ -533,7 +535,7 @@ ipcMain.handle('editor:save', async (_e, payload: {
       if (isDrum || track.notes.length === 0) continue
       const group = getGMGroup(track.instrument?.number ?? 0, isDrum)
       if (!KEYBOARD_GROUPS.has(group)) continue
-      const { assignments } = assignHands(track.notes)
+      const { assignments } = assignHands(track.notes, { rhMaxFingers: payload.rhMaxFingers, lhMaxFingers: payload.lhMaxFingers })
       const handByNote = new Map(assignments.map(a => [a.note, a.hand]))
       handsByRawIdx.set(rawIdx, track.notes.map((n: any) => handByNote.get(n)!))
     }
@@ -623,6 +625,8 @@ ipcMain.handle('editor:split', async (_e, payload: {
   breakpoint: number
   rangeStart: number
   rangeEnd: number
+  rhMaxFingers?: number
+  lhMaxFingers?: number
 }) => {
   try {
     if (!payload.filePath) return { ok: false, message: 'No source file loaded' }
@@ -637,7 +641,7 @@ ipcMain.handle('editor:split', async (_e, payload: {
     const srcTrack = midi.tracks[origIdx]
     if (srcTrack.notes.length === 0) return { ok: false, message: 'Track has no notes' }
 
-    const { assignments } = assignHands(srcTrack.notes)
+    const { assignments } = assignHands(srcTrack.notes, { rhMaxFingers: payload.rhMaxFingers, lhMaxFingers: payload.lhMaxFingers })
     const lhNotes = assignments.filter(a => a.hand === 'L').map(a => a.note)
     const rhNotes = assignments.filter(a => a.hand === 'R').map(a => a.note)
 
@@ -646,16 +650,41 @@ ipcMain.handle('editor:split', async (_e, payload: {
     }
 
     // ── Rebuild source track as Left Hand ─────────────────────────────────────
-    const origTrackName = srcTrack.name
+    // Many real-world GM exports (this Bruce Hornsby file included) leave the
+    // track-name meta event blank — fall back to "Piano" so the split output
+    // reads "Piano LH"/"Piano RH" instead of a bare " LH"/" RH".
+    const origTrackName = srcTrack.name || 'Piano'
     srcTrack.notes.splice(0)
-    srcTrack.name = withHandSuffix(origTrackName, 'L')
+    const lhName = withHandSuffix(origTrackName, 'L')
+    srcTrack.name = lhName
     lhNotes.forEach(n => srcTrack.notes.push(n))
 
     // ── Add Right Hand track ───────────────────────────────────────────────────
     const rhTrack = midi.addTrack()
-    rhTrack.name = withHandSuffix(origTrackName, 'R')
+    const rhName = withHandSuffix(origTrackName, 'R')
+    rhTrack.name = rhName
     rhTrack.instrument.number = srcTrack.instrument.number
     rhNotes.forEach(n => rhTrack.notes.push(n))
+
+    // ── Also inject ORFEO_TRACK_NAME hints — the renderer's displayed track
+    // name (`trackName` in the store) defaults to the GM instrument name and
+    // is ONLY ever overridden by this hint, never by the plain MIDI track-
+    // name field set above. Without this, "Piano LH"/"Piano RH" never shows
+    // up in the UI — both tracks keep showing "Acoustic Grand Piano" even
+    // though the file's actual track-name meta is correct. outIdx follows
+    // the same "sequential index over non-empty tracks" scheme parseMidiBuffer
+    // uses: LH keeps the source track's original position; RH, freshly
+    // appended, lands one past the last original track. ────────────────────
+    const lhOutIdx = payload.trackIndex ?? 0
+    const rhOutIdx = noteTrackIndices.length
+    const existingMeta = (midi.header as any).meta ?? []
+    ;(midi.header as any).meta = existingMeta.filter((m: any) =>
+      !(typeof m.text === 'string' && (m.text.startsWith(`ORFEO_TRACK_NAME:${lhOutIdx}:`) || m.text.startsWith(`ORFEO_TRACK_NAME:${rhOutIdx}:`)))
+    )
+    ;(midi.header as any).meta.push(
+      { type: 'text', text: `ORFEO_TRACK_NAME:${lhOutIdx}:${lhName}`, ticks: 0 },
+      { type: 'text', text: `ORFEO_TRACK_NAME:${rhOutIdx}:${rhName}`, ticks: 0 },
+    )
 
     // ── Resolve output path — always the next _ORFEO_vN, same rule as every
     // other editing tool (see src/utils/orfeoVersioning.ts). ──────────────────

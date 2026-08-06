@@ -7,6 +7,7 @@ import { useEffect, useRef } from 'react'
 import { useStore } from '../store'
 import { useSamplesEngine } from './useSamplesEngine'
 import { pushHitEffect, amberHex } from '../utils/hitEffectQueue'
+import { isHomogeneousHandTrack, resolveHandAwareColor } from '../utils/handColors'
 
 let _jzzReady = false
 let _jzzInitP: Promise<void> | null = null
@@ -128,12 +129,13 @@ function destroyPlayer() {
 // Repopulates _mutedCh and rebuilds the key-lighting schedule from currentTime.
 // Called on track-state changes during playback so the filter takes effect instantly.
 function updateMutedChannels() {
-  const { midi, tracks, bpm, originalBpm, detectedKey, currentTime, hitEffectScope } = useStore.getState()
+  const { midi, tracks, bpm, originalBpm, detectedKey, currentTime, hitEffectScope, showHandLabels, handLabelMode } = useStore.getState()
   const midiData = midi as any
   if (!midiData || !_player) return
   const hasSolo = tracks.some((t: any) => t.solo)
   const transpose = detectedKey?.transpose ?? 0
   const ratio = bpm / originalBpm
+  const performanceMode = handLabelMode === 'performance'
   _mutedCh.clear()
   for (const tr of midiData.tracks) {
     const ts = tracks.find((t: any) => t.index === tr.index)
@@ -146,13 +148,15 @@ function updateMutedChannels() {
     // hitEffectScope === 'all' lets non-keyboard tracks still spawn hit effects
     // (purely visual, at the note's key position) without lighting the key itself.
     if (!ts.showOnKeyboard && hitEffectScope !== 'all') continue
-    const color = ts.color ?? amberHex()
+    const defaultColor = ts.color ?? amberHex()
+    const homogeneousTrack = isHomogeneousHandTrack(track.notes)
     for (const note of track.notes) {
       const noteStart = note.time / ratio
       if (noteStart < currentTime) continue
       const delay = (noteStart - currentTime) * 1000
       const durMs = Math.max(note.duration / ratio * 1000, 40)
       const midiNum = note.midi + transpose
+      const color = resolveHandAwareColor(note, defaultColor, { homogeneousTrack, showHandLabels, performanceMode })
       const t = setTimeout(() => {
         if (ts.showOnKeyboard) lightKey(midiNum, color, Math.min(durMs + 30, 2500))
         else pushHitEffect(midiNum, color)
@@ -168,7 +172,8 @@ function buildPlayer(startSec: number) {
   if (!raw) return
   try {
     destroyPlayer(); clearAllKeys(); clearLightSchedule()
-    const { tracks, bpm, originalBpm, detectedKey, hitEffectScope } = useStore.getState()
+    const { tracks, bpm, originalBpm, detectedKey, hitEffectScope, showHandLabels, handLabelMode } = useStore.getState()
+    const performanceMode = handLabelMode === 'performance'
     const transpose = detectedKey?.transpose ?? 0
     const ratio = bpm / originalBpm
     const midiData = useStore.getState().midi as any
@@ -217,13 +222,15 @@ function buildPlayer(startSec: number) {
       const ts = tracks.find((t: any) => t.index === track.index)
       if (!ts || ts.muted || (hasSolo && !ts.solo)) continue
       if (!ts.showOnKeyboard && hitEffectScope !== 'all') continue
-      const color = ts.color ?? amberHex()
+      const defaultColor = ts.color ?? amberHex()
+      const homogeneousTrack = isHomogeneousHandTrack(track.notes)
       for (const note of track.notes) {
         const noteStart = note.time / ratio
         if (noteStart < startSec) continue
         const delay = (noteStart - startSec) * 1000
         const durMs = Math.max(note.duration / ratio * 1000, 40)
         const midiNum = note.midi + transpose
+        const color = resolveHandAwareColor(note, defaultColor, { homogeneousTrack, showHandLabels, performanceMode })
         const t = setTimeout(() => {
           if (ts.showOnKeyboard) lightKey(midiNum, color, Math.min(durMs + 30, 2500))
           else pushHitEffect(midiNum, color)

@@ -43,8 +43,8 @@ const VELOCITY_BAR_W   = 5
 // source of truth; these are just its canvas-usable cache. Defaults here only
 // cover the sliver of first render before the mount effect runs. Same pattern as
 // ChannelStrip.tsx / MasterStrip.tsx.
-let HAND_SLATE_COLOR    = 0x4a7fff   // --hand-slate
-let HAND_AMBER_COLOR    = 0xe8a027   // --text-amber
+let HAND_LH_COLOR       = 0x6270a5   // --hand-lh
+let HAND_RH_COLOR       = 0xcb636c   // --hand-rh
 let SEL_NOTE_COLOR       = 0xdd2244   // --note-select-red — actively selected/dragged notes
 let SEL_MARQUEE_COLOR    = 0x7788aa   // --note-marquee-blue — drag-select rectangle
 let KEY_ROW_COLOR        = 0x171720   // --pianoroll-key-row — white-key row shading
@@ -78,8 +78,8 @@ function resolvePianoRollColorsFromCSS() {
   }
   const readStr = (name: string, fallback: string) => cs.getPropertyValue(name).trim() || fallback
 
-  HAND_SLATE_COLOR    = readNum('--hand-slate', HAND_SLATE_COLOR)
-  HAND_AMBER_COLOR    = readNum('--text-amber', HAND_AMBER_COLOR)
+  HAND_LH_COLOR        = readNum('--hand-lh', HAND_LH_COLOR)
+  HAND_RH_COLOR        = readNum('--hand-rh', HAND_RH_COLOR)
   SEL_NOTE_COLOR       = readNum('--note-select-red', SEL_NOTE_COLOR)
   SEL_MARQUEE_COLOR    = readNum('--note-marquee-blue', SEL_MARQUEE_COLOR)
   KEY_ROW_COLOR        = readNum('--pianoroll-key-row', KEY_ROW_COLOR)
@@ -373,6 +373,11 @@ export default function PianoRoll() {
   const lastKeySizeRef    = useRef<number>(0)
   const lastMidiRef       = useRef<any>(null)
   const flatNotesRef      = useRef<FlatNote[]>([])
+  // ── Tracks whose notes are ALL the same hand — i.e. a genuine "split into
+  // two tracks" output (Piano LH / Piano RH). These always render in the
+  // fixed hand colors regardless of the Left/Right Hand setting; a single
+  // mixed-hand track only does that when the setting is on. ─────────────────
+  const homogeneousHandTracksRef = useRef<Set<number>>(new Set())
   const barStartsRef      = useRef<number[]>([])
   // ── Shared between wheel-handler effect and PixiJS-closure drag handlers ──────
   const editDragActiveRef = useRef(false)
@@ -778,13 +783,21 @@ export default function PianoRoll() {
         if (midi !== lastMidiRef.current) {
           lastMidiRef.current = midi
           const flat: FlatNote[] = []
+          const homogeneous = new Set<number>()
           for (const track of midi.tracks) {
+            let allSameHand: Hand | null | undefined = undefined
             for (const note of track.notes) {
               flat.push({ midi: note.midi, time: note.time, duration: note.duration, trackIndex: track.index, hand: note.hand })
+              if (allSameHand === null) continue
+              if (!note.hand) { allSameHand = null; continue }
+              if (allSameHand === undefined) allSameHand = note.hand
+              else if (allSameHand !== note.hand) allSameHand = null
             }
+            if (track.notes.length > 0 && allSameHand) homogeneous.add(track.index)
           }
           flat.sort((a, b) => a.time - b.time)
           flatNotesRef.current = flat
+          homogeneousHandTracksRef.current = homogeneous
         }
 
         barStartsRef.current = storeBars
@@ -807,12 +820,18 @@ export default function PianoRoll() {
           const key = keyLayoutRef.current[idx]
           if (!key) continue
 
-          // ── Hand-colored mode (beta) — overrides track color with L/R tint when
-          // the note carries a hand tag. This is the actual visible effect behind
-          // "Keep one track, hand-colored": tags alone are invisible without it.
-          const color  = (showHandLabels && note.hand)
-            ? (note.hand === 'L' ? HAND_SLATE_COLOR : HAND_AMBER_COLOR)
-            : parseInt((ts?.color ?? '#e8a027').replace('#', ''), 16)
+          // ── Hand coloring — fixed LH/RH tokens, not per-track palette. A track
+          // that's a genuine split output (every note same hand — Piano LH/RH)
+          // always renders in these colors. A single mixed-hand track only does
+          // when Left/Right Hand mode is on; off, it falls back to the LH color
+          // as the piece's one uniform piano color. Non-piano notes (no hand
+          // tag) keep their normal per-track palette color throughout.
+          const isSplitTrack = homogeneousHandTracksRef.current.has(note.trackIndex)
+          const color = !note.hand
+            ? parseInt((ts?.color ?? '#e8a027').replace('#', ''), 16)
+            : (isSplitTrack || showHandLabels)
+              ? (note.hand === 'L' ? HAND_LH_COLOR : HAND_RH_COLOR)
+              : HAND_LH_COLOR
           const topY   = py - (note.time + note.duration - currentTime) * pps
           const botY   = py - (note.time - currentTime) * pps
           const noteH  = Math.max(botY - topY, MIN_NOTE_H)

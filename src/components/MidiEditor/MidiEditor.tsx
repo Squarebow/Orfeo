@@ -727,7 +727,6 @@ export default function MidiEditor() {
   // reloading the pre-apply buffer back into the store — same mechanism
   // reloadFile() already uses, not a new command stack.
   const [undoSnapshot, setUndoSnapshot] = useState<{ base64: string; fileName: string; filePath: string } | null>(null)
-
   // ── Z-index — bringToFront on mousedown so last-clicked modal is on top ────
   const [zIndex, setZIndex] = useState(MODAL_BASE_Z)
 
@@ -943,8 +942,10 @@ export default function MidiEditor() {
       }
 
       const preApply = snapshotCurrentFile()
+      const { rhMaxFingers, lhMaxFingers } = useStore.getState()
       const result = await window.electronAPI.saveMidiEditor({
         filePath: state.filePath, outputPath: finalOutput, includedTracks, mergeGroups, trackNames, trackColors,
+        rhMaxFingers, lhMaxFingers,
       })
       setSaveResult({ ok: result.ok, msg: result.message })
       if (result.ok && result.base64 && result.fileName && result.filePath) {
@@ -984,6 +985,7 @@ export default function MidiEditor() {
     setPendingSplitIndex(null)
     try {
       const preApply = snapshotCurrentFile()
+      const { rhMaxFingers, lhMaxFingers } = useStore.getState()
       const result = await window.electronAPI.splitMidiEditor({
         filePath: state.filePath,
         trackIndex,
@@ -991,6 +993,7 @@ export default function MidiEditor() {
         breakpoint: splitBreakpointNote,
         rangeStart: splitBreakpointRangeStart,
         rangeEnd: splitBreakpointRangeEnd,
+        rhMaxFingers, lhMaxFingers,
       })
       setSplitResult({ ok: result.ok, msg: result.message })
       if (result.ok && result.base64 && result.fileName && result.filePath) {
@@ -1112,8 +1115,8 @@ export default function MidiEditor() {
         const passages = getLowConfidencePassages(notes)
         const duration = midi?.duration ?? 0
 
-        const SLATE = 'var(--hand-slate)'
-        const AMBER = 'var(--text-amber)'
+        const SLATE = 'var(--hand-lh)'
+        const AMBER = 'var(--hand-rh)'
         const FLAG_RED = 'var(--flag-red)'
 
         return (
@@ -1124,7 +1127,9 @@ export default function MidiEditor() {
                 <div style={{ fontSize: 'var(--text-xs)', color: 'var(--text-dim)' }}>Hand-split preview — "{trackName}"</div>
                 <div style={{ fontSize: 9, color: 'var(--text-inactive)', fontFamily: 'JetBrains Mono', marginTop: 2 }}>
                   {stats.taggedNotes} notes · {stats.leftCount} left / {stats.rightCount} right
-                  {stats.lowConfidenceCount > 0 && (
+                  {stats.confidenceUnknown ? (
+                    <span style={{ color: 'var(--text-inactive)' }}> · tags restored from a prior split — confidence not re-evaluated</span>
+                  ) : stats.lowConfidenceCount > 0 && (
                     <span style={{ color: FLAG_RED }}> · {passages.length} low-confidence passage{passages.length === 1 ? '' : 's'} flagged ({Math.round(stats.lowConfidenceRatio * 100)}% of notes)</span>
                   )}
                 </div>
@@ -1157,6 +1162,14 @@ export default function MidiEditor() {
               {stats.lowConfidenceCount > 0 && (
                 <span style={{ display: 'flex', alignItems: 'center', gap: 3 }}><span style={{ width: 8, height: 8, borderRadius: 2, background: FLAG_RED, opacity: 0.6, display: 'inline-block' }} />Low-confidence passage</span>
               )}
+            </div>
+
+            {/* ── Standing disclaimer — always shown, independent of whether this
+                preview happens to have real confidence data (see confidenceUnknown
+                above). Hand assignment is automated pitch/timing heuristics, never
+                ground truth — this stays true whether or not anything got flagged. ── */}
+            <div style={{ fontSize: 9, color: 'var(--text-inactive)', fontFamily: 'Inter', lineHeight: 1.4 }}>
+              Hand assignment is automated — a guideline, not a verified transcription. Use your ear, especially on flagged passages.
             </div>
 
             {/* ── Two output modes ─────────────────────────────────────────────── */}
@@ -1244,7 +1257,11 @@ export default function MidiEditor() {
         )}
         <div style={{ display: 'flex', gap: 'var(--space-2)' }}>
           <button onClick={() => setMidiEditorOpen(false)} style={{ flex: 1, padding: '8px 0', borderRadius: 'var(--radius-md)', background: 'transparent', border: '1px solid var(--border2)', color: 'var(--text-dim-control)', fontSize: 'var(--text-sm)', cursor: 'pointer' }}>Cancel</button>
-          <button onClick={handleSave} disabled={saving} style={{ flex: 1, padding: '8px 0', borderRadius: 'var(--radius-md)', background: saving ? 'var(--bg-tile)' : 'var(--text-amber)', border: 'none', color: saving ? 'var(--text-inactive)' : 'var(--text-near-black)', fontSize: 'var(--text-sm)', fontWeight: 600, cursor: saving ? 'wait' : 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6 }}>
+          <button
+            onClick={handleSave}
+            disabled={saving}
+            style={{ flex: 1, padding: '8px 0', borderRadius: 'var(--radius-md)', background: saving ? 'var(--bg-tile)' : 'var(--text-amber)', border: 'none', color: saving ? 'var(--text-inactive)' : 'var(--text-near-black)', fontSize: 'var(--text-sm)', fontWeight: 600, cursor: saving ? 'wait' : 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6 }}
+          >
             <Save size={13} /> {saving ? 'Saving…' : 'Save & Reload'}
           </button>
         </div>

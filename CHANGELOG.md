@@ -1,5 +1,59 @@
 # Changelog
 
+## [1.1.0-pre] — 6. 8. 2026 — Left/Right Hand rework: algorithm overhaul, workflow fixes, external-review-driven improvements
+
+A full rework of the hand-assignment engine driven by real bar-by-bar testing feedback plus three independent external code reviews (Codex, DeepSeek, and a rejected Gemini pass — see `docs/LR Hand rework/review.md` and `Reviews/`, gitignored). Root-caused and fixed several real bugs along the way, not just algorithm tuning — including two workflow regressions introduced and then fixed within this same session. Full technical writeup and testing guide in `docs/LR Hand rework/SESSION_HANDOFF.md` (gitignored, local).
+
+### Hand-assignment engine — four real algorithm bugs found and fixed
+1. **Register-identity tie-break bug**: the very first note's L/R label was an arbitrary coin-flip with nothing tying "L" to physically-lower pitch, which could invert a whole piece's hand coloring from note one. Fixed by seeding each hand's never-played fallback anchor from its own register half (low/high) instead of one shared piece-wide mean.
+2. **Anchor-decay**: a hand's last-known position stayed a full-strength attractor forever, even after many seconds of silence — a new passage starting near that stale position got wrongly pulled toward it. Fixed with `ANCHOR_DECAY_WINDOW_SEC`, decaying a silent hand's carried position toward the register fallback.
+3. **Movement cost rebuilt from a centroid to a reach range**: replaced "mean pitch of everything a hand is currently playing" with each hand's actual `[lo, hi]` span, decaying toward the fallback the longer it's been silent. A follow-up note landing anywhere inside a hand's recent reach now costs nothing, instead of the old mean-pitch model overstating distance to either edge of a wide chord. Exposed and fixed a second bug in the process: `identityInversionCost` was comparing **undecayed** raw positions, letting a many-seconds-stale position outrank the other hand's genuinely fresh, correct one — this was the actual root cause of a comping-figure passage flip-flopping on nearly every note.
+4. **Harmonic prior via `tonal.js`**: a short run of notes that collectively spell a recognizable chord (tonal's `Chord.detect()`) now resists being split across hands mid-gesture — scoped to a 0.6s window, soft bias only, never overrides span/finger feasibility.
+
+**New:** `noteRange()`, `decayedRange()`, `rangeGap()`, `detectHarmonicLinks()`, `cleanupIsolatedFlips()` (all `src/utils/handAssignment.ts`). **Changed:** `src/utils/handAssignment.ts` (`HAND_ENGINE_VERSION` 3→7 across these + workflow fixes below).
+
+### Post-DP cleanup pass — confidence-gated, not blind
+Isolated single-cluster hand flips (a cluster's hand disagreeing with both neighbors, which agree with each other) now get smoothed to match neighbors — but *only* when the DP's own confidence at that cluster was already low. Verified against real data before shipping: a sparse single-note bass ostinato surrounded by continuous treble activity produces the exact same "isolated" shape but scores confidently (0.6–0.8+); the genuine near-tie mistakes this targets score low (<0.5). Confidence-gating, not "isolated alone," is what makes this safe — an earlier, ungated approach (scaling switch-cost by run length) was built, found to break the ostinato pattern, and reverted within the same session rather than shipped.
+
+**Changed:** `src/utils/handAssignment.ts`.
+
+### Confidence-flag consistency fix
+The split-preview panel showed real confidence flags on a freshly-loaded file but silently showed zero flags on that *same* file reopened after one save — not flaky, a genuine bug: hint-restored notes hardcoded `handConfidence = 1` regardless of what the engine actually computed. Now uses a `RESTORED_CONFIDENCE` sentinel so the UI can honestly say "confidence not re-evaluated" instead of fabricating certainty. Added a permanent disclaimer ("automated — a guideline, not a verified transcription") to both the split-preview panel and the Settings Left/Right Hand description, independent of whether anything happens to be flagged this session.
+
+**New:** `hasKnownConfidence()`, `confidenceUnknown` stat (`src/utils/handPreview.ts`). **Changed:** `src/utils/handMetadata.ts`, `src/utils/handPreview.ts`, `src/components/MidiEditor/MidiEditor.tsx`, `src/components/SettingsPanel/SettingsPanel.tsx`.
+
+### Two workflow regressions — introduced and fixed within this session
+A dirty-flag gate on the MidiEditor's Save button (meant to skip a redundant re-save immediately after a split with zero further changes) had a real failure mode: once dirty reset to false after any reload, the button silently became an inert Close — no IPC call, no file write, "saving" appeared to just stop working. Fully reverted; Save always performs a real save now, accepting the occasional harmless duplicate version rather than risk another silent no-op.
+
+**Changed:** `src/components/MidiEditor/MidiEditor.tsx`.
+
+### Split-output track renaming — actually reaches the UI now
+"Split into two tracks" renamed the underlying MIDI track-name field correctly, but the UI's displayed track name is a separate field (`trackName` in the store) that only reads an `ORFEO_TRACK_NAME` hint — never the plain track-name field — so the rename was invisible in the app. Split now injects that hint for both output tracks. Also handles the common real-world case of a blank source track name (falls back to "Piano" so output reads "Piano LH"/"Piano RH" instead of a bare " LH"/" RH").
+
+**Changed:** `electron/main.ts`, `src/utils/handMetadata.ts`.
+
+### Hand-assignment configuration — user-facing controls
+New Settings sub-section ("Playback & Practice," inside Left/Right Hand, before Mode): independent RH/LH max-fingers controls (4 or 5 each), feeding a hard cap on how many notes of a wide chord one hand can take, with an even-split fallback beyond combined capacity. Threaded through every call site: `midiParser.ts` auto-tag, `editor:split`/`editor:save` IPC payloads, `MidiEditor.tsx`.
+
+**New:** `rhMaxFingers`/`lhMaxFingers` store state + persistence (`src/store/index.ts`). **Changed:** `src/utils/handAssignment.ts`, `src/utils/midiParser.ts`, `electron/main.ts`, `src/components/MidiEditor/MidiEditor.tsx`, `src/components/SettingsPanel/SettingsPanel.tsx`.
+
+### Hand color system — one consistent set of colors, everywhere
+Fixed LH (`#6270A5`) / RH (`#CB636C`) tokens now used uniformly across the piano roll, both audio engines' keyboard key-lighting, and the split-preview timeline — replacing an ad-hoc mix of a blue/amber pair and whatever a track's palette color happened to be. Split-mode tracks (homogeneous hand per track) always show the fixed colors; a single mixed-hand track only does in Left/Right Hand mode, otherwise stays blue. Removed the redundant amber keyboard-strip marking on RH notes now that key glow itself carries the signal — kept only for live hardware MIDI input, which has no other visual channel.
+
+**New:** `src/utils/handColors.ts`. **Changed:** `src/index.css`, `src/components/PianoRoll/PianoRoll.tsx`, `src/components/Keyboard/Keyboard.tsx`, `src/hooks/useAudioEngine.ts`, `src/hooks/useSamplesEngine.ts`.
+
+### Chord/Scale Explorer modal — grows upward, not downward
+When a pattern-loaded row appears (e.g. after loading a chord pattern), the modal previously grew downward from a fixed top position, drifting away from its deliberate anchor point. New `useAnchorBottomOnResize` hook (ResizeObserver-based) keeps the bottom edge fixed and grows/shrinks from there instead.
+
+**New:** `src/hooks/useAnchorBottomOnResize.ts`. **Changed:** `src/components/ChordExplorer.tsx`, `src/components/ScaleExplorer.tsx`.
+
+### Process safety nets
+Version-bump automation (`npm run check:hand-engine`, wired into `dev`/`build`/`dist`) hashes `handAssignment.ts` and fails loudly if it changed without a matching `HAND_ENGINE_VERSION` bump in `handMetadata.ts` — catches the exact mistake made twice earlier in this same session, where a real algorithm fix had zero visible effect until the version bump landed separately. Fast-path re-validation: a file that looks like a clean already-split 2-track export now gets cross-checked against a real full DP run before being trusted outright, catching a file whose actual content doesn't match the current engine (e.g. split by an older, buggier version) — calibrated against measured data, not a guess (a genuinely well-split file only agrees ~79% with an independent full re-run, since track membership and a coarse whole-track-average re-derivation are different sources of truth by design).
+
+**New:** `scripts/check-hand-engine-version.mjs`, `src/utils/handAssignment.hash.json`. **Changed:** `package.json`, `src/utils/handAssignment.ts`.
+
+---
+
 ## [1.0.0-pre] — 6. 8. 2026 — Final polish for public release: TopBar/Settings restyle, bugfixes, Scales & Chords Explorer overhaul
 
 A full pass across the app driven by a comprehensive pre-release review, done in four phases (styling/layout, bugfixes, Scales Explorer, Chords Explorer) plus an extended round of live pixel-level feedback on both explorers. Tagged as the first public pre-release.

@@ -8,6 +8,7 @@ import type { NoteNaming, Accidentals } from '../types'
 import SpeedControl from './SpeedControl'
 import OrfeoMark from './OrfeoMark'
 import { getPianoRollCenterX, getKeyboardHeaderTop } from '../utils/modalAnchors'
+import { useAnchorBottomOnResize } from '../hooks/useAnchorBottomOnResize'
 
 // ── Keyboard range constants ────────────────────────────────────────────────
 const RANGES: Record<number, { min: number; max: number }> = {
@@ -271,6 +272,8 @@ export default function ScaleExplorer() {
     x: Math.round(getPianoRollCenterX() - MODAL_WIDTH / 2),
     y: Math.max(8, Math.round(getKeyboardHeaderTop() - MODAL_HEIGHT) - 152),
   }))
+  const panelRef = useRef<HTMLDivElement>(null)
+  useAnchorBottomOnResize(panelRef, setPos, scaleExplorerOpen && !scaleExplorerMinimized)
 
   // ── CoF + scale selection state ───────────────────────────────────────────
   const [cofPos, setCofPos] = useState<number | null>(null)
@@ -693,6 +696,7 @@ export default function ScaleExplorer() {
   return (
     // ── Modal container ────────────────────────────────────────────────────
     <div
+      ref={panelRef}
       className="orfeo-modal-glow"
       style={{
         position: 'fixed',

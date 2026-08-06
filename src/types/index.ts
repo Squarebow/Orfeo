@@ -131,9 +131,9 @@ declare global {
       windowMaximize:      () => Promise<void>
       windowClose:         () => Promise<void>
       transcriptGenerate:  (midiPath: string, noteNaming: string, accidentals: string) => Promise<{ success: boolean; path?: string; error?: string }>
-      splitMidiEditor:     (payload: { filePath: string; trackIndex: number; breakpointType: 'single' | 'range'; breakpoint: number; rangeStart: number; rangeEnd: number }) => Promise<{ ok: boolean; message: string; filePath?: string; fileName?: string; base64?: string }>
+      splitMidiEditor:     (payload: { filePath: string; trackIndex: number; breakpointType: 'single' | 'range'; breakpoint: number; rangeStart: number; rangeEnd: number; rhMaxFingers?: number; lhMaxFingers?: number }) => Promise<{ ok: boolean; message: string; filePath?: string; fileName?: string; base64?: string }>
       saveFileDialog:      (opts: { defaultPath: string; filters: { name: string; extensions: string[] }[] }) => Promise<string | null>
-      saveMidiEditor:      (payload: { filePath: string; outputPath: string; includedTracks: { index: number; newProgram: number }[]; mergeGroups: number[][]; trackNames?: Record<number, string>; trackColors?: Record<number, string> }) => Promise<{ ok: boolean; message: string; filePath?: string; fileName?: string; base64?: string }>
+      saveMidiEditor:      (payload: { filePath: string; outputPath: string; includedTracks: { index: number; newProgram: number }[]; mergeGroups: number[][]; trackNames?: Record<number, string>; trackColors?: Record<number, string>; rhMaxFingers?: number; lhMaxFingers?: number }) => Promise<{ ok: boolean; message: string; filePath?: string; fileName?: string; base64?: string }>
       saveNoteEditor:      (payload: { outputPath: string; base64: string }) => Promise<{ ok: boolean; message?: string; filePath?: string; fileName?: string; base64?: string }>
       showMessageBox:      (opts: { type?: string; buttons: string[]; defaultId?: number; cancelId?: number; message: string; detail?: string }) => Promise<{ response: number }>
       confirmClose:        () => Promise<void>

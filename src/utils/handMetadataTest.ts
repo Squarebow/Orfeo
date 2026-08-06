@@ -1,7 +1,7 @@
 import type { ParsedTrack } from '../types'
 import {
   encodeHandRLE, decodeHandRLE, buildHandExportHint, restoreHandTagsFromHints,
-  withHandSuffix, nameHandFromSuffix,
+  withHandSuffix, nameHandFromSuffix, HAND_ENGINE_VERSION, RESTORED_CONFIDENCE,
 } from './handMetadata'
 
 // ── runHandMetadataTest ────────────────────────────────────────────────────
@@ -36,7 +36,7 @@ function testRleRoundTrip(): void {
 function testHomogeneousTrackUsesNameSuffix(): void {
   const notes = [{ hand: 'R' as const }, { hand: 'R' as const }, { hand: 'R' as const }]
   const hint = buildHandExportHint(0, 'Piano', notes)
-  console.assert(hint.name === 'Piano (RH)', `expected name suffix, got ${hint.name}`)
+  console.assert(hint.name === 'Piano RH', `expected name suffix, got ${hint.name}`)
   console.assert(hint.meta === null, 'homogeneous track should not need a text meta event')
 }
 
@@ -46,7 +46,7 @@ function testMixedTrackUsesTextMeta(): void {
   const notes = [{ hand: 'L' as const }, { hand: 'R' as const }, { hand: 'R' as const }]
   const hint = buildHandExportHint(2, 'Piano', notes)
   console.assert(hint.name === 'Piano', 'mixed track name should be untouched')
-  console.assert(hint.meta?.text === 'ORFEO_HAND_MAP:1:2:L1R2', `unexpected meta: ${hint.meta?.text}`)
+  console.assert(hint.meta?.text === `ORFEO_HAND_MAP:${HAND_ENGINE_VERSION}:2:L1R2`, `unexpected meta: ${hint.meta?.text}`)
 }
 
 function makeTrack(overrides: Partial<ParsedTrack>): ParsedTrack {
@@ -67,7 +67,7 @@ function testReimportWithNameHint(): void {
   const restored = restoreHandTagsFromHints([track], [])
   console.assert(restored, 'expected name-hint restore to succeed')
   console.assert(track.notes[0].hand === 'L', 'name-hint did not tag the note')
-  console.assert(track.notes[0].handConfidence === 1, 'name-hint restore should be full confidence')
+  console.assert(track.notes[0].handConfidence === RESTORED_CONFIDENCE, 'name-hint restore should use the restored-confidence sentinel, not a fabricated real score')
 }
 
 // ── Reimport scenario 2: file has valid hand tags only via the exported
@@ -81,7 +81,7 @@ function testReimportWithTextMetaHint(): void {
       { midi: 40, time: 1.0, duration: 0.5, velocity: 0.8, trackIndex: 3 },
     ],
   })
-  const meta = [{ text: 'ORFEO_HAND_MAP:1:3:R2L1' }]
+  const meta = [{ text: `ORFEO_HAND_MAP:${HAND_ENGINE_VERSION}:3:R2L1` }]
   const restored = restoreHandTagsFromHints([track], meta)
   console.assert(restored, 'expected text-meta restore to succeed')
   console.assert(
@@ -115,7 +115,7 @@ function testStaleHintIsIgnored(): void {
     ],
   })
   // Hint describes 3 notes; track only has 2 — a note was added/removed since export.
-  const meta = [{ text: 'ORFEO_HAND_MAP:1:5:L1R1L1' }]
+  const meta = [{ text: `ORFEO_HAND_MAP:${HAND_ENGINE_VERSION}:5:L1R1L1` }]
   const restored = restoreHandTagsFromHints([track], meta)
   console.assert(!restored, 'stale (length-mismatched) hint should be skipped, not applied')
   console.assert(track.notes.every(n => n.hand === undefined), 'stale hint must not tag notes')

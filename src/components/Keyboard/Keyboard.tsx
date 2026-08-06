@@ -7,8 +7,9 @@ import { buildKeyLayoutRatios, PIANO_RANGES as RANGES } from '../../utils/keyLay
 import { buildPitchHandIndex, lookupNoteHandAtTime, detectPerformanceBoundary } from '../../utils/handBoundaries'
 import type { Hand } from '../../types'
 
-const HAND_SLATE = 'var(--hand-slate)'
-const HAND_AMBER = 'var(--text-amber)'
+const HAND_LH = 'var(--hand-lh)'
+const HAND_RH = 'var(--hand-rh)'
+const GLISSANDO_COLOR = 'var(--text-amber)'
 
 const CHORD_MIN_NOTES = 3
 const CHORD_DEBOUNCE_MS = 320
@@ -75,7 +76,7 @@ export default function Keyboard() {
     const nc = new Map(activeKeyColors)
     if (prev !== null && prev !== midi) { nk.delete(prev); nc.delete(prev) }
     nk.add(midi)
-    nc.set(midi, HAND_AMBER)
+    nc.set(midi, GLISSANDO_COLOR)
     useStore.setState({ activeKeys: nk, activeKeyColors: nc })
     glissandoKeyRef.current = midi
   }, [])
@@ -235,22 +236,22 @@ export default function Keyboard() {
     return allActiveColors.get(midi) ?? 'var(--text-amber)'
   }
 
-  // ── Performance mode: per-note hand indicator — reads the stored tag for
-  // whichever file note is actually sounding at this pitch right now, instead
-  // of inferring a boundary from the live pitch spread every frame. A hardware
-  // MIDI key has no backing file note (lookupNoteHandAtTime returns null), so
-  // that's the one case still falling back to live gap inference — there's
-  // nothing to look up for a key that was never in the file.
+  // ── Performance mode: per-note hand strip — hardware MIDI keys only. A file
+  // note's hand tag is already shown via the key's own glow color (see
+  // useAudioEngine.ts/useSamplesEngine.ts resolveHandAwareColor), so this strip
+  // would be redundant there — it exists solely for hardware-played notes,
+  // which have no backing file note (lookupNoteHandAtTime returns null) and so
+  // have no other way to show the live gap-inference hand guess.
   const pitchHandIndex = useMemo(() => (midi ? buildPitchHandIndex(midi) : null), [midi])
   const hardwareBoundary = useMemo(() => {
     if (handLabelMode !== 'performance') return null
     return detectPerformanceBoundary([...activeKeys].sort((a, b) => a - b), performanceSplitSensitivity)
   }, [activeKeys, handLabelMode, performanceSplitSensitivity])
 
-  const getHand = (noteMidi: number): Hand | null => {
+  const getHardwareHand = (noteMidi: number): Hand | null => {
     if (!showHandLabels || handLabelMode !== 'performance' || !allActiveKeys.has(noteMidi)) return null
     const tagged = pitchHandIndex ? lookupNoteHandAtTime(pitchHandIndex, noteMidi, currentTime) : null
-    if (tagged) return tagged
+    if (tagged) return null // already shown via the key's glow color — no strip needed
     if (hardwareBoundary === null) return null
     return noteMidi < hardwareBoundary ? 'L' : 'R'
   }
@@ -604,7 +605,7 @@ export default function Keyboard() {
         <div className="absolute inset-0 flex">
           {whiteKeys.map((k, i) => {
             const color = getColor(k.midi)
-            const hand = getHand(k.midi)
+            const hand = getHardwareHand(k.midi)
             const locked = lockedKeys.has(k.midi)
             const isC = k.midi % 12 === 0
             const label = color
@@ -631,7 +632,7 @@ export default function Keyboard() {
                 {hand && (
                   <span className="pointer-events-none" style={{
                     position: 'absolute', top: 0, left: 0, right: 0, height: 3,
-                    background: hand === 'L' ? HAND_SLATE : HAND_AMBER,
+                    background: hand === 'L' ? HAND_LH : HAND_RH,
                   }} />
                 )}
                 {label && (
@@ -654,7 +655,7 @@ export default function Keyboard() {
             const leftPct  = ratio.x * 100
             const widthPct = ratio.width * 100
             const color = getColor(k.midi)
-            const hand = getHand(k.midi)
+            const hand = getHardwareHand(k.midi)
             const locked = lockedKeys.has(k.midi)
             return (
               <div
@@ -679,7 +680,7 @@ export default function Keyboard() {
                 {hand && (
                   <span className="pointer-events-none" style={{
                     position: 'absolute', top: 0, left: 0, right: 0, height: 3,
-                    background: hand === 'L' ? HAND_SLATE : HAND_AMBER,
+                    background: hand === 'L' ? HAND_LH : HAND_RH,
                     borderRadius: '2px 2px 0 0',
                   }} />
                 )}

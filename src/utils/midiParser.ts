@@ -3,6 +3,7 @@ import type { ParsedMidi, ParsedTrack, ParsedNote } from '../types'
 import { getGMName, getGMGroup } from './gmInstruments'
 import { restoreHandTagsFromHints } from './handMetadata'
 import { assignHands } from './handAssignment'
+import { useStore } from '../store'
 import { KEYBOARD_GROUPS } from './keyboardGroups'
 
 const TRACK_COLORS = [
@@ -140,7 +141,7 @@ export function parseMidiBuffer(buffer: ArrayBuffer, fileName: string, filePath 
   }
 
   // ── Restore hand tags from an Orfeo export hint, if this file has one ───────
-  // Track-name " (RH)"/" (LH)" suffix or ORFEO_HAND_MAP text meta — see
+  // Track-name " RH"/" LH" suffix or ORFEO_HAND_MAP text meta — see
   // utils/handMetadata.ts. Neither is real MIDI clef data, just a breadcrumb.
   // When this returns false, no hint was found (or it was stale) and the
   // assignment engine still needs to run — that happens where the split/
@@ -157,7 +158,8 @@ export function parseMidiBuffer(buffer: ArrayBuffer, fileName: string, filePath 
     .flatMap(t => t.notes)
     .filter(n => n.hand === undefined)
   if (kbNotesNeedingAssignment.length > 0) {
-    const { assignments } = assignHands(kbNotesNeedingAssignment)
+    const { rhMaxFingers, lhMaxFingers } = useStore.getState()
+    const { assignments } = assignHands(kbNotesNeedingAssignment, { rhMaxFingers, lhMaxFingers })
     for (const a of assignments) { a.note.hand = a.hand; a.note.handConfidence = a.confidence }
   }
 

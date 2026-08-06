@@ -10,6 +10,7 @@ import { useEffect } from 'react'
 import type { WorkletSynthesizer } from 'spessasynth_lib'
 import { useStore } from '../store'
 import { pushHitEffect, amberHex } from '../utils/hitEffectQueue'
+import { isHomogeneousHandTrack, resolveHandAwareColor } from '../utils/handColors'
 
 // ── GeneralUser GS outputs at a lower reference level than jzz-synth-tiny.
 // This constant normalises perceived loudness at equal masterVolume settings.
@@ -203,13 +204,14 @@ function buildSamplesPlayer(startSec: number) {
   clearSchedule(); clearAllKeys()
   applyChannelVolumes()
 
-  const { midi, tracks, bpm, originalBpm, detectedKey, hitEffectScope } = useStore.getState()
+  const { midi, tracks, bpm, originalBpm, detectedKey, hitEffectScope, showHandLabels, handLabelMode } = useStore.getState()
   const midiData = midi as any
   if (!midiData) return
 
   const transpose = detectedKey?.transpose ?? 0
   const ratio = bpm / originalBpm
   const hasSolo = tracks.some(t => t.solo)
+  const performanceMode = handLabelMode === 'performance'
 
   // Send programChange for each active track — also marks channels as initialized
   // so edit-mode lazy init doesn't redundantly override them.
@@ -227,7 +229,8 @@ function buildSamplesPlayer(startSec: number) {
   for (const track of midiData.tracks) {
     const ts = tracks.find(t => t.index === track.index)
     if (!ts || ts.muted || (hasSolo && !ts.solo)) continue
-    const color = ts.color ?? amberHex()
+    const defaultColor = ts.color ?? amberHex()
+    const homogeneousTrack = isHomogeneousHandTrack(track.notes)
     const ch = track.channel
 
     for (const note of track.notes) {
@@ -236,6 +239,7 @@ function buildSamplesPlayer(startSec: number) {
       const delay = (noteStart - startSec) * 1000
       const durMs = Math.max(note.duration / ratio * 1000, 40)
       const midiNum = note.midi + transpose
+      const color = resolveHandAwareColor(note, defaultColor, { homogeneousTrack, showHandLabels, performanceMode })
 
       const t = setTimeout(() => {
         if (!_synth) return

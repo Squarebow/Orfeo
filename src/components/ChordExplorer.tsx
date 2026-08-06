@@ -11,6 +11,7 @@ import type { NoteNaming } from '../types'
 import SpeedControl from './SpeedControl'
 import OrfeoMark from './OrfeoMark'
 import { getPianoRollCenterX, getKeyboardHeaderTop } from '../utils/modalAnchors'
+import { useAnchorBottomOnResize } from '../hooks/useAnchorBottomOnResize'
 
 const RANGES: Record<number, { min: number; max: number }> = {
   61: { min: 36, max: 96 },
@@ -289,6 +290,8 @@ export default function ChordExplorer() {
     x: Math.round(getPianoRollCenterX() - MODAL_WIDTH / 2),
     y: Math.round(getKeyboardHeaderTop() - MODAL_HEIGHT) - 78,
   }))
+  const panelRef = useRef<HTMLDivElement>(null)
+  useAnchorBottomOnResize(panelRef, setPos, chordExplorerOpen && !chordExplorerMinimized)
   const [selectedRoot, setSelectedRoot] = useState(0)
   const [tier, setTier] = useState<'common' | 'extended' | 'power'>('common')
   const [selectedPowerRoot, setSelectedPowerRoot] = useState<number | null>(null)
@@ -710,7 +713,7 @@ export default function ChordExplorer() {
   const activeProg = selectedProg !== null ? ALL_PROGRESSIONS[selectedProg] : null
 
   return (
-    <div className="orfeo-modal-glow" style={{
+    <div ref={panelRef} className="orfeo-modal-glow" style={{
       position: 'fixed',
       left: pos.x,
       top: pos.y,

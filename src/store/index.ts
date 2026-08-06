@@ -286,6 +286,14 @@ interface OrfeoStore {
   performanceSplitSensitivity: number
   setPerformanceSplitSensitivity: (n: number) => void
 
+  // ── Max fingers per hand — drives the hand-assignment engine's hard cap on
+  // how many notes of a wide chord one hand can take (RH from the top, LH
+  // absorbing the rest); independently selectable, 4 (default) or 5. ─────────
+  rhMaxFingers: 4 | 5
+  setRhMaxFingers: (n: 4 | 5) => void
+  lhMaxFingers: 4 | 5
+  setLhMaxFingers: (n: 4 | 5) => void
+
   transcriptHistory: TranscriptEntry[]
   addTranscriptEntry: (entry: TranscriptEntry) => void
 
@@ -648,6 +656,11 @@ export const useStore = create<OrfeoStore>((set, get) => ({
   performanceSplitSensitivity: 8,
   setPerformanceSplitSensitivity: (n) => set({ performanceSplitSensitivity: Math.max(2, Math.min(16, n)) }),
 
+  rhMaxFingers: 4 as 4 | 5,
+  setRhMaxFingers: (rhMaxFingers) => set({ rhMaxFingers }),
+  lhMaxFingers: 4 as 4 | 5,
+  setLhMaxFingers: (lhMaxFingers) => set({ lhMaxFingers }),
+
   // ── Transcript history — max 20 entries, oldest dropped when full ─────────
   transcriptHistory: [],
   addTranscriptEntry: (entry) => {
@@ -743,6 +756,8 @@ async function restoreLibraryPrefs() {
     if (typeof prefs.loopRegionEnabled === 'boolean') store.setLoopRegionEnabled(prefs.loopRegionEnabled)
     if (prefs.handLabelMode === 'practice' || prefs.handLabelMode === 'performance') store.setHandLabelMode(prefs.handLabelMode)
     if (typeof prefs.performanceSplitSensitivity === 'number') store.setPerformanceSplitSensitivity(prefs.performanceSplitSensitivity)
+    if (prefs.rhMaxFingers === 4 || prefs.rhMaxFingers === 5) store.setRhMaxFingers(prefs.rhMaxFingers)
+    if (prefs.lhMaxFingers === 4 || prefs.lhMaxFingers === 5) store.setLhMaxFingers(prefs.lhMaxFingers)
     if (typeof prefs.showOctaveLabels === 'boolean') store.setShowOctaveLabels(prefs.showOctaveLabels)
     if (typeof prefs.showNoteNamesOnKeyboard === 'boolean') store.setShowNoteNamesOnKeyboard(prefs.showNoteNamesOnKeyboard)
     if (typeof prefs.autoCollapseDrawers === 'boolean') store.setAutoCollapseDrawers(prefs.autoCollapseDrawers)
@@ -805,6 +820,8 @@ let _prevShowHandLabels: boolean | null = null
 let _prevLoopRegionEnabled: boolean | null = null
 let _prevHandLabelMode: string | null = null
 let _prevPerformanceSplitSensitivity: number | null = null
+let _prevRhMaxFingers: number | null = null
+let _prevLhMaxFingers: number | null = null
 let _prevShowOctaveLabels: boolean | null = null
 let _prevShowNoteNamesOnKeyboard: boolean | null = null
 let _prevAutoCollapseDrawers: boolean | null = null
@@ -842,6 +859,8 @@ const _unsubPrefs = useStore.subscribe((state) => {
     _prevLoopRegionEnabled = state.loopRegionEnabled
     _prevHandLabelMode = state.handLabelMode
     _prevPerformanceSplitSensitivity = state.performanceSplitSensitivity
+    _prevRhMaxFingers = state.rhMaxFingers
+    _prevLhMaxFingers = state.lhMaxFingers
     _prevShowOctaveLabels = state.showOctaveLabels
     _prevShowNoteNamesOnKeyboard = state.showNoteNamesOnKeyboard
     _prevAutoCollapseDrawers = state.autoCollapseDrawers
@@ -879,6 +898,8 @@ const _unsubPrefs = useStore.subscribe((state) => {
     state.loopRegionEnabled !== _prevLoopRegionEnabled ||
     state.handLabelMode !== _prevHandLabelMode ||
     state.performanceSplitSensitivity !== _prevPerformanceSplitSensitivity ||
+    state.rhMaxFingers !== _prevRhMaxFingers ||
+    state.lhMaxFingers !== _prevLhMaxFingers ||
     state.showOctaveLabels !== _prevShowOctaveLabels ||
     state.showNoteNamesOnKeyboard !== _prevShowNoteNamesOnKeyboard ||
     state.autoCollapseDrawers !== _prevAutoCollapseDrawers ||
@@ -914,6 +935,8 @@ const _unsubPrefs = useStore.subscribe((state) => {
     _prevLoopRegionEnabled = state.loopRegionEnabled
     _prevHandLabelMode = state.handLabelMode
     _prevPerformanceSplitSensitivity = state.performanceSplitSensitivity
+    _prevRhMaxFingers = state.rhMaxFingers
+    _prevLhMaxFingers = state.lhMaxFingers
     _prevShowOctaveLabels = state.showOctaveLabels
     _prevShowNoteNamesOnKeyboard = state.showNoteNamesOnKeyboard
     _prevAutoCollapseDrawers = state.autoCollapseDrawers
@@ -949,6 +972,8 @@ const _unsubPrefs = useStore.subscribe((state) => {
       loopRegionEnabled: state.loopRegionEnabled,
       handLabelMode: state.handLabelMode,
       performanceSplitSensitivity: state.performanceSplitSensitivity,
+      rhMaxFingers: state.rhMaxFingers,
+      lhMaxFingers: state.lhMaxFingers,
       showOctaveLabels: state.showOctaveLabels,
       showNoteNamesOnKeyboard: state.showNoteNamesOnKeyboard,
       autoCollapseDrawers: state.autoCollapseDrawers,

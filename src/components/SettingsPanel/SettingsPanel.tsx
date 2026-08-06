@@ -1687,6 +1687,10 @@ export default function SettingsPanel() {
   const setHandLabelMode                     = useStore((s) => s.setHandLabelMode)
   const performanceSplitSensitivity          = useStore((s) => s.performanceSplitSensitivity)
   const setPerformanceSplitSensitivity       = useStore((s) => s.setPerformanceSplitSensitivity)
+  const rhMaxFingers                 = useStore((s) => s.rhMaxFingers)
+  const setRhMaxFingers              = useStore((s) => s.setRhMaxFingers)
+  const lhMaxFingers                 = useStore((s) => s.lhMaxFingers)
+  const setLhMaxFingers              = useStore((s) => s.setLhMaxFingers)
   const autoMuteNonKeyboard         = useStore((s) => s.autoMuteNonKeyboard)
   const setAutoMuteNonKeyboard      = useStore((s) => s.setAutoMuteNonKeyboard)
   const settingsGroupsCollapsed     = useStore((s) => s.settingsGroupsCollapsed)
@@ -2058,13 +2062,42 @@ export default function SettingsPanel() {
                     eyeToggle
                     eyeValue={showHandLabels}
                     onEyeChange={setShowHandLabels}
-                    description="Shows which hand each note belongs to, read from the file's hand-assignment tags."
+                    description="Shows which hand each note belongs to, read from the file's hand-assignment tags. Automated — a guideline, not a verified transcription."
                   />
-                  {/* ── Mode — only visible when hand labels are on ─────────────────── */}
+                  {/* ── Sub-controls — only visible when hand labels are on ─────────── */}
                   {showHandLabels && (
                     <>
-                      {/* ── Practice / Performance mode selector ──────────────────── */}
-                      <OptionRow label="Mode" hint="Practice shows a split line that moves with the piece, averaged over a few seconds of hand tags. Performance colors each note on the keyboard by its own hand tag as it plays.">
+                      {/* ── Sub-level divider — same treatment as the "Labels" heading
+                          above; positioned before Mode per the LR Hand Rework plan ── */}
+                      <div style={{
+                        padding: '5px 14px 3px',
+                        fontSize: 9, color: 'var(--text-muted)', fontWeight: 600,
+                        letterSpacing: '0.1em', textTransform: 'uppercase', fontFamily: 'Inter',
+                      }}>
+                        Playback & Practice
+                      </div>
+                      {/* ── Max fingers per hand — hard cap for the hand-assignment
+                          engine's wide-chord split point; independent per hand ──── */}
+                      <OptionRow label="RH Max Fingers" labelSmall hint="How many notes of a wide chord the right hand can take, counted from the top. The left hand absorbs the rest.">
+                        <div style={{ display: 'flex', gap: 'var(--space-1)' }}>
+                          <OptionBtn active={rhMaxFingers === 4} onClick={() => setRhMaxFingers(4)}>4</OptionBtn>
+                          <OptionBtn active={rhMaxFingers === 5} onClick={() => setRhMaxFingers(5)}>5</OptionBtn>
+                        </div>
+                      </OptionRow>
+                      <OptionRow label="LH Max Fingers" labelSmall hint="How many notes of a wide chord the left hand can take, counted from the bottom.">
+                        <div style={{ display: 'flex', gap: 'var(--space-1)' }}>
+                          <OptionBtn active={lhMaxFingers === 4} onClick={() => setLhMaxFingers(4)}>4</OptionBtn>
+                          <OptionBtn active={lhMaxFingers === 5} onClick={() => setLhMaxFingers(5)}>5</OptionBtn>
+                        </div>
+                      </OptionRow>
+                      {/* ── Practice / Performance mode selector — hint is a single
+                          sentence describing only the selected mode, not both at once ── */}
+                      <OptionRow
+                        label="Mode"
+                        hint={handLabelMode === 'practice'
+                          ? 'Practice shows a split line that moves with the piece, averaged over a few seconds of hand tags.'
+                          : 'Performance colors each note on the keyboard by its own hand tag as it plays.'}
+                      >
                         <div style={{ display: 'flex', gap: 'var(--space-1)' }}>
                           <OptionBtn active={handLabelMode === 'practice'}    onClick={() => setHandLabelMode('practice')}>Practice</OptionBtn>
                           <OptionBtn active={handLabelMode === 'performance'} onClick={() => setHandLabelMode('performance')}>Performance</OptionBtn>
@@ -2078,20 +2111,24 @@ export default function SettingsPanel() {
                       {/* ── Performance: sensitivity slider — hardware input only ────── */}
                       {handLabelMode === 'performance' && (
                         <>
-                          <OptionRow label={`Hardware Split Sensitivity — ${performanceSplitSensitivity} semitones`}>
+                          <OptionRow label="Hardware Split Sensitivity" labelSmall>
+                            <div style={{ fontSize: 11, color: 'var(--text-dim-control)', fontFamily: 'JetBrains Mono', marginBottom: 4 }}>
+                              {performanceSplitSensitivity} semitones
+                            </div>
                             <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
                               <span style={{ fontSize: 9, color: 'var(--text-inactive)', fontFamily: 'JetBrains Mono', flexShrink: 0 }}>2</span>
                               <input
                                 type="range" min={2} max={16} step={1}
                                 value={performanceSplitSensitivity}
                                 onChange={e => setPerformanceSplitSensitivity(Number(e.target.value))}
-                                style={{ flex: 1, accentColor: 'var(--text-amber)', cursor: 'pointer' }}
+                                className="orfeo-slider-amber"
+                                style={{ flex: 1, '--fill': `${((performanceSplitSensitivity - 2) / 14) * 100}%` } as CSSProperties}
                               />
                               <span style={{ fontSize: 9, color: 'var(--text-inactive)', fontFamily: 'JetBrains Mono', flexShrink: 0 }}>16</span>
                             </div>
                           </OptionRow>
                           <div style={{ padding: '2px 12px 6px', color: 'var(--text-inactive)', fontSize: 'var(--text-xs)', fontFamily: 'Inter', lineHeight: 1.5 }}>
-                            Only affects notes played on a physical MIDI keyboard, which have no file tag to read. Notes from the loaded file are always colored by their exact stored hand tag, regardless of this setting.
+                            Only affects notes played on a physical MIDI keyboard, which have no file tag to read.
                           </div>
                         </>
                       )}

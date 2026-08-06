@@ -1,6 +1,6 @@
 {
   "name": "orfeo",
-  "version": "1.0.0-pre",
+  "version": "1.1.0-pre",
   "description": "Modern piano learning app with MIDI visualization",
   "author": "SquareBow",
   "license": "MIT",
@@ -8,12 +8,13 @@
   "type": "module",
   "scripts": {
     "copyworklet": "node -e \"const fs=require('fs');fs.copyFileSync('node_modules/spessasynth_lib/dist/spessasynth_processor.min.js','public/spessasynth_processor.min.js')\"",
-    "dev": "npm run copyworklet && electron-vite dev",
-    "build": "npm run copyworklet && electron-vite build",
+    "check:hand-engine": "node scripts/check-hand-engine-version.mjs",
+    "dev": "npm run copyworklet && npm run check:hand-engine && electron-vite dev",
+    "build": "npm run copyworklet && npm run check:hand-engine && electron-vite build",
     "preview": "electron-vite preview",
     "typecheck": "tsc --noEmit",
-    "dist": "npm run copyworklet && electron-vite build && electron-builder",
-    "dist:portable": "npm run copyworklet && electron-vite build && electron-builder --win portable"
+    "dist": "npm run copyworklet && npm run check:hand-engine && electron-vite build && electron-builder",
+    "dist:portable": "npm run copyworklet && npm run check:hand-engine && electron-vite build && electron-builder --win portable"
   },
   "build": {
     "appId": "com.squarebow.orfeo",
