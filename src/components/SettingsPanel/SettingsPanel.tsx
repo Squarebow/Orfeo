@@ -2485,8 +2485,10 @@ export default function SettingsPanel() {
                   </OptionRow>
                 </CollapsibleSection>
 
-                {/* ── About ──────────────────────────────────────────────────────── */}
-                <div style={{ padding: '14px 14px 10px', borderTop: '1px solid var(--bg-tile)', marginTop: 4, display: 'flex', alignItems: 'center', gap: 6 }}>
+                {/* ── About — single row: logo, name, version, credit. No border/margin
+                    of its own — the Theme OptionRow right above it already has a
+                    borderBottom, a second one here just made two lines with a gap. ── */}
+                <div style={{ padding: '14px 14px 10px', display: 'flex', alignItems: 'center', gap: 6 }}>
                   <button
                     onClick={() => window.electronAPI.openExternal('https://github.com/SquareBow/orfeo')}
                     title="Open Orfeo on GitHub"
@@ -2496,10 +2498,10 @@ export default function SettingsPanel() {
                     }}
                   >
                     <OrfeoMark height={16} />
-                    <span style={{ color: 'var(--text-inactive)', fontSize: 10, fontFamily: 'JetBrains Mono' }}>Orfeo · v{__APP_VERSION__}</span>
+                    <span style={{ color: 'var(--text-inactive)', fontSize: 10, fontFamily: 'JetBrains Mono', whiteSpace: 'nowrap' }}>Orfeo · v{__APP_VERSION__}</span>
                   </button>
-                  <span style={{ color: 'var(--text-inactive)', fontSize: 10, fontFamily: 'JetBrains Mono' }}>
-                    · by SquareBow
+                  <span style={{ color: 'var(--text-inactive)', fontSize: 10, fontFamily: 'JetBrains Mono', whiteSpace: 'nowrap' }}>
+                    · SquareBow
                   </span>
                 </div>
 
