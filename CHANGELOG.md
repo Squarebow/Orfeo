@@ -1,5 +1,29 @@
 # Changelog
 
+## [1.3.0-pre] — 7. 8. 2026 — File info popup (metadata, change log, version chain)
+
+New right-click "File info" popup for any library file — brainstormed then built in four phases, plus a real bug fix uncovered during testing that affected file organization generally, not just this feature.
+
+### File info popup
+Read-only-by-default metadata table — Artist, Song (parsed from the `Artist - Song.mid` filename convention), Key, BPM, Time signature, Tracks, Copyright (newly extracted; `@tonejs/midi`'s `Header` silently drops copyright meta events, so it's read via the lower-level `midi-file` parser directly, added as an explicit dependency). Missing fields show a dimmed "—". Works on any file, not just the one currently loaded — reads it fresh over IPC.
+
+Artist/Song are editable: double-click to rename, same interaction as track renaming in the Playback Editor (amber-on-hover label, pencil cursor, "Double-click to rename" tooltip, `bg-row`/amber-border input on activation). Edits stage locally; nothing touches disk until **Save changes**, which fires one real file rename. A swap icon swaps the two staged values, not an immediate rename. "Show in folder" (outline style, same size as Save) sits beside it.
+
+**Orfeo History** — a change log local to the app (not written into the .mid file): every Playback Editor save now records a terse summary against the saved file's path ("merged 2 tracks into 1, changed color of 1 track, changed roll visibility of 1 track"), and renames/moves log themselves automatically. Persisted in a sidecar JSON (`userData/orfeo-file-log.json`, keyed by path) with remap hooks in every rename/move IPC handler so entries follow the file instead of orphaning. Fixed-height (~2 entries), scrolls instead of growing the popup.
+
+Version dropdown next to the filename — appears when siblings exist (`Original`, `v1`, `v2`, ...), derived by scanning for files sharing the stripped base name (no separate storage). Hover a version for its saved date/time. Navigates the popup only, never loads the file into the app; no delete.
+
+Popup itself: draggable (same pattern as the Playback Editor's modals), filename marquee-scrolls on hover if it overflows, `en-GB` locale pinned for all timestamps (a system locale otherwise renders "Aug" as e.g. "avg.").
+
+**New:** `src/components/FileInfoModal.tsx`, `src/utils/midiMetadata.ts`, `fs:renameLibraryFile` / `fileinfo:getLog` / `fileinfo:logEvent` / `fileinfo:listVersions` IPC (`electron/main.ts`, `electron/preload.ts`, `src/types/index.ts`). **Changed:** `src/components/SettingsPanel/SettingsPanel.tsx` (new context-menu item), `src/components/MidiEditor/MidiEditor.tsx` (save-summary logging).
+
+### Bug fix — file organize actions blocked for every saved version
+`isProtectedFolderName` (guards the reserved `Demo`/`Orfeo` library folders from rename/delete) was also being used to gate file-level rename and move — but `Orfeo` isn't one well-known folder: every saved version lands in a folder literally named `Orfeo` next to its source file. That made the check true for nearly every file a user might want to rename or move, not just the two reserved top-level folders. Split into two checks: folder-level operations (renaming/deleting the reserved folders themselves) still block both `Demo` and `Orfeo`; file-level operations (rename, move) now only block `Demo` (genuinely read-only bundled content). Fixed in both `electron/main.ts` and the equivalent renderer-side guard in `SettingsPanel.tsx`, which had the same bug independently.
+
+**Changed:** `electron/main.ts`, `src/components/SettingsPanel/SettingsPanel.tsx`.
+
+---
+
 ## [1.2.0-pre] — 7. 8. 2026 — MIDI Playback Editor save-pipeline rework, Library sticky/pinned browsing
 
 Driven by live bug reports and iterative UI feedback across the session — the Playback Editor's split/save flow had a real data-loss bug (every split silently discarded whatever else was staged in the same session), and the Library sidebar needed real design work to stay usable at 500+ files.

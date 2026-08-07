@@ -16,6 +16,7 @@ import { initSamplesEngine, loadSelectedSoundfont } from '../../hooks/useSamples
 import { MarqueeText } from '../MarqueeText'
 import { detectForeignFormat } from '../../utils/foreignFormatImport'
 import { TRACK_COLOR_PALETTE } from '../../utils/colors'
+import FileInfoModal from '../FileInfoModal'
 
 // ── EyeClosed — custom icon replacing lucide EyeOff throughout settings ───────
 function EyeClosed({ size = 24, strokeWidth = 2 }: { size?: number; strokeWidth?: number }) {
@@ -546,6 +547,7 @@ function LibraryPanel() {
   const [foldersSectionExpanded, setFoldersSectionExpanded] = useState(true)
   // ── Context menu state — file/multi-select menu (path+x+y) or folder menu (folder+x+y) ──
   const [contextMenu, setContextMenu] = useState<{ path: string; x: number; y: number } | null>(null)
+  const [fileInfoTarget, setFileInfoTarget] = useState<{ path: string; name: string } | null>(null)
   const [folderContextMenu, setFolderContextMenu] = useState<{ folder: string; x: number; y: number } | null>(null)
   const menuRef = useRef<HTMLDivElement>(null)
   const folderMenuRef = useRef<HTMLDivElement>(null)
@@ -553,6 +555,13 @@ function LibraryPanel() {
   // ── Multi-select + folder organization state ──────────────────────────────
   const PROTECTED_FOLDERS = ['demo', 'orfeo']
   const isProtectedFolder = (name: string | null | undefined) => !!name && PROTECTED_FOLDERS.includes(name.toLowerCase())
+  // ── Narrower than isProtectedFolder — for FILES, not the folder itself.
+  // "Orfeo" isn't one well-known folder: every saved version lands in an
+  // "Orfeo" folder next to its source (see electron/main.ts getOrfeoOutputDir),
+  // so using the folder-level check here blocked organizing any saved version
+  // ever created. Demo is genuinely read-only bundled content and stays
+  // blocked; Orfeo is the user's own output and shouldn't be. ────────────────
+  const isReadOnlyFolder = (name: string | null | undefined) => !!name && name.toLowerCase() === 'demo'
   const [selectedPaths, setSelectedPaths] = useState<Set<string>>(new Set())
   const [selectionAnchor, setSelectionAnchor] = useState<string | null>(null)
   const [draggingPaths, setDraggingPaths] = useState<string[] | null>(null)
@@ -736,7 +745,7 @@ function LibraryPanel() {
   // ── Move a set of file paths into destFolder (null = library root) ────────
   const moveFilesToFolder = async (paths: string[], destFolder: string | null) => {
     if (!libraryFolder || paths.length === 0) return
-    const movable = paths.filter(p => !isProtectedFolder(currentFolderOf(p)) && currentFolderOf(p) !== destFolder)
+    const movable = paths.filter(p => !isReadOnlyFolder(currentFolderOf(p)) && currentFolderOf(p) !== destFolder)
     if (movable.length === 0) return
     const prevFolders = new Map(movable.map(p => [p, currentFolderOf(p)]))
     const pairs = await window.electronAPI.moveLibraryFiles(movable, libraryFolder, destFolder)
@@ -835,7 +844,7 @@ function LibraryPanel() {
   }
 
   const handleFileDragStart = (e: React.DragEvent, filePath: string) => {
-    if (isProtectedFolder(currentFolderOf(filePath))) { e.preventDefault(); return }
+    if (isReadOnlyFolder(currentFolderOf(filePath))) { e.preventDefault(); return }
     const paths = selectedPaths.has(filePath) ? Array.from(selectedPaths) : [filePath]
     if (!selectedPaths.has(filePath)) { setSelectedPaths(new Set([filePath])); setSelectionAnchor(filePath) }
     setDraggingPaths(paths)
@@ -1228,6 +1237,20 @@ function LibraryPanel() {
             >
               Show in folder
             </button>
+            <button
+              onClick={() => {
+                const path = contextMenu.path
+                const name = libraryFiles.find(f => f.path === path)?.name ?? path.split(/[\\/]/).pop() ?? path
+                setFileInfoTarget({ path, name })
+                setContextMenu(null)
+              }}
+              title="Tempo, key, artist/song, track count, and copyright — read-only"
+              style={MENU_ITEM_STYLE}
+              onMouseEnter={e => { e.currentTarget.style.background = 'var(--bg-tile)'; e.currentTarget.style.color = 'var(--text-amber)' }}
+              onMouseLeave={e => { e.currentTarget.style.background = 'none';           e.currentTarget.style.color = 'var(--text-default)' }}
+            >
+              File info
+            </button>
 
             <div style={{ borderTop: '1px solid var(--border2)', margin: '4px 0' }} />
 
@@ -1258,7 +1281,7 @@ function LibraryPanel() {
                 already skips protected-folder files individually (fs:moveLibraryFiles
                 in main.ts), so hiding the whole block for one protected file in an
                 otherwise-movable multi-select blocked the rest for no reason. ────── */}
-            {!Array.from(selectedPaths.size > 0 ? selectedPaths : [contextMenu.path]).every(p => isProtectedFolder(currentFolderOf(p))) && (
+            {!Array.from(selectedPaths.size > 0 ? selectedPaths : [contextMenu.path]).every(p => isReadOnlyFolder(currentFolderOf(p))) && (
               <>
                 <div style={{ borderTop: '1px solid var(--border2)', margin: '4px 0' }} />
                 <button
@@ -1720,6 +1743,25 @@ function LibraryPanel() {
           </div>
         )}
       </div>
+
+      {fileInfoTarget && (
+        <FileInfoModal
+          filePath={fileInfoTarget.path}
+          fileName={fileInfoTarget.name}
+          onClose={() => setFileInfoTarget(null)}
+          onRenamed={(oldPath, newPath, newName) => {
+            setLibraryFiles(libraryFiles.map(f => f.path === oldPath ? { path: newPath, name: newName } : f))
+            remapLibraryPaths([{ oldPath, newPath }])
+            // Currently-loaded file got renamed underneath it — patch the store's
+            // in-memory path/name so a subsequent Playback Editor save resolves
+            // against the new location instead of a path that no longer exists.
+            if (loadedFilePath && loadedFilePath.replace(/\\/g, '/') === oldPath.replace(/\\/g, '/')) {
+              useStore.setState(s => s.midi ? { midi: { ...(s.midi as any), _filePath: newPath, fileName: newName } } : {})
+            }
+            setFileInfoTarget({ path: newPath, name: newName })
+          }}
+        />
+      )}
     </div>
   )
 }

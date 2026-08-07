@@ -24,6 +24,10 @@ contextBridge.exposeInMainWorld('electronAPI', {
   createLibraryFolder: (libraryFolder: string, name: string) => ipcRenderer.invoke('fs:createLibraryFolder', libraryFolder, name),
   renameLibraryFolder: (libraryFolder: string, oldName: string, newName: string) => ipcRenderer.invoke('fs:renameLibraryFolder', libraryFolder, oldName, newName),
   deleteLibraryFolder: (libraryFolder: string, name: string) => ipcRenderer.invoke('fs:deleteLibraryFolder', libraryFolder, name),
+  renameLibraryFile: (filePath: string, newName: string) => ipcRenderer.invoke('fs:renameLibraryFile', filePath, newName),
+  getFileLog:  (filePath: string) => ipcRenderer.invoke('fileinfo:getLog', filePath),
+  logFileEvent: (filePath: string, type: string, summary: string) => ipcRenderer.invoke('fileinfo:logEvent', filePath, type, summary),
+  listFileVersions: (filePath: string) => ipcRenderer.invoke('fileinfo:listVersions', filePath),
   moveLibraryFiles: (filePaths: string[], libraryFolder: string, destFolderName: string | null) => ipcRenderer.invoke('fs:moveLibraryFiles', filePaths, libraryFolder, destFolderName),
   transcriptGenerate: (midiPath: string, noteNaming: string, accidentals: string) => ipcRenderer.invoke('transcript:generate', midiPath, noteNaming, accidentals),
   // Note Editor

@@ -1,7 +1,7 @@
 import { app, BrowserWindow, ipcMain, dialog, shell } from 'electron'
 import { autoUpdater } from 'electron-updater'
 import { join, basename, dirname, extname } from 'path'
-import { readFileSync, writeFileSync, existsSync, readdirSync, createWriteStream } from 'fs'
+import { readFileSync, writeFileSync, existsSync, readdirSync, createWriteStream, statSync } from 'fs'
 import { mkdir, access, copyFile, readdir, writeFile, rename, rmdir } from 'fs/promises'
 import { Midi } from '@tonejs/midi'
 import { Chord, Note } from 'tonal'
@@ -10,7 +10,7 @@ import { assignHands } from '../src/utils/handAssignment'
 import { buildHandExportHint, withHandSuffix } from '../src/utils/handMetadata'
 import { getGMGroup } from '../src/utils/gmInstruments'
 import { KEYBOARD_GROUPS } from '../src/utils/keyboardGroups'
-import { nextOrfeoBaseName } from '../src/utils/orfeoVersioning'
+import { nextOrfeoBaseName, stripOrfeoSuffix } from '../src/utils/orfeoVersioning'
 import type { Hand } from '../src/types'
 
 // ── Module-level window reference — needed by the close handler and IPC send ──────
@@ -105,6 +105,72 @@ function savePrefs(data: Record<string, any>) {
 }
 ipcMain.handle('prefs:get', async () => loadPrefs())
 ipcMain.handle('prefs:set', async (_e, data) => savePrefs(data))
+
+// ── File info change log — sidecar JSON, keyed by normalized absolute path.
+// Deliberately NOT written into the .mid file itself: this is Orfeo-only
+// bookkeeping (renames, hides, save summaries, import provenance), not
+// portable data other tools should see. Kept separate from orfeo-prefs.json
+// so a large library's growing log never drags general-settings I/O along
+// with it. ────────────────────────────────────────────────────────────────
+interface FileLogEvent { type: string; timestamp: number; summary: string }
+function normLogPath(p: string) { return p.replace(/\\/g, '/') }
+function getFileLogPath() { return join(app.getPath('userData'), 'orfeo-file-log.json') }
+function loadFileLog(): Record<string, FileLogEvent[]> {
+  try { const p = getFileLogPath(); if (existsSync(p)) return JSON.parse(readFileSync(p, 'utf-8')) } catch {}
+  return {}
+}
+function saveFileLog(log: Record<string, FileLogEvent[]>) {
+  try { writeFileSync(getFileLogPath(), JSON.stringify(log, null, 2)) } catch {}
+}
+function appendFileLogEvent(filePath: string, event: FileLogEvent) {
+  const log = loadFileLog()
+  const key = normLogPath(filePath)
+  log[key] = [...(log[key] ?? []), event]
+  saveFileLog(log)
+}
+// Rekeys log entries after a rename/move — same {oldPath,newPath} pairs shape
+// the renderer's remapLibraryPaths (favourites/hidden) already uses.
+function remapFileLog(pairs: { oldPath: string; newPath: string }[]) {
+  if (pairs.length === 0) return
+  const log = loadFileLog()
+  let changed = false
+  for (const { oldPath, newPath } of pairs) {
+    const oldKey = normLogPath(oldPath)
+    if (!(oldKey in log)) continue
+    const newKey = normLogPath(newPath)
+    log[newKey] = [...(log[newKey] ?? []), ...log[oldKey]]
+    delete log[oldKey]
+    changed = true
+  }
+  if (changed) saveFileLog(log)
+}
+
+ipcMain.handle('fileinfo:getLog', async (_e, filePath: string) => loadFileLog()[normLogPath(filePath)] ?? [])
+ipcMain.handle('fileinfo:logEvent', async (_e, filePath: string, type: string, summary: string) => {
+  appendFileLogEvent(filePath, { type, timestamp: Date.now(), summary })
+})
+
+// ── Version chain — no separate storage, just siblings in the same folder
+// that share the stripped base name (see src/utils/orfeoVersioning.ts).
+// version 0 = the original, unsuffixed file. ────────────────────────────
+ipcMain.handle('fileinfo:listVersions', async (_e, filePath: string) => {
+  try {
+    const dir = dirname(filePath)
+    const strippedTarget = stripOrfeoSuffix(basename(filePath).replace(/\.midi?$/i, ''))
+    const versions: { name: string; path: string; version: number; mtime: number }[] = []
+    for (const entry of readdirSync(dir, { withFileTypes: true })) {
+      if (!entry.isFile() || !/\.midi?$/i.test(entry.name)) continue
+      const base = entry.name.replace(/\.midi?$/i, '')
+      if (stripOrfeoSuffix(base) !== strippedTarget) continue
+      const m = base.match(/_ORFEO_v(\d+)$/i)
+      const entryPath = join(dir, entry.name)
+      versions.push({ name: entry.name, path: entryPath, version: m ? parseInt(m[1], 10) : 0, mtime: statSync(entryPath).mtimeMs })
+    }
+    return versions.sort((a, b) => a.version - b.version)
+  } catch {
+    return []
+  }
+})
 // ── Returns path to userData/Demo/ if demo files were installed, else null ───
 ipcMain.handle('app:getDemoFolder', async () => {
   const demoPath = join(app.getPath('userData'), 'Demo')
@@ -351,10 +417,21 @@ ipcMain.handle('fs:copyMidiToLibrary', async (_e, sourcePath: string, libraryFol
 
 // ── Library folder management — create/rename/delete/move, all scoped to
 // libraryFolder. `Demo` and `Orfeo` are reserved: never renamed, deleted, or
-// used as a move destination; files inside them are never moved out. ──────────
+// used as a move destination. ──────────────────────────────────────────────
 function isProtectedFolderName(name: string): boolean {
   const n = name.toLowerCase()
   return n === 'demo' || n === 'orfeo'
+}
+
+// ── Narrower than isProtectedFolderName — for FILES inside a protected
+// folder, not the folder itself. "Orfeo" isn't actually one well-known
+// folder: getOrfeoOutputDir() creates one beside every source file, so
+// literally every saved version lives inside a folder named "Orfeo". Using
+// isProtectedFolderName for file-level checks blocked renaming/moving any
+// version ever saved. Demo is genuinely read-only bundled content and stays
+// blocked; Orfeo is the user's own generated output and shouldn't be. ───────
+function isReadOnlyFolderName(name: string): boolean {
+  return name.toLowerCase() === 'demo'
 }
 
 function listFilesRecursive(dir: string): string[] {
@@ -409,7 +486,29 @@ ipcMain.handle('fs:renameLibraryFolder', async (_e, libraryFolder: string, oldNa
   const oldFiles = listFilesRecursive(oldPath)
   await rename(oldPath, newPath)
   const pairs = oldFiles.map(f => ({ oldPath: f, newPath: join(newPath, f.slice(oldPath.length + 1)) }))
+  remapFileLog(pairs)
   return { ok: true, name: finalName, pairs }
+})
+
+// Renames a single library file in place (same folder). Used by the File
+// info popup's artist/song swap. Refuses protected-folder files, same rule
+// as every other organize action.
+ipcMain.handle('fs:renameLibraryFile', async (_e, filePath: string, newName: string) => {
+  if (isReadOnlyFolderName(basename(dirname(filePath)))) return { ok: false, reason: 'protected' }
+  const dir = dirname(filePath)
+  const finalName = basename(newName).trim()
+  if (!finalName) return { ok: false, reason: 'empty' }
+  const newPath = join(dir, finalName)
+  if (newPath === filePath) return { ok: true, newPath }
+  if (await access(newPath).then(() => true).catch(() => false)) return { ok: false, reason: 'exists' }
+  try {
+    await rename(filePath, newPath)
+    remapFileLog([{ oldPath: filePath, newPath }])
+    appendFileLogEvent(newPath, { type: 'rename', timestamp: Date.now(), summary: `Renamed from "${basename(filePath)}" to "${finalName}"` })
+    return { ok: true, newPath }
+  } catch {
+    return { ok: false, reason: 'error' }
+  }
 })
 
 ipcMain.handle('fs:deleteLibraryFolder', async (_e, libraryFolder: string, name: string) => {
@@ -435,7 +534,7 @@ ipcMain.handle('fs:moveLibraryFiles', async (
 
   const results: { oldPath: string; newPath: string }[] = []
   for (const srcPath of filePaths) {
-    if (isProtectedFolderName(basename(dirname(srcPath)))) continue
+    if (isReadOnlyFolderName(basename(dirname(srcPath)))) continue
     try {
       const origName = basename(srcPath)
       const ext      = extname(origName)
@@ -451,6 +550,10 @@ ipcMain.handle('fs:moveLibraryFiles', async (
       await rename(srcPath, destPath)
       results.push({ oldPath: srcPath, newPath: destPath })
     } catch { /* skip this file, continue with the rest */ }
+  }
+  remapFileLog(results)
+  for (const { newPath } of results) {
+    appendFileLogEvent(newPath, { type: 'moved', timestamp: Date.now(), summary: destFolderName ? `Moved to "${destFolderName}"` : 'Moved to library root' })
   }
   return results
 })

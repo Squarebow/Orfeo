@@ -147,6 +147,10 @@ declare global {
       createLibraryFolder: (libraryFolder: string, name: string) => Promise<string>
       renameLibraryFolder: (libraryFolder: string, oldName: string, newName: string) => Promise<{ ok: boolean; reason?: string; name?: string; pairs?: { oldPath: string; newPath: string }[] }>
       deleteLibraryFolder: (libraryFolder: string, name: string) => Promise<{ ok: boolean; reason?: string }>
+      renameLibraryFile: (filePath: string, newName: string) => Promise<{ ok: boolean; reason?: string; newPath?: string }>
+      getFileLog:  (filePath: string) => Promise<{ type: string; timestamp: number; summary: string }[]>
+      logFileEvent: (filePath: string, type: string, summary: string) => Promise<void>
+      listFileVersions: (filePath: string) => Promise<{ name: string; path: string; version: number; mtime: number }[]>
       moveLibraryFiles:    (filePaths: string[], libraryFolder: string, destFolderName: string | null) => Promise<{ oldPath: string; newPath: string }[]>
       // Downloadable extra soundfonts (Samples engine)
       listSoundfonts:      () => Promise<SoundfontInfo[]>

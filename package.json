@@ -1,6 +1,6 @@
 {
   "name": "orfeo",
-  "version": "1.2.0-pre",
+  "version": "1.3.0-pre",
   "description": "Modern piano learning app with MIDI visualization",
   "author": "SquareBow",
   "license": "MIT",
@@ -105,6 +105,7 @@
     "jzz": "^1.9.6",
     "jzz-midi-smf": "^1.9.9",
     "jzz-synth-tiny": "^1.4.4",
+    "midi-file": "^1.2.4",
     "pdfkit": "^0.19.1",
     "pixi-filters": "^6.1.5",
     "pixi.js": "^8.0.0",

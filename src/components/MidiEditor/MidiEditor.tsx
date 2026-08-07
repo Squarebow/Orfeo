@@ -800,6 +800,13 @@ export default function MidiEditor() {
   // Reload actually commits, the session is done — no post-save "undo the
   // file" affordance (see performSave). ─────────────────────────────────────
   const [preSplitRows, setPreSplitRows] = useState<EditorTrack[] | null>(null)
+  // ── Snapshot of each row's color/name/roll/keyboard as of the last time
+  // rows were freshly loaded (open, or post-save resync) — buildSaveSummary
+  // diffs against this to report only what actually changed this session.
+  const originalRowsRef = useRef<Map<number, { color: string; trackName: string; visible: boolean; showOnKeyboard: boolean }>>(new Map())
+  const snapshotRows = (rows: EditorTrack[]) => {
+    originalRowsRef.current = new Map(rows.map(r => [r.index, { color: r.color, trackName: r.trackName, visible: r.visible, showOnKeyboard: r.showOnKeyboard }]))
+  }
   // ── Z-index — bringToFront on mousedown so last-clicked modal is on top ────
   const [zIndex, setZIndex] = useState(MODAL_BASE_Z)
 
@@ -838,6 +845,7 @@ export default function MidiEditor() {
     if (!midiEditorOpen || !midi) return
     const filePath = (midi as any)._filePath ?? ''
     const rows = buildRows()
+    snapshotRows(rows)
     setState({ fileName: midi.fileName, filePath, rows, outputPath: orfeoName(filePath) })
     setSaveResult(null)
     setSplitResult(null)
@@ -869,7 +877,9 @@ export default function MidiEditor() {
   useEffect(() => {
     if (!midiEditorOpen || !midi) return
     const filePath = (midi as any)._filePath ?? ''
-    setState(s => s ? { ...s, rows: buildRows(), filePath, fileName: midi.fileName, outputPath: orfeoName(filePath) } : s)
+    const freshRows = buildRows()
+    snapshotRows(freshRows)
+    setState(s => s ? { ...s, rows: freshRows, filePath, fileName: midi.fileName, outputPath: orfeoName(filePath) } : s)
   }, [midi])
 
   // ── Drag: mousemove / mouseup ─────────────────────────────────────────────────
@@ -976,6 +986,45 @@ export default function MidiEditor() {
   const buildMergeGroups = (): MergeGroup[] =>
     state.rows.filter(r => r.isMerged && r.mergedFromIndices).map(r => r.mergedFromIndices!)
 
+  // ── Human summary of this save, for the File info change log — counts
+  // only, not a full per-field diff (renames/colors/roll-keyboard toggles
+  // aren't individually tracked here; the counts below are what's cheap and
+  // honest to report from staged row state alone). ───────────────────────
+  const buildSaveSummary = (): string => {
+    const excludedCount = state.rows.filter(r => !r.included).length
+    const mergedGroups = state.rows.filter(r => r.isMerged && r.mergedFromIndices)
+    const mergedTrackCount = mergedGroups.reduce((sum, r) => sum + (r.mergedFromIndices?.length ?? 0), 0)
+    const splitOrigins = new Set(state.rows.filter(r => r.splitHand).map(r => r.splitOriginIndex))
+
+    // ── Color/rename/roll/keyboard changes — diffed against originalRowsRef,
+    // the snapshot taken the last time rows were freshly loaded (editor open
+    // or the post-save resync). Skips split/merged rows: those are already
+    // covered by the split/merge phrases above, and a split row's fixed
+    // hand color would otherwise ALWAYS read as "changed color" vs. the
+    // pre-split single track it came from. ──────────────────────────────────
+    let colorChanged = 0, renamed = 0, rollChanged = 0, keyboardChanged = 0
+    for (const r of state.rows) {
+      if (r.isMerged || r.splitHand) continue
+      const orig = originalRowsRef.current.get(r.index)
+      if (!orig) continue
+      if (r.color !== orig.color) colorChanged++
+      if (r.trackName !== orig.trackName) renamed++
+      if (r.visible !== orig.visible) rollChanged++
+      if (r.showOnKeyboard !== orig.showOnKeyboard) keyboardChanged++
+    }
+
+    const s = (n: number) => n === 1 ? '' : 's'
+    const parts: string[] = []
+    if (splitOrigins.size > 0) parts.push(`split ${splitOrigins.size} track${s(splitOrigins.size)}`)
+    if (mergedGroups.length > 0) parts.push(`merged ${mergedTrackCount} tracks into ${mergedGroups.length}`)
+    if (excludedCount > 0) parts.push(`excluded ${excludedCount} track${s(excludedCount)}`)
+    if (colorChanged > 0) parts.push(`changed color of ${colorChanged} track${s(colorChanged)}`)
+    if (renamed > 0) parts.push(`renamed ${renamed} track${s(renamed)}`)
+    if (rollChanged > 0) parts.push(`changed roll visibility of ${rollChanged} track${s(rollChanged)}`)
+    if (keyboardChanged > 0) parts.push(`changed keyboard lighting of ${keyboardChanged} track${s(keyboardChanged)}`)
+    return parts.length > 0 ? parts.join(', ') : 'Saved'
+  }
+
   // ── Save — the ONLY point that writes to disk. Every staged edit (include/
   // exclude, merge, split, rename, recolor, reassign instrument) travels in
   // one payload and lands in exactly one _ORFEO_vN. Once a save SUCCEEDS the
@@ -1004,6 +1053,7 @@ export default function MidiEditor() {
       }
       const mergeGroups = buildMergeGroups()
       const finalOutput = state.outputPath
+      const saveSummary = buildSaveSummary()
 
       const { rhMaxFingers, lhMaxFingers } = useStore.getState()
       const result = await window.electronAPI.saveMidiEditor({
@@ -1016,6 +1066,7 @@ export default function MidiEditor() {
         setPreSplitRows(null)
         reloadFile(result.base64, result.fileName, result.filePath)
         useStore.getState().setLibraryNeedsRefresh(true)
+        window.electronAPI.logFileEvent(result.filePath, 'save', saveSummary)
       }
     } catch (e: any) {
       setSaveResult({ ok: false, msg: e?.message ?? 'Save failed' })
