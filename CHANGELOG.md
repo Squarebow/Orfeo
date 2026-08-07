@@ -1,5 +1,37 @@
 # Changelog
 
+## [1.2.0-pre] — 7. 8. 2026 — MIDI Playback Editor save-pipeline rework, Library sticky/pinned browsing
+
+Driven by live bug reports and iterative UI feedback across the session — the Playback Editor's split/save flow had a real data-loss bug (every split silently discarded whatever else was staged in the same session), and the Library sidebar needed real design work to stay usable at 500+ files.
+
+### Playback Editor — split and save unified into one disk write
+Previously "Split into two tracks" wrote its own file and reloaded the whole editor immediately — which wiped every other staged edit in progress (include/exclude, merges, colors, renames) because the reload rebuilt the row list from scratch. Split is now a purely local staging operation (no IPC, no disk write); the actual note-splitting happens once, inside Save & Reload's single write. A session's edits — however many — now always produce exactly one `_ORFEO_vN`, never two-plus.
+
+Undo moved to where it belongs: "Undo split" now sits with the split-staging banner (reverts the staged split locally, before anything is written), not after a successful save. Once Save & Reload actually commits, the footer collapses to a single **OK** button — Cancel/Save & Reload disappear, so a second click can no longer mint v2, v3, etc. in the same modal session. A failed save leaves Cancel/Save & Reload in place to retry.
+
+Fixed two related bugs surfaced by this rework: staged split output was inheriting the source track's color for both halves (both looked identical) — now uses the fixed LH/RH hex tokens (`#6270A5`/`#CB636C`, matching the piano roll). Split output was also named "Acoustic Grand Piano LH/RH" instead of "Piano LH/RH" when the source track had no real name — restored the "Piano" fallback.
+
+**Changed:** `electron/main.ts` (`editor:save` now handles split+merge+color+name+instrument in one write; standalone `editor:split` handler removed), `electron/preload.ts`, `src/types/index.ts`, `src/components/MidiEditor/MidiEditor.tsx`.
+
+### Playback Editor — persisted Roll/Keyboard columns
+Two new columns (Piano roll visibility, Keyboard-lit) let a save persist what the TrackPanel's matching icons only ever did for the current session. Written as `ORFEO_TRACK_VISIBLE`/`ORFEO_TRACK_KEYBOARD` text meta-events on save (same convention as track name/color), restored as defaults on reimport.
+
+**Changed:** `src/utils/midiParser.ts`, `src/store/index.ts`, `electron/main.ts`, `src/components/MidiEditor/MidiEditor.tsx`.
+
+### Playback Editor — layout pass
+Columns reordered (Include, Track, Merge, Split, Color, Piano roll, Keyboard, Assign Instrument) with every header carrying a tooltip. Fixed a real column-misalignment bug (not a styling nit): the header row's `gap` didn't match the track rows' `gap`, and the scrollable track list's own scrollbar was shrinking its `1fr` Track column relative to the (non-scrollable) header's — both together shifted every column after Track by a growing, track-count-dependent amount. Synced the gaps and reserved a stable scrollbar gutter on both sides. Select all/Clear all restyled with a bordered, amber-hover pill; footer rows consolidated (info text + action buttons share one row instead of two, buttons sized to content instead of stretching half-width); post-save footer shows the real saved path with a "Show in folder" button instead of a duplicate green banner. Instrument picker family headers and instrument rows now both get an amber hover (previously only instruments did, and in gray).
+
+**Changed:** `src/components/MidiEditor/MidiEditor.tsx`.
+
+### Library — pinned active file, collapsible Folders section
+The loaded file now gets its own always-visible bar pinned above the list — CSS `position: sticky` alone can't pull a row out of a collapsed folder or up from its alphabetical position, so this is a real pin, not a scroll trick. It still renders at its normal spot in its folder too, so a folder's contents never look incomplete just because one of them is loaded.
+
+All folders now collapse under one "Folders" row (amber chevron) instead of each needing its own; individual folder headers lost their per-folder chevron (clicking the header still expands/collapses it). Right-click menu gained "Show in folder" (Explorer, file pre-selected via `shell.showItemInFolder`) and a multi-select fix: "New folder from selection"/"Move to folder" were hidden if *any* selected file was in a protected folder (Demo/Orfeo) — now only hidden if *all* of them are, since the move backend already skips protected files individually.
+
+**New:** `shell:showItemInFolder` IPC (`electron/main.ts`, `electron/preload.ts`, `src/types/index.ts`). **Changed:** `src/components/SettingsPanel/SettingsPanel.tsx`.
+
+---
+
 ## [1.1.0-pre] — 6. 8. 2026 — Left/Right Hand rework: algorithm overhaul, workflow fixes, external-review-driven improvements
 
 A full rework of the hand-assignment engine driven by real bar-by-bar testing feedback plus three independent external code reviews (Codex, DeepSeek, and a rejected Gemini pass — see `docs/LR Hand rework/review.md` and `Reviews/`, gitignored). Root-caused and fixed several real bugs along the way, not just algorithm tuning — including two workflow regressions introduced and then fixed within this same session. Full technical writeup and testing guide in `docs/LR Hand rework/SESSION_HANDOFF.md` (gitignored, local).

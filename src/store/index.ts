@@ -332,12 +332,16 @@ export const useStore = create<OrfeoStore>((set, get) => ({
     // ── Apply ORFEO_TRACK_NAME / ORFEO_TRACK_COLOR overrides from header meta ──
     const orfeoNames = (midi as any)._orfeoTrackNames as Record<number, string> | undefined
     const orfeoColors = (midi as any)._orfeoTrackColors as Record<number, string> | undefined
+    const orfeoVisible = (midi as any)._orfeoTrackVisible as Record<number, boolean> | undefined
+    const orfeoKeyboard = (midi as any)._orfeoTrackKeyboard as Record<number, boolean> | undefined
     set({
       midi,
       tracks: midi.tracks.map((t, i) => {
         const ts = makeTrackState(t)
         if (orfeoNames?.[i]) ts.trackName = orfeoNames[i]
         if (orfeoColors?.[i]) { ts.color = orfeoColors[i]; ts.colorSource = 'custom' }
+        if (orfeoVisible?.[i] !== undefined) ts.visible = orfeoVisible[i]
+        if (orfeoKeyboard?.[i] !== undefined) ts.showOnKeyboard = orfeoKeyboard[i]
         return ts
       }),
       currentTime: 0,

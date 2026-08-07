@@ -17,9 +17,9 @@ contextBridge.exposeInMainWorld('electronAPI', {
   // MIDI Editor
   saveFileDialog:     (opts: any) => ipcRenderer.invoke('dialog:saveFile', opts),
   saveMidiEditor:     (payload: any) => ipcRenderer.invoke('editor:save', payload),
-  splitMidiEditor:    (payload: any) => ipcRenderer.invoke('editor:split', payload),
   openExternal:       (url: string) => ipcRenderer.invoke('shell:openExternal', url),
   openFolderInExplorer: (folderPath: string) => ipcRenderer.invoke('shell:openFolder', folderPath),
+  showItemInFolder:   (filePath: string) => ipcRenderer.invoke('shell:showItemInFolder', filePath),
   listLibraryFolders: (libraryFolder: string) => ipcRenderer.invoke('fs:listLibraryFolders', libraryFolder),
   createLibraryFolder: (libraryFolder: string, name: string) => ipcRenderer.invoke('fs:createLibraryFolder', libraryFolder, name),
   renameLibraryFolder: (libraryFolder: string, oldName: string, newName: string) => ipcRenderer.invoke('fs:renameLibraryFolder', libraryFolder, oldName, newName),

@@ -495,6 +495,12 @@ function SettingsDropdown<T extends string>({ value, options, onChange, title }:
 const FILENAME_SPAN_DEFAULT: React.CSSProperties = { fontSize: 'var(--text-xs)', color: 'var(--text-muted)' }
 const FILENAME_SPAN_ACTIVE:  React.CSSProperties = { fontSize: 'var(--text-xs)', color: 'var(--text-amber)', fontWeight: 500 }
 
+// ── Sticky headers stack: "Folders" section header (top:0) → individual
+// folder header (top:FOLDER_HEADER_HEIGHT) → loaded file's row, if visible,
+// pins directly beneath whichever headers are above it in its group (0, 1,
+// or 2 header-heights) — or the very top, for a loaded root-group file. ─────
+const FOLDER_HEADER_HEIGHT = 30
+
 const MENU_ITEM_STYLE: React.CSSProperties = {
   width: '100%', padding: '8px 14px',
   background: 'none', border: 'none',
@@ -536,6 +542,8 @@ function LibraryPanel() {
   const [librarySearch, setLibrarySearch] = useState('')
   // Folders start expanded (not in collapsed set)
   const [expandedFolders, setExpandedFolders] = useState<Set<string>>(new Set())
+  // Whole "Folders" section (all folder rows, collapsed under one row) — starts expanded
+  const [foldersSectionExpanded, setFoldersSectionExpanded] = useState(true)
   // ── Context menu state — file/multi-select menu (path+x+y) or folder menu (folder+x+y) ──
   const [contextMenu, setContextMenu] = useState<{ path: string; x: number; y: number } | null>(null)
   const [folderContextMenu, setFolderContextMenu] = useState<{ folder: string; x: number; y: number } | null>(null)
@@ -951,6 +959,10 @@ function LibraryPanel() {
       return [{ folder: null, files: matches }]
     }
 
+    // The loaded file additionally gets its own always-visible pinned bar
+    // above this list (see render below) — it still renders here too, at its
+    // normal alphabetical spot inside its folder, so a folder's contents
+    // never look like a file went missing just because it's the loaded one.
     const allFiles = libraryFiles.filter((f: LibraryFile) => !hiddenSet.has(f.path))
 
     const rootFiles: LibraryFile[] = []
@@ -1007,6 +1019,18 @@ function LibraryPanel() {
 
   const realFolders = libraryFolderNames.filter(f => !isProtectedFolder(f)).sort((a, b) => a.localeCompare(b))
   const folderIsEmpty = (folder: string) => (grouped.find(g => g.folder === folder)?.files.length ?? 0) === 0
+
+  // ── The loaded file, pinned in its own bar above the list (see render below)
+  // instead of relying on CSS sticky — sticky only holds an element in place
+  // while its normal scroll position is still in view; it doesn't pull the
+  // element out of a collapsed folder or up from wherever it sorts alphabetically.
+  // Pinning is a real reorder: excluded from `grouped` above, shown here instead. ──
+  const loadedFile = loadedFilePath
+    ? libraryFiles.find(f => f.path.replace(/\\/g, '/') === loadedFilePath.replace(/\\/g, '/'))
+    : undefined
+  const loadedFileFolder = loadedFile ? currentFolderOf(loadedFile.path) : null
+  // Every other sticky header stacks below the pinned bar when one is showing.
+  const pinnedBarOffset = loadedFile ? FOLDER_HEADER_HEIGHT : 0
 
   const toggleFolder = (folder: string) => setExpandedFolders(prev => {
     const next = new Set(prev)
@@ -1196,6 +1220,18 @@ function LibraryPanel() {
             }}
           >
             <button
+              onClick={() => { window.electronAPI.showItemInFolder(contextMenu.path); setContextMenu(null) }}
+              title="Opens Windows Explorer in this file's folder with it highlighted"
+              style={MENU_ITEM_STYLE}
+              onMouseEnter={e => { e.currentTarget.style.background = 'var(--bg-tile)'; e.currentTarget.style.color = 'var(--text-amber)' }}
+              onMouseLeave={e => { e.currentTarget.style.background = 'none';           e.currentTarget.style.color = 'var(--text-default)' }}
+            >
+              Show in folder
+            </button>
+
+            <div style={{ borderTop: '1px solid var(--border2)', margin: '4px 0' }} />
+
+            <button
               onClick={() => { hideLibraryFile(contextMenu.path); setContextMenu(null) }}
               title="Hides this file from the library list — stays on disk, unaffected"
               style={MENU_ITEM_STYLE}
@@ -1217,8 +1253,12 @@ function LibraryPanel() {
               </button>
             )}
 
-            {/* ── Organize actions — hidden entirely if the selection touches a protected (Demo/Orfeo) file ── */}
-            {!Array.from(selectedPaths.size > 0 ? selectedPaths : [contextMenu.path]).some(p => isProtectedFolder(currentFolderOf(p))) && (
+            {/* ── Organize actions — hidden only if EVERY selected file is protected
+                (Demo/Orfeo). A mixed selection still shows this: the move backend
+                already skips protected-folder files individually (fs:moveLibraryFiles
+                in main.ts), so hiding the whole block for one protected file in an
+                otherwise-movable multi-select blocked the rest for no reason. ────── */}
+            {!Array.from(selectedPaths.size > 0 ? selectedPaths : [contextMenu.path]).every(p => isProtectedFolder(currentFolderOf(p))) && (
               <>
                 <div style={{ borderTop: '1px solid var(--border2)', margin: '4px 0' }} />
                 <button
@@ -1312,6 +1352,70 @@ function LibraryPanel() {
           </div>
         )}
 
+        {/* ── Pinned active file — always the first thing visible, regardless of
+            scroll position or folder expand/collapse. Still renders at its
+            normal spot inside its folder too (see `grouped` above) — this is
+            an always-visible SUMMARY, not a move, so a folder's contents never
+            look incomplete just because one of them is the loaded file.
+            Exactly FOLDER_HEADER_HEIGHT tall (single line, no wrapping) so
+            every other sticky header's offset math below stays correct — a
+            taller pinned bar would visually overlap the header stacked right
+            under it. ─────────────────────────────────────────────────────── */}
+        {loadedFile && (() => {
+          const starred = libraryFavourites.has(loadedFile.path)
+          const fmt = detectForeignFormat(loadedFile.path)
+          const RowIcon = fmt === 'musicxml' ? FileCode2 : fmt === 'guitarpro' ? Guitar : FileMusic
+          return (
+            <div
+              title={`${loadedFile.name} · Right-click for options`}
+              style={{
+                display: 'flex', alignItems: 'center', gap: 6,
+                padding: '0 10px', minHeight: FOLDER_HEADER_HEIGHT, boxSizing: 'border-box',
+                background: 'var(--panel)',
+                borderBottom: '1px solid var(--accent-amber-strong)',
+                position: 'sticky', top: 0, zIndex: 5,
+              }}
+              onContextMenu={e => handleContextMenu(e, loadedFile!.path)}
+            >
+              {chordTranscriptionEnabled ? (
+                <TranscriptIcon filePath={loadedFile.path} noteNaming={noteNaming} accidentals={accidentals} addTranscriptEntry={addTranscriptEntry} isLoaded />
+              ) : (
+                <RowIcon size={11} strokeWidth={1.5} style={{ color: 'var(--text-amber)', flexShrink: 0 }} />
+              )}
+              <div style={{ flex: 1, minWidth: 0, display: 'flex', alignItems: 'baseline', gap: 6 }}>
+                <MarqueeText name={loadedFile.name.replace(/\.(mid|midi)$/i, '')} spanStyle={FILENAME_SPAN_ACTIVE} />
+                {loadedFileFolder && (
+                  <span style={{ fontSize: 8, color: 'var(--text-inactive)', fontFamily: 'JetBrains Mono', flexShrink: 0 }}>{loadedFileFolder}</span>
+                )}
+              </div>
+              {lastFolderOf.has(loadedFile.path) && (
+                <button
+                  onClick={e => { e.stopPropagation(); handleUndoMove(loadedFile!.path) }}
+                  title={`Move back to ${lastFolderOf.get(loadedFile.path) ?? 'library root'}`}
+                  style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-inactive)', padding: '2px 3px', display: 'flex', alignItems: 'center', flexShrink: 0, transition: 'color 0.12s' }}
+                  onMouseEnter={e => e.currentTarget.style.color = 'var(--text-amber)'}
+                  onMouseLeave={e => e.currentTarget.style.color = 'var(--text-inactive)'}
+                >
+                  <Undo2 size={11} />
+                </button>
+              )}
+              <button
+                onClick={e => { e.stopPropagation(); toggleFavourite(loadedFile!.path) }}
+                title={starred ? 'Remove from favourites' : 'Add to favourites'}
+                style={{
+                  background: 'none', border: 'none', cursor: 'pointer',
+                  color: starred ? 'var(--text-amber)' : 'var(--state-disabled)',
+                  padding: '2px 3px', display: 'flex', alignItems: 'center',
+                  flexShrink: 0, fontSize: 'var(--text-sm)', lineHeight: 1,
+                  transition: 'color 0.12s',
+                }}
+                onMouseEnter={e => { if (!starred) e.currentTarget.style.color = 'var(--state-star-hover)' }}
+                onMouseLeave={e => { if (!starred) e.currentTarget.style.color = 'var(--state-disabled)' }}
+              >★</button>
+            </div>
+          )
+        })()}
+
         {/* Empty state */}
         {libraryFolder && !hasAnyFiles && (
           <div style={{ padding: '16px 14px', fontSize: 'var(--text-xs)', color: 'var(--text-muted)', textAlign: 'center' }}>
@@ -1369,8 +1473,33 @@ function LibraryPanel() {
           </div>
         )}
 
+        {/* ── "Folders" section — one collapsible row for the whole stack of folder
+            groups, so a large library can be collapsed down to just its root files.
+            Sticky at the very top; individual folder headers stick right beneath it. ── */}
+        {grouped.some(g => g.folder && !(hideDemoFolder && g.folder.toLowerCase() === 'demo')) && (
+          <div
+            onClick={() => setFoldersSectionExpanded(v => !v)}
+            title={foldersSectionExpanded ? 'Collapse all folders' : 'Expand folders'}
+            style={{
+              display: 'flex', alignItems: 'center', gap: 6,
+              padding: '6px 10px', minHeight: FOLDER_HEADER_HEIGHT, boxSizing: 'border-box',
+              background: 'var(--bg-row)', borderBottom: '1px solid var(--bg-tile)',
+              cursor: 'pointer', userSelect: 'none',
+              position: 'sticky', top: pinnedBarOffset, zIndex: 4,
+            }}
+            onMouseEnter={e => (e.currentTarget as HTMLElement).style.background = '#111120'}
+            onMouseLeave={e => (e.currentTarget as HTMLElement).style.background = 'var(--bg-row)'}
+          >
+            {foldersSectionExpanded
+              ? <ChevronDown size={11} style={{ color: 'var(--text-amber)', flexShrink: 0 }} />
+              : <ChevronRight size={11} style={{ color: 'var(--text-amber)', flexShrink: 0 }} />}
+            <span style={{ flex: 1, fontSize: 'var(--text-xs)', color: 'var(--text-tile-subtext)', fontWeight: 600 }}>Folders</span>
+          </div>
+        )}
+
         {/* ── hideDemoFolder filters the Demo subfolder from display ───────── */}
         {grouped.filter(g => !(hideDemoFolder && g.folder?.toLowerCase() === 'demo')).map((group, gi) => {
+          if (group.folder && !foldersSectionExpanded) return null
           const protectedFolder = isProtectedFolder(group.folder)
           const isDropTarget = !!group.folder && !protectedFolder && dragOverFolder === group.folder
           return (
@@ -1396,25 +1525,21 @@ function LibraryPanel() {
                   }}
                   onDragLeave={e => { if (!e.currentTarget.contains(e.relatedTarget as Node)) setDragOverFolder(null) }}
                   onDrop={e => !protectedFolder && handleFolderDrop(e, group.folder!)}
-                  title={isRenaming ? undefined : protectedFolder ? `${group.folder} — cannot be modified` : (expandedFolders.has(group.folder!) ? 'Collapse folder — right-click for rename/delete/move options' : 'Expand folder — right-click for rename/delete/move options')}
+                  title={isRenaming || protectedFolder ? undefined : (expandedFolders.has(group.folder!) ? 'Collapse folder — right-click for rename/delete/move options' : 'Expand folder — right-click for rename/delete/move options')}
                   style={{
                     display: 'flex', alignItems: 'center', gap: 6,
-                    padding: '6px 10px',
+                    padding: '6px 10px', minHeight: FOLDER_HEADER_HEIGHT, boxSizing: 'border-box',
                     background: isDropTarget ? 'var(--accent-amber-subtle)' : isProtectedHover ? 'rgba(224,90,90,0.10)' : 'var(--bg-row)',
                     outline: isDropTarget ? '1px solid var(--accent-amber-strong)' : isProtectedHover ? '1px solid #e05a5a' : 'none',
                     outlineOffset: -1,
                     borderBottom: '1px solid var(--bg-tile)',
                     borderTop: gi > 0 ? '1px solid var(--border)' : 'none',
                     cursor: isRenaming ? 'default' : 'pointer', userSelect: 'none',
+                    position: 'sticky', top: pinnedBarOffset + FOLDER_HEADER_HEIGHT, zIndex: 3,
                   }}
                   onMouseEnter={e => { if (!isDropTarget && !isProtectedHover) (e.currentTarget as HTMLElement).style.background = '#111120' }}
                   onMouseLeave={e => { if (!isDropTarget && !isProtectedHover) (e.currentTarget as HTMLElement).style.background = 'var(--bg-row)' }}
                 >
-                  {isRenaming ? <span style={{ width: 11, flexShrink: 0 }} /> : (
-                    expandedFolders.has(group.folder!)
-                      ? <ChevronDown size={11} style={{ color: 'var(--text-inactive)', flexShrink: 0 }} />
-                      : <ChevronRight size={11} style={{ color: 'var(--text-inactive)', flexShrink: 0 }} />
-                  )}
                   <FolderOpen size={12} style={{ color: 'var(--accent-amber-icon-dim)', flexShrink: 0 }} />
                   {isRenaming ? (
                     <input
@@ -1496,7 +1621,11 @@ function LibraryPanel() {
               const rowTitle = fmt === 'musicxml'  ? `${file.name} (MusicXML — imported)`
                              : fmt === 'guitarpro' ? `${file.name} (Guitar Pro — imported)`
                              : file.name
-              const rowBg = isLoaded ? 'var(--accent-amber-medium)' : isMultiSelected ? 'var(--accent-amber-subtle)' : 'transparent'
+              // Loaded row is sticky (see below) so its background must be opaque, not
+              // the translucent amber tint — otherwise rows scrolling underneath bleed
+              // through. Reads as a plain/unselected row; the amber filename still
+              // marks it as loaded.
+              const rowBg = isLoaded ? 'var(--panel)' : isMultiSelected ? 'var(--accent-amber-subtle)' : 'transparent'
               // ── Draw one bordered "box" around each contiguous run of selected rows,
               // instead of an outline on every individual row — top/bottom border only
               // where the neighbor in visual order isn't also selected. ────────────────

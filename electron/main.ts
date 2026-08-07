@@ -114,6 +114,7 @@ ipcMain.handle('app:getDemoFolder', async () => {
 // ── Open MIDI file ─────────────────────────────────────────────────────────
 ipcMain.handle('shell:openExternal', (_e, url: string) => shell.openExternal(url))
 ipcMain.handle('shell:openFolder', (_e, folderPath: string) => shell.openPath(folderPath))
+ipcMain.handle('shell:showItemInFolder', (_e, filePath: string) => shell.showItemInFolder(filePath))
 
 // ── Downloadable extra soundfonts (Samples engine) ────────────────────────────
 // Both are MIT-licensed GM soundfonts — safe to redistribute. Never bundled at
@@ -462,10 +463,8 @@ ipcMain.handle('dialog:saveFile', async (_e, opts: { defaultPath: string; filter
 ipcMain.handle('editor:save', async (_e, payload: {
   filePath: string
   outputPath: string
-  includedTracks: { index: number; newProgram: number }[]
+  includedTracks: { index: number; newProgram: number; name?: string; color?: string; splitHand?: 'L' | 'R'; visible?: boolean; showOnKeyboard?: boolean }[]
   mergeGroups: number[][]
-  trackNames?: Record<number, string>
-  trackColors?: Record<number, string>
   rhMaxFingers?: number
   lhMaxFingers?: number
 }) => {
@@ -482,12 +481,79 @@ ipcMain.handle('editor:save', async (_e, payload: {
     const noteTrackIndices: number[] = []
     midi.tracks.forEach((t, i) => { if (t.notes.length > 0) noteTrackIndices.push(i) })
 
-    const includedSet = new Set(
-      payload.includedTracks.map(it => noteTrackIndices[it.index] ?? -1).filter(i => i >= 0)
-    )
+    const handsByRawIdx = new Map<number, Hand[]>()
 
-    // Instrument reassignment
+    // ── Staged hand-splits — a track carrying one or two `splitHand` entries
+    // gets partitioned via the same hand-assignment engine the old standalone
+    // "editor:split" IPC used, but folded into this one save instead of its
+    // own separate disk write. This is what makes split a staged edit like
+    // merge/color/instrument reassignment: nothing hits disk until Save &
+    // Reload, and the whole session becomes exactly one _ORFEO_vN. ──────────
+    const splitByOrigin = new Map<number, { L?: typeof payload.includedTracks[0]; R?: typeof payload.includedTracks[0] }>()
     for (const it of payload.includedTracks) {
+      if (!it.splitHand) continue
+      const entry = splitByOrigin.get(it.index) ?? {}
+      entry[it.splitHand] = it
+      splitByOrigin.set(it.index, entry)
+    }
+    // rawIdx of the newly-appended RH track, keyed by origin editor index —
+    // only set when BOTH hands survived as separate output tracks; when only
+    // RH was kept, its notes replace the origin track in place instead.
+    const rhRawIdxByOrigin = new Map<number, number>()
+
+    for (const [edIdx, halves] of splitByOrigin) {
+      const origRaw = noteTrackIndices[edIdx]
+      if (origRaw === undefined) continue
+      const srcTrack = midi.tracks[origRaw]
+      const { assignments } = assignHands(srcTrack.notes, { rhMaxFingers: payload.rhMaxFingers, lhMaxFingers: payload.lhMaxFingers })
+      const lhNotes = assignments.filter(a => a.hand === 'L').map(a => a.note)
+      const rhNotes = assignments.filter(a => a.hand === 'R').map(a => a.note)
+      const origName = srcTrack.name || 'Piano'
+
+      if (halves.L && halves.R) {
+        srcTrack.notes.splice(0)
+        lhNotes.forEach(n => srcTrack.notes.push(n))
+        srcTrack.name = halves.L.name || withHandSuffix(origName, 'L')
+        if (halves.L.newProgram >= 0 && (srcTrack as any).channel !== 9) srcTrack.instrument.number = halves.L.newProgram
+        handsByRawIdx.set(origRaw, srcTrack.notes.map(() => 'L' as Hand))
+
+        const rhTrack = midi.addTrack()
+        rhTrack.name = halves.R.name || withHandSuffix(origName, 'R')
+        rhTrack.instrument.number = halves.R.newProgram >= 0 ? halves.R.newProgram : srcTrack.instrument.number
+        rhNotes.forEach(n => rhTrack.notes.push(n))
+        const rhRaw = midi.tracks.length - 1
+        rhRawIdxByOrigin.set(edIdx, rhRaw)
+        handsByRawIdx.set(rhRaw, rhTrack.notes.map(() => 'R' as Hand))
+      } else if (halves.L) {
+        srcTrack.notes.splice(0)
+        lhNotes.forEach(n => srcTrack.notes.push(n))
+        srcTrack.name = halves.L.name || withHandSuffix(origName, 'L')
+        if (halves.L.newProgram >= 0 && (srcTrack as any).channel !== 9) srcTrack.instrument.number = halves.L.newProgram
+        handsByRawIdx.set(origRaw, srcTrack.notes.map(() => 'L' as Hand))
+      } else if (halves.R) {
+        srcTrack.notes.splice(0)
+        rhNotes.forEach(n => srcTrack.notes.push(n))
+        srcTrack.name = halves.R.name || withHandSuffix(origName, 'R')
+        if (halves.R.newProgram >= 0 && (srcTrack as any).channel !== 9) srcTrack.instrument.number = halves.R.newProgram
+        handsByRawIdx.set(origRaw, srcTrack.notes.map(() => 'R' as Hand))
+      }
+    }
+
+    // ── Resolve every included row to its final raw track index — split
+    // halves route through rhRawIdxByOrigin/origin above, everything else is
+    // a plain noteTrackIndices lookup. ─────────────────────────────────────
+    const resolved = payload.includedTracks.map(it => {
+      const raw = it.splitHand === 'R' && rhRawIdxByOrigin.has(it.index)
+        ? rhRawIdxByOrigin.get(it.index)!
+        : noteTrackIndices[it.index]
+      return { raw, entry: it }
+    }).filter((r): r is { raw: number; entry: typeof payload.includedTracks[0] } => r.raw !== undefined)
+
+    const includedSet = new Set(resolved.map(r => r.raw))
+
+    // Instrument reassignment — split entries already handled above.
+    for (const it of payload.includedTracks) {
+      if (it.splitHand) continue
       const orig = noteTrackIndices[it.index]
       if (orig === undefined) continue
       const track = midi.tracks[orig]
@@ -500,7 +566,6 @@ ipcMain.handle('editor:save', async (_e, payload: {
     // runs them through the same hand-assignment engine that backs split and
     // hand-colored rendering (src/utils/handAssignment.ts), instead of the
     // merge simply concatenating notes with no hand awareness at all.
-    const handsByRawIdx = new Map<number, Hand[]>()
     for (const group of (payload.mergeGroups ?? [])) {
       if (group.length < 2) continue
       const idxs = group.map(i => noteTrackIndices[i]).filter((i): i is number => i !== undefined && includedSet.has(i))
@@ -519,15 +584,18 @@ ipcMain.handle('editor:save', async (_e, payload: {
 
     // Surviving output tracks in file order — shared by both meta-injection
     // blocks below (their outIdx numbering must match, it's what the parser's
-    // ParsedTrack.index will be on reimport).
-    const includedInOrder = noteTrackIndices.filter(i => includedSet.has(i))
+    // ParsedTrack.index will be on reimport). Raw indices are unique array
+    // positions into midi.tracks (appended split/RH tracks always sort last),
+    // so a numeric sort reproduces file order without needing noteTrackIndices,
+    // which doesn't cover newly-appended tracks.
+    const includedInOrder = Array.from(includedSet).sort((a, b) => a - b)
 
-    // ── Hand-tag every surviving keyboard-group track the merge loop above
-    // didn't already tag — this is what makes "keep one track, hand-colored"
-    // (Stage 4) persist through an ordinary save, not just a merge: every
-    // piano/chromatic/organ track gets the same assignHands() pass and export
-    // hint as a merged one, using the classification midiParser.ts uses on
-    // reimport so the two sides agree on what counts as "keyboard-group".
+    // ── Hand-tag every surviving keyboard-group track the split/merge logic
+    // above didn't already tag — this is what makes "keep one track, hand-
+    // colored" (Stage 4) persist through an ordinary save, not just a merge:
+    // every piano/chromatic/organ track gets the same assignHands() pass and
+    // export hint, using the classification midiParser.ts uses on reimport
+    // so the two sides agree on what counts as "keyboard-group".
     for (const rawIdx of includedInOrder) {
       if (handsByRawIdx.has(rawIdx)) continue
       const track = midi.tracks[rawIdx]
@@ -540,44 +608,28 @@ ipcMain.handle('editor:save', async (_e, payload: {
       handsByRawIdx.set(rawIdx, track.notes.map((n: any) => handByNote.get(n)!))
     }
 
-    // ── Inject ORFEO_TRACK_NAME text meta-events for each output track ────────
-    // Build rawIdx → name from payload.trackNames (keyed by editor index)
-    if (payload.trackNames && Object.keys(payload.trackNames).length > 0) {
-      const rawIdxToName: Record<number, string> = {}
-      for (const [edIdxStr, name] of Object.entries(payload.trackNames)) {
-        const rawIdx = noteTrackIndices[parseInt(edIdxStr, 10)]
-        if (rawIdx !== undefined) rawIdxToName[rawIdx] = name
-      }
-      // Strip any existing ORFEO_TRACK_NAME entries then push fresh ones
-      const existingMeta = (midi.header as any).meta ?? []
-      ;(midi.header as any).meta = existingMeta.filter(
-        (m: any) => !(typeof m.text === 'string' && m.text.startsWith('ORFEO_TRACK_NAME:'))
-      )
-      includedInOrder.forEach((rawIdx, outIdx) => {
-        const name = rawIdxToName[rawIdx]
-        if (name) (midi.header as any).meta.push({ type: 'text', text: `ORFEO_TRACK_NAME:${outIdx}:${name}`, ticks: 0 })
-      })
-    }
-
-    // ── Inject ORFEO_TRACK_COLOR text meta-events for each output track ───────
-    // Same convention as ORFEO_TRACK_NAME. Without this, a color picked in the
-    // color popover only ever lived in the renderer's store — save+reload
-    // silently discarded it back to the default palette color.
-    if (payload.trackColors && Object.keys(payload.trackColors).length > 0) {
-      const rawIdxToColor: Record<number, string> = {}
-      for (const [edIdxStr, color] of Object.entries(payload.trackColors)) {
-        const rawIdx = noteTrackIndices[parseInt(edIdxStr, 10)]
-        if (rawIdx !== undefined) rawIdxToColor[rawIdx] = color
-      }
-      const existingMeta = (midi.header as any).meta ?? []
-      ;(midi.header as any).meta = existingMeta.filter(
-        (m: any) => !(typeof m.text === 'string' && m.text.startsWith('ORFEO_TRACK_COLOR:'))
-      )
-      includedInOrder.forEach((rawIdx, outIdx) => {
-        const color = rawIdxToColor[rawIdx]
-        if (color) (midi.header as any).meta.push({ type: 'text', text: `ORFEO_TRACK_COLOR:${outIdx}:${color}`, ticks: 0 })
-      })
-    }
+    // ── Inject ORFEO_TRACK_NAME / ORFEO_TRACK_COLOR text meta-events for each
+    // output track that carries one — name/color now travel directly on each
+    // includedTracks entry (see `resolved` above) instead of separate side
+    // maps, so split halves (whose editor row isn't a plain noteTrackIndices
+    // position) resolve the same way as every other row. Without this, a name
+    // edit or color picked in the popover only ever lived in the renderer's
+    // store — save+reload silently discarded it back to the file default. ───
+    const rawToEntry = new Map(resolved.map(r => [r.raw, r.entry]))
+    const existingMeta = (midi.header as any).meta ?? []
+    ;(midi.header as any).meta = existingMeta.filter((m: any) =>
+      !(typeof m.text === 'string' && (
+        m.text.startsWith('ORFEO_TRACK_NAME:') || m.text.startsWith('ORFEO_TRACK_COLOR:') ||
+        m.text.startsWith('ORFEO_TRACK_VISIBLE:') || m.text.startsWith('ORFEO_TRACK_KEYBOARD:')
+      ))
+    )
+    includedInOrder.forEach((rawIdx, outIdx) => {
+      const entry = rawToEntry.get(rawIdx)
+      if (entry?.name) (midi.header as any).meta.push({ type: 'text', text: `ORFEO_TRACK_NAME:${outIdx}:${entry.name}`, ticks: 0 })
+      if (entry?.color) (midi.header as any).meta.push({ type: 'text', text: `ORFEO_TRACK_COLOR:${outIdx}:${entry.color}`, ticks: 0 })
+      if (entry?.visible !== undefined) (midi.header as any).meta.push({ type: 'text', text: `ORFEO_TRACK_VISIBLE:${outIdx}:${entry.visible ? 1 : 0}`, ticks: 0 })
+      if (entry?.showOnKeyboard !== undefined) (midi.header as any).meta.push({ type: 'text', text: `ORFEO_TRACK_KEYBOARD:${outIdx}:${entry.showOnKeyboard ? 1 : 0}`, ticks: 0 })
+    })
 
     // ── Inject hand-assignment export hint for every tagged track ─────────────
     // Homogeneous track (every note the same hand) → " (RH)"/" (LH)" name
@@ -609,97 +661,6 @@ ipcMain.handle('editor:save', async (_e, payload: {
     return { ok: true, message: `Saved: ${fileName}`, filePath: outputPath, fileName, base64: outBuf.toString('base64') }
   } catch (e: any) {
     return { ok: false, message: e?.message ?? 'Save failed' }
-  }
-})
-
-// ── Split a single track into Left Hand / Right Hand via the shared hand-
-// assignment engine (src/utils/handAssignment.ts) — same engine backing
-// merge and hand-colored rendering, not a separate pitch-threshold pass.
-// breakpointType/breakpoint/rangeStart/rangeEnd are no longer used by the
-// algorithm; kept in the payload shape so the existing renderer call site
-// (MidiEditor.tsx) keeps compiling unchanged until its UI is reworked.
-ipcMain.handle('editor:split', async (_e, payload: {
-  filePath: string
-  trackIndex: number
-  breakpointType: 'single' | 'range'
-  breakpoint: number
-  rangeStart: number
-  rangeEnd: number
-  rhMaxFingers?: number
-  lhMaxFingers?: number
-}) => {
-  try {
-    if (!payload.filePath) return { ok: false, message: 'No source file loaded' }
-    const midi = new Midi(readFileSync(payload.filePath))
-
-    const noteTrackIndices: number[] = []
-    midi.tracks.forEach((t, i) => { if (t.notes.length > 0) noteTrackIndices.push(i) })
-
-    const origIdx = noteTrackIndices[payload.trackIndex ?? 0]
-    if (origIdx === undefined) return { ok: false, message: 'Track not found' }
-
-    const srcTrack = midi.tracks[origIdx]
-    if (srcTrack.notes.length === 0) return { ok: false, message: 'Track has no notes' }
-
-    const { assignments } = assignHands(srcTrack.notes, { rhMaxFingers: payload.rhMaxFingers, lhMaxFingers: payload.lhMaxFingers })
-    const lhNotes = assignments.filter(a => a.hand === 'L').map(a => a.note)
-    const rhNotes = assignments.filter(a => a.hand === 'R').map(a => a.note)
-
-    if (lhNotes.length === 0 || rhNotes.length === 0) {
-      return { ok: false, message: 'Could not find two independent hands in this track' }
-    }
-
-    // ── Rebuild source track as Left Hand ─────────────────────────────────────
-    // Many real-world GM exports (this Bruce Hornsby file included) leave the
-    // track-name meta event blank — fall back to "Piano" so the split output
-    // reads "Piano LH"/"Piano RH" instead of a bare " LH"/" RH".
-    const origTrackName = srcTrack.name || 'Piano'
-    srcTrack.notes.splice(0)
-    const lhName = withHandSuffix(origTrackName, 'L')
-    srcTrack.name = lhName
-    lhNotes.forEach(n => srcTrack.notes.push(n))
-
-    // ── Add Right Hand track ───────────────────────────────────────────────────
-    const rhTrack = midi.addTrack()
-    const rhName = withHandSuffix(origTrackName, 'R')
-    rhTrack.name = rhName
-    rhTrack.instrument.number = srcTrack.instrument.number
-    rhNotes.forEach(n => rhTrack.notes.push(n))
-
-    // ── Also inject ORFEO_TRACK_NAME hints — the renderer's displayed track
-    // name (`trackName` in the store) defaults to the GM instrument name and
-    // is ONLY ever overridden by this hint, never by the plain MIDI track-
-    // name field set above. Without this, "Piano LH"/"Piano RH" never shows
-    // up in the UI — both tracks keep showing "Acoustic Grand Piano" even
-    // though the file's actual track-name meta is correct. outIdx follows
-    // the same "sequential index over non-empty tracks" scheme parseMidiBuffer
-    // uses: LH keeps the source track's original position; RH, freshly
-    // appended, lands one past the last original track. ────────────────────
-    const lhOutIdx = payload.trackIndex ?? 0
-    const rhOutIdx = noteTrackIndices.length
-    const existingMeta = (midi.header as any).meta ?? []
-    ;(midi.header as any).meta = existingMeta.filter((m: any) =>
-      !(typeof m.text === 'string' && (m.text.startsWith(`ORFEO_TRACK_NAME:${lhOutIdx}:`) || m.text.startsWith(`ORFEO_TRACK_NAME:${rhOutIdx}:`)))
-    )
-    ;(midi.header as any).meta.push(
-      { type: 'text', text: `ORFEO_TRACK_NAME:${lhOutIdx}:${lhName}`, ticks: 0 },
-      { type: 'text', text: `ORFEO_TRACK_NAME:${rhOutIdx}:${rhName}`, ticks: 0 },
-    )
-
-    // ── Resolve output path — always the next _ORFEO_vN, same rule as every
-    // other editing tool (see src/utils/orfeoVersioning.ts). ──────────────────
-    const orfeoDir    = await getOrfeoOutputDir(payload.filePath)
-    const rawBase     = basename(payload.filePath).replace(/\.midi?$/i, '')
-    const outputPath  = join(orfeoDir, `${nextOrfeoBaseName(rawBase)}.mid`)
-
-    const outBuf = Buffer.from(midi.toArray())
-    writeFileSync(outputPath, outBuf)
-
-    // ── Return file data so the renderer can reload inline ────────────────────
-    const fileName = outputPath.split(/[\\/]/).pop() ?? outputPath
-    return { ok: true, message: `Saved: ${fileName}`, filePath: outputPath, fileName, base64: outBuf.toString('base64') }
-  } catch (e: any) {
-    return { ok: false, message: e?.message ?? 'Split failed' }
   }
 })
 

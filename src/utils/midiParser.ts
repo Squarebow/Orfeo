@@ -140,6 +140,29 @@ export function parseMidiBuffer(buffer: ArrayBuffer, fileName: string, filePath 
     }
   }
 
+  // ── Restore Orfeo persisted roll-visibility / keyboard-lit flags ────────────
+  // Format: ORFEO_TRACK_VISIBLE:N:0/1 and ORFEO_TRACK_KEYBOARD:N:0/1 — same
+  // convention as ORFEO_TRACK_NAME/COLOR. Only the Playback Editor's Save
+  // writes these; the TrackPanel's per-track icons are session-only and never
+  // touch the file (see MidiEditor.tsx / electron/main.ts editor:save).
+  const orfeoTrackVisible: Record<number, boolean> = {}
+  const orfeoTrackKeyboard: Record<number, boolean> = {}
+  for (const meta of (midi.header as any).meta ?? []) {
+    if (typeof meta.text !== 'string') continue
+    for (const [prefix, target] of [
+      ['ORFEO_TRACK_VISIBLE:', orfeoTrackVisible],
+      ['ORFEO_TRACK_KEYBOARD:', orfeoTrackKeyboard],
+    ] as const) {
+      if (!meta.text.startsWith(prefix)) continue
+      const rest = meta.text.slice(prefix.length)
+      const colonIdx = rest.indexOf(':')
+      if (colonIdx < 0) continue
+      const idx = parseInt(rest.slice(0, colonIdx), 10)
+      const flag = rest.slice(colonIdx + 1)
+      if (!isNaN(idx) && (flag === '0' || flag === '1')) target[idx] = flag === '1'
+    }
+  }
+
   // ── Restore hand tags from an Orfeo export hint, if this file has one ───────
   // Track-name " RH"/" LH" suffix or ORFEO_HAND_MAP text meta — see
   // utils/handMetadata.ts. Neither is real MIDI clef data, just a breadcrumb.
@@ -179,6 +202,8 @@ export function parseMidiBuffer(buffer: ArrayBuffer, fileName: string, filePath 
     _barStarts: barStarts,
     _orfeoTrackNames: Object.keys(orfeoTrackNames).length > 0 ? orfeoTrackNames : undefined,
     _orfeoTrackColors: Object.keys(orfeoTrackColors).length > 0 ? orfeoTrackColors : undefined,
+    _orfeoTrackVisible: Object.keys(orfeoTrackVisible).length > 0 ? orfeoTrackVisible : undefined,
+    _orfeoTrackKeyboard: Object.keys(orfeoTrackKeyboard).length > 0 ? orfeoTrackKeyboard : undefined,
     _handTagsRestored: handTagsRestored,
   }
 
