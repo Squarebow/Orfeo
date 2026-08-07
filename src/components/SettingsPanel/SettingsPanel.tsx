@@ -1230,7 +1230,7 @@ function LibraryPanel() {
           >
             <button
               onClick={() => { window.electronAPI.showItemInFolder(contextMenu.path); setContextMenu(null) }}
-              title="Opens Windows Explorer in this file's folder with it highlighted"
+              title="Opens Windows Explorer with this file highlighted"
               style={MENU_ITEM_STYLE}
               onMouseEnter={e => { e.currentTarget.style.background = 'var(--bg-tile)'; e.currentTarget.style.color = 'var(--text-amber)' }}
               onMouseLeave={e => { e.currentTarget.style.background = 'none';           e.currentTarget.style.color = 'var(--text-default)' }}
@@ -1261,7 +1261,7 @@ function LibraryPanel() {
               onMouseEnter={e => { e.currentTarget.style.background = 'var(--bg-tile)'; e.currentTarget.style.color = 'var(--text-amber)' }}
               onMouseLeave={e => { e.currentTarget.style.background = 'none';           e.currentTarget.style.color = 'var(--text-default)' }}
             >
-              Remove from Library
+              Hide from library
             </button>
 
             {lastFolderOf.has(contextMenu.path) && (
