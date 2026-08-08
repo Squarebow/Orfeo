@@ -100,6 +100,9 @@ interface OrfeoStore {
   mixerMinimized: boolean
   setMixerOpen: (open: boolean) => void
   setMixerMinimized: (v: boolean) => void
+  // Snapshot of volume/pan/chorus/reverb as loaded from the file — diffed
+  // against live `tracks` values on mixer close to detect unsaved changes.
+  mixerBaseline: Record<number, { volume: number; pan: number; chorus: number; reverb: number }>
   midiEditorOpen: boolean
   setMidiEditorOpen: (open: boolean) => void
   pendingImportedFile: {
@@ -321,6 +324,8 @@ function makeTrackState(track: ParsedTrack): TrackState {
     showOnKeyboard,
     volume: (track as any)._cc7 ?? 1,
     pan: (track as any)._cc10 != null ? ((track as any)._cc10 - 0.5) * 2 : 0,
+    chorus: (track as any)._cc93 ?? 0,
+    reverb: (track as any)._cc91 ?? 0,
   }
 }
 
@@ -328,22 +333,28 @@ export const useStore = create<OrfeoStore>((set, get) => ({
   midi: null,
   barStarts: [],
   setMidi: (midi) => {
-    if (!midi) { set({ midi: null, tracks: [], currentTime: 0, playbackState: 'stopped', trackPanelOpen: false, barStarts: [], chordSequence: [], chordPrompterOpen: false, loopStart: null, loopEnd: null, loopRegionActive: false }); return }
+    if (!midi) { set({ midi: null, tracks: [], mixerBaseline: {}, currentTime: 0, playbackState: 'stopped', trackPanelOpen: false, barStarts: [], chordSequence: [], chordPrompterOpen: false, loopStart: null, loopEnd: null, loopRegionActive: false }); return }
     // ── Apply ORFEO_TRACK_NAME / ORFEO_TRACK_COLOR overrides from header meta ──
     const orfeoNames = (midi as any)._orfeoTrackNames as Record<number, string> | undefined
     const orfeoColors = (midi as any)._orfeoTrackColors as Record<number, string> | undefined
     const orfeoVisible = (midi as any)._orfeoTrackVisible as Record<number, boolean> | undefined
     const orfeoKeyboard = (midi as any)._orfeoTrackKeyboard as Record<number, boolean> | undefined
+    const newTracks = midi.tracks.map((t, i) => {
+      const ts = makeTrackState(t)
+      if (orfeoNames?.[i]) ts.trackName = orfeoNames[i]
+      if (orfeoColors?.[i]) { ts.color = orfeoColors[i]; ts.colorSource = 'custom' }
+      if (orfeoVisible?.[i] !== undefined) ts.visible = orfeoVisible[i]
+      if (orfeoKeyboard?.[i] !== undefined) ts.showOnKeyboard = orfeoKeyboard[i]
+      return ts
+    })
+    const mixerBaseline: OrfeoStore['mixerBaseline'] = {}
+    for (const ts of newTracks) {
+      mixerBaseline[ts.index] = { volume: ts.volume, pan: ts.pan, chorus: ts.chorus, reverb: ts.reverb }
+    }
     set({
       midi,
-      tracks: midi.tracks.map((t, i) => {
-        const ts = makeTrackState(t)
-        if (orfeoNames?.[i]) ts.trackName = orfeoNames[i]
-        if (orfeoColors?.[i]) { ts.color = orfeoColors[i]; ts.colorSource = 'custom' }
-        if (orfeoVisible?.[i] !== undefined) ts.visible = orfeoVisible[i]
-        if (orfeoKeyboard?.[i] !== undefined) ts.showOnKeyboard = orfeoKeyboard[i]
-        return ts
-      }),
+      tracks: newTracks,
+      mixerBaseline,
       currentTime: 0,
       playbackState: 'stopped',
       bpm: midi.bpm,
@@ -435,6 +446,7 @@ export const useStore = create<OrfeoStore>((set, get) => ({
   scaleExplorerMinimized: false,
   mixerOpen: false,
   mixerMinimized: false,
+  mixerBaseline: {},
   vuDisplayMode: 'bars',
   explorerKeys: new Set(),
   explorerKeyColors: new Map(),

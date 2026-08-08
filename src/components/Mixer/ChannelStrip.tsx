@@ -135,17 +135,19 @@ export default function ChannelStrip({ trackIndex }: ChannelStripProps) {
   const visible      = track?.visible      ?? true
   const showOnKeyboard = track?.showOnKeyboard ?? false
 
-  // ── Knob/fader state — initialized from CC data via store (seeded in midiParser) ──
+  // ── Knob/fader state — lives in store (per-track), seeded from CC data on
+  // file load — lets MixerConsole diff against mixerBaseline on close to
+  // detect unsaved changes and offer to persist them back into the file. ──
   const [dragging, setDragging] = useState(false)
-  const [chorus, setChorusState] = useState(() => (parsedTrack as any)?._cc93 ?? 0)
-  const [reverb, setReverbState] = useState(() => (parsedTrack as any)?._cc91 ?? 0)
-  const [pan,    setPanState]    = useState(() => track?.pan ?? 0)
-  const [volume, setVolume]      = useState(() => track?.volume ?? 1)
+  const chorus = track?.chorus ?? 0
+  const reverb = track?.reverb ?? 0
+  const pan    = track?.pan    ?? 0
+  const volume = track?.volume ?? 1
 
-  // ── Knob handlers — update local state and send CC to the Samples engine ──
-  const handleChorus = useCallback((v: number) => { setChorusState(v); setChannelChorus(midiChannel, v) }, [midiChannel])
-  const handleReverb = useCallback((v: number) => { setReverbState(v); setChannelReverb(midiChannel, v) }, [midiChannel])
-  const handlePan    = useCallback((v: number) => { setPanState(v);    setChannelPan(midiChannel, v)    }, [midiChannel])
+  // ── Knob handlers — update store and send CC to the Samples engine ───────
+  const handleChorus = useCallback((v: number) => { updateTrack(trackIndex, { chorus: v }); setChannelChorus(midiChannel, v) }, [trackIndex, midiChannel, updateTrack])
+  const handleReverb = useCallback((v: number) => { updateTrack(trackIndex, { reverb: v }); setChannelReverb(midiChannel, v) }, [trackIndex, midiChannel, updateTrack])
+  const handlePan    = useCallback((v: number) => { updateTrack(trackIndex, { pan: v });    setChannelPan(midiChannel, v)    }, [trackIndex, midiChannel, updateTrack])
 
   // ── VU meter — refs avoid re-renders in the rAF loop ─────────────────────
   const vuRef    = useRef<HTMLCanvasElement>(null)
@@ -233,7 +235,7 @@ export default function ChannelStrip({ trackIndex }: ChannelStripProps) {
 
     const onMove = (me: MouseEvent) => {
       const v = Math.max(0, Math.min(1, startVol + -(me.clientY - startY) / travel))
-      setVolume(v)
+      updateTrack(trackIndex, { volume: v })
       setChannelVolume(midiChannel, v)
     }
     const onUp = () => {
@@ -243,7 +245,7 @@ export default function ChannelStrip({ trackIndex }: ChannelStripProps) {
     }
     document.addEventListener('mousemove', onMove)
     document.addEventListener('mouseup',   onUp)
-  }, [muted, volume, sectionH])
+  }, [muted, volume, sectionH, trackIndex, midiChannel, updateTrack])
 
   // Muted → fader slides gracefully to bottom (0) in 150ms ease-out
   const visualVolume = muted ? 0 : volume

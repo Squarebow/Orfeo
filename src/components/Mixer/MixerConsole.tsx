@@ -6,6 +6,9 @@ import ChannelStrip from './ChannelStrip'
 import MasterStrip from './MasterStrip'
 import OrfeoMark from '../OrfeoMark'
 import { getPianoRollCenterX, getKeyboardHeaderTop } from '../../utils/modalAnchors'
+import { confirmDialog } from '../../utils/confirmController'
+import { parseMidiBuffer } from '../../utils/midiParser'
+import { detectKeyFromTracks, parseKeySignature } from '../../utils/keyDetection'
 
 // ── MixerConsole — floating draggable modal ───────────────────────────────────
 // Opened via Ctrl+Shift+M or the Console (SlidersVertical) icon in the TrackPanel.
@@ -60,6 +63,53 @@ export default function MixerConsole() {
       y: Math.round(getKeyboardHeaderTop() - MODAL_H_APPROX) - 11,
     })
   }, [mixerOpen])
+
+  // ── Close — diffs live channel values against the file-load baseline; if any
+  // channel's volume/pan/reverb/chorus changed, offers to save before closing.
+  // Save writes a new _ORFEO_vN file (same versioning as editor:save) and
+  // switches the app to it; Discard drops the changes; Cancel keeps the mixer
+  // open. Nothing to diff (Master strip, mute/solo/etc.) — those stay session-only. ──
+  const requestClose = useCallback(async () => {
+    const { tracks: liveTracks, mixerBaseline, midi } = useStore.getState()
+    const changed = liveTracks.filter(t => {
+      const base = mixerBaseline[t.index]
+      return base && (base.volume !== t.volume || base.pan !== t.pan || base.chorus !== t.chorus || base.reverb !== t.reverb)
+    })
+    if (changed.length === 0 || !midi) { setMixerOpen(false); return }
+
+    const filePath = (midi as any)._filePath ?? ''
+    const choice = await confirmDialog({
+      title: 'Save mixer changes?',
+      message: `Volume, pan, reverb, and chorus were changed for ${changed.length} channel(s).`,
+      buttons: ['Save', 'Discard', 'Cancel'],
+    })
+    if (choice === 2) return // Cancel — leave mixer open
+    if (choice === 1) { setMixerOpen(false); return } // Discard — re-seeded from file next open
+
+    try {
+      const result = await window.electronAPI.saveMixerChannels({
+        filePath,
+        channels: changed.map(t => ({ index: t.index, volume: t.volume, pan: t.pan, chorus: t.chorus, reverb: t.reverb })),
+      })
+      if (!result.ok || !result.base64 || !result.fileName || !result.filePath) {
+        await confirmDialog({ title: 'Save failed', message: result.message ?? 'Could not save mixer changes.', buttons: ['OK'] })
+        return // leave mixer open so the user can retry
+      }
+      const binary = atob(result.base64)
+      const bytes  = new Uint8Array(binary.length)
+      for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i)
+      const parsed = parseMidiBuffer(bytes.buffer, result.fileName, result.filePath)
+      useStore.getState().setMidi(parsed)
+      const raw = parsed as any
+      useStore.getState().setDetectedKey(
+        raw._keySignature ? parseKeySignature(raw._keySignature.key, raw._keySignature.scale) : detectKeyFromTracks(parsed.tracks),
+      )
+      ;(useStore.getState() as any).setLibraryNeedsRefresh?.(true)
+      setMixerOpen(false)
+    } catch (e: any) {
+      await confirmDialog({ title: 'Save failed', message: e?.message ?? 'Could not save mixer changes.', buttons: ['OK'] })
+    }
+  }, [setMixerOpen])
 
   // ── Sort by GROUP_ORDER — matches TrackPanel display order ──────────────────
   const sortedTracks = useMemo(() =>
@@ -148,10 +198,10 @@ export default function MixerConsole() {
   // ── Close on Escape ───────────────────────────────────────────────────────
   useEffect(() => {
     if (!mixerOpen) return
-    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') setMixerOpen(false) }
+    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') requestClose() }
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
-  }, [mixerOpen, setMixerOpen])
+  }, [mixerOpen, requestClose])
 
   // ── Do not mount until first open ────────────────────────────────────────
   if (!everOpened) return null
@@ -223,7 +273,7 @@ export default function MixerConsole() {
             <Minus size={14} />
           </button>
           <button
-            onClick={() => setMixerOpen(false)}
+            onClick={requestClose}
             title="Close"
             style={{
               background: 'none', border: 'none', cursor: 'pointer',

@@ -1,5 +1,15 @@
 # Changelog
 
+## [1.4.0-pre] — 8. 8. 2026 — Mixer Console: save per-channel settings to file
+
+Console Mixer channel strips (volume, pan, reverb, chorus) were previously session-only — re-seeded from the file's CC data on every load, discarded on close. Brainstormed and built end to end: values now persist to disk on request.
+
+Volume/pan/chorus/reverb moved from `ChannelStrip`'s local `useState` into the store (`TrackState.chorus`/`.reverb` joined the existing `.volume`/`.pan`), with a `mixerBaseline` snapshot captured on file load. Closing the mixer (Escape or the × button) diffs live values against that baseline; if any channel changed, a Save/Discard/Cancel dialog appears. **Save** writes a new `_ORFEO_vN.mid` (same versioning `editor:save` uses — never overwrites) via a new `mixer:save` IPC handler, which flattens each channel's CC7/CC10/CC91/CC93 to a single static value at time 0 (the mixer UI only ever represented one static value, so any pre-existing automation on those controllers is replaced, not preserved) and logs one entry to the file's Orfeo History. The app then reloads onto the new version. **Discard** closes without writing; **Cancel** leaves the mixer open. Master strip and everything else on the channel strip (mute/solo/etc.) stay session-only — out of scope.
+
+**New:** `mixer:save` IPC (`electron/main.ts`, `electron/preload.ts`, `src/types/index.ts`). **Changed:** `src/store/index.ts` (`mixerBaseline`, `TrackState.chorus`/`.reverb`), `src/components/Mixer/ChannelStrip.tsx`, `src/components/Mixer/MixerConsole.tsx`.
+
+---
+
 ## [1.3.0-pre] — 7. 8. 2026 — File info popup (metadata, change log, version chain)
 
 New right-click "File info" popup for any library file — brainstormed then built in four phases, plus a real bug fix uncovered during testing that affected file organization generally, not just this feature.

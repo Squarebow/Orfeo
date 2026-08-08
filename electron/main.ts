@@ -767,6 +767,54 @@ ipcMain.handle('editor:save', async (_e, payload: {
   }
 })
 
+// ── Mixer Console — persist per-channel volume/pan/reverb/chorus into the file ──
+// Flattens each CC to a single static value at time 0 (the mixer UI never
+// represented automation, only one value per channel), writes through the same
+// _ORFEO_vN versioning as editor:save, and logs one changelog entry.
+ipcMain.handle('mixer:save', async (_e, payload: {
+  filePath: string
+  channels: { index: number; volume: number; pan: number; chorus: number; reverb: number }[]
+}) => {
+  try {
+    if (!payload.filePath) return { ok: false, message: 'No source file loaded' }
+    const midi = new Midi(readFileSync(payload.filePath))
+
+    const noteTrackIndices: number[] = []
+    midi.tracks.forEach((t, i) => { if (t.notes.length > 0) noteTrackIndices.push(i) })
+
+    const setStaticCC = (rawIdx: number, ccNumber: number, value: number) => {
+      const track = midi.tracks[rawIdx]
+      ;(track.controlChanges as any)[ccNumber] = []
+      track.addCC({ number: ccNumber, value, time: 0 })
+    }
+
+    for (const ch of payload.channels) {
+      const rawIdx = noteTrackIndices[ch.index]
+      if (rawIdx === undefined) continue
+      setStaticCC(rawIdx, 7,  Math.max(0, Math.min(1, ch.volume)))
+      setStaticCC(rawIdx, 10, Math.max(0, Math.min(1, ch.pan / 2 + 0.5)))
+      setStaticCC(rawIdx, 91, Math.max(0, Math.min(1, ch.reverb)))
+      setStaticCC(rawIdx, 93, Math.max(0, Math.min(1, ch.chorus)))
+    }
+
+    const orfeoDir   = await getOrfeoOutputDir(payload.filePath)
+    const rawBase    = basename(payload.filePath).replace(/\.midi?$/i, '')
+    const outputPath = join(orfeoDir, `${nextOrfeoBaseName(rawBase)}.mid`)
+
+    const outBuf = Buffer.from(midi.toArray())
+    writeFileSync(outputPath, outBuf)
+
+    const fileName = outputPath.split(/[\\/]/).pop() ?? outputPath
+    appendFileLogEvent(outputPath, {
+      type: 'mixer', timestamp: Date.now(),
+      summary: `Mixer: volume/pan/reverb/chorus changed on ${payload.channels.length} channel(s)`,
+    })
+    return { ok: true, message: `Saved: ${fileName}`, filePath: outputPath, fileName, base64: outBuf.toString('base64') }
+  } catch (e: any) {
+    return { ok: false, message: e?.message ?? 'Save failed' }
+  }
+})
+
 // ── Chord Transcript PDF generation ───────────────────────────────────────────
 
 // ── Strip trailing M from plain major chord names (CM → C, GM → G) ───────────

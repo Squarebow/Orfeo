@@ -87,6 +87,8 @@ export interface TrackState {
   showOnKeyboard: boolean
   volume: number
   pan: number
+  chorus: number
+  reverb: number
 }
 
 export type KeyboardSize = 61 | 73 | 88
@@ -133,6 +135,7 @@ declare global {
       transcriptGenerate:  (midiPath: string, noteNaming: string, accidentals: string) => Promise<{ success: boolean; path?: string; error?: string }>
       saveFileDialog:      (opts: { defaultPath: string; filters: { name: string; extensions: string[] }[] }) => Promise<string | null>
       saveMidiEditor:      (payload: { filePath: string; outputPath: string; includedTracks: { index: number; newProgram: number; name?: string; color?: string; splitHand?: 'L' | 'R'; visible?: boolean; showOnKeyboard?: boolean }[]; mergeGroups: number[][]; rhMaxFingers?: number; lhMaxFingers?: number }) => Promise<{ ok: boolean; message: string; filePath?: string; fileName?: string; base64?: string }>
+      saveMixerChannels:   (payload: { filePath: string; channels: { index: number; volume: number; pan: number; chorus: number; reverb: number }[] }) => Promise<{ ok: boolean; message?: string; filePath?: string; fileName?: string; base64?: string }>
       saveNoteEditor:      (payload: { outputPath: string; base64: string }) => Promise<{ ok: boolean; message?: string; filePath?: string; fileName?: string; base64?: string }>
       showMessageBox:      (opts: { type?: string; buttons: string[]; defaultId?: number; cancelId?: number; message: string; detail?: string }) => Promise<{ response: number }>
       confirmClose:        () => Promise<void>

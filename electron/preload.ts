@@ -17,6 +17,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
   // MIDI Editor
   saveFileDialog:     (opts: any) => ipcRenderer.invoke('dialog:saveFile', opts),
   saveMidiEditor:     (payload: any) => ipcRenderer.invoke('editor:save', payload),
+  saveMixerChannels:  (payload: any) => ipcRenderer.invoke('mixer:save', payload),
   openExternal:       (url: string) => ipcRenderer.invoke('shell:openExternal', url),
   openFolderInExplorer: (folderPath: string) => ipcRenderer.invoke('shell:openFolder', folderPath),
   showItemInFolder:   (filePath: string) => ipcRenderer.invoke('shell:showItemInFolder', filePath),
