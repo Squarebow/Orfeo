@@ -823,15 +823,18 @@ export default function PianoRoll() {
           // ── Hand coloring — fixed LH/RH tokens, not per-track palette. A track
           // that's a genuine split output (every note same hand — Piano LH/RH)
           // always renders in these colors. A single mixed-hand track only does
-          // when Left/Right Hand mode is on; off, it falls back to the LH color
-          // as the piece's one uniform piano color. Non-piano notes (no hand
-          // tag) keep their normal per-track palette color throughout.
+          // when Left/Right Hand mode is on; off, it falls back to the track's
+          // own color — same contract as resolveHandAwareColor() (handColors.ts),
+          // which Keyboard.tsx calls directly; this is a numeric-color PixiJS
+          // reimplementation of the same rule, not an independent one. Non-piano
+          // notes (no hand tag) keep their normal per-track palette color throughout.
           const isSplitTrack = homogeneousHandTracksRef.current.has(note.trackIndex)
+          const trackColorNum = parseInt((ts?.color ?? '#e8a027').replace('#', ''), 16)
           const color = !note.hand
-            ? parseInt((ts?.color ?? '#e8a027').replace('#', ''), 16)
+            ? trackColorNum
             : (isSplitTrack || showHandLabels)
               ? (note.hand === 'L' ? HAND_LH_COLOR : HAND_RH_COLOR)
-              : HAND_LH_COLOR
+              : trackColorNum
           const topY   = py - (note.time + note.duration - currentTime) * pps
           const botY   = py - (note.time - currentTime) * pps
           const noteH  = Math.max(botY - topY, MIN_NOTE_H)

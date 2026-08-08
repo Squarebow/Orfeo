@@ -1,5 +1,25 @@
 # Changelog
 
+## [1.4.1-pre] — 8. 8. 2026 — Piano/keys track color consistency, Playback Editor color bugs, split/merge UI polish
+
+Piano and keys tracks were rendering a different, arbitrary color every load — root-caused to two disconnected color sources and a per-load-order assignment with no instrument awareness. Fixed alongside two related Playback Editor color bugs found during investigation, plus two small split/merge UI fixes.
+
+### Piano/keys tracks: deterministic color on every load
+`src/utils/midiParser.ts` had its own bespoke 12-color array, separate from the 10-color `TRACK_COLOR_PALETTE` shown in the Playback Editor's color picker (`src/utils/colors.ts`) — and assigned colors by raw note-track encounter order, with no idea which tracks were piano vs. anything else. Whichever color landed on a given file's piano track was pure chance based on how many other tracks preceded it. Unified onto one palette and made piano-family tracks (`KEYBOARD_GROUPS`: piano/chromatic/organ) deterministic: 1st piano/keys track always gets the same blue as the Left Hand split color, 2nd always gets the same pink as Right Hand, 3rd+ gets Orfeo amber. Non-piano tracks keep round-robining the rest of the palette. Purely a default-assignment change at parse time — no file writes, no versioning. TrackPanel, Piano Roll, and Keyboard already shared one `store.tracks[i].color`, so once the assigned value is consistent, all three render it consistently.
+
+### Bugfix — Cancel in Playback Editor kept a picked color
+Picking a color swatch wrote straight into the live global store immediately (so Track Panel/Keyboard could preview it live) instead of staying staged like every other edit in the editor. Clicking Cancel (or the × close button) discarded the editor's local staged state but never reverted that already-committed store write — the new color stuck around even though nothing was saved. Added an open-time color/colorSource snapshot and a `handleCancel` that reverts any track whose color drifted from it before closing.
+
+### Bugfix — Piano Roll ignored a saved custom track color
+Piano Roll had its own inline reimplementation of hand-aware note coloring instead of using the shared `resolveHandAwareColor()` (`utils/handColors.ts`) that Keyboard correctly calls — and its fallback branch was hardcoded to the LH hand color instead of the track's own color. Since `editor:save` hand-tags every keyboard-group track on every save (not just explicit splits), this meant Piano Roll could never show a custom-picked color for any piano track again after a single save — only Track Panel and Keyboard reflected the change. Fixed the fallback to use the track's real color, matching Keyboard's behavior.
+
+### Playback Editor — split/merge UI polish
+Split preview's small Cancel button (next to the hand-split stats) renamed to "Don't split" for clarity against the footer's own Cancel, and now ambers on hover like the rest of the editor's secondary actions. Merge-selected row highlight was a dark mustard/olive tint (`#1a1a08`) that read as an error state — changed to the same blue family as the Unmerge button/badge (`--unmerge-bg`); the merge-toggle icon itself now also tints to that blue on hover.
+
+**Changed:** `src/utils/colors.ts`, `src/utils/midiParser.ts`, `src/components/MidiEditor/MidiEditor.tsx`, `src/components/PianoRoll/PianoRoll.tsx`, `src/index.css`.
+
+---
+
 ## [1.4.0-pre] — 8. 8. 2026 — Mixer Console: save per-channel settings to file
 
 Console Mixer channel strips (volume, pan, reverb, chorus) were previously session-only — re-seeded from the file's CC data on every load, discarded on close. Brainstormed and built end to end: values now persist to disk on request.

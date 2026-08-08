@@ -5,12 +5,14 @@ import { restoreHandTagsFromHints } from './handMetadata'
 import { assignHands } from './handAssignment'
 import { useStore } from '../store'
 import { KEYBOARD_GROUPS } from './keyboardGroups'
+import { TRACK_COLOR_PALETTE } from './colors'
 
-const TRACK_COLORS = [
-  '#e8a027', '#6b7ab5', '#4ecdc4', '#e06c75',
-  '#98c379', '#c678dd', '#61afef', '#e5c07b',
-  '#f0a500', '#7ec8e3', '#d4a5a5', '#a8d8a8',
-]
+// ── Piano-family default colors — deterministic regardless of track order,
+// so the same visual identity (1st = LH blue, 2nd = RH pink, 3rd+ = amber)
+// shows up for any file instead of whatever slot a round-robin lands on.
+// Non-piano tracks still round-robin the shared palette (order doesn't matter
+// there). See docs/superpowers/specs (gitignored) for the incident this fixes. ──
+const PIANO_FAMILY_COLORS = [TRACK_COLOR_PALETTE[2], TRACK_COLOR_PALETTE[7], TRACK_COLOR_PALETTE[0]]
 
 export function parseMidiBuffer(buffer: ArrayBuffer, fileName: string, filePath = ''): ParsedMidi {
   // FUTURE: KAR lyric events (meta type 0x05 = lyrics, 0x01 = text) could
@@ -37,14 +39,17 @@ export function parseMidiBuffer(buffer: ArrayBuffer, fileName: string, filePath 
   } catch {}
 
   const tracks: ParsedTrack[] = []
+  let pianoFamilyIndex = 0
 
   midi.tracks.forEach((track, i) => {
     if (track.notes.length === 0) return
-    const color = TRACK_COLORS[tracks.length % TRACK_COLORS.length]
     const isDrum = track.channel === 9
     const program = isDrum ? -1 : (track.instrument?.number ?? 0)
     const gmName = isDrum ? 'Standard Drum Kit' : getGMName(program)
     const group = getGMGroup(program, isDrum)
+    const color = KEYBOARD_GROUPS.has(group)
+      ? PIANO_FAMILY_COLORS[Math.min(pianoFamilyIndex++, PIANO_FAMILY_COLORS.length - 1)]
+      : TRACK_COLOR_PALETTE[tracks.length % TRACK_COLOR_PALETTE.length]
 
     const notes: ParsedNote[] = track.notes.map(n => ({
       midi: n.midi,

@@ -187,7 +187,7 @@
 --track-included-color: #50c050;    /* MidiEditor track-include toggle — included (true) icon color */
 --track-excluded: #353540;          /* MidiEditor track-include toggle — excluded (false) border + icon color */
 --track-merged-row-bg: #101020;     /* MidiEditor track row background when merged */
---track-mergeselected-row-bg: #1a1a08; /* MidiEditor track row background when selected for merge */
+--track-mergeselected-row-bg: #10102a; /* MidiEditor track row background when selected for merge — same blue family as --unmerge-bg */
 --merge-badge-bg: #20204a;    /* MidiEditor "merged" badge background */
 --merge-badge-text: #8080cc;  /* MidiEditor "merged" badge text + Unmerge button icon color */
 --unmerge-border: #4040a0;    /* MidiEditor Unmerge button border */

@@ -668,14 +668,23 @@ function TrackRow({ track, onToggleIncluded, onToggleMerge, onChangeProgram, onU
           <Merge size={11} />
         </div>
       ) : (
-        <button onClick={onToggleMerge} title="Select two or more tracks to merge them into one" style={{
-          width: 24, height: 24, borderRadius: 4, justifySelf: 'start',
-          border: `1.5px solid ${track.mergeSelected ? 'var(--accent-amber-strong)' : 'var(--border2)'}`,
-          background: track.mergeSelected ? 'var(--accent-amber-medium)' : 'transparent',
-          color: track.mergeSelected ? 'var(--text-amber)' : 'var(--text-dim-control)',
-          display: 'flex', alignItems: 'center', justifyContent: 'center',
-          cursor: 'pointer', flexShrink: 0,
-        }}>
+        <button
+          onClick={onToggleMerge}
+          title="Select two or more tracks to merge them into one"
+          style={{
+            width: 24, height: 24, borderRadius: 4, justifySelf: 'start',
+            border: `1.5px solid ${track.mergeSelected ? 'var(--accent-amber-strong)' : 'var(--border2)'}`,
+            background: track.mergeSelected ? 'var(--accent-amber-medium)' : 'transparent',
+            color: track.mergeSelected ? 'var(--text-amber)' : 'var(--text-dim-control)',
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            cursor: 'pointer', flexShrink: 0, transition: 'border-color 0.12s, color 0.12s',
+          }}
+          onMouseEnter={e => { e.currentTarget.style.borderColor = 'var(--unmerge-border)'; e.currentTarget.style.color = 'var(--merge-badge-text)' }}
+          onMouseLeave={e => {
+            e.currentTarget.style.borderColor = track.mergeSelected ? 'var(--accent-amber-strong)' : 'var(--border2)'
+            e.currentTarget.style.color = track.mergeSelected ? 'var(--text-amber)' : 'var(--text-dim-control)'
+          }}
+        >
           <Merge size={11} />
         </button>
       )}
@@ -803,10 +812,25 @@ export default function MidiEditor() {
   // ── Snapshot of each row's color/name/roll/keyboard as of the last time
   // rows were freshly loaded (open, or post-save resync) — buildSaveSummary
   // diffs against this to report only what actually changed this session.
-  const originalRowsRef = useRef<Map<number, { color: string; trackName: string; visible: boolean; showOnKeyboard: boolean }>>(new Map())
+  const originalRowsRef = useRef<Map<number, { color: string; colorSource: EditorTrack['colorSource']; trackName: string; visible: boolean; showOnKeyboard: boolean }>>(new Map())
   const snapshotRows = (rows: EditorTrack[]) => {
-    originalRowsRef.current = new Map(rows.map(r => [r.index, { color: r.color, trackName: r.trackName, visible: r.visible, showOnKeyboard: r.showOnKeyboard }]))
+    originalRowsRef.current = new Map(rows.map(r => [r.index, { color: r.color, colorSource: r.colorSource, trackName: r.trackName, visible: r.visible, showOnKeyboard: r.showOnKeyboard }]))
   }
+  // ── Cancel — handleApplyColor writes color straight into the live store (so
+  // TrackPanel/Keyboard/PianoRoll preview it immediately while the editor is
+  // open), unlike every other edit here which stays staged in `state.rows`
+  // until Save & Reload. That means closing without saving must explicitly
+  // revert any track whose store color drifted from the open-time snapshot —
+  // otherwise Cancel silently keeps a color pick it never should have. ──────
+  const handleCancel = useCallback(() => {
+    originalRowsRef.current.forEach((orig, index) => {
+      const track = useStore.getState().tracks.find(t => t.index === index)
+      if (track && track.color !== orig.color) {
+        useStore.getState().updateTrack(index, { color: orig.color, colorSource: orig.colorSource })
+      }
+    })
+    setMidiEditorOpen(false)
+  }, [])
   // ── Z-index — bringToFront on mousedown so last-clicked modal is on top ────
   const [zIndex, setZIndex] = useState(MODAL_BASE_Z)
 
@@ -1180,7 +1204,7 @@ export default function MidiEditor() {
         </span>
         <button
           data-no-drag="true"
-          onClick={() => setMidiEditorOpen(false)}
+          onClick={handleCancel}
           title="Close editor"
           style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-inactive)', lineHeight: 1, padding: '0 2px', display: 'flex', alignItems: 'center', transition: 'color 0.15s', flexShrink: 0 }}
           onMouseEnter={e => e.currentTarget.style.color = 'var(--text-default)'}
@@ -1292,7 +1316,14 @@ export default function MidiEditor() {
                   )}
                 </div>
               </div>
-              <button onClick={() => setPendingSplitIndex(null)} style={{ padding: '4px 10px', borderRadius: 4, flexShrink: 0, border: '1px solid var(--border2)', background: 'transparent', color: 'var(--text-dim-control)', fontSize: 'var(--text-xs)', cursor: 'pointer' }}>Cancel</button>
+              <button
+                onClick={() => setPendingSplitIndex(null)}
+                style={{ padding: '4px 10px', borderRadius: 4, flexShrink: 0, border: '1px solid var(--border2)', background: 'transparent', color: 'var(--text-dim-control)', fontSize: 'var(--text-xs)', cursor: 'pointer', transition: 'color 0.12s, border-color 0.12s' }}
+                onMouseEnter={e => { e.currentTarget.style.color = 'var(--text-amber)'; e.currentTarget.style.borderColor = 'var(--accent-amber-strong)' }}
+                onMouseLeave={e => { e.currentTarget.style.color = 'var(--text-dim-control)'; e.currentTarget.style.borderColor = 'var(--border2)' }}
+              >
+                Don't split
+              </button>
             </div>
 
             {/* ── Timeline: each note as a colored tick, low-confidence passages flagged with a red band ── */}
@@ -1452,7 +1483,7 @@ export default function MidiEditor() {
           ) : (
             <div style={{ display: 'flex', gap: 6, flexShrink: 0 }}>
               <button
-                onClick={() => setMidiEditorOpen(false)}
+                onClick={handleCancel}
                 style={{ width: FOOTER_BTN_W, padding: '6px 0', borderRadius: 'var(--radius-md)', background: 'transparent', border: '1px solid var(--border2)', color: 'var(--text-muted)', fontSize: 'var(--text-sm)', cursor: 'pointer', transition: 'all 0.12s' }}
                 onMouseEnter={e => { e.currentTarget.style.color = 'var(--text-amber)'; e.currentTarget.style.borderColor = 'var(--accent-amber-strong)' }}
                 onMouseLeave={e => { e.currentTarget.style.color = 'var(--text-muted)'; e.currentTarget.style.borderColor = 'var(--border2)' }}
