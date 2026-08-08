@@ -202,6 +202,9 @@ interface OrfeoStore {
   setFavourites: (paths: string[], starred: boolean) => void
   hiddenLibraryFiles: string[]
   hideLibraryFile: (path: string) => void
+  unhideLibraryFile: (path: string) => void
+  showHiddenLibraryFiles: boolean
+  setShowHiddenLibraryFiles: (v: boolean) => void
   remapLibraryPaths: (pairs: { oldPath: string; newPath: string }[]) => void
   lastFolderOf: Map<string, string | null>
   setLastFolderOf: (map: Map<string, string | null>) => void
@@ -719,6 +722,11 @@ export const useStore = create<OrfeoStore>((set, get) => ({
       ? s.hiddenLibraryFiles
       : [...s.hiddenLibraryFiles, path],
   })),
+  unhideLibraryFile: (path) => set((s) => ({
+    hiddenLibraryFiles: s.hiddenLibraryFiles.filter(p => p !== path),
+  })),
+  showHiddenLibraryFiles: false,
+  setShowHiddenLibraryFiles: (showHiddenLibraryFiles) => set({ showHiddenLibraryFiles }),
   // ── Applies old→new path pairs after a folder move/rename, so a starred or
   // hidden file doesn't silently lose that state when its path changes. ──────
   remapLibraryPaths: (pairs) => set((s) => {
@@ -753,6 +761,9 @@ async function restoreLibraryPrefs() {
     }
     if (Array.isArray(prefs.hiddenLibraryFiles)) {
       useStore.setState({ hiddenLibraryFiles: prefs.hiddenLibraryFiles })
+    }
+    if (typeof prefs.showHiddenLibraryFiles === 'boolean') {
+      useStore.setState({ showHiddenLibraryFiles: prefs.showHiddenLibraryFiles })
     }
     if (prefs.noteNaming) store.setNoteNaming(prefs.noteNaming)
     if (prefs.accidentals) store.setAccidentals(prefs.accidentals)
@@ -808,8 +819,9 @@ const _unsubFav = useStore.subscribe((state) => {
   if (_favTimer) clearTimeout(_favTimer)
   _favTimer = setTimeout(() => {
     window.electronAPI?.setPrefs?.({
-      libraryFavourites:   Array.from(state.libraryFavourites),
-      hiddenLibraryFiles:  state.hiddenLibraryFiles,
+      libraryFavourites:      Array.from(state.libraryFavourites),
+      hiddenLibraryFiles:     state.hiddenLibraryFiles,
+      showHiddenLibraryFiles: state.showHiddenLibraryFiles,
     }).catch(() => {})
   }, 1000)
 })

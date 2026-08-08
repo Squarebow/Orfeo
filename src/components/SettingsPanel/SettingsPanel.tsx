@@ -5,7 +5,7 @@ import { confirmDialog } from '../../utils/confirmController'
 import {
   ChevronLeft, ChevronDown, ChevronRight, Music2, Piano, Palette, Columns3, Volume2,
   Music, FolderOpen, Folders, RefreshCw, FileMusic, FileCode2, Guitar, BookOpen, Library, Settings, Info,
-  Search, X, Undo2, Upload, ToggleLeft, ToggleRight, CloudDownload,
+  Search, X, Undo2, Upload, ToggleLeft, ToggleRight, CloudDownload, ChevronsDownUp,
 } from 'lucide-react'
 import { useStore } from '../../store'
 import OrfeoMark from '../OrfeoMark'
@@ -495,6 +495,9 @@ function SettingsDropdown<T extends string>({ value, options, onChange, title }:
 // ── Filename span styles — active (amber) and default (muted) ─────────────────
 const FILENAME_SPAN_DEFAULT: React.CSSProperties = { fontSize: 'var(--text-xs)', color: 'var(--text-muted)' }
 const FILENAME_SPAN_ACTIVE:  React.CSSProperties = { fontSize: 'var(--text-xs)', color: 'var(--text-amber)', fontWeight: 500 }
+// Revealed-hidden-file row (showHiddenLibraryFiles on) — dimmest amber shade,
+// not a generic gray fade, so it still reads as "library color" not "disabled".
+const FILENAME_SPAN_HIDDEN:  React.CSSProperties = { fontSize: 'var(--text-xs)', color: 'var(--text-amber-dimmest)' }
 
 // ── Sticky headers stack: "Folders" section header (top:0) → individual
 // folder header (top:FOLDER_HEADER_HEIGHT) → loaded file's row, if visible,
@@ -533,6 +536,9 @@ function LibraryPanel() {
   // ── Hidden files — client-side exclusion list, no disk change ────────────
   const hiddenLibraryFiles = useStore((s) => s.hiddenLibraryFiles)
   const hideLibraryFile    = useStore((s) => s.hideLibraryFile)
+  const unhideLibraryFile  = useStore((s) => s.unhideLibraryFile)
+  const showHiddenLibraryFiles    = useStore((s) => s.showHiddenLibraryFiles)
+  const setShowHiddenLibraryFiles = useStore((s) => s.setShowHiddenLibraryFiles)
   const remapLibraryPaths  = useStore((s) => s.remapLibraryPaths)
   const setFavourites      = useStore((s) => s.setFavourites)
   const lastFolderOf       = useStore((s) => s.lastFolderOf)
@@ -952,11 +958,14 @@ function LibraryPanel() {
   type FileGroup = { folder: string | null; files: LibraryFile[] }
   const grouped: FileGroup[] = useMemo(() => {
     const hiddenSet = new Set(hiddenLibraryFiles)
+    // When revealed, hidden files stay in the list (dimmed at render time) —
+    // otherwise they're excluded here so the rest of the render sees a clean list.
+    const isExcluded = (f: LibraryFile) => !showHiddenLibraryFiles && hiddenSet.has(f.path)
 
     if (librarySearch.trim()) {
       const matches = libraryFuse.search(librarySearch.trim())
         .map(r => r.item)
-        .filter(f => !hiddenSet.has(f.path))
+        .filter(f => !isExcluded(f))
       return [{ folder: null, files: matches }]
     }
 
@@ -964,7 +973,7 @@ function LibraryPanel() {
     // Files stay physically wherever they are on disk; this tab is just a
     // cross-folder view of everything currently favourited. ─────────────────
     if (filter === 'starred') {
-      const matches = libraryFiles.filter(f => libraryFavourites.has(f.path) && !hiddenSet.has(f.path))
+      const matches = libraryFiles.filter(f => libraryFavourites.has(f.path) && !isExcluded(f))
       return [{ folder: null, files: matches }]
     }
 
@@ -972,7 +981,7 @@ function LibraryPanel() {
     // above this list (see render below) — it still renders here too, at its
     // normal alphabetical spot inside its folder, so a folder's contents
     // never look like a file went missing just because it's the loaded one.
-    const allFiles = libraryFiles.filter((f: LibraryFile) => !hiddenSet.has(f.path))
+    const allFiles = libraryFiles.filter((f: LibraryFile) => !isExcluded(f))
 
     const rootFiles: LibraryFile[] = []
     const folderMap = new Map<string, LibraryFile[]>()
@@ -1018,7 +1027,7 @@ function LibraryPanel() {
     result.push({ folder: null, files: rootFiles })
 
     return result
-  }, [libraryFiles, libraryFavourites, libraryFolder, filter, hiddenLibraryFiles, librarySearch, libraryFuse, libraryFolderNames])
+  }, [libraryFiles, libraryFavourites, libraryFolder, filter, hiddenLibraryFiles, showHiddenLibraryFiles, librarySearch, libraryFuse, libraryFolderNames])
 
   // ── Flat visible file order (collapsed folders excluded) — anchors Shift-range select ──
   const visibleFilePaths = useMemo(
@@ -1136,7 +1145,7 @@ function LibraryPanel() {
                   onClick={() => setFilter(f)}
                   title={f === 'all' ? 'Show all files' : 'Show favorites only'}
                   style={{
-                    flex: 1, padding: '3px 0', borderRadius: 4, fontSize: 10,
+                    flex: 1, padding: '3px 2px', borderRadius: 4, fontSize: 9,
                     border: filter === f ? '1px solid var(--accent-amber-strong)' : '1px solid var(--border2)',
                     background: filter === f ? 'var(--accent-amber-medium)' : 'transparent',
                     color: filter === f ? 'var(--text-amber)' : 'var(--text-inactive)',
@@ -1159,6 +1168,22 @@ function LibraryPanel() {
                 onMouseLeave={e => e.currentTarget.style.color = 'var(--text-inactive)'}
               >
                 <Folders size={10} />
+              </button>
+              <button
+                onClick={() => setShowHiddenLibraryFiles(!showHiddenLibraryFiles)}
+                title={showHiddenLibraryFiles ? 'Hide hidden files in library' : 'Show hidden files in library'}
+                style={{
+                  padding: '3px 6px', borderRadius: 4, fontSize: 10,
+                  border: showHiddenLibraryFiles ? '1px solid var(--accent-amber-strong)' : '1px solid var(--border2)',
+                  background: showHiddenLibraryFiles ? 'var(--accent-amber-medium)' : 'transparent',
+                  color: showHiddenLibraryFiles ? 'var(--text-amber)' : 'var(--text-inactive)',
+                  cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  transition: 'all 0.12s',
+                }}
+                onMouseEnter={e => { if (!showHiddenLibraryFiles) e.currentTarget.style.color = 'var(--text-amber)' }}
+                onMouseLeave={e => { if (!showHiddenLibraryFiles) e.currentTarget.style.color = 'var(--text-inactive)' }}
+              >
+                <ChevronsDownUp size={10} />
               </button>
             </div>
           </div>
@@ -1254,15 +1279,27 @@ function LibraryPanel() {
 
             <div style={{ borderTop: '1px solid var(--border2)', margin: '4px 0' }} />
 
-            <button
-              onClick={() => { hideLibraryFile(contextMenu.path); setContextMenu(null) }}
-              title="Hides this file from the library list — stays on disk, unaffected"
-              style={MENU_ITEM_STYLE}
-              onMouseEnter={e => { e.currentTarget.style.background = 'var(--bg-tile)'; e.currentTarget.style.color = 'var(--text-amber)' }}
-              onMouseLeave={e => { e.currentTarget.style.background = 'none';           e.currentTarget.style.color = 'var(--text-default)' }}
-            >
-              Hide from library
-            </button>
+            {hiddenLibraryFiles.includes(contextMenu.path) ? (
+              <button
+                onClick={() => { unhideLibraryFile(contextMenu.path); setContextMenu(null) }}
+                title="Restores this file to the normal library list"
+                style={MENU_ITEM_STYLE}
+                onMouseEnter={e => { e.currentTarget.style.background = 'var(--bg-tile)'; e.currentTarget.style.color = 'var(--text-amber)' }}
+                onMouseLeave={e => { e.currentTarget.style.background = 'none';           e.currentTarget.style.color = 'var(--text-default)' }}
+              >
+                Unhide
+              </button>
+            ) : (
+              <button
+                onClick={() => { hideLibraryFile(contextMenu.path); setContextMenu(null) }}
+                title="Hides this file from the library list — stays on disk, unaffected"
+                style={MENU_ITEM_STYLE}
+                onMouseEnter={e => { e.currentTarget.style.background = 'var(--bg-tile)'; e.currentTarget.style.color = 'var(--text-amber)' }}
+                onMouseLeave={e => { e.currentTarget.style.background = 'none';           e.currentTarget.style.color = 'var(--text-default)' }}
+              >
+                Hide from library
+              </button>
+            )}
 
             {lastFolderOf.has(contextMenu.path) && (
               <button
@@ -1460,9 +1497,10 @@ function LibraryPanel() {
               <span style={{ flex: 1, fontSize: 'var(--text-xs)', color: 'var(--text-tile-subtext)', fontWeight: 600 }}>Demo</span>
               <span style={{ fontSize: 9, color: 'var(--text-muted)', fontFamily: 'JetBrains Mono' }}>{demoFiles.length}</span>
             </div>
-            {demoFiles.filter((f: { name: string; path: string }) => !hiddenLibraryFiles.includes(f.path)).map(file => {
+            {demoFiles.filter((f: { name: string; path: string }) => showHiddenLibraryFiles || !hiddenLibraryFiles.includes(f.path)).map(file => {
               const isLoaded = !!loadedFilePath &&
                 file.path.replace(/\\/g, '/') === loadedFilePath.replace(/\\/g, '/')
+              const isHidden = hiddenLibraryFiles.includes(file.path)
               const fmt = detectForeignFormat(file.path)
               const RowIcon = fmt === 'musicxml' ? FileCode2 : fmt === 'guitarpro' ? Guitar : FileMusic
               const rowTitle = fmt === 'musicxml'  ? `${file.name} (MusicXML — imported)`
@@ -1487,9 +1525,9 @@ function LibraryPanel() {
                   {chordTranscriptionEnabled ? (
                     <TranscriptIcon filePath={file.path} noteNaming={noteNaming} accidentals={accidentals} addTranscriptEntry={addTranscriptEntry} isLoaded={isLoaded} />
                   ) : (
-                    <RowIcon size={11} strokeWidth={1.5} style={{ color: isLoaded ? 'var(--text-amber)' : 'var(--text-muted)', flexShrink: 0 }} />
+                    <RowIcon size={11} strokeWidth={1.5} style={{ color: isHidden ? 'var(--text-amber-dimmest)' : isLoaded ? 'var(--text-amber)' : 'var(--text-muted)', flexShrink: 0 }} />
                   )}
-                  <MarqueeText name={file.name.replace(/\.(mid|midi)$/i, '')} spanStyle={isLoaded ? FILENAME_SPAN_ACTIVE : FILENAME_SPAN_DEFAULT} />
+                  <MarqueeText name={file.name.replace(/\.(mid|midi)$/i, '')} spanStyle={isHidden ? FILENAME_SPAN_HIDDEN : isLoaded ? FILENAME_SPAN_ACTIVE : FILENAME_SPAN_DEFAULT} />
                 </div>
               )
             })}
@@ -1635,6 +1673,7 @@ function LibraryPanel() {
               const isLoaded  = !!loadedFilePath &&
                 file.path.replace(/\\/g, '/') === loadedFilePath.replace(/\\/g, '/')
               const isSelected = selectedPaths.has(file.path)
+              const isHidden  = hiddenLibraryFiles.includes(file.path)
               // ── Cell border+background is reserved for multi-select (2+ files, the
               // drag/create-folder gesture) — a single selected/loaded file only gets
               // its icon+filename highlighted amber, no cell decoration. ─────────────
@@ -1687,9 +1726,9 @@ function LibraryPanel() {
                   {chordTranscriptionEnabled ? (
                     <TranscriptIcon filePath={file.path} noteNaming={noteNaming} accidentals={accidentals} addTranscriptEntry={addTranscriptEntry} isLoaded={isLoaded} />
                   ) : (
-                    <RowIcon size={11} strokeWidth={1.5} style={{ color: isLoaded || isSelected ? 'var(--text-amber)' : 'var(--text-muted)', flexShrink: 0 }} />
+                    <RowIcon size={11} strokeWidth={1.5} style={{ color: isHidden ? 'var(--text-amber-dimmest)' : isLoaded || isSelected ? 'var(--text-amber)' : 'var(--text-muted)', flexShrink: 0 }} />
                   )}
-                  <MarqueeText name={file.name.replace(/\.(mid|midi)$/i, '')} spanStyle={isLoaded || isSelected ? FILENAME_SPAN_ACTIVE : FILENAME_SPAN_DEFAULT} />
+                  <MarqueeText name={file.name.replace(/\.(mid|midi)$/i, '')} spanStyle={isHidden ? FILENAME_SPAN_HIDDEN : isLoaded || isSelected ? FILENAME_SPAN_ACTIVE : FILENAME_SPAN_DEFAULT} />
                   {lastFolderOf.has(file.path) && (
                     <button
                       onClick={e => { e.stopPropagation(); handleUndoMove(file.path) }}

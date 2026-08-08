@@ -159,6 +159,7 @@
 --accent-amber-loop-border-dim: #e8a0274d;  /* ~30% — PianoRoll loop-region boundary line (inactive) */
 --accent-amber-loop-fill-dim: #e8a0270a;    /* ~4%  — PianoRoll loop-region fill (inactive) */
 --accent-amber-tooltip-text: #e8a027e6;     /* ~90% — PianoRoll Alt+drag cursor-tooltip amber text */
+--text-amber-dimmest: #e8a02766;            /* ~40% — SettingsPanel.tsx revealed-hidden-file row text/icon */
 --accent-amber-toggle-active-bg: #e8a0271a; /* ~10% — TopBar.tsx note-editor toggle button active background */
 
 /* Control UI tones — not covered by the main text/status scale */

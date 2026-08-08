@@ -1,5 +1,15 @@
 # Changelog
 
+## [1.5.0-pre] — 8. 8. 2026 — Library: show/restore hidden files
+
+"Hide from library" (right-click) had no way back — a hidden file stayed excluded forever, with no unhide affordance anywhere in the UI.
+
+Added a toggle button next to "New folder" in the Library panel (`ChevronsDownUp` icon — lucide-react has no `ListChevronsDownUp` in any published version, this was the closest real icon) that reveals hidden files back into the list instead of hard-excluding them. Revealed files render in a dedicated dim-amber shade (new `--text-amber-dimmest` token, ~40% amber — not a generic opacity fade, so they still read as "library color," not disabled) so they're visually distinct from normal files while shown. Right-click on a revealed file now offers "Unhide" in place of "Hide from library". Toggle state persists across restarts via `orfeo-prefs.json`, same mechanism as favourites/hidden-list itself. `All`/`★` filter tabs tightened slightly (padding/font-size) to make room for the third toolbar button.
+
+**New:** `store.unhideLibraryFile`, `store.showHiddenLibraryFiles`/`setShowHiddenLibraryFiles` (`src/store/index.ts`), `--text-amber-dimmest` (`src/index.css`). **Changed:** `src/components/SettingsPanel/SettingsPanel.tsx` (toolbar button, list filtering, row dimming, context menu).
+
+---
+
 ## [1.4.1-pre] — 8. 8. 2026 — Piano/keys track color consistency, Playback Editor color bugs, split/merge UI polish
 
 Piano and keys tracks were rendering a different, arbitrary color every load — root-caused to two disconnected color sources and a per-load-order assignment with no instrument awareness. Fixed alongside two related Playback Editor color bugs found during investigation, plus two small split/merge UI fixes.
