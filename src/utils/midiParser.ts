@@ -5,14 +5,7 @@ import { restoreHandTagsFromHints } from './handMetadata'
 import { assignHands } from './handAssignment'
 import { useStore } from '../store'
 import { KEYBOARD_GROUPS } from './keyboardGroups'
-import { TRACK_COLOR_PALETTE } from './colors'
-
-// ── Piano-family default colors — deterministic regardless of track order,
-// so the same visual identity (1st = LH blue, 2nd = RH pink, 3rd+ = amber)
-// shows up for any file instead of whatever slot a round-robin lands on.
-// Non-piano tracks still round-robin the shared palette (order doesn't matter
-// there). See docs/superpowers/specs (gitignored) for the incident this fixes. ──
-const PIANO_FAMILY_COLORS = [TRACK_COLOR_PALETTE[2], TRACK_COLOR_PALETTE[7], TRACK_COLOR_PALETTE[0]]
+import { TRACK_COLOR_PALETTE, PIANO_FAMILY_COLORS } from './colors'
 
 export function parseMidiBuffer(buffer: ArrayBuffer, fileName: string, filePath = ''): ParsedMidi {
   // FUTURE: KAR lyric events (meta type 0x05 = lyrics, 0x01 = text) could

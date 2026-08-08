@@ -19,3 +19,10 @@ export const TRACK_COLOR_PALETTE = [
   '#5b7c99', // Steel Blue
   '#c99a4a', // Warm Gold
 ] as const
+
+// ── Piano-family default colors — deterministic regardless of track order,
+// so the same visual identity (1st = LH blue, 2nd = RH pink, 3rd+ = amber)
+// shows up for any file instead of whatever slot a round-robin lands on.
+// Shared by midiParser.ts (initial load) and MidiEditor.tsx (live instrument
+// reassignment) so both compute the exact same color for the exact same slot.
+export const PIANO_FAMILY_COLORS = [TRACK_COLOR_PALETTE[2], TRACK_COLOR_PALETTE[7], TRACK_COLOR_PALETTE[0]]

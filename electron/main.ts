@@ -392,6 +392,7 @@ ipcMain.handle('fs:getCachedImport',
 ipcMain.handle('fs:writeCachedImport',
   async (_e, destPath: string, base64: string): Promise<void> => {
   writeFileSync(destPath, Buffer.from(base64, 'base64'))
+  appendFileLogEvent(destPath, { type: 'import', timestamp: Date.now(), summary: 'Imported and converted to MIDI' })
 })
 
 // ── Copy a MIDI file into the library folder with collision-safe renaming ──────
@@ -1308,14 +1309,23 @@ ipcMain.handle('transcript:generate', async (_e, midiFilePath: string, noteNamin
   }
 })
 
-// ── Note Editor save — write a MIDI buffer to the chosen output path ──────────
-ipcMain.handle('noteEditor:save', async (_e, payload: { outputPath: string; base64: string }) => {
+// ── Note Editor save — always the next _ORFEO_vN in the source's sibling
+// Orfeo/ folder, same silent-auto-version convention as editor:save and
+// mixer:save (no save-location dialog — a dialog whose defaultPath folder
+// doesn't exist yet can fall back to wherever the OS last had one open,
+// e.g. Downloads, silently writing the file to the wrong place). ────────────
+ipcMain.handle('noteEditor:save', async (_e, payload: { filePath: string; base64: string; summary?: string }) => {
   try {
+    if (!payload.filePath) return { ok: false, message: 'No source file loaded' }
+    const orfeoDir   = await getOrfeoOutputDir(payload.filePath)
+    const rawBase    = basename(payload.filePath).replace(/\.midi?$/i, '')
+    const outputPath = join(orfeoDir, `${nextOrfeoBaseName(rawBase)}.mid`)
+
     const buf = Buffer.from(payload.base64, 'base64')
-    await mkdir(dirname(payload.outputPath), { recursive: true })
-    writeFileSync(payload.outputPath, buf)
-    const fileName = payload.outputPath.split(/[\\/]/).pop() ?? ''
-    return { ok: true, filePath: payload.outputPath, fileName, base64: buf.toString('base64') }
+    writeFileSync(outputPath, buf)
+    const fileName = outputPath.split(/[\\/]/).pop() ?? ''
+    appendFileLogEvent(outputPath, { type: 'save', timestamp: Date.now(), summary: payload.summary ?? 'Saved' })
+    return { ok: true, filePath: outputPath, fileName, base64: buf.toString('base64') }
   } catch (e: any) {
     return { ok: false, message: e?.message ?? 'Save failed' }
   }

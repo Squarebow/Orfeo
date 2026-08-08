@@ -18,15 +18,15 @@ export function useMidiFile() {
       if (!result) return
 
       const libraryFolder = (useStore.getState() as any).libraryFolder as string | null ?? null
-      const base64 = await resolveAndTrackImport(
+      const resolved = await resolveAndTrackImport(
         result.filePath ?? '', result.base64, result.fileName, libraryFolder,
       )
 
-      const binary = atob(base64)
+      const binary = atob(resolved.base64)
       const bytes = new Uint8Array(binary.length)
       for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i)
 
-      const parsed = parseMidiBuffer(bytes.buffer, result.fileName, result.filePath ?? '')
+      const parsed = parseMidiBuffer(bytes.buffer, resolved.fileName, resolved.filePath)
       setMidi(parsed)
 
       // Detect key from MIDI metadata first, fallback to note analysis

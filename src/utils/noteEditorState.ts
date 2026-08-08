@@ -57,6 +57,35 @@ export const NES = {
   },
 }
 
+// ── Build a File Info changelog summary from this session's applied note
+// commands — tallies by the description prefix each cmd* function in
+// noteEditorCommands.ts already writes, rather than duplicating a `kind`
+// field. Batch commands (e.g. "Remove 3 notes") count their own N. ────────
+export function buildNoteEditSummary(descriptions: string[]): string {
+  let added = 0, removed = 0, moved = 0, repitched = 0, resized = 0, velocityChanged = 0
+  for (const d of descriptions) {
+    const batchRemove = d.match(/^Remove (\d+) notes?$/)
+    const batchVelocity = d.match(/^Set velocity on (\d+) notes/)
+    if (d.startsWith('Add note')) added++
+    else if (batchRemove) removed += parseInt(batchRemove[1], 10)
+    else if (d.startsWith('Remove note')) removed++
+    else if (d.startsWith('Move note')) moved++
+    else if (d.startsWith('Repitch note')) repitched++
+    else if (d.startsWith('Resize note')) resized++
+    else if (batchVelocity) velocityChanged += parseInt(batchVelocity[1], 10)
+    else if (d.startsWith('Velocity note')) velocityChanged++
+  }
+  const s = (n: number) => n === 1 ? '' : 's'
+  const parts: string[] = []
+  if (added > 0) parts.push(`added ${added} note${s(added)}`)
+  if (removed > 0) parts.push(`removed ${removed} note${s(removed)}`)
+  if (moved > 0) parts.push(`moved ${moved} note${s(moved)}`)
+  if (repitched > 0) parts.push(`repitched ${repitched} note${s(repitched)}`)
+  if (resized > 0) parts.push(`resized ${resized} note${s(resized)}`)
+  if (velocityChanged > 0) parts.push(`changed velocity on ${velocityChanged} note${s(velocityChanged)}`)
+  return parts.length > 0 ? parts.join(', ') : 'Saved'
+}
+
 // ── Shared unsaved-changes guard — logo reset, load a different file, drag a
 // new file in all funnel through this so "Save changes?" behaves identically
 // everywhere. Returns true if the caller should proceed, false if the user

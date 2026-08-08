@@ -908,14 +908,18 @@ function LibraryPanel() {
       if (!result) return
 
       let base64    = result.base64
-      const parseName = result.fileName
+      let resolvedFilePath = filePath
+      let parseName = result.fileName
       const { useStore: storeModule } = await import('../../store')
       const libraryFolder = (storeModule.getState() as any).libraryFolder as string | null ?? null
 
       const { resolveAndTrackImport, base64ToBytes } = await import('../../utils/foreignFormatImport')
 
       try {
-        base64 = await resolveAndTrackImport(filePath, base64, result.fileName, libraryFolder)
+        const resolved = await resolveAndTrackImport(filePath, base64, result.fileName, libraryFolder)
+        base64 = resolved.base64
+        resolvedFilePath = resolved.filePath
+        parseName = resolved.fileName
       } catch (e: any) {
         console.error('[Orfeo] Foreign format conversion failed:', e)
         return
@@ -924,7 +928,8 @@ function LibraryPanel() {
       const { parseMidiBuffer } = await import('../../utils/midiParser')
       const { detectKeyFromTracks, parseKeySignature } = await import('../../utils/keyDetection')
       const bytes  = base64ToBytes(base64)
-      const parsed = parseMidiBuffer(bytes.buffer as ArrayBuffer, parseName, filePath) // _filePath = original source
+      // _filePath = original source, or the on-disk .mid cache once saved (see resolveAndTrackImport)
+      const parsed = parseMidiBuffer(bytes.buffer as ArrayBuffer, parseName, resolvedFilePath)
       storeModule.getState().setMidi(parsed)
       const raw = parsed as any
       if (raw._keySignature != null) {
@@ -1171,7 +1176,7 @@ function LibraryPanel() {
               </button>
               <button
                 onClick={() => setShowHiddenLibraryFiles(!showHiddenLibraryFiles)}
-                title={showHiddenLibraryFiles ? 'Hide hidden files in library' : 'Show hidden files in library'}
+                title={showHiddenLibraryFiles ? 'Hide hidden files in library' : 'Reveal hidden files in library'}
                 style={{
                   padding: '3px 6px', borderRadius: 4, fontSize: 10,
                   border: showHiddenLibraryFiles ? '1px solid var(--accent-amber-strong)' : '1px solid var(--border2)',

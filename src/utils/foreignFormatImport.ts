@@ -152,12 +152,16 @@ export async function resolveAndTrackImport(
   originalBase64: string,
   fileName: string,
   libraryFolder: string | null,
-): Promise<string> {
+): Promise<{ base64: string; filePath: string; fileName: string }> {
   const resolved = await resolveToMidiBase64(filePath, originalBase64, libraryFolder);
 
   if (!resolved.isPendingSave) {
     useStore.getState().setPendingImportedFile(null);
-    return resolved.base64;
+    // resolvedPath is either the original (native MIDI/KAR) or an existing on-disk cache .mid —
+    // when it's the cache, the display name must follow it too, or the player keeps showing the
+    // foreign source's name (e.g. "song.gp4") forever even though it's really the cached .mid.
+    const resolvedName = resolved.resolvedPath === filePath ? fileName : baseName(resolved.resolvedPath);
+    return { base64: resolved.base64, filePath: resolved.resolvedPath, fileName: resolvedName };
   }
 
   useStore.getState().setPendingImportedFile({
@@ -177,9 +181,17 @@ export async function resolveAndTrackImport(
     await (window.electronAPI as any).writeCachedImport(cachePath, resolved.base64);
     useStore.getState().setPendingImportedFile(null);
     useStore.getState().setLibraryNeedsRefresh(true);
+    // Saved to disk — track the real .mid cache path and name from here on, not the foreign source.
+    return { base64: resolved.base64, filePath: cachePath, fileName: baseName(cachePath) };
   }
 
-  return resolved.base64;
+  // "Don't Save" — still only in memory, _filePath stays the foreign source
+  // (pendingImportedFile stays set; confirmPendingImportBeforeEdit patches it later).
+  return { base64: resolved.base64, filePath, fileName };
+}
+
+function baseName(p: string): string {
+  return p.replace(/\\/g, '/').split('/').pop() ?? p;
 }
 
 // ── Prompt to save pending imported file before switching to another file ─
@@ -242,6 +254,6 @@ export async function confirmPendingImportBeforeEdit(): Promise<boolean> {
   await (window.electronAPI as any).writeCachedImport(cachePath, pendingImportedFile.midiBase64);
   setPendingImportedFile(null);
   useStore.getState().setLibraryNeedsRefresh(true);
-  if (midi) useStore.setState({ midi: { ...(midi as any), _filePath: cachePath } as any });
+  if (midi) useStore.setState({ midi: { ...(midi as any), _filePath: cachePath, fileName: baseName(cachePath) } as any });
   return true;
 }

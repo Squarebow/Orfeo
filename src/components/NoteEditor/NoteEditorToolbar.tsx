@@ -1,11 +1,10 @@
 import { useEffect, useState, useReducer, useRef, useCallback } from 'react'
 import { useStore } from '../../store'
-import { NES } from '../../utils/noteEditorState'
+import { NES, buildNoteEditSummary } from '../../utils/noteEditorState'
 import { confirmDialog } from '../../utils/confirmController'
 import { editableCopyToBuffer } from '../../utils/noteEditorCommands'
 import { parseMidiBuffer } from '../../utils/midiParser'
 import { detectKeyFromTracks, parseKeySignature } from '../../utils/keyDetection'
-import { nextOrfeoBaseName } from '../../utils/orfeoVersioning'
 import { getPianoRollAreaRect, getPianoRollCenterX } from '../../utils/modalAnchors'
 
 // ── Toolbar SVG icons ─────────────────────────────────────────────────────────
@@ -51,16 +50,6 @@ const IconInfo = () => (
 )
 
 const QUANT_LABELS: Record<number, string> = { 4: '1/4', 8: '1/8', 16: '1/16', 32: '1/32' }
-
-// ── Compute the next versioned _ORFEO save path from the current source path ──
-function computeSavePath(sourcePath: string): string {
-  const norm = sourcePath.replace(/\\/g, '/')
-  const slash = norm.lastIndexOf('/')
-  const dir   = norm.substring(0, slash + 1)
-  const base  = norm.substring(slash + 1).replace(/\.midi?$/i, '')
-  const outDir = dir.endsWith('/Orfeo/') ? dir : `${dir}Orfeo/`
-  return `${outDir}${nextOrfeoBaseName(base)}.mid`
-}
 
 // ── NoteEditorToolbar ─────────────────────────────────────────────────────────
 // Floating draggable toolbar — appears when noteEditorActive is true.
@@ -116,20 +105,19 @@ export default function NoteEditorToolbar() {
     const sourcePath = (useStore.getState().midi as any)?._filePath as string | undefined
     if (!sourcePath || !NES.editMidi) return false
 
-    const defaultPath = computeSavePath(sourcePath)
-    const outputPath  = await window.electronAPI.saveFileDialog({
-      defaultPath,
-      filters: [{ name: 'MIDI Files', extensions: ['mid', 'midi'] }],
-    })
-    if (!outputPath) return false
-
     const buf    = editableCopyToBuffer(NES.editMidi)
     const bytes  = new Uint8Array(buf)
     let binary   = ''
     for (let i = 0; i < bytes.length; i++) binary += String.fromCharCode(bytes[i])
     const base64 = btoa(binary)
 
-    const result = await window.electronAPI.saveNoteEditor({ outputPath, base64 })
+    const saveSummary = buildNoteEditSummary(NES.history.appliedDescriptions())
+
+    // Silent auto-version into the source's sibling Orfeo/ folder — same
+    // convention as the Playback Editor and Mixer Console saves, no save
+    // dialog (a dialog defaulting to a not-yet-created folder can silently
+    // fall back to wherever the OS last had one open, e.g. Downloads).
+    const result = await window.electronAPI.saveNoteEditor({ filePath: sourcePath, base64, summary: saveSummary })
     if (!result.ok) return false
 
     NES.dirty = false

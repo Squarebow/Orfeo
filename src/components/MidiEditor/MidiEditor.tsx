@@ -9,7 +9,7 @@ import { useState, useEffect, useRef, useCallback, type CSSProperties } from 're
 import { createPortal } from 'react-dom'
 import { Check, X, Save, FolderOpen, AlertCircle, ChevronDown, ChevronRight, Search, Merge, Split, Undo2, RotateCcw, Piano, Bell, Church, Guitar, Music2, AudioWaveform, Users, Megaphone, Wind, Feather, Cpu, Globe, Drum, Radio, Waves, Sparkles, SwatchBook, Eye, EyeOff, ThumbsUp } from 'lucide-react'
 import { PENCIL_CURSOR } from '../../utils/cursors'
-import { TRACK_COLOR_PALETTE } from '../../utils/colors'
+import { TRACK_COLOR_PALETTE, PIANO_FAMILY_COLORS } from '../../utils/colors'
 import OrfeoMark from '../OrfeoMark'
 import { useStore } from '../../store'
 import { parseMidiBuffer } from '../../utils/midiParser'
@@ -19,6 +19,7 @@ import { KEYBOARD_GROUPS } from '../../utils/keyboardGroups'
 import { nextOrfeoBaseName } from '../../utils/orfeoVersioning'
 import { getHandPreviewStats, getLowConfidencePassages } from '../../utils/handPreview'
 import { withHandSuffix } from '../../utils/handMetadata'
+import { getGMName, getGMGroup } from '../../utils/gmInstruments'
 
 const MODAL_W = 980
 const MODAL_H = 620
@@ -812,9 +813,9 @@ export default function MidiEditor() {
   // ── Snapshot of each row's color/name/roll/keyboard as of the last time
   // rows were freshly loaded (open, or post-save resync) — buildSaveSummary
   // diffs against this to report only what actually changed this session.
-  const originalRowsRef = useRef<Map<number, { color: string; colorSource: EditorTrack['colorSource']; trackName: string; visible: boolean; showOnKeyboard: boolean }>>(new Map())
+  const originalRowsRef = useRef<Map<number, { color: string; colorSource: EditorTrack['colorSource']; trackName: string; visible: boolean; showOnKeyboard: boolean; program: number }>>(new Map())
   const snapshotRows = (rows: EditorTrack[]) => {
-    originalRowsRef.current = new Map(rows.map(r => [r.index, { color: r.color, colorSource: r.colorSource, trackName: r.trackName, visible: r.visible, showOnKeyboard: r.showOnKeyboard }]))
+    originalRowsRef.current = new Map(rows.map(r => [r.index, { color: r.color, colorSource: r.colorSource, trackName: r.trackName, visible: r.visible, showOnKeyboard: r.showOnKeyboard, program: r.program }]))
   }
   // ── Cancel — handleApplyColor writes color straight into the live store (so
   // TrackPanel/Keyboard/PianoRoll preview it immediately while the editor is
@@ -843,14 +844,16 @@ export default function MidiEditor() {
   // ── Build rows from store state ───────────────────────────────────────────────
   const buildRows = useCallback((): EditorTrack[] => {
     if (!midi) return []
-    const midiAny = midi as any
     return tracks.map(t => {
-      const rawTrack = midiAny._rawMidiTracks?.[t.index]
+      // Parsed (already note-filtered, compacted) track — same index scheme as `t.index`,
+      // unlike `_rawMidiTracks` (unfiltered raw array) which landed on the wrong track
+      // whenever an earlier raw track had 0 notes, showing a bogus "0 notes" badge.
+      const parsedTrack = (midi as any).tracks?.[t.index]
       return {
         index: t.index, name: t.name, gmName: t.gmName, trackName: t.trackName, program: t.program,
         group: t.group ?? '', isDrum: t.isDrum, color: t.color, colorSource: t.colorSource ?? 'default',
-        channel: rawTrack?.channel ?? t.index,
-        noteCount: rawTrack?.notes?.length ?? 0,
+        channel: parsedTrack?.channel ?? t.index,
+        noteCount: parsedTrack?.notes?.length ?? 0,
         included: !t.muted, mergeSelected: false, newProgram: t.program,
         visible: t.visible, showOnKeyboard: t.showOnKeyboard,
       }
@@ -1026,7 +1029,7 @@ export default function MidiEditor() {
     // covered by the split/merge phrases above, and a split row's fixed
     // hand color would otherwise ALWAYS read as "changed color" vs. the
     // pre-split single track it came from. ──────────────────────────────────
-    let colorChanged = 0, renamed = 0, rollChanged = 0, keyboardChanged = 0
+    let colorChanged = 0, renamed = 0, rollChanged = 0, keyboardChanged = 0, reassigned = 0
     for (const r of state.rows) {
       if (r.isMerged || r.splitHand) continue
       const orig = originalRowsRef.current.get(r.index)
@@ -1035,6 +1038,7 @@ export default function MidiEditor() {
       if (r.trackName !== orig.trackName) renamed++
       if (r.visible !== orig.visible) rollChanged++
       if (r.showOnKeyboard !== orig.showOnKeyboard) keyboardChanged++
+      if (r.newProgram !== orig.program) reassigned++
     }
 
     const s = (n: number) => n === 1 ? '' : 's'
@@ -1042,6 +1046,7 @@ export default function MidiEditor() {
     if (splitOrigins.size > 0) parts.push(`split ${splitOrigins.size} track${s(splitOrigins.size)}`)
     if (mergedGroups.length > 0) parts.push(`merged ${mergedTrackCount} tracks into ${mergedGroups.length}`)
     if (excludedCount > 0) parts.push(`excluded ${excludedCount} track${s(excludedCount)}`)
+    if (reassigned > 0) parts.push(`reassigned instrument on ${reassigned} track${s(reassigned)}`)
     if (colorChanged > 0) parts.push(`changed color of ${colorChanged} track${s(colorChanged)}`)
     if (renamed > 0) parts.push(`renamed ${renamed} track${s(renamed)}`)
     if (rollChanged > 0) parts.push(`changed roll visibility of ${rollChanged} track${s(rollChanged)}`)
@@ -1252,7 +1257,34 @@ export default function MidiEditor() {
           <TrackRow key={track.index} track={track}
             onToggleIncluded={() => update(track.index, { included: !track.included })}
             onToggleMerge={() => update(track.index, { mergeSelected: !track.mergeSelected })}
-            onChangeProgram={p => update(track.index, { newProgram: p })}
+            onChangeProgram={p => {
+              const newGroup = getGMGroup(p, track.isDrum)
+              // Auto-follow the reassigned instrument's color/group too — but only when
+              // the track never had a custom color (colorSource 'default'), otherwise a
+              // picked instrument would clobber a color the user deliberately chose.
+              // Piano-family slot is based on file order among OTHER keyboard-group
+              // tracks — same rule midiParser.ts uses on initial load — so reassigning
+              // a track into the piano family lands it on the same deterministic
+              // blue/pink/amber slot it would get on a fresh reimport.
+              const colorPatch = track.colorSource === 'default'
+                ? (KEYBOARD_GROUPS.has(newGroup)
+                    ? { color: PIANO_FAMILY_COLORS[Math.min(
+                        state.rows.filter(r => r.index < track.index && KEYBOARD_GROUPS.has(r.group)).length,
+                        PIANO_FAMILY_COLORS.length - 1,
+                      )] }
+                    : { color: TRACK_COLOR_PALETTE[track.index % TRACK_COLOR_PALETTE.length] })
+                : {}
+              update(track.index, {
+                newProgram: p,
+                group: newGroup,
+                // Auto-follow the reassigned instrument's GM name — but only when
+                // the track's name is still its own auto-generated GM name (never
+                // been custom-renamed), otherwise a picked instrument leaves the
+                // display saying e.g. "Nylon Guitar" for what's now a piano.
+                ...(track.trackName === track.gmName ? { trackName: getGMName(p), gmName: getGMName(p) } : {}),
+                ...colorPatch,
+              })
+            }}
             onUnmerge={track.isMerged ? () => handleUnmerge() : undefined}
             onToggleVisible={() => update(track.index, { visible: !track.visible })}
             onToggleKeyboard={() => update(track.index, { showOnKeyboard: !track.showOnKeyboard })}

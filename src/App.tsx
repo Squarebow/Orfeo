@@ -80,18 +80,25 @@ export default function App() {
     if (!result) return
 
     let base64    = result.base64
-    const parseName = result.fileName
+    let resolvedFilePath = filePath
+    let parseName = result.fileName
     const libraryFolder = (useStore.getState() as any).libraryFolder as string | null ?? null
 
     try {
-      base64 = await resolveAndTrackImport(filePath, base64, result.fileName, libraryFolder)
+      const resolved = await resolveAndTrackImport(filePath, base64, result.fileName, libraryFolder)
+      base64 = resolved.base64
+      resolvedFilePath = resolved.filePath
+      parseName = resolved.fileName
     } catch (e: any) {
       showDropError(e?.message ?? 'Could not convert this file to MIDI.')
       return
     }
 
     const bytes  = base64ToBytes(base64)
-    const parsed = parseMidiBuffer(bytes.buffer as ArrayBuffer, parseName, filePath) // _filePath = original source
+    // _filePath = original source, or the on-disk .mid cache once a foreign-format
+    // import has been saved — editing tools must save against a real .mid, not
+    // the foreign source file (see resolveAndTrackImport).
+    const parsed = parseMidiBuffer(bytes.buffer as ArrayBuffer, parseName, resolvedFilePath)
     useStore.getState().setMidi(parsed)
     const raw = parsed as any
     if (raw._keySignature != null) {

@@ -1,5 +1,28 @@
 # Changelog
 
+## [1.5.1-pre] — 8. 8. 2026 — Foreign-format import fixes, per-edit changelog coverage
+
+Bug-hunting round covering the whole gp3/gp4/MusicXML import pipeline plus File Info changelog gaps found while testing it.
+
+### Foreign-format import — save/edit chain was targeting the wrong file
+Once a dropped `.gp3`/`.gp4`/`.musicxml`/`.mxl` file was converted and cached to an `_IMPORTED.mid`, the app's loaded `midi._filePath` (and `.fileName`) stayed pinned to the original foreign-format source forever — `resolveAndTrackImport()` returned only the converted bytes, never the resolved on-disk path. Every downstream editing tool (Playback Editor's Save & Reload, Note Editor) kept reading/writing against the foreign source instead of the real cached `.mid`, which is why saves either failed outright (`@tonejs/midi` can't parse Guitar Pro/MusicXML binary) or silently applied edits to the wrong file. `resolveAndTrackImport()` now returns `{ base64, filePath, fileName }` reflecting wherever the real `.mid` actually lives (cache hit, freshly-saved cache, or the original for native `.mid`/`.kar`), threaded through all three load entry points (drag-drop, Ctrl+O, Library click) and the pre-edit gate. The title bar under playback controls now correctly flips to the `_IMPORTED` name the moment the conversion is saved, instead of showing the foreign extension indefinitely.
+
+### Playback Editor — instrument reassignment didn't update name or color
+Reassigning a track's instrument only ever touched its GM program number. The track's display name (still whatever the source file called it) and color (still whatever it was assigned before reassignment) never followed, so a guitar reassigned to piano kept showing its old guitar name and color everywhere (Tracks panel, Piano Roll, Keyboard) even though playback correctly changed. Reassignment now also updates the name (to the new instrument's GM name) and color (to the deterministic piano-family blue/pink/amber slot) — but only when neither was ever manually customized, so a real custom name/color a user picked is left alone. Extracted `PIANO_FAMILY_COLORS` into `src/utils/colors.ts` as a shared constant so `midiParser.ts` (initial load) and `MidiEditor.tsx` (live reassignment) compute the identical slot instead of duplicating the rule.
+
+### Also fixed
+- `_rawMidiTracks[t.index]` in `MidiEditor.tsx` indexed the raw unfiltered track array with an already note-filtered, compacted index — landed on the wrong track whenever an earlier raw track had 0 notes, showing a bogus "0 notes"/wrong-channel badge in the editor's track list.
+- `buildSaveSummary()` (Playback Editor) never diffed `newProgram`, so a save that only reassigned an instrument fell back to a bare "Saved" changelog entry with no detail.
+
+### File Info changelog — several edit paths logged nothing or just "Saved"
+- **Note Editor saves logged nothing at all.** Now logs a real tally (`added N notes`, `removed N notes`, `moved N notes`, `repitched N notes`, `resized N notes`, `changed velocity on N notes`), built from the undo stack's own command descriptions (`NoteEditorHistory.appliedDescriptions()`).
+- **Note Editor save also wrote to the wrong folder.** It relied on a client-computed Orfeo-subfolder path handed to a native save dialog as `defaultPath` — a folder that often doesn't exist yet, which Electron's dialog can silently ignore, falling back to wherever it last had a folder open (e.g. Downloads) and writing the versioned file there instead. Removed the dialog entirely: `noteEditor:save` now takes the source `filePath` and computes/creates the output path itself via `getOrfeoOutputDir()`/`nextOrfeoBaseName()` and logs its own changelog entry server-side — the same silent-auto-version convention `editor:save`/`mixer:save` already use, so it's no longer possible for the logged path and the actual written path to diverge.
+- Foreign-format import cache writes (`fs:writeCachedImport`) wrote to disk with zero changelog entry — now logs "Imported and converted to MIDI".
+
+**New:** `PIANO_FAMILY_COLORS` (`src/utils/colors.ts`), `NoteEditorHistory.appliedDescriptions()` (`src/utils/noteEditorHistory.ts`), `buildNoteEditSummary()` (`src/utils/noteEditorState.ts`). **Changed:** `src/utils/foreignFormatImport.ts`, `src/App.tsx`, `src/hooks/useMidiFile.ts`, `src/components/SettingsPanel/SettingsPanel.tsx`, `src/components/MidiEditor/MidiEditor.tsx`, `src/components/NoteEditor/NoteEditorToolbar.tsx`, `src/utils/midiParser.ts`, `electron/main.ts` (`noteEditor:save` rewritten, `fs:writeCachedImport` logging).
+
+---
+
 ## [1.5.0-pre] — 8. 8. 2026 — Library: show/restore hidden files
 
 "Hide from library" (right-click) had no way back — a hidden file stayed excluded forever, with no unhide affordance anywhere in the UI.
