@@ -1,5 +1,20 @@
 # Changelog
 
+## [1.5.2-pre] — 9. 8. 2026 — Note Editor: silent audio during live edits, fixed for real
+
+Follow-up to the "no audio while the toolbar is open" fix — that fix (gating playback on `NES.dirty` so it only reroutes to the edit buffer once a real edit exists) stopped the false-positive case, but audio still stayed silent with a genuine edit in place; only a full Save+reload restored it.
+
+### Root cause
+`NES.editMidi` — the separate live `@tonejs/midi` copy Note Editor mutates during editing, kept apart from the store's `midi` so edits stay staged until Save — is built via `new Midi(rawBuffer)`, a stock `@tonejs/midi` parse. Its `Track` objects have no `index` field; that's not part of the library. The store's `midi.tracks`, by contrast, are plain objects `midiParser.ts` builds itself with a custom `.index` assigned in parse order. Both audio engines (`useAudioEngine.ts` GM, `useSamplesEngine.ts` Samples) resolve a track's mute/solo/program state via `tracks.find(t => t.index === track.index)` — against the edit buffer, `track.index` was always `undefined`, so the lookup failed for every track, so every track was silently skipped: no program changes sent, no notes scheduled. The transport clock kept advancing regardless (it reads the JZZ player's own position independently), which is why the timeline still visibly scrolled with zero sound — nothing was actually wrong with playback *timing*, nothing was ever being played at all.
+
+Fixed at the single creation point both engines' edit buffer comes from: `midiToEditableCopy()` (`src/utils/noteEditorCommands.ts`) now stamps `.index` on each track by array position immediately after parsing, matching how `midiParser.ts` assigns it — parse order is guaranteed identical since both come from the same `_raw` bytes and note edits never reorder or add/remove tracks.
+
+Also hardened while investigating: `useAudioEngine.ts`'s `buildPlayer()` computed its raw SMF bytes (`editableCopyToBuffer(NES.editMidi)` when dirty) *before* entering its own try/catch, so a re-encode failure there would silently abort the whole rebuild with no player ever built and no error surfaced beyond a generic upstream `.catch(console.error)`. Moved inside the try block, with an explicit warning logged if no bytes are available at all.
+
+**Changed:** `src/utils/noteEditorCommands.ts`, `src/hooks/useAudioEngine.ts`.
+
+---
+
 ## [1.5.1-pre] — 8. 8. 2026 — Foreign-format import fixes, per-edit changelog coverage
 
 Bug-hunting round covering the whole gp3/gp4/MusicXML import pipeline plus File Info changelog gaps found while testing it.
