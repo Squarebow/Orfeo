@@ -8,6 +8,8 @@ import { useStore } from '../store'
 import { useSamplesEngine } from './useSamplesEngine'
 import { pushHitEffect, amberHex } from '../utils/hitEffectQueue'
 import { isHomogeneousHandTrack, resolveHandAwareColor } from '../utils/handColors'
+import { NES } from '../utils/noteEditorState'
+import { editableCopyToBuffer } from '../utils/noteEditorCommands'
 
 let _jzzReady = false
 let _jzzInitP: Promise<void> | null = null
@@ -125,12 +127,32 @@ function destroyPlayer() {
   _warmupPromise = null   // allow re-warm on next edit-mode entry
 }
 
+// ── Live edit-buffer awareness — once the Note Editor holds a REAL unsaved
+// edit (NES.dirty), playback must schedule from that buffer, not the
+// untouched store copy — otherwise a deleted/added/moved note plays back
+// exactly as it was before the edit: gone from the piano roll, still
+// audible, because the store's `midi` is deliberately never mutated by the
+// editor (see noteEditorCommands.ts's midiToEditableCopy) and nothing was
+// re-pointing playback at the live copy.
+//
+// Gated on NES.dirty, NOT merely `NES.editMidi` being non-null — the edit
+// buffer is created the instant edit mode opens, before any edit happens,
+// and re-serializing it (editableCopyToBuffer) is a real round-trip through
+// @tonejs/midi's encoder, not a byte-identical copy of the original file.
+// Routing through it unconditionally broke audio the moment the toolbar
+// opened, with zero edits made — a real regression, not just an unlikely
+// edge case. Only pay that round-trip once there's an actual edit worth
+// protecting. ───────────────────────────────────────────────────────────
+function activeMidiData(): any {
+  return (NES.dirty && NES.editMidi) ? NES.editMidi : useStore.getState().midi
+}
+
 // ── updateMutedChannels — live mute/solo update without rebuilding the player ──
 // Repopulates _mutedCh and rebuilds the key-lighting schedule from currentTime.
 // Called on track-state changes during playback so the filter takes effect instantly.
 function updateMutedChannels() {
-  const { midi, tracks, bpm, originalBpm, detectedKey, currentTime, hitEffectScope, showHandLabels, handLabelMode } = useStore.getState()
-  const midiData = midi as any
+  const { tracks, bpm, originalBpm, detectedKey, currentTime, hitEffectScope, showHandLabels, handLabelMode } = useStore.getState()
+  const midiData = activeMidiData()
   if (!midiData || !_player) return
   const hasSolo = tracks.some((t: any) => t.solo)
   const transpose = detectedKey?.transpose ?? 0
@@ -168,15 +190,20 @@ function updateMutedChannels() {
 
 function buildPlayer(startSec: number) {
   if (!_jzzReady || !_port) return
-  const raw = (useStore.getState().midi as any)?._raw
-  if (!raw) return
   try {
+    // Play from the Note Editor's live edit buffer once it holds a real edit,
+    // not the untouched store copy — see activeMidiData() above for why this
+    // is gated on NES.dirty, not just NES.editMidi being non-null. Computed
+    // inside the try so a re-encode failure logs instead of silently
+    // aborting the whole rebuild (previously computed before the try block).
+    const raw = (NES.dirty && NES.editMidi) ? editableCopyToBuffer(NES.editMidi) : (useStore.getState().midi as any)?._raw
+    if (!raw) { console.warn('[Orfeo GM] buildPlayer: no raw bytes available, dirty=', NES.dirty, 'editMidi=', !!NES.editMidi); return }
     destroyPlayer(); clearAllKeys(); clearLightSchedule()
     const { tracks, bpm, originalBpm, detectedKey, hitEffectScope, showHandLabels, handLabelMode } = useStore.getState()
     const performanceMode = handLabelMode === 'performance'
     const transpose = detectedKey?.transpose ?? 0
     const ratio = bpm / originalBpm
-    const midiData = useStore.getState().midi as any
+    const midiData = activeMidiData()
     const hasSolo = tracks.some((t: any) => t.solo)
     _mutedCh = new Set<number>()
     for (const tr of midiData.tracks) {

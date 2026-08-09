@@ -11,6 +11,17 @@ import type { WorkletSynthesizer } from 'spessasynth_lib'
 import { useStore } from '../store'
 import { pushHitEffect, amberHex } from '../utils/hitEffectQueue'
 import { isHomogeneousHandTrack, resolveHandAwareColor } from '../utils/handColors'
+import { NES } from '../utils/noteEditorState'
+
+// ── Live edit-buffer awareness — mirrors useAudioEngine.ts's activeMidiData().
+// Gated on NES.dirty, not just NES.editMidi being non-null — the edit buffer
+// exists the instant edit mode opens, before any real edit happens, and
+// routing through it unconditionally broke audio the moment the toolbar
+// opened (see useAudioEngine.ts for the full explanation). Only reroute once
+// there's an actual edit worth protecting. ─────────────────────────────────
+function activeMidiData(): any {
+  return (NES.dirty && NES.editMidi) ? NES.editMidi : useStore.getState().midi
+}
 
 // ── GeneralUser GS outputs at a lower reference level than jzz-synth-tiny.
 // This constant normalises perceived loudness at equal masterVolume settings.
@@ -204,8 +215,8 @@ function buildSamplesPlayer(startSec: number) {
   clearSchedule(); clearAllKeys()
   applyChannelVolumes()
 
-  const { midi, tracks, bpm, originalBpm, detectedKey, hitEffectScope, showHandLabels, handLabelMode } = useStore.getState()
-  const midiData = midi as any
+  const { tracks, bpm, originalBpm, detectedKey, hitEffectScope, showHandLabels, handLabelMode } = useStore.getState()
+  const midiData = activeMidiData()
   if (!midiData) return
 
   const transpose = detectedKey?.transpose ?? 0

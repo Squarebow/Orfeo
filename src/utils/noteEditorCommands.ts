@@ -159,7 +159,18 @@ export function cmdSetRangeVelocity(notes: ToneNote[], newVelocity: number): Not
 // ParsedMidi object by parseMidiBuffer(). This is the editing copy — separate
 // from the @tonejs/midi model used for playback, which should not be mutated.
 export function midiToEditableCopy(rawBuffer: ArrayBuffer): Midi {
-  return new Midi(rawBuffer)
+  const midi = new Midi(rawBuffer)
+  // @tonejs/midi's Track class has no `index` field — midiParser.ts's
+  // ParsedMidi tracks carry a custom `.index` (assigned in parse order) that
+  // both audio engines match against store track state (mute/solo/program)
+  // via `tracks.find(t => t.index === track.index)`. Without this, every
+  // track in the edit buffer fails that match (`undefined === 0` etc.) and
+  // playback silently schedules nothing — audio breaks the moment a real
+  // edit routes playback through this buffer, even though the player/clock
+  // still runs. Parse order is identical to the original since both come
+  // from the same _raw bytes and note edits never reorder tracks.
+  midi.tracks.forEach((t, i) => { (t as any).index = i })
+  return midi
 }
 
 // ── cmdRemoveNotes ────────────────────────────────────────────────────────────
