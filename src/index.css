@@ -203,7 +203,7 @@
 --pianoroll-octave-divider: #2e2e48; /* PianoRoll canvas — octave divider line */
 --pianoroll-barline: #1e1e38;       /* PianoRoll canvas — bar-line marker */
 --pianoroll-tooltip-bg: #1e1e2e;    /* PianoRoll edit-mode note-name tooltip background */
---note-select-red: #dd2244;   /* PianoRoll canvas — selected/dragged note outline + new-note dashed border */
+--note-select-outline: #ffffff;   /* PianoRoll canvas — selected/dragged/edited note outline + new-note outline (white for contrast, was red) */
 --note-marquee-blue: #7788aa; /* PianoRoll canvas — drag-select marquee rectangle */
 --text-canvas-label: #ffffffd9; /* ~85% — PianoRoll canvas — in-note-name label text (edit mode) */
 --bg-tooltip: #121212eb;      /* ~92% — PianoRoll Alt+drag cursor-tooltip background */

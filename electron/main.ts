@@ -7,10 +7,10 @@ import { Midi } from '@tonejs/midi'
 import { Chord, Note } from 'tonal'
 import PDFDocument from 'pdfkit'
 import { assignHands } from '../src/utils/handAssignment'
-import { buildHandExportHint, withHandSuffix } from '../src/utils/handMetadata'
+import { buildHandExportHint, withHandSuffix, nameHandFromSuffix, parseHandMapMeta, RESTORED_CONFIDENCE } from '../src/utils/handMetadata'
 import { getGMGroup } from '../src/utils/gmInstruments'
 import { KEYBOARD_GROUPS } from '../src/utils/keyboardGroups'
-import { nextOrfeoBaseName, stripOrfeoSuffix } from '../src/utils/orfeoVersioning'
+import { nextOrfeoVersion, stripOrfeoSuffix } from '../src/utils/orfeoVersioning'
 import type { Hand } from '../src/types'
 
 // ── Module-level window reference — needed by the close handler and IPC send ──────
@@ -57,6 +57,33 @@ async function getOrfeoOutputDir(sourceFilePath: string): Promise<string> {
   const orfeoDir  = join(baseDir, 'Orfeo')
   await mkdir(orfeoDir, { recursive: true })
   return orfeoDir
+}
+
+// ── Next available _ORFEO_vN output path — scans the actual Orfeo/ folder
+// for existing versions instead of trusting nextOrfeoVersion(rawBase) alone.
+// orfeoVersioning.ts computes the next number purely from the currently-
+// loaded file's OWN name — correct only if you always keep editing the
+// freshly-reloaded result. Reopen an unversioned original later (e.g. via
+// Favorites, which still points at the original after prior sessions
+// already produced v1/v2/v3) and it computes "v1" again — writeFileSync had
+// no existence check, so it silently overwrote the old v1.mid with today's
+// completely different edits. The file that "went missing" was never
+// missing — it just clobbered an old version under the same name instead
+// of ever creating a new one. Scanning the directory for the real max in
+// use makes every save land on a genuinely unused filename. ────────────────
+function nextAvailableOrfeoPath(orfeoDir: string, rawBase: string): string {
+  const strippedBase = stripOrfeoSuffix(rawBase)
+  const escaped = strippedBase.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+  const versionRe = new RegExp(`^${escaped}_ORFEO_v(\\d+)\\.mid$`, 'i')
+  let existingMax = 0
+  try {
+    for (const name of readdirSync(orfeoDir)) {
+      const m = name.match(versionRe)
+      if (m) existingMax = Math.max(existingMax, parseInt(m[1], 10))
+    }
+  } catch {}
+  const version = Math.max(existingMax + 1, nextOrfeoVersion(rawBase))
+  return join(orfeoDir, `${strippedBase}_ORFEO_v${version}.mid`)
 }
 
 // ── Main window ────────────────────────────────────────────────────────────
@@ -576,16 +603,63 @@ ipcMain.handle('editor:save', async (_e, payload: {
     if (!payload.filePath) return { ok: false, message: 'No source file loaded' }
     const midi = new Midi(readFileSync(payload.filePath))
 
+    // ── Restore any hand tags the file already carries — name-suffix (whole-
+    // track) or ORFEO_HAND_MAP (mixed-track, now possibly with a parallel
+    // handSource RLE channel) — BEFORE any split/merge/re-tag logic below
+    // runs. Without this, every save recomputed hands from scratch and
+    // silently discarded any manual correction already embedded in the file
+    // (Note Editor's own save round-trips this fine; this is the Playback
+    // Editor's separate Split/Merge/Save path, which never read the file's
+    // own hints at all). Indexed by raw array position, not a `.index`
+    // field — @tonejs/midi's Track has none; `parsed.trackIndex` was written
+    // by this same save handler's `includedInOrder` positions, which is
+    // exactly the array order a fresh read of an Orfeo-saved file has. ─────
+    for (let i = 0; i < midi.tracks.length; i++) {
+      const hand = nameHandFromSuffix(midi.tracks[i].name)
+      if (!hand) continue
+      for (const note of midi.tracks[i].notes) { (note as any).hand = hand; (note as any).handConfidence = RESTORED_CONFIDENCE }
+    }
+    for (const meta of ((midi.header as any).meta ?? [])) {
+      if (typeof meta.text !== 'string') continue
+      const parsed = parseHandMapMeta(meta.text)
+      if (!parsed) continue
+      const track = midi.tracks[parsed.trackIndex]
+      if (!track || parsed.hands.length !== track.notes.length) continue
+      track.notes.forEach((note: any, i: number) => {
+        note.hand = parsed.hands[i]
+        note.handConfidence = RESTORED_CONFIDENCE
+        if (parsed.sources) note.handSource = parsed.sources[i]
+      })
+    }
+
+    // ── assignHandsRespectingManual — a manually-corrected note (handSource
+    // 'manual') keeps its tag untouched; assignHands() only ever runs on
+    // whatever's left. Returns hands/sources in the same order as `notes`,
+    // so callers can zip them back onto whichever note array they came from. ──
+    const assignHandsRespectingManual = (notes: any[]): { hands: Hand[]; sources: ('computed' | 'manual')[] } => {
+      const isManual = (n: any) => n.handSource === 'manual' && n.hand
+      const computed = notes.filter(n => !isManual(n))
+      const { assignments } = assignHands(computed, { rhMaxFingers: payload.rhMaxFingers, lhMaxFingers: payload.lhMaxFingers })
+      const handByNote = new Map<any, Hand>()
+      for (const n of notes) if (isManual(n)) handByNote.set(n, n.hand)
+      for (const a of assignments) handByNote.set(a.note, a.hand)
+      return {
+        hands: notes.map(n => handByNote.get(n)!),
+        sources: notes.map(n => isManual(n) ? 'manual' : 'computed'),
+      }
+    }
+
     // ── Resolve output path into Orfeo/ subfolder — always the next _ORFEO_vN,
     // never overwrites a prior save (see src/utils/orfeoVersioning.ts). ────────
     const orfeoDir   = await getOrfeoOutputDir(payload.filePath)
     const rawBase    = basename(payload.filePath).replace(/\.midi?$/i, '')
-    const outputPath = join(orfeoDir, `${nextOrfeoBaseName(rawBase)}.mid`)
+    const outputPath = nextAvailableOrfeoPath(orfeoDir, rawBase)
 
     const noteTrackIndices: number[] = []
     midi.tracks.forEach((t, i) => { if (t.notes.length > 0) noteTrackIndices.push(i) })
 
     const handsByRawIdx = new Map<number, Hand[]>()
+    const sourcesByRawIdx = new Map<number, ('computed' | 'manual')[]>()
 
     // ── Staged hand-splits — a track carrying one or two `splitHand` entries
     // gets partitioned via the same hand-assignment engine the old standalone
@@ -609,10 +683,11 @@ ipcMain.handle('editor:save', async (_e, payload: {
       const origRaw = noteTrackIndices[edIdx]
       if (origRaw === undefined) continue
       const srcTrack = midi.tracks[origRaw]
-      const { assignments } = assignHands(srcTrack.notes, { rhMaxFingers: payload.rhMaxFingers, lhMaxFingers: payload.lhMaxFingers })
-      const lhNotes = assignments.filter(a => a.hand === 'L').map(a => a.note)
-      const rhNotes = assignments.filter(a => a.hand === 'R').map(a => a.note)
+      const { hands } = assignHandsRespectingManual(srcTrack.notes)
+      const lhNotes = srcTrack.notes.filter((n: any, i: number) => hands[i] === 'L')
+      const rhNotes = srcTrack.notes.filter((n: any, i: number) => hands[i] === 'R')
       const origName = srcTrack.name || 'Piano'
+      const sourceOf = (n: any): 'computed' | 'manual' => (n as any).handSource === 'manual' ? 'manual' : 'computed'
 
       if (halves.L && halves.R) {
         srcTrack.notes.splice(0)
@@ -620,6 +695,7 @@ ipcMain.handle('editor:save', async (_e, payload: {
         srcTrack.name = halves.L.name || withHandSuffix(origName, 'L')
         if (halves.L.newProgram >= 0 && (srcTrack as any).channel !== 9) srcTrack.instrument.number = halves.L.newProgram
         handsByRawIdx.set(origRaw, srcTrack.notes.map(() => 'L' as Hand))
+        sourcesByRawIdx.set(origRaw, srcTrack.notes.map(sourceOf))
 
         const rhTrack = midi.addTrack()
         rhTrack.name = halves.R.name || withHandSuffix(origName, 'R')
@@ -628,18 +704,21 @@ ipcMain.handle('editor:save', async (_e, payload: {
         const rhRaw = midi.tracks.length - 1
         rhRawIdxByOrigin.set(edIdx, rhRaw)
         handsByRawIdx.set(rhRaw, rhTrack.notes.map(() => 'R' as Hand))
+        sourcesByRawIdx.set(rhRaw, rhTrack.notes.map(sourceOf))
       } else if (halves.L) {
         srcTrack.notes.splice(0)
         lhNotes.forEach(n => srcTrack.notes.push(n))
         srcTrack.name = halves.L.name || withHandSuffix(origName, 'L')
         if (halves.L.newProgram >= 0 && (srcTrack as any).channel !== 9) srcTrack.instrument.number = halves.L.newProgram
         handsByRawIdx.set(origRaw, srcTrack.notes.map(() => 'L' as Hand))
+        sourcesByRawIdx.set(origRaw, srcTrack.notes.map(sourceOf))
       } else if (halves.R) {
         srcTrack.notes.splice(0)
         rhNotes.forEach(n => srcTrack.notes.push(n))
         srcTrack.name = halves.R.name || withHandSuffix(origName, 'R')
         if (halves.R.newProgram >= 0 && (srcTrack as any).channel !== 9) srcTrack.instrument.number = halves.R.newProgram
         handsByRawIdx.set(origRaw, srcTrack.notes.map(() => 'R' as Hand))
+        sourcesByRawIdx.set(origRaw, srcTrack.notes.map(sourceOf))
       }
     }
 
@@ -681,9 +760,9 @@ ipcMain.handle('editor:save', async (_e, payload: {
         includedSet.delete(idxs[i])
       }
 
-      const { assignments } = assignHands(base.notes, { rhMaxFingers: payload.rhMaxFingers, lhMaxFingers: payload.lhMaxFingers })
-      const handByNote = new Map(assignments.map(a => [a.note, a.hand]))
-      handsByRawIdx.set(idxs[0], base.notes.map((n: any) => handByNote.get(n)!))
+      const { hands, sources } = assignHandsRespectingManual(base.notes)
+      handsByRawIdx.set(idxs[0], hands)
+      sourcesByRawIdx.set(idxs[0], sources)
     }
 
     // Surviving output tracks in file order — shared by both meta-injection
@@ -707,9 +786,9 @@ ipcMain.handle('editor:save', async (_e, payload: {
       if (isDrum || track.notes.length === 0) continue
       const group = getGMGroup(track.instrument?.number ?? 0, isDrum)
       if (!KEYBOARD_GROUPS.has(group)) continue
-      const { assignments } = assignHands(track.notes, { rhMaxFingers: payload.rhMaxFingers, lhMaxFingers: payload.lhMaxFingers })
-      const handByNote = new Map(assignments.map(a => [a.note, a.hand]))
-      handsByRawIdx.set(rawIdx, track.notes.map((n: any) => handByNote.get(n)!))
+      const { hands, sources } = assignHandsRespectingManual(track.notes)
+      handsByRawIdx.set(rawIdx, hands)
+      sourcesByRawIdx.set(rawIdx, sources)
     }
 
     // ── Inject ORFEO_TRACK_NAME / ORFEO_TRACK_COLOR text meta-events for each
@@ -747,8 +826,9 @@ ipcMain.handle('editor:save', async (_e, payload: {
       includedInOrder.forEach((rawIdx, outIdx) => {
         const hands = handsByRawIdx.get(rawIdx)
         if (!hands) return
+        const sources = sourcesByRawIdx.get(rawIdx)
         const track = midi.tracks[rawIdx]
-        const hint = buildHandExportHint(outIdx, track.name, hands.map(h => ({ hand: h })))
+        const hint = buildHandExportHint(outIdx, track.name, hands.map((h, i) => ({ hand: h, handSource: sources?.[i] })))
         track.name = hint.name
         if (hint.meta) (midi.header as any).meta.push(hint.meta)
       })
@@ -800,7 +880,7 @@ ipcMain.handle('mixer:save', async (_e, payload: {
 
     const orfeoDir   = await getOrfeoOutputDir(payload.filePath)
     const rawBase    = basename(payload.filePath).replace(/\.midi?$/i, '')
-    const outputPath = join(orfeoDir, `${nextOrfeoBaseName(rawBase)}.mid`)
+    const outputPath = nextAvailableOrfeoPath(orfeoDir, rawBase)
 
     const outBuf = Buffer.from(midi.toArray())
     writeFileSync(outputPath, outBuf)
@@ -810,6 +890,74 @@ ipcMain.handle('mixer:save', async (_e, payload: {
       type: 'mixer', timestamp: Date.now(),
       summary: `Mixer: volume/pan/reverb/chorus changed on ${payload.channels.length} channel(s)`,
     })
+    return { ok: true, message: `Saved: ${fileName}`, filePath: outputPath, fileName, base64: outBuf.toString('base64') }
+  } catch (e: any) {
+    return { ok: false, message: e?.message ?? 'Save failed' }
+  }
+})
+
+// ── Tempo/Key save — bakes the session's BPM and transpose changes into a
+// real new _ORFEO_vN copy, same versioning convention as every other save
+// here. Tempo: every existing tempo event scaled by bpmRatio (current bpm /
+// the file's original bpm) — preserves rubato shape instead of flattening
+// to one constant BPM. Transpose: every note's own pitch shifted by
+// transposeSemitones, skipping drum tracks (channel 9) — a drum note's
+// pitch selects which drum sound plays, not a musical pitch, so shifting it
+// would swap instruments instead of transposing anything. ──────────────────
+ipcMain.handle('tempoKey:save', async (_e, payload: {
+  filePath: string; bpmRatio: number; transposeSemitones: number; summary: string
+  finalKey?: { semitone: number; isMinor: boolean }
+}) => {
+  try {
+    if (!payload.filePath) return { ok: false, message: 'No source file loaded' }
+    const midi = new Midi(readFileSync(payload.filePath))
+
+    if (payload.bpmRatio !== 1) {
+      if (midi.header.tempos.length === 0) {
+        // No explicit tempo event — file was playing at the implicit 120
+        // default. Scaling an empty array is a silent no-op, so add one.
+        midi.header.tempos.push({ bpm: 120 * payload.bpmRatio, ticks: 0 } as any)
+      } else {
+        for (const t of midi.header.tempos) t.bpm = t.bpm * payload.bpmRatio
+      }
+    }
+    if (payload.transposeSemitones !== 0) {
+      for (const track of midi.tracks) {
+        if (track.channel === 9) continue
+        for (const note of track.notes) {
+          note.midi = Math.max(0, Math.min(127, note.midi + payload.transposeSemitones))
+        }
+      }
+    }
+    // The key-signature meta event's own name string is what
+    // @tonejs/midi's ENCODER uses to reconstruct it — but verified
+    // directly (round-tripping an UNCHANGED file through .toArray() alone,
+    // no transpose involved) that its encoder has its own bug and drops
+    // the value entirely, regardless of what's written into `.key` first.
+    // Not something to fix by writing a "more correct" key.key string —
+    // bypass the native encoding altogether with Orfeo's own custom-meta
+    // convention (same pattern as ORFEO_TRACK_NAME/COLOR), which actually
+    // round-trips reliably. midiParser.ts reads this back with priority
+    // over the (unreliable) native key signature. Written whenever the
+    // current key is known, not just when transposeSemitones !== 0 — a
+    // BPM-only save re-encodes the whole file too and would silently
+    // drop an existing native key signature the same way otherwise.
+    if (payload.finalKey) {
+      ;((midi.header as any).meta ??= []).push({
+        type: 'text', ticks: 0,
+        text: `ORFEO_KEY:${payload.finalKey.semitone}:${payload.finalKey.isMinor ? 'minor' : 'major'}`,
+      })
+    }
+
+    const orfeoDir   = await getOrfeoOutputDir(payload.filePath)
+    const rawBase    = basename(payload.filePath).replace(/\.midi?$/i, '')
+    const outputPath = nextAvailableOrfeoPath(orfeoDir, rawBase)
+
+    const outBuf = Buffer.from(midi.toArray())
+    writeFileSync(outputPath, outBuf)
+
+    const fileName = outputPath.split(/[\\/]/).pop() ?? outputPath
+    appendFileLogEvent(outputPath, { type: 'tempoKey', timestamp: Date.now(), summary: payload.summary })
     return { ok: true, message: `Saved: ${fileName}`, filePath: outputPath, fileName, base64: outBuf.toString('base64') }
   } catch (e: any) {
     return { ok: false, message: e?.message ?? 'Save failed' }
@@ -1319,7 +1467,7 @@ ipcMain.handle('noteEditor:save', async (_e, payload: { filePath: string; base64
     if (!payload.filePath) return { ok: false, message: 'No source file loaded' }
     const orfeoDir   = await getOrfeoOutputDir(payload.filePath)
     const rawBase    = basename(payload.filePath).replace(/\.midi?$/i, '')
-    const outputPath = join(orfeoDir, `${nextOrfeoBaseName(rawBase)}.mid`)
+    const outputPath = nextAvailableOrfeoPath(orfeoDir, rawBase)
 
     const buf = Buffer.from(payload.base64, 'base64')
     writeFileSync(outputPath, buf)

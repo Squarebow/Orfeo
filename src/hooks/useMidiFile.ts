@@ -4,6 +4,7 @@ import { parseMidiBuffer } from '../utils/midiParser'
 import { detectKeyFromTracks, parseKeySignature } from '../utils/keyDetection'
 import { resolveAndTrackImport } from '../utils/foreignFormatImport'
 import { confirmDiscardDirtyNoteEdits } from '../utils/noteEditorState'
+import { confirmDiscardDirtyTempoKey } from '../utils/tempoKeySave'
 
 export function useMidiFile() {
   const setMidi = useStore((s) => s.setMidi)
@@ -13,6 +14,8 @@ export function useMidiFile() {
     try {
       const canDiscard = await confirmDiscardDirtyNoteEdits('Save changes before opening this file?')
       if (!canDiscard) return
+      const canDiscardTempoKey = await confirmDiscardDirtyTempoKey('Save tempo/key changes before opening this file?')
+      if (!canDiscardTempoKey) return
 
       const result = await window.electronAPI.openMidiFile()
       if (!result) return

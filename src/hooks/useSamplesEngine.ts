@@ -215,7 +215,7 @@ function buildSamplesPlayer(startSec: number) {
   clearSchedule(); clearAllKeys()
   applyChannelVolumes()
 
-  const { tracks, bpm, originalBpm, detectedKey, hitEffectScope, showHandLabels, handLabelMode } = useStore.getState()
+  const { tracks, bpm, originalBpm, detectedKey, hitEffectScope, showHandLabels, handLabelMode, noteEditorActive } = useStore.getState()
   const midiData = activeMidiData()
   if (!midiData) return
 
@@ -223,6 +223,9 @@ function buildSamplesPlayer(startSec: number) {
   const ratio = bpm / originalBpm
   const hasSolo = tracks.some(t => t.solo)
   const performanceMode = handLabelMode === 'performance'
+  // Note Editor's own Hand toggle governs key-light coloring while editing —
+  // same split as the piano roll, see useAudioEngine.ts's identical fix.
+  const effectiveShowHandLabels = showHandLabels || (noteEditorActive && NES.reassignHandsMode)
 
   // Send programChange for each active track — also marks channels as initialized
   // so edit-mode lazy init doesn't redundantly override them.
@@ -250,7 +253,7 @@ function buildSamplesPlayer(startSec: number) {
       const delay = (noteStart - startSec) * 1000
       const durMs = Math.max(note.duration / ratio * 1000, 40)
       const midiNum = note.midi + transpose
-      const color = resolveHandAwareColor(note, defaultColor, { homogeneousTrack, showHandLabels, performanceMode })
+      const color = resolveHandAwareColor(note, defaultColor, { homogeneousTrack, showHandLabels: effectiveShowHandLabels, performanceMode })
 
       const t = setTimeout(() => {
         if (!_synth) return
@@ -342,7 +345,7 @@ export function useSamplesEngine() {
     // channel: MIDI channel 0-based. Undefined = dedicated preview channel (15).
     // visual = false skips the timed key-light — glissando drives the keyboard
     // light itself (instant swap, no fade timer) instead of this note-duration ring.
-    ;(window as any).__orfeoPlayNoteSamples = (midiNum: number, vel: number, durMs: number, channel?: number, visual = true) => {
+    ;(window as any).__orfeoPlayNoteSamples = (midiNum: number, vel: number, durMs: number, channel?: number, visual = true, color?: string) => {
       if (!_synth || !_synthReady) return
       const ch = channel ?? 15
       if (ch === 15) {
@@ -357,7 +360,7 @@ export function useSamplesEngine() {
       }
       _synth.noteOn(ch, midiNum, Math.round(vel * 127))
       setTimeout(() => _synth?.noteOff(ch, midiNum), durMs)
-      if (visual) lightKey(midiNum, amberHex(), durMs + 100)
+      if (visual) lightKey(midiNum, color ?? amberHex(), durMs + 100)
     }
     // ── Sustained note-on for hardware MIDI input ────────────────────────────
     ;(window as any).__orfeoNoteOnSamples = (midiNum: number, vel: number) => {

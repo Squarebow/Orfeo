@@ -34,6 +34,7 @@ import { runNoteEditorRoundTripTest } from './utils/noteEditorRoundTripTest'
 import { runHandAssignmentTest } from './utils/handAssignmentTest'
 import { runHandMetadataTest } from './utils/handMetadataTest'
 import { NES, confirmDiscardDirtyNoteEdits } from './utils/noteEditorState'
+import { confirmDiscardDirtyTempoKey, saveTempoKeyChanges } from './utils/tempoKeySave'
 
 export default function App() {
   const midi = useStore((s) => s.midi)
@@ -72,6 +73,8 @@ export default function App() {
   const loadFileIntoPlayer = useCallback(async (filePath: string) => {
     const canDiscard = await confirmDiscardDirtyNoteEdits('Save changes before opening this file?')
     if (!canDiscard) return
+    const canDiscardTempoKey = await confirmDiscardDirtyTempoKey('Save tempo/key changes before opening this file?')
+    if (!canDiscardTempoKey) return
 
     const proceed = await confirmPendingImportBeforeSwitch(filePath)
     if (!proceed) return // user cancelled — stay on current file
@@ -231,7 +234,26 @@ export default function App() {
         // Discard (1) or successful save — fall through
       }
 
-      // 2. Pending imported file (MusicXML/GP converted but not yet saved as .mid)
+      // 2. Tempo/Key unsaved changes (only if the Settings toggle is on)
+      {
+        const s = useStore.getState()
+        const tempoKeyDirty = s.saveTempoKeyChangesEnabled && !!s.midi &&
+          (s.bpm !== s.originalBpm || (s.detectedKey?.transpose ?? 0) !== 0)
+        if (tempoKeyDirty) {
+          const choice = await confirmDialog({
+            title: 'Unsaved Tempo/Key Changes',
+            message: 'You have unsaved tempo/key changes.',
+            buttons: ['Save', 'Discard', 'Cancel'],
+          })
+          if (choice === 2) return  // Cancel — leave app open
+          if (choice === 0) {
+            const ok = await saveTempoKeyChanges()
+            if (!ok) return
+          }
+        }
+      }
+
+      // 3. Pending imported file (MusicXML/GP converted but not yet saved as .mid)
       const pending = useStore.getState().pendingImportedFile
       if (pending) {
         const libraryFolder = (useStore.getState() as any).libraryFolder as string | null ?? null

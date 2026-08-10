@@ -55,14 +55,46 @@ export function detectKeyFromTracks(tracks: any[]): DetectedKey {
   return { semitone: bestSemitone, isMinor: bestMinor, transpose: 0 }
 }
 
-export function parseKeySignature(ksKey: number, ksScale: string): DetectedKey {
-  // ksKey: number of sharps (+) or flats (-)
-  // Map circle of fifths to semitone
-  const sharpOrder = [0,7,2,9,4,11,6,1,8,3,10,5] // C G D A E B F# C# Ab Eb Bb F
-  const idx = ((ksKey % 12) + 12) % 12
-  const semitone = sharpOrder[idx]
+// Note-name → semitone, for the string-keyed format @tonejs/midi's Header
+// actually produces (see keySignatureKeys in its Header.js — the raw
+// signed sharps/flats count is looked up into this table and only the
+// resulting NAME is exposed, e.g. "F", "C#", "Bb"; the number itself never
+// reaches midi.header.keySignatures[]). ksKey used to be typed as always
+// numeric (a raw sharps/flats count) — that shape doesn't actually exist
+// on real parsed files, so every file with a genuine key-signature meta
+// event fed a string into `% 12`, silently producing NaN and permanently
+// stuck the Key display at "—" no matter what (transpose still worked —
+// it's a plain number stored separately, never touches this). ─────────────
+// Reverse of KEY_NAME_TO_SEMITONE — canonical name per semitone (one pick
+// per pitch class, matching whichever of the enharmonic spellings
+// @tonejs/midi's own keySignatureKeys table also recognizes). Used by
+// midiParser.ts to turn an ORFEO_KEY meta event's raw semitone back into
+// the string shape parseKeySignature already expects. ─────────────────────
+export const SEMITONE_TO_KEY_NAME = ['C', 'Db', 'D', 'Eb', 'E', 'F', 'F#', 'G', 'Ab', 'A', 'Bb', 'B']
+
+const KEY_NAME_TO_SEMITONE: Record<string, number> = {
+  C: 0, 'B#': 0, 'C#': 1, Db: 1, D: 2, 'D#': 3, Eb: 3, E: 4, Fb: 4,
+  'E#': 5, F: 5, 'F#': 6, Gb: 6, G: 7, 'G#': 8, Ab: 8, A: 9, 'A#': 10, Bb: 10,
+  B: 11, Cb: 11,
+}
+
+export function parseKeySignature(ksKey: number | string, ksScale: string): DetectedKey {
   const isMinor = ksScale === 'minor'
-  // minor key root is 3 semitones below major
+  // The name @tonejs/midi gives is always the MAJOR key at that
+  // sharps/flats count — for a minor scale it's the relative major's name
+  // (e.g. Bb → "F", scale "minor" really means D minor, F major's
+  // relative minor), same relationship the numeric path below encodes.
+  let semitone: number
+  if (typeof ksKey === 'string') {
+    semitone = KEY_NAME_TO_SEMITONE[ksKey] ?? 0
+  } else {
+    // Legacy/defensive path — a raw signed sharps/flats count, in case a
+    // future version of the parser (or a different caller) provides one.
+    const sharpOrder = [0,7,2,9,4,11,6,1,8,3,10,5] // C G D A E B F# C# Ab Eb Bb F
+    const idx = ((ksKey % 12) + 12) % 12
+    semitone = sharpOrder[idx]
+  }
+  // minor key root is 3 semitones below its relative major
   const minorSemitone = isMinor ? (semitone + 9) % 12 : semitone
   return { semitone: isMinor ? minorSemitone : semitone, isMinor, transpose: 0 }
 }

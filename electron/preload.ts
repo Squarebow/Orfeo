@@ -33,6 +33,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
   transcriptGenerate: (midiPath: string, noteNaming: string, accidentals: string) => ipcRenderer.invoke('transcript:generate', midiPath, noteNaming, accidentals),
   // Note Editor
   saveNoteEditor:      (payload: any) => ipcRenderer.invoke('noteEditor:save', payload),
+  saveTempoKey:        (payload: any) => ipcRenderer.invoke('tempoKey:save', payload),
   showMessageBox:      (opts: any)    => ipcRenderer.invoke('dialog:messageBox', opts),
   confirmClose:        ()             => ipcRenderer.invoke('app:confirm-close'),
   setFullScreen:       (value: boolean) => ipcRenderer.invoke('window:setFullScreen', value),

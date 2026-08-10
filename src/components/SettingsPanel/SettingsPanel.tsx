@@ -1206,7 +1206,7 @@ function LibraryPanel() {
             onMouseLeave={e => { e.currentTarget.style.borderColor = 'var(--state-disabled)'; e.currentTarget.style.color = 'var(--text-dim-control)' }}
           >
             <FolderOpen size={13} />
-            Set MIDI folder
+            Set your MIDI folder
           </button>
         )}
       </div>
@@ -1886,6 +1886,8 @@ export default function SettingsPanel() {
   const setLoopRegionEnabled = useStore((s) => s.setLoopRegionEnabled)
   const noteEditorEnabled    = useStore((s) => s.noteEditorEnabled)
   const setNoteEditorEnabled = useStore((s) => s.setNoteEditorEnabled)
+  const saveTempoKeyChangesEnabled    = useStore((s) => s.saveTempoKeyChangesEnabled)
+  const setSaveTempoKeyChangesEnabled = useStore((s) => s.setSaveTempoKeyChangesEnabled)
   const chordTranscriptionEnabled = useStore((s) => s.chordTranscriptionEnabled)
   const setChordTranscriptionEnabled = useStore((s) => s.setChordTranscriptionEnabled)
   const hideDemoFolder           = useStore((s) => s.hideDemoFolder)
@@ -2134,6 +2136,16 @@ export default function SettingsPanel() {
                         Shows <span style={{ display: 'inline-flex', verticalAlign: 'middle', color: 'var(--text-amber)' }}><NoteEditorIcon size={11} /></span> icon in the Tracks panel. Enables MIDI note-editing mode directly on the piano roll.
                       </>
                     }
+                  />
+                  {/* ── Save tempo/key changes — off by default, so changing BPM/
+                      transpose stays the session-only display preference it's
+                      always been unless explicitly opted in. ─────────────── */}
+                  <OptionRow
+                    label="Save tempo/key changes"
+                    eyeToggle
+                    eyeValue={saveTempoKeyChangesEnabled}
+                    onEyeChange={setSaveTempoKeyChangesEnabled}
+                    description="When on, changing BPM or transpose offers a Save button to bake the change into a new versioned file. Off keeps them session-only, as before."
                   />
                 </CollapsibleSection>
 

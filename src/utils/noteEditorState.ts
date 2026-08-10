@@ -5,8 +5,19 @@ import { confirmDialog } from './confirmController'
 
 export type NEQuantize = 4 | 8 | 16 | 32
 
-// ── Default hint shown in the toolbar when cursor is outside the roll ─────────
-const DEFAULT_HINT = 'Click a track in the panel to solo it for editing'
+// ── Tool modes — mutually exclusive, isolated behavior each (see
+// PianoRoll.tsx's onEditDown/Move/Up). 'select' is the default: move/resize/
+// multi-select notes, grab+pan empty space. 'pen' only adds (Alt+click) or
+// marks notes delete-ready. 'marquee'/'lasso' only select, never add/move/
+// delete/resize. ─────────────────────────────────────────────────────────
+export type NETool = 'select' | 'pen' | 'marquee' | 'lasso'
+
+// ── Default hint shown in the toolbar when cursor is outside the roll.
+// "Click a track to solo it" ALSO lives as a permanent header label in
+// NoteEditorToolbar — that's fine, this one is the idle fallback for the
+// context-aware row-3 hint (which changes with tool/hover/selection state),
+// not a duplicate of anything dynamic. ──────────────────────────────────────
+const DEFAULT_HINT = 'Nothing selected'
 
 // ── NoteEditorState — module-level singleton bridging NoteEditorToolbar ↔ PianoRoll
 // Both components read/write this object; no prop threading needed.
@@ -18,6 +29,26 @@ export const NES = {
   history:            createNoteEditorHistory(),
   dirty:              false,
   newNotes:           new Set<ToneNote>(),
+  // Existing notes that were moved/resized/repitched/velocity-changed this
+  // session (not new additions — those are newNotes above, and render
+  // outline-only instead). Pulses the same white border as a selected note,
+  // so an edit stays visible on the roll after you deselect it. Cleared on
+  // Save & Reload along with newNotes — "after save all get normal
+  // properties" (see NoteEditorToolbar.tsx's handleSave). ──────────────────
+  editedNotes:        new Set<ToneNote>(),
+
+  // ── Active tool — see NETool above. Toolbar sets this; PianoRoll reads it
+  // every pointer event; toolbar re-renders via onToolChange. ──────────────
+  activeTool:         'select' as NETool,
+  onToolChange:       null as (() => void) | null,
+
+  // ── Reassign-hands mode — separate from the Settings LH/RH algorithm
+  // toggle (which controls whether assignHands() runs on load at all). This
+  // one only controls whether the *editor* shows hand-colored notes and
+  // offers Assign LH/RH right now. Off by default so opening the editor
+  // never surprises you with a wall of color you didn't ask for. ──────────
+  reassignHandsMode:  false,
+  onReassignHandsModeChange: null as (() => void) | null,
 
   // ── Live @tonejs/midi Midi copy — created from _raw when entering edit mode.
   // All edit operations target this instead of ParsedMidi (which uses plain objects
@@ -48,12 +79,15 @@ export const NES = {
     this.history.clear()
     this.dirty              = false
     this.newNotes.clear()
+    this.editedNotes.clear()
     this.editMidi           = null
     this.needsFlatRebuild   = false
     this.hoverHint          = DEFAULT_HINT
     this.snapRef.current            = true
     this.quantizeDivisorRef.current = 8
     this.showNoteNamesRef.current   = false
+    this.activeTool                 = 'select'
+    this.reassignHandsMode          = false
   },
 }
 
@@ -62,18 +96,31 @@ export const NES = {
 // noteEditorCommands.ts already writes, rather than duplicating a `kind`
 // field. Batch commands (e.g. "Remove 3 notes") count their own N. ────────
 export function buildNoteEditSummary(descriptions: string[]): string {
-  let added = 0, removed = 0, moved = 0, repitched = 0, resized = 0, velocityChanged = 0
+  let added = 0, removed = 0, moved = 0, repitched = 0, resized = 0, velocityChanged = 0, reassigned = 0
   for (const d of descriptions) {
     const batchRemove = d.match(/^Remove (\d+) notes?$/)
     const batchVelocity = d.match(/^Set velocity on (\d+) notes/)
+    // Assign left/right hand — "Assign left hand" (1 note) or "Assign right
+    // hand to N notes" (batch), from PianoRoll.tsx's assignSelectedHand.
+    const batchAssign = d.match(/^Assign (?:left|right) hand to (\d+) notes$/)
+    // Multi-select drag — "Move N notes", from PianoRoll.tsx's
+    // 'selection-move' editDrag mode. Distinct from singular "Move note
+    // midi=...tick=..." below (different string shape, was silently
+    // uncounted since it doesn't start with "Move note").
+    const batchMove = d.match(/^Move (\d+) notes$/)
     if (d.startsWith('Add note')) added++
     else if (batchRemove) removed += parseInt(batchRemove[1], 10)
     else if (d.startsWith('Remove note')) removed++
+    else if (batchMove) moved += parseInt(batchMove[1], 10)
     else if (d.startsWith('Move note')) moved++
     else if (d.startsWith('Repitch note')) repitched++
-    else if (d.startsWith('Resize note')) resized++
+    // "Resize note" never actually occurs — PianoRoll writes "Resize start"/
+    // "Resize end" — matched on the shared "Resize " prefix instead.
+    else if (d.startsWith('Resize ')) resized++
     else if (batchVelocity) velocityChanged += parseInt(batchVelocity[1], 10)
     else if (d.startsWith('Velocity note')) velocityChanged++
+    else if (batchAssign) reassigned += parseInt(batchAssign[1], 10)
+    else if (d.startsWith('Assign left hand') || d.startsWith('Assign right hand')) reassigned++
   }
   const s = (n: number) => n === 1 ? '' : 's'
   const parts: string[] = []
@@ -83,6 +130,7 @@ export function buildNoteEditSummary(descriptions: string[]): string {
   if (repitched > 0) parts.push(`repitched ${repitched} note${s(repitched)}`)
   if (resized > 0) parts.push(`resized ${resized} note${s(resized)}`)
   if (velocityChanged > 0) parts.push(`changed velocity on ${velocityChanged} note${s(velocityChanged)}`)
+  if (reassigned > 0) parts.push(`reassigned hand on ${reassigned} note${s(reassigned)}`)
   return parts.length > 0 ? parts.join(', ') : 'Saved'
 }
 

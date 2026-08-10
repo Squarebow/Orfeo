@@ -2,7 +2,7 @@ import { useCallback, useRef, useEffect } from 'react'
 import {
   Play, Pause, SkipBack, SkipForward, Repeat,
   FolderOpen, RotateCcw, ChevronUp, ChevronDown,
-  Rewind, FastForward,
+  Rewind, FastForward, Save,
 } from 'lucide-react'
 import { useStore } from '../../store'
 import { usePlayback } from '../../hooks/usePlayback'
@@ -14,6 +14,7 @@ import MidiIcon from '../MidiIcon'
 import VolumeKnob from '../VolumeKnob'
 import LoopRegionStrip from '../LoopRegionStrip'
 import { confirmDiscardDirtyNoteEdits } from '../../utils/noteEditorState'
+import { confirmDiscardDirtyTempoKey, saveTempoKeyChanges } from '../../utils/tempoKeySave'
 
 // NOTE: no more `C` shorthand object — every color below is a literal
 // `var(--token-name)` string written directly at its point of use, so the
@@ -44,6 +45,7 @@ export default function TopBar() {
   const chordExplorerOpen = useStore((s) => s.chordExplorerOpen)
   const resetAll = useStore((s) => s.resetAll)
   const barStarts = useStore((s) => s.barStarts)
+  const saveTempoKeyChangesEnabled = useStore((s) => s.saveTempoKeyChangesEnabled)
 
 
   const { play, pause, stop, seek, seekAndPlay } = usePlayback()
@@ -56,7 +58,9 @@ export default function TopBar() {
 
   const handleReset = useCallback(async () => {
     const proceed = await confirmDiscardDirtyNoteEdits('Save changes before resetting?')
-    if (proceed) resetAll()
+    if (!proceed) return
+    const proceedTempoKey = await confirmDiscardDirtyTempoKey('Save tempo/key changes before resetting?')
+    if (proceedTempoKey) resetAll()
   }, [resetAll])
 
   const handleScrubStart = useCallback(() => {
@@ -236,6 +240,28 @@ export default function TopBar() {
           <RotateCcw size={8} />
         </button>
       </div>
+
+      {/* ── Save tempo/key changes — only when the Settings toggle is on;
+          space always reserved (visibility, not display) so it appearing/
+          disappearing never shifts anything else in this group. The
+          transport controls are absolutely centered on the topbar
+          midpoint regardless (see CENTER group below), so this can never
+          shift them either way — reserving space here is purely so the
+          rest of the LEFT group itself doesn't jump. ─────────────────── */}
+      <button
+        onClick={() => void saveTempoKeyChanges()}
+        title="Save tempo/key changes as a new file"
+        className="app-no-drag"
+        style={{
+          display: 'flex', alignItems: 'center', gap: 5, marginLeft: 'var(--space-3)',
+          color: 'var(--text-near-black)', background: 'var(--text-amber)', border: 'none',
+          borderRadius: 'var(--radius-sm)', padding: '4px 8px', fontSize: 10, fontWeight: 600,
+          cursor: 'pointer', flexShrink: 0,
+          visibility: (saveTempoKeyChangesEnabled && (isTempoChanged || transpose !== 0)) ? 'visible' : 'hidden',
+        }}
+      >
+        <Save size={11} /> Save changes
+      </button>
       </div>
 
       {/* ── CENTER: transport + scrub + filename — absolutely centered on the topbar

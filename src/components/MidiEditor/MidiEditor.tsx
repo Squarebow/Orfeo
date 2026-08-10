@@ -1253,8 +1253,22 @@ export default function MidiEditor() {
           header's SCROLLBAR_GUTTER right-padding below keeps both grids
           computing the same 1fr width at all times. ───────────────────────── */}
       <div style={{ flex: 1, overflowY: 'auto', scrollbarGutter: 'stable' }}>
-        {state.rows.map(track => (
-          <TrackRow key={track.index} track={track}
+        {state.rows.map(track => {
+        // ── Always-on hand-split info strip — separate from the click-
+        // triggered preview below (pendingSplitIndex), which has real
+        // Split/Cancel actions. This one is pure passive info: shown for
+        // every qualifying track all the time, no button required, pointing
+        // at the Note Editor as the way to make it exactly right. Same
+        // eligibility as the Split button itself — a single mixed-hand
+        // keyboard track, not already a split half. ─────────────────────────
+        const splitEligible = !track.isMerged && !track.splitHand && KEYBOARD_GROUPS.has(track.group) && track.name !== 'Left Hand' && track.name !== 'Right Hand'
+        const infoNotes = splitEligible && pendingSplitIndex !== track.index
+          ? midi?.tracks.find(t => t.index === track.index)?.notes ?? []
+          : []
+        const infoStats = infoNotes.length > 0 ? getHandPreviewStats(infoNotes) : null
+        return (
+        <div key={track.index}>
+          <TrackRow track={track}
             onToggleIncluded={() => update(track.index, { included: !track.included })}
             onToggleMerge={() => update(track.index, { mergeSelected: !track.mergeSelected })}
             onChangeProgram={p => {
@@ -1295,7 +1309,24 @@ export default function MidiEditor() {
             }}
             onPickColor={openColorPopover}
           />
-        ))}
+          {infoStats && infoStats.taggedNotes > 0 && (
+            <div style={{
+              padding: '3px 14px 5px 40px', display: 'flex', alignItems: 'center', gap: 6,
+              fontSize: 9, color: 'var(--text-inactive)', fontFamily: 'JetBrains Mono',
+            }}>
+              <span>
+                {infoStats.leftCount} left / {infoStats.rightCount} right —
+                {infoStats.confidenceUnknown
+                  ? ' hand split shown is automatic.'
+                  : infoStats.lowConfidenceCount > 0
+                    ? ` ${infoStats.lowConfidenceRatio > 0 ? Math.round(infoStats.lowConfidenceRatio * 100) : 0}% flagged low-confidence.`
+                    : ' hand split shown is automatic.'}
+                {' '}For a perfectly accurate split, correct it by hand in the Note Editor before splitting.
+              </span>
+            </div>
+          )}
+        </div>
+        )})}
       </div>
 
       {/* ── Merge toolbar ────────────────────────────────────────────────────── */}

@@ -1,5 +1,45 @@
 # Changelog
 
+## [1.6.0] — 10. 8. 2026 — Note Editor manual hand assignment, tempo/key saving, and a real data-loss fix
+
+The big one. Manual LH/RH hand correction inside the Note Editor, a full toolbar rebuild, a new opt-in tempo/key saving feature, and — found while chasing an unrelated report — a versioning bug that could silently overwrite an earlier saved version instead of creating a new one.
+
+### Note Editor — manual hand assignment
+The Note Editor gained a full correction workflow for the automatic LH/RH hand-splitting algorithm: a dedicated **Hand** toggle (separate from the Settings LH/RH algorithm toggle — this one only controls what the editor shows/lets you fix right now) that visually isolates the piano/keys track on the roll and keyboard (hides every other track — purely visual, doesn't touch audio) and enables **Assign to Left/Right Hand** in the right-click context menu. Manually assigned notes are tagged `handSource: 'manual'` and protected from being silently overwritten by a fresh algorithm run on the next load. Assign/reassign is fully undo-capable (Ctrl+Z, or the context menu's Undo/Redo, always present and disabled-aware). Split/Merge/Save in the Playback Editor now respects manually-corrected tags end-to-end via an extended `ORFEO_HAND_MAP` persistence format that carries a per-note computed/manual source alongside the hand itself.
+
+### Note Editor — toolbar rebuild and tool isolation
+Full 3-row toolbar redesign: header (logo, title, permanent "click a track to solo it" hint, close), a combined TOOLS+MODES row, and a context-aware tooltip row. Each tool (Select/Pen/Marquee/Lasso) now does exactly one thing — Pen only adds (Alt+click) or marks notes for delete, Marquee/Lasso only select, Select handles move/resize/pan. Right-click always opens a context menu (Assign LH/RH when Hand mode is on, Deselect, Undo, Redo, Delete always last) instead of ever instant-deleting. Every icon's tooltip now shows in the toolbar's own dynamic hint row instead of a native browser tooltip, changing live with hover/selection state. Undo/redo icons rotated to read as directional arrows; velocity lane icon is a static white/amber toggle with no blink/nudge.
+
+### Note Editor — visual language for unsaved edits
+Selected/dragged notes get a white 2-3px outline (was a 1px red border flush against the note). Notes that were moved/resized/repitched/velocity-changed keep pulsing that same border even after being deselected, so an edit stays visible at a glance. Brand-new (not yet saved) notes render outline-only with no fill at all, instead of a colored note with a border on top. All three reset to normal on Save & Reload.
+
+### Note Editor — interaction bugs
+- A plain click on a note silently nudged its pitch/time by a tick — the note-drag math ran on every pointermove between mouse-down and up, including a click's few pixels of incidental jitter, and separately, `snapTick()` was being applied unconditionally even when nothing actually moved, which shifted any note that wasn't already perfectly grid-aligned (i.e. almost any real performance recording). Both fixed — a drag now only "counts" past a 3px threshold, and the snap-and-compare step is skipped entirely below it.
+- Cursor could get stuck showing the pencil icon after a Select-tool drag ended.
+- Grab-to-pan read the wrong mouse axis (this piano roll's time axis is vertical, not horizontal) — panning was barely responsive and could read as either direction.
+- Plain click on empty space now deselects (previously only right-click did).
+- A vibraphone/mallet-instrument track sharing a file with a real piano track was miscounted as "piano-family" in two places: the hand-assignment note pool (wrongly forced its notes into the LH/RH split) and the piano-family color palette slot (could coincidentally collide with the fixed hand-color hex, making the piano track's own default color look identical to "assigned right hand"). Both narrowed from `KEYBOARD_GROUPS` to a piano+organ-only `HAND_ASSIGN_GROUPS`.
+- A toolbar history-change listener's cleanup compared against the wrong closure reference and could never actually clear a stale handler, leaving the Undo icon stuck disabled after some interactions (Ctrl+Z and the context menu's Undo were unaffected — they read history state fresh each time).
+
+### New feature — save tempo/key changes to file (opt-in)
+BPM and transpose were session-only display preferences. A new toggle in Settings → MIDI Files & Library ("Save tempo/key changes", off by default) unlocks a **Save changes** button in the header next to the Key/Tempo controls whenever either has been changed from the loaded file's own values. Saving bakes both into a genuinely new versioned copy: BPM scales every existing tempo event by the same ratio (preserves rubato shape rather than flattening to one constant tempo), and transpose shifts every note's actual pitch (skipping drum tracks — a drum note's pitch selects which drum sound plays, not a musical pitch). Logged to File Info as e.g. "Changed BPM from 144 to 78" / "Changed key from F to Eb". Wired into every place that can discard the current file — opening a new one, dragging a file in, closing the app, and Reset — each prompting Save/Discard/Cancel if dirty.
+
+### Fixed — key signature always showing "—"
+Found while testing the feature above: `@tonejs/midi` (the version in use) returns a file's key signature as a note-name **string** ("F", "Bb"...), never the raw numeric sharps/flats count the app's parser assumed — so `key % 12` silently produced `NaN` for every file with a genuine key signature, permanently stuck the Key display at a dash. Affected any file with real key metadata, not just ones without it. Fixed to map the string directly to a semitone.
+
+Separately, `@tonejs/midi`'s own key-signature *encoder* has a bug that silently drops the value on any re-save regardless — verified directly that even round-tripping a file with zero changes through its encoder loses the key signature. Worked around with a custom `ORFEO_KEY` text meta event (same pattern already used for track names/colors), written by the tempo/key save and read back with priority over the native field.
+
+### Fixed — critical: save could silently overwrite an earlier version instead of creating a new one
+`nextOrfeoVersion()` computed the next `_ORFEO_vN` number purely from the *currently loaded file's own filename* — correct only if you always keep editing the freshly-reloaded save result. Reopening the plain original later (exactly what Library Favorites does — it points at the original, not the latest version) computed "_ORFEO_v1" again even if v1/v2/v3 already existed on disk from earlier sessions, and the save had no existence check: **it silently overwrote the old v1 with today's completely different edits.** Affected all three save tools that share this versioning rule (Playback Editor, Mixer, Note Editor). Fixed with a helper that scans the actual output folder for existing versions and always takes the real max + 1.
+
+### Track Panel
+- Show/hide-in-roll eye icon recolored: green when visible, red when hidden (was white/blue).
+- Drag-to-reorder no longer shows the OS "not allowed" cursor badge for the whole drag — the drag handlers never populated `dataTransfer`, which is unrelated to how the reorder itself works (pure React state) but is what Chromium uses to decide which cursor to show.
+
+**New:** `src/utils/tempoKeySave.ts`, `NES.editedNotes` (`src/utils/noteEditorState.ts`), `HAND_ASSIGN_GROUPS` (`src/utils/keyboardGroups.ts`), `nextAvailableOrfeoPath()` (`electron/main.ts`), `tempoKey:save` IPC handler, `ORFEO_KEY` meta convention. **Changed:** `src/components/NoteEditor/NoteEditorToolbar.tsx` (largely rebuilt), `src/components/PianoRoll/PianoRoll.tsx`, `src/components/TrackPanel/TrackPanel.tsx`, `src/components/Transport/TopBar.tsx`, `src/components/SettingsPanel/SettingsPanel.tsx`, `src/store/index.ts`, `src/utils/keyDetection.ts`, `src/utils/midiParser.ts`, `src/utils/keyboardGroups.ts`, `src/utils/orfeoVersioning.ts` usage, `src/App.tsx`, `src/hooks/useMidiFile.ts`, `electron/main.ts`, `electron/preload.ts`.
+
+---
+
 ## [1.5.2-pre] — 9. 8. 2026 — Note Editor: silent audio during live edits, fixed for real
 
 Follow-up to the "no audio while the toolbar is open" fix — that fix (gating playback on `NES.dirty` so it only reroutes to the edit buffer once a real edit exists) stopped the false-positive case, but audio still stayed silent with a genuine edit in place; only a full Save+reload restored it.

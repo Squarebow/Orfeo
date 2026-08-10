@@ -1,11 +1,15 @@
 import { useEffect, useState, useReducer, useRef, useCallback } from 'react'
+import { PenLine, SquareDashed, CircleDashed, Hand, WholeWord, Music4, Save } from 'lucide-react'
 import { useStore } from '../../store'
-import { NES, buildNoteEditSummary } from '../../utils/noteEditorState'
+import { NES, buildNoteEditSummary, type NETool } from '../../utils/noteEditorState'
 import { confirmDialog } from '../../utils/confirmController'
 import { editableCopyToBuffer } from '../../utils/noteEditorCommands'
+import { buildHandExportHint } from '../../utils/handMetadata'
 import { parseMidiBuffer } from '../../utils/midiParser'
 import { detectKeyFromTracks, parseKeySignature } from '../../utils/keyDetection'
 import { getPianoRollAreaRect, getPianoRollCenterX } from '../../utils/modalAnchors'
+import { HAND_ASSIGN_GROUPS } from '../../utils/keyboardGroups'
+import OrfeoMark from '../OrfeoMark'
 
 // ── Toolbar SVG icons ─────────────────────────────────────────────────────────
 const IconSnap = () => (
@@ -13,25 +17,6 @@ const IconSnap = () => (
     <rect x="1.5" y="2" width="2" height="9" rx="1" />
     <rect x="5.5" y="4" width="2" height="5" rx="1" />
     <rect x="9.5" y="2" width="2" height="9" rx="1" />
-  </svg>
-)
-
-const IconSavePlus = () => (
-  <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="var(--text-amber)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-    <path d="M12.5 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h10.2a2 2 0 0 1 1.4.6l3.8 3.8a2 2 0 0 1 .6 1.4V12" />
-    <path d="M16 13H8a1 1 0 0 0-1 1v7" />
-    <path d="M19 22v-6" />
-    <path d="M22 19h-6" />
-    <path d="M7 3v4a1 1 0 0 0 1 1h7" />
-  </svg>
-)
-
-const IconReset = () => (
-  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-    <path d="m10 10-6.157 6.162a2 2 0 0 0-.5.833l-1.322 4.36a.5.5 0 0 0 .622.624l4.358-1.323a2 2 0 0 0 .83-.5L14 13.982"/>
-    <path d="m12.829 7.172 4.359-4.346a1 1 0 1 1 3.986 3.986l-4.353 4.353"/>
-    <path d="m15 5 4 4"/>
-    <path d="m2 2 20 20"/>
   </svg>
 )
 
@@ -51,6 +36,7 @@ const IconInfo = () => (
 
 const QUANT_LABELS: Record<number, string> = { 4: '1/4', 8: '1/8', 16: '1/16', 32: '1/32' }
 
+
 // ── NoteEditorToolbar ─────────────────────────────────────────────────────────
 // Floating draggable toolbar — appears when noteEditorActive is true.
 // Reads/writes NES.* directly; subscribes to NES.onHistoryChange for re-renders.
@@ -62,7 +48,9 @@ export default function NoteEditorToolbar() {
   const noteEditorToolbarY      = useStore(s => s.noteEditorToolbarY)
   const setNoteEditorToolbarPos = useStore(s => s.setNoteEditorToolbarPos)
   const unsoloTrackForEdit      = useStore(s => s.unsoloTrackForEdit)
+  const soloTrackForEdit        = useStore(s => s.soloTrackForEdit)
   const noteEditorSoloTrackIndex = useStore(s => s.noteEditorSoloTrackIndex)
+  const tracks                  = useStore(s => s.tracks)
   const velocityPanelOpen       = useStore(s => s.velocityPanelOpen)
   const setVelocityPanelOpen    = useStore(s => s.setVelocityPanelOpen)
 
@@ -74,17 +62,48 @@ export default function NoteEditorToolbar() {
   const [snapEnabled,     setSnapDisplay]   = useState(NES.snapRef.current)
   const [quantize,        setQuantizeDisplay] = useState(NES.quantizeDivisorRef.current)
   const [showNoteNames,   setNoteNamesDisplay] = useState(NES.showNoteNamesRef.current)
+  const [activeTool,      setActiveToolDisplay] = useState<NETool>(NES.activeTool)
+  const [reassignHands,   setReassignHandsDisplay] = useState(NES.reassignHandsMode)
   const [quantizeOpen,    setQuantizeOpen]  = useState(false)
   const [quantizePos,     setQuantizePos]   = useState({ top: 0, left: 0 })
   const [showCloseConfirm, setShowCloseConfirm] = useState(false)
+  // ── Icon hover hint — replaces native `title` tooltips for every icon in
+  // this panel. Hovering an icon shows its description in the row-3
+  // tooltip section instead of a browser tooltip popup; moving off it
+  // reverts to the normal tool-based context-aware text. Scoped entirely
+  // to hovering inside the panel — the piano roll's own hover hints
+  // (NES.hoverHint) are untouched. ───────────────────────────────────────
+  const [iconHint, setIconHint] = useState<string | null>(null)
   const quantizeBtnRef = useRef<HTMLButtonElement>(null)
 
   useEffect(() => {
-    NES.onHistoryChange = () => forceUpdate()
-    return () => { if (NES.onHistoryChange === forceUpdate as unknown as (() => void)) NES.onHistoryChange = null }
+    const handler = () => setActiveToolDisplay(NES.activeTool)
+    NES.onToolChange = handler
+    return () => { if (NES.onToolChange === handler) NES.onToolChange = null }
+  }, [])
+  useEffect(() => {
+    const handler = () => setReassignHandsDisplay(NES.reassignHandsMode)
+    NES.onReassignHandsModeChange = handler
+    return () => { if (NES.onReassignHandsModeChange === handler) NES.onReassignHandsModeChange = null }
   }, [])
 
-  // ── Subscribe to hover hint changes from PianoRoll ───────────────────────
+  useEffect(() => {
+    // Cleanup compared NES.onHistoryChange to `forceUpdate` (the dispatch),
+    // but the assignment stores a NEW wrapper closure `() => forceUpdate()`
+    // — never equal, so cleanup could never actually null the stale
+    // handler. A resize/move interaction that pushed to history could then
+    // silently update a detached instance's handler (left behind by an
+    // earlier hot-reload) instead of the currently-rendered toolbar's, so
+    // its Undo icon never re-rendered enabled — Ctrl+Z and the context
+    // menu's Undo both read NES.history fresh each time, so they worked
+    // regardless. Store the actual handler reference so cleanup can match it.
+    const handler = () => forceUpdate()
+    NES.onHistoryChange = handler
+    return () => { if (NES.onHistoryChange === handler) NES.onHistoryChange = null }
+  }, [])
+
+  // ── Subscribe to hover hint changes from PianoRoll — context-aware: the
+  // hint changes with tool/hover/selection state as the mouse moves. ───────
   useEffect(() => {
     const handler = () => setHintText(NES.hoverHint)
     NES.onHintChange = handler
@@ -105,6 +124,33 @@ export default function NoteEditorToolbar() {
     const sourcePath = (useStore.getState().midi as any)?._filePath as string | undefined
     if (!sourcePath || !NES.editMidi) return false
 
+    // ── Inject hand-assignment export hint before encoding — same mechanism
+    // the Playback Editor's editor:save uses server-side, done here instead
+    // since noteEditor:save receives pre-encoded bytes with no track data of
+    // its own to inject into. Without this, hand tags on NES.editMidi's
+    // notes (copied in from the store at edit-mode entry — see
+    // copyHandTagsOntoEditBuffer) never reach the saved file: editing
+    // anything and saving silently discarded whatever hand tags existed.
+    const editMidi = NES.editMidi
+    const keptMeta = ((editMidi.header as any).meta ?? []).filter(
+      (m: any) => !(typeof m.text === 'string' && m.text.startsWith('ORFEO_HAND_MAP:'))
+    )
+    ;(editMidi.header as any).meta = keptMeta
+    editMidi.tracks.forEach(track => {
+      if (!track.notes.some((n: any) => n.hand !== undefined)) return
+      // (track as any).index — the compacted (non-empty-tracks-only) index
+      // midiToEditableCopy() stamps on this exact object, NOT the raw
+      // forEach position. restoreHandTagsFromHints() on reload matches
+      // ORFEO_HAND_MAP's trackIndex against ParsedTrack.index, which is
+      // that same compacted numbering — using the raw loop index here
+      // (as this used to) wrote the hint under the wrong track whenever an
+      // empty filler track preceded the real one, so the manual/computed
+      // tags silently failed to restore on the very next load.
+      const hint = buildHandExportHint((track as any).index, track.name, track.notes as any)
+      track.name = hint.name
+      if (hint.meta) (editMidi.header as any).meta.push(hint.meta)
+    })
+
     const buf    = editableCopyToBuffer(NES.editMidi)
     const bytes  = new Uint8Array(buf)
     let binary   = ''
@@ -121,6 +167,12 @@ export default function NoteEditorToolbar() {
     if (!result.ok) return false
 
     NES.dirty = false
+    // Once saved, edits are no longer "unsaved" — clear the new/edited
+    // note markers so the roll drops the outline-only fill and pulsing
+    // border and everything renders with normal properties again.
+    NES.newNotes.clear()
+    NES.editedNotes.clear()
+    NES.needsFlatRebuild = true
     NES.onHistoryChange?.()
     useStore.getState().setLibraryNeedsRefresh(true)
 
@@ -136,6 +188,29 @@ export default function NoteEditorToolbar() {
       } else {
         useStore.getState().setDetectedKey(detectKeyFromTracks(parsed.tracks))
       }
+      // setMidi() just rebuilt `tracks` fresh from the reloaded file (all
+      // visible by default) — it has no memory of the Hand toggle's visual
+      // isolation, which lived only in the old (now-replaced) tracks array.
+      // Re-solo the piano track post-reload if Hand mode is still on, or
+      // the roll silently un-isolates back to all-11-tracks-visible right
+      // after every save. noteEditorSoloTrackIndex is cleared first since
+      // it may still equal the new piano track's index from before reload
+      // — soloTrackForEdit would read that as "already soloed" and toggle
+      // it OFF instead of re-applying it.
+      // Deferred one tick — setMidi's `tracks` replacement can still be
+      // getting picked up by other subscribers/effects reacting to the
+      // same state change (e.g. TrackPanel, PianoRoll's store-ref sync);
+      // running this synchronously right after setMidi risked a later
+      // effect's own re-render clobbering the isolation right back.
+      setTimeout(() => {
+        if (!NES.reassignHandsMode) return
+        const freshTracks = useStore.getState().tracks
+        const kbTrack = freshTracks.find(t => HAND_ASSIGN_GROUPS.has(t.group) && !t.isDrum)
+        if (kbTrack) {
+          useStore.setState({ noteEditorSoloTrackIndex: null, preSoloTrackVisibility: null })
+          useStore.getState().soloTrackForEdit(kbTrack.index)
+        }
+      }, 0)
     }
     return true
   }, [])
@@ -185,7 +260,7 @@ export default function NoteEditorToolbar() {
     const roll = getPianoRollAreaRect()
     if (!roll) return
     const w = panelRef.current?.offsetWidth ?? 400
-    const next = { x: Math.max(0, Math.round(getPianoRollCenterX() - w / 2)), y: Math.round(roll.top + 12) }
+    const next = { x: Math.max(0, Math.round(getPianoRollCenterX() - w / 2) + 320), y: Math.round(roll.top + 12) }
     posRef.current = next
     setPos(next)
   }, [])
@@ -297,10 +372,70 @@ export default function NoteEditorToolbar() {
     }
     setQuantizeOpen(v => !v)
   }
+  // Clicking the already-active tool turns it back off (returns to Select,
+  // the default) instead of doing nothing — click = active, click again =
+  // inactive, same toggle behavior every other mode button here already has.
+  const setTool = (t: NETool) => {
+    const next = NES.activeTool === t ? 'select' : t
+    NES.activeTool = next
+    setActiveToolDisplay(next)
+  }
+  // ── Reassign-hands toggle — separate from the Settings LH/RH algorithm
+  // toggle; this only controls whether the editor shows hand colors and
+  // Assign LH/RH right now. Turning it on visually isolates the piano/keys
+  // track on the roll and keyboard (soloTrackForEdit hides every other
+  // track's `visible` — audio is untouched, purely visual), forcing it even
+  // if some other track happens to be soloed — correction always happens on
+  // exactly one track anyway, so there's never a reason to be looking at 11
+  // others while doing it. Turning it back off restores whatever was
+  // visible before — the isolation is scoped to Hand mode, not a permanent
+  // visibility change. ──────────────────────────────────────────────────
+  const toggleReassignHands = () => {
+    const next = !NES.reassignHandsMode
+    NES.reassignHandsMode = next
+    setReassignHandsDisplay(next)
+    if (next) {
+      const kbTrack = tracks.find(t => HAND_ASSIGN_GROUPS.has(t.group) && !t.isDrum)
+      if (kbTrack && noteEditorSoloTrackIndex !== kbTrack.index) soloTrackForEdit(kbTrack.index)
+    } else {
+      unsoloTrackForEdit()
+    }
+  }
 
   const canUndo = NES.history.canUndo
   const canRedo = NES.history.canRedo
-  const dirty   = NES.dirty
+
+  // ── Static per-tool blurb (line 1) + live hover-driven hint (line 2) —
+  // context-aware: line 2 changes with tool/hover/selection state as
+  // PianoRoll's updateHoverState reports it, falling back to a per-tool
+  // idle blurb when the cursor is outside the roll (NES.defaultHint). ──────
+  const toolTooltip: Record<NETool, [string, string]> = {
+    select: ['Select — click/shift-click notes, drag to move/resize', 'Drag empty space to pan · Shift+wheel to scrub finely'],
+    pen:    ['Pen — Alt+click empty space to add a note', 'Click a note to mark it for delete'],
+    marquee:['Marquee — drag a box over a cluster to select it', 'Shift+drag adds to the current selection'],
+    lasso:  ['Lasso — drag through notes to select them', 'Shift+drag adds to the current selection'],
+  }
+  const [tipLine1, tipLine2] = toolTooltip[activeTool]
+
+  // ── Renders "Label — description" text with the label dimmed-amber —
+  // shared by tipLine1 and every icon's hover hint so they read as one
+  // consistent system. ──────────────────────────────────────────────────
+  const renderTip = (text: string) => {
+    const dashIdx = text.indexOf(' — ')
+    if (dashIdx === -1) return text
+    return (
+      <>
+        <span style={{ color: 'var(--text-amber-dimmest)', fontWeight: 700 }}>{text.slice(0, dashIdx)}</span>
+        {text.slice(dashIdx)}
+      </>
+    )
+  }
+  // ── Icon hover handlers — set/clear the row-3 hint instead of a native
+  // `title` tooltip. ────────────────────────────────────────────────────
+  const hintHandlers = (hint: string) => ({
+    onMouseEnter: () => setIconHint(hint),
+    onMouseLeave: () => setIconHint(null),
+  })
 
   return (
     <div
@@ -310,6 +445,7 @@ export default function NoteEditorToolbar() {
         position: 'fixed',
         left: pos.x, top: pos.y,
         zIndex: 9700,
+        width: 570,
         background: 'var(--panel)',
         border: '1px solid var(--state-hover-border)',
         borderRadius: 'var(--radius-md)',
@@ -317,65 +453,119 @@ export default function NoteEditorToolbar() {
         flexDirection: 'column',
         userSelect: 'none',
         cursor: 'default',
-        minWidth: 0,
       }}
     >
-      {/* ── Icon row ─────────────────────────────────────────────────────── */}
-      <div style={{ display: 'flex', alignItems: 'center', height: 38, padding: '0 6px', gap: 3 }}>
-
-        {/* ── Drag handle ────────────────────────────────────────────────── */}
-        <div
-          onMouseDown={e => {
-            e.preventDefault()
-            dragState.current = { startX: e.clientX, startY: e.clientY, startPosX: pos.x, startPosY: pos.y }
-          }}
-          title="Drag to move"
-          style={{
-            width: 16, height: 28,
-            display: 'flex', flexDirection: 'column', justifyContent: 'center', gap: 3,
-            cursor: 'grab', flexShrink: 0, padding: '0 2px',
-          }}
-        >
-          {[0,1,2].map(i => (
-            <div key={i} style={{ width: 12, height: 2, borderRadius: 1, background: 'var(--drag-handle-dot)' }} />
-          ))}
+      {/* ── Row 1: header — logo+title, permanent solo hint (centered), info
+          (disabled)+close. Three minmax(0,1fr) grid tracks — not flex+
+          absolute-centering — so the middle hint stays truly centered
+          regardless of title/button-group width (see CLAUDE.md's CSS Grid
+          layout convention). ────────────────────────────────────────────── */}
+      <div style={{ display: 'grid', gridTemplateColumns: '150px 1fr 150px', alignItems: 'center', height: 32, padding: '0 6px 0 8px', gap: 6 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 6, minWidth: 0 }}>
+          <div
+            onMouseDown={e => {
+              e.preventDefault()
+              dragState.current = { startX: e.clientX, startY: e.clientY, startPosX: pos.x, startPosY: pos.y }
+            }}
+            title="Drag to move"
+            style={{ display: 'flex', alignItems: 'center', cursor: 'grab', flexShrink: 0 }}
+          >
+            <OrfeoMark height={16} />
+          </div>
+          <span style={{
+            fontSize: 10, fontWeight: 700, letterSpacing: '0.08em',
+            color: 'var(--text-amber)', textTransform: 'uppercase',
+            whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
+          }}>
+            MIDI NOTE EDITOR
+          </span>
         </div>
-
-        {/* ── Edit label ─────────────────────────────────────────────────── */}
-        <span style={{
-          fontSize: 10, fontWeight: 700, letterSpacing: '0.08em',
-          color: 'var(--text-amber)', textTransform: 'uppercase',
-          paddingRight: 4, flexShrink: 0,
+        <div style={{
+          fontSize: 9, color: 'var(--text-dim-control)', textAlign: 'center',
+          whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
         }}>
-          NOTE EDITOR{dirty ? ' ●' : ''}
-        </span>
+          Click a track in the panel to solo it for editing
+        </div>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: 6 }}>
+          <button
+            disabled
+            style={{ ...iconBtnStyle(true), opacity: 0.2, cursor: 'default', pointerEvents: 'none' }}
+          >
+            <IconInfo />
+          </button>
+          <button
+            onClick={() => void doClose()}
+            style={{ ...btnBase, paddingLeft: 8, paddingRight: 8, color: 'var(--text-muted)' }}
+            onMouseEnter={e => { e.currentTarget.style.color = 'var(--text-amber)'; setIconHint('Close — exit edit mode') }}
+            onMouseLeave={e => { e.currentTarget.style.color = 'var(--text-muted)'; setIconHint(null) }}
+          >
+            ✕
+          </button>
+        </div>
+      </div>
 
-        <VSep />
+      {/* ── Row 2: TOOLS + MODES — one row, two groups with breathing room
+          between them, instead of stacked rows that fought the panel for
+          height and made the tooltip row below feel cramped. ─────────────── */}
+      <div style={{ display: 'flex', alignItems: 'center', height: 32, padding: '0 8px', gap: 10, borderTop: '1px solid var(--state-hover-bg)' }}>
+        <span style={rowLabelStyle}>TOOLS</span>
+        <ToolBtn active={activeTool === 'marquee'} onClick={() => setTool('marquee')} onHint={setIconHint} hint="Marquee — drag a box over a cluster to select it">
+          <SquareDashed size={13} />
+        </ToolBtn>
+        <ToolBtn active={activeTool === 'lasso'} onClick={() => setTool('lasso')} onHint={setIconHint} hint="Freehand select — drag through notes to select them">
+          <CircleDashed size={13} />
+        </ToolBtn>
+        <ToolBtn active={activeTool === 'pen'} onClick={() => setTool('pen')} onHint={setIconHint} hint="Pen — Alt+click to add, click a note to mark for delete">
+          <PenLine size={13} />
+        </ToolBtn>
+        <button onClick={doUndo} disabled={!canUndo} {...hintHandlers('Undo — revert the last edit (Ctrl+Z)')} style={iconBtnStyle(!canUndo)}><span style={{ display: 'inline-block', transform: 'rotate(-45deg)' }}>↺</span></button>
+        <button onClick={doRedo} disabled={!canRedo} {...hintHandlers('Redo — reapply the last undone edit (Ctrl+Y)')} style={iconBtnStyle(!canRedo)}><span style={{ display: 'inline-block', transform: 'rotate(45deg)' }}>↻</span></button>
 
-        {/* ── Snap toggle ────────────────────────────────────────────────── */}
+        <div style={{ flex: 1 }} />
+
+        <span style={rowLabelStyle}>MODES</span>
+        <ToolBtn active={showNoteNames} onClick={toggleNoteNames} onHint={setIconHint} hint="Note names — show pitch labels on notes">
+          <WholeWord size={16} />
+        </ToolBtn>
+
+        <ToolBtn active={reassignHands} onClick={toggleReassignHands} onHint={setIconHint} hint="Reassign hands — show LH/RH colors and enable Assign LH/RH">
+          <Hand size={13} />
+        </ToolBtn>
+
+        {/* ── Velocity lane toggle — no blink/nudge, ever: static white,
+            amber only while the lane is actually open. ────────────────── */}
         <button
-          onClick={() => setSnap(!snapEnabled)}
-          title={snapEnabled ? 'Snap: ON — click to disable' : 'Snap: OFF — click to enable'}
+          onClick={() => setVelocityPanelOpen(!velocityPanelOpen)}
+          {...hintHandlers(velocityPanelOpen ? 'Velocity lane — hide the velocity editor' : noteEditorSoloTrackIndex !== null ? 'Velocity lane — edit velocity for the soloed track' : 'Velocity lane — solo a track to edit its velocity')}
           style={{
             ...btnBase,
-            gap: 4, paddingLeft: 7, paddingRight: 7,
-            color:       snapEnabled ? 'var(--text-amber)' : 'var(--text-muted)',
-            borderColor: snapEnabled ? 'var(--accent-amber-strong)' : 'var(--state-hover-bg)',
+            width: 28, padding: 0, justifyContent: 'center',
+            // Amber only when the lane is actually open (truly "active") —
+            // a soloed track alone used to turn this amber too, which read
+            // as "on" even though nothing was toggled. The blink nudge
+            // below still pulses (as a white icon now) to draw attention
+            // when a track's soloed and the lane isn't open yet.
+            color:       velocityPanelOpen ? 'var(--text-amber)' : 'var(--text-muted)',
+            borderColor: velocityPanelOpen ? 'var(--accent-amber-active-border)' : 'var(--state-hover-bg)',
+            background:  velocityPanelOpen ? 'var(--accent-amber-active-bg)'     : 'transparent',
           }}
         >
-          <IconSnap />
-          <span style={{ fontSize: 10, fontWeight: 700, letterSpacing: '0.06em' }}>SNAP</span>
+          <IconVelocity />
         </button>
 
-        {/* ── Quantize dropdown ──────────────────────────────────────────── */}
+        <ToolBtn active={snapEnabled} onClick={() => setSnap(!snapEnabled)} onHint={setIconHint} hint={snapEnabled ? 'Snap — ON, click to disable' : 'Snap — OFF, click to enable'}>
+          <IconSnap />
+        </ToolBtn>
+
         <div style={{ position: 'relative' }}>
           <button
             ref={quantizeBtnRef}
             onClick={openQuantize}
-            title="Quantize grid"
-            style={{ ...btnBase, minWidth: 44, fontFamily: "'JetBrains Mono', monospace", fontSize: 11 }}
+            {...hintHandlers('Quantize grid — set the snap resolution')}
+            style={{ ...btnBase, minWidth: 44, gap: 6, fontFamily: "'JetBrains Mono', monospace", fontSize: 10 }}
           >
-            {QUANT_LABELS[quantize]} ▾
+            <Music4 size={12} color="var(--text-amber)" />
+            <span style={{ display: 'inline-block', width: 24, textAlign: 'left' }}>{QUANT_LABELS[quantize]}</span>
           </button>
           {quantizeOpen && (
             <div
@@ -408,78 +598,56 @@ export default function NoteEditorToolbar() {
             </div>
           )}
         </div>
+      </div>
 
-        <VSep />
-
-        {/* ── Undo / Redo / Reset ────────────────────────────────────────── */}
-        <button onClick={doUndo} disabled={!canUndo} title="Undo (Ctrl+Z)" style={iconBtnStyle(!canUndo)}>↺</button>
-        <button onClick={doRedo} disabled={!canRedo} title="Redo (Ctrl+Y)" style={iconBtnStyle(!canRedo)}>↻</button>
-        <button
-          onClick={() => void doReset()}
-          title="Reset — discard all edits and restore original"
-          style={iconBtnStyle(false)}
-        >
-          <IconReset />
-        </button>
-
-        <VSep />
-
-        {/* ── Note names toggle ──────────────────────────────────────────── */}
-        <ToolBtn active={showNoteNames} onClick={toggleNoteNames} title="Show note names on notes" wide>
-          <span style={{ fontSize: 10, fontFamily: "'JetBrains Mono', monospace", fontWeight: 700, letterSpacing: '0.03em' }}>
-            Show names
-          </span>
-        </ToolBtn>
-
-        <VSep />
-
-        {/* ── Velocity lane toggle — blinks once a track is soloed (available
-            to edit) and the lane isn't already open; matches the loop-nudge
-            blink used elsewhere. Panel itself shows a "solo a track" hint
-            when nothing's soloed, so opening it early isn't a dead end. ─── */}
-        <button
-          onClick={() => setVelocityPanelOpen(!velocityPanelOpen)}
-          title={velocityPanelOpen ? 'Hide velocity lane' : noteEditorSoloTrackIndex !== null ? 'Edit velocity for the soloed track' : 'Velocity lane (solo a track to edit)'}
-          className={noteEditorSoloTrackIndex !== null && !velocityPanelOpen ? 'loop-nudge-blink' : undefined}
-          style={{
-            ...btnBase,
-            width: 28, padding: 0, justifyContent: 'center',
-            color:       velocityPanelOpen || noteEditorSoloTrackIndex !== null ? 'var(--text-amber)' : 'var(--text-muted)',
-            borderColor: velocityPanelOpen ? 'var(--accent-amber-active-border)' : 'var(--state-hover-bg)',
-            background:  velocityPanelOpen ? 'var(--accent-amber-active-bg)'     : 'transparent',
-          }}
-        >
-          <IconVelocity />
-        </button>
-
-        <VSep />
-
-        {/* ── Save ───────────────────────────────────────────────────────── */}
-        <ToolBtn active={false} onClick={() => void handleSave()} title="Save note edits as new MIDI file (_ORFEO versioned copy)">
-          <IconSavePlus />
-        </ToolBtn>
-
-        <VSep />
-
-        {/* ── Info placeholder (coming soon) ─────────────────────────────── */}
-        <button
-          disabled
-          title="Help (coming soon)"
-          style={{ ...iconBtnStyle(true), opacity: 0.2, cursor: 'default', pointerEvents: 'none' }}
-        >
-          <IconInfo />
-        </button>
-
-        {/* ── Close ──────────────────────────────────────────────────────── */}
-        <button
-          onClick={() => void doClose()}
-          title="Exit edit mode"
-          style={{ ...btnBase, paddingLeft: 10, paddingRight: 10, color: 'var(--text-muted)' }}
-          onMouseEnter={e => { e.currentTarget.style.color = 'var(--text-amber)' }}
-          onMouseLeave={e => { e.currentTarget.style.color = 'var(--text-muted)' }}
-        >
-          ✕
-        </button>
+      {/* ── Row 3: dynamic tooltip (left, ~2/3) + Reset/Save (right, ~1/3) ──
+          Both columns are fixed-fraction (flex-basis on a fixed-width
+          parent), never resizing the panel itself — long tooltip text wraps
+          within its column (normally 2 lines; a 3rd only grows the row's
+          height, never the panel's width) instead of forcing the toolbar
+          wider or truncating with an ellipsis. ─────────────────────────── */}
+      <div style={{ display: 'flex', alignItems: 'stretch', gap: 8, padding: '6px 8px', borderTop: '1px solid var(--state-hover-bg)' }}>
+        <div style={{
+          flex: '2 1 0%', minWidth: 0, fontSize: 9.5, color: 'var(--text-muted)',
+          fontStyle: 'italic', lineHeight: 1.4, whiteSpace: 'normal', wordBreak: 'break-word',
+        }}>
+          {iconHint ? (
+            <div>{renderTip(iconHint)}</div>
+          ) : (
+            <>
+              <div>{renderTip(tipLine1)}</div>
+              <div>{hintText || tipLine2}</div>
+            </>
+          )}
+        </div>
+        <div style={{ flex: '1 1 0%', display: 'flex', gap: 6, minWidth: 0 }}>
+          {/* ── Colors/icon/behavior match the Playback Editor's Cancel/Save &
+              Reload footer buttons exactly (MidiEditor.tsx) — just not their
+              fixed width, this row's two columns stay equal-flex. ────────── */}
+          <button
+            onClick={() => void doReset()}
+            style={{
+              ...btnBase, flex: 1, justifyContent: 'center', fontSize: 9.5,
+              color: 'var(--text-muted)', borderColor: 'var(--border2)', background: 'transparent',
+              whiteSpace: 'nowrap', padding: '0 4px', transition: 'all 0.12s',
+            }}
+            onMouseEnter={e => { e.currentTarget.style.color = 'var(--text-amber)'; e.currentTarget.style.borderColor = 'var(--accent-amber-strong)'; setIconHint('Reset — discard all edits and restore original') }}
+            onMouseLeave={e => { e.currentTarget.style.color = 'var(--text-muted)'; e.currentTarget.style.borderColor = 'var(--border2)'; setIconHint(null) }}
+          >
+            Reset
+          </button>
+          <button
+            onClick={() => void handleSave()}
+            {...hintHandlers('Save & Reload — save edits as a new versioned copy (_ORFEO_vN)')}
+            style={{
+              ...btnBase, flex: 1, justifyContent: 'center', fontSize: 9.5, fontWeight: 600,
+              color: 'var(--text-near-black)', border: 'none', background: 'var(--text-amber)',
+              whiteSpace: 'nowrap', padding: '0 4px', gap: 5,
+            }}
+          >
+            <Save size={12} /> Save &amp; Reload
+          </button>
+        </div>
       </div>
 
       {/* ── Unsaved-changes close confirmation strip ──────────────────────── */}
@@ -514,24 +682,18 @@ export default function NoteEditorToolbar() {
         </div>
       )}
 
-      {/* ── Hint line ────────────────────────────────────────────────────── */}
-      {hintText && (
-        <div style={{
-          fontSize: 'var(--text-xs)',
-          color: 'var(--text-muted)',
-          fontStyle: 'italic',
-          padding: '2px 24px 4px',
-          borderTop: '1px solid var(--state-hover-bg)',
-          whiteSpace: 'nowrap',
-        }}>
-          {hintText}
-        </div>
-      )}
     </div>
   )
 }
 
 // ── Shared style atoms ────────────────────────────────────────────────────────
+// fontSize matches the Reset/Save & Reload buttons below (9.5) — was 9,
+// visibly smaller than the button row's text.
+const rowLabelStyle: React.CSSProperties = {
+  fontSize: 9.5, fontWeight: 700, letterSpacing: '0.1em',
+  color: 'var(--text-dimmest)', textTransform: 'uppercase', flexShrink: 0,
+}
+
 const btnBase: React.CSSProperties = {
   height: 26, padding: '0 8px', fontSize: 11,
   fontFamily: "'Inter', system-ui, sans-serif",
@@ -555,12 +717,15 @@ function iconBtnStyle(disabled: boolean): React.CSSProperties {
   }
 }
 
-function ToolBtn({ active, onClick, title, children, wide }: {
-  active: boolean; onClick: () => void; title: string; children: React.ReactNode; wide?: boolean
+// `hint` replaces the native `title` tooltip — shown in the row-3 tooltip
+// section on hover instead of a browser popup, via `onHint`.
+function ToolBtn({ active, onClick, hint, onHint, children, wide }: {
+  active: boolean; onClick: () => void; hint: string; onHint: (h: string | null) => void
+  children: React.ReactNode; wide?: boolean
 }) {
   return (
     <button
-      onClick={onClick} title={title}
+      onClick={onClick}
       style={{
         ...btnBase,
         width: wide ? 'auto' : 28, padding: wide ? '0 8px' : 0, justifyContent: 'center',
@@ -568,6 +733,8 @@ function ToolBtn({ active, onClick, title, children, wide }: {
         borderColor: active ? 'var(--accent-amber-active-border)' : 'var(--state-hover-bg)',
         background:  active ? 'var(--accent-amber-active-bg)'     : 'transparent',
       }}
+      onMouseEnter={e => { if (!active) e.currentTarget.style.color = 'var(--text-amber)'; onHint(hint) }}
+      onMouseLeave={e => { if (!active) e.currentTarget.style.color = 'var(--text-muted)'; onHint(null) }}
     >
       {children}
     </button>

@@ -123,6 +123,11 @@ interface OrfeoStore {
   setPresentationMode: (v: boolean) => void
   noteEditorEnabled: boolean
   setNoteEditorEnabled: (v: boolean) => void
+  // ── Tempo/Key save — off by default. When on, changing BPM/transpose from
+  // the loaded file's own values offers a "Save changes" button in the
+  // header that bakes them into a new versioned file (see TopBar.tsx). ────
+  saveTempoKeyChangesEnabled: boolean
+  setSaveTempoKeyChangesEnabled: (v: boolean) => void
   noteEditorActive: boolean
   setNoteEditorActive: (v: boolean) => void
   noteEditorToolbarX: number
@@ -524,6 +529,8 @@ export const useStore = create<OrfeoStore>((set, get) => ({
 
   noteEditorEnabled: false,
   setNoteEditorEnabled: (noteEditorEnabled) => set({ noteEditorEnabled }),
+  saveTempoKeyChangesEnabled: false,
+  setSaveTempoKeyChangesEnabled: (saveTempoKeyChangesEnabled) => set({ saveTempoKeyChangesEnabled }),
   noteEditorActive: false,
   setNoteEditorActive: (noteEditorActive) => set(noteEditorActive ? { noteEditorActive } : { noteEditorActive, velocityPanelOpen: false }),
   noteEditorToolbarX: 24,
@@ -771,6 +778,7 @@ async function restoreLibraryPrefs() {
     if (prefs.audioEngine === 'samples') store.setAudioEngine('samples')
     if (typeof prefs.showBarNumbers === 'boolean') store.setShowBarNumbers(prefs.showBarNumbers)
     if (typeof prefs.noteEditorEnabled === 'boolean') store.setNoteEditorEnabled(prefs.noteEditorEnabled)
+    if (typeof prefs.saveTempoKeyChangesEnabled === 'boolean') store.setSaveTempoKeyChangesEnabled(prefs.saveTempoKeyChangesEnabled)
     if (typeof prefs.noteEditorToolbarX === 'number' && typeof prefs.noteEditorToolbarY === 'number') store.setNoteEditorToolbarPos(prefs.noteEditorToolbarX, prefs.noteEditorToolbarY)
     if (typeof prefs.chordPrompterEnabled === 'boolean') store.setChordPrompterEnabled(prefs.chordPrompterEnabled)
     if (typeof prefs.chordTranscriptionEnabled === 'boolean') store.setChordTranscriptionEnabled(prefs.chordTranscriptionEnabled)
@@ -835,6 +843,7 @@ let _prevMasterVolume: number | null = null
 let _prevAudioEngine: string | null = null
 let _prevShowBarNumbers: boolean | null = null
 let _prevNoteEditorEnabled:    boolean | null = null
+let _prevSaveTempoKeyChangesEnabled: boolean | null = null
 let _prevNoteEditorToolbarX:   number  | null = null
 let _prevNoteEditorToolbarY:   number  | null = null
 let _prevChordPrompterEnabled: boolean | null = null
@@ -874,6 +883,7 @@ const _unsubPrefs = useStore.subscribe((state) => {
     _prevAudioEngine = state.audioEngine
     _prevShowBarNumbers = state.showBarNumbers
     _prevNoteEditorEnabled = state.noteEditorEnabled
+    _prevSaveTempoKeyChangesEnabled = state.saveTempoKeyChangesEnabled
     _prevNoteEditorToolbarX = state.noteEditorToolbarX
     _prevNoteEditorToolbarY = state.noteEditorToolbarY
     _prevChordPrompterEnabled = state.chordPrompterEnabled
@@ -913,6 +923,7 @@ const _unsubPrefs = useStore.subscribe((state) => {
     state.audioEngine !== _prevAudioEngine ||
     state.showBarNumbers !== _prevShowBarNumbers ||
     state.noteEditorEnabled !== _prevNoteEditorEnabled ||
+    state.saveTempoKeyChangesEnabled !== _prevSaveTempoKeyChangesEnabled ||
     state.noteEditorToolbarX !== _prevNoteEditorToolbarX ||
     state.noteEditorToolbarY !== _prevNoteEditorToolbarY ||
     state.chordPrompterEnabled !== _prevChordPrompterEnabled ||
@@ -950,6 +961,7 @@ const _unsubPrefs = useStore.subscribe((state) => {
     _prevAudioEngine = state.audioEngine
     _prevShowBarNumbers = state.showBarNumbers
     _prevNoteEditorEnabled = state.noteEditorEnabled
+    _prevSaveTempoKeyChangesEnabled = state.saveTempoKeyChangesEnabled
     _prevNoteEditorToolbarX = state.noteEditorToolbarX
     _prevNoteEditorToolbarY = state.noteEditorToolbarY
     _prevChordPrompterEnabled = state.chordPrompterEnabled
@@ -987,6 +999,7 @@ const _unsubPrefs = useStore.subscribe((state) => {
       audioEngine: state.audioEngine,
       showBarNumbers: state.showBarNumbers,
       noteEditorEnabled: state.noteEditorEnabled,
+      saveTempoKeyChangesEnabled: state.saveTempoKeyChangesEnabled,
       noteEditorToolbarX: state.noteEditorToolbarX,
       noteEditorToolbarY: state.noteEditorToolbarY,
       chordPrompterEnabled: state.chordPrompterEnabled,

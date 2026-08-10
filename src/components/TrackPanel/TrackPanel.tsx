@@ -428,7 +428,7 @@ export default function TrackPanel() {
                     <button
                       onClick={() => toggleGroupCollapse(key)}
                       draggable={!isPiano}
-                      onDragStart={!isPiano ? () => setDraggedGroup(key) : undefined}
+                      onDragStart={!isPiano ? (e) => { e.dataTransfer.effectAllowed = 'move'; e.dataTransfer.setData('text/plain', ''); setDraggedGroup(key) } : undefined}
                       onDragEnd={() => setDraggedGroup(null)}
                       onMouseEnter={() => setHoveredHandle(handleId)}
                       onMouseLeave={() => setHoveredHandle(h => h === handleId ? null : h)}
@@ -558,7 +558,19 @@ function TrackRow({
       <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
         <div
           draggable
-          onDragStart={e => { e.stopPropagation(); onDragStart?.() }}
+          onDragStart={e => {
+            e.stopPropagation()
+            // Reorder is driven entirely by React state (draggedTrack), not
+            // dataTransfer — but leaving dataTransfer completely untouched
+            // made the OS/Chromium drag cursor default to the "not allowed"
+            // no-drop badge for the whole drag, even over valid drop
+            // targets with dropEffect='move' set. Declaring a real payload
+            // + effectAllowed here is what actually lets the browser show
+            // a plain "move" cursor instead.
+            e.dataTransfer.effectAllowed = 'move'
+            e.dataTransfer.setData('text/plain', '')
+            onDragStart?.()
+          }}
           onDragEnd={() => onDragEnd?.()}
           onMouseEnter={() => onHandleHover?.(true)}
           onMouseLeave={() => onHandleHover?.(false)}
@@ -586,7 +598,7 @@ function TrackRow({
           <IBtn onClick={onSolo} active={track.solo} title={track.solo ? 'Unsolo' : 'Solo'} activeColor="var(--text-amber)">
             <span style={{ fontSize: 10, fontWeight: 700, fontFamily: 'JetBrains Mono', lineHeight: 1 }}>S</span>
           </IBtn>
-          <IBtn onClick={onVisible} active={!track.visible} title={track.visible ? 'Hide in roll' : 'Show in roll'} activeColor="var(--icon-visibility-active)">
+          <IBtn onClick={onVisible} active={!track.visible} title={track.visible ? 'Hide in roll' : 'Show in roll'} activeColor="var(--status-error-hover)" inactiveColor="var(--status-success-text)">
             {track.visible ? <Eye size={12} /> : <EyeClosed size={12} />}
           </IBtn>
           <IBtn onClick={onKeyboard} active={track.showOnKeyboard} title={track.showOnKeyboard ? 'Lit on keyboard' : 'Not lit on keyboard'} activeColor="var(--text-amber)">
@@ -615,9 +627,9 @@ function TrackRow({
 }
 
 // ── IBtn — icon button for track controls: color driven by active state ───
-function IBtn({ children, onClick, active, title, activeColor = 'var(--text-amber)' }: {
+function IBtn({ children, onClick, active, title, activeColor = 'var(--text-amber)', inactiveColor = 'var(--text-icon-inactive)' }: {
   children: React.ReactNode; onClick: () => void
-  active?: boolean; title?: string; activeColor?: string
+  active?: boolean; title?: string; activeColor?: string; inactiveColor?: string
 }) {
   return (
     <button
@@ -625,11 +637,11 @@ function IBtn({ children, onClick, active, title, activeColor = 'var(--text-ambe
       style={{
         display: 'flex', alignItems: 'center', justifyContent: 'center',
         width: 22, height: 22, background: 'none', border: 'none', cursor: 'pointer',
-        color: active ? activeColor : 'var(--text-icon-inactive)',
+        color: active ? activeColor : inactiveColor,
         borderRadius: 4, transition: 'color 0.1s',
       }}
       onMouseEnter={e => { if (!active) e.currentTarget.style.color = 'var(--text-icon-hover)' }}
-      onMouseLeave={e => { e.currentTarget.style.color = active ? activeColor : 'var(--text-icon-inactive)' }}
+      onMouseLeave={e => { e.currentTarget.style.color = active ? activeColor : inactiveColor }}
     >
       {children}
     </button>

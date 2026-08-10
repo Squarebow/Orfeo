@@ -21,6 +21,13 @@ export interface HandInput {
   time: number
   trackIndex?: number
   channel?: number
+  // GM instrument group (e.g. 'piano', 'organ', 'chromatic') — optional,
+  // only used by tryFastPath() to make sure a 2-track match is actually two
+  // halves of one split performance (both the same instrument family), not
+  // two unrelated keyboard-family parts (e.g. a piano track and a separate
+  // organ track) that happen to clear the pitch-gap/collision thresholds by
+  // coincidence. Absent group = no check possible, falls through to full DP.
+  group?: string
 }
 
 export interface HandAssignOptions {
@@ -208,6 +215,19 @@ function tryFastPath<T extends HandInput>(notes: T[]): HandAssignedNote<T>[] | n
   if (!groups) return null
 
   const [a, b] = groups
+
+  // Both groups must be the same instrument family before trusting a 2-track
+  // match as an already-split performance — a piano track and a separate
+  // organ track can trivially clear the pitch-gap/collision checks below
+  // (they're different instruments playing unrelated material, of course
+  // they don't collide) while being two different parts, not two hands of
+  // one performer. Only checked when both sides actually carry a group;
+  // absent group (older caller, no group info) skips the check rather than
+  // blocking the fast path outright.
+  const groupA = a[0]?.group
+  const groupB = b[0]?.group
+  if (groupA !== undefined && groupB !== undefined && groupA !== groupB) return null
+
   const avgA = average(a.map(n => n.midi))
   const avgB = average(b.map(n => n.midi))
   if (Math.abs(avgA - avgB) < FAST_PATH_MIN_AVG_GAP) return null
