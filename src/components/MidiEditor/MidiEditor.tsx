@@ -7,7 +7,7 @@
 
 import { useState, useEffect, useRef, useCallback, type CSSProperties } from 'react'
 import { createPortal } from 'react-dom'
-import { Check, X, Save, FolderOpen, AlertCircle, ChevronDown, ChevronRight, Search, Merge, Split, Undo2, RotateCcw, Piano, Bell, Church, Guitar, Music2, AudioWaveform, Users, Megaphone, Wind, Feather, Cpu, Globe, Drum, Radio, Waves, Sparkles, SwatchBook, Eye, EyeOff, ThumbsUp } from 'lucide-react'
+import { Check, X, Save, FolderOpen, AlertCircle, ChevronDown, ChevronRight, Search, Merge, Split, Undo2, RotateCcw, Piano, Bell, Church, Guitar, Music2, AudioWaveform, Users, Megaphone, Wind, Feather, Cpu, Globe, Drum, Radio, Waves, Sparkles, SwatchBook, Eye, EyeOff, ThumbsUp, ToggleLeft, ToggleRight } from 'lucide-react'
 import { PENCIL_CURSOR } from '../../utils/cursors'
 import { TRACK_COLOR_PALETTE, PIANO_FAMILY_COLORS } from '../../utils/colors'
 import OrfeoMark from '../OrfeoMark'
@@ -20,6 +20,7 @@ import { nextOrfeoBaseName } from '../../utils/orfeoVersioning'
 import { getHandPreviewStats, getLowConfidencePassages } from '../../utils/handPreview'
 import { withHandSuffix } from '../../utils/handMetadata'
 import { getGMName, getGMGroup } from '../../utils/gmInstruments'
+import { computeTempoKeyPayload } from '../../utils/tempoKeySave'
 
 const MODAL_W = 980
 const MODAL_H = 620
@@ -797,6 +798,7 @@ export default function MidiEditor() {
   const showHandLabels   = useStore((s) => s.showHandLabels)
   const midiEditorOpen   = useStore((s) => s.midiEditorOpen)
   const setMidiEditorOpen = useStore((s) => s.setMidiEditorOpen)
+  const saveTempoKeyChangesEnabled = useStore((s) => s.saveTempoKeyChangesEnabled)
 
   // ── Editor state ─────────────────────────────────────────────────────────────
   const [state, setState] = useState<EditorState | null>(null)
@@ -1051,7 +1053,7 @@ export default function MidiEditor() {
     if (renamed > 0) parts.push(`renamed ${renamed} track${s(renamed)}`)
     if (rollChanged > 0) parts.push(`changed roll visibility of ${rollChanged} track${s(rollChanged)}`)
     if (keyboardChanged > 0) parts.push(`changed keyboard lighting of ${keyboardChanged} track${s(keyboardChanged)}`)
-    return parts.length > 0 ? parts.join(', ') : 'Saved'
+    return parts.join(', ') // '' when nothing changed — caller decides the "Saved" fallback
   }
 
   // ── Save — the ONLY point that writes to disk. Every staged edit (include/
@@ -1082,12 +1084,19 @@ export default function MidiEditor() {
       }
       const mergeGroups = buildMergeGroups()
       const finalOutput = state.outputPath
-      const saveSummary = buildSaveSummary()
+
+      // ── Tempo/Key fold-in — only when the toggle above is on and BPM/
+      // transpose are actually dirty; same math as the standalone
+      // tempoKey:save path (see tempoKeySave.ts's computeTempoKeyPayload),
+      // baked into this one write instead of a second save. ───────────────
+      const tempoKeyPayload = useStore.getState().saveTempoKeyChangesEnabled ? computeTempoKeyPayload() : null
+      const saveSummary = [buildSaveSummary(), tempoKeyPayload?.summary].filter(Boolean).join(', ') || 'Saved'
 
       const { rhMaxFingers, lhMaxFingers } = useStore.getState()
       const result = await window.electronAPI.saveMidiEditor({
         filePath: state.filePath, outputPath: finalOutput, includedTracks, mergeGroups,
         rhMaxFingers, lhMaxFingers,
+        bpmRatio: tempoKeyPayload?.bpmRatio, transposeSemitones: tempoKeyPayload?.transposeSemitones, finalKey: tempoKeyPayload?.finalKey,
       })
       setSaveResult({ ok: result.ok, msg: result.message, filePath: result.filePath })
       if (result.ok && result.base64 && result.fileName && result.filePath) {
@@ -1452,11 +1461,33 @@ export default function MidiEditor() {
         )
       })()}
 
-      {/* ── Select all / Clear all / count ───────────────────────────────────── */}
+      {/* ── Select all / Clear all / count / Save Tempo & Key toggle ─────────── */}
       <div style={{ padding: '6px 14px', borderTop: '1px solid var(--bg-tile)', background: 'var(--bg-modal-header)', display: 'flex', alignItems: 'center', gap: 10, flexShrink: 0 }}>
         <TBtn onClick={() => setState(s => s && ({ ...s, rows: s.rows.map(t => ({ ...t, included: true })) }))}>Select all</TBtn>
         <TBtn onClick={() => setState(s => s && ({ ...s, rows: s.rows.map(t => ({ ...t, included: false })) }))}>Clear all</TBtn>
         <span style={{ fontSize: 10, color: 'var(--text-inactive)', fontFamily: 'JetBrains Mono' }}>{includedCount}/{state.rows.length} included</span>
+        {/* ── Save Tempo & Key changes — off by default; when on, folds the
+            session's BPM/transpose changes into this same Save & Reload
+            write instead of needing a separate save (see performSave). ──── */}
+        <button
+          onClick={() => useStore.getState().setSaveTempoKeyChangesEnabled(!saveTempoKeyChangesEnabled)}
+          title={saveTempoKeyChangesEnabled ? 'Click to turn off' : 'Click to turn on'}
+          className="app-no-drag"
+          style={{
+            marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: 6,
+            background: 'none', border: 'none', cursor: 'pointer', padding: 2,
+          }}
+        >
+          <span style={{ fontSize: 9, fontWeight: 700, color: 'var(--text-default)', textTransform: 'uppercase', letterSpacing: '0.06em' }}>
+            Save Tempo & Key changes
+          </span>
+          <span style={{ display: 'flex', color: saveTempoKeyChangesEnabled ? 'var(--text-amber)' : 'var(--text-inactive)' }}>
+            {saveTempoKeyChangesEnabled
+              ? <ToggleRight size={16} strokeWidth={1.5} />
+              : <ToggleLeft  size={16} strokeWidth={1.5} />
+            }
+          </span>
+        </button>
       </div>
 
       {/* ── Color popover ────────────────────────────────────────────────────── */}

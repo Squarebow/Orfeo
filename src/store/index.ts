@@ -97,9 +97,7 @@ interface OrfeoStore {
   setScaleExplorerOpen: (open: boolean) => void
   setScaleExplorerMinimized: (v: boolean) => void
   mixerOpen: boolean
-  mixerMinimized: boolean
   setMixerOpen: (open: boolean) => void
-  setMixerMinimized: (v: boolean) => void
   // Snapshot of volume/pan/chorus/reverb as loaded from the file — diffed
   // against live `tracks` values on mixer close to detect unsaved changes.
   mixerBaseline: Record<number, { volume: number; pan: number; chorus: number; reverb: number }>
@@ -149,6 +147,11 @@ interface OrfeoStore {
   explorerKeyColors: Map<number, string>
   setExplorerKeys: (keys: Set<number>, colors: Map<number, string>) => void
   clearExplorerKeys: () => void
+  // ── Scale/Chord Explorer — highlight the chord/scale's true root pitch
+  // class (any octave) in pink instead of blending into the uniform amber.
+  // On by default. ──────────────────────────────────────────────────────
+  colorRootNoteEnabled: boolean
+  setColorRootNoteEnabled: (v: boolean) => void
   displayedChord: string | null
   setDisplayedChord: (chord: string | null) => void
   clearDisplayedChord: () => void
@@ -453,11 +456,12 @@ export const useStore = create<OrfeoStore>((set, get) => ({
   scaleExplorerOpen: false,
   scaleExplorerMinimized: false,
   mixerOpen: false,
-  mixerMinimized: false,
   mixerBaseline: {},
   vuDisplayMode: 'bars',
   explorerKeys: new Set(),
   explorerKeyColors: new Map(),
+  colorRootNoteEnabled: true,
+  setColorRootNoteEnabled: (colorRootNoteEnabled) => set({ colorRootNoteEnabled }),
   // ── Opening always clears the minimized flag so restore-from-minimize works ──
   setChordExplorerOpen: (chordExplorerOpen) =>
     set(chordExplorerOpen ? { chordExplorerOpen, chordExplorerMinimized: false } : { chordExplorerOpen }),
@@ -465,9 +469,7 @@ export const useStore = create<OrfeoStore>((set, get) => ({
   setScaleExplorerOpen: (scaleExplorerOpen) =>
     set(scaleExplorerOpen ? { scaleExplorerOpen, scaleExplorerMinimized: false } : { scaleExplorerOpen }),
   setScaleExplorerMinimized: (scaleExplorerMinimized) => set({ scaleExplorerMinimized }),
-  setMixerOpen: (mixerOpen) =>
-    set(mixerOpen ? { mixerOpen, mixerMinimized: false } : { mixerOpen }),
-  setMixerMinimized: (mixerMinimized) => set({ mixerMinimized }),
+  setMixerOpen: (mixerOpen) => set({ mixerOpen }),
   midiEditorOpen: false,
   setMidiEditorOpen: (midiEditorOpen) => set({ midiEditorOpen }),
   // ── Pending imported file — session-only, not persisted ──────────────────
@@ -479,6 +481,7 @@ export const useStore = create<OrfeoStore>((set, get) => ({
   setPresentationMode: (presentationMode) => set({ presentationMode }),
   setVuDisplayMode: (vuDisplayMode) => set({ vuDisplayMode }),
   setExplorerKeys: (explorerKeys, explorerKeyColors) => set({ explorerKeys, explorerKeyColors }),
+
   clearExplorerKeys: () => set({ explorerKeys: new Set(), explorerKeyColors: new Map() }),
   displayedChord: null,
   setDisplayedChord: (displayedChord) => set({ displayedChord }),

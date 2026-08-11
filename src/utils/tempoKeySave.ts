@@ -3,44 +3,61 @@ import { parseMidiBuffer } from './midiParser'
 import { detectKeyFromTracks, parseKeySignature, formatKey } from './keyDetection'
 import { confirmDialog } from './confirmController'
 
+// ── Shared math — session BPM/transpose vs. the loaded file's own values,
+// used by both the standalone tempoKey:save path (below) and the Playback
+// Editor's folded-in save (MidiEditor.tsx's performSave). One source of
+// truth for what "dirty" means and what summary text to log, so the two
+// entry points can never drift out of sync with each other. ────────────────
+export function computeTempoKeyPayload(): {
+  bpmRatio: number; transposeSemitones: number; summary: string
+  finalKey?: { semitone: number; isMinor: boolean }
+} | null {
+  const state = useStore.getState()
+  const bpmRatio = state.originalBpm > 0 ? state.bpm / state.originalBpm : 1
+  const transposeSemitones = state.detectedKey?.transpose ?? 0
+  if (bpmRatio === 1 && transposeSemitones === 0) return null // nothing to save
+
+  const parts: string[] = []
+  if (bpmRatio !== 1) {
+    parts.push(`Changed BPM from ${Math.round(state.originalBpm)} to ${Math.round(state.bpm)}`)
+  }
+  if (transposeSemitones !== 0 && state.detectedKey) {
+    const fromKey = formatKey({ ...state.detectedKey, transpose: 0 }, state.noteNaming, state.accidentals)
+    const toKey   = formatKey(state.detectedKey, state.noteNaming, state.accidentals)
+    parts.push(`Changed key from ${fromKey} to ${toKey}`)
+  }
+
+  // Final key (base + transpose already folded in), sent so main.ts can
+  // stamp it as an ORFEO_KEY meta event — @tonejs/midi's own key-
+  // signature ENCODER silently drops the value on any re-save (verified
+  // directly: round-tripping an unchanged file through .toArray() alone
+  // already loses it, nothing to do with transpose math being wrong).
+  // Bypasses that entirely, same pattern as ORFEO_TRACK_NAME/COLOR.
+  const finalKey = state.detectedKey
+    ? { semitone: ((state.detectedKey.semitone + state.detectedKey.transpose) % 12 + 12) % 12, isMinor: state.detectedKey.isMinor }
+    : undefined
+
+  return { bpmRatio, transposeSemitones, finalKey, summary: parts.join(', ') }
+}
+
 // ── Tempo/Key save — bakes the session's BPM and transpose changes into a
 // new _ORFEO_vN file (see electron/main.ts's tempoKey:save), same
-// versioning convention as every other save tool. Gated behind the
-// Settings "save tempo/key changes" toggle — off by default so BPM/
-// transpose stay the session-only display preferences they've always been
-// unless a user explicitly opts in. ─────────────────────────────────────────
+// versioning convention as every other save tool. Called only from the
+// confirm-before-discard guard below (Reset/new-file-load/drag-drop/close);
+// the Playback Editor's own Save & Reload folds the same math directly into
+// its editor:save write instead of calling this. ────────────────────────────
 export async function saveTempoKeyChanges(): Promise<boolean> {
   try {
     const state = useStore.getState()
     const sourcePath = (state.midi as any)?._filePath as string | undefined
     if (!sourcePath) return false
 
-    const bpmRatio = state.originalBpm > 0 ? state.bpm / state.originalBpm : 1
-    const transposeSemitones = state.detectedKey?.transpose ?? 0
-    if (bpmRatio === 1 && transposeSemitones === 0) return true // nothing to save
-
-    const parts: string[] = []
-    if (bpmRatio !== 1) {
-      parts.push(`Changed BPM from ${Math.round(state.originalBpm)} to ${Math.round(state.bpm)}`)
-    }
-    if (transposeSemitones !== 0 && state.detectedKey) {
-      const fromKey = formatKey({ ...state.detectedKey, transpose: 0 }, state.noteNaming, state.accidentals)
-      const toKey   = formatKey(state.detectedKey, state.noteNaming, state.accidentals)
-      parts.push(`Changed key from ${fromKey} to ${toKey}`)
-    }
-
-    // Final key (base + transpose already folded in), sent so main.ts can
-    // stamp it as an ORFEO_KEY meta event — @tonejs/midi's own key-
-    // signature ENCODER silently drops the value on any re-save (verified
-    // directly: round-tripping an unchanged file through .toArray() alone
-    // already loses it, nothing to do with transpose math being wrong).
-    // Bypasses that entirely, same pattern as ORFEO_TRACK_NAME/COLOR.
-    const finalKey = state.detectedKey
-      ? { semitone: ((state.detectedKey.semitone + state.detectedKey.transpose) % 12 + 12) % 12, isMinor: state.detectedKey.isMinor }
-      : undefined
+    const payload = computeTempoKeyPayload()
+    if (!payload) return true // nothing to save
 
     const result = await window.electronAPI.saveTempoKey({
-      filePath: sourcePath, bpmRatio, transposeSemitones, summary: parts.join(', '), finalKey,
+      filePath: sourcePath, bpmRatio: payload.bpmRatio, transposeSemitones: payload.transposeSemitones,
+      summary: payload.summary, finalKey: payload.finalKey,
     })
     if (!result.ok) {
       await confirmDialog({ title: 'Save Failed', message: result.message ?? 'Could not save tempo/key changes.', buttons: ['OK'] })

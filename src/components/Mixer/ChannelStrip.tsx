@@ -1,5 +1,5 @@
 import { useState, useRef, useLayoutEffect, useEffect, useCallback } from 'react'
-import { Eye } from 'lucide-react'
+import { Eye, GripVertical } from 'lucide-react'
 import { useStore } from '../../store'
 import MixerKnob from './MixerKnob'
 import { MarqueeText } from '../MarqueeText'
@@ -95,10 +95,18 @@ const FADER_TOP_PAD = 24
 // ── ChannelStrip props ────────────────────────────────────────────────────────
 export interface ChannelStripProps {
   trackIndex: number
+  // ── Drag-to-reorder — locked (piano/keys) strips render no grip and never
+  // participate; set by MixerConsole.tsx, same pattern as TrackPanel's group
+  // drag-reorder. ───────────────────────────────────────────────────────────
+  locked?: boolean
+  isDragging?: boolean
+  onDragStart?: () => void
+  onDragEnd?: () => void
+  onDrop?: () => void
 }
 
 // ── ChannelStrip — single 108×480 mixer channel strip ────────────────────────
-export default function ChannelStrip({ trackIndex }: ChannelStripProps) {
+export default function ChannelStrip({ trackIndex, locked, isDragging, onDragStart, onDragEnd, onDrop }: ChannelStripProps) {
 
   // ── Store reads ───────────────────────────────────────────────────────────
   const audioEngine  = useStore(s => s.audioEngine)
@@ -255,16 +263,20 @@ export default function ChannelStrip({ trackIndex }: ChannelStripProps) {
   const dbText = volume === 0 ? '−∞' : (20 * Math.log10(volume)).toFixed(1)
 
   return (
-    <div style={{
-      width: 120, height: 574, flexShrink: 0,
-      background: 'var(--bg-tile)',
-      border: '1px solid var(--border2)',
-      borderRadius: 'var(--radius-md)',
-      display: 'flex', flexDirection: 'column',
-      overflow: 'hidden',
-      userSelect: 'none',
-      position: 'relative',
-    }}>
+    <div
+      onDragOver={!locked ? (e) => e.preventDefault() : undefined}
+      onDrop={!locked ? (e) => { e.preventDefault(); onDrop?.() } : undefined}
+      style={{
+        width: 120, height: 574, flexShrink: 0,
+        background: 'var(--bg-tile)',
+        border: '1px solid var(--border2)',
+        borderRadius: 'var(--radius-md)',
+        display: 'flex', flexDirection: 'column',
+        overflow: 'hidden',
+        userSelect: 'none',
+        position: 'relative',
+        opacity: isDragging ? 0.4 : 1,
+      }}>
 
       {/* ── Track name bar ────────────────────────────────────────────────── */}
       <div style={{
@@ -278,6 +290,22 @@ export default function ChannelStrip({ trackIndex }: ChannelStripProps) {
             spanStyle={{ fontSize: 'var(--text-xs)', color: 'var(--text-dim)', fontWeight: 500 }}
           />
         </div>
+        {!locked && (
+          <button
+            draggable
+            onMouseDown={(e) => e.stopPropagation()}
+            onDragStart={(e) => { e.dataTransfer.effectAllowed = 'move'; e.dataTransfer.setData('text/plain', ''); onDragStart?.() }}
+            onDragEnd={onDragEnd}
+            title="Drag to reorder"
+            style={{
+              background: 'none', border: 'none', cursor: 'grab',
+              color: 'var(--text-inactive)', display: 'flex', alignItems: 'center',
+              padding: '0 5px 0 2px', flexShrink: 0,
+            }}
+          >
+            <GripVertical size={11} />
+          </button>
+        )}
       </div>
 
       {/* ── Chorus knob ───────────────────────────────────────────────────── */}

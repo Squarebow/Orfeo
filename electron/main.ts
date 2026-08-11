@@ -598,6 +598,13 @@ ipcMain.handle('editor:save', async (_e, payload: {
   mergeGroups: number[][]
   rhMaxFingers?: number
   lhMaxFingers?: number
+  // ── Tempo/Key fold-in — set only when the Playback Editor's "Save Tempo
+  // & Key changes" toggle is on and BPM/transpose are dirty; same fields
+  // tempoKey:save takes below, folded into this write so one Save & Reload
+  // click mints exactly one _ORFEO_vN instead of two. ─────────────────────
+  bpmRatio?: number
+  transposeSemitones?: number
+  finalKey?: { semitone: number; isMinor: boolean }
 }) => {
   try {
     if (!payload.filePath) return { ok: false, message: 'No source file loaded' }
@@ -836,6 +843,33 @@ ipcMain.handle('editor:save', async (_e, payload: {
 
     // Remove excluded
     noteTrackIndices.filter(i => !includedSet.has(i)).sort((a, b) => b - a).forEach(i => midi.tracks.splice(i, 1))
+
+    // ── Tempo/Key fold-in — same math as tempoKey:save below (scale every
+    // tempo event by bpmRatio, shift every non-drum note by
+    // transposeSemitones, stamp ORFEO_KEY since @tonejs/midi's own key-
+    // signature encoder silently drops it on any re-save). Runs after
+    // exclusion so it only touches tracks actually being written. ──────────
+    if (payload.bpmRatio && payload.bpmRatio !== 1) {
+      if (midi.header.tempos.length === 0) {
+        midi.header.tempos.push({ bpm: 120 * payload.bpmRatio, ticks: 0 } as any)
+      } else {
+        for (const t of midi.header.tempos) t.bpm = t.bpm * payload.bpmRatio
+      }
+    }
+    if (payload.transposeSemitones) {
+      for (const track of midi.tracks) {
+        if (track.channel === 9) continue
+        for (const note of track.notes) {
+          note.midi = Math.max(0, Math.min(127, note.midi + payload.transposeSemitones))
+        }
+      }
+    }
+    if (payload.finalKey) {
+      ;((midi.header as any).meta ??= []).push({
+        type: 'text', ticks: 0,
+        text: `ORFEO_KEY:${payload.finalKey.semitone}:${payload.finalKey.isMinor ? 'minor' : 'major'}`,
+      })
+    }
 
     const outBuf = Buffer.from(midi.toArray())
     writeFileSync(outputPath, outBuf)

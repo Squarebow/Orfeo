@@ -76,85 +76,102 @@ export default function KeyboardControls() {
 
   const isDocked = keyboardMode === 'docked'
 
+  // ── Practice-mode line and the shift+click hint share the same center
+  // spot — moving line wins when it's actually rendering (stored hand
+  // tags present), otherwise the hint occupies that space instead. ────────
+  const practiceLineActive = showHandLabels && handLabelMode === 'practice' && !presentationMode && smoothedPct !== null
+
   return (
     <div
       style={{
         height: 34,
         background: 'var(--bg-modal-header)',
         borderTop: '1px solid var(--bg-tile)',
-        display: 'flex',
+        display: 'grid',
+        gridTemplateColumns: 'minmax(0,1fr) minmax(0,1fr) minmax(0,1fr)',
         alignItems: 'center',
         padding: '0 var(--space-4)',
-        gap: 'var(--space-3)',
         flexShrink: 0,
         position: 'relative',
       }}
     >
-      {/* ── Key size selector ────────────────────────────────────────────────── */}
-      <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-1)' }}>
-        {SIZES.map((size) => (
-          <button
-            key={size}
-            onClick={() => setKeyboardSize(size)}
-            title={`${size}-key keyboard layout`}
-            style={{
-              padding: '2px var(--space-2)', borderRadius: 4,
-              background: 'transparent',
-              color: keyboardSize === size ? 'var(--text-amber)' : 'var(--text-muted)',
-              border: 'none',
-              fontFamily: 'JetBrains Mono', fontSize: 'var(--text-sm)', fontWeight: 600,
-              cursor: 'pointer', transition: 'color 0.15s',
-            }}
-            onMouseEnter={e => { if (keyboardSize !== size) e.currentTarget.style.color = 'var(--text-key-hover)' }}
-            onMouseLeave={e => { if (keyboardSize !== size) e.currentTarget.style.color = 'var(--text-muted)' }}
-          >
-            {size}
-          </button>
-        ))}
+      {/* ── Left: key size selector + dock/float toggle ──────────────────────── */}
+      <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-3)', justifySelf: 'start', minWidth: 0 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-1)' }}>
+          {SIZES.map((size) => (
+            <button
+              key={size}
+              onClick={() => setKeyboardSize(size)}
+              title={`${size}-key keyboard layout`}
+              style={{
+                padding: '2px var(--space-2)', borderRadius: 4,
+                background: 'transparent',
+                color: keyboardSize === size ? 'var(--text-amber)' : 'var(--text-muted)',
+                border: 'none',
+                fontFamily: 'JetBrains Mono', fontSize: 'var(--text-sm)', fontWeight: 600,
+                cursor: 'pointer', transition: 'color 0.15s',
+              }}
+              onMouseEnter={e => { if (keyboardSize !== size) e.currentTarget.style.color = 'var(--text-key-hover)' }}
+              onMouseLeave={e => { if (keyboardSize !== size) e.currentTarget.style.color = 'var(--text-muted)' }}
+            >
+              {size}
+            </button>
+          ))}
+        </div>
+        <div style={{ width: 1, height: 14, background: 'var(--border)' }} />
+
+        {/* ── Dock / Float toggle — hidden in Presentation Mode ────────────────── */}
+        {!presentationMode && <button
+          onClick={() => { if (isDocked && undockBlocked) return; setKeyboardMode(isDocked ? 'floating' : 'docked') }}
+          disabled={isDocked && undockBlocked}
+          title={isDocked
+            ? (undockBlocked ? 'Close the open modal to float the keyboard' : 'Float keyboard (detach)')
+            : 'Dock keyboard (attach to bottom)'}
+          style={{
+            display: 'flex', alignItems: 'center', gap: 5,
+            background: 'transparent', border: 'none',
+            cursor: isDocked && undockBlocked ? 'default' : 'pointer',
+            opacity: isDocked && undockBlocked ? 0.35 : 1,
+            color: isDocked ? 'var(--text-muted)' : 'var(--text-amber)',
+            fontSize: 'var(--text-xs)', fontFamily: 'Inter',
+            padding: '2px 6px', borderRadius: 4,
+            transition: 'color 0.15s',
+            position: 'relative', zIndex: 3,
+          }}
+          onMouseEnter={e => { if (isDocked && !undockBlocked) e.currentTarget.style.color = 'var(--text-amber)' }}
+          onMouseLeave={e => { if (isDocked) e.currentTarget.style.color = 'var(--text-muted)' }}
+        >
+          {isDocked ? (
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+              <line x1="12" y1="17" x2="12" y2="22"/><path d="M5 17h14v-1.76a2 2 0 0 0-1.11-1.79l-1.78-.9A2 2 0 0 1 15 10.76V6h1a2 2 0 0 0 0-4H8a2 2 0 0 0 0 4h1v4.76a2 2 0 0 1-1.11 1.79l-1.78.9A2 2 0 0 0 5 15.24Z"/>
+            </svg>
+          ) : (
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+              <polyline points="5 9 2 12 5 15"/><polyline points="9 5 12 2 15 5"/>
+              <polyline points="15 19 12 22 9 19"/><polyline points="19 9 22 12 19 15"/>
+              <line x1="2" y1="12" x2="22" y2="12"/><line x1="12" y1="2" x2="12" y2="22"/>
+            </svg>
+          )}
+          {isDocked ? 'Docked' : 'Floating'}
+        </button>}
       </div>
-      <div style={{ width: 1, height: 14, background: 'var(--border)' }} />
 
-      {/* ── Dock / Float toggle — hidden in Presentation Mode ────────────────── */}
-      {!presentationMode && <button
-        onClick={() => { if (isDocked && undockBlocked) return; setKeyboardMode(isDocked ? 'floating' : 'docked') }}
-        disabled={isDocked && undockBlocked}
-        title={isDocked
-          ? (undockBlocked ? 'Close the open modal to float the keyboard' : 'Float keyboard (detach)')
-          : 'Dock keyboard (attach to bottom)'}
-        style={{
-          display: 'flex', alignItems: 'center', gap: 5,
-          background: 'transparent', border: 'none',
-          cursor: isDocked && undockBlocked ? 'default' : 'pointer',
-          opacity: isDocked && undockBlocked ? 0.35 : 1,
-          color: isDocked ? 'var(--text-muted)' : 'var(--text-amber)',
-          fontSize: 'var(--text-xs)', fontFamily: 'Inter',
-          padding: '2px 6px', borderRadius: 4,
-          transition: 'color 0.15s',
-          position: 'relative', zIndex: 3,
-        }}
-        onMouseEnter={e => { if (isDocked && !undockBlocked) e.currentTarget.style.color = 'var(--text-amber)' }}
-        onMouseLeave={e => { if (isDocked) e.currentTarget.style.color = 'var(--text-muted)' }}
-      >
-        {isDocked ? (
-          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-            <line x1="12" y1="17" x2="12" y2="22"/><path d="M5 17h14v-1.76a2 2 0 0 0-1.11-1.79l-1.78-.9A2 2 0 0 1 15 10.76V6h1a2 2 0 0 0 0-4H8a2 2 0 0 0 0 4h1v4.76a2 2 0 0 1-1.11 1.79l-1.78.9A2 2 0 0 0 5 15.24Z"/>
-          </svg>
-        ) : (
-          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-            <polyline points="5 9 2 12 5 15"/><polyline points="9 5 12 2 15 5"/>
-            <polyline points="15 19 12 22 9 19"/><polyline points="19 9 22 12 19 15"/>
-            <line x1="2" y1="12" x2="22" y2="12"/><line x1="12" y1="2" x2="12" y2="22"/>
-          </svg>
+      {/* ── Center: shift+click hint — hidden while the practice-mode split
+          line (below) is actively rendering; the line takes this spot instead. ── */}
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', justifySelf: 'center', minWidth: 0 }}>
+        {!practiceLineActive && !presentationMode && (
+          <span style={{ fontSize: 9, color: 'var(--text-faint)', fontFamily: 'Inter', userSelect: 'none', whiteSpace: 'nowrap' }}>
+            Shift+Click three keys or more to build &amp; lock a chord
+          </span>
         )}
-        {isDocked ? 'Docked' : 'Floating'}
-      </button>}
+      </div>
 
-      {/* ── Spacer ─────────────────────────────────────────────────────────── */}
-      {!presentationMode && <div style={{ flex: 1 }} />}
+      {/* ── Right: note counter + Presentation Mode toggle ───────────────────── */}
+      <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-3)', justifySelf: 'end', minWidth: 0 }}>
 
       {/* ── Practice mode: moving split line from stored hand tags ──────────── */}
       {/* (beta, needs rework — hidden in Presentation Mode) ─────────────────── */}
-      {showHandLabels && handLabelMode === 'practice' && !presentationMode && smoothedPct !== null && (() => {
+      {practiceLineActive && (() => {
         const AMBER = 'var(--text-amber)'
         const pct = smoothedPct
         const lineStyle: CSSProperties = {
@@ -198,7 +215,6 @@ export default function KeyboardControls() {
           background: 'transparent', border: 'none', cursor: 'pointer',
           color: 'var(--text-amber)',
           padding: '2px 4px', borderRadius: 4,
-          marginLeft: presentationMode ? 'auto' : undefined,
           transition: 'opacity 0.15s',
           opacity: 0.65,
           position: 'relative', zIndex: 3,
@@ -228,6 +244,7 @@ export default function KeyboardControls() {
           </svg>
         )}
       </button>
+      </div>
     </div>
   )
 }

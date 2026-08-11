@@ -1,5 +1,33 @@
 # Changelog
 
+## [1.6.1] — 11. 8. 2026 — Chord-display transpose bug, tempo/key save rewiring, Scale Explorer root-note coloring
+
+### Fixed — chord names above the keyboard didn't update on transpose
+`useChordSequence.ts` pre-computes the whole file's chord sequence from each note's raw MIDI pitch, but its effect only re-ran on `[midi, noteNaming, accidentals]` — never on key/transpose changes. Playback, the audio engine, and the keyboard all correctly shifted pitch by the current transpose; the chord-name strip never did, so changing key left every chord label showing the file's *original* key. Fixed by folding transpose into the note pitches before chord detection and re-running whenever it changes.
+
+### Tempo/Key save — rewired into the Playback Editor
+The opt-in "save tempo/key changes" feature (v1.6.0) had its toggle in Settings and its own standalone Save button in the TopBar, disconnected from the Playback Editor that already owns file-versioning saves. Reworked: the toggle now lives in the Playback Editor's select-all/clear-all row ("Save Tempo & Key changes", off by default), and its logic is folded directly into that modal's own Save & Reload write — one click, one `_ORFEO_vN`, one changelog entry, instead of two independent saves stacking two versions. The TopBar button is gone. The underlying bake-in math (`computeTempoKeyPayload()` in `tempoKeySave.ts`) is unchanged and still shared with the standalone Reset/close/drag-drop unsaved-changes guard, which still needs to save tempo/key changes even when the Playback Editor isn't open.
+
+### Scale Explorer — root note coloring (new, opt-in-by-default)
+New "color root note" toggle (top-right of the Chords-in-the-Scale row, on by default): highlights the true root pitch class in pink (same pink as the Note Editor's RH hand color) instead of blending into the uniform amber used for every other note. Two deliberately different rules, both keyed on the chord's *pitch class* rather than voicing position (fixing a real bug — the old code colored whichever note happened to be the current bass, which broke under inversion since the true root can land anywhere in the voicing once inverted):
+- **Chord tiles** (click, octave tile, root-position progression steps): colors the **scale's** root — a diatonic chord only gets a pink note if it actually contains the scale root (e.g. in F# major only F#, B, and D#m contain F#).
+- **Inversions** (the ◂/▸ inversion steppers, and inverted progression steps): always colors the **chord's own** root, regardless of the scale. Intended to be ported to the Chord Explorer and Chord Locker next.
+
+### Fixed — Scale Explorer's close button occasionally maximized the app window
+The Electron window uses a 40px `titleBarOverlay` (Windows draws its own native minimize/maximize/close buttons there, on top of the page regardless of DOM z-index). Scale Explorer's modal is tall enough (600px) that its default vertical position clamps to a floor on smaller windows — and that floor was 8px, landing the modal's own header (and × button) right under Windows' real maximize button. Clicks aimed at Orfeo's close button were sometimes actually hitting the OS control instead. Floor raised to 44px (clears the overlay) for both the initial position and manual header-drag.
+
+### Mixer Console
+- **Channel drag-to-reorder** (new): piano/keys channels stay locked leftmost; every other channel gets a grip handle in its name bar and can be dragged to reorder, same pattern as the Track Panel's existing group drag-reorder.
+- Minimize button removed from the header (state and all wiring fully deleted, not just hidden).
+
+### Track Panel icon rail
+Reordered to MIDI Playback Editor → MIDI Note Editor → Console Mixer → placeholder (was Mixer first). Fixed a real visual inconsistency, not just a preference: `NoteEditorIcon` and the placeholder star render at a larger size (22px/20px) than their siblings (18px/16px) against the same 24-unit SVG viewBox, so an identical `strokeWidth` rendered visibly heavier at the larger size — compensated with a lower `strokeWidth` on those two instances only, no icon changed visual size.
+
+### Keyboard footer layout
+The "Shift+Click three keys or more…" hint moved from the keyboard header into the bottom control bar's true center (rebuilt as a 3-column CSS Grid, matching this repo's convention for rows needing guaranteed centering against asymmetric side content) — hidden whenever the practice-mode moving split-line is actively rendering, or in Presentation Mode.
+
+**New:** `src/hooks/useChordSequence.ts` transpose dependency, `computeTempoKeyPayload()` (`src/utils/tempoKeySave.ts`), `colorRootNoteEnabled` store toggle, Mixer channel drag-to-reorder (`ChannelStrip.tsx`/`MixerConsole.tsx`). **Changed:** `electron/main.ts` (`editor:save` payload), `src/components/MidiEditor/MidiEditor.tsx`, `src/components/SettingsPanel/SettingsPanel.tsx`, `src/components/Transport/TopBar.tsx`, `src/components/ScaleExplorer.tsx`, `src/components/TrackPanel/TrackPanel.tsx`, `src/components/Keyboard/Keyboard.tsx`, `src/components/Keyboard/KeyboardControls.tsx`, `src/store/index.ts`, `src/types/index.ts`.
+
 ## [1.6.0] — 10. 8. 2026 — Note Editor manual hand assignment, tempo/key saving, and a real data-loss fix
 
 The big one. Manual LH/RH hand correction inside the Note Editor, a full toolbar rebuild, a new opt-in tempo/key saving feature, and — found while chasing an unrelated report — a versioning bug that could silently overwrite an earlier saved version instead of creating a new one.

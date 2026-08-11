@@ -347,10 +347,7 @@ export default function App() {
           if (e.ctrlKey && e.shiftKey) {
             e.preventDefault()
             const s = useStore.getState()
-            // Minimized → restore; Open → close; Closed → open
-            if (s.mixerOpen && s.mixerMinimized) s.setMixerMinimized(false)
-            else if (s.mixerOpen) s.setMixerOpen(false)
-            else s.setMixerOpen(true)
+            s.setMixerOpen(!s.mixerOpen)
           }
           break
       }

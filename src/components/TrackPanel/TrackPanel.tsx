@@ -202,20 +202,6 @@ export default function TrackPanel() {
             <AudioLines size={18} />
           </button>
           <button
-            onClick={() => useStore.getState().setMixerOpen(true)}
-            title="Open Console Mixer"
-            style={{
-              background: 'none', border: 'none', cursor: 'pointer',
-              color: 'var(--text-dimmest)', padding: 4, marginTop: 8,
-              display: 'flex', alignItems: 'center', justifyContent: 'center',
-              transition: 'color 0.15s',
-            }}
-            onMouseEnter={e => e.currentTarget.style.color = 'var(--text-amber)'}
-            onMouseLeave={e => e.currentTarget.style.color = 'var(--text-dimmest)'}
-          >
-            <SlidersVertical size={18} />
-          </button>
-          <button
             onClick={midi && !midiEditorOpen ? handleOpenEditor : undefined}
             title={!midi ? 'Open a MIDI file first' : midiEditorOpen ? 'MIDI PlaybackEditor is open' : 'Open MIDI Playback Editor'}
             style={{
@@ -245,9 +231,27 @@ export default function TrackPanel() {
               onMouseEnter={e => { if (!noteEditorActive) e.currentTarget.style.color = 'var(--text-amber)' }}
               onMouseLeave={e => { if (!noteEditorActive) e.currentTarget.style.color = 'var(--text-dimmest)' }}
             >
-              <NoteEditorIcon size={22} />
+              {/* strokeWidth compensates for this icon's larger render size (22 vs
+                  siblings' 18) — same 24-unit viewBox means a fixed strokeWidth
+                  renders visibly thicker at a bigger size; this keeps the actual
+                  on-screen stroke weight matching its neighbors. ──────────────── */}
+              <NoteEditorIcon size={22} strokeWidth={1.64} />
             </button>
           )}
+          <button
+            onClick={() => useStore.getState().setMixerOpen(true)}
+            title="Open Console Mixer"
+            style={{
+              background: 'none', border: 'none', cursor: 'pointer',
+              color: 'var(--text-dimmest)', padding: 4, marginTop: 8,
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+              transition: 'color 0.15s',
+            }}
+            onMouseEnter={e => e.currentTarget.style.color = 'var(--text-amber)'}
+            onMouseLeave={e => e.currentTarget.style.color = 'var(--text-dimmest)'}
+          >
+            <SlidersVertical size={18} />
+          </button>
           <div
             title="Coming soon — practice mode"
             style={{
@@ -287,20 +291,6 @@ export default function TrackPanel() {
               <ChevronRight size={15} />
             </button>
             <button
-              onClick={() => useStore.getState().setMixerOpen(true)}
-              title="Open Console Mixer"
-              style={{
-                background: 'none', border: 'none', cursor: 'pointer',
-                color: 'var(--text-dimmest)', padding: 4, marginTop: 8,
-                display: 'flex', alignItems: 'center', justifyContent: 'center',
-                transition: 'color 0.15s',
-              }}
-              onMouseEnter={e => e.currentTarget.style.color = 'var(--text-amber)'}
-              onMouseLeave={e => e.currentTarget.style.color = 'var(--text-dimmest)'}
-            >
-              <SlidersVertical size={16} />
-            </button>
-            <button
               onClick={midi && !midiEditorOpen ? handleOpenEditor : undefined}
               title={!midi ? 'Open a MIDI file first' : midiEditorOpen ? 'MIDI Playback Editor is open' : 'Open MIDI Playback Editor'}
               style={{
@@ -330,9 +320,25 @@ export default function TrackPanel() {
                 onMouseEnter={e => { if (!noteEditorActive) e.currentTarget.style.color = 'var(--text-amber)' }}
                 onMouseLeave={e => { if (!noteEditorActive) e.currentTarget.style.color = 'var(--text-dimmest)' }}
               >
-                <NoteEditorIcon size={20} />
+                {/* strokeWidth compensates for this icon's larger render size (20 vs
+                    siblings' 16) — see collapsed-rail instance above for why. ──── */}
+                <NoteEditorIcon size={20} strokeWidth={1.6} />
               </button>
             )}
+            <button
+              onClick={() => useStore.getState().setMixerOpen(true)}
+              title="Open Console Mixer"
+              style={{
+                background: 'none', border: 'none', cursor: 'pointer',
+                color: 'var(--text-dimmest)', padding: 4, marginTop: 8,
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                transition: 'color 0.15s',
+              }}
+              onMouseEnter={e => e.currentTarget.style.color = 'var(--text-amber)'}
+              onMouseLeave={e => e.currentTarget.style.color = 'var(--text-dimmest)'}
+            >
+              <SlidersVertical size={16} />
+            </button>
             <div
               title="Coming soon — practice mode"
               style={{
@@ -341,7 +347,9 @@ export default function TrackPanel() {
                 cursor: 'default',
               }}
             >
-              <Sparkles size={20} />
+              {/* strokeWidth compensates for this icon's larger render size (20 vs
+                  siblings' 16), same reason as the NoteEditorIcon instances above. ── */}
+              <Sparkles size={20} strokeWidth={1.6} />
             </div>
           </div>
 
