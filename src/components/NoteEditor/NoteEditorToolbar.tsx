@@ -484,7 +484,7 @@ export default function NoteEditorToolbar() {
           fontSize: 9, color: 'var(--text-dim-control)', textAlign: 'center',
           whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
         }}>
-          Click a track in the panel to solo it for editing
+          Click a track in the Tracks panel to solo it for editing
         </div>
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: 6 }}>
           <button
