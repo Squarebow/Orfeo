@@ -207,7 +207,15 @@ export default function MasterStrip() {
   const audioEngine         = useStore(s => s.audioEngine)
   const masterVolume        = useStore(s => s.masterVolume)
   const setMasterVolume     = useStore(s => s.setMasterVolume)
-  const tracks              = useStore(s => s.tracks)
+  // ── Signature of the fields these global buttons actually care about —
+  // mute/visible/keyboard/drum/group — NOT volume/pan/chorus/reverb. Those
+  // four change on every fader/knob mousemove; subscribing to the whole
+  // `tracks` array re-rendered MasterStrip (and its heavier siblings) on
+  // every tick of any drag, contributing to the playback stutter reported
+  // while dragging Console faders. ──────────────────────────────────────────
+  const trackSignature = useStore(s =>
+    s.tracks.map(t => `${t.index}:${t.muted ? 1 : 0}:${t.visible ? 1 : 0}:${t.showOnKeyboard ? 1 : 0}:${t.isDrum ? 1 : 0}:${t.group ?? ''}`).join('|'))
+  const tracks = useMemo(() => useStore.getState().tracks, [trackSignature])
   const updateTrack         = useStore(s => s.updateTrack)
   const autoMuteNonKeyboard = useStore(s => s.autoMuteNonKeyboard)
   const setTrackMuteFilter  = useStore(s => s.setTrackMuteFilter)
@@ -405,12 +413,19 @@ export default function MasterStrip() {
       {/* ── Spacer ────────────────────────────────────────────────────────── */}
       <div style={{ height: 8, flexShrink: 0 }} />
 
-      {/* ── 3. VU display toggle (28px) — BARS / WAVE ─────────────────────── */}
+      {/* ── 3. VU display toggle (28px) — BARS / WAVE. marginTop:-9.3 pulls
+          this row, the icons row (4), and the All tracks/Selection button
+          (5) up together as one block — measured via live CDP against the
+          channel strips' M/S/eye/kbd row (center Y 482) vs the button's
+          previous center (491.3): 9.3px too low. Item 5's marginBottom
+          absorbs the same 9.3px so FX/Tone/Master Volume below don't
+          shift. ── */}
       <div style={{
         height: 28, flexShrink: 0,
         display: 'flex', flexDirection: 'row',
         alignItems: 'center', justifyContent: 'center',
         gap: 8,
+        marginTop: -9.3,
       }}>
         <span style={{
           fontSize: 9, fontFamily: 'JetBrains Mono', letterSpacing: '0.08em',
@@ -477,7 +492,7 @@ export default function MasterStrip() {
       <div style={{
         height: 34, flexShrink: 0,
         display: 'flex', alignItems: 'center', justifyContent: 'center',
-        marginBottom: 8,
+        marginBottom: 17.3,
       }}>
         {autoMuteNonKeyboard && (
           <button
@@ -513,11 +528,13 @@ export default function MasterStrip() {
         height: 56, flexShrink: 0,
         display: 'flex', alignItems: 'center', justifyContent: 'center',
         gap: 0,
+        marginTop: -10,
       }}>
         <MixerKnob
           value={chorus} onChange={handleChorus}
           accentColor="var(--knob-chorus)" size={52}
           disabled={knobsDisabled} label="Chorus"
+          title="Chorus — thickens the overall mix by layering slightly detuned copies of it"
         />
         <span style={{
           fontSize: 9, fontFamily: 'JetBrains Mono', letterSpacing: '0.1em',
@@ -531,6 +548,7 @@ export default function MasterStrip() {
           value={reverb} onChange={handleReverb}
           accentColor="var(--knob-reverb)" size={52}
           disabled={knobsDisabled} label="Reverb"
+          title="Reverb — adds overall room/space ambience to the mix"
         />
       </div>
 
@@ -538,36 +556,65 @@ export default function MasterStrip() {
       <div style={{
         height: 44, flexShrink: 0,
         display: 'flex', alignItems: 'center', justifyContent: 'center',
+        marginBottom: 10,
       }}>
         <MixerKnob
           value={tone} onChange={handleTone}
           accentColor="var(--knob-tone)" size={52}
           disabled={knobsDisabled} bipolar label="Tone"
+          title="Tone — tilts the overall EQ darker or brighter"
         />
       </div>
 
-      {/* ── 8. Master Volume — flex:2 (~195px); knob shifted down via top:30 ── */}
+      {/* ── 8. Master Volume — flex:2 (~195px). Root cause of every fight so
+          far: the knob was bigger than this section's own actual height, so
+          it was ALWAYS fighting `overflow:hidden` no matter how it was
+          anchored. `justifyContent:'flex-end'` anchors knob+value+label to
+          this strip's bottom edge — same edge the channel strips' own
+          VOLUME/TRACK-N labels sit flush against — so the two align without
+          pixel-guessing; any overflow from the knob being taller than the
+          section clips off its top ticks instead, which is cosmetic. ── */}
       <div style={{
         flex: 2, minHeight: 0,
         display: 'flex', flexDirection: 'column',
         alignItems: 'center', justifyContent: 'flex-end',
         overflow: 'hidden',
-        paddingBottom: 16,
       }}>
-        <div style={{ position: 'relative', top: 30, flexShrink: 0 }}>
+        {/* Visual-only offset on the knob alone — position:relative doesn't
+            affect the flow of the value/label siblings below it. */}
+        <div style={{ position: 'relative', top: 40 }}>
           <MixerKnob
             value={masterVolume} onChange={setMasterVolume}
-            accentColor="var(--text-amber)" size={200}
+            accentColor="var(--text-amber)" size={202.5}
             dotCount={36} tickMajorEvery={6} tickScale={0.5} triScale={0.5}
           />
         </div>
-        <span style={{
-          fontSize: 8, fontFamily: 'JetBrains Mono', letterSpacing: '0.08em',
-          textTransform: 'uppercase', color: 'var(--text-dimmest)',
-          marginTop: 4,
+        <div style={{
+          display: 'flex', alignItems: 'baseline', justifyContent: 'space-between',
+          width: 120, marginTop: 2,
         }}>
-          Master Volume
-        </span>
+          <span style={{ fontSize: 11, fontFamily: 'JetBrains Mono', color: 'var(--text-dimmest)' }}>
+            {masterVolume === 0 ? '−∞ dB' : `${(20 * Math.log10(masterVolume)).toFixed(1)} dB`}
+          </span>
+          <span style={{ fontSize: 11, fontFamily: 'JetBrains Mono', color: 'var(--text-dimmest)' }}>
+            {Math.round(masterVolume * 100)}%
+          </span>
+        </div>
+        {/* ── "Volume" label — wrapped in the exact same 26px centered row as
+            ChannelStrip's Track-N pill (its last child too), so both cards'
+            bottom label sits the same distance above the shared card edge
+            instead of one being flush at 0 and the other centered in 26px. ── */}
+        <div style={{
+          height: 26, flexShrink: 0,
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
+        }}>
+          <span style={{
+            fontSize: 8, fontFamily: 'JetBrains Mono', letterSpacing: '0.1em',
+            textTransform: 'uppercase', color: 'var(--text-dimmest)',
+          }}>
+            Volume
+          </span>
+        </div>
       </div>
 
     </div>

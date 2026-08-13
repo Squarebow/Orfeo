@@ -1,5 +1,314 @@
 # Changelog
 
+## [1.7.0] — 13. 8. 2026 — Pre-release polish pass: floating-panel bugs, Mixer rebuild, Playback Editor split redesign
+
+A broad polish/bugfix pass across nearly every floating panel in the app, done ahead of the first public release. Two real regressions stand out: an Electron window-drag region silently swallowing clicks on the Loop Region's bar-select icon, and every draggable modal's close button becoming unclickable once dragged near the titlebar.
+
+### Fixed — Loop Region bar-select icon completely unresponsive
+Root cause: TopBar sits inside an Electron `-webkit-app-region: drag` region (native window dragging), and the icon/popup never got the `app-no-drag` exemption class every other TopBar control has. A real mouse click was being intercepted at the OS level as a window-drag gesture before it ever reached React — the button still looked and hovered normally, and synthetic/programmatic click events still fired (they bypass native OS interception), which made this exceptionally hard to reproduce under automated testing. Added `app-no-drag` to the icon, its popup, and the strip canvas itself. Also fixed a separate popup-open race (the outside-click-to-close listener attaching in the same tick as the opening click, sometimes swallowing it) by deferring attachment by one tick, and moved the popup to a `document.body` portal with `position: fixed` — it was `position: absolute` inside TopBar and could render half-clipped behind the piano roll.
+
+### Fixed — every draggable modal's close button unclickable near the titlebar
+Every floating modal (Note Editor, Playback Editor, Scale Explorer, Chord Explorer, Lock-a-Chord, Mixer Console, Floating Keyboard, File Info) clamped its y-position to a floor of 0 when dragged or repositioned, letting the top edge — and its close button — slide up under Electron's 40px `titleBarOverlay`, where Windows draws its own native window controls on top of everything in the DOM regardless of z-index. Raised the floor to 44px everywhere (matching the fix already shipped for Scale Explorer in 1.6.1), so no modal can be dragged into the dead zone. Also unified every modal's close-button styling (size, border, hover color) to match the Note Editor's — extracted to `src/utils/modalCloseButtonStyle.ts`.
+
+### Fixed — MIDI Note Editor toolbar
+- Only a 16px logo icon was draggable — moved the drag handle to the whole header row, matching every other modal.
+- Header hint text's last word wrapped to its own line — side columns were 150px wide with only ~126–62px of actual content; narrowed to 130px each.
+- "Fine-tune it yourself" note-editor icon in the Playback Editor was completely unresponsive: `handleOpenInNoteEditor` was a `useCallback([])` declared before an early `return null` that fires on first render (before its own closed-over state existed) — React locked the callback to that broken first-render closure forever, throwing `ReferenceError` on every click. Fixed by converting it to a plain (non-memoized) function declared after the early return.
+
+### Mixer Console — Master Volume knob rebuilt, playback stutter fixed
+- Master Volume knob redrawn and repositioned to sit flush with the channel strips' own bottom edge (matching their Track-N label), with a new dB/percent readout beneath it.
+- Chorus/Reverb/Tone knobs (both Master and per-channel) now show a hover tooltip explaining what each control does.
+- VU meter now scales with the channel's own fader position — it previously showed raw note velocity only, so dragging a fader never visibly moved its meter.
+- Fixed a real playback stutter while dragging any Console fader/knob: `ChannelStrip`, `MasterStrip`, and the sample-engine's playback-scheduling effect were all subscribing to the *entire* `tracks` array, so every fader mousemove re-rendered all 8+ channel strips and re-evaluated the playback scheduler dozens of times a second. Narrowed each to only the specific fields it actually needs (this channel's own track object; a mute/solo/visible signature string) so unrelated drags no longer cascade.
+- Hide/show-in-roll icon recolored to the app's actual success/error status colors (was amber/red).
+
+### Track Panel
+- Custom drag-to-reorder (both track groups and tracks within a group) only worked dragging upward — dragging a row downward past its target stalled or oscillated instead of passing it. The insert index was always computed as "before the target," which only reads correctly moving up; downward drags now insert after.
+- `NoteEditorIcon.tsx` (a custom SVG) deleted and replaced everywhere with lucide's `AudioLines`/`ListTree` — one less bespoke icon to maintain, no visual regression once stroke-width was compensated for its larger render size.
+
+### Settings — Library & Hand Labels
+- Library folder list: the app's own `Orfeo` folder is now always pinned topmost (above the existing `Demo` pin).
+- Protected folders (`Orfeo`) now still get a right-click menu — just "Show in explorer" instead of Rename/Move/Delete, instead of no menu at all.
+- Max Fingers redesigned: heading + Left/Right rows with one shared description below, instead of two separately-hinted rows.
+- Practice mode (the averaged split-line hand-label display) disabled in the UI — proved inconsistent in practice; the underlying code and store value are untouched (still selectable via a `{false && ...}` guard) so it can come back once improved. A stale saved `'practice'` preference from before this change is no longer restorable.
+
+### Piano Roll — velocity editor and loop overlay
+- Velocity lane bars now spread across the lane's full width by the soloed track's own pitch range (min–max, centered) instead of sitting at each note's literal keyboard X — a track using only a narrow slice of the keyboard no longer crowds all its bars into one edge.
+- Notes at the same pitch within the visible window now nudge sideways instead of stacking exactly on top of each other.
+- Loop region selection: removed the Alt-key gate entirely — a plain click+drag on the piano roll now starts a selection (previously required holding Alt, a leftover from an earlier design that was never fully removed from the tooltip text either).
+- Loop region cursor tooltip only shows while a region is actively selected, not on every hover with nothing selected. Text updated to "Loop region set" / "Drag to reorder, right-click to clear".
+
+### Lock-a-Chord
+- Header restyled to match the Note Editor's (background, border token, logo/title sizing).
+- Shows the actual note names in place of dashes for the first 1–2 shift-clicked notes, before enough are locked for a chord name to resolve.
+- Play-icon style unified with Scale Explorer's rounded chevron (extracted to a shared `ChevronPlayIcon.tsx`, removing a duplicate that lived in `ScaleExplorer.tsx`).
+
+### Also fixed
+- TopBar transport buttons visibly shifted left whenever the amber "click to loop" label appeared/disappeared — the label was a normal flex sibling whose presence changed the centered row's total width. Removed from flow via `position: absolute`.
+- A React "conflicting style property" warning (`border` shorthand + `borderTop` override) fired continuously during playback from `Keyboard.tsx`'s black-key glow, since that element re-renders on every key-light color change — switched to per-side longhand.
+- Internal drag-reorder (Track Panel/Console/Library rows) showed a flickering native "no-drop" cursor in the gaps between drop targets — `dragover`/`dragenter` now call `preventDefault()` unconditionally for non-file drags.
+
+**New:** `src/utils/modalCloseButtonStyle.ts`, `src/components/ChevronPlayIcon.tsx`. **Removed:** `src/components/NoteEditorIcon.tsx`. **Changed:** most floating-panel components (`NoteEditorToolbar.tsx`, `MidiEditor.tsx`, `ScaleExplorer.tsx`, `ChordExplorer.tsx`, `LockedChordModal.tsx`, `MixerConsole.tsx`, `FloatingKeyboard.tsx`, `FileInfoModal.tsx`), `LoopRegionStrip.tsx`, `TopBar.tsx`, `PianoRoll.tsx`, `TrackPanel.tsx`, `SettingsPanel.tsx`, `VolumeKnob.tsx`, `Mixer/*.tsx`, `useSamplesEngine.ts`, `store/index.ts`, `App.tsx`.
+
+## [1.6.1] — 11. 8. 2026 — Chord-display transpose bug, tempo/key save rewiring, Scale Explorer root-note coloring
+
+### Fixed — chord names above the keyboard didn't update on transpose
+`useChordSequence.ts` pre-computes the whole file's chord sequence from each note's raw MIDI pitch, but its effect only re-ran on `[midi, noteNaming, accidentals]` — never on key/transpose changes. Playback, the audio engine, and the keyboard all correctly shifted pitch by the current transpose; the chord-name strip never did, so changing key left every chord label showing the file's *original* key. Fixed by folding transpose into the note pitches before chord detection and re-running whenever it changes.
+
+### Tempo/Key save — rewired into the Playback Editor
+The opt-in "save tempo/key changes" feature (v1.6.0) had its toggle in Settings and its own standalone Save button in the TopBar, disconnected from the Playback Editor that already owns file-versioning saves. Reworked: the toggle now lives in the Playback Editor's select-all/clear-all row ("Save Tempo & Key changes", off by default), and its logic is folded directly into that modal's own Save & Reload write — one click, one `_ORFEO_vN`, one changelog entry, instead of two independent saves stacking two versions. The TopBar button is gone. The underlying bake-in math (`computeTempoKeyPayload()` in `tempoKeySave.ts`) is unchanged and still shared with the standalone Reset/close/drag-drop unsaved-changes guard, which still needs to save tempo/key changes even when the Playback Editor isn't open.
+
+### Scale Explorer — root note coloring (new, opt-in-by-default)
+New "color root note" toggle (top-right of the Chords-in-the-Scale row, on by default): highlights the true root pitch class in pink (same pink as the Note Editor's RH hand color) instead of blending into the uniform amber used for every other note. Two deliberately different rules, both keyed on the chord's *pitch class* rather than voicing position (fixing a real bug — the old code colored whichever note happened to be the current bass, which broke under inversion since the true root can land anywhere in the voicing once inverted):
+- **Chord tiles** (click, octave tile, root-position progression steps): colors the **scale's** root — a diatonic chord only gets a pink note if it actually contains the scale root (e.g. in F# major only F#, B, and D#m contain F#).
+- **Inversions** (the ◂/▸ inversion steppers, and inverted progression steps): always colors the **chord's own** root, regardless of the scale. Intended to be ported to the Chord Explorer and Chord Locker next.
+
+### Fixed — Scale Explorer's close button occasionally maximized the app window
+The Electron window uses a 40px `titleBarOverlay` (Windows draws its own native minimize/maximize/close buttons there, on top of the page regardless of DOM z-index). Scale Explorer's modal is tall enough (600px) that its default vertical position clamps to a floor on smaller windows — and that floor was 8px, landing the modal's own header (and × button) right under Windows' real maximize button. Clicks aimed at Orfeo's close button were sometimes actually hitting the OS control instead. Floor raised to 44px (clears the overlay) for both the initial position and manual header-drag.
+
+### Mixer Console
+- **Channel drag-to-reorder** (new): piano/keys channels stay locked leftmost; every other channel gets a grip handle in its name bar and can be dragged to reorder, same pattern as the Track Panel's existing group drag-reorder.
+- Minimize button removed from the header (state and all wiring fully deleted, not just hidden).
+
+### Track Panel icon rail
+Reordered to MIDI Playback Editor → MIDI Note Editor → Console Mixer → placeholder (was Mixer first). Fixed a real visual inconsistency, not just a preference: `NoteEditorIcon` and the placeholder star render at a larger size (22px/20px) than their siblings (18px/16px) against the same 24-unit SVG viewBox, so an identical `strokeWidth` rendered visibly heavier at the larger size — compensated with a lower `strokeWidth` on those two instances only, no icon changed visual size.
+
+### Keyboard footer layout
+The "Shift+Click three keys or more…" hint moved from the keyboard header into the bottom control bar's true center (rebuilt as a 3-column CSS Grid, matching this repo's convention for rows needing guaranteed centering against asymmetric side content) — hidden whenever the practice-mode moving split-line is actively rendering, or in Presentation Mode.
+
+### Dependency updates
+Patch/minor bumps: React/React DOM/`@types` 19.2.8, Tailwind 4.3.3, `fuse.js` 7.5.0, `spessasynth_lib` 4.3.13, Electron 42.4.1 → 42.8.1 within its current major (closes a moderate Electron cache-reuse advisory). `npm audit fix` cleared the rest — all transitive `electron-builder` build-tooling advisories, dev-only, never shipped in the packaged app. 0 vulnerabilities. All other runtime deps (JZZ family, Tonal, Tone.js, `@tonejs/midi`, AlphaTab, PixiJS, GSAP, PDFKit, etc.) were already at latest. Also re-included `package-lock.json` in git tracking — it had picked up a stale skip-worktree bit at some point, silently excluding it from every commit for a long time. Deferred (major-version jumps, need their own test pass): `electron-vite` 5.x, `@vitejs/plugin-react` 6.x, `typescript` 7.x, `lucide-react` 1.x, Electron 43.x.
+
+**New:** `src/hooks/useChordSequence.ts` transpose dependency, `computeTempoKeyPayload()` (`src/utils/tempoKeySave.ts`), `colorRootNoteEnabled` store toggle, Mixer channel drag-to-reorder (`ChannelStrip.tsx`/`MixerConsole.tsx`). **Changed:** `electron/main.ts` (`editor:save` payload), `src/components/MidiEditor/MidiEditor.tsx`, `src/components/SettingsPanel/SettingsPanel.tsx`, `src/components/Transport/TopBar.tsx`, `src/components/ScaleExplorer.tsx`, `src/components/TrackPanel/TrackPanel.tsx`, `src/components/Keyboard/Keyboard.tsx`, `src/components/Keyboard/KeyboardControls.tsx`, `src/store/index.ts`, `src/types/index.ts`.
+
+## [1.6.0] — 10. 8. 2026 — Note Editor manual hand assignment, tempo/key saving, and a real data-loss fix
+
+The big one. Manual LH/RH hand correction inside the Note Editor, a full toolbar rebuild, a new opt-in tempo/key saving feature, and — found while chasing an unrelated report — a versioning bug that could silently overwrite an earlier saved version instead of creating a new one.
+
+### Note Editor — manual hand assignment
+The Note Editor gained a full correction workflow for the automatic LH/RH hand-splitting algorithm: a dedicated **Hand** toggle (separate from the Settings LH/RH algorithm toggle — this one only controls what the editor shows/lets you fix right now) that visually isolates the piano/keys track on the roll and keyboard (hides every other track — purely visual, doesn't touch audio) and enables **Assign to Left/Right Hand** in the right-click context menu. Manually assigned notes are tagged `handSource: 'manual'` and protected from being silently overwritten by a fresh algorithm run on the next load. Assign/reassign is fully undo-capable (Ctrl+Z, or the context menu's Undo/Redo, always present and disabled-aware). Split/Merge/Save in the Playback Editor now respects manually-corrected tags end-to-end via an extended `ORFEO_HAND_MAP` persistence format that carries a per-note computed/manual source alongside the hand itself.
+
+### Note Editor — toolbar rebuild and tool isolation
+Full 3-row toolbar redesign: header (logo, title, permanent "click a track to solo it" hint, close), a combined TOOLS+MODES row, and a context-aware tooltip row. Each tool (Select/Pen/Marquee/Lasso) now does exactly one thing — Pen only adds (Alt+click) or marks notes for delete, Marquee/Lasso only select, Select handles move/resize/pan. Right-click always opens a context menu (Assign LH/RH when Hand mode is on, Deselect, Undo, Redo, Delete always last) instead of ever instant-deleting. Every icon's tooltip now shows in the toolbar's own dynamic hint row instead of a native browser tooltip, changing live with hover/selection state. Undo/redo icons rotated to read as directional arrows; velocity lane icon is a static white/amber toggle with no blink/nudge.
+
+### Note Editor — visual language for unsaved edits
+Selected/dragged notes get a white 2-3px outline (was a 1px red border flush against the note). Notes that were moved/resized/repitched/velocity-changed keep pulsing that same border even after being deselected, so an edit stays visible at a glance. Brand-new (not yet saved) notes render outline-only with no fill at all, instead of a colored note with a border on top. All three reset to normal on Save & Reload.
+
+### Note Editor — interaction bugs
+- A plain click on a note silently nudged its pitch/time by a tick — the note-drag math ran on every pointermove between mouse-down and up, including a click's few pixels of incidental jitter, and separately, `snapTick()` was being applied unconditionally even when nothing actually moved, which shifted any note that wasn't already perfectly grid-aligned (i.e. almost any real performance recording). Both fixed — a drag now only "counts" past a 3px threshold, and the snap-and-compare step is skipped entirely below it.
+- Cursor could get stuck showing the pencil icon after a Select-tool drag ended.
+- Grab-to-pan read the wrong mouse axis (this piano roll's time axis is vertical, not horizontal) — panning was barely responsive and could read as either direction.
+- Plain click on empty space now deselects (previously only right-click did).
+- A vibraphone/mallet-instrument track sharing a file with a real piano track was miscounted as "piano-family" in two places: the hand-assignment note pool (wrongly forced its notes into the LH/RH split) and the piano-family color palette slot (could coincidentally collide with the fixed hand-color hex, making the piano track's own default color look identical to "assigned right hand"). Both narrowed from `KEYBOARD_GROUPS` to a piano+organ-only `HAND_ASSIGN_GROUPS`.
+- A toolbar history-change listener's cleanup compared against the wrong closure reference and could never actually clear a stale handler, leaving the Undo icon stuck disabled after some interactions (Ctrl+Z and the context menu's Undo were unaffected — they read history state fresh each time).
+
+### New feature — save tempo/key changes to file (opt-in)
+BPM and transpose were session-only display preferences. A new toggle in Settings → MIDI Files & Library ("Save tempo/key changes", off by default) unlocks a **Save changes** button in the header next to the Key/Tempo controls whenever either has been changed from the loaded file's own values. Saving bakes both into a genuinely new versioned copy: BPM scales every existing tempo event by the same ratio (preserves rubato shape rather than flattening to one constant tempo), and transpose shifts every note's actual pitch (skipping drum tracks — a drum note's pitch selects which drum sound plays, not a musical pitch). Logged to File Info as e.g. "Changed BPM from 144 to 78" / "Changed key from F to Eb". Wired into every place that can discard the current file — opening a new one, dragging a file in, closing the app, and Reset — each prompting Save/Discard/Cancel if dirty.
+
+### Fixed — key signature always showing "—"
+Found while testing the feature above: `@tonejs/midi` (the version in use) returns a file's key signature as a note-name **string** ("F", "Bb"...), never the raw numeric sharps/flats count the app's parser assumed — so `key % 12` silently produced `NaN` for every file with a genuine key signature, permanently stuck the Key display at a dash. Affected any file with real key metadata, not just ones without it. Fixed to map the string directly to a semitone.
+
+Separately, `@tonejs/midi`'s own key-signature *encoder* has a bug that silently drops the value on any re-save regardless — verified directly that even round-tripping a file with zero changes through its encoder loses the key signature. Worked around with a custom `ORFEO_KEY` text meta event (same pattern already used for track names/colors), written by the tempo/key save and read back with priority over the native field.
+
+### Fixed — critical: save could silently overwrite an earlier version instead of creating a new one
+`nextOrfeoVersion()` computed the next `_ORFEO_vN` number purely from the *currently loaded file's own filename* — correct only if you always keep editing the freshly-reloaded save result. Reopening the plain original later (exactly what Library Favorites does — it points at the original, not the latest version) computed "_ORFEO_v1" again even if v1/v2/v3 already existed on disk from earlier sessions, and the save had no existence check: **it silently overwrote the old v1 with today's completely different edits.** Affected all three save tools that share this versioning rule (Playback Editor, Mixer, Note Editor). Fixed with a helper that scans the actual output folder for existing versions and always takes the real max + 1.
+
+### Track Panel
+- Show/hide-in-roll eye icon recolored: green when visible, red when hidden (was white/blue).
+- Drag-to-reorder no longer shows the OS "not allowed" cursor badge for the whole drag — the drag handlers never populated `dataTransfer`, which is unrelated to how the reorder itself works (pure React state) but is what Chromium uses to decide which cursor to show.
+
+**New:** `src/utils/tempoKeySave.ts`, `NES.editedNotes` (`src/utils/noteEditorState.ts`), `HAND_ASSIGN_GROUPS` (`src/utils/keyboardGroups.ts`), `nextAvailableOrfeoPath()` (`electron/main.ts`), `tempoKey:save` IPC handler, `ORFEO_KEY` meta convention. **Changed:** `src/components/NoteEditor/NoteEditorToolbar.tsx` (largely rebuilt), `src/components/PianoRoll/PianoRoll.tsx`, `src/components/TrackPanel/TrackPanel.tsx`, `src/components/Transport/TopBar.tsx`, `src/components/SettingsPanel/SettingsPanel.tsx`, `src/store/index.ts`, `src/utils/keyDetection.ts`, `src/utils/midiParser.ts`, `src/utils/keyboardGroups.ts`, `src/utils/orfeoVersioning.ts` usage, `src/App.tsx`, `src/hooks/useMidiFile.ts`, `electron/main.ts`, `electron/preload.ts`.
+
+---
+
+## [1.5.2-pre] — 9. 8. 2026 — Note Editor: silent audio during live edits, fixed for real
+
+Follow-up to the "no audio while the toolbar is open" fix — that fix (gating playback on `NES.dirty` so it only reroutes to the edit buffer once a real edit exists) stopped the false-positive case, but audio still stayed silent with a genuine edit in place; only a full Save+reload restored it.
+
+### Root cause
+`NES.editMidi` — the separate live `@tonejs/midi` copy Note Editor mutates during editing, kept apart from the store's `midi` so edits stay staged until Save — is built via `new Midi(rawBuffer)`, a stock `@tonejs/midi` parse. Its `Track` objects have no `index` field; that's not part of the library. The store's `midi.tracks`, by contrast, are plain objects `midiParser.ts` builds itself with a custom `.index` assigned in parse order. Both audio engines (`useAudioEngine.ts` GM, `useSamplesEngine.ts` Samples) resolve a track's mute/solo/program state via `tracks.find(t => t.index === track.index)` — against the edit buffer, `track.index` was always `undefined`, so the lookup failed for every track, so every track was silently skipped: no program changes sent, no notes scheduled. The transport clock kept advancing regardless (it reads the JZZ player's own position independently), which is why the timeline still visibly scrolled with zero sound — nothing was actually wrong with playback *timing*, nothing was ever being played at all.
+
+Fixed at the single creation point both engines' edit buffer comes from: `midiToEditableCopy()` (`src/utils/noteEditorCommands.ts`) now stamps `.index` on each track by array position immediately after parsing, matching how `midiParser.ts` assigns it — parse order is guaranteed identical since both come from the same `_raw` bytes and note edits never reorder or add/remove tracks.
+
+Also hardened while investigating: `useAudioEngine.ts`'s `buildPlayer()` computed its raw SMF bytes (`editableCopyToBuffer(NES.editMidi)` when dirty) *before* entering its own try/catch, so a re-encode failure there would silently abort the whole rebuild with no player ever built and no error surfaced beyond a generic upstream `.catch(console.error)`. Moved inside the try block, with an explicit warning logged if no bytes are available at all.
+
+**Changed:** `src/utils/noteEditorCommands.ts`, `src/hooks/useAudioEngine.ts`.
+
+---
+
+## [1.5.1-pre] — 8. 8. 2026 — Foreign-format import fixes, per-edit changelog coverage
+
+Bug-hunting round covering the whole gp3/gp4/MusicXML import pipeline plus File Info changelog gaps found while testing it.
+
+### Foreign-format import — save/edit chain was targeting the wrong file
+Once a dropped `.gp3`/`.gp4`/`.musicxml`/`.mxl` file was converted and cached to an `_IMPORTED.mid`, the app's loaded `midi._filePath` (and `.fileName`) stayed pinned to the original foreign-format source forever — `resolveAndTrackImport()` returned only the converted bytes, never the resolved on-disk path. Every downstream editing tool (Playback Editor's Save & Reload, Note Editor) kept reading/writing against the foreign source instead of the real cached `.mid`, which is why saves either failed outright (`@tonejs/midi` can't parse Guitar Pro/MusicXML binary) or silently applied edits to the wrong file. `resolveAndTrackImport()` now returns `{ base64, filePath, fileName }` reflecting wherever the real `.mid` actually lives (cache hit, freshly-saved cache, or the original for native `.mid`/`.kar`), threaded through all three load entry points (drag-drop, Ctrl+O, Library click) and the pre-edit gate. The title bar under playback controls now correctly flips to the `_IMPORTED` name the moment the conversion is saved, instead of showing the foreign extension indefinitely.
+
+### Playback Editor — instrument reassignment didn't update name or color
+Reassigning a track's instrument only ever touched its GM program number. The track's display name (still whatever the source file called it) and color (still whatever it was assigned before reassignment) never followed, so a guitar reassigned to piano kept showing its old guitar name and color everywhere (Tracks panel, Piano Roll, Keyboard) even though playback correctly changed. Reassignment now also updates the name (to the new instrument's GM name) and color (to the deterministic piano-family blue/pink/amber slot) — but only when neither was ever manually customized, so a real custom name/color a user picked is left alone. Extracted `PIANO_FAMILY_COLORS` into `src/utils/colors.ts` as a shared constant so `midiParser.ts` (initial load) and `MidiEditor.tsx` (live reassignment) compute the identical slot instead of duplicating the rule.
+
+### Also fixed
+- `_rawMidiTracks[t.index]` in `MidiEditor.tsx` indexed the raw unfiltered track array with an already note-filtered, compacted index — landed on the wrong track whenever an earlier raw track had 0 notes, showing a bogus "0 notes"/wrong-channel badge in the editor's track list.
+- `buildSaveSummary()` (Playback Editor) never diffed `newProgram`, so a save that only reassigned an instrument fell back to a bare "Saved" changelog entry with no detail.
+
+### File Info changelog — several edit paths logged nothing or just "Saved"
+- **Note Editor saves logged nothing at all.** Now logs a real tally (`added N notes`, `removed N notes`, `moved N notes`, `repitched N notes`, `resized N notes`, `changed velocity on N notes`), built from the undo stack's own command descriptions (`NoteEditorHistory.appliedDescriptions()`).
+- **Note Editor save also wrote to the wrong folder.** It relied on a client-computed Orfeo-subfolder path handed to a native save dialog as `defaultPath` — a folder that often doesn't exist yet, which Electron's dialog can silently ignore, falling back to wherever it last had a folder open (e.g. Downloads) and writing the versioned file there instead. Removed the dialog entirely: `noteEditor:save` now takes the source `filePath` and computes/creates the output path itself via `getOrfeoOutputDir()`/`nextOrfeoBaseName()` and logs its own changelog entry server-side — the same silent-auto-version convention `editor:save`/`mixer:save` already use, so it's no longer possible for the logged path and the actual written path to diverge.
+- Foreign-format import cache writes (`fs:writeCachedImport`) wrote to disk with zero changelog entry — now logs "Imported and converted to MIDI".
+
+**New:** `PIANO_FAMILY_COLORS` (`src/utils/colors.ts`), `NoteEditorHistory.appliedDescriptions()` (`src/utils/noteEditorHistory.ts`), `buildNoteEditSummary()` (`src/utils/noteEditorState.ts`). **Changed:** `src/utils/foreignFormatImport.ts`, `src/App.tsx`, `src/hooks/useMidiFile.ts`, `src/components/SettingsPanel/SettingsPanel.tsx`, `src/components/MidiEditor/MidiEditor.tsx`, `src/components/NoteEditor/NoteEditorToolbar.tsx`, `src/utils/midiParser.ts`, `electron/main.ts` (`noteEditor:save` rewritten, `fs:writeCachedImport` logging).
+
+---
+
+## [1.5.0-pre] — 8. 8. 2026 — Library: show/restore hidden files
+
+"Hide from library" (right-click) had no way back — a hidden file stayed excluded forever, with no unhide affordance anywhere in the UI.
+
+Added a toggle button next to "New folder" in the Library panel (`ChevronsDownUp` icon — lucide-react has no `ListChevronsDownUp` in any published version, this was the closest real icon) that reveals hidden files back into the list instead of hard-excluding them. Revealed files render in a dedicated dim-amber shade (new `--text-amber-dimmest` token, ~40% amber — not a generic opacity fade, so they still read as "library color," not disabled) so they're visually distinct from normal files while shown. Right-click on a revealed file now offers "Unhide" in place of "Hide from library". Toggle state persists across restarts via `orfeo-prefs.json`, same mechanism as favourites/hidden-list itself. `All`/`★` filter tabs tightened slightly (padding/font-size) to make room for the third toolbar button.
+
+**New:** `store.unhideLibraryFile`, `store.showHiddenLibraryFiles`/`setShowHiddenLibraryFiles` (`src/store/index.ts`), `--text-amber-dimmest` (`src/index.css`). **Changed:** `src/components/SettingsPanel/SettingsPanel.tsx` (toolbar button, list filtering, row dimming, context menu).
+
+---
+
+## [1.4.1-pre] — 8. 8. 2026 — Piano/keys track color consistency, Playback Editor color bugs, split/merge UI polish
+
+Piano and keys tracks were rendering a different, arbitrary color every load — root-caused to two disconnected color sources and a per-load-order assignment with no instrument awareness. Fixed alongside two related Playback Editor color bugs found during investigation, plus two small split/merge UI fixes.
+
+### Piano/keys tracks: deterministic color on every load
+`src/utils/midiParser.ts` had its own bespoke 12-color array, separate from the 10-color `TRACK_COLOR_PALETTE` shown in the Playback Editor's color picker (`src/utils/colors.ts`) — and assigned colors by raw note-track encounter order, with no idea which tracks were piano vs. anything else. Whichever color landed on a given file's piano track was pure chance based on how many other tracks preceded it. Unified onto one palette and made piano-family tracks (`KEYBOARD_GROUPS`: piano/chromatic/organ) deterministic: 1st piano/keys track always gets the same blue as the Left Hand split color, 2nd always gets the same pink as Right Hand, 3rd+ gets Orfeo amber. Non-piano tracks keep round-robining the rest of the palette. Purely a default-assignment change at parse time — no file writes, no versioning. TrackPanel, Piano Roll, and Keyboard already shared one `store.tracks[i].color`, so once the assigned value is consistent, all three render it consistently.
+
+### Bugfix — Cancel in Playback Editor kept a picked color
+Picking a color swatch wrote straight into the live global store immediately (so Track Panel/Keyboard could preview it live) instead of staying staged like every other edit in the editor. Clicking Cancel (or the × close button) discarded the editor's local staged state but never reverted that already-committed store write — the new color stuck around even though nothing was saved. Added an open-time color/colorSource snapshot and a `handleCancel` that reverts any track whose color drifted from it before closing.
+
+### Bugfix — Piano Roll ignored a saved custom track color
+Piano Roll had its own inline reimplementation of hand-aware note coloring instead of using the shared `resolveHandAwareColor()` (`utils/handColors.ts`) that Keyboard correctly calls — and its fallback branch was hardcoded to the LH hand color instead of the track's own color. Since `editor:save` hand-tags every keyboard-group track on every save (not just explicit splits), this meant Piano Roll could never show a custom-picked color for any piano track again after a single save — only Track Panel and Keyboard reflected the change. Fixed the fallback to use the track's real color, matching Keyboard's behavior.
+
+### Playback Editor — split/merge UI polish
+Split preview's small Cancel button (next to the hand-split stats) renamed to "Don't split" for clarity against the footer's own Cancel, and now ambers on hover like the rest of the editor's secondary actions. Merge-selected row highlight was a dark mustard/olive tint (`#1a1a08`) that read as an error state — changed to the same blue family as the Unmerge button/badge (`--unmerge-bg`); the merge-toggle icon itself now also tints to that blue on hover.
+
+**Changed:** `src/utils/colors.ts`, `src/utils/midiParser.ts`, `src/components/MidiEditor/MidiEditor.tsx`, `src/components/PianoRoll/PianoRoll.tsx`, `src/index.css`.
+
+---
+
+## [1.4.0-pre] — 8. 8. 2026 — Mixer Console: save per-channel settings to file
+
+Console Mixer channel strips (volume, pan, reverb, chorus) were previously session-only — re-seeded from the file's CC data on every load, discarded on close. Brainstormed and built end to end: values now persist to disk on request.
+
+Volume/pan/chorus/reverb moved from `ChannelStrip`'s local `useState` into the store (`TrackState.chorus`/`.reverb` joined the existing `.volume`/`.pan`), with a `mixerBaseline` snapshot captured on file load. Closing the mixer (Escape or the × button) diffs live values against that baseline; if any channel changed, a Save/Discard/Cancel dialog appears. **Save** writes a new `_ORFEO_vN.mid` (same versioning `editor:save` uses — never overwrites) via a new `mixer:save` IPC handler, which flattens each channel's CC7/CC10/CC91/CC93 to a single static value at time 0 (the mixer UI only ever represented one static value, so any pre-existing automation on those controllers is replaced, not preserved) and logs one entry to the file's Orfeo History. The app then reloads onto the new version. **Discard** closes without writing; **Cancel** leaves the mixer open. Master strip and everything else on the channel strip (mute/solo/etc.) stay session-only — out of scope.
+
+**New:** `mixer:save` IPC (`electron/main.ts`, `electron/preload.ts`, `src/types/index.ts`). **Changed:** `src/store/index.ts` (`mixerBaseline`, `TrackState.chorus`/`.reverb`), `src/components/Mixer/ChannelStrip.tsx`, `src/components/Mixer/MixerConsole.tsx`.
+
+---
+
+## [1.3.0-pre] — 7. 8. 2026 — File info popup (metadata, change log, version chain)
+
+New right-click "File info" popup for any library file — brainstormed then built in four phases, plus a real bug fix uncovered during testing that affected file organization generally, not just this feature.
+
+### File info popup
+Read-only-by-default metadata table — Artist, Song (parsed from the `Artist - Song.mid` filename convention), Key, BPM, Time signature, Tracks, Copyright (newly extracted; `@tonejs/midi`'s `Header` silently drops copyright meta events, so it's read via the lower-level `midi-file` parser directly, added as an explicit dependency). Missing fields show a dimmed "—". Works on any file, not just the one currently loaded — reads it fresh over IPC.
+
+Artist/Song are editable: double-click to rename, same interaction as track renaming in the Playback Editor (amber-on-hover label, pencil cursor, "Double-click to rename" tooltip, `bg-row`/amber-border input on activation). Edits stage locally; nothing touches disk until **Save changes**, which fires one real file rename. A swap icon swaps the two staged values, not an immediate rename. "Show in folder" (outline style, same size as Save) sits beside it.
+
+**Orfeo History** — a change log local to the app (not written into the .mid file): every Playback Editor save now records a terse summary against the saved file's path ("merged 2 tracks into 1, changed color of 1 track, changed roll visibility of 1 track"), and renames/moves log themselves automatically. Persisted in a sidecar JSON (`userData/orfeo-file-log.json`, keyed by path) with remap hooks in every rename/move IPC handler so entries follow the file instead of orphaning. Fixed-height (~2 entries), scrolls instead of growing the popup.
+
+Version dropdown next to the filename — appears when siblings exist (`Original`, `v1`, `v2`, ...), derived by scanning for files sharing the stripped base name (no separate storage). Hover a version for its saved date/time. Navigates the popup only, never loads the file into the app; no delete.
+
+Popup itself: draggable (same pattern as the Playback Editor's modals), filename marquee-scrolls on hover if it overflows, `en-GB` locale pinned for all timestamps (a system locale otherwise renders "Aug" as e.g. "avg.").
+
+**New:** `src/components/FileInfoModal.tsx`, `src/utils/midiMetadata.ts`, `fs:renameLibraryFile` / `fileinfo:getLog` / `fileinfo:logEvent` / `fileinfo:listVersions` IPC (`electron/main.ts`, `electron/preload.ts`, `src/types/index.ts`). **Changed:** `src/components/SettingsPanel/SettingsPanel.tsx` (new context-menu item), `src/components/MidiEditor/MidiEditor.tsx` (save-summary logging).
+
+### Bug fix — file organize actions blocked for every saved version
+`isProtectedFolderName` (guards the reserved `Demo`/`Orfeo` library folders from rename/delete) was also being used to gate file-level rename and move — but `Orfeo` isn't one well-known folder: every saved version lands in a folder literally named `Orfeo` next to its source file. That made the check true for nearly every file a user might want to rename or move, not just the two reserved top-level folders. Split into two checks: folder-level operations (renaming/deleting the reserved folders themselves) still block both `Demo` and `Orfeo`; file-level operations (rename, move) now only block `Demo` (genuinely read-only bundled content). Fixed in both `electron/main.ts` and the equivalent renderer-side guard in `SettingsPanel.tsx`, which had the same bug independently.
+
+**Changed:** `electron/main.ts`, `src/components/SettingsPanel/SettingsPanel.tsx`.
+
+---
+
+## [1.2.0-pre] — 7. 8. 2026 — MIDI Playback Editor save-pipeline rework, Library sticky/pinned browsing
+
+Driven by live bug reports and iterative UI feedback across the session — the Playback Editor's split/save flow had a real data-loss bug (every split silently discarded whatever else was staged in the same session), and the Library sidebar needed real design work to stay usable at 500+ files.
+
+### Playback Editor — split and save unified into one disk write
+Previously "Split into two tracks" wrote its own file and reloaded the whole editor immediately — which wiped every other staged edit in progress (include/exclude, merges, colors, renames) because the reload rebuilt the row list from scratch. Split is now a purely local staging operation (no IPC, no disk write); the actual note-splitting happens once, inside Save & Reload's single write. A session's edits — however many — now always produce exactly one `_ORFEO_vN`, never two-plus.
+
+Undo moved to where it belongs: "Undo split" now sits with the split-staging banner (reverts the staged split locally, before anything is written), not after a successful save. Once Save & Reload actually commits, the footer collapses to a single **OK** button — Cancel/Save & Reload disappear, so a second click can no longer mint v2, v3, etc. in the same modal session. A failed save leaves Cancel/Save & Reload in place to retry.
+
+Fixed two related bugs surfaced by this rework: staged split output was inheriting the source track's color for both halves (both looked identical) — now uses the fixed LH/RH hex tokens (`#6270A5`/`#CB636C`, matching the piano roll). Split output was also named "Acoustic Grand Piano LH/RH" instead of "Piano LH/RH" when the source track had no real name — restored the "Piano" fallback.
+
+**Changed:** `electron/main.ts` (`editor:save` now handles split+merge+color+name+instrument in one write; standalone `editor:split` handler removed), `electron/preload.ts`, `src/types/index.ts`, `src/components/MidiEditor/MidiEditor.tsx`.
+
+### Playback Editor — persisted Roll/Keyboard columns
+Two new columns (Piano roll visibility, Keyboard-lit) let a save persist what the TrackPanel's matching icons only ever did for the current session. Written as `ORFEO_TRACK_VISIBLE`/`ORFEO_TRACK_KEYBOARD` text meta-events on save (same convention as track name/color), restored as defaults on reimport.
+
+**Changed:** `src/utils/midiParser.ts`, `src/store/index.ts`, `electron/main.ts`, `src/components/MidiEditor/MidiEditor.tsx`.
+
+### Playback Editor — layout pass
+Columns reordered (Include, Track, Merge, Split, Color, Piano roll, Keyboard, Assign Instrument) with every header carrying a tooltip. Fixed a real column-misalignment bug (not a styling nit): the header row's `gap` didn't match the track rows' `gap`, and the scrollable track list's own scrollbar was shrinking its `1fr` Track column relative to the (non-scrollable) header's — both together shifted every column after Track by a growing, track-count-dependent amount. Synced the gaps and reserved a stable scrollbar gutter on both sides. Select all/Clear all restyled with a bordered, amber-hover pill; footer rows consolidated (info text + action buttons share one row instead of two, buttons sized to content instead of stretching half-width); post-save footer shows the real saved path with a "Show in folder" button instead of a duplicate green banner. Instrument picker family headers and instrument rows now both get an amber hover (previously only instruments did, and in gray).
+
+**Changed:** `src/components/MidiEditor/MidiEditor.tsx`.
+
+### Library — pinned active file, collapsible Folders section
+The loaded file now gets its own always-visible bar pinned above the list — CSS `position: sticky` alone can't pull a row out of a collapsed folder or up from its alphabetical position, so this is a real pin, not a scroll trick. It still renders at its normal spot in its folder too, so a folder's contents never look incomplete just because one of them is loaded.
+
+All folders now collapse under one "Folders" row (amber chevron) instead of each needing its own; individual folder headers lost their per-folder chevron (clicking the header still expands/collapses it). Right-click menu gained "Show in folder" (Explorer, file pre-selected via `shell.showItemInFolder`) and a multi-select fix: "New folder from selection"/"Move to folder" were hidden if *any* selected file was in a protected folder (Demo/Orfeo) — now only hidden if *all* of them are, since the move backend already skips protected files individually.
+
+**New:** `shell:showItemInFolder` IPC (`electron/main.ts`, `electron/preload.ts`, `src/types/index.ts`). **Changed:** `src/components/SettingsPanel/SettingsPanel.tsx`.
+
+---
+
+## [1.1.0-pre] — 6. 8. 2026 — Left/Right Hand rework: algorithm overhaul, workflow fixes, external-review-driven improvements
+
+A full rework of the hand-assignment engine driven by real bar-by-bar testing feedback plus three independent external code reviews (Codex, DeepSeek, and a rejected Gemini pass — see `docs/LR Hand rework/review.md` and `Reviews/`, gitignored). Root-caused and fixed several real bugs along the way, not just algorithm tuning — including two workflow regressions introduced and then fixed within this same session. Full technical writeup and testing guide in `docs/LR Hand rework/SESSION_HANDOFF.md` (gitignored, local).
+
+### Hand-assignment engine — four real algorithm bugs found and fixed
+1. **Register-identity tie-break bug**: the very first note's L/R label was an arbitrary coin-flip with nothing tying "L" to physically-lower pitch, which could invert a whole piece's hand coloring from note one. Fixed by seeding each hand's never-played fallback anchor from its own register half (low/high) instead of one shared piece-wide mean.
+2. **Anchor-decay**: a hand's last-known position stayed a full-strength attractor forever, even after many seconds of silence — a new passage starting near that stale position got wrongly pulled toward it. Fixed with `ANCHOR_DECAY_WINDOW_SEC`, decaying a silent hand's carried position toward the register fallback.
+3. **Movement cost rebuilt from a centroid to a reach range**: replaced "mean pitch of everything a hand is currently playing" with each hand's actual `[lo, hi]` span, decaying toward the fallback the longer it's been silent. A follow-up note landing anywhere inside a hand's recent reach now costs nothing, instead of the old mean-pitch model overstating distance to either edge of a wide chord. Exposed and fixed a second bug in the process: `identityInversionCost` was comparing **undecayed** raw positions, letting a many-seconds-stale position outrank the other hand's genuinely fresh, correct one — this was the actual root cause of a comping-figure passage flip-flopping on nearly every note.
+4. **Harmonic prior via `tonal.js`**: a short run of notes that collectively spell a recognizable chord (tonal's `Chord.detect()`) now resists being split across hands mid-gesture — scoped to a 0.6s window, soft bias only, never overrides span/finger feasibility.
+
+**New:** `noteRange()`, `decayedRange()`, `rangeGap()`, `detectHarmonicLinks()`, `cleanupIsolatedFlips()` (all `src/utils/handAssignment.ts`). **Changed:** `src/utils/handAssignment.ts` (`HAND_ENGINE_VERSION` 3→7 across these + workflow fixes below).
+
+### Post-DP cleanup pass — confidence-gated, not blind
+Isolated single-cluster hand flips (a cluster's hand disagreeing with both neighbors, which agree with each other) now get smoothed to match neighbors — but *only* when the DP's own confidence at that cluster was already low. Verified against real data before shipping: a sparse single-note bass ostinato surrounded by continuous treble activity produces the exact same "isolated" shape but scores confidently (0.6–0.8+); the genuine near-tie mistakes this targets score low (<0.5). Confidence-gating, not "isolated alone," is what makes this safe — an earlier, ungated approach (scaling switch-cost by run length) was built, found to break the ostinato pattern, and reverted within the same session rather than shipped.
+
+**Changed:** `src/utils/handAssignment.ts`.
+
+### Confidence-flag consistency fix
+The split-preview panel showed real confidence flags on a freshly-loaded file but silently showed zero flags on that *same* file reopened after one save — not flaky, a genuine bug: hint-restored notes hardcoded `handConfidence = 1` regardless of what the engine actually computed. Now uses a `RESTORED_CONFIDENCE` sentinel so the UI can honestly say "confidence not re-evaluated" instead of fabricating certainty. Added a permanent disclaimer ("automated — a guideline, not a verified transcription") to both the split-preview panel and the Settings Left/Right Hand description, independent of whether anything happens to be flagged this session.
+
+**New:** `hasKnownConfidence()`, `confidenceUnknown` stat (`src/utils/handPreview.ts`). **Changed:** `src/utils/handMetadata.ts`, `src/utils/handPreview.ts`, `src/components/MidiEditor/MidiEditor.tsx`, `src/components/SettingsPanel/SettingsPanel.tsx`.
+
+### Two workflow regressions — introduced and fixed within this session
+A dirty-flag gate on the MidiEditor's Save button (meant to skip a redundant re-save immediately after a split with zero further changes) had a real failure mode: once dirty reset to false after any reload, the button silently became an inert Close — no IPC call, no file write, "saving" appeared to just stop working. Fully reverted; Save always performs a real save now, accepting the occasional harmless duplicate version rather than risk another silent no-op.
+
+**Changed:** `src/components/MidiEditor/MidiEditor.tsx`.
+
+### Split-output track renaming — actually reaches the UI now
+"Split into two tracks" renamed the underlying MIDI track-name field correctly, but the UI's displayed track name is a separate field (`trackName` in the store) that only reads an `ORFEO_TRACK_NAME` hint — never the plain track-name field — so the rename was invisible in the app. Split now injects that hint for both output tracks. Also handles the common real-world case of a blank source track name (falls back to "Piano" so output reads "Piano LH"/"Piano RH" instead of a bare " LH"/" RH").
+
+**Changed:** `electron/main.ts`, `src/utils/handMetadata.ts`.
+
+### Hand-assignment configuration — user-facing controls
+New Settings sub-section ("Playback & Practice," inside Left/Right Hand, before Mode): independent RH/LH max-fingers controls (4 or 5 each), feeding a hard cap on how many notes of a wide chord one hand can take, with an even-split fallback beyond combined capacity. Threaded through every call site: `midiParser.ts` auto-tag, `editor:split`/`editor:save` IPC payloads, `MidiEditor.tsx`.
+
+**New:** `rhMaxFingers`/`lhMaxFingers` store state + persistence (`src/store/index.ts`). **Changed:** `src/utils/handAssignment.ts`, `src/utils/midiParser.ts`, `electron/main.ts`, `src/components/MidiEditor/MidiEditor.tsx`, `src/components/SettingsPanel/SettingsPanel.tsx`.
+
+### Hand color system — one consistent set of colors, everywhere
+Fixed LH (`#6270A5`) / RH (`#CB636C`) tokens now used uniformly across the piano roll, both audio engines' keyboard key-lighting, and the split-preview timeline — replacing an ad-hoc mix of a blue/amber pair and whatever a track's palette color happened to be. Split-mode tracks (homogeneous hand per track) always show the fixed colors; a single mixed-hand track only does in Left/Right Hand mode, otherwise stays blue. Removed the redundant amber keyboard-strip marking on RH notes now that key glow itself carries the signal — kept only for live hardware MIDI input, which has no other visual channel.
+
+**New:** `src/utils/handColors.ts`. **Changed:** `src/index.css`, `src/components/PianoRoll/PianoRoll.tsx`, `src/components/Keyboard/Keyboard.tsx`, `src/hooks/useAudioEngine.ts`, `src/hooks/useSamplesEngine.ts`.
+
+### Chord/Scale Explorer modal — grows upward, not downward
+When a pattern-loaded row appears (e.g. after loading a chord pattern), the modal previously grew downward from a fixed top position, drifting away from its deliberate anchor point. New `useAnchorBottomOnResize` hook (ResizeObserver-based) keeps the bottom edge fixed and grows/shrinks from there instead.
+
+**New:** `src/hooks/useAnchorBottomOnResize.ts`. **Changed:** `src/components/ChordExplorer.tsx`, `src/components/ScaleExplorer.tsx`.
+
+### Process safety nets
+Version-bump automation (`npm run check:hand-engine`, wired into `dev`/`build`/`dist`) hashes `handAssignment.ts` and fails loudly if it changed without a matching `HAND_ENGINE_VERSION` bump in `handMetadata.ts` — catches the exact mistake made twice earlier in this same session, where a real algorithm fix had zero visible effect until the version bump landed separately. Fast-path re-validation: a file that looks like a clean already-split 2-track export now gets cross-checked against a real full DP run before being trusted outright, catching a file whose actual content doesn't match the current engine (e.g. split by an older, buggier version) — calibrated against measured data, not a guess (a genuinely well-split file only agrees ~79% with an independent full re-run, since track membership and a coarse whole-track-average re-derivation are different sources of truth by design).
+
+**New:** `scripts/check-hand-engine-version.mjs`, `src/utils/handAssignment.hash.json`. **Changed:** `package.json`, `src/utils/handAssignment.ts`.
+
+---
+
 ## [1.0.0-pre] — 6. 8. 2026 — Final polish for public release: TopBar/Settings restyle, bugfixes, Scales & Chords Explorer overhaul
 
 A full pass across the app driven by a comprehensive pre-release review, done in four phases (styling/layout, bugfixes, Scales Explorer, Chords Explorer) plus an extended round of live pixel-level feedback on both explorers. Tagged as the first public pre-release.

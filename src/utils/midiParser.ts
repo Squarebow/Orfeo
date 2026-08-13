@@ -3,13 +3,10 @@ import type { ParsedMidi, ParsedTrack, ParsedNote } from '../types'
 import { getGMName, getGMGroup } from './gmInstruments'
 import { restoreHandTagsFromHints } from './handMetadata'
 import { assignHands } from './handAssignment'
-import { KEYBOARD_GROUPS } from './keyboardGroups'
-
-const TRACK_COLORS = [
-  '#e8a027', '#6b7ab5', '#4ecdc4', '#e06c75',
-  '#98c379', '#c678dd', '#61afef', '#e5c07b',
-  '#f0a500', '#7ec8e3', '#d4a5a5', '#a8d8a8',
-]
+import { useStore } from '../store'
+import { HAND_ASSIGN_GROUPS } from './keyboardGroups'
+import { SEMITONE_TO_KEY_NAME } from './keyDetection'
+import { TRACK_COLOR_PALETTE, pianoFamilyColor } from './colors'
 
 export function parseMidiBuffer(buffer: ArrayBuffer, fileName: string, filePath = ''): ParsedMidi {
   // FUTURE: KAR lyric events (meta type 0x05 = lyrics, 0x01 = text) could
@@ -26,24 +23,54 @@ export function parseMidiBuffer(buffer: ArrayBuffer, fileName: string, filePath 
     ? midi.header.timeSignatures[0].timeSignature
     : [4, 4]
 
-  // Extract key signature from MIDI metadata
-  let keySignature: { key: number; scale: string } | null = null
+  // Extract key signature from MIDI metadata. ORFEO_KEY (see
+  // electron/main.ts's tempoKey:save) takes priority over the native
+  // key-signature meta event — verified directly that @tonejs/midi's own
+  // encoder silently drops that value on any re-save regardless of what's
+  // written into it (a pure library bug, unrelated to transpose math), so
+  // any file Orfeo has saved through the tempo/key feature needs its own
+  // reliable custom meta instead, same pattern as ORFEO_TRACK_NAME/COLOR.
+  let keySignature: { key: number | string; scale: string } | null = null
   try {
-    const ks = (midi.header as any).keySignatures
-    if (ks && ks.length > 0) {
-      keySignature = { key: ks[0].key ?? 0, scale: ks[0].scale ?? 'major' }
+    for (const meta of (midi.header as any).meta ?? []) {
+      if (typeof meta.text !== 'string' || !meta.text.startsWith('ORFEO_KEY:')) continue
+      const rest = meta.text.slice('ORFEO_KEY:'.length)
+      const [semitoneStr, scale] = rest.split(':')
+      const semitone = parseInt(semitoneStr, 10)
+      if (!isNaN(semitone) && SEMITONE_TO_KEY_NAME[semitone]) {
+        keySignature = { key: SEMITONE_TO_KEY_NAME[semitone], scale: scale === 'minor' ? 'minor' : 'major' }
+      }
+      break
+    }
+    if (!keySignature) {
+      const ks = (midi.header as any).keySignatures
+      if (ks && ks.length > 0) {
+        keySignature = { key: ks[0].key ?? 0, scale: ks[0].scale ?? 'major' }
+      }
     }
   } catch {}
 
   const tracks: ParsedTrack[] = []
+  let pianoFamilyIndex = 0
 
   midi.tracks.forEach((track, i) => {
     if (track.notes.length === 0) return
-    const color = TRACK_COLORS[tracks.length % TRACK_COLORS.length]
     const isDrum = track.channel === 9
     const program = isDrum ? -1 : (track.instrument?.number ?? 0)
     const gmName = isDrum ? 'Standard Drum Kit' : getGMName(program)
     const group = getGMGroup(program, isDrum)
+    // HAND_ASSIGN_GROUPS (piano+organ), not the broader KEYBOARD_GROUPS —
+    // a chromatic-percussion track (vibraphone etc, see keyboardGroups.ts)
+    // consuming a piano-family slot here shifted the REAL piano track into
+    // PIANO_FAMILY_COLORS[1] (#CB636C), which is the exact literal hex
+    // behind --hand-rh. That track's own default color then looked
+    // identical to "all notes assigned right hand" any time hand-tag data
+    // was momentarily absent (e.g. Note Editor open, before its Hand
+    // toggle is on) — not a coloring bug at all, just an unlucky palette
+    // collision caused by miscounting a mallet instrument as piano-family.
+    const color = HAND_ASSIGN_GROUPS.has(group)
+      ? pianoFamilyColor(pianoFamilyIndex++)
+      : TRACK_COLOR_PALETTE[tracks.length % TRACK_COLOR_PALETTE.length]
 
     const notes: ParsedNote[] = track.notes.map(n => ({
       midi: n.midi,
@@ -139,8 +166,31 @@ export function parseMidiBuffer(buffer: ArrayBuffer, fileName: string, filePath 
     }
   }
 
+  // ── Restore Orfeo persisted roll-visibility / keyboard-lit flags ────────────
+  // Format: ORFEO_TRACK_VISIBLE:N:0/1 and ORFEO_TRACK_KEYBOARD:N:0/1 — same
+  // convention as ORFEO_TRACK_NAME/COLOR. Only the Playback Editor's Save
+  // writes these; the TrackPanel's per-track icons are session-only and never
+  // touch the file (see MidiEditor.tsx / electron/main.ts editor:save).
+  const orfeoTrackVisible: Record<number, boolean> = {}
+  const orfeoTrackKeyboard: Record<number, boolean> = {}
+  for (const meta of (midi.header as any).meta ?? []) {
+    if (typeof meta.text !== 'string') continue
+    for (const [prefix, target] of [
+      ['ORFEO_TRACK_VISIBLE:', orfeoTrackVisible],
+      ['ORFEO_TRACK_KEYBOARD:', orfeoTrackKeyboard],
+    ] as const) {
+      if (!meta.text.startsWith(prefix)) continue
+      const rest = meta.text.slice(prefix.length)
+      const colonIdx = rest.indexOf(':')
+      if (colonIdx < 0) continue
+      const idx = parseInt(rest.slice(0, colonIdx), 10)
+      const flag = rest.slice(colonIdx + 1)
+      if (!isNaN(idx) && (flag === '0' || flag === '1')) target[idx] = flag === '1'
+    }
+  }
+
   // ── Restore hand tags from an Orfeo export hint, if this file has one ───────
-  // Track-name " (RH)"/" (LH)" suffix or ORFEO_HAND_MAP text meta — see
+  // Track-name " RH"/" LH" suffix or ORFEO_HAND_MAP text meta — see
   // utils/handMetadata.ts. Neither is real MIDI clef data, just a breadcrumb.
   // When this returns false, no hint was found (or it was stale) and the
   // assignment engine still needs to run — that happens where the split/
@@ -153,11 +203,15 @@ export function parseMidiBuffer(buffer: ArrayBuffer, fileName: string, filePath 
   // here. This is what lets the keyboard's L/R indicator just read the tag
   // instead of inferring it live every frame (see handBoundaries.ts).
   const kbNotesNeedingAssignment = tracks
-    .filter(t => KEYBOARD_GROUPS.has(t.group) && !t.isDrum)
-    .flatMap(t => t.notes)
+    .filter(t => HAND_ASSIGN_GROUPS.has(t.group) && !t.isDrum)
+    // group stamped per-note (mutates in place, keeps identity) so
+    // tryFastPath() can tell "two halves of one split piano" apart from
+    // "a piano track and an unrelated organ track" — see handAssignment.ts.
+    .flatMap(t => t.notes.map(n => Object.assign(n, { group: t.group })))
     .filter(n => n.hand === undefined)
   if (kbNotesNeedingAssignment.length > 0) {
-    const { assignments } = assignHands(kbNotesNeedingAssignment)
+    const { rhMaxFingers, lhMaxFingers } = useStore.getState()
+    const { assignments } = assignHands(kbNotesNeedingAssignment, { rhMaxFingers, lhMaxFingers })
     for (const a of assignments) { a.note.hand = a.hand; a.note.handConfidence = a.confidence }
   }
 
@@ -177,6 +231,8 @@ export function parseMidiBuffer(buffer: ArrayBuffer, fileName: string, filePath 
     _barStarts: barStarts,
     _orfeoTrackNames: Object.keys(orfeoTrackNames).length > 0 ? orfeoTrackNames : undefined,
     _orfeoTrackColors: Object.keys(orfeoTrackColors).length > 0 ? orfeoTrackColors : undefined,
+    _orfeoTrackVisible: Object.keys(orfeoTrackVisible).length > 0 ? orfeoTrackVisible : undefined,
+    _orfeoTrackKeyboard: Object.keys(orfeoTrackKeyboard).length > 0 ? orfeoTrackKeyboard : undefined,
     _handTagsRestored: handTagsRestored,
   }
 

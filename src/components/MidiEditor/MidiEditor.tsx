@@ -7,9 +7,11 @@
 
 import { useState, useEffect, useRef, useCallback, type CSSProperties } from 'react'
 import { createPortal } from 'react-dom'
-import { Check, X, Save, FolderOpen, AlertCircle, ChevronDown, ChevronRight, Search, Merge, Split, Undo2, RotateCcw, Piano, Bell, Church, Guitar, Music2, AudioWaveform, Users, Megaphone, Wind, Feather, Cpu, Globe, Drum, Radio, Waves, Sparkles, SwatchBook } from 'lucide-react'
+import { Check, X, Save, FolderOpen, AlertCircle, ChevronDown, ChevronRight, Search, Merge, Split, Undo2, RotateCcw, Piano, Bell, Church, Guitar, Music2, AudioWaveform, Users, Megaphone, Wind, Feather, Cpu, Globe, Drum, Radio, Waves, Sparkles, SwatchBook, Eye, EyeOff, ThumbsUp, ToggleLeft, ToggleRight, AudioLines } from 'lucide-react'
+import { confirmDialog } from '../../utils/confirmController'
 import { PENCIL_CURSOR } from '../../utils/cursors'
-import { TRACK_COLOR_PALETTE } from '../../utils/colors'
+import { TRACK_COLOR_PALETTE, pianoFamilyColor } from '../../utils/colors'
+import { modalCloseButtonStyle, modalCloseButtonHoverColor, modalCloseButtonIdleColor } from '../../utils/modalCloseButtonStyle'
 import OrfeoMark from '../OrfeoMark'
 import { useStore } from '../../store'
 import { parseMidiBuffer } from '../../utils/midiParser'
@@ -18,9 +20,28 @@ import { bringToFront, MODAL_BASE_Z } from '../../utils/modalFocus'
 import { KEYBOARD_GROUPS } from '../../utils/keyboardGroups'
 import { nextOrfeoBaseName } from '../../utils/orfeoVersioning'
 import { getHandPreviewStats, getLowConfidencePassages } from '../../utils/handPreview'
+import { withHandSuffix } from '../../utils/handMetadata'
+import { getGMName, getGMGroup } from '../../utils/gmInstruments'
+import { computeTempoKeyPayload } from '../../utils/tempoKeySave'
 
-const MODAL_W = 760
+const MODAL_W = 980
 const MODAL_H = 620
+
+// ── Fixed LH/RH hex — same values as --hand-lh/--hand-rh (src/index.css).
+// Literal hex, not the CSS var: this also travels into ORFEO_TRACK_COLOR meta
+// on save, which only accepts hex (see midiParser.ts's restore regex). ──────
+const HAND_LH_HEX = '#6270A5'
+const HAND_RH_HEX = '#CB636C'
+
+// ── Shared footer button widths — Cancel/Save & Reload match each other;
+// OK (post-save) matches Show in folder, the button directly above it. ──────
+const FOOTER_BTN_W = 140
+const SHOW_IN_FOLDER_W = 140
+
+// ── Matches index.css's global ::-webkit-scrollbar width. The column header
+// (not scrollable) needs this reserved on its right edge too, or its 1fr
+// Track column computes wider than the scrollable list's below it. ──────────
+const SCROLLBAR_W = 5
 
 // ─── GM data ──────────────────────────────────────────────────────────────────
 
@@ -135,9 +156,19 @@ interface EditorTrack {
   group: string; isDrum: boolean; color: string; colorSource: 'default' | 'palette' | 'custom'
   channel: number; noteCount: number
   included: boolean; mergeSelected: boolean; newProgram: number
+  visible: boolean; showOnKeyboard: boolean
   isMerged?: boolean
   mergedFromIndices?: number[]
   mergedFromNames?: string[]
+  // ── Staged hand-split — set on both output rows of an in-progress split
+  // (see handleSplitConfirm). splitOriginIndex is the source track's editor
+  // index on BOTH halves; the LH row also keeps that as its own `index`,
+  // the RH row gets a synthetic one (same scheme merged rows already use)
+  // so it has its own row identity for color/rename/include. Nothing hits
+  // disk until Save & Reload — editor:save resolves these back to raw
+  // track indices and does the actual note-splitting in one write. ────────
+  splitHand?: 'L' | 'R'
+  splitOriginIndex?: number
 }
 
 interface EditorState {
@@ -206,18 +237,25 @@ function InstrumentPicker({ program, isDrum, onChange }: {
         <ChevronDown size={10} style={{ flexShrink: 0, color: 'var(--text-inactive)', transform: open ? 'rotate(180deg)' : 'none', transition: 'transform 0.15s' }} />
       </button>
 
-      {open && (
-        <div style={{
-          position: 'fixed', zIndex: 50000, width: 220, maxHeight: 320, overflow: 'hidden',
-          background: 'var(--bg-modal)', border: '1px solid var(--state-hover-bg)', borderRadius: 6,
-          boxShadow: '0 8px 32px rgba(0,0,0,0.6)', display: 'flex', flexDirection: 'column',
-        }}
-        ref={el => {
-          if (!el || !ref.current) return
-          const r = ref.current.getBoundingClientRect()
-          el.style.top = (r.bottom + 4) + 'px'
-          el.style.left = Math.max(4, r.left - 60) + 'px'
-        }}>
+      {open && createPortal(
+        <div
+          // Portaled out of the anchor's DOM subtree, so the outside-click
+          // handler's `ref.current.contains(target)` check (below) would see
+          // every click inside this popup as "outside" and close it
+          // immediately — stopping propagation here keeps those clicks from
+          // ever reaching the document listener.
+          onMouseDown={e => e.stopPropagation()}
+          style={{
+            position: 'fixed', zIndex: 50000, width: 220, maxHeight: 320, overflow: 'hidden',
+            background: 'var(--bg-modal)', border: '1px solid var(--state-hover-bg)', borderRadius: 6,
+            boxShadow: '0 8px 32px rgba(0,0,0,0.6)', display: 'flex', flexDirection: 'column',
+          }}
+          ref={el => {
+            if (!el || !ref.current) return
+            const r = ref.current.getBoundingClientRect()
+            el.style.top = (r.bottom + 4) + 'px'
+            el.style.left = Math.max(4, r.left - 60) + 'px'
+          }}>
           <div style={{ padding: '6px 8px', borderBottom: '1px solid var(--border)', flexShrink: 0 }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 5, background: 'var(--bg-field)', border: '1px solid var(--border2)', borderRadius: 4, padding: '3px 6px' }}>
               <Search size={10} style={{ color: 'var(--text-inactive)', flexShrink: 0 }} />
@@ -231,16 +269,18 @@ function InstrumentPicker({ program, isDrum, onChange }: {
               return (
                 <div key={family.key}>
                   <div onClick={() => { if (!search) setExpandedFamily(expanded ? null : family.key) }}
-                    style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '5px 10px', background: 'var(--bg-row)', borderBottom: '1px solid var(--bg-tile)', cursor: search ? 'default' : 'pointer', userSelect: 'none' }}>
+                    style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '5px 10px', background: 'var(--bg-row)', borderBottom: '1px solid var(--bg-tile)', cursor: search ? 'default' : 'pointer', userSelect: 'none', transition: 'background 0.1s' }}
+                    onMouseEnter={e => { if (!search) e.currentTarget.style.background = 'var(--accent-amber-subtle)' }}
+                    onMouseLeave={e => { if (!search) e.currentTarget.style.background = 'var(--bg-row)' }}>
                     <span style={{ color: 'var(--text-dimmest)', display: 'flex', alignItems: 'center' }}>{GM_FAMILY_ICONS[family.key] ?? <Music2 size={12} />}</span>
                     <span style={{ flex: 1, fontSize: 10, fontWeight: 700, color: 'var(--text-dimmest)', textTransform: 'uppercase', letterSpacing: '0.08em' }}>{family.label}</span>
                     {!search && (expanded ? <ChevronDown size={9} style={{ color: 'var(--text-inactive)' }} /> : <ChevronRight size={9} style={{ color: 'var(--text-muted)' }} />)}
                   </div>
                   {expanded && family.programs.map(p => (
                     <div key={p.num} onClick={() => { onChange(p.num); setOpen(false); setSearch('') }}
-                      style={{ padding: '5px 10px 5px 28px', fontSize: 10, color: p.num === program ? 'var(--text-amber)' : 'var(--text-dimmest)', background: p.num === program ? 'var(--accent-amber-subtle)' : 'transparent', cursor: 'pointer', borderLeft: p.num === program ? '2px solid var(--text-amber)' : '2px solid transparent', transition: 'background 0.1s' }}
-                      onMouseEnter={e => { if (p.num !== program) e.currentTarget.style.background = 'var(--bg-tile)' }}
-                      onMouseLeave={e => { if (p.num !== program) e.currentTarget.style.background = 'transparent' }}>
+                      style={{ padding: '5px 10px 5px 28px', fontSize: 10, color: p.num === program ? 'var(--text-amber)' : 'var(--text-dimmest)', background: p.num === program ? 'var(--accent-amber-subtle)' : 'transparent', cursor: 'pointer', borderLeft: p.num === program ? '2px solid var(--text-amber)' : '2px solid transparent', transition: 'background 0.1s, color 0.1s' }}
+                      onMouseEnter={e => { if (p.num !== program) { e.currentTarget.style.background = 'var(--accent-amber-subtle)'; e.currentTarget.style.color = 'var(--text-amber)' } }}
+                      onMouseLeave={e => { if (p.num !== program) { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = 'var(--text-dimmest)' } }}>
                       {p.name}
                     </div>
                   ))}
@@ -248,7 +288,8 @@ function InstrumentPicker({ program, isDrum, onChange }: {
               )
             })}
           </div>
-        </div>
+        </div>,
+        document.body,
       )}
     </div>
   )
@@ -499,10 +540,10 @@ function ColorPopover({ trackIndex, trackColor, anchor, onApplyColor, onClose }:
 // ─── Track Row ────────────────────────────────────────────────────────────────
 
 // ── Column grid shared by header row and every TrackRow ──────────────────────
-// Include | Track | Color | Merge | Split | Assign Instrument
-const ROW_COLS = '44px 1fr 44px 44px 44px 220px'
+// Include | Track | Merge | Split | Color | Piano roll | Keyboard | Assign Instrument
+const ROW_COLS = '68px 1fr 44px 44px 44px 92px 92px 190px'
 
-function TrackRow({ track, onToggleIncluded, onToggleMerge, onChangeProgram, onUnmerge, onSplit, onRename, onPickColor }: {
+function TrackRow({ track, onToggleIncluded, onToggleMerge, onChangeProgram, onUnmerge, onSplit, onRename, onPickColor, onToggleVisible, onToggleKeyboard, showBottomBorder = true }: {
   track: EditorTrack
   onToggleIncluded: () => void
   onToggleMerge: () => void
@@ -511,6 +552,12 @@ function TrackRow({ track, onToggleIncluded, onToggleMerge, onChangeProgram, onU
   onSplit?: () => void
   onRename: (name: string) => void
   onPickColor: (trackIndex: number, anchorRect: DOMRect) => void
+  onToggleVisible: () => void
+  onToggleKeyboard: () => void
+  // False when a hand-split info row or split preview follows this track —
+  // that trailing element carries the border instead, so it groups visually
+  // with ITS OWN track instead of reading as belonging to the next one.
+  showBottomBorder?: boolean
 }) {
   // ── Inline rename state ──────────────────────────────────────────────────────
   const [editingName, setEditingName] = useState(false)
@@ -530,7 +577,7 @@ function TrackRow({ track, onToggleIncluded, onToggleMerge, onChangeProgram, onU
   return (
     <div style={{
       display: 'grid', gridTemplateColumns: ROW_COLS,
-      alignItems: 'center', padding: '8px 14px', borderBottom: '1px solid var(--border-row)', gap: 6,
+      alignItems: 'center', padding: '8px 14px', borderBottom: showBottomBorder ? '1px solid var(--border-row)' : 'none', gap: 6,
       opacity: track.included ? 1 : 0.4,
       background: track.isMerged ? 'var(--track-merged-row-bg)' : track.mergeSelected ? 'var(--track-mergeselected-row-bg)' : 'transparent',
       transition: 'opacity 0.15s',
@@ -618,53 +665,53 @@ function TrackRow({ track, onToggleIncluded, onToggleMerge, onChangeProgram, onU
         </div>
       </div>
 
-      {/* ── Col 3: Color picker trigger ──────────────────────────────────────── */}
-      <button
-        onClick={e => onPickColor(track.index, e.currentTarget.getBoundingClientRect())}
-        title="Change track color"
-        style={{
-          width: 24, height: 24, borderRadius: 4,
-          border: '1.5px solid var(--border2)', background: 'transparent',
-          color: 'var(--text-dim-control)',
-          display: 'flex', alignItems: 'center', justifyContent: 'center',
-          cursor: 'pointer', flexShrink: 0, transition: 'all 0.12s',
-        }}
-        onMouseEnter={e => { e.currentTarget.style.color = track.color; e.currentTarget.style.borderColor = track.color }}
-        onMouseLeave={e => { e.currentTarget.style.color = 'var(--text-dim-control)'; e.currentTarget.style.borderColor = 'var(--border2)' }}
-      >
-        <SwatchBook size={11} />
-      </button>
-
-      {/* ── Col 4: Merge / Unmerge ───────────────────────────────────────────── */}
+      {/* ── Col 3: Merge / Unmerge ───────────────────────────────────────────── */}
       {track.isMerged ? (
         <button onClick={onUnmerge} title="Undo merge" style={{
-          width: 24, height: 24, borderRadius: 4,
+          width: 24, height: 24, borderRadius: 4, justifySelf: 'start',
           border: '1.5px solid var(--unmerge-border)', background: 'var(--unmerge-bg)',
           color: 'var(--merge-badge-text)', display: 'flex', alignItems: 'center', justifyContent: 'center',
           cursor: 'pointer', flexShrink: 0,
         }}>
           <Undo2 size={11} />
         </button>
-      ) : (
-        <button onClick={onToggleMerge} title="Select two or more tracks to merge them into one" style={{
-          width: 24, height: 24, borderRadius: 4,
-          border: `1.5px solid ${track.mergeSelected ? 'var(--accent-amber-strong)' : 'var(--border2)'}`,
-          background: track.mergeSelected ? 'var(--accent-amber-medium)' : 'transparent',
-          color: track.mergeSelected ? 'var(--text-amber)' : 'var(--text-dim-control)',
-          display: 'flex', alignItems: 'center', justifyContent: 'center',
-          cursor: 'pointer', flexShrink: 0,
+      ) : track.splitHand ? (
+        <div title="Freshly split tracks can't be merged in the same session — save first" style={{
+          width: 24, height: 24, borderRadius: 4, justifySelf: 'start',
+          border: '1.5px solid var(--border2)', opacity: 0.3,
+          display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0,
         }}>
+          <Merge size={11} />
+        </div>
+      ) : (
+        <button
+          onClick={onToggleMerge}
+          title="Select two or more tracks to merge them into one"
+          style={{
+            width: 24, height: 24, borderRadius: 4, justifySelf: 'start',
+            border: `1.5px solid ${track.mergeSelected ? 'var(--accent-amber-strong)' : 'var(--border2)'}`,
+            background: track.mergeSelected ? 'var(--accent-amber-medium)' : 'transparent',
+            color: track.mergeSelected ? 'var(--text-amber)' : 'var(--text-dim-control)',
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            cursor: 'pointer', flexShrink: 0, transition: 'border-color 0.12s, color 0.12s',
+          }}
+          onMouseEnter={e => { e.currentTarget.style.borderColor = 'var(--unmerge-border)'; e.currentTarget.style.color = 'var(--merge-badge-text)' }}
+          onMouseLeave={e => {
+            e.currentTarget.style.borderColor = track.mergeSelected ? 'var(--accent-amber-strong)' : 'var(--border2)'
+            e.currentTarget.style.color = track.mergeSelected ? 'var(--text-amber)' : 'var(--text-dim-control)'
+          }}
+        >
           <Merge size={11} />
         </button>
       )}
 
-      {/* ── Col 5: Split — only for splittable tracks ─────────────────────────── */}
+      {/* ── Col 4: Split — only for splittable tracks ─────────────────────────── */}
       {onSplit && !track.isMerged ? (
         <button
           onClick={onSplit}
           title="Split into Left Hand / Right Hand"
           style={{
-            width: 24, height: 24, borderRadius: 4,
+            width: 24, height: 24, borderRadius: 4, justifySelf: 'start',
             border: '1.5px solid var(--border2)', background: 'transparent',
             color: 'var(--text-dim-control)',
             display: 'flex', alignItems: 'center', justifyContent: 'center',
@@ -676,10 +723,65 @@ function TrackRow({ track, onToggleIncluded, onToggleMerge, onChangeProgram, onU
           <Split size={11} />
         </button>
       ) : (
-        <div />
+        <div style={{ justifySelf: 'start' }} />
       )}
 
-      {/* ── Col 6: Assign Instrument ──────────────────────────────────────────── */}
+      {/* ── Col 5: Color picker trigger ──────────────────────────────────────── */}
+      <button
+        onClick={e => onPickColor(track.index, e.currentTarget.getBoundingClientRect())}
+        title="Change track color"
+        style={{
+          width: 24, height: 24, borderRadius: 4, justifySelf: 'start',
+          border: '1.5px solid var(--border2)', background: 'transparent',
+          color: 'var(--text-dim-control)',
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
+          cursor: 'pointer', flexShrink: 0, transition: 'all 0.12s',
+        }}
+        onMouseEnter={e => { e.currentTarget.style.color = track.color; e.currentTarget.style.borderColor = track.color }}
+        onMouseLeave={e => { e.currentTarget.style.color = 'var(--text-dim-control)'; e.currentTarget.style.borderColor = 'var(--border2)' }}
+      >
+        <SwatchBook size={11} />
+      </button>
+
+      {/* ── Col 6: Piano roll visibility — persists into the file on save, unlike
+          the TrackPanel's matching icon which is session/playback-only. ────── */}
+      <button
+        onClick={onToggleVisible}
+        title={track.visible ? 'Hide in roll (saved with the file)' : 'Show in roll (saved with the file)'}
+        style={{
+          width: 24, height: 24, borderRadius: 4, justifySelf: 'start',
+          border: `1.5px solid ${track.visible ? 'var(--border2)' : 'var(--icon-visibility-active)'}`,
+          background: 'transparent', color: track.visible ? 'var(--text-dim-control)' : 'var(--icon-visibility-active)',
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
+          cursor: 'pointer', flexShrink: 0,
+        }}
+      >
+        {track.visible ? <Eye size={12} /> : <EyeOff size={12} />}
+      </button>
+
+      {/* ── Col 7: Keyboard-lit — same persistence distinction as roll visibility ── */}
+      <button
+        onClick={onToggleKeyboard}
+        title={track.showOnKeyboard ? 'Lit on keyboard (saved with the file)' : 'Not lit on keyboard (saved with the file)'}
+        style={{
+          width: 24, height: 24, borderRadius: 4, justifySelf: 'start',
+          border: `1.5px solid ${track.showOnKeyboard ? 'var(--accent-amber-strong)' : 'var(--border2)'}`,
+          background: track.showOnKeyboard ? 'var(--accent-amber-medium)' : 'transparent',
+          color: track.showOnKeyboard ? 'var(--text-amber)' : 'var(--text-dim-control)',
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
+          cursor: 'pointer', flexShrink: 0,
+        }}
+      >
+        <svg width="13" height="9" viewBox="0 0 13 9" fill="none">
+          <rect x="0.5" y="0.5" width="12" height="8" rx="1" stroke="currentColor" strokeWidth="0.9"/>
+          <rect x="2.5" y="0.5" width="1.3" height="5" rx="0.4" fill="currentColor"/>
+          <rect x="5"   y="0.5" width="1.3" height="5" rx="0.4" fill="currentColor"/>
+          <rect x="7.5" y="0.5" width="1.3" height="5" rx="0.4" fill="currentColor"/>
+          <rect x="10"  y="0.5" width="1.3" height="5" rx="0.4" fill="currentColor"/>
+        </svg>
+      </button>
+
+      {/* ── Col 8: Assign Instrument ──────────────────────────────────────────── */}
       {track.isDrum ? (
         <div
           title="Not assignable — GM channel 10 is always drums"
@@ -710,24 +812,45 @@ export default function MidiEditor() {
   const showHandLabels   = useStore((s) => s.showHandLabels)
   const midiEditorOpen   = useStore((s) => s.midiEditorOpen)
   const setMidiEditorOpen = useStore((s) => s.setMidiEditorOpen)
-  const splitBreakpointType       = useStore((s) => s.splitBreakpointType)
-  const splitBreakpointNote       = useStore((s) => s.splitBreakpointNote)
-  const splitBreakpointRangeStart = useStore((s) => s.splitBreakpointRangeStart)
-  const splitBreakpointRangeEnd   = useStore((s) => s.splitBreakpointRangeEnd)
+  const saveTempoKeyChangesEnabled = useStore((s) => s.saveTempoKeyChangesEnabled)
 
   // ── Editor state ─────────────────────────────────────────────────────────────
   const [state, setState] = useState<EditorState | null>(null)
   const [saving, setSaving] = useState(false)
-  const [saveResult, setSaveResult] = useState<{ ok: boolean; msg: string } | null>(null)
+  const [saveResult, setSaveResult] = useState<{ ok: boolean; msg: string; filePath?: string } | null>(null)
   const [splitResult, setSplitResult] = useState<{ ok: boolean; msg: string } | null>(null)
   const [pendingSplitIndex, setPendingSplitIndex] = useState<number | null>(null)
-  // ── One-slot undo — snapshots the file as it was immediately before a
-  // split/save apply. Split/merge already write a *new* file and never touch
-  // the original on disk (Stage 0 finding), so "undo" here just means
-  // reloading the pre-apply buffer back into the store — same mechanism
-  // reloadFile() already uses, not a new command stack.
-  const [undoSnapshot, setUndoSnapshot] = useState<{ base64: string; fileName: string; filePath: string } | null>(null)
-
+  // ── Which tracks' hand-split info row is expanded to show the preview
+  // graphic — collapsed by default, per-track, info only (no actions). ──────
+  const [expandedInfoRows, setExpandedInfoRows] = useState<Set<number>>(new Set())
+  // ── One-slot undo for a STAGED split only — snapshots state.rows immediately
+  // before staging replaces one row with two. Nothing has hit disk yet at that
+  // point, so undoing is a pure local revert, not a file reload. Once Save &
+  // Reload actually commits, the session is done — no post-save "undo the
+  // file" affordance (see performSave). ─────────────────────────────────────
+  const [preSplitRows, setPreSplitRows] = useState<EditorTrack[] | null>(null)
+  // ── Snapshot of each row's color/name/roll/keyboard as of the last time
+  // rows were freshly loaded (open, or post-save resync) — buildSaveSummary
+  // diffs against this to report only what actually changed this session.
+  const originalRowsRef = useRef<Map<number, { color: string; colorSource: EditorTrack['colorSource']; trackName: string; visible: boolean; showOnKeyboard: boolean; program: number }>>(new Map())
+  const snapshotRows = (rows: EditorTrack[]) => {
+    originalRowsRef.current = new Map(rows.map(r => [r.index, { color: r.color, colorSource: r.colorSource, trackName: r.trackName, visible: r.visible, showOnKeyboard: r.showOnKeyboard, program: r.program }]))
+  }
+  // ── Cancel — handleApplyColor writes color straight into the live store (so
+  // TrackPanel/Keyboard/PianoRoll preview it immediately while the editor is
+  // open), unlike every other edit here which stays staged in `state.rows`
+  // until Save & Reload. That means closing without saving must explicitly
+  // revert any track whose store color drifted from the open-time snapshot —
+  // otherwise Cancel silently keeps a color pick it never should have. ──────
+  const handleCancel = useCallback(() => {
+    originalRowsRef.current.forEach((orig, index) => {
+      const track = useStore.getState().tracks.find(t => t.index === index)
+      if (track && track.color !== orig.color) {
+        useStore.getState().updateTrack(index, { color: orig.color, colorSource: orig.colorSource })
+      }
+    })
+    setMidiEditorOpen(false)
+  }, [])
   // ── Z-index — bringToFront on mousedown so last-clicked modal is on top ────
   const [zIndex, setZIndex] = useState(MODAL_BASE_Z)
 
@@ -740,15 +863,18 @@ export default function MidiEditor() {
   // ── Build rows from store state ───────────────────────────────────────────────
   const buildRows = useCallback((): EditorTrack[] => {
     if (!midi) return []
-    const midiAny = midi as any
     return tracks.map(t => {
-      const rawTrack = midiAny._rawMidiTracks?.[t.index]
+      // Parsed (already note-filtered, compacted) track — same index scheme as `t.index`,
+      // unlike `_rawMidiTracks` (unfiltered raw array) which landed on the wrong track
+      // whenever an earlier raw track had 0 notes, showing a bogus "0 notes" badge.
+      const parsedTrack = (midi as any).tracks?.[t.index]
       return {
         index: t.index, name: t.name, gmName: t.gmName, trackName: t.trackName, program: t.program,
         group: t.group ?? '', isDrum: t.isDrum, color: t.color, colorSource: t.colorSource ?? 'default',
-        channel: rawTrack?.channel ?? t.index,
-        noteCount: rawTrack?.notes?.length ?? 0,
+        channel: parsedTrack?.channel ?? t.index,
+        noteCount: parsedTrack?.notes?.length ?? 0,
         included: !t.muted, mergeSelected: false, newProgram: t.program,
+        visible: t.visible, showOnKeyboard: t.showOnKeyboard,
       }
     }).sort((a, b) => {
       const aK = KEYBOARD_GROUPS.has(a.group), bK = KEYBOARD_GROUPS.has(b.group)
@@ -765,10 +891,12 @@ export default function MidiEditor() {
     if (!midiEditorOpen || !midi) return
     const filePath = (midi as any)._filePath ?? ''
     const rows = buildRows()
+    snapshotRows(rows)
     setState({ fileName: midi.fileName, filePath, rows, outputPath: orfeoName(filePath) })
     setSaveResult(null)
     setSplitResult(null)
     setPendingSplitIndex(null)
+    setPreSplitRows(null)
 
     // Centre the modal on first open — horizontally centered on the whole
     // screen (not the piano roll — explicit correction), fixed 120px down
@@ -795,7 +923,9 @@ export default function MidiEditor() {
   useEffect(() => {
     if (!midiEditorOpen || !midi) return
     const filePath = (midi as any)._filePath ?? ''
-    setState(s => s ? { ...s, rows: buildRows(), filePath, fileName: midi.fileName, outputPath: orfeoName(filePath) } : s)
+    const freshRows = buildRows()
+    snapshotRows(freshRows)
+    setState(s => s ? { ...s, rows: freshRows, filePath, fileName: midi.fileName, outputPath: orfeoName(filePath) } : s)
   }, [midi])
 
   // ── Drag: mousemove / mouseup ─────────────────────────────────────────────────
@@ -806,7 +936,10 @@ export default function MidiEditor() {
     const panelH = panelRef.current?.offsetHeight ?? MODAL_H
     setPos({
       x: Math.max(0, Math.min(window.innerWidth - panelW, ds.startPosX + (e.clientX - ds.startX))),
-      y: Math.max(0, Math.min(window.innerHeight - panelH, ds.startPosY + (e.clientY - ds.startY))),
+      // 44, not 0 — keeps the top edge clear of the 40px titleBarOverlay
+      // (electron/main.ts) where Windows draws its own window controls on
+      // top of everything in the DOM.
+      y: Math.max(44, Math.min(window.innerHeight - panelH, ds.startPosY + (e.clientY - ds.startY))),
     })
   }, [])
   const onMouseUp = useCallback(() => { dragState.current = null }, [])
@@ -826,15 +959,6 @@ export default function MidiEditor() {
     dragState.current = { startX: e.clientX, startY: e.clientY, startPosX: pos.x, startPosY: pos.y }
   }
 
-  // ── Snapshot the currently-loaded file for the one-slot undo above ───────────
-  const snapshotCurrentFile = useCallback((): { base64: string; fileName: string; filePath: string } | null => {
-    const current = useStore.getState().midi as any
-    if (!current?._raw) return null
-    let binary = ''
-    const bytes = new Uint8Array(current._raw)
-    for (let i = 0; i < bytes.length; i++) binary += String.fromCharCode(bytes[i])
-    return { base64: btoa(binary), fileName: current.fileName, filePath: current._filePath ?? '' }
-  }, [])
 
   // ── Reload file after save/split ─────────────────────────────────────────────
   const reloadFile = useCallback((base64: string, fileName: string, filePath: string) => {
@@ -879,7 +1003,7 @@ export default function MidiEditor() {
   const handleMerge = () => {
     setState(s => {
       if (!s) return s
-      const selected = s.rows.filter(t => t.mergeSelected && !t.isMerged)
+      const selected = s.rows.filter(t => t.mergeSelected && !t.isMerged && !t.splitHand)
       if (selected.length < 2) return s
       const first = selected[0]
       const totalNotes = selected.reduce((sum, t) => sum + t.noteCount, 0)
@@ -889,6 +1013,7 @@ export default function MidiEditor() {
         gmName: first.gmName, trackName: first.trackName, program: first.program,
         group: first.group, isDrum: first.isDrum, color: first.color, colorSource: first.colorSource, channel: first.channel,
         noteCount: totalNotes, included: true, mergeSelected: false, newProgram: first.newProgram,
+        visible: first.visible, showOnKeyboard: first.showOnKeyboard,
         isMerged: true, mergedFromIndices: selected.map(t => t.index), mergedFromNames: selected.map(t => t.name),
       }
       const firstIdx = s.rows.findIndex(r => r.index === first.index)
@@ -910,49 +1035,96 @@ export default function MidiEditor() {
   const buildMergeGroups = (): MergeGroup[] =>
     state.rows.filter(r => r.isMerged && r.mergedFromIndices).map(r => r.mergedFromIndices!)
 
-  // ── Save ──────────────────────────────────────────────────────────────────────
-  // Shared by the main "Save & Reload" button (closes the modal after success)
-  // and the preview's "Keep one track, hand-colored" choice (stays open, same
-  // as the split path, so the user can see the result banner and Undo).
-  const performSave = async (opts: { closeOnSuccess: boolean }) => {
+  // ── Human summary of this save, for the File info change log — counts
+  // only, not a full per-field diff (renames/colors/roll-keyboard toggles
+  // aren't individually tracked here; the counts below are what's cheap and
+  // honest to report from staged row state alone). ───────────────────────
+  const buildSaveSummary = (): string => {
+    const excludedCount = state.rows.filter(r => !r.included).length
+    const mergedGroups = state.rows.filter(r => r.isMerged && r.mergedFromIndices)
+    const mergedTrackCount = mergedGroups.reduce((sum, r) => sum + (r.mergedFromIndices?.length ?? 0), 0)
+    const splitOrigins = new Set(state.rows.filter(r => r.splitHand).map(r => r.splitOriginIndex))
+
+    // ── Color/rename/roll/keyboard changes — diffed against originalRowsRef,
+    // the snapshot taken the last time rows were freshly loaded (editor open
+    // or the post-save resync). Skips split/merged rows: those are already
+    // covered by the split/merge phrases above, and a split row's fixed
+    // hand color would otherwise ALWAYS read as "changed color" vs. the
+    // pre-split single track it came from. ──────────────────────────────────
+    let colorChanged = 0, renamed = 0, rollChanged = 0, keyboardChanged = 0, reassigned = 0
+    for (const r of state.rows) {
+      if (r.isMerged || r.splitHand) continue
+      const orig = originalRowsRef.current.get(r.index)
+      if (!orig) continue
+      if (r.color !== orig.color) colorChanged++
+      if (r.trackName !== orig.trackName) renamed++
+      if (r.visible !== orig.visible) rollChanged++
+      if (r.showOnKeyboard !== orig.showOnKeyboard) keyboardChanged++
+      if (r.newProgram !== orig.program) reassigned++
+    }
+
+    const s = (n: number) => n === 1 ? '' : 's'
+    const parts: string[] = []
+    if (splitOrigins.size > 0) parts.push(`split ${splitOrigins.size} track${s(splitOrigins.size)}`)
+    if (mergedGroups.length > 0) parts.push(`merged ${mergedTrackCount} tracks into ${mergedGroups.length}`)
+    if (excludedCount > 0) parts.push(`excluded ${excludedCount} track${s(excludedCount)}`)
+    if (reassigned > 0) parts.push(`reassigned instrument on ${reassigned} track${s(reassigned)}`)
+    if (colorChanged > 0) parts.push(`changed color of ${colorChanged} track${s(colorChanged)}`)
+    if (renamed > 0) parts.push(`renamed ${renamed} track${s(renamed)}`)
+    if (rollChanged > 0) parts.push(`changed roll visibility of ${rollChanged} track${s(rollChanged)}`)
+    if (keyboardChanged > 0) parts.push(`changed keyboard lighting of ${keyboardChanged} track${s(keyboardChanged)}`)
+    return parts.join(', ') // '' when nothing changed — caller decides the "Saved" fallback
+  }
+
+  // ── Save — the ONLY point that writes to disk. Every staged edit (include/
+  // exclude, merge, split, rename, recolor, reassign instrument) travels in
+  // one payload and lands in exactly one _ORFEO_vN. Once a save SUCCEEDS the
+  // footer switches to a single OK button (see render below) — Cancel and
+  // Save & Reload disappear so a second click here can't silently mint v2,
+  // v3, ad infinitum. A failed save leaves Cancel/Save & Reload in place so
+  // the user can fix the problem and retry. ──────────────────────────────────
+  const performSave = async () => {
     if (includedCount === 0) { setSaveResult({ ok: false, msg: 'Select at least one track.' }); return }
     setSaving(true); setSaveResult(null)
     try {
-      const includedTracks: { index: number; newProgram: number }[] = []
+      const includedTracks: { index: number; newProgram: number; name?: string; color?: string; splitHand?: 'L' | 'R'; visible?: boolean; showOnKeyboard?: boolean }[] = []
       for (const row of state.rows.filter(r => r.included)) {
         if (row.isMerged && row.mergedFromIndices) {
-          for (const origIdx of row.mergedFromIndices) {
-            includedTracks.push({ index: origIdx, newProgram: row.newProgram })
-          }
+          row.mergedFromIndices.forEach((origIdx, i) => {
+            includedTracks.push({
+              index: origIdx, newProgram: row.newProgram,
+              ...(i === 0 ? { name: row.trackName, color: row.color, visible: row.visible, showOnKeyboard: row.showOnKeyboard } : {}),
+            })
+          })
+        } else if (row.splitHand) {
+          includedTracks.push({ index: row.splitOriginIndex!, newProgram: row.newProgram, name: row.trackName, color: row.color, splitHand: row.splitHand, visible: row.visible, showOnKeyboard: row.showOnKeyboard })
         } else {
-          includedTracks.push({ index: row.index, newProgram: row.newProgram })
+          includedTracks.push({ index: row.index, newProgram: row.newProgram, name: row.trackName, color: row.color, visible: row.visible, showOnKeyboard: row.showOnKeyboard })
         }
       }
       const mergeGroups = buildMergeGroups()
       const finalOutput = state.outputPath
 
-      // ── Build trackNames/trackColors maps: editorIndex → value for all included
-      // rows. Merged rows contribute keyed by their first source track index,
-      // which is the index main.ts uses to represent the merged output track.
-      const trackNames: Record<number, string> = {}
-      const trackColors: Record<number, string> = {}
-      for (const row of state.rows.filter(r => r.included)) {
-        const key = row.isMerged && row.mergedFromIndices ? row.mergedFromIndices[0] : row.index
-        trackNames[key] = row.trackName
-        trackColors[key] = row.color
-      }
+      // ── Tempo/Key fold-in — only when the toggle above is on and BPM/
+      // transpose are actually dirty; same math as the standalone
+      // tempoKey:save path (see tempoKeySave.ts's computeTempoKeyPayload),
+      // baked into this one write instead of a second save. ───────────────
+      const tempoKeyPayload = useStore.getState().saveTempoKeyChangesEnabled ? computeTempoKeyPayload() : null
+      const saveSummary = [buildSaveSummary(), tempoKeyPayload?.summary].filter(Boolean).join(', ') || 'Saved'
 
-      const preApply = snapshotCurrentFile()
+      const { rhMaxFingers, lhMaxFingers } = useStore.getState()
       const result = await window.electronAPI.saveMidiEditor({
-        filePath: state.filePath, outputPath: finalOutput, includedTracks, mergeGroups, trackNames, trackColors,
+        filePath: state.filePath, outputPath: finalOutput, includedTracks, mergeGroups,
+        rhMaxFingers, lhMaxFingers,
+        bpmRatio: tempoKeyPayload?.bpmRatio, transposeSemitones: tempoKeyPayload?.transposeSemitones, finalKey: tempoKeyPayload?.finalKey,
       })
-      setSaveResult({ ok: result.ok, msg: result.message })
+      setSaveResult({ ok: result.ok, msg: result.message, filePath: result.filePath })
       if (result.ok && result.base64 && result.fileName && result.filePath) {
-        if (preApply) setUndoSnapshot(preApply)
         setPendingSplitIndex(null)
+        setPreSplitRows(null)
         reloadFile(result.base64, result.fileName, result.filePath)
         useStore.getState().setLibraryNeedsRefresh(true)
-        if (opts.closeOnSuccess) setTimeout(() => setMidiEditorOpen(false), 1200)
+        window.electronAPI.logFileEvent(result.filePath, 'save', saveSummary)
       }
     } catch (e: any) {
       setSaveResult({ ok: false, msg: e?.message ?? 'Save failed' })
@@ -960,47 +1132,107 @@ export default function MidiEditor() {
     setSaving(false)
   }
 
-  const handleSave = () => performSave({ closeOnSuccess: true })
-  const handleKeepColored = () => performSave({ closeOnSuccess: false })
+  const handleSave = () => performSave()
 
-  // ── Undo the last split/save apply — reload the pre-apply snapshot ───────────
-  const handleUndo = () => {
-    if (!undoSnapshot) return
-    reloadFile(undoSnapshot.base64, undoSnapshot.fileName, undoSnapshot.filePath)
-    setUndoSnapshot(null)
-    setSaveResult(null)
-    setSplitResult(null)
+  // ── Open a track in the Note Editor, solo'd/editable — the split-info
+  // row's "fine-tune it yourself" action. Prompts to save first if this
+  // session has staged changes (same Save/Discard/Cancel pattern as
+  // MixerConsole's requestClose), since opening the Note Editor closes this
+  // panel and any staged-but-unsaved edits would otherwise be silently lost.
+  // Plain function, not useCallback — it doesn't need referential stability
+  // anywhere, and memoizing it was the actual bug: as a `useCallback(..., [])`
+  // declared before the early return above, React froze it to the FIRST
+  // render's closure — this component's first render has `state === null`
+  // (populated by an effect after mount), which hit that early return before
+  // ever reaching buildSaveSummary/performSave's declarations below, so the
+  // frozen closure referenced them from a call frame that never initialized
+  // them — "Cannot access 'buildSaveSummary' before initialization" on every
+  // click, permanently, regardless of later renders. A plain function
+  // declared here (after both, and after the early return) is recreated
+  // fresh every render, so it always closes over already-initialized
+  // bindings. ─────────────────────────────────────────────────────────────
+  const handleOpenInNoteEditor = async (trackIndex: number) => {
+    const summary = buildSaveSummary()
+    if (summary) {
+      const choice = await confirmDialog({
+        title: 'Save changes before editing?',
+        message: `This session ${summary}. Save before opening the Note Editor?`,
+        buttons: ['Save', 'Discard', 'Cancel'],
+      })
+      if (choice === 2) return // Cancel — stay in Playback Editor
+      if (choice === 0) {
+        await performSave()
+      } else {
+        // Discard — same color-drift revert as handleCancel above
+        originalRowsRef.current.forEach((orig, index) => {
+          const track = useStore.getState().tracks.find(t => t.index === index)
+          if (track && track.color !== orig.color) {
+            useStore.getState().updateTrack(index, { color: orig.color, colorSource: orig.colorSource })
+          }
+        })
+      }
+    }
+    useStore.getState().soloTrackForEdit(trackIndex)
+    useStore.getState().setNoteEditorActive(true)
+    setMidiEditorOpen(false)
   }
 
-  // ── Split — two-step: first click arms confirmation, second executes ─────────
+  // ── Split — two-step: first click arms the preview, second STAGES the split
+  // locally (no disk write, no IPC). The source row is replaced with two new
+  // rows carrying the already-known hand tags from the loaded file's notes —
+  // same source the preview panel already reads for its stats. The actual
+  // note-splitting happens once, inside Save & Reload's single write. ────────
   const handleSplitRequest = (trackIndex: number) => {
     setPendingSplitIndex(trackIndex)
     setSplitResult(null)
   }
 
-  const handleSplitConfirm = async () => {
+  // ── Undo a STAGED split — restores state.rows from right before staging.
+  // Belongs here, not after a save: once Save & Reload actually commits,
+  // there's nothing left in this modal to undo (see performSave). ──────────
+  const handleUndoSplit = () => {
+    if (!preSplitRows) return
+    setState(s => s ? { ...s, rows: preSplitRows } : s)
+    setPreSplitRows(null)
+    setSplitResult(null)
+  }
+
+  const handleSplitConfirm = () => {
     if (pendingSplitIndex === null) return
     const trackIndex = pendingSplitIndex
+    const parsedTrack = midi?.tracks.find(t => t.index === trackIndex)
+    const notes = parsedTrack?.notes ?? []
+    const lhCount = notes.filter(n => n.hand === 'L').length
+    const rhCount = notes.filter(n => n.hand === 'R').length
     setPendingSplitIndex(null)
-    try {
-      const preApply = snapshotCurrentFile()
-      const result = await window.electronAPI.splitMidiEditor({
-        filePath: state.filePath,
-        trackIndex,
-        breakpointType: splitBreakpointType,
-        breakpoint: splitBreakpointNote,
-        rangeStart: splitBreakpointRangeStart,
-        rangeEnd: splitBreakpointRangeEnd,
-      })
-      setSplitResult({ ok: result.ok, msg: result.message })
-      if (result.ok && result.base64 && result.fileName && result.filePath) {
-        if (preApply) setUndoSnapshot(preApply)
-        reloadFile(result.base64, result.fileName, result.filePath)
-        // Modal stays open — user closes manually after reviewing the result
-      }
-    } catch (e: any) {
-      setSplitResult({ ok: false, msg: e?.message ?? 'Split failed' })
+    if (lhCount === 0 || rhCount === 0) {
+      setSplitResult({ ok: false, msg: 'Could not find two independent hands in this track' })
+      return
     }
+    setPreSplitRows(state.rows)
+    setState(s => {
+      if (!s) return s
+      const idx = s.rows.findIndex(r => r.index === trackIndex)
+      if (idx === -1) return s
+      const orig = s.rows[idx]
+      // ── "Piano" fallback matches the pre-refactor server-side split: a
+      // trackName that's still the default GM name means the file never had
+      // a real track-name meta event, so prefix with "Piano" instead of the
+      // full GM instrument name ("Acoustic Grand Piano LH" reads worse). A
+      // genuinely custom name is kept as-is. ─────────────────────────────
+      const baseLabel = orig.trackName && orig.trackName !== orig.gmName ? orig.trackName : 'Piano'
+      const lhName = withHandSuffix(baseLabel, 'L')
+      const rhName = withHandSuffix(baseLabel, 'R')
+      // ── Fixed LH/RH colors (same tokens as the piano roll/keyboard split
+      // rendering, src/utils/handColors.ts) — not inherited from the source
+      // track, which would make both halves look identical. ───────────────
+      const lhRow: EditorTrack = { ...orig, name: 'Left Hand', trackName: lhName, noteCount: lhCount, splitHand: 'L', splitOriginIndex: trackIndex, mergeSelected: false, color: HAND_LH_HEX, colorSource: 'custom' }
+      const rhRow: EditorTrack = { ...orig, index: _mergeIdCounter++, name: 'Right Hand', trackName: rhName, noteCount: rhCount, splitHand: 'R', splitOriginIndex: trackIndex, mergeSelected: false, color: HAND_RH_HEX, colorSource: 'custom' }
+      const rows = [...s.rows]
+      rows.splice(idx, 1, lhRow, rhRow)
+      return { ...s, rows, outputPath: orfeoName(s.filePath) }
+    })
+    setSplitResult({ ok: true, msg: 'Staged — apply with Save & Reload' })
   }
 
   // ── Render ────────────────────────────────────────────────────────────────────
@@ -1048,39 +1280,317 @@ export default function MidiEditor() {
         </span>
         <button
           data-no-drag="true"
-          onClick={() => setMidiEditorOpen(false)}
+          onClick={handleCancel}
           title="Close editor"
-          style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-inactive)', lineHeight: 1, padding: '0 2px', display: 'flex', alignItems: 'center', transition: 'color 0.15s', flexShrink: 0 }}
-          onMouseEnter={e => e.currentTarget.style.color = 'var(--text-default)'}
-          onMouseLeave={e => e.currentTarget.style.color = 'var(--text-inactive)'}
+          style={modalCloseButtonStyle}
+          onMouseEnter={e => e.currentTarget.style.color = modalCloseButtonHoverColor}
+          onMouseLeave={e => e.currentTarget.style.color = modalCloseButtonIdleColor}
         >
-          <X size={16} />
+          <X size={14} />
         </button>
       </div>
 
       {/* ── Column headers ───────────────────────────────────────────────────── */}
-      <div style={{ display: 'grid', gridTemplateColumns: ROW_COLS, alignItems: 'center', padding: '6px 14px', borderBottom: '1px solid var(--bg-tile)', background: 'var(--bg-modal-header)', flexShrink: 0, gap: 6 }}>
-        {['Include', 'Track', 'Color', 'Merge', 'Split', 'Assign Instrument'].map((h, i) => (
-          <span key={i} style={{ fontSize: 9, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.1em', color: 'var(--text-muted)' }}>{h}</span>
+      <div style={{ display: 'grid', gridTemplateColumns: ROW_COLS, alignItems: 'center', padding: `6px ${14 + SCROLLBAR_W}px 6px 14px`, borderBottom: '1px solid var(--bg-tile)', background: 'var(--bg-modal-header)', flexShrink: 0, gap: 6 }}>
+        {[
+          { label: 'Include', title: 'Include or exclude this track from the saved file' },
+          { label: 'Track', title: 'Track name, color swatch, and note info — double-click the name to rename' },
+          { label: 'Merge', title: 'Select two or more tracks to merge them into one' },
+          { label: 'Split', title: 'Split a keyboard track into separate Left Hand / Right Hand tracks' },
+          { label: 'Color', title: 'Track color in the piano roll and keyboard' },
+          { label: 'Piano roll', title: 'Show or hide this track in the piano roll — persists with the file' },
+          { label: 'Keyboard', title: "Light this track's notes on the keyboard — persists with the file" },
+          { label: 'Assign Instrument', title: "Reassign this track's GM instrument" },
+        ].map((h, i) => (
+          // Explicit justifySelf: a bare <span> grid item is auto-width and
+          // stretch-eligible by default, while the icon buttons below have a
+          // fixed width and fall back to 'start' — same visual position in
+          // theory, but forcing both to the same explicit value removes any
+          // gap between how the two element types actually resolve it.
+          <span key={i} title={h.title} style={{ fontSize: 9, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em', color: 'var(--text-muted)', lineHeight: 1.25, cursor: 'default', justifySelf: 'start' }}>{h.label}</span>
         ))}
       </div>
 
       {/* ── Track list — scrollable ───────────────────────────────────────────── */}
-      <div style={{ flex: 1, overflowY: 'auto' }}>
-        {state.rows.map(track => (
-          <TrackRow key={track.index} track={track}
+      {/* scrollbar-gutter: stable — the column header above this list is NOT
+          scrollable and always has the full row width, but this list's own
+          available width shrinks by the scrollbar's width (5px, see index.css)
+          the moment there are enough tracks to scroll. That made the shared
+          1fr Track column compute two different widths between the header row
+          and these rows, shifting every fixed column after it (Merge, Split,
+          Color, Piano roll, Keyboard) by the scrollbar's width whenever
+          scrolling kicked in. Reserving the gutter unconditionally makes this
+          list's width constant regardless of track count — matching the
+          header's SCROLLBAR_GUTTER right-padding below keeps both grids
+          computing the same 1fr width at all times. ───────────────────────── */}
+      <div style={{ flex: 1, overflowY: 'auto', scrollbarGutter: 'stable' }}>
+        {state.rows.map(track => {
+        // ── Always-on hand-split info strip — separate from the click-
+        // triggered preview below (pendingSplitIndex), which has real
+        // Split/Cancel actions. This one is pure passive info: shown for
+        // every qualifying track all the time, no button required, pointing
+        // at the Note Editor as the way to make it exactly right. Same
+        // eligibility as the Split button itself — a single mixed-hand
+        // keyboard track, not already a split half. ─────────────────────────
+        const splitEligible = !track.isMerged && !track.splitHand && KEYBOARD_GROUPS.has(track.group) && track.name !== 'Left Hand' && track.name !== 'Right Hand'
+        const infoNotes = splitEligible && pendingSplitIndex !== track.index
+          ? midi?.tracks.find(t => t.index === track.index)?.notes ?? []
+          : []
+        const infoStats = infoNotes.length > 0 ? getHandPreviewStats(infoNotes) : null
+        return (
+        <div key={track.index}>
+          <TrackRow track={track}
             onToggleIncluded={() => update(track.index, { included: !track.included })}
             onToggleMerge={() => update(track.index, { mergeSelected: !track.mergeSelected })}
-            onChangeProgram={p => update(track.index, { newProgram: p })}
+            onChangeProgram={p => {
+              const newGroup = getGMGroup(p, track.isDrum)
+              // Auto-follow the reassigned instrument's color/group too — but only when
+              // the track never had a custom color (colorSource 'default'), otherwise a
+              // picked instrument would clobber a color the user deliberately chose.
+              // Piano-family slot is based on file order among OTHER keyboard-group
+              // tracks — same rule midiParser.ts uses on initial load — so reassigning
+              // a track into the piano family lands it on the same deterministic
+              // blue/pink/amber slot it would get on a fresh reimport.
+              const colorPatch = track.colorSource === 'default'
+                ? (KEYBOARD_GROUPS.has(newGroup)
+                    ? { color: pianoFamilyColor(state.rows.filter(r => r.index < track.index && KEYBOARD_GROUPS.has(r.group)).length) }
+                    : { color: TRACK_COLOR_PALETTE[track.index % TRACK_COLOR_PALETTE.length] })
+                : {}
+              update(track.index, {
+                newProgram: p,
+                group: newGroup,
+                // Auto-follow the reassigned instrument's GM name — but only when
+                // the track's name is still its own auto-generated GM name (never
+                // been custom-renamed), otherwise a picked instrument leaves the
+                // display saying e.g. "Nylon Guitar" for what's now a piano.
+                ...(track.trackName === track.gmName ? { trackName: getGMName(p), gmName: getGMName(p) } : {}),
+                ...colorPatch,
+              })
+            }}
             onUnmerge={track.isMerged ? () => handleUnmerge() : undefined}
-            onSplit={!track.isMerged && KEYBOARD_GROUPS.has(track.group) && track.name !== 'Left Hand' && track.name !== 'Right Hand' ? () => handleSplitRequest(track.index) : undefined}
+            onToggleVisible={() => update(track.index, { visible: !track.visible })}
+            onToggleKeyboard={() => update(track.index, { showOnKeyboard: !track.showOnKeyboard })}
+            onSplit={!track.isMerged && !track.splitHand && KEYBOARD_GROUPS.has(track.group) && track.name !== 'Left Hand' && track.name !== 'Right Hand' ? () => handleSplitRequest(track.index) : undefined}
             onRename={newName => {
               update(track.index, { trackName: newName })
               useStore.getState().updateTrack(track.index, { trackName: newName })
             }}
             onPickColor={openColorPopover}
+            showBottomBorder={!(infoStats && infoStats.taggedNotes > 0) && pendingSplitIndex !== track.index}
           />
-        ))}
+          {infoStats && infoStats.taggedNotes > 0 && (() => {
+            const expanded = expandedInfoRows.has(track.index)
+            const passages = getLowConfidencePassages(infoNotes)
+            const duration = midi?.duration ?? 0
+            const SLATE = 'var(--hand-lh)'
+            const AMBER = 'var(--hand-rh)'
+            const LOW_CONF = '#7a323c'
+            return (
+              <>
+                {/* ── Toggle line — grid-aligned to the track row's own columns
+                    (ROW_COLS), so it starts exactly under the Track column
+                    instead of a hardcoded left-pad guess. Carries the row's
+                    bottom border itself when collapsed (TrackRow's own border
+                    is suppressed via showBottomBorder — see the map below) so
+                    this line visually groups with ITS track, not the next
+                    one's. ── */}
+                <div style={{
+                  display: 'grid', gridTemplateColumns: ROW_COLS, gap: 6,
+                  padding: '3px 14px 5px 14px',
+                  borderBottom: expanded ? 'none' : '1px solid var(--border-row)',
+                }}>
+                  <div />{/* empty Col-1 cell — keeps Col-2 content aligned under Track column */}
+                  <div style={{ gridColumn: '2 / -1', minWidth: 0, display: 'flex', alignItems: 'center', gap: 6, fontSize: 9, color: 'var(--text-inactive)', fontFamily: 'JetBrains Mono' }}>
+                    <button
+                      onClick={() => setExpandedInfoRows(prev => {
+                        const next = new Set(prev)
+                        if (next.has(track.index)) next.delete(track.index); else next.add(track.index)
+                        return next
+                      })}
+                      title={expanded ? 'Hide split preview' : 'Show split preview'}
+                      style={{ background: 'none', border: 'none', padding: 0, display: 'flex', color: 'var(--text-inactive)', cursor: 'pointer', flexShrink: 0 }}
+                    >
+                      {expanded ? <ChevronDown size={11} /> : <ChevronRight size={11} />}
+                    </button>
+                    <span>
+                      {infoStats.confidenceUnknown ? (
+                        'Hand split shown is automatic.'
+                      ) : infoStats.lowConfidenceCount > 0 ? (
+                        <><span style={{ color: LOW_CONF }}>{Math.round(infoStats.lowConfidenceRatio * 100)}% flagged low-confidence</span> — for a perfectly accurate split, edit in Note Editor</>
+                      ) : (
+                        'Hand split looks accurate — edit in Note Editor to fine-tune'
+                      )}
+                    </span>
+                    <button
+                      onClick={() => handleOpenInNoteEditor(track.index)}
+                      title="Open this track in the Note Editor, solo'd and editable"
+                      style={{ background: 'none', border: 'none', padding: 0, display: 'flex', color: 'var(--text-amber)', cursor: 'pointer', flexShrink: 0 }}
+                    >
+                      <AudioLines size={11} />
+                    </button>
+                  </div>
+                </div>
+
+                {/* ── Expanded preview — info only, no buttons/actions. Same
+                    styling/logic as the click-triggered Split preview below
+                    (timeline + legend), just without the button row — opens
+                    inline, pushing content below it down, not an overlay. ── */}
+                {expanded && (
+                  <div style={{ padding: '10px 14px', background: 'var(--bg-modal)', borderTop: '1px solid var(--border2)', borderBottom: '1px solid var(--border-row)', display: 'flex', flexDirection: 'column', gap: 8 }}>
+                    {duration > 0 && infoNotes.length > 0 && (
+                      <svg viewBox="0 0 1000 40" preserveAspectRatio="none" style={{ width: '100%', height: 40, borderRadius: 4, background: 'var(--bg-deep)' }}>
+                        {passages.map((p, i) => (
+                          <rect key={`p${i}`}
+                            x={(p.start / duration) * 1000} y={0}
+                            width={Math.max(2, ((p.end - p.start) / duration) * 1000)} height={40}
+                            fill={LOW_CONF} opacity={0.28}
+                          />
+                        ))}
+                        {infoNotes.map((n, i) => (
+                          <rect key={i}
+                            x={(n.time / duration) * 1000} y={n.hand === 'L' ? 21 : 2}
+                            width={1.4} height={17}
+                            fill={n.hand === 'L' ? SLATE : n.hand === 'R' ? AMBER : 'var(--hand-note-neutral)'}
+                          />
+                        ))}
+                      </svg>
+                    )}
+                    <div style={{ display: 'flex', gap: 6, fontSize: 8, color: 'var(--text-inactive)', fontFamily: 'JetBrains Mono' }}>
+                      <span style={{ display: 'flex', alignItems: 'center', gap: 3 }}><span style={{ width: 8, height: 8, borderRadius: 2, background: SLATE, display: 'inline-block' }} />Left hand</span>
+                      <span style={{ display: 'flex', alignItems: 'center', gap: 3 }}><span style={{ width: 8, height: 8, borderRadius: 2, background: AMBER, display: 'inline-block' }} />Right hand</span>
+                      {infoStats.lowConfidenceCount > 0 && (
+                        <span style={{ display: 'flex', alignItems: 'center', gap: 3 }}><span style={{ width: 8, height: 8, borderRadius: 2, background: LOW_CONF, opacity: 0.6, display: 'inline-block' }} />Low-confidence passage</span>
+                      )}
+                    </div>
+                    {/* ── Same tech-info + disclaimer pair as the Split preview
+                        below — info only here, no button row. ── */}
+                    <div style={{ fontSize: 9, color: 'var(--text-inactive)', fontFamily: 'JetBrains Mono' }}>
+                      {infoStats.taggedNotes} notes tagged — {infoStats.leftCount} left, {infoStats.rightCount} right by hand.{' '}
+                      {infoStats.confidenceUnknown
+                        ? 'Tags restored from a prior split — confidence not re-evaluated.'
+                        : infoStats.lowConfidenceCount > 0
+                          ? `${Math.round(infoStats.lowConfidenceRatio * 100)}% fall in a low-confidence passage — check those first.`
+                          : 'No passages flagged — split looks reliable.'}
+                    </div>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 9, color: 'var(--text-inactive)', fontFamily: 'Inter', lineHeight: 1.4 }}>
+                      <AlertCircle size={11} style={{ flexShrink: 0, color: 'var(--text-inactive)' }} />
+                      <span>Hand assignment is automated — a guideline, not a verified transcription. Use your ear, especially on flagged passages.</span>
+                    </div>
+                  </div>
+                )}
+              </>
+            )
+          })()}
+
+          {/* ── Hand-split preview — non-destructive review before choosing an
+              output mode. Opens directly in this track's own row, not at the
+              bottom of the whole panel. ── */}
+          {pendingSplitIndex === track.index && (() => {
+            const trackName = track.trackName
+            const parsedTrack = midi?.tracks.find(t => t.index === track.index)
+            const notes = parsedTrack?.notes ?? []
+            const stats = getHandPreviewStats(notes)
+            const passages = getLowConfidencePassages(notes)
+            const duration = midi?.duration ?? 0
+
+            const SLATE = 'var(--hand-lh)'
+            const AMBER = 'var(--hand-rh)'
+            // Was var(--flag-red), then amber — both read too close to one
+            // of the two hand colors. A dark, deeply-muted red (same family
+            // as the right-hand pink, much lower contrast/brightness) reads
+            // as clearly its own thing instead.
+            const LOW_CONF = '#7a323c'
+
+            return (
+              <div style={{ padding: '10px 14px', background: 'var(--bg-modal)', borderTop: '1px solid var(--border2)', borderBottom: '1px solid var(--border2)', display: 'flex', flexDirection: 'column', gap: 8, flexShrink: 0 }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                  <Split size={13} style={{ color: 'var(--text-amber)', flexShrink: 0 }} />
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div style={{ fontSize: 'var(--text-xs)', color: 'var(--text-dim)' }}>Hand-split preview — <span style={{ color: track.color }}>"{trackName}"</span></div>
+                    <div style={{ fontSize: 9, color: 'var(--text-inactive)', fontFamily: 'JetBrains Mono', marginTop: 2 }}>
+                      {stats.taggedNotes} notes · {stats.leftCount} left / {stats.rightCount} right
+                      {stats.confidenceUnknown ? (
+                        <span style={{ color: 'var(--text-inactive)' }}> · tags restored from a prior split — confidence not re-evaluated</span>
+                      ) : stats.lowConfidenceCount > 0 ? (
+                        <span style={{ color: LOW_CONF }}> · {passages.length} low-confidence passage{passages.length === 1 ? '' : 's'} flagged ({Math.round(stats.lowConfidenceRatio * 100)}% of notes)</span>
+                      ) : (
+                        <span style={{ color: 'var(--text-inactive)' }}> · no low-confidence passages flagged</span>
+                      )}
+                    </div>
+                  </div>
+                </div>
+
+                {/* ── Timeline: each note as a colored tick, low-confidence passages flagged with an amber band ── */}
+                {duration > 0 && notes.length > 0 && (
+                  <svg viewBox="0 0 1000 40" preserveAspectRatio="none" style={{ width: '100%', height: 40, borderRadius: 4, background: 'var(--bg-deep)' }}>
+                    {passages.map((p, i) => (
+                      <rect key={`p${i}`}
+                        x={(p.start / duration) * 1000} y={0}
+                        width={Math.max(2, ((p.end - p.start) / duration) * 1000)} height={40}
+                        fill={LOW_CONF} opacity={0.28}
+                      />
+                    ))}
+                    {notes.map((n, i) => (
+                      <rect key={i}
+                        x={(n.time / duration) * 1000} y={n.hand === 'L' ? 21 : 2}
+                        width={1.4} height={17}
+                        fill={n.hand === 'L' ? SLATE : n.hand === 'R' ? AMBER : 'var(--hand-note-neutral)'}
+                      />
+                    ))}
+                  </svg>
+                )}
+                <div style={{ display: 'flex', gap: 6, fontSize: 8, color: 'var(--text-inactive)', fontFamily: 'JetBrains Mono' }}>
+                  <span style={{ display: 'flex', alignItems: 'center', gap: 3 }}><span style={{ width: 8, height: 8, borderRadius: 2, background: SLATE, display: 'inline-block' }} />Left hand</span>
+                  <span style={{ display: 'flex', alignItems: 'center', gap: 3 }}><span style={{ width: 8, height: 8, borderRadius: 2, background: AMBER, display: 'inline-block' }} />Right hand</span>
+                  {stats.lowConfidenceCount > 0 && (
+                    <span style={{ display: 'flex', alignItems: 'center', gap: 3 }}><span style={{ width: 8, height: 8, borderRadius: 2, background: LOW_CONF, opacity: 0.6, display: 'inline-block' }} />Low-confidence passage</span>
+                  )}
+                </div>
+
+                {/* ── Description (⅔) + actions (⅓), horizontally aligned. The
+                    "Don't split" button moved down here from the header row.
+                    "Keep one track, hand-colored" removed entirely — not needed
+                    under the new logic. ─────────────────────────────────────── */}
+                <div style={{ display: 'flex', gap: 12 }}>
+                  <div style={{ flex: 2, fontSize: 9, color: 'var(--text-inactive)', fontFamily: 'JetBrains Mono' }}>
+                    {stats.taggedNotes} notes tagged — {stats.leftCount} left, {stats.rightCount} right by hand.{' '}
+                    {stats.confidenceUnknown
+                      ? 'Tags restored from a prior split — confidence not re-evaluated.'
+                      : stats.lowConfidenceCount > 0
+                        ? `${Math.round(stats.lowConfidenceRatio * 100)}% fall in a low-confidence passage — check those first.`
+                        : 'No passages flagged — split looks reliable.'}
+                  </div>
+                  <div style={{ flex: 1, display: 'flex', gap: 6 }}>
+                    <button
+                      onClick={() => setPendingSplitIndex(null)}
+                      style={{ flex: 1, padding: '6px 10px', borderRadius: 4, border: '1px solid var(--text-inactive)', background: 'transparent', color: 'var(--text-default)', fontSize: 'var(--text-xs)', cursor: 'pointer', fontWeight: 600, transition: 'color 0.12s, border-color 0.12s' }}
+                      onMouseEnter={e => { e.currentTarget.style.color = 'var(--text-amber)'; e.currentTarget.style.borderColor = 'var(--accent-amber-strong)' }}
+                      onMouseLeave={e => { e.currentTarget.style.color = 'var(--text-default)'; e.currentTarget.style.borderColor = 'var(--text-inactive)' }}
+                    >
+                      Don't split
+                    </button>
+                    <button
+                      onClick={handleSplitConfirm}
+                      title="Stages left-hand notes to one track and right-hand notes to another — applies with Save & Reload below, doesn't touch disk yet"
+                      style={{ flex: 1, padding: '6px 10px', borderRadius: 4, border: '1px solid var(--accent-amber-strong)', background: 'var(--accent-amber-medium)', color: 'var(--text-amber)', fontSize: 'var(--text-xs)', cursor: 'pointer', fontWeight: 600, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 4 }}
+                    >
+                      <Split size={11} /> Split into two tracks
+                    </button>
+                  </div>
+                </div>
+
+                {/* ── Standing disclaimer, restored — always shown regardless of
+                    whether anything got flagged; hand assignment is automated
+                    heuristics, never ground truth. ── */}
+                <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 9, color: 'var(--text-inactive)', fontFamily: 'Inter', lineHeight: 1.4 }}>
+                  <AlertCircle size={11} style={{ flexShrink: 0, color: 'var(--text-inactive)' }} />
+                  <span>Hand assignment is automated — a guideline, not a verified transcription. Use your ear, especially on flagged passages.</span>
+                </div>
+              </div>
+            )
+          })()}
+        </div>
+        )})}
       </div>
 
       {/* ── Merge toolbar ────────────────────────────────────────────────────── */}
@@ -1103,96 +1613,34 @@ export default function MidiEditor() {
         </div>
       )}
 
-      {/* ── Hand-split preview — non-destructive review before choosing an output mode ── */}
-      {pendingSplitIndex !== null && (() => {
-        const trackName = state.rows.find(r => r.index === pendingSplitIndex)?.name ?? 'track'
-        const parsedTrack = midi?.tracks.find(t => t.index === pendingSplitIndex)
-        const notes = parsedTrack?.notes ?? []
-        const stats = getHandPreviewStats(notes)
-        const passages = getLowConfidencePassages(notes)
-        const duration = midi?.duration ?? 0
-
-        const SLATE = 'var(--hand-slate)'
-        const AMBER = 'var(--text-amber)'
-        const FLAG_RED = 'var(--flag-red)'
-
-        return (
-          <div style={{ padding: '10px 14px', background: 'var(--bg-modal)', borderTop: '1px solid var(--border2)', display: 'flex', flexDirection: 'column', gap: 8, flexShrink: 0 }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-              <Split size={13} style={{ color: 'var(--text-amber)', flexShrink: 0 }} />
-              <div style={{ flex: 1, minWidth: 0 }}>
-                <div style={{ fontSize: 'var(--text-xs)', color: 'var(--text-dim)' }}>Hand-split preview — "{trackName}"</div>
-                <div style={{ fontSize: 9, color: 'var(--text-inactive)', fontFamily: 'JetBrains Mono', marginTop: 2 }}>
-                  {stats.taggedNotes} notes · {stats.leftCount} left / {stats.rightCount} right
-                  {stats.lowConfidenceCount > 0 && (
-                    <span style={{ color: FLAG_RED }}> · {passages.length} low-confidence passage{passages.length === 1 ? '' : 's'} flagged ({Math.round(stats.lowConfidenceRatio * 100)}% of notes)</span>
-                  )}
-                </div>
-              </div>
-              <button onClick={() => setPendingSplitIndex(null)} style={{ padding: '4px 10px', borderRadius: 4, flexShrink: 0, border: '1px solid var(--border2)', background: 'transparent', color: 'var(--text-dim-control)', fontSize: 'var(--text-xs)', cursor: 'pointer' }}>Cancel</button>
-            </div>
-
-            {/* ── Timeline: each note as a colored tick, low-confidence passages flagged with a red band ── */}
-            {duration > 0 && notes.length > 0 && (
-              <svg viewBox="0 0 1000 40" preserveAspectRatio="none" style={{ width: '100%', height: 40, borderRadius: 4, background: 'var(--bg-deep)' }}>
-                {passages.map((p, i) => (
-                  <rect key={`p${i}`}
-                    x={(p.start / duration) * 1000} y={0}
-                    width={Math.max(2, ((p.end - p.start) / duration) * 1000)} height={40}
-                    fill={FLAG_RED} opacity={0.28}
-                  />
-                ))}
-                {notes.map((n, i) => (
-                  <rect key={i}
-                    x={(n.time / duration) * 1000} y={n.hand === 'L' ? 21 : 2}
-                    width={1.4} height={17}
-                    fill={n.hand === 'L' ? SLATE : n.hand === 'R' ? AMBER : 'var(--hand-note-neutral)'}
-                  />
-                ))}
-              </svg>
-            )}
-            <div style={{ display: 'flex', gap: 6, fontSize: 8, color: 'var(--text-inactive)', fontFamily: 'JetBrains Mono' }}>
-              <span style={{ display: 'flex', alignItems: 'center', gap: 3 }}><span style={{ width: 8, height: 8, borderRadius: 2, background: SLATE, display: 'inline-block' }} />Left hand</span>
-              <span style={{ display: 'flex', alignItems: 'center', gap: 3 }}><span style={{ width: 8, height: 8, borderRadius: 2, background: AMBER, display: 'inline-block' }} />Right hand</span>
-              {stats.lowConfidenceCount > 0 && (
-                <span style={{ display: 'flex', alignItems: 'center', gap: 3 }}><span style={{ width: 8, height: 8, borderRadius: 2, background: FLAG_RED, opacity: 0.6, display: 'inline-block' }} />Low-confidence passage</span>
-              )}
-            </div>
-
-            {/* ── Two output modes ─────────────────────────────────────────────── */}
-            <div style={{ display: 'flex', gap: 8 }}>
-              <button onClick={handleSplitConfirm} title="Serialize left-hand notes to one track and right-hand notes to another" style={{ flex: 1, padding: '6px 10px', borderRadius: 4, border: '1px solid var(--accent-amber-strong)', background: 'var(--accent-amber-medium)', color: 'var(--text-amber)', fontSize: 'var(--text-xs)', cursor: 'pointer', fontWeight: 600 }}>
-                Split into two tracks
-              </button>
-              <button
-                onClick={handleKeepColored}
-                disabled={!showHandLabels}
-                title={showHandLabels
-                  ? 'Keeps everything in one track. Saves hand tags to the file and colors notes by hand in the piano roll and (in Performance mode) on the keyboard.'
-                  : 'Enable Left/Right Hand in Settings first — this mode has nothing to show without it.'}
-                style={{
-                  flex: 1, padding: '6px 10px', borderRadius: 4, border: '1px solid var(--border2)',
-                  background: 'transparent', color: showHandLabels ? 'var(--text-dim-control)' : 'var(--text-inactive)',
-                  fontSize: 'var(--text-xs)', cursor: showHandLabels ? 'pointer' : 'not-allowed',
-                  fontWeight: 600, opacity: showHandLabels ? 1 : 0.5,
-                }}
-              >
-                Keep one track, hand-colored
-              </button>
-            </div>
-            <div style={{ fontSize: 9, color: 'var(--text-inactive)', fontFamily: 'JetBrains Mono' }}>
-              Either choice saves a new file and reloads it — the original is never modified.
-            </div>
-          </div>
-        )
-      })()}
-
-      {/* ── Select all / clear ───────────────────────────────────────────────── */}
-      <div style={{ padding: '6px 14px', borderTop: '1px solid var(--bg-tile)', background: 'var(--bg-modal-header)', display: 'flex', alignItems: 'center', gap: 'var(--space-2)', flexShrink: 0 }}>
-        <span style={{ fontSize: 10, color: 'var(--text-inactive)', fontFamily: 'JetBrains Mono' }}>{includedCount}/{state.rows.length} included</span>
-        <div style={{ flex: 1 }} />
+      {/* ── Select all / Clear all / count / Save Tempo & Key toggle ─────────── */}
+      <div style={{ padding: '6px 14px', borderTop: '1px solid var(--bg-tile)', background: 'var(--bg-modal-header)', display: 'flex', alignItems: 'center', gap: 10, flexShrink: 0 }}>
         <TBtn onClick={() => setState(s => s && ({ ...s, rows: s.rows.map(t => ({ ...t, included: true })) }))}>Select all</TBtn>
         <TBtn onClick={() => setState(s => s && ({ ...s, rows: s.rows.map(t => ({ ...t, included: false })) }))}>Clear all</TBtn>
+        <span style={{ fontSize: 10, color: 'var(--text-inactive)', fontFamily: 'JetBrains Mono' }}>{includedCount}/{state.rows.length} included</span>
+        {/* ── Save Tempo & Key changes — off by default; when on, folds the
+            session's BPM/transpose changes into this same Save & Reload
+            write instead of needing a separate save (see performSave). ──── */}
+        <button
+          onClick={() => useStore.getState().setSaveTempoKeyChangesEnabled(!saveTempoKeyChangesEnabled)}
+          title={saveTempoKeyChangesEnabled ? 'Click to turn off' : 'Click to turn on'}
+          className="app-no-drag"
+          style={{
+            marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: 6,
+            background: 'none', border: 'none', cursor: 'pointer', padding: 2,
+          }}
+        >
+          {/* Styled like the "Save as" label below — same size/weight/tracking, just dimmer */}
+          <span style={{ fontSize: 9, fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.06em' }}>
+            Save Tempo & Key changes
+          </span>
+          <span style={{ display: 'flex', color: saveTempoKeyChangesEnabled ? 'var(--text-amber)' : 'var(--text-inactive)' }}>
+            {saveTempoKeyChangesEnabled
+              ? <ToggleRight size={16} strokeWidth={1.5} />
+              : <ToggleLeft  size={16} strokeWidth={1.5} />
+            }
+          </span>
+        </button>
       </div>
 
       {/* ── Color popover ────────────────────────────────────────────────────── */}
@@ -1208,45 +1656,96 @@ export default function MidiEditor() {
 
       {/* ── Save footer ──────────────────────────────────────────────────────── */}
       <div style={{ padding: '10px 14px 12px', borderTop: '1px solid var(--border)', background: 'var(--bg-modal-header)', flexShrink: 0 }}>
-        <div style={{ fontSize: 10, color: 'var(--text-inactive)', marginBottom: 6, textTransform: 'uppercase', letterSpacing: '0.08em' }}>Save as</div>
+        <div style={{ fontSize: 9, fontWeight: 700, color: 'var(--text-muted)', marginBottom: 6, textTransform: 'uppercase', letterSpacing: '0.06em' }}>Save as</div>
+        {/* ── Path field + Browse/Show-in-folder — one row. Browse only makes sense
+            before a save has landed; once it has, the field shows the real saved
+            path (not just the preview name) with a green accent, and Show in
+            folder replaces Browse in the same slot instead of stacking a whole
+            extra banner underneath. ─────────────────────────────────────────── */}
         <div style={{ display: 'flex', gap: 6, marginBottom: 8 }}>
-          <div style={{ flex: 1, padding: '5px 8px', background: 'var(--bg-field)', border: '1px solid var(--border2)', borderRadius: 4, fontSize: 10, fontFamily: 'JetBrains Mono', color: 'var(--text-muted)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={state.outputPath}>{baseName(state.outputPath)}</div>
-          <button onClick={async () => {
-            const p = await window.electronAPI.saveFileDialog({ defaultPath: state.outputPath, filters: [{ name: 'MIDI Files', extensions: ['mid'] }] })
-            if (p) setState(s => s && ({ ...s, outputPath: p }))
-          }} style={{ padding: '5px 10px', borderRadius: 4, background: 'var(--bg-tile)', border: '1px solid var(--border2)', color: 'var(--text-dimmest)', fontSize: 10, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 'var(--space-1)' }}>
-            <FolderOpen size={11} /> Browse
-          </button>
-        </div>
-        <div style={{ display: 'flex', alignItems: 'flex-start', gap: 5, padding: '5px 8px', background: 'var(--bg-modal-header)', borderRadius: 4, border: '1px solid var(--border)', marginBottom: 8 }}>
-          <AlertCircle size={10} style={{ color: 'var(--text-inactive)', flexShrink: 0, marginTop: 1 }} />
-          <span style={{ fontSize: 9, color: 'var(--text-inactive)', fontFamily: 'JetBrains Mono', lineHeight: 1.5 }}>Original file is never modified. Saved as a new _ORFEO_vN copy each time, auto-loads on save.</span>
+          <div style={{
+            flex: 1, padding: '5px 8px', background: 'var(--bg-field)', borderRadius: 4,
+            border: `1px solid ${saveResult?.ok ? 'var(--status-success-border)' : 'var(--border2)'}`,
+            fontSize: 10, fontFamily: 'JetBrains Mono',
+            color: saveResult?.ok ? 'var(--status-success-text)' : 'var(--text-muted)',
+            overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+          }} title={saveResult?.ok && saveResult.filePath ? saveResult.filePath : state.outputPath}>
+            {saveResult?.ok && saveResult.filePath ? `✓ ${saveResult.filePath}` : baseName(state.outputPath)}
+          </div>
+          {saveResult?.ok && saveResult.filePath ? (
+            <button
+              onClick={() => window.electronAPI.showItemInFolder(saveResult.filePath!)}
+              title="Opens Windows Explorer with this exact saved file highlighted — settles any doubt about where it landed"
+              style={{ width: SHOW_IN_FOLDER_W, padding: '5px 10px', borderRadius: 4, background: 'var(--bg-tile)', border: '1px solid var(--border2)', color: 'var(--text-muted)', fontSize: 10, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 'var(--space-1)', transition: 'all 0.12s', whiteSpace: 'nowrap', flexShrink: 0 }}
+              onMouseEnter={e => { e.currentTarget.style.color = 'var(--text-amber)'; e.currentTarget.style.borderColor = 'var(--accent-amber-strong)' }}
+              onMouseLeave={e => { e.currentTarget.style.color = 'var(--text-muted)'; e.currentTarget.style.borderColor = 'var(--border2)' }}
+            >
+              <FolderOpen size={11} /> Show in folder
+            </button>
+          ) : (
+            <button onClick={async () => {
+              const p = await window.electronAPI.saveFileDialog({ defaultPath: state.outputPath, filters: [{ name: 'MIDI Files', extensions: ['mid'] }] })
+              if (p) setState(s => s && ({ ...s, outputPath: p }))
+            }} style={{ padding: '5px 10px', borderRadius: 4, background: 'var(--bg-tile)', border: '1px solid var(--border2)', color: 'var(--text-muted)', fontSize: 10, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 'var(--space-1)', transition: 'all 0.12s' }}
+              onMouseEnter={e => { e.currentTarget.style.color = 'var(--text-amber)'; e.currentTarget.style.borderColor = 'var(--accent-amber-strong)' }}
+              onMouseLeave={e => { e.currentTarget.style.color = 'var(--text-muted)'; e.currentTarget.style.borderColor = 'var(--border2)' }}
+            >
+              <FolderOpen size={11} /> Browse
+            </button>
+          )}
         </div>
         {splitResult && (
-          <div style={{ padding: '5px 8px', borderRadius: 4, marginBottom: 8, background: splitResult.ok ? 'var(--status-success-bg)' : 'var(--status-error-banner-bg)', border: `1px solid ${splitResult.ok ? 'var(--status-success-border)' : 'var(--status-error-banner-border)'}`, fontSize: 10, color: splitResult.ok ? 'var(--status-success-text)' : 'var(--status-error-banner-text)', fontFamily: 'JetBrains Mono' }}>
-            {splitResult.ok ? '✓ ' : '✗ '}{splitResult.msg}
-          </div>
-        )}
-        {saveResult && (
-          <div style={{ padding: '5px 8px', borderRadius: 4, marginBottom: 8, background: saveResult.ok ? 'var(--status-success-bg)' : 'var(--status-error-banner-bg)', border: `1px solid ${saveResult.ok ? 'var(--status-success-border)' : 'var(--status-error-banner-border)'}`, fontSize: 10, color: saveResult.ok ? 'var(--status-success-text)' : 'var(--status-error-banner-text)', fontFamily: 'JetBrains Mono' }}>
-            {saveResult.ok ? '✓ ' : '✗ '}{saveResult.msg}
-          </div>
-        )}
-        {undoSnapshot && (
-          <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '5px 8px', borderRadius: 4, marginBottom: 8, background: 'var(--bg-modal-header)', border: '1px solid var(--border2)' }}>
-            <span style={{ fontSize: 9, color: 'var(--text-inactive)', fontFamily: 'JetBrains Mono', flex: 1 }}>
-              Applied — the previous file is still on disk untouched.
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '5px 8px', borderRadius: 4, marginBottom: 8, background: splitResult.ok ? 'var(--status-success-bg)' : 'var(--status-error-banner-bg)', border: `1px solid ${splitResult.ok ? 'var(--status-success-border)' : 'var(--status-error-banner-border)'}` }}>
+            <span style={{ flex: 1, fontSize: 10, color: splitResult.ok ? 'var(--status-success-text)' : 'var(--status-error-banner-text)', fontFamily: 'JetBrains Mono' }}>
+              {splitResult.ok ? '✓ ' : '✗ '}{splitResult.msg}
             </span>
-            <button onClick={handleUndo} style={{ padding: '3px 10px', borderRadius: 4, border: '1px solid var(--border2)', background: 'transparent', color: 'var(--text-amber)', fontSize: 10, cursor: 'pointer', fontWeight: 600, display: 'flex', alignItems: 'center', gap: 4, flexShrink: 0 }}>
-              <Undo2 size={10} /> Undo
-            </button>
+            {splitResult.ok && preSplitRows && (
+              <button onClick={handleUndoSplit} style={{ padding: '3px 10px', borderRadius: 4, border: '1px solid var(--border2)', background: 'transparent', color: 'var(--text-amber)', fontSize: 10, cursor: 'pointer', fontWeight: 600, display: 'flex', alignItems: 'center', gap: 4, flexShrink: 0 }}>
+                <Undo2 size={10} /> Undo split
+              </button>
+            )}
           </div>
         )}
-        <div style={{ display: 'flex', gap: 'var(--space-2)' }}>
-          <button onClick={() => setMidiEditorOpen(false)} style={{ flex: 1, padding: '8px 0', borderRadius: 'var(--radius-md)', background: 'transparent', border: '1px solid var(--border2)', color: 'var(--text-dim-control)', fontSize: 'var(--text-sm)', cursor: 'pointer' }}>Cancel</button>
-          <button onClick={handleSave} disabled={saving} style={{ flex: 1, padding: '8px 0', borderRadius: 'var(--radius-md)', background: saving ? 'var(--bg-tile)' : 'var(--text-amber)', border: 'none', color: saving ? 'var(--text-inactive)' : 'var(--text-near-black)', fontSize: 'var(--text-sm)', fontWeight: 600, cursor: saving ? 'wait' : 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6 }}>
-            <Save size={13} /> {saving ? 'Saving…' : 'Save & Reload'}
-          </button>
+        {/* Error only — a successful save is now shown by the green path field
+            above instead of a second banner repeating the same information. */}
+        {saveResult && !saveResult.ok && (
+          <div style={{ padding: '5px 8px', borderRadius: 4, marginBottom: 8, background: 'var(--status-error-banner-bg)', border: '1px solid var(--status-error-banner-border)', fontSize: 10, color: 'var(--status-error-banner-text)', fontFamily: 'JetBrains Mono' }}>
+            ✗ {saveResult.msg}
+          </div>
+        )}
+        {/* ── Info + action buttons — one row, info wraps left, buttons sit right
+            at their natural size instead of stretching to fill half the row. ── */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+          <div style={{ flex: 1, display: 'flex', alignItems: 'flex-start', gap: 5, minWidth: 0 }}>
+            <AlertCircle size={10} style={{ color: 'var(--text-inactive)', flexShrink: 0, marginTop: 1 }} />
+            <span style={{ fontSize: 9, color: 'var(--text-inactive)', fontFamily: 'JetBrains Mono', lineHeight: 1.5 }}>Original file is never modified. Saved as a new _ORFEO_vN copy in an "Orfeo" folder next to it, auto-loads on save. Only shows up in your Library list if that folder is inside your registered Library Folder.</span>
+          </div>
+          {saveResult?.ok ? (
+            <button
+              onClick={() => setMidiEditorOpen(false)}
+              style={{ width: SHOW_IN_FOLDER_W, padding: '6px 0', borderRadius: 'var(--radius-md)', background: 'var(--text-amber)', border: 'none', color: 'var(--text-near-black)', fontSize: 'var(--text-sm)', fontWeight: 600, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6, flexShrink: 0 }}
+            >
+              <ThumbsUp size={13} /> OK
+            </button>
+          ) : (
+            <div style={{ display: 'flex', gap: 6, flexShrink: 0 }}>
+              <button
+                onClick={handleCancel}
+                style={{ width: FOOTER_BTN_W, padding: '6px 0', borderRadius: 'var(--radius-md)', background: 'transparent', border: '1px solid var(--border2)', color: 'var(--text-muted)', fontSize: 'var(--text-sm)', cursor: 'pointer', transition: 'all 0.12s' }}
+                onMouseEnter={e => { e.currentTarget.style.color = 'var(--text-amber)'; e.currentTarget.style.borderColor = 'var(--accent-amber-strong)' }}
+                onMouseLeave={e => { e.currentTarget.style.color = 'var(--text-muted)'; e.currentTarget.style.borderColor = 'var(--border2)' }}
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleSave}
+                disabled={saving}
+                style={{ width: FOOTER_BTN_W, padding: '6px 0', borderRadius: 'var(--radius-md)', background: saving ? 'var(--bg-tile)' : 'var(--text-amber)', border: 'none', color: saving ? 'var(--text-inactive)' : 'var(--text-near-black)', fontSize: 'var(--text-sm)', fontWeight: 600, cursor: saving ? 'wait' : 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6, whiteSpace: 'nowrap' }}
+              >
+                <Save size={13} /> {saving ? 'Saving…' : 'Save & Reload'}
+              </button>
+            </div>
+          )}
         </div>
       </div>
     </div>
@@ -1255,9 +1754,13 @@ export default function MidiEditor() {
 
 function TBtn({ onClick, children }: { onClick: () => void; children: React.ReactNode }) {
   return (
-    <button onClick={onClick} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-inactive)', fontSize: 10, padding: '2px 6px', borderRadius: 'var(--radius-sm)' }}
-      onMouseEnter={e => e.currentTarget.style.color = 'var(--text-muted)'}
-      onMouseLeave={e => e.currentTarget.style.color = 'var(--text-inactive)'}>
+    <button onClick={onClick} style={{
+      background: 'none', border: '1px solid var(--border2)', borderRadius: 'var(--radius-md)',
+      cursor: 'pointer', color: 'var(--text-dim-control)', fontSize: 10, padding: '3px 10px',
+      transition: 'all 0.12s',
+    }}
+      onMouseEnter={e => { e.currentTarget.style.color = 'var(--text-amber)'; e.currentTarget.style.borderColor = 'var(--accent-amber-strong)' }}
+      onMouseLeave={e => { e.currentTarget.style.color = 'var(--text-dim-control)'; e.currentTarget.style.borderColor = 'var(--border2)' }}>
       {children}
     </button>
   )

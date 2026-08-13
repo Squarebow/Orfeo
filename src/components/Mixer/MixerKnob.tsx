@@ -49,6 +49,7 @@ export interface MixerKnobProps {
   tickMajorEvery?: number    // every Nth tick is long; 0 = all same (default)
   tickScale?: number         // scales both tick lengths; 1.0 = default, <1 = shorter
   triScale?: number          // scales triangle indicator; 1.0 = default, <1 = smaller
+  title?: string             // hover tooltip on the whole knob+label
 }
 
 // ── MixerKnob — tick-arc knob with triangle notch indicator ──────────────────
@@ -56,6 +57,7 @@ export default function MixerKnob({
   value, onChange, accentColor, size = 40,
   disabled = false, bipolar = false, label,
   dotCount = DOT_COUNT, tickMajorEvery = 0, tickScale = 1, triScale = 1,
+  title,
 }: MixerKnobProps) {
   const svgRef  = useRef<SVGSVGElement>(null)
   const dragging = useRef(false)
@@ -127,7 +129,7 @@ export default function MixerKnob({
   }, [onChange, getValueFromMouse])
 
   return (
-    <div style={{
+    <div title={title} style={{
       display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 3,
       opacity: disabled ? 0.3 : 1,
       pointerEvents: disabled ? 'none' : 'auto',

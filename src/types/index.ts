@@ -39,6 +39,13 @@ export interface ParsedNote {
   // once a human has accepted a split, so there's no case for spending an
   // SMF meta-event slot on it.
   handConfidence?: number
+  // ── 'computed' = algorithm decided this (default once `hand` is set).
+  // 'manual' = a human confirmed it via Note Editor's Assign LH/RH — from
+  // then on authoritative: assignHands()/auto-tag-on-load must never
+  // overwrite it, and Split partitions it by tag instead of recomputing.
+  // Absent has the same meaning as 'computed' for any note that predates
+  // this field (old hints, notes assigned before this existed). ────────────
+  handSource?: 'computed' | 'manual'
 }
 
 export interface ParsedTrack {
@@ -87,6 +94,8 @@ export interface TrackState {
   showOnKeyboard: boolean
   volume: number
   pan: number
+  chorus: number
+  reverb: number
 }
 
 export type KeyboardSize = 61 | 73 | 88
@@ -131,10 +140,11 @@ declare global {
       windowMaximize:      () => Promise<void>
       windowClose:         () => Promise<void>
       transcriptGenerate:  (midiPath: string, noteNaming: string, accidentals: string) => Promise<{ success: boolean; path?: string; error?: string }>
-      splitMidiEditor:     (payload: { filePath: string; trackIndex: number; breakpointType: 'single' | 'range'; breakpoint: number; rangeStart: number; rangeEnd: number }) => Promise<{ ok: boolean; message: string; filePath?: string; fileName?: string; base64?: string }>
       saveFileDialog:      (opts: { defaultPath: string; filters: { name: string; extensions: string[] }[] }) => Promise<string | null>
-      saveMidiEditor:      (payload: { filePath: string; outputPath: string; includedTracks: { index: number; newProgram: number }[]; mergeGroups: number[][]; trackNames?: Record<number, string>; trackColors?: Record<number, string> }) => Promise<{ ok: boolean; message: string; filePath?: string; fileName?: string; base64?: string }>
-      saveNoteEditor:      (payload: { outputPath: string; base64: string }) => Promise<{ ok: boolean; message?: string; filePath?: string; fileName?: string; base64?: string }>
+      saveMidiEditor:      (payload: { filePath: string; outputPath: string; includedTracks: { index: number; newProgram: number; name?: string; color?: string; splitHand?: 'L' | 'R'; visible?: boolean; showOnKeyboard?: boolean }[]; mergeGroups: number[][]; rhMaxFingers?: number; lhMaxFingers?: number; bpmRatio?: number; transposeSemitones?: number; finalKey?: { semitone: number; isMinor: boolean } }) => Promise<{ ok: boolean; message: string; filePath?: string; fileName?: string; base64?: string }>
+      saveMixerChannels:   (payload: { filePath: string; channels: { index: number; volume: number; pan: number; chorus: number; reverb: number }[] }) => Promise<{ ok: boolean; message?: string; filePath?: string; fileName?: string; base64?: string }>
+      saveNoteEditor:      (payload: { filePath: string; base64: string; summary?: string }) => Promise<{ ok: boolean; message?: string; filePath?: string; fileName?: string; base64?: string }>
+      saveTempoKey:        (payload: { filePath: string; bpmRatio: number; transposeSemitones: number; summary: string; finalKey?: { semitone: number; isMinor: boolean } }) => Promise<{ ok: boolean; message?: string; filePath?: string; fileName?: string; base64?: string }>
       showMessageBox:      (opts: { type?: string; buttons: string[]; defaultId?: number; cancelId?: number; message: string; detail?: string }) => Promise<{ response: number }>
       confirmClose:        () => Promise<void>
       setFullScreen:       (value: boolean) => Promise<void>
@@ -142,11 +152,16 @@ declare global {
       offSaveBeforeClose:  () => void
       openExternal:        (url: string) => Promise<void>
       openFolderInExplorer: (folderPath: string) => Promise<string>
+      showItemInFolder:    (filePath: string) => Promise<void>
       // Library folder management — create/rename/delete/move, scoped to libraryFolder
       listLibraryFolders:  (libraryFolder: string) => Promise<string[]>
       createLibraryFolder: (libraryFolder: string, name: string) => Promise<string>
       renameLibraryFolder: (libraryFolder: string, oldName: string, newName: string) => Promise<{ ok: boolean; reason?: string; name?: string; pairs?: { oldPath: string; newPath: string }[] }>
       deleteLibraryFolder: (libraryFolder: string, name: string) => Promise<{ ok: boolean; reason?: string }>
+      renameLibraryFile: (filePath: string, newName: string) => Promise<{ ok: boolean; reason?: string; newPath?: string }>
+      getFileLog:  (filePath: string) => Promise<{ type: string; timestamp: number; summary: string }[]>
+      logFileEvent: (filePath: string, type: string, summary: string) => Promise<void>
+      listFileVersions: (filePath: string) => Promise<{ name: string; path: string; version: number; mtime: number }[]>
       moveLibraryFiles:    (filePaths: string[], libraryFolder: string, destFolderName: string | null) => Promise<{ oldPath: string; newPath: string }[]>
       // Downloadable extra soundfonts (Samples engine)
       listSoundfonts:      () => Promise<SoundfontInfo[]>

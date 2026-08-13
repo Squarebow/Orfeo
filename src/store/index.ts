@@ -97,9 +97,10 @@ interface OrfeoStore {
   setScaleExplorerOpen: (open: boolean) => void
   setScaleExplorerMinimized: (v: boolean) => void
   mixerOpen: boolean
-  mixerMinimized: boolean
   setMixerOpen: (open: boolean) => void
-  setMixerMinimized: (v: boolean) => void
+  // Snapshot of volume/pan/chorus/reverb as loaded from the file — diffed
+  // against live `tracks` values on mixer close to detect unsaved changes.
+  mixerBaseline: Record<number, { volume: number; pan: number; chorus: number; reverb: number }>
   midiEditorOpen: boolean
   setMidiEditorOpen: (open: boolean) => void
   pendingImportedFile: {
@@ -120,6 +121,11 @@ interface OrfeoStore {
   setPresentationMode: (v: boolean) => void
   noteEditorEnabled: boolean
   setNoteEditorEnabled: (v: boolean) => void
+  // ── Tempo/Key save — off by default. When on, changing BPM/transpose from
+  // the loaded file's own values offers a "Save changes" button in the
+  // header that bakes them into a new versioned file (see TopBar.tsx). ────
+  saveTempoKeyChangesEnabled: boolean
+  setSaveTempoKeyChangesEnabled: (v: boolean) => void
   noteEditorActive: boolean
   setNoteEditorActive: (v: boolean) => void
   noteEditorToolbarX: number
@@ -141,6 +147,11 @@ interface OrfeoStore {
   explorerKeyColors: Map<number, string>
   setExplorerKeys: (keys: Set<number>, colors: Map<number, string>) => void
   clearExplorerKeys: () => void
+  // ── Scale/Chord Explorer — highlight the chord/scale's true root pitch
+  // class (any octave) in pink instead of blending into the uniform amber.
+  // On by default. ──────────────────────────────────────────────────────
+  colorRootNoteEnabled: boolean
+  setColorRootNoteEnabled: (v: boolean) => void
   displayedChord: string | null
   setDisplayedChord: (chord: string | null) => void
   clearDisplayedChord: () => void
@@ -199,6 +210,9 @@ interface OrfeoStore {
   setFavourites: (paths: string[], starred: boolean) => void
   hiddenLibraryFiles: string[]
   hideLibraryFile: (path: string) => void
+  unhideLibraryFile: (path: string) => void
+  showHiddenLibraryFiles: boolean
+  setShowHiddenLibraryFiles: (v: boolean) => void
   remapLibraryPaths: (pairs: { oldPath: string; newPath: string }[]) => void
   lastFolderOf: Map<string, string | null>
   setLastFolderOf: (map: Map<string, string | null>) => void
@@ -286,6 +300,14 @@ interface OrfeoStore {
   performanceSplitSensitivity: number
   setPerformanceSplitSensitivity: (n: number) => void
 
+  // ── Max fingers per hand — drives the hand-assignment engine's hard cap on
+  // how many notes of a wide chord one hand can take (RH from the top, LH
+  // absorbing the rest); independently selectable, 4 (default) or 5. ─────────
+  rhMaxFingers: 4 | 5
+  setRhMaxFingers: (n: 4 | 5) => void
+  lhMaxFingers: 4 | 5
+  setLhMaxFingers: (n: 4 | 5) => void
+
   transcriptHistory: TranscriptEntry[]
   addTranscriptEntry: (entry: TranscriptEntry) => void
 
@@ -313,6 +335,8 @@ function makeTrackState(track: ParsedTrack): TrackState {
     showOnKeyboard,
     volume: (track as any)._cc7 ?? 1,
     pan: (track as any)._cc10 != null ? ((track as any)._cc10 - 0.5) * 2 : 0,
+    chorus: (track as any)._cc93 ?? 0,
+    reverb: (track as any)._cc91 ?? 0,
   }
 }
 
@@ -320,18 +344,28 @@ export const useStore = create<OrfeoStore>((set, get) => ({
   midi: null,
   barStarts: [],
   setMidi: (midi) => {
-    if (!midi) { set({ midi: null, tracks: [], currentTime: 0, playbackState: 'stopped', trackPanelOpen: false, barStarts: [], chordSequence: [], chordPrompterOpen: false, loopStart: null, loopEnd: null, loopRegionActive: false }); return }
+    if (!midi) { set({ midi: null, tracks: [], mixerBaseline: {}, currentTime: 0, playbackState: 'stopped', trackPanelOpen: false, barStarts: [], chordSequence: [], chordPrompterOpen: false, loopStart: null, loopEnd: null, loopRegionActive: false }); return }
     // ── Apply ORFEO_TRACK_NAME / ORFEO_TRACK_COLOR overrides from header meta ──
     const orfeoNames = (midi as any)._orfeoTrackNames as Record<number, string> | undefined
     const orfeoColors = (midi as any)._orfeoTrackColors as Record<number, string> | undefined
+    const orfeoVisible = (midi as any)._orfeoTrackVisible as Record<number, boolean> | undefined
+    const orfeoKeyboard = (midi as any)._orfeoTrackKeyboard as Record<number, boolean> | undefined
+    const newTracks = midi.tracks.map((t, i) => {
+      const ts = makeTrackState(t)
+      if (orfeoNames?.[i]) ts.trackName = orfeoNames[i]
+      if (orfeoColors?.[i]) { ts.color = orfeoColors[i]; ts.colorSource = 'custom' }
+      if (orfeoVisible?.[i] !== undefined) ts.visible = orfeoVisible[i]
+      if (orfeoKeyboard?.[i] !== undefined) ts.showOnKeyboard = orfeoKeyboard[i]
+      return ts
+    })
+    const mixerBaseline: OrfeoStore['mixerBaseline'] = {}
+    for (const ts of newTracks) {
+      mixerBaseline[ts.index] = { volume: ts.volume, pan: ts.pan, chorus: ts.chorus, reverb: ts.reverb }
+    }
     set({
       midi,
-      tracks: midi.tracks.map((t, i) => {
-        const ts = makeTrackState(t)
-        if (orfeoNames?.[i]) ts.trackName = orfeoNames[i]
-        if (orfeoColors?.[i]) { ts.color = orfeoColors[i]; ts.colorSource = 'custom' }
-        return ts
-      }),
+      tracks: newTracks,
+      mixerBaseline,
       currentTime: 0,
       playbackState: 'stopped',
       bpm: midi.bpm,
@@ -422,10 +456,12 @@ export const useStore = create<OrfeoStore>((set, get) => ({
   scaleExplorerOpen: false,
   scaleExplorerMinimized: false,
   mixerOpen: false,
-  mixerMinimized: false,
+  mixerBaseline: {},
   vuDisplayMode: 'bars',
   explorerKeys: new Set(),
   explorerKeyColors: new Map(),
+  colorRootNoteEnabled: true,
+  setColorRootNoteEnabled: (colorRootNoteEnabled) => set({ colorRootNoteEnabled }),
   // ── Opening always clears the minimized flag so restore-from-minimize works ──
   setChordExplorerOpen: (chordExplorerOpen) =>
     set(chordExplorerOpen ? { chordExplorerOpen, chordExplorerMinimized: false } : { chordExplorerOpen }),
@@ -433,9 +469,7 @@ export const useStore = create<OrfeoStore>((set, get) => ({
   setScaleExplorerOpen: (scaleExplorerOpen) =>
     set(scaleExplorerOpen ? { scaleExplorerOpen, scaleExplorerMinimized: false } : { scaleExplorerOpen }),
   setScaleExplorerMinimized: (scaleExplorerMinimized) => set({ scaleExplorerMinimized }),
-  setMixerOpen: (mixerOpen) =>
-    set(mixerOpen ? { mixerOpen, mixerMinimized: false } : { mixerOpen }),
-  setMixerMinimized: (mixerMinimized) => set({ mixerMinimized }),
+  setMixerOpen: (mixerOpen) => set({ mixerOpen }),
   midiEditorOpen: false,
   setMidiEditorOpen: (midiEditorOpen) => set({ midiEditorOpen }),
   // ── Pending imported file — session-only, not persisted ──────────────────
@@ -447,6 +481,7 @@ export const useStore = create<OrfeoStore>((set, get) => ({
   setPresentationMode: (presentationMode) => set({ presentationMode }),
   setVuDisplayMode: (vuDisplayMode) => set({ vuDisplayMode }),
   setExplorerKeys: (explorerKeys, explorerKeyColors) => set({ explorerKeys, explorerKeyColors }),
+
   clearExplorerKeys: () => set({ explorerKeys: new Set(), explorerKeyColors: new Map() }),
   displayedChord: null,
   setDisplayedChord: (displayedChord) => set({ displayedChord }),
@@ -497,6 +532,8 @@ export const useStore = create<OrfeoStore>((set, get) => ({
 
   noteEditorEnabled: false,
   setNoteEditorEnabled: (noteEditorEnabled) => set({ noteEditorEnabled }),
+  saveTempoKeyChangesEnabled: false,
+  setSaveTempoKeyChangesEnabled: (saveTempoKeyChangesEnabled) => set({ saveTempoKeyChangesEnabled }),
   noteEditorActive: false,
   setNoteEditorActive: (noteEditorActive) => set(noteEditorActive ? { noteEditorActive } : { noteEditorActive, velocityPanelOpen: false }),
   noteEditorToolbarX: 24,
@@ -639,7 +676,9 @@ export const useStore = create<OrfeoStore>((set, get) => ({
   setAutoCollapseDrawers: (autoCollapseDrawers) => set({ autoCollapseDrawers }),
 
   // ── Hand label mode — practice (static, tag-based) or performance (per-note, live) ─
-  handLabelMode: 'practice' as 'practice' | 'performance',
+  // Practice mode's UI toggle is disabled (see SettingsPanel.tsx) — proves
+  // inconsistent, may return once improved. Always performance until then.
+  handLabelMode: 'performance' as 'practice' | 'performance',
   setHandLabelMode: (handLabelMode) => set({ handLabelMode }),
 
   // ── Performance split sensitivity — hardware-input fallback only (file notes
@@ -647,6 +686,11 @@ export const useStore = create<OrfeoStore>((set, get) => ({
   // threshold, persisted ──────────────────────────────────────────────────────
   performanceSplitSensitivity: 8,
   setPerformanceSplitSensitivity: (n) => set({ performanceSplitSensitivity: Math.max(2, Math.min(16, n)) }),
+
+  rhMaxFingers: 4 as 4 | 5,
+  setRhMaxFingers: (rhMaxFingers) => set({ rhMaxFingers }),
+  lhMaxFingers: 4 as 4 | 5,
+  setLhMaxFingers: (lhMaxFingers) => set({ lhMaxFingers }),
 
   // ── Transcript history — max 20 entries, oldest dropped when full ─────────
   transcriptHistory: [],
@@ -690,6 +734,11 @@ export const useStore = create<OrfeoStore>((set, get) => ({
       ? s.hiddenLibraryFiles
       : [...s.hiddenLibraryFiles, path],
   })),
+  unhideLibraryFile: (path) => set((s) => ({
+    hiddenLibraryFiles: s.hiddenLibraryFiles.filter(p => p !== path),
+  })),
+  showHiddenLibraryFiles: false,
+  setShowHiddenLibraryFiles: (showHiddenLibraryFiles) => set({ showHiddenLibraryFiles }),
   // ── Applies old→new path pairs after a folder move/rename, so a starred or
   // hidden file doesn't silently lose that state when its path changes. ──────
   remapLibraryPaths: (pairs) => set((s) => {
@@ -725,12 +774,16 @@ async function restoreLibraryPrefs() {
     if (Array.isArray(prefs.hiddenLibraryFiles)) {
       useStore.setState({ hiddenLibraryFiles: prefs.hiddenLibraryFiles })
     }
+    if (typeof prefs.showHiddenLibraryFiles === 'boolean') {
+      useStore.setState({ showHiddenLibraryFiles: prefs.showHiddenLibraryFiles })
+    }
     if (prefs.noteNaming) store.setNoteNaming(prefs.noteNaming)
     if (prefs.accidentals) store.setAccidentals(prefs.accidentals)
     if (typeof prefs.masterVolume === 'number') store.setMasterVolume(prefs.masterVolume)
     if (prefs.audioEngine === 'samples') store.setAudioEngine('samples')
     if (typeof prefs.showBarNumbers === 'boolean') store.setShowBarNumbers(prefs.showBarNumbers)
     if (typeof prefs.noteEditorEnabled === 'boolean') store.setNoteEditorEnabled(prefs.noteEditorEnabled)
+    if (typeof prefs.saveTempoKeyChangesEnabled === 'boolean') store.setSaveTempoKeyChangesEnabled(prefs.saveTempoKeyChangesEnabled)
     if (typeof prefs.noteEditorToolbarX === 'number' && typeof prefs.noteEditorToolbarY === 'number') store.setNoteEditorToolbarPos(prefs.noteEditorToolbarX, prefs.noteEditorToolbarY)
     if (typeof prefs.chordPrompterEnabled === 'boolean') store.setChordPrompterEnabled(prefs.chordPrompterEnabled)
     if (typeof prefs.chordTranscriptionEnabled === 'boolean') store.setChordTranscriptionEnabled(prefs.chordTranscriptionEnabled)
@@ -741,8 +794,12 @@ async function restoreLibraryPrefs() {
     if (typeof prefs.splitBreakpointRangeEnd === 'number') store.setSplitBreakpointRangeEnd(prefs.splitBreakpointRangeEnd)
     if (typeof prefs.showHandLabels === 'boolean') store.setShowHandLabels(prefs.showHandLabels)
     if (typeof prefs.loopRegionEnabled === 'boolean') store.setLoopRegionEnabled(prefs.loopRegionEnabled)
-    if (prefs.handLabelMode === 'practice' || prefs.handLabelMode === 'performance') store.setHandLabelMode(prefs.handLabelMode)
+    // Only 'performance' is restorable — Practice's UI toggle is disabled,
+    // so a stale saved 'practice' pref must not resurrect it with no way back.
+    if (prefs.handLabelMode === 'performance') store.setHandLabelMode(prefs.handLabelMode)
     if (typeof prefs.performanceSplitSensitivity === 'number') store.setPerformanceSplitSensitivity(prefs.performanceSplitSensitivity)
+    if (prefs.rhMaxFingers === 4 || prefs.rhMaxFingers === 5) store.setRhMaxFingers(prefs.rhMaxFingers)
+    if (prefs.lhMaxFingers === 4 || prefs.lhMaxFingers === 5) store.setLhMaxFingers(prefs.lhMaxFingers)
     if (typeof prefs.showOctaveLabels === 'boolean') store.setShowOctaveLabels(prefs.showOctaveLabels)
     if (typeof prefs.showNoteNamesOnKeyboard === 'boolean') store.setShowNoteNamesOnKeyboard(prefs.showNoteNamesOnKeyboard)
     if (typeof prefs.autoCollapseDrawers === 'boolean') store.setAutoCollapseDrawers(prefs.autoCollapseDrawers)
@@ -777,8 +834,9 @@ const _unsubFav = useStore.subscribe((state) => {
   if (_favTimer) clearTimeout(_favTimer)
   _favTimer = setTimeout(() => {
     window.electronAPI?.setPrefs?.({
-      libraryFavourites:   Array.from(state.libraryFavourites),
-      hiddenLibraryFiles:  state.hiddenLibraryFiles,
+      libraryFavourites:      Array.from(state.libraryFavourites),
+      hiddenLibraryFiles:     state.hiddenLibraryFiles,
+      showHiddenLibraryFiles: state.showHiddenLibraryFiles,
     }).catch(() => {})
   }, 1000)
 })
@@ -792,6 +850,7 @@ let _prevMasterVolume: number | null = null
 let _prevAudioEngine: string | null = null
 let _prevShowBarNumbers: boolean | null = null
 let _prevNoteEditorEnabled:    boolean | null = null
+let _prevSaveTempoKeyChangesEnabled: boolean | null = null
 let _prevNoteEditorToolbarX:   number  | null = null
 let _prevNoteEditorToolbarY:   number  | null = null
 let _prevChordPrompterEnabled: boolean | null = null
@@ -805,6 +864,8 @@ let _prevShowHandLabels: boolean | null = null
 let _prevLoopRegionEnabled: boolean | null = null
 let _prevHandLabelMode: string | null = null
 let _prevPerformanceSplitSensitivity: number | null = null
+let _prevRhMaxFingers: number | null = null
+let _prevLhMaxFingers: number | null = null
 let _prevShowOctaveLabels: boolean | null = null
 let _prevShowNoteNamesOnKeyboard: boolean | null = null
 let _prevAutoCollapseDrawers: boolean | null = null
@@ -829,6 +890,7 @@ const _unsubPrefs = useStore.subscribe((state) => {
     _prevAudioEngine = state.audioEngine
     _prevShowBarNumbers = state.showBarNumbers
     _prevNoteEditorEnabled = state.noteEditorEnabled
+    _prevSaveTempoKeyChangesEnabled = state.saveTempoKeyChangesEnabled
     _prevNoteEditorToolbarX = state.noteEditorToolbarX
     _prevNoteEditorToolbarY = state.noteEditorToolbarY
     _prevChordPrompterEnabled = state.chordPrompterEnabled
@@ -842,6 +904,8 @@ const _unsubPrefs = useStore.subscribe((state) => {
     _prevLoopRegionEnabled = state.loopRegionEnabled
     _prevHandLabelMode = state.handLabelMode
     _prevPerformanceSplitSensitivity = state.performanceSplitSensitivity
+    _prevRhMaxFingers = state.rhMaxFingers
+    _prevLhMaxFingers = state.lhMaxFingers
     _prevShowOctaveLabels = state.showOctaveLabels
     _prevShowNoteNamesOnKeyboard = state.showNoteNamesOnKeyboard
     _prevAutoCollapseDrawers = state.autoCollapseDrawers
@@ -866,6 +930,7 @@ const _unsubPrefs = useStore.subscribe((state) => {
     state.audioEngine !== _prevAudioEngine ||
     state.showBarNumbers !== _prevShowBarNumbers ||
     state.noteEditorEnabled !== _prevNoteEditorEnabled ||
+    state.saveTempoKeyChangesEnabled !== _prevSaveTempoKeyChangesEnabled ||
     state.noteEditorToolbarX !== _prevNoteEditorToolbarX ||
     state.noteEditorToolbarY !== _prevNoteEditorToolbarY ||
     state.chordPrompterEnabled !== _prevChordPrompterEnabled ||
@@ -879,6 +944,8 @@ const _unsubPrefs = useStore.subscribe((state) => {
     state.loopRegionEnabled !== _prevLoopRegionEnabled ||
     state.handLabelMode !== _prevHandLabelMode ||
     state.performanceSplitSensitivity !== _prevPerformanceSplitSensitivity ||
+    state.rhMaxFingers !== _prevRhMaxFingers ||
+    state.lhMaxFingers !== _prevLhMaxFingers ||
     state.showOctaveLabels !== _prevShowOctaveLabels ||
     state.showNoteNamesOnKeyboard !== _prevShowNoteNamesOnKeyboard ||
     state.autoCollapseDrawers !== _prevAutoCollapseDrawers ||
@@ -901,6 +968,7 @@ const _unsubPrefs = useStore.subscribe((state) => {
     _prevAudioEngine = state.audioEngine
     _prevShowBarNumbers = state.showBarNumbers
     _prevNoteEditorEnabled = state.noteEditorEnabled
+    _prevSaveTempoKeyChangesEnabled = state.saveTempoKeyChangesEnabled
     _prevNoteEditorToolbarX = state.noteEditorToolbarX
     _prevNoteEditorToolbarY = state.noteEditorToolbarY
     _prevChordPrompterEnabled = state.chordPrompterEnabled
@@ -914,6 +982,8 @@ const _unsubPrefs = useStore.subscribe((state) => {
     _prevLoopRegionEnabled = state.loopRegionEnabled
     _prevHandLabelMode = state.handLabelMode
     _prevPerformanceSplitSensitivity = state.performanceSplitSensitivity
+    _prevRhMaxFingers = state.rhMaxFingers
+    _prevLhMaxFingers = state.lhMaxFingers
     _prevShowOctaveLabels = state.showOctaveLabels
     _prevShowNoteNamesOnKeyboard = state.showNoteNamesOnKeyboard
     _prevAutoCollapseDrawers = state.autoCollapseDrawers
@@ -936,6 +1006,7 @@ const _unsubPrefs = useStore.subscribe((state) => {
       audioEngine: state.audioEngine,
       showBarNumbers: state.showBarNumbers,
       noteEditorEnabled: state.noteEditorEnabled,
+      saveTempoKeyChangesEnabled: state.saveTempoKeyChangesEnabled,
       noteEditorToolbarX: state.noteEditorToolbarX,
       noteEditorToolbarY: state.noteEditorToolbarY,
       chordPrompterEnabled: state.chordPrompterEnabled,
@@ -949,6 +1020,8 @@ const _unsubPrefs = useStore.subscribe((state) => {
       loopRegionEnabled: state.loopRegionEnabled,
       handLabelMode: state.handLabelMode,
       performanceSplitSensitivity: state.performanceSplitSensitivity,
+      rhMaxFingers: state.rhMaxFingers,
+      lhMaxFingers: state.lhMaxFingers,
       showOctaveLabels: state.showOctaveLabels,
       showNoteNamesOnKeyboard: state.showNoteNamesOnKeyboard,
       autoCollapseDrawers: state.autoCollapseDrawers,

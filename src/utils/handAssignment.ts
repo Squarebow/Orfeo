@@ -12,6 +12,7 @@
 //      hand-movement + crossing cost.
 
 import type { Hand } from '../types'
+import { Chord, Note } from 'tonal'
 export type { Hand }
 export type CrossingMode = 'strict' | 'faithful'
 
@@ -20,6 +21,13 @@ export interface HandInput {
   time: number
   trackIndex?: number
   channel?: number
+  // GM instrument group (e.g. 'piano', 'organ', 'chromatic') — optional,
+  // only used by tryFastPath() to make sure a 2-track match is actually two
+  // halves of one split performance (both the same instrument family), not
+  // two unrelated keyboard-family parts (e.g. a piano track and a separate
+  // organ track) that happen to clear the pitch-gap/collision thresholds by
+  // coincidence. Absent group = no check possible, falls through to full DP.
+  group?: string
 }
 
 export interface HandAssignOptions {
@@ -30,6 +38,10 @@ export interface HandAssignOptions {
   maxSpanSemitones?: number
   /** Onset tolerance (seconds) for treating near-simultaneous notes as one cluster/chord. */
   clusterToleranceSec?: number
+  /** Max notes of a wide chord the right hand can take (from the top). 4 (default) or 5 fingers. */
+  rhMaxFingers?: number
+  /** Max notes of a wide chord the left hand can take (from the bottom). 4 (default) or 5 fingers. */
+  lhMaxFingers?: number
 }
 
 export interface HandAssignedNote<T extends HandInput> {
@@ -48,6 +60,8 @@ const DEFAULTS: Required<HandAssignOptions> = {
   crossingMode: 'strict',
   maxSpanSemitones: 16,
   clusterToleranceSec: 0.02,
+  rhMaxFingers: 4,
+  lhMaxFingers: 4,
 }
 
 // ── Fast-path thresholds ──────────────────────────────────────────────────────
@@ -56,6 +70,13 @@ const FAST_PATH_MIN_AVG_GAP = 3            // semitones between the two groups' 
 
 // ── DP cost weights ───────────────────────────────────────────────────────────
 const SPAN_WEIGHT = 2          // quadratic penalty per semitone over max span
+// Quadratic penalty per note over a hand's max-fingers cap (rhMaxFingers/
+// lhMaxFingers, user-configurable 4 or 5 each). Same quadratic-over-limit
+// shape as SPAN_WEIGHT, which is what makes "prefer the most even split"
+// fall out for free once a cluster exceeds combined capacity — minimizing
+// overL^2 + overR^2 subject to left+right=N is minimized by the most equal
+// split, no separate even-split-fallback branch needed.
+const FINGER_WEIGHT = 3
 const MOVE_WEIGHT = 1          // cost per semitone of hand-center movement between clusters
 const CROSS_PENALTY = 12       // flat cost added when a candidate partition interleaves L/R pitches
 // Flat cost for splitting a cluster across both hands when the WHOLE cluster
@@ -76,19 +97,108 @@ const UNNECESSARY_SPLIT_PENALTY = 20
 // between two single-hand clusters; a real chord split (both hands active)
 // isn't a "switch" and isn't penalized here — that's UNNECESSARY_SPLIT_PENALTY's job.
 const HAND_SWITCH_PENALTY = 4
+// Seconds of continuous silence after which a hand's carried pitch center
+// stops being trusted as "nearby" and decays toward the register-split
+// fallback instead. Without this, a hand's last position from several bars
+// ago stays a full-strength attractor forever — a new same-register passage
+// starting well after that hand went silent gets pulled toward it purely by
+// stale pitch proximity, even when the OTHER hand just finished playing
+// directly adjacent to it (see docs/LR Hand rework — bar ~112 of the
+// Hornsby file: a new LH comping figure got assigned to R because R had
+// just ended a phrase nearby, while L's real anchor was 6+ seconds stale).
+const ANCHOR_DECAY_WINDOW_SEC = 5
+// Linear penalty, per semitone, for L's carried center ending up ABOVE R's —
+// i.e. the two hands' established registers have inverted. Zero-cost inside
+// any real split cluster (strict mode's prefix split already guarantees
+// left <= right there), so this only ever bites during idle/monophonic
+// stretches where one hand's stale carried center could otherwise drift past
+// the other's with nothing to stop it. Gentle relative to CROSS_PENALTY/
+// UNNECESSARY_SPLIT_PENALTY since it's a soft tiebreak, not a hard rule.
+const IDENTITY_INVERSION_WEIGHT = 0.5
+// Harmonic prior (tonal.js) — a soft, LOCAL bias, not a rule. When a short
+// run of clusters within HARMONIC_WINDOW_SEC collectively spells a
+// recognizable chord (a broken chord/arpeggio spread across several onsets,
+// not one simultaneous cluster — that case is already handled by
+// UNNECESSARY_SPLIT_PENALTY), switching hands between two of those clusters
+// costs more, scoped ONLY to that window. This is deliberately narrower
+// than the phrase-continuity idea tried earlier this session (which scaled
+// switch cost by run length globally and caused a real regression on a
+// legitimately-alternating ostinato) — a recognized chord shape is a much
+// more specific signal than "this hand has been busy for a while."
+const HARMONIC_WINDOW_SEC = 0.6
+const HARMONIC_SWITCH_MULTIPLIER = 2.5
 const CONFIDENCE_SCALE = 6     // cost-margin scale used to normalize confidence into 0..1
+// Post-DP cleanup gate: an isolated single-cluster flip (one cluster's hand
+// disagreeing with both neighbors, which agree with each other) only gets
+// smoothed to match its neighbors when the DP's own confidence at that
+// cluster was already low. This is the difference between fixing a genuine
+// near-tie and silently erasing a real, correct pattern — verified on real
+// data: a sparse single-note bass ostinato surrounded by continuous treble
+// activity produces exactly this "isolated" shape but scores confidently
+// (0.6-0.8+); the genuine mis-assignments this targets score low (<0.5,
+// often near 0.1-0.4). Gating on confidence, not on "isolated" alone, is
+// what makes this safe to run unconditionally rather than another
+// global heuristic that quietly breaks a different passage.
+const CLEANUP_CONFIDENCE_THRESHOLD = 0.5
 
 export function assignHands<T extends HandInput>(
   notes: T[],
   options: HandAssignOptions = {},
 ): AssignHandsResult<T> {
   if (notes.length === 0) return { assignments: [], usedFastPath: false }
-  const opts = { ...DEFAULTS, ...options }
+  // Merge manually, not via spread — a caller passing an options object with
+  // an explicit `undefined` value (e.g. an IPC payload field that wasn't
+  // set) would otherwise overwrite the default with `undefined` (spread
+  // doesn't skip undefined values), silently breaking the default.
+  const opts = { ...DEFAULTS }
+  for (const k of Object.keys(options) as (keyof HandAssignOptions)[]) {
+    if (options[k] !== undefined) (opts as any)[k] = options[k]
+  }
 
   const fastPath = tryFastPath(notes)
-  if (fastPath) return { assignments: fastPath, usedFastPath: true }
+  if (fastPath) {
+    // Re-validate before trusting — a file split by an OLDER, buggier
+    // engine version still looks like a clean 2-track split by these
+    // track-level stats (avg pitch gap, low collision rate), but its actual
+    // note-by-note content may not match what the CURRENT engine would
+    // produce. Compare against a real full run rather than trusting
+    // blindly — the DP is fast enough on realistic note counts that this
+    // costs nothing worth avoiding, and it sidesteps the correctness edge
+    // cases a partial-sample comparison would have (a sample starting
+    // mid-piece has no real history, unlike the actual piece at that point).
+    const full = runDpAssignment(notes, opts)
+    if (agreementRate(fastPath, full) >= FAST_PATH_TRUST_THRESHOLD) {
+      return { assignments: fastPath, usedFastPath: true }
+    }
+    return { assignments: full, usedFastPath: false }
+  }
 
   return { assignments: runDpAssignment(notes, opts), usedFastPath: false }
+}
+
+// A genuinely well-split file does NOT hit high agreement with a fresh full
+// DP run on its merged notes — measured 78.7% on a real file this session's
+// own engine split correctly. That's expected, not a red flag: a split
+// track's membership was decided by the DP's real per-cluster, full-context
+// reasoning at split time; this fast-path re-derivation is a much cruder
+// "whichever track has the lower average pitch is L" heuristic applied
+// after the fact, on a stream where track membership no longer carries any
+// context. The two are different sources of truth by design, not the same
+// computation run twice — an 85% bar would reject good files constantly.
+// This threshold only needs to catch a file whose actual per-note content
+// doesn't match the CURRENT engine at all (e.g. split by a much older,
+// buggier version) — set with real margin below the one legitimate
+// data point measured, since a single sample doesn't justify a tight bar
+// (see docs/LR Hand rework — Phase 6 validation for the measurement).
+const FAST_PATH_TRUST_THRESHOLD = 0.5
+
+function agreementRate<T extends HandInput>(a: HandAssignedNote<T>[], b: HandAssignedNote<T>[]): number {
+  if (a.length === 0) return 1
+  const bHandByNote = new Map<T, Hand>()
+  for (const x of b) bHandByNote.set(x.note, x.hand)
+  let agree = 0
+  for (const x of a) if (bHandByNote.get(x.note) === x.hand) agree++
+  return agree / a.length
 }
 
 // ── Fast path: already-split 2-track / 2-channel input ────────────────────────
@@ -105,6 +215,19 @@ function tryFastPath<T extends HandInput>(notes: T[]): HandAssignedNote<T>[] | n
   if (!groups) return null
 
   const [a, b] = groups
+
+  // Both groups must be the same instrument family before trusting a 2-track
+  // match as an already-split performance — a piano track and a separate
+  // organ track can trivially clear the pitch-gap/collision checks below
+  // (they're different instruments playing unrelated material, of course
+  // they don't collide) while being two different parts, not two hands of
+  // one performer. Only checked when both sides actually carry a group;
+  // absent group (older caller, no group info) skips the check rather than
+  // blocking the fast path outright.
+  const groupA = a[0]?.group
+  const groupB = b[0]?.group
+  if (groupA !== undefined && groupB !== undefined && groupA !== groupB) return null
+
   const avgA = average(a.map(n => n.midi))
   const avgB = average(b.map(n => n.midi))
   if (Math.abs(avgA - avgB) < FAST_PATH_MIN_AVG_GAP) return null
@@ -156,12 +279,28 @@ function collisionRate<T extends HandInput>(a: T[], b: T[], toleranceSec = 0.02)
 
 interface Cluster<T extends HandInput> {
   notes: T[]              // sorted ascending by midi
+  time: number            // representative onset time — first note's time
 }
 
 interface Partition<T extends HandInput> {
   left: T[]
   right: T[]
   crossing: boolean       // true if L/R pitches interleave (only possible in faithful mode)
+}
+
+interface CarriedState {
+  // Each hand's recent REACH — the [lo,hi] pitch range it was last actually
+  // playing — not a single point. See rangeGap()/decayedRange() below for
+  // why: a single anchor point (even "nearest note to last position")
+  // distorts the very next cost calculation, because pinning to one edge of
+  // a chord makes the chord's OTHER edge look artificially far away a
+  // moment later, when physically the hand already covers the whole span.
+  leftLo: number | null
+  leftHi: number | null
+  rightLo: number | null
+  rightHi: number | null
+  leftActiveAt: number    // time this hand last actually played a note; -Infinity if never
+  rightActiveAt: number
 }
 
 function runDpAssignment<T extends HandInput>(
@@ -176,34 +315,57 @@ function runDpAssignment<T extends HandInput>(
   const sortedNotes = [...notes].sort((a, b) => a.time - b.time)
   const clusters = clusterByOnset(sortedNotes, opts.clusterToleranceSec)
   const partitionsPerCluster = clusters.map(c => candidatePartitions(c, opts))
-  const fallbackCenter = average(notes.map(n => n.midi))
+  const harmonicLinks = detectHarmonicLinks(clusters, opts)
+
+  // ── Never-played fallback anchors — split by register, not one shared mean.
+  // A single symmetric fallbackCenter for BOTH hands means the very first
+  // note's L/R label is an arbitrary tie-break (both partitions cost the
+  // same when neither hand has played yet), and nothing afterward ties that
+  // choice to which hand is musically "the low one" — the whole piece can
+  // end up with low notes labeled R and high notes labeled L throughout,
+  // not just drifting late. Seeding L's never-played anchor low and R's
+  // high breaks that symmetry from note one. ────────────────────────────────
+  const pitches = notes.map(n => n.midi).sort((a, b) => a - b)
+  const mid = Math.floor(pitches.length / 2)
+  const fallbackLeft  = average(pitches.slice(0, Math.max(1, mid)))
+  const fallbackRight = average(pitches.slice(mid === 0 ? 0 : mid))
 
   // dp[k][i] = min total cost of reaching partition i of cluster k.
-  // centers[k][i] = each hand's last *actually played* pitch center along the
-  // optimal path into this cell — carried forward through clusters where a
-  // hand sits idle, so a hand doesn't get a free zero-cost reactivation after
-  // sitting out. Without this, movement cost only ever compares "idle" to
-  // "idle" (null-vs-null skips), and a wandering middle-register melody
-  // flip-flops hand every note because reactivating either hand looks free.
+  // centers[k][i] = carried state along the optimal path into this cell:
+  // each hand's last *actually played* pitch center (carried forward through
+  // idle clusters, so reactivating a hand isn't free), and the time it was
+  // last actually active (for anchor decay — see ANCHOR_DECAY_WINDOW_SEC). ──
   const dp: number[][] = []
   const back: number[][] = []
-  const centers: { left: number | null; right: number | null }[][] = []
+  const centers: CarriedState[][] = []
 
   for (let k = 0; k < clusters.length; k++) {
     const options = partitionsPerCluster[k]
+    const clusterTime = clusters[k].time
     dp.push(new Array(options.length))
     back.push(new Array(options.length))
     centers.push(new Array(options.length))
 
     for (let i = 0; i < options.length; i++) {
       const emission = emissionCost(options[i], opts)
-      const ownLeft = center(options[i].left)
-      const ownRight = center(options[i].right)
+      const ownLeftRange = noteRange(options[i].left)
+      const ownRightRange = noteRange(options[i].right)
 
       if (k === 0) {
-        dp[k][i] = emission
+        // No real history yet, but still anchored against the register-split
+        // fallbacks below — not a free tie, otherwise the very first
+        // cluster's L/R label is an arbitrary coin flip with nothing tying
+        // it to which hand is musically the low one.
+        const noHistory: CarriedState = { leftLo: null, leftHi: null, rightLo: null, rightHi: null, leftActiveAt: -Infinity, rightActiveAt: -Infinity }
+        const move = movementCostFromCarried(noHistory, ownLeftRange, ownRightRange, fallbackLeft, fallbackRight, clusterTime)
+        centers[k][i] = {
+          leftLo: ownLeftRange?.[0] ?? null, leftHi: ownLeftRange?.[1] ?? null,
+          rightLo: ownRightRange?.[0] ?? null, rightHi: ownRightRange?.[1] ?? null,
+          leftActiveAt: ownLeftRange ? clusterTime : -Infinity,
+          rightActiveAt: ownRightRange ? clusterTime : -Infinity,
+        }
+        dp[k][i] = emission + move + identityInversionCost(centers[k][i], clusterTime, fallbackLeft, fallbackRight)
         back[k][i] = -1
-        centers[k][i] = { left: ownLeft, right: ownRight }
         continue
       }
       let best = Infinity
@@ -211,18 +373,22 @@ function runDpAssignment<T extends HandInput>(
       const prevOptions = partitionsPerCluster[k - 1]
       for (let p = 0; p < prevOptions.length; p++) {
         const prevCenters = centers[k - 1][p]
-        const move = movementCostFromCarried(prevCenters, ownLeft, ownRight, fallbackCenter)
-          + handSwitchCost(prevOptions[p], options[i])
+        const move = movementCostFromCarried(prevCenters, ownLeftRange, ownRightRange, fallbackLeft, fallbackRight, clusterTime)
+          + handSwitchCost(prevOptions[p], options[i], harmonicLinks[k])
         const cost = dp[k - 1][p] + move
         if (cost < best) { best = cost; bestPrev = p }
       }
-      dp[k][i] = best + emission
       back[k][i] = bestPrev
       const prevBestCenters = centers[k - 1][bestPrev]
       centers[k][i] = {
-        left: ownLeft ?? prevBestCenters.left,
-        right: ownRight ?? prevBestCenters.right,
+        leftLo: ownLeftRange?.[0] ?? prevBestCenters.leftLo,
+        leftHi: ownLeftRange?.[1] ?? prevBestCenters.leftHi,
+        rightLo: ownRightRange?.[0] ?? prevBestCenters.rightLo,
+        rightHi: ownRightRange?.[1] ?? prevBestCenters.rightHi,
+        leftActiveAt: ownLeftRange ? clusterTime : prevBestCenters.leftActiveAt,
+        rightActiveAt: ownRightRange ? clusterTime : prevBestCenters.rightActiveAt,
       }
+      dp[k][i] = best + emission + identityInversionCost(centers[k][i], clusterTime, fallbackLeft, fallbackRight)
     }
   }
 
@@ -258,11 +424,42 @@ function runDpAssignment<T extends HandInput>(
       results[origIdx.get(note)!] = { note, hand: 'R', confidence }
     }
   }
+  cleanupIsolatedFlips(results, opts.clusterToleranceSec)
   return results
 }
 
 function clamp01(v: number): number {
   return Math.max(0, Math.min(1, v))
+}
+
+// Post-DP cleanup — fixes a genuinely isolated, low-confidence single-hand
+// cluster sandwiched between two clusters that agree with each other on the
+// OTHER hand. Operates on the final output, not the cost function — see
+// CLEANUP_CONFIDENCE_THRESHOLD above for why confidence-gating is what
+// makes this safe. Re-derives onset clusters from the final results rather
+// than touching runDpAssignment's internal cluster/partition state, keeping
+// this a genuinely separate, independently-reasoned-about pass.
+function cleanupIsolatedFlips<T extends HandInput>(results: HandAssignedNote<T>[], toleranceSec: number): void {
+  const order = results.map((_, i) => i).sort((a, b) => results[a].note.time - results[b].note.time)
+  const groups: number[][] = []
+  let anchorTime = -Infinity
+  for (const idx of order) {
+    const t = results[idx].note.time
+    if (groups.length === 0 || t - anchorTime > toleranceSec) { groups.push([idx]); anchorTime = t }
+    else groups[groups.length - 1].push(idx)
+  }
+
+  for (let i = 1; i < groups.length - 1; i++) {
+    const cur = groups[i], prev = groups[i - 1], next = groups[i + 1]
+    const curHands = new Set(cur.map(idx => results[idx].hand))
+    const prevHands = new Set(prev.map(idx => results[idx].hand))
+    const nextHands = new Set(next.map(idx => results[idx].hand))
+    if (curHands.size !== 1 || prevHands.size !== 1 || nextHands.size !== 1) continue
+    const [curHand] = curHands, [prevHand] = prevHands, [nextHand] = nextHands
+    if (prevHand !== nextHand || curHand === prevHand) continue
+    if (!cur.every(idx => results[idx].confidence < CLEANUP_CONFIDENCE_THRESHOLD)) continue
+    for (const idx of cur) results[idx] = { ...results[idx], hand: prevHand }
+  }
 }
 
 function clusterByOnset<T extends HandInput>(sorted: T[], toleranceSec: number): Cluster<T>[] {
@@ -275,12 +472,12 @@ function clusterByOnset<T extends HandInput>(sorted: T[], toleranceSec: number):
       if (current.length === 0) anchorTime = note.time
       current.push(note)
     } else {
-      clusters.push({ notes: [...current].sort((a, b) => a.midi - b.midi) })
+      clusters.push({ notes: [...current].sort((a, b) => a.midi - b.midi), time: anchorTime })
       current = [note]
       anchorTime = note.time
     }
   }
-  if (current.length > 0) clusters.push({ notes: [...current].sort((a, b) => a.midi - b.midi) })
+  if (current.length > 0) clusters.push({ notes: [...current].sort((a, b) => a.midi - b.midi), time: anchorTime })
   return clusters
 }
 
@@ -330,9 +527,24 @@ function span(notes: HandInput[]): number {
   return Math.max(...pitches) - Math.min(...pitches)
 }
 
-function center(notes: HandInput[]): number | null {
+// A hand's actual reach for movement-cost/carry-forward purposes — NOT the
+// mean pitch of everything it's playing right now. For a single note (the
+// overwhelmingly common case: monophonic lines, arpeggios) [lo,hi] collapses
+// to that one note either way. It only diverges for a real multi-note
+// cluster (a rolled or simultaneous chord): the mean of a wide chord's notes
+// can sit nowhere any finger actually is (a hand spanning C2-G3-C4 has a
+// mean around G3, not where the hand "is"), which overstates the movement
+// cost to/from a genuinely nearby follow-up note near either end of that
+// chord. Tracking the hand's actual span and charging a note only for
+// falling *outside* that span (rangeGap below) models "the hand already
+// covers this" correctly, without the failure mode a single anchor POINT
+// has: pinning to one edge of a chord makes the chord's other edge look
+// artificially far a moment later, when the hand demonstrably already
+// reached it.
+function noteRange(notes: HandInput[]): [number, number] | null {
   if (notes.length === 0) return null
-  return average(notes.map(n => n.midi))
+  const pitches = notes.map(n => n.midi)
+  return [Math.min(...pitches), Math.max(...pitches)]
 }
 
 // Span violation is a heavy quadratic penalty, never a hard reject — a
@@ -342,6 +554,9 @@ function emissionCost(p: Partition<any>, opts: Required<HandAssignOptions>): num
   const overL = Math.max(0, span(p.left) - opts.maxSpanSemitones)
   const overR = Math.max(0, span(p.right) - opts.maxSpanSemitones)
   const spanPenalty = SPAN_WEIGHT * (overL * overL + overR * overR)
+  const overFingersL = Math.max(0, p.left.length - opts.lhMaxFingers)
+  const overFingersR = Math.max(0, p.right.length - opts.rhMaxFingers)
+  const fingerPenalty = FINGER_WEIGHT * (overFingersL * overFingersL + overFingersR * overFingersR)
   const crossPenalty = p.crossing ? CROSS_PENALTY : 0
 
   // ── Don't split a cluster that already fits in one hand ──────────────────
@@ -349,7 +564,7 @@ function emissionCost(p: Partition<any>, opts: Required<HandAssignOptions>): num
   const wholeClusterSpan = span([...p.left, ...p.right])
   const unnecessarySplitPenalty = (isSplit && wholeClusterSpan <= opts.maxSpanSemitones) ? UNNECESSARY_SPLIT_PENALTY : 0
 
-  return spanPenalty + crossPenalty + unnecessarySplitPenalty
+  return spanPenalty + fingerPenalty + crossPenalty + unnecessarySplitPenalty
 }
 
 // fallbackCenter: the piece-wide mean pitch, used in place of a hand's center
@@ -375,20 +590,94 @@ function soleHand(p: Partition<any>): Hand | null {
   return null
 }
 
-function handSwitchCost(prev: Partition<any>, next: Partition<any>): number {
+function handSwitchCost(prev: Partition<any>, next: Partition<any>, harmonicLink: boolean): number {
   const prevHand = soleHand(prev)
   const nextHand = soleHand(next)
-  return (prevHand && nextHand && prevHand !== nextHand) ? HAND_SWITCH_PENALTY : 0
+  if (!prevHand || !nextHand || prevHand === nextHand) return 0
+  return HAND_SWITCH_PENALTY * (harmonicLink ? HARMONIC_SWITCH_MULTIPLIER : 1)
+}
+
+// Marks transitions that fall inside a detected chord/arpeggio "gesture" —
+// a short run of clusters within HARMONIC_WINDOW_SEC whose combined notes
+// tonal recognizes as a chord. linked[k] = true means the k-1 -> k
+// transition sits inside such a gesture. Deliberately only ever discourages
+// a switch there (handSwitchCost above) — never forces one hand, never
+// touches emissionCost's span/finger feasibility checks, so a genuinely
+// too-wide voicing still splits across both hands exactly as before.
+function detectHarmonicLinks<T extends HandInput>(clusters: Cluster<T>[], opts: Required<HandAssignOptions>): boolean[] {
+  const linked: boolean[] = new Array(clusters.length).fill(false)
+  for (let i = 0; i < clusters.length; i++) {
+    let j = i
+    const collected: T[] = []
+    while (j < clusters.length && clusters[j].time - clusters[i].time <= HARMONIC_WINDOW_SEC) {
+      collected.push(...clusters[j].notes)
+      j++
+    }
+    if (collected.length < 3 || j - i < 2) continue
+    const lo = Math.min(...collected.map(n => n.midi))
+    const hi = Math.max(...collected.map(n => n.midi))
+    if (hi - lo > opts.maxSpanSemitones) continue // too wide for one hand — not a single-hand gesture
+    const names = collected.map(n => Note.fromMidi(n.midi))
+    if (Chord.detect(names).length === 0) continue
+    for (let k = i + 1; k < j; k++) linked[k] = true
+  }
+  return linked
+}
+
+// Must decay both sides exactly like movementCostFromCarried does before
+// comparing them — otherwise a hand that's been silent for many seconds
+// keeps its stale raw position at full strength here even though every
+// other cost term has already stopped trusting it. That mismatch was a real
+// bug: the other hand landing correctly, nearby, and fresh could get
+// penalized as a false "inversion" against a long-silent hand's leftover
+// position, tipping the DP toward the wrong hand for an entire passage.
+function identityInversionCost(c: CarriedState, currentTime: number, fallbackLeft: number, fallbackRight: number): number {
+  if (c.leftLo === null || c.rightLo === null) return 0
+  const [lLo, lHi] = decayedRange(c.leftLo, c.leftHi, c.leftActiveAt, currentTime, fallbackLeft)
+  const [rLo, rHi] = decayedRange(c.rightLo, c.rightHi, c.rightActiveAt, currentTime, fallbackRight)
+  const leftMid = (lLo + lHi) / 2
+  const rightMid = (rLo + rHi) / 2
+  return IDENTITY_INVERSION_WEIGHT * Math.max(0, leftMid - rightMid)
+}
+
+// A carried range decays toward the register fallback (collapsing to a
+// point) the longer its hand has been silent — a reach from one cluster ago
+// is fully trusted, one from ANCHOR_DECAY_WINDOW_SEC+ seconds ago is treated
+// as if that hand had never played nearby at all.
+function decayedRange(prevLo: number | null, prevHi: number | null, lastActiveAt: number, currentTime: number, fallback: number): [number, number] {
+  if (prevLo === null || prevHi === null) return [fallback, fallback]
+  const idleSec = currentTime - lastActiveAt
+  if (idleSec <= 0) return [prevLo, prevHi]
+  const decayFrac = Math.min(1, idleSec / ANCHOR_DECAY_WINDOW_SEC)
+  return [prevLo + (fallback - prevLo) * decayFrac, prevHi + (fallback - prevHi) * decayFrac]
+}
+
+// Distance between two ranges — 0 whenever they overlap or touch. This is
+// what makes "the hand already reaches here" free: a follow-up note or
+// chord landing anywhere inside the hand's recent span costs nothing, only
+// a genuine reach beyond it does.
+function rangeGap(lo1: number, hi1: number, lo2: number, hi2: number): number {
+  if (hi1 < lo2) return lo2 - hi1
+  if (hi2 < lo1) return lo1 - hi2
+  return 0
 }
 
 function movementCostFromCarried(
-  prev: { left: number | null; right: number | null },
-  nextLeft: number | null,
-  nextRight: number | null,
-  fallbackCenter: number,
+  prev: CarriedState,
+  nextLeftRange: [number, number] | null,
+  nextRightRange: [number, number] | null,
+  fallbackLeft: number,
+  fallbackRight: number,
+  currentTime: number,
 ): number {
   let cost = 0
-  if (nextLeft !== null) cost += MOVE_WEIGHT * Math.abs(nextLeft - (prev.left ?? fallbackCenter))
-  if (nextRight !== null) cost += MOVE_WEIGHT * Math.abs(nextRight - (prev.right ?? fallbackCenter))
+  if (nextLeftRange) {
+    const [lo, hi] = decayedRange(prev.leftLo, prev.leftHi, prev.leftActiveAt, currentTime, fallbackLeft)
+    cost += MOVE_WEIGHT * rangeGap(nextLeftRange[0], nextLeftRange[1], lo, hi)
+  }
+  if (nextRightRange) {
+    const [lo, hi] = decayedRange(prev.rightLo, prev.rightHi, prev.rightActiveAt, currentTime, fallbackRight)
+    cost += MOVE_WEIGHT * rangeGap(nextRightRange[0], nextRightRange[1], lo, hi)
+  }
   return cost
 }

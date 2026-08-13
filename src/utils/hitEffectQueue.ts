@@ -33,6 +33,28 @@ export function amberHex(): string {
   return _amberHex
 }
 
+// ── Resolve any var(--token) string to its literal hex, cached per token ─────
+// resolveHandAwareColor() (handColors.ts) returns HAND_LH_CSS/HAND_RH_CSS —
+// raw 'var(--hand-lh)' strings — which is correct for the DOM-rendered
+// keyboard glow (CSS resolves it natively) but not for PixiJS's
+// parseInt(color.replace('#',''), 16), which turns an unresolved var()
+// string into NaN. NaN fed to Graphics.fill/stroke throws every GSAP tick —
+// silent-looking bug in dev (console noise), effect-flood crash in a
+// packaged build. Resolved once here so every caller of pushHitEffect is
+// covered without touching each color source individually.
+const _cssVarHex = new Map<string, string>()
+function resolveCssColor(color: string): string {
+  const m = /^var\((--[\w-]+)\)$/.exec(color)
+  if (!m) return color
+  const token = m[1]
+  let hex = _cssVarHex.get(token)
+  if (!hex) {
+    hex = getComputedStyle(document.documentElement).getPropertyValue(token).trim() || '#e8a027'
+    _cssVarHex.set(token, hex)
+  }
+  return hex
+}
+
 // Called from lightKey() itself, so every lighting call site (scheduled
 // playback notes and manual click-preview) is covered automatically. No-ops
 // entirely when the setting is off — "skip all effect instantiation, not
@@ -40,7 +62,7 @@ export function amberHex(): string {
 // call site.
 export function pushHitEffect(midi: number, color: string): void {
   if (!useStore.getState().hitEffectsEnabled) return
-  _queue.push({ midi, color })
+  _queue.push({ midi, color: resolveCssColor(color) })
 }
 
 // Drained once per PianoRoll frame — returns and clears all pending events.

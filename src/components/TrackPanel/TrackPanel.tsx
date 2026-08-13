@@ -1,12 +1,11 @@
 import { useMemo, useState } from 'react'
-import { ChevronRight, Eye, Volume2, VolumeX, ChevronDown, AudioLines, SlidersVertical, GripVertical, Sparkles } from 'lucide-react'
+import { ChevronRight, Eye, Volume2, VolumeX, ChevronDown, AudioLines, ListTree, SlidersVertical, GripVertical, Sparkles } from 'lucide-react'
 import { useStore, DEFAULT_MUTED_GROUPS } from '../../store'
 import { GM_GROUPS } from '../../utils/gmInstruments'
 import type { TrackState } from '../../types'
 import { MarqueeText } from '../MarqueeText'
 import { usePlayback } from '../../hooks/usePlayback'
 import { NES } from '../../utils/noteEditorState'
-import NoteEditorIcon from '../NoteEditorIcon'
 
 const GROUP_ORDER = [
   'piano', 'chromatic', 'organ', 'guitar', 'bass',
@@ -129,8 +128,16 @@ export default function TrackPanel() {
   const reorderGroups = (draggedKey: string, targetKey: string) => {
     if (draggedKey === targetKey || draggedKey === 'piano' || targetKey === 'piano') return
     const base = customGroupOrder ?? grouped.filter(g => g.key !== 'piano').map(g => g.key)
+    // ── Direction-aware insert — splicing at a flat `without.indexOf(target)`
+    // always inserts BEFORE the target regardless of drag direction, which
+    // only reads right when dragging upward. Dragging downward needs to
+    // insert AFTER the target (the dragged item's removal shifts everything
+    // below it up by one), or the reflow stalls/oscillates on every
+    // downward hover instead of actually passing the target row — this was
+    // the "up works, down doesn't" bug. ─────────────────────────────────────
+    const movingDown = base.indexOf(targetKey) > base.indexOf(draggedKey)
     const without = base.filter(k => k !== draggedKey)
-    const targetIdx = without.indexOf(targetKey)
+    const targetIdx = without.indexOf(targetKey) + (movingDown ? 1 : 0)
     without.splice(targetIdx, 0, draggedKey)
     setCustomGroupOrder(without)
   }
@@ -140,8 +147,12 @@ export default function TrackPanel() {
     if (draggedIndex === targetIndex) return
     const groupTracksNow = grouped.find(g => g.key === groupKey)?.tracks.map(t => t.index) ?? []
     const base = customTrackOrder[groupKey] ?? groupTracksNow
+    // ── Direction-aware insert — see reorderGroups above for why: inserting
+    // at a flat `without.indexOf(target)` only reads right moving upward;
+    // downward drags need +1 or the reflow stalls on every downward hover. ──
+    const movingDown = base.indexOf(targetIndex) > base.indexOf(draggedIndex)
     const without = base.filter(i => i !== draggedIndex)
-    const targetIdx = without.indexOf(targetIndex)
+    const targetIdx = without.indexOf(targetIndex) + (movingDown ? 1 : 0)
     without.splice(targetIdx, 0, draggedIndex)
     setCustomTrackOrder(prev => ({ ...prev, [groupKey]: without }))
   }
@@ -199,21 +210,7 @@ export default function TrackPanel() {
             onMouseEnter={e => e.currentTarget.style.color = 'var(--text-amber)'}
             onMouseLeave={e => e.currentTarget.style.color = 'var(--text-dimmest)'}
           >
-            <AudioLines size={18} />
-          </button>
-          <button
-            onClick={() => useStore.getState().setMixerOpen(true)}
-            title="Open Console Mixer"
-            style={{
-              background: 'none', border: 'none', cursor: 'pointer',
-              color: 'var(--text-dimmest)', padding: 4, marginTop: 8,
-              display: 'flex', alignItems: 'center', justifyContent: 'center',
-              transition: 'color 0.15s',
-            }}
-            onMouseEnter={e => e.currentTarget.style.color = 'var(--text-amber)'}
-            onMouseLeave={e => e.currentTarget.style.color = 'var(--text-dimmest)'}
-          >
-            <SlidersVertical size={18} />
+            <ListTree size={18} />
           </button>
           <button
             onClick={midi && !midiEditorOpen ? handleOpenEditor : undefined}
@@ -245,9 +242,27 @@ export default function TrackPanel() {
               onMouseEnter={e => { if (!noteEditorActive) e.currentTarget.style.color = 'var(--text-amber)' }}
               onMouseLeave={e => { if (!noteEditorActive) e.currentTarget.style.color = 'var(--text-dimmest)' }}
             >
-              <NoteEditorIcon size={22} />
+              {/* strokeWidth compensates for this icon's larger render size (22 vs
+                  siblings' 18) — same 24-unit viewBox means a fixed strokeWidth
+                  renders visibly thicker at a bigger size; this keeps the actual
+                  on-screen stroke weight matching its neighbors. ──────────────── */}
+              <AudioLines size={22} strokeWidth={1.64} />
             </button>
           )}
+          <button
+            onClick={() => useStore.getState().setMixerOpen(true)}
+            title="Open Console Mixer"
+            style={{
+              background: 'none', border: 'none', cursor: 'pointer',
+              color: 'var(--text-dimmest)', padding: 4, marginTop: 8,
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+              transition: 'color 0.15s',
+            }}
+            onMouseEnter={e => e.currentTarget.style.color = 'var(--text-amber)'}
+            onMouseLeave={e => e.currentTarget.style.color = 'var(--text-dimmest)'}
+          >
+            <SlidersVertical size={18} />
+          </button>
           <div
             title="Coming soon — practice mode"
             style={{
@@ -287,20 +302,6 @@ export default function TrackPanel() {
               <ChevronRight size={15} />
             </button>
             <button
-              onClick={() => useStore.getState().setMixerOpen(true)}
-              title="Open Console Mixer"
-              style={{
-                background: 'none', border: 'none', cursor: 'pointer',
-                color: 'var(--text-dimmest)', padding: 4, marginTop: 8,
-                display: 'flex', alignItems: 'center', justifyContent: 'center',
-                transition: 'color 0.15s',
-              }}
-              onMouseEnter={e => e.currentTarget.style.color = 'var(--text-amber)'}
-              onMouseLeave={e => e.currentTarget.style.color = 'var(--text-dimmest)'}
-            >
-              <SlidersVertical size={16} />
-            </button>
-            <button
               onClick={midi && !midiEditorOpen ? handleOpenEditor : undefined}
               title={!midi ? 'Open a MIDI file first' : midiEditorOpen ? 'MIDI Playback Editor is open' : 'Open MIDI Playback Editor'}
               style={{
@@ -330,9 +331,25 @@ export default function TrackPanel() {
                 onMouseEnter={e => { if (!noteEditorActive) e.currentTarget.style.color = 'var(--text-amber)' }}
                 onMouseLeave={e => { if (!noteEditorActive) e.currentTarget.style.color = 'var(--text-dimmest)' }}
               >
-                <NoteEditorIcon size={20} />
+                {/* strokeWidth compensates for this icon's larger render size (20 vs
+                    siblings' 16) — see collapsed-rail instance above for why. ──── */}
+                <AudioLines size={20} strokeWidth={1.6} />
               </button>
             )}
+            <button
+              onClick={() => useStore.getState().setMixerOpen(true)}
+              title="Open Console Mixer"
+              style={{
+                background: 'none', border: 'none', cursor: 'pointer',
+                color: 'var(--text-dimmest)', padding: 4, marginTop: 8,
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                transition: 'color 0.15s',
+              }}
+              onMouseEnter={e => e.currentTarget.style.color = 'var(--text-amber)'}
+              onMouseLeave={e => e.currentTarget.style.color = 'var(--text-dimmest)'}
+            >
+              <SlidersVertical size={16} />
+            </button>
             <div
               title="Coming soon — practice mode"
               style={{
@@ -341,7 +358,9 @@ export default function TrackPanel() {
                 cursor: 'default',
               }}
             >
-              <Sparkles size={20} />
+              {/* strokeWidth compensates for this icon's larger render size (20 vs
+                  siblings' 16), same reason as the AudioLines note-editor instances above. */}
+              <Sparkles size={20} strokeWidth={1.6} />
             </div>
           </div>
 
@@ -355,7 +374,7 @@ export default function TrackPanel() {
             borderBottom: '1px solid var(--border)', flexShrink: 0,
             gap: 'var(--space-2)',
           }}>
-            <AudioLines size={14} style={{ color: 'var(--text-inactive)', flexShrink: 0 }} />
+            <ListTree size={14} style={{ color: 'var(--text-inactive)', flexShrink: 0 }} />
             <span style={{ color: 'var(--text-dimmest)', fontSize: 'var(--text-xs)', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.1em' }}>
               Tracks
             </span>
@@ -428,7 +447,7 @@ export default function TrackPanel() {
                     <button
                       onClick={() => toggleGroupCollapse(key)}
                       draggable={!isPiano}
-                      onDragStart={!isPiano ? () => setDraggedGroup(key) : undefined}
+                      onDragStart={!isPiano ? (e) => { e.dataTransfer.effectAllowed = 'move'; e.dataTransfer.setData('text/plain', ''); setDraggedGroup(key) } : undefined}
                       onDragEnd={() => setDraggedGroup(null)}
                       onMouseEnter={() => setHoveredHandle(handleId)}
                       onMouseLeave={() => setHoveredHandle(h => h === handleId ? null : h)}
@@ -558,7 +577,19 @@ function TrackRow({
       <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
         <div
           draggable
-          onDragStart={e => { e.stopPropagation(); onDragStart?.() }}
+          onDragStart={e => {
+            e.stopPropagation()
+            // Reorder is driven entirely by React state (draggedTrack), not
+            // dataTransfer — but leaving dataTransfer completely untouched
+            // made the OS/Chromium drag cursor default to the "not allowed"
+            // no-drop badge for the whole drag, even over valid drop
+            // targets with dropEffect='move' set. Declaring a real payload
+            // + effectAllowed here is what actually lets the browser show
+            // a plain "move" cursor instead.
+            e.dataTransfer.effectAllowed = 'move'
+            e.dataTransfer.setData('text/plain', '')
+            onDragStart?.()
+          }}
           onDragEnd={() => onDragEnd?.()}
           onMouseEnter={() => onHandleHover?.(true)}
           onMouseLeave={() => onHandleHover?.(false)}
@@ -586,7 +617,7 @@ function TrackRow({
           <IBtn onClick={onSolo} active={track.solo} title={track.solo ? 'Unsolo' : 'Solo'} activeColor="var(--text-amber)">
             <span style={{ fontSize: 10, fontWeight: 700, fontFamily: 'JetBrains Mono', lineHeight: 1 }}>S</span>
           </IBtn>
-          <IBtn onClick={onVisible} active={!track.visible} title={track.visible ? 'Hide in roll' : 'Show in roll'} activeColor="var(--icon-visibility-active)">
+          <IBtn onClick={onVisible} active={!track.visible} title={track.visible ? 'Hide in roll' : 'Show in roll'} activeColor="var(--status-error-hover)" inactiveColor="var(--status-success-text)">
             {track.visible ? <Eye size={12} /> : <EyeClosed size={12} />}
           </IBtn>
           <IBtn onClick={onKeyboard} active={track.showOnKeyboard} title={track.showOnKeyboard ? 'Lit on keyboard' : 'Not lit on keyboard'} activeColor="var(--text-amber)">
@@ -615,9 +646,9 @@ function TrackRow({
 }
 
 // ── IBtn — icon button for track controls: color driven by active state ───
-function IBtn({ children, onClick, active, title, activeColor = 'var(--text-amber)' }: {
+function IBtn({ children, onClick, active, title, activeColor = 'var(--text-amber)', inactiveColor = 'var(--text-icon-inactive)' }: {
   children: React.ReactNode; onClick: () => void
-  active?: boolean; title?: string; activeColor?: string
+  active?: boolean; title?: string; activeColor?: string; inactiveColor?: string
 }) {
   return (
     <button
@@ -625,11 +656,11 @@ function IBtn({ children, onClick, active, title, activeColor = 'var(--text-ambe
       style={{
         display: 'flex', alignItems: 'center', justifyContent: 'center',
         width: 22, height: 22, background: 'none', border: 'none', cursor: 'pointer',
-        color: active ? activeColor : 'var(--text-icon-inactive)',
+        color: active ? activeColor : inactiveColor,
         borderRadius: 4, transition: 'color 0.1s',
       }}
       onMouseEnter={e => { if (!active) e.currentTarget.style.color = 'var(--text-icon-hover)' }}
-      onMouseLeave={e => { e.currentTarget.style.color = active ? activeColor : 'var(--text-icon-inactive)' }}
+      onMouseLeave={e => { e.currentTarget.style.color = active ? activeColor : inactiveColor }}
     >
       {children}
     </button>

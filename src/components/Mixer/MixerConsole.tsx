@@ -1,15 +1,19 @@
 import { useRef, useState, useEffect, useMemo, useCallback, type CSSProperties } from 'react'
-import { X, Minus } from 'lucide-react'
+import { X } from 'lucide-react'
 import { useStore } from '../../store'
 import { bringToFront, MODAL_BASE_Z } from '../../utils/modalFocus'
 import ChannelStrip from './ChannelStrip'
 import MasterStrip from './MasterStrip'
 import OrfeoMark from '../OrfeoMark'
 import { getPianoRollCenterX, getKeyboardHeaderTop } from '../../utils/modalAnchors'
+import { modalCloseButtonStyle, modalCloseButtonHoverColor, modalCloseButtonIdleColor } from '../../utils/modalCloseButtonStyle'
+import { confirmDialog } from '../../utils/confirmController'
+import { parseMidiBuffer } from '../../utils/midiParser'
+import { detectKeyFromTracks, parseKeySignature } from '../../utils/keyDetection'
+import { KEYBOARD_GROUPS } from '../../utils/keyboardGroups'
 
 // ── MixerConsole — floating draggable modal ───────────────────────────────────
 // Opened via Ctrl+Shift+M or the Console (SlidersVertical) icon in the TrackPanel.
-// Minimize hides the window without unmounting, preserving all internal state.
 // Width locked to show exactly 8 channel strips + master.
 
 // ── Modal dimensions — derived from strip geometry ────────────────────────────
@@ -33,10 +37,21 @@ const MODAL_H_APPROX = 650  // header 40 + body-pad 16*2 + strip 574 + scrollbar
 // ── MixerConsole ──────────────────────────────────────────────────────────────
 export default function MixerConsole() {
   const mixerOpen       = useStore(s => s.mixerOpen)
-  const mixerMinimized  = useStore(s => s.mixerMinimized)
   const setMixerOpen    = useStore(s => s.setMixerOpen)
-  const setMixerMinimized = useStore(s => s.setMixerMinimized)
-  const tracks          = useStore(s => s.tracks)
+  // ── Lightweight track identity/order signature — NOT the live `tracks`
+  // array. Grouping/ordering below only needs `index` + `group`, but every
+  // fader/knob drag replaces the whole `tracks` array (new reference) many
+  // times a second; subscribing to it directly forced this whole console —
+  // all 8 channel strips + master — to re-render on every tick of ANY drag,
+  // which is what made playback stutter while dragging. A joined string is
+  // value-equal (`===`) across renders whenever index/group haven't
+  // actually changed, so zustand's default Object.is check bails out for
+  // volume/pan/chorus/reverb-only updates. ──────────────────────────────────
+  const trackSignature = useStore(s => s.tracks.map(t => `${t.index}:${t.group ?? ''}`).join('|'))
+  const trackMeta = useMemo(
+    () => useStore.getState().tracks.map(t => ({ index: t.index, group: t.group })),
+    [trackSignature],
+  )
 
   // ── Mount guard — don't render until first open ───────────────────────────
   // everOpened keeps the component mounted after first open so all internal state
@@ -61,16 +76,111 @@ export default function MixerConsole() {
     })
   }, [mixerOpen])
 
-  // ── Sort by GROUP_ORDER — matches TrackPanel display order ──────────────────
-  const sortedTracks = useMemo(() =>
-    [...tracks].sort((a, b) => {
+  // ── Close — diffs live channel values against the file-load baseline; if any
+  // channel's volume/pan/reverb/chorus changed, offers to save before closing.
+  // Save writes a new _ORFEO_vN file (same versioning as editor:save) and
+  // switches the app to it; Discard drops the changes; Cancel keeps the mixer
+  // open. Nothing to diff (Master strip, mute/solo/etc.) — those stay session-only. ──
+  const requestClose = useCallback(async () => {
+    const { tracks: liveTracks, mixerBaseline, midi } = useStore.getState()
+    const changed = liveTracks.filter(t => {
+      const base = mixerBaseline[t.index]
+      return base && (base.volume !== t.volume || base.pan !== t.pan || base.chorus !== t.chorus || base.reverb !== t.reverb)
+    })
+    // TEMP DIAGNOSTIC — remove once the "always N channels" count bug is confirmed/fixed.
+    console.log('[mixer-diag]', changed.map(t => ({
+      index: t.index, name: t.trackName ?? t.gmName,
+      base: mixerBaseline[t.index], live: { volume: t.volume, pan: t.pan, chorus: t.chorus, reverb: t.reverb },
+    })))
+    if (changed.length === 0 || !midi) { setMixerOpen(false); return }
+
+    const filePath = (midi as any)._filePath ?? ''
+    const choice = await confirmDialog({
+      title: 'Save mixer changes?',
+      message: `Volume, pan, reverb, and chorus were changed for ${changed.length} channel(s).`,
+      buttons: ['Save', 'Discard', 'Cancel'],
+    })
+    if (choice === 2) return // Cancel — leave mixer open
+    if (choice === 1) { setMixerOpen(false); return } // Discard — re-seeded from file next open
+
+    try {
+      const result = await window.electronAPI.saveMixerChannels({
+        filePath,
+        channels: changed.map(t => ({ index: t.index, volume: t.volume, pan: t.pan, chorus: t.chorus, reverb: t.reverb })),
+      })
+      if (!result.ok || !result.base64 || !result.fileName || !result.filePath) {
+        await confirmDialog({ title: 'Save failed', message: result.message ?? 'Could not save mixer changes.', buttons: ['OK'] })
+        return // leave mixer open so the user can retry
+      }
+      const binary = atob(result.base64)
+      const bytes  = new Uint8Array(binary.length)
+      for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i)
+      const parsed = parseMidiBuffer(bytes.buffer, result.fileName, result.filePath)
+      useStore.getState().setMidi(parsed)
+      const raw = parsed as any
+      useStore.getState().setDetectedKey(
+        raw._keySignature ? parseKeySignature(raw._keySignature.key, raw._keySignature.scale) : detectKeyFromTracks(parsed.tracks),
+      )
+      ;(useStore.getState() as any).setLibraryNeedsRefresh?.(true)
+      setMixerOpen(false)
+    } catch (e: any) {
+      await confirmDialog({ title: 'Save failed', message: e?.message ?? 'Could not save mixer changes.', buttons: ['OK'] })
+    }
+  }, [setMixerOpen])
+
+  // ── Drag-to-reorder — session-only display order, never written to the file.
+  // Piano/keys always stays pinned first — group drag is simply disabled for
+  // it, same pattern as TrackPanel.tsx's group drag-reorder. ──────────────────
+  const [customChannelOrder, setCustomChannelOrder] = useState<number[] | null>(null)
+  const [draggedChannel, setDraggedChannel] = useState<number | null>(null)
+
+  // ── Locked (piano/keys) — always first, in GROUP_ORDER/index order, never
+  // draggable. Reorderable — everything else, defaulting to GROUP_ORDER/index,
+  // overridden by customChannelOrder once the user drags a strip. ─────────────
+  const lockedTracks = useMemo(() =>
+    trackMeta.filter(t => KEYBOARD_GROUPS.has(t.group ?? '')).sort((a, b) => a.index - b.index),
+  [trackMeta])
+
+  const reorderableBase = useMemo(() =>
+    trackMeta.filter(t => !KEYBOARD_GROUPS.has(t.group ?? '')).sort((a, b) => {
       const ai = GROUP_ORDER.indexOf(a.group ?? '')
       const bi = GROUP_ORDER.indexOf(b.group ?? '')
       const ao = ai === -1 ? GROUP_ORDER.length : ai
       const bo = bi === -1 ? GROUP_ORDER.length : bi
       return ao !== bo ? ao - bo : a.index - b.index
     }),
-  [tracks])
+  [trackMeta])
+
+  const reorderableTracks = useMemo(() => {
+    if (!customChannelOrder) return reorderableBase
+    return [
+      ...customChannelOrder.map(idx => reorderableBase.find(t => t.index === idx)).filter((t): t is typeof reorderableBase[number] => !!t),
+      ...reorderableBase.filter(t => !customChannelOrder.includes(t.index)),
+    ]
+  }, [reorderableBase, customChannelOrder])
+
+  const sortedTracks = useMemo(() => [...lockedTracks, ...reorderableTracks], [lockedTracks, reorderableTracks])
+
+  // ── Channel drag-to-reorder — piano/keys is never draggable and never a
+  // valid drop target's displacement (excluded from the reorderable list
+  // entirely, so nothing can end up ahead of it). ─────────────────────────────
+  const reorderChannels = (draggedIndex: number, targetIndex: number) => {
+    if (draggedIndex === targetIndex) return
+    const draggedTrack = trackMeta.find(t => t.index === draggedIndex)
+    const targetTrack = trackMeta.find(t => t.index === targetIndex)
+    if (!draggedTrack || !targetTrack) return
+    if (KEYBOARD_GROUPS.has(draggedTrack.group ?? '') || KEYBOARD_GROUPS.has(targetTrack.group ?? '')) return
+    const base = customChannelOrder ?? reorderableBase.map(t => t.index)
+    // ── Direction-aware insert — see TrackPanel.tsx's reorderTracks for the
+    // full explanation: inserting at a flat `without.indexOf(target)` only
+    // lands right when dragging upward; downward drops land one slot short
+    // (just above the target instead of below it) without the +1. ──────────
+    const movingDown = base.indexOf(targetIndex) > base.indexOf(draggedIndex)
+    const without = base.filter(i => i !== draggedIndex)
+    const targetIdx = without.indexOf(targetIndex) + (movingDown ? 1 : 0)
+    without.splice(targetIdx, 0, draggedIndex)
+    setCustomChannelOrder(without)
+  }
 
   // ── Modal width — adapts to track count, capped at MAX_STRIPS ────────────
   const modalW = useMemo(() => {
@@ -136,7 +246,10 @@ export default function MixerConsole() {
     const sx = e.clientX, sy = e.clientY
     const spx = pos.x, spy = pos.y
     const onMove = (ev: MouseEvent) =>
-      setPos({ x: Math.max(0, spx + ev.clientX - sx), y: Math.max(0, spy + ev.clientY - sy) })
+      // 44, not 0 — keeps the top edge clear of the 40px titleBarOverlay
+      // (electron/main.ts) where Windows draws its own window controls on
+      // top of everything in the DOM.
+      setPos({ x: Math.max(0, spx + ev.clientX - sx), y: Math.max(44, spy + ev.clientY - sy) })
     const onUp = () => {
       window.removeEventListener('mousemove', onMove)
       window.removeEventListener('mouseup',   onUp)
@@ -148,10 +261,10 @@ export default function MixerConsole() {
   // ── Close on Escape ───────────────────────────────────────────────────────
   useEffect(() => {
     if (!mixerOpen) return
-    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') setMixerOpen(false) }
+    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') requestClose() }
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
-  }, [mixerOpen, setMixerOpen])
+  }, [mixerOpen, requestClose])
 
   // ── Do not mount until first open ────────────────────────────────────────
   if (!everOpened) return null
@@ -176,14 +289,13 @@ export default function MixerConsole() {
       } as CSSProperties}
     >
 
-      {/* ── Header — drag handle; double-click restores when minimized ─────── */}
+      {/* ── Header — drag handle ─────────────────────────────────────────── */}
       <div
         onMouseDown={startDrag}
-        onDoubleClick={() => { if (mixerMinimized) setMixerMinimized(false) }}
         style={{
           height: 36, flexShrink: 0,
           background: 'var(--bg-modal-header)',
-          borderBottom: mixerMinimized ? 'none' : '1px solid var(--border)',
+          borderBottom: '1px solid var(--border)',
           display: 'flex', alignItems: 'center',
           padding: '0 var(--space-3)',
           cursor: 'grab',
@@ -203,45 +315,26 @@ export default function MixerConsole() {
           Console Mixer
         </span>
 
-        {/* ── Minimize + Close buttons — bottom-aligned so the dash sits at X level ── */}
+        {/* ── Close button — bottom-aligned so the dash sits at X level ─────── */}
         <div
           style={{ display: 'flex', alignItems: 'flex-end', gap: 2, paddingBottom: 2 }}
           onMouseDown={e => e.stopPropagation()}
         >
           <button
-            onClick={() => setMixerMinimized(!mixerMinimized)}
-            title={mixerMinimized ? 'Restore' : 'Minimize'}
-            style={{
-              background: 'none', border: 'none', cursor: 'pointer',
-              color: 'var(--text-inactive)', lineHeight: 1,
-              padding: '0 4px 2px', display: 'flex', alignItems: 'flex-end',
-              transition: 'color 0.15s',
-            }}
-            onMouseEnter={e => e.currentTarget.style.color = 'var(--text-default)'}
-            onMouseLeave={e => e.currentTarget.style.color = 'var(--text-inactive)'}
-          >
-            <Minus size={14} />
-          </button>
-          <button
-            onClick={() => setMixerOpen(false)}
+            onClick={requestClose}
             title="Close"
-            style={{
-              background: 'none', border: 'none', cursor: 'pointer',
-              color: 'var(--text-inactive)', lineHeight: 1,
-              padding: '0 2px', display: 'flex', alignItems: 'center',
-              transition: 'color 0.15s',
-            }}
-            onMouseEnter={e => e.currentTarget.style.color = 'var(--text-default)'}
-            onMouseLeave={e => e.currentTarget.style.color = 'var(--text-inactive)'}
+            style={modalCloseButtonStyle}
+            onMouseEnter={e => e.currentTarget.style.color = modalCloseButtonHoverColor}
+            onMouseLeave={e => e.currentTarget.style.color = modalCloseButtonIdleColor}
           >
-            <X size={16} />
+            <X size={14} />
           </button>
         </div>
       </div>
 
-      {/* ── Body — hidden when minimized; only header bar remains visible ───── */}
+      {/* ── Body ──────────────────────────────────────────────────────────── */}
       <div style={{
-        display: mixerMinimized ? 'none' : 'flex', gap: STRIP_GAP,
+        display: 'flex', gap: STRIP_GAP,
         padding: BODY_PAD,
         alignItems: 'flex-start',
       }}>
@@ -270,9 +363,20 @@ export default function MixerConsole() {
               No tracks — load a MIDI file
             </div>
           ) : (
-            sortedTracks.map(t => (
-              <ChannelStrip key={t.index} trackIndex={t.index} />
-            ))
+            sortedTracks.map(t => {
+              const locked = KEYBOARD_GROUPS.has(t.group ?? '')
+              return (
+                <ChannelStrip
+                  key={t.index}
+                  trackIndex={t.index}
+                  locked={locked}
+                  isDragging={draggedChannel === t.index}
+                  onDragStart={() => setDraggedChannel(t.index)}
+                  onDragEnd={() => setDraggedChannel(null)}
+                  onDrop={() => { if (draggedChannel !== null) reorderChannels(draggedChannel, t.index); setDraggedChannel(null) }}
+                />
+              )
+            })
           )}
         </div>
 

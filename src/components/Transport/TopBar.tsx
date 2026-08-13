@@ -14,6 +14,7 @@ import MidiIcon from '../MidiIcon'
 import VolumeKnob from '../VolumeKnob'
 import LoopRegionStrip from '../LoopRegionStrip'
 import { confirmDiscardDirtyNoteEdits } from '../../utils/noteEditorState'
+import { confirmDiscardDirtyTempoKey } from '../../utils/tempoKeySave'
 
 // NOTE: no more `C` shorthand object — every color below is a literal
 // `var(--token-name)` string written directly at its point of use, so the
@@ -56,7 +57,9 @@ export default function TopBar() {
 
   const handleReset = useCallback(async () => {
     const proceed = await confirmDiscardDirtyNoteEdits('Save changes before resetting?')
-    if (proceed) resetAll()
+    if (!proceed) return
+    const proceedTempoKey = await confirmDiscardDirtyTempoKey('Save tempo/key changes before resetting?')
+    if (proceedTempoKey) resetAll()
   }, [resetAll])
 
   const handleScrubStart = useCallback(() => {
@@ -110,7 +113,7 @@ export default function TopBar() {
         : `Loop bars ${loopStartBar}–${loopEndBar} · Click to enable`)
     : loopRegionEnabled
       ? 'Loop entire song · Drag the strip above to select a section'
-      : 'Loop entire song · Alt+drag on the waterfall to select a section'
+      : 'Loop entire song · Click + drag mouse over piano roll to select a region'
 
   // ── Live BPM — reads current tempo from _tempoMap so rubato files update ─
   const rawTempoMap = (midi as any)?._tempoMap as { bpm: number; time: number }[] | undefined
@@ -158,8 +161,9 @@ export default function TopBar() {
       <div style={{ display: 'flex', alignItems: 'center', gap: 0, flexShrink: 0 }}>
       {/* ── LOGO ── */}
       <div className="app-no-drag" style={{ display: 'flex', alignItems: 'center', gap: 10, flexShrink: 0, paddingRight: 'var(--space-3)' }}>
-        <span onClick={handleReset} title="Reset" className="app-no-drag" style={{ cursor: 'pointer', display: 'flex' }}>
+        <span onClick={handleReset} title="Reset" className="app-no-drag" style={{ cursor: 'pointer', display: 'flex', flexDirection: 'column', alignItems: 'flex-start', gap: 2 }}>
           <OrfeoLogo />
+          <span style={{ color: 'var(--text-inactive)', fontSize: 10, fontFamily: 'JetBrains Mono', whiteSpace: 'nowrap' }}>v{__APP_VERSION__}</span>
         </span>
         <button
           onClick={openFile}
@@ -236,6 +240,7 @@ export default function TopBar() {
           <RotateCcw size={8} />
         </button>
       </div>
+
       </div>
 
       {/* ── CENTER: transport + scrub + filename — absolutely centered on the topbar
@@ -255,24 +260,36 @@ export default function TopBar() {
           </TBtn>
           <TBtn onClick={() => handleSkip(1)} disabled={!midi} title={`Forward ${SKIP_SECS}s`}><FastForward size={15} strokeWidth={1.5} /></TBtn>
           <TBtn onClick={() => midi && seek(midi.duration)} disabled={!midi} title="Go to end"><SkipForward size={16} strokeWidth={1.5} /></TBtn>
-          <TBtn
-            onClick={() => {
-              const newActive = !loopRegionActive
-              setLoopRegionActive(newActive)
-              // Jump to loop start when activating with a selection, without forcing playback
-              if (newActive && loopStart !== null) seek(loopStart)
-            }}
-            disabled={!midi} active={loopRegionActive} blink={nudgeLoop} title={loopTooltip}
-          ><Repeat size={13} strokeWidth={1.5} /></TBtn>
-          {nudgeLoop && (
-            <span style={{
-              color: 'var(--text-amber)', fontSize: 9, fontFamily: 'Inter, sans-serif',
-              whiteSpace: 'nowrap', letterSpacing: '0.04em',
-              opacity: 0.85, pointerEvents: 'none', userSelect: 'none',
-            }}>
-              click to loop
-            </span>
-          )}
+          {/* position:relative wrapper so the "click to loop" label can be
+              position:absolute — it used to sit in normal flex flow as the
+              row's last child, so its appearing/disappearing changed the
+              row's total width, which shifted every button's position
+              (the row is horizontally centered as a block, so a width
+              change moves its center point). Absolute positioning removes
+              it from flow entirely — buttons never move regardless of
+              whether the label is showing. ── */}
+          <div style={{ position: 'relative', display: 'flex' }}>
+            <TBtn
+              onClick={() => {
+                const newActive = !loopRegionActive
+                setLoopRegionActive(newActive)
+                // Jump to loop start when activating with a selection, without forcing playback
+                if (newActive && loopStart !== null) seek(loopStart)
+              }}
+              disabled={!midi} active={loopRegionActive} blink={nudgeLoop} title={loopTooltip}
+            ><Repeat size={13} strokeWidth={1.5} /></TBtn>
+            {nudgeLoop && (
+              <span style={{
+                position: 'absolute', left: '100%', top: '50%', transform: 'translateY(-50%)',
+                marginLeft: 4,
+                color: 'var(--text-amber)', fontSize: 9, fontFamily: 'Inter, sans-serif',
+                whiteSpace: 'nowrap', letterSpacing: '0.04em',
+                opacity: 0.85, pointerEvents: 'none', userSelect: 'none',
+              }}>
+                click to loop
+              </span>
+            )}
+          </div>
         </div>
         {/* Scrub + loop strip — shared column; width: min(100%, 400px) centers both at
             the same visual width as the old scrub content (34+6+320+6+34 = 400px).

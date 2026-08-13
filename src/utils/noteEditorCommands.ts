@@ -159,7 +159,66 @@ export function cmdSetRangeVelocity(notes: ToneNote[], newVelocity: number): Not
 // ParsedMidi object by parseMidiBuffer(). This is the editing copy — separate
 // from the @tonejs/midi model used for playback, which should not be mutated.
 export function midiToEditableCopy(rawBuffer: ArrayBuffer): Midi {
-  return new Midi(rawBuffer)
+  const midi = new Midi(rawBuffer)
+  // @tonejs/midi's Track class has no `index` field — midiParser.ts's
+  // ParsedMidi tracks carry a custom `.index` that both audio engines match
+  // against store track state (mute/solo/program) via
+  // `tracks.find(t => t.index === track.index)`. Critically, midiParser.ts
+  // assigns that index only to NON-EMPTY tracks, in COMPACTED order — an
+  // empty filler track (extremely common: notation-software marker/meta
+  // tracks with zero notes) is skipped entirely, so index 2 there might be
+  // raw array position 5. Stamping by raw array position instead (as this
+  // used to) works only when a file happens to have zero empty tracks —
+  // otherwise every real track's index is off by however many empty tracks
+  // preceded it, so the audio engines' lookup either finds nothing (silent
+  // schedule) or, worse, silently matches a DIFFERENT track's mute/program
+  // state (reported symptom: reassigning a hand on a piano note made
+  // playback switch to a completely different track's instrument sound —
+  // the piano track's raw-position index happened to collide with the
+  // strings track's real compacted index). Parse order is otherwise
+  // identical to the original since both come from the same _raw bytes and
+  // note edits never reorder or add/remove tracks. ─────────────────────────
+  let compactedIndex = 0
+  midi.tracks.forEach(t => {
+    if (t.notes.length === 0) return
+    ;(t as any).index = compactedIndex++
+  })
+  return midi
+}
+
+// ── copyHandTagsOntoEditBuffer ──────────────────────────────────────────────
+// Stamps `.hand`/`.handConfidence` from the store's already-tagged ParsedMidi
+// notes onto the freshly-parsed edit buffer's notes, matched by array
+// position (track index, then note index) — safe only at edit-buffer
+// creation time, before any add/remove/move happens, since both were parsed
+// from the identical _raw bytes and are still in identical order at that
+// point. Without this, `NES.editMidi`'s notes are stock @tonejs/midi Track
+// notes with no hand fields at all — nothing for a later save to persist
+// (see noteEditorState.ts's handSave export-hint injection) or for live
+// hand-colored rendering to read.
+export function copyHandTagsOntoEditBuffer(storeMidi: any, editMidi: Midi): void {
+  if (!storeMidi?.tracks) return
+  // editMidi.tracks is a raw parse — it keeps every track including empty
+  // filler ones, in original file position. storeMidi.tracks (ParsedMidi,
+  // from midiParser.ts) is already compacted to non-empty tracks only, with
+  // `.index` assigned among survivors. Zipping the two directly by array
+  // position (as this used to) silently misaligned the moment a file had
+  // even one empty track before the real content — extremely common (most
+  // exported MIDI files carry a few 0-note meta/marker tracks first) — which
+  // meant hand tags almost never actually made it into the edit buffer. ────
+  const nonEmpty = editMidi.tracks.filter(t => t.notes.length > 0)
+  nonEmpty.forEach((track, ti) => {
+    const srcTrack = storeMidi.tracks[ti]
+    if (!srcTrack?.notes || srcTrack.notes.length !== track.notes.length) return
+    track.notes.forEach((note, ni) => {
+      const src = srcTrack.notes[ni]
+      if (src?.hand !== undefined) {
+        ;(note as any).hand = src.hand
+        ;(note as any).handConfidence = src.handConfidence
+        ;(note as any).handSource = src.handSource
+      }
+    })
+  })
 }
 
 // ── cmdRemoveNotes ────────────────────────────────────────────────────────────

@@ -10,6 +10,7 @@ import Keyboard from './Keyboard'
 import KeyboardControls from './KeyboardControls'
 import OrfeoMark from '../OrfeoMark'
 import { getPianoRollCenterX, getPlaybarY } from '../../utils/modalAnchors'
+import { modalCloseButtonStyle, modalCloseButtonHoverColor, modalCloseButtonIdleColor } from '../../utils/modalCloseButtonStyle'
 
 const DEFAULT_W = 860
 const MIN_W = 650
@@ -42,7 +43,7 @@ export default function FloatingKeyboard() {
     if (initialised.current) return
     initialised.current = true
     const h = panelRef.current?.offsetHeight ?? 220
-    setPos(p => ({ ...p, y: Math.max(20, getPlaybarY() - h) }))
+    setPos(p => ({ ...p, y: Math.max(44, getPlaybarY() - h) }))
   }, [])
 
   const onMouseMove = useCallback((e: MouseEvent) => {
@@ -54,7 +55,10 @@ export default function FloatingKeyboard() {
       const panelH = panelRef.current?.offsetHeight ?? 220
       setPos({
         x: Math.max(0, Math.min(window.innerWidth - panelW, ds.startPosX + (e.clientX - ds.startX))),
-        y: Math.max(0, Math.min(window.innerHeight - panelH, ds.startPosY + (e.clientY - ds.startY))),
+        // 44, not 0 — keeps the top edge clear of the 40px titleBarOverlay
+        // (electron/main.ts) where Windows draws its own window controls on
+        // top of everything in the DOM.
+        y: Math.max(44, Math.min(window.innerHeight - panelH, ds.startPosY + (e.clientY - ds.startY))),
       })
       return
     }
@@ -158,11 +162,11 @@ export default function FloatingKeyboard() {
             onClick={() => setKeyboardMode('docked')}
             title="Close floating keyboard"
             data-no-drag="true"
-            style={{ width: 18, height: 18, background: 'transparent', border: 'none', cursor: 'pointer', color: 'var(--text-muted)', display: 'flex', alignItems: 'center', justifyContent: 'center', borderRadius: 'var(--radius-sm)', transition: 'color 0.12s' }}
-            onMouseEnter={e => e.currentTarget.style.color = 'var(--color-input-error)'}
-            onMouseLeave={e => e.currentTarget.style.color = 'var(--text-muted)'}
+            style={modalCloseButtonStyle}
+            onMouseEnter={e => e.currentTarget.style.color = modalCloseButtonHoverColor}
+            onMouseLeave={e => e.currentTarget.style.color = modalCloseButtonIdleColor}
           >
-            <X size={10} strokeWidth={1.8} />
+            <X size={14} strokeWidth={1.8} />
           </button>
         </div>
       </div>

@@ -7,6 +7,9 @@ import { useEffect, useRef } from 'react'
 import { useStore } from '../store'
 import { useSamplesEngine } from './useSamplesEngine'
 import { pushHitEffect, amberHex } from '../utils/hitEffectQueue'
+import { isHomogeneousHandTrack, resolveHandAwareColor } from '../utils/handColors'
+import { NES } from '../utils/noteEditorState'
+import { editableCopyToBuffer } from '../utils/noteEditorCommands'
 
 let _jzzReady = false
 let _jzzInitP: Promise<void> | null = null
@@ -124,16 +127,41 @@ function destroyPlayer() {
   _warmupPromise = null   // allow re-warm on next edit-mode entry
 }
 
+// ── Live edit-buffer awareness — once the Note Editor holds a REAL unsaved
+// edit (NES.dirty), playback must schedule from that buffer, not the
+// untouched store copy — otherwise a deleted/added/moved note plays back
+// exactly as it was before the edit: gone from the piano roll, still
+// audible, because the store's `midi` is deliberately never mutated by the
+// editor (see noteEditorCommands.ts's midiToEditableCopy) and nothing was
+// re-pointing playback at the live copy.
+//
+// Gated on NES.dirty, NOT merely `NES.editMidi` being non-null — the edit
+// buffer is created the instant edit mode opens, before any edit happens,
+// and re-serializing it (editableCopyToBuffer) is a real round-trip through
+// @tonejs/midi's encoder, not a byte-identical copy of the original file.
+// Routing through it unconditionally broke audio the moment the toolbar
+// opened, with zero edits made — a real regression, not just an unlikely
+// edge case. Only pay that round-trip once there's an actual edit worth
+// protecting. ───────────────────────────────────────────────────────────
+function activeMidiData(): any {
+  return (NES.dirty && NES.editMidi) ? NES.editMidi : useStore.getState().midi
+}
+
 // ── updateMutedChannels — live mute/solo update without rebuilding the player ──
 // Repopulates _mutedCh and rebuilds the key-lighting schedule from currentTime.
 // Called on track-state changes during playback so the filter takes effect instantly.
 function updateMutedChannels() {
-  const { midi, tracks, bpm, originalBpm, detectedKey, currentTime, hitEffectScope } = useStore.getState()
-  const midiData = midi as any
+  const { tracks, bpm, originalBpm, detectedKey, currentTime, hitEffectScope, showHandLabels, handLabelMode, noteEditorActive } = useStore.getState()
+  const midiData = activeMidiData()
   if (!midiData || !_player) return
   const hasSolo = tracks.some((t: any) => t.solo)
   const transpose = detectedKey?.transpose ?? 0
   const ratio = bpm / originalBpm
+  const performanceMode = handLabelMode === 'performance'
+  // Global Settings toggle stays authoritative here too (see PianoRoll.tsx's
+  // handColoringOn) — the Note Editor's own Hand toggle only adds to it,
+  // never takes coloring away from what the global setting already shows.
+  const effectiveShowHandLabels = showHandLabels || (noteEditorActive && NES.reassignHandsMode)
   _mutedCh.clear()
   for (const tr of midiData.tracks) {
     const ts = tracks.find((t: any) => t.index === tr.index)
@@ -146,13 +174,15 @@ function updateMutedChannels() {
     // hitEffectScope === 'all' lets non-keyboard tracks still spawn hit effects
     // (purely visual, at the note's key position) without lighting the key itself.
     if (!ts.showOnKeyboard && hitEffectScope !== 'all') continue
-    const color = ts.color ?? amberHex()
+    const defaultColor = ts.color ?? amberHex()
+    const homogeneousTrack = isHomogeneousHandTrack(track.notes)
     for (const note of track.notes) {
       const noteStart = note.time / ratio
       if (noteStart < currentTime) continue
       const delay = (noteStart - currentTime) * 1000
       const durMs = Math.max(note.duration / ratio * 1000, 40)
       const midiNum = note.midi + transpose
+      const color = resolveHandAwareColor(note, defaultColor, { homogeneousTrack, showHandLabels: effectiveShowHandLabels, performanceMode })
       const t = setTimeout(() => {
         if (ts.showOnKeyboard) lightKey(midiNum, color, Math.min(durMs + 30, 2500))
         else pushHitEffect(midiNum, color)
@@ -164,14 +194,21 @@ function updateMutedChannels() {
 
 function buildPlayer(startSec: number) {
   if (!_jzzReady || !_port) return
-  const raw = (useStore.getState().midi as any)?._raw
-  if (!raw) return
   try {
+    // Play from the Note Editor's live edit buffer once it holds a real edit,
+    // not the untouched store copy — see activeMidiData() above for why this
+    // is gated on NES.dirty, not just NES.editMidi being non-null. Computed
+    // inside the try so a re-encode failure logs instead of silently
+    // aborting the whole rebuild (previously computed before the try block).
+    const raw = (NES.dirty && NES.editMidi) ? editableCopyToBuffer(NES.editMidi) : (useStore.getState().midi as any)?._raw
+    if (!raw) { console.warn('[Orfeo GM] buildPlayer: no raw bytes available, dirty=', NES.dirty, 'editMidi=', !!NES.editMidi); return }
     destroyPlayer(); clearAllKeys(); clearLightSchedule()
-    const { tracks, bpm, originalBpm, detectedKey, hitEffectScope } = useStore.getState()
+    const { tracks, bpm, originalBpm, detectedKey, hitEffectScope, showHandLabels, handLabelMode, noteEditorActive } = useStore.getState()
+    const performanceMode = handLabelMode === 'performance'
+    const effectiveShowHandLabels = showHandLabels || (noteEditorActive && NES.reassignHandsMode)
     const transpose = detectedKey?.transpose ?? 0
     const ratio = bpm / originalBpm
-    const midiData = useStore.getState().midi as any
+    const midiData = activeMidiData()
     const hasSolo = tracks.some((t: any) => t.solo)
     _mutedCh = new Set<number>()
     for (const tr of midiData.tracks) {
@@ -217,13 +254,15 @@ function buildPlayer(startSec: number) {
       const ts = tracks.find((t: any) => t.index === track.index)
       if (!ts || ts.muted || (hasSolo && !ts.solo)) continue
       if (!ts.showOnKeyboard && hitEffectScope !== 'all') continue
-      const color = ts.color ?? amberHex()
+      const defaultColor = ts.color ?? amberHex()
+      const homogeneousTrack = isHomogeneousHandTrack(track.notes)
       for (const note of track.notes) {
         const noteStart = note.time / ratio
         if (noteStart < startSec) continue
         const delay = (noteStart - startSec) * 1000
         const durMs = Math.max(note.duration / ratio * 1000, 40)
         const midiNum = note.midi + transpose
+        const color = resolveHandAwareColor(note, defaultColor, { homogeneousTrack, showHandLabels: effectiveShowHandLabels, performanceMode })
         const t = setTimeout(() => {
           if (ts.showOnKeyboard) lightKey(midiNum, color, Math.min(durMs + 30, 2500))
           else pushHitEffect(midiNum, color)
@@ -306,11 +345,11 @@ export function useAudioEngine() {
     // visual = false skips the timed key-light entirely — used for glissando,
     // which drives the keyboard light itself (instant swap, no fade timer)
     // instead of relying on this note-duration-based ring.
-    const playNote = async (midiNum: number, vel = 90, durMs = 500, channel?: number, visual = true) => {
+    const playNote = async (midiNum: number, vel = 90, durMs = 500, channel?: number, visual = true, color?: string) => {
       const { audioEngine } = useStore.getState()
       if (audioEngine === 'samples') {
         const fn = (window as any).__orfeoPlayNoteSamples
-        if (fn) { fn(midiNum, vel, durMs, channel, visual); return }
+        if (fn) { fn(midiNum, vel, durMs, channel, visual, color); return }
       }
       // GM: ch 14 is the dedicated preview channel (piano). Track channels have
       // correct programs after __orfeoWarmupEditChannels runs on edit-mode enter.
@@ -324,7 +363,7 @@ export function useAudioEngine() {
         if (ch === 14) ensureClickChannel()
         _port.send([0x90 | ch, midiNum, Math.round(vel * 127)])
         setTimeout(() => { try { _port.send([0x80 | ch, midiNum, 0]) } catch {} }, durMs)
-        if (visual) lightKey(midiNum, amberHex(), durMs + 100)
+        if (visual) lightKey(midiNum, color ?? amberHex(), durMs + 100)
       } catch (e) { console.error('[Orfeo GM] playNote error:', e) }
     }
     ;(window as any).__orfeoPlayNote = playNote

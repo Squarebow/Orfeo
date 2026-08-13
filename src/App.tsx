@@ -34,6 +34,7 @@ import { runNoteEditorRoundTripTest } from './utils/noteEditorRoundTripTest'
 import { runHandAssignmentTest } from './utils/handAssignmentTest'
 import { runHandMetadataTest } from './utils/handMetadataTest'
 import { NES, confirmDiscardDirtyNoteEdits } from './utils/noteEditorState'
+import { confirmDiscardDirtyTempoKey, saveTempoKeyChanges } from './utils/tempoKeySave'
 
 export default function App() {
   const midi = useStore((s) => s.midi)
@@ -72,6 +73,8 @@ export default function App() {
   const loadFileIntoPlayer = useCallback(async (filePath: string) => {
     const canDiscard = await confirmDiscardDirtyNoteEdits('Save changes before opening this file?')
     if (!canDiscard) return
+    const canDiscardTempoKey = await confirmDiscardDirtyTempoKey('Save tempo/key changes before opening this file?')
+    if (!canDiscardTempoKey) return
 
     const proceed = await confirmPendingImportBeforeSwitch(filePath)
     if (!proceed) return // user cancelled — stay on current file
@@ -80,18 +83,25 @@ export default function App() {
     if (!result) return
 
     let base64    = result.base64
-    const parseName = result.fileName
+    let resolvedFilePath = filePath
+    let parseName = result.fileName
     const libraryFolder = (useStore.getState() as any).libraryFolder as string | null ?? null
 
     try {
-      base64 = await resolveAndTrackImport(filePath, base64, result.fileName, libraryFolder)
+      const resolved = await resolveAndTrackImport(filePath, base64, result.fileName, libraryFolder)
+      base64 = resolved.base64
+      resolvedFilePath = resolved.filePath
+      parseName = resolved.fileName
     } catch (e: any) {
       showDropError(e?.message ?? 'Could not convert this file to MIDI.')
       return
     }
 
     const bytes  = base64ToBytes(base64)
-    const parsed = parseMidiBuffer(bytes.buffer as ArrayBuffer, parseName, filePath) // _filePath = original source
+    // _filePath = original source, or the on-disk .mid cache once a foreign-format
+    // import has been saved — editing tools must save against a real .mid, not
+    // the foreign source file (see resolveAndTrackImport).
+    const parsed = parseMidiBuffer(bytes.buffer as ArrayBuffer, parseName, resolvedFilePath)
     useStore.getState().setMidi(parsed)
     const raw = parsed as any
     if (raw._keySignature != null) {
@@ -145,10 +155,14 @@ export default function App() {
   }
 
   // ── dragover: prevent browser default navigation + show highlight ─────────
-  // Only for OS file drags — an internal track-row drag (TrackPanel reorder)
-  // has no 'Files' type and must never trigger the app-wide import overlay.
+  // OS file drags trigger the import overlay. Internal drags (TrackPanel/
+  // Console/Library row reorders — no 'Files' type) still get preventDefault
+  // here so the cursor stays a plain 'move' whenever the pointer crosses a
+  // gap between row-level drop targets — without it, Chromium falls back to
+  // the native no-drop icon in every such gap, which reads as a blinking
+  // red circle during any internal drag.
   const handleDragOver = useCallback((e: React.DragEvent<HTMLDivElement>) => {
-    if (!e.dataTransfer.types.includes('Files')) return
+    if (!e.dataTransfer.types.includes('Files')) { e.preventDefault(); return }
     e.preventDefault()
     e.stopPropagation()
     setIsDragOver(true)
@@ -224,7 +238,26 @@ export default function App() {
         // Discard (1) or successful save — fall through
       }
 
-      // 2. Pending imported file (MusicXML/GP converted but not yet saved as .mid)
+      // 2. Tempo/Key unsaved changes (only if the Settings toggle is on)
+      {
+        const s = useStore.getState()
+        const tempoKeyDirty = s.saveTempoKeyChangesEnabled && !!s.midi &&
+          (s.bpm !== s.originalBpm || (s.detectedKey?.transpose ?? 0) !== 0)
+        if (tempoKeyDirty) {
+          const choice = await confirmDialog({
+            title: 'Unsaved Tempo/Key Changes',
+            message: 'You have unsaved tempo/key changes.',
+            buttons: ['Save', 'Discard', 'Cancel'],
+          })
+          if (choice === 2) return  // Cancel — leave app open
+          if (choice === 0) {
+            const ok = await saveTempoKeyChanges()
+            if (!ok) return
+          }
+        }
+      }
+
+      // 3. Pending imported file (MusicXML/GP converted but not yet saved as .mid)
       const pending = useStore.getState().pendingImportedFile
       if (pending) {
         const libraryFolder = (useStore.getState() as any).libraryFolder as string | null ?? null
@@ -318,10 +351,7 @@ export default function App() {
           if (e.ctrlKey && e.shiftKey) {
             e.preventDefault()
             const s = useStore.getState()
-            // Minimized → restore; Open → close; Closed → open
-            if (s.mixerOpen && s.mixerMinimized) s.setMixerMinimized(false)
-            else if (s.mixerOpen) s.setMixerOpen(false)
-            else s.setMixerOpen(true)
+            s.setMixerOpen(!s.mixerOpen)
           }
           break
       }
@@ -380,6 +410,7 @@ export default function App() {
       {/* ── Drop zone — spans the full area below TopBar including both drawers ── */}
       <div
         style={{ display: 'flex', flex: 1, minHeight: 0, overflow: 'hidden', position: 'relative' }}
+        onDragEnter={handleDragOver}
         onDragOver={handleDragOver}
         onDragLeave={handleDragLeave}
         onDrop={handleDrop}

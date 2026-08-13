@@ -4,6 +4,7 @@ import { parseMidiBuffer } from '../utils/midiParser'
 import { detectKeyFromTracks, parseKeySignature } from '../utils/keyDetection'
 import { resolveAndTrackImport } from '../utils/foreignFormatImport'
 import { confirmDiscardDirtyNoteEdits } from '../utils/noteEditorState'
+import { confirmDiscardDirtyTempoKey } from '../utils/tempoKeySave'
 
 export function useMidiFile() {
   const setMidi = useStore((s) => s.setMidi)
@@ -13,20 +14,22 @@ export function useMidiFile() {
     try {
       const canDiscard = await confirmDiscardDirtyNoteEdits('Save changes before opening this file?')
       if (!canDiscard) return
+      const canDiscardTempoKey = await confirmDiscardDirtyTempoKey('Save tempo/key changes before opening this file?')
+      if (!canDiscardTempoKey) return
 
       const result = await window.electronAPI.openMidiFile()
       if (!result) return
 
       const libraryFolder = (useStore.getState() as any).libraryFolder as string | null ?? null
-      const base64 = await resolveAndTrackImport(
+      const resolved = await resolveAndTrackImport(
         result.filePath ?? '', result.base64, result.fileName, libraryFolder,
       )
 
-      const binary = atob(base64)
+      const binary = atob(resolved.base64)
       const bytes = new Uint8Array(binary.length)
       for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i)
 
-      const parsed = parseMidiBuffer(bytes.buffer, result.fileName, result.filePath ?? '')
+      const parsed = parseMidiBuffer(bytes.buffer, resolved.fileName, resolved.filePath)
       setMidi(parsed)
 
       // Detect key from MIDI metadata first, fallback to note analysis

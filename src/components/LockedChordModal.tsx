@@ -1,7 +1,10 @@
 import React, { useState, useCallback, useMemo, useEffect, useRef, type CSSProperties } from 'react'
-import { Play, RotateCcw, X } from 'lucide-react'
+import { RotateCcw, X } from 'lucide-react'
+import ChevronPlayIcon from './ChevronPlayIcon'
 import { useStore } from '../store'
 import { formatInversionDisplay, ordinalSuffix } from '../utils/chordDetection'
+import { getNoteName } from '../utils/noteNames'
+import { modalCloseButtonStyle, modalCloseButtonHoverColor, modalCloseButtonIdleColor } from '../utils/modalCloseButtonStyle'
 import OrfeoMark from './OrfeoMark'
 import { getPianoRollCenterX, getKeyboardHeaderTop } from '../utils/modalAnchors'
 
@@ -65,12 +68,23 @@ export default function LockedChordModal() {
     )
   }, [originalLockedChordName, lockedInversionCount, lockedChordNoteCount, lockedKeys, noteNaming, accidentals])
 
+  // ── Partial display — 1st/2nd shift-clicked notes shown in place of their
+  // dash while the chord isn't identifiable yet (needs 3+ notes); the 3rd
+  // dash stays "—" until then. ──────────────────────────────────────────────
+  const partialNotes = useMemo(() => {
+    if (lockedDisplay || lockedKeys.size === 0) return null
+    return Array.from(lockedKeys).sort((a, b) => a - b).map(m => getNoteName(m, noteNaming, accidentals))
+  }, [lockedDisplay, lockedKeys, noteNaming, accidentals])
+
   // ── Drag ─────────────────────────────────────────────────────────────────
   const startDrag = (e: React.MouseEvent<HTMLDivElement>) => {
     e.preventDefault()
     const sx = e.clientX, sy = e.clientY, spx = pos.x, spy = pos.y
     const onMove = (ev: MouseEvent) =>
-      setPos({ x: Math.max(0, spx + ev.clientX - sx), y: Math.max(0, spy + ev.clientY - sy) })
+      // 44, not 0 — keeps the top edge clear of the 40px titleBarOverlay
+      // (electron/main.ts) where Windows draws its own window controls on
+      // top of everything in the DOM.
+      setPos({ x: Math.max(0, spx + ev.clientX - sx), y: Math.max(44, spy + ev.clientY - sy) })
     const onUp = () => {
       window.removeEventListener('mousemove', onMove)
       window.removeEventListener('mouseup', onUp)
@@ -112,8 +126,8 @@ export default function LockedChordModal() {
       left: pos.x,
       top: pos.y,
       width: MODAL_WIDTH,
-      background: 'var(--bg-modal)',
-      border: '1px solid var(--state-hover-bg)',
+      background: 'var(--panel)',
+      border: '1px solid var(--state-hover-border)',
       borderRadius: 'var(--radius-lg)',
       zIndex: 401,
       display: 'flex',
@@ -122,38 +136,40 @@ export default function LockedChordModal() {
       userSelect: 'none',
     } as CSSProperties}>
 
-      {/* ── Header — drag handle + amber title + close ────────────────────────── */}
+      {/* ── Header — drag handle + amber title + close. Styled exactly like
+          MIDI Note Editor's header (NoteEditorToolbar.tsx): same logo size,
+          same title font, no separate header background — just part of the
+          panel like the Note Editor's is. ── */}
       <div
         onMouseDown={startDrag}
         style={{
-          height: 36,
-          background: 'var(--bg-modal-header)',
+          minHeight: 32,
           display: 'flex', alignItems: 'center', gap: 7,
           padding: '0 var(--space-3)',
           cursor: 'grab',
           borderBottom: '1px solid var(--border)',
         }}
       >
-        <OrfeoMark height={22} />
+        <OrfeoMark height={16} />
         {/* ── Title in amber to distinguish from other panels ──────────────── */}
-        <span style={{ flex: 1, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontFamily: 'Inter', fontSize: 'var(--text-sm)', fontWeight: 700, color: 'var(--text-amber)', letterSpacing: '0.14em', textTransform: 'uppercase' }}>
-          Locked Chord
+        <span style={{ flex: 1, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontSize: 10, fontWeight: 700, color: 'var(--text-amber)', letterSpacing: '0.08em', textTransform: 'uppercase' }}>
+          Lock-a-Chord
         </span>
         <button
           onClick={handleClose}
           title="Close and unlock chord"
-          style={{ background: 'none', border: 'none', color: 'var(--text-inactive)', cursor: 'pointer', padding: 0, display: 'flex', alignItems: 'center' }}
-          onMouseEnter={e => (e.currentTarget.style.color = 'var(--text-amber)')}
-          onMouseLeave={e => (e.currentTarget.style.color = 'var(--text-inactive)')}
+          style={modalCloseButtonStyle}
+          onMouseEnter={e => (e.currentTarget.style.color = modalCloseButtonHoverColor)}
+          onMouseLeave={e => (e.currentTarget.style.color = modalCloseButtonIdleColor)}
         >
-          <X size={13} />
+          <X size={14} />
         </button>
       </div>
 
       {/* ── Chord name + inversion ordinal ────────────────────────────────────── */}
       <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'center', gap: 5, padding: '10px 12px 6px' }}>
         <span style={{ fontFamily: 'JetBrains Mono', fontSize: 20, fontWeight: 700, color: 'var(--text-amber)', letterSpacing: '0.05em' }}>
-          {lockedDisplay?.chordLabel ?? '— — —'}
+          {lockedDisplay?.chordLabel ?? [0, 1, 2].map(i => partialNotes?.[i] ?? '—').join(' ')}
         </span>
         {lockedDisplay?.ordinal && (
           <span style={{ fontFamily: 'Inter', fontSize: 10, color: 'var(--text-dimmest)' }}>
@@ -174,7 +190,7 @@ export default function LockedChordModal() {
           onMouseEnter={e => (e.currentTarget.style.color = 'var(--text-amber)')}
           onMouseLeave={e => (e.currentTarget.style.color = 'var(--text-dimmest)')}
         >
-          <Play size={13} style={{ transform: 'scaleX(-1)' }} />
+          <ChevronPlayIcon size={13} mirrored />
         </button>
         {/* Play chord */}
         <button
@@ -184,7 +200,7 @@ export default function LockedChordModal() {
           onMouseEnter={e => { e.currentTarget.style.borderColor = 'var(--text-amber)'; e.currentTarget.style.color = 'var(--text-amber)' }}
           onMouseLeave={e => { e.currentTarget.style.borderColor = 'var(--text-inactive)'; e.currentTarget.style.color = 'var(--text-dimmest)' }}
         >
-          <Play size={10} fill="currentColor" /> Play
+          <ChevronPlayIcon size={10} /> Play
         </button>
         {/* Next inversion — Play icon normal */}
         <button
@@ -194,7 +210,7 @@ export default function LockedChordModal() {
           onMouseEnter={e => (e.currentTarget.style.color = 'var(--text-amber)')}
           onMouseLeave={e => (e.currentTarget.style.color = 'var(--text-dimmest)')}
         >
-          <Play size={13} />
+          <ChevronPlayIcon size={13} />
         </button>
         {/* Clear locked chord — removes highlighted keys, modal stays open */}
         <button

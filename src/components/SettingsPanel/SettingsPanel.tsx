@@ -5,17 +5,17 @@ import { confirmDialog } from '../../utils/confirmController'
 import {
   ChevronLeft, ChevronDown, ChevronRight, Music2, Piano, Palette, Columns3, Volume2,
   Music, FolderOpen, Folders, RefreshCw, FileMusic, FileCode2, Guitar, BookOpen, Library, Settings, Info,
-  Search, X, Undo2, Upload, ToggleLeft, ToggleRight, CloudDownload,
+  Search, X, Undo2, Upload, ToggleLeft, ToggleRight, CloudDownload, ChevronsDownUp, AudioLines,
 } from 'lucide-react'
 import { useStore } from '../../store'
 import OrfeoMark from '../OrfeoMark'
-import NoteEditorIcon from '../NoteEditorIcon'
 import type { NoteNaming, KeyboardSize, Accidentals, TranscriptEntry, LibraryFile, HitEffectPattern, SoundfontId, SoundfontInfo, UpdateStatus } from '../../types'
 import type { AppTheme } from '../../store'
 import { initSamplesEngine, loadSelectedSoundfont } from '../../hooks/useSamplesEngine'
 import { MarqueeText } from '../MarqueeText'
 import { detectForeignFormat } from '../../utils/foreignFormatImport'
 import { TRACK_COLOR_PALETTE } from '../../utils/colors'
+import FileInfoModal from '../FileInfoModal'
 
 // ── EyeClosed — custom icon replacing lucide EyeOff throughout settings ───────
 function EyeClosed({ size = 24, strokeWidth = 2 }: { size?: number; strokeWidth?: number }) {
@@ -494,6 +494,15 @@ function SettingsDropdown<T extends string>({ value, options, onChange, title }:
 // ── Filename span styles — active (amber) and default (muted) ─────────────────
 const FILENAME_SPAN_DEFAULT: React.CSSProperties = { fontSize: 'var(--text-xs)', color: 'var(--text-muted)' }
 const FILENAME_SPAN_ACTIVE:  React.CSSProperties = { fontSize: 'var(--text-xs)', color: 'var(--text-amber)', fontWeight: 500 }
+// Revealed-hidden-file row (showHiddenLibraryFiles on) — dimmest amber shade,
+// not a generic gray fade, so it still reads as "library color" not "disabled".
+const FILENAME_SPAN_HIDDEN:  React.CSSProperties = { fontSize: 'var(--text-xs)', color: 'var(--text-amber-dimmest)' }
+
+// ── Sticky headers stack: "Folders" section header (top:0) → individual
+// folder header (top:FOLDER_HEADER_HEIGHT) → loaded file's row, if visible,
+// pins directly beneath whichever headers are above it in its group (0, 1,
+// or 2 header-heights) — or the very top, for a loaded root-group file. ─────
+const FOLDER_HEADER_HEIGHT = 30
 
 const MENU_ITEM_STYLE: React.CSSProperties = {
   width: '100%', padding: '8px 14px',
@@ -526,6 +535,9 @@ function LibraryPanel() {
   // ── Hidden files — client-side exclusion list, no disk change ────────────
   const hiddenLibraryFiles = useStore((s) => s.hiddenLibraryFiles)
   const hideLibraryFile    = useStore((s) => s.hideLibraryFile)
+  const unhideLibraryFile  = useStore((s) => s.unhideLibraryFile)
+  const showHiddenLibraryFiles    = useStore((s) => s.showHiddenLibraryFiles)
+  const setShowHiddenLibraryFiles = useStore((s) => s.setShowHiddenLibraryFiles)
   const remapLibraryPaths  = useStore((s) => s.remapLibraryPaths)
   const setFavourites      = useStore((s) => s.setFavourites)
   const lastFolderOf       = useStore((s) => s.lastFolderOf)
@@ -536,8 +548,11 @@ function LibraryPanel() {
   const [librarySearch, setLibrarySearch] = useState('')
   // Folders start expanded (not in collapsed set)
   const [expandedFolders, setExpandedFolders] = useState<Set<string>>(new Set())
+  // Whole "Folders" section (all folder rows, collapsed under one row) — starts expanded
+  const [foldersSectionExpanded, setFoldersSectionExpanded] = useState(true)
   // ── Context menu state — file/multi-select menu (path+x+y) or folder menu (folder+x+y) ──
   const [contextMenu, setContextMenu] = useState<{ path: string; x: number; y: number } | null>(null)
+  const [fileInfoTarget, setFileInfoTarget] = useState<{ path: string; name: string } | null>(null)
   const [folderContextMenu, setFolderContextMenu] = useState<{ folder: string; x: number; y: number } | null>(null)
   const menuRef = useRef<HTMLDivElement>(null)
   const folderMenuRef = useRef<HTMLDivElement>(null)
@@ -545,6 +560,13 @@ function LibraryPanel() {
   // ── Multi-select + folder organization state ──────────────────────────────
   const PROTECTED_FOLDERS = ['demo', 'orfeo']
   const isProtectedFolder = (name: string | null | undefined) => !!name && PROTECTED_FOLDERS.includes(name.toLowerCase())
+  // ── Narrower than isProtectedFolder — for FILES, not the folder itself.
+  // "Orfeo" isn't one well-known folder: every saved version lands in an
+  // "Orfeo" folder next to its source (see electron/main.ts getOrfeoOutputDir),
+  // so using the folder-level check here blocked organizing any saved version
+  // ever created. Demo is genuinely read-only bundled content and stays
+  // blocked; Orfeo is the user's own output and shouldn't be. ────────────────
+  const isReadOnlyFolder = (name: string | null | undefined) => !!name && name.toLowerCase() === 'demo'
   const [selectedPaths, setSelectedPaths] = useState<Set<string>>(new Set())
   const [selectionAnchor, setSelectionAnchor] = useState<string | null>(null)
   const [draggingPaths, setDraggingPaths] = useState<string[] | null>(null)
@@ -659,7 +681,8 @@ function LibraryPanel() {
 
   const handleFolderContextMenu = (e: React.MouseEvent, folder: string) => {
     e.preventDefault()
-    if (isProtectedFolder(folder)) return
+    // Protected folders (Orfeo) still get the menu — just Show in explorer,
+    // not Rename/Move/Delete (guarded inside the menu render below).
     setFolderContextMenu({ folder, x: e.clientX, y: e.clientY })
   }
 
@@ -728,7 +751,7 @@ function LibraryPanel() {
   // ── Move a set of file paths into destFolder (null = library root) ────────
   const moveFilesToFolder = async (paths: string[], destFolder: string | null) => {
     if (!libraryFolder || paths.length === 0) return
-    const movable = paths.filter(p => !isProtectedFolder(currentFolderOf(p)) && currentFolderOf(p) !== destFolder)
+    const movable = paths.filter(p => !isReadOnlyFolder(currentFolderOf(p)) && currentFolderOf(p) !== destFolder)
     if (movable.length === 0) return
     const prevFolders = new Map(movable.map(p => [p, currentFolderOf(p)]))
     const pairs = await window.electronAPI.moveLibraryFiles(movable, libraryFolder, destFolder)
@@ -827,7 +850,7 @@ function LibraryPanel() {
   }
 
   const handleFileDragStart = (e: React.DragEvent, filePath: string) => {
-    if (isProtectedFolder(currentFolderOf(filePath))) { e.preventDefault(); return }
+    if (isReadOnlyFolder(currentFolderOf(filePath))) { e.preventDefault(); return }
     const paths = selectedPaths.has(filePath) ? Array.from(selectedPaths) : [filePath]
     if (!selectedPaths.has(filePath)) { setSelectedPaths(new Set([filePath])); setSelectionAnchor(filePath) }
     setDraggingPaths(paths)
@@ -885,14 +908,18 @@ function LibraryPanel() {
       if (!result) return
 
       let base64    = result.base64
-      const parseName = result.fileName
+      let resolvedFilePath = filePath
+      let parseName = result.fileName
       const { useStore: storeModule } = await import('../../store')
       const libraryFolder = (storeModule.getState() as any).libraryFolder as string | null ?? null
 
       const { resolveAndTrackImport, base64ToBytes } = await import('../../utils/foreignFormatImport')
 
       try {
-        base64 = await resolveAndTrackImport(filePath, base64, result.fileName, libraryFolder)
+        const resolved = await resolveAndTrackImport(filePath, base64, result.fileName, libraryFolder)
+        base64 = resolved.base64
+        resolvedFilePath = resolved.filePath
+        parseName = resolved.fileName
       } catch (e: any) {
         console.error('[Orfeo] Foreign format conversion failed:', e)
         return
@@ -901,7 +928,8 @@ function LibraryPanel() {
       const { parseMidiBuffer } = await import('../../utils/midiParser')
       const { detectKeyFromTracks, parseKeySignature } = await import('../../utils/keyDetection')
       const bytes  = base64ToBytes(base64)
-      const parsed = parseMidiBuffer(bytes.buffer as ArrayBuffer, parseName, filePath) // _filePath = original source
+      // _filePath = original source, or the on-disk .mid cache once saved (see resolveAndTrackImport)
+      const parsed = parseMidiBuffer(bytes.buffer as ArrayBuffer, parseName, resolvedFilePath)
       storeModule.getState().setMidi(parsed)
       const raw = parsed as any
       if (raw._keySignature != null) {
@@ -935,11 +963,14 @@ function LibraryPanel() {
   type FileGroup = { folder: string | null; files: LibraryFile[] }
   const grouped: FileGroup[] = useMemo(() => {
     const hiddenSet = new Set(hiddenLibraryFiles)
+    // When revealed, hidden files stay in the list (dimmed at render time) —
+    // otherwise they're excluded here so the rest of the render sees a clean list.
+    const isExcluded = (f: LibraryFile) => !showHiddenLibraryFiles && hiddenSet.has(f.path)
 
     if (librarySearch.trim()) {
       const matches = libraryFuse.search(librarySearch.trim())
         .map(r => r.item)
-        .filter(f => !hiddenSet.has(f.path))
+        .filter(f => !isExcluded(f))
       return [{ folder: null, files: matches }]
     }
 
@@ -947,11 +978,15 @@ function LibraryPanel() {
     // Files stay physically wherever they are on disk; this tab is just a
     // cross-folder view of everything currently favourited. ─────────────────
     if (filter === 'starred') {
-      const matches = libraryFiles.filter(f => libraryFavourites.has(f.path) && !hiddenSet.has(f.path))
+      const matches = libraryFiles.filter(f => libraryFavourites.has(f.path) && !isExcluded(f))
       return [{ folder: null, files: matches }]
     }
 
-    const allFiles = libraryFiles.filter((f: LibraryFile) => !hiddenSet.has(f.path))
+    // The loaded file additionally gets its own always-visible pinned bar
+    // above this list (see render below) — it still renders here too, at its
+    // normal alphabetical spot inside its folder, so a folder's contents
+    // never look like a file went missing just because it's the loaded one.
+    const allFiles = libraryFiles.filter((f: LibraryFile) => !isExcluded(f))
 
     const rootFiles: LibraryFile[] = []
     const folderMap = new Map<string, LibraryFile[]>()
@@ -984,9 +1019,11 @@ function LibraryPanel() {
     // Starred-first grouping only applies inside the dedicated "starred" filter tab.
     const result: FileGroup[] = []
 
-    // ── Sort folders: Demo pinned first, rest alphabetical ───────────────────
+    // ── Sort folders: Orfeo always topmost, Demo pinned next, rest alphabetical ──
     Array.from(folderMap.entries())
       .sort((a, b) => {
+        if (a[0].toLowerCase() === 'orfeo') return -1
+        if (b[0].toLowerCase() === 'orfeo') return 1
         if (a[0].toLowerCase() === 'demo') return -1
         if (b[0].toLowerCase() === 'demo') return 1
         return a[0].localeCompare(b[0])
@@ -997,7 +1034,7 @@ function LibraryPanel() {
     result.push({ folder: null, files: rootFiles })
 
     return result
-  }, [libraryFiles, libraryFavourites, libraryFolder, filter, hiddenLibraryFiles, librarySearch, libraryFuse, libraryFolderNames])
+  }, [libraryFiles, libraryFavourites, libraryFolder, filter, hiddenLibraryFiles, showHiddenLibraryFiles, librarySearch, libraryFuse, libraryFolderNames])
 
   // ── Flat visible file order (collapsed folders excluded) — anchors Shift-range select ──
   const visibleFilePaths = useMemo(
@@ -1007,6 +1044,18 @@ function LibraryPanel() {
 
   const realFolders = libraryFolderNames.filter(f => !isProtectedFolder(f)).sort((a, b) => a.localeCompare(b))
   const folderIsEmpty = (folder: string) => (grouped.find(g => g.folder === folder)?.files.length ?? 0) === 0
+
+  // ── The loaded file, pinned in its own bar above the list (see render below)
+  // instead of relying on CSS sticky — sticky only holds an element in place
+  // while its normal scroll position is still in view; it doesn't pull the
+  // element out of a collapsed folder or up from wherever it sorts alphabetically.
+  // Pinning is a real reorder: excluded from `grouped` above, shown here instead. ──
+  const loadedFile = loadedFilePath
+    ? libraryFiles.find(f => f.path.replace(/\\/g, '/') === loadedFilePath.replace(/\\/g, '/'))
+    : undefined
+  const loadedFileFolder = loadedFile ? currentFolderOf(loadedFile.path) : null
+  // Every other sticky header stacks below the pinned bar when one is showing.
+  const pinnedBarOffset = loadedFile ? FOLDER_HEADER_HEIGHT : 0
 
   const toggleFolder = (folder: string) => setExpandedFolders(prev => {
     const next = new Set(prev)
@@ -1103,7 +1152,7 @@ function LibraryPanel() {
                   onClick={() => setFilter(f)}
                   title={f === 'all' ? 'Show all files' : 'Show favorites only'}
                   style={{
-                    flex: 1, padding: '3px 0', borderRadius: 4, fontSize: 10,
+                    flex: 1, padding: '3px 2px', borderRadius: 4, fontSize: 9,
                     border: filter === f ? '1px solid var(--accent-amber-strong)' : '1px solid var(--border2)',
                     background: filter === f ? 'var(--accent-amber-medium)' : 'transparent',
                     color: filter === f ? 'var(--text-amber)' : 'var(--text-inactive)',
@@ -1127,6 +1176,22 @@ function LibraryPanel() {
               >
                 <Folders size={10} />
               </button>
+              <button
+                onClick={() => setShowHiddenLibraryFiles(!showHiddenLibraryFiles)}
+                title={showHiddenLibraryFiles ? 'Hide hidden files in library' : 'Reveal hidden files in library'}
+                style={{
+                  padding: '3px 6px', borderRadius: 4, fontSize: 10,
+                  border: showHiddenLibraryFiles ? '1px solid var(--accent-amber-strong)' : '1px solid var(--border2)',
+                  background: showHiddenLibraryFiles ? 'var(--accent-amber-medium)' : 'transparent',
+                  color: showHiddenLibraryFiles ? 'var(--text-amber)' : 'var(--text-inactive)',
+                  cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  transition: 'all 0.12s',
+                }}
+                onMouseEnter={e => { if (!showHiddenLibraryFiles) e.currentTarget.style.color = 'var(--text-amber)' }}
+                onMouseLeave={e => { if (!showHiddenLibraryFiles) e.currentTarget.style.color = 'var(--text-inactive)' }}
+              >
+                <ChevronsDownUp size={10} />
+              </button>
             </div>
           </div>
         ) : (
@@ -1143,7 +1208,7 @@ function LibraryPanel() {
             onMouseLeave={e => { e.currentTarget.style.borderColor = 'var(--state-disabled)'; e.currentTarget.style.color = 'var(--text-dim-control)' }}
           >
             <FolderOpen size={13} />
-            Set MIDI folder
+            Set your MIDI folder
           </button>
         )}
       </div>
@@ -1196,14 +1261,52 @@ function LibraryPanel() {
             }}
           >
             <button
-              onClick={() => { hideLibraryFile(contextMenu.path); setContextMenu(null) }}
-              title="Hides this file from the library list — stays on disk, unaffected"
+              onClick={() => { window.electronAPI.showItemInFolder(contextMenu.path); setContextMenu(null) }}
+              title="Opens Windows Explorer with this file highlighted"
               style={MENU_ITEM_STYLE}
               onMouseEnter={e => { e.currentTarget.style.background = 'var(--bg-tile)'; e.currentTarget.style.color = 'var(--text-amber)' }}
               onMouseLeave={e => { e.currentTarget.style.background = 'none';           e.currentTarget.style.color = 'var(--text-default)' }}
             >
-              Remove from Library
+              Show in folder
             </button>
+            <button
+              onClick={() => {
+                const path = contextMenu.path
+                const name = libraryFiles.find(f => f.path === path)?.name ?? path.split(/[\\/]/).pop() ?? path
+                setFileInfoTarget({ path, name })
+                setContextMenu(null)
+              }}
+              title="Tempo, key, artist/song, track count, and copyright — read-only"
+              style={MENU_ITEM_STYLE}
+              onMouseEnter={e => { e.currentTarget.style.background = 'var(--bg-tile)'; e.currentTarget.style.color = 'var(--text-amber)' }}
+              onMouseLeave={e => { e.currentTarget.style.background = 'none';           e.currentTarget.style.color = 'var(--text-default)' }}
+            >
+              File info
+            </button>
+
+            <div style={{ borderTop: '1px solid var(--border2)', margin: '4px 0' }} />
+
+            {hiddenLibraryFiles.includes(contextMenu.path) ? (
+              <button
+                onClick={() => { unhideLibraryFile(contextMenu.path); setContextMenu(null) }}
+                title="Restores this file to the normal library list"
+                style={MENU_ITEM_STYLE}
+                onMouseEnter={e => { e.currentTarget.style.background = 'var(--bg-tile)'; e.currentTarget.style.color = 'var(--text-amber)' }}
+                onMouseLeave={e => { e.currentTarget.style.background = 'none';           e.currentTarget.style.color = 'var(--text-default)' }}
+              >
+                Unhide
+              </button>
+            ) : (
+              <button
+                onClick={() => { hideLibraryFile(contextMenu.path); setContextMenu(null) }}
+                title="Hides this file from the library list — stays on disk, unaffected"
+                style={MENU_ITEM_STYLE}
+                onMouseEnter={e => { e.currentTarget.style.background = 'var(--bg-tile)'; e.currentTarget.style.color = 'var(--text-amber)' }}
+                onMouseLeave={e => { e.currentTarget.style.background = 'none';           e.currentTarget.style.color = 'var(--text-default)' }}
+              >
+                Hide from library
+              </button>
+            )}
 
             {lastFolderOf.has(contextMenu.path) && (
               <button
@@ -1217,8 +1320,12 @@ function LibraryPanel() {
               </button>
             )}
 
-            {/* ── Organize actions — hidden entirely if the selection touches a protected (Demo/Orfeo) file ── */}
-            {!Array.from(selectedPaths.size > 0 ? selectedPaths : [contextMenu.path]).some(p => isProtectedFolder(currentFolderOf(p))) && (
+            {/* ── Organize actions — hidden only if EVERY selected file is protected
+                (Demo/Orfeo). A mixed selection still shows this: the move backend
+                already skips protected-folder files individually (fs:moveLibraryFiles
+                in main.ts), so hiding the whole block for one protected file in an
+                otherwise-movable multi-select blocked the rest for no reason. ────── */}
+            {!Array.from(selectedPaths.size > 0 ? selectedPaths : [contextMenu.path]).every(p => isReadOnlyFolder(currentFolderOf(p))) && (
               <>
                 <div style={{ borderTop: '1px solid var(--border2)', margin: '4px 0' }} />
                 <button
@@ -1281,36 +1388,111 @@ function LibraryPanel() {
             }}
           >
             <button
-              onClick={() => { setRenamingFolder(folderContextMenu.folder); setRenameDraft(folderContextMenu.folder); setFolderContextMenu(null) }}
-              title="Renames this folder on disk"
+              onClick={() => { const folder = folderContextMenu.folder; setFolderContextMenu(null); if (libraryFolder) window.electronAPI.openFolderInExplorer(`${libraryFolder}/${folder}`) }}
+              title="Opens this folder in File Explorer"
               style={MENU_ITEM_STYLE}
               onMouseEnter={e => { e.currentTarget.style.background = 'var(--bg-tile)'; e.currentTarget.style.color = 'var(--text-amber)' }}
               onMouseLeave={e => { e.currentTarget.style.background = 'none';           e.currentTarget.style.color = 'var(--text-default)' }}
             >
-              Rename
+              Show in explorer
             </button>
-            <button
-              onClick={() => { const folder = folderContextMenu.folder; setFolderContextMenu(null); moveFilesToFolder(Array.from(selectedPaths), folder) }}
-              disabled={selectedPaths.size === 0}
-              title={selectedPaths.size === 0 ? 'Select file(s) first' : `Moves the ${selectedPaths.size} selected file(s) into this folder`}
-              style={{ ...MENU_ITEM_STYLE, opacity: selectedPaths.size === 0 ? 0.4 : 1, cursor: selectedPaths.size === 0 ? 'default' : 'pointer' }}
-              onMouseEnter={e => { if (selectedPaths.size > 0) { e.currentTarget.style.background = 'var(--bg-tile)'; e.currentTarget.style.color = 'var(--text-amber)' } }}
-              onMouseLeave={e => { e.currentTarget.style.background = 'none'; e.currentTarget.style.color = 'var(--text-default)' }}
-            >
-              Move {selectedPaths.size || ''} selected files here
-            </button>
-            <button
-              onClick={() => { const folder = folderContextMenu.folder; setFolderContextMenu(null); handleDeleteFolder(folder) }}
-              disabled={!folderIsEmpty(folderContextMenu.folder)}
-              title={!folderIsEmpty(folderContextMenu.folder) ? 'Move files out first' : 'Deletes this empty folder from disk'}
-              style={{ ...MENU_ITEM_STYLE, opacity: !folderIsEmpty(folderContextMenu.folder) ? 0.4 : 1, cursor: !folderIsEmpty(folderContextMenu.folder) ? 'default' : 'pointer' }}
-              onMouseEnter={e => { if (folderIsEmpty(folderContextMenu.folder)) { e.currentTarget.style.background = 'var(--bg-tile)'; e.currentTarget.style.color = '#e05a5a' } }}
-              onMouseLeave={e => { e.currentTarget.style.background = 'none'; e.currentTarget.style.color = 'var(--text-default)' }}
-            >
-              Delete
-            </button>
+            {!isProtectedFolder(folderContextMenu.folder) && (<>
+              <button
+                onClick={() => { setRenamingFolder(folderContextMenu.folder); setRenameDraft(folderContextMenu.folder); setFolderContextMenu(null) }}
+                title="Renames this folder on disk"
+                style={MENU_ITEM_STYLE}
+                onMouseEnter={e => { e.currentTarget.style.background = 'var(--bg-tile)'; e.currentTarget.style.color = 'var(--text-amber)' }}
+                onMouseLeave={e => { e.currentTarget.style.background = 'none';           e.currentTarget.style.color = 'var(--text-default)' }}
+              >
+                Rename
+              </button>
+              <button
+                onClick={() => { const folder = folderContextMenu.folder; setFolderContextMenu(null); moveFilesToFolder(Array.from(selectedPaths), folder) }}
+                disabled={selectedPaths.size === 0}
+                title={selectedPaths.size === 0 ? 'Select file(s) first' : `Moves the ${selectedPaths.size} selected file(s) into this folder`}
+                style={{ ...MENU_ITEM_STYLE, opacity: selectedPaths.size === 0 ? 0.4 : 1, cursor: selectedPaths.size === 0 ? 'default' : 'pointer' }}
+                onMouseEnter={e => { if (selectedPaths.size > 0) { e.currentTarget.style.background = 'var(--bg-tile)'; e.currentTarget.style.color = 'var(--text-amber)' } }}
+                onMouseLeave={e => { e.currentTarget.style.background = 'none'; e.currentTarget.style.color = 'var(--text-default)' }}
+              >
+                Move {selectedPaths.size || ''} selected files here
+              </button>
+              <button
+                onClick={() => { const folder = folderContextMenu.folder; setFolderContextMenu(null); handleDeleteFolder(folder) }}
+                disabled={!folderIsEmpty(folderContextMenu.folder)}
+                title={!folderIsEmpty(folderContextMenu.folder) ? 'Move files out first' : 'Deletes this empty folder from disk'}
+                style={{ ...MENU_ITEM_STYLE, opacity: !folderIsEmpty(folderContextMenu.folder) ? 0.4 : 1, cursor: !folderIsEmpty(folderContextMenu.folder) ? 'default' : 'pointer' }}
+                onMouseEnter={e => { if (folderIsEmpty(folderContextMenu.folder)) { e.currentTarget.style.background = 'var(--bg-tile)'; e.currentTarget.style.color = '#e05a5a' } }}
+                onMouseLeave={e => { e.currentTarget.style.background = 'none'; e.currentTarget.style.color = 'var(--text-default)' }}
+              >
+                Delete
+              </button>
+            </>)}
           </div>
         )}
+
+        {/* ── Pinned active file — always the first thing visible, regardless of
+            scroll position or folder expand/collapse. Still renders at its
+            normal spot inside its folder too (see `grouped` above) — this is
+            an always-visible SUMMARY, not a move, so a folder's contents never
+            look incomplete just because one of them is the loaded file.
+            Exactly FOLDER_HEADER_HEIGHT tall (single line, no wrapping) so
+            every other sticky header's offset math below stays correct — a
+            taller pinned bar would visually overlap the header stacked right
+            under it. ─────────────────────────────────────────────────────── */}
+        {loadedFile && (() => {
+          const starred = libraryFavourites.has(loadedFile.path)
+          const fmt = detectForeignFormat(loadedFile.path)
+          const RowIcon = fmt === 'musicxml' ? FileCode2 : fmt === 'guitarpro' ? Guitar : FileMusic
+          return (
+            <div
+              title={`${loadedFile.name} · Right-click for options`}
+              style={{
+                display: 'flex', alignItems: 'center', gap: 6,
+                padding: '0 10px', minHeight: FOLDER_HEADER_HEIGHT, boxSizing: 'border-box',
+                background: 'var(--panel)',
+                borderBottom: '1px solid var(--accent-amber-strong)',
+                position: 'sticky', top: 0, zIndex: 5,
+              }}
+              onContextMenu={e => handleContextMenu(e, loadedFile!.path)}
+            >
+              {chordTranscriptionEnabled ? (
+                <TranscriptIcon filePath={loadedFile.path} noteNaming={noteNaming} accidentals={accidentals} addTranscriptEntry={addTranscriptEntry} isLoaded />
+              ) : (
+                <RowIcon size={11} strokeWidth={1.5} style={{ color: 'var(--text-amber)', flexShrink: 0 }} />
+              )}
+              <div style={{ flex: 1, minWidth: 0, display: 'flex', alignItems: 'baseline', gap: 6 }}>
+                <MarqueeText name={loadedFile.name.replace(/\.(mid|midi)$/i, '')} spanStyle={FILENAME_SPAN_ACTIVE} />
+                {loadedFileFolder && (
+                  <span style={{ fontSize: 8, color: 'var(--text-inactive)', fontFamily: 'JetBrains Mono', flexShrink: 0 }}>{loadedFileFolder}</span>
+                )}
+              </div>
+              {lastFolderOf.has(loadedFile.path) && (
+                <button
+                  onClick={e => { e.stopPropagation(); handleUndoMove(loadedFile!.path) }}
+                  title={`Move back to ${lastFolderOf.get(loadedFile.path) ?? 'library root'}`}
+                  style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-inactive)', padding: '2px 3px', display: 'flex', alignItems: 'center', flexShrink: 0, transition: 'color 0.12s' }}
+                  onMouseEnter={e => e.currentTarget.style.color = 'var(--text-amber)'}
+                  onMouseLeave={e => e.currentTarget.style.color = 'var(--text-inactive)'}
+                >
+                  <Undo2 size={11} />
+                </button>
+              )}
+              <button
+                onClick={e => { e.stopPropagation(); toggleFavourite(loadedFile!.path) }}
+                title={starred ? 'Remove from favourites' : 'Add to favourites'}
+                style={{
+                  background: 'none', border: 'none', cursor: 'pointer',
+                  color: starred ? 'var(--text-amber)' : 'var(--state-disabled)',
+                  padding: '2px 3px', display: 'flex', alignItems: 'center',
+                  flexShrink: 0, fontSize: 'var(--text-sm)', lineHeight: 1,
+                  transition: 'color 0.12s',
+                }}
+                onMouseEnter={e => { if (!starred) e.currentTarget.style.color = 'var(--state-star-hover)' }}
+                onMouseLeave={e => { if (!starred) e.currentTarget.style.color = 'var(--state-disabled)' }}
+              >★</button>
+            </div>
+          )
+        })()}
 
         {/* Empty state */}
         {libraryFolder && !hasAnyFiles && (
@@ -1333,9 +1515,10 @@ function LibraryPanel() {
               <span style={{ flex: 1, fontSize: 'var(--text-xs)', color: 'var(--text-tile-subtext)', fontWeight: 600 }}>Demo</span>
               <span style={{ fontSize: 9, color: 'var(--text-muted)', fontFamily: 'JetBrains Mono' }}>{demoFiles.length}</span>
             </div>
-            {demoFiles.filter((f: { name: string; path: string }) => !hiddenLibraryFiles.includes(f.path)).map(file => {
+            {demoFiles.filter((f: { name: string; path: string }) => showHiddenLibraryFiles || !hiddenLibraryFiles.includes(f.path)).map(file => {
               const isLoaded = !!loadedFilePath &&
                 file.path.replace(/\\/g, '/') === loadedFilePath.replace(/\\/g, '/')
+              const isHidden = hiddenLibraryFiles.includes(file.path)
               const fmt = detectForeignFormat(file.path)
               const RowIcon = fmt === 'musicxml' ? FileCode2 : fmt === 'guitarpro' ? Guitar : FileMusic
               const rowTitle = fmt === 'musicxml'  ? `${file.name} (MusicXML — imported)`
@@ -1360,17 +1543,42 @@ function LibraryPanel() {
                   {chordTranscriptionEnabled ? (
                     <TranscriptIcon filePath={file.path} noteNaming={noteNaming} accidentals={accidentals} addTranscriptEntry={addTranscriptEntry} isLoaded={isLoaded} />
                   ) : (
-                    <RowIcon size={11} strokeWidth={1.5} style={{ color: isLoaded ? 'var(--text-amber)' : 'var(--text-muted)', flexShrink: 0 }} />
+                    <RowIcon size={11} strokeWidth={1.5} style={{ color: isHidden ? 'var(--text-amber-dimmest)' : isLoaded ? 'var(--text-amber)' : 'var(--text-muted)', flexShrink: 0 }} />
                   )}
-                  <MarqueeText name={file.name.replace(/\.(mid|midi)$/i, '')} spanStyle={isLoaded ? FILENAME_SPAN_ACTIVE : FILENAME_SPAN_DEFAULT} />
+                  <MarqueeText name={file.name.replace(/\.(mid|midi)$/i, '')} spanStyle={isHidden ? FILENAME_SPAN_HIDDEN : isLoaded ? FILENAME_SPAN_ACTIVE : FILENAME_SPAN_DEFAULT} />
                 </div>
               )
             })}
           </div>
         )}
 
+        {/* ── "Folders" section — one collapsible row for the whole stack of folder
+            groups, so a large library can be collapsed down to just its root files.
+            Sticky at the very top; individual folder headers stick right beneath it. ── */}
+        {grouped.some(g => g.folder && !(hideDemoFolder && g.folder.toLowerCase() === 'demo')) && (
+          <div
+            onClick={() => setFoldersSectionExpanded(v => !v)}
+            title={foldersSectionExpanded ? 'Collapse all folders' : 'Expand folders'}
+            style={{
+              display: 'flex', alignItems: 'center', gap: 6,
+              padding: '6px 10px', minHeight: FOLDER_HEADER_HEIGHT, boxSizing: 'border-box',
+              background: 'var(--bg-row)', borderBottom: '1px solid var(--bg-tile)',
+              cursor: 'pointer', userSelect: 'none',
+              position: 'sticky', top: pinnedBarOffset, zIndex: 4,
+            }}
+            onMouseEnter={e => (e.currentTarget as HTMLElement).style.background = '#111120'}
+            onMouseLeave={e => (e.currentTarget as HTMLElement).style.background = 'var(--bg-row)'}
+          >
+            {foldersSectionExpanded
+              ? <ChevronDown size={11} style={{ color: 'var(--text-amber)', flexShrink: 0 }} />
+              : <ChevronRight size={11} style={{ color: 'var(--text-amber)', flexShrink: 0 }} />}
+            <span style={{ flex: 1, fontSize: 'var(--text-xs)', color: 'var(--text-tile-subtext)', fontWeight: 600 }}>Folders</span>
+          </div>
+        )}
+
         {/* ── hideDemoFolder filters the Demo subfolder from display ───────── */}
         {grouped.filter(g => !(hideDemoFolder && g.folder?.toLowerCase() === 'demo')).map((group, gi) => {
+          if (group.folder && !foldersSectionExpanded) return null
           const protectedFolder = isProtectedFolder(group.folder)
           const isDropTarget = !!group.folder && !protectedFolder && dragOverFolder === group.folder
           return (
@@ -1396,25 +1604,21 @@ function LibraryPanel() {
                   }}
                   onDragLeave={e => { if (!e.currentTarget.contains(e.relatedTarget as Node)) setDragOverFolder(null) }}
                   onDrop={e => !protectedFolder && handleFolderDrop(e, group.folder!)}
-                  title={isRenaming ? undefined : protectedFolder ? `${group.folder} — cannot be modified` : (expandedFolders.has(group.folder!) ? 'Collapse folder — right-click for rename/delete/move options' : 'Expand folder — right-click for rename/delete/move options')}
+                  title={isRenaming || protectedFolder ? undefined : (expandedFolders.has(group.folder!) ? 'Collapse folder — right-click for rename/delete/move options' : 'Expand folder — right-click for rename/delete/move options')}
                   style={{
                     display: 'flex', alignItems: 'center', gap: 6,
-                    padding: '6px 10px',
+                    padding: '6px 10px', minHeight: FOLDER_HEADER_HEIGHT, boxSizing: 'border-box',
                     background: isDropTarget ? 'var(--accent-amber-subtle)' : isProtectedHover ? 'rgba(224,90,90,0.10)' : 'var(--bg-row)',
                     outline: isDropTarget ? '1px solid var(--accent-amber-strong)' : isProtectedHover ? '1px solid #e05a5a' : 'none',
                     outlineOffset: -1,
                     borderBottom: '1px solid var(--bg-tile)',
                     borderTop: gi > 0 ? '1px solid var(--border)' : 'none',
                     cursor: isRenaming ? 'default' : 'pointer', userSelect: 'none',
+                    position: 'sticky', top: pinnedBarOffset + FOLDER_HEADER_HEIGHT, zIndex: 3,
                   }}
                   onMouseEnter={e => { if (!isDropTarget && !isProtectedHover) (e.currentTarget as HTMLElement).style.background = '#111120' }}
                   onMouseLeave={e => { if (!isDropTarget && !isProtectedHover) (e.currentTarget as HTMLElement).style.background = 'var(--bg-row)' }}
                 >
-                  {isRenaming ? <span style={{ width: 11, flexShrink: 0 }} /> : (
-                    expandedFolders.has(group.folder!)
-                      ? <ChevronDown size={11} style={{ color: 'var(--text-inactive)', flexShrink: 0 }} />
-                      : <ChevronRight size={11} style={{ color: 'var(--text-inactive)', flexShrink: 0 }} />
-                  )}
                   <FolderOpen size={12} style={{ color: 'var(--accent-amber-icon-dim)', flexShrink: 0 }} />
                   {isRenaming ? (
                     <input
@@ -1487,6 +1691,7 @@ function LibraryPanel() {
               const isLoaded  = !!loadedFilePath &&
                 file.path.replace(/\\/g, '/') === loadedFilePath.replace(/\\/g, '/')
               const isSelected = selectedPaths.has(file.path)
+              const isHidden  = hiddenLibraryFiles.includes(file.path)
               // ── Cell border+background is reserved for multi-select (2+ files, the
               // drag/create-folder gesture) — a single selected/loaded file only gets
               // its icon+filename highlighted amber, no cell decoration. ─────────────
@@ -1496,7 +1701,11 @@ function LibraryPanel() {
               const rowTitle = fmt === 'musicxml'  ? `${file.name} (MusicXML — imported)`
                              : fmt === 'guitarpro' ? `${file.name} (Guitar Pro — imported)`
                              : file.name
-              const rowBg = isLoaded ? 'var(--accent-amber-medium)' : isMultiSelected ? 'var(--accent-amber-subtle)' : 'transparent'
+              // Loaded row is sticky (see below) so its background must be opaque, not
+              // the translucent amber tint — otherwise rows scrolling underneath bleed
+              // through. Reads as a plain/unselected row; the amber filename still
+              // marks it as loaded.
+              const rowBg = isLoaded ? 'var(--panel)' : isMultiSelected ? 'var(--accent-amber-subtle)' : 'transparent'
               // ── Draw one bordered "box" around each contiguous run of selected rows,
               // instead of an outline on every individual row — top/bottom border only
               // where the neighbor in visual order isn't also selected. ────────────────
@@ -1535,9 +1744,9 @@ function LibraryPanel() {
                   {chordTranscriptionEnabled ? (
                     <TranscriptIcon filePath={file.path} noteNaming={noteNaming} accidentals={accidentals} addTranscriptEntry={addTranscriptEntry} isLoaded={isLoaded} />
                   ) : (
-                    <RowIcon size={11} strokeWidth={1.5} style={{ color: isLoaded || isSelected ? 'var(--text-amber)' : 'var(--text-muted)', flexShrink: 0 }} />
+                    <RowIcon size={11} strokeWidth={1.5} style={{ color: isHidden ? 'var(--text-amber-dimmest)' : isLoaded || isSelected ? 'var(--text-amber)' : 'var(--text-muted)', flexShrink: 0 }} />
                   )}
-                  <MarqueeText name={file.name.replace(/\.(mid|midi)$/i, '')} spanStyle={isLoaded || isSelected ? FILENAME_SPAN_ACTIVE : FILENAME_SPAN_DEFAULT} />
+                  <MarqueeText name={file.name.replace(/\.(mid|midi)$/i, '')} spanStyle={isHidden ? FILENAME_SPAN_HIDDEN : isLoaded || isSelected ? FILENAME_SPAN_ACTIVE : FILENAME_SPAN_DEFAULT} />
                   {lastFolderOf.has(file.path) && (
                     <button
                       onClick={e => { e.stopPropagation(); handleUndoMove(file.path) }}
@@ -1591,6 +1800,25 @@ function LibraryPanel() {
           </div>
         )}
       </div>
+
+      {fileInfoTarget && (
+        <FileInfoModal
+          filePath={fileInfoTarget.path}
+          fileName={fileInfoTarget.name}
+          onClose={() => setFileInfoTarget(null)}
+          onRenamed={(oldPath, newPath, newName) => {
+            setLibraryFiles(libraryFiles.map(f => f.path === oldPath ? { path: newPath, name: newName } : f))
+            remapLibraryPaths([{ oldPath, newPath }])
+            // Currently-loaded file got renamed underneath it — patch the store's
+            // in-memory path/name so a subsequent Playback Editor save resolves
+            // against the new location instead of a path that no longer exists.
+            if (loadedFilePath && loadedFilePath.replace(/\\/g, '/') === oldPath.replace(/\\/g, '/')) {
+              useStore.setState(s => s.midi ? { midi: { ...(s.midi as any), _filePath: newPath, fileName: newName } } : {})
+            }
+            setFileInfoTarget({ path: newPath, name: newName })
+          }}
+        />
+      )}
     </div>
   )
 }
@@ -1687,6 +1915,10 @@ export default function SettingsPanel() {
   const setHandLabelMode                     = useStore((s) => s.setHandLabelMode)
   const performanceSplitSensitivity          = useStore((s) => s.performanceSplitSensitivity)
   const setPerformanceSplitSensitivity       = useStore((s) => s.setPerformanceSplitSensitivity)
+  const rhMaxFingers                 = useStore((s) => s.rhMaxFingers)
+  const setRhMaxFingers              = useStore((s) => s.setRhMaxFingers)
+  const lhMaxFingers                 = useStore((s) => s.lhMaxFingers)
+  const setLhMaxFingers              = useStore((s) => s.setLhMaxFingers)
   const autoMuteNonKeyboard         = useStore((s) => s.autoMuteNonKeyboard)
   const setAutoMuteNonKeyboard      = useStore((s) => s.setAutoMuteNonKeyboard)
   const settingsGroupsCollapsed     = useStore((s) => s.settingsGroupsCollapsed)
@@ -1912,7 +2144,7 @@ export default function SettingsPanel() {
                     onEyeChange={setNoteEditorEnabled}
                     description={
                       <>
-                        Shows <span style={{ display: 'inline-flex', verticalAlign: 'middle', color: 'var(--text-amber)' }}><NoteEditorIcon size={11} /></span> icon in the Tracks panel. Enables MIDI note-editing mode directly on the piano roll.
+                        Shows <span style={{ display: 'inline-flex', verticalAlign: 'middle', color: 'var(--text-amber)' }}><AudioLines size={11} /></span> icon in the Tracks panel. Enables MIDI note-editing mode directly on the piano roll.
                       </>
                     }
                   />
@@ -2058,41 +2290,84 @@ export default function SettingsPanel() {
                     eyeToggle
                     eyeValue={showHandLabels}
                     onEyeChange={setShowHandLabels}
-                    description="Shows which hand each note belongs to, read from the file's hand-assignment tags."
+                    description="Shows which hand each note belongs to, read from the file's hand-assignment tags. Automated — a guideline, not a verified transcription."
                   />
-                  {/* ── Mode — only visible when hand labels are on ─────────────────── */}
+                  {/* ── Sub-controls — only visible when hand labels are on ─────────── */}
                   {showHandLabels && (
                     <>
-                      {/* ── Practice / Performance mode selector ──────────────────── */}
-                      <OptionRow label="Mode" hint="Practice shows a split line that moves with the piece, averaged over a few seconds of hand tags. Performance colors each note on the keyboard by its own hand tag as it plays.">
+                      {/* ── Max fingers per hand — hard cap for the hand-assignment
+                          engine's wide-chord split point; independent per hand. This
+                          is a real cost-function parameter in the DP split algorithm
+                          (handAssignment.ts), not cosmetic — kept, just redesigned:
+                          heading, Left, Right, one shared description below. ────── */}
+                      <div style={{
+                        padding: '5px 14px 3px',
+                        fontSize: 9, color: 'var(--text-muted)', fontWeight: 600,
+                        letterSpacing: '0.1em', textTransform: 'uppercase', fontFamily: 'Inter',
+                      }}>
+                        Max Fingers
+                      </div>
+                      <OptionRow label="Left" labelSmall>
                         <div style={{ display: 'flex', gap: 'var(--space-1)' }}>
-                          <OptionBtn active={handLabelMode === 'practice'}    onClick={() => setHandLabelMode('practice')}>Practice</OptionBtn>
-                          <OptionBtn active={handLabelMode === 'performance'} onClick={() => setHandLabelMode('performance')}>Performance</OptionBtn>
+                          <OptionBtn active={lhMaxFingers === 4} onClick={() => setLhMaxFingers(4)}>4</OptionBtn>
+                          <OptionBtn active={lhMaxFingers === 5} onClick={() => setLhMaxFingers(5)}>5</OptionBtn>
                         </div>
                       </OptionRow>
-                      {handLabelMode === 'practice' && (
-                        <div style={{ padding: '2px 12px 6px', color: 'var(--text-inactive)', fontSize: 'var(--text-xs)', fontFamily: 'Inter', lineHeight: 1.5 }}>
-                          The line tracks the average pitch split between left- and right-hand notes in a ~3-second window around the playhead — not user-adjustable, it comes straight from the hand-assignment engine's tags.
+                      <OptionRow label="Right" labelSmall>
+                        <div style={{ display: 'flex', gap: 'var(--space-1)' }}>
+                          <OptionBtn active={rhMaxFingers === 4} onClick={() => setRhMaxFingers(4)}>4</OptionBtn>
+                          <OptionBtn active={rhMaxFingers === 5} onClick={() => setRhMaxFingers(5)}>5</OptionBtn>
                         </div>
-                      )}
-                      {/* ── Performance: sensitivity slider — hardware input only ────── */}
-                      {handLabelMode === 'performance' && (
+                      </OptionRow>
+                      <div style={{ padding: '2px 12px 6px', color: 'var(--text-inactive)', fontSize: 'var(--text-xs)', fontFamily: 'Inter', lineHeight: 1.5 }}>
+                        How many notes of a wide chord each hand can take before the rest is absorbed by the other — left counts from the bottom of the chord, right from the top.
+                      </div>
+                      {/* ── Mode (Practice/Performance) — disabled, not deleted.
+                          Practice mode proves inconsistent in performance for now;
+                          may return once improved. A JS false-guard instead of a
+                          JSX comment, since this block has its own inline JSX
+                          comments that would terminate a wrapping one early. ── */}
+                      {false && (
                         <>
-                          <OptionRow label={`Hardware Split Sensitivity — ${performanceSplitSensitivity} semitones`}>
-                            <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                              <span style={{ fontSize: 9, color: 'var(--text-inactive)', fontFamily: 'JetBrains Mono', flexShrink: 0 }}>2</span>
-                              <input
-                                type="range" min={2} max={16} step={1}
-                                value={performanceSplitSensitivity}
-                                onChange={e => setPerformanceSplitSensitivity(Number(e.target.value))}
-                                style={{ flex: 1, accentColor: 'var(--text-amber)', cursor: 'pointer' }}
-                              />
-                              <span style={{ fontSize: 9, color: 'var(--text-inactive)', fontFamily: 'JetBrains Mono', flexShrink: 0 }}>16</span>
+                          <OptionRow
+                            label="Mode"
+                            hint={handLabelMode === 'practice'
+                              ? 'Practice shows a split line that moves with the piece, averaged over a few seconds of hand tags.'
+                              : 'Performance colors each note on the keyboard by its own hand tag as it plays.'}
+                          >
+                            <div style={{ display: 'flex', gap: 'var(--space-1)' }}>
+                              <OptionBtn active={handLabelMode === 'practice'}    onClick={() => setHandLabelMode('practice')}>Practice</OptionBtn>
+                              <OptionBtn active={handLabelMode === 'performance'} onClick={() => setHandLabelMode('performance')}>Performance</OptionBtn>
                             </div>
                           </OptionRow>
-                          <div style={{ padding: '2px 12px 6px', color: 'var(--text-inactive)', fontSize: 'var(--text-xs)', fontFamily: 'Inter', lineHeight: 1.5 }}>
-                            Only affects notes played on a physical MIDI keyboard, which have no file tag to read. Notes from the loaded file are always colored by their exact stored hand tag, regardless of this setting.
-                          </div>
+                          {handLabelMode === 'practice' && (
+                            <div style={{ padding: '2px 12px 6px', color: 'var(--text-inactive)', fontSize: 'var(--text-xs)', fontFamily: 'Inter', lineHeight: 1.5 }}>
+                              The line tracks the average pitch split between left- and right-hand notes in a ~3-second window around the playhead — not user-adjustable, it comes straight from the hand-assignment engine's tags.
+                            </div>
+                          )}
+                          {handLabelMode === 'performance' && (
+                            <>
+                              <OptionRow label="Hardware Split Sensitivity" labelSmall>
+                                <div style={{ fontSize: 11, color: 'var(--text-dim-control)', fontFamily: 'JetBrains Mono', marginBottom: 4 }}>
+                                  {performanceSplitSensitivity} semitones
+                                </div>
+                                <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                                  <span style={{ fontSize: 9, color: 'var(--text-inactive)', fontFamily: 'JetBrains Mono', flexShrink: 0 }}>2</span>
+                                  <input
+                                    type="range" min={2} max={16} step={1}
+                                    value={performanceSplitSensitivity}
+                                    onChange={e => setPerformanceSplitSensitivity(Number(e.target.value))}
+                                    className="orfeo-slider-amber"
+                                    style={{ flex: 1, '--fill': `${((performanceSplitSensitivity - 2) / 14) * 100}%` } as CSSProperties}
+                                  />
+                                  <span style={{ fontSize: 9, color: 'var(--text-inactive)', fontFamily: 'JetBrains Mono', flexShrink: 0 }}>16</span>
+                                </div>
+                              </OptionRow>
+                              <div style={{ padding: '2px 12px 6px', color: 'var(--text-inactive)', fontSize: 'var(--text-xs)', fontFamily: 'Inter', lineHeight: 1.5 }}>
+                                Only affects notes played on a physical MIDI keyboard, which have no file tag to read.
+                              </div>
+                            </>
+                          )}
                         </>
                       )}
                     </>
@@ -2105,7 +2380,9 @@ export default function SettingsPanel() {
                     onEyeChange={setChordPrompterEnabled}
                     description={<>
                       Shows past, current and upcoming chords during playback. Click{' '}
-                      <svg xmlns="http://www.w3.org/2000/svg" width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ display: 'inline', verticalAlign: '-2px', margin: '0 2px' }}><path d="M3 7V5a2 2 0 0 1 2-2h2"/><path d="M17 3h2a2 2 0 0 1 2 2v2"/><path d="M21 17v2a2 2 0 0 1-2 2h-2"/><path d="M7 21H5a2 2 0 0 1-2-2v-2"/><rect width="10" height="8" x="7" y="8" rx="1"/></svg>
+                      <span style={{ display: 'inline-flex', verticalAlign: '-2px', margin: '0 2px', color: 'var(--text-amber)' }}>
+                        <svg xmlns="http://www.w3.org/2000/svg" width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 7V5a2 2 0 0 1 2-2h2"/><path d="M17 3h2a2 2 0 0 1 2 2v2"/><path d="M21 17v2a2 2 0 0 1-2 2h-2"/><path d="M7 21H5a2 2 0 0 1-2-2v-2"/><rect width="10" height="8" x="7" y="8" rx="1"/></svg>
+                      </span>
                       {' '}to enable it.
                     </>}
                   />
@@ -2485,8 +2762,10 @@ export default function SettingsPanel() {
                   </OptionRow>
                 </CollapsibleSection>
 
-                {/* ── About ──────────────────────────────────────────────────────── */}
-                <div style={{ padding: '14px 14px 10px', borderTop: '1px solid var(--bg-tile)', marginTop: 4, display: 'flex', alignItems: 'center', gap: 6 }}>
+                {/* ── About — single row: logo, name, version, credit. No border/margin
+                    of its own — the Theme OptionRow right above it already has a
+                    borderBottom, a second one here just made two lines with a gap. ── */}
+                <div style={{ padding: '14px 14px 10px', display: 'flex', alignItems: 'center', gap: 6 }}>
                   <button
                     onClick={() => window.electronAPI.openExternal('https://github.com/SquareBow/orfeo')}
                     title="Open Orfeo on GitHub"
@@ -2496,10 +2775,10 @@ export default function SettingsPanel() {
                     }}
                   >
                     <OrfeoMark height={16} />
-                    <span style={{ color: 'var(--text-inactive)', fontSize: 10, fontFamily: 'JetBrains Mono' }}>Orfeo · v{__APP_VERSION__}</span>
+                    <span style={{ color: 'var(--text-inactive)', fontSize: 10, fontFamily: 'JetBrains Mono', whiteSpace: 'nowrap' }}>Orfeo · v{__APP_VERSION__}</span>
                   </button>
-                  <span style={{ color: 'var(--text-inactive)', fontSize: 10, fontFamily: 'JetBrains Mono' }}>
-                    · by SquareBow
+                  <span style={{ color: 'var(--text-inactive)', fontSize: 10, fontFamily: 'JetBrains Mono', whiteSpace: 'nowrap' }}>
+                    · SquareBow
                   </span>
                 </div>
 

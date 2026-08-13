@@ -6,12 +6,13 @@ import { isBlackKey } from '../../utils/midiParser'
 import { buildKeyLayout, PIANO_RANGES as RANGES, type KeyLayout } from '../../utils/keyLayout'
 import { NES } from '../../utils/noteEditorState'
 import {
-  cmdAddNote, cmdRemoveNote, cmdRemoveNotes, midiToEditableCopy,
+  cmdAddNote, cmdRemoveNotes, midiToEditableCopy, copyHandTagsOntoEditBuffer,
   type ToneNote,
 } from '../../utils/noteEditorCommands'
 import { getNoteLabel } from '../../utils/noteNames'
 import { PENCIL_CURSOR } from '../../utils/cursors'
 import type { Hand } from '../../types'
+import { HAND_LH_CSS, HAND_RH_CSS } from '../../utils/handColors'
 import { HitEffectsRenderer } from './HitEffects'
 import { drainHitEffects } from '../../utils/hitEffectQueue'
 
@@ -34,6 +35,7 @@ const DRAG_THRESHOLD   = 4
 // secondary time-axis mini-editor (closer to Signal/Ableton/Logic's lane)
 // is the flagged upgrade if that's ever wanted. ───────────────────────────
 const VELOCITY_BAR_W   = 5
+const VELOCITY_LANE_HEIGHT_BOOST = 60   // extra px on top of the playhead-derived height
 
 // ── Canvas/PixiJS colors resolved from CSS custom properties ─────────────────
 // PixiJS Graphics.fill({color}) needs a numeric 0xRRGGBB and Canvas2D ctx.fillStyle
@@ -43,9 +45,9 @@ const VELOCITY_BAR_W   = 5
 // source of truth; these are just its canvas-usable cache. Defaults here only
 // cover the sliver of first render before the mount effect runs. Same pattern as
 // ChannelStrip.tsx / MasterStrip.tsx.
-let HAND_SLATE_COLOR    = 0x4a7fff   // --hand-slate
-let HAND_AMBER_COLOR    = 0xe8a027   // --text-amber
-let SEL_NOTE_COLOR       = 0xdd2244   // --note-select-red — actively selected/dragged notes
+let HAND_LH_COLOR       = 0x6270a5   // --hand-lh
+let HAND_RH_COLOR       = 0xcb636c   // --hand-rh
+let SEL_NOTE_COLOR       = 0xffffff   // --note-select-outline — selected/dragged/edited/new notes
 let SEL_MARQUEE_COLOR    = 0x7788aa   // --note-marquee-blue — drag-select rectangle
 let KEY_ROW_COLOR        = 0x171720   // --pianoroll-key-row — white-key row shading
 let KEY_ROW_DARK_COLOR   = 0x0d0d10   // --bg-modal-header (near-match snap) — black-key row shading
@@ -78,9 +80,9 @@ function resolvePianoRollColorsFromCSS() {
   }
   const readStr = (name: string, fallback: string) => cs.getPropertyValue(name).trim() || fallback
 
-  HAND_SLATE_COLOR    = readNum('--hand-slate', HAND_SLATE_COLOR)
-  HAND_AMBER_COLOR    = readNum('--text-amber', HAND_AMBER_COLOR)
-  SEL_NOTE_COLOR       = readNum('--note-select-red', SEL_NOTE_COLOR)
+  HAND_LH_COLOR        = readNum('--hand-lh', HAND_LH_COLOR)
+  HAND_RH_COLOR        = readNum('--hand-rh', HAND_RH_COLOR)
+  SEL_NOTE_COLOR       = readNum('--note-select-outline', SEL_NOTE_COLOR)
   SEL_MARQUEE_COLOR    = readNum('--note-marquee-blue', SEL_MARQUEE_COLOR)
   KEY_ROW_COLOR        = readNum('--pianoroll-key-row', KEY_ROW_COLOR)
   KEY_ROW_DARK_COLOR   = readNum('--bg-modal-header', KEY_ROW_DARK_COLOR)
@@ -99,7 +101,10 @@ function resolvePianoRollColorsFromCSS() {
 }
 
 // ── FlatNote — used for the main render O(log N) binary search ────────────────
-interface FlatNote { midi: number; time: number; duration: number; trackIndex: number; hand?: Hand }
+// noteRef — only populated during edit mode's rebuild (see below), so the
+// base fill loop can check editNewNotes.has(ef.noteRef) and skip filling a
+// brand-new, not-yet-saved note (outline-only, drawn by the edit overlay).
+interface FlatNote { midi: number; time: number; duration: number; trackIndex: number; hand?: Hand; noteRef?: ToneNote }
 
 // ── EditFlatNote — actual @tonejs/midi Note references for edit hit-testing ───
 interface EditFlatNote {
@@ -129,10 +134,44 @@ interface EditDragState {
   startClientY:      number
   axis:              'time' | 'pitch' | null
   selectionSnapshot?: Array<{ note: ToneNote; origTime: number; origTicks: number; origMidi: number }>
+  // Set true only once real drag distance is exceeded (see the jitter gate
+  // in onEditMove). A note whose raw tick isn't already grid-aligned (any
+  // realistic, humanized performance) would otherwise get silently
+  // re-snapped by onEditUp's snapTick(note.time) even on an untouched
+  // click — snapping is only meaningful once something was actually dragged.
+  moved?:            boolean
 }
 
 interface EditMarqueeState {
   startX: number; startY: number; endX: number; endY: number; additive: boolean
+}
+
+// ── Lasso — paint-select: a note is added the instant the drag path
+// crosses it, not only if fully enclosed (unlike marquee). Points kept only
+// for the visible trail; hit-testing happens per-segment as the pointer moves. ──
+interface EditLassoState {
+  points: { x: number; y: number }[]
+  additive: boolean
+}
+
+interface EditPanState {
+  startClientX: number
+  startClientY: number
+  startTime:    number
+}
+
+export interface ContextMenuOption {
+  label: string
+  onClick: () => void
+  destructive?: boolean
+  disabled?: boolean
+  swatchColor?: string   // small colored square before the label — LH/RH assign entries
+}
+
+export interface ContextMenuState {
+  x: number
+  y: number
+  options: ContextMenuOption[]
 }
 
 function lowerBound(notes: FlatNote[], target: number): number {
@@ -173,21 +212,7 @@ function LoopOverlay() {
   const overlayRef  = useRef<HTMLDivElement>(null)
   const draggingRef = useRef<'start' | 'end' | null>(null)
   const newDragRef  = useRef<{ anchorTime: number } | null>(null)
-  const [altDown,   setAltDown]   = useState(false)
   const [mousePos,  setMousePos]  = useState<{ x: number; y: number } | null>(null)
-
-  // ── Track Alt key — enables waterfall draw mode ────────────────────────────
-  useEffect(() => {
-    const down = (e: KeyboardEvent) => {
-      if (e.key === 'Alt') { e.preventDefault(); setAltDown(true) }
-    }
-    const up = (e: KeyboardEvent) => {
-      if (e.key === 'Alt') { setAltDown(false); newDragRef.current = null }
-    }
-    window.addEventListener('keydown', down)
-    window.addEventListener('keyup',   up)
-    return () => { window.removeEventListener('keydown', down); window.removeEventListener('keyup', up) }
-  }, [])
 
   // ── Global mouse handlers — drag logic + cursor tooltip tracking ──────────
   useEffect(() => {
@@ -255,7 +280,6 @@ function LoopOverlay() {
   }, [])
 
   const handleOverlayMouseDown = (e: React.MouseEvent<HTMLDivElement>) => {
-    if (!e.altKey) return
     e.preventDefault()
     const el = overlayRef.current
     if (!el) return
@@ -286,11 +310,10 @@ function LoopOverlay() {
   const amber     = loopRegionActive ? 'var(--accent-amber-loop-border)' : 'var(--accent-amber-loop-border-dim)'
   const amberFill = loopRegionActive ? 'var(--accent-amber-active-bg)'   : 'var(--accent-amber-loop-fill-dim)'
 
-  // Tooltip visibility: only while a file is loaded AND Alt is actually held
-  // down — otherwise it's just a normal pointer, no persistent hint. (Not a
-  // discovery hint shown on plain hover anymore — that read as a stray
-  // tooltip appearing on app open with no file loaded, which is wrong.)
-  const showTooltip = !!midi && !noteEditorActive && altDown && mousePos !== null
+  // Tooltip visibility: only while a region is actively selected — showing
+  // it on every hover over the roll (even with nothing selected yet) read
+  // as a permanent, naggy tooltip.
+  const showTooltip = !!midi && !noteEditorActive && hasSelection && mousePos !== null
 
   // Edit mode disables loop overlay pointer events to pass them to PixiJS
   if (noteEditorActive) return null
@@ -302,8 +325,8 @@ function LoopOverlay() {
       onDoubleClick={() => useStore.getState().clearLoopRegion()}
       style={{
         position: 'absolute', inset: 0, overflow: 'hidden',
-        pointerEvents: altDown ? 'auto' : 'none',
-        cursor: altDown ? 'crosshair' : 'default',
+        pointerEvents: 'auto',
+        cursor: 'crosshair',
       }}
     >
       {hasSelection && heightPct > 0 && (<>
@@ -328,7 +351,7 @@ function LoopOverlay() {
         </div>
       </>)}
 
-      {/* ── Cursor tooltip — hints Alt+drag and right-click when loop strip is on ── */}
+      {/* ── Cursor tooltip — hints drag and right-click ── */}
       {showTooltip && mousePos && (
         <div style={{
           position: 'fixed',
@@ -344,13 +367,11 @@ function LoopOverlay() {
           whiteSpace: 'nowrap',
         }}>
           <span style={{ fontFamily: 'Inter, sans-serif', fontSize: 11, color: 'var(--accent-amber-tooltip-text)' }}>
-            Alt+drag · set loop region
+            Loop region set
           </span>
-          {hasSelection && (
-            <span style={{ fontFamily: 'Inter, sans-serif', fontSize: 11, color: 'var(--text-tooltip-secondary)' }}>
-              Right-click · clear
-            </span>
-          )}
+          <span style={{ fontFamily: 'Inter, sans-serif', fontSize: 11, color: 'var(--text-tooltip-secondary)' }}>
+            Drag to reorder, right-click to clear
+          </span>
         </div>
       )}
     </div>
@@ -373,12 +394,29 @@ export default function PianoRoll() {
   const lastKeySizeRef    = useRef<number>(0)
   const lastMidiRef       = useRef<any>(null)
   const flatNotesRef      = useRef<FlatNote[]>([])
+  // ── Tracks whose notes are ALL the same hand — i.e. a genuine "split into
+  // two tracks" output (Piano LH / Piano RH). These always render in the
+  // fixed hand colors regardless of the Left/Right Hand setting; a single
+  // mixed-hand track only does that when the setting is on. ─────────────────
+  const homogeneousHandTracksRef = useRef<Set<number>>(new Set())
   const barStartsRef      = useRef<number[]>([])
   // ── Shared between wheel-handler effect and PixiJS-closure drag handlers ──────
   const editDragActiveRef = useRef(false)
 
   // ── Note-name tooltip for notes too small to show inline text ────────────────
   const [editTooltip, setEditTooltip] = useState<{ x: number; y: number; label: string } | null>(null)
+
+  // ── Unified right-click context menu — replaces instant-delete. Options
+  // depend on tool/selection at click time (see onEditContext). ────────────
+  const [contextMenu, setContextMenu] = useState<ContextMenuState | null>(null)
+  const contextMenuRef = useRef<ContextMenuState | null>(null)
+  useEffect(() => { contextMenuRef.current = contextMenu }, [contextMenu])
+  useEffect(() => {
+    if (!contextMenu) return
+    const close = () => setContextMenu(null)
+    window.addEventListener('mousedown', close)
+    return () => window.removeEventListener('mousedown', close)
+  }, [contextMenu])
 
   useEffect(() => useStore.subscribe((s) => { storeRef.current = s }), [])
 
@@ -391,7 +429,9 @@ export default function PianoRoll() {
       if (editDragActiveRef.current) return
       const { midi, currentTime, playbackState } = useStore.getState()
       if (!midi) return
-      const step  = e.shiftKey ? 10 : 2
+      // Shift = fine control (small step), plain wheel = coarse (unchanged).
+      // Was inverted (shift = 10s, bigger) — fine scrubbing had no way in.
+      const step  = e.shiftKey ? 0.15 : 2
       const delta = e.deltaY > 0 ? -step : step
       const newTime = Math.max(0, Math.min(midi.duration, currentTime + delta))
       if (playbackState === 'playing') {
@@ -438,7 +478,7 @@ export default function PianoRoll() {
       const velCanvas = document.createElement('canvas')
       velCanvas.style.cssText = 'position:absolute;left:0;bottom:0;display:none'
       velCanvas.width  = el.clientWidth || 800
-      velCanvas.height = Math.round((el.clientHeight || 600) * (1 - PLAYHEAD_RATIO))
+      velCanvas.height = Math.round((el.clientHeight || 600) * (1 - PLAYHEAD_RATIO)) + VELOCITY_LANE_HEIGHT_BOOST
       el.appendChild(velCanvas)
       velocityCanvasRef.current = velCanvas
       velocityCtxRef.current    = velCanvas.getContext('2d')
@@ -465,6 +505,8 @@ export default function PianoRoll() {
       let editNewNotes:         Set<ToneNote>   = NES.newNotes   // reference to singleton set
       let editDrag:             EditDragState | null   = null
       let editMarquee:          EditMarqueeState | null = null
+      let editLasso:            EditLassoState | null   = null
+      let editPan:              EditPanState | null      = null
       let lastGlissandoMidi:    number | null   = null
       let prevNoteEditorActive: boolean         = false
 
@@ -555,29 +597,7 @@ export default function PianoRoll() {
         return null
       }
 
-      // ── drawDashedRect — dashed outline for new/unsaved notes ────────────
-      // PixiJS v8 does not expose CSS-style line dash; draw as short rect segments.
-      const drawDashedRect = (
-        g: Graphics, x: number, y: number, w: number, h: number,
-        color: number, alpha: number,
-      ) => {
-        const DASH = 4, GAP = 3, UNIT = DASH + GAP
-        const right = x + w, bottom = y + h
-        // Top + bottom edges
-        for (let px = x; px < right; px += UNIT) {
-          const segW = Math.min(DASH, right - px)
-          g.rect(px, y, segW, 1); g.fill({ color, alpha })
-          g.rect(px, bottom - 1, segW, 1); g.fill({ color, alpha })
-        }
-        // Left + right edges
-        for (let py = y; py < bottom; py += UNIT) {
-          const segH = Math.min(DASH, bottom - py)
-          g.rect(x, py, 1, segH); g.fill({ color, alpha })
-          g.rect(right - 1, py, 1, segH); g.fill({ color, alpha })
-        }
-      }
-
-      // ── drawEditOverlay — selection highlights + new-note dashed borders ──
+      // ── drawEditOverlay — selection highlights + new-note blink ──────────
       const drawEditOverlay = (
         py: number, pps: number, currentTime: number,
         midiMin: number, midiMax: number, transpose: number,
@@ -591,22 +611,32 @@ export default function PianoRoll() {
         // Pulsate selected-note border via sine wave — driven purely by wall-clock time,
         // no extra state needed since drawFrame already runs on rAF every frame.
         const pulse = 0.55 + 0.30 * Math.sin(Date.now() / 250)
+        // Hard on/off square wave, not a smooth fade — new/unsaved notes need
+        // to read as "unsaved" at a glance, distinct from the selection
+        // pulse's smooth glow. Replaces the old dashed-border treatment,
+        // which wasn't visible enough at small note sizes.
+        const blinkOn = Math.floor(Date.now() / 400) % 2 === 0
 
         for (const ef of editFlatNotes) {
           const { note, key, topY, noteH } = ef
           const isSelected = editSelectedNotes.has(note)
           const isNew      = editNewNotes.has(note)
+          const isEdited   = !isNew && NES.editedNotes.has(note)
           const isDragged  = note === editDrag?.note
 
-          if (isSelected || isDragged) {
-            editG.roundRect(key.x + 1, topY - 1, Math.max(key.width - 2, 1), noteH + 2, NOTE_RADIUS)
+          // Selected/dragged/edited all pulse the same white outline, with a
+          // 3px gap from the note itself (was 1px, flush against the note —
+          // hard to see at small note heights). New notes are drawn
+          // outline-only here (the base fill loop skips them entirely) so
+          // "unsaved" reads as a fully empty note, not just a colored one
+          // with a border on top.
+          if (isSelected || isDragged || isEdited) {
+            editG.roundRect(key.x - 2, topY - 3, key.width + 4, noteH + 6, NOTE_RADIUS)
             editG.stroke({ color: SEL_NOTE_COLOR, width: 2, alpha: pulse })
           }
-          if (isNew) {
-            drawDashedRect(
-              editG, key.x + 1, topY, Math.max(key.width - 2, 1), noteH,
-              SEL_NOTE_COLOR, 0.80,
-            )
+          if (isNew && blinkOn) {
+            editG.roundRect(key.x + 1, topY, Math.max(key.width - 2, 1), noteH, NOTE_RADIUS)
+            editG.stroke({ color: SEL_NOTE_COLOR, width: 2.5, alpha: 0.9 })
           }
         }
 
@@ -620,6 +650,15 @@ export default function PianoRoll() {
           editG.fill({ color: SEL_MARQUEE_COLOR, alpha: 0.07 })
           editG.rect(mx, my, mw, mh)
           editG.stroke({ color: SEL_MARQUEE_COLOR, width: 1, alpha: 0.45 })
+        }
+
+        // ── Lasso paint-select trail ──────────────────────────────────────────
+        if (editLasso && editLasso.points.length > 1) {
+          editG.moveTo(editLasso.points[0].x, editLasso.points[0].y)
+          for (let i = 1; i < editLasso.points.length; i++) {
+            editG.lineTo(editLasso.points[i].x, editLasso.points[i].y)
+          }
+          editG.stroke({ color: SEL_MARQUEE_COLOR, width: 2, alpha: 0.6 })
         }
       }
 
@@ -720,6 +759,7 @@ export default function PianoRoll() {
           const rawBuffer = (midi as any)?._raw
           if (rawBuffer && !NES.editMidi) {
             NES.editMidi = midiToEditableCopy(rawBuffer)
+            copyHandTagsOntoEditBuffer(midi, NES.editMidi)
           }
           NES.needsFlatRebuild = true
           // Prime GM channel programs via a silent SMF player so notes preview
@@ -739,17 +779,30 @@ export default function PianoRoll() {
           if (NES.editMidi) {
             const parsedMidi = storeRef.current.midi as any
             const flat: FlatNote[] = []
+            const homogeneous = new Set<number>()
             // Mirror parseMidiBuffer's empty-track filter so position-based index mapping stays in sync
             const nonEmpty = ((NES.editMidi as any).tracks as any[]).filter((t: any) => t.notes.length > 0)
             for (let i = 0; i < nonEmpty.length; i++) {
               const et = nonEmpty[i]
               const parsedIdx = parsedMidi?.tracks?.[i]?.index ?? i
+              let allSameHand: Hand | null | undefined = undefined
               for (const note of et.notes) {
-                flat.push({ midi: note.midi, time: note.time, duration: note.duration, trackIndex: parsedIdx })
+                // .hand must travel here — omitting it (as this rebuild did
+                // before) silently falls every note back to the track's
+                // default color while editing, hiding any hand-coloring
+                // (algorithm's or a manual Assign LH/RH) for the whole
+                // session, even though NES.editMidi's notes carry it fine. ──
+                flat.push({ midi: note.midi, time: note.time, duration: note.duration, trackIndex: parsedIdx, hand: note.hand, noteRef: note })
+                if (allSameHand === null) continue
+                if (!note.hand) { allSameHand = null; continue }
+                if (allSameHand === undefined) allSameHand = note.hand
+                else if (allSameHand !== note.hand) allSameHand = null
               }
+              if (et.notes.length > 0 && allSameHand) homogeneous.add(parsedIdx)
             }
             flat.sort((a, b) => a.time - b.time)
             flatNotesRef.current = flat
+            homogeneousHandTracksRef.current = homogeneous
           } else {
             lastMidiRef.current = null   // fallback: let the normal path rebuild
           }
@@ -775,16 +828,34 @@ export default function PianoRoll() {
         const visEnd   = currentTime + visibleSecs * PLAYHEAD_RATIO
 
         // ── Rebuild flat note array once per MIDI file load (or after edit) ──
-        if (midi !== lastMidiRef.current) {
+        // Skipped entirely while actively editing — the edit-mode rebuild
+        // above already owns flatNotesRef then, built from NES.editMidi
+        // (which carries in-progress edits the store's midi doesn't have
+        // yet). Without this guard, a Save & Reload mid-session replaces
+        // the store's midi object, which flips this condition true and
+        // silently overwrites the correct just-edited colors with whatever
+        // the freshly reloaded file's own tags say — even one frame of that
+        // is visible as edits "reverting" right after save. lastMidiRef is
+        // reset to null on edit-mode exit (see above), so this still
+        // rebuilds fresh the moment editing actually ends. ────────────────
+        if (midi !== lastMidiRef.current && !noteEditorActive) {
           lastMidiRef.current = midi
           const flat: FlatNote[] = []
+          const homogeneous = new Set<number>()
           for (const track of midi.tracks) {
+            let allSameHand: Hand | null | undefined = undefined
             for (const note of track.notes) {
               flat.push({ midi: note.midi, time: note.time, duration: note.duration, trackIndex: track.index, hand: note.hand })
+              if (allSameHand === null) continue
+              if (!note.hand) { allSameHand = null; continue }
+              if (allSameHand === undefined) allSameHand = note.hand
+              else if (allSameHand !== note.hand) allSameHand = null
             }
+            if (track.notes.length > 0 && allSameHand) homogeneous.add(track.index)
           }
           flat.sort((a, b) => a.time - b.time)
           flatNotesRef.current = flat
+          homogeneousHandTracksRef.current = homogeneous
         }
 
         barStartsRef.current = storeBars
@@ -807,15 +878,36 @@ export default function PianoRoll() {
           const key = keyLayoutRef.current[idx]
           if (!key) continue
 
-          // ── Hand-colored mode (beta) — overrides track color with L/R tint when
-          // the note carries a hand tag. This is the actual visible effect behind
-          // "Keep one track, hand-colored": tags alone are invisible without it.
-          const color  = (showHandLabels && note.hand)
-            ? (note.hand === 'L' ? HAND_SLATE_COLOR : HAND_AMBER_COLOR)
-            : parseInt((ts?.color ?? '#e8a027').replace('#', ''), 16)
+          // ── Hand coloring — fixed LH/RH tokens, not per-track palette. A track
+          // that's a genuine split output (every note same hand — Piano LH/RH)
+          // always renders in these colors. A single mixed-hand track only does
+          // when Left/Right Hand mode is on; off, it falls back to the track's
+          // own color — same contract as resolveHandAwareColor() (handColors.ts),
+          // which Keyboard.tsx calls directly; this is a numeric-color PixiJS
+          // reimplementation of the same rule, not an independent one. Non-piano
+          // notes (no hand tag) keep their normal per-track palette color throughout.
+          const isSplitTrack = homogeneousHandTracksRef.current.has(note.trackIndex)
+          const trackColorNum = parseInt((ts?.color ?? '#e8a027').replace('#', ''), 16)
+          // Global Settings LH/RH toggle stays authoritative for whether
+          // hand colors SHOW — opening the Note Editor must never itself
+          // change what's on screen. The editor's own Reassign-hands toggle
+          // only ADDS to that (lets you preview hand colors even with the
+          // global toggle off, and gates Assign LH/RH availability); it
+          // never takes display away from what was already showing. ───────
+          const handColoringOn = showHandLabels || (noteEditorActive && NES.reassignHandsMode)
+          const color = !note.hand
+            ? trackColorNum
+            : (isSplitTrack || handColoringOn)
+              ? (note.hand === 'L' ? HAND_LH_COLOR : HAND_RH_COLOR)
+              : trackColorNum
           const topY   = py - (note.time + note.duration - currentTime) * pps
           const botY   = py - (note.time - currentTime) * pps
           const noteH  = Math.max(botY - topY, MIN_NOTE_H)
+
+          // New, not-yet-saved notes get no fill here — the edit overlay
+          // draws them outline-only instead, so "unsaved" reads at a
+          // glance without needing to check color/blink state too.
+          if (noteEditorActive && note.noteRef && NES.newNotes.has(note.noteRef)) continue
 
           notes.roundRect(key.x + 1, topY, Math.max(key.width - 2, 1), noteH, NOTE_RADIUS)
           notes.fill({ color, alpha: 0.9 })
@@ -910,35 +1002,75 @@ export default function PianoRoll() {
         return { currentTime, py, pps, midiMin, midiMax, transpose }
       }
 
+      // ── getNoteColorHex — same rule the notes-fill loop below uses (and
+      // resolveHandAwareColor's contract), so the click-preview key-light on
+      // the DOM Keyboard matches the note's actual on-screen piano-roll
+      // color instead of always defaulting to amber. ───────────────────────
+      const getNoteColorHex = (note: any, trackIndex: number): string => {
+        const { tracks: stTracks, noteEditorActive: neActive, showHandLabels: shl } = storeRef.current
+        const ts = stTracks.find((t: any) => t.index === trackIndex)
+        const trackColorHex = ts?.color ?? '#e8a027'
+        if (!note.hand) return trackColorHex
+        const isSplitTrack   = homogeneousHandTracksRef.current.has(trackIndex)
+        const handColoringOn = shl || (neActive && NES.reassignHandsMode)
+        if (isSplitTrack || handColoringOn) return note.hand === 'L' ? HAND_LH_CSS : HAND_RH_CSS
+        return trackColorHex
+      }
+
+      // ── updateHoverState — cursor + hint text, tool-isolated ──────────────
+      // Each tool owns exactly one cursor/behavior story: 'select' resizes/
+      // moves notes and grabs+pans empty space; 'pen' only adds/marks notes
+      // for delete; 'marquee'/'lasso' only select. No tool reads another
+      // tool's affordance (e.g. Pen no longer drag-selects).
       const updateHoverState = (cx: number, cy: number, ef: EditFlatNote | null, clientX?: number, clientY?: number) => {
         if (!storeRef.current.noteEditorActive) { app.canvas.style.cursor = 'default'; setEditTooltip(null); return }
+        const tool = NES.activeTool
         let hint: string
+
         if (ef) {
-          const canResize = ef.noteH >= RESIZE_ZONE_PX * 2
-          const atEnd   = canResize && cy <= ef.topY + RESIZE_ZONE_PX
-          const atStart = canResize && cy >= ef.topY + ef.noteH - RESIZE_ZONE_PX
-          if (atEnd || atStart) {
-            app.canvas.style.cursor = 'ns-resize'
-            hint = 'Drag to resize'
+          if (tool === 'select') {
+            const canResize = ef.noteH >= RESIZE_ZONE_PX * 2
+            const atEnd   = canResize && cy <= ef.topY + RESIZE_ZONE_PX
+            const atStart = canResize && cy >= ef.topY + ef.noteH - RESIZE_ZONE_PX
+            if (atEnd || atStart) {
+              app.canvas.style.cursor = 'ns-resize'
+              hint = 'Drag to resize'
+              setEditTooltip(null)
+            } else {
+              app.canvas.style.cursor = 'move'
+              hint = 'Drag to move · Shift+click to add to selection'
+              if (NES.showNoteNamesRef.current && ef.noteH < 14 && clientX !== undefined && clientY !== undefined) {
+                const { noteNaming, accidentals } = storeRef.current
+                const naming = noteNaming === 'hidden' ? 'english' : noteNaming
+                const label  = getNoteLabel(ef.note.midi, naming, accidentals).replace(/\d+$/, '')
+                setEditTooltip({ x: clientX, y: clientY, label })
+              } else {
+                setEditTooltip(null)
+              }
+            }
+          } else if (tool === 'pen') {
+            app.canvas.style.cursor = PENCIL_CURSOR
+            hint = 'Click to mark for delete · Right-click for options'
             setEditTooltip(null)
           } else {
-            app.canvas.style.cursor = 'move'
-            hint = editNewNotes.has(ef.note)
-              ? 'Drag to move · Right-click to delete'
-              : 'Drag to move · Select + Delete key to remove'
-            // Show tooltip when note is too small for inline text (respects note-names toggle)
-            if (NES.showNoteNamesRef.current && ef.noteH < 14 && clientX !== undefined && clientY !== undefined) {
-              const { noteNaming, accidentals } = storeRef.current
-              const naming = noteNaming === 'hidden' ? 'english' : noteNaming
-              const label  = getNoteLabel(ef.note.midi, naming, accidentals).replace(/\d+$/, '')
-              setEditTooltip({ x: clientX, y: clientY, label })
-            } else {
-              setEditTooltip(null)
-            }
+            app.canvas.style.cursor = 'crosshair'
+            hint = 'Click to select · Right-click for options'
+            setEditTooltip(null)
           }
         } else {
-          app.canvas.style.cursor = PENCIL_CURSOR
-          hint = 'Alt+click to add note · Drag to select'
+          if (tool === 'select') {
+            app.canvas.style.cursor = 'grab'
+            hint = 'Drag to pan · Shift+wheel to scrub finely'
+          } else if (tool === 'pen') {
+            app.canvas.style.cursor = PENCIL_CURSOR
+            hint = 'Alt+click to add a note'
+          } else if (tool === 'marquee') {
+            app.canvas.style.cursor = 'crosshair'
+            hint = 'Drag to select a cluster'
+          } else {
+            app.canvas.style.cursor = 'crosshair'
+            hint = 'Drag through notes to select them'
+          }
           setEditTooltip(null)
         }
         if (NES.hoverHint !== hint) {
@@ -964,29 +1096,87 @@ export default function PianoRoll() {
         }
       }
 
+      // ── updateLassoSelection — paint-select: a note is added the instant
+      // the latest path segment crosses its rect, not on release, and never
+      // removed by a later segment missing it (unlike marquee, which
+      // recomputes from scratch every move). Only the newest segment is
+      // tested each call — already-tested segments can't un-select anything. ──
+      const updateLassoSelection = (fromX: number, fromY: number, toX: number, toY: number) => {
+        if (!editLasso) return
+        const segMinX = Math.min(fromX, toX), segMaxX = Math.max(fromX, toX)
+        const segMinY = Math.min(fromY, toY), segMaxY = Math.max(fromY, toY)
+        for (const ef of editFlatNotes) {
+          if (editSelectedNotes.has(ef.note)) continue
+          const { key, topY, noteH } = ef
+          const botY = topY + noteH
+          if (key.x + key.width > segMinX - 2 && key.x < segMaxX + 2 && botY > segMinY - 2 && topY < segMaxY + 2) {
+            editSelectedNotes.add(ef.note)
+          }
+        }
+      }
+
       // ── getTrackChannel — MIDI channel for a parsedTrack.index, for audio preview ──
       const getTrackChannel = (parsedIdx: number): number | undefined => {
         const parsedMidi = storeRef.current.midi as any
         return parsedMidi?.tracks?.find((t: any) => t.index === parsedIdx)?.channel
       }
 
+      // ── deleteSelectedNotes — shared by Delete key and context menu ───────
+      const deleteSelectedNotes = () => {
+        if (editSelectedNotes.size === 0) return
+        const notesToDel = [...editSelectedNotes]
+        const byTrack = new Map<Track, ToneNote[]>()
+        for (const ef of editFlatNotes) {
+          if (editSelectedNotes.has(ef.note)) {
+            const arr = byTrack.get(ef.track) ?? []
+            arr.push(ef.note)
+            byTrack.set(ef.track, arr)
+          }
+        }
+        for (const [t, ns] of byTrack) {
+          const cmd = cmdRemoveNotes(t, ns)
+          cmd.apply()
+          NES.history.push(cmd)
+        }
+        for (const n of notesToDel) { editSelectedNotes.delete(n); editNewNotes.delete(n) }
+        NES.dirty            = true
+        NES.needsFlatRebuild = true
+        NES.onHistoryChange?.()
+      }
+
       const onEditDown = (e: PointerEvent) => {
         if (!storeRef.current.noteEditorActive) return
         if (e.button !== 0) return
         setEditTooltip(null)
+        setContextMenu(null)
         const { cx, cy } = toCanvas(e.clientX, e.clientY)
         const { py, pps, midiMin, midiMax, currentTime } = getViewParams()
         const ef = editHitTest(cx, cy)
+        const tool = NES.activeTool
 
         if (ef) {
           const { note, track, key, topY, noteH } = ef
-          ;(window as any).__orfeoPlayNote?.(note.midi, 90, 500, getTrackChannel(ef.trackIndex))
+          ;(window as any).__orfeoPlayNote?.(note.midi, 90, 500, getTrackChannel(ef.trackIndex), true, getNoteColorHex(note, ef.trackIndex))
+
+          if (tool !== 'select') {
+            // ── Pen/Marquee/Lasso on a note: select only, never drag/resize —
+            // each tool does exactly one thing, isolated from the others. ────
+            if (e.shiftKey) {
+              if (editSelectedNotes.has(note)) editSelectedNotes.delete(note)
+              else editSelectedNotes.add(note)
+            } else {
+              editSelectedNotes.clear()
+              editSelectedNotes.add(note)
+            }
+            return
+          }
+
+          // ── Select tool: existing resize/move/multi-select drag, unchanged ──
           const canResize = noteH >= RESIZE_ZONE_PX * 2
           const atEnd   = canResize && cy <= topY + RESIZE_ZONE_PX
           const atStart = canResize && cy >= topY + noteH - RESIZE_ZONE_PX
 
           if (atEnd || atStart) {
-            // ── Resize drag ───────────────────────────────────────────────
             const mode: EditDragState['mode'] = atEnd ? 'note-resize-end' : 'note-resize-start'
             editDrag = {
               mode, note, track, trackIndex: ef.trackIndex,
@@ -1001,11 +1191,9 @@ export default function PianoRoll() {
             app.canvas.setPointerCapture(e.pointerId)
             app.canvas.style.cursor = 'ns-resize'
           } else if (e.shiftKey) {
-            // ── Shift+click: toggle selection membership, no drag ─────────
             if (editSelectedNotes.has(note)) editSelectedNotes.delete(note)
             else editSelectedNotes.add(note)
           } else if (editSelectedNotes.has(note) && editSelectedNotes.size > 1) {
-            // ── Already in multi-selection: move the whole selection ───────
             editDrag = {
               mode: 'selection-move', note, track, trackIndex: ef.trackIndex,
               origTime: note.time, origDuration: note.duration,
@@ -1020,7 +1208,6 @@ export default function PianoRoll() {
             app.canvas.setPointerCapture(e.pointerId)
             app.canvas.style.cursor = 'move'
           } else {
-            // ── Click: select this note, move it ──────────────────────────
             editSelectedNotes.clear()
             editSelectedNotes.add(note)
             editDrag = {
@@ -1036,7 +1223,12 @@ export default function PianoRoll() {
             app.canvas.setPointerCapture(e.pointerId)
             app.canvas.style.cursor = 'move'
           }
-        } else if (e.altKey) {
+          return
+        }
+
+        // ── Empty space — behavior fully isolated per tool ──────────────────
+        if (tool === 'pen') {
+          if (!e.altKey) return   // Pen only adds on Alt+click; plain click on empty is a no-op
           // ── Alt+click empty: add a new note to NES.editMidi ──────────────
           const editMidi = NES.editMidi as any
           if (!editMidi) return
@@ -1076,10 +1268,16 @@ export default function PianoRoll() {
           NES.dirty              = true
           NES.needsFlatRebuild   = true
           NES.onHistoryChange?.()
-        } else {
-          // ── Click empty: start marquee, clear selection ───────────────────
+        } else if (tool === 'marquee') {
           editMarquee = { startX: cx, startY: cy, endX: cx, endY: cy, additive: e.shiftKey }
           if (!e.shiftKey) editSelectedNotes.clear()
+        } else if (tool === 'lasso') {
+          editLasso = { points: [{ x: cx, y: cy }], additive: e.shiftKey }
+          if (!e.shiftKey) editSelectedNotes.clear()
+        } else {
+          // ── Select tool, empty space: pan the view, not marquee-select ────
+          editPan = { startClientX: e.clientX, startClientY: e.clientY, startTime: currentTime }
+          app.canvas.style.cursor = 'grabbing'
         }
       }
 
@@ -1088,7 +1286,7 @@ export default function PianoRoll() {
         const { cx, cy } = toCanvas(e.clientX, e.clientY)
         const { py, pps } = getViewParams()
 
-        if (!editDrag && !editMarquee) {
+        if (!editDrag && !editMarquee && !editLasso && !editPan) {
           const ef = editHitTest(cx, cy)
           updateHoverState(cx, cy, ef, e.clientX, e.clientY)
           return
@@ -1100,7 +1298,38 @@ export default function PianoRoll() {
           return
         }
 
+        if (editLasso) {
+          const last = editLasso.points[editLasso.points.length - 1]
+          updateLassoSelection(last.x, last.y, cx, cy)
+          editLasso.points.push({ x: cx, y: cy })
+          return
+        }
+
+        if (editPan) {
+          // Time is the VERTICAL axis here (notes fall top-to-bottom), same
+          // as note-move's dy-based time formula above — panning read dx
+          // (horizontal) instead, so a natural vertical drag barely moved
+          // the view (only its horizontal jitter counted) and could easily
+          // read as either sign. Matches note-move: drag down (dy>0) = earlier.
+          const dy = e.clientY - editPan.startClientY
+          const newTime = Math.max(0, editPan.startTime - dy / pps)
+          useStore.setState({ currentTime: newTime })
+          return
+        }
+
         if (!editDrag) return
+
+        // ── Ignore sub-threshold jitter — a plain click still fires a few
+        // pointermove events between down and up with 1-2px of incidental
+        // movement, which previously got applied straight through and
+        // silently nudged the note by a tick/semitone: marked the file
+        // dirty and logged a phantom "Moved note" in the changelog even
+        // though nothing was intentionally dragged. Note fields stay
+        // untouched (still exactly original) until real drag distance is
+        // exceeded, so onEditUp's timeChanged/pitchChanged checks below
+        // correctly see no change for a plain click. ─────────────────────
+        if (Math.hypot(e.clientX - editDrag.startClientX, e.clientY - editDrag.startClientY) < 3) return
+        editDrag.moved = true
 
         // ── In PianoRoll, Y increases downward; moving a note DOWN = earlier (smaller time) ──
         const dy = e.clientY - editDrag.startClientY
@@ -1133,7 +1362,7 @@ export default function PianoRoll() {
           const newMidi = Math.max(midiMin, Math.min(midiMax,
             xToMidi(editDrag.origNoteX + dx, keyLayoutRef.current, midiMin, midiMax)))
           if (newMidi !== lastGlissandoMidi) {
-            ;(window as any).__orfeoPlayNote?.(newMidi, 90, 500, getTrackChannel(editDrag.trackIndex))
+            ;(window as any).__orfeoPlayNote?.(newMidi, 90, 500, getTrackChannel(editDrag.trackIndex), true, getNoteColorHex(editDrag.note, editDrag.trackIndex))
             lastGlissandoMidi = newMidi
           }
           editDrag.note.midi = newMidi
@@ -1164,6 +1393,22 @@ export default function PianoRoll() {
           return
         }
 
+        if (editLasso) {
+          editLasso = null
+          return
+        }
+
+        if (editPan) {
+          // A plain click (no real drag) on empty space deselects — same
+          // convention marquee/lasso already have on mousedown. Distance
+          // threshold so a genuine pan-drag never accidentally clears.
+          const dist = Math.hypot(e.clientX - editPan.startClientX, e.clientY - editPan.startClientY)
+          editPan = null
+          app.canvas.style.cursor = 'grab'
+          if (dist < 4) editSelectedNotes.clear()
+          return
+        }
+
         if (!editDrag) return
         const { note, track } = editDrag
         // Use NES.editMidi.header — ParsedMidi has no header property
@@ -1179,12 +1424,22 @@ export default function PianoRoll() {
           return Math.max(1, Math.round(header.secondsToTicks(note.time + dur) - startTick))
         }
 
+        // ── A plain click creates a 'note-move' editDrag same as a real
+        // drag would, but onEditMove's jitter gate never touched any note
+        // field for it — `editDrag.moved` stays false. Skip the whole
+        // snap-and-compare dance below entirely for that case: snapTick()
+        // rounds to the nearest grid line unconditionally, so even calling
+        // it against an untouched, off-grid (humanized/unquantized) note's
+        // original time would read as "moved" purely from the rounding,
+        // not from anything the click actually did. ──────────────────────
+        if (editDrag.moved) {
         if (editDrag.mode === 'note-resize-end') {
           const fDur   = note.durationTicks
           const oDur   = editDrag.origDurationTicks
           if (fDur !== oDur) {
             note.durationTicks = Math.max(1, snapTick(fDur) || fDur)
             const fSnapped = note.durationTicks
+            NES.editedNotes.add(note)
             history_push({ note, track,
               apply()  { note.durationTicks = fSnapped; syncNoteTimes(note) },
               revert() { note.durationTicks = oDur;     syncNoteTimes(note) },
@@ -1205,6 +1460,7 @@ export default function PianoRoll() {
           if (newTick !== oTicks) {
             note.ticks = newTick; note.durationTicks = newDurTick
             syncNoteTimes(note)
+            NES.editedNotes.add(note)
             history_push({ note, track,
               apply()  { note.ticks = newTick;  note.durationTicks = newDurTick;  syncNoteTimes(note); track.notes.sort((a: any, b: any) => a.ticks - b.ticks) },
               revert() { note.ticks = oTicks;   note.durationTicks = oDur;         syncNoteTimes(note); track.notes.sort((a: any, b: any) => a.ticks - b.ticks) },
@@ -1226,6 +1482,7 @@ export default function PianoRoll() {
             note.ticks = timeChanged ? newTick : origTick
             syncNoteTimes(note)
             if (timeChanged) track.notes.sort((a: any, b: any) => a.ticks - b.ticks)
+            NES.editedNotes.add(note)
             history_push({ note, track,
               apply()  {
                 note.ticks = timeChanged  ? newTick  : origTick
@@ -1257,6 +1514,7 @@ export default function PianoRoll() {
           if (anyTimeMoved || anyPitchMoved) {
             snapshot.forEach((s, i) => { s.note.ticks = finalTicks[i]; s.note.midi = finalMidis[i]; syncNoteTimes(s.note) })
             track.notes.sort((a: any, b: any) => a.ticks - b.ticks)
+            snapshot.forEach(s => NES.editedNotes.add(s.note))
             history_push({ note, track,
               apply()  {
                 snapshot.forEach((s, i) => { s.note.ticks = finalTicks[i]; s.note.midi = finalMidis[i]; syncNoteTimes(s.note) })
@@ -1272,31 +1530,115 @@ export default function PianoRoll() {
             snapshot.forEach(s => { s.note.time = s.origTime; s.note.midi = s.origMidi })
           }
         }
+        } // if (editDrag.moved)
 
         app.canvas.releasePointerCapture(e.pointerId)
-        app.canvas.style.cursor = PENCIL_CURSOR
+        // Recompute the real cursor for wherever the pointer ended up,
+        // instead of hardcoding the pen cursor — this ran unconditionally
+        // even for the Select tool's note-move/resize drags (which fire on
+        // every plain click, since a click still creates a 'note-move'
+        // editDrag), so clicking a single note in Select left the cursor
+        // stuck as the pencil icon until the mouse left and re-entered.
+        {
+          const { cx: upCx, cy: upCy } = toCanvas(e.clientX, e.clientY)
+          updateHoverState(upCx, upCy, editHitTest(upCx, upCy), e.clientX, e.clientY)
+        }
         editDrag                  = null
         editDragActiveRef.current = false
         lastGlissandoMidi         = null
         NES.needsFlatRebuild      = true
       }
 
+      // ── onEditContext — unified right-click menu, replaces instant-delete.
+      // Always opens a menu; options depend on what's selected. Right-
+      // clicking a note not already selected selects it first (so "Delete"/
+      // "Assign LH/RH" act on the note you clicked, not a stale selection). ──
       const onEditContext = (e: MouseEvent) => {
         if (!storeRef.current.noteEditorActive) return
         e.preventDefault()
         const { cx, cy } = toCanvas(e.clientX, e.clientY)
         const ef = editHitTest(cx, cy)
-        if (!ef) {
-          // Right-click empty space: clear selection
-          editSelectedNotes.clear()
-          return
+
+        if (ef && !editSelectedNotes.has(ef.note)) {
+          if (!e.shiftKey) editSelectedNotes.clear()
+          editSelectedNotes.add(ef.note)
         }
-        const { note, track } = ef
-        // Right-click deletes only newly added notes; Alt+right-click deletes any note
-        if (!editNewNotes.has(note) && !e.altKey) return
-        editSelectedNotes.delete(note)
-        editNewNotes.delete(note)
-        const cmd = cmdRemoveNote(track, note)
+
+        const hasSelection = editSelectedNotes.size > 0
+        const options: ContextMenuOption[] = []
+
+        if (hasSelection) {
+          if (NES.reassignHandsMode) {
+            options.push({
+              label: 'Assign to Left Hand',
+              swatchColor: 'var(--hand-lh)',
+              onClick: () => { assignSelectedHand('L'); setContextMenu(null) },
+            })
+            options.push({
+              label: 'Assign to Right Hand',
+              swatchColor: 'var(--hand-rh)',
+              onClick: () => { assignSelectedHand('R'); setContextMenu(null) },
+            })
+          }
+          options.push({
+            label: 'Deselect',
+            onClick: () => { editSelectedNotes.clear(); setContextMenu(null) },
+          })
+        }
+        options.push({ label: 'Undo', disabled: !NES.history.canUndo, onClick: () => { doHistoryUndo(); setContextMenu(null) } })
+        options.push({ label: 'Redo', disabled: !NES.history.canRedo, onClick: () => { doHistoryRedo(); setContextMenu(null) } })
+        // Delete always last — destructive action shouldn't be the first
+        // thing a right-click reaches for.
+        if (hasSelection) {
+          options.push({
+            label: editSelectedNotes.size === 1 ? 'Delete note' : `Delete ${editSelectedNotes.size} notes`,
+            destructive: true,
+            onClick: () => { deleteSelectedNotes(); setContextMenu(null) },
+          })
+        }
+
+        setContextMenu({ x: e.clientX, y: e.clientY, options })
+      }
+
+      const doHistoryUndo = () => { if (NES.history.undo()) { NES.needsFlatRebuild = true; NES.onHistoryChange?.() } }
+      const doHistoryRedo = () => { if (NES.history.redo()) { NES.needsFlatRebuild = true; NES.onHistoryChange?.() } }
+
+      // ── assignSelectedHand — sets hand + handSource:'manual' on every
+      // selected note, undoable via the normal Ctrl+Z stack (the only way
+      // back to the algorithm's guess, per plan §10 — no separate "reset to
+      // auto" affordance). 'manual' is what makes the correction stick: a
+      // later Split (Phase 4) partitions manual notes by tag instead of
+      // recomputing them, and no future assignHands() run can silently
+      // overwrite them (auto-tag-on-load only ever touches notes with
+      // hand === undefined). Only reachable when NES.reassignHandsMode is on
+      // (menu entries above are hidden otherwise). Visual only — never
+      // touches audio scheduling. ───────────────────────────────────────────
+      const assignSelectedHand = (hand: Hand) => {
+        if (editSelectedNotes.size === 0) return
+        const before = [...editSelectedNotes].map(n => ({
+          note: n,
+          hand: (n as any).hand,
+          handConfidence: (n as any).handConfidence,
+          handSource: (n as any).handSource,
+        }))
+        const count = before.length
+        const cmd = {
+          description: count === 1 ? `Assign ${hand === 'L' ? 'left' : 'right'} hand` : `Assign ${hand === 'L' ? 'left' : 'right'} hand to ${count} notes`,
+          apply() {
+            for (const b of before) {
+              ;(b.note as any).hand = hand
+              ;(b.note as any).handConfidence = 1
+              ;(b.note as any).handSource = 'manual'
+            }
+          },
+          revert() {
+            for (const b of before) {
+              ;(b.note as any).hand = b.hand
+              ;(b.note as any).handConfidence = b.handConfidence
+              ;(b.note as any).handSource = b.handSource
+            }
+          },
+        }
         cmd.apply()
         NES.history.push(cmd)
         NES.dirty            = true
@@ -1311,31 +1653,15 @@ export default function PianoRoll() {
 
         if (e.ctrlKey && !e.shiftKey && e.key === 'z') {
           e.preventDefault()
-          if (NES.history.undo()) { NES.needsFlatRebuild = true; NES.onHistoryChange?.() }
+          doHistoryUndo()
         } else if (e.ctrlKey && (e.key === 'y' || (e.shiftKey && e.key === 'Z'))) {
           e.preventDefault()
-          if (NES.history.redo()) { NES.needsFlatRebuild = true; NES.onHistoryChange?.() }
+          doHistoryRedo()
+        } else if (e.key === 'Escape') {
+          setContextMenu(null)
         } else if ((e.key === 'Delete' || e.key === 'Backspace') && editSelectedNotes.size > 0) {
           e.preventDefault()
-          const notesToDel = [...editSelectedNotes]
-          // Group by track for cmdRemoveNotes per-track
-          const byTrack = new Map<Track, ToneNote[]>()
-          for (const ef of editFlatNotes) {
-            if (editSelectedNotes.has(ef.note)) {
-              const arr = byTrack.get(ef.track) ?? []
-              arr.push(ef.note)
-              byTrack.set(ef.track, arr)
-            }
-          }
-          for (const [t, ns] of byTrack) {
-            const cmd = cmdRemoveNotes(t, ns)
-            cmd.apply()
-            NES.history.push(cmd)
-          }
-          for (const n of notesToDel) { editSelectedNotes.delete(n); editNewNotes.delete(n) }
-          NES.dirty            = true
-          NES.needsFlatRebuild = true
-          NES.onHistoryChange?.()
+          deleteSelectedNotes()
         }
       }
 
@@ -1378,28 +1704,36 @@ export default function PianoRoll() {
         ctx.strokeStyle = BARLINE_COLOR
         ctx.beginPath(); ctx.moveTo(0, 0.5); ctx.lineTo(W, 0.5); ctx.stroke()
 
-        // ── Label — top center, amber caps, no icon ────────────────────────
+        // ── Label — top center, amber caps, no icon. Bigger top/bottom
+        // padding + larger type than the rest of the roll's canvas labels —
+        // this header needs to read at a glance, not blend into background
+        // chrome like the bar-number labels do. ────────────────────────────
+        const HEADER_H = 34
         ctx.fillStyle = HAND_AMBER_HEX_STR
-        ctx.font = 'bold 9px Inter, sans-serif'
+        ctx.font = 'bold 12px Inter, sans-serif'
         ctx.textAlign = 'center'
         ctx.textBaseline = 'alphabetic'
         ctx.save()
         ctx.letterSpacing = '0.1em' as any
-        ctx.fillText('VELOCITY EDITOR', W / 2, 14)
+        ctx.fillText('VELOCITY EDITOR', W / 2, HEADER_H / 2 + 4)
         ctx.restore()
 
         if (noteEditorSoloTrackIndex === null) {
           velBars = []
           ctx.fillStyle = NOTE_LABEL_COLOR
-          ctx.font = '10px Inter, sans-serif'
+          ctx.globalAlpha = 0.6
+          ctx.font = '11px "JetBrains Mono", monospace'
           ctx.textAlign = 'center'
           ctx.textBaseline = 'middle'
-          ctx.fillText('Solo a track to edit its velocity', W / 2, H / 2)
+          ctx.fillText('Solo a track to edit its velocity in the Tracks panel on the right', W / 2, H / 2)
+          ctx.globalAlpha = 1
           return
         }
 
         velBars = []
-        const trackTop = 20, trackH = H - trackTop - 6
+        // trackTop starts below the taller header row so the guideline grid
+        // never overlaps it.
+        const trackTop = HEADER_H, trackH = H - trackTop - 6
 
         // ── Guideline gridlines — 0/32/64/96/127, barely-visible horizontal
         // lines + value markers on both edges, same idea as the main roll's
@@ -1421,6 +1755,36 @@ export default function PianoRoll() {
         }
         ctx.globalAlpha = 1
 
+        // ── Pitch range → horizontal position, centered ───────────────────
+        // Previously bars sat at the note's actual keyboard X — for a track
+        // using only a narrow slice of the keyboard (e.g. a bass or lead
+        // line), all its bars crowded into one edge of the lane and
+        // overlapped instead of using the available width. Remapping the
+        // soloed track's own min–max pitch span to the full lane width
+        // (centered, with side padding) spreads them out regardless of
+        // where on the actual keyboard the notes sit. Computed from the
+        // FULL track (not just the currently-visible falling notes), so the
+        // layout stays stable and doesn't shift as different notes scroll
+        // into view. ─────────────────────────────────────────────────────
+        const soloedParsedTrack = storeRef.current.midi?.tracks.find((t: any) => t.index === noteEditorSoloTrackIndex)
+        const soloedNotes = soloedParsedTrack?.notes ?? []
+        let minMidi = Infinity, maxMidi = -Infinity
+        for (const n of soloedNotes) {
+          if (n.midi < minMidi) minMidi = n.midi
+          if (n.midi > maxMidi) maxMidi = n.midi
+        }
+        const rawSpan  = maxMidi >= minMidi ? maxMidi - minMidi : 0
+        const LANE_PAD = 20
+        const usableW  = Math.max(1, W - LANE_PAD * 2)
+
+        // ── Same-pitch repeats within the visible window — nudge sideways ──
+        // Two passes: count how many visible notes share each pitch, then
+        // (below) spread that many bars symmetrically around the pitch's
+        // base X instead of stacking them exactly on top of each other. ────
+        const pitchTotal = new Map<number, number>()
+        for (const ef of editFlatNotes) pitchTotal.set(ef.note.midi, (pitchTotal.get(ef.note.midi) ?? 0) + 1)
+        const pitchSeen = new Map<number, number>()
+
         // editFlatNotes already excludes every track except the soloed one —
         // soloTrackForEdit hides all others (ts.visible=false), and
         // buildEditFlatNotes gates on ts.visible the same way the main
@@ -1429,7 +1793,12 @@ export default function PianoRoll() {
           const note = ef.note
           const vel  = Math.max(0, Math.min(1, note.velocity))
           const barW = VELOCITY_BAR_W
-          const x    = ef.key.x + (ef.key.width - barW) / 2
+          const norm = rawSpan > 0 ? (note.midi - minMidi) / rawSpan : 0.5
+          const total = pitchTotal.get(note.midi) ?? 1
+          const seen  = pitchSeen.get(note.midi) ?? 0
+          pitchSeen.set(note.midi, seen + 1)
+          const nudge = total > 1 ? (seen - (total - 1) / 2) * (barW + 2) : 0
+          const x    = LANE_PAD + norm * usableW - barW / 2 + nudge
           const barH = Math.max(2, Math.round(vel * trackH))
           const y    = trackTop + (trackH - barH)
           const isDragging = note === velDragNote
@@ -1437,16 +1806,23 @@ export default function PianoRoll() {
           ctx.fillStyle = isDragging ? VELOCITY_BAR_HEX_STR : `${VELOCITY_BAR_HEX_STR}bb`
           ctx.fillRect(x, y, barW, barH)
 
-          // Numeric readout only for the bar actively being dragged — with a
-          // whole track's worth of bars packed key-width apart, labeling
-          // every single one would be unreadable clutter.
+          // Numeric readout on every bar (dim, small) so the whole track's
+          // values are visible at a glance; the bar being dragged reads
+          // brighter/larger and updates live each frame as it's slid.
+          // Right of the bar, not centered on it — centered text sat behind
+          // the bar's own vertical line and got covered by it.
+          ctx.fillStyle = NOTE_LABEL_COLOR
+          ctx.textAlign = 'left'
+          ctx.textBaseline = 'alphabetic'
           if (isDragging) {
-            ctx.fillStyle = NOTE_LABEL_COLOR
             ctx.font = '9px "JetBrains Mono", monospace'
-            ctx.textAlign = 'center'
-            ctx.textBaseline = 'alphabetic'
-            ctx.fillText(String(Math.round(vel * 127)), x + barW / 2, Math.max(10, y - 4))
+            ctx.globalAlpha = 1
+          } else {
+            ctx.font = '7px "JetBrains Mono", monospace'
+            ctx.globalAlpha = 0.5
           }
+          ctx.fillText(String(Math.round(vel * 127)), x + barW + 2, Math.max(10, y + 3))
+          ctx.globalAlpha = 1
 
           velBars.push({ note, x, w: barW })
         }
@@ -1493,6 +1869,7 @@ export default function PianoRoll() {
         if (velocityCanvasRef.current) velocityCanvasRef.current.style.cursor = 'default'
         try { velocityCanvasRef.current?.releasePointerCapture(e.pointerId) } catch {}
         if (Math.abs(finalVel - originalVel) < 0.001) return
+        NES.editedNotes.add(note)
         history_push({
           note,
           description: `Velocity note midi=${note.midi}: ${originalVel.toFixed(2)} → ${finalVel.toFixed(2)}`,
@@ -1506,21 +1883,27 @@ export default function PianoRoll() {
         const raw = (storeRef.current.midi as any)?._raw as ArrayBuffer | undefined
         if (!raw) return
         NES.editMidi         = midiToEditableCopy(raw)
+        copyHandTagsOntoEditBuffer(storeRef.current.midi, NES.editMidi)
         NES.history.clear()
         NES.dirty            = false
         NES.newNotes.clear()
+        NES.editedNotes.clear()
         NES.needsFlatRebuild = true
         NES.hoverHint        = NES.defaultHint
         NES.onHistoryChange?.()
         NES.onHintChange?.()
       }
 
-      // ── Reset hint when cursor leaves the canvas ──────────────────────────
+      // ── Reset hint when cursor leaves the canvas — selection-aware, so
+      // "nothing selected" doesn't lie about an active selection just
+      // because the mouse moved back onto the toolbar itself. ─────────────
       const onCanvasLeave = () => {
         if (!storeRef.current.noteEditorActive) return
         setEditTooltip(null)
-        if (NES.hoverHint !== NES.defaultHint) {
-          NES.hoverHint = NES.defaultHint
+        const n = editSelectedNotes.size
+        const hint = n > 0 ? `${n} note${n === 1 ? '' : 's'} selected · Right-click for options` : NES.defaultHint
+        if (NES.hoverHint !== hint) {
+          NES.hoverHint = hint
           NES.onHintChange?.()
         }
       }
@@ -1558,7 +1941,7 @@ export default function PianoRoll() {
         }
         if (velocityCanvasRef.current) {
           velocityCanvasRef.current.width  = w
-          velocityCanvasRef.current.height = Math.round(h * (1 - PLAYHEAD_RATIO))
+          velocityCanvasRef.current.height = Math.round(h * (1 - PLAYHEAD_RATIO)) + VELOCITY_LANE_HEIGHT_BOOST
         }
       })
       roInstance.observe(el)
@@ -1613,6 +1996,46 @@ export default function PianoRoll() {
           boxShadow: '0 2px 8px rgba(0,0,0,0.5)',
         }}>
           {editTooltip.label}
+        </div>
+      )}
+
+      {contextMenu && (
+        <div
+          onMouseDown={e => e.stopPropagation()}
+          style={{
+            position: 'fixed',
+            left: contextMenu.x, top: contextMenu.y,
+            zIndex: 9800,
+            background: 'var(--panel)',
+            border: '1px solid var(--state-hover-border)',
+            borderRadius: 'var(--radius-sm)',
+            padding: '4px 0',
+            minWidth: 160,
+            boxShadow: '0 4px 16px rgba(0,0,0,0.55)',
+            fontFamily: "'Inter', system-ui, sans-serif",
+            fontSize: 12,
+          }}
+        >
+          {contextMenu.options.map((opt, i) => (
+            <div
+              key={i}
+              onClick={() => { if (!opt.disabled) opt.onClick() }}
+              style={{
+                padding: '6px 14px',
+                display: 'flex', alignItems: 'center', gap: 8,
+                cursor: opt.disabled ? 'default' : 'pointer',
+                color: opt.disabled ? 'var(--text-disabled-icon)' : opt.destructive ? 'var(--status-error)' : 'var(--text-default)',
+                opacity: opt.disabled ? 0.5 : 1,
+              }}
+              onMouseEnter={e => { if (!opt.disabled) (e.currentTarget as HTMLElement).style.background = 'var(--state-hover-overlay-white)' }}
+              onMouseLeave={e => { (e.currentTarget as HTMLElement).style.background = 'transparent' }}
+            >
+              {opt.swatchColor && (
+                <span style={{ width: 9, height: 9, borderRadius: 2, background: opt.swatchColor, flexShrink: 0 }} />
+              )}
+              {opt.label}
+            </div>
+          ))}
         </div>
       )}
     </div>

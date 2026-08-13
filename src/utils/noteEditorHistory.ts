@@ -14,6 +14,9 @@ export interface NoteEditorHistory {
   clear(): void
   // Dev helper — returns each stack entry with the cursor position marked.
   debugStack(): string[]
+  // Descriptions of every command currently applied (i.e. not undone) — used
+  // to build the File Info changelog summary on save.
+  appliedDescriptions(): string[]
 }
 
 // ── createNoteEditorHistory ───────────────────────────────────────────────────
@@ -65,6 +68,10 @@ export function createNoteEditorHistory(maxSize = 100): NoteEditorHistory {
       return stack.map((cmd, i) =>
         `${i === cursor ? '→ ' : '  '}[${i}] ${cmd.description}`
       )
+    },
+
+    appliedDescriptions() {
+      return stack.slice(0, cursor).map(cmd => cmd.description)
     },
   }
 }

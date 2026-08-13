@@ -10,6 +10,18 @@ import { useEffect } from 'react'
 import type { WorkletSynthesizer } from 'spessasynth_lib'
 import { useStore } from '../store'
 import { pushHitEffect, amberHex } from '../utils/hitEffectQueue'
+import { isHomogeneousHandTrack, resolveHandAwareColor } from '../utils/handColors'
+import { NES } from '../utils/noteEditorState'
+
+// ── Live edit-buffer awareness — mirrors useAudioEngine.ts's activeMidiData().
+// Gated on NES.dirty, not just NES.editMidi being non-null — the edit buffer
+// exists the instant edit mode opens, before any real edit happens, and
+// routing through it unconditionally broke audio the moment the toolbar
+// opened (see useAudioEngine.ts for the full explanation). Only reroute once
+// there's an actual edit worth protecting. ─────────────────────────────────
+function activeMidiData(): any {
+  return (NES.dirty && NES.editMidi) ? NES.editMidi : useStore.getState().midi
+}
 
 // ── GeneralUser GS outputs at a lower reference level than jzz-synth-tiny.
 // This constant normalises perceived loudness at equal masterVolume settings.
@@ -203,13 +215,17 @@ function buildSamplesPlayer(startSec: number) {
   clearSchedule(); clearAllKeys()
   applyChannelVolumes()
 
-  const { midi, tracks, bpm, originalBpm, detectedKey, hitEffectScope } = useStore.getState()
-  const midiData = midi as any
+  const { tracks, bpm, originalBpm, detectedKey, hitEffectScope, showHandLabels, handLabelMode, noteEditorActive } = useStore.getState()
+  const midiData = activeMidiData()
   if (!midiData) return
 
   const transpose = detectedKey?.transpose ?? 0
   const ratio = bpm / originalBpm
   const hasSolo = tracks.some(t => t.solo)
+  const performanceMode = handLabelMode === 'performance'
+  // Note Editor's own Hand toggle governs key-light coloring while editing —
+  // same split as the piano roll, see useAudioEngine.ts's identical fix.
+  const effectiveShowHandLabels = showHandLabels || (noteEditorActive && NES.reassignHandsMode)
 
   // Send programChange for each active track — also marks channels as initialized
   // so edit-mode lazy init doesn't redundantly override them.
@@ -227,7 +243,8 @@ function buildSamplesPlayer(startSec: number) {
   for (const track of midiData.tracks) {
     const ts = tracks.find(t => t.index === track.index)
     if (!ts || ts.muted || (hasSolo && !ts.solo)) continue
-    const color = ts.color ?? amberHex()
+    const defaultColor = ts.color ?? amberHex()
+    const homogeneousTrack = isHomogeneousHandTrack(track.notes)
     const ch = track.channel
 
     for (const note of track.notes) {
@@ -236,6 +253,7 @@ function buildSamplesPlayer(startSec: number) {
       const delay = (noteStart - startSec) * 1000
       const durMs = Math.max(note.duration / ratio * 1000, 40)
       const midiNum = note.midi + transpose
+      const color = resolveHandAwareColor(note, defaultColor, { homogeneousTrack, showHandLabels: effectiveShowHandLabels, performanceMode })
 
       const t = setTimeout(() => {
         if (!_synth) return
@@ -327,7 +345,7 @@ export function useSamplesEngine() {
     // channel: MIDI channel 0-based. Undefined = dedicated preview channel (15).
     // visual = false skips the timed key-light — glissando drives the keyboard
     // light itself (instant swap, no fade timer) instead of this note-duration ring.
-    ;(window as any).__orfeoPlayNoteSamples = (midiNum: number, vel: number, durMs: number, channel?: number, visual = true) => {
+    ;(window as any).__orfeoPlayNoteSamples = (midiNum: number, vel: number, durMs: number, channel?: number, visual = true, color?: string) => {
       if (!_synth || !_synthReady) return
       const ch = channel ?? 15
       if (ch === 15) {
@@ -342,7 +360,7 @@ export function useSamplesEngine() {
       }
       _synth.noteOn(ch, midiNum, Math.round(vel * 127))
       setTimeout(() => _synth?.noteOff(ch, midiNum), durMs)
-      if (visual) lightKey(midiNum, amberHex(), durMs + 100)
+      if (visual) lightKey(midiNum, color ?? amberHex(), durMs + 100)
     }
     // ── Sustained note-on for hardware MIDI input ────────────────────────────
     ;(window as any).__orfeoNoteOnSamples = (midiNum: number, vel: number) => {
@@ -368,7 +386,17 @@ export function useSamplesEngine() {
     let prevAudioEngine = useStore.getState().audioEngine
     let prevBpm = useStore.getState().bpm
     let prevTranspose = useStore.getState().detectedKey?.transpose ?? 0
-    let prevTracks = useStore.getState().tracks
+    // ── Mute/solo signature — the only per-track fields that change WHICH
+    // notes get scheduled (see buildSamplesPlayer's hasSolo/muted/solo gate
+    // below). Volume/pan/chorus/reverb are pushed straight to the synth via
+    // setChannelVolume/Pan/Chorus/Reverb at the same call site that patches
+    // the store, so reacting to every `tracks` reference change here (as a
+    // raw `!==` would) rebuilds the whole scheduled player on every fader
+    // mousemove — dozens of times a second — which is what was stuttering/
+    // pausing playback while dragging a Console fader. ─────────────────────
+    const muteSoloSignature = (ts: ReturnType<typeof useStore.getState>['tracks']) =>
+      ts.map(t => (t.muted ? 'm' : t.solo ? 's' : '.')).join('')
+    let prevMuteSolo = muteSoloSignature(useStore.getState().tracks)
 
     const unsub = useStore.subscribe((state) => {
       const engineChanged = state.audioEngine !== prevAudioEngine
@@ -392,11 +420,12 @@ export function useSamplesEngine() {
       const ps = state.playbackState
       const bpmChanged = state.bpm !== prevBpm
       const transposeChanged = (state.detectedKey?.transpose ?? 0) !== prevTranspose
-      const tracksChanged = state.tracks !== prevTracks
+      const muteSolo = muteSoloSignature(state.tracks)
+      const tracksChanged = muteSolo !== prevMuteSolo
 
       prevBpm = state.bpm
       prevTranspose = state.detectedKey?.transpose ?? 0
-      prevTracks = state.tracks
+      prevMuteSolo = muteSolo
 
       if (engineChanged && ps === 'playing') {
         // Engine just switched TO samples while playback is active

@@ -159,6 +159,7 @@
 --accent-amber-loop-border-dim: #e8a0274d;  /* ~30% — PianoRoll loop-region boundary line (inactive) */
 --accent-amber-loop-fill-dim: #e8a0270a;    /* ~4%  — PianoRoll loop-region fill (inactive) */
 --accent-amber-tooltip-text: #e8a027e6;     /* ~90% — PianoRoll Alt+drag cursor-tooltip amber text */
+--text-amber-dimmest: #e8a02766;            /* ~40% — SettingsPanel.tsx revealed-hidden-file row text/icon */
 --accent-amber-toggle-active-bg: #e8a0271a; /* ~10% — TopBar.tsx note-editor toggle button active background */
 
 /* Control UI tones — not covered by the main text/status scale */
@@ -177,7 +178,8 @@
 --text-on-amber: #1a1000;       /* Dark text for content sitting on amber/accent backgrounds (e.g. mute-filter pill) */
 
 /* MIDI/Note editors */
---hand-slate: #4a7fff;       /* Left-hand indicator — MidiEditor split-preview timeline; shared with Keyboard.tsx hand-highlight */
+--hand-lh: #6270A5;          /* Fixed left-hand color — piano roll, keyboard glow, split-preview timeline. Always this value, never per-track palette, for any hand-tagged note (see docs/LR Hand rework, gitignored) */
+--hand-rh: #CB636C;          /* Fixed right-hand color — same scope as --hand-lh */
 --flag-red: #e05252;         /* Low-confidence hand-split passage flag (MidiEditor) */
 --bg-field: #0a0a10;         /* Recessed input/display field background — search box, hex input, output-path readout */
 --color-input-error: #c05050; /* Invalid hex-color input state (border + text) in MidiEditor's color popover */
@@ -186,7 +188,7 @@
 --track-included-color: #50c050;    /* MidiEditor track-include toggle — included (true) icon color */
 --track-excluded: #353540;          /* MidiEditor track-include toggle — excluded (false) border + icon color */
 --track-merged-row-bg: #101020;     /* MidiEditor track row background when merged */
---track-mergeselected-row-bg: #1a1a08; /* MidiEditor track row background when selected for merge */
+--track-mergeselected-row-bg: #10102a; /* MidiEditor track row background when selected for merge — same blue family as --unmerge-bg */
 --merge-badge-bg: #20204a;    /* MidiEditor "merged" badge background */
 --merge-badge-text: #8080cc;  /* MidiEditor "merged" badge text + Unmerge button icon color */
 --unmerge-border: #4040a0;    /* MidiEditor Unmerge button border */
@@ -201,7 +203,7 @@
 --pianoroll-octave-divider: #2e2e48; /* PianoRoll canvas — octave divider line */
 --pianoroll-barline: #1e1e38;       /* PianoRoll canvas — bar-line marker */
 --pianoroll-tooltip-bg: #1e1e2e;    /* PianoRoll edit-mode note-name tooltip background */
---note-select-red: #dd2244;   /* PianoRoll canvas — selected/dragged note outline + new-note dashed border */
+--note-select-outline: #ffffff;   /* PianoRoll canvas — selected/dragged/edited note outline + new-note outline (white for contrast, was red) */
 --note-marquee-blue: #7788aa; /* PianoRoll canvas — drag-select marquee rectangle */
 --text-canvas-label: #ffffffd9; /* ~85% — PianoRoll canvas — in-note-name label text (edit mode) */
 --bg-tooltip: #121212eb;      /* ~92% — PianoRoll Alt+drag cursor-tooltip background */

@@ -18,12 +18,17 @@ function computeChordSequence(
   tracks: { isDrum: boolean; notes: { time: number; midi: number; duration: number }[] }[],
   noteNaming: NoteNaming,
   accidentals: Accidentals,
+  transpose: number,
 ): ChordEvent[] {
-  // ── Collect all non-drum notes into a flat list ───────────────────────────
+  // ── Collect all non-drum notes into a flat list — shifted by transpose so
+  // chord names match what's actually heard/lit, same offset the audio
+  // engine applies at playback time (useAudioEngine.ts/useSamplesEngine.ts).
+  // Without this, changing key left the sequence's names stuck on the
+  // file's original pitches. ────────────────────────────────────────────
   const allNotes: { time: number; midi: number }[] = []
   for (const track of tracks) {
     if (track.isDrum) continue
-    for (const note of track.notes) allNotes.push({ time: note.time, midi: note.midi })
+    for (const note of track.notes) allNotes.push({ time: note.time, midi: note.midi + transpose })
   }
   if (allNotes.length === 0) return []
   allNotes.sort((a, b) => a.time - b.time)
@@ -82,6 +87,7 @@ export function useChordSequence() {
   const midi = useStore((s) => s.midi)
   const noteNaming = useStore((s) => s.noteNaming)
   const accidentals = useStore((s) => s.accidentals)
+  const transpose = useStore((s) => s.detectedKey?.transpose ?? 0)
   const setChordSequence = useStore((s) => s.setChordSequence)
 
   useEffect(() => {
@@ -89,10 +95,10 @@ export function useChordSequence() {
 
     // ── Defer off render thread so file load doesn't stall the UI ────────
     const id = setTimeout(() => {
-      const seq = computeChordSequence(midi.tracks, noteNaming, accidentals)
+      const seq = computeChordSequence(midi.tracks, noteNaming, accidentals, transpose)
       setChordSequence(seq)
     }, 0)
 
     return () => clearTimeout(id)
-  }, [midi, noteNaming, accidentals, setChordSequence])
+  }, [midi, noteNaming, accidentals, transpose, setChordSequence])
 }

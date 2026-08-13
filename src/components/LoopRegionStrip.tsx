@@ -5,6 +5,7 @@
 // Selection endpoints snap to nearest bar boundary on release.
 
 import React, { useEffect, useRef, useState, useCallback, type CSSProperties } from 'react'
+import { createPortal } from 'react-dom'
 import { ChevronUp, ChevronDown } from 'lucide-react'
 import { useStore } from '../store'
 
@@ -345,6 +346,16 @@ export default function LoopRegionStrip() {
   }, [])
 
   // ── Close popup when clicking outside it ──────────────────────────────────
+  // Attaching this listener is deferred by one tick (setTimeout 0) instead of
+  // happening synchronously in the same effect flush that opens the popup —
+  // without the defer, the SAME mousedown that opened it (via handleIconClick
+  // on the button's onClick, which fires after mousedown) can end up caught
+  // by this listener the instant it attaches, since effects run before the
+  // browser has fully finished that event's dispatch in some cases. That's
+  // what made this intermittent: sometimes the listener attached late enough
+  // to miss it, sometimes not — the popup would open and immediately close
+  // again, or not visibly open at all. Deferring one tick guarantees the
+  // opening interaction has completely finished before this can fire at all.
   useEffect(() => {
     if (!popupOpen) return
     const handler = (e: MouseEvent) => {
@@ -356,8 +367,8 @@ export default function LoopRegionStrip() {
         setPopupOpen(false)
       }
     }
-    document.addEventListener('mousedown', handler)
-    return () => document.removeEventListener('mousedown', handler)
+    const t = setTimeout(() => document.addEventListener('mousedown', handler), 0)
+    return () => { clearTimeout(t); document.removeEventListener('mousedown', handler) }
   }, [popupOpen])
 
   // ── Open popup and sync inputs from current selection ─────────────────────
@@ -458,6 +469,7 @@ export default function LoopRegionStrip() {
       {/* ── Canvas — fills the shared 400px wrapper in TopBar ─────────────── */}
       <canvas
         ref={canvasRef}
+        className="app-no-drag"
         onMouseDown={handleMouseDown}
         onMouseMove={handleMouseMoveCanvas}
         onDoubleClick={() => useStore.getState().clearLoopRegion()}
@@ -470,7 +482,14 @@ export default function LoopRegionStrip() {
       />
 
       {/* ── Icon + bars + popup — anchored outside the wrapper's right edge ── */}
-      <div style={{ position: 'absolute', left: 'calc(100% + 8px)', top: 0, height: STRIP_H, display: 'flex', alignItems: 'center', gap: 6 }}>
+      {/* app-no-drag: this whole strip sits inside TopBar's app-drag-region
+          (Electron -webkit-app-region: drag, for native window dragging).
+          Without this class, real OS-level mouse clicks on the icon are
+          intercepted as a window-drag gesture before React ever sees them —
+          the button still LOOKS clickable and synthetic JS-dispatched click
+          events still fire (they bypass the native OS interception), which
+          is what made this so easy to falsely "verify" as working. ────────── */}
+      <div className="app-no-drag" style={{ position: 'absolute', left: 'calc(100% + 8px)', top: 0, height: STRIP_H, display: 'flex', alignItems: 'center', gap: 6 }}>
         <div style={{ position: 'relative', display: 'flex', alignItems: 'center', gap: 6 }}>
           <button
             ref={iconBtnRef}
@@ -510,14 +529,20 @@ export default function LoopRegionStrip() {
           )}
 
         {/* ── Bar range popup ──────────────────────────────────────────────── */}
-        {popupOpen && (
+        {/* Portaled to document.body, position: fixed off the icon button's
+            real screen rect — the popup used to be position:absolute inside
+            TopBar, which clipped/buried it behind the piano roll (a later,
+            higher-painting sibling in the DOM) instead of floating above
+            everything. Same escape-the-parent-stacking-context pattern as
+            every other floating panel in the app (ScaleExplorer, FileInfoModal). */}
+        {popupOpen && createPortal(
           <div
             ref={popupRef}
             className="orfeo-modal-glow"
             style={{
-              position: 'absolute',
-              top: STRIP_H + 4,
-              left: 0,
+              position: 'fixed',
+              top: (iconBtnRef.current?.getBoundingClientRect().bottom ?? 0) + 4,
+              left: iconBtnRef.current?.getBoundingClientRect().left ?? 0,
               background: 'var(--bg-tile)',
               border: '1px solid var(--border-popup)',
               borderRadius: 6,
@@ -619,7 +644,8 @@ export default function LoopRegionStrip() {
             >
               Apply
             </button>
-          </div>
+          </div>,
+          document.body,
         )}
         </div>
       </div>

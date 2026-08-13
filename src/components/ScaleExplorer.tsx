@@ -1,13 +1,16 @@
 import { useState, useEffect, useCallback, useMemo, useRef, type CSSProperties } from 'react'
 import { createPortal } from 'react-dom'
 import { Chord, Note } from 'tonal'
-import { RotateCcw, Play, Square, CircleOff, ListOrdered, Shuffle, ArrowUpRight } from 'lucide-react'
+import { RotateCcw, Play, Square, CircleOff, ListOrdered, Shuffle, ArrowUpRight, ToggleLeft, ToggleRight } from 'lucide-react'
 import { useStore } from '../store'
 import { getNoteName } from '../utils/noteNames'
 import type { NoteNaming, Accidentals } from '../types'
 import SpeedControl from './SpeedControl'
 import OrfeoMark from './OrfeoMark'
+import ChevronPlayIcon from './ChevronPlayIcon'
 import { getPianoRollCenterX, getKeyboardHeaderTop } from '../utils/modalAnchors'
+import { useAnchorBottomOnResize } from '../hooks/useAnchorBottomOnResize'
+import { modalCloseButtonStyle, modalCloseButtonHoverColor, modalCloseButtonIdleColor } from '../utils/modalCloseButtonStyle'
 
 // ── Keyboard range constants ────────────────────────────────────────────────
 const RANGES: Record<number, { min: number; max: number }> = {
@@ -98,22 +101,6 @@ const ROW: React.CSSProperties = {
   borderBottom: '1px solid var(--border)',
 }
 
-// ── Single-chevron play icon — same shape as SpeedControl's "slow" icon,
-// reused for the Progressions PLAY button and the prev/next inversion
-// buttons so all three share one visual language. ──────────────────────────
-function ChevronPlayIcon({ size = 14, mirrored = false }: { size?: number; mirrored?: boolean }) {
-  return (
-    <svg
-      viewBox="0 0 17 26" width={Math.round(size * 17 / 26)} height={size} fill="none" aria-hidden="true"
-      style={mirrored ? { transform: 'scaleX(-1)' } : undefined}
-    >
-      <path
-        d="M1,4c0-1.66,1.34-3,3-3,.8,0,1.56.32,2.12.88l9,9c1.17,1.17,1.17,3.07,0,4.24l-9,9c-1.17,1.17-3.07,1.17-4.24,0-.56-.56-.88-1.33-.88-2.12V4Z"
-        stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round"
-      />
-    </svg>
-  )
-}
 
 // ── SVG wedge path for CoF rings ─────────────────────────────────────────────
 function wedgePath(cx: number, cy: number, r1: number, r2: number, a1Deg: number, a2Deg: number): string {
@@ -256,6 +243,8 @@ export default function ScaleExplorer() {
   const setChordExplorerOpen    = useStore(s => s.setChordExplorerOpen)
   const explorerKeys = useStore(s => s.explorerKeys)
   const setExplorerKeys = useStore(s => s.setExplorerKeys)
+  const colorRootNoteEnabled = useStore(s => s.colorRootNoteEnabled)
+  const setColorRootNoteEnabled = useStore(s => s.setColorRootNoteEnabled)
   const clearExplorerKeys = useStore(s => s.clearExplorerKeys)
   const clearLockedKeys = useStore(s => s.clearLockedKeys)
   const setExplorerChordDisplay = useStore(s => s.setExplorerChordDisplay)
@@ -269,8 +258,18 @@ export default function ScaleExplorer() {
   // centered on the piano roll; recomputed each time the modal opens. ───────
   const [pos, setPos] = useState(() => ({
     x: Math.round(getPianoRollCenterX() - MODAL_WIDTH / 2),
-    y: Math.max(8, Math.round(getKeyboardHeaderTop() - MODAL_HEIGHT) - 152),
+    // ── Floor is 44, not a token-adjacent 8 — the Electron window uses a
+    // 40px titleBarOverlay (electron/main.ts) where Windows draws its own
+    // native minimize/maximize/close buttons ON TOP of the page regardless
+    // of DOM z-index. This modal is tall enough (600px) that its computed Y
+    // clamps to the floor often (on smaller windows); an 8px floor put the
+    // header — and its own × button — right under those native OS controls,
+    // so "close" clicks were landing on Windows' real maximize button
+    // instead. 44 clears the overlay zone with a few px to spare. ──────────
+    y: Math.max(44, Math.round(getKeyboardHeaderTop() - MODAL_HEIGHT) - 152),
   }))
+  const panelRef = useRef<HTMLDivElement>(null)
+  useAnchorBottomOnResize(panelRef, setPos, scaleExplorerOpen && !scaleExplorerMinimized, 44)
 
   // ── CoF + scale selection state ───────────────────────────────────────────
   const [cofPos, setCofPos] = useState<number | null>(null)
@@ -313,6 +312,16 @@ export default function ScaleExplorer() {
   // effect fires even when the same segment is clicked twice in a row
   const playTriggerRef = useRef(0)
   const [playTrigger, setPlayTrigger] = useState(0)
+
+  // ── Chord/inversion audio trigger — chord tiles and the inversion step
+  // buttons used to fire on `onClick`, which the browser fires on release,
+  // not press. Fires on `onMouseDown` instead so the sound starts the
+  // instant you press; still a fixed-duration ring via `playNote`, not a
+  // held sustain — releasing early doesn't cut it short. ────────────────────
+  const ringNotes = useCallback((notes: number[], vel = 0.7, durMs = 600) => {
+    const playNote = (window as any).__orfeoPlayNote
+    if (playNote) notes.forEach(m => playNote(m, vel, durMs, undefined, false))
+  }, [])
 
   const displayNaming: NoteNaming = noteNaming === 'hidden' ? 'english' : noteNaming
 
@@ -358,7 +367,15 @@ export default function ScaleExplorer() {
       // ── Recompute anchor position every time the modal opens ────────────
       setPos({
         x: Math.round(getPianoRollCenterX() - MODAL_WIDTH / 2),
-        y: Math.max(8, Math.round(getKeyboardHeaderTop() - MODAL_HEIGHT) - 152),
+        // ── Floor is 44, not a token-adjacent 8 — the Electron window uses a
+    // 40px titleBarOverlay (electron/main.ts) where Windows draws its own
+    // native minimize/maximize/close buttons ON TOP of the page regardless
+    // of DOM z-index. This modal is tall enough (600px) that its computed Y
+    // clamps to the floor often (on smaller windows); an 8px floor put the
+    // header — and its own × button — right under those native OS controls,
+    // so "close" clicks were landing on Windows' real maximize button
+    // instead. 44 clears the overlay zone with a few px to spare. ──────────
+    y: Math.max(44, Math.round(getKeyboardHeaderTop() - MODAL_HEIGHT) - 152),
       })
       if (useStore.getState().playbackState === 'playing') {
         ;(window as any).__orfeoPlayer?.pause?.()
@@ -389,6 +406,16 @@ export default function ScaleExplorer() {
     }
   }, [scaleExplorerOpen, stopProgression, clearScalePlayTimers, stopChordSequence, clearExplorerKeys, clearExplorerChordDisplay])
 
+  // ── Root-pitch-class-aware color — pink for the true root (any octave) when
+  // colorRootNoteEnabled, amber otherwise. Keyed on the chord/scale's actual
+  // root pitch class, not voicing position — a positional "first/bass note"
+  // scheme broke under inversion (the true root can land anywhere in the
+  // voicing once inverted, so it needs pitch-class matching to stay correct). ──
+  const noteColor = useCallback((midi: number, rootPc: number | null): string => {
+    if (colorRootNoteEnabled && rootPc !== null && ((midi % 12) + 12) % 12 === rootPc) return 'var(--hand-rh)'
+    return 'var(--text-amber)'
+  }, [colorRootNoteEnabled])
+
   // ── Play scale notes ascending and light keys when root/scale changes ──────
   useEffect(() => {
     if (!scaleExplorerOpen || selectedRoot === null) return
@@ -410,10 +437,7 @@ export default function ScaleExplorer() {
       else if (octaveDown >= min) noteMidis.push(octaveDown)
     }
     const keys = new Set(noteMidis)
-    const colors = new Map<number, string>()
-    noteMidis.forEach((m, i) => {
-      colors.set(m, i === 0 || i === noteMidis.length - 1 ? 'var(--text-amber)' : 'var(--accent-scale-note)')
-    })
+    const colors = new Map<number, string>(noteMidis.map(m => [m, noteColor(m, selectedRoot)] as const))
     setExplorerKeys(keys, colors)
     setSelectedDegree(null)
     setOctaveTileSelected(false)
@@ -434,10 +458,12 @@ export default function ScaleExplorer() {
   const playDegree = useCallback((chord: DiatonicChord) => {
     setOctaveTileSelected(false)
     setSelectedDegree(chord.degree)
-    // ── Uniform amber for a direct tile click — the amber-root/blue-rest split
-    // is reserved for full-progression playback (Play button / Spacebar). ────
+    // ── Tile playback colors the SCALE's root (not the chord's own root) —
+    // only chords that actually contain the scale root show a pink note;
+    // chords that don't (e.g. ii, iii in most scales) stay uniform amber.
+    // Inversions are the opposite: see handlePrev/NextInversion below. ──────
     const keys = new Set(chord.midiNotes)
-    const colors = new Map(chord.midiNotes.map(m => [m, 'var(--text-amber)'] as const))
+    const colors = new Map(chord.midiNotes.map(m => [m, noteColor(m, selectedRoot)] as const))
     setExplorerKeys(keys, colors)
     // ── Store chord identity in Zustand so Keyboard.tsx can display it ────
     setExplorerChordDisplay({ name: chord.chordName, invCount: 0, noteCount: chord.midiNotes.length })
@@ -447,9 +473,8 @@ export default function ScaleExplorer() {
       notes: chord.midiNotes.map(m => getNoteName(m, displayNaming, accidentals)),
       step: 0,
     })
-    const playNote = (window as any).__orfeoPlayNote
-    if (playNote) chord.midiNotes.forEach(m => playNote(m, 0.7, 600, undefined, false))
-  }, [setExplorerKeys, displayNaming, accidentals])
+    ringNotes(chord.midiNotes)
+  }, [setExplorerKeys, displayNaming, accidentals, noteColor, selectedRoot, ringNotes])
 
   // ── Play the tonic chord one octave higher (8th tile) ────────────────────
   // Transposes every MIDI note in diatonicChords[0] up by 12. Clears regular
@@ -460,9 +485,11 @@ export default function ScaleExplorer() {
     const octaveMidi = tonic.midiNotes.map(n => n + 12)
     setSelectedDegree(null)
     setOctaveTileSelected(true)
-    // ── Uniform amber — see playDegree note above. ─────────────────────────
+    // ── Scale-root-relative, same as playDegree above (the octave tile is the
+    // tonic, so it always contains the scale root — but keyed the same way
+    // for consistency). ─────────────────────────────────────────────────────
     const keys = new Set(octaveMidi)
-    const colors = new Map(octaveMidi.map(m => [m, 'var(--text-amber)'] as const))
+    const colors = new Map(octaveMidi.map(m => [m, noteColor(m, selectedRoot)] as const))
     setExplorerKeys(keys, colors)
     // ── Store chord identity in Zustand so Keyboard.tsx can display it ────
     setExplorerChordDisplay({ name: tonic.chordName, invCount: 0, noteCount: octaveMidi.length })
@@ -472,9 +499,8 @@ export default function ScaleExplorer() {
       notes: octaveMidi.map(m => getNoteName(m, displayNaming, accidentals)),
       step: 0,
     })
-    const playNote = (window as any).__orfeoPlayNote
-    if (playNote) octaveMidi.forEach(m => playNote(m, 0.7, 600, undefined, false))
-  }, [diatonicChords, setExplorerKeys, displayNaming, accidentals])
+    ringNotes(octaveMidi)
+  }, [diatonicChords, setExplorerKeys, displayNaming, accidentals, noteColor, selectedRoot, ringNotes])
 
   // ── Auto-play all chords in the scale, one after another — the "Chords in
   // the Scale" row's play button. Runs the 7 diatonic tiles plus the octave
@@ -500,22 +526,30 @@ export default function ScaleExplorer() {
     return diatonicChords[selectedDegree].midiNotes
   }, [selectedDegree, octaveTileSelected, diatonicChords])
 
+  // ── Root pitch class of the currently selected tile — stays fixed through
+  // inversion (unlike voicing position), so it's what noteColor keys off. ────
+  const currentRootPC = useMemo(() => {
+    if (octaveTileSelected && diatonicChords[0]) return diatonicChords[0].rootPC
+    if (selectedDegree === null || !diatonicChords[selectedDegree]) return null
+    return diatonicChords[selectedDegree].rootPC
+  }, [selectedDegree, octaveTileSelected, diatonicChords])
+
   // ── Rotate the live chord voicing down (prev) or up (next) ──────────────
   // Mirrors ChordExplorer's handleInversion: reads explorerKeys from the store
   // each time so rotations accumulate across octaves instead of wrapping at
-  // chord length. Bass note is amber, upper notes are blue.
+  // chord length. Root pitch class stays pink (if enabled) regardless of
+  // which voicing position it lands in after rotating. ───────────────────
   const handlePrevInversion = useCallback(() => {
     const state = useStore.getState()
     if (state.explorerKeys.size === 0) return
     const notes = prevInversionSet(state.explorerKeys)
     const sorted = Array.from(notes).sort((a, b) => a - b)
-    const colors = new Map(sorted.map(m => [m, 'var(--text-amber)'] as const))
+    const colors = new Map(sorted.map(m => [m, noteColor(m, currentRootPC)] as const))
     setExplorerKeys(notes, colors)
     const cd = state.explorerChordDisplay
     if (cd) state.setExplorerChordDisplay({ ...cd, invCount: cd.invCount - 1 })
-    const playNote = (window as any).__orfeoPlayNote
-    if (playNote) sorted.forEach(m => playNote(m, 0.7, 600, undefined, false))
-  }, [setExplorerKeys])
+    ringNotes(sorted)
+  }, [setExplorerKeys, noteColor, currentRootPC, ringNotes])
 
   // ── Step to next inversion ────────────────────────────────────────────────
   const handleNextInversion = useCallback(() => {
@@ -523,13 +557,12 @@ export default function ScaleExplorer() {
     if (state.explorerKeys.size === 0) return
     const notes = nextInversionSet(state.explorerKeys)
     const sorted = Array.from(notes).sort((a, b) => a - b)
-    const colors = new Map(sorted.map(m => [m, 'var(--text-amber)'] as const))
+    const colors = new Map(sorted.map(m => [m, noteColor(m, currentRootPC)] as const))
     setExplorerKeys(notes, colors)
     const cd = state.explorerChordDisplay
     if (cd) state.setExplorerChordDisplay({ ...cd, invCount: cd.invCount + 1 })
-    const playNote = (window as any).__orfeoPlayNote
-    if (playNote) sorted.forEach(m => playNote(m, 0.7, 600, undefined, false))
-  }, [setExplorerKeys])
+    ringNotes(sorted)
+  }, [setExplorerKeys, noteColor, currentRootPC, ringNotes])
 
   // ── Play one progression step and schedule the next ──────────────────────
   const playProgStepAt = useCallback((
@@ -557,9 +590,12 @@ export default function ScaleExplorer() {
     }
     const notes = applyNthInversion(chord.midiNotes, inv)
 
+    // ── Root position (invMode 'off') behaves like a tile — scale-root-
+    // relative. Once actually inverted (sequential/random), it's chord
+    // inversions territory — the chord's own root stays pink regardless. ────
+    const rootPcForColor = invMode === 'off' ? selectedRoot : chord.rootPC
     const keys = new Set(notes)
-    const colors = new Map<number, string>()
-    notes.forEach((m, i) => colors.set(m, i === 0 ? 'var(--text-amber)' : 'var(--accent-chord-note)'))
+    const colors = new Map(notes.map(m => [m, noteColor(m, rootPcForColor)] as const))
     setExplorerKeys(keys, colors)
     setProgStep(step)
     setSelectedDegree(clampedDeg)
@@ -583,7 +619,7 @@ export default function ScaleExplorer() {
     progTimerRef.current = setTimeout(() => {
       playProgStepAt(nextStep, progIndex, invMode, nextLoop)
     }, SPEED_MS[speedRef.current])
-  }, [diatonicChords, setExplorerKeys, displayNaming, accidentals])
+  }, [diatonicChords, setExplorerKeys, displayNaming, accidentals, noteColor, selectedRoot])
 
   // ── Start progression from step 0 ────────────────────────────────────────
   const startProgression = useCallback(() => {
@@ -638,7 +674,10 @@ export default function ScaleExplorer() {
       if (!dragRef.current) return
       setPos({
         x: Math.max(0, dragRef.current.ox + ev.clientX - dragRef.current.mx),
-        y: Math.max(0, dragRef.current.oy + ev.clientY - dragRef.current.my),
+        // 44, not 0 — same titleBarOverlay clearance as the initial position
+        // above; dragging the header up to y=0 put it under Windows' native
+        // maximize/close buttons just as easily as the auto-computed position did.
+        y: Math.max(44, dragRef.current.oy + ev.clientY - dragRef.current.my),
       })
     }
     const onUp = () => {
@@ -693,6 +732,7 @@ export default function ScaleExplorer() {
   return (
     // ── Modal container ────────────────────────────────────────────────────
     <div
+      ref={panelRef}
       className="orfeo-modal-glow"
       style={{
         position: 'fixed',
@@ -727,9 +767,9 @@ export default function ScaleExplorer() {
         <button
           onMouseDown={e => e.stopPropagation()}
           onClick={() => { stopProgression(); clearExplorerKeys(); clearExplorerChordDisplay(); setScaleExplorerOpen(false) }}
-          style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-inactive)', fontSize: 16, lineHeight: 1, padding: '0 2px' }}
-          onMouseEnter={e => e.currentTarget.style.color = 'var(--text-amber)'}
-          onMouseLeave={e => e.currentTarget.style.color = 'var(--text-inactive)'}
+          style={{ ...modalCloseButtonStyle, fontSize: 16, lineHeight: 1 }}
+          onMouseEnter={e => e.currentTarget.style.color = modalCloseButtonHoverColor}
+          onMouseLeave={e => e.currentTarget.style.color = modalCloseButtonIdleColor}
         >×</button>
       </div>
 
@@ -751,7 +791,7 @@ export default function ScaleExplorer() {
         </div>
         {/* Scale type buttons — centred at CoF middle */}
         <div style={{ display: 'flex', flexDirection: 'column', gap: 1, minWidth: 116, flexShrink: 0, alignSelf: 'center', marginTop: 55 }}>
-          <span style={{ ...ROW_LABEL, fontSize: 10, marginBottom: 3 }}>Scale</span>
+          <span style={{ ...ROW_LABEL, fontSize: 11, marginBottom: 3 }}>Scale</span>
           {SCALES.map((s, i) => {
             const sel = selectedScaleIdx === i
             return (
@@ -879,7 +919,7 @@ export default function ScaleExplorer() {
         </div>
         {/* Chords in the Scale — two stacked rows: label + play icon on top,
             dimmed instruction text below. Absolute at bottom of CoF section. ── */}
-        <div style={{ position: 'absolute', bottom: 6, left: 12, right: 50, display: 'flex', flexDirection: 'column', gap: 2 }}>
+        <div style={{ position: 'absolute', bottom: 6, left: 12, right: 12, display: 'flex', flexDirection: 'column', gap: 2 }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
             <span style={{ ...ROW_LABEL, fontSize: 11 }}>Chords in the Scale</span>
             <button
@@ -895,9 +935,24 @@ export default function ScaleExplorer() {
               onMouseLeave={e => { e.currentTarget.style.color = selectedRoot === null ? 'var(--state-disabled)' : 'var(--text-amber)' }}
             ><Play size={13} fill="currentColor" strokeWidth={0} /></button>
           </div>
-          <span style={{ fontFamily: 'Inter', fontSize: 10, color: 'var(--text-dimmest)', opacity: 0.75, pointerEvents: 'none' }}>
-            Click tiles to hear chords or play them in sequence
-          </span>
+          {/* ── "Click tiles..." hint left, Color Root Note toggle right — same row ── */}
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8 }}>
+            <span style={{ fontFamily: 'Inter', fontSize: 10, color: 'var(--text-dimmest)', opacity: 0.75, pointerEvents: 'none' }}>
+              Click tiles to hear chords or play them in sequence
+            </span>
+            {/* ── On by default: the chord/scale's true root pitch class (any
+                octave) highlights pink instead of blending into the uniform amber. ── */}
+            <button
+              onClick={() => setColorRootNoteEnabled(!colorRootNoteEnabled)}
+              title="Highlights the root note on the keyboard."
+              style={{ display: 'flex', alignItems: 'center', gap: 6, background: 'none', border: 'none', cursor: 'pointer', padding: 0, flexShrink: 0 }}
+            >
+              <span style={{ fontFamily: 'Inter', fontSize: 10, color: 'var(--text-dimmest)', opacity: 0.75 }}>Accent root note</span>
+              <span style={{ display: 'flex', color: colorRootNoteEnabled ? 'var(--text-amber)' : 'var(--text-inactive)' }}>
+                {colorRootNoteEnabled ? <ToggleRight size={16} strokeWidth={1.5} /> : <ToggleLeft size={16} strokeWidth={1.5} />}
+              </span>
+            </button>
+          </div>
         </div>
       </div>
 
@@ -915,7 +970,7 @@ export default function ScaleExplorer() {
                 // Chord tile: chord name left, notes + roman stacked right-aligned
                 <button
                   key={chord.degree}
-                  onClick={() => { stopChordSequence(); playDegree(chord) }}
+                  onMouseDown={() => { stopChordSequence(); playDegree(chord) }}
                   style={{
                     flex: 1, background: sel ? 'var(--state-selected-blue-bg)' : 'var(--bg-tile)',
                     border: `1px solid ${sel ? 'var(--accent-chord-note)' : 'var(--state-hover-bg)'}`,
@@ -951,7 +1006,7 @@ export default function ScaleExplorer() {
               const octaveMidi = tonic.midiNotes.map(n => n + 12)
               return (
                 <button
-                  onClick={() => { stopChordSequence(); playOctaveDegree() }}
+                  onMouseDown={() => { stopChordSequence(); playOctaveDegree() }}
                   style={{
                     flex: 1, background: sel ? 'var(--state-selected-blue-bg)' : 'var(--bg-tile)',
                     border: `1px solid ${sel ? 'var(--accent-chord-note)' : 'var(--state-hover-bg)'}`,
@@ -1155,7 +1210,7 @@ export default function ScaleExplorer() {
         {/* Centre: inversion browser — Play icons + static grey label */}
         <div style={{ position: 'absolute', left: '50%', transform: 'translateX(-50%)', display: 'flex', alignItems: 'center', gap: 6 }}>
           {/* Previous inversion — Play icon mirrored on vertical axis */}
-          <button onClick={handlePrevInversion} disabled={!currentBaseMidi.length}
+          <button onMouseDown={handlePrevInversion} disabled={!currentBaseMidi.length}
             style={{ background: 'none', border: 'none', color: currentBaseMidi.length ? 'var(--text-amber)' : 'var(--state-disabled)', cursor: currentBaseMidi.length ? 'pointer' : 'default', padding: '0 2px', display: 'flex', alignItems: 'center' }}
             onMouseEnter={e => { if (currentBaseMidi.length) e.currentTarget.style.color = 'var(--accent-amber-hover)' }}
             onMouseLeave={e => { e.currentTarget.style.color = currentBaseMidi.length ? 'var(--text-amber)' : 'var(--state-disabled)' }}
@@ -1165,7 +1220,7 @@ export default function ScaleExplorer() {
             Play  Chord Inversions
           </span>
           {/* Next inversion — Play icon normal */}
-          <button onClick={handleNextInversion} disabled={!currentBaseMidi.length}
+          <button onMouseDown={handleNextInversion} disabled={!currentBaseMidi.length}
             style={{ background: 'none', border: 'none', color: currentBaseMidi.length ? 'var(--text-amber)' : 'var(--state-disabled)', cursor: currentBaseMidi.length ? 'pointer' : 'default', padding: '0 2px', display: 'flex', alignItems: 'center' }}
             onMouseEnter={e => { if (currentBaseMidi.length) e.currentTarget.style.color = 'var(--accent-amber-hover)' }}
             onMouseLeave={e => { e.currentTarget.style.color = currentBaseMidi.length ? 'var(--text-amber)' : 'var(--state-disabled)' }}

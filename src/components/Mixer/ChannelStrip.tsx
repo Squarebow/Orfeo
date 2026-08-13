@@ -1,5 +1,5 @@
 import { useState, useRef, useLayoutEffect, useEffect, useCallback } from 'react'
-import { Eye } from 'lucide-react'
+import { Eye, GripVertical } from 'lucide-react'
 import { useStore } from '../../store'
 import MixerKnob from './MixerKnob'
 import { MarqueeText } from '../MarqueeText'
@@ -95,18 +95,33 @@ const FADER_TOP_PAD = 24
 // ── ChannelStrip props ────────────────────────────────────────────────────────
 export interface ChannelStripProps {
   trackIndex: number
+  // ── Drag-to-reorder — locked (piano/keys) strips render no grip and never
+  // participate; set by MixerConsole.tsx, same pattern as TrackPanel's group
+  // drag-reorder. ───────────────────────────────────────────────────────────
+  locked?: boolean
+  isDragging?: boolean
+  onDragStart?: () => void
+  onDragEnd?: () => void
+  onDrop?: () => void
 }
 
 // ── ChannelStrip — single 108×480 mixer channel strip ────────────────────────
-export default function ChannelStrip({ trackIndex }: ChannelStripProps) {
+export default function ChannelStrip({ trackIndex, locked, isDragging, onDragStart, onDragEnd, onDrop }: ChannelStripProps) {
 
   // ── Store reads ───────────────────────────────────────────────────────────
   const audioEngine  = useStore(s => s.audioEngine)
-  const tracks       = useStore(s => s.tracks)
+  // ── Select only this channel's own track object, not the whole `tracks`
+  // array. `updateTrack` replaces the array on every fader mousemove (dozens
+  // of times a second); since unchanged entries keep their original object
+  // reference, subscribing to `s.tracks` as a whole made every ChannelStrip
+  // re-render on every OTHER channel's drag tick too — 8 strips re-rendering
+  // per pixel of one drag, which is what was making playback stutter while
+  // dragging. Narrowing the selector to just this track lets zustand bail
+  // out (reference-equal) for every strip except the one actually moving. ──
+  const track        = useStore(s => s.tracks.find(t => t.index === trackIndex))
   const updateTrack  = useStore(s => s.updateTrack)
   const midi         = useStore(s => s.midi)
 
-  const track       = tracks.find(t => t.index === trackIndex)
   const parsedTrack = midi?.tracks.find((t: any) => t.index === trackIndex)
 
   const knobsDisabled = audioEngine === 'gm'
@@ -135,17 +150,19 @@ export default function ChannelStrip({ trackIndex }: ChannelStripProps) {
   const visible      = track?.visible      ?? true
   const showOnKeyboard = track?.showOnKeyboard ?? false
 
-  // ── Knob/fader state — initialized from CC data via store (seeded in midiParser) ──
+  // ── Knob/fader state — lives in store (per-track), seeded from CC data on
+  // file load — lets MixerConsole diff against mixerBaseline on close to
+  // detect unsaved changes and offer to persist them back into the file. ──
   const [dragging, setDragging] = useState(false)
-  const [chorus, setChorusState] = useState(() => (parsedTrack as any)?._cc93 ?? 0)
-  const [reverb, setReverbState] = useState(() => (parsedTrack as any)?._cc91 ?? 0)
-  const [pan,    setPanState]    = useState(() => track?.pan ?? 0)
-  const [volume, setVolume]      = useState(() => track?.volume ?? 1)
+  const chorus = track?.chorus ?? 0
+  const reverb = track?.reverb ?? 0
+  const pan    = track?.pan    ?? 0
+  const volume = track?.volume ?? 1
 
-  // ── Knob handlers — update local state and send CC to the Samples engine ──
-  const handleChorus = useCallback((v: number) => { setChorusState(v); setChannelChorus(midiChannel, v) }, [midiChannel])
-  const handleReverb = useCallback((v: number) => { setReverbState(v); setChannelReverb(midiChannel, v) }, [midiChannel])
-  const handlePan    = useCallback((v: number) => { setPanState(v);    setChannelPan(midiChannel, v)    }, [midiChannel])
+  // ── Knob handlers — update store and send CC to the Samples engine ───────
+  const handleChorus = useCallback((v: number) => { updateTrack(trackIndex, { chorus: v }); setChannelChorus(midiChannel, v) }, [trackIndex, midiChannel, updateTrack])
+  const handleReverb = useCallback((v: number) => { updateTrack(trackIndex, { reverb: v }); setChannelReverb(midiChannel, v) }, [trackIndex, midiChannel, updateTrack])
+  const handlePan    = useCallback((v: number) => { updateTrack(trackIndex, { pan: v });    setChannelPan(midiChannel, v)    }, [trackIndex, midiChannel, updateTrack])
 
   // ── VU meter — refs avoid re-renders in the rAF loop ─────────────────────
   const vuRef    = useRef<HTMLCanvasElement>(null)
@@ -203,7 +220,10 @@ export default function ChannelStrip({ trackIndex }: ChannelStripProps) {
         if (currentTime < note.time + note.duration && note.velocity > maxVel)
           maxVel = note.velocity
       }
-      if (maxVel > 0) vuLevel.current = maxVel
+      // Scale by the channel's fader volume so dragging it visibly moves the
+      // meter — previously this showed raw note velocity only, so the meter
+      // never reacted to the fader at all.
+      if (maxVel > 0) vuLevel.current = maxVel * tr.volume
     })
     return unsub
   }, [trackIndex])
@@ -233,7 +253,7 @@ export default function ChannelStrip({ trackIndex }: ChannelStripProps) {
 
     const onMove = (me: MouseEvent) => {
       const v = Math.max(0, Math.min(1, startVol + -(me.clientY - startY) / travel))
-      setVolume(v)
+      updateTrack(trackIndex, { volume: v })
       setChannelVolume(midiChannel, v)
     }
     const onUp = () => {
@@ -243,7 +263,7 @@ export default function ChannelStrip({ trackIndex }: ChannelStripProps) {
     }
     document.addEventListener('mousemove', onMove)
     document.addEventListener('mouseup',   onUp)
-  }, [muted, volume, sectionH])
+  }, [muted, volume, sectionH, trackIndex, midiChannel, updateTrack])
 
   // Muted → fader slides gracefully to bottom (0) in 150ms ease-out
   const visualVolume = muted ? 0 : volume
@@ -253,16 +273,20 @@ export default function ChannelStrip({ trackIndex }: ChannelStripProps) {
   const dbText = volume === 0 ? '−∞' : (20 * Math.log10(volume)).toFixed(1)
 
   return (
-    <div style={{
-      width: 120, height: 574, flexShrink: 0,
-      background: 'var(--bg-tile)',
-      border: '1px solid var(--border2)',
-      borderRadius: 'var(--radius-md)',
-      display: 'flex', flexDirection: 'column',
-      overflow: 'hidden',
-      userSelect: 'none',
-      position: 'relative',
-    }}>
+    <div
+      onDragOver={!locked ? (e) => e.preventDefault() : undefined}
+      onDrop={!locked ? (e) => { e.preventDefault(); onDrop?.() } : undefined}
+      style={{
+        width: 120, height: 574, flexShrink: 0,
+        background: 'var(--bg-tile)',
+        border: '1px solid var(--border2)',
+        borderRadius: 'var(--radius-md)',
+        display: 'flex', flexDirection: 'column',
+        overflow: 'hidden',
+        userSelect: 'none',
+        position: 'relative',
+        opacity: isDragging ? 0.4 : 1,
+      }}>
 
       {/* ── Track name bar ────────────────────────────────────────────────── */}
       <div style={{
@@ -276,6 +300,22 @@ export default function ChannelStrip({ trackIndex }: ChannelStripProps) {
             spanStyle={{ fontSize: 'var(--text-xs)', color: 'var(--text-dim)', fontWeight: 500 }}
           />
         </div>
+        {!locked && (
+          <button
+            draggable
+            onMouseDown={(e) => e.stopPropagation()}
+            onDragStart={(e) => { e.dataTransfer.effectAllowed = 'move'; e.dataTransfer.setData('text/plain', ''); onDragStart?.() }}
+            onDragEnd={onDragEnd}
+            title="Drag to reorder"
+            style={{
+              background: 'none', border: 'none', cursor: 'grab',
+              color: 'var(--text-inactive)', display: 'flex', alignItems: 'center',
+              padding: '0 5px 0 2px', flexShrink: 0,
+            }}
+          >
+            <GripVertical size={11} />
+          </button>
+        )}
       </div>
 
       {/* ── Chorus knob ───────────────────────────────────────────────────── */}
@@ -288,6 +328,7 @@ export default function ChannelStrip({ trackIndex }: ChannelStripProps) {
           value={chorus} onChange={handleChorus}
           accentColor="var(--knob-chorus)" size={52}
           disabled={knobsDisabled} label="Chorus"
+          title="Chorus — thickens the tone by layering slightly detuned copies of it"
         />
       </div>
 
@@ -301,6 +342,7 @@ export default function ChannelStrip({ trackIndex }: ChannelStripProps) {
           value={reverb} onChange={handleReverb}
           accentColor="var(--knob-reverb)" size={52}
           disabled={knobsDisabled} label="Reverb"
+          title="Reverb — adds room/space ambience behind the channel"
         />
       </div>
 
@@ -320,6 +362,7 @@ export default function ChannelStrip({ trackIndex }: ChannelStripProps) {
           value={pan} onChange={handlePan}
           accentColor="var(--text-amber)" size={52}
           disabled={knobsDisabled} bipolar label="Pan"
+          title="Pan — positions the channel left/right in the stereo field"
         />
         <span style={{
           fontSize: 9, fontFamily: 'JetBrains Mono', letterSpacing: '0.06em',
@@ -363,7 +406,7 @@ export default function ChannelStrip({ trackIndex }: ChannelStripProps) {
         <IBtn
           onClick={() => updateTrack(trackIndex, { visible: !visible })}
           active={true} title={visible ? 'Hide in roll' : 'Show in roll'}
-          activeColor={visible ? 'var(--text-amber)' : 'var(--status-error)'}
+          activeColor={visible ? 'var(--status-success-text)' : 'var(--status-error-hover)'}
         >
           {visible ? <Eye size={14} /> : <EyeClosed size={14} />}
         </IBtn>
