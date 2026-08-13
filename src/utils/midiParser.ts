@@ -6,7 +6,7 @@ import { assignHands } from './handAssignment'
 import { useStore } from '../store'
 import { HAND_ASSIGN_GROUPS } from './keyboardGroups'
 import { SEMITONE_TO_KEY_NAME } from './keyDetection'
-import { TRACK_COLOR_PALETTE, PIANO_FAMILY_COLORS } from './colors'
+import { TRACK_COLOR_PALETTE, pianoFamilyColor } from './colors'
 
 export function parseMidiBuffer(buffer: ArrayBuffer, fileName: string, filePath = ''): ParsedMidi {
   // FUTURE: KAR lyric events (meta type 0x05 = lyrics, 0x01 = text) could
@@ -69,7 +69,7 @@ export function parseMidiBuffer(buffer: ArrayBuffer, fileName: string, filePath 
     // toggle is on) — not a coloring bug at all, just an unlucky palette
     // collision caused by miscounting a mallet instrument as piano-family.
     const color = HAND_ASSIGN_GROUPS.has(group)
-      ? PIANO_FAMILY_COLORS[Math.min(pianoFamilyIndex++, PIANO_FAMILY_COLORS.length - 1)]
+      ? pianoFamilyColor(pianoFamilyIndex++)
       : TRACK_COLOR_PALETTE[tracks.length % TRACK_COLOR_PALETTE.length]
 
     const notes: ParsedNote[] = track.notes.map(n => ({

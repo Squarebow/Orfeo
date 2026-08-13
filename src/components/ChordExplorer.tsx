@@ -12,6 +12,7 @@ import SpeedControl from './SpeedControl'
 import OrfeoMark from './OrfeoMark'
 import { getPianoRollCenterX, getKeyboardHeaderTop } from '../utils/modalAnchors'
 import { useAnchorBottomOnResize } from '../hooks/useAnchorBottomOnResize'
+import { modalCloseButtonStyle, modalCloseButtonHoverColor, modalCloseButtonIdleColor } from '../utils/modalCloseButtonStyle'
 
 const RANGES: Record<number, { min: number; max: number }> = {
   61: { min: 36, max: 96 },
@@ -291,7 +292,7 @@ export default function ChordExplorer() {
     y: Math.round(getKeyboardHeaderTop() - MODAL_HEIGHT) - 78,
   }))
   const panelRef = useRef<HTMLDivElement>(null)
-  useAnchorBottomOnResize(panelRef, setPos, chordExplorerOpen && !chordExplorerMinimized)
+  useAnchorBottomOnResize(panelRef, setPos, chordExplorerOpen && !chordExplorerMinimized, 44)
   const [selectedRoot, setSelectedRoot] = useState(0)
   const [tier, setTier] = useState<'common' | 'extended' | 'power'>('common')
   const [selectedPowerRoot, setSelectedPowerRoot] = useState<number | null>(null)
@@ -686,7 +687,10 @@ export default function ChordExplorer() {
     setDropdownRect(null)
     const sx = e.clientX, sy = e.clientY, spx = pos.x, spy = pos.y
     const onMove = (ev: MouseEvent) =>
-      setPos({ x: Math.max(0, spx + ev.clientX - sx), y: Math.max(0, spy + ev.clientY - sy) })
+      // 44, not 0 — keeps the top edge clear of the 40px titleBarOverlay
+      // (electron/main.ts) where Windows draws its own window controls on
+      // top of everything in the DOM.
+      setPos({ x: Math.max(0, spx + ev.clientX - sx), y: Math.max(44, spy + ev.clientY - sy) })
     const onUp = () => {
       window.removeEventListener('mousemove', onMove)
       window.removeEventListener('mouseup', onUp)
@@ -810,9 +814,9 @@ export default function ChordExplorer() {
           </button>
           <button
             onClick={close}
-            style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-inactive)', fontSize: 'var(--text-lg)', lineHeight: 1, padding: '0 2px', fontFamily: 'Inter' }}
-            onMouseEnter={e => e.currentTarget.style.color = 'var(--text-amber)'}
-            onMouseLeave={e => e.currentTarget.style.color = 'var(--text-inactive)'}
+            style={{ ...modalCloseButtonStyle, fontSize: 'var(--text-lg)', lineHeight: 1, fontFamily: 'Inter' }}
+            onMouseEnter={e => e.currentTarget.style.color = modalCloseButtonHoverColor}
+            onMouseLeave={e => e.currentTarget.style.color = modalCloseButtonIdleColor}
           >×</button>
         </div>
       </div>

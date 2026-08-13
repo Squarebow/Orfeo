@@ -8,6 +8,7 @@ import { buildHandExportHint } from '../../utils/handMetadata'
 import { parseMidiBuffer } from '../../utils/midiParser'
 import { detectKeyFromTracks, parseKeySignature } from '../../utils/keyDetection'
 import { getPianoRollAreaRect, getPianoRollCenterX } from '../../utils/modalAnchors'
+import { modalCloseButtonStyle, modalCloseButtonHoverColor, modalCloseButtonIdleColor } from '../../utils/modalCloseButtonStyle'
 import { HAND_ASSIGN_GROUPS } from '../../utils/keyboardGroups'
 import OrfeoMark from '../OrfeoMark'
 
@@ -260,7 +261,7 @@ export default function NoteEditorToolbar() {
     const roll = getPianoRollAreaRect()
     if (!roll) return
     const w = panelRef.current?.offsetWidth ?? 400
-    const next = { x: Math.max(0, Math.round(getPianoRollCenterX() - w / 2) + 320), y: Math.round(roll.top + 12) }
+    const next = { x: Math.max(0, Math.round(getPianoRollCenterX() - w / 2) + 320), y: Math.max(44, Math.round(roll.top + 12)) }
     posRef.current = next
     setPos(next)
   }, [])
@@ -277,7 +278,10 @@ export default function NoteEditorToolbar() {
       setPos(p => {
         const next = {
           x: Math.max(0, Math.min(window.innerWidth - panelW, p.x)),
-          y: Math.max(0, Math.min(window.innerHeight - panelH, p.y)),
+          // 44, not 0 — keeps the top edge (and its close button) clear of
+          // the 40px titleBarOverlay (electron/main.ts) where Windows draws
+          // its own window controls on top of everything in the DOM.
+          y: Math.max(44, Math.min(window.innerHeight - panelH, p.y)),
         }
         if (next.x === p.x && next.y === p.y) return p
         posRef.current = next
@@ -297,7 +301,7 @@ export default function NoteEditorToolbar() {
     const panelH = panelRef.current?.offsetHeight ?? 44
     const next = {
       x: Math.max(0, Math.min(window.innerWidth - panelW, ds.startPosX + (e.clientX - ds.startX))),
-      y: Math.max(0, Math.min(window.innerHeight - panelH, ds.startPosY + (e.clientY - ds.startY))),
+      y: Math.max(44, Math.min(window.innerHeight - panelH, ds.startPosY + (e.clientY - ds.startY))),
     }
     posRef.current = next
     setPos(next)
@@ -460,16 +464,21 @@ export default function NoteEditorToolbar() {
           absolute-centering — so the middle hint stays truly centered
           regardless of title/button-group width (see CLAUDE.md's CSS Grid
           layout convention). ────────────────────────────────────────────── */}
-      <div style={{ display: 'grid', gridTemplateColumns: '150px 1fr 150px', alignItems: 'center', height: 32, padding: '0 6px 0 8px', gap: 6 }}>
+      {/* Side columns measured live: left (logo+title) needs ~126px, right
+          (2 icon buttons) needs ~62px — 130px each keeps both symmetric
+          (required for the center hint to stay truly centered) while
+          freeing enough width that "for editing" no longer wraps its last
+          word onto its own line. */}
+      <div
+        onMouseDown={e => {
+          e.preventDefault()
+          dragState.current = { startX: e.clientX, startY: e.clientY, startPosX: pos.x, startPosY: pos.y }
+        }}
+        title="Drag to move"
+        style={{ display: 'grid', gridTemplateColumns: '130px 1fr 130px', alignItems: 'center', minHeight: 32, padding: '4px 6px 4px 8px', gap: 6, cursor: 'grab' }}
+      >
         <div style={{ display: 'flex', alignItems: 'center', gap: 6, minWidth: 0 }}>
-          <div
-            onMouseDown={e => {
-              e.preventDefault()
-              dragState.current = { startX: e.clientX, startY: e.clientY, startPosX: pos.x, startPosY: pos.y }
-            }}
-            title="Drag to move"
-            style={{ display: 'flex', alignItems: 'center', cursor: 'grab', flexShrink: 0 }}
-          >
+          <div style={{ display: 'flex', alignItems: 'center', flexShrink: 0 }}>
             <OrfeoMark height={16} />
           </div>
           <span style={{
@@ -482,7 +491,7 @@ export default function NoteEditorToolbar() {
         </div>
         <div style={{
           fontSize: 9, color: 'var(--text-dim-control)', textAlign: 'center',
-          whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
+          whiteSpace: 'normal', lineHeight: 1.3,
         }}>
           Click a track in the Tracks panel to solo it for editing
         </div>
@@ -494,10 +503,11 @@ export default function NoteEditorToolbar() {
             <IconInfo />
           </button>
           <button
+            onMouseDown={e => e.stopPropagation()}
             onClick={() => void doClose()}
-            style={{ ...btnBase, paddingLeft: 8, paddingRight: 8, color: 'var(--text-muted)' }}
-            onMouseEnter={e => { e.currentTarget.style.color = 'var(--text-amber)'; setIconHint('Close — exit edit mode') }}
-            onMouseLeave={e => { e.currentTarget.style.color = 'var(--text-muted)'; setIconHint(null) }}
+            style={modalCloseButtonStyle}
+            onMouseEnter={e => { e.currentTarget.style.color = modalCloseButtonHoverColor; setIconHint('Close — exit edit mode') }}
+            onMouseLeave={e => { e.currentTarget.style.color = modalCloseButtonIdleColor; setIconHint(null) }}
           >
             ✕
           </button>

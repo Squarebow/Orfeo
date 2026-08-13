@@ -7,8 +7,10 @@ import { getNoteName } from '../utils/noteNames'
 import type { NoteNaming, Accidentals } from '../types'
 import SpeedControl from './SpeedControl'
 import OrfeoMark from './OrfeoMark'
+import ChevronPlayIcon from './ChevronPlayIcon'
 import { getPianoRollCenterX, getKeyboardHeaderTop } from '../utils/modalAnchors'
 import { useAnchorBottomOnResize } from '../hooks/useAnchorBottomOnResize'
+import { modalCloseButtonStyle, modalCloseButtonHoverColor, modalCloseButtonIdleColor } from '../utils/modalCloseButtonStyle'
 
 // ── Keyboard range constants ────────────────────────────────────────────────
 const RANGES: Record<number, { min: number; max: number }> = {
@@ -99,22 +101,6 @@ const ROW: React.CSSProperties = {
   borderBottom: '1px solid var(--border)',
 }
 
-// ── Single-chevron play icon — same shape as SpeedControl's "slow" icon,
-// reused for the Progressions PLAY button and the prev/next inversion
-// buttons so all three share one visual language. ──────────────────────────
-function ChevronPlayIcon({ size = 14, mirrored = false }: { size?: number; mirrored?: boolean }) {
-  return (
-    <svg
-      viewBox="0 0 17 26" width={Math.round(size * 17 / 26)} height={size} fill="none" aria-hidden="true"
-      style={mirrored ? { transform: 'scaleX(-1)' } : undefined}
-    >
-      <path
-        d="M1,4c0-1.66,1.34-3,3-3,.8,0,1.56.32,2.12.88l9,9c1.17,1.17,1.17,3.07,0,4.24l-9,9c-1.17,1.17-3.07,1.17-4.24,0-.56-.56-.88-1.33-.88-2.12V4Z"
-        stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round"
-      />
-    </svg>
-  )
-}
 
 // ── SVG wedge path for CoF rings ─────────────────────────────────────────────
 function wedgePath(cx: number, cy: number, r1: number, r2: number, a1Deg: number, a2Deg: number): string {
@@ -283,7 +269,7 @@ export default function ScaleExplorer() {
     y: Math.max(44, Math.round(getKeyboardHeaderTop() - MODAL_HEIGHT) - 152),
   }))
   const panelRef = useRef<HTMLDivElement>(null)
-  useAnchorBottomOnResize(panelRef, setPos, scaleExplorerOpen && !scaleExplorerMinimized)
+  useAnchorBottomOnResize(panelRef, setPos, scaleExplorerOpen && !scaleExplorerMinimized, 44)
 
   // ── CoF + scale selection state ───────────────────────────────────────────
   const [cofPos, setCofPos] = useState<number | null>(null)
@@ -326,6 +312,16 @@ export default function ScaleExplorer() {
   // effect fires even when the same segment is clicked twice in a row
   const playTriggerRef = useRef(0)
   const [playTrigger, setPlayTrigger] = useState(0)
+
+  // ── Chord/inversion audio trigger — chord tiles and the inversion step
+  // buttons used to fire on `onClick`, which the browser fires on release,
+  // not press. Fires on `onMouseDown` instead so the sound starts the
+  // instant you press; still a fixed-duration ring via `playNote`, not a
+  // held sustain — releasing early doesn't cut it short. ────────────────────
+  const ringNotes = useCallback((notes: number[], vel = 0.7, durMs = 600) => {
+    const playNote = (window as any).__orfeoPlayNote
+    if (playNote) notes.forEach(m => playNote(m, vel, durMs, undefined, false))
+  }, [])
 
   const displayNaming: NoteNaming = noteNaming === 'hidden' ? 'english' : noteNaming
 
@@ -477,9 +473,8 @@ export default function ScaleExplorer() {
       notes: chord.midiNotes.map(m => getNoteName(m, displayNaming, accidentals)),
       step: 0,
     })
-    const playNote = (window as any).__orfeoPlayNote
-    if (playNote) chord.midiNotes.forEach(m => playNote(m, 0.7, 600, undefined, false))
-  }, [setExplorerKeys, displayNaming, accidentals, noteColor, selectedRoot])
+    ringNotes(chord.midiNotes)
+  }, [setExplorerKeys, displayNaming, accidentals, noteColor, selectedRoot, ringNotes])
 
   // ── Play the tonic chord one octave higher (8th tile) ────────────────────
   // Transposes every MIDI note in diatonicChords[0] up by 12. Clears regular
@@ -504,9 +499,8 @@ export default function ScaleExplorer() {
       notes: octaveMidi.map(m => getNoteName(m, displayNaming, accidentals)),
       step: 0,
     })
-    const playNote = (window as any).__orfeoPlayNote
-    if (playNote) octaveMidi.forEach(m => playNote(m, 0.7, 600, undefined, false))
-  }, [diatonicChords, setExplorerKeys, displayNaming, accidentals, noteColor, selectedRoot])
+    ringNotes(octaveMidi)
+  }, [diatonicChords, setExplorerKeys, displayNaming, accidentals, noteColor, selectedRoot, ringNotes])
 
   // ── Auto-play all chords in the scale, one after another — the "Chords in
   // the Scale" row's play button. Runs the 7 diatonic tiles plus the octave
@@ -554,9 +548,8 @@ export default function ScaleExplorer() {
     setExplorerKeys(notes, colors)
     const cd = state.explorerChordDisplay
     if (cd) state.setExplorerChordDisplay({ ...cd, invCount: cd.invCount - 1 })
-    const playNote = (window as any).__orfeoPlayNote
-    if (playNote) sorted.forEach(m => playNote(m, 0.7, 600, undefined, false))
-  }, [setExplorerKeys, noteColor, currentRootPC])
+    ringNotes(sorted)
+  }, [setExplorerKeys, noteColor, currentRootPC, ringNotes])
 
   // ── Step to next inversion ────────────────────────────────────────────────
   const handleNextInversion = useCallback(() => {
@@ -568,9 +561,8 @@ export default function ScaleExplorer() {
     setExplorerKeys(notes, colors)
     const cd = state.explorerChordDisplay
     if (cd) state.setExplorerChordDisplay({ ...cd, invCount: cd.invCount + 1 })
-    const playNote = (window as any).__orfeoPlayNote
-    if (playNote) sorted.forEach(m => playNote(m, 0.7, 600, undefined, false))
-  }, [setExplorerKeys, noteColor, currentRootPC])
+    ringNotes(sorted)
+  }, [setExplorerKeys, noteColor, currentRootPC, ringNotes])
 
   // ── Play one progression step and schedule the next ──────────────────────
   const playProgStepAt = useCallback((
@@ -775,9 +767,9 @@ export default function ScaleExplorer() {
         <button
           onMouseDown={e => e.stopPropagation()}
           onClick={() => { stopProgression(); clearExplorerKeys(); clearExplorerChordDisplay(); setScaleExplorerOpen(false) }}
-          style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-inactive)', fontSize: 16, lineHeight: 1, padding: '0 2px' }}
-          onMouseEnter={e => e.currentTarget.style.color = 'var(--text-amber)'}
-          onMouseLeave={e => e.currentTarget.style.color = 'var(--text-inactive)'}
+          style={{ ...modalCloseButtonStyle, fontSize: 16, lineHeight: 1 }}
+          onMouseEnter={e => e.currentTarget.style.color = modalCloseButtonHoverColor}
+          onMouseLeave={e => e.currentTarget.style.color = modalCloseButtonIdleColor}
         >×</button>
       </div>
 
@@ -978,7 +970,7 @@ export default function ScaleExplorer() {
                 // Chord tile: chord name left, notes + roman stacked right-aligned
                 <button
                   key={chord.degree}
-                  onClick={() => { stopChordSequence(); playDegree(chord) }}
+                  onMouseDown={() => { stopChordSequence(); playDegree(chord) }}
                   style={{
                     flex: 1, background: sel ? 'var(--state-selected-blue-bg)' : 'var(--bg-tile)',
                     border: `1px solid ${sel ? 'var(--accent-chord-note)' : 'var(--state-hover-bg)'}`,
@@ -1014,7 +1006,7 @@ export default function ScaleExplorer() {
               const octaveMidi = tonic.midiNotes.map(n => n + 12)
               return (
                 <button
-                  onClick={() => { stopChordSequence(); playOctaveDegree() }}
+                  onMouseDown={() => { stopChordSequence(); playOctaveDegree() }}
                   style={{
                     flex: 1, background: sel ? 'var(--state-selected-blue-bg)' : 'var(--bg-tile)',
                     border: `1px solid ${sel ? 'var(--accent-chord-note)' : 'var(--state-hover-bg)'}`,
@@ -1218,7 +1210,7 @@ export default function ScaleExplorer() {
         {/* Centre: inversion browser — Play icons + static grey label */}
         <div style={{ position: 'absolute', left: '50%', transform: 'translateX(-50%)', display: 'flex', alignItems: 'center', gap: 6 }}>
           {/* Previous inversion — Play icon mirrored on vertical axis */}
-          <button onClick={handlePrevInversion} disabled={!currentBaseMidi.length}
+          <button onMouseDown={handlePrevInversion} disabled={!currentBaseMidi.length}
             style={{ background: 'none', border: 'none', color: currentBaseMidi.length ? 'var(--text-amber)' : 'var(--state-disabled)', cursor: currentBaseMidi.length ? 'pointer' : 'default', padding: '0 2px', display: 'flex', alignItems: 'center' }}
             onMouseEnter={e => { if (currentBaseMidi.length) e.currentTarget.style.color = 'var(--accent-amber-hover)' }}
             onMouseLeave={e => { e.currentTarget.style.color = currentBaseMidi.length ? 'var(--text-amber)' : 'var(--state-disabled)' }}
@@ -1228,7 +1220,7 @@ export default function ScaleExplorer() {
             Play  Chord Inversions
           </span>
           {/* Next inversion — Play icon normal */}
-          <button onClick={handleNextInversion} disabled={!currentBaseMidi.length}
+          <button onMouseDown={handleNextInversion} disabled={!currentBaseMidi.length}
             style={{ background: 'none', border: 'none', color: currentBaseMidi.length ? 'var(--text-amber)' : 'var(--state-disabled)', cursor: currentBaseMidi.length ? 'pointer' : 'default', padding: '0 2px', display: 'flex', alignItems: 'center' }}
             onMouseEnter={e => { if (currentBaseMidi.length) e.currentTarget.style.color = 'var(--accent-amber-hover)' }}
             onMouseLeave={e => { e.currentTarget.style.color = currentBaseMidi.length ? 'var(--text-amber)' : 'var(--state-disabled)' }}

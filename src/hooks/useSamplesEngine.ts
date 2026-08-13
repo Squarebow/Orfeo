@@ -386,7 +386,17 @@ export function useSamplesEngine() {
     let prevAudioEngine = useStore.getState().audioEngine
     let prevBpm = useStore.getState().bpm
     let prevTranspose = useStore.getState().detectedKey?.transpose ?? 0
-    let prevTracks = useStore.getState().tracks
+    // ── Mute/solo signature — the only per-track fields that change WHICH
+    // notes get scheduled (see buildSamplesPlayer's hasSolo/muted/solo gate
+    // below). Volume/pan/chorus/reverb are pushed straight to the synth via
+    // setChannelVolume/Pan/Chorus/Reverb at the same call site that patches
+    // the store, so reacting to every `tracks` reference change here (as a
+    // raw `!==` would) rebuilds the whole scheduled player on every fader
+    // mousemove — dozens of times a second — which is what was stuttering/
+    // pausing playback while dragging a Console fader. ─────────────────────
+    const muteSoloSignature = (ts: ReturnType<typeof useStore.getState>['tracks']) =>
+      ts.map(t => (t.muted ? 'm' : t.solo ? 's' : '.')).join('')
+    let prevMuteSolo = muteSoloSignature(useStore.getState().tracks)
 
     const unsub = useStore.subscribe((state) => {
       const engineChanged = state.audioEngine !== prevAudioEngine
@@ -410,11 +420,12 @@ export function useSamplesEngine() {
       const ps = state.playbackState
       const bpmChanged = state.bpm !== prevBpm
       const transposeChanged = (state.detectedKey?.transpose ?? 0) !== prevTranspose
-      const tracksChanged = state.tracks !== prevTracks
+      const muteSolo = muteSoloSignature(state.tracks)
+      const tracksChanged = muteSolo !== prevMuteSolo
 
       prevBpm = state.bpm
       prevTranspose = state.detectedKey?.transpose ?? 0
-      prevTracks = state.tracks
+      prevMuteSolo = muteSolo
 
       if (engineChanged && ps === 'playing') {
         // Engine just switched TO samples while playback is active

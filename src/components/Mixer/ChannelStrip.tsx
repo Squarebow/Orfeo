@@ -110,11 +110,18 @@ export default function ChannelStrip({ trackIndex, locked, isDragging, onDragSta
 
   // ── Store reads ───────────────────────────────────────────────────────────
   const audioEngine  = useStore(s => s.audioEngine)
-  const tracks       = useStore(s => s.tracks)
+  // ── Select only this channel's own track object, not the whole `tracks`
+  // array. `updateTrack` replaces the array on every fader mousemove (dozens
+  // of times a second); since unchanged entries keep their original object
+  // reference, subscribing to `s.tracks` as a whole made every ChannelStrip
+  // re-render on every OTHER channel's drag tick too — 8 strips re-rendering
+  // per pixel of one drag, which is what was making playback stutter while
+  // dragging. Narrowing the selector to just this track lets zustand bail
+  // out (reference-equal) for every strip except the one actually moving. ──
+  const track        = useStore(s => s.tracks.find(t => t.index === trackIndex))
   const updateTrack  = useStore(s => s.updateTrack)
   const midi         = useStore(s => s.midi)
 
-  const track       = tracks.find(t => t.index === trackIndex)
   const parsedTrack = midi?.tracks.find((t: any) => t.index === trackIndex)
 
   const knobsDisabled = audioEngine === 'gm'
@@ -213,7 +220,10 @@ export default function ChannelStrip({ trackIndex, locked, isDragging, onDragSta
         if (currentTime < note.time + note.duration && note.velocity > maxVel)
           maxVel = note.velocity
       }
-      if (maxVel > 0) vuLevel.current = maxVel
+      // Scale by the channel's fader volume so dragging it visibly moves the
+      // meter — previously this showed raw note velocity only, so the meter
+      // never reacted to the fader at all.
+      if (maxVel > 0) vuLevel.current = maxVel * tr.volume
     })
     return unsub
   }, [trackIndex])
@@ -318,6 +328,7 @@ export default function ChannelStrip({ trackIndex, locked, isDragging, onDragSta
           value={chorus} onChange={handleChorus}
           accentColor="var(--knob-chorus)" size={52}
           disabled={knobsDisabled} label="Chorus"
+          title="Chorus — thickens the tone by layering slightly detuned copies of it"
         />
       </div>
 
@@ -331,6 +342,7 @@ export default function ChannelStrip({ trackIndex, locked, isDragging, onDragSta
           value={reverb} onChange={handleReverb}
           accentColor="var(--knob-reverb)" size={52}
           disabled={knobsDisabled} label="Reverb"
+          title="Reverb — adds room/space ambience behind the channel"
         />
       </div>
 
@@ -350,6 +362,7 @@ export default function ChannelStrip({ trackIndex, locked, isDragging, onDragSta
           value={pan} onChange={handlePan}
           accentColor="var(--text-amber)" size={52}
           disabled={knobsDisabled} bipolar label="Pan"
+          title="Pan — positions the channel left/right in the stereo field"
         />
         <span style={{
           fontSize: 9, fontFamily: 'JetBrains Mono', letterSpacing: '0.06em',
@@ -393,7 +406,7 @@ export default function ChannelStrip({ trackIndex, locked, isDragging, onDragSta
         <IBtn
           onClick={() => updateTrack(trackIndex, { visible: !visible })}
           active={true} title={visible ? 'Hide in roll' : 'Show in roll'}
-          activeColor={visible ? 'var(--text-amber)' : 'var(--status-error)'}
+          activeColor={visible ? 'var(--status-success-text)' : 'var(--status-error-hover)'}
         >
           {visible ? <Eye size={14} /> : <EyeClosed size={14} />}
         </IBtn>

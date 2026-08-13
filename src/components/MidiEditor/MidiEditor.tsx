@@ -7,9 +7,11 @@
 
 import { useState, useEffect, useRef, useCallback, type CSSProperties } from 'react'
 import { createPortal } from 'react-dom'
-import { Check, X, Save, FolderOpen, AlertCircle, ChevronDown, ChevronRight, Search, Merge, Split, Undo2, RotateCcw, Piano, Bell, Church, Guitar, Music2, AudioWaveform, Users, Megaphone, Wind, Feather, Cpu, Globe, Drum, Radio, Waves, Sparkles, SwatchBook, Eye, EyeOff, ThumbsUp, ToggleLeft, ToggleRight } from 'lucide-react'
+import { Check, X, Save, FolderOpen, AlertCircle, ChevronDown, ChevronRight, Search, Merge, Split, Undo2, RotateCcw, Piano, Bell, Church, Guitar, Music2, AudioWaveform, Users, Megaphone, Wind, Feather, Cpu, Globe, Drum, Radio, Waves, Sparkles, SwatchBook, Eye, EyeOff, ThumbsUp, ToggleLeft, ToggleRight, AudioLines } from 'lucide-react'
+import { confirmDialog } from '../../utils/confirmController'
 import { PENCIL_CURSOR } from '../../utils/cursors'
-import { TRACK_COLOR_PALETTE, PIANO_FAMILY_COLORS } from '../../utils/colors'
+import { TRACK_COLOR_PALETTE, pianoFamilyColor } from '../../utils/colors'
+import { modalCloseButtonStyle, modalCloseButtonHoverColor, modalCloseButtonIdleColor } from '../../utils/modalCloseButtonStyle'
 import OrfeoMark from '../OrfeoMark'
 import { useStore } from '../../store'
 import { parseMidiBuffer } from '../../utils/midiParser'
@@ -235,18 +237,25 @@ function InstrumentPicker({ program, isDrum, onChange }: {
         <ChevronDown size={10} style={{ flexShrink: 0, color: 'var(--text-inactive)', transform: open ? 'rotate(180deg)' : 'none', transition: 'transform 0.15s' }} />
       </button>
 
-      {open && (
-        <div style={{
-          position: 'fixed', zIndex: 50000, width: 220, maxHeight: 320, overflow: 'hidden',
-          background: 'var(--bg-modal)', border: '1px solid var(--state-hover-bg)', borderRadius: 6,
-          boxShadow: '0 8px 32px rgba(0,0,0,0.6)', display: 'flex', flexDirection: 'column',
-        }}
-        ref={el => {
-          if (!el || !ref.current) return
-          const r = ref.current.getBoundingClientRect()
-          el.style.top = (r.bottom + 4) + 'px'
-          el.style.left = Math.max(4, r.left - 60) + 'px'
-        }}>
+      {open && createPortal(
+        <div
+          // Portaled out of the anchor's DOM subtree, so the outside-click
+          // handler's `ref.current.contains(target)` check (below) would see
+          // every click inside this popup as "outside" and close it
+          // immediately — stopping propagation here keeps those clicks from
+          // ever reaching the document listener.
+          onMouseDown={e => e.stopPropagation()}
+          style={{
+            position: 'fixed', zIndex: 50000, width: 220, maxHeight: 320, overflow: 'hidden',
+            background: 'var(--bg-modal)', border: '1px solid var(--state-hover-bg)', borderRadius: 6,
+            boxShadow: '0 8px 32px rgba(0,0,0,0.6)', display: 'flex', flexDirection: 'column',
+          }}
+          ref={el => {
+            if (!el || !ref.current) return
+            const r = ref.current.getBoundingClientRect()
+            el.style.top = (r.bottom + 4) + 'px'
+            el.style.left = Math.max(4, r.left - 60) + 'px'
+          }}>
           <div style={{ padding: '6px 8px', borderBottom: '1px solid var(--border)', flexShrink: 0 }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 5, background: 'var(--bg-field)', border: '1px solid var(--border2)', borderRadius: 4, padding: '3px 6px' }}>
               <Search size={10} style={{ color: 'var(--text-inactive)', flexShrink: 0 }} />
@@ -279,7 +288,8 @@ function InstrumentPicker({ program, isDrum, onChange }: {
               )
             })}
           </div>
-        </div>
+        </div>,
+        document.body,
       )}
     </div>
   )
@@ -533,7 +543,7 @@ function ColorPopover({ trackIndex, trackColor, anchor, onApplyColor, onClose }:
 // Include | Track | Merge | Split | Color | Piano roll | Keyboard | Assign Instrument
 const ROW_COLS = '68px 1fr 44px 44px 44px 92px 92px 190px'
 
-function TrackRow({ track, onToggleIncluded, onToggleMerge, onChangeProgram, onUnmerge, onSplit, onRename, onPickColor, onToggleVisible, onToggleKeyboard }: {
+function TrackRow({ track, onToggleIncluded, onToggleMerge, onChangeProgram, onUnmerge, onSplit, onRename, onPickColor, onToggleVisible, onToggleKeyboard, showBottomBorder = true }: {
   track: EditorTrack
   onToggleIncluded: () => void
   onToggleMerge: () => void
@@ -544,6 +554,10 @@ function TrackRow({ track, onToggleIncluded, onToggleMerge, onChangeProgram, onU
   onPickColor: (trackIndex: number, anchorRect: DOMRect) => void
   onToggleVisible: () => void
   onToggleKeyboard: () => void
+  // False when a hand-split info row or split preview follows this track —
+  // that trailing element carries the border instead, so it groups visually
+  // with ITS OWN track instead of reading as belonging to the next one.
+  showBottomBorder?: boolean
 }) {
   // ── Inline rename state ──────────────────────────────────────────────────────
   const [editingName, setEditingName] = useState(false)
@@ -563,7 +577,7 @@ function TrackRow({ track, onToggleIncluded, onToggleMerge, onChangeProgram, onU
   return (
     <div style={{
       display: 'grid', gridTemplateColumns: ROW_COLS,
-      alignItems: 'center', padding: '8px 14px', borderBottom: '1px solid var(--border-row)', gap: 6,
+      alignItems: 'center', padding: '8px 14px', borderBottom: showBottomBorder ? '1px solid var(--border-row)' : 'none', gap: 6,
       opacity: track.included ? 1 : 0.4,
       background: track.isMerged ? 'var(--track-merged-row-bg)' : track.mergeSelected ? 'var(--track-mergeselected-row-bg)' : 'transparent',
       transition: 'opacity 0.15s',
@@ -806,6 +820,9 @@ export default function MidiEditor() {
   const [saveResult, setSaveResult] = useState<{ ok: boolean; msg: string; filePath?: string } | null>(null)
   const [splitResult, setSplitResult] = useState<{ ok: boolean; msg: string } | null>(null)
   const [pendingSplitIndex, setPendingSplitIndex] = useState<number | null>(null)
+  // ── Which tracks' hand-split info row is expanded to show the preview
+  // graphic — collapsed by default, per-track, info only (no actions). ──────
+  const [expandedInfoRows, setExpandedInfoRows] = useState<Set<number>>(new Set())
   // ── One-slot undo for a STAGED split only — snapshots state.rows immediately
   // before staging replaces one row with two. Nothing has hit disk yet at that
   // point, so undoing is a pure local revert, not a file reload. Once Save &
@@ -919,7 +936,10 @@ export default function MidiEditor() {
     const panelH = panelRef.current?.offsetHeight ?? MODAL_H
     setPos({
       x: Math.max(0, Math.min(window.innerWidth - panelW, ds.startPosX + (e.clientX - ds.startX))),
-      y: Math.max(0, Math.min(window.innerHeight - panelH, ds.startPosY + (e.clientY - ds.startY))),
+      // 44, not 0 — keeps the top edge clear of the 40px titleBarOverlay
+      // (electron/main.ts) where Windows draws its own window controls on
+      // top of everything in the DOM.
+      y: Math.max(44, Math.min(window.innerHeight - panelH, ds.startPosY + (e.clientY - ds.startY))),
     })
   }, [])
   const onMouseUp = useCallback(() => { dragState.current = null }, [])
@@ -1113,7 +1133,49 @@ export default function MidiEditor() {
   }
 
   const handleSave = () => performSave()
-  const handleKeepColored = () => performSave()
+
+  // ── Open a track in the Note Editor, solo'd/editable — the split-info
+  // row's "fine-tune it yourself" action. Prompts to save first if this
+  // session has staged changes (same Save/Discard/Cancel pattern as
+  // MixerConsole's requestClose), since opening the Note Editor closes this
+  // panel and any staged-but-unsaved edits would otherwise be silently lost.
+  // Plain function, not useCallback — it doesn't need referential stability
+  // anywhere, and memoizing it was the actual bug: as a `useCallback(..., [])`
+  // declared before the early return above, React froze it to the FIRST
+  // render's closure — this component's first render has `state === null`
+  // (populated by an effect after mount), which hit that early return before
+  // ever reaching buildSaveSummary/performSave's declarations below, so the
+  // frozen closure referenced them from a call frame that never initialized
+  // them — "Cannot access 'buildSaveSummary' before initialization" on every
+  // click, permanently, regardless of later renders. A plain function
+  // declared here (after both, and after the early return) is recreated
+  // fresh every render, so it always closes over already-initialized
+  // bindings. ─────────────────────────────────────────────────────────────
+  const handleOpenInNoteEditor = async (trackIndex: number) => {
+    const summary = buildSaveSummary()
+    if (summary) {
+      const choice = await confirmDialog({
+        title: 'Save changes before editing?',
+        message: `This session ${summary}. Save before opening the Note Editor?`,
+        buttons: ['Save', 'Discard', 'Cancel'],
+      })
+      if (choice === 2) return // Cancel — stay in Playback Editor
+      if (choice === 0) {
+        await performSave()
+      } else {
+        // Discard — same color-drift revert as handleCancel above
+        originalRowsRef.current.forEach((orig, index) => {
+          const track = useStore.getState().tracks.find(t => t.index === index)
+          if (track && track.color !== orig.color) {
+            useStore.getState().updateTrack(index, { color: orig.color, colorSource: orig.colorSource })
+          }
+        })
+      }
+    }
+    useStore.getState().soloTrackForEdit(trackIndex)
+    useStore.getState().setNoteEditorActive(true)
+    setMidiEditorOpen(false)
+  }
 
   // ── Split — two-step: first click arms the preview, second STAGES the split
   // locally (no disk write, no IPC). The source row is replaced with two new
@@ -1220,11 +1282,11 @@ export default function MidiEditor() {
           data-no-drag="true"
           onClick={handleCancel}
           title="Close editor"
-          style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-inactive)', lineHeight: 1, padding: '0 2px', display: 'flex', alignItems: 'center', transition: 'color 0.15s', flexShrink: 0 }}
-          onMouseEnter={e => e.currentTarget.style.color = 'var(--text-default)'}
-          onMouseLeave={e => e.currentTarget.style.color = 'var(--text-inactive)'}
+          style={modalCloseButtonStyle}
+          onMouseEnter={e => e.currentTarget.style.color = modalCloseButtonHoverColor}
+          onMouseLeave={e => e.currentTarget.style.color = modalCloseButtonIdleColor}
         >
-          <X size={16} />
+          <X size={14} />
         </button>
       </div>
 
@@ -1291,10 +1353,7 @@ export default function MidiEditor() {
               // blue/pink/amber slot it would get on a fresh reimport.
               const colorPatch = track.colorSource === 'default'
                 ? (KEYBOARD_GROUPS.has(newGroup)
-                    ? { color: PIANO_FAMILY_COLORS[Math.min(
-                        state.rows.filter(r => r.index < track.index && KEYBOARD_GROUPS.has(r.group)).length,
-                        PIANO_FAMILY_COLORS.length - 1,
-                      )] }
+                    ? { color: pianoFamilyColor(state.rows.filter(r => r.index < track.index && KEYBOARD_GROUPS.has(r.group)).length) }
                     : { color: TRACK_COLOR_PALETTE[track.index % TRACK_COLOR_PALETTE.length] })
                 : {}
               update(track.index, {
@@ -1317,23 +1376,219 @@ export default function MidiEditor() {
               useStore.getState().updateTrack(track.index, { trackName: newName })
             }}
             onPickColor={openColorPopover}
+            showBottomBorder={!(infoStats && infoStats.taggedNotes > 0) && pendingSplitIndex !== track.index}
           />
-          {infoStats && infoStats.taggedNotes > 0 && (
-            <div style={{
-              padding: '3px 14px 5px 40px', display: 'flex', alignItems: 'center', gap: 6,
-              fontSize: 9, color: 'var(--text-inactive)', fontFamily: 'JetBrains Mono',
-            }}>
-              <span>
-                {infoStats.leftCount} left / {infoStats.rightCount} right —
-                {infoStats.confidenceUnknown
-                  ? ' hand split shown is automatic.'
-                  : infoStats.lowConfidenceCount > 0
-                    ? ` ${infoStats.lowConfidenceRatio > 0 ? Math.round(infoStats.lowConfidenceRatio * 100) : 0}% flagged low-confidence.`
-                    : ' hand split shown is automatic.'}
-                {' '}For a perfectly accurate split, correct it by hand in the Note Editor before splitting.
-              </span>
-            </div>
-          )}
+          {infoStats && infoStats.taggedNotes > 0 && (() => {
+            const expanded = expandedInfoRows.has(track.index)
+            const passages = getLowConfidencePassages(infoNotes)
+            const duration = midi?.duration ?? 0
+            const SLATE = 'var(--hand-lh)'
+            const AMBER = 'var(--hand-rh)'
+            const LOW_CONF = '#7a323c'
+            return (
+              <>
+                {/* ── Toggle line — grid-aligned to the track row's own columns
+                    (ROW_COLS), so it starts exactly under the Track column
+                    instead of a hardcoded left-pad guess. Carries the row's
+                    bottom border itself when collapsed (TrackRow's own border
+                    is suppressed via showBottomBorder — see the map below) so
+                    this line visually groups with ITS track, not the next
+                    one's. ── */}
+                <div style={{
+                  display: 'grid', gridTemplateColumns: ROW_COLS, gap: 6,
+                  padding: '3px 14px 5px 14px',
+                  borderBottom: expanded ? 'none' : '1px solid var(--border-row)',
+                }}>
+                  <div />{/* empty Col-1 cell — keeps Col-2 content aligned under Track column */}
+                  <div style={{ gridColumn: '2 / -1', minWidth: 0, display: 'flex', alignItems: 'center', gap: 6, fontSize: 9, color: 'var(--text-inactive)', fontFamily: 'JetBrains Mono' }}>
+                    <button
+                      onClick={() => setExpandedInfoRows(prev => {
+                        const next = new Set(prev)
+                        if (next.has(track.index)) next.delete(track.index); else next.add(track.index)
+                        return next
+                      })}
+                      title={expanded ? 'Hide split preview' : 'Show split preview'}
+                      style={{ background: 'none', border: 'none', padding: 0, display: 'flex', color: 'var(--text-inactive)', cursor: 'pointer', flexShrink: 0 }}
+                    >
+                      {expanded ? <ChevronDown size={11} /> : <ChevronRight size={11} />}
+                    </button>
+                    <span>
+                      {infoStats.confidenceUnknown ? (
+                        'Hand split shown is automatic.'
+                      ) : infoStats.lowConfidenceCount > 0 ? (
+                        <><span style={{ color: LOW_CONF }}>{Math.round(infoStats.lowConfidenceRatio * 100)}% flagged low-confidence</span> — for a perfectly accurate split, edit in Note Editor</>
+                      ) : (
+                        'Hand split looks accurate — edit in Note Editor to fine-tune'
+                      )}
+                    </span>
+                    <button
+                      onClick={() => handleOpenInNoteEditor(track.index)}
+                      title="Open this track in the Note Editor, solo'd and editable"
+                      style={{ background: 'none', border: 'none', padding: 0, display: 'flex', color: 'var(--text-amber)', cursor: 'pointer', flexShrink: 0 }}
+                    >
+                      <AudioLines size={11} />
+                    </button>
+                  </div>
+                </div>
+
+                {/* ── Expanded preview — info only, no buttons/actions. Same
+                    styling/logic as the click-triggered Split preview below
+                    (timeline + legend), just without the button row — opens
+                    inline, pushing content below it down, not an overlay. ── */}
+                {expanded && (
+                  <div style={{ padding: '10px 14px', background: 'var(--bg-modal)', borderTop: '1px solid var(--border2)', borderBottom: '1px solid var(--border-row)', display: 'flex', flexDirection: 'column', gap: 8 }}>
+                    {duration > 0 && infoNotes.length > 0 && (
+                      <svg viewBox="0 0 1000 40" preserveAspectRatio="none" style={{ width: '100%', height: 40, borderRadius: 4, background: 'var(--bg-deep)' }}>
+                        {passages.map((p, i) => (
+                          <rect key={`p${i}`}
+                            x={(p.start / duration) * 1000} y={0}
+                            width={Math.max(2, ((p.end - p.start) / duration) * 1000)} height={40}
+                            fill={LOW_CONF} opacity={0.28}
+                          />
+                        ))}
+                        {infoNotes.map((n, i) => (
+                          <rect key={i}
+                            x={(n.time / duration) * 1000} y={n.hand === 'L' ? 21 : 2}
+                            width={1.4} height={17}
+                            fill={n.hand === 'L' ? SLATE : n.hand === 'R' ? AMBER : 'var(--hand-note-neutral)'}
+                          />
+                        ))}
+                      </svg>
+                    )}
+                    <div style={{ display: 'flex', gap: 6, fontSize: 8, color: 'var(--text-inactive)', fontFamily: 'JetBrains Mono' }}>
+                      <span style={{ display: 'flex', alignItems: 'center', gap: 3 }}><span style={{ width: 8, height: 8, borderRadius: 2, background: SLATE, display: 'inline-block' }} />Left hand</span>
+                      <span style={{ display: 'flex', alignItems: 'center', gap: 3 }}><span style={{ width: 8, height: 8, borderRadius: 2, background: AMBER, display: 'inline-block' }} />Right hand</span>
+                      {infoStats.lowConfidenceCount > 0 && (
+                        <span style={{ display: 'flex', alignItems: 'center', gap: 3 }}><span style={{ width: 8, height: 8, borderRadius: 2, background: LOW_CONF, opacity: 0.6, display: 'inline-block' }} />Low-confidence passage</span>
+                      )}
+                    </div>
+                    {/* ── Same tech-info + disclaimer pair as the Split preview
+                        below — info only here, no button row. ── */}
+                    <div style={{ fontSize: 9, color: 'var(--text-inactive)', fontFamily: 'JetBrains Mono' }}>
+                      {infoStats.taggedNotes} notes tagged — {infoStats.leftCount} left, {infoStats.rightCount} right by hand.{' '}
+                      {infoStats.confidenceUnknown
+                        ? 'Tags restored from a prior split — confidence not re-evaluated.'
+                        : infoStats.lowConfidenceCount > 0
+                          ? `${Math.round(infoStats.lowConfidenceRatio * 100)}% fall in a low-confidence passage — check those first.`
+                          : 'No passages flagged — split looks reliable.'}
+                    </div>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 9, color: 'var(--text-inactive)', fontFamily: 'Inter', lineHeight: 1.4 }}>
+                      <AlertCircle size={11} style={{ flexShrink: 0, color: 'var(--text-inactive)' }} />
+                      <span>Hand assignment is automated — a guideline, not a verified transcription. Use your ear, especially on flagged passages.</span>
+                    </div>
+                  </div>
+                )}
+              </>
+            )
+          })()}
+
+          {/* ── Hand-split preview — non-destructive review before choosing an
+              output mode. Opens directly in this track's own row, not at the
+              bottom of the whole panel. ── */}
+          {pendingSplitIndex === track.index && (() => {
+            const trackName = track.trackName
+            const parsedTrack = midi?.tracks.find(t => t.index === track.index)
+            const notes = parsedTrack?.notes ?? []
+            const stats = getHandPreviewStats(notes)
+            const passages = getLowConfidencePassages(notes)
+            const duration = midi?.duration ?? 0
+
+            const SLATE = 'var(--hand-lh)'
+            const AMBER = 'var(--hand-rh)'
+            // Was var(--flag-red), then amber — both read too close to one
+            // of the two hand colors. A dark, deeply-muted red (same family
+            // as the right-hand pink, much lower contrast/brightness) reads
+            // as clearly its own thing instead.
+            const LOW_CONF = '#7a323c'
+
+            return (
+              <div style={{ padding: '10px 14px', background: 'var(--bg-modal)', borderTop: '1px solid var(--border2)', borderBottom: '1px solid var(--border2)', display: 'flex', flexDirection: 'column', gap: 8, flexShrink: 0 }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                  <Split size={13} style={{ color: 'var(--text-amber)', flexShrink: 0 }} />
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div style={{ fontSize: 'var(--text-xs)', color: 'var(--text-dim)' }}>Hand-split preview — <span style={{ color: track.color }}>"{trackName}"</span></div>
+                    <div style={{ fontSize: 9, color: 'var(--text-inactive)', fontFamily: 'JetBrains Mono', marginTop: 2 }}>
+                      {stats.taggedNotes} notes · {stats.leftCount} left / {stats.rightCount} right
+                      {stats.confidenceUnknown ? (
+                        <span style={{ color: 'var(--text-inactive)' }}> · tags restored from a prior split — confidence not re-evaluated</span>
+                      ) : stats.lowConfidenceCount > 0 ? (
+                        <span style={{ color: LOW_CONF }}> · {passages.length} low-confidence passage{passages.length === 1 ? '' : 's'} flagged ({Math.round(stats.lowConfidenceRatio * 100)}% of notes)</span>
+                      ) : (
+                        <span style={{ color: 'var(--text-inactive)' }}> · no low-confidence passages flagged</span>
+                      )}
+                    </div>
+                  </div>
+                </div>
+
+                {/* ── Timeline: each note as a colored tick, low-confidence passages flagged with an amber band ── */}
+                {duration > 0 && notes.length > 0 && (
+                  <svg viewBox="0 0 1000 40" preserveAspectRatio="none" style={{ width: '100%', height: 40, borderRadius: 4, background: 'var(--bg-deep)' }}>
+                    {passages.map((p, i) => (
+                      <rect key={`p${i}`}
+                        x={(p.start / duration) * 1000} y={0}
+                        width={Math.max(2, ((p.end - p.start) / duration) * 1000)} height={40}
+                        fill={LOW_CONF} opacity={0.28}
+                      />
+                    ))}
+                    {notes.map((n, i) => (
+                      <rect key={i}
+                        x={(n.time / duration) * 1000} y={n.hand === 'L' ? 21 : 2}
+                        width={1.4} height={17}
+                        fill={n.hand === 'L' ? SLATE : n.hand === 'R' ? AMBER : 'var(--hand-note-neutral)'}
+                      />
+                    ))}
+                  </svg>
+                )}
+                <div style={{ display: 'flex', gap: 6, fontSize: 8, color: 'var(--text-inactive)', fontFamily: 'JetBrains Mono' }}>
+                  <span style={{ display: 'flex', alignItems: 'center', gap: 3 }}><span style={{ width: 8, height: 8, borderRadius: 2, background: SLATE, display: 'inline-block' }} />Left hand</span>
+                  <span style={{ display: 'flex', alignItems: 'center', gap: 3 }}><span style={{ width: 8, height: 8, borderRadius: 2, background: AMBER, display: 'inline-block' }} />Right hand</span>
+                  {stats.lowConfidenceCount > 0 && (
+                    <span style={{ display: 'flex', alignItems: 'center', gap: 3 }}><span style={{ width: 8, height: 8, borderRadius: 2, background: LOW_CONF, opacity: 0.6, display: 'inline-block' }} />Low-confidence passage</span>
+                  )}
+                </div>
+
+                {/* ── Description (⅔) + actions (⅓), horizontally aligned. The
+                    "Don't split" button moved down here from the header row.
+                    "Keep one track, hand-colored" removed entirely — not needed
+                    under the new logic. ─────────────────────────────────────── */}
+                <div style={{ display: 'flex', gap: 12 }}>
+                  <div style={{ flex: 2, fontSize: 9, color: 'var(--text-inactive)', fontFamily: 'JetBrains Mono' }}>
+                    {stats.taggedNotes} notes tagged — {stats.leftCount} left, {stats.rightCount} right by hand.{' '}
+                    {stats.confidenceUnknown
+                      ? 'Tags restored from a prior split — confidence not re-evaluated.'
+                      : stats.lowConfidenceCount > 0
+                        ? `${Math.round(stats.lowConfidenceRatio * 100)}% fall in a low-confidence passage — check those first.`
+                        : 'No passages flagged — split looks reliable.'}
+                  </div>
+                  <div style={{ flex: 1, display: 'flex', gap: 6 }}>
+                    <button
+                      onClick={() => setPendingSplitIndex(null)}
+                      style={{ flex: 1, padding: '6px 10px', borderRadius: 4, border: '1px solid var(--text-inactive)', background: 'transparent', color: 'var(--text-default)', fontSize: 'var(--text-xs)', cursor: 'pointer', fontWeight: 600, transition: 'color 0.12s, border-color 0.12s' }}
+                      onMouseEnter={e => { e.currentTarget.style.color = 'var(--text-amber)'; e.currentTarget.style.borderColor = 'var(--accent-amber-strong)' }}
+                      onMouseLeave={e => { e.currentTarget.style.color = 'var(--text-default)'; e.currentTarget.style.borderColor = 'var(--text-inactive)' }}
+                    >
+                      Don't split
+                    </button>
+                    <button
+                      onClick={handleSplitConfirm}
+                      title="Stages left-hand notes to one track and right-hand notes to another — applies with Save & Reload below, doesn't touch disk yet"
+                      style={{ flex: 1, padding: '6px 10px', borderRadius: 4, border: '1px solid var(--accent-amber-strong)', background: 'var(--accent-amber-medium)', color: 'var(--text-amber)', fontSize: 'var(--text-xs)', cursor: 'pointer', fontWeight: 600, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 4 }}
+                    >
+                      <Split size={11} /> Split into two tracks
+                    </button>
+                  </div>
+                </div>
+
+                {/* ── Standing disclaimer, restored — always shown regardless of
+                    whether anything got flagged; hand assignment is automated
+                    heuristics, never ground truth. ── */}
+                <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 9, color: 'var(--text-inactive)', fontFamily: 'Inter', lineHeight: 1.4 }}>
+                  <AlertCircle size={11} style={{ flexShrink: 0, color: 'var(--text-inactive)' }} />
+                  <span>Hand assignment is automated — a guideline, not a verified transcription. Use your ear, especially on flagged passages.</span>
+                </div>
+              </div>
+            )
+          })()}
         </div>
         )})}
       </div>
@@ -1358,109 +1613,6 @@ export default function MidiEditor() {
         </div>
       )}
 
-      {/* ── Hand-split preview — non-destructive review before choosing an output mode ── */}
-      {pendingSplitIndex !== null && (() => {
-        const trackName = state.rows.find(r => r.index === pendingSplitIndex)?.name ?? 'track'
-        const parsedTrack = midi?.tracks.find(t => t.index === pendingSplitIndex)
-        const notes = parsedTrack?.notes ?? []
-        const stats = getHandPreviewStats(notes)
-        const passages = getLowConfidencePassages(notes)
-        const duration = midi?.duration ?? 0
-
-        const SLATE = 'var(--hand-lh)'
-        const AMBER = 'var(--hand-rh)'
-        const FLAG_RED = 'var(--flag-red)'
-
-        return (
-          <div style={{ padding: '10px 14px', background: 'var(--bg-modal)', borderTop: '1px solid var(--border2)', display: 'flex', flexDirection: 'column', gap: 8, flexShrink: 0 }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-              <Split size={13} style={{ color: 'var(--text-amber)', flexShrink: 0 }} />
-              <div style={{ flex: 1, minWidth: 0 }}>
-                <div style={{ fontSize: 'var(--text-xs)', color: 'var(--text-dim)' }}>Hand-split preview — "{trackName}"</div>
-                <div style={{ fontSize: 9, color: 'var(--text-inactive)', fontFamily: 'JetBrains Mono', marginTop: 2 }}>
-                  {stats.taggedNotes} notes · {stats.leftCount} left / {stats.rightCount} right
-                  {stats.confidenceUnknown ? (
-                    <span style={{ color: 'var(--text-inactive)' }}> · tags restored from a prior split — confidence not re-evaluated</span>
-                  ) : stats.lowConfidenceCount > 0 ? (
-                    <span style={{ color: FLAG_RED }}> · {passages.length} low-confidence passage{passages.length === 1 ? '' : 's'} flagged ({Math.round(stats.lowConfidenceRatio * 100)}% of notes)</span>
-                  ) : (
-                    <span style={{ color: 'var(--text-inactive)' }}> · no low-confidence passages flagged</span>
-                  )}
-                </div>
-              </div>
-              <button
-                onClick={() => setPendingSplitIndex(null)}
-                style={{ padding: '4px 10px', borderRadius: 4, flexShrink: 0, border: '1px solid var(--border2)', background: 'transparent', color: 'var(--text-dim-control)', fontSize: 'var(--text-xs)', cursor: 'pointer', transition: 'color 0.12s, border-color 0.12s' }}
-                onMouseEnter={e => { e.currentTarget.style.color = 'var(--text-amber)'; e.currentTarget.style.borderColor = 'var(--accent-amber-strong)' }}
-                onMouseLeave={e => { e.currentTarget.style.color = 'var(--text-dim-control)'; e.currentTarget.style.borderColor = 'var(--border2)' }}
-              >
-                Don't split
-              </button>
-            </div>
-
-            {/* ── Timeline: each note as a colored tick, low-confidence passages flagged with a red band ── */}
-            {duration > 0 && notes.length > 0 && (
-              <svg viewBox="0 0 1000 40" preserveAspectRatio="none" style={{ width: '100%', height: 40, borderRadius: 4, background: 'var(--bg-deep)' }}>
-                {passages.map((p, i) => (
-                  <rect key={`p${i}`}
-                    x={(p.start / duration) * 1000} y={0}
-                    width={Math.max(2, ((p.end - p.start) / duration) * 1000)} height={40}
-                    fill={FLAG_RED} opacity={0.28}
-                  />
-                ))}
-                {notes.map((n, i) => (
-                  <rect key={i}
-                    x={(n.time / duration) * 1000} y={n.hand === 'L' ? 21 : 2}
-                    width={1.4} height={17}
-                    fill={n.hand === 'L' ? SLATE : n.hand === 'R' ? AMBER : 'var(--hand-note-neutral)'}
-                  />
-                ))}
-              </svg>
-            )}
-            <div style={{ display: 'flex', gap: 6, fontSize: 8, color: 'var(--text-inactive)', fontFamily: 'JetBrains Mono' }}>
-              <span style={{ display: 'flex', alignItems: 'center', gap: 3 }}><span style={{ width: 8, height: 8, borderRadius: 2, background: SLATE, display: 'inline-block' }} />Left hand</span>
-              <span style={{ display: 'flex', alignItems: 'center', gap: 3 }}><span style={{ width: 8, height: 8, borderRadius: 2, background: AMBER, display: 'inline-block' }} />Right hand</span>
-              {stats.lowConfidenceCount > 0 && (
-                <span style={{ display: 'flex', alignItems: 'center', gap: 3 }}><span style={{ width: 8, height: 8, borderRadius: 2, background: FLAG_RED, opacity: 0.6, display: 'inline-block' }} />Low-confidence passage</span>
-              )}
-            </div>
-
-            {/* ── Standing disclaimer — always shown, independent of whether this
-                preview happens to have real confidence data (see confidenceUnknown
-                above). Hand assignment is automated pitch/timing heuristics, never
-                ground truth — this stays true whether or not anything got flagged. ── */}
-            <div style={{ fontSize: 9, color: 'var(--text-inactive)', fontFamily: 'Inter', lineHeight: 1.4 }}>
-              Hand assignment is automated — a guideline, not a verified transcription. Use your ear, especially on flagged passages.
-            </div>
-
-            {/* ── Two output modes ─────────────────────────────────────────────── */}
-            <div style={{ display: 'flex', gap: 8 }}>
-              <button onClick={handleSplitConfirm} title="Stages left-hand notes to one track and right-hand notes to another — applies with Save & Reload below, doesn't touch disk yet" style={{ flex: 1, padding: '6px 10px', borderRadius: 4, border: '1px solid var(--accent-amber-strong)', background: 'var(--accent-amber-medium)', color: 'var(--text-amber)', fontSize: 'var(--text-xs)', cursor: 'pointer', fontWeight: 600 }}>
-                Split into two tracks
-              </button>
-              <button
-                onClick={handleKeepColored}
-                disabled={!showHandLabels}
-                title={showHandLabels
-                  ? 'Keeps everything in one track. Saves immediately as a new file with hand tags, colored by hand in the piano roll and (in Performance mode) on the keyboard.'
-                  : 'Enable Left/Right Hand in Settings first — this mode has nothing to show without it.'}
-                style={{
-                  flex: 1, padding: '6px 10px', borderRadius: 4, border: '1px solid var(--border2)',
-                  background: 'transparent', color: showHandLabels ? 'var(--text-dim-control)' : 'var(--text-inactive)',
-                  fontSize: 'var(--text-xs)', cursor: showHandLabels ? 'pointer' : 'not-allowed',
-                  fontWeight: 600, opacity: showHandLabels ? 1 : 0.5,
-                }}
-              >
-                Keep one track, hand-colored
-              </button>
-            </div>
-            <div style={{ fontSize: 9, color: 'var(--text-inactive)', fontFamily: 'JetBrains Mono' }}>
-              Split stages the change below — apply it with Save & Reload. Keep-colored saves immediately as a new file; the original is never modified either way.
-            </div>
-          </div>
-        )
-      })()}
-
       {/* ── Select all / Clear all / count / Save Tempo & Key toggle ─────────── */}
       <div style={{ padding: '6px 14px', borderTop: '1px solid var(--bg-tile)', background: 'var(--bg-modal-header)', display: 'flex', alignItems: 'center', gap: 10, flexShrink: 0 }}>
         <TBtn onClick={() => setState(s => s && ({ ...s, rows: s.rows.map(t => ({ ...t, included: true })) }))}>Select all</TBtn>
@@ -1478,7 +1630,8 @@ export default function MidiEditor() {
             background: 'none', border: 'none', cursor: 'pointer', padding: 2,
           }}
         >
-          <span style={{ fontSize: 9, fontWeight: 700, color: 'var(--text-default)', textTransform: 'uppercase', letterSpacing: '0.06em' }}>
+          {/* Styled like the "Save as" label below — same size/weight/tracking, just dimmer */}
+          <span style={{ fontSize: 9, fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.06em' }}>
             Save Tempo & Key changes
           </span>
           <span style={{ display: 'flex', color: saveTempoKeyChangesEnabled ? 'var(--text-amber)' : 'var(--text-inactive)' }}>

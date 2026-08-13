@@ -155,10 +155,14 @@ export default function App() {
   }
 
   // ── dragover: prevent browser default navigation + show highlight ─────────
-  // Only for OS file drags — an internal track-row drag (TrackPanel reorder)
-  // has no 'Files' type and must never trigger the app-wide import overlay.
+  // OS file drags trigger the import overlay. Internal drags (TrackPanel/
+  // Console/Library row reorders — no 'Files' type) still get preventDefault
+  // here so the cursor stays a plain 'move' whenever the pointer crosses a
+  // gap between row-level drop targets — without it, Chromium falls back to
+  // the native no-drop icon in every such gap, which reads as a blinking
+  // red circle during any internal drag.
   const handleDragOver = useCallback((e: React.DragEvent<HTMLDivElement>) => {
-    if (!e.dataTransfer.types.includes('Files')) return
+    if (!e.dataTransfer.types.includes('Files')) { e.preventDefault(); return }
     e.preventDefault()
     e.stopPropagation()
     setIsDragOver(true)
@@ -406,6 +410,7 @@ export default function App() {
       {/* ── Drop zone — spans the full area below TopBar including both drawers ── */}
       <div
         style={{ display: 'flex', flex: 1, minHeight: 0, overflow: 'hidden', position: 'relative' }}
+        onDragEnter={handleDragOver}
         onDragOver={handleDragOver}
         onDragLeave={handleDragLeave}
         onDrop={handleDrop}

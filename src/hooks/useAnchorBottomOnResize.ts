@@ -11,6 +11,15 @@ export function useAnchorBottomOnResize(
   ref: RefObject<HTMLElement | null>,
   setPos: Dispatch<SetStateAction<{ x: number; y: number }>>,
   enabled: boolean,
+  // Floor for pos.y — callers with an Electron titleBarOverlay (native OS
+  // window controls painted on top of the page in the top N px, regardless
+  // of DOM z-index) need this so growing content can't push the modal's
+  // header back into that dead zone. This hook previously had NO clamp at
+  // all, unlike the same modals' initial-position and manual-drag code —
+  // which meant a modal opened safely below the overlay could still end up
+  // with its close button under it purely from content changing size, with
+  // no drag involved. Optional — omit for modals with no such floor. ───────
+  minY?: number,
 ) {
   const lastHeight = useRef<number | null>(null)
 
@@ -23,11 +32,11 @@ export function useAnchorBottomOnResize(
       if (h === undefined) return
       if (lastHeight.current !== null) {
         const delta = h - lastHeight.current
-        if (delta !== 0) setPos(p => ({ ...p, y: p.y - delta }))
+        if (delta !== 0) setPos(p => ({ ...p, y: minY !== undefined ? Math.max(minY, p.y - delta) : p.y - delta }))
       }
       lastHeight.current = h
     })
     observer.observe(el)
     return () => observer.disconnect()
-  }, [enabled, ref, setPos])
+  }, [enabled, ref, setPos, minY])
 }

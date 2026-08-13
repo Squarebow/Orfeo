@@ -1,5 +1,55 @@
 # Changelog
 
+## [1.7.0] — 13. 8. 2026 — Pre-release polish pass: floating-panel bugs, Mixer rebuild, Playback Editor split redesign
+
+A broad polish/bugfix pass across nearly every floating panel in the app, done ahead of the first public release. Two real regressions stand out: an Electron window-drag region silently swallowing clicks on the Loop Region's bar-select icon, and every draggable modal's close button becoming unclickable once dragged near the titlebar.
+
+### Fixed — Loop Region bar-select icon completely unresponsive
+Root cause: TopBar sits inside an Electron `-webkit-app-region: drag` region (native window dragging), and the icon/popup never got the `app-no-drag` exemption class every other TopBar control has. A real mouse click was being intercepted at the OS level as a window-drag gesture before it ever reached React — the button still looked and hovered normally, and synthetic/programmatic click events still fired (they bypass native OS interception), which made this exceptionally hard to reproduce under automated testing. Added `app-no-drag` to the icon, its popup, and the strip canvas itself. Also fixed a separate popup-open race (the outside-click-to-close listener attaching in the same tick as the opening click, sometimes swallowing it) by deferring attachment by one tick, and moved the popup to a `document.body` portal with `position: fixed` — it was `position: absolute` inside TopBar and could render half-clipped behind the piano roll.
+
+### Fixed — every draggable modal's close button unclickable near the titlebar
+Every floating modal (Note Editor, Playback Editor, Scale Explorer, Chord Explorer, Lock-a-Chord, Mixer Console, Floating Keyboard, File Info) clamped its y-position to a floor of 0 when dragged or repositioned, letting the top edge — and its close button — slide up under Electron's 40px `titleBarOverlay`, where Windows draws its own native window controls on top of everything in the DOM regardless of z-index. Raised the floor to 44px everywhere (matching the fix already shipped for Scale Explorer in 1.6.1), so no modal can be dragged into the dead zone. Also unified every modal's close-button styling (size, border, hover color) to match the Note Editor's — extracted to `src/utils/modalCloseButtonStyle.ts`.
+
+### Fixed — MIDI Note Editor toolbar
+- Only a 16px logo icon was draggable — moved the drag handle to the whole header row, matching every other modal.
+- Header hint text's last word wrapped to its own line — side columns were 150px wide with only ~126–62px of actual content; narrowed to 130px each.
+- "Fine-tune it yourself" note-editor icon in the Playback Editor was completely unresponsive: `handleOpenInNoteEditor` was a `useCallback([])` declared before an early `return null` that fires on first render (before its own closed-over state existed) — React locked the callback to that broken first-render closure forever, throwing `ReferenceError` on every click. Fixed by converting it to a plain (non-memoized) function declared after the early return.
+
+### Mixer Console — Master Volume knob rebuilt, playback stutter fixed
+- Master Volume knob redrawn and repositioned to sit flush with the channel strips' own bottom edge (matching their Track-N label), with a new dB/percent readout beneath it.
+- Chorus/Reverb/Tone knobs (both Master and per-channel) now show a hover tooltip explaining what each control does.
+- VU meter now scales with the channel's own fader position — it previously showed raw note velocity only, so dragging a fader never visibly moved its meter.
+- Fixed a real playback stutter while dragging any Console fader/knob: `ChannelStrip`, `MasterStrip`, and the sample-engine's playback-scheduling effect were all subscribing to the *entire* `tracks` array, so every fader mousemove re-rendered all 8+ channel strips and re-evaluated the playback scheduler dozens of times a second. Narrowed each to only the specific fields it actually needs (this channel's own track object; a mute/solo/visible signature string) so unrelated drags no longer cascade.
+- Hide/show-in-roll icon recolored to the app's actual success/error status colors (was amber/red).
+
+### Track Panel
+- Custom drag-to-reorder (both track groups and tracks within a group) only worked dragging upward — dragging a row downward past its target stalled or oscillated instead of passing it. The insert index was always computed as "before the target," which only reads correctly moving up; downward drags now insert after.
+- `NoteEditorIcon.tsx` (a custom SVG) deleted and replaced everywhere with lucide's `AudioLines`/`ListTree` — one less bespoke icon to maintain, no visual regression once stroke-width was compensated for its larger render size.
+
+### Settings — Library & Hand Labels
+- Library folder list: the app's own `Orfeo` folder is now always pinned topmost (above the existing `Demo` pin).
+- Protected folders (`Orfeo`) now still get a right-click menu — just "Show in explorer" instead of Rename/Move/Delete, instead of no menu at all.
+- Max Fingers redesigned: heading + Left/Right rows with one shared description below, instead of two separately-hinted rows.
+- Practice mode (the averaged split-line hand-label display) disabled in the UI — proved inconsistent in practice; the underlying code and store value are untouched (still selectable via a `{false && ...}` guard) so it can come back once improved. A stale saved `'practice'` preference from before this change is no longer restorable.
+
+### Piano Roll — velocity editor and loop overlay
+- Velocity lane bars now spread across the lane's full width by the soloed track's own pitch range (min–max, centered) instead of sitting at each note's literal keyboard X — a track using only a narrow slice of the keyboard no longer crowds all its bars into one edge.
+- Notes at the same pitch within the visible window now nudge sideways instead of stacking exactly on top of each other.
+- Loop region selection: removed the Alt-key gate entirely — a plain click+drag on the piano roll now starts a selection (previously required holding Alt, a leftover from an earlier design that was never fully removed from the tooltip text either).
+- Loop region cursor tooltip only shows while a region is actively selected, not on every hover with nothing selected. Text updated to "Loop region set" / "Drag to reorder, right-click to clear".
+
+### Lock-a-Chord
+- Header restyled to match the Note Editor's (background, border token, logo/title sizing).
+- Shows the actual note names in place of dashes for the first 1–2 shift-clicked notes, before enough are locked for a chord name to resolve.
+- Play-icon style unified with Scale Explorer's rounded chevron (extracted to a shared `ChevronPlayIcon.tsx`, removing a duplicate that lived in `ScaleExplorer.tsx`).
+
+### Also fixed
+- TopBar transport buttons visibly shifted left whenever the amber "click to loop" label appeared/disappeared — the label was a normal flex sibling whose presence changed the centered row's total width. Removed from flow via `position: absolute`.
+- A React "conflicting style property" warning (`border` shorthand + `borderTop` override) fired continuously during playback from `Keyboard.tsx`'s black-key glow, since that element re-renders on every key-light color change — switched to per-side longhand.
+- Internal drag-reorder (Track Panel/Console/Library rows) showed a flickering native "no-drop" cursor in the gaps between drop targets — `dragover`/`dragenter` now call `preventDefault()` unconditionally for non-file drags.
+
+**New:** `src/utils/modalCloseButtonStyle.ts`, `src/components/ChevronPlayIcon.tsx`. **Removed:** `src/components/NoteEditorIcon.tsx`. **Changed:** most floating-panel components (`NoteEditorToolbar.tsx`, `MidiEditor.tsx`, `ScaleExplorer.tsx`, `ChordExplorer.tsx`, `LockedChordModal.tsx`, `MixerConsole.tsx`, `FloatingKeyboard.tsx`, `FileInfoModal.tsx`), `LoopRegionStrip.tsx`, `TopBar.tsx`, `PianoRoll.tsx`, `TrackPanel.tsx`, `SettingsPanel.tsx`, `VolumeKnob.tsx`, `Mixer/*.tsx`, `useSamplesEngine.ts`, `store/index.ts`, `App.tsx`.
+
 ## [1.6.1] — 11. 8. 2026 — Chord-display transpose bug, tempo/key save rewiring, Scale Explorer root-note coloring
 
 ### Fixed — chord names above the keyboard didn't update on transpose

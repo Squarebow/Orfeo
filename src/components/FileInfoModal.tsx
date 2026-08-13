@@ -11,6 +11,7 @@ import OrfeoMark from './OrfeoMark'
 import { MarqueeText } from './MarqueeText'
 import { PENCIL_CURSOR } from '../utils/cursors'
 import { parseMidiMetadata, buildRenamedFileName, formatKeyOrDash, type MidiFileMetadata } from '../utils/midiMetadata'
+import { modalCloseButtonStyle, modalCloseButtonHoverColor, modalCloseButtonIdleColor } from '../utils/modalCloseButtonStyle'
 
 interface FileLogEvent { type: string; timestamp: number; summary: string }
 interface FileVersion { name: string; path: string; version: number; mtime: number }
@@ -85,7 +86,10 @@ export default function FileInfoModal({ filePath, fileName, onClose, onRenamed }
   const onDragMove = useCallback((e: MouseEvent) => {
     const ds = dragState.current
     if (!ds) return
-    setPos({ x: ds.startPosX + (e.clientX - ds.startX), y: ds.startPosY + (e.clientY - ds.startY) })
+    // y floor of 44, not 0 — keeps the top edge clear of the 40px
+    // titleBarOverlay (electron/main.ts) where Windows draws its own window
+    // controls on top of everything in the DOM.
+    setPos({ x: ds.startPosX + (e.clientX - ds.startX), y: Math.max(44, ds.startPosY + (e.clientY - ds.startY)) })
   }, [])
   const onDragEnd = useCallback(() => { dragState.current = null }, [])
 
@@ -225,11 +229,11 @@ export default function FileInfoModal({ filePath, fileName, onClose, onRenamed }
           </span>
           <button
             data-no-drag onClick={onClose} title="Close"
-            style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-inactive)', display: 'flex', alignItems: 'center' }}
-            onMouseEnter={e => e.currentTarget.style.color = 'var(--text-default)'}
-            onMouseLeave={e => e.currentTarget.style.color = 'var(--text-inactive)'}
+            style={modalCloseButtonStyle}
+            onMouseEnter={e => e.currentTarget.style.color = modalCloseButtonHoverColor}
+            onMouseLeave={e => e.currentTarget.style.color = modalCloseButtonIdleColor}
           >
-            <X size={16} />
+            <X size={14} />
           </button>
         </div>
 

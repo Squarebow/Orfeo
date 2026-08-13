@@ -676,7 +676,9 @@ export const useStore = create<OrfeoStore>((set, get) => ({
   setAutoCollapseDrawers: (autoCollapseDrawers) => set({ autoCollapseDrawers }),
 
   // ── Hand label mode — practice (static, tag-based) or performance (per-note, live) ─
-  handLabelMode: 'practice' as 'practice' | 'performance',
+  // Practice mode's UI toggle is disabled (see SettingsPanel.tsx) — proves
+  // inconsistent, may return once improved. Always performance until then.
+  handLabelMode: 'performance' as 'practice' | 'performance',
   setHandLabelMode: (handLabelMode) => set({ handLabelMode }),
 
   // ── Performance split sensitivity — hardware-input fallback only (file notes
@@ -792,7 +794,9 @@ async function restoreLibraryPrefs() {
     if (typeof prefs.splitBreakpointRangeEnd === 'number') store.setSplitBreakpointRangeEnd(prefs.splitBreakpointRangeEnd)
     if (typeof prefs.showHandLabels === 'boolean') store.setShowHandLabels(prefs.showHandLabels)
     if (typeof prefs.loopRegionEnabled === 'boolean') store.setLoopRegionEnabled(prefs.loopRegionEnabled)
-    if (prefs.handLabelMode === 'practice' || prefs.handLabelMode === 'performance') store.setHandLabelMode(prefs.handLabelMode)
+    // Only 'performance' is restorable — Practice's UI toggle is disabled,
+    // so a stale saved 'practice' pref must not resurrect it with no way back.
+    if (prefs.handLabelMode === 'performance') store.setHandLabelMode(prefs.handLabelMode)
     if (typeof prefs.performanceSplitSensitivity === 'number') store.setPerformanceSplitSensitivity(prefs.performanceSplitSensitivity)
     if (prefs.rhMaxFingers === 4 || prefs.rhMaxFingers === 5) store.setRhMaxFingers(prefs.rhMaxFingers)
     if (prefs.lhMaxFingers === 4 || prefs.lhMaxFingers === 5) store.setLhMaxFingers(prefs.lhMaxFingers)

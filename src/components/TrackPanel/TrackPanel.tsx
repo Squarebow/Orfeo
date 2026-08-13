@@ -1,12 +1,11 @@
 import { useMemo, useState } from 'react'
-import { ChevronRight, Eye, Volume2, VolumeX, ChevronDown, AudioLines, SlidersVertical, GripVertical, Sparkles } from 'lucide-react'
+import { ChevronRight, Eye, Volume2, VolumeX, ChevronDown, AudioLines, ListTree, SlidersVertical, GripVertical, Sparkles } from 'lucide-react'
 import { useStore, DEFAULT_MUTED_GROUPS } from '../../store'
 import { GM_GROUPS } from '../../utils/gmInstruments'
 import type { TrackState } from '../../types'
 import { MarqueeText } from '../MarqueeText'
 import { usePlayback } from '../../hooks/usePlayback'
 import { NES } from '../../utils/noteEditorState'
-import NoteEditorIcon from '../NoteEditorIcon'
 
 const GROUP_ORDER = [
   'piano', 'chromatic', 'organ', 'guitar', 'bass',
@@ -129,8 +128,16 @@ export default function TrackPanel() {
   const reorderGroups = (draggedKey: string, targetKey: string) => {
     if (draggedKey === targetKey || draggedKey === 'piano' || targetKey === 'piano') return
     const base = customGroupOrder ?? grouped.filter(g => g.key !== 'piano').map(g => g.key)
+    // ── Direction-aware insert — splicing at a flat `without.indexOf(target)`
+    // always inserts BEFORE the target regardless of drag direction, which
+    // only reads right when dragging upward. Dragging downward needs to
+    // insert AFTER the target (the dragged item's removal shifts everything
+    // below it up by one), or the reflow stalls/oscillates on every
+    // downward hover instead of actually passing the target row — this was
+    // the "up works, down doesn't" bug. ─────────────────────────────────────
+    const movingDown = base.indexOf(targetKey) > base.indexOf(draggedKey)
     const without = base.filter(k => k !== draggedKey)
-    const targetIdx = without.indexOf(targetKey)
+    const targetIdx = without.indexOf(targetKey) + (movingDown ? 1 : 0)
     without.splice(targetIdx, 0, draggedKey)
     setCustomGroupOrder(without)
   }
@@ -140,8 +147,12 @@ export default function TrackPanel() {
     if (draggedIndex === targetIndex) return
     const groupTracksNow = grouped.find(g => g.key === groupKey)?.tracks.map(t => t.index) ?? []
     const base = customTrackOrder[groupKey] ?? groupTracksNow
+    // ── Direction-aware insert — see reorderGroups above for why: inserting
+    // at a flat `without.indexOf(target)` only reads right moving upward;
+    // downward drags need +1 or the reflow stalls on every downward hover. ──
+    const movingDown = base.indexOf(targetIndex) > base.indexOf(draggedIndex)
     const without = base.filter(i => i !== draggedIndex)
-    const targetIdx = without.indexOf(targetIndex)
+    const targetIdx = without.indexOf(targetIndex) + (movingDown ? 1 : 0)
     without.splice(targetIdx, 0, draggedIndex)
     setCustomTrackOrder(prev => ({ ...prev, [groupKey]: without }))
   }
@@ -199,7 +210,7 @@ export default function TrackPanel() {
             onMouseEnter={e => e.currentTarget.style.color = 'var(--text-amber)'}
             onMouseLeave={e => e.currentTarget.style.color = 'var(--text-dimmest)'}
           >
-            <AudioLines size={18} />
+            <ListTree size={18} />
           </button>
           <button
             onClick={midi && !midiEditorOpen ? handleOpenEditor : undefined}
@@ -235,7 +246,7 @@ export default function TrackPanel() {
                   siblings' 18) — same 24-unit viewBox means a fixed strokeWidth
                   renders visibly thicker at a bigger size; this keeps the actual
                   on-screen stroke weight matching its neighbors. ──────────────── */}
-              <NoteEditorIcon size={22} strokeWidth={1.64} />
+              <AudioLines size={22} strokeWidth={1.64} />
             </button>
           )}
           <button
@@ -322,7 +333,7 @@ export default function TrackPanel() {
               >
                 {/* strokeWidth compensates for this icon's larger render size (20 vs
                     siblings' 16) — see collapsed-rail instance above for why. ──── */}
-                <NoteEditorIcon size={20} strokeWidth={1.6} />
+                <AudioLines size={20} strokeWidth={1.6} />
               </button>
             )}
             <button
@@ -348,7 +359,7 @@ export default function TrackPanel() {
               }}
             >
               {/* strokeWidth compensates for this icon's larger render size (20 vs
-                  siblings' 16), same reason as the NoteEditorIcon instances above. ── */}
+                  siblings' 16), same reason as the AudioLines note-editor instances above. */}
               <Sparkles size={20} strokeWidth={1.6} />
             </div>
           </div>
@@ -363,7 +374,7 @@ export default function TrackPanel() {
             borderBottom: '1px solid var(--border)', flexShrink: 0,
             gap: 'var(--space-2)',
           }}>
-            <AudioLines size={14} style={{ color: 'var(--text-inactive)', flexShrink: 0 }} />
+            <ListTree size={14} style={{ color: 'var(--text-inactive)', flexShrink: 0 }} />
             <span style={{ color: 'var(--text-dimmest)', fontSize: 'var(--text-xs)', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.1em' }}>
               Tracks
             </span>

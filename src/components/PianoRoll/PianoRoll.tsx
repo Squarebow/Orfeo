@@ -35,6 +35,7 @@ const DRAG_THRESHOLD   = 4
 // secondary time-axis mini-editor (closer to Signal/Ableton/Logic's lane)
 // is the flagged upgrade if that's ever wanted. ───────────────────────────
 const VELOCITY_BAR_W   = 5
+const VELOCITY_LANE_HEIGHT_BOOST = 60   // extra px on top of the playhead-derived height
 
 // ── Canvas/PixiJS colors resolved from CSS custom properties ─────────────────
 // PixiJS Graphics.fill({color}) needs a numeric 0xRRGGBB and Canvas2D ctx.fillStyle
@@ -211,21 +212,7 @@ function LoopOverlay() {
   const overlayRef  = useRef<HTMLDivElement>(null)
   const draggingRef = useRef<'start' | 'end' | null>(null)
   const newDragRef  = useRef<{ anchorTime: number } | null>(null)
-  const [altDown,   setAltDown]   = useState(false)
   const [mousePos,  setMousePos]  = useState<{ x: number; y: number } | null>(null)
-
-  // ── Track Alt key — enables waterfall draw mode ────────────────────────────
-  useEffect(() => {
-    const down = (e: KeyboardEvent) => {
-      if (e.key === 'Alt') { e.preventDefault(); setAltDown(true) }
-    }
-    const up = (e: KeyboardEvent) => {
-      if (e.key === 'Alt') { setAltDown(false); newDragRef.current = null }
-    }
-    window.addEventListener('keydown', down)
-    window.addEventListener('keyup',   up)
-    return () => { window.removeEventListener('keydown', down); window.removeEventListener('keyup', up) }
-  }, [])
 
   // ── Global mouse handlers — drag logic + cursor tooltip tracking ──────────
   useEffect(() => {
@@ -293,7 +280,6 @@ function LoopOverlay() {
   }, [])
 
   const handleOverlayMouseDown = (e: React.MouseEvent<HTMLDivElement>) => {
-    if (!e.altKey) return
     e.preventDefault()
     const el = overlayRef.current
     if (!el) return
@@ -324,11 +310,10 @@ function LoopOverlay() {
   const amber     = loopRegionActive ? 'var(--accent-amber-loop-border)' : 'var(--accent-amber-loop-border-dim)'
   const amberFill = loopRegionActive ? 'var(--accent-amber-active-bg)'   : 'var(--accent-amber-loop-fill-dim)'
 
-  // Tooltip visibility: only while a file is loaded AND Alt is actually held
-  // down — otherwise it's just a normal pointer, no persistent hint. (Not a
-  // discovery hint shown on plain hover anymore — that read as a stray
-  // tooltip appearing on app open with no file loaded, which is wrong.)
-  const showTooltip = !!midi && !noteEditorActive && altDown && mousePos !== null
+  // Tooltip visibility: only while a region is actively selected — showing
+  // it on every hover over the roll (even with nothing selected yet) read
+  // as a permanent, naggy tooltip.
+  const showTooltip = !!midi && !noteEditorActive && hasSelection && mousePos !== null
 
   // Edit mode disables loop overlay pointer events to pass them to PixiJS
   if (noteEditorActive) return null
@@ -340,8 +325,8 @@ function LoopOverlay() {
       onDoubleClick={() => useStore.getState().clearLoopRegion()}
       style={{
         position: 'absolute', inset: 0, overflow: 'hidden',
-        pointerEvents: altDown ? 'auto' : 'none',
-        cursor: altDown ? 'crosshair' : 'default',
+        pointerEvents: 'auto',
+        cursor: 'crosshair',
       }}
     >
       {hasSelection && heightPct > 0 && (<>
@@ -366,7 +351,7 @@ function LoopOverlay() {
         </div>
       </>)}
 
-      {/* ── Cursor tooltip — hints Alt+drag and right-click when loop strip is on ── */}
+      {/* ── Cursor tooltip — hints drag and right-click ── */}
       {showTooltip && mousePos && (
         <div style={{
           position: 'fixed',
@@ -382,13 +367,11 @@ function LoopOverlay() {
           whiteSpace: 'nowrap',
         }}>
           <span style={{ fontFamily: 'Inter, sans-serif', fontSize: 11, color: 'var(--accent-amber-tooltip-text)' }}>
-            Alt+drag · set loop region
+            Loop region set
           </span>
-          {hasSelection && (
-            <span style={{ fontFamily: 'Inter, sans-serif', fontSize: 11, color: 'var(--text-tooltip-secondary)' }}>
-              Right-click · clear
-            </span>
-          )}
+          <span style={{ fontFamily: 'Inter, sans-serif', fontSize: 11, color: 'var(--text-tooltip-secondary)' }}>
+            Drag to reorder, right-click to clear
+          </span>
         </div>
       )}
     </div>
@@ -495,7 +478,7 @@ export default function PianoRoll() {
       const velCanvas = document.createElement('canvas')
       velCanvas.style.cssText = 'position:absolute;left:0;bottom:0;display:none'
       velCanvas.width  = el.clientWidth || 800
-      velCanvas.height = Math.round((el.clientHeight || 600) * (1 - PLAYHEAD_RATIO))
+      velCanvas.height = Math.round((el.clientHeight || 600) * (1 - PLAYHEAD_RATIO)) + VELOCITY_LANE_HEIGHT_BOOST
       el.appendChild(velCanvas)
       velocityCanvasRef.current = velCanvas
       velocityCtxRef.current    = velCanvas.getContext('2d')
@@ -1721,28 +1704,36 @@ export default function PianoRoll() {
         ctx.strokeStyle = BARLINE_COLOR
         ctx.beginPath(); ctx.moveTo(0, 0.5); ctx.lineTo(W, 0.5); ctx.stroke()
 
-        // ── Label — top center, amber caps, no icon ────────────────────────
+        // ── Label — top center, amber caps, no icon. Bigger top/bottom
+        // padding + larger type than the rest of the roll's canvas labels —
+        // this header needs to read at a glance, not blend into background
+        // chrome like the bar-number labels do. ────────────────────────────
+        const HEADER_H = 34
         ctx.fillStyle = HAND_AMBER_HEX_STR
-        ctx.font = 'bold 9px Inter, sans-serif'
+        ctx.font = 'bold 12px Inter, sans-serif'
         ctx.textAlign = 'center'
         ctx.textBaseline = 'alphabetic'
         ctx.save()
         ctx.letterSpacing = '0.1em' as any
-        ctx.fillText('VELOCITY EDITOR', W / 2, 14)
+        ctx.fillText('VELOCITY EDITOR', W / 2, HEADER_H / 2 + 4)
         ctx.restore()
 
         if (noteEditorSoloTrackIndex === null) {
           velBars = []
           ctx.fillStyle = NOTE_LABEL_COLOR
-          ctx.font = '10px Inter, sans-serif'
+          ctx.globalAlpha = 0.6
+          ctx.font = '11px "JetBrains Mono", monospace'
           ctx.textAlign = 'center'
           ctx.textBaseline = 'middle'
-          ctx.fillText('Solo a track to edit its velocity', W / 2, H / 2)
+          ctx.fillText('Solo a track to edit its velocity in the Tracks panel on the right', W / 2, H / 2)
+          ctx.globalAlpha = 1
           return
         }
 
         velBars = []
-        const trackTop = 20, trackH = H - trackTop - 6
+        // trackTop starts below the taller header row so the guideline grid
+        // never overlaps it.
+        const trackTop = HEADER_H, trackH = H - trackTop - 6
 
         // ── Guideline gridlines — 0/32/64/96/127, barely-visible horizontal
         // lines + value markers on both edges, same idea as the main roll's
@@ -1764,6 +1755,36 @@ export default function PianoRoll() {
         }
         ctx.globalAlpha = 1
 
+        // ── Pitch range → horizontal position, centered ───────────────────
+        // Previously bars sat at the note's actual keyboard X — for a track
+        // using only a narrow slice of the keyboard (e.g. a bass or lead
+        // line), all its bars crowded into one edge of the lane and
+        // overlapped instead of using the available width. Remapping the
+        // soloed track's own min–max pitch span to the full lane width
+        // (centered, with side padding) spreads them out regardless of
+        // where on the actual keyboard the notes sit. Computed from the
+        // FULL track (not just the currently-visible falling notes), so the
+        // layout stays stable and doesn't shift as different notes scroll
+        // into view. ─────────────────────────────────────────────────────
+        const soloedParsedTrack = storeRef.current.midi?.tracks.find((t: any) => t.index === noteEditorSoloTrackIndex)
+        const soloedNotes = soloedParsedTrack?.notes ?? []
+        let minMidi = Infinity, maxMidi = -Infinity
+        for (const n of soloedNotes) {
+          if (n.midi < minMidi) minMidi = n.midi
+          if (n.midi > maxMidi) maxMidi = n.midi
+        }
+        const rawSpan  = maxMidi >= minMidi ? maxMidi - minMidi : 0
+        const LANE_PAD = 20
+        const usableW  = Math.max(1, W - LANE_PAD * 2)
+
+        // ── Same-pitch repeats within the visible window — nudge sideways ──
+        // Two passes: count how many visible notes share each pitch, then
+        // (below) spread that many bars symmetrically around the pitch's
+        // base X instead of stacking them exactly on top of each other. ────
+        const pitchTotal = new Map<number, number>()
+        for (const ef of editFlatNotes) pitchTotal.set(ef.note.midi, (pitchTotal.get(ef.note.midi) ?? 0) + 1)
+        const pitchSeen = new Map<number, number>()
+
         // editFlatNotes already excludes every track except the soloed one —
         // soloTrackForEdit hides all others (ts.visible=false), and
         // buildEditFlatNotes gates on ts.visible the same way the main
@@ -1772,7 +1793,12 @@ export default function PianoRoll() {
           const note = ef.note
           const vel  = Math.max(0, Math.min(1, note.velocity))
           const barW = VELOCITY_BAR_W
-          const x    = ef.key.x + (ef.key.width - barW) / 2
+          const norm = rawSpan > 0 ? (note.midi - minMidi) / rawSpan : 0.5
+          const total = pitchTotal.get(note.midi) ?? 1
+          const seen  = pitchSeen.get(note.midi) ?? 0
+          pitchSeen.set(note.midi, seen + 1)
+          const nudge = total > 1 ? (seen - (total - 1) / 2) * (barW + 2) : 0
+          const x    = LANE_PAD + norm * usableW - barW / 2 + nudge
           const barH = Math.max(2, Math.round(vel * trackH))
           const y    = trackTop + (trackH - barH)
           const isDragging = note === velDragNote
@@ -1780,16 +1806,23 @@ export default function PianoRoll() {
           ctx.fillStyle = isDragging ? VELOCITY_BAR_HEX_STR : `${VELOCITY_BAR_HEX_STR}bb`
           ctx.fillRect(x, y, barW, barH)
 
-          // Numeric readout only for the bar actively being dragged — with a
-          // whole track's worth of bars packed key-width apart, labeling
-          // every single one would be unreadable clutter.
+          // Numeric readout on every bar (dim, small) so the whole track's
+          // values are visible at a glance; the bar being dragged reads
+          // brighter/larger and updates live each frame as it's slid.
+          // Right of the bar, not centered on it — centered text sat behind
+          // the bar's own vertical line and got covered by it.
+          ctx.fillStyle = NOTE_LABEL_COLOR
+          ctx.textAlign = 'left'
+          ctx.textBaseline = 'alphabetic'
           if (isDragging) {
-            ctx.fillStyle = NOTE_LABEL_COLOR
             ctx.font = '9px "JetBrains Mono", monospace'
-            ctx.textAlign = 'center'
-            ctx.textBaseline = 'alphabetic'
-            ctx.fillText(String(Math.round(vel * 127)), x + barW / 2, Math.max(10, y - 4))
+            ctx.globalAlpha = 1
+          } else {
+            ctx.font = '7px "JetBrains Mono", monospace'
+            ctx.globalAlpha = 0.5
           }
+          ctx.fillText(String(Math.round(vel * 127)), x + barW + 2, Math.max(10, y + 3))
+          ctx.globalAlpha = 1
 
           velBars.push({ note, x, w: barW })
         }
@@ -1908,7 +1941,7 @@ export default function PianoRoll() {
         }
         if (velocityCanvasRef.current) {
           velocityCanvasRef.current.width  = w
-          velocityCanvasRef.current.height = Math.round(h * (1 - PLAYHEAD_RATIO))
+          velocityCanvasRef.current.height = Math.round(h * (1 - PLAYHEAD_RATIO)) + VELOCITY_LANE_HEIGHT_BOOST
         }
       })
       roInstance.observe(el)

@@ -26,3 +26,13 @@ export const TRACK_COLOR_PALETTE = [
 // Shared by midiParser.ts (initial load) and MidiEditor.tsx (live instrument
 // reassignment) so both compute the exact same color for the exact same slot.
 export const PIANO_FAMILY_COLORS = [TRACK_COLOR_PALETTE[2], TRACK_COLOR_PALETTE[7], TRACK_COLOR_PALETTE[0]]
+
+// ── 4th+ piano-family track color — cycles through the rest of the palette
+// instead of repeating the 3rd slot's amber for every track after it. "I
+// don't care what color, just different" — not the same amber, and not
+// colliding with slots 1-3's blue/pink/amber either. ─────────────────────
+const PIANO_EXTRA_COLORS = TRACK_COLOR_PALETTE.filter((_, i) => i !== 0 && i !== 2 && i !== 7)
+export function pianoFamilyColor(pianoIndex: number): string {
+  if (pianoIndex < PIANO_FAMILY_COLORS.length) return PIANO_FAMILY_COLORS[pianoIndex]
+  return PIANO_EXTRA_COLORS[(pianoIndex - PIANO_FAMILY_COLORS.length) % PIANO_EXTRA_COLORS.length]
+}

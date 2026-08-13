@@ -377,9 +377,10 @@ export default function Keyboard() {
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column' }}>
-      {/* ── Chord bar — hidden in Presentation Mode; simple (34px) or extended prompter (36px) ── */}
+      {/* ── Chord bar — hidden in Presentation Mode; fixed 36px so toggling the
+          prompter never shifts the row above it ── */}
       {!presentationMode && <div data-keyboard-header style={{
-        height: chordPrompterOpen ? 36 : 34,
+        height: 36,
         background: 'var(--bg-modal-header)',
         borderTop: '1px solid var(--border)',
         display: 'flex',
@@ -662,7 +663,16 @@ export default function Keyboard() {
                   left: `${leftPct}%`, width: `${widthPct}%`, height: '65%',
                   background: color ?? 'var(--border-row)',
                   borderRadius: '0 0 4px 4px',
-                  border: color ? '1px solid var(--key-black-active-border)' : '1px solid var(--bg-modal-header)',
+                  // Longhand per side (not `border` shorthand + `borderTop`
+                  // override) — mixing them made React warn "conflicting
+                  // style property" on every re-render, and this element
+                  // re-renders on every key-light color change during
+                  // playback, so that warning (and its cost — DevTools
+                  // formats a full stack trace per occurrence) fired
+                  // continuously while a file played.
+                  borderLeft:   color ? '1px solid var(--key-black-active-border)' : '1px solid var(--bg-modal-header)',
+                  borderRight:  color ? '1px solid var(--key-black-active-border)' : '1px solid var(--bg-modal-header)',
+                  borderBottom: color ? '1px solid var(--key-black-active-border)' : '1px solid var(--bg-modal-header)',
                   borderTop: 'none',
                   boxShadow: color
                     ? `0 0 ${locked ? 14 : 10}px ${locked ? 4 : 3}px color-mix(in srgb, ${color} ${locked ? 73 : 60}%, transparent)`

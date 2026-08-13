@@ -5,11 +5,10 @@ import { confirmDialog } from '../../utils/confirmController'
 import {
   ChevronLeft, ChevronDown, ChevronRight, Music2, Piano, Palette, Columns3, Volume2,
   Music, FolderOpen, Folders, RefreshCw, FileMusic, FileCode2, Guitar, BookOpen, Library, Settings, Info,
-  Search, X, Undo2, Upload, ToggleLeft, ToggleRight, CloudDownload, ChevronsDownUp,
+  Search, X, Undo2, Upload, ToggleLeft, ToggleRight, CloudDownload, ChevronsDownUp, AudioLines,
 } from 'lucide-react'
 import { useStore } from '../../store'
 import OrfeoMark from '../OrfeoMark'
-import NoteEditorIcon from '../NoteEditorIcon'
 import type { NoteNaming, KeyboardSize, Accidentals, TranscriptEntry, LibraryFile, HitEffectPattern, SoundfontId, SoundfontInfo, UpdateStatus } from '../../types'
 import type { AppTheme } from '../../store'
 import { initSamplesEngine, loadSelectedSoundfont } from '../../hooks/useSamplesEngine'
@@ -682,7 +681,8 @@ function LibraryPanel() {
 
   const handleFolderContextMenu = (e: React.MouseEvent, folder: string) => {
     e.preventDefault()
-    if (isProtectedFolder(folder)) return
+    // Protected folders (Orfeo) still get the menu — just Show in explorer,
+    // not Rename/Move/Delete (guarded inside the menu render below).
     setFolderContextMenu({ folder, x: e.clientX, y: e.clientY })
   }
 
@@ -1019,9 +1019,11 @@ function LibraryPanel() {
     // Starred-first grouping only applies inside the dedicated "starred" filter tab.
     const result: FileGroup[] = []
 
-    // ── Sort folders: Demo pinned first, rest alphabetical ───────────────────
+    // ── Sort folders: Orfeo always topmost, Demo pinned next, rest alphabetical ──
     Array.from(folderMap.entries())
       .sort((a, b) => {
+        if (a[0].toLowerCase() === 'orfeo') return -1
+        if (b[0].toLowerCase() === 'orfeo') return 1
         if (a[0].toLowerCase() === 'demo') return -1
         if (b[0].toLowerCase() === 'demo') return 1
         return a[0].localeCompare(b[0])
@@ -1386,34 +1388,45 @@ function LibraryPanel() {
             }}
           >
             <button
-              onClick={() => { setRenamingFolder(folderContextMenu.folder); setRenameDraft(folderContextMenu.folder); setFolderContextMenu(null) }}
-              title="Renames this folder on disk"
+              onClick={() => { const folder = folderContextMenu.folder; setFolderContextMenu(null); if (libraryFolder) window.electronAPI.openFolderInExplorer(`${libraryFolder}/${folder}`) }}
+              title="Opens this folder in File Explorer"
               style={MENU_ITEM_STYLE}
               onMouseEnter={e => { e.currentTarget.style.background = 'var(--bg-tile)'; e.currentTarget.style.color = 'var(--text-amber)' }}
               onMouseLeave={e => { e.currentTarget.style.background = 'none';           e.currentTarget.style.color = 'var(--text-default)' }}
             >
-              Rename
+              Show in explorer
             </button>
-            <button
-              onClick={() => { const folder = folderContextMenu.folder; setFolderContextMenu(null); moveFilesToFolder(Array.from(selectedPaths), folder) }}
-              disabled={selectedPaths.size === 0}
-              title={selectedPaths.size === 0 ? 'Select file(s) first' : `Moves the ${selectedPaths.size} selected file(s) into this folder`}
-              style={{ ...MENU_ITEM_STYLE, opacity: selectedPaths.size === 0 ? 0.4 : 1, cursor: selectedPaths.size === 0 ? 'default' : 'pointer' }}
-              onMouseEnter={e => { if (selectedPaths.size > 0) { e.currentTarget.style.background = 'var(--bg-tile)'; e.currentTarget.style.color = 'var(--text-amber)' } }}
-              onMouseLeave={e => { e.currentTarget.style.background = 'none'; e.currentTarget.style.color = 'var(--text-default)' }}
-            >
-              Move {selectedPaths.size || ''} selected files here
-            </button>
-            <button
-              onClick={() => { const folder = folderContextMenu.folder; setFolderContextMenu(null); handleDeleteFolder(folder) }}
-              disabled={!folderIsEmpty(folderContextMenu.folder)}
-              title={!folderIsEmpty(folderContextMenu.folder) ? 'Move files out first' : 'Deletes this empty folder from disk'}
-              style={{ ...MENU_ITEM_STYLE, opacity: !folderIsEmpty(folderContextMenu.folder) ? 0.4 : 1, cursor: !folderIsEmpty(folderContextMenu.folder) ? 'default' : 'pointer' }}
-              onMouseEnter={e => { if (folderIsEmpty(folderContextMenu.folder)) { e.currentTarget.style.background = 'var(--bg-tile)'; e.currentTarget.style.color = '#e05a5a' } }}
-              onMouseLeave={e => { e.currentTarget.style.background = 'none'; e.currentTarget.style.color = 'var(--text-default)' }}
-            >
-              Delete
-            </button>
+            {!isProtectedFolder(folderContextMenu.folder) && (<>
+              <button
+                onClick={() => { setRenamingFolder(folderContextMenu.folder); setRenameDraft(folderContextMenu.folder); setFolderContextMenu(null) }}
+                title="Renames this folder on disk"
+                style={MENU_ITEM_STYLE}
+                onMouseEnter={e => { e.currentTarget.style.background = 'var(--bg-tile)'; e.currentTarget.style.color = 'var(--text-amber)' }}
+                onMouseLeave={e => { e.currentTarget.style.background = 'none';           e.currentTarget.style.color = 'var(--text-default)' }}
+              >
+                Rename
+              </button>
+              <button
+                onClick={() => { const folder = folderContextMenu.folder; setFolderContextMenu(null); moveFilesToFolder(Array.from(selectedPaths), folder) }}
+                disabled={selectedPaths.size === 0}
+                title={selectedPaths.size === 0 ? 'Select file(s) first' : `Moves the ${selectedPaths.size} selected file(s) into this folder`}
+                style={{ ...MENU_ITEM_STYLE, opacity: selectedPaths.size === 0 ? 0.4 : 1, cursor: selectedPaths.size === 0 ? 'default' : 'pointer' }}
+                onMouseEnter={e => { if (selectedPaths.size > 0) { e.currentTarget.style.background = 'var(--bg-tile)'; e.currentTarget.style.color = 'var(--text-amber)' } }}
+                onMouseLeave={e => { e.currentTarget.style.background = 'none'; e.currentTarget.style.color = 'var(--text-default)' }}
+              >
+                Move {selectedPaths.size || ''} selected files here
+              </button>
+              <button
+                onClick={() => { const folder = folderContextMenu.folder; setFolderContextMenu(null); handleDeleteFolder(folder) }}
+                disabled={!folderIsEmpty(folderContextMenu.folder)}
+                title={!folderIsEmpty(folderContextMenu.folder) ? 'Move files out first' : 'Deletes this empty folder from disk'}
+                style={{ ...MENU_ITEM_STYLE, opacity: !folderIsEmpty(folderContextMenu.folder) ? 0.4 : 1, cursor: !folderIsEmpty(folderContextMenu.folder) ? 'default' : 'pointer' }}
+                onMouseEnter={e => { if (folderIsEmpty(folderContextMenu.folder)) { e.currentTarget.style.background = 'var(--bg-tile)'; e.currentTarget.style.color = '#e05a5a' } }}
+                onMouseLeave={e => { e.currentTarget.style.background = 'none'; e.currentTarget.style.color = 'var(--text-default)' }}
+              >
+                Delete
+              </button>
+            </>)}
           </div>
         )}
 
@@ -2131,7 +2144,7 @@ export default function SettingsPanel() {
                     onEyeChange={setNoteEditorEnabled}
                     description={
                       <>
-                        Shows <span style={{ display: 'inline-flex', verticalAlign: 'middle', color: 'var(--text-amber)' }}><NoteEditorIcon size={11} /></span> icon in the Tracks panel. Enables MIDI note-editing mode directly on the piano roll.
+                        Shows <span style={{ display: 'inline-flex', verticalAlign: 'middle', color: 'var(--text-amber)' }}><AudioLines size={11} /></span> icon in the Tracks panel. Enables MIDI note-editing mode directly on the piano roll.
                       </>
                     }
                   />
@@ -2282,69 +2295,79 @@ export default function SettingsPanel() {
                   {/* ── Sub-controls — only visible when hand labels are on ─────────── */}
                   {showHandLabels && (
                     <>
-                      {/* ── Sub-level divider — same treatment as the "Labels" heading
-                          above; positioned before Mode per the LR Hand Rework plan ── */}
+                      {/* ── Max fingers per hand — hard cap for the hand-assignment
+                          engine's wide-chord split point; independent per hand. This
+                          is a real cost-function parameter in the DP split algorithm
+                          (handAssignment.ts), not cosmetic — kept, just redesigned:
+                          heading, Left, Right, one shared description below. ────── */}
                       <div style={{
                         padding: '5px 14px 3px',
                         fontSize: 9, color: 'var(--text-muted)', fontWeight: 600,
                         letterSpacing: '0.1em', textTransform: 'uppercase', fontFamily: 'Inter',
                       }}>
-                        Playback & Practice
+                        Max Fingers
                       </div>
-                      {/* ── Max fingers per hand — hard cap for the hand-assignment
-                          engine's wide-chord split point; independent per hand ──── */}
-                      <OptionRow label="RH Max Fingers" labelSmall hint="How many notes of a wide chord the right hand can take, counted from the top. The left hand absorbs the rest.">
-                        <div style={{ display: 'flex', gap: 'var(--space-1)' }}>
-                          <OptionBtn active={rhMaxFingers === 4} onClick={() => setRhMaxFingers(4)}>4</OptionBtn>
-                          <OptionBtn active={rhMaxFingers === 5} onClick={() => setRhMaxFingers(5)}>5</OptionBtn>
-                        </div>
-                      </OptionRow>
-                      <OptionRow label="LH Max Fingers" labelSmall hint="How many notes of a wide chord the left hand can take, counted from the bottom.">
+                      <OptionRow label="Left" labelSmall>
                         <div style={{ display: 'flex', gap: 'var(--space-1)' }}>
                           <OptionBtn active={lhMaxFingers === 4} onClick={() => setLhMaxFingers(4)}>4</OptionBtn>
                           <OptionBtn active={lhMaxFingers === 5} onClick={() => setLhMaxFingers(5)}>5</OptionBtn>
                         </div>
                       </OptionRow>
-                      {/* ── Practice / Performance mode selector — hint is a single
-                          sentence describing only the selected mode, not both at once ── */}
-                      <OptionRow
-                        label="Mode"
-                        hint={handLabelMode === 'practice'
-                          ? 'Practice shows a split line that moves with the piece, averaged over a few seconds of hand tags.'
-                          : 'Performance colors each note on the keyboard by its own hand tag as it plays.'}
-                      >
+                      <OptionRow label="Right" labelSmall>
                         <div style={{ display: 'flex', gap: 'var(--space-1)' }}>
-                          <OptionBtn active={handLabelMode === 'practice'}    onClick={() => setHandLabelMode('practice')}>Practice</OptionBtn>
-                          <OptionBtn active={handLabelMode === 'performance'} onClick={() => setHandLabelMode('performance')}>Performance</OptionBtn>
+                          <OptionBtn active={rhMaxFingers === 4} onClick={() => setRhMaxFingers(4)}>4</OptionBtn>
+                          <OptionBtn active={rhMaxFingers === 5} onClick={() => setRhMaxFingers(5)}>5</OptionBtn>
                         </div>
                       </OptionRow>
-                      {handLabelMode === 'practice' && (
-                        <div style={{ padding: '2px 12px 6px', color: 'var(--text-inactive)', fontSize: 'var(--text-xs)', fontFamily: 'Inter', lineHeight: 1.5 }}>
-                          The line tracks the average pitch split between left- and right-hand notes in a ~3-second window around the playhead — not user-adjustable, it comes straight from the hand-assignment engine's tags.
-                        </div>
-                      )}
-                      {/* ── Performance: sensitivity slider — hardware input only ────── */}
-                      {handLabelMode === 'performance' && (
+                      <div style={{ padding: '2px 12px 6px', color: 'var(--text-inactive)', fontSize: 'var(--text-xs)', fontFamily: 'Inter', lineHeight: 1.5 }}>
+                        How many notes of a wide chord each hand can take before the rest is absorbed by the other — left counts from the bottom of the chord, right from the top.
+                      </div>
+                      {/* ── Mode (Practice/Performance) — disabled, not deleted.
+                          Practice mode proves inconsistent in performance for now;
+                          may return once improved. A JS false-guard instead of a
+                          JSX comment, since this block has its own inline JSX
+                          comments that would terminate a wrapping one early. ── */}
+                      {false && (
                         <>
-                          <OptionRow label="Hardware Split Sensitivity" labelSmall>
-                            <div style={{ fontSize: 11, color: 'var(--text-dim-control)', fontFamily: 'JetBrains Mono', marginBottom: 4 }}>
-                              {performanceSplitSensitivity} semitones
-                            </div>
-                            <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                              <span style={{ fontSize: 9, color: 'var(--text-inactive)', fontFamily: 'JetBrains Mono', flexShrink: 0 }}>2</span>
-                              <input
-                                type="range" min={2} max={16} step={1}
-                                value={performanceSplitSensitivity}
-                                onChange={e => setPerformanceSplitSensitivity(Number(e.target.value))}
-                                className="orfeo-slider-amber"
-                                style={{ flex: 1, '--fill': `${((performanceSplitSensitivity - 2) / 14) * 100}%` } as CSSProperties}
-                              />
-                              <span style={{ fontSize: 9, color: 'var(--text-inactive)', fontFamily: 'JetBrains Mono', flexShrink: 0 }}>16</span>
+                          <OptionRow
+                            label="Mode"
+                            hint={handLabelMode === 'practice'
+                              ? 'Practice shows a split line that moves with the piece, averaged over a few seconds of hand tags.'
+                              : 'Performance colors each note on the keyboard by its own hand tag as it plays.'}
+                          >
+                            <div style={{ display: 'flex', gap: 'var(--space-1)' }}>
+                              <OptionBtn active={handLabelMode === 'practice'}    onClick={() => setHandLabelMode('practice')}>Practice</OptionBtn>
+                              <OptionBtn active={handLabelMode === 'performance'} onClick={() => setHandLabelMode('performance')}>Performance</OptionBtn>
                             </div>
                           </OptionRow>
-                          <div style={{ padding: '2px 12px 6px', color: 'var(--text-inactive)', fontSize: 'var(--text-xs)', fontFamily: 'Inter', lineHeight: 1.5 }}>
-                            Only affects notes played on a physical MIDI keyboard, which have no file tag to read.
-                          </div>
+                          {handLabelMode === 'practice' && (
+                            <div style={{ padding: '2px 12px 6px', color: 'var(--text-inactive)', fontSize: 'var(--text-xs)', fontFamily: 'Inter', lineHeight: 1.5 }}>
+                              The line tracks the average pitch split between left- and right-hand notes in a ~3-second window around the playhead — not user-adjustable, it comes straight from the hand-assignment engine's tags.
+                            </div>
+                          )}
+                          {handLabelMode === 'performance' && (
+                            <>
+                              <OptionRow label="Hardware Split Sensitivity" labelSmall>
+                                <div style={{ fontSize: 11, color: 'var(--text-dim-control)', fontFamily: 'JetBrains Mono', marginBottom: 4 }}>
+                                  {performanceSplitSensitivity} semitones
+                                </div>
+                                <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                                  <span style={{ fontSize: 9, color: 'var(--text-inactive)', fontFamily: 'JetBrains Mono', flexShrink: 0 }}>2</span>
+                                  <input
+                                    type="range" min={2} max={16} step={1}
+                                    value={performanceSplitSensitivity}
+                                    onChange={e => setPerformanceSplitSensitivity(Number(e.target.value))}
+                                    className="orfeo-slider-amber"
+                                    style={{ flex: 1, '--fill': `${((performanceSplitSensitivity - 2) / 14) * 100}%` } as CSSProperties}
+                                  />
+                                  <span style={{ fontSize: 9, color: 'var(--text-inactive)', fontFamily: 'JetBrains Mono', flexShrink: 0 }}>16</span>
+                                </div>
+                              </OptionRow>
+                              <div style={{ padding: '2px 12px 6px', color: 'var(--text-inactive)', fontSize: 'var(--text-xs)', fontFamily: 'Inter', lineHeight: 1.5 }}>
+                                Only affects notes played on a physical MIDI keyboard, which have no file tag to read.
+                              </div>
+                            </>
+                          )}
                         </>
                       )}
                     </>
@@ -2357,7 +2380,9 @@ export default function SettingsPanel() {
                     onEyeChange={setChordPrompterEnabled}
                     description={<>
                       Shows past, current and upcoming chords during playback. Click{' '}
-                      <svg xmlns="http://www.w3.org/2000/svg" width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ display: 'inline', verticalAlign: '-2px', margin: '0 2px' }}><path d="M3 7V5a2 2 0 0 1 2-2h2"/><path d="M17 3h2a2 2 0 0 1 2 2v2"/><path d="M21 17v2a2 2 0 0 1-2 2h-2"/><path d="M7 21H5a2 2 0 0 1-2-2v-2"/><rect width="10" height="8" x="7" y="8" rx="1"/></svg>
+                      <span style={{ display: 'inline-flex', verticalAlign: '-2px', margin: '0 2px', color: 'var(--text-amber)' }}>
+                        <svg xmlns="http://www.w3.org/2000/svg" width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 7V5a2 2 0 0 1 2-2h2"/><path d="M17 3h2a2 2 0 0 1 2 2v2"/><path d="M21 17v2a2 2 0 0 1-2 2h-2"/><path d="M7 21H5a2 2 0 0 1-2-2v-2"/><rect width="10" height="8" x="7" y="8" rx="1"/></svg>
+                      </span>
                       {' '}to enable it.
                     </>}
                   />
