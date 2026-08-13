@@ -304,8 +304,8 @@ function HitEffectColorSwatch({ color, onChange }: { color: string | null; onCha
       {open && (
         <div style={{
           position: 'absolute', top: '100%', right: 0, marginTop: 4, zIndex: 20,
-          background: 'var(--panel)', border: '1px solid #404055', borderRadius: 'var(--radius-md)',
-          boxShadow: '0 4px 16px rgba(0,0,0,0.55)', padding: 10, width: 150,
+          background: 'var(--panel)', border: '1px solid var(--border-popover)', borderRadius: 'var(--radius-md)',
+          boxShadow: 'var(--elevation-popover)', padding: 10, width: 150,
           display: 'flex', flexDirection: 'column', gap: 8,
         }}>
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: 4 }}>
@@ -463,7 +463,7 @@ function SettingsDropdown<T extends string>({ value, options, onChange, title }:
             zIndex: 50001,
             background: 'var(--panel)', border: '1px solid var(--state-hover-border)',
             borderRadius: 4, overflow: 'hidden auto', maxHeight: 240,
-            boxShadow: '0 4px 16px rgba(0,0,0,0.55)',
+            boxShadow: 'var(--elevation-popover)',
           }}
         >
           {options.map(o => (
@@ -1256,7 +1256,7 @@ function LibraryPanel() {
               position: 'fixed', top: contextMenu.y, left: contextMenu.x,
               background: 'var(--panel)', border: '1px solid var(--drag-handle-dot)',
               borderRadius: 'var(--radius-md)',
-              boxShadow: '0 4px 16px rgba(0,0,0,0.55)',
+              boxShadow: 'var(--elevation-popover)',
               zIndex: 9500, minWidth: 160, overflow: 'hidden',
             }}
           >
@@ -1381,9 +1381,9 @@ function LibraryPanel() {
             ref={folderMenuRef}
             style={{
               position: 'fixed', top: folderContextMenu.y, left: folderContextMenu.x,
-              background: 'var(--panel)', border: '1px solid #404055',
+              background: 'var(--panel)', border: '1px solid var(--border-popover)',
               borderRadius: 'var(--radius-md)',
-              boxShadow: '0 4px 16px rgba(0,0,0,0.55)',
+              boxShadow: 'var(--elevation-popover)',
               zIndex: 9500, minWidth: 180, overflow: 'hidden',
             }}
           >
@@ -1421,7 +1421,7 @@ function LibraryPanel() {
                 disabled={!folderIsEmpty(folderContextMenu.folder)}
                 title={!folderIsEmpty(folderContextMenu.folder) ? 'Move files out first' : 'Deletes this empty folder from disk'}
                 style={{ ...MENU_ITEM_STYLE, opacity: !folderIsEmpty(folderContextMenu.folder) ? 0.4 : 1, cursor: !folderIsEmpty(folderContextMenu.folder) ? 'default' : 'pointer' }}
-                onMouseEnter={e => { if (folderIsEmpty(folderContextMenu.folder)) { e.currentTarget.style.background = 'var(--bg-tile)'; e.currentTarget.style.color = '#e05a5a' } }}
+                onMouseEnter={e => { if (folderIsEmpty(folderContextMenu.folder)) { e.currentTarget.style.background = 'var(--bg-tile)'; e.currentTarget.style.color = 'var(--status-protected)' } }}
                 onMouseLeave={e => { e.currentTarget.style.background = 'none'; e.currentTarget.style.color = 'var(--text-default)' }}
               >
                 Delete
@@ -1608,8 +1608,8 @@ function LibraryPanel() {
                   style={{
                     display: 'flex', alignItems: 'center', gap: 6,
                     padding: '6px 10px', minHeight: FOLDER_HEADER_HEIGHT, boxSizing: 'border-box',
-                    background: isDropTarget ? 'var(--accent-amber-subtle)' : isProtectedHover ? 'rgba(224,90,90,0.10)' : 'var(--bg-row)',
-                    outline: isDropTarget ? '1px solid var(--accent-amber-strong)' : isProtectedHover ? '1px solid #e05a5a' : 'none',
+                    background: isDropTarget ? 'var(--accent-amber-subtle)' : isProtectedHover ? 'var(--status-protected-tint-bg)' : 'var(--bg-row)',
+                    outline: isDropTarget ? '1px solid var(--accent-amber-strong)' : isProtectedHover ? '1px solid var(--status-protected)' : 'none',
                     outlineOffset: -1,
                     borderBottom: '1px solid var(--bg-tile)',
                     borderTop: gi > 0 ? '1px solid var(--border)' : 'none',
@@ -1648,7 +1648,7 @@ function LibraryPanel() {
                   )}
                   {/* ── Live drag feedback — native title tooltips don't reliably show mid-drag ── */}
                   {isProtectedHover && (
-                    <span style={{ fontSize: 9, color: '#e05a5a', flexShrink: 0, whiteSpace: 'nowrap' }}>Can't move to system folder</span>
+                    <span style={{ fontSize: 9, color: 'var(--status-protected)', flexShrink: 0, whiteSpace: 'nowrap' }}>Can't move to system folder</span>
                   )}
                   {isDropTarget && (
                     <span style={{ fontSize: 9, color: 'var(--text-amber)', flexShrink: 0, whiteSpace: 'nowrap' }}>Move to {group.folder}</span>

@@ -87,11 +87,6 @@ export default function MixerConsole() {
       const base = mixerBaseline[t.index]
       return base && (base.volume !== t.volume || base.pan !== t.pan || base.chorus !== t.chorus || base.reverb !== t.reverb)
     })
-    // TEMP DIAGNOSTIC — remove once the "always N channels" count bug is confirmed/fixed.
-    console.log('[mixer-diag]', changed.map(t => ({
-      index: t.index, name: t.trackName ?? t.gmName,
-      base: mixerBaseline[t.index], live: { volume: t.volume, pan: t.pan, chorus: t.chorus, reverb: t.reverb },
-    })))
     if (changed.length === 0 || !midi) { setMixerOpen(false); return }
 
     const filePath = (midi as any)._filePath ?? ''

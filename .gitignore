@@ -38,3 +38,6 @@ docs/Final polish for public release/
 PRODUCT.md
 DESIGN.md
 .impeccable/
+
+# ── CDP dev-debug helper scripts — local testing tools, not shipped app code ─
+scripts/dev-debug/
