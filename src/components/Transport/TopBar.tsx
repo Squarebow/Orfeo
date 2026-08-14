@@ -144,7 +144,10 @@ export default function TopBar() {
     <div
       className="app-drag-region"
       style={{
-        height: loopRegionEnabled ? 120 : 96,
+        // +12px over the old 96/120 — gives the bottom-anchored right group
+        // (see its own comment below) room for full button clearance plus
+        // breathing space above the piano roll border, without cramming it.
+        height: loopRegionEnabled ? 132 : 108,
         background: 'var(--bg-deep)',
         borderBottom: 'none',
         // ── CSS Grid, three real minmax(0,1fr) columns (not 1fr auto 1fr —
@@ -159,8 +162,13 @@ export default function TopBar() {
         display: 'grid',
         gridTemplateColumns: 'minmax(0,1fr) minmax(0,1fr) minmax(0,1fr)',
         alignItems: 'center',
-        // 174px right padding clears Win overlay buttons (–□×)
-        padding: '0 174px 0 20px',
+        // Symmetric 20px both sides — the Win overlay buttons no longer need
+        // a horizontal carve-out here; the right group is bottom-anchored
+        // below their 40px-tall zone instead (see that group's own comment).
+        // Symmetric padding also means the center column is centered on the
+        // actual window, not on a grid area already skewed left by a lopsided
+        // 20/174 split.
+        padding: '0 20px 0 20px',
         gap: 0,
         flexShrink: 0,
       }}
@@ -359,7 +367,20 @@ export default function TopBar() {
           normal widths), and the overflow that used to spill into the
           center column is now reachable by scrolling left instead. ── */}
       <div className="app-no-drag mixer-scroll" style={{
-        justifySelf: 'stretch', minWidth: 0, overflowX: 'auto', overflowY: 'hidden', direction: 'rtl',
+        justifySelf: 'stretch', alignSelf: 'end', minWidth: 0, overflowX: 'auto', overflowY: 'hidden', direction: 'rtl',
+        // ── Bottom-anchored, not vertically centered like its siblings — the
+        // Win overlay buttons (–□×) only occupy the titlebar's top 40px
+        // (electron/main.ts's titleBarOverlay height), not this row's full
+        // 108/132px. Anchoring this group below that line means it never
+        // needs the wide right-hand inset the row used to reserve across its
+        // ENTIRE height just to dodge a 40px-tall strip — CDP-measured live:
+        // content top lands at 56px, 16px clear of the 40px boundary. The
+        // paddingBottom below is breathing room from the piano roll's top
+        // border AND — since it grows this box's own clip boundary, not just
+        // its visual position — the fix for the Volume label's absolutely-
+        // positioned text getting clipped by overflowY:hidden (was cut off
+        // 2.5px early; the label sits inside this padding now).
+        paddingBottom: 12,
       }}>
       <div style={{ display: 'flex', alignItems: 'flex-end', gap: 0, flexShrink: 0, direction: 'ltr', width: 'max-content' }}>
 
