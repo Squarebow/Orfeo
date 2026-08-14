@@ -11,6 +11,7 @@ import { confirmDialog } from '../../utils/confirmController'
 import { parseMidiBuffer } from '../../utils/midiParser'
 import { detectKeyFromTracks, parseKeySignature } from '../../utils/keyDetection'
 import { KEYBOARD_GROUPS } from '../../utils/keyboardGroups'
+import { useFocusTrap } from '../../hooks/useFocusTrap'
 
 // ── MixerConsole — floating draggable modal ───────────────────────────────────
 // Opened via Ctrl+Shift+M or the Console (SlidersVertical) icon in the TrackPanel.
@@ -198,6 +199,10 @@ export default function MixerConsole() {
   // ── Z-index — bringToFront on mousedown so last-clicked modal is on top ────
   const [zIndex, setZIndex] = useState(MODAL_BASE_Z)
 
+  // ── Modal semantics — focus trap while open, restores focus on close ──────
+  const modalRef = useRef<HTMLDivElement>(null)
+  useFocusTrap(modalRef, mixerOpen)
+
   // ── Drag-to-pan state for the channel strip row ───────────────────────────
   const scrollRef    = useRef<HTMLDivElement>(null)
   const dragStartX   = useRef(0)
@@ -266,6 +271,10 @@ export default function MixerConsole() {
 
   return (
     <div
+      ref={modalRef}
+      role="dialog"
+      aria-modal="true"
+      aria-label="Console Mixer"
       className="orfeo-modal-glow"
       onMouseDown={() => setZIndex(bringToFront())}
       style={{

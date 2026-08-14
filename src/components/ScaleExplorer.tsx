@@ -8,6 +8,7 @@ import type { NoteNaming, Accidentals } from '../types'
 import SpeedControl from './SpeedControl'
 import OrfeoMark from './OrfeoMark'
 import ChevronPlayIcon from './ChevronPlayIcon'
+import { useFocusTrap } from '../hooks/useFocusTrap'
 import { getPianoRollCenterX, getKeyboardHeaderTop } from '../utils/modalAnchors'
 import { useAnchorBottomOnResize } from '../hooks/useAnchorBottomOnResize'
 import { modalCloseButtonStyle, modalCloseButtonHoverColor, modalCloseButtonIdleColor } from '../utils/modalCloseButtonStyle'
@@ -270,6 +271,7 @@ export default function ScaleExplorer() {
   }))
   const panelRef = useRef<HTMLDivElement>(null)
   useAnchorBottomOnResize(panelRef, setPos, scaleExplorerOpen && !scaleExplorerMinimized, 44)
+  useFocusTrap(panelRef, scaleExplorerOpen && !scaleExplorerMinimized)
 
   // ── CoF + scale selection state ───────────────────────────────────────────
   const [cofPos, setCofPos] = useState<number | null>(null)
@@ -652,6 +654,26 @@ export default function ScaleExplorer() {
     return () => document.removeEventListener('mousedown', handler)
   }, [progDropdownOpen])
 
+  // ── Close on Escape ────────────────────────────────────────────────────────
+  const close = useCallback(() => {
+    stopProgression()
+    clearExplorerKeys()
+    clearExplorerChordDisplay()
+    setScaleExplorerOpen(false)
+  }, [stopProgression, clearExplorerKeys, clearExplorerChordDisplay, setScaleExplorerOpen])
+
+  useEffect(() => {
+    if (!scaleExplorerOpen) return
+    const handler = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        if (progDropdownOpen) { setProgDropdownOpen(false); setDropdownRect(null); return }
+        close()
+      }
+    }
+    window.addEventListener('keydown', handler)
+    return () => window.removeEventListener('keydown', handler)
+  }, [scaleExplorerOpen, close, progDropdownOpen])
+
   // ── Spacebar plays/pauses the progression while this modal is open ────────
   useEffect(() => {
     if (!scaleExplorerOpen) return
@@ -733,6 +755,9 @@ export default function ScaleExplorer() {
     // ── Modal container ────────────────────────────────────────────────────
     <div
       ref={panelRef}
+      role="dialog"
+      aria-modal="true"
+      aria-label="Scale Explorer"
       className="orfeo-modal-glow"
       style={{
         position: 'fixed',

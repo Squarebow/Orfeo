@@ -23,6 +23,7 @@ import { getHandPreviewStats, getLowConfidencePassages } from '../../utils/handP
 import { withHandSuffix } from '../../utils/handMetadata'
 import { getGMName, getGMGroup } from '../../utils/gmInstruments'
 import { computeTempoKeyPayload } from '../../utils/tempoKeySave'
+import { useFocusTrap } from '../../hooks/useFocusTrap'
 
 const MODAL_W = 980
 const MODAL_H = 620
@@ -859,6 +860,9 @@ export default function MidiEditor() {
   const panelRef  = useRef<HTMLDivElement>(null)
   const positioned = useRef(false)
   const dragState = useRef<{ startX: number; startY: number; startPosX: number; startPosY: number } | null>(null)
+  // ── Mounted only while midiEditorOpen && state (see `if (!midiEditorOpen
+  // || !state) return null` below) — always active while this exists. ──────
+  useFocusTrap(panelRef, true)
 
   // ── Build rows from store state ───────────────────────────────────────────────
   const buildRows = useCallback((): EditorTrack[] => {
@@ -1240,6 +1244,9 @@ export default function MidiEditor() {
   return (
     <div
       ref={panelRef}
+      role="dialog"
+      aria-modal="true"
+      aria-label="MIDI Playback Editor"
       className="orfeo-modal-glow"
       onMouseDown={() => setZIndex(bringToFront())}
       style={{

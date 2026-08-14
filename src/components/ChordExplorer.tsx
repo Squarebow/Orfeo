@@ -8,6 +8,7 @@ import { getNoteName } from '../utils/noteNames'
 import { getGenreVoicing, GENRE_LABELS } from '../utils/genreVoicing'
 import type { Genre } from '../utils/genreVoicing'
 import type { NoteNaming } from '../types'
+import { useFocusTrap } from '../hooks/useFocusTrap'
 import SpeedControl from './SpeedControl'
 import OrfeoMark from './OrfeoMark'
 import { getPianoRollCenterX, getKeyboardHeaderTop } from '../utils/modalAnchors'
@@ -293,6 +294,7 @@ export default function ChordExplorer() {
   }))
   const panelRef = useRef<HTMLDivElement>(null)
   useAnchorBottomOnResize(panelRef, setPos, chordExplorerOpen && !chordExplorerMinimized, 44)
+  useFocusTrap(panelRef, chordExplorerOpen && !chordExplorerMinimized)
   const [selectedRoot, setSelectedRoot] = useState(0)
   const [tier, setTier] = useState<'common' | 'extended' | 'power'>('common')
   const [selectedPowerRoot, setSelectedPowerRoot] = useState<number | null>(null)
@@ -717,7 +719,7 @@ export default function ChordExplorer() {
   const activeProg = selectedProg !== null ? ALL_PROGRESSIONS[selectedProg] : null
 
   return (
-    <div ref={panelRef} className="orfeo-modal-glow" style={{
+    <div ref={panelRef} role="dialog" aria-modal="true" aria-label="Chord Explorer" className="orfeo-modal-glow" style={{
       position: 'fixed',
       left: pos.x,
       top: pos.y,

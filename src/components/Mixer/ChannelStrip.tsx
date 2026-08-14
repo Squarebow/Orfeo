@@ -483,6 +483,27 @@ export default function ChannelStrip({ trackIndex, locked, isDragging, onDragSta
           {/* Fader handle — amber pill with score lines; slides on mute */}
           <div
             onMouseDown={handleFaderMouseDown}
+            tabIndex={muted ? -1 : 0}
+            role="slider"
+            aria-label="Channel volume"
+            aria-valuemin={0}
+            aria-valuemax={1}
+            aria-valuenow={volume}
+            aria-disabled={muted}
+            onKeyDown={e => {
+              if (muted) return
+              const step = (e.shiftKey ? 5 : 1) * 0.02
+              let delta = 0
+              if (e.key === 'ArrowUp' || e.key === 'ArrowRight') delta = step
+              else if (e.key === 'ArrowDown' || e.key === 'ArrowLeft') delta = -step
+              else if (e.key === 'Home') { e.preventDefault(); updateTrack(trackIndex, { volume: 0 }); setChannelVolume(midiChannel, 0); return }
+              else if (e.key === 'End') { e.preventDefault(); updateTrack(trackIndex, { volume: 1 }); setChannelVolume(midiChannel, 1); return }
+              else return
+              e.preventDefault()
+              const v = Math.max(0, Math.min(1, volume + delta))
+              updateTrack(trackIndex, { volume: v })
+              setChannelVolume(midiChannel, v)
+            }}
             style={{
               position: 'absolute',
               left: '50%', transform: 'translateX(-50%)',

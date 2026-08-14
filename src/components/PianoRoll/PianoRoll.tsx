@@ -2001,6 +2001,8 @@ export default function PianoRoll() {
 
       {contextMenu && (
         <div
+          role="menu"
+          aria-label="Note actions"
           onMouseDown={e => e.stopPropagation()}
           style={{
             position: 'fixed',
@@ -2019,6 +2021,8 @@ export default function PianoRoll() {
           {contextMenu.options.map((opt, i) => (
             <div
               key={i}
+              role="menuitem"
+              aria-disabled={opt.disabled}
               onClick={() => { if (!opt.disabled) opt.onClick() }}
               style={{
                 padding: '6px 14px',

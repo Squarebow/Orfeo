@@ -612,6 +612,12 @@ export default function Keyboard() {
                 onMouseDown={() => { isMouseDown.current = true; handleKeyClick(k.midi) }}
                 onMouseEnter={() => { if (isMouseDown.current) handleKeyClick(k.midi, true) }}
                 title={getNoteLabel(k.midi, noteNaming, accidentals) || undefined}
+                tabIndex={0}
+                role="button"
+                aria-label={`Play ${getNoteLabel(k.midi, noteNaming, accidentals) || 'note'}`}
+                onKeyDown={e => {
+                  if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); handleKeyClick(k.midi) }
+                }}
                 className="relative flex-1 flex flex-col justify-end items-center pb-1 cursor-pointer"
                 style={{
                   background: color ?? 'var(--key-white-bg)',
@@ -658,6 +664,12 @@ export default function Keyboard() {
                 onMouseDown={() => { isMouseDown.current = true; handleKeyClick(k.midi) }}
                 onMouseEnter={() => { if (isMouseDown.current) handleKeyClick(k.midi, true) }}
                 title={getNoteLabel(k.midi, noteNaming, accidentals) || undefined}
+                tabIndex={0}
+                role="button"
+                aria-label={`Play ${getNoteLabel(k.midi, noteNaming, accidentals) || 'note'}`}
+                onKeyDown={e => {
+                  if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); handleKeyClick(k.midi) }
+                }}
                 className="absolute top-0 cursor-pointer pointer-events-auto"
                 style={{
                   left: `${leftPct}%`, width: `${widthPct}%`, height: '65%',

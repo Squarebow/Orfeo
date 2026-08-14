@@ -12,6 +12,7 @@ import { MarqueeText } from './MarqueeText'
 import { PENCIL_CURSOR } from '../utils/cursors'
 import { parseMidiMetadata, buildRenamedFileName, formatKeyOrDash, type MidiFileMetadata } from '../utils/midiMetadata'
 import { modalCloseButtonStyle, modalCloseButtonHoverColor, modalCloseButtonIdleColor } from '../utils/modalCloseButtonStyle'
+import { useFocusTrap } from '../hooks/useFocusTrap'
 
 interface FileLogEvent { type: string; timestamp: number; summary: string }
 interface FileVersion { name: string; path: string; version: number; mtime: number }
@@ -73,6 +74,9 @@ export default function FileInfoModal({ filePath, fileName, onClose, onRenamed }
   const [pos, setPos] = useState<{ x: number; y: number } | null>(null)
   const panelRef = useRef<HTMLDivElement>(null)
   const dragState = useRef<{ startX: number; startY: number; startPosX: number; startPosY: number } | null>(null)
+  // ── Only rendered while a file-info target is set (see SettingsPanel) —
+  // always active while this component exists. ─────────────────────────────
+  useFocusTrap(panelRef, true)
 
   const startDrag = (e: React.MouseEvent) => {
     if ((e.target as HTMLElement).closest('[data-no-drag]')) return
@@ -209,6 +213,9 @@ export default function FileInfoModal({ filePath, fileName, onClose, onRenamed }
     >
       <div
         ref={panelRef}
+        role="dialog"
+        aria-modal="true"
+        aria-label="File info"
         className="orfeo-modal-glow"
         style={{
           background: 'var(--bg-modal)', border: '1px solid var(--border2)',

@@ -128,6 +128,21 @@ export default function MixerKnob({
     }
   }, [onChange, getValueFromMouse])
 
+  // ── Keyboard interaction — arrow keys nudge the value, additive to drag ────
+  const handleKeyDown = useCallback((e: React.KeyboardEvent) => {
+    if (disabled) return
+    const min = bipolar ? -1 : 0
+    const step = (e.shiftKey ? 5 : 1) * (bipolar ? 0.04 : 0.02)
+    let delta = 0
+    if (e.key === 'ArrowUp' || e.key === 'ArrowRight') delta = step
+    else if (e.key === 'ArrowDown' || e.key === 'ArrowLeft') delta = -step
+    else if (e.key === 'Home') { e.preventDefault(); onChange(min); return }
+    else if (e.key === 'End') { e.preventDefault(); onChange(1); return }
+    else return
+    e.preventDefault()
+    onChange(Math.max(min, Math.min(1, value + delta)))
+  }, [disabled, bipolar, value, onChange])
+
   return (
     <div title={title} style={{
       display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 3,
@@ -140,6 +155,14 @@ export default function MixerKnob({
         viewBox="0 0 52 52"
         style={{ cursor: 'pointer', display: 'block', flexShrink: 0 }}
         onMouseDown={handleMouseDown}
+        tabIndex={disabled ? -1 : 0}
+        role="slider"
+        aria-label={label || title}
+        aria-valuemin={bipolar ? -1 : 0}
+        aria-valuemax={1}
+        aria-valuenow={value}
+        aria-disabled={disabled}
+        onKeyDown={handleKeyDown}
       >
         {/* Tick ring — bottom-aligned, active ticks in accent color */}
         {ticks.map((t, i) => (

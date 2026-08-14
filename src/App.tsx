@@ -339,7 +339,12 @@ export default function App() {
           break
         case 'Escape':
           if (useStore.getState().presentationMode) { useStore.getState().setPresentationMode(false); break }
-          if (useStore.getState().chordExplorerOpen || useStore.getState().scaleExplorerOpen) break
+          // Chord Explorer has its own Escape handler (closes it without
+          // stopping playback) — defer to it here. Scale Explorer used to be
+          // included in this guard too, but it had no handler of its own,
+          // making Escape a true no-op while it was open; it now has its own
+          // handler (ScaleExplorer.tsx), so it's been dropped from this list.
+          if (useStore.getState().chordExplorerOpen) break
           stop()
           break
         case 'o':

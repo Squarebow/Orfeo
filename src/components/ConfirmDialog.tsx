@@ -2,9 +2,10 @@
 // Mount <ConfirmDialogHost /> once in App.tsx; it renders nothing when idle.
 // Trigger via confirmDialog() from confirmController.ts (imperative API).
 
-import { useEffect, useState, type CSSProperties } from 'react'
+import { useEffect, useRef, useState, type CSSProperties } from 'react'
 import { createPortal } from 'react-dom'
 import { subscribeConfirm, type ConfirmState } from '../utils/confirmController'
+import { useFocusTrap } from '../hooks/useFocusTrap'
 
 // ── ConfirmDialogHost ─────────────────────────────────────────────────────────
 // Always-mounted; renders a modal only when a confirmDialog() call is pending.
@@ -23,6 +24,9 @@ export function ConfirmDialogHost() {
     return () => window.removeEventListener('keydown', handler)
   }, [state])
 
+  const panelRef = useRef<HTMLDivElement>(null)
+  useFocusTrap(panelRef, !!state)
+
   if (!state) return null
 
   const safeIndex = state.buttons.length - 1
@@ -38,6 +42,10 @@ export function ConfirmDialogHost() {
       onMouseDown={(e) => { if (e.target === e.currentTarget) state.resolve(safeIndex) }}
     >
       <div
+        ref={panelRef}
+        role="dialog"
+        aria-modal="true"
+        aria-label={state.title || 'Confirm'}
         className="orfeo-modal-glow"
         style={{
           background: 'var(--bg-modal)',

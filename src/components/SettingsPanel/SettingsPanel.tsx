@@ -443,6 +443,8 @@ function SettingsDropdown<T extends string>({ value, options, onChange, title }:
         type="button"
         onClick={() => setOpen(v => !v)}
         title={title}
+        aria-haspopup="listbox"
+        aria-expanded={open}
         style={{
           width: '100%', padding: '5px 8px', borderRadius: 4,
           border: '1px solid var(--accent-amber-strong)',
@@ -457,6 +459,8 @@ function SettingsDropdown<T extends string>({ value, options, onChange, title }:
       </button>
       {open && (
         <div
+          role="listbox"
+          aria-label={title}
           onMouseDown={e => e.stopPropagation()}
           style={{
             position: 'absolute', top: '100%', left: 0, right: 0, marginTop: 2,
@@ -469,6 +473,8 @@ function SettingsDropdown<T extends string>({ value, options, onChange, title }:
           {options.map(o => (
             <div
               key={o.value}
+              role="option"
+              aria-selected={o.value === value}
               title={o.title}
               onClick={() => { onChange(o.value); setOpen(false) }}
               style={{
@@ -1252,6 +1258,8 @@ function LibraryPanel() {
         {contextMenu && (
           <div
             ref={menuRef}
+            role="menu"
+            aria-label="File actions"
             style={{
               position: 'fixed', top: contextMenu.y, left: contextMenu.x,
               background: 'var(--panel)', border: '1px solid var(--drag-handle-dot)',
@@ -1263,6 +1271,7 @@ function LibraryPanel() {
             <button
               onClick={() => { window.electronAPI.showItemInFolder(contextMenu.path); setContextMenu(null) }}
               title="Opens Windows Explorer with this file highlighted"
+              role="menuitem"
               style={MENU_ITEM_STYLE}
               onMouseEnter={e => { e.currentTarget.style.background = 'var(--bg-tile)'; e.currentTarget.style.color = 'var(--text-amber)' }}
               onMouseLeave={e => { e.currentTarget.style.background = 'none';           e.currentTarget.style.color = 'var(--text-default)' }}
@@ -1277,6 +1286,7 @@ function LibraryPanel() {
                 setContextMenu(null)
               }}
               title="Tempo, key, artist/song, track count, and copyright — read-only"
+              role="menuitem"
               style={MENU_ITEM_STYLE}
               onMouseEnter={e => { e.currentTarget.style.background = 'var(--bg-tile)'; e.currentTarget.style.color = 'var(--text-amber)' }}
               onMouseLeave={e => { e.currentTarget.style.background = 'none';           e.currentTarget.style.color = 'var(--text-default)' }}
@@ -1290,6 +1300,7 @@ function LibraryPanel() {
               <button
                 onClick={() => { unhideLibraryFile(contextMenu.path); setContextMenu(null) }}
                 title="Restores this file to the normal library list"
+                role="menuitem"
                 style={MENU_ITEM_STYLE}
                 onMouseEnter={e => { e.currentTarget.style.background = 'var(--bg-tile)'; e.currentTarget.style.color = 'var(--text-amber)' }}
                 onMouseLeave={e => { e.currentTarget.style.background = 'none';           e.currentTarget.style.color = 'var(--text-default)' }}
@@ -1300,6 +1311,7 @@ function LibraryPanel() {
               <button
                 onClick={() => { hideLibraryFile(contextMenu.path); setContextMenu(null) }}
                 title="Hides this file from the library list — stays on disk, unaffected"
+                role="menuitem"
                 style={MENU_ITEM_STYLE}
                 onMouseEnter={e => { e.currentTarget.style.background = 'var(--bg-tile)'; e.currentTarget.style.color = 'var(--text-amber)' }}
                 onMouseLeave={e => { e.currentTarget.style.background = 'none';           e.currentTarget.style.color = 'var(--text-default)' }}
@@ -1312,6 +1324,7 @@ function LibraryPanel() {
               <button
                 onClick={() => { const path = contextMenu.path; setContextMenu(null); handleUndoMove(path) }}
                 title="Moves this file back to where it was before its last move (this session only)"
+                role="menuitem"
                 style={MENU_ITEM_STYLE}
                 onMouseEnter={e => { e.currentTarget.style.background = 'var(--bg-tile)'; e.currentTarget.style.color = 'var(--text-amber)' }}
                 onMouseLeave={e => { e.currentTarget.style.background = 'none';           e.currentTarget.style.color = 'var(--text-default)' }}
@@ -1336,6 +1349,7 @@ function LibraryPanel() {
                     if (name) await moveFilesToFolder(moveSet, name)
                   }}
                   title="Creates a new folder and moves the selected file(s) into it"
+                  role="menuitem"
                   style={MENU_ITEM_STYLE}
                   onMouseEnter={e => { e.currentTarget.style.background = 'var(--bg-tile)'; e.currentTarget.style.color = 'var(--text-amber)' }}
                   onMouseLeave={e => { e.currentTarget.style.background = 'none';           e.currentTarget.style.color = 'var(--text-default)' }}
@@ -1352,6 +1366,7 @@ function LibraryPanel() {
                         key={folder}
                         onClick={() => { const moveSet = Array.from(selectedPaths.size > 0 ? selectedPaths : [contextMenu.path]); setContextMenu(null); moveFilesToFolder(moveSet, folder) }}
                         title={`Moves the selected file(s) into "${folder}"`}
+                        role="menuitem"
                         style={MENU_ITEM_STYLE}
                         onMouseEnter={e => { e.currentTarget.style.background = 'var(--bg-tile)'; e.currentTarget.style.color = 'var(--text-amber)' }}
                         onMouseLeave={e => { e.currentTarget.style.background = 'none';           e.currentTarget.style.color = 'var(--text-default)' }}
@@ -1362,6 +1377,7 @@ function LibraryPanel() {
                     <button
                       onClick={() => { const moveSet = Array.from(selectedPaths.size > 0 ? selectedPaths : [contextMenu.path]); setContextMenu(null); moveFilesToFolder(moveSet, null) }}
                       title="Moves the selected file(s) out of their folder, back to the library root"
+                      role="menuitem"
                       style={MENU_ITEM_STYLE}
                       onMouseEnter={e => { e.currentTarget.style.background = 'var(--bg-tile)'; e.currentTarget.style.color = 'var(--text-amber)' }}
                       onMouseLeave={e => { e.currentTarget.style.background = 'none';           e.currentTarget.style.color = 'var(--text-default)' }}
@@ -1379,6 +1395,8 @@ function LibraryPanel() {
         {folderContextMenu && (
           <div
             ref={folderMenuRef}
+            role="menu"
+            aria-label="Folder actions"
             style={{
               position: 'fixed', top: folderContextMenu.y, left: folderContextMenu.x,
               background: 'var(--panel)', border: '1px solid var(--border-popover)',
@@ -1390,6 +1408,7 @@ function LibraryPanel() {
             <button
               onClick={() => { const folder = folderContextMenu.folder; setFolderContextMenu(null); if (libraryFolder) window.electronAPI.openFolderInExplorer(`${libraryFolder}/${folder}`) }}
               title="Opens this folder in File Explorer"
+              role="menuitem"
               style={MENU_ITEM_STYLE}
               onMouseEnter={e => { e.currentTarget.style.background = 'var(--bg-tile)'; e.currentTarget.style.color = 'var(--text-amber)' }}
               onMouseLeave={e => { e.currentTarget.style.background = 'none';           e.currentTarget.style.color = 'var(--text-default)' }}
@@ -1400,6 +1419,7 @@ function LibraryPanel() {
               <button
                 onClick={() => { setRenamingFolder(folderContextMenu.folder); setRenameDraft(folderContextMenu.folder); setFolderContextMenu(null) }}
                 title="Renames this folder on disk"
+                role="menuitem"
                 style={MENU_ITEM_STYLE}
                 onMouseEnter={e => { e.currentTarget.style.background = 'var(--bg-tile)'; e.currentTarget.style.color = 'var(--text-amber)' }}
                 onMouseLeave={e => { e.currentTarget.style.background = 'none';           e.currentTarget.style.color = 'var(--text-default)' }}
@@ -1410,6 +1430,7 @@ function LibraryPanel() {
                 onClick={() => { const folder = folderContextMenu.folder; setFolderContextMenu(null); moveFilesToFolder(Array.from(selectedPaths), folder) }}
                 disabled={selectedPaths.size === 0}
                 title={selectedPaths.size === 0 ? 'Select file(s) first' : `Moves the ${selectedPaths.size} selected file(s) into this folder`}
+                role="menuitem"
                 style={{ ...MENU_ITEM_STYLE, opacity: selectedPaths.size === 0 ? 0.4 : 1, cursor: selectedPaths.size === 0 ? 'default' : 'pointer' }}
                 onMouseEnter={e => { if (selectedPaths.size > 0) { e.currentTarget.style.background = 'var(--bg-tile)'; e.currentTarget.style.color = 'var(--text-amber)' } }}
                 onMouseLeave={e => { e.currentTarget.style.background = 'none'; e.currentTarget.style.color = 'var(--text-default)' }}
@@ -1420,6 +1441,7 @@ function LibraryPanel() {
                 onClick={() => { const folder = folderContextMenu.folder; setFolderContextMenu(null); handleDeleteFolder(folder) }}
                 disabled={!folderIsEmpty(folderContextMenu.folder)}
                 title={!folderIsEmpty(folderContextMenu.folder) ? 'Move files out first' : 'Deletes this empty folder from disk'}
+                role="menuitem"
                 style={{ ...MENU_ITEM_STYLE, opacity: !folderIsEmpty(folderContextMenu.folder) ? 0.4 : 1, cursor: !folderIsEmpty(folderContextMenu.folder) ? 'default' : 'pointer' }}
                 onMouseEnter={e => { if (folderIsEmpty(folderContextMenu.folder)) { e.currentTarget.style.background = 'var(--bg-tile)'; e.currentTarget.style.color = 'var(--status-protected)' } }}
                 onMouseLeave={e => { e.currentTarget.style.background = 'none'; e.currentTarget.style.color = 'var(--text-default)' }}

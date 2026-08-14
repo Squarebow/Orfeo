@@ -410,9 +410,18 @@ body {
 .app-drag-region { -webkit-app-region: drag; }
 .app-no-drag     { -webkit-app-region: no-drag; }
 
-/* Remove all button outlines and focus rings */
+/* Remove the default mouse-click focus ring, but keep a visible ring for
+   keyboard navigation (focus-visible) — amber accent, app-wide. */
 button:focus { outline: none; }
-button:focus-visible { outline: none; }
+button:focus-visible,
+a:focus-visible,
+input:focus-visible,
+select:focus-visible,
+textarea:focus-visible,
+[tabindex]:focus-visible {
+  outline: 2px solid var(--text-amber);
+  outline-offset: 2px;
+}
 
 /* Suppress default OS titlebar overlay button hover backgrounds */
 ::-webkit-scrollbar-button { display: none; }
@@ -424,3 +433,6 @@ button:focus-visible { outline: none; }
   50%       { filter: brightness(0.3); }
 }
 .loop-nudge-blink { animation: orfeo-loop-blink 1.4s ease-in-out infinite; }
+@media (prefers-reduced-motion: reduce) {
+  .loop-nudge-blink { animation: none; }
+}

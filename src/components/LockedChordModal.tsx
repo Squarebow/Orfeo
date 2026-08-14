@@ -7,6 +7,7 @@ import { getNoteName } from '../utils/noteNames'
 import { modalCloseButtonStyle, modalCloseButtonHoverColor, modalCloseButtonIdleColor } from '../utils/modalCloseButtonStyle'
 import OrfeoMark from './OrfeoMark'
 import { getPianoRollCenterX, getKeyboardHeaderTop } from '../utils/modalAnchors'
+import { useFocusTrap } from '../hooks/useFocusTrap'
 
 const MODAL_WIDTH  = 220
 const MODAL_HEIGHT = 100
@@ -118,10 +119,21 @@ export default function LockedChordModal() {
   // ── Clear button — clears locked keys only; modal stays open ─────────────
   const handleClear = useCallback(() => { clearLockedKeys() }, [clearLockedKeys])
 
+  // ── Close on Escape ────────────────────────────────────────────────────────
+  useEffect(() => {
+    if (!modalOpen) return
+    const handler = (e: KeyboardEvent) => { if (e.key === 'Escape') handleClose() }
+    window.addEventListener('keydown', handler)
+    return () => window.removeEventListener('keydown', handler)
+  }, [modalOpen, handleClose])
+
+  const panelRef = useRef<HTMLDivElement>(null)
+  useFocusTrap(panelRef, modalOpen)
+
   if (!modalOpen) return null
 
   return (
-    <div className="orfeo-modal-glow" style={{
+    <div ref={panelRef} role="dialog" aria-modal="true" aria-label="Lock-a-Chord" className="orfeo-modal-glow" style={{
       position: 'fixed',
       left: pos.x,
       top: pos.y,
