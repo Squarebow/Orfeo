@@ -1,4 +1,4 @@
-import { useEffect, useState, useReducer, useRef, useCallback } from 'react'
+import { useEffect, useState, useReducer, useRef, useCallback, useMemo } from 'react'
 import { PenLine, SquareDashed, CircleDashed, Hand, WholeWord, Music4, Save } from 'lucide-react'
 import { useStore } from '../../store'
 import { NES, buildNoteEditSummary, type NETool } from '../../utils/noteEditorState'
@@ -51,7 +51,11 @@ export default function NoteEditorToolbar() {
   const unsoloTrackForEdit      = useStore(s => s.unsoloTrackForEdit)
   const soloTrackForEdit        = useStore(s => s.soloTrackForEdit)
   const noteEditorSoloTrackIndex = useStore(s => s.noteEditorSoloTrackIndex)
-  const tracks                  = useStore(s => s.tracks)
+  // ── Display-relevant signature, not the live `tracks` array — same root
+  // cause as TrackPanel.tsx/etc: the only read below (line ~402) is group/
+  // isDrum, but every fader/pan/chorus/reverb drag replaced the whole array.
+  const trackSignature = useStore(s => s.tracks.map(t => `${t.index}:${t.group ?? ''}:${t.isDrum}`).join('|'))
+  const tracks                  = useMemo(() => useStore.getState().tracks, [trackSignature])
   const velocityPanelOpen       = useStore(s => s.velocityPanelOpen)
   const setVelocityPanelOpen    = useStore(s => s.setVelocityPanelOpen)
 

@@ -5,7 +5,7 @@
  * from the Zustand store; save/split return file data so the renderer reloads inline.
  */
 
-import { useState, useEffect, useRef, useCallback, type CSSProperties } from 'react'
+import { useState, useEffect, useRef, useCallback, useMemo, type CSSProperties } from 'react'
 import { createPortal } from 'react-dom'
 import { Check, X, Save, FolderOpen, AlertCircle, ChevronDown, ChevronRight, Search, Merge, Split, Undo2, RotateCcw, Piano, Bell, Church, Guitar, Music2, AudioWaveform, Users, Megaphone, Wind, Feather, Cpu, Globe, Drum, Radio, Waves, Sparkles, SwatchBook, Eye, EyeOff, ThumbsUp, ToggleLeft, ToggleRight, AudioLines } from 'lucide-react'
 import { confirmDialog } from '../../utils/confirmController'
@@ -809,7 +809,15 @@ let _mergeIdCounter = 1000
 export default function MidiEditor() {
   // ── Store reads ──────────────────────────────────────────────────────────────
   const midi             = useStore((s) => s.midi)
-  const tracks           = useStore((s) => s.tracks)
+  // ── Display-relevant signature, not the live `tracks` array — same root
+  // cause as TrackPanel.tsx/ChannelStrip.tsx/etc: every fader/pan/chorus/
+  // reverb drag replaces the whole array, but buildRows() below only reads
+  // name/gmName/trackName/program/group/isDrum/color/colorSource/muted/
+  // visible/showOnKeyboard, none of which those drags touch. ───────────────
+  const trackSignature = useStore((s) => s.tracks.map((t) =>
+    `${t.index}:${t.name}:${t.gmName}:${t.trackName ?? ''}:${t.program}:${t.group ?? ''}:${t.isDrum}:${t.color}:${t.colorSource ?? ''}:${t.muted}:${t.visible}:${t.showOnKeyboard}`
+  ).join('|'))
+  const tracks           = useMemo(() => useStore.getState().tracks, [trackSignature])
   const showHandLabels   = useStore((s) => s.showHandLabels)
   const midiEditorOpen   = useStore((s) => s.midiEditorOpen)
   const setMidiEditorOpen = useStore((s) => s.setMidiEditorOpen)
@@ -1391,7 +1399,7 @@ export default function MidiEditor() {
             const duration = midi?.duration ?? 0
             const SLATE = 'var(--hand-lh)'
             const AMBER = 'var(--hand-rh)'
-            const LOW_CONF = '#7a323c'
+            const LOW_CONF = 'var(--status-low-confidence)'
             return (
               <>
                 {/* ── Toggle line — grid-aligned to the track row's own columns
@@ -1506,7 +1514,7 @@ export default function MidiEditor() {
             // of the two hand colors. A dark, deeply-muted red (same family
             // as the right-hand pink, much lower contrast/brightness) reads
             // as clearly its own thing instead.
-            const LOW_CONF = '#7a323c'
+            const LOW_CONF = 'var(--status-low-confidence)'
 
             return (
               <div style={{ padding: '10px 14px', background: 'var(--bg-modal)', borderTop: '1px solid var(--border2)', borderBottom: '1px solid var(--border2)', display: 'flex', flexDirection: 'column', gap: 8, flexShrink: 0 }}>
