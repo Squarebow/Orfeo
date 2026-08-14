@@ -320,7 +320,7 @@ export default function MixerConsole() {
 
         {/* ── Title ──────────────────────────────────────────────────────── */}
         <span style={{
-          fontFamily: 'JetBrains Mono', fontSize: 'var(--text-sm)', fontWeight: 700,
+          fontFamily: 'var(--font-mono)', fontSize: 'var(--text-sm)', fontWeight: 700,
           color: 'var(--text-amber)', letterSpacing: '0.14em', textTransform: 'uppercase',
           flex: 1,
         }}>
@@ -369,7 +369,7 @@ export default function MixerConsole() {
             <div style={{
               display: 'flex', alignItems: 'center', justifyContent: 'center',
               height: 574, flex: 1,
-              color: 'var(--text-dimmest)', fontSize: 12, fontFamily: 'JetBrains Mono',
+              color: 'var(--text-dimmest)', fontSize: 12, fontFamily: 'var(--font-mono)',
               letterSpacing: '0.08em', textTransform: 'uppercase',
             }}>
               No tracks — load a MIDI file

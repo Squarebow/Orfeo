@@ -261,7 +261,7 @@ function InstrumentPicker({ program, isDrum, onChange }: {
             <div style={{ display: 'flex', alignItems: 'center', gap: 5, background: 'var(--bg-field)', border: '1px solid var(--border2)', borderRadius: 4, padding: '3px 6px' }}>
               <Search size={10} style={{ color: 'var(--text-inactive)', flexShrink: 0 }} />
               <input autoFocus value={search} onChange={e => setSearch(e.target.value)} placeholder="Search…"
-                style={{ background: 'none', border: 'none', outline: 'none', color: 'var(--text-muted)', fontSize: 10, width: '100%', fontFamily: 'Inter, system-ui' }} />
+                style={{ background: 'none', border: 'none', outline: 'none', color: 'var(--text-muted)', fontSize: 10, width: '100%', fontFamily: 'var(--font-ui)' }} />
             </div>
           </div>
           <div style={{ flex: 1, overflowY: 'auto' }}>
@@ -524,7 +524,7 @@ function ColorPopover({ trackIndex, trackColor, anchor, onApplyColor, onClose }:
               border: `1px solid ${hexError ? 'var(--color-input-error)' : 'var(--border2)'}`,
               borderRadius: 3,
               color: hexError ? 'var(--color-input-error)' : 'var(--text-muted)',
-              fontSize: 10, fontFamily: 'JetBrains Mono',
+              fontSize: 10, fontFamily: 'var(--font-mono)',
               padding: '3px 6px', outline: 'none',
             }}
           />
@@ -614,7 +614,7 @@ function TrackRow({ track, onToggleIncluded, onToggleMerge, onChangeProgram, onU
                 onKeyDown={e => { if (e.key === 'Enter') commitEdit(); if (e.key === 'Escape') cancelEdit() }}
                 data-no-drag
                 style={{
-                  fontSize: 'var(--text-sm)', fontWeight: 500, fontFamily: 'Inter, sans-serif',
+                  fontSize: 'var(--text-sm)', fontWeight: 500, fontFamily: 'var(--font-ui)',
                   color: 'var(--text-active)', background: 'var(--bg-row)',
                   border: '1px solid var(--accent-amber-strong)', borderRadius: 3,
                   padding: '1px 5px', outline: 'none', width: '100%',
@@ -632,23 +632,23 @@ function TrackRow({ track, onToggleIncluded, onToggleMerge, onChangeProgram, onU
               </span>
             )}
             {track.isMerged && (
-              <span style={{ fontSize: 9, padding: '1px 5px', borderRadius: 'var(--radius-sm)', background: 'var(--merge-badge-bg)', color: 'var(--merge-badge-text)', fontFamily: 'JetBrains Mono', flexShrink: 0 }}>
+              <span style={{ fontSize: 9, padding: '1px 5px', borderRadius: 'var(--radius-sm)', background: 'var(--merge-badge-bg)', color: 'var(--merge-badge-text)', fontFamily: 'var(--font-mono)', flexShrink: 0 }}>
                 ⊞ merged {track.mergedFromIndices?.length}
               </span>
             )}
           </div>
           <div style={{ display: 'flex', gap: 'var(--space-2)', marginTop: 2, flexWrap: 'wrap', alignItems: 'center' }}>
             {track.isMerged ? (
-              <span style={{ fontSize: 9, color: 'var(--text-muted)', fontFamily: 'JetBrains Mono' }}>
+              <span style={{ fontSize: 9, color: 'var(--text-muted)', fontFamily: 'var(--font-mono)' }}>
                 {track.mergedFromNames?.join(' + ')}
               </span>
             ) : (
               <>
-                <span style={{ fontSize: 9, color: 'var(--text-muted)', fontFamily: 'JetBrains Mono' }}>ch {track.channel + 1}</span>
-                <span style={{ fontSize: 9, color: 'var(--text-muted)', fontFamily: 'JetBrains Mono' }}>{track.noteCount} notes</span>
+                <span style={{ fontSize: 9, color: 'var(--text-muted)', fontFamily: 'var(--font-mono)' }}>ch {track.channel + 1}</span>
+                <span style={{ fontSize: 9, color: 'var(--text-muted)', fontFamily: 'var(--font-mono)' }}>{track.noteCount} notes</span>
                 {!track.isDrum && track.newProgram !== track.program && (
                   <span style={{ display: 'flex', alignItems: 'center', gap: 3 }}>
-                    <span style={{ fontSize: 9, color: 'var(--text-amber)', fontFamily: 'JetBrains Mono' }}>✎ reassigned</span>
+                    <span style={{ fontSize: 9, color: 'var(--text-amber)', fontFamily: 'var(--font-mono)' }}>✎ reassigned</span>
                     <button
                       onClick={() => onChangeProgram(track.program)}
                       title={`Reset to original: ${track.gmName}`}
@@ -789,7 +789,7 @@ function TrackRow({ track, onToggleIncluded, onToggleMerge, onChangeProgram, onU
           style={{
             padding: '4px 8px', borderRadius: 4,
             border: '1px solid var(--border2)', background: 'var(--bg-modal-header)',
-            color: 'var(--text-inactive)', fontSize: 10, fontFamily: 'Inter',
+            color: 'var(--text-inactive)', fontSize: 10, fontFamily: 'var(--font-ui)',
             cursor: 'default',
           }}
         >
@@ -1266,7 +1266,7 @@ export default function MidiEditor() {
         borderRadius: 10,
         overflow: 'hidden',
         display: 'flex', flexDirection: 'column',
-        color: 'var(--text-muted)', fontFamily: 'Inter, system-ui',
+        color: 'var(--text-muted)', fontFamily: 'var(--font-ui)',
         fontSize: 'var(--text-sm)', userSelect: 'none',
         '--_modal-shadow': 'var(--elevation-modal-heavy)',
       } as CSSProperties}
@@ -1290,7 +1290,7 @@ export default function MidiEditor() {
           MIDI PLAYBACK EDITOR
         </span>
         <span style={{ color: 'var(--text-muted)' }}>·</span>
-        <span style={{ color: 'var(--text-dimmest)', fontSize: 'var(--text-xs)', fontFamily: 'JetBrains Mono', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', flex: 1 }}>
+        <span style={{ color: 'var(--text-dimmest)', fontSize: 'var(--text-xs)', fontFamily: 'var(--font-mono)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', flex: 1 }}>
           {state.fileName}
         </span>
         <button
@@ -1415,7 +1415,7 @@ export default function MidiEditor() {
                   borderBottom: expanded ? 'none' : '1px solid var(--border-row)',
                 }}>
                   <div />{/* empty Col-1 cell — keeps Col-2 content aligned under Track column */}
-                  <div style={{ gridColumn: '2 / -1', minWidth: 0, display: 'flex', alignItems: 'center', gap: 6, fontSize: 9, color: 'var(--text-inactive)', fontFamily: 'JetBrains Mono' }}>
+                  <div style={{ gridColumn: '2 / -1', minWidth: 0, display: 'flex', alignItems: 'center', gap: 6, fontSize: 9, color: 'var(--text-inactive)', fontFamily: 'var(--font-mono)' }}>
                     <button
                       onClick={() => setExpandedInfoRows(prev => {
                         const next = new Set(prev)
@@ -1470,7 +1470,7 @@ export default function MidiEditor() {
                         ))}
                       </svg>
                     )}
-                    <div style={{ display: 'flex', gap: 6, fontSize: 8, color: 'var(--text-inactive)', fontFamily: 'JetBrains Mono' }}>
+                    <div style={{ display: 'flex', gap: 6, fontSize: 8, color: 'var(--text-inactive)', fontFamily: 'var(--font-mono)' }}>
                       <span style={{ display: 'flex', alignItems: 'center', gap: 3 }}><span style={{ width: 8, height: 8, borderRadius: 2, background: SLATE, display: 'inline-block' }} />Left hand</span>
                       <span style={{ display: 'flex', alignItems: 'center', gap: 3 }}><span style={{ width: 8, height: 8, borderRadius: 2, background: AMBER, display: 'inline-block' }} />Right hand</span>
                       {infoStats.lowConfidenceCount > 0 && (
@@ -1479,7 +1479,7 @@ export default function MidiEditor() {
                     </div>
                     {/* ── Same tech-info + disclaimer pair as the Split preview
                         below — info only here, no button row. ── */}
-                    <div style={{ fontSize: 9, color: 'var(--text-inactive)', fontFamily: 'JetBrains Mono' }}>
+                    <div style={{ fontSize: 9, color: 'var(--text-inactive)', fontFamily: 'var(--font-mono)' }}>
                       {infoStats.taggedNotes} notes tagged — {infoStats.leftCount} left, {infoStats.rightCount} right by hand.{' '}
                       {infoStats.confidenceUnknown
                         ? 'Tags restored from a prior split — confidence not re-evaluated.'
@@ -1487,7 +1487,7 @@ export default function MidiEditor() {
                           ? `${Math.round(infoStats.lowConfidenceRatio * 100)}% fall in a low-confidence passage — check those first.`
                           : 'No passages flagged — split looks reliable.'}
                     </div>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 9, color: 'var(--text-inactive)', fontFamily: 'Inter', lineHeight: 1.4 }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 9, color: 'var(--text-inactive)', fontFamily: 'var(--font-ui)', lineHeight: 1.4 }}>
                       <AlertCircle size={11} style={{ flexShrink: 0, color: 'var(--text-inactive)' }} />
                       <span>Hand assignment is automated — a guideline, not a verified transcription. Use your ear, especially on flagged passages.</span>
                     </div>
@@ -1522,7 +1522,7 @@ export default function MidiEditor() {
                   <Split size={13} style={{ color: 'var(--text-amber)', flexShrink: 0 }} />
                   <div style={{ flex: 1, minWidth: 0 }}>
                     <div style={{ fontSize: 'var(--text-xs)', color: 'var(--text-dim)' }}>Hand-split preview — <span style={{ color: track.color }}>"{trackName}"</span></div>
-                    <div style={{ fontSize: 9, color: 'var(--text-inactive)', fontFamily: 'JetBrains Mono', marginTop: 2 }}>
+                    <div style={{ fontSize: 9, color: 'var(--text-inactive)', fontFamily: 'var(--font-mono)', marginTop: 2 }}>
                       {stats.taggedNotes} notes · {stats.leftCount} left / {stats.rightCount} right
                       {stats.confidenceUnknown ? (
                         <span style={{ color: 'var(--text-inactive)' }}> · tags restored from a prior split — confidence not re-evaluated</span>
@@ -1554,7 +1554,7 @@ export default function MidiEditor() {
                     ))}
                   </svg>
                 )}
-                <div style={{ display: 'flex', gap: 6, fontSize: 8, color: 'var(--text-inactive)', fontFamily: 'JetBrains Mono' }}>
+                <div style={{ display: 'flex', gap: 6, fontSize: 8, color: 'var(--text-inactive)', fontFamily: 'var(--font-mono)' }}>
                   <span style={{ display: 'flex', alignItems: 'center', gap: 3 }}><span style={{ width: 8, height: 8, borderRadius: 2, background: SLATE, display: 'inline-block' }} />Left hand</span>
                   <span style={{ display: 'flex', alignItems: 'center', gap: 3 }}><span style={{ width: 8, height: 8, borderRadius: 2, background: AMBER, display: 'inline-block' }} />Right hand</span>
                   {stats.lowConfidenceCount > 0 && (
@@ -1567,7 +1567,7 @@ export default function MidiEditor() {
                     "Keep one track, hand-colored" removed entirely — not needed
                     under the new logic. ─────────────────────────────────────── */}
                 <div style={{ display: 'flex', gap: 12 }}>
-                  <div style={{ flex: 2, fontSize: 9, color: 'var(--text-inactive)', fontFamily: 'JetBrains Mono' }}>
+                  <div style={{ flex: 2, fontSize: 9, color: 'var(--text-inactive)', fontFamily: 'var(--font-mono)' }}>
                     {stats.taggedNotes} notes tagged — {stats.leftCount} left, {stats.rightCount} right by hand.{' '}
                     {stats.confidenceUnknown
                       ? 'Tags restored from a prior split — confidence not re-evaluated.'
@@ -1597,7 +1597,7 @@ export default function MidiEditor() {
                 {/* ── Standing disclaimer, restored — always shown regardless of
                     whether anything got flagged; hand assignment is automated
                     heuristics, never ground truth. ── */}
-                <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 9, color: 'var(--text-inactive)', fontFamily: 'Inter', lineHeight: 1.4 }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 9, color: 'var(--text-inactive)', fontFamily: 'var(--font-ui)', lineHeight: 1.4 }}>
                   <AlertCircle size={11} style={{ flexShrink: 0, color: 'var(--text-inactive)' }} />
                   <span>Hand assignment is automated — a guideline, not a verified transcription. Use your ear, especially on flagged passages.</span>
                 </div>
@@ -1614,7 +1614,7 @@ export default function MidiEditor() {
           <Merge size={13} style={{ color: 'var(--text-amber)', flexShrink: 0 }} />
           <div style={{ flex: 1, minWidth: 0 }}>
             <div style={{ fontSize: 'var(--text-xs)', color: 'var(--text-dim)' }}>{mergeCount} tracks selected for merge</div>
-            <div style={{ fontSize: 9, color: 'var(--text-inactive)', fontFamily: 'JetBrains Mono', marginTop: 2, lineHeight: 1.4 }}>
+            <div style={{ fontSize: 9, color: 'var(--text-inactive)', fontFamily: 'var(--font-mono)', marginTop: 2, lineHeight: 1.4 }}>
               Combines selected tracks into one — all their notes play together on the keyboard.
             </div>
           </div>
@@ -1632,7 +1632,7 @@ export default function MidiEditor() {
       <div style={{ padding: '6px 14px', borderTop: '1px solid var(--bg-tile)', background: 'var(--bg-modal-header)', display: 'flex', alignItems: 'center', gap: 10, flexShrink: 0 }}>
         <TBtn onClick={() => setState(s => s && ({ ...s, rows: s.rows.map(t => ({ ...t, included: true })) }))}>Select all</TBtn>
         <TBtn onClick={() => setState(s => s && ({ ...s, rows: s.rows.map(t => ({ ...t, included: false })) }))}>Clear all</TBtn>
-        <span style={{ fontSize: 10, color: 'var(--text-inactive)', fontFamily: 'JetBrains Mono' }}>{includedCount}/{state.rows.length} included</span>
+        <span style={{ fontSize: 10, color: 'var(--text-inactive)', fontFamily: 'var(--font-mono)' }}>{includedCount}/{state.rows.length} included</span>
         {/* ── Save Tempo & Key changes — off by default; when on, folds the
             session's BPM/transpose changes into this same Save & Reload
             write instead of needing a separate save (see performSave). ──── */}
@@ -1681,7 +1681,7 @@ export default function MidiEditor() {
           <div style={{
             flex: 1, padding: '5px 8px', background: 'var(--bg-field)', borderRadius: 4,
             border: `1px solid ${saveResult?.ok ? 'var(--status-success-border)' : 'var(--border2)'}`,
-            fontSize: 10, fontFamily: 'JetBrains Mono',
+            fontSize: 10, fontFamily: 'var(--font-mono)',
             color: saveResult?.ok ? 'var(--status-success-text)' : 'var(--text-muted)',
             overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
           }} title={saveResult?.ok && saveResult.filePath ? saveResult.filePath : state.outputPath}>
@@ -1711,7 +1711,7 @@ export default function MidiEditor() {
         </div>
         {splitResult && (
           <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '5px 8px', borderRadius: 4, marginBottom: 8, background: splitResult.ok ? 'var(--status-success-bg)' : 'var(--status-error-banner-bg)', border: `1px solid ${splitResult.ok ? 'var(--status-success-border)' : 'var(--status-error-banner-border)'}` }}>
-            <span style={{ flex: 1, fontSize: 10, color: splitResult.ok ? 'var(--status-success-text)' : 'var(--status-error-banner-text)', fontFamily: 'JetBrains Mono' }}>
+            <span style={{ flex: 1, fontSize: 10, color: splitResult.ok ? 'var(--status-success-text)' : 'var(--status-error-banner-text)', fontFamily: 'var(--font-mono)' }}>
               {splitResult.ok ? '✓ ' : '✗ '}{splitResult.msg}
             </span>
             {splitResult.ok && preSplitRows && (
@@ -1724,7 +1724,7 @@ export default function MidiEditor() {
         {/* Error only — a successful save is now shown by the green path field
             above instead of a second banner repeating the same information. */}
         {saveResult && !saveResult.ok && (
-          <div style={{ padding: '5px 8px', borderRadius: 4, marginBottom: 8, background: 'var(--status-error-banner-bg)', border: '1px solid var(--status-error-banner-border)', fontSize: 10, color: 'var(--status-error-banner-text)', fontFamily: 'JetBrains Mono' }}>
+          <div style={{ padding: '5px 8px', borderRadius: 4, marginBottom: 8, background: 'var(--status-error-banner-bg)', border: '1px solid var(--status-error-banner-border)', fontSize: 10, color: 'var(--status-error-banner-text)', fontFamily: 'var(--font-mono)' }}>
             ✗ {saveResult.msg}
           </div>
         )}
@@ -1733,7 +1733,7 @@ export default function MidiEditor() {
         <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
           <div style={{ flex: 1, display: 'flex', alignItems: 'flex-start', gap: 5, minWidth: 0 }}>
             <AlertCircle size={10} style={{ color: 'var(--text-inactive)', flexShrink: 0, marginTop: 1 }} />
-            <span style={{ fontSize: 9, color: 'var(--text-inactive)', fontFamily: 'JetBrains Mono', lineHeight: 1.5 }}>Original file is never modified. Saved as a new _ORFEO_vN copy in an "Orfeo" folder next to it, auto-loads on save. Only shows up in your Library list if that folder is inside your registered Library Folder.</span>
+            <span style={{ fontSize: 9, color: 'var(--text-inactive)', fontFamily: 'var(--font-mono)', lineHeight: 1.5 }}>Original file is never modified. Saved as a new _ORFEO_vN copy in an "Orfeo" folder next to it, auto-loads on save. Only shows up in your Library list if that folder is inside your registered Library Folder.</span>
           </div>
           {saveResult?.ok ? (
             <button

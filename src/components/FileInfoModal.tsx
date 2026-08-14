@@ -228,7 +228,7 @@ export default function FileInfoModal({ filePath, fileName, onClose, onRenamed }
         <div onMouseDown={startDrag} style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 12, cursor: 'grab' }}>
           <OrfeoMark height={14} />
           <span style={{
-            flex: 1, minWidth: 0, fontFamily: "'JetBrains Mono', monospace", fontSize: 'var(--text-sm)',
+            flex: 1, minWidth: 0, fontFamily: 'var(--font-mono)', fontSize: 'var(--text-sm)',
             color: 'var(--text-amber)', letterSpacing: '0.08em', textTransform: 'uppercase',
             overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
           }} title={currentName}>
@@ -245,7 +245,7 @@ export default function FileInfoModal({ filePath, fileName, onClose, onRenamed }
         </div>
 
         <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 12 }}>
-          <MarqueeText name={currentName} spanStyle={{ fontSize: 11, color: 'var(--text-muted)', fontFamily: 'JetBrains Mono' }} />
+          <MarqueeText name={currentName} spanStyle={{ fontSize: 11, color: 'var(--text-muted)', fontFamily: 'var(--font-mono)' }} />
           {versions && versions.length > 1 && (
             <div ref={versionsRef} style={{ position: 'relative', flexShrink: 0 }}>
               <button
@@ -255,7 +255,7 @@ export default function FileInfoModal({ filePath, fileName, onClose, onRenamed }
                   display: 'flex', alignItems: 'center', gap: 3, padding: '3px 6px', borderRadius: 4,
                   border: `1px solid ${versionsOpen ? 'var(--accent-amber-strong)' : 'var(--border2)'}`,
                   background: versionsOpen ? 'var(--accent-amber-subtle)' : 'transparent',
-                  color: 'var(--text-amber)', fontSize: 10, fontFamily: 'JetBrains Mono', cursor: 'pointer',
+                  color: 'var(--text-amber)', fontSize: 10, fontFamily: 'var(--font-mono)', cursor: 'pointer',
                 }}
               >
                 {currentVersionLabel ?? '—'} <ChevronDown size={10} style={{ transform: versionsOpen ? 'rotate(180deg)' : 'none', transition: 'transform 0.15s' }} />
@@ -275,7 +275,7 @@ export default function FileInfoModal({ filePath, fileName, onClose, onRenamed }
                         display: 'block', width: '100%', textAlign: 'left', padding: '5px 10px',
                         background: v.path === currentPath ? 'var(--accent-amber-subtle)' : 'transparent',
                         border: 'none', color: v.path === currentPath ? 'var(--text-amber)' : 'var(--text-default)',
-                        fontSize: 10, fontFamily: 'JetBrains Mono', cursor: 'pointer',
+                        fontSize: 10, fontFamily: 'var(--font-mono)', cursor: 'pointer',
                       }}
                       onMouseEnter={e => { if (v.path !== currentPath) e.currentTarget.style.background = 'var(--bg-tile)' }}
                       onMouseLeave={e => { if (v.path !== currentPath) e.currentTarget.style.background = 'transparent' }}
@@ -314,7 +314,7 @@ export default function FileInfoModal({ filePath, fileName, onClose, onRenamed }
                   onBlur={commitArtist}
                   onKeyDown={e => { if (e.key === 'Enter') commitArtist(); if (e.key === 'Escape') cancelArtist() }}
                   style={{
-                    flex: 1, minWidth: 0, fontSize: 'var(--text-sm)', fontWeight: 500, fontFamily: 'Inter, sans-serif',
+                    flex: 1, minWidth: 0, fontSize: 'var(--text-sm)', fontWeight: 500, fontFamily: 'var(--font-ui)',
                     color: 'var(--text-active)', background: 'var(--bg-row)',
                     border: '1px solid var(--accent-amber-strong)', borderRadius: 3,
                     padding: '1px 5px', outline: 'none',
@@ -327,7 +327,7 @@ export default function FileInfoModal({ filePath, fileName, onClose, onRenamed }
                   onMouseEnter={e => { e.currentTarget.style.color = 'var(--text-amber)' }}
                   onMouseLeave={e => { e.currentTarget.style.color = 'var(--text-default)' }}
                   style={{
-                    flex: 1, minWidth: 0, fontSize: 9, fontFamily: 'JetBrains Mono', color: 'var(--text-default)',
+                    flex: 1, minWidth: 0, fontSize: 9, fontFamily: 'var(--font-mono)', color: 'var(--text-default)',
                     overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
                     cursor: PENCIL_CURSOR, transition: 'color 0.12s',
                   }}
@@ -348,7 +348,7 @@ export default function FileInfoModal({ filePath, fileName, onClose, onRenamed }
                   onBlur={commitSong}
                   onKeyDown={e => { if (e.key === 'Enter') commitSong(); if (e.key === 'Escape') cancelSong() }}
                   style={{
-                    flex: 1, minWidth: 0, fontSize: 'var(--text-sm)', fontWeight: 500, fontFamily: 'Inter, sans-serif',
+                    flex: 1, minWidth: 0, fontSize: 'var(--text-sm)', fontWeight: 500, fontFamily: 'var(--font-ui)',
                     color: 'var(--text-active)', background: 'var(--bg-row)',
                     border: '1px solid var(--accent-amber-strong)', borderRadius: 3,
                     padding: '1px 5px', outline: 'none',
@@ -361,7 +361,7 @@ export default function FileInfoModal({ filePath, fileName, onClose, onRenamed }
                   onMouseEnter={e => { e.currentTarget.style.color = 'var(--text-amber)' }}
                   onMouseLeave={e => { e.currentTarget.style.color = 'var(--text-default)' }}
                   style={{
-                    flex: 1, minWidth: 0, fontSize: 9, fontFamily: 'JetBrains Mono', color: 'var(--text-default)',
+                    flex: 1, minWidth: 0, fontSize: 9, fontFamily: 'var(--font-mono)', color: 'var(--text-default)',
                     overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
                     cursor: PENCIL_CURSOR, transition: 'color 0.12s',
                   }}
@@ -393,7 +393,7 @@ export default function FileInfoModal({ filePath, fileName, onClose, onRenamed }
                   {row.label}
                 </span>
                 <span style={{
-                  flex: 1, minWidth: 0, fontSize: 9, fontFamily: 'JetBrains Mono',
+                  flex: 1, minWidth: 0, fontSize: 9, fontFamily: 'var(--font-mono)',
                   color: row.value === '—' ? 'var(--text-inactive)' : 'var(--text-default)',
                   overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
                 }} title={row.value}>
@@ -446,12 +446,12 @@ export default function FileInfoModal({ filePath, fileName, onClose, onRenamed }
             </div>
             <div style={{ height: 52, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: 6 }}>
               {log === null ? (
-                <div style={{ fontSize: 9, fontFamily: 'JetBrains Mono', color: 'var(--text-inactive)' }}>Loading…</div>
+                <div style={{ fontSize: 9, fontFamily: 'var(--font-mono)', color: 'var(--text-inactive)' }}>Loading…</div>
               ) : log.length === 0 ? (
-                <div style={{ fontSize: 9, fontFamily: 'JetBrains Mono', color: 'var(--text-inactive)' }}>No recorded changes yet.</div>
+                <div style={{ fontSize: 9, fontFamily: 'var(--font-mono)', color: 'var(--text-inactive)' }}>No recorded changes yet.</div>
               ) : (
                 [...log].reverse().map((ev, i) => (
-                  <div key={i} style={{ display: 'flex', gap: 8, fontSize: 9, fontFamily: 'JetBrains Mono', flexShrink: 0 }}>
+                  <div key={i} style={{ display: 'flex', gap: 8, fontSize: 9, fontFamily: 'var(--font-mono)', flexShrink: 0 }}>
                     <span style={{ flexShrink: 0, color: 'var(--text-inactive)', whiteSpace: 'nowrap', display: 'flex', flexDirection: 'column', lineHeight: 1.3 }}>
                       <span>{formatLogDate(ev.timestamp)}</span>
                       <span>{formatLogTime(ev.timestamp)}</span>

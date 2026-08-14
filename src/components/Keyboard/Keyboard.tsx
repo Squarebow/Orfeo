@@ -417,7 +417,7 @@ export default function Keyboard() {
                 role="button"
                 tabIndex={0}
                 onKeyDown={activateOnKey(() => setChordExplorerOpen(true))}
-                style={{ fontFamily: 'Inter', fontSize: 9, fontWeight: 700, color: 'var(--text-amber)', letterSpacing: '0.12em', textTransform: 'uppercase', cursor: 'pointer', userSelect: 'none' }}
+                style={{ fontFamily: 'var(--font-ui)', fontSize: 9, fontWeight: 700, color: 'var(--text-amber)', letterSpacing: '0.12em', textTransform: 'uppercase', cursor: 'pointer', userSelect: 'none' }}
               >
                 Chords
               </span>
@@ -442,11 +442,11 @@ export default function Keyboard() {
               {explorerDisplay ? (
                 // ── Explorer chord: chord/bass amber + ordinal grey ────────────
                 <>
-                  <span style={{ fontFamily: 'JetBrains Mono', fontSize: 'var(--text-md)', fontWeight: 700, color: 'var(--text-amber)', letterSpacing: '0.05em', userSelect: 'none' }}>
+                  <span style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--text-md)', fontWeight: 700, color: 'var(--text-amber)', letterSpacing: '0.05em', userSelect: 'none' }}>
                     {explorerDisplay.chordLabel}
                   </span>
                   {explorerDisplay.ordinal && (
-                    <span style={{ fontFamily: 'Inter', fontSize: 10, color: 'var(--text-default)', userSelect: 'none' }}>
+                    <span style={{ fontFamily: 'var(--font-ui)', fontSize: 10, color: 'var(--text-default)', userSelect: 'none' }}>
                       {explorerDisplay.ordinal}
                       <span style={{ fontSize: 7, verticalAlign: 'super' }}>{ordinalSuffix(Number(explorerDisplay.ordinal))}</span>
                       {' inv'}
@@ -462,7 +462,7 @@ export default function Keyboard() {
                   const flash = chordJustChanged && !!heldChordEvent
                   const slashIdx = name.indexOf('/')
                   const mainStyle: React.CSSProperties = {
-                    fontFamily: 'JetBrains Mono', fontSize: 'var(--text-md)', fontWeight: 700, color: 'var(--text-amber)', letterSpacing: '0.05em', userSelect: 'none',
+                    fontFamily: 'var(--font-mono)', fontSize: 'var(--text-md)', fontWeight: 700, color: 'var(--text-amber)', letterSpacing: '0.05em', userSelect: 'none',
                     textShadow: flash ? '0 0 8px var(--text-amber)' : 'none',
                     transition: 'text-shadow 0.35s ease-out',
                   }
@@ -472,7 +472,7 @@ export default function Keyboard() {
                   return (
                     <>
                       <span style={mainStyle}>{name.slice(0, slashIdx)}</span>
-                      <span style={{ fontFamily: 'JetBrains Mono', fontSize: 'var(--text-xs)', fontWeight: 600, color: 'var(--text-active)', letterSpacing: '0.04em', userSelect: 'none' }}>
+                      <span style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--text-xs)', fontWeight: 600, color: 'var(--text-active)', letterSpacing: '0.04em', userSelect: 'none' }}>
                         {name.slice(slashIdx)}
                       </span>
                     </>
@@ -480,7 +480,7 @@ export default function Keyboard() {
                 })()
               ) : (
                 // ── Empty state ────────────────────────────────────────────────
-                <span style={{ fontFamily: 'JetBrains Mono', fontSize: 10, fontWeight: 400, color: 'var(--text-chord-placeholder)', letterSpacing: '0.03em', transition: 'color 0.2s' }}>
+                <span style={{ fontFamily: 'var(--font-mono)', fontSize: 10, fontWeight: 400, color: 'var(--text-chord-placeholder)', letterSpacing: '0.03em', transition: 'color 0.2s' }}>
                   {'— — —'}
                 </span>
               )}
@@ -494,7 +494,7 @@ export default function Keyboard() {
                 role="button"
                 tabIndex={0}
                 onKeyDown={activateOnKey(() => setScaleExplorerOpen(true))}
-                style={{ fontFamily: 'Inter', fontSize: 9, fontWeight: 700, color: 'var(--text-amber)', letterSpacing: '0.12em', textTransform: 'uppercase', cursor: 'pointer', userSelect: 'none' }}
+                style={{ fontFamily: 'var(--font-ui)', fontSize: 9, fontWeight: 700, color: 'var(--text-amber)', letterSpacing: '0.12em', textTransform: 'uppercase', cursor: 'pointer', userSelect: 'none' }}
               >
                 Scales
               </span>
@@ -514,7 +514,7 @@ export default function Keyboard() {
                 role="button"
                 tabIndex={0}
                 onKeyDown={activateOnKey(() => setChordExplorerOpen(true))}
-                style={{ fontFamily: 'Inter', fontSize: 9, fontWeight: 700, color: 'var(--text-amber)', letterSpacing: '0.12em', textTransform: 'uppercase', cursor: 'pointer', userSelect: 'none' }}
+                style={{ fontFamily: 'var(--font-ui)', fontSize: 9, fontWeight: 700, color: 'var(--text-amber)', letterSpacing: '0.12em', textTransform: 'uppercase', cursor: 'pointer', userSelect: 'none' }}
               >
                 Chords
               </span>
@@ -542,7 +542,7 @@ export default function Keyboard() {
                 if (noFile || noChords || notStarted) {
                   return (
                     <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                      <span style={{ fontSize: 'var(--text-xs)', color: 'var(--text-muted)', fontFamily: 'Inter' }}>
+                      <span style={{ fontSize: 'var(--text-xs)', color: 'var(--text-muted)', fontFamily: 'var(--font-ui)' }}>
                         {noFile ? 'Open a MIDI file' : noChords ? 'No chords detected' : 'Press play'}
                       </span>
                     </div>
@@ -564,7 +564,7 @@ export default function Keyboard() {
                       {pastChords.map((ev, i) => (
                         <React.Fragment key={`${ev.time}-${ev.name}`}>
                           {i > 0 && <span style={{ color: 'var(--state-disabled)', fontSize: 10, lineHeight: 1, flexShrink: 0 }}>·</span>}
-                          <span style={{ fontSize: 'var(--text-xs)', fontFamily: 'Inter', color: 'var(--text-muted)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: 90 }}>
+                          <span style={{ fontSize: 'var(--text-xs)', fontFamily: 'var(--font-ui)', color: 'var(--text-muted)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: 90 }}>
                             {ev.name}
                           </span>
                         </React.Fragment>
@@ -582,7 +582,7 @@ export default function Keyboard() {
                         are flex:1 so they yield space to this when it grows. */}
                     <div style={{ flexShrink: 0, minWidth: 100, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '0 4px' }}>
                       <span style={{
-                        fontFamily: 'JetBrains Mono', fontSize: 20, fontWeight: 700, color: 'var(--text-amber)', lineHeight: 1, whiteSpace: 'nowrap',
+                        fontFamily: 'var(--font-mono)', fontSize: 20, fontWeight: 700, color: 'var(--text-amber)', lineHeight: 1, whiteSpace: 'nowrap',
                         textShadow: centreFlash ? '0 0 10px var(--text-amber)' : 'none',
                         transition: 'text-shadow 0.35s ease-out',
                       }}>
@@ -598,7 +598,7 @@ export default function Keyboard() {
                       {nextChords.map((ev, i) => (
                         <React.Fragment key={`${ev.time}-${ev.name}`}>
                           {i > 0 && <span style={{ color: 'var(--state-disabled)', fontSize: 10, lineHeight: 1, flexShrink: 0 }}>·</span>}
-                          <span style={{ fontSize: 'var(--text-xs)', fontFamily: 'Inter', color: 'var(--text-muted)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: 90 }}>
+                          <span style={{ fontSize: 'var(--text-xs)', fontFamily: 'var(--font-ui)', color: 'var(--text-muted)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: 90 }}>
                             {ev.name}
                           </span>
                         </React.Fragment>
@@ -617,7 +617,7 @@ export default function Keyboard() {
                 role="button"
                 tabIndex={0}
                 onKeyDown={activateOnKey(() => setScaleExplorerOpen(true))}
-                style={{ fontFamily: 'Inter', fontSize: 9, fontWeight: 700, color: 'var(--text-amber)', letterSpacing: '0.12em', textTransform: 'uppercase', cursor: 'pointer', userSelect: 'none' }}
+                style={{ fontFamily: 'var(--font-ui)', fontSize: 9, fontWeight: 700, color: 'var(--text-amber)', letterSpacing: '0.12em', textTransform: 'uppercase', cursor: 'pointer', userSelect: 'none' }}
               >
                 Scales
               </span>
@@ -677,7 +677,7 @@ export default function Keyboard() {
                   <span className="pointer-events-none" style={{
                     position: 'absolute', top: 3, left: 3,
                     fontSize: 8, fontWeight: 700, lineHeight: 1,
-                    fontFamily: 'JetBrains Mono', color: 'var(--text-white)',
+                    fontFamily: 'var(--font-mono)', color: 'var(--text-white)',
                     textShadow: '0 1px 2px rgba(0,0,0,0.65)', userSelect: 'none',
                   }}>
                     {colorHand}
@@ -685,7 +685,7 @@ export default function Keyboard() {
                 )}
                 {label && (
                   <span className="font-semibold pointer-events-none"
-                    style={{ color: color ? 'var(--text-white)' : 'var(--key-label-dim)', fontFamily: 'JetBrains Mono', fontSize: (chordExplorerOpen || scaleExplorerOpen) ? 11 : 9 }}>
+                    style={{ color: color ? 'var(--text-white)' : 'var(--key-label-dim)', fontFamily: 'var(--font-mono)', fontSize: (chordExplorerOpen || scaleExplorerOpen) ? 11 : 9 }}>
                     {label}
                   </span>
                 )}
@@ -752,7 +752,7 @@ export default function Keyboard() {
                   <span className="pointer-events-none" style={{
                     position: 'absolute', top: 2, left: '50%', transform: 'translateX(-50%)',
                     fontSize: 7, fontWeight: 700, lineHeight: 1,
-                    fontFamily: 'JetBrains Mono', color: 'var(--text-white)',
+                    fontFamily: 'var(--font-mono)', color: 'var(--text-white)',
                     textShadow: '0 1px 2px rgba(0,0,0,0.65)', userSelect: 'none',
                   }}>
                     {colorHand}
@@ -762,7 +762,7 @@ export default function Keyboard() {
                   <span style={{
                     position: 'absolute', bottom: 3, left: '50%',
                     transform: 'translateX(-50%)',
-                    fontSize: (chordExplorerOpen || scaleExplorerOpen) ? 8 : 7, fontFamily: 'JetBrains Mono', fontWeight: 700,
+                    fontSize: (chordExplorerOpen || scaleExplorerOpen) ? 8 : 7, fontFamily: 'var(--font-mono)', fontWeight: 700,
                     color: 'var(--key-note-name-color)', pointerEvents: 'none',
                     whiteSpace: 'nowrap', textShadow: '0 1px 2px rgba(0,0,0,0.95)',
                   }}>

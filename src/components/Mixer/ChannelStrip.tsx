@@ -361,7 +361,7 @@ export default function ChannelStrip({ trackIndex, locked, isDragging, onDragSta
         gap: 6,
       }}>
         <span style={{
-          fontSize: 9, fontFamily: 'JetBrains Mono', letterSpacing: '0.06em',
+          fontSize: 9, fontFamily: 'var(--font-mono)', letterSpacing: '0.06em',
           color: 'var(--text-dimmest)', fontWeight: 700, lineHeight: 1,
           marginBottom: 14,
         }}>L</span>
@@ -372,7 +372,7 @@ export default function ChannelStrip({ trackIndex, locked, isDragging, onDragSta
           title="Pan — positions the channel left/right in the stereo field"
         />
         <span style={{
-          fontSize: 9, fontFamily: 'JetBrains Mono', letterSpacing: '0.06em',
+          fontSize: 9, fontFamily: 'var(--font-mono)', letterSpacing: '0.06em',
           color: 'var(--text-dimmest)', fontWeight: 700, lineHeight: 1,
           marginBottom: 14,
         }}>R</span>
@@ -401,14 +401,14 @@ export default function ChannelStrip({ trackIndex, locked, isDragging, onDragSta
           active={muted} title={muted ? 'Unmute' : 'Mute'}
           activeColor="var(--status-error)"
         >
-          <span style={{ fontSize: 14, fontWeight: 700, fontFamily: 'JetBrains Mono', lineHeight: 1 }}>M</span>
+          <span style={{ fontSize: 14, fontWeight: 700, fontFamily: 'var(--font-mono)', lineHeight: 1 }}>M</span>
         </IBtn>
         <IBtn
           onClick={() => updateTrack(trackIndex, { solo: !solo })}
           active={solo} title={solo ? 'Unsolo' : 'Solo'}
           activeColor="var(--text-amber)"
         >
-          <span style={{ fontSize: 14, fontWeight: 700, fontFamily: 'JetBrains Mono', lineHeight: 1 }}>S</span>
+          <span style={{ fontSize: 14, fontWeight: 700, fontFamily: 'var(--font-mono)', lineHeight: 1 }}>S</span>
         </IBtn>
         <IBtn
           onClick={() => updateTrack(trackIndex, { visible: !visible })}
@@ -544,7 +544,7 @@ export default function ChannelStrip({ trackIndex, locked, isDragging, onDragSta
             position: 'absolute',
             left: '50%', transform: 'translateX(-50%)',
             top: 0, zIndex: 1,
-            fontSize: 'var(--text-xs)', fontFamily: 'JetBrains Mono',
+            fontSize: 'var(--text-xs)', fontFamily: 'var(--font-mono)',
             color: 'var(--text-dim)',
             background: 'var(--bg-tile)', borderRadius: 'var(--radius-sm)',
             padding: '1px 5px', letterSpacing: '0.02em',
@@ -565,7 +565,7 @@ export default function ChannelStrip({ trackIndex, locked, isDragging, onDragSta
         <div style={{ width: VU_W, flexShrink: 0 }} />
         <div style={{ flex: 1, display: 'flex', alignItems: 'flex-start', justifyContent: 'center' }}>
           <span style={{
-            fontSize: 8, fontFamily: 'JetBrains Mono', letterSpacing: '0.1em',
+            fontSize: 8, fontFamily: 'var(--font-mono)', letterSpacing: '0.1em',
             textTransform: 'uppercase', color: 'var(--text-dimmest)',
           }}>
             Volume
@@ -580,7 +580,7 @@ export default function ChannelStrip({ trackIndex, locked, isDragging, onDragSta
         padding: '0 6px',
       }}>
         <span style={{
-          fontSize: 8, fontFamily: 'JetBrains Mono', letterSpacing: '0.08em',
+          fontSize: 8, fontFamily: 'var(--font-mono)', letterSpacing: '0.08em',
           color: 'var(--text-dimmest)',
           textTransform: 'uppercase',
           overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',

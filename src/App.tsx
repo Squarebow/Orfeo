@@ -366,7 +366,7 @@ export default function App() {
   }, [play, pause, stop, openFile, enterPresentationMode])
 
   return (
-    <div className={appTheme === 'warm' ? 'theme-warm' : ''} style={{ width: '100vw', height: '100vh', background: appTheme === 'warm' ? 'var(--bg-warm)' : 'var(--bg-modal-header)', overflow: 'hidden', display: 'flex', flexDirection: 'column', fontFamily: "'Inter', system-ui, sans-serif" }}>
+    <div className={appTheme === 'warm' ? 'theme-warm' : ''} style={{ width: '100vw', height: '100vh', background: appTheme === 'warm' ? 'var(--bg-warm)' : 'var(--bg-modal-header)', overflow: 'hidden', display: 'flex', flexDirection: 'column', fontFamily: 'var(--font-ui)' }}>
 
       {/* ── Presentation Mode: TopBar slides in from top on hover ─────────────
           In normal mode TopBar is in-flow; in PM it becomes a fixed overlay. ── */}

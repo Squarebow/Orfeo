@@ -185,11 +185,11 @@ export default function LockedChordModal() {
 
       {/* ── Chord name + inversion ordinal ────────────────────────────────────── */}
       <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'center', gap: 5, padding: '10px 12px 6px' }}>
-        <span style={{ fontFamily: 'JetBrains Mono', fontSize: 20, fontWeight: 700, color: 'var(--text-amber)', letterSpacing: '0.05em' }}>
+        <span style={{ fontFamily: 'var(--font-mono)', fontSize: 20, fontWeight: 700, color: 'var(--text-amber)', letterSpacing: '0.05em' }}>
           {lockedDisplay?.chordLabel ?? [0, 1, 2].map(i => partialNotes?.[i] ?? '—').join(' ')}
         </span>
         {lockedDisplay?.ordinal && (
-          <span style={{ fontFamily: 'Inter', fontSize: 10, color: 'var(--text-dimmest)' }}>
+          <span style={{ fontFamily: 'var(--font-ui)', fontSize: 10, color: 'var(--text-dimmest)' }}>
             {lockedDisplay.ordinal}
             <span style={{ fontSize: 7, verticalAlign: 'super' }}>{ordinalSuffix(Number(lockedDisplay.ordinal))}</span>
             {' inv'}
@@ -213,7 +213,7 @@ export default function LockedChordModal() {
         <button
           onClick={playLockedChord}
           title="Play this chord"
-          style={{ background: 'transparent', border: '1px solid var(--text-inactive)', color: 'var(--text-dimmest)', borderRadius: 'var(--radius-sm)', padding: '2px 10px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 'var(--space-1)', fontFamily: 'Inter', fontSize: 9, fontWeight: 700, letterSpacing: '0.06em', textTransform: 'uppercase', transition: 'color 0.12s, border-color 0.12s' }}
+          style={{ background: 'transparent', border: '1px solid var(--text-inactive)', color: 'var(--text-dimmest)', borderRadius: 'var(--radius-sm)', padding: '2px 10px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 'var(--space-1)', fontFamily: 'var(--font-ui)', fontSize: 9, fontWeight: 700, letterSpacing: '0.06em', textTransform: 'uppercase', transition: 'color 0.12s, border-color 0.12s' }}
           onMouseEnter={e => { e.currentTarget.style.borderColor = 'var(--text-amber)'; e.currentTarget.style.color = 'var(--text-amber)' }}
           onMouseLeave={e => { e.currentTarget.style.borderColor = 'var(--text-inactive)'; e.currentTarget.style.color = 'var(--text-dimmest)' }}
         >

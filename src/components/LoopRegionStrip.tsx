@@ -519,7 +519,7 @@ export default function LoopRegionStrip() {
           {loopBarRange && (
             <span style={{
               color: 'var(--text-amber)',
-              fontFamily: '"JetBrains Mono", monospace',
+              fontFamily: 'var(--font-mono)',
               fontSize: 10,
               whiteSpace: 'nowrap',
               letterSpacing: '0.02em',
@@ -559,7 +559,7 @@ export default function LoopRegionStrip() {
             <div style={{
               fontSize: 9,
               color: 'var(--text-muted)',
-              fontFamily: 'Inter, sans-serif',
+              fontFamily: 'var(--font-ui)',
               fontWeight: 700,
               textTransform: 'uppercase',
               letterSpacing: '0.1em',
@@ -569,7 +569,7 @@ export default function LoopRegionStrip() {
 
             {/* From row */}
             <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-              <span style={{ fontSize: 10, color: 'var(--text-dimmest)', fontFamily: 'Inter, sans-serif', minWidth: 28 }}>From</span>
+              <span style={{ fontSize: 10, color: 'var(--text-dimmest)', fontFamily: 'var(--font-ui)', minWidth: 28 }}>From</span>
               <input
                 type="text"
                 inputMode="numeric"
@@ -583,7 +583,7 @@ export default function LoopRegionStrip() {
                 }}
                 style={{
                   width: 48, background: 'var(--bg-row)', border: '1px solid var(--border-popup)',
-                  borderRadius: 4, color: 'var(--text-dim)', fontFamily: '"JetBrains Mono", monospace',
+                  borderRadius: 4, color: 'var(--text-dim)', fontFamily: 'var(--font-mono)',
                   fontSize: 'var(--text-sm)', padding: '3px 6px', outline: 'none', textAlign: 'center',
                   flexShrink: 0,
                 }}
@@ -601,7 +601,7 @@ export default function LoopRegionStrip() {
 
             {/* To row */}
             <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-              <span style={{ fontSize: 10, color: 'var(--text-dimmest)', fontFamily: 'Inter, sans-serif', minWidth: 28 }}>To</span>
+              <span style={{ fontSize: 10, color: 'var(--text-dimmest)', fontFamily: 'var(--font-ui)', minWidth: 28 }}>To</span>
               <input
                 type="text"
                 inputMode="numeric"
@@ -614,7 +614,7 @@ export default function LoopRegionStrip() {
                 }}
                 style={{
                   width: 48, background: 'var(--bg-row)', border: '1px solid var(--border-popup)',
-                  borderRadius: 4, color: 'var(--text-dim)', fontFamily: '"JetBrains Mono", monospace',
+                  borderRadius: 4, color: 'var(--text-dim)', fontFamily: 'var(--font-mono)',
                   fontSize: 'var(--text-sm)', padding: '3px 6px', outline: 'none', textAlign: 'center',
                   flexShrink: 0,
                 }}
@@ -635,7 +635,7 @@ export default function LoopRegionStrip() {
               onClick={applyBarRange}
               style={{
                 background: 'var(--accent-amber-strip-apply-bg)', border: '1px solid var(--accent-amber-strong)',
-                borderRadius: 4, color: 'var(--text-amber)', fontFamily: '"JetBrains Mono", monospace',
+                borderRadius: 4, color: 'var(--text-amber)', fontFamily: 'var(--font-mono)',
                 fontSize: 'var(--text-xs)', padding: '4px 0', cursor: 'pointer',
                 transition: 'background 0.12s',
               }}

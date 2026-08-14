@@ -398,7 +398,7 @@ export default function TrackPanel() {
             </span>
             {midi && (
               <>
-                <span style={{ color: 'var(--text-inactive)', fontSize: 'var(--text-xs)', fontFamily: 'JetBrains Mono' }}>
+                <span style={{ color: 'var(--text-inactive)', fontSize: 'var(--text-xs)', fontFamily: 'var(--font-mono)' }}>
                   {tracks.length}
                 </span>
                 {/* ── Mute-filter quick toggle — visible only when Selective Tracks Playback is on in Settings ── */}
@@ -415,7 +415,7 @@ export default function TrackPanel() {
                       color: 'var(--text-on-amber)',
                       fontSize: 9,
                       fontWeight: 700,
-                      fontFamily: 'Inter',
+                      fontFamily: 'var(--font-ui)',
                       letterSpacing: '0.02em',
                       cursor: 'pointer',
                       whiteSpace: 'nowrap',
@@ -498,7 +498,7 @@ export default function TrackPanel() {
                       </div>
                     )}
 
-                    <span style={{ fontSize: 10, color: 'var(--text-track-count)', fontFamily: 'JetBrains Mono' }}>
+                    <span style={{ fontSize: 10, color: 'var(--text-track-count)', fontFamily: 'var(--font-mono)' }}>
                       {groupTracks.length}
                     </span>
                     <button
@@ -630,13 +630,13 @@ function TrackRow({
 
       {/* ── Row 2: track number (left) + M/S/V/K controls (right) ─────────── */}
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginTop: 3, paddingLeft: 26 }}>
-        <span style={{ fontSize: 9, color: 'var(--text-inactive)', fontFamily: 'JetBrains Mono' }}>track {track.index + 1}</span>
+        <span style={{ fontSize: 9, color: 'var(--text-inactive)', fontFamily: 'var(--font-mono)' }}>track {track.index + 1}</span>
         <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-1)' }}>
           <IBtn onClick={onMute} active={track.muted} title={track.muted ? 'Unmute' : 'Mute'} activeColor="var(--status-error)">
-            <span style={{ fontSize: 'var(--text-xs)', fontWeight: 700, fontFamily: 'JetBrains Mono', lineHeight: 1 }}>M</span>
+            <span style={{ fontSize: 'var(--text-xs)', fontWeight: 700, fontFamily: 'var(--font-mono)', lineHeight: 1 }}>M</span>
           </IBtn>
           <IBtn onClick={onSolo} active={track.solo} title={track.solo ? 'Unsolo' : 'Solo'} activeColor="var(--text-amber)">
-            <span style={{ fontSize: 10, fontWeight: 700, fontFamily: 'JetBrains Mono', lineHeight: 1 }}>S</span>
+            <span style={{ fontSize: 10, fontWeight: 700, fontFamily: 'var(--font-mono)', lineHeight: 1 }}>S</span>
           </IBtn>
           <IBtn onClick={onVisible} active={!track.visible} title={track.visible ? 'Hide in roll' : 'Show in roll'} activeColor="var(--status-error-hover)" inactiveColor="var(--status-success-text)">
             {track.visible ? <Eye size={12} /> : <EyeClosed size={12} />}
@@ -656,11 +656,11 @@ function TrackRow({
 
       {/* ── Row 3: MIDI channel + program + note count ────────────────────── */}
       <div style={{ display: 'flex', gap: 6, marginTop: 2, paddingLeft: 26 }}>
-        <span style={{ fontSize: 9, color: 'var(--text-track-meta)', fontFamily: 'JetBrains Mono' }}>ch {ch}</span>
-        <span style={{ fontSize: 9, color: 'var(--text-track-meta)', fontFamily: 'JetBrains Mono' }}>·</span>
-        <span style={{ fontSize: 9, color: 'var(--text-track-meta)', fontFamily: 'JetBrains Mono' }}>{prog}</span>
-        <span style={{ fontSize: 9, color: 'var(--text-track-meta)', fontFamily: 'JetBrains Mono' }}>·</span>
-        <span style={{ fontSize: 9, color: 'var(--text-track-meta)', fontFamily: 'JetBrains Mono' }}>{noteCount} notes</span>
+        <span style={{ fontSize: 9, color: 'var(--text-track-meta)', fontFamily: 'var(--font-mono)' }}>ch {ch}</span>
+        <span style={{ fontSize: 9, color: 'var(--text-track-meta)', fontFamily: 'var(--font-mono)' }}>·</span>
+        <span style={{ fontSize: 9, color: 'var(--text-track-meta)', fontFamily: 'var(--font-mono)' }}>{prog}</span>
+        <span style={{ fontSize: 9, color: 'var(--text-track-meta)', fontFamily: 'var(--font-mono)' }}>·</span>
+        <span style={{ fontSize: 9, color: 'var(--text-track-meta)', fontFamily: 'var(--font-mono)' }}>{noteCount} notes</span>
       </div>
     </div>
   )

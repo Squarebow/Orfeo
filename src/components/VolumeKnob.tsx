@@ -71,7 +71,7 @@ export default function VolumeKnob() {
       <span style={{
         position: 'absolute', top: '100%', left: '50%',
         transform: 'translateX(-50%)',
-        color: 'var(--text-muted)', fontSize: 8, fontFamily: 'JetBrains Mono',
+        color: 'var(--text-muted)', fontSize: 8, fontFamily: 'var(--font-mono)',
         textTransform: 'uppercase', letterSpacing: '0.1em', lineHeight: 1,
         marginTop: 6.5, whiteSpace: 'nowrap', pointerEvents: 'none',
       }}>
@@ -98,7 +98,7 @@ export default function VolumeKnob() {
             marginRight: 6, padding: '2px 6px',
             background: 'var(--bg-tooltip)', border: '1px solid var(--accent-amber-strong)',
             borderRadius: 4, whiteSpace: 'nowrap', pointerEvents: 'none',
-            color: 'var(--text-amber)', fontSize: 10, fontFamily: 'JetBrains Mono',
+            color: 'var(--text-amber)', fontSize: 10, fontFamily: 'var(--font-mono)',
           }}>
             {pct}%
           </div>

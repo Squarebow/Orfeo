@@ -46,7 +46,7 @@ if (typeof document !== 'undefined' && !document.getElementById('orfeo-transcrip
 function BetaBadge() {
   return (
     <span style={{
-      fontSize: 8, fontWeight: 700, fontFamily: 'Inter',
+      fontSize: 8, fontWeight: 700, fontFamily: 'var(--font-ui)',
       letterSpacing: '0.1em', textTransform: 'uppercase',
       color: 'var(--status-error)',
       border: '1px solid var(--status-error)',
@@ -149,7 +149,7 @@ function OptionRow({ label, children, hint, hintCenter, badge, eyeToggle, eyeVal
           <div style={{
             maxWidth: '85%',
             fontSize: 'var(--text-xs)', color: 'var(--text-faint)',
-            lineHeight: 1.5, fontFamily: 'Inter',
+            lineHeight: 1.5, fontFamily: 'var(--font-ui)',
           }}>
             {description}
           </div>
@@ -169,7 +169,7 @@ function OptionRow({ label, children, hint, hintCenter, badge, eyeToggle, eyeVal
       {children}
       {/* ── Hint — --text-xs token + --text-dimmest matches description hierarchy ── */}
       {hint && (
-        <div style={{ fontSize: 'var(--text-xs)', color: 'var(--text-faint)', marginTop: 5, fontFamily: 'Inter', textAlign: hintCenter ? 'center' : 'left' }}>
+        <div style={{ fontSize: 'var(--text-xs)', color: 'var(--text-faint)', marginTop: 5, fontFamily: 'var(--font-ui)', textAlign: hintCenter ? 'center' : 'left' }}>
           {hint}
         </div>
       )}
@@ -251,7 +251,7 @@ function OptionBtn({ active, onClick, children, title, comingSoon, activeColor =
         background: active ? activeBg : 'var(--bg-modal)',
         color: active ? activeText : 'var(--text-inactive)',
         fontSize: 'var(--text-xs)',
-        fontFamily: active ? 'JetBrains Mono' : 'Inter',
+        fontFamily: active ? 'var(--font-mono)' : 'var(--font-ui)',
         fontWeight: active ? 700 : 400,
         cursor: comingSoon ? 'default' : 'pointer',
         opacity: comingSoon ? 0.4 : 1,
@@ -302,7 +302,7 @@ function HitEffectColorSwatch({ color, onChange }: { color: string | null; onCha
         }}
       >
         <Palette size={13} strokeWidth={1.5} style={{ color: 'var(--text-amber)', flexShrink: 0 }} />
-        <span style={{ fontSize: 'var(--text-xs)', color: 'var(--text-faint)', fontFamily: 'Inter', whiteSpace: 'nowrap' }}>Color</span>
+        <span style={{ fontSize: 'var(--text-xs)', color: 'var(--text-faint)', fontFamily: 'var(--font-ui)', whiteSpace: 'nowrap' }}>Color</span>
         <span style={{
           width: 14, height: 14, borderRadius: 3, flexShrink: 0,
           background: color ?? 'repeating-conic-gradient(#666 0% 25%, #999 0% 50%) 50% / 6px 6px',
@@ -337,7 +337,7 @@ function HitEffectColorSwatch({ color, onChange }: { color: string | null; onCha
             style={{
               width: '100%', padding: '4px 6px', borderRadius: 4, border: '1px solid var(--border2)',
               background: 'var(--bg-modal)', color: 'var(--text-default)', fontSize: 'var(--text-xs)',
-              fontFamily: 'JetBrains Mono', boxSizing: 'border-box',
+              fontFamily: 'var(--font-mono)', boxSizing: 'border-box',
             }}
           />
         </div>
@@ -459,7 +459,7 @@ function SettingsDropdown<T extends string>({ value, options, onChange, title }:
           border: '1px solid var(--accent-amber-strong)',
           background: 'var(--accent-amber-medium)',
           color: 'var(--text-amber)',
-          fontSize: 'var(--text-xs)', fontFamily: 'JetBrains Mono', fontWeight: 700,
+          fontSize: 'var(--text-xs)', fontFamily: 'var(--font-mono)', fontWeight: 700,
           cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 6,
         }}
       >
@@ -488,7 +488,7 @@ function SettingsDropdown<T extends string>({ value, options, onChange, title }:
               onClick={() => { onChange(o.value); setOpen(false) }}
               style={{
                 padding: '6px 10px', cursor: 'pointer', fontSize: 'var(--text-xs)',
-                fontFamily: 'JetBrains Mono', fontWeight: o.value === value ? 700 : 400,
+                fontFamily: 'var(--font-mono)', fontWeight: o.value === value ? 700 : 400,
                 color:      o.value === value ? 'var(--text-amber)' : 'var(--text-default)',
                 background: o.value === value ? 'var(--accent-amber-selected-bg)' : 'transparent',
               }}
@@ -1116,7 +1116,7 @@ function LibraryPanel() {
                   placeholder="Search your library"
                   style={{
                     flex: 1, minWidth: 0, background: 'none', border: 'none', outline: 'none',
-                    fontSize: 10, color: 'var(--text-muted)', fontFamily: 'JetBrains Mono',
+                    fontSize: 10, color: 'var(--text-muted)', fontFamily: 'var(--font-mono)',
                   }}
                 />
                 {librarySearch && (
@@ -1149,7 +1149,7 @@ function LibraryPanel() {
               onClick={() => libraryFolder && window.electronAPI.openFolderInExplorer(libraryFolder)}
               title="Open in Explorer"
               style={{
-                fontSize: 9, color: 'var(--text-muted)', fontFamily: 'JetBrains Mono',
+                fontSize: 9, color: 'var(--text-muted)', fontFamily: 'var(--font-mono)',
                 padding: '0 2px', marginBottom: 6, cursor: 'pointer',
                 overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
               }}
@@ -1494,7 +1494,7 @@ function LibraryPanel() {
               <div style={{ flex: 1, minWidth: 0, display: 'flex', alignItems: 'baseline', gap: 6 }}>
                 <MarqueeText name={loadedFile.name.replace(/\.(mid|midi)$/i, '')} spanStyle={FILENAME_SPAN_ACTIVE} />
                 {loadedFileFolder && (
-                  <span style={{ fontSize: 8, color: 'var(--text-inactive)', fontFamily: 'JetBrains Mono', flexShrink: 0 }}>{loadedFileFolder}</span>
+                  <span style={{ fontSize: 8, color: 'var(--text-inactive)', fontFamily: 'var(--font-mono)', flexShrink: 0 }}>{loadedFileFolder}</span>
                 )}
               </div>
               {lastFolderOf.has(loadedFile.path) && (
@@ -1544,7 +1544,7 @@ function LibraryPanel() {
             }}>
               <FolderOpen size={12} style={{ color: 'var(--accent-amber-icon-dim)', flexShrink: 0 }} />
               <span style={{ flex: 1, fontSize: 'var(--text-xs)', color: 'var(--text-tile-subtext)', fontWeight: 600 }}>Demo</span>
-              <span style={{ fontSize: 9, color: 'var(--text-muted)', fontFamily: 'JetBrains Mono' }}>{demoFiles.length}</span>
+              <span style={{ fontSize: 9, color: 'var(--text-muted)', fontFamily: 'var(--font-mono)' }}>{demoFiles.length}</span>
             </div>
             {demoFiles.filter((f: { name: string; path: string }) => showHiddenLibraryFiles || !hiddenLibraryFiles.includes(f.path)).map(file => {
               const isLoaded = !!loadedFilePath &&
@@ -1709,7 +1709,7 @@ function LibraryPanel() {
                       onMouseLeave={e => { if (!folderAllStarred) e.currentTarget.style.color = 'var(--state-disabled)' }}
                     >★</button>
                   )}
-                  <span style={{ fontSize: 9, color: 'var(--text-muted)', fontFamily: 'JetBrains Mono', flexShrink: 0 }}>
+                  <span style={{ fontSize: 9, color: 'var(--text-muted)', fontFamily: 'var(--font-mono)', flexShrink: 0 }}>
                     {group.files.length}
                   </span>
                 </div>
@@ -1822,7 +1822,7 @@ function LibraryPanel() {
             onDrop={e => handleFolderDrop(e, null)}
             style={{
               padding: '10px', margin: '6px 10px', borderRadius: 4, textAlign: 'center',
-              fontSize: 9, color: 'var(--text-muted)', fontFamily: 'JetBrains Mono',
+              fontSize: 9, color: 'var(--text-muted)', fontFamily: 'var(--font-mono)',
               border: `1px dashed ${dragOverFolder === '__root__' ? 'var(--accent-amber-strong)' : 'var(--border2)'}`,
               background: dragOverFolder === '__root__' ? 'var(--accent-amber-subtle)' : 'transparent',
             }}
@@ -2188,7 +2188,7 @@ export default function SettingsPanel() {
                 >
                   {/* ── Display system — single 4-button row; Hide uses EyeOff icon ── */}
                   <OptionRow label="Display system">
-                    <div style={{ fontSize: 'var(--text-xs)', color: 'var(--text-faint)', lineHeight: 1.5, fontFamily: 'Inter', marginBottom: 6 }}>
+                    <div style={{ fontSize: 'var(--text-xs)', color: 'var(--text-faint)', lineHeight: 1.5, fontFamily: 'var(--font-ui)', marginBottom: 6 }}>
                       Select your preferred note naming system for notation and labels.
                     </div>
                     <div style={{ display: 'flex', gap: 'var(--space-1)' }}>
@@ -2212,7 +2212,7 @@ export default function SettingsPanel() {
                     <div style={{
                       marginTop: 6, padding: '4px 8px',
                       background: 'var(--bg-row)', borderRadius: 4,
-                      fontSize: 10, fontFamily: 'JetBrains Mono',
+                      fontSize: 10, fontFamily: 'var(--font-mono)',
                       color: 'var(--text-dim)', letterSpacing: '0.08em', textAlign: 'center',
                     }}>
                       {noteNaming === 'english'          && 'C  D  E  F  G  A  B'}
@@ -2228,7 +2228,7 @@ export default function SettingsPanel() {
                       hint={accidentals === 'flat' ? 'Bb  Eb  Ab  Db  Gb' : 'A#  D#  G#  C#  F#'}
                       hintCenter
                     >
-                      <div style={{ fontSize: 'var(--text-xs)', color: 'var(--text-faint)', lineHeight: 1.5, fontFamily: 'Inter', marginBottom: 6 }}>
+                      <div style={{ fontSize: 'var(--text-xs)', color: 'var(--text-faint)', lineHeight: 1.5, fontFamily: 'var(--font-ui)', marginBottom: 6 }}>
                         Select your preferred enharmonic spelling for black keys: sharps or flats.
                       </div>
                       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 20 }}>
@@ -2236,7 +2236,7 @@ export default function SettingsPanel() {
                           onClick={() => setAccidentals('flat')}
                           title="Flat names"
                           style={{
-                            cursor: 'pointer', fontSize: 'var(--text-xs)', fontFamily: 'Inter', fontWeight: 600,
+                            cursor: 'pointer', fontSize: 'var(--text-xs)', fontFamily: 'var(--font-ui)', fontWeight: 600,
                             color: accidentals === 'flat' ? 'var(--text-amber)' : 'var(--text-inactive)',
                           }}
                         ><span style={{ fontSize: 'calc(var(--text-xs) * 1.5)' }}>♭</span> Flats</span>
@@ -2254,7 +2254,7 @@ export default function SettingsPanel() {
                           onClick={() => setAccidentals('sharp')}
                           title="Sharp names"
                           style={{
-                            cursor: 'pointer', fontSize: 'var(--text-xs)', fontFamily: 'Inter', fontWeight: 600,
+                            cursor: 'pointer', fontSize: 'var(--text-xs)', fontFamily: 'var(--font-ui)', fontWeight: 600,
                             color: accidentals === 'sharp' ? 'var(--text-amber)' : 'var(--text-inactive)',
                           }}
                         ><span style={{ fontSize: 'calc(var(--text-xs) * 1.5)' }}>♯</span> Sharps</span>
@@ -2284,7 +2284,7 @@ export default function SettingsPanel() {
                   <div style={{
                     padding: '5px 14px 3px',
                     fontSize: 'var(--text-xs)', color: 'var(--text-default)', fontWeight: 500,
-                    letterSpacing: '0.02em', textTransform: 'uppercase', fontFamily: 'Inter',
+                    letterSpacing: '0.02em', textTransform: 'uppercase', fontFamily: 'var(--font-ui)',
                     borderTop: '1px solid var(--border-row)',
                   }}>
                     Labels
@@ -2334,7 +2334,7 @@ export default function SettingsPanel() {
                       <div style={{
                         padding: '5px 14px 3px',
                         fontSize: 9, color: 'var(--text-muted)', fontWeight: 600,
-                        letterSpacing: '0.1em', textTransform: 'uppercase', fontFamily: 'Inter',
+                        letterSpacing: '0.1em', textTransform: 'uppercase', fontFamily: 'var(--font-ui)',
                       }}>
                         Max Fingers
                       </div>
@@ -2350,7 +2350,7 @@ export default function SettingsPanel() {
                           <OptionBtn active={rhMaxFingers === 5} onClick={() => setRhMaxFingers(5)}>5</OptionBtn>
                         </div>
                       </OptionRow>
-                      <div style={{ padding: '2px 12px 6px', color: 'var(--text-inactive)', fontSize: 'var(--text-xs)', fontFamily: 'Inter', lineHeight: 1.5 }}>
+                      <div style={{ padding: '2px 12px 6px', color: 'var(--text-inactive)', fontSize: 'var(--text-xs)', fontFamily: 'var(--font-ui)', lineHeight: 1.5 }}>
                         How many notes of a wide chord each hand can take before the rest is absorbed by the other — left counts from the bottom of the chord, right from the top.
                       </div>
                       {/* ── Mode (Practice/Performance) — disabled, not deleted.
@@ -2372,18 +2372,18 @@ export default function SettingsPanel() {
                             </div>
                           </OptionRow>
                           {handLabelMode === 'practice' && (
-                            <div style={{ padding: '2px 12px 6px', color: 'var(--text-inactive)', fontSize: 'var(--text-xs)', fontFamily: 'Inter', lineHeight: 1.5 }}>
+                            <div style={{ padding: '2px 12px 6px', color: 'var(--text-inactive)', fontSize: 'var(--text-xs)', fontFamily: 'var(--font-ui)', lineHeight: 1.5 }}>
                               The line tracks the average pitch split between left- and right-hand notes in a ~3-second window around the playhead — not user-adjustable, it comes straight from the hand-assignment engine's tags.
                             </div>
                           )}
                           {handLabelMode === 'performance' && (
                             <>
                               <OptionRow label="Hardware Split Sensitivity" labelSmall>
-                                <div style={{ fontSize: 11, color: 'var(--text-dim-control)', fontFamily: 'JetBrains Mono', marginBottom: 4 }}>
+                                <div style={{ fontSize: 11, color: 'var(--text-dim-control)', fontFamily: 'var(--font-mono)', marginBottom: 4 }}>
                                   {performanceSplitSensitivity} semitones
                                 </div>
                                 <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                                  <span style={{ fontSize: 9, color: 'var(--text-inactive)', fontFamily: 'JetBrains Mono', flexShrink: 0 }}>2</span>
+                                  <span style={{ fontSize: 9, color: 'var(--text-inactive)', fontFamily: 'var(--font-mono)', flexShrink: 0 }}>2</span>
                                   <input
                                     type="range" min={2} max={16} step={1}
                                     value={performanceSplitSensitivity}
@@ -2391,10 +2391,10 @@ export default function SettingsPanel() {
                                     className="orfeo-slider-amber"
                                     style={{ flex: 1, '--fill': `${((performanceSplitSensitivity - 2) / 14) * 100}%` } as CSSProperties}
                                   />
-                                  <span style={{ fontSize: 9, color: 'var(--text-inactive)', fontFamily: 'JetBrains Mono', flexShrink: 0 }}>16</span>
+                                  <span style={{ fontSize: 9, color: 'var(--text-inactive)', fontFamily: 'var(--font-mono)', flexShrink: 0 }}>16</span>
                                 </div>
                               </OptionRow>
-                              <div style={{ padding: '2px 12px 6px', color: 'var(--text-inactive)', fontSize: 'var(--text-xs)', fontFamily: 'Inter', lineHeight: 1.5 }}>
+                              <div style={{ padding: '2px 12px 6px', color: 'var(--text-inactive)', fontSize: 'var(--text-xs)', fontFamily: 'var(--font-ui)', lineHeight: 1.5 }}>
                                 Only affects notes played on a physical MIDI keyboard, which have no file tag to read.
                               </div>
                             </>
@@ -2472,7 +2472,7 @@ export default function SettingsPanel() {
                     {/* ── Loading progress / status block ──────────────────────────── */}
                     {samplesStatus === 'loading' && (
                       <div style={{ marginTop: 7 }}>
-                        <div style={{ fontSize: 9, color: 'var(--text-dimmest)', fontFamily: 'Inter', marginBottom: 4 }}>
+                        <div style={{ fontSize: 9, color: 'var(--text-dimmest)', fontFamily: 'var(--font-ui)', marginBottom: 4 }}>
                           Loading soundfont… {Math.round(samplesProgress * 100)}%
                         </div>
                         <div style={{ height: 3, background: 'var(--border)', borderRadius: 2, overflow: 'hidden' }}>
@@ -2484,18 +2484,18 @@ export default function SettingsPanel() {
                       </div>
                     )}
                     {samplesStatus === 'ready' && (
-                      <div style={{ marginTop: 5, fontSize: 9, color: 'var(--text-muted)', fontFamily: 'Inter' }}>
+                      <div style={{ marginTop: 5, fontSize: 9, color: 'var(--text-muted)', fontFamily: 'var(--font-ui)' }}>
                         {/* ── Always prints the actually-active soundfont — "loaded" goes amber when Samples is the active engine ── */}
                         {activeSoundfontEntry?.name ?? selectedSoundfont} · {activeSoundfontEntry?.sizeMB ?? '?'} MB · <span style={{ color: audioEngine === 'samples' ? 'var(--text-amber)' : 'inherit' }}>loaded</span>
                       </div>
                     )}
                     {samplesStatus === 'error' && (
-                      <div style={{ marginTop: 5, fontSize: 9, color: 'var(--status-error)', fontFamily: 'Inter' }}>
+                      <div style={{ marginTop: 5, fontSize: 9, color: 'var(--status-error)', fontFamily: 'var(--font-ui)' }}>
                         Failed to load soundfont — check console
                       </div>
                     )}
                     {samplesStatus === 'idle' && (
-                      <div style={{ marginTop: 5, fontSize: 9, color: 'var(--text-muted)', fontFamily: 'Inter' }}>
+                      <div style={{ marginTop: 5, fontSize: 9, color: 'var(--text-muted)', fontFamily: 'var(--font-ui)' }}>
                         {audioEngine === 'gm'
                           ? 'GM Synth (jzz-synth-tiny) — ships with app, no internet needed.'
                           : `${activeSoundfontEntry?.name ?? selectedSoundfont} · ${activeSoundfontEntry?.sizeMB ?? '?'} MB · click Samples to load`}
@@ -2519,7 +2519,7 @@ export default function SettingsPanel() {
                     }}
                   >
                     {/* ── Description — moved above the list (was a trailing hint below it) ── */}
-                    <div style={{ fontSize: 'var(--text-xs)', color: 'var(--text-faint)', fontFamily: 'Inter', marginBottom: 8 }}>
+                    <div style={{ fontSize: 'var(--text-xs)', color: 'var(--text-faint)', fontFamily: 'var(--font-ui)', marginBottom: 8 }}>
                       Add sf2 soundfonts, downloaded on demand. Samples engine exclusive.
                     </div>
 
@@ -2547,20 +2547,20 @@ export default function SettingsPanel() {
                             <span
                               title={sf.downloaded ? `Use ${sf.name} for the Samples engine` : `Download ${sf.name} first`}
                               style={{
-                                fontSize: 'var(--text-xs)', fontFamily: 'Inter',
+                                fontSize: 'var(--text-xs)', fontFamily: 'var(--font-ui)',
                                 color: isActive ? 'var(--text-amber)' : 'var(--text-inactive)',
                                 fontWeight: isActive ? 600 : 400,
                                 overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
                               }}
                             >{sf.name}</span>
-                            <span style={{ fontSize: 9, color: 'var(--text-dimmest)', fontFamily: 'Inter', textAlign: 'right' }}>{sf.sizeMB} MB</span>
+                            <span style={{ fontSize: 9, color: 'var(--text-dimmest)', fontFamily: 'var(--font-ui)', textAlign: 'right' }}>{sf.sizeMB} MB</span>
                             {sf.id === 'generaluser-gs' ? (
-                              <span style={{ fontSize: 9, color: 'var(--text-muted)', fontFamily: 'Inter', textAlign: 'right' }}>bundled</span>
+                              <span style={{ fontSize: 9, color: 'var(--text-muted)', fontFamily: 'var(--font-ui)', textAlign: 'right' }}>bundled</span>
                             ) : sf.downloaded ? (
                               <button
                                 onClick={() => handleDeleteSoundfont(sf.id)}
                                 title={sf.custom ? 'Remove imported file' : 'Delete downloaded file'}
-                                style={{ fontSize: 9, color: 'var(--text-dimmest)', fontFamily: 'Inter', background: 'none', border: 'none', cursor: 'pointer', padding: 0, textAlign: 'right' }}
+                                style={{ fontSize: 9, color: 'var(--text-dimmest)', fontFamily: 'var(--font-ui)', background: 'none', border: 'none', cursor: 'pointer', padding: 0, textAlign: 'right' }}
                               >remove</button>
                             ) : isDownloading ? (
                               <div style={{ width: 60, height: 3, background: 'var(--border)', borderRadius: 2, overflow: 'hidden' }}>
@@ -2570,7 +2570,7 @@ export default function SettingsPanel() {
                               <button
                                 onClick={() => handleDownloadSoundfont(sf.id)}
                                 title={`Download ${sf.name} (${sf.sizeMB} MB, MIT licensed)`}
-                                style={{ fontSize: 9, color: 'var(--text-amber)', fontFamily: 'Inter', background: 'none', border: 'none', cursor: 'pointer', padding: 0, textAlign: 'right' }}
+                                style={{ fontSize: 9, color: 'var(--text-amber)', fontFamily: 'var(--font-ui)', background: 'none', border: 'none', cursor: 'pointer', padding: 0, textAlign: 'right' }}
                               >download</button>
                             )}
                           </div>
@@ -2579,7 +2579,7 @@ export default function SettingsPanel() {
                     </div>
 
                     {sfError && (
-                      <div style={{ fontSize: 9, color: 'var(--status-error)', fontFamily: 'Inter', marginTop: 5 }}>{sfError}</div>
+                      <div style={{ fontSize: 9, color: 'var(--status-error)', fontFamily: 'var(--font-ui)', marginTop: 5 }}>{sfError}</div>
                     )}
 
                     {/* ── Import a user's own .sf2/.sf3 — same storage/loading path as the catalog entries ── */}
@@ -2590,7 +2590,7 @@ export default function SettingsPanel() {
                         display: 'flex', alignItems: 'center', gap: 6,
                         marginTop: 8, padding: '5px 8px', width: '100%',
                         borderRadius: 4, border: '1px dashed var(--border2)', background: 'transparent',
-                        color: 'var(--text-inactive)', fontSize: 'var(--text-xs)', fontFamily: 'Inter',
+                        color: 'var(--text-inactive)', fontSize: 'var(--text-xs)', fontFamily: 'var(--font-ui)',
                         cursor: 'pointer', justifyContent: 'center',
                       }}
                       onMouseEnter={e => { e.currentTarget.style.color = 'var(--text-amber)'; e.currentTarget.style.borderColor = 'var(--text-amber)' }}
@@ -2694,7 +2694,7 @@ export default function SettingsPanel() {
                             width: 116, flexShrink: 0,
                             display: 'flex', alignItems: 'center', gap: 6, padding: 0,
                             border: 'none', background: 'none',
-                            fontSize: 'var(--text-xs)', fontFamily: 'Inter', cursor: 'pointer',
+                            fontSize: 'var(--text-xs)', fontFamily: 'var(--font-ui)', cursor: 'pointer',
                           }}
                         >
                           {hitEffectScope === 'keyboard'
@@ -2741,7 +2741,7 @@ export default function SettingsPanel() {
                           { value: 'cometTrail',    label: 'Comet Trail',    title: HIT_EFFECT_DESCRIPTIONS.cometTrail },
                         ]}
                       />
-                      <div style={{ padding: '2px 12px 0', color: 'var(--text-inactive)', fontSize: 'var(--text-xs)', fontFamily: 'Inter', lineHeight: 1.5 }}>
+                      <div style={{ padding: '2px 12px 0', color: 'var(--text-inactive)', fontSize: 'var(--text-xs)', fontFamily: 'var(--font-ui)', lineHeight: 1.5 }}>
                         {HIT_EFFECT_DESCRIPTIONS[hitEffectPattern]}
                       </div>
                     </OptionRow>
@@ -2806,9 +2806,9 @@ export default function SettingsPanel() {
                     }}
                   >
                     <OrfeoMark height={16} />
-                    <span style={{ color: 'var(--text-inactive)', fontSize: 10, fontFamily: 'JetBrains Mono', whiteSpace: 'nowrap' }}>Orfeo · v{__APP_VERSION__}</span>
+                    <span style={{ color: 'var(--text-inactive)', fontSize: 10, fontFamily: 'var(--font-mono)', whiteSpace: 'nowrap' }}>Orfeo · v{__APP_VERSION__}</span>
                   </button>
-                  <span style={{ color: 'var(--text-inactive)', fontSize: 10, fontFamily: 'JetBrains Mono', whiteSpace: 'nowrap' }}>
+                  <span style={{ color: 'var(--text-inactive)', fontSize: 10, fontFamily: 'var(--font-mono)', whiteSpace: 'nowrap' }}>
                     · SquareBow
                   </span>
                 </div>
@@ -2837,15 +2837,15 @@ export default function SettingsPanel() {
               onMouseLeave={e => e.currentTarget.style.color = 'var(--text-muted)'}
             >
               <BookOpen size={11} strokeWidth={1.5} />
-              <span style={{ fontSize: 10, fontFamily: 'JetBrains Mono', letterSpacing: '0.02em' }}>User Manual</span>
+              <span style={{ fontSize: 10, fontFamily: 'var(--font-mono)', letterSpacing: '0.02em' }}>User Manual</span>
             </button>
             {updateStatus.state === 'up-to-date' && (
-              <span style={{ fontSize: 9, color: 'var(--text-faint)', fontFamily: 'Inter', whiteSpace: 'nowrap' }}>
+              <span style={{ fontSize: 9, color: 'var(--text-faint)', fontFamily: 'var(--font-ui)', whiteSpace: 'nowrap' }}>
                 Orfeo is up to date
               </span>
             )}
             {updateStatus.state === 'ready' && (
-              <span style={{ fontSize: 9, color: 'var(--text-amber)', fontFamily: 'Inter', whiteSpace: 'nowrap' }}>
+              <span style={{ fontSize: 9, color: 'var(--text-amber)', fontFamily: 'var(--font-ui)', whiteSpace: 'nowrap' }}>
                 Update ready — click to install
               </span>
             )}
@@ -2928,7 +2928,7 @@ function AppBgBtn({ color, label, active, onClick, comingSoon }: {
       transition: 'all 0.12s',
     }}>
       <div style={{ width: 28, height: 14, borderRadius: 'var(--radius-sm)', background: color, border: '1px solid var(--state-disabled)' }} />
-      <span style={{ fontFamily: 'Inter', fontSize: 10 }}>{label}</span>
+      <span style={{ fontFamily: 'var(--font-ui)', fontSize: 10 }}>{label}</span>
     </button>
   )
 }

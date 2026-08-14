@@ -580,7 +580,7 @@ export default function NoteEditorToolbar() {
             aria-haspopup="listbox"
             aria-expanded={quantizeOpen}
             {...hintHandlers('Quantize grid — set the snap resolution')}
-            style={{ ...btnBase, minWidth: 44, gap: 6, fontFamily: "'JetBrains Mono', monospace", fontSize: 10 }}
+            style={{ ...btnBase, minWidth: 44, gap: 6, fontFamily: 'var(--font-mono)', fontSize: 10 }}
           >
             <Music4 size={12} color="var(--text-amber)" />
             <span style={{ display: 'inline-block', width: 24, textAlign: 'left' }}>{QUANT_LABELS[quantize]}</span>
@@ -607,7 +607,7 @@ export default function NoteEditorToolbar() {
                   onClick={() => setQuantize(d)}
                   style={{
                     padding: '6px 14px', cursor: 'pointer', fontSize: 12,
-                    fontFamily: "'JetBrains Mono', monospace",
+                    fontFamily: 'var(--font-mono)',
                     color:      d === quantize ? 'var(--text-amber)' : 'var(--text-default)',
                     background: d === quantize ? 'var(--accent-amber-selected-bg)' : 'transparent',
                   }}
@@ -718,7 +718,7 @@ const rowLabelStyle: React.CSSProperties = {
 
 const btnBase: React.CSSProperties = {
   height: 26, padding: '0 8px', fontSize: 11,
-  fontFamily: "'Inter', system-ui, sans-serif",
+  fontFamily: 'var(--font-ui)',
   background: 'transparent', border: '1px solid var(--state-hover-bg)',
   borderRadius: 'var(--radius-sm)',
   color: 'var(--text-default)',

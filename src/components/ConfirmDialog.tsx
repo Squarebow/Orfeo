@@ -60,7 +60,7 @@ export function ConfirmDialogHost() {
       >
         {state.title && (
           <div style={{
-            fontFamily: "'JetBrains Mono', monospace",
+            fontFamily: 'var(--font-mono)',
             fontSize: 'var(--text-sm)',
             color: 'var(--text-amber)',
             letterSpacing: '0.08em',
@@ -101,7 +101,7 @@ export function ConfirmDialogHost() {
                   background:  isPrimary ? 'var(--text-amber)' : 'transparent',
                   color:       isPrimary ? 'var(--bg-modal-header)' : isDestructive ? 'var(--color-input-error)' : 'var(--text-default)',
                   fontWeight:  isPrimary ? 600 : 400,
-                  fontFamily:  "'Inter', system-ui, sans-serif",
+                  fontFamily:  'var(--font-ui)',
                 }}
               >
                 {label}

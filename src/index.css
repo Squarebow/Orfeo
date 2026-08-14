@@ -8,6 +8,20 @@
 }
 
 :root {
+  /* ── Typography — single source of truth for both fonts app-wide. Was 104
+     (Inter) + 131 (JetBrains Mono) hardcoded literals across 17+ components
+     before this pass; swapping either font now means editing these two lines
+     (plus the @import above, to load the new font's actual files) instead of
+     hunting every call site. Canvas2D `ctx.font` strings can't resolve
+     var() — see PianoRoll.tsx's resolvePianoRollColorsFromCSS, which reads
+     these same custom properties at runtime instead of duplicating the
+     values as separate JS literals. --font-logo is the ORFEO wordmark's own
+     stack (OrfeoLogo.tsx) — deliberately separate so the brand mark can keep
+     its own typographic identity independent of the UI font. */
+  --font-ui:   'Inter', sans-serif;
+  --font-mono: 'JetBrains Mono', monospace;
+  --font-logo: 'Inter', 'Georgia', serif;
+
   /* ── Backgrounds — remapped to new lighter, layered scheme ─────────────── */
   /* Existing variable names kept identical so nothing breaks — only the
      values change. New --bg-input / --bg-highlight added for interactive
@@ -309,7 +323,7 @@
   color: var(--text-dimmest);
   text-transform: uppercase;
   letter-spacing: 0.1em;
-  font-family: 'Inter', sans-serif;
+  font-family: var(--font-ui);
 }
 
 /* Standard button — consistent padding, radius, height across the app */
@@ -317,7 +331,7 @@
   height: var(--button-height);
   padding: 0 var(--space-3);
   border-radius: var(--radius-md);
-  font-family: 'Inter', sans-serif;
+  font-family: var(--font-ui);
   font-size: var(--text-sm);
   font-weight: 500;
   border: none;
@@ -335,7 +349,7 @@
 
 /* Standard value/number display — JetBrains Mono, consistent across BPM, bar counter, etc */
 .orfeo-value {
-  font-family: 'JetBrains Mono', monospace;
+  font-family: var(--font-mono);
   font-size: var(--text-base);
   color: var(--text-primary);
   font-weight: 600;
@@ -354,7 +368,7 @@
 body {
   background: var(--bg);
   color: var(--c-default);
-  font-family: 'Inter', system-ui, sans-serif;
+  font-family: var(--font-ui);
   overflow: hidden;
   user-select: none;
   -webkit-font-smoothing: antialiased;

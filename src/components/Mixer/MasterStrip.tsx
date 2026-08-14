@@ -400,7 +400,7 @@ export default function MasterStrip() {
         borderBottom: '1px solid var(--border)',
       }}>
         <span style={{
-          fontSize: 12, fontFamily: 'JetBrains Mono', letterSpacing: '0.14em',
+          fontSize: 12, fontFamily: 'var(--font-mono)', letterSpacing: '0.14em',
           textTransform: 'uppercase', color: 'var(--text-amber)', fontWeight: 700,
         }}>
           Master
@@ -435,7 +435,7 @@ export default function MasterStrip() {
         marginTop: -9.3,
       }}>
         <span style={{
-          fontSize: 9, fontFamily: 'JetBrains Mono', letterSpacing: '0.08em',
+          fontSize: 9, fontFamily: 'var(--font-mono)', letterSpacing: '0.08em',
           color: 'var(--text-amber)', whiteSpace: 'nowrap',
           textTransform: 'uppercase', fontWeight: 700,
         }}>
@@ -513,7 +513,7 @@ export default function MasterStrip() {
               color: 'var(--text-on-amber)',
               fontSize: 9,
               fontWeight: 700,
-              fontFamily: 'Inter',
+              fontFamily: 'var(--font-ui)',
               letterSpacing: '0.02em',
               cursor: 'pointer',
               whiteSpace: 'nowrap',
@@ -544,7 +544,7 @@ export default function MasterStrip() {
           title="Chorus — thickens the overall mix by layering slightly detuned copies of it"
         />
         <span style={{
-          fontSize: 9, fontFamily: 'JetBrains Mono', letterSpacing: '0.1em',
+          fontSize: 9, fontFamily: 'var(--font-mono)', letterSpacing: '0.1em',
           color: 'var(--text-muted)', textTransform: 'uppercase',
           padding: '0 10px', flexShrink: 0,
           marginBottom: 12,
@@ -600,10 +600,10 @@ export default function MasterStrip() {
           display: 'flex', alignItems: 'baseline', justifyContent: 'space-between',
           width: 120, marginTop: 2,
         }}>
-          <span style={{ fontSize: 11, fontFamily: 'JetBrains Mono', color: 'var(--text-dimmest)' }}>
+          <span style={{ fontSize: 11, fontFamily: 'var(--font-mono)', color: 'var(--text-dimmest)' }}>
             {masterVolume === 0 ? '−∞ dB' : `${(20 * Math.log10(masterVolume)).toFixed(1)} dB`}
           </span>
-          <span style={{ fontSize: 11, fontFamily: 'JetBrains Mono', color: 'var(--text-dimmest)' }}>
+          <span style={{ fontSize: 11, fontFamily: 'var(--font-mono)', color: 'var(--text-dimmest)' }}>
             {Math.round(masterVolume * 100)}%
           </span>
         </div>
@@ -616,7 +616,7 @@ export default function MasterStrip() {
           display: 'flex', alignItems: 'center', justifyContent: 'center',
         }}>
           <span style={{
-            fontSize: 8, fontFamily: 'JetBrains Mono', letterSpacing: '0.1em',
+            fontSize: 8, fontFamily: 'var(--font-mono)', letterSpacing: '0.1em',
             textTransform: 'uppercase', color: 'var(--text-dimmest)',
           }}>
             Volume
