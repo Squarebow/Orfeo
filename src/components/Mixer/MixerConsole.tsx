@@ -201,7 +201,7 @@ export default function MixerConsole() {
 
   // ── Modal semantics — focus trap while open, restores focus on close ──────
   const modalRef = useRef<HTMLDivElement>(null)
-  useFocusTrap(modalRef, mixerOpen)
+  useFocusTrap(modalRef, mixerOpen && everOpened)
 
   // ── Drag-to-pan state for the channel strip row ───────────────────────────
   const scrollRef    = useRef<HTMLDivElement>(null)
