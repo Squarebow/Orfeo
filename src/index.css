@@ -236,6 +236,7 @@
 --border-popover: #404055;          /* SettingsPanel.tsx — dropdown/context-menu popover border */
 --status-protected: #e05a5a;                       /* SettingsPanel.tsx — protected-folder warning border/text */
 --status-protected-tint-bg: rgba(224, 90, 90, 0.10); /* same warning — hover tint background; RGB matches --status-protected */
+--status-low-confidence: #7a323c;   /* MidiEditor.tsx — low-confidence hand-split passage text/swatch/highlight */
 
 /* ── Elevation — named base shadows for floating panels ─────────────────────
    Each was independently hand-rolled per component before this token set;
