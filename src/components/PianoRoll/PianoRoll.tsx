@@ -909,10 +909,21 @@ export default function PianoRoll() {
           // glance without needing to check color/blink state too.
           if (noteEditorActive && note.noteRef && NES.newNotes.has(note.noteRef)) continue
 
-          notes.roundRect(key.x + 1, topY, Math.max(key.width - 2, 1), noteH, NOTE_RADIUS)
+          const drawW = Math.max(key.width - 2, 1)
+          notes.roundRect(key.x + 1, topY, drawW, noteH, NOTE_RADIUS)
           notes.fill({ color, alpha: 0.9 })
-          notes.rect(key.x + 1, topY, Math.max(key.width - 2, 1), 2)
+          notes.rect(key.x + 1, topY, drawW, 2)
           notes.fill({ color: NOTE_HIGHLIGHT_COLOR, alpha: 0.25 })
+
+          // ── Non-color hand signal — a thin edge accent (left = LH, right =
+          // RH), not a hue, so a colorblind user keeps the hand cue during
+          // normal playback (previously hand was color-only here). ─────────
+          if (note.hand && (isSplitTrack || handColoringOn)) {
+            const edgeW = Math.min(2, drawW)
+            const edgeX = note.hand === 'L' ? key.x + 1 : key.x + 1 + drawW - edgeW
+            notes.rect(edgeX, topY, edgeW, noteH)
+            notes.fill({ color: 0xffffff, alpha: 0.55 })
+          }
         }
 
         // ── Edit overlay (drawn after notes so it renders on top) ─────────────

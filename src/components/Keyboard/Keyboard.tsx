@@ -236,6 +236,14 @@ export default function Keyboard() {
     return allActiveColors.get(midi) ?? 'var(--text-amber)'
   }
 
+  // ── Non-color hand signal — a key lit in HAND_LH/HAND_RH is a tagged file
+  // note whose hand was, until now, shown by color alone (see comment above
+  // getHardwareHand: the hardware-boundary strip deliberately skips these).
+  // Recover the L/R from the resolved color itself so a colorblind user gets
+  // the same glyph backup the hardware-guess strip already had. ───────────
+  const getColorHand = (colorValue: string | null): Hand | null =>
+    colorValue === HAND_LH ? 'L' : colorValue === HAND_RH ? 'R' : null
+
   // ── Performance mode: per-note hand strip — hardware MIDI keys only. A file
   // note's hand tag is already shown via the key's own glow color (see
   // useAudioEngine.ts/useSamplesEngine.ts resolveHandAwareColor), so this strip
@@ -601,6 +609,7 @@ export default function Keyboard() {
           {whiteKeys.map((k, i) => {
             const color = getColor(k.midi)
             const hand = getHardwareHand(k.midi)
+            const colorHand = getColorHand(color)
             const locked = lockedKeys.has(k.midi)
             const isC = k.midi % 12 === 0
             const label = color
@@ -636,6 +645,16 @@ export default function Keyboard() {
                     background: hand === 'L' ? HAND_LH : HAND_RH,
                   }} />
                 )}
+                {colorHand && (
+                  <span className="pointer-events-none" style={{
+                    position: 'absolute', top: 3, left: 3,
+                    fontSize: 8, fontWeight: 700, lineHeight: 1,
+                    fontFamily: 'JetBrains Mono', color: 'var(--text-white)',
+                    textShadow: '0 1px 2px rgba(0,0,0,0.65)', userSelect: 'none',
+                  }}>
+                    {colorHand}
+                  </span>
+                )}
                 {label && (
                   <span className="font-semibold pointer-events-none"
                     style={{ color: color ? 'var(--text-white)' : 'var(--key-label-dim)', fontFamily: 'JetBrains Mono', fontSize: (chordExplorerOpen || scaleExplorerOpen) ? 11 : 9 }}>
@@ -657,6 +676,7 @@ export default function Keyboard() {
             const widthPct = ratio.width * 100
             const color = getColor(k.midi)
             const hand = getHardwareHand(k.midi)
+            const colorHand = getColorHand(color)
             const locked = lockedKeys.has(k.midi)
             return (
               <div
@@ -699,6 +719,16 @@ export default function Keyboard() {
                     background: hand === 'L' ? HAND_LH : HAND_RH,
                     borderRadius: '2px 2px 0 0',
                   }} />
+                )}
+                {colorHand && (
+                  <span className="pointer-events-none" style={{
+                    position: 'absolute', top: 2, left: '50%', transform: 'translateX(-50%)',
+                    fontSize: 7, fontWeight: 700, lineHeight: 1,
+                    fontFamily: 'JetBrains Mono', color: 'var(--text-white)',
+                    textShadow: '0 1px 2px rgba(0,0,0,0.65)', userSelect: 'none',
+                  }}>
+                    {colorHand}
+                  </span>
                 )}
                 {color && showNoteNamesOnKeyboard && noteNaming !== 'hidden' && (
                   <span style={{
