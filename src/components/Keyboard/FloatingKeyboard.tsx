@@ -11,7 +11,6 @@ import KeyboardControls from './KeyboardControls'
 import OrfeoMark from '../OrfeoMark'
 import { getPianoRollCenterX, getPlaybarY } from '../../utils/modalAnchors'
 import { modalCloseButtonStyle, modalCloseButtonHoverColor, modalCloseButtonIdleColor } from '../../utils/modalCloseButtonStyle'
-import { useFocusTrap } from '../../hooks/useFocusTrap'
 
 const DEFAULT_W = 860
 const MIN_W = 650
@@ -29,9 +28,6 @@ export default function FloatingKeyboard() {
   const [w, setW]     = useState(DEFAULT_W)
   const panelRef      = useRef<HTMLDivElement>(null)
   const initialised   = useRef(false)
-  // ── Mounted only while keyboardMode === 'floating' (see App.tsx) — always
-  // active while this component exists. ─────────────────────────────────────
-  useFocusTrap(panelRef, true)
 
   const dragState = useRef<{
     type: 'move' | 'resize-e' | 'resize-w'
@@ -107,9 +103,8 @@ export default function FloatingKeyboard() {
   return (
     <div
       ref={panelRef}
-      role="dialog"
-      aria-modal="true"
-      aria-label="On-screen keyboard"
+      role="region"
+      aria-label="Floating virtual keyboard"
       className="orfeo-modal-glow"
       style={{
         position: 'fixed',

@@ -11,7 +11,6 @@ import { getPianoRollAreaRect, getPianoRollCenterX } from '../../utils/modalAnch
 import { modalCloseButtonStyle, modalCloseButtonHoverColor, modalCloseButtonIdleColor } from '../../utils/modalCloseButtonStyle'
 import { HAND_ASSIGN_GROUPS } from '../../utils/keyboardGroups'
 import OrfeoMark from '../OrfeoMark'
-import { useFocusTrap } from '../../hooks/useFocusTrap'
 
 // ── Toolbar SVG icons ─────────────────────────────────────────────────────────
 const IconSnap = () => (
@@ -255,9 +254,6 @@ export default function NoteEditorToolbar() {
   const posRef          = useRef({ x: noteEditorToolbarX, y: noteEditorToolbarY })
   const panelRef        = useRef<HTMLDivElement>(null)
   const dragState       = useRef<{ startX: number; startY: number; startPosX: number; startPosY: number } | null>(null)
-  // ── Mounted only while noteEditorActive (see `if (!noteEditorActive) return
-  // null` below) — always active while this component exists. ──────────────
-  useFocusTrap(panelRef, true)
 
   // ── Default position: horizontally centered on the piano roll. Always
   // recomputed on open, same as every other modal in the app. ──────────────
@@ -448,8 +444,7 @@ export default function NoteEditorToolbar() {
   return (
     <div
       ref={panelRef}
-      role="dialog"
-      aria-modal="true"
+      role="toolbar"
       aria-label="Note Editor toolbar"
       className="orfeo-modal-glow"
       style={{
