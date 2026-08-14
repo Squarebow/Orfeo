@@ -1,4 +1,4 @@
-import { useState, useMemo, useRef, useEffect, useCallback, type CSSProperties } from 'react'
+import { useState, useMemo, useRef, useEffect, useCallback, useId, type CSSProperties } from 'react'
 import Fuse from 'fuse.js'
 import { confirmDiscardDirtyNoteEdits } from '../../utils/noteEditorState'
 import { confirmDialog } from '../../utils/confirmController'
@@ -98,10 +98,18 @@ function OptionRow({ label, children, hint, hintCenter, badge, eyeToggle, eyeVal
   description?: React.ReactNode
   labelSmall?: boolean
 }) {
+  // ── Accessible label association — OptionRow's label/control pairing was
+  // DOM-proximity only (a known anti-pattern, flagged in the P2 audit
+  // finding). A real <label>/htmlFor isn't feasible here since `children`
+  // is an opaque, per-call-site control (dropdown, slider, custom button —
+  // not always a single labelable element) — role="group"+aria-labelledby
+  // gives screen readers the same "this control is named X" association
+  // without requiring every call site to thread an id through. ───────────
+  const labelId = useId()
   // ── Eye-toggle variant — name left + icon right on one row, description below ──
   if (eyeToggle) {
     return (
-      <div style={{ padding: '10px 14px', borderBottom: '1px solid var(--border-row)' }}>
+      <div role="group" aria-labelledby={labelId} style={{ padding: '10px 14px', borderBottom: '1px solid var(--border-row)' }}>
         {/* ── Name + icon row — space-between keeps icon flush to the right edge ── */}
         <div style={{
           display: 'flex', alignItems: 'center', justifyContent: 'space-between',
@@ -109,7 +117,7 @@ function OptionRow({ label, children, hint, hintCenter, badge, eyeToggle, eyeVal
         }}>
           {/* ── Feature name — --text-default (bright) creates hierarchy over dim description;
               labelSmall opts into the muted sub-heading look instead (see "Labels" divider). ── */}
-          <div style={{
+          <div id={labelId} style={{
             fontSize: labelSmall ? 9 : 'var(--text-xs)', color: labelSmall ? 'var(--text-muted)' : 'var(--text-default)',
             fontWeight: labelSmall ? 600 : 500, letterSpacing: labelSmall ? '0.1em' : '0.02em', textTransform: 'uppercase',
             display: 'flex', alignItems: 'center', gap: 6,
@@ -152,9 +160,9 @@ function OptionRow({ label, children, hint, hintCenter, badge, eyeToggle, eyeVal
 
   // ── Standard variant — label bright, hint dim; same token sizes as eye-toggle ──
   return (
-    <div style={{ padding: '10px 14px', borderBottom: '1px solid var(--border-row)' }}>
+    <div role="group" aria-labelledby={labelId} style={{ padding: '10px 14px', borderBottom: '1px solid var(--border-row)' }}>
       {/* ── Label row — --text-default (bright) to match eye-toggle name hierarchy ── */}
-      <div style={{ fontSize: labelSmall ? 9 : 'var(--text-xs)', color: labelSmall ? 'var(--text-muted)' : 'var(--text-default)', marginBottom: 6, fontWeight: labelSmall ? 600 : 500, letterSpacing: labelSmall ? '0.1em' : '0.02em', textTransform: 'uppercase', display: 'flex', alignItems: 'center', gap: 6 }}>
+      <div id={labelId} style={{ fontSize: labelSmall ? 9 : 'var(--text-xs)', color: labelSmall ? 'var(--text-muted)' : 'var(--text-default)', marginBottom: 6, fontWeight: labelSmall ? 600 : 500, letterSpacing: labelSmall ? '0.1em' : '0.02em', textTransform: 'uppercase', display: 'flex', alignItems: 'center', gap: 6 }}>
         {label}
         {badge}
       </div>
@@ -325,6 +333,7 @@ function HitEffectColorSwatch({ color, onChange }: { color: string | null; onCha
             value={hexInput}
             onChange={e => commitHex(e.target.value)}
             placeholder="#e8a027"
+            aria-label="Hit-effect color, hex value"
             style={{
               width: '100%', padding: '4px 6px', borderRadius: 4, border: '1px solid var(--border2)',
               background: 'var(--bg-modal)', color: 'var(--text-default)', fontSize: 'var(--text-xs)',
