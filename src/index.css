@@ -36,7 +36,7 @@
   --text-amber:   #e8a027;   /* accent — unchanged */
 
   /* Additional granularity for future targeted use during staged rollout */
-  --text-faint:    #707088;   /* Below --text-dimmest — for hints, placeholder text, least-important UI */
+  --text-faint:    #9292aa;   /* Below --text-dimmest — for hints, placeholder text, least-important UI. Raised from #707088 (WCAG AA fix: was ~3.83:1 vs --bg-modal, now ~6.08:1) */
   --text-dimmest:  #94979e;
   --text-dim:      #b5b7bc;
   --text-standard: #c6c8c8;
@@ -124,7 +124,7 @@
 --state-hover-border-blue: #3a3a5a; /* ScaleExplorer — diatonic chord tile hover border */
 
 /* One intermediate text tone — sits between --text-dimmest and background */
---text-inactive: #505068;   /* Inactive icons/buttons that need some visibility but less than dimmest label */
+--text-inactive: #8a8aa1;   /* Inactive icons/buttons that need some visibility but less than dimmest label. Raised from #505068 (WCAG AA fix: was ~2.20:1 vs --bg-tile, now ~5.11:1) */
 --text-tile-subtext: #8080a0;  /* ChordExplorer — dim note-name subtext under chord/power-chord tile names */
 --text-pill-hover: #c0c0d4;    /* ChordExplorer — hover text color for unselected root pitch-class pills */
 --text-list-hover: #c0c0d8;    /* ScaleExplorer — hover text color for unselected scale-list buttons */
@@ -230,8 +230,8 @@
 --accent-amber-strip-apply-bg-hover: #e8a02732;  /* ~20% — LoopRegionStrip.tsx bar-range popup Apply button hover background */
 --state-star-hover: #707060;        /* SettingsPanel.tsx — library favourite-star hover color (unstarred) */
 --state-row-hover-overlay: rgba(255, 255, 255, 0.03); /* TrackPanel.tsx — subtle white hover overlay on soloable-for-edit track rows */
---text-track-count: #40404e;        /* TrackPanel.tsx — per-group track count text */
---text-track-meta: #454560;         /* TrackPanel.tsx — track row channel/program meta text */
+--text-track-count: #7f7f92;        /* TrackPanel.tsx — per-group track count text. Raised from #40404e (WCAG AA fix: was ~1.81:1 vs --bg-modal, now ~4.71:1) */
+--text-track-meta: #85859a;         /* TrackPanel.tsx — track row channel/program meta text. Raised from #454560 (WCAG AA fix: was ~2.00:1 vs --bg-modal, now ~5.12:1) */
 --icon-visibility-active: #6080c0;  /* TrackPanel.tsx — "Show/Hide in roll" active icon color */
 --border-popover: #404055;          /* SettingsPanel.tsx — dropdown/context-menu popover border */
 --status-protected: #e05a5a;                       /* SettingsPanel.tsx — protected-folder warning border/text */
