@@ -43,7 +43,19 @@ function PencilSparklesIcon({ size = 16 }: { size?: number }) {
 
 // ── Track panel — collapsible right drawer with instrument group list and track controls
 export default function TrackPanel() {
-  const tracks = useStore((s) => s.tracks)
+  // ── Lightweight track display-signature — NOT the live `tracks` array. Same
+  // root cause as MixerConsole.tsx/ChannelStrip.tsx/MasterStrip.tsx: every
+  // fader/pan/chorus/reverb drag replaces the whole `tracks` array (new
+  // reference) many times a second, but none of those fields are rendered
+  // here — only group/name/color/mute/solo/visibility/keyboard/channel/
+  // program/isDrum are. Subscribing to `s.tracks` directly reproduced the
+  // same fader-drag stutter already fixed in the Mixer's own components; a
+  // joined string is value-equal across renders whenever none of these
+  // display-relevant fields changed. ──────────────────────────────────────
+  const trackSignature = useStore((s) => s.tracks.map((t) =>
+    `${t.index}:${t.group ?? ''}:${t.trackName ?? ''}:${t.gmName}:${t.color}:${t.muted}:${t.solo}:${t.visible}:${t.showOnKeyboard}:${(t as any).channel}:${t.program}:${t.isDrum}`
+  ).join('|'))
+  const tracks = useMemo(() => useStore.getState().tracks, [trackSignature])
   const midi = useStore((s) => s.midi)
   const trackPanelOpen = useStore((s) => s.trackPanelOpen)
   const setTrackPanelOpen = useStore((s) => s.setTrackPanelOpen)
@@ -263,12 +275,16 @@ export default function TrackPanel() {
           >
             <SlidersVertical size={18} />
           </button>
+          {/* ── Dashed outline + low opacity — a same-shade disabled icon read as
+              a normal, clickable nav icon until hovered; this makes "not yet
+              shipped" visible at rest, not just on tooltip. ──────────────── */}
           <div
             title="Coming soon — practice mode"
             style={{
-              color: 'var(--state-disabled)', padding: 4, marginTop: 8,
+              color: 'var(--state-disabled)', padding: 3, marginTop: 8,
               display: 'flex', alignItems: 'center', justifyContent: 'center',
-              cursor: 'default',
+              cursor: 'default', opacity: 0.55,
+              border: '1px dashed var(--border2)', borderRadius: 4,
             }}
           >
             <Sparkles size={18} />
@@ -350,12 +366,14 @@ export default function TrackPanel() {
             >
               <SlidersVertical size={16} />
             </button>
+            {/* ── Dashed outline + low opacity — see collapsed-strip twin above ── */}
             <div
               title="Coming soon — practice mode"
               style={{
-                color: 'var(--state-disabled)', padding: 4, marginTop: 8,
+                color: 'var(--state-disabled)', padding: 3, marginTop: 8,
                 display: 'flex', alignItems: 'center', justifyContent: 'center',
-                cursor: 'default',
+                cursor: 'default', opacity: 0.55,
+                border: '1px dashed var(--border2)', borderRadius: 4,
               }}
             >
               {/* strokeWidth compensates for this icon's larger render size (20 vs
