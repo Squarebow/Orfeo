@@ -221,6 +221,9 @@ export default function MasterStrip() {
   const setTrackMuteFilter  = useStore(s => s.setTrackMuteFilter)
   const vuDisplayMode       = useStore(s => s.vuDisplayMode)
   const setVuDisplayMode    = useStore(s => s.setVuDisplayMode)
+  // Console stays mounted (display:none) after first open so internal state
+  // survives hide/show — gate the VU rAF loop below on this, not just mount.
+  const mixerOpen           = useStore(s => s.mixerOpen)
 
   // ── Resolve meter colors from CSS tokens once on mount — see resolveMeterColorsFromCSS ──
   useEffect(() => { resolveMeterColorsFromCSS() }, [])
@@ -312,7 +315,11 @@ export default function MasterStrip() {
   }, [])
 
   // ── rAF loop — decay bars + lerp wave + peaks, advance breathing, redraw ──
+  // Gated on mixerOpen: this component stays mounted (display:none) after
+  // first open, and rAF keeps firing regardless of CSS visibility — without
+  // this guard the canvas fill-rect loop runs forever after the Mixer closes.
   useEffect(() => {
+    if (!mixerOpen) return
     const loop = () => {
       for (let i = 0; i < BAND_COUNT; i++) {
         // Bars: hard decay
@@ -341,7 +348,7 @@ export default function MasterStrip() {
     }
     rafRef.current = requestAnimationFrame(loop)
     return () => { if (rafRef.current) cancelAnimationFrame(rafRef.current) }
-  }, [vuDisplayMode, vuSegs, vuCanvasH, sectionW])
+  }, [vuDisplayMode, vuSegs, vuCanvasH, sectionW, mixerOpen])
 
   // ── Knob handlers ─────────────────────────────────────────────────────────
   const handleChorus = useCallback((v: number) => { setChorusState(v); setMasterChorus(v) }, [])

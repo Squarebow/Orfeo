@@ -121,6 +121,9 @@ export default function ChannelStrip({ trackIndex, locked, isDragging, onDragSta
   const track        = useStore(s => s.tracks.find(t => t.index === trackIndex))
   const updateTrack  = useStore(s => s.updateTrack)
   const midi         = useStore(s => s.midi)
+  // Console stays mounted (display:none) after first open so internal state
+  // survives hide/show — gate the VU rAF loop below on this, not just mount.
+  const mixerOpen    = useStore(s => s.mixerOpen)
 
   const parsedTrack = midi?.tracks.find((t: any) => t.index === trackIndex)
 
@@ -229,7 +232,11 @@ export default function ChannelStrip({ trackIndex, locked, isDragging, onDragSta
   }, [trackIndex])
 
   // ── rAF decay loop — decays level each frame, redraws segmented bars ────────
+  // Gated on mixerOpen: this component stays mounted (display:none) after
+  // first open, and rAF keeps firing regardless of CSS visibility — without
+  // this guard the canvas fill-rect loop runs forever after the Mixer closes.
   useEffect(() => {
+    if (!mixerOpen) return
     const loop = () => {
       vuLevel.current = Math.max(0, vuLevel.current - 0.013)
       if (vuRef.current) {
@@ -239,7 +246,7 @@ export default function ChannelStrip({ trackIndex, locked, isDragging, onDragSta
     }
     rafRef.current = requestAnimationFrame(loop)
     return () => { if (rafRef.current) cancelAnimationFrame(rafRef.current) }
-  }, [vuSegs, vuCanvasH])
+  }, [vuSegs, vuCanvasH, mixerOpen])
 
   // ── Fader drag ────────────────────────────────────────────────────────────
   const handleFaderMouseDown = useCallback((e: React.MouseEvent) => {
