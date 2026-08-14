@@ -42,6 +42,11 @@ export default function LockedChordModal() {
   // ── Modal visibility — auto-opens when keys are locked; only closes via X ──
   // Clearing the chord (RotateCcw) keeps the modal open showing "— — —".
   const [modalOpen, setModalOpen] = useState(false)
+  const setLockedChordModalOpen = useStore((s) => s.setLockedChordModalOpen)
+  // ── Mirror into the store so App.tsx's global Escape handler can exclude
+  // this modal the same way it already excludes chordExplorerOpen/
+  // scaleExplorerOpen — see the field's own comment in store/index.ts. ─────
+  useEffect(() => { setLockedChordModalOpen(modalOpen) }, [modalOpen, setLockedChordModalOpen])
   // ── Position state — bottom edge on the keyboard header, horizontally
   // centered on the piano roll; computed on first actual open (not at app
   // mount, so the layout is settled), then left alone. ───────────────────────

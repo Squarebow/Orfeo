@@ -339,12 +339,12 @@ export default function App() {
           break
         case 'Escape':
           if (useStore.getState().presentationMode) { useStore.getState().setPresentationMode(false); break }
-          // Chord Explorer and Scale Explorer both have their own Escape
-          // handler (closes the panel without stopping playback) — neither
-          // handler calls stopPropagation, and this listener (registered at
-          // app mount) fires before either explorer's, so skip stop() here
-          // while either is open or it would fire in addition to the close.
-          if (useStore.getState().chordExplorerOpen || useStore.getState().scaleExplorerOpen) break
+          // Chord Explorer, Scale Explorer, and the Locked Chord modal all have
+          // their own Escape handler (closes the panel without stopping
+          // playback) — none of them call stopPropagation, and this listener
+          // (registered at app mount) fires before theirs, so skip stop() here
+          // while any is open or it would fire in addition to the close.
+          if (useStore.getState().chordExplorerOpen || useStore.getState().scaleExplorerOpen || useStore.getState().lockedChordModalOpen) break
           stop()
           break
         case 'o':

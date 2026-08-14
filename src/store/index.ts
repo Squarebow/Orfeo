@@ -96,6 +96,12 @@ interface OrfeoStore {
   scaleExplorerMinimized: boolean
   setScaleExplorerOpen: (open: boolean) => void
   setScaleExplorerMinimized: (v: boolean) => void
+  // ── Mirrors LockedChordModal's own local `modalOpen` state — exists only
+  // so App.tsx's global Escape handler can exclude it the same way it
+  // already excludes chordExplorerOpen/scaleExplorerOpen (both listeners
+  // are on `window`; App.tsx's fires first, so it must know to skip stop()).
+  lockedChordModalOpen: boolean
+  setLockedChordModalOpen: (open: boolean) => void
   mixerOpen: boolean
   setMixerOpen: (open: boolean) => void
   // Snapshot of volume/pan/chorus/reverb as loaded from the file — diffed
@@ -455,6 +461,8 @@ export const useStore = create<OrfeoStore>((set, get) => ({
   chordExplorerMinimized: false,
   scaleExplorerOpen: false,
   scaleExplorerMinimized: false,
+  lockedChordModalOpen: false,
+  setLockedChordModalOpen: (lockedChordModalOpen) => set({ lockedChordModalOpen }),
   mixerOpen: false,
   mixerBaseline: {},
   vuDisplayMode: 'bars',
