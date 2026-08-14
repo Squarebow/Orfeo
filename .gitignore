@@ -41,3 +41,4 @@ DESIGN.md
 
 # ── CDP dev-debug helper scripts — local testing tools, not shipped app code ─
 scripts/dev-debug/
+.worktrees/
