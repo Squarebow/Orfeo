@@ -244,6 +244,14 @@ export default function Keyboard() {
   const getColorHand = (colorValue: string | null): Hand | null =>
     colorValue === HAND_LH ? 'L' : colorValue === HAND_RH ? 'R' : null
 
+  // ── Keyboard activation for the CHORDS/SCALES/prompter triggers below —
+  // they were span/div onClick with no keyboard path at all (a keyboard-only
+  // user couldn't open either explorer). Enter/Space matches the piano
+  // keys' own activation pattern elsewhere in this file. ───────────────────
+  const activateOnKey = (fn: () => void) => (e: React.KeyboardEvent) => {
+    if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); fn() }
+  }
+
   // ── Performance mode: per-note hand strip — hardware MIDI keys only. A file
   // note's hand tag is already shown via the key's own glow color (see
   // useAudioEngine.ts/useSamplesEngine.ts resolveHandAwareColor), so this strip
@@ -406,6 +414,9 @@ export default function Keyboard() {
               <span
                 onClick={() => setChordExplorerOpen(true)}
                 title="Open Chords Explorer"
+                role="button"
+                tabIndex={0}
+                onKeyDown={activateOnKey(() => setChordExplorerOpen(true))}
                 style={{ fontFamily: 'Inter', fontSize: 9, fontWeight: 700, color: 'var(--text-amber)', letterSpacing: '0.12em', textTransform: 'uppercase', cursor: 'pointer', userSelect: 'none' }}
               >
                 Chords
@@ -415,6 +426,10 @@ export default function Keyboard() {
                 <div
                   onClick={() => midi && setChordPrompterOpen(!chordPrompterOpen)}
                   title="Chord Prompter"
+                  role="button"
+                  tabIndex={midi ? 0 : -1}
+                  aria-pressed={chordPrompterOpen}
+                  onKeyDown={activateOnKey(() => midi && setChordPrompterOpen(!chordPrompterOpen))}
                   style={{ cursor: midi ? 'pointer' : 'default', color: chordPrompterOpen ? 'var(--text-amber)' : 'var(--text-default)', opacity: midi ? 1 : 0.35, display: 'flex', alignItems: 'center', transition: 'color 0.12s' }}
                 >
                   <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 7V5a2 2 0 0 1 2-2h2"/><path d="M17 3h2a2 2 0 0 1 2 2v2"/><path d="M21 17v2a2 2 0 0 1-2 2h-2"/><path d="M7 21H5a2 2 0 0 1-2-2v-2"/><rect width="10" height="8" x="7" y="8" rx="1"/></svg>
@@ -476,6 +491,9 @@ export default function Keyboard() {
               <span
                 onClick={() => setScaleExplorerOpen(true)}
                 title="Open Scales Explorer"
+                role="button"
+                tabIndex={0}
+                onKeyDown={activateOnKey(() => setScaleExplorerOpen(true))}
                 style={{ fontFamily: 'Inter', fontSize: 9, fontWeight: 700, color: 'var(--text-amber)', letterSpacing: '0.12em', textTransform: 'uppercase', cursor: 'pointer', userSelect: 'none' }}
               >
                 Scales
@@ -493,6 +511,9 @@ export default function Keyboard() {
               <span
                 onClick={() => setChordExplorerOpen(true)}
                 title="Open Chords Explorer"
+                role="button"
+                tabIndex={0}
+                onKeyDown={activateOnKey(() => setChordExplorerOpen(true))}
                 style={{ fontFamily: 'Inter', fontSize: 9, fontWeight: 700, color: 'var(--text-amber)', letterSpacing: '0.12em', textTransform: 'uppercase', cursor: 'pointer', userSelect: 'none' }}
               >
                 Chords
@@ -501,6 +522,10 @@ export default function Keyboard() {
               <div
                 onClick={() => setChordPrompterOpen(!chordPrompterOpen)}
                 title="Chord Prompter"
+                role="button"
+                tabIndex={0}
+                aria-pressed={chordPrompterOpen}
+                onKeyDown={activateOnKey(() => setChordPrompterOpen(!chordPrompterOpen))}
                 style={{ cursor: 'pointer', color: 'var(--text-amber)', display: 'flex', alignItems: 'center', transition: 'color 0.12s' }}
               >
                 <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 7V5a2 2 0 0 1 2-2h2"/><path d="M17 3h2a2 2 0 0 1 2 2v2"/><path d="M21 17v2a2 2 0 0 1-2 2h-2"/><path d="M7 21H5a2 2 0 0 1-2-2v-2"/><rect width="10" height="8" x="7" y="8" rx="1"/></svg>
@@ -589,6 +614,9 @@ export default function Keyboard() {
               <span
                 onClick={() => setScaleExplorerOpen(true)}
                 title="Open Scales Explorer"
+                role="button"
+                tabIndex={0}
+                onKeyDown={activateOnKey(() => setScaleExplorerOpen(true))}
                 style={{ fontFamily: 'Inter', fontSize: 9, fontWeight: 700, color: 'var(--text-amber)', letterSpacing: '0.12em', textTransform: 'uppercase', cursor: 'pointer', userSelect: 'none' }}
               >
                 Scales
