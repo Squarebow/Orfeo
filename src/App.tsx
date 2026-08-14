@@ -449,16 +449,26 @@ export default function App() {
       <ScaleExplorer />
       <LockedChordModal />
 
-      {/* ── Drop error toast — briefly shown for invalid file types ─────────── */}
+      {/* ── Drop error toast — briefly shown for invalid file types. Click-to-
+          dismiss alongside the 2.5s auto-clear timeout — if the user's eyes
+          were on the file they dropped rather than this bottom-center toast,
+          the explanation could otherwise vanish before it's read. ────────── */}
       {dropError && (
-        <div style={{
-          position: 'fixed', bottom: 32, left: '50%', transform: 'translateX(-50%)',
-          background: 'var(--bg-panel2)', border: '1px solid var(--drag-handle-dot)',
-          borderRadius: 6, padding: '8px 18px',
-          color: 'var(--text-default)', fontSize: 'var(--text-sm)',
-          pointerEvents: 'none', zIndex: 9900,
-          boxShadow: '0 4px 16px rgba(0,0,0,0.5)',
-        }}>
+        <div
+          role="alert"
+          onClick={() => {
+            if (dropErrorTimer.current) clearTimeout(dropErrorTimer.current)
+            setDropError(null)
+          }}
+          title="Click to dismiss"
+          style={{
+            position: 'fixed', bottom: 32, left: '50%', transform: 'translateX(-50%)',
+            background: 'var(--bg-panel2)', border: '1px solid var(--drag-handle-dot)',
+            borderRadius: 6, padding: '8px 18px',
+            color: 'var(--text-default)', fontSize: 'var(--text-sm)',
+            cursor: 'pointer', zIndex: 9900,
+            boxShadow: '0 4px 16px rgba(0,0,0,0.5)',
+          }}>
           {dropError}
         </div>
       )}
