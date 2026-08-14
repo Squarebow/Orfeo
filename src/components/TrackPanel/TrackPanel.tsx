@@ -485,9 +485,12 @@ export default function TrackPanel() {
                       {label}
                     </span>
 
-                    {/* ── Collapsed: colored square per track — visual legend only ── */}
+                    {/* ── Collapsed: colored square per track — visual legend only. Its
+                        onClick used to duplicate the chevron button's own toggle —
+                        redundant, and its cursor:pointer falsely implied the swatches
+                        themselves were individually clickable. ─────────────────── */}
                     {collapsed && (
-                      <div style={{ display: 'flex', gap: 2, cursor: 'pointer' }} onClick={() => toggleGroupCollapse(key)}>
+                      <div style={{ display: 'flex', gap: 2 }}>
                         {groupTracks.map(t => (
                           <div key={t.index} title={t.trackName ?? t.gmName}
                             style={{ width: 7, height: 7, borderRadius: 2, background: t.color, flexShrink: 0 }} />
