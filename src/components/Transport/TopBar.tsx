@@ -165,8 +165,18 @@ export default function TopBar() {
         flexShrink: 0,
       }}
     >
-      {/* ── LEFT GROUP: logo + BPM + KEY — independent of center, never shifts transport ── */}
-      <div style={{ display: 'flex', alignItems: 'center', gap: 0, flexShrink: 0, justifySelf: 'start', minWidth: 0 }}>
+      {/* ── LEFT GROUP: logo + BPM + KEY — independent of center, never shifts transport.
+          Measured intrinsic width (~423px) exceeds this column's 1/3 share at the
+          900px documented minimum (~235px content-box thirds) — stretched to the
+          column and given the same internal-horizontal-scroll treatment as the
+          Mixer's channel-strip row (`.mixer-scroll`) rather than letting it spill
+          into the center column, so nothing is hidden/removed, just reachable via
+          scroll at the floor width. No effect at normal window widths, where the
+          column is wide enough that no scrolling occurs. ── */}
+      <div className="mixer-scroll" style={{
+        display: 'flex', alignItems: 'center', gap: 0, flexShrink: 0,
+        justifySelf: 'stretch', minWidth: 0, overflowX: 'auto', overflowY: 'hidden',
+      }}>
       {/* ── LOGO ── */}
       <div className="app-no-drag" style={{ display: 'flex', alignItems: 'center', gap: 10, flexShrink: 0, paddingRight: 'var(--space-3)' }}>
         <span onClick={handleReset} title="Reset" className="app-no-drag" style={{ cursor: 'pointer', display: 'flex', flexDirection: 'column', alignItems: 'flex-start', gap: 2 }}>
@@ -331,8 +341,27 @@ export default function TopBar() {
         </span>
       </div>
 
-      {/* ── TIME + METRONOME + MIDI — bottoms aligned ── */}
-      <div className="app-no-drag" style={{ display: 'flex', alignItems: 'flex-end', gap: 0, flexShrink: 0, justifySelf: 'end', minWidth: 0 }}>
+      {/* ── TIME + METRONOME + MIDI — bottoms aligned. Same overflow treatment as
+          the left group above: intrinsic width (~291px, more with the bar
+          counter once a file's loaded) exceeds this column's ~235px share at
+          the 900px floor, so it scrolls internally rather than spilling into
+          the center column. This group was previously right-anchored
+          (justifySelf:'end', flush against the window's right padding) — a
+          plain overflowX:'auto' would pack content flush *left* instead
+          (LTR overflow only accumulates rightward), visibly relocating the
+          whole group at every window width, and MIDI/volume controls that
+          overflow leftward off a flex-end box aren't reachable by scrolling
+          at all (scrollWidth==clientWidth in that configuration — verified
+          via CDP at 900x608, the Volume knob was invisible and unscrollable).
+          direction:'rtl' on the scroll container + direction:'ltr' on the
+          inner row is the standard fix: default (unscrolled) view still
+          shows the group's right-anchored end (unchanged from before at
+          normal widths), and the overflow that used to spill into the
+          center column is now reachable by scrolling left instead. ── */}
+      <div className="app-no-drag mixer-scroll" style={{
+        justifySelf: 'stretch', minWidth: 0, overflowX: 'auto', overflowY: 'hidden', direction: 'rtl',
+      }}>
+      <div style={{ display: 'flex', alignItems: 'flex-end', gap: 0, flexShrink: 0, direction: 'ltr', width: 'max-content' }}>
 
         {/* VOLUME */}
         <VolumeKnob />
@@ -421,6 +450,7 @@ export default function TopBar() {
         </div>
 
 
+      </div>
       </div>
     </div>
   )
