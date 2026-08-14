@@ -272,6 +272,14 @@ export default function MixerConsole() {
         position: 'fixed',
         left: pos.x, top: pos.y,
         width: modalW,
+        // ── Viewport width cap — at high channel counts (8 strips ≈1218px)
+        // the computed width can exceed the app's documented 900px minimum
+        // window width and render clipped off-window. The channel strip row
+        // below is flex:1/minWidth:0/overflowX:auto, so once the modal
+        // itself is capped, that row becomes the sole overflow mechanism
+        // (internal horizontal scroll) instead of the whole modal. calc()
+        // tracks live window resizes with no JS listener needed. ───────────
+        maxWidth: 'calc(100vw - 24px)',
         background: 'var(--bg-modal)',
         border: '1px solid var(--border2)',
         borderRadius: 10,

@@ -144,13 +144,21 @@ export default function TopBar() {
     <div
       className="app-drag-region"
       style={{
-        position: 'relative',
         height: loopRegionEnabled ? 120 : 96,
         background: 'var(--bg-deep)',
         borderBottom: 'none',
-        display: 'flex',
+        // ── CSS Grid, three real minmax(0,1fr) columns (not 1fr auto 1fr —
+        // see CLAUDE.md's warning: an auto-sized center column combined with
+        // content-driven side columns can still end up unequal width and
+        // drag the center off true center). The center column is then
+        // structurally centered by grid layout itself, not computed via
+        // position:absolute + left:50%/transform math — that math measured
+        // against the bar's full (asymmetrically-padded) width, which is
+        // exactly what let the ~400px-wide center block overlap the side
+        // groups near the 900px documented minimum window width. ──────────
+        display: 'grid',
+        gridTemplateColumns: 'minmax(0,1fr) minmax(0,1fr) minmax(0,1fr)',
         alignItems: 'center',
-        justifyContent: 'space-between',
         // 174px right padding clears Win overlay buttons (–□×)
         padding: '0 174px 0 20px',
         gap: 0,
@@ -158,7 +166,7 @@ export default function TopBar() {
       }}
     >
       {/* ── LEFT GROUP: logo + BPM + KEY — independent of center, never shifts transport ── */}
-      <div style={{ display: 'flex', alignItems: 'center', gap: 0, flexShrink: 0 }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 0, flexShrink: 0, justifySelf: 'start', minWidth: 0 }}>
       {/* ── LOGO ── */}
       <div className="app-no-drag" style={{ display: 'flex', alignItems: 'center', gap: 10, flexShrink: 0, paddingRight: 'var(--space-3)' }}>
         <span onClick={handleReset} title="Reset" className="app-no-drag" style={{ cursor: 'pointer', display: 'flex', flexDirection: 'column', alignItems: 'flex-start', gap: 2 }}>
@@ -243,11 +251,14 @@ export default function TopBar() {
 
       </div>
 
-      {/* ── CENTER: transport + scrub + filename — absolutely centered on the topbar
-          midpoint, permanently fixed; left/right groups never move it. ── */}
+      {/* ── CENTER: transport + scrub + filename — its own grid column, so it's
+          genuinely centered between the other two regardless of their content
+          width; stretches to fill the (equal, minmax(0,1fr)) column instead of
+          a fixed 400px box, so at the 900px floor it shrinks with the column
+          rather than overflowing into the side groups. ── */}
       <div className="app-no-drag" style={{
-        position: 'absolute', left: '50%', top: '50%', transform: 'translate(-50%, -50%)',
-        display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 5, width: 400,
+        justifySelf: 'stretch', minWidth: 0,
+        display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 5,
       }}>
         {/* Transport */}
         <div style={{ display: 'flex', alignItems: 'center', gap: 2 }}>
@@ -321,7 +332,7 @@ export default function TopBar() {
       </div>
 
       {/* ── TIME + METRONOME + MIDI — bottoms aligned ── */}
-      <div className="app-no-drag" style={{ display: 'flex', alignItems: 'flex-end', gap: 0, flexShrink: 0 }}>
+      <div className="app-no-drag" style={{ display: 'flex', alignItems: 'flex-end', gap: 0, flexShrink: 0, justifySelf: 'end', minWidth: 0 }}>
 
         {/* VOLUME */}
         <VolumeKnob />
