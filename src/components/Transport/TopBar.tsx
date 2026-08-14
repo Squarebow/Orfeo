@@ -1,4 +1,4 @@
-import { useCallback, useRef, useEffect } from 'react'
+import { useCallback, useRef, useEffect, useState } from 'react'
 import {
   Play, Pause, SkipBack, SkipForward, Repeat,
   FolderOpen, RotateCcw, ChevronUp, ChevronDown,
@@ -22,7 +22,40 @@ import { confirmDiscardDirtyTempoKey } from '../../utils/tempoKeySave'
 // cross-reference a lookup table elsewhere in the file.
 const SKIP_SECS = 5
 
+// ── Windows caption-button overlay inset — the real reserved width for the
+// native –/□/× buttons, read live from the Window Controls Overlay API
+// (Electron's titleBarOverlay in electron/main.ts turns this on) instead of
+// a fixed guess. If the group's right padding equals this exactly, its
+// content's right edge lands precisely where the buttons start — zero
+// horizontal overlap into their hit-region, regardless of vertical position,
+// so the group can stay vertically centered like its siblings instead of
+// needing to duck below the buttons' 40px zone. DPI/monitor changes fire
+// `geometrychange`, so this tracks the real safe zone live. Falls back to a
+// conservative constant if the API isn't present yet (first paint, or a
+// non-Windows build).
+const OVERLAY_INSET_FALLBACK = 174
+
+function useTitlebarOverlayInset(): number {
+  const [inset, setInset] = useState(OVERLAY_INSET_FALLBACK)
+
+  useEffect(() => {
+    const overlay = (navigator as any).windowControlsOverlay
+    if (!overlay) return
+
+    const update = () => {
+      const rect = overlay.getTitlebarAreaRect()
+      if (rect.width > 0) setInset(Math.round(window.innerWidth - rect.width - rect.x))
+    }
+    update()
+    overlay.addEventListener('geometrychange', update)
+    return () => overlay.removeEventListener('geometrychange', update)
+  }, [])
+
+  return inset
+}
+
 export default function TopBar() {
+  const overlayInset = useTitlebarOverlayInset()
   const midi = useStore((s) => s.midi)
   const playbackState = useStore((s) => s.playbackState)
   const currentTime = useStore((s) => s.currentTime)
@@ -144,10 +177,7 @@ export default function TopBar() {
     <div
       className="app-drag-region"
       style={{
-        // +12px over the old 96/120 — gives the bottom-anchored right group
-        // (see its own comment below) room for full button clearance plus
-        // breathing space above the piano roll border, without cramming it.
-        height: loopRegionEnabled ? 132 : 108,
+        height: loopRegionEnabled ? 120 : 96,
         background: 'var(--bg-deep)',
         borderBottom: 'none',
         // ── CSS Grid, three real minmax(0,1fr) columns (not 1fr auto 1fr —
@@ -162,12 +192,12 @@ export default function TopBar() {
         display: 'grid',
         gridTemplateColumns: 'minmax(0,1fr) minmax(0,1fr) minmax(0,1fr)',
         alignItems: 'center',
-        // Symmetric 20px both sides — the Win overlay buttons no longer need
-        // a horizontal carve-out here; the right group is bottom-anchored
-        // below their 40px-tall zone instead (see that group's own comment).
-        // Symmetric padding also means the center column is centered on the
-        // actual window, not on a grid area already skewed left by a lopsided
-        // 20/174 split.
+        // Symmetric 20px both sides — the button dodge lives on the right
+        // group's own box (see its comment below), not here, so the grid's
+        // own bounds stay centered on the real window instead of skewed left
+        // by an asymmetric 20/174-style split (the center column is
+        // structurally centered WITHIN the grid, but that only matches the
+        // window's true center if the grid itself isn't off-center).
         padding: '0 20px 0 20px',
         gap: 0,
         flexShrink: 0,
@@ -367,20 +397,21 @@ export default function TopBar() {
           normal widths), and the overflow that used to spill into the
           center column is now reachable by scrolling left instead. ── */}
       <div className="app-no-drag mixer-scroll" style={{
-        justifySelf: 'stretch', alignSelf: 'end', minWidth: 0, overflowX: 'auto', overflowY: 'hidden', direction: 'rtl',
-        // ── Bottom-anchored, not vertically centered like its siblings — the
-        // Win overlay buttons (–□×) only occupy the titlebar's top 40px
-        // (electron/main.ts's titleBarOverlay height), not this row's full
-        // 108/132px. Anchoring this group below that line means it never
-        // needs the wide right-hand inset the row used to reserve across its
-        // ENTIRE height just to dodge a 40px-tall strip — CDP-measured live:
-        // content top lands at 56px, 16px clear of the 40px boundary. The
-        // paddingBottom below is breathing room from the piano roll's top
-        // border AND — since it grows this box's own clip boundary, not just
-        // its visual position — the fix for the Volume label's absolutely-
-        // positioned text getting clipped by overflowY:hidden (was cut off
-        // 2.5px early; the label sits inside this padding now).
-        paddingBottom: 12,
+        justifySelf: 'stretch', minWidth: 0, overflowX: 'auto', overflowY: 'hidden', direction: 'rtl',
+        // ── Vertically centered like its siblings (inherits the grid's own
+        // alignItems:'center') — stays flush-right against the real Win
+        // overlay button boundary via paddingRight (overlayInset is measured
+        // from the window's true right edge; the grid container itself only
+        // contributes a flat 20px here, so this makes up the rest), not by
+        // ducking below the buttons' 40px zone. Content's right edge lands
+        // exactly where the buttons start, so there's no horizontal overlap
+        // into their hit-region at any vertical position.
+        paddingRight: Math.max(overlayInset - 20, 0),
+        // ── paddingBottom — unrelated to the button dodge above: the Volume
+        // label (position:absolute) sits 2.5px past this box's own auto
+        // height and was getting clipped by overflowY:hidden; padding grows
+        // the clip boundary past the label's real extent, CDP-verified.
+        paddingBottom: 6,
       }}>
       <div style={{ display: 'flex', alignItems: 'flex-end', gap: 0, flexShrink: 0, direction: 'ltr', width: 'max-content' }}>
 
