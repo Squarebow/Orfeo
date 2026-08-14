@@ -10,6 +10,7 @@ release/
 .DS_Store
 Thumbs.db
 .claude/
+.agents/
 .continue/
 .vscode/
 skills-lock.json
