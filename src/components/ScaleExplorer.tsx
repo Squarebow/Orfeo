@@ -8,6 +8,7 @@ import type { NoteNaming, Accidentals } from '../types'
 import SpeedControl from './SpeedControl'
 import OrfeoMark from './OrfeoMark'
 import ChevronPlayIcon from './ChevronPlayIcon'
+import { useFocusTrap } from '../hooks/useFocusTrap'
 import { getPianoRollCenterX, getKeyboardHeaderTop } from '../utils/modalAnchors'
 import { useAnchorBottomOnResize } from '../hooks/useAnchorBottomOnResize'
 import { modalCloseButtonStyle, modalCloseButtonHoverColor, modalCloseButtonIdleColor } from '../utils/modalCloseButtonStyle'
@@ -90,7 +91,7 @@ const ROMAN_TO_DEGREE: Record<string, number> = {
 
 // ── Shared row label style — dim uppercase, used across all control rows ──────
 const ROW_LABEL: React.CSSProperties = {
-  fontFamily: 'Inter', fontSize: 9, fontWeight: 700,
+  fontFamily: 'var(--font-ui)', fontSize: 9, fontWeight: 700,
   color: 'var(--text-dimmest)', letterSpacing: '0.10em',
   textTransform: 'uppercase', flexShrink: 0, userSelect: 'none',
 }
@@ -270,6 +271,7 @@ export default function ScaleExplorer() {
   }))
   const panelRef = useRef<HTMLDivElement>(null)
   useAnchorBottomOnResize(panelRef, setPos, scaleExplorerOpen && !scaleExplorerMinimized, 44)
+  useFocusTrap(panelRef, scaleExplorerOpen && !scaleExplorerMinimized)
 
   // ── CoF + scale selection state ───────────────────────────────────────────
   const [cofPos, setCofPos] = useState<number | null>(null)
@@ -652,6 +654,26 @@ export default function ScaleExplorer() {
     return () => document.removeEventListener('mousedown', handler)
   }, [progDropdownOpen])
 
+  // ── Close on Escape ────────────────────────────────────────────────────────
+  const close = useCallback(() => {
+    stopProgression()
+    clearExplorerKeys()
+    clearExplorerChordDisplay()
+    setScaleExplorerOpen(false)
+  }, [stopProgression, clearExplorerKeys, clearExplorerChordDisplay, setScaleExplorerOpen])
+
+  useEffect(() => {
+    if (!scaleExplorerOpen) return
+    const handler = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        if (progDropdownOpen) { setProgDropdownOpen(false); setDropdownRect(null); return }
+        close()
+      }
+    }
+    window.addEventListener('keydown', handler)
+    return () => window.removeEventListener('keydown', handler)
+  }, [scaleExplorerOpen, close, progDropdownOpen])
+
   // ── Spacebar plays/pauses the progression while this modal is open ────────
   useEffect(() => {
     if (!scaleExplorerOpen) return
@@ -733,6 +755,9 @@ export default function ScaleExplorer() {
     // ── Modal container ────────────────────────────────────────────────────
     <div
       ref={panelRef}
+      role="dialog"
+      aria-modal="true"
+      aria-label="Scale Explorer"
       className="orfeo-modal-glow"
       style={{
         position: 'fixed',
@@ -747,7 +772,7 @@ export default function ScaleExplorer() {
         display: scaleExplorerMinimized ? 'none' : 'flex',
         flexDirection: 'column',
         overflow: 'hidden',
-        fontFamily: 'Inter',
+        fontFamily: 'var(--font-ui)',
         '--_modal-shadow': 'var(--elevation-explorer)',
       } as CSSProperties}
     >
@@ -760,7 +785,7 @@ export default function ScaleExplorer() {
       }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 7 }}>
           <OrfeoMark height={22} />
-          <span style={{ fontFamily: 'Inter', fontSize: 'var(--text-sm)', fontWeight: 700, color: 'var(--text-amber)', letterSpacing: '0.14em', textTransform: 'uppercase' }}>
+          <span style={{ fontFamily: 'var(--font-ui)', fontSize: 'var(--text-sm)', fontWeight: 700, color: 'var(--text-amber)', letterSpacing: '0.14em', textTransform: 'uppercase' }}>
             Scale Explorer
           </span>
         </div>
@@ -784,7 +809,7 @@ export default function ScaleExplorer() {
             instead of running under the CoF/note-names block on the right. ── */}
         <div style={{
           position: 'absolute', top: 16, left: 12, width: 200,
-          fontFamily: 'Inter', fontSize: 11, color: 'var(--text-dimmest)', opacity: 0.75, lineHeight: '1.6',
+          fontFamily: 'var(--font-ui)', fontSize: 11, color: 'var(--text-dimmest)', opacity: 0.75, lineHeight: '1.6',
           pointerEvents: 'none', zIndex: 5,
         }}>
           Click a key on the circle to explore its scale and diatonic chords. Select a progression and click play to hear the chords in the scale. Try chord inversions and variations!
@@ -797,7 +822,7 @@ export default function ScaleExplorer() {
             return (
               <button key={s.name} onClick={() => setSelectedScaleIdx(i)}
                 style={{
-                  fontFamily: 'Inter', fontSize: 11, padding: '4px 6px',
+                  fontFamily: 'var(--font-ui)', fontSize: 11, padding: '4px 6px',
                   background: sel ? 'var(--accent-amber-medium)' : 'none',
                   color: sel ? 'var(--text-amber)' : 'var(--text-muted)',
                   border: `1px solid ${sel ? 'var(--text-amber)' : 'transparent'}`,
@@ -859,14 +884,14 @@ export default function ScaleExplorer() {
                   {/* Major key label */}
                   <text x={outerLabel.x} y={outerLabel.y}
                     textAnchor="middle" dominantBaseline="middle"
-                    fontSize={13} fontWeight={700} fontFamily="JetBrains Mono"
+                    fontSize={13} fontWeight={700} fontFamily="var(--font-mono)"
                     fill={isSelOuter ? 'var(--text-amber)' : 'var(--text-key-label)'}
                     style={{ pointerEvents: 'none', userSelect: 'none' }}
                   >{getMajorLabel(i)}</text>
                   {/* Minor key label */}
                   <text x={innerLabel.x} y={innerLabel.y}
                     textAnchor="middle" dominantBaseline="middle"
-                    fontSize={9} fontFamily="Inter"
+                    fontSize={9} fontFamily="var(--font-ui)"
                     fill={isSelInner ? 'var(--text-amber)' : 'var(--text-key-label)'}
                     style={{ pointerEvents: 'none', userSelect: 'none' }}
                   >{getMinorLabel(i)}</text>
@@ -874,7 +899,7 @@ export default function ScaleExplorer() {
                   {keySig && (
                     <text x={sigLabel.x} y={sigLabel.y}
                       textAnchor="middle" dominantBaseline="middle"
-                      fontSize={sigFontSize} fontFamily="Inter"
+                      fontSize={sigFontSize} fontFamily="var(--font-ui)"
                       fill="var(--accent-amber-bold)"
                       style={{ pointerEvents: 'none', userSelect: 'none' }}
                     >{keySig}</text>
@@ -884,10 +909,10 @@ export default function ScaleExplorer() {
             })}
             {/* Centre label */}
             <text x={CX} y={CY - 8} textAnchor="middle" dominantBaseline="middle"
-              fontSize={13} fontFamily="Inter" fontWeight={400} fill="var(--text-amber)"
+              fontSize={13} fontFamily="var(--font-ui)" fontWeight={400} fill="var(--text-amber)"
               style={{ userSelect: 'none', pointerEvents: 'none' }}>Circle</text>
             <text x={CX} y={CY + 8} textAnchor="middle" dominantBaseline="middle"
-              fontSize={13} fontFamily="Inter" fontWeight={400} fill="var(--text-amber)"
+              fontSize={13} fontFamily="var(--font-ui)" fontWeight={400} fill="var(--text-amber)"
               style={{ userSelect: 'none', pointerEvents: 'none' }}>of Fifths</text>
           </svg>
           {/* Note-names row — centred under the CoF (same column, same width),
@@ -898,11 +923,11 @@ export default function ScaleExplorer() {
               display: 'flex', alignItems: 'baseline', gap: 8,
               background: 'var(--bg-info-overlay)', borderRadius: 6, padding: '4px 10px',
             }}>
-              <span style={{ fontFamily: 'JetBrains Mono', fontSize: 14, fontWeight: 700, color: 'var(--text-amber)' }}>
+              <span style={{ fontFamily: 'var(--font-mono)', fontSize: 14, fontWeight: 700, color: 'var(--text-amber)' }}>
                 {infoText.rootName}
               </span>
               <span style={{ fontSize: 11, color: 'var(--text-muted)' }}>{infoText.scaleName}</span>
-              <span style={{ fontSize: 11, letterSpacing: '0.06em', fontFamily: 'JetBrains Mono', whiteSpace: 'nowrap' }}>
+              <span style={{ fontSize: 11, letterSpacing: '0.06em', fontFamily: 'var(--font-mono)', whiteSpace: 'nowrap' }}>
                 {infoText.noteNames.map((n, i) => (
                   <span key={i} style={{ color: i === scalePlayIndex ? 'var(--text-amber)' : 'var(--text-inactive)' }}>
                     {n}{i < infoText.noteNames.length - 1 ? ' ' : ''}
@@ -937,7 +962,7 @@ export default function ScaleExplorer() {
           </div>
           {/* ── "Click tiles..." hint left, Color Root Note toggle right — same row ── */}
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8 }}>
-            <span style={{ fontFamily: 'Inter', fontSize: 10, color: 'var(--text-dimmest)', opacity: 0.75, pointerEvents: 'none' }}>
+            <span style={{ fontFamily: 'var(--font-ui)', fontSize: 10, color: 'var(--text-dimmest)', opacity: 0.75, pointerEvents: 'none' }}>
               Click tiles to hear chords or play them in sequence
             </span>
             {/* ── On by default: the chord/scale's true root pitch class (any
@@ -947,7 +972,7 @@ export default function ScaleExplorer() {
               title="Highlights the root note on the keyboard."
               style={{ display: 'flex', alignItems: 'center', gap: 6, background: 'none', border: 'none', cursor: 'pointer', padding: 0, flexShrink: 0 }}
             >
-              <span style={{ fontFamily: 'Inter', fontSize: 10, color: 'var(--text-dimmest)', opacity: 0.75 }}>Accent root note</span>
+              <span style={{ fontFamily: 'var(--font-ui)', fontSize: 10, color: 'var(--text-dimmest)', opacity: 0.75 }}>Accent root note</span>
               <span style={{ display: 'flex', color: colorRootNoteEnabled ? 'var(--text-amber)' : 'var(--text-inactive)' }}>
                 {colorRootNoteEnabled ? <ToggleRight size={16} strokeWidth={1.5} /> : <ToggleLeft size={16} strokeWidth={1.5} />}
               </span>
@@ -984,15 +1009,15 @@ export default function ScaleExplorer() {
                   onMouseLeave={e => { if (!sel) e.currentTarget.style.borderColor = 'var(--state-hover-bg)' }}
                 >
                   {/* Left: chord name */}
-                  <span style={{ fontFamily: 'Inter', fontSize: 'var(--text-base)', fontWeight: 700, color: 'var(--text-key-label)', lineHeight: 1, flexShrink: 0 }}>
+                  <span style={{ fontFamily: 'var(--font-ui)', fontSize: 'var(--text-base)', fontWeight: 700, color: 'var(--text-key-label)', lineHeight: 1, flexShrink: 0 }}>
                     {chord.chordName}
                   </span>
                   {/* Right: note names + roman numeral stacked, right-aligned */}
                   <div style={{ display: 'flex', flexDirection: 'column', gap: 1, minWidth: 0, alignItems: 'flex-end' }}>
-                    <span style={{ fontFamily: 'JetBrains Mono', fontSize: 9, color: 'var(--text-muted)', lineHeight: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', textAlign: 'right' }}>
+                    <span style={{ fontFamily: 'var(--font-mono)', fontSize: 9, color: 'var(--text-muted)', lineHeight: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', textAlign: 'right' }}>
                       {chord.midiNotes.map(m => getNoteName(m, displayNaming, accidentals)).join(' ')}
                     </span>
-                    <span style={{ fontFamily: 'Inter', fontSize: 10, color: 'var(--accent-amber-bold)', lineHeight: 1, textAlign: 'right' }}>
+                    <span style={{ fontFamily: 'var(--font-ui)', fontSize: 10, color: 'var(--accent-amber-bold)', lineHeight: 1, textAlign: 'right' }}>
                       {chord.roman}
                     </span>
                   </div>
@@ -1020,15 +1045,15 @@ export default function ScaleExplorer() {
                   onMouseLeave={e => { if (!sel) e.currentTarget.style.borderColor = 'var(--state-hover-bg)' }}
                 >
                   {/* Left: chord name — same as tonic */}
-                  <span style={{ fontFamily: 'Inter', fontSize: 'var(--text-base)', fontWeight: 700, color: 'var(--text-key-label)', lineHeight: 1, flexShrink: 0 }}>
+                  <span style={{ fontFamily: 'var(--font-ui)', fontSize: 'var(--text-base)', fontWeight: 700, color: 'var(--text-key-label)', lineHeight: 1, flexShrink: 0 }}>
                     {tonic.chordName}
                   </span>
                   {/* Right: octave note names + roman numeral with ⁸ superscript */}
                   <div style={{ display: 'flex', flexDirection: 'column', gap: 1, minWidth: 0, alignItems: 'flex-end' }}>
-                    <span style={{ fontFamily: 'JetBrains Mono', fontSize: 9, color: 'var(--text-muted)', lineHeight: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', textAlign: 'right' }}>
+                    <span style={{ fontFamily: 'var(--font-mono)', fontSize: 9, color: 'var(--text-muted)', lineHeight: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', textAlign: 'right' }}>
                       {octaveMidi.map(m => getNoteName(m, displayNaming, accidentals)).join(' ')}
                     </span>
-                    <span style={{ fontFamily: 'Inter', fontSize: 10, color: 'var(--accent-amber-bold)', lineHeight: 1, textAlign: 'right' }}>
+                    <span style={{ fontFamily: 'var(--font-ui)', fontSize: 10, color: 'var(--accent-amber-bold)', lineHeight: 1, textAlign: 'right' }}>
                       {tonic.roman}⁸
                     </span>
                   </div>
@@ -1052,12 +1077,12 @@ export default function ScaleExplorer() {
                 Active step amber/bold; inactive steps dim.
                 Single-tile clicks have labels.length === 1 so only one span renders. */}
             <div style={{ display: 'flex', flexDirection: 'row', alignItems: 'baseline', gap: 'var(--space-1)', minWidth: 60, flexWrap: 'wrap' }}>
-              <span style={{ fontFamily: 'Inter', fontSize: 9, fontWeight: 700, color: 'var(--text-dimmest)', letterSpacing: '0.10em', textTransform: 'uppercase', userSelect: 'none', flexShrink: 0 }}>
+              <span style={{ fontFamily: 'var(--font-ui)', fontSize: 9, fontWeight: 700, color: 'var(--text-dimmest)', letterSpacing: '0.10em', textTransform: 'uppercase', userSelect: 'none', flexShrink: 0 }}>
                 Chord Quality
               </span>
               {infoRowChord.labels.map((label, i) => (
                 <span key={i} style={{
-                  fontFamily: 'Inter',
+                  fontFamily: 'var(--font-ui)',
                   fontSize: i === infoRowChord.step ? 12 : 11,
                   fontWeight: i === infoRowChord.step ? 700 : 400,
                   color: i === infoRowChord.step ? 'var(--text-amber)' : 'var(--text-inactive)',
@@ -1068,7 +1093,7 @@ export default function ScaleExplorer() {
             {/* Centre — note names, large, absolutely centred in the row */}
             <span style={{
               position: 'absolute', left: '50%', transform: 'translateX(-50%)',
-              fontFamily: 'JetBrains Mono', fontSize: 'var(--text-lg)', color: 'var(--text-dim)',
+              fontFamily: 'var(--font-mono)', fontSize: 'var(--text-lg)', color: 'var(--text-dim)',
               letterSpacing: '0.06em', userSelect: 'none', whiteSpace: 'nowrap',
             }}>
               {infoRowChord.notes.join('  ')}
@@ -1076,16 +1101,16 @@ export default function ScaleExplorer() {
             {/* Right — fixed "KEY OF [root]" label; root sits in a fixed-width
                 slot (worst case: 3 chars, e.g. "C#m") so it never shifts. ──── */}
             <div style={{ display: 'flex', flexDirection: 'row', alignItems: 'center', justifyContent: 'flex-end', gap: 'var(--space-1)', minWidth: 60 }}>
-              <span style={{ fontFamily: 'Inter', fontSize: 9, fontWeight: 700, color: 'var(--text-dimmest)', letterSpacing: '0.10em', textTransform: 'uppercase', userSelect: 'none' }}>
+              <span style={{ fontFamily: 'var(--font-ui)', fontSize: 9, fontWeight: 700, color: 'var(--text-dimmest)', letterSpacing: '0.10em', textTransform: 'uppercase', userSelect: 'none' }}>
                 Key Of
               </span>
-              <span style={{ fontFamily: 'Inter', fontSize: 'var(--text-sm)', fontWeight: 700, color: 'var(--text-amber)', userSelect: 'none', lineHeight: 1, minWidth: '3ch', display: 'inline-block' }}>
+              <span style={{ fontFamily: 'var(--font-ui)', fontSize: 'var(--text-sm)', fontWeight: 700, color: 'var(--text-amber)', userSelect: 'none', lineHeight: 1, minWidth: '3ch', display: 'inline-block' }}>
                 {infoText ? `${infoText.rootName}${keyQuality}` : ''}
               </span>
             </div>
           </>
         ) : (
-          <span style={{ fontSize: 10, color: 'var(--state-disabled)', fontFamily: 'Inter', margin: '0 auto' }}>—</span>
+          <span style={{ fontSize: 10, color: 'var(--state-disabled)', fontFamily: 'var(--font-ui)', margin: '0 auto' }}>—</span>
         )}
       </div>
 
@@ -1107,7 +1132,7 @@ export default function ScaleExplorer() {
               padding: '2px 8px', borderRadius: 'var(--radius-sm)', border: 'none',
               background: 'transparent',
               color: selectedProg !== null ? 'var(--text-amber)' : 'var(--text-inactive)',
-              fontFamily: 'Inter', fontSize: 10, fontWeight: 600,
+              fontFamily: 'var(--font-ui)', fontSize: 10, fontWeight: 600,
               cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center',
               whiteSpace: 'nowrap',
             }}
@@ -1137,7 +1162,7 @@ export default function ScaleExplorer() {
             title={selectedProg === null ? 'Pick a pattern to play a progression' : undefined}
             style={{
               display: 'flex', alignItems: 'center', gap: 4,
-              fontFamily: 'Inter', fontSize: 10, fontWeight: 700, letterSpacing: '0.06em',
+              fontFamily: 'var(--font-ui)', fontSize: 10, fontWeight: 700, letterSpacing: '0.06em',
               padding: '3px 10px', borderRadius: 4, cursor: 'pointer',
               background: 'none',
               border: `1.5px solid ${progPlaying ? 'var(--status-error)' : selectedProg !== null && diatonicChords.length > 0 ? 'var(--status-success)' : 'var(--text-inactive)'}`,
@@ -1198,7 +1223,7 @@ export default function ScaleExplorer() {
           {(['flat', 'sharp'] as const).map(v => (
             <button key={v} onClick={() => setAccidentals(v)}
               style={{
-                fontFamily: 'Inter', fontSize: 'var(--text-lg)', background: 'none', border: 'none',
+                fontFamily: 'var(--font-ui)', fontSize: 'var(--text-lg)', background: 'none', border: 'none',
                 color: accidentals === v ? 'var(--text-amber)' : 'var(--text-inactive)', cursor: 'pointer', padding: '0 3px',
               }}
               onMouseEnter={e => { if (accidentals !== v) e.currentTarget.style.color = 'var(--text-muted)' }}
@@ -1216,7 +1241,7 @@ export default function ScaleExplorer() {
             onMouseLeave={e => { e.currentTarget.style.color = currentBaseMidi.length ? 'var(--text-amber)' : 'var(--state-disabled)' }}
           ><ChevronPlayIcon size={14} mirrored /></button>
           {/* Static grey label — chord display is above the keyboard only */}
-          <span style={{ fontFamily: 'Inter', fontSize: 8, fontWeight: 700, color: 'var(--text-inactive)', letterSpacing: '0.12em', textTransform: 'uppercase', userSelect: 'none' }}>
+          <span style={{ fontFamily: 'var(--font-ui)', fontSize: 8, fontWeight: 700, color: 'var(--text-inactive)', letterSpacing: '0.12em', textTransform: 'uppercase', userSelect: 'none' }}>
             Play  Chord Inversions
           </span>
           {/* Next inversion — Play icon normal */}
@@ -1245,7 +1270,7 @@ export default function ScaleExplorer() {
         <button
           onClick={() => { setScaleExplorerOpen(false); setChordExplorerOpen(true) }}
           title="Switch to Chord Explorer"
-          style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-inactive)', fontFamily: 'Inter', fontSize: 9, fontWeight: 700, letterSpacing: '0.10em', textTransform: 'uppercase', whiteSpace: 'nowrap', padding: 0, display: 'flex', alignItems: 'center', gap: 3 }}
+          style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-inactive)', fontFamily: 'var(--font-ui)', fontSize: 9, fontWeight: 700, letterSpacing: '0.10em', textTransform: 'uppercase', whiteSpace: 'nowrap', padding: 0, display: 'flex', alignItems: 'center', gap: 3 }}
           onMouseEnter={e => e.currentTarget.style.color = 'var(--text-amber)'}
           onMouseLeave={e => e.currentTarget.style.color = 'var(--text-inactive)'}
         >Chord Explorer <ArrowUpRight size={11} /></button>
@@ -1268,7 +1293,7 @@ export default function ScaleExplorer() {
                 background: selectedProg === i ? 'var(--state-hover-bg)' : 'none',
                 border: 'none', padding: '5px 10px',
                 color: selectedProg === i ? 'var(--text-amber)' : 'var(--text-muted)',
-                fontFamily: 'Inter', fontSize: 10, cursor: 'pointer',
+                fontFamily: 'var(--font-ui)', fontSize: 10, cursor: 'pointer',
               }}
               onMouseEnter={e => { e.currentTarget.style.background = 'var(--state-hover-bg)'; e.currentTarget.style.color = 'var(--text-amber)' }}
               onMouseLeave={e => { e.currentTarget.style.background = selectedProg === i ? 'var(--state-hover-bg)' : 'none'; e.currentTarget.style.color = selectedProg === i ? 'var(--text-amber)' : 'var(--text-muted)' }}
@@ -1276,7 +1301,7 @@ export default function ScaleExplorer() {
               {/* Left column: progression name */}
               <span style={{ minWidth: 90, flexShrink: 0, whiteSpace: 'nowrap' }}>{p.name}</span>
               {/* Right column: roman numerals — dimmer, monospace */}
-              <span style={{ fontFamily: 'JetBrains Mono', fontSize: 9, opacity: 0.65, whiteSpace: 'nowrap' }}>
+              <span style={{ fontFamily: 'var(--font-mono)', fontSize: 9, opacity: 0.65, whiteSpace: 'nowrap' }}>
                 {p.labels.join('  ')}
               </span>
             </button>

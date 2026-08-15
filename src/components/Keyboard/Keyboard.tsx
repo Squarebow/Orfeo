@@ -236,6 +236,22 @@ export default function Keyboard() {
     return allActiveColors.get(midi) ?? 'var(--text-amber)'
   }
 
+  // ── Non-color hand signal — a key lit in HAND_LH/HAND_RH is a tagged file
+  // note whose hand was, until now, shown by color alone (see comment above
+  // getHardwareHand: the hardware-boundary strip deliberately skips these).
+  // Recover the L/R from the resolved color itself so a colorblind user gets
+  // the same glyph backup the hardware-guess strip already had. ───────────
+  const getColorHand = (colorValue: string | null): Hand | null =>
+    colorValue === HAND_LH ? 'L' : colorValue === HAND_RH ? 'R' : null
+
+  // ── Keyboard activation for the CHORDS/SCALES/prompter triggers below —
+  // they were span/div onClick with no keyboard path at all (a keyboard-only
+  // user couldn't open either explorer). Enter/Space matches the piano
+  // keys' own activation pattern elsewhere in this file. ───────────────────
+  const activateOnKey = (fn: () => void) => (e: React.KeyboardEvent) => {
+    if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); fn() }
+  }
+
   // ── Performance mode: per-note hand strip — hardware MIDI keys only. A file
   // note's hand tag is already shown via the key's own glow color (see
   // useAudioEngine.ts/useSamplesEngine.ts resolveHandAwareColor), so this strip
@@ -398,7 +414,10 @@ export default function Keyboard() {
               <span
                 onClick={() => setChordExplorerOpen(true)}
                 title="Open Chords Explorer"
-                style={{ fontFamily: 'Inter', fontSize: 9, fontWeight: 700, color: 'var(--text-amber)', letterSpacing: '0.12em', textTransform: 'uppercase', cursor: 'pointer', userSelect: 'none' }}
+                role="button"
+                tabIndex={0}
+                onKeyDown={activateOnKey(() => setChordExplorerOpen(true))}
+                style={{ fontFamily: 'var(--font-ui)', fontSize: 9, fontWeight: 700, color: 'var(--text-amber)', letterSpacing: '0.12em', textTransform: 'uppercase', cursor: 'pointer', userSelect: 'none' }}
               >
                 Chords
               </span>
@@ -407,6 +426,10 @@ export default function Keyboard() {
                 <div
                   onClick={() => midi && setChordPrompterOpen(!chordPrompterOpen)}
                   title="Chord Prompter"
+                  role="button"
+                  tabIndex={midi ? 0 : -1}
+                  aria-pressed={chordPrompterOpen}
+                  onKeyDown={activateOnKey(() => midi && setChordPrompterOpen(!chordPrompterOpen))}
                   style={{ cursor: midi ? 'pointer' : 'default', color: chordPrompterOpen ? 'var(--text-amber)' : 'var(--text-default)', opacity: midi ? 1 : 0.35, display: 'flex', alignItems: 'center', transition: 'color 0.12s' }}
                 >
                   <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 7V5a2 2 0 0 1 2-2h2"/><path d="M17 3h2a2 2 0 0 1 2 2v2"/><path d="M21 17v2a2 2 0 0 1-2 2h-2"/><path d="M7 21H5a2 2 0 0 1-2-2v-2"/><rect width="10" height="8" x="7" y="8" rx="1"/></svg>
@@ -419,11 +442,11 @@ export default function Keyboard() {
               {explorerDisplay ? (
                 // ── Explorer chord: chord/bass amber + ordinal grey ────────────
                 <>
-                  <span style={{ fontFamily: 'JetBrains Mono', fontSize: 'var(--text-md)', fontWeight: 700, color: 'var(--text-amber)', letterSpacing: '0.05em', userSelect: 'none' }}>
+                  <span style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--text-md)', fontWeight: 700, color: 'var(--text-amber)', letterSpacing: '0.05em', userSelect: 'none' }}>
                     {explorerDisplay.chordLabel}
                   </span>
                   {explorerDisplay.ordinal && (
-                    <span style={{ fontFamily: 'Inter', fontSize: 10, color: 'var(--text-default)', userSelect: 'none' }}>
+                    <span style={{ fontFamily: 'var(--font-ui)', fontSize: 10, color: 'var(--text-default)', userSelect: 'none' }}>
                       {explorerDisplay.ordinal}
                       <span style={{ fontSize: 7, verticalAlign: 'super' }}>{ordinalSuffix(Number(explorerDisplay.ordinal))}</span>
                       {' inv'}
@@ -439,7 +462,7 @@ export default function Keyboard() {
                   const flash = chordJustChanged && !!heldChordEvent
                   const slashIdx = name.indexOf('/')
                   const mainStyle: React.CSSProperties = {
-                    fontFamily: 'JetBrains Mono', fontSize: 'var(--text-md)', fontWeight: 700, color: 'var(--text-amber)', letterSpacing: '0.05em', userSelect: 'none',
+                    fontFamily: 'var(--font-mono)', fontSize: 'var(--text-md)', fontWeight: 700, color: 'var(--text-amber)', letterSpacing: '0.05em', userSelect: 'none',
                     textShadow: flash ? '0 0 8px var(--text-amber)' : 'none',
                     transition: 'text-shadow 0.35s ease-out',
                   }
@@ -449,7 +472,7 @@ export default function Keyboard() {
                   return (
                     <>
                       <span style={mainStyle}>{name.slice(0, slashIdx)}</span>
-                      <span style={{ fontFamily: 'JetBrains Mono', fontSize: 'var(--text-xs)', fontWeight: 600, color: 'var(--text-active)', letterSpacing: '0.04em', userSelect: 'none' }}>
+                      <span style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--text-xs)', fontWeight: 600, color: 'var(--text-active)', letterSpacing: '0.04em', userSelect: 'none' }}>
                         {name.slice(slashIdx)}
                       </span>
                     </>
@@ -457,7 +480,7 @@ export default function Keyboard() {
                 })()
               ) : (
                 // ── Empty state ────────────────────────────────────────────────
-                <span style={{ fontFamily: 'JetBrains Mono', fontSize: 10, fontWeight: 400, color: 'var(--text-chord-placeholder)', letterSpacing: '0.03em', transition: 'color 0.2s' }}>
+                <span style={{ fontFamily: 'var(--font-mono)', fontSize: 10, fontWeight: 400, color: 'var(--text-chord-placeholder)', letterSpacing: '0.03em', transition: 'color 0.2s' }}>
                   {'— — —'}
                 </span>
               )}
@@ -468,7 +491,10 @@ export default function Keyboard() {
               <span
                 onClick={() => setScaleExplorerOpen(true)}
                 title="Open Scales Explorer"
-                style={{ fontFamily: 'Inter', fontSize: 9, fontWeight: 700, color: 'var(--text-amber)', letterSpacing: '0.12em', textTransform: 'uppercase', cursor: 'pointer', userSelect: 'none' }}
+                role="button"
+                tabIndex={0}
+                onKeyDown={activateOnKey(() => setScaleExplorerOpen(true))}
+                style={{ fontFamily: 'var(--font-ui)', fontSize: 9, fontWeight: 700, color: 'var(--text-amber)', letterSpacing: '0.12em', textTransform: 'uppercase', cursor: 'pointer', userSelect: 'none' }}
               >
                 Scales
               </span>
@@ -485,7 +511,10 @@ export default function Keyboard() {
               <span
                 onClick={() => setChordExplorerOpen(true)}
                 title="Open Chords Explorer"
-                style={{ fontFamily: 'Inter', fontSize: 9, fontWeight: 700, color: 'var(--text-amber)', letterSpacing: '0.12em', textTransform: 'uppercase', cursor: 'pointer', userSelect: 'none' }}
+                role="button"
+                tabIndex={0}
+                onKeyDown={activateOnKey(() => setChordExplorerOpen(true))}
+                style={{ fontFamily: 'var(--font-ui)', fontSize: 9, fontWeight: 700, color: 'var(--text-amber)', letterSpacing: '0.12em', textTransform: 'uppercase', cursor: 'pointer', userSelect: 'none' }}
               >
                 Chords
               </span>
@@ -493,6 +522,10 @@ export default function Keyboard() {
               <div
                 onClick={() => setChordPrompterOpen(!chordPrompterOpen)}
                 title="Chord Prompter"
+                role="button"
+                tabIndex={0}
+                aria-pressed={chordPrompterOpen}
+                onKeyDown={activateOnKey(() => setChordPrompterOpen(!chordPrompterOpen))}
                 style={{ cursor: 'pointer', color: 'var(--text-amber)', display: 'flex', alignItems: 'center', transition: 'color 0.12s' }}
               >
                 <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 7V5a2 2 0 0 1 2-2h2"/><path d="M17 3h2a2 2 0 0 1 2 2v2"/><path d="M21 17v2a2 2 0 0 1-2 2h-2"/><path d="M7 21H5a2 2 0 0 1-2-2v-2"/><rect width="10" height="8" x="7" y="8" rx="1"/></svg>
@@ -509,7 +542,7 @@ export default function Keyboard() {
                 if (noFile || noChords || notStarted) {
                   return (
                     <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                      <span style={{ fontSize: 'var(--text-xs)', color: 'var(--text-muted)', fontFamily: 'Inter' }}>
+                      <span style={{ fontSize: 'var(--text-xs)', color: 'var(--text-muted)', fontFamily: 'var(--font-ui)' }}>
                         {noFile ? 'Open a MIDI file' : noChords ? 'No chords detected' : 'Press play'}
                       </span>
                     </div>
@@ -531,7 +564,7 @@ export default function Keyboard() {
                       {pastChords.map((ev, i) => (
                         <React.Fragment key={`${ev.time}-${ev.name}`}>
                           {i > 0 && <span style={{ color: 'var(--state-disabled)', fontSize: 10, lineHeight: 1, flexShrink: 0 }}>·</span>}
-                          <span style={{ fontSize: 'var(--text-xs)', fontFamily: 'Inter', color: 'var(--text-muted)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: 90 }}>
+                          <span style={{ fontSize: 'var(--text-xs)', fontFamily: 'var(--font-ui)', color: 'var(--text-muted)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: 90 }}>
                             {ev.name}
                           </span>
                         </React.Fragment>
@@ -549,7 +582,7 @@ export default function Keyboard() {
                         are flex:1 so they yield space to this when it grows. */}
                     <div style={{ flexShrink: 0, minWidth: 100, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '0 4px' }}>
                       <span style={{
-                        fontFamily: 'JetBrains Mono', fontSize: 20, fontWeight: 700, color: 'var(--text-amber)', lineHeight: 1, whiteSpace: 'nowrap',
+                        fontFamily: 'var(--font-mono)', fontSize: 20, fontWeight: 700, color: 'var(--text-amber)', lineHeight: 1, whiteSpace: 'nowrap',
                         textShadow: centreFlash ? '0 0 10px var(--text-amber)' : 'none',
                         transition: 'text-shadow 0.35s ease-out',
                       }}>
@@ -565,7 +598,7 @@ export default function Keyboard() {
                       {nextChords.map((ev, i) => (
                         <React.Fragment key={`${ev.time}-${ev.name}`}>
                           {i > 0 && <span style={{ color: 'var(--state-disabled)', fontSize: 10, lineHeight: 1, flexShrink: 0 }}>·</span>}
-                          <span style={{ fontSize: 'var(--text-xs)', fontFamily: 'Inter', color: 'var(--text-muted)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: 90 }}>
+                          <span style={{ fontSize: 'var(--text-xs)', fontFamily: 'var(--font-ui)', color: 'var(--text-muted)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: 90 }}>
                             {ev.name}
                           </span>
                         </React.Fragment>
@@ -581,7 +614,10 @@ export default function Keyboard() {
               <span
                 onClick={() => setScaleExplorerOpen(true)}
                 title="Open Scales Explorer"
-                style={{ fontFamily: 'Inter', fontSize: 9, fontWeight: 700, color: 'var(--text-amber)', letterSpacing: '0.12em', textTransform: 'uppercase', cursor: 'pointer', userSelect: 'none' }}
+                role="button"
+                tabIndex={0}
+                onKeyDown={activateOnKey(() => setScaleExplorerOpen(true))}
+                style={{ fontFamily: 'var(--font-ui)', fontSize: 9, fontWeight: 700, color: 'var(--text-amber)', letterSpacing: '0.12em', textTransform: 'uppercase', cursor: 'pointer', userSelect: 'none' }}
               >
                 Scales
               </span>
@@ -592,15 +628,18 @@ export default function Keyboard() {
 
       {/* Piano keys */}
       <div
-        className="relative w-full select-none"
         ref={keyContainerRef}
-        style={{ height: keyHeight, background: 'var(--bg-deep)', borderTop: '1px solid var(--state-hover-bg)', transition: 'height 0.15s' }}
+        style={{
+          position: 'relative', width: '100%', userSelect: 'none',
+          height: keyHeight, background: 'var(--bg-deep)', borderTop: '1px solid var(--state-hover-bg)', transition: 'height 0.15s',
+        }}
       >
         {/* White keys */}
-        <div className="absolute inset-0 flex">
+        <div style={{ position: 'absolute', inset: 0, display: 'flex' }}>
           {whiteKeys.map((k, i) => {
             const color = getColor(k.midi)
             const hand = getHardwareHand(k.midi)
+            const colorHand = getColorHand(color)
             const locked = lockedKeys.has(k.midi)
             const isC = k.midi % 12 === 0
             const label = color
@@ -612,8 +651,15 @@ export default function Keyboard() {
                 onMouseDown={() => { isMouseDown.current = true; handleKeyClick(k.midi) }}
                 onMouseEnter={() => { if (isMouseDown.current) handleKeyClick(k.midi, true) }}
                 title={getNoteLabel(k.midi, noteNaming, accidentals) || undefined}
-                className="relative flex-1 flex flex-col justify-end items-center pb-1 cursor-pointer"
+                tabIndex={0}
+                role="button"
+                aria-label={`Play ${getNoteLabel(k.midi, noteNaming, accidentals) || 'note'}`}
+                onKeyDown={e => {
+                  if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); handleKeyClick(k.midi) }
+                }}
                 style={{
+                  position: 'relative', flex: '1 1 0%', display: 'flex', flexDirection: 'column',
+                  justifyContent: 'flex-end', alignItems: 'center', paddingBottom: 4, cursor: 'pointer',
                   background: color ?? 'var(--key-white-bg)',
                   borderRight: !color ? '1px solid var(--key-white-border)' : allActiveKeys.has(whiteKeys[i + 1]?.midi) ? '1px solid var(--key-active-border)' : '1px solid transparent',
                   borderLeft: color && allActiveKeys.has(whiteKeys[i - 1]?.midi) ? '1px solid var(--key-active-border)' : 'none',
@@ -625,14 +671,24 @@ export default function Keyboard() {
                   }}
               >
                 {hand && (
-                  <span className="pointer-events-none" style={{
+                  <span style={{
                     position: 'absolute', top: 0, left: 0, right: 0, height: 3,
-                    background: hand === 'L' ? HAND_LH : HAND_RH,
+                    background: hand === 'L' ? HAND_LH : HAND_RH, pointerEvents: 'none',
                   }} />
                 )}
+                {colorHand && (
+                  <span style={{
+                    position: 'absolute', top: 3, left: 3,
+                    fontSize: 8, fontWeight: 700, lineHeight: 1,
+                    fontFamily: 'var(--font-mono)', color: 'var(--text-white)',
+                    textShadow: '0 1px 2px rgba(0,0,0,0.65)', userSelect: 'none', pointerEvents: 'none',
+                  }}>
+                    {colorHand}
+                  </span>
+                )}
                 {label && (
-                  <span className="font-semibold pointer-events-none"
-                    style={{ color: color ? 'var(--text-white)' : 'var(--key-label-dim)', fontFamily: 'JetBrains Mono', fontSize: (chordExplorerOpen || scaleExplorerOpen) ? 11 : 9 }}>
+                  <span
+                    style={{ fontWeight: 600, pointerEvents: 'none', color: color ? 'var(--text-white)' : 'var(--key-label-dim)', fontFamily: 'var(--font-mono)', fontSize: (chordExplorerOpen || scaleExplorerOpen) ? 11 : 9 }}>
                     {label}
                   </span>
                 )}
@@ -642,7 +698,7 @@ export default function Keyboard() {
         </div>
 
         {/* Black keys */}
-        <div className="absolute inset-0 pointer-events-none" style={{ zIndex: 2 }}>
+        <div style={{ position: 'absolute', inset: 0, pointerEvents: 'none', zIndex: 2 }}>
           {keys.filter(k => k.isBlack).map((k) => {
             // ── Positions come from the same buildKeyLayoutRatios as PianoRoll ──
             const ratio = keyRatios[k.midi - min]
@@ -651,6 +707,7 @@ export default function Keyboard() {
             const widthPct = ratio.width * 100
             const color = getColor(k.midi)
             const hand = getHardwareHand(k.midi)
+            const colorHand = getColorHand(color)
             const locked = lockedKeys.has(k.midi)
             return (
               <div
@@ -658,8 +715,14 @@ export default function Keyboard() {
                 onMouseDown={() => { isMouseDown.current = true; handleKeyClick(k.midi) }}
                 onMouseEnter={() => { if (isMouseDown.current) handleKeyClick(k.midi, true) }}
                 title={getNoteLabel(k.midi, noteNaming, accidentals) || undefined}
-                className="absolute top-0 cursor-pointer pointer-events-auto"
+                tabIndex={0}
+                role="button"
+                aria-label={`Play ${getNoteLabel(k.midi, noteNaming, accidentals) || 'note'}`}
+                onKeyDown={e => {
+                  if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); handleKeyClick(k.midi) }
+                }}
                 style={{
+                  position: 'absolute', top: 0, cursor: 'pointer', pointerEvents: 'auto',
                   left: `${leftPct}%`, width: `${widthPct}%`, height: '65%',
                   background: color ?? 'var(--border-row)',
                   borderRadius: '0 0 4px 4px',
@@ -682,17 +745,27 @@ export default function Keyboard() {
                 }}
               >
                 {hand && (
-                  <span className="pointer-events-none" style={{
+                  <span style={{
                     position: 'absolute', top: 0, left: 0, right: 0, height: 3,
-                    background: hand === 'L' ? HAND_LH : HAND_RH,
+                    background: hand === 'L' ? HAND_LH : HAND_RH, pointerEvents: 'none',
                     borderRadius: '2px 2px 0 0',
                   }} />
+                )}
+                {colorHand && (
+                  <span style={{
+                    position: 'absolute', top: 2, left: '50%', transform: 'translateX(-50%)',
+                    fontSize: 7, fontWeight: 700, lineHeight: 1,
+                    fontFamily: 'var(--font-mono)', color: 'var(--text-white)',
+                    textShadow: '0 1px 2px rgba(0,0,0,0.65)', userSelect: 'none', pointerEvents: 'none',
+                  }}>
+                    {colorHand}
+                  </span>
                 )}
                 {color && showNoteNamesOnKeyboard && noteNaming !== 'hidden' && (
                   <span style={{
                     position: 'absolute', bottom: 3, left: '50%',
                     transform: 'translateX(-50%)',
-                    fontSize: (chordExplorerOpen || scaleExplorerOpen) ? 8 : 7, fontFamily: 'JetBrains Mono', fontWeight: 700,
+                    fontSize: (chordExplorerOpen || scaleExplorerOpen) ? 8 : 7, fontFamily: 'var(--font-mono)', fontWeight: 700,
                     color: 'var(--key-note-name-color)', pointerEvents: 'none',
                     whiteSpace: 'nowrap', textShadow: '0 1px 2px rgba(0,0,0,0.95)',
                   }}>

@@ -1,6 +1,5 @@
 import { defineConfig } from 'electron-vite'
 import react from '@vitejs/plugin-react'
-import tailwindcss from '@tailwindcss/vite'
 import { resolve } from 'path'
 import { readFileSync } from 'fs'
 
@@ -38,7 +37,6 @@ export default defineConfig({
     },
     plugins: [
       react(),
-      tailwindcss(),
     ],
     // Exclude spessasynth from pre-bundling (large native-ESM, dynamic import).
     // Include fuse.js so it is pre-bundled at dev server start and doesn't

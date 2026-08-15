@@ -339,7 +339,12 @@ export default function App() {
           break
         case 'Escape':
           if (useStore.getState().presentationMode) { useStore.getState().setPresentationMode(false); break }
-          if (useStore.getState().chordExplorerOpen || useStore.getState().scaleExplorerOpen) break
+          // Chord Explorer, Scale Explorer, and the Locked Chord modal all have
+          // their own Escape handler (closes the panel without stopping
+          // playback) — none of them call stopPropagation, and this listener
+          // (registered at app mount) fires before theirs, so skip stop() here
+          // while any is open or it would fire in addition to the close.
+          if (useStore.getState().chordExplorerOpen || useStore.getState().scaleExplorerOpen || useStore.getState().lockedChordModalOpen) break
           stop()
           break
         case 'o':
@@ -360,8 +365,47 @@ export default function App() {
     return () => window.removeEventListener('keydown', handleKeyDown)
   }, [play, pause, stop, openFile, enterPresentationMode])
 
+  // ── Global: blur non-text controls after a real mouse click ─────────────
+  // `:focus-visible` (index.css) is spec-correct, not buggy — but it isn't
+  // "did THIS keypress activate THIS element," it's "is the page's input
+  // modality currently keyboard AND does this element currently have
+  // focus." A mouse click leaves a button focused (normal browser
+  // behavior); the very next keypress ANYWHERE — including Space for
+  // play/pause, which is a global shortcut here and doesn't even depend on
+  // focus — flips that modality flag and the stale-focused button suddenly
+  // shows its ring, for a keypress that had nothing to do with it. Blurring
+  // right after a genuine mouse click removes the stale focus so there's
+  // nothing left for a later keypress to light up.
+  // `event.detail === 0` is what distinguishes a real pointer click from a
+  // synthetic 'click' the browser fires when Enter/Space activates a
+  // focused element via the keyboard — that case is skipped so real
+  // keyboard activation keeps its ring exactly as intended. Text-entry
+  // elements are excluded since clicking into an input must keep it
+  // focused to type. ─────────────────────────────────────────────────────
+  useEffect(() => {
+    const handleClick = (e: MouseEvent) => {
+      if (e.detail === 0) return
+      const el = e.target
+      // Element, not HTMLElement — most of this app's buttons render an SVG
+      // icon as their visible content, and a click's real target is often
+      // that <svg>/<path>, not the <button> itself. SVGElement is NOT an
+      // HTMLElement (separate DOM interfaces), so the HTMLElement check
+      // silently rejected every icon-button click before ever reaching
+      // .closest() — confirmed live via a real CDP-dispatched click on the
+      // Play button, which stayed focused because of exactly this. .closest()
+      // itself works fine starting from an SVG element in any current browser.
+      if (!(el instanceof Element)) return
+      const focusable = el.closest<HTMLElement>('button, a[href], [role="button"], [tabindex]')
+      if (!focusable) return
+      if (focusable.matches('input, textarea, select') || focusable.isContentEditable) return
+      focusable.blur()
+    }
+    document.addEventListener('click', handleClick, true)
+    return () => document.removeEventListener('click', handleClick, true)
+  }, [])
+
   return (
-    <div className={appTheme === 'warm' ? 'theme-warm' : ''} style={{ width: '100vw', height: '100vh', background: appTheme === 'warm' ? 'var(--bg-warm)' : 'var(--bg-modal-header)', overflow: 'hidden', display: 'flex', flexDirection: 'column', fontFamily: "'Inter', system-ui, sans-serif" }}>
+    <div className={appTheme === 'warm' ? 'theme-warm' : ''} style={{ width: '100vw', height: '100vh', background: appTheme === 'warm' ? 'var(--bg-warm)' : 'var(--bg-modal-header)', overflow: 'hidden', display: 'flex', flexDirection: 'column', fontFamily: 'var(--font-ui)' }}>
 
       {/* ── Presentation Mode: TopBar slides in from top on hover ─────────────
           In normal mode TopBar is in-flow; in PM it becomes a fixed overlay. ── */}
@@ -444,16 +488,26 @@ export default function App() {
       <ScaleExplorer />
       <LockedChordModal />
 
-      {/* ── Drop error toast — briefly shown for invalid file types ─────────── */}
+      {/* ── Drop error toast — briefly shown for invalid file types. Click-to-
+          dismiss alongside the 2.5s auto-clear timeout — if the user's eyes
+          were on the file they dropped rather than this bottom-center toast,
+          the explanation could otherwise vanish before it's read. ────────── */}
       {dropError && (
-        <div style={{
-          position: 'fixed', bottom: 32, left: '50%', transform: 'translateX(-50%)',
-          background: 'var(--bg-panel2)', border: '1px solid var(--drag-handle-dot)',
-          borderRadius: 6, padding: '8px 18px',
-          color: 'var(--text-default)', fontSize: 'var(--text-sm)',
-          pointerEvents: 'none', zIndex: 9900,
-          boxShadow: '0 4px 16px rgba(0,0,0,0.5)',
-        }}>
+        <div
+          role="alert"
+          onClick={() => {
+            if (dropErrorTimer.current) clearTimeout(dropErrorTimer.current)
+            setDropError(null)
+          }}
+          title="Click to dismiss"
+          style={{
+            position: 'fixed', bottom: 32, left: '50%', transform: 'translateX(-50%)',
+            background: 'var(--bg-panel2)', border: '1px solid var(--drag-handle-dot)',
+            borderRadius: 6, padding: '8px 18px',
+            color: 'var(--text-default)', fontSize: 'var(--text-sm)',
+            cursor: 'pointer', zIndex: 9900,
+            boxShadow: '0 4px 16px rgba(0,0,0,0.5)',
+          }}>
           {dropError}
         </div>
       )}

@@ -27,11 +27,31 @@ function activeMidiData(): any {
 // This constant normalises perceived loudness at equal masterVolume settings.
 const SAMPLES_BOOST = 3.0
 
+// ── Master compressor/limiter presets — each position bundles threshold,
+// ratio, attack, AND release together, not just a ratio sweep with threshold
+// fixed. A fixed threshold with only ratio changing either barely engages at
+// low ratio or over-triggers at high ratio, so the 5 positions wouldn't
+// actually sound distinct from each other. Index matches masterCompPreset
+// in the store. Release fixed at 250ms across all — attack is what changes
+// the felt character between "gentle glue" and "hard limiter". ─────────────
+interface CompPreset { threshold: number; ratio: number; attack: number; knee: number; label: string }
+export const COMPRESSOR_PRESETS: CompPreset[] = [
+  { label: 'Safety',  threshold: -1,  ratio: 2,  attack: 0.010, knee: 10 },
+  { label: 'Gentle',  threshold: -6,  ratio: 4,  attack: 0.008, knee: 8 },
+  { label: 'Medium',  threshold: -12, ratio: 8,  attack: 0.005, knee: 6 },
+  { label: 'Firm',    threshold: -18, ratio: 14, attack: 0.003, knee: 3 },
+  { label: 'Limiter', threshold: -24, ratio: 20, attack: 0.003, knee: 0 },
+]
+const COMPRESSOR_RELEASE = 0.25
+
 // ── Module-level singletons ───────────────────────────────────────────────────
 let _ctx: AudioContext | null = null
 let _gainNode: GainNode | null = null
 // High-shelf BiquadFilter for master tone control (Samples engine only)
 let _filterNode: BiquadFilterNode | null = null
+// Master compressor/limiter — inserted last in the chain, right before
+// destination, so it catches whatever the gain/tone stages produce.
+let _compNode: DynamicsCompressorNode | null = null
 // type-only — runtime reference populated after dynamic import
 let _synth: WorkletSynthesizer | null = null
 let _synthInitP: Promise<void> | null = null
@@ -166,9 +186,21 @@ export async function initSamplesEngine(onProgress: (p: number) => void): Promis
       _filterNode.frequency.value = 3000
       _filterNode.gain.value = 0  // flat at center position
 
+      // Master compressor/limiter — last stage before destination. Always
+      // created and wired in; "off" is a real transparent state (ratio 1:1,
+      // threshold 0dB — mathematically a no-op, never reduces gain) rather
+      // than disconnecting/reconnecting the graph on every toggle.
+      _compNode = _ctx.createDynamicsCompressor()
+      _compNode.release.value = COMPRESSOR_RELEASE
+      {
+        const { masterCompEnabled, masterCompPreset } = useStore.getState()
+        setMasterCompressor(masterCompEnabled, masterCompPreset)
+      }
+
       _synth.connect(_gainNode)
       _gainNode.connect(_filterNode)
-      _filterNode.connect(_ctx.destination)
+      _filterNode.connect(_compNode)
+      _compNode.connect(_ctx.destination)
 
       _synthReady = true
       onProgress(1)
@@ -305,6 +337,31 @@ export function setMasterPan(value: number): void {
 export function setMasterTone(value: number): void {
   if (!_filterNode) return
   _filterNode.gain.value = value * 12
+}
+
+// ── setMasterCompressor — called on/off/preset change from MasterStrip, and
+// once at init time with the store's starting values. "Off" sets ratio 1:1 /
+// threshold 0dB, a real transparent no-op (never reduces gain) rather than a
+// bypass-via-reconnect — avoids rewiring the graph on every toggle. ────────
+export function setMasterCompressor(enabled: boolean, preset: number): void {
+  if (!_compNode) return
+  const p = enabled ? COMPRESSOR_PRESETS[preset] : null
+  const now = _compNode.context.currentTime
+  const threshold = p ? p.threshold : 0
+  const ratio     = p ? p.ratio     : 1
+  const attack    = p ? p.attack    : 0.003
+  const knee      = p ? p.knee      : 0
+  _compNode.threshold.setTargetAtTime(threshold, now, 0.01)
+  _compNode.ratio.setTargetAtTime(ratio, now, 0.01)
+  _compNode.attack.setTargetAtTime(attack, now, 0.01)
+  _compNode.knee.setTargetAtTime(knee, now, 0.01)
+}
+
+// ── getMasterCompReduction — live gain reduction in dB (0 = none, negative =
+// reducing), for the master-knob/track-fader visual-dip gimmick. Real-time,
+// unsmoothed — callers should lerp toward this each frame, not use it raw. ──
+export function getMasterCompReduction(): number {
+  return _compNode?.reduction ?? 0
 }
 
 // ── setChannelChorus — CC93 on a single MIDI channel (Samples engine only) ────
@@ -462,6 +519,20 @@ export function useSamplesEngine() {
       if (state.masterVolume === prevVol) return
       prevVol = state.masterVolume
       if (_gainNode) _gainNode.gain.value = state.masterVolume * SAMPLES_BOOST
+    })
+    return () => unsub()
+  }, [])
+
+  // ── Live master compressor on/off + preset changes ────────────────────────
+  useEffect(() => {
+    let prevEnabled = useStore.getState().masterCompEnabled
+    let prevPreset  = useStore.getState().masterCompPreset
+    const unsub = useStore.subscribe((state) => {
+      if (state.audioEngine !== 'samples') return
+      if (state.masterCompEnabled === prevEnabled && state.masterCompPreset === prevPreset) return
+      prevEnabled = state.masterCompEnabled
+      prevPreset  = state.masterCompPreset
+      setMasterCompressor(prevEnabled, prevPreset)
     })
     return () => unsub()
   }, [])

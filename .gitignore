@@ -10,6 +10,7 @@ release/
 .DS_Store
 Thumbs.db
 .claude/
+.agents/
 .continue/
 .vscode/
 skills-lock.json
@@ -33,3 +34,16 @@ docs/I18N_PLAN.md
 docs/DESIGN_AUDIT_*.md
 docs/2026-08-01-practice-mode-plan.md
 docs/Final polish for public release/
+docs/FONT_SIZING_HANDOFF.md
+
+# ── Impeccable design skill — internal planning artifacts, not shipped docs ──
+PRODUCT.md
+DESIGN.md
+.impeccable/
+
+# ── CDP dev-debug helper scripts — local testing tools, not shipped app code ─
+scripts/dev-debug/
+.worktrees/
+
+# ── Playwright MCP — local browser-testing artifacts, not shipped app code ──
+.playwright-mcp/

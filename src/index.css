@@ -1,5 +1,349 @@
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;600&display=swap');
-@import "tailwindcss";
+/* ── Self-hosted fonts — no network dependency (PRODUCT.md: local-first, no
+   network dependency). Was a Google Fonts @import; replaced with self-hosted
+   files instead of requesting fonts.googleapis.com/fonts.gstatic.com on
+   every launch. Inter/JetBrains Mono below are variable fonts — Google
+   serves ONE physical .woff2 per script range (latin/latin-ext) covering
+   the whole weight axis. Founders Grotesk/IBM Plex Mono further down are
+   the (2026-08-15) trial replacement pairing — static per-weight files
+   instead, one physical file per weight, no unicode-range split needed.
+   Weights needed for this app's actual usage (grep audit, 2026-08-14): UI
+   font needs 400/500/600/700, mono font needs 400/600/700 — 700 is the
+   single most-used weight app-wide (BPM/key numbers, chord names,
+   mute/solo labels), so don't drop it. ──────────────────────────────────── */
+@font-face {
+  font-family: 'Inter';
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url('./assets/fonts/Inter-Variable-latin.woff2') format('woff2');
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+@font-face {
+  font-family: 'Inter';
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url('./assets/fonts/Inter-Variable-latin-ext.woff2') format('woff2');
+  unicode-range: U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304, U+0308, U+0329, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C0, U+2113, U+2C60-2C7F, U+A720-A7FF;
+}
+@font-face {
+  font-family: 'Inter';
+  font-style: normal;
+  font-weight: 500;
+  font-display: swap;
+  src: url('./assets/fonts/Inter-Variable-latin.woff2') format('woff2');
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+@font-face {
+  font-family: 'Inter';
+  font-style: normal;
+  font-weight: 500;
+  font-display: swap;
+  src: url('./assets/fonts/Inter-Variable-latin-ext.woff2') format('woff2');
+  unicode-range: U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304, U+0308, U+0329, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C0, U+2113, U+2C60-2C7F, U+A720-A7FF;
+}
+@font-face {
+  font-family: 'Inter';
+  font-style: normal;
+  font-weight: 600;
+  font-display: swap;
+  src: url('./assets/fonts/Inter-Variable-latin.woff2') format('woff2');
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+@font-face {
+  font-family: 'Inter';
+  font-style: normal;
+  font-weight: 600;
+  font-display: swap;
+  src: url('./assets/fonts/Inter-Variable-latin-ext.woff2') format('woff2');
+  unicode-range: U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304, U+0308, U+0329, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C0, U+2113, U+2C60-2C7F, U+A720-A7FF;
+}
+@font-face {
+  font-family: 'Inter';
+  font-style: normal;
+  font-weight: 700;
+  font-display: swap;
+  src: url('./assets/fonts/Inter-Variable-latin.woff2') format('woff2');
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+@font-face {
+  font-family: 'Inter';
+  font-style: normal;
+  font-weight: 700;
+  font-display: swap;
+  src: url('./assets/fonts/Inter-Variable-latin-ext.woff2') format('woff2');
+  unicode-range: U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304, U+0308, U+0329, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C0, U+2113, U+2C60-2C7F, U+A720-A7FF;
+}
+@font-face {
+  font-family: 'JetBrains Mono';
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url('./assets/fonts/JetBrainsMono-Variable-latin.woff2') format('woff2');
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+@font-face {
+  font-family: 'JetBrains Mono';
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url('./assets/fonts/JetBrainsMono-Variable-latin-ext.woff2') format('woff2');
+  unicode-range: U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304, U+0308, U+0329, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C0, U+2113, U+2C60-2C7F, U+A720-A7FF;
+}
+@font-face {
+  font-family: 'JetBrains Mono';
+  font-style: normal;
+  font-weight: 600;
+  font-display: swap;
+  src: url('./assets/fonts/JetBrainsMono-Variable-latin.woff2') format('woff2');
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+@font-face {
+  font-family: 'JetBrains Mono';
+  font-style: normal;
+  font-weight: 600;
+  font-display: swap;
+  src: url('./assets/fonts/JetBrainsMono-Variable-latin-ext.woff2') format('woff2');
+  unicode-range: U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304, U+0308, U+0329, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C0, U+2113, U+2C60-2C7F, U+A720-A7FF;
+}
+@font-face {
+  font-family: 'JetBrains Mono';
+  font-style: normal;
+  font-weight: 700;
+  font-display: swap;
+  src: url('./assets/fonts/JetBrainsMono-Variable-latin.woff2') format('woff2');
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+@font-face {
+  font-family: 'JetBrains Mono';
+  font-style: normal;
+  font-weight: 700;
+  font-display: swap;
+  src: url('./assets/fonts/JetBrainsMono-Variable-latin-ext.woff2') format('woff2');
+  unicode-range: U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304, U+0308, U+0329, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C0, U+2113, U+2C60-2C7F, U+A720-A7FF;
+}
+
+/* ── Trial pairing (2026-08-15) — Founders Grotesk / IBM Plex Mono. Static
+   per-weight files (not variable), so unlike Inter/JetBrains Mono above,
+   each weight is its own physical file/declaration — no unicode-range
+   split needed, each file already covers the font's full charset. Inter's
+   and JetBrains Mono's blocks above are kept (not deleted) so --font-logo
+   still resolves and reverting --font-ui/--font-mono below is a one-line
+   change back, not a re-fetch of files. ─────────────────────────────────── */
+@font-face {
+  font-family: 'Founders Grotesk';
+  font-style: normal;
+  font-weight: 300;
+  font-display: swap;
+  src: url('./assets/fonts/FoundersGrotesk-Light.woff2') format('woff2');
+}
+@font-face {
+  font-family: 'Founders Grotesk';
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url('./assets/fonts/FoundersGrotesk-Regular.woff2') format('woff2');
+}
+@font-face {
+  font-family: 'Founders Grotesk';
+  font-style: normal;
+  font-weight: 500;
+  font-display: swap;
+  src: url('./assets/fonts/FoundersGrotesk-Medium.woff2') format('woff2');
+}
+@font-face {
+  font-family: 'Founders Grotesk';
+  font-style: normal;
+  font-weight: 600;
+  font-display: swap;
+  src: url('./assets/fonts/FoundersGrotesk-SemiBold.woff2') format('woff2');
+}
+@font-face {
+  font-family: 'Founders Grotesk';
+  font-style: normal;
+  font-weight: 700;
+  font-display: swap;
+  src: url('./assets/fonts/FoundersGrotesk-Bold.woff2') format('woff2');
+}
+@font-face {
+  font-family: 'IBM Plex Mono';
+  font-style: normal;
+  font-weight: 300;
+  font-display: swap;
+  src: url('./assets/fonts/IBMPlexMono-Light.woff2') format('woff2');
+}
+@font-face {
+  font-family: 'IBM Plex Mono';
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url('./assets/fonts/IBMPlexMono-Regular.woff2') format('woff2');
+}
+@font-face {
+  font-family: 'IBM Plex Mono';
+  font-style: normal;
+  font-weight: 500;
+  font-display: swap;
+  src: url('./assets/fonts/IBMPlexMono-Medium.woff2') format('woff2');
+}
+@font-face {
+  font-family: 'IBM Plex Mono';
+  font-style: normal;
+  font-weight: 600;
+  font-display: swap;
+  src: url('./assets/fonts/IBMPlexMono-SemiBold.woff2') format('woff2');
+}
+@font-face {
+  font-family: 'IBM Plex Mono';
+  font-style: normal;
+  font-weight: 700;
+  font-display: swap;
+  src: url('./assets/fonts/IBMPlexMono-Bold.woff2') format('woff2');
+}
+
+/* ── Two more UI-font candidates (2026-08-15), installed alongside Founders
+   Grotesk for direct comparison — swap --font-ui below to try each one,
+   nothing here needs re-fetching. Delete whichever loses once one's picked
+   (its @font-face blocks + its .woff2 files in src/assets/fonts/). IBM Plex
+   Mono above is staying regardless of which UI font wins. ──────────────────
+   Familjen Grotesk — variable font, Google-hosted (fonts.google.com), same
+   one-file-per-script-range structure as Inter/JetBrains Mono above. */
+@font-face {
+  font-family: 'Familjen Grotesk';
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url('./assets/fonts/FamiljenGrotesk-Variable-latin.woff2') format('woff2');
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+@font-face {
+  font-family: 'Familjen Grotesk';
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url('./assets/fonts/FamiljenGrotesk-Variable-latin-ext.woff2') format('woff2');
+  unicode-range: U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304, U+0308, U+0329, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C0, U+2113, U+2C60-2C7F, U+A720-A7FF;
+}
+@font-face {
+  font-family: 'Familjen Grotesk';
+  font-style: normal;
+  font-weight: 500;
+  font-display: swap;
+  src: url('./assets/fonts/FamiljenGrotesk-Variable-latin.woff2') format('woff2');
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+@font-face {
+  font-family: 'Familjen Grotesk';
+  font-style: normal;
+  font-weight: 500;
+  font-display: swap;
+  src: url('./assets/fonts/FamiljenGrotesk-Variable-latin-ext.woff2') format('woff2');
+  unicode-range: U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304, U+0308, U+0329, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C0, U+2113, U+2C60-2C7F, U+A720-A7FF;
+}
+@font-face {
+  font-family: 'Familjen Grotesk';
+  font-style: normal;
+  font-weight: 600;
+  font-display: swap;
+  src: url('./assets/fonts/FamiljenGrotesk-Variable-latin.woff2') format('woff2');
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+@font-face {
+  font-family: 'Familjen Grotesk';
+  font-style: normal;
+  font-weight: 600;
+  font-display: swap;
+  src: url('./assets/fonts/FamiljenGrotesk-Variable-latin-ext.woff2') format('woff2');
+  unicode-range: U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304, U+0308, U+0329, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C0, U+2113, U+2C60-2C7F, U+A720-A7FF;
+}
+@font-face {
+  font-family: 'Familjen Grotesk';
+  font-style: normal;
+  font-weight: 700;
+  font-display: swap;
+  src: url('./assets/fonts/FamiljenGrotesk-Variable-latin.woff2') format('woff2');
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+@font-face {
+  font-family: 'Familjen Grotesk';
+  font-style: normal;
+  font-weight: 700;
+  font-display: swap;
+  src: url('./assets/fonts/FamiljenGrotesk-Variable-latin-ext.woff2') format('woff2');
+  unicode-range: U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304, U+0308, U+0329, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C0, U+2113, U+2C60-2C7F, U+A720-A7FF;
+}
+
+/* Mona Sans — GitHub's own typeface (github.com/github/mona-sans, OFL-1.1),
+   Google-hosted here for the same reason Familjen Grotesk is: Google Fonts
+   only distributes OFL/Apache/UFL-licensed faces, so this is the identical
+   OFL file, just already sliced into the one-file-per-script-range variable
+   form the rest of this block uses — no static per-weight files needed.
+   Standard width/optical-size instance (font-stretch:100% in Google's own
+   CSS — not the Condensed/Expanded/Display variants also in that repo). */
+@font-face {
+  font-family: 'Mona Sans';
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url('./assets/fonts/MonaSans-Variable-latin.woff2') format('woff2');
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+@font-face {
+  font-family: 'Mona Sans';
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url('./assets/fonts/MonaSans-Variable-latin-ext.woff2') format('woff2');
+  unicode-range: U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304, U+0308, U+0329, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C0, U+2113, U+2C60-2C7F, U+A720-A7FF;
+}
+@font-face {
+  font-family: 'Mona Sans';
+  font-style: normal;
+  font-weight: 500;
+  font-display: swap;
+  src: url('./assets/fonts/MonaSans-Variable-latin.woff2') format('woff2');
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+@font-face {
+  font-family: 'Mona Sans';
+  font-style: normal;
+  font-weight: 500;
+  font-display: swap;
+  src: url('./assets/fonts/MonaSans-Variable-latin-ext.woff2') format('woff2');
+  unicode-range: U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304, U+0308, U+0329, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C0, U+2113, U+2C60-2C7F, U+A720-A7FF;
+}
+@font-face {
+  font-family: 'Mona Sans';
+  font-style: normal;
+  font-weight: 600;
+  font-display: swap;
+  src: url('./assets/fonts/MonaSans-Variable-latin.woff2') format('woff2');
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+@font-face {
+  font-family: 'Mona Sans';
+  font-style: normal;
+  font-weight: 600;
+  font-display: swap;
+  src: url('./assets/fonts/MonaSans-Variable-latin-ext.woff2') format('woff2');
+  unicode-range: U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304, U+0308, U+0329, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C0, U+2113, U+2C60-2C7F, U+A720-A7FF;
+}
+@font-face {
+  font-family: 'Mona Sans';
+  font-style: normal;
+  font-weight: 700;
+  font-display: swap;
+  src: url('./assets/fonts/MonaSans-Variable-latin.woff2') format('woff2');
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+@font-face {
+  font-family: 'Mona Sans';
+  font-style: normal;
+  font-weight: 700;
+  font-display: swap;
+  src: url('./assets/fonts/MonaSans-Variable-latin-ext.woff2') format('woff2');
+  unicode-range: U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304, U+0308, U+0329, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C0, U+2113, U+2C60-2C7F, U+A720-A7FF;
+}
 
 *, *::before, *::after {
   box-sizing: border-box;
@@ -7,7 +351,39 @@
   padding: 0;
 }
 
+/* ── Form controls don't inherit font-family from the page by default in any
+   browser — button/input/select/textarea fall back to the platform UA font
+   (Arial on Windows Chromium) unless told otherwise, even though every other
+   element inherits normally. Found via a real bug: the Library/Settings
+   drawer tab buttons had fontSize/fontWeight/letterSpacing set but no
+   fontFamily, and rendered in Arial instead of --font-ui. A grep afterward
+   found 32 more <button> instances app-wide with the same gap — rather than
+   patch each one, this is the standard normalize.css-style fix at the root,
+   so no future button can silently regress the same way. ────────────────── */
+button, input, select, textarea {
+  font-family: inherit;
+}
+
 :root {
+  /* ── Typography — single source of truth for both fonts app-wide. Was 104
+     (Inter) + 131 (JetBrains Mono) hardcoded literals across 17+ components
+     before this pass; swapping either font now means editing these two lines
+     (plus the @font-face src/unicode-range blocks above, to point at the new
+     font's actual .woff2 files) instead of
+     hunting every call site. Canvas2D `ctx.font` strings can't resolve
+     var() — see PianoRoll.tsx's resolvePianoRollColorsFromCSS, which reads
+     these same custom properties at runtime instead of duplicating the
+     values as separate JS literals. --font-logo is the ORFEO wordmark's own
+     stack (OrfeoLogo.tsx) — deliberately separate so the brand mark can keep
+     its own typographic identity independent of the UI font.
+     --font-ui is mid-trial (2026-08-15): Founders Grotesk / Familjen Grotesk
+     / Mona Sans are all installed (@font-face blocks above) for direct
+     comparison — currently pointed at Familjen Grotesk. Swap the family
+     name here to switch candidates, nothing else needs to change. */
+  --font-ui:   'Familjen Grotesk', sans-serif;
+  --font-mono: 'IBM Plex Mono', monospace;
+  --font-logo: 'Inter', 'Georgia', serif;
+
   /* ── Backgrounds — remapped to new lighter, layered scheme ─────────────── */
   /* Existing variable names kept identical so nothing breaks — only the
      values change. New --bg-input / --bg-highlight added for interactive
@@ -36,7 +412,7 @@
   --text-amber:   #e8a027;   /* accent — unchanged */
 
   /* Additional granularity for future targeted use during staged rollout */
-  --text-faint:    #707088;   /* Below --text-dimmest — for hints, placeholder text, least-important UI */
+  --text-faint:    #9292aa;   /* Below --text-dimmest — for hints, placeholder text, least-important UI. Raised from #707088 (WCAG AA fix: was ~3.83:1 vs --bg-modal, now ~6.08:1) */
   --text-dimmest:  #94979e;
   --text-dim:      #b5b7bc;
   --text-standard: #c6c8c8;
@@ -55,9 +431,10 @@
   --c-amber:   var(--text-amber);
 
   /* Knob accent tones — unchanged */
-  --knob-chorus: #2dd4bf;
-  --knob-reverb: #a78bfa;
-  --knob-tone:   #5ba0c8;
+  --knob-chorus:     #2dd4bf;
+  --knob-reverb:     #a78bfa;
+  --knob-tone:       #5ba0c8;
+  --knob-compressor: var(--hand-rh);  /* same pink as the right-hand piano/note coloring */
 
   /* VU meter levels — unchanged */
   --meter-green:  #7ac040;
@@ -124,7 +501,7 @@
 --state-hover-border-blue: #3a3a5a; /* ScaleExplorer — diatonic chord tile hover border */
 
 /* One intermediate text tone — sits between --text-dimmest and background */
---text-inactive: #505068;   /* Inactive icons/buttons that need some visibility but less than dimmest label */
+--text-inactive: #8a8aa1;   /* Inactive icons/buttons that need some visibility but less than dimmest label. Raised from #505068 (WCAG AA fix: was ~2.20:1 vs --bg-tile, now ~5.11:1) */
 --text-tile-subtext: #8080a0;  /* ChordExplorer — dim note-name subtext under chord/power-chord tile names */
 --text-pill-hover: #c0c0d4;    /* ChordExplorer — hover text color for unselected root pitch-class pills */
 --text-list-hover: #c0c0d8;    /* ScaleExplorer — hover text color for unselected scale-list buttons */
@@ -230,9 +607,13 @@
 --accent-amber-strip-apply-bg-hover: #e8a02732;  /* ~20% — LoopRegionStrip.tsx bar-range popup Apply button hover background */
 --state-star-hover: #707060;        /* SettingsPanel.tsx — library favourite-star hover color (unstarred) */
 --state-row-hover-overlay: rgba(255, 255, 255, 0.03); /* TrackPanel.tsx — subtle white hover overlay on soloable-for-edit track rows */
---text-track-count: #40404e;        /* TrackPanel.tsx — per-group track count text */
---text-track-meta: #454560;         /* TrackPanel.tsx — track row channel/program meta text */
+--text-track-count: #7f7f92;        /* TrackPanel.tsx — per-group track count text. Raised from #40404e (WCAG AA fix: was ~1.81:1 vs --bg-modal, now ~4.71:1) */
+--text-track-meta: #85859a;         /* TrackPanel.tsx — track row channel/program meta text. Raised from #454560 (WCAG AA fix: was ~2.00:1 vs --bg-modal, now ~5.12:1) */
 --icon-visibility-active: #6080c0;  /* TrackPanel.tsx — "Show/Hide in roll" active icon color */
+--border-popover: #404055;          /* SettingsPanel.tsx — dropdown/context-menu popover border */
+--status-protected: #e05a5a;                       /* SettingsPanel.tsx — protected-folder warning border/text */
+--status-protected-tint-bg: rgba(224, 90, 90, 0.10); /* same warning — hover tint background; RGB matches --status-protected */
+--status-low-confidence: #7a323c;   /* MidiEditor.tsx — low-confidence hand-split passage text/swatch/highlight */
 
 /* ── Elevation — named base shadows for floating panels ─────────────────────
    Each was independently hand-rolled per component before this token set;
@@ -243,6 +624,7 @@
 --elevation-explorer: 0 8px 48px rgba(0, 0, 0, 0.85);      /* ScaleExplorer — wider blur */
 --elevation-floating-light: 0 8px 40px rgba(0, 0, 0, 0.7); /* FloatingKeyboard */
 --elevation-strip: 0 6px 20px rgba(0, 0, 0, 0.6);          /* LoopRegionStrip popup — smaller than a full modal */
+--elevation-popover: 0 4px 16px rgba(0, 0, 0, 0.55);       /* SettingsPanel.tsx — dropdown/context-menu popovers */
 
 /* ── Utility classes ── */
 
@@ -304,7 +686,7 @@
   color: var(--text-dimmest);
   text-transform: uppercase;
   letter-spacing: 0.1em;
-  font-family: 'Inter', sans-serif;
+  font-family: var(--font-ui);
 }
 
 /* Standard button — consistent padding, radius, height across the app */
@@ -312,7 +694,7 @@
   height: var(--button-height);
   padding: 0 var(--space-3);
   border-radius: var(--radius-md);
-  font-family: 'Inter', sans-serif;
+  font-family: var(--font-ui);
   font-size: var(--text-sm);
   font-weight: 500;
   border: none;
@@ -330,7 +712,7 @@
 
 /* Standard value/number display — JetBrains Mono, consistent across BPM, bar counter, etc */
 .orfeo-value {
-  font-family: 'JetBrains Mono', monospace;
+  font-family: var(--font-mono);
   font-size: var(--text-base);
   color: var(--text-primary);
   font-weight: 600;
@@ -349,7 +731,7 @@
 body {
   background: var(--bg);
   color: var(--c-default);
-  font-family: 'Inter', system-ui, sans-serif;
+  font-family: var(--font-ui);
   overflow: hidden;
   user-select: none;
   -webkit-font-smoothing: antialiased;
@@ -406,9 +788,18 @@ body {
 .app-drag-region { -webkit-app-region: drag; }
 .app-no-drag     { -webkit-app-region: no-drag; }
 
-/* Remove all button outlines and focus rings */
+/* Remove the default mouse-click focus ring, but keep a visible ring for
+   keyboard navigation (focus-visible) — amber accent, app-wide. */
 button:focus { outline: none; }
-button:focus-visible { outline: none; }
+button:focus-visible,
+a:focus-visible,
+input:focus-visible,
+select:focus-visible,
+textarea:focus-visible,
+[tabindex]:focus-visible {
+  outline: 2px solid var(--text-amber);
+  outline-offset: 2px;
+}
 
 /* Suppress default OS titlebar overlay button hover backgrounds */
 ::-webkit-scrollbar-button { display: none; }
@@ -420,3 +811,20 @@ button:focus-visible { outline: none; }
   50%       { filter: brightness(0.3); }
 }
 .loop-nudge-blink { animation: orfeo-loop-blink 1.4s ease-in-out infinite; }
+@media (prefers-reduced-motion: reduce) {
+  .loop-nudge-blink { animation: none; }
+}
+
+/* Console Mixer header description marquee — only engages on hover, and only
+   for text wider than its available space (--marquee-distance is set by JS
+   per current layout); a description that already fits never animates. */
+@keyframes orfeo-marquee {
+  0%, 15%   { transform: translateX(0); }
+  85%, 100% { transform: translateX(var(--marquee-distance, 0)); }
+}
+.orfeo-marquee-track:hover .orfeo-marquee-text.is-overflowing {
+  animation: orfeo-marquee 6s ease-in-out infinite;
+}
+@media (prefers-reduced-motion: reduce) {
+  .orfeo-marquee-track:hover .orfeo-marquee-text.is-overflowing { animation: none; }
+}

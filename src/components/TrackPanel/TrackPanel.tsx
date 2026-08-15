@@ -43,7 +43,19 @@ function PencilSparklesIcon({ size = 16 }: { size?: number }) {
 
 // ── Track panel — collapsible right drawer with instrument group list and track controls
 export default function TrackPanel() {
-  const tracks = useStore((s) => s.tracks)
+  // ── Lightweight track display-signature — NOT the live `tracks` array. Same
+  // root cause as MixerConsole.tsx/ChannelStrip.tsx/MasterStrip.tsx: every
+  // fader/pan/chorus/reverb drag replaces the whole `tracks` array (new
+  // reference) many times a second, but none of those fields are rendered
+  // here — only group/name/color/mute/solo/visibility/keyboard/channel/
+  // program/isDrum are. Subscribing to `s.tracks` directly reproduced the
+  // same fader-drag stutter already fixed in the Mixer's own components; a
+  // joined string is value-equal across renders whenever none of these
+  // display-relevant fields changed. ──────────────────────────────────────
+  const trackSignature = useStore((s) => s.tracks.map((t) =>
+    `${t.index}:${t.group ?? ''}:${t.trackName ?? ''}:${t.gmName}:${t.color}:${t.muted}:${t.solo}:${t.visible}:${t.showOnKeyboard}:${(t as any).channel}:${t.program}:${t.isDrum}`
+  ).join('|'))
+  const tracks = useMemo(() => useStore.getState().tracks, [trackSignature])
   const midi = useStore((s) => s.midi)
   const trackPanelOpen = useStore((s) => s.trackPanelOpen)
   const setTrackPanelOpen = useStore((s) => s.setTrackPanelOpen)
@@ -263,12 +275,16 @@ export default function TrackPanel() {
           >
             <SlidersVertical size={18} />
           </button>
+          {/* ── Dashed outline + low opacity — a same-shade disabled icon read as
+              a normal, clickable nav icon until hovered; this makes "not yet
+              shipped" visible at rest, not just on tooltip. ──────────────── */}
           <div
             title="Coming soon — practice mode"
             style={{
-              color: 'var(--state-disabled)', padding: 4, marginTop: 8,
+              color: 'var(--state-disabled)', padding: 3, marginTop: 8,
               display: 'flex', alignItems: 'center', justifyContent: 'center',
-              cursor: 'default',
+              cursor: 'default', opacity: 0.55,
+              border: '1px dashed var(--border2)', borderRadius: 4,
             }}
           >
             <Sparkles size={18} />
@@ -350,12 +366,14 @@ export default function TrackPanel() {
             >
               <SlidersVertical size={16} />
             </button>
+            {/* ── Dashed outline + low opacity — see collapsed-strip twin above ── */}
             <div
               title="Coming soon — practice mode"
               style={{
-                color: 'var(--state-disabled)', padding: 4, marginTop: 8,
+                color: 'var(--state-disabled)', padding: 3, marginTop: 8,
                 display: 'flex', alignItems: 'center', justifyContent: 'center',
-                cursor: 'default',
+                cursor: 'default', opacity: 0.55,
+                border: '1px dashed var(--border2)', borderRadius: 4,
               }}
             >
               {/* strokeWidth compensates for this icon's larger render size (20 vs
@@ -380,7 +398,7 @@ export default function TrackPanel() {
             </span>
             {midi && (
               <>
-                <span style={{ color: 'var(--text-inactive)', fontSize: 'var(--text-xs)', fontFamily: 'JetBrains Mono' }}>
+                <span style={{ color: 'var(--text-inactive)', fontSize: 'var(--text-xs)', fontFamily: 'var(--font-mono)' }}>
                   {tracks.length}
                 </span>
                 {/* ── Mute-filter quick toggle — visible only when Selective Tracks Playback is on in Settings ── */}
@@ -397,7 +415,7 @@ export default function TrackPanel() {
                       color: 'var(--text-on-amber)',
                       fontSize: 9,
                       fontWeight: 700,
-                      fontFamily: 'Inter',
+                      fontFamily: 'var(--font-ui)',
                       letterSpacing: '0.02em',
                       cursor: 'pointer',
                       whiteSpace: 'nowrap',
@@ -467,9 +485,12 @@ export default function TrackPanel() {
                       {label}
                     </span>
 
-                    {/* ── Collapsed: colored square per track — visual legend only ── */}
+                    {/* ── Collapsed: colored square per track — visual legend only. Its
+                        onClick used to duplicate the chevron button's own toggle —
+                        redundant, and its cursor:pointer falsely implied the swatches
+                        themselves were individually clickable. ─────────────────── */}
                     {collapsed && (
-                      <div style={{ display: 'flex', gap: 2, cursor: 'pointer' }} onClick={() => toggleGroupCollapse(key)}>
+                      <div style={{ display: 'flex', gap: 2 }}>
                         {groupTracks.map(t => (
                           <div key={t.index} title={t.trackName ?? t.gmName}
                             style={{ width: 7, height: 7, borderRadius: 2, background: t.color, flexShrink: 0 }} />
@@ -477,7 +498,7 @@ export default function TrackPanel() {
                       </div>
                     )}
 
-                    <span style={{ fontSize: 10, color: 'var(--text-track-count)', fontFamily: 'JetBrains Mono' }}>
+                    <span style={{ fontSize: 10, color: 'var(--text-track-count)', fontFamily: 'var(--font-mono)' }}>
                       {groupTracks.length}
                     </span>
                     <button
@@ -609,13 +630,13 @@ function TrackRow({
 
       {/* ── Row 2: track number (left) + M/S/V/K controls (right) ─────────── */}
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginTop: 3, paddingLeft: 26 }}>
-        <span style={{ fontSize: 9, color: 'var(--text-inactive)', fontFamily: 'JetBrains Mono' }}>track {track.index + 1}</span>
+        <span style={{ fontSize: 9, color: 'var(--text-inactive)', fontFamily: 'var(--font-mono)' }}>track {track.index + 1}</span>
         <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-1)' }}>
           <IBtn onClick={onMute} active={track.muted} title={track.muted ? 'Unmute' : 'Mute'} activeColor="var(--status-error)">
-            <span style={{ fontSize: 'var(--text-xs)', fontWeight: 700, fontFamily: 'JetBrains Mono', lineHeight: 1 }}>M</span>
+            <span style={{ fontSize: 'var(--text-xs)', fontWeight: 700, fontFamily: 'var(--font-mono)', lineHeight: 1 }}>M</span>
           </IBtn>
           <IBtn onClick={onSolo} active={track.solo} title={track.solo ? 'Unsolo' : 'Solo'} activeColor="var(--text-amber)">
-            <span style={{ fontSize: 10, fontWeight: 700, fontFamily: 'JetBrains Mono', lineHeight: 1 }}>S</span>
+            <span style={{ fontSize: 10, fontWeight: 700, fontFamily: 'var(--font-mono)', lineHeight: 1 }}>S</span>
           </IBtn>
           <IBtn onClick={onVisible} active={!track.visible} title={track.visible ? 'Hide in roll' : 'Show in roll'} activeColor="var(--status-error-hover)" inactiveColor="var(--status-success-text)">
             {track.visible ? <Eye size={12} /> : <EyeClosed size={12} />}
@@ -635,11 +656,11 @@ function TrackRow({
 
       {/* ── Row 3: MIDI channel + program + note count ────────────────────── */}
       <div style={{ display: 'flex', gap: 6, marginTop: 2, paddingLeft: 26 }}>
-        <span style={{ fontSize: 9, color: 'var(--text-track-meta)', fontFamily: 'JetBrains Mono' }}>ch {ch}</span>
-        <span style={{ fontSize: 9, color: 'var(--text-track-meta)', fontFamily: 'JetBrains Mono' }}>·</span>
-        <span style={{ fontSize: 9, color: 'var(--text-track-meta)', fontFamily: 'JetBrains Mono' }}>{prog}</span>
-        <span style={{ fontSize: 9, color: 'var(--text-track-meta)', fontFamily: 'JetBrains Mono' }}>·</span>
-        <span style={{ fontSize: 9, color: 'var(--text-track-meta)', fontFamily: 'JetBrains Mono' }}>{noteCount} notes</span>
+        <span style={{ fontSize: 9, color: 'var(--text-track-meta)', fontFamily: 'var(--font-mono)' }}>ch {ch}</span>
+        <span style={{ fontSize: 9, color: 'var(--text-track-meta)', fontFamily: 'var(--font-mono)' }}>·</span>
+        <span style={{ fontSize: 9, color: 'var(--text-track-meta)', fontFamily: 'var(--font-mono)' }}>{prog}</span>
+        <span style={{ fontSize: 9, color: 'var(--text-track-meta)', fontFamily: 'var(--font-mono)' }}>·</span>
+        <span style={{ fontSize: 9, color: 'var(--text-track-meta)', fontFamily: 'var(--font-mono)' }}>{noteCount} notes</span>
       </div>
     </div>
   )

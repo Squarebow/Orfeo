@@ -58,25 +58,17 @@ export default function VolumeKnob() {
   const activeBars = Math.round(masterVolume * BAR_COUNT)
 
   return (
-    // ── Bars vertically centered against the left-section items (BPM/KEY),
-    // not bottom-aligned with the right section's columns — the VOLUME
-    // label below is `position:absolute` specifically so it can't affect
-    // that centering or shift the bars/siblings by adding real flow
-    // height. ──────────────────────────────────────────────────────────────
+    // ── Real-flow column — [bars, label] stacked, same shape as its row
+    // siblings (BAR COUNTER/TIME SIGNATURE/METRONOME/MIDI). alignSelf is
+    // left to inherit the row's `alignItems:'flex-end'`, so this column's
+    // bottom (the label) lines up with theirs exactly like every other
+    // column does — no centering override, no absolutely-positioned label
+    // trying to fake the same alignment from outside the flow. ───────────
     <div
       className="app-no-drag"
-      style={{ display: 'flex', alignItems: 'center', alignSelf: 'center', padding: '0 14px', flexShrink: 0, position: 'relative' }}
+      style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', padding: '0 14px', flexShrink: 0 }}
       title={`Volume: ${pct}%`}
     >
-      <span style={{
-        position: 'absolute', top: '100%', left: '50%',
-        transform: 'translateX(-50%)',
-        color: 'var(--text-muted)', fontSize: 8, fontFamily: 'JetBrains Mono',
-        textTransform: 'uppercase', letterSpacing: '0.1em', lineHeight: 1,
-        marginTop: 6.5, whiteSpace: 'nowrap', pointerEvents: 'none',
-      }}>
-        Volume
-      </span>
       <div
         ref={trackRef}
         onMouseDown={handleMouseDown}
@@ -98,7 +90,7 @@ export default function VolumeKnob() {
             marginRight: 6, padding: '2px 6px',
             background: 'var(--bg-tooltip)', border: '1px solid var(--accent-amber-strong)',
             borderRadius: 4, whiteSpace: 'nowrap', pointerEvents: 'none',
-            color: 'var(--text-amber)', fontSize: 10, fontFamily: 'JetBrains Mono',
+            color: 'var(--text-amber)', fontSize: 10, fontFamily: 'var(--font-mono)',
           }}>
             {pct}%
           </div>
@@ -114,6 +106,13 @@ export default function VolumeKnob() {
           )
         })}
       </div>
+      <span style={{
+        color: 'var(--text-muted)', fontSize: 8, fontFamily: 'var(--font-mono)',
+        textTransform: 'uppercase', letterSpacing: '0.1em', lineHeight: 1,
+        marginTop: 6, whiteSpace: 'nowrap', pointerEvents: 'none',
+      }}>
+        Volume
+      </span>
     </div>
   )
 }

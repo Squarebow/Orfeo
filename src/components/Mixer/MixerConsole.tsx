@@ -11,6 +11,7 @@ import { confirmDialog } from '../../utils/confirmController'
 import { parseMidiBuffer } from '../../utils/midiParser'
 import { detectKeyFromTracks, parseKeySignature } from '../../utils/keyDetection'
 import { KEYBOARD_GROUPS } from '../../utils/keyboardGroups'
+import { useFocusTrap } from '../../hooks/useFocusTrap'
 
 // ── MixerConsole — floating draggable modal ───────────────────────────────────
 // Opened via Ctrl+Shift+M or the Console (SlidersVertical) icon in the TrackPanel.
@@ -20,7 +21,7 @@ import { KEYBOARD_GROUPS } from '../../utils/keyboardGroups'
 // n strips × 120px + (n−1) inter-strip gaps × 8px + body-gap 8px + master 160px + padding 2×16px
 const STRIP_W   = 120
 const STRIP_GAP = 8
-const MASTER_W  = 160
+const MASTER_W  = 184
 const BODY_PAD  = 16
 const MAX_STRIPS = 8
 
@@ -87,11 +88,6 @@ export default function MixerConsole() {
       const base = mixerBaseline[t.index]
       return base && (base.volume !== t.volume || base.pan !== t.pan || base.chorus !== t.chorus || base.reverb !== t.reverb)
     })
-    // TEMP DIAGNOSTIC — remove once the "always N channels" count bug is confirmed/fixed.
-    console.log('[mixer-diag]', changed.map(t => ({
-      index: t.index, name: t.trackName ?? t.gmName,
-      base: mixerBaseline[t.index], live: { volume: t.volume, pan: t.pan, chorus: t.chorus, reverb: t.reverb },
-    })))
     if (changed.length === 0 || !midi) { setMixerOpen(false); return }
 
     const filePath = (midi as any)._filePath ?? ''
@@ -203,6 +199,40 @@ export default function MixerConsole() {
   // ── Z-index — bringToFront on mousedown so last-clicked modal is on top ────
   const [zIndex, setZIndex] = useState(MODAL_BASE_Z)
 
+  // ── Modal semantics — focus trap while open, restores focus on close ──────
+  const modalRef = useRef<HTMLDivElement>(null)
+  useFocusTrap(modalRef, mixerOpen && everOpened)
+
+  // ── Header description marquee — the description only needs to scroll when
+  // a narrow modal (few tracks loaded → fewer strips → less header width)
+  // can't fit the full sentence. Measured against the live layout rather than
+  // assumed, since strip count changes at runtime. 0 = fits, no marquee. ────
+  const headerDescWrapRef = useRef<HTMLDivElement>(null)
+  const headerDescRef     = useRef<HTMLSpanElement>(null)
+  const [headerDescOverflow, setHeaderDescOverflow] = useState(0)
+  useEffect(() => {
+    const wrap = headerDescWrapRef.current, text = headerDescRef.current
+    if (!wrap || !text) return
+    const measure = () => setHeaderDescOverflow(Math.max(0, text.scrollWidth - wrap.clientWidth))
+    measure()
+    // Self-hosted fonts load async — an initial measure can run against
+    // fallback-font metrics before JetBrains Mono swaps in, under-reporting
+    // the text's real width. Re-measure once fonts settle to catch that.
+    document.fonts?.ready?.then(measure)
+    // Observe the TEXT, not just the wrap: overflow:hidden means the text's
+    // own width changing (font swap, content edits) never changes the wrap's
+    // clientWidth, so a wrap-only observer would never refire for it.
+    const ro = new ResizeObserver(measure)
+    ro.observe(wrap)
+    ro.observe(text)
+    return () => ro.disconnect()
+    // everOpened, not mixerOpen: the component returns null until everOpened
+    // flips true (see line ~299), so the render where mixerOpen first goes
+    // true has no DOM yet — refs are null and this bails out silently. By
+    // the time mixerOpen is stable, this effect's old dependency never
+    // reran, so headerDescOverflow stayed stuck at its initial 0 forever.
+  }, [everOpened])
+
   // ── Drag-to-pan state for the channel strip row ───────────────────────────
   const scrollRef    = useRef<HTMLDivElement>(null)
   const dragStartX   = useRef(0)
@@ -271,12 +301,24 @@ export default function MixerConsole() {
 
   return (
     <div
+      ref={modalRef}
+      role="dialog"
+      aria-modal="true"
+      aria-label="Console Mixer"
       className="orfeo-modal-glow"
       onMouseDown={() => setZIndex(bringToFront())}
       style={{
         position: 'fixed',
         left: pos.x, top: pos.y,
         width: modalW,
+        // ── Viewport width cap — at high channel counts (8 strips ≈1218px)
+        // the computed width can exceed the app's documented 900px minimum
+        // window width and render clipped off-window. The channel strip row
+        // below is flex:1/minWidth:0/overflowX:auto, so once the modal
+        // itself is capped, that row becomes the sole overflow mechanism
+        // (internal horizontal scroll) instead of the whole modal. calc()
+        // tracks live window resizes with no JS listener needed. ───────────
+        maxWidth: 'calc(100vw - 24px)',
         background: 'var(--bg-modal)',
         border: '1px solid var(--border2)',
         borderRadius: 10,
@@ -308,12 +350,39 @@ export default function MixerConsole() {
 
         {/* ── Title ──────────────────────────────────────────────────────── */}
         <span style={{
-          fontFamily: 'JetBrains Mono', fontSize: 'var(--text-sm)', fontWeight: 700,
+          fontFamily: 'var(--font-mono)', fontSize: 'var(--text-sm)', fontWeight: 700,
           color: 'var(--text-amber)', letterSpacing: '0.14em', textTransform: 'uppercase',
-          flex: 1,
+          flexShrink: 0,
         }}>
           Console Mixer
         </span>
+
+        {/* ── Permanent description — centered in whatever space is left between
+            the title and the close button, not a hover tooltip (this one's
+            always visible). When a narrow modal (few tracks) can't fit the
+            full sentence, it marquee-scrolls on hover instead of ellipsis-
+            truncating; when it fits, it just sits centered and static. ──── */}
+        <div
+          ref={headerDescWrapRef}
+          className="orfeo-marquee-track"
+          style={{
+            flex: 1, minWidth: 0, overflow: 'hidden',
+            display: 'flex', justifyContent: headerDescOverflow > 0 ? 'flex-start' : 'center',
+            padding: '0 var(--space-3)',
+          }}
+        >
+          <span
+            ref={headerDescRef}
+            className={headerDescOverflow > 0 ? 'orfeo-marquee-text is-overflowing' : 'orfeo-marquee-text'}
+            style={{
+              fontFamily: 'var(--font-mono)', fontSize: 10,
+              color: 'var(--text-muted)', whiteSpace: 'nowrap',
+              ...(headerDescOverflow > 0 ? { '--marquee-distance': `-${headerDescOverflow}px` } as CSSProperties : {}),
+            }}
+          >
+            Adjust track levels, apply effects and compress overall loudness
+          </span>
+        </div>
 
         {/* ── Close button — bottom-aligned so the dash sits at X level ─────── */}
         <div
@@ -357,7 +426,7 @@ export default function MixerConsole() {
             <div style={{
               display: 'flex', alignItems: 'center', justifyContent: 'center',
               height: 574, flex: 1,
-              color: 'var(--text-dimmest)', fontSize: 12, fontFamily: 'JetBrains Mono',
+              color: 'var(--text-dimmest)', fontSize: 12, fontFamily: 'var(--font-mono)',
               letterSpacing: '0.08em', textTransform: 'uppercase',
             }}>
               No tracks — load a MIDI file

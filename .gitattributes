@@ -1,0 +1,4 @@
+# Minified vendor file: single line, no newlines — autocrlf's CRLF safety
+# check misfires on it (flags it "modified" in git status with zero actual
+# byte diff). -text opts it out of line-ending normalization entirely.
+public/spessasynth_processor.min.js -text

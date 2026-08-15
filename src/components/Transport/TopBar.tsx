@@ -1,4 +1,4 @@
-import { useCallback, useRef, useEffect } from 'react'
+import { useCallback, useRef, useEffect, useState } from 'react'
 import {
   Play, Pause, SkipBack, SkipForward, Repeat,
   FolderOpen, RotateCcw, ChevronUp, ChevronDown,
@@ -22,7 +22,40 @@ import { confirmDiscardDirtyTempoKey } from '../../utils/tempoKeySave'
 // cross-reference a lookup table elsewhere in the file.
 const SKIP_SECS = 5
 
+// ── Windows caption-button overlay inset — the real reserved width for the
+// native –/□/× buttons, read live from the Window Controls Overlay API
+// (Electron's titleBarOverlay in electron/main.ts turns this on) instead of
+// a fixed guess. If the group's right padding equals this exactly, its
+// content's right edge lands precisely where the buttons start — zero
+// horizontal overlap into their hit-region, regardless of vertical position,
+// so the group can stay vertically centered like its siblings instead of
+// needing to duck below the buttons' 40px zone. DPI/monitor changes fire
+// `geometrychange`, so this tracks the real safe zone live. Falls back to a
+// conservative constant if the API isn't present yet (first paint, or a
+// non-Windows build).
+const OVERLAY_INSET_FALLBACK = 174
+
+function useTitlebarOverlayInset(): number {
+  const [inset, setInset] = useState(OVERLAY_INSET_FALLBACK)
+
+  useEffect(() => {
+    const overlay = (navigator as any).windowControlsOverlay
+    if (!overlay) return
+
+    const update = () => {
+      const rect = overlay.getTitlebarAreaRect()
+      if (rect.width > 0) setInset(Math.round(window.innerWidth - rect.width - rect.x))
+    }
+    update()
+    overlay.addEventListener('geometrychange', update)
+    return () => overlay.removeEventListener('geometrychange', update)
+  }, [])
+
+  return inset
+}
+
 export default function TopBar() {
+  const overlayInset = useTitlebarOverlayInset()
   const midi = useStore((s) => s.midi)
   const playbackState = useStore((s) => s.playbackState)
   const currentTime = useStore((s) => s.currentTime)
@@ -144,26 +177,62 @@ export default function TopBar() {
     <div
       className="app-drag-region"
       style={{
-        position: 'relative',
-        height: loopRegionEnabled ? 120 : 96,
+        // ── Height = the extra room this redesign needed: 20px clearance
+        // above the tallest group's own content (center: filename +
+        // transport + scrub, ~87.5px measured) + 20px clearance below it,
+        // before the piano roll. Grown by the same 24px the loop-region
+        // strip adds when present, same as before. ───────────────────────
+        height: loopRegionEnabled ? 152 : 128,
         background: 'var(--bg-deep)',
         borderBottom: 'none',
-        display: 'flex',
+        // ── CSS Grid, three real minmax(0,1fr) columns (not 1fr auto 1fr —
+        // see CLAUDE.md's warning: an auto-sized center column combined with
+        // content-driven side columns can still end up unequal width and
+        // drag the center off true center). The center column is then
+        // structurally centered by grid layout itself, not computed via
+        // position:absolute + left:50%/transform math — that math measured
+        // against the bar's full (asymmetrically-padded) width, which is
+        // exactly what let the ~400px-wide center block overlap the side
+        // groups near the 900px documented minimum window width. ──────────
+        display: 'grid',
+        gridTemplateColumns: 'minmax(0,1fr) minmax(0,1fr) minmax(0,1fr)',
+        // ── Back to center — left (~39px) and right (~40px) vertically
+        // center in the row like they always did. Only the center column
+        // opts out (see its own `alignSelf:'flex-start'` below): its content
+        // is much taller (~87.5px, it carries the transport row), and
+        // center-aligning it put its own top just 4px from the row's edge.
+        // Giving center its own top anchor + top margin — instead of
+        // top-aligning the whole grid — keeps center's breathing room
+        // without pulling left/right out of their normal centered spot. ──
         alignItems: 'center',
-        justifyContent: 'space-between',
-        // 174px right padding clears Win overlay buttons (–□×)
-        padding: '0 174px 0 20px',
+        // Symmetric 20px both sides, 0 top/bottom — the button dodge lives
+        // on the right group's own box (see its comment below), not here,
+        // and left/right's own vertical centering needs the grid's full,
+        // unpadded height to center against (an asymmetric top-only pad
+        // would skew their center off the row's true middle). Center's own
+        // top clearance comes from its own margin instead (see below).
+        padding: '0 20px',
         gap: 0,
         flexShrink: 0,
       }}
     >
-      {/* ── LEFT GROUP: logo + BPM + KEY — independent of center, never shifts transport ── */}
-      <div style={{ display: 'flex', alignItems: 'center', gap: 0, flexShrink: 0 }}>
+      {/* ── LEFT GROUP: logo + BPM + KEY — independent of center, never shifts transport.
+          Measured intrinsic width (~423px) exceeds this column's 1/3 share at the
+          900px documented minimum (~235px content-box thirds) — stretched to the
+          column and given the same internal-horizontal-scroll treatment as the
+          Mixer's channel-strip row (`.mixer-scroll`) rather than letting it spill
+          into the center column, so nothing is hidden/removed, just reachable via
+          scroll at the floor width. No effect at normal window widths, where the
+          column is wide enough that no scrolling occurs. ── */}
+      <div className="mixer-scroll" style={{
+        display: 'flex', alignItems: 'center', gap: 0, flexShrink: 0,
+        justifySelf: 'stretch', minWidth: 0, overflowX: 'auto', overflowY: 'hidden',
+      }}>
       {/* ── LOGO ── */}
       <div className="app-no-drag" style={{ display: 'flex', alignItems: 'center', gap: 10, flexShrink: 0, paddingRight: 'var(--space-3)' }}>
         <span onClick={handleReset} title="Reset" className="app-no-drag" style={{ cursor: 'pointer', display: 'flex', flexDirection: 'column', alignItems: 'flex-start', gap: 2 }}>
           <OrfeoLogo />
-          <span style={{ color: 'var(--text-inactive)', fontSize: 10, fontFamily: 'JetBrains Mono', whiteSpace: 'nowrap' }}>v{__APP_VERSION__}</span>
+          <span style={{ color: 'var(--text-inactive)', fontSize: 10, fontFamily: 'var(--font-mono)', whiteSpace: 'nowrap' }}>v{__APP_VERSION__}</span>
         </span>
         <button
           onClick={openFile}
@@ -183,10 +252,10 @@ export default function TopBar() {
       <div className="app-no-drag" style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '0 var(--space-3)', flexShrink: 0 }}
         title={`Tempo: ${liveBpm || '—'} BPM`}>
         <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start', gap: 1 }}>
-          <span style={{ color: 'var(--text-muted)', fontSize: 8, textTransform: 'uppercase', letterSpacing: '0.1em', fontFamily: 'JetBrains Mono', lineHeight: 1 }}>BPM</span>
-          <span style={{ color: 'var(--text-muted)', fontSize: 8, textTransform: 'uppercase', letterSpacing: '0.1em', fontFamily: 'JetBrains Mono', lineHeight: 1 }}>TEMPO</span>
+          <span style={{ color: 'var(--text-muted)', fontSize: 8, textTransform: 'uppercase', letterSpacing: '0.1em', fontFamily: 'var(--font-mono)', lineHeight: 1 }}>BPM</span>
+          <span style={{ color: 'var(--text-muted)', fontSize: 8, textTransform: 'uppercase', letterSpacing: '0.1em', fontFamily: 'var(--font-mono)', lineHeight: 1 }}>TEMPO</span>
         </div>
-        <span style={{ color: isTempoChanged ? 'var(--text-amber)' : 'var(--text-active)', fontFamily: 'JetBrains Mono', fontSize: 20, fontWeight: 700, minWidth: 36, textAlign: 'right', lineHeight: 1 }}>
+        <span style={{ color: isTempoChanged ? 'var(--text-amber)' : 'var(--text-active)', fontFamily: 'var(--font-mono)', fontSize: 20, fontWeight: 700, minWidth: 36, textAlign: 'right', lineHeight: 1 }}>
           {midi ? liveBpm : '—'}
         </span>
         <div style={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
@@ -214,10 +283,10 @@ export default function TopBar() {
       <div className="app-no-drag" style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '0 var(--space-3)', flexShrink: 0 }}
         title={`Key: ${displayKey}${transpose !== 0 ? ` (${transpose > 0 ? '+' : ''}${transpose} semitones)` : ''}`}>
         <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start', gap: 1 }}>
-          <span style={{ color: 'var(--text-muted)', fontSize: 8, textTransform: 'uppercase', letterSpacing: '0.1em', fontFamily: 'JetBrains Mono', lineHeight: 1 }}>KEY</span>
-          <span style={{ color: 'var(--text-muted)', fontSize: 8, textTransform: 'uppercase', letterSpacing: '0.1em', fontFamily: 'JetBrains Mono', lineHeight: 1 }}>TRANSPOSE</span>
+          <span style={{ color: 'var(--text-muted)', fontSize: 8, textTransform: 'uppercase', letterSpacing: '0.1em', fontFamily: 'var(--font-mono)', lineHeight: 1 }}>KEY</span>
+          <span style={{ color: 'var(--text-muted)', fontSize: 8, textTransform: 'uppercase', letterSpacing: '0.1em', fontFamily: 'var(--font-mono)', lineHeight: 1 }}>TRANSPOSE</span>
         </div>
-        <span style={{ color: transpose !== 0 ? 'var(--text-amber)' : 'var(--text-active)', fontFamily: 'JetBrains Mono', fontSize: 20, fontWeight: 700, minWidth: 32, textAlign: 'right', lineHeight: 1 }}>
+        <span style={{ color: transpose !== 0 ? 'var(--text-amber)' : 'var(--text-active)', fontFamily: 'var(--font-mono)', fontSize: 20, fontWeight: 700, minWidth: 32, textAlign: 'right', lineHeight: 1 }}>
           {displayKey}
         </span>
         <div style={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
@@ -243,12 +312,29 @@ export default function TopBar() {
 
       </div>
 
-      {/* ── CENTER: transport + scrub + filename — absolutely centered on the topbar
-          midpoint, permanently fixed; left/right groups never move it. ── */}
+      {/* ── CENTER: transport + scrub + filename — its own grid column, so it's
+          genuinely centered between the other two regardless of their content
+          width; stretches to fill the (equal, minmax(0,1fr)) column instead of
+          a fixed 400px box, so at the 900px floor it shrinks with the column
+          rather than overflowing into the side groups. alignSelf:'flex-start'
+          + its own marginTop opts this column out of the grid's
+          alignItems:'center' (which left/right use) — center's content is
+          tall enough (~87.5px) that center-aligning it left almost no gap
+          above the transport row; anchoring it to the top with an explicit
+          20px margin instead gives it the same breathing room without
+          moving left/right off their normal centered spot. ── */}
       <div className="app-no-drag" style={{
-        position: 'absolute', left: '50%', top: '50%', transform: 'translate(-50%, -50%)',
-        display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 5, width: 400,
+        justifySelf: 'stretch', minWidth: 0, alignSelf: 'flex-start', marginTop: 20,
+        display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 5,
       }}>
+        {/* Filename — moved above the transport row so the center column's
+            topmost line is comparably light (small text) to the left/right
+            groups' top lines, now that all three groups share the same
+            top-aligned start (see the grid's alignItems comment above). */}
+        <span style={{ color: 'var(--text-default)', fontSize: 'var(--text-xs)', fontFamily: 'var(--font-ui)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: 340 }}
+          title={midi?.fileName}>
+          {midi ? midi.fileName.replace(/\.(mid|midi)$/i, '') : 'No file open'}
+        </span>
         {/* Transport */}
         <div style={{ display: 'flex', alignItems: 'center', gap: 2 }}>
           <TBtn onClick={stop} disabled={!midi} title="Go to start"><SkipBack size={16} strokeWidth={1.5} /></TBtn>
@@ -282,7 +368,7 @@ export default function TopBar() {
               <span style={{
                 position: 'absolute', left: '100%', top: '50%', transform: 'translateY(-50%)',
                 marginLeft: 4,
-                color: 'var(--text-amber)', fontSize: 9, fontFamily: 'Inter, sans-serif',
+                color: 'var(--text-amber)', fontSize: 9, fontFamily: 'var(--font-ui)',
                 whiteSpace: 'nowrap', letterSpacing: '0.04em',
                 opacity: 0.85, pointerEvents: 'none', userSelect: 'none',
               }}>
@@ -297,7 +383,7 @@ export default function TopBar() {
         <div style={{ display: 'flex', flexDirection: 'column', gap: 5, width: 'min(100%, 400px)', position: 'relative' }}>
           {/* Scrub */}
           <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-            <span style={{ color: 'var(--text-muted)', fontFamily: 'JetBrains Mono', fontSize: 10, minWidth: 34, textAlign: 'right', flexShrink: 0 }}>
+            <span style={{ color: 'var(--text-muted)', fontFamily: 'var(--font-mono)', fontSize: 10, minWidth: 34, textAlign: 'right', flexShrink: 0 }}>
               {formatTime(currentTime)}
             </span>
             <input
@@ -306,22 +392,45 @@ export default function TopBar() {
               className="scrub-slider" style={{ flex: 1, maxWidth: 320 }} disabled={!midi}
               title="Scrub position"
             />
-            <span style={{ color: 'var(--text-muted)', fontFamily: 'JetBrains Mono', fontSize: 10, minWidth: 34, flexShrink: 0 }}>
+            <span style={{ color: 'var(--text-muted)', fontFamily: 'var(--font-mono)', fontSize: 10, minWidth: 34, flexShrink: 0 }}>
               {formatTime(duration)}
             </span>
           </div>
           {/* Loop Region Strip — visible only when enabled in Settings */}
           {loopRegionEnabled && <LoopRegionStrip />}
         </div>
-        {/* Filename */}
-        <span style={{ color: 'var(--text-default)', fontSize: 'var(--text-xs)', fontFamily: 'Inter', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: 340 }}
-          title={midi?.fileName}>
-          {midi ? midi.fileName.replace(/\.(mid|midi)$/i, '') : 'No file open'}
-        </span>
       </div>
 
-      {/* ── TIME + METRONOME + MIDI — bottoms aligned ── */}
-      <div className="app-no-drag" style={{ display: 'flex', alignItems: 'flex-end', gap: 0, flexShrink: 0 }}>
+      {/* ── TIME + METRONOME + MIDI — bottoms aligned. Same overflow treatment as
+          the left group above: intrinsic width (~291px, more with the bar
+          counter once a file's loaded) exceeds this column's ~235px share at
+          the 900px floor, so it scrolls internally rather than spilling into
+          the center column. This group was previously right-anchored
+          (justifySelf:'end', flush against the window's right padding) — a
+          plain overflowX:'auto' would pack content flush *left* instead
+          (LTR overflow only accumulates rightward), visibly relocating the
+          whole group at every window width, and MIDI/volume controls that
+          overflow leftward off a flex-end box aren't reachable by scrolling
+          at all (scrollWidth==clientWidth in that configuration — verified
+          via CDP at 900x608, the Volume knob was invisible and unscrollable).
+          direction:'rtl' on the scroll container + direction:'ltr' on the
+          inner row is the standard fix: default (unscrolled) view still
+          shows the group's right-anchored end (unchanged from before at
+          normal widths), and the overflow that used to spill into the
+          center column is now reachable by scrolling left instead. ── */}
+      <div className="app-no-drag mixer-scroll" style={{
+        justifySelf: 'stretch', minWidth: 0, overflowX: 'auto', overflowY: 'hidden', direction: 'rtl',
+        // ── Top-aligned like its siblings (inherits the grid's own
+        // alignItems:'flex-start') — stays flush-right against the real Win
+        // overlay button boundary via paddingRight (overlayInset is measured
+        // from the window's true right edge; the grid container itself only
+        // contributes a flat 20px here, so this makes up the rest), not by
+        // ducking below the buttons' 40px zone. Content's right edge lands
+        // exactly where the buttons start, so there's no horizontal overlap
+        // into their hit-region at any vertical position.
+        paddingRight: Math.max(overlayInset - 20, 0),
+      }}>
+      <div style={{ display: 'flex', alignItems: 'flex-end', gap: 0, flexShrink: 0, direction: 'ltr', width: 'max-content' }}>
 
         {/* VOLUME */}
         <VolumeKnob />
@@ -338,14 +447,14 @@ export default function TopBar() {
                 background: 'var(--bg-tile)', borderRadius: 4, padding: '2px 6px',
                 display: 'flex', alignItems: 'baseline', gap: 0,
               }}>
-                <span style={{ color: 'var(--topbar-bar-number)', fontFamily: 'JetBrains Mono', fontSize: 'var(--text-sm)', fontWeight: 700, lineHeight: 1, minWidth: '3ch', textAlign: 'right', display: 'inline-block' }}>
+                <span style={{ color: 'var(--topbar-bar-number)', fontFamily: 'var(--font-mono)', fontSize: 'var(--text-sm)', fontWeight: 700, lineHeight: 1, minWidth: '3ch', textAlign: 'right', display: 'inline-block' }}>
                   {currentBar}
                 </span>
-                <span style={{ color: 'var(--topbar-bar-total)', fontFamily: 'JetBrains Mono', fontSize: 'var(--text-sm)', lineHeight: 1 }}>
+                <span style={{ color: 'var(--topbar-bar-total)', fontFamily: 'var(--font-mono)', fontSize: 'var(--text-sm)', lineHeight: 1 }}>
                   |{totalBars}
                 </span>
               </div>
-              <span style={{ color: 'var(--topbar-bar-label)', fontSize: 8, fontFamily: 'Inter', textTransform: 'uppercase', letterSpacing: '0.1em', lineHeight: 1, marginTop: 6 }}>
+              <span style={{ color: 'var(--topbar-bar-label)', fontSize: 8, fontFamily: 'var(--font-ui)', textTransform: 'uppercase', letterSpacing: '0.1em', lineHeight: 1, marginTop: 6 }}>
                 BAR
               </span>
             </div>
@@ -359,18 +468,18 @@ export default function TopBar() {
         >
           {midi ? (
             <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', lineHeight: 1 }}>
-              <span style={{ color: 'var(--text-active)', fontFamily: 'JetBrains Mono', fontSize: 'var(--text-base)', fontWeight: 700 }}>
+              <span style={{ color: 'var(--text-active)', fontFamily: 'var(--font-mono)', fontSize: 'var(--text-base)', fontWeight: 700 }}>
                 {midi.timeSignatureNumerator ?? 4}
               </span>
               <div style={{ width: 14, height: 1, background: 'var(--topbar-timesig-divider)', margin: '2px 0' }} />
-              <span style={{ color: 'var(--text-active)', fontFamily: 'JetBrains Mono', fontSize: 'var(--text-base)', fontWeight: 700 }}>
+              <span style={{ color: 'var(--text-active)', fontFamily: 'var(--font-mono)', fontSize: 'var(--text-base)', fontWeight: 700 }}>
                 {midi.timeSignatureDenominator ?? 4}
               </span>
             </div>
           ) : (
-            <span style={{ color: 'var(--text-muted)', fontFamily: 'JetBrains Mono', fontSize: 20, fontWeight: 700, lineHeight: 1 }}>—</span>
+            <span style={{ color: 'var(--text-muted)', fontFamily: 'var(--font-mono)', fontSize: 20, fontWeight: 700, lineHeight: 1 }}>—</span>
           )}
-          <span style={{ color: 'var(--text-muted)', fontSize: 8, fontFamily: 'JetBrains Mono', textTransform: 'uppercase', letterSpacing: '0.1em', lineHeight: 1, marginTop: 6 }}>TIME</span>
+          <span style={{ color: 'var(--text-muted)', fontSize: 8, fontFamily: 'var(--font-mono)', textTransform: 'uppercase', letterSpacing: '0.1em', lineHeight: 1, marginTop: 6 }}>TIME</span>
         </div>
 
         <div style={{ width: 1, height: 'var(--button-height)', background: 'var(--border)', alignSelf: 'flex-end', marginBottom: 12 }} />
@@ -391,7 +500,7 @@ export default function TopBar() {
             <path d="m15.05 5.7-.218-.691a3 3 0 0 0-5.663 0L4.418 19.695A1 1 0 0 0 5.37 21h13.253a1 1 0 0 0 .951-1.31L18.45 16.2" />
             <circle cx="20" cy="9" r="2" />
           </svg>
-          <span style={{ fontSize: 8, fontFamily: 'JetBrains Mono', letterSpacing: '0.08em', lineHeight: 1, marginTop: 6 }}>
+          <span style={{ fontSize: 8, fontFamily: 'var(--font-mono)', letterSpacing: '0.08em', lineHeight: 1, marginTop: 6 }}>
             {metronomeEnabled ? 'ON' : 'OFF'}
           </span>
         </button>
@@ -404,12 +513,13 @@ export default function TopBar() {
           style={{ flexShrink: 0, display: 'flex', flexDirection: 'column', alignItems: 'flex-start', padding: '0 14px', color: midiDeviceConnected ? 'var(--topbar-midi-on)' : 'var(--topbar-midi-off)' }}
         >
           <MidiIcon size={24} color={midiDeviceConnected ? 'var(--topbar-midi-on)' : 'var(--topbar-midi-off)'} />
-          <span style={{ fontSize: midiDeviceConnected ? 8 : 7, fontFamily: 'JetBrains Mono', letterSpacing: midiDeviceConnected ? '0.08em' : '0.05em', color: midiDeviceConnected ? 'var(--topbar-midi-on)' : 'var(--topbar-midi-off)', lineHeight: 1, marginTop: 6, whiteSpace: 'nowrap' }}>
+          <span style={{ fontSize: midiDeviceConnected ? 8 : 7, fontFamily: 'var(--font-mono)', letterSpacing: midiDeviceConnected ? '0.08em' : '0.05em', color: midiDeviceConnected ? 'var(--topbar-midi-on)' : 'var(--topbar-midi-off)', lineHeight: 1, marginTop: 6, whiteSpace: 'nowrap' }}>
             {midiDeviceConnected ? (midiDeviceName?.split(' ')[0] ?? 'MIDI') : 'CONNECT A KEYBOARD'}
           </span>
         </div>
 
 
+      </div>
       </div>
     </div>
   )

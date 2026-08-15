@@ -108,7 +108,7 @@ export default function KeyboardControls() {
                 background: 'transparent',
                 color: keyboardSize === size ? 'var(--text-amber)' : 'var(--text-muted)',
                 border: 'none',
-                fontFamily: 'JetBrains Mono', fontSize: 'var(--text-sm)', fontWeight: 600,
+                fontFamily: 'var(--font-mono)', fontSize: 'var(--text-sm)', fontWeight: 600,
                 cursor: 'pointer', transition: 'color 0.15s',
               }}
               onMouseEnter={e => { if (keyboardSize !== size) e.currentTarget.style.color = 'var(--text-key-hover)' }}
@@ -133,7 +133,7 @@ export default function KeyboardControls() {
             cursor: isDocked && undockBlocked ? 'default' : 'pointer',
             opacity: isDocked && undockBlocked ? 0.35 : 1,
             color: isDocked ? 'var(--text-muted)' : 'var(--text-amber)',
-            fontSize: 'var(--text-xs)', fontFamily: 'Inter',
+            fontSize: 'var(--text-xs)', fontFamily: 'var(--font-ui)',
             padding: '2px 6px', borderRadius: 4,
             transition: 'color 0.15s',
             position: 'relative', zIndex: 3,
@@ -160,7 +160,7 @@ export default function KeyboardControls() {
           line (below) is actively rendering; the line takes this spot instead. ── */}
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', justifySelf: 'center', minWidth: 0 }}>
         {!practiceLineActive && !presentationMode && (
-          <span style={{ fontSize: 9, color: 'var(--text-faint)', fontFamily: 'Inter', userSelect: 'none', whiteSpace: 'nowrap' }}>
+          <span style={{ fontSize: 9, color: 'var(--text-faint)', fontFamily: 'var(--font-ui)', userSelect: 'none', whiteSpace: 'nowrap' }}>
             Shift+Click three keys or more to build &amp; lock a chord
           </span>
         )}
@@ -187,7 +187,7 @@ export default function KeyboardControls() {
         }
         const textStyle: CSSProperties = {
           fontSize: 8, fontWeight: 700, letterSpacing: '0.16em',
-          color: AMBER, fontFamily: 'Inter', textTransform: 'uppercase',
+          color: AMBER, fontFamily: 'var(--font-ui)', textTransform: 'uppercase',
           userSelect: 'none',
         }
         return (
@@ -254,7 +254,7 @@ function NoteCounter() {
   const midi = useStore((s) => s.midi)
   if (!midi) return null
   return (
-    <span style={{ color: 'var(--text-inactive)', fontSize: 10, fontFamily: 'JetBrains Mono' }} title="Total notes in file">
+    <span style={{ color: 'var(--text-inactive)', fontSize: 10, fontFamily: 'var(--font-mono)' }} title="Total notes in file">
       {midi.noteCount.toLocaleString()} notes · {midi.tracks.length} tracks
     </span>
   )

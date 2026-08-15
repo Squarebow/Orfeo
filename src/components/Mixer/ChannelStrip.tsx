@@ -2,6 +2,7 @@ import { useState, useRef, useLayoutEffect, useEffect, useCallback } from 'react
 import { Eye, GripVertical } from 'lucide-react'
 import { useStore } from '../../store'
 import MixerKnob from './MixerKnob'
+import Tooltip, { TooltipBox } from '../Tooltip'
 import { MarqueeText } from '../MarqueeText'
 import {
   setChannelChorus,
@@ -56,27 +57,40 @@ function EyeClosed({ size = 12 }: { size?: number }) {
   )
 }
 
-// ── IBtn — icon button, matches TrackPanel's IBtn exactly ────────────────────
-function IBtn({ children, onClick, active, title, activeColor = 'var(--text-amber)' }: {
+// ── IBtn — icon button, matches TrackPanel's IBtn exactly. Stylish tooltip
+// (title + description) tracked via React state; the color hover stays a
+// direct DOM mutation (unchanged, cheap) since it doesn't need a re-render. ─
+function IBtn({ children, onClick, active, title, description, activeColor = 'var(--text-amber)' }: {
   children: React.ReactNode
   onClick: () => void
   active?: boolean
   title?: string
+  description?: string
   activeColor?: string
 }) {
+  const ref = useRef<HTMLButtonElement>(null)
+  const [hover, setHover] = useState(false)
   return (
     <button
-      onClick={onClick} title={title}
+      ref={ref}
+      onClick={onClick}
       style={{
         display: 'flex', alignItems: 'center', justifyContent: 'center',
         width: 26, height: 26, background: 'var(--bg-deep)', border: 'none',
         cursor: 'pointer', borderRadius: 4, transition: 'color 0.1s',
         color: active ? activeColor : 'var(--text-icon-inactive)', flexShrink: 0,
       }}
-      onMouseEnter={e => { if (!active) e.currentTarget.style.color = 'var(--text-icon-hover)' }}
-      onMouseLeave={e => { e.currentTarget.style.color = active ? activeColor : 'var(--text-icon-inactive)' }}
+      onMouseEnter={e => { if (!active) e.currentTarget.style.color = 'var(--text-icon-hover)'; setHover(true) }}
+      onMouseLeave={e => { e.currentTarget.style.color = active ? activeColor : 'var(--text-icon-inactive)'; setHover(false) }}
     >
       {children}
+      {title && (
+        <TooltipBox
+          anchorRect={hover ? ref.current?.getBoundingClientRect() ?? null : null}
+          content={{ title, description }}
+          visible={hover}
+        />
+      )}
     </button>
   )
 }
@@ -121,6 +135,9 @@ export default function ChannelStrip({ trackIndex, locked, isDragging, onDragSta
   const track        = useStore(s => s.tracks.find(t => t.index === trackIndex))
   const updateTrack  = useStore(s => s.updateTrack)
   const midi         = useStore(s => s.midi)
+  // Console stays mounted (display:none) after first open so internal state
+  // survives hide/show — gate the VU rAF loop below on this, not just mount.
+  const mixerOpen    = useStore(s => s.mixerOpen)
 
   const parsedTrack = midi?.tracks.find((t: any) => t.index === trackIndex)
 
@@ -229,7 +246,11 @@ export default function ChannelStrip({ trackIndex, locked, isDragging, onDragSta
   }, [trackIndex])
 
   // ── rAF decay loop — decays level each frame, redraws segmented bars ────────
+  // Gated on mixerOpen: this component stays mounted (display:none) after
+  // first open, and rAF keeps firing regardless of CSS visibility — without
+  // this guard the canvas fill-rect loop runs forever after the Mixer closes.
   useEffect(() => {
+    if (!mixerOpen) return
     const loop = () => {
       vuLevel.current = Math.max(0, vuLevel.current - 0.013)
       if (vuRef.current) {
@@ -239,7 +260,7 @@ export default function ChannelStrip({ trackIndex, locked, isDragging, onDragSta
     }
     rafRef.current = requestAnimationFrame(loop)
     return () => { if (rafRef.current) cancelAnimationFrame(rafRef.current) }
-  }, [vuSegs, vuCanvasH])
+  }, [vuSegs, vuCanvasH, mixerOpen])
 
   // ── Fader drag ────────────────────────────────────────────────────────────
   const handleFaderMouseDown = useCallback((e: React.MouseEvent) => {
@@ -301,12 +322,12 @@ export default function ChannelStrip({ trackIndex, locked, isDragging, onDragSta
           />
         </div>
         {!locked && (
+          <Tooltip title="Reorder" description="Drag this strip left/right to change its position in the Mixer">
           <button
             draggable
             onMouseDown={(e) => e.stopPropagation()}
             onDragStart={(e) => { e.dataTransfer.effectAllowed = 'move'; e.dataTransfer.setData('text/plain', ''); onDragStart?.() }}
             onDragEnd={onDragEnd}
-            title="Drag to reorder"
             style={{
               background: 'none', border: 'none', cursor: 'grab',
               color: 'var(--text-inactive)', display: 'flex', alignItems: 'center',
@@ -315,6 +336,7 @@ export default function ChannelStrip({ trackIndex, locked, isDragging, onDragSta
           >
             <GripVertical size={11} />
           </button>
+          </Tooltip>
         )}
       </div>
 
@@ -328,7 +350,7 @@ export default function ChannelStrip({ trackIndex, locked, isDragging, onDragSta
           value={chorus} onChange={handleChorus}
           accentColor="var(--knob-chorus)" size={52}
           disabled={knobsDisabled} label="Chorus"
-          title="Chorus — thickens the tone by layering slightly detuned copies of it"
+          title="Chorus" description="Thickens the tone by layering slightly detuned copies of it"
         />
       </div>
 
@@ -342,7 +364,7 @@ export default function ChannelStrip({ trackIndex, locked, isDragging, onDragSta
           value={reverb} onChange={handleReverb}
           accentColor="var(--knob-reverb)" size={52}
           disabled={knobsDisabled} label="Reverb"
-          title="Reverb — adds room/space ambience behind the channel"
+          title="Reverb" description="Adds room/space ambience behind the channel"
         />
       </div>
 
@@ -354,7 +376,7 @@ export default function ChannelStrip({ trackIndex, locked, isDragging, onDragSta
         gap: 6,
       }}>
         <span style={{
-          fontSize: 9, fontFamily: 'JetBrains Mono', letterSpacing: '0.06em',
+          fontSize: 9, fontFamily: 'var(--font-mono)', letterSpacing: '0.06em',
           color: 'var(--text-dimmest)', fontWeight: 700, lineHeight: 1,
           marginBottom: 14,
         }}>L</span>
@@ -362,10 +384,10 @@ export default function ChannelStrip({ trackIndex, locked, isDragging, onDragSta
           value={pan} onChange={handlePan}
           accentColor="var(--text-amber)" size={52}
           disabled={knobsDisabled} bipolar label="Pan"
-          title="Pan — positions the channel left/right in the stereo field"
+          title="Pan" description="Positions the channel left/right in the stereo field"
         />
         <span style={{
-          fontSize: 9, fontFamily: 'JetBrains Mono', letterSpacing: '0.06em',
+          fontSize: 9, fontFamily: 'var(--font-mono)', letterSpacing: '0.06em',
           color: 'var(--text-dimmest)', fontWeight: 700, lineHeight: 1,
           marginBottom: 14,
         }}>R</span>
@@ -392,20 +414,23 @@ export default function ChannelStrip({ trackIndex, locked, isDragging, onDragSta
         <IBtn
           onClick={() => updateTrack(trackIndex, { muted: !muted })}
           active={muted} title={muted ? 'Unmute' : 'Mute'}
+          description={muted ? 'Unmute this track' : 'Silence this track — its notes still show on the Piano Roll'}
           activeColor="var(--status-error)"
         >
-          <span style={{ fontSize: 14, fontWeight: 700, fontFamily: 'JetBrains Mono', lineHeight: 1 }}>M</span>
+          <span style={{ fontSize: 14, fontWeight: 700, fontFamily: 'var(--font-mono)', lineHeight: 1 }}>M</span>
         </IBtn>
         <IBtn
           onClick={() => updateTrack(trackIndex, { solo: !solo })}
           active={solo} title={solo ? 'Unsolo' : 'Solo'}
+          description={solo ? 'Unsolo — hear every unmuted track again' : 'Hear only this track (and any other soloed ones)'}
           activeColor="var(--text-amber)"
         >
-          <span style={{ fontSize: 14, fontWeight: 700, fontFamily: 'JetBrains Mono', lineHeight: 1 }}>S</span>
+          <span style={{ fontSize: 14, fontWeight: 700, fontFamily: 'var(--font-mono)', lineHeight: 1 }}>S</span>
         </IBtn>
         <IBtn
           onClick={() => updateTrack(trackIndex, { visible: !visible })}
           active={true} title={visible ? 'Hide in roll' : 'Show in roll'}
+          description={visible ? 'Hide this track’s notes on the Piano Roll' : 'Show this track’s notes on the Piano Roll'}
           activeColor={visible ? 'var(--status-success-text)' : 'var(--status-error-hover)'}
         >
           {visible ? <Eye size={14} /> : <EyeClosed size={14} />}
@@ -413,6 +438,7 @@ export default function ChannelStrip({ trackIndex, locked, isDragging, onDragSta
         <IBtn
           onClick={() => updateTrack(trackIndex, { showOnKeyboard: !showOnKeyboard })}
           active={showOnKeyboard} title={showOnKeyboard ? 'Lit on keyboard' : 'Not lit on keyboard'}
+          description={showOnKeyboard ? 'This track’s notes light up the on-screen keyboard' : 'This track’s notes won’t light up the on-screen keyboard'}
           activeColor="var(--text-amber)"
         >
           {/* Mini piano SVG — vectorEffect non-scaling-stroke preserved at all sizes;
@@ -483,6 +509,27 @@ export default function ChannelStrip({ trackIndex, locked, isDragging, onDragSta
           {/* Fader handle — amber pill with score lines; slides on mute */}
           <div
             onMouseDown={handleFaderMouseDown}
+            tabIndex={muted ? -1 : 0}
+            role="slider"
+            aria-label="Channel volume"
+            aria-valuemin={0}
+            aria-valuemax={1}
+            aria-valuenow={volume}
+            aria-disabled={muted}
+            onKeyDown={e => {
+              if (muted) return
+              const step = (e.shiftKey ? 5 : 1) * 0.02
+              let delta = 0
+              if (e.key === 'ArrowUp' || e.key === 'ArrowRight') delta = step
+              else if (e.key === 'ArrowDown' || e.key === 'ArrowLeft') delta = -step
+              else if (e.key === 'Home') { e.preventDefault(); updateTrack(trackIndex, { volume: 0 }); setChannelVolume(midiChannel, 0); return }
+              else if (e.key === 'End') { e.preventDefault(); updateTrack(trackIndex, { volume: 1 }); setChannelVolume(midiChannel, 1); return }
+              else return
+              e.preventDefault()
+              const v = Math.max(0, Math.min(1, volume + delta))
+              updateTrack(trackIndex, { volume: v })
+              setChannelVolume(midiChannel, v)
+            }}
             style={{
               position: 'absolute',
               left: '50%', transform: 'translateX(-50%)',
@@ -516,7 +563,7 @@ export default function ChannelStrip({ trackIndex, locked, isDragging, onDragSta
             position: 'absolute',
             left: '50%', transform: 'translateX(-50%)',
             top: 0, zIndex: 1,
-            fontSize: 'var(--text-xs)', fontFamily: 'JetBrains Mono',
+            fontSize: 'var(--text-xs)', fontFamily: 'var(--font-mono)',
             color: 'var(--text-dim)',
             background: 'var(--bg-tile)', borderRadius: 'var(--radius-sm)',
             padding: '1px 5px', letterSpacing: '0.02em',
@@ -537,7 +584,7 @@ export default function ChannelStrip({ trackIndex, locked, isDragging, onDragSta
         <div style={{ width: VU_W, flexShrink: 0 }} />
         <div style={{ flex: 1, display: 'flex', alignItems: 'flex-start', justifyContent: 'center' }}>
           <span style={{
-            fontSize: 8, fontFamily: 'JetBrains Mono', letterSpacing: '0.1em',
+            fontSize: 8, fontFamily: 'var(--font-mono)', letterSpacing: '0.1em',
             textTransform: 'uppercase', color: 'var(--text-dimmest)',
           }}>
             Volume
@@ -552,7 +599,7 @@ export default function ChannelStrip({ trackIndex, locked, isDragging, onDragSta
         padding: '0 6px',
       }}>
         <span style={{
-          fontSize: 8, fontFamily: 'JetBrains Mono', letterSpacing: '0.08em',
+          fontSize: 8, fontFamily: 'var(--font-mono)', letterSpacing: '0.08em',
           color: 'var(--text-dimmest)',
           textTransform: 'uppercase',
           overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',

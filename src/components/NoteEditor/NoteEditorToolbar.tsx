@@ -1,4 +1,4 @@
-import { useEffect, useState, useReducer, useRef, useCallback } from 'react'
+import { useEffect, useState, useReducer, useRef, useCallback, useMemo } from 'react'
 import { PenLine, SquareDashed, CircleDashed, Hand, WholeWord, Music4, Save } from 'lucide-react'
 import { useStore } from '../../store'
 import { NES, buildNoteEditSummary, type NETool } from '../../utils/noteEditorState'
@@ -51,7 +51,11 @@ export default function NoteEditorToolbar() {
   const unsoloTrackForEdit      = useStore(s => s.unsoloTrackForEdit)
   const soloTrackForEdit        = useStore(s => s.soloTrackForEdit)
   const noteEditorSoloTrackIndex = useStore(s => s.noteEditorSoloTrackIndex)
-  const tracks                  = useStore(s => s.tracks)
+  // ── Display-relevant signature, not the live `tracks` array — same root
+  // cause as TrackPanel.tsx/etc: the only read below (line ~402) is group/
+  // isDrum, but every fader/pan/chorus/reverb drag replaced the whole array.
+  const trackSignature = useStore(s => s.tracks.map(t => `${t.index}:${t.group ?? ''}:${t.isDrum}`).join('|'))
+  const tracks                  = useMemo(() => useStore.getState().tracks, [trackSignature])
   const velocityPanelOpen       = useStore(s => s.velocityPanelOpen)
   const setVelocityPanelOpen    = useStore(s => s.setVelocityPanelOpen)
 
@@ -444,6 +448,8 @@ export default function NoteEditorToolbar() {
   return (
     <div
       ref={panelRef}
+      role="toolbar"
+      aria-label="Note Editor toolbar"
       className="orfeo-modal-glow"
       style={{
         position: 'fixed',
@@ -571,14 +577,18 @@ export default function NoteEditorToolbar() {
           <button
             ref={quantizeBtnRef}
             onClick={openQuantize}
+            aria-haspopup="listbox"
+            aria-expanded={quantizeOpen}
             {...hintHandlers('Quantize grid — set the snap resolution')}
-            style={{ ...btnBase, minWidth: 44, gap: 6, fontFamily: "'JetBrains Mono', monospace", fontSize: 10 }}
+            style={{ ...btnBase, minWidth: 44, gap: 6, fontFamily: 'var(--font-mono)', fontSize: 10 }}
           >
             <Music4 size={12} color="var(--text-amber)" />
             <span style={{ display: 'inline-block', width: 24, textAlign: 'left' }}>{QUANT_LABELS[quantize]}</span>
           </button>
           {quantizeOpen && (
             <div
+              role="listbox"
+              aria-label="Quantize grid resolution"
               onMouseDown={e => e.stopPropagation()}
               style={{
                 position: 'fixed',
@@ -592,10 +602,12 @@ export default function NoteEditorToolbar() {
               {([4, 8, 16, 32] as const).map(d => (
                 <div
                   key={d}
+                  role="option"
+                  aria-selected={d === quantize}
                   onClick={() => setQuantize(d)}
                   style={{
                     padding: '6px 14px', cursor: 'pointer', fontSize: 12,
-                    fontFamily: "'JetBrains Mono', monospace",
+                    fontFamily: 'var(--font-mono)',
                     color:      d === quantize ? 'var(--text-amber)' : 'var(--text-default)',
                     background: d === quantize ? 'var(--accent-amber-selected-bg)' : 'transparent',
                   }}
@@ -706,7 +718,7 @@ const rowLabelStyle: React.CSSProperties = {
 
 const btnBase: React.CSSProperties = {
   height: 26, padding: '0 8px', fontSize: 11,
-  fontFamily: "'Inter', system-ui, sans-serif",
+  fontFamily: 'var(--font-ui)',
   background: 'transparent', border: '1px solid var(--state-hover-bg)',
   borderRadius: 'var(--radius-sm)',
   color: 'var(--text-default)',

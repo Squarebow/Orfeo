@@ -37,14 +37,15 @@ const DRAG_THRESHOLD   = 4
 const VELOCITY_BAR_W   = 5
 const VELOCITY_LANE_HEIGHT_BOOST = 60   // extra px on top of the playhead-derived height
 
-// ── Canvas/PixiJS colors resolved from CSS custom properties ─────────────────
+// ── Canvas/PixiJS colors + fonts resolved from CSS custom properties ─────────
 // PixiJS Graphics.fill({color}) needs a numeric 0xRRGGBB and Canvas2D ctx.fillStyle
 // needs a literal color string — neither can resolve a var() string directly, so
 // these are resolved once from index.css tokens via getComputedStyle (see
 // resolvePianoRollColorsFromCSS, called on mount) — index.css stays the single
 // source of truth; these are just its canvas-usable cache. Defaults here only
 // cover the sliver of first render before the mount effect runs. Same pattern as
-// ChannelStrip.tsx / MasterStrip.tsx.
+// ChannelStrip.tsx / MasterStrip.tsx. FONT_UI_STR/FONT_MONO_STR exist for the
+// same reason — ctx.font can't resolve var(--font-ui)/var(--font-mono) either.
 let HAND_LH_COLOR       = 0x6270a5   // --hand-lh
 let HAND_RH_COLOR       = 0xcb636c   // --hand-rh
 let SEL_NOTE_COLOR       = 0xffffff   // --note-select-outline — selected/dragged/edited/new notes
@@ -57,6 +58,8 @@ let NOTE_HIGHLIGHT_COLOR = 0xffffff   // --text-white (near-match snap) — note
 let CANVAS_BG_COLOR      = 0x0f0f12   // --bg-modal-header (near-match snap) — non-warm PixiJS floor
 let CANVAS_BG_WARM_COLOR = 0x12100e   // --bg-warm — warm-theme PixiJS floor
 
+let FONT_UI_STR                = "'Inter', sans-serif"           // --font-ui
+let FONT_MONO_STR              = "'JetBrains Mono', monospace"   // --font-mono
 let HAND_AMBER_HEX_STR         = '#e8a027'   // --text-amber (string form, for Canvas2D fillStyle)
 let BARLINE_COLOR             = '#1e1e38'   // --pianoroll-barline
 let BAR_PILL_BG_COLOR         = '#0d0d18'   // --bg-row (near-match snap)
@@ -92,6 +95,8 @@ function resolvePianoRollColorsFromCSS() {
   CANVAS_BG_COLOR      = readNum('--bg-modal-header', CANVAS_BG_COLOR)
   CANVAS_BG_WARM_COLOR = readNum('--bg-warm', CANVAS_BG_WARM_COLOR)
 
+  FONT_UI_STR              = readStr('--font-ui', FONT_UI_STR)
+  FONT_MONO_STR            = readStr('--font-mono', FONT_MONO_STR)
   HAND_AMBER_HEX_STR       = readStr('--text-amber', HAND_AMBER_HEX_STR)
   BARLINE_COLOR            = readStr('--pianoroll-barline', BARLINE_COLOR)
   BAR_PILL_BG_COLOR        = readStr('--bg-row', BAR_PILL_BG_COLOR)
@@ -366,10 +371,10 @@ function LoopOverlay() {
           display: 'flex', flexDirection: 'column', gap: 2,
           whiteSpace: 'nowrap',
         }}>
-          <span style={{ fontFamily: 'Inter, sans-serif', fontSize: 11, color: 'var(--accent-amber-tooltip-text)' }}>
+          <span style={{ fontFamily: 'var(--font-ui)', fontSize: 11, color: 'var(--accent-amber-tooltip-text)' }}>
             Loop region set
           </span>
-          <span style={{ fontFamily: 'Inter, sans-serif', fontSize: 11, color: 'var(--text-tooltip-secondary)' }}>
+          <span style={{ fontFamily: 'var(--font-ui)', fontSize: 11, color: 'var(--text-tooltip-secondary)' }}>
             Drag to reorder, right-click to clear
           </span>
         </div>
@@ -909,10 +914,21 @@ export default function PianoRoll() {
           // glance without needing to check color/blink state too.
           if (noteEditorActive && note.noteRef && NES.newNotes.has(note.noteRef)) continue
 
-          notes.roundRect(key.x + 1, topY, Math.max(key.width - 2, 1), noteH, NOTE_RADIUS)
+          const drawW = Math.max(key.width - 2, 1)
+          notes.roundRect(key.x + 1, topY, drawW, noteH, NOTE_RADIUS)
           notes.fill({ color, alpha: 0.9 })
-          notes.rect(key.x + 1, topY, Math.max(key.width - 2, 1), 2)
+          notes.rect(key.x + 1, topY, drawW, 2)
           notes.fill({ color: NOTE_HIGHLIGHT_COLOR, alpha: 0.25 })
+
+          // ── Non-color hand signal — a thin edge accent (left = LH, right =
+          // RH), not a hue, so a colorblind user keeps the hand cue during
+          // normal playback (previously hand was color-only here). ─────────
+          if (note.hand && (isSplitTrack || handColoringOn)) {
+            const edgeW = Math.min(2, drawW)
+            const edgeX = note.hand === 'L' ? key.x + 1 : key.x + 1 + drawW - edgeW
+            notes.rect(edgeX, topY, edgeW, noteH)
+            notes.fill({ color: 0xffffff, alpha: 0.55 })
+          }
         }
 
         // ── Edit overlay (drawn after notes so it renders on top) ─────────────
@@ -922,7 +938,7 @@ export default function PianoRoll() {
         if (noteEditorActive && NES.showNoteNamesRef.current && ctx && ov) {
           const { noteNaming, accidentals } = storeRef.current
           ctx.save()
-          ctx.font = '9px "JetBrains Mono", monospace'
+          ctx.font = `9px ${FONT_MONO_STR}`
           ctx.textAlign = 'center'
           ctx.textBaseline = 'middle'
           ctx.fillStyle = NOTE_LABEL_COLOR
@@ -952,7 +968,7 @@ export default function PianoRoll() {
           if (bStarts[i] <= currentTime) currentBarIdx = i
         }
 
-        ctx.font = 'bold 11px "JetBrains Mono", monospace'
+        ctx.font = `bold 11px ${FONT_MONO_STR}`
         ctx.textBaseline = 'alphabetic'
 
         for (let bi = 0; bi < bStarts.length; bi++) {
@@ -1710,7 +1726,7 @@ export default function PianoRoll() {
         // chrome like the bar-number labels do. ────────────────────────────
         const HEADER_H = 34
         ctx.fillStyle = HAND_AMBER_HEX_STR
-        ctx.font = 'bold 12px Inter, sans-serif'
+        ctx.font = `bold 12px ${FONT_UI_STR}`
         ctx.textAlign = 'center'
         ctx.textBaseline = 'alphabetic'
         ctx.save()
@@ -1722,7 +1738,7 @@ export default function PianoRoll() {
           velBars = []
           ctx.fillStyle = NOTE_LABEL_COLOR
           ctx.globalAlpha = 0.6
-          ctx.font = '11px "JetBrains Mono", monospace'
+          ctx.font = `11px ${FONT_MONO_STR}`
           ctx.textAlign = 'center'
           ctx.textBaseline = 'middle'
           ctx.fillText('Solo a track to edit its velocity in the Tracks panel on the right', W / 2, H / 2)
@@ -1739,7 +1755,7 @@ export default function PianoRoll() {
         // lines + value markers on both edges, same idea as the main roll's
         // bar-number lines but much subtler (this is a background reference,
         // not a primary UI element). ────────────────────────────────────────
-        ctx.font = '8px "JetBrains Mono", monospace'
+        ctx.font = `8px ${FONT_MONO_STR}`
         ctx.textBaseline = 'middle'
         for (const v of [0, 32, 64, 96, 127]) {
           const gy = trackTop + trackH - (v / 127) * trackH
@@ -1815,10 +1831,10 @@ export default function PianoRoll() {
           ctx.textAlign = 'left'
           ctx.textBaseline = 'alphabetic'
           if (isDragging) {
-            ctx.font = '9px "JetBrains Mono", monospace'
+            ctx.font = `9px ${FONT_MONO_STR}`
             ctx.globalAlpha = 1
           } else {
-            ctx.font = '7px "JetBrains Mono", monospace'
+            ctx.font = `7px ${FONT_MONO_STR}`
             ctx.globalAlpha = 0.5
           }
           ctx.fillText(String(Math.round(vel * 127)), x + barW + 2, Math.max(10, y + 3))
@@ -1988,7 +2004,7 @@ export default function PianoRoll() {
           borderRadius: 'var(--radius-sm)',
           padding: '2px 8px',
           fontSize: 'var(--text-xs)',
-          fontFamily: "'JetBrains Mono', monospace",
+          fontFamily: 'var(--font-mono)',
           color: 'var(--text-default)',
           pointerEvents: 'none',
           userSelect: 'none',
@@ -2001,6 +2017,8 @@ export default function PianoRoll() {
 
       {contextMenu && (
         <div
+          role="menu"
+          aria-label="Note actions"
           onMouseDown={e => e.stopPropagation()}
           style={{
             position: 'fixed',
@@ -2012,13 +2030,15 @@ export default function PianoRoll() {
             padding: '4px 0',
             minWidth: 160,
             boxShadow: '0 4px 16px rgba(0,0,0,0.55)',
-            fontFamily: "'Inter', system-ui, sans-serif",
+            fontFamily: 'var(--font-ui)',
             fontSize: 12,
           }}
         >
           {contextMenu.options.map((opt, i) => (
             <div
               key={i}
+              role="menuitem"
+              aria-disabled={opt.disabled}
               onClick={() => { if (!opt.disabled) opt.onClick() }}
               style={{
                 padding: '6px 14px',

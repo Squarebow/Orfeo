@@ -7,6 +7,7 @@ import { getNoteName } from '../utils/noteNames'
 import { modalCloseButtonStyle, modalCloseButtonHoverColor, modalCloseButtonIdleColor } from '../utils/modalCloseButtonStyle'
 import OrfeoMark from './OrfeoMark'
 import { getPianoRollCenterX, getKeyboardHeaderTop } from '../utils/modalAnchors'
+import { useFocusTrap } from '../hooks/useFocusTrap'
 
 const MODAL_WIDTH  = 220
 const MODAL_HEIGHT = 100
@@ -41,6 +42,11 @@ export default function LockedChordModal() {
   // ── Modal visibility — auto-opens when keys are locked; only closes via X ──
   // Clearing the chord (RotateCcw) keeps the modal open showing "— — —".
   const [modalOpen, setModalOpen] = useState(false)
+  const setLockedChordModalOpen = useStore((s) => s.setLockedChordModalOpen)
+  // ── Mirror into the store so App.tsx's global Escape handler can exclude
+  // this modal the same way it already excludes chordExplorerOpen/
+  // scaleExplorerOpen — see the field's own comment in store/index.ts. ─────
+  useEffect(() => { setLockedChordModalOpen(modalOpen) }, [modalOpen, setLockedChordModalOpen])
   // ── Position state — bottom edge on the keyboard header, horizontally
   // centered on the piano roll; computed on first actual open (not at app
   // mount, so the layout is settled), then left alone. ───────────────────────
@@ -118,10 +124,21 @@ export default function LockedChordModal() {
   // ── Clear button — clears locked keys only; modal stays open ─────────────
   const handleClear = useCallback(() => { clearLockedKeys() }, [clearLockedKeys])
 
+  // ── Close on Escape ────────────────────────────────────────────────────────
+  useEffect(() => {
+    if (!modalOpen) return
+    const handler = (e: KeyboardEvent) => { if (e.key === 'Escape') handleClose() }
+    window.addEventListener('keydown', handler)
+    return () => window.removeEventListener('keydown', handler)
+  }, [modalOpen, handleClose])
+
+  const panelRef = useRef<HTMLDivElement>(null)
+  useFocusTrap(panelRef, modalOpen)
+
   if (!modalOpen) return null
 
   return (
-    <div className="orfeo-modal-glow" style={{
+    <div ref={panelRef} role="dialog" aria-modal="true" aria-label="Lock-a-Chord" className="orfeo-modal-glow" style={{
       position: 'fixed',
       left: pos.x,
       top: pos.y,
@@ -168,11 +185,11 @@ export default function LockedChordModal() {
 
       {/* ── Chord name + inversion ordinal ────────────────────────────────────── */}
       <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'center', gap: 5, padding: '10px 12px 6px' }}>
-        <span style={{ fontFamily: 'JetBrains Mono', fontSize: 20, fontWeight: 700, color: 'var(--text-amber)', letterSpacing: '0.05em' }}>
+        <span style={{ fontFamily: 'var(--font-mono)', fontSize: 20, fontWeight: 700, color: 'var(--text-amber)', letterSpacing: '0.05em' }}>
           {lockedDisplay?.chordLabel ?? [0, 1, 2].map(i => partialNotes?.[i] ?? '—').join(' ')}
         </span>
         {lockedDisplay?.ordinal && (
-          <span style={{ fontFamily: 'Inter', fontSize: 10, color: 'var(--text-dimmest)' }}>
+          <span style={{ fontFamily: 'var(--font-ui)', fontSize: 10, color: 'var(--text-dimmest)' }}>
             {lockedDisplay.ordinal}
             <span style={{ fontSize: 7, verticalAlign: 'super' }}>{ordinalSuffix(Number(lockedDisplay.ordinal))}</span>
             {' inv'}
@@ -196,7 +213,7 @@ export default function LockedChordModal() {
         <button
           onClick={playLockedChord}
           title="Play this chord"
-          style={{ background: 'transparent', border: '1px solid var(--text-inactive)', color: 'var(--text-dimmest)', borderRadius: 'var(--radius-sm)', padding: '2px 10px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 'var(--space-1)', fontFamily: 'Inter', fontSize: 9, fontWeight: 700, letterSpacing: '0.06em', textTransform: 'uppercase', transition: 'color 0.12s, border-color 0.12s' }}
+          style={{ background: 'transparent', border: '1px solid var(--text-inactive)', color: 'var(--text-dimmest)', borderRadius: 'var(--radius-sm)', padding: '2px 10px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 'var(--space-1)', fontFamily: 'var(--font-ui)', fontSize: 9, fontWeight: 700, letterSpacing: '0.06em', textTransform: 'uppercase', transition: 'color 0.12s, border-color 0.12s' }}
           onMouseEnter={e => { e.currentTarget.style.borderColor = 'var(--text-amber)'; e.currentTarget.style.color = 'var(--text-amber)' }}
           onMouseLeave={e => { e.currentTarget.style.borderColor = 'var(--text-inactive)'; e.currentTarget.style.color = 'var(--text-dimmest)' }}
         >

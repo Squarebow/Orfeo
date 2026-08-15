@@ -57,7 +57,7 @@ export default function EmptyState() {
               border: 'none',
               background: 'var(--text-amber)',
               color: 'var(--bg-modal-header)',
-              fontSize: 'var(--text-base)', fontWeight: 600, fontFamily: 'Inter',
+              fontSize: 'var(--text-base)', fontWeight: 600, fontFamily: 'var(--font-ui)',
               cursor: 'pointer',
               transition: 'opacity 0.15s',
             }}
