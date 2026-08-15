@@ -2,10 +2,14 @@ import { useState, useRef, useLayoutEffect, useEffect, useCallback, useMemo } fr
 import { Eye, VolumeX, Volume2 } from 'lucide-react'
 import { useStore, DEFAULT_MUTED_GROUPS } from '../../store'
 import MixerKnob from './MixerKnob'
+import CompressorIcon from '../CompressorIcon'
+import Tooltip, { TooltipBox } from '../Tooltip'
 import {
   setMasterChorus,
   setMasterReverb,
   setMasterTone,
+  setMasterCompressor,
+  COMPRESSOR_PRESETS,
 } from '../../hooks/useSamplesEngine'
 
 // ── VU meter constants ────────────────────────────────────────────────────────
@@ -71,27 +75,103 @@ function PianoIcon() {
 }
 
 // ── IBtn — icon button matching ChannelStrip's IBtn ───────────────────────────
-function IBtn({ children, onClick, active, title, activeColor = 'var(--text-amber)' }: {
+function IBtn({ children, onClick, active, title, description, activeColor = 'var(--text-amber)' }: {
   children: React.ReactNode
   onClick: () => void
   active?: boolean
   title?: string
+  description?: string
   activeColor?: string
 }) {
+  const ref = useRef<HTMLButtonElement>(null)
+  const [hover, setHover] = useState(false)
   return (
     <button
-      onClick={onClick} title={title}
+      ref={ref}
+      onClick={onClick}
       style={{
         display: 'flex', alignItems: 'center', justifyContent: 'center',
         width: 26, height: 26, background: 'var(--bg-deep)', border: 'none',
         cursor: 'pointer', borderRadius: 4, transition: 'color 0.1s',
         color: active ? activeColor : 'var(--text-icon-inactive)', flexShrink: 0,
       }}
-      onMouseEnter={e => { if (!active) e.currentTarget.style.color = 'var(--text-icon-hover)' }}
-      onMouseLeave={e => { e.currentTarget.style.color = active ? activeColor : 'var(--text-icon-inactive)' }}
+      onMouseEnter={e => { if (!active) e.currentTarget.style.color = 'var(--text-icon-hover)'; setHover(true) }}
+      onMouseLeave={e => { e.currentTarget.style.color = active ? activeColor : 'var(--text-icon-inactive)'; setHover(false) }}
     >
       {children}
+      {title && (
+        <TooltipBox
+          anchorRect={hover ? ref.current?.getBoundingClientRect() ?? null : null}
+          content={{ title, description }}
+          visible={hover}
+        />
+      )}
     </button>
+  )
+}
+
+// ── CompressorPresetKnob — the preset-selector knob, no static radial
+// labels (those made its footprint wider than a plain knob and threw off
+// its right-alignment against Tone). Instead: hovering a tick shows THAT
+// preset's info regardless of what's currently selected; hovering the
+// knob's own center shows whichever preset actually IS selected. The
+// hover math runs on this wrapper div, not on MixerKnob itself — mouse
+// events still reach here even when the knob inside is `disabled` (that
+// only sets pointer-events:none on the SVG, which makes hit-testing fall
+// through to this parent), which is exactly what lets the tooltips stay
+// live while `interactive=false` blocks actually dragging the knob. ───────
+function CompressorPresetKnob({ presetIndex, onChange, disabled, interactive }: {
+  presetIndex: number
+  onChange: (v: number) => void
+  disabled?: boolean
+  interactive: boolean
+}) {
+  const wrapRef = useRef<HTMLDivElement>(null)
+  const [hoverPreset, setHoverPreset] = useState<number | null>(null)
+
+  const handleMouseMove = useCallback((e: React.MouseEvent) => {
+    const el = wrapRef.current
+    if (!el) return
+    const rect = el.getBoundingClientRect()
+    const cx = rect.left + rect.width / 2, cy = rect.top + rect.height / 2
+    const dx = e.clientX - cx, dy = e.clientY - cy
+    // Center zone (the knob's own body circle, r=13 of the 52px viewBox)
+    // → whichever preset is actually selected right now.
+    if (Math.sqrt(dx * dx + dy * dy) < rect.width * (13 / 52)) {
+      setHoverPreset(presetIndex)
+      return
+    }
+    // Ring zone → nearest tick, same angle math as MixerKnob's own
+    // angleToNorm (ARC_START=135°, ARC_SWEEP=270°, dead zone below).
+    let deg = Math.atan2(dy, dx) * (180 / Math.PI)
+    if (deg < 0) deg += 360
+    let norm: number
+    if (deg >= 135) norm = (deg - 135) / 270
+    else if (deg <= 45) norm = (deg + 225) / 270
+    else { setHoverPreset(null); return }
+    setHoverPreset(Math.round(Math.max(0, Math.min(1, norm)) * (COMPRESSOR_PRESETS.length - 1)))
+  }, [presetIndex])
+
+  const hovered = hoverPreset !== null ? COMPRESSOR_PRESETS[hoverPreset] : null
+
+  return (
+    <div
+      ref={wrapRef}
+      onMouseMove={handleMouseMove}
+      onMouseLeave={() => setHoverPreset(null)}
+      style={{ position: 'relative' }}
+    >
+      <MixerKnob
+        value={presetIndex / (COMPRESSOR_PRESETS.length - 1)} onChange={onChange}
+        accentColor="var(--knob-compressor)" size={52}
+        disabled={disabled || !interactive} dotCount={COMPRESSOR_PRESETS.length} tickMajorEvery={0}
+      />
+      <TooltipBox
+        anchorRect={hovered ? wrapRef.current?.getBoundingClientRect() ?? null : null}
+        content={hovered ? { title: hovered.label, description: `${hovered.ratio}:1 ratio, ${hovered.threshold} dB threshold` } : null}
+        visible={!!hovered}
+      />
+    </div>
   )
 }
 
@@ -207,6 +287,10 @@ export default function MasterStrip() {
   const audioEngine         = useStore(s => s.audioEngine)
   const masterVolume        = useStore(s => s.masterVolume)
   const setMasterVolume     = useStore(s => s.setMasterVolume)
+  const masterCompEnabled   = useStore(s => s.masterCompEnabled)
+  const setMasterCompEnabled = useStore(s => s.setMasterCompEnabled)
+  const masterCompPreset    = useStore(s => s.masterCompPreset)
+  const setMasterCompPreset = useStore(s => s.setMasterCompPreset)
   // ── Signature of the fields these global buttons actually care about —
   // mute/visible/keyboard/drum/group — NOT volume/pan/chorus/reverb. Those
   // four change on every fader/knob mousemove; subscribing to the whole
@@ -234,6 +318,13 @@ export default function MasterStrip() {
   const [chorus, setChorusState] = useState(0)
   const [reverb, setReverbState] = useState(0)
   const [tone,   setToneState]   = useState(0)
+
+  // ── Master Volume's live value tooltip — visible on hover OR while
+  // actively dragging (MixerKnob's onDragChange), not just hover like the
+  // other knobs' static tooltips. Replaces the permanent %-value readout. ──
+  const volumeKnobWrapRef = useRef<HTMLDivElement>(null)
+  const [volumeHover, setVolumeHover] = useState(false)
+  const [volumeDragging, setVolumeDragging] = useState(false)
 
   // ── VU refs — bars uses hard levels+attacks; wave uses lerped levels+peaks ─
   const vuRef        = useRef<HTMLCanvasElement>(null)
@@ -355,6 +446,19 @@ export default function MasterStrip() {
   const handleReverb = useCallback((v: number) => { setReverbState(v); setMasterReverb(v) }, [])
   const handleTone   = useCallback((v: number) => { setToneState(v);   setMasterTone(v)   }, [])
 
+  // ── Compressor preset knob — snapped to 5 discrete positions (0-1 knob
+  // value quantized to the nearest of COMPRESSOR_PRESETS' 5 indices). ──────
+  const handleCompPreset = useCallback((v: number) => {
+    const preset = Math.round(v * (COMPRESSOR_PRESETS.length - 1))
+    setMasterCompPreset(preset)
+    setMasterCompressor(masterCompEnabled, preset)
+  }, [masterCompEnabled, setMasterCompPreset])
+  const handleCompToggle = useCallback(() => {
+    const next = !masterCompEnabled
+    setMasterCompEnabled(next)
+    setMasterCompressor(next, masterCompPreset)
+  }, [masterCompEnabled, masterCompPreset, setMasterCompEnabled])
+
   // ── Global action state — derived from all track states ───────────────────
   const allMuted       = tracks.length > 0 && tracks.every(t => t.muted)
   const allVisible     = tracks.length > 0 && tracks.every(t => t.visible)
@@ -384,7 +488,7 @@ export default function MasterStrip() {
 
   return (
     <div style={{
-      width: 160, height: 574, flexShrink: 0,
+      width: 184, height: 574, flexShrink: 0,
       background: 'var(--bg-tile)',
       border: '1px solid var(--border2)',
       borderRadius: 'var(--radius-md)',
@@ -420,13 +524,13 @@ export default function MasterStrip() {
       {/* ── Spacer ────────────────────────────────────────────────────────── */}
       <div style={{ height: 8, flexShrink: 0 }} />
 
-      {/* ── 3. VU display toggle (28px) — BARS / WAVE. marginTop:-9.3 pulls
-          this row, the icons row (4), and the All tracks/Selection button
-          (5) up together as one block — measured via live CDP against the
-          channel strips' M/S/eye/kbd row (center Y 482) vs the button's
-          previous center (491.3): 9.3px too low. Item 5's marginBottom
-          absorbs the same 9.3px so FX/Tone/Master Volume below don't
-          shift. ── */}
+      {/* ── 3. VU display toggle (28px) — BARS / WAVE. marginTop:-9.3 pulls this
+          row and the merged icons/mute-filter row (4) up together as one
+          block, against the channel strips' own M/S/eye/kbd row — originally
+          measured via live CDP when rows 4/5 were still separate; re-verify
+          after the 4+5 merge below since the old marginBottom:17.3 absorber
+          that kept FX/Tone/Volume from shifting no longer exists in the new
+          single merged row. ── */}
       <div style={{
         height: 28, flexShrink: 0,
         display: 'flex', flexDirection: 'row',
@@ -441,9 +545,12 @@ export default function MasterStrip() {
         }}>
           {vuDisplayMode === 'wave' ? 'Wave' : 'Bars/FFT'}
         </span>
+        <Tooltip
+          title={vuDisplayMode === 'wave' ? 'Switch to Bars/FFT' : 'Switch to Wave'}
+          description="Changes how the meter above shows the overall output level"
+        >
         <div
           onClick={() => setVuDisplayMode(vuDisplayMode === 'bars' ? 'wave' : 'bars')}
-          title={vuDisplayMode === 'wave' ? 'Switch to Bars/FFT' : 'Switch to Wave'}
           style={{
             width: 26, height: 13, borderRadius: 7, flexShrink: 0,
             background: 'var(--state-disabled)',
@@ -458,53 +565,59 @@ export default function MasterStrip() {
             transition: 'left 0.15s',
           }} />
         </div>
+        </Tooltip>
       </div>
 
       {/* ── Spacer ────────────────────────────────────────────────────────── */}
       <div style={{ height: 8, flexShrink: 0 }} />
 
-      {/* ── 4. Global icons row (36px) — mute all / waterfall all / kbd all ── */}
+      {/* ── 4. Global icons + mute-filter button, one row (40px) — merged from
+          two separate rows to free up vertical room for the Compressor row
+          below without growing the strip; realigned against the channel
+          strips' own M/S/eye/kbd row via CDP, not carried over from the old
+          two-row offsets (-9.3/+17.3), which were tuned for a layout that no
+          longer exists. ── */}
       <div style={{
-        height: 36, flexShrink: 0,
+        height: 40, flexShrink: 0,
         display: 'flex', alignItems: 'center', justifyContent: 'center',
-        gap: 4,
+        gap: 6,
       }}>
-        <IBtn
-          onClick={handleMuteAll}
-          active={allMuted}
-          title={allMuted ? 'Unmute all tracks' : 'Mute all tracks'}
-          activeColor="var(--status-error)"
-        >
-          {allMuted ? <VolumeX size={13} /> : <Volume2 size={13} />}
-        </IBtn>
-        <IBtn
-          onClick={handleVisibleAll}
-          active={allVisible}
-          title={allVisible ? 'Hide all in waterfall' : 'Show all in waterfall'}
-          activeColor="var(--text-amber)"
-        >
-          {allVisible ? <Eye size={13} /> : <EyeClosed size={13} />}
-        </IBtn>
-        <IBtn
-          onClick={handleKeyboardAll}
-          active={allOnKeyboard}
-          title={allOnKeyboard ? 'Hide all on keyboard' : 'Show all on keyboard'}
-          activeColor="var(--text-amber)"
-        >
-          <PianoIcon />
-        </IBtn>
-      </div>
-
-      {/* ── 5. Mute-filter toggle row (34px) — cloned from TrackPanel header ─ */}
-      <div style={{
-        height: 34, flexShrink: 0,
-        display: 'flex', alignItems: 'center', justifyContent: 'center',
-        marginBottom: 17.3,
-      }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+          <IBtn
+            onClick={handleMuteAll}
+            active={allMuted}
+            title={allMuted ? 'Unmute all tracks' : 'Mute all tracks'}
+            description={allMuted ? 'Restore every track to its own mute state' : 'Silence every track at once'}
+            activeColor="var(--status-error)"
+          >
+            {allMuted ? <VolumeX size={13} /> : <Volume2 size={13} />}
+          </IBtn>
+          <IBtn
+            onClick={handleVisibleAll}
+            active={allVisible}
+            title={allVisible ? 'Hide all in waterfall' : 'Show all in waterfall'}
+            description={allVisible ? 'Hide every track’s notes on the Piano Roll' : 'Show every track’s notes on the Piano Roll'}
+            activeColor="var(--text-amber)"
+          >
+            {allVisible ? <Eye size={13} /> : <EyeClosed size={13} />}
+          </IBtn>
+          <IBtn
+            onClick={handleKeyboardAll}
+            active={allOnKeyboard}
+            title={allOnKeyboard ? 'Hide all on keyboard' : 'Show all on keyboard'}
+            description={allOnKeyboard ? 'Stop every track lighting up the on-screen keyboard' : 'Every track lights up the on-screen keyboard'}
+            activeColor="var(--text-amber)"
+          >
+            <PianoIcon />
+          </IBtn>
+        </div>
         {autoMuteNonKeyboard && (
+          <Tooltip
+            title={isCurrentlyFiltered ? 'Play all tracks' : 'Focus mode'}
+            description={isCurrentlyFiltered ? 'Turn off the piano/bass/drums-only filter' : 'Mute everything except piano, bass & drums — good for practicing along'}
+          >
           <button
             onClick={() => setTrackMuteFilter(!isCurrentlyFiltered)}
-            title={isCurrentlyFiltered ? 'Play all tracks' : 'Play only piano, bass & drums'}
             style={{
               padding: '2px 10px',
               borderRadius: 'var(--radius-sm)',
@@ -520,6 +633,7 @@ export default function MasterStrip() {
               lineHeight: '18px',
               display: 'flex',
               alignItems: 'center',
+              flexShrink: 0,
             }}
           >
             <svg width="6" height="7" viewBox="0 0 6 7" style={{ marginRight: 3, flexShrink: 0 }}>
@@ -527,53 +641,126 @@ export default function MasterStrip() {
             </svg>
             {isCurrentlyFiltered ? 'Selection' : 'All tracks'}
           </button>
+          </Tooltip>
         )}
       </div>
 
-      {/* ── 6. FX row — Chorus + Reverb side by side (56px) ──────────────── */}
+      {/* ── 5. FX row — Chorus + Reverb pushed to the strip's edges (56px).
+          "FX" label dropped; space-between + inset padding does the
+          separating instead of a fixed gap. ──────────────────────────── */}
       <div style={{
         height: 56, flexShrink: 0,
-        display: 'flex', alignItems: 'center', justifyContent: 'center',
-        gap: 0,
-        marginTop: -10,
+        display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+        padding: '0 16px',
       }}>
         <MixerKnob
           value={chorus} onChange={handleChorus}
           accentColor="var(--knob-chorus)" size={52}
           disabled={knobsDisabled} label="Chorus"
-          title="Chorus — thickens the overall mix by layering slightly detuned copies of it"
+          title="Chorus" description="Thickens the overall mix by layering slightly detuned copies of it"
         />
-        <span style={{
-          fontSize: 9, fontFamily: 'var(--font-mono)', letterSpacing: '0.1em',
-          color: 'var(--text-muted)', textTransform: 'uppercase',
-          padding: '0 10px', flexShrink: 0,
-          marginBottom: 12,
-        }}>
-          FX
-        </span>
         <MixerKnob
           value={reverb} onChange={handleReverb}
           accentColor="var(--knob-reverb)" size={52}
           disabled={knobsDisabled} label="Reverb"
-          title="Reverb — adds overall room/space ambience to the mix"
+          title="Reverb" description="Adds overall room/space ambience to the mix"
         />
       </div>
 
-      {/* ── 7. Tone EQ row (44px) ─────────────────────────────────────────── */}
+      {/* ── 6. Tone + Compressor row (66px) — Tone and the Compressor knob
+          pushed to the strip's edges, both plain 52px knobs now (the
+          Compressor's radial labels were removed — see CompressorPresetKnob
+          below — so it's the same footprint as Tone, which is what actually
+          fixed its right-alignment: it was the 80px label wrapper throwing
+          it off, not the grid). On/off toggle centered between them via
+          real CSS Grid (minmax(0,1fr) auto minmax(0,1fr)) — this repo's own
+          CLAUDE.md documents why flex+space-between isn't used for this:
+          if the two side columns' content-width ever differ again, a
+          flex-centered middle item drifts off true center; Grid centers it
+          structurally regardless. ── */}
       <div style={{
-        height: 44, flexShrink: 0,
-        display: 'flex', alignItems: 'center', justifyContent: 'center',
-        marginBottom: 10,
+        height: 66, flexShrink: 0,
+        display: 'grid', gridTemplateColumns: 'minmax(0,1fr) auto minmax(0,1fr)',
+        alignItems: 'center',
+        padding: '0 16px',
       }}>
-        <MixerKnob
-          value={tone} onChange={handleTone}
-          accentColor="var(--knob-tone)" size={52}
-          disabled={knobsDisabled} bipolar label="Tone"
-          title="Tone — tilts the overall EQ darker or brighter"
-        />
+        {/* Fixed 52×52 box, label absolutely positioned below (out of flow)
+            — same structure as the Compressor column opposite it, so both
+            columns report the same height to the grid's alignItems:'center'
+            and their knobs land on the same Y, not just the same X. Using
+            MixerKnob's own `label` prop here would put "Tone" back in
+            normal flow, making this column ~9px taller than Compressor's
+            and drifting the two knobs apart vertically despite matching
+            horizontally. */}
+        <div style={{ justifySelf: 'start', width: 52, position: 'relative', height: 52 }}>
+          <MixerKnob
+            value={tone} onChange={handleTone}
+            accentColor="var(--knob-tone)" size={52}
+            disabled={knobsDisabled} bipolar
+            title="Tone" description="Tilts the overall EQ darker or brighter"
+          />
+          <span style={{
+            position: 'absolute', top: '100%', left: '50%', transform: 'translateX(-50%)',
+            marginTop: 7, fontSize: 9, fontFamily: 'var(--font-mono)', letterSpacing: '0.08em',
+            textTransform: 'uppercase', color: 'var(--text-dimmest)',
+            userSelect: 'none', lineHeight: 1, whiteSpace: 'nowrap',
+          }}>
+            Tone
+          </span>
+        </div>
+
+        {/* On/off toggle — bare icon, no button chrome (per feedback: no dark
+            square background). Amber when on, white when off — distinct
+            from the usual dark/amber IBtn pattern since this needs to read
+            clearly against the knob's own pink even at a glance. */}
+        <Tooltip
+          title={masterCompEnabled ? 'Compressor on' : 'Compressor off'}
+          description="Automatically pulls down the loudest peaks so playback stays clear of digital clipping, without a blanket volume cut. Click to toggle."
+        >
+        <button
+          onClick={handleCompToggle}
+          disabled={knobsDisabled}
+          style={{
+            width: 26, height: 26, display: 'flex', alignItems: 'center', justifyContent: 'center',
+            background: 'none', border: 'none', padding: 0,
+            cursor: knobsDisabled ? 'default' : 'pointer',
+            color: masterCompEnabled ? 'var(--text-amber)' : 'var(--text-white)',
+            pointerEvents: knobsDisabled ? 'none' : 'auto',
+          }}
+        >
+          <CompressorIcon size={17} />
+        </button>
+        </Tooltip>
+
+        {/* Compressor preset knob — same plain 52px knob as Tone; hovering a
+            tick shows that preset's info (regardless of what's selected),
+            hovering the center shows the currently-selected one. Disabled
+            (can't drag) while the compressor itself is off, but hover
+            tooltips keep working even then — see CompressorPresetKnob.
+            Fixed 52px-wide outer box (not shrink-to-fit) — "COMPRESSOR" is
+            wider than the other knobs' labels (~62px at this size vs the
+            52px knob), and letting it size the column threw the whole
+            column's right edge ~5px left of Reverb's above it, since
+            justifySelf:'end' aligns THIS BOX's edge, not the knob's. The
+            label is absolutely positioned below instead, free to overflow
+            past the fixed-width box without affecting alignment. */}
+        <div style={{ justifySelf: 'end', width: 52, position: 'relative', height: 52 }}>
+          <CompressorPresetKnob
+            presetIndex={masterCompPreset} onChange={handleCompPreset}
+            disabled={knobsDisabled} interactive={masterCompEnabled}
+          />
+          <span style={{
+            position: 'absolute', top: '100%', left: '50%', transform: 'translateX(-50%)',
+            marginTop: 7, fontSize: 9, fontFamily: 'var(--font-mono)', letterSpacing: '0.08em',
+            textTransform: 'uppercase', color: 'var(--text-dimmest)',
+            userSelect: 'none', lineHeight: 1, whiteSpace: 'nowrap',
+          }}>
+            Compressor
+          </span>
+        </div>
       </div>
 
-      {/* ── 8. Master Volume — flex:2 (~195px). Root cause of every fight so
+      {/* ── 7. Master Volume — flex:2 (~195px). Root cause of every fight so
           far: the knob was bigger than this section's own actual height, so
           it was ALWAYS fighting `overflow:hidden` no matter how it was
           anchored. `justifyContent:'flex-end'` anchors knob+value+label to
@@ -588,23 +775,40 @@ export default function MasterStrip() {
         overflow: 'hidden',
       }}>
         {/* Visual-only offset on the knob alone — position:relative doesn't
-            affect the flow of the value/label siblings below it. */}
-        <div style={{ position: 'relative', top: 40 }}>
+            affect the flow of the value/label siblings below it. Tick
+            stroke halved (tickStrokeScale=0.5) on this knob only — every
+            other knob stays at MixerKnob's own app-wide default; this one's
+            just dense enough (36 ticks) that full thickness looked heavy.
+            The live %-value readout that used to sit here permanently is
+            now a hover/drag tooltip instead — see the wrapping div below. */}
+        <div
+          ref={volumeKnobWrapRef}
+          onMouseEnter={() => setVolumeHover(true)}
+          onMouseLeave={() => setVolumeHover(false)}
+          style={{ position: 'relative', top: 40 }}
+        >
           <MixerKnob
             value={masterVolume} onChange={setMasterVolume}
             accentColor="var(--text-amber)" size={202.5}
-            dotCount={36} tickMajorEvery={6} tickScale={0.5} triScale={0.5}
+            dotCount={36} tickMajorEvery={6} tickScale={0.5} tickStrokeScale={0.5} triScale={0.5}
+            onDragChange={setVolumeDragging}
+          />
+          <TooltipBox
+            anchorRect={(volumeHover || volumeDragging) ? volumeKnobWrapRef.current?.getBoundingClientRect() ?? null : null}
+            content={{ title: 'Master Volume', description: `${Math.round(masterVolume * 100)}%` }}
+            placement="left"
+            visible={volumeHover || volumeDragging}
           />
         </div>
+        {/* dB readout — centered, directly above the VOLUME label below (both
+            26px-tall centered rows, same width, so they share one axis). */}
         <div style={{
-          display: 'flex', alignItems: 'baseline', justifyContent: 'space-between',
-          width: 120, marginTop: 2,
+          height: 20, width: 120, flexShrink: 0,
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
+          marginTop: 2,
         }}>
           <span style={{ fontSize: 11, fontFamily: 'var(--font-mono)', color: 'var(--text-dimmest)' }}>
             {masterVolume === 0 ? '−∞ dB' : `${(20 * Math.log10(masterVolume)).toFixed(1)} dB`}
-          </span>
-          <span style={{ fontSize: 11, fontFamily: 'var(--font-mono)', color: 'var(--text-dimmest)' }}>
-            {Math.round(masterVolume * 100)}%
           </span>
         </div>
         {/* ── "Volume" label — wrapped in the exact same 26px centered row as

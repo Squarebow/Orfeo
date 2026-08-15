@@ -2,6 +2,7 @@ import { useState, useRef, useLayoutEffect, useEffect, useCallback } from 'react
 import { Eye, GripVertical } from 'lucide-react'
 import { useStore } from '../../store'
 import MixerKnob from './MixerKnob'
+import Tooltip, { TooltipBox } from '../Tooltip'
 import { MarqueeText } from '../MarqueeText'
 import {
   setChannelChorus,
@@ -56,27 +57,40 @@ function EyeClosed({ size = 12 }: { size?: number }) {
   )
 }
 
-// ── IBtn — icon button, matches TrackPanel's IBtn exactly ────────────────────
-function IBtn({ children, onClick, active, title, activeColor = 'var(--text-amber)' }: {
+// ── IBtn — icon button, matches TrackPanel's IBtn exactly. Stylish tooltip
+// (title + description) tracked via React state; the color hover stays a
+// direct DOM mutation (unchanged, cheap) since it doesn't need a re-render. ─
+function IBtn({ children, onClick, active, title, description, activeColor = 'var(--text-amber)' }: {
   children: React.ReactNode
   onClick: () => void
   active?: boolean
   title?: string
+  description?: string
   activeColor?: string
 }) {
+  const ref = useRef<HTMLButtonElement>(null)
+  const [hover, setHover] = useState(false)
   return (
     <button
-      onClick={onClick} title={title}
+      ref={ref}
+      onClick={onClick}
       style={{
         display: 'flex', alignItems: 'center', justifyContent: 'center',
         width: 26, height: 26, background: 'var(--bg-deep)', border: 'none',
         cursor: 'pointer', borderRadius: 4, transition: 'color 0.1s',
         color: active ? activeColor : 'var(--text-icon-inactive)', flexShrink: 0,
       }}
-      onMouseEnter={e => { if (!active) e.currentTarget.style.color = 'var(--text-icon-hover)' }}
-      onMouseLeave={e => { e.currentTarget.style.color = active ? activeColor : 'var(--text-icon-inactive)' }}
+      onMouseEnter={e => { if (!active) e.currentTarget.style.color = 'var(--text-icon-hover)'; setHover(true) }}
+      onMouseLeave={e => { e.currentTarget.style.color = active ? activeColor : 'var(--text-icon-inactive)'; setHover(false) }}
     >
       {children}
+      {title && (
+        <TooltipBox
+          anchorRect={hover ? ref.current?.getBoundingClientRect() ?? null : null}
+          content={{ title, description }}
+          visible={hover}
+        />
+      )}
     </button>
   )
 }
@@ -308,12 +322,12 @@ export default function ChannelStrip({ trackIndex, locked, isDragging, onDragSta
           />
         </div>
         {!locked && (
+          <Tooltip title="Reorder" description="Drag this strip left/right to change its position in the Mixer">
           <button
             draggable
             onMouseDown={(e) => e.stopPropagation()}
             onDragStart={(e) => { e.dataTransfer.effectAllowed = 'move'; e.dataTransfer.setData('text/plain', ''); onDragStart?.() }}
             onDragEnd={onDragEnd}
-            title="Drag to reorder"
             style={{
               background: 'none', border: 'none', cursor: 'grab',
               color: 'var(--text-inactive)', display: 'flex', alignItems: 'center',
@@ -322,6 +336,7 @@ export default function ChannelStrip({ trackIndex, locked, isDragging, onDragSta
           >
             <GripVertical size={11} />
           </button>
+          </Tooltip>
         )}
       </div>
 
@@ -335,7 +350,7 @@ export default function ChannelStrip({ trackIndex, locked, isDragging, onDragSta
           value={chorus} onChange={handleChorus}
           accentColor="var(--knob-chorus)" size={52}
           disabled={knobsDisabled} label="Chorus"
-          title="Chorus — thickens the tone by layering slightly detuned copies of it"
+          title="Chorus" description="Thickens the tone by layering slightly detuned copies of it"
         />
       </div>
 
@@ -349,7 +364,7 @@ export default function ChannelStrip({ trackIndex, locked, isDragging, onDragSta
           value={reverb} onChange={handleReverb}
           accentColor="var(--knob-reverb)" size={52}
           disabled={knobsDisabled} label="Reverb"
-          title="Reverb — adds room/space ambience behind the channel"
+          title="Reverb" description="Adds room/space ambience behind the channel"
         />
       </div>
 
@@ -369,7 +384,7 @@ export default function ChannelStrip({ trackIndex, locked, isDragging, onDragSta
           value={pan} onChange={handlePan}
           accentColor="var(--text-amber)" size={52}
           disabled={knobsDisabled} bipolar label="Pan"
-          title="Pan — positions the channel left/right in the stereo field"
+          title="Pan" description="Positions the channel left/right in the stereo field"
         />
         <span style={{
           fontSize: 9, fontFamily: 'var(--font-mono)', letterSpacing: '0.06em',
@@ -399,6 +414,7 @@ export default function ChannelStrip({ trackIndex, locked, isDragging, onDragSta
         <IBtn
           onClick={() => updateTrack(trackIndex, { muted: !muted })}
           active={muted} title={muted ? 'Unmute' : 'Mute'}
+          description={muted ? 'Unmute this track' : 'Silence this track — its notes still show on the Piano Roll'}
           activeColor="var(--status-error)"
         >
           <span style={{ fontSize: 14, fontWeight: 700, fontFamily: 'var(--font-mono)', lineHeight: 1 }}>M</span>
@@ -406,6 +422,7 @@ export default function ChannelStrip({ trackIndex, locked, isDragging, onDragSta
         <IBtn
           onClick={() => updateTrack(trackIndex, { solo: !solo })}
           active={solo} title={solo ? 'Unsolo' : 'Solo'}
+          description={solo ? 'Unsolo — hear every unmuted track again' : 'Hear only this track (and any other soloed ones)'}
           activeColor="var(--text-amber)"
         >
           <span style={{ fontSize: 14, fontWeight: 700, fontFamily: 'var(--font-mono)', lineHeight: 1 }}>S</span>
@@ -413,6 +430,7 @@ export default function ChannelStrip({ trackIndex, locked, isDragging, onDragSta
         <IBtn
           onClick={() => updateTrack(trackIndex, { visible: !visible })}
           active={true} title={visible ? 'Hide in roll' : 'Show in roll'}
+          description={visible ? 'Hide this track’s notes on the Piano Roll' : 'Show this track’s notes on the Piano Roll'}
           activeColor={visible ? 'var(--status-success-text)' : 'var(--status-error-hover)'}
         >
           {visible ? <Eye size={14} /> : <EyeClosed size={14} />}
@@ -420,6 +438,7 @@ export default function ChannelStrip({ trackIndex, locked, isDragging, onDragSta
         <IBtn
           onClick={() => updateTrack(trackIndex, { showOnKeyboard: !showOnKeyboard })}
           active={showOnKeyboard} title={showOnKeyboard ? 'Lit on keyboard' : 'Not lit on keyboard'}
+          description={showOnKeyboard ? 'This track’s notes light up the on-screen keyboard' : 'This track’s notes won’t light up the on-screen keyboard'}
           activeColor="var(--text-amber)"
         >
           {/* Mini piano SVG — vectorEffect non-scaling-stroke preserved at all sizes;

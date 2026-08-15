@@ -21,7 +21,7 @@ import { useFocusTrap } from '../../hooks/useFocusTrap'
 // n strips × 120px + (n−1) inter-strip gaps × 8px + body-gap 8px + master 160px + padding 2×16px
 const STRIP_W   = 120
 const STRIP_GAP = 8
-const MASTER_W  = 160
+const MASTER_W  = 184
 const BODY_PAD  = 16
 const MAX_STRIPS = 8
 
@@ -203,6 +203,36 @@ export default function MixerConsole() {
   const modalRef = useRef<HTMLDivElement>(null)
   useFocusTrap(modalRef, mixerOpen && everOpened)
 
+  // ── Header description marquee — the description only needs to scroll when
+  // a narrow modal (few tracks loaded → fewer strips → less header width)
+  // can't fit the full sentence. Measured against the live layout rather than
+  // assumed, since strip count changes at runtime. 0 = fits, no marquee. ────
+  const headerDescWrapRef = useRef<HTMLDivElement>(null)
+  const headerDescRef     = useRef<HTMLSpanElement>(null)
+  const [headerDescOverflow, setHeaderDescOverflow] = useState(0)
+  useEffect(() => {
+    const wrap = headerDescWrapRef.current, text = headerDescRef.current
+    if (!wrap || !text) return
+    const measure = () => setHeaderDescOverflow(Math.max(0, text.scrollWidth - wrap.clientWidth))
+    measure()
+    // Self-hosted fonts load async — an initial measure can run against
+    // fallback-font metrics before JetBrains Mono swaps in, under-reporting
+    // the text's real width. Re-measure once fonts settle to catch that.
+    document.fonts?.ready?.then(measure)
+    // Observe the TEXT, not just the wrap: overflow:hidden means the text's
+    // own width changing (font swap, content edits) never changes the wrap's
+    // clientWidth, so a wrap-only observer would never refire for it.
+    const ro = new ResizeObserver(measure)
+    ro.observe(wrap)
+    ro.observe(text)
+    return () => ro.disconnect()
+    // everOpened, not mixerOpen: the component returns null until everOpened
+    // flips true (see line ~299), so the render where mixerOpen first goes
+    // true has no DOM yet — refs are null and this bails out silently. By
+    // the time mixerOpen is stable, this effect's old dependency never
+    // reran, so headerDescOverflow stayed stuck at its initial 0 forever.
+  }, [everOpened])
+
   // ── Drag-to-pan state for the channel strip row ───────────────────────────
   const scrollRef    = useRef<HTMLDivElement>(null)
   const dragStartX   = useRef(0)
@@ -322,10 +352,37 @@ export default function MixerConsole() {
         <span style={{
           fontFamily: 'var(--font-mono)', fontSize: 'var(--text-sm)', fontWeight: 700,
           color: 'var(--text-amber)', letterSpacing: '0.14em', textTransform: 'uppercase',
-          flex: 1,
+          flexShrink: 0,
         }}>
           Console Mixer
         </span>
+
+        {/* ── Permanent description — centered in whatever space is left between
+            the title and the close button, not a hover tooltip (this one's
+            always visible). When a narrow modal (few tracks) can't fit the
+            full sentence, it marquee-scrolls on hover instead of ellipsis-
+            truncating; when it fits, it just sits centered and static. ──── */}
+        <div
+          ref={headerDescWrapRef}
+          className="orfeo-marquee-track"
+          style={{
+            flex: 1, minWidth: 0, overflow: 'hidden',
+            display: 'flex', justifyContent: headerDescOverflow > 0 ? 'flex-start' : 'center',
+            padding: '0 var(--space-3)',
+          }}
+        >
+          <span
+            ref={headerDescRef}
+            className={headerDescOverflow > 0 ? 'orfeo-marquee-text is-overflowing' : 'orfeo-marquee-text'}
+            style={{
+              fontFamily: 'var(--font-mono)', fontSize: 10,
+              color: 'var(--text-muted)', whiteSpace: 'nowrap',
+              ...(headerDescOverflow > 0 ? { '--marquee-distance': `-${headerDescOverflow}px` } as CSSProperties : {}),
+            }}
+          >
+            Adjust track levels, apply effects and compress overall loudness
+          </span>
+        </div>
 
         {/* ── Close button — bottom-aligned so the dash sits at X level ─────── */}
         <div

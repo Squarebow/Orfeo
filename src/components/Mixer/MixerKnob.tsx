@@ -1,4 +1,5 @@
-import { useRef, useEffect, useCallback } from 'react'
+import { useRef, useState, useEffect, useCallback } from 'react'
+import { TooltipBox } from '../Tooltip'
 
 // Knob geometry — viewBox stays 52×52; rendered size controlled by `size` prop.
 const CX = 26, CY = 26
@@ -13,9 +14,12 @@ const DOT_COUNT   = 7     // default tick count
 // Major ticks extend to TICK_INR + TICK_LONG; minor to TICK_INR + TICK_SHORT.
 const TICK_GAP   = 1.5   // gap between knob body edge (KNOB_R) and inner tick edge
 const TICK_INR   = KNOB_R + TICK_GAP   // inner radius shared by all ticks (= 14.5)
-const TICK_LONG  = 4.0   // major tick length (outward from TICK_INR)
-const TICK_SHORT = 1.8   // minor tick length (outward from TICK_INR)
-const STROKE_TICK = 0.5  // hairline — length only distinguishes major from minor
+const TICK_LONG  = 5.0   // major tick length (outward from TICK_INR)
+const TICK_SHORT = 2.3   // minor tick length (outward from TICK_INR)
+// Was 0.5 (a sub-pixel hairline at rendered knob sizes, barely visible on
+// standard-DPI displays) — the ticks are how every knob shows its current
+// value at a glance, so this affects every knob app-wide, not just one. ────
+const STROKE_TICK = 1.2
 
 // Triangle notch indicator dimensions
 const TRI_TIP_R  = NOTCH_R + 3.2   // tip extends this far from center
@@ -48,19 +52,28 @@ export interface MixerKnobProps {
   dotCount?: number          // number of tick marks (default 7)
   tickMajorEvery?: number    // every Nth tick is long; 0 = all same (default)
   tickScale?: number         // scales both tick lengths; 1.0 = default, <1 = shorter
+  tickStrokeScale?: number   // scales tick line THICKNESS; 1.0 = default (per-instance
+                              // override — the Master Volume knob wants half-thickness
+                              // ticks while every other knob stays at the app-wide default)
   triScale?: number          // scales triangle indicator; 1.0 = default, <1 = smaller
-  title?: string             // hover tooltip on the whole knob+label
+  title?: string             // stylish tooltip title (amber header row)
+  description?: string       // stylish tooltip description (muted row below title)
+  onDragChange?: (dragging: boolean) => void  // fires on drag start/end — for a
+                              // caller-owned live-value tooltip that should stay
+                              // visible through a drag, not just on hover (Master Volume)
 }
 
 // ── MixerKnob — tick-arc knob with triangle notch indicator ──────────────────
 export default function MixerKnob({
   value, onChange, accentColor, size = 40,
   disabled = false, bipolar = false, label,
-  dotCount = DOT_COUNT, tickMajorEvery = 0, tickScale = 1, triScale = 1,
-  title,
+  dotCount = DOT_COUNT, tickMajorEvery = 0, tickScale = 1, tickStrokeScale = 1, triScale = 1,
+  title, description, onDragChange,
 }: MixerKnobProps) {
   const svgRef  = useRef<SVGSVGElement>(null)
+  const wrapperRef = useRef<HTMLDivElement>(null)
   const dragging = useRef(false)
+  const [hover, setHover] = useState(false)
 
   const norm       = Math.max(0, Math.min(1, bipolar ? (value + 1) / 2 : value))
   const notchAngle = ARC_START + norm * ARC_SWEEP
@@ -114,19 +127,20 @@ export default function MixerKnob({
     e.preventDefault()
     e.stopPropagation()
     dragging.current = true
+    onDragChange?.(true)
     onChange(getValueFromMouse(e.nativeEvent))
-  }, [disabled, onChange, getValueFromMouse])
+  }, [disabled, onChange, getValueFromMouse, onDragChange])
 
   useEffect(() => {
     const onMove = (e: MouseEvent) => { if (dragging.current) onChange(getValueFromMouse(e)) }
-    const onUp   = () => { dragging.current = false }
+    const onUp   = () => { if (dragging.current) { dragging.current = false; onDragChange?.(false) } }
     document.addEventListener('mousemove', onMove)
     document.addEventListener('mouseup',   onUp)
     return () => {
       document.removeEventListener('mousemove', onMove)
       document.removeEventListener('mouseup',   onUp)
     }
-  }, [onChange, getValueFromMouse])
+  }, [onChange, getValueFromMouse, onDragChange])
 
   // ── Keyboard interaction — arrow keys nudge the value, additive to drag ────
   const handleKeyDown = useCallback((e: React.KeyboardEvent) => {
@@ -144,11 +158,22 @@ export default function MixerKnob({
   }, [disabled, bipolar, value, onChange])
 
   return (
-    <div title={title} style={{
-      display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 3,
-      opacity: disabled ? 0.3 : 1,
-      pointerEvents: disabled ? 'none' : 'auto',
-    }}>
+    <div
+      ref={wrapperRef}
+      onMouseEnter={() => setHover(true)}
+      onMouseLeave={() => setHover(false)}
+      style={{
+        display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 7,
+        opacity: disabled ? 0.3 : 1,
+        pointerEvents: disabled ? 'none' : 'auto',
+      }}>
+      {title && (
+        <TooltipBox
+          anchorRect={hover ? wrapperRef.current?.getBoundingClientRect() ?? null : null}
+          content={{ title, description }}
+          visible={hover}
+        />
+      )}
       <svg
         ref={svgRef}
         width={size} height={size}
@@ -170,7 +195,7 @@ export default function MixerKnob({
             key={i}
             x1={t.inner.x} y1={t.inner.y}
             x2={t.outer.x} y2={t.outer.y}
-            strokeWidth={STROKE_TICK}
+            strokeWidth={STROKE_TICK * tickStrokeScale}
             strokeLinecap="round"
             style={{ stroke: t.active ? accentColor : DIM_TICK }}
           />

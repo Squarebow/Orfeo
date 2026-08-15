@@ -431,9 +431,10 @@ button, input, select, textarea {
   --c-amber:   var(--text-amber);
 
   /* Knob accent tones — unchanged */
-  --knob-chorus: #2dd4bf;
-  --knob-reverb: #a78bfa;
-  --knob-tone:   #5ba0c8;
+  --knob-chorus:     #2dd4bf;
+  --knob-reverb:     #a78bfa;
+  --knob-tone:       #5ba0c8;
+  --knob-compressor: var(--hand-rh);  /* same pink as the right-hand piano/note coloring */
 
   /* VU meter levels — unchanged */
   --meter-green:  #7ac040;
@@ -812,4 +813,18 @@ textarea:focus-visible,
 .loop-nudge-blink { animation: orfeo-loop-blink 1.4s ease-in-out infinite; }
 @media (prefers-reduced-motion: reduce) {
   .loop-nudge-blink { animation: none; }
+}
+
+/* Console Mixer header description marquee — only engages on hover, and only
+   for text wider than its available space (--marquee-distance is set by JS
+   per current layout); a description that already fits never animates. */
+@keyframes orfeo-marquee {
+  0%, 15%   { transform: translateX(0); }
+  85%, 100% { transform: translateX(var(--marquee-distance, 0)); }
+}
+.orfeo-marquee-track:hover .orfeo-marquee-text.is-overflowing {
+  animation: orfeo-marquee 6s ease-in-out infinite;
+}
+@media (prefers-reduced-motion: reduce) {
+  .orfeo-marquee-track:hover .orfeo-marquee-text.is-overflowing { animation: none; }
 }

@@ -182,6 +182,17 @@ interface OrfeoStore {
   masterVolume: number
   setMasterVolume: (v: number) => void
 
+  // ── Master compressor/limiter (Samples engine only) — protects against the
+  // gain-staging headroom issue (SAMPLES_BOOST × masterVolume can exceed
+  // unity) rather than relying on the user to keep the fader low enough.
+  // Preset index into COMPRESSOR_PRESETS (useSamplesEngine.ts), not a raw
+  // ratio — each position bundles threshold/ratio/attack/release together
+  // so the positions actually sound distinct from each other. ─────────────
+  masterCompEnabled: boolean
+  setMasterCompEnabled: (v: boolean) => void
+  masterCompPreset: number
+  setMasterCompPreset: (v: number) => void
+
   audioEngine: 'gm' | 'samples'
   setAudioEngine: (engine: 'gm' | 'samples') => void
 
@@ -517,6 +528,13 @@ export const useStore = create<OrfeoStore>((set, get) => ({
   masterVolume: 0.8,
   setMasterVolume: (masterVolume) => set({ masterVolume: Math.max(0, Math.min(1, masterVolume)) }),
 
+  // Default on, at the "Gentle" preset (index 1) — protects against the
+  // gain-staging clipping bug out of the box rather than requiring opt-in.
+  masterCompEnabled: true,
+  setMasterCompEnabled: (masterCompEnabled) => set({ masterCompEnabled }),
+  masterCompPreset: 1,
+  setMasterCompPreset: (masterCompPreset) => set({ masterCompPreset: Math.max(0, Math.min(4, Math.round(masterCompPreset))) }),
+
   resetAll: () => {
     ;(window as any).__orfeoPlayer?.stop?.()
     set({
@@ -788,6 +806,8 @@ async function restoreLibraryPrefs() {
     if (prefs.noteNaming) store.setNoteNaming(prefs.noteNaming)
     if (prefs.accidentals) store.setAccidentals(prefs.accidentals)
     if (typeof prefs.masterVolume === 'number') store.setMasterVolume(prefs.masterVolume)
+    if (typeof prefs.masterCompEnabled === 'boolean') store.setMasterCompEnabled(prefs.masterCompEnabled)
+    if (typeof prefs.masterCompPreset === 'number') store.setMasterCompPreset(prefs.masterCompPreset)
     if (prefs.audioEngine === 'samples') store.setAudioEngine('samples')
     if (typeof prefs.showBarNumbers === 'boolean') store.setShowBarNumbers(prefs.showBarNumbers)
     if (typeof prefs.noteEditorEnabled === 'boolean') store.setNoteEditorEnabled(prefs.noteEditorEnabled)
@@ -889,6 +909,8 @@ let _prevHitEffectBloomSpread: number | null = null
 let _prevHitEffectScope: string | null = null
 let _prevHitEffectColor: string | null | undefined = undefined
 let _prevSelectedSoundfont: string | null = null
+let _prevMasterCompEnabled: boolean | null = null
+let _prevMasterCompPreset: number | null = null
 const _unsubPrefs = useStore.subscribe((state) => {
   // Skip the very first fire (app init) — restore handles loading saved values
   if (_prevNoteNaming === null) {
@@ -929,12 +951,16 @@ const _unsubPrefs = useStore.subscribe((state) => {
     _prevHitEffectScope = state.hitEffectScope
     _prevHitEffectColor = state.hitEffectColor
     _prevSelectedSoundfont = state.selectedSoundfont
+    _prevMasterCompEnabled = state.masterCompEnabled
+    _prevMasterCompPreset = state.masterCompPreset
     return
   }
   if (
     state.noteNaming !== _prevNoteNaming ||
     state.accidentals !== _prevAccidentals ||
     state.masterVolume !== _prevMasterVolume ||
+    state.masterCompEnabled !== _prevMasterCompEnabled ||
+    state.masterCompPreset !== _prevMasterCompPreset ||
     state.audioEngine !== _prevAudioEngine ||
     state.showBarNumbers !== _prevShowBarNumbers ||
     state.noteEditorEnabled !== _prevNoteEditorEnabled ||
@@ -1007,10 +1033,14 @@ const _unsubPrefs = useStore.subscribe((state) => {
     _prevHitEffectScope = state.hitEffectScope
     _prevHitEffectColor = state.hitEffectColor
     _prevSelectedSoundfont = state.selectedSoundfont
+    _prevMasterCompEnabled = state.masterCompEnabled
+    _prevMasterCompPreset = state.masterCompPreset
     window.electronAPI?.setPrefs?.({
       noteNaming: state.noteNaming,
       accidentals: state.accidentals,
       masterVolume: state.masterVolume,
+      masterCompEnabled: state.masterCompEnabled,
+      masterCompPreset: state.masterCompPreset,
       audioEngine: state.audioEngine,
       showBarNumbers: state.showBarNumbers,
       noteEditorEnabled: state.noteEditorEnabled,
