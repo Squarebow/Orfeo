@@ -177,7 +177,12 @@ export default function TopBar() {
     <div
       className="app-drag-region"
       style={{
-        height: loopRegionEnabled ? 120 : 96,
+        // ── Height = the extra room this redesign needed: 20px clearance
+        // above the tallest group's own content (center: filename +
+        // transport + scrub, ~87.5px measured) + 20px clearance below it,
+        // before the piano roll. Grown by the same 24px the loop-region
+        // strip adds when present, same as before. ───────────────────────
+        height: loopRegionEnabled ? 152 : 128,
         background: 'var(--bg-deep)',
         borderBottom: 'none',
         // ── CSS Grid, three real minmax(0,1fr) columns (not 1fr auto 1fr —
@@ -191,14 +196,22 @@ export default function TopBar() {
         // groups near the 900px documented minimum window width. ──────────
         display: 'grid',
         gridTemplateColumns: 'minmax(0,1fr) minmax(0,1fr) minmax(0,1fr)',
+        // ── Back to center — left (~39px) and right (~40px) vertically
+        // center in the row like they always did. Only the center column
+        // opts out (see its own `alignSelf:'flex-start'` below): its content
+        // is much taller (~87.5px, it carries the transport row), and
+        // center-aligning it put its own top just 4px from the row's edge.
+        // Giving center its own top anchor + top margin — instead of
+        // top-aligning the whole grid — keeps center's breathing room
+        // without pulling left/right out of their normal centered spot. ──
         alignItems: 'center',
-        // Symmetric 20px both sides — the button dodge lives on the right
-        // group's own box (see its comment below), not here, so the grid's
-        // own bounds stay centered on the real window instead of skewed left
-        // by an asymmetric 20/174-style split (the center column is
-        // structurally centered WITHIN the grid, but that only matches the
-        // window's true center if the grid itself isn't off-center).
-        padding: '0 20px 0 20px',
+        // Symmetric 20px both sides, 0 top/bottom — the button dodge lives
+        // on the right group's own box (see its comment below), not here,
+        // and left/right's own vertical centering needs the grid's full,
+        // unpadded height to center against (an asymmetric top-only pad
+        // would skew their center off the row's true middle). Center's own
+        // top clearance comes from its own margin instead (see below).
+        padding: '0 20px',
         gap: 0,
         flexShrink: 0,
       }}
@@ -303,11 +316,25 @@ export default function TopBar() {
           genuinely centered between the other two regardless of their content
           width; stretches to fill the (equal, minmax(0,1fr)) column instead of
           a fixed 400px box, so at the 900px floor it shrinks with the column
-          rather than overflowing into the side groups. ── */}
+          rather than overflowing into the side groups. alignSelf:'flex-start'
+          + its own marginTop opts this column out of the grid's
+          alignItems:'center' (which left/right use) — center's content is
+          tall enough (~87.5px) that center-aligning it left almost no gap
+          above the transport row; anchoring it to the top with an explicit
+          20px margin instead gives it the same breathing room without
+          moving left/right off their normal centered spot. ── */}
       <div className="app-no-drag" style={{
-        justifySelf: 'stretch', minWidth: 0,
+        justifySelf: 'stretch', minWidth: 0, alignSelf: 'flex-start', marginTop: 20,
         display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 5,
       }}>
+        {/* Filename — moved above the transport row so the center column's
+            topmost line is comparably light (small text) to the left/right
+            groups' top lines, now that all three groups share the same
+            top-aligned start (see the grid's alignItems comment above). */}
+        <span style={{ color: 'var(--text-default)', fontSize: 'var(--text-xs)', fontFamily: 'var(--font-ui)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: 340 }}
+          title={midi?.fileName}>
+          {midi ? midi.fileName.replace(/\.(mid|midi)$/i, '') : 'No file open'}
+        </span>
         {/* Transport */}
         <div style={{ display: 'flex', alignItems: 'center', gap: 2 }}>
           <TBtn onClick={stop} disabled={!midi} title="Go to start"><SkipBack size={16} strokeWidth={1.5} /></TBtn>
@@ -372,11 +399,6 @@ export default function TopBar() {
           {/* Loop Region Strip — visible only when enabled in Settings */}
           {loopRegionEnabled && <LoopRegionStrip />}
         </div>
-        {/* Filename */}
-        <span style={{ color: 'var(--text-default)', fontSize: 'var(--text-xs)', fontFamily: 'var(--font-ui)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: 340 }}
-          title={midi?.fileName}>
-          {midi ? midi.fileName.replace(/\.(mid|midi)$/i, '') : 'No file open'}
-        </span>
       </div>
 
       {/* ── TIME + METRONOME + MIDI — bottoms aligned. Same overflow treatment as
@@ -398,8 +420,8 @@ export default function TopBar() {
           center column is now reachable by scrolling left instead. ── */}
       <div className="app-no-drag mixer-scroll" style={{
         justifySelf: 'stretch', minWidth: 0, overflowX: 'auto', overflowY: 'hidden', direction: 'rtl',
-        // ── Vertically centered like its siblings (inherits the grid's own
-        // alignItems:'center') — stays flush-right against the real Win
+        // ── Top-aligned like its siblings (inherits the grid's own
+        // alignItems:'flex-start') — stays flush-right against the real Win
         // overlay button boundary via paddingRight (overlayInset is measured
         // from the window's true right edge; the grid container itself only
         // contributes a flat 20px here, so this makes up the rest), not by
@@ -407,11 +429,6 @@ export default function TopBar() {
         // exactly where the buttons start, so there's no horizontal overlap
         // into their hit-region at any vertical position.
         paddingRight: Math.max(overlayInset - 20, 0),
-        // ── paddingBottom — unrelated to the button dodge above: the Volume
-        // label (position:absolute) sits 2.5px past this box's own auto
-        // height and was getting clipped by overflowY:hidden; padding grows
-        // the clip boundary past the label's real extent, CDP-verified.
-        paddingBottom: 6,
       }}>
       <div style={{ display: 'flex', alignItems: 'flex-end', gap: 0, flexShrink: 0, direction: 'ltr', width: 'max-content' }}>
 

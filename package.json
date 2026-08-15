@@ -1,6 +1,6 @@
 {
   "name": "orfeo",
-  "version": "1.8.0",
+  "version": "1.9.0",
   "description": "Modern piano learning app with MIDI visualization",
   "author": "SquareBow",
   "license": "MIT",
@@ -117,7 +117,6 @@
     "zustand": "^5.0.3"
   },
   "devDependencies": {
-    "@tailwindcss/vite": "^4.3.3",
     "@types/pdfkit": "^0.17.6",
     "@types/react": "^19.2.18",
     "@types/react-dom": "^19.2.4",
@@ -125,10 +124,9 @@
     "electron": "^42.8.1",
     "electron-builder": "^26.15.3",
     "electron-vite": "^3.1.0",
-    "lucide-react": "^0.503.0",
+    "lucide-react": "^1.31.0",
     "react": "^19.2.8",
     "react-dom": "^19.2.8",
-    "tailwindcss": "^4.3.3",
     "typescript": "^5.8.3"
   }
 }

@@ -1,5 +1,32 @@
 # Changelog
 
+## [1.9.0] — 15. 8. 2026 — New app icon, TopBar realignment, font-swap trial infrastructure, Tailwind removed
+
+A grab-bag day: a redrawn app icon, two rounds of TopBar layout fixes driven by live testing, the ground laid for trying out new UI-font pairings (three candidates installed, none committed to yet), a real cross-cutting bug fix, and a dependency cut.
+
+### App icon
+- **Replaced entirely.** The old icon was the logo mark inside an orange ring/circle; the ring is gone — just the mark, sized to fill ~82% of the canvas (standard breathing room for a solid-glyph Windows icon, not edge-to-edge and not swimming in padding). Rendered directly from the source SVG at each target resolution (16/20/24/32/40/48/64/96/128/256px — the fuller Windows DPI-scaling set, not just the minimal 4-5 sizes most icons ship with) rather than upscaling a single raster, so it stays crisp at every size Explorer actually requests. A reported "dark border/blurriness" on the desktop turned out to be Windows' own built-in shortcut drop-shadow effect (confirmed present on other apps' icons too, just far less visible on their bulkier shapes) — not a defect in the file.
+
+### TopBar — right-group alignment, root-caused twice
+- **Volume label misalignment, root cause fixed.** `VolumeKnob`'s bars were centering themselves independently of their row siblings (Time/Metronome/MIDI, which bottom-align via the row's own `alignItems:'flex-end'`) using an absolutely-positioned label as a workaround — the two approaches drifted apart. Rebuilt as the same real-flow `[content, label]` column shape as its siblings, so it inherits the row's bottom-alignment naturally instead of faking it from outside the flow.
+- **Whole-bar realignment.** Under the previous `alignItems:'center'`, the center column (transport + scrub, ~87.5px tall) sat almost flush with the row's top edge while the left/right groups (~40px tall) sat 28px down — the actual reason every previous right-group padding tweak kept fighting itself. Moved the filename above the transport row (so the center column's own top line is comparably light to the side groups') and top-anchored just that column with its own margin, while left/right went back to true vertical centering — CDP-measured: both groups land at identical `top` values, filename retains its own clearance.
+
+### Typography — three new pairing candidates installed for trial
+- **Founders Grotesk / IBM Plex Mono**, then **Familjen Grotesk** and **Mona Sans** (all self-hosted, no CDN) installed alongside the existing Inter/JetBrains Mono — `--font-ui`/`--font-mono` swap between them with a one-line edit, no re-fetching needed. IBM Plex Mono is the settled mono pairing; the UI-font trial is ongoing (currently pointed at Familjen Grotesk). Founders Grotesk's files are kept for now, pending a final decision.
+- Self-hosted fonts relocated from `public/fonts/` to `src/assets/fonts/`, now going through Vite's normal hashed-asset pipeline instead of the raw-copy `public/` bucket — no change to what ships, purely a source-tree tidiness move. `public/fonts/` now holds only the unrelated PDF-export TTFs used by `electron/main.ts`.
+- Mona Sans was initially sourced from its GitHub repo directly; switched to Google Fonts' hosted copy instead (identical SIL OFL-1.1 file, just already in the same one-file-per-script-range variable form the rest of this block uses) for consistency with the other self-hosted fonts.
+
+### Fixed — form controls silently ignoring the app's fonts
+- **`button`/`input`/`select`/`textarea` don't inherit `font-family` from the page in any browser** — a long-standing CSS quirk that had 33 form controls across 9 files quietly rendering in the platform's default font (Arial on Windows) regardless of `--font-ui`, undetected until a font swap made it visually obvious on the Library/Settings drawer tabs. Fixed at the root with a single `font-family: inherit` rule on all four element types, rather than patching each site — also protects any future control that forgets to set it explicitly.
+
+### Removed — Tailwind CSS
+- Uninstalled entirely (`tailwindcss`, `@tailwindcss/vite`, `tailwind.config.ts`, the Vite plugin registration, the `@import` in `index.css`). Audit found only 10 real utility-class usages app-wide, all in one file (`Keyboard.tsx`), and the custom theme it was configured with (colors, font families) was referenced nowhere and already stale. Those 10 sites converted to inline styles — the pattern already used by the other 99% of the app — with zero visual change (CDP-verified).
+
+### Also
+- `lucide-react` updated `0.503.0` → `1.31.0` (180 releases behind; the version jump to `1.0.0` was flagged by upstream as published in error, not an intentional breaking change). Verified all 76 icon names this codebase imports still exist under the same names before upgrading.
+
+**New:** `src/assets/fonts/` (18 files — Inter, JetBrains Mono, Founders Grotesk, Familjen Grotesk, Mona Sans, IBM Plex Mono). **Removed:** `tailwind.config.ts`, `public/fonts/*.woff2` (moved to `src/assets/fonts/`). **Changed:** `public/icon.ico`, `src/components/Transport/TopBar.tsx`, `src/components/VolumeKnob.tsx`, `src/components/Keyboard/Keyboard.tsx`, `src/index.css`, `electron.vite.config.ts`, `package.json`.
+
 ## [1.8.0] — 14. 8. 2026 — Accessibility overhaul, performance fixes, self-hosted typography
 
 A full `/impeccable audit`-driven pass: the app scored 12/20 on a technical audit (accessibility, performance, theming, responsive design, implementation integrity) going in, 15/20 after the first fix round, and every item from both audits is resolved as of this release. Also includes a font-tokenization + self-hosting pass and a handful of real bugs found via live testing rather than audit findings.

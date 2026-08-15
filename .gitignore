@@ -43,3 +43,6 @@ DESIGN.md
 # ── CDP dev-debug helper scripts — local testing tools, not shipped app code ─
 scripts/dev-debug/
 .worktrees/
+
+# ── Playwright MCP — local browser-testing artifacts, not shipped app code ──
+.playwright-mcp/

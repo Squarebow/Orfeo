@@ -628,12 +628,14 @@ export default function Keyboard() {
 
       {/* Piano keys */}
       <div
-        className="relative w-full select-none"
         ref={keyContainerRef}
-        style={{ height: keyHeight, background: 'var(--bg-deep)', borderTop: '1px solid var(--state-hover-bg)', transition: 'height 0.15s' }}
+        style={{
+          position: 'relative', width: '100%', userSelect: 'none',
+          height: keyHeight, background: 'var(--bg-deep)', borderTop: '1px solid var(--state-hover-bg)', transition: 'height 0.15s',
+        }}
       >
         {/* White keys */}
-        <div className="absolute inset-0 flex">
+        <div style={{ position: 'absolute', inset: 0, display: 'flex' }}>
           {whiteKeys.map((k, i) => {
             const color = getColor(k.midi)
             const hand = getHardwareHand(k.midi)
@@ -655,8 +657,9 @@ export default function Keyboard() {
                 onKeyDown={e => {
                   if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); handleKeyClick(k.midi) }
                 }}
-                className="relative flex-1 flex flex-col justify-end items-center pb-1 cursor-pointer"
                 style={{
+                  position: 'relative', flex: '1 1 0%', display: 'flex', flexDirection: 'column',
+                  justifyContent: 'flex-end', alignItems: 'center', paddingBottom: 4, cursor: 'pointer',
                   background: color ?? 'var(--key-white-bg)',
                   borderRight: !color ? '1px solid var(--key-white-border)' : allActiveKeys.has(whiteKeys[i + 1]?.midi) ? '1px solid var(--key-active-border)' : '1px solid transparent',
                   borderLeft: color && allActiveKeys.has(whiteKeys[i - 1]?.midi) ? '1px solid var(--key-active-border)' : 'none',
@@ -668,24 +671,24 @@ export default function Keyboard() {
                   }}
               >
                 {hand && (
-                  <span className="pointer-events-none" style={{
+                  <span style={{
                     position: 'absolute', top: 0, left: 0, right: 0, height: 3,
-                    background: hand === 'L' ? HAND_LH : HAND_RH,
+                    background: hand === 'L' ? HAND_LH : HAND_RH, pointerEvents: 'none',
                   }} />
                 )}
                 {colorHand && (
-                  <span className="pointer-events-none" style={{
+                  <span style={{
                     position: 'absolute', top: 3, left: 3,
                     fontSize: 8, fontWeight: 700, lineHeight: 1,
                     fontFamily: 'var(--font-mono)', color: 'var(--text-white)',
-                    textShadow: '0 1px 2px rgba(0,0,0,0.65)', userSelect: 'none',
+                    textShadow: '0 1px 2px rgba(0,0,0,0.65)', userSelect: 'none', pointerEvents: 'none',
                   }}>
                     {colorHand}
                   </span>
                 )}
                 {label && (
-                  <span className="font-semibold pointer-events-none"
-                    style={{ color: color ? 'var(--text-white)' : 'var(--key-label-dim)', fontFamily: 'var(--font-mono)', fontSize: (chordExplorerOpen || scaleExplorerOpen) ? 11 : 9 }}>
+                  <span
+                    style={{ fontWeight: 600, pointerEvents: 'none', color: color ? 'var(--text-white)' : 'var(--key-label-dim)', fontFamily: 'var(--font-mono)', fontSize: (chordExplorerOpen || scaleExplorerOpen) ? 11 : 9 }}>
                     {label}
                   </span>
                 )}
@@ -695,7 +698,7 @@ export default function Keyboard() {
         </div>
 
         {/* Black keys */}
-        <div className="absolute inset-0 pointer-events-none" style={{ zIndex: 2 }}>
+        <div style={{ position: 'absolute', inset: 0, pointerEvents: 'none', zIndex: 2 }}>
           {keys.filter(k => k.isBlack).map((k) => {
             // ── Positions come from the same buildKeyLayoutRatios as PianoRoll ──
             const ratio = keyRatios[k.midi - min]
@@ -718,8 +721,8 @@ export default function Keyboard() {
                 onKeyDown={e => {
                   if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); handleKeyClick(k.midi) }
                 }}
-                className="absolute top-0 cursor-pointer pointer-events-auto"
                 style={{
+                  position: 'absolute', top: 0, cursor: 'pointer', pointerEvents: 'auto',
                   left: `${leftPct}%`, width: `${widthPct}%`, height: '65%',
                   background: color ?? 'var(--border-row)',
                   borderRadius: '0 0 4px 4px',
@@ -742,18 +745,18 @@ export default function Keyboard() {
                 }}
               >
                 {hand && (
-                  <span className="pointer-events-none" style={{
+                  <span style={{
                     position: 'absolute', top: 0, left: 0, right: 0, height: 3,
-                    background: hand === 'L' ? HAND_LH : HAND_RH,
+                    background: hand === 'L' ? HAND_LH : HAND_RH, pointerEvents: 'none',
                     borderRadius: '2px 2px 0 0',
                   }} />
                 )}
                 {colorHand && (
-                  <span className="pointer-events-none" style={{
+                  <span style={{
                     position: 'absolute', top: 2, left: '50%', transform: 'translateX(-50%)',
                     fontSize: 7, fontWeight: 700, lineHeight: 1,
                     fontFamily: 'var(--font-mono)', color: 'var(--text-white)',
-                    textShadow: '0 1px 2px rgba(0,0,0,0.65)', userSelect: 'none',
+                    textShadow: '0 1px 2px rgba(0,0,0,0.65)', userSelect: 'none', pointerEvents: 'none',
                   }}>
                     {colorHand}
                   </span>
