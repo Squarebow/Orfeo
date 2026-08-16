@@ -24,6 +24,7 @@ import { withHandSuffix } from '../../utils/handMetadata'
 import { getGMName, getGMGroup } from '../../utils/gmInstruments'
 import { computeTempoKeyPayload } from '../../utils/tempoKeySave'
 import { useFocusTrap } from '../../hooks/useFocusTrap'
+import Tooltip from '../Tooltip'
 
 const MODAL_W = 980
 const MODAL_H = 620
@@ -822,6 +823,7 @@ export default function MidiEditor() {
   const midiEditorOpen   = useStore((s) => s.midiEditorOpen)
   const setMidiEditorOpen = useStore((s) => s.setMidiEditorOpen)
   const saveTempoKeyChangesEnabled = useStore((s) => s.saveTempoKeyChangesEnabled)
+  const noteEditorEnabled = useStore((s) => s.noteEditorEnabled)
 
   // ── Editor state ─────────────────────────────────────────────────────────────
   const [state, setState] = useState<EditorState | null>(null)
@@ -1431,18 +1433,35 @@ export default function MidiEditor() {
                       {infoStats.confidenceUnknown ? (
                         'Hand split shown is automatic.'
                       ) : infoStats.lowConfidenceCount > 0 ? (
-                        <><span style={{ color: LOW_CONF }}>{Math.round(infoStats.lowConfidenceRatio * 100)}% flagged low-confidence</span> — for a perfectly accurate split, edit in Note Editor</>
+                        // Bright red (matches the closed-eye "hidden" icon) so this
+                        // collapsed-row flag reads as an alert at a glance — kept
+                        // distinct from the legend/overlay's muted LOW_CONF red below,
+                        // which is deliberately quieter since it's always-on chrome.
+                        <><span style={{ color: 'var(--status-error-hover)' }}>{Math.round(infoStats.lowConfidenceRatio * 100)}% flagged low-confidence</span> — for a perfectly accurate split, edit in Note Editor</>
                       ) : (
                         'Hand split looks accurate — edit in Note Editor to fine-tune'
                       )}
                     </span>
-                    <button
-                      onClick={() => handleOpenInNoteEditor(track.index)}
-                      title="Open this track in the Note Editor, solo'd and editable"
-                      style={{ background: 'none', border: 'none', padding: 0, display: 'flex', color: 'var(--text-amber)', cursor: 'pointer', flexShrink: 0 }}
+                    <Tooltip
+                      title={noteEditorEnabled ? 'Open in Note Editor' : 'Note Editor disabled'}
+                      description={noteEditorEnabled
+                        ? "Opens this track in the Note Editor, solo'd and editable."
+                        : 'Turn on MIDI Note Editor in Settings to use this.'}
                     >
-                      <AudioLines size={11} />
-                    </button>
+                      <button
+                        onClick={() => { if (noteEditorEnabled) handleOpenInNoteEditor(track.index) }}
+                        disabled={!noteEditorEnabled}
+                        style={{
+                          background: 'none', border: 'none', padding: 0, display: 'flex',
+                          color: noteEditorEnabled ? 'var(--text-amber)' : 'var(--text-inactive)',
+                          opacity: noteEditorEnabled ? 1 : 0.4,
+                          cursor: noteEditorEnabled ? 'pointer' : 'default',
+                          flexShrink: 0,
+                        }}
+                      >
+                        <AudioLines size={11} />
+                      </button>
+                    </Tooltip>
                   </div>
                 </div>
 

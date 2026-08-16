@@ -153,6 +153,13 @@ function CompressorPresetKnob({ presetIndex, onChange, disabled, interactive }: 
   }, [presetIndex])
 
   const hovered = hoverPreset !== null ? COMPRESSOR_PRESETS[hoverPreset] : null
+  // While the engine itself has the compressor unavailable, every tick shows
+  // the same "switch engines" explanation instead of its own preset info —
+  // there's nothing preset-specific to say if you can't select any of them.
+  const content = hoverPreset === null ? null
+    : disabled ? { title: 'Compressor', description: 'You must switch to Samples engine to use the Compressor.' }
+    : hovered ? { title: hovered.label, description: `${hovered.ratio}:1 ratio, ${hovered.threshold} dB threshold` }
+    : null
 
   return (
     <div
@@ -167,9 +174,9 @@ function CompressorPresetKnob({ presetIndex, onChange, disabled, interactive }: 
         disabled={disabled || !interactive} dotCount={COMPRESSOR_PRESETS.length} tickMajorEvery={0}
       />
       <TooltipBox
-        anchorRect={hovered ? wrapRef.current?.getBoundingClientRect() ?? null : null}
-        content={hovered ? { title: hovered.label, description: `${hovered.ratio}:1 ratio, ${hovered.threshold} dB threshold` } : null}
-        visible={!!hovered}
+        anchorRect={hoverPreset !== null ? wrapRef.current?.getBoundingClientRect() ?? null : null}
+        content={content}
+        visible={hoverPreset !== null}
       />
     </div>
   )
@@ -658,12 +665,14 @@ export default function MasterStrip() {
           accentColor="var(--knob-chorus)" size={52}
           disabled={knobsDisabled} label="Chorus"
           title="Chorus" description="Thickens the overall mix by layering slightly detuned copies of it"
+          disabledHint="You must switch to Samples engine to use Chorus."
         />
         <MixerKnob
           value={reverb} onChange={handleReverb}
           accentColor="var(--knob-reverb)" size={52}
           disabled={knobsDisabled} label="Reverb"
           title="Reverb" description="Adds overall room/space ambience to the mix"
+          disabledHint="You must switch to Samples engine to use Reverb."
         />
       </div>
 
@@ -698,6 +707,7 @@ export default function MasterStrip() {
             accentColor="var(--knob-tone)" size={52}
             disabled={knobsDisabled} bipolar
             title="Tone" description="Tilts the overall EQ darker or brighter"
+            disabledHint="You must switch to Samples engine to use Tone."
           />
           <span style={{
             position: 'absolute', top: '100%', left: '50%', transform: 'translateX(-50%)',
@@ -714,8 +724,10 @@ export default function MasterStrip() {
             from the usual dark/amber IBtn pattern since this needs to read
             clearly against the knob's own pink even at a glance. */}
         <Tooltip
-          title={masterCompEnabled ? 'Compressor on' : 'Compressor off'}
-          description="Automatically pulls down the loudest peaks so playback stays clear of digital clipping, without a blanket volume cut. Click to toggle."
+          title={knobsDisabled ? 'Compressor' : masterCompEnabled ? 'Compressor on' : 'Compressor off'}
+          description={knobsDisabled
+            ? 'You must switch to Samples engine to use the Compressor.'
+            : 'Automatically pulls down the loudest peaks so playback stays clear of digital clipping, without a blanket volume cut. Click to toggle.'}
         >
         <button
           onClick={handleCompToggle}

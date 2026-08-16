@@ -285,6 +285,7 @@ function LoopOverlay() {
   }, [])
 
   const handleOverlayMouseDown = (e: React.MouseEvent<HTMLDivElement>) => {
+    if (!e.altKey) return   // plain click/drag is reserved for other roll interactions
     e.preventDefault()
     const el = overlayRef.current
     if (!el) return

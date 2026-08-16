@@ -1,5 +1,23 @@
 # Changelog
 
+## [1.10.1] — 16. 8. 2026 — Mixer disabled-state tooltips, Note Editor gating, Playback Editor confidence color, Piano Roll loop-region regression fix
+
+A cleanup pass on four separate UX rough edges reported after the 1.10.0 release: silent dimmed controls with no explanation, a confusingly-destructive click, an under-visible warning color, and a loop-region drag regression from three releases back.
+
+### Fixed — Mixer knobs gave no explanation when dimmed
+- **Chorus/Reverb/Tone/Pan and the Compressor (toggle + preset knob) now explain themselves on hover while dimmed**, instead of showing nothing at all. Root cause: `MixerKnob`'s wrapper set `pointer-events:none` on itself whenever `disabled`, which also blocked its own `onMouseEnter`/`onMouseLeave` — the exact events its tooltip depends on. Fixed by keeping the wrapper hoverable always and relying on the `disabled` checks already inside the drag/keyboard handlers to block actual interaction (tabIndex was already `-1` while disabled). New `disabledHint` prop overrides the tooltip's description with an explanation — "You must switch to Samples engine to use ___." — everywhere GM engine disables a control.
+
+### Fixed — Playback Editor's Note Editor icon silently closed the modal
+- Clicking the note-editor icon in a track's confidence row used to call `setNoteEditorActive(true)` and close the Playback Editor unconditionally — including when **MIDI Note Editor** is turned off in Settings, where nothing useful happens next. The icon now dims and disables itself when the setting is off, with a tooltip explaining "Turn on MIDI Note Editor in Settings to use this," instead of performing a no-op close.
+
+### Fixed — low-confidence flag hard to spot in the collapsed row
+- The "N% flagged low-confidence" text in a track's always-visible confidence-row summary was the same muted dark red as the legend swatch and the timeline overlay band — both of which are deliberately quiet, always-on chrome. Recolored just this one instance to `var(--status-error-hover)`, the same bright red the closed-eye "hidden" track icon uses, so it reads as an actual alert at a glance. Legend and overlay untouched.
+
+### Fixed — Piano Roll: plain click+drag could start a loop region again
+- Regressed in 1.7.0: a fix for an unrelated unclickable-icon bug also stripped the `Alt`-key gate on starting a new loop-region selection, so any plain click+drag on the roll now started one — confusing next to the boundary-handle drags and right-click-to-clear gestures that don't need Alt. Restored `if (!e.altKey) return` in the drag-start handler only; left the cursor and `pointer-events` unconditional (both were also tied to an Alt-held state pre-1.7.0) so the cursor no longer flickers between states like it used to.
+
+**Changed:** `src/components/MidiEditor/MidiEditor.tsx`, `src/components/Mixer/{ChannelStrip,MasterStrip,MixerKnob}.tsx`, `src/components/PianoRoll/PianoRoll.tsx`.
+
 ## [1.10.0] — 15. 8. 2026 — Master compressor/limiter, Mixer tooltip system, global focus-ring fix
 
 The Console Mixer's master bus gets a compressor/limiter with five presets, a full pass of stylish hover tooltips replacing native browser ones across every knob and icon, and a global fix for a focus-ring bug that had been visible everywhere in the app, not just the Mixer.

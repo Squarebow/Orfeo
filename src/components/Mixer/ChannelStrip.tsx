@@ -351,6 +351,7 @@ export default function ChannelStrip({ trackIndex, locked, isDragging, onDragSta
           accentColor="var(--knob-chorus)" size={52}
           disabled={knobsDisabled} label="Chorus"
           title="Chorus" description="Thickens the tone by layering slightly detuned copies of it"
+          disabledHint="You must switch to Samples engine to use Chorus."
         />
       </div>
 
@@ -365,6 +366,7 @@ export default function ChannelStrip({ trackIndex, locked, isDragging, onDragSta
           accentColor="var(--knob-reverb)" size={52}
           disabled={knobsDisabled} label="Reverb"
           title="Reverb" description="Adds room/space ambience behind the channel"
+          disabledHint="You must switch to Samples engine to use Reverb."
         />
       </div>
 
@@ -385,6 +387,7 @@ export default function ChannelStrip({ trackIndex, locked, isDragging, onDragSta
           accentColor="var(--text-amber)" size={52}
           disabled={knobsDisabled} bipolar label="Pan"
           title="Pan" description="Positions the channel left/right in the stereo field"
+          disabledHint="You must switch to Samples engine to use Pan."
         />
         <span style={{
           fontSize: 9, fontFamily: 'var(--font-mono)', letterSpacing: '0.06em',
