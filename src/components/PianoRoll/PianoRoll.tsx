@@ -372,10 +372,14 @@ function LoopOverlay() {
           display: 'flex', flexDirection: 'column', gap: 2,
           whiteSpace: 'nowrap',
         }}>
-          <span style={{ fontFamily: 'var(--font-ui)', fontSize: 11, color: 'var(--accent-amber-tooltip-text)' }}>
+          <span style={{
+            fontFamily: 'var(--font-ui)', fontSize: 9, fontWeight: 700,
+            textTransform: 'uppercase', letterSpacing: '0.08em',
+            color: 'var(--accent-amber-tooltip-text)',
+          }}>
             Loop region set
           </span>
-          <span style={{ fontFamily: 'var(--font-ui)', fontSize: 11, color: 'var(--text-tooltip-secondary)' }}>
+          <span style={{ fontFamily: 'var(--font-ui)', fontSize: 10, color: 'var(--text-tooltip-secondary)' }}>
             Drag to reorder, right-click to clear
           </span>
         </div>

@@ -87,8 +87,12 @@ function IBtn({ children, onClick, active, title, description, activeColor = 'va
       {title && (
         <TooltipBox
           anchorRect={hover ? ref.current?.getBoundingClientRect() ?? null : null}
-          content={{ title, description }}
+          // oneLine wants a single string — description is the more useful
+          // half (what clicking actually does), title alone is just the
+          // button's own state name (e.g. "Mute"), so it's the fallback.
+          content={{ title: description ?? title }}
           visible={hover}
+          oneLine
         />
       )}
     </button>

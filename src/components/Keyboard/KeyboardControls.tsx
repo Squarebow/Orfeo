@@ -1,5 +1,6 @@
 import { useMemo, useState, useEffect, useRef, type CSSProperties } from 'react'
 import { useStore } from '../../store'
+import Tooltip from '../Tooltip'
 import type { KeyboardSize } from '../../types'
 import { getWhiteKeys, noteToLeftPct, computeTaggedBoundaryCurve, interpolateTaggedCurve, type TaggedBoundarySample } from '../../utils/handBoundaries'
 
@@ -99,10 +100,9 @@ export default function KeyboardControls() {
       <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-3)', justifySelf: 'start', minWidth: 0 }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-1)' }}>
           {SIZES.map((size) => (
+            <Tooltip key={size} title={`Switch to ${size}-key layout`} oneLine>
             <button
-              key={size}
               onClick={() => setKeyboardSize(size)}
-              title={`${size}-key keyboard layout`}
               style={{
                 padding: '2px var(--space-2)', borderRadius: 4,
                 background: 'transparent',
@@ -116,17 +116,21 @@ export default function KeyboardControls() {
             >
               {size}
             </button>
+            </Tooltip>
           ))}
         </div>
         <div style={{ width: 1, height: 14, background: 'var(--border)' }} />
 
         {/* ── Dock / Float toggle — hidden in Presentation Mode ────────────────── */}
-        {!presentationMode && <button
+        {!presentationMode && <Tooltip
+          title={isDocked ? (undockBlocked ? "Can't float yet" : 'Float keyboard') : 'Dock keyboard'}
+          description={isDocked
+            ? (undockBlocked ? 'Close the open modal first — it shares the keyboard\'s anchor point.' : 'Detaches the keyboard so it can be moved and resized independently.')
+            : 'Reattaches the keyboard to the bottom of the window.'}
+        >
+        <button
           onClick={() => { if (isDocked && undockBlocked) return; setKeyboardMode(isDocked ? 'floating' : 'docked') }}
           disabled={isDocked && undockBlocked}
-          title={isDocked
-            ? (undockBlocked ? 'Close the open modal to float the keyboard' : 'Float keyboard (detach)')
-            : 'Dock keyboard (attach to bottom)'}
           style={{
             display: 'flex', alignItems: 'center', gap: 5,
             background: 'transparent', border: 'none',
@@ -153,7 +157,8 @@ export default function KeyboardControls() {
             </svg>
           )}
           {isDocked ? 'Docked' : 'Floating'}
-        </button>}
+        </button>
+        </Tooltip>}
       </div>
 
       {/* ── Center: shift+click hint — hidden while the practice-mode split
@@ -207,9 +212,12 @@ export default function KeyboardControls() {
       {!presentationMode && <NoteCounter />}
 
       {/* ── Presentation Mode toggle — replaces Docked/NoteCounter in PM footer ─ */}
+      <Tooltip
+        title={presentationMode ? 'Exit Presentation Mode' : 'Presentation Mode'}
+        description={presentationMode ? 'Press Esc to leave, or click here.' : 'Hides UI chrome for a distraction-free, fullscreen view (F11).'}
+      >
       <button
         onClick={() => setPresentationMode(!presentationMode)}
-        title={presentationMode ? 'Exit Presentation Mode (Esc)' : 'Enter Presentation Mode (F11)'}
         style={{
           display: 'flex', alignItems: 'center',
           background: 'transparent', border: 'none', cursor: 'pointer',
@@ -244,6 +252,7 @@ export default function KeyboardControls() {
           </svg>
         )}
       </button>
+      </Tooltip>
       </div>
     </div>
   )
@@ -254,7 +263,7 @@ function NoteCounter() {
   const midi = useStore((s) => s.midi)
   if (!midi) return null
   return (
-    <span style={{ color: 'var(--text-inactive)', fontSize: 10, fontFamily: 'var(--font-mono)' }} title="Total notes in file">
+    <span style={{ color: 'var(--text-inactive)', fontSize: 10, fontFamily: 'var(--font-mono)' }}>
       {midi.noteCount.toLocaleString()} notes · {midi.tracks.length} tracks
     </span>
   )

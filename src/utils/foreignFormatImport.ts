@@ -1,18 +1,26 @@
 // ── Foreign Format Import ─────────────────────────────────────────────────
-// Converts MusicXML and Guitar Pro files to Standard MIDI File bytes using
-// alphaTab's importer + midi namespaces only (no renderer, no audio engine).
-// Loaded lazily via dynamic import() to keep it out of the startup bundle.
+// Converts MusicXML, Guitar Pro, and Capella files to Standard MIDI File
+// bytes using alphaTab's importer + midi namespaces only (no renderer, no
+// audio engine). Loaded lazily via dynamic import() to keep it out of the
+// startup bundle.
 
 import { useStore } from '../store';
 import { confirmDialog } from './confirmController';
 
-export type ForeignFormat = 'musicxml' | 'guitarpro';
+export type ForeignFormat = 'musicxml' | 'guitarpro' | 'capella';
+
+const FORMAT_LABEL: Record<ForeignFormat, string> = {
+  musicxml: 'MusicXML',
+  guitarpro: 'Guitar Pro',
+  capella: 'Capella',
+};
 
 // ── Detect format by file extension ──────────────────────────────────────
 export function detectForeignFormat(filePath: string): ForeignFormat | null {
   const ext = filePath.split('.').pop()?.toLowerCase() ?? '';
   if (['musicxml', 'xml', 'mxl'].includes(ext)) return 'musicxml';
   if (['gp', 'gp3', 'gp4', 'gp5', 'gpx'].includes(ext)) return 'guitarpro';
+  if (ext === 'cap') return 'capella';
   return null; // .mid, .midi, .kar — no conversion needed
 }
 
@@ -37,9 +45,7 @@ export async function convertForeignFileToMidiBuffer(
     score = (at as any).importer.ScoreLoader.loadScoreFromBytes(bytes, settings);
   } catch (e: any) {
     throw new Error(
-      format === 'musicxml'
-        ? `Couldn't read this MusicXML file — it may be corrupted or use an unsupported feature. (${e?.message ?? e})`
-        : `Couldn't read this Guitar Pro file — it may be corrupted or an unsupported version. (${e?.message ?? e})`
+      `Couldn't read this ${FORMAT_LABEL[format]} file — it may be corrupted or use an unsupported feature. (${e?.message ?? e})`
     );
   }
 
@@ -67,7 +73,7 @@ export async function convertForeignFileToMidiBuffer(
 
   if (!bytes_out || bytes_out.length === 0) {
     throw new Error(
-      `alphaTab produced an empty MIDI output for this ${format === 'musicxml' ? 'MusicXML' : 'Guitar Pro'} file.`
+      `alphaTab produced an empty MIDI output for this ${FORMAT_LABEL[format]} file.`
     );
   }
 

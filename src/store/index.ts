@@ -4,6 +4,7 @@ import type {
   KeyboardSize, KeyboardMode, NoteNaming, Accidentals, ChordEvent, TranscriptEntry, LibraryFile, HitEffectPattern, SoundfontId,
 } from '../types'
 import type { DetectedKey } from '../utils/keyDetection'
+import type { ForeignFormat } from '../utils/foreignFormatImport'
 import { detectKeyFromTracks, parseKeySignature } from '../utils/keyDetection'
 import { isKeyboardInstrument } from '../utils/gmInstruments'
 import { parseMidiBuffer } from '../utils/midiParser'
@@ -111,14 +112,14 @@ interface OrfeoStore {
   setMidiEditorOpen: (open: boolean) => void
   pendingImportedFile: {
     sourcePath: string;
-    format: 'musicxml' | 'guitarpro';
+    format: ForeignFormat;
     midiBase64: string;
     fileName: string;
   } | null
   setPendingImportedFile: (
     value: {
       sourcePath: string;
-      format: 'musicxml' | 'guitarpro';
+      format: ForeignFormat;
       midiBase64: string;
       fileName: string;
     } | null

@@ -6,6 +6,7 @@ import type { TrackState } from '../../types'
 import { MarqueeText } from '../MarqueeText'
 import { usePlayback } from '../../hooks/usePlayback'
 import { NES } from '../../utils/noteEditorState'
+import Tooltip from '../Tooltip'
 
 const GROUP_ORDER = [
   'piano', 'chromatic', 'organ', 'guitar', 'bass',
@@ -210,9 +211,9 @@ export default function TrackPanel() {
           display: 'flex', flexDirection: 'column', alignItems: 'center',
           height: '100%', paddingTop: 10,
         }}>
+          <Tooltip title="Open Tracks panel" description="Shows every track with its mute, solo, and visibility controls.">
           <button
             onClick={() => setTrackPanelOpen(true)}
-            title="Open Tracks panel"
             style={{
               background: 'none', border: 'none', cursor: 'pointer',
               color: 'var(--text-dimmest)', padding: 4,
@@ -224,14 +225,19 @@ export default function TrackPanel() {
           >
             <ListTree size={18} />
           </button>
+          </Tooltip>
+          <Tooltip
+            title={!midi ? 'Open a MIDI file first' : midiEditorOpen ? 'MIDI Playback Editor is open' : 'Open MIDI Playback Editor'}
+            description={!midi ? 'Load a MIDI file to edit its playback.' : midiEditorOpen ? "Already open — check for it among your other windows." : 'Rename tracks, reassign instruments, and split hands before or after import.'}
+            wrapperStyle={{ marginTop: 8 }}
+          >
           <button
             onClick={midi && !midiEditorOpen ? handleOpenEditor : undefined}
-            title={!midi ? 'Open a MIDI file first' : midiEditorOpen ? 'MIDI PlaybackEditor is open' : 'Open MIDI Playback Editor'}
             style={{
               background: 'none', border: 'none',
               cursor: !midi || midiEditorOpen ? 'default' : 'pointer',
               color: midiEditorOpen ? 'var(--text-amber)' : !midi ? 'var(--state-disabled)' : 'var(--text-dimmest)',
-              padding: 4, marginTop: 8,
+              padding: 4,
               display: 'flex', alignItems: 'center', justifyContent: 'center',
               transition: 'color 0.15s',
             }}
@@ -240,14 +246,19 @@ export default function TrackPanel() {
           >
             <PencilSparklesIcon size={18} />
           </button>
+          </Tooltip>
           {noteEditorEnabled && midi && (
+            <Tooltip
+              title={noteEditorActive ? 'Exit note edit mode' : 'Open MIDI note editor'}
+              description={noteEditorActive ? 'Returns to normal playback view.' : 'Edit individual notes directly on the piano roll.'}
+              wrapperStyle={{ marginTop: 8 }}
+            >
             <button
               onClick={handleToggleNoteEditor}
-              title={noteEditorActive ? 'Exit note edit mode' : 'Open MIDI note editor'}
               style={{
                 background: 'none', border: 'none', cursor: 'pointer',
                 color: noteEditorActive ? 'var(--text-amber)' : 'var(--text-dimmest)',
-                padding: 4, marginTop: 8,
+                padding: 4,
                 display: 'flex', alignItems: 'center', justifyContent: 'center',
                 transition: 'color 0.15s',
               }}
@@ -260,13 +271,14 @@ export default function TrackPanel() {
                   on-screen stroke weight matching its neighbors. ──────────────── */}
               <AudioLines size={22} strokeWidth={1.64} />
             </button>
+            </Tooltip>
           )}
+          <Tooltip title="Open Console Mixer" description="Adjust volume, pan, and effects for every track." wrapperStyle={{ marginTop: 8 }}>
           <button
             onClick={() => useStore.getState().setMixerOpen(true)}
-            title="Open Console Mixer"
             style={{
               background: 'none', border: 'none', cursor: 'pointer',
-              color: 'var(--text-dimmest)', padding: 4, marginTop: 8,
+              color: 'var(--text-dimmest)', padding: 4,
               display: 'flex', alignItems: 'center', justifyContent: 'center',
               transition: 'color 0.15s',
             }}
@@ -275,13 +287,14 @@ export default function TrackPanel() {
           >
             <SlidersVertical size={18} />
           </button>
+          </Tooltip>
           {/* ── Dashed outline + low opacity — a same-shade disabled icon read as
               a normal, clickable nav icon until hovered; this makes "not yet
               shipped" visible at rest, not just on tooltip. ──────────────── */}
+          <Tooltip title="A dedicated practice mode is planned but not built yet." oneLine wrapperStyle={{ marginTop: 8 }}>
           <div
-            title="Coming soon — practice mode"
             style={{
-              color: 'var(--state-disabled)', padding: 3, marginTop: 8,
+              color: 'var(--state-disabled)', padding: 3,
               display: 'flex', alignItems: 'center', justifyContent: 'center',
               cursor: 'default', opacity: 0.55,
               border: '1px dashed var(--border2)', borderRadius: 4,
@@ -289,6 +302,7 @@ export default function TrackPanel() {
           >
             <Sparkles size={18} />
           </div>
+          </Tooltip>
         </div>
       )}
 
@@ -302,9 +316,9 @@ export default function TrackPanel() {
             paddingTop: 10,
             borderRight: '1px solid var(--bg-tile)',
           }}>
+            <Tooltip title="Close panel" oneLine placement="left">
             <button
               onClick={() => setTrackPanelOpen(false)}
-              title="Close Tracks"
               style={{
                 background: 'var(--bg-tile)', border: '1px solid var(--border2)', borderRight: 'none',
                 borderRadius: '0 4px 4px 0',
@@ -317,14 +331,19 @@ export default function TrackPanel() {
             >
               <ChevronRight size={15} />
             </button>
+            </Tooltip>
+            <Tooltip
+              title={!midi ? 'Open a MIDI file first' : midiEditorOpen ? 'MIDI Playback Editor is open' : 'Open MIDI Playback Editor'}
+              description={!midi ? 'Load a MIDI file to edit its playback.' : midiEditorOpen ? "Already open — check for it among your other windows." : 'Rename tracks, reassign instruments, and split hands before or after import.'}
+              wrapperStyle={{ marginTop: 8 }}
+            >
             <button
               onClick={midi && !midiEditorOpen ? handleOpenEditor : undefined}
-              title={!midi ? 'Open a MIDI file first' : midiEditorOpen ? 'MIDI Playback Editor is open' : 'Open MIDI Playback Editor'}
               style={{
                 background: 'none', border: 'none',
                 cursor: !midi || midiEditorOpen ? 'default' : 'pointer',
                 color: midiEditorOpen ? 'var(--text-amber)' : !midi ? 'var(--state-disabled)' : 'var(--text-dimmest)',
-                padding: 4, marginTop: 8,
+                padding: 4,
                 display: 'flex', alignItems: 'center', justifyContent: 'center',
                 transition: 'color 0.15s',
               }}
@@ -333,14 +352,19 @@ export default function TrackPanel() {
             >
               <PencilSparklesIcon size={16} />
             </button>
+            </Tooltip>
             {noteEditorEnabled && midi && (
+              <Tooltip
+                title={noteEditorActive ? 'Exit note edit mode' : 'Open MIDI note editor'}
+                description={noteEditorActive ? 'Returns to normal playback view.' : 'Edit individual notes directly on the piano roll.'}
+                wrapperStyle={{ marginTop: 8 }}
+              >
               <button
                 onClick={handleToggleNoteEditor}
-                title={noteEditorActive ? 'Exit note edit mode' : 'Open MIDI note editor'}
                 style={{
                   background: 'none', border: 'none', cursor: 'pointer',
                   color: noteEditorActive ? 'var(--text-amber)' : 'var(--text-dimmest)',
-                  padding: 4, marginTop: 8,
+                  padding: 4,
                   display: 'flex', alignItems: 'center', justifyContent: 'center',
                   transition: 'color 0.15s',
                 }}
@@ -351,13 +375,14 @@ export default function TrackPanel() {
                     siblings' 16) — see collapsed-rail instance above for why. ──── */}
                 <AudioLines size={20} strokeWidth={1.6} />
               </button>
+              </Tooltip>
             )}
+            <Tooltip title="Open Console Mixer" description="Adjust volume, pan, and effects for every track." wrapperStyle={{ marginTop: 8 }}>
             <button
               onClick={() => useStore.getState().setMixerOpen(true)}
-              title="Open Console Mixer"
               style={{
                 background: 'none', border: 'none', cursor: 'pointer',
-                color: 'var(--text-dimmest)', padding: 4, marginTop: 8,
+                color: 'var(--text-dimmest)', padding: 4,
                 display: 'flex', alignItems: 'center', justifyContent: 'center',
                 transition: 'color 0.15s',
               }}
@@ -366,11 +391,12 @@ export default function TrackPanel() {
             >
               <SlidersVertical size={16} />
             </button>
+            </Tooltip>
             {/* ── Dashed outline + low opacity — see collapsed-strip twin above ── */}
+            <Tooltip title="A dedicated practice mode is planned but not built yet." oneLine wrapperStyle={{ marginTop: 8 }}>
             <div
-              title="Coming soon — practice mode"
               style={{
-                color: 'var(--state-disabled)', padding: 3, marginTop: 8,
+                color: 'var(--state-disabled)', padding: 3,
                 display: 'flex', alignItems: 'center', justifyContent: 'center',
                 cursor: 'default', opacity: 0.55,
                 border: '1px dashed var(--border2)', borderRadius: 4,
@@ -380,6 +406,7 @@ export default function TrackPanel() {
                   siblings' 16), same reason as the AudioLines note-editor instances above. */}
               <Sparkles size={20} strokeWidth={1.6} />
             </div>
+            </Tooltip>
           </div>
 
           {/* ── Track content ─────────────────────────────────────────────── */}
@@ -403,11 +430,14 @@ export default function TrackPanel() {
                 </span>
                 {/* ── Mute-filter quick toggle — visible only when Selective Tracks Playback is on in Settings ── */}
                 {autoMuteNonKeyboard && (
+                  <Tooltip
+                    title={isCurrentlyFiltered ? 'Play all tracks' : 'Focus mode'}
+                    description={isCurrentlyFiltered ? 'Turn off the piano/bass/drums-only filter' : 'Mute everything except piano, bass & drums — good for practicing along'}
+                    wrapperStyle={{ marginLeft: 'auto' }}
+                  >
                   <button
                     onClick={() => setTrackMuteFilter(!isCurrentlyFiltered)}
-                    title={isCurrentlyFiltered ? 'Play all tracks' : 'Play only piano, bass & drums'}
                     style={{
-                      marginLeft: 'auto',
                       padding: '2px 8px',
                       borderRadius: 'var(--radius-sm)',
                       border: 'none',
@@ -428,6 +458,7 @@ export default function TrackPanel() {
                     <svg width="6" height="7" viewBox="0 0 6 7" style={{ marginRight: 3, flexShrink: 0 }}><polygon points="0,0 6,3.5 0,7" fill="currentColor"/></svg>
                     {isCurrentlyFiltered ? 'Selection' : 'All tracks'}
                   </button>
+                  </Tooltip>
                 )}
               </>
             )}
@@ -492,8 +523,9 @@ export default function TrackPanel() {
                     {collapsed && (
                       <div style={{ display: 'flex', gap: 2 }}>
                         {groupTracks.map(t => (
-                          <div key={t.index} title={t.trackName ?? t.gmName}
-                            style={{ width: 7, height: 7, borderRadius: 2, background: t.color, flexShrink: 0 }} />
+                          <Tooltip key={t.index} title={t.trackName ?? t.gmName} description="Matches this track's color in the piano roll.">
+                            <div style={{ width: 7, height: 7, borderRadius: 2, background: t.color, flexShrink: 0 }} />
+                          </Tooltip>
                         ))}
                       </div>
                     )}
@@ -501,9 +533,12 @@ export default function TrackPanel() {
                     <span style={{ fontSize: 10, color: 'var(--text-track-count)', fontFamily: 'var(--font-mono)' }}>
                       {groupTracks.length}
                     </span>
+                    <Tooltip
+                      title={groupMuted ? `Unmute all ${label}` : `Mute all ${label}`}
+                      description={groupMuted ? `Restores playback for every track in ${label}.` : `Silences every track in ${label} at once.`}
+                    >
                     <button
                       onClick={() => muteGroup(key, !groupMuted)}
-                      title={groupMuted ? `Unmute all ${label}` : `Mute all ${label}`}
                       style={{
                         background: 'none', border: 'none', cursor: 'pointer',
                         padding: '2px 4px', display: 'flex', alignItems: 'center',
@@ -512,6 +547,7 @@ export default function TrackPanel() {
                     >
                       {groupMuted ? <VolumeX size={12} /> : <Volume2 size={12} />}
                     </button>
+                    </Tooltip>
                   </div>
 
                   {/* Track rows */}
@@ -632,16 +668,28 @@ function TrackRow({
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginTop: 3, paddingLeft: 26 }}>
         <span style={{ fontSize: 9, color: 'var(--text-inactive)', fontFamily: 'var(--font-mono)' }}>track {track.index + 1}</span>
         <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-1)' }}>
-          <IBtn onClick={onMute} active={track.muted} title={track.muted ? 'Unmute' : 'Mute'} activeColor="var(--status-error)">
+          <IBtn onClick={onMute} active={track.muted}
+            title={track.muted ? 'Unmute' : 'Mute'}
+            description={track.muted ? "Restores this track's audio." : 'Silences this track; others keep playing.'}
+            activeColor="var(--status-error)">
             <span style={{ fontSize: 'var(--text-xs)', fontWeight: 700, fontFamily: 'var(--font-mono)', lineHeight: 1 }}>M</span>
           </IBtn>
-          <IBtn onClick={onSolo} active={track.solo} title={track.solo ? 'Unsolo' : 'Solo'} activeColor="var(--text-amber)">
+          <IBtn onClick={onSolo} active={track.solo}
+            title={track.solo ? 'Unsolo' : 'Solo'}
+            description={track.solo ? 'Restores normal playback for every track.' : 'Plays only this track, muting the rest.'}
+            activeColor="var(--text-amber)">
             <span style={{ fontSize: 10, fontWeight: 700, fontFamily: 'var(--font-mono)', lineHeight: 1 }}>S</span>
           </IBtn>
-          <IBtn onClick={onVisible} active={!track.visible} title={track.visible ? 'Hide in roll' : 'Show in roll'} activeColor="var(--status-error-hover)" inactiveColor="var(--status-success-text)">
+          <IBtn onClick={onVisible} active={!track.visible}
+            title={track.visible ? 'Hide in roll' : 'Show in roll'}
+            description={track.visible ? 'Hides notes from the roll; audio keeps playing.' : "Shows this track's notes again."}
+            activeColor="var(--status-error-hover)" inactiveColor="var(--status-success-text)">
             {track.visible ? <Eye size={12} /> : <EyeClosed size={12} />}
           </IBtn>
-          <IBtn onClick={onKeyboard} active={track.showOnKeyboard} title={track.showOnKeyboard ? 'Lit on keyboard' : 'Not lit on keyboard'} activeColor="var(--text-amber)">
+          <IBtn onClick={onKeyboard} active={track.showOnKeyboard}
+            title={track.showOnKeyboard ? 'Lit on keyboard' : 'Not lit on keyboard'}
+            description={track.showOnKeyboard ? 'Lights up the on-screen keyboard as it plays.' : "Won't light up the on-screen keyboard."}
+            activeColor="var(--text-amber)">
             {/* Mini piano icon */}
             <svg width="13" height="9" viewBox="0 0 13 9" fill="none">
               <rect x="0.5" y="0.5" width="12" height="8" rx="1" stroke="currentColor" strokeWidth="0.9"/>
@@ -667,13 +715,13 @@ function TrackRow({
 }
 
 // ── IBtn — icon button for track controls: color driven by active state ───
-function IBtn({ children, onClick, active, title, activeColor = 'var(--text-amber)', inactiveColor = 'var(--text-icon-inactive)' }: {
+function IBtn({ children, onClick, active, title, description, activeColor = 'var(--text-amber)', inactiveColor = 'var(--text-icon-inactive)' }: {
   children: React.ReactNode; onClick: () => void
-  active?: boolean; title?: string; activeColor?: string; inactiveColor?: string
+  active?: boolean; title?: string; description?: string; activeColor?: string; inactiveColor?: string
 }) {
-  return (
+  const button = (
     <button
-      onClick={e => { e.stopPropagation(); onClick() }} title={title}
+      onClick={e => { e.stopPropagation(); onClick() }}
       style={{
         display: 'flex', alignItems: 'center', justifyContent: 'center',
         width: 22, height: 22, background: 'none', border: 'none', cursor: 'pointer',
@@ -686,4 +734,8 @@ function IBtn({ children, onClick, active, title, activeColor = 'var(--text-ambe
       {children}
     </button>
   )
+  // oneLine tooltips take a single string — description is the more useful
+  // half (what clicking actually does), title alone is just the button's
+  // own state name (e.g. "Mute"), so it's the fallback, not the default.
+  return title ? <Tooltip title={description ?? title} oneLine>{button}</Tooltip> : button
 }

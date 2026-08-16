@@ -3,6 +3,8 @@
 // angle-bracket strokes (not the rounded teardrop path) so they stay crisp
 // chevrons rather than reading as solid triangles at small sizes.
 
+import Tooltip from './Tooltip'
+
 interface SpeedControlProps {
   value: 'slow' | 'med' | 'fast'
   onChange: (v: 'slow' | 'med' | 'fast') => void
@@ -59,10 +61,9 @@ export default function SpeedControl({ value, onChange, size = DEFAULT_H }: Spee
         const active = value === v
         const Icon   = ICONS[v]
         return (
+          <Tooltip key={v} oneLine title={`Plays back at ${label.toLowerCase()} speed.`}>
           <button
-            key={v}
             onClick={() => onChange(v)}
-            title={label}
             aria-label={label}
             aria-pressed={active}
             style={{
@@ -80,6 +81,7 @@ export default function SpeedControl({ value, onChange, size = DEFAULT_H }: Spee
           >
             <Icon h={size} />
           </button>
+          </Tooltip>
         )
       })}
     </div>

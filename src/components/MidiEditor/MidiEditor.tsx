@@ -586,7 +586,8 @@ function TrackRow({ track, onToggleIncluded, onToggleMerge, onChangeProgram, onU
     }}>
 
       {/* ── Col 1: Include ───────────────────────────────────────────────────── */}
-      <button onClick={onToggleIncluded} title="Include or exclude this track from the saved file" style={{
+      <Tooltip title="Include in save" description="Toggle whether this track is written into the saved file, or dropped from it entirely.">
+      <button onClick={onToggleIncluded} style={{
         width: 24, height: 24, borderRadius: 4,
         border: `1.5px solid ${track.included ? 'var(--track-included-border)' : 'var(--track-excluded)'}`,
         background: track.included ? 'var(--track-included-bg)' : 'transparent',
@@ -596,14 +597,16 @@ function TrackRow({ track, onToggleIncluded, onToggleMerge, onChangeProgram, onU
       }}>
         {track.included ? <Check size={13} /> : <X size={12} />}
       </button>
+      </Tooltip>
 
       {/* ── Col 2: Track name + meta ──────────────────────────────────────────── */}
       <div style={{ display: 'flex', alignItems: 'center', gap: 6, minWidth: 0 }}>
+        <Tooltip title="Track color" description="Click to open the color picker for this track." wrapperStyle={{ flexShrink: 0 }}>
         <div
           onClick={e => onPickColor(track.index, e.currentTarget.getBoundingClientRect())}
-          title="Click to change track color"
           style={{ width: 4, height: 32, background: track.color, borderRadius: 2, flexShrink: 0, cursor: 'pointer' }}
         />
+        </Tooltip>
         <div style={{ minWidth: 0 }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
             {editingName ? (
@@ -622,8 +625,8 @@ function TrackRow({ track, onToggleIncluded, onToggleMerge, onChangeProgram, onU
                 }}
               />
             ) : (
+              <Tooltip title="Rename" description="Double-click to rename this track." wrapperStyle={{ minWidth: 0, overflow: 'hidden' }}>
               <span
-                title="Double-click to rename"
                 onDoubleClick={startEdit}
                 onMouseEnter={e => { e.currentTarget.style.color = 'var(--text-amber)' }}
                 onMouseLeave={e => { e.currentTarget.style.color = 'var(--text-muted)' }}
@@ -631,6 +634,7 @@ function TrackRow({ track, onToggleIncluded, onToggleMerge, onChangeProgram, onU
               >
                 {track.trackName}
               </span>
+              </Tooltip>
             )}
             {track.isMerged && (
               <span style={{ fontSize: 9, padding: '1px 5px', borderRadius: 'var(--radius-sm)', background: 'var(--merge-badge-bg)', color: 'var(--merge-badge-text)', fontFamily: 'var(--font-mono)', flexShrink: 0 }}>
@@ -650,15 +654,16 @@ function TrackRow({ track, onToggleIncluded, onToggleMerge, onChangeProgram, onU
                 {!track.isDrum && track.newProgram !== track.program && (
                   <span style={{ display: 'flex', alignItems: 'center', gap: 3 }}>
                     <span style={{ fontSize: 9, color: 'var(--text-amber)', fontFamily: 'var(--font-mono)' }}>✎ reassigned</span>
+                    <Tooltip title="Reset instrument" description={`Back to the original assignment — ${track.gmName}.`}>
                     <button
                       onClick={() => onChangeProgram(track.program)}
-                      title={`Reset to original: ${track.gmName}`}
                       style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-inactive)', padding: '0 2px', display: 'flex', alignItems: 'center', transition: 'color 0.15s' }}
                       onMouseEnter={e => e.currentTarget.style.color = 'var(--text-amber)'}
                       onMouseLeave={e => e.currentTarget.style.color = 'var(--text-inactive)'}
                     >
                       <RotateCcw size={9} />
                     </button>
+                    </Tooltip>
                   </span>
                 )}
               </>
@@ -669,28 +674,32 @@ function TrackRow({ track, onToggleIncluded, onToggleMerge, onChangeProgram, onU
 
       {/* ── Col 3: Merge / Unmerge ───────────────────────────────────────────── */}
       {track.isMerged ? (
-        <button onClick={onUnmerge} title="Undo merge" style={{
-          width: 24, height: 24, borderRadius: 4, justifySelf: 'start',
+        <Tooltip title="Undo merge" description="Splits this merged group back into its separate original tracks." wrapperStyle={{ justifySelf: 'start' }}>
+        <button onClick={onUnmerge} style={{
+          width: 24, height: 24, borderRadius: 4,
           border: '1.5px solid var(--unmerge-border)', background: 'var(--unmerge-bg)',
           color: 'var(--merge-badge-text)', display: 'flex', alignItems: 'center', justifyContent: 'center',
           cursor: 'pointer', flexShrink: 0,
         }}>
           <Undo2 size={11} />
         </button>
+        </Tooltip>
       ) : track.splitHand ? (
-        <div title="Freshly split tracks can't be merged in the same session — save first" style={{
-          width: 24, height: 24, borderRadius: 4, justifySelf: 'start',
+        <Tooltip title="Can't merge yet" description="Freshly split tracks can't be merged again in the same session — save first." wrapperStyle={{ justifySelf: 'start' }}>
+        <div style={{
+          width: 24, height: 24, borderRadius: 4,
           border: '1.5px solid var(--border2)', opacity: 0.3,
           display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0,
         }}>
           <Merge size={11} />
         </div>
+        </Tooltip>
       ) : (
+        <Tooltip title="Select for merge" description="Select two or more tracks, then merge them into one." wrapperStyle={{ justifySelf: 'start' }}>
         <button
           onClick={onToggleMerge}
-          title="Select two or more tracks to merge them into one"
           style={{
-            width: 24, height: 24, borderRadius: 4, justifySelf: 'start',
+            width: 24, height: 24, borderRadius: 4,
             border: `1.5px solid ${track.mergeSelected ? 'var(--accent-amber-strong)' : 'var(--border2)'}`,
             background: track.mergeSelected ? 'var(--accent-amber-medium)' : 'transparent',
             color: track.mergeSelected ? 'var(--text-amber)' : 'var(--text-dim-control)',
@@ -705,15 +714,16 @@ function TrackRow({ track, onToggleIncluded, onToggleMerge, onChangeProgram, onU
         >
           <Merge size={11} />
         </button>
+        </Tooltip>
       )}
 
       {/* ── Col 4: Split — only for splittable tracks ─────────────────────────── */}
       {onSplit && !track.isMerged ? (
+        <Tooltip title="Split hands" description="Splits this keyboard track into separate Left Hand / Right Hand tracks." wrapperStyle={{ justifySelf: 'start' }}>
         <button
           onClick={onSplit}
-          title="Split into Left Hand / Right Hand"
           style={{
-            width: 24, height: 24, borderRadius: 4, justifySelf: 'start',
+            width: 24, height: 24, borderRadius: 4,
             border: '1.5px solid var(--border2)', background: 'transparent',
             color: 'var(--text-dim-control)',
             display: 'flex', alignItems: 'center', justifyContent: 'center',
@@ -724,16 +734,17 @@ function TrackRow({ track, onToggleIncluded, onToggleMerge, onChangeProgram, onU
         >
           <Split size={11} />
         </button>
+        </Tooltip>
       ) : (
         <div style={{ justifySelf: 'start' }} />
       )}
 
       {/* ── Col 5: Color picker trigger ──────────────────────────────────────── */}
+      <Tooltip title="Track color" description="Opens the color picker for this track." wrapperStyle={{ justifySelf: 'start' }}>
       <button
         onClick={e => onPickColor(track.index, e.currentTarget.getBoundingClientRect())}
-        title="Change track color"
         style={{
-          width: 24, height: 24, borderRadius: 4, justifySelf: 'start',
+          width: 24, height: 24, borderRadius: 4,
           border: '1.5px solid var(--border2)', background: 'transparent',
           color: 'var(--text-dim-control)',
           display: 'flex', alignItems: 'center', justifyContent: 'center',
@@ -744,14 +755,19 @@ function TrackRow({ track, onToggleIncluded, onToggleMerge, onChangeProgram, onU
       >
         <SwatchBook size={11} />
       </button>
+      </Tooltip>
 
       {/* ── Col 6: Piano roll visibility — persists into the file on save, unlike
           the TrackPanel's matching icon which is session/playback-only. ────── */}
+      <Tooltip
+        title={track.visible ? 'Visible in roll' : 'Hidden from roll'}
+        description="Persists with the saved file, unlike the practice-view toggle in the Tracks panel."
+        wrapperStyle={{ justifySelf: 'start' }}
+      >
       <button
         onClick={onToggleVisible}
-        title={track.visible ? 'Hide in roll (saved with the file)' : 'Show in roll (saved with the file)'}
         style={{
-          width: 24, height: 24, borderRadius: 4, justifySelf: 'start',
+          width: 24, height: 24, borderRadius: 4,
           border: `1.5px solid ${track.visible ? 'var(--border2)' : 'var(--icon-visibility-active)'}`,
           background: 'transparent', color: track.visible ? 'var(--text-dim-control)' : 'var(--icon-visibility-active)',
           display: 'flex', alignItems: 'center', justifyContent: 'center',
@@ -760,13 +776,18 @@ function TrackRow({ track, onToggleIncluded, onToggleMerge, onChangeProgram, onU
       >
         {track.visible ? <Eye size={12} /> : <EyeOff size={12} />}
       </button>
+      </Tooltip>
 
       {/* ── Col 7: Keyboard-lit — same persistence distinction as roll visibility ── */}
+      <Tooltip
+        title={track.showOnKeyboard ? 'Lit on keyboard' : 'Not lit on keyboard'}
+        description="Persists with the saved file, same as the piano-roll visibility toggle."
+        wrapperStyle={{ justifySelf: 'start' }}
+      >
       <button
         onClick={onToggleKeyboard}
-        title={track.showOnKeyboard ? 'Lit on keyboard (saved with the file)' : 'Not lit on keyboard (saved with the file)'}
         style={{
-          width: 24, height: 24, borderRadius: 4, justifySelf: 'start',
+          width: 24, height: 24, borderRadius: 4,
           border: `1.5px solid ${track.showOnKeyboard ? 'var(--accent-amber-strong)' : 'var(--border2)'}`,
           background: track.showOnKeyboard ? 'var(--accent-amber-medium)' : 'transparent',
           color: track.showOnKeyboard ? 'var(--text-amber)' : 'var(--text-dim-control)',
@@ -782,11 +803,12 @@ function TrackRow({ track, onToggleIncluded, onToggleMerge, onChangeProgram, onU
           <rect x="10"  y="0.5" width="1.3" height="5" rx="0.4" fill="currentColor"/>
         </svg>
       </button>
+      </Tooltip>
 
       {/* ── Col 8: Assign Instrument ──────────────────────────────────────────── */}
       {track.isDrum ? (
+        <Tooltip title="Standard Drums" description="Not assignable — GM channel 10 is always drums.">
         <div
-          title="Not assignable — GM channel 10 is always drums"
           style={{
             padding: '4px 8px', borderRadius: 4,
             border: '1px solid var(--border2)', background: 'var(--bg-modal-header)',
@@ -796,6 +818,7 @@ function TrackRow({ track, onToggleIncluded, onToggleMerge, onChangeProgram, onU
         >
           Standard Drums
         </div>
+        </Tooltip>
       ) : (
         <InstrumentPicker program={track.newProgram} isDrum={false} onChange={onChangeProgram} />
       )}
@@ -1298,7 +1321,6 @@ export default function MidiEditor() {
         <button
           data-no-drag="true"
           onClick={handleCancel}
-          title="Close editor"
           style={modalCloseButtonStyle}
           onMouseEnter={e => e.currentTarget.style.color = modalCloseButtonHoverColor}
           onMouseLeave={e => e.currentTarget.style.color = modalCloseButtonIdleColor}
@@ -1323,8 +1345,12 @@ export default function MidiEditor() {
           // stretch-eligible by default, while the icon buttons below have a
           // fixed width and fall back to 'start' — same visual position in
           // theory, but forcing both to the same explicit value removes any
-          // gap between how the two element types actually resolve it.
-          <span key={i} title={h.title} style={{ fontSize: 9, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em', color: 'var(--text-muted)', lineHeight: 1.25, cursor: 'default', justifySelf: 'start' }}>{h.label}</span>
+          // gap between how the two element types actually resolve it. Now
+          // lives on Tooltip's wrapperStyle instead of the span itself, since
+          // wrapping moved the actual grid item one level out.
+          <Tooltip key={i} title={h.label} description={h.title} wrapperStyle={{ justifySelf: 'start' }}>
+          <span style={{ fontSize: 9, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em', color: 'var(--text-muted)', lineHeight: 1.25, cursor: 'default' }}>{h.label}</span>
+          </Tooltip>
         ))}
       </div>
 
@@ -1418,17 +1444,21 @@ export default function MidiEditor() {
                 }}>
                   <div />{/* empty Col-1 cell — keeps Col-2 content aligned under Track column */}
                   <div style={{ gridColumn: '2 / -1', minWidth: 0, display: 'flex', alignItems: 'center', gap: 6, fontSize: 9, color: 'var(--text-inactive)', fontFamily: 'var(--font-mono)' }}>
+                    <Tooltip
+                      title={expanded ? 'Hide split preview' : 'Show split preview'}
+                      description="Toggle the inline hand-split timeline preview for this track."
+                    >
                     <button
                       onClick={() => setExpandedInfoRows(prev => {
                         const next = new Set(prev)
                         if (next.has(track.index)) next.delete(track.index); else next.add(track.index)
                         return next
                       })}
-                      title={expanded ? 'Hide split preview' : 'Show split preview'}
                       style={{ background: 'none', border: 'none', padding: 0, display: 'flex', color: 'var(--text-inactive)', cursor: 'pointer', flexShrink: 0 }}
                     >
                       {expanded ? <ChevronDown size={11} /> : <ChevronRight size={11} />}
                     </button>
+                    </Tooltip>
                     <span>
                       {infoStats.confidenceUnknown ? (
                         'Hand split shown is automatic.'
@@ -1603,13 +1633,18 @@ export default function MidiEditor() {
                     >
                       Don't split
                     </button>
+                    <Tooltip
+                      title="Stage the split"
+                      description="Stages left-hand notes to one track and right-hand notes to another — applies with Save & Reload below, doesn't touch disk yet."
+                      wrapperStyle={{ flex: 1 }}
+                    >
                     <button
                       onClick={handleSplitConfirm}
-                      title="Stages left-hand notes to one track and right-hand notes to another — applies with Save & Reload below, doesn't touch disk yet"
                       style={{ flex: 1, padding: '6px 10px', borderRadius: 4, border: '1px solid var(--accent-amber-strong)', background: 'var(--accent-amber-medium)', color: 'var(--text-amber)', fontSize: 'var(--text-xs)', cursor: 'pointer', fontWeight: 600, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 4 }}
                     >
                       <Split size={11} /> Split into two tracks
                     </button>
+                    </Tooltip>
                   </div>
                 </div>
 
@@ -1654,27 +1689,29 @@ export default function MidiEditor() {
         <span style={{ fontSize: 10, color: 'var(--text-inactive)', fontFamily: 'var(--font-mono)' }}>{includedCount}/{state.rows.length} included</span>
         {/* ── Save Tempo & Key changes — off by default; when on, folds the
             session's BPM/transpose changes into this same Save & Reload
-            write instead of needing a separate save (see performSave). ──── */}
+            write instead of needing a separate save (see performSave). A
+            hover tooltip carries the explanation — an always-visible two-line
+            description here read as a layout bug rather than an aside. ──── */}
+        <Tooltip title="Save Tempo & Key changes" description="Folds the session's tempo/key changes into the next Save & Reload, instead of needing a separate save." wrapperStyle={{ marginLeft: 'auto' }}>
         <button
           onClick={() => useStore.getState().setSaveTempoKeyChangesEnabled(!saveTempoKeyChangesEnabled)}
-          title={saveTempoKeyChangesEnabled ? 'Click to turn off' : 'Click to turn on'}
           className="app-no-drag"
           style={{
-            marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: 6,
+            display: 'flex', alignItems: 'center', gap: 6,
             background: 'none', border: 'none', cursor: 'pointer', padding: 2,
           }}
         >
-          {/* Styled like the "Save as" label below — same size/weight/tracking, just dimmer */}
           <span style={{ fontSize: 9, fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.06em' }}>
             Save Tempo & Key changes
           </span>
-          <span style={{ display: 'flex', color: saveTempoKeyChangesEnabled ? 'var(--text-amber)' : 'var(--text-inactive)' }}>
+          <span style={{ display: 'flex', color: saveTempoKeyChangesEnabled ? 'var(--text-amber)' : 'var(--text-inactive)', flexShrink: 0 }}>
             {saveTempoKeyChangesEnabled
               ? <ToggleRight size={16} strokeWidth={1.5} />
               : <ToggleLeft  size={16} strokeWidth={1.5} />
             }
           </span>
         </button>
+        </Tooltip>
       </div>
 
       {/* ── Color popover ────────────────────────────────────────────────────── */}
@@ -1698,24 +1735,30 @@ export default function MidiEditor() {
             extra banner underneath. ─────────────────────────────────────────── */}
         <div style={{ display: 'flex', gap: 6, marginBottom: 8 }}>
           <div style={{
-            flex: 1, padding: '5px 8px', background: 'var(--bg-field)', borderRadius: 4,
+            flex: 1, minWidth: 0, overflow: 'hidden',
+            padding: '5px 8px', background: 'var(--bg-field)', borderRadius: 4,
             border: `1px solid ${saveResult?.ok ? 'var(--status-success-border)' : 'var(--border2)'}`,
             fontSize: 10, fontFamily: 'var(--font-mono)',
             color: saveResult?.ok ? 'var(--status-success-text)' : 'var(--text-muted)',
-            overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
-          }} title={saveResult?.ok && saveResult.filePath ? saveResult.filePath : state.outputPath}>
+            textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+          }}>
             {saveResult?.ok && saveResult.filePath ? `✓ ${saveResult.filePath}` : baseName(state.outputPath)}
           </div>
           {saveResult?.ok && saveResult.filePath ? (
+            <Tooltip
+              title="Show in folder"
+              description="Opens Windows Explorer with this exact saved file highlighted — settles any doubt about where it landed."
+              wrapperStyle={{ width: SHOW_IN_FOLDER_W, flexShrink: 0 }}
+            >
             <button
               onClick={() => window.electronAPI.showItemInFolder(saveResult.filePath!)}
-              title="Opens Windows Explorer with this exact saved file highlighted — settles any doubt about where it landed"
-              style={{ width: SHOW_IN_FOLDER_W, padding: '5px 10px', borderRadius: 4, background: 'var(--bg-tile)', border: '1px solid var(--border2)', color: 'var(--text-muted)', fontSize: 10, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 'var(--space-1)', transition: 'all 0.12s', whiteSpace: 'nowrap', flexShrink: 0 }}
+              style={{ width: '100%', padding: '5px 10px', borderRadius: 4, background: 'var(--bg-tile)', border: '1px solid var(--border2)', color: 'var(--text-muted)', fontSize: 10, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 'var(--space-1)', transition: 'all 0.12s', whiteSpace: 'nowrap' }}
               onMouseEnter={e => { e.currentTarget.style.color = 'var(--text-amber)'; e.currentTarget.style.borderColor = 'var(--accent-amber-strong)' }}
               onMouseLeave={e => { e.currentTarget.style.color = 'var(--text-muted)'; e.currentTarget.style.borderColor = 'var(--border2)' }}
             >
               <FolderOpen size={11} /> Show in folder
             </button>
+            </Tooltip>
           ) : (
             <button onClick={async () => {
               const p = await window.electronAPI.saveFileDialog({ defaultPath: state.outputPath, filters: [{ name: 'MIDI Files', extensions: ['mid'] }] })

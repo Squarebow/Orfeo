@@ -9,6 +9,7 @@ import { useStore } from '../../store'
 import Keyboard from './Keyboard'
 import KeyboardControls from './KeyboardControls'
 import OrfeoMark from '../OrfeoMark'
+import Tooltip from '../Tooltip'
 import { getPianoRollCenterX, getPlaybarY } from '../../utils/modalAnchors'
 import { modalCloseButtonStyle, modalCloseButtonHoverColor, modalCloseButtonIdleColor } from '../../utils/modalCloseButtonStyle'
 
@@ -150,9 +151,9 @@ export default function FloatingKeyboard() {
           </span>
         </div>
         <div style={{ display: 'flex', gap: 'var(--space-1)' }} data-no-drag="true">
+          <Tooltip title="Dock keyboard" description="Reattaches the keyboard to the bottom of the window.">
           <button
             onClick={() => setKeyboardMode('docked')}
-            title="Dock keyboard"
             data-no-drag="true"
             style={{ width: 18, height: 18, background: 'transparent', border: 'none', cursor: 'pointer', color: 'var(--text-muted)', display: 'flex', alignItems: 'center', justifyContent: 'center', borderRadius: 'var(--radius-sm)', transition: 'color 0.12s' }}
             onMouseEnter={e => e.currentTarget.style.color = 'var(--text-amber)'}
@@ -160,9 +161,10 @@ export default function FloatingKeyboard() {
           >
             <Pin size={10} strokeWidth={1.8} />
           </button>
+          </Tooltip>
+          <Tooltip title="Close" description="Docks the keyboard back to the bottom of the window.">
           <button
             onClick={() => setKeyboardMode('docked')}
-            title="Close floating keyboard"
             data-no-drag="true"
             style={modalCloseButtonStyle}
             onMouseEnter={e => e.currentTarget.style.color = modalCloseButtonHoverColor}
@@ -170,6 +172,7 @@ export default function FloatingKeyboard() {
           >
             <X size={14} strokeWidth={1.8} />
           </button>
+          </Tooltip>
         </div>
       </div>
 

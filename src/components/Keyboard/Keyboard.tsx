@@ -6,6 +6,7 @@ import { detectChord, detectChordWithInversion, formatInversionDisplay, localize
 import { buildKeyLayoutRatios, PIANO_RANGES as RANGES } from '../../utils/keyLayout'
 import { buildPitchHandIndex, lookupNoteHandAtTime, detectPerformanceBoundary } from '../../utils/handBoundaries'
 import type { Hand } from '../../types'
+import Tooltip from '../Tooltip'
 
 const HAND_LH = 'var(--hand-lh)'
 const HAND_RH = 'var(--hand-rh)'
@@ -411,29 +412,31 @@ export default function Keyboard() {
           <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 'var(--space-2)', padding: '0 var(--space-3)', position: 'relative' }}>
             {/* ── Left: CHORDS trigger + prompter toggle ────────────────────────── */}
             <div style={{ position: 'absolute', left: 10, display: 'flex', alignItems: 'center', gap: 5 }}>
-              <span
-                onClick={() => setChordExplorerOpen(true)}
-                title="Open Chords Explorer"
-                role="button"
-                tabIndex={0}
-                onKeyDown={activateOnKey(() => setChordExplorerOpen(true))}
-                style={{ fontFamily: 'var(--font-ui)', fontSize: 9, fontWeight: 700, color: 'var(--text-amber)', letterSpacing: '0.12em', textTransform: 'uppercase', cursor: 'pointer', userSelect: 'none' }}
-              >
-                Chords
-              </span>
+              <Tooltip title="Chords" description="Opens a dedicated view for browsing and detecting chords across the full keyboard.">
+                <span
+                  onClick={() => setChordExplorerOpen(true)}
+                  role="button"
+                  tabIndex={0}
+                  onKeyDown={activateOnKey(() => setChordExplorerOpen(true))}
+                  style={{ fontFamily: 'var(--font-ui)', fontSize: 9, fontWeight: 700, color: 'var(--text-amber)', letterSpacing: '0.12em', textTransform: 'uppercase', cursor: 'pointer', userSelect: 'none' }}
+                >
+                  Chords
+                </span>
+              </Tooltip>
               {/* ── Prompter toggle — amber when open, dim when closed, faded when no file ─ */}
               {chordPrompterEnabled && (
-                <div
-                  onClick={() => midi && setChordPrompterOpen(!chordPrompterOpen)}
-                  title="Chord Prompter"
-                  role="button"
-                  tabIndex={midi ? 0 : -1}
-                  aria-pressed={chordPrompterOpen}
-                  onKeyDown={activateOnKey(() => midi && setChordPrompterOpen(!chordPrompterOpen))}
-                  style={{ cursor: midi ? 'pointer' : 'default', color: chordPrompterOpen ? 'var(--text-amber)' : 'var(--text-default)', opacity: midi ? 1 : 0.35, display: 'flex', alignItems: 'center', transition: 'color 0.12s' }}
-                >
-                  <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 7V5a2 2 0 0 1 2-2h2"/><path d="M17 3h2a2 2 0 0 1 2 2v2"/><path d="M21 17v2a2 2 0 0 1-2 2h-2"/><path d="M7 21H5a2 2 0 0 1-2-2v-2"/><rect width="10" height="8" x="7" y="8" rx="1"/></svg>
-                </div>
+                <Tooltip title="Chord Prompter" description="Shows a scrolling past → current → next chord sequence alongside the chord name, synced to playback.">
+                  <div
+                    onClick={() => midi && setChordPrompterOpen(!chordPrompterOpen)}
+                    role="button"
+                    tabIndex={midi ? 0 : -1}
+                    aria-pressed={chordPrompterOpen}
+                    onKeyDown={activateOnKey(() => midi && setChordPrompterOpen(!chordPrompterOpen))}
+                    style={{ cursor: midi ? 'pointer' : 'default', color: chordPrompterOpen ? 'var(--text-amber)' : 'var(--text-default)', opacity: midi ? 1 : 0.35, display: 'flex', alignItems: 'center', transition: 'color 0.12s' }}
+                  >
+                    <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 7V5a2 2 0 0 1 2-2h2"/><path d="M17 3h2a2 2 0 0 1 2 2v2"/><path d="M21 17v2a2 2 0 0 1-2 2h-2"/><path d="M7 21H5a2 2 0 0 1-2-2v-2"/><rect width="10" height="8" x="7" y="8" rx="1"/></svg>
+                  </div>
+                </Tooltip>
               )}
             </div>
 
@@ -488,16 +491,17 @@ export default function Keyboard() {
 
             {/* ── Right: SCALES trigger ─────────────────────────────────────────── */}
             <div style={{ position: 'absolute', right: 10, display: 'flex', alignItems: 'center', gap: 'var(--space-2)' }}>
-              <span
-                onClick={() => setScaleExplorerOpen(true)}
-                title="Open Scales Explorer"
-                role="button"
-                tabIndex={0}
-                onKeyDown={activateOnKey(() => setScaleExplorerOpen(true))}
-                style={{ fontFamily: 'var(--font-ui)', fontSize: 9, fontWeight: 700, color: 'var(--text-amber)', letterSpacing: '0.12em', textTransform: 'uppercase', cursor: 'pointer', userSelect: 'none' }}
-              >
-                Scales
-              </span>
+              <Tooltip title="Scales" description="Opens a dedicated view for exploring scales and highlighting their notes on the keyboard.">
+                <span
+                  onClick={() => setScaleExplorerOpen(true)}
+                  role="button"
+                  tabIndex={0}
+                  onKeyDown={activateOnKey(() => setScaleExplorerOpen(true))}
+                  style={{ fontFamily: 'var(--font-ui)', fontSize: 9, fontWeight: 700, color: 'var(--text-amber)', letterSpacing: '0.12em', textTransform: 'uppercase', cursor: 'pointer', userSelect: 'none' }}
+                >
+                  Scales
+                </span>
+              </Tooltip>
             </div>
           </div>
         )}
@@ -508,28 +512,30 @@ export default function Keyboard() {
 
             {/* ── Left: CHORDS trigger + prompter toggle ────────────────────── */}
             <div style={{ display: 'flex', alignItems: 'center', gap: 5, flexShrink: 0 }}>
-              <span
-                onClick={() => setChordExplorerOpen(true)}
-                title="Open Chords Explorer"
-                role="button"
-                tabIndex={0}
-                onKeyDown={activateOnKey(() => setChordExplorerOpen(true))}
-                style={{ fontFamily: 'var(--font-ui)', fontSize: 9, fontWeight: 700, color: 'var(--text-amber)', letterSpacing: '0.12em', textTransform: 'uppercase', cursor: 'pointer', userSelect: 'none' }}
-              >
-                Chords
-              </span>
+              <Tooltip title="Chords" description="Opens a dedicated view for browsing and detecting chords across the full keyboard.">
+                <span
+                  onClick={() => setChordExplorerOpen(true)}
+                  role="button"
+                  tabIndex={0}
+                  onKeyDown={activateOnKey(() => setChordExplorerOpen(true))}
+                  style={{ fontFamily: 'var(--font-ui)', fontSize: 9, fontWeight: 700, color: 'var(--text-amber)', letterSpacing: '0.12em', textTransform: 'uppercase', cursor: 'pointer', userSelect: 'none' }}
+                >
+                  Chords
+                </span>
+              </Tooltip>
               {/* ── Prompter toggle (amber — always active while open) ────────── */}
-              <div
-                onClick={() => setChordPrompterOpen(!chordPrompterOpen)}
-                title="Chord Prompter"
-                role="button"
-                tabIndex={0}
-                aria-pressed={chordPrompterOpen}
-                onKeyDown={activateOnKey(() => setChordPrompterOpen(!chordPrompterOpen))}
-                style={{ cursor: 'pointer', color: 'var(--text-amber)', display: 'flex', alignItems: 'center', transition: 'color 0.12s' }}
-              >
-                <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 7V5a2 2 0 0 1 2-2h2"/><path d="M17 3h2a2 2 0 0 1 2 2v2"/><path d="M21 17v2a2 2 0 0 1-2 2h-2"/><path d="M7 21H5a2 2 0 0 1-2-2v-2"/><rect width="10" height="8" x="7" y="8" rx="1"/></svg>
-              </div>
+              <Tooltip title="Chord Prompter" description="Shows a scrolling past → current → next chord sequence alongside the chord name, synced to playback.">
+                <div
+                  onClick={() => setChordPrompterOpen(!chordPrompterOpen)}
+                  role="button"
+                  tabIndex={0}
+                  aria-pressed={chordPrompterOpen}
+                  onKeyDown={activateOnKey(() => setChordPrompterOpen(!chordPrompterOpen))}
+                  style={{ cursor: 'pointer', color: 'var(--text-amber)', display: 'flex', alignItems: 'center', transition: 'color 0.12s' }}
+                >
+                  <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 7V5a2 2 0 0 1 2-2h2"/><path d="M17 3h2a2 2 0 0 1 2 2v2"/><path d="M21 17v2a2 2 0 0 1-2 2h-2"/><path d="M7 21H5a2 2 0 0 1-2-2v-2"/><rect width="10" height="8" x="7" y="8" rx="1"/></svg>
+                </div>
+              </Tooltip>
             </div>
 
             {/* ── Centre: chord sequence (past | ‹ | current | › | next) ────────── */}
@@ -611,16 +617,17 @@ export default function Keyboard() {
 
             {/* ── Right: SCALES trigger ─────────────────────────────────────────── */}
             <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-2)', flexShrink: 0 }}>
-              <span
-                onClick={() => setScaleExplorerOpen(true)}
-                title="Open Scales Explorer"
-                role="button"
-                tabIndex={0}
-                onKeyDown={activateOnKey(() => setScaleExplorerOpen(true))}
-                style={{ fontFamily: 'var(--font-ui)', fontSize: 9, fontWeight: 700, color: 'var(--text-amber)', letterSpacing: '0.12em', textTransform: 'uppercase', cursor: 'pointer', userSelect: 'none' }}
-              >
-                Scales
-              </span>
+              <Tooltip title="Scales" description="Opens a dedicated view for exploring scales and highlighting their notes on the keyboard.">
+                <span
+                  onClick={() => setScaleExplorerOpen(true)}
+                  role="button"
+                  tabIndex={0}
+                  onKeyDown={activateOnKey(() => setScaleExplorerOpen(true))}
+                  style={{ fontFamily: 'var(--font-ui)', fontSize: 9, fontWeight: 700, color: 'var(--text-amber)', letterSpacing: '0.12em', textTransform: 'uppercase', cursor: 'pointer', userSelect: 'none' }}
+                >
+                  Scales
+                </span>
+              </Tooltip>
             </div>
           </div>
         )}

@@ -2,7 +2,7 @@ import { app, BrowserWindow, ipcMain, dialog, shell } from 'electron'
 import { autoUpdater } from 'electron-updater'
 import { join, basename, dirname, extname } from 'path'
 import { readFileSync, writeFileSync, existsSync, readdirSync, createWriteStream, statSync } from 'fs'
-import { mkdir, access, copyFile, readdir, writeFile, rename, rmdir } from 'fs/promises'
+import { mkdir, access, copyFile, readdir, rename, rmdir } from 'fs/promises'
 import { Midi } from '@tonejs/midi'
 import { Chord, Note } from 'tonal'
 import PDFDocument from 'pdfkit'
@@ -18,34 +18,43 @@ let mainWin: BrowserWindow | null = null
 // ── Set by app:confirm-close so the renderer-triggered re-close passes through ──
 let allowClose = false
 
-// ── Copy bundled demo MIDI files into the user's library on first launch ─────────
-// Writes a flag file to userData so this runs exactly once.
-// Target: libraryFolder/Demo/ if a library is configured, otherwise userData/Demo/.
-// Individual files are skipped if they already exist — no user file is overwritten.
-async function ensureDemoFolder(): Promise<void> {
-  const flagPath  = join(app.getPath('userData'), '.demo-installed')
-  const installed = await access(flagPath).then(() => true).catch(() => false)
-  if (installed) return
+// ── Recursively copies MIDI/notation files from `srcDir` into `destDir`,
+// preserving subfolder structure (so e.g. public/demo/musicxml/ lands at
+// Demo/musicxml/). Per-file idempotent — skips anything already present at
+// the destination — rather than gated by a single "ran once" flag, so it's
+// safe (and cheap) to call on every launch: new files/subfolders added to
+// public/demo in a later app version get picked up on an existing user's
+// next launch, and anything they've since deleted from their own Demo/
+// folder stays deleted instead of reappearing. ─────────────────────────────
+async function copyDemoFilesRecursive(srcDir: string, destDir: string): Promise<void> {
+  await mkdir(destDir, { recursive: true })
+  const entries = await readdir(srcDir, { withFileTypes: true })
+  for (const entry of entries) {
+    const srcPath = join(srcDir, entry.name)
+    if (entry.isDirectory()) {
+      await copyDemoFilesRecursive(srcPath, join(destDir, entry.name))
+    } else if (/\.(mid|midi|kar|musicxml|xml|mxl|gp|gp3|gp4|gp5|gpx|cap)$/i.test(entry.name)) {
+      const destPath = join(destDir, entry.name)
+      const exists = await access(destPath).then(() => true).catch(() => false)
+      if (!exists) await copyFile(srcPath, destPath)
+    }
+  }
+}
 
+// ── Sync bundled demo files into the user's library — target: libraryFolder/
+// Demo/ if a library is configured, otherwise userData/Demo/. Called on every
+// launch (see copyDemoFilesRecursive for why that's safe/cheap). ────────────
+async function ensureDemoFolder(): Promise<void> {
   const prefs   = loadPrefs()
   const libRoot = prefs.libraryFolder || app.getPath('userData')
   const targetDir = join(libRoot, 'Demo')
-  await mkdir(targetDir, { recursive: true })
 
   // ── Source path: extraResources lands at resources/demo/ in production ───
   const srcDir = app.isPackaged
     ? join(process.resourcesPath, 'demo')
     : join(app.getAppPath(), 'public', 'demo')
 
-  const files = await readdir(srcDir)
-  for (const file of files) {
-    if (!/\.(mid|midi|kar|musicxml|xml|mxl|gp|gp3|gp4|gp5|gpx)$/i.test(file)) continue
-    const dest   = join(targetDir, file)
-    const exists = await access(dest).then(() => true).catch(() => false)
-    if (!exists) await copyFile(join(srcDir, file), dest)
-  }
-
-  await writeFile(flagPath, 'true')
+  await copyDemoFilesRecursive(srcDir, targetDir)
 }
 
 // ── Resolve (and auto-create) the Orfeo output subfolder for a given source file ──
@@ -354,7 +363,7 @@ ipcMain.handle('dialog:openMidi', async () => {
   const result = await dialog.showOpenDialog({
     title: 'Open MIDI File',
     filters: [
-      { name: 'MIDI & Score Files', extensions: ['mid', 'midi', 'kar', 'musicxml', 'xml', 'mxl', 'gp', 'gp3', 'gp4', 'gp5', 'gpx'] },
+      { name: 'MIDI & Score Files', extensions: ['mid', 'midi', 'kar', 'musicxml', 'xml', 'mxl', 'gp', 'gp3', 'gp4', 'gp5', 'gpx', 'cap'] },
     ],
     properties: ['openFile'],
   })
@@ -382,7 +391,7 @@ ipcMain.handle('fs:scanMidiFolder', async (_e, folderPath: string) => {
       for (const e of entries) {
         if (e.isDirectory()) {
           results.push(...scanDir(join(dir, e.name)))
-        } else if (e.isFile() && /\.(mid|midi|kar|musicxml|xml|mxl|gp|gp3|gp4|gp5|gpx)$/i.test(e.name)) {
+        } else if (e.isFile() && /\.(mid|midi|kar|musicxml|xml|mxl|gp|gp3|gp4|gp5|gpx|cap)$/i.test(e.name)) {
           results.push({ name: e.name, path: join(dir, e.name) })
         }
       }

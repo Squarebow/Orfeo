@@ -15,6 +15,7 @@ import MidiEditor from './components/MidiEditor/MidiEditor'
 import MixerConsole from './components/Mixer/MixerConsole'
 import NoteEditorToolbar from './components/NoteEditor/NoteEditorToolbar'
 import { ConfirmDialogHost } from './components/ConfirmDialog'
+import Tooltip from './components/Tooltip'
 import { confirmDialog } from './utils/confirmController'
 import { parseMidiBuffer } from './utils/midiParser'
 import { detectKeyFromTracks, parseKeySignature } from './utils/keyDetection'
@@ -151,7 +152,7 @@ export default function App() {
 
   // ── Validate that a DataTransfer item is a supported file format ─────────────
   function isSupportedFile(file: File): boolean {
-    return /\.(mid|midi|kar|musicxml|xml|mxl|gp|gp3|gp4|gp5|gpx)$/i.test(file.name)
+    return /\.(mid|midi|kar|musicxml|xml|mxl|gp|gp3|gp4|gp5|gpx|cap)$/i.test(file.name)
   }
 
   // ── dragover: prevent browser default navigation + show highlight ─────────
@@ -186,7 +187,7 @@ export default function App() {
     if (!file) return
 
     if (!isSupportedFile(file)) {
-      showDropError('Unsupported file type. Orfeo accepts .mid, .musicxml, .mxl, .gp/.gp5, and .kar files.')
+      showDropError('Unsupported file type. Orfeo accepts .mid, .musicxml, .mxl, .gp/.gp5, .cap, and .kar files.')
       return
     }
 
@@ -493,13 +494,13 @@ export default function App() {
           were on the file they dropped rather than this bottom-center toast,
           the explanation could otherwise vanish before it's read. ────────── */}
       {dropError && (
+        <Tooltip title="Dismiss" description="Click anywhere on this message to close it.">
         <div
           role="alert"
           onClick={() => {
             if (dropErrorTimer.current) clearTimeout(dropErrorTimer.current)
             setDropError(null)
           }}
-          title="Click to dismiss"
           style={{
             position: 'fixed', bottom: 32, left: '50%', transform: 'translateX(-50%)',
             background: 'var(--bg-panel2)', border: '1px solid var(--drag-handle-dot)',
@@ -510,6 +511,7 @@ export default function App() {
           }}>
           {dropError}
         </div>
+        </Tooltip>
       )}
 
       {/* ── Mixer Console — floating modal, toggled via Ctrl+Shift+M or Console drawer icon ── */}
