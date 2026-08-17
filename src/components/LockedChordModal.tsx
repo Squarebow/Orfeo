@@ -170,7 +170,7 @@ export default function LockedChordModal() {
       >
         <OrfeoMark height={16} />
         {/* ── Title in amber to distinguish from other panels ──────────────── */}
-        <span style={{ flex: 1, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontSize: 10, fontWeight: 700, color: 'var(--text-amber)', letterSpacing: '0.08em', textTransform: 'uppercase' }}>
+        <span style={{ flex: 1, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontSize: 14, fontWeight: 700, color: 'var(--text-amber)', letterSpacing: '0.08em', textTransform: 'uppercase' }}>
           Lock-a-Chord
         </span>
         <button

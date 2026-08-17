@@ -226,9 +226,9 @@ export default function FileInfoModal({ filePath, fileName, onClose, onRenamed }
         onMouseDown={e => e.stopPropagation()}
       >
         <div onMouseDown={startDrag} style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 12, cursor: 'grab' }}>
-          <OrfeoMark height={14} />
+          <OrfeoMark height={22} />
           <span style={{
-            flex: 1, minWidth: 0, fontFamily: 'var(--font-mono)', fontSize: 'var(--text-sm)',
+            flex: 1, minWidth: 0, fontFamily: 'var(--font-mono)', fontSize: 14,
             color: 'var(--text-amber)', letterSpacing: '0.08em', textTransform: 'uppercase',
             overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
           }} title={currentName}>

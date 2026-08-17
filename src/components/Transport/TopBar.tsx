@@ -354,12 +354,12 @@ export default function TopBar() {
             top-aligned start (see the grid's alignItems comment above). */}
         {midi?.fileName ? (
           <Tooltip title={midi.fileName} description="The loaded file's full name, in case the display above is truncated." placement="bottom">
-            <span style={{ color: 'var(--text-default)', fontSize: 'var(--text-sm)', fontFamily: 'var(--font-mono)', lineHeight: '13px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: 340 }}>
+            <span style={{ color: 'var(--text-default)', fontSize: 'var(--text-sm)', fontFamily: 'var(--font-ui)', lineHeight: '13px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: 340 }}>
               {midi.fileName.replace(/\.(mid|midi)$/i, '')}
             </span>
           </Tooltip>
         ) : (
-          <span style={{ color: 'var(--text-default)', fontSize: 'var(--text-sm)', fontFamily: 'var(--font-mono)', lineHeight: '13px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: 340 }}>
+          <span style={{ color: 'var(--text-default)', fontSize: 'var(--text-sm)', fontFamily: 'var(--font-ui)', lineHeight: '13px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: 340 }}>
             No file open
           </span>
         )}

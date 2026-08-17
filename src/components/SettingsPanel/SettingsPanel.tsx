@@ -428,7 +428,7 @@ function TranscriptIcon({ filePath, noteNaming, accidentals, addTranscriptEntry,
 }
 
 // ── MarqueeFilename — alias for MarqueeText with library-specific font style ──
-const FILENAME_SPAN_STYLE: React.CSSProperties = { fontSize: 'var(--text-sm)', color: 'var(--text-muted)', fontFamily: 'var(--font-mono)' }
+const FILENAME_SPAN_STYLE: React.CSSProperties = { fontSize: 'var(--text-sm)', color: 'var(--text-muted)', fontFamily: 'var(--font-ui)' }
 function MarqueeFilename({ name }: { name: string }) {
   return <MarqueeText name={name} spanStyle={FILENAME_SPAN_STYLE} />
 }
@@ -660,11 +660,11 @@ function SettingsDropdown<T extends string>({ value, options, onChange, title }:
 // ─── Library Panel ───────────────────────────────────────────────────────────
 
 // ── Filename span styles — active (amber) and default (muted) ─────────────────
-const FILENAME_SPAN_DEFAULT: React.CSSProperties = { fontSize: 'var(--text-sm)', color: 'var(--text-muted)', fontFamily: 'var(--font-mono)' }
-const FILENAME_SPAN_ACTIVE:  React.CSSProperties = { fontSize: 'var(--text-sm)', color: 'var(--text-amber)', fontWeight: 500, fontFamily: 'var(--font-mono)' }
+const FILENAME_SPAN_DEFAULT: React.CSSProperties = { fontSize: 'var(--text-sm)', color: 'var(--text-muted)', fontFamily: 'var(--font-ui)' }
+const FILENAME_SPAN_ACTIVE:  React.CSSProperties = { fontSize: 'var(--text-sm)', color: 'var(--text-amber)', fontWeight: 500, fontFamily: 'var(--font-ui)' }
 // Revealed-hidden-file row (showHiddenLibraryFiles on) — dimmest amber shade,
 // not a generic gray fade, so it still reads as "library color" not "disabled".
-const FILENAME_SPAN_HIDDEN:  React.CSSProperties = { fontSize: 'var(--text-sm)', color: 'var(--text-amber-dimmest)', fontFamily: 'var(--font-mono)' }
+const FILENAME_SPAN_HIDDEN:  React.CSSProperties = { fontSize: 'var(--text-sm)', color: 'var(--text-amber-dimmest)', fontFamily: 'var(--font-ui)' }
 
 // ── Sticky headers stack: "Folders" section header (top:0) → individual
 // folder header (top:FOLDER_HEADER_HEIGHT) → loaded file's row, if visible,
@@ -1314,7 +1314,7 @@ function LibraryPanel() {
                 <button
                   onClick={() => setFilter(f)}
                   style={{
-                    flex: 1, padding: '3px 2px', borderRadius: 4, fontSize: 9,
+                    flex: 1, padding: '3px 2px', borderRadius: 4, fontSize: 10,
                     border: filter === f ? '1px solid var(--accent-amber-strong)' : '1px solid var(--border2)',
                     background: filter === f ? 'var(--accent-amber-medium)' : 'transparent',
                     color: filter === f ? 'var(--text-amber)' : 'var(--text-inactive)',
@@ -1554,7 +1554,7 @@ function LibraryPanel() {
           const fmt = detectForeignFormat(loadedFile.path)
           const RowIcon = fmt === 'musicxml' ? FileCode2 : fmt === 'guitarpro' ? Guitar : FileMusic
           return (
-            <RowTooltip title="Right-click for options">
+            <RowTooltip title="Right-click for options" wrapperStyle={{ position: 'sticky', top: 0, zIndex: 5 }}>
               {suppress => (
               <div
                 style={{
@@ -1562,7 +1562,6 @@ function LibraryPanel() {
                   padding: '0 10px', minHeight: FOLDER_HEADER_HEIGHT, boxSizing: 'border-box',
                   background: 'var(--panel)',
                   borderBottom: '1px solid var(--accent-amber-strong)',
-                  position: 'sticky', top: 0, zIndex: 5,
                 }}
                 onContextMenu={e => handleContextMenu(e, loadedFile!.path)}
               >
@@ -2176,8 +2175,8 @@ export default function SettingsPanel() {
           {/* ── Tab bar: Library / Settings, left-aligned with content ─────── */}
           <div style={{ display: 'flex', borderBottom: '1px solid var(--border)', flexShrink: 0 }}>
             {([
-              { id: 'library',  icon: <Library size={18} />,  label: 'Library'  },
-              { id: 'settings', icon: <Settings size={18} />, label: 'Settings' },
+              { id: 'library',  icon: <Library size={16} />,  label: 'Library'  },
+              { id: 'settings', icon: <Settings size={16} />, label: 'Settings' },
             ] as { id: DrawerTab; icon: React.ReactNode; label: string }[]).map(tab => (
               <button
                 key={tab.id}
@@ -2189,7 +2188,7 @@ export default function SettingsPanel() {
                   background: 'none', border: 'none', cursor: 'pointer',
                   borderBottom: activeTab === tab.id ? '2px solid var(--text-amber)' : '2px solid transparent',
                   color: activeTab === tab.id ? 'var(--text-amber)' : 'var(--text-inactive)',
-                  fontSize: 14, fontWeight: 600,
+                  fontSize: 12, fontWeight: 600,
                   textTransform: 'uppercase', letterSpacing: '0.08em',
                   transition: 'color 0.15s',
                 }}

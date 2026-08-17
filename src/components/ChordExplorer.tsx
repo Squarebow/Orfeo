@@ -257,7 +257,7 @@ const ALL_CHORDS = [...COMMON_CHORDS, ...EXTENDED_ADD.map(resolveChord).filter((
 
 // ── Shared row label style — dim uppercase, used across all control rows ──────
 const ROW_LABEL: React.CSSProperties = {
-  fontFamily: 'var(--font-ui)', fontSize: 12, fontWeight: 700,
+  fontFamily: 'var(--font-ui)', fontSize: 12, fontWeight: 600,
   color: 'var(--text-dimmest)', letterSpacing: '0.10em',
   textTransform: 'uppercase', flexShrink: 0, userSelect: 'none',
 }
@@ -1236,7 +1236,7 @@ export default function ChordExplorer() {
       }}>
         {/* Left: accidentals */}
         <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-          <span style={ROW_LABEL}>Show as</span>
+          <span style={{ ...ROW_LABEL, fontSize: 10 }}>Show as</span>
           {(['flat', 'sharp'] as const).map(a => (
             <button key={a} onClick={() => setAccidentals(a)} style={{
               background: 'none', border: 'none', padding: '0 4px',
@@ -1267,7 +1267,7 @@ export default function ChordExplorer() {
           ><ChevronPlayIcon size={14} mirrored /></button>
           </Tooltip>
           {/* Static grey label — chord display is above the keyboard only */}
-          <span style={{ fontFamily: 'var(--font-ui)', fontSize: 12, fontWeight: 700, color: 'var(--text-inactive)', letterSpacing: '0.12em', textTransform: 'uppercase', userSelect: 'none' }}>
+          <span style={{ fontFamily: 'var(--font-ui)', fontSize: 10, fontWeight: 600, color: 'var(--text-inactive)', letterSpacing: '0.12em', textTransform: 'uppercase', userSelect: 'none' }}>
             Play Inversion
           </span>
           {/* Next inversion — Play icon normal */}
@@ -1301,7 +1301,7 @@ export default function ChordExplorer() {
         <Tooltip oneLine title="Switch to Scale Explorer">
         <button
           onClick={() => { setChordExplorerOpen(false); setScaleExplorerOpen(true) }}
-          style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-inactive)', fontFamily: 'var(--font-ui)', fontSize: 12, fontWeight: 700, letterSpacing: '0.10em', textTransform: 'uppercase', whiteSpace: 'nowrap', padding: 0, display: 'flex', alignItems: 'center', gap: 3 }}
+          style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-inactive)', fontFamily: 'var(--font-ui)', fontSize: 10, fontWeight: 600, letterSpacing: '0.10em', textTransform: 'uppercase', whiteSpace: 'nowrap', padding: 0, display: 'flex', alignItems: 'center', gap: 3 }}
           onMouseEnter={e => e.currentTarget.style.color = 'var(--text-amber)'}
           onMouseLeave={e => e.currentTarget.style.color = 'var(--text-inactive)'}
         >Scale Explorer <ArrowUpRight size={11} /></button>
@@ -1343,7 +1343,7 @@ export default function ChordExplorer() {
                   border: 'none',
                   padding: isRot ? '3px 10px 3px 22px' : '5px 10px',
                   color: baseColor,
-                  fontFamily: 'var(--font-ui)', fontSize: isRot ? 9 : 10, cursor: 'pointer',
+                  fontFamily: 'var(--font-ui)', fontSize: 10, cursor: 'pointer',
                 }}
                 onMouseEnter={e => { e.currentTarget.style.background = 'var(--state-hover-bg)'; e.currentTarget.style.color = 'var(--text-amber)' }}
                 onMouseLeave={e => { e.currentTarget.style.background = selectedProg === i ? 'var(--state-hover-bg)' : 'none'; e.currentTarget.style.color = baseColor }}
@@ -1402,7 +1402,7 @@ export default function ChordExplorer() {
                 {/* Left column: genre name */}
                 <span style={{ minWidth: 80, flexShrink: 0, whiteSpace: 'nowrap', fontWeight: 600, textTransform: 'uppercase' }}>{GENRE_LABELS[g]}</span>
                 {/* Right column: description */}
-                <span style={{ fontSize: 9, opacity: 0.7, color: 'var(--text-muted)' }}>{GENRE_DESCRIPTIONS[g]}</span>
+                <span style={{ fontSize: 10, opacity: 0.7, color: 'var(--text-muted)' }}>{GENRE_DESCRIPTIONS[g]}</span>
               </button>
             )
           })}

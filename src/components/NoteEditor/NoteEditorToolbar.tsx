@@ -455,7 +455,7 @@ export default function NoteEditorToolbar() {
         position: 'fixed',
         left: pos.x, top: pos.y,
         zIndex: 9700,
-        width: 570,
+        width: 620,
         background: 'var(--panel)',
         border: '1px solid var(--state-hover-border)',
         borderRadius: 'var(--radius-md)',
@@ -481,7 +481,7 @@ export default function NoteEditorToolbar() {
           dragState.current = { startX: e.clientX, startY: e.clientY, startPosX: pos.x, startPosY: pos.y }
         }}
         title="Drag to move"
-        style={{ display: 'grid', gridTemplateColumns: '130px 1fr 130px', alignItems: 'center', minHeight: 32, padding: '4px 6px 4px 8px', gap: 6, cursor: 'grab' }}
+        style={{ display: 'grid', gridTemplateColumns: '155px 1fr 155px', alignItems: 'center', minHeight: 32, padding: '4px 6px 4px 8px', gap: 6, cursor: 'grab' }}
       >
         <div style={{ display: 'flex', alignItems: 'center', gap: 6, minWidth: 0 }}>
           <div style={{ display: 'flex', alignItems: 'center', flexShrink: 0 }}>

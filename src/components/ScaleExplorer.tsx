@@ -92,7 +92,7 @@ const ROMAN_TO_DEGREE: Record<string, number> = {
 
 // ── Shared row label style — dim uppercase, used across all control rows ──────
 const ROW_LABEL: React.CSSProperties = {
-  fontFamily: 'var(--font-ui)', fontSize: 12, fontWeight: 700,
+  fontFamily: 'var(--font-ui)', fontSize: 12, fontWeight: 600,
   color: 'var(--text-dimmest)', letterSpacing: '0.10em',
   textTransform: 'uppercase', flexShrink: 0, userSelect: 'none',
 }
@@ -1017,7 +1017,7 @@ export default function ScaleExplorer() {
                   </span>
                   {/* Right: note names + roman numeral stacked, right-aligned */}
                   <div style={{ display: 'flex', flexDirection: 'column', gap: 1, minWidth: 0, alignItems: 'flex-end' }}>
-                    <span style={{ fontFamily: 'var(--font-mono)', fontSize: 10, color: 'var(--text-muted)', lineHeight: '9px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', textAlign: 'right' }}>
+                    <span style={{ fontFamily: 'var(--font-mono)', fontSize: 10, fontWeight: 600, color: 'var(--text-muted)', lineHeight: '9px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', textAlign: 'right' }}>
                       {chord.midiNotes.map(m => getNoteName(m, displayNaming, accidentals)).join(' ')}
                     </span>
                     <span style={{ fontFamily: 'var(--font-ui)', fontSize: 10, color: 'var(--accent-amber-bold)', lineHeight: 1, textAlign: 'right' }}>
@@ -1053,7 +1053,7 @@ export default function ScaleExplorer() {
                   </span>
                   {/* Right: octave note names + roman numeral with ⁸ superscript */}
                   <div style={{ display: 'flex', flexDirection: 'column', gap: 1, minWidth: 0, alignItems: 'flex-end' }}>
-                    <span style={{ fontFamily: 'var(--font-mono)', fontSize: 10, color: 'var(--text-muted)', lineHeight: '9px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', textAlign: 'right' }}>
+                    <span style={{ fontFamily: 'var(--font-mono)', fontSize: 10, fontWeight: 600, color: 'var(--text-muted)', lineHeight: '9px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', textAlign: 'right' }}>
                       {octaveMidi.map(m => getNoteName(m, displayNaming, accidentals)).join(' ')}
                     </span>
                     <span style={{ fontFamily: 'var(--font-ui)', fontSize: 10, color: 'var(--accent-amber-bold)', lineHeight: 1, textAlign: 'right' }}>
@@ -1229,7 +1229,7 @@ export default function ScaleExplorer() {
       }}>
         {/* Accidentals toggle */}
         <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-1)' }}>
-          <span style={{ ...ROW_LABEL }}>Show As</span>
+          <span style={{ ...ROW_LABEL, fontSize: 10 }}>Show As</span>
           {(['flat', 'sharp'] as const).map(v => (
             <button key={v} onClick={() => setAccidentals(v)}
               style={{
@@ -1253,7 +1253,7 @@ export default function ScaleExplorer() {
           ><ChevronPlayIcon size={14} mirrored /></button>
           </Tooltip>
           {/* Static grey label — chord display is above the keyboard only */}
-          <span style={{ fontFamily: 'var(--font-ui)', fontSize: 12, fontWeight: 700, color: 'var(--text-inactive)', letterSpacing: '0.12em', textTransform: 'uppercase', userSelect: 'none' }}>
+          <span style={{ fontFamily: 'var(--font-ui)', fontSize: 10, fontWeight: 600, color: 'var(--text-inactive)', letterSpacing: '0.12em', textTransform: 'uppercase', userSelect: 'none' }}>
             Play  Chord Inversions
           </span>
           {/* Next inversion — Play icon normal */}
@@ -1285,7 +1285,7 @@ export default function ScaleExplorer() {
         <Tooltip oneLine title="Chord Explorer">
           <button
             onClick={() => { setScaleExplorerOpen(false); setChordExplorerOpen(true) }}
-            style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-inactive)', fontFamily: 'var(--font-ui)', fontSize: 12, fontWeight: 700, letterSpacing: '0.10em', textTransform: 'uppercase', whiteSpace: 'nowrap', padding: 0, display: 'flex', alignItems: 'center', gap: 3 }}
+            style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-inactive)', fontFamily: 'var(--font-ui)', fontSize: 10, fontWeight: 600, letterSpacing: '0.10em', textTransform: 'uppercase', whiteSpace: 'nowrap', padding: 0, display: 'flex', alignItems: 'center', gap: 3 }}
             onMouseEnter={e => e.currentTarget.style.color = 'var(--text-amber)'}
             onMouseLeave={e => e.currentTarget.style.color = 'var(--text-inactive)'}
           >Chord Explorer <ArrowUpRight size={11} /></button>
