@@ -711,7 +711,7 @@ export default function MasterStrip() {
           />
           <span style={{
             position: 'absolute', top: '100%', left: '50%', transform: 'translateX(-50%)',
-            marginTop: 7, fontSize: 10, fontFamily: 'var(--font-mono)', letterSpacing: '0.08em',
+            marginTop: -3, fontSize: 10, fontFamily: 'var(--font-mono)', letterSpacing: '0.08em',
             textTransform: 'uppercase', color: 'var(--text-dimmest)',
             userSelect: 'none', lineHeight: 1, whiteSpace: 'nowrap',
           }}>
@@ -763,7 +763,7 @@ export default function MasterStrip() {
           />
           <span style={{
             position: 'absolute', top: '100%', left: '50%', transform: 'translateX(-50%)',
-            marginTop: 7, fontSize: 10, fontFamily: 'var(--font-mono)', letterSpacing: '0.08em',
+            marginTop: -3, fontSize: 10, fontFamily: 'var(--font-mono)', letterSpacing: '0.08em',
             textTransform: 'uppercase', color: 'var(--text-dimmest)',
             userSelect: 'none', lineHeight: 1, whiteSpace: 'nowrap',
           }}>

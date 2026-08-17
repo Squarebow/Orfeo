@@ -375,7 +375,7 @@ export default function MixerConsole() {
             ref={headerDescRef}
             className={headerDescOverflow > 0 ? 'orfeo-marquee-text is-overflowing' : 'orfeo-marquee-text'}
             style={{
-              fontFamily: 'var(--font-ui)', fontSize: 11,
+              fontFamily: 'var(--font-ui)', fontSize: 12,
               color: 'var(--text-muted)', whiteSpace: 'nowrap',
               ...(headerDescOverflow > 0 ? { '--marquee-distance': `-${headerDescOverflow}px` } as CSSProperties : {}),
             }}

@@ -2427,11 +2427,11 @@ export default function SettingsPanel() {
                       </div>
                       <div style={{ padding: '3px 14px 6px', display: 'flex', alignItems: 'center', gap: 16 }}>
                         <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                          <span style={{ fontSize: 'var(--text-xs)', color: 'var(--text-default)', fontFamily: 'var(--font-ui)' }}>Left hand</span>
+                          <span style={{ fontSize: 9, color: 'var(--text-default)', fontFamily: 'var(--font-ui)', whiteSpace: 'nowrap' }}>Left hand</span>
                           <FingerStepper value={lhMaxFingers} onChange={setLhMaxFingers} />
                         </div>
                         <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                          <span style={{ fontSize: 'var(--text-xs)', color: 'var(--text-default)', fontFamily: 'var(--font-ui)' }}>Right hand</span>
+                          <span style={{ fontSize: 9, color: 'var(--text-default)', fontFamily: 'var(--font-ui)', whiteSpace: 'nowrap' }}>Right hand</span>
                           <FingerStepper value={rhMaxFingers} onChange={setRhMaxFingers} />
                         </div>
                       </div>

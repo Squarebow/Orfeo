@@ -479,7 +479,7 @@ export default function TopBar() {
                     |{totalBars}
                   </span>
                 </div>
-                <span style={{ color: 'var(--topbar-bar-label)', fontSize: 8, fontFamily: 'var(--font-ui)', textTransform: 'uppercase', letterSpacing: '0.1em', lineHeight: 1, marginTop: 6 }}>
+                <span style={{ color: 'var(--topbar-bar-label)', fontSize: 9, fontFamily: 'var(--font-ui)', textTransform: 'uppercase', letterSpacing: '0.1em', lineHeight: 1, marginTop: 6 }}>
                   BAR
                 </span>
               </div>
