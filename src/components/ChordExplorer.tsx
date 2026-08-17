@@ -257,7 +257,7 @@ const ALL_CHORDS = [...COMMON_CHORDS, ...EXTENDED_ADD.map(resolveChord).filter((
 
 // ── Shared row label style — dim uppercase, used across all control rows ──────
 const ROW_LABEL: React.CSSProperties = {
-  fontFamily: 'var(--font-ui)', fontSize: 9, fontWeight: 700,
+  fontFamily: 'var(--font-ui)', fontSize: 12, fontWeight: 700,
   color: 'var(--text-dimmest)', letterSpacing: '0.10em',
   textTransform: 'uppercase', flexShrink: 0, userSelect: 'none',
 }
@@ -709,7 +709,7 @@ export default function ChordExplorer() {
     padding: '2px 8px', borderRadius: 'var(--radius-sm)', border: 'none',
     background: active ? 'var(--state-hover-bg)' : 'transparent',
     color: active ? 'var(--text-amber)' : 'var(--text-inactive)',
-    fontFamily: 'var(--font-ui)', fontSize: 10, fontWeight: 600,
+    fontFamily: 'var(--font-ui)', fontSize: 11, fontWeight: 600,
     cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center',
   })
 
@@ -750,7 +750,7 @@ export default function ChordExplorer() {
       >
         <div style={{ display: 'flex', alignItems: 'center', gap: 7 }}>
           <OrfeoMark height={22} />
-          <span style={{ fontFamily: 'var(--font-ui)', fontSize: 'var(--text-sm)', fontWeight: 700, color: 'var(--text-amber)', letterSpacing: '0.14em', textTransform: 'uppercase' }}>
+          <span style={{ fontFamily: 'var(--font-ui)', fontSize: 14, fontWeight: 700, color: 'var(--text-amber)', letterSpacing: '0.14em', textTransform: 'uppercase' }}>
             Chord Explorer
           </span>
         </div>
@@ -777,7 +777,7 @@ export default function ChordExplorer() {
                     padding: '2px 6px', borderRadius: 'var(--radius-sm)', border: 'none',
                     background: searchScope === scope ? 'var(--state-hover-bg)' : 'transparent',
                     color: searchScope === scope ? 'var(--text-amber)' : 'var(--text-inactive)',
-                    fontFamily: 'var(--font-ui)', fontSize: 9, fontWeight: 600,
+                    fontFamily: 'var(--font-ui)', fontSize: 10, fontWeight: 600,
                     cursor: 'pointer', textTransform: 'capitalize',
                     transition: 'color 0.12s, background 0.12s',
                   }}
@@ -847,7 +847,7 @@ export default function ChordExplorer() {
                   borderRadius: 4, border: 'none',
                   background: isSel ? 'var(--text-amber)' : 'var(--border)',
                   color: isSel ? 'var(--bg)' : 'var(--text-muted)',
-                  fontFamily: 'var(--font-mono)', fontSize: 'var(--text-xs)', fontWeight: 600,
+                  fontFamily: 'var(--font-mono)', fontSize: 12, fontWeight: 600,
                   cursor: 'pointer', transition: 'background 0.1s, color 0.1s',
                   minWidth: 30, textAlign: 'center',
                 }}
@@ -888,7 +888,7 @@ export default function ChordExplorer() {
 
           {/* Hand */}
           <div style={{ display: 'flex', alignItems: 'center', gap: 4, opacity: isPowerMode ? 0.35 : 1, pointerEvents: isPowerMode ? 'none' : 'auto', transition: 'opacity 0.15s' }}>
-            <span style={{ fontSize: 8, color: 'var(--text-muted)', fontFamily: 'var(--font-ui)', textTransform: 'uppercase', letterSpacing: '0.08em' }}>Hand</span>
+            <span style={{ fontSize: 11, color: 'var(--text-muted)', fontFamily: 'var(--font-ui)', textTransform: 'uppercase', letterSpacing: '0.08em' }}>Hand</span>
             <div style={{ display: 'flex', background: 'var(--bg-tile)', borderRadius: 4, padding: 2, gap: 1 }}>
               <Tooltip title="All" description="Shows chords playable with either hand">
                 <button onClick={() => setHandFilter('all')} style={btnBase(handFilter === 'all')}>All</button>
@@ -911,7 +911,7 @@ export default function ChordExplorer() {
 
           {/* Notes */}
           <div style={{ display: 'flex', alignItems: 'center', gap: 4, opacity: isPowerMode ? 0.35 : 1, pointerEvents: isPowerMode ? 'none' : 'auto', transition: 'opacity 0.15s' }}>
-            <span style={{ fontSize: 8, color: 'var(--text-muted)', fontFamily: 'var(--font-ui)', textTransform: 'uppercase', letterSpacing: '0.08em' }}>Notes</span>
+            <span style={{ fontSize: 11, color: 'var(--text-muted)', fontFamily: 'var(--font-ui)', textTransform: 'uppercase', letterSpacing: '0.08em' }}>Notes</span>
             <div style={{ display: 'flex', background: 'var(--bg-tile)', borderRadius: 4, padding: 2, gap: 1 }}>
               {(['any', '3', '4', '5', '6+'] as const).map(n => (
                 <Tooltip
@@ -944,6 +944,7 @@ export default function ChordExplorer() {
               onClick={openProgDropdown}
               style={{
                 ...btnBase(false),
+                fontSize: 10,
                 color: activeProg ? 'var(--text-amber)' : 'var(--text-muted)',
                 padding: '2px 6px',
                 whiteSpace: 'nowrap',
@@ -1149,7 +1150,7 @@ export default function ChordExplorer() {
                 <span style={{ fontFamily: 'var(--font-ui)', fontSize: 'var(--text-sm)', fontWeight: 700, color: isSel ? 'var(--text-amber)' : 'var(--text-dim)', lineHeight: 1.2 }}>
                   {rootName}5
                 </span>
-                <span style={{ fontFamily: 'var(--font-ui)', fontSize: 9, color: 'var(--text-tile-subtext)', lineHeight: 1.3 }}>
+                <span style={{ fontFamily: 'var(--font-ui)', fontSize: 10, color: 'var(--text-tile-subtext)', lineHeight: '11.7px' }}>
                   {rootName} {fifthName}
                 </span>
               </button>
@@ -1204,7 +1205,7 @@ export default function ChordExplorer() {
                   }}>
                     {chordLabel || rootLabel(selectedRoot)}
                   </span>
-                  <span style={{ fontFamily: 'var(--font-ui)', fontSize: 9, color: 'var(--text-tile-subtext)', lineHeight: 1.3 }}>
+                  <span style={{ fontFamily: 'var(--font-ui)', fontSize: 10, color: 'var(--text-tile-subtext)', lineHeight: '11.7px' }}>
                     {noteNames || chord.name}
                   </span>
                 </button>
@@ -1266,7 +1267,7 @@ export default function ChordExplorer() {
           ><ChevronPlayIcon size={14} mirrored /></button>
           </Tooltip>
           {/* Static grey label — chord display is above the keyboard only */}
-          <span style={{ fontFamily: 'var(--font-ui)', fontSize: 8, fontWeight: 700, color: 'var(--text-inactive)', letterSpacing: '0.12em', textTransform: 'uppercase', userSelect: 'none' }}>
+          <span style={{ fontFamily: 'var(--font-ui)', fontSize: 12, fontWeight: 700, color: 'var(--text-inactive)', letterSpacing: '0.12em', textTransform: 'uppercase', userSelect: 'none' }}>
             Play Inversion
           </span>
           {/* Next inversion — Play icon normal */}
@@ -1300,7 +1301,7 @@ export default function ChordExplorer() {
         <Tooltip oneLine title="Switch to Scale Explorer">
         <button
           onClick={() => { setChordExplorerOpen(false); setScaleExplorerOpen(true) }}
-          style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-inactive)', fontFamily: 'var(--font-ui)', fontSize: 9, fontWeight: 700, letterSpacing: '0.10em', textTransform: 'uppercase', whiteSpace: 'nowrap', padding: 0, display: 'flex', alignItems: 'center', gap: 3 }}
+          style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-inactive)', fontFamily: 'var(--font-ui)', fontSize: 12, fontWeight: 700, letterSpacing: '0.10em', textTransform: 'uppercase', whiteSpace: 'nowrap', padding: 0, display: 'flex', alignItems: 'center', gap: 3 }}
           onMouseEnter={e => e.currentTarget.style.color = 'var(--text-amber)'}
           onMouseLeave={e => e.currentTarget.style.color = 'var(--text-inactive)'}
         >Scale Explorer <ArrowUpRight size={11} /></button>
