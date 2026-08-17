@@ -420,7 +420,7 @@ export default function TrackPanel() {
             gap: 'var(--space-2)',
           }}>
             <ListTree size={14} style={{ color: 'var(--text-inactive)', flexShrink: 0 }} />
-            <span style={{ color: 'var(--text-dimmest)', fontSize: 'var(--text-xs)', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.1em' }}>
+            <span style={{ color: 'var(--text-dimmest)', fontSize: 'var(--text-sm)', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.1em' }}>
               Tracks
             </span>
             {midi && (
@@ -443,7 +443,7 @@ export default function TrackPanel() {
                       border: 'none',
                       background: 'var(--text-amber)',
                       color: 'var(--text-on-amber)',
-                      fontSize: 9,
+                      fontSize: 10,
                       fontWeight: 700,
                       fontFamily: 'var(--font-ui)',
                       letterSpacing: '0.02em',
@@ -512,7 +512,7 @@ export default function TrackPanel() {
                         : <ChevronDown size={11} style={{ transform: collapsed ? 'rotate(-90deg)' : 'none', transition: 'transform 0.15s' }} />}
                     </button>
 
-                    <span style={{ flex: 1, fontSize: 10, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.1em', color: 'var(--text-dimmest)' }}>
+                    <span style={{ flex: 1, fontSize: 11, fontWeight: 700, lineHeight: '12px', textTransform: 'uppercase', letterSpacing: '0.1em', color: 'var(--text-dimmest)' }}>
                       {label}
                     </span>
 
@@ -666,7 +666,7 @@ function TrackRow({
 
       {/* ── Row 2: track number (left) + M/S/V/K controls (right) ─────────── */}
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginTop: 3, paddingLeft: 26 }}>
-        <span style={{ fontSize: 9, color: 'var(--text-inactive)', fontFamily: 'var(--font-mono)' }}>track {track.index + 1}</span>
+        <span style={{ fontSize: 10, color: 'var(--text-inactive)', fontFamily: 'var(--font-mono)' }}>track {track.index + 1}</span>
         <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-1)' }}>
           <IBtn onClick={onMute} active={track.muted}
             title={track.muted ? 'Unmute' : 'Mute'}
@@ -678,7 +678,7 @@ function TrackRow({
             title={track.solo ? 'Unsolo' : 'Solo'}
             description={track.solo ? 'Restores normal playback for every track.' : 'Plays only this track, muting the rest.'}
             activeColor="var(--text-amber)">
-            <span style={{ fontSize: 10, fontWeight: 700, fontFamily: 'var(--font-mono)', lineHeight: 1 }}>S</span>
+            <span style={{ fontSize: 11, fontWeight: 700, fontFamily: 'var(--font-mono)', lineHeight: 1 }}>S</span>
           </IBtn>
           <IBtn onClick={onVisible} active={!track.visible}
             title={track.visible ? 'Hide in roll' : 'Show in roll'}
@@ -704,11 +704,11 @@ function TrackRow({
 
       {/* ── Row 3: MIDI channel + program + note count ────────────────────── */}
       <div style={{ display: 'flex', gap: 6, marginTop: 2, paddingLeft: 26 }}>
-        <span style={{ fontSize: 9, color: 'var(--text-track-meta)', fontFamily: 'var(--font-mono)' }}>ch {ch}</span>
-        <span style={{ fontSize: 9, color: 'var(--text-track-meta)', fontFamily: 'var(--font-mono)' }}>·</span>
-        <span style={{ fontSize: 9, color: 'var(--text-track-meta)', fontFamily: 'var(--font-mono)' }}>{prog}</span>
-        <span style={{ fontSize: 9, color: 'var(--text-track-meta)', fontFamily: 'var(--font-mono)' }}>·</span>
-        <span style={{ fontSize: 9, color: 'var(--text-track-meta)', fontFamily: 'var(--font-mono)' }}>{noteCount} notes</span>
+        <span style={{ fontSize: 10, lineHeight: '11px', color: 'var(--text-track-meta)', fontFamily: 'var(--font-mono)' }}>ch {ch}</span>
+        <span style={{ fontSize: 10, lineHeight: '11px', color: 'var(--text-track-meta)', fontFamily: 'var(--font-mono)' }}>·</span>
+        <span style={{ fontSize: 10, lineHeight: '11px', color: 'var(--text-track-meta)', fontFamily: 'var(--font-mono)' }}>{prog}</span>
+        <span style={{ fontSize: 10, lineHeight: '11px', color: 'var(--text-track-meta)', fontFamily: 'var(--font-mono)' }}>·</span>
+        <span style={{ fontSize: 10, lineHeight: '11px', color: 'var(--text-track-meta)', fontFamily: 'var(--font-mono)' }}>{noteCount} notes</span>
       </div>
     </div>
   )
