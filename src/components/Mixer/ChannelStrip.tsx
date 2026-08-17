@@ -591,7 +591,7 @@ export default function ChannelStrip({ trackIndex, locked, isDragging, onDragSta
         <div style={{ width: VU_W, flexShrink: 0 }} />
         <div style={{ flex: 1, display: 'flex', alignItems: 'flex-start', justifyContent: 'center' }}>
           <span style={{
-            fontSize: 8, fontFamily: 'var(--font-mono)', letterSpacing: '0.1em',
+            fontSize: 10, fontFamily: 'var(--font-mono)', letterSpacing: '0.1em',
             textTransform: 'uppercase', color: 'var(--text-dimmest)',
           }}>
             Volume
@@ -606,7 +606,7 @@ export default function ChannelStrip({ trackIndex, locked, isDragging, onDragSta
         padding: '0 6px',
       }}>
         <span style={{
-          fontSize: 8, fontFamily: 'var(--font-mono)', letterSpacing: '0.08em',
+          fontSize: 10, fontFamily: 'var(--font-mono)', letterSpacing: '0.08em',
           color: 'var(--text-dimmest)',
           textTransform: 'uppercase',
           overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',

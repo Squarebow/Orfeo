@@ -350,7 +350,7 @@ export default function MixerConsole() {
 
         {/* ── Title ──────────────────────────────────────────────────────── */}
         <span style={{
-          fontFamily: 'var(--font-mono)', fontSize: 'var(--text-sm)', fontWeight: 700,
+          fontFamily: 'var(--font-mono)', fontSize: 14, fontWeight: 700,
           color: 'var(--text-amber)', letterSpacing: '0.14em', textTransform: 'uppercase',
           flexShrink: 0,
         }}>
@@ -375,7 +375,7 @@ export default function MixerConsole() {
             ref={headerDescRef}
             className={headerDescOverflow > 0 ? 'orfeo-marquee-text is-overflowing' : 'orfeo-marquee-text'}
             style={{
-              fontFamily: 'var(--font-mono)', fontSize: 10,
+              fontFamily: 'var(--font-ui)', fontSize: 11,
               color: 'var(--text-muted)', whiteSpace: 'nowrap',
               ...(headerDescOverflow > 0 ? { '--marquee-distance': `-${headerDescOverflow}px` } as CSSProperties : {}),
             }}

@@ -546,7 +546,7 @@ export default function MasterStrip() {
         marginTop: -9.3,
       }}>
         <span style={{
-          fontSize: 9, fontFamily: 'var(--font-mono)', letterSpacing: '0.08em',
+          fontSize: 10, fontFamily: 'var(--font-mono)', letterSpacing: '0.08em',
           color: 'var(--text-amber)', whiteSpace: 'nowrap',
           textTransform: 'uppercase', fontWeight: 700,
         }}>
@@ -631,7 +631,7 @@ export default function MasterStrip() {
               border: 'none',
               background: 'var(--text-amber)',
               color: 'var(--text-on-amber)',
-              fontSize: 9,
+              fontSize: 10,
               fontWeight: 700,
               fontFamily: 'var(--font-ui)',
               letterSpacing: '0.02em',
@@ -711,7 +711,7 @@ export default function MasterStrip() {
           />
           <span style={{
             position: 'absolute', top: '100%', left: '50%', transform: 'translateX(-50%)',
-            marginTop: 7, fontSize: 9, fontFamily: 'var(--font-mono)', letterSpacing: '0.08em',
+            marginTop: 7, fontSize: 10, fontFamily: 'var(--font-mono)', letterSpacing: '0.08em',
             textTransform: 'uppercase', color: 'var(--text-dimmest)',
             userSelect: 'none', lineHeight: 1, whiteSpace: 'nowrap',
           }}>
@@ -763,7 +763,7 @@ export default function MasterStrip() {
           />
           <span style={{
             position: 'absolute', top: '100%', left: '50%', transform: 'translateX(-50%)',
-            marginTop: 7, fontSize: 9, fontFamily: 'var(--font-mono)', letterSpacing: '0.08em',
+            marginTop: 7, fontSize: 10, fontFamily: 'var(--font-mono)', letterSpacing: '0.08em',
             textTransform: 'uppercase', color: 'var(--text-dimmest)',
             userSelect: 'none', lineHeight: 1, whiteSpace: 'nowrap',
           }}>
@@ -832,7 +832,7 @@ export default function MasterStrip() {
           display: 'flex', alignItems: 'center', justifyContent: 'center',
         }}>
           <span style={{
-            fontSize: 8, fontFamily: 'var(--font-mono)', letterSpacing: '0.1em',
+            fontSize: 10, fontFamily: 'var(--font-mono)', letterSpacing: '0.1em',
             textTransform: 'uppercase', color: 'var(--text-dimmest)',
           }}>
             Volume

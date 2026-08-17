@@ -216,9 +216,9 @@ export default function MixerKnob({
 
       {label && (
         <span style={{
-          fontSize: 9, fontFamily: 'var(--font-mono)', letterSpacing: '0.08em',
+          fontSize: 10, fontFamily: 'var(--font-mono)', letterSpacing: '0.08em',
           textTransform: 'uppercase', color: 'var(--text-dimmest)',
-          userSelect: 'none', lineHeight: 1,
+          userSelect: 'none', lineHeight: '9px',
         }}>
           {label}
         </span>
