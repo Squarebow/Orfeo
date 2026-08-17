@@ -165,7 +165,7 @@ export default function KeyboardControls() {
           line (below) is actively rendering; the line takes this spot instead. ── */}
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', justifySelf: 'center', minWidth: 0 }}>
         {!practiceLineActive && !presentationMode && (
-          <span style={{ fontSize: 9, color: 'var(--text-faint)', fontFamily: 'var(--font-ui)', userSelect: 'none', whiteSpace: 'nowrap' }}>
+          <span style={{ fontSize: 11, color: 'var(--text-faint)', fontFamily: 'var(--font-ui)', userSelect: 'none', whiteSpace: 'nowrap' }}>
             Shift+Click three keys or more to build &amp; lock a chord
           </span>
         )}

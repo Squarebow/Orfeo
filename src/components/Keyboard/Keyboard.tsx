@@ -418,7 +418,7 @@ export default function Keyboard() {
                   role="button"
                   tabIndex={0}
                   onKeyDown={activateOnKey(() => setChordExplorerOpen(true))}
-                  style={{ fontFamily: 'var(--font-ui)', fontSize: 9, fontWeight: 700, color: 'var(--text-amber)', letterSpacing: '0.12em', textTransform: 'uppercase', cursor: 'pointer', userSelect: 'none' }}
+                  style={{ fontFamily: 'var(--font-ui)', fontSize: 12, fontWeight: 700, color: 'var(--text-amber)', letterSpacing: '0.12em', textTransform: 'uppercase', cursor: 'pointer', userSelect: 'none' }}
                 >
                   Chords
                 </span>
@@ -497,7 +497,7 @@ export default function Keyboard() {
                   role="button"
                   tabIndex={0}
                   onKeyDown={activateOnKey(() => setScaleExplorerOpen(true))}
-                  style={{ fontFamily: 'var(--font-ui)', fontSize: 9, fontWeight: 700, color: 'var(--text-amber)', letterSpacing: '0.12em', textTransform: 'uppercase', cursor: 'pointer', userSelect: 'none' }}
+                  style={{ fontFamily: 'var(--font-ui)', fontSize: 12, fontWeight: 700, color: 'var(--text-amber)', letterSpacing: '0.12em', textTransform: 'uppercase', cursor: 'pointer', userSelect: 'none' }}
                 >
                   Scales
                 </span>
@@ -518,7 +518,7 @@ export default function Keyboard() {
                   role="button"
                   tabIndex={0}
                   onKeyDown={activateOnKey(() => setChordExplorerOpen(true))}
-                  style={{ fontFamily: 'var(--font-ui)', fontSize: 9, fontWeight: 700, color: 'var(--text-amber)', letterSpacing: '0.12em', textTransform: 'uppercase', cursor: 'pointer', userSelect: 'none' }}
+                  style={{ fontFamily: 'var(--font-ui)', fontSize: 12, fontWeight: 700, color: 'var(--text-amber)', letterSpacing: '0.12em', textTransform: 'uppercase', cursor: 'pointer', userSelect: 'none' }}
                 >
                   Chords
                 </span>
@@ -623,7 +623,7 @@ export default function Keyboard() {
                   role="button"
                   tabIndex={0}
                   onKeyDown={activateOnKey(() => setScaleExplorerOpen(true))}
-                  style={{ fontFamily: 'var(--font-ui)', fontSize: 9, fontWeight: 700, color: 'var(--text-amber)', letterSpacing: '0.12em', textTransform: 'uppercase', cursor: 'pointer', userSelect: 'none' }}
+                  style={{ fontFamily: 'var(--font-ui)', fontSize: 12, fontWeight: 700, color: 'var(--text-amber)', letterSpacing: '0.12em', textTransform: 'uppercase', cursor: 'pointer', userSelect: 'none' }}
                 >
                   Scales
                 </span>
