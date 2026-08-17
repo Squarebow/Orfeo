@@ -274,6 +274,36 @@ function OptionBtn({ active, onClick, children, title, oneLine, comingSoon, acti
   return title ? <Tooltip title={title} oneLine={oneLine} wrapperStyle={{ flex: 1 }}>{btn}</Tooltip> : btn
 }
 
+// ── FingerStepper — compact "< 4 >" toggle between the only two valid max-
+// finger values (4/5). Replaces two full-width OptionBtn pills with a
+// single small control, ~1/3 the footprint. ────────────────────────────────
+function FingerStepper({ value, onChange }: { value: 4 | 5; onChange: (v: 4 | 5) => void }) {
+  const chevronStyle = (disabled: boolean): React.CSSProperties => ({
+    background: 'none', border: 'none', padding: 1, display: 'flex', alignItems: 'center',
+    cursor: disabled ? 'default' : 'pointer',
+    color: disabled ? 'var(--state-disabled)' : 'var(--text-inactive)',
+  })
+  return (
+    <div style={{ display: 'flex', alignItems: 'center', gap: 2, border: '1px solid var(--border2)', borderRadius: 4, padding: '1px 3px' }}>
+      <button
+        onClick={() => onChange(4)}
+        disabled={value === 4}
+        style={chevronStyle(value === 4)}
+        onMouseEnter={e => { if (value !== 4) e.currentTarget.style.color = 'var(--text-amber)' }}
+        onMouseLeave={e => { e.currentTarget.style.color = value === 4 ? 'var(--state-disabled)' : 'var(--text-inactive)' }}
+      ><ChevronLeft size={11} /></button>
+      <span style={{ fontSize: 'var(--text-xs)', fontFamily: 'var(--font-mono)', fontWeight: 700, color: 'var(--text-amber)', minWidth: 10, textAlign: 'center' }}>{value}</span>
+      <button
+        onClick={() => onChange(5)}
+        disabled={value === 5}
+        style={chevronStyle(value === 5)}
+        onMouseEnter={e => { if (value !== 5) e.currentTarget.style.color = 'var(--text-amber)' }}
+        onMouseLeave={e => { e.currentTarget.style.color = value === 5 ? 'var(--state-disabled)' : 'var(--text-inactive)' }}
+      ><ChevronRight size={11} /></button>
+    </div>
+  )
+}
+
 // ─── Hit-effect color picker — swatch trigger + in-app popover (hex + palette).
 // Deliberately NOT a native <input type="color"> — that opens an OS-level dialog
 // which was blurring the app window and closing the whole Settings drawer out
@@ -315,7 +345,7 @@ function HitEffectColorSwatch({ color, onChange }: { color: string | null; onCha
         <span style={{ fontSize: 'var(--text-xs)', color: 'var(--text-faint)', fontFamily: 'var(--font-ui)', whiteSpace: 'nowrap' }}>Color</span>
         <span style={{
           width: 14, height: 14, borderRadius: 3, flexShrink: 0,
-          background: color ?? 'repeating-conic-gradient(#666 0% 25%, #999 0% 50%) 50% / 6px 6px',
+          background: color ?? 'var(--hand-lh)',
           border: '1px solid var(--border2)',
         }} />
       </button>
@@ -2395,18 +2425,16 @@ export default function SettingsPanel() {
                       }}>
                         Max Fingers
                       </div>
-                      <OptionRow label="Left" labelSmall>
-                        <div style={{ display: 'flex', gap: 'var(--space-1)' }}>
-                          <OptionBtn active={lhMaxFingers === 4} onClick={() => setLhMaxFingers(4)}>4</OptionBtn>
-                          <OptionBtn active={lhMaxFingers === 5} onClick={() => setLhMaxFingers(5)}>5</OptionBtn>
+                      <div style={{ padding: '3px 14px 6px', display: 'flex', alignItems: 'center', gap: 16 }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                          <span style={{ fontSize: 'var(--text-xs)', color: 'var(--text-default)', fontFamily: 'var(--font-ui)' }}>Left hand</span>
+                          <FingerStepper value={lhMaxFingers} onChange={setLhMaxFingers} />
                         </div>
-                      </OptionRow>
-                      <OptionRow label="Right" labelSmall>
-                        <div style={{ display: 'flex', gap: 'var(--space-1)' }}>
-                          <OptionBtn active={rhMaxFingers === 4} onClick={() => setRhMaxFingers(4)}>4</OptionBtn>
-                          <OptionBtn active={rhMaxFingers === 5} onClick={() => setRhMaxFingers(5)}>5</OptionBtn>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                          <span style={{ fontSize: 'var(--text-xs)', color: 'var(--text-default)', fontFamily: 'var(--font-ui)' }}>Right hand</span>
+                          <FingerStepper value={rhMaxFingers} onChange={setRhMaxFingers} />
                         </div>
-                      </OptionRow>
+                      </div>
                       <div style={{ padding: '2px 12px 6px', color: 'var(--text-inactive)', fontSize: 'var(--text-xs)', fontFamily: 'var(--font-ui)', lineHeight: 1.5 }}>
                         How many notes of a wide chord each hand can take before the rest is absorbed by the other — left counts from the bottom of the chord, right from the top.
                       </div>
@@ -2823,6 +2851,7 @@ export default function SettingsPanel() {
                   {hitEffectsEnabled && (
                     <>
                       <OptionRow label={`Intensity — ${hitEffectBloomIntensity.toFixed(1)}`} labelSmall>
+                        <Tooltip title="Drag to change" oneLine wrapperStyle={{ display: 'block', width: '100%' }}>
                         <input
                           type="range" min={0} max={4} step={0.1}
                           value={hitEffectBloomIntensity}
@@ -2830,8 +2859,10 @@ export default function SettingsPanel() {
                           className="orfeo-slider-amber"
                           style={{ '--fill': `${(hitEffectBloomIntensity / 4) * 100}%` } as CSSProperties}
                         />
+                        </Tooltip>
                       </OptionRow>
                       <OptionRow label={`Spread — ${hitEffectBloomSpread.toFixed(1)}`} labelSmall>
+                        <Tooltip title="Drag to change" oneLine wrapperStyle={{ display: 'block', width: '100%' }}>
                         <input
                           type="range" min={0} max={12} step={0.5}
                           value={hitEffectBloomSpread}
@@ -2839,8 +2870,10 @@ export default function SettingsPanel() {
                           className="orfeo-slider-amber"
                           style={{ '--fill': `${(hitEffectBloomSpread / 12) * 100}%` } as CSSProperties}
                         />
+                        </Tooltip>
                       </OptionRow>
                       <OptionRow label={`Threshold — ${hitEffectBloomThreshold.toFixed(2)}`} labelSmall hint="Lower values make more of the effect glow; higher values only bloom the brightest parts.">
+                        <Tooltip title="Drag to change" oneLine wrapperStyle={{ display: 'block', width: '100%' }}>
                         <input
                           type="range" min={0} max={1} step={0.05}
                           value={hitEffectBloomThreshold}
@@ -2848,6 +2881,7 @@ export default function SettingsPanel() {
                           className="orfeo-slider-amber"
                           style={{ '--fill': `${hitEffectBloomThreshold * 100}%` } as CSSProperties}
                         />
+                        </Tooltip>
                       </OptionRow>
                     </>
                   )}

@@ -64,6 +64,10 @@ export interface MixerKnobProps {
   onDragChange?: (dragging: boolean) => void  // fires on drag start/end — for a
                               // caller-owned live-value tooltip that should stay
                               // visible through a drag, not just on hover (Master Volume)
+  labelOffset?: number       // shifts the label vertically (negative = up), compensated
+                              // with equal opposite margin on the other side so the
+                              // wrapper's total height — and everything below it — never
+                              // moves. Default 0 (no shift).
 }
 
 // ── MixerKnob — tick-arc knob with triangle notch indicator ──────────────────
@@ -71,7 +75,7 @@ export default function MixerKnob({
   value, onChange, accentColor, size = 40,
   disabled = false, bipolar = false, label,
   dotCount = DOT_COUNT, tickMajorEvery = 0, tickScale = 1, tickStrokeScale = 1, triScale = 1,
-  title, description, disabledHint, onDragChange,
+  title, description, disabledHint, onDragChange, labelOffset = 0,
 }: MixerKnobProps) {
   const svgRef  = useRef<SVGSVGElement>(null)
   const wrapperRef = useRef<HTMLDivElement>(null)
@@ -219,6 +223,7 @@ export default function MixerKnob({
           fontSize: 10, fontFamily: 'var(--font-mono)', letterSpacing: '0.08em',
           textTransform: 'uppercase', color: 'var(--text-dimmest)',
           userSelect: 'none', lineHeight: '9px',
+          marginTop: labelOffset, marginBottom: -labelOffset,
         }}>
           {label}
         </span>

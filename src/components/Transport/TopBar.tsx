@@ -353,11 +353,9 @@ export default function TopBar() {
             groups' top lines, now that all three groups share the same
             top-aligned start (see the grid's alignItems comment above). */}
         {midi?.fileName ? (
-          <Tooltip title={midi.fileName} description="The loaded file's full name, in case the display above is truncated." placement="bottom">
-            <span style={{ color: 'var(--text-default)', fontSize: 'var(--text-sm)', fontFamily: 'var(--font-ui)', lineHeight: '13px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: 340 }}>
-              {midi.fileName.replace(/\.(mid|midi)$/i, '')}
-            </span>
-          </Tooltip>
+          <span style={{ color: 'var(--text-default)', fontSize: 'var(--text-sm)', fontFamily: 'var(--font-ui)', lineHeight: '13px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: 340 }}>
+            {midi.fileName.replace(/\.(mid|midi)$/i, '')}
+          </span>
         ) : (
           <span style={{ color: 'var(--text-default)', fontSize: 'var(--text-sm)', fontFamily: 'var(--font-ui)', lineHeight: '13px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: 340 }}>
             No file open
@@ -365,15 +363,15 @@ export default function TopBar() {
         )}
         {/* Transport */}
         <div style={{ display: 'flex', alignItems: 'center', gap: 2 }}>
-          <TBtn onClick={stop} disabled={!midi} title="Go to start" description="Jumps playback back to the beginning of the file."><SkipBack size={16} strokeWidth={1.5} /></TBtn>
-          <TBtn onClick={() => handleSkip(-1)} disabled={!midi} title={`Rewind ${SKIP_SECS}s`} description="Skips playback back by five seconds."><Rewind size={15} strokeWidth={1.5} /></TBtn>
-          <TBtn onClick={handlePlayPause} disabled={!midi || chordExplorerOpen} accent title="Play / Pause (Space)" description="Starts or pauses playback — same as pressing Space." large>
+          <TBtn onClick={stop} disabled={!midi} title="Go to start" description="Jumps playback back to the beginning of the file." oneLine><SkipBack size={16} strokeWidth={1.5} /></TBtn>
+          <TBtn onClick={() => handleSkip(-1)} disabled={!midi} title={`Rewind ${SKIP_SECS}s`} description="Skips playback back by five seconds." oneLine><Rewind size={15} strokeWidth={1.5} /></TBtn>
+          <TBtn onClick={handlePlayPause} disabled={!midi || chordExplorerOpen} accent title="Play / Pause (Space)" description="Starts or pauses playback — same as pressing Space." large oneLine>
             {playbackState === 'playing'
               ? <Pause size={24} fill="currentColor" strokeWidth={0} />
               : <Play size={24} fill="currentColor" strokeWidth={0} />}
           </TBtn>
-          <TBtn onClick={() => handleSkip(1)} disabled={!midi} title={`Forward ${SKIP_SECS}s`} description="Skips playback ahead by five seconds."><FastForward size={15} strokeWidth={1.5} /></TBtn>
-          <TBtn onClick={() => midi && seek(midi.duration)} disabled={!midi} title="Go to end" description="Jumps playback to the end of the file."><SkipForward size={16} strokeWidth={1.5} /></TBtn>
+          <TBtn onClick={() => handleSkip(1)} disabled={!midi} title={`Forward ${SKIP_SECS}s`} description="Skips playback ahead by five seconds." oneLine><FastForward size={15} strokeWidth={1.5} /></TBtn>
+          <TBtn onClick={() => midi && seek(midi.duration)} disabled={!midi} title="Go to end" description="Jumps playback to the end of the file." oneLine><SkipForward size={16} strokeWidth={1.5} /></TBtn>
           {/* position:relative wrapper so the "click to loop" label can be
               position:absolute — it used to sit in normal flex flow as the
               row's last child, so its appearing/disappearing changed the
@@ -642,9 +640,9 @@ function ArrowBtn({ children, onClick, disabled, title, description }: {
   return title ? <Tooltip title={title} description={description} placement="bottom">{button}</Tooltip> : button
 }
 
-function TBtn({ children, onClick, disabled, accent, active, blink, title, description, large }: {
+function TBtn({ children, onClick, disabled, accent, active, blink, title, description, large, oneLine }: {
   children: React.ReactNode; onClick?: () => void; disabled?: boolean
-  accent?: boolean; active?: boolean; blink?: boolean; title?: string; description?: string; large?: boolean
+  accent?: boolean; active?: boolean; blink?: boolean; title?: string; description?: string; large?: boolean; oneLine?: boolean
 }) {
   const sz = large ? 46 : 32
   const isAmber = active || accent || blink
@@ -666,5 +664,5 @@ function TBtn({ children, onClick, disabled, accent, active, blink, title, descr
       {children}
     </button>
   )
-  return title ? <Tooltip title={title} description={description} placement="bottom">{button}</Tooltip> : button
+  return title ? <Tooltip title={title} description={description} placement="bottom" oneLine={oneLine}>{button}</Tooltip> : button
 }

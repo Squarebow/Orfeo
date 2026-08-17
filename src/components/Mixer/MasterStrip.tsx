@@ -663,14 +663,14 @@ export default function MasterStrip() {
         <MixerKnob
           value={chorus} onChange={handleChorus}
           accentColor="var(--knob-chorus)" size={52}
-          disabled={knobsDisabled} label="Chorus"
+          disabled={knobsDisabled} label="Chorus" labelOffset={-10}
           title="Chorus" description="Thickens the overall mix by layering slightly detuned copies of it"
           disabledHint="You must switch to Samples engine to use Chorus."
         />
         <MixerKnob
           value={reverb} onChange={handleReverb}
           accentColor="var(--knob-reverb)" size={52}
-          disabled={knobsDisabled} label="Reverb"
+          disabled={knobsDisabled} label="Reverb" labelOffset={-10}
           title="Reverb" description="Adds overall room/space ambience to the mix"
           disabledHint="You must switch to Samples engine to use Reverb."
         />
