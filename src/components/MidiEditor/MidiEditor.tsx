@@ -637,20 +637,20 @@ function TrackRow({ track, onToggleIncluded, onToggleMerge, onChangeProgram, onU
               </Tooltip>
             )}
             {track.isMerged && (
-              <span style={{ fontSize: 9, padding: '1px 5px', borderRadius: 'var(--radius-sm)', background: 'var(--merge-badge-bg)', color: 'var(--merge-badge-text)', fontFamily: 'var(--font-mono)', flexShrink: 0 }}>
+              <span style={{ fontSize: 10, padding: '1px 5px', borderRadius: 'var(--radius-sm)', background: 'var(--merge-badge-bg)', color: 'var(--merge-badge-text)', fontFamily: 'var(--font-mono)', flexShrink: 0 }}>
                 ⊞ merged {track.mergedFromIndices?.length}
               </span>
             )}
           </div>
           <div style={{ display: 'flex', gap: 'var(--space-2)', marginTop: 2, flexWrap: 'wrap', alignItems: 'center' }}>
             {track.isMerged ? (
-              <span style={{ fontSize: 9, color: 'var(--text-muted)', fontFamily: 'var(--font-mono)' }}>
+              <span style={{ fontSize: 10, color: 'var(--text-muted)', fontFamily: 'var(--font-mono)' }}>
                 {track.mergedFromNames?.join(' + ')}
               </span>
             ) : (
               <>
-                <span style={{ fontSize: 9, color: 'var(--text-muted)', fontFamily: 'var(--font-mono)' }}>ch {track.channel + 1}</span>
-                <span style={{ fontSize: 9, color: 'var(--text-muted)', fontFamily: 'var(--font-mono)' }}>{track.noteCount} notes</span>
+                <span style={{ fontSize: 10, color: 'var(--text-muted)', fontFamily: 'var(--font-mono)' }}>ch {track.channel + 1}</span>
+                <span style={{ fontSize: 10, color: 'var(--text-muted)', fontFamily: 'var(--font-mono)' }}>{track.noteCount} notes</span>
                 {!track.isDrum && track.newProgram !== track.program && (
                   <span style={{ display: 'flex', alignItems: 'center', gap: 3 }}>
                     <span style={{ fontSize: 9, color: 'var(--text-amber)', fontFamily: 'var(--font-mono)' }}>✎ reassigned</span>
@@ -1311,7 +1311,7 @@ export default function MidiEditor() {
         <div style={{ flexShrink: 0, display: 'flex', alignItems: 'center', marginRight: 0 }}>
           <OrfeoMark height={22} />
         </div>
-        <span style={{ color: 'var(--text-amber)', fontSize: 'var(--text-sm)', fontWeight: 700, letterSpacing: '0.14em', textTransform: 'uppercase' }}>
+        <span style={{ color: 'var(--text-amber)', fontSize: 14, fontWeight: 700, letterSpacing: '0.14em', textTransform: 'uppercase' }}>
           MIDI PLAYBACK EDITOR
         </span>
         <span style={{ color: 'var(--text-muted)' }}>·</span>
@@ -1349,7 +1349,7 @@ export default function MidiEditor() {
           // lives on Tooltip's wrapperStyle instead of the span itself, since
           // wrapping moved the actual grid item one level out.
           <Tooltip key={i} title={h.label} description={h.title} wrapperStyle={{ justifySelf: 'start' }}>
-          <span style={{ fontSize: 9, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em', color: 'var(--text-muted)', lineHeight: 1.25, cursor: 'default' }}>{h.label}</span>
+          <span style={{ fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em', color: 'var(--text-muted)', lineHeight: '11.25px', cursor: 'default' }}>{h.label}</span>
           </Tooltip>
         ))}
       </div>
@@ -1443,7 +1443,7 @@ export default function MidiEditor() {
                   borderBottom: expanded ? 'none' : '1px solid var(--border-row)',
                 }}>
                   <div />{/* empty Col-1 cell — keeps Col-2 content aligned under Track column */}
-                  <div style={{ gridColumn: '2 / -1', minWidth: 0, display: 'flex', alignItems: 'center', gap: 6, fontSize: 9, color: 'var(--text-inactive)', fontFamily: 'var(--font-mono)' }}>
+                  <div style={{ gridColumn: '2 / -1', minWidth: 0, display: 'flex', alignItems: 'center', gap: 6, fontSize: 10, color: 'var(--text-inactive)', fontFamily: 'var(--font-mono)' }}>
                     <Tooltip
                       title={expanded ? 'Hide split preview' : 'Show split preview'}
                       description="Toggle the inline hand-split timeline preview for this track."
@@ -1459,7 +1459,7 @@ export default function MidiEditor() {
                       {expanded ? <ChevronDown size={11} /> : <ChevronRight size={11} />}
                     </button>
                     </Tooltip>
-                    <span>
+                    <span style={{ lineHeight: '11px' }}>
                       {infoStats.confidenceUnknown ? (
                         'Hand split shown is automatic.'
                       ) : infoStats.lowConfidenceCount > 0 ? (
@@ -1467,7 +1467,7 @@ export default function MidiEditor() {
                         // collapsed-row flag reads as an alert at a glance — kept
                         // distinct from the legend/overlay's muted LOW_CONF red below,
                         // which is deliberately quieter since it's always-on chrome.
-                        <><span style={{ color: 'var(--status-error-hover)' }}>{Math.round(infoStats.lowConfidenceRatio * 100)}% flagged low-confidence</span> — for a perfectly accurate split, edit in Note Editor</>
+                        <><span style={{ color: 'var(--status-error-hover)', fontFamily: 'var(--font-ui)' }}>{Math.round(infoStats.lowConfidenceRatio * 100)}% flagged low-confidence</span> — for a perfectly accurate split, edit in Note Editor</>
                       ) : (
                         'Hand split looks accurate — edit in Note Editor to fine-tune'
                       )}
@@ -1519,7 +1519,7 @@ export default function MidiEditor() {
                         ))}
                       </svg>
                     )}
-                    <div style={{ display: 'flex', gap: 6, fontSize: 8, color: 'var(--text-inactive)', fontFamily: 'var(--font-mono)' }}>
+                    <div style={{ display: 'flex', gap: 6, fontSize: 10, lineHeight: '10px', color: 'var(--text-inactive)', fontFamily: 'var(--font-mono)' }}>
                       <span style={{ display: 'flex', alignItems: 'center', gap: 3 }}><span style={{ width: 8, height: 8, borderRadius: 2, background: SLATE, display: 'inline-block' }} />Left hand</span>
                       <span style={{ display: 'flex', alignItems: 'center', gap: 3 }}><span style={{ width: 8, height: 8, borderRadius: 2, background: AMBER, display: 'inline-block' }} />Right hand</span>
                       {infoStats.lowConfidenceCount > 0 && (
@@ -1528,7 +1528,7 @@ export default function MidiEditor() {
                     </div>
                     {/* ── Same tech-info + disclaimer pair as the Split preview
                         below — info only here, no button row. ── */}
-                    <div style={{ fontSize: 9, color: 'var(--text-inactive)', fontFamily: 'var(--font-mono)' }}>
+                    <div style={{ fontSize: 10, lineHeight: '11px', color: 'var(--text-inactive)', fontFamily: 'var(--font-mono)' }}>
                       {infoStats.taggedNotes} notes tagged — {infoStats.leftCount} left, {infoStats.rightCount} right by hand.{' '}
                       {infoStats.confidenceUnknown
                         ? 'Tags restored from a prior split — confidence not re-evaluated.'
@@ -1536,7 +1536,7 @@ export default function MidiEditor() {
                           ? `${Math.round(infoStats.lowConfidenceRatio * 100)}% fall in a low-confidence passage — check those first.`
                           : 'No passages flagged — split looks reliable.'}
                     </div>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 9, color: 'var(--text-inactive)', fontFamily: 'var(--font-ui)', lineHeight: 1.4 }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 10, color: 'var(--text-inactive)', fontFamily: 'var(--font-ui)', lineHeight: '12.6px' }}>
                       <AlertCircle size={11} style={{ flexShrink: 0, color: 'var(--text-inactive)' }} />
                       <span>Hand assignment is automated — a guideline, not a verified transcription. Use your ear, especially on flagged passages.</span>
                     </div>
@@ -1570,7 +1570,7 @@ export default function MidiEditor() {
                 <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
                   <Split size={13} style={{ color: 'var(--text-amber)', flexShrink: 0 }} />
                   <div style={{ flex: 1, minWidth: 0 }}>
-                    <div style={{ fontSize: 'var(--text-xs)', color: 'var(--text-dim)' }}>Hand-split preview — <span style={{ color: track.color }}>"{trackName}"</span></div>
+                    <div style={{ fontSize: 10, color: 'var(--text-dim)' }}>Hand-split preview — <span style={{ color: track.color }}>"{trackName}"</span></div>
                     <div style={{ fontSize: 9, color: 'var(--text-inactive)', fontFamily: 'var(--font-mono)', marginTop: 2 }}>
                       {stats.taggedNotes} notes · {stats.leftCount} left / {stats.rightCount} right
                       {stats.confidenceUnknown ? (
@@ -1603,7 +1603,7 @@ export default function MidiEditor() {
                     ))}
                   </svg>
                 )}
-                <div style={{ display: 'flex', gap: 6, fontSize: 8, color: 'var(--text-inactive)', fontFamily: 'var(--font-mono)' }}>
+                <div style={{ display: 'flex', gap: 6, fontSize: 10, lineHeight: '10px', color: 'var(--text-inactive)', fontFamily: 'var(--font-mono)' }}>
                   <span style={{ display: 'flex', alignItems: 'center', gap: 3 }}><span style={{ width: 8, height: 8, borderRadius: 2, background: SLATE, display: 'inline-block' }} />Left hand</span>
                   <span style={{ display: 'flex', alignItems: 'center', gap: 3 }}><span style={{ width: 8, height: 8, borderRadius: 2, background: AMBER, display: 'inline-block' }} />Right hand</span>
                   {stats.lowConfidenceCount > 0 && (
@@ -1616,7 +1616,7 @@ export default function MidiEditor() {
                     "Keep one track, hand-colored" removed entirely — not needed
                     under the new logic. ─────────────────────────────────────── */}
                 <div style={{ display: 'flex', gap: 12 }}>
-                  <div style={{ flex: 2, fontSize: 9, color: 'var(--text-inactive)', fontFamily: 'var(--font-mono)' }}>
+                  <div style={{ flex: 2, fontSize: 10, lineHeight: '11px', color: 'var(--text-inactive)', fontFamily: 'var(--font-mono)' }}>
                     {stats.taggedNotes} notes tagged — {stats.leftCount} left, {stats.rightCount} right by hand.{' '}
                     {stats.confidenceUnknown
                       ? 'Tags restored from a prior split — confidence not re-evaluated.'
@@ -1651,7 +1651,7 @@ export default function MidiEditor() {
                 {/* ── Standing disclaimer, restored — always shown regardless of
                     whether anything got flagged; hand assignment is automated
                     heuristics, never ground truth. ── */}
-                <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 9, color: 'var(--text-inactive)', fontFamily: 'var(--font-ui)', lineHeight: 1.4 }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 10, color: 'var(--text-inactive)', fontFamily: 'var(--font-ui)', lineHeight: '12.6px' }}>
                   <AlertCircle size={11} style={{ flexShrink: 0, color: 'var(--text-inactive)' }} />
                   <span>Hand assignment is automated — a guideline, not a verified transcription. Use your ear, especially on flagged passages.</span>
                 </div>
@@ -1701,7 +1701,7 @@ export default function MidiEditor() {
             background: 'none', border: 'none', cursor: 'pointer', padding: 2,
           }}
         >
-          <span style={{ fontSize: 9, fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.06em' }}>
+          <span style={{ fontSize: 10, fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.06em' }}>
             Save Tempo & Key changes
           </span>
           <span style={{ display: 'flex', color: saveTempoKeyChangesEnabled ? 'var(--text-amber)' : 'var(--text-inactive)', flexShrink: 0 }}>
@@ -1727,7 +1727,7 @@ export default function MidiEditor() {
 
       {/* ── Save footer ──────────────────────────────────────────────────────── */}
       <div style={{ padding: '10px 14px 12px', borderTop: '1px solid var(--border)', background: 'var(--bg-modal-header)', flexShrink: 0 }}>
-        <div style={{ fontSize: 9, fontWeight: 700, color: 'var(--text-muted)', marginBottom: 6, textTransform: 'uppercase', letterSpacing: '0.06em' }}>Save as</div>
+        <div style={{ fontSize: 10, lineHeight: '11px', fontWeight: 700, color: 'var(--text-muted)', marginBottom: 6, textTransform: 'uppercase', letterSpacing: '0.06em' }}>Save as</div>
         {/* ── Path field + Browse/Show-in-folder — one row. Browse only makes sense
             before a save has landed; once it has, the field shows the real saved
             path (not just the preview name) with a green accent, and Show in
@@ -1752,7 +1752,7 @@ export default function MidiEditor() {
             >
             <button
               onClick={() => window.electronAPI.showItemInFolder(saveResult.filePath!)}
-              style={{ width: '100%', padding: '5px 10px', borderRadius: 4, background: 'var(--bg-tile)', border: '1px solid var(--border2)', color: 'var(--text-muted)', fontSize: 10, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 'var(--space-1)', transition: 'all 0.12s', whiteSpace: 'nowrap' }}
+              style={{ width: '100%', padding: '5px 10px', borderRadius: 4, background: 'var(--bg-tile)', border: '1px solid var(--border2)', color: 'var(--text-muted)', fontSize: 12, lineHeight: '16px', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 'var(--space-1)', transition: 'all 0.12s', whiteSpace: 'nowrap' }}
               onMouseEnter={e => { e.currentTarget.style.color = 'var(--text-amber)'; e.currentTarget.style.borderColor = 'var(--accent-amber-strong)' }}
               onMouseLeave={e => { e.currentTarget.style.color = 'var(--text-muted)'; e.currentTarget.style.borderColor = 'var(--border2)' }}
             >
@@ -1763,7 +1763,7 @@ export default function MidiEditor() {
             <button onClick={async () => {
               const p = await window.electronAPI.saveFileDialog({ defaultPath: state.outputPath, filters: [{ name: 'MIDI Files', extensions: ['mid'] }] })
               if (p) setState(s => s && ({ ...s, outputPath: p }))
-            }} style={{ padding: '5px 10px', borderRadius: 4, background: 'var(--bg-tile)', border: '1px solid var(--border2)', color: 'var(--text-muted)', fontSize: 10, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 'var(--space-1)', transition: 'all 0.12s' }}
+            }} style={{ padding: '5px 10px', borderRadius: 4, background: 'var(--bg-tile)', border: '1px solid var(--border2)', color: 'var(--text-muted)', fontSize: 12, lineHeight: '16px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 'var(--space-1)', transition: 'all 0.12s' }}
               onMouseEnter={e => { e.currentTarget.style.color = 'var(--text-amber)'; e.currentTarget.style.borderColor = 'var(--accent-amber-strong)' }}
               onMouseLeave={e => { e.currentTarget.style.color = 'var(--text-muted)'; e.currentTarget.style.borderColor = 'var(--border2)' }}
             >
@@ -1795,7 +1795,7 @@ export default function MidiEditor() {
         <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
           <div style={{ flex: 1, display: 'flex', alignItems: 'flex-start', gap: 5, minWidth: 0 }}>
             <AlertCircle size={10} style={{ color: 'var(--text-inactive)', flexShrink: 0, marginTop: 1 }} />
-            <span style={{ fontSize: 9, color: 'var(--text-inactive)', fontFamily: 'var(--font-mono)', lineHeight: 1.5 }}>Original file is never modified. Saved as a new _ORFEO_vN copy in an "Orfeo" folder next to it, auto-loads on save. Only shows up in your Library list if that folder is inside your registered Library Folder.</span>
+            <span style={{ fontSize: 10, color: 'var(--text-inactive)', fontFamily: 'var(--font-mono)', lineHeight: '13.5px' }}>Original file is never modified. Saved as a new _ORFEO_vN copy in an "Orfeo" folder next to it, auto-loads on save. Only shows up in your Library list if that folder is inside your registered Library Folder.</span>
           </div>
           {saveResult?.ok ? (
             <button
@@ -1833,7 +1833,7 @@ function TBtn({ onClick, children }: { onClick: () => void; children: React.Reac
   return (
     <button onClick={onClick} style={{
       background: 'none', border: '1px solid var(--border2)', borderRadius: 'var(--radius-md)',
-      cursor: 'pointer', color: 'var(--text-dim-control)', fontSize: 10, padding: '3px 10px',
+      cursor: 'pointer', color: 'var(--text-dim-control)', fontSize: 12, lineHeight: '12px', padding: '3px 10px',
       transition: 'all 0.12s',
     }}
       onMouseEnter={e => { e.currentTarget.style.color = 'var(--text-amber)'; e.currentTarget.style.borderColor = 'var(--accent-amber-strong)' }}
