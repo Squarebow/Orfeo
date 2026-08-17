@@ -216,7 +216,7 @@ function CollapsibleSection({ icon, label, defaultCollapsed = false, collapsed: 
         <span style={{ color: 'var(--text-amber)', display: 'flex', alignItems: 'center' }}>{icon}</span>
         {/* ── Group label — amber uppercase ── */}
         <span style={{
-          flex: 1, fontSize: 10, fontWeight: 700,
+          flex: 1, fontSize: 12, fontWeight: 700, lineHeight: '12px',
           textTransform: 'uppercase', letterSpacing: '0.1em', color: 'var(--text-amber)',
         }}>
           {label}
