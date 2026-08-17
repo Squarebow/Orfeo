@@ -256,8 +256,8 @@ export default function TopBar() {
         <Tooltip title={`Tempo: ${liveBpm || '—'} BPM`} description="The song's current playback tempo, scaled by your speed setting." placement="bottom">
           <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
             <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start', gap: 1 }}>
-              <span style={{ color: 'var(--text-muted)', fontSize: 8, textTransform: 'uppercase', letterSpacing: '0.1em', fontFamily: 'var(--font-mono)', lineHeight: 1 }}>BPM</span>
-              <span style={{ color: 'var(--text-muted)', fontSize: 8, textTransform: 'uppercase', letterSpacing: '0.1em', fontFamily: 'var(--font-mono)', lineHeight: 1 }}>TEMPO</span>
+              <span style={{ color: 'var(--text-muted)', fontSize: 9, textTransform: 'uppercase', letterSpacing: '0.1em', fontFamily: 'var(--font-mono)', lineHeight: 1 }}>BPM</span>
+              <span style={{ color: 'var(--text-muted)', fontSize: 9, textTransform: 'uppercase', letterSpacing: '0.1em', fontFamily: 'var(--font-mono)', lineHeight: 1 }}>TEMPO</span>
             </div>
             <span style={{ color: isTempoChanged ? 'var(--text-amber)' : 'var(--text-active)', fontFamily: 'var(--font-mono)', fontSize: 20, fontWeight: 700, minWidth: 36, textAlign: 'right', lineHeight: 1 }}>
               {midi ? liveBpm : '—'}
@@ -301,8 +301,8 @@ export default function TopBar() {
         >
           <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
             <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start', gap: 1 }}>
-              <span style={{ color: 'var(--text-muted)', fontSize: 8, textTransform: 'uppercase', letterSpacing: '0.1em', fontFamily: 'var(--font-mono)', lineHeight: 1 }}>KEY</span>
-              <span style={{ color: 'var(--text-muted)', fontSize: 8, textTransform: 'uppercase', letterSpacing: '0.1em', fontFamily: 'var(--font-mono)', lineHeight: 1 }}>TRANSPOSE</span>
+              <span style={{ color: 'var(--text-muted)', fontSize: 9, textTransform: 'uppercase', letterSpacing: '0.1em', fontFamily: 'var(--font-mono)', lineHeight: 1 }}>KEY</span>
+              <span style={{ color: 'var(--text-muted)', fontSize: 9, textTransform: 'uppercase', letterSpacing: '0.1em', fontFamily: 'var(--font-mono)', lineHeight: 1 }}>TRANSPOSE</span>
             </div>
             <span style={{ color: transpose !== 0 ? 'var(--text-amber)' : 'var(--text-active)', fontFamily: 'var(--font-mono)', fontSize: 20, fontWeight: 700, minWidth: 32, textAlign: 'right', lineHeight: 1 }}>
               {displayKey}
@@ -354,12 +354,12 @@ export default function TopBar() {
             top-aligned start (see the grid's alignItems comment above). */}
         {midi?.fileName ? (
           <Tooltip title={midi.fileName} description="The loaded file's full name, in case the display above is truncated." placement="bottom">
-            <span style={{ color: 'var(--text-default)', fontSize: 'var(--text-xs)', fontFamily: 'var(--font-ui)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: 340 }}>
+            <span style={{ color: 'var(--text-default)', fontSize: 'var(--text-sm)', fontFamily: 'var(--font-mono)', lineHeight: '13px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: 340 }}>
               {midi.fileName.replace(/\.(mid|midi)$/i, '')}
             </span>
           </Tooltip>
         ) : (
-          <span style={{ color: 'var(--text-default)', fontSize: 'var(--text-xs)', fontFamily: 'var(--font-ui)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: 340 }}>
+          <span style={{ color: 'var(--text-default)', fontSize: 'var(--text-sm)', fontFamily: 'var(--font-mono)', lineHeight: '13px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: 340 }}>
             No file open
           </span>
         )}
@@ -510,7 +510,7 @@ export default function TopBar() {
             ) : (
               <span style={{ color: 'var(--text-muted)', fontFamily: 'var(--font-mono)', fontSize: 20, fontWeight: 700, lineHeight: 1 }}>—</span>
             )}
-            <span style={{ color: 'var(--text-muted)', fontSize: 8, fontFamily: 'var(--font-mono)', textTransform: 'uppercase', letterSpacing: '0.1em', lineHeight: 1, marginTop: 6 }}>TIME</span>
+            <span style={{ color: 'var(--text-muted)', fontSize: 9, fontFamily: 'var(--font-mono)', textTransform: 'uppercase', letterSpacing: '0.1em', lineHeight: 1, marginTop: 6 }}>TIME</span>
           </div>
         </Tooltip>
 
@@ -536,7 +536,7 @@ export default function TopBar() {
               <path d="m15.05 5.7-.218-.691a3 3 0 0 0-5.663 0L4.418 19.695A1 1 0 0 0 5.37 21h13.253a1 1 0 0 0 .951-1.31L18.45 16.2" />
               <circle cx="20" cy="9" r="2" />
             </svg>
-            <span style={{ fontSize: 8, fontFamily: 'var(--font-mono)', letterSpacing: '0.08em', lineHeight: 1, marginTop: 6 }}>
+            <span style={{ fontSize: 9, fontFamily: 'var(--font-mono)', letterSpacing: '0.08em', lineHeight: 1, marginTop: 6 }}>
               {metronomeEnabled ? 'ON' : 'OFF'}
             </span>
           </button>
@@ -553,7 +553,7 @@ export default function TopBar() {
         >
           <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start', padding: '0 14px', color: midiDeviceConnected ? 'var(--topbar-midi-on)' : 'var(--topbar-midi-off)' }}>
             <MidiIcon size={24} color={midiDeviceConnected ? 'var(--topbar-midi-on)' : 'var(--topbar-midi-off)'} />
-            <span style={{ fontSize: midiDeviceConnected ? 8 : 7, fontFamily: 'var(--font-mono)', letterSpacing: midiDeviceConnected ? '0.08em' : '0.05em', color: midiDeviceConnected ? 'var(--topbar-midi-on)' : 'var(--topbar-midi-off)', lineHeight: 1, marginTop: 6, whiteSpace: 'nowrap' }}>
+            <span style={{ fontSize: 9, fontFamily: 'var(--font-mono)', letterSpacing: midiDeviceConnected ? '0.08em' : '0.05em', color: midiDeviceConnected ? 'var(--topbar-midi-on)' : 'var(--topbar-midi-off)', lineHeight: 1, marginTop: 6, whiteSpace: 'nowrap' }}>
               {midiDeviceConnected ? (midiDeviceName?.split(' ')[0] ?? 'MIDI') : 'CONNECT A KEYBOARD'}
             </span>
           </div>

@@ -105,7 +105,7 @@ export default function VolumeKnob() {
         })}
       </div>
       <span style={{
-        color: 'var(--text-muted)', fontSize: 8, fontFamily: 'var(--font-mono)',
+        color: 'var(--text-muted)', fontSize: 9, fontFamily: 'var(--font-mono)',
         textTransform: 'uppercase', letterSpacing: '0.1em', lineHeight: 1,
         marginTop: 6, whiteSpace: 'nowrap', pointerEvents: 'none',
       }}>
