@@ -428,7 +428,7 @@ function TranscriptIcon({ filePath, noteNaming, accidentals, addTranscriptEntry,
 }
 
 // ── MarqueeFilename — alias for MarqueeText with library-specific font style ──
-const FILENAME_SPAN_STYLE: React.CSSProperties = { fontSize: 'var(--text-xs)', color: 'var(--text-muted)' }
+const FILENAME_SPAN_STYLE: React.CSSProperties = { fontSize: 'var(--text-sm)', color: 'var(--text-muted)', fontFamily: 'var(--font-mono)' }
 function MarqueeFilename({ name }: { name: string }) {
   return <MarqueeText name={name} spanStyle={FILENAME_SPAN_STYLE} />
 }
@@ -660,11 +660,11 @@ function SettingsDropdown<T extends string>({ value, options, onChange, title }:
 // ─── Library Panel ───────────────────────────────────────────────────────────
 
 // ── Filename span styles — active (amber) and default (muted) ─────────────────
-const FILENAME_SPAN_DEFAULT: React.CSSProperties = { fontSize: 'var(--text-xs)', color: 'var(--text-muted)' }
-const FILENAME_SPAN_ACTIVE:  React.CSSProperties = { fontSize: 'var(--text-xs)', color: 'var(--text-amber)', fontWeight: 500 }
+const FILENAME_SPAN_DEFAULT: React.CSSProperties = { fontSize: 'var(--text-sm)', color: 'var(--text-muted)', fontFamily: 'var(--font-mono)' }
+const FILENAME_SPAN_ACTIVE:  React.CSSProperties = { fontSize: 'var(--text-sm)', color: 'var(--text-amber)', fontWeight: 500, fontFamily: 'var(--font-mono)' }
 // Revealed-hidden-file row (showHiddenLibraryFiles on) — dimmest amber shade,
 // not a generic gray fade, so it still reads as "library color" not "disabled".
-const FILENAME_SPAN_HIDDEN:  React.CSSProperties = { fontSize: 'var(--text-xs)', color: 'var(--text-amber-dimmest)' }
+const FILENAME_SPAN_HIDDEN:  React.CSSProperties = { fontSize: 'var(--text-sm)', color: 'var(--text-amber-dimmest)', fontFamily: 'var(--font-mono)' }
 
 // ── Sticky headers stack: "Folders" section header (top:0) → individual
 // folder header (top:FOLDER_HEADER_HEIGHT) → loaded file's row, if visible,
@@ -1296,7 +1296,7 @@ function LibraryPanel() {
             <div
               onClick={() => libraryFolder && window.electronAPI.openFolderInExplorer(libraryFolder)}
               style={{
-                fontSize: 9, color: 'var(--text-muted)', fontFamily: 'var(--font-mono)',
+                fontSize: 10, lineHeight: '11px', color: 'var(--text-muted)', fontFamily: 'var(--font-mono)',
                 padding: '0 2px', marginBottom: 6, cursor: 'pointer',
                 overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
               }}
@@ -1618,7 +1618,7 @@ function LibraryPanel() {
               borderBottom: '1px solid var(--bg-tile)',
             }}>
               <FolderOpen size={12} style={{ color: 'var(--accent-amber-icon-dim)', flexShrink: 0 }} />
-              <span style={{ flex: 1, fontSize: 'var(--text-xs)', color: 'var(--text-tile-subtext)', fontWeight: 600 }}>Demo</span>
+              <span style={{ flex: 1, fontSize: 'var(--text-sm)', color: 'var(--text-tile-subtext)', fontWeight: 600 }}>Demo</span>
               <span style={{ fontSize: 9, color: 'var(--text-muted)', fontFamily: 'var(--font-mono)' }}>{demoFiles.length}</span>
             </div>
             {demoFiles.filter((f: { name: string; path: string }) => showHiddenLibraryFiles || !hiddenLibraryFiles.includes(f.path)).map(file => {
@@ -1674,7 +1674,7 @@ function LibraryPanel() {
             {foldersSectionExpanded
               ? <ChevronDown size={11} style={{ color: 'var(--text-amber)', flexShrink: 0 }} />
               : <ChevronRight size={11} style={{ color: 'var(--text-amber)', flexShrink: 0 }} />}
-            <span style={{ flex: 1, fontSize: 'var(--text-xs)', color: 'var(--text-tile-subtext)', fontWeight: 600 }}>Folders</span>
+            <span style={{ flex: 1, fontSize: 'var(--text-sm)', color: 'var(--text-tile-subtext)', fontWeight: 600 }}>Folders</span>
           </div>
         )}
 
@@ -1747,7 +1747,7 @@ function LibraryPanel() {
                     />
                   ) : (
                     <span style={{
-                      flex: 1, fontSize: 'var(--text-xs)', color: 'var(--text-tile-subtext)', fontWeight: 600,
+                      flex: 1, fontSize: 'var(--text-sm)', color: 'var(--text-tile-subtext)', fontWeight: 600,
                       overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
                     }}>
                       {group.folder}
@@ -2176,8 +2176,8 @@ export default function SettingsPanel() {
           {/* ── Tab bar: Library / Settings, left-aligned with content ─────── */}
           <div style={{ display: 'flex', borderBottom: '1px solid var(--border)', flexShrink: 0 }}>
             {([
-              { id: 'library',  icon: <Library size={13} />,  label: 'Library'  },
-              { id: 'settings', icon: <Settings size={13} />, label: 'Settings' },
+              { id: 'library',  icon: <Library size={18} />,  label: 'Library'  },
+              { id: 'settings', icon: <Settings size={18} />, label: 'Settings' },
             ] as { id: DrawerTab; icon: React.ReactNode; label: string }[]).map(tab => (
               <button
                 key={tab.id}
@@ -2189,7 +2189,7 @@ export default function SettingsPanel() {
                   background: 'none', border: 'none', cursor: 'pointer',
                   borderBottom: activeTab === tab.id ? '2px solid var(--text-amber)' : '2px solid transparent',
                   color: activeTab === tab.id ? 'var(--text-amber)' : 'var(--text-inactive)',
-                  fontSize: 10, fontWeight: 600,
+                  fontSize: 14, fontWeight: 600,
                   textTransform: 'uppercase', letterSpacing: '0.08em',
                   transition: 'color 0.15s',
                 }}
