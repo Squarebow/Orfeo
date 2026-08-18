@@ -66,7 +66,7 @@ interface Progression {
   baseName?: string
 }
 
-// ── Single-chevron play icon — matches Scale Explorer's icon exactly, same
+// ── Single-chevron play icon — matches Scales Explorer's icon exactly, same
 // shape as SpeedControl's "slow" icon, reused for the Progressions PLAY
 // button and the footer's prev/next inversion buttons. ─────────────────────
 function ChevronPlayIcon({ size = 14, mirrored = false }: { size?: number; mirrored?: boolean }) {
@@ -243,7 +243,7 @@ const SPEED_MS = { slow: 1500, med: 800, fast: 400 } as const
 // ── Genre voicing descriptions — shared by the Style dropdown's trigger
 // tooltip and its two-column list (name left / description right). ─────────
 const GENRE_DESCRIPTIONS: Record<Genre, string> = {
-  classic:   'Plain diatonic triads — no extensions',
+  classic:   'Plain diatonic triads',
   coltrane:  'Adds 9ths and 13ths for sophisticated jazz harmony',
   cinematic: 'Open, clean voicings — add9 and suspended chords',
   roadhouse: 'Dominant 7ths on the I and IV chords — classic blues sound',
@@ -720,7 +720,7 @@ export default function ChordExplorer() {
   const activeProg = selectedProg !== null ? ALL_PROGRESSIONS[selectedProg] : null
 
   return (
-    <div ref={panelRef} role="dialog" aria-modal="true" aria-label="Chord Explorer" className="orfeo-modal-glow" style={{
+    <div ref={panelRef} role="dialog" aria-modal="true" aria-label="Chords Explorer" className="orfeo-modal-glow" style={{
       position: 'fixed',
       left: pos.x,
       top: pos.y,
@@ -751,7 +751,7 @@ export default function ChordExplorer() {
         <div style={{ display: 'flex', alignItems: 'center', gap: 7 }}>
           <OrfeoMark height={22} />
           <span style={{ fontFamily: 'var(--font-ui)', fontSize: 14, fontWeight: 700, color: 'var(--text-amber)', letterSpacing: '0.14em', textTransform: 'uppercase' }}>
-            Chord Explorer
+            Chords Explorer
           </span>
         </div>
         <div
@@ -872,9 +872,9 @@ export default function ChordExplorer() {
                 key={t}
                 title={t === 'common' ? 'Common' : t === 'power' ? 'Power' : 'Extended'}
                 description={
-                  t === 'common'   ? 'Common chord types — triads, sevenths, everyday voicings' :
-                  t === 'power'    ? 'Power chords — root + fifth, one per pitch class' :
-                                     'Extended chord types — 9ths, 11ths, 13ths, altered tensions'
+                  t === 'common'   ? 'Triads, sevenths, everyday voicings' :
+                  t === 'power'    ? 'Root + fifth, one per pitch class' :
+                                     '9ths, 11ths, 13ths, altered tensions'
                 }
               >
               <button onClick={() => setTier(t)} style={btnBase(tier === t)}>
@@ -890,15 +890,15 @@ export default function ChordExplorer() {
           <div style={{ display: 'flex', alignItems: 'center', gap: 4, opacity: isPowerMode ? 0.35 : 1, pointerEvents: isPowerMode ? 'none' : 'auto', transition: 'opacity 0.15s' }}>
             <span style={{ fontSize: 11, color: 'var(--text-muted)', fontFamily: 'var(--font-ui)', textTransform: 'uppercase', letterSpacing: '0.08em' }}>Hand</span>
             <div style={{ display: 'flex', background: 'var(--bg-tile)', borderRadius: 4, padding: 2, gap: 1 }}>
-              <Tooltip title="All" description="Shows chords playable with either hand">
+              <Tooltip title="All" description="Chords playable with either hand">
                 <button onClick={() => setHandFilter('all')} style={btnBase(handFilter === 'all')}>All</button>
               </Tooltip>
-              <Tooltip title="One hand" description="Shows chords playable with a single hand">
+              <Tooltip title="One hand" description="Chords playable with a single hand">
                 <button onClick={() => setHandFilter('one')} style={btnBase(handFilter === 'one')}>
                   <span style={{ display: 'inline-flex', transform: 'rotate(-20deg)' }}><Hand size={12} /></span>
                 </button>
               </Tooltip>
-              <Tooltip title="Two hands" description="Shows chords that need both hands">
+              <Tooltip title="Two hands" description="Chords that need both hands">
                 <button onClick={() => setHandFilter('two')} style={btnBase(handFilter === 'two')}>
                   <span style={{ display: 'inline-flex', transform: 'rotate(20deg)' }}><Hand size={12} /></span>
                   <span style={{ display: 'inline-flex', transform: 'scaleX(-1) rotate(20deg)' }}><Hand size={12} /></span>
@@ -917,7 +917,7 @@ export default function ChordExplorer() {
                 <Tooltip
                   key={n}
                   oneLine
-                  title={n === 'any' ? 'Shows chords regardless of note count' : n === '6+' ? 'Shows chords with 6 or more notes' : `Shows chords with exactly ${n} notes`}
+                  title={n === 'any' ? 'Chords regardless of note count' : n === '6+' ? 'Chords with 6 or more notes' : `Chords with exactly ${n} notes`}
                 >
                   <button onClick={() => setNoteFilter(n)} style={{ ...btnBase(noteFilter === n), minWidth: 22 }}>{n}</button>
                 </Tooltip>
@@ -952,7 +952,7 @@ export default function ChordExplorer() {
               onMouseEnter={e => e.currentTarget.style.color = 'var(--text-amber)'}
               onMouseLeave={e => { e.currentTarget.style.color = activeProg ? 'var(--text-amber)' : 'var(--text-muted)' }}
             >
-              {activeProg ? activeProg.name : 'None'} ▾
+              {activeProg ? activeProg.name : 'Select'} ▾
             </button>
             {activeProg && (
               <Tooltip title="Clear progression" description="Stops playback and clears the selected progression">
@@ -985,7 +985,7 @@ export default function ChordExplorer() {
             <span style={{ width: 1, height: 14, background: 'var(--state-hover-bg)', margin: '0 16px' }} />
             <span style={ROW_LABEL}>Inversions</span>
             {/* Off — CircleOff icon */}
-            <Tooltip oneLine title="Progression plays each chord in root position">
+            <Tooltip oneLine title="Plays each chord in root position">
             <button
               onClick={() => setProgInversionMode('off')}
               style={{ background: 'none', border: 'none', cursor: 'pointer', padding: '0 2px', display: 'flex', alignItems: 'center', color: progInversionMode === 'off' ? 'var(--text-amber)' : 'var(--text-inactive)' }}
@@ -994,7 +994,7 @@ export default function ChordExplorer() {
             ><CircleOff size={14} /></button>
             </Tooltip>
             {/* Sequential — ListOrdered icon */}
-            <Tooltip oneLine title="Cycles inversions upward through the progression for smooth voice leading">
+            <Tooltip oneLine title="Cycles for smooth voice leading">
             <button
               onClick={() => setProgInversionMode('sequential')}
               style={{ background: 'none', border: 'none', cursor: 'pointer', padding: '0 2px', display: 'flex', alignItems: 'center', color: progInversionMode === 'sequential' ? 'var(--text-amber)' : 'var(--text-inactive)' }}
@@ -1003,7 +1003,7 @@ export default function ChordExplorer() {
             ><ListOrdered size={14} /></button>
             </Tooltip>
             {/* Random — Shuffle icon */}
-            <Tooltip oneLine title="Picks a random inversion for each chord in the progression">
+            <Tooltip oneLine title="Picks a random inversion">
             <button
               onClick={() => setProgInversionMode('random')}
               style={{ background: 'none', border: 'none', cursor: 'pointer', padding: '0 2px', display: 'flex', alignItems: 'center', color: progInversionMode === 'random' ? 'var(--text-amber)' : 'var(--text-inactive)' }}
@@ -1042,7 +1042,7 @@ export default function ChordExplorer() {
                 ? <Tooltip oneLine title="Pick a pattern first">{playButton}</Tooltip>
                 : playButton
             })()}
-            {/* Speed selector — chevrons, matching Scale Explorer's sizing */}
+            {/* Speed selector — chevrons, matching Scales Explorer's sizing */}
             <SpeedControl value={progSpeed} onChange={setProgSpeed} size={7} />
           </div>
         </div>
@@ -1298,13 +1298,13 @@ export default function ChordExplorer() {
         </div>
 
         {/* Right: Scale Explorer switch — matches ScaleExplorer's own footer link */}
-        <Tooltip oneLine title="Switch to Scale Explorer">
+        <Tooltip oneLine title="Switch to Scales Explorer">
         <button
           onClick={() => { setChordExplorerOpen(false); setScaleExplorerOpen(true) }}
           style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-inactive)', fontFamily: 'var(--font-ui)', fontSize: 10, fontWeight: 600, letterSpacing: '0.10em', textTransform: 'uppercase', whiteSpace: 'nowrap', padding: 0, display: 'flex', alignItems: 'center', gap: 3 }}
           onMouseEnter={e => e.currentTarget.style.color = 'var(--text-amber)'}
           onMouseLeave={e => e.currentTarget.style.color = 'var(--text-inactive)'}
-        >Scale Explorer <ArrowUpRight size={11} /></button>
+        >Scales Explorer <ArrowUpRight size={11} /></button>
         </Tooltip>
       </div>
 

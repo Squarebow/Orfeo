@@ -413,7 +413,7 @@ export default function Keyboard() {
           <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 'var(--space-2)', padding: '0 var(--space-3)', position: 'relative' }}>
             {/* ── Left: CHORDS trigger + prompter toggle ────────────────────────── */}
             <div style={{ position: 'absolute', left: 10, display: 'flex', alignItems: 'center', gap: 5 }}>
-              <Tooltip title="Chords" description="Opens a dedicated view for browsing and detecting chords across the full keyboard.">
+              <Tooltip title="Chords Explorer" description="Opens a dedicated view for browsing and detecting chords across the full keyboard.">
                 <span
                   onClick={() => setChordExplorerOpen(true)}
                   role="button"
@@ -492,7 +492,7 @@ export default function Keyboard() {
 
             {/* ── Right: SCALES trigger ─────────────────────────────────────────── */}
             <div style={{ position: 'absolute', right: 10, display: 'flex', alignItems: 'center', gap: 'var(--space-2)' }}>
-              <Tooltip title="Scales" description="Opens a dedicated view for exploring scales and highlighting their notes on the keyboard.">
+              <Tooltip title="Scales Explorer" description="Opens a dedicated view for exploring scales and highlighting their notes on the keyboard.">
                 <span
                   onClick={() => setScaleExplorerOpen(true)}
                   role="button"

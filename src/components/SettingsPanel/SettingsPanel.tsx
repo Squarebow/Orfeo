@@ -332,7 +332,7 @@ function HitEffectColorSwatch({ color, onChange }: { color: string | null; onCha
     <div ref={ref} style={{ position: 'relative', flexShrink: 0 }}>
       <Tooltip
         title="Particle color"
-        description="Overrides every track's color for the effect flourish only — the falling notes and key glow keep their own track colors."
+        description="Overrides every track's color for the effect flourish — the falling notes and key glow keep their own track colors."
       >
       <button
         onClick={() => { setHexInput(color ?? '#e8a027'); setOpen(o => !o) }}
@@ -2440,7 +2440,7 @@ export default function SettingsPanel() {
                       Split Hands in the Playback Editor) stays blue/pink even with that
                       toggle off, so this needs to work on its own too. ─────────────── */}
                   <OptionRow
-                    label="Hand letters"
+                    label="Hand tags"
                     eyeToggle
                     eyeValue={showHandLetters}
                     onEyeChange={setShowHandLetters}
@@ -2463,11 +2463,11 @@ export default function SettingsPanel() {
                       </div>
                       <div style={{ padding: '3px 14px 6px', display: 'flex', alignItems: 'center', gap: 16 }}>
                         <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                          <span style={{ fontSize: 9, color: 'var(--text-default)', fontFamily: 'var(--font-ui)', whiteSpace: 'nowrap' }}>Left hand</span>
+                          <span style={{ fontSize: 10, color: 'var(--text-default)', fontFamily: 'var(--font-ui)', whiteSpace: 'nowrap' }}>Left hand</span>
                           <FingerStepper value={lhMaxFingers} onChange={setLhMaxFingers} />
                         </div>
                         <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                          <span style={{ fontSize: 9, color: 'var(--text-default)', fontFamily: 'var(--font-ui)', whiteSpace: 'nowrap' }}>Right hand</span>
+                          <span style={{ fontSize: 10, color: 'var(--text-default)', fontFamily: 'var(--font-ui)', whiteSpace: 'nowrap' }}>Right hand</span>
                           <FingerStepper value={rhMaxFingers} onChange={setRhMaxFingers} />
                         </div>
                       </div>
@@ -2741,11 +2741,11 @@ export default function SettingsPanel() {
                   })()}
                   {/* ── Selective Tracks Playback — eye-toggle; shows/hides quick-toggle button in Track Panel ─ */}
                   <OptionRow
-                    label="Selective Playback"
+                    label="Focus mode"
                     eyeToggle
                     eyeValue={autoMuteNonKeyboard}
                     onEyeChange={setAutoMuteNonKeyboard}
-                    description="A toggle in Tracks panel and Console allows you to select if you want to hear/see all tracks or only Keys, Bass & Drums."
+                    description="An All tracks/Selective toggle in Tracks panel and Console allows you to select if you want to hear/see all tracks or only Keys, Bass & Drums."
                   />
                 </CollapsibleSection>
 

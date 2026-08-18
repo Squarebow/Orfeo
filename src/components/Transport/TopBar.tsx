@@ -143,10 +143,10 @@ export default function TopBar() {
   })() : null
   const loopTooltipTitle = loopStart !== null
     ? (loopRegionActive ? `Looping bars ${loopStartBar}–${loopEndBar}` : `Loop bars ${loopStartBar}–${loopEndBar}`)
-    : 'Loop entire song'
+    : 'Loop song or section'
   const loopTooltipDesc = loopStart !== null
-    ? (loopRegionActive ? 'Click to disable the loop.' : 'Click to enable the loop.')
-    : 'Click to loop the whole file, or Alt+click and drag on the piano roll to select a specific region.'
+    ? (loopRegionActive ? 'Click to disable looping.' : 'Click to enable looping.')
+    : 'Click to loop the entire song, or Alt+Click & drag mouse on the piano roll to select a specific region.'
 
   // ── Live BPM — reads current tempo from _tempoMap so rubato files update ─
   const rawTempoMap = (midi as any)?._tempoMap as { bpm: number; time: number }[] | undefined
@@ -230,13 +230,13 @@ export default function TopBar() {
       }}>
       {/* ── LOGO ── */}
       <div className="app-no-drag" style={{ display: 'flex', alignItems: 'center', gap: 10, flexShrink: 0, paddingRight: 'var(--space-3)' }}>
-        <Tooltip title="Reset" description="Closes the current file and resets tempo, transpose, and playback state back to their defaults." placement="bottom">
+        <Tooltip title="Reset" description="Closes the file and resets tempo, transpose, and playback to defaults." placement="bottom">
           <span onClick={handleReset} className="app-no-drag" style={{ cursor: 'pointer', display: 'flex', flexDirection: 'column', alignItems: 'flex-start', gap: 2 }}>
             <OrfeoLogo />
             <span style={{ color: 'var(--text-inactive)', fontSize: 10, fontFamily: 'var(--font-mono)', whiteSpace: 'nowrap' }}>v{__APP_VERSION__}</span>
           </span>
         </Tooltip>
-        <Tooltip title="Open MIDI file (Ctrl+O)" description="Loads a .mid file from disk to start a new session." placement="bottom">
+        <Tooltip title="Open a file (Ctrl+O)" description="Loads a supported file from disk to start a new session." placement="bottom">
           <button
             onClick={openFile}
             className="app-no-drag"
@@ -363,15 +363,15 @@ export default function TopBar() {
         )}
         {/* Transport */}
         <div style={{ display: 'flex', alignItems: 'center', gap: 2 }}>
-          <TBtn onClick={stop} disabled={!midi} title="Go to start" description="Jumps playback back to the beginning of the file." oneLine><SkipBack size={16} strokeWidth={1.5} /></TBtn>
-          <TBtn onClick={() => handleSkip(-1)} disabled={!midi} title={`Rewind ${SKIP_SECS}s`} description="Skips playback back by five seconds." oneLine><Rewind size={15} strokeWidth={1.5} /></TBtn>
-          <TBtn onClick={handlePlayPause} disabled={!midi || chordExplorerOpen} accent title="Play / Pause (Space)" description="Starts or pauses playback — same as pressing Space." large oneLine>
+          <TBtn onClick={stop} disabled={!midi} title="Go to start" oneLine><SkipBack size={16} strokeWidth={1.5} /></TBtn>
+          <TBtn onClick={() => handleSkip(-1)} disabled={!midi} title={`Rewind ${SKIP_SECS}s`} oneLine><Rewind size={15} strokeWidth={1.5} /></TBtn>
+          <TBtn onClick={handlePlayPause} disabled={!midi || chordExplorerOpen} accent title="Play / Pause (Space)" large oneLine>
             {playbackState === 'playing'
               ? <Pause size={24} fill="currentColor" strokeWidth={0} />
               : <Play size={24} fill="currentColor" strokeWidth={0} />}
           </TBtn>
-          <TBtn onClick={() => handleSkip(1)} disabled={!midi} title={`Forward ${SKIP_SECS}s`} description="Skips playback ahead by five seconds." oneLine><FastForward size={15} strokeWidth={1.5} /></TBtn>
-          <TBtn onClick={() => midi && seek(midi.duration)} disabled={!midi} title="Go to end" description="Jumps playback to the end of the file." oneLine><SkipForward size={16} strokeWidth={1.5} /></TBtn>
+          <TBtn onClick={() => handleSkip(1)} disabled={!midi} title={`Forward ${SKIP_SECS}s`} oneLine><FastForward size={15} strokeWidth={1.5} /></TBtn>
+          <TBtn onClick={() => midi && seek(midi.duration)} disabled={!midi} title="Go to end" oneLine><SkipForward size={16} strokeWidth={1.5} /></TBtn>
           {/* position:relative wrapper so the "click to loop" label can be
               position:absolute — it used to sit in normal flex flow as the
               row's last child, so its appearing/disappearing changed the
@@ -491,7 +491,7 @@ export default function TopBar() {
         {/* TIME SIGNATURE */}
         <Tooltip
           title={midi ? `Time signature: ${midi.timeSignatureNumerator ?? 4}/${midi.timeSignatureDenominator ?? 4}` : 'No file loaded'}
-          description="How many beats make up each bar, and which note value counts as one beat."
+          description="Number of beats in each bar, and which note value counts as one beat."
           placement="bottom"
         >
           <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', padding: '0 14px' }}>
@@ -545,7 +545,7 @@ export default function TopBar() {
         {/* MIDI */}
         <Tooltip
           title={midiDeviceConnected ? `MIDI: ${midiDeviceName}` : 'No MIDI keyboard connected'}
-          description={midiDeviceConnected ? 'A physical MIDI keyboard is connected and ready to play.' : 'Connect a MIDI keyboard via USB to play along live.'}
+          description={midiDeviceConnected ? 'MIDI keyboard is connected and ready to play.' : 'Connect an external MIDI keyboard via USB to play along live.'}
           placement="bottom"
           wrapperStyle={{ flexShrink: 0 }}
         >

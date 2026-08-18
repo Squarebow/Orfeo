@@ -758,7 +758,7 @@ export default function ScaleExplorer() {
       ref={panelRef}
       role="dialog"
       aria-modal="true"
-      aria-label="Scale Explorer"
+      aria-label="Scales Explorer"
       className="orfeo-modal-glow"
       style={{
         position: 'fixed',
@@ -787,7 +787,7 @@ export default function ScaleExplorer() {
         <div style={{ display: 'flex', alignItems: 'center', gap: 7 }}>
           <OrfeoMark height={22} />
           <span style={{ fontFamily: 'var(--font-ui)', fontSize: 14, fontWeight: 700, color: 'var(--text-amber)', letterSpacing: '0.14em', textTransform: 'uppercase' }}>
-            Scale Explorer
+            Scales Explorer
           </span>
         </div>
         <button
@@ -969,7 +969,7 @@ export default function ScaleExplorer() {
             </span>
             {/* ── On by default: the chord/scale's true root pitch class (any
                 octave) highlights pink instead of blending into the uniform amber. ── */}
-            <Tooltip title="Accent Root Note" description="Highlights the scale or chord's true root pitch class in pink, in any octave, instead of blending into the uniform amber.">
+            <Tooltip title="Accent Root Note" description="Highlights the scale or chord's true root pitch class in pink, in any octave, instead of blending it.">
               <button
                 onClick={() => setColorRootNoteEnabled(!colorRootNoteEnabled)}
                 style={{ display: 'flex', alignItems: 'center', gap: 6, background: 'none', border: 'none', cursor: 'pointer', padding: 0, flexShrink: 0 }}
@@ -1142,7 +1142,7 @@ export default function ScaleExplorer() {
             onMouseEnter={e => e.currentTarget.style.color = 'var(--text-amber)'}
             onMouseLeave={e => { e.currentTarget.style.color = selectedProg !== null ? 'var(--text-amber)' : 'var(--text-inactive)' }}
           >
-            {selectedProg !== null ? PROGRESSIONS[selectedProg].name : 'None'} ▾
+            {selectedProg !== null ? PROGRESSIONS[selectedProg].name : 'Select'} ▾
           </button>
           {selectedProg !== null && (
             <button onClick={() => { setSelectedProg(null); stopProgression() }}
@@ -1192,7 +1192,7 @@ export default function ScaleExplorer() {
         <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: 4 }}>
           <span style={ROW_LABEL}>Variations</span>
           {/* Off — CircleOff icon */}
-          <Tooltip oneLine title="Every progression step plays root position — no inversion cycling.">
+          <Tooltip oneLine title="Plays each progression in root position.">
             <button
               onClick={() => setProgInversionMode('off')}
               style={{ background: 'none', border: 'none', cursor: 'pointer', padding: '0 2px', display: 'flex', alignItems: 'center', color: progInversionMode === 'off' ? 'var(--text-amber)' : 'var(--text-inactive)' }}
@@ -1221,7 +1221,7 @@ export default function ScaleExplorer() {
         </div>
       </div>
 
-      {/* Footer — SHOW AS + inversion browser + Chord Explorer switch */}
+      {/* Footer — SHOW AS + inversion browser + Chords Explorer switch */}
       <div style={{
         ...ROW, minHeight: 'var(--row-height)',
         borderTop: '1px solid var(--border)', borderBottom: 'none',
@@ -1254,7 +1254,7 @@ export default function ScaleExplorer() {
           </Tooltip>
           {/* Static grey label — chord display is above the keyboard only */}
           <span style={{ fontFamily: 'var(--font-ui)', fontSize: 10, fontWeight: 600, color: 'var(--text-inactive)', letterSpacing: '0.12em', textTransform: 'uppercase', userSelect: 'none' }}>
-            Play  Chord Inversions
+            Play  Inversion
           </span>
           {/* Next inversion — Play icon normal */}
           <Tooltip oneLine title="Next inversion">
@@ -1282,13 +1282,13 @@ export default function ScaleExplorer() {
         </div>
 
         {/* Switch to Chord Explorer */}
-        <Tooltip oneLine title="Chord Explorer">
+        <Tooltip oneLine title="Switch to Chords Explorer">
           <button
             onClick={() => { setScaleExplorerOpen(false); setChordExplorerOpen(true) }}
             style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-inactive)', fontFamily: 'var(--font-ui)', fontSize: 10, fontWeight: 600, letterSpacing: '0.10em', textTransform: 'uppercase', whiteSpace: 'nowrap', padding: 0, display: 'flex', alignItems: 'center', gap: 3 }}
             onMouseEnter={e => e.currentTarget.style.color = 'var(--text-amber)'}
             onMouseLeave={e => e.currentTarget.style.color = 'var(--text-inactive)'}
-          >Chord Explorer <ArrowUpRight size={11} /></button>
+          >Chords Explorer <ArrowUpRight size={11} /></button>
         </Tooltip>
       </div>
 
