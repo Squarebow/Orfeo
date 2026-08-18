@@ -12,6 +12,7 @@ import { useFocusTrap } from '../hooks/useFocusTrap'
 import { getPianoRollCenterX, getKeyboardHeaderTop } from '../utils/modalAnchors'
 import { useAnchorBottomOnResize } from '../hooks/useAnchorBottomOnResize'
 import { modalCloseButtonStyle, modalCloseButtonHoverColor, modalCloseButtonIdleColor } from '../utils/modalCloseButtonStyle'
+import Tooltip from './Tooltip'
 
 // ── Keyboard range constants ────────────────────────────────────────────────
 const RANGES: Record<number, { min: number; max: number }> = {
@@ -91,7 +92,7 @@ const ROMAN_TO_DEGREE: Record<string, number> = {
 
 // ── Shared row label style — dim uppercase, used across all control rows ──────
 const ROW_LABEL: React.CSSProperties = {
-  fontFamily: 'var(--font-ui)', fontSize: 9, fontWeight: 700,
+  fontFamily: 'var(--font-ui)', fontSize: 12, fontWeight: 600,
   color: 'var(--text-dimmest)', letterSpacing: '0.10em',
   textTransform: 'uppercase', flexShrink: 0, userSelect: 'none',
 }
@@ -785,7 +786,7 @@ export default function ScaleExplorer() {
       }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 7 }}>
           <OrfeoMark height={22} />
-          <span style={{ fontFamily: 'var(--font-ui)', fontSize: 'var(--text-sm)', fontWeight: 700, color: 'var(--text-amber)', letterSpacing: '0.14em', textTransform: 'uppercase' }}>
+          <span style={{ fontFamily: 'var(--font-ui)', fontSize: 14, fontWeight: 700, color: 'var(--text-amber)', letterSpacing: '0.14em', textTransform: 'uppercase' }}>
             Scale Explorer
           </span>
         </div>
@@ -809,20 +810,20 @@ export default function ScaleExplorer() {
             instead of running under the CoF/note-names block on the right. ── */}
         <div style={{
           position: 'absolute', top: 16, left: 12, width: 200,
-          fontFamily: 'var(--font-ui)', fontSize: 11, color: 'var(--text-dimmest)', opacity: 0.75, lineHeight: '1.6',
+          fontFamily: 'var(--font-ui)', fontSize: 12, color: 'var(--text-dimmest)', opacity: 0.75, lineHeight: '1.6',
           pointerEvents: 'none', zIndex: 5,
         }}>
           Click a key on the circle to explore its scale and diatonic chords. Select a progression and click play to hear the chords in the scale. Try chord inversions and variations!
         </div>
         {/* Scale type buttons — centred at CoF middle */}
         <div style={{ display: 'flex', flexDirection: 'column', gap: 1, minWidth: 116, flexShrink: 0, alignSelf: 'center', marginTop: 55 }}>
-          <span style={{ ...ROW_LABEL, fontSize: 11, marginBottom: 3 }}>Scale</span>
+          <span style={{ ...ROW_LABEL, fontSize: 12, marginBottom: 3 }}>Scale</span>
           {SCALES.map((s, i) => {
             const sel = selectedScaleIdx === i
             return (
               <button key={s.name} onClick={() => setSelectedScaleIdx(i)}
                 style={{
-                  fontFamily: 'var(--font-ui)', fontSize: 11, padding: '4px 6px',
+                  fontFamily: 'var(--font-ui)', fontSize: 12, padding: '4px 6px',
                   background: sel ? 'var(--accent-amber-medium)' : 'none',
                   color: sel ? 'var(--text-amber)' : 'var(--text-muted)',
                   border: `1px solid ${sel ? 'var(--text-amber)' : 'transparent'}`,
@@ -884,14 +885,14 @@ export default function ScaleExplorer() {
                   {/* Major key label */}
                   <text x={outerLabel.x} y={outerLabel.y}
                     textAnchor="middle" dominantBaseline="middle"
-                    fontSize={13} fontWeight={700} fontFamily="var(--font-mono)"
+                    fontSize={15} fontWeight={700} fontFamily="var(--font-mono)"
                     fill={isSelOuter ? 'var(--text-amber)' : 'var(--text-key-label)'}
                     style={{ pointerEvents: 'none', userSelect: 'none' }}
                   >{getMajorLabel(i)}</text>
                   {/* Minor key label */}
                   <text x={innerLabel.x} y={innerLabel.y}
                     textAnchor="middle" dominantBaseline="middle"
-                    fontSize={9} fontFamily="var(--font-ui)"
+                    fontSize={12} fontFamily="var(--font-ui)"
                     fill={isSelInner ? 'var(--text-amber)' : 'var(--text-key-label)'}
                     style={{ pointerEvents: 'none', userSelect: 'none' }}
                   >{getMinorLabel(i)}</text>
@@ -923,11 +924,11 @@ export default function ScaleExplorer() {
               display: 'flex', alignItems: 'baseline', gap: 8,
               background: 'var(--bg-info-overlay)', borderRadius: 6, padding: '4px 10px',
             }}>
-              <span style={{ fontFamily: 'var(--font-mono)', fontSize: 14, fontWeight: 700, color: 'var(--text-amber)' }}>
+              <span style={{ fontFamily: 'var(--font-mono)', fontSize: 15, lineHeight: '18px', fontWeight: 700, color: 'var(--text-amber)' }}>
                 {infoText.rootName}
               </span>
-              <span style={{ fontSize: 11, color: 'var(--text-muted)' }}>{infoText.scaleName}</span>
-              <span style={{ fontSize: 11, letterSpacing: '0.06em', fontFamily: 'var(--font-mono)', whiteSpace: 'nowrap' }}>
+              <span style={{ fontSize: 12, lineHeight: '13px', color: 'var(--text-muted)' }}>{infoText.scaleName}</span>
+              <span style={{ fontSize: 12, lineHeight: '14px', letterSpacing: '0.06em', fontFamily: 'var(--font-mono)', whiteSpace: 'nowrap' }}>
                 {infoText.noteNames.map((n, i) => (
                   <span key={i} style={{ color: i === scalePlayIndex ? 'var(--text-amber)' : 'var(--text-inactive)' }}>
                     {n}{i < infoText.noteNames.length - 1 ? ' ' : ''}
@@ -947,36 +948,38 @@ export default function ScaleExplorer() {
         <div style={{ position: 'absolute', bottom: 6, left: 12, right: 12, display: 'flex', flexDirection: 'column', gap: 2 }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
             <span style={{ ...ROW_LABEL, fontSize: 11 }}>Chords in the Scale</span>
-            <button
-              onClick={playChordsInSequence}
-              disabled={selectedRoot === null}
-              title="Play all chords in the scale, in sequence"
-              style={{
-                background: 'none', border: 'none', padding: 0, display: 'flex', alignItems: 'center',
-                cursor: selectedRoot === null ? 'default' : 'pointer',
-                color: selectedRoot === null ? 'var(--state-disabled)' : 'var(--text-amber)',
-              }}
-              onMouseEnter={e => { if (selectedRoot !== null) e.currentTarget.style.color = 'var(--accent-amber-hover)' }}
-              onMouseLeave={e => { e.currentTarget.style.color = selectedRoot === null ? 'var(--state-disabled)' : 'var(--text-amber)' }}
-            ><Play size={13} fill="currentColor" strokeWidth={0} /></button>
+            <Tooltip title="Play Chords" description="Plays all 7 diatonic chords in the scale, one after another.">
+              <button
+                onClick={playChordsInSequence}
+                disabled={selectedRoot === null}
+                style={{
+                  background: 'none', border: 'none', padding: 0, display: 'flex', alignItems: 'center',
+                  cursor: selectedRoot === null ? 'default' : 'pointer',
+                  color: selectedRoot === null ? 'var(--state-disabled)' : 'var(--text-amber)',
+                }}
+                onMouseEnter={e => { if (selectedRoot !== null) e.currentTarget.style.color = 'var(--accent-amber-hover)' }}
+                onMouseLeave={e => { e.currentTarget.style.color = selectedRoot === null ? 'var(--state-disabled)' : 'var(--text-amber)' }}
+              ><Play size={13} fill="currentColor" strokeWidth={0} /></button>
+            </Tooltip>
           </div>
           {/* ── "Click tiles..." hint left, Color Root Note toggle right — same row ── */}
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8 }}>
-            <span style={{ fontFamily: 'var(--font-ui)', fontSize: 10, color: 'var(--text-dimmest)', opacity: 0.75, pointerEvents: 'none' }}>
+            <span style={{ fontFamily: 'var(--font-ui)', fontSize: 11, color: 'var(--text-dimmest)', opacity: 0.75, pointerEvents: 'none' }}>
               Click tiles to hear chords or play them in sequence
             </span>
             {/* ── On by default: the chord/scale's true root pitch class (any
                 octave) highlights pink instead of blending into the uniform amber. ── */}
-            <button
-              onClick={() => setColorRootNoteEnabled(!colorRootNoteEnabled)}
-              title="Highlights the root note on the keyboard."
-              style={{ display: 'flex', alignItems: 'center', gap: 6, background: 'none', border: 'none', cursor: 'pointer', padding: 0, flexShrink: 0 }}
-            >
-              <span style={{ fontFamily: 'var(--font-ui)', fontSize: 10, color: 'var(--text-dimmest)', opacity: 0.75 }}>Accent root note</span>
-              <span style={{ display: 'flex', color: colorRootNoteEnabled ? 'var(--text-amber)' : 'var(--text-inactive)' }}>
-                {colorRootNoteEnabled ? <ToggleRight size={16} strokeWidth={1.5} /> : <ToggleLeft size={16} strokeWidth={1.5} />}
-              </span>
-            </button>
+            <Tooltip title="Accent Root Note" description="Highlights the scale or chord's true root pitch class in pink, in any octave, instead of blending into the uniform amber.">
+              <button
+                onClick={() => setColorRootNoteEnabled(!colorRootNoteEnabled)}
+                style={{ display: 'flex', alignItems: 'center', gap: 6, background: 'none', border: 'none', cursor: 'pointer', padding: 0, flexShrink: 0 }}
+              >
+                <span style={{ fontFamily: 'var(--font-ui)', fontSize: 11, color: 'var(--text-dimmest)', opacity: 0.75 }}>Accent root note</span>
+                <span style={{ display: 'flex', color: colorRootNoteEnabled ? 'var(--text-amber)' : 'var(--text-inactive)' }}>
+                  {colorRootNoteEnabled ? <ToggleRight size={16} strokeWidth={1.5} /> : <ToggleLeft size={16} strokeWidth={1.5} />}
+                </span>
+              </button>
+            </Tooltip>
           </div>
         </div>
       </div>
@@ -1009,12 +1012,12 @@ export default function ScaleExplorer() {
                   onMouseLeave={e => { if (!sel) e.currentTarget.style.borderColor = 'var(--state-hover-bg)' }}
                 >
                   {/* Left: chord name */}
-                  <span style={{ fontFamily: 'var(--font-ui)', fontSize: 'var(--text-base)', fontWeight: 700, color: 'var(--text-key-label)', lineHeight: 1, flexShrink: 0 }}>
+                  <span style={{ fontFamily: 'var(--font-ui)', fontSize: 14, fontWeight: 700, color: 'var(--text-key-label)', lineHeight: 1, flexShrink: 0 }}>
                     {chord.chordName}
                   </span>
                   {/* Right: note names + roman numeral stacked, right-aligned */}
                   <div style={{ display: 'flex', flexDirection: 'column', gap: 1, minWidth: 0, alignItems: 'flex-end' }}>
-                    <span style={{ fontFamily: 'var(--font-mono)', fontSize: 9, color: 'var(--text-muted)', lineHeight: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', textAlign: 'right' }}>
+                    <span style={{ fontFamily: 'var(--font-mono)', fontSize: 10, fontWeight: 600, color: 'var(--text-muted)', lineHeight: '9px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', textAlign: 'right' }}>
                       {chord.midiNotes.map(m => getNoteName(m, displayNaming, accidentals)).join(' ')}
                     </span>
                     <span style={{ fontFamily: 'var(--font-ui)', fontSize: 10, color: 'var(--accent-amber-bold)', lineHeight: 1, textAlign: 'right' }}>
@@ -1045,12 +1048,12 @@ export default function ScaleExplorer() {
                   onMouseLeave={e => { if (!sel) e.currentTarget.style.borderColor = 'var(--state-hover-bg)' }}
                 >
                   {/* Left: chord name — same as tonic */}
-                  <span style={{ fontFamily: 'var(--font-ui)', fontSize: 'var(--text-base)', fontWeight: 700, color: 'var(--text-key-label)', lineHeight: 1, flexShrink: 0 }}>
+                  <span style={{ fontFamily: 'var(--font-ui)', fontSize: 14, fontWeight: 700, color: 'var(--text-key-label)', lineHeight: 1, flexShrink: 0 }}>
                     {tonic.chordName}
                   </span>
                   {/* Right: octave note names + roman numeral with ⁸ superscript */}
                   <div style={{ display: 'flex', flexDirection: 'column', gap: 1, minWidth: 0, alignItems: 'flex-end' }}>
-                    <span style={{ fontFamily: 'var(--font-mono)', fontSize: 9, color: 'var(--text-muted)', lineHeight: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', textAlign: 'right' }}>
+                    <span style={{ fontFamily: 'var(--font-mono)', fontSize: 10, fontWeight: 600, color: 'var(--text-muted)', lineHeight: '9px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', textAlign: 'right' }}>
                       {octaveMidi.map(m => getNoteName(m, displayNaming, accidentals)).join(' ')}
                     </span>
                     <span style={{ fontFamily: 'var(--font-ui)', fontSize: 10, color: 'var(--accent-amber-bold)', lineHeight: 1, textAlign: 'right' }}>
@@ -1156,23 +1159,27 @@ export default function ScaleExplorer() {
           display: 'flex', alignItems: 'center', gap: 8,
         }}>
           {/* ── Progression play/stop button — green ready, red stop ─────────── */}
-          <button
-            onClick={() => { if (progPlaying) stopProgression(); else startProgression() }}
-            disabled={selectedProg === null || diatonicChords.length === 0}
-            title={selectedProg === null ? 'Pick a pattern to play a progression' : undefined}
-            style={{
-              display: 'flex', alignItems: 'center', gap: 4,
-              fontFamily: 'var(--font-ui)', fontSize: 10, fontWeight: 700, letterSpacing: '0.06em',
-              padding: '3px 10px', borderRadius: 4, cursor: 'pointer',
-              background: 'none',
-              border: `1.5px solid ${progPlaying ? 'var(--status-error)' : selectedProg !== null && diatonicChords.length > 0 ? 'var(--status-success)' : 'var(--text-inactive)'}`,
-              boxShadow: progPlaying ? '0 0 6px var(--status-error)' : selectedProg !== null && diatonicChords.length > 0 ? '0 0 6px var(--status-success)' : 'none',
-              color: progPlaying ? 'var(--status-error)' : selectedProg !== null && diatonicChords.length > 0 ? 'var(--status-success)' : 'var(--text-inactive)',
-            }}
+          <Tooltip
+            oneLine
+            title={selectedProg === null ? 'Pick a pattern above first.' : progPlaying ? 'Stops the chord progression.' : 'Plays the selected chord progression in a loop.'}
           >
-            {progPlaying ? <Square size={12} /> : <ChevronPlayIcon size={12} />}
-            {progPlaying ? 'STOP' : 'PLAY'}
-          </button>
+            <button
+              onClick={() => { if (progPlaying) stopProgression(); else startProgression() }}
+              disabled={selectedProg === null || diatonicChords.length === 0}
+              style={{
+                display: 'flex', alignItems: 'center', gap: 4,
+                fontFamily: 'var(--font-ui)', fontSize: 10, fontWeight: 700, letterSpacing: '0.06em',
+                padding: '3px 10px', borderRadius: 4, cursor: 'pointer',
+                background: 'none',
+                border: `1.5px solid ${progPlaying ? 'var(--status-error)' : selectedProg !== null && diatonicChords.length > 0 ? 'var(--status-success)' : 'var(--text-inactive)'}`,
+                boxShadow: progPlaying ? '0 0 6px var(--status-error)' : selectedProg !== null && diatonicChords.length > 0 ? '0 0 6px var(--status-success)' : 'none',
+                color: progPlaying ? 'var(--status-error)' : selectedProg !== null && diatonicChords.length > 0 ? 'var(--status-success)' : 'var(--text-inactive)',
+              }}
+            >
+              {progPlaying ? <Square size={12} /> : <ChevronPlayIcon size={12} />}
+              {progPlaying ? 'STOP' : 'PLAY'}
+            </button>
+          </Tooltip>
           {/* Speed selector SVG component — half the Play/Inversion chevron size */}
           <SpeedControl
             value={progSpeed}
@@ -1185,29 +1192,32 @@ export default function ScaleExplorer() {
         <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: 4 }}>
           <span style={ROW_LABEL}>Variations</span>
           {/* Off — CircleOff icon */}
-          <button
-            onClick={() => setProgInversionMode('off')}
-            title="Variations off"
-            style={{ background: 'none', border: 'none', cursor: 'pointer', padding: '0 2px', display: 'flex', alignItems: 'center', color: progInversionMode === 'off' ? 'var(--text-amber)' : 'var(--text-inactive)' }}
-            onMouseEnter={e => e.currentTarget.style.color = 'var(--text-amber)'}
-            onMouseLeave={e => e.currentTarget.style.color = progInversionMode === 'off' ? 'var(--text-amber)' : 'var(--text-inactive)'}
-          ><CircleOff size={14} /></button>
+          <Tooltip oneLine title="Every progression step plays root position — no inversion cycling.">
+            <button
+              onClick={() => setProgInversionMode('off')}
+              style={{ background: 'none', border: 'none', cursor: 'pointer', padding: '0 2px', display: 'flex', alignItems: 'center', color: progInversionMode === 'off' ? 'var(--text-amber)' : 'var(--text-inactive)' }}
+              onMouseEnter={e => e.currentTarget.style.color = 'var(--text-amber)'}
+              onMouseLeave={e => e.currentTarget.style.color = progInversionMode === 'off' ? 'var(--text-amber)' : 'var(--text-inactive)'}
+            ><CircleOff size={14} /></button>
+          </Tooltip>
           {/* Sequential — ListOrdered icon */}
-          <button
-            onClick={() => setProgInversionMode('sequential')}
-            title="Sequential variations"
-            style={{ background: 'none', border: 'none', cursor: 'pointer', padding: '0 2px', display: 'flex', alignItems: 'center', color: progInversionMode === 'sequential' ? 'var(--text-amber)' : 'var(--text-inactive)' }}
-            onMouseEnter={e => e.currentTarget.style.color = 'var(--text-amber)'}
-            onMouseLeave={e => e.currentTarget.style.color = progInversionMode === 'sequential' ? 'var(--text-amber)' : 'var(--text-inactive)'}
-          ><ListOrdered size={14} /></button>
+          <Tooltip oneLine title="Cycles each chord's inversion in order, one step further with every loop of the progression.">
+            <button
+              onClick={() => setProgInversionMode('sequential')}
+              style={{ background: 'none', border: 'none', cursor: 'pointer', padding: '0 2px', display: 'flex', alignItems: 'center', color: progInversionMode === 'sequential' ? 'var(--text-amber)' : 'var(--text-inactive)' }}
+              onMouseEnter={e => e.currentTarget.style.color = 'var(--text-amber)'}
+              onMouseLeave={e => e.currentTarget.style.color = progInversionMode === 'sequential' ? 'var(--text-amber)' : 'var(--text-inactive)'}
+            ><ListOrdered size={14} /></button>
+          </Tooltip>
           {/* Random — Shuffle icon */}
-          <button
-            onClick={() => setProgInversionMode('random')}
-            title="Random variations"
-            style={{ background: 'none', border: 'none', cursor: 'pointer', padding: '0 2px', display: 'flex', alignItems: 'center', color: progInversionMode === 'random' ? 'var(--text-amber)' : 'var(--text-inactive)' }}
-            onMouseEnter={e => e.currentTarget.style.color = 'var(--text-amber)'}
-            onMouseLeave={e => e.currentTarget.style.color = progInversionMode === 'random' ? 'var(--text-amber)' : 'var(--text-inactive)'}
-          ><Shuffle size={14} /></button>
+          <Tooltip oneLine title="Picks a random inversion for each chord on every progression step.">
+            <button
+              onClick={() => setProgInversionMode('random')}
+              style={{ background: 'none', border: 'none', cursor: 'pointer', padding: '0 2px', display: 'flex', alignItems: 'center', color: progInversionMode === 'random' ? 'var(--text-amber)' : 'var(--text-inactive)' }}
+              onMouseEnter={e => e.currentTarget.style.color = 'var(--text-amber)'}
+              onMouseLeave={e => e.currentTarget.style.color = progInversionMode === 'random' ? 'var(--text-amber)' : 'var(--text-inactive)'}
+            ><Shuffle size={14} /></button>
+          </Tooltip>
         </div>
       </div>
 
@@ -1219,7 +1229,7 @@ export default function ScaleExplorer() {
       }}>
         {/* Accidentals toggle */}
         <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-1)' }}>
-          <span style={{ ...ROW_LABEL }}>Show As</span>
+          <span style={{ ...ROW_LABEL, fontSize: 10 }}>Show As</span>
           {(['flat', 'sharp'] as const).map(v => (
             <button key={v} onClick={() => setAccidentals(v)}
               style={{
@@ -1235,45 +1245,51 @@ export default function ScaleExplorer() {
         {/* Centre: inversion browser — Play icons + static grey label */}
         <div style={{ position: 'absolute', left: '50%', transform: 'translateX(-50%)', display: 'flex', alignItems: 'center', gap: 6 }}>
           {/* Previous inversion — Play icon mirrored on vertical axis */}
+          <Tooltip oneLine title="Previous inversion">
           <button onMouseDown={handlePrevInversion} disabled={!currentBaseMidi.length}
             style={{ background: 'none', border: 'none', color: currentBaseMidi.length ? 'var(--text-amber)' : 'var(--state-disabled)', cursor: currentBaseMidi.length ? 'pointer' : 'default', padding: '0 2px', display: 'flex', alignItems: 'center' }}
             onMouseEnter={e => { if (currentBaseMidi.length) e.currentTarget.style.color = 'var(--accent-amber-hover)' }}
             onMouseLeave={e => { e.currentTarget.style.color = currentBaseMidi.length ? 'var(--text-amber)' : 'var(--state-disabled)' }}
           ><ChevronPlayIcon size={14} mirrored /></button>
+          </Tooltip>
           {/* Static grey label — chord display is above the keyboard only */}
-          <span style={{ fontFamily: 'var(--font-ui)', fontSize: 8, fontWeight: 700, color: 'var(--text-inactive)', letterSpacing: '0.12em', textTransform: 'uppercase', userSelect: 'none' }}>
+          <span style={{ fontFamily: 'var(--font-ui)', fontSize: 10, fontWeight: 600, color: 'var(--text-inactive)', letterSpacing: '0.12em', textTransform: 'uppercase', userSelect: 'none' }}>
             Play  Chord Inversions
           </span>
           {/* Next inversion — Play icon normal */}
+          <Tooltip oneLine title="Next inversion">
           <button onMouseDown={handleNextInversion} disabled={!currentBaseMidi.length}
             style={{ background: 'none', border: 'none', color: currentBaseMidi.length ? 'var(--text-amber)' : 'var(--state-disabled)', cursor: currentBaseMidi.length ? 'pointer' : 'default', padding: '0 2px', display: 'flex', alignItems: 'center' }}
             onMouseEnter={e => { if (currentBaseMidi.length) e.currentTarget.style.color = 'var(--accent-amber-hover)' }}
             onMouseLeave={e => { e.currentTarget.style.color = currentBaseMidi.length ? 'var(--text-amber)' : 'var(--state-disabled)' }}
           ><ChevronPlayIcon size={14} /></button>
+          </Tooltip>
           {/* Reset button */}
-          <button
-            onClick={() => {
-              setCofPos(null); setCofRing(null); setSelectedScaleIdx(0)
-              setSelectedDegree(null); stopProgression(); setSelectedProg(null)
-              setProgInversionMode('off'); setProgSpeed('med'); speedRef.current = 'med'
-              setInfoRowChord(null); clearExplorerChordDisplay()
-              clearExplorerKeys(); clearLockedKeys(); useStore.getState().clearDisplayedChord()
-            }}
-            title="Clear & reset"
-            style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-inactive)', padding: '0 2px', display: 'flex', alignItems: 'center' }}
-            onMouseEnter={e => e.currentTarget.style.color = 'var(--text-amber)'}
-            onMouseLeave={e => e.currentTarget.style.color = 'var(--text-inactive)'}
-          ><RotateCcw size={13} /></button>
+          <Tooltip oneLine title="Clear & Reset">
+            <button
+              onClick={() => {
+                setCofPos(null); setCofRing(null); setSelectedScaleIdx(0)
+                setSelectedDegree(null); stopProgression(); setSelectedProg(null)
+                setProgInversionMode('off'); setProgSpeed('med'); speedRef.current = 'med'
+                setInfoRowChord(null); clearExplorerChordDisplay()
+                clearExplorerKeys(); clearLockedKeys(); useStore.getState().clearDisplayedChord()
+              }}
+              style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-inactive)', padding: '0 2px', display: 'flex', alignItems: 'center' }}
+              onMouseEnter={e => e.currentTarget.style.color = 'var(--text-amber)'}
+              onMouseLeave={e => e.currentTarget.style.color = 'var(--text-inactive)'}
+            ><RotateCcw size={13} /></button>
+          </Tooltip>
         </div>
 
         {/* Switch to Chord Explorer */}
-        <button
-          onClick={() => { setScaleExplorerOpen(false); setChordExplorerOpen(true) }}
-          title="Switch to Chord Explorer"
-          style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-inactive)', fontFamily: 'var(--font-ui)', fontSize: 9, fontWeight: 700, letterSpacing: '0.10em', textTransform: 'uppercase', whiteSpace: 'nowrap', padding: 0, display: 'flex', alignItems: 'center', gap: 3 }}
-          onMouseEnter={e => e.currentTarget.style.color = 'var(--text-amber)'}
-          onMouseLeave={e => e.currentTarget.style.color = 'var(--text-inactive)'}
-        >Chord Explorer <ArrowUpRight size={11} /></button>
+        <Tooltip oneLine title="Chord Explorer">
+          <button
+            onClick={() => { setScaleExplorerOpen(false); setChordExplorerOpen(true) }}
+            style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-inactive)', fontFamily: 'var(--font-ui)', fontSize: 10, fontWeight: 600, letterSpacing: '0.10em', textTransform: 'uppercase', whiteSpace: 'nowrap', padding: 0, display: 'flex', alignItems: 'center', gap: 3 }}
+            onMouseEnter={e => e.currentTarget.style.color = 'var(--text-amber)'}
+            onMouseLeave={e => e.currentTarget.style.color = 'var(--text-inactive)'}
+          >Chord Explorer <ArrowUpRight size={11} /></button>
+        </Tooltip>
       </div>
 
       {/* Progression dropdown — portalled to body to avoid modal clipping */}

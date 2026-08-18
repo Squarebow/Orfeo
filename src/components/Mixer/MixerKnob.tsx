@@ -58,9 +58,16 @@ export interface MixerKnobProps {
   triScale?: number          // scales triangle indicator; 1.0 = default, <1 = smaller
   title?: string             // stylish tooltip title (amber header row)
   description?: string       // stylish tooltip description (muted row below title)
+  disabledHint?: string      // overrides the tooltip description while disabled — explains
+                              // WHY (e.g. "You must switch to Samples engine to use this"),
+                              // since a dimmed knob otherwise gives no clue what to do about it
   onDragChange?: (dragging: boolean) => void  // fires on drag start/end — for a
                               // caller-owned live-value tooltip that should stay
                               // visible through a drag, not just on hover (Master Volume)
+  labelOffset?: number       // shifts the label vertically (negative = up), compensated
+                              // with equal opposite margin on the other side so the
+                              // wrapper's total height — and everything below it — never
+                              // moves. Default 0 (no shift).
 }
 
 // ── MixerKnob — tick-arc knob with triangle notch indicator ──────────────────
@@ -68,7 +75,7 @@ export default function MixerKnob({
   value, onChange, accentColor, size = 40,
   disabled = false, bipolar = false, label,
   dotCount = DOT_COUNT, tickMajorEvery = 0, tickScale = 1, tickStrokeScale = 1, triScale = 1,
-  title, description, onDragChange,
+  title, description, disabledHint, onDragChange, labelOffset = 0,
 }: MixerKnobProps) {
   const svgRef  = useRef<SVGSVGElement>(null)
   const wrapperRef = useRef<HTMLDivElement>(null)
@@ -165,12 +172,17 @@ export default function MixerKnob({
       style={{
         display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 7,
         opacity: disabled ? 0.3 : 1,
-        pointerEvents: disabled ? 'none' : 'auto',
+        // Stays 'auto' even while disabled — pointer-events:none here would
+        // also block this wrapper's own onMouseEnter/onMouseLeave, so a
+        // dimmed knob could never show its tooltip. Actual interaction is
+        // blocked separately, by the `disabled` checks inside the drag/key
+        // handlers below and tabIndex=-1 on the svg.
+        pointerEvents: 'auto',
       }}>
-      {title && (
+      {(title || disabledHint) && (
         <TooltipBox
           anchorRect={hover ? wrapperRef.current?.getBoundingClientRect() ?? null : null}
-          content={{ title, description }}
+          content={disabled && disabledHint ? { title: label ?? title ?? '', description: disabledHint } : { title: title ?? '', description }}
           visible={hover}
         />
       )}
@@ -178,7 +190,7 @@ export default function MixerKnob({
         ref={svgRef}
         width={size} height={size}
         viewBox="0 0 52 52"
-        style={{ cursor: 'pointer', display: 'block', flexShrink: 0 }}
+        style={{ cursor: disabled ? 'default' : 'pointer', display: 'block', flexShrink: 0 }}
         onMouseDown={handleMouseDown}
         tabIndex={disabled ? -1 : 0}
         role="slider"
@@ -208,9 +220,10 @@ export default function MixerKnob({
 
       {label && (
         <span style={{
-          fontSize: 9, fontFamily: 'var(--font-mono)', letterSpacing: '0.08em',
+          fontSize: 10, fontFamily: 'var(--font-mono)', letterSpacing: '0.08em',
           textTransform: 'uppercase', color: 'var(--text-dimmest)',
-          userSelect: 'none', lineHeight: 1,
+          userSelect: 'none', lineHeight: '9px',
+          marginTop: labelOffset, marginBottom: -labelOffset,
         }}>
           {label}
         </span>

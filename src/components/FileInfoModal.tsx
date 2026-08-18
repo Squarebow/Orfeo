@@ -226,9 +226,9 @@ export default function FileInfoModal({ filePath, fileName, onClose, onRenamed }
         onMouseDown={e => e.stopPropagation()}
       >
         <div onMouseDown={startDrag} style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 12, cursor: 'grab' }}>
-          <OrfeoMark height={14} />
+          <OrfeoMark height={22} />
           <span style={{
-            flex: 1, minWidth: 0, fontFamily: 'var(--font-mono)', fontSize: 'var(--text-sm)',
+            flex: 1, minWidth: 0, fontFamily: 'var(--font-mono)', fontSize: 14,
             color: 'var(--text-amber)', letterSpacing: '0.08em', textTransform: 'uppercase',
             overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
           }} title={currentName}>
@@ -303,7 +303,7 @@ export default function FileInfoModal({ filePath, fileName, onClose, onRenamed }
                 renaming in the Playback Editor. Staged in local state; a real
                 file rename only happens on Save below, never per keystroke. ── */}
             <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '6px 0', minHeight: 24, boxSizing: 'border-box' }}>
-              <span style={{ width: 70, flexShrink: 0, fontSize: 9, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em', color: 'var(--accent-amber-icon-dim)' }}>
+              <span style={{ width: 70, flexShrink: 0, fontSize: 10, lineHeight: '11px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em', color: 'var(--accent-amber-icon-dim)' }}>
                 Artist
               </span>
               {editingArtist ? (
@@ -327,7 +327,7 @@ export default function FileInfoModal({ filePath, fileName, onClose, onRenamed }
                   onMouseEnter={e => { e.currentTarget.style.color = 'var(--text-amber)' }}
                   onMouseLeave={e => { e.currentTarget.style.color = 'var(--text-default)' }}
                   style={{
-                    flex: 1, minWidth: 0, fontSize: 9, fontFamily: 'var(--font-mono)', color: 'var(--text-default)',
+                    flex: 1, minWidth: 0, fontSize: 10, lineHeight: '11px', fontFamily: 'var(--font-mono)', color: 'var(--text-default)',
                     overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
                     cursor: PENCIL_CURSOR, transition: 'color 0.12s',
                   }}
@@ -337,7 +337,7 @@ export default function FileInfoModal({ filePath, fileName, onClose, onRenamed }
               )}
             </div>
             <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '6px 0', minHeight: 24, boxSizing: 'border-box', borderTop: '1px solid var(--border-row)' }}>
-              <span style={{ width: 70, flexShrink: 0, fontSize: 9, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em', color: 'var(--accent-amber-icon-dim)' }}>
+              <span style={{ width: 70, flexShrink: 0, fontSize: 10, lineHeight: '11px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em', color: 'var(--accent-amber-icon-dim)' }}>
                 Song
               </span>
               {editingSong ? (
@@ -361,7 +361,7 @@ export default function FileInfoModal({ filePath, fileName, onClose, onRenamed }
                   onMouseEnter={e => { e.currentTarget.style.color = 'var(--text-amber)' }}
                   onMouseLeave={e => { e.currentTarget.style.color = 'var(--text-default)' }}
                   style={{
-                    flex: 1, minWidth: 0, fontSize: 9, fontFamily: 'var(--font-mono)', color: 'var(--text-default)',
+                    flex: 1, minWidth: 0, fontSize: 10, lineHeight: '11px', fontFamily: 'var(--font-mono)', color: 'var(--text-default)',
                     overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
                     cursor: PENCIL_CURSOR, transition: 'color 0.12s',
                   }}
@@ -389,11 +389,11 @@ export default function FileInfoModal({ filePath, fileName, onClose, onRenamed }
                 display: 'flex', alignItems: 'center', gap: 8, padding: '6px 0', minHeight: 24, boxSizing: 'border-box',
                 borderTop: '1px solid var(--border-row)',
               }}>
-                <span style={{ width: 70, flexShrink: 0, fontSize: 9, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em', color: 'var(--accent-amber-icon-dim)' }}>
+                <span style={{ width: 70, flexShrink: 0, fontSize: 10, lineHeight: '11px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em', color: 'var(--accent-amber-icon-dim)' }}>
                   {row.label}
                 </span>
                 <span style={{
-                  flex: 1, minWidth: 0, fontSize: 9, fontFamily: 'var(--font-mono)',
+                  flex: 1, minWidth: 0, fontSize: 10, lineHeight: '11px', fontFamily: 'var(--font-mono)',
                   color: row.value === '—' ? 'var(--text-inactive)' : 'var(--text-default)',
                   overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
                 }} title={row.value}>
@@ -441,17 +441,17 @@ export default function FileInfoModal({ filePath, fileName, onClose, onRenamed }
             with a longer history — extra entries scroll inside it instead. ── */}
         {meta && (
           <div style={{ marginTop: 12, borderTop: '1px solid var(--border-row)', paddingTop: 10 }}>
-            <div style={{ fontSize: 9, fontWeight: 700, color: 'var(--accent-amber-icon-dim)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 6 }}>
+            <div style={{ fontSize: 10, fontWeight: 700, color: 'var(--accent-amber-icon-dim)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 6 }}>
               Orfeo History
             </div>
             <div style={{ height: 52, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: 6 }}>
               {log === null ? (
-                <div style={{ fontSize: 9, fontFamily: 'var(--font-mono)', color: 'var(--text-inactive)' }}>Loading…</div>
+                <div style={{ fontSize: 10, fontFamily: 'var(--font-mono)', color: 'var(--text-inactive)' }}>Loading…</div>
               ) : log.length === 0 ? (
-                <div style={{ fontSize: 9, fontFamily: 'var(--font-mono)', color: 'var(--text-inactive)' }}>No recorded changes yet.</div>
+                <div style={{ fontSize: 10, fontFamily: 'var(--font-mono)', color: 'var(--text-inactive)' }}>No recorded changes yet.</div>
               ) : (
                 [...log].reverse().map((ev, i) => (
-                  <div key={i} style={{ display: 'flex', gap: 8, fontSize: 9, fontFamily: 'var(--font-mono)', flexShrink: 0 }}>
+                  <div key={i} style={{ display: 'flex', gap: 8, fontSize: 10, fontFamily: 'var(--font-mono)', flexShrink: 0 }}>
                     <span style={{ flexShrink: 0, color: 'var(--text-inactive)', whiteSpace: 'nowrap', display: 'flex', flexDirection: 'column', lineHeight: 1.3 }}>
                       <span>{formatLogDate(ev.timestamp)}</span>
                       <span>{formatLogTime(ev.timestamp)}</span>

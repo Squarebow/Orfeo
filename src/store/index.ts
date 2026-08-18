@@ -4,6 +4,7 @@ import type {
   KeyboardSize, KeyboardMode, NoteNaming, Accidentals, ChordEvent, TranscriptEntry, LibraryFile, HitEffectPattern, SoundfontId,
 } from '../types'
 import type { DetectedKey } from '../utils/keyDetection'
+import type { ForeignFormat } from '../utils/foreignFormatImport'
 import { detectKeyFromTracks, parseKeySignature } from '../utils/keyDetection'
 import { isKeyboardInstrument } from '../utils/gmInstruments'
 import { parseMidiBuffer } from '../utils/midiParser'
@@ -111,14 +112,14 @@ interface OrfeoStore {
   setMidiEditorOpen: (open: boolean) => void
   pendingImportedFile: {
     sourcePath: string;
-    format: 'musicxml' | 'guitarpro';
+    format: ForeignFormat;
     midiBase64: string;
     fileName: string;
   } | null
   setPendingImportedFile: (
     value: {
       sourcePath: string;
-      format: 'musicxml' | 'guitarpro';
+      format: ForeignFormat;
       midiBase64: string;
       fileName: string;
     } | null
@@ -311,8 +312,21 @@ interface OrfeoStore {
   autoCollapseDrawers: boolean
   setAutoCollapseDrawers: (v: boolean) => void
 
+  // ── Tracks panel's per-track color line doubles as a mini VU meter during
+  // playback when this is on; always shows the plain static color when off. ──
+  trackVuColorEnabled: boolean
+  setTrackVuColorEnabled: (v: boolean) => void
+
   handLabelMode: 'practice' | 'performance'
   setHandLabelMode: (mode: 'practice' | 'performance') => void
+
+  // ── Accessibility — an "L"/"R" letter badge on hand-colored keys, for
+  // colorblind users who can't rely on the blue/pink alone. Independent of
+  // showHandLabels: a genuine split-hand track's keys stay blue/pink even
+  // with Left/Right Hand off (see handColors.ts), so this needs its own
+  // toggle rather than riding on that one. ──────────────────────────────────
+  showHandLetters: boolean
+  setShowHandLetters: (v: boolean) => void
 
   performanceSplitSensitivity: number
   setPerformanceSplitSensitivity: (n: number) => void
@@ -701,11 +715,17 @@ export const useStore = create<OrfeoStore>((set, get) => ({
   autoCollapseDrawers: false,
   setAutoCollapseDrawers: (autoCollapseDrawers) => set({ autoCollapseDrawers }),
 
+  trackVuColorEnabled: true,
+  setTrackVuColorEnabled: (trackVuColorEnabled) => set({ trackVuColorEnabled }),
+
   // ── Hand label mode — practice (static, tag-based) or performance (per-note, live) ─
   // Practice mode's UI toggle is disabled (see SettingsPanel.tsx) — proves
   // inconsistent, may return once improved. Always performance until then.
   handLabelMode: 'performance' as 'practice' | 'performance',
   setHandLabelMode: (handLabelMode) => set({ handLabelMode }),
+
+  showHandLetters: false,
+  setShowHandLetters: (showHandLetters) => set({ showHandLetters }),
 
   // ── Performance split sensitivity — hardware-input fallback only (file notes
   // read their exact stored tag, no sensitivity involved); semitone gap
@@ -825,12 +845,14 @@ async function restoreLibraryPrefs() {
     // Only 'performance' is restorable — Practice's UI toggle is disabled,
     // so a stale saved 'practice' pref must not resurrect it with no way back.
     if (prefs.handLabelMode === 'performance') store.setHandLabelMode(prefs.handLabelMode)
+    if (typeof prefs.showHandLetters === 'boolean') store.setShowHandLetters(prefs.showHandLetters)
     if (typeof prefs.performanceSplitSensitivity === 'number') store.setPerformanceSplitSensitivity(prefs.performanceSplitSensitivity)
     if (prefs.rhMaxFingers === 4 || prefs.rhMaxFingers === 5) store.setRhMaxFingers(prefs.rhMaxFingers)
     if (prefs.lhMaxFingers === 4 || prefs.lhMaxFingers === 5) store.setLhMaxFingers(prefs.lhMaxFingers)
     if (typeof prefs.showOctaveLabels === 'boolean') store.setShowOctaveLabels(prefs.showOctaveLabels)
     if (typeof prefs.showNoteNamesOnKeyboard === 'boolean') store.setShowNoteNamesOnKeyboard(prefs.showNoteNamesOnKeyboard)
     if (typeof prefs.autoCollapseDrawers === 'boolean') store.setAutoCollapseDrawers(prefs.autoCollapseDrawers)
+    if (typeof prefs.trackVuColorEnabled === 'boolean') store.setTrackVuColorEnabled(prefs.trackVuColorEnabled)
     if (typeof prefs.autoMuteNonKeyboard === 'boolean') store.setAutoMuteNonKeyboard(prefs.autoMuteNonKeyboard)
     if (prefs.settingsGroupsCollapsed && typeof prefs.settingsGroupsCollapsed === 'object' && !Array.isArray(prefs.settingsGroupsCollapsed)) {
       const defaults = store.settingsGroupsCollapsed
@@ -891,12 +913,14 @@ let _prevSplitBreakpointRangeEnd: number | null = null
 let _prevShowHandLabels: boolean | null = null
 let _prevLoopRegionEnabled: boolean | null = null
 let _prevHandLabelMode: string | null = null
+let _prevShowHandLetters: boolean | null = null
 let _prevPerformanceSplitSensitivity: number | null = null
 let _prevRhMaxFingers: number | null = null
 let _prevLhMaxFingers: number | null = null
 let _prevShowOctaveLabels: boolean | null = null
 let _prevShowNoteNamesOnKeyboard: boolean | null = null
 let _prevAutoCollapseDrawers: boolean | null = null
+let _prevTrackVuColorEnabled: boolean | null = null
 let _prevAutoMuteNonKeyboard: boolean | null = null
 let _prevSettingsGroupsCollapsed: string | null = null
 let _prevNoteEditorWalkthroughSeen: boolean | null = null
@@ -933,12 +957,14 @@ const _unsubPrefs = useStore.subscribe((state) => {
     _prevShowHandLabels = state.showHandLabels
     _prevLoopRegionEnabled = state.loopRegionEnabled
     _prevHandLabelMode = state.handLabelMode
+    _prevShowHandLetters = state.showHandLetters
     _prevPerformanceSplitSensitivity = state.performanceSplitSensitivity
     _prevRhMaxFingers = state.rhMaxFingers
     _prevLhMaxFingers = state.lhMaxFingers
     _prevShowOctaveLabels = state.showOctaveLabels
     _prevShowNoteNamesOnKeyboard = state.showNoteNamesOnKeyboard
     _prevAutoCollapseDrawers = state.autoCollapseDrawers
+    _prevTrackVuColorEnabled = state.trackVuColorEnabled
     _prevAutoMuteNonKeyboard = state.autoMuteNonKeyboard
     _prevSettingsGroupsCollapsed = JSON.stringify(state.settingsGroupsCollapsed)
     _prevNoteEditorWalkthroughSeen = state.noteEditorWalkthroughSeen
@@ -977,12 +1003,14 @@ const _unsubPrefs = useStore.subscribe((state) => {
     state.showHandLabels !== _prevShowHandLabels ||
     state.loopRegionEnabled !== _prevLoopRegionEnabled ||
     state.handLabelMode !== _prevHandLabelMode ||
+    state.showHandLetters !== _prevShowHandLetters ||
     state.performanceSplitSensitivity !== _prevPerformanceSplitSensitivity ||
     state.rhMaxFingers !== _prevRhMaxFingers ||
     state.lhMaxFingers !== _prevLhMaxFingers ||
     state.showOctaveLabels !== _prevShowOctaveLabels ||
     state.showNoteNamesOnKeyboard !== _prevShowNoteNamesOnKeyboard ||
     state.autoCollapseDrawers !== _prevAutoCollapseDrawers ||
+    state.trackVuColorEnabled !== _prevTrackVuColorEnabled ||
     state.autoMuteNonKeyboard !== _prevAutoMuteNonKeyboard ||
     JSON.stringify(state.settingsGroupsCollapsed) !== _prevSettingsGroupsCollapsed ||
     state.noteEditorWalkthroughSeen !== _prevNoteEditorWalkthroughSeen ||
@@ -1015,12 +1043,14 @@ const _unsubPrefs = useStore.subscribe((state) => {
     _prevShowHandLabels = state.showHandLabels
     _prevLoopRegionEnabled = state.loopRegionEnabled
     _prevHandLabelMode = state.handLabelMode
+    _prevShowHandLetters = state.showHandLetters
     _prevPerformanceSplitSensitivity = state.performanceSplitSensitivity
     _prevRhMaxFingers = state.rhMaxFingers
     _prevLhMaxFingers = state.lhMaxFingers
     _prevShowOctaveLabels = state.showOctaveLabels
     _prevShowNoteNamesOnKeyboard = state.showNoteNamesOnKeyboard
     _prevAutoCollapseDrawers = state.autoCollapseDrawers
+    _prevTrackVuColorEnabled = state.trackVuColorEnabled
     _prevAutoMuteNonKeyboard = state.autoMuteNonKeyboard
     _prevSettingsGroupsCollapsed = JSON.stringify(state.settingsGroupsCollapsed)
     _prevNoteEditorWalkthroughSeen = state.noteEditorWalkthroughSeen
@@ -1057,12 +1087,14 @@ const _unsubPrefs = useStore.subscribe((state) => {
       showHandLabels: state.showHandLabels,
       loopRegionEnabled: state.loopRegionEnabled,
       handLabelMode: state.handLabelMode,
+      showHandLetters: state.showHandLetters,
       performanceSplitSensitivity: state.performanceSplitSensitivity,
       rhMaxFingers: state.rhMaxFingers,
       lhMaxFingers: state.lhMaxFingers,
       showOctaveLabels: state.showOctaveLabels,
       showNoteNamesOnKeyboard: state.showNoteNamesOnKeyboard,
       autoCollapseDrawers: state.autoCollapseDrawers,
+      trackVuColorEnabled: state.trackVuColorEnabled,
       autoMuteNonKeyboard: state.autoMuteNonKeyboard,
       settingsGroupsCollapsed: state.settingsGroupsCollapsed,
       noteEditorWalkthroughSeen: state.noteEditorWalkthroughSeen,

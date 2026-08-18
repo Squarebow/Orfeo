@@ -455,8 +455,8 @@ export default function NoteEditorToolbar() {
         position: 'fixed',
         left: pos.x, top: pos.y,
         zIndex: 9700,
-        width: 570,
-        background: 'var(--panel)',
+        width: 620,
+        background: 'var(--bg-modal-header)',
         border: '1px solid var(--state-hover-border)',
         borderRadius: 'var(--radius-md)',
         display: 'flex',
@@ -481,14 +481,14 @@ export default function NoteEditorToolbar() {
           dragState.current = { startX: e.clientX, startY: e.clientY, startPosX: pos.x, startPosY: pos.y }
         }}
         title="Drag to move"
-        style={{ display: 'grid', gridTemplateColumns: '130px 1fr 130px', alignItems: 'center', minHeight: 32, padding: '4px 6px 4px 8px', gap: 6, cursor: 'grab' }}
+        style={{ display: 'grid', gridTemplateColumns: '155px 1fr 155px', alignItems: 'center', minHeight: 32, padding: '4px 6px 4px 8px', gap: 6, cursor: 'grab' }}
       >
         <div style={{ display: 'flex', alignItems: 'center', gap: 6, minWidth: 0 }}>
           <div style={{ display: 'flex', alignItems: 'center', flexShrink: 0 }}>
             <OrfeoMark height={16} />
           </div>
           <span style={{
-            fontSize: 10, fontWeight: 700, letterSpacing: '0.08em',
+            fontSize: 14, fontWeight: 700, letterSpacing: '0.08em',
             color: 'var(--text-amber)', textTransform: 'uppercase',
             whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
           }}>
@@ -496,7 +496,7 @@ export default function NoteEditorToolbar() {
           </span>
         </div>
         <div style={{
-          fontSize: 9, color: 'var(--text-dim-control)', textAlign: 'center',
+          fontSize: 11, color: 'var(--text-dim-control)', textAlign: 'center',
           whiteSpace: 'normal', lineHeight: 1.3,
         }}>
           Click a track in the Tracks panel to solo it for editing
@@ -630,7 +630,7 @@ export default function NoteEditorToolbar() {
           wider or truncating with an ellipsis. ─────────────────────────── */}
       <div style={{ display: 'flex', alignItems: 'stretch', gap: 8, padding: '6px 8px', borderTop: '1px solid var(--state-hover-bg)' }}>
         <div style={{
-          flex: '2 1 0%', minWidth: 0, fontSize: 9.5, color: 'var(--text-muted)',
+          flex: '2 1 0%', minWidth: 0, fontSize: 12, color: 'var(--text-muted)',
           fontStyle: 'italic', lineHeight: 1.4, whiteSpace: 'normal', wordBreak: 'break-word',
         }}>
           {iconHint ? (
@@ -649,7 +649,7 @@ export default function NoteEditorToolbar() {
           <button
             onClick={() => void doReset()}
             style={{
-              ...btnBase, flex: 1, justifyContent: 'center', fontSize: 9.5,
+              ...btnBase, flex: 1, justifyContent: 'center', fontSize: 12,
               color: 'var(--text-muted)', borderColor: 'var(--border2)', background: 'transparent',
               whiteSpace: 'nowrap', padding: '0 4px', transition: 'all 0.12s',
             }}
@@ -662,7 +662,7 @@ export default function NoteEditorToolbar() {
             onClick={() => void handleSave()}
             {...hintHandlers('Save & Reload — save edits as a new versioned copy (_ORFEO_vN)')}
             style={{
-              ...btnBase, flex: 1, justifyContent: 'center', fontSize: 9.5, fontWeight: 600,
+              ...btnBase, flex: 1, justifyContent: 'center', fontSize: 12, fontWeight: 600,
               color: 'var(--text-near-black)', border: 'none', background: 'var(--text-amber)',
               whiteSpace: 'nowrap', padding: '0 4px', gap: 5,
             }}
@@ -712,7 +712,7 @@ export default function NoteEditorToolbar() {
 // fontSize matches the Reset/Save & Reload buttons below (9.5) — was 9,
 // visibly smaller than the button row's text.
 const rowLabelStyle: React.CSSProperties = {
-  fontSize: 9.5, fontWeight: 700, letterSpacing: '0.1em',
+  fontSize: 12, fontWeight: 700, letterSpacing: '0.1em',
   color: 'var(--text-dimmest)', textTransform: 'uppercase', flexShrink: 0,
 }
 

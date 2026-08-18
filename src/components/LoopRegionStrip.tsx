@@ -8,6 +8,7 @@ import React, { useEffect, useRef, useState, useCallback, type CSSProperties } f
 import { createPortal } from 'react-dom'
 import { ChevronUp, ChevronDown } from 'lucide-react'
 import { useStore } from '../store'
+import Tooltip from './Tooltip'
 
 const STRIP_H       = 24
 const HANDLE_VIS_W  = 4   // drawn width — thin enough not to hide small selections
@@ -467,6 +468,13 @@ export default function LoopRegionStrip() {
   return (
     <>
       {/* ── Canvas — fills the shared 400px wrapper in TopBar ─────────────── */}
+      <Tooltip
+        title={hasSelection ? 'Loop region set' : 'Select a bar range'}
+        description={hasSelection
+          ? 'Click outside the selection to clear it, or drag its handles to adjust.'
+          : 'Drag to select a bar range, or Alt+drag on the waterfall above for precise timing.'}
+        wrapperStyle={{ width: '100%', display: 'block' }}
+      >
       <canvas
         ref={canvasRef}
         className="app-no-drag"
@@ -475,11 +483,9 @@ export default function LoopRegionStrip() {
         onDoubleClick={() => useStore.getState().clearLoopRegion()}
         onDragStart={e => e.preventDefault()}
         draggable={false}
-        title={hasSelection
-          ? 'Click outside selection to reset · Drag handles to adjust'
-          : 'Drag to select a bar range · Alt+drag on waterfall for precise timing'}
         style={{ display: 'block', width: '100%', height: STRIP_H, cursor: 'crosshair' }}
       />
+      </Tooltip>
 
       {/* ── Icon + bars + popup — anchored outside the wrapper's right edge ── */}
       {/* app-no-drag: this whole strip sits inside TopBar's app-drag-region
@@ -491,10 +497,10 @@ export default function LoopRegionStrip() {
           is what made this so easy to falsely "verify" as working. ────────── */}
       <div className="app-no-drag" style={{ position: 'absolute', left: 'calc(100% + 8px)', top: 0, height: STRIP_H, display: 'flex', alignItems: 'center', gap: 6 }}>
         <div style={{ position: 'relative', display: 'flex', alignItems: 'center', gap: 6 }}>
+          <Tooltip title="Select bar range" description="Opens a popup to type an exact start/end bar for the loop region.">
           <button
             ref={iconBtnRef}
             onClick={handleIconClick}
-            title="Select bar range manually"
             style={{
               display: 'flex', alignItems: 'center', justifyContent: 'center',
               width: 20, height: STRIP_H,
@@ -514,6 +520,7 @@ export default function LoopRegionStrip() {
               <path d="M15 20h4"/>
             </svg>
           </button>
+          </Tooltip>
 
           {/* Bars range label — visible only when selection exists, always amber */}
           {loopBarRange && (

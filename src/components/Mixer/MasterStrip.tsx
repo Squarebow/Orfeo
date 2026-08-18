@@ -91,8 +91,9 @@ function IBtn({ children, onClick, active, title, description, activeColor = 'va
       onClick={onClick}
       style={{
         display: 'flex', alignItems: 'center', justifyContent: 'center',
-        width: 26, height: 26, background: 'var(--bg-deep)', border: 'none',
-        cursor: 'pointer', borderRadius: 4, transition: 'color 0.1s',
+        width: 26, height: 26, background: 'transparent',
+        border: `1.5px solid ${active ? activeColor : 'var(--border2)'}`,
+        cursor: 'pointer', borderRadius: 4, transition: 'color 0.1s, border-color 0.1s',
         color: active ? activeColor : 'var(--text-icon-inactive)', flexShrink: 0,
       }}
       onMouseEnter={e => { if (!active) e.currentTarget.style.color = 'var(--text-icon-hover)'; setHover(true) }}
@@ -153,6 +154,13 @@ function CompressorPresetKnob({ presetIndex, onChange, disabled, interactive }: 
   }, [presetIndex])
 
   const hovered = hoverPreset !== null ? COMPRESSOR_PRESETS[hoverPreset] : null
+  // While the engine itself has the compressor unavailable, every tick shows
+  // the same "switch engines" explanation instead of its own preset info —
+  // there's nothing preset-specific to say if you can't select any of them.
+  const content = hoverPreset === null ? null
+    : disabled ? { title: 'Compressor', description: 'You must switch to Samples engine to use the Compressor.' }
+    : hovered ? { title: hovered.label, description: `${hovered.ratio}:1 ratio, ${hovered.threshold} dB threshold` }
+    : null
 
   return (
     <div
@@ -167,9 +175,9 @@ function CompressorPresetKnob({ presetIndex, onChange, disabled, interactive }: 
         disabled={disabled || !interactive} dotCount={COMPRESSOR_PRESETS.length} tickMajorEvery={0}
       />
       <TooltipBox
-        anchorRect={hovered ? wrapRef.current?.getBoundingClientRect() ?? null : null}
-        content={hovered ? { title: hovered.label, description: `${hovered.ratio}:1 ratio, ${hovered.threshold} dB threshold` } : null}
-        visible={!!hovered}
+        anchorRect={hoverPreset !== null ? wrapRef.current?.getBoundingClientRect() ?? null : null}
+        content={content}
+        visible={hoverPreset !== null}
       />
     </div>
   )
@@ -524,22 +532,23 @@ export default function MasterStrip() {
       {/* ── Spacer ────────────────────────────────────────────────────────── */}
       <div style={{ height: 8, flexShrink: 0 }} />
 
-      {/* ── 3. VU display toggle (28px) — BARS / WAVE. marginTop:-9.3 pulls this
-          row and the merged icons/mute-filter row (4) up together as one
-          block, against the channel strips' own M/S/eye/kbd row — originally
-          measured via live CDP when rows 4/5 were still separate; re-verify
-          after the 4+5 merge below since the old marginBottom:17.3 absorber
-          that kept FX/Tone/Volume from shifting no longer exists in the new
-          single merged row. ── */}
+      {/* ── 3. VU display toggle (28px) — BARS / WAVE. marginTop:-24.3 pulls
+          this row and the merged icons/mute-filter row (4) up together as
+          one block (was -9.3; pulled up another 15px so they sit tighter
+          under the meter). A matching 15px spacer after row 4 (below) cancels
+          this shift for everything from row 5 on, so FX/Tone/Compressor/
+          Volume stay exactly where they were — the net effect is only a
+          bigger gap between the icons row and the Chorus/Reverb knobs, not
+          the whole strip shifting up. ── */}
       <div style={{
         height: 28, flexShrink: 0,
         display: 'flex', flexDirection: 'row',
         alignItems: 'center', justifyContent: 'center',
         gap: 8,
-        marginTop: -9.3,
+        marginTop: -24.3,
       }}>
         <span style={{
-          fontSize: 9, fontFamily: 'var(--font-mono)', letterSpacing: '0.08em',
+          fontSize: 10, fontFamily: 'var(--font-mono)', letterSpacing: '0.08em',
           color: 'var(--text-amber)', whiteSpace: 'nowrap',
           textTransform: 'uppercase', fontWeight: 700,
         }}>
@@ -624,7 +633,7 @@ export default function MasterStrip() {
               border: 'none',
               background: 'var(--text-amber)',
               color: 'var(--text-on-amber)',
-              fontSize: 9,
+              fontSize: 10,
               fontWeight: 700,
               fontFamily: 'var(--font-ui)',
               letterSpacing: '0.02em',
@@ -645,6 +654,10 @@ export default function MasterStrip() {
         )}
       </div>
 
+      {/* ── Spacer — cancels row 3's -15px so rows 5+ (FX/Tone/Compressor/
+          Volume) stay put; see row 3's comment above. ── */}
+      <div style={{ height: 15, flexShrink: 0 }} />
+
       {/* ── 5. FX row — Chorus + Reverb pushed to the strip's edges (56px).
           "FX" label dropped; space-between + inset padding does the
           separating instead of a fixed gap. ──────────────────────────── */}
@@ -656,14 +669,16 @@ export default function MasterStrip() {
         <MixerKnob
           value={chorus} onChange={handleChorus}
           accentColor="var(--knob-chorus)" size={52}
-          disabled={knobsDisabled} label="Chorus"
+          disabled={knobsDisabled} label="Chorus" labelOffset={-10}
           title="Chorus" description="Thickens the overall mix by layering slightly detuned copies of it"
+          disabledHint="You must switch to Samples engine to use Chorus."
         />
         <MixerKnob
           value={reverb} onChange={handleReverb}
           accentColor="var(--knob-reverb)" size={52}
-          disabled={knobsDisabled} label="Reverb"
+          disabled={knobsDisabled} label="Reverb" labelOffset={-10}
           title="Reverb" description="Adds overall room/space ambience to the mix"
+          disabledHint="You must switch to Samples engine to use Reverb."
         />
       </div>
 
@@ -698,10 +713,11 @@ export default function MasterStrip() {
             accentColor="var(--knob-tone)" size={52}
             disabled={knobsDisabled} bipolar
             title="Tone" description="Tilts the overall EQ darker or brighter"
+            disabledHint="You must switch to Samples engine to use Tone."
           />
           <span style={{
             position: 'absolute', top: '100%', left: '50%', transform: 'translateX(-50%)',
-            marginTop: 7, fontSize: 9, fontFamily: 'var(--font-mono)', letterSpacing: '0.08em',
+            marginTop: -3, fontSize: 10, fontFamily: 'var(--font-mono)', letterSpacing: '0.08em',
             textTransform: 'uppercase', color: 'var(--text-dimmest)',
             userSelect: 'none', lineHeight: 1, whiteSpace: 'nowrap',
           }}>
@@ -714,8 +730,10 @@ export default function MasterStrip() {
             from the usual dark/amber IBtn pattern since this needs to read
             clearly against the knob's own pink even at a glance. */}
         <Tooltip
-          title={masterCompEnabled ? 'Compressor on' : 'Compressor off'}
-          description="Automatically pulls down the loudest peaks so playback stays clear of digital clipping, without a blanket volume cut. Click to toggle."
+          title={knobsDisabled ? 'Compressor' : masterCompEnabled ? 'Compressor on' : 'Compressor off'}
+          description={knobsDisabled
+            ? 'You must switch to Samples engine to use the Compressor.'
+            : 'Automatically pulls down the loudest peaks so playback stays clear of digital clipping, without a blanket volume cut. Click to toggle.'}
         >
         <button
           onClick={handleCompToggle}
@@ -751,7 +769,7 @@ export default function MasterStrip() {
           />
           <span style={{
             position: 'absolute', top: '100%', left: '50%', transform: 'translateX(-50%)',
-            marginTop: 7, fontSize: 9, fontFamily: 'var(--font-mono)', letterSpacing: '0.08em',
+            marginTop: -3, fontSize: 10, fontFamily: 'var(--font-mono)', letterSpacing: '0.08em',
             textTransform: 'uppercase', color: 'var(--text-dimmest)',
             userSelect: 'none', lineHeight: 1, whiteSpace: 'nowrap',
           }}>
@@ -820,7 +838,7 @@ export default function MasterStrip() {
           display: 'flex', alignItems: 'center', justifyContent: 'center',
         }}>
           <span style={{
-            fontSize: 8, fontFamily: 'var(--font-mono)', letterSpacing: '0.1em',
+            fontSize: 10, fontFamily: 'var(--font-mono)', letterSpacing: '0.1em',
             textTransform: 'uppercase', color: 'var(--text-dimmest)',
           }}>
             Volume

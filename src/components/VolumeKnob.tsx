@@ -1,5 +1,6 @@
 import { useRef, useState, useEffect, useCallback } from 'react'
 import { useStore } from '../store'
+import { TooltipBox } from './Tooltip'
 
 // ── Bar geometry — signal-strength style: N vertical bars of ascending
 // height, dot-sized at the left growing to full height at the right. Bars
@@ -23,6 +24,13 @@ export default function VolumeKnob() {
   const draggingRef     = useRef(false)
   const trackRef        = useRef<HTMLDivElement>(null)
   const [isDragging, setIsDragging] = useState(false)
+  // ── Same "hover OR dragging" combined-visibility pattern as MasterStrip's
+  // Master Volume knob tooltip — a separate hover-only Tooltip plus a
+  // separate isDragging-only box would show two overlapping readouts at
+  // once while actually dragging, since the mouse stays over the track the
+  // whole time. One TooltipBox with `visible: hover || isDragging` avoids
+  // that entirely. ──────────────────────────────────────────────────────
+  const [hover, setHover] = useState(false)
 
   // ── Convert mouse X to volume via track-relative fraction ────────────────
   const getVolumeFromMouse = useCallback((e: MouseEvent): number => {
@@ -67,7 +75,8 @@ export default function VolumeKnob() {
     <div
       className="app-no-drag"
       style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', padding: '0 14px', flexShrink: 0 }}
-      title={`Volume: ${pct}%`}
+      onMouseEnter={() => setHover(true)}
+      onMouseLeave={() => setHover(false)}
     >
       <div
         ref={trackRef}
@@ -78,23 +87,12 @@ export default function VolumeKnob() {
           cursor: 'pointer', flexShrink: 0, position: 'relative',
         }}
       >
-        {/* ── Live value — native `title` tooltips don't update mid-hover
-            and don't show during an active drag, so this is a real element,
-            shown only while dragging. `position:absolute` — doesn't add
-            flow height/width, so it can't shift the playback controls or
-            anything else in the row. ── */}
-        {isDragging && (
-          <div style={{
-            position: 'absolute', right: '100%', top: '50%',
-            transform: 'translateY(-50%)',
-            marginRight: 6, padding: '2px 6px',
-            background: 'var(--bg-tooltip)', border: '1px solid var(--accent-amber-strong)',
-            borderRadius: 4, whiteSpace: 'nowrap', pointerEvents: 'none',
-            color: 'var(--text-amber)', fontSize: 10, fontFamily: 'var(--font-mono)',
-          }}>
-            {pct}%
-          </div>
-        )}
+        <TooltipBox
+          anchorRect={(hover || isDragging) ? trackRef.current?.getBoundingClientRect() ?? null : null}
+          content={{ title: 'Volume', description: `${pct}%` }}
+          placement="left"
+          visible={hover || isDragging}
+        />
         {Array.from({ length: BAR_COUNT }, (_, i) => {
           const h      = BAR_MIN_H + (BAR_MAX_H - BAR_MIN_H) * (i / (BAR_COUNT - 1))
           const active = i < activeBars
@@ -107,7 +105,7 @@ export default function VolumeKnob() {
         })}
       </div>
       <span style={{
-        color: 'var(--text-muted)', fontSize: 8, fontFamily: 'var(--font-mono)',
+        color: 'var(--text-muted)', fontSize: 9, fontFamily: 'var(--font-mono)',
         textTransform: 'uppercase', letterSpacing: '0.1em', lineHeight: 1,
         marginTop: 6, whiteSpace: 'nowrap', pointerEvents: 'none',
       }}>

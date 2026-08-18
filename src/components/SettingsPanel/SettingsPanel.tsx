@@ -1,4 +1,4 @@
-import { useState, useMemo, useRef, useEffect, useCallback, useId, type CSSProperties } from 'react'
+import { useState, useMemo, useRef, useEffect, useCallback, useId, type CSSProperties, type ReactNode } from 'react'
 import Fuse from 'fuse.js'
 import { confirmDiscardDirtyNoteEdits } from '../../utils/noteEditorState'
 import { confirmDialog } from '../../utils/confirmController'
@@ -16,6 +16,8 @@ import { MarqueeText } from '../MarqueeText'
 import { detectForeignFormat } from '../../utils/foreignFormatImport'
 import { TRACK_COLOR_PALETTE } from '../../utils/colors'
 import FileInfoModal from '../FileInfoModal'
+import Tooltip, { TooltipBox, useTooltip } from '../Tooltip'
+import { ContextMenu, ContextMenuItem, ContextMenuDivider, ContextMenuLabel } from '../ContextMenu'
 
 // ── EyeClosed — custom icon replacing lucide EyeOff throughout settings ───────
 function EyeClosed({ size = 24, strokeWidth = 2 }: { size?: number; strokeWidth?: number }) {
@@ -125,10 +127,11 @@ function OptionRow({ label, children, hint, hintCenter, badge, eyeToggle, eyeVal
             {label}
             {badge}
           </div>
-          {/* ── Toggle icon — same line as name, right-aligned ── */}
+          {/* ── Toggle icon — same line as name, right-aligned. No tooltip: the
+              description line right below already explains the feature, so a
+              hover tooltip on the toggle itself was pure redundancy. ── */}
           <button
             onClick={() => onEyeChange?.(!eyeValue)}
-            title={eyeValue ? 'Click to turn off' : 'Click to turn on'}
             style={{
               background: 'none', border: 'none', cursor: 'pointer', padding: 2,
               color: eyeValue ? 'var(--text-amber)' : 'var(--text-inactive)',
@@ -213,7 +216,7 @@ function CollapsibleSection({ icon, label, defaultCollapsed = false, collapsed: 
         <span style={{ color: 'var(--text-amber)', display: 'flex', alignItems: 'center' }}>{icon}</span>
         {/* ── Group label — amber uppercase ── */}
         <span style={{
-          flex: 1, fontSize: 10, fontWeight: 700,
+          flex: 1, fontSize: 12, fontWeight: 700, lineHeight: '12px',
           textTransform: 'uppercase', letterSpacing: '0.1em', color: 'var(--text-amber)',
         }}>
           {label}
@@ -232,19 +235,18 @@ function CollapsibleSection({ icon, label, defaultCollapsed = false, collapsed: 
 
 // ── Option button — amber-tinted pill toggle for multi-choice settings rows
 // activeColor: 'accent' (default, amber) | 'error' (red — used for Hide/EyeOff)
-function OptionBtn({ active, onClick, children, title, comingSoon, activeColor = 'accent' }: {
+function OptionBtn({ active, onClick, children, title, oneLine, comingSoon, activeColor = 'accent' }: {
   active: boolean; onClick: () => void; children: React.ReactNode
-  title?: string; comingSoon?: boolean; activeColor?: 'accent' | 'error'
+  title?: string; oneLine?: boolean; comingSoon?: boolean; activeColor?: 'accent' | 'error'
 }) {
   // ── Active colour tokens — amber for selections, red for the Hide exception ──
   const activeBorder = activeColor === 'error' ? 'var(--status-error)' : 'var(--accent-amber-strong)'
   const activeBg    = activeColor === 'error' ? 'var(--status-error-tint-bg)' : 'var(--accent-amber-medium)'
   const activeText  = activeColor === 'error' ? 'var(--status-error)'    : 'var(--text-amber)'
 
-  return (
+  const btn = (
     <button
       onClick={comingSoon ? undefined : onClick}
-      title={title}
       style={{
         flex: 1, padding: '4px 0', borderRadius: 4,
         border: active ? `1px solid ${activeBorder}` : '1px solid var(--border2)',
@@ -264,6 +266,41 @@ function OptionBtn({ active, onClick, children, title, comingSoon, activeColor =
     >
       {children}
     </button>
+  )
+  // title is optional and per-call-site free text (sometimes just a short
+  // hint, sometimes a longer explanation) — wrap only when present, and
+  // reuse it as the tooltip's own title verbatim rather than inventing a
+  // separate description, since callers already wrote it as one clause.
+  return title ? <Tooltip title={title} oneLine={oneLine} wrapperStyle={{ flex: 1 }}>{btn}</Tooltip> : btn
+}
+
+// ── FingerStepper — compact "< 4 >" toggle between the only two valid max-
+// finger values (4/5). Replaces two full-width OptionBtn pills with a
+// single small control, ~1/3 the footprint. ────────────────────────────────
+function FingerStepper({ value, onChange }: { value: 4 | 5; onChange: (v: 4 | 5) => void }) {
+  const chevronStyle = (disabled: boolean): React.CSSProperties => ({
+    background: 'none', border: 'none', padding: 1, display: 'flex', alignItems: 'center',
+    cursor: disabled ? 'default' : 'pointer',
+    color: disabled ? 'var(--state-disabled)' : 'var(--text-inactive)',
+  })
+  return (
+    <div style={{ display: 'flex', alignItems: 'center', gap: 2, border: '1px solid var(--border2)', borderRadius: 4, padding: '1px 3px' }}>
+      <button
+        onClick={() => onChange(4)}
+        disabled={value === 4}
+        style={chevronStyle(value === 4)}
+        onMouseEnter={e => { if (value !== 4) e.currentTarget.style.color = 'var(--text-amber)' }}
+        onMouseLeave={e => { e.currentTarget.style.color = value === 4 ? 'var(--state-disabled)' : 'var(--text-inactive)' }}
+      ><ChevronLeft size={11} /></button>
+      <span style={{ fontSize: 'var(--text-xs)', fontFamily: 'var(--font-mono)', fontWeight: 700, color: 'var(--text-amber)', minWidth: 10, textAlign: 'center' }}>{value}</span>
+      <button
+        onClick={() => onChange(5)}
+        disabled={value === 5}
+        style={chevronStyle(value === 5)}
+        onMouseEnter={e => { if (value !== 5) e.currentTarget.style.color = 'var(--text-amber)' }}
+        onMouseLeave={e => { e.currentTarget.style.color = value === 5 ? 'var(--state-disabled)' : 'var(--text-inactive)' }}
+      ><ChevronRight size={11} /></button>
+    </div>
   )
 }
 
@@ -293,9 +330,12 @@ function HitEffectColorSwatch({ color, onChange }: { color: string | null; onCha
 
   return (
     <div ref={ref} style={{ position: 'relative', flexShrink: 0 }}>
+      <Tooltip
+        title="Particle color"
+        description="Overrides every track's color for the effect flourish only — the falling notes and key glow keep their own track colors."
+      >
       <button
         onClick={() => { setHexInput(color ?? '#e8a027'); setOpen(o => !o) }}
-        title="Effect particle color — overrides every track's color for the flourish only, not the falling notes or key glow"
         style={{
           display: 'flex', alignItems: 'center', gap: 5, padding: 0, marginLeft: 6,
           border: 'none', background: 'none', cursor: 'pointer',
@@ -305,10 +345,11 @@ function HitEffectColorSwatch({ color, onChange }: { color: string | null; onCha
         <span style={{ fontSize: 'var(--text-xs)', color: 'var(--text-faint)', fontFamily: 'var(--font-ui)', whiteSpace: 'nowrap' }}>Color</span>
         <span style={{
           width: 14, height: 14, borderRadius: 3, flexShrink: 0,
-          background: color ?? 'repeating-conic-gradient(#666 0% 25%, #999 0% 50%) 50% / 6px 6px',
+          background: color ?? 'var(--hand-lh)',
           border: '1px solid var(--border2)',
         }} />
       </button>
+      </Tooltip>
       {open && (
         <div style={{
           position: 'absolute', top: '100%', right: 0, marginTop: 4, zIndex: 20,
@@ -396,9 +437,9 @@ function TranscriptIcon({ filePath, noteNaming, accidentals, addTranscriptEntry,
   const iconColor = state === 'success' ? 'var(--text-amber)' : state === 'error' ? 'var(--status-error)' : 'var(--text-dimmest)'
 
   return (
+    <Tooltip title={isLoaded && state === 'idle' ? 'Chord transcription active for this file — click to create a PDF' : tooltip} wrapperStyle={{ flexShrink: 0 }}>
     <div
       onClick={(e) => { e.stopPropagation(); void handleClick() }}
-      title={isLoaded && state === 'idle' ? 'Chord transcription active for this file — click to create a PDF' : tooltip}
       className={isLoaded && state === 'idle' ? 'loop-nudge-blink' : undefined}
       style={{
         cursor: state === 'loading' ? 'wait' : 'pointer',
@@ -412,13 +453,148 @@ function TranscriptIcon({ filePath, noteNaming, accidentals, addTranscriptEntry,
     >
       <FileMusic size={11} strokeWidth={1.5} />
     </div>
+    </Tooltip>
   )
 }
 
 // ── MarqueeFilename — alias for MarqueeText with library-specific font style ──
-const FILENAME_SPAN_STYLE: React.CSSProperties = { fontSize: 'var(--text-xs)', color: 'var(--text-muted)' }
+const FILENAME_SPAN_STYLE: React.CSSProperties = { fontSize: 'var(--text-sm)', color: 'var(--text-muted)', fontFamily: 'var(--font-ui)' }
 function MarqueeFilename({ name }: { name: string }) {
   return <MarqueeText name={name} spanStyle={FILENAME_SPAN_STYLE} />
+}
+
+// ── SoundfontActionLink — the "remove"/"download" text links in the Sound
+// Fonts catalog grid. Each row is a `display:'contents'` div so its 3 cells
+// land as direct CSS Grid items — wrapping the link in `<Tooltip>` (a real
+// div) would break that passthrough, and even `wrapperStyle={{display:
+// 'contents'}}` doesn't work as a fix, since a `display:contents` element
+// has no box of its own, so its `getBoundingClientRect()` degenerates to a
+// zero-sized rect at the window's origin (tooltip renders in the top-left
+// corner). `useTooltip` sidesteps this entirely: no wrapper, ref/hover go
+// straight on the real `<button>`, which stays the grid's direct child. ────
+function SoundfontActionLink({ label, tooltip, color, onClick }: {
+  label: string; tooltip: string; color: string; onClick: () => void
+}) {
+  const tt = useTooltip<HTMLButtonElement>({ title: tooltip }, { oneLine: true })
+  return (
+    <>
+      <button
+        ref={tt.ref}
+        onMouseEnter={tt.onMouseEnter}
+        onMouseLeave={tt.onMouseLeave}
+        onClick={onClick}
+        style={{ fontSize: 9, color, fontFamily: 'var(--font-ui)', background: 'none', border: 'none', cursor: 'pointer', padding: 0, textAlign: 'right' }}
+      >{label}</button>
+      {tt.box}
+    </>
+  )
+}
+
+type RowPlacement = 'top' | 'bottom' | 'left' | 'right'
+
+// ── RowTooltip — wraps a full-width list row (file/folder) with its own
+// "Right-click for options"-style tooltip, EXCEPT while a nested interactive
+// icon inside the row (star, undo) is itself being hovered and showing its
+// own tooltip — without this, hovering the star showed BOTH the row's and
+// the star's tooltip stacked on top of each other, since the row's own
+// hover state stays true the whole time the pointer is anywhere inside it,
+// including over a nested child. `children` gets a `suppress` callback to
+// pass down to any nested tooltipped icon (see `FavouriteStar`/
+// `RowIconButton` below) — a ref-counter, not a plain boolean, so two
+// adjacent suppressing icons (undo + star) can't leave it stuck open if
+// their enter/leave events interleave. ─────────────────────────────────────
+function RowTooltip({ title, placement = 'right', wrapperStyle, children }: {
+  title: string | undefined
+  placement?: RowPlacement
+  wrapperStyle?: React.CSSProperties
+  children: (suppress: (on: boolean) => void) => ReactNode
+}) {
+  const ref = useRef<HTMLDivElement>(null)
+  const [hover, setHover] = useState(false)
+  const suppressCount = useRef(0)
+  const [suppressed, setSuppressed] = useState(false)
+  const suppress = (on: boolean) => {
+    suppressCount.current += on ? 1 : -1
+    setSuppressed(suppressCount.current > 0)
+  }
+  const visible = hover && !suppressed && !!title
+  return (
+    <div
+      ref={ref}
+      onMouseEnter={() => setHover(true)}
+      onMouseLeave={() => setHover(false)}
+      style={{ display: 'block', width: '100%', ...wrapperStyle }}
+    >
+      {children(suppress)}
+      <TooltipBox
+        anchorRect={visible ? ref.current?.getBoundingClientRect() ?? null : null}
+        content={title ? { title } : null}
+        visible={visible}
+        placement={placement}
+        oneLine
+      />
+    </div>
+  )
+}
+
+// ── FavouriteStar — the ★ favourite toggle nested inside a RowTooltip row.
+// Reports its own hover to the row via `onHoverChange` so the row can
+// suppress its own tooltip while this one is showing. ─────────────────────
+function FavouriteStar({ starred, title, onClick, onHoverChange, style }: {
+  starred: boolean
+  title: string
+  onClick: (e: React.MouseEvent) => void
+  onHoverChange: (hovering: boolean) => void
+  style?: React.CSSProperties
+}) {
+  const tt = useTooltip<HTMLButtonElement>({ title }, { oneLine: true })
+  return (
+    <>
+      <button
+        ref={tt.ref}
+        onClick={onClick}
+        style={{
+          background: 'none', border: 'none', cursor: 'pointer',
+          color: starred ? 'var(--text-amber)' : 'var(--state-disabled)',
+          display: 'flex', alignItems: 'center', flexShrink: 0,
+          fontSize: 'var(--text-sm)', lineHeight: 1, transition: 'color 0.12s',
+          ...style,
+        }}
+        onMouseEnter={e => { tt.onMouseEnter(); onHoverChange(true); if (!starred) e.currentTarget.style.color = 'var(--state-star-hover)' }}
+        onMouseLeave={e => { tt.onMouseLeave(); onHoverChange(false); if (!starred) e.currentTarget.style.color = 'var(--state-disabled)' }}
+      >★</button>
+      {tt.box}
+    </>
+  )
+}
+
+// ── RowIconButton — the Undo-move / Undo-all-moves icon nested inside a
+// RowTooltip row. Same suppression-reporting as FavouriteStar. ────────────
+function RowIconButton({ tooltip, onClick, onHoverChange, style, children }: {
+  tooltip: string
+  onClick: (e: React.MouseEvent) => void
+  onHoverChange: (hovering: boolean) => void
+  style?: React.CSSProperties
+  children: ReactNode
+}) {
+  const tt = useTooltip<HTMLButtonElement>({ title: tooltip }, { oneLine: true })
+  return (
+    <>
+      <button
+        ref={tt.ref}
+        onClick={onClick}
+        style={{
+          background: 'none', border: 'none', cursor: 'pointer',
+          color: 'var(--text-inactive)', display: 'flex', alignItems: 'center',
+          flexShrink: 0, transition: 'color 0.12s',
+          ...style,
+        }}
+        onMouseEnter={e => { tt.onMouseEnter(); onHoverChange(true); e.currentTarget.style.color = 'var(--text-amber)' }}
+        onMouseLeave={e => { tt.onMouseLeave(); onHoverChange(false); e.currentTarget.style.color = 'var(--text-inactive)' }}
+      >{children}</button>
+      {tt.box}
+    </>
+  )
 }
 
 // ── SettingsDropdown — custom popover replacing native <select> ───────────────
@@ -446,26 +622,29 @@ function SettingsDropdown<T extends string>({ value, options, onChange, title }:
 
   const selected = options.find(o => o.value === value)
 
+  const trigger = (
+    <button
+      type="button"
+      onClick={() => setOpen(v => !v)}
+      aria-haspopup="listbox"
+      aria-expanded={open}
+      style={{
+        width: '100%', padding: '5px 8px', borderRadius: 4,
+        border: '1px solid var(--accent-amber-strong)',
+        background: 'var(--accent-amber-medium)',
+        color: 'var(--text-amber)',
+        fontSize: 'var(--text-xs)', fontFamily: 'var(--font-mono)', fontWeight: 700,
+        cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 6,
+      }}
+    >
+      <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{selected?.label ?? value}</span>
+      <span style={{ flexShrink: 0, fontSize: 9 }}>▾</span>
+    </button>
+  )
+
   return (
     <div ref={wrapRef} style={{ position: 'relative', marginBottom: 8 }}>
-      <button
-        type="button"
-        onClick={() => setOpen(v => !v)}
-        title={title}
-        aria-haspopup="listbox"
-        aria-expanded={open}
-        style={{
-          width: '100%', padding: '5px 8px', borderRadius: 4,
-          border: '1px solid var(--accent-amber-strong)',
-          background: 'var(--accent-amber-medium)',
-          color: 'var(--text-amber)',
-          fontSize: 'var(--text-xs)', fontFamily: 'var(--font-mono)', fontWeight: 700,
-          cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 6,
-        }}
-      >
-        <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{selected?.label ?? value}</span>
-        <span style={{ flexShrink: 0, fontSize: 9 }}>▾</span>
-      </button>
+      {title ? <Tooltip title={title} wrapperStyle={{ display: 'block', width: '100%' }}>{trigger}</Tooltip> : trigger}
       {open && (
         <div
           role="listbox"
@@ -479,25 +658,29 @@ function SettingsDropdown<T extends string>({ value, options, onChange, title }:
             boxShadow: 'var(--elevation-popover)',
           }}
         >
-          {options.map(o => (
-            <div
-              key={o.value}
-              role="option"
-              aria-selected={o.value === value}
-              title={o.title}
-              onClick={() => { onChange(o.value); setOpen(false) }}
-              style={{
-                padding: '6px 10px', cursor: 'pointer', fontSize: 'var(--text-xs)',
-                fontFamily: 'var(--font-mono)', fontWeight: o.value === value ? 700 : 400,
-                color:      o.value === value ? 'var(--text-amber)' : 'var(--text-default)',
-                background: o.value === value ? 'var(--accent-amber-selected-bg)' : 'transparent',
-              }}
-              onMouseEnter={e => { (e.currentTarget as HTMLElement).style.background = 'var(--state-hover-overlay-white)' }}
-              onMouseLeave={e => { (e.currentTarget as HTMLElement).style.background = o.value === value ? 'var(--accent-amber-selected-bg)' : 'transparent' }}
-            >
-              {o.label}
-            </div>
-          ))}
+          {options.map(o => {
+            const row = (
+              <div
+                key={o.title ? undefined : o.value}
+                role="option"
+                aria-selected={o.value === value}
+                onClick={() => { onChange(o.value); setOpen(false) }}
+                style={{
+                  padding: '6px 10px', cursor: 'pointer', fontSize: 'var(--text-xs)',
+                  fontFamily: 'var(--font-mono)', fontWeight: o.value === value ? 700 : 400,
+                  color:      o.value === value ? 'var(--text-amber)' : 'var(--text-default)',
+                  background: o.value === value ? 'var(--accent-amber-selected-bg)' : 'transparent',
+                }}
+                onMouseEnter={e => { (e.currentTarget as HTMLElement).style.background = 'var(--state-hover-overlay-white)' }}
+                onMouseLeave={e => { (e.currentTarget as HTMLElement).style.background = o.value === value ? 'var(--accent-amber-selected-bg)' : 'transparent' }}
+              >
+                {o.label}
+              </div>
+            )
+            return o.title
+              ? <Tooltip key={o.value} title={o.title} wrapperStyle={{ display: 'block', width: '100%' }}>{row}</Tooltip>
+              : row
+          })}
         </div>
       )}
     </div>
@@ -507,26 +690,17 @@ function SettingsDropdown<T extends string>({ value, options, onChange, title }:
 // ─── Library Panel ───────────────────────────────────────────────────────────
 
 // ── Filename span styles — active (amber) and default (muted) ─────────────────
-const FILENAME_SPAN_DEFAULT: React.CSSProperties = { fontSize: 'var(--text-xs)', color: 'var(--text-muted)' }
-const FILENAME_SPAN_ACTIVE:  React.CSSProperties = { fontSize: 'var(--text-xs)', color: 'var(--text-amber)', fontWeight: 500 }
+const FILENAME_SPAN_DEFAULT: React.CSSProperties = { fontSize: 'var(--text-sm)', color: 'var(--text-muted)', fontFamily: 'var(--font-ui)' }
+const FILENAME_SPAN_ACTIVE:  React.CSSProperties = { fontSize: 'var(--text-sm)', color: 'var(--text-amber)', fontWeight: 500, fontFamily: 'var(--font-ui)' }
 // Revealed-hidden-file row (showHiddenLibraryFiles on) — dimmest amber shade,
 // not a generic gray fade, so it still reads as "library color" not "disabled".
-const FILENAME_SPAN_HIDDEN:  React.CSSProperties = { fontSize: 'var(--text-xs)', color: 'var(--text-amber-dimmest)' }
+const FILENAME_SPAN_HIDDEN:  React.CSSProperties = { fontSize: 'var(--text-sm)', color: 'var(--text-amber-dimmest)', fontFamily: 'var(--font-ui)' }
 
 // ── Sticky headers stack: "Folders" section header (top:0) → individual
 // folder header (top:FOLDER_HEADER_HEIGHT) → loaded file's row, if visible,
 // pins directly beneath whichever headers are above it in its group (0, 1,
 // or 2 header-heights) — or the very top, for a loaded root-group file. ─────
 const FOLDER_HEADER_HEIGHT = 30
-
-const MENU_ITEM_STYLE: React.CSSProperties = {
-  width: '100%', padding: '8px 14px',
-  background: 'none', border: 'none',
-  color: 'var(--text-default)', fontSize: 'var(--text-xs)',
-  textAlign: 'left', cursor: 'pointer',
-  display: 'flex', alignItems: 'center', gap: 8,
-  transition: 'background 0.1s',
-}
 
 function LibraryPanel() {
   const libraryFolder = useStore((s) => s.libraryFolder)
@@ -639,8 +813,8 @@ function LibraryPanel() {
     const file = e.dataTransfer.files[0]
     if (!file) return
 
-    if (!/\.(mid|midi|kar|musicxml|xml|mxl|gp|gp3|gp4|gp5|gpx)$/i.test(file.name)) {
-      showDropError('Unsupported file type. Orfeo accepts .mid, .musicxml, .mxl, .gp/.gp5, and .kar files.')
+    if (!/\.(mid|midi|kar|musicxml|xml|mxl|gp|gp3|gp4|gp5|gpx|cap)$/i.test(file.name)) {
+      showDropError('Unsupported file type. Orfeo accepts .mid, .musicxml, .mxl, .gp/.gp5, .cap, and .kar files.')
       return
     }
 
@@ -1094,13 +1268,14 @@ function LibraryPanel() {
               padding: '5px 8px', background: 'var(--bg-row)', borderRadius: 4,
               border: '1px solid var(--border2)', marginBottom: 6,
             }}>
+              <Tooltip title="Points the library panel at a different folder on disk." oneLine wrapperStyle={{ flexShrink: 0 }}>
               <button
                 onClick={handlePickFolder}
-                title="Change library folder"
                 style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 0, display: 'flex', flexShrink: 0 }}
               >
                 <FolderOpen size={11} style={{ color: 'var(--text-amber)' }} />
               </button>
+              </Tooltip>
               {/* ── Fuzzy search — any artist/song/filename, across all subfolders ── */}
               <div style={{
                 flex: 1, display: 'flex', alignItems: 'center', gap: 4,
@@ -1120,18 +1295,19 @@ function LibraryPanel() {
                   }}
                 />
                 {librarySearch && (
+                  <Tooltip title="Clear search" oneLine>
                   <button
                     onClick={() => setLibrarySearch('')}
-                    title="Clear search"
                     style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 0, display: 'flex', color: 'var(--text-inactive)' }}
                   >
                     <X size={10} />
                   </button>
+                  </Tooltip>
                 )}
               </div>
+              <Tooltip title={libraryNeedsRefresh ? 'A file was saved — click to refresh the library' : 'Refresh library'} oneLine>
               <button
                 onClick={handleRefresh}
-                title={libraryNeedsRefresh ? 'A file was saved — click to refresh the library' : 'Refresh library'}
                 className={libraryNeedsRefresh ? 'loop-nudge-blink' : undefined}
                 style={{
                   background: 'none', border: 'none', cursor: 'pointer',
@@ -1142,14 +1318,15 @@ function LibraryPanel() {
               >
                 <RefreshCw size={10} style={{ animation: loading ? 'spin 1s linear infinite' : 'none' }} />
               </button>
+              </Tooltip>
             </div>
 
             {/* Active library path — click opens it in Explorer (shows files; the folder-picker dialog above never does, that's OS-level) */}
+            <Tooltip title="Open in Explorer" oneLine wrapperStyle={{ display: 'block', width: '100%' }}>
             <div
               onClick={() => libraryFolder && window.electronAPI.openFolderInExplorer(libraryFolder)}
-              title="Open in Explorer"
               style={{
-                fontSize: 9, color: 'var(--text-muted)', fontFamily: 'var(--font-mono)',
+                fontSize: 10, lineHeight: '11px', color: 'var(--text-muted)', fontFamily: 'var(--font-mono)',
                 padding: '0 2px', marginBottom: 6, cursor: 'pointer',
                 overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
               }}
@@ -1158,16 +1335,16 @@ function LibraryPanel() {
             >
               {libraryFolder}
             </div>
+            </Tooltip>
 
             {/* Filter tabs */}
             <div style={{ display: 'flex', gap: 'var(--space-1)' }}>
               {(['all', 'starred'] as const).map(f => (
+                <Tooltip key={f} title={f === 'all' ? 'Show all files' : 'Show favorites only'} oneLine wrapperStyle={{ flex: 1 }}>
                 <button
-                  key={f}
                   onClick={() => setFilter(f)}
-                  title={f === 'all' ? 'Show all files' : 'Show favorites only'}
                   style={{
-                    flex: 1, padding: '3px 2px', borderRadius: 4, fontSize: 9,
+                    flex: 1, padding: '3px 2px', borderRadius: 4, fontSize: 10,
                     border: filter === f ? '1px solid var(--accent-amber-strong)' : '1px solid var(--border2)',
                     background: filter === f ? 'var(--accent-amber-medium)' : 'transparent',
                     color: filter === f ? 'var(--text-amber)' : 'var(--text-inactive)',
@@ -1176,10 +1353,11 @@ function LibraryPanel() {
                 >
                   {f === 'all' ? `All (${libraryFiles.length})` : `★ ${starredCount}`}
                 </button>
+                </Tooltip>
               ))}
+              <Tooltip title="New folder" oneLine>
               <button
                 onClick={() => handleCreateFolder()}
-                title="New folder"
                 style={{
                   padding: '3px 6px', borderRadius: 4, fontSize: 10,
                   border: '1px solid var(--border2)', background: 'transparent',
@@ -1191,9 +1369,10 @@ function LibraryPanel() {
               >
                 <Folders size={10} />
               </button>
+              </Tooltip>
+              <Tooltip title={showHiddenLibraryFiles ? 'Hide hidden files in library' : 'Reveal hidden files in library'} oneLine>
               <button
                 onClick={() => setShowHiddenLibraryFiles(!showHiddenLibraryFiles)}
-                title={showHiddenLibraryFiles ? 'Hide hidden files in library' : 'Reveal hidden files in library'}
                 style={{
                   padding: '3px 6px', borderRadius: 4, fontSize: 10,
                   border: showHiddenLibraryFiles ? '1px solid var(--accent-amber-strong)' : '1px solid var(--border2)',
@@ -1207,6 +1386,7 @@ function LibraryPanel() {
               >
                 <ChevronsDownUp size={10} />
               </button>
+              </Tooltip>
             </div>
           </div>
         ) : (
@@ -1265,29 +1445,14 @@ function LibraryPanel() {
 
         {/* ── Right-click context menu — position:fixed escapes panel overflow ── */}
         {contextMenu && (
-          <div
-            ref={menuRef}
-            role="menu"
-            aria-label="File actions"
-            style={{
-              position: 'fixed', top: contextMenu.y, left: contextMenu.x,
-              background: 'var(--panel)', border: '1px solid var(--drag-handle-dot)',
-              borderRadius: 'var(--radius-md)',
-              boxShadow: 'var(--elevation-popover)',
-              zIndex: 9500, minWidth: 160, overflow: 'hidden',
-            }}
-          >
-            <button
+          <ContextMenu ref={menuRef} x={contextMenu.x} y={contextMenu.y} ariaLabel="File actions">
+            <ContextMenuItem
               onClick={() => { window.electronAPI.showItemInFolder(contextMenu.path); setContextMenu(null) }}
               title="Opens Windows Explorer with this file highlighted"
-              role="menuitem"
-              style={MENU_ITEM_STYLE}
-              onMouseEnter={e => { e.currentTarget.style.background = 'var(--bg-tile)'; e.currentTarget.style.color = 'var(--text-amber)' }}
-              onMouseLeave={e => { e.currentTarget.style.background = 'none';           e.currentTarget.style.color = 'var(--text-default)' }}
             >
               Show in folder
-            </button>
-            <button
+            </ContextMenuItem>
+            <ContextMenuItem
               onClick={() => {
                 const path = contextMenu.path
                 const name = libraryFiles.find(f => f.path === path)?.name ?? path.split(/[\\/]/).pop() ?? path
@@ -1295,51 +1460,35 @@ function LibraryPanel() {
                 setContextMenu(null)
               }}
               title="Tempo, key, artist/song, track count, and copyright — read-only"
-              role="menuitem"
-              style={MENU_ITEM_STYLE}
-              onMouseEnter={e => { e.currentTarget.style.background = 'var(--bg-tile)'; e.currentTarget.style.color = 'var(--text-amber)' }}
-              onMouseLeave={e => { e.currentTarget.style.background = 'none';           e.currentTarget.style.color = 'var(--text-default)' }}
             >
               File info
-            </button>
+            </ContextMenuItem>
 
-            <div style={{ borderTop: '1px solid var(--border2)', margin: '4px 0' }} />
+            <ContextMenuDivider />
 
             {hiddenLibraryFiles.includes(contextMenu.path) ? (
-              <button
+              <ContextMenuItem
                 onClick={() => { unhideLibraryFile(contextMenu.path); setContextMenu(null) }}
                 title="Restores this file to the normal library list"
-                role="menuitem"
-                style={MENU_ITEM_STYLE}
-                onMouseEnter={e => { e.currentTarget.style.background = 'var(--bg-tile)'; e.currentTarget.style.color = 'var(--text-amber)' }}
-                onMouseLeave={e => { e.currentTarget.style.background = 'none';           e.currentTarget.style.color = 'var(--text-default)' }}
               >
                 Unhide
-              </button>
+              </ContextMenuItem>
             ) : (
-              <button
+              <ContextMenuItem
                 onClick={() => { hideLibraryFile(contextMenu.path); setContextMenu(null) }}
                 title="Hides this file from the library list — stays on disk, unaffected"
-                role="menuitem"
-                style={MENU_ITEM_STYLE}
-                onMouseEnter={e => { e.currentTarget.style.background = 'var(--bg-tile)'; e.currentTarget.style.color = 'var(--text-amber)' }}
-                onMouseLeave={e => { e.currentTarget.style.background = 'none';           e.currentTarget.style.color = 'var(--text-default)' }}
               >
                 Hide from library
-              </button>
+              </ContextMenuItem>
             )}
 
             {lastFolderOf.has(contextMenu.path) && (
-              <button
+              <ContextMenuItem
                 onClick={() => { const path = contextMenu.path; setContextMenu(null); handleUndoMove(path) }}
                 title="Moves this file back to where it was before its last move (this session only)"
-                role="menuitem"
-                style={MENU_ITEM_STYLE}
-                onMouseEnter={e => { e.currentTarget.style.background = 'var(--bg-tile)'; e.currentTarget.style.color = 'var(--text-amber)' }}
-                onMouseLeave={e => { e.currentTarget.style.background = 'none';           e.currentTarget.style.color = 'var(--text-default)' }}
               >
                 Undo move
-              </button>
+              </ContextMenuItem>
             )}
 
             {/* ── Organize actions — hidden only if EVERY selected file is protected
@@ -1349,8 +1498,8 @@ function LibraryPanel() {
                 otherwise-movable multi-select blocked the rest for no reason. ────── */}
             {!Array.from(selectedPaths.size > 0 ? selectedPaths : [contextMenu.path]).every(p => isReadOnlyFolder(currentFolderOf(p))) && (
               <>
-                <div style={{ borderTop: '1px solid var(--border2)', margin: '4px 0' }} />
-                <button
+                <ContextMenuDivider />
+                <ContextMenuItem
                   onClick={async () => {
                     const moveSet = Array.from(selectedPaths.size > 0 ? selectedPaths : [contextMenu.path])
                     setContextMenu(null)
@@ -1358,107 +1507,67 @@ function LibraryPanel() {
                     if (name) await moveFilesToFolder(moveSet, name)
                   }}
                   title="Creates a new folder and moves the selected file(s) into it"
-                  role="menuitem"
-                  style={MENU_ITEM_STYLE}
-                  onMouseEnter={e => { e.currentTarget.style.background = 'var(--bg-tile)'; e.currentTarget.style.color = 'var(--text-amber)' }}
-                  onMouseLeave={e => { e.currentTarget.style.background = 'none';           e.currentTarget.style.color = 'var(--text-default)' }}
                 >
                   New folder from selection
-                </button>
+                </ContextMenuItem>
                 {realFolders.length > 0 && (
                   <>
-                    <div style={{ padding: '6px 14px 2px', fontSize: 9, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.06em' }}>
-                      Move to folder
-                    </div>
+                    <ContextMenuLabel>Move to folder</ContextMenuLabel>
                     {realFolders.map(folder => (
-                      <button
+                      <ContextMenuItem
                         key={folder}
                         onClick={() => { const moveSet = Array.from(selectedPaths.size > 0 ? selectedPaths : [contextMenu.path]); setContextMenu(null); moveFilesToFolder(moveSet, folder) }}
                         title={`Moves the selected file(s) into "${folder}"`}
-                        role="menuitem"
-                        style={MENU_ITEM_STYLE}
-                        onMouseEnter={e => { e.currentTarget.style.background = 'var(--bg-tile)'; e.currentTarget.style.color = 'var(--text-amber)' }}
-                        onMouseLeave={e => { e.currentTarget.style.background = 'none';           e.currentTarget.style.color = 'var(--text-default)' }}
                       >
                         {folder}
-                      </button>
+                      </ContextMenuItem>
                     ))}
-                    <button
+                    <ContextMenuItem
                       onClick={() => { const moveSet = Array.from(selectedPaths.size > 0 ? selectedPaths : [contextMenu.path]); setContextMenu(null); moveFilesToFolder(moveSet, null) }}
                       title="Moves the selected file(s) out of their folder, back to the library root"
-                      role="menuitem"
-                      style={MENU_ITEM_STYLE}
-                      onMouseEnter={e => { e.currentTarget.style.background = 'var(--bg-tile)'; e.currentTarget.style.color = 'var(--text-amber)' }}
-                      onMouseLeave={e => { e.currentTarget.style.background = 'none';           e.currentTarget.style.color = 'var(--text-default)' }}
                     >
                       Library root
-                    </button>
+                    </ContextMenuItem>
                   </>
                 )}
               </>
             )}
-          </div>
+          </ContextMenu>
         )}
 
         {/* ── Folder right-click menu — Rename / Move selection here / Delete ── */}
         {folderContextMenu && (
-          <div
-            ref={folderMenuRef}
-            role="menu"
-            aria-label="Folder actions"
-            style={{
-              position: 'fixed', top: folderContextMenu.y, left: folderContextMenu.x,
-              background: 'var(--panel)', border: '1px solid var(--border-popover)',
-              borderRadius: 'var(--radius-md)',
-              boxShadow: 'var(--elevation-popover)',
-              zIndex: 9500, minWidth: 180, overflow: 'hidden',
-            }}
-          >
-            <button
+          <ContextMenu ref={folderMenuRef} x={folderContextMenu.x} y={folderContextMenu.y} minWidth={180} ariaLabel="Folder actions">
+            <ContextMenuItem
               onClick={() => { const folder = folderContextMenu.folder; setFolderContextMenu(null); if (libraryFolder) window.electronAPI.openFolderInExplorer(`${libraryFolder}/${folder}`) }}
               title="Opens this folder in File Explorer"
-              role="menuitem"
-              style={MENU_ITEM_STYLE}
-              onMouseEnter={e => { e.currentTarget.style.background = 'var(--bg-tile)'; e.currentTarget.style.color = 'var(--text-amber)' }}
-              onMouseLeave={e => { e.currentTarget.style.background = 'none';           e.currentTarget.style.color = 'var(--text-default)' }}
             >
               Show in explorer
-            </button>
+            </ContextMenuItem>
             {!isProtectedFolder(folderContextMenu.folder) && (<>
-              <button
+              <ContextMenuItem
                 onClick={() => { setRenamingFolder(folderContextMenu.folder); setRenameDraft(folderContextMenu.folder); setFolderContextMenu(null) }}
                 title="Renames this folder on disk"
-                role="menuitem"
-                style={MENU_ITEM_STYLE}
-                onMouseEnter={e => { e.currentTarget.style.background = 'var(--bg-tile)'; e.currentTarget.style.color = 'var(--text-amber)' }}
-                onMouseLeave={e => { e.currentTarget.style.background = 'none';           e.currentTarget.style.color = 'var(--text-default)' }}
               >
                 Rename
-              </button>
-              <button
+              </ContextMenuItem>
+              <ContextMenuItem
                 onClick={() => { const folder = folderContextMenu.folder; setFolderContextMenu(null); moveFilesToFolder(Array.from(selectedPaths), folder) }}
                 disabled={selectedPaths.size === 0}
                 title={selectedPaths.size === 0 ? 'Select file(s) first' : `Moves the ${selectedPaths.size} selected file(s) into this folder`}
-                role="menuitem"
-                style={{ ...MENU_ITEM_STYLE, opacity: selectedPaths.size === 0 ? 0.4 : 1, cursor: selectedPaths.size === 0 ? 'default' : 'pointer' }}
-                onMouseEnter={e => { if (selectedPaths.size > 0) { e.currentTarget.style.background = 'var(--bg-tile)'; e.currentTarget.style.color = 'var(--text-amber)' } }}
-                onMouseLeave={e => { e.currentTarget.style.background = 'none'; e.currentTarget.style.color = 'var(--text-default)' }}
               >
                 Move {selectedPaths.size || ''} selected files here
-              </button>
-              <button
+              </ContextMenuItem>
+              <ContextMenuItem
                 onClick={() => { const folder = folderContextMenu.folder; setFolderContextMenu(null); handleDeleteFolder(folder) }}
                 disabled={!folderIsEmpty(folderContextMenu.folder)}
+                danger
                 title={!folderIsEmpty(folderContextMenu.folder) ? 'Move files out first' : 'Deletes this empty folder from disk'}
-                role="menuitem"
-                style={{ ...MENU_ITEM_STYLE, opacity: !folderIsEmpty(folderContextMenu.folder) ? 0.4 : 1, cursor: !folderIsEmpty(folderContextMenu.folder) ? 'default' : 'pointer' }}
-                onMouseEnter={e => { if (folderIsEmpty(folderContextMenu.folder)) { e.currentTarget.style.background = 'var(--bg-tile)'; e.currentTarget.style.color = 'var(--status-protected)' } }}
-                onMouseLeave={e => { e.currentTarget.style.background = 'none'; e.currentTarget.style.color = 'var(--text-default)' }}
               >
                 Delete
-              </button>
+              </ContextMenuItem>
             </>)}
-          </div>
+          </ContextMenu>
         )}
 
         {/* ── Pinned active file — always the first thing visible, regardless of
@@ -1475,53 +1584,48 @@ function LibraryPanel() {
           const fmt = detectForeignFormat(loadedFile.path)
           const RowIcon = fmt === 'musicxml' ? FileCode2 : fmt === 'guitarpro' ? Guitar : FileMusic
           return (
-            <div
-              title={`${loadedFile.name} · Right-click for options`}
-              style={{
-                display: 'flex', alignItems: 'center', gap: 6,
-                padding: '0 10px', minHeight: FOLDER_HEADER_HEIGHT, boxSizing: 'border-box',
-                background: 'var(--panel)',
-                borderBottom: '1px solid var(--accent-amber-strong)',
-                position: 'sticky', top: 0, zIndex: 5,
-              }}
-              onContextMenu={e => handleContextMenu(e, loadedFile!.path)}
-            >
-              {chordTranscriptionEnabled ? (
-                <TranscriptIcon filePath={loadedFile.path} noteNaming={noteNaming} accidentals={accidentals} addTranscriptEntry={addTranscriptEntry} isLoaded />
-              ) : (
-                <RowIcon size={11} strokeWidth={1.5} style={{ color: 'var(--text-amber)', flexShrink: 0 }} />
-              )}
-              <div style={{ flex: 1, minWidth: 0, display: 'flex', alignItems: 'baseline', gap: 6 }}>
-                <MarqueeText name={loadedFile.name.replace(/\.(mid|midi)$/i, '')} spanStyle={FILENAME_SPAN_ACTIVE} />
-                {loadedFileFolder && (
-                  <span style={{ fontSize: 8, color: 'var(--text-inactive)', fontFamily: 'var(--font-mono)', flexShrink: 0 }}>{loadedFileFolder}</span>
-                )}
-              </div>
-              {lastFolderOf.has(loadedFile.path) && (
-                <button
-                  onClick={e => { e.stopPropagation(); handleUndoMove(loadedFile!.path) }}
-                  title={`Move back to ${lastFolderOf.get(loadedFile.path) ?? 'library root'}`}
-                  style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-inactive)', padding: '2px 3px', display: 'flex', alignItems: 'center', flexShrink: 0, transition: 'color 0.12s' }}
-                  onMouseEnter={e => e.currentTarget.style.color = 'var(--text-amber)'}
-                  onMouseLeave={e => e.currentTarget.style.color = 'var(--text-inactive)'}
-                >
-                  <Undo2 size={11} />
-                </button>
-              )}
-              <button
-                onClick={e => { e.stopPropagation(); toggleFavourite(loadedFile!.path) }}
-                title={starred ? 'Remove from favourites' : 'Add to favourites'}
+            <RowTooltip title="Right-click for options" wrapperStyle={{ position: 'sticky', top: 0, zIndex: 5 }}>
+              {suppress => (
+              <div
                 style={{
-                  background: 'none', border: 'none', cursor: 'pointer',
-                  color: starred ? 'var(--text-amber)' : 'var(--state-disabled)',
-                  padding: '2px 3px', display: 'flex', alignItems: 'center',
-                  flexShrink: 0, fontSize: 'var(--text-sm)', lineHeight: 1,
-                  transition: 'color 0.12s',
+                  display: 'flex', alignItems: 'center', gap: 6,
+                  padding: '0 10px', minHeight: FOLDER_HEADER_HEIGHT, boxSizing: 'border-box',
+                  background: 'var(--panel)',
+                  borderBottom: '1px solid var(--accent-amber-strong)',
                 }}
-                onMouseEnter={e => { if (!starred) e.currentTarget.style.color = 'var(--state-star-hover)' }}
-                onMouseLeave={e => { if (!starred) e.currentTarget.style.color = 'var(--state-disabled)' }}
-              >★</button>
-            </div>
+                onContextMenu={e => handleContextMenu(e, loadedFile!.path)}
+              >
+                {chordTranscriptionEnabled ? (
+                  <TranscriptIcon filePath={loadedFile.path} noteNaming={noteNaming} accidentals={accidentals} addTranscriptEntry={addTranscriptEntry} isLoaded />
+                ) : (
+                  <RowIcon size={11} strokeWidth={1.5} style={{ color: 'var(--text-amber)', flexShrink: 0 }} />
+                )}
+                <div style={{ flex: 1, minWidth: 0, display: 'flex', alignItems: 'baseline', gap: 6 }}>
+                  <MarqueeText name={loadedFile.name.replace(/\.(mid|midi)$/i, '')} spanStyle={FILENAME_SPAN_ACTIVE} />
+                  {loadedFileFolder && (
+                    <span style={{ fontSize: 8, color: 'var(--text-inactive)', fontFamily: 'var(--font-mono)', flexShrink: 0 }}>{loadedFileFolder}</span>
+                  )}
+                </div>
+                {lastFolderOf.has(loadedFile.path) && (
+                  <RowIconButton
+                    tooltip={`Move back to ${lastFolderOf.get(loadedFile.path) ?? 'library root'}`}
+                    onClick={e => { e.stopPropagation(); handleUndoMove(loadedFile!.path) }}
+                    onHoverChange={suppress}
+                    style={{ padding: '2px 3px' }}
+                  >
+                    <Undo2 size={11} />
+                  </RowIconButton>
+                )}
+                <FavouriteStar
+                  starred={starred}
+                  title={starred ? 'Remove from favourites' : 'Add to favourites'}
+                  onClick={e => { e.stopPropagation(); toggleFavourite(loadedFile!.path) }}
+                  onHoverChange={suppress}
+                  style={{ padding: '2px 3px' }}
+                />
+              </div>
+              )}
+            </RowTooltip>
           )
         })()}
 
@@ -1543,7 +1647,7 @@ function LibraryPanel() {
               borderBottom: '1px solid var(--bg-tile)',
             }}>
               <FolderOpen size={12} style={{ color: 'var(--accent-amber-icon-dim)', flexShrink: 0 }} />
-              <span style={{ flex: 1, fontSize: 'var(--text-xs)', color: 'var(--text-tile-subtext)', fontWeight: 600 }}>Demo</span>
+              <span style={{ flex: 1, fontSize: 'var(--text-sm)', color: 'var(--text-tile-subtext)', fontWeight: 600 }}>Demo</span>
               <span style={{ fontSize: 9, color: 'var(--text-muted)', fontFamily: 'var(--font-mono)' }}>{demoFiles.length}</span>
             </div>
             {demoFiles.filter((f: { name: string; path: string }) => showHiddenLibraryFiles || !hiddenLibraryFiles.includes(f.path)).map(file => {
@@ -1552,13 +1656,9 @@ function LibraryPanel() {
               const isHidden = hiddenLibraryFiles.includes(file.path)
               const fmt = detectForeignFormat(file.path)
               const RowIcon = fmt === 'musicxml' ? FileCode2 : fmt === 'guitarpro' ? Guitar : FileMusic
-              const rowTitle = fmt === 'musicxml'  ? `${file.name} (MusicXML — imported)`
-                             : fmt === 'guitarpro' ? `${file.name} (Guitar Pro — imported)`
-                             : file.name
               return (
+                <Tooltip key={file.path} title="Right-click for options" oneLine placement="right" wrapperStyle={{ display: 'block', width: '100%' }}>
                 <div
-                  key={file.path}
-                  title={rowTitle}
                   style={{
                     display: 'flex', alignItems: 'center', gap: 6,
                     padding: '8px 10px 8px 26px', borderBottom: '1px solid var(--border-row)',
@@ -1578,6 +1678,7 @@ function LibraryPanel() {
                   )}
                   <MarqueeText name={file.name.replace(/\.(mid|midi)$/i, '')} spanStyle={isHidden ? FILENAME_SPAN_HIDDEN : isLoaded ? FILENAME_SPAN_ACTIVE : FILENAME_SPAN_DEFAULT} />
                 </div>
+                </Tooltip>
               )
             })}
           </div>
@@ -1589,7 +1690,6 @@ function LibraryPanel() {
         {grouped.some(g => g.folder && !(hideDemoFolder && g.folder.toLowerCase() === 'demo')) && (
           <div
             onClick={() => setFoldersSectionExpanded(v => !v)}
-            title={foldersSectionExpanded ? 'Collapse all folders' : 'Expand folders'}
             style={{
               display: 'flex', alignItems: 'center', gap: 6,
               padding: '6px 10px', minHeight: FOLDER_HEADER_HEIGHT, boxSizing: 'border-box',
@@ -1603,7 +1703,7 @@ function LibraryPanel() {
             {foldersSectionExpanded
               ? <ChevronDown size={11} style={{ color: 'var(--text-amber)', flexShrink: 0 }} />
               : <ChevronRight size={11} style={{ color: 'var(--text-amber)', flexShrink: 0 }} />}
-            <span style={{ flex: 1, fontSize: 'var(--text-xs)', color: 'var(--text-tile-subtext)', fontWeight: 600 }}>Folders</span>
+            <span style={{ flex: 1, fontSize: 'var(--text-sm)', color: 'var(--text-tile-subtext)', fontWeight: 600 }}>Folders</span>
           </div>
         )}
 
@@ -1622,10 +1722,17 @@ function LibraryPanel() {
                 still show their undo affordance, not silently no-op behind a bare input. ── */}
             {group.folder && (() => {
                 const isRenaming = renamingFolder === group.folder
+                const isExpanded = expandedFolders.has(group.folder!)
                 const isProtectedHover = protectedFolder && dragOverFolder === group.folder
                 const folderHasUndo = foldersWithUndo.has(group.folder!)
                 const folderAllStarred = group.files.length > 0 && group.files.every(f => libraryFavourites.has(f.path))
-                return (
+                // Same "Right-click for options" wording/style as file rows — this used
+                // to spell out the whole action list ("Expand folder — right-click for
+                // rename/delete/move options") in the amber heading, with no description
+                // row, which overflowed the tooltip's own maxWidth since a heading is
+                // whiteSpace:nowrap by design (meant for short labels, not full sentences).
+                const folderRowTitle = isRenaming || protectedFolder ? undefined : 'Right-click for options'
+                const folderRow = (suppress: (on: boolean) => void) => (
                 <div
                   onClick={e => { e.stopPropagation(); if (!isRenaming) toggleFolder(group.folder!) }}
                   onContextMenu={e => handleFolderContextMenu(e, group.folder!)}
@@ -1635,7 +1742,6 @@ function LibraryPanel() {
                   }}
                   onDragLeave={e => { if (!e.currentTarget.contains(e.relatedTarget as Node)) setDragOverFolder(null) }}
                   onDrop={e => !protectedFolder && handleFolderDrop(e, group.folder!)}
-                  title={isRenaming || protectedFolder ? undefined : (expandedFolders.has(group.folder!) ? 'Collapse folder — right-click for rename/delete/move options' : 'Expand folder — right-click for rename/delete/move options')}
                   style={{
                     display: 'flex', alignItems: 'center', gap: 6,
                     padding: '6px 10px', minHeight: FOLDER_HEADER_HEIGHT, boxSizing: 'border-box',
@@ -1645,11 +1751,15 @@ function LibraryPanel() {
                     borderBottom: '1px solid var(--bg-tile)',
                     borderTop: gi > 0 ? '1px solid var(--border)' : 'none',
                     cursor: isRenaming ? 'default' : 'pointer', userSelect: 'none',
-                    position: 'sticky', top: pinnedBarOffset + FOLDER_HEADER_HEIGHT, zIndex: 3,
                   }}
                   onMouseEnter={e => { if (!isDropTarget && !isProtectedHover) (e.currentTarget as HTMLElement).style.background = '#111120' }}
                   onMouseLeave={e => { if (!isDropTarget && !isProtectedHover) (e.currentTarget as HTMLElement).style.background = 'var(--bg-row)' }}
                 >
+                  {/* ── Expanded indicator — dim chevron, shown only while this folder's
+                      files are visible below; collapsed folders show just the plain icon ── */}
+                  {isExpanded && (
+                    <ChevronDown size={9} style={{ color: 'var(--text-amber-dimmest)', flexShrink: 0 }} />
+                  )}
                   <FolderOpen size={12} style={{ color: 'var(--accent-amber-icon-dim)', flexShrink: 0 }} />
                   {isRenaming ? (
                     <input
@@ -1671,7 +1781,7 @@ function LibraryPanel() {
                     />
                   ) : (
                     <span style={{
-                      flex: 1, fontSize: 'var(--text-xs)', color: 'var(--text-tile-subtext)', fontWeight: 600,
+                      flex: 1, fontSize: 'var(--text-sm)', color: 'var(--text-tile-subtext)', fontWeight: 600,
                       overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
                     }}>
                       {group.folder}
@@ -1685,36 +1795,46 @@ function LibraryPanel() {
                     <span style={{ fontSize: 9, color: 'var(--text-amber)', flexShrink: 0, whiteSpace: 'nowrap' }}>Move to {group.folder}</span>
                   )}
                   {!protectedFolder && folderHasUndo && (
-                    <button
+                    <RowIconButton
+                      tooltip="Undo all moves into this folder (this session only)"
                       onClick={e => { e.stopPropagation(); handleUndoFolder(group.folder!, group.files) }}
-                      title="Undo all moves into this folder (this session only)"
-                      style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-inactive)', padding: '1px 2px', display: 'flex', alignItems: 'center', flexShrink: 0 }}
-                      onMouseEnter={e => e.currentTarget.style.color = 'var(--text-amber)'}
-                      onMouseLeave={e => e.currentTarget.style.color = 'var(--text-inactive)'}
+                      onHoverChange={suppress}
+                      style={{ padding: '1px 2px' }}
                     >
                       <Undo2 size={10} />
-                    </button>
+                    </RowIconButton>
                   )}
                   {!protectedFolder && group.files.length > 0 && (
-                    <button
-                      onClick={e => { e.stopPropagation(); handleToggleFolderFavourites(group.files) }}
+                    <FavouriteStar
+                      starred={folderAllStarred}
                       title={folderAllStarred ? 'Unstar all songs in this folder' : 'Star all songs in this folder'}
-                      style={{
-                        background: 'none', border: 'none', cursor: 'pointer',
-                        color: folderAllStarred ? 'var(--text-amber)' : 'var(--state-disabled)',
-                        padding: '1px 2px', display: 'flex', alignItems: 'center', flexShrink: 0,
-                        fontSize: 'var(--text-sm)', lineHeight: 1,
-                      }}
-                      onMouseEnter={e => { if (!folderAllStarred) e.currentTarget.style.color = 'var(--state-star-hover)' }}
-                      onMouseLeave={e => { if (!folderAllStarred) e.currentTarget.style.color = 'var(--state-disabled)' }}
-                    >★</button>
+                      onClick={e => { e.stopPropagation(); handleToggleFolderFavourites(group.files) }}
+                      onHoverChange={suppress}
+                      style={{ padding: '1px 2px' }}
+                    />
                   )}
                   <span style={{ fontSize: 9, color: 'var(--text-muted)', fontFamily: 'var(--font-mono)', flexShrink: 0 }}>
                     {group.files.length}
                   </span>
                 </div>
                 )
+                return (
+                  <RowTooltip
+                    title={folderRowTitle}
+                    wrapperStyle={{ position: 'sticky', top: pinnedBarOffset + FOLDER_HEADER_HEIGHT, zIndex: 3 }}
+                  >
+                    {folderRow}
+                  </RowTooltip>
+                )
               })()}
+
+            {/* ── Divider between the folders' content and the root library files —
+                only when the Folders section is actually showing folder rows above,
+                so root files don't visually read as trailing off the last folder ── */}
+            {!group.folder && foldersSectionExpanded && group.files.length > 0 &&
+              grouped.some(g => g.folder && !(hideDemoFolder && g.folder.toLowerCase() === 'demo')) && (
+              <div style={{ height: 1, margin: '4px 10px', background: 'var(--text-amber-dimmest)' }} />
+            )}
 
             {/* Files inside this group — hidden when folder is collapsed */}
             {(!group.folder || expandedFolders.has(group.folder)) && group.files.map((file) => {
@@ -1729,9 +1849,6 @@ function LibraryPanel() {
               const isMultiSelected = isSelected && selectedPaths.size >= 2
               const fmt = detectForeignFormat(file.path)
               const RowIcon = fmt === 'musicxml' ? FileCode2 : fmt === 'guitarpro' ? Guitar : FileMusic
-              const rowTitle = fmt === 'musicxml'  ? `${file.name} (MusicXML — imported)`
-                             : fmt === 'guitarpro' ? `${file.name} (Guitar Pro — imported)`
-                             : file.name
               // Loaded row is sticky (see below) so its background must be opaque, not
               // the translucent amber tint — otherwise rows scrolling underneath bleed
               // through. Reads as a plain/unselected row; the amber filename still
@@ -1745,69 +1862,59 @@ function LibraryPanel() {
               const nextSelected = isMultiSelected && rowIndex < visibleFilePaths.length - 1 && selectedPaths.has(visibleFilePaths[rowIndex + 1])
               const selectionBorder = '2px solid var(--accent-amber-strong)'
               return (
-                <div
-                  key={file.path}
-                  title={`${rowTitle} · Right-click for options`}
-                  draggable={!protectedFolder}
-                  onDragStart={e => handleFileDragStart(e, file.path)}
-                  onDragEnd={() => setDraggingPaths(null)}
-                  style={{
-                    display: 'flex', alignItems: 'center', gap: 6,
-                    // Indent subfolder files slightly
-                    padding: group.folder ? '8px 10px 8px 26px' : '8px 10px 8px 12px',
-                    cursor: 'pointer', transition: 'background 0.08s',
-                    background: rowBg,
-                    borderLeft: isMultiSelected ? selectionBorder : 'none',
-                    borderRight: isMultiSelected ? selectionBorder : 'none',
-                    borderTop: isMultiSelected && !prevSelected ? selectionBorder : 'none',
-                    borderBottom: isMultiSelected && !nextSelected ? selectionBorder : '1px solid var(--border-row)',
-                    marginTop: isMultiSelected && !prevSelected ? -1 : 0,
-                  }}
-                  // Hover only repaints plain (unselected, unloaded) rows — selected/loaded rows
-                  // keep their amber background on hover instead of flashing to the same gray
-                  // used for plain hover, which is what made "selected" read as gray before.
-                  onMouseEnter={e => { if (!isLoaded && !isMultiSelected) (e.currentTarget as HTMLElement).style.background = 'var(--bg-tile)' }}
-                  onMouseLeave={e => { if (!isLoaded && !isMultiSelected) (e.currentTarget as HTMLElement).style.background = 'transparent' }}
-                  onClick={e => handleRowClick(e, file.path, visibleFilePaths)}
-                  onContextMenu={e => handleContextMenu(e, file.path)}
-                >
-                  {/* ── Icon doubles as transcript trigger when transcription is on; otherwise shows format-specific icon ── */}
-                  {chordTranscriptionEnabled ? (
-                    <TranscriptIcon filePath={file.path} noteNaming={noteNaming} accidentals={accidentals} addTranscriptEntry={addTranscriptEntry} isLoaded={isLoaded} />
-                  ) : (
-                    <RowIcon size={11} strokeWidth={1.5} style={{ color: isHidden ? 'var(--text-amber-dimmest)' : isLoaded || isSelected ? 'var(--text-amber)' : 'var(--text-muted)', flexShrink: 0 }} />
-                  )}
-                  <MarqueeText name={file.name.replace(/\.(mid|midi)$/i, '')} spanStyle={isHidden ? FILENAME_SPAN_HIDDEN : isLoaded || isSelected ? FILENAME_SPAN_ACTIVE : FILENAME_SPAN_DEFAULT} />
-                  {lastFolderOf.has(file.path) && (
-                    <button
-                      onClick={e => { e.stopPropagation(); handleUndoMove(file.path) }}
-                      title={`Move back to ${lastFolderOf.get(file.path) ?? 'library root'}`}
-                      style={{
-                        background: 'none', border: 'none', cursor: 'pointer',
-                        color: 'var(--text-inactive)', padding: '2px 3px',
-                        display: 'flex', alignItems: 'center', flexShrink: 0,
-                        transition: 'color 0.12s',
-                      }}
-                      onMouseEnter={e => e.currentTarget.style.color = 'var(--text-amber)'}
-                      onMouseLeave={e => e.currentTarget.style.color = 'var(--text-inactive)'}
-                    >
-                      <Undo2 size={11} />
-                    </button>
-                  )}
-                  <button
-                    onClick={e => { e.stopPropagation(); toggleFavourite(file.path) }}
-                    title={starred ? 'Remove from favourites' : 'Add to favourites'}
+                <RowTooltip key={file.path} title="Right-click for options">
+                  {suppress => (
+                  <div
+                    draggable={!protectedFolder}
+                    onDragStart={e => handleFileDragStart(e, file.path)}
+                    onDragEnd={() => setDraggingPaths(null)}
                     style={{
-                      background: 'none', border: 'none', cursor: 'pointer',
-                      color: starred ? 'var(--text-amber)' : 'var(--state-disabled)',
-                      padding: '2px 3px', display: 'flex', alignItems: 'center',
-                      flexShrink: 0, fontSize: 'var(--text-sm)', lineHeight: 1,
-                      transition: 'color 0.12s',
+                      display: 'flex', alignItems: 'center', gap: 6,
+                      // Indent subfolder files slightly
+                      padding: group.folder ? '8px 10px 8px 26px' : '8px 10px 8px 12px',
+                      cursor: 'pointer', transition: 'background 0.08s',
+                      background: rowBg,
+                      borderLeft: isMultiSelected ? selectionBorder : 'none',
+                      borderRight: isMultiSelected ? selectionBorder : 'none',
+                      borderTop: isMultiSelected && !prevSelected ? selectionBorder : 'none',
+                      borderBottom: isMultiSelected && !nextSelected ? selectionBorder : '1px solid var(--border-row)',
+                      marginTop: isMultiSelected && !prevSelected ? -1 : 0,
                     }}
-                    onMouseEnter={e => { if (!starred) e.currentTarget.style.color = 'var(--state-star-hover)' }}
-                    onMouseLeave={e => { if (!starred) e.currentTarget.style.color = 'var(--state-disabled)' }}
-                  >★</button>
-                </div>
+                    // Hover only repaints plain (unselected, unloaded) rows — selected/loaded rows
+                    // keep their amber background on hover instead of flashing to the same gray
+                    // used for plain hover, which is what made "selected" read as gray before.
+                    onMouseEnter={e => { if (!isLoaded && !isMultiSelected) (e.currentTarget as HTMLElement).style.background = 'var(--bg-tile)' }}
+                    onMouseLeave={e => { if (!isLoaded && !isMultiSelected) (e.currentTarget as HTMLElement).style.background = 'transparent' }}
+                    onClick={e => handleRowClick(e, file.path, visibleFilePaths)}
+                    onContextMenu={e => handleContextMenu(e, file.path)}
+                  >
+                    {/* ── Icon doubles as transcript trigger when transcription is on; otherwise shows format-specific icon ── */}
+                    {chordTranscriptionEnabled ? (
+                      <TranscriptIcon filePath={file.path} noteNaming={noteNaming} accidentals={accidentals} addTranscriptEntry={addTranscriptEntry} isLoaded={isLoaded} />
+                    ) : (
+                      <RowIcon size={11} strokeWidth={1.5} style={{ color: isHidden ? 'var(--text-amber-dimmest)' : isLoaded || isSelected ? 'var(--text-amber)' : 'var(--text-muted)', flexShrink: 0 }} />
+                    )}
+                    <MarqueeText name={file.name.replace(/\.(mid|midi)$/i, '')} spanStyle={isHidden ? FILENAME_SPAN_HIDDEN : isLoaded || isSelected ? FILENAME_SPAN_ACTIVE : FILENAME_SPAN_DEFAULT} />
+                    {lastFolderOf.has(file.path) && (
+                      <RowIconButton
+                        tooltip={`Move back to ${lastFolderOf.get(file.path) ?? 'library root'}`}
+                        onClick={e => { e.stopPropagation(); handleUndoMove(file.path) }}
+                        onHoverChange={suppress}
+                        style={{ padding: '2px 3px' }}
+                      >
+                        <Undo2 size={11} />
+                      </RowIconButton>
+                    )}
+                    <FavouriteStar
+                      starred={starred}
+                      title={starred ? 'Remove from favourites' : 'Add to favourites'}
+                      onClick={e => { e.stopPropagation(); toggleFavourite(file.path) }}
+                      onHoverChange={suppress}
+                      style={{ padding: '2px 3px' }}
+                    />
+                  </div>
+                  )}
+                </RowTooltip>
               )
             })}
           </div>
@@ -1935,6 +2042,8 @@ export default function SettingsPanel() {
   const hideDemoFolder           = useStore((s) => s.hideDemoFolder)
   const setHideDemoFolder        = useStore((s) => s.setHideDemoFolder)
   const showHandLabels               = useStore((s) => s.showHandLabels)
+  const showHandLetters              = useStore((s) => s.showHandLetters)
+  const setShowHandLetters           = useStore((s) => s.setShowHandLetters)
   const setShowHandLabels            = useStore((s) => s.setShowHandLabels)
   const showOctaveLabels             = useStore((s) => s.showOctaveLabels)
   const setShowOctaveLabels          = useStore((s) => s.setShowOctaveLabels)
@@ -1942,6 +2051,8 @@ export default function SettingsPanel() {
   const setShowNoteNamesOnKeyboard   = useStore((s) => s.setShowNoteNamesOnKeyboard)
   const autoCollapseDrawers          = useStore((s) => s.autoCollapseDrawers)
   const setAutoCollapseDrawers       = useStore((s) => s.setAutoCollapseDrawers)
+  const trackVuColorEnabled          = useStore((s) => s.trackVuColorEnabled)
+  const setTrackVuColorEnabled       = useStore((s) => s.setTrackVuColorEnabled)
   const handLabelMode                        = useStore((s) => s.handLabelMode)
   const setHandLabelMode                     = useStore((s) => s.setHandLabelMode)
   const performanceSplitSensitivity          = useStore((s) => s.performanceSplitSensitivity)
@@ -2048,9 +2159,9 @@ export default function SettingsPanel() {
           display: 'flex', flexDirection: 'column', alignItems: 'center',
           height: '100%', paddingTop: 10, paddingBottom: 10,
         }}>
+          <Tooltip title="Open Library" description="Browse and load MIDI files from your library folder.">
           <button
             onClick={() => { setActiveTab('library'); setSettingsPanelOpen(true) }}
-            title="Open Library"
             style={{
               background: 'none', border: 'none', cursor: 'pointer',
               color: 'var(--text-dimmest)', padding: 4,
@@ -2062,9 +2173,10 @@ export default function SettingsPanel() {
           >
             <Library size={18} />
           </button>
+          </Tooltip>
+          <Tooltip title="Open Settings" description="Notation, audio engine, effects, and other app preferences.">
           <button
             onClick={() => { setActiveTab('settings'); setSettingsPanelOpen(true) }}
-            title="Open Settings"
             style={{
               background: 'none', border: 'none', cursor: 'pointer',
               color: 'var(--text-dimmest)', padding: 4, marginTop: 8,
@@ -2076,9 +2188,10 @@ export default function SettingsPanel() {
           >
             <Settings size={18} />
           </button>
+          </Tooltip>
           <div style={{ flex: 1 }} />
+          <Tooltip title="Coming soon" oneLine>
           <button
-            title="Coming soon"
             style={{
               background: 'none', border: 'none', cursor: 'default',
               color: 'var(--text-inactive)', padding: 4, opacity: 0.5,
@@ -2087,6 +2200,7 @@ export default function SettingsPanel() {
           >
             <Info size={18} />
           </button>
+          </Tooltip>
         </div>
       )}
 
@@ -2094,9 +2208,9 @@ export default function SettingsPanel() {
         <div style={{ display: 'flex', flexDirection: 'column', height: '100%', overflow: 'hidden' }}>
 
           {/* ── Collapse button: chevron only, dynamic tooltip ────────────────── */}
+          <Tooltip title="Close panel" placement="left" oneLine>
           <button
             onClick={() => setSettingsPanelOpen(false)}
-            title={activeTab === 'library' ? 'Close Library' : 'Close Settings'}
             style={{
               position: 'absolute', top: 10, right: 0, zIndex: 10,
               padding: '4px 5px', borderRadius: '4px 0 0 4px',
@@ -2110,12 +2224,13 @@ export default function SettingsPanel() {
           >
             <ChevronLeft size={15} />
           </button>
+          </Tooltip>
 
           {/* ── Tab bar: Library / Settings, left-aligned with content ─────── */}
           <div style={{ display: 'flex', borderBottom: '1px solid var(--border)', flexShrink: 0 }}>
             {([
-              { id: 'library',  icon: <Library size={13} />,  label: 'Library'  },
-              { id: 'settings', icon: <Settings size={13} />, label: 'Settings' },
+              { id: 'library',  icon: <Library size={16} />,  label: 'Library'  },
+              { id: 'settings', icon: <Settings size={16} />, label: 'Settings' },
             ] as { id: DrawerTab; icon: React.ReactNode; label: string }[]).map(tab => (
               <button
                 key={tab.id}
@@ -2127,7 +2242,7 @@ export default function SettingsPanel() {
                   background: 'none', border: 'none', cursor: 'pointer',
                   borderBottom: activeTab === tab.id ? '2px solid var(--text-amber)' : '2px solid transparent',
                   color: activeTab === tab.id ? 'var(--text-amber)' : 'var(--text-inactive)',
-                  fontSize: 10, fontWeight: 600,
+                  fontSize: 12, fontWeight: 600,
                   textTransform: 'uppercase', letterSpacing: '0.08em',
                   transition: 'color 0.15s',
                 }}
@@ -2194,7 +2309,7 @@ export default function SettingsPanel() {
                     <div style={{ display: 'flex', gap: 'var(--space-1)' }}>
                       {NOTE_NAMING_OPTIONS.slice(0, 3).map(opt => (
                         <OptionBtn key={opt.value} active={noteNaming === opt.value}
-                          onClick={() => setNoteNaming(opt.value)} title={opt.hint}>
+                          onClick={() => setNoteNaming(opt.value)}>
                           {opt.label}
                         </OptionBtn>
                       ))}
@@ -2203,7 +2318,6 @@ export default function SettingsPanel() {
                         active={noteNaming === 'hidden'}
                         onClick={() => setNoteNaming('hidden')}
                         activeColor="error"
-                        title="Hide note labels"
                       >
                         <EyeClosed size={11} strokeWidth={1.5} />
                       </OptionBtn>
@@ -2234,7 +2348,6 @@ export default function SettingsPanel() {
                       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 20 }}>
                         <span
                           onClick={() => setAccidentals('flat')}
-                          title="Flat names"
                           style={{
                             cursor: 'pointer', fontSize: 'var(--text-xs)', fontFamily: 'var(--font-ui)', fontWeight: 600,
                             color: accidentals === 'flat' ? 'var(--text-amber)' : 'var(--text-inactive)',
@@ -2242,7 +2355,6 @@ export default function SettingsPanel() {
                         ><span style={{ fontSize: 'calc(var(--text-xs) * 1.5)' }}>♭</span> Flats</span>
                         <button
                           onClick={() => setAccidentals(accidentals === 'flat' ? 'sharp' : 'flat')}
-                          title={accidentals === 'flat' ? 'Switch to sharps' : 'Switch to flats'}
                           style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 2, display: 'flex', alignItems: 'center', color: 'var(--text-amber)' }}
                         >
                           {accidentals === 'flat'
@@ -2252,7 +2364,6 @@ export default function SettingsPanel() {
                         </button>
                         <span
                           onClick={() => setAccidentals('sharp')}
-                          title="Sharp names"
                           style={{
                             cursor: 'pointer', fontSize: 'var(--text-xs)', fontFamily: 'var(--font-ui)', fontWeight: 600,
                             color: accidentals === 'sharp' ? 'var(--text-amber)' : 'var(--text-inactive)',
@@ -2273,7 +2384,7 @@ export default function SettingsPanel() {
                     <div style={{ display: 'flex', gap: 'var(--space-1)' }}>
                       {KEYBOARD_SIZES.map(size => (
                         <OptionBtn key={size} active={keyboardSize === size}
-                          onClick={() => setKeyboardSize(size)} title={`${size}-key keyboard`}>
+                          onClick={() => setKeyboardSize(size)}>
                           {size}
                         </OptionBtn>
                       ))}
@@ -2323,6 +2434,18 @@ export default function SettingsPanel() {
                     onEyeChange={setShowHandLabels}
                     description="Shows which hand each note belongs to, read from the file's hand-assignment tags. Automated — a guideline, not a verified transcription."
                   />
+                  {/* ── Hand letter badges — accessibility backup for colorblind users
+                      who can't rely on the blue/pink alone. Independent of Left/Right
+                      Hand above: a genuinely split Left Hand/Right Hand track (e.g. from
+                      Split Hands in the Playback Editor) stays blue/pink even with that
+                      toggle off, so this needs to work on its own too. ─────────────── */}
+                  <OptionRow
+                    label="Hand letters"
+                    eyeToggle
+                    eyeValue={showHandLetters}
+                    onEyeChange={setShowHandLetters}
+                    description="Prints a small L/R badge on hand-colored keys, for colorblind users who can't rely on blue vs. pink alone."
+                  />
                   {/* ── Sub-controls — only visible when hand labels are on ─────────── */}
                   {showHandLabels && (
                     <>
@@ -2338,18 +2461,16 @@ export default function SettingsPanel() {
                       }}>
                         Max Fingers
                       </div>
-                      <OptionRow label="Left" labelSmall>
-                        <div style={{ display: 'flex', gap: 'var(--space-1)' }}>
-                          <OptionBtn active={lhMaxFingers === 4} onClick={() => setLhMaxFingers(4)}>4</OptionBtn>
-                          <OptionBtn active={lhMaxFingers === 5} onClick={() => setLhMaxFingers(5)}>5</OptionBtn>
+                      <div style={{ padding: '3px 14px 6px', display: 'flex', alignItems: 'center', gap: 16 }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                          <span style={{ fontSize: 9, color: 'var(--text-default)', fontFamily: 'var(--font-ui)', whiteSpace: 'nowrap' }}>Left hand</span>
+                          <FingerStepper value={lhMaxFingers} onChange={setLhMaxFingers} />
                         </div>
-                      </OptionRow>
-                      <OptionRow label="Right" labelSmall>
-                        <div style={{ display: 'flex', gap: 'var(--space-1)' }}>
-                          <OptionBtn active={rhMaxFingers === 4} onClick={() => setRhMaxFingers(4)}>4</OptionBtn>
-                          <OptionBtn active={rhMaxFingers === 5} onClick={() => setRhMaxFingers(5)}>5</OptionBtn>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                          <span style={{ fontSize: 9, color: 'var(--text-default)', fontFamily: 'var(--font-ui)', whiteSpace: 'nowrap' }}>Right hand</span>
+                          <FingerStepper value={rhMaxFingers} onChange={setRhMaxFingers} />
                         </div>
-                      </OptionRow>
+                      </div>
                       <div style={{ padding: '2px 12px 6px', color: 'var(--text-inactive)', fontSize: 'var(--text-xs)', fontFamily: 'var(--font-ui)', lineHeight: 1.5 }}>
                         How many notes of a wide chord each hand can take before the rest is absorbed by the other — left counts from the bottom of the chord, right from the top.
                       </div>
@@ -2434,6 +2555,14 @@ export default function SettingsPanel() {
                     onEyeChange={setAutoCollapseDrawers}
                     description="Automatically hide side panels during playback to maximize the piano roll view"
                   />
+                  {/* ── Tracks panel color line doubles as a mini VU meter ──────────── */}
+                  <OptionRow
+                    label="Track color VU meters"
+                    eyeToggle
+                    eyeValue={trackVuColorEnabled}
+                    onEyeChange={setTrackVuColorEnabled}
+                    description="Each track's color line in the Tracks panel pulses with its playback level, without opening the Console Mixer"
+                  />
                 </CollapsibleSection>
 
                 {/* ── 5. AUDIO ───────────────────────────────────────────────────── */}
@@ -2447,7 +2576,7 @@ export default function SettingsPanel() {
                       <OptionBtn
                         active={audioEngine === 'gm'}
                         onClick={() => setAudioEngine('gm')}
-                        title="Sounds like Pac-Man, generic and synthetic"
+                        title="Sounds like Pac-Man, generic and synthetic" oneLine
                       >General MIDI</OptionBtn>
                       {/* ── Samples — loads GeneralUser GS SF2 via spessasynth_lib on first click ── */}
                       <OptionBtn
@@ -2466,7 +2595,7 @@ export default function SettingsPanel() {
                             setSamplesStatus('error')
                           }
                         }}
-                        title="High-fidelity, realistic audio (recommended)"
+                        title="High-fidelity, realistic audio (recommended)" oneLine
                       >Samples</OptionBtn>
                     </div>
                     {/* ── Loading progress / status block ──────────────────────────── */}
@@ -2507,7 +2636,10 @@ export default function SettingsPanel() {
                   {/* Title sits on this outer wrapper (covers the label too) rather than the inner
                       dimmed div — a tooltip anchored only to the dimmed/inert body wouldn't fire
                       when hovering the "Sound Fonts Library" label itself. ── */}
-                  <div title={audioEngine === 'samples' ? undefined : 'Switch to Samples for better audio quality'}>
+                  {(() => {
+                    const soundFontsHint = audioEngine === 'samples' ? null : 'Switch to Samples for better audio quality'
+                    const soundFontsBody = (
+                  <div>
                   <OptionRow label="Sound Fonts">
                   {/* ── Dimmed + inert whenever GM Synth is active — this library only affects
                       the Samples engine, so there's nothing useful to click here otherwise. ── */}
@@ -2530,7 +2662,6 @@ export default function SettingsPanel() {
                     <SettingsDropdown
                       value={selectedSoundfont}
                       onChange={handleSelectSoundfont}
-                      title="Soundfont used by the Samples engine"
                       options={allSoundfonts.filter(sf => sf.downloaded).map(sf => ({
                         value: sf.id, label: `${sf.name} — ${sf.sizeMB} MB`,
                       }))}
@@ -2557,21 +2688,21 @@ export default function SettingsPanel() {
                             {sf.id === 'generaluser-gs' ? (
                               <span style={{ fontSize: 9, color: 'var(--text-muted)', fontFamily: 'var(--font-ui)', textAlign: 'right' }}>bundled</span>
                             ) : sf.downloaded ? (
-                              <button
+                              <SoundfontActionLink
+                                label="remove" color="var(--text-dimmest)"
+                                tooltip={sf.custom ? 'Remove imported file' : 'Delete downloaded file'}
                                 onClick={() => handleDeleteSoundfont(sf.id)}
-                                title={sf.custom ? 'Remove imported file' : 'Delete downloaded file'}
-                                style={{ fontSize: 9, color: 'var(--text-dimmest)', fontFamily: 'var(--font-ui)', background: 'none', border: 'none', cursor: 'pointer', padding: 0, textAlign: 'right' }}
-                              >remove</button>
+                              />
                             ) : isDownloading ? (
                               <div style={{ width: 60, height: 3, background: 'var(--border)', borderRadius: 2, overflow: 'hidden' }}>
                                 <div style={{ height: '100%', background: 'var(--text-amber)', borderRadius: 2, width: `${Math.round(sfDownloadProgress * 100)}%`, transition: 'width 0.1s' }} />
                               </div>
                             ) : (
-                              <button
+                              <SoundfontActionLink
+                                label="download" color="var(--text-amber)"
+                                tooltip={`Download ${sf.name} (${sf.sizeMB} MB, MIT licensed)`}
                                 onClick={() => handleDownloadSoundfont(sf.id)}
-                                title={`Download ${sf.name} (${sf.sizeMB} MB, MIT licensed)`}
-                                style={{ fontSize: 9, color: 'var(--text-amber)', fontFamily: 'var(--font-ui)', background: 'none', border: 'none', cursor: 'pointer', padding: 0, textAlign: 'right' }}
-                              >download</button>
+                              />
                             )}
                           </div>
                         )
@@ -2583,9 +2714,9 @@ export default function SettingsPanel() {
                     )}
 
                     {/* ── Import a user's own .sf2/.sf3 — same storage/loading path as the catalog entries ── */}
+                    <Tooltip title="Only import soundfonts you have the rights to use." oneLine wrapperStyle={{ display: 'block', width: '100%' }}>
                     <button
                       onClick={handleImportSoundfont}
-                      title="Only import soundfonts you have the rights to use."
                       style={{
                         display: 'flex', alignItems: 'center', gap: 6,
                         marginTop: 8, padding: '5px 8px', width: '100%',
@@ -2599,9 +2730,15 @@ export default function SettingsPanel() {
                       <Upload size={11} strokeWidth={1.5} />
                       Import your own .sf2/.sf3
                     </button>
+                    </Tooltip>
                   </div>
                   </OptionRow>
                   </div>
+                    )
+                    return soundFontsHint
+                      ? <Tooltip title={soundFontsHint} wrapperStyle={{ display: 'block', width: '100%' }}>{soundFontsBody}</Tooltip>
+                      : soundFontsBody
+                  })()}
                   {/* ── Selective Tracks Playback — eye-toggle; shows/hides quick-toggle button in Track Panel ─ */}
                   <OptionRow
                     label="Selective Playback"
@@ -2632,7 +2769,8 @@ export default function SettingsPanel() {
                           transition: 'width 0.12s',
                         }} />
                         {ZOOM_STEPS.map((step, i) => (
-                          <button key={step} onClick={() => setZoomLevel(step)} title={`${Math.round(step * 100)}%`}
+                          <Tooltip key={step} title={`${Math.round(step * 100)}%`}>
+                          <button onClick={() => setZoomLevel(step)}
                             style={{
                               position: 'absolute',
                               left: `${(i / (ZOOM_STEPS.length - 1)) * 100}%`,
@@ -2642,6 +2780,7 @@ export default function SettingsPanel() {
                               border: `1.5px solid ${zoomLevel === step ? 'var(--text-amber)' : 'var(--text-muted)'}`,
                               cursor: 'pointer', padding: 0, transition: 'all 0.12s',
                             }} />
+                          </Tooltip>
                         ))}
                       </div>
                       <ZoomStepBtn
@@ -2682,11 +2821,15 @@ export default function SettingsPanel() {
                         {/* ── Left: which tracks spawn effects — purely visual, doesn't touch
                             which notes actually sound or light the keyboard. Compact icon
                             toggle instead of a pair of pill buttons. ── */}
+                        <Tooltip
+                          title={hitEffectScope === 'keyboard' ? 'Piano tracks only' : 'All tracks'}
+                          description={hitEffectScope === 'keyboard'
+                            ? 'Effects on keyboard tracks only — click to include every track in the file.'
+                            : 'Effects on every track in the file — click to limit to keyboard tracks only.'}
+                          wrapperStyle={{ width: 116, flexShrink: 0 }}
+                        >
                         <button
                           onClick={() => setHitEffectScope(hitEffectScope === 'keyboard' ? 'all' : 'keyboard')}
-                          title={hitEffectScope === 'keyboard'
-                            ? 'Effects on keyboard tracks only — click to include every track in the file'
-                            : 'Effects on every track in the file — click to limit to keyboard tracks only'}
                           style={{
                             // Fixed width (fits the longer label) instead of flex — otherwise
                             // toggling between "Keyboard tracks" and "All tracks" shifts every
@@ -2705,13 +2848,14 @@ export default function SettingsPanel() {
                             {hitEffectScope === 'keyboard' ? 'Piano only' : 'All tracks'}
                           </span>
                         </button>
+                        </Tooltip>
                         {/* ── Right: overrides the effect particle color for every track at once
                             — never touches the falling-note color or the key glow. ── */}
                         <HitEffectColorSwatch color={hitEffectColor} onChange={setHitEffectColor} />
                         {hitEffectColor && (
+                          <Tooltip title="Use each track's own color again" wrapperStyle={{ flexShrink: 0 }}>
                           <button
                             onClick={() => setHitEffectColor(null)}
-                            title="Use each track's own color again"
                             style={{
                               display: 'flex', alignItems: 'center',
                               color: 'var(--text-dimmest)',
@@ -2722,6 +2866,7 @@ export default function SettingsPanel() {
                           >
                             <Undo2 size={11} />
                           </button>
+                          </Tooltip>
                         )}
                       </div>
                     </OptionRow>
@@ -2750,6 +2895,7 @@ export default function SettingsPanel() {
                   {hitEffectsEnabled && (
                     <>
                       <OptionRow label={`Intensity — ${hitEffectBloomIntensity.toFixed(1)}`} labelSmall>
+                        <Tooltip title="Drag to change" oneLine wrapperStyle={{ display: 'block', width: '100%' }}>
                         <input
                           type="range" min={0} max={4} step={0.1}
                           value={hitEffectBloomIntensity}
@@ -2757,8 +2903,10 @@ export default function SettingsPanel() {
                           className="orfeo-slider-amber"
                           style={{ '--fill': `${(hitEffectBloomIntensity / 4) * 100}%` } as CSSProperties}
                         />
+                        </Tooltip>
                       </OptionRow>
                       <OptionRow label={`Spread — ${hitEffectBloomSpread.toFixed(1)}`} labelSmall>
+                        <Tooltip title="Drag to change" oneLine wrapperStyle={{ display: 'block', width: '100%' }}>
                         <input
                           type="range" min={0} max={12} step={0.5}
                           value={hitEffectBloomSpread}
@@ -2766,8 +2914,10 @@ export default function SettingsPanel() {
                           className="orfeo-slider-amber"
                           style={{ '--fill': `${(hitEffectBloomSpread / 12) * 100}%` } as CSSProperties}
                         />
+                        </Tooltip>
                       </OptionRow>
                       <OptionRow label={`Threshold — ${hitEffectBloomThreshold.toFixed(2)}`} labelSmall hint="Lower values make more of the effect glow; higher values only bloom the brightest parts.">
+                        <Tooltip title="Drag to change" oneLine wrapperStyle={{ display: 'block', width: '100%' }}>
                         <input
                           type="range" min={0} max={1} step={0.05}
                           value={hitEffectBloomThreshold}
@@ -2775,6 +2925,7 @@ export default function SettingsPanel() {
                           className="orfeo-slider-amber"
                           style={{ '--fill': `${hitEffectBloomThreshold * 100}%` } as CSSProperties}
                         />
+                        </Tooltip>
                       </OptionRow>
                     </>
                   )}
@@ -2797,9 +2948,9 @@ export default function SettingsPanel() {
                     of its own — the Theme OptionRow right above it already has a
                     borderBottom, a second one here just made two lines with a gap. ── */}
                 <div style={{ padding: '14px 14px 10px', display: 'flex', alignItems: 'center', gap: 6 }}>
+                  <Tooltip title="Open Orfeo on GitHub" oneLine>
                   <button
                     onClick={() => window.electronAPI.openExternal('https://github.com/SquareBow/orfeo')}
-                    title="Open Orfeo on GitHub"
                     style={{
                       display: 'flex', alignItems: 'center', gap: 6,
                       background: 'none', border: 'none', cursor: 'pointer', padding: 0,
@@ -2808,6 +2959,7 @@ export default function SettingsPanel() {
                     <OrfeoMark height={16} />
                     <span style={{ color: 'var(--text-inactive)', fontSize: 10, fontFamily: 'var(--font-mono)', whiteSpace: 'nowrap' }}>Orfeo · v{__APP_VERSION__}</span>
                   </button>
+                  </Tooltip>
                   <span style={{ color: 'var(--text-inactive)', fontSize: 10, fontFamily: 'var(--font-mono)', whiteSpace: 'nowrap' }}>
                     · SquareBow
                   </span>
@@ -2824,9 +2976,9 @@ export default function SettingsPanel() {
             padding: '8px 14px',
             display: 'flex', alignItems: 'center', gap: 6,
           }}>
+            <Tooltip title="Open user manual on GitHub" oneLine wrapperStyle={{ flex: 1, minWidth: 0 }}>
             <button
               onClick={() => window.electronAPI.openExternal('https://github.com/SquareBow/orfeo/blob/main/docs/HOW_TO_USE.md')}
-              title="Open user manual on GitHub"
               style={{
                 flex: 1, minWidth: 0, display: 'flex', alignItems: 'center', gap: 7,
                 background: 'transparent', border: 'none', cursor: 'pointer',
@@ -2839,6 +2991,7 @@ export default function SettingsPanel() {
               <BookOpen size={11} strokeWidth={1.5} />
               <span style={{ fontSize: 10, fontFamily: 'var(--font-mono)', letterSpacing: '0.02em' }}>User Manual</span>
             </button>
+            </Tooltip>
             {updateStatus.state === 'up-to-date' && (
               <span style={{ fontSize: 9, color: 'var(--text-faint)', fontFamily: 'var(--font-ui)', whiteSpace: 'nowrap' }}>
                 Orfeo is up to date
@@ -2849,12 +3002,7 @@ export default function SettingsPanel() {
                 Update ready — click to install
               </span>
             )}
-            <button
-              onClick={() => {
-                if (updateStatus.state === 'ready') { window.electronAPI.installUpdate(); return }
-                if (updateStatus.state === 'unavailable') { window.electronAPI.openExternal('https://github.com/SquareBow/orfeo/releases'); return }
-                void handleCheckForUpdates()
-              }}
+            <Tooltip
               title={
                 updateStatus.state === 'checking'    ? 'Checking for updates…' :
                 updateStatus.state === 'downloading' ? `Downloading update${updateStatus.percent ? ` — ${Math.round(updateStatus.percent)}%` : '…'}` :
@@ -2863,6 +3011,16 @@ export default function SettingsPanel() {
                 updateStatus.state === 'unavailable' ? 'Open GitHub releases page' :
                 'Check for updates'
               }
+              oneLine
+              wrapperStyle={{ flexShrink: 0 }}
+              placement="left"
+            >
+            <button
+              onClick={() => {
+                if (updateStatus.state === 'ready') { window.electronAPI.installUpdate(); return }
+                if (updateStatus.state === 'unavailable') { window.electronAPI.openExternal('https://github.com/SquareBow/orfeo/releases'); return }
+                void handleCheckForUpdates()
+              }}
               style={{
                 position: 'relative',
                 flexShrink: 0, display: 'flex', alignItems: 'center',
@@ -2886,6 +3044,7 @@ export default function SettingsPanel() {
                 />
               )}
             </button>
+            </Tooltip>
           </div>
 
         </div>
