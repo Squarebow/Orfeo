@@ -48,3 +48,4 @@ scripts/dev-debug/
 
 # ── Playwright MCP — local browser-testing artifacts, not shipped app code ──
 .playwright-mcp/
+docs/DESIGN-arp-pattern-mining.md
