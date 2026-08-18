@@ -1029,6 +1029,26 @@ export default function MidiEditor() {
     setColorPopover(prev => prev && prev.trackIndex === trackIndex ? { ...prev, trackColor: color } : prev)
   }, [])
 
+  // ── Header filename marquee — centered by default; marquee-scrolls left on
+  // hover only when the filename is too long to fit its available space (same
+  // measured-overflow pattern as Console Mixer's header description). ────────
+  const fileNameWrapRef = useRef<HTMLDivElement>(null)
+  const fileNameRef     = useRef<HTMLSpanElement>(null)
+  const [fileNameOverflow, setFileNameOverflow] = useState(0)
+  useEffect(() => {
+    const wrap = fileNameWrapRef.current, text = fileNameRef.current
+    if (!wrap || !text) return
+    const measure = () => setFileNameOverflow(Math.max(0, text.scrollWidth - wrap.clientWidth))
+    measure()
+    // Self-hosted fonts load async — an initial measure can under-report width
+    // against fallback-font metrics before JetBrains Mono swaps in.
+    document.fonts?.ready?.then(measure)
+    const ro = new ResizeObserver(measure)
+    ro.observe(wrap)
+    ro.observe(text)
+    return () => ro.disconnect()
+  }, [state?.fileName])
+
   // ── Not open and never initialised → nothing to render ───────────────────────
   if (!midiEditorOpen || !state) return null
 
@@ -1315,9 +1335,26 @@ export default function MidiEditor() {
           MIDI PLAYBACK EDITOR
         </span>
         <span style={{ color: 'var(--text-muted)' }}>·</span>
-        <span style={{ color: 'var(--text-dimmest)', fontSize: 'var(--text-xs)', fontFamily: 'var(--font-mono)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', flex: 1 }}>
-          {state.fileName}
-        </span>
+        <div
+          ref={fileNameWrapRef}
+          className="orfeo-marquee-track"
+          style={{
+            flex: 1, minWidth: 0, overflow: 'hidden',
+            display: 'flex', justifyContent: fileNameOverflow > 0 ? 'flex-start' : 'center',
+          }}
+        >
+          <span
+            ref={fileNameRef}
+            className={fileNameOverflow > 0 ? 'orfeo-marquee-text is-overflowing' : 'orfeo-marquee-text'}
+            style={{
+              color: 'var(--text-dimmest)', fontSize: 'var(--text-xs)', fontFamily: 'var(--font-mono)',
+              whiteSpace: 'nowrap',
+              ...(fileNameOverflow > 0 ? { '--marquee-distance': `-${fileNameOverflow}px` } as CSSProperties : {}),
+            }}
+          >
+            {state.fileName}
+          </span>
+        </div>
         <button
           data-no-drag="true"
           onClick={handleCancel}

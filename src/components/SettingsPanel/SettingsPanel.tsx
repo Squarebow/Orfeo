@@ -1722,6 +1722,7 @@ function LibraryPanel() {
                 still show their undo affordance, not silently no-op behind a bare input. ── */}
             {group.folder && (() => {
                 const isRenaming = renamingFolder === group.folder
+                const isExpanded = expandedFolders.has(group.folder!)
                 const isProtectedHover = protectedFolder && dragOverFolder === group.folder
                 const folderHasUndo = foldersWithUndo.has(group.folder!)
                 const folderAllStarred = group.files.length > 0 && group.files.every(f => libraryFavourites.has(f.path))
@@ -1750,11 +1751,15 @@ function LibraryPanel() {
                     borderBottom: '1px solid var(--bg-tile)',
                     borderTop: gi > 0 ? '1px solid var(--border)' : 'none',
                     cursor: isRenaming ? 'default' : 'pointer', userSelect: 'none',
-                    position: 'sticky', top: pinnedBarOffset + FOLDER_HEADER_HEIGHT, zIndex: 3,
                   }}
                   onMouseEnter={e => { if (!isDropTarget && !isProtectedHover) (e.currentTarget as HTMLElement).style.background = '#111120' }}
                   onMouseLeave={e => { if (!isDropTarget && !isProtectedHover) (e.currentTarget as HTMLElement).style.background = 'var(--bg-row)' }}
                 >
+                  {/* ── Expanded indicator — dim chevron, shown only while this folder's
+                      files are visible below; collapsed folders show just the plain icon ── */}
+                  {isExpanded && (
+                    <ChevronDown size={9} style={{ color: 'var(--text-amber-dimmest)', flexShrink: 0 }} />
+                  )}
                   <FolderOpen size={12} style={{ color: 'var(--accent-amber-icon-dim)', flexShrink: 0 }} />
                   {isRenaming ? (
                     <input
@@ -1813,8 +1818,23 @@ function LibraryPanel() {
                   </span>
                 </div>
                 )
-                return <RowTooltip title={folderRowTitle}>{folderRow}</RowTooltip>
+                return (
+                  <RowTooltip
+                    title={folderRowTitle}
+                    wrapperStyle={{ position: 'sticky', top: pinnedBarOffset + FOLDER_HEADER_HEIGHT, zIndex: 3 }}
+                  >
+                    {folderRow}
+                  </RowTooltip>
+                )
               })()}
+
+            {/* ── Divider between the folders' content and the root library files —
+                only when the Folders section is actually showing folder rows above,
+                so root files don't visually read as trailing off the last folder ── */}
+            {!group.folder && foldersSectionExpanded && group.files.length > 0 &&
+              grouped.some(g => g.folder && !(hideDemoFolder && g.folder.toLowerCase() === 'demo')) && (
+              <div style={{ height: 1, margin: '4px 10px', background: 'var(--text-amber-dimmest)' }} />
+            )}
 
             {/* Files inside this group — hidden when folder is collapsed */}
             {(!group.folder || expandedFolders.has(group.folder)) && group.files.map((file) => {

@@ -456,7 +456,7 @@ export default function NoteEditorToolbar() {
         left: pos.x, top: pos.y,
         zIndex: 9700,
         width: 620,
-        background: 'var(--panel)',
+        background: 'var(--bg-modal-header)',
         border: '1px solid var(--state-hover-border)',
         borderRadius: 'var(--radius-md)',
         display: 'flex',

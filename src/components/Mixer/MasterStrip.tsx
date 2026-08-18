@@ -91,8 +91,9 @@ function IBtn({ children, onClick, active, title, description, activeColor = 'va
       onClick={onClick}
       style={{
         display: 'flex', alignItems: 'center', justifyContent: 'center',
-        width: 26, height: 26, background: 'var(--bg-deep)', border: 'none',
-        cursor: 'pointer', borderRadius: 4, transition: 'color 0.1s',
+        width: 26, height: 26, background: 'transparent',
+        border: `1.5px solid ${active ? activeColor : 'var(--border2)'}`,
+        cursor: 'pointer', borderRadius: 4, transition: 'color 0.1s, border-color 0.1s',
         color: active ? activeColor : 'var(--text-icon-inactive)', flexShrink: 0,
       }}
       onMouseEnter={e => { if (!active) e.currentTarget.style.color = 'var(--text-icon-hover)'; setHover(true) }}
@@ -531,19 +532,20 @@ export default function MasterStrip() {
       {/* ── Spacer ────────────────────────────────────────────────────────── */}
       <div style={{ height: 8, flexShrink: 0 }} />
 
-      {/* ── 3. VU display toggle (28px) — BARS / WAVE. marginTop:-9.3 pulls this
-          row and the merged icons/mute-filter row (4) up together as one
-          block, against the channel strips' own M/S/eye/kbd row — originally
-          measured via live CDP when rows 4/5 were still separate; re-verify
-          after the 4+5 merge below since the old marginBottom:17.3 absorber
-          that kept FX/Tone/Volume from shifting no longer exists in the new
-          single merged row. ── */}
+      {/* ── 3. VU display toggle (28px) — BARS / WAVE. marginTop:-24.3 pulls
+          this row and the merged icons/mute-filter row (4) up together as
+          one block (was -9.3; pulled up another 15px so they sit tighter
+          under the meter). A matching 15px spacer after row 4 (below) cancels
+          this shift for everything from row 5 on, so FX/Tone/Compressor/
+          Volume stay exactly where they were — the net effect is only a
+          bigger gap between the icons row and the Chorus/Reverb knobs, not
+          the whole strip shifting up. ── */}
       <div style={{
         height: 28, flexShrink: 0,
         display: 'flex', flexDirection: 'row',
         alignItems: 'center', justifyContent: 'center',
         gap: 8,
-        marginTop: -9.3,
+        marginTop: -24.3,
       }}>
         <span style={{
           fontSize: 10, fontFamily: 'var(--font-mono)', letterSpacing: '0.08em',
@@ -651,6 +653,10 @@ export default function MasterStrip() {
           </Tooltip>
         )}
       </div>
+
+      {/* ── Spacer — cancels row 3's -15px so rows 5+ (FX/Tone/Compressor/
+          Volume) stay put; see row 3's comment above. ── */}
+      <div style={{ height: 15, flexShrink: 0 }} />
 
       {/* ── 5. FX row — Chorus + Reverb pushed to the strip's edges (56px).
           "FX" label dropped; space-between + inset padding does the

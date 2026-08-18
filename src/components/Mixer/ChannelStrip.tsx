@@ -76,8 +76,9 @@ function IBtn({ children, onClick, active, title, description, activeColor = 'va
       onClick={onClick}
       style={{
         display: 'flex', alignItems: 'center', justifyContent: 'center',
-        width: 26, height: 26, background: 'var(--bg-deep)', border: 'none',
-        cursor: 'pointer', borderRadius: 4, transition: 'color 0.1s',
+        width: 26, height: 26, background: 'transparent',
+        border: `1.5px solid ${active ? activeColor : 'var(--border2)'}`,
+        cursor: 'pointer', borderRadius: 4, transition: 'color 0.1s, border-color 0.1s',
         color: active ? activeColor : 'var(--text-icon-inactive)', flexShrink: 0,
       }}
       onMouseEnter={e => { if (!active) e.currentTarget.style.color = 'var(--text-icon-hover)'; setHover(true) }}
@@ -474,14 +475,37 @@ export default function ChannelStrip({ trackIndex, locked, isDragging, onDragSta
         {/* ── Fader ─────────────────────────────────────────────────────── */}
         <div style={{ flex: 1, position: 'relative', cursor: muted ? 'not-allowed' : 'default' }}>
 
-          {/* Fader tick marks — major every 4th, minor between, on both sides */}
+          {/* Fader tick marks — major every 4th, minor between, on both sides.
+              The floor tick (bottom of travel) swaps its dashes for "−∞" /
+              "dB" text instead, like a hardware fader's printed minimum. ── */}
           {Array.from({ length: FADER_TICK_COUNT }, (_, i) => {
             const travel   = sectionH - 8 - HANDLE_H - FADER_TOP_PAD
             const y        = FADER_TOP_PAD + HANDLE_H / 2 + i * (travel / (FADER_TICK_COUNT - 1))
             const isMajor  = i % FADER_MAJOR_EVERY === 0
+            const isFloor  = i === FADER_TICK_COUNT - 1
             const tickW    = isMajor ? 7 : 4
             const tickH    = 1
             const color    = isMajor ? 'var(--fader-tick-major)' : 'var(--fader-tick-minor)'
+            if (isFloor) {
+              return (
+                <div key={i}>
+                  <span style={{
+                    position: 'absolute', right: 'calc(50% + 5px)', top: y,
+                    transform: 'translateY(-50%)', whiteSpace: 'nowrap',
+                    fontSize: 9, fontFamily: 'var(--font-mono)', color,
+                  }}>
+                    −∞
+                  </span>
+                  <span style={{
+                    position: 'absolute', left: 'calc(50% + 5px)', top: y,
+                    transform: 'translateY(-50%)', whiteSpace: 'nowrap',
+                    fontSize: 9, fontFamily: 'var(--font-mono)', color,
+                  }}>
+                    dB
+                  </span>
+                </div>
+              )
+            }
             return (
               <div key={i}>
                 {/* Left tick */}
@@ -582,7 +606,7 @@ export default function ChannelStrip({ trackIndex, locked, isDragging, onDragSta
         </div>
       </div>
 
-      {/* ── VOLUME label — mirrors fader row structure so text centers on fader track ── */}
+      {/* ── VOL label — mirrors fader row structure so text centers on fader track ── */}
       <div style={{
         height: 24, flexShrink: 0,
         display: 'flex', padding: '0 8px', gap: 6,
@@ -594,7 +618,7 @@ export default function ChannelStrip({ trackIndex, locked, isDragging, onDragSta
             fontSize: 10, fontFamily: 'var(--font-mono)', letterSpacing: '0.1em',
             textTransform: 'uppercase', color: 'var(--text-dimmest)',
           }}>
-            Volume
+            Vol
           </span>
         </div>
       </div>

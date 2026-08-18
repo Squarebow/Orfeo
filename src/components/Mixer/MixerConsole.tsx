@@ -319,7 +319,7 @@ export default function MixerConsole() {
         // (internal horizontal scroll) instead of the whole modal. calc()
         // tracks live window resizes with no JS listener needed. ───────────
         maxWidth: 'calc(100vw - 24px)',
-        background: 'var(--bg-modal)',
+        background: 'var(--bg-modal-header)',
         border: '1px solid var(--border2)',
         borderRadius: 10,
         display: mixerOpen ? 'flex' : 'none',

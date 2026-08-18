@@ -1,5 +1,26 @@
 # Changelog
 
+## [1.11.3] — 18. 8. 2026 — Library sticky-folder fix, Playback Editor title centering, modal background consistency pass
+
+A follow-up polish pass covering a sticky-positioning bug the font-sizing audit didn't reach, plus a styling-consistency pass across the app's three floating-modal-style panels (MIDI Playback Editor, MIDI Note Editor, Console Mixer), using the Playback Editor as the reference.
+
+### Fixed
+- **Library's individual folder headers (e.g. "Demo", "Orfeo") weren't actually sticky.** Same root cause as the pinned active-file row fixed in 1.11.2 — `RowTooltip`'s wrapper `<div>` shrink-wraps to exactly its child's height, leaving `position:sticky` no room to operate within its own containing block — just a separate instance of the pattern one level down that the earlier pass didn't catch. Fixed the same way: `position:sticky` moved onto `RowTooltip`'s own `wrapperStyle` instead of the inner row `<div>`. Verified live via CDP — the header now locks in place at the correct offset while its files scroll underneath, releasing only once the folder's content ends.
+- **MIDI Note Editor toolbar's background didn't match every other modal** — still on the plain `--panel` gray (`#1e1e1e`, warm/brownish next to the app's cooler near-black modals) instead of `--bg-modal-header`. Now matches the Playback Editor exactly.
+- **Console Mixer's main container was one shade lighter than its own header** (`--bg-modal` vs `--bg-modal-header`), the reverse of the Playback Editor's single-tone approach. Container now uses `--bg-modal-header` too; the channel strips and master strip keep their lighter `--bg-tile` shade, which now reads as intentional depth instead of an accident of two similarly-dark tones.
+
+### New
+- **Library**: a small amber-dimmed divider now separates a folder's contents from the root-level files below it (shown only when the Folders section is actually expanded), and each expanded folder shows a small chevron next to its icon — nothing extra for collapsed folders.
+- **MIDI Playback Editor**: the loaded file's name in the header is now centered between the fixed title and the close button, and marquee-scrolls left on hover when it's too long to fit — the same measured-overflow mechanism Console Mixer's header description already used, applied here for consistency.
+- **Console Mixer**: each channel strip's fader now shows "−∞" and "dB" flanking its lowest tick, like a hardware fader's printed floor mark.
+
+### Changed
+- **Mixer icon buttons restyled** — Mute/Solo/Hide-on-roll/Lit-on-keyboard on every channel strip, plus the matching 3 icons on the master strip, dropped their filled dark background for a border (colored to the active state) instead, matching the Playback Editor's own icon language rather than standing out as a different pattern.
+- **Master strip**: the BARS/FFT toggle and the mute-all/visible-all/keyboard-all icon row pulled up 15px, opening more breathing room between the icons and the Chorus/Reverb knobs below — a matching 15px spacer keeps FX/Tone/Compressor/Volume exactly where they were rather than the whole strip shifting.
+- Channel strip's static label under the fader shortened from "VOLUME" to "VOL".
+
+**Changed:** `src/components/MidiEditor/MidiEditor.tsx`, `src/components/Mixer/{ChannelStrip,MasterStrip,MixerConsole}.tsx`, `src/components/NoteEditor/NoteEditorToolbar.tsx`, `src/components/SettingsPanel/SettingsPanel.tsx`.
+
 ## [1.11.2] — 17. 8. 2026 — App-wide font-sizing audit, real layout-shift bugs fixed along the way
 
 A full pass over every below-readable-size font in the app (many sites sitting at 8-9px), covering 11 UI sections: TopBar, Library, Settings, Tracks panel, Keyboard, File Info, MIDI Playback Editor, Console Mixer, MIDI Note Editor, Chord Explorer, Scale Explorer — plus Lock-a-Chord, which the original scope missed. Every single edit was measured live via Chrome DevTools before and after (not eyeballed) under one hard rule: a font-size change is never allowed to move, resize, or reflow anything else on screen. Followed by three rounds of corrections from the user's own review pass.
