@@ -2049,6 +2049,8 @@ export default function SettingsPanel() {
   const setShowNoteNamesOnKeyboard   = useStore((s) => s.setShowNoteNamesOnKeyboard)
   const autoCollapseDrawers          = useStore((s) => s.autoCollapseDrawers)
   const setAutoCollapseDrawers       = useStore((s) => s.setAutoCollapseDrawers)
+  const trackVuColorEnabled          = useStore((s) => s.trackVuColorEnabled)
+  const setTrackVuColorEnabled       = useStore((s) => s.setTrackVuColorEnabled)
   const handLabelMode                        = useStore((s) => s.handLabelMode)
   const setHandLabelMode                     = useStore((s) => s.setHandLabelMode)
   const performanceSplitSensitivity          = useStore((s) => s.performanceSplitSensitivity)
@@ -2538,6 +2540,14 @@ export default function SettingsPanel() {
                     eyeValue={autoCollapseDrawers}
                     onEyeChange={setAutoCollapseDrawers}
                     description="Automatically hide side panels during playback to maximize the piano roll view"
+                  />
+                  {/* ── Tracks panel color line doubles as a mini VU meter ──────────── */}
+                  <OptionRow
+                    label="Track color VU meters"
+                    eyeToggle
+                    eyeValue={trackVuColorEnabled}
+                    onEyeChange={setTrackVuColorEnabled}
+                    description="Each track's color line in the Tracks panel pulses with its playback level, without opening the Console Mixer"
                   />
                 </CollapsibleSection>
 

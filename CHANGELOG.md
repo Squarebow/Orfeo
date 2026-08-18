@@ -1,5 +1,13 @@
 # Changelog
 
+## [1.11.4] — 18. 8. 2026 — Track color VU meters in the Tracks panel
+
+### New
+- **Each track's color line in the Tracks panel now doubles as a mini VU meter during playback** — no need to open the Console Mixer to see who's actually sounding. The bottom quarter of the 3×20px color pill stays solid at full track color always (the guaranteed identifier, since this is the only thing distinguishing tracks at a glance without opening the mixer), a dim 18%-opacity tint of the same color fills the rest of the pill so it always reads as "this track's color" even at rest, and the zone above the floor fills in from the bottom as the track's live note velocity rises — same subscribe-and-decay mechanism as the Console Mixer's own `ChannelStrip` VU meters, but driven by a CSS `transform: scaleY()` rather than canvas or `height`, so animating many track rows at once costs compositor work only, never layout.
+- New **"Track color VU meters" toggle** in Settings → Playback & Practice (on by default) turns the animation off entirely, reverting each pill to its original plain static color, for anyone who prefers the simpler look.
+
+**Changed:** `src/components/SettingsPanel/SettingsPanel.tsx`, `src/components/TrackPanel/TrackPanel.tsx`, `src/store/index.ts`.
+
 ## [1.11.3] — 18. 8. 2026 — Library sticky-folder fix, Playback Editor title centering, modal background consistency pass
 
 A follow-up polish pass covering a sticky-positioning bug the font-sizing audit didn't reach, plus a styling-consistency pass across the app's three floating-modal-style panels (MIDI Playback Editor, MIDI Note Editor, Console Mixer), using the Playback Editor as the reference.

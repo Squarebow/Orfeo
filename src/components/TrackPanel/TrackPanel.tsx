@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { useMemo, useState, useRef, useEffect } from 'react'
 import { ChevronRight, Eye, Volume2, VolumeX, ChevronDown, AudioLines, ListTree, SlidersVertical, GripVertical, Sparkles } from 'lucide-react'
 import { useStore, DEFAULT_MUTED_GROUPS } from '../../store'
 import { GM_GROUPS } from '../../utils/gmInstruments'
@@ -612,6 +612,43 @@ function TrackRow({
   const noteCount = useStore(s => (s.midi as any)?.tracks?.find((t: any) => t.index === track.index)?.notes?.length ?? 0)
   const tooltip = `Track ${track.index + 1} · MIDI channel ${ch} · ${prog}`
 
+  // ── Color-line VU meter — Settings-gated (Playback & Practice). Same
+  // velocity-scan + decay mechanism as the Console Mixer's ChannelStrip VU
+  // meter, but drives a CSS transform (not canvas/height) so N simultaneous
+  // track rows never trigger layout reflow, just compositor work. The
+  // bottom PILL_FLOOR fraction stays solid at full track color always —
+  // the guaranteed color identifier the Mixer's own meter doesn't need,
+  // since here it's the only thing telling tracks apart without opening it. ──
+  const trackVuColorEnabled = useStore(s => s.trackVuColorEnabled)
+  const vuFillRef = useRef<HTMLDivElement>(null)
+  const vuLevel   = useRef(0)
+  useEffect(() => {
+    if (!trackVuColorEnabled) return
+    const unsub = useStore.subscribe(state => {
+      const { currentTime, playbackState, midi: md, tracks: tks } = state
+      if (playbackState !== 'playing' || !md) return
+      const tr = tks.find(t => t.index === track.index)
+      if (!tr || tr.muted) return
+      const pt = (md as any).tracks?.find((t: any) => t.index === track.index)
+      if (!pt) return
+      let maxVel = 0
+      for (const note of pt.notes) {
+        // Notes are sorted by time — skip once past current window
+        if (note.time > currentTime + 0.02) break
+        if (currentTime < note.time + note.duration && note.velocity > maxVel) maxVel = note.velocity
+      }
+      if (maxVel > 0) vuLevel.current = maxVel * tr.volume
+    })
+    let raf = 0
+    const loop = () => {
+      vuLevel.current = Math.max(0, vuLevel.current - 0.013)
+      if (vuFillRef.current) vuFillRef.current.style.transform = `scaleY(${Math.min(1, vuLevel.current)})`
+      raf = requestAnimationFrame(loop)
+    }
+    raf = requestAnimationFrame(loop)
+    return () => { unsub(); cancelAnimationFrame(raf) }
+  }, [trackVuColorEnabled, track.index])
+
   return (
     <div
       title={tooltip}
@@ -660,7 +697,24 @@ function TrackRow({
         >
           <GripVertical size={11} />
         </div>
-        <div style={{ width: 3, height: 20, background: track.color, borderRadius: 2, flexShrink: 0, opacity: dimmed ? 0.6 : 1 }} />
+        {trackVuColorEnabled ? (
+          <div style={{
+            width: 3, height: 20, borderRadius: 2, flexShrink: 0,
+            opacity: dimmed ? 0.6 : 1, position: 'relative', overflow: 'hidden',
+          }}>
+            {/* Dim tint — fills the whole pill so it always reads as this track's color ── */}
+            <div style={{ position: 'absolute', inset: 0, background: track.color, opacity: 0.18 }} />
+            {/* Floor — bottom 25%, full color, always on regardless of playback state ── */}
+            <div style={{ position: 'absolute', left: 0, right: 0, bottom: 0, height: '25%', background: track.color }} />
+            {/* VU fill — grows upward from the floor with playback level (transform, not height) ── */}
+            <div ref={vuFillRef} style={{
+              position: 'absolute', left: 0, right: 0, bottom: '25%', height: '75%',
+              background: track.color, transform: 'scaleY(0)', transformOrigin: 'bottom',
+            }} />
+          </div>
+        ) : (
+          <div style={{ width: 3, height: 20, background: track.color, borderRadius: 2, flexShrink: 0, opacity: dimmed ? 0.6 : 1 }} />
+        )}
         <MarqueeText name={track.trackName ?? track.gmName} spanStyle={{ fontSize: 'var(--text-sm)', fontWeight: 500, color: 'var(--text-muted)' }} />
       </div>
 

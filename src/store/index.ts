@@ -312,6 +312,11 @@ interface OrfeoStore {
   autoCollapseDrawers: boolean
   setAutoCollapseDrawers: (v: boolean) => void
 
+  // ── Tracks panel's per-track color line doubles as a mini VU meter during
+  // playback when this is on; always shows the plain static color when off. ──
+  trackVuColorEnabled: boolean
+  setTrackVuColorEnabled: (v: boolean) => void
+
   handLabelMode: 'practice' | 'performance'
   setHandLabelMode: (mode: 'practice' | 'performance') => void
 
@@ -702,6 +707,9 @@ export const useStore = create<OrfeoStore>((set, get) => ({
   autoCollapseDrawers: false,
   setAutoCollapseDrawers: (autoCollapseDrawers) => set({ autoCollapseDrawers }),
 
+  trackVuColorEnabled: true,
+  setTrackVuColorEnabled: (trackVuColorEnabled) => set({ trackVuColorEnabled }),
+
   // ── Hand label mode — practice (static, tag-based) or performance (per-note, live) ─
   // Practice mode's UI toggle is disabled (see SettingsPanel.tsx) — proves
   // inconsistent, may return once improved. Always performance until then.
@@ -832,6 +840,7 @@ async function restoreLibraryPrefs() {
     if (typeof prefs.showOctaveLabels === 'boolean') store.setShowOctaveLabels(prefs.showOctaveLabels)
     if (typeof prefs.showNoteNamesOnKeyboard === 'boolean') store.setShowNoteNamesOnKeyboard(prefs.showNoteNamesOnKeyboard)
     if (typeof prefs.autoCollapseDrawers === 'boolean') store.setAutoCollapseDrawers(prefs.autoCollapseDrawers)
+    if (typeof prefs.trackVuColorEnabled === 'boolean') store.setTrackVuColorEnabled(prefs.trackVuColorEnabled)
     if (typeof prefs.autoMuteNonKeyboard === 'boolean') store.setAutoMuteNonKeyboard(prefs.autoMuteNonKeyboard)
     if (prefs.settingsGroupsCollapsed && typeof prefs.settingsGroupsCollapsed === 'object' && !Array.isArray(prefs.settingsGroupsCollapsed)) {
       const defaults = store.settingsGroupsCollapsed
@@ -898,6 +907,7 @@ let _prevLhMaxFingers: number | null = null
 let _prevShowOctaveLabels: boolean | null = null
 let _prevShowNoteNamesOnKeyboard: boolean | null = null
 let _prevAutoCollapseDrawers: boolean | null = null
+let _prevTrackVuColorEnabled: boolean | null = null
 let _prevAutoMuteNonKeyboard: boolean | null = null
 let _prevSettingsGroupsCollapsed: string | null = null
 let _prevNoteEditorWalkthroughSeen: boolean | null = null
@@ -940,6 +950,7 @@ const _unsubPrefs = useStore.subscribe((state) => {
     _prevShowOctaveLabels = state.showOctaveLabels
     _prevShowNoteNamesOnKeyboard = state.showNoteNamesOnKeyboard
     _prevAutoCollapseDrawers = state.autoCollapseDrawers
+    _prevTrackVuColorEnabled = state.trackVuColorEnabled
     _prevAutoMuteNonKeyboard = state.autoMuteNonKeyboard
     _prevSettingsGroupsCollapsed = JSON.stringify(state.settingsGroupsCollapsed)
     _prevNoteEditorWalkthroughSeen = state.noteEditorWalkthroughSeen
@@ -984,6 +995,7 @@ const _unsubPrefs = useStore.subscribe((state) => {
     state.showOctaveLabels !== _prevShowOctaveLabels ||
     state.showNoteNamesOnKeyboard !== _prevShowNoteNamesOnKeyboard ||
     state.autoCollapseDrawers !== _prevAutoCollapseDrawers ||
+    state.trackVuColorEnabled !== _prevTrackVuColorEnabled ||
     state.autoMuteNonKeyboard !== _prevAutoMuteNonKeyboard ||
     JSON.stringify(state.settingsGroupsCollapsed) !== _prevSettingsGroupsCollapsed ||
     state.noteEditorWalkthroughSeen !== _prevNoteEditorWalkthroughSeen ||
@@ -1022,6 +1034,7 @@ const _unsubPrefs = useStore.subscribe((state) => {
     _prevShowOctaveLabels = state.showOctaveLabels
     _prevShowNoteNamesOnKeyboard = state.showNoteNamesOnKeyboard
     _prevAutoCollapseDrawers = state.autoCollapseDrawers
+    _prevTrackVuColorEnabled = state.trackVuColorEnabled
     _prevAutoMuteNonKeyboard = state.autoMuteNonKeyboard
     _prevSettingsGroupsCollapsed = JSON.stringify(state.settingsGroupsCollapsed)
     _prevNoteEditorWalkthroughSeen = state.noteEditorWalkthroughSeen
@@ -1064,6 +1077,7 @@ const _unsubPrefs = useStore.subscribe((state) => {
       showOctaveLabels: state.showOctaveLabels,
       showNoteNamesOnKeyboard: state.showNoteNamesOnKeyboard,
       autoCollapseDrawers: state.autoCollapseDrawers,
+      trackVuColorEnabled: state.trackVuColorEnabled,
       autoMuteNonKeyboard: state.autoMuteNonKeyboard,
       settingsGroupsCollapsed: state.settingsGroupsCollapsed,
       noteEditorWalkthroughSeen: state.noteEditorWalkthroughSeen,
