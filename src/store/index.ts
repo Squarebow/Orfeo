@@ -320,6 +320,14 @@ interface OrfeoStore {
   handLabelMode: 'practice' | 'performance'
   setHandLabelMode: (mode: 'practice' | 'performance') => void
 
+  // ── Accessibility — an "L"/"R" letter badge on hand-colored keys, for
+  // colorblind users who can't rely on the blue/pink alone. Independent of
+  // showHandLabels: a genuine split-hand track's keys stay blue/pink even
+  // with Left/Right Hand off (see handColors.ts), so this needs its own
+  // toggle rather than riding on that one. ──────────────────────────────────
+  showHandLetters: boolean
+  setShowHandLetters: (v: boolean) => void
+
   performanceSplitSensitivity: number
   setPerformanceSplitSensitivity: (n: number) => void
 
@@ -716,6 +724,9 @@ export const useStore = create<OrfeoStore>((set, get) => ({
   handLabelMode: 'performance' as 'practice' | 'performance',
   setHandLabelMode: (handLabelMode) => set({ handLabelMode }),
 
+  showHandLetters: false,
+  setShowHandLetters: (showHandLetters) => set({ showHandLetters }),
+
   // ── Performance split sensitivity — hardware-input fallback only (file notes
   // read their exact stored tag, no sensitivity involved); semitone gap
   // threshold, persisted ──────────────────────────────────────────────────────
@@ -834,6 +845,7 @@ async function restoreLibraryPrefs() {
     // Only 'performance' is restorable — Practice's UI toggle is disabled,
     // so a stale saved 'practice' pref must not resurrect it with no way back.
     if (prefs.handLabelMode === 'performance') store.setHandLabelMode(prefs.handLabelMode)
+    if (typeof prefs.showHandLetters === 'boolean') store.setShowHandLetters(prefs.showHandLetters)
     if (typeof prefs.performanceSplitSensitivity === 'number') store.setPerformanceSplitSensitivity(prefs.performanceSplitSensitivity)
     if (prefs.rhMaxFingers === 4 || prefs.rhMaxFingers === 5) store.setRhMaxFingers(prefs.rhMaxFingers)
     if (prefs.lhMaxFingers === 4 || prefs.lhMaxFingers === 5) store.setLhMaxFingers(prefs.lhMaxFingers)
@@ -901,6 +913,7 @@ let _prevSplitBreakpointRangeEnd: number | null = null
 let _prevShowHandLabels: boolean | null = null
 let _prevLoopRegionEnabled: boolean | null = null
 let _prevHandLabelMode: string | null = null
+let _prevShowHandLetters: boolean | null = null
 let _prevPerformanceSplitSensitivity: number | null = null
 let _prevRhMaxFingers: number | null = null
 let _prevLhMaxFingers: number | null = null
@@ -944,6 +957,7 @@ const _unsubPrefs = useStore.subscribe((state) => {
     _prevShowHandLabels = state.showHandLabels
     _prevLoopRegionEnabled = state.loopRegionEnabled
     _prevHandLabelMode = state.handLabelMode
+    _prevShowHandLetters = state.showHandLetters
     _prevPerformanceSplitSensitivity = state.performanceSplitSensitivity
     _prevRhMaxFingers = state.rhMaxFingers
     _prevLhMaxFingers = state.lhMaxFingers
@@ -989,6 +1003,7 @@ const _unsubPrefs = useStore.subscribe((state) => {
     state.showHandLabels !== _prevShowHandLabels ||
     state.loopRegionEnabled !== _prevLoopRegionEnabled ||
     state.handLabelMode !== _prevHandLabelMode ||
+    state.showHandLetters !== _prevShowHandLetters ||
     state.performanceSplitSensitivity !== _prevPerformanceSplitSensitivity ||
     state.rhMaxFingers !== _prevRhMaxFingers ||
     state.lhMaxFingers !== _prevLhMaxFingers ||
@@ -1028,6 +1043,7 @@ const _unsubPrefs = useStore.subscribe((state) => {
     _prevShowHandLabels = state.showHandLabels
     _prevLoopRegionEnabled = state.loopRegionEnabled
     _prevHandLabelMode = state.handLabelMode
+    _prevShowHandLetters = state.showHandLetters
     _prevPerformanceSplitSensitivity = state.performanceSplitSensitivity
     _prevRhMaxFingers = state.rhMaxFingers
     _prevLhMaxFingers = state.lhMaxFingers
@@ -1071,6 +1087,7 @@ const _unsubPrefs = useStore.subscribe((state) => {
       showHandLabels: state.showHandLabels,
       loopRegionEnabled: state.loopRegionEnabled,
       handLabelMode: state.handLabelMode,
+      showHandLetters: state.showHandLetters,
       performanceSplitSensitivity: state.performanceSplitSensitivity,
       rhMaxFingers: state.rhMaxFingers,
       lhMaxFingers: state.lhMaxFingers,

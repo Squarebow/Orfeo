@@ -2042,6 +2042,8 @@ export default function SettingsPanel() {
   const hideDemoFolder           = useStore((s) => s.hideDemoFolder)
   const setHideDemoFolder        = useStore((s) => s.setHideDemoFolder)
   const showHandLabels               = useStore((s) => s.showHandLabels)
+  const showHandLetters              = useStore((s) => s.showHandLetters)
+  const setShowHandLetters           = useStore((s) => s.setShowHandLetters)
   const setShowHandLabels            = useStore((s) => s.setShowHandLabels)
   const showOctaveLabels             = useStore((s) => s.showOctaveLabels)
   const setShowOctaveLabels          = useStore((s) => s.setShowOctaveLabels)
@@ -2431,6 +2433,18 @@ export default function SettingsPanel() {
                     eyeValue={showHandLabels}
                     onEyeChange={setShowHandLabels}
                     description="Shows which hand each note belongs to, read from the file's hand-assignment tags. Automated — a guideline, not a verified transcription."
+                  />
+                  {/* ── Hand letter badges — accessibility backup for colorblind users
+                      who can't rely on the blue/pink alone. Independent of Left/Right
+                      Hand above: a genuinely split Left Hand/Right Hand track (e.g. from
+                      Split Hands in the Playback Editor) stays blue/pink even with that
+                      toggle off, so this needs to work on its own too. ─────────────── */}
+                  <OptionRow
+                    label="Hand letters"
+                    eyeToggle
+                    eyeValue={showHandLetters}
+                    onEyeChange={setShowHandLetters}
+                    description="Prints a small L/R badge on hand-colored keys, for colorblind users who can't rely on blue vs. pink alone."
                   />
                   {/* ── Sub-controls — only visible when hand labels are on ─────────── */}
                   {showHandLabels && (

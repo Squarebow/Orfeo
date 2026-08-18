@@ -58,6 +58,7 @@ export default function Keyboard() {
   const setChordPrompterOpen = useStore((s) => s.setChordPrompterOpen)
   const currentTime = useStore((s) => s.currentTime)
   const showHandLabels = useStore((s) => s.showHandLabels)
+  const showHandLetters = useStore((s) => s.showHandLetters)
   const handLabelMode = useStore((s) => s.handLabelMode)
   const performanceSplitSensitivity = useStore((s) => s.performanceSplitSensitivity)
   const presentationMode = useStore((s) => s.presentationMode)
@@ -646,7 +647,7 @@ export default function Keyboard() {
           {whiteKeys.map((k, i) => {
             const color = getColor(k.midi)
             const hand = getHardwareHand(k.midi)
-            const colorHand = getColorHand(color)
+            const colorHand = showHandLetters ? getColorHand(color) : null
             const locked = lockedKeys.has(k.midi)
             const isC = k.midi % 12 === 0
             const label = color
@@ -683,12 +684,27 @@ export default function Keyboard() {
                     background: hand === 'L' ? HAND_LH : HAND_RH, pointerEvents: 'none',
                   }} />
                 )}
+                {/* ── Hand letter badge — dark square + white letter, sized as a
+                    percentage of THIS key's own rendered width (not a fixed px),
+                    so it scales correctly whether the keyboard shows 61, 73, or 88
+                    keys — key width is inversely tied to key count, not the other
+                    way around, so a fixed size risks being oversized on wide keys
+                    or cramped on narrow ones. clamp() keeps it within sane bounds
+                    either way. Vertically at top:68% (just past the black keys'
+                    own height:'65%'), not a top-corner — a corner badge sat
+                    directly under the overlapping black key and was half-hidden;
+                    this band between the black keys' bottom edge and the note-name
+                    label below is always fully exposed white key, on every key. ── */}
                 {colorHand && (
                   <span style={{
-                    position: 'absolute', top: 3, left: 3,
+                    position: 'absolute', top: '68%', left: '50%', transform: 'translateX(-50%)',
+                    width: 'clamp(8px, 42%, 13px)', height: 'clamp(8px, 42%, 13px)',
+                    display: 'flex', alignItems: 'center', justifyContent: 'center',
+                    borderRadius: 2, background: 'var(--text-near-black)',
+                    boxShadow: '0 1px 2px rgba(0,0,0,0.4)',
                     fontSize: 8, fontWeight: 700, lineHeight: 1,
                     fontFamily: 'var(--font-mono)', color: 'var(--text-white)',
-                    textShadow: '0 1px 2px rgba(0,0,0,0.65)', userSelect: 'none', pointerEvents: 'none',
+                    userSelect: 'none', pointerEvents: 'none',
                   }}>
                     {colorHand}
                   </span>
@@ -714,7 +730,7 @@ export default function Keyboard() {
             const widthPct = ratio.width * 100
             const color = getColor(k.midi)
             const hand = getHardwareHand(k.midi)
-            const colorHand = getColorHand(color)
+            const colorHand = showHandLetters ? getColorHand(color) : null
             const locked = lockedKeys.has(k.midi)
             return (
               <div
@@ -758,12 +774,21 @@ export default function Keyboard() {
                     borderRadius: '2px 2px 0 0',
                   }} />
                 )}
+                {/* ── Hand letter badge — inverted from the white-key version (light
+                    square + dark letter, black keys are already dark) so it reads
+                    at a glance which key type it's on. Sized off this key's own
+                    width (black keys are narrower still — 60% of a white key's
+                    share — hence the larger relative percentage here). ── */}
                 {colorHand && (
                   <span style={{
                     position: 'absolute', top: 2, left: '50%', transform: 'translateX(-50%)',
+                    width: 'clamp(7px, 70%, 11px)', height: 'clamp(7px, 70%, 11px)',
+                    display: 'flex', alignItems: 'center', justifyContent: 'center',
+                    borderRadius: 2, background: 'var(--text-white)',
+                    boxShadow: '0 1px 2px rgba(0,0,0,0.4)',
                     fontSize: 7, fontWeight: 700, lineHeight: 1,
-                    fontFamily: 'var(--font-mono)', color: 'var(--text-white)',
-                    textShadow: '0 1px 2px rgba(0,0,0,0.65)', userSelect: 'none', pointerEvents: 'none',
+                    fontFamily: 'var(--font-mono)', color: 'var(--text-near-black)',
+                    userSelect: 'none', pointerEvents: 'none',
                   }}>
                     {colorHand}
                   </span>

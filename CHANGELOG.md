@@ -1,5 +1,17 @@
 # Changelog
 
+## [1.11.5] — 18. 8. 2026 — Colorblind-accessible hand-letter badges, decoupled from Left/Right Hand
+
+### Fixed
+- **The keyboard's "L"/"R" hand-letter badge ignored the Left/Right Hand setting entirely.** Root cause: the badge was derived purely from a key's resolved color (`getColorHand` in `Keyboard.tsx`) rather than from any setting — and a genuinely split Left Hand/Right Hand track (e.g. from Split Hands in the Playback Editor) always renders blue/pink by design, regardless of the Left/Right Hand toggle, per `handColors.ts`. So for split-track files the letter was permanently on and un-hideable, while the sibling hardware-note indicator (`getHardwareHand`) correctly respected the toggle the whole time.
+
+### New
+- **Hand letters is now its own Settings toggle** (Playback & Practice, under Left/Right Hand, off by default) instead of riding on key color. It's deliberately independent of Left/Right Hand — split-track coloring stays on either way, so the letter needed a switch that actually controls it in every case, not just the toggle-able mixed-track case.
+- **Badge redesigned for legibility**: a solid square instead of plain shadowed text — dark background + white letter on white keys, white background + dark letter on black keys (inverted per key type, not per hand) — sized via `clamp()` against each key's own rendered width so it scales correctly across all three keyboard sizes (61/73/88 keys are inversely related to key width, not directly — 88 keys gives the *narrowest* keys, not 61) rather than risking a fixed-px badge over- or under-sizing.
+- **White-key badge repositioned** from a top-left corner (which sat directly under the overlapping black key, half-hidden) to just below the black keys' own bottom edge, centered — a band that's always fully exposed white key on every note, with clear space above the note-name label.
+
+**Changed:** `src/components/Keyboard/Keyboard.tsx`, `src/components/SettingsPanel/SettingsPanel.tsx`, `src/store/index.ts`.
+
 ## [1.11.4] — 18. 8. 2026 — Track color VU meters in the Tracks panel
 
 ### New
