@@ -59,7 +59,7 @@ let CANVAS_BG_COLOR      = 0x0f0f12   // --bg-modal-header (near-match snap) —
 let CANVAS_BG_WARM_COLOR = 0x12100e   // --bg-warm — warm-theme PixiJS floor
 
 let FONT_UI_STR                = "'Inter', sans-serif"           // --font-ui
-let FONT_MONO_STR              = "'JetBrains Mono', monospace"   // --font-mono
+let FONT_MONO_STR              = "'IBM Plex Mono', monospace"   // --font-mono
 let HAND_AMBER_HEX_STR         = '#e8a027'   // --text-amber (string form, for Canvas2D fillStyle)
 let BARLINE_COLOR             = '#1e1e38'   // --pianoroll-barline
 let BAR_PILL_BG_COLOR         = '#0d0d18'   // --bg-row (near-match snap)

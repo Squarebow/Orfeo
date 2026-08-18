@@ -227,8 +227,8 @@ export default function TrackPanel() {
           </button>
           </Tooltip>
           <Tooltip
-            title={!midi ? 'Open a MIDI file first' : midiEditorOpen ? 'MIDI Playback Editor is open' : 'Open MIDI Playback Editor'}
-            description={!midi ? 'Load a MIDI file to edit its playback.' : midiEditorOpen ? "Already open — check for it among your other windows." : 'Rename tracks, reassign instruments, and split hands before or after import.'}
+            title={!midi ? 'Open a MIDI file first' : midiEditorOpen ? 'MIDI Playback Editor is open' : 'MIDI Playback Editor'}
+            description={!midi ? 'Load a MIDI file to edit its playback.' : midiEditorOpen ? "Already open — check for it among your other windows." : 'Rename tracks, reassign instruments, merge and/or split tracks.'}
             wrapperStyle={{ marginTop: 8 }}
           >
           <button
@@ -249,7 +249,7 @@ export default function TrackPanel() {
           </Tooltip>
           {noteEditorEnabled && midi && (
             <Tooltip
-              title={noteEditorActive ? 'Exit note edit mode' : 'Open MIDI note editor'}
+              title={noteEditorActive ? 'Exit note edit mode' : 'MIDI note editor'}
               description={noteEditorActive ? 'Returns to normal playback view.' : 'Edit individual notes directly on the piano roll.'}
               wrapperStyle={{ marginTop: 8 }}
             >
@@ -273,7 +273,7 @@ export default function TrackPanel() {
             </button>
             </Tooltip>
           )}
-          <Tooltip title="Open Console Mixer" description="Adjust volume, pan, and effects for every track." wrapperStyle={{ marginTop: 8 }}>
+          <Tooltip title="Console Mixer" description="Adjust volume, pan, and effects for every track individually." wrapperStyle={{ marginTop: 8 }}>
           <button
             onClick={() => useStore.getState().setMixerOpen(true)}
             style={{
@@ -333,8 +333,8 @@ export default function TrackPanel() {
             </button>
             </Tooltip>
             <Tooltip
-              title={!midi ? 'Open a MIDI file first' : midiEditorOpen ? 'MIDI Playback Editor is open' : 'Open MIDI Playback Editor'}
-              description={!midi ? 'Load a MIDI file to edit its playback.' : midiEditorOpen ? "Already open — check for it among your other windows." : 'Rename tracks, reassign instruments, and split hands before or after import.'}
+              title={!midi ? 'Open a MIDI file first' : midiEditorOpen ? 'MIDI Playback Editor is open' : 'MIDI Playback Editor'}
+              description={!midi ? 'Load a MIDI file to edit its playback.' : midiEditorOpen ? "Already open — check for it among your other windows." : 'Rename tracks, reassign instruments, and split/merge tracks.'}
               wrapperStyle={{ marginTop: 8 }}
             >
             <button
@@ -355,8 +355,8 @@ export default function TrackPanel() {
             </Tooltip>
             {noteEditorEnabled && midi && (
               <Tooltip
-                title={noteEditorActive ? 'Exit note edit mode' : 'Open MIDI note editor'}
-                description={noteEditorActive ? 'Returns to normal playback view.' : 'Edit individual notes directly on the piano roll.'}
+                title={noteEditorActive ? 'Exit note edit mode' : 'MIDI note editor'}
+                description={noteEditorActive ? 'Returns to normal playback view.' : 'Add, delete and move individual notes directly on the piano roll.'}
                 wrapperStyle={{ marginTop: 8 }}
               >
               <button
@@ -377,7 +377,7 @@ export default function TrackPanel() {
               </button>
               </Tooltip>
             )}
-            <Tooltip title="Open Console Mixer" description="Adjust volume, pan, and effects for every track." wrapperStyle={{ marginTop: 8 }}>
+            <Tooltip title="Console Mixer" description="Adjust volume, pan, and effects for every track and apply compression." wrapperStyle={{ marginTop: 8 }}>
             <button
               onClick={() => useStore.getState().setMixerOpen(true)}
               style={{
@@ -393,7 +393,7 @@ export default function TrackPanel() {
             </button>
             </Tooltip>
             {/* ── Dashed outline + low opacity — see collapsed-strip twin above ── */}
-            <Tooltip title="A dedicated practice mode is planned but not built yet." oneLine wrapperStyle={{ marginTop: 8 }}>
+            <Tooltip title="Coming soon - practice mode." oneLine wrapperStyle={{ marginTop: 8 }}>
             <div
               style={{
                 color: 'var(--state-disabled)', padding: 3,

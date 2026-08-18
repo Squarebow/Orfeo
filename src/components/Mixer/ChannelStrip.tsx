@@ -355,7 +355,7 @@ export default function ChannelStrip({ trackIndex, locked, isDragging, onDragSta
           value={chorus} onChange={handleChorus}
           accentColor="var(--knob-chorus)" size={52}
           disabled={knobsDisabled} label="Chorus" labelOffset={-10}
-          title="Chorus" description="Thickens the tone by layering slightly detuned copies of it"
+          title="Chorus" description="Thickens the tone"
           disabledHint="You must switch to Samples engine to use Chorus."
         />
       </div>
@@ -370,7 +370,7 @@ export default function ChannelStrip({ trackIndex, locked, isDragging, onDragSta
           value={reverb} onChange={handleReverb}
           accentColor="var(--knob-reverb)" size={52}
           disabled={knobsDisabled} label="Reverb" labelOffset={-10}
-          title="Reverb" description="Adds room/space ambience behind the channel"
+          title="Reverb" description="Adds room/space ambience"
           disabledHint="You must switch to Samples engine to use Reverb."
         />
       </div>
@@ -422,7 +422,7 @@ export default function ChannelStrip({ trackIndex, locked, isDragging, onDragSta
         <IBtn
           onClick={() => updateTrack(trackIndex, { muted: !muted })}
           active={muted} title={muted ? 'Unmute' : 'Mute'}
-          description={muted ? 'Unmute this track' : 'Silence this track — its notes still show on the Piano Roll'}
+          description={muted ? 'Unmute track' : 'Mute — notes show on the Piano Roll'}
           activeColor="var(--status-error)"
         >
           <span style={{ fontSize: 14, fontWeight: 700, fontFamily: 'var(--font-mono)', lineHeight: 1 }}>M</span>
@@ -430,7 +430,7 @@ export default function ChannelStrip({ trackIndex, locked, isDragging, onDragSta
         <IBtn
           onClick={() => updateTrack(trackIndex, { solo: !solo })}
           active={solo} title={solo ? 'Unsolo' : 'Solo'}
-          description={solo ? 'Unsolo — hear every unmuted track again' : 'Hear only this track (and any other soloed ones)'}
+          description={solo ? 'Unsolo — hear every unmuted track' : 'Solo this track'}
           activeColor="var(--text-amber)"
         >
           <span style={{ fontSize: 14, fontWeight: 700, fontFamily: 'var(--font-mono)', lineHeight: 1 }}>S</span>
@@ -438,7 +438,7 @@ export default function ChannelStrip({ trackIndex, locked, isDragging, onDragSta
         <IBtn
           onClick={() => updateTrack(trackIndex, { visible: !visible })}
           active={true} title={visible ? 'Hide in roll' : 'Show in roll'}
-          description={visible ? 'Hide this track’s notes on the Piano Roll' : 'Show this track’s notes on the Piano Roll'}
+          description={visible ? 'Hide notes on the Piano Roll' : 'Show notes on the Piano Roll'}
           activeColor={visible ? 'var(--status-success-text)' : 'var(--status-error-hover)'}
         >
           {visible ? <Eye size={14} /> : <EyeClosed size={14} />}
@@ -446,7 +446,7 @@ export default function ChannelStrip({ trackIndex, locked, isDragging, onDragSta
         <IBtn
           onClick={() => updateTrack(trackIndex, { showOnKeyboard: !showOnKeyboard })}
           active={showOnKeyboard} title={showOnKeyboard ? 'Lit on keyboard' : 'Not lit on keyboard'}
-          description={showOnKeyboard ? 'This track’s notes light up the on-screen keyboard' : 'This track’s notes won’t light up the on-screen keyboard'}
+          description={showOnKeyboard ? 'Notes light up on keyboard' : 'Notes won’t light up on the keyboard'}
           activeColor="var(--text-amber)"
         >
           {/* Mini piano SVG — vectorEffect non-scaling-stroke preserved at all sizes;

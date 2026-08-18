@@ -1,5 +1,23 @@
 # Changelog
 
+## [1.11.6] — 18. 8. 2026 — Settings reorganized into 8 sections, MIDI Note Editor and Library spacing fixes
+
+### Changed
+- **Settings fully reordered and regrouped.** New top-to-bottom order: Audio, MIDI Files & Library, Playback & Editing, Practice, Notation, Keyboard, Piano Roll, Appearance. All existing functionality carried over unchanged — this is a reshuffle, not a feature change.
+  - **Audio** (unchanged icon) now leads, and its Sound Fonts catalog bullets each entry (GeneralUser GS, FluidR3 GM, MuseScore General) — the bullet comes from the same list the catalog already renders from, so any soundfont added later gets one automatically.
+  - **MIDI Files & Library** dropped its book icon for Lucide's Files icon; MIDI Note Editor moved out to Playback & Editing.
+  - **Playback & Editing** (renamed from Playback & Practice, same icon): MIDI Note Editor, Left/Right Hand, Max Fingers (now sits directly under Left/Right Hand instead of trailing after Hand Tags), Loop region, Focus mode (moved in from Audio). Left/Right Hand's description was rewritten in plainer language and now ends with a note pointing at the hand icon used to enter edit mode; Loop region's description now points at the loop icon the same way.
+  - **Practice** is a new section (Lucide open-book icon, freed up once MIDI Files & Library switched to the Files icon): Chord Prompter, Close panels on playback, Hand Tags, Track color VU meters — all relocated here from Playback & Practice with no behavior change.
+  - Every setting's description/hint text now renders in italic, for a lighter visual weight against the bright labels above it.
+- **MIDI Note Editor's tools/modes row** gained 4px of padding above and below the icons (was flush top/bottom); the floating toolbar grows to fit automatically.
+- **Library's active-folder-path row** (under the search bar) got a touch more top/bottom padding — was flush against the search bar above and the All/★ filter row below.
+- **Tooltip copy tightened** across the Console Mixer's channel/master strips and the Tracks panel — shorter titles ("MIDI Playback Editor" instead of "Open MIDI Playback Editor", "Console Mixer" instead of "Open Console Mixer"), trimmed descriptions on Mute/Solo/Hide/Lit-on-keyboard and the Chorus/Reverb knobs, and a couple of hint updates (split/merge tracks wording, "Coming soon - practice mode.").
+
+### Removed
+- Two unused font families cleaned out of `index.css` and `src/assets/fonts/`: **Founders Grotesk** (lost the UI-font trial to Familjen Grotesk) and **JetBrains Mono** (superseded by IBM Plex Mono as `--font-mono`). Mona Sans stays installed as a live candidate. A stale `'JetBrains Mono'` fallback literal in `PianoRoll.tsx`'s canvas text setup was also updated to `'IBM Plex Mono'` to match.
+
+**Changed:** `src/components/SettingsPanel/SettingsPanel.tsx`, `src/components/NoteEditor/NoteEditorToolbar.tsx`, `src/components/PianoRoll/PianoRoll.tsx`, `src/components/Mixer/{ChannelStrip,MasterStrip}.tsx`, `src/components/TrackPanel/TrackPanel.tsx`, `src/store/index.ts`, `src/index.css`.
+
 ## [1.11.5] — 18. 8. 2026 — Colorblind-accessible hand-letter badges, decoupled from Left/Right Hand
 
 ### Fixed

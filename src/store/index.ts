@@ -666,11 +666,12 @@ export const useStore = create<OrfeoStore>((set, get) => ({
 
   // ── Settings group collapse state — keyed by group id; true = collapsed ────
   settingsGroupsCollapsed: {
+    audio: true,
     'midi-files-library': false,
+    'playback-editing': true,
+    practice: true,
     notation: true,
     keyboard: true,
-    'playback-practice': true,
-    audio: true,
     'piano-roll': true,
     appearance: true,
   },

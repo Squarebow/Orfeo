@@ -6,6 +6,7 @@ import {
   ChevronLeft, ChevronDown, ChevronRight, Music2, Piano, Palette, Columns3, Volume2,
   Music, FolderOpen, Folders, RefreshCw, FileMusic, FileCode2, Guitar, BookOpen, Library, Settings, Info,
   Search, X, Undo2, Upload, ToggleLeft, ToggleRight, CloudDownload, ChevronsDownUp, AudioLines,
+  Files, Hand, Repeat,
 } from 'lucide-react'
 import { useStore } from '../../store'
 import OrfeoMark from '../OrfeoMark'
@@ -152,7 +153,7 @@ function OptionRow({ label, children, hint, hintCenter, badge, eyeToggle, eyeVal
           <div style={{
             maxWidth: '85%',
             fontSize: 'var(--text-xs)', color: 'var(--text-faint)',
-            lineHeight: 1.5, fontFamily: 'var(--font-ui)',
+            lineHeight: 1.5, fontFamily: 'var(--font-ui)', fontStyle: 'italic',
           }}>
             {description}
           </div>
@@ -172,7 +173,7 @@ function OptionRow({ label, children, hint, hintCenter, badge, eyeToggle, eyeVal
       {children}
       {/* ── Hint — --text-xs token + --text-dimmest matches description hierarchy ── */}
       {hint && (
-        <div style={{ fontSize: 'var(--text-xs)', color: 'var(--text-faint)', marginTop: 5, fontFamily: 'var(--font-ui)', textAlign: hintCenter ? 'center' : 'left' }}>
+        <div style={{ fontSize: 'var(--text-xs)', color: 'var(--text-faint)', marginTop: 5, fontFamily: 'var(--font-ui)', textAlign: hintCenter ? 'center' : 'left', fontStyle: 'italic' }}>
           {hint}
         </div>
       )}
@@ -1327,7 +1328,7 @@ function LibraryPanel() {
               onClick={() => libraryFolder && window.electronAPI.openFolderInExplorer(libraryFolder)}
               style={{
                 fontSize: 10, lineHeight: '11px', color: 'var(--text-muted)', fontFamily: 'var(--font-mono)',
-                padding: '0 2px', marginBottom: 6, cursor: 'pointer',
+                padding: '4px 2px', marginBottom: 6, cursor: 'pointer',
                 overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
               }}
               onMouseEnter={e => e.currentTarget.style.color = 'var(--text-amber)'}
@@ -2260,312 +2261,7 @@ export default function SettingsPanel() {
             ) : (
               <div style={{ flex: 1, overflowY: 'auto', padding: '4px 0' }}>
 
-                {/* ── 1. MIDI FILES & LIBRARY ────────────────────────────────────── */}
-                <CollapsibleSection icon={<BookOpen size={11} />} label="MIDI Files & Library"
-                  collapsed={settingsGroupsCollapsed['midi-files-library']}
-                  onToggle={() => setSettingsGroupCollapsed('midi-files-library', !settingsGroupsCollapsed['midi-files-library'])}
-                >
-                  {/* ── Demo folder — eye-toggle: Eye=show, EyeOff=hidden ────────── */}
-                  <OptionRow
-                    label="Demo content"
-                    eyeToggle
-                    eyeValue={!hideDemoFolder}
-                    onEyeChange={(val) => setHideDemoFolder(!val)}
-                    description="Hides bundled demo songs from library view. Files are not deleted."
-                  />
-                  {/* ── Chord Transcription — eye-toggle with BETA badge ──────────── */}
-                  <OptionRow
-                    label="Chord Transcription"
-                    badge={<BetaBadge />}
-                    eyeToggle
-                    eyeValue={chordTranscriptionEnabled}
-                    onEyeChange={setChordTranscriptionEnabled}
-                    description="Adds a transcript icon to every file in your library — click to generate a chord chart PDF in ORFEO folder."
-                  />
-                  {/* ── Note Editor — eye-toggle: unlocks the note-edit icon in the Tracks panel ── */}
-                  <OptionRow
-                    label="MIDI Note Editor"
-                    eyeToggle
-                    eyeValue={noteEditorEnabled}
-                    onEyeChange={setNoteEditorEnabled}
-                    description={
-                      <>
-                        Shows <span style={{ display: 'inline-flex', verticalAlign: 'middle', color: 'var(--text-amber)' }}><AudioLines size={11} /></span> icon in the Tracks panel. Enables MIDI note-editing mode directly on the piano roll.
-                      </>
-                    }
-                  />
-                </CollapsibleSection>
-
-                {/* ── 2. NOTATION ────────────────────────────────────────────────── */}
-                <CollapsibleSection icon={<Music2 size={11} />} label="Notation"
-                  collapsed={settingsGroupsCollapsed['notation']}
-                  onToggle={() => setSettingsGroupCollapsed('notation', !settingsGroupsCollapsed['notation'])}
-                >
-                  {/* ── Display system — single 4-button row; Hide uses EyeOff icon ── */}
-                  <OptionRow label="Display system">
-                    <div style={{ fontSize: 'var(--text-xs)', color: 'var(--text-faint)', lineHeight: 1.5, fontFamily: 'var(--font-ui)', marginBottom: 6 }}>
-                      Select your preferred note naming system for notation and labels.
-                    </div>
-                    <div style={{ display: 'flex', gap: 'var(--space-1)' }}>
-                      {NOTE_NAMING_OPTIONS.slice(0, 3).map(opt => (
-                        <OptionBtn key={opt.value} active={noteNaming === opt.value}
-                          onClick={() => setNoteNaming(opt.value)}>
-                          {opt.label}
-                        </OptionBtn>
-                      ))}
-                      {/* ── Hide — EyeOff icon; red when active (hidden is a meaningful state) ── */}
-                      <OptionBtn
-                        active={noteNaming === 'hidden'}
-                        onClick={() => setNoteNaming('hidden')}
-                        activeColor="error"
-                      >
-                        <EyeClosed size={11} strokeWidth={1.5} />
-                      </OptionBtn>
-                    </div>
-                    {/* ── Note name preview — value display, JetBrains Mono intentional ── */}
-                    <div style={{
-                      marginTop: 6, padding: '4px 8px',
-                      background: 'var(--bg-row)', borderRadius: 4,
-                      fontSize: 10, fontFamily: 'var(--font-mono)',
-                      color: 'var(--text-dim)', letterSpacing: '0.08em', textAlign: 'center',
-                    }}>
-                      {noteNaming === 'english'          && 'C  D  E  F  G  A  B'}
-                      {noteNaming === 'central-european' && 'C  D  E  F  G  A  H'}
-                      {noteNaming === 'solfege'          && 'Do Re Mi Fa Sol La Si'}
-                      {noteNaming === 'hidden'           && '— labels hidden —'}
-                    </div>
-                  </OptionRow>
-                  {/* ── Accidentals — only shown when note names are visible ───────── */}
-                  {noteNaming !== 'hidden' && (
-                    <OptionRow
-                      label="Accidentals"
-                      hint={accidentals === 'flat' ? 'Bb  Eb  Ab  Db  Gb' : 'A#  D#  G#  C#  F#'}
-                      hintCenter
-                    >
-                      <div style={{ fontSize: 'var(--text-xs)', color: 'var(--text-faint)', lineHeight: 1.5, fontFamily: 'var(--font-ui)', marginBottom: 6 }}>
-                        Select your preferred enharmonic spelling for black keys: sharps or flats.
-                      </div>
-                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 20 }}>
-                        <span
-                          onClick={() => setAccidentals('flat')}
-                          style={{
-                            cursor: 'pointer', fontSize: 'var(--text-xs)', fontFamily: 'var(--font-ui)', fontWeight: 600,
-                            color: accidentals === 'flat' ? 'var(--text-amber)' : 'var(--text-inactive)',
-                          }}
-                        ><span style={{ fontSize: 'calc(var(--text-xs) * 1.5)' }}>♭</span> Flats</span>
-                        <button
-                          onClick={() => setAccidentals(accidentals === 'flat' ? 'sharp' : 'flat')}
-                          style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 2, display: 'flex', alignItems: 'center', color: 'var(--text-amber)' }}
-                        >
-                          {accidentals === 'flat'
-                            ? <ToggleLeft  size={16} strokeWidth={1.5} />
-                            : <ToggleRight size={16} strokeWidth={1.5} />
-                          }
-                        </button>
-                        <span
-                          onClick={() => setAccidentals('sharp')}
-                          style={{
-                            cursor: 'pointer', fontSize: 'var(--text-xs)', fontFamily: 'var(--font-ui)', fontWeight: 600,
-                            color: accidentals === 'sharp' ? 'var(--text-amber)' : 'var(--text-inactive)',
-                          }}
-                        ><span style={{ fontSize: 'calc(var(--text-xs) * 1.5)' }}>♯</span> Sharps</span>
-                      </div>
-                    </OptionRow>
-                  )}
-                </CollapsibleSection>
-
-                {/* ── 3. KEYBOARD ────────────────────────────────────────────────── */}
-                <CollapsibleSection icon={<Piano size={11} />} label="Keyboard"
-                  collapsed={settingsGroupsCollapsed['keyboard']}
-                  onToggle={() => setSettingsGroupCollapsed('keyboard', !settingsGroupsCollapsed['keyboard'])}
-                >
-                  {/* ── Key range — multi-choice selector, unchanged structure ───── */}
-                  <OptionRow label="Key range" hint="Number of keys on the virtual keyboard">
-                    <div style={{ display: 'flex', gap: 'var(--space-1)' }}>
-                      {KEYBOARD_SIZES.map(size => (
-                        <OptionBtn key={size} active={keyboardSize === size}
-                          onClick={() => setKeyboardSize(size)}>
-                          {size}
-                        </OptionBtn>
-                      ))}
-                    </div>
-                  </OptionRow>
-                  {/* ── Labels sub-group heading — contains Show octaves + Show note names,
-                      so it gets the same weight as a real heading, not a thin divider ── */}
-                  <div style={{
-                    padding: '5px 14px 3px',
-                    fontSize: 'var(--text-xs)', color: 'var(--text-default)', fontWeight: 500,
-                    letterSpacing: '0.02em', textTransform: 'uppercase', fontFamily: 'var(--font-ui)',
-                    borderTop: '1px solid var(--border-row)',
-                  }}>
-                    Labels
-                  </div>
-                  {/* ── Octave labels — show/hide octave numbers on virtual keyboard ─ */}
-                  <OptionRow
-                    label="Show octaves"
-                    labelSmall
-                    eyeToggle
-                    eyeValue={showOctaveLabels}
-                    onEyeChange={setShowOctaveLabels}
-                    description="Display octave numbers (e.g. C3, C4, C5) on the virtual keyboard."
-                  />
-                  {/* ── Note name labels — show/hide note names on virtual keyboard ── */}
-                  <OptionRow
-                    label="Show note names"
-                    labelSmall
-                    eyeToggle
-                    eyeValue={showNoteNamesOnKeyboard}
-                    onEyeChange={setShowNoteNamesOnKeyboard}
-                    description="Display note names on the virtual keyboard for easier identification."
-                  />
-                </CollapsibleSection>
-
-                {/* ── 4. PLAYBACK & PRACTICE ─────────────────────────────────────── */}
-                <CollapsibleSection icon={<Music size={11} />} label="Playback & Practice"
-                  collapsed={settingsGroupsCollapsed['playback-practice']}
-                  onToggle={() => setSettingsGroupCollapsed('playback-practice', !settingsGroupsCollapsed['playback-practice'])}
-                >
-                  {/* ── Left/Right Hand BETA — eye-toggle; sub-controls unchanged ─── */}
-                  <OptionRow
-                    label="Left/Right Hand"
-                    badge={<BetaBadge />}
-                    eyeToggle
-                    eyeValue={showHandLabels}
-                    onEyeChange={setShowHandLabels}
-                    description="Shows which hand each note belongs to, read from the file's hand-assignment tags. Automated — a guideline, not a verified transcription."
-                  />
-                  {/* ── Hand letter badges — accessibility backup for colorblind users
-                      who can't rely on the blue/pink alone. Independent of Left/Right
-                      Hand above: a genuinely split Left Hand/Right Hand track (e.g. from
-                      Split Hands in the Playback Editor) stays blue/pink even with that
-                      toggle off, so this needs to work on its own too. ─────────────── */}
-                  <OptionRow
-                    label="Hand tags"
-                    eyeToggle
-                    eyeValue={showHandLetters}
-                    onEyeChange={setShowHandLetters}
-                    description="Prints a small L/R badge on hand-colored keys, for colorblind users who can't rely on blue vs. pink alone."
-                  />
-                  {/* ── Sub-controls — only visible when hand labels are on ─────────── */}
-                  {showHandLabels && (
-                    <>
-                      {/* ── Max fingers per hand — hard cap for the hand-assignment
-                          engine's wide-chord split point; independent per hand. This
-                          is a real cost-function parameter in the DP split algorithm
-                          (handAssignment.ts), not cosmetic — kept, just redesigned:
-                          heading, Left, Right, one shared description below. ────── */}
-                      <div style={{
-                        padding: '5px 14px 3px',
-                        fontSize: 9, color: 'var(--text-muted)', fontWeight: 600,
-                        letterSpacing: '0.1em', textTransform: 'uppercase', fontFamily: 'var(--font-ui)',
-                      }}>
-                        Max Fingers
-                      </div>
-                      <div style={{ padding: '3px 14px 6px', display: 'flex', alignItems: 'center', gap: 16 }}>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                          <span style={{ fontSize: 10, color: 'var(--text-default)', fontFamily: 'var(--font-ui)', whiteSpace: 'nowrap' }}>Left hand</span>
-                          <FingerStepper value={lhMaxFingers} onChange={setLhMaxFingers} />
-                        </div>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                          <span style={{ fontSize: 10, color: 'var(--text-default)', fontFamily: 'var(--font-ui)', whiteSpace: 'nowrap' }}>Right hand</span>
-                          <FingerStepper value={rhMaxFingers} onChange={setRhMaxFingers} />
-                        </div>
-                      </div>
-                      <div style={{ padding: '2px 12px 6px', color: 'var(--text-inactive)', fontSize: 'var(--text-xs)', fontFamily: 'var(--font-ui)', lineHeight: 1.5 }}>
-                        How many notes of a wide chord each hand can take before the rest is absorbed by the other — left counts from the bottom of the chord, right from the top.
-                      </div>
-                      {/* ── Mode (Practice/Performance) — disabled, not deleted.
-                          Practice mode proves inconsistent in performance for now;
-                          may return once improved. A JS false-guard instead of a
-                          JSX comment, since this block has its own inline JSX
-                          comments that would terminate a wrapping one early. ── */}
-                      {false && (
-                        <>
-                          <OptionRow
-                            label="Mode"
-                            hint={handLabelMode === 'practice'
-                              ? 'Practice shows a split line that moves with the piece, averaged over a few seconds of hand tags.'
-                              : 'Performance colors each note on the keyboard by its own hand tag as it plays.'}
-                          >
-                            <div style={{ display: 'flex', gap: 'var(--space-1)' }}>
-                              <OptionBtn active={handLabelMode === 'practice'}    onClick={() => setHandLabelMode('practice')}>Practice</OptionBtn>
-                              <OptionBtn active={handLabelMode === 'performance'} onClick={() => setHandLabelMode('performance')}>Performance</OptionBtn>
-                            </div>
-                          </OptionRow>
-                          {handLabelMode === 'practice' && (
-                            <div style={{ padding: '2px 12px 6px', color: 'var(--text-inactive)', fontSize: 'var(--text-xs)', fontFamily: 'var(--font-ui)', lineHeight: 1.5 }}>
-                              The line tracks the average pitch split between left- and right-hand notes in a ~3-second window around the playhead — not user-adjustable, it comes straight from the hand-assignment engine's tags.
-                            </div>
-                          )}
-                          {handLabelMode === 'performance' && (
-                            <>
-                              <OptionRow label="Hardware Split Sensitivity" labelSmall>
-                                <div style={{ fontSize: 11, color: 'var(--text-dim-control)', fontFamily: 'var(--font-mono)', marginBottom: 4 }}>
-                                  {performanceSplitSensitivity} semitones
-                                </div>
-                                <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                                  <span style={{ fontSize: 9, color: 'var(--text-inactive)', fontFamily: 'var(--font-mono)', flexShrink: 0 }}>2</span>
-                                  <input
-                                    type="range" min={2} max={16} step={1}
-                                    value={performanceSplitSensitivity}
-                                    onChange={e => setPerformanceSplitSensitivity(Number(e.target.value))}
-                                    className="orfeo-slider-amber"
-                                    style={{ flex: 1, '--fill': `${((performanceSplitSensitivity - 2) / 14) * 100}%` } as CSSProperties}
-                                  />
-                                  <span style={{ fontSize: 9, color: 'var(--text-inactive)', fontFamily: 'var(--font-mono)', flexShrink: 0 }}>16</span>
-                                </div>
-                              </OptionRow>
-                              <div style={{ padding: '2px 12px 6px', color: 'var(--text-inactive)', fontSize: 'var(--text-xs)', fontFamily: 'var(--font-ui)', lineHeight: 1.5 }}>
-                                Only affects notes played on a physical MIDI keyboard, which have no file tag to read.
-                              </div>
-                            </>
-                          )}
-                        </>
-                      )}
-                    </>
-                  )}
-                  {/* ── Chord Prompter — eye-toggle ───────────────────────────────── */}
-                  <OptionRow
-                    label="Chord Prompter"
-                    eyeToggle
-                    eyeValue={chordPrompterEnabled}
-                    onEyeChange={setChordPrompterEnabled}
-                    description={<>
-                      Shows past, current and upcoming chords during playback. Click{' '}
-                      <span style={{ display: 'inline-flex', verticalAlign: '-2px', margin: '0 2px', color: 'var(--text-amber)' }}>
-                        <svg xmlns="http://www.w3.org/2000/svg" width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 7V5a2 2 0 0 1 2-2h2"/><path d="M17 3h2a2 2 0 0 1 2 2v2"/><path d="M21 17v2a2 2 0 0 1-2 2h-2"/><path d="M7 21H5a2 2 0 0 1-2-2v-2"/><rect width="10" height="8" x="7" y="8" rx="1"/></svg>
-                      </span>
-                      {' '}to enable it.
-                    </>}
-                  />
-                  {/* ── Loop region — eye-toggle ──────────────────────────────────── */}
-                  <OptionRow
-                    label="Loop region"
-                    eyeToggle
-                    eyeValue={loopRegionEnabled}
-                    onEyeChange={setLoopRegionEnabled}
-                    description="A strip above the song title allows you to select and loop-play a section. Alt+Click & drag to select."
-                  />
-                  {/* ── Auto-collapse drawers — collapses the Tracks panel on
-                      playback, restores it on pause/new file load ──────────────── */}
-                  <OptionRow
-                    label="Close panels on playback"
-                    eyeToggle
-                    eyeValue={autoCollapseDrawers}
-                    onEyeChange={setAutoCollapseDrawers}
-                    description="Automatically hide side panels during playback to maximize the piano roll view"
-                  />
-                  {/* ── Tracks panel color line doubles as a mini VU meter ──────────── */}
-                  <OptionRow
-                    label="Track color VU meters"
-                    eyeToggle
-                    eyeValue={trackVuColorEnabled}
-                    onEyeChange={setTrackVuColorEnabled}
-                    description="Each track's color line in the Tracks panel pulses with its playback level, without opening the Console Mixer"
-                  />
-                </CollapsibleSection>
-
-                {/* ── 5. AUDIO ───────────────────────────────────────────────────── */}
+                {/* ── 1. AUDIO ───────────────────────────────────────────────────── */}
                 <CollapsibleSection icon={<Volume2 size={11} />} label="Audio"
                   collapsed={settingsGroupsCollapsed['audio']}
                   onToggle={() => setSettingsGroupCollapsed('audio', !settingsGroupsCollapsed['audio'])}
@@ -2651,7 +2347,7 @@ export default function SettingsPanel() {
                     }}
                   >
                     {/* ── Description — moved above the list (was a trailing hint below it) ── */}
-                    <div style={{ fontSize: 'var(--text-xs)', color: 'var(--text-faint)', fontFamily: 'var(--font-ui)', marginBottom: 8 }}>
+                    <div style={{ fontSize: 'var(--text-xs)', color: 'var(--text-faint)', fontFamily: 'var(--font-ui)', marginBottom: 8, fontStyle: 'italic' }}>
                       Add sf2 soundfonts, downloaded on demand. Samples engine exclusive.
                     </div>
 
@@ -2668,7 +2364,10 @@ export default function SettingsPanel() {
                     />
 
                     {/* ── Full catalog, incl. not-yet-downloaded — grid columns keep name/size/action
-                        aligned regardless of name length, which a row of fixed-width buttons couldn't. ── */}
+                        aligned regardless of name length, which a row of fixed-width buttons couldn't.
+                        Bullet before each name — future-proof: every entry in allSoundfonts (bundled,
+                        catalog, or a later addition) is rendered from this one map, so a new soundfont
+                        automatically gets its bullet too, nothing to update by hand. ── */}
                     <div style={{ display: 'grid', gridTemplateColumns: '1fr auto auto', columnGap: 'var(--space-2)', rowGap: 5, alignItems: 'center' }}>
                       {allSoundfonts.map((sf) => {
                         const isActive = selectedSoundfont === sf.id
@@ -2683,7 +2382,7 @@ export default function SettingsPanel() {
                                 fontWeight: isActive ? 600 : 400,
                                 overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
                               }}
-                            >{sf.name}</span>
+                            >• {sf.name}</span>
                             <span style={{ fontSize: 9, color: 'var(--text-dimmest)', fontFamily: 'var(--font-ui)', textAlign: 'right' }}>{sf.sizeMB} MB</span>
                             {sf.id === 'generaluser-gs' ? (
                               <span style={{ fontSize: 9, color: 'var(--text-muted)', fontFamily: 'var(--font-ui)', textAlign: 'right' }}>bundled</span>
@@ -2739,6 +2438,154 @@ export default function SettingsPanel() {
                       ? <Tooltip title={soundFontsHint} wrapperStyle={{ display: 'block', width: '100%' }}>{soundFontsBody}</Tooltip>
                       : soundFontsBody
                   })()}
+                </CollapsibleSection>
+
+                {/* ── 2. MIDI FILES & LIBRARY ────────────────────────────────────── */}
+                <CollapsibleSection icon={<Files size={11} />} label="MIDI Files & Library"
+                  collapsed={settingsGroupsCollapsed['midi-files-library']}
+                  onToggle={() => setSettingsGroupCollapsed('midi-files-library', !settingsGroupsCollapsed['midi-files-library'])}
+                >
+                  {/* ── Demo folder — eye-toggle: Eye=show, EyeOff=hidden ────────── */}
+                  <OptionRow
+                    label="Demo content"
+                    eyeToggle
+                    eyeValue={!hideDemoFolder}
+                    onEyeChange={(val) => setHideDemoFolder(!val)}
+                    description="Hides bundled demo songs from library view. Files are not deleted."
+                  />
+                  {/* ── Chord Transcription — eye-toggle with BETA badge ──────────── */}
+                  <OptionRow
+                    label="Chord Transcription"
+                    badge={<BetaBadge />}
+                    eyeToggle
+                    eyeValue={chordTranscriptionEnabled}
+                    onEyeChange={setChordTranscriptionEnabled}
+                    description="Adds a transcript icon to every file in your library — click to generate a chord chart PDF in ORFEO folder."
+                  />
+                </CollapsibleSection>
+
+                {/* ── 3. PLAYBACK & EDITING ──────────────────────────────────────── */}
+                <CollapsibleSection icon={<Music size={11} />} label="Playback & Editing"
+                  collapsed={settingsGroupsCollapsed['playback-editing']}
+                  onToggle={() => setSettingsGroupCollapsed('playback-editing', !settingsGroupsCollapsed['playback-editing'])}
+                >
+                  {/* ── Note Editor — eye-toggle: unlocks the note-edit icon in the Tracks panel ── */}
+                  <OptionRow
+                    label="MIDI Note Editor"
+                    eyeToggle
+                    eyeValue={noteEditorEnabled}
+                    onEyeChange={setNoteEditorEnabled}
+                    description={
+                      <>
+                        Shows <span style={{ display: 'inline-flex', verticalAlign: '-2px', margin: '0 2px', color: 'var(--text-amber)' }}><AudioLines size={11} /></span> icon in the Tracks panel. Enables MIDI note-editing mode directly on the piano roll.
+                      </>
+                    }
+                  />
+                  {/* ── Left/Right Hand BETA — eye-toggle; sub-controls unchanged ─── */}
+                  <OptionRow
+                    label="Left/Right Hand"
+                    badge={<BetaBadge />}
+                    eyeToggle
+                    eyeValue={showHandLabels}
+                    onEyeChange={setShowHandLabels}
+                    description={<>
+                      Automated hand assignment for piano that colors each note by the hand that plays it. This is a guideline, not a verified trascript!
+                      <br /><br />
+                      For a perfectly accurate split use MIDI note editor and click the{' '}
+                      <span style={{ display: 'inline-flex', verticalAlign: '-2px', margin: '0 2px', color: 'var(--text-amber)' }}><Hand size={11} /></span>
+                      {' '}icon to manually assign notes to left and right hand.
+                    </>}
+                  />
+                  {/* ── Sub-controls — only visible when hand labels are on ─────────── */}
+                  {showHandLabels && (
+                    <>
+                      {/* ── Max fingers per hand — hard cap for the hand-assignment
+                          engine's wide-chord split point; independent per hand. This
+                          is a real cost-function parameter in the DP split algorithm
+                          (handAssignment.ts), not cosmetic — kept, just redesigned:
+                          heading, Left, Right, one shared description below. ────── */}
+                      <div style={{
+                        padding: '5px 14px 3px',
+                        fontSize: 9, color: 'var(--text-muted)', fontWeight: 600,
+                        letterSpacing: '0.1em', textTransform: 'uppercase', fontFamily: 'var(--font-ui)',
+                      }}>
+                        Max Fingers
+                      </div>
+                      <div style={{ padding: '3px 14px 6px', display: 'flex', alignItems: 'center', gap: 16 }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                          <span style={{ fontSize: 10, color: 'var(--text-default)', fontFamily: 'var(--font-ui)', whiteSpace: 'nowrap' }}>Left hand</span>
+                          <FingerStepper value={lhMaxFingers} onChange={setLhMaxFingers} />
+                        </div>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                          <span style={{ fontSize: 10, color: 'var(--text-default)', fontFamily: 'var(--font-ui)', whiteSpace: 'nowrap' }}>Right hand</span>
+                          <FingerStepper value={rhMaxFingers} onChange={setRhMaxFingers} />
+                        </div>
+                      </div>
+                      <div style={{ padding: '2px 12px 6px', color: 'var(--text-inactive)', fontSize: 'var(--text-xs)', fontFamily: 'var(--font-ui)', lineHeight: 1.5, fontStyle: 'italic' }}>
+                        How many notes of a wide chord each hand can take before the rest is absorbed by the other — left counts from the bottom of the chord, right from the top.
+                      </div>
+                      {/* ── Mode (Practice/Performance) — disabled, not deleted.
+                          Practice mode proves inconsistent in performance for now;
+                          may return once improved. A JS false-guard instead of a
+                          JSX comment, since this block has its own inline JSX
+                          comments that would terminate a wrapping one early. ── */}
+                      {false && (
+                        <>
+                          <OptionRow
+                            label="Mode"
+                            hint={handLabelMode === 'practice'
+                              ? 'Practice shows a split line that moves with the piece, averaged over a few seconds of hand tags.'
+                              : 'Performance colors each note on the keyboard by its own hand tag as it plays.'}
+                          >
+                            <div style={{ display: 'flex', gap: 'var(--space-1)' }}>
+                              <OptionBtn active={handLabelMode === 'practice'}    onClick={() => setHandLabelMode('practice')}>Practice</OptionBtn>
+                              <OptionBtn active={handLabelMode === 'performance'} onClick={() => setHandLabelMode('performance')}>Performance</OptionBtn>
+                            </div>
+                          </OptionRow>
+                          {handLabelMode === 'practice' && (
+                            <div style={{ padding: '2px 12px 6px', color: 'var(--text-inactive)', fontSize: 'var(--text-xs)', fontFamily: 'var(--font-ui)', lineHeight: 1.5 }}>
+                              The line tracks the average pitch split between left- and right-hand notes in a ~3-second window around the playhead — not user-adjustable, it comes straight from the hand-assignment engine's tags.
+                            </div>
+                          )}
+                          {handLabelMode === 'performance' && (
+                            <>
+                              <OptionRow label="Hardware Split Sensitivity" labelSmall>
+                                <div style={{ fontSize: 11, color: 'var(--text-dim-control)', fontFamily: 'var(--font-mono)', marginBottom: 4 }}>
+                                  {performanceSplitSensitivity} semitones
+                                </div>
+                                <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                                  <span style={{ fontSize: 9, color: 'var(--text-inactive)', fontFamily: 'var(--font-mono)', flexShrink: 0 }}>2</span>
+                                  <input
+                                    type="range" min={2} max={16} step={1}
+                                    value={performanceSplitSensitivity}
+                                    onChange={e => setPerformanceSplitSensitivity(Number(e.target.value))}
+                                    className="orfeo-slider-amber"
+                                    style={{ flex: 1, '--fill': `${((performanceSplitSensitivity - 2) / 14) * 100}%` } as CSSProperties}
+                                  />
+                                  <span style={{ fontSize: 9, color: 'var(--text-inactive)', fontFamily: 'var(--font-mono)', flexShrink: 0 }}>16</span>
+                                </div>
+                              </OptionRow>
+                              <div style={{ padding: '2px 12px 6px', color: 'var(--text-inactive)', fontSize: 'var(--text-xs)', fontFamily: 'var(--font-ui)', lineHeight: 1.5 }}>
+                                Only affects notes played on a physical MIDI keyboard, which have no file tag to read.
+                              </div>
+                            </>
+                          )}
+                        </>
+                      )}
+                    </>
+                  )}
+                  {/* ── Loop region — eye-toggle ──────────────────────────────────── */}
+                  <OptionRow
+                    label="Loop region"
+                    eyeToggle
+                    eyeValue={loopRegionEnabled}
+                    onEyeChange={setLoopRegionEnabled}
+                    description={<>
+                      Shows a strip to select and loop-play a section. Alt+Click & drag to select. Click{' '}
+                      <span style={{ display: 'inline-flex', verticalAlign: '-2px', margin: '0 2px', color: 'var(--text-amber)' }}><Repeat size={11} /></span>
+                      {' '}to loop.
+                    </>}
+                  />
                   {/* ── Selective Tracks Playback — eye-toggle; shows/hides quick-toggle button in Track Panel ─ */}
                   <OptionRow
                     label="Focus mode"
@@ -2749,7 +2596,181 @@ export default function SettingsPanel() {
                   />
                 </CollapsibleSection>
 
-                {/* ── 6. PIANO ROLL ──────────────────────────────────────────────── */}
+                {/* ── 4. PRACTICE ────────────────────────────────────────────────── */}
+                <CollapsibleSection icon={<BookOpen size={11} />} label="Practice"
+                  collapsed={settingsGroupsCollapsed['practice']}
+                  onToggle={() => setSettingsGroupCollapsed('practice', !settingsGroupsCollapsed['practice'])}
+                >
+                  {/* ── Chord Prompter — eye-toggle ───────────────────────────────── */}
+                  <OptionRow
+                    label="Chord Prompter"
+                    eyeToggle
+                    eyeValue={chordPrompterEnabled}
+                    onEyeChange={setChordPrompterEnabled}
+                    description={<>
+                      Shows past, current and upcoming chords during playback. Click{' '}
+                      <span style={{ display: 'inline-flex', verticalAlign: '-2px', margin: '0 2px', color: 'var(--text-amber)' }}>
+                        <svg xmlns="http://www.w3.org/2000/svg" width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 7V5a2 2 0 0 1 2-2h2"/><path d="M17 3h2a2 2 0 0 1 2 2v2"/><path d="M21 17v2a2 2 0 0 1-2 2h-2"/><path d="M7 21H5a2 2 0 0 1-2-2v-2"/><rect width="10" height="8" x="7" y="8" rx="1"/></svg>
+                      </span>
+                      {' '}to enable it.
+                    </>}
+                  />
+                  {/* ── Auto-collapse drawers — collapses the Tracks panel on
+                      playback, restores it on pause/new file load ──────────────── */}
+                  <OptionRow
+                    label="Close panels on playback"
+                    eyeToggle
+                    eyeValue={autoCollapseDrawers}
+                    onEyeChange={setAutoCollapseDrawers}
+                    description="Automatically hide side panels during playback to maximize the piano roll view"
+                  />
+                  {/* ── Hand letter badges — accessibility backup for colorblind users
+                      who can't rely on the blue/pink alone. Independent of Left/Right
+                      Hand above: a genuinely split Left Hand/Right Hand track (e.g. from
+                      Split Hands in the Playback Editor) stays blue/pink even with that
+                      toggle off, so this needs to work on its own too. ─────────────── */}
+                  <OptionRow
+                    label="Hand tags"
+                    eyeToggle
+                    eyeValue={showHandLetters}
+                    onEyeChange={setShowHandLetters}
+                    description="Prints a small L/R badge on hand-colored keys, for colorblind users who can't rely on blue vs. pink alone."
+                  />
+                  {/* ── Tracks panel color line doubles as a mini VU meter ──────────── */}
+                  <OptionRow
+                    label="Track color VU meters"
+                    eyeToggle
+                    eyeValue={trackVuColorEnabled}
+                    onEyeChange={setTrackVuColorEnabled}
+                    description="Each track's color line in the Tracks panel pulses with its playback level, without opening the Console Mixer"
+                  />
+                </CollapsibleSection>
+
+                {/* ── 5. NOTATION ────────────────────────────────────────────────── */}
+                <CollapsibleSection icon={<Music2 size={11} />} label="Notation"
+                  collapsed={settingsGroupsCollapsed['notation']}
+                  onToggle={() => setSettingsGroupCollapsed('notation', !settingsGroupsCollapsed['notation'])}
+                >
+                  {/* ── Display system — single 4-button row; Hide uses EyeOff icon ── */}
+                  <OptionRow label="Display system">
+                    <div style={{ fontSize: 'var(--text-xs)', color: 'var(--text-faint)', lineHeight: 1.5, fontFamily: 'var(--font-ui)', marginBottom: 6, fontStyle: 'italic' }}>
+                      Select your preferred note naming system for notation and labels.
+                    </div>
+                    <div style={{ display: 'flex', gap: 'var(--space-1)' }}>
+                      {NOTE_NAMING_OPTIONS.slice(0, 3).map(opt => (
+                        <OptionBtn key={opt.value} active={noteNaming === opt.value}
+                          onClick={() => setNoteNaming(opt.value)}>
+                          {opt.label}
+                        </OptionBtn>
+                      ))}
+                      {/* ── Hide — EyeOff icon; red when active (hidden is a meaningful state) ── */}
+                      <OptionBtn
+                        active={noteNaming === 'hidden'}
+                        onClick={() => setNoteNaming('hidden')}
+                        activeColor="error"
+                      >
+                        <EyeClosed size={11} strokeWidth={1.5} />
+                      </OptionBtn>
+                    </div>
+                    {/* ── Note name preview — value display, JetBrains Mono intentional ── */}
+                    <div style={{
+                      marginTop: 6, padding: '4px 8px',
+                      background: 'var(--bg-row)', borderRadius: 4,
+                      fontSize: 10, fontFamily: 'var(--font-mono)',
+                      color: 'var(--text-dim)', letterSpacing: '0.08em', textAlign: 'center',
+                    }}>
+                      {noteNaming === 'english'          && 'C  D  E  F  G  A  B'}
+                      {noteNaming === 'central-european' && 'C  D  E  F  G  A  H'}
+                      {noteNaming === 'solfege'          && 'Do Re Mi Fa Sol La Si'}
+                      {noteNaming === 'hidden'           && '— labels hidden —'}
+                    </div>
+                  </OptionRow>
+                  {/* ── Accidentals — only shown when note names are visible ───────── */}
+                  {noteNaming !== 'hidden' && (
+                    <OptionRow
+                      label="Accidentals"
+                      hint={accidentals === 'flat' ? 'Bb  Eb  Ab  Db  Gb' : 'A#  D#  G#  C#  F#'}
+                      hintCenter
+                    >
+                      <div style={{ fontSize: 'var(--text-xs)', color: 'var(--text-faint)', lineHeight: 1.5, fontFamily: 'var(--font-ui)', marginBottom: 6, fontStyle: 'italic' }}>
+                        Select your preferred enharmonic spelling for black keys: sharps or flats.
+                      </div>
+                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 20 }}>
+                        <span
+                          onClick={() => setAccidentals('flat')}
+                          style={{
+                            cursor: 'pointer', fontSize: 'var(--text-xs)', fontFamily: 'var(--font-ui)', fontWeight: 600,
+                            color: accidentals === 'flat' ? 'var(--text-amber)' : 'var(--text-inactive)',
+                          }}
+                        ><span style={{ fontSize: 'calc(var(--text-xs) * 1.5)' }}>♭</span> Flats</span>
+                        <button
+                          onClick={() => setAccidentals(accidentals === 'flat' ? 'sharp' : 'flat')}
+                          style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 2, display: 'flex', alignItems: 'center', color: 'var(--text-amber)' }}
+                        >
+                          {accidentals === 'flat'
+                            ? <ToggleLeft  size={16} strokeWidth={1.5} />
+                            : <ToggleRight size={16} strokeWidth={1.5} />
+                          }
+                        </button>
+                        <span
+                          onClick={() => setAccidentals('sharp')}
+                          style={{
+                            cursor: 'pointer', fontSize: 'var(--text-xs)', fontFamily: 'var(--font-ui)', fontWeight: 600,
+                            color: accidentals === 'sharp' ? 'var(--text-amber)' : 'var(--text-inactive)',
+                          }}
+                        ><span style={{ fontSize: 'calc(var(--text-xs) * 1.5)' }}>♯</span> Sharps</span>
+                      </div>
+                    </OptionRow>
+                  )}
+                </CollapsibleSection>
+
+                {/* ── 6. KEYBOARD ────────────────────────────────────────────────── */}
+                <CollapsibleSection icon={<Piano size={11} />} label="Keyboard"
+                  collapsed={settingsGroupsCollapsed['keyboard']}
+                  onToggle={() => setSettingsGroupCollapsed('keyboard', !settingsGroupsCollapsed['keyboard'])}
+                >
+                  {/* ── Key range — multi-choice selector, unchanged structure ───── */}
+                  <OptionRow label="Key range" hint="Number of keys on the virtual keyboard">
+                    <div style={{ display: 'flex', gap: 'var(--space-1)' }}>
+                      {KEYBOARD_SIZES.map(size => (
+                        <OptionBtn key={size} active={keyboardSize === size}
+                          onClick={() => setKeyboardSize(size)}>
+                          {size}
+                        </OptionBtn>
+                      ))}
+                    </div>
+                  </OptionRow>
+                  {/* ── Labels sub-group heading — contains Show octaves + Show note names,
+                      so it gets the same weight as a real heading, not a thin divider ── */}
+                  <div style={{
+                    padding: '5px 14px 3px',
+                    fontSize: 'var(--text-xs)', color: 'var(--text-default)', fontWeight: 500,
+                    letterSpacing: '0.02em', textTransform: 'uppercase', fontFamily: 'var(--font-ui)',
+                    borderTop: '1px solid var(--border-row)',
+                  }}>
+                    Labels
+                  </div>
+                  {/* ── Octave labels — show/hide octave numbers on virtual keyboard ─ */}
+                  <OptionRow
+                    label="Show octaves"
+                    labelSmall
+                    eyeToggle
+                    eyeValue={showOctaveLabels}
+                    onEyeChange={setShowOctaveLabels}
+                    description="Display octave numbers (e.g. C3, C4, C5) on the virtual keyboard."
+                  />
+                  {/* ── Note name labels — show/hide note names on virtual keyboard ── */}
+                  <OptionRow
+                    label="Show note names"
+                    labelSmall
+                    eyeToggle
+                    eyeValue={showNoteNamesOnKeyboard}
+                    onEyeChange={setShowNoteNamesOnKeyboard}
+                    description="Display note names on the virtual keyboard for easier identification."
+                  />
+                </CollapsibleSection>
+
+                {/* ── 7. PIANO ROLL ──────────────────────────────────────────────── */}
                 <CollapsibleSection icon={<Columns3 size={11} />} label="Piano Roll"
                   collapsed={settingsGroupsCollapsed['piano-roll']}
                   onToggle={() => setSettingsGroupCollapsed('piano-roll', !settingsGroupsCollapsed['piano-roll'])}
@@ -2886,7 +2907,7 @@ export default function SettingsPanel() {
                           { value: 'cometTrail',    label: 'Comet Trail',    title: HIT_EFFECT_DESCRIPTIONS.cometTrail },
                         ]}
                       />
-                      <div style={{ padding: '2px 12px 0', color: 'var(--text-inactive)', fontSize: 'var(--text-xs)', fontFamily: 'var(--font-ui)', lineHeight: 1.5 }}>
+                      <div style={{ padding: '2px 12px 0', color: 'var(--text-inactive)', fontSize: 'var(--text-xs)', fontFamily: 'var(--font-ui)', lineHeight: 1.5, fontStyle: 'italic' }}>
                         {HIT_EFFECT_DESCRIPTIONS[hitEffectPattern]}
                       </div>
                     </OptionRow>
@@ -2931,7 +2952,7 @@ export default function SettingsPanel() {
                   )}
                 </CollapsibleSection>
 
-                {/* ── 7. APPEARANCE — no content changes ─────────────────────────── */}
+                {/* ── 8. APPEARANCE — no content changes ─────────────────────────── */}
                 <CollapsibleSection icon={<Palette size={11} />} label="Appearance"
                   collapsed={settingsGroupsCollapsed['appearance']}
                   onToggle={() => setSettingsGroupCollapsed('appearance', !settingsGroupsCollapsed['appearance'])}

@@ -523,7 +523,7 @@ export default function NoteEditorToolbar() {
       {/* ── Row 2: TOOLS + MODES — one row, two groups with breathing room
           between them, instead of stacked rows that fought the panel for
           height and made the tooltip row below feel cramped. ─────────────── */}
-      <div style={{ display: 'flex', alignItems: 'center', height: 32, padding: '0 8px', gap: 10, borderTop: '1px solid var(--state-hover-bg)' }}>
+      <div style={{ display: 'flex', alignItems: 'center', height: 40, padding: '4px 8px', gap: 10, borderTop: '1px solid var(--state-hover-bg)' }}>
         <span style={rowLabelStyle}>TOOLS</span>
         <ToolBtn active={activeTool === 'marquee'} onClick={() => setTool('marquee')} onHint={setIconHint} hint="Marquee — drag a box over a cluster to select it">
           <SquareDashed size={13} />

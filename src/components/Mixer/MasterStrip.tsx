@@ -604,8 +604,8 @@ export default function MasterStrip() {
           <IBtn
             onClick={handleVisibleAll}
             active={allVisible}
-            title={allVisible ? 'Hide all in waterfall' : 'Show all in waterfall'}
-            description={allVisible ? 'Hide every track’s notes on the Piano Roll' : 'Show every track’s notes on the Piano Roll'}
+            title={allVisible ? 'Hide all on the piano roll' : 'Show all on the piano roll'}
+            description={allVisible ? 'Hide every track’s falling notes on the Piano Roll' : 'Show every track’s falling notes on the Piano Roll'}
             activeColor="var(--text-amber)"
           >
             {allVisible ? <Eye size={13} /> : <EyeClosed size={13} />}
@@ -677,7 +677,7 @@ export default function MasterStrip() {
           value={reverb} onChange={handleReverb}
           accentColor="var(--knob-reverb)" size={52}
           disabled={knobsDisabled} label="Reverb" labelOffset={-10}
-          title="Reverb" description="Adds overall room/space ambience to the mix"
+          title="Reverb" description="Adds room/space ambience to the mix"
           disabledHint="You must switch to Samples engine to use Reverb."
         />
       </div>

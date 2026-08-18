@@ -1,11 +1,11 @@
 /* ── Self-hosted fonts — no network dependency (PRODUCT.md: local-first, no
    network dependency). Was a Google Fonts @import; replaced with self-hosted
    files instead of requesting fonts.googleapis.com/fonts.gstatic.com on
-   every launch. Inter/JetBrains Mono below are variable fonts — Google
-   serves ONE physical .woff2 per script range (latin/latin-ext) covering
-   the whole weight axis. Founders Grotesk/IBM Plex Mono further down are
-   the (2026-08-15) trial replacement pairing — static per-weight files
-   instead, one physical file per weight, no unicode-range split needed.
+   every launch. Inter below is a variable font — Google serves ONE physical
+   .woff2 per script range (latin/latin-ext) covering the whole weight axis;
+   still in use for --font-logo. IBM Plex Mono further down is the
+   (2026-08-15) replacement mono font — static per-weight files instead, one
+   physical file per weight, no unicode-range split needed.
    Weights needed for this app's actual usage (grep audit, 2026-08-14): UI
    font needs 400/500/600/700, mono font needs 400/600/700 — 700 is the
    single most-used weight app-wide (BPM/key numbers, chord names,
@@ -74,97 +74,10 @@
   src: url('./assets/fonts/Inter-Variable-latin-ext.woff2') format('woff2');
   unicode-range: U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304, U+0308, U+0329, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C0, U+2113, U+2C60-2C7F, U+A720-A7FF;
 }
-@font-face {
-  font-family: 'JetBrains Mono';
-  font-style: normal;
-  font-weight: 400;
-  font-display: swap;
-  src: url('./assets/fonts/JetBrainsMono-Variable-latin.woff2') format('woff2');
-  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
-}
-@font-face {
-  font-family: 'JetBrains Mono';
-  font-style: normal;
-  font-weight: 400;
-  font-display: swap;
-  src: url('./assets/fonts/JetBrainsMono-Variable-latin-ext.woff2') format('woff2');
-  unicode-range: U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304, U+0308, U+0329, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C0, U+2113, U+2C60-2C7F, U+A720-A7FF;
-}
-@font-face {
-  font-family: 'JetBrains Mono';
-  font-style: normal;
-  font-weight: 600;
-  font-display: swap;
-  src: url('./assets/fonts/JetBrainsMono-Variable-latin.woff2') format('woff2');
-  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
-}
-@font-face {
-  font-family: 'JetBrains Mono';
-  font-style: normal;
-  font-weight: 600;
-  font-display: swap;
-  src: url('./assets/fonts/JetBrainsMono-Variable-latin-ext.woff2') format('woff2');
-  unicode-range: U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304, U+0308, U+0329, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C0, U+2113, U+2C60-2C7F, U+A720-A7FF;
-}
-@font-face {
-  font-family: 'JetBrains Mono';
-  font-style: normal;
-  font-weight: 700;
-  font-display: swap;
-  src: url('./assets/fonts/JetBrainsMono-Variable-latin.woff2') format('woff2');
-  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
-}
-@font-face {
-  font-family: 'JetBrains Mono';
-  font-style: normal;
-  font-weight: 700;
-  font-display: swap;
-  src: url('./assets/fonts/JetBrainsMono-Variable-latin-ext.woff2') format('woff2');
-  unicode-range: U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304, U+0308, U+0329, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C0, U+2113, U+2C60-2C7F, U+A720-A7FF;
-}
-
-/* ── Trial pairing (2026-08-15) — Founders Grotesk / IBM Plex Mono. Static
-   per-weight files (not variable), so unlike Inter/JetBrains Mono above,
-   each weight is its own physical file/declaration — no unicode-range
-   split needed, each file already covers the font's full charset. Inter's
-   and JetBrains Mono's blocks above are kept (not deleted) so --font-logo
-   still resolves and reverting --font-ui/--font-mono below is a one-line
-   change back, not a re-fetch of files. ─────────────────────────────────── */
-@font-face {
-  font-family: 'Founders Grotesk';
-  font-style: normal;
-  font-weight: 300;
-  font-display: swap;
-  src: url('./assets/fonts/FoundersGrotesk-Light.woff2') format('woff2');
-}
-@font-face {
-  font-family: 'Founders Grotesk';
-  font-style: normal;
-  font-weight: 400;
-  font-display: swap;
-  src: url('./assets/fonts/FoundersGrotesk-Regular.woff2') format('woff2');
-}
-@font-face {
-  font-family: 'Founders Grotesk';
-  font-style: normal;
-  font-weight: 500;
-  font-display: swap;
-  src: url('./assets/fonts/FoundersGrotesk-Medium.woff2') format('woff2');
-}
-@font-face {
-  font-family: 'Founders Grotesk';
-  font-style: normal;
-  font-weight: 600;
-  font-display: swap;
-  src: url('./assets/fonts/FoundersGrotesk-SemiBold.woff2') format('woff2');
-}
-@font-face {
-  font-family: 'Founders Grotesk';
-  font-style: normal;
-  font-weight: 700;
-  font-display: swap;
-  src: url('./assets/fonts/FoundersGrotesk-Bold.woff2') format('woff2');
-}
+/* ── IBM Plex Mono (2026-08-15) — the app's mono font. Static per-weight
+   files (not variable), so unlike Inter above, each weight is its own
+   physical file/declaration — no unicode-range split needed, each file
+   already covers the font's full charset. ─────────────────────────────── */
 @font-face {
   font-family: 'IBM Plex Mono';
   font-style: normal;
@@ -201,13 +114,17 @@
   src: url('./assets/fonts/IBMPlexMono-Bold.woff2') format('woff2');
 }
 
-/* ── Two more UI-font candidates (2026-08-15), installed alongside Founders
-   Grotesk for direct comparison — swap --font-ui below to try each one,
-   nothing here needs re-fetching. Delete whichever loses once one's picked
-   (its @font-face blocks + its .woff2 files in src/assets/fonts/). IBM Plex
-   Mono above is staying regardless of which UI font wins. ──────────────────
+/* ── UI-font candidates (2026-08-15) — swap --font-ui below to try each
+   one, nothing here needs re-fetching. Delete whichever loses once one's
+   picked (its @font-face blocks + its .woff2 files in src/assets/fonts/).
+   IBM Plex Mono above is staying regardless of which UI font wins. ────────
    Familjen Grotesk — variable font, Google-hosted (fonts.google.com), same
-   one-file-per-script-range structure as Inter/JetBrains Mono above. */
+   one-file-per-script-range structure as Inter above. Currently active
+   (--font-ui below). Familjen's variable axis only covers 400-700 — no
+   300/Light instance available. Mona Sans below does go down to 300 (its
+   .woff2 rendered a real 300 face when tested, no re-fetch needed), but
+   300 read as too thin for Settings descriptions in practice — not worth
+   switching --font-ui over. */
 @font-face {
   font-family: 'Familjen Grotesk';
   font-style: normal;
@@ -376,10 +293,10 @@ button, input, select, textarea {
      values as separate JS literals. --font-logo is the ORFEO wordmark's own
      stack (OrfeoLogo.tsx) — deliberately separate so the brand mark can keep
      its own typographic identity independent of the UI font.
-     --font-ui is mid-trial (2026-08-15): Founders Grotesk / Familjen Grotesk
-     / Mona Sans are all installed (@font-face blocks above) for direct
-     comparison — currently pointed at Familjen Grotesk. Swap the family
-     name here to switch candidates, nothing else needs to change. */
+     --font-ui is mid-trial (2026-08-15): Familjen Grotesk / Mona Sans are
+     both installed (@font-face blocks above) for direct comparison —
+     currently pointed at Familjen Grotesk. Swap the family name here to
+     switch candidates, nothing else needs to change. */
   --font-ui:   'Familjen Grotesk', sans-serif;
   --font-mono: 'IBM Plex Mono', monospace;
   --font-logo: 'Inter', 'Georgia', serif;
@@ -710,7 +627,7 @@ button, input, select, textarea {
   color: var(--text-amber);
 }
 
-/* Standard value/number display — JetBrains Mono, consistent across BPM, bar counter, etc */
+/* Standard value/number display — var(--font-mono), consistent across BPM, bar counter, etc */
 .orfeo-value {
   font-family: var(--font-mono);
   font-size: var(--text-base);
