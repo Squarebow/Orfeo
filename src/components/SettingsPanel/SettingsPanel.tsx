@@ -1393,15 +1393,14 @@ function LibraryPanel() {
         ) : (
           <button
             onClick={handlePickFolder}
+            className="loop-nudge-blink"
             style={{
               width: '100%', padding: '8px 0', borderRadius: 'var(--radius-md)',
-              border: '1px dashed var(--state-disabled)', background: 'transparent',
-              color: 'var(--text-dim-control)', fontSize: 'var(--text-xs)', cursor: 'pointer',
+              border: '1px dashed var(--text-amber)', background: 'transparent',
+              color: 'var(--text-amber)', fontSize: 'var(--text-xs)', cursor: 'pointer',
               display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6,
               transition: 'all 0.15s',
             }}
-            onMouseEnter={e => { e.currentTarget.style.borderColor = 'var(--text-amber)'; e.currentTarget.style.color = 'var(--text-amber)' }}
-            onMouseLeave={e => { e.currentTarget.style.borderColor = 'var(--state-disabled)'; e.currentTarget.style.color = 'var(--text-dim-control)' }}
           >
             <FolderOpen size={13} />
             Set your MIDI folder

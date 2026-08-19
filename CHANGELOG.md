@@ -1,5 +1,23 @@
 # Changelog
 
+## [1.11.7] — 19. 8. 2026 — Branded installer, live chord-display fixes, playback chord context menu
+
+### Fixed
+- **Userdata folder was created lowercase (`orfeo`) instead of `Orfeo`.** Electron's `app.getName()` defaults to package.json's internal `"name"` field, not `"productName"` — every settings/library-pointer/soundfont-cache path was affected. `app.setName('Orfeo')` now runs before any `app.getPath('userData')` call.
+- **The live chord display above the keyboard stuck on whatever chord was showing when you paused**, even after scrubbing or shift-scrolling the playhead elsewhere. It was pinned to a frozen index that only updated during actual playback. It now always tracks `currentTime`, so the chord name updates live while paused too — instantly, without the 450ms minimum-display hold that real-time playback uses to avoid flicker (that hold only makes sense at playback speed, not while scrubbing).
+
+### New
+- **Branded Windows installer and uninstaller** — a dark, gradient sidebar (shown on the Welcome/Finish wizard pages) with the amber Orfeo mark, wordmark, and the tagline "From MIDI to mastery.", plus a light header banner on the interior pages. Configured via `nsis.installerHeader`/`installerSidebar`/`uninstallerSidebar` in `package.json`, assets in `build/`.
+- **Uninstaller: opt-in "Delete my Orfeo settings and library data" checkbox** — unchecked by default, so a plain uninstall never touches your library folder pointer, preferences, or cached soundfonts unless you explicitly ask it to (`build/installer.nsh`, via electron-builder's `customUnInstallSection` hook).
+- **Right-click the chord display while paused** for two new options: **Show on keyboard** locks the chord's notes exactly like Shift+clicking them on the keyboard — same floating modal with play/inversion-cycling; **Open in Chord Explorer** opens it pre-selected, lit on the keyboard, and ready for inversions/progressions. Both reconstruct the same canonical voicing (via a newly-shared `buildChordMidi`), so what you see in the lock and what you see in the Explorer always match.
+- **One-line hover hints on the chord display** — "Pause to study the chord" during playback, "Right-click for options" once paused (and there's actually a chord the menu can act on).
+- **"Set your MIDI folder" button now blinks amber** until a library folder is actually set — same nudge treatment already used for the library-refresh icon.
+
+### Improved
+- **Settings panel: all 8 groups now start expanded** on a fresh install (previously only "MIDI Files & Library" did, the rest started collapsed). Still remembers whatever you leave expanded or collapsed from then on — this only changes the very first open.
+
+**Changed:** `package.json`, `electron/main.ts`, `build/installer.nsh` (new), `build/installerHeader.bmp` / `installerSidebar.bmp` / `uninstallerSidebar.bmp` (new), `src/components/SettingsPanel/SettingsPanel.tsx`, `src/components/Keyboard/Keyboard.tsx`, `src/components/ChordExplorer.tsx`, `src/utils/chordDetection.ts`, `src/hooks/useChordSequence.ts`, `src/types/index.ts`, `src/store/index.ts`.
+
 ## [1.11.6] — 18. 8. 2026 — Settings reorganized into 8 sections, MIDI Note Editor and Library spacing fixes
 
 ### Changed

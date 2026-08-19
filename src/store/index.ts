@@ -93,6 +93,11 @@ interface OrfeoStore {
   chordExplorerMinimized: boolean
   setChordExplorerOpen: (open: boolean) => void
   setChordExplorerMinimized: (v: boolean) => void
+  // ── One-shot signal: "open Chord Explorer pre-seeded with this chord" —
+  // set by the playback chord-display context menu, consumed once by
+  // ChordExplorer.tsx on open, then cleared. ────────────────────────────────
+  pendingChordExplorerSeed: { rootPitchClass: number; intervals: string[] } | null
+  setPendingChordExplorerSeed: (v: { rootPitchClass: number; intervals: string[] } | null) => void
   scaleExplorerOpen: boolean
   scaleExplorerMinimized: boolean
   setScaleExplorerOpen: (open: boolean) => void
@@ -484,6 +489,8 @@ export const useStore = create<OrfeoStore>((set, get) => ({
 
   chordExplorerOpen: false,
   chordExplorerMinimized: false,
+  pendingChordExplorerSeed: null,
+  setPendingChordExplorerSeed: (pendingChordExplorerSeed) => set({ pendingChordExplorerSeed }),
   scaleExplorerOpen: false,
   scaleExplorerMinimized: false,
   lockedChordModalOpen: false,
@@ -664,16 +671,20 @@ export const useStore = create<OrfeoStore>((set, get) => ({
     })),
   })),
 
-  // ── Settings group collapse state — keyed by group id; true = collapsed ────
+  // ── Settings group collapse state — keyed by group id; true = collapsed.
+  // All expanded by default so a fresh install's first Settings open shows
+  // everything — persists per-user from there via orfeo-prefs.json, so this
+  // only affects the very first open, never overrides what a returning user
+  // left collapsed. ───────────────────────────────────────────────────────
   settingsGroupsCollapsed: {
-    audio: true,
+    audio: false,
     'midi-files-library': false,
-    'playback-editing': true,
-    practice: true,
-    notation: true,
-    keyboard: true,
-    'piano-roll': true,
-    appearance: true,
+    'playback-editing': false,
+    practice: false,
+    notation: false,
+    keyboard: false,
+    'piano-roll': false,
+    appearance: false,
   },
   setSettingsGroupCollapsed: (id, collapsed) => set((s) => ({
     settingsGroupsCollapsed: { ...s.settingsGroupsCollapsed, [id]: collapsed },

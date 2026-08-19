@@ -2,11 +2,12 @@ import React, { useMemo, useCallback, useState, useEffect, useRef } from 'react'
 import { useStore } from '../../store'
 import { isBlackKey } from '../../utils/midiParser'
 import { getNoteLabel, getNoteName } from '../../utils/noteNames'
-import { detectChord, detectChordWithInversion, formatInversionDisplay, localizeChord, ordinalSuffix } from '../../utils/chordDetection'
+import { detectChord, detectChordWithInversion, formatInversionDisplay, localizeChord, ordinalSuffix, buildChordMidi } from '../../utils/chordDetection'
 import { buildKeyLayoutRatios, PIANO_RANGES as RANGES } from '../../utils/keyLayout'
 import { buildPitchHandIndex, lookupNoteHandAtTime, detectPerformanceBoundary } from '../../utils/handBoundaries'
 import type { Hand } from '../../types'
-import Tooltip from '../Tooltip'
+import Tooltip, { useTooltip } from '../Tooltip'
+import { ContextMenu, ContextMenuItem } from '../ContextMenu'
 
 const HAND_LH = 'var(--hand-lh)'
 const HAND_RH = 'var(--hand-rh)'
@@ -91,9 +92,6 @@ export default function Keyboard() {
     useStore.setState({ activeKeys: nk, activeKeyColors: nc })
     glissandoKeyRef.current = null
   }, [])
-  // ── Freeze prompter at last known chord index on pause/stop ──────────────────
-  const frozenIndexRef = useRef<number>(-1)
-
   // ── Compute structured inversion display for explorer chord ───────────────
   const explorerDisplay = useMemo(() => {
     if (!explorerChordDisplay || explorerKeys.size === 0) return null
@@ -104,13 +102,15 @@ export default function Keyboard() {
     )
   }, [explorerChordDisplay, explorerKeys, noteNaming, accidentals])
 
-  // ── Current chord from pre-computed sequence, frozen on pause/stop ───────────
+  // ── Current chord from pre-computed sequence — always tracks currentTime,
+  // including while paused, so scrubbing/shift-scrolling the playhead while
+  // paused updates the display instead of it sticking on whatever was last
+  // shown when playback stopped. ───────────────────────────────────────────
   const liveIndex = useMemo(
     () => resolveCurrentIndex(chordSequence, currentTime),
     [chordSequence, currentTime],
   )
-  if (playbackState === 'playing') frozenIndexRef.current = liveIndex
-  const currentIndex = playbackState === 'playing' ? liveIndex : frozenIndexRef.current
+  const currentIndex = liveIndex
   const sequenceChord = currentIndex >= 0 ? chordSequence[currentIndex] : null
 
   // ── Chord-display legibility fix (two independent root causes, both real):
@@ -147,6 +147,16 @@ export default function Keyboard() {
       chordFlashTimeoutRef.current = setTimeout(() => setChordJustChanged(false), CHORD_FLASH_MS)
     }
 
+    // ── Paused (scrubbing): apply instantly, no hold delay or flash — the
+    // 450ms minimum-display exists to stop real-time playback from
+    // flickering faster than a human can read; a scrub gesture is already
+    // paced by the user's own mouse, so holding it back just reads as lag. ──
+    if (playbackState !== 'playing') {
+      if (chordHoldTimeoutRef.current) clearTimeout(chordHoldTimeoutRef.current)
+      setHeldChordEvent(sequenceChord)
+      return
+    }
+
     const elapsed = performance.now() - lastChordChangeAtRef.current
     if (elapsed >= MIN_CHORD_DISPLAY_MS) {
       apply()
@@ -155,17 +165,81 @@ export default function Keyboard() {
       chordHoldTimeoutRef.current = setTimeout(apply, MIN_CHORD_DISPLAY_MS - elapsed)
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [sequenceChord])
+  }, [sequenceChord, playbackState])
 
   useEffect(() => () => {
     if (chordHoldTimeoutRef.current) clearTimeout(chordHoldTimeoutRef.current)
     if (chordFlashTimeoutRef.current) clearTimeout(chordFlashTimeoutRef.current)
   }, [])
 
+  // ── Right-click menu on the playback chord display, paused only — "Show on
+  // keyboard" (auto-lock) and "Open in Chord Explorer". Needs heldChordEvent's
+  // structured root+intervals (root-position identity), so it's a no-op
+  // during playback or when the current event has no structured detection. ──
+  const [chordCtxMenu, setChordCtxMenu] = useState<{
+    x: number; y: number
+    structured: { rootPitchClass: number; intervals: string[]; rawRootName: string }
+    displayName: string
+  } | null>(null)
+  const chordCtxMenuRef = useRef<HTMLDivElement>(null)
+
+  useEffect(() => {
+    if (!chordCtxMenu) return
+    const onMouseDown = (e: MouseEvent) => {
+      if (chordCtxMenuRef.current && !chordCtxMenuRef.current.contains(e.target as Node)) setChordCtxMenu(null)
+    }
+    const onKeyDown = (e: KeyboardEvent) => { if (e.key === 'Escape') setChordCtxMenu(null) }
+    window.addEventListener('mousedown', onMouseDown)
+    window.addEventListener('keydown', onKeyDown)
+    return () => {
+      window.removeEventListener('mousedown', onMouseDown)
+      window.removeEventListener('keydown', onKeyDown)
+    }
+  }, [chordCtxMenu])
+
+  const handleChordContextMenu = useCallback((e: React.MouseEvent) => {
+    e.preventDefault()
+    if (playbackState === 'playing' || !heldChordEvent?.structured) return
+    const displayName = localizeChord(heldChordEvent.structured.rawRootName, noteNaming, accidentals) ?? heldChordEvent.structured.rawRootName
+    setChordCtxMenu({ x: e.clientX, y: e.clientY, structured: heldChordEvent.structured, displayName })
+  }, [playbackState, heldChordEvent, noteNaming, accidentals])
+
+  const handleShowChordOnKeyboard = useCallback(() => {
+    if (!chordCtxMenu) return
+    const { structured, displayName } = chordCtxMenu
+    const midiNotes = buildChordMidi(structured.rootPitchClass, structured.intervals, keyboardSize)
+    if (midiNotes.length > 0) {
+      const colors = new Map(midiNotes.map(m => [m, 'var(--text-amber)'] as [number, string]))
+      // ── Setting lockedKeys is enough — LockedChordModal auto-opens itself
+      // via its own effect watching lockedKeys.size, same as Shift+Click. ────
+      setLockedKeysStore(new Set(midiNotes), colors)
+      useStore.getState().setOriginalLockedChordName(displayName)
+      useStore.getState().setLockedInversionCount(0)
+      useStore.getState().setLockedChordNoteCount(midiNotes.length)
+    }
+    setChordCtxMenu(null)
+  }, [chordCtxMenu, keyboardSize, setLockedKeysStore])
+
+  const handleOpenChordInExplorer = useCallback(() => {
+    if (!chordCtxMenu) return
+    const { structured } = chordCtxMenu
+    useStore.getState().setPendingChordExplorerSeed({ rootPitchClass: structured.rootPitchClass, intervals: structured.intervals })
+    setChordExplorerOpen(true)
+    setChordCtxMenu(null)
+  }, [chordCtxMenu, setChordExplorerOpen])
+
+  // ── One-line hint on the playback chord display — text depends on whether
+  // the context menu would actually do anything right now. Only attached to
+  // the element when there's a real chord to hint about (see chordTooltip.box
+  // usage below), not on the empty "— — —" placeholder. ─────────────────────
+  const showChordTooltip = playbackState === 'playing' ? !!heldChordEvent : !!heldChordEvent?.structured
+  const chordTooltip = useTooltip<HTMLDivElement>(
+    { title: playbackState === 'playing' ? 'Pause to study the chord' : 'Right-click for options' },
+    { oneLine: true },
+  )
+
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const holdRef = useRef<ReturnType<typeof setTimeout> | null>(null)
-  // ── Reset frozen index on file change so stale positions don't persist ────────
-  useEffect(() => { frozenIndexRef.current = -1 }, [midi])
   // Clear chord when playback stops
   useEffect(() => {
     if (playbackState === 'stopped') {
@@ -442,7 +516,14 @@ export default function Keyboard() {
             </div>
 
             {/* Centre: chord name — priority: explorer > sequence > manual > empty */}
-            <div style={{ display: 'flex', alignItems: 'baseline', gap: 5, minWidth: 80, justifyContent: 'center' }}>
+            <div
+              onContextMenu={handleChordContextMenu}
+              ref={showChordTooltip && !explorerDisplay ? chordTooltip.ref : undefined}
+              onMouseEnter={showChordTooltip && !explorerDisplay ? chordTooltip.onMouseEnter : undefined}
+              onMouseLeave={showChordTooltip && !explorerDisplay ? chordTooltip.onMouseLeave : undefined}
+              style={{ display: 'flex', alignItems: 'baseline', gap: 5, minWidth: 80, justifyContent: 'center' }}
+            >
+              {showChordTooltip && !explorerDisplay && chordTooltip.box}
               {explorerDisplay ? (
                 // ── Explorer chord: chord/bass amber + ordinal grey ────────────
                 <>
@@ -587,7 +668,13 @@ export default function Keyboard() {
                         span was truncating anything past ~8-9 monospace chars
                         (e.g. "F#dim7/A", "Bbm7b5"). Neighboring past/next boxes
                         are flex:1 so they yield space to this when it grows. */}
-                    <div style={{ flexShrink: 0, minWidth: 100, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '0 4px' }}>
+                    <div
+                      onContextMenu={handleChordContextMenu}
+                      ref={showChordTooltip && !explorerDisplay ? chordTooltip.ref : undefined}
+                      onMouseEnter={showChordTooltip && !explorerDisplay ? chordTooltip.onMouseEnter : undefined}
+                      onMouseLeave={showChordTooltip && !explorerDisplay ? chordTooltip.onMouseLeave : undefined}
+                      style={{ flexShrink: 0, minWidth: 100, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '0 4px' }}
+                    >
                       <span style={{
                         fontFamily: 'var(--font-mono)', fontSize: 20, fontWeight: 700, color: 'var(--text-amber)', lineHeight: 1, whiteSpace: 'nowrap',
                         textShadow: centreFlash ? '0 0 10px var(--text-amber)' : 'none',
@@ -595,6 +682,7 @@ export default function Keyboard() {
                       }}>
                         {centreChord}
                       </span>
+                      {showChordTooltip && !explorerDisplay && chordTooltip.box}
                     </div>
 
                     {/* › separator */}
@@ -809,6 +897,17 @@ export default function Keyboard() {
           })}
         </div>
       </div>
+
+      {chordCtxMenu && (
+        <ContextMenu ref={chordCtxMenuRef} x={chordCtxMenu.x} y={chordCtxMenu.y} minWidth={190} ariaLabel="Chord actions">
+          <ContextMenuItem onClick={handleShowChordOnKeyboard}>
+            Show on keyboard
+          </ContextMenuItem>
+          <ContextMenuItem onClick={handleOpenChordInExplorer}>
+            Open in Chord Explorer
+          </ContextMenuItem>
+        </ContextMenu>
+      )}
     </div>
   )
 }

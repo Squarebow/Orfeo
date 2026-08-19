@@ -13,6 +13,13 @@ import { KEYBOARD_GROUPS } from '../src/utils/keyboardGroups'
 import { nextOrfeoVersion, stripOrfeoSuffix } from '../src/utils/orfeoVersioning'
 import type { Hand } from '../src/types'
 
+// ── Electron defaults app.getName() to package.json's "name" ("orfeo"),
+// not "productName" ("Orfeo") — that name feeds app.getPath('userData'),
+// so without this every userData path (prefs, Demo/, soundfonts/, file
+// log) lands in a lowercase %APPDATA%\orfeo\ folder. Must run before any
+// app.getPath('userData') call anywhere in this file. ──────────────────────
+app.setName('Orfeo')
+
 // ── Module-level window reference — needed by the close handler and IPC send ──────
 let mainWin: BrowserWindow | null = null
 // ── Set by app:confirm-close so the renderer-triggered re-close passes through ──

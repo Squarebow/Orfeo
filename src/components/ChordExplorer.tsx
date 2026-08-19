@@ -15,6 +15,7 @@ import Tooltip from './Tooltip'
 import { getPianoRollCenterX, getKeyboardHeaderTop } from '../utils/modalAnchors'
 import { useAnchorBottomOnResize } from '../hooks/useAnchorBottomOnResize'
 import { modalCloseButtonStyle, modalCloseButtonHoverColor, modalCloseButtonIdleColor } from '../utils/modalCloseButtonStyle'
+import { buildChordMidi } from '../utils/chordDetection'
 
 const RANGES: Record<number, { min: number; max: number }> = {
   61: { min: 36, max: 96 },
@@ -93,19 +94,6 @@ function resolveChord(key: string): ChordInfo | null {
     suffix: DISPLAY_SUFFIX[key] ?? key,
     aliases: ct.aliases || [],
   }
-}
-
-function buildChordMidi(rootPitchClass: number, intervals: string[], keyboardSize: number): number[] {
-  const { min, max } = RANGES[keyboardSize as 61 | 73 | 88] ?? RANGES[73]
-  let rootMidi = -1
-  for (const oct of [4, 3, 5, 2]) {
-    const midi = rootPitchClass + (oct + 1) * 12
-    if (midi >= min && midi <= max) { rootMidi = midi; break }
-  }
-  if (rootMidi < 0) return []
-  return intervals
-    .map(ivl => { const s = Interval.semitones(ivl); return s !== null ? rootMidi + s : null })
-    .filter((n): n is number => n !== null && n >= min && n <= max)
 }
 
 function applyNthInversion(baseMidi: number[], n: number): number[] {
@@ -626,6 +614,28 @@ export default function ChordExplorer() {
     const playNote = (window as any).__orfeoPlayNote
     if (playNote) midiNotes.forEach(m => playNote(m, 0.75, 1200, undefined, false))
   }, [stopProgression, setExplorerKeys, rootLabels])
+
+  // ── Consume a "open pre-seeded with this chord" signal from the playback
+  // chord-display context menu (Keyboard.tsx) — matched by interval-array
+  // equality against our own catalog rather than a key string, since the
+  // detector's raw chord type may use a different tonal.js alias than the
+  // one this catalog happens to be keyed by. One-shot: cleared immediately
+  // whether or not a match was found, so it never re-fires on its own. ─────
+  useEffect(() => {
+    if (!chordExplorerOpen) return
+    const seed = useStore.getState().pendingChordExplorerSeed
+    if (!seed) return
+    useStore.getState().setPendingChordExplorerSeed(null)
+
+    const match = ALL_CHORDS.find(c =>
+      c.intervals.length === seed.intervals.length && c.intervals.every((iv, i) => iv === seed.intervals[i]),
+    )
+    if (!match) return
+
+    setSelectedRoot(seed.rootPitchClass)
+    if (!COMMON_CHORDS.some(c => c.key === match.key)) setTier('extended')
+    playChordAt(match.key, seed.rootPitchClass)
+  }, [chordExplorerOpen, playChordAt])
 
   // ── Play a power chord (root + P5) for the given pitch class ─────────────
   const playPowerChord = useCallback((pitchClass: number) => {

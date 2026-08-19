@@ -118,6 +118,11 @@ export interface ChordEvent {
   time: number
   name: string
   notes: string[]
+  // ── Root-position identity for this chord — null when structured detection
+  // fails even though basic detection succeeded (rare). Lets consumers (the
+  // playback chord-display context menu) reconstruct a canonical voicing via
+  // buildChordMidi() without re-parsing the localized display name. ─────────
+  structured: { rootPitchClass: number; intervals: string[]; rawRootName: string } | null
 }
 
 export interface TranscriptEntry {

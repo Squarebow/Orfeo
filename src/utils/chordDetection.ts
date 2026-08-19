@@ -1,6 +1,7 @@
-import { Chord, Note } from 'tonal'
+import { Chord, Note, Interval } from 'tonal'
 import type { NoteNaming, Accidentals } from '../types'
 import { getNoteName, convertAccidentals } from './noteNames'
+import { PIANO_RANGES } from './keyLayout'
 
 // ---------------------------------------------------------------------------
 // Core principle:
@@ -94,6 +95,57 @@ export function detectChord(midiNotes: Set<number>): string | null {
     const slashName = pickBestSlash(matches, bassNote)
     return stripMajorSuffix(slashName ?? rootName)
   }
+}
+
+// ---------------------------------------------------------------------------
+// Structured detection — root-position pitch class + interval set, for
+// consumers that need to rebuild a canonical voicing (buildChordMidi) rather
+// than just display a name. Always root-position (bass may differ — that's
+// the "inversion" case, which callers here don't care about).
+// ---------------------------------------------------------------------------
+export function detectChordStructured(
+  midiNotes: Set<number>,
+): { rootPitchClass: number; intervals: string[]; rawRootName: string } | null {
+  if (midiNotes.size < 2) return null
+
+  const sorted = Array.from(midiNotes).sort((a, b) => a - b)
+  const noteNames = sorted.map(m => Note.fromMidi(m)).filter(Boolean) as string[]
+  if (noteNames.length < 2) return null
+
+  const matches = detect(noteNames)
+  if (matches.length === 0) return null
+
+  const rawRoot = pickBestRoot(matches)
+  if (!rawRoot) return null
+  const cleanRoot = stripMajorSuffix(rawRoot.split('/')[0])
+
+  const info = Chord.get(cleanRoot)
+  if (!info.intervals || info.intervals.length < 2) return null
+
+  const rootPitchClass = Note.chroma(chordRootPitchClass(cleanRoot))
+  if (rootPitchClass === null || rootPitchClass === undefined) return null
+
+  return { rootPitchClass, intervals: info.intervals, rawRootName: cleanRoot }
+}
+
+// ---------------------------------------------------------------------------
+// Build a root-position MIDI voicing for a chord — one canonical octave,
+// clamped to the given keyboard size's playable range. Shared by Chord
+// Explorer (its own catalog) and the playback chord-display context menu
+// (Keyboard.tsx), so "show on keyboard" and "open in Chord Explorer" always
+// render the same voicing for the same chord.
+// ---------------------------------------------------------------------------
+export function buildChordMidi(rootPitchClass: number, intervals: string[], keyboardSize: number): number[] {
+  const { min, max } = PIANO_RANGES[keyboardSize] ?? PIANO_RANGES[73]
+  let rootMidi = -1
+  for (const oct of [4, 3, 5, 2]) {
+    const midi = rootPitchClass + (oct + 1) * 12
+    if (midi >= min && midi <= max) { rootMidi = midi; break }
+  }
+  if (rootMidi < 0) return []
+  return intervals
+    .map(ivl => { const s = Interval.semitones(ivl); return s !== null ? rootMidi + s : null })
+    .filter((n): n is number => n !== null && n >= min && n <= max)
 }
 
 // ---------------------------------------------------------------------------

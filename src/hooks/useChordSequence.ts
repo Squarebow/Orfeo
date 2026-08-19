@@ -5,7 +5,7 @@
 
 import { useEffect } from 'react'
 import { useStore } from '../store'
-import { detectChord } from '../utils/chordDetection'
+import { detectChord, detectChordStructured } from '../utils/chordDetection'
 import { localizeChord } from '../utils/chordDetection'
 import { getNoteName } from '../utils/noteNames'
 import type { ChordEvent } from '../types'
@@ -76,7 +76,9 @@ function computeChordSequence(
       if (n) notes.push(n)
     }
 
-    events.push({ time: cluster.time, name: localName, notes })
+    const structured = detectChordStructured(midiSet)
+
+    events.push({ time: cluster.time, name: localName, notes, structured })
   }
 
   return events

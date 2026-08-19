@@ -1,6 +1,6 @@
 {
   "name": "orfeo",
-  "version": "1.11.6",
+  "version": "1.11.7",
   "description": "Modern piano learning app with MIDI visualization",
   "author": "SquareBow",
   "license": "MIT",
@@ -85,7 +85,13 @@
       "oneClick": false,
       "allowToChangeInstallationDirectory": true,
       "createDesktopShortcut": true,
-      "createStartMenuShortcut": true
+      "createStartMenuShortcut": true,
+      "installerIcon": "public/icon.ico",
+      "uninstallerIcon": "public/icon.ico",
+      "installerHeader": "build/installerHeader.bmp",
+      "installerSidebar": "build/installerSidebar.bmp",
+      "uninstallerSidebar": "build/uninstallerSidebar.bmp",
+      "include": "build/installer.nsh"
     },
     "portable": {
       "artifactName": "${productName}-${version}-portable.${ext}"
