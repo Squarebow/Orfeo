@@ -6,7 +6,7 @@ import {
   ChevronLeft, ChevronDown, ChevronRight, Music2, Piano, Palette, Columns3, Volume2,
   Music, FolderOpen, Folders, RefreshCw, FileMusic, FileCode2, Guitar, BookOpen, Library, Settings, Info,
   Search, X, Undo2, Upload, ToggleLeft, ToggleRight, CloudDownload, ChevronsDownUp, AudioLines,
-  Files, Hand, Repeat,
+  Files, Hand, Repeat, Expand,
 } from 'lucide-react'
 import { useStore } from '../../store'
 import OrfeoMark from '../OrfeoMark'
@@ -2483,13 +2483,13 @@ export default function SettingsPanel() {
                   />
                   {/* ── Left/Right Hand BETA — eye-toggle; sub-controls unchanged ─── */}
                   <OptionRow
-                    label="Left/Right Hand"
+                    label="Hand Assignment"
                     badge={<BetaBadge />}
                     eyeToggle
                     eyeValue={showHandLabels}
                     onEyeChange={setShowHandLabels}
                     description={<>
-                      Automated hand assignment for piano that colors each note by the hand that plays it. This is a guideline, not a verified trascript!
+                      Automated hand assignment for piano that colors each note by the hand that plays it. A guideline, not a verified trascript!
                       <br /><br />
                       For a perfectly accurate split use MIDI note editor and click the{' '}
                       <span style={{ display: 'inline-flex', verticalAlign: '-2px', margin: '0 2px', color: 'var(--text-amber)' }}><Hand size={11} /></span>
@@ -2583,7 +2583,7 @@ export default function SettingsPanel() {
                     description={<>
                       Shows a strip to select and loop-play a section. Alt+Click & drag to select. Click{' '}
                       <span style={{ display: 'inline-flex', verticalAlign: '-2px', margin: '0 2px', color: 'var(--text-amber)' }}><Repeat size={11} /></span>
-                      {' '}to loop.
+                      {' '}icon to loop.
                     </>}
                   />
                   {/* ── Selective Tracks Playback — eye-toggle; shows/hides quick-toggle button in Track Panel ─ */}
@@ -2612,7 +2612,7 @@ export default function SettingsPanel() {
                       <span style={{ display: 'inline-flex', verticalAlign: '-2px', margin: '0 2px', color: 'var(--text-amber)' }}>
                         <svg xmlns="http://www.w3.org/2000/svg" width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 7V5a2 2 0 0 1 2-2h2"/><path d="M17 3h2a2 2 0 0 1 2 2v2"/><path d="M21 17v2a2 2 0 0 1-2 2h-2"/><path d="M7 21H5a2 2 0 0 1-2-2v-2"/><rect width="10" height="8" x="7" y="8" rx="1"/></svg>
                       </span>
-                      {' '}to enable it.
+                      {' '}icon above keyboard to enable it.
                     </>}
                   />
                   {/* ── Auto-collapse drawers — collapses the Tracks panel on
@@ -2622,7 +2622,10 @@ export default function SettingsPanel() {
                     eyeToggle
                     eyeValue={autoCollapseDrawers}
                     onEyeChange={setAutoCollapseDrawers}
-                    description="Automatically hide side panels during playback to maximize the piano roll view"
+                    description={<>Automatically hide side panels during playback to maximize the piano roll view. For full-screen view click{' '}
+                      <span style={{ display: 'inline-flex', verticalAlign: '-2px', margin: '0 2px', color: 'var(--text-amber)' }}><Expand size={10} /></span>
+                      {' '}to enter presentation mode.
+                  </>}
                   />
                   {/* ── Hand letter badges — accessibility backup for colorblind users
                       who can't rely on the blue/pink alone. Independent of Left/Right
@@ -2982,7 +2985,7 @@ export default function SettingsPanel() {
                   </button>
                   </Tooltip>
                   <span style={{ color: 'var(--text-inactive)', fontSize: 10, fontFamily: 'var(--font-mono)', whiteSpace: 'nowrap' }}>
-                    · SquareBow
+                    · by SquareBow
                   </span>
                 </div>
 
