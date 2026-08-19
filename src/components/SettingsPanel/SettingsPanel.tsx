@@ -1269,7 +1269,7 @@ function LibraryPanel() {
               padding: '5px 8px', background: 'var(--bg-row)', borderRadius: 4,
               border: '1px solid var(--border2)', marginBottom: 6,
             }}>
-              <Tooltip title="Points the library panel at a different folder on disk." oneLine wrapperStyle={{ flexShrink: 0 }}>
+              <Tooltip title="Change library root folder." oneLine wrapperStyle={{ flexShrink: 0 }}>
               <button
                 onClick={handlePickFolder}
                 style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 0, display: 'flex', flexShrink: 0 }}

@@ -214,7 +214,7 @@ export default function KeyboardControls() {
       {/* ── Presentation Mode toggle — replaces Docked/NoteCounter in PM footer ─ */}
       <Tooltip
         title={presentationMode ? 'Exit Presentation Mode' : 'Presentation Mode'}
-        description={presentationMode ? 'Press Esc to leave, or click here.' : 'Hides UI chrome for a distraction-free, fullscreen view (F11).'}
+        description={presentationMode ? 'Press Esc to leave, or click here.' : 'Distraction-free fullscreen view.\nF11 to open, Esc to close.'}
       >
       <button
         onClick={() => setPresentationMode(!presentationMode)}

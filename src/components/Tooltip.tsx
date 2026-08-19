@@ -126,7 +126,7 @@ export function TooltipBox({ anchorRect, content, visible, placement = 'top', on
           {content.description && (
             <div style={{
               fontSize: 10, fontFamily: 'var(--font-ui)', lineHeight: 1.4,
-              color: 'var(--text-muted)',
+              color: 'var(--text-muted)', whiteSpace: 'pre-line',
             }}>
               {content.description}
             </div>
