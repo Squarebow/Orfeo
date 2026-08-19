@@ -1269,7 +1269,7 @@ function LibraryPanel() {
               padding: '5px 8px', background: 'var(--bg-row)', borderRadius: 4,
               border: '1px solid var(--border2)', marginBottom: 6,
             }}>
-              <Tooltip title="Change library root folder." oneLine wrapperStyle={{ flexShrink: 0 }}>
+              <Tooltip title="Change library folder" oneLine wrapperStyle={{ flexShrink: 0 }}>
               <button
                 onClick={handlePickFolder}
                 style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 0, display: 'flex', flexShrink: 0 }}
@@ -2272,7 +2272,7 @@ export default function SettingsPanel() {
                       <OptionBtn
                         active={audioEngine === 'gm'}
                         onClick={() => setAudioEngine('gm')}
-                        title="Sounds like Pac-Man, generic and synthetic" oneLine
+                        title="Generic, boring, and synthetic sound" oneLine
                       >General MIDI</OptionBtn>
                       {/* ── Samples — loads GeneralUser GS SF2 via spessasynth_lib on first click ── */}
                       <OptionBtn
@@ -2413,7 +2413,7 @@ export default function SettingsPanel() {
                     )}
 
                     {/* ── Import a user's own .sf2/.sf3 — same storage/loading path as the catalog entries ── */}
-                    <Tooltip title="Only import soundfonts you have the rights to use." oneLine wrapperStyle={{ display: 'block', width: '100%' }}>
+                    <Tooltip title="Make sure you have the rights to use imported soundfonts." oneLine wrapperStyle={{ display: 'block', width: '100%' }}>
                     <button
                       onClick={handleImportSoundfont}
                       style={{

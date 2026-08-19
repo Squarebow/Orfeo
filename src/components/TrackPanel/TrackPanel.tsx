@@ -228,7 +228,7 @@ export default function TrackPanel() {
           </Tooltip>
           <Tooltip
             title={!midi ? 'Open a MIDI file first' : midiEditorOpen ? 'MIDI Playback Editor is open' : 'MIDI Playback Editor'}
-            description={!midi ? 'Load a MIDI file to edit its playback.' : midiEditorOpen ? "Already open — check for it among your other windows." : 'Rename tracks, reassign instruments, merge and/or split tracks.'}
+            description={!midi ? 'Load a MIDI file to edit its playback.' : midiEditorOpen ? "Already open — check for it among your other windows." : 'Edit what you want to hear and see: rename tracks, reassign instruments, merge/split ...'}
             wrapperStyle={{ marginTop: 8 }}
           >
           <button
@@ -334,7 +334,7 @@ export default function TrackPanel() {
             </Tooltip>
             <Tooltip
               title={!midi ? 'Open a MIDI file first' : midiEditorOpen ? 'MIDI Playback Editor is open' : 'MIDI Playback Editor'}
-              description={!midi ? 'Load a MIDI file to edit its playback.' : midiEditorOpen ? "Already open — check for it among your other windows." : 'Rename tracks, reassign instruments, and split/merge tracks.'}
+              description={!midi ? 'Load a MIDI file to edit its playback.' : midiEditorOpen ? "Already open — check for it among your other windows." : 'Edit what you want to hear and see: rename tracks, reassign instruments, change color, merge/split ...'}
               wrapperStyle={{ marginTop: 8 }}
             >
             <button
@@ -356,7 +356,7 @@ export default function TrackPanel() {
             {noteEditorEnabled && midi && (
               <Tooltip
                 title={noteEditorActive ? 'Exit note edit mode' : 'MIDI note editor'}
-                description={noteEditorActive ? 'Returns to normal playback view.' : 'Add, delete and move individual notes directly on the piano roll.'}
+                description={noteEditorActive ? 'Returns to normal playback view.' : 'Add, delete and move individual notes directly on the piano roll. (Advanced)'}
                 wrapperStyle={{ marginTop: 8 }}
               >
               <button
@@ -393,7 +393,7 @@ export default function TrackPanel() {
             </button>
             </Tooltip>
             {/* ── Dashed outline + low opacity — see collapsed-strip twin above ── */}
-            <Tooltip title="Coming soon - practice mode." oneLine wrapperStyle={{ marginTop: 8 }}>
+            <Tooltip title="Practice mode - coming soon" oneLine wrapperStyle={{ marginTop: 8 }}>
             <div
               style={{
                 color: 'var(--state-disabled)', padding: 3,
@@ -535,7 +535,7 @@ export default function TrackPanel() {
                     </span>
                     <Tooltip
                       title={groupMuted ? `Unmute all ${label}` : `Mute all ${label}`}
-                      description={groupMuted ? `Restores playback for every track in ${label}.` : `Silences every track in ${label} at once.`}
+                      description={groupMuted ? `Unmute every track in ${label}` : `Mute every track in ${label} at once`}
                     >
                     <button
                       onClick={() => muteGroup(key, !groupMuted)}
@@ -724,25 +724,25 @@ function TrackRow({
         <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-1)' }}>
           <IBtn onClick={onMute} active={track.muted}
             title={track.muted ? 'Unmute' : 'Mute'}
-            description={track.muted ? "Restores this track's audio." : 'Silences this track; others keep playing.'}
+            description={track.muted ? "Unmute audio" : 'Mute audio'}
             activeColor="var(--status-error)">
             <span style={{ fontSize: 'var(--text-xs)', fontWeight: 700, fontFamily: 'var(--font-mono)', lineHeight: 1 }}>M</span>
           </IBtn>
           <IBtn onClick={onSolo} active={track.solo}
             title={track.solo ? 'Unsolo' : 'Solo'}
-            description={track.solo ? 'Restores normal playback for every track.' : 'Plays only this track, muting the rest.'}
+            description={track.solo ? 'Unsolo track' : 'Solo track'}
             activeColor="var(--text-amber)">
             <span style={{ fontSize: 11, fontWeight: 700, fontFamily: 'var(--font-mono)', lineHeight: 1 }}>S</span>
           </IBtn>
           <IBtn onClick={onVisible} active={!track.visible}
             title={track.visible ? 'Hide in roll' : 'Show in roll'}
-            description={track.visible ? 'Hides notes from the roll; audio keeps playing.' : "Shows this track's notes again."}
+            description={track.visible ? 'Hide notes on the Piano Roll' : "Show notes on the Piano Roll"}
             activeColor="var(--status-error-hover)" inactiveColor="var(--status-success-text)">
             {track.visible ? <Eye size={12} /> : <EyeClosed size={12} />}
           </IBtn>
           <IBtn onClick={onKeyboard} active={track.showOnKeyboard}
             title={track.showOnKeyboard ? 'Lit on keyboard' : 'Not lit on keyboard'}
-            description={track.showOnKeyboard ? 'Lights up the on-screen keyboard as it plays.' : "Won't light up the on-screen keyboard."}
+            description={track.showOnKeyboard ? 'Notes light up on keyboard' : "Notes are not lit on keyboard"}
             activeColor="var(--text-amber)">
             {/* Mini piano icon */}
             <svg width="13" height="9" viewBox="0 0 13 9" fill="none">

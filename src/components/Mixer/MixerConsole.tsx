@@ -1,6 +1,6 @@
 import { useRef, useState, useEffect, useMemo, useCallback, type CSSProperties } from 'react'
 import { X } from 'lucide-react'
-import { useStore } from '../../store'
+import { useStore, DEFAULT_MUTED_GROUPS } from '../../store'
 import { bringToFront, MODAL_BASE_Z } from '../../utils/modalFocus'
 import ChannelStrip from './ChannelStrip'
 import MasterStrip from './MasterStrip'
@@ -48,9 +48,13 @@ export default function MixerConsole() {
   // value-equal (`===`) across renders whenever index/group haven't
   // actually changed, so zustand's default Object.is check bails out for
   // volume/pan/chorus/reverb-only updates. ──────────────────────────────────
-  const trackSignature = useStore(s => s.tracks.map(t => `${t.index}:${t.group ?? ''}`).join('|'))
+  // `muted` is included too — unlike volume/pan/etc it only ever flips on a
+  // discrete click (Mute All, per-strip Mute, Focus mode), never streamed
+  // continuously like a drag, so it's safe to fold into this signature
+  // without reintroducing the per-tick re-render problem described above.
+  const trackSignature = useStore(s => s.tracks.map(t => `${t.index}:${t.group ?? ''}:${t.muted}:${t.isDrum}`).join('|'))
   const trackMeta = useMemo(
-    () => useStore.getState().tracks.map(t => ({ index: t.index, group: t.group })),
+    () => useStore.getState().tracks.map(t => ({ index: t.index, group: t.group, muted: t.muted, isDrum: t.isDrum })),
     [trackSignature],
   )
 
@@ -156,6 +160,25 @@ export default function MixerConsole() {
   }, [reorderableBase, customChannelOrder])
 
   const sortedTracks = useMemo(() => [...lockedTracks, ...reorderableTracks], [lockedTracks, reorderableTracks])
+
+  // ── Focus mode display reorder — mirrors MasterStrip's isCurrentlyFiltered
+  // check. While the Focus-mode filter is on, group strips by current mute
+  // state (stable partition — relative order within each group untouched)
+  // so the audible piano/bass/drums tracks stack together on the left and
+  // everything muted collects on the right, instead of staying interleaved
+  // in their normal group order. Purely a display-time reorder — leaves
+  // customChannelOrder/sortedTracks (the "real" order) alone, so turning
+  // Focus mode back off snaps straight back to whatever order was there
+  // before. ────────────────────────────────────────────────────────────────
+  const isFocusFiltered = useMemo(() => {
+    const filterable = trackMeta.filter(t => !t.isDrum && DEFAULT_MUTED_GROUPS.has(t.group ?? ''))
+    return filterable.length > 0 && filterable.every(t => t.muted)
+  }, [trackMeta])
+
+  const displayTracks = useMemo(() => {
+    if (!isFocusFiltered) return sortedTracks
+    return [...sortedTracks.filter(t => !t.muted), ...sortedTracks.filter(t => t.muted)]
+  }, [sortedTracks, isFocusFiltered])
 
   // ── Channel drag-to-reorder — piano/keys is never draggable and never a
   // valid drop target's displacement (excluded from the reorderable list
@@ -422,7 +445,7 @@ export default function MixerConsole() {
             cursor: panning ? 'grabbing' : 'grab',
           }}
         >
-          {sortedTracks.length === 0 ? (
+          {displayTracks.length === 0 ? (
             <div style={{
               display: 'flex', alignItems: 'center', justifyContent: 'center',
               height: 574, flex: 1,
@@ -432,7 +455,7 @@ export default function MixerConsole() {
               No tracks — load a MIDI file
             </div>
           ) : (
-            sortedTracks.map(t => {
+            displayTracks.map(t => {
               const locked = KEYBOARD_GROUPS.has(t.group ?? '')
               return (
                 <ChannelStrip

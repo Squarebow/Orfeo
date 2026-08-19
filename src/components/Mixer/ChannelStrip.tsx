@@ -391,7 +391,7 @@ export default function ChannelStrip({ trackIndex, locked, isDragging, onDragSta
           value={pan} onChange={handlePan}
           accentColor="var(--text-amber)" size={52}
           disabled={knobsDisabled} bipolar label="Pan"
-          title="Pan" description="Positions the channel left/right in the stereo field"
+          title="Pan" description="Left/right position in the stereo field"
           disabledHint="You must switch to Samples engine to use Pan."
         />
         <span style={{
@@ -422,7 +422,7 @@ export default function ChannelStrip({ trackIndex, locked, isDragging, onDragSta
         <IBtn
           onClick={() => updateTrack(trackIndex, { muted: !muted })}
           active={muted} title={muted ? 'Unmute' : 'Mute'}
-          description={muted ? 'Unmute track' : 'Mute — notes show on the Piano Roll'}
+          description={muted ? 'Unmute audio' : 'Mute audio'}
           activeColor="var(--status-error)"
         >
           <span style={{ fontSize: 14, fontWeight: 700, fontFamily: 'var(--font-mono)', lineHeight: 1 }}>M</span>
@@ -430,7 +430,7 @@ export default function ChannelStrip({ trackIndex, locked, isDragging, onDragSta
         <IBtn
           onClick={() => updateTrack(trackIndex, { solo: !solo })}
           active={solo} title={solo ? 'Unsolo' : 'Solo'}
-          description={solo ? 'Unsolo — hear every unmuted track' : 'Solo this track'}
+          description={solo ? 'Unsolo track' : 'Solo track'}
           activeColor="var(--text-amber)"
         >
           <span style={{ fontSize: 14, fontWeight: 700, fontFamily: 'var(--font-mono)', lineHeight: 1 }}>S</span>

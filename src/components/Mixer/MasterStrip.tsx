@@ -603,10 +603,10 @@ export default function MasterStrip() {
           </IBtn>
           <IBtn
             onClick={handleVisibleAll}
-            active={allVisible}
+            active={!allVisible}
             title={allVisible ? 'Hide all on the piano roll' : 'Show all on the piano roll'}
             description={allVisible ? 'Hide every track’s falling notes on the Piano Roll' : 'Show every track’s falling notes on the Piano Roll'}
-            activeColor="var(--text-amber)"
+            activeColor="var(--status-error-hover)"
           >
             {allVisible ? <Eye size={13} /> : <EyeClosed size={13} />}
           </IBtn>
