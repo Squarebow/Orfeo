@@ -106,7 +106,6 @@
     "@tonejs/midi": "^2.0.28",
     "electron-updater": "^6.8.9",
     "fuse.js": "^7.5.0",
-    "gsap": "^3.15.0",
     "jazz-midi-electron": "^2.0.3",
     "jzz": "^1.9.6",
     "jzz-midi-smf": "^1.9.9",

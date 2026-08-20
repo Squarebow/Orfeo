@@ -1,6 +1,6 @@
 import { Container, Graphics, BlurFilter } from 'pixi.js'
 import { AdvancedBloomFilter } from 'pixi-filters'
-import gsap from 'gsap'
+import { tween, type TweenHandle } from '../../utils/tween'
 import type { HitEffectPattern } from '../../types'
 
 export type { HitEffectPattern }
@@ -9,18 +9,20 @@ export type { HitEffectPattern }
 // notes, spawned from the same lightKey() trigger as the key glow (see
 // utils/hitEffectQueue.ts) so timing can never drift from audio.
 //
-// GSAP drives every effect's easing/lifecycle via its own ticker — each
-// spawn creates one tween (or one per particle/wisp) with an onUpdate that
-// redraws the Graphics from the tween's live values, and an onComplete that
-// destroys the Graphics and removes it from the stage. No manual per-frame
-// polling needed from PianoRoll.
+// utils/tween.ts drives every effect's easing/lifecycle via a shared
+// requestAnimationFrame loop — each spawn creates one tween (or one per
+// particle/wisp) with an onUpdate that redraws the Graphics from the
+// tween's live values, and an onComplete that destroys the Graphics and
+// removes it from the stage. No manual per-frame polling needed from
+// PianoRoll.
 
 const GRAVITY_PX_PER_S2 = 220
 
 // ── Small color helpers — hex int <-> HSL, for the color-shifting effects.
-// PixiJS colors are plain 0xRRGGBB ints; GSAP has no built-in hue rotation,
-// so shifting a color over an effect's lifetime means converting once at
-// spawn and re-deriving the hex value each frame from an interpolated hue.
+// PixiJS colors are plain 0xRRGGBB ints and utils/tween.ts only interpolates
+// plain numeric properties (no built-in hue rotation), so shifting a color
+// over an effect's lifetime means converting once at spawn and re-deriving
+// the hex value each frame from an interpolated hue.
 function hexToHsl(hex: number): { h: number; s: number; l: number } {
   const r = ((hex >> 16) & 0xff) / 255, g = ((hex >> 8) & 0xff) / 255, b = (hex & 0xff) / 255
   const max = Math.max(r, g, b), min = Math.min(r, g, b)
@@ -58,7 +60,7 @@ export interface BloomParams {
 
 export class HitEffectsRenderer {
   private container: Container
-  private activeTweens: gsap.core.Tween[] = []
+  private activeTweens: TweenHandle[] = []
   private bloom: AdvancedBloomFilter
 
   constructor(stage: Container) {
@@ -80,11 +82,11 @@ export class HitEffectsRenderer {
     this.bloom.blur = params.spread
   }
 
-  private track(tw: gsap.core.Tween): void {
+  private track(tw: TweenHandle): void {
     this.activeTweens.push(tw)
   }
 
-  private untrack(tw: gsap.core.Tween): void {
+  private untrack(tw: TweenHandle): void {
     const i = this.activeTweens.indexOf(tw)
     if (i >= 0) this.activeTweens.splice(i, 1)
   }
@@ -108,7 +110,7 @@ export class HitEffectsRenderer {
     g.blendMode = 'add'
     this.container.addChild(g)
     const state = { haloR: 6, haloA: 0.55, coreR: 3, coreA: 1 }
-    const tw = gsap.to(state, {
+    const tw = tween(state, {
       haloR: 48, haloA: 0, coreR: 16, coreA: 0,
       duration: 0.4, ease: 'power2.out',
       onUpdate: () => {
@@ -131,7 +133,7 @@ export class HitEffectsRenderer {
       g.blendMode = 'add'
       this.container.addChild(g)
       const state = { radius: 4, alpha: 0.85, width: 3 }
-      const tw = gsap.to(state, {
+      const tw = tween(state, {
         radius: 30 + i * 12, alpha: 0, width: 0.5,
         duration: 0.45, ease: 'power1.out', delay: i * 0.08,
         onUpdate: () => {
@@ -145,8 +147,8 @@ export class HitEffectsRenderer {
     }
   }
 
-  // ── 4-8 particles, upward-biased spread, hand-integrated gravity (GSAP has
-  // no free physics plugin — a few lines per frame isn't worth a dependency).
+  // ── 4-8 particles, upward-biased spread, hand-integrated gravity — just a
+  // few lines per frame, not worth a physics dependency.
   private spawnParticleBurst(x: number, y: number, color: number): void {
     const count = 4 + Math.floor(Math.random() * 5)
     for (let i = 0; i < count; i++) {
@@ -163,7 +165,7 @@ export class HitEffectsRenderer {
       const state = { vx: Math.cos(angle) * speed, vy: Math.sin(angle) * speed, alpha: 1 }
       let lastMs = performance.now()
 
-      const tw = gsap.to(state, {
+      const tw = tween(state, {
         alpha: 0, duration: 0.4 + Math.random() * 0.1, ease: 'power1.in',
         onUpdate: () => {
           const now = performance.now()
@@ -195,7 +197,7 @@ export class HitEffectsRenderer {
 
       const driftTargetX = g.x + (Math.random() - 0.5) * 24
       const state = { r: 6 + Math.random() * 3, alpha: 0.5, hueShift: 0, x: g.x, riseY: 0 }
-      const tw = gsap.to(state, {
+      const tw = tween(state, {
         r: 26 + Math.random() * 10, alpha: 0, hueShift: 30 + Math.random() * 30,
         x: driftTargetX, riseY: -(30 + Math.random() * 15),
         duration: 0.75 + Math.random() * 0.25, ease: 'sine.out', delay: i * 0.06,
@@ -222,7 +224,7 @@ export class HitEffectsRenderer {
     g.x = x; g.y = y
     this.container.addChild(g)
     const state = { r: 10, alpha: 0.7, hue: 0 }
-    const tw = gsap.to(state, {
+    const tw = tween(state, {
       r: 34, alpha: 0, hue: 140,
       duration: 0.65, ease: 'sine.inOut',
       onUpdate: () => {
@@ -245,7 +247,7 @@ export class HitEffectsRenderer {
     g.blendMode = 'add'
     this.container.addChild(g)
     const state = { length: 4, alpha: 0.9, coreR: 10, coreA: 1 }
-    const tw = gsap.to(state, {
+    const tw = tween(state, {
       length: 34, alpha: 0, coreR: 2, coreA: 0,
       duration: 0.32, ease: 'power3.out',
       onUpdate: () => {
@@ -274,7 +276,7 @@ export class HitEffectsRenderer {
     const TRAIL_LEN = 6
     const history: { y: number }[] = Array.from({ length: TRAIL_LEN }, () => ({ y: 0 }))
     const state = { travel: 0, alpha: 1 }
-    const tw = gsap.to(state, {
+    const tw = tween(state, {
       travel: 70, alpha: 0, duration: 0.5, ease: 'power1.in',
       onUpdate: () => {
         history.pop()
