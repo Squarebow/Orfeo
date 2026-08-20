@@ -523,7 +523,7 @@ export default function TrackPanel() {
                     {collapsed && (
                       <div style={{ display: 'flex', gap: 2 }}>
                         {groupTracks.map(t => (
-                          <Tooltip key={t.index} title={t.trackName ?? t.gmName} description="Matches this track's color in the piano roll.">
+                          <Tooltip key={t.index} title={t.trackName ?? t.gmName} description="Track's color in the piano roll">
                             <div style={{ width: 7, height: 7, borderRadius: 2, background: t.color, flexShrink: 0 }} />
                           </Tooltip>
                         ))}

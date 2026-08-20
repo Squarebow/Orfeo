@@ -43,6 +43,14 @@ const EXTENDED_ADD = [
   '7b5', 'mM9', 'Madd9', 'madd9',
   'M7b6', 'alt7', '7b9#11', '13b9',
   '7b13', '13#11', 'maj9#11', '9#11',
+  // Major triad with a flattened 5th (tonal.js key 'Mb5', e.g. Bb-D-Fb) —
+  // the triad-tier counterpart to 'dim' (minor 3rd + b5) that was missing
+  // entirely, so any real chord detected as this type (Chord.detect/
+  // detectChordStructured both already recognize it) had no catalog match:
+  // right-click "Open in Chord Explorer" fell through to no-op past its
+  // interval-equality lookup, and note-search could never find it either
+  // since both search the same ALL_CHORDS list. ─────────────────────────────
+  'Mb5',
 ]
 
 const DISPLAY_SUFFIX: Record<string, string> = {
@@ -243,6 +251,20 @@ const GENRE_DESCRIPTIONS: Record<Genre, string> = {
 const COMMON_CHORDS = COMMON_TYPES.map(resolveChord).filter((c): c is ChordInfo => c !== null)
 const ALL_CHORDS = [...COMMON_CHORDS, ...EXTENDED_ADD.map(resolveChord).filter((c): c is ChordInfo => c !== null)]
 
+// ── Fallback dictionary — every OTHER chord type tonal.js recognizes,
+// beyond the hand-picked ALL_CHORDS above. ALL_CHORDS stays a deliberately
+// curated, browsable tile set (adding every tonal.js type there would blow
+// it up to 100+ tiles); this exists purely so a chord actually detected in
+// a MIDI file, or typed into note-search, can never come back "not found"
+// just because nobody thought to curate it into a tile. playChordAt, the
+// pendingChordExplorerSeed effect, and filteredChords's search all check
+// this ONLY when the curated list has no match — see each call site. ──────
+const CURATED_KEYS = new Set(ALL_CHORDS.map(c => c.key))
+const FULL_CHORD_TYPES = ChordType.all()
+  .filter(ct => ct.aliases.length > 0 && !CURATED_KEYS.has(ct.aliases[0]))
+  .map(ct => resolveChord(ct.aliases[0]))
+  .filter((c): c is ChordInfo => c !== null)
+
 // ── Shared row label style — dim uppercase, used across all control rows ──────
 const ROW_LABEL: React.CSSProperties = {
   fontFamily: 'var(--font-ui)', fontSize: 12, fontWeight: 600,
@@ -440,13 +462,14 @@ export default function ChordExplorer() {
     }
   }, [tier, clearExplorerKeys, clearExplorerChordDisplay])
 
-  // ── One searchable record per chord in the active tier ────────────────────
-  // Rebuilt whenever tier, root, naming system, or accidentals change so that
-  // displayed names, note spellings, and numeric tokens stay in sync.
-  // rootLabels is inlined directly (rootLabel() is defined later in the component).
-  // typeName is the bare suffix without root so name-scope search is root-independent.
-  const searchableChords = useMemo(() =>
-    tierChords.map(chord => ({
+  // ── One searchable record per chord — shared shape for both the curated
+  // tier's own list and the FULL_CHORD_TYPES fallback below. Rebuilt
+  // whenever the source list, root, naming system, or accidentals change so
+  // that displayed names, note spellings, and numeric tokens stay in sync.
+  // typeName is the bare suffix without root so name-scope search is
+  // root-independent. ────────────────────────────────────────────────────
+  const buildSearchable = useCallback((chords: ChordInfo[]) =>
+    chords.map(chord => ({
       chord,
       display: `${rootLabels.find(r => r.pitchClass === selectedRoot)?.label ?? ''}${chord.suffix}`,
       typeName: chord.suffix,
@@ -455,33 +478,40 @@ export default function ChordExplorer() {
         .map(m => getNoteName(m, displayNaming, accidentals)).filter(Boolean).join(' '),
       numerics: (chord.suffix + ' ' + chord.aliases.join(' ')).match(/\d+/g)?.join(' ') ?? '',
     })),
-    [tierChords, selectedRoot, rootLabels, displayNaming, accidentals]
+    [selectedRoot, rootLabels, displayNaming, accidentals]
   )
 
-  // ── Fuse instance — keys vary by scope; rebuilt when data or scope changes ─
+  const searchableChords = useMemo(() => buildSearchable(tierChords), [tierChords, buildSearchable])
+  // ── Fallback searchable set — the full tonal.js dictionary, independent of
+  // tier/curation. Only ever queried when a search comes up empty against
+  // the curated tier (see filteredChords below), so normal curated search
+  // results are never diluted by obscure dictionary entries. ────────────────
+  const searchableChordsFallback = useMemo(() => buildSearchable(FULL_CHORD_TYPES), [buildSearchable])
+
+  // ── Fuse instances — keys vary by scope; rebuilt when data or scope changes ─
   // aliases excluded: tonal.js aliases contain long English words ("minor",
   // "dominant") that produce spurious matches for single letters like n/o/i/u.
-  const fuseInstance = useMemo(() => {
-    const keys =
-      searchScope === 'name'  ? ['typeName', 'numerics'] :
-      searchScope === 'notes' ? ['notes'] :
-      /* both */                ['display', 'typeName', 'notes', 'numerics']
-    return new Fuse(searchableChords, {
-      keys,
-      threshold: 0.2,
-      includeScore: true,
-      minMatchCharLength: 1,
-      ignoreLocation: true,
-      useExtendedSearch: false,
-    })
-  }, [searchableChords, searchScope])
+  const fuseKeys = useMemo(() =>
+    searchScope === 'name'  ? ['typeName', 'numerics'] :
+    searchScope === 'notes' ? ['notes'] :
+    /* both */                ['display', 'typeName', 'notes', 'numerics'],
+    [searchScope]
+  )
+  const fuseOpts = { threshold: 0.2, includeScore: true, minMatchCharLength: 1, ignoreLocation: true, useExtendedSearch: false }
+  const fuseInstance = useMemo(() => new Fuse(searchableChords, { keys: fuseKeys, ...fuseOpts }), [searchableChords, fuseKeys])
+  const fuseInstanceFallback = useMemo(() => new Fuse(searchableChordsFallback, { keys: fuseKeys, ...fuseOpts }), [searchableChordsFallback, fuseKeys])
 
   // ── Filter chords: Fuse search + note-count + hand-span filters ───────────
   const filteredChords = useMemo(() => {
     let result: ChordInfo[]
 
     if (searchOpen && search.trim()) {
-      result = fuseInstance.search(search.trim()).map(r => r.item.chord)
+      const curated = fuseInstance.search(search.trim()).map(r => r.item.chord)
+      // ── Curated tier has nothing — fall back to the full tonal.js
+      // dictionary rather than showing "no results" for a chord that
+      // genuinely exists (e.g. an obscure altered type nobody curated
+      // into a tile). ─────────────────────────────────────────────────
+      result = curated.length > 0 ? curated : fuseInstanceFallback.search(search.trim()).map(r => r.item.chord)
     } else {
       result = tierChords
     }
@@ -507,7 +537,7 @@ export default function ChordExplorer() {
     }
 
     return result
-  }, [tierChords, search, searchOpen, noteFilter, handFilter, selectedRoot, fuseInstance])
+  }, [tierChords, search, searchOpen, noteFilter, handFilter, selectedRoot, fuseInstance, fuseInstanceFallback])
 
   // ── Recursive progression step player ───────────────────────────────────
   // prevMidi: the MIDI notes played at the previous step, used to pick the
@@ -600,7 +630,11 @@ export default function ChordExplorer() {
 
   const playChordAt = useCallback((chordKey: string, rootPitchClass: number) => {
     stopProgression()
-    const info = ALL_CHORDS.find(c => c.key === chordKey)
+    // ── FULL_CHORD_TYPES fallback: chordKey can come from a filteredChords
+    // tile that fell back to the full dictionary (see filteredChords below),
+    // or from the seed-match effect's own fallback — not just the curated
+    // ALL_CHORDS list. ─────────────────────────────────────────────────────
+    const info = ALL_CHORDS.find(c => c.key === chordKey) ?? FULL_CHORD_TYPES.find(c => c.key === chordKey)
     if (!info) return
     const midiNotes = buildChordMidi(rootPitchClass, info.intervals, 61)
     if (midiNotes.length === 0) return
@@ -627,12 +661,16 @@ export default function ChordExplorer() {
     if (!seed) return
     useStore.getState().setPendingChordExplorerSeed(null)
 
-    const match = ALL_CHORDS.find(c =>
-      c.intervals.length === seed.intervals.length && c.intervals.every((iv, i) => iv === seed.intervals[i]),
-    )
+    // ── Root always follows the seed, match or not — same root the playback
+    // display and "Show on keyboard" already agreed on, independent of
+    // whether this catalog happens to have a tile for the chord's type. ─────
+    setSelectedRoot(seed.rootPitchClass)
+
+    const intervalsMatch = (c: ChordInfo) =>
+      c.intervals.length === seed.intervals.length && c.intervals.every((iv, i) => iv === seed.intervals[i])
+    const match = ALL_CHORDS.find(intervalsMatch) ?? FULL_CHORD_TYPES.find(intervalsMatch)
     if (!match) return
 
-    setSelectedRoot(seed.rootPitchClass)
     if (!COMMON_CHORDS.some(c => c.key === match.key)) setTier('extended')
     playChordAt(match.key, seed.rootPitchClass)
   }, [chordExplorerOpen, playChordAt])

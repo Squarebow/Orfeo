@@ -27,14 +27,6 @@ const IconVelocity = () => (
   </svg>
 )
 
-const IconInfo = () => (
-  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-    <circle cx="12" cy="12" r="10"/>
-    <path d="M12 16v-4"/>
-    <path d="M12 8h.01"/>
-  </svg>
-)
-
 const QUANT_LABELS: Record<number, string> = { 4: '1/4', 8: '1/8', 16: '1/16', 32: '1/32' }
 
 
@@ -433,7 +425,7 @@ export default function NoteEditorToolbar() {
     if (dashIdx === -1) return text
     return (
       <>
-        <span style={{ color: 'var(--text-amber-dimmest)', fontWeight: 700 }}>{text.slice(0, dashIdx)}</span>
+        <span style={{ color: 'var(--accent-amber-tooltip-text)', fontWeight: 700 }}>{text.slice(0, dashIdx)}</span>
         {text.slice(dashIdx)}
       </>
     )
@@ -455,7 +447,7 @@ export default function NoteEditorToolbar() {
         position: 'fixed',
         left: pos.x, top: pos.y,
         zIndex: 9700,
-        width: 620,
+        width: 680,
         background: 'var(--bg-modal-header)',
         border: '1px solid var(--state-hover-border)',
         borderRadius: 'var(--radius-md)',
@@ -465,23 +457,23 @@ export default function NoteEditorToolbar() {
         cursor: 'default',
       }}
     >
-      {/* ── Row 1: header — logo+title, permanent solo hint (centered), info
-          (disabled)+close. Three minmax(0,1fr) grid tracks — not flex+
-          absolute-centering — so the middle hint stays truly centered
-          regardless of title/button-group width (see CLAUDE.md's CSS Grid
-          layout convention). ────────────────────────────────────────────── */}
-      {/* Side columns measured live: left (logo+title) needs ~126px, right
-          (2 icon buttons) needs ~62px — 130px each keeps both symmetric
-          (required for the center hint to stay truly centered) while
-          freeing enough width that "for editing" no longer wraps its last
-          word onto its own line. */}
+      {/* ── Row 1: header — logo+title, permanent solo hint (centered), close.
+          Grid, not flex+absolute-centering. Side tracks are both a fixed
+          168px (equal to each other by construction) so the middle hint
+          track is always truly centered on the row regardless of the close
+          button's width — 168px was measured against the title's actual
+          rendered width (logo 16 + gap 6 + "MIDI NOTE EDITOR" text ~133,
+          i.e. ~155px) plus headroom, not against whatever happened to be in
+          the right column, so removing/adding a right-side icon can never
+          make the title clip or throw off centering (see CLAUDE.md's CSS
+          Grid layout convention). ──────────────────────────────────────── */}
       <div
         onMouseDown={e => {
           e.preventDefault()
           dragState.current = { startX: e.clientX, startY: e.clientY, startPosX: pos.x, startPosY: pos.y }
         }}
         title="Drag to move"
-        style={{ display: 'grid', gridTemplateColumns: '155px 1fr 155px', alignItems: 'center', minHeight: 32, padding: '4px 6px 4px 8px', gap: 6, cursor: 'grab' }}
+        style={{ display: 'grid', gridTemplateColumns: '168px 1fr 168px', alignItems: 'center', minHeight: 32, padding: '4px 8px', gap: 6, cursor: 'grab' }}
       >
         <div style={{ display: 'flex', alignItems: 'center', gap: 6, minWidth: 0 }}>
           <div style={{ display: 'flex', alignItems: 'center', flexShrink: 0 }}>
@@ -496,18 +488,12 @@ export default function NoteEditorToolbar() {
           </span>
         </div>
         <div style={{
-          fontSize: 11, color: 'var(--text-dim-control)', textAlign: 'center',
+          fontSize: 11, color: 'var(--text-muted)', textAlign: 'center',
           whiteSpace: 'normal', lineHeight: 1.3,
         }}>
           Click a track in the Tracks panel to solo it for editing
         </div>
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: 6 }}>
-          <button
-            disabled
-            style={{ ...iconBtnStyle(true), opacity: 0.2, cursor: 'default', pointerEvents: 'none' }}
-          >
-            <IconInfo />
-          </button>
           <button
             onMouseDown={e => e.stopPropagation()}
             onClick={() => void doClose()}
@@ -569,7 +555,7 @@ export default function NoteEditorToolbar() {
           <IconVelocity />
         </button>
 
-        <ToolBtn active={snapEnabled} onClick={() => setSnap(!snapEnabled)} onHint={setIconHint} hint={snapEnabled ? 'Snap — ON, click to disable' : 'Snap — OFF, click to enable'}>
+        <ToolBtn active={snapEnabled} onClick={() => setSnap(!snapEnabled)} onHint={setIconHint} hint={snapEnabled ? 'Snap ON — moving, resizing or adding a note rounds its timing to the grid' : 'Snap OFF — moved/resized/added notes keep their exact dragged timing'}>
           <IconSnap />
         </ToolBtn>
 
@@ -579,7 +565,7 @@ export default function NoteEditorToolbar() {
             onClick={openQuantize}
             aria-haspopup="listbox"
             aria-expanded={quantizeOpen}
-            {...hintHandlers('Quantize grid — set the snap resolution')}
+            {...hintHandlers(`Quantize grid — the grid unit Snap rounds to (currently 1/${quantize}); has no effect while Snap is off`)}
             style={{ ...btnBase, minWidth: 44, gap: 6, fontFamily: 'var(--font-mono)', fontSize: 10 }}
           >
             <Music4 size={12} color="var(--text-amber)" />

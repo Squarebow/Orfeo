@@ -1501,7 +1501,7 @@ export default function MidiEditor() {
                   <div />{/* empty Col-1 cell — keeps Col-2 content aligned under Track column */}
                   <div style={{ gridColumn: '2 / -1', minWidth: 0, display: 'flex', alignItems: 'center', gap: 6, fontSize: 10, color: 'var(--text-inactive)', fontFamily: 'var(--font-mono)' }}>
                     <Tooltip
-                      title="Toggle the inline hand-split timeline preview for this track."
+                      title="Hand-split timeline preview"
                       oneLine
                     >
                     <button
@@ -1532,7 +1532,7 @@ export default function MidiEditor() {
                       title={noteEditorEnabled ? 'Open in Note Editor' : 'Note Editor disabled'}
                       description={noteEditorEnabled
                         ? "Opens this track in the Note Editor, solo'd and editable."
-                        : 'Turn on MIDI Note Editor in Settings to use this.'}
+                        : 'Turn on MIDI Note Editor in Settings'}
                     >
                       <button
                         onClick={() => { if (noteEditorEnabled) handleOpenInNoteEditor(track.index) }}
@@ -1748,7 +1748,7 @@ export default function MidiEditor() {
             write instead of needing a separate save (see performSave). A
             hover tooltip carries the explanation — an always-visible two-line
             description here read as a layout bug rather than an aside. ──── */}
-        <Tooltip title="Folds the session's tempo/key changes into the next Save & Reload, instead of needing a separate save." oneLine wrapperStyle={{ marginLeft: 'auto' }}>
+        <Tooltip title="Folds the session's tempo/key changes into the next Save & Reload" oneLine wrapperStyle={{ marginLeft: 'auto' }}>
         <button
           onClick={() => useStore.getState().setSaveTempoKeyChangesEnabled(!saveTempoKeyChangesEnabled)}
           className="app-no-drag"
