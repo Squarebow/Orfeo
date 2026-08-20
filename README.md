@@ -2,12 +2,13 @@
 
 **A modern piano learning and MIDI visualization desktop app for Windows.**
 
-[![Version](https://img.shields.io/badge/Version-1.0.0--pre-blue)](https://github.com/SquareBow/orfeo/releases)
+[![Version](https://img.shields.io/badge/Version-1.0.0-blue)](https://github.com/Squarebow/Orfeo/releases)
 [![License](https://img.shields.io/badge/License-MIT-green)](LICENSE)
-[![Platform](https://img.shields.io/badge/Platform-Windows-lightgrey?logo=windows)](https://github.com/SquareBow/orfeo/releases)
-[![Status](https://img.shields.io/badge/Status-Beta-orange)](https://github.com/SquareBow/orfeo)
+[![Platform](https://img.shields.io/badge/Platform-Windows-lightgrey?logo=windows)](https://github.com/Squarebow/Orfeo/releases)
 
-Upload any MIDI file, watch notes fall onto a virtual keyboard in real time, follow along at your own pace, and learn piano the visual way. Explore chords and scales interactively, build your own chord progressions, and hear everything through a high-quality sampled audio engine.
+Open any MIDI file, watch notes fall onto a virtual keyboard in real time, and learn piano at your own pace. Explore chords and scales interactively, build your own progressions, and hear it all through a high-quality sampled audio engine.
+
+*From MIDI to mastery.*
 
 ---
 
@@ -21,7 +22,6 @@ Upload any MIDI file, watch notes fall onto a virtual keyboard in real time, fol
 - [Building from Source](#building-from-source)
 - [Contributing](#contributing)
 - [License](#license)
-- [Changelog](#changelog)
 
 ---
 
@@ -29,12 +29,12 @@ Upload any MIDI file, watch notes fall onto a virtual keyboard in real time, fol
 
 ### Piano Roll & Playback
 
-- 🎵 **MIDI file import** — open any `.mid` or `.midi` file
+- 🎵 **MIDI file import** — open any `.mid` or `.midi` file, plus MusicXML, Guitar Pro, and karaoke KAR files
 - 🎹 **Falling note piano roll** — notes fall downward onto a 61 / 73 / 88 key virtual keyboard in real time, perfectly aligned to each key
 - 🎚️ **Tempo control** — slow down or speed up without changing pitch; long-press the BPM arrows to accelerate
-- 🔁 **Loop playback** — set a loop region and repeat any section
+- 🔁 **Loop playback** — draw a loop region directly on the waterfall and repeat any section
 - 🥁 **Metronome** — tempo-map aware; follows mid-file tempo changes automatically
-- 🎼 **Track manager** — mute, solo, recolor, and show/hide individual tracks
+- 🎼 **Track manager & Mixer Console** — mute, solo, recolor, and show/hide individual tracks; full per-channel volume, pan, chorus, and reverb
 
 ### Interactive Keyboard
 
@@ -42,23 +42,26 @@ Upload any MIDI file, watch notes fall onto a virtual keyboard in real time, fol
 - 🎹 **Docked or floating** — keyboard docks at the bottom or floats freely as a draggable panel
 - 💡 **Key highlighting** — keys light up in track color as notes play; chord names displayed above
 - 🔤 **Note labels** — lit keys show note names in your chosen naming system
+- 🎛️ **Hardware MIDI input** — connect a real keyboard and play along, with true sustain and multi-device support
 
 ### Chord & Scale Explorers
 
-- 🎵 **Chord Explorer** — browse and audition any chord in any key; filter by hand span, note count, or search; cycle inversions; play progressions with seven voicing styles (Classic, Coltrane, Cinematic, Roadhouse, Ipanema, Carnival, Velvet); Power tier shows all 12 root power chords
-- 🎵 **Scale Explorer** — interactive Circle of Fifths; select any key to see the scale, its diatonic chords, and play progressions; an 8th tile plays the tonic chord one octave up
-- 🎼 **Real-time chord detection** — chord name displayed as notes play from a MIDI file or keyboard input
-- 🔄 **Chord inversions** — displayed in slash notation (C/E, Dm7/F) everywhere in the app
+- 🎵 **Chord Explorer** — browse and audition any chord in any key; filter by hand span, note count, or search; cycle inversions; play progressions with seven voicing styles (Classic, Coltrane, Cinematic, Roadhouse, Ipanema, Carnival, Velvet)
+- 🎵 **Scale Explorer** — interactive Circle of Fifths; select any key to see the scale, its diatonic chords, and play progressions
+- 🎼 **Real-time chord detection** — the chord name above the keyboard follows what's actually playing, from a MIDI file or hardware keyboard input, with three tracking modes (Classic, General Harmony, Follow Instrument) to suit how you want it to read the music
+- 🔤 **Two chord-naming styles** — traditional abbreviations (`Bb(b5)/D`) or symbol notation (`Bb(♭5)/D`, `+`/`°`/`ø`/`Δ`), applied consistently everywhere a chord name appears
+- 🔒 **Lock-a-Chord** — Shift+click any 3+ keys to build and lock a chord, then cycle through its inversions
 
 ### MIDI Editing
 
-- ✏️ **MIDI Playback Editor** — reassign instruments, include/exclude tracks, merge tracks; saves as `_ORFEO.mid` without touching the original
+- ✏️ **MIDI Playback Editor** — reassign instruments, rename/recolor/merge/split tracks; saves as `_ORFEO.mid` without touching the original
+- 🎹 **Note Editor** — edit individual notes directly on the piano roll: move, resize, add, delete, with full undo/redo
 - 📁 **File library** — browse a folder of MIDI files, star favourites, click to load
 
 ### Audio
 
 - 🎛️ **Master volume** — SVG knob in the toolbar, persists across sessions
-- 🎼 **Two audio engines** — GM Synth (instant, no download) or Samples (SpessaSynth + GeneralUser GS SF2, ~31MB, richer sound)
+- 🎼 **Two audio engines** — GM Synth (instant, no download) or Samples (SpessaSynth + GeneralUser GS SF2, richer sound)
 
 ---
 
@@ -90,7 +93,7 @@ The accidentals toggle (♭ / ♯) applies separately and is remembered between 
 
 ## Screenshots
 
-*Coming soon — screenshots will be added before the first public release.*
+*Coming soon.*
 
 ---
 
@@ -98,10 +101,10 @@ The accidentals toggle (♭ / ♯) applies separately and is remembered between 
 
 ### Download
 
-Download the latest installer from the [Releases](https://github.com/SquareBow/orfeo/releases) page:
+Download the latest build from the [Releases](https://github.com/Squarebow/Orfeo/releases) page:
 
-- `Orfeo-Setup-x.x.x-Windows.exe` — standard installer
-- `Orfeo-Portable-x.x.x-Windows.exe` — portable, no installation required
+- `Orfeo Setup 1.0.0.exe` — standard installer
+- `Orfeo-1.0.0-portable.exe` — portable, no installation required
 
 Not sure which one to grab, or want to know how they differ (auto-updates, where settings are stored, etc.)? See [docs/INSTALLATION.md](docs/INSTALLATION.md).
 
@@ -128,8 +131,8 @@ For a full guide see [docs/HOW_TO_USE.md](docs/HOW_TO_USE.md).
 
 ```bash
 # Clone the repo
-git clone https://github.com/SquareBow/orfeo.git
-cd orfeo
+git clone https://github.com/Squarebow/Orfeo.git
+cd Orfeo
 
 # Install dependencies
 npm install
@@ -144,8 +147,8 @@ npm run dev
 |---|---|
 | `npm run dev` | Development mode with hot reload |
 | `npm run build` | Compile TypeScript to `out/` |
-| `npm run dist` | Package to installer in `release/` |
-| `npm run dist -- --dir` | Unpack build for inspection (no installer) |
+| `npm run dist` | Package installer + portable to `release/` |
+| `npm run dist:portable` | Package portable build only |
 
 ### Tech Stack
 
@@ -166,541 +169,14 @@ npm run dev
 
 Contributions welcome — see [CONTRIBUTING.md](CONTRIBUTING.md) for full setup and build instructions for all platforms (Windows, macOS, Linux).
 
-Please open an issue before submitting a PR. Check [docs/ROADMAP.md](docs/ROADMAP.md) to see what is already planned.
+Please open an issue before submitting a PR.
 
 ---
 
 ## License
 
-MIT © [SquareBow](https://github.com/SquareBow)
+MIT © [SquareBow](https://github.com/Squarebow)
 
 ---
 
-## Changelog
-
-All user-visible changes listed here. For full technical detail see [CHANGELOG.md](CHANGELOG.md).
-
----
-
-### 30. 7. 2026
-
-**New**
-- **Track color editor in the MIDI Playback Editor:** Each track row now has a Color column. Clicking the palette button or the colored bar opens a popover with a 10-color curated palette, a full HSV rainbow color picker (saturation/value square + hue slider), and a hex input field. Color changes update the piano roll, mixer strip, and all other views instantly.
-
-**Improved**
-- **Track name rename hint in the MIDI Playback Editor:** Hovering over a track name now shows a pencil cursor and highlights the text in amber, making the double-click-to-rename affordance obvious.
-- **Themed confirm dialogs:** All confirmation prompts throughout the app (loading a file over unsaved note edits, saving a converted file, the note editor reset, drag-and-drop replace, app close) now appear as a styled dark modal that matches the rest of Orfeo's interface, instead of the operating system's default dialog box.
-
----
-
-### 29. 7. 2026
-
-**New**
-- **Import MusicXML, Guitar Pro, and KAR files:** Orfeo now accepts MusicXML (`.musicxml`, `.xml`, `.mxl`), Guitar Pro (`.gp`, `.gp3`, `.gp4`, `.gp5`, `.gpx`), and karaoke MIDI (`.kar`) files in addition to standard `.mid` files. Drag them into the app or add them to your library — they play just like any MIDI file. Converted files are cached automatically so re-opening is instant.
-
----
-
-### 27. 7. 2026
-
-**Improved**
-- **Speed selector in Chord/Scale Explorer:** The three-dot speed selector for progression playback has been replaced with 1×/2×/3× chevron-arrow icons that make the speed options immediately recognisable at a glance. Active speed lights up in amber.
-
-**Fixed**
-- **Note Editor — note-name tooltip on small notes:** Hovering over very short notes (e.g. drum hits) in the note editor now correctly shows a floating note-name tooltip. Previously, drum notes were always classified as resize targets due to their height being smaller than the resize zone, preventing the tooltip from ever appearing.
-- **Note Editor — note names toggle respected by tooltip:** The floating note-name tooltip no longer appears when the Note Names toggle is off.
-- **Note Editor — note names state on re-entry:** Reopening the note editor no longer shows the Note Names button as active while names are not drawn on the roll.
-
----
-
-### 26. 7. 2026 (2)
-
-**Improved**
-- **Note Editor — single-tool interaction:** The editor no longer has separate Pencil and Select tool buttons. Clicking a note selects it and lets you drag it; Shift+click adds to or removes from the selection; drag on the edge resizes; drag a multi-note selection moves all selected notes together. Alt+click on empty space adds a new note. Right-clicking a newly added note removes it; Alt+right-click removes any note; right-clicking empty space clears the selection.
-- **Note Editor — axis-free drag:** Notes can now be dragged diagonally — pitch (left/right) and time (up/down) update simultaneously with no axis lock. A single undo step captures the combined move.
-- **Note Editor — live hint line:** A contextual hint line appears below the toolbar buttons showing what the current action is based on where the cursor is hovering in the roll (e.g. "Alt+click to add note · Drag to select").
-- **Note Editor — track solo for editing:** In edit mode, clicking a track row in the Tracks panel soloes that track (hides all others from the roll). Click it again to restore. The amber left-border highlights which track is currently focused.
-- **Note Editor — Reset button:** A Reset button (circular arrow) in the toolbar discards all edits and restores the original file content. Asks for confirmation if there are unsaved changes.
-- **Note Editor — unsaved-changes close guard:** Clicking the ✕ close button when there are unsaved changes now shows an inline prompt with Save & Exit, Discard, and Cancel options instead of silently discarding changes.
-
----
-
-### 26. 7. 2026
-
-**New**
-- **Presentation Mode** — a distraction-free fullscreen view for live playing and screen recording. Press F11 or click the expand icon in the bottom-right corner of the footer to enter. All sidebars, the chord bar, and the header are hidden; the piano roll expands to fill the screen and the keyboard stays at the bottom. The header slides back in when you hover the top edge of the screen. Key-range selector (61/73/88) remains active and resizes the keyboard live. Press Esc or the shrink icon to exit.
-
-**Fixed**
-- Loop region on the piano roll: hovering now shows a cursor tooltip explaining Alt+drag to set a region and right-click to clear it. Right-click anywhere on the waterfall now clears the loop region directly.
-- Playback controls (transport buttons, scrub bar) no longer shift left when the Note Editor feature is enabled in Settings.
-- Keyboard label toggles in Settings now work: "Show Octaves" correctly hides/shows octave labels (C4, C5…) on the piano keyboard, and "Note Names on Keyboard" hides/shows note names on active (highlighted) keys.
-
----
-
-### 25. 7. 2026
-
-**Fixed**
-- Note Editor: clicking any note in edit mode before pressing Play for the first time now correctly plays that note's instrument. Previously all notes sounded like piano regardless of track. Affected both the Samples engine (SpessaSynth) and GM Synth (JZZ) paths.
-- Note Editor: Alt+click to add a note no longer recolors all existing notes. The bug was a track-mapping index error in the add-note path — the fourth instance of the same class of bug, now fully eliminated across all four code paths.
-- Note Editor: selected notes can now be dragged horizontally (pitch) as well as vertically (time). Drag direction is determined by the gesture — move further left/right to shift pitch, up/down to shift time. Multi-note selection respects the same delta for all selected notes.
-- Note Editor: newly added notes show a red dashed outline (consistent with the red selection highlight) instead of the previous neutral white.
-
-**Improved**
-- Note Editor toolbar: Save button now uses the correct Lucide SavePlus icon at the right visual weight.
-- Note Editor toolbar: Close (✕) button turns amber on hover.
-
----
-
-### 24. 7. 2026 (3)
-
-**Fixed**
-- Undo/redo in the Note Editor now works correctly. The previous build's undo/redo, add-note, and drag operations were silently broken because the editor was operating on read-only copied data rather than the live note objects. This is fully resolved.
-- Note preview sounds (clicking a note while editing) now play back on the correct instrument channel instead of always sounding like piano.
-- Spacebar play/pause now works while the Note Editor is open — it was incorrectly blocked during edit mode.
-- Wheel scrolling (timeline scrub) now works normally in edit mode; it was also incorrectly blocked.
-- The Note names toggle in the editor toolbar now shows note labels on the waterfall.
-- The Note Editor enable toggle has moved from Settings → Playback & Practice to Settings → MIDI Files & Library.
-
----
-
-### 24. 7. 2026 (2)
-
-**New**
-- **Note Editor** (Settings → MIDI Files & Library → Note Editor): enables a pencil icon in the top bar. Click the pencil while a file is open to enter note-editing mode directly on the waterfall — no separate window. Playback pauses and notes become interactive.
-  - **Pencil tool**: click to move or resize notes; Alt+click empty space to add a note; right-click a note to delete it.
-  - **Select tool**: click to select, Shift+click to add to selection, drag to marquee-select; Delete key removes selected notes.
-  - **Snap & Quantize**: snap toggle and grid selector (1/4, 1/8, 1/16, 1/32) in the floating toolbar.
-  - **Undo/Redo**: Ctrl+Z / Ctrl+Y (or toolbar buttons).
-  - Unsaved new notes show a dashed border; the toolbar label shows a dot (●) when there are uncommitted changes.
-  - Edits are in-memory only — use the MIDI Editor Save & Reload to write them to disk.
-
----
-
-### 24. 7. 2026
-
-**Fixed**
-- Spacebar play/pause now works correctly after the Note Editor has been opened and closed. Previously, opening the editor could leave a hidden keyboard listener permanently active, silently swallowing spacebar presses for the rest of the session.
-- The piano roll and Note Editor background stripes (white/black key columns) now align exactly with the physical keyboard drawn below — all three components share one canonical layout formula so they can no longer drift apart.
-
----
-
-### 21. 7. 2026 (3)
-
-**Fixed**
-- The loop icon in the playback bar now blinks amber whenever a loop region is selected — even when the Loop Region strip is hidden in Settings (e.g. after drawing a selection with Alt+drag on the waterfall). Previously it only blinked when the strip was enabled.
-- The loop icon tooltip now shows the selected bar range in all cases where a selection exists. When no selection is active and the strip is hidden, the tooltip now hints at Alt+drag on the waterfall instead of directing you to Settings.
-
----
-
-### 21. 7. 2026 (2)
-
-**New**
-- **Rename tracks in the MIDI Playback Editor**: double-click any track name in the editor to rename it. The new name shows immediately in the Tracks panel and Mixer Console, and is saved into the file when you use Save & Reload — future loads of that file will restore your names automatically.
-
----
-
-### 21. 7. 2026
-
-**New**
-- **Loop region visible on the waterfall**: when a loop region is set, an amber tinted band with two boundary lines appears directly on the falling-note waterfall, so you can see exactly which notes are inside the selection as it scrolls past.
-- **Drag loop boundaries on the waterfall**: the two amber boundary lines can be grabbed and dragged up or down to fine-tune the loop start and end points while seeing the notes.
-- **Alt+drag to draw a loop region on the waterfall**: hold Alt and drag up or down anywhere on the waterfall to draw a new loop region directly — notes are fully visible while you select.
-- **Alt+drag for precise loop selection in the top bar strip**: hold Alt while dragging in the loop region strip to bypass bar-snapping and select at any exact time position (useful for phrases that start before the downbeat or ring past the bar line).
-- **Activating the loop jumps to the start**: clicking the loop icon when a region is selected now positions the playhead at the start of the region. Play/pause still works normally.
-- **Double-click to reset the loop region**: double-click anywhere on the loop region strip, on either amber boundary line, or on the waterfall (while holding Alt) to clear the selection.
-- **Long-press bar range chevrons**: holding the up/down arrows in the bar range popup now increments/decrements continuously instead of requiring a click for each step.
-
-**Fixed**
-- Bar counter in the top bar no longer shifts the playback controls when the number grows from one to two or three digits — space is now always reserved for three digits.
-- The playhead line on the waterfall is now light grey instead of amber, making it clearly distinct from the amber loop region boundary lines.
-
----
-
-### 19. 7. 2026 (3)
-
-**Fixed**
-- MIDI Playback Editor: Split now has its own dedicated column instead of being squeezed next to the track name. All columns are now properly aligned: Include, Track, Merge, Split, Assign Instrument.
-- MIDI Playback Editor: track names now show the resolved GM instrument name (e.g. "Grand Piano") instead of the raw name from the file — consistent with the Tracks panel and Mixer Console.
-- MIDI Playback Editor and Mixer Console headers are now visually consistent — same logo size, same title font size, same close button style.
-- When both the MIDI Editor and Mixer Console are open at the same time, clicking either one brings it to the front. Previously the editor would always appear behind the console.
-- The vertical separator before the Time/Metronome/MIDI section in the top bar is now vertically centred instead of pinned to the bottom.
-- Mixer Console no longer shows a horizontal scrollbar for files with 5 or 7 tracks (the last strip was cut off by a 2-pixel width calculation error).
-
----
-
-### 19. 7. 2026 (2)
-
-**Fixed**
-- The Volume knob in the top bar now looks identical to the Mixer Console knobs — tick lines and triangle notch instead of the old dot-ring style.
-- Mixer Console no longer opens at a fixed width sized for 8 tracks — it now adapts its width to how many tracks are in the file, up to a maximum of 8 visible strips.
-- Mixer Console channel strips are now sorted in the same order as the Tracks panel (piano and keyboard instruments first, drums last), instead of the raw file order.
-- Channel strip names now show the resolved GM instrument name (e.g. "Grand Piano") instead of the raw MIDI track name embedded in the file.
-- Hiding a track from the waterfall (eye button or global hide-all) no longer silences it during playback. Visibility and muting are now independent — only the Mute button affects audio.
-- Tooltips added to the Include and Merge buttons in the MIDI Playback Editor.
-
----
-
-### 19. 7. 2026
-
-**New**
-- **MIDI Playback Editor is now a floating panel**: instead of opening in a separate OS window, the editor opens as a floating modal inside the main app — the same style as the Mixer Console and Chord Explorer. You can drag it anywhere on screen. Clicking the split icon on a track now shows a confirmation step before executing, and the editor stays open after a split so you can review the result before closing.
-- **Mixer Console is now accessible from the app**: click the Console icon (sliders) in the right drawer to open it, or press Ctrl+Shift+M. The console is a floating window that can be dragged anywhere on screen, minimized to get it out of the way without losing any settings, and restored by clicking the icon or shortcut again.
-- **Master strip — global track controls**: three new buttons at the top of the master strip let you mute all tracks at once, hide all tracks from the waterfall, or remove all tracks from keyboard highlighting — with a single click. Each is a toggle, so clicking again undoes the action.
-- **Master strip — track filter button**: the "All tracks / Selection" button (also in the Tracks panel header) is now duplicated in the master strip, so you can switch between full playback and piano/bass/drums-only without opening the Tracks panel.
-- **Master strip — VU wave mode**: the VU display now has two modes toggled by the Bars/Wave button. Bars mode shows 8 pitch-band columns (bass to treble). Wave mode shows a smooth animated fill that rises and falls with the music, with a glow effect at peaks and a gentle breathing animation when silent.
-- **Minimize for Chord Explorer and Scale Explorer**: all three floating windows (Mixer Console, Chord Explorer, Scale Explorer) now have a (–) minimize button. Minimizing collapses the window to its header bar — the window stays on screen, all settings are preserved, and clicking (–) again or double-clicking the header restores it.
-- **Mixer channel effects now work**: Chorus, Reverb, Pan, and Volume controls on each channel strip are now fully wired to the audio engine — adjusting them produces an immediate audible effect during playback.
-- **Channel VU meters now show per-track color**: each channel strip's VU meter displays in that track's color, making it easy to see which instrument is active at a glance.
-
-**Fixed**
-- Muted channel strips now show a dark overlay across the entire strip, making it immediately clear which tracks are silent.
-- Minimizing the Mixer Console now collapses it to just the header bar instead of hiding it entirely — it behaves like a standard floating window rather than closing.
-- Adjusting a knob or fader in the Mixer Console no longer accidentally pans the strip view sideways.
-
----
-
-### 18. 7. 2026
-
-**New**
-- **Mixer Console — Channel Strip**: each loaded track now has a dedicated mixer strip with Chorus, Reverb, Pan, and Volume fader controls, plus Mute, Solo, hide-in-roll, and keyboard-highlight toggles. Volume and pan seed from the MIDI file's embedded CC values when present. A per-track VU meter responds to note velocity during playback.
-- **Mixer Console — Master Strip**: a master strip sits alongside the channel strips with a spectrogram VU display (8 columns, one per track slot), global Chorus and Reverb controls, a Tone EQ (high-shelf ±12 dB), and a large Master Volume knob. All controls feed the Samples audio engine in real time. A toggle switches the VU between spectrogram and mono modes.
-
-**Fixed**
-- **Loop Region ticks** — density ticks on the loop region strip were invisible (too dark) and disappeared entirely after toggling the Loop Region setting off and back on. Both issues are now fixed: ticks render at the correct brightness and survive any number of toggle cycles.
-- **Bar range popup** — the manual bar-range popup (icon to the right of the strip) now opens to the right of the icon rather than leftward over the strip.
-
----
-
-### 13. 7. 2026
-
-**Fixed**
-- **EU chord naming (Bb-rooted chords)** — with Central European notation active, chords rooted on B-flat (e.g. Bb minor, Bb major 7) were incorrectly showing "H" as the root instead of "B". The correct CE rule is: Bb → B, B-natural → H. Now fixed across all chord displays (Locked Chord modal, playback chord bar, Chord Explorer, Scale Explorer).
-- **Locked Chord — clear button** — clicking the RotateCcw icon in the Locked Chord modal now clears only the highlighted keys, leaving the modal open. Use the X in the title bar to close the modal entirely.
-
-**Improved**
-- **Selective Tracks Playback** — the "Piano, Bass & Drums Only" audio setting has been renamed to "Selective Tracks Playback". It now controls whether the All tracks / Selection quick-toggle button is shown in the Track Panel header, rather than setting an auto-mute default on file load. All tracks play on load by default; use the button to switch to a filtered mix at any time.
-- **Settings group memory** — the Settings panel now remembers which groups you left expanded or collapsed between app launches. "MIDI Files & Library" starts expanded on a fresh install; all other groups start collapsed.
-
-**New**
-- **Track filter button** — the Tracks panel header has an amber "All tracks / Selection" button. Click it to instantly switch between hearing all tracks and hearing only piano, bass & drums, without touching individual mute buttons or reloading the file. Works during playback too.
-
-**Improved**
-- **Live mute during playback** — muting or unmuting tracks (via the M buttons or the new filter toggle) now takes effect in the audio immediately, without interrupting playback or causing a gap.
-
-**New**
-- **Drag & drop MIDI files** — drag any `.mid` or `.midi` file from Windows Explorer directly onto the Orfeo window to load it instantly. Works whether the app is empty or a file is already playing. Files outside your library folder are automatically copied in so they show up in the sidebar. A confirmation prompt appears before replacing an already-loaded file.
-- **Drag & drop onto the Library sidebar** — drop a `.mid` or `.midi` file directly onto the file list in the Library panel to add it without interrupting playback. The file is copied into your library folder (with automatic duplicate renaming if needed) and appears in the list immediately.
-- **Active file highlight in Library** — the currently loaded file is highlighted in amber in the library list, making it easy to see which file is open at a glance regardless of play/pause state.
-- **Remove from Library** — right-click any file in the library list and choose "Remove from Library" to hide it from the list. The file is never deleted or moved — it stays on disk and hidden files can be restored in a future update.
-
----
-
-### 9. 7. 2026 (v0.10.2)
-
-**Improved**
-- **Visual consistency** — the colour and spacing system is now applied uniformly throughout every panel, modal, and interactive control in the app. Labels, borders, and hover states use the same unified tokens everywhere.
-
----
-
-### 6. 7. 2026
-
-**Fixed**
-- **Piano roll visual glitch** — on some systems the note waterfall would render with a gap on the right side, the playhead wouldn't span the full width, or notes near the playhead would fragment. Fixed.
-
----
-
-### 5. 7. 2026 (v0.10.1)
-
-**Improved**
-- **Orfeo logo mark** now appears in the header of Chord Explorer, Scale Explorer, and MIDI Playback Editor modals — consistent branding across all panels.
-- **Empty state screen** is now centred on the true viewport centre regardless of which side drawers are open or closed.
-- **Separator line** between the toolbar and the main area is now fully visible across the entire window width, including the top-right corner under the native Windows buttons.
-- **MIDI icon** in the keyboard connection section is now pixel-aligned with the label next to it.
-- **Chord Explorer row heights** unified — all control rows now match Scale Explorer's consistent 44 px rhythm; no row feels cramped or misaligned relative to the other.
-- **Progression Play button** now turns green when a pattern is selected and ready to play, and red only when actively playing/stopping — clearer at a glance.
-
----
-
-### 5. 7. 2026 (2)
-
-**Improved**
-- **Visual consistency** — text colours throughout the top bar, keyboard chord bar, key size selector, and floating keyboard panel are now brighter and more readable, following the updated colour system introduced earlier in this version. Labels that were very dim are now properly legible while maintaining the dark-background aesthetic.
-
----
-
-### 5. 7. 2026 (v0.10.0)
-
-**New**
-- **Chord Explorer — Style voicing system** — seven styles (Classic, Coltrane, Cinematic, Roadhouse, Ipanema, Carnival, Velvet) reshape how chord progressions sound without changing the root or key. Classic plays plain diatonic triads; Coltrane adds jazz 9ths and 13ths; Cinematic uses open add9 and sus chords; Roadhouse puts dominant 7ths on all blues chords; Ipanema brings bossa nova 9ths and a Lydian lift on IV; Carnival gives bright samba 7ths; Velvet goes deep with 11ths, 13ths, and an altered dominant on V. The Style row appears below the Progressions selector and is greyed out until a progression is chosen.
-- **Chord Explorer — Power Chord tier** — a new "Power" button in the Filter row (between Common and Extended) replaces the chord grid with 12 tiles, one for each root from C to B. Each tile plays root + perfect fifth (two notes only), lights the keyboard, and shows the name in the chord display above the keyboard (e.g. G5). All other controls are greyed out and non-interactive while Power is active.
-- **Scale Explorer — Octave tile** — an 8th tile at the end of the diatonic chord row plays the tonic chord one octave higher. Labelled with a superscript ⁸. Inversion buttons work on it as on any other tile.
-
-**Improved**
-- **Chord Explorer — Chord display during progressions** — the chord name shown above the keyboard now updates live as each progression step plays, correctly reflecting the sounded chord rather than staying frozen on the first selection.
-- **Chord Explorer — Progressions list reordered** — progressions are now grouped by family: Pop cluster, Rock/Blues cluster, Jazz cluster, then named/exotic progressions, making the dropdown easier to scan.
-
----
-
-### 10. 7. 2026
-
-**Improved**
-- **Settings — collapsible sections** — all seven settings groups (MIDI Files & Library, Notation, Keyboard, Playback & Practice, Audio, Piano Roll, Appearance) now have clickable amber headers that expand or collapse the section. All start expanded; click the header row to toggle.
-- **Settings — eye toggles** — boolean settings (Demo folder, Chord Transcription, octave labels, note names on keyboard, Hand Labels, Chord Prompter, Loop region, Bar numbers) now use a green Eye / red Eye-off icon instead of text buttons, making each setting's on/off state readable at a glance.
-- **Settings — amber group headers** — section headers now render the icon, group name, and expand chevron in amber, matching Orfeo's accent colour.
-
----
-
-### 9. 7. 2026
-
-**Improved**
-- **Track panel — full instrument names** — instrument names in the Track panel now display in full. The panel layout was restructured so the name occupies its own full-width row, with track number + controls on the row below and channel info beneath that. Names that are too long to fit scroll left on hover to reveal the complete text.
-
-**Fixed**
-- **Guitar tracks now muted by default** — guitar tracks were incorrectly left unmuted when a MIDI file loaded, unlike other non-keyboard families (strings, brass, synths, etc.). Guitar is now included in the default auto-mute list alongside the other orchestral/band families.
-
----
-
-### 4. 7. 2026 (3)
-
-**New**
-- **Performance Mode — Split Sensitivity slider** — a new slider in Settings → Keyboard → Hand Labels → Mode (Performance) lets you tune how eagerly the moving boundary line appears. At low values (8 st) the line shows up whenever the two hands are a moderate distance apart; at high values (24 st) it only appears on very wide separations. The setting is saved and restored between sessions. Default is 14 semitones.
-
----
-
-### 4. 7. 2026 (2)
-
-**New**
-- **Hand Labels — Performance Mode** — alongside the existing Practice mode (fixed split zone), a new Performance mode dynamically tracks where your hands actually are. During MIDI file playback, a single amber line slides across the keyboard following the live hand boundary, computed from a rolling window of notes. When a hardware MIDI keyboard is connected and notes are held, the line reacts in real time to the held notes instead, with hardware input taking priority over the file curve. While the moving line is active, the keyboard size buttons and note counter are hidden to reduce clutter; the Docked/Floating toggle moves to the far right. Switch between modes in Settings → Keyboard → Hand Labels → Mode.
-
----
-
-### 4. 7. 2026
-
-**Improved**
-- **Loop button nudge** — when a loop region is selected but looping is not yet active, the loop button (↺) pulses amber and a "click to loop" label appears next to it. Both disappear as soon as looping is activated or the region is cleared.
-- **MIDI indicator** — the MIDI icon in the top bar is now the official MIDI wordmark, sized to match the metronome. The idle status text has been updated from "No MIDI" to "CONNECT A KEYBOARD".
-
----
-
-### 3. 7. 2026
-
-**New**
-- **Loop Region Strip** — enable in Settings → Playback to show a thin interactive strip just above the song title. Drag across it to select a bar range; the edges snap to bar boundaries on release. Click the loop button (↺) to loop that section on repeat. Click the ↑↕ icon to the right to type in exact bar numbers manually. The selected range (e.g. "bars 8–24") is always shown next to the icon when a region is active. Turning the strip off or loading a new file clears the selection. Works with both audio engines.
-
-**New**
-- **Hardware MIDI keyboard input** — connect a MIDI keyboard and its notes light up on the on-screen keyboard in real time, with true sustain (key held = note sounds, key released = note stops immediately). Works with both audio engines. The MIDI device indicator in the top bar now reflects the live connection state. Multiple devices are all listened to simultaneously — no setup required.
-
-**New**
-- **Left/Right Hand Labels** — a new Settings → Keyboard section groups the split zone controls together with a "Left/Right Hand Labels" toggle. When on, two amber glowing lines appear in the keyboard footer bar marking the hand boundary; an amber-tinted mixed zone fills the space between them in range mode. "LEFT HAND" and "RIGHT HAND" labels flank the lines in amber. The split zone setting (Single or Range, with note steppers) defines exactly where the boundary sits on the keyboard. The split zone controls now collapse from view when the toggle is off, keeping Settings tidy.
-
-**Improved**
-- **Hand Labels settings layout** — the Left/Right Hand Labels toggle now appears directly below Key range, and the split zone controls (mode + note steppers) only appear beneath it when the toggle is on.
-
-**Improved**
-- **Panel shortcut icons** — both side panels (Library/Settings on the left, Tracks on the right) now show a column of three icons when collapsed instead of a single generic icon. Clicking directly on the Library or Settings icon opens the left panel straight to that tab. The MIDI Editor button is also accessible in the collapsed track panel. Icons that lead to features not yet built show a "Coming soon" tooltip and are visually dimmed.
-- **Track panel layout** — the Tracks header icon and MIDI Editor icon have been updated; the decorative soundfont placeholder has been removed.
-
-**New**
-- **Split breakpoint: Single vs Range mode** — the MIDI Editor split breakpoint setting in Settings now has two modes. Single mode works as before: one note divides LH and RH. Range mode lets you set a lower and upper bound; notes below the lower bound go to LH, above the upper bound go to RH, and notes in between are assigned to whichever hand's boundary they're closer to. All values are constrained to the C3–C4 octave where the real LH/RH split lives.
-
-**New**
-- **Locked Chord modal** — locking a chord (Shift+Click 3+ keys) now opens a small draggable floating modal instead of showing the chord inline in the bar below the keyboard. The modal shows the chord name and inversion, with the same play, inversion cycling, and clear controls as before. Drag it anywhere on screen.
-- **Shift+Click hint** — the "Shift+Click at least 3 keys to build & lock a chord" hint has moved from the bottom control bar into the chord display bar, next to the SCALES label, where it's always visible.
-
-**Improved**
-- **Chord Transcript from file icon** — when Chord Transcription is turned on in Settings, the file icon next to each library entry becomes the transcript trigger (click to generate a PDF). No extra column is added to the library list.
-- **Scrolling filenames** — long MIDI filenames in the library now slide left on hover to reveal the full name, then slide back when you move away.
-- **Chord Prompter icon** — the expand button on the chord bar now uses a dedicated fullscreen icon.
-
----
-
-### v0.7.0 — 2. 7. 2026
-
-**New**
-- **Split Track** — the MIDI Playback Editor now has a Split button on piano, organ, and chromatic percussion tracks. Clicking it detects left-hand vs. right-hand notes automatically (based on a configurable split point, default C4) and saves a new file with the two hands as separate tracks (`_ORFEO_SPLIT.mid`). Tracks that don't have enough notes in both registers don't show the button.
-- **Split breakpoint setting** — a new Settings → MIDI Editor section lets you change the note where the hand split happens, from A0 to B7, one semitone at a time. Default is C4 (middle C).
-- **Portable build filename** — the portable `.exe` is now named `Orfeo-0.7.0-portable.exe` for clarity.
-
-**Improved**
-- **MIDI Editor merge button** — the `+` / `✓` text on each track's merge toggle has been replaced with the Merge icon for visual consistency.
-- **MIDI Editor track order** — keyboard and piano tracks now always appear at the top of the track list; drums sink to the bottom. Left Hand and Right Hand tracks are sorted to the top and in order when opening a split file.
-
-**Fixed**
-- **MIDI Editor icons** — the Merge and Split icons were too dark to see clearly; both are now lighter.
-- **Split button on split tracks** — Left Hand and Right Hand tracks no longer show a Split button since they are already the result of a split.
-
-### 2. 7. 2026
-
-**New**
-- **Demo folder** — three bundled MIDI files (Mozart Rondo Alla Turca, Joplin Entertainer, Vivaldi Summer) are copied into a `Demo/` folder inside your library on first launch. The Demo folder always appears at the top of the library list. You can hide it from Settings → Library if you don't need it.
-- **Generated files stay tidy** — files created by Orfeo (`_ORFEO.mid`, `_ORFEO_MERGED.mid`, Chord Transcript PDFs) now save into an `Orfeo/` subfolder next to the source file instead of cluttering the same folder. The subfolder is created automatically on first save. Re-saving an already-generated file overwrites it cleanly in the same `Orfeo/` folder without doubling the suffix.
-
-### v0.6.1 — 2. 7. 2026
-
-**New**
-- **Portable build** — Orfeo is now available as a portable single-file `.exe` with no installation required. Copy it to any Windows machine and run directly. Settings and preferences are stored in an `Orfeo-Data/` folder next to the exe, so they travel with it.
-
-**Fixed**
-- **MIDI Playback Editor** — the editor window now correctly loads the editor UI in packaged builds. Previously it would open a second copy of the main app instead.
-- **Samples audio engine** — the engine now initialises correctly in packaged builds. The worklet and soundfont files were being fetched from the wrong path when running as an installed app.
-- **Piano roll alignment** — black key note columns in the waterfall now line up exactly with the black keys on the keyboard for all three keyboard sizes.
-
-### v0.6.1 — 2. 7. 2026 (continued)
-
-**Fixed**
-- **Chord Transcript PDF** — three visual fixes: (1) the outer border around the bar grid is removed — only the lines between rows remain, giving a cleaner open-grid look. (2) Chord names that fell very close together in the same beat now push apart instead of merging into one unreadable string (e.g. `Dsus24CMadd9` now renders as two separate names). (3) Legend deduplication is more robust — the same chord in root position and an inversion is now guaranteed to appear only once.
-
-### v0.6.1 — 1. 7. 2026 (continued)
-
-**Improved**
-- **Chord Transcript PDF** — the chord transcript now embeds Inter and JetBrains Mono fonts. The chord legend collapses inversions so the same chord in different positions counts as one entry (was showing 50+ entries, now 8–15 for a typical song). Grid lines are lighter and less dominant. Each bar row grows taller based on how many chord changes it contains. Chord names are now prevented from overflowing their beat cells.
-
----
-
-### v0.6.1 — 30. 6. 2026 (continued)
-
-**New**
-- **Chord Transcript PDF** — click the document icon in the chord bar (requires Chord Prompter to be open) to generate a PDF of the full chord sequence for the loaded MIDI file. The PDF is saved next to the MIDI file automatically. It includes: a one-octave keyboard thumbnail for each unique chord (chord tones highlighted in amber), a bar-by-bar chord grid showing what chord plays in every bar, and header info with tempo, key, and time signature. Works offline, no internet required.
-
-**Changed**
-- **Chord Prompter** is now embedded in the chord bar above the keyboard instead of a separate floating panel. Enable it in Settings → Playback, then click the scroll icon (now in the chord bar, next to the CHORDS label) to expand into prompter mode: 4 past chords on the left, the current chord large and amber in the centre, 2 upcoming chords on the right — all in a single compact row. The bar smoothly animates between compact and expanded views. During regular playback the chord display reads from a pre-computed chord sequence (no more jitter from live key detection).
-
-### v0.6.1 — 29. 6. 2026 (continued)
-
-**New**
-- **Chord Prompter** — a small floating panel that shows the chord sequence during playback: past 3 chords fade out to the left, the current chord is large and amber in the centre, the next 3 chords fade out to the right. Enable it in Settings → Playback, then click the scroll icon in the transport bar. Each chord is held for at least 2 seconds so fast harmonic changes don't flash. The panel is draggable and freezes in place on pause.
-- **Bar numbers & grid lines** — the piano roll now overlays bar numbers and horizontal bar lines that scroll with the notes. Current bar is highlighted in amber. Toggle Show/Hide in Settings → Piano Roll.
-- **Bar counter in transport bar** — live `current|total` bar display next to the TIME indicator, always visible when a file is loaded.
-
-**Fixed**
-- Metronome accent now fires on beat 1 (the downbeat) of each bar instead of beat 2 or 3 — was off due to an alignment error in the beat scheduler.
-- Metronome no longer causes the BPM display to stutter or jump on MIDI files that have embedded tempo changes (common in sequenced intro rubato). Previously the metronome was incorrectly overwriting the stored BPM with each MIDI tempo event it encountered.
-- Metronome now stays in sync throughout MIDI files that have mid-song tempo changes (rubato intros, accelerandos, ritardandos). Previously the beat scheduler drifted badly after any tempo change, causing clicks to land on wrong beats and fall further out of sync the longer the file played.
-- BPM display now updates live during playback to reflect the current tempo from the MIDI file — files with tempo changes show the correct BPM as they play rather than staying locked at the opening value.
-
----
-
-### v0.6.1 — 29. 6. 2026
-
-**Improved**
-- Audio engine choice (GM Synth / Samples) is now remembered between sessions — Orfeo automatically loads the Samples soundfont on startup if it was active when you last closed the app.
-- Chord Explorer search completely rewritten — single characters and short queries now work correctly; results are accurate across all note naming systems.
-- New search scope filter in the Chord Explorer search bar: **Name** (find chord types by name — m7, maj7, sus4, regardless of selected root), **Notes** (find chords containing specific notes for the selected root), or **Both**.
-
----
-
-### v0.6.0 — June 2026
-
-**New**
-- **Samples audio engine** — real instrument sounds via SpessaSynth and the GeneralUser GS soundfont (~31MB, downloads once on first use). Switch between GM Synth and Samples in Settings. Noticeably richer and more musical than the built-in GM synth.
-- **Master volume knob** — interactive SVG dial in the toolbar between the key display and transport controls. Volume persists across sessions.
-- **Glissando** — drag the mouse across the virtual keyboard while holding the button to play notes continuously as you slide.
-
-**Improved**
-- Chord inversion display now always uses slash notation everywhere in the app — `C/E` for 1st inversion, `C/G` for 2nd. No more confusing re-detected chord names like `Em#5` or `Gsus4` for inverted chords.
-- Major chord suffix `M` removed globally — `C` instead of `CM`, `G` instead of `GM`.
-- Inversion label shown next to chord name above keyboard when cycling inversions manually (e.g. `C/E  1st inv`).
-
----
-
-### v0.5.2 — June 2026
-
-**New**
-- **Scale Explorer** — opens from the `SCALES` label above the keyboard. Interactive Circle of Fifths: click any key to explore its scale and diatonic chords. Supports 10 scale types (Major, Natural Minor, Harmonic Minor, Melodic Minor, Dorian, Phrygian, Lydian, Mixolydian, Major and Minor Pentatonic).
-- Diatonic chord grid — 7 chord tiles per scale with Roman numeral labels; click any tile to hear and highlight it on the keyboard.
-- 20 named chord progressions (Pop, Jazz Standard, Andalusian, Pachelbel, 12-bar Blues and more) with Slow / Medium / Fast speed control and Sequential / Random inversion modes.
-- Switch directly between Chord Explorer and Scale Explorer without closing either.
-
-**Improved**
-- App now launches maximized.
-- Both explorer modals open positioned just above the keyboard by default, not covering it.
-
----
-
-### v0.5.1 — June 2026
-
-**New**
-- **Chord Explorer** — opens from the `CHORDS` label above the keyboard. Browse all chord types for any root note; filter by hand span (one hand / two hands) or note count (3–6+); search by chord name; cycle through inversions.
-- 15 named chord progressions with Slow / Medium / Fast playback and Sequential / Random inversion modes.
-- Clicking the Orfeo logo resets the app to its initial state without restarting.
-- Accidentals toggle (♭ / ♯) in the Chord Explorer footer — changes apply everywhere instantly.
-
-**Fixed**
-- Central European note naming: B♭ (pitch class 10) now always displays as `B` in EU mode, never `A#`.
-- Closing the Chord Explorer now correctly clears the chord name display above the keyboard.
-
----
-
-### v0.5.0 — June 2026
-
-**New**
-- **Zoom control** — zoom the piano roll time axis to see more or fewer bars at once.
-- **User Manual link** — bottom of the left drawer opens the guide in your browser.
-- **Warm theme** — optional warmer background color in Settings.
-
-**Improved**
-- Piano roll grid now correctly aligns to the selected keyboard size (61 / 73 / 88 keys).
-- Keyboard height is now proportional — resizes smoothly when the window changes size.
-- Metronome now aligns to the current playback position when started mid-file, and correctly follows tempo changes embedded in the MIDI file.
-- BPM arrows support long-press to accelerate through values quickly.
-- Library drawer opens by default and shows the Library tab first.
-- Left drawer widened to match the right track panel.
-
-**Fixed**
-- Library subfolder display was silently broken — now works correctly with collapsible folder headers.
-- Chord name tooltip was clipped at the top of the screen — now opens downward.
-
----
-
-### v0.3.2 — June 2026
-
-**New**
-- **Floating keyboard** — click Float to detach the keyboard into a draggable panel anywhere on screen. Pin it back with one click.
-
-**Improved**
-- Chord detection during playback is faster and clears cleanly between chords.
-- Metronome now starts in phase with the current playback position.
-
----
-
-### v0.3.1 — June 2026
-
-**Improved**
-- MIDI file library now scans subfolders recursively, with collapsible folder groups.
-- MIDI Playback Editor covers all 128 GM instruments across 16 families.
-- Track editor pencil icon turns amber while the editor is open.
-- Settings (note naming, accidentals) are now remembered between sessions.
-
-**Fixed**
-- Clicking a file in the library sometimes failed to load it.
-- Reopening the app could overwrite saved settings before they were restored.
-
----
-
-### v0.3.0 — June 2026
-
-**New**
-- **Settings & Library drawer** — collapsible left panel with note naming, accidentals, zoom, keyboard size, and audio settings. Library tab for browsing and starring MIDI files.
-- **MIDI Playback Editor** — separate window to reassign instruments, include/exclude tracks, and merge tracks. Saves as `_ORFEO.mid` — originals are never modified.
-- **Chord lock** — Shift+click keys on the keyboard to build and lock a chord. Cycle inversions with the arrow buttons.
-- **Accidentals toggle** — switch between ♭ flats and ♯ sharps globally.
-- **Windows installer** — `npm run dist` produces a proper `.exe` installer.
-
-**Improved**
-- Toolbar redesigned with BPM and key display side by side.
-- Track panel opens automatically when a MIDI file loads.
-
----
-
-### v0.2.0 — June 2026
-
-**New**
-- Open MIDI files via a native file dialog.
-- Falling note piano roll — notes animate downward onto the keyboard in sync with playback.
-- Audio playback with instrument sounds per track.
-- Keys light up as notes play; chord name shown above the keyboard.
-
----
-
-### v0.1.0 — June 2026
-
-Initial release. Project scaffold, basic Electron app window, design system established.
+Full technical release history lives in [CHANGELOG.md](CHANGELOG.md).
