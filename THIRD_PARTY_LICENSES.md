@@ -4,6 +4,15 @@ Orfeo depends on the following open-source packages. Full license texts are incl
 
 ---
 
+## "speed fast" icon
+
+Used for the tempo-related nudge/blink UI treatment.
+
+Author: Travis Avery, via [Noun Project](https://thenounproject.com/browse/icons/term/speed-fast/)
+License: CC BY 3.0 (https://creativecommons.org/licenses/by/3.0/)
+
+---
+
 ## @tonejs/midi
 
 Used for MIDI file parsing, note/track mutation, and re-serialization. The Note Editor feature (Phase 0 groundwork) builds its command layer directly on this library's mutable object model and `toArray()` encoder.
