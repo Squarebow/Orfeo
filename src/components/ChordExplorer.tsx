@@ -15,7 +15,7 @@ import Tooltip from './Tooltip'
 import { getPianoRollCenterX, getKeyboardHeaderTop } from '../utils/modalAnchors'
 import { useAnchorBottomOnResize } from '../hooks/useAnchorBottomOnResize'
 import { modalCloseButtonStyle, modalCloseButtonHoverColor, modalCloseButtonIdleColor } from '../utils/modalCloseButtonStyle'
-import { buildChordMidi } from '../utils/chordDetection'
+import { buildChordMidi, formatChordSuffix } from '../utils/chordDetection'
 
 const RANGES: Record<number, { min: number; max: number }> = {
   61: { min: 36, max: 96 },
@@ -53,10 +53,17 @@ const EXTENDED_ADD = [
   'Mb5',
 ]
 
-const DISPLAY_SUFFIX: Record<string, string> = {
-  'major': '', 'minor': 'm', 'diminished': 'dim', 'augmented': 'aug',
-  'half-diminished': 'ø', 'mM7': 'mMaj7', 'mM9': 'mMaj9',
-  'M7#11': 'Maj7#11', 'M7b6': 'Maj7b6', 'Madd9': 'add9', 'alt7': 'alt',
+// ── Maps our curated catalog KEYS to a raw tonal-style suffix, for the
+// handful that aren't already symbol-shaped (word keys like 'major', or a
+// deliberate simplification like 'alt7'→'alt'). Everything else's key IS
+// already a valid raw suffix — formatChordSuffix (imported from
+// chordDetection.ts, the same formatter every other chord display in the
+// app uses) handles the rest, including style (abbreviation/symbol). This
+// used to be its own full DISPLAY_SUFFIX override map, duplicating and
+// disagreeing with the playback display's formatting — see
+// docs/superpowers/specs/2026-08-20-chord-settings-design.md. ─────────────
+const KEY_TO_RAW_SUFFIX: Record<string, string> = {
+  'major': '', 'minor': 'm', 'half-diminished': 'm7b5', 'alt7': 'alt',
 }
 
 interface ChordInfo {
@@ -92,6 +99,10 @@ function ChevronPlayIcon({ size = 14, mirrored = false }: { size?: number; mirro
   )
 }
 
+// ── suffix stores the RAW (style-independent) suffix — style is applied at
+// every display site via formatChordSuffix(chord.suffix, chordNamingStyle),
+// same as chordDetection.ts's localizeChord, so it stays live/reactive
+// instead of being baked into this module-level catalog. ──────────────────
 function resolveChord(key: string): ChordInfo | null {
   const ct = ChordType.get(key)
   if (!ct || !ct.intervals || ct.intervals.length < 2) return null
@@ -99,7 +110,7 @@ function resolveChord(key: string): ChordInfo | null {
     key,
     name: ct.name || key,
     intervals: ct.intervals,
-    suffix: DISPLAY_SUFFIX[key] ?? key,
+    suffix: KEY_TO_RAW_SUFFIX[key] ?? key,
     aliases: ct.aliases || [],
   }
 }
@@ -295,6 +306,7 @@ export default function ChordExplorer() {
   const clearExplorerChordDisplay = useStore(s => s.clearExplorerChordDisplay)
   const noteNaming = useStore(s => s.noteNaming)
   const accidentals = useStore(s => s.accidentals)
+  const chordNamingStyle = useStore(s => s.chordNamingStyle)
   const setAccidentals = useStore(s => s.setAccidentals)
   // ── Window drag position — bottom edge on the keyboard header, horizontally
   // centered on the piano roll; recomputed each time the modal opens, but not
@@ -469,16 +481,19 @@ export default function ChordExplorer() {
   // typeName is the bare suffix without root so name-scope search is
   // root-independent. ────────────────────────────────────────────────────
   const buildSearchable = useCallback((chords: ChordInfo[]) =>
-    chords.map(chord => ({
-      chord,
-      display: `${rootLabels.find(r => r.pitchClass === selectedRoot)?.label ?? ''}${chord.suffix}`,
-      typeName: chord.suffix,
-      aliases: chord.aliases,
-      notes: buildChordMidi(selectedRoot, chord.intervals, 61)
-        .map(m => getNoteName(m, displayNaming, accidentals)).filter(Boolean).join(' '),
-      numerics: (chord.suffix + ' ' + chord.aliases.join(' ')).match(/\d+/g)?.join(' ') ?? '',
-    })),
-    [selectedRoot, rootLabels, displayNaming, accidentals]
+    chords.map(chord => {
+      const styledSuffix = formatChordSuffix(chord.suffix, chordNamingStyle)
+      return {
+        chord,
+        display: `${rootLabels.find(r => r.pitchClass === selectedRoot)?.label ?? ''}${styledSuffix}`,
+        typeName: styledSuffix,
+        aliases: chord.aliases,
+        notes: buildChordMidi(selectedRoot, chord.intervals, 61)
+          .map(m => getNoteName(m, displayNaming, accidentals)).filter(Boolean).join(' '),
+        numerics: (styledSuffix + ' ' + chord.aliases.join(' ')).match(/\d+/g)?.join(' ') ?? '',
+      }
+    }),
+    [selectedRoot, rootLabels, displayNaming, accidentals, chordNamingStyle]
   )
 
   const searchableChords = useMemo(() => buildSearchable(tierChords), [tierChords, buildSearchable])
@@ -587,7 +602,7 @@ export default function ChordExplorer() {
       setExplorerKeys(keys, colors)
       // ── Update chord name display above keyboard for this step ───────────
       const rootLbl = rootLabels.find(r => r.pitchClass === actualRoot)?.label ?? ''
-      const chordSuffix = DISPLAY_SUFFIX[info.key] ?? info.key
+      const chordSuffix = formatChordSuffix(info.suffix, chordNamingStyle)
       setExplorerChordDisplay({ name: `${rootLbl}${chordSuffix}`, invCount: 0, noteCount: midiNotes.length })
       // ── Real sounding order (ascending, matches inversion voicing) for the
       // style row's fixed-width note-names slot. ────────────────────────────
@@ -602,7 +617,7 @@ export default function ChordExplorer() {
     progTimerRef.current = setTimeout(() => {
       playProgStepAt(nextStep, progIndex, chordKey, root, speed, invMode, genre, nextLoopCount, midiNotes)
     }, durationMs)
-  }, [setExplorerKeys, setExplorerChordDisplay, rootLabels])
+  }, [setExplorerKeys, setExplorerChordDisplay, rootLabels, chordNamingStyle])
 
   const startProgression = useCallback(() => {
     if (selectedProg === null) return
@@ -643,11 +658,11 @@ export default function ChordExplorer() {
     setExplorerKeys(keys, colors)
     setSelectedKey(chordKey)
     // ── Store chord identity in Zustand so Keyboard.tsx can display it ────
-    const chordName = `${rootLabels.find(r => r.pitchClass === rootPitchClass)?.label ?? ''}${DISPLAY_SUFFIX[chordKey] ?? chordKey}`
+    const chordName = `${rootLabels.find(r => r.pitchClass === rootPitchClass)?.label ?? ''}${formatChordSuffix(info.suffix, chordNamingStyle)}`
     setExplorerChordDisplay({ name: chordName, invCount: 0, noteCount: midiNotes.length })
     const playNote = (window as any).__orfeoPlayNote
     if (playNote) midiNotes.forEach(m => playNote(m, 0.75, 1200, undefined, false))
-  }, [stopProgression, setExplorerKeys, rootLabels])
+  }, [stopProgression, setExplorerKeys, rootLabels, chordNamingStyle])
 
   // ── Consume a "open pre-seeded with this chord" signal from the playback
   // chord-display context menu (Keyboard.tsx) — matched by interval-array
@@ -1214,7 +1229,7 @@ export default function ChordExplorer() {
                 .map(m => getNoteName(m, displayNaming, accidentals))
                 .filter(Boolean)
                 .join(' ')
-              const chordLabel = `${rootLabel(selectedRoot)}${chord.suffix}`
+              const chordLabel = `${rootLabel(selectedRoot)}${formatChordSuffix(chord.suffix, chordNamingStyle)}`
               const showRoman = progPlaying && selectedProg !== null && isSel
 
               return (

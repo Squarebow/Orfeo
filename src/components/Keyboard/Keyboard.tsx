@@ -2,7 +2,7 @@ import React, { useMemo, useCallback, useState, useEffect, useRef } from 'react'
 import { useStore } from '../../store'
 import { isBlackKey } from '../../utils/midiParser'
 import { getNoteLabel, getNoteName } from '../../utils/noteNames'
-import { detectChord, detectChordWithInversion, formatInversionDisplay, localizeChord, ordinalSuffix, buildChordMidi } from '../../utils/chordDetection'
+import { detectChord, detectChordWithInversion, formatInversionDisplay, localizeChord, ordinalSuffix } from '../../utils/chordDetection'
 import { buildKeyLayoutRatios, PIANO_RANGES as RANGES } from '../../utils/keyLayout'
 import { buildPitchHandIndex, lookupNoteHandAtTime, detectPerformanceBoundary } from '../../utils/handBoundaries'
 import type { Hand } from '../../types'
@@ -35,6 +35,7 @@ export default function Keyboard() {
   const activeKeyColors = useStore((s) => s.activeKeyColors)
   const noteNaming              = useStore((s) => s.noteNaming)
   const accidentals             = useStore((s) => s.accidentals)
+  const chordNamingStyle        = useStore((s) => s.chordNamingStyle)
   const showOctaveLabels        = useStore((s) => s.showOctaveLabels)
   const showNoteNamesOnKeyboard = useStore((s) => s.showNoteNamesOnKeyboard)
   const playbackState = useStore((s) => s.playbackState)
@@ -179,6 +180,7 @@ export default function Keyboard() {
   const [chordCtxMenu, setChordCtxMenu] = useState<{
     x: number; y: number
     structured: { rootPitchClass: number; intervals: string[]; rawRootName: string }
+    realMidi: number[]
     displayName: string
   } | null>(null)
   const chordCtxMenuRef = useRef<HTMLDivElement>(null)
@@ -200,14 +202,21 @@ export default function Keyboard() {
   const handleChordContextMenu = useCallback((e: React.MouseEvent) => {
     e.preventDefault()
     if (playbackState === 'playing' || !heldChordEvent?.structured) return
-    const displayName = localizeChord(heldChordEvent.structured.rawRootName, noteNaming, accidentals) ?? heldChordEvent.structured.rawRootName
-    setChordCtxMenu({ x: e.clientX, y: e.clientY, structured: heldChordEvent.structured, displayName })
-  }, [playbackState, heldChordEvent, noteNaming, accidentals])
+    const displayName = localizeChord(heldChordEvent.structured.rawRootName, noteNaming, accidentals, chordNamingStyle) ?? heldChordEvent.structured.rawRootName
+    setChordCtxMenu({ x: e.clientX, y: e.clientY, structured: heldChordEvent.structured, realMidi: heldChordEvent.realMidi, displayName })
+  }, [playbackState, heldChordEvent, noteNaming, accidentals, chordNamingStyle])
 
   const handleShowChordOnKeyboard = useCallback(() => {
     if (!chordCtxMenu) return
-    const { structured, displayName } = chordCtxMenu
-    const midiNotes = buildChordMidi(structured.rootPitchClass, structured.intervals, keyboardSize)
+    const { realMidi, displayName } = chordCtxMenu
+    // ── The exact notes as they were actually paused/sounding, not a
+    // canonical re-voicing — buildChordMidi() (used by "Open in Chord
+    // Explorer" instead) always reconstructs a fixed-octave voicing, which
+    // is right for browsing the Explorer but showed the chord several
+    // octaves away from where it was really playing here. Still clamp to
+    // the current keyboard's playable range, same as buildChordMidi does. ──
+    const { min, max } = RANGES[keyboardSize] ?? RANGES[73]
+    const midiNotes = realMidi.filter(m => m >= min && m <= max)
     if (midiNotes.length > 0) {
       const colors = new Map(midiNotes.map(m => [m, 'var(--text-amber)'] as [number, string]))
       // ── Setting lockedKeys is enough — LockedChordModal auto-opens itself
@@ -364,7 +373,7 @@ export default function Keyboard() {
       if (holdRef.current) { clearTimeout(holdRef.current); holdRef.current = null }
       debounceRef.current = setTimeout(() => {
         const raw = detectChord(activeKeys)
-        const localized = localizeChord(raw, noteNaming, accidentals)
+        const localized = localizeChord(raw, noteNaming, accidentals, chordNamingStyle)
         if (localized) {
           useStore.getState().setDisplayedChord(localized)
           holdRef.current = setTimeout(() => useStore.getState().setDisplayedChord(null), CHORD_HOLD_MS)
@@ -373,7 +382,7 @@ export default function Keyboard() {
     } else {
       if (debounceRef.current) { clearTimeout(debounceRef.current); debounceRef.current = null }
     }
-  }, [activeKeys, lockedKeys.size, chordExplorerOpen, scaleExplorerOpen, noteNaming, accidentals, playbackState])
+  }, [activeKeys, lockedKeys.size, chordExplorerOpen, scaleExplorerOpen, noteNaming, accidentals, chordNamingStyle, playbackState])
 
 
   // isGlissando: true when triggered by a drag-continuation (mouse held down,
@@ -399,7 +408,7 @@ export default function Keyboard() {
       // Must start at the detected inversion number, not 0 — locking C-F-A on an F
       // chord is 2nd inversion; starting at 0 would miscount all subsequent cycling.
       const info = next.size >= 2 ? detectChordWithInversion(next) : null
-      const localized = info ? localizeChord(info.name, noteNaming, accidentals) : null
+      const localized = info ? localizeChord(info.name, noteNaming, accidentals, chordNamingStyle) : null
       useStore.getState().setOriginalLockedChordName(localized)
       useStore.getState().setLockedInversionCount(info?.ordinal ? Number(info.ordinal) : 0)
       useStore.getState().setLockedChordNoteCount(next.size)
@@ -413,7 +422,7 @@ export default function Keyboard() {
         if (playNote) playNote(midi, 0.7, 500)
       }
     }
-  }, [lockedKeys, lockedColors, noteNaming, accidentals, setLockedKeysStore, clearLockedKeys, lightGlissandoKey])
+  }, [lockedKeys, lockedColors, noteNaming, accidentals, chordNamingStyle, setLockedKeysStore, clearLockedKeys, lightGlissandoKey])
 
   const keyContainerRef = useRef<HTMLDivElement>(null)
   const [keyHeight, setKeyHeight] = useState(130)
@@ -744,7 +753,18 @@ export default function Keyboard() {
             return (
               <div
                 key={k.midi}
-                onMouseDown={() => { isMouseDown.current = true; handleKeyClick(k.midi) }}
+                // preventDefault suppresses the browser's implicit "focus this
+                // element" default action for mouse clicks specifically —
+                // keyboard Tab-navigation (and its focus-visible amber ring)
+                // is untouched. Without this, clicking a key (e.g. the 3rd
+                // Shift+click that completes a locked chord) leaves real DOM
+                // focus sitting on that key; when Lock-a-Chord's focus trap
+                // later restores focus on close, it reactivates that same
+                // key, and the app-wide `[tabindex]:focus-visible` amber
+                // outline rule (index.css) then renders as a border stuck on
+                // that key indefinitely — see docs/superpowers/specs
+                // (2026-08-20) for the real repro. ─────────────────────────
+                onMouseDown={e => { e.preventDefault(); isMouseDown.current = true; handleKeyClick(k.midi) }}
                 onMouseEnter={() => { if (isMouseDown.current) handleKeyClick(k.midi, true) }}
                 title={getNoteLabel(k.midi, noteNaming, accidentals) || undefined}
                 tabIndex={0}
@@ -823,7 +843,18 @@ export default function Keyboard() {
             return (
               <div
                 key={k.midi}
-                onMouseDown={() => { isMouseDown.current = true; handleKeyClick(k.midi) }}
+                // preventDefault suppresses the browser's implicit "focus this
+                // element" default action for mouse clicks specifically —
+                // keyboard Tab-navigation (and its focus-visible amber ring)
+                // is untouched. Without this, clicking a key (e.g. the 3rd
+                // Shift+click that completes a locked chord) leaves real DOM
+                // focus sitting on that key; when Lock-a-Chord's focus trap
+                // later restores focus on close, it reactivates that same
+                // key, and the app-wide `[tabindex]:focus-visible` amber
+                // outline rule (index.css) then renders as a border stuck on
+                // that key indefinitely — see docs/superpowers/specs
+                // (2026-08-20) for the real repro. ─────────────────────────
+                onMouseDown={e => { e.preventDefault(); isMouseDown.current = true; handleKeyClick(k.midi) }}
                 onMouseEnter={() => { if (isMouseDown.current) handleKeyClick(k.midi, true) }}
                 title={getNoteLabel(k.midi, noteNaming, accidentals) || undefined}
                 tabIndex={0}

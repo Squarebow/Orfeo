@@ -2,6 +2,7 @@ import { create } from 'zustand'
 import type {
   ParsedMidi, ParsedTrack, PlaybackState, TrackState,
   KeyboardSize, KeyboardMode, NoteNaming, Accidentals, ChordEvent, TranscriptEntry, LibraryFile, HitEffectPattern, SoundfontId,
+  ChordNamingStyle, ChordTrackingMode, ChordFollowSubMode,
 } from '../types'
 import type { DetectedKey } from '../utils/keyDetection'
 import type { ForeignFormat } from '../utils/foreignFormatImport'
@@ -70,6 +71,20 @@ interface OrfeoStore {
   setZoomLevel: (zoom: number) => void
   setAppTheme: (theme: AppTheme) => void
   setShowBarNumbers: (v: boolean) => void
+
+  // ── Chord tracking (what the playback display/lock-a-chord follows) and
+  // naming style (abbreviation vs symbol) — chordFollowTrackIndex is
+  // deliberately NOT persisted, see restoreLibraryPrefs/useChordSequence. ──
+  chordTrackingMode: ChordTrackingMode
+  chordFollowSubMode: ChordFollowSubMode
+  chordFollowGroup: string | null
+  chordFollowTrackIndex: number | null
+  chordNamingStyle: ChordNamingStyle
+  setChordTrackingMode: (mode: ChordTrackingMode) => void
+  setChordFollowSubMode: (mode: ChordFollowSubMode) => void
+  setChordFollowGroup: (group: string | null) => void
+  setChordFollowTrackIndex: (index: number | null) => void
+  setChordNamingStyle: (style: ChordNamingStyle) => void
 
   detectedKey: DetectedKey | null
   setDetectedKey: (key: DetectedKey | null) => void
@@ -467,6 +482,20 @@ export const useStore = create<OrfeoStore>((set, get) => ({
   setAppTheme: (appTheme) => set({ appTheme }),
   setShowBarNumbers: (showBarNumbers) => set({ showBarNumbers }),
 
+  // 'harmony' (sustain-aware, all tracks) is the default for everyone —
+  // 'classic' (today's onset-clustering) is the mode being fixed, not a
+  // safer fallback to default to.
+  chordTrackingMode: 'harmony',
+  chordFollowSubMode: 'group',
+  chordFollowGroup: null,
+  chordFollowTrackIndex: null,
+  chordNamingStyle: 'abbreviation',
+  setChordTrackingMode: (chordTrackingMode) => set({ chordTrackingMode }),
+  setChordFollowSubMode: (chordFollowSubMode) => set({ chordFollowSubMode }),
+  setChordFollowGroup: (chordFollowGroup) => set({ chordFollowGroup }),
+  setChordFollowTrackIndex: (chordFollowTrackIndex) => set({ chordFollowTrackIndex }),
+  setChordNamingStyle: (chordNamingStyle) => set({ chordNamingStyle }),
+
   detectedKey: null,
   setDetectedKey: (detectedKey) => set({ detectedKey }),
   setTranspose: (semitones) => set((s) => ({
@@ -837,6 +866,10 @@ async function restoreLibraryPrefs() {
     }
     if (prefs.noteNaming) store.setNoteNaming(prefs.noteNaming)
     if (prefs.accidentals) store.setAccidentals(prefs.accidentals)
+    if (prefs.chordTrackingMode === 'classic' || prefs.chordTrackingMode === 'harmony' || prefs.chordTrackingMode === 'follow') store.setChordTrackingMode(prefs.chordTrackingMode)
+    if (prefs.chordFollowSubMode === 'group' || prefs.chordFollowSubMode === 'track') store.setChordFollowSubMode(prefs.chordFollowSubMode)
+    if (typeof prefs.chordFollowGroup === 'string' || prefs.chordFollowGroup === null) store.setChordFollowGroup(prefs.chordFollowGroup)
+    if (prefs.chordNamingStyle === 'abbreviation' || prefs.chordNamingStyle === 'symbol') store.setChordNamingStyle(prefs.chordNamingStyle)
     if (typeof prefs.masterVolume === 'number') store.setMasterVolume(prefs.masterVolume)
     if (typeof prefs.masterCompEnabled === 'boolean') store.setMasterCompEnabled(prefs.masterCompEnabled)
     if (typeof prefs.masterCompPreset === 'number') store.setMasterCompPreset(prefs.masterCompPreset)
@@ -947,6 +980,10 @@ let _prevHitEffectColor: string | null | undefined = undefined
 let _prevSelectedSoundfont: string | null = null
 let _prevMasterCompEnabled: boolean | null = null
 let _prevMasterCompPreset: number | null = null
+let _prevChordTrackingMode: string | null = null
+let _prevChordFollowSubMode: string | null = null
+let _prevChordFollowGroup: string | null | undefined = undefined
+let _prevChordNamingStyle: string | null = null
 const _unsubPrefs = useStore.subscribe((state) => {
   // Skip the very first fire (app init) — restore handles loading saved values
   if (_prevNoteNaming === null) {
@@ -991,6 +1028,10 @@ const _unsubPrefs = useStore.subscribe((state) => {
     _prevSelectedSoundfont = state.selectedSoundfont
     _prevMasterCompEnabled = state.masterCompEnabled
     _prevMasterCompPreset = state.masterCompPreset
+    _prevChordTrackingMode = state.chordTrackingMode
+    _prevChordFollowSubMode = state.chordFollowSubMode
+    _prevChordFollowGroup = state.chordFollowGroup
+    _prevChordNamingStyle = state.chordNamingStyle
     return
   }
   if (
@@ -1034,7 +1075,11 @@ const _unsubPrefs = useStore.subscribe((state) => {
     state.hitEffectBloomSpread !== _prevHitEffectBloomSpread ||
     state.hitEffectScope !== _prevHitEffectScope ||
     state.hitEffectColor !== _prevHitEffectColor ||
-    state.selectedSoundfont !== _prevSelectedSoundfont
+    state.selectedSoundfont !== _prevSelectedSoundfont ||
+    state.chordTrackingMode !== _prevChordTrackingMode ||
+    state.chordFollowSubMode !== _prevChordFollowSubMode ||
+    state.chordFollowGroup !== _prevChordFollowGroup ||
+    state.chordNamingStyle !== _prevChordNamingStyle
   ) {
     _prevNoteNaming = state.noteNaming
     _prevAccidentals = state.accidentals
@@ -1077,6 +1122,10 @@ const _unsubPrefs = useStore.subscribe((state) => {
     _prevSelectedSoundfont = state.selectedSoundfont
     _prevMasterCompEnabled = state.masterCompEnabled
     _prevMasterCompPreset = state.masterCompPreset
+    _prevChordTrackingMode = state.chordTrackingMode
+    _prevChordFollowSubMode = state.chordFollowSubMode
+    _prevChordFollowGroup = state.chordFollowGroup
+    _prevChordNamingStyle = state.chordNamingStyle
     window.electronAPI?.setPrefs?.({
       noteNaming: state.noteNaming,
       accidentals: state.accidentals,
@@ -1119,6 +1168,10 @@ const _unsubPrefs = useStore.subscribe((state) => {
       hitEffectScope: state.hitEffectScope,
       hitEffectColor: state.hitEffectColor,
       selectedSoundfont: state.selectedSoundfont,
+      chordTrackingMode: state.chordTrackingMode,
+      chordFollowSubMode: state.chordFollowSubMode,
+      chordFollowGroup: state.chordFollowGroup,
+      chordNamingStyle: state.chordNamingStyle,
     }).catch(() => {})
   }
 })

@@ -56,8 +56,6 @@ let _compNode: DynamicsCompressorNode | null = null
 let _synth: WorkletSynthesizer | null = null
 let _synthInitP: Promise<void> | null = null
 let _synthReady = false
-// ch 15 = collision risk if a loaded MIDI file uses channel 16; accepted tradeoff
-let _hwChannelReady = false
 // ── Extra downloadable soundfont currently layered over GeneralUser-GS ──────
 // null = only the bundled default is loaded. See loadSelectedSoundfont().
 let _activeExtraBankId: string | null = null
@@ -105,13 +103,21 @@ function clearSchedule() {
   try { _synth?.stopAll(true) } catch {}
 }
 
-// ── One-time hardware-input channel setup — program 0, full volume on ch 15 ──
+// ── Hardware-input/preview channel setup — program 0, full volume on ch 15 ──
+// Re-asserted on every call, not just once: channel 15 isn't actually
+// reserved at the MIDI-spec level, so a loaded file with a real track on
+// channel 15 (e.g. a 7th+ melodic instrument, common once a file needs
+// more non-drum channels than 0-8/10-15 comfortably give it) reprograms it
+// during normal playback — a real MIDI file (Bruce Hornsby - The Way It
+// Is, alto sax on channel 15) hit exactly this, permanently leaving the
+// Lock-a-Chord/Explorer preview channel playing sax instead of piano for
+// the rest of the session. A ProgramChange is cheap enough to just always
+// send. ─────────────────────────────────────────────────────────────────
 function ensureHwChannel() {
-  if (_hwChannelReady || !_synth) return
+  if (!_synth) return
   try {
     _synth.programChange(15, 0)
     ;(_synth as any).controllerChange(15, 7, 127)
-    _hwChannelReady = true
   } catch {}
 }
 

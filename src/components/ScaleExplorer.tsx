@@ -4,7 +4,8 @@ import { Chord, Note } from 'tonal'
 import { RotateCcw, Play, Square, CircleOff, ListOrdered, Shuffle, ArrowUpRight, ToggleLeft, ToggleRight } from 'lucide-react'
 import { useStore } from '../store'
 import { getNoteName } from '../utils/noteNames'
-import type { NoteNaming, Accidentals } from '../types'
+import { formatChordSuffix } from '../utils/chordDetection'
+import type { NoteNaming, Accidentals, ChordNamingStyle } from '../types'
 import SpeedControl from './SpeedControl'
 import OrfeoMark from './OrfeoMark'
 import ChevronPlayIcon from './ChevronPlayIcon'
@@ -140,11 +141,15 @@ interface DiatonicChord {
   noteCount: number
 }
 
+// ── Maps tonal's quality/name WORDS to a raw suffix — formatChordSuffix
+// (same shared formatter chordDetection.ts and ChordExplorer.tsx use) then
+// applies the user's naming style on top, so this map only ever needs to
+// store the raw/abbreviation-shaped form, never a style-specific one. ─────
 const QUALITY_SUFFIX: Record<string, string> = {
   'major': '', 'minor': 'm', 'diminished': 'dim', 'augmented': 'aug',
   'suspended fourth': 'sus4', 'suspended second': 'sus2',
   'dominant seventh': '7', 'major seventh': 'maj7', 'minor seventh': 'm7',
-  'half-diminished seventh': 'ø7', 'diminished seventh': 'dim7',
+  'half-diminished seventh': 'm7b5', 'diminished seventh': 'dim7',
   'major sixth': '6', 'minor sixth': 'm6', 'dominant ninth': '9',
   'power chord': '5',
 }
@@ -157,6 +162,7 @@ function buildDiatonicChord(
   keyboardSize: number,
   naming: NoteNaming,
   accidentals: Accidentals,
+  namingStyle: ChordNamingStyle,
 ): DiatonicChord {
   const n = scaleIntervals.length
   const scalePCs = scaleIntervals.map(s => (root + s) % 12)
@@ -193,9 +199,10 @@ function buildDiatonicChord(
   let suffix = '?'
   if (best) {
     const info = Chord.get(best)
-    suffix = QUALITY_SUFFIX[info.quality?.toLowerCase() ?? ''] ??
+    const rawSuffix = QUALITY_SUFFIX[info.quality?.toLowerCase() ?? ''] ??
              QUALITY_SUFFIX[info.name?.toLowerCase() ?? ''] ??
              (info.aliases?.[0] ?? info.quality ?? '')
+    suffix = formatChordSuffix(rawSuffix, namingStyle)
   }
 
   const rootName = getNoteName(baseMidi, naming, accidentals)
@@ -253,6 +260,7 @@ export default function ScaleExplorer() {
   const clearExplorerChordDisplay = useStore(s => s.clearExplorerChordDisplay)
   const noteNaming = useStore(s => s.noteNaming)
   const accidentals = useStore(s => s.accidentals)
+  const chordNamingStyle = useStore(s => s.chordNamingStyle)
   const setAccidentals = useStore(s => s.setAccidentals)
   const keyboardSize = useStore(s => s.keyboardSize)
 
@@ -340,9 +348,9 @@ export default function ScaleExplorer() {
   const diatonicChords = useMemo<DiatonicChord[]>(() => {
     if (selectedRoot === null) return []
     return scale.intervals.map((_, deg) =>
-      buildDiatonicChord(selectedRoot, scale.intervals, deg, 61, displayNaming, accidentals)
+      buildDiatonicChord(selectedRoot, scale.intervals, deg, 61, displayNaming, accidentals, chordNamingStyle)
     )
-  }, [selectedRoot, scale, displayNaming, accidentals])
+  }, [selectedRoot, scale, displayNaming, accidentals, chordNamingStyle])
 
   // ── Stop progression and clear its timer ─────────────────────────────────
   const stopProgression = useCallback(() => {

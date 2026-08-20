@@ -16,9 +16,6 @@ let _jzzInitP: Promise<void> | null = null
 let _JZZ: any = null
 let _port: any = null
 let _player: any = null
-let _notePortReady = false
-// ch 15 = collision risk if a loaded MIDI file uses channel 16; accepted tradeoff
-let _hwChannelReady = false
 // ── Module-level muted channel set — updated in-place so the live filter reads it ──
 let _mutedCh = new Set<number>()
 // ── Promise for the channel-warmup operation triggered on edit-mode enter ────
@@ -44,12 +41,12 @@ function initJZZ(): Promise<void> {
       })
       await new Promise<void>((resolve) => {
         _JZZ().openMidiOut().and(function(this: any) {
-          _port = this; _jzzReady = true; _notePortReady = false
+          _port = this; _jzzReady = true
           console.log('[Orfeo GM] System MIDI out:', this.name())
           resolve()
         }).or(() => {
           _JZZ.synth.Tiny().and(function(this: any) {
-            _port = this; _jzzReady = true; _notePortReady = false
+            _port = this; _jzzReady = true
             console.log('[Orfeo GM] jzz-synth-tiny active')
             resolve()
           }).or((e: any) => {
@@ -67,22 +64,30 @@ function initJZZ(): Promise<void> {
   return _jzzInitP
 }
 
+// ── Click/preview channel setup — program 0 on ch 14. Re-asserted every
+// call, not just once: channel 14 isn't reserved at the MIDI-spec level, so
+// a loaded file with a real track on channel 14 reprograms it during normal
+// playback, permanently leaving the preview channel on the wrong instrument
+// for the rest of the session (same class of bug as ensureHardwareChannel
+// below, and useSamplesEngine.ts's ensureHwChannel — found against a real
+// MIDI file, Bruce Hornsby - The Way It Is, whose alto sax track collided
+// with the equivalent Samples-engine preview channel). A ProgramChange is
+// cheap enough to just always send. ──────────────────────────────────────
 function ensureClickChannel() {
-  if (_notePortReady || !_port) return
+  if (!_port) return
   try {
     _port.send([0xCE, 0])
-    _notePortReady = true
   } catch (e) {
     console.warn('[Orfeo GM] ensureClickChannel error:', e)
   }
 }
 
-// ── One-time hardware-input channel setup — program 0 on ch 15 ───────────────
+// ── Hardware-input channel setup — program 0 on ch 15, same always-reassert
+// reasoning as ensureClickChannel above. ─────────────────────────────────
 function ensureHardwareChannel() {
-  if (_hwChannelReady || !_port) return
+  if (!_port) return
   try {
     _port.send([0xCF, 0])
-    _hwChannelReady = true
   } catch (e) {
     console.warn('[Orfeo GM] ensureHardwareChannel error:', e)
   }
@@ -241,7 +246,6 @@ function buildPlayer(startSec: number) {
       useStore.setState({ playbackState: 'stopped', currentTime: 0 })
       ;(window as any).__orfeoPlayer = null
       clearAllKeys()
-      _notePortReady = false
     }
     player.speed(ratio)
     applyMasterVolume(useStore.getState().masterVolume)
@@ -287,7 +291,6 @@ function stopAudio() {
   if (_port) {
     try { for (let ch = 0; ch < 16; ch++) _port.send([0xB0 | ch, 123, 0]) } catch {}
   }
-  _notePortReady = false
 }
 
 // ── warmupEditChannels — prime GM channel programs before first note-editor click ──

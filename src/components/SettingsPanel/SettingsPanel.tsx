@@ -20,6 +20,18 @@ import FileInfoModal from '../FileInfoModal'
 import Tooltip, { TooltipBox, useTooltip } from '../Tooltip'
 import { ContextMenu, ContextMenuItem, ContextMenuDivider, ContextMenuLabel } from '../ContextMenu'
 
+// ── GM groups selectable for "Follow Instrument → By group" — same group
+// ids TrackPanel.tsx/MixerConsole.tsx already sort tracks by, minus 'drums'
+// (following a percussion track for chord identity doesn't make sense). ───
+const CHORD_FOLLOW_GROUPS = [
+  'piano', 'chromatic', 'organ', 'guitar', 'bass',
+  'strings', 'ensemble', 'brass', 'reed', 'pipe',
+  'synth_lead', 'synth_pad', 'synth_fx', 'ethnic', 'percussive', 'sfx',
+]
+function groupLabel(group: string): string {
+  return group.split('_').map(w => w[0].toUpperCase() + w.slice(1)).join(' ')
+}
+
 // ── EyeClosed — custom icon replacing lucide EyeOff throughout settings ───────
 function EyeClosed({ size = 24, strokeWidth = 2 }: { size?: number; strokeWidth?: number }) {
   return (
@@ -254,7 +266,7 @@ function OptionBtn({ active, onClick, children, title, oneLine, comingSoon, acti
         background: active ? activeBg : 'var(--bg-modal)',
         color: active ? activeText : 'var(--text-inactive)',
         fontSize: 'var(--text-xs)',
-        fontFamily: active ? 'var(--font-mono)' : 'var(--font-ui)',
+        fontFamily: 'var(--font-ui)',
         fontWeight: active ? 700 : 400,
         cursor: comingSoon ? 'default' : 'pointer',
         opacity: comingSoon ? 0.4 : 1,
@@ -634,7 +646,7 @@ function SettingsDropdown<T extends string>({ value, options, onChange, title }:
         border: '1px solid var(--accent-amber-strong)',
         background: 'var(--accent-amber-medium)',
         color: 'var(--text-amber)',
-        fontSize: 'var(--text-xs)', fontFamily: 'var(--font-mono)', fontWeight: 700,
+        fontSize: 'var(--text-xs)', fontFamily: 'var(--font-ui)', fontWeight: 700,
         cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 6,
       }}
     >
@@ -668,7 +680,7 @@ function SettingsDropdown<T extends string>({ value, options, onChange, title }:
                 onClick={() => { onChange(o.value); setOpen(false) }}
                 style={{
                   padding: '6px 10px', cursor: 'pointer', fontSize: 'var(--text-xs)',
-                  fontFamily: 'var(--font-mono)', fontWeight: o.value === value ? 700 : 400,
+                  fontFamily: 'var(--font-ui)', fontWeight: o.value === value ? 700 : 400,
                   color:      o.value === value ? 'var(--text-amber)' : 'var(--text-default)',
                   background: o.value === value ? 'var(--accent-amber-selected-bg)' : 'transparent',
                 }}
@@ -2003,6 +2015,17 @@ export default function SettingsPanel() {
   const setNoteNaming = useStore((s) => s.setNoteNaming)
   const accidentals = useStore((s) => s.accidentals)
   const setAccidentals = useStore((s) => s.setAccidentals)
+  const chordTrackingMode = useStore((s) => s.chordTrackingMode)
+  const setChordTrackingMode = useStore((s) => s.setChordTrackingMode)
+  const chordFollowSubMode = useStore((s) => s.chordFollowSubMode)
+  const setChordFollowSubMode = useStore((s) => s.setChordFollowSubMode)
+  const chordFollowGroup = useStore((s) => s.chordFollowGroup)
+  const setChordFollowGroup = useStore((s) => s.setChordFollowGroup)
+  const chordFollowTrackIndex = useStore((s) => s.chordFollowTrackIndex)
+  const setChordFollowTrackIndex = useStore((s) => s.setChordFollowTrackIndex)
+  const chordNamingStyle = useStore((s) => s.chordNamingStyle)
+  const setChordNamingStyle = useStore((s) => s.setChordNamingStyle)
+  const chordTracks = useStore((s) => s.tracks)
   const keyboardSize = useStore((s) => s.keyboardSize)
   const setKeyboardSize = useStore((s) => s.setKeyboardSize)
   const zoomLevel = useStore((s) => s.zoomLevel)
@@ -2648,8 +2671,8 @@ export default function SettingsPanel() {
                   />
                 </CollapsibleSection>
 
-                {/* ── 5. NOTATION ────────────────────────────────────────────────── */}
-                <CollapsibleSection icon={<Music2 size={11} />} label="Notation"
+                {/* ── 5. NOTATION & CHORDS ───────────────────────────────────────── */}
+                <CollapsibleSection icon={<Music2 size={11} />} label="Notation & Chords"
                   collapsed={settingsGroupsCollapsed['notation']}
                   onToggle={() => setSettingsGroupCollapsed('notation', !settingsGroupsCollapsed['notation'])}
                 >
@@ -2724,6 +2747,81 @@ export default function SettingsPanel() {
                       </div>
                     </OptionRow>
                   )}
+
+                  {/* ── Chord tracking — what the playback chord display & lock-a-chord
+                      actually follow. See docs/superpowers/specs/2026-08-20-chord-
+                      settings-design.md for the full design writeup. ──────────────── */}
+                  <OptionRow label="Chord tracking">
+                    <div style={{ fontSize: 'var(--text-xs)', color: 'var(--text-faint)', lineHeight: 1.5, fontFamily: 'var(--font-ui)', marginBottom: 6, fontStyle: 'italic' }}>
+                      Select what the live chord display and the Lock-A-Chord modal follow during playback.
+                    </div>
+                    <div style={{ display: 'flex', gap: 'var(--space-1)' }}>
+                      <OptionBtn active={chordTrackingMode === 'classic'} onClick={() => setChordTrackingMode('classic')}>Classic</OptionBtn>
+                      <OptionBtn active={chordTrackingMode === 'harmony'} onClick={() => setChordTrackingMode('harmony')}>Harmony</OptionBtn>
+                      <OptionBtn active={chordTrackingMode === 'follow'} onClick={() => setChordTrackingMode('follow')}>Follow</OptionBtn>
+                    </div>
+                    <div style={{ marginTop: 6, fontSize: 10, color: 'var(--text-inactive)', fontFamily: 'var(--font-mono)', lineHeight: 1.5 }}>
+                      {chordTrackingMode === 'classic' && 'All tracks are pooled together, grouped by note onset. Can flicker between incidental combinations under a busy melody.'}
+                      {chordTrackingMode === 'harmony' && 'Tracks which notes are actually sounding at each moment — the real harmony stays correctly named under a moving melody.'}
+                      {chordTrackingMode === 'follow' && 'Same sustain-aware detection, scoped to one instrument or group — falls back to General Harmony if it’s not present in the file.'}
+                    </div>
+
+                    {chordTrackingMode === 'follow' && (
+                      <div style={{ marginTop: 8, paddingTop: 8, borderTop: '1px solid var(--border-row)' }}>
+                        <div style={{ display: 'flex', gap: 'var(--space-1)', marginBottom: 6 }}>
+                          <OptionBtn active={chordFollowSubMode === 'group'} onClick={() => setChordFollowSubMode('group')}>By Group</OptionBtn>
+                          <OptionBtn active={chordFollowSubMode === 'track'} onClick={() => setChordFollowSubMode('track')}>By Track</OptionBtn>
+                        </div>
+
+                        {chordFollowSubMode === 'group' ? (
+                          <SettingsDropdown
+                            value={chordFollowGroup ?? ''}
+                            onChange={(v) => setChordFollowGroup(v || null)}
+                            options={[
+                              { value: '', label: '— choose a group —' },
+                              ...CHORD_FOLLOW_GROUPS.map(g => ({ value: g, label: groupLabel(g) })),
+                            ]}
+                          />
+                        ) : chordTracks.length === 0 ? (
+                          <div style={{ fontSize: 'var(--text-xs)', color: 'var(--text-inactive)', fontFamily: 'var(--font-ui)', fontStyle: 'italic' }}>
+                            No file open
+                          </div>
+                        ) : (
+                          <SettingsDropdown
+                            value={chordFollowTrackIndex === null ? '' : String(chordFollowTrackIndex)}
+                            onChange={(v) => setChordFollowTrackIndex(v === '' ? null : Number(v))}
+                            options={[
+                              { value: '', label: '— choose a track —' },
+                              ...chordTracks.map(t => ({ value: String(t.index), label: t.trackName })),
+                            ]}
+                          />
+                        )}
+                      </div>
+                    )}
+                  </OptionRow>
+
+                  {/* ── Chord naming — abbreviation vs symbol, applied everywhere a
+                      chord name is shown (playback display, lock-a-chord, Chords
+                      Explorer, Scales Explorer). ─────────────────────────────────── */}
+                  <OptionRow label="Chord naming">
+                    <div style={{ fontSize: 'var(--text-xs)', color: 'var(--text-faint)', lineHeight: 1.5, fontFamily: 'var(--font-ui)', marginBottom: 6, fontStyle: 'italic' }}>
+                      How chord qualities are written, everywhere a chord name appears.
+                    </div>
+                    <div style={{ display: 'flex', gap: 'var(--space-1)' }}>
+                      <OptionBtn active={chordNamingStyle === 'abbreviation'} onClick={() => setChordNamingStyle('abbreviation')}>Abbreviations</OptionBtn>
+                      <OptionBtn active={chordNamingStyle === 'symbol'} onClick={() => setChordNamingStyle('symbol')}>Symbols</OptionBtn>
+                    </div>
+                    <div style={{
+                      marginTop: 6, padding: '4px 8px',
+                      background: 'var(--bg-row)', borderRadius: 4,
+                      fontSize: 10, fontFamily: 'var(--font-mono)',
+                      color: 'var(--text-dim)', letterSpacing: '0.04em', textAlign: 'center',
+                    }}>
+                      {chordNamingStyle === 'abbreviation'
+                        ? 'Bb(b5)/D  ·  Cm7  ·  Gaug  ·  Fdim7'
+                        : 'Bb(♭5)/D  ·  Cm7  ·  G+  ·  F°7'}
+                    </div>
+                  </OptionRow>
                 </CollapsibleSection>
 
                 {/* ── 6. KEYBOARD ────────────────────────────────────────────────── */}

@@ -102,6 +102,12 @@ export type KeyboardSize = 61 | 73 | 88
 export type KeyboardMode = 'docked' | 'floating'
 export type NoteNaming = 'english' | 'central-european' | 'solfege' | 'hidden'
 export type Accidentals = 'flat' | 'sharp'
+// ── Chord *type/quality* naming — orthogonal to NoteNaming (which governs
+// root-letter spelling). 'abbreviation' = "Bb(b5)", 'symbol' = "Bb(♭5)". ────
+export type ChordNamingStyle = 'abbreviation' | 'symbol'
+
+export type ChordTrackingMode = 'classic' | 'harmony' | 'follow'
+export type ChordFollowSubMode = 'group' | 'track'
 
 export interface MidiFileResult {
   fileName: string
@@ -118,6 +124,13 @@ export interface ChordEvent {
   time: number
   name: string
   notes: string[]
+  // ── The exact real MIDI notes (with real octave) actually sounding at
+  // this event — already transpose-adjusted. "Show on keyboard" uses these
+  // directly so the locked chord shows up in the SAME register it was
+  // actually playing in, instead of buildChordMidi()'s canonical-octave
+  // reconstruction (which is deliberately register-agnostic — right for
+  // "Open in Chord Explorer", wrong for "Show on keyboard"). ────────────────
+  realMidi: number[]
   // ── Root-position identity for this chord — null when structured detection
   // fails even though basic detection succeeded (rare). Lets consumers (the
   // playback chord-display context menu) reconstruct a canonical voicing via
