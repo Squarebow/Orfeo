@@ -259,7 +259,7 @@ No. No login, no account, no telemetry. Orfeo doesn't collect, store, or transmi
 
 <summary><b>What platforms does Orfeo run on?</b></summary>
 
-Windows 10/11 today, with a signed installer and a portable build. Orfeo is built on Electron, so macOS and Linux builds are possible and community-buildable via <a  href="CONTRIBUTING.md">CONTRIBUTING.md</a> — there just aren't official signed builds for those platforms yet.
+Windows 10/11 today, with a signed installer and a portable build. Orfeo is built on Electron, so macOS and Linux builds are possible and community-buildable via <a  href="docs/CONTRIBUTING.md">CONTRIBUTING.md</a> — there just aren't official signed builds for those platforms yet.
 
 </details>
 
@@ -429,7 +429,7 @@ npm  run  dev
 
   
 
-Contributions welcome — see [CONTRIBUTING.md](CONTRIBUTING.md) for full setup and build instructions for all platforms (Windows, macOS, Linux).
+Contributions welcome — see [CONTRIBUTING.md](docs/CONTRIBUTING.md) for full setup and build instructions for all platforms (Windows, macOS, Linux).
 
   
 
@@ -453,4 +453,4 @@ MIT © [SquareBow](https://github.com/Squarebow)
 
   
 
-Full technical release history lives in [CHANGELOG.md](CHANGELOG.md).
+Full technical release history lives in [CHANGELOG.md](docs/CHANGELOG.md).

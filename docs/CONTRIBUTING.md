@@ -1,7 +1,7 @@
 # Contributing to Orfeo
 
 Contributions welcome. Please open an issue before submitting a PR — see
-[docs/ROADMAP.md](docs/ROADMAP.md) for what's already planned.
+[docs/ROADMAP.md](ROADMAP.md) for what's already planned.
 
 ## Prerequisites
 

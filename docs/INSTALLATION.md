@@ -57,7 +57,7 @@ you're back up and running, but preferences/favourites start fresh.
 Orfeo doesn't currently publish official macOS or Linux builds — the
 auto-update pipeline above is Windows-only. If you build from source on
 another platform (see the main [README](../README.md#building-from-source)
-and [CONTRIBUTING.md](../CONTRIBUTING.md)), you're on manual `git pull` +
+and [CONTRIBUTING.md](CONTRIBUTING.md)), you're on manual `git pull` +
 rebuild for updates, same as the portable Windows build.
 
 ## Which one should I actually pick?
