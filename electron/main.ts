@@ -25,7 +25,7 @@ let mainWin: BrowserWindow | null = null
 // ── Set by app:confirm-close so the renderer-triggered re-close passes through ──
 let allowClose = false
 
-// ── Recursively copies MIDI / notation files from `srcDir` into `destDir`,
+// ── Recursively copies MIDI/notation files from `srcDir` into `destDir`,
 // preserving subfolder structure (so e.g. public/demo/musicxml/ lands at
 // Demo/musicxml/). Per-file idempotent — skips anything already present at
 // the destination — rather than gated by a single "ran once" flag, so it's
