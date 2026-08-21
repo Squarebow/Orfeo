@@ -437,7 +437,7 @@ terms are functionally equivalent.
 Licensed under the Python Software Foundation License Version 2 — a
 permissive license similar in effect to BSD/MIT (no copyleft obligations).
 (Full PSF license file bundles retained historical license versions for
-older Python releases that don't apply to this dependency; omitted here.)
+older Python releases that don't apply to this dependency; omitted here.) 
 ```
 
 </details>
