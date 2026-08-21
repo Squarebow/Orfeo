@@ -14,10 +14,15 @@
 ; from productName ("Orfeo") — same folder electron-builder's built-in
 ; deleteAppDataOnUninstall option would target, just asked interactively
 ; here instead of being an all-or-nothing build-time flag.
+; MessageBox (like RMDir) is only valid inside a Section or Function — the
+; leading "-" makes this a hidden section that always runs automatically,
+; with no Components-page checkbox to fail to select it from (see above).
 !macro customUnInstallSection
-  MessageBox MB_YESNO|MB_ICONQUESTION \
-    "Also delete your Orfeo settings and library data?$\r$\n$\r$\nThis removes saved preferences, your library-folder link, downloaded soundfonts, and demo files. Your own MIDI files are never touched." \
-    IDNO orfeo_keep_data
-  RMDir /r "$APPDATA\${APP_FILENAME}"
-  orfeo_keep_data:
+  Section "-Orfeo Data Cleanup"
+    MessageBox MB_YESNO|MB_ICONQUESTION \
+      "Also delete your Orfeo settings and library data?$\r$\n$\r$\nThis removes saved preferences, your library-folder link, downloaded soundfonts, and demo files. Your own MIDI files are never touched." \
+      IDNO orfeo_keep_data
+    RMDir /r "$APPDATA\${APP_FILENAME}"
+    orfeo_keep_data:
+  SectionEnd
 !macroend
