@@ -300,7 +300,10 @@ function buildSamplesPlayer(startSec: number) {
           const offT = setTimeout(() => { try { _synth?.noteOff(ch, midiNum) } catch {} }, durMs)
           _schedule.push(offT)
           if (ts.showOnKeyboard) lightKey(midiNum, color, Math.min(durMs + 30, 2500))
-          else if (hitEffectScope === 'all') pushHitEffect(midiNum, color)
+          // "all tracks" scope still requires the track to be visible on the
+          // piano roll — a track hidden from both the roll and the keyboard
+          // should show nothing, see useAudioEngine.ts's identical fix.
+          else if (hitEffectScope === 'all' && ts.visible) pushHitEffect(midiNum, color)
         } catch (e) {
           console.error('[Orfeo Samples] noteOn error:', e)
         }
@@ -449,17 +452,24 @@ export function useSamplesEngine() {
     let prevAudioEngine = useStore.getState().audioEngine
     let prevBpm = useStore.getState().bpm
     let prevTranspose = useStore.getState().detectedKey?.transpose ?? 0
-    // ── Mute/solo signature — the only per-track fields that change WHICH
-    // notes get scheduled (see buildSamplesPlayer's hasSolo/muted/solo gate
-    // below). Volume/pan/chorus/reverb are pushed straight to the synth via
-    // setChannelVolume/Pan/Chorus/Reverb at the same call site that patches
-    // the store, so reacting to every `tracks` reference change here (as a
-    // raw `!==` would) rebuilds the whole scheduled player on every fader
-    // mousemove — dozens of times a second — which is what was stuttering/
-    // pausing playback while dragging a Console fader. ─────────────────────
-    const muteSoloSignature = (ts: ReturnType<typeof useStore.getState>['tracks']) =>
-      ts.map(t => (t.muted ? 'm' : t.solo ? 's' : '.')).join('')
-    let prevMuteSolo = muteSoloSignature(useStore.getState().tracks)
+    // ── Schedule-affecting signature — mute/solo/showOnKeyboard/visible are the
+    // only per-track fields that change WHICH notes get scheduled or whether
+    // they light the keyboard/spawn hit effects (see buildSamplesPlayer's
+    // hasSolo/muted/solo gate and its showOnKeyboard/visible branch below).
+    // Missing showOnKeyboard or visible here meant toggling either mid-playback
+    // never rebuilt the schedule — already-scheduled notes kept firing
+    // lightKey/pushHitEffect from their original closures (with the stale
+    // values baked in) until some other change forced a rebuild, so hit
+    // effects kept appearing for a track the user had just hidden. Volume/
+    // pan/chorus/reverb are still deliberately excluded — they're pushed
+    // straight to the synth via setChannelVolume/Pan/Chorus/Reverb at the
+    // same call site that patches the store, so reacting to every `tracks`
+    // reference change here (as a raw `!==` would) rebuilds the whole scheduled
+    // player on every fader mousemove — dozens of times a second — which is
+    // what was stuttering/pausing playback while dragging a Console fader. ───
+    const scheduleSignature = (ts: ReturnType<typeof useStore.getState>['tracks']) =>
+      ts.map(t => (t.muted ? 'm' : t.solo ? 's' : '.') + (t.showOnKeyboard ? 'k' : '.') + (t.visible ? 'v' : '.')).join('')
+    let prevSignature = scheduleSignature(useStore.getState().tracks)
 
     const unsub = useStore.subscribe((state) => {
       const engineChanged = state.audioEngine !== prevAudioEngine
@@ -483,12 +493,12 @@ export function useSamplesEngine() {
       const ps = state.playbackState
       const bpmChanged = state.bpm !== prevBpm
       const transposeChanged = (state.detectedKey?.transpose ?? 0) !== prevTranspose
-      const muteSolo = muteSoloSignature(state.tracks)
-      const tracksChanged = muteSolo !== prevMuteSolo
+      const signature = scheduleSignature(state.tracks)
+      const tracksChanged = signature !== prevSignature
 
       prevBpm = state.bpm
       prevTranspose = state.detectedKey?.transpose ?? 0
-      prevMuteSolo = muteSolo
+      prevSignature = signature
 
       if (engineChanged && ps === 'playing') {
         // Engine just switched TO samples while playback is active

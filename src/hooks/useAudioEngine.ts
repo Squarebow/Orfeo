@@ -177,8 +177,13 @@ function updateMutedChannels() {
     const ts = tracks.find((t: any) => t.index === track.index)
     if (!ts || ts.muted || (hasSolo && !ts.solo)) continue
     // hitEffectScope === 'all' lets non-keyboard tracks still spawn hit effects
-    // (purely visual, at the note's key position) without lighting the key itself.
-    if (!ts.showOnKeyboard && hitEffectScope !== 'all') continue
+    // (purely visual, at the note's key position) without lighting the key
+    // itself — but only if the track is still visible on the piano roll.
+    // A track hidden from BOTH the roll and the keyboard should show nothing
+    // at all; without the ts.visible check, "all tracks" scope kept spawning
+    // hit-effect circles at the playbar for tracks the user had fully hidden.
+    const eligibleForHitEffect = ts.showOnKeyboard || (hitEffectScope === 'all' && ts.visible)
+    if (!eligibleForHitEffect) continue
     const defaultColor = ts.color ?? amberHex()
     const homogeneousTrack = isHomogeneousHandTrack(track.notes)
     for (const note of track.notes) {
@@ -190,7 +195,7 @@ function updateMutedChannels() {
       const color = resolveHandAwareColor(note, defaultColor, { homogeneousTrack, showHandLabels: effectiveShowHandLabels, performanceMode })
       const t = setTimeout(() => {
         if (ts.showOnKeyboard) lightKey(midiNum, color, Math.min(durMs + 30, 2500))
-        else pushHitEffect(midiNum, color)
+        else if (hitEffectScope === 'all' && ts.visible) pushHitEffect(midiNum, color)
       }, delay)
       _lightSchedule.push(t)
     }
@@ -257,7 +262,8 @@ function buildPlayer(startSec: number) {
     for (const track of midiData.tracks) {
       const ts = tracks.find((t: any) => t.index === track.index)
       if (!ts || ts.muted || (hasSolo && !ts.solo)) continue
-      if (!ts.showOnKeyboard && hitEffectScope !== 'all') continue
+      const eligibleForHitEffect = ts.showOnKeyboard || (hitEffectScope === 'all' && ts.visible)
+      if (!eligibleForHitEffect) continue
       const defaultColor = ts.color ?? amberHex()
       const homogeneousTrack = isHomogeneousHandTrack(track.notes)
       for (const note of track.notes) {
@@ -269,7 +275,7 @@ function buildPlayer(startSec: number) {
         const color = resolveHandAwareColor(note, defaultColor, { homogeneousTrack, showHandLabels: effectiveShowHandLabels, performanceMode })
         const t = setTimeout(() => {
           if (ts.showOnKeyboard) lightKey(midiNum, color, Math.min(durMs + 30, 2500))
-          else pushHitEffect(midiNum, color)
+          else if (hitEffectScope === 'all' && ts.visible) pushHitEffect(midiNum, color)
         }, delay)
         _lightSchedule.push(t)
       }
