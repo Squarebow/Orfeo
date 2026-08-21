@@ -2043,6 +2043,8 @@ export default function SettingsPanel() {
   const setPlaybarVisible = useStore((s) => s.setPlaybarVisible)
   const hitEffectsEnabled = useStore((s) => s.hitEffectsEnabled)
   const setHitEffectsEnabled = useStore((s) => s.setHitEffectsEnabled)
+  const autoLevelOnLoad = useStore((s) => s.autoLevelOnLoad)
+  const setAutoLevelOnLoad = useStore((s) => s.setAutoLevelOnLoad)
   const hitEffectPattern = useStore((s) => s.hitEffectPattern)
   const setHitEffectPattern = useStore((s) => s.setHitEffectPattern)
   const hitEffectScope = useStore((s) => s.hitEffectScope)
@@ -2467,6 +2469,19 @@ export default function SettingsPanel() {
                       ? <Tooltip title={soundFontsHint} wrapperStyle={{ display: 'block', width: '100%' }}>{soundFontsBody}</Tooltip>
                       : soundFontsBody
                   })()}
+                  {/* ── Auto-Level on load — off by default; existing playback never changes
+                      unexpectedly for anyone who hasn't opted in. Analyzes each file's note
+                      velocities as it loads and, if they dip a lot in places, automatically
+                      turns on (and if needed strengthens) the Mixer Console's master
+                      Compressor — same tool as manually setting a preset there, just picked
+                      for you instead of requiring you to notice the dip and dig for it. ── */}
+                  <OptionRow
+                    label="Auto-Level on Load"
+                    eyeToggle
+                    eyeValue={autoLevelOnLoad}
+                    onEyeChange={setAutoLevelOnLoad}
+                    description="Automatically balances loud and quiet passages in a MIDI file using the Compressor's makeup gain."
+                  />
                 </CollapsibleSection>
 
                 {/* ── 2. MIDI FILES & LIBRARY ────────────────────────────────────── */}

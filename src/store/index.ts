@@ -9,6 +9,7 @@ import type { ForeignFormat } from '../utils/foreignFormatImport'
 import { detectKeyFromTracks, parseKeySignature } from '../utils/keyDetection'
 import { isKeyboardInstrument } from '../utils/gmInstruments'
 import { parseMidiBuffer } from '../utils/midiParser'
+import { velocityDropRatio, suggestCompressorPreset } from '../utils/velocityAnalysis'
 
 // Groups muted when autoMuteNonKeyboard is on — exported so TrackPanel can read them
 // Unmuted by default: piano, chromatic, organ, bass, drums
@@ -213,6 +214,16 @@ interface OrfeoStore {
   setMasterCompEnabled: (v: boolean) => void
   masterCompPreset: number
   setMasterCompPreset: (v: number) => void
+
+  // ── Auto-Level on load — off by default (a new file's playback shouldn't
+  // change unexpectedly for existing users). When on, setMidi() analyzes the
+  // newly-loaded file's velocity fluctuation (src/utils/velocityAnalysis.ts)
+  // and, if it dips enough to be worth it, enables the compressor and bumps
+  // its preset up to at least what the analysis suggests — never down, so
+  // it only ever adds correction, never undoes a stronger preset the user
+  // already had set for a reason. ──────────────────────────────────────────
+  autoLevelOnLoad: boolean
+  setAutoLevelOnLoad: (v: boolean) => void
 
   audioEngine: 'gm' | 'samples'
   setAudioEngine: (engine: 'gm' | 'samples') => void
@@ -441,6 +452,19 @@ export const useStore = create<OrfeoStore>((set, get) => ({
       loopEnd: null,
       loopRegionActive: false,
     })
+
+    // ── Auto-Level on load (Settings → Audio) — analyze this file's velocity
+    // fluctuation and, if it dips enough to be worth it, make sure the
+    // compressor is on and bumped to at least the suggested preset. Never
+    // lowers an existing stronger preset — this only ever adds correction,
+    // it never undoes a choice the user already made for a reason. ─────────
+    if (get().autoLevelOnLoad) {
+      const suggested = suggestCompressorPreset(velocityDropRatio(midi.tracks))
+      if (suggested !== null) {
+        if (!get().masterCompEnabled) set({ masterCompEnabled: true })
+        if (get().masterCompPreset < suggested) set({ masterCompPreset: suggested })
+      }
+    }
   },
 
   playbackState: 'stopped',
@@ -598,6 +622,9 @@ export const useStore = create<OrfeoStore>((set, get) => ({
   setMasterCompEnabled: (masterCompEnabled) => set({ masterCompEnabled }),
   masterCompPreset: 1,
   setMasterCompPreset: (masterCompPreset) => set({ masterCompPreset: Math.max(0, Math.min(4, Math.round(masterCompPreset))) }),
+
+  autoLevelOnLoad: false,
+  setAutoLevelOnLoad: (autoLevelOnLoad) => set({ autoLevelOnLoad }),
 
   resetAll: () => {
     ;(window as any).__orfeoPlayer?.stop?.()
@@ -904,6 +931,7 @@ async function restoreLibraryPrefs() {
     if (typeof prefs.masterVolume === 'number') store.setMasterVolume(prefs.masterVolume)
     if (typeof prefs.masterCompEnabled === 'boolean') store.setMasterCompEnabled(prefs.masterCompEnabled)
     if (typeof prefs.masterCompPreset === 'number') store.setMasterCompPreset(prefs.masterCompPreset)
+    if (typeof prefs.autoLevelOnLoad === 'boolean') store.setAutoLevelOnLoad(prefs.autoLevelOnLoad)
     if (prefs.audioEngine === 'samples') store.setAudioEngine('samples')
     if (typeof prefs.showBarNumbers === 'boolean') store.setShowBarNumbers(prefs.showBarNumbers)
     if (typeof prefs.noteEditorEnabled === 'boolean') store.setNoteEditorEnabled(prefs.noteEditorEnabled)
@@ -1011,6 +1039,7 @@ let _prevHitEffectColor: string | null | undefined = undefined
 let _prevSelectedSoundfont: string | null = null
 let _prevMasterCompEnabled: boolean | null = null
 let _prevMasterCompPreset: number | null = null
+let _prevAutoLevelOnLoad: boolean | null = null
 let _prevChordTrackingMode: string | null = null
 let _prevChordFollowSubMode: string | null = null
 let _prevChordFollowGroup: string | null | undefined = undefined
@@ -1059,6 +1088,7 @@ const _unsubPrefs = useStore.subscribe((state) => {
     _prevSelectedSoundfont = state.selectedSoundfont
     _prevMasterCompEnabled = state.masterCompEnabled
     _prevMasterCompPreset = state.masterCompPreset
+    _prevAutoLevelOnLoad = state.autoLevelOnLoad
     _prevChordTrackingMode = state.chordTrackingMode
     _prevChordFollowSubMode = state.chordFollowSubMode
     _prevChordFollowGroup = state.chordFollowGroup
@@ -1071,6 +1101,7 @@ const _unsubPrefs = useStore.subscribe((state) => {
     state.masterVolume !== _prevMasterVolume ||
     state.masterCompEnabled !== _prevMasterCompEnabled ||
     state.masterCompPreset !== _prevMasterCompPreset ||
+    state.autoLevelOnLoad !== _prevAutoLevelOnLoad ||
     state.audioEngine !== _prevAudioEngine ||
     state.showBarNumbers !== _prevShowBarNumbers ||
     state.noteEditorEnabled !== _prevNoteEditorEnabled ||
@@ -1153,6 +1184,7 @@ const _unsubPrefs = useStore.subscribe((state) => {
     _prevSelectedSoundfont = state.selectedSoundfont
     _prevMasterCompEnabled = state.masterCompEnabled
     _prevMasterCompPreset = state.masterCompPreset
+    _prevAutoLevelOnLoad = state.autoLevelOnLoad
     _prevChordTrackingMode = state.chordTrackingMode
     _prevChordFollowSubMode = state.chordFollowSubMode
     _prevChordFollowGroup = state.chordFollowGroup
@@ -1163,6 +1195,7 @@ const _unsubPrefs = useStore.subscribe((state) => {
       masterVolume: state.masterVolume,
       masterCompEnabled: state.masterCompEnabled,
       masterCompPreset: state.masterCompPreset,
+      autoLevelOnLoad: state.autoLevelOnLoad,
       audioEngine: state.audioEngine,
       showBarNumbers: state.showBarNumbers,
       noteEditorEnabled: state.noteEditorEnabled,
