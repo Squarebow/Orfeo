@@ -50,7 +50,18 @@ export default defineConfig({
         ignored: ['**/release/**'],
       },
     },
+    // electron-vite defaults the renderer build to minify: false — without
+    // this override the whole renderer bundle ships unminified (readable
+    // source, full whitespace, every dependency's comments verbatim).
+    // legalComments: 'inline' keeps license/copyright banners (GSAP's
+    // /*! ... @license ... */ header included) embedded in the output
+    // rather than relying on esbuild's own default, which can differ by
+    // version — this pins it explicitly.
+    esbuild: {
+      legalComments: 'inline',
+    },
     build: {
+      minify: 'esbuild',
       rollupOptions: {
         input: {
           index: resolve(__dirname, 'index.html'),
