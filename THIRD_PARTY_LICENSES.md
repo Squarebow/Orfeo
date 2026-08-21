@@ -462,29 +462,3 @@ older Python releases that don't apply to this dependency; omitted here.)
 | Package | Repository | Copyright |
 |---|---|---|
 | `webaudiofont@3.0.4` | surikov/webaudiofont | Copyright (C) 2007 Free Software Foundation, Inc. <https://fsf.org/> |
-
----
-
-## MIT* (1 package)
-
-<details>
-<summary>Show license text</summary>
-
-```
-[No canonical text on file — see link above.]
-```
-
-</details>
-
-| Package | Repository | Copyright |
-|---|---|---|
-| `png-js@1.1.0` | devongovett/png.js | Copyright (c) 2017 Devon Govett |
-
----
-
-## "Speed Fast" icon
-
-Used for the tempo-related nudge/blink UI treatment.
-
-Author: Travis Avery, via [Noun Project](https://thenounproject.com/browse/icons/term/speed-fast/)
-License: CC BY 3.0 (https://creativecommons.org/licenses/by/3.0/)
