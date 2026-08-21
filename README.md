@@ -12,6 +12,8 @@ Turn any MIDI file into an interactive piano learning experience.
 
 Orfeo is a free, open-source desktop app that turns MIDI files into an interactive piano-learning experience: notes fall onto a virtual keyboard in real time, keys light up as they play, and you can slow down, loop, and explore any passage at your own pace. It's not a game — there's no scoring, no streaks, no subscription. And it's not a DAW, though it borrows a few DAW-adjacent tools (a full mixer console, per-track editing) where they genuinely help you practice.
 
+See every note. Understand every chord. Play it your way, at your own tempo — with real-time chord detection, hand-colored keys, and a piano roll that actually looks like something built this decade.
+
 Orfeo exists because the alternatives didn't feel right: Synthesia is expensive, gamified, and hasn't meaningfully modernized its interface in years. Rondo, a Mac-only MIDI learning app with a similar idea (scrolling piano roll, tempo slowdown, track filtering), got it right in spirit — but development stopped, and it no longer runs on modern macOS. Orfeo picks up that idea, rebuilt from scratch as an actively maintained, cross-platform-capable app, with one goal: make the music itself, not the app around it, the focus.
 
 Explore chords and scales interactively, build your own progressions, and hear everything through a high-quality sampled audio engine.
@@ -52,13 +54,16 @@ Explore chords and scales interactively, build your own progressions, and hear e
 - **Tempo control** — slow down or speed up without changing pitch; long-press the BPM arrows to accelerate
 - **Loop playback** — draw a loop region directly on the waterfall and repeat any section
 - **Metronome** — tempo-map aware; follows mid-file tempo changes automatically
-- **Track manager & Mixer Console** — mute, solo, recolor, and show/hide individual tracks; full per-channel volume, pan, chorus, and reverb
+- **Track manager & Mixer Console** — mute, solo, recolor, and show/hide individual tracks; full per-channel volume, pan, chorus, and reverb, with live VU meters on every strip
+- **Focus mode** — instantly narrow playback and view down to just Keys, Bass & Drums when you don't need the whole arrangement
+- **Presentation mode** — press `F11` for a distraction-free, chrome-free view of just the roll and keyboard
 
 ### Interactive Keyboard
 
 - **Click or drag to play** — click any key to hear it; drag across keys for glissando
 - **Docked or floating** — keyboard docks at the bottom or floats freely as a draggable panel
 - **Key highlighting** — keys light up in track color as notes play; chord names displayed above
+- **Automated Hand Assignment** *(beta)* — notes and keys color-code by which hand plays them, in Practice mode (a smoothly moving split line) or Performance mode (per-note hand tags); optional colorblind-friendly L/R badges, and adjustable split sensitivity for live hardware input
 - **Note labels** — lit keys show note names in your chosen naming system
 - **Hardware MIDI input** — connect a real keyboard and play along, with true sustain and multi-device support
 
@@ -67,19 +72,25 @@ Explore chords and scales interactively, build your own progressions, and hear e
 - **Chord Explorer** — browse and audition any chord in any key; filter by hand span, note count, or search; cycle inversions; play progressions with seven voicing styles (Classic, Coltrane, Cinematic, Roadhouse, Ipanema, Carnival, Velvet)
 - **Scale Explorer** — interactive Circle of Fifths; select any key to see the scale, its diatonic chords, and play progressions
 - **Real-time chord detection** — the chord name above the keyboard follows what's actually playing, from a MIDI file or hardware keyboard input, with three tracking modes (Classic, General Harmony, Follow Instrument) to suit how you want it to read the music
+- **Chord Prompter** — a lead-sheet-style readout showing the previous, current, and upcoming chords as the song plays, so you're never caught off guard by what's next
+- **Chord Transcription** *(beta)* — generate a full chord chart for any loaded file and export it as a PDF
 - **Two chord-naming styles** — traditional abbreviations (`Bb(b5)/D`) or symbol notation (`Bb(♭5)/D`, `+`/`°`/`ø`/`Δ`), applied consistently everywhere a chord name appears
 - **Lock-a-Chord** — Shift+click any 3+ keys to build and lock a chord, then cycle through its inversions
 
 ### MIDI Editing
 
 - **MIDI Playback Editor** — reassign instruments, rename/recolor/merge/split tracks; saves as `_ORFEO.mid` without touching the original
-- **Note Editor** — edit individual notes directly on the piano roll: move, resize, add, delete, with full undo/redo
+- **Note Editor** — edit individual notes directly on the piano roll: move, resize, add, delete, and edit velocity, with marquee/lasso/pen selection tools and full undo/redo
 - **File library** — browse a folder of MIDI files, star favourites, click to load
+
+### Visual Flourishes
+
+- **Hit effects** — seven optional particle-style animations play where notes strike the keyboard (glow bloom, ripple ring, particle burst, smoke plume, color aura, starburst nova, comet trail), with a custom color picker and adjustable scope
 
 ### Audio
 
 - **Master volume** — SVG knob in the toolbar, persists across sessions
-- **Two audio engines** — GM Synth (instant, no download) or Samples (SpessaSynth + GeneralUser GS SF2, richer sound)
+- **Two audio engines** — GM Synth (instant, no download) or Samples (SpessaSynth + a choice of downloadable SF2/SF3 soundfont libraries, including GeneralUser GS, for richer sound)
 
 ---
 
@@ -90,7 +101,7 @@ Explore chords and scales interactively, build your own progressions, and hear e
 | **GM Synth** | Good | Instant, no download | Quick playback, low resource use |
 | **Samples** | Excellent | ~31MB download on first use | Musical, expressive listening |
 
-Switch between engines in **Settings → Audio**. The Samples engine uses [SpessaSynth](https://github.com/spessasus/spessasynth_lib) with the [GeneralUser GS](http://www.schristiancollins.com/generaluser.php) soundfont. Settings and volume persist across sessions.
+Switch between engines in **Settings → Audio**. The Samples engine uses [SpessaSynth](https://github.com/spessasus/spessasynth_lib) with a choice of downloadable soundfonts, including [GeneralUser GS](http://www.schristiancollins.com/generaluser.php) by default. Settings and volume persist across sessions.
 
 ---
 
@@ -163,7 +174,7 @@ Not sure which one to grab, or want to know how they differ (auto-updates, where
 4. **Explore chords** — click `CHORDS` above the keyboard to open the Chord Explorer
 5. **Explore scales** — click `SCALES` above the keyboard to open the Scale Explorer
 
-For a full guide see [docs/HOW_TO_USE.md](docs/HOW_TO_USE.md).
+For a full guide see [docs/HOW_TO_USE.md](docs/HOW_TO_USE.md), and for every keyboard shortcut and mouse gesture see [docs/SHORTCUTS.md](docs/SHORTCUTS.md).
 
 ---
 
