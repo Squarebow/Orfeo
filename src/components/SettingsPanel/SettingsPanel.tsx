@@ -3082,7 +3082,7 @@ export default function SettingsPanel() {
                   </button>
                   </Tooltip>
                   <span style={{ color: 'var(--text-inactive)', fontSize: 10, fontFamily: 'var(--font-mono)', whiteSpace: 'nowrap' }}>
-                    · by SquareBow
+                    · © SquareBow
                   </span>
                 </div>
 
