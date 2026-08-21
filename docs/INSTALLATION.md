@@ -2,7 +2,7 @@
 
 Orfeo ships two Windows builds from every release. Both are the same app —
 same features, same file support — they differ only in *how* they land on
-your machine.
+your local machine.
 
 | | **Setup (installer)** | **Portable (standalone)** |
 |---|---|---|

@@ -602,7 +602,7 @@ function TrackRow({ track, onToggleIncluded, onToggleMerge, onChangeProgram, onU
 
       {/* ── Col 2: Track name + meta ──────────────────────────────────────────── */}
       <div style={{ display: 'flex', alignItems: 'center', gap: 6, minWidth: 0 }}>
-        <Tooltip title="Click to open the color picker" oneLine wrapperStyle={{ flexShrink: 0 }}>
+        <Tooltip title="Open the color picker" oneLine wrapperStyle={{ flexShrink: 0 }}>
         <div
           onClick={e => onPickColor(track.index, e.currentTarget.getBoundingClientRect())}
           style={{ width: 4, height: 32, background: track.color, borderRadius: 2, flexShrink: 0, cursor: 'pointer' }}
@@ -1181,7 +1181,7 @@ export default function MidiEditor() {
         setPendingSplitIndex(null)
         setPreSplitRows(null)
         reloadFile(result.base64, result.fileName, result.filePath)
-        useStore.getState().setLibraryNeedsRefresh(true)
+        useStore.getState().notifyLibrarySaved(result.filePath)
         window.electronAPI.logFileEvent(result.filePath, 'save', saveSummary)
       }
     } catch (e: any) {

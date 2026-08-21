@@ -467,7 +467,7 @@ export default function TrackPanel() {
           {/* Track list */}
           <div style={{ flex: 1, overflowY: 'auto', padding: '4px 0' }}>
             {!midi && (
-              <div style={{ padding: '12px 14px', fontSize: 'var(--text-xs)', color: 'var(--topbar-timesig-divider)' }}>
+              <div style={{ padding: '12px 14px', fontSize: 'var(--text-xs)', color: 'var(--text-muted)' }}>
                 Open a MIDI file to see tracks
               </div>
             )}

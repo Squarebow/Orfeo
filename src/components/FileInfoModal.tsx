@@ -435,10 +435,14 @@ export default function FileInfoModal({ filePath, fileName, onClose, onRenamed }
           </div>
         )}
 
-        {/* ── Orfeo History — bookkeeping local to the app (saves, renames,
-            moves). Persists in a sidecar JSON, not in the .mid file itself.
-            Fixed height (~2 entries) so the popup's own height never grows
-            with a longer history — extra entries scroll inside it instead. ── */}
+        {/* ── Orfeo History — real edits (Playback Editor, Note Editor, tempo/
+            key, mixer saves) are embedded directly in the .mid file as
+            ORFEO_HISTORY text meta-events, so they travel with the file
+            across installs/copies. Renames/moves stay in a local sidecar
+            JSON (electron/main.ts) since they don't rewrite the file's
+            bytes; fileinfo:getLog merges both. Fixed height (~2 entries) so
+            the popup's own height never grows with a longer history — extra
+            entries scroll inside it instead. ── */}
         {meta && (
           <div style={{ marginTop: 12, borderTop: '1px solid var(--border-row)', paddingTop: 10 }}>
             <div style={{ fontSize: 10, fontWeight: 700, color: 'var(--accent-amber-icon-dim)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 6 }}>

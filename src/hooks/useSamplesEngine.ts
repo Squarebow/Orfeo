@@ -33,16 +33,54 @@ const SAMPLES_BOOST = 3.0
 // low ratio or over-triggers at high ratio, so the 5 positions wouldn't
 // actually sound distinct from each other. Index matches masterCompPreset
 // in the store. Release fixed at 250ms across all — attack is what changes
-// the felt character between "gentle glue" and "hard limiter". ─────────────
-interface CompPreset { threshold: number; ratio: number; attack: number; knee: number; label: string }
+// the felt character between "gentle glue" and "hard limiter".
+//
+// makeupDb — a compressor only ever pulls loud peaks DOWN toward its
+// threshold; a DynamicsCompressorNode has no built-in makeup-gain stage, so
+// on its own it does nothing for a passage that's just genuinely played
+// quiet (real case: a file whose note velocities dip hard for a passage —
+// no amount of ratio/threshold tweaking brings that back up, since there's
+// nothing above the threshold there to compress). A fixed post-compressor
+// gain boost, scaled to roughly how hard each preset squashes the loud
+// parts, is what actually closes that gap — quiet passages end up louder
+// in absolute terms even though the compressor itself never touched them. ──
+interface CompPreset { threshold: number; ratio: number; attack: number; knee: number; makeupDb: number; label: string }
 export const COMPRESSOR_PRESETS: CompPreset[] = [
-  { label: 'Safety',  threshold: -1,  ratio: 2,  attack: 0.010, knee: 10 },
-  { label: 'Gentle',  threshold: -6,  ratio: 4,  attack: 0.008, knee: 8 },
-  { label: 'Medium',  threshold: -12, ratio: 8,  attack: 0.005, knee: 6 },
-  { label: 'Firm',    threshold: -18, ratio: 14, attack: 0.003, knee: 3 },
-  { label: 'Limiter', threshold: -24, ratio: 20, attack: 0.003, knee: 0 },
+  { label: 'Safety',  threshold: -1,  ratio: 2,  attack: 0.010, knee: 10, makeupDb: 1 },
+  { label: 'Gentle',  threshold: -6,  ratio: 4,  attack: 0.008, knee: 8,  makeupDb: 3 },
+  { label: 'Medium',  threshold: -12, ratio: 8,  attack: 0.005, knee: 6,  makeupDb: 6 },
+  { label: 'Firm',    threshold: -18, ratio: 14, attack: 0.003, knee: 3,  makeupDb: 9 },
+  { label: 'Limiter', threshold: -24, ratio: 20, attack: 0.003, knee: 0,  makeupDb: 12 },
 ]
 const COMPRESSOR_RELEASE = 0.25
+const dbToGain = (db: number) => Math.pow(10, db / 20)
+
+// ── Auto-Level (AGC) — static makeup gain (above) only ever applies a flat
+// offset; it can't close a genuinely wide gap between a loud passage and a
+// quiet one (real case this was built for: a file whose note velocities
+// crash for a whole passage — a plain downward compressor never crosses
+// threshold there at all, so neither compression nor a fixed makeup-gain
+// value can lift it, only shift everything by the same fixed amount). This
+// is a real closed-loop auto-gain instead: an AnalyserNode continuously
+// measures RMS loudness of the (already-gain-adjusted) signal, compared
+// against a target, and the error smoothly drives a GainNode via a slow time
+// constant — sustained quiet passages get actively boosted over ~1-2s, loud
+// ones eased back down, without reacting to individual note transients
+// (that's still _compNode's job, right after this in the chain). Runs
+// whenever the compressor is enabled — same on/off as everything else here. ─
+let _agcGainNode: GainNode | null = null
+let _analyserNode: AnalyserNode | null = null
+let _agcTimer: ReturnType<typeof setInterval> | null = null
+const AGC_TARGET_DB = -18
+const AGC_NOISE_FLOOR_DB = -50   // below this, treat as silence/rest — hold gain, don't chase noise
+const AGC_MAX_BOOST_DB = 26
+const AGC_MAX_CUT_DB = 6
+// Asymmetric, like a real leveler: catch up to a quiet passage faster than
+// easing back down out of a loud one — a slow passage-level drop should be
+// mostly corrected by the time it's actually noticeable, not still ramping.
+const AGC_TIME_CONSTANT_UP = 0.6    // boosting (quiet passage) — seconds
+const AGC_TIME_CONSTANT_DOWN = 2.0  // cutting (loud passage) — seconds
+const AGC_POLL_MS = 100
 
 // ── Module-level singletons ───────────────────────────────────────────────────
 let _ctx: AudioContext | null = null
@@ -50,8 +88,10 @@ let _gainNode: GainNode | null = null
 // High-shelf BiquadFilter for master tone control (Samples engine only)
 let _filterNode: BiquadFilterNode | null = null
 // Master compressor/limiter — inserted last in the chain, right before
-// destination, so it catches whatever the gain/tone stages produce.
+// destination, so it catches whatever the gain/tone/AGC stages produce.
 let _compNode: DynamicsCompressorNode | null = null
+// Makeup gain — sits right after _compNode (see COMPRESSOR_PRESETS.makeupDb).
+let _compMakeupNode: GainNode | null = null
 // type-only — runtime reference populated after dynamic import
 let _synth: WorkletSynthesizer | null = null
 let _synthInitP: Promise<void> | null = null
@@ -192,12 +232,25 @@ export async function initSamplesEngine(onProgress: (p: number) => void): Promis
       _filterNode.frequency.value = 3000
       _filterNode.gain.value = 0  // flat at center position
 
+      // Auto-Level (AGC) — see the block comment above where these are
+      // declared. Sits between tone control and the peak compressor so the
+      // compressor still catches whatever transients AGC's slow response
+      // doesn't. AnalyserNode passes audio through unchanged — it's a real
+      // link in the chain, not just a tap.
+      _agcGainNode = _ctx.createGain()
+      _agcGainNode.gain.value = 1
+      _analyserNode = _ctx.createAnalyser()
+      _analyserNode.fftSize = 2048
+      _analyserNode.smoothingTimeConstant = 0
+
       // Master compressor/limiter — last stage before destination. Always
       // created and wired in; "off" is a real transparent state (ratio 1:1,
       // threshold 0dB — mathematically a no-op, never reduces gain) rather
-      // than disconnecting/reconnecting the graph on every toggle.
+      // than disconnecting/reconnecting the graph on every toggle. Makeup
+      // gain sits right after it, off = 0dB (gain 1) the same way.
       _compNode = _ctx.createDynamicsCompressor()
       _compNode.release.value = COMPRESSOR_RELEASE
+      _compMakeupNode = _ctx.createGain()
       {
         const { masterCompEnabled, masterCompPreset } = useStore.getState()
         setMasterCompressor(masterCompEnabled, masterCompPreset)
@@ -205,8 +258,13 @@ export async function initSamplesEngine(onProgress: (p: number) => void): Promis
 
       _synth.connect(_gainNode)
       _gainNode.connect(_filterNode)
-      _filterNode.connect(_compNode)
-      _compNode.connect(_ctx.destination)
+      _filterNode.connect(_agcGainNode)
+      _agcGainNode.connect(_analyserNode)
+      _analyserNode.connect(_compNode)
+      _compNode.connect(_compMakeupNode)
+      _compMakeupNode.connect(_ctx.destination)
+
+      startAgcLoop()
 
       _synthReady = true
       onProgress(1)
@@ -364,6 +422,7 @@ export function setMasterCompressor(enabled: boolean, preset: number): void {
   _compNode.ratio.setTargetAtTime(ratio, now, 0.01)
   _compNode.attack.setTargetAtTime(attack, now, 0.01)
   _compNode.knee.setTargetAtTime(knee, now, 0.01)
+  _compMakeupNode?.gain.setTargetAtTime(dbToGain(p ? p.makeupDb : 0), now, 0.01)
 }
 
 // ── getMasterCompReduction — live gain reduction in dB (0 = none, negative =
@@ -371,6 +430,42 @@ export function setMasterCompressor(enabled: boolean, preset: number): void {
 // unsmoothed — callers should lerp toward this each frame, not use it raw. ──
 export function getMasterCompReduction(): number {
   return _compNode?.reduction ?? 0
+}
+
+// ── startAgcLoop — the closed-loop auto-gain poll (see the AGC block
+// comment near the module-level declarations for why this exists). Started
+// once at init and left running for the app's lifetime, same as every other
+// node here — when the compressor's off it just eases _agcGainNode back to
+// unity every tick rather than stopping, so there's no separate start/stop
+// wiring to keep in sync with setMasterCompressor. ──────────────────────────
+function startAgcLoop(): void {
+  if (_agcTimer || !_analyserNode || !_agcGainNode) return
+  const buf = new Float32Array(_analyserNode.fftSize)
+  _agcTimer = setInterval(() => {
+    const analyser = _analyserNode, agc = _agcGainNode, ctx = _ctx
+    if (!analyser || !agc || !ctx) return
+    const now = ctx.currentTime
+    // Direction is current gain vs. where we're headed, not the sign of the
+    // correction alone — e.g. easing off an existing boost is still a "down"
+    // move even though the passage is still quieter than target.
+    const moveTo = (targetGain: number) => {
+      const tc = targetGain > agc.gain.value ? AGC_TIME_CONSTANT_UP : AGC_TIME_CONSTANT_DOWN
+      agc.gain.setTargetAtTime(targetGain, now, tc)
+    }
+    if (!useStore.getState().masterCompEnabled) {
+      moveTo(1)
+      return
+    }
+    analyser.getFloatTimeDomainData(buf)
+    let sumSquares = 0
+    for (let i = 0; i < buf.length; i++) sumSquares += buf[i] * buf[i]
+    const rms = Math.sqrt(sumSquares / buf.length)
+    if (rms <= 0) return // true digital silence — hold current gain
+    const rmsDb = 20 * Math.log10(rms)
+    if (rmsDb < AGC_NOISE_FLOOR_DB) return // rest/near-silence — don't chase noise floor
+    const correctionDb = Math.max(-AGC_MAX_CUT_DB, Math.min(AGC_MAX_BOOST_DB, AGC_TARGET_DB - rmsDb))
+    moveTo(dbToGain(correctionDb))
+  }, AGC_POLL_MS)
 }
 
 // ── setChannelChorus — CC93 on a single MIDI channel (Samples engine only) ────

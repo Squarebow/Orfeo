@@ -6,7 +6,7 @@ import { isBlackKey } from '../../utils/midiParser'
 import { buildKeyLayout, PIANO_RANGES as RANGES, type KeyLayout } from '../../utils/keyLayout'
 import { NES } from '../../utils/noteEditorState'
 import {
-  cmdAddNote, cmdRemoveNotes, midiToEditableCopy, copyHandTagsOntoEditBuffer,
+  cmdAddNote, cmdRemoveNotes, cmdSetRangeVelocity, midiToEditableCopy, copyHandTagsOntoEditBuffer,
   type ToneNote,
 } from '../../utils/noteEditorCommands'
 import { getNoteLabel } from '../../utils/noteNames'
@@ -526,6 +526,15 @@ export default function PianoRoll() {
       let velDragNote:      ToneNote | null = null
       let velDragStartY     = 0
       let velDragStartVel   = 0
+      // ── Group velocity drag — dragging any bar that's part of a multi-note
+      // selection shifts every selected note's velocity by the same delta,
+      // instead of just the one bar under the pointer. Preserves whatever
+      // relative shape the selection already has (a crescendo stays a
+      // crescendo, just moved up/down as a block) rather than flattening it
+      // to one value — for that, see the "Flatten Velocity" context-menu
+      // action below, which uses cmdSetRangeVelocity instead. null outside
+      // a group drag (plain single-note drag, unchanged from before). ──────
+      let velDragGroup: Map<ToneNote, number> | null = null
 
       // ── snapTick — quantize a tick value to the grid ──────────────────────
       const snapTick = (tick: number): number => {
@@ -1165,6 +1174,23 @@ export default function PianoRoll() {
         NES.onHistoryChange?.()
       }
 
+      // ── flattenSelectedVelocity — sets every selected note to the same
+      // velocity (their own average) as one undoable step, via the shared
+      // Set-Velocity-on-a-range command. For nudging a selection up/down
+      // while keeping its existing shape, drag any selected note's
+      // velocity-lane bar instead (see velDragGroup above) — this is for
+      // the opposite case, making an already-similar passage perfectly
+      // steady instead of just shifting it. ─────────────────────────────
+      const flattenSelectedVelocity = () => {
+        if (editSelectedNotes.size < 2) return
+        const notes = [...editSelectedNotes]
+        const avg = notes.reduce((sum, n) => sum + n.velocity, 0) / notes.length
+        const cmd = cmdSetRangeVelocity(notes, avg)
+        cmd.apply()
+        for (const n of notes) NES.editedNotes.add(n)
+        history_push(cmd)
+      }
+
       const onEditDown = (e: PointerEvent) => {
         if (!storeRef.current.noteEditorActive) return
         if (e.button !== 0) return
@@ -1601,6 +1627,12 @@ export default function PianoRoll() {
               onClick: () => { assignSelectedHand('R'); setContextMenu(null) },
             })
           }
+          if (editSelectedNotes.size >= 2) {
+            options.push({
+              label: `Flatten Velocity (${editSelectedNotes.size} notes)`,
+              onClick: () => { flattenSelectedVelocity(); setContextMenu(null) },
+            })
+          }
           options.push({
             label: 'Deselect',
             onClick: () => { editSelectedNotes.clear(); setContextMenu(null) },
@@ -1862,6 +1894,14 @@ export default function PianoRoll() {
         velDragNote    = hit.note
         velDragStartY  = e.clientY
         velDragStartVel = hit.note.velocity
+        // Dragging a bar that's part of a real multi-selection shifts the
+        // whole selection together — see velDragGroup's declaration above.
+        if (editSelectedNotes.has(hit.note) && editSelectedNotes.size > 1) {
+          velDragGroup = new Map()
+          for (const n of editSelectedNotes) velDragGroup.set(n, n.velocity)
+        } else {
+          velDragGroup = null
+        }
         canvas.style.cursor = 'grabbing'
         canvas.setPointerCapture(e.pointerId)
       }
@@ -1879,16 +1919,35 @@ export default function PianoRoll() {
         }
         const trackH = canvas.height - 20 - 6
         const delta  = (velDragStartY - e.clientY) / trackH
-        velDragNote.velocity = Math.max(0, Math.min(1, velDragStartVel + delta))
+        if (velDragGroup) {
+          for (const [n, startVel] of velDragGroup) n.velocity = Math.max(0, Math.min(1, startVel + delta))
+        } else {
+          velDragNote.velocity = Math.max(0, Math.min(1, velDragStartVel + delta))
+        }
       }
       const onVelPointerUp = (e: PointerEvent) => {
         if (!velDragNote) return
         const note        = velDragNote
         const originalVel = velDragStartVel
         const finalVel    = note.velocity
-        velDragNote = null
+        const group       = velDragGroup
+        velDragNote  = null
+        velDragGroup = null
         if (velocityCanvasRef.current) velocityCanvasRef.current.style.cursor = 'default'
         try { velocityCanvasRef.current?.releasePointerCapture(e.pointerId) } catch {}
+        if (group) {
+          const originals = group
+          const finals = new Map([...group.keys()].map(n => [n, n.velocity] as const))
+          const changed = [...originals].some(([n, v]) => Math.abs((finals.get(n) ?? v) - v) >= 0.001)
+          if (!changed) return
+          for (const n of originals.keys()) NES.editedNotes.add(n)
+          history_push({
+            description: `Velocity shift on ${originals.size} notes`,
+            apply()  { for (const [n, v] of finals) n.velocity = v },
+            revert() { for (const [n, v] of originals) n.velocity = v },
+          })
+          return
+        }
         if (Math.abs(finalVel - originalVel) < 0.001) return
         NES.editedNotes.add(note)
         history_push({

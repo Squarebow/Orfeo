@@ -39,12 +39,14 @@ listed — only combos, modifiers, and gestures that aren't obvious from the UI.
 | Lasso tool: `Shift`+drag | Add to selection |
 | Pen tool: `Alt`+click empty space | Add a note |
 | Pen tool: click existing note | Mark note for delete |
-| Right-click a note | Context menu (Assign L/R hand, Deselect, Undo, Redo, Delete) |
+| Right-click a note | Context menu (Assign L/R hand, Flatten Velocity, Deselect, Undo, Redo, Delete) |
 | `Ctrl+Z` | Undo |
 | `Ctrl+Y` / `Ctrl+Shift+Z` | Redo |
 | `Delete` / `Backspace` | Delete selected note(s) |
 | `Escape` | Close the note-edit context menu |
 | Drag up/down (velocity lane) | Edit a note's velocity |
+| Drag up/down (velocity lane, on a multi-selected note) | Shift every selected note's velocity together, preserving their relative shape |
+| Right-click → "Flatten Velocity" (2+ notes selected) | Set every selected note to the same velocity (their current average) |
 
 ## Virtual Keyboard
 

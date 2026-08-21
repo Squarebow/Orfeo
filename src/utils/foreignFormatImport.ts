@@ -186,7 +186,7 @@ export async function resolveAndTrackImport(
   if (choice === 0) {
     await (window.electronAPI as any).writeCachedImport(cachePath, resolved.base64);
     useStore.getState().setPendingImportedFile(null);
-    useStore.getState().setLibraryNeedsRefresh(true);
+    useStore.getState().notifyLibrarySaved(cachePath);
     // Saved to disk — track the real .mid cache path and name from here on, not the foreign source.
     return { base64: resolved.base64, filePath: cachePath, fileName: baseName(cachePath) };
   }
@@ -225,7 +225,7 @@ export async function confirmPendingImportBeforeSwitch(
   if (choice === 0) {
     // Save as MID — write cache to disk via IPC
     await (window.electronAPI as any).writeCachedImport(cachePath, pendingImportedFile.midiBase64);
-    useStore.getState().setLibraryNeedsRefresh(true);
+    useStore.getState().notifyLibrarySaved(cachePath);
   }
   // Don't Save (choice === 1) — discard, fall through
 
@@ -259,7 +259,7 @@ export async function confirmPendingImportBeforeEdit(): Promise<boolean> {
 
   await (window.electronAPI as any).writeCachedImport(cachePath, pendingImportedFile.midiBase64);
   setPendingImportedFile(null);
-  useStore.getState().setLibraryNeedsRefresh(true);
+  useStore.getState().notifyLibrarySaved(cachePath);
   if (midi) useStore.setState({ midi: { ...(midi as any), _filePath: cachePath, fileName: baseName(cachePath) } as any });
   return true;
 }

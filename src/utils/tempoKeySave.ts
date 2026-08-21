@@ -77,7 +77,7 @@ export async function saveTempoKeyChanges(): Promise<boolean> {
         useStore.getState().setDetectedKey(detectKeyFromTracks(parsed.tracks))
       }
     }
-    useStore.getState().setLibraryNeedsRefresh(true)
+    if (result.filePath) useStore.getState().notifyLibrarySaved(result.filePath)
     return true
   } catch (err) {
     console.error('[Orfeo] saveTempoKeyChanges failed:', err)
