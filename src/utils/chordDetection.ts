@@ -64,6 +64,14 @@ export function formatChordSuffix(rawSuffix: string, style: ChordNamingStyle): s
   // extension word" rule applies so it reads as "mMaj7" not "mM7".
   suffix = suffix.replace(/^mM(\d)/, 'mMaj$1')
 
+  // tonal's "altered" chord type (1P 3M 7m 9m, no 5th) has the raw suffix
+  // "alt7" — left unformatted this reaches note-naming untouched and, under
+  // Central European naming, a "B" root turns it into "Halt7", which reads
+  // as a real German word purely by coincidence. ChordExplorer.tsx already
+  // simplifies this same raw suffix to "alt" for its catalog display
+  // (KEY_TO_RAW_SUFFIX); mirror that here so live playback detection agrees.
+  if (suffix === 'alt7') suffix = 'alt'
+
   if (style === 'abbreviation') return suffix
 
   // ── Step 2: symbol style — whole-token swaps, longest/most-specific first ─
@@ -94,7 +102,16 @@ export function ordinalSuffix(n: number): string {
   }
 }
 
-const WEIRD = ['m#5', 'aug', 'No5', 'sus2add', 'add#11', 'add#']
+// "alt7" (tonal's "altered" type: 1P 3M 7m 9m, no 5th) joins this list for
+// the same reason as "No5" — an incomplete/obscure voicing that shouldn't
+// beat a cleaner reading of the same notes when one exists. Found against
+// a real MIDI file (Bruce Hornsby - The Way It Is, 2026-08-21), where it
+// won purely because nothing else penalized it.
+// 'no5' matches tonal's real omitted-5th suffixes (7no5, 9no5, 13no5) —
+// was capitalized 'No5' before, which never matched anything since tonal's
+// suffixes are all lowercase. Found while investigating a real "A9no5/G"
+// chord (Bruce Hornsby - The Way It Is, 2026-08-21).
+const WEIRD = ['m#5', 'aug', 'no5', 'sus2add', 'add#11', 'add#', 'alt7']
 
 // ── Score a candidate chord name — LOWER is better. Complexity/obscurity
 // drives the score, not raw string length: a short exotic name (e.g. "A4",
