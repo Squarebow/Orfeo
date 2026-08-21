@@ -17,6 +17,8 @@ Drives the timing/easing of the note-hit particle animations in Orfeo (glow bloo
 
 **⚠️ This dependency is NOT open source.** It is licensed separately under Webflow's proprietary "Standard No Charge License," distinct from every other dependency listed in this document. It is free to use, including commercial use, but does not grant modification or sublicensing rights and remains Webflow's exclusive intellectual property.
 
+Orfeo itself is GPLv3-licensed (see `LICENSE.md`), which normally requires the entire combined work to be conveyed under GPLv3 — incompatible with GSAP's own terms above. `LICENSE.md`'s "Additional Permission Under GNU GPL Version 3 Section 7" clause specifically resolves this by granting explicit permission to link Orfeo with GSAP under GSAP's own license.
+
 Repository: https://github.com/greensock/GSAP
 Author: GreenSock / Webflow
 License page: https://gsap.com/community/standard-license/
