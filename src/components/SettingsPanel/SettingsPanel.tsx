@@ -726,6 +726,7 @@ function LibraryPanel() {
   const demoFiles       = useStore((s) => s.demoFiles)
   const libraryNeedsRefresh    = useStore((s) => s.libraryNeedsRefresh)
   const setLibraryNeedsRefresh = useStore((s) => s.setLibraryNeedsRefresh)
+  const libraryHighlightPath   = useStore((s) => s.libraryHighlightPath)
   // ── Chord Transcription — needed to show per-file transcript icon ─────────
   const chordTranscriptionEnabled = useStore((s) => s.chordTranscriptionEnabled)
   const noteNaming                = useStore((s) => s.noteNaming)
@@ -1855,6 +1856,10 @@ function LibraryPanel() {
                 file.path.replace(/\\/g, '/') === loadedFilePath.replace(/\\/g, '/')
               const isSelected = selectedPaths.has(file.path)
               const isHidden  = hiddenLibraryFiles.includes(file.path)
+              // ── Briefly amber-highlighted right after an auto-refreshed save (see
+              // notifyLibrarySaved in store/index.ts) — clears itself after ~2.5s. ──
+              const isJustSaved = !!libraryHighlightPath &&
+                file.path.replace(/\\/g, '/') === libraryHighlightPath.replace(/\\/g, '/')
               // ── Cell border+background is reserved for multi-select (2+ files, the
               // drag/create-folder gesture) — a single selected/loaded file only gets
               // its icon+filename highlighted amber, no cell decoration. ─────────────
@@ -1864,8 +1869,9 @@ function LibraryPanel() {
               // Loaded row is sticky (see below) so its background must be opaque, not
               // the translucent amber tint — otherwise rows scrolling underneath bleed
               // through. Reads as a plain/unselected row; the amber filename still
-              // marks it as loaded.
-              const rowBg = isLoaded ? 'var(--panel)' : isMultiSelected ? 'var(--accent-amber-subtle)' : 'transparent'
+              // marks it as loaded. isJustSaved takes priority over both — it's a
+              // temporary flash, not a persistent state.
+              const rowBg = isJustSaved ? 'var(--accent-amber-subtle)' : isLoaded ? 'var(--panel)' : isMultiSelected ? 'var(--accent-amber-subtle)' : 'transparent'
               // ── Draw one bordered "box" around each contiguous run of selected rows,
               // instead of an outline on every individual row — top/bottom border only
               // where the neighbor in visual order isn't also selected. ────────────────
@@ -1878,6 +1884,7 @@ function LibraryPanel() {
                   {suppress => (
                   <div
                     draggable={!protectedFolder}
+                    className={isJustSaved ? 'loop-nudge-blink' : undefined}
                     onDragStart={e => handleFileDragStart(e, file.path)}
                     onDragEnd={() => setDraggingPaths(null)}
                     style={{
@@ -1895,18 +1902,18 @@ function LibraryPanel() {
                     // Hover only repaints plain (unselected, unloaded) rows — selected/loaded rows
                     // keep their amber background on hover instead of flashing to the same gray
                     // used for plain hover, which is what made "selected" read as gray before.
-                    onMouseEnter={e => { if (!isLoaded && !isMultiSelected) (e.currentTarget as HTMLElement).style.background = 'var(--bg-tile)' }}
-                    onMouseLeave={e => { if (!isLoaded && !isMultiSelected) (e.currentTarget as HTMLElement).style.background = 'transparent' }}
+                    onMouseEnter={e => { if (!isLoaded && !isMultiSelected && !isJustSaved) (e.currentTarget as HTMLElement).style.background = 'var(--bg-tile)' }}
+                    onMouseLeave={e => { if (!isLoaded && !isMultiSelected && !isJustSaved) (e.currentTarget as HTMLElement).style.background = 'transparent' }}
                     onClick={e => handleRowClick(e, file.path, visibleFilePaths)}
                     onContextMenu={e => handleContextMenu(e, file.path)}
                   >
                     {/* ── Icon doubles as transcript trigger when transcription is on; otherwise shows format-specific icon ── */}
                     {chordTranscriptionEnabled ? (
-                      <TranscriptIcon filePath={file.path} noteNaming={noteNaming} accidentals={accidentals} addTranscriptEntry={addTranscriptEntry} isLoaded={isLoaded} />
+                      <TranscriptIcon filePath={file.path} noteNaming={noteNaming} accidentals={accidentals} addTranscriptEntry={addTranscriptEntry} isLoaded={isLoaded || isJustSaved} />
                     ) : (
-                      <RowIcon size={11} strokeWidth={1.5} style={{ color: isHidden ? 'var(--text-amber-dimmest)' : isLoaded || isSelected ? 'var(--text-amber)' : 'var(--text-muted)', flexShrink: 0 }} />
+                      <RowIcon size={11} strokeWidth={1.5} style={{ color: isHidden ? 'var(--text-amber-dimmest)' : isLoaded || isSelected || isJustSaved ? 'var(--text-amber)' : 'var(--text-muted)', flexShrink: 0 }} />
                     )}
-                    <MarqueeText name={file.name.replace(/\.(mid|midi)$/i, '')} spanStyle={isHidden ? FILENAME_SPAN_HIDDEN : isLoaded || isSelected ? FILENAME_SPAN_ACTIVE : FILENAME_SPAN_DEFAULT} />
+                    <MarqueeText name={file.name.replace(/\.(mid|midi)$/i, '')} spanStyle={isHidden ? FILENAME_SPAN_HIDDEN : isLoaded || isSelected || isJustSaved ? FILENAME_SPAN_ACTIVE : FILENAME_SPAN_DEFAULT} />
                     {lastFolderOf.has(file.path) && (
                       <RowIconButton
                         tooltip={`Move back to ${lastFolderOf.get(file.path) ?? 'library root'}`}

@@ -121,7 +121,7 @@ export default function MixerConsole() {
       useStore.getState().setDetectedKey(
         raw._keySignature ? parseKeySignature(raw._keySignature.key, raw._keySignature.scale) : detectKeyFromTracks(parsed.tracks),
       )
-      ;(useStore.getState() as any).setLibraryNeedsRefresh?.(true)
+      useStore.getState().notifyLibrarySaved(result.filePath)
       setMixerOpen(false)
     } catch (e: any) {
       await confirmDialog({ title: 'Save failed', message: e?.message ?? 'Could not save mixer changes.', buttons: ['OK'] })

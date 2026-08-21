@@ -1181,7 +1181,7 @@ export default function MidiEditor() {
         setPendingSplitIndex(null)
         setPreSplitRows(null)
         reloadFile(result.base64, result.fileName, result.filePath)
-        useStore.getState().setLibraryNeedsRefresh(true)
+        useStore.getState().notifyLibrarySaved(result.filePath)
         window.electronAPI.logFileEvent(result.filePath, 'save', saveSummary)
       }
     } catch (e: any) {

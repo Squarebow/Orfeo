@@ -171,7 +171,7 @@ export default function NoteEditorToolbar() {
     NES.editedNotes.clear()
     NES.needsFlatRebuild = true
     NES.onHistoryChange?.()
-    useStore.getState().setLibraryNeedsRefresh(true)
+    if (result.filePath) useStore.getState().notifyLibrarySaved(result.filePath)
 
     if (result.base64 && result.fileName && result.filePath) {
       const b   = atob(result.base64)

@@ -231,9 +231,23 @@ interface OrfeoStore {
   setHideDemoFolder: (v: boolean) => void
 
   // ── Blinks the Library refresh icon after any resave (foreign-import save,
-  // MidiEditor save, Note Editor save) — cleared once the user clicks refresh. ──
+  // MidiEditor save, Note Editor save) — cleared once the user clicks refresh.
+  // Stays as the fallback path (see notifyLibrarySaved below) for whenever
+  // the automatic rescan can't run (no library folder open, or it fails). ──
   libraryNeedsRefresh: boolean
   setLibraryNeedsRefresh: (v: boolean) => void
+
+  // ── Path of the file to briefly amber-highlight in the Library after an
+  // automatic post-save rescan — cleared on its own after a few seconds. ──
+  libraryHighlightPath: string | null
+  setLibraryHighlightPath: (p: string | null) => void
+  // ── Single entry point every save/import call site uses instead of
+  // setLibraryNeedsRefresh directly: rescans the library folder right away
+  // so the new file is immediately visible, and amber-highlights it. Falls
+  // back to just flagging libraryNeedsRefresh (leaving the manual refresh
+  // button as the way to pick it up) when there's no library folder open or
+  // the rescan itself fails. ─────────────────────────────────────────────
+  notifyLibrarySaved: (newFilePath: string) => Promise<void>
 
   demoFiles: { name: string; path: string }[]
   setDemoFiles: (files: { name: string; path: string }[]) => void
@@ -674,6 +688,23 @@ export const useStore = create<OrfeoStore>((set, get) => ({
 
   libraryNeedsRefresh: false,
   setLibraryNeedsRefresh: (libraryNeedsRefresh) => set({ libraryNeedsRefresh }),
+
+  libraryHighlightPath: null,
+  setLibraryHighlightPath: (libraryHighlightPath) => set({ libraryHighlightPath }),
+  notifyLibrarySaved: async (newFilePath) => {
+    set({ libraryNeedsRefresh: true })
+    const { libraryFolder } = get()
+    if (!libraryFolder) return // no library open — manual refresh (once one is) is the only option anyway
+    try {
+      const files = await window.electronAPI.scanMidiFolder(libraryFolder)
+      set({ libraryFiles: files, libraryNeedsRefresh: false, libraryHighlightPath: newFilePath })
+      setTimeout(() => {
+        if (get().libraryHighlightPath === newFilePath) set({ libraryHighlightPath: null })
+      }, 2500)
+    } catch {
+      // Rescan failed — leave libraryNeedsRefresh true so the manual button/blink stays the fallback.
+    }
+  },
 
   // ── Standalone demo files (shown when no library folder is set) ───────────
   demoFiles: [],

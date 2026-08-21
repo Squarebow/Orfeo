@@ -1,5 +1,26 @@
 # Changelog
 
+## [1.1.0] — 21. 8. 2026 — Relicensed to GPLv3, edit history now embedded in MIDI files, auto-refreshing library
+
+Orfeo is now licensed under the GNU GPLv3 (or later), not MIT — see `LICENSE.md`. GSAP, the one dependency that can't itself be GPLv3 (GreenSock's own "Standard No Charge" license), is covered by an explicit linking exception under GPLv3 §7, documented in both `LICENSE.md` and `THIRD_PARTY_LICENSES.md`.
+
+### New
+- **Edit history is now embedded directly in the `.mid` file itself**, not a separate app-only log. Every Playback Editor save, Note Editor save, tempo/key save, and mixer save writes an `ORFEO_HISTORY` entry into the file's own MIDI meta-events — same technique already used for `ORFEO_KEY`/`ORFEO_TRACK_NAME`. Previously this lived only in a JSON file inside the app's userData folder, which meant switching between the portable and installed builds (or a clean uninstall) silently orphaned it. A file's edit history is now genuinely part of the file — travels with it anywhere, survives any install change.
+- **Library auto-refreshes after every save.** A save from the Playback Editor, Note Editor, Mixer, tempo/key, or a foreign-format import now rescans the library folder immediately and briefly amber-highlights the new file — no more manually clicking the refresh icon to see a version you just created. The manual refresh button and its blink-when-stale indicator stay as a fallback for whenever the automatic rescan can't run (no library folder open, or the rescan itself fails).
+- **The Windows installer now shows a real license page** — full GPLv3 text plus the GSAP exception, scroll-to-accept, before install proceeds (`build/license.txt`).
+- **Uninstalling now actually asks whether to delete your Orfeo data.** This was supposed to work already, but the checkbox it used had no components page to appear on and silently never ran. It's now a real Yes/No prompt shown during every uninstall.
+
+### Fixed
+- **A chord could display as "Halt7/C"** — meaningless-looking text that happened to spell a real German word purely by coincidence. Root cause: tonal.js's obscure "altered dominant, no 5th" chord type has the raw internal name `alt7`, which the chord-name formatter didn't recognize and passed straight through; combined with Central European note naming (B → H), `Balt7/C` became `Halt7/C`. Now formatted to the same `alt` abbreviation the Chord Explorer's own catalog already used for this type. Also fixed a related scoring bug (`No5` vs. tonal's actual lowercase `no5`) that meant chords missing their 5th were never deprioritized in favor of a cleaner reading when one existed.
+- **Hit-effect particles (glow bloom, ripple ring, etc.) kept appearing for tracks hidden from both the piano roll and the keyboard**, whenever Hit Effect Scope was set to "All tracks" — that mode was meant to let non-keyboard tracks still spawn effects, but never checked whether the track was visible at all. Also fixed a related staleness bug in the Samples engine: toggling a track's visibility or keyboard-light setting mid-playback didn't rebuild the note schedule, so already-scheduled notes kept firing with stale settings for the rest of the song.
+- **The shipped app was completely unminified.** electron-vite defaults the renderer build to `minify: false`, and nothing in Orfeo's own config overrode it. Explicitly enabled esbuild minification — cuts the three largest JS chunks by roughly half — while pinning `legalComments: 'inline'` so every bundled dependency's license banner (GSAP's included) stays intact in the output.
+
+### Changed
+- **CHANGELOG.md and CONTRIBUTING.md moved into `docs/`** — only `README.md`, `LICENSE.md`, and `THIRD_PARTY_LICENSES.md` stay in the repo root now.
+- **`THIRD_PARTY_LICENSES.md` regenerated** via a new `scripts/generate-licenses.mjs`, grouped by license type with full text shown once per group instead of repeated per package.
+
+**Changed:** `package.json`, `electron/main.ts`, `electron.vite.config.ts`, `build/installer.nsh`, `build/license.txt` (new), `LICENSE.md` (renamed from `LICENSE`), `docs/CHANGELOG.md` (renamed), `docs/CONTRIBUTING.md` (renamed), `docs/INSTALLATION.md`, `THIRD_PARTY_LICENSES.md`, `scripts/generate-licenses.mjs` (new), `README.md`, `public/midi-editor.svg` (removed), `src/utils/chordDetection.ts`, `src/hooks/useAudioEngine.ts`, `src/hooks/useSamplesEngine.ts`, `src/store/index.ts`, `src/components/FileInfoModal.tsx`, `src/components/MidiEditor/MidiEditor.tsx`, `src/components/Mixer/MixerConsole.tsx`, `src/components/NoteEditor/NoteEditorToolbar.tsx`, `src/components/SettingsPanel/SettingsPanel.tsx`, `src/components/TrackPanel/TrackPanel.tsx`, `src/utils/foreignFormatImport.ts`, `src/utils/tempoKeySave.ts`.
+
 ## [1.0.0] — 20. 8. 2026 — First public release: chord tracking modes, deep chord-detection overhaul, alto sax preview fix
 
 Orfeo's first public release — installer and portable builds downloadable from GitHub. Versioning restarts here (see `CLAUDE.md`); everything before this point is pre-public development history.

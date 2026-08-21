@@ -149,12 +149,23 @@ function savePrefs(data: Record<string, any>) {
 ipcMain.handle('prefs:get', async () => loadPrefs())
 ipcMain.handle('prefs:set', async (_e, data) => savePrefs(data))
 
-// ── File info change log — sidecar JSON, keyed by normalized absolute path.
-// Deliberately NOT written into the .mid file itself: this is Orfeo-only
-// bookkeeping (renames, hides, save summaries, import provenance), not
-// portable data other tools should see. Kept separate from orfeo-prefs.json
-// so a large library's growing log never drags general-settings I/O along
-// with it. ────────────────────────────────────────────────────────────────
+// ── File info change log — two sources, merged on read.
+//
+// Content-changing saves (mixer:save, tempoKey:save, noteEditor:save) embed
+// their own history entries directly into the .mid file as ORFEO_HISTORY
+// text meta-events (see historyMetaText/parseHistoryFromMidi below) — same
+// convention as ORFEO_KEY/ORFEO_TRACK_NAME. This used to be sidecar-only
+// (a JSON file in userData, keyed by path), which meant the history was
+// only ever as durable as one specific install: switching between the
+// portable build (userData redirected next to the exe — see
+// PORTABLE_EXECUTABLE_DIR below) and an installed build, or uninstalling
+// with "delete my data" checked, silently orphaned it. A real MIDI file
+// carries its own history with it now, no matter which build opens it or
+// where it gets copied.
+//
+// Renames/moves stay sidecar-only below — they don't rewrite the file's
+// bytes, so embedding them would mean an extra full re-encode just to log
+// a filename change. Lower stakes than losing actual edits, so left as-is.
 interface FileLogEvent { type: string; timestamp: number; summary: string }
 function normLogPath(p: string) { return p.replace(/\\/g, '/') }
 function getFileLogPath() { return join(app.getPath('userData'), 'orfeo-file-log.json') }
@@ -188,7 +199,37 @@ function remapFileLog(pairs: { oldPath: string; newPath: string }[]) {
   if (changed) saveFileLog(log)
 }
 
-ipcMain.handle('fileinfo:getLog', async (_e, filePath: string) => loadFileLog()[normLogPath(filePath)] ?? [])
+// ── Embedded history meta-events — text format is
+// "ORFEO_HISTORY:<timestamp>:<type>:<summary>". summary is free text (may
+// itself contain colons, e.g. quoted filenames), so parsing splits on the
+// first two colons only and takes the rest verbatim, same approach as
+// every other ORFEO_* text-meta convention in this file.
+function historyMetaText(event: FileLogEvent): string {
+  return `ORFEO_HISTORY:${event.timestamp}:${event.type}:${event.summary}`
+}
+function parseHistoryFromMidi(midi: Midi): FileLogEvent[] {
+  const meta: any[] = (midi.header as any).meta ?? []
+  const events: FileLogEvent[] = []
+  for (const m of meta) {
+    if (typeof m.text !== 'string' || !m.text.startsWith('ORFEO_HISTORY:')) continue
+    const rest = m.text.slice('ORFEO_HISTORY:'.length)
+    const firstColon = rest.indexOf(':')
+    const secondColon = firstColon >= 0 ? rest.indexOf(':', firstColon + 1) : -1
+    if (firstColon < 0 || secondColon < 0) continue
+    const timestamp = parseInt(rest.slice(0, firstColon), 10)
+    const type = rest.slice(firstColon + 1, secondColon)
+    const summary = rest.slice(secondColon + 1)
+    if (!isNaN(timestamp)) events.push({ type, timestamp, summary })
+  }
+  return events.sort((a, b) => a.timestamp - b.timestamp)
+}
+
+ipcMain.handle('fileinfo:getLog', async (_e, filePath: string) => {
+  const sidecar = loadFileLog()[normLogPath(filePath)] ?? []
+  let embedded: FileLogEvent[] = []
+  try { embedded = parseHistoryFromMidi(new Midi(readFileSync(filePath))) } catch {}
+  return [...embedded, ...sidecar].sort((a, b) => a.timestamp - b.timestamp)
+})
 ipcMain.handle('fileinfo:logEvent', async (_e, filePath: string, type: string, summary: string) => {
   appendFileLogEvent(filePath, { type, timestamp: Date.now(), summary })
 })
@@ -887,6 +928,24 @@ ipcMain.handle('editor:save', async (_e, payload: {
       })
     }
 
+    // ── Build a human-readable summary of what this save actually changed,
+    // for the embedded ORFEO_HISTORY entry — this handler covers renames,
+    // recolors, splits, merges, and an optional tempo/key fold-in, so no
+    // single fixed message fits every save. ──────────────────────────────
+    const editSummaryParts: string[] = []
+    if (payload.mergeGroups.length > 0) editSummaryParts.push(`${payload.mergeGroups.length} track merge(s)`)
+    const splitCount = payload.includedTracks.filter(t => t.splitHand).length
+    if (splitCount > 0) editSummaryParts.push('hand split')
+    const renamedCount = payload.includedTracks.filter(t => t.name).length
+    if (renamedCount > 0) editSummaryParts.push(`${renamedCount} track rename(s)`)
+    if (payload.bpmRatio && payload.bpmRatio !== 1) editSummaryParts.push('tempo change')
+    if (payload.transposeSemitones) editSummaryParts.push('transpose')
+    const editSummary = editSummaryParts.length > 0 ? `Playback Editor: ${editSummaryParts.join(', ')}` : 'Playback Editor save'
+    ;((midi.header as any).meta ??= []).push({
+      type: 'text', ticks: 0,
+      text: historyMetaText({ type: 'editor', timestamp: Date.now(), summary: editSummary }),
+    })
+
     const outBuf = Buffer.from(midi.toArray())
     writeFileSync(outputPath, outBuf)
 
@@ -928,6 +987,14 @@ ipcMain.handle('mixer:save', async (_e, payload: {
       setStaticCC(rawIdx, 93, Math.max(0, Math.min(1, ch.chorus)))
     }
 
+    ;((midi.header as any).meta ??= []).push({
+      type: 'text', ticks: 0,
+      text: historyMetaText({
+        type: 'mixer', timestamp: Date.now(),
+        summary: `Mixer: volume/pan/reverb/chorus changed on ${payload.channels.length} channel(s)`,
+      }),
+    })
+
     const orfeoDir   = await getOrfeoOutputDir(payload.filePath)
     const rawBase    = basename(payload.filePath).replace(/\.midi?$/i, '')
     const outputPath = nextAvailableOrfeoPath(orfeoDir, rawBase)
@@ -936,10 +1003,6 @@ ipcMain.handle('mixer:save', async (_e, payload: {
     writeFileSync(outputPath, outBuf)
 
     const fileName = outputPath.split(/[\\/]/).pop() ?? outputPath
-    appendFileLogEvent(outputPath, {
-      type: 'mixer', timestamp: Date.now(),
-      summary: `Mixer: volume/pan/reverb/chorus changed on ${payload.channels.length} channel(s)`,
-    })
     return { ok: true, message: `Saved: ${fileName}`, filePath: outputPath, fileName, base64: outBuf.toString('base64') }
   } catch (e: any) {
     return { ok: false, message: e?.message ?? 'Save failed' }
@@ -998,6 +1061,10 @@ ipcMain.handle('tempoKey:save', async (_e, payload: {
         text: `ORFEO_KEY:${payload.finalKey.semitone}:${payload.finalKey.isMinor ? 'minor' : 'major'}`,
       })
     }
+    ;((midi.header as any).meta ??= []).push({
+      type: 'text', ticks: 0,
+      text: historyMetaText({ type: 'tempoKey', timestamp: Date.now(), summary: payload.summary }),
+    })
 
     const orfeoDir   = await getOrfeoOutputDir(payload.filePath)
     const rawBase    = basename(payload.filePath).replace(/\.midi?$/i, '')
@@ -1007,7 +1074,6 @@ ipcMain.handle('tempoKey:save', async (_e, payload: {
     writeFileSync(outputPath, outBuf)
 
     const fileName = outputPath.split(/[\\/]/).pop() ?? outputPath
-    appendFileLogEvent(outputPath, { type: 'tempoKey', timestamp: Date.now(), summary: payload.summary })
     return { ok: true, message: `Saved: ${fileName}`, filePath: outputPath, fileName, base64: outBuf.toString('base64') }
   } catch (e: any) {
     return { ok: false, message: e?.message ?? 'Save failed' }
@@ -1519,10 +1585,17 @@ ipcMain.handle('noteEditor:save', async (_e, payload: { filePath: string; base64
     const rawBase    = basename(payload.filePath).replace(/\.midi?$/i, '')
     const outputPath = nextAvailableOrfeoPath(orfeoDir, rawBase)
 
-    const buf = Buffer.from(payload.base64, 'base64')
+    // Renderer already serialized the edit buffer to bytes — parse it back
+    // just to append the ORFEO_HISTORY meta-event, same convention as every
+    // other save handler here.
+    const midi = new Midi(Buffer.from(payload.base64, 'base64'))
+    ;((midi.header as any).meta ??= []).push({
+      type: 'text', ticks: 0,
+      text: historyMetaText({ type: 'save', timestamp: Date.now(), summary: payload.summary ?? 'Saved' }),
+    })
+    const buf = Buffer.from(midi.toArray())
     writeFileSync(outputPath, buf)
     const fileName = outputPath.split(/[\\/]/).pop() ?? ''
-    appendFileLogEvent(outputPath, { type: 'save', timestamp: Date.now(), summary: payload.summary ?? 'Saved' })
     return { ok: true, filePath: outputPath, fileName, base64: buf.toString('base64') }
   } catch (e: any) {
     return { ok: false, message: e?.message ?? 'Save failed' }
