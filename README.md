@@ -4,7 +4,7 @@ Turn any MIDI file into an interactive piano learning experience.
 
   
 
-[![Version](https://img.shields.io/badge/Version-1.0.0-blue)](https://github.com/Squarebow/Orfeo/releases) [![License](https://img.shields.io/badge/License-MIT-green)](LICENSE) [![Platform](https://img.shields.io/badge/Platform-Windows-lightgrey?logo=windows)](https://github.com/Squarebow/Orfeo/releases)
+[![Version](https://img.shields.io/badge/Version-1.0.0-blue)](https://github.com/Squarebow/Orfeo/releases) [![License](https://img.shields.io/badge/License-GPLv3-blue)](LICENSE.md) [![Platform](https://img.shields.io/badge/Platform-Windows-lightgrey?logo=windows)](https://github.com/Squarebow/Orfeo/releases)
 
   ---
 *See every note. Understand every chord. Play it your way, at your own tempo — with real-time chord detection, hand-colored keys, and a piano roll that actually looks like something built this decade.*
@@ -445,7 +445,7 @@ Please open an issue before submitting a PR.
 
   
 
-MIT © [SquareBow](https://github.com/Squarebow)
+GPL-3.0-or-later © [SquareBow](https://github.com/Squarebow) — see [LICENSE.md](LICENSE.md). Bundles GSAP under a separate additional-permission grant; see the license file and [THIRD_PARTY_LICENSES.md](THIRD_PARTY_LICENSES.md) for details.
 
   
 

@@ -3,7 +3,7 @@
   "version": "1.0.0",
   "description": "Modern piano learning app with MIDI visualization",
   "author": "SquareBow",
-  "license": "MIT",
+  "license": "SEE LICENSE IN LICENSE.md",
   "main": "out/main/main.js",
   "type": "module",
   "scripts": {
