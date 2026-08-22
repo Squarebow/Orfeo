@@ -5,7 +5,7 @@
 import { Midi } from '@tonejs/midi'
 import { parseMidi } from 'midi-file'
 import { stripOrfeoSuffix } from './orfeoVersioning'
-import { parseKeySignature, formatKey, type DetectedKey } from './keyDetection'
+import { parseKeySignature, formatKey, detectKeyFromTracks, SEMITONE_TO_KEY_NAME, type DetectedKey } from './keyDetection'
 import type { NoteNaming, Accidentals } from '../types'
 
 export interface MidiFileMetadata {
@@ -65,9 +65,32 @@ export function parseMidiMetadata(buffer: ArrayBuffer, fileName: string): MidiFi
   const timeSig = midi.header.timeSignatures.length > 0 ? midi.header.timeSignatures[0].timeSignature : [4, 4]
   const trackCount = midi.tracks.filter(t => t.notes.length > 0).length
 
+  // ── Key — same 3-tier priority as everywhere else the app shows a key
+  // (midiParser.ts, tempoKeySave.ts, etc): ORFEO_KEY custom meta (Orfeo's
+  // own tempo/key saves strip the native key-signature event, see
+  // midiParser.ts) > native key-signature meta event > pitch-based
+  // detection when the file has no explicit key at all (e.g. most files
+  // that weren't authored with a DAW that writes one). Without the last
+  // tier this matched the loaded-file display for files with an explicit
+  // key but showed "—" for the common case of no key-signature event. ──────
   let key: DetectedKey | null = null
-  const ks = (midi.header as any).keySignatures
-  if (ks && ks.length > 0) key = parseKeySignature(ks[0].key, ks[0].scale)
+  try {
+    for (const meta of (midi.header as any).meta ?? []) {
+      if (typeof meta.text !== 'string' || !meta.text.startsWith('ORFEO_KEY:')) continue
+      const rest = meta.text.slice('ORFEO_KEY:'.length)
+      const [semitoneStr, scale] = rest.split(':')
+      const semitone = parseInt(semitoneStr, 10)
+      if (!isNaN(semitone) && SEMITONE_TO_KEY_NAME[semitone]) {
+        key = parseKeySignature(SEMITONE_TO_KEY_NAME[semitone], scale === 'minor' ? 'minor' : 'major')
+      }
+      break
+    }
+  } catch { /* malformed meta — fall through to other sources */ }
+  if (!key) {
+    const ks = (midi.header as any).keySignatures
+    if (ks && ks.length > 0) key = parseKeySignature(ks[0].key, ks[0].scale)
+  }
+  if (!key) key = detectKeyFromTracks(midi.tracks.map(t => ({ isDrum: t.channel === 9, notes: t.notes })))
 
   const { artist, song } = parseArtistSong(fileName)
 

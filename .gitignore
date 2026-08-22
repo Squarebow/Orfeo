@@ -51,3 +51,7 @@ scripts/dev-debug/
 # ── Playwright MCP — local browser-testing artifacts, not shipped app code ──
 .playwright-mcp/
 docs/DESIGN-arp-pattern-mining.md
+
+# ── Reusable local tooling instructions (e.g. media-conversion recipes) —
+# not part of the shipped app or its docs ──────────────────────────────────
+docs/Tools/

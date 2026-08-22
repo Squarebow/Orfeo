@@ -2364,7 +2364,6 @@ export default function SettingsPanel() {
                       dimmed div — a tooltip anchored only to the dimmed/inert body wouldn't fire
                       when hovering the "Sound Fonts Library" label itself. ── */}
                   {(() => {
-                    const soundFontsHint = audioEngine === 'samples' ? null : 'Switch to Samples for better audio quality'
                     const soundFontsBody = (
                   <div>
                   <OptionRow label="Sound Fonts">
@@ -2430,7 +2429,7 @@ export default function SettingsPanel() {
                             ) : (
                               <SoundfontActionLink
                                 label="download" color="var(--text-amber)"
-                                tooltip={`Download ${sf.name} (${sf.sizeMB} MB, MIT licensed)`}
+                                tooltip={`Download ${sf.name} (${sf.sizeMB} MB)`}
                                 onClick={() => handleDownloadSoundfont(sf.id)}
                               />
                             )}
@@ -2465,11 +2464,10 @@ export default function SettingsPanel() {
                   </OptionRow>
                   </div>
                     )
-                    return soundFontsHint
-                      ? <Tooltip title={soundFontsHint} wrapperStyle={{ display: 'block', width: '100%' }}>{soundFontsBody}</Tooltip>
-                      : soundFontsBody
+                    return soundFontsBody
                   })()}
                   {/* ── Auto-Level on load — off by default; existing playback never changes
+                      unexpectedly for anyone who hasn't opted in. Analyzes each file's note
                       unexpectedly for anyone who hasn't opted in. Analyzes each file's note
                       velocities as it loads and, if they dip a lot in places, automatically
                       turns on (and if needed strengthens) the Mixer Console's master
