@@ -330,8 +330,6 @@ export default function NoteEditorToolbar() {
     return () => document.removeEventListener('mousedown', handle)
   }, [quantizeOpen])
 
-  if (!noteEditorActive) return null
-
   // ── Setters — update NES ref AND local display state ──────────────────────
   const setSnap = (v: boolean) => {
     NES.snapRef.current = v
