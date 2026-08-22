@@ -622,8 +622,8 @@ export default function MasterStrip() {
         </div>
         {autoMuteNonKeyboard && (
           <Tooltip
-            title={isCurrentlyFiltered ? 'Play all tracks' : 'Focus mode'}
-            description={isCurrentlyFiltered ? 'Turn off the piano/bass/drums-only filter' : 'Mute everything except piano, bass & drums — good for practicing along'}
+            title={isCurrentlyFiltered ? 'Piano, bass & drums only' : 'Playing All Tracks'}
+            description={isCurrentlyFiltered ? 'Playing keyboards, bass & drums only. Click to play all tracks.' : 'Click to mute everything except piano, bass & drums — good for practicing'}
           >
           <button
             onClick={() => setTrackMuteFilter(!isCurrentlyFiltered)}
@@ -648,7 +648,7 @@ export default function MasterStrip() {
             <svg width="6" height="7" viewBox="0 0 6 7" style={{ marginRight: 3, flexShrink: 0 }}>
               <polygon points="0,0 6,3.5 0,7" fill="currentColor"/>
             </svg>
-            {isCurrentlyFiltered ? 'Selection' : 'All tracks'}
+            {isCurrentlyFiltered ? 'Focus ON' : 'Focus OFF'}
           </button>
           </Tooltip>
         )}

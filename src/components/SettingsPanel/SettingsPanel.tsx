@@ -2634,7 +2634,7 @@ export default function SettingsPanel() {
                     eyeToggle
                     eyeValue={autoMuteNonKeyboard}
                     onEyeChange={setAutoMuteNonKeyboard}
-                    description="An All tracks/Selective toggle in Tracks panel and Console allows you to select if you want to hear/see all tracks or only Keys, Bass & Drums."
+                    description="Focus ON/OFF toggle in Tracks panel and Console Mixer allows you to select if you want to hear/see all tracks or only Keys, Bass & Drums."
                   />
                 </CollapsibleSection>
 

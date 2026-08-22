@@ -431,8 +431,8 @@ export default function TrackPanel() {
                 {/* ── Mute-filter quick toggle — visible only when Selective Tracks Playback is on in Settings ── */}
                 {autoMuteNonKeyboard && (
                   <Tooltip
-                    title={isCurrentlyFiltered ? 'Play all tracks' : 'Focus mode'}
-                    description={isCurrentlyFiltered ? 'Turn off the piano/bass/drums-only filter' : 'Mute everything except piano, bass & drums — good for practicing along'}
+                    title={isCurrentlyFiltered ? 'Piano, Bass & Drums Only' : 'Playing all tracks'}
+                    description={isCurrentlyFiltered ? 'Playing keyboards, bass & drums tracks only. Click to play all tracks.' : 'Click to mute everything except piano, bass & drums — good for practicing'}
                     wrapperStyle={{ marginLeft: 'auto' }}
                   >
                   <button
@@ -456,7 +456,7 @@ export default function TrackPanel() {
                     }}
                   >
                     <svg width="6" height="7" viewBox="0 0 6 7" style={{ marginRight: 3, flexShrink: 0 }}><polygon points="0,0 6,3.5 0,7" fill="currentColor"/></svg>
-                    {isCurrentlyFiltered ? 'Selection' : 'All tracks'}
+                    {isCurrentlyFiltered ? 'Focus ON' : 'Focus OFF'}
                   </button>
                   </Tooltip>
                 )}
