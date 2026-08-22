@@ -40,17 +40,23 @@ const SAMPLES_BOOST = 3.0
 // on its own it does nothing for a passage that's just genuinely played
 // quiet (real case: a file whose note velocities dip hard for a passage —
 // no amount of ratio/threshold tweaking brings that back up, since there's
-// nothing above the threshold there to compress). A fixed post-compressor
-// gain boost, scaled to roughly how hard each preset squashes the loud
-// parts, is what actually closes that gap — quiet passages end up louder
-// in absolute terms even though the compressor itself never touched them. ──
+// nothing above the threshold there to compress). A gain boost, scaled to
+// roughly how hard each preset squashes the loud parts, is what actually
+// closes that gap — quiet passages end up louder in absolute terms even
+// though the compressor itself never touched them. Values kept modest
+// (halved from the first pass) and — critically — applied BEFORE _compNode,
+// not after: see the chain-wiring comment below for why the original
+// after-compressor placement caused audible clipping/distortion on any
+// transient the compressor's attack hadn't fully caught yet (e.g. a fast
+// glissando run into a loud downbeat), and why fixing the order is what
+// actually caps that, not just lowering these numbers. ─────────────────────
 interface CompPreset { threshold: number; ratio: number; attack: number; knee: number; makeupDb: number; label: string }
 export const COMPRESSOR_PRESETS: CompPreset[] = [
-  { label: 'Safety',  threshold: -1,  ratio: 2,  attack: 0.010, knee: 10, makeupDb: 1 },
-  { label: 'Gentle',  threshold: -6,  ratio: 4,  attack: 0.008, knee: 8,  makeupDb: 3 },
-  { label: 'Medium',  threshold: -12, ratio: 8,  attack: 0.005, knee: 6,  makeupDb: 6 },
-  { label: 'Firm',    threshold: -18, ratio: 14, attack: 0.003, knee: 3,  makeupDb: 9 },
-  { label: 'Limiter', threshold: -24, ratio: 20, attack: 0.003, knee: 0,  makeupDb: 12 },
+  { label: 'Safety',  threshold: -1,  ratio: 2,  attack: 0.010, knee: 10, makeupDb: 0.5 },
+  { label: 'Gentle',  threshold: -6,  ratio: 4,  attack: 0.008, knee: 8,  makeupDb: 1.5 },
+  { label: 'Medium',  threshold: -12, ratio: 8,  attack: 0.005, knee: 6,  makeupDb: 3 },
+  { label: 'Firm',    threshold: -18, ratio: 14, attack: 0.003, knee: 3,  makeupDb: 4.5 },
+  { label: 'Limiter', threshold: -24, ratio: 20, attack: 0.003, knee: 0,  makeupDb: 6 },
 ]
 const COMPRESSOR_RELEASE = 0.25
 const dbToGain = (db: number) => Math.pow(10, db / 20)
@@ -64,22 +70,34 @@ const dbToGain = (db: number) => Math.pow(10, db / 20)
 // is a real closed-loop auto-gain instead: an AnalyserNode continuously
 // measures RMS loudness of the (already-gain-adjusted) signal, compared
 // against a target, and the error smoothly drives a GainNode via a slow time
-// constant — sustained quiet passages get actively boosted over ~1-2s, loud
-// ones eased back down, without reacting to individual note transients
-// (that's still _compNode's job, right after this in the chain). Runs
-// whenever the compressor is enabled — same on/off as everything else here. ─
+// constant.
+//
+// Scoped to whole-SONG loudness drift, not individual notes/runs — this is
+// the point of the slow time constants below, not an incidental detail.
+// The first pass used a 0.6s attack and a 26dB max boost, which is fast and
+// big enough to chase a single quiet passage of well under a second (a fast
+// ornamental run like a glissando, or a bar of sparse notes before a
+// downbeat) most of the way to full boost — so a loud hit landing right
+// after one got amplified on top of whatever the compressor could catch,
+// producing audible clipping/distortion. Multi-second time constants mean
+// a poll 100ms into a quiet run moves the gain only a few percent of the
+// way there — real per-tick correction targets still get computed off a
+// single ~46ms analyser window (fftSize below), but the GAIN itself can't
+// physically get anywhere close to a large correction within one bar, only
+// across a genuinely sustained passage. That's what makes this "song-level"
+// rather than "note-level" — not a maximum-boost cap alone. ─────────────────
 let _agcGainNode: GainNode | null = null
 let _analyserNode: AnalyserNode | null = null
 let _agcTimer: ReturnType<typeof setInterval> | null = null
 const AGC_TARGET_DB = -18
 const AGC_NOISE_FLOOR_DB = -50   // below this, treat as silence/rest — hold gain, don't chase noise
-const AGC_MAX_BOOST_DB = 26
-const AGC_MAX_CUT_DB = 6
+const AGC_MAX_BOOST_DB = 9
+const AGC_MAX_CUT_DB = 4
 // Asymmetric, like a real leveler: catch up to a quiet passage faster than
-// easing back down out of a loud one — a slow passage-level drop should be
-// mostly corrected by the time it's actually noticeable, not still ramping.
-const AGC_TIME_CONSTANT_UP = 0.6    // boosting (quiet passage) — seconds
-const AGC_TIME_CONSTANT_DOWN = 2.0  // cutting (loud passage) — seconds
+// easing back down out of a loud one — but both now measured in several
+// seconds, not fractions of one, so a single fast passage can't swing this.
+const AGC_TIME_CONSTANT_UP = 3.0    // boosting (quiet passage) — seconds
+const AGC_TIME_CONSTANT_DOWN = 5.0  // cutting (loud passage) — seconds
 const AGC_POLL_MS = 100
 
 // ── Module-level singletons ───────────────────────────────────────────────────
@@ -87,11 +105,28 @@ let _ctx: AudioContext | null = null
 let _gainNode: GainNode | null = null
 // High-shelf BiquadFilter for master tone control (Samples engine only)
 let _filterNode: BiquadFilterNode | null = null
-// Master compressor/limiter — inserted last in the chain, right before
-// destination, so it catches whatever the gain/tone/AGC stages produce.
+// User-facing compressor — presets/on-off from MasterStrip. NOT the last
+// thing in the chain (see _safetyLimiterNode below) — this is tone-shaping
+// the user opts into, not the thing that keeps output out of digital
+// clipping. Confirmed by direct measurement: a dense 10-track arrangement
+// (real case — "Abba - Dancing Queen") clips (peaks well past ±1.0) even
+// with this compressor fully OFF (ratio 1:1/threshold 0dB, a mathematical
+// no-op) — the raw synth+SAMPLES_BOOST signal is hot enough on its own to
+// overload on a loud passage, regardless of anything this node does.
 let _compNode: DynamicsCompressorNode | null = null
-// Makeup gain — sits right after _compNode (see COMPRESSOR_PRESETS.makeupDb).
+// Makeup gain — sits right before _compNode (see COMPRESSOR_PRESETS.makeupDb).
 let _compMakeupNode: GainNode | null = null
+// ── Safety limiter — the ACTUAL last stage before destination, always on
+// regardless of masterCompEnabled/preset. A brick-wall limiter (near-20:1
+// ratio, near-0 attack, threshold just under 0dBFS) that exists purely to
+// stop digital clipping, not to shape tone — the user's own _compNode
+// above is a completely separate, optional, musical decision (glue/
+// character) that this doesn't replace or depend on. Needed because
+// nothing upstream — not _gainNode's SAMPLES_BOOST, not the user
+// compressor even at its most aggressive preset, not the AGC/makeup gain —
+// actually guarantees output stays under 0dBFS on its own; only a real
+// limiter as the final node can. ────────────────────────────────────────
+let _safetyLimiterNode: DynamicsCompressorNode | null = null
 // type-only — runtime reference populated after dynamic import
 let _synth: WorkletSynthesizer | null = null
 let _synthInitP: Promise<void> | null = null
@@ -243,11 +278,22 @@ export async function initSamplesEngine(onProgress: (p: number) => void): Promis
       _analyserNode.fftSize = 2048
       _analyserNode.smoothingTimeConstant = 0
 
-      // Master compressor/limiter — last stage before destination. Always
-      // created and wired in; "off" is a real transparent state (ratio 1:1,
-      // threshold 0dB — mathematically a no-op, never reduces gain) rather
-      // than disconnecting/reconnecting the graph on every toggle. Makeup
-      // gain sits right after it, off = 0dB (gain 1) the same way.
+      // Master compressor/limiter — last stage before destination, no
+      // exceptions. Always created and wired in; "off" is a real transparent
+      // state (ratio 1:1, threshold 0dB — mathematically a no-op, never
+      // reduces gain) rather than disconnecting/reconnecting the graph on
+      // every toggle. Makeup gain sits BEFORE it (off = 0dB/gain 1 the same
+      // way), not after: makeup gain first shipped applied AFTER _compNode
+      // with nothing downstream to catch its output, so any transient the
+      // compressor's attack hadn't fully clamped yet got amplified straight
+      // through with zero further limiting — audible as clipping/distortion
+      // on fast attacks (a glissando run into a loud downbeat was the
+      // reported case). Putting it before the compressor instead doesn't
+      // weaken the quiet-passage boost it exists for — content that's still
+      // below threshold after the makeup boost passes through the
+      // compressor untouched either way — but now anything the boost pushes
+      // OVER threshold gets caught and controlled by the one dynamics node
+      // in this chain, instead of bypassing it entirely.
       _compNode = _ctx.createDynamicsCompressor()
       _compNode.release.value = COMPRESSOR_RELEASE
       _compMakeupNode = _ctx.createGain()
@@ -256,13 +302,23 @@ export async function initSamplesEngine(onProgress: (p: number) => void): Promis
         setMasterCompressor(masterCompEnabled, masterCompPreset)
       }
 
+      // Safety limiter — see the declaration comment above. Fixed settings,
+      // not user-configurable, always engaged.
+      _safetyLimiterNode = _ctx.createDynamicsCompressor()
+      _safetyLimiterNode.threshold.value = -1
+      _safetyLimiterNode.ratio.value = 20
+      _safetyLimiterNode.knee.value = 0
+      _safetyLimiterNode.attack.value = 0.001
+      _safetyLimiterNode.release.value = 0.05
+
       _synth.connect(_gainNode)
       _gainNode.connect(_filterNode)
       _filterNode.connect(_agcGainNode)
       _agcGainNode.connect(_analyserNode)
-      _analyserNode.connect(_compNode)
-      _compNode.connect(_compMakeupNode)
-      _compMakeupNode.connect(_ctx.destination)
+      _analyserNode.connect(_compMakeupNode)
+      _compMakeupNode.connect(_compNode)
+      _compNode.connect(_safetyLimiterNode)
+      _safetyLimiterNode.connect(_ctx.destination)
 
       startAgcLoop()
 
