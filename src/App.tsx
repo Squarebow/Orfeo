@@ -42,6 +42,7 @@ export default function App() {
   const keyboardMode = useStore((s) => s.keyboardMode)
   const appTheme = useStore((s) => s.appTheme)
   const presentationMode = useStore((s) => s.presentationMode)
+  const noteEditorActive = useStore((s) => s.noteEditorActive)
   const { openFile } = useMidiFile()
   const { play, pause, stop } = usePlayback()
   useAudioEngine()
@@ -520,8 +521,22 @@ export default function App() {
       {/* ── MIDI Playback Editor — floating modal, opened via Track Panel pencil icon ── */}
       <MidiEditor />
 
-      {/* ── Note Editor Toolbar — floating draggable toolbar, toggled via pencil icon or Ctrl+Shift+N ── */}
-      <NoteEditorToolbar />
+      {/* ── Note Editor Toolbar — floating draggable toolbar, toggled via pencil icon or Ctrl+Shift+N.
+          Mounted only while active (not always-rendered with its own internal early return) — its
+          Snap/Quantize/Note-names/Reassign-hands/Tool display state is all local useState seeded
+          once from the NES module singleton, and NES.reset() (called on every close) mutates that
+          singleton but has no way to push the change into an already-mounted component's state.
+          Keeping the component always-mounted meant every one of those toggles silently kept
+          whatever it displayed last across a close/reopen — most visibly Reassign Hands: NES.reset()
+          correctly zeroed the real NES.reassignHandsMode, but the toolbar kept showing the OLD
+          (stale) amber "on" state, so the very next click computed its `next` value off the real
+          (already-false) NES value instead of the display's (stale-true) one — silently reading as
+          unresponsive on that first click, and meanwhile every reassign-mode code path elsewhere
+          (PianoRoll's context menu, hand-coloring) was correctly reading the real off value, so LH/
+          RH options never appeared even though the icon looked on. Forcing a real unmount/remount
+          on every open makes every local useState re-seed fresh from NES, which is what every
+          consumer already assumed. ── */}
+      {noteEditorActive && <NoteEditorToolbar />}
 
       {/* ── Confirm Dialog — themed replace for all native confirm/messageBox popups ── */}
       <ConfirmDialogHost />

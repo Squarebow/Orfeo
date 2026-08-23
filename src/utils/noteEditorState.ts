@@ -2,6 +2,7 @@ import { createNoteEditorHistory } from './noteEditorHistory'
 import { midiToEditableCopy } from './noteEditorCommands'
 import type { ToneNote } from './noteEditorCommands'
 import { confirmDialog } from './confirmController'
+import { useStore } from '../store'
 
 export type NEQuantize = 4 | 8 | 16 | 32
 
@@ -140,18 +141,44 @@ export function buildNoteEditSummary(descriptions: string[]): string {
 // cancelled. Scoped to Note Editor's NES.dirty only (not MidiEditor's
 // uncommitted track-panel state). ───────────────────────────────────────────
 export async function confirmDiscardDirtyNoteEdits(message: string): Promise<boolean> {
-  if (!NES.dirty) return true
-  const choice = await confirmDialog({
-    title: 'Unsaved Changes',
-    message,
-    detail: 'Your note edits will be lost if you discard.',
-    buttons: ['Save', 'Discard', 'Cancel'],
-  })
-  if (choice === 2) return false // Cancel
-  if (choice === 0) {            // Save
-    const ok = await NES.onSaveRequest?.()
-    if (!ok) return false
+  if (NES.dirty) {
+    const choice = await confirmDialog({
+      title: 'Unsaved Changes',
+      message,
+      detail: 'Your note edits will be lost if you discard.',
+      buttons: ['Save', 'Discard', 'Cancel'],
+    })
+    if (choice === 2) return false // Cancel
+    if (choice === 0) {            // Save
+      const ok = await NES.onSaveRequest?.()
+      if (!ok) return false
+    }
+    NES.dirty = false // Discard, or successful save
   }
-  NES.dirty = false // Discard, or successful save
+  // ── Force-close the Note Editor on every file switch/reset this guards —
+  // unconditional, not gated on NES.dirty above. The editor's whole session
+  // (NES.editMidi, reassignHandsMode, undo history, and the store's
+  // noteEditorSoloTrackIndex/preSoloTrackVisibility solo snapshot) is
+  // scoped to whatever file was loaded when it entered edit mode:
+  // NES.editMidi is only ever (re)built on the noteEditorActive
+  // false→true edge (see PianoRoll.tsx's "Edit mode enter/exit" effect),
+  // and preSoloTrackVisibility is a plain positional boolean[] captured
+  // against the old tracks array. Leaving the editor open across a file
+  // swap — which happens even with zero edits made, just Reassign Hands
+  // toggled on, since dirty was false and this used to return early above
+  // — left both pointing at the old file: right-click's Assign LH/RH
+  // options silently disappeared (editMidi's position-based index mapping
+  // no longer matched the new file's tracks), and toggling Hand mode wiped
+  // the roll (the old file's solo-visibility snapshot applied positionally
+  // onto the new file's differently-sized tracks array). Closing here
+  // mirrors NoteEditorToolbar's own ✕ button exactly, and keeps this an
+  // always-off-on-reopen tool as intended — nothing about it should
+  // survive a file switch. ─────────────────────────────────────────────
+  const store = useStore.getState()
+  if (store.noteEditorActive) {
+    store.unsoloTrackForEdit()
+    store.setNoteEditorActive(false)
+    NES.reset()
+  }
   return true
 }

@@ -429,6 +429,21 @@ ipcMain.handle('dialog:openFolder', async () => {
   if (result.canceled || !result.filePaths[0]) return null
   const folderPath = result.filePaths[0]
   savePrefs({ libraryFolder: folderPath })
+  // ── Before a library folder exists, ensureDemoFolder() falls back to
+  // userData/Demo — so any edits saved while browsing that fallback demo
+  // (getOrfeoOutputDir writes them to userData/Demo/Orfeo/, sibling to the
+  // source file) live there. The Library view only shows userData/Demo
+  // while no library is set, so without this they'd become permanently
+  // invisible — still on disk, but nowhere the app ever looks again — the
+  // moment a real library folder gets chosen. Merge them in now, same
+  // skip-if-exists semantics as copyDemoFilesRecursive's normal use so an
+  // already-populated libraryFolder/Demo (e.g. reused from a prior
+  // install) never gets overwritten. ─────────────────────────────────────
+  const fallbackDemoDir = join(app.getPath('userData'), 'Demo')
+  if (existsSync(fallbackDemoDir)) {
+    try { await copyDemoFilesRecursive(fallbackDemoDir, join(folderPath, 'Demo')) }
+    catch (e) { console.error('[Orfeo] fallback Demo migration failed:', e) }
+  }
   return folderPath
 })
 ipcMain.handle('fs:scanMidiFolder', async (_e, folderPath: string) => {
