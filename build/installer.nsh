@@ -8,13 +8,26 @@
 ; and edits get written to Demo/Orfeo/ beside it), so a blanket delete would
 ; destroy real user work, not just disposable app state.
 ;
-; This is a direct MessageBox, not a Components-page checkbox — electron-
-; builder's stock uninstaller.nsh never inserts an uninstall Components
-; page, so a Section declared /o (optional/unchecked) has nothing to
-; select it: it silently never runs. A blocking MessageBox guarantees
-; every user actually sees and answers this. MessageBox can't relabel its
-; own Yes/No/Cancel buttons without an extra plugin, so the choices are
-; spelled out in the prompt text instead.
+; This is a direct MessageBox, not a Components-page checkbox — a Section
+; declared /o (optional/unchecked) would need the user to actively tick it
+; on the uninstall Components page (which electron-builder only inserts
+; *because* this macro exists — see installer.nsi's
+; `!ifmacrodef customUnInstallSection` check — and which most users click
+; past without reading). A blocking MessageBox guarantees every user
+; actually sees and answers this. MessageBox can't relabel its own
+; Yes/No/Cancel buttons without an extra plugin, so the choices are spelled
+; out in the prompt text instead.
+;
+; The section name below MUST keep the "un." prefix ("-un.Orfeo Data
+; Cleanup"), even though it's hidden from the Components page by the
+; leading "-". NSIS decides install-vs-uninstall purely by that "un."
+; prefix on the section's name — independent of the BUILD_UNINSTALLER
+; define electron-builder uses to pick which pass compiles this file.
+; Without it, the section silently gets compiled into the *installer*
+; side instead and never ships in uninstall.exe at all (verified directly
+; with makensis: dropping "un." moves the section out of the "Uninstall:"
+; count in the compiler's own summary, with no error or warning) — this is
+; exactly how a previous build lost this feature without any visible sign.
 ;
 ; ${APP_FILENAME} is electron-builder's own build-time constant derived
 ; from productName ("Orfeo") — same folder electron-builder's built-in
@@ -24,8 +37,8 @@
 ; leading "-" makes this a hidden section that always runs automatically,
 ; with no Components-page checkbox to fail to select it from (see above).
 !macro customUnInstallSection
-  Section "-Orfeo Data Cleanup"
-    MessageBox MB_YESNOCANCEL|MB_ICONQUESTION "Delete your Orfeo settings and data?$\r$\n$\r$\nYES — delete everything: preferences, library-folder link, downloaded soundfonts, demo files, and any edited MIDI files saved without a library folder set.$\r$\nNO — keep your edited MIDI files (moved to a folder on your Desktop), delete everything else.$\r$\nCANCEL — keep everything, delete nothing.$\r$\n$\r$\nYour library folder itself (wherever you pointed Orfeo at) is never touched either way." \
+  Section "-un.Orfeo Data Cleanup"
+    MessageBox MB_YESNOCANCEL|MB_ICONQUESTION "Delete your Orfeo settings and data?$\r$\n$\r$\nYES — delete everything: preferences, library-folder link, downloaded soundfonts, demo files, and any edited MIDI files saved without a library folder set.$\r$\n$\r$\nNO — keep your edited MIDI files (moved to a folder on your Desktop), delete everything else.$\r$\n$\r$\nCANCEL — keep everything, delete nothing.$\r$\n$\r$\nYour library folder itself (wherever you pointed Orfeo at) is never touched either way." \
       IDYES orfeo_delete_all IDCANCEL orfeo_end
 
     ; NO — the fallback Demo/ (no library folder configured) is the only
