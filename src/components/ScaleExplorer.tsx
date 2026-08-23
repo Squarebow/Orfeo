@@ -130,6 +130,36 @@ function labelPos(cx: number, cy: number, r: number, angleDeg: number): { x: num
   return { x: cx + r * Math.cos(rad), y: cy + r * Math.sin(rad) }
 }
 
+// ── Key-signature label placement — equalize the visual gap to the ring ─────
+// The accidental string stays screen-aligned (never rotated to face the
+// centre), so a fixed anchor radius leaves a different gap at every angle:
+// near the horizontal midline the string's *width* eats into the gap, near
+// the vertical midline its *height* does — and both grow with symbol count.
+// The constants below are the real glyph metrics of ♯/♭ at KEYSIG_FONT_SIZE
+// (fitted from the rendered SVG's getBBox() — width scales ~linearly per
+// glyph, height maxes out once any symbol is raised). keySigRadius() solves,
+// per angle, for the radius that keeps the label's near edge a constant
+// KEYSIG_GAP from the ring for every position, 1 through 6 accidentals.
+const KEYSIG_FONT_SIZE = 12
+const KEYSIG_RAISE = 5
+const KEYSIG_GAP = 9
+const keySigSharpWidth = (len: number) => 0.516 + 6.484 * len
+const keySigFlatWidth  = (len: number) => 5.905 * len
+const KEYSIG_BOTTOM_EXTENT = 6
+const keySigTopExtent = (len: number) => (len <= 1 ? 9 : 9 + KEYSIG_RAISE)
+
+function keySigRadius(angleDeg: number, sig: string, ringOuterR: number): number {
+  if (!sig.length) return ringOuterR
+  const rad = (angleDeg * Math.PI) / 180
+  const c = Math.abs(Math.cos(rad))
+  const s = Math.abs(Math.sin(rad))
+  const halfWidth = (sig[0] === '♯' ? keySigSharpWidth(sig.length) : keySigFlatWidth(sig.length)) / 2
+  const halfHeight = Math.sin(rad) > 0 ? keySigTopExtent(sig.length) : KEYSIG_BOTTOM_EXTENT
+  const targetDist = ringOuterR + KEYSIG_GAP
+  const k = c * halfWidth + s * halfHeight
+  return k + Math.sqrt(Math.max(0, k * k - (halfWidth * halfWidth + halfHeight * halfHeight - targetDist * targetDist)))
+}
+
 // ── Diatonic chord type ─────────────────────────────────────────────────────
 interface DiatonicChord {
   degree: number
@@ -736,6 +766,16 @@ export default function ScaleExplorer() {
     if (sig > 0) return '♯'.repeat(sig)
     return '♭'.repeat(-sig)
   }
+  // Split a key-signature string into tspans with every second symbol raised
+  // like a printed superscript, matching how engraved key signatures stagger
+  // repeated accidentals for legibility — same size throughout, only offset.
+  function renderKeySigTspans(sig: string, raise: number) {
+    return Array.from(sig).map((ch, idx) => {
+      const isSup = idx % 2 === 1
+      const dy = idx === 0 ? 0 : (isSup ? -raise : raise)
+      return <tspan key={idx} dy={dy}>{ch}</tspan>
+    })
+  }
 
   // ── Scale info: root name, scale name, note list ──────────────────────────
   const infoText = useMemo(() => {
@@ -860,10 +900,11 @@ export default function ScaleExplorer() {
               const outerLabel = labelPos(CX, CY, (R_OUTER1 + R_OUTER2) / 2, midDeg)
               const innerLabel = labelPos(CX, CY, (R_INNER1 + R_INNER2) / 2, midDeg)
               const keySig = getKeySigSymbol(i)
-              // Shrink font for longer strings so inner text edge stays ~8px from ring for all lengths
-              const sigFontSize = keySig.length <= 3 ? 11 : keySig.length <= 5 ? 9 : 8
-              const sigCharHW = sigFontSize <= 8 ? 2.5 : sigFontSize <= 9 ? 2.75 : 3.5
-              const sigR = Math.round(R_OUTER2 + 8 + keySig.length * sigCharHW)
+              // Fixed size for every position — only every second symbol is raised
+              // (superscript-style), never shrunk. Radius is solved per-angle via
+              // keySigRadius() so the visual gap to the ring stays constant.
+              const sigFontSize = KEYSIG_FONT_SIZE
+              const sigR = keySigRadius(midDeg, keySig, R_OUTER2)
               const sigLabel = labelPos(CX, CY, sigR, midDeg)
               return (
                 <g key={i}>
@@ -904,14 +945,15 @@ export default function ScaleExplorer() {
                     fill={isSelInner ? 'var(--text-amber)' : 'var(--text-key-label)'}
                     style={{ pointerEvents: 'none', userSelect: 'none' }}
                   >{getMinorLabel(i)}</text>
-                  {/* Key signature accidentals — font scales with length to keep equal gap from ring */}
+                  {/* Key signature accidentals — every second symbol staggered as a
+                      raised "superscript" the way engraved key signatures do, same size throughout */}
                   {keySig && (
                     <text x={sigLabel.x} y={sigLabel.y}
                       textAnchor="middle" dominantBaseline="middle"
                       fontSize={sigFontSize} fontFamily="var(--font-ui)"
                       fill="var(--accent-amber-bold)"
                       style={{ pointerEvents: 'none', userSelect: 'none' }}
-                    >{keySig}</text>
+                    >{renderKeySigTspans(keySig, KEYSIG_RAISE)}</text>
                   )}
                 </g>
               )
