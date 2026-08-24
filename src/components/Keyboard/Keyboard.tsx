@@ -58,7 +58,16 @@ export default function Keyboard() {
   const chordPrompterEnabled = useStore((s) => s.chordPrompterEnabled)
   const chordPrompterOpen = useStore((s) => s.chordPrompterOpen)
   const setChordPrompterOpen = useStore((s) => s.setChordPrompterOpen)
-  const currentTime = useStore((s) => s.currentTime)
+  // ── currentTime itself is NOT subscribed here — it ticks ~60x/sec during
+  // playback, and subscribing to it directly would re-render this entire
+  // 900-line component every tick. The only two things that actually need
+  // it are (a) the current chord index below, subscribed as an already-
+  // derived value so Zustand only re-renders when the RESOLVED index
+  // changes (a handful of times per song, not every tick), and (b)
+  // getHardwareHand()'s per-key hand lookup, which only matters at the
+  // moments activeKeys itself changes (note on/off) — so it reads
+  // currentTime non-reactively via getState() at that point instead. ───────
+  const currentChordIndex = useStore((s) => resolveCurrentIndex(s.chordSequence, s.currentTime))
   const showHandLabels = useStore((s) => s.showHandLabels)
   const showHandLetters = useStore((s) => s.showHandLetters)
   const handLabelMode = useStore((s) => s.handLabelMode)
@@ -106,12 +115,9 @@ export default function Keyboard() {
   // ── Current chord from pre-computed sequence — always tracks currentTime,
   // including while paused, so scrubbing/shift-scrolling the playhead while
   // paused updates the display instead of it sticking on whatever was last
-  // shown when playback stopped. ───────────────────────────────────────────
-  const liveIndex = useMemo(
-    () => resolveCurrentIndex(chordSequence, currentTime),
-    [chordSequence, currentTime],
-  )
-  const currentIndex = liveIndex
+  // shown when playback stopped. currentChordIndex is itself the selected
+  // (already-resolved) store value — see the subscription above. ──────────
+  const currentIndex = currentChordIndex
   const sequenceChord = currentIndex >= 0 ? chordSequence[currentIndex] : null
 
   // ── Chord-display legibility fix (two independent root causes, both real):
@@ -351,7 +357,10 @@ export default function Keyboard() {
 
   const getHardwareHand = (noteMidi: number): Hand | null => {
     if (!showHandLabels || handLabelMode !== 'performance' || !allActiveKeys.has(noteMidi)) return null
-    const tagged = pitchHandIndex ? lookupNoteHandAtTime(pitchHandIndex, noteMidi, currentTime) : null
+    // Non-reactive read — this only matters at the moments activeKeys itself
+    // changes (note on/off), which already re-renders this component; no need
+    // to also subscribe to currentTime's ~60x/sec ticks for it.
+    const tagged = pitchHandIndex ? lookupNoteHandAtTime(pitchHandIndex, noteMidi, useStore.getState().currentTime) : null
     if (tagged) return null // already shown via the key's glow color — no strip needed
     if (hardwareBoundary === null) return null
     return noteMidi < hardwareBoundary ? 'L' : 'R'
@@ -634,7 +643,7 @@ export default function Keyboard() {
               {(() => {
                 const noFile = !midi
                 const noChords = !!midi && chordSequence.length === 0
-                const notStarted = !!midi && chordSequence.length > 0 && liveIndex < 0
+                const notStarted = !!midi && chordSequence.length > 0 && currentChordIndex < 0
 
                 if (noFile || noChords || notStarted) {
                   return (

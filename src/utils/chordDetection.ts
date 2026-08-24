@@ -208,7 +208,24 @@ function detectOmit3(sortedMidi: number[]): string[] {
   return found
 }
 
+// ── Memoized by exact sorted-MIDI content — detect() and detectOmit3() are
+// pure combinatorial searches over tonal.js's chord dictionary, and the same
+// exact note set (a repeated chord shape, a sustained pad under a moving
+// melody, or just the same voicing recurring later in the song) comes
+// through here constantly. Without this cache, computeChordSequence{Classic,
+// Sustained} re-runs the full expensive search from scratch for every one of
+// those repeats, which is what turned "load a MIDI file" into a multi-second
+// main-thread freeze on real songs (measured via CDP profiling — detect()'s
+// tonal.js internals were >90% of the total blocking time). Safe to cache
+// indefinitely: detect() is a pure function of (noteNames, sortedMidi), and
+// noteNames is itself derived deterministically from sortedMidi. ───────────
+const detectMatchesCache = new Map<string, string[]>()
+
 function detect(noteNames: string[], sortedMidi?: number[]): string[] {
+  const cacheKey = sortedMidi ? sortedMidi.join(',') : noteNames.join(',')
+  const cached = detectMatchesCache.get(cacheKey)
+  if (cached) return cached
+
   let matches = Chord.detect(noteNames)
   if (matches.length === 0 && noteNames.length > 3) {
     matches = Chord.detect(noteNames.slice(0, -1))
@@ -220,6 +237,8 @@ function detect(noteNames: string[], sortedMidi?: number[]): string[] {
   if (sortedMidi && sortedMidi.length >= 3) {
     matches = [...matches, ...detectOmit3(sortedMidi)]
   }
+
+  detectMatchesCache.set(cacheKey, matches)
   return matches
 }
 

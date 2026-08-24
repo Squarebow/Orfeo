@@ -256,6 +256,15 @@ export async function initSamplesEngine(onProgress: (p: number) => void): Promis
 
       // Set all channels to max internal volume; gain node handles master level
       applyChannelVolumes()
+      // ── Force reverb/chorus sends to 0 on every channel at init — MasterStrip's
+      // Chorus/Reverb knobs default their React state to 0, but nothing was ever
+      // pushing that to the synth itself, so channels sat at whatever send level
+      // GeneralUser-GS/SpessaSynth defaults to (typically a non-zero GM default
+      // reverb send) until the user touched a knob. That meant reverb/chorus DSP
+      // ran continuously from the very first note despite the UI showing "off" —
+      // real, silent CPU cost with no matching user-visible control. ────────────
+      setMasterReverb(0)
+      setMasterChorus(0)
 
       // Wire gain node — apply SAMPLES_BOOST so perceived level matches GM Synth
       _gainNode = _ctx.createGain()
