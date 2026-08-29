@@ -13,8 +13,10 @@ Thumbs.db
 .agents/
 .continue/
 .vscode/
+.markdownlint.json
 skills-lock.json
 graphify-out/
+.graphifyignore
 assets/CLAUDE.md
 CLAUDE.md
 
@@ -55,3 +57,8 @@ docs/DESIGN-arp-pattern-mining.md
 # ── Reusable local tooling instructions (e.g. media-conversion recipes) —
 # not part of the shipped app or its docs ──────────────────────────────────
 docs/Tools/
+
+# ── public/images — website screenshots and reference shots, prepared here
+# but hosted on orfeo.cc, not committed (this folder also ships inside the
+# packaged app, so it stays empty of heavy assets) ─────────────────────────
+public/images/

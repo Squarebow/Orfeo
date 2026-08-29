@@ -55,4 +55,29 @@
 
     orfeo_end:
   SectionEnd
+
+  ; ── Verify $INSTDIR actually got removed — electron-builder's own uninstall
+  ; section already kills every Orfeo.exe process by image name (main window,
+  ; GPU/renderer/utility helpers — see app-builder-lib's _CHECK_APP_RUNNING)
+  ; before running RMDir /r $INSTDIR, but that RMDir has no error checking of
+  ; its own: if anything still had a file open at that exact instant — a
+  ; helper process whose handle hadn't released yet, a real-time antivirus
+  ; scan touching the folder — NSIS silently skips the locked file(s) and
+  ; reports uninstall success anyway, leaving a non-empty $INSTDIR behind
+  ; with zero indication of why. This runs after that section (it's declared
+  ; later in the same compiled script — see the "un." section-ordering note
+  ; above), retries a couple of times (a just-released process handle is the
+  ; single most common transient cause), then tells the user exactly what's
+  ; left instead of staying silent about it. ─────────────────────────────────
+  Section "-un.Orfeo Verify Install Dir Removed"
+    IfFileExists "$INSTDIR\*.*" 0 orfeo_instdir_gone
+      Sleep 500
+      RMDir /r "$INSTDIR"
+    IfFileExists "$INSTDIR\*.*" 0 orfeo_instdir_gone
+      Sleep 1000
+      RMDir /r "$INSTDIR"
+    IfFileExists "$INSTDIR\*.*" 0 orfeo_instdir_gone
+      MessageBox MB_OK|MB_ICONEXCLAMATION "Some files in:$\r$\n$INSTDIR$\r$\n$\r$\ncould not be removed — likely still in use by another process (or an antivirus scan). You can safely delete this folder manually once nothing has it open."
+    orfeo_instdir_gone:
+  SectionEnd
 !macroend

@@ -401,6 +401,10 @@ export default function PianoRoll() {
   const keyLayoutRef      = useRef<KeyLayout[]>([])
   const hitEffectsRef     = useRef<HitEffectsRenderer | null>(null)
   const storeRef          = useRef(useStore.getState())
+  // ── Redraw gating — the ticker below only pays for a full drawFrame() when
+  // something drawFrame actually reads has changed, instead of unconditionally
+  // every tick. Starts true so the first tick performs the initial draw.
+  const dirtyRef          = useRef(true)
   const lastKeySizeRef    = useRef<number>(0)
   const lastMidiRef       = useRef<any>(null)
   const flatNotesRef      = useRef<FlatNote[]>([])
@@ -428,7 +432,37 @@ export default function PianoRoll() {
     return () => window.removeEventListener('mousedown', close)
   }, [contextMenu])
 
-  useEffect(() => useStore.subscribe((s) => { storeRef.current = s }), [])
+  useEffect(() => useStore.subscribe((s) => {
+    const prev = storeRef.current
+    storeRef.current = s
+    // Mirrors the fields drawFrame() destructures from the store (below), plus
+    // currentTime — needed so a paused scrub/seek still redraws even though the
+    // ticker's playbackState check alone wouldn't catch it (during actual
+    // playback currentTime changes every tick too, but that's harmless since
+    // the playbackState check already forces a redraw every tick then).
+    if (
+      s.midi !== prev.midi ||
+      s.currentTime !== prev.currentTime ||
+      s.tracks !== prev.tracks ||
+      s.detectedKey !== prev.detectedKey ||
+      s.zoomLevel !== prev.zoomLevel ||
+      s.appTheme !== prev.appTheme ||
+      s.keyboardSize !== prev.keyboardSize ||
+      s.showBarNumbers !== prev.showBarNumbers ||
+      s.barStarts !== prev.barStarts ||
+      s.noteEditorActive !== prev.noteEditorActive ||
+      s.showHandLabels !== prev.showHandLabels ||
+      s.playbarVisible !== prev.playbarVisible ||
+      s.keyboardTopY !== prev.keyboardTopY ||
+      s.hitEffectsEnabled !== prev.hitEffectsEnabled ||
+      s.hitEffectPattern !== prev.hitEffectPattern ||
+      s.hitEffectBloomThreshold !== prev.hitEffectBloomThreshold ||
+      s.hitEffectBloomIntensity !== prev.hitEffectBloomIntensity ||
+      s.hitEffectBloomSpread !== prev.hitEffectBloomSpread ||
+      s.hitEffectColor !== prev.hitEffectColor ||
+      s.playbackState !== prev.playbackState
+    ) dirtyRef.current = true
+  }), [])
 
   // ── Wheel to scrub — disabled in edit mode ───────────────────────────────────
   useEffect(() => {
@@ -2006,7 +2040,18 @@ export default function PianoRoll() {
       const { min: initMin, max: initMax } = RANGES[keyboardSize] ?? RANGES[88]
       lastKeySizeRef.current = keyboardSize
       drawGrid(app.screen.width, app.screen.height, initMin, initMax)
-      app.ticker.add(() => { drawFrame(); drawVelocityLane() })
+      // Redraw every tick during playback or note editing (both need continuous
+      // animation — scrolling playhead, drag previews, selection pulse). Otherwise
+      // only redraw when dirtyRef was flagged by an actual relevant change, so an
+      // idle piano roll doesn't burn a full core recomputing an unchanged frame
+      // 60x/second.
+      app.ticker.add(() => {
+        const { playbackState, noteEditorActive } = storeRef.current
+        if (playbackState !== 'playing' && !noteEditorActive && !dirtyRef.current) return
+        dirtyRef.current = false
+        drawFrame()
+        drawVelocityLane()
+      })
 
       roInstance = new ResizeObserver(() => {
         if (!appRef.current) return
@@ -2023,6 +2068,7 @@ export default function PianoRoll() {
           velocityCanvasRef.current.width  = w
           velocityCanvasRef.current.height = Math.round(h * (1 - PLAYHEAD_RATIO)) + VELOCITY_LANE_HEIGHT_BOOST
         }
+        dirtyRef.current = true
       })
       roInstance.observe(el)
     })

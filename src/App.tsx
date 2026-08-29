@@ -72,17 +72,22 @@ export default function App() {
   // Handles foreign formats (MusicXML, Guitar Pro) by converting via alphaTab.
   // Checks for a valid on-disk cache before converting; sets pendingImportedFile
   // when conversion is done in-memory and not yet written to disk.
+  // loadRequestIdRef guards against overlapping loads (e.g. two files dropped in
+  // quick succession) racing to setMidi() out of order — see the matching guard
+  // in SettingsPanel.tsx's handleLoadFile for the library-click equivalent.
+  const loadRequestIdRef = useRef(0)
   const loadFileIntoPlayer = useCallback(async (filePath: string) => {
+    const requestId = ++loadRequestIdRef.current
     const canDiscard = await confirmDiscardDirtyNoteEdits('Save changes before opening this file?')
-    if (!canDiscard) return
+    if (!canDiscard || requestId !== loadRequestIdRef.current) return
     const canDiscardTempoKey = await confirmDiscardDirtyTempoKey('Save tempo/key changes before opening this file?')
-    if (!canDiscardTempoKey) return
+    if (!canDiscardTempoKey || requestId !== loadRequestIdRef.current) return
 
     const proceed = await confirmPendingImportBeforeSwitch(filePath)
-    if (!proceed) return // user cancelled — stay on current file
+    if (!proceed || requestId !== loadRequestIdRef.current) return // user cancelled — stay on current file
 
     const result = await window.electronAPI.loadMidiFromPath(filePath)
-    if (!result) return
+    if (!result || requestId !== loadRequestIdRef.current) return
 
     let base64    = result.base64
     let resolvedFilePath = filePath
@@ -98,6 +103,7 @@ export default function App() {
       showDropError(e?.message ?? 'Could not convert this file to MIDI.')
       return
     }
+    if (requestId !== loadRequestIdRef.current) return
 
     const bytes  = base64ToBytes(base64)
     // _filePath = original source, or the on-disk .mid cache once a foreign-format

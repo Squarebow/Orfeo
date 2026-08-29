@@ -14,7 +14,9 @@ import type { NoteNaming, KeyboardSize, Accidentals, TranscriptEntry, LibraryFil
 import type { AppTheme } from '../../store'
 import { initSamplesEngine, loadSelectedSoundfont } from '../../hooks/useSamplesEngine'
 import { MarqueeText } from '../MarqueeText'
-import { detectForeignFormat } from '../../utils/foreignFormatImport'
+import { detectForeignFormat, resolveAndTrackImport, base64ToBytes, confirmPendingImportBeforeSwitch } from '../../utils/foreignFormatImport'
+import { parseMidiBuffer } from '../../utils/midiParser'
+import { detectKeyFromTracks, parseKeySignature } from '../../utils/keyDetection'
 import { TRACK_COLOR_PALETTE } from '../../utils/colors'
 import FileInfoModal from '../FileInfoModal'
 import Tooltip, { TooltipBox, useTooltip } from '../Tooltip'
@@ -1024,6 +1026,16 @@ function LibraryPanel() {
     return slash === -1 ? null : rel.slice(0, slash)
   }
 
+  // ── After a save auto-refreshes the library, expand the folder holding the new
+  // version. It's almost always a just-created, collapsed Orfeo/ — without this
+  // the amber-highlighted file (and its File-info history) is invisible until
+  // the user finds and opens that folder by hand. ───────────────────────────
+  useEffect(() => {
+    if (!libraryHighlightPath) return
+    const folder = currentFolderOf(libraryHighlightPath)
+    if (folder) setExpandedFolders(prev => (prev.has(folder) ? prev : new Set(prev).add(folder)))
+  }, [libraryHighlightPath]) // eslint-disable-line react-hooks/exhaustive-deps
+
   // ── Row click: plain click loads the file (existing behavior, unchanged) and
   // selects only that row; Ctrl/Cmd toggles it in the selection; Shift selects
   // the range from the last anchor. Modifier clicks never load a file. ────────
@@ -1099,24 +1111,27 @@ function LibraryPanel() {
   }
 
   // ── File loader — reads MIDI from disk and parses into store state ────────
+  // loadRequestIdRef guards against overlapping loads: clicking a second library
+  // row before the first file's async chain (confirm dialogs, IPC round-trip,
+  // parse) has resolved used to let both run concurrently, with whichever
+  // resolved last winning setMidi() regardless of click order — visible as the
+  // app appearing to hang with the wrong (or seemingly several) file(s) selected.
+  const loadRequestIdRef = useRef(0)
   const handleLoadFile = useCallback(async (filePath: string) => {
+    const requestId = ++loadRequestIdRef.current
     const canDiscard = await confirmDiscardDirtyNoteEdits('Save changes before opening this file?')
-    if (!canDiscard) return
+    if (!canDiscard || requestId !== loadRequestIdRef.current) return
     try {
-      const { confirmPendingImportBeforeSwitch } = await import('../../utils/foreignFormatImport')
       const proceed = await confirmPendingImportBeforeSwitch(filePath)
-      if (!proceed) return
+      if (!proceed || requestId !== loadRequestIdRef.current) return
 
       const result = await window.electronAPI.loadMidiFromPath(filePath)
-      if (!result) return
+      if (!result || requestId !== loadRequestIdRef.current) return
 
       let base64    = result.base64
       let resolvedFilePath = filePath
       let parseName = result.fileName
-      const { useStore: storeModule } = await import('../../store')
-      const libraryFolder = (storeModule.getState() as any).libraryFolder as string | null ?? null
-
-      const { resolveAndTrackImport, base64ToBytes } = await import('../../utils/foreignFormatImport')
+      const libraryFolder = (useStore.getState() as any).libraryFolder as string | null ?? null
 
       try {
         const resolved = await resolveAndTrackImport(filePath, base64, result.fileName, libraryFolder)
@@ -1127,18 +1142,17 @@ function LibraryPanel() {
         console.error('[Orfeo] Foreign format conversion failed:', e)
         return
       }
+      if (requestId !== loadRequestIdRef.current) return
 
-      const { parseMidiBuffer } = await import('../../utils/midiParser')
-      const { detectKeyFromTracks, parseKeySignature } = await import('../../utils/keyDetection')
       const bytes  = base64ToBytes(base64)
       // _filePath = original source, or the on-disk .mid cache once saved (see resolveAndTrackImport)
       const parsed = parseMidiBuffer(bytes.buffer as ArrayBuffer, parseName, resolvedFilePath)
-      storeModule.getState().setMidi(parsed)
+      useStore.getState().setMidi(parsed)
       const raw = parsed as any
       if (raw._keySignature != null) {
-        storeModule.getState().setDetectedKey(parseKeySignature(raw._keySignature.key, raw._keySignature.scale))
+        useStore.getState().setDetectedKey(parseKeySignature(raw._keySignature.key, raw._keySignature.scale))
       } else {
-        storeModule.getState().setDetectedKey(detectKeyFromTracks(parsed.tracks))
+        useStore.getState().setDetectedKey(detectKeyFromTracks(parsed.tracks))
       }
     } catch (err) {
       console.error('Failed to load file:', err)
