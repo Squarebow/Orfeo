@@ -98,7 +98,7 @@ export default function MixerConsole() {
     const choice = await confirmDialog({
       title: 'Save mixer changes?',
       message: `Volume, pan, reverb, and chorus were changed for ${changed.length} channel(s).`,
-      buttons: ['Save', 'Discard', 'Cancel'],
+      buttons: ['Save & Reload', 'Discard', 'Cancel'],
     })
     if (choice === 2) return // Cancel — leave mixer open
     if (choice === 1) { setMixerOpen(false); return } // Discard — re-seeded from file next open

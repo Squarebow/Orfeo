@@ -106,7 +106,15 @@ export default function FileInfoModal({ filePath, fileName, onClose, onRenamed }
     }
   }, [onDragMove, onDragEnd])
 
+  // ── Track the props — the modal is reused (no remount) when the target file
+  // changes, e.g. a rename in this same popup, or reopening File info on a
+  // different row while one is already open. Without this, currentPath stays
+  // frozen at the first-mounted value and the metadata/history below describe
+  // the wrong file. ─────────────────────────────────────────────────────────
+  useEffect(() => { setCurrentPath(filePath); setCurrentName(fileName) }, [filePath, fileName])
+
   useEffect(() => {
+    setLog(null); setVersions(null)
     window.electronAPI.getFileLog(currentPath).then(setLog).catch(() => setLog([]))
     window.electronAPI.listFileVersions(currentPath).then(setVersions).catch(() => setVersions([]))
   }, [currentPath])

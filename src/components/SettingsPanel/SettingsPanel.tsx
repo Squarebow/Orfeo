@@ -1026,6 +1026,16 @@ function LibraryPanel() {
     return slash === -1 ? null : rel.slice(0, slash)
   }
 
+  // ── After a save auto-refreshes the library, expand the folder holding the new
+  // version. It's almost always a just-created, collapsed Orfeo/ — without this
+  // the amber-highlighted file (and its File-info history) is invisible until
+  // the user finds and opens that folder by hand. ───────────────────────────
+  useEffect(() => {
+    if (!libraryHighlightPath) return
+    const folder = currentFolderOf(libraryHighlightPath)
+    if (folder) setExpandedFolders(prev => (prev.has(folder) ? prev : new Set(prev).add(folder)))
+  }, [libraryHighlightPath]) // eslint-disable-line react-hooks/exhaustive-deps
+
   // ── Row click: plain click loads the file (existing behavior, unchanged) and
   // selects only that row; Ctrl/Cmd toggles it in the selection; Shift selects
   // the range from the last anchor. Modifier clicks never load a file. ────────

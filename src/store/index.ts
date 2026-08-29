@@ -724,9 +724,17 @@ export const useStore = create<OrfeoStore>((set, get) => ({
     if (!libraryFolder) return // no library open — manual refresh (once one is) is the only option anyway
     try {
       const files = await window.electronAPI.scanMidiFolder(libraryFolder)
-      set({ libraryFiles: files, libraryNeedsRefresh: false, libraryHighlightPath: newFilePath })
+      // Highlight the actual scanned row, not the path the save handler returned —
+      // those can differ by drive-letter case or separator style (the file lands
+      // in a pre-existing differently-cased Orfeo/ folder, say), and an exact
+      // string compare in the list renderer would then match no row at all,
+      // leaving the just-saved version with no amber flash and no pinned bar.
+      const norm = (p: string) => p.replace(/\\/g, '/').toLowerCase()
+      const match = files.find(f => norm(f.path) === norm(newFilePath))
+      const highlightPath = match?.path ?? newFilePath
+      set({ libraryFiles: files, libraryNeedsRefresh: false, libraryHighlightPath: highlightPath })
       setTimeout(() => {
-        if (get().libraryHighlightPath === newFilePath) set({ libraryHighlightPath: null })
+        if (get().libraryHighlightPath === highlightPath) set({ libraryHighlightPath: null })
       }, 2500)
     } catch {
       // Rescan failed — leave libraryNeedsRefresh true so the manual button/blink stays the fallback.
