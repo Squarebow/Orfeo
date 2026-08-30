@@ -58,6 +58,10 @@ docs/DESIGN-arp-pattern-mining.md
 # not part of the shipped app or its docs ──────────────────────────────────
 docs/Tools/
 
+# ── docs/Images — working screenshots + SVG icon sources for the docs,
+# prepared locally, never committed (docs render fine without them) ────────
+docs/Images/
+
 # ── public/images — website screenshots and reference shots, prepared here
 # but hosted on orfeo.cc, not committed (this folder also ships inside the
 # packaged app, so it stays empty of heavy assets) ─────────────────────────

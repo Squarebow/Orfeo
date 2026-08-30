@@ -1,5 +1,21 @@
 # Changelog
 
+## [1.0.2] — 30. 8. 2026 — Chord right-click voicing fixes, Scales Explorer playback controls, tooltip cleanup
+
+### Fixed
+- **Right-clicking the playback chord name while paused now acts on the exact voicing under the playhead**, not a thin snapshot taken when the chord name last changed. Both "Show on keyboard" and "Open in Chord Explorer" reconstruct the real notes actually sounding at that instant — same register, same inversion as the file. Previously a `D7/A` in the file could lock a single lone `A`, name itself a bare root-position `D7`, and open the Chord Explorer at a canonical `D4` root position.
+- **The keys "Show on keyboard" lights now carry each note's source-track color** (the same colors the piano roll and playback use), so it's clear which instrument the locked chord came from, instead of a flat amber. Left/Right-Hand and Note Editor modes still override to the fixed blue/pink hand colors, matching everywhere else.
+- **Lock-a-Chord now labels the inversion of a right-clicked chord** (`D7/A · 2ⁿᵈ inv`), matching the playback display, rather than always showing root position.
+- **Scales Explorer — "Key of" now appears the moment a key is picked on the circle**, or the scale type is changed, instead of only after a chord tile is clicked.
+- **Scales Explorer — the Circle of Fifths highlight follows scale-type changes.** Switching to a minor-family scale moves the lit segment to the inner ring at the same tonic (and vice versa) — e.g. picking D major then clicking Natural Minor lights `Dm`; a stale `Cm` no longer stays lit after switching to Major Pentatonic.
+- **Scales Explorer — the "Chords in the Scale" play button is now a toggle.** A second click, or the spacebar, stops playback; clicking again restarts from the beginning. The button shows a stop icon while running.
+- **Loop Region bar-range popup** — background aligned to the standard popup color; the trigger icon swapped for a cleaner ordered-list glyph.
+- **Chord Transcription (Settings) — the file-row tooltip is split and no longer doubles up.** Hovering the filename shows "Right-click for options"; hovering the transcript icon shows only its own hint, now in plain text that fits the tooltip instead of overflowing amber caps.
+- **Lock-a-Chord modal** — removed the redundant per-button tooltips.
+
+### Changed
+- `docs/CHANGELOG.md`, `package.json`, `src/components/ChordExplorer.tsx`, `src/components/Keyboard/Keyboard.tsx`, `src/components/LockedChordModal.tsx`, `src/components/LoopRegionStrip.tsx`, `src/components/ScaleExplorer.tsx`, `src/components/SettingsPanel/SettingsPanel.tsx`, `src/store/index.ts`, `src/utils/midiParser.ts`.
+
 ## [1.0.1] — 29. 8. 2026 — GPLv3 relicense, embedded edit history, piano-roll performance fixes, documentation overhaul
 
 Orfeo is now licensed under the GNU GPLv3 (or later), not MIT — see `LICENSE.md`. GSAP, the one dependency that can't itself be GPLv3 (GreenSock's own "Standard No Charge" license), is covered by an explicit linking exception under GPLv3 §7, documented in both `LICENSE.md` and `THIRD_PARTY_LICENSES.md`.

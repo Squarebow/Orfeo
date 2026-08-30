@@ -111,10 +111,14 @@ Full walkthrough of every feature: **[docs/HOW_TO_USE.md](docs/HOW_TO_USE.md)**.
 Grab the latest build from the [Releases](https://github.com/Squarebow/Orfeo/releases)
 page:
 
-| File | Use |
-|---|---|
-| `Orfeo Setup <version>.exe` | Standard Windows installer — Start Menu shortcut, automatic updates |
-| `Orfeo-<version>-portable.exe` | Portable — no installation, runs from anywhere, manual updates |
+<table width="100%">
+<colgroup><col width="34%"><col width="66%"></colgroup>
+<thead><tr><th>File</th><th>Use</th></tr></thead>
+<tbody>
+<tr><td><code>Orfeo Setup &lt;version&gt;.exe</code></td><td>Standard Windows installer — Start Menu shortcut, automatic updates</td></tr>
+<tr><td><code>Orfeo-&lt;version&gt;-portable.exe</code></td><td>Portable — no installation, runs from anywhere, manual updates</td></tr>
+</tbody>
+</table>
 
 Not sure which, or want to know how they differ (auto-updates, where settings
 live)? See **[docs/INSTALLATION.md](docs/INSTALLATION.md)**.
@@ -123,14 +127,18 @@ live)? See **[docs/INSTALLATION.md](docs/INSTALLATION.md)**.
 
 ## Documentation
 
-| Document | What's in it |
-|---|---|
-| [How to Use](docs/HOW_TO_USE.md) | The complete guide — Play, Edit, Practice, Manage files, Extras |
-| [Shortcuts](docs/SHORTCUTS.md) | Every keyboard and mouse gesture |
-| [Installation](docs/INSTALLATION.md) | Installer vs. portable, updates, where data lives |
-| [Architecture](docs/ARCHITECTURE.md) | How Orfeo is built and why |
-| [Changelog](docs/CHANGELOG.md) | Technical release history |
-| [Contributing](docs/CONTRIBUTING.md) | Build from source, cut a release |
+<table width="100%">
+<colgroup><col width="20%"><col width="80%"></colgroup>
+<thead><tr><th>Document</th><th>What's in it</th></tr></thead>
+<tbody>
+<tr><td><a href="docs/HOW_TO_USE.md">How to Use</a></td><td>The complete guide — Play, Edit, Practice, Manage files, Extras</td></tr>
+<tr><td><a href="docs/SHORTCUTS.md">Shortcuts</a></td><td>Every keyboard and mouse gesture</td></tr>
+<tr><td><a href="docs/INSTALLATION.md">Installation</a></td><td>Installer vs. portable, updates, where data lives</td></tr>
+<tr><td><a href="docs/ARCHITECTURE.md">Architecture</a></td><td>How Orfeo is built and why</td></tr>
+<tr><td><a href="docs/CHANGELOG.md">Changelog</a></td><td>Technical release history</td></tr>
+<tr><td><a href="docs/CONTRIBUTING.md">Contributing</a></td><td>Build from source, cut a release</td></tr>
+</tbody>
+</table>
 
 ---
 

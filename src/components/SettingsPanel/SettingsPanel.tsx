@@ -403,12 +403,15 @@ function HitEffectColorSwatch({ color, onChange }: { color: string | null; onCha
 }
 
 // ─── Transcript icon — sits in the FileMusic slot; manages its own state ───────
-function TranscriptIcon({ filePath, noteNaming, accidentals, addTranscriptEntry, isLoaded }: {
+function TranscriptIcon({ filePath, noteNaming, accidentals, addTranscriptEntry, isLoaded, onHoverChange }: {
   filePath: string
   noteNaming: NoteNaming
   accidentals: Accidentals
   addTranscriptEntry: (entry: TranscriptEntry) => void
   isLoaded?: boolean
+  // Lets a wrapping RowTooltip suppress its own "Right-click for options" tip
+  // while the pointer is over this icon — same pattern as FavouriteStar. ──
+  onHoverChange?: (hovering: boolean) => void
 }) {
   const IDLE_TOOLTIP = 'Click to create a chord transcript PDF in Orfeo folder.'
   const [state, setState] = useState<'idle' | 'loading' | 'success' | 'error'>('idle')
@@ -452,7 +455,7 @@ function TranscriptIcon({ filePath, noteNaming, accidentals, addTranscriptEntry,
   const iconColor = state === 'success' ? 'var(--text-amber)' : state === 'error' ? 'var(--status-error)' : 'var(--text-dimmest)'
 
   return (
-    <Tooltip title={isLoaded && state === 'idle' ? 'Chord transcription active for this file — click to create a PDF' : tooltip} wrapperStyle={{ flexShrink: 0 }}>
+    <Tooltip title={tooltip} oneLine placement="right" wrapperStyle={{ flexShrink: 0 }}>
     <div
       onClick={(e) => { e.stopPropagation(); void handleClick() }}
       className={isLoaded && state === 'idle' ? 'loop-nudge-blink' : undefined}
@@ -463,8 +466,8 @@ function TranscriptIcon({ filePath, noteNaming, accidentals, addTranscriptEntry,
         transition: 'color 0.2s',
         animation: state === 'loading' ? 'orfeo-transcript-spin 1s linear infinite' : 'none',
       }}
-      onMouseEnter={e => { if (state === 'idle') (e.currentTarget as HTMLElement).style.color = 'var(--text-amber)' }}
-      onMouseLeave={e => { if (state === 'idle') (e.currentTarget as HTMLElement).style.color = 'var(--text-dimmest)' }}
+      onMouseEnter={e => { onHoverChange?.(true); if (state === 'idle') (e.currentTarget as HTMLElement).style.color = 'var(--text-amber)' }}
+      onMouseLeave={e => { onHoverChange?.(false); if (state === 'idle') (e.currentTarget as HTMLElement).style.color = 'var(--text-dimmest)' }}
     >
       <FileMusic size={11} strokeWidth={1.5} />
     </div>
@@ -1623,7 +1626,7 @@ function LibraryPanel() {
                 onContextMenu={e => handleContextMenu(e, loadedFile!.path)}
               >
                 {chordTranscriptionEnabled ? (
-                  <TranscriptIcon filePath={loadedFile.path} noteNaming={noteNaming} accidentals={accidentals} addTranscriptEntry={addTranscriptEntry} isLoaded />
+                  <TranscriptIcon filePath={loadedFile.path} noteNaming={noteNaming} accidentals={accidentals} addTranscriptEntry={addTranscriptEntry} onHoverChange={suppress} isLoaded />
                 ) : (
                   <RowIcon size={11} strokeWidth={1.5} style={{ color: 'var(--text-amber)', flexShrink: 0 }} />
                 )}
@@ -1684,7 +1687,8 @@ function LibraryPanel() {
               const fmt = detectForeignFormat(file.path)
               const RowIcon = fmt === 'musicxml' ? FileCode2 : fmt === 'guitarpro' ? Guitar : FileMusic
               return (
-                <Tooltip key={file.path} title="Right-click for options" oneLine placement="right" wrapperStyle={{ display: 'block', width: '100%' }}>
+                <RowTooltip key={file.path} title="Right-click for options">
+                {suppress => (
                 <div
                   style={{
                     display: 'flex', alignItems: 'center', gap: 6,
@@ -1699,13 +1703,14 @@ function LibraryPanel() {
                 >
                   {/* ── Icon doubles as transcript trigger when transcription is on; otherwise shows format-specific icon ── */}
                   {chordTranscriptionEnabled ? (
-                    <TranscriptIcon filePath={file.path} noteNaming={noteNaming} accidentals={accidentals} addTranscriptEntry={addTranscriptEntry} isLoaded={isLoaded} />
+                    <TranscriptIcon filePath={file.path} noteNaming={noteNaming} accidentals={accidentals} addTranscriptEntry={addTranscriptEntry} onHoverChange={suppress} isLoaded={isLoaded} />
                   ) : (
                     <RowIcon size={11} strokeWidth={1.5} style={{ color: isHidden ? 'var(--text-amber-dimmest)' : isLoaded ? 'var(--text-amber)' : 'var(--text-muted)', flexShrink: 0 }} />
                   )}
                   <MarqueeText name={file.name.replace(/\.(mid|midi)$/i, '')} spanStyle={isHidden ? FILENAME_SPAN_HIDDEN : isLoaded ? FILENAME_SPAN_ACTIVE : FILENAME_SPAN_DEFAULT} />
                 </div>
-                </Tooltip>
+                )}
+                </RowTooltip>
               )
             })}
           </div>
@@ -1923,7 +1928,7 @@ function LibraryPanel() {
                   >
                     {/* ── Icon doubles as transcript trigger when transcription is on; otherwise shows format-specific icon ── */}
                     {chordTranscriptionEnabled ? (
-                      <TranscriptIcon filePath={file.path} noteNaming={noteNaming} accidentals={accidentals} addTranscriptEntry={addTranscriptEntry} isLoaded={isLoaded || isJustSaved} />
+                      <TranscriptIcon filePath={file.path} noteNaming={noteNaming} accidentals={accidentals} addTranscriptEntry={addTranscriptEntry} onHoverChange={suppress} isLoaded={isLoaded || isJustSaved} />
                     ) : (
                       <RowIcon size={11} strokeWidth={1.5} style={{ color: isHidden ? 'var(--text-amber-dimmest)' : isLoaded || isSelected || isJustSaved ? 'var(--text-amber)' : 'var(--text-muted)', flexShrink: 0 }} />
                     )}
@@ -2503,11 +2508,11 @@ export default function SettingsPanel() {
                 >
                   {/* ── Demo folder — eye-toggle: Eye=show, EyeOff=hidden ────────── */}
                   <OptionRow
-                    label="Demo content"
+                    label="Hide Demo content"
                     eyeToggle
                     eyeValue={!hideDemoFolder}
                     onEyeChange={(val) => setHideDemoFolder(!val)}
-                    description="Hides bundled demo songs from library view. Files are not deleted."
+                    description="Bundled demo songs are hidden from library view. Files are not deleted. Turn OFF to see Demo content."
                   />
                   {/* ── Chord Transcription — eye-toggle with BETA badge ──────────── */}
                   <OptionRow

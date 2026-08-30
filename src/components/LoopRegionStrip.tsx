@@ -6,7 +6,7 @@
 
 import React, { useEffect, useRef, useState, useCallback, type CSSProperties } from 'react'
 import { createPortal } from 'react-dom'
-import { ChevronUp, ChevronDown } from 'lucide-react'
+import { ChevronUp, ChevronDown, ListOrdered } from 'lucide-react'
 import { useStore } from '../store'
 import Tooltip from './Tooltip'
 
@@ -511,14 +511,7 @@ export default function LoopRegionStrip() {
             onMouseEnter={e => { if (!hasSelection && !popupOpen) e.currentTarget.style.color = 'var(--text-muted)' }}
             onMouseLeave={e => { if (!hasSelection && !popupOpen) e.currentTarget.style.color = 'var(--text-inactive)' }}
           >
-            {/* ArrowUp01 icon — ascending numeric sort */}
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-              <path d="m3 8 4-4 4 4"/>
-              <path d="M7 4v16"/>
-              <rect x="15" y="4" width="4" height="6" ry="2"/>
-              <path d="M17 20v-6h-2"/>
-              <path d="M15 20h4"/>
-            </svg>
+            <ListOrdered size={14} strokeWidth={2} />
           </button>
           </Tooltip>
 
@@ -550,7 +543,7 @@ export default function LoopRegionStrip() {
               position: 'fixed',
               top: (iconBtnRef.current?.getBoundingClientRect().bottom ?? 0) + 4,
               left: iconBtnRef.current?.getBoundingClientRect().left ?? 0,
-              background: 'var(--bg-tile)',
+              background: 'var(--bg)',
               border: '1px solid var(--border-popup)',
               borderRadius: 6,
               padding: '10px 12px',
