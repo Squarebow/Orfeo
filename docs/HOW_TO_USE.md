@@ -103,7 +103,7 @@ That is the whole loop. Everything below is depth on each part.
 
 ---
 
-## Playing MIDI files
+## <img src="how-to-use-icons/playback.svg" alt="" height="26" align="middle"> Playing MIDI files
 
 *Session-only and non-destructive by default — nothing here is written to the
 file unless you explicitly save it (the [Console Mixer](#console-mixer),
@@ -277,7 +277,7 @@ General) download on demand, and you can import your own `.sf2` / `.sf3`.
 
 ---
 
-## Editing MIDI files
+## <img src="how-to-use-icons/midi-playback-editor.svg" alt="" height="26" align="middle"> Editing MIDI files
 
 *Where changes get committed. Your original file is **never touched** — every
 save lands as a `_ORFEO_vN` version in an `Orfeo/` folder beside the source.*
@@ -440,7 +440,7 @@ Each save writes the next `_ORFEO_vN` version, same as the Playback Editor.
 
 ---
 
-## Practicing with MIDI files
+## <img src="how-to-use-icons/practice.svg" alt="" height="26" align="middle"> Practicing with MIDI files
 
 *With a clean, well-structured file in hand, these are the tools you drill
 with.*
@@ -564,7 +564,7 @@ Multi-device input is supported.
 
 ---
 
-## Managing MIDI files
+## <img src="how-to-use-icons/managing-midi-files.svg" alt="" height="26" align="middle"> Managing MIDI files
 
 ### Supported formats
 
@@ -665,7 +665,7 @@ soundfonts are left exactly where they are. Full detail:
 
 ---
 
-## Settings & Extras
+## <img src="how-to-use-icons/settings.svg" alt="" height="26" align="middle"> Settings & Extras
 
 *Settings that make Orfeo fit how you already read and teach music. Open with
 the gear icon (top-right); eight collapsible sections.*
