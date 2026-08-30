@@ -12,9 +12,10 @@
 - **Loop Region bar-range popup** — background aligned to the standard popup color; the trigger icon swapped for a cleaner ordered-list glyph.
 - **Chord Transcription (Settings) — the file-row tooltip is split and no longer doubles up.** Hovering the filename shows "Right-click for options"; hovering the transcript icon shows only its own hint, now in plain text that fits the tooltip instead of overflowing amber caps.
 - **Lock-a-Chord modal** — removed the redundant per-button tooltips.
+- **Uninstall "delete everything" now actually clears your settings.** Since the installer went per-machine (1.0.1) the uninstaller runs elevated with the all-users shell context, where `$APPDATA` points at `C:\ProgramData` — so the cleanup step was deleting a folder that doesn't exist and your real `orfeo-prefs.json` (with the library-folder link) survived, making a fresh reinstall reopen straight into the old library instead of the empty first-run state. The cleanup now switches to the invoking user's context first, like electron-builder's own uninstaller does. It also no longer prompts or deletes anything during an auto-update (`--updated`) or a silent (`/S`) uninstall — an update keeps your library and files.
 
 ### Changed
-- `docs/CHANGELOG.md`, `package.json`, `src/components/ChordExplorer.tsx`, `src/components/Keyboard/Keyboard.tsx`, `src/components/LockedChordModal.tsx`, `src/components/LoopRegionStrip.tsx`, `src/components/ScaleExplorer.tsx`, `src/components/SettingsPanel/SettingsPanel.tsx`, `src/store/index.ts`, `src/utils/midiParser.ts`.
+- `build/installer.nsh`, `docs/CHANGELOG.md`, `package.json`, `src/components/ChordExplorer.tsx`, `src/components/Keyboard/Keyboard.tsx`, `src/components/LockedChordModal.tsx`, `src/components/LoopRegionStrip.tsx`, `src/components/ScaleExplorer.tsx`, `src/components/SettingsPanel/SettingsPanel.tsx`, `src/store/index.ts`, `src/utils/midiParser.ts`.
 
 ## [1.0.1] — 29. 8. 2026 — GPLv3 relicense, embedded edit history, piano-roll performance fixes, documentation overhaul
 

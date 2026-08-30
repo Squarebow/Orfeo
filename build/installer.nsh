@@ -38,8 +38,37 @@
 ; with no Components-page checkbox to fail to select it from (see above).
 !macro customUnInstallSection
   Section "-un.Orfeo Data Cleanup"
+    ; ── Auto-update path: electron-updater runs uninstall.exe with --updated
+    ; (and silently). An update must NEVER prompt or delete user data — the
+    ; library-folder link and edited files have to survive it. Same guard
+    ; electron-builder's own app-data delete uses (uninstaller.nsh:
+    ; `${ifNot} ${isUpdated}`); checked here via the raw flag so it's
+    ; self-evident. A plain `/S` uninstall (no UI at all) is also treated as
+    ; "don't silently wipe" — fall through keeping everything. ──────────────
+    ClearErrors
+    ${GetParameters} $R0
+    ${GetOptions} $R0 "--updated" $R1
+    ${IfNot} ${Errors}
+      Goto orfeo_end
+    ${EndIf}
+    IfSilent orfeo_end
+
+    ; ── perMachine (all-users) install runs elevated with the shell-var
+    ; context defaulting to "all": there $APPDATA is C:\ProgramData and
+    ; $DESKTOP is the Public desktop. Electron user data is ALWAYS per-user
+    ; (%APPDATA%\Orfeo — see electron/main.ts's app.setName), so switch to
+    ; the invoking user's context before touching either path, exactly as
+    ; electron-builder's own uninstaller.nsh does around its RMDir of
+    ; $APPDATA. Without this, "YES — delete everything" ran RMDir against a
+    ; non-existent C:\ProgramData\Orfeo, leaving the real orfeo-prefs.json
+    ; (and its libraryFolder link) intact — so a fresh reinstall reopened
+    ; straight into the old library instead of the empty first-run state. ──
+    ${If} $installMode == "all"
+      SetShellVarContext current
+    ${EndIf}
+
     MessageBox MB_YESNOCANCEL|MB_ICONQUESTION "Delete your Orfeo settings and data?$\r$\n$\r$\nYES — delete everything: preferences, library-folder link, downloaded soundfonts, demo files, and any edited MIDI files saved without a library folder set.$\r$\n$\r$\nNO — keep your edited MIDI files (moved to a folder on your Desktop), delete everything else.$\r$\n$\r$\nCANCEL — keep everything, delete nothing.$\r$\n$\r$\nYour library folder itself (wherever you pointed Orfeo at) is never touched either way." \
-      IDYES orfeo_delete_all IDCANCEL orfeo_end
+      IDYES orfeo_delete_all IDCANCEL orfeo_restore_context
 
     ; NO — the fallback Demo/ (no library folder configured) is the only
     ; place inside %APPDATA%\Orfeo user edits can exist — current demo
@@ -52,6 +81,11 @@
 
     orfeo_delete_all:
     RMDir /r "$APPDATA\${APP_FILENAME}"
+
+    orfeo_restore_context:
+    ${If} $installMode == "all"
+      SetShellVarContext all
+    ${EndIf}
 
     orfeo_end:
   SectionEnd
