@@ -111,9 +111,17 @@ interface OrfeoStore {
   setChordExplorerMinimized: (v: boolean) => void
   // ── One-shot signal: "open Chord Explorer pre-seeded with this chord" —
   // set by the playback chord-display context menu, consumed once by
-  // ChordExplorer.tsx on open, then cleared. ────────────────────────────────
-  pendingChordExplorerSeed: { rootPitchClass: number; intervals: string[] } | null
-  setPendingChordExplorerSeed: (v: { rootPitchClass: number; intervals: string[] } | null) => void
+  // ChordExplorer.tsx on open, then cleared. `voicing` (when present) is the
+  // exact MIDI voicing under the paused playhead — the real inversion and
+  // register from the file, which the Explorer restores verbatim instead of
+  // its canonical root-position octave-4 rebuild. `inversionCount` is that
+  // voicing's inversion number, for the on-keyboard chord-name label. ───────
+  pendingChordExplorerSeed:
+    | { rootPitchClass: number; intervals: string[]; voicing?: number[]; inversionCount?: number }
+    | null
+  setPendingChordExplorerSeed: (
+    v: { rootPitchClass: number; intervals: string[]; voicing?: number[]; inversionCount?: number } | null,
+  ) => void
   scaleExplorerOpen: boolean
   scaleExplorerMinimized: boolean
   setScaleExplorerOpen: (open: boolean) => void

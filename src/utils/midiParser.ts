@@ -253,3 +253,31 @@ export function isBlackKey(midi: number): boolean {
   const note = midi % 12
   return [1, 3, 6, 8, 10].includes(note)
 }
+
+// ── Notes actually sounding at a given playback time ──────────────────────────
+// Every note whose [onset, onset+duration) window contains `time`, across every
+// non-drum track, transpose-adjusted the same way chord detection is
+// (detectedKey.transpose). Used by the paused chord-display context menu so
+// "Show on keyboard" / "Open in Chord Explorer" reflect the real voicing,
+// register AND source-track colors under the playhead — not a thin snapshot
+// taken when the chord name last changed. One entry per distinct MIDI number
+// (lowest-onset note wins the tie), ascending by pitch.
+export interface SoundingNote {
+  midi: number         // already transpose-adjusted
+  trackIndex: number
+  hand?: ParsedNote['hand']
+}
+export function notesSoundingAt(tracks: ParsedTrack[], time: number, transpose = 0): SoundingNote[] {
+  const EPS = 0.02   // 20ms grace so a note landing right on the playhead counts
+  const byMidi = new Map<number, SoundingNote>()
+  for (const track of tracks) {
+    if (track.isDrum) continue
+    for (const n of track.notes) {
+      if (n.time - EPS <= time && time < n.time + n.duration - EPS) {
+        const midi = n.midi + transpose
+        if (!byMidi.has(midi)) byMidi.set(midi, { midi, trackIndex: n.trackIndex, hand: n.hand })
+      }
+    }
+  }
+  return Array.from(byMidi.values()).sort((a, b) => a.midi - b.midi)
+}

@@ -339,6 +339,10 @@ export default function ScaleExplorer() {
   // sequential amber highlight on the note-names row. ───────────────────────
   const [scalePlayIndex, setScalePlayIndex] = useState(-1)
 
+  // ── "Chords in the Scale" auto-sequence — playing/stopped, so the play
+  // button toggles (stop on click / spacebar) instead of restarting. ───────
+  const [chordSeqPlaying, setChordSeqPlaying] = useState(false)
+
   // ── Refs ──────────────────────────────────────────────────────────────────
   const progTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   // speedRef lets playProgStepAt read the live speed without restarting the chain
@@ -382,6 +386,25 @@ export default function ScaleExplorer() {
     )
   }, [selectedRoot, scale, displayNaming, accidentals, chordNamingStyle])
 
+  // ── Scale-type button — also re-syncs the Circle of Fifths highlight so the
+  // lit segment always matches the chosen scale's family (minor-family scales
+  // light the inner ring, everything else the outer ring) while keeping the
+  // same tonic pitch class. Without this, switching e.g. Cm → Major Pentatonic
+  // left "Cm" lit on the circle even though "Key of" had moved to C. ────────
+  const selectScaleType = useCallback((idx: number) => {
+    setSelectedScaleIdx(idx)
+    setInfoRowChord(null)
+    setSelectedDegree(null)
+    setOctaveTileSelected(false)
+    clearExplorerChordDisplay()
+    if (selectedRoot !== null) {
+      const ring: 'major' | 'minor' = MINOR_SCALES.has(SCALES[idx].name) ? 'minor' : 'major'
+      const table = ring === 'major' ? COF_MAJOR_PC : COF_MINOR_PC
+      const newPos = table.indexOf(selectedRoot)
+      if (newPos >= 0) { setCofRing(ring); setCofPos(newPos) }
+    }
+  }, [selectedRoot, clearExplorerChordDisplay])
+
   // ── Stop progression and clear its timer ─────────────────────────────────
   const stopProgression = useCallback(() => {
     progRunningRef.current = false
@@ -400,6 +423,7 @@ export default function ScaleExplorer() {
   const stopChordSequence = useCallback(() => {
     chordSeqTimersRef.current.forEach(t => clearTimeout(t))
     chordSeqTimersRef.current = []
+    setChordSeqPlaying(false)
   }, [])
 
   // ── On open: pause playback, reset all transient state ────────────────────
@@ -544,19 +568,25 @@ export default function ScaleExplorer() {
   }, [diatonicChords, setExplorerKeys, displayNaming, accidentals, noteColor, selectedRoot, ringNotes])
 
   // ── Auto-play all chords in the scale, one after another — the "Chords in
-  // the Scale" row's play button. Runs the 7 diatonic tiles plus the octave
-  // tile, in tile order, each ringing for 700ms before the next starts. ─────
+  // the Scale" row's play button. Runs every diatonic tile (5 for pentatonic,
+  // 7 otherwise) plus the octave tile, in tile order, each ringing for 700ms
+  // before the next starts. Toggles: a second click (or spacebar) stops it;
+  // clicking again restarts from the beginning. ───────────────────────────
   const playChordsInSequence = useCallback(() => {
+    if (chordSeqPlaying) { stopChordSequence(); return }
     if (diatonicChords.length === 0) return
     stopChordSequence()
+    setChordSeqPlaying(true)
     const STEP_MS = 700
     diatonicChords.forEach((chord, i) => {
       const t = setTimeout(() => playDegree(chord), i * STEP_MS)
       chordSeqTimersRef.current.push(t)
     })
-    const t = setTimeout(() => playOctaveDegree(), diatonicChords.length * STEP_MS)
-    chordSeqTimersRef.current.push(t)
-  }, [diatonicChords, stopChordSequence, playDegree, playOctaveDegree])
+    const tOct = setTimeout(() => playOctaveDegree(), diatonicChords.length * STEP_MS)
+    chordSeqTimersRef.current.push(tOct)
+    const tEnd = setTimeout(() => setChordSeqPlaying(false), (diatonicChords.length + 1) * STEP_MS)
+    chordSeqTimersRef.current.push(tEnd)
+  }, [chordSeqPlaying, diatonicChords, stopChordSequence, playDegree, playOctaveDegree])
 
   // ── Base MIDI notes for the currently selected tile (inversion source) ─────
   // Octave tile takes precedence: returns tonic notes +12 when that tile is
@@ -671,9 +701,10 @@ export default function ScaleExplorer() {
     playProgStepAt(0, selectedProg, progInversionMode, 0)
   }, [selectedProg, diatonicChords.length, progInversionMode, stopProgression, playProgStepAt])
 
-  // ── Stop progression when root or scale type changes ──────────────────────
+  // ── Stop progression + chords-in-scale sequence when root/scale changes ───
   useEffect(() => {
     if (progPlaying) stopProgression()
+    stopChordSequence()
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedRoot, selectedScaleIdx])
 
@@ -713,19 +744,23 @@ export default function ScaleExplorer() {
     return () => window.removeEventListener('keydown', handler)
   }, [scaleExplorerOpen, close, progDropdownOpen])
 
-  // ── Spacebar plays/pauses the progression while this modal is open ────────
+  // ── Spacebar while this modal is open — controls the progression when one
+  // is selected, otherwise toggles the "Chords in the Scale" auto-sequence. ─
   useEffect(() => {
     if (!scaleExplorerOpen) return
     const handler = (e: KeyboardEvent) => {
       if (e.code !== 'Space') return
       if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) return
-      if (selectedProg === null) return
       e.preventDefault()
-      if (progPlaying) stopProgression(); else startProgression()
+      if (selectedProg !== null) {
+        if (progPlaying) stopProgression(); else startProgression()
+      } else {
+        playChordsInSequence()
+      }
     }
     window.addEventListener('keydown', handler)
     return () => window.removeEventListener('keydown', handler)
-  }, [scaleExplorerOpen, selectedProg, progPlaying, stopProgression, startProgression])
+  }, [scaleExplorerOpen, selectedProg, progPlaying, stopProgression, startProgression, playChordsInSequence])
 
   // ── Window drag handler ───────────────────────────────────────────────────
   const onDragStart = useCallback((e: React.MouseEvent) => {
@@ -869,7 +904,7 @@ export default function ScaleExplorer() {
           {SCALES.map((s, i) => {
             const sel = selectedScaleIdx === i
             return (
-              <button key={s.name} onClick={() => setSelectedScaleIdx(i)}
+              <button key={s.name} onClick={() => selectScaleType(i)}
                 style={{
                   fontFamily: 'var(--font-ui)', fontSize: 12, padding: '4px 6px',
                   background: sel ? 'var(--accent-amber-medium)' : 'none',
@@ -998,7 +1033,7 @@ export default function ScaleExplorer() {
         <div style={{ position: 'absolute', bottom: 6, left: 12, right: 12, display: 'flex', flexDirection: 'column', gap: 2 }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
             <span style={{ ...ROW_LABEL, fontSize: 11 }}>Chords in the Scale</span>
-            <Tooltip title="Play Chords" description="Plays all 7 diatonic chords in the scale, one after another.">
+            <Tooltip title="Play Chords" description={chordSeqPlaying ? 'Stop playback.' : 'Play all chords in the scale one after another.'}>
               <button
                 onClick={playChordsInSequence}
                 disabled={selectedRoot === null}
@@ -1009,7 +1044,11 @@ export default function ScaleExplorer() {
                 }}
                 onMouseEnter={e => { if (selectedRoot !== null) e.currentTarget.style.color = 'var(--accent-amber-hover)' }}
                 onMouseLeave={e => { e.currentTarget.style.color = selectedRoot === null ? 'var(--state-disabled)' : 'var(--text-amber)' }}
-              ><Play size={13} fill="currentColor" strokeWidth={0} /></button>
+              >
+                {chordSeqPlaying
+                  ? <Square size={12} fill="currentColor" strokeWidth={0} />
+                  : <Play size={13} fill="currentColor" strokeWidth={0} />}
+              </button>
             </Tooltip>
           </div>
           {/* ── "Click tiles..." hint left, Color Root Note toggle right — same row ── */}
@@ -1124,33 +1163,40 @@ export default function ScaleExplorer() {
         borderTop: '1px solid var(--border)', background: 'var(--bg-modal-header)',
         position: 'relative',
       }}>
-        {infoRowChord ? (
+        {selectedRoot === null ? (
+          <span style={{ fontSize: 10, color: 'var(--state-disabled)', fontFamily: 'var(--font-ui)', margin: '0 auto' }}>—</span>
+        ) : (
           <>
             {/* Left — CHORD QUALITY label + all progression steps on one line.
-                Active step amber/bold; inactive steps dim.
-                Single-tile clicks have labels.length === 1 so only one span renders. */}
-            <div style={{ display: 'flex', flexDirection: 'row', alignItems: 'baseline', gap: 'var(--space-1)', minWidth: 60, flexWrap: 'wrap' }}>
-              <span style={{ fontFamily: 'var(--font-ui)', fontSize: 9, fontWeight: 700, color: 'var(--text-dimmest)', letterSpacing: '0.10em', textTransform: 'uppercase', userSelect: 'none', flexShrink: 0 }}>
-                Chord Quality
-              </span>
-              {infoRowChord.labels.map((label, i) => (
-                <span key={i} style={{
-                  fontFamily: 'var(--font-ui)',
-                  fontSize: i === infoRowChord.step ? 12 : 11,
-                  fontWeight: i === infoRowChord.step ? 700 : 400,
-                  color: i === infoRowChord.step ? 'var(--text-amber)' : 'var(--text-inactive)',
-                  userSelect: 'none', lineHeight: 1,
-                }}>{label}</span>
-              ))}
-            </div>
+                Active step amber/bold; inactive steps dim. Only once a tile
+                has been played; the "Key Of" block on the right shows from
+                the moment a key is picked on the circle. */}
+            {infoRowChord ? (
+              <div style={{ display: 'flex', flexDirection: 'row', alignItems: 'baseline', gap: 'var(--space-1)', minWidth: 60, flexWrap: 'wrap' }}>
+                <span style={{ fontFamily: 'var(--font-ui)', fontSize: 9, fontWeight: 700, color: 'var(--text-dimmest)', letterSpacing: '0.10em', textTransform: 'uppercase', userSelect: 'none', flexShrink: 0 }}>
+                  Chord Quality
+                </span>
+                {infoRowChord.labels.map((label, i) => (
+                  <span key={i} style={{
+                    fontFamily: 'var(--font-ui)',
+                    fontSize: i === infoRowChord.step ? 12 : 11,
+                    fontWeight: i === infoRowChord.step ? 700 : 400,
+                    color: i === infoRowChord.step ? 'var(--text-amber)' : 'var(--text-inactive)',
+                    userSelect: 'none', lineHeight: 1,
+                  }}>{label}</span>
+                ))}
+              </div>
+            ) : <span style={{ minWidth: 60 }} />}
             {/* Centre — note names, large, absolutely centred in the row */}
-            <span style={{
-              position: 'absolute', left: '50%', transform: 'translateX(-50%)',
-              fontFamily: 'var(--font-mono)', fontSize: 'var(--text-lg)', color: 'var(--text-dim)',
-              letterSpacing: '0.06em', userSelect: 'none', whiteSpace: 'nowrap',
-            }}>
-              {infoRowChord.notes.join('  ')}
-            </span>
+            {infoRowChord && (
+              <span style={{
+                position: 'absolute', left: '50%', transform: 'translateX(-50%)',
+                fontFamily: 'var(--font-mono)', fontSize: 'var(--text-lg)', color: 'var(--text-dim)',
+                letterSpacing: '0.06em', userSelect: 'none', whiteSpace: 'nowrap',
+              }}>
+                {infoRowChord.notes.join('  ')}
+              </span>
+            )}
             {/* Right — fixed "KEY OF [root]" label; root sits in a fixed-width
                 slot (worst case: 3 chars, e.g. "C#m") so it never shifts. ──── */}
             <div style={{ display: 'flex', flexDirection: 'row', alignItems: 'center', justifyContent: 'flex-end', gap: 'var(--space-1)', minWidth: 60 }}>
@@ -1162,8 +1208,6 @@ export default function ScaleExplorer() {
               </span>
             </div>
           </>
-        ) : (
-          <span style={{ fontSize: 10, color: 'var(--state-disabled)', fontFamily: 'var(--font-ui)', margin: '0 auto' }}>—</span>
         )}
       </div>
 

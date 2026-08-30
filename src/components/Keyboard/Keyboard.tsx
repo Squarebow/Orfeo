@@ -2,8 +2,11 @@ import React, { useMemo, useCallback, useState, useEffect, useRef } from 'react'
 import { useStore } from '../../store'
 import { isBlackKey } from '../../utils/midiParser'
 import { getNoteLabel, getNoteName } from '../../utils/noteNames'
-import { detectChord, detectChordWithInversion, formatInversionDisplay, localizeChord, ordinalSuffix } from '../../utils/chordDetection'
+import { detectChord, detectChordStructured, detectChordWithInversion, formatInversionDisplay, localizeChord, ordinalSuffix } from '../../utils/chordDetection'
 import { buildKeyLayoutRatios, PIANO_RANGES as RANGES } from '../../utils/keyLayout'
+import { notesSoundingAt } from '../../utils/midiParser'
+import { isHomogeneousHandTrack, HAND_LH_CSS, HAND_RH_CSS } from '../../utils/handColors'
+import { NES } from '../../utils/noteEditorState'
 import { buildPitchHandIndex, lookupNoteHandAtTime, detectPerformanceBoundary } from '../../utils/handBoundaries'
 import type { Hand } from '../../types'
 import Tooltip, { useTooltip } from '../Tooltip'
@@ -180,14 +183,21 @@ export default function Keyboard() {
   }, [])
 
   // ── Right-click menu on the playback chord display, paused only — "Show on
-  // keyboard" (auto-lock) and "Open in Chord Explorer". Needs heldChordEvent's
-  // structured root+intervals (root-position identity), so it's a no-op
-  // during playback or when the current event has no structured detection. ──
+  // keyboard" (auto-lock) and "Open in Chord Explorer". Both act on the exact
+  // voicing sounding under the paused playhead (notesSoundingAt), so the
+  // register AND the inversion match the file — not heldChordEvent.realMidi,
+  // which is only the thin snapshot taken when the chord name last changed
+  // (a passing/anticipation bass note there was showing as a lone key). ─────
   const [chordCtxMenu, setChordCtxMenu] = useState<{
     x: number; y: number
     structured: { rootPitchClass: number; intervals: string[]; rawRootName: string }
     realMidi: number[]
+    // Per-note key color, resolved from the source track exactly as the piano
+    // roll / playback key-lights do — so "Show on keyboard" tells you which
+    // instrument each note came from instead of flat amber. ────────────────
+    colors: Map<number, string>
     displayName: string
+    inversionCount: number
   } | null>(null)
   const chordCtxMenuRef = useRef<HTMLDivElement>(null)
 
@@ -208,37 +218,80 @@ export default function Keyboard() {
   const handleChordContextMenu = useCallback((e: React.MouseEvent) => {
     e.preventDefault()
     if (playbackState === 'playing' || !heldChordEvent?.structured) return
-    const displayName = localizeChord(heldChordEvent.structured.rawRootName, noteNaming, accidentals, chordNamingStyle) ?? heldChordEvent.structured.rawRootName
-    setChordCtxMenu({ x: e.clientX, y: e.clientY, structured: heldChordEvent.structured, realMidi: heldChordEvent.realMidi, displayName })
+
+    // ── Real voicing under the paused playhead — every non-drum note whose
+    // sustain window spans currentTime, transpose-matched to detection.
+    // Falls back to the held event's snapshot only if the playhead sits in
+    // a genuine gap (< 2 notes ringing). ──────────────────────────────────
+    const st = useStore.getState()
+    const loadedMidi = st.midi
+    const transpose = st.detectedKey?.transpose ?? 0
+    const sounding = loadedMidi ? notesSoundingAt(loadedMidi.tracks, st.currentTime, transpose) : []
+    const useLive = sounding.length >= 2
+    const realMidi = useLive ? sounding.map(s => s.midi) : heldChordEvent.realMidi
+
+    // ── Resolve each note's key color from its source track — same rule the
+    // piano-roll waterfall + playback key-lights use (track palette color, or
+    // fixed LH/RH blue/pink for split tracks / while hand coloring is on).
+    // The gap-fallback path has no per-note track info, so it stays amber. ──
+    const handColoringOn = st.showHandLabels || (st.noteEditorActive && NES.reassignHandsMode)
+    const colorFor = (sn: { trackIndex: number; hand?: 'L' | 'R' }): string => {
+      const ts = st.tracks.find((t: { index: number }) => t.index === sn.trackIndex) as { index: number; color?: string } | undefined
+      const trackColor = ts?.color ?? 'var(--text-amber)'
+      if (!sn.hand) return trackColor
+      const trackNotes = loadedMidi?.tracks.find(t => t.index === sn.trackIndex)?.notes ?? []
+      if (isHomogeneousHandTrack(trackNotes) || handColoringOn) return sn.hand === 'L' ? HAND_LH_CSS : HAND_RH_CSS
+      return trackColor
+    }
+    const colors = new Map<number, string>(
+      useLive
+        ? sounding.map(s => [s.midi, colorFor(s)] as const)
+        : heldChordEvent.realMidi.map(m => [m, 'var(--text-amber)'] as const),
+    )
+
+    const set = new Set(realMidi)
+    const structured = detectChordStructured(set) ?? heldChordEvent.structured
+    const invInfo = detectChordWithInversion(set)
+    const inversionCount = invInfo?.ordinal ? Number(invInfo.ordinal) : 0
+    const displayName = localizeChord(structured.rawRootName, noteNaming, accidentals, chordNamingStyle) ?? structured.rawRootName
+    setChordCtxMenu({ x: e.clientX, y: e.clientY, structured, realMidi, colors, displayName, inversionCount })
   }, [playbackState, heldChordEvent, noteNaming, accidentals, chordNamingStyle])
 
   const handleShowChordOnKeyboard = useCallback(() => {
     if (!chordCtxMenu) return
-    const { realMidi, displayName } = chordCtxMenu
-    // ── The exact notes as they were actually paused/sounding, not a
-    // canonical re-voicing — buildChordMidi() (used by "Open in Chord
-    // Explorer" instead) always reconstructs a fixed-octave voicing, which
-    // is right for browsing the Explorer but showed the chord several
-    // octaves away from where it was really playing here. Still clamp to
-    // the current keyboard's playable range, same as buildChordMidi does. ──
+    const { realMidi, colors: srcColors, displayName, inversionCount } = chordCtxMenu
+    // ── The exact notes actually sounding when paused, not a canonical
+    // re-voicing — buildChordMidi() (used by "Open in Chord Explorer") always
+    // reconstructs a fixed-octave root position, which is right for browsing
+    // the Explorer but showed the chord in the wrong register/inversion here.
+    // Still clamp to the current keyboard's playable range. ────────────────
     const { min, max } = RANGES[keyboardSize] ?? RANGES[73]
     const midiNotes = realMidi.filter(m => m >= min && m <= max)
     if (midiNotes.length > 0) {
-      const colors = new Map(midiNotes.map(m => [m, 'var(--text-amber)'] as [number, string]))
+      // Keep each key in its source-track color so it's clear which instrument
+      // the locked notes came from — matching the piano roll and playback.
+      const colors = new Map(midiNotes.map(m => [m, srcColors.get(m) ?? 'var(--text-amber)'] as [number, string]))
       // ── Setting lockedKeys is enough — LockedChordModal auto-opens itself
       // via its own effect watching lockedKeys.size, same as Shift+Click. ────
       setLockedKeysStore(new Set(midiNotes), colors)
       useStore.getState().setOriginalLockedChordName(displayName)
-      useStore.getState().setLockedInversionCount(0)
-      useStore.getState().setLockedChordNoteCount(midiNotes.length)
+      // Real inversion + distinct-note count so the modal labels it "D7/A 2ⁿᵈ
+      // inv" exactly as the playback display did, not a bare root-position "D7".
+      useStore.getState().setLockedInversionCount(inversionCount)
+      useStore.getState().setLockedChordNoteCount(new Set(midiNotes.map(m => m % 12)).size)
     }
     setChordCtxMenu(null)
   }, [chordCtxMenu, keyboardSize, setLockedKeysStore])
 
   const handleOpenChordInExplorer = useCallback(() => {
     if (!chordCtxMenu) return
-    const { structured } = chordCtxMenu
-    useStore.getState().setPendingChordExplorerSeed({ rootPitchClass: structured.rootPitchClass, intervals: structured.intervals })
+    const { structured, realMidi, inversionCount } = chordCtxMenu
+    useStore.getState().setPendingChordExplorerSeed({
+      rootPitchClass: structured.rootPitchClass,
+      intervals: structured.intervals,
+      voicing: realMidi,
+      inversionCount,
+    })
     setChordExplorerOpen(true)
     setChordCtxMenu(null)
   }, [chordCtxMenu, setChordExplorerOpen])
@@ -249,7 +302,7 @@ export default function Keyboard() {
   // usage below), not on the empty "— — —" placeholder. ─────────────────────
   const showChordTooltip = playbackState === 'playing' ? !!heldChordEvent : !!heldChordEvent?.structured
   const chordTooltip = useTooltip<HTMLDivElement>(
-    { title: playbackState === 'playing' ? 'Pause to study the chord' : 'Right-click for options' },
+    { title: playbackState === 'playing' ? 'Pause to study the chord' : 'Right-click to see the chord' },
     { oneLine: true },
   )
 

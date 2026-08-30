@@ -687,8 +687,31 @@ export default function ChordExplorer() {
     if (!match) return
 
     if (!COMMON_CHORDS.some(c => c.key === match.key)) setTier('extended')
-    playChordAt(match.key, seed.rootPitchClass)
-  }, [chordExplorerOpen, playChordAt])
+
+    // ── When the seed carries a real voicing (from the paused MIDI playhead),
+    // restore that exact inversion + register instead of playChordAt's
+    // canonical root-position octave-4 rebuild — octave-folded into the
+    // Explorer keyboard's 61-key range so every note stays visible. ─────────
+    if (seed.voicing && seed.voicing.length >= 2) {
+      stopProgression()
+      const { min, max } = RANGES[61]
+      const fold = (m: number) => { while (m < min) m += 12; while (m > max) m -= 12; return m }
+      const voiced = Array.from(new Set(seed.voicing.map(fold))).sort((a, b) => a - b)
+      const colors = new Map(voiced.map(m => [m, 'var(--text-amber)'] as [number, string]))
+      setSelectedKey(match.key)
+      setExplorerKeys(new Set(voiced), colors)
+      const rootLbl = rootLabels.find(r => r.pitchClass === seed.rootPitchClass)?.label ?? ''
+      setExplorerChordDisplay({
+        name: `${rootLbl}${formatChordSuffix(match.suffix, chordNamingStyle)}`,
+        invCount: seed.inversionCount ?? 0,
+        noteCount: new Set(voiced.map(m => m % 12)).size,
+      })
+      const playNote = (window as any).__orfeoPlayNote
+      if (playNote) voiced.forEach(m => playNote(m, 0.75, 1200, undefined, false))
+    } else {
+      playChordAt(match.key, seed.rootPitchClass)
+    }
+  }, [chordExplorerOpen, playChordAt, stopProgression, rootLabels, chordNamingStyle, setExplorerKeys, setExplorerChordDisplay])
 
   // ── Play a power chord (root + P5) for the given pitch class ─────────────
   const playPowerChord = useCallback((pitchClass: number) => {

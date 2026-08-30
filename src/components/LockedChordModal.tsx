@@ -6,7 +6,6 @@ import { formatInversionDisplay, ordinalSuffix } from '../utils/chordDetection'
 import { getNoteName } from '../utils/noteNames'
 import { modalCloseButtonStyle, modalCloseButtonHoverColor, modalCloseButtonIdleColor } from '../utils/modalCloseButtonStyle'
 import OrfeoMark from './OrfeoMark'
-import Tooltip from './Tooltip'
 import { getPianoRollCenterX, getKeyboardHeaderTop } from '../utils/modalAnchors'
 import { useFocusTrap } from '../hooks/useFocusTrap'
 
@@ -144,7 +143,7 @@ export default function LockedChordModal() {
       left: pos.x,
       top: pos.y,
       width: MODAL_WIDTH,
-      background: 'var(--panel)',
+      background: 'var(--bg)',
       border: '1px solid var(--state-hover-border)',
       borderRadius: 'var(--radius-lg)',
       zIndex: 401,
@@ -200,7 +199,6 @@ export default function LockedChordModal() {
       {/* ── Controls: ‹ prev | play | next › | clear — grey idle, amber hover ─── */}
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 'var(--space-2)', padding: '0 10px 10px' }}>
         {/* Previous inversion — Play icon mirrored */}
-        <Tooltip oneLine title="Rotates the voicing down — the highest note drops an octave.">
         <button
           onClick={() => applyInversion(prevInversion, -1)}
           style={{ background: 'none', border: 'none', color: 'var(--text-dimmest)', cursor: 'pointer', padding: '0 2px', display: 'flex', alignItems: 'center', transition: 'color 0.12s' }}
@@ -209,9 +207,7 @@ export default function LockedChordModal() {
         >
           <ChevronPlayIcon size={13} mirrored />
         </button>
-        </Tooltip>
         {/* Play chord */}
-        <Tooltip oneLine title="Plays all locked notes together at the current voicing.">
         <button
           onClick={playLockedChord}
           style={{ background: 'transparent', border: '1px solid var(--text-inactive)', color: 'var(--text-dimmest)', borderRadius: 'var(--radius-sm)', padding: '2px 10px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 'var(--space-1)', fontFamily: 'var(--font-ui)', fontSize: 9, fontWeight: 700, letterSpacing: '0.06em', textTransform: 'uppercase', transition: 'color 0.12s, border-color 0.12s' }}
@@ -220,9 +216,7 @@ export default function LockedChordModal() {
         >
           <ChevronPlayIcon size={10} /> Play
         </button>
-        </Tooltip>
         {/* Next inversion — Play icon normal */}
-        <Tooltip oneLine title="Rotates the voicing up — the lowest note jumps an octave.">
         <button
           onClick={() => applyInversion(nextInversion, 1)}
           style={{ background: 'none', border: 'none', color: 'var(--text-dimmest)', cursor: 'pointer', padding: '0 2px', display: 'flex', alignItems: 'center', transition: 'color 0.12s' }}
@@ -231,9 +225,7 @@ export default function LockedChordModal() {
         >
           <ChevronPlayIcon size={13} />
         </button>
-        </Tooltip>
         {/* Clear locked chord — removes highlighted keys, modal stays open */}
-        <Tooltip oneLine title="Unlocks the notes but keeps this panel open.">
         <button
           onClick={handleClear}
           style={{ background: 'none', border: 'none', color: 'var(--text-inactive)', cursor: 'pointer', padding: '0 2px', display: 'flex', alignItems: 'center', transition: 'color 0.12s' }}
@@ -242,7 +234,6 @@ export default function LockedChordModal() {
         >
           <RotateCcw size={13} />
         </button>
-        </Tooltip>
       </div>
     </div>
   )
