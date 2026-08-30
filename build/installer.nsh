@@ -55,13 +55,12 @@
 
     ; ── Electron user data is ALWAYS per-user: %APPDATA%\Orfeo, i.e.
     ; C:\Users\<name>\AppData\Roaming\Orfeo (electron/main.ts's app.setName).
-    ; A perMachine uninstall runs elevated with the shell-var context
-    ; defaulting to "all", where $APPDATA resolves to C:\ProgramData — so the
-    ; old code's RMDir hit a folder that doesn't exist and orfeo-prefs.json
-    ; (the library-folder link) survived every "delete everything". Force the
-    ; invoking user's context UNCONDITIONALLY here — for a per-user install
-    ; it's already "current" so this is a harmless no-op, and there's no case
-    ; where electron data lives under the machine context. ────────────────
+    ; Orfeo installs per-user (nsis.perMachine:false), so this uninstaller
+    ; runs unelevated as the right user and $APPDATA is already correct — the
+    ; explicit `current` here is belt-and-braces (it also keeps this working
+    ; if perMachine is ever turned back on, where the elevated context would
+    ; otherwise default to "all" → $APPDATA = C:\ProgramData → RMDir misses
+    ; the real folder, which is the bug this whole block once had). ────────
     SetShellVarContext current
     StrCpy $R2 "$APPDATA\${APP_FILENAME}"
 

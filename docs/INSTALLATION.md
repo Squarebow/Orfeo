@@ -28,8 +28,8 @@ data.*
 |---|---|---|
 | **File name** | `Orfeo Setup <version>.exe` | `Orfeo-<version>-portable.exe` |
 | **Install step** | Yes — a normal Windows installer | None — the `.exe` *is* the app |
-| **Admin rights** | **Yes** — installs for all users, prompts for elevation (UAC) | No |
-| **Where it installs** | `C:\Program Files\Orfeo` by default (you can pick another folder during setup) | Wherever you put the `.exe` — USB stick, any folder |
+| **Admin rights** | No — installs just for your Windows account, no UAC prompt | No |
+| **Where it installs** | `%LOCALAPPDATA%\Programs\Orfeo` by default (you can pick another folder during setup) | Wherever you put the `.exe` — USB stick, any folder |
 | **Start Menu / Desktop shortcut** | Created automatically | No — pin it yourself if you want one |
 | **Auto-update** | Yes — checks GitHub Releases on startup | **No** — update manually by downloading the newer `.exe` |
 | **Uninstall** | Windows *Apps & features* (or the bundled uninstaller) | Delete the `.exe` and its data folder |
@@ -98,8 +98,7 @@ travel with it. A portable build never touches `%APPDATA%`.
 ## Uninstalling
 
 **Setup build:** use Windows *Apps & features*, or run the uninstaller from the
-install folder. Removing files from `C:\Program Files` requires admin rights, so
-the uninstaller prompts for elevation.
+install folder. Orfeo installs per-user, so this runs without an admin prompt.
 
 During uninstall you are asked what to do with your data — a three-way choice:
 
