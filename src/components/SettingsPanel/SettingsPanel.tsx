@@ -10,7 +10,7 @@ import {
 } from 'lucide-react'
 import { useStore } from '../../store'
 import OrfeoMark from '../OrfeoMark'
-import type { NoteNaming, KeyboardSize, Accidentals, TranscriptEntry, LibraryFile, HitEffectPattern, SoundfontId, SoundfontInfo, UpdateStatus } from '../../types'
+import type { NoteNaming, KeyboardSize, Accidentals, TranscriptEntry, LibraryFile, HitEffectPattern, SoundfontId, SoundfontInfo, UpdateStatus, UpdateInfo } from '../../types'
 import type { AppTheme } from '../../store'
 import { initSamplesEngine, loadSelectedSoundfont } from '../../hooks/useSamplesEngine'
 import { MarqueeText } from '../MarqueeText'
@@ -2018,17 +2018,30 @@ export default function SettingsPanel() {
   // electron-updater wiring there. 'idle' shows the plain cloud icon; other
   // states badge/animate it and drive the tooltip + click behavior below. ──
   const [updateStatus, setUpdateStatus] = useState<UpdateStatus>({ state: 'idle' })
+  // ── Which update flow this build uses — fetched once on mount so the button
+  // renders the right tooltip + behavior without having to click and wait.
+  // Default 'manual' until the real answer arrives (the safe, no-op-ish one). ─
+  const [updateInfo, setUpdateInfo] = useState<UpdateInfo>({ mode: 'manual', releasesUrl: 'https://github.com/Squarebow/Orfeo/releases' })
+  useEffect(() => {
+    window.electronAPI.getUpdateInfo().then(setUpdateInfo).catch(() => {})
+  }, [])
   useEffect(() => {
     const handler = (data: UpdateStatus) => setUpdateStatus(data)
     window.electronAPI.onUpdateStatus(handler)
     return () => window.electronAPI.offUpdateStatus()
   }, [])
-  const handleCheckForUpdates = async () => {
+  const handleUpdateButton = () => {
+    // Manual builds (portable / macOS / Linux / dev): the only action is
+    // "open the releases page" — no checking state, ever. Main handles the
+    // openExternal so behavior is identical whatever the build.
+    if (updateInfo.mode === 'manual') { void window.electronAPI.checkForUpdates(); return }
+    if (updateStatus.state === 'ready') { void window.electronAPI.installUpdate(); return }
+    if (updateStatus.state === 'error') { void window.electronAPI.openExternal(updateInfo.releasesUrl); return }
     setUpdateStatus({ state: 'checking' })
-    await window.electronAPI.checkForUpdates()
+    void window.electronAPI.checkForUpdates()
   }
-  // ── 'up to date' and 'unavailable' (dev/portable) are transient states —
-  // fade back to the plain icon after a few seconds instead of sticking. ────
+  // ── 'up to date' is transient — fade back to the plain icon after a few
+  // seconds instead of sticking. (auto mode only; manual never sets it.) ────
   useEffect(() => {
     if (updateStatus.state !== 'up-to-date' && updateStatus.state !== 'unavailable') return
     const t = setTimeout(() => setUpdateStatus({ state: 'idle' }), 3000)
@@ -3136,7 +3149,7 @@ export default function SettingsPanel() {
             padding: '8px 14px',
             display: 'flex', alignItems: 'center', gap: 6,
           }}>
-            <Tooltip title="Open user manual on GitHub" oneLine wrapperStyle={{ flex: 1, minWidth: 0 }}>
+            <Tooltip title="Open user manual" oneLine wrapperStyle={{ flex: 1, minWidth: 0 }}>
             <button
               onClick={() => window.electronAPI.openExternal('https://github.com/SquareBow/orfeo/blob/main/docs/HOW_TO_USE.md')}
               style={{
@@ -3152,23 +3165,23 @@ export default function SettingsPanel() {
               <span style={{ fontSize: 10, fontFamily: 'var(--font-mono)', letterSpacing: '0.02em' }}>User Manual</span>
             </button>
             </Tooltip>
-            {updateStatus.state === 'up-to-date' && (
+            {updateInfo.mode === 'auto' && updateStatus.state === 'up-to-date' && (
               <span style={{ fontSize: 9, color: 'var(--text-faint)', fontFamily: 'var(--font-ui)', whiteSpace: 'nowrap' }}>
                 Orfeo is up to date
               </span>
             )}
-            {updateStatus.state === 'ready' && (
+            {updateInfo.mode === 'auto' && updateStatus.state === 'ready' && (
               <span style={{ fontSize: 9, color: 'var(--text-amber)', fontFamily: 'var(--font-ui)', whiteSpace: 'nowrap' }}>
                 Update ready — click to install
               </span>
             )}
             <Tooltip
               title={
+                updateInfo.mode === 'manual'         ? 'Check for new releases on GitHub' :
                 updateStatus.state === 'checking'    ? 'Checking for updates…' :
                 updateStatus.state === 'downloading' ? `Downloading update${updateStatus.percent ? ` — ${Math.round(updateStatus.percent)}%` : '…'}` :
                 updateStatus.state === 'ready'       ? `Update ${updateStatus.version ?? ''} ready — click to restart and install` :
                 updateStatus.state === 'error'       ? `Update check failed: ${updateStatus.message ?? 'unknown error'} — click to open releases page` :
-                updateStatus.state === 'unavailable' ? 'Open GitHub releases page' :
                 'Check for updates'
               }
               oneLine
@@ -3176,11 +3189,7 @@ export default function SettingsPanel() {
               placement="left"
             >
             <button
-              onClick={() => {
-                if (updateStatus.state === 'ready') { window.electronAPI.installUpdate(); return }
-                if (updateStatus.state === 'unavailable') { window.electronAPI.openExternal('https://github.com/SquareBow/orfeo/releases'); return }
-                void handleCheckForUpdates()
-              }}
+              onClick={handleUpdateButton}
               style={{
                 position: 'relative',
                 flexShrink: 0, display: 'flex', alignItems: 'center',

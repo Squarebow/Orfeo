@@ -196,12 +196,22 @@ declare global {
       getCachedImport:     (sourcePath: string, cachePath: string) => Promise<string | null>
       writeCachedImport:   (destPath: string, base64: string) => Promise<void>
       // Auto-update (GitHub Releases)
+      getUpdateInfo:       () => Promise<UpdateInfo>
       checkForUpdates:     () => Promise<void>
       installUpdate:       () => Promise<void>
       onUpdateStatus:      (fn: (data: UpdateStatus) => void) => void
       offUpdateStatus:     () => void
     }
   }
+}
+
+// ── How the "check for updates" button behaves for this build, decided once
+// in electron/main.ts and read by SettingsPanel on mount:
+//   'auto'   — installed Windows build: electron-updater does check→download→install.
+//   'manual' — portable / macOS / Linux / dev: the button just opens releasesUrl.
+export type UpdateInfo = {
+  mode: 'auto' | 'manual'
+  releasesUrl: string
 }
 
 export type UpdateStatus = {

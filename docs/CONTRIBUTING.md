@@ -132,10 +132,14 @@ or when it is rebuilt. Pointing its auto-updater at Orfeo's official GitHub
 release feed would be actively wrong: it could offer an "update" that does not
 match how that binary was built, or silently never fire.
 
-So: **no auto-update on macOS/Linux, by design.** Users on those platforms
-check the [Releases](https://github.com/Squarebow/Orfeo/releases) page manually.
-The Settings "Check for updates" button already does the right thing there — it
-opens that page instead of trying to auto-check.
+So: **no auto-update on macOS/Linux, by design** — same as the Windows
+**portable** build (no installer for `electron-updater` to act on). Users on
+any of these check the [Releases](https://github.com/Squarebow/Orfeo/releases)
+page manually. `electron/main.ts` decides this once as `updateMode` (`'auto'`
+for the installed Windows build, `'manual'` for everything else) and the
+renderer reads it on mount via `update:info`; in `'manual'` mode the Settings
+"Check for updates" button just opens the Releases page in the browser — it
+never enters a checking/downloading state.
 
 </details>
 

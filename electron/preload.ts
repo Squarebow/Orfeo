@@ -54,6 +54,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
   onSoundfontProgress: (fn: (data: { id: string; progress: number }) => void) => ipcRenderer.on('soundfont:progress', (_e, data) => fn(data)),
   offSoundfontProgress: () => ipcRenderer.removeAllListeners('soundfont:progress'),
   // Auto-update (GitHub Releases)
+  getUpdateInfo:      () => ipcRenderer.invoke('update:info'),
   checkForUpdates:    () => ipcRenderer.invoke('update:check'),
   installUpdate:       () => ipcRenderer.invoke('update:install'),
   onUpdateStatus:      (fn: (data: any) => void) => ipcRenderer.on('update:status', (_e, data) => fn(data)),

@@ -1652,8 +1652,21 @@ ipcMain.handle('window:setFullScreen', (_e, value: boolean) => {
 // Settings "Check for updates" button just opening the releases page for
 // a manual look — see docs/CONTRIBUTING.md's "Releases & auto-update"
 // section. ─────────────────────────────────────────────────────────────────
+// ── Two distinct update modes, decided once here and never re-derived:
+//   'auto'   — packaged Windows installer build: electron-updater drives the
+//              whole check → download → install flow against the GitHub feed.
+//   'manual' — portable build, macOS/Linux, and dev: no installer for
+//              electron-updater to act on, so the button just opens the
+//              GitHub releases page in the browser. Nothing is ever
+//              downloaded or checked in-process.
+// The renderer asks for this ONCE on mount (update:info) and renders the
+// button's tooltip + click behavior from it — it never has to click and
+// wait to discover which mode it's in. ───────────────────────────────────
+const RELEASES_URL = 'https://github.com/Squarebow/Orfeo/releases'
 const isPortable = !!process.env.PORTABLE_EXECUTABLE_DIR
-const supportsAutoUpdate = process.platform === 'win32' && !isPortable
+const updateMode: 'auto' | 'manual' =
+  app.isPackaged && process.platform === 'win32' && !isPortable ? 'auto' : 'manual'
+
 autoUpdater.autoDownload = true
 autoUpdater.autoInstallOnAppQuit = false
 
@@ -1661,7 +1674,7 @@ function sendUpdateStatus(payload: Record<string, unknown>) {
   mainWin?.webContents.send('update:status', payload)
 }
 
-if (app.isPackaged && supportsAutoUpdate) {
+if (updateMode === 'auto') {
   autoUpdater.on('checking-for-update', () => sendUpdateStatus({ state: 'checking' }))
   autoUpdater.on('update-available', (info) => sendUpdateStatus({ state: 'downloading', version: info.version }))
   autoUpdater.on('update-not-available', () => sendUpdateStatus({ state: 'up-to-date' }))
@@ -1670,13 +1683,18 @@ if (app.isPackaged && supportsAutoUpdate) {
   autoUpdater.on('error', (err) => sendUpdateStatus({ state: 'error', message: err?.message ?? 'Update check failed' }))
 }
 
+// Renderer reads this once to pick the button's tooltip + behavior.
+ipcMain.handle('update:info', () => ({ mode: updateMode, releasesUrl: RELEASES_URL }))
+
 ipcMain.handle('update:check', () => {
-  if (!app.isPackaged) { sendUpdateStatus({ state: 'unavailable', reason: 'dev' }); return }
-  if (!supportsAutoUpdate) { sendUpdateStatus({ state: 'unavailable', reason: isPortable ? 'portable' : 'unsupported-platform' }); return }
+  // 'manual' mode: the only action is "open the releases page". Keep it in
+  // main so the button does exactly one thing regardless of build.
+  if (updateMode === 'manual') { void shell.openExternal(RELEASES_URL); return }
   autoUpdater.checkForUpdates().catch((err) => sendUpdateStatus({ state: 'error', message: err?.message ?? 'Update check failed' }))
 })
 
 ipcMain.handle('update:install', () => {
+  if (updateMode !== 'auto') return
   autoUpdater.quitAndInstall()
 })
 
@@ -1693,7 +1711,7 @@ if (process.env.PORTABLE_EXECUTABLE_DIR) {
 app.whenReady().then(async () => {
   try { await ensureDemoFolder() } catch (e) { console.error('[Orfeo] ensureDemoFolder failed:', e) }
   createWindow()
-  if (app.isPackaged && supportsAutoUpdate) {
+  if (updateMode === 'auto') {
     // Delayed so it doesn't compete with the app's own startup work; silent
     // by design — the UI only shows anything once a real update is found.
     setTimeout(() => { autoUpdater.checkForUpdates().catch(() => {}) }, 5000)
