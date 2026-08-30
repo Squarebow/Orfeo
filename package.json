@@ -24,8 +24,8 @@
     },
     "publish": {
       "provider": "github",
-      "owner": "SquareBow",
-      "repo": "orfeo"
+      "owner": "Squarebow",
+      "repo": "Orfeo"
     },
     "files": [
       "out/**/*",

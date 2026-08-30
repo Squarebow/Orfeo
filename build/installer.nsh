@@ -40,11 +40,11 @@
   Section "-un.Orfeo Data Cleanup"
     ; ── Auto-update path: electron-updater runs uninstall.exe with --updated
     ; (and silently). An update must NEVER prompt or delete user data — the
-    ; library-folder link and edited files have to survive it. Same guard
-    ; electron-builder's own app-data delete uses (uninstaller.nsh:
-    ; `${ifNot} ${isUpdated}`); checked here via the raw flag so it's
-    ; self-evident. A plain `/S` uninstall (no UI at all) is also treated as
-    ; "don't silently wipe" — fall through keeping everything. ──────────────
+    ; library-folder link and edited files have to survive it. Same intent as
+    ; electron-builder's own `${ifNot} ${isUpdated}` guard; checked here via
+    ; the raw flag (${GetParameters}/${GetOptions} are already used a few
+    ; lines up in uninstaller.nsh, so they're guaranteed available). A plain
+    ; `/S` uninstall is treated the same — keep everything. ────────────────
     ClearErrors
     ${GetParameters} $R0
     ${GetOptions} $R0 "--updated" $R1
@@ -53,19 +53,17 @@
     ${EndIf}
     IfSilent orfeo_end
 
-    ; ── perMachine (all-users) install runs elevated with the shell-var
-    ; context defaulting to "all": there $APPDATA is C:\ProgramData and
-    ; $DESKTOP is the Public desktop. Electron user data is ALWAYS per-user
-    ; (%APPDATA%\Orfeo — see electron/main.ts's app.setName), so switch to
-    ; the invoking user's context before touching either path, exactly as
-    ; electron-builder's own uninstaller.nsh does around its RMDir of
-    ; $APPDATA. Without this, "YES — delete everything" ran RMDir against a
-    ; non-existent C:\ProgramData\Orfeo, leaving the real orfeo-prefs.json
-    ; (and its libraryFolder link) intact — so a fresh reinstall reopened
-    ; straight into the old library instead of the empty first-run state. ──
-    ${If} $installMode == "all"
-      SetShellVarContext current
-    ${EndIf}
+    ; ── Electron user data is ALWAYS per-user: %APPDATA%\Orfeo, i.e.
+    ; C:\Users\<name>\AppData\Roaming\Orfeo (electron/main.ts's app.setName).
+    ; A perMachine uninstall runs elevated with the shell-var context
+    ; defaulting to "all", where $APPDATA resolves to C:\ProgramData — so the
+    ; old code's RMDir hit a folder that doesn't exist and orfeo-prefs.json
+    ; (the library-folder link) survived every "delete everything". Force the
+    ; invoking user's context UNCONDITIONALLY here — for a per-user install
+    ; it's already "current" so this is a harmless no-op, and there's no case
+    ; where electron data lives under the machine context. ────────────────
+    SetShellVarContext current
+    StrCpy $R2 "$APPDATA\${APP_FILENAME}"
 
     MessageBox MB_YESNOCANCEL|MB_ICONQUESTION "Delete your Orfeo settings and data?$\r$\n$\r$\nYES — delete everything: preferences, library-folder link, downloaded soundfonts, demo files, and any edited MIDI files saved without a library folder set.$\r$\n$\r$\nNO — keep your edited MIDI files (moved to a folder on your Desktop), delete everything else.$\r$\n$\r$\nCANCEL — keep everything, delete nothing.$\r$\n$\r$\nYour library folder itself (wherever you pointed Orfeo at) is never touched either way." \
       IDYES orfeo_delete_all IDCANCEL orfeo_restore_context
@@ -75,12 +73,23 @@
     ; content is flat (public/demo has no subfolders), so Demo\Orfeo is the
     ; single fixed depth to check; revisit if demo content ever grows
     ; subfolders (copyDemoFilesRecursive already preserves those).
-    IfFileExists "$APPDATA\${APP_FILENAME}\Demo\Orfeo\*.*" 0 orfeo_delete_all
+    IfFileExists "$R2\Demo\Orfeo\*.*" 0 orfeo_delete_all
       CreateDirectory "$DESKTOP\Orfeo Edited Files"
-      CopyFiles /SILENT "$APPDATA\${APP_FILENAME}\Demo\Orfeo\*.*" "$DESKTOP\Orfeo Edited Files"
+      CopyFiles /SILENT "$R2\Demo\Orfeo\*.*" "$DESKTOP\Orfeo Edited Files"
 
     orfeo_delete_all:
-    RMDir /r "$APPDATA\${APP_FILENAME}"
+    ; Loose prefs/log files first and by name — even if a locked cache
+    ; subdirectory (Local Storage LOCK, GPUCache) makes the recursive RMDir
+    ; below skip files and leave the folder behind, the library link is
+    ; still gone and the next launch is a clean first run.
+    Delete "$R2\orfeo-prefs.json"
+    Delete "$R2\orfeo-file-log.json"
+    RMDir /r "$R2"
+
+    ; Never a silent failure again — if the prefs file is somehow still
+    ; there, say so, with the exact path, so it can be removed by hand.
+    IfFileExists "$R2\orfeo-prefs.json" 0 orfeo_restore_context
+      MessageBox MB_OK|MB_ICONEXCLAMATION "Orfeo could not delete its settings file:$\r$\n$R2\orfeo-prefs.json$\r$\n$\r$\nSomething still has it locked (antivirus, or a background process). Delete that folder by hand and Orfeo will start fresh next time."
 
     orfeo_restore_context:
     ${If} $installMode == "all"

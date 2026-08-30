@@ -2040,11 +2040,11 @@ export default function SettingsPanel() {
     setUpdateStatus({ state: 'checking' })
     void window.electronAPI.checkForUpdates()
   }
-  // ── 'up to date' is transient — fade back to the plain icon after a few
-  // seconds instead of sticking. (auto mode only; manual never sets it.) ────
+  // ── 'up to date' / 'error' / 'unavailable' are transient — fade back to the
+  // plain icon instead of sticking a message (or a giant error) in the UI. ──
   useEffect(() => {
-    if (updateStatus.state !== 'up-to-date' && updateStatus.state !== 'unavailable') return
-    const t = setTimeout(() => setUpdateStatus({ state: 'idle' }), 3000)
+    if (!['up-to-date', 'error', 'unavailable'].includes(updateStatus.state)) return
+    const t = setTimeout(() => setUpdateStatus({ state: 'idle' }), updateStatus.state === 'error' ? 6000 : 3000)
     return () => clearTimeout(t)
   }, [updateStatus.state])
 
@@ -3123,7 +3123,7 @@ export default function SettingsPanel() {
                 <div style={{ padding: '14px 14px 10px', display: 'flex', alignItems: 'center', gap: 6 }}>
                   <Tooltip title="Open Orfeo on GitHub" oneLine>
                   <button
-                    onClick={() => window.electronAPI.openExternal('https://github.com/SquareBow/orfeo')}
+                    onClick={() => window.electronAPI.openExternal('https://github.com/Squarebow/Orfeo')}
                     style={{
                       display: 'flex', alignItems: 'center', gap: 6,
                       background: 'none', border: 'none', cursor: 'pointer', padding: 0,
@@ -3151,7 +3151,7 @@ export default function SettingsPanel() {
           }}>
             <Tooltip title="Open user manual" oneLine wrapperStyle={{ flex: 1, minWidth: 0 }}>
             <button
-              onClick={() => window.electronAPI.openExternal('https://github.com/SquareBow/orfeo/blob/main/docs/HOW_TO_USE.md')}
+              onClick={() => window.electronAPI.openExternal('https://github.com/Squarebow/Orfeo/blob/main/docs/HOW_TO_USE.md')}
               style={{
                 flex: 1, minWidth: 0, display: 'flex', alignItems: 'center', gap: 7,
                 background: 'transparent', border: 'none', cursor: 'pointer',
@@ -3181,7 +3181,7 @@ export default function SettingsPanel() {
                 updateStatus.state === 'checking'    ? 'Checking for updates…' :
                 updateStatus.state === 'downloading' ? `Downloading update${updateStatus.percent ? ` — ${Math.round(updateStatus.percent)}%` : '…'}` :
                 updateStatus.state === 'ready'       ? `Update ${updateStatus.version ?? ''} ready — click to restart and install` :
-                updateStatus.state === 'error'       ? `Update check failed: ${updateStatus.message ?? 'unknown error'} — click to open releases page` :
+                updateStatus.state === 'error'       ? `${(updateStatus.message ?? 'Update check failed').slice(0, 160)} — click to open the Releases page` :
                 'Check for updates'
               }
               oneLine

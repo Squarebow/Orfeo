@@ -1674,13 +1674,27 @@ function sendUpdateStatus(payload: Record<string, unknown>) {
   mainWin?.webContents.send('update:status', payload)
 }
 
+// ── electron-updater errors are huge — a full HTTP dump with every response
+// header — and the "no published release yet" case comes through as one of
+// those (404 / 406 / "Unable to find latest version on GitHub"). Collapse to
+// a single short sentence so the tooltip stays a tooltip, and treat a
+// missing-release as a soft "couldn't check" rather than a scary error. ────
+function summarizeUpdateError(err: unknown): { state: string; message: string } {
+  const raw = (err instanceof Error ? err.message : String(err ?? '')) || 'Update check failed'
+  const firstLine = raw.split('\n')[0].trim()
+  if (/unable to find latest version|HttpError:\s*4(0[34]|06)|ENOTFOUND|net::ERR|getaddrinfo/i.test(raw)) {
+    return { state: 'error', message: "Couldn't reach the update server — try again later or check the Releases page." }
+  }
+  return { state: 'error', message: firstLine.length > 160 ? firstLine.slice(0, 157) + '…' : firstLine }
+}
+
 if (updateMode === 'auto') {
   autoUpdater.on('checking-for-update', () => sendUpdateStatus({ state: 'checking' }))
   autoUpdater.on('update-available', (info) => sendUpdateStatus({ state: 'downloading', version: info.version }))
   autoUpdater.on('update-not-available', () => sendUpdateStatus({ state: 'up-to-date' }))
   autoUpdater.on('download-progress', (p) => sendUpdateStatus({ state: 'downloading', percent: p.percent }))
   autoUpdater.on('update-downloaded', (info) => sendUpdateStatus({ state: 'ready', version: info.version }))
-  autoUpdater.on('error', (err) => sendUpdateStatus({ state: 'error', message: err?.message ?? 'Update check failed' }))
+  autoUpdater.on('error', (err) => sendUpdateStatus(summarizeUpdateError(err)))
 }
 
 // Renderer reads this once to pick the button's tooltip + behavior.
@@ -1690,7 +1704,7 @@ ipcMain.handle('update:check', () => {
   // 'manual' mode: the only action is "open the releases page". Keep it in
   // main so the button does exactly one thing regardless of build.
   if (updateMode === 'manual') { void shell.openExternal(RELEASES_URL); return }
-  autoUpdater.checkForUpdates().catch((err) => sendUpdateStatus({ state: 'error', message: err?.message ?? 'Update check failed' }))
+  autoUpdater.checkForUpdates().catch((err) => sendUpdateStatus(summarizeUpdateError(err)))
 })
 
 ipcMain.handle('update:install', () => {

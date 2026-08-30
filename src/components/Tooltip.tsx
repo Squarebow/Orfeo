@@ -102,7 +102,10 @@ export function TooltipBox({ anchorRect, content, visible, placement = 'top', on
         visibility: pos ? 'visible' : 'hidden',
         background: 'var(--bg-tooltip)', border: '1px solid var(--accent-amber-strong)',
         borderRadius: 6, padding: '6px 10px',
-        maxWidth: 200,
+        // Hard caps — a tooltip must never balloon into a panel, whatever it's
+        // handed (e.g. a raw multi-line error). Long words wrap, overflow clips.
+        maxWidth: 260, maxHeight: 160, overflow: 'hidden',
+        overflowWrap: 'anywhere',
         display: 'flex', flexDirection: 'column', gap: 3,
         pointerEvents: 'none', zIndex: 99999,
         '--_modal-shadow': 'var(--elevation-strip)',
