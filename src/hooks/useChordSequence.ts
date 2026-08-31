@@ -8,6 +8,7 @@
 import { useEffect } from 'react'
 import { useStore } from '../store'
 import { pickChordTracks } from '../utils/trackChordRole'
+import type { ChordTrackRoles } from '../utils/trackChordRole'
 import { buildBeatGrid } from '../utils/beatGrid'
 import { buildChordSequence } from '../utils/chordSequenceBuilder'
 import type { ParsedTrack } from '../types'
@@ -32,17 +33,21 @@ export function useChordSequence() {
     if (!midi) { setChordSequence([]); return }
 
     const nonDrum = midi.tracks.filter(t => !t.isDrum)
-    const roles = pickChordTracks(midi.tracks)
+
+    let roles: ChordTrackRoles | null = null
+    if (chordTrackingMode === 'auto') roles = pickChordTracks(midi.tracks)
 
     let scope: ParsedTrack[]
+    // bass track drives slash naming; only wired for Auto — Harmony sees all
+    // tracks anyway, Follow is deliberately scoped to its one instrument
     let bass: ParsedTrack | null = null
 
     if (chordTrackingMode === 'auto') {
-      scope = roles.chordTrackIndices.length > 0
-        ? midi.tracks.filter(t => roles.chordTrackIndices.includes(t.index))
+      scope = roles!.chordTrackIndices.length > 0
+        ? midi.tracks.filter(t => roles!.chordTrackIndices.includes(t.index))
         : nonDrum
-      bass = roles.bassTrackIndex != null
-        ? midi.tracks.find(t => t.index === roles.bassTrackIndex) ?? null
+      bass = roles!.bassTrackIndex != null
+        ? midi.tracks.find(t => t.index === roles!.bassTrackIndex) ?? null
         : null
     } else if (chordTrackingMode === 'follow') {
       if (chordFollowSubMode === 'group' && chordFollowGroup) {

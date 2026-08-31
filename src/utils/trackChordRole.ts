@@ -35,10 +35,10 @@ function medianPitch(track: ParsedTrack): number {
   return ps[ps.length >> 1] ?? 60
 }
 
-export function scoreChordTrack(track: ParsedTrack, songDuration: number): number {
+// Core score math — callers pass poly/med so the O(N²) meanPolyphony scan
+// runs exactly once per track.
+function scoreChordTrackWith(track: ParsedTrack, songDuration: number, poly: number, med: number): number {
   if (track.isDrum || track.notes.length === 0) return -999
-  const poly = meanPolyphony(track)
-  const med = medianPitch(track)
   const first = track.notes[0].time
   const last = track.notes[track.notes.length - 1]
   const coverage = songDuration > 0 ? (last.time + last.duration - first) / songDuration : 0
@@ -51,7 +51,16 @@ export function scoreChordTrack(track: ParsedTrack, songDuration: number): numbe
   return s
 }
 
+export function scoreChordTrack(track: ParsedTrack, songDuration: number): number {
+  return scoreChordTrackWith(track, songDuration, meanPolyphony(track), medianPitch(track))
+}
+
+const _pickCache = new WeakMap<ParsedTrack[], ChordTrackRoles>()
+
 export function pickChordTracks(tracks: ParsedTrack[]): ChordTrackRoles {
+  const cached = _pickCache.get(tracks)
+  if (cached) return cached
+
   const dur = tracks.reduce((mx, t) => {
     const l = t.notes[t.notes.length - 1]
     return l ? Math.max(mx, l.time + l.duration) : mx
@@ -59,7 +68,11 @@ export function pickChordTracks(tracks: ParsedTrack[]): ChordTrackRoles {
 
   const scored = tracks
     .filter(t => !t.isDrum && t.notes.length > 0)
-    .map(t => ({ t, score: scoreChordTrack(t, dur), poly: meanPolyphony(t), med: medianPitch(t) }))
+    .map(t => {
+      const poly = meanPolyphony(t)
+      const med = medianPitch(t)
+      return { t, score: scoreChordTrackWith(t, dur, poly, med), poly, med }
+    })
     .sort((a, b) => b.score - a.score)
 
   const top = scored[0]
@@ -86,5 +99,7 @@ export function pickChordTracks(tracks: ParsedTrack[]): ChordTrackRoles {
     if (cand) bassTrackIndex = cand.t.index
   }
 
-  return { chordTrackIndices, bassTrackIndex }
+  const result: ChordTrackRoles = { chordTrackIndices, bassTrackIndex }
+  _pickCache.set(tracks, result)
+  return result
 }
