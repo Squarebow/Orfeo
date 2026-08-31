@@ -702,15 +702,39 @@ export default function Keyboard() {
                 const pastChords = currentIndex > 0 ? chordSequence.slice(Math.max(0, currentIndex - 4), currentIndex) : []
                 const nextChords = currentIndex >= 0 ? chordSequence.slice(currentIndex + 1, currentIndex + 3) : []
 
+                // ── Group consecutive short (< 1 bar) chords so a quick
+                // ii-V-I reads as one tight cluster, not three full slots. ──
+                const groupShort = (evs: typeof chordSequence): (typeof chordSequence)[] => {
+                  const out: (typeof chordSequence)[] = []
+                  for (const ev of evs) {
+                    const last = out[out.length - 1]
+                    if (ev.short && last && last[last.length - 1].short) last.push(ev)
+                    else out.push([ev])
+                  }
+                  return out
+                }
+
                 return (
                   <>
                     {/* Past 4 chords, right-aligned */}
                     <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: 5, minWidth: 0 }}>
-                      {pastChords.map((ev, i) => (
-                        <React.Fragment key={`${ev.time}-${ev.name}`}>
-                          {i > 0 && <span style={{ color: 'var(--state-disabled)', fontSize: 10, lineHeight: 1, flexShrink: 0 }}>·</span>}
-                          <span style={{ fontSize: 'var(--text-xs)', fontFamily: 'var(--font-ui)', color: 'var(--text-muted)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: 90 }}>
-                            {ev.name}
+                      {groupShort(pastChords).map((grp, gi) => (
+                        <React.Fragment key={`${grp[0].time}-${grp[0].name}`}>
+                          {gi > 0 && <span style={{ color: 'var(--state-disabled)', fontSize: 10, lineHeight: 1, flexShrink: 0 }}>·</span>}
+                          <span style={{ display: 'flex', alignItems: 'center', gap: grp.length > 1 ? 2 : 0 }}>
+                            {grp.map((ev, i) => (
+                              <span
+                                key={`${ev.time}-${ev.name}-${i}`}
+                                style={{
+                                  fontSize: grp.length > 1 ? 'calc(var(--text-xs) - 1px)' : 'var(--text-xs)',
+                                  opacity: grp.length > 1 ? 0.8 : 1,
+                                  fontFamily: 'var(--font-ui)', color: 'var(--text-muted)',
+                                  whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: 90,
+                                }}
+                              >
+                                {ev.name}
+                              </span>
+                            ))}
                           </span>
                         </React.Fragment>
                       ))}
@@ -747,11 +771,23 @@ export default function Keyboard() {
 
                     {/* Next 2 chords, left-aligned */}
                     <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'flex-start', gap: 5, minWidth: 0 }}>
-                      {nextChords.map((ev, i) => (
-                        <React.Fragment key={`${ev.time}-${ev.name}`}>
-                          {i > 0 && <span style={{ color: 'var(--state-disabled)', fontSize: 10, lineHeight: 1, flexShrink: 0 }}>·</span>}
-                          <span style={{ fontSize: 'var(--text-xs)', fontFamily: 'var(--font-ui)', color: 'var(--text-muted)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: 90 }}>
-                            {ev.name}
+                      {groupShort(nextChords).map((grp, gi) => (
+                        <React.Fragment key={`${grp[0].time}-${grp[0].name}`}>
+                          {gi > 0 && <span style={{ color: 'var(--state-disabled)', fontSize: 10, lineHeight: 1, flexShrink: 0 }}>·</span>}
+                          <span style={{ display: 'flex', alignItems: 'center', gap: grp.length > 1 ? 2 : 0 }}>
+                            {grp.map((ev, i) => (
+                              <span
+                                key={`${ev.time}-${ev.name}-${i}`}
+                                style={{
+                                  fontSize: grp.length > 1 ? 'calc(var(--text-xs) - 1px)' : 'var(--text-xs)',
+                                  opacity: grp.length > 1 ? 0.8 : 1,
+                                  fontFamily: 'var(--font-ui)', color: 'var(--text-muted)',
+                                  whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: 90,
+                                }}
+                              >
+                                {ev.name}
+                              </span>
+                            ))}
                           </span>
                         </React.Fragment>
                       ))}
