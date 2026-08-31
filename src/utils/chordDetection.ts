@@ -321,6 +321,41 @@ export function buildChordMidi(rootPitchClass: number, intervals: string[], keyb
 }
 
 // ---------------------------------------------------------------------------
+// Compact single-octave voicing of a detected chord, with a chosen bass note.
+// Used by the paused chord-display "Show on keyboard" / lock-a-chord path so
+// it lights up ONE clean voicing of the named chord — one note per pitch
+// class, spanning ~1 octave — instead of every note ringing at the playhead
+// (which drags in the left hand's octave-doubled bass root two octaves down).
+// bassPitchClass keeps slash chords reading right (e.g. Baug/G lands G lowest)
+// without adding a separate doubled root below the triad. Falls back to
+// root-position buildChordMidi if the bass PC isn't one of the chord tones.
+// ---------------------------------------------------------------------------
+export function buildCompactVoicing(
+  rootPitchClass: number,
+  intervals: string[],
+  bassPitchClass: number,
+  keyboardSize: number,
+): number[] {
+  const base = buildChordMidi(rootPitchClass, intervals, keyboardSize)
+  if (base.length === 0) return []
+  const { min, max } = PIANO_RANGES[keyboardSize] ?? PIANO_RANGES[73]
+  const wantBass = ((bassPitchClass % 12) + 12) % 12
+
+  let notes = [...base].sort((a, b) => a - b)
+  const bassIdx = notes.findIndex(m => m % 12 === wantBass)
+  // Rotate lowest notes up an octave until the wanted bass PC sits lowest —
+  // same compact inversion the Chord Explorer uses, never spreading the
+  // voicing past ~1 octave.
+  for (let i = 0; i < bassIdx; i++) {
+    const [low, ...rest] = notes
+    notes = [...rest, low + 12].sort((a, b) => a - b)
+  }
+  while (notes[notes.length - 1] > max) notes = notes.map(n => n - 12)
+  while (notes[0] < min) notes = notes.map(n => n + 12)
+  return notes
+}
+
+// ---------------------------------------------------------------------------
 // Detection with inversion info — for locked chord and explorer display.
 // Always returns the ROOT-POSITION chord name (never slash).
 // Inversion number is derived by locating the bass PC in the chord tone list.

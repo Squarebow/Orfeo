@@ -205,7 +205,7 @@ export default function NoteEditorToolbar() {
         const kbTrack = freshTracks.find(t => HAND_ASSIGN_GROUPS.has(t.group) && !t.isDrum)
         if (kbTrack) {
           useStore.setState({ noteEditorSoloTrackIndex: null, preSoloTrackVisibility: null })
-          useStore.getState().soloTrackForEdit(kbTrack.index)
+          useStore.getState().soloTrackForEdit(kbTrack.index, { keepPlayhead: true })
         }
       }, 0)
     }
@@ -394,7 +394,9 @@ export default function NoteEditorToolbar() {
     setReassignHandsDisplay(next)
     if (next) {
       const kbTrack = tracks.find(t => HAND_ASSIGN_GROUPS.has(t.group) && !t.isDrum)
-      if (kbTrack && noteEditorSoloTrackIndex !== kbTrack.index) soloTrackForEdit(kbTrack.index)
+      // keepPlayhead — engaging hand-reassign mode must not move the playhead;
+      // the user is paused at a specific bar to correct a note they just heard.
+      if (kbTrack && noteEditorSoloTrackIndex !== kbTrack.index) soloTrackForEdit(kbTrack.index, { keepPlayhead: true })
     } else {
       unsoloTrackForEdit()
     }

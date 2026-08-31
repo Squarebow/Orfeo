@@ -169,7 +169,7 @@ interface OrfeoStore {
   setNoteEditorToolbarPos: (x: number, y: number) => void
   noteEditorSoloTrackIndex: number | null
   preSoloTrackVisibility: boolean[] | null
-  soloTrackForEdit: (index: number) => void
+  soloTrackForEdit: (index: number, opts?: { keepPlayhead?: boolean }) => void
   unsoloTrackForEdit: () => void
   noteEditorWalkthroughSeen: boolean
   setNoteEditorWalkthroughSeen: (v: boolean) => void
@@ -668,7 +668,7 @@ export const useStore = create<OrfeoStore>((set, get) => ({
   // ── Note Editor: track solo + first-run walkthrough ───────────────────────
   noteEditorSoloTrackIndex: null,
   preSoloTrackVisibility: null,
-  soloTrackForEdit: (index) => {
+  soloTrackForEdit: (index, opts) => {
     const s = get()
     if (s.noteEditorSoloTrackIndex === index) {
       // ── Un-solo: restore pre-solo visibility ────────────────────────────
@@ -685,11 +685,16 @@ export const useStore = create<OrfeoStore>((set, get) => ({
       // ── Jump playback to just before this track's first note — otherwise
       // soloing a track whose notes start much later than the current
       // playhead (or sit outside the currently-visible pitch range) shows an
-      // apparently-empty piano roll until playback catches up on its own. ──
-      const rawTrack = (s.midi as any)?.tracks?.find((t: any) => t.index === index)
-      const firstNoteTime = rawTrack?.notes?.[0]?.time
-      if (typeof firstNoteTime === 'number') {
-        set({ currentTime: Math.max(0, firstNoteTime - 2) })
+      // apparently-empty piano roll until playback catches up on its own.
+      // Skipped when keepPlayhead is set: toggling Reassign-Hands mode solos
+      // the piano track as a side effect, and yanking the playhead to bar 1
+      // loses the exact spot the user had paused at to fix a note. ─────────
+      if (!opts?.keepPlayhead) {
+        const rawTrack = (s.midi as any)?.tracks?.find((t: any) => t.index === index)
+        const firstNoteTime = rawTrack?.notes?.[0]?.time
+        if (typeof firstNoteTime === 'number') {
+          set({ currentTime: Math.max(0, firstNoteTime - 2) })
+        }
       }
     }
   },

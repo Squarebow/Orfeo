@@ -2,11 +2,9 @@ import React, { useMemo, useCallback, useState, useEffect, useRef } from 'react'
 import { useStore } from '../../store'
 import { isBlackKey } from '../../utils/midiParser'
 import { getNoteLabel, getNoteName } from '../../utils/noteNames'
-import { detectChord, detectChordStructured, detectChordWithInversion, formatInversionDisplay, localizeChord, ordinalSuffix } from '../../utils/chordDetection'
+import { detectChord, detectChordStructured, detectChordWithInversion, formatInversionDisplay, localizeChord, ordinalSuffix, buildCompactVoicing } from '../../utils/chordDetection'
 import { buildKeyLayoutRatios, PIANO_RANGES as RANGES } from '../../utils/keyLayout'
 import { notesSoundingAt } from '../../utils/midiParser'
-import { isHomogeneousHandTrack, HAND_LH_CSS, HAND_RH_CSS } from '../../utils/handColors'
-import { NES } from '../../utils/noteEditorState'
 import { buildPitchHandIndex, lookupNoteHandAtTime, detectPerformanceBoundary } from '../../utils/handBoundaries'
 import type { Hand } from '../../types'
 import Tooltip, { useTooltip } from '../Tooltip'
@@ -192,10 +190,6 @@ export default function Keyboard() {
     x: number; y: number
     structured: { rootPitchClass: number; intervals: string[]; rawRootName: string }
     realMidi: number[]
-    // Per-note key color, resolved from the source track exactly as the piano
-    // roll / playback key-lights do — so "Show on keyboard" tells you which
-    // instrument each note came from instead of flat amber. ────────────────
-    colors: Map<number, string>
     displayName: string
     inversionCount: number
   } | null>(null)
@@ -228,49 +222,41 @@ export default function Keyboard() {
     const transpose = st.detectedKey?.transpose ?? 0
     const sounding = loadedMidi ? notesSoundingAt(loadedMidi.tracks, st.currentTime, transpose) : []
     const useLive = sounding.length >= 2
-    const realMidi = useLive ? sounding.map(s => s.midi) : heldChordEvent.realMidi
+    const rawMidi = useLive ? sounding.map(s => s.midi) : heldChordEvent.realMidi
 
-    // ── Resolve each note's key color from its source track — same rule the
-    // piano-roll waterfall + playback key-lights use (track palette color, or
-    // fixed LH/RH blue/pink for split tracks / while hand coloring is on).
-    // The gap-fallback path has no per-note track info, so it stays amber. ──
-    const handColoringOn = st.showHandLabels || (st.noteEditorActive && NES.reassignHandsMode)
-    const colorFor = (sn: { trackIndex: number; hand?: 'L' | 'R' }): string => {
-      const ts = st.tracks.find((t: { index: number }) => t.index === sn.trackIndex) as { index: number; color?: string } | undefined
-      const trackColor = ts?.color ?? 'var(--text-amber)'
-      if (!sn.hand) return trackColor
-      const trackNotes = loadedMidi?.tracks.find(t => t.index === sn.trackIndex)?.notes ?? []
-      if (isHomogeneousHandTrack(trackNotes) || handColoringOn) return sn.hand === 'L' ? HAND_LH_CSS : HAND_RH_CSS
-      return trackColor
-    }
-    const colors = new Map<number, string>(
-      useLive
-        ? sounding.map(s => [s.midi, colorFor(s)] as const)
-        : heldChordEvent.realMidi.map(m => [m, 'var(--text-amber)'] as const),
-    )
-
-    const set = new Set(realMidi)
+    const set = new Set(rawMidi)
     const structured = detectChordStructured(set) ?? heldChordEvent.structured
     const invInfo = detectChordWithInversion(set)
     const inversionCount = invInfo?.ordinal ? Number(invInfo.ordinal) : 0
     const displayName = localizeChord(structured.rawRootName, noteNaming, accidentals, chordNamingStyle) ?? structured.rawRootName
-    setChordCtxMenu({ x: e.clientX, y: e.clientY, structured, realMidi, colors, displayName, inversionCount })
-  }, [playbackState, heldChordEvent, noteNaming, accidentals, chordNamingStyle])
+
+    // ── One clean voicing of the NAMED chord, not the raw polyphony — the
+    // left hand's octave-doubled bass root (often two octaves below the
+    // right-hand voicing) was getting locked as a stray extra key, and any
+    // doubled pitch class collapsed the moment you cycled inversions. Keep
+    // the real bass note so slash chords still read right (Baug/G → G lowest).
+    const bassPc = rawMidi.length ? Math.min(...rawMidi) % 12 : structured.rootPitchClass
+    const compact = buildCompactVoicing(structured.rootPitchClass, structured.intervals, bassPc, keyboardSize)
+    const realMidi = compact.length > 0 ? compact : rawMidi
+
+    setChordCtxMenu({ x: e.clientX, y: e.clientY, structured, realMidi, displayName, inversionCount })
+  }, [playbackState, heldChordEvent, noteNaming, accidentals, chordNamingStyle, keyboardSize])
 
   const handleShowChordOnKeyboard = useCallback(() => {
     if (!chordCtxMenu) return
-    const { realMidi, colors: srcColors, displayName, inversionCount } = chordCtxMenu
-    // ── The exact notes actually sounding when paused, not a canonical
-    // re-voicing — buildChordMidi() (used by "Open in Chord Explorer") always
-    // reconstructs a fixed-octave root position, which is right for browsing
-    // the Explorer but showed the chord in the wrong register/inversion here.
-    // Still clamp to the current keyboard's playable range. ────────────────
+    const { realMidi, displayName, inversionCount } = chordCtxMenu
+    // ── A compact single-octave voicing of the named chord (built in
+    // handleChordContextMenu), keeping the real bass note so slash chords
+    // read right. Clamp to the current keyboard's playable range as a
+    // safety net. ─────────────────────────────────────────────────────────
     const { min, max } = RANGES[keyboardSize] ?? RANGES[73]
     const midiNotes = realMidi.filter(m => m >= min && m <= max)
     if (midiNotes.length > 0) {
-      // Keep each key in its source-track color so it's clear which instrument
-      // the locked notes came from — matching the piano roll and playback.
-      const colors = new Map(midiNotes.map(m => [m, srcColors.get(m) ?? 'var(--text-amber)'] as [number, string]))
+      // ── Lock-a-chord is a single detached chord being studied while
+      // paused, not song playback — always amber, never the source-track /
+      // LH-RH colors (which only make sense when multiple tracks light up
+      // together during playback). ────────────────────────────────────────
+      const colors = new Map(midiNotes.map(m => [m, 'var(--text-amber)'] as [number, string]))
       // ── Setting lockedKeys is enough — LockedChordModal auto-opens itself
       // via its own effect watching lockedKeys.size, same as Shift+Click. ────
       setLockedKeysStore(new Set(midiNotes), colors)
