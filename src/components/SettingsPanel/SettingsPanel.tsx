@@ -17,7 +17,6 @@ import { MarqueeText } from '../MarqueeText'
 import { detectForeignFormat, resolveAndTrackImport, base64ToBytes, confirmPendingImportBeforeSwitch } from '../../utils/foreignFormatImport'
 import { parseMidiBuffer } from '../../utils/midiParser'
 import { detectKeyFromTracks, parseKeySignature } from '../../utils/keyDetection'
-import { pickChordTracks } from '../../utils/trackChordRole'
 import { TRACK_COLOR_PALETTE } from '../../utils/colors'
 import FileInfoModal from '../FileInfoModal'
 import Tooltip, { TooltipBox, useTooltip } from '../Tooltip'
@@ -2066,19 +2065,6 @@ export default function SettingsPanel() {
   const chordNamingStyle = useStore((s) => s.chordNamingStyle)
   const setChordNamingStyle = useStore((s) => s.setChordNamingStyle)
   const chordTracks = useStore((s) => s.tracks)
-  const midi = useStore((s) => s.midi)
-  // ── "Following: …" hint for Auto mode. pickChordTracks does an O(N²)
-  // polyphony scan, so it must NOT live in a useStore selector (60×/s during
-  // playback) — memoize on the file + tracks + mode instead. ──────────────
-  const chordFollowingHint = useMemo(() => {
-    if (chordTrackingMode !== 'auto') return null
-    if (!midi) return 'No file open'
-    const roles = pickChordTracks(midi.tracks)
-    if (roles.chordTrackIndices.length === 0) return 'No chord track found — using Harmony'
-    const names = roles.chordTrackIndices
-      .map(i => chordTracks.find(t => t.index === i)?.trackName ?? `Track ${i + 1}`)
-    return `Following: ${names.join(' + ')}`
-  }, [chordTrackingMode, midi, chordTracks])
   const keyboardSize = useStore((s) => s.keyboardSize)
   const setKeyboardSize = useStore((s) => s.setKeyboardSize)
   const zoomLevel = useStore((s) => s.zoomLevel)
@@ -2827,16 +2813,10 @@ export default function SettingsPanel() {
                       <OptionBtn active={chordTrackingMode === 'follow'} onClick={() => setChordTrackingMode('follow')}>Follow</OptionBtn>
                     </div>
                     <div style={{ marginTop: 6, fontSize: 10, color: 'var(--text-inactive)', fontFamily: 'var(--font-mono)', lineHeight: 1.5 }}>
-                      {chordTrackingMode === 'auto' && 'Follows the main chord instrument (piano, guitar…), ignoring melody and ornaments. Best for most songs.'}
-                      {chordTrackingMode === 'harmony' && 'Every instrument pooled together. Use for dense textures where no single track carries the chords.'}
+                      {chordTrackingMode === 'auto' && 'Follows the chord instruments (piano, keys, guitar, strings), ignoring melody and ornament lines. Best for most songs.'}
+                      {chordTrackingMode === 'harmony' && 'Every non-drum track pooled together, including melody. For dense textures where no one instrument holds the chords.'}
                       {chordTrackingMode === 'follow' && 'Scoped to one instrument or group you choose.'}
                     </div>
-
-                    {chordFollowingHint && (
-                      <div style={{ marginTop: 4, fontSize: 10, color: 'var(--text-amber)', fontFamily: 'var(--font-mono)' }}>
-                        {chordFollowingHint}
-                      </div>
-                    )}
 
                     {chordTrackingMode === 'follow' && (
                       <div style={{ marginTop: 8, paddingTop: 8, borderTop: '1px solid var(--border-row)' }}>

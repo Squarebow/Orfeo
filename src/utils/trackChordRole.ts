@@ -5,14 +5,17 @@ export interface ChordTrackRoles {
   bassTrackIndex: number | null
 }
 
-// GM program families
+// ── GM program families ─────────────────────────────────────────────────
 const isBassProgram = (p: number) => p >= 32 && p <= 39
-const isMelodyProgram = (p: number) =>
-  (p >= 64 && p <= 71) || (p >= 72 && p <= 79) || (p >= 80 && p <= 87) || (p >= 104 && p <= 111)
-
-// ── Tuning ──────────────────────────────────────────────────────────────
-const MONO_POLY = 1.45          // below this, a track is not really playing chords
-const MELODY_REGISTER = 72      // median MIDI above this + monophonic = a lead line
+// The instruments that actually carry chords in real arrangements — piano,
+// keys, organ, guitar, strings, ensembles, pads. Everything else (reeds,
+// pipes, brass, synth leads, ethnic winds) is there for melody and
+// embellishment and must not distract the chord read.
+const isHarmonicProgram = (p: number) =>
+  p <= 23                       // piano, chromatic perc (keys), organ
+  || (p >= 24 && p <= 31)       // guitar
+  || (p >= 40 && p <= 55)       // strings, ensemble
+  || (p >= 88 && p <= 95)       // synth pad
 
 function meanPolyphony(track: ParsedTrack): number {
   const N = track.notes
@@ -35,52 +38,45 @@ function medianPitch(track: ParsedTrack): number {
 const _pickCache = new WeakMap<ParsedTrack[], ChordTrackRoles>()
 
 // ── pickChordTracks — Auto mode's track scope ───────────────────────────
-// Returns the "harmonic set": every non-drum track that could be carrying
-// chords, so the detector never goes blind when the main comping
-// instrument rests (Fernando: piano plays the verse, then rests through the
-// chorus while guitar / strings / choir carry it). That's EVERY non-drum
-// track except (a) the bass and (b) a clearly-monophonic melody line (low
-// polyphony + a lead-instrument family or a high register). Not a
-// "best track" contest — coverage beats precision here, and the
-// beat-synchronous chroma weights whatever is actually sounding.
+// The chord instruments (isHarmonicProgram), minus the bass, minus drums —
+// no polyphony contest, because a monophonic guitar or piano arpeggio still
+// carries the harmony and must be followed. The bass line is returned
+// separately: it anchors the root and, when a song's harmony *is* an
+// arpeggiated bassline (Riders on the Storm), the detector folds it in.
 export function pickChordTracks(tracks: ParsedTrack[]): ChordTrackRoles {
   const cached = _pickCache.get(tracks)
   if (cached) return cached
 
-  const meta = tracks
-    .filter(t => !t.isDrum && t.notes.length > 0)
-    .map(t => ({ t, poly: meanPolyphony(t), med: medianPitch(t) }))
+  const nonDrum = tracks.filter(t => !t.isDrum && t.notes.length > 0)
 
-  // ── Bass track (drives slash naming only) ───────────────────────────
+  // ── Bass track (root anchor + slash naming) ─────────────────────────
   let bassTrackIndex: number | null = null
-  const gmBass = meta.find(m => isBassProgram(m.t.program))
+  const gmBass = nonDrum.find(t => isBassProgram(t.program))
   if (gmBass) {
-    bassTrackIndex = gmBass.t.index
+    bassTrackIndex = gmBass.index
   } else {
-    const cand = meta
-      .filter(m => m.med < 50 && m.poly < 1.6)
-      .sort((a, b) => a.med - b.med)[0]
-    if (cand) bassTrackIndex = cand.t.index
+    const cand = nonDrum
+      .filter(t => medianPitch(t) < 52 && meanPolyphony(t) < 1.6)
+      .sort((a, b) => medianPitch(a) - medianPitch(b))[0]
+    if (cand) bassTrackIndex = cand.index
   }
 
-  // ── Harmonic set ────────────────────────────────────────────────────
-  const harmonic = meta.filter(m => {
-    if (m.t.index === bassTrackIndex || isBassProgram(m.t.program)) return false
-    const monoMelody = m.poly < MONO_POLY && (isMelodyProgram(m.t.program) || m.med > MELODY_REGISTER)
-    return !monoMelody
-  })
+  // ── Chord scope: the harmonic instruments, minus the bass ───────────
+  let scope = nonDrum.filter(t => t.index !== bassTrackIndex && isHarmonicProgram(t.program))
 
-  // Always give the detector something: if every non-bass track looks like a
-  // melody line (a lead sheet), keep the most-polyphonic of them.
-  const chordTrackIndices = harmonic.length > 0
-    ? harmonic.map(m => m.t.index)
-    : meta
-        .filter(m => m.t.index !== bassTrackIndex && !isBassProgram(m.t.program))
-        .sort((a, b) => b.poly - a.poly)
-        .slice(0, 1)
-        .map(m => m.t.index)
+  // Nothing whitelisted (an all-synth or all-wind arrangement) — fall back
+  // to the single most-polyphonic non-bass track so the detector still runs.
+  if (scope.length === 0) {
+    const fb = nonDrum
+      .filter(t => t.index !== bassTrackIndex)
+      .sort((a, b) => meanPolyphony(b) - meanPolyphony(a))[0]
+    scope = fb ? [fb] : []
+  }
 
-  const result: ChordTrackRoles = { chordTrackIndices, bassTrackIndex }
+  const result: ChordTrackRoles = {
+    chordTrackIndices: scope.map(t => t.index),
+    bassTrackIndex,
+  }
   _pickCache.set(tracks, result)
   return result
 }

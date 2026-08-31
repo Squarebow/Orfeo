@@ -86,33 +86,38 @@ export function isCuratedChordName(name: string): boolean {
 // Pitch-class templates for the live sequence matcher (chordSequenceBuilder).
 // Ordered simplest-first; `complexity` is subtracted (× a weight) from the
 // match score so a plain triad wins unless an extension carries real energy.
-type Template = { suffix: string; pcs: number[]; tonalIntervals: string[]; complexity: number }
+// `tier`: 1 = everyday chord, 2 = dim/aug/half-dim family — the matcher only
+// falls to a tier-2 name when no tier-1 name fits the notes at all, because
+// a partial voicing of a plain triad reads as "aug"/"dim" far too eagerly.
+type Template = { suffix: string; pcs: number[]; tonalIntervals: string[]; complexity: number; tier: 1 | 2 }
 
-const TEMPLATE_SPEC: { suffix: string; complexity: number }[] = [
+const TEMPLATE_SPEC: { suffix: string; complexity: number; tier?: 1 | 2 }[] = [
   { suffix: '',      complexity: 0 },
   { suffix: 'm',     complexity: 0 },
-  { suffix: 'dim',   complexity: 0.4 },
-  { suffix: 'aug',   complexity: 0.5 },
-  { suffix: '7',     complexity: 0.5 },
-  { suffix: 'm7',    complexity: 0.5 },
-  { suffix: 'maj7',  complexity: 0.7 },
-  { suffix: '6',     complexity: 0.8 },
-  { suffix: 'm6',    complexity: 0.9 },
-  { suffix: 'm7b5',  complexity: 0.9 },
-  { suffix: 'dim7',  complexity: 1.0 },
-  { suffix: 'sus4',  complexity: 0.7 },
-  { suffix: 'sus2',  complexity: 0.8 },
-  { suffix: '7sus4', complexity: 1.0 },
-  { suffix: 'add9',  complexity: 1.1 },
-  { suffix: 'madd9', complexity: 1.1 },
-  { suffix: '9',     complexity: 1.3 },
-  { suffix: 'maj9',  complexity: 1.4 },
-  { suffix: 'm9',    complexity: 1.4 },
-  { suffix: '6/9',   complexity: 1.4 },
+  { suffix: '7',     complexity: 0.35 },
+  { suffix: 'm7',    complexity: 0.35 },
+  { suffix: 'maj7',  complexity: 0.55 },
+  { suffix: '6',     complexity: 0.6 },
+  { suffix: 'm6',    complexity: 0.75 },
+  { suffix: 'sus4',  complexity: 0.5 },
+  { suffix: 'sus2',  complexity: 0.65 },
+  { suffix: '7sus4', complexity: 0.85 },
+  { suffix: 'add9',  complexity: 0.85 },
+  { suffix: 'madd9', complexity: 0.9 },
+  { suffix: 'mM7',   complexity: 1.0 },
+  { suffix: '9',     complexity: 1.1 },
+  { suffix: 'm9',    complexity: 1.2 },
+  { suffix: 'maj9',  complexity: 1.2 },
+  { suffix: '6/9',   complexity: 1.15 },
+  { suffix: 'dim',   complexity: 0.7, tier: 2 },
+  { suffix: 'aug',   complexity: 1.0, tier: 2 },
+  { suffix: 'm7b5',  complexity: 0.8, tier: 2 },
+  { suffix: 'dim7',  complexity: 1.1, tier: 2 },
+  { suffix: '7b9',   complexity: 1.4, tier: 2 },
 ]
 
 export const CHORD_TEMPLATES: ReadonlyArray<Template> = TEMPLATE_SPEC
-  .map(({ suffix, complexity }) => {
+  .map(({ suffix, complexity, tier }) => {
     const ct = Chord.get('C' + suffix)
     if (!ct.intervals || ct.intervals.length < 3) return null
     const pcs = ct.intervals
@@ -123,6 +128,7 @@ export const CHORD_TEMPLATES: ReadonlyArray<Template> = TEMPLATE_SPEC
       pcs: [...new Set(pcs)],          // unique pitch classes, root first
       tonalIntervals: [...ct.intervals], // verbatim, for buildCompactVoicing
       complexity,
+      tier: tier ?? 1,
     }
   })
   .filter((t): t is Template => t !== null)

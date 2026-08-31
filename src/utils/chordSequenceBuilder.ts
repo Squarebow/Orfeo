@@ -9,18 +9,20 @@ import { localizeChord, buildCompactVoicing } from './chordDetection'
 // I-IV-V-I with a forward kernel → 7 segments not 4).
 const SMOOTH_KERNEL: Array<[number, number]> = [[-1, 0.5], [0, 1], [1, 0.5]]
 const W_IN = 2.0            // reward: energy on template tones
-const W_OUT = 1.8           // penalty: energy off template tones
-const W_MISS_TRIAD = 1.3    // penalty per absent triad tone
-const W_WEAK_EXT = 0.9      // penalty per extension tone with < EXT_MIN energy
+const W_OUT = 2.1           // penalty: energy off template tones
+const W_MISS_TRIAD = 1.7    // penalty per absent triad tone
+const W_WEAK_EXT = 0.7      // penalty per extension tone with < EXT_MIN energy
 const EXT_MIN = 0.11        // normalised-energy floor for an extension tone to "count"
-const TRIAD_MIN = 0.06      // normalised-energy floor for a triad tone to be "present"
+const TRIAD_MIN = 0.07      // normalised-energy floor for a triad tone to be "present"
 const COMPLEXITY_W = 0.4    // × template.complexity
-const BASS_ROOT_BONUS = 0.5
-const BASS_NONCHORD_PENALTY = 0.22
-const STICKY_ROOT = 0.25
-const STICKY_LABEL = 0.30
-const REGISTER_LOW = 48     // MIDI — below here, ×0.45 (octave-doubled bass)
-const REGISTER_HIGH = 79    // MIDI — above here, ×0.55 (melody)
+const BASS_ROOT_BONUS = 0.7
+const BASS_NONCHORD_PENALTY = 0.3
+const STICKY_LABEL = 0.45   // score bonus for keeping the exact previous chord
+const STICKY_ROOT = 0.18    // …or at least the previous root
+const TIER2_MARGIN = 0.6    // a dim/aug name must beat the best everyday name by this
+const REGISTER_LOW = 40     // MIDI — below here, ×0.4 (deep bass octave)
+const REGISTER_HIGH = 82    // MIDI — above here, ×0.5 (melody register)
+const BASS_CHROMA_WEIGHT = 0.55  // the bass line folded into the harmony chroma
 
 const PC_SHARP = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B']
 
@@ -47,8 +49,8 @@ function matchWindow(
   const nv = new Float64Array(12)
   for (let p = 0; p < 12; p++) nv[p] = vec[p] / total
 
-  let best: Match | null = null
-  let bestScore = -Infinity
+  let best1: Match | null = null, best1Score = -Infinity   // everyday chords
+  let best2: Match | null = null, best2Score = -Infinity   // dim / aug / half-dim
   for (let root = 0; root < 12; root++) {
     for (const tpl of CHORD_TEMPLATES) {
       const pcs = new Set(tpl.pcs.map(i => (root + i) % 12))
@@ -68,16 +70,19 @@ function matchWindow(
         else if (!pcs.has(bassPc)) score -= BASS_NONCHORD_PENALTY
       }
       const label = PC_SHARP[root] + tpl.suffix
-      if (prevRoot === root) score += STICKY_ROOT
       if (prevLabel === label) score += STICKY_LABEL
+      else if (prevRoot === root) score += STICKY_ROOT
 
-      if (score > bestScore) {
-        bestScore = score
-        best = { root, suffix: tpl.suffix, pcs, label, tpl }
-      }
+      const cand: Match = { root, suffix: tpl.suffix, pcs, label, tpl }
+      if (tpl.tier === 2) {
+        if (score > best2Score) { best2Score = score; best2 = cand }
+      } else if (score > best1Score) { best1Score = score; best1 = cand }
     }
   }
-  return best
+  // Prefer an everyday chord unless it plainly doesn't fit and a dim/aug
+  // name fits clearly better.
+  if (best1 && (best1Score > 0.15 || !best2 || best2Score < best1Score + TIER2_MARGIN)) return best1
+  return best2 ?? best1
 }
 
 export function buildChordSequence(
@@ -93,23 +98,28 @@ export function buildChordSequence(
   const winEnd = (w: number) => windows[w + 1]
 
   // ── raw per-window chroma ─────────────────────────────────────────────
+  // Scope tracks at full weight; the bass line folded in at BASS_CHROMA_WEIGHT
+  // so a song whose harmony IS an arpeggiated bassline still names a chord,
+  // without the bass overpowering a real comping instrument.
   const raw: Float64Array[] = Array.from({ length: NW }, () => new Float64Array(12))
-  for (const tr of scopeTracks) {
+  const addTrack = (tr: ParsedTrack, weight: number) => {
     for (const nt of tr.notes) {
       // note times are absolute seconds and unaffected by transpose; only
       // the pitch shifts.
       const noteEnd = nt.time + nt.duration
       const midi = nt.midi + opts.transpose
-      const reg = midi < REGISTER_LOW ? 0.45 : midi > REGISTER_HIGH ? 0.55 : 1
+      const reg = midi < REGISTER_LOW ? 0.4 : midi > REGISTER_HIGH ? 0.5 : 1
       const pc = ((midi % 12) + 12) % 12
       for (let w = 0; w < NW; w++) {
         if (winStart(w) >= noteEnd) break        // windows sorted; no later overlap
         const a = Math.max(nt.time, winStart(w))
         const b = Math.min(noteEnd, winEnd(w))
-        if (b > a) raw[w][pc] += (b - a) * reg
+        if (b > a) raw[w][pc] += (b - a) * reg * weight
       }
     }
   }
+  for (const tr of scopeTracks) addTrack(tr, 1)
+  if (bassTrack) addTrack(bassTrack, BASS_CHROMA_WEIGHT)
 
   // ── ≈1-bar centred smoothing ──────────────────────────────────────────
   const sm: Float64Array[] = Array.from({ length: NW }, () => new Float64Array(12))

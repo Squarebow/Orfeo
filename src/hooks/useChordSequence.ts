@@ -34,21 +34,22 @@ export function useChordSequence() {
 
     const nonDrum = midi.tracks.filter(t => !t.isDrum)
 
-    let roles: ChordTrackRoles | null = null
-    if (chordTrackingMode === 'auto') roles = pickChordTracks(midi.tracks)
+    // The bass line is resolved for every mode — it anchors the chord root
+    // and is folded into the detector's chroma. `pickChordTracks` is memoised
+    // so calling it here is free even outside Auto.
+    const roles: ChordTrackRoles = pickChordTracks(midi.tracks)
+    const bass: ParsedTrack | null = roles.bassTrackIndex != null
+      ? midi.tracks.find(t => t.index === roles.bassTrackIndex) ?? null
+      : null
 
     let scope: ParsedTrack[]
-    // bass track drives slash naming; only wired for Auto — Harmony sees all
-    // tracks anyway, Follow is deliberately scoped to its one instrument
-    let bass: ParsedTrack | null = null
 
     if (chordTrackingMode === 'auto') {
-      scope = roles!.chordTrackIndices.length > 0
-        ? midi.tracks.filter(t => roles!.chordTrackIndices.includes(t.index))
-        : nonDrum
-      bass = roles!.bassTrackIndex != null
-        ? midi.tracks.find(t => t.index === roles!.bassTrackIndex) ?? null
-        : null
+      // The chord instruments only (piano/keys/guitar/strings) — melody and
+      // ornament tracks are excluded.
+      scope = roles.chordTrackIndices.length > 0
+        ? midi.tracks.filter(t => roles.chordTrackIndices.includes(t.index))
+        : nonDrum.filter(t => t.index !== roles.bassTrackIndex)
     } else if (chordTrackingMode === 'follow') {
       if (chordFollowSubMode === 'group' && chordFollowGroup) {
         const inGroup = nonDrum.filter(t => t.group === chordFollowGroup)
@@ -60,7 +61,9 @@ export function useChordSequence() {
         scope = nonDrum
       }
     } else {
-      scope = nonDrum // harmony
+      // Harmony — Auto's detection over every non-drum track (melody included),
+      // for dense textures where no one instrument holds the chords.
+      scope = nonDrum.filter(t => t.index !== roles.bassTrackIndex)
     }
 
     const grid = buildBeatGrid(midi)
