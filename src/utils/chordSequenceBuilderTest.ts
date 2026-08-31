@@ -2,10 +2,11 @@ import type { ParsedTrack, ParsedNote } from '../types'
 import { buildChordSequence } from './chordSequenceBuilder'
 
 const OPTS = { noteNaming: 'english' as const, accidentals: 'flat' as const, namingStyle: 'abbreviation' as const, transpose: 0 }
-// 8 bars of 2s each
+// 8 bars of 2s each, 4 beats/bar → a beat every 0.5s
 const GRID = {
   bars: [0, 2, 4, 6, 8, 10, 12, 14, 16],
   halfBars: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16],
+  beats: Array.from({ length: 33 }, (_, i) => i * 0.5),
 }
 function n(midi: number, time: number, dur: number, ti = 0): ParsedNote {
   return { midi, time, duration: dur, velocity: 0.7, trackIndex: ti }

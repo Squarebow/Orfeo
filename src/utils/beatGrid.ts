@@ -1,16 +1,21 @@
 import type { ParsedMidi } from '../types'
 
+export interface BeatGrid {
+  bars: number[]      // downbeat times (s)
+  halfBars: number[]  // each bar start + its midpoint
+  beats: number[]     // every beat onset (s) — the chord detector's window edges
+}
+
 // ── buildBeatGrid ───────────────────────────────────────────────────────
-// Decision-window boundaries for the live chord detector. `bars` are the
-// downbeats; `halfBars` splits each bar in two. Both come from the parser's
-// _barTimes (which is tempo- AND time-signature-aware — see midiParser.ts),
-// so a song that alternates 3/4 and 4/4 (Golden Brown) still lands its
-// windows on real beats. Falls back to a fixed 2-second grid when a file
-// carries no usable tempo/meter data.
-export function buildBeatGrid(midi: ParsedMidi): { bars: number[]; halfBars: number[] } {
+// Window boundaries for the live chord detector. All three come from the
+// parser's tempo- AND time-signature-aware grid (_beatTimes / _barTimes, see
+// midiParser.ts), so a song that alternates 3/4 and 4/4 (Golden Brown) still
+// lands its windows on real beats. Falls back to a fixed 2-second /
+// 1-second grid when a file carries no usable tempo/meter data.
+export function buildBeatGrid(midi: ParsedMidi): BeatGrid {
   const bars = (midi._barTimes && midi._barTimes.length >= 2)
     ? [...midi._barTimes]
-    : fallbackBars(midi.duration)
+    : fallbackGrid(midi.duration, 2)
 
   const halfBars: number[] = []
   for (let i = 0; i < bars.length; i++) {
@@ -18,11 +23,16 @@ export function buildBeatGrid(midi: ParsedMidi): { bars: number[]; halfBars: num
     const next = bars[i + 1]
     if (next !== undefined) halfBars.push((bars[i] + next) / 2)
   }
-  return { bars, halfBars }
+
+  const beats = (midi._beatTimes && midi._beatTimes.length >= 2)
+    ? [...midi._beatTimes]
+    : fallbackGrid(midi.duration, 1)
+
+  return { bars, halfBars, beats }
 }
 
-function fallbackBars(duration: number): number[] {
+function fallbackGrid(duration: number, step: number): number[] {
   const out: number[] = []
-  for (let t = 0; t <= duration + 2; t += 2) out.push(t)
+  for (let t = 0; t <= duration + step; t += step) out.push(t)
   return out
 }

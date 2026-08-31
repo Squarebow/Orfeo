@@ -84,40 +84,65 @@ export function isCuratedChordName(name: string): boolean {
 
 // ── CHORD_TEMPLATES ──────────────────────────────────────────────────────
 // Pitch-class templates for the live sequence matcher (chordSequenceBuilder).
-// Ordered simplest-first; `complexity` is subtracted (× a weight) from the
-// match score so a plain triad wins unless an extension carries real energy.
-// `tier`: 1 = everyday chord, 2 = dim/aug/half-dim family — the matcher only
-// falls to a tier-2 name when no tier-1 name fits the notes at all, because
-// a partial voicing of a plain triad reads as "aug"/"dim" far too eagerly.
-type Template = { suffix: string; pcs: number[]; tonalIntervals: string[]; complexity: number; tier: 1 | 2 }
+// A full working jazz/pop vocabulary — the point is to name the REAL chord,
+// extensions and alterations included (Gmaj7, D7b9, Am7b5, Cmaj9#11 …), not
+// to flatten everything to triads. `complexity` is subtracted (× a small
+// weight) from the match score, so on a genuine tie the simpler reading
+// wins, but an extended chord still wins whenever its extension tones
+// actually carry energy in the window (that's what the "weak extension"
+// penalty in the matcher enforces). Nonsense tonal.js types ("sus24",
+// "Mb6b9") are excluded simply by not being here.
+type Template = { suffix: string; pcs: number[]; tonalIntervals: string[]; complexity: number }
 
-const TEMPLATE_SPEC: { suffix: string; complexity: number; tier?: 1 | 2 }[] = [
-  { suffix: '',      complexity: 0 },
-  { suffix: 'm',     complexity: 0 },
-  { suffix: '7',     complexity: 0.35 },
-  { suffix: 'm7',    complexity: 0.35 },
-  { suffix: 'maj7',  complexity: 0.55 },
-  { suffix: '6',     complexity: 0.6 },
-  { suffix: 'm6',    complexity: 0.75 },
-  { suffix: 'sus4',  complexity: 0.5 },
-  { suffix: 'sus2',  complexity: 0.65 },
-  { suffix: '7sus4', complexity: 0.85 },
-  { suffix: 'add9',  complexity: 0.85 },
-  { suffix: 'madd9', complexity: 0.9 },
-  { suffix: 'mM7',   complexity: 1.0 },
-  { suffix: '9',     complexity: 1.1 },
-  { suffix: 'm9',    complexity: 1.2 },
-  { suffix: 'maj9',  complexity: 1.2 },
-  { suffix: '6/9',   complexity: 1.15 },
-  { suffix: 'dim',   complexity: 0.7, tier: 2 },
-  { suffix: 'aug',   complexity: 1.0, tier: 2 },
-  { suffix: 'm7b5',  complexity: 0.8, tier: 2 },
-  { suffix: 'dim7',  complexity: 1.1, tier: 2 },
-  { suffix: '7b9',   complexity: 1.4, tier: 2 },
+const TEMPLATE_SPEC: { suffix: string; complexity: number }[] = [
+  // triads
+  { suffix: '',        complexity: 0 },
+  { suffix: 'm',       complexity: 0 },
+  { suffix: 'sus4',    complexity: 0.25 },
+  { suffix: 'sus2',    complexity: 0.30 },
+  { suffix: 'dim',     complexity: 0.40 },
+  { suffix: 'aug',     complexity: 0.55 },
+  // sixths
+  { suffix: '6',       complexity: 0.40 },
+  { suffix: 'm6',      complexity: 0.50 },
+  { suffix: '6/9',     complexity: 0.80 },
+  { suffix: 'm69',     complexity: 0.85 },
+  // sevenths
+  { suffix: '7',       complexity: 0.35 },
+  { suffix: 'm7',      complexity: 0.35 },
+  { suffix: 'maj7',    complexity: 0.45 },
+  { suffix: 'mM7',     complexity: 0.70 },
+  { suffix: 'm7b5',    complexity: 0.50 },
+  { suffix: 'dim7',    complexity: 0.70 },
+  { suffix: '7sus4',   complexity: 0.55 },
+  // add9
+  { suffix: 'add9',    complexity: 0.55 },
+  { suffix: 'madd9',   complexity: 0.60 },
+  // ninths
+  { suffix: '9',       complexity: 0.75 },
+  { suffix: 'm9',      complexity: 0.80 },
+  { suffix: 'maj9',    complexity: 0.85 },
+  { suffix: '9sus4',   complexity: 0.95 },
+  // altered dominants
+  { suffix: '7b9',     complexity: 1.00 },
+  { suffix: '7#9',     complexity: 1.05 },
+  { suffix: '7b5',     complexity: 0.90 },
+  { suffix: '7#5',     complexity: 0.90 },
+  { suffix: '7#11',    complexity: 1.10 },
+  { suffix: '7b13',    complexity: 1.10 },
+  { suffix: 'alt7',    complexity: 1.25 },
+  // elevenths / thirteenths
+  { suffix: '11',      complexity: 1.15 },
+  { suffix: 'm11',     complexity: 1.15 },
+  { suffix: 'maj9#11', complexity: 1.35 },
+  { suffix: '13',      complexity: 1.25 },
+  { suffix: 'm13',     complexity: 1.25 },
+  { suffix: 'maj13',   complexity: 1.35 },
+  { suffix: '13b9',    complexity: 1.45 },
 ]
 
 export const CHORD_TEMPLATES: ReadonlyArray<Template> = TEMPLATE_SPEC
-  .map(({ suffix, complexity, tier }) => {
+  .map(({ suffix, complexity }) => {
     const ct = Chord.get('C' + suffix)
     if (!ct.intervals || ct.intervals.length < 3) return null
     const pcs = ct.intervals
@@ -128,7 +153,6 @@ export const CHORD_TEMPLATES: ReadonlyArray<Template> = TEMPLATE_SPEC
       pcs: [...new Set(pcs)],          // unique pitch classes, root first
       tonalIntervals: [...ct.intervals], // verbatim, for buildCompactVoicing
       complexity,
-      tier: tier ?? 1,
     }
   })
   .filter((t): t is Template => t !== null)
