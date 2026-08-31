@@ -104,7 +104,7 @@ async function computeChordSequenceClassic(
       const built = buildChordEvent(cluster.time, new Set(cluster.midis), displayNaming, accidentals, namingStyle)
       if (built && built.name !== prevName) {
         prevName = built.name
-        events.push({ time: cluster.time, ...built })
+        events.push({ time: cluster.time, displayTime: cluster.time, short: false, ...built })
       }
     }
     if (i % CHUNK_SIZE === CHUNK_SIZE - 1) {
@@ -171,7 +171,7 @@ async function computeChordSequenceSustained(
       const built = buildChordEvent(t, new Set(active.keys()), displayNaming, accidentals, namingStyle)
       if (built && built.name !== prevName) {
         prevName = built.name
-        events.push({ time: t, ...built })
+        events.push({ time: t, displayTime: t, short: false, ...built })
       }
     }
 

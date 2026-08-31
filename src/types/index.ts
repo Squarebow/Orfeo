@@ -138,6 +138,13 @@ export interface ChordEvent {
   // playback chord-display context menu) reconstruct a canonical voicing via
   // buildChordMidi() without re-parsing the localized display name. ─────────
   structured: { rootPitchClass: number; intervals: string[]; rawRootName: string } | null
+  // ── Beat-aligned time the display should switch at. Equals `time` for the
+  // sequence builder (its windows already start on beats); a distinct field
+  // so consumers never assume time === display. ─────────────────────────
+  displayTime: number
+  // ── Segment shorter than one bar — the prompter renders runs of these
+  // compressed instead of one-per-slot. ────────────────────────────────
+  short: boolean
 }
 
 export interface TranscriptEntry {

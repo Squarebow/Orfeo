@@ -37,6 +37,7 @@ import { runHandMetadataTest } from './utils/handMetadataTest'
 import { runChordVocabularyTest } from './utils/chordVocabularyTest'
 import { runBeatGridTest } from './utils/beatGridTest'
 import { runTrackChordRoleTest } from './utils/trackChordRoleTest'
+import { runChordSequenceBuilderTest } from './utils/chordSequenceBuilderTest'
 import { NES, confirmDiscardDirtyNoteEdits } from './utils/noteEditorState'
 import { confirmDiscardDirtyTempoKey, saveTempoKeyChanges } from './utils/tempoKeySave'
 
@@ -227,6 +228,7 @@ export default function App() {
       ;(window as any).__orfeoChordVocabularyTest = runChordVocabularyTest
       ;(window as any).__orfeoBeatGridTest = runBeatGridTest
       ;(window as any).__orfeoTrackChordRoleTest = runTrackChordRoleTest
+      ;(window as any).__orfeoChordSequenceBuilderTest = runChordSequenceBuilderTest
     }
   }, [])
 
