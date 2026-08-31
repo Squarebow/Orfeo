@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback, useMemo, useRef, type CSSProperties } from 'react'
 import { createPortal } from 'react-dom'
-import { ChordType, Interval } from 'tonal'
+import { Interval } from 'tonal'
 import { Search, Hand, RotateCcw, Square, CircleOff, ListOrdered, Shuffle, ArrowUpRight, ChevronLeft, ChevronRight } from 'lucide-react'
 import Fuse from 'fuse.js'
 import { useStore } from '../store'
@@ -16,6 +16,10 @@ import { getPianoRollCenterX, getKeyboardHeaderTop } from '../utils/modalAnchors
 import { useAnchorBottomOnResize } from '../hooks/useAnchorBottomOnResize'
 import { modalCloseButtonStyle, modalCloseButtonHoverColor, modalCloseButtonIdleColor } from '../utils/modalCloseButtonStyle'
 import { buildChordMidi, formatChordSuffix } from '../utils/chordDetection'
+import {
+  COMMON_CHORDS, ALL_CHORDS, CURATED_KEYS, FULL_CHORD_TYPES,
+  resolveChord, type ChordInfo,
+} from '../utils/chordVocabulary'
 
 const RANGES: Record<number, { min: number; max: number }> = {
   61: { min: 36, max: 96 },
@@ -28,51 +32,6 @@ const MODAL_WIDTH = 720
 const MODAL_HEIGHT = 532
 
 const ROOT_MIDIS = [60, 61, 62, 63, 64, 65, 66, 67, 68, 69, 70, 71]
-
-const COMMON_TYPES = [
-  'major', 'minor', 'maj7', 'm7', '7', '6', 'm6',
-  'dim', 'aug', 'sus2', 'sus4', '7sus4',
-  'mM7', 'maj9', 'm9', '9',
-  'm11', '11', 'maj13', 'm13',
-]
-
-const EXTENDED_ADD = [
-  '13', 'dim7', 'half-diminished', 'maj7#5', '7#5',
-  'M7#11', '7#11', '7b9', '7#9',
-  'm7b5', '6/9', 'm69', '9sus4',
-  '7b5', 'mM9', 'Madd9', 'madd9',
-  'M7b6', 'alt7', '7b9#11', '13b9',
-  '7b13', '13#11', 'maj9#11', '9#11',
-  // Major triad with a flattened 5th (tonal.js key 'Mb5', e.g. Bb-D-Fb) —
-  // the triad-tier counterpart to 'dim' (minor 3rd + b5) that was missing
-  // entirely, so any real chord detected as this type (Chord.detect/
-  // detectChordStructured both already recognize it) had no catalog match:
-  // right-click "Open in Chord Explorer" fell through to no-op past its
-  // interval-equality lookup, and note-search could never find it either
-  // since both search the same ALL_CHORDS list. ─────────────────────────────
-  'Mb5',
-]
-
-// ── Maps our curated catalog KEYS to a raw tonal-style suffix, for the
-// handful that aren't already symbol-shaped (word keys like 'major', or a
-// deliberate simplification like 'alt7'→'alt'). Everything else's key IS
-// already a valid raw suffix — formatChordSuffix (imported from
-// chordDetection.ts, the same formatter every other chord display in the
-// app uses) handles the rest, including style (abbreviation/symbol). This
-// used to be its own full DISPLAY_SUFFIX override map, duplicating and
-// disagreeing with the playback display's formatting — see
-// docs/superpowers/specs/2026-08-20-chord-settings-design.md. ─────────────
-const KEY_TO_RAW_SUFFIX: Record<string, string> = {
-  'major': '', 'minor': 'm', 'half-diminished': 'm7b5', 'alt7': 'alt',
-}
-
-interface ChordInfo {
-  key: string
-  name: string
-  intervals: string[]
-  suffix: string
-  aliases: string[]
-}
 
 interface Progression {
   name: string
@@ -97,22 +56,6 @@ function ChevronPlayIcon({ size = 14, mirrored = false }: { size?: number; mirro
       />
     </svg>
   )
-}
-
-// ── suffix stores the RAW (style-independent) suffix — style is applied at
-// every display site via formatChordSuffix(chord.suffix, chordNamingStyle),
-// same as chordDetection.ts's localizeChord, so it stays live/reactive
-// instead of being baked into this module-level catalog. ──────────────────
-function resolveChord(key: string): ChordInfo | null {
-  const ct = ChordType.get(key)
-  if (!ct || !ct.intervals || ct.intervals.length < 2) return null
-  return {
-    key,
-    name: ct.name || key,
-    intervals: ct.intervals,
-    suffix: KEY_TO_RAW_SUFFIX[key] ?? key,
-    aliases: ct.aliases || [],
-  }
 }
 
 function applyNthInversion(baseMidi: number[], n: number): number[] {
@@ -258,23 +201,6 @@ const GENRE_DESCRIPTIONS: Record<Genre, string> = {
   carnival:  'Bright, festive 7th chords — samba character',
   velvet:    'Deep 11ths and 13ths, mellow and laid-back — neo-soul character',
 }
-
-const COMMON_CHORDS = COMMON_TYPES.map(resolveChord).filter((c): c is ChordInfo => c !== null)
-const ALL_CHORDS = [...COMMON_CHORDS, ...EXTENDED_ADD.map(resolveChord).filter((c): c is ChordInfo => c !== null)]
-
-// ── Fallback dictionary — every OTHER chord type tonal.js recognizes,
-// beyond the hand-picked ALL_CHORDS above. ALL_CHORDS stays a deliberately
-// curated, browsable tile set (adding every tonal.js type there would blow
-// it up to 100+ tiles); this exists purely so a chord actually detected in
-// a MIDI file, or typed into note-search, can never come back "not found"
-// just because nobody thought to curate it into a tile. playChordAt, the
-// pendingChordExplorerSeed effect, and filteredChords's search all check
-// this ONLY when the curated list has no match — see each call site. ──────
-const CURATED_KEYS = new Set(ALL_CHORDS.map(c => c.key))
-const FULL_CHORD_TYPES = ChordType.all()
-  .filter(ct => ct.aliases.length > 0 && !CURATED_KEYS.has(ct.aliases[0]))
-  .map(ct => resolveChord(ct.aliases[0]))
-  .filter((c): c is ChordInfo => c !== null)
 
 // ── Shared row label style — dim uppercase, used across all control rows ──────
 const ROW_LABEL: React.CSSProperties = {
