@@ -2808,14 +2808,14 @@ export default function SettingsPanel() {
                       Select what the live chord display and the Lock-A-Chord modal follow during playback.
                     </div>
                     <div style={{ display: 'flex', gap: 'var(--space-1)' }}>
-                      <OptionBtn active={chordTrackingMode === 'classic'} onClick={() => setChordTrackingMode('classic')}>Classic</OptionBtn>
+                      <OptionBtn active={chordTrackingMode === 'auto'} onClick={() => setChordTrackingMode('auto')}>Auto</OptionBtn>
                       <OptionBtn active={chordTrackingMode === 'harmony'} onClick={() => setChordTrackingMode('harmony')}>Harmony</OptionBtn>
                       <OptionBtn active={chordTrackingMode === 'follow'} onClick={() => setChordTrackingMode('follow')}>Follow</OptionBtn>
                     </div>
                     <div style={{ marginTop: 6, fontSize: 10, color: 'var(--text-inactive)', fontFamily: 'var(--font-mono)', lineHeight: 1.5 }}>
-                      {chordTrackingMode === 'classic' && 'All tracks are pooled together, grouped by note onset. Can flicker between incidental combinations under a busy melody.'}
-                      {chordTrackingMode === 'harmony' && 'Tracks which notes are actually sounding at each moment — the real harmony stays correctly named under a moving melody.'}
-                      {chordTrackingMode === 'follow' && 'Same sustain-aware detection, scoped to one instrument or group — falls back to General Harmony if it’s not present in the file.'}
+                      {chordTrackingMode === 'auto' && 'Follows the main chord instrument (piano, guitar...), ignoring melody and ornaments. Best for most songs.'}
+                      {chordTrackingMode === 'harmony' && 'Every instrument pooled together. Use for dense textures where no single track carries the chords.'}
+                      {chordTrackingMode === 'follow' && 'Scoped to one instrument or group you choose.'}
                     </div>
 
                     {chordTrackingMode === 'follow' && (

@@ -528,10 +528,9 @@ export const useStore = create<OrfeoStore>((set, get) => ({
   setAppTheme: (appTheme) => set({ appTheme }),
   setShowBarNumbers: (showBarNumbers) => set({ showBarNumbers }),
 
-  // 'harmony' (sustain-aware, all tracks) is the default for everyone —
-  // 'classic' (today's onset-clustering) is the mode being fixed, not a
-  // safer fallback to default to.
-  chordTrackingMode: 'harmony',
+  // 'auto' (follow the detected chord instrument) is the default — see
+  // docs/superpowers/specs/2026-08-31-chord-detection-redesign-design.md.
+  chordTrackingMode: 'auto',
   chordFollowSubMode: 'group',
   chordFollowGroup: null,
   chordFollowTrackIndex: null,
@@ -945,7 +944,11 @@ async function restoreLibraryPrefs() {
     }
     if (prefs.noteNaming) store.setNoteNaming(prefs.noteNaming)
     if (prefs.accidentals) store.setAccidentals(prefs.accidentals)
-    if (prefs.chordTrackingMode === 'classic' || prefs.chordTrackingMode === 'harmony' || prefs.chordTrackingMode === 'follow') store.setChordTrackingMode(prefs.chordTrackingMode)
+    if (prefs.chordTrackingMode === 'auto' || prefs.chordTrackingMode === 'harmony' || prefs.chordTrackingMode === 'follow') {
+      store.setChordTrackingMode(prefs.chordTrackingMode)
+    } else if (prefs.chordTrackingMode === 'classic') {
+      store.setChordTrackingMode('auto') // Classic removed 2026-08-31
+    }
     if (prefs.chordFollowSubMode === 'group' || prefs.chordFollowSubMode === 'track') store.setChordFollowSubMode(prefs.chordFollowSubMode)
     if (typeof prefs.chordFollowGroup === 'string' || prefs.chordFollowGroup === null) store.setChordFollowGroup(prefs.chordFollowGroup)
     if (prefs.chordNamingStyle === 'abbreviation' || prefs.chordNamingStyle === 'symbol') store.setChordNamingStyle(prefs.chordNamingStyle)

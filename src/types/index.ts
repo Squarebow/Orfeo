@@ -108,7 +108,7 @@ export type Accidentals = 'flat' | 'sharp'
 // root-letter spelling). 'abbreviation' = "Bb(b5)", 'symbol' = "Bb(♭5)". ────
 export type ChordNamingStyle = 'abbreviation' | 'symbol'
 
-export type ChordTrackingMode = 'classic' | 'harmony' | 'follow'
+export type ChordTrackingMode = 'auto' | 'harmony' | 'follow'
 export type ChordFollowSubMode = 'group' | 'track'
 
 export interface MidiFileResult {

@@ -236,7 +236,7 @@ export function useChordSequence() {
         }
       }
 
-      const seq = effectiveMode === 'classic'
+      const seq = false // Task 7: rewrites this to properly implement 'auto' mode
         ? await computeChordSequenceClassic(nonDrumTracks, noteNaming, accidentals, transpose, chordNamingStyle, isCancelled)
         : await computeChordSequenceSustained(scopedTracks, noteNaming, accidentals, transpose, chordNamingStyle, isCancelled)
       if (!cancelled) setChordSequence(seq)
