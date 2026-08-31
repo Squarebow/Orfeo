@@ -1,5 +1,24 @@
 # Changelog
 
+## [1.0.3] — 31. 8. 2026 — Chord detection redesign
+
+The live chord display was erratic enough to be a hindrance rather than a help: it flickered through wrong names as a melody moved over a held chord, over-analyzed plain triads into extended jazz voicings, surfaced obscure names almost no one would recognize, and went blank through instrument-only intros. This release rebuilds how the playback chord bar and prompter decide what to show.
+
+### New
+- **Auto chord-tracking mode, now the default.** Detects the chord from the track(s) actually carrying the harmony — the polyphonic accompaniment such as piano or guitar — and ignores melody lines and ornaments. It works from beat-synchronous pitch-class analysis matched against a curated set of common chords, so an arpeggio, a broken chord, and a block chord all read as the same name, and changes land on the beat instead of mid-bar. When no single track carries the chords it falls back to Harmony. Settings shows which track(s) it picked.
+- **The chord prompter now compresses quick chord changes** into a tight cluster — smaller type, no full-width slot each — so a burst of short chords reads as a run rather than shoving everything else off-screen.
+
+### Changed
+- **The "Harmony" and "Follow" tracking modes are kept**, now as manual choices — Harmony for dense textures where no one track holds the chords, Follow for scoping detection to a specific instrument or group. Both run through the same new detector as Auto.
+- **"Classic" tracking mode removed.** It pooled every track by note onset and flickered on essentially any input; a saved "Classic" preference now loads as Auto.
+- `src/App.tsx`, `src/components/ChordExplorer.tsx`, `src/components/Keyboard/Keyboard.tsx`, `src/components/SettingsPanel/SettingsPanel.tsx`, `src/hooks/useChordSequence.ts`, `src/store/index.ts`, `src/types/index.ts`, `src/utils/beatGrid.ts` (new), `src/utils/beatGridTest.ts` (new), `src/utils/chordDetection.ts`, `src/utils/chordSequenceBuilder.ts` (new), `src/utils/chordSequenceBuilderTest.ts` (new), `src/utils/chordVocabulary.ts` (new), `src/utils/chordVocabularyTest.ts` (new), `src/utils/midiParser.ts`, `src/utils/trackChordRole.ts` (new), `src/utils/trackChordRoleTest.ts` (new).
+
+### Fixed
+- **Erratic chord flicker under a moving melody.** Every micro-change to the set of ringing notes that produced a different name was pushed as its own event, and passing melody and ornament notes were counted as chord tones. A sustained A-major triad with a flute line over it cycled through "A", "Dmaj9/A", "Amaj7", "A6add9" and back; it now holds "A".
+- **No chords shown during an instrument-only intro.** A solo-guitar opening left the display blank because detection pooled all tracks and found nothing stable. The track picker now identifies the guitar as the chord source and names chords from the first bar.
+- **Obscure chord names** like "Bsus24" or "Gb7b6". Detection weighed roughly a hundred chord types equally and then tried to argue the strange ones down after the fact. It now matches against a curated common set first and only falls back to an exotic name when nothing common fits the notes.
+- **3/4 to 4/4 alternating-meter songs placed chord changes off the beat.** The beat grid read only the first time signature in the file; it now honours the full tempo and time-signature map, so changes land on the real downbeats even when the meter shifts every bar.
+
 ## [1.0.2] — 30. 8. 2026 — Chord right-click voicing fixes, Scales Explorer playback controls, tooltip cleanup
 
 ### Fixed
