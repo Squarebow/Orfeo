@@ -19,12 +19,12 @@ const CHORD_DEBOUNCE_MS = 320
 const CHORD_HOLD_MS = 1600
 
 // ── Resolve current chord index: last event whose time <= currentTime ─────────
-function resolveCurrentIndex(seq: { time: number }[], currentTime: number): number {
+function resolveCurrentIndex(seq: { displayTime: number }[], currentTime: number): number {
   if (seq.length === 0) return -1
   let lo = 0, hi = seq.length - 1, idx = -1
   while (lo <= hi) {
     const mid = (lo + hi) >> 1
-    if (seq[mid].time <= currentTime) { idx = mid; lo = mid + 1 }
+    if (seq[mid].displayTime <= currentTime) { idx = mid; lo = mid + 1 }
     else hi = mid - 1
   }
   return idx
@@ -131,7 +131,7 @@ export default function Keyboard() {
   // heldChordEvent enforces a minimum real (wall-clock, not track-time —
   // legibility is about human perception, not playback speed) display
   // duration; justChanged pulses briefly on every actual value change.
-  const MIN_CHORD_DISPLAY_MS = 450
+  const MIN_CHORD_DISPLAY_MS = 300
   const CHORD_FLASH_MS = 350
   const [heldChordEvent, setHeldChordEvent] = useState<typeof sequenceChord>(null)
   const [chordJustChanged, setChordJustChanged] = useState(false)
