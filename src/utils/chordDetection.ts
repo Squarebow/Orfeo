@@ -213,8 +213,8 @@ function detectOmit3(sortedMidi: number[]): string[] {
 // pure combinatorial searches over tonal.js's chord dictionary, and the same
 // exact note set (a repeated chord shape, a sustained pad under a moving
 // melody, or just the same voicing recurring later in the song) comes
-// through here constantly. Without this cache, computeChordSequence{Classic,
-// Sustained} re-runs the full expensive search from scratch for every one of
+// through here constantly. Without this cache, the chord-sequence builder
+// re-runs the full expensive search from scratch for every one of
 // those repeats, which is what turned "load a MIDI file" into a multi-second
 // main-thread freeze on real songs (measured via CDP profiling — detect()'s
 // tonal.js internals were >90% of the total blocking time). Safe to cache
