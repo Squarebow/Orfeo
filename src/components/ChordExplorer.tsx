@@ -17,8 +17,7 @@ import { useAnchorBottomOnResize } from '../hooks/useAnchorBottomOnResize'
 import { modalCloseButtonStyle, modalCloseButtonHoverColor, modalCloseButtonIdleColor } from '../utils/modalCloseButtonStyle'
 import { buildChordMidi, formatChordSuffix } from '../utils/chordDetection'
 import {
-  COMMON_CHORDS, ALL_CHORDS, CURATED_KEYS, FULL_CHORD_TYPES,
-  resolveChord, type ChordInfo,
+  COMMON_CHORDS, ALL_CHORDS, FULL_CHORD_TYPES, type ChordInfo,
 } from '../utils/chordVocabulary'
 
 const RANGES: Record<number, { min: number; max: number }> = {

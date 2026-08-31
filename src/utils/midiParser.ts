@@ -152,8 +152,9 @@ export function parseMidiBuffer(buffer: ArrayBuffer, fileName: string, filePath 
     let tick = 0
     let guard = 0
     while (tick < endTick && guard++ < 100000) {
-      _barTimes.push(midi.header.ticksToSeconds(tick))
       const [num, den] = sigAt(tick)
+      if (!(num > 0) || !(den > 0)) break
+      _barTimes.push(midi.header.ticksToSeconds(tick))
       const beatTick = (ppq * 4) / den
       for (let b = 0; b < num; b++) _beatTimes.push(midi.header.ticksToSeconds(tick + b * beatTick))
       tick += beatTick * num

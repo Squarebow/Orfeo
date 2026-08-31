@@ -2827,7 +2827,7 @@ export default function SettingsPanel() {
                       <OptionBtn active={chordTrackingMode === 'follow'} onClick={() => setChordTrackingMode('follow')}>Follow</OptionBtn>
                     </div>
                     <div style={{ marginTop: 6, fontSize: 10, color: 'var(--text-inactive)', fontFamily: 'var(--font-mono)', lineHeight: 1.5 }}>
-                      {chordTrackingMode === 'auto' && 'Follows the main chord instrument (piano, guitar...), ignoring melody and ornaments. Best for most songs.'}
+                      {chordTrackingMode === 'auto' && 'Follows the main chord instrument (piano, guitar…), ignoring melody and ornaments. Best for most songs.'}
                       {chordTrackingMode === 'harmony' && 'Every instrument pooled together. Use for dense textures where no single track carries the chords.'}
                       {chordTrackingMode === 'follow' && 'Scoped to one instrument or group you choose.'}
                     </div>

@@ -125,6 +125,9 @@ export interface LibraryFile {
 export interface ChordEvent {
   time: number
   name: string
+  // ── Raw pitch-class spelling of the chord (root-position, tonal's default
+  // accidentals) — NOT display-localized to the user's noteNaming/accidentals.
+  // No consumer reads this today; localize at the call site if one ever does.
   notes: string[]
   // ── The exact real MIDI notes (with real octave) actually sounding at
   // this event — already transpose-adjusted. "Show on keyboard" uses these

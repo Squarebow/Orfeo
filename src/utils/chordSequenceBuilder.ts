@@ -31,7 +31,8 @@ export interface BuildChordSequenceOpts {
   transpose: number
 }
 
-type Match = { root: number; suffix: string; pcs: Set<number>; label: string }
+type Tpl = (typeof CHORD_TEMPLATES)[number]
+type Match = { root: number; suffix: string; pcs: Set<number>; label: string; tpl: Tpl }
 
 // ── One window's smoothed 12-bin chroma → best (root × template) ─────────
 function matchWindow(
@@ -72,7 +73,7 @@ function matchWindow(
 
       if (score > bestScore) {
         bestScore = score
-        best = { root, suffix: tpl.suffix, pcs, label }
+        best = { root, suffix: tpl.suffix, pcs, label, tpl }
       }
     }
   }
@@ -123,23 +124,29 @@ export function buildChordSequence(
   // ── bass pc per window ────────────────────────────────────────────────
   const bassPcAt = (w: number): number => {
     const a = winStart(w), b = winEnd(w)
-    const pw = new Float64Array(12)
-    const src = bassTrack ? [bassTrack] : scopeTracks
-    for (const tr of src) {
-      for (const nt of tr.notes) {
-        const midi = nt.midi + opts.transpose
-        if (!bassTrack && midi > 55) continue
-        const ov = Math.min(nt.time + nt.duration, b) - Math.max(nt.time, a)
-        if (ov > 0) pw[((midi % 12) + 12) % 12] += ov
+    const scan = (tracks: ParsedTrack[], lowOnly: boolean): number => {
+      const pw = new Float64Array(12)
+      for (const tr of tracks) {
+        for (const nt of tr.notes) {
+          const midi = nt.midi + opts.transpose
+          if (lowOnly && midi > 55) continue
+          const ov = Math.min(nt.time + nt.duration, b) - Math.max(nt.time, a)
+          if (ov > 0) pw[((midi % 12) + 12) % 12] += ov
+        }
       }
+      let bi = -1, bw = 0
+      for (let p = 0; p < 12; p++) if (pw[p] > bw) { bw = pw[p]; bi = p }
+      return bi
     }
-    let bi = -1, bw = 0
-    for (let p = 0; p < 12; p++) if (pw[p] > bw) { bw = pw[p]; bi = p }
+    let bi = bassTrack ? scan([bassTrack], false) : scan(scopeTracks, true)
+    // bassTrack silent this window → fall back to scope low-notes rather than
+    // losing the bass anchor entirely (same path as the no-bassTrack case)
+    if (bi === -1 && bassTrack) bi = scan(scopeTracks, true)
     return bi
   }
 
   // ── match every window ────────────────────────────────────────────────
-  type Lab = { disp: string; root: number; suffix: string; label: string; bassPc: number }
+  type Lab = { disp: string; root: number; suffix: string; label: string; bassPc: number; tpl: Tpl }
   const labels: (Lab | null)[] = []
   for (let w = 0; w < NW; w++) {
     const bp = bassPcAt(w)
@@ -148,18 +155,18 @@ export function buildChordSequence(
     if (!m) { labels.push(null); continue }
     let disp = m.label
     if (bp >= 0 && bp !== m.root && m.pcs.has(bp)) disp = m.label + '/' + PC_SHARP[bp]
-    labels.push({ disp, root: m.root, suffix: m.suffix, label: m.label, bassPc: bp })
+    labels.push({ disp, root: m.root, suffix: m.suffix, label: m.label, bassPc: bp, tpl: m.tpl })
   }
 
   // ── merge equal-disp windows into segments ────────────────────────────
-  type Seg = { disp: string; root: number; suffix: string; bassPc: number; s: number; e: number }
+  type Seg = { disp: string; root: number; suffix: string; bassPc: number; s: number; e: number; tpl: Tpl }
   let segs: Seg[] = []
   for (let w = 0; w < NW; w++) {
     const L = labels[w]
     if (!L) continue
     const last = segs[segs.length - 1]
     if (last && last.disp === L.disp) last.e = w
-    else segs.push({ disp: L.disp, root: L.root, suffix: L.suffix, bassPc: L.bassPc, s: w, e: w })
+    else segs.push({ disp: L.disp, root: L.root, suffix: L.suffix, bassPc: L.bassPc, s: w, e: w, tpl: L.tpl })
   }
 
   // ── segment clean-up ─────────────────────────────────────────────────
@@ -172,9 +179,9 @@ export function buildChordSequence(
       k++
       continue
     }
-    // (2) extension blip: a lone 1-window segment with the SAME root as the
-    // previous segment but a busier suffix (a bar-boundary transition where
-    // the next chord's notes briefly bleed in) folds back into the previous.
+    // (2) extension blip: a lone half-bar segment with the same root as the
+    // previous but a different suffix (a bar-boundary transition artefact)
+    // folds back into it.
     const prevM = merged[merged.length - 1]
     if (cur.e - cur.s < 1 && prevM && prevM.root === cur.root && prevM.suffix !== cur.suffix) {
       prevM.e = cur.e
@@ -184,7 +191,7 @@ export function buildChordSequence(
   }
 
   // ── collapse a run of same-root-same-suffix segments differing only by
-  // slash, each slash sub-run under ~1 bar (2 windows), into one — kills
+  // slash, each slash sub-run up to a bar long, into one — kills
   // "G → G/B → G/D → G" arpeggio chatter, keeps a real bar-long inversion.
   const collapsed: Seg[] = []
   for (const seg of merged) {
@@ -201,9 +208,9 @@ export function buildChordSequence(
   // ── segments → ChordEvent[] ───────────────────────────────────────────
   const barLen = medianBarLength(grid.bars)
   return collapsed.map((seg) => {
-    const tpl = CHORD_TEMPLATES.find(t => t.suffix === seg.suffix)!
+    const tpl = seg.tpl
     const rootName = PC_SHARP[seg.root]
-    const hasSlash = seg.disp.includes('/')
+    const hasSlash = seg.bassPc >= 0 && seg.bassPc !== seg.root && seg.disp.endsWith('/' + PC_SHARP[seg.bassPc])
     const bassPc = hasSlash ? seg.bassPc : seg.root
     // seg.disp is e.g. "G" / "Gm7" / "Gmaj7/B" — already a valid tonal name.
     const name = localizeChord(seg.disp, opts.noteNaming, opts.accidentals, opts.namingStyle) ?? seg.disp

@@ -156,7 +156,7 @@ export default function Keyboard() {
     }
 
     // ── Paused (scrubbing): apply instantly, no hold delay or flash — the
-    // 450ms minimum-display exists to stop real-time playback from
+    // 300ms minimum-display exists to stop real-time playback from
     // flickering faster than a human can read; a scrub gesture is already
     // paced by the user's own mouse, so holding it back just reads as lag. ──
     if (playbackState !== 'playing') {
