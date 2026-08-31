@@ -9,13 +9,10 @@ export interface ChordTrackRoles {
 const isBassProgram = (p: number) => p >= 32 && p <= 39
 const isMelodyProgram = (p: number) =>
   (p >= 64 && p <= 71) || (p >= 72 && p <= 79) || (p >= 80 && p <= 87) || (p >= 104 && p <= 111)
-const isChordalProgram = (p: number) =>
-  p <= 7 || (p >= 16 && p <= 31) || (p >= 40 && p <= 55) || (p >= 88 && p <= 95)
 
 // ── Tuning ──────────────────────────────────────────────────────────────
-const PICKER_MERGE_MARGIN = 6     // 2nd track must score within this of the top
-const PICKER_SECOND_POLY = 2.2    // …and be at least this polyphonic
-const PICKER_MIN_SCORE = 8        // below this → [] (caller uses Harmony)
+const MONO_POLY = 1.45          // below this, a track is not really playing chords
+const MELODY_REGISTER = 72      // median MIDI above this + monophonic = a lead line
 
 function meanPolyphony(track: ParsedTrack): number {
   const N = track.notes
@@ -35,69 +32,53 @@ function medianPitch(track: ParsedTrack): number {
   return ps[ps.length >> 1] ?? 60
 }
 
-// Core score math — callers pass poly/med so the O(N²) meanPolyphony scan
-// runs exactly once per track.
-function scoreChordTrackWith(track: ParsedTrack, songDuration: number, poly: number, med: number): number {
-  if (track.isDrum || track.notes.length === 0) return -999
-  const first = track.notes[0].time
-  const last = track.notes[track.notes.length - 1]
-  const coverage = songDuration > 0 ? (last.time + last.duration - first) / songDuration : 0
-  let s = Math.min(poly, 4) * 10 + coverage * 8
-  if (isBassProgram(track.program)) s -= 100
-  if (med < 48) s -= 15
-  if (isMelodyProgram(track.program)) s -= 12
-  if (isChordalProgram(track.program)) s += 8
-  if (poly < 1.5) s -= 20
-  return s
-}
-
-export function scoreChordTrack(track: ParsedTrack, songDuration: number): number {
-  return scoreChordTrackWith(track, songDuration, meanPolyphony(track), medianPitch(track))
-}
-
 const _pickCache = new WeakMap<ParsedTrack[], ChordTrackRoles>()
 
+// ── pickChordTracks — Auto mode's track scope ───────────────────────────
+// Returns the "harmonic set": every non-drum track that could be carrying
+// chords, so the detector never goes blind when the main comping
+// instrument rests (Fernando: piano plays the verse, then rests through the
+// chorus while guitar / strings / choir carry it). That's EVERY non-drum
+// track except (a) the bass and (b) a clearly-monophonic melody line (low
+// polyphony + a lead-instrument family or a high register). Not a
+// "best track" contest — coverage beats precision here, and the
+// beat-synchronous chroma weights whatever is actually sounding.
 export function pickChordTracks(tracks: ParsedTrack[]): ChordTrackRoles {
   const cached = _pickCache.get(tracks)
   if (cached) return cached
 
-  const dur = tracks.reduce((mx, t) => {
-    const l = t.notes[t.notes.length - 1]
-    return l ? Math.max(mx, l.time + l.duration) : mx
-  }, 0)
-
-  const scored = tracks
+  const meta = tracks
     .filter(t => !t.isDrum && t.notes.length > 0)
-    .map(t => {
-      const poly = meanPolyphony(t)
-      const med = medianPitch(t)
-      return { t, score: scoreChordTrackWith(t, dur, poly, med), poly, med }
-    })
-    .sort((a, b) => b.score - a.score)
+    .map(t => ({ t, poly: meanPolyphony(t), med: medianPitch(t) }))
 
-  const top = scored[0]
-  let chordTrackIndices: number[] = []
-  if (top && top.score > PICKER_MIN_SCORE) {
-    chordTrackIndices = [top.t.index]
-    for (const s of scored.slice(1)) {
-      if (chordTrackIndices.length >= 2) break
-      if (s.score >= top.score - PICKER_MERGE_MARGIN && s.poly >= PICKER_SECOND_POLY) {
-        chordTrackIndices.push(s.t.index)
-      }
-    }
-  }
-
-  // ── Bass track: GM bass family, else a non-picked mostly-mono low track ──
+  // ── Bass track (drives slash naming only) ───────────────────────────
   let bassTrackIndex: number | null = null
-  const gmBass = tracks.find(t => !t.isDrum && isBassProgram(t.program) && t.notes.length > 0)
+  const gmBass = meta.find(m => isBassProgram(m.t.program))
   if (gmBass) {
-    bassTrackIndex = gmBass.index
+    bassTrackIndex = gmBass.t.index
   } else {
-    const cand = scored
-      .filter(s => !chordTrackIndices.includes(s.t.index) && s.med < 50 && s.poly < 1.6)
+    const cand = meta
+      .filter(m => m.med < 50 && m.poly < 1.6)
       .sort((a, b) => a.med - b.med)[0]
     if (cand) bassTrackIndex = cand.t.index
   }
+
+  // ── Harmonic set ────────────────────────────────────────────────────
+  const harmonic = meta.filter(m => {
+    if (m.t.index === bassTrackIndex || isBassProgram(m.t.program)) return false
+    const monoMelody = m.poly < MONO_POLY && (isMelodyProgram(m.t.program) || m.med > MELODY_REGISTER)
+    return !monoMelody
+  })
+
+  // Always give the detector something: if every non-bass track looks like a
+  // melody line (a lead sheet), keep the most-polyphonic of them.
+  const chordTrackIndices = harmonic.length > 0
+    ? harmonic.map(m => m.t.index)
+    : meta
+        .filter(m => m.t.index !== bassTrackIndex && !isBassProgram(m.t.program))
+        .sort((a, b) => b.poly - a.poly)
+        .slice(0, 1)
+        .map(m => m.t.index)
 
   const result: ChordTrackRoles = { chordTrackIndices, bassTrackIndex }
   _pickCache.set(tracks, result)

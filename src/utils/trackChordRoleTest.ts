@@ -41,9 +41,10 @@ export function runTrackChordRoleTest(): void {
   ])
   check(r3.chordTrackIndices.join() === '0', 'piano+flute → chords [0], flute dropped')
 
-  // melody only → [] (caller falls back to Harmony)
+  // melody only → detection still runs on that melody line (nothing else exists)
   const r4 = pickChordTracks([mono(0, 73, 72, 12)])
-  check(r4.chordTrackIndices.length === 0, 'melody-only → []')
+  check(r4.chordTrackIndices.length === 1 && r4.chordTrackIndices[0] === 0,
+    'melody-only → detector still runs on the melody line ([0], nothing else to use)')
 
   console.log(`trackChordRole: ${pass} passed, ${fail} failed`)
   console.groupEnd()

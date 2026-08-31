@@ -233,7 +233,7 @@ tracks to find the chord instrument for Auto mode.
 
 | Mode | What it follows |
 |---|---|
-| **Auto** | Detects from the track(s) carrying the harmony (scored by polyphony, register, coverage, instrument family); falls back to Harmony when none stands out. Default. |
+| **Auto** | Detects from all non-drum tracks except the bass and any monophonic melody line — the full harmonic bed, so it never goes blind when one instrument rests. Default. |
 | **Harmony** | All non-drum tracks pooled |
 | **Follow Instrument** | Scoped to one GM group (persisted) or one track in the current file (per-file); falls back to Harmony |
 
