@@ -74,6 +74,8 @@ export interface ParsedMidi {
   tracks: ParsedTrack[]
   noteCount: number
   _tempoMap?: TempoEvent[]
+  _barTimes?: number[]
+  _beatTimes?: number[]
 }
 
 export type PlaybackState = 'stopped' | 'playing' | 'paused'

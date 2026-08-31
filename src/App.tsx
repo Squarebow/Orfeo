@@ -35,6 +35,7 @@ import { runNoteEditorRoundTripTest } from './utils/noteEditorRoundTripTest'
 import { runHandAssignmentTest } from './utils/handAssignmentTest'
 import { runHandMetadataTest } from './utils/handMetadataTest'
 import { runChordVocabularyTest } from './utils/chordVocabularyTest'
+import { runBeatGridTest } from './utils/beatGridTest'
 import { NES, confirmDiscardDirtyNoteEdits } from './utils/noteEditorState'
 import { confirmDiscardDirtyTempoKey, saveTempoKeyChanges } from './utils/tempoKeySave'
 
@@ -223,6 +224,7 @@ export default function App() {
       ;(window as any).__orfeoHandAssignmentTest = runHandAssignmentTest
       ;(window as any).__orfeoHandMetadataTest = runHandMetadataTest
       ;(window as any).__orfeoChordVocabularyTest = runChordVocabularyTest
+      ;(window as any).__orfeoBeatGridTest = runBeatGridTest
     }
   }, [])
 

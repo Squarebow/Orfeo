@@ -132,6 +132,34 @@ export function parseMidiBuffer(buffer: ArrayBuffer, fileName: string, filePath 
     }
   }
 
+  // ── Beat + bar grid honouring the FULL tempo map AND every time-signature
+  // change — the live chord detector windows on this. (`_barStarts` above
+  // uses only timeSignatures[0]; it drives the piano-roll grid and has the
+  // same latent bug, but fixing that is a separate visual change — out of
+  // scope here.) Computed against the live `midi` object so
+  // ticksToSeconds() is exact. ────────────────────────────────────────────
+  const _barTimes: number[] = []
+  const _beatTimes: number[] = []
+  {
+    const ppq = midi.header.ppq
+    const sigList = midi.header.timeSignatures
+    const sigAt = (tick: number): [number, number] => {
+      let cur: [number, number] = sigList[0] ? sigList[0].timeSignature as [number, number] : [4, 4]
+      for (const s of sigList) { if (s.ticks <= tick) cur = s.timeSignature as [number, number]; else break }
+      return cur
+    }
+    const endTick = midi.header.secondsToTicks(duration) + ppq * 4
+    let tick = 0
+    let guard = 0
+    while (tick < endTick && guard++ < 100000) {
+      _barTimes.push(midi.header.ticksToSeconds(tick))
+      const [num, den] = sigAt(tick)
+      const beatTick = (ppq * 4) / den
+      for (let b = 0; b < num; b++) _beatTimes.push(midi.header.ticksToSeconds(tick + b * beatTick))
+      tick += beatTick * num
+    }
+  }
+
   // ── Restore Orfeo custom track names from header text meta-events ────────────
   // Format: ORFEO_TRACK_NAME:N:name — type-0x01 text events injected by editor:save.
   // Only present in files previously saved through Orfeo; ignored for all other files.
@@ -229,6 +257,8 @@ export function parseMidiBuffer(buffer: ArrayBuffer, fileName: string, filePath 
     _rawMidiTracks: midi.tracks,
     _tempoMap: tempoMap,
     _barStarts: barStarts,
+    _barTimes,
+    _beatTimes,
     _orfeoTrackNames: Object.keys(orfeoTrackNames).length > 0 ? orfeoTrackNames : undefined,
     _orfeoTrackColors: Object.keys(orfeoTrackColors).length > 0 ? orfeoTrackColors : undefined,
     _orfeoTrackVisible: Object.keys(orfeoTrackVisible).length > 0 ? orfeoTrackVisible : undefined,
