@@ -69,7 +69,7 @@ telemetry; MIDI files are processed entirely on your device.
   styles
 - **Scale Explorer** — interactive Circle of Fifths; ten scale types, each with
   its diatonic chords and Roman numerals
-- **Real-time chord detection** with three tracking modes (Classic, Harmony,
+- **Real-time chord detection** with three tracking modes (Auto, Harmony,
   Follow Instrument)
 - **Chord Prompter** — a lead-sheet-style past / current / next readout synced
   to playback

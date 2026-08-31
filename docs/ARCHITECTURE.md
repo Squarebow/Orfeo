@@ -102,7 +102,7 @@ src/               Renderer process — everything the user sees
   components/       UI, organised by feature area (Keyboard/, PianoRoll/, Mixer/, MidiEditor/, …)
   hooks/            React hooks that own the runtime logic (useAudioEngine, useSamplesEngine, useChordSequence, …)
   store/            Zustand global store (index.ts) — one OrfeoStore interface
-  utils/            Pure functions, no React (chordDetection, handAssignment, midiParser, midiMetadata, …)
+  utils/            Pure functions, no React (chordDetection, chordVocabulary, chordSequenceBuilder, trackChordRole, beatGrid, handAssignment, midiParser, …)
   types/            Shared TypeScript interfaces
 
 public/            Bundled at build time — worklet, demo files, fonts, app icon
@@ -224,18 +224,23 @@ re-opened in Orfeo restores its key, track names, colours, and edit history.
 inversions. It is used live (the chord name above the keyboard) and throughout
 the Chord and Scale Explorers.
 
-**Chord detection** (`src/utils/chordDetection.ts`) has three tracking modes:
+**Chord detection** — the live chord name above the keyboard.
+`src/hooks/useChordSequence.ts` picks which track(s) feed the detector per the
+tracking mode; `src/utils/chordSequenceBuilder.ts` does the detection
+(beat-synchronous pitch-class analysis matched against a curated common-chord
+set, in `src/utils/chordVocabulary.ts`); `src/utils/trackChordRole.ts` scores
+tracks to find the chord instrument for Auto mode.
 
 | Mode | What it follows |
 |---|---|
-| **Classic** | Onset clustering across all tracks — what attacks together |
-| **General Harmony** | Sustain-aware — what is actually *ringing* at each instant, so a held chord under a moving melody stays named correctly |
-| **Follow Instrument** | General Harmony scoped to one GM group (persisted) or one track in the current file (per-file), with fallback to General Harmony |
+| **Auto** | Detects from the track(s) carrying the harmony (scored by polyphony, register, coverage, instrument family); falls back to Harmony when none stands out. Default. |
+| **Harmony** | All non-drum tracks pooled |
+| **Follow Instrument** | Scoped to one GM group (persisted) or one track in the current file (per-file); falls back to Harmony |
 
-Candidate names are ranked by musical complexity, not string length, with a
-fallback that tries inserting a hypothetical 3rd and accepts it only when tonal
-agrees on the resulting root — this avoids obscure or wrong-root names for
-common voicings that omit a note.
+Detection is restricted to a curated set of common chord types
+(`chordVocabulary.ts`); tonal.js's full dictionary is only consulted, via
+`chordDetection.ts`, for the paused right-click / Chord Explorer paths and only
+surfaces an exotic name when nothing common fits.
 
 ---
 

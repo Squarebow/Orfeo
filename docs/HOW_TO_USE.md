@@ -457,9 +457,9 @@ tracking modes (Settings → Notation & Chords):
 <colgroup><col width="18%"><col width="82%"></colgroup>
 <thead><tr><th>Mode</th><th>How it reads the music</th></tr></thead>
 <tbody>
-<tr><td><strong>Classic</strong></td><td>Pools every track by note onset — simple, but can flicker under a busy melody</td></tr>
-<tr><td><strong>Harmony</strong></td><td>Sustain-aware — the real underlying chord stays correctly named while the melody moves over it</td></tr>
-<tr><td><strong>Follow</strong></td><td>Harmony's detection scoped to one instrument or group you choose</td></tr>
+<tr><td><strong>Auto</strong></td><td>Follows the track(s) carrying the harmony — piano, guitar — ignoring melody and ornaments. The default, best for most songs.</td></tr>
+<tr><td><strong>Harmony</strong></td><td>All non-drum tracks pooled through the same beat-synchronous detector — for dense textures where no one track holds the chords</td></tr>
+<tr><td><strong>Follow</strong></td><td>The same detection scoped to one instrument or group you choose</td></tr>
 </tbody>
 </table>
 
