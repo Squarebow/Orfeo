@@ -2,6 +2,7 @@ import { Chord, Note, Interval, ChordType } from 'tonal'
 import type { NoteNaming, Accidentals, ChordNamingStyle } from '../types'
 import { getNoteName, convertAccidentals } from './noteNames'
 import { PIANO_RANGES } from './keyLayout'
+import { isCuratedChordName } from './chordVocabulary'
 
 // ---------------------------------------------------------------------------
 // Core principle:
@@ -237,6 +238,15 @@ function detect(noteNames: string[], sortedMidi?: number[]): string[] {
   if (sortedMidi && sortedMidi.length >= 3) {
     matches = [...matches, ...detectOmit3(sortedMidi)]
   }
+
+  // ── Prefer a common chord name. tonal returns every reading of a note
+  // set on equal footing — an obscure "Bsus24" or "A9no5/G" competes with
+  // "D7sus4". If ANY reading is a curated common type, drop the exotic
+  // ones entirely so the scorer never even sees them. Only when nothing
+  // common fits do the exotic names survive (scoreChord/WEIRD still rank
+  // those). ─────────────────────────────────────────────────────────────
+  const curated = matches.filter(isCuratedChordName)
+  if (curated.length > 0) matches = curated
 
   detectMatchesCache.set(cacheKey, matches)
   return matches
