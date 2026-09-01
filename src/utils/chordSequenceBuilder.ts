@@ -45,15 +45,19 @@ const REGISTER_HIGH = 84           // MIDI — melody register, ×0.5
 const REGISTER_HIGH_W = 0.5
 
 // ── turnover / boundary detection ───────────────────────────────────────
-const TURN_CHROMA_DIST = 0.10   // beat-to-beat chroma cosine-distance that marks a candidate
-const TURN_NEWPC_FLOOR = 0.10   // a newly-onset pitch class needs this share to count as "new"
+// A chord boundary is where the SET of held chord tones changes — a note
+// struck or released against the sustaining texture — not merely where the
+// overall energy shifts. This is what catches a piano re-voicing (Cmaj9 →
+// C6/9 → C) over a string pad that holds C-E-G straight through.
+const TURN_CHROMA_DIST = 0.10   // fallback: beat-to-beat chroma cosine-distance
+const HELD_PC_FLOOR = 0.035     // a note counts toward the "held set" above this share of the beat
+const DRONE_AGE_BARS = 1        // a note ringing longer than this starts to fade —
+const DRONE_FLOOR = 0.35        // …down to this share, so a 10-bar pad doesn't drown
+const DRONE_FADE_BARS = 4       //    the instrument actually playing the changes
 
 // ── naming ──────────────────────────────────────────────────────────────
 const NAME_MIN_BEATS = 2        // spans shorter than this are named with ±context so an
                                 // arpeggio slice reads as the whole chord
-const SIMPLE_MAX_COMPLEXITY = 0.5  // a span shorter than half a bar can only be named a
-                                   // plain shape (triad / sus / 6 / basic 7th) — you don't
-                                   // write "Gmaj13" for a passing eighth-note chord
 const W_IN = 2.0                // reward: share of energy on chord tones
 const W_OUT = 2.1               // penalty: share of energy off chord tones
 const W_MISS = 1.6              // penalty per chord tone that is essentially silent
@@ -87,7 +91,8 @@ interface Tagged {
   midi: number
   time: number
   end: number
-  weight: number   // register taper × melody discount
+  weight: number    // register taper × melody discount
+  melodic: boolean  // a moving top-voice line — excluded from the "held set"
 }
 
 interface Named {
@@ -100,9 +105,12 @@ interface Named {
 }
 
 // ── nameSpan — a 12-bin chroma → best (root × chord) from the dictionary ─
-// `simpleOnly` restricts the vocabulary to plain shapes — used for spans
-// too short to justify an extended name.
-function nameSpan(chroma: Float64Array, bassPc: number, lowPc: number, simpleOnly: boolean): Named | null {
+// `W_COMPLEXITY` leans toward the plainer name and `W_WEAK_EXT` makes a
+// colour tone earn its place. A template is only considered if every tone
+// it adds beyond the triad (7th / 9th / 11th / 13th) is in `structural` —
+// pitch classes actually HELD through most of the span. A passing 9th over
+// a held triad can't turn it into an add9; a sustained maj7 voicing can.
+function nameSpan(chroma: Float64Array, bassPc: number, lowPc: number, structural: number): Named | null {
   let total = 0
   for (let p = 0; p < 12; p++) total += chroma[p]
   if (total < 1e-9) return null
@@ -113,8 +121,10 @@ function nameSpan(chroma: Float64Array, bassPc: number, lowPc: number, simpleOnl
   let bestScore = -Infinity
   for (let root = 0; root < 12; root++) {
     for (const tpl of CHORD_TEMPLATES) {
-      if (simpleOnly && tpl.complexity > SIMPLE_MAX_COMPLEXITY) continue
       const pcs = tpl.pcs.map(i => (root + i) % 12)
+      let extOk = true
+      for (let k = 3; k < pcs.length; k++) if (!(structural & (1 << pcs[k]))) { extOk = false; break }
+      if (!extOk) continue
       const pcsSet = new Set(pcs)
       let inE = 0
       for (const p of pcsSet) inE += nv[p]
@@ -209,26 +219,43 @@ export function buildChordSequence(
           (Math.abs(nextN - midi) > 0 && Math.abs(nextN - midi) <= MELODY_MOVE_MAX)
         if (moved) {
           // it is the top of a chord VOICING (not a melody note) if it was
-          // struck together with a stack-mate within an octave below, or if
-          // ≥ 2 harmony notes are ringing within an octave below it now
+          // struck together with a stack-mate within an octave below that
+          // then SUSTAINS past the strum, or if ≥ 2 notes that started well
+          // before are still ringing within an octave below it.
           let struckWith = 0
           let ringingBelow = 0
           for (const o of allNotes) {
             if (o.midi >= midi || midi - o.midi > 12) continue
-            if (Math.abs(o.time - time) <= MELODY_STACK_WIN) struckWith++
-            else if (o.time <= time + 1e-4 && o.end > time + 1e-4) ringingBelow++
+            if (Math.abs(o.time - time) <= MELODY_STACK_WIN && o.end > time + 4 * MELODY_STACK_WIN) struckWith++
+            else if (o.time <= time - beatLen * 0.5 && o.end > time + 1e-4) ringingBelow++
           }
           const supported = struckWith >= 1 || ringingBelow >= 2
-          // …and there must be an accompaniment bed somewhere below in this
-          // stretch — otherwise this line IS the accompaniment (a solo comp
-          // or arpeggio) and must be kept.
+          // a fast one-voice line that traverses a scale (many onsets, many
+          // distinct pitch classes, ≤ 2 notes at once) is a run — melody,
+          // whether or not anything backs it. A chord arpeggio cycles a
+          // handful of pitch classes and is NOT a run.
+          let isRun = false
+          if (!supported && end - time < beatLen * 0.6) {
+            let onsets = 0, poly = 0
+            const near = new Set<number>()
+            for (let j = 0; j < notes.length; j++) {
+              const oj = notes[j]
+              if (oj.time < time - barLen || oj.time > time + barLen) continue
+              onsets++
+              near.add((((oj.midi + tx) % 12) + 12) % 12)
+              if (oj.time <= time + 0.02 && oj.time + oj.duration > time + 0.02) poly++
+            }
+            isRun = poly <= 2 && onsets >= 10 && near.size >= 6
+          }
+          // otherwise, keep it as harmony unless there's an accompaniment
+          // bed below (then a floating top line IS melody).
           let hasBed = false
-          if (!supported) {
+          if (!supported && !isRun) {
             for (const o of allNotes) {
               if (o.midi <= midi - MELODY_BED_MIN_GAP && o.time < end && o.end > time - barLen && o.time < time + barLen) { hasBed = true; break }
             }
           }
-          melodic = !supported && hasBed
+          melodic = !supported && (isRun || hasBed)
         }
       }
 
@@ -237,21 +264,47 @@ export function buildChordSequence(
         pc: ((midi % 12) + 12) % 12,
         midi, time, end,
         weight: reg * (melodic ? MELODY_WEIGHT : 1),
+        melodic,
       })
     }
   }
 
-  // ── per-beat harmony chroma (duration-weighted overlap) ────────────────
+  // ── per-beat harmony chroma + held/onset pitch-class masks ─────────────
+  // beatChroma  — duration-weighted energy, for naming.
+  // heldMask    — which chord tones (non-melodic) are ringing this beat.
+  // onsetMask   — which chord tones (non-melodic) were struck this beat.
   const beatChroma: Float64Array[] = Array.from({ length: NB }, () => new Float64Array(12))
-  const beatOnsetPc: Set<number>[] = Array.from({ length: NB }, () => new Set<number>())
+  const heldMask: number[] = new Array(NB).fill(0)
+  const onsetMask: number[] = new Array(NB).fill(0)
+  const droneWeight = (ageSec: number): number => {
+    const age = ageSec / barLen
+    if (age <= DRONE_AGE_BARS) return 1
+    const t = (age - DRONE_AGE_BARS) / DRONE_FADE_BARS
+    return Math.max(DRONE_FLOOR, 1 - (1 - DRONE_FLOOR) * Math.min(1, t))
+  }
   for (const n of tagged) {
     for (let w = 0; w < NB; w++) {
       if (beatStart(w) >= n.end) break
       const a = Math.max(n.time, beatStart(w))
       const b = Math.min(n.end, beatEnd(w))
-      if (b > a) beatChroma[w][n.pc] += (b - a) * n.weight
-      if (n.time >= beatStart(w) - 1e-4 && n.time < beatEnd(w) - 1e-4) beatOnsetPc[w].add(n.pc)
+      if (b <= a) continue
+      // a note that has been ringing for bars is a drone — it tells you less
+      // about the chord happening NOW than a freshly struck note does.
+      beatChroma[w][n.pc] += (b - a) * n.weight * droneWeight(beatStart(w) - n.time)
+      if (!n.melodic) {
+        heldMask[w] |= 1 << n.pc
+        if (n.time >= beatStart(w) - 1e-4 && n.time < beatEnd(w) - 1e-4) onsetMask[w] |= 1 << n.pc
+      }
     }
+  }
+  // drop pitch classes that barely register from the held mask (a dying tail
+  // of a released note shouldn't keep a chord tone "held")
+  for (let w = 0; w < NB; w++) {
+    const tot = sum12(beatChroma[w])
+    if (tot < 1e-9) continue
+    let m = heldMask[w]
+    for (let p = 0; p < 12; p++) if ((m & (1 << p)) && beatChroma[w][p] / tot < HELD_PC_FLOOR) m &= ~(1 << p)
+    heldMask[w] = m | onsetMask[w]   // a freshly struck note always counts as held
   }
 
   // ── 2. bass pitch class per beat (bass line only — never picks the chord)
@@ -277,28 +330,24 @@ export function buildChordSequence(
   for (let w = 0; w < NB; w++) bassPc.push(bassPcAt(w))
 
   // ── 3. candidate boundaries — deliberately generous ───────────────────
-  // A boundary at beat w when the UPPER harmony turns over vs the previous
-  // beat: the set of ringing chord notes clearly shifts, or a new pitch
-  // class is struck that was not part of the previous beat. The bass is NOT
-  // consulted — a walking bass under a held chord is one chord, not a
-  // progression; the bass only earns a slash later (steadyBassOver).
+  // Primary: a beat where a chord tone is struck or released against the
+  // texture — the held set differs from the previous beat AND something was
+  // actually struck this beat (so a note merely fading out mid-sustain of
+  // the others doesn't split the chord). Fallback: a plain chroma shift,
+  // for textures with no clean onsets. The bass is NOT consulted — a
+  // walking bass under a held chord is one chord; it only earns a slash
+  // later (steadyBassOver).
   const isBoundary: boolean[] = new Array(NB).fill(false)
   isBoundary[0] = true
   for (let w = 1; w < NB; w++) {
+    // ≥ 2 chord tones changed AND something was struck this beat — a single
+    // grace note flicking the held set on/off doesn't split the chord.
+    let symDiff = 0
+    const d = heldMask[w] ^ heldMask[w - 1]
+    for (let p = 0; p < 12; p++) if (d & (1 << p)) symDiff++
+    const heldChanged = symDiff >= 2 && onsetMask[w] !== 0
     const chromaMoved = cosDistance(beatChroma[w], beatChroma[w - 1]) > TURN_CHROMA_DIST
-    let newPc = false
-    if (!chromaMoved) {
-      let prevTot = 0
-      for (let p = 0; p < 12; p++) prevTot += beatChroma[w - 1][p]
-      const curTot = Math.max(sum12(beatChroma[w]), 1e-9)
-      for (const pc of beatOnsetPc[w]) {
-        const prevShare = prevTot > 1e-9 ? beatChroma[w - 1][pc] / prevTot : 0
-        if (prevShare < TURN_NEWPC_FLOOR && beatChroma[w][pc] / curTot >= EXT_FLOOR) {
-          newPc = true; break
-        }
-      }
-    }
-    isBoundary[w] = chromaMoved || newPc
+    isBoundary[w] = heldChanged || chromaMoved
   }
 
   // ── span list from boundaries ─────────────────────────────────────────
@@ -306,8 +355,18 @@ export function buildChordSequence(
   for (let w = 0; w < NB; w++) if (isBoundary[w]) spanEdges.push(w)
   spanEdges.push(NB)
 
-  // aggregate chroma over [s, e) beats, padded to NAME_MIN_BEATS for naming
+  // aggregate chroma over [s, e) beats. Only pad out to NAME_MIN_BEATS when
+  // the span's own content is too THIN to name (a lone arpeggio note) —
+  // never when it already has a chord's worth of notes, or the padding
+  // would drag in the neighbouring chord's tones.
   const chromaOver = (s: number, e: number): Float64Array => {
+    const own = new Float64Array(12)
+    for (let w = s; w < e; w++) for (let p = 0; p < 12; p++) own[p] += beatChroma[w][p]
+    const tot = sum12(own)
+    if (tot < 1e-9) return own
+    let npc = 0
+    for (let p = 0; p < 12; p++) if (own[p] / tot >= PRESENT_FLOOR) npc++
+    if (npc >= 3) return own
     let lo = s, hi = e
     while (hi - lo < NAME_MIN_BEATS && (lo > 0 || hi < NB)) {
       if (lo > 0) lo--
@@ -341,8 +400,17 @@ export function buildChordSequence(
     if (e <= s) continue
     const sb = steadyBassOver(s, e)
     const lowPc = lowestPcOver(s, e)
-    const spanSec = beatStart(e) - beatStart(s)
-    const named = nameSpan(chromaOver(s, e), sb.cover >= SLASH_MIN_COVER ? sb.pc : -1, lowPc, spanSec < barLen * 0.5)
+    // structural pcs = chord tones held through most of the span — the notes
+    // a colour name (maj7 / 9 / 6 …) must be built from. At least two beats
+    // of evidence: a one-beat fragment is never named richer than a triad.
+    const need = Math.max(2, Math.ceil((e - s) * 0.6))
+    let structural = 0
+    for (let p = 0; p < 12; p++) {
+      let held = 0
+      for (let w = s; w < e; w++) if (heldMask[w] & (1 << p)) held++
+      if (held >= need) structural |= 1 << p
+    }
+    const named = nameSpan(chromaOver(s, e), sb.cover >= SLASH_MIN_COVER ? sb.pc : -1, lowPc, structural)
     if (!named) continue
     const slashPc =
       sb.pc >= 0 && sb.cover >= SLASH_MIN_COVER && sb.pc !== named.root && named.pcs.has(sb.pc)
