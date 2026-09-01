@@ -6,6 +6,7 @@ import type {
 } from '../types'
 import type { DetectedKey } from '../utils/keyDetection'
 import type { ForeignFormat } from '../utils/foreignFormatImport'
+import type { ProgressionVoicing } from '../utils/voiceLeading'
 import { detectKeyFromTracks, parseKeySignature } from '../utils/keyDetection'
 import { isKeyboardInstrument } from '../utils/gmInstruments'
 import { parseMidiBuffer } from '../utils/midiParser'
@@ -85,12 +86,16 @@ interface OrfeoStore {
   // The single user knob — replaces the old per-mode presets. Fed straight
   // into buildChordSequence's `sensitivity`. ──────────────────────────────
   chordSensitivity: number
+  // ── How the Chord / Scale Explorer voice the chords of a progression when
+  // auditioning it — shared by both explorers, see utils/voiceLeading.ts. ──
+  progressionVoicing: ProgressionVoicing
   setChordTrackingMode: (mode: ChordTrackingMode) => void
   setChordFollowSubMode: (mode: ChordFollowSubMode) => void
   setChordFollowGroup: (group: string | null) => void
   setChordFollowTrackIndex: (index: number | null) => void
   setChordNamingStyle: (style: ChordNamingStyle) => void
   setChordSensitivity: (v: number) => void
+  setProgressionVoicing: (v: ProgressionVoicing) => void
 
   detectedKey: DetectedKey | null
   setDetectedKey: (key: DetectedKey | null) => void
@@ -542,12 +547,15 @@ export const useStore = create<OrfeoStore>((set, get) => ({
   chordNamingStyle: 'abbreviation',
   // 0.4 = the previous Auto preset, so existing setups read identically.
   chordSensitivity: 0.4,
+  // 'climbing' = the natural ascending-inversions reading; see voiceLeading.ts.
+  progressionVoicing: 'climbing',
   setChordTrackingMode: (chordTrackingMode) => set({ chordTrackingMode }),
   setChordFollowSubMode: (chordFollowSubMode) => set({ chordFollowSubMode }),
   setChordFollowGroup: (chordFollowGroup) => set({ chordFollowGroup }),
   setChordFollowTrackIndex: (chordFollowTrackIndex) => set({ chordFollowTrackIndex }),
   setChordNamingStyle: (chordNamingStyle) => set({ chordNamingStyle }),
   setChordSensitivity: (chordSensitivity) => set({ chordSensitivity: Math.min(1, Math.max(0, chordSensitivity)) }),
+  setProgressionVoicing: (progressionVoicing) => set({ progressionVoicing }),
 
   detectedKey: null,
   setDetectedKey: (detectedKey) => set({ detectedKey }),
@@ -961,6 +969,7 @@ async function restoreLibraryPrefs() {
     if (typeof prefs.chordFollowGroup === 'string' || prefs.chordFollowGroup === null) store.setChordFollowGroup(prefs.chordFollowGroup)
     if (prefs.chordNamingStyle === 'abbreviation' || prefs.chordNamingStyle === 'symbol') store.setChordNamingStyle(prefs.chordNamingStyle)
     if (typeof prefs.chordSensitivity === 'number') store.setChordSensitivity(prefs.chordSensitivity)
+    if (prefs.progressionVoicing === 'roots' || prefs.progressionVoicing === 'climbing' || prefs.progressionVoicing === 'smooth') store.setProgressionVoicing(prefs.progressionVoicing)
     if (typeof prefs.masterVolume === 'number') store.setMasterVolume(prefs.masterVolume)
     if (typeof prefs.masterCompEnabled === 'boolean') store.setMasterCompEnabled(prefs.masterCompEnabled)
     if (typeof prefs.masterCompPreset === 'number') store.setMasterCompPreset(prefs.masterCompPreset)
@@ -1078,6 +1087,7 @@ let _prevChordFollowSubMode: string | null = null
 let _prevChordFollowGroup: string | null | undefined = undefined
 let _prevChordNamingStyle: string | null = null
 let _prevChordSensitivity: number | null = null
+let _prevProgressionVoicing: string | null = null
 const _unsubPrefs = useStore.subscribe((state) => {
   // Skip the very first fire (app init) — restore handles loading saved values
   if (_prevNoteNaming === null) {
@@ -1128,6 +1138,7 @@ const _unsubPrefs = useStore.subscribe((state) => {
     _prevChordFollowGroup = state.chordFollowGroup
     _prevChordNamingStyle = state.chordNamingStyle
     _prevChordSensitivity = state.chordSensitivity
+    _prevProgressionVoicing = state.progressionVoicing
     return
   }
   if (
@@ -1177,7 +1188,8 @@ const _unsubPrefs = useStore.subscribe((state) => {
     state.chordFollowSubMode !== _prevChordFollowSubMode ||
     state.chordFollowGroup !== _prevChordFollowGroup ||
     state.chordNamingStyle !== _prevChordNamingStyle ||
-    state.chordSensitivity !== _prevChordSensitivity
+    state.chordSensitivity !== _prevChordSensitivity ||
+    state.progressionVoicing !== _prevProgressionVoicing
   ) {
     _prevNoteNaming = state.noteNaming
     _prevAccidentals = state.accidentals
@@ -1226,6 +1238,7 @@ const _unsubPrefs = useStore.subscribe((state) => {
     _prevChordFollowGroup = state.chordFollowGroup
     _prevChordNamingStyle = state.chordNamingStyle
     _prevChordSensitivity = state.chordSensitivity
+    _prevProgressionVoicing = state.progressionVoicing
     window.electronAPI?.setPrefs?.({
       noteNaming: state.noteNaming,
       accidentals: state.accidentals,
@@ -1274,6 +1287,7 @@ const _unsubPrefs = useStore.subscribe((state) => {
       chordFollowGroup: state.chordFollowGroup,
       chordNamingStyle: state.chordNamingStyle,
       chordSensitivity: state.chordSensitivity,
+      progressionVoicing: state.progressionVoicing,
     }).catch(() => {})
   }
 })

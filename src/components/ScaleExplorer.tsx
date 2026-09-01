@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback, useMemo, useRef, type CSSProperties } from 'react'
 import { createPortal } from 'react-dom'
 import { Chord, Note } from 'tonal'
-import { RotateCcw, Play, Square, CircleOff, ListOrdered, Shuffle, ArrowUpRight, ToggleLeft, ToggleRight } from 'lucide-react'
+import { RotateCcw, Play, Square, Rows3, TrendingUp, Spline, ArrowUpRight, ToggleLeft, ToggleRight } from 'lucide-react'
 import { useStore } from '../store'
 import { getNoteName } from '../utils/noteNames'
 import { formatChordSuffix } from '../utils/chordDetection'
@@ -14,6 +14,13 @@ import { getPianoRollCenterX, getKeyboardHeaderTop } from '../utils/modalAnchors
 import { useAnchorBottomOnResize } from '../hooks/useAnchorBottomOnResize'
 import { modalCloseButtonStyle, modalCloseButtonHoverColor, modalCloseButtonIdleColor } from '../utils/modalCloseButtonStyle'
 import Tooltip from './Tooltip'
+import {
+  nextVoicing, voiceProgression, semisFromMidi, humanizeChord,
+  PROGRESSION_VOICINGS, PROGRESSION_VOICING_LABEL, PROGRESSION_VOICING_HINT,
+} from '../utils/voiceLeading'
+
+// ── Progression-voicing mode → toolbar icon (matches Chord Explorer) ─────
+const VOICING_ICON = { roots: Rows3, climbing: TrendingUp, smooth: Spline } as const
 
 // ── Keyboard range constants ────────────────────────────────────────────────
 const RANGES: Record<number, { min: number; max: number }> = {
@@ -23,7 +30,7 @@ const RANGES: Record<number, { min: number; max: number }> = {
 }
 
 // ── Modal dimensions for default positioning above the keyboard ───────────
-const MODAL_WIDTH = 720
+const MODAL_WIDTH = 770
 const MODAL_HEIGHT = 600
 
 // ── Scale definitions ───────────────────────────────────────────────────────
@@ -247,17 +254,6 @@ function buildDiatonicChord(
   }
 }
 
-// ── Apply N-th inversion by rotating the lowest note up an octave ────────────
-function applyNthInversion(baseMidi: number[], n: number): number[] {
-  if (n <= 0) return baseMidi
-  let notes = [...baseMidi].sort((a, b) => a - b)
-  for (let i = 0; i < n; i++) {
-    const [lowest, ...rest] = notes
-    notes = [...rest, lowest + 12]
-  }
-  return notes
-}
-
 // ── Inversion helpers — rotate live chord up or down one voicing ──────────────
 // Same pattern as ChordExplorer: operate on the live explorerKeys set so
 // inversions accumulate across octaves rather than wrapping at chord length.
@@ -291,6 +287,8 @@ export default function ScaleExplorer() {
   const noteNaming = useStore(s => s.noteNaming)
   const accidentals = useStore(s => s.accidentals)
   const chordNamingStyle = useStore(s => s.chordNamingStyle)
+  const progressionVoicing = useStore(s => s.progressionVoicing)
+  const setProgressionVoicing = useStore(s => s.setProgressionVoicing)
   const setAccidentals = useStore(s => s.setAccidentals)
   const keyboardSize = useStore(s => s.keyboardSize)
 
@@ -325,7 +323,6 @@ export default function ScaleExplorer() {
   const [progPlaying, setProgPlaying] = useState(false)
   const [progStep, setProgStep] = useState(0)
   const [progSpeed, setProgSpeed] = useState<'slow' | 'med' | 'fast'>('med')
-  const [progInversionMode, setProgInversionMode] = useState<'off' | 'sequential' | 'random'>('off')
 
   // ── Info row: currently playing chord context ─────────────────────────────
   const [infoRowChord, setInfoRowChord] = useState<{ progName: string; labels: string[]; notes: string[]; step: number } | null>(null)
@@ -454,7 +451,6 @@ export default function ScaleExplorer() {
       setSelectedProg(null)
       setProgDropdownOpen(false)
       setDropdownRect(null)
-      setProgInversionMode('off')
       setProgSpeed('med'); speedRef.current = 'med'
       setSelectedDegree(null)
       setOctaveTileSelected(false)
@@ -520,25 +516,40 @@ export default function ScaleExplorer() {
   }, [selectedRoot, selectedScaleIdx, scaleExplorerOpen, playTrigger])
 
   // ── Play a diatonic chord tile and light its keys ─────────────────────────
-  const playDegree = useCallback((chord: DiatonicChord) => {
+  // `voicing` overrides the tile's own root-position notes — passed by the
+  // "Chords in the Scale" sequence so it can voice-lead the run. When given,
+  // the chord is rolled bottom-up (like the progression player) rather than
+  // struck as a flat block.
+  const playDegree = useCallback((chord: DiatonicChord, voicing?: number[]) => {
+    const notes = voicing && voicing.length > 0 ? [...voicing].sort((a, b) => a - b) : chord.midiNotes
     setOctaveTileSelected(false)
     setSelectedDegree(chord.degree)
-    // ── Tile playback colors the SCALE's root (not the chord's own root) —
-    // only chords that actually contain the scale root show a pink note;
-    // chords that don't (e.g. ii, iii in most scales) stay uniform amber.
-    // Inversions are the opposite: see handlePrev/NextInversion below. ──────
-    const keys = new Set(chord.midiNotes)
-    const colors = new Map(chord.midiNotes.map(m => [m, noteColor(m, selectedRoot)] as const))
+    // ── A plain tile / 'roots' run colors the SCALE's root (only chords that
+    // contain it show pink); a voice-led run is inversions territory — the
+    // chord's own root stays accented instead. ────────────────────────────
+    const rootPcForColor = voicing ? chord.rootPC : selectedRoot
+    const keys = new Set(notes)
+    const colors = new Map(notes.map(m => [m, noteColor(m, rootPcForColor)] as const))
     setExplorerKeys(keys, colors)
     // ── Store chord identity in Zustand so Keyboard.tsx can display it ────
-    setExplorerChordDisplay({ name: chord.chordName, invCount: 0, noteCount: chord.midiNotes.length })
+    setExplorerChordDisplay({ name: chord.chordName, invCount: 0, noteCount: notes.length })
     setInfoRowChord({
       progName: '',
       labels: [chord.roman],
-      notes: chord.midiNotes.map(m => getNoteName(m, displayNaming, accidentals)),
+      notes: notes.map(m => getNoteName(m, displayNaming, accidentals)),
       step: 0,
     })
-    ringNotes(chord.midiNotes)
+    if (voicing) {
+      const playNote = (window as any).__orfeoPlayNote
+      if (playNote) {
+        for (const h of humanizeChord(notes)) {
+          const t = setTimeout(() => playNote(h.midi, h.vel, 900, undefined, false), h.delayMs)
+          chordSeqTimersRef.current.push(t)
+        }
+      }
+    } else {
+      ringNotes(notes)
+    }
   }, [setExplorerKeys, displayNaming, accidentals, noteColor, selectedRoot, ringNotes])
 
   // ── Play the tonic chord one octave higher (8th tile) ────────────────────
@@ -569,24 +580,34 @@ export default function ScaleExplorer() {
 
   // ── Auto-play all chords in the scale, one after another — the "Chords in
   // the Scale" row's play button. Runs every diatonic tile (5 for pentatonic,
-  // 7 otherwise) plus the octave tile, in tile order, each ringing for 700ms
-  // before the next starts. Toggles: a second click (or spacebar) stops it;
-  // clicking again restarts from the beginning. ───────────────────────────
+  // 7 otherwise), voiced through the shared engine under `progressionVoicing`,
+  // each ringing for 700ms before the next starts. 'roots' finishes on the
+  // octave tonic (the 8th tile); the voice-led modes resolve home in register
+  // instead. Toggles: a second click (or spacebar) stops it. ──────────────
   const playChordsInSequence = useCallback(() => {
     if (chordSeqPlaying) { stopChordSequence(); return }
     if (diatonicChords.length === 0) return
     stopChordSequence()
     setChordSeqPlaying(true)
     const STEP_MS = 700
+    const isRoots = progressionVoicing === 'roots'
+    const chordSpec = diatonicChords.map(c => ({ rootPc: c.rootPC, semis: semisFromMidi(c.midiNotes) }))
+    // Voice-led modes get an extra tonic step so the run still lands home.
+    const specForEngine = isRoots ? chordSpec : [...chordSpec, chordSpec[0]]
+    const voicings = voiceProgression(specForEngine, progressionVoicing, RANGES[61])
+
     diatonicChords.forEach((chord, i) => {
-      const t = setTimeout(() => playDegree(chord), i * STEP_MS)
+      const t = setTimeout(() => playDegree(chord, voicings[i]), i * STEP_MS)
       chordSeqTimersRef.current.push(t)
     })
-    const tOct = setTimeout(() => playOctaveDegree(), diatonicChords.length * STEP_MS)
-    chordSeqTimersRef.current.push(tOct)
+    const tLast = setTimeout(
+      () => isRoots ? playOctaveDegree() : playDegree(diatonicChords[0], voicings[diatonicChords.length]),
+      diatonicChords.length * STEP_MS,
+    )
+    chordSeqTimersRef.current.push(tLast)
     const tEnd = setTimeout(() => setChordSeqPlaying(false), (diatonicChords.length + 1) * STEP_MS)
     chordSeqTimersRef.current.push(tEnd)
-  }, [chordSeqPlaying, diatonicChords, stopChordSequence, playDegree, playOctaveDegree])
+  }, [chordSeqPlaying, diatonicChords, progressionVoicing, stopChordSequence, playDegree, playOctaveDegree])
 
   // ── Base MIDI notes for the currently selected tile (inversion source) ─────
   // Octave tile takes precedence: returns tonic notes +12 when that tile is
@@ -636,11 +657,14 @@ export default function ScaleExplorer() {
   }, [setExplorerKeys, noteColor, currentRootPC, ringNotes])
 
   // ── Play one progression step and schedule the next ──────────────────────
+  // The shared voice-leading engine (utils/voiceLeading.ts) picks each step's
+  // voicing from the one that just played, under the `progressionVoicing`
+  // mode (read live so a mode switch mid-run takes on the next chord) — the
+  // tracking mode never dictates register any more.
   const playProgStepAt = useCallback((
     step: number,
     progIndex: number,
-    invMode: 'off' | 'sequential' | 'random',
-    loopCount: number,
+    prevMidi: number[] | null,
   ) => {
     if (!progRunningRef.current) return
     if (diatonicChords.length === 0) return
@@ -653,18 +677,14 @@ export default function ScaleExplorer() {
     const chord = diatonicChords[clampedDeg]
     if (!chord) return
 
-    let inv = 0
-    if (invMode === 'sequential') {
-      inv = loopCount % chord.midiNotes.length
-    } else if (invMode === 'random') {
-      inv = Math.floor(Math.random() * chord.midiNotes.length)
-    }
-    const notes = applyNthInversion(chord.midiNotes, inv)
+    const voicingMode = useStore.getState().progressionVoicing
+    const notes = nextVoicing(
+      prevMidi, chord.rootPC, semisFromMidi(chord.midiNotes), voicingMode, RANGES[61],
+    )
 
-    // ── Root position (invMode 'off') behaves like a tile — scale-root-
-    // relative. Once actually inverted (sequential/random), it's chord
-    // inversions territory — the chord's own root stays pink regardless. ────
-    const rootPcForColor = invMode === 'off' ? selectedRoot : chord.rootPC
+    // ── 'roots' keeps the tile look (scale-root-relative pink); once the
+    // engine starts inverting, the chord's own root stays accented. ────────
+    const rootPcForColor = voicingMode === 'roots' ? selectedRoot : chord.rootPC
     const keys = new Set(notes)
     const colors = new Map(notes.map(m => [m, noteColor(m, rootPcForColor)] as const))
     setExplorerKeys(keys, colors)
@@ -683,12 +703,17 @@ export default function ScaleExplorer() {
 
     const currentSpeed = speedRef.current
     const playNote = (window as any).__orfeoPlayNote
-    if (playNote) notes.forEach(m => playNote(m, 0.75, SPEED_MS[currentSpeed] - 60, undefined, false))
+    if (playNote) {
+      for (const h of humanizeChord(notes)) {
+        setTimeout(() => {
+          if (progRunningRef.current) playNote(h.midi, h.vel, Math.round(SPEED_MS[speedRef.current] * 1.12), undefined, false)
+        }, h.delayMs)
+      }
+    }
 
     const nextStep = (step + 1) % labels.length
-    const nextLoop = nextStep === 0 ? loopCount + 1 : loopCount
     progTimerRef.current = setTimeout(() => {
-      playProgStepAt(nextStep, progIndex, invMode, nextLoop)
+      playProgStepAt(nextStep, progIndex, notes)
     }, SPEED_MS[speedRef.current])
   }, [diatonicChords, setExplorerKeys, displayNaming, accidentals, noteColor, selectedRoot])
 
@@ -698,8 +723,8 @@ export default function ScaleExplorer() {
     stopProgression()
     progRunningRef.current = true
     setProgPlaying(true)
-    playProgStepAt(0, selectedProg, progInversionMode, 0)
-  }, [selectedProg, diatonicChords.length, progInversionMode, stopProgression, playProgStepAt])
+    playProgStepAt(0, selectedProg, null)
+  }, [selectedProg, diatonicChords.length, stopProgression, playProgStepAt])
 
   // ── Stop progression + chords-in-scale sequence when root/scale changes ───
   useEffect(() => {
@@ -847,7 +872,7 @@ export default function ScaleExplorer() {
         position: 'fixed',
         left: pos.x,
         top: pos.y,
-        width: 720,
+        width: MODAL_WIDTH,
         maxHeight: '96vh',
         background: 'var(--bg-modal)',
         border: '1px solid var(--state-hover-bg)',
@@ -1211,10 +1236,15 @@ export default function ScaleExplorer() {
         )}
       </div>
 
-      {/* Progressions + inversion mode row — three-column layout */}
-      <div style={{ ...ROW, minHeight: 'var(--row-height)', borderTop: '1px solid var(--border)', position: 'relative' }}>
+      {/* Progressions + voicing row — real 3-track grid so the centred PLAY
+          button stays put no matter how wide the pattern name gets (see
+          .claude/rules/css-layout.md). */}
+      <div style={{
+        ...ROW, minHeight: 'var(--row-height)', borderTop: '1px solid var(--border)',
+        display: 'grid', gridTemplateColumns: 'minmax(0,1fr) minmax(0,1fr) minmax(0,1fr)',
+      }}>
         {/* Left column: PROGRESSIONS label + pattern dropdown ─────────────── */}
-        <div style={{ flex: 1, display: 'flex', alignItems: 'center', gap: 6 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 6, minWidth: 0, justifySelf: 'start' }}>
           <span style={ROW_LABEL}>Progressions</span>
           {/* Pattern picker dropdown trigger */}
           <button
@@ -1231,7 +1261,7 @@ export default function ScaleExplorer() {
               color: selectedProg !== null ? 'var(--text-amber)' : 'var(--text-inactive)',
               fontFamily: 'var(--font-ui)', fontSize: 10, fontWeight: 600,
               cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center',
-              whiteSpace: 'nowrap',
+              whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', minWidth: 0,
             }}
             onMouseEnter={e => e.currentTarget.style.color = 'var(--text-amber)'}
             onMouseLeave={e => { e.currentTarget.style.color = selectedProg !== null ? 'var(--text-amber)' : 'var(--text-inactive)' }}
@@ -1247,9 +1277,9 @@ export default function ScaleExplorer() {
           )}
         </div>
 
-        {/* Centre column: PLAY/STOP button + SpeedControl — absolute centred ─ */}
+        {/* Centre column: PLAY/STOP button + SpeedControl ─────────────────── */}
         <div style={{
-          position: 'absolute', left: '50%', transform: 'translateX(-50%)',
+          justifySelf: 'center',
           display: 'flex', alignItems: 'center', gap: 8,
         }}>
           {/* ── Progression play/stop button — green ready, red stop ─────────── */}
@@ -1282,36 +1312,23 @@ export default function ScaleExplorer() {
           />
         </div>
 
-        {/* Right column: INVERSIONS label + icon buttons ────────────────────── */}
-        <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: 4 }}>
-          <span style={ROW_LABEL}>Variations</span>
-          {/* Off — CircleOff icon */}
-          <Tooltip oneLine title="Plays each progression in root position.">
-            <button
-              onClick={() => setProgInversionMode('off')}
-              style={{ background: 'none', border: 'none', cursor: 'pointer', padding: '0 2px', display: 'flex', alignItems: 'center', color: progInversionMode === 'off' ? 'var(--text-amber)' : 'var(--text-inactive)' }}
-              onMouseEnter={e => e.currentTarget.style.color = 'var(--text-amber)'}
-              onMouseLeave={e => e.currentTarget.style.color = progInversionMode === 'off' ? 'var(--text-amber)' : 'var(--text-inactive)'}
-            ><CircleOff size={14} /></button>
-          </Tooltip>
-          {/* Sequential — ListOrdered icon */}
-          <Tooltip oneLine title="Cycles each chord's inversion in order, one step further with every loop of the progression.">
-            <button
-              onClick={() => setProgInversionMode('sequential')}
-              style={{ background: 'none', border: 'none', cursor: 'pointer', padding: '0 2px', display: 'flex', alignItems: 'center', color: progInversionMode === 'sequential' ? 'var(--text-amber)' : 'var(--text-inactive)' }}
-              onMouseEnter={e => e.currentTarget.style.color = 'var(--text-amber)'}
-              onMouseLeave={e => e.currentTarget.style.color = progInversionMode === 'sequential' ? 'var(--text-amber)' : 'var(--text-inactive)'}
-            ><ListOrdered size={14} /></button>
-          </Tooltip>
-          {/* Random — Shuffle icon */}
-          <Tooltip oneLine title="Picks a random inversion for each chord on every progression step.">
-            <button
-              onClick={() => setProgInversionMode('random')}
-              style={{ background: 'none', border: 'none', cursor: 'pointer', padding: '0 2px', display: 'flex', alignItems: 'center', color: progInversionMode === 'random' ? 'var(--text-amber)' : 'var(--text-inactive)' }}
-              onMouseEnter={e => e.currentTarget.style.color = 'var(--text-amber)'}
-              onMouseLeave={e => e.currentTarget.style.color = progInversionMode === 'random' ? 'var(--text-amber)' : 'var(--text-inactive)'}
-            ><Shuffle size={14} /></button>
-          </Tooltip>
+        {/* Right column: VOICING label + mode icons (shared with Chord Explorer) */}
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: 4, justifySelf: 'end', minWidth: 0 }}>
+          <span style={ROW_LABEL}>Voicing</span>
+          {PROGRESSION_VOICINGS.map(v => {
+            const Icon = VOICING_ICON[v]
+            const active = progressionVoicing === v
+            return (
+              <Tooltip key={v} oneLine title={`${PROGRESSION_VOICING_LABEL[v]} — ${PROGRESSION_VOICING_HINT[v]}`}>
+                <button
+                  onClick={() => setProgressionVoicing(v)}
+                  style={{ background: 'none', border: 'none', cursor: 'pointer', padding: '0 2px', display: 'flex', alignItems: 'center', color: active ? 'var(--text-amber)' : 'var(--text-inactive)' }}
+                  onMouseEnter={e => e.currentTarget.style.color = 'var(--text-amber)'}
+                  onMouseLeave={e => e.currentTarget.style.color = active ? 'var(--text-amber)' : 'var(--text-inactive)'}
+                ><Icon size={14} /></button>
+              </Tooltip>
+            )
+          })}
         </div>
       </div>
 
@@ -1364,7 +1381,7 @@ export default function ScaleExplorer() {
               onClick={() => {
                 setCofPos(null); setCofRing(null); setSelectedScaleIdx(0)
                 setSelectedDegree(null); stopProgression(); setSelectedProg(null)
-                setProgInversionMode('off'); setProgSpeed('med'); speedRef.current = 'med'
+                setProgSpeed('med'); speedRef.current = 'med'
                 setInfoRowChord(null); clearExplorerChordDisplay()
                 clearExplorerKeys(); clearLockedKeys(); useStore.getState().clearDisplayedChord()
               }}

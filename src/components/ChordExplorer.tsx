@@ -1,7 +1,6 @@
 import { useState, useEffect, useCallback, useMemo, useRef, type CSSProperties } from 'react'
 import { createPortal } from 'react-dom'
-import { Interval } from 'tonal'
-import { Search, Hand, RotateCcw, Square, CircleOff, ListOrdered, Shuffle, ArrowUpRight, ChevronLeft, ChevronRight } from 'lucide-react'
+import { Search, Hand, RotateCcw, Square, Rows3, TrendingUp, Spline, ArrowUpRight, ChevronLeft, ChevronRight } from 'lucide-react'
 import Fuse from 'fuse.js'
 import { useStore } from '../store'
 import { getNoteName } from '../utils/noteNames'
@@ -17,6 +16,10 @@ import { useAnchorBottomOnResize } from '../hooks/useAnchorBottomOnResize'
 import { modalCloseButtonStyle, modalCloseButtonHoverColor, modalCloseButtonIdleColor } from '../utils/modalCloseButtonStyle'
 import { buildChordMidi, formatChordSuffix } from '../utils/chordDetection'
 import {
+  nextVoicing, intervalsToSemis, humanizeChord,
+  PROGRESSION_VOICINGS, PROGRESSION_VOICING_LABEL, PROGRESSION_VOICING_HINT,
+} from '../utils/voiceLeading'
+import {
   COMMON_CHORDS, ALL_CHORDS, FULL_CHORD_TYPES, type ChordInfo,
 } from '../utils/chordVocabulary'
 
@@ -27,8 +30,11 @@ const RANGES: Record<number, { min: number; max: number }> = {
 }
 
 // ── Modal dimensions for default positioning above the keyboard ───────────
-const MODAL_WIDTH = 720
+const MODAL_WIDTH = 770
 const MODAL_HEIGHT = 532
+
+// ── Progression-voicing mode → toolbar icon ──────────────────────────────
+const VOICING_ICON = { roots: Rows3, climbing: TrendingUp, smooth: Spline } as const
 
 const ROOT_MIDIS = [60, 61, 62, 63, 64, 65, 66, 67, 68, 69, 70, 71]
 
@@ -55,59 +61,6 @@ function ChevronPlayIcon({ size = 14, mirrored = false }: { size?: number; mirro
       />
     </svg>
   )
-}
-
-function applyNthInversion(baseMidi: number[], n: number): number[] {
-  if (n <= 0) return baseMidi
-  let notes = [...baseMidi].sort((a, b) => a - b)
-  for (let i = 0; i < n; i++) {
-    const [lowest, ...rest] = notes
-    notes = [...rest, lowest + 12]
-  }
-  return notes
-}
-
-// ── Average MIDI pitch of a note array ───────────────────────────────────
-function avgPitch(notes: number[]): number {
-  return notes.reduce((s, n) => s + n, 0) / notes.length
-}
-
-// ── Closest-voicing selector for smooth progression voice leading ─────────
-// Generates every root-position + inversion candidate for the given chord
-// across all octaves that fit within the keyboard's playable range, then
-// returns the candidate whose average pitch is nearest to prevAvgPitch.
-// This prevents the fixed-octave default from jumping an octave when the
-// pitch class wraps around (e.g. B above C instead of B below it).
-// Falls back to buildChordMidi if no valid candidate is found.
-function closestVoicing(
-  rootPitchClass: number,
-  intervals: string[],
-  keyboardSize: number,
-  prevAvgPitch: number,
-): number[] {
-  const { min, max } = RANGES[keyboardSize as 61 | 73 | 88] ?? RANGES[73]
-  const candidates: number[][] = []
-  for (let oct = 2; oct <= 6; oct++) {
-    const rootMidi = rootPitchClass + (oct + 1) * 12
-    if (rootMidi < min || rootMidi > max) continue
-    const baseMidi = intervals
-      .map(ivl => { const s = Interval.semitones(ivl); return s !== null ? rootMidi + s : null })
-      .filter((n): n is number => n !== null && n >= min && n <= max)
-    if (baseMidi.length < 2) continue
-    candidates.push(baseMidi)
-    for (let inv = 1; inv < baseMidi.length; inv++) {
-      const inverted = applyNthInversion(baseMidi, inv)
-      if (inverted.every(n => n >= min && n <= max)) candidates.push(inverted)
-    }
-  }
-  if (candidates.length === 0) return buildChordMidi(rootPitchClass, intervals, keyboardSize)
-  let best = candidates[0]
-  let bestDist = Math.abs(avgPitch(best) - prevAvgPitch)
-  for (let i = 1; i < candidates.length; i++) {
-    const d = Math.abs(avgPitch(candidates[i]) - prevAvgPitch)
-    if (d < bestDist) { bestDist = d; best = candidates[i] }
-  }
-  return best
 }
 
 function nextInversion(notes: Set<number>): Set<number> {
@@ -232,6 +185,8 @@ export default function ChordExplorer() {
   const noteNaming = useStore(s => s.noteNaming)
   const accidentals = useStore(s => s.accidentals)
   const chordNamingStyle = useStore(s => s.chordNamingStyle)
+  const progressionVoicing = useStore(s => s.progressionVoicing)
+  const setProgressionVoicing = useStore(s => s.setProgressionVoicing)
   const setAccidentals = useStore(s => s.setAccidentals)
   // ── Window drag position — bottom edge on the keyboard header, horizontally
   // centered on the piano roll; recomputed each time the modal opens, but not
@@ -258,7 +213,6 @@ export default function ChordExplorer() {
   const [progPlaying, setProgPlaying] = useState(false)
   const [progStep, setProgStep] = useState(0)
   const [progSpeed, setProgSpeed] = useState<'slow' | 'med' | 'fast'>('med')
-  const [progInversionMode, setProgInversionMode] = useState<'off' | 'sequential' | 'random'>('off')
   const [progGenre, setProgGenre] = useState<Genre>('classic')
   // ── Currently-sounding notes, in real ascending sounding order — drives the
   // fixed-width note-names slot in the style row's right corner. ────────────
@@ -299,7 +253,6 @@ export default function ChordExplorer() {
       setSelectedProg(null)
       setProgDropdownOpen(false)
       setDropdownRect(null)
-      setProgInversionMode('off')
       setSelectedPowerRoot(null)
     } else {
       stopProgression()
@@ -480,19 +433,17 @@ export default function ChordExplorer() {
   }, [tierChords, search, searchOpen, noteFilter, handFilter, selectedRoot, fuseInstance, fuseInstanceFallback])
 
   // ── Recursive progression step player ───────────────────────────────────
-  // prevMidi: the MIDI notes played at the previous step, used to pick the
-  // closest-register voicing for the current step. Null for the first step.
-  // When invMode is not 'off' the user's explicit inversion choice takes
-  // precedence and voice leading is skipped for that run.
+  // prevMidi: the voicing played at the previous step — the voice-leading
+  // engine (utils/voiceLeading.ts) picks this step's voicing from it, under
+  // the shared `progressionVoicing` mode (read live so a mode switch mid-run
+  // takes on the next chord). Null for the first step.
   const playProgStepAt = useCallback((
     step: number,
     progIndex: number,
     chordKey: string,
     root: number,
     speed: 'slow' | 'med' | 'fast',
-    invMode: 'off' | 'sequential' | 'random',
     genre: Genre,
-    loopCount: number,
     prevMidi: number[] | null,
   ) => {
     if (!progRunningRef.current) return
@@ -506,20 +457,10 @@ export default function ChordExplorer() {
     if (!info) return
     const durationMs = SPEED_MS[speed]
 
-    // ── Voice selection: closest register when no explicit inversion mode ─
-    let midiNotes: number[]
-    if (step > 0 && prevMidi !== null && invMode === 'off') {
-      midiNotes = closestVoicing(actualRoot, info.intervals, 61, avgPitch(prevMidi))
-    } else {
-      const baseMidi = buildChordMidi(actualRoot, info.intervals, 61)
-      midiNotes = baseMidi
-      if (baseMidi.length > 0 && invMode !== 'off') {
-        let invIdx = 0
-        if (invMode === 'sequential') invIdx = loopCount % baseMidi.length
-        else invIdx = Math.floor(Math.random() * baseMidi.length)
-        midiNotes = applyNthInversion(baseMidi, invIdx)
-      }
-    }
+    const midiNotes = nextVoicing(
+      prevMidi, actualRoot, intervalsToSemis(info.intervals),
+      useStore.getState().progressionVoicing, RANGES[61],
+    )
 
     if (midiNotes.length > 0) {
       const keys = new Set(midiNotes)
@@ -529,18 +470,24 @@ export default function ChordExplorer() {
       const rootLbl = rootLabels.find(r => r.pitchClass === actualRoot)?.label ?? ''
       const chordSuffix = formatChordSuffix(info.suffix, chordNamingStyle)
       setExplorerChordDisplay({ name: `${rootLbl}${chordSuffix}`, invCount: 0, noteCount: midiNotes.length })
-      // ── Real sounding order (ascending, matches inversion voicing) for the
-      // style row's fixed-width note-names slot. ────────────────────────────
+      // ── Real sounding order (ascending) for the style row's note-names slot ─
       setPlayingNotes([...midiNotes].sort((a, b) => a - b))
       const playNote = (window as any).__orfeoPlayNote
-      if (playNote) midiNotes.forEach(m => playNote(m, 0.75, Math.round(durationMs * 0.9), undefined, false))
+      if (playNote) {
+        // Bottom-up roll + slight per-note velocity spread + legato overlap
+        // into the next step — keeps the audition from sounding mechanical.
+        for (const n of humanizeChord(midiNotes)) {
+          setTimeout(() => {
+            if (progRunningRef.current) playNote(n.midi, n.vel, Math.round(durationMs * 1.12), undefined, false)
+          }, n.delayMs)
+        }
+      }
     }
     setProgStep(step)
 
     const nextStep = (step + 1) % prog.offsets.length
-    const nextLoopCount = nextStep === 0 ? loopCount + 1 : loopCount
     progTimerRef.current = setTimeout(() => {
-      playProgStepAt(nextStep, progIndex, chordKey, root, speed, invMode, genre, nextLoopCount, midiNotes)
+      playProgStepAt(nextStep, progIndex, chordKey, root, speed, genre, midiNotes)
     }, durationMs)
   }, [setExplorerKeys, setExplorerChordDisplay, rootLabels, chordNamingStyle])
 
@@ -551,8 +498,8 @@ export default function ChordExplorer() {
     progRunningRef.current = true
     setProgPlaying(true)
     setProgStep(0)
-    playProgStepAt(0, selectedProg, chordKey, selectedRoot, progSpeed, progInversionMode, progGenre, 0, null)
-  }, [selectedProg, selectedKey, selectedRoot, progSpeed, progInversionMode, progGenre, stopProgression, playProgStepAt])
+    playProgStepAt(0, selectedProg, chordKey, selectedRoot, progSpeed, progGenre, null)
+  }, [selectedProg, selectedKey, selectedRoot, progSpeed, progGenre, stopProgression, playProgStepAt])
 
   // ── Spacebar plays/pauses the progression while this modal is open ────────
   useEffect(() => {
@@ -958,7 +905,8 @@ export default function ChordExplorer() {
                 fontSize: 10,
                 color: activeProg ? 'var(--text-amber)' : 'var(--text-muted)',
                 padding: '2px 6px',
-                whiteSpace: 'nowrap',
+                whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
+                maxWidth: 150, display: 'block',
               }}
               onMouseEnter={e => e.currentTarget.style.color = 'var(--text-amber)'}
               onMouseLeave={e => { e.currentTarget.style.color = activeProg ? 'var(--text-amber)' : 'var(--text-muted)' }}
@@ -994,34 +942,21 @@ export default function ChordExplorer() {
             </button>
             </Tooltip>
             <span style={{ width: 1, height: 14, background: 'var(--state-hover-bg)', margin: '0 16px' }} />
-            <span style={ROW_LABEL}>Inversions</span>
-            {/* Off — CircleOff icon */}
-            <Tooltip oneLine title="Plays each chord in root position">
-            <button
-              onClick={() => setProgInversionMode('off')}
-              style={{ background: 'none', border: 'none', cursor: 'pointer', padding: '0 2px', display: 'flex', alignItems: 'center', color: progInversionMode === 'off' ? 'var(--text-amber)' : 'var(--text-inactive)' }}
-              onMouseEnter={e => e.currentTarget.style.color = 'var(--text-amber)'}
-              onMouseLeave={e => e.currentTarget.style.color = progInversionMode === 'off' ? 'var(--text-amber)' : 'var(--text-inactive)'}
-            ><CircleOff size={14} /></button>
-            </Tooltip>
-            {/* Sequential — ListOrdered icon */}
-            <Tooltip oneLine title="Cycles for smooth voice leading">
-            <button
-              onClick={() => setProgInversionMode('sequential')}
-              style={{ background: 'none', border: 'none', cursor: 'pointer', padding: '0 2px', display: 'flex', alignItems: 'center', color: progInversionMode === 'sequential' ? 'var(--text-amber)' : 'var(--text-inactive)' }}
-              onMouseEnter={e => e.currentTarget.style.color = 'var(--text-amber)'}
-              onMouseLeave={e => e.currentTarget.style.color = progInversionMode === 'sequential' ? 'var(--text-amber)' : 'var(--text-inactive)'}
-            ><ListOrdered size={14} /></button>
-            </Tooltip>
-            {/* Random — Shuffle icon */}
-            <Tooltip oneLine title="Picks a random inversion">
-            <button
-              onClick={() => setProgInversionMode('random')}
-              style={{ background: 'none', border: 'none', cursor: 'pointer', padding: '0 2px', display: 'flex', alignItems: 'center', color: progInversionMode === 'random' ? 'var(--text-amber)' : 'var(--text-inactive)' }}
-              onMouseEnter={e => e.currentTarget.style.color = 'var(--text-amber)'}
-              onMouseLeave={e => e.currentTarget.style.color = progInversionMode === 'random' ? 'var(--text-amber)' : 'var(--text-inactive)'}
-            ><Shuffle size={14} /></button>
-            </Tooltip>
+            <span style={ROW_LABEL}>Voicing</span>
+            {PROGRESSION_VOICINGS.map(v => {
+              const Icon = VOICING_ICON[v]
+              const active = progressionVoicing === v
+              return (
+                <Tooltip key={v} oneLine title={`${PROGRESSION_VOICING_LABEL[v]} — ${PROGRESSION_VOICING_HINT[v]}`}>
+                  <button
+                    onClick={() => setProgressionVoicing(v)}
+                    style={{ background: 'none', border: 'none', cursor: 'pointer', padding: '0 2px', display: 'flex', alignItems: 'center', color: active ? 'var(--text-amber)' : 'var(--text-inactive)' }}
+                    onMouseEnter={e => e.currentTarget.style.color = 'var(--text-amber)'}
+                    onMouseLeave={e => e.currentTarget.style.color = active ? 'var(--text-amber)' : 'var(--text-inactive)'}
+                  ><Icon size={14} /></button>
+                </Tooltip>
+              )
+            })}
           </div>
 
           {/* Right corner: PLAY/STOP button + SpeedControl — swapped with
