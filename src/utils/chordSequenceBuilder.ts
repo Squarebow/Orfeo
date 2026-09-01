@@ -365,8 +365,14 @@ export function buildChordSequence(
         prevChord = chord
       }
     }
+    // Chroma-turn fallback — a beat whose harmonic content clearly departs from
+    // the last. Gated on the HELD SET actually gaining a pitch class: an
+    // arpeggiated chord sweeps its chroma weight around beat to beat while the
+    // same 3-4 notes ring underneath, and that must not read as a new chord
+    // every beat (the "12 chords in a bar" bug on solo-piano vamps).
     if (!isBoundary[w] && w > 0 &&
-      cosDistance(beatChroma[w], beatChroma[w - 1]) > TURN_CHROMA_DIST) isBoundary[w] = true
+      cosDistance(beatChroma[w], beatChroma[w - 1]) > TURN_CHROMA_DIST &&
+      (heldMask[w] & ~heldMask[w - 1]) !== 0) isBoundary[w] = true
   }
 
   // ── span list from boundaries ─────────────────────────────────────────
@@ -419,15 +425,24 @@ export function buildChordSequence(
     if (e <= s) continue
     const sb = steadyBassOver(s, e)
     const lowPc = lowestPcOver(s, e)
-    // structural pcs = chord tones held through most of the span — the notes
-    // a colour name (maj7 / 9 / 6 …) must be built from. At least two beats
-    // of evidence: a one-beat fragment is never named richer than a triad.
+    // structural pcs = the notes a colour name (maj7 / 9 / 6 …) is allowed to
+    // be built from. A tone qualifies only if it is held through most of the
+    // span AND was either (a) struck as part of a real chord grab — an onset
+    // beat with ≥ 3 notes hitting together — or (b) held almost the entire
+    // span, i.e. a genuine pad tone. This stops an arpeggio that merely sweeps
+    // past the 9th, or a sustain-pedal tail, from turning a triad into a 9th,
+    // while still catching a voiced 7th even when it's comped short.
     const need = Math.max(2, Math.ceil((e - s) * 0.6))
+    const needHigh = Math.max(2, Math.ceil((e - s) * 0.85))
     let structural = 0
     for (let p = 0; p < 12; p++) {
       let held = 0
-      for (let w = s; w < e; w++) if (heldMask[w] & (1 << p)) held++
-      if (held >= need) structural |= 1 << p
+      let struckInStack = false
+      for (let w = s; w < e; w++) {
+        if (heldMask[w] & (1 << p)) held++
+        if ((onsetMask[w] & (1 << p)) && popcount(onsetMask[w]) >= 3) struckInStack = true
+      }
+      if (held >= need && (struckInStack || held >= needHigh)) structural |= 1 << p
     }
     const named = nameSpan(chromaOver(s, e), sb.cover >= SLASH_MIN_COVER ? sb.pc : -1, lowPc, structural)
     if (!named) continue
@@ -463,7 +478,11 @@ export function buildChordSequence(
 
   let changed = true
   let guard = 0
-  while (changed && guard++ < 64) {
+  // one fold per pass, restart on each — needs a budget that scales with the
+  // span count, not a flat 64 (a busy solo-piano song has hundreds of short
+  // fragments to absorb and the old cap left most of them un-merged).
+  const foldBudget = Math.max(64, merged.length * 8)
+  while (changed && guard++ < foldBudget) {
     changed = false
     for (let i = 0; i < merged.length; i++) {
       const cur = merged[i]

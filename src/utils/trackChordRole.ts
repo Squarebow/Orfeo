@@ -64,6 +64,16 @@ export function pickChordTracks(tracks: ParsedTrack[]): ChordTrackRoles {
   // ── Chord scope: the harmonic instruments, minus the bass ───────────
   let scope = nonDrum.filter(t => t.index !== bassTrackIndex && isHarmonicProgram(t.program))
 
+  // Drop monophonic lines sitting in the melody register — a "Piano-Vocal-
+  // Guitar" sheet's vocal staff, a lead riff on a string/choir patch, a high
+  // marimba ostinato. These carry the tune, not the harmony, and left in
+  // scope they turn every triad into an add9/13. Keep them only if nothing
+  // genuinely polyphonic remains (an all-monophonic arrangement still needs
+  // something to read).
+  const isMonoMelody = (t: ParsedTrack) => meanPolyphony(t) < 1.5 && medianPitch(t) >= 66
+  const chordy = scope.filter(t => !isMonoMelody(t))
+  if (chordy.length > 0 && chordy.some(t => meanPolyphony(t) >= 1.6)) scope = chordy
+
   // Nothing whitelisted (an all-synth or all-wind arrangement) — fall back
   // to the single most-polyphonic non-bass track so the detector still runs.
   if (scope.length === 0) {
