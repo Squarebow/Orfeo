@@ -298,7 +298,14 @@ export function buildChordSequence(
       // about the chord happening NOW than a freshly struck note does.
       beatChroma[w][n.pc] += (b - a) * n.weight * droneWeight(beatStart(w) - n.time)
       if (!n.melodic) {
-        heldMask[w] |= 1 << n.pc
+        // A note still ringing many bars after it was struck is a drone (a
+        // held pad, or a stuck MIDI note with no note-off). Its faded chroma
+        // still names the chord when nothing else plays, but it must stop
+        // counting as a "held chord tone" — otherwise a whole-song sustained
+        // D-F-B under the piano turns every chord into a 9th/11th and drags
+        // boundaries around.
+        const ageBars = (beatStart(w) - n.time) / barLen
+        if (ageBars <= DRONE_AGE_BARS + DRONE_FADE_BARS) heldMask[w] |= 1 << n.pc
         if (n.time >= beatStart(w) - 1e-4 && n.time < beatEnd(w) - 1e-4) {
           onsetMask[w] |= 1 << n.pc
           if (n.end - n.time >= beatLen * 1.1) sustOnsetMask[w] |= 1 << n.pc
