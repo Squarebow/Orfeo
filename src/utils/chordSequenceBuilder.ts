@@ -276,6 +276,7 @@ export function buildChordSequence(
   const beatChroma: Float64Array[] = Array.from({ length: NB }, () => new Float64Array(12))
   const heldMask: number[] = new Array(NB).fill(0)
   const onsetMask: number[] = new Array(NB).fill(0)
+  const sustOnsetMask: number[] = new Array(NB).fill(0)  // onsets of notes that then sustain ≥ ~a beat
   const droneWeight = (ageSec: number): number => {
     const age = ageSec / barLen
     if (age <= DRONE_AGE_BARS) return 1
@@ -293,7 +294,10 @@ export function buildChordSequence(
       beatChroma[w][n.pc] += (b - a) * n.weight * droneWeight(beatStart(w) - n.time)
       if (!n.melodic) {
         heldMask[w] |= 1 << n.pc
-        if (n.time >= beatStart(w) - 1e-4 && n.time < beatEnd(w) - 1e-4) onsetMask[w] |= 1 << n.pc
+        if (n.time >= beatStart(w) - 1e-4 && n.time < beatEnd(w) - 1e-4) {
+          onsetMask[w] |= 1 << n.pc
+          if (n.end - n.time >= beatLen * 1.1) sustOnsetMask[w] |= 1 << n.pc
+        }
       }
     }
   }
@@ -329,25 +333,34 @@ export function buildChordSequence(
   const bassPc: number[] = []
   for (let w = 0; w < NB; w++) bassPc.push(bassPcAt(w))
 
-  // ── 3. candidate boundaries — deliberately generous ───────────────────
-  // Primary: a beat where a chord tone is struck or released against the
-  // texture — the held set differs from the previous beat AND something was
-  // actually struck this beat (so a note merely fading out mid-sustain of
-  // the others doesn't split the chord). Fallback: a plain chroma shift,
-  // for textures with no clean onsets. The bass is NOT consulted — a
-  // walking bass under a held chord is one chord; it only earns a slash
-  // later (steadyBassOver).
+  // ── 3. candidate boundaries — keyed on what is STRUCK ─────────────────
+  // A chord event = a group of notes articulated together (≥ 2 non-melodic
+  // onsets, or one that sustains). Its identity is the chord-tone set held
+  // ~1 beat later — past the strum and past the previous chord's overhang
+  // (notes from the last voicing can physically ring into the next one). A
+  // boundary is placed at each chord event whose identity differs from the
+  // previous one: ≥ 2 tones, or one tone if that one was struck-and-held.
+  // A lone grace note is not a chord event. The bass is never consulted.
+  const popcount = (m: number) => { let c = 0; for (let p = 0; p < 12; p++) if (m & (1 << p)) c++; return c }
   const isBoundary: boolean[] = new Array(NB).fill(false)
   isBoundary[0] = true
-  for (let w = 1; w < NB; w++) {
-    // ≥ 2 chord tones changed AND something was struck this beat — a single
-    // grace note flicking the held set on/off doesn't split the chord.
-    let symDiff = 0
-    const d = heldMask[w] ^ heldMask[w - 1]
-    for (let p = 0; p < 12; p++) if (d & (1 << p)) symDiff++
-    const heldChanged = symDiff >= 2 && onsetMask[w] !== 0
-    const chromaMoved = cosDistance(beatChroma[w], beatChroma[w - 1]) > TURN_CHROMA_DIST
-    isBoundary[w] = heldChanged || chromaMoved
+  let prevChord = -1
+  for (let w = 0; w < NB; w++) {
+    const isStrike = popcount(onsetMask[w]) >= 2 || sustOnsetMask[w] !== 0
+    if (isStrike) {
+      const settleW = Math.min(w + 1, NB - 1)
+      const chord = heldMask[settleW] || heldMask[w]
+      if (prevChord === -1) {
+        prevChord = chord
+      } else {
+        const diff = chord ^ prevChord
+        const sd = popcount(diff)
+        if (sd >= 2 || (sd === 1 && (sustOnsetMask[w] & diff) !== 0)) isBoundary[w] = true
+        prevChord = chord
+      }
+    }
+    if (!isBoundary[w] && w > 0 &&
+      cosDistance(beatChroma[w], beatChroma[w - 1]) > TURN_CHROMA_DIST) isBoundary[w] = true
   }
 
   // ── span list from boundaries ─────────────────────────────────────────
