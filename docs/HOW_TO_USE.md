@@ -70,6 +70,7 @@ for example `how-to-use/edit-split-hands.gif`.
   - [MIDI Note Editor](#midi-note-editor)
 - [Practicing with MIDI files](#practicing-with-midi-files)
   - [Live chord display](#live-chord-display)
+  - [How Orfeo reads and voices chords](#how-orfeo-reads-and-voices-chords)
   - [Chord Prompter](#chord-prompter)
   - [Metronome](#metronome)
   - [Chords Explorer](#chords-explorer)
@@ -450,25 +451,73 @@ with.*
 > **Image ·** `how-to-use/practice-chord-display.png` · **1200×400** · _The chord bar above the keyboard showing a chord name, with the tracking-mode control._
 
 The chord name above the keyboard tracks what's actually playing — from the file
-or from a [connected keyboard](#play-along-with-a-hardware-keyboard). Three
-tracking modes (Settings → Notation & Chords):
-
-<table width="100%">
-<colgroup><col width="18%"><col width="82%"></colgroup>
-<thead><tr><th>Mode</th><th>How it reads the music</th></tr></thead>
-<tbody>
-<tr><td><strong>Auto</strong></td><td>Follows the track(s) carrying the harmony — piano, guitar — ignoring melody and ornaments. The default, best for most songs.</td></tr>
-<tr><td><strong>Harmony</strong></td><td>All non-drum tracks pooled through the same beat-synchronous detector — for dense textures where no one track holds the chords</td></tr>
-<tr><td><strong>Follow</strong></td><td>The same detection scoped to one instrument or group you choose</td></tr>
-</tbody>
-</table>
-
-The mode picks *which* tracks are read; the **Chord sensitivity** slider just
-below it picks *how much detail* — slide left for the underlying harmony, right
-to surface passing and embellishing chords. It applies to all three modes.
+or from a [connected keyboard](#play-along-with-a-hardware-keyboard). It reads
+the harmony the way a musician reading a lead sheet would; the three tracking
+modes and the sensitivity slider that shape it are described in full in
+[How Orfeo reads and voices chords](#how-orfeo-reads-and-voices-chords).
 
 Pause on any chord and **right-click it** to *Show on keyboard* (locks it like
 [Lock-A-Chord](#lock-a-chord)) or *Open in Chord Explorer*.
+
+### How Orfeo reads and voices chords
+
+Orfeo reads chords the way a player reading a chart would: a chord lasts until
+the accompaniment genuinely moves on, the name lands the moment you **hear** the
+chord rather than on the metronome line, and a rolled or arpeggiated chord stays
+**one** chord instead of turning into a new name on every broken note. Three or
+four real changes in a bar still show — a turnaround, a walk-up, a `ii–V–I`
+squeezed tight — but figuration no longer manufactures eight.
+
+**Three tracking modes** (Settings → Notation & Chords). They differ only in
+*which instruments Orfeo listens to*:
+
+<table width="100%">
+<colgroup><col width="14%"><col width="50%"><col width="36%"></colgroup>
+<thead><tr><th>Mode</th><th>What it listens to</th><th>When to use it</th></tr></thead>
+<tbody>
+<tr><td><strong>Auto</strong></td><td>The chord instruments only — piano, keys, guitar, strings, pads — with melody, bass and drums set aside. A lead riff on a string patch, or a sung line printed into the score, is left out too.</td><td>The default, and the most accurate and stable of the three because it reads only what actually voices chords. Right for the large majority of songs.</td></tr>
+<tr><td><strong>Harmony</strong></td><td>Everything except drums, pooled together — the melody included, on purpose.</td><td>Dense textures — film cues, choral writing, thick synth arrangements — where no single instrument holds the harmony. Expect more colour and more movement, since the tune gets a vote.</td></tr>
+<tr><td><strong>Follow</strong></td><td>One instrument or group that you pick.</td><td>When you already know which part carries the chords. As steady as Auto if you point it at a genuine comping track.</td></tr>
+</tbody>
+</table>
+
+**The Chord sensitivity slider** sits just below the modes, is separate from the
+mode choice, and applies to all three. Slide **left** for the underlying harmony
+in broad strokes — the chords a chart would print. Slide **right** to surface
+passing chords, embellishments and faster movement inside the bar. The default
+sits at a comfortable lead-sheet reading.
+
+> 🎯 **Which mode?**
+>
+> *Start on Auto. If the readout goes blank or feels too thin — usually a
+> sparse or unusual arrangement — try Harmony. Reach for Follow only when you
+> want the chords of one specific part.*
+
+Accuracy is best on pop, rock and anything with a clear piano or guitar comp. It
+is still being sharpened for sheet-music editions that print the sung melody
+*into* the piano staff, and for labelling inversions on solo piano that carries
+no separate bass line.
+
+**Hearing a progression played back** — in the
+[Chords Explorer](#chords-explorer) and
+[Scales Explorer](#scales-explorer-and-the-circle-of-fifths), a named
+progression is voiced the way a pianist would rather than as root-position
+blocks. A **Voicing** toggle offers:
+
+<table width="100%">
+<colgroup><col width="14%"><col width="86%"></colgroup>
+<tbody>
+<tr><td><strong>Roots</strong></td><td>Every chord in root position, each one placed a little higher than the last — the plain reference reading.</td></tr>
+<tr><td><strong>Climbing</strong></td><td>The first chord sits low, then each next chord takes the nearest inversion just above it. The line climbs gently and never snaps back to the octave — the way a player actually runs the chords of a scale: nice inversions, always moving up.</td></tr>
+<tr><td><strong>Smooth</strong></td><td>Each chord is the nearest voicing to the one before — the fewest notes move the shortest distance, so your hand barely shifts. The comping sound.</td></tr>
+</tbody>
+</table>
+
+Each chord is lightly rolled from the bottom up with a little velocity variation,
+so an audition sounds played rather than triggered. The **Style** dropdown beside
+the toggle (Classic, Coltrane, Cinematic, Roadhouse, Ipanema, Carnival, Velvet)
+is a separate control — it changes the chord *quality* on every degree (plain
+triads versus jazz 9ths and 13ths), not the inversion motion.
 
 ### Chord Prompter
 
@@ -503,9 +552,11 @@ key across **Common, Power, and Extended** tiers.
   proper slash chords like `C/E`).
 - **Filter** by hand span or note count.
 - **Progressions** — play named progressions (`ii–V–I`, `I–vi–IV–V`, twelve-bar
-  blues, and more) with the theoretically correct chord quality on every degree,
-  in a choice of voicing styles (Classic, Coltrane, Cinematic, Roadhouse,
-  Ipanema, Carnival, Velvet).
+  blues, and more) with the theoretically correct chord quality on every degree.
+  A **Voicing** toggle (Roots / Climbing / Smooth) sets how the chords move from
+  one to the next, and a **Style** dropdown (Classic, Coltrane, Cinematic,
+  Roadhouse, Ipanema, Carnival, Velvet) sets how rich each chord is — see
+  [How Orfeo reads and voices chords](#how-orfeo-reads-and-voices-chords).
 - **Fuzzy search** — type a character or two and get instant matches by chord
   name or by the notes it contains.
 
@@ -527,7 +578,9 @@ inner ring to see and hear that scale.
   Dorian, Phrygian, Lydian, Mixolydian — each showing its seven diatonic chords
   with correct Roman numerals.
 - The same named [progressions](#chords-explorer), scoped to the selected key —
-  hear `I–V–vi–IV` in G major versus E♭ minor with one click.
+  hear `I–V–vi–IV` in G major versus E♭ minor with one click, with the same
+  [Voicing toggle](#how-orfeo-reads-and-voices-chords) (Roots / Climbing /
+  Smooth).
 
 ### Lock-A-Chord
 
