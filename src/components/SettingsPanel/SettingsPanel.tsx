@@ -9,6 +9,7 @@ import {
   Files, Hand, Repeat, Expand,
 } from 'lucide-react'
 import { useStore } from '../../store'
+import { t } from '../../utils/i18n'
 import OrfeoMark from '../OrfeoMark'
 import type { NoteNaming, KeyboardSize, Accidentals, TranscriptEntry, LibraryFile, HitEffectPattern, SoundfontId, SoundfontInfo, UpdateStatus, UpdateInfo } from '../../types'
 import type { AppTheme } from '../../store'
@@ -2064,6 +2065,8 @@ export default function SettingsPanel() {
   const setChordFollowTrackIndex = useStore((s) => s.setChordFollowTrackIndex)
   const chordNamingStyle = useStore((s) => s.chordNamingStyle)
   const setChordNamingStyle = useStore((s) => s.setChordNamingStyle)
+  const chordSensitivity = useStore((s) => s.chordSensitivity)
+  const setChordSensitivity = useStore((s) => s.setChordSensitivity)
   const chordTracks = useStore((s) => s.tracks)
   const keyboardSize = useStore((s) => s.keyboardSize)
   const setKeyboardSize = useStore((s) => s.setKeyboardSize)
@@ -2850,6 +2853,32 @@ export default function SettingsPanel() {
                         )}
                       </div>
                     )}
+                  </OptionRow>
+
+                  {/* ── Chord sensitivity — the single detail knob. Independent of
+                      the tracking mode above (mode = which tracks, this = how
+                      finely the beat is split). Fed straight into
+                      buildChordSequence's `sensitivity`; replaced the old
+                      per-mode presets. ──────────────────────────────────────── */}
+                  <OptionRow label={t`Chord sensitivity`}>
+                    <div style={{ fontSize: 'var(--text-xs)', color: 'var(--text-faint)', lineHeight: 1.5, fontFamily: 'var(--font-ui)', marginBottom: 6, fontStyle: 'italic' }}>
+                      {t`How eagerly the detector splits the beat into separate chords. Lower shows the underlying harmony; higher catches passing and embellishing chords.`}
+                    </div>
+                    <div style={{ fontSize: 11, color: 'var(--text-dim-control)', fontFamily: 'var(--font-mono)', marginBottom: 4 }}>
+                      {(chordSensitivity < 0.35 ? t`Sparse` : chordSensitivity < 0.68 ? t`Balanced` : t`Detailed`)}
+                      {' · '}{Math.round(chordSensitivity * 100)}%
+                    </div>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                      <span style={{ fontSize: 9, color: 'var(--text-inactive)', fontFamily: 'var(--font-mono)', flexShrink: 0 }}>{t`Sparse`}</span>
+                      <input
+                        type="range" min={0} max={100} step={5}
+                        value={Math.round(chordSensitivity * 100)}
+                        onChange={e => setChordSensitivity(Number(e.target.value) / 100)}
+                        className="orfeo-slider-amber"
+                        style={{ flex: 1, '--fill': `${Math.round(chordSensitivity * 100)}%` } as CSSProperties}
+                      />
+                      <span style={{ fontSize: 9, color: 'var(--text-inactive)', fontFamily: 'var(--font-mono)', flexShrink: 0 }}>{t`Detailed`}</span>
+                    </div>
                   </OptionRow>
 
                   {/* ── Chord naming — abbreviation vs symbol, applied everywhere a

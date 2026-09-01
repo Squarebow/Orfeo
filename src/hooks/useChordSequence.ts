@@ -23,6 +23,7 @@ export function useChordSequence() {
   const chordFollowGroup = useStore(s => s.chordFollowGroup)
   const chordFollowTrackIndex = useStore(s => s.chordFollowTrackIndex)
   const chordNamingStyle = useStore(s => s.chordNamingStyle)
+  const chordSensitivity = useStore(s => s.chordSensitivity)
   const setChordSequence = useStore(s => s.setChordSequence)
   const setChordFollowTrackIndex = useStore(s => s.setChordFollowTrackIndex)
 
@@ -67,21 +68,16 @@ export function useChordSequence() {
     }
 
     // Sensitivity — how eager the detector is to call something a new chord.
-    // Auto sits at a musician's default; Harmony leans "detailed" (faster
-    // changes, embellishing chords) and also folds melody tracks in above;
-    // Follow sits between.
-    const sensitivity =
-      chordTrackingMode === 'harmony' ? 0.62
-        : chordTrackingMode === 'follow' ? 0.5
-          : 0.4
-
+    // A single user knob (Settings › Notation & Chords), independent of the
+    // tracking mode: the mode picks the track scope, this picks the detail.
     const grid = buildBeatGrid(midi)
     const seq = buildChordSequence(scope, bass, grid, {
-      noteNaming, accidentals, namingStyle: chordNamingStyle, transpose, sensitivity,
+      noteNaming, accidentals, namingStyle: chordNamingStyle, transpose,
+      sensitivity: chordSensitivity,
     })
     setChordSequence(seq)
   }, [
-    midi, noteNaming, accidentals, transpose, chordNamingStyle,
+    midi, noteNaming, accidentals, transpose, chordNamingStyle, chordSensitivity,
     chordTrackingMode, chordFollowSubMode, chordFollowGroup, chordFollowTrackIndex,
     setChordSequence,
   ])

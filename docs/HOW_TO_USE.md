@@ -463,6 +463,10 @@ tracking modes (Settings → Notation & Chords):
 </tbody>
 </table>
 
+The mode picks *which* tracks are read; the **Chord sensitivity** slider just
+below it picks *how much detail* — slide left for the underlying harmony, right
+to surface passing and embellishing chords. It applies to all three modes.
+
 Pause on any chord and **right-click it** to *Show on keyboard* (locks it like
 [Lock-A-Chord](#lock-a-chord)) or *Open in Chord Explorer*.
 

@@ -80,7 +80,8 @@ export interface BuildChordSequenceOpts {
   namingStyle: ChordNamingStyle
   transpose: number
   /** 0..1 — how eager Orfeo is to call something a new chord. Higher surfaces
-   *  faster changes and embellishing chords. Auto ≈ 0.4, Harmony ≈ 0.62. */
+   *  faster changes and embellishing chords. User-set via the Chord
+   *  sensitivity slider (Settings › Notation & Chords); defaults to 0.4. */
   sensitivity?: number
 }
 

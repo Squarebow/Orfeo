@@ -237,6 +237,11 @@ tracks to find the chord instrument for Auto mode.
 | **Harmony** | All non-drum tracks pooled |
 | **Follow Instrument** | Scoped to one GM group (persisted) or one track in the current file (per-file); falls back to Harmony |
 
+The mode only chooses the track scope. A single persisted **chord sensitivity**
+value (`store.chordSensitivity`, 0–1, default 0.4) is passed straight to
+`buildChordSequence` as `sensitivity` and controls how finely the beat is split
+into separate chords — same knob for every mode.
+
 Detection is restricted to a curated set of common chord types
 (`chordVocabulary.ts`); tonal.js's full dictionary is only consulted, via
 `chordDetection.ts`, for the paused right-click / Chord Explorer paths and only

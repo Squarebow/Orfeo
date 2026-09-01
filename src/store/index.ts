@@ -81,11 +81,16 @@ interface OrfeoStore {
   chordFollowGroup: string | null
   chordFollowTrackIndex: number | null
   chordNamingStyle: ChordNamingStyle
+  // ── How eagerly the detector splits the beat into separate chords, 0..1.
+  // The single user knob — replaces the old per-mode presets. Fed straight
+  // into buildChordSequence's `sensitivity`. ──────────────────────────────
+  chordSensitivity: number
   setChordTrackingMode: (mode: ChordTrackingMode) => void
   setChordFollowSubMode: (mode: ChordFollowSubMode) => void
   setChordFollowGroup: (group: string | null) => void
   setChordFollowTrackIndex: (index: number | null) => void
   setChordNamingStyle: (style: ChordNamingStyle) => void
+  setChordSensitivity: (v: number) => void
 
   detectedKey: DetectedKey | null
   setDetectedKey: (key: DetectedKey | null) => void
@@ -535,11 +540,14 @@ export const useStore = create<OrfeoStore>((set, get) => ({
   chordFollowGroup: null,
   chordFollowTrackIndex: null,
   chordNamingStyle: 'abbreviation',
+  // 0.4 = the previous Auto preset, so existing setups read identically.
+  chordSensitivity: 0.4,
   setChordTrackingMode: (chordTrackingMode) => set({ chordTrackingMode }),
   setChordFollowSubMode: (chordFollowSubMode) => set({ chordFollowSubMode }),
   setChordFollowGroup: (chordFollowGroup) => set({ chordFollowGroup }),
   setChordFollowTrackIndex: (chordFollowTrackIndex) => set({ chordFollowTrackIndex }),
   setChordNamingStyle: (chordNamingStyle) => set({ chordNamingStyle }),
+  setChordSensitivity: (chordSensitivity) => set({ chordSensitivity: Math.min(1, Math.max(0, chordSensitivity)) }),
 
   detectedKey: null,
   setDetectedKey: (detectedKey) => set({ detectedKey }),
@@ -952,6 +960,7 @@ async function restoreLibraryPrefs() {
     if (prefs.chordFollowSubMode === 'group' || prefs.chordFollowSubMode === 'track') store.setChordFollowSubMode(prefs.chordFollowSubMode)
     if (typeof prefs.chordFollowGroup === 'string' || prefs.chordFollowGroup === null) store.setChordFollowGroup(prefs.chordFollowGroup)
     if (prefs.chordNamingStyle === 'abbreviation' || prefs.chordNamingStyle === 'symbol') store.setChordNamingStyle(prefs.chordNamingStyle)
+    if (typeof prefs.chordSensitivity === 'number') store.setChordSensitivity(prefs.chordSensitivity)
     if (typeof prefs.masterVolume === 'number') store.setMasterVolume(prefs.masterVolume)
     if (typeof prefs.masterCompEnabled === 'boolean') store.setMasterCompEnabled(prefs.masterCompEnabled)
     if (typeof prefs.masterCompPreset === 'number') store.setMasterCompPreset(prefs.masterCompPreset)
@@ -1068,6 +1077,7 @@ let _prevChordTrackingMode: string | null = null
 let _prevChordFollowSubMode: string | null = null
 let _prevChordFollowGroup: string | null | undefined = undefined
 let _prevChordNamingStyle: string | null = null
+let _prevChordSensitivity: number | null = null
 const _unsubPrefs = useStore.subscribe((state) => {
   // Skip the very first fire (app init) — restore handles loading saved values
   if (_prevNoteNaming === null) {
@@ -1117,6 +1127,7 @@ const _unsubPrefs = useStore.subscribe((state) => {
     _prevChordFollowSubMode = state.chordFollowSubMode
     _prevChordFollowGroup = state.chordFollowGroup
     _prevChordNamingStyle = state.chordNamingStyle
+    _prevChordSensitivity = state.chordSensitivity
     return
   }
   if (
@@ -1165,7 +1176,8 @@ const _unsubPrefs = useStore.subscribe((state) => {
     state.chordTrackingMode !== _prevChordTrackingMode ||
     state.chordFollowSubMode !== _prevChordFollowSubMode ||
     state.chordFollowGroup !== _prevChordFollowGroup ||
-    state.chordNamingStyle !== _prevChordNamingStyle
+    state.chordNamingStyle !== _prevChordNamingStyle ||
+    state.chordSensitivity !== _prevChordSensitivity
   ) {
     _prevNoteNaming = state.noteNaming
     _prevAccidentals = state.accidentals
@@ -1213,6 +1225,7 @@ const _unsubPrefs = useStore.subscribe((state) => {
     _prevChordFollowSubMode = state.chordFollowSubMode
     _prevChordFollowGroup = state.chordFollowGroup
     _prevChordNamingStyle = state.chordNamingStyle
+    _prevChordSensitivity = state.chordSensitivity
     window.electronAPI?.setPrefs?.({
       noteNaming: state.noteNaming,
       accidentals: state.accidentals,
@@ -1260,6 +1273,7 @@ const _unsubPrefs = useStore.subscribe((state) => {
       chordFollowSubMode: state.chordFollowSubMode,
       chordFollowGroup: state.chordFollowGroup,
       chordNamingStyle: state.chordNamingStyle,
+      chordSensitivity: state.chordSensitivity,
     }).catch(() => {})
   }
 })
