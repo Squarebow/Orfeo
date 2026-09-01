@@ -278,6 +278,10 @@ export function buildChordSequence(
   const heldMask: number[] = new Array(NB).fill(0)
   const onsetMask: number[] = new Array(NB).fill(0)
   const sustOnsetMask: number[] = new Array(NB).fill(0)  // onsets of notes that then sustain ≥ ~a beat
+  // earliest real (non-melodic) note onset inside each beat — the moment the
+  // chord is actually HEARD, used for displayTime so the name isn't shown at
+  // the beat line while the strike is still 200ms away.
+  const beatOnset: number[] = new Array(NB).fill(Infinity)
   const droneWeight = (ageSec: number): number => {
     const age = ageSec / barLen
     if (age <= DRONE_AGE_BARS) return 1
@@ -298,6 +302,7 @@ export function buildChordSequence(
         if (n.time >= beatStart(w) - 1e-4 && n.time < beatEnd(w) - 1e-4) {
           onsetMask[w] |= 1 << n.pc
           if (n.end - n.time >= beatLen * 1.1) sustOnsetMask[w] |= 1 << n.pc
+          if (n.time < beatOnset[w]) beatOnset[w] = n.time
         }
       }
     }
@@ -504,9 +509,18 @@ export function buildChordSequence(
     const name = localizeChord(label, opts.noteNaming, opts.accidentals, opts.namingStyle) ?? label
     const t = beatStart(sp.s)
     const durSec = beatStart(sp.e) - t
+    // displayTime = when the chord is actually HEARD: the first real note
+    // onset inside the span (never before the span's opening beat). A beat-
+    // line time made the name flash up to a beat early on any struck-late or
+    // syncopated chord. Falls back to the beat line only if the span opens on
+    // pure sustain (a crossfade boundary, no fresh strike).
+    let displayTime = t
+    for (let w = sp.s; w < sp.e; w++) {
+      if (Number.isFinite(beatOnset[w])) { displayTime = Math.max(t, beatOnset[w]); break }
+    }
     return {
       time: t,
-      displayTime: t,
+      displayTime,
       name,
       notes: Chord.get(rootName + sp.named.tpl.suffix).notes ?? [],
       realMidi: buildCompactVoicing(sp.named.root, sp.named.tpl.tonalIntervals, bassPcOut, 88),
