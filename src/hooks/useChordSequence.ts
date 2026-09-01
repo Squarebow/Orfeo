@@ -66,9 +66,18 @@ export function useChordSequence() {
       scope = nonDrum.filter(t => t.index !== roles.bassTrackIndex)
     }
 
+    // Sensitivity — how eager the detector is to call something a new chord.
+    // Auto sits at a musician's default; Harmony leans "detailed" (faster
+    // changes, embellishing chords) and also folds melody tracks in above;
+    // Follow sits between.
+    const sensitivity =
+      chordTrackingMode === 'harmony' ? 0.62
+        : chordTrackingMode === 'follow' ? 0.5
+          : 0.4
+
     const grid = buildBeatGrid(midi)
     const seq = buildChordSequence(scope, bass, grid, {
-      noteNaming, accidentals, namingStyle: chordNamingStyle, transpose,
+      noteNaming, accidentals, namingStyle: chordNamingStyle, transpose, sensitivity,
     })
     setChordSequence(seq)
   }, [

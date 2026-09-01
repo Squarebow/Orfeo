@@ -43,7 +43,8 @@ export function runChordSequenceBuilderTest(): void {
   const s3 = buildChordSequence([track(0, arp)], null, GRID, OPTS)
   check(s3.length === 1, `arpeggiated C → 1 segment (got ${s3.length}: ${s3.map(e => e.name)})`)
 
-  // (d) static C triad with a walking bass C-E-G-B under it → 1 segment, slash-collapsed
+  // (d) static C triad with a walking bass C-E-G-B under it → 1 segment
+  //     (the upper harmony never moves; a fast walking bass earns no slash)
   const walk: ParsedNote[] = [n(60, 0, 16), n(64, 0, 16), n(67, 0, 16)]
   const bassNotes: ParsedNote[] = []
   const wcyc = [36, 40, 43, 47]
