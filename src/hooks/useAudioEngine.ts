@@ -187,9 +187,11 @@ function updateMutedChannels() {
     const defaultColor = ts.color ?? amberHex()
     const homogeneousTrack = isHomogeneousHandTrack(track.notes)
     for (const note of track.notes) {
-      const noteStart = note.time / ratio
-      if (noteStart < currentTime) continue
-      const delay = (noteStart - currentTime) * 1000
+      // Same fix as useSamplesEngine.ts's identical pattern: compare native
+      // (unscaled) times, then scale the gap — not the other way around,
+      // which only agreed with reality when currentTime was 0.
+      if (note.time < currentTime) continue
+      const delay = (note.time - currentTime) / ratio * 1000
       const durMs = Math.max(note.duration / ratio * 1000, 40)
       const midiNum = note.midi + transpose
       const color = resolveHandAwareColor(note, defaultColor, { homogeneousTrack, showHandLabels: effectiveShowHandLabels, performanceMode })
@@ -267,9 +269,9 @@ function buildPlayer(startSec: number) {
       const defaultColor = ts.color ?? amberHex()
       const homogeneousTrack = isHomogeneousHandTrack(track.notes)
       for (const note of track.notes) {
-        const noteStart = note.time / ratio
-        if (noteStart < startSec) continue
-        const delay = (noteStart - startSec) * 1000
+        // Same fix as useSamplesEngine.ts's identical pattern — see its comment.
+        if (note.time < startSec) continue
+        const delay = (note.time - startSec) / ratio * 1000
         const durMs = Math.max(note.duration / ratio * 1000, 40)
         const midiNum = note.midi + transpose
         const color = resolveHandAwareColor(note, defaultColor, { homogeneousTrack, showHandLabels: effectiveShowHandLabels, performanceMode })

@@ -171,11 +171,22 @@ function clearAllKeys() {
   useStore.setState({ activeKeys: new Set(), activeKeyColors: new Map() })
 }
 
+// ── CC64 = 0 on every channel — a clean pedal baseline. stopAll() kills the
+// voices but leaves each channel's sustain-controller state as it was, so a
+// stop mid-pedal-down would otherwise hang the next playback's first notes. ─
+function resetSustainPedals() {
+  if (!_synth) return
+  for (let ch = 0; ch < 16; ch++) {
+    try { ;(_synth as any).controllerChange(ch, 64, 0) } catch {}
+  }
+}
+
 // ── Cancel all pending note timeouts and silence the synth ───────────────────
 function clearSchedule() {
   _schedule.forEach(t => clearTimeout(t))
   _schedule.length = 0
   try { _synth?.stopAll(true) } catch {}
+  resetSustainPedals()
 }
 
 // ── Hardware-input/preview channel setup — program 0, full volume on ch 15 ──
@@ -409,9 +420,19 @@ function buildSamplesPlayer(startSec: number) {
     const ch = track.channel
 
     for (const note of track.notes) {
-      const noteStart = note.time / ratio
-      if (noteStart < startSec) continue
-      const delay = (noteStart - startSec) * 1000
+      // ── note.time and startSec are both in the file's OWN timeline (real
+      // seconds at the file's original tempo) — compare them directly, THEN
+      // convert the gap to real wall-clock delay by dividing by ratio. The
+      // previous version scaled note.time by 1/ratio first and only THEN
+      // subtracted the un-scaled startSec — comparing a tempo-scaled value
+      // against a native one. That's only correct when startSec is 0 (why
+      // this only ever showed up after scrubbing away from the very start,
+      // and why rewinding to 0 always "fixed" it): at any other scrub
+      // position and any tempo other than the file's own, it filtered the
+      // wrong notes in/out and scheduled real audio at the wrong delay —
+      // the further from 0 and the more the tempo differs, the worse. ─────
+      if (note.time < startSec) continue
+      const delay = (note.time - startSec) / ratio * 1000
       const durMs = Math.max(note.duration / ratio * 1000, 40)
       const midiNum = note.midi + transpose
       const color = resolveHandAwareColor(note, defaultColor, { homogeneousTrack, showHandLabels: effectiveShowHandLabels, performanceMode })
@@ -432,6 +453,25 @@ function buildSamplesPlayer(startSec: number) {
         }
       }, delay)
       _schedule.push(t)
+    }
+
+    // ── Sustain pedal (CC64) — replay this channel's pedal transitions. If
+    // playback starts under a held pedal, set it down now so the passage
+    // isn't dry. clearSchedule() already reset every channel to 0. ──────────
+    const sustain = track.sustainEvents
+    if (sustain && sustain.length > 0) {
+      let downAtStart = false
+      for (const ev of sustain) {
+        // Same fix as the note loop above — compare native times, scale the gap.
+        if (ev.time < startSec) { downAtStart = ev.down; continue }
+        const pedT = setTimeout(() => {
+          try { ;(_synth as any)?.controllerChange(ch, 64, ev.down ? 127 : 0) } catch {}
+        }, (ev.time - startSec) / ratio * 1000)
+        _schedule.push(pedT)
+      }
+      if (downAtStart) {
+        try { ;(_synth as any).controllerChange(ch, 64, 127) } catch {}
+      }
     }
   }
 }
