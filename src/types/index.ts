@@ -48,6 +48,11 @@ export interface ParsedNote {
   handSource?: 'computed' | 'manual'
 }
 
+export interface SustainEvent {
+  time: number   // seconds, at the file's own tempo
+  down: boolean  // true = pedal pressed (CC64 ≥ 64)
+}
+
 export interface ParsedTrack {
   index: number
   name: string
@@ -58,6 +63,11 @@ export interface ParsedTrack {
   color: string
   notes: ParsedNote[]
   channel: number
+  // ── Sustain-pedal (CC64) transitions on this track's channel, time-ordered,
+  // consecutive duplicates collapsed. The Samples engine replays these to
+  // spessasynth so pedalled passages ring; the GM engine gets pedal for free
+  // (it streams the raw MIDI). Absent when the file has no CC64 data. ────────
+  sustainEvents?: SustainEvent[]
 }
 
 export interface TempoEvent {
