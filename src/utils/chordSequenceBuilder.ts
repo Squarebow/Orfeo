@@ -45,11 +45,6 @@ const REGISTER_HIGH = 84           // MIDI — melody register, ×0.5
 const REGISTER_HIGH_W = 0.5
 
 // ── turnover / boundary detection ───────────────────────────────────────
-// A chord boundary is where the SET of held chord tones changes — a note
-// struck or released against the sustaining texture — not merely where the
-// overall energy shifts. This is what catches a piano re-voicing (Cmaj9 →
-// C6/9 → C) over a string pad that holds C-E-G straight through.
-const TURN_CHROMA_DIST = 0.10   // fallback: beat-to-beat chroma cosine-distance
 const HELD_PC_FLOOR = 0.035     // a note counts toward the "held set" above this share of the beat
 const DRONE_AGE_BARS = 1        // a note ringing longer than this starts to fade —
 const DRONE_FLOOR = 0.35        // …down to this share, so a 10-bar pad doesn't drown
@@ -160,13 +155,6 @@ function nameSpan(chroma: Float64Array, bassPc: number, lowPc: number, structura
   return best
 }
 
-function cosDistance(a: Float64Array, b: Float64Array): number {
-  let dot = 0, na = 0, nb = 0
-  for (let p = 0; p < 12; p++) { dot += a[p] * b[p]; na += a[p] * a[p]; nb += b[p] * b[p] }
-  if (na < 1e-12 || nb < 1e-12) return na < 1e-12 && nb < 1e-12 ? 0 : 1
-  return 1 - dot / Math.sqrt(na * nb)
-}
-
 export function buildChordSequence(
   scopeTracks: ParsedTrack[],
   bassTrack: ParsedTrack | null,
@@ -249,11 +237,19 @@ export function buildChordSequence(
             isRun = poly <= 2 && onsets >= 10 && near.size >= 6
           }
           // otherwise, keep it as harmony unless there's an accompaniment
-          // bed below (then a floating top line IS melody).
+          // bed below (then a floating top line IS melody). The bed note
+          // must actually be SOUNDING under this one — genuinely
+          // overlapping in time, not merely having ended sometime in the
+          // last bar. The old, looser check let a solo instrument's own
+          // EARLIER notes (nothing else playing at all — a monophonic
+          // arpeggio, one note at a time, nothing overlapping) count as a
+          // "bed" for its LATER notes, since a bar is a wide window — which
+          // misread most of a rolled chord's own notes as melody and threw
+          // them away before the harmony read ever saw them.
           let hasBed = false
           if (!supported && !isRun) {
             for (const o of allNotes) {
-              if (o.midi <= midi - MELODY_BED_MIN_GAP && o.time < end && o.end > time - barLen && o.time < time + barLen) { hasBed = true; break }
+              if (o.midi <= midi - MELODY_BED_MIN_GAP && o.time < end && o.end > time + 1e-4) { hasBed = true; break }
             }
           }
           melodic = !supported && (isRun || hasBed)
@@ -277,11 +273,17 @@ export function buildChordSequence(
   const beatChroma: Float64Array[] = Array.from({ length: NB }, () => new Float64Array(12))
   const heldMask: number[] = new Array(NB).fill(0)
   const onsetMask: number[] = new Array(NB).fill(0)
-  const sustOnsetMask: number[] = new Array(NB).fill(0)  // onsets of notes that then sustain ≥ ~a beat
   // earliest real (non-melodic) note onset inside each beat — the moment the
   // chord is actually HEARD, used for displayTime so the name isn't shown at
   // the beat line while the strike is still 200ms away.
   const beatOnset: number[] = new Array(NB).fill(Infinity)
+  // Same, but counting EVERY note including melody — a span with no
+  // accompaniment at all (an unaccompanied pickup lick before the band even
+  // comes in) is named from that lone melody line alone, so its display
+  // still needs a real onset to wait for. Without this, a span like that
+  // falls all the way back to the span's own beat-line start, which can be
+  // several silent bars before the note that actually justifies the name.
+  const beatOnsetAny: number[] = new Array(NB).fill(Infinity)
   const droneWeight = (ageSec: number): number => {
     const age = ageSec / barLen
     if (age <= DRONE_AGE_BARS) return 1
@@ -297,6 +299,9 @@ export function buildChordSequence(
       // a note that has been ringing for bars is a drone — it tells you less
       // about the chord happening NOW than a freshly struck note does.
       beatChroma[w][n.pc] += (b - a) * n.weight * droneWeight(beatStart(w) - n.time)
+      if (n.time >= beatStart(w) - 1e-4 && n.time < beatEnd(w) - 1e-4 && n.time < beatOnsetAny[w]) {
+        beatOnsetAny[w] = n.time
+      }
       if (!n.melodic) {
         // A note still ringing many bars after it was struck is a drone (a
         // held pad, or a stuck MIDI note with no note-off). Its faded chroma
@@ -308,7 +313,6 @@ export function buildChordSequence(
         if (ageBars <= DRONE_AGE_BARS + DRONE_FADE_BARS) heldMask[w] |= 1 << n.pc
         if (n.time >= beatStart(w) - 1e-4 && n.time < beatEnd(w) - 1e-4) {
           onsetMask[w] |= 1 << n.pc
-          if (n.end - n.time >= beatLen * 1.1) sustOnsetMask[w] |= 1 << n.pc
           if (n.time < beatOnset[w]) beatOnset[w] = n.time
         }
       }
@@ -346,40 +350,164 @@ export function buildChordSequence(
   const bassPc: number[] = []
   for (let w = 0; w < NB; w++) bassPc.push(bassPcAt(w))
 
-  // ── 3. candidate boundaries — keyed on what is STRUCK ─────────────────
-  // A chord event = a group of notes articulated together (≥ 2 non-melodic
-  // onsets, or one that sustains). Its identity is the chord-tone set held
-  // ~1 beat later — past the strum and past the previous chord's overhang
-  // (notes from the last voicing can physically ring into the next one). A
-  // boundary is placed at each chord event whose identity differs from the
-  // previous one: ≥ 2 tones, or one tone if that one was struck-and-held.
-  // A lone grace note is not a chord event. The bass is never consulted.
+  // ── 3. candidate boundaries — keyed on CHORD FIT, not on a beat-to-beat
+  // snapshot diff. The old approach compared "what's ringing this beat" to
+  // "what rang last beat" — which works for a struck block chord, but reads
+  // a rolled/arpeggiated chord (each note stopping before the next starts,
+  // nothing ever overlapping) as a new chord on literally every note, since
+  // that's what an arpeggio always looks like one beat at a time. It also
+  // needed a "settle" beat to let a strum's onset scatter finish landing,
+  // which is exactly what let a fast chord change's own tail bleed into the
+  // next comparison.
+  //
+  // Instead: walk every non-melodic note in time order, grouped into onset
+  // STACKS (notes struck within MELODY_STACK_WIN of each other — one
+  // physical strike or pluck), and grow a "chord so far" as each stack
+  // arrives. A stack EXTENDS the current chord when its notes are already
+  // covered by the chord already recognised (an arpeggio note landing where
+  // expected, a repeated chord tone). A stack that ISN'T covered goes into
+  // a small PENDING group instead of deciding anything immediately — one
+  // new note can never decisively announce a new chord on its own (it's
+  // equally consistent with several different chords, which is exactly the
+  // situation a real chord change and an arpeggio's own unfolding notes
+  // both look like in the moment). Pending keeps accumulating until either
+  // it names a chord with EVERY tone actually present — committed as a new
+  // chord, boundary placed at pending's FIRST note, where a listener would
+  // actually place it — or a later stack turns out to still fit the OLD
+  // chord after all, at which point pending was a false alarm and folds
+  // back in as decoration.
   const popcount = (m: number) => { let c = 0; for (let p = 0; p < 12; p++) if (m & (1 << p)) c++; return c }
+  interface Stack { time: number; notes: Tagged[] }
+  const nonMel = tagged.filter(n => !n.melodic).sort((a, b) => a.time - b.time)
+  const stacks: Stack[] = []
+  for (const n of nonMel) {
+    const last = stacks[stacks.length - 1]
+    if (last && n.time - last.time <= MELODY_STACK_WIN) last.notes.push(n)
+    else stacks.push({ time: n.time, notes: [n] })
+  }
+  const stackChroma = (st: Stack): Float64Array => {
+    const c = new Float64Array(12)
+    for (const n of st.notes) c[n.pc] += (n.end - n.time) * n.weight
+    return c
+  }
+  // A chord's root very often doesn't get RE-STRUCK when the next chord
+  // arrives — it's simply still ringing from before (the classic "hold one
+  // note, move the others" voicing). Pending must be able to credit that
+  // tone toward completeness, or a chord whose root carries over like this
+  // can never look "complete" on its own — it just waits, and by the time
+  // something does complete, unrelated later notes have been folded in
+  // with it, blending two real chords into one wrong reading.
+  const ringingPcsAt = (t: number): number => {
+    let m = 0
+    for (const n of nonMel) { if (n.time <= t + 1e-4 && n.end > t + 1e-4) m |= 1 << n.pc }
+    return m
+  }
+  const beatOfTime = (t: number): number => {
+    let w = 0
+    for (let i = 0; i < NB; i++) { if (beatStart(i) <= t + 1e-6) w = i; else break }
+    return w
+  }
+
   const isBoundary: boolean[] = new Array(NB).fill(false)
   isBoundary[0] = true
-  let prevChord = -1
-  for (let w = 0; w < NB; w++) {
-    const isStrike = popcount(onsetMask[w]) >= 2 || sustOnsetMask[w] !== 0
-    if (isStrike) {
-      const settleW = Math.min(w + 1, NB - 1)
-      const chord = heldMask[settleW] || heldMask[w]
-      if (prevChord === -1) {
-        prevChord = chord
-      } else {
-        const diff = chord ^ prevChord
-        const sd = popcount(diff)
-        if (sd >= 2 || (sd === 1 && (sustOnsetMask[w] & diff) !== 0)) isBoundary[w] = true
-        prevChord = chord
+  let spanChroma = new Float64Array(12)
+  let spanRoot: number | null = null
+  let pending: Stack[] = []
+  let pendingChroma = new Float64Array(12)
+  for (let si = 0; si < stacks.length; si++) {
+    const st = stacks[si]
+    const sc = stackChroma(st)
+    // Nothing established yet (spanRoot === null, the very start of the
+    // piece or of this track's activity) is treated the same as "nothing
+    // in this stack is covered" — an empty membership set, so it flows
+    // through the SAME pending-accumulation path below rather than
+    // committing to a root off a single, inherently ambiguous first note
+    // (which note alone is equally consistent with several different
+    // chords, and picking one arbitrarily poisons every comparison after
+    // it).
+    // While pending is empty, a stack fully covered by the chord already
+    // established is an unambiguous continuation — absorb it directly and
+    // never even start pending over it.
+    if (pending.length === 0) {
+      const currentBest = spanRoot === null ? null : nameSpan(spanChroma, -1, -1, 0)
+      const currentPcs = currentBest ? currentBest.pcs : new Set<number>()
+      let allMembers = true
+      for (const n of st.notes) if (!currentPcs.has(n.pc)) { allMembers = false; break }
+      if (allMembers) {
+        // This note fits the chord already established — but it's exactly
+        // as consistent with a shared tone at the START of the NEXT chord
+        // (the single most common shape a real chord change takes: one
+        // note held or repeated while the rest move). Peek at the next
+        // couple of stacks before committing: if this note plus what
+        // immediately follows decisively names a chord with every tone
+        // present that is NOT the one already established, this was the
+        // first note of a new chord arriving early, not a continuation —
+        // let it fall through to pending instead of absorbing it.
+        const peek = new Float64Array(sc)
+        let peekDecisive = false
+        for (let k = si + 1; k < stacks.length && k <= si + 2; k++) {
+          for (let p = 0; p < 12; p++) peek[p] += stackChroma(stacks[k])[p]
+          const peekBest = nameSpan(peek, -1, -1, 0)
+          if (peekBest && peekBest.allPresent && peekBest.root !== spanRoot) { peekDecisive = true; break }
+        }
+        if (!peekDecisive) {
+          for (let p = 0; p < 12; p++) spanChroma[p] += sc[p]
+          continue
+        }
       }
     }
-    // Chroma-turn fallback — a beat whose harmonic content clearly departs from
-    // the last. Gated on the HELD SET actually gaining a pitch class: an
-    // arpeggiated chord sweeps its chroma weight around beat to beat while the
-    // same 3-4 notes ring underneath, and that must not read as a new chord
-    // every beat (the "12 chords in a bar" bug on solo-piano vamps).
-    if (!isBoundary[w] && w > 0 &&
-      cosDistance(beatChroma[w], beatChroma[w - 1]) > TURN_CHROMA_DIST &&
-      (heldMask[w] & ~heldMask[w - 1]) !== 0) isBoundary[w] = true
+
+    // Not (fully) explained by the chord already established — hold it as
+    // PENDING rather than deciding this instant. A single new note can
+    // never decisively announce a new chord on its own (it's equally
+    // consistent with several different chords); a real chord change and
+    // an arpeggio's notes arriving one at a time look identical until
+    // enough evidence has accumulated. Once pending has started, EVERY
+    // subsequent note joins it — even one that would also fit the chord
+    // already established — because which reading is right depends on
+    // what arrives next, not on this note in isolation (the note that
+    // finally completes a new chord is very often also a tone the old
+    // chord could have explained). Pending resolves the moment it names a
+    // chord with EVERY tone actually present (not just plausible) — the
+    // new chord is committed, boundary placed at pending's FIRST note,
+    // exactly where a listener would place it.
+    for (let p = 0; p < 12; p++) pendingChroma[p] += sc[p]
+    pending.push(st)
+    let pendingBest = nameSpan(pendingChroma, -1, -1, 0)
+    if (!(pendingBest && pendingBest.allPresent)) {
+      // Not complete on pending's own freshly-struck notes alone — check
+      // whether a tone still ringing from before (never re-struck, so
+      // pending never saw it) would complete it. Credited at pending's own
+      // loudest tone's weight, so it can tip a genuinely complete reading
+      // over the line without being able to manufacture one out of nothing
+      // (a pc with real evidence elsewhere always outweighs this credit).
+      const ringing = ringingPcsAt(st.time)
+      let maxW = 0
+      for (let p = 0; p < 12; p++) if (pendingChroma[p] > maxW) maxW = pendingChroma[p]
+      const augmented = new Float64Array(pendingChroma)
+      for (let p = 0; p < 12; p++) if ((ringing & (1 << p)) && augmented[p] < 1e-6) augmented[p] = maxW
+      const augBest = nameSpan(augmented, -1, -1, 0)
+      if (augBest && augBest.allPresent && augBest.root !== spanRoot) pendingBest = augBest
+    }
+    if (pendingBest && pendingBest.allPresent) {
+      if (pendingBest.root !== spanRoot) {
+        // A genuinely new chord, fully confirmed — commit it. spanChroma
+        // stays the REAL pending content (no credited/augmented energy) —
+        // the credit only ever decides WHETHER to commit, never what the
+        // span is actually named; the real name comes from the downstream
+        // naming pass reading the real notes in the resulting span.
+        isBoundary[beatOfTime(pending[0].time)] = true
+        spanChroma = new Float64Array(pendingChroma)
+        spanRoot = pendingBest.root
+      } else {
+        // Pending turned out to name the SAME chord already established —
+        // whatever looked ambiguous note by note was decoration, not a
+        // pivot. Fold it back in.
+        for (let p = 0; p < 12; p++) spanChroma[p] += pendingChroma[p]
+      }
+      pending = []
+      pendingChroma = new Float64Array(12)
+    }
   }
 
   // ── span list from boundaries ─────────────────────────────────────────
@@ -391,9 +519,26 @@ export function buildChordSequence(
   // the span's own content is too THIN to name (a lone arpeggio note) —
   // never when it already has a chord's worth of notes, or the padding
   // would drag in the neighbouring chord's tones.
-  const chromaOver = (s: number, e: number): Float64Array => {
+  //
+  // The span's OWN opening beat is skipped when another beat is available —
+  // a still-decaying tail from the outgoing chord can still be ringing into
+  // that same beat right alongside the incoming chord's fresh strike, and
+  // since nameSpan picks its ROOT and TRIAD from raw chroma weight — not
+  // just the gated "structural" extension slots — that leftover energy can
+  // pick the wrong chord outright (a B major stab landing a beat after a
+  // Dbm chord's own tail reads as "Bmaj9", not "B") rather than merely
+  // adding a spurious colour tone.
+  //
+  // But a chord struck and released quickly — a brief passing chord that
+  // lives and dies inside a single beat — has ALL its real content in that
+  // one opening beat and nothing anywhere else. Skipping it there would
+  // throw the whole chord away rather than merely cleaning it up, so naming
+  // falls back to the un-skipped span whenever skipping leaves nothing to
+  // name.
+  const chromaOver = (s: number, e: number, skipOpening = true): Float64Array => {
+    const s0 = skipOpening && e - s >= 2 ? s + 1 : s
     const own = new Float64Array(12)
-    for (let w = s; w < e; w++) for (let p = 0; p < 12; p++) own[p] += beatChroma[w][p]
+    for (let w = s0; w < e; w++) for (let p = 0; p < 12; p++) own[p] += beatChroma[w][p]
     const tot = sum12(own)
     if (tot < 1e-9) return own
     let npc = 0
@@ -452,6 +597,7 @@ export function buildChordSequence(
       if (held >= need && (struckInStack || held >= needHigh)) structural |= 1 << p
     }
     const named = nameSpan(chromaOver(s, e), sb.cover >= SLASH_MIN_COVER ? sb.pc : -1, lowPc, structural)
+      ?? nameSpan(chromaOver(s, e, false), sb.cover >= SLASH_MIN_COVER ? sb.pc : -1, lowPc, structural)
     if (!named) continue
     const slashPc =
       sb.pc >= 0 && sb.cover >= SLASH_MIN_COVER && sb.pc !== named.root && named.pcs.has(sb.pc)
@@ -465,7 +611,15 @@ export function buildChordSequence(
   let merged: Span[] = []
   for (const sp of spans) {
     const last = merged[merged.length - 1]
-    if (last && disp(last) === disp(sp)) last.e = sp.e
+    if (last && disp(last) === disp(sp)) {
+      last.e = sp.e
+      // Keep whichever fragment's reading is more confident — the first
+      // beat of the FIRST fragment is exactly the beat most likely still
+      // carrying the outgoing chord's tail (same reason chromaOver skips
+      // it), so a later fragment that reads the same name more cleanly is
+      // the truer picture of the whole span, not something to discard.
+      if (sp.named.inEnergy > last.named.inEnergy) last.named = sp.named
+    }
     else merged.push({ ...sp })
   }
 
@@ -474,10 +628,19 @@ export function buildChordSequence(
   // Relaxed (Auto) ≈ 0.6 of a bar; Detailed (full sensitivity) ≈ a quarter.
   // Meter-independent — works in 3/4, 6/8, 7/8 alike.
   const minSpanSec = barLen * (0.85 - 0.6 * sens)
-  // keepShortBlip: below this sensitivity, a confident-but-brief chord
-  // sandwiched between two identical chords is treated as a passing colour
-  // and folded away; above it, it is shown.
+  // keepShortBlip: below this sensitivity, a MURKY brief chord (energy
+  // spread thin, not every tone actually present) sandwiched between two
+  // identical chords is treated as a passing colour and folded away; above
+  // it, it is shown.
   const keepShortBlip = 0.5
+  // keepConfidentBlip: a brief passing chord that was struck clean and
+  // complete — every one of its tones actually sounded, not just implied —
+  // is real evidence of something the player did, not noise, so it takes a
+  // near-zero sensitivity (an explicit ask for the simplest possible read)
+  // to fold it away instead of showing it. This is what makes a fast
+  // two-chord passing move (e.g. E → Gb → E → B, each brief) still read as
+  // written instead of collapsing to just "E → B".
+  const keepConfidentBlip = 0.15
 
   const durOf = (sp: Span) => beatStart(sp.e) - beatStart(sp.s)
   const beatsOf = (sp: Span) => sp.e - sp.s
@@ -500,15 +663,20 @@ export function buildChordSequence(
 
       const sandwichedSame = prev && next && disp(prev) === disp(next) && disp(prev) !== disp(cur)
 
-      if (sandwichedSame && (!confident(cur) || sens < keepShortBlip)) {
+      if (sandwichedSame && (confident(cur) ? sens < keepConfidentBlip : sens < keepShortBlip)) {
         // fold this span into the surrounding run
         prev.e = next.e
         merged.splice(i, 2)
         changed = true
         break
       }
-      if (!confident(cur)) {
-        // a murky short span — absorb into the longer / same-root neighbour
+      if (!confident(cur) && sens < keepShortBlip) {
+        // a murky short span — absorb into the longer / same-root neighbour.
+        // Gated on sensitivity like the branch above: a low-energy reading is
+        // exactly as likely to be a real but brief passing chord (a pickup
+        // stab into the next chord, gone before the beat grid can pin it
+        // down cleanly) as it is to be noise — Detailed mode is the user's
+        // way of asking to see those instead of losing them here.
         const toPrev =
           prev && (!next || beatsOf(prev) >= beatsOf(next) || prev.named.root === cur.named.root)
         if (toPrev && prev) { prev.e = cur.e; merged.splice(i, 1) }
@@ -541,8 +709,18 @@ export function buildChordSequence(
     // syncopated chord. Falls back to the beat line only if the span opens on
     // pure sustain (a crossfade boundary, no fresh strike).
     let displayTime = t
+    let foundOnset = false
     for (let w = sp.s; w < sp.e; w++) {
-      if (Number.isFinite(beatOnset[w])) { displayTime = Math.max(t, beatOnset[w]); break }
+      if (Number.isFinite(beatOnset[w])) { displayTime = Math.max(t, beatOnset[w]); foundOnset = true; break }
+    }
+    if (!foundOnset) {
+      // No accompaniment onset anywhere in the span — it was named entirely
+      // off a melody line playing alone (a solo pickup before the band
+      // comes in). Still wait for THAT note's own onset rather than showing
+      // the name from the span's silent opening.
+      for (let w = sp.s; w < sp.e; w++) {
+        if (Number.isFinite(beatOnsetAny[w])) { displayTime = Math.max(t, beatOnsetAny[w]); break }
+      }
     }
     return {
       time: t,
