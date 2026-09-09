@@ -1,6 +1,10 @@
 # Changelog
 
-## [1.0.3] — 9. 9. 2026 — Chord detection redesign
+## Unreleased
+
+### Fixed
+- **Right-clicking a chord and choosing "Show on keyboard" showed a generic, rebuilt voicing instead of the chord exactly as it's played.** The real notes at the playhead were already being read correctly, then discarded in favor of a synthesized one-octave shape — so a chord's actual register, inversion, and any doubled notes never matched what's on the piano roll. It now shows the real voicing, straight from the file. ("Open in Chord Explorer" is unaffected — it still gets the clean, canonical shape, which is what that view is for.) As a side effect, this also fixes a doubling bug with "Reflect piano roll on keyboard" (Settings → Keyboard → Testing): right-clicking to lock a chord while that's on used to add a second, differently-voiced copy of the same chord instead of matching what was already lit.
+- **The right-click menu on the chord name covered the name it was opened from.** Nudged up and to the right so the chord name stays visible underneath.
 
 The live chord display was erratic enough to be a hindrance rather than a help: it flickered through wrong names as a melody moved over a held chord, over-analyzed plain triads into extended jazz voicings, surfaced obscure names almost no one would recognize, and went blank through instrument-only intros. This release rebuilds how the playback chord bar and prompter decide what to show.
 

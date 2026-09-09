@@ -229,7 +229,8 @@ export default function Keyboard() {
   const [chordCtxMenu, setChordCtxMenu] = useState<{
     x: number; y: number
     structured: { rootPitchClass: number; intervals: string[]; rawRootName: string }
-    realMidi: number[]
+    realMidi: number[]      // real voicing from the file — "Show on keyboard"
+    explorerMidi: number[]  // clean compact voicing — "Open in Chord Explorer"
     displayName: string
     inversionCount: number
   } | null>(null)
@@ -253,24 +254,31 @@ export default function Keyboard() {
     e.preventDefault()
     if (playbackState === 'playing' || !heldChordEvent?.structured) return
 
-    // ── Real voicing under the paused playhead — every non-drum note whose
-    // sustain window spans currentTime, transpose-matched to detection.
-    // Falls back to the held event's snapshot only if the playhead sits in
-    // a genuine gap (< 2 notes ringing). ──────────────────────────────────
+    // ── Real voicing under the paused playhead — every note, from tracks
+    // flagged "Lit on keyboard" (the same scope the "Reflect piano roll on
+    // keyboard" toggle uses), whose sustain window spans currentTime,
+    // transpose-matched to detection. Falls back to the held event's
+    // snapshot only if the playhead sits in a genuine gap (< 2 notes
+    // ringing). Scoping to "lit" tracks (not every non-drum track in the
+    // file) means this always agrees with what the reflect toggle is
+    // already showing — right-clicking to lock a chord no longer adds a
+    // second, differently-voiced copy on top of it. ────────────────────────
     const st = useStore.getState()
     const loadedMidi = st.midi
     const transpose = st.detectedKey?.transpose ?? 0
-    const sounding = loadedMidi ? notesSoundingAt(loadedMidi.tracks, st.currentTime, transpose) : []
+    const litIndices = new Set(st.tracks.filter(t => t.showOnKeyboard).map(t => t.index))
+    const litTracks = loadedMidi ? loadedMidi.tracks.filter(t => litIndices.has(t.index)) : []
+    const sounding = notesSoundingAt(litTracks, st.currentTime, transpose)
     const useLive = sounding.length >= 2
     const rawMidi = useLive ? sounding.map(s => s.midi) : heldChordEvent.realMidi
 
     // ── Chord IDENTITY always matches what's already on screen (heldChordEvent)
     // — right-clicking a chord must never show a different chord than the one
-    // you right-clicked. `notesSoundingAt` pools every non-drum note across the
-    // WHOLE file with no melody/harmony filtering, unlike the live detector's
-    // carefully-scoped read, so re-detecting the chord from it (the previous
-    // behaviour) could — and did — name something else entirely the moment
-    // another track had so much as one extra note sounding at that instant.
+    // you right-clicked. `notesSoundingAt` pools every note across the file
+    // with no melody/harmony filtering, unlike the live detector's carefully-
+    // scoped read, so re-detecting the chord from it (the previous behaviour)
+    // could — and did — name something else entirely the moment another
+    // track had so much as one extra note sounding at that instant.
     // Only the VOICING (register, bass note, inversion) below is re-read from
     // the real notes ringing at the exact playhead — never the identity. ────
     const structured = heldChordEvent.structured
@@ -279,24 +287,31 @@ export default function Keyboard() {
     const inversionCount = invInfo.ordinal ? Number(invInfo.ordinal) : 0
     const displayName = localizeChord(structured.rawRootName, noteNaming, accidentals, chordNamingStyle) ?? structured.rawRootName
 
-    // ── One clean voicing of the NAMED chord, not the raw polyphony — the
-    // left hand's octave-doubled bass root (often two octaves below the
-    // right-hand voicing) was getting locked as a stray extra key, and any
-    // doubled pitch class collapsed the moment you cycled inversions. Keep
-    // the real bass note so slash chords still read right (Baug/G → G lowest).
+    // ── A clean, compact single-octave voicing of the NAMED chord — kept for
+    // "Open in Chord Explorer" (which wants a canonical shape, not the raw
+    // register the file happens to use) and as a fallback for "Show on
+    // keyboard" on the rare beat where nothing is actually ringing from any
+    // lit track. Keeps the real bass note so slash chords still read right
+    // (Baug/G → G lowest). ─────────────────────────────────────────────────
     const compact = buildCompactVoicing(structured.rootPitchClass, structured.intervals, bassPc, keyboardSize)
-    const realMidi = compact.length > 0 ? compact : rawMidi
+    // "Show on keyboard" gets the REAL voicing — exact register, exact
+    // inversion, exact doublings, matching the piano roll — not a rebuilt
+    // one. Falls back to the compact shape only if nothing real is available.
+    const realMidi = rawMidi.length > 0 ? rawMidi : compact
+    const explorerMidi = compact.length > 0 ? compact : rawMidi
 
-    setChordCtxMenu({ x: e.clientX, y: e.clientY, structured, realMidi, displayName, inversionCount })
+    // ── Offset from the exact click point — the menu's top-left corner
+    // anchors right where you click (ContextMenu.tsx), which sat the menu
+    // directly over the chord name it was triggered from. Nudged right and
+    // up so the name stays visible underneath instead of getting covered. ──
+    setChordCtxMenu({ x: e.clientX + 24, y: e.clientY - 78, structured, realMidi, explorerMidi, displayName, inversionCount })
   }, [playbackState, heldChordEvent, noteNaming, accidentals, chordNamingStyle, keyboardSize])
 
   const handleShowChordOnKeyboard = useCallback(() => {
     if (!chordCtxMenu) return
     const { realMidi, displayName, inversionCount } = chordCtxMenu
-    // ── A compact single-octave voicing of the named chord (built in
-    // handleChordContextMenu), keeping the real bass note so slash chords
-    // read right. Clamp to the current keyboard's playable range as a
-    // safety net. ─────────────────────────────────────────────────────────
+    // ── The real voicing from the file (built in handleChordContextMenu).
+    // Clamp to the current keyboard's playable range as a safety net. ──────
     const { min, max } = RANGES[keyboardSize] ?? RANGES[73]
     const midiNotes = realMidi.filter(m => m >= min && m <= max)
     if (midiNotes.length > 0) {
@@ -319,11 +334,11 @@ export default function Keyboard() {
 
   const handleOpenChordInExplorer = useCallback(() => {
     if (!chordCtxMenu) return
-    const { structured, realMidi, inversionCount } = chordCtxMenu
+    const { structured, explorerMidi, inversionCount } = chordCtxMenu
     useStore.getState().setPendingChordExplorerSeed({
       rootPitchClass: structured.rootPitchClass,
       intervals: structured.intervals,
-      voicing: realMidi,
+      voicing: explorerMidi,
       inversionCount,
     })
     setChordExplorerOpen(true)
