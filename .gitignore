@@ -40,6 +40,7 @@ docs/FONT_SIZING_HANDOFF.md
 docs/PERFORMANCE_MODE_VFX_PLAN.md
 docs/TOOLTIP_TOGGLE_BRIEF.md
 docs/PUBLIC_RELEASE_STRATEGY.md
+docs/DEBUG_TIMESTAMP.md
 
 # ── Impeccable design skill — internal planning artifacts, not shipped docs ──
 PRODUCT.md
@@ -64,6 +65,20 @@ docs/Tools/
 # ── docs/Images — working screenshots + SVG icon sources for the docs,
 # prepared locally, never committed (docs render fine without them) ────────
 docs/Images/
+
+# ── docs/Chords display — chord-detection testing CSVs (exported table vs.
+# hand-edited/annotated copy), local test material not shipped docs ────────
+docs/Chords display/
+
+# ── docs/Test Files — ground-truth chord-detection CSVs (before/after app
+# output vs. hand-verified correct chords) the user provides per song for
+# the algorithm-fixing workflow; local test material, not shipped docs ─────
+docs/Test Files/
+
+# ── docs/Chord Detection Status.md — internal working notes (current stage,
+# open items, gotchas, reverted attempts) for the ongoing chord-detection
+# effort; not a shipped doc ─────────────────────────────────────────────────
+docs/Chord Detection Status.md
 
 # ── public/images — website screenshots and reference shots, prepared here
 # but hosted on orfeo.cc, not committed (this folder also ships inside the
