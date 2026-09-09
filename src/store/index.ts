@@ -320,6 +320,16 @@ interface OrfeoStore {
   showHandLabels: boolean
   setShowHandLabels: (v: boolean) => void
 
+  // ── Reflect piano roll on keyboard (paused/scrubbing only) — a testing aid
+  // so chord-hunting doesn't need a manual "Show on keyboard" every time.
+  // While on and playback isn't running, the keyboard continuously lights
+  // whatever notes are sounding at the playhead from tracks flagged "Lit on
+  // keyboard" (track.showOnKeyboard) — same tracks real playback already
+  // lights, just also live while paused. Never touches actual playback
+  // lighting (untouched, still purely engine-driven). Off by default.
+  reflectPianoRollOnKeyboard: boolean
+  setReflectPianoRollOnKeyboard: (v: boolean) => void
+
   // ── Hidable playbar (Phase 1) — off (hidden) means the piano roll's hit
   // line tracks the live keyboard position instead of a fixed line; default
   // true keeps today's behavior byte-for-byte unchanged.
@@ -817,6 +827,9 @@ export const useStore = create<OrfeoStore>((set, get) => ({
   showHandLabels: false,
   setShowHandLabels: (showHandLabels) => set({ showHandLabels }),
 
+  reflectPianoRollOnKeyboard: false,
+  setReflectPianoRollOnKeyboard: (reflectPianoRollOnKeyboard) => set({ reflectPianoRollOnKeyboard }),
+
   playbarVisible: true,
   setPlaybarVisible: (playbarVisible) => set({ playbarVisible }),
   keyboardTopY: null,
@@ -987,6 +1000,7 @@ async function restoreLibraryPrefs() {
     if (typeof prefs.splitBreakpointRangeStart === 'number') store.setSplitBreakpointRangeStart(prefs.splitBreakpointRangeStart)
     if (typeof prefs.splitBreakpointRangeEnd === 'number') store.setSplitBreakpointRangeEnd(prefs.splitBreakpointRangeEnd)
     if (typeof prefs.showHandLabels === 'boolean') store.setShowHandLabels(prefs.showHandLabels)
+    if (typeof prefs.reflectPianoRollOnKeyboard === 'boolean') store.setReflectPianoRollOnKeyboard(prefs.reflectPianoRollOnKeyboard)
     if (typeof prefs.loopRegionEnabled === 'boolean') store.setLoopRegionEnabled(prefs.loopRegionEnabled)
     // Only 'performance' is restorable — Practice's UI toggle is disabled,
     // so a stale saved 'practice' pref must not resurrect it with no way back.
@@ -1057,6 +1071,7 @@ let _prevSplitBreakpointNote: number | null = null
 let _prevSplitBreakpointRangeStart: number | null = null
 let _prevSplitBreakpointRangeEnd: number | null = null
 let _prevShowHandLabels: boolean | null = null
+let _prevReflectPianoRollOnKeyboard: boolean | null = null
 let _prevLoopRegionEnabled: boolean | null = null
 let _prevHandLabelMode: string | null = null
 let _prevShowHandLetters: boolean | null = null
@@ -1108,6 +1123,7 @@ const _unsubPrefs = useStore.subscribe((state) => {
     _prevSplitBreakpointRangeStart = state.splitBreakpointRangeStart
     _prevSplitBreakpointRangeEnd = state.splitBreakpointRangeEnd
     _prevShowHandLabels = state.showHandLabels
+    _prevReflectPianoRollOnKeyboard = state.reflectPianoRollOnKeyboard
     _prevLoopRegionEnabled = state.loopRegionEnabled
     _prevHandLabelMode = state.handLabelMode
     _prevShowHandLetters = state.showHandLetters
@@ -1162,6 +1178,7 @@ const _unsubPrefs = useStore.subscribe((state) => {
     state.splitBreakpointRangeStart !== _prevSplitBreakpointRangeStart ||
     state.splitBreakpointRangeEnd !== _prevSplitBreakpointRangeEnd ||
     state.showHandLabels !== _prevShowHandLabels ||
+    state.reflectPianoRollOnKeyboard !== _prevReflectPianoRollOnKeyboard ||
     state.loopRegionEnabled !== _prevLoopRegionEnabled ||
     state.handLabelMode !== _prevHandLabelMode ||
     state.showHandLetters !== _prevShowHandLetters ||
@@ -1208,6 +1225,7 @@ const _unsubPrefs = useStore.subscribe((state) => {
     _prevSplitBreakpointRangeStart = state.splitBreakpointRangeStart
     _prevSplitBreakpointRangeEnd = state.splitBreakpointRangeEnd
     _prevShowHandLabels = state.showHandLabels
+    _prevReflectPianoRollOnKeyboard = state.reflectPianoRollOnKeyboard
     _prevLoopRegionEnabled = state.loopRegionEnabled
     _prevHandLabelMode = state.handLabelMode
     _prevShowHandLetters = state.showHandLetters
@@ -1260,6 +1278,7 @@ const _unsubPrefs = useStore.subscribe((state) => {
       splitBreakpointRangeStart: state.splitBreakpointRangeStart,
       splitBreakpointRangeEnd: state.splitBreakpointRangeEnd,
       showHandLabels: state.showHandLabels,
+      reflectPianoRollOnKeyboard: state.reflectPianoRollOnKeyboard,
       loopRegionEnabled: state.loopRegionEnabled,
       handLabelMode: state.handLabelMode,
       showHandLetters: state.showHandLetters,

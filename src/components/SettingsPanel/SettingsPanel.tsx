@@ -2114,6 +2114,8 @@ export default function SettingsPanel() {
   const setShowHandLabels            = useStore((s) => s.setShowHandLabels)
   const showOctaveLabels             = useStore((s) => s.showOctaveLabels)
   const setShowOctaveLabels          = useStore((s) => s.setShowOctaveLabels)
+  const reflectPianoRollOnKeyboard   = useStore((s) => s.reflectPianoRollOnKeyboard)
+  const setReflectPianoRollOnKeyboard = useStore((s) => s.setReflectPianoRollOnKeyboard)
   const showNoteNamesOnKeyboard      = useStore((s) => s.showNoteNamesOnKeyboard)
   const setShowNoteNamesOnKeyboard   = useStore((s) => s.setShowNoteNamesOnKeyboard)
   const autoCollapseDrawers          = useStore((s) => s.autoCollapseDrawers)
@@ -2859,25 +2861,40 @@ export default function SettingsPanel() {
                       the tracking mode above (mode = which tracks, this = how
                       finely the beat is split). Fed straight into
                       buildChordSequence's `sensitivity`; replaced the old
-                      per-mode presets. ──────────────────────────────────────── */}
+                      per-mode presets.
+                      TEMPORARILY DIMMED, not deleted — while the underlying
+                      chord-reading algorithm is still being debugged, a live
+                      slider made it unclear whether a wrong reading came from
+                      the algorithm or from wherever the slider was sitting
+                      (see [[project-orfeo-chord-detection-redesign]] memory).
+                      useChordSequence.ts locks the actual value fed into the
+                      detector at 0.4 regardless of this control. Re-enable by
+                      removing `pointerEvents`/opacity below and the lock in
+                      useChordSequence.ts once the algorithm is approved. ── */}
                   <OptionRow label={t`Chord sensitivity`}>
-                    <div style={{ fontSize: 'var(--text-xs)', color: 'var(--text-faint)', lineHeight: 1.5, fontFamily: 'var(--font-ui)', marginBottom: 6, fontStyle: 'italic' }}>
-                      {t`How eagerly the detector splits the beat into separate chords. Lower shows the underlying harmony; higher catches passing and embellishing chords.`}
+                    <div style={{ opacity: 0.4, pointerEvents: 'none' }}>
+                      <div style={{ fontSize: 'var(--text-xs)', color: 'var(--text-faint)', lineHeight: 1.5, fontFamily: 'var(--font-ui)', marginBottom: 6, fontStyle: 'italic' }}>
+                        {t`How eagerly the detector splits the beat into separate chords. Lower shows the underlying harmony; higher catches passing and embellishing chords.`}
+                      </div>
+                      <div style={{ fontSize: 11, color: 'var(--text-dim-control)', fontFamily: 'var(--font-mono)', marginBottom: 4 }}>
+                        {(chordSensitivity < 0.35 ? t`Sparse` : chordSensitivity < 0.68 ? t`Balanced` : t`Detailed`)}
+                        {' · '}{Math.round(chordSensitivity * 100)}%
+                      </div>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                        <span style={{ fontSize: 9, color: 'var(--text-inactive)', fontFamily: 'var(--font-mono)', flexShrink: 0 }}>{t`Sparse`}</span>
+                        <input
+                          type="range" min={0} max={100} step={5}
+                          value={Math.round(chordSensitivity * 100)}
+                          onChange={e => setChordSensitivity(Number(e.target.value) / 100)}
+                          disabled
+                          className="orfeo-slider-amber"
+                          style={{ flex: 1, '--fill': `${Math.round(chordSensitivity * 100)}%` } as CSSProperties}
+                        />
+                        <span style={{ fontSize: 9, color: 'var(--text-inactive)', fontFamily: 'var(--font-mono)', flexShrink: 0 }}>{t`Detailed`}</span>
+                      </div>
                     </div>
-                    <div style={{ fontSize: 11, color: 'var(--text-dim-control)', fontFamily: 'var(--font-mono)', marginBottom: 4 }}>
-                      {(chordSensitivity < 0.35 ? t`Sparse` : chordSensitivity < 0.68 ? t`Balanced` : t`Detailed`)}
-                      {' · '}{Math.round(chordSensitivity * 100)}%
-                    </div>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                      <span style={{ fontSize: 9, color: 'var(--text-inactive)', fontFamily: 'var(--font-mono)', flexShrink: 0 }}>{t`Sparse`}</span>
-                      <input
-                        type="range" min={0} max={100} step={5}
-                        value={Math.round(chordSensitivity * 100)}
-                        onChange={e => setChordSensitivity(Number(e.target.value) / 100)}
-                        className="orfeo-slider-amber"
-                        style={{ flex: 1, '--fill': `${Math.round(chordSensitivity * 100)}%` } as CSSProperties}
-                      />
-                      <span style={{ fontSize: 9, color: 'var(--text-inactive)', fontFamily: 'var(--font-mono)', flexShrink: 0 }}>{t`Detailed`}</span>
+                    <div style={{ fontSize: 'var(--text-xs)', color: 'var(--text-inactive)', lineHeight: 1.5, fontFamily: 'var(--font-ui)', marginTop: 6, fontStyle: 'italic' }}>
+                      {t`Off while the chord-reading algorithm itself is still being tuned — reads at a fixed level until that's settled.`}
                     </div>
                   </OptionRow>
 
@@ -2948,6 +2965,27 @@ export default function SettingsPanel() {
                     eyeValue={showNoteNamesOnKeyboard}
                     onEyeChange={setShowNoteNamesOnKeyboard}
                     description="Display note names on the virtual keyboard for easier identification."
+                  />
+                  {/* ── Reflect piano roll on keyboard — a testing aid: skips manually
+                      right-clicking "Show on keyboard" every time. While paused/
+                      scrubbing (never during real playback, which is untouched),
+                      lights whatever notes are sounding at the playhead from tracks
+                      flagged "Lit on keyboard" in the Mixer/Track panel. ───────── */}
+                  <div style={{
+                    padding: '5px 14px 3px',
+                    fontSize: 'var(--text-xs)', color: 'var(--text-default)', fontWeight: 500,
+                    letterSpacing: '0.02em', textTransform: 'uppercase', fontFamily: 'var(--font-ui)',
+                    borderTop: '1px solid var(--border-row)',
+                  }}>
+                    Testing
+                  </div>
+                  <OptionRow
+                    label="Reflect piano roll on keyboard"
+                    labelSmall
+                    eyeToggle
+                    eyeValue={reflectPianoRollOnKeyboard}
+                    onEyeChange={setReflectPianoRollOnKeyboard}
+                    description="While paused or scrubbing, the keyboard continuously lights whatever notes are sounding at the playhead — no need to right-click a chord and choose “Show on keyboard” each time. Only reflects tracks flagged “Lit on keyboard” in the Mixer or Track panel. Real playback is unaffected."
                   />
                 </CollapsibleSection>
 

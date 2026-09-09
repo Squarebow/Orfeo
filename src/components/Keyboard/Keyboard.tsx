@@ -2,9 +2,10 @@ import React, { useMemo, useCallback, useState, useEffect, useRef } from 'react'
 import { useStore } from '../../store'
 import { isBlackKey } from '../../utils/midiParser'
 import { getNoteLabel, getNoteName } from '../../utils/noteNames'
-import { detectChord, detectChordStructured, detectChordWithInversion, formatInversionDisplay, localizeChord, ordinalSuffix, buildCompactVoicing } from '../../utils/chordDetection'
+import { detectChord, detectChordWithInversion, inversionForKnownChord, formatInversionDisplay, localizeChord, ordinalSuffix, buildCompactVoicing } from '../../utils/chordDetection'
 import { buildKeyLayoutRatios, PIANO_RANGES as RANGES } from '../../utils/keyLayout'
 import { notesSoundingAt } from '../../utils/midiParser'
+import type { SoundingNote } from '../../utils/midiParser'
 import { buildPitchHandIndex, lookupNoteHandAtTime, detectPerformanceBoundary } from '../../utils/handBoundaries'
 import type { Hand } from '../../types'
 import Tooltip, { useTooltip } from '../Tooltip'
@@ -17,6 +18,13 @@ const GLISSANDO_COLOR = 'var(--text-amber)'
 const CHORD_MIN_NOTES = 3
 const CHORD_DEBOUNCE_MS = 320
 const CHORD_HOLD_MS = 1600
+
+// Stable empty-array reference for the "reflect piano roll" selector below —
+// returning this (not a fresh []) when the feature isn't active is what lets
+// Zustand's reference-equality check skip re-rendering this whole component
+// on every playback tick while it's off or playing (see the currentTime
+// comment further down for why that matters here).
+const EMPTY_SOUNDING: SoundingNote[] = []
 
 // ── Resolve current chord index: last event whose time <= currentTime ─────────
 function resolveCurrentIndex(seq: { displayTime: number }[], currentTime: number): number {
@@ -69,6 +77,38 @@ export default function Keyboard() {
   // moments activeKeys itself changes (note on/off) — so it reads
   // currentTime non-reactively via getState() at that point instead. ───────
   const currentChordIndex = useStore((s) => resolveCurrentIndex(s.chordSequence, s.currentTime))
+  // ── Reflect piano roll on keyboard (Settings › Keyboard › Testing) — a THIRD
+  // exception to the "don't subscribe to raw currentTime" rule above, same
+  // justification as (a): the selector returns the SAME `EMPTY_SOUNDING`
+  // reference (not a fresh one) whenever the feature is off or playback is
+  // actually running, so Zustand's reference check skips re-rendering on
+  // every 60fps tick exactly as before — this only pays a per-render cost
+  // while paused AND enabled, which is the point (live while scrubbing).
+  //
+  // Zustand re-invokes every selector on EVERY store change, not just ones
+  // touching what it reads — so without a guard, this would re-scan every
+  // note in every "lit" track on every unrelated update too (chord sequence
+  // recomputing, track panel state, etc.), not just when the playhead
+  // actually moves. That's cheap in isolation, but a file load fires many
+  // such updates in a tight burst — right when the app is already busy
+  // parsing the file — so it added up to real, avoidable work at exactly
+  // the moment a file opens. Cached by a cheap signature (file + rounded
+  // time + which tracks + transpose) so the actual note scan only reruns
+  // when one of those genuinely changes. ─────────────────────────────────
+  const reflectCacheRef = useRef<{ key: string; result: SoundingNote[] } | null>(null)
+  const reflectSounding = useStore((s) => {
+    if (!s.reflectPianoRollOnKeyboard || s.playbackState === 'playing' || !s.midi) return EMPTY_SOUNDING
+    const litIndices = new Set(s.tracks.filter(t => t.showOnKeyboard).map(t => t.index))
+    if (litIndices.size === 0) return EMPTY_SOUNDING
+    const key = `${s.midi.fileName}|${s.currentTime.toFixed(4)}|${[...litIndices].join(',')}|${s.detectedKey?.transpose ?? 0}`
+    const cached = reflectCacheRef.current
+    if (cached && cached.key === key) return cached.result
+    const litTracks = s.midi.tracks.filter(t => litIndices.has(t.index))
+    const result = notesSoundingAt(litTracks, s.currentTime, s.detectedKey?.transpose ?? 0)
+    reflectCacheRef.current = { key, result }
+    return result
+  })
+  const reflectKeys = useMemo(() => new Set(reflectSounding.map(s => s.midi)), [reflectSounding])
   const showHandLabels = useStore((s) => s.showHandLabels)
   const showHandLetters = useStore((s) => s.showHandLetters)
   const handLabelMode = useStore((s) => s.handLabelMode)
@@ -224,10 +264,19 @@ export default function Keyboard() {
     const useLive = sounding.length >= 2
     const rawMidi = useLive ? sounding.map(s => s.midi) : heldChordEvent.realMidi
 
-    const set = new Set(rawMidi)
-    const structured = detectChordStructured(set) ?? heldChordEvent.structured
-    const invInfo = detectChordWithInversion(set)
-    const inversionCount = invInfo?.ordinal ? Number(invInfo.ordinal) : 0
+    // ── Chord IDENTITY always matches what's already on screen (heldChordEvent)
+    // — right-clicking a chord must never show a different chord than the one
+    // you right-clicked. `notesSoundingAt` pools every non-drum note across the
+    // WHOLE file with no melody/harmony filtering, unlike the live detector's
+    // carefully-scoped read, so re-detecting the chord from it (the previous
+    // behaviour) could — and did — name something else entirely the moment
+    // another track had so much as one extra note sounding at that instant.
+    // Only the VOICING (register, bass note, inversion) below is re-read from
+    // the real notes ringing at the exact playhead — never the identity. ────
+    const structured = heldChordEvent.structured
+    const bassPc = rawMidi.length ? Math.min(...rawMidi) % 12 : structured.rootPitchClass
+    const invInfo = inversionForKnownChord(structured.rootPitchClass, structured.intervals, bassPc)
+    const inversionCount = invInfo.ordinal ? Number(invInfo.ordinal) : 0
     const displayName = localizeChord(structured.rawRootName, noteNaming, accidentals, chordNamingStyle) ?? structured.rawRootName
 
     // ── One clean voicing of the NAMED chord, not the raw polyphony — the
@@ -235,7 +284,6 @@ export default function Keyboard() {
     // right-hand voicing) was getting locked as a stray extra key, and any
     // doubled pitch class collapsed the moment you cycled inversions. Keep
     // the real bass note so slash chords still read right (Baug/G → G lowest).
-    const bassPc = rawMidi.length ? Math.min(...rawMidi) % 12 : structured.rootPitchClass
     const compact = buildCompactVoicing(structured.rootPitchClass, structured.intervals, bassPc, keyboardSize)
     const realMidi = compact.length > 0 ? compact : rawMidi
 
@@ -351,15 +399,20 @@ export default function Keyboard() {
     const merged = new Set(activeKeys)
     lockedKeys.forEach(k => merged.add(k))
     explorerKeys.forEach(k => merged.add(k))
+    reflectKeys.forEach(k => merged.add(k))
     return merged
-  }, [activeKeys, lockedKeys, explorerKeys])
+  }, [activeKeys, lockedKeys, explorerKeys, reflectKeys])
 
   const allActiveColors = useMemo(() => {
     const merged = new Map(activeKeyColors)
     lockedColors.forEach((c, k) => merged.set(k, c))
     explorerKeyColors.forEach((c, k) => merged.set(k, c))
+    // Same flat amber as lock-a-chord / "Show on keyboard" — this is a live,
+    // always-on version of the same paused-study case, so it gets the same
+    // color convention, not per-track colors.
+    reflectKeys.forEach(k => merged.set(k, 'var(--text-amber)'))
     return merged
-  }, [activeKeyColors, lockedColors, explorerKeyColors])
+  }, [activeKeyColors, lockedColors, explorerKeyColors, reflectKeys])
 
   const getColor = (midi: number): string | null => {
     if (!allActiveKeys.has(midi)) return null
