@@ -14,17 +14,24 @@ export interface ContextMenuProps {
   minWidth?: number
   ariaLabel: string
   children: ReactNode
+  /** Extra class on the menu's own (fixed-position) box — e.g. "app-no-drag"
+   * when the caller sits inside an Electron `app-drag-region`. Applied here
+   * rather than via a wrapping element so the menu, which is `position:
+   * fixed` and therefore out of normal flow, stays out of flow — a wrapping
+   * block div would re-enter flow and could shift a parent's layout (e.g.
+   * a CSS Grid parent's track sizing/auto-placement). */
+  className?: string
 }
 
 export const ContextMenu = forwardRef<HTMLDivElement, ContextMenuProps>(function ContextMenu(
-  { x, y, minWidth = 160, ariaLabel, children }, ref,
+  { x, y, minWidth = 160, ariaLabel, children, className }, ref,
 ) {
   return (
     <div
       ref={ref}
       role="menu"
       aria-label={ariaLabel}
-      className="orfeo-modal-glow"
+      className={className ? `orfeo-modal-glow ${className}` : 'orfeo-modal-glow'}
       style={{
         position: 'fixed', top: y, left: x,
         background: 'var(--bg-tooltip)', border: '1px solid var(--accent-amber-strong)',

@@ -9,11 +9,13 @@ import { usePlayback } from '../../hooks/usePlayback'
 import { useMidiFile } from '../../hooks/useMidiFile'
 import { formatTime } from '../../utils/midiParser'
 import { formatKey, transposeDetectedKey } from '../../utils/keyDetection'
+import { buildDebugTimestamp, buildFullSongTable } from '../../utils/debugTimestamp'
 import OrfeoLogo from '../OrfeoLogo'
 import MidiIcon from '../MidiIcon'
 import VolumeKnob from '../VolumeKnob'
 import LoopRegionStrip from '../LoopRegionStrip'
 import Tooltip from '../Tooltip'
+import { ContextMenu, ContextMenuItem } from '../ContextMenu'
 import { confirmDiscardDirtyNoteEdits } from '../../utils/noteEditorState'
 import { confirmDiscardDirtyTempoKey } from '../../utils/tempoKeySave'
 
@@ -79,6 +81,7 @@ export default function TopBar() {
   const chordExplorerOpen = useStore((s) => s.chordExplorerOpen)
   const resetAll = useStore((s) => s.resetAll)
   const barStarts = useStore((s) => s.barStarts)
+  const chordSequence = useStore((s) => s.chordSequence)
 
 
   const { play, pause, stop, seek, seekAndPlay } = usePlayback()
@@ -109,6 +112,19 @@ export default function TopBar() {
     const t = parseFloat(e.currentTarget.value)
     if (wasPlayingRef.current) seekAndPlay(t); else seek(t)
   }, [seek, seekAndPlay])
+
+  // ── Right-click the scrub bar → "Copy timestamp" for chord-detection bug
+  // reports. Ships in every build, including packaged ones — the user tests
+  // remotely (build/install, not `npm run dev`) and needs this there too.
+  // Deliberately undocumented (not in HOW_TO_USE.md): a debugging tool, not
+  // a feature. ────────────────────────────────────────────────────────────
+  const [scrubMenu, setScrubMenu] = useState<{ x: number; y: number } | null>(null)
+  const handleScrubContextMenu = useCallback((e: React.MouseEvent) => {
+    if (!midi) return
+    e.preventDefault()
+    setScrubMenu({ x: e.clientX, y: e.clientY })
+  }, [midi])
+  const scrubMenuIsRange = loopStart !== null && loopEnd !== null && loopEnd > loopStart
 
   const handleSkip = useCallback((dir: 1 | -1) => {
     if (!midi) return
@@ -407,14 +423,14 @@ export default function TopBar() {
             the same visual width as the old scrub content (34+6+320+6+34 = 400px).
             position: relative lets LoopRegionStrip anchor its icon outside this column. */}
         <div style={{ display: 'flex', flexDirection: 'column', gap: 5, width: 'min(100%, 400px)', position: 'relative' }}>
-          {/* Scrub */}
-          <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+          {/* Scrub — onContextMenu is a no-op in packaged builds (see handleScrubContextMenu) */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: 6 }} onContextMenu={handleScrubContextMenu}>
             <span style={{ color: 'var(--text-muted)', fontFamily: 'var(--font-mono)', fontSize: 10, minWidth: 34, textAlign: 'right', flexShrink: 0 }}>
               {formatTime(currentTime)}
             </span>
             <Tooltip title="Scrub position" description="Drag to jump to any point in the song." wrapperStyle={{ flex: 1, maxWidth: 320 }}>
               <input
-                type="range" min={0} max={duration || 1} step={0.1} value={currentTime}
+                type="range" min={0} max={duration || 1} step={0.01} value={currentTime}
                 onMouseDown={handleScrubStart} onChange={handleScrubChange} onMouseUp={handleScrubEnd}
                 className="scrub-slider" style={{ flex: 1, maxWidth: 320 }} disabled={!midi}
               />
@@ -427,6 +443,19 @@ export default function TopBar() {
           {loopRegionEnabled && <LoopRegionStrip />}
         </div>
       </div>
+
+      {scrubMenu && (
+        <ScrubDebugMenu
+          x={scrubMenu.x}
+          y={scrubMenu.y}
+          isRange={scrubMenuIsRange}
+          buildText={() => buildDebugTimestamp({
+            currentTime, loopStart, loopEnd, barStarts, chordSequence,
+          })}
+          buildTableText={() => buildFullSongTable({ duration, barStarts, chordSequence })}
+          onClose={() => setScrubMenu(null)}
+        />
+      )}
 
       {/* ── TIME + METRONOME + MIDI — bottoms aligned. Same overflow treatment as
           the left group above: intrinsic width (~291px, more with the bar
@@ -566,6 +595,112 @@ export default function TopBar() {
 
 function VSep() {
   return <div style={{ width: 1, height: 'var(--button-height)', background: 'var(--border)', flexShrink: 0 }} />
+}
+
+// ── Scrub-bar right-click menu (see handleScrubContextMenu). Copies a
+// `time · bar · chord` string to the clipboard for chord-detection bug
+// reports. Ships in packaged builds too (undocumented) — see the comment
+// at handleScrubContextMenu.
+//
+// Uses execCommand('copy') on a throwaway textarea, NOT navigator.clipboard:
+// the async Clipboard API rejects under Electron with "Document is not focused"
+// after a context-menu interaction, so nothing lands on the OS clipboard.
+// execCommand is deprecated but still the reliable path inside Electron's
+// Chromium.
+function writeClipboard(text: string): boolean {
+  try {
+    const ta = document.createElement('textarea')
+    ta.value = text
+    ta.setAttribute('readonly', '')
+    ta.style.cssText = 'position:fixed;top:0;left:0;width:1px;height:1px;opacity:0'
+    document.body.appendChild(ta)
+    ta.focus({ preventScroll: true })
+    ta.select()
+    ta.setSelectionRange(0, text.length)
+    const ok = document.execCommand('copy')
+    ta.remove()
+    return ok
+  } catch {
+    return false
+  }
+}
+
+function ScrubDebugMenu({ x, y, isRange, buildText, buildTableText, onClose }: {
+  x: number; y: number; isRange: boolean
+  buildText: () => string; buildTableText: () => string
+  onClose: () => void
+}) {
+  const ref = useRef<HTMLDivElement>(null)
+  const onCloseRef = useRef(onClose)
+  onCloseRef.current = onClose
+
+  // Set up outside-click / Escape dismissal ONCE. onClose is reached through a
+  // ref so a new onClose identity each parent render (TopBar re-renders every
+  // frame during playback) doesn't tear down and rebuild the listeners.
+  useEffect(() => {
+    const close = () => onCloseRef.current()
+    const onDown = (e: MouseEvent) => { if (!ref.current?.contains(e.target as Node)) close() }
+    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') close() }
+    const id = setTimeout(() => {
+      window.addEventListener('mousedown', onDown, true)
+      window.addEventListener('keydown', onKey, true)
+    }, 0)
+    return () => {
+      clearTimeout(id)
+      window.removeEventListener('mousedown', onDown, true)
+      window.removeEventListener('keydown', onKey, true)
+    }
+  }, [])
+
+  return (
+    // app-no-drag: this menu is rendered inside TopBar's app-drag-region
+    // (Electron -webkit-app-region: drag, for native window dragging).
+    // Without the override, Electron's OS-level drag handling swallows the
+    // mousedown/click before React's onClick ever fires — the menu item
+    // looked clickable but silently did nothing. Passed as className (not a
+    // wrapping div) since ContextMenu is position:fixed/out-of-flow; a
+    // wrapping block div would re-enter TopBar's grid flow and disrupt its
+    // column layout.
+    <ContextMenu ref={ref} x={x} y={y} minWidth={220} ariaLabel="Debug timestamp" className="app-no-drag">
+      <DebugCopyItem
+        idleLabel={isRange ? 'Copy timestamp range' : 'Copy timestamp'}
+        logTag="timestamp"
+        buildText={buildText}
+        onDone={() => onCloseRef.current()}
+      />
+      <DebugCopyItem
+        idleLabel="Copy full chord table"
+        logTag="chord table"
+        buildText={buildTableText}
+        onDone={() => onCloseRef.current()}
+      />
+    </ContextMenu>
+  )
+}
+
+// One self-contained copy action inside the debug menu — owns its own
+// idle/ok/fail label so copying the table doesn't clobber the point/range
+// item's state (and vice versa) when both live in the same menu.
+function DebugCopyItem({ idleLabel, logTag, buildText, onDone }: {
+  idleLabel: string; logTag: string; buildText: () => string; onDone: () => void
+}) {
+  const [result, setResult] = useState<'idle' | 'ok' | 'fail'>('idle')
+
+  const copy = () => {
+    const text = buildText()
+    const ok = writeClipboard(text)
+    // Always echo to the console — a fallback copy source if the clipboard is
+    // blocked, and a running log of what was reported.
+    console.info(`[${logTag}] ${text}${ok ? '' : '  (clipboard write failed)'}`)
+    setResult(ok ? 'ok' : 'fail')
+    setTimeout(onDone, 900)
+  }
+
+  const label = result === 'ok' ? 'Copied ✓'
+    : result === 'fail' ? 'Clipboard blocked — see console'
+    : idleLabel
+
+  return <ContextMenuItem onClick={copy}>{label}</ContextMenuItem>
 }
 
 // Long-press button: single click = +1, hold = accelerating repeat
