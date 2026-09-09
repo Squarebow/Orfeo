@@ -7,15 +7,10 @@ export interface ChordTrackRoles {
 
 // ── GM program families ─────────────────────────────────────────────────
 const isBassProgram = (p: number) => p >= 32 && p <= 39
-// The instruments that actually carry chords in real arrangements — piano,
-// keys, organ, guitar, strings, ensembles, pads. Everything else (reeds,
-// pipes, brass, synth leads, ethnic winds) is there for melody and
-// embellishment and must not distract the chord read.
-const isHarmonicProgram = (p: number) =>
-  p <= 23                       // piano, chromatic perc (keys), organ
-  || (p >= 24 && p <= 31)       // guitar
-  || (p >= 40 && p <= 55)       // strings, ensemble
-  || (p >= 88 && p <= 95)       // synth pad
+// GM's sound-effect patches (gunshot, applause, seashore, helicopter, phone
+// ring, …) aren't a melody-vs-harmony judgment — they're not a chantable
+// pitched instrument at all, so they never belong in the chord read.
+const isUnpitchedProgram = (p: number) => p >= 120 && p <= 127
 
 function meanPolyphony(track: ParsedTrack): number {
   const N = track.notes
@@ -38,11 +33,16 @@ function medianPitch(track: ParsedTrack): number {
 const _pickCache = new WeakMap<ParsedTrack[], ChordTrackRoles>()
 
 // ── pickChordTracks — Auto mode's track scope ───────────────────────────
-// The chord instruments (isHarmonicProgram), minus the bass, minus drums —
-// no polyphony contest, because a monophonic guitar or piano arpeggio still
-// carries the harmony and must be followed. The bass line is returned
-// separately: it anchors the root and, when a song's harmony *is* an
-// arpeggiated bassline (Riders on the Storm), the detector folds it in.
+// Every non-drum, non-bass, pitched instrument is a harmony candidate — no
+// instrument-family whitelist. A patch's GM name doesn't tell you its role:
+// a "Synth Brass" comping the changes (Toto - Africa) is exactly as valid a
+// chord source as a piano, and a mono flute solo is exactly as much a
+// distraction as a mono trumpet solo. Telling melody from harmony is the
+// content-based job of isMonoMelody below plus the per-note tagging in
+// chordSequenceBuilder — not a job for a fixed program-number list. The
+// bass line is returned separately: it anchors the root and, when a song's
+// harmony *is* an arpeggiated bassline (Riders on the Storm), the detector
+// folds it in.
 export function pickChordTracks(tracks: ParsedTrack[]): ChordTrackRoles {
   const cached = _pickCache.get(tracks)
   if (cached) return cached
@@ -61,8 +61,8 @@ export function pickChordTracks(tracks: ParsedTrack[]): ChordTrackRoles {
     if (cand) bassTrackIndex = cand.index
   }
 
-  // ── Chord scope: the harmonic instruments, minus the bass ───────────
-  let scope = nonDrum.filter(t => t.index !== bassTrackIndex && isHarmonicProgram(t.program))
+  // ── Chord scope: every pitched instrument, minus the bass ───────────
+  let scope = nonDrum.filter(t => t.index !== bassTrackIndex && !isUnpitchedProgram(t.program))
 
   // Drop monophonic lines sitting in the melody register — a "Piano-Vocal-
   // Guitar" sheet's vocal staff, a lead riff on a string/choir patch, a high
@@ -74,8 +74,9 @@ export function pickChordTracks(tracks: ParsedTrack[]): ChordTrackRoles {
   const chordy = scope.filter(t => !isMonoMelody(t))
   if (chordy.length > 0 && chordy.some(t => meanPolyphony(t) >= 1.6)) scope = chordy
 
-  // Nothing whitelisted (an all-synth or all-wind arrangement) — fall back
-  // to the single most-polyphonic non-bass track so the detector still runs.
+  // Every candidate got dropped as mono-melody-register (an all-solo-lead
+  // arrangement, nothing polyphonic anywhere) — fall back to the single
+  // most-polyphonic non-bass track so the detector still runs.
   if (scope.length === 0) {
     const fb = nonDrum
       .filter(t => t.index !== bassTrackIndex)
