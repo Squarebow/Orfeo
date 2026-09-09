@@ -366,6 +366,43 @@ export function buildCompactVoicing(
 }
 
 // ---------------------------------------------------------------------------
+// Inversion of an ALREADY-KNOWN chord — for the paused playback context menu,
+// where the chord's identity is the one already on screen (heldChordEvent),
+// never re-detected from the raw notes ringing at the playhead. Re-detecting
+// from a fresh note set risks a completely different chord: any other track
+// sounding at that same instant (a melody note, a second track) joins the
+// set, and a handful of extra real notes is often enough for tonal's own
+// combinatorial matcher to name an entirely different chord (a plain A major
+// triad plus an unrelated D and F# elsewhere in the file reads as "Dmaj9",
+// not "A" — same notes, wrong identity). This only asks "which of THIS
+// chord's own tones is the bass sitting on," never "what chord is this."
+// ---------------------------------------------------------------------------
+export function inversionForKnownChord(
+  rootPitchClass: number,
+  intervals: string[],
+  bassPitchClass: number,
+): { invLabel: string; ordinal: string } {
+  const bassPc = ((bassPitchClass % 12) + 12) % 12
+  const rootPc = ((rootPitchClass % 12) + 12) % 12
+  if (bassPc === rootPc) return { invLabel: '', ordinal: '' }
+
+  const chordTonePCs = intervals
+    .map(ivl => {
+      const s = Interval.semitones(ivl)
+      return s === null ? null : ((rootPitchClass + s) % 12 + 12) % 12
+    })
+    .filter((n): n is number => n !== null)
+
+  const invIdx = chordTonePCs.indexOf(bassPc)
+  // invIdx 1 = 1st inversion (first non-root tone in bass), 2 = 2nd, etc.
+  // Not one of the chord's own tones at all (an exotic voicing, or a bass
+  // note from an unrelated track) falls back to 1st inversion, same as
+  // detectChordWithInversion below.
+  const invNumber = invIdx > 0 ? invIdx : 1
+  return { invLabel: 'inv', ordinal: String(invNumber) }
+}
+
+// ---------------------------------------------------------------------------
 // Detection with inversion info — for locked chord and explorer display.
 // Always returns the ROOT-POSITION chord name (never slash).
 // Inversion number is derived by locating the bass PC in the chord tone list.
