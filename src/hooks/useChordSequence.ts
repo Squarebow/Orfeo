@@ -70,10 +70,21 @@ export function useChordSequence() {
     // Sensitivity — how eager the detector is to call something a new chord.
     // A single user knob (Settings › Notation & Chords), independent of the
     // tracking mode: the mode picks the track scope, this picks the detail.
+    //
+    // TEMPORARILY LOCKED at the default (0.4) — see [[project-orfeo-chord-
+    // detection-redesign]] in memory. While the underlying algorithm itself
+    // is still being debugged and validated against real songs, letting this
+    // vary made it unclear whether a wrong reading came from the algorithm
+    // or from wherever the slider happened to be sitting; 0.4 is also the
+    // value the whole regression-audit suite has been validated against.
+    // The store value, its persistence, and the Settings slider still all
+    // work — the slider is just dimmed and inert (see SettingsPanel.tsx) —
+    // only this line ignores the live value. To re-enable: swap the literal
+    // back for `chordSensitivity` and un-dim the slider.
     const grid = buildBeatGrid(midi)
     const seq = buildChordSequence(scope, bass, grid, {
       noteNaming, accidentals, namingStyle: chordNamingStyle, transpose,
-      sensitivity: chordSensitivity,
+      sensitivity: 0.4, // locked — see comment above (was: chordSensitivity)
     })
     setChordSequence(seq)
   }, [
