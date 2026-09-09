@@ -89,6 +89,17 @@ export function parseMidiBuffer(buffer: ArrayBuffer, fileName: string, filePath 
       return Array.isArray(arr) && arr.length > 0 ? arr[0].value : undefined
     }
 
+    // ── Sustain pedal (CC64) — full transition list, not just the first value.
+    // MIDI: value ≥ 64 = down; @tonejs/midi normalizes to 0–1, so ≥ 0.5.
+    // Collapse runs of the same state so we only schedule real transitions.
+    const rawSustain = (track as any).controlChanges?.[64]
+    const sustainEvents = Array.isArray(rawSustain) && rawSustain.length > 0
+      ? rawSustain
+          .map((e: any) => ({ time: e.time ?? 0, down: e.value >= 0.5 }))
+          .sort((a: { time: number }, b: { time: number }) => a.time - b.time)
+          .filter((e: { down: boolean }, i: number, arr: { down: boolean }[]) => i === 0 || e.down !== arr[i - 1].down)
+      : undefined
+
     const parsedTrack: any = {
       index: tracks.length,
       name: track.name || gmName,
@@ -103,6 +114,7 @@ export function parseMidiBuffer(buffer: ArrayBuffer, fileName: string, filePath 
       _cc10: parseCC(10),
       _cc91: parseCC(91),
       _cc93: parseCC(93),
+      sustainEvents,
     }
 
     tracks.push(parsedTrack)
