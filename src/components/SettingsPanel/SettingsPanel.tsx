@@ -2969,15 +2969,18 @@ export default function SettingsPanel() {
                   {/* ── Reflect piano roll on keyboard — a testing aid: skips manually
                       right-clicking "Show on keyboard" every time. While paused/
                       scrubbing (never during real playback, which is untouched),
-                      lights whatever notes are sounding at the playhead from tracks
-                      flagged "Lit on keyboard" in the Mixer/Track panel. ───────── */}
+                      lights whatever notes are sounding at the playhead from
+                      tracks that are currently VISIBLE in the piano roll (the eye
+                      toggle) — not "Lit on keyboard" (that's a real-playback
+                      concept, defaults to piano/organ only, and isn't what the
+                      user's actually looking at while isolating a track). ───── */}
                   <div style={{
                     padding: '5px 14px 3px',
                     fontSize: 'var(--text-xs)', color: 'var(--text-default)', fontWeight: 500,
                     letterSpacing: '0.02em', textTransform: 'uppercase', fontFamily: 'var(--font-ui)',
                     borderTop: '1px solid var(--border-row)',
                   }}>
-                    Testing
+                    Scrub display
                   </div>
                   <OptionRow
                     label="Reflect piano roll on keyboard"
@@ -2985,7 +2988,7 @@ export default function SettingsPanel() {
                     eyeToggle
                     eyeValue={reflectPianoRollOnKeyboard}
                     onEyeChange={setReflectPianoRollOnKeyboard}
-                    description="While paused or scrubbing, the keyboard continuously lights whatever notes are sounding at the playhead — no need to right-click a chord and choose “Show on keyboard” each time. Only reflects tracks flagged “Lit on keyboard” in the Mixer or Track panel. Real playback is unaffected."
+                    description="While paused or scrubbing, the keyboard continuously lights whatever notes are sounding at the playhead."
                   />
                 </CollapsibleSection>
 

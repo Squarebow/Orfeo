@@ -73,6 +73,14 @@ export default function TrackPanel() {
   const [draggedGroup, setDraggedGroup] = useState<string | null>(null)
   const [draggedTrack, setDraggedTrack] = useState<{ group: string; index: number } | null>(null)
   const [hoveredHandle, setHoveredHandle] = useState<string | null>(null)
+  // ── Global visibility toggle — same allVisible pattern as the Console
+  // Mixer's MasterStrip, reading/writing the same track.visible field so
+  // both controls always agree. ─────────────────────────────────────────
+  const allVisible = tracks.length > 0 && tracks.every((t) => t.visible)
+  const handleVisibleAll = () => {
+    const target = !allVisible
+    tracks.forEach((t) => updateTrack(t.index, { visible: target }))
+  }
   const midiEditorOpen          = useStore((s) => s.midiEditorOpen)
   const noteEditorEnabled       = useStore((s) => s.noteEditorEnabled)
   const noteEditorActive        = useStore((s) => s.noteEditorActive)
@@ -428,6 +436,21 @@ export default function TrackPanel() {
                 <span style={{ color: 'var(--text-inactive)', fontSize: 'var(--text-xs)', fontFamily: 'var(--font-mono)' }}>
                   {tracks.length}
                 </span>
+                <Tooltip
+                  title={allVisible ? 'Hide all tracks' : 'Show all tracks'}
+                  description={allVisible ? 'Hide every track’s notes on the Piano Roll — turn individual ones back on anytime' : 'Show every track’s notes on the Piano Roll again'}
+                >
+                <button
+                  onClick={handleVisibleAll}
+                  style={{
+                    background: 'none', border: 'none', cursor: 'pointer',
+                    padding: '2px 4px', display: 'flex', alignItems: 'center',
+                    color: allVisible ? 'var(--text-muted)' : 'var(--text-amber)',
+                  }}
+                >
+                  {allVisible ? <EyeClosed size={13} /> : <Eye size={13} />}
+                </button>
+                </Tooltip>
                 {/* ── Mute-filter quick toggle — visible only when Selective Tracks Playback is on in Settings ── */}
                 {autoMuteNonKeyboard && (
                   <Tooltip

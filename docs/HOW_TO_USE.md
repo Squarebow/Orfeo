@@ -241,6 +241,11 @@ Open it from the arrow at the top-right. For every track in the file:
 > track's colour strip doubles as a mini level meter during playback — you can
 > see who's sounding without opening the [mixer](#console-mixer).*
 
+The eye icon next to the track count hides every track's notes off the piano
+roll at once — same idea as the mute-all button in the [Console
+Mixer](#console-mixer), and the two stay in sync. Bring individual tracks
+back with their own visibility toggle afterwards.
+
 ### Focus Mode
 
 One toggle mutes everything except **keys, bass, and drums** — the parts you
@@ -753,13 +758,15 @@ the gear icon (top-right); eight collapsible sections.*
 - **Keyboard labels** — independently toggle octave numbers (`C3`, `C4`, `C5`…),
   note names on the keys, and small **L/R hand badges** for colourblind players
   who can't rely on the blue/pink hand colours alone.
-- **Reflect piano roll on keyboard** *(Testing, off by default)* — while paused
-  or scrubbing, the keyboard continuously lights whatever notes are sounding at
-  the playhead, from whichever tracks are flagged "Lit on keyboard" in the
-  [Console Mixer](#console-mixer) or Tracks panel. Handy for quickly eyeballing
-  a chord while scrubbing through a passage, without right-clicking and
-  choosing [Show on keyboard](#lock-a-chord) each time. Doesn't change anything
-  during real playback.
+- **Reflect piano roll on keyboard** *(Scrub display, off by default)* — while
+  paused or scrubbing, the keyboard continuously lights whatever notes are
+  sounding at the playhead, from whichever tracks are currently **visible** in
+  the piano roll — hide the tracks you don't want and the keyboard follows.
+  Handy for quickly eyeballing a chord while scrubbing through a passage,
+  without right-clicking and choosing [Show on keyboard](#lock-a-chord) each
+  time (which now also follows the same visible tracks, showing the real
+  voicing exactly as it's played). Doesn't change anything during real
+  playback.
 
 </details>
 

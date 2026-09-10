@@ -98,7 +98,17 @@ export default function Keyboard() {
   const reflectCacheRef = useRef<{ key: string; result: SoundingNote[] } | null>(null)
   const reflectSounding = useStore((s) => {
     if (!s.reflectPianoRollOnKeyboard || s.playbackState === 'playing' || !s.midi) return EMPTY_SOUNDING
-    const litIndices = new Set(s.tracks.filter(t => t.showOnKeyboard).map(t => t.index))
+    // ── Follows track VISIBILITY (the eye toggle — same field PianoRoll.tsx
+    // itself checks to decide whether to draw a track's notes), not "Lit on
+    // keyboard" (track.showOnKeyboard). Those are different concepts:
+    // showOnKeyboard defaults to piano/organ/chromatic-keys tracks only and
+    // controls which tracks REAL playback lights on the keyboard; this
+    // feature is about what you're currently looking at in the piano roll —
+    // isolate a steel-guitar track by hiding the others and this should
+    // reflect it too, with no separate toggle to remember. Mute state is
+    // deliberately ignored (the user's own call: mute/solo are for audio,
+    // this is for notes visibility only). ─────────────────────────────────
+    const litIndices = new Set(s.tracks.filter(t => t.visible).map(t => t.index))
     if (litIndices.size === 0) return EMPTY_SOUNDING
     const key = `${s.midi.fileName}|${s.currentTime.toFixed(4)}|${[...litIndices].join(',')}|${s.detectedKey?.transpose ?? 0}`
     const cached = reflectCacheRef.current
@@ -254,19 +264,22 @@ export default function Keyboard() {
     e.preventDefault()
     if (playbackState === 'playing' || !heldChordEvent?.structured) return
 
-    // ── Real voicing under the paused playhead — every note, from tracks
-    // flagged "Lit on keyboard" (the same scope the "Reflect piano roll on
-    // keyboard" toggle uses), whose sustain window spans currentTime,
-    // transpose-matched to detection. Falls back to the held event's
-    // snapshot only if the playhead sits in a genuine gap (< 2 notes
-    // ringing). Scoping to "lit" tracks (not every non-drum track in the
-    // file) means this always agrees with what the reflect toggle is
-    // already showing — right-clicking to lock a chord no longer adds a
-    // second, differently-voiced copy on top of it. ────────────────────────
+    // ── Real voicing under the paused playhead — every note, from VISIBLE
+    // tracks (same field PianoRoll.tsx checks, and the same one the "Reflect
+    // piano roll on keyboard" toggle now uses — not "Lit on keyboard", which
+    // defaults to piano/organ only and is a real-playback concept), whose
+    // sustain window spans currentTime, transpose-matched to detection.
+    // Falls back to the held event's snapshot only if the playhead sits in
+    // a genuine gap (< 2 notes ringing). Scoping to visible tracks (not
+    // every non-drum track in the file) means this always agrees with what
+    // the reflect toggle is already showing — right-clicking to lock a
+    // chord no longer adds a second, differently-voiced copy on top of it,
+    // and hiding every track but the one you're studying (e.g. an isolated
+    // guitar part) is enough on its own, no separate toggle to remember. ───
     const st = useStore.getState()
     const loadedMidi = st.midi
     const transpose = st.detectedKey?.transpose ?? 0
-    const litIndices = new Set(st.tracks.filter(t => t.showOnKeyboard).map(t => t.index))
+    const litIndices = new Set(st.tracks.filter(t => t.visible).map(t => t.index))
     const litTracks = loadedMidi ? loadedMidi.tracks.filter(t => litIndices.has(t.index)) : []
     const sounding = notesSoundingAt(litTracks, st.currentTime, transpose)
     const useLive = sounding.length >= 2
