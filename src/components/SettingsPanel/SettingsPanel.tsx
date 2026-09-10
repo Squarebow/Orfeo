@@ -2163,7 +2163,9 @@ export default function SettingsPanel() {
   async function handleDownloadSoundfont(id: SoundfontId) {
     setSfError(null); setSfDownloadingId(id); setSfDownloadProgress(0)
     const res = await window.electronAPI.downloadSoundfont(id)
-    if (!res.ok) { setSfError(res.error ?? 'Download failed'); setSfDownloadingId(null) }
+    if (!res.ok) { setSfError(res.error ?? 'Download failed'); setSfDownloadingId(null); return }
+    refreshSoundfonts()
+    await handleSelectSoundfont(id)
   }
   async function handleSelectSoundfont(id: SoundfontId) {
     setSelectedSoundfont(id)
