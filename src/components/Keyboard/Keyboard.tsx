@@ -10,6 +10,8 @@ import { buildPitchHandIndex, lookupNoteHandAtTime, detectPerformanceBoundary } 
 import type { Hand } from '../../types'
 import Tooltip, { useTooltip } from '../Tooltip'
 import { ContextMenu, ContextMenuItem } from '../ContextMenu'
+import { getOutputLatencySec as getSamplesOutputLatencySec } from '../../hooks/useSamplesEngine'
+import { getOutputLatencySec as getGmOutputLatencySec } from '../../hooks/useAudioEngine'
 
 const HAND_LH = 'var(--hand-lh)'
 const HAND_RH = 'var(--hand-rh)'
@@ -76,7 +78,16 @@ export default function Keyboard() {
   // getHardwareHand()'s per-key hand lookup, which only matters at the
   // moments activeKeys itself changes (note on/off) — so it reads
   // currentTime non-reactively via getState() at that point instead. ───────
-  const currentChordIndex = useStore((s) => resolveCurrentIndex(s.chordSequence, s.currentTime))
+  // ── Chord-name timing follows the same output-latency correction as the
+  // keyboard's own key lights (see getOutputLatencySec() in the engine
+  // hooks) — only while actually playing, since a scrub/pause isn't tied to
+  // any real audio clock at all, there's nothing to lag behind. ───────────
+  const currentChordIndex = useStore((s) => {
+    const latency = s.playbackState === 'playing'
+      ? (s.audioEngine === 'samples' ? getSamplesOutputLatencySec() : getGmOutputLatencySec())
+      : 0
+    return resolveCurrentIndex(s.chordSequence, s.currentTime - latency)
+  })
   // ── Reflect piano roll on keyboard (Settings › Keyboard › Testing) — a THIRD
   // exception to the "don't subscribe to raw currentTime" rule above, same
   // justification as (a): the selector returns the SAME `EMPTY_SOUNDING`

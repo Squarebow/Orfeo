@@ -139,6 +139,18 @@ let _activeExtraBankId: string | null = null
 // edit-mode clicks must send programChange themselves — this set prevents redundant calls.
 const _samplesChanInit = new Set<number>()
 
+// ── Real, measured gap between "scheduled to play" and "actually audible"
+// (AudioContext.outputLatency — includes the OS/device's own output buffer;
+// falls back to baseLatency, which only covers the context's own internal
+// processing, on a browser/build that doesn't expose outputLatency). Used to
+// delay VISUAL feedback (key lights, hit effects, the chord name — see
+// Keyboard.tsx) so it lines up with what's actually heard, not with when the
+// note was merely told to play. Exported so Keyboard.tsx's chord-name
+// display can apply the same correction. ────────────────────────────────
+export function getOutputLatencySec(): number {
+  return _ctx?.outputLatency || _ctx?.baseLatency || 0
+}
+
 // ── Per-note key-light timers ─────────────────────────────────────────────────
 const _keyTimers = new Map<number, ReturnType<typeof setTimeout>>()
 
@@ -242,6 +254,10 @@ export async function initSamplesEngine(onProgress: (p: number) => void): Promis
       const { WorkletSynthesizer } = await import('spessasynth_lib')
       _synth = new WorkletSynthesizer(_ctx)
       await _synth.isReady
+      // Diagnostic for the audio/visual sync fix — see getOutputLatencySec()
+      // below. Logged once so it's visible in DevTools on any machine,
+      // packaged build included, without needing a remote-debugging setup.
+      console.log('[Orfeo Samples] measured output latency:', _ctx.outputLatency, 's (base latency:', _ctx.baseLatency, 's)')
 
       // ── SF2: same relative-path fix; fetch() goes through Electron's file://
       // protocol handler which supports asar, so no asarUnpack needed here.
@@ -443,16 +459,31 @@ function buildSamplesPlayer(startSec: number) {
           _synth.noteOn(ch, midiNum, Math.round(note.velocity * 127))
           const offT = setTimeout(() => { try { _synth?.noteOff(ch, midiNum) } catch {} }, durMs)
           _schedule.push(offT)
-          if (ts.showOnKeyboard) lightKey(midiNum, color, Math.min(durMs + 30, 2500))
-          // "all tracks" scope still requires the track to be visible on the
-          // piano roll — a track hidden from both the roll and the keyboard
-          // should show nothing, see useAudioEngine.ts's identical fix.
-          else if (hitEffectScope === 'all' && ts.visible) pushHitEffect(midiNum, color)
         } catch (e) {
           console.error('[Orfeo Samples] noteOn error:', e)
         }
       }, delay)
       _schedule.push(t)
+
+      // ── Visual feedback (key light / hit effect) fires separately from the
+      // note-on above, delayed by the audio device's own output latency —
+      // the gap between "told the sound card to play this" and the sound
+      // actually reaching the speakers (AudioContext.outputLatency, real and
+      // measured, was previously uncompensated). Without this, the keyboard
+      // lights and the chord name (see getAudioOutputLatencySec() in
+      // Keyboard.tsx) visibly lead what you actually hear by however much
+      // the output device buffers — small on a fast machine, easily audible
+      // as "early" on a loaded/slower one. "Lit on keyboard" only actually
+      // lights the keyboard while the track is also visible on the piano
+      // roll — a track hidden from the roll but still flagged "Lit on
+      // keyboard" used to keep lighting the keyboard in its own color with
+      // nothing on screen to explain why. "all tracks" hit-effect scope
+      // likewise still requires visibility. ─────────────────────────────
+      const vt = setTimeout(() => {
+        if (ts.showOnKeyboard && ts.visible) lightKey(midiNum, color, Math.min(durMs + 30, 2500))
+        else if (hitEffectScope === 'all' && ts.visible) pushHitEffect(midiNum, color)
+      }, delay + getOutputLatencySec() * 1000)
+      _schedule.push(vt)
     }
 
     // ── Sustain pedal (CC64) — replay this channel's pedal transitions. If

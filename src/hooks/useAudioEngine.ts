@@ -24,6 +24,19 @@ let _mutedCh = new Set<number>()
 // or playback-stop re-warms correctly.
 let _warmupPromise: Promise<void> | null = null
 
+// ── Real, measured gap between "scheduled to play" and "actually audible" —
+// same purpose as useSamplesEngine.ts's identical export. Only meaningful
+// when the jzz-synth-tiny software fallback is active (it exposes its own
+// AudioContext); a real system MIDI output device (openMidiOut() above)
+// has no equivalent to measure this way, so this returns 0 for that case —
+// not compensated, not yet measured. ─────────────────────────────────────
+export function getOutputLatencySec(): number {
+  try {
+    const ctx = typeof _port?.getAudioContext === 'function' ? _port.getAudioContext() : null
+    return ctx?.outputLatency || ctx?.baseLatency || 0
+  } catch { return 0 }
+}
+
 function initJZZ(): Promise<void> {
   if (_jzzReady) return Promise.resolve()
   if (_jzzInitP) return _jzzInitP
@@ -48,6 +61,9 @@ function initJZZ(): Promise<void> {
           _JZZ.synth.Tiny().and(function(this: any) {
             _port = this; _jzzReady = true
             console.log('[Orfeo GM] jzz-synth-tiny active')
+            // Diagnostic for the audio/visual sync fix — see
+            // getOutputLatencySec() above.
+            console.log('[Orfeo GM] measured output latency:', getOutputLatencySec(), 's')
             resolve()
           }).or((e: any) => {
             console.error('[Orfeo GM] Both MIDI outputs failed:', e)
@@ -176,13 +192,15 @@ function updateMutedChannels() {
   for (const track of midiData.tracks) {
     const ts = tracks.find((t: any) => t.index === track.index)
     if (!ts || ts.muted || (hasSolo && !ts.solo)) continue
-    // hitEffectScope === 'all' lets non-keyboard tracks still spawn hit effects
-    // (purely visual, at the note's key position) without lighting the key
-    // itself — but only if the track is still visible on the piano roll.
-    // A track hidden from BOTH the roll and the keyboard should show nothing
-    // at all; without the ts.visible check, "all tracks" scope kept spawning
-    // hit-effect circles at the playbar for tracks the user had fully hidden.
-    const eligibleForHitEffect = ts.showOnKeyboard || (hitEffectScope === 'all' && ts.visible)
+    // "Lit on keyboard" only actually lights the keyboard while the track is
+    // still visible on the piano roll — a track hidden from the roll but
+    // still flagged "Lit on keyboard" used to keep lighting the keyboard in
+    // its own color during real playback with nothing on screen to explain
+    // why (the "random notes light up" report). hitEffectScope === 'all'
+    // separately lets non-keyboard tracks still spawn hit effects (purely
+    // visual, at the note's key position) without lighting the key itself —
+    // also gated on visible, same reasoning.
+    const eligibleForHitEffect = ts.visible && (ts.showOnKeyboard || hitEffectScope === 'all')
     if (!eligibleForHitEffect) continue
     const defaultColor = ts.color ?? amberHex()
     const homogeneousTrack = isHomogeneousHandTrack(track.notes)
@@ -195,10 +213,15 @@ function updateMutedChannels() {
       const durMs = Math.max(note.duration / ratio * 1000, 40)
       const midiNum = note.midi + transpose
       const color = resolveHandAwareColor(note, defaultColor, { homogeneousTrack, showHandLabels: effectiveShowHandLabels, performanceMode })
+      // These timers are purely visual (JZZ's own player drives the actual
+      // audio on its own clock) — delayed by the output device's own
+      // latency so the key light/chord name line up with what's actually
+      // heard, not with when the note was merely scheduled. See
+      // getOutputLatencySec() above.
       const t = setTimeout(() => {
         if (ts.showOnKeyboard) lightKey(midiNum, color, Math.min(durMs + 30, 2500))
-        else if (hitEffectScope === 'all' && ts.visible) pushHitEffect(midiNum, color)
-      }, delay)
+        else pushHitEffect(midiNum, color)
+      }, delay + getOutputLatencySec() * 1000)
       _lightSchedule.push(t)
     }
   }
@@ -264,7 +287,8 @@ function buildPlayer(startSec: number) {
     for (const track of midiData.tracks) {
       const ts = tracks.find((t: any) => t.index === track.index)
       if (!ts || ts.muted || (hasSolo && !ts.solo)) continue
-      const eligibleForHitEffect = ts.showOnKeyboard || (hitEffectScope === 'all' && ts.visible)
+      // Same visible-gated rule as the live-update function above.
+      const eligibleForHitEffect = ts.visible && (ts.showOnKeyboard || hitEffectScope === 'all')
       if (!eligibleForHitEffect) continue
       const defaultColor = ts.color ?? amberHex()
       const homogeneousTrack = isHomogeneousHandTrack(track.notes)
@@ -275,10 +299,11 @@ function buildPlayer(startSec: number) {
         const durMs = Math.max(note.duration / ratio * 1000, 40)
         const midiNum = note.midi + transpose
         const color = resolveHandAwareColor(note, defaultColor, { homogeneousTrack, showHandLabels: effectiveShowHandLabels, performanceMode })
+        // Purely visual, same output-latency compensation as above.
         const t = setTimeout(() => {
           if (ts.showOnKeyboard) lightKey(midiNum, color, Math.min(durMs + 30, 2500))
-          else if (hitEffectScope === 'all' && ts.visible) pushHitEffect(midiNum, color)
-        }, delay)
+          else pushHitEffect(midiNum, color)
+        }, delay + getOutputLatencySec() * 1000)
         _lightSchedule.push(t)
       }
     }
