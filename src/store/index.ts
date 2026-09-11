@@ -330,6 +330,15 @@ interface OrfeoStore {
   reflectPianoRollOnKeyboard: boolean
   setReflectPianoRollOnKeyboard: (v: boolean) => void
 
+  // ── Precise scrub time (millisecond position readout) — a debugging aid for
+  // matching the position slider against an externally-timestamped reference
+  // (e.g. a bar-by-bar chord table pasted from a spreadsheet). When on, the
+  // existing coarse mm:ss readout to the left of the slider switches to
+  // mm:ss.mmm instead, at all times a file is loaded (playing, paused, or
+  // mid-drag) — not just while dragging. Off by default.
+  showPreciseScrubTime: boolean
+  setShowPreciseScrubTime: (v: boolean) => void
+
   // ── Hidable playbar (Phase 1) — off (hidden) means the piano roll's hit
   // line tracks the live keyboard position instead of a fixed line; default
   // true keeps today's behavior byte-for-byte unchanged.
@@ -829,6 +838,9 @@ export const useStore = create<OrfeoStore>((set, get) => ({
 
   reflectPianoRollOnKeyboard: false,
   setReflectPianoRollOnKeyboard: (reflectPianoRollOnKeyboard) => set({ reflectPianoRollOnKeyboard }),
+
+  showPreciseScrubTime: false,
+  setShowPreciseScrubTime: (showPreciseScrubTime) => set({ showPreciseScrubTime }),
 
   playbarVisible: true,
   setPlaybarVisible: (playbarVisible) => set({ playbarVisible }),

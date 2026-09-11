@@ -9,7 +9,7 @@ import { usePlayback } from '../../hooks/usePlayback'
 import { useMidiFile } from '../../hooks/useMidiFile'
 import { formatTime } from '../../utils/midiParser'
 import { formatKey, transposeDetectedKey } from '../../utils/keyDetection'
-import { buildDebugTimestamp, buildFullSongTable } from '../../utils/debugTimestamp'
+import { buildDebugTimestamp, buildFullSongTable, formatTimeMs } from '../../utils/debugTimestamp'
 import OrfeoLogo from '../OrfeoLogo'
 import MidiIcon from '../MidiIcon'
 import VolumeKnob from '../VolumeKnob'
@@ -62,6 +62,7 @@ export default function TopBar() {
   const midi = useStore((s) => s.midi)
   const playbackState = useStore((s) => s.playbackState)
   const currentTime = useStore((s) => s.currentTime)
+  const showPreciseScrubTime = useStore((s) => s.showPreciseScrubTime)
   const bpm = useStore((s) => s.bpm)
   const originalBpm = useStore((s) => s.originalBpm)
   const loopRegionEnabled  = useStore((s) => s.loopRegionEnabled)
@@ -423,10 +424,26 @@ export default function TopBar() {
             the same visual width as the old scrub content (34+6+320+6+34 = 400px).
             position: relative lets LoopRegionStrip anchor its icon outside this column. */}
         <div style={{ display: 'flex', flexDirection: 'column', gap: 5, width: 'min(100%, 400px)', position: 'relative' }}>
-          {/* Scrub — onContextMenu is a no-op in packaged builds (see handleScrubContextMenu) */}
+          {/* Scrub — onContextMenu is a no-op in packaged builds (see handleScrubContextMenu).
+              Left readout switches to millisecond precision when "Show precise
+              scrub time" is on in Settings — always on then (playing, paused, or
+              mid-drag), not just while actively dragging. The wrapper below always
+              reserves the same 34px (regardless of mode) so the slider/duration/
+              everything else never moves; in precise mode the text itself goes
+              position:absolute, right-anchored to that same spot, and grows LEFT
+              into the open space beyond it instead of widening the reserved slot
+              (which would otherwise shrink the slider to make room). */}
           <div style={{ display: 'flex', alignItems: 'center', gap: 6 }} onContextMenu={handleScrubContextMenu}>
-            <span style={{ color: 'var(--text-muted)', fontFamily: 'var(--font-mono)', fontSize: 10, minWidth: 34, textAlign: 'right', flexShrink: 0 }}>
-              {formatTime(currentTime)}
+            <span style={{ position: 'relative', display: 'inline-block', minWidth: 34, flexShrink: 0, textAlign: 'right' }}>
+              <span style={{
+                position: showPreciseScrubTime ? 'absolute' : 'static',
+                right: 0, top: 0, transform: showPreciseScrubTime ? 'translateY(-50%)' : undefined,
+                whiteSpace: 'nowrap',
+                color: showPreciseScrubTime ? 'var(--text-amber)' : 'var(--text-muted)',
+                fontFamily: 'var(--font-mono)', fontSize: 10,
+              }}>
+                {showPreciseScrubTime ? formatTimeMs(currentTime) : formatTime(currentTime)}
+              </span>
             </span>
             <Tooltip title="Scrub position" description="Drag to jump to any point in the song." wrapperStyle={{ flex: 1, maxWidth: 320 }}>
               <input

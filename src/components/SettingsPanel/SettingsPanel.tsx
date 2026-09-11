@@ -2116,6 +2116,8 @@ export default function SettingsPanel() {
   const setShowOctaveLabels          = useStore((s) => s.setShowOctaveLabels)
   const reflectPianoRollOnKeyboard   = useStore((s) => s.reflectPianoRollOnKeyboard)
   const setReflectPianoRollOnKeyboard = useStore((s) => s.setReflectPianoRollOnKeyboard)
+  const showPreciseScrubTime         = useStore((s) => s.showPreciseScrubTime)
+  const setShowPreciseScrubTime      = useStore((s) => s.setShowPreciseScrubTime)
   const showNoteNamesOnKeyboard      = useStore((s) => s.showNoteNamesOnKeyboard)
   const setShowNoteNamesOnKeyboard   = useStore((s) => s.setShowNoteNamesOnKeyboard)
   const autoCollapseDrawers          = useStore((s) => s.autoCollapseDrawers)
@@ -2991,6 +2993,14 @@ export default function SettingsPanel() {
                     eyeValue={reflectPianoRollOnKeyboard}
                     onEyeChange={setReflectPianoRollOnKeyboard}
                     description="While paused or scrubbing, the keyboard continuously lights whatever notes are sounding at the playhead."
+                  />
+                  <OptionRow
+                    label="Show precise scrub time"
+                    labelSmall
+                    eyeToggle
+                    eyeValue={showPreciseScrubTime}
+                    onEyeChange={setShowPreciseScrubTime}
+                    description="Shows the position readout down to the millisecond, at all times — useful for matching a chord-timing spreadsheet against an exact spot in the song."
                   />
                 </CollapsibleSection>
 

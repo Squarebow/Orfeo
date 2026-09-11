@@ -475,7 +475,9 @@ export default function PianoRoll() {
       if (!midi) return
       // Shift = fine control (small step), plain wheel = coarse (unchanged).
       // Was inverted (shift = 10s, bigger) — fine scrubbing had no way in.
-      const step  = e.shiftKey ? 0.15 : 2
+      // 0.15s was still too coarse to land inside a single note in a dense
+      // passage — narrowed to 0.03s so each tick is a small nudge, not a jump.
+      const step  = e.shiftKey ? 0.03 : 2
       const delta = e.deltaY > 0 ? -step : step
       const newTime = Math.max(0, Math.min(midi.duration, currentTime + delta))
       if (playbackState === 'playing') {
