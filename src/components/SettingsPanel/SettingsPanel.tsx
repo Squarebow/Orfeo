@@ -3000,7 +3000,7 @@ export default function SettingsPanel() {
                     eyeToggle
                     eyeValue={showPreciseScrubTime}
                     onEyeChange={setShowPreciseScrubTime}
-                    description="Shows the position readout down to the millisecond, at all times — useful for matching a chord-timing spreadsheet against an exact spot in the song."
+                    description="Shows the position readout down to the millisecond, at all times — useful for matching an exact spot in the song."
                   />
                 </CollapsibleSection>
 

@@ -427,17 +427,25 @@ export default function TopBar() {
           {/* Scrub — onContextMenu is a no-op in packaged builds (see handleScrubContextMenu).
               Left readout switches to millisecond precision when "Show precise
               scrub time" is on in Settings — always on then (playing, paused, or
-              mid-drag), not just while actively dragging. The wrapper below always
-              reserves the same 34px (regardless of mode) so the slider/duration/
-              everything else never moves; in precise mode the text itself goes
-              position:absolute, right-anchored to that same spot, and grows LEFT
-              into the open space beyond it instead of widening the reserved slot
-              (which would otherwise shrink the slider to make room). */}
+              mid-drag), not just while actively dragging. The visible text is
+              ALWAYS position:absolute (in both modes, not just precise mode) —
+              right-anchored to the same spot and vertically centered via
+              top:50%/translateY(-50%) — so it never itself affects this box's
+              size; an invisible spacer holding the coarse format's width is what
+              actually sizes the box, in every mode. That's what keeps this row's
+              height fixed regardless of mode (a real span here — sized by its own
+              content only when in normal flow — was collapsing to ~0 height in
+              precise mode, since its content had nothing left in flow, which
+              shifted the whole scrub row up) and keeps the digits vertically
+              centered on the slider like the duration readout on the right
+              (which never had this problem — it's still a single plain span). */}
           <div style={{ display: 'flex', alignItems: 'center', gap: 6 }} onContextMenu={handleScrubContextMenu}>
-            <span style={{ position: 'relative', display: 'inline-block', minWidth: 34, flexShrink: 0, textAlign: 'right' }}>
+            <span style={{ position: 'relative', display: 'inline-block', minWidth: 34, flexShrink: 0 }}>
+              <span aria-hidden style={{ visibility: 'hidden', fontFamily: 'var(--font-mono)', fontSize: 10 }}>
+                {formatTime(currentTime)}
+              </span>
               <span style={{
-                position: showPreciseScrubTime ? 'absolute' : 'static',
-                right: 0, top: 0, transform: showPreciseScrubTime ? 'translateY(-50%)' : undefined,
+                position: 'absolute', right: 0, top: '50%', transform: 'translateY(-50%)',
                 whiteSpace: 'nowrap',
                 color: showPreciseScrubTime ? 'var(--text-amber)' : 'var(--text-muted)',
                 fontFamily: 'var(--font-mono)', fontSize: 10,
