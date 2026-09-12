@@ -24,6 +24,7 @@ export function useChordSequence() {
   const chordFollowTrackIndex = useStore(s => s.chordFollowTrackIndex)
   const chordNamingStyle = useStore(s => s.chordNamingStyle)
   const chordSensitivity = useStore(s => s.chordSensitivity)
+  const chordReadingMode = useStore(s => s.chordReadingMode)
   const setChordSequence = useStore(s => s.setChordSequence)
   const setChordFollowTrackIndex = useStore(s => s.setChordFollowTrackIndex)
 
@@ -96,11 +97,12 @@ export function useChordSequence() {
     const seq = buildChordSequence(scope, bass, grid, {
       noteNaming, accidentals, namingStyle: chordNamingStyle, transpose,
       sensitivity: 0.4, // locked — see comment above (was: chordSensitivity)
+      chordReadingMode,
     })
     setChordSequence(seq)
   }, [
     midi, noteNaming, accidentals, transpose, chordNamingStyle, chordSensitivity,
     chordTrackingMode, chordFollowSubMode, chordFollowGroup, chordFollowTrackIndex,
-    setChordSequence,
+    chordReadingMode, setChordSequence,
   ])
 }

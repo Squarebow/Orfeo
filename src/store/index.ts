@@ -2,7 +2,7 @@ import { create } from 'zustand'
 import type {
   ParsedMidi, ParsedTrack, PlaybackState, TrackState,
   KeyboardSize, KeyboardMode, NoteNaming, Accidentals, ChordEvent, TranscriptEntry, LibraryFile, HitEffectPattern, SoundfontId,
-  ChordNamingStyle, ChordTrackingMode, ChordFollowSubMode,
+  ChordNamingStyle, ChordTrackingMode, ChordFollowSubMode, ChordReadingMode,
 } from '../types'
 import type { DetectedKey } from '../utils/keyDetection'
 import type { ForeignFormat } from '../utils/foreignFormatImport'
@@ -86,6 +86,12 @@ interface OrfeoStore {
   // The single user knob — replaces the old per-mode presets. Fed straight
   // into buildChordSequence's `sensitivity`. ──────────────────────────────
   chordSensitivity: number
+  /** 'safe' (default, unchanged engine) vs 'progressive' (opt-in, trusts a
+   *  real chord grab to show brief extensions Safe is too conservative to
+   *  show). Dev-only for now — no Settings UI control yet, not persisted;
+   *  set via devtools console: useStore.getState().setChordReadingMode('progressive').
+   *  See docs/Chord Engine Dual-Mode Plan.md. */
+  chordReadingMode: ChordReadingMode
   // ── How the Chord / Scale Explorer voice the chords of a progression when
   // auditioning it — shared by both explorers, see utils/voiceLeading.ts. ──
   progressionVoicing: ProgressionVoicing
@@ -95,6 +101,7 @@ interface OrfeoStore {
   setChordFollowTrackIndex: (index: number | null) => void
   setChordNamingStyle: (style: ChordNamingStyle) => void
   setChordSensitivity: (v: number) => void
+  setChordReadingMode: (mode: ChordReadingMode) => void
   setProgressionVoicing: (v: ProgressionVoicing) => void
 
   detectedKey: DetectedKey | null
@@ -566,6 +573,7 @@ export const useStore = create<OrfeoStore>((set, get) => ({
   chordNamingStyle: 'abbreviation',
   // 0.4 = the previous Auto preset, so existing setups read identically.
   chordSensitivity: 0.4,
+  chordReadingMode: 'safe',
   // 'climbing' = the natural ascending-inversions reading; see voiceLeading.ts.
   progressionVoicing: 'climbing',
   setChordTrackingMode: (chordTrackingMode) => set({ chordTrackingMode }),
@@ -574,6 +582,7 @@ export const useStore = create<OrfeoStore>((set, get) => ({
   setChordFollowTrackIndex: (chordFollowTrackIndex) => set({ chordFollowTrackIndex }),
   setChordNamingStyle: (chordNamingStyle) => set({ chordNamingStyle }),
   setChordSensitivity: (chordSensitivity) => set({ chordSensitivity: Math.min(1, Math.max(0, chordSensitivity)) }),
+  setChordReadingMode: (chordReadingMode) => set({ chordReadingMode }),
   setProgressionVoicing: (progressionVoicing) => set({ progressionVoicing }),
 
   detectedKey: null,
