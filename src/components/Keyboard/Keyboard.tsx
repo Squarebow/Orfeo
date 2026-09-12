@@ -340,10 +340,15 @@ export default function Keyboard() {
     const midiNotes = realMidi.filter(m => m >= min && m <= max)
     if (midiNotes.length > 0) {
       // ── Lock-a-chord is a single detached chord being studied while
-      // paused, not song playback — always amber, never the source-track /
-      // LH-RH colors (which only make sense when multiple tracks light up
-      // together during playback). ────────────────────────────────────────
-      const colors = new Map(midiNotes.map(m => [m, 'var(--text-amber)'] as [number, string]))
+      // paused, not song playback — always pink (--lock-chord-color, a
+      // separate token from the LH/RH hand colors it's borrowed from — see
+      // that token's own comment), never the source-track / LH-RH colors
+      // (which only make sense when multiple tracks light up together
+      // during playback), and never plain amber either — amber is also what
+      // "Reflect piano roll on keyboard" uses, and the two need to read as
+      // different things when a locked chord's notes are also currently
+      // sounding under that setting (see allActiveColors below). ──────────
+      const colors = new Map(midiNotes.map(m => [m, 'var(--lock-chord-color)'] as [number, string]))
       // ── Setting lockedKeys is enough — LockedChordModal auto-opens itself
       // via its own effect watching lockedKeys.size, same as Shift+Click. ────
       setLockedKeysStore(new Set(midiNotes), colors)
@@ -444,12 +449,16 @@ export default function Keyboard() {
 
   const allActiveColors = useMemo(() => {
     const merged = new Map(activeKeyColors)
-    lockedColors.forEach((c, k) => merged.set(k, c))
     explorerKeyColors.forEach((c, k) => merged.set(k, c))
-    // Same flat amber as lock-a-chord / "Show on keyboard" — this is a live,
-    // always-on version of the same paused-study case, so it gets the same
-    // color convention, not per-track colors.
+    // "Reflect piano roll on keyboard" — flat amber, a live always-on version
+    // of the same paused-study case lock-a-chord covers, so it gets the same
+    // kind of flat, non-per-track color. Applied BEFORE lockedColors below —
+    // when a locked chord's notes are also currently sounding under this
+    // setting, the lock's pink needs to stay the visible one (they're two
+    // different things to be studying at once), not get overwritten back to
+    // amber.
     reflectKeys.forEach(k => merged.set(k, 'var(--text-amber)'))
+    lockedColors.forEach((c, k) => merged.set(k, c))
     return merged
   }, [activeKeyColors, lockedColors, explorerKeyColors, reflectKeys])
 
@@ -539,7 +548,7 @@ export default function Keyboard() {
         nextColors.delete(midi)
       } else {
         next.add(midi)
-        nextColors.set(midi, 'var(--text-amber)')
+        nextColors.set(midi, 'var(--lock-chord-color)')
         const playNote = (window as any).__orfeoPlayNote
         if (playNote) playNote(midi, 0.7, 600, undefined, false)
       }

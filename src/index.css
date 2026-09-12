@@ -474,6 +474,11 @@ button, input, select, textarea {
 /* MIDI/Note editors */
 --hand-lh: #6270A5;          /* Fixed left-hand color — piano roll, keyboard glow, split-preview timeline. Always this value, never per-track palette, for any hand-tagged note (see docs/LR Hand rework, gitignored) */
 --hand-rh: #CB636C;          /* Fixed right-hand color — same scope as --hand-lh */
+/* Same pink as --hand-rh, but its OWN token rather than reusing --hand-rh directly:
+   Keyboard.tsx's getColorHand() does a strict === check against --hand-rh's literal
+   value to recover a right-hand tag for the L/R letter badge; if lock-a-chord reused
+   that exact string, every locked note would falsely render an "R" badge. */
+--lock-chord-color: var(--hand-rh);
 --flag-red: #e05252;         /* Low-confidence hand-split passage flag (MidiEditor) */
 --bg-field: #0a0a10;         /* Recessed input/display field background — search box, hex input, output-path readout */
 --color-input-error: #c05050; /* Invalid hex-color input state (border + text) in MidiEditor's color popover */
