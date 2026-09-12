@@ -13,6 +13,7 @@ Thumbs.db
 .agents/
 .continue/
 .vscode/
+.superpowers/
 .markdownlint.json
 skills-lock.json
 graphify-out/
@@ -79,6 +80,11 @@ docs/Test Files/
 # open items, gotchas, reverted attempts) for the ongoing chord-detection
 # effort; not a shipped doc ─────────────────────────────────────────────────
 docs/Chord Detection Status.md
+
+# ── docs/Chord Engine Dual-Mode Plan.md — internal technical reference (for
+# the assistant, across sessions) for the Safe/Progressive dual chord-
+# reading-engine initiative; not a shipped doc ──────────────────────────────
+docs/Chord Engine Dual-Mode Plan.md
 
 # ── public/images — website screenshots and reference shots, prepared here
 # but hosted on orfeo.cc, not committed (this folder also ships inside the
