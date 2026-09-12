@@ -69,6 +69,39 @@ export function runChordSequenceBuilderTest(): number {
   check(/^F/.test(sSafe[1]?.name ?? ''), `…second event is F-something ("${sSafe[1]?.name}")`)
   check(Math.abs((sSafe[1]?.time ?? -1) - 2.0) < 0.01, `…second event absorbs the Cm7 beat, starts at 2.0s (got ${sSafe[1]?.time})`)
 
+  // (f) same one-beat Cm7 as (e) — Progressive should recover it, because
+  // all four notes are struck together within a single octave.
+  const sProg = buildChordSequence([track(0, gap)], null, GRID, { ...OPTS, chordReadingMode: 'progressive' })
+  check(sProg.length === 3, `progressive: one-beat Cm7 recovered as its own event → 3 events (got ${sProg.length}: ${sProg.map(e => e.name)})`)
+  check(/^G/.test(sProg[0]?.name ?? ''), `…first event is G-something ("${sProg[0]?.name}")`)
+  check(/^C/.test(sProg[1]?.name ?? '') && /7/.test(sProg[1]?.name ?? ''), `…second event is a C-seventh chord ("${sProg[1]?.name}")`)
+  check(Math.abs((sProg[1]?.time ?? -1) - 2.0) < 0.01, `…second event starts at 2.0s (got ${sProg[1]?.time})`)
+  check(/^F/.test(sProg[2]?.name ?? ''), `…third event is F-something ("${sProg[2]?.name}")`)
+  check(Math.abs((sProg[2]?.time ?? -1) - 2.5) < 0.01, `…third event starts at 2.5s (got ${sProg[2]?.time})`)
+
+  // (g) same shape, but the "7th" is struck two-plus octaves above the rest
+  // of the grab — not a real chord grab, so Progressive must NOT recover it
+  // and must match Safe exactly (still 2 events).
+  const far: ParsedNote[] = [
+    n(55, 0, 1.9), n(59, 0, 1.9), n(62, 0, 1.9),                          // G major, 0–2s
+    n(48, 2.0, 0.45), n(51, 2.0, 0.45), n(55, 2.0, 0.45), n(82, 2.0, 0.45), // "7th" far out of register — not a real grab
+    n(53, 2.5, 5.3), n(57, 2.5, 5.3), n(60, 2.5, 5.3),                    // F major, 2.5s+
+  ]
+  const sProgFar = buildChordSequence([track(0, far)], null, GRID, { ...OPTS, chordReadingMode: 'progressive' })
+  check(sProgFar.length === 2, `progressive: out-of-octave "7th" is not a real grab → still 2 events (got ${sProgFar.length}: ${sProgFar.map(e => e.name)})`)
+  check(Math.abs((sProgFar[1]?.time ?? -1) - 2.0) < 0.01, `…still absorbs at 2.0s, same as safe (got ${sProgFar[1]?.time})`)
+
+  // (h) Progressive must not change anything when there's no colour tone to
+  // recover — re-run (a)-(d) in progressive mode, expect identical output.
+  const s1p = buildChordSequence([track(0, held)], null, GRID, { ...OPTS, chordReadingMode: 'progressive' })
+  check(JSON.stringify(s1p.map(e => e.name)) === JSON.stringify(s1.map(e => e.name)), `progressive matches safe on (a) (got ${s1p.map(e => e.name)})`)
+  const s2p = buildChordSequence([track(0, prog)], null, GRID, { ...OPTS, chordReadingMode: 'progressive' })
+  check(JSON.stringify(s2p.map(e => e.name)) === JSON.stringify(s2.map(e => e.name)), `progressive matches safe on (b) (got ${s2p.map(e => e.name)})`)
+  const s3p = buildChordSequence([track(0, arp)], null, GRID, { ...OPTS, chordReadingMode: 'progressive' })
+  check(JSON.stringify(s3p.map(e => e.name)) === JSON.stringify(s3.map(e => e.name)), `progressive matches safe on (c) (got ${s3p.map(e => e.name)})`)
+  const s4p = buildChordSequence([track(0, walk)], track(1, bassNotes), GRID, { ...OPTS, chordReadingMode: 'progressive' })
+  check(JSON.stringify(s4p.map(e => e.name)) === JSON.stringify(s4.map(e => e.name)), `progressive matches safe on (d) (got ${s4p.map(e => e.name)})`)
+
   console.log(`chordSequenceBuilder: ${pass} passed, ${fail} failed`)
   console.groupEnd()
   return fail

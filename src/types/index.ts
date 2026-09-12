@@ -120,6 +120,7 @@ export type ChordNamingStyle = 'abbreviation' | 'symbol'
 
 export type ChordTrackingMode = 'auto' | 'harmony' | 'follow'
 export type ChordFollowSubMode = 'group' | 'track'
+export type ChordReadingMode = 'safe' | 'progressive'
 
 export interface MidiFileResult {
   fileName: string

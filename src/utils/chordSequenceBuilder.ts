@@ -1,5 +1,5 @@
 import { Chord } from 'tonal'
-import type { ParsedTrack, ChordEvent, NoteNaming, Accidentals, ChordNamingStyle } from '../types'
+import type { ParsedTrack, ChordEvent, NoteNaming, Accidentals, ChordNamingStyle, ChordReadingMode } from '../types'
 import { CHORD_TEMPLATES } from './chordVocabulary'
 import { localizeChord, buildCompactVoicing } from './chordDetection'
 
@@ -78,6 +78,13 @@ export interface BuildChordSequenceOpts {
    *  faster changes and embellishing chords. User-set via the Chord
    *  sensitivity slider (Settings › Notation & Chords); defaults to 0.4. */
   sensitivity?: number
+  /** 'safe' (default) is today's engine, unchanged. 'progressive'
+   *  additionally trusts a real grab — 3-5 notes struck together, or
+   *  arpeggiated within about an octave — as proof of a richer chord (e.g.
+   *  a 7th) even when it doesn't ring long enough for the check above to
+   *  trust it on its own. Never shows less detail than 'safe' would for the
+   *  same span — see docs/Chord Engine Dual-Mode Plan.md. */
+  chordReadingMode?: ChordReadingMode
 }
 
 type Tpl = (typeof CHORD_TEMPLATES)[number]
@@ -598,6 +605,48 @@ export function buildChordSequence(
     return structural
   }
 
+  // ── Progressive mode — "does a real grab confirm a richer chord?" ──────
+  // A discrete alternative to structuralMaskOver's continuous held-beats
+  // proxy: instead of requiring a colour tone to ring for most of the span,
+  // trust it immediately if some actual grab of notes — a stack struck
+  // together, or a short run of nearby onsets — by itself already spells
+  // out a chord matching the span's own root (never a different one),
+  // compact enough in register (≤ 1 octave, raw semitones) and small enough
+  // (3-5 distinct pitch classes) to be a deliberate grab rather than
+  // incidental texture. Bounded to the span's own real onset-through-end
+  // range — reuses evidence the boundary walk already produced instead of a
+  // new time constant to calibrate. Only ever ADDS pitch classes on top of
+  // the safe structural mask: Progressive can extend Safe's own root/triad,
+  // never contradict it.
+  function progressiveBoost(s: number, e: number, safeRoot: number, safePcs: Set<number>): number {
+    const spanStart = boundaryTime.get(s) ?? beatStart(s)
+    const spanEnd = beatEnd(e - 1)
+    const inSpan = nonMel.filter(n => n.time >= spanStart - 1e-6 && n.time < spanEnd)
+    let boost = 0
+    for (let i = 0; i < inSpan.length; i++) {
+      let lo = inSpan[i].midi, hi = inSpan[i].midi
+      const pcs = new Set<number>([inSpan[i].pc])
+      const chroma = new Float64Array(12)
+      chroma[inSpan[i].pc] += (inSpan[i].end - inSpan[i].time) * inSpan[i].weight
+      for (let j = i + 1; j < inSpan.length; j++) {
+        const nlo = Math.min(lo, inSpan[j].midi), nhi = Math.max(hi, inSpan[j].midi)
+        if (nhi - nlo > 12) break
+        lo = nlo; hi = nhi
+        pcs.add(inSpan[j].pc)
+        if (pcs.size > 5) break
+        chroma[inSpan[j].pc] += (inSpan[j].end - inSpan[j].time) * inSpan[j].weight
+        if (pcs.size < 3) continue
+        const lowPc = ((lo % 12) + 12) % 12
+        const grab = nameSpan(chroma, -1, lowPc, 0xFFF)
+        if (!grab || !grab.allPresent || grab.root !== safeRoot || grab.pcs.size <= safePcs.size) continue
+        let isSuperset = true
+        for (const p of safePcs) if (!grab.pcs.has(p)) { isSuperset = false; break }
+        if (isSuperset) for (const p of grab.pcs) boost |= 1 << p
+      }
+    }
+    return boost
+  }
+
   // ── 4. name every span ───────────────────────────────────────────────
   interface Span { s: number; e: number; named: Named; slashPc: number }
   const spans: Span[] = []
@@ -607,9 +656,27 @@ export function buildChordSequence(
     const sb = steadyBassOver(s, e)
     const lowPc = lowestPcOver(s, e)
     const structuralSafe = structuralMaskOver(s, e)
-    const named = nameSpan(chromaOver(s, e), sb.cover >= SLASH_MIN_COVER ? sb.pc : -1, lowPc, structuralSafe)
-      ?? nameSpan(chromaOver(s, e, false), sb.cover >= SLASH_MIN_COVER ? sb.pc : -1, lowPc, structuralSafe)
+    const bassArg = sb.cover >= SLASH_MIN_COVER ? sb.pc : -1
+    let named = nameSpan(chromaOver(s, e), bassArg, lowPc, structuralSafe)
+      ?? nameSpan(chromaOver(s, e, false), bassArg, lowPc, structuralSafe)
     if (!named) continue
+    if (opts.chordReadingMode === 'progressive') {
+      const boost = progressiveBoost(s, e, named.root, named.pcs)
+      if (boost) {
+        const structuralProgressive = structuralSafe | boost
+        const upgraded = nameSpan(chromaOver(s, e), bassArg, lowPc, structuralProgressive)
+          ?? nameSpan(chromaOver(s, e, false), bassArg, lowPc, structuralProgressive)
+        // Only accept the upgrade if it still agrees with Safe's own root and
+        // strictly extends (never drops) Safe's own triad — Progressive may
+        // add colour to Safe's reading, never replace it with a different
+        // chord.
+        if (upgraded && upgraded.root === named.root) {
+          let stillSuperset = true
+          for (const p of named.pcs) if (!upgraded.pcs.has(p)) { stillSuperset = false; break }
+          if (stillSuperset) named = upgraded
+        }
+      }
+    }
     const slashPc =
       sb.pc >= 0 && sb.cover >= SLASH_MIN_COVER && sb.pc !== named.root && named.pcs.has(sb.pc)
         ? sb.pc : -1
