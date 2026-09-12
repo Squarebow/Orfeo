@@ -15,7 +15,7 @@ function track(index: number, notes: ParsedNote[]): ParsedTrack {
   return { index, name: '', gmName: '', program: 0, group: 'piano', isDrum: false, color: '', channel: 0, notes }
 }
 
-export function runChordSequenceBuilderTest(): void {
+export function runChordSequenceBuilderTest(): number {
   console.group('[chordSequenceBuilder] self-check')
   let pass = 0, fail = 0
   const check = (c: boolean, m: string) => { c ? pass++ : (fail++, console.error('FAIL:', m)) }
@@ -55,4 +55,5 @@ export function runChordSequenceBuilderTest(): void {
 
   console.log(`chordSequenceBuilder: ${pass} passed, ${fail} failed`)
   console.groupEnd()
+  return fail
 }
