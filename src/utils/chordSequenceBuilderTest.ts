@@ -102,6 +102,27 @@ export function runChordSequenceBuilderTest(): number {
   const s4p = buildChordSequence([track(0, walk)], track(1, bassNotes), GRID, { ...OPTS, chordReadingMode: 'progressive' })
   check(JSON.stringify(s4p.map(e => e.name)) === JSON.stringify(s4.map(e => e.name)), `progressive matches safe on (d) (got ${s4p.map(e => e.name)})`)
 
+  // (i) pins Progressive's pitch-class cap (progressiveBoost's
+  // `if (pcs.size > 5) break`) — a six-pitch-class grab, sandwiched the same
+  // way as (e)/(f)/(g): a C13 voicing (C, E, G, Bb, D, A — all within one
+  // octave, MIDI 60-70), struck together as one grab lasting a single beat.
+  // With the cap intact, the 6th pitch class (A) never gets to join the
+  // grab's own chroma, so Progressive can only confirm 5 of the 6 tones and
+  // reads the span as C9 — never the full C13. If the cap were ever removed
+  // or loosened, this would read C13 instead, so this is what would catch
+  // that regression.
+  const capGrab: ParsedNote[] = [
+    n(55, 0, 1.9), n(59, 0, 1.9), n(62, 0, 1.9),                          // G major, 0–2s
+    n(60, 2.0, 0.45), n(64, 2.0, 0.45), n(67, 2.0, 0.45),                 // C13 grab, one beat (2.0–2.5s):
+    n(70, 2.0, 0.45), n(62, 2.0, 0.45), n(69, 2.0, 0.45),                 // C E G Bb D A, struck together
+    n(53, 2.5, 5.3), n(57, 2.5, 5.3), n(60, 2.5, 5.3),                    // F major, 2.5s+
+  ]
+  const sProgCap = buildChordSequence([track(0, capGrab)], null, GRID, { ...OPTS, chordReadingMode: 'progressive' })
+  check(sProgCap.length === 3, `progressive: capped grab recovered as its own event → 3 events (got ${sProgCap.length}: ${sProgCap.map(e => e.name)})`)
+  check(Math.abs((sProgCap[1]?.time ?? -1) - 2.0) < 0.01, `…second event starts at 2.0s (got ${sProgCap[1]?.time})`)
+  check(/^C9(?!\d)/.test(sProgCap[1]?.name ?? ''), `…second event reads as C9, capped below the full C13 ("${sProgCap[1]?.name}")`)
+  check(!/13/.test(sProgCap[1]?.name ?? ''), `…never reads the uncapped C13 ("${sProgCap[1]?.name}")`)
+
   console.log(`chordSequenceBuilder: ${pass} passed, ${fail} failed`)
   console.groupEnd()
   return fail
