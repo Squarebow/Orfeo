@@ -13,7 +13,8 @@ import { t } from '../../utils/i18n'
 import OrfeoMark from '../OrfeoMark'
 import type { NoteNaming, KeyboardSize, Accidentals, TranscriptEntry, LibraryFile, HitEffectPattern, SoundfontId, SoundfontInfo, UpdateStatus, UpdateInfo } from '../../types'
 import type { AppTheme } from '../../store'
-import { initSamplesEngine, loadSelectedSoundfont } from '../../hooks/useSamplesEngine'
+import { initSamplesEngine, loadSelectedSoundfont, getOutputLatencySec as getSamplesOutputLatencySec } from '../../hooks/useSamplesEngine'
+import { getOutputLatencySec as getGmOutputLatencySec } from '../../hooks/useAudioEngine'
 import { MarqueeText } from '../MarqueeText'
 import { detectForeignFormat, resolveAndTrackImport, base64ToBytes, confirmPendingImportBeforeSwitch } from '../../utils/foreignFormatImport'
 import { parseMidiBuffer } from '../../utils/midiParser'
@@ -104,7 +105,7 @@ function SectionHeader({ icon, label }: { icon: React.ReactNode; label: string }
 // Supports two variants:
 //   Standard:   label + children controls + optional hint below
 //   Eye-toggle: name + icon share one flex row; description sits below full-width
-function OptionRow({ label, children, hint, hintCenter, badge, eyeToggle, eyeValue, onEyeChange, description, labelSmall }: {
+function OptionRow({ label, children, hint, hintCenter, badge, eyeToggle, eyeValue, onEyeChange, description, labelSmall, labelRight }: {
   label: string
   children?: React.ReactNode
   hint?: string
@@ -115,6 +116,10 @@ function OptionRow({ label, children, hint, hintCenter, badge, eyeToggle, eyeVal
   onEyeChange?: (val: boolean) => void
   description?: React.ReactNode
   labelSmall?: boolean
+  // ── Small, lower-case annotation pinned to the far right of the label row
+  // (e.g. the Sound engine row's measured output-delay readout) — separate
+  // from `badge`, which sits right next to the label text instead. ───────
+  labelRight?: React.ReactNode
 }) {
   // ── Accessible label association — OptionRow's label/control pairing was
   // DOM-proximity only (a known anti-pattern, flagged in the P2 audit
@@ -182,8 +187,11 @@ function OptionRow({ label, children, hint, hintCenter, badge, eyeToggle, eyeVal
     <div role="group" aria-labelledby={labelId} style={{ padding: '10px 14px', borderBottom: '1px solid var(--border-row)' }}>
       {/* ── Label row — --text-default (bright) to match eye-toggle name hierarchy ── */}
       <div id={labelId} style={{ fontSize: labelSmall ? 9 : 'var(--text-xs)', color: labelSmall ? 'var(--text-muted)' : 'var(--text-default)', marginBottom: 6, fontWeight: labelSmall ? 600 : 500, letterSpacing: labelSmall ? '0.1em' : '0.02em', textTransform: 'uppercase', display: 'flex', alignItems: 'center', gap: 6 }}>
-        {label}
-        {badge}
+        <span style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+          {label}
+          {badge}
+        </span>
+        {labelRight && <span style={{ marginLeft: 'auto' }}>{labelRight}</span>}
       </div>
       {children}
       {/* ── Hint — --text-xs token + --text-dimmest matches description hierarchy ── */}
@@ -2139,6 +2147,29 @@ export default function SettingsPanel() {
   // ── Samples engine loading state ─────────────────────────────────────────
   const [samplesStatus, setSamplesStatus] = useState<'idle' | 'loading' | 'ready' | 'error'>('idle')
   const [samplesProgress, setSamplesProgress] = useState(0)
+  // ── Measured output-device delay — see getOutputLatencySec() in the engine
+  // hooks (already used to keep the chord name / key lights in sync with
+  // what's actually audible). Purely informational here. Re-checked on a
+  // short poll rather than once on mount: whichever engine is active may
+  // still be initializing its AudioContext the first few times this reads
+  // (e.g. Samples right after a soundfont just finished loading), so a
+  // single read on mount can permanently stick at 0. Stops once it sees a
+  // real, non-zero value or five attempts pass — a real system MIDI output
+  // device (GM engine, no software synth) has no AudioContext to measure at
+  // all and will always read 0, so this must give up eventually rather than
+  // polling forever for a value that will never arrive.
+  const [outputLatencySec, setOutputLatencySec] = useState(0)
+  useEffect(() => {
+    let attempts = 0
+    const read = () => (audioEngine === 'samples' ? getSamplesOutputLatencySec() : getGmOutputLatencySec())
+    const id = setInterval(() => {
+      const v = read()
+      setOutputLatencySec(v)
+      attempts++
+      if (v > 0 || attempts >= 5) clearInterval(id)
+    }, 400)
+    return () => clearInterval(id)
+  }, [audioEngine, samplesStatus])
   const [activeTab, setActiveTab] = useState<DrawerTab>('library')
   const didInit = useRef(false)
   // ── Init — ensures panel is open on first mount ───────────────────────────
@@ -2338,7 +2369,19 @@ export default function SettingsPanel() {
                   collapsed={settingsGroupsCollapsed['audio']}
                   onToggle={() => setSettingsGroupCollapsed('audio', !settingsGroupsCollapsed['audio'])}
                 >
-                  <OptionRow label="Sound engine">
+                  <OptionRow
+                    label="Sound engine"
+                    labelRight={audioEngine === 'samples' ? (
+                      <Tooltip
+                        title="The real gap between your sound card being told to play a note and it actually reaching the speakers — every machine answers this differently."
+                        oneLine
+                      >
+                        <span style={{ fontSize: 9, fontFamily: 'var(--font-mono)', fontWeight: 500, color: 'var(--text-muted)', textTransform: 'none', cursor: 'help' }}>
+                          {outputLatencySec === 0 ? 'not measurable for this output' : `output delay ${Math.round(outputLatencySec * 1000)} ms`}
+                        </span>
+                      </Tooltip>
+                    ) : undefined}
+                  >
                     <div style={{ display: 'flex', gap: 'var(--space-1)' }}>
                       {/* ── GM Synth — always available, switches back from Samples instantly ── */}
                       <OptionBtn
