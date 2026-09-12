@@ -45,21 +45,32 @@ export function useChordSequence() {
 
     let scope: ParsedTrack[]
 
+    // Auto's own scope — also Follow's fallback (see below) for whenever it
+    // has nothing real to scope to. Never `nonDrum` there: that silently
+    // pools in the bass line and the melody/lead track as if they were
+    // chord instruments, which is exactly what made Follow mode look like
+    // it was "reading the bass" — found by tracing a real file (Supertramp
+    // - It's Raining Again) where Follow/By Track with no track chosen
+    // produced a displayed sequence that matched, beat for beat, scoping to
+    // every non-drum track including the fretless bass and lead sax.
+    const autoScope = roles.chordTrackIndices.length > 0
+      ? midi.tracks.filter(t => roles.chordTrackIndices.includes(t.index))
+      : nonDrum.filter(t => t.index !== roles.bassTrackIndex)
+
     if (chordTrackingMode === 'auto') {
       // The chord instruments only (piano/keys/guitar/strings) — melody and
       // ornament tracks are excluded.
-      scope = roles.chordTrackIndices.length > 0
-        ? midi.tracks.filter(t => roles.chordTrackIndices.includes(t.index))
-        : nonDrum.filter(t => t.index !== roles.bassTrackIndex)
+      scope = autoScope
     } else if (chordTrackingMode === 'follow') {
       if (chordFollowSubMode === 'group' && chordFollowGroup) {
         const inGroup = nonDrum.filter(t => t.group === chordFollowGroup)
-        scope = inGroup.length > 0 ? inGroup : nonDrum
+        scope = inGroup.length > 0 ? inGroup : autoScope
       } else if (chordFollowSubMode === 'track' && chordFollowTrackIndex !== null) {
         const one = nonDrum.filter(t => t.index === chordFollowTrackIndex)
-        scope = one.length > 0 ? one : nonDrum
+        scope = one.length > 0 ? one : autoScope
       } else {
-        scope = nonDrum
+        // Nothing chosen yet — Auto's scope, not every track in the file.
+        scope = autoScope
       }
     } else {
       // Harmony — Auto's detection over every non-drum track (melody included),
