@@ -53,6 +53,22 @@ export function runChordSequenceBuilderTest(): number {
   check(s4.length === 1, `static triad + walking bass → 1 segment (got ${s4.length}: ${s4.map(e => e.name)})`)
   check(s4[0]?.short === false, '…not flagged short')
 
+  // (e) a clean, fully-struck one-beat Cm7 between two other chords — today's
+  // known gap (docs/Chord Engine Dual-Mode Plan.md): the 7th can never ring
+  // the 2 beats Safe's continuous check requires, so the span reads as a
+  // bare triad, fails the confidence bar, and gets folded into a neighbour.
+  // This pins that CURRENT behaviour as a regression baseline.
+  const gap: ParsedNote[] = [
+    n(55, 0, 1.9), n(59, 0, 1.9), n(62, 0, 1.9),                          // G major, 0–2s
+    n(48, 2.0, 0.45), n(51, 2.0, 0.45), n(55, 2.0, 0.45), n(58, 2.0, 0.45), // Cm7 grab, one beat (2.0–2.5s)
+    n(53, 2.5, 5.3), n(57, 2.5, 5.3), n(60, 2.5, 5.3),                    // F major, 2.5s+
+  ]
+  const sSafe = buildChordSequence([track(0, gap)], null, GRID, OPTS)
+  check(sSafe.length === 2, `safe: one-beat Cm7 gets folded away → 2 events (got ${sSafe.length}: ${sSafe.map(e => e.name)})`)
+  check(/^G/.test(sSafe[0]?.name ?? ''), `…first event is G-something ("${sSafe[0]?.name}")`)
+  check(/^F/.test(sSafe[1]?.name ?? ''), `…second event is F-something ("${sSafe[1]?.name}")`)
+  check(Math.abs((sSafe[1]?.time ?? -1) - 2.0) < 0.01, `…second event absorbs the Cm7 beat, starts at 2.0s (got ${sSafe[1]?.time})`)
+
   console.log(`chordSequenceBuilder: ${pass} passed, ${fail} failed`)
   console.groupEnd()
   return fail

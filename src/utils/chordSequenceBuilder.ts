@@ -570,21 +570,19 @@ export function buildChordSequence(
     return tot > 0 ? { pc: bi, cover: bw / tot } : { pc: -1, cover: 0 }
   }
 
-  // ── 4. name every span ───────────────────────────────────────────────
-  interface Span { s: number; e: number; named: Named; slashPc: number }
-  const spans: Span[] = []
-  for (let i = 0; i < spanEdges.length - 1; i++) {
-    const s = spanEdges[i], e = spanEdges[i + 1]
-    if (e <= s) continue
-    const sb = steadyBassOver(s, e)
-    const lowPc = lowestPcOver(s, e)
-    // structural pcs = the notes a colour name (maj7 / 9 / 6 …) is allowed to
-    // be built from. A tone qualifies only if it is held through most of the
-    // span AND was either (a) struck as part of a real chord grab — an onset
-    // beat with ≥ 3 notes hitting together — or (b) held almost the entire
-    // span, i.e. a genuine pad tone. This stops an arpeggio that merely sweeps
-    // past the 9th, or a sustain-pedal tail, from turning a triad into a 9th,
-    // while still catching a voiced 7th even when it's comped short.
+  // structural pcs = the notes a colour name (maj7 / 9 / 6 …) is allowed to
+  // be built from — see the long-form comment this replaced, still true:
+  // a tone qualifies only if it is held through most of the span AND was
+  // either (a) struck as part of a real chord grab — an onset beat with
+  // ≥ 3 notes hitting together — or (b) held almost the entire span, i.e.
+  // a genuine pad tone. NOTE: a span shorter than 2 beats can never clear
+  // the `held >= 2` bar below, however solidly a tone was struck — see
+  // docs/Chord Engine Dual-Mode Plan.md for the real-file case this misses
+  // and why two earlier relaxations of this exact rule were both reverted
+  // (regressed the full regression audit). Progressive mode (chordSequenceBuilder's
+  // `chordReadingMode` option) covers that gap with a separate, discrete
+  // check instead of relaxing this one.
+  function structuralMaskOver(s: number, e: number): number {
     const need = Math.max(2, Math.ceil((e - s) * 0.6))
     const needHigh = Math.max(2, Math.ceil((e - s) * 0.85))
     let structural = 0
@@ -597,8 +595,20 @@ export function buildChordSequence(
       }
       if (held >= need && (struckInStack || held >= needHigh)) structural |= 1 << p
     }
-    const named = nameSpan(chromaOver(s, e), sb.cover >= SLASH_MIN_COVER ? sb.pc : -1, lowPc, structural)
-      ?? nameSpan(chromaOver(s, e, false), sb.cover >= SLASH_MIN_COVER ? sb.pc : -1, lowPc, structural)
+    return structural
+  }
+
+  // ── 4. name every span ───────────────────────────────────────────────
+  interface Span { s: number; e: number; named: Named; slashPc: number }
+  const spans: Span[] = []
+  for (let i = 0; i < spanEdges.length - 1; i++) {
+    const s = spanEdges[i], e = spanEdges[i + 1]
+    if (e <= s) continue
+    const sb = steadyBassOver(s, e)
+    const lowPc = lowestPcOver(s, e)
+    const structuralSafe = structuralMaskOver(s, e)
+    const named = nameSpan(chromaOver(s, e), sb.cover >= SLASH_MIN_COVER ? sb.pc : -1, lowPc, structuralSafe)
+      ?? nameSpan(chromaOver(s, e, false), sb.cover >= SLASH_MIN_COVER ? sb.pc : -1, lowPc, structuralSafe)
     if (!named) continue
     const slashPc =
       sb.pc >= 0 && sb.cover >= SLASH_MIN_COVER && sb.pc !== named.root && named.pcs.has(sb.pc)
