@@ -410,6 +410,7 @@ export function buildChordSequence(
 
   const isBoundary: boolean[] = new Array(NB).fill(false)
   isBoundary[0] = true
+  const boundaryTime = new Map<number, number>()
   let spanChroma = new Float64Array(12)
   let spanRoot: number | null = null
   let pending: Stack[] = []
@@ -496,7 +497,7 @@ export function buildChordSequence(
         // the credit only ever decides WHETHER to commit, never what the
         // span is actually named; the real name comes from the downstream
         // naming pass reading the real notes in the resulting span.
-        isBoundary[beatOfTime(pending[0].time)] = true
+        { const w = beatOfTime(pending[0].time); isBoundary[w] = true; boundaryTime.set(w, pending[0].time) }
         spanChroma = new Float64Array(pendingChroma)
         spanRoot = pendingBest.root
       } else {
@@ -703,15 +704,61 @@ export function buildChordSequence(
     const name = localizeChord(label, opts.noteNaming, opts.accidentals, opts.namingStyle) ?? label
     const t = beatStart(sp.s)
     const durSec = beatStart(sp.e) - t
-    // displayTime = when the chord is actually HEARD: the first real note
-    // onset inside the span (never before the span's opening beat). A beat-
-    // line time made the name flash up to a beat early on any struck-late or
-    // syncopated chord. Falls back to the beat line only if the span opens on
-    // pure sustain (a crossfade boundary, no fresh strike).
+    // displayTime = when the chord is actually HEARD, found in three steps,
+    // each one correcting a specific way a listener would say "no, it
+    // wasn't there yet" about the previous step's answer:
+    //
+    // 1. Start from the EXACT note-time the segmentation walk above already
+    //    confirmed this span's own boundary at (`boundaryTime`) — real
+    //    evidence, precise to the note, not a beat-quantized guess. Falls
+    //    back to "earliest onset in the opening beat" only for the one span
+    //    this can't cover (the piece's very first span, which isn't a
+    //    "confirmed boundary" in this sense) or a span whose opening is
+    //    pure sustain (no fresh strike to anchor to at all).
+    // 2. That anchor can still be a single passing/bridging note that isn't
+    //    really "this chord" — e.g. the one note that broke the OLD chord's
+    //    explanation and started the segmentation walk questioning it,
+    //    without itself being part of THIS chord's own sound. Require ≥2 of
+    //    this span's own tones struck together at the anchor; if that's not
+    //    met, search forward — bounded to 1.5 beats, so a long sustained
+    //    span can't wander onto some unrelated later coincidence — for the
+    //    first moment that IS ≥2 of this chord's tones together.
+    //
+    // Both steps matter: on Grace Jones - La Vie En Rose, step 1 alone
+    // fixed a G chord whose real strike (34.663s) was displaying 663ms
+    // early because a brief D/F# pickup dies out in the same beat the G
+    // span starts on. On Bruce Hornsby - The Way It Is, that same pickup
+    // shape wasn't the issue — instead a single passing note (itself a
+    // legitimate tone of the incoming chord, just not struck together with
+    // the rest of it) was step 1's own answer; step 2 catches that case by
+    // waiting for the chord's tones to actually arrive together.
     let displayTime = t
     let foundOnset = false
-    for (let w = sp.s; w < sp.e; w++) {
+    const confirmedAt = boundaryTime.get(sp.s)
+    if (confirmedAt !== undefined) { displayTime = Math.max(t, confirmedAt); foundOnset = true }
+    if (!foundOnset) for (let w = sp.s; w < sp.e; w++) {
       if (Number.isFinite(beatOnset[w])) { displayTime = Math.max(t, beatOnset[w]); foundOnset = true; break }
+    }
+    if (foundOnset) {
+      const spanPcs = sp.named.pcs
+      const needed = Math.min(2, spanPcs.size)
+      let anchorPcs = 0
+      for (const n of tagged) {
+        if (n.melodic || n.time < displayTime || n.time - displayTime > MELODY_STACK_WIN) continue
+        if (spanPcs.has(n.pc)) anchorPcs++
+      }
+      if (anchorPcs < needed) {
+        const searchEnd = Math.min(beatEnd(sp.e - 1), t + beatLen * 1.5)
+        const inSpan = tagged
+          .filter(n => !n.melodic && spanPcs.has(n.pc) && n.time >= displayTime && n.time < searchEnd)
+          .sort((a, b) => a.time - b.time)
+        for (let i = 0; i < inSpan.length; i++) {
+          const stackStart = inSpan[i].time
+          const stackPcs = new Set<number>()
+          for (let j = i; j < inSpan.length && inSpan[j].time - stackStart <= MELODY_STACK_WIN; j++) stackPcs.add(inSpan[j].pc)
+          if (stackPcs.size >= needed) { displayTime = stackStart; break }
+        }
+      }
     }
     if (!foundOnset) {
       // No accompaniment onset anywhere in the span — it was named entirely
