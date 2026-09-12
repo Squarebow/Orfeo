@@ -278,9 +278,16 @@ function buildPlayer(startSec: number) {
       clearAllKeys()
     }
     player.speed(ratio)
-    applyMasterVolume(useStore.getState().masterVolume)
     player.play()
+    // Seeking while "playing" (jumpMS below) makes the SMF player run its own
+    // sndOff(), which sends MIDI "Reset All Controllers" on every channel —
+    // the software synth recomputes each channel's gain from its own internal
+    // state when it receives that, wiping out whatever volume we send before
+    // the jump. Applying our volume AFTER play()/jumpMS() makes it the last
+    // word regardless — this is what was making resume (and any seek while
+    // playing) land much quieter than a fresh start, which never jumps.
     if (startSec > 0.1) player.jumpMS(Math.floor(startSec * 1000))
+    applyMasterVolume(useStore.getState().masterVolume)
     _player = player
     setTimeout(() => { ;(window as any).__orfeoPlayer = player }, 50)
 
