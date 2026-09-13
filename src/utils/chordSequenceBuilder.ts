@@ -611,13 +611,23 @@ export function buildChordSequence(
   // trust it immediately if some actual grab of notes — a stack struck
   // together, or a short run of nearby onsets — by itself already spells
   // out a chord matching the span's own root (never a different one),
-  // compact enough in register (≤ 1 octave, raw semitones) and small enough
+  // compact enough in register (≤ 1 octave, raw semitones), close enough in
+  // TIME (within one beat of the window's own first note — using `beatLen`,
+  // already in scope, not a new constant to calibrate) and small enough
   // (3-5 distinct pitch classes) to be a deliberate grab rather than
   // incidental texture. Bounded to the span's own real onset-through-end
-  // range — reuses evidence the boundary walk already produced instead of a
-  // new time constant to calibrate. Only ever ADDS pitch classes on top of
-  // the safe structural mask: Progressive can extend Safe's own root/triad,
-  // never contradict it.
+  // range — reuses evidence the boundary walk already produced. Only ever
+  // ADDS pitch classes on top of the safe structural mask: Progressive can
+  // extend Safe's own root/triad, never contradict it.
+  //
+  // The time bound also caps the cost of this search: without it, a long,
+  // dense, within-one-octave span (e.g. a busy comping part) makes both
+  // loops below run for the span's ENTIRE note count with no early exit,
+  // O(n^2) in notes-per-span — measured on the real MIDI library at up to
+  // ~89x slower than Safe on specific songs (one file: 216ms -> 14.1s).
+  // Bounding by time (a real grab is always a tight cluster) collapses this
+  // back down for realistic playing, since only a small run of consecutive
+  // notes ever falls inside one beat of any given starting note.
   function progressiveBoost(s: number, e: number, safeRoot: number, safePcs: Set<number>): number {
     const spanStart = boundaryTime.get(s) ?? beatStart(s)
     const spanEnd = beatEnd(e - 1)
@@ -629,6 +639,7 @@ export function buildChordSequence(
       const chroma = new Float64Array(12)
       chroma[inSpan[i].pc] += (inSpan[i].end - inSpan[i].time) * inSpan[i].weight
       for (let j = i + 1; j < inSpan.length; j++) {
+        if (inSpan[j].time - inSpan[i].time > beatLen) break
         const nlo = Math.min(lo, inSpan[j].midi), nhi = Math.max(hi, inSpan[j].midi)
         if (nhi - nlo > 12) break
         lo = nlo; hi = nhi
