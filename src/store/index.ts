@@ -88,9 +88,8 @@ interface OrfeoStore {
   chordSensitivity: number
   /** 'safe' (default, unchanged engine) vs 'progressive' (opt-in, trusts a
    *  real chord grab to show brief extensions Safe is too conservative to
-   *  show). Dev-only for now — no Settings UI control yet, not persisted;
-   *  set via devtools console: useStore.getState().setChordReadingMode('progressive').
-   *  See docs/Chord Engine Dual-Mode Plan.md. */
+   *  show). Settings › Notation & Chords › "Chord reading". See
+   *  docs/Chord Engine Dual-Mode Plan.md. */
   chordReadingMode: ChordReadingMode
   // ── How the Chord / Scale Explorer voice the chords of a progression when
   // auditioning it — shared by both explorers, see utils/voiceLeading.ts. ──
@@ -1003,6 +1002,7 @@ async function restoreLibraryPrefs() {
     if (typeof prefs.chordFollowGroup === 'string' || prefs.chordFollowGroup === null) store.setChordFollowGroup(prefs.chordFollowGroup)
     if (prefs.chordNamingStyle === 'abbreviation' || prefs.chordNamingStyle === 'symbol') store.setChordNamingStyle(prefs.chordNamingStyle)
     if (typeof prefs.chordSensitivity === 'number') store.setChordSensitivity(prefs.chordSensitivity)
+    if (prefs.chordReadingMode === 'safe' || prefs.chordReadingMode === 'progressive') store.setChordReadingMode(prefs.chordReadingMode)
     if (prefs.progressionVoicing === 'roots' || prefs.progressionVoicing === 'climbing' || prefs.progressionVoicing === 'smooth') store.setProgressionVoicing(prefs.progressionVoicing)
     if (typeof prefs.masterVolume === 'number') store.setMasterVolume(prefs.masterVolume)
     if (typeof prefs.masterCompEnabled === 'boolean') store.setMasterCompEnabled(prefs.masterCompEnabled)
@@ -1123,6 +1123,7 @@ let _prevChordFollowSubMode: string | null = null
 let _prevChordFollowGroup: string | null | undefined = undefined
 let _prevChordNamingStyle: string | null = null
 let _prevChordSensitivity: number | null = null
+let _prevChordReadingMode: string | null = null
 let _prevProgressionVoicing: string | null = null
 const _unsubPrefs = useStore.subscribe((state) => {
   // Skip the very first fire (app init) — restore handles loading saved values
@@ -1175,6 +1176,7 @@ const _unsubPrefs = useStore.subscribe((state) => {
     _prevChordFollowGroup = state.chordFollowGroup
     _prevChordNamingStyle = state.chordNamingStyle
     _prevChordSensitivity = state.chordSensitivity
+    _prevChordReadingMode = state.chordReadingMode
     _prevProgressionVoicing = state.progressionVoicing
     return
   }
@@ -1227,6 +1229,7 @@ const _unsubPrefs = useStore.subscribe((state) => {
     state.chordFollowGroup !== _prevChordFollowGroup ||
     state.chordNamingStyle !== _prevChordNamingStyle ||
     state.chordSensitivity !== _prevChordSensitivity ||
+    state.chordReadingMode !== _prevChordReadingMode ||
     state.progressionVoicing !== _prevProgressionVoicing
   ) {
     _prevNoteNaming = state.noteNaming
@@ -1277,6 +1280,7 @@ const _unsubPrefs = useStore.subscribe((state) => {
     _prevChordFollowGroup = state.chordFollowGroup
     _prevChordNamingStyle = state.chordNamingStyle
     _prevChordSensitivity = state.chordSensitivity
+    _prevChordReadingMode = state.chordReadingMode
     _prevProgressionVoicing = state.progressionVoicing
     window.electronAPI?.setPrefs?.({
       noteNaming: state.noteNaming,
@@ -1327,6 +1331,7 @@ const _unsubPrefs = useStore.subscribe((state) => {
       chordFollowGroup: state.chordFollowGroup,
       chordNamingStyle: state.chordNamingStyle,
       chordSensitivity: state.chordSensitivity,
+      chordReadingMode: state.chordReadingMode,
       progressionVoicing: state.progressionVoicing,
     }).catch(() => {})
   }

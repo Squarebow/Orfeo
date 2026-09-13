@@ -2075,6 +2075,8 @@ export default function SettingsPanel() {
   const setChordNamingStyle = useStore((s) => s.setChordNamingStyle)
   const chordSensitivity = useStore((s) => s.chordSensitivity)
   const setChordSensitivity = useStore((s) => s.setChordSensitivity)
+  const chordReadingMode = useStore((s) => s.chordReadingMode)
+  const setChordReadingMode = useStore((s) => s.setChordReadingMode)
   const chordTracks = useStore((s) => s.tracks)
   const keyboardSize = useStore((s) => s.keyboardSize)
   const setKeyboardSize = useStore((s) => s.setKeyboardSize)
@@ -2942,6 +2944,26 @@ export default function SettingsPanel() {
                     </div>
                     <div style={{ fontSize: 'var(--text-xs)', color: 'var(--text-inactive)', lineHeight: 1.5, fontFamily: 'var(--font-ui)', marginTop: 6, fontStyle: 'italic' }}>
                       {t`Off while the chord-reading algorithm itself is still being tuned — reads at a fixed level until that's settled.`}
+                    </div>
+                  </OptionRow>
+
+                  {/* ── Chord reading — Safe (default, unchanged) vs Progressive
+                      (opt-in, also trusts a real grab — 3-5 notes struck
+                      together or rolled within about an octave — to show a
+                      brief chord's extra note even when it doesn't ring long
+                      enough for Safe's own check to trust it). See
+                      docs/Chord Engine Dual-Mode Plan.md (gitignored). ────── */}
+                  <OptionRow label={t`Chord reading`}>
+                    <div style={{ fontSize: 'var(--text-xs)', color: 'var(--text-faint)', lineHeight: 1.5, fontFamily: 'var(--font-ui)', marginBottom: 6, fontStyle: 'italic' }}>
+                      {t`How much detail the detector is willing to show from a brief chord.`}
+                    </div>
+                    <div style={{ display: 'flex', gap: 'var(--space-1)' }}>
+                      <OptionBtn active={chordReadingMode === 'safe'} onClick={() => setChordReadingMode('safe')}>{t`Safe`}</OptionBtn>
+                      <OptionBtn active={chordReadingMode === 'progressive'} onClick={() => setChordReadingMode('progressive')}>{t`Progressive`}</OptionBtn>
+                    </div>
+                    <div style={{ marginTop: 6, fontSize: 10, color: 'var(--text-inactive)', fontFamily: 'var(--font-mono)', lineHeight: 1.5 }}>
+                      {chordReadingMode === 'safe' && t`Only names a chord's extra notes (like a 7th) once they've rung long enough to be sure. The default.`}
+                      {chordReadingMode === 'progressive' && t`Also trusts a clean, real grab — several notes struck together, or rolled quickly — to show that extra note right away, even if it's brief. On a few busy songs, switching to this can take a couple of seconds to catch up.`}
                     </div>
                   </OptionRow>
 
