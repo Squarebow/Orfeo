@@ -114,7 +114,7 @@
     "jzz-midi-smf": "^1.9.9",
     "jzz-synth-tiny": "^1.4.4",
     "midi-file": "^1.2.4",
-    "pdfkit": "^0.19.1",
+    "pdfkit": "^0.20.2",
     "pixi-filters": "^6.1.5",
     "pixi.js": "^8.0.0",
     "soundfont-player": "^0.12.0",
