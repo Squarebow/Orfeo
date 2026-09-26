@@ -157,6 +157,60 @@ const _keyTimers = new Map<number, ReturnType<typeof setTimeout>>()
 // ── setTimeout handles for the note schedule ──────────────────────────────────
 const _schedule: ReturnType<typeof setTimeout>[] = []
 
+// ── Rolling lookahead scheduling ──────────────────────────────────────────
+// How far ahead (real seconds) buildSamplesPlayer keeps scheduled at any
+// moment, and how often it tops that back up. Previously the whole REST OF
+// THE SONG was scheduled in one synchronous burst at playback start — for a
+// real file that's tens of thousands of individual timers (one each for
+// every note-on, note-off, and key light) all in flight at once. Harmless
+// while they're spread out over the song, but whenever the music itself
+// puts a lot of them due at nearly the same instant — a full section
+// landing together, a rich chord — the browser has to fire that whole
+// cluster one at a time on its one JS thread, which is exactly the
+// "stutters every bar or so" bug this fixes (confirmed live: 20,000+ timers
+// armed at once on a real file, 141 clusters of 8-11 simultaneous fires in
+// under a minute of playback). Keeping only a couple of seconds scheduled
+// at a time bounds how large that cluster can ever get, independent of how
+// the song is written or how long it is — the standard "don't schedule the
+// whole timeline up front" pattern for real-time audio/MIDI playback.
+const LOOKAHEAD_SEC = 1.5
+const REFILL_MS = 400
+
+let _refillTimer: ReturnType<typeof setInterval> | null = null
+// ── Frozen at the start of each scheduling run (playback start/resume/seek,
+// or a live rebuild on bpm/transpose/mute/solo/visibility change) and reused
+// by every refill tick until the next one — matches the original one-shot
+// scheduler's behaviour exactly: a live per-track setting doesn't retroactively
+// change notes already scheduled, only the next rebuild does. ────────────────
+let _epochTracks: ReturnType<typeof useStore.getState>['tracks'] = []
+let _epochMidiData: any = null
+let _epochRatio = 1
+let _epochTranspose = 0
+let _epochHitEffectScope: ReturnType<typeof useStore.getState>['hitEffectScope'] = 'keyboard'
+let _epochHasSolo = false
+let _epochPerformanceMode = false
+let _epochShowHandLabels = false
+let _epochStartPerf = 0     // performance.now() when this scheduling run began
+let _epochStartFileSec = 0  // file-native seconds at that same moment
+// trackIndex -> next index into that track's notes/sustainEvents to consider.
+// Both arrays are already time-ordered (parsed straight off the MIDI file),
+// so a forward-only cursor per track is enough — no re-scanning already-
+// scheduled notes on every refill.
+const _noteCursor = new Map<number, number>()
+const _sustainCursor = new Map<number, number>()
+// trackIndex -> isHomogeneousHandTrack(track.notes), computed once per rebuild
+// rather than on every refill tick — the result can't change mid-run since
+// _epochMidiData itself is frozen for the run.
+const _homogeneousCache = new Map<number, boolean>()
+
+// ── Current playback position in file-native seconds, computed the same way
+// usePlayback.ts's own fallback clock does (elapsed real time × tempo ratio)
+// — self-contained here rather than reading the store's `currentTime` so
+// refill precision isn't tied to that hook's once-per-frame update cadence. ──
+function nowFileSec(): number {
+  return _epochStartFileSec + ((performance.now() - _epochStartPerf) / 1000) * _epochRatio
+}
+
 // ── Light a single piano key for durMs then extinguish ───────────────────────
 function lightKey(midiNum: number, color: string, durMs: number) {
   const existing = _keyTimers.get(midiNum)
@@ -197,6 +251,7 @@ function resetSustainPedals() {
 function clearSchedule() {
   _schedule.forEach(t => clearTimeout(t))
   _schedule.length = 0
+  if (_refillTimer) { clearInterval(_refillTimer); _refillTimer = null }
   try { _synth?.stopAll(true) } catch {}
   resetSustainPedals()
 }
@@ -395,9 +450,15 @@ export async function loadSelectedSoundfont(id: string): Promise<void> {
   _activeExtraBankId = id
 }
 
-// ── Schedule all MIDI notes from store for playback starting at startSec ──────
+// ── Start a rolling scheduling run for playback beginning at startSec ────────
 // usePlayback.ts handles currentTime tracking and end-of-song detection —
-// this function only handles note-on/off scheduling and key lighting.
+// this only handles note-on/off scheduling and key lighting. Does the cheap,
+// track-count-proportional setup (program changes, pedal-already-down replay,
+// per-track cursors) up front, schedules the first LOOKAHEAD_SEC window
+// immediately, then leaves refillSchedule() running on a timer to keep
+// topping that window up for as long as this playback run lasts — see the
+// rolling-lookahead comment above _refillTimer for why, instead of scheduling
+// every note in the file in one go here.
 function buildSamplesPlayer(startSec: number) {
   if (!_synthReady || !_synth) return
   clearSchedule(); clearAllKeys()
@@ -407,51 +468,93 @@ function buildSamplesPlayer(startSec: number) {
   const midiData = activeMidiData()
   if (!midiData) return
 
-  const transpose = detectedKey?.transpose ?? 0
-  const ratio = bpm / originalBpm
-  const hasSolo = tracks.some(t => t.solo)
-  const performanceMode = handLabelMode === 'performance'
+  _epochTracks = tracks
+  _epochMidiData = midiData
+  _epochTranspose = detectedKey?.transpose ?? 0
+  _epochRatio = bpm / originalBpm
+  _epochHasSolo = tracks.some(t => t.solo)
+  _epochPerformanceMode = handLabelMode === 'performance'
   // Note Editor's own Hand toggle governs key-light coloring while editing —
   // same split as the piano roll, see useAudioEngine.ts's identical fix.
-  const effectiveShowHandLabels = showHandLabels || (noteEditorActive && NES.reassignHandsMode)
+  _epochShowHandLabels = showHandLabels || (noteEditorActive && NES.reassignHandsMode)
+  _epochHitEffectScope = hitEffectScope
+  _epochStartPerf = performance.now()
+  _epochStartFileSec = startSec
 
-  // Send programChange for each active track — also marks channels as initialized
-  // so edit-mode lazy init doesn't redundantly override them.
+  // Program changes, and each track's starting cursor position — cheap,
+  // proportional to track count rather than note count, so still fine to do
+  // for the whole file up front (this was never the source of the freeze).
   _samplesChanInit.clear()
+  _noteCursor.clear()
+  _sustainCursor.clear()
+  _homogeneousCache.clear()
   for (const track of midiData.tracks) {
     const ts = tracks.find(t => t.index === track.index)
-    if (!ts || ts.muted || (hasSolo && !ts.solo)) continue
+    if (!ts || ts.muted || (_epochHasSolo && !ts.solo)) continue
+    _homogeneousCache.set(track.index, isHomogeneousHandTrack(track.notes))
     if (!track.isDrum) {
       try { _synth.programChange(track.channel, ts.program) } catch {}
       _samplesChanInit.add(track.channel)
     }
+
+    // ── note.time and startSec are both in the file's OWN timeline (real
+    // seconds at the file's original tempo) — find the first note at or
+    // after startSec directly on that shared timeline, same fix as before
+    // (see git history for the tempo/scrub desync this line once caused). ──
+    let startIdx = track.notes.findIndex((n: any) => n.time >= startSec)
+    if (startIdx === -1) startIdx = track.notes.length
+    _noteCursor.set(track.index, startIdx)
+
+    // ── Sustain pedal (CC64) — if playback starts under a held pedal, set it
+    // down now so the passage isn't dry. clearSchedule() already reset every
+    // channel to 0. ─────────────────────────────────────────────────────────
+    const sustain = track.sustainEvents
+    if (sustain && sustain.length > 0) {
+      let downAtStart = false
+      let sIdx = 0
+      for (; sIdx < sustain.length; sIdx++) {
+        if (sustain[sIdx].time < startSec) { downAtStart = sustain[sIdx].down; continue }
+        break
+      }
+      _sustainCursor.set(track.index, sIdx)
+      if (downAtStart) {
+        try { ;(_synth as any).controllerChange(track.channel, 64, 127) } catch {}
+      }
+    } else {
+      _sustainCursor.set(track.index, 0)
+    }
   }
 
-  // Schedule noteOn / noteOff / key lights via setTimeout
-  for (const track of midiData.tracks) {
-    const ts = tracks.find(t => t.index === track.index)
-    if (!ts || ts.muted || (hasSolo && !ts.solo)) continue
+  refillSchedule()
+  _refillTimer = setInterval(refillSchedule, REFILL_MS)
+}
+
+// ── Top up the note/pedal schedule out to LOOKAHEAD_SEC ahead of "now" ───────
+// Called once immediately when a scheduling run starts, then on its own
+// timer for as long as that run lasts. Each call only schedules whatever
+// newly falls inside the window — the per-track cursors mean already-
+// scheduled notes are never revisited, so steady-state cost is proportional
+// to how much of the song plays in one REFILL_MS tick, not to the song's
+// total length or note count.
+function refillSchedule() {
+  if (!_synth || !_epochMidiData) return
+  const targetFileSec = nowFileSec() + LOOKAHEAD_SEC * _epochRatio
+
+  for (const track of _epochMidiData.tracks) {
+    const ts = _epochTracks.find(t => t.index === track.index)
+    if (!ts || ts.muted || (_epochHasSolo && !ts.solo)) continue
     const defaultColor = ts.color ?? amberHex()
-    const homogeneousTrack = isHomogeneousHandTrack(track.notes)
+    const homogeneousTrack = _homogeneousCache.get(track.index) ?? false
     const ch = track.channel
 
-    for (const note of track.notes) {
-      // ── note.time and startSec are both in the file's OWN timeline (real
-      // seconds at the file's original tempo) — compare them directly, THEN
-      // convert the gap to real wall-clock delay by dividing by ratio. The
-      // previous version scaled note.time by 1/ratio first and only THEN
-      // subtracted the un-scaled startSec — comparing a tempo-scaled value
-      // against a native one. That's only correct when startSec is 0 (why
-      // this only ever showed up after scrubbing away from the very start,
-      // and why rewinding to 0 always "fixed" it): at any other scrub
-      // position and any tempo other than the file's own, it filtered the
-      // wrong notes in/out and scheduled real audio at the wrong delay —
-      // the further from 0 and the more the tempo differs, the worse. ─────
-      if (note.time < startSec) continue
-      const delay = (note.time - startSec) / ratio * 1000
-      const durMs = Math.max(note.duration / ratio * 1000, 40)
-      const midiNum = note.midi + transpose
-      const color = resolveHandAwareColor(note, defaultColor, { homogeneousTrack, showHandLabels: effectiveShowHandLabels, performanceMode })
+    let cursor = _noteCursor.get(track.index) ?? track.notes.length
+    while (cursor < track.notes.length && track.notes[cursor].time < targetFileSec) {
+      const note = track.notes[cursor]
+      cursor++
+      const delay = Math.max(0, (note.time - nowFileSec()) / _epochRatio * 1000)
+      const durMs = Math.max(note.duration / _epochRatio * 1000, 40)
+      const midiNum = note.midi + _epochTranspose
+      const color = resolveHandAwareColor(note, defaultColor, { homogeneousTrack, showHandLabels: _epochShowHandLabels, performanceMode: _epochPerformanceMode })
 
       const t = setTimeout(() => {
         if (!_synth) return
@@ -469,40 +572,33 @@ function buildSamplesPlayer(startSec: number) {
       // note-on above, delayed by the audio device's own output latency —
       // the gap between "told the sound card to play this" and the sound
       // actually reaching the speakers (AudioContext.outputLatency, real and
-      // measured, was previously uncompensated). Without this, the keyboard
-      // lights and the chord name (see getAudioOutputLatencySec() in
-      // Keyboard.tsx) visibly lead what you actually hear by however much
-      // the output device buffers — small on a fast machine, easily audible
-      // as "early" on a loaded/slower one. "Lit on keyboard" only actually
-      // lights the keyboard while the track is also visible on the piano
-      // roll — a track hidden from the roll but still flagged "Lit on
-      // keyboard" used to keep lighting the keyboard in its own color with
-      // nothing on screen to explain why. "all tracks" hit-effect scope
-      // likewise still requires visibility. ─────────────────────────────
+      // measured). Without this, the keyboard lights and the chord name (see
+      // getAudioOutputLatencySec() in Keyboard.tsx) visibly lead what you
+      // actually hear by however much the output device buffers. "Lit on
+      // keyboard" only actually lights the keyboard while the track is also
+      // visible on the piano roll; "all tracks" hit-effect scope likewise
+      // still requires visibility. ─────────────────────────────────────────
       const vt = setTimeout(() => {
         if (ts.showOnKeyboard && ts.visible) lightKey(midiNum, color, Math.min(durMs + 30, 2500))
-        else if (hitEffectScope === 'all' && ts.visible) pushHitEffect(midiNum, color)
+        else if (_epochHitEffectScope === 'all' && ts.visible) pushHitEffect(midiNum, color)
       }, delay + getOutputLatencySec() * 1000)
       _schedule.push(vt)
     }
+    _noteCursor.set(track.index, cursor)
 
-    // ── Sustain pedal (CC64) — replay this channel's pedal transitions. If
-    // playback starts under a held pedal, set it down now so the passage
-    // isn't dry. clearSchedule() already reset every channel to 0. ──────────
     const sustain = track.sustainEvents
     if (sustain && sustain.length > 0) {
-      let downAtStart = false
-      for (const ev of sustain) {
-        // Same fix as the note loop above — compare native times, scale the gap.
-        if (ev.time < startSec) { downAtStart = ev.down; continue }
+      let sCursor = _sustainCursor.get(track.index) ?? sustain.length
+      while (sCursor < sustain.length && sustain[sCursor].time < targetFileSec) {
+        const ev = sustain[sCursor]
+        sCursor++
+        const delay = Math.max(0, (ev.time - nowFileSec()) / _epochRatio * 1000)
         const pedT = setTimeout(() => {
           try { ;(_synth as any)?.controllerChange(ch, 64, ev.down ? 127 : 0) } catch {}
-        }, (ev.time - startSec) / ratio * 1000)
+        }, delay)
         _schedule.push(pedT)
       }
-      if (downAtStart) {
-        try { ;(_synth as any).controllerChange(ch, 64, 127) } catch {}
-      }
+      _sustainCursor.set(track.index, sCursor)
     }
   }
 }
