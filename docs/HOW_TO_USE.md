@@ -52,6 +52,7 @@ for example `how-to-use/edit-split-hands.gif`.
 
 ## Contents
 
+- [System requirements](#system-requirements)
 - [Quick start](#quick-start)
 - [Playing MIDI files](#playing-midi-files)
   - [Load a file](#load-a-file)
@@ -82,6 +83,17 @@ for example `how-to-use/edit-split-hands.gif`.
 - [Settings & Extras](#settings--extras)
 - [Keyboard shortcuts](#keyboard-shortcuts)
 - [Coming next](#coming-next)
+
+---
+
+## System requirements
+
+Windows 10 or 11 (64-bit). A computer from 2015 or newer with a quad-core
+processor and 8GB of RAM is recommended for smooth playback, especially with
+dense, multi-instrument songs. Any built-in graphics card from the last
+decade is fine — just make sure your graphics drivers are up to date, as
+outdated drivers can cause visual stutter. Less than 500MB of storage space
+is needed.
 
 ---
 
