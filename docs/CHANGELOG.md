@@ -1,5 +1,19 @@
 # Changelog
 
+## [Unreleased]
+
+### Fixed
+- **Audio and the piano roll could stutter or briefly pause during playback in the development build** (`npm run dev`), especially on busy songs — never an issue in the packaged release. Every note for the rest of the song was queued up the instant playback started; the polished, packaged build breezes through that instantly, but the unoptimized development build could visibly and audibly catch up whenever the music bunched up a lot of notes at once. Playback now only keeps the next second and a half queued at a time, continuously topped up as the song plays, so there's never more than a small amount of work to do at once, no matter how dense or long the song is.
+
+### Updated
+- Electron 42.8.1 → 42.11.8
+- React / React DOM 19.2.8 → 19.3.0
+- Zustand 5.0.14 → 5.0.15
+- Pixi.js 8.19.0 → 8.21.0
+- spessasynth_lib 4.3.13 → 4.3.14
+- lucide-react 1.31.0 → 1.48.0
+- pdfkit 0.19.1 → 0.20.2
+
 ## [1.1.0] — 13. 9. 2026 — Progressive chord reading, chord display timing fix, playback volume fix
 
 ### Fixed
