@@ -13,6 +13,7 @@ import OrfeoMark from './OrfeoMark'
 import Tooltip from './Tooltip'
 import { getPianoRollCenterX, getKeyboardHeaderTop } from '../utils/modalAnchors'
 import { useAnchorBottomOnResize } from '../hooks/useAnchorBottomOnResize'
+import { useClampPositionOnZoom } from '../hooks/useClampPositionOnZoom'
 import { modalCloseButtonStyle, modalCloseButtonHoverColor, modalCloseButtonIdleColor } from '../utils/modalCloseButtonStyle'
 import { buildChordMidi, formatChordSuffix } from '../utils/chordDetection'
 import {
@@ -198,6 +199,7 @@ export default function ChordExplorer() {
   const panelRef = useRef<HTMLDivElement>(null)
   useAnchorBottomOnResize(panelRef, setPos, chordExplorerOpen && !chordExplorerMinimized, 44)
   useFocusTrap(panelRef, chordExplorerOpen && !chordExplorerMinimized)
+  useClampPositionOnZoom(pos, setPos, panelRef)
   const [selectedRoot, setSelectedRoot] = useState(0)
   const [tier, setTier] = useState<'common' | 'extended' | 'power'>('common')
   const [selectedPowerRoot, setSelectedPowerRoot] = useState<number | null>(null)

@@ -12,6 +12,7 @@ import ChevronPlayIcon from './ChevronPlayIcon'
 import { useFocusTrap } from '../hooks/useFocusTrap'
 import { getPianoRollCenterX, getKeyboardHeaderTop } from '../utils/modalAnchors'
 import { useAnchorBottomOnResize } from '../hooks/useAnchorBottomOnResize'
+import { useClampPositionOnZoom } from '../hooks/useClampPositionOnZoom'
 import { modalCloseButtonStyle, modalCloseButtonHoverColor, modalCloseButtonIdleColor } from '../utils/modalCloseButtonStyle'
 import Tooltip from './Tooltip'
 import {
@@ -309,6 +310,7 @@ export default function ScaleExplorer() {
   const panelRef = useRef<HTMLDivElement>(null)
   useAnchorBottomOnResize(panelRef, setPos, scaleExplorerOpen && !scaleExplorerMinimized, 44)
   useFocusTrap(panelRef, scaleExplorerOpen && !scaleExplorerMinimized)
+  useClampPositionOnZoom(pos, setPos, panelRef)
 
   // ── CoF + scale selection state ───────────────────────────────────────────
   const [cofPos, setCofPos] = useState<number | null>(null)

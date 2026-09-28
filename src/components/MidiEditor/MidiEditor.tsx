@@ -25,6 +25,7 @@ import { withHandSuffix } from '../../utils/handMetadata'
 import { getGMName, getGMGroup } from '../../utils/gmInstruments'
 import { computeTempoKeyPayload } from '../../utils/tempoKeySave'
 import { useFocusTrap } from '../../hooks/useFocusTrap'
+import { useClampPositionOnZoom } from '../../hooks/useClampPositionOnZoom'
 import Tooltip from '../Tooltip'
 
 const MODAL_W = 980
@@ -893,6 +894,7 @@ export default function MidiEditor() {
   const [pos, setPos] = useState({ x: 0, y: 0 })
   const panelRef  = useRef<HTMLDivElement>(null)
   const positioned = useRef(false)
+  useClampPositionOnZoom(pos, setPos, panelRef)
   const dragState = useRef<{ startX: number; startY: number; startPosX: number; startPosY: number } | null>(null)
   // ── Mounted only while midiEditorOpen && state (see `if (!midiEditorOpen
   // || !state) return null` below) — always active while this exists. ──────

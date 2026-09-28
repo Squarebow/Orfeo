@@ -12,6 +12,7 @@ import { parseMidiBuffer } from '../../utils/midiParser'
 import { detectKeyFromTracks, parseKeySignature } from '../../utils/keyDetection'
 import { KEYBOARD_GROUPS } from '../../utils/keyboardGroups'
 import { useFocusTrap } from '../../hooks/useFocusTrap'
+import { useClampPositionOnZoom } from '../../hooks/useClampPositionOnZoom'
 
 // ── MixerConsole — floating draggable modal ───────────────────────────────────
 // Opened via Ctrl+Shift+M or the Console (SlidersVertical) icon in the TrackPanel.
@@ -225,6 +226,7 @@ export default function MixerConsole() {
   // ── Modal semantics — focus trap while open, restores focus on close ──────
   const modalRef = useRef<HTMLDivElement>(null)
   useFocusTrap(modalRef, mixerOpen && everOpened)
+  useClampPositionOnZoom(pos, setPos, modalRef)
 
   // ── Header description marquee — the description only needs to scroll when
   // a narrow modal (few tracks loaded → fewer strips → less header width)

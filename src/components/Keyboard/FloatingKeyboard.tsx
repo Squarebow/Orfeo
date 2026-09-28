@@ -12,6 +12,7 @@ import OrfeoMark from '../OrfeoMark'
 import Tooltip from '../Tooltip'
 import { getPianoRollCenterX, getPlaybarY } from '../../utils/modalAnchors'
 import { modalCloseButtonStyle, modalCloseButtonHoverColor, modalCloseButtonIdleColor } from '../../utils/modalCloseButtonStyle'
+import { useClampPositionOnZoom } from '../../hooks/useClampPositionOnZoom'
 
 const DEFAULT_W = 860
 const MIN_W = 650
@@ -29,6 +30,7 @@ export default function FloatingKeyboard() {
   const [w, setW]     = useState(DEFAULT_W)
   const panelRef      = useRef<HTMLDivElement>(null)
   const initialised   = useRef(false)
+  useClampPositionOnZoom(pos, setPos, panelRef)
 
   const dragState = useRef<{
     type: 'move' | 'resize-e' | 'resize-w'

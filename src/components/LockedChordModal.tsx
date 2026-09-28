@@ -8,6 +8,7 @@ import { modalCloseButtonStyle, modalCloseButtonHoverColor, modalCloseButtonIdle
 import OrfeoMark from './OrfeoMark'
 import { getPianoRollCenterX, getKeyboardHeaderTop } from '../utils/modalAnchors'
 import { useFocusTrap } from '../hooks/useFocusTrap'
+import { useClampPositionOnZoom } from '../hooks/useClampPositionOnZoom'
 
 const MODAL_WIDTH  = 220
 const MODAL_HEIGHT = 100
@@ -134,6 +135,7 @@ export default function LockedChordModal() {
 
   const panelRef = useRef<HTMLDivElement>(null)
   useFocusTrap(panelRef, modalOpen)
+  useClampPositionOnZoom(pos, setPos, panelRef)
 
   if (!modalOpen) return null
 
