@@ -498,6 +498,8 @@ export default function PianoRoll() {
     const el = containerRef.current
     const app = new Application()
     let roInstance: ResizeObserver
+    let dprQuery: MediaQueryList | null = null
+    let onDprChangeHandler: (() => void) | null = null
 
     app.init({
       background: CANVAS_BG_COLOR,
@@ -746,19 +748,77 @@ export default function PianoRoll() {
         }
       }
 
+      // ── Shared resize path — CSS size + device pixel ratio ─────────────────
+      // Tracks the CSS width/height/DPR we last resized TO, not Pixi's own
+      // app.screen.* — PixiJS's TextureSource.resize() rounds to a whole
+      // device pixel and reports back width = roundedPixels / resolution,
+      // which at a fractional DPR (Windows scaling at 125%/150%/175%)
+      // essentially never matches the raw CSS size exactly. The old code
+      // compared against app.screen.* directly, so it looked "resized" on
+      // literally every tick and bailed out before ever drawing a note —
+      // that's the piano-roll freeze this fixes. Comparing against what WE
+      // last asked for instead is an exact match once nothing has actually
+      // changed. Also keeps the bar-number overlay and velocity-lane 2D
+      // canvases in step: their backing store is sized in real device
+      // pixels (`Math.round(cssSize * dpr)`) while their CSS size stays the
+      // same, with a matching ctx.setTransform so the existing drawing code
+      // keeps working entirely in CSS px — otherwise both look soft at any
+      // scaling above 100%. ───────────────────────────────────────────────
+      let lastSizeW = -1, lastSizeH = -1, lastSizeDpr = 0
+
+      const applyResize = (cw: number, ch: number, dpr: number) => {
+        app.renderer.resize(cw, ch, dpr)
+        lastSizeW = cw; lastSizeH = ch; lastSizeDpr = dpr
+
+        const { keyboardSize: ks } = storeRef.current
+        const { min: syncMin, max: syncMax } = RANGES[ks] ?? RANGES[88]
+        drawGrid(cw, ch, syncMin, syncMax)
+
+        if (overlayCanvasRef.current) {
+          const oc = overlayCanvasRef.current
+          oc.width  = Math.round(cw * dpr)
+          oc.height = Math.round(ch * dpr)
+          oc.style.width  = cw + 'px'
+          oc.style.height = ch + 'px'
+          overlayCtxRef.current?.setTransform(dpr, 0, 0, dpr, 0, 0)
+        }
+        if (velocityCanvasRef.current) {
+          const vc = velocityCanvasRef.current
+          const cssVelH = Math.round(ch * (1 - PLAYHEAD_RATIO)) + VELOCITY_LANE_HEIGHT_BOOST
+          vc.width  = Math.round(cw * dpr)
+          vc.height = Math.round(cssVelH * dpr)
+          vc.style.width  = cw + 'px'
+          vc.style.height = cssVelH + 'px'
+          velocityCtxRef.current?.setTransform(dpr, 0, 0, dpr, 0, 0)
+        }
+        dirtyRef.current = true
+      }
+
+      // ── Live Windows-scaling / DPR change ───────────────────────────────
+      // `resolution` is fixed at app.init() time — without this, changing
+      // Windows display scaling while Orfeo is already open would leave the
+      // roll drawn at the old ratio until something else forces a resize
+      // (previously: a restart). A matchMedia resolution query only ever
+      // matches once for a given dppx value, so it's re-armed after every
+      // fire rather than being a persistent listener. ────────────────────
+      const armDprWatch = () => {
+        dprQuery = window.matchMedia(`(resolution: ${window.devicePixelRatio || 1}dppx)`)
+        onDprChangeHandler = onDprChange
+        dprQuery.addEventListener('change', onDprChangeHandler, { once: true })
+      }
+      const onDprChange = () => {
+        const cw = el.clientWidth, ch = el.clientHeight
+        if (cw > 0 && ch > 0) applyResize(cw, ch, window.devicePixelRatio || 1)
+        armDprWatch()
+      }
+      armDprWatch()
+
       // ── Main render loop ──────────────────────────────────────────────────
       const drawFrame = () => {
         const cw = el.clientWidth, ch = el.clientHeight
-        if (cw > 0 && ch > 0 && (app.screen.width !== cw || app.screen.height !== ch)) {
-          app.renderer.resize(cw, ch)
-          const { keyboardSize: ks } = storeRef.current
-          const { min: syncMin, max: syncMax } = RANGES[ks] ?? RANGES[88]
-          drawGrid(cw, ch, syncMin, syncMax)
-          if (overlayCanvasRef.current) {
-            overlayCanvasRef.current.width = cw
-            overlayCanvasRef.current.height = ch
-          }
-          return
+        const dpr = window.devicePixelRatio || 1
+        if (cw > 0 && ch > 0 && (cw !== lastSizeW || ch !== lastSizeH || dpr !== lastSizeDpr)) {
+          applyResize(cw, ch, dpr)
         }
 
         const { midi, currentTime, tracks, detectedKey, zoomLevel, appTheme, keyboardSize, showBarNumbers, barStarts: storeBars, noteEditorActive, showHandLabels, playbarVisible, keyboardTopY, hitEffectsEnabled, hitEffectPattern, hitEffectBloomThreshold, hitEffectBloomIntensity, hitEffectBloomSpread, hitEffectColor } = storeRef.current
@@ -2039,9 +2099,8 @@ export default function PianoRoll() {
 
       // ── Initial draw ──────────────────────────────────────────────────────
       const { keyboardSize } = useStore.getState()
-      const { min: initMin, max: initMax } = RANGES[keyboardSize] ?? RANGES[88]
       lastKeySizeRef.current = keyboardSize
-      drawGrid(app.screen.width, app.screen.height, initMin, initMax)
+      applyResize(el.clientWidth || 800, el.clientHeight || 600, window.devicePixelRatio || 1)
       // Redraw every tick during playback or note editing (both need continuous
       // animation — scrolling playhead, drag previews, selection pulse). Otherwise
       // only redraw when dirtyRef was flagged by an actual relevant change, so an
@@ -2055,28 +2114,24 @@ export default function PianoRoll() {
         drawVelocityLane()
       })
 
+      // ── Real window/layout resizes — routed through the same applyResize +
+      // last-requested-size check as drawFrame's own per-tick guard, so the
+      // two paths can't fight each other (e.g. both resizing the same frame
+      // to two different DPR readings taken a moment apart). ───────────────
       roInstance = new ResizeObserver(() => {
         if (!appRef.current) return
         const w = el.clientWidth, h = el.clientHeight
-        appRef.current.renderer.resize(w, h)
-        const { keyboardSize } = useStore.getState()
-        const { min, max } = RANGES[keyboardSize] ?? RANGES[88]
-        drawGrid(w, h, min, max)
-        if (overlayCanvasRef.current) {
-          overlayCanvasRef.current.width  = w
-          overlayCanvasRef.current.height = h
-        }
-        if (velocityCanvasRef.current) {
-          velocityCanvasRef.current.width  = w
-          velocityCanvasRef.current.height = Math.round(h * (1 - PLAYHEAD_RATIO)) + VELOCITY_LANE_HEIGHT_BOOST
-        }
-        dirtyRef.current = true
+        const dpr = window.devicePixelRatio || 1
+        if (w <= 0 || h <= 0) return
+        if (w === lastSizeW && h === lastSizeH && dpr === lastSizeDpr) return
+        applyResize(w, h, dpr)
       })
       roInstance.observe(el)
     })
 
     return () => {
       roInstance?.disconnect()
+      if (dprQuery && onDprChangeHandler) dprQuery.removeEventListener('change', onDprChangeHandler)
       NES.onResetRequest = null
       if (overlayCanvasRef.current) {
         try { overlayCanvasRef.current.remove() } catch {}
