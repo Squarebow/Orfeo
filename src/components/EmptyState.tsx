@@ -1,4 +1,5 @@
 import { useMidiFile } from '../hooks/useMidiFile'
+import { useAppZoomPercent } from '../hooks/useAppZoomPercent'
 import OrfeoMark from './OrfeoMark'
 
 // ── Empty state shown when no MIDI file is loaded ────────────────────────────
@@ -7,8 +8,21 @@ import OrfeoMark from './OrfeoMark'
 // to the viewport — the block stays at the true window centre regardless of
 // which side drawers (SettingsPanel / TrackPanel) are open or closed.
 // position:fixed children are not clipped by the parent's overflow:hidden.
+//
+// Deliberately exempt from app zoom (Ctrl +/-/0) — this block's own fixed
+// CSS-px size (320px watermark + 64px gap + text/button) was sized to fit
+// comfortably in the piano-roll area at 100% zoom; app zoom scales the
+// whole page uniformly, including this, but the space between the TopBar
+// and keyboard does NOT grow to match, so past about 110% zoom it started
+// visibly overlapping/getting covered by both, worse the higher you go.
+// Countering with an inverse transform: scale() only affects paint-time
+// visual size, not the fixed 50%/50% viewport centering point above, so
+// this keeps rendering at exactly its 100%-zoom size and position no
+// matter what the current app zoom is. ──────────────────────────────────
 export default function EmptyState() {
   const { openFile } = useMidiFile()
+  const zoomPercent = useAppZoomPercent()
+  const counterScale = 100 / zoomPercent
 
   return (
     <div style={{
@@ -22,7 +36,7 @@ export default function EmptyState() {
         position: 'fixed',
         left: '50%',
         top: '50%',
-        transform: 'translate(-50%, -50%)',
+        transform: `translate(-50%, -50%) scale(${counterScale})`,
         display: 'flex',
         flexDirection: 'column',
         alignItems: 'center',
