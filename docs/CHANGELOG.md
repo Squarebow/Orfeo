@@ -1,9 +1,15 @@
 # Changelog
 
-## [Unreleased]
+## [1.1.1] — 28. 9. 2026 — App zoom, piano roll freeze fix
+
+### New
+- **App zoom** — `Ctrl` `+` / `Ctrl` `-` / `Ctrl` `0` scale the whole app up or down in fixed steps (80% to 200%), the same as zooming a browser page. Works everywhere, even with a text field focused. Capped so the window can never shrink to an unusably small size on a smaller screen; also available as a control in Settings → Appearance. Remembered between sessions.
 
 ### Fixed
 - **Audio and the piano roll could stutter or briefly pause during playback in the development build** (`npm run dev`), especially on busy songs — never an issue in the packaged release. Every note for the rest of the song was queued up the instant playback started; the polished, packaged build breezes through that instantly, but the unoptimized development build could visibly and audibly catch up whenever the music bunched up a lot of notes at once. Playback now only keeps the next second and a half queued at a time, continuously topped up as the song plays, so there's never more than a small amount of work to do at once, no matter how dense or long the song is.
+- **The piano roll could completely freeze — no falling notes, though the music kept playing and the keyboard kept lighting up correctly — on any screen set to 125%, 150%, or 175% Windows scaling.** A rounding mismatch between the roll's drawing size and the screen's actual scaled size made it think it needed to resize on literally every single frame, and it was bailing out to do that resize instead of ever getting to actually draw the notes. 100% and 200% scaling happened not to trigger the rounding error, which is why it looked like an all-or-nothing thing. Changing your screen's scaling while Orfeo is already open now also updates the roll immediately, instead of needing a restart. The Mixer's level meters had the same kind of rounding blind spot and are fixed the same way.
+- **A thin grey line could appear on the left and right of the top bar at 150% app zoom.** A pre-existing fallback that lets the logo/tempo cluster and the transport/MIDI cluster scroll internally, rather than get clipped, on a very narrow window was showing its scrollbar at an ordinary window size once app zoom shrank the usable space enough to trigger it. Scrolling still works if it's ever genuinely needed; the bar itself no longer shows.
+- **The "no file open" screen could grow into and get covered by the top bar and keyboard at higher app zoom levels.** It now stays at its normal size and position no matter what zoom you're at, since the rest of the window's usable space doesn't grow to match.
 
 ### Updated
 - Electron 42.8.1 → 42.11.8
