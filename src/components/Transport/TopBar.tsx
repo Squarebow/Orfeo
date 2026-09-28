@@ -236,12 +236,18 @@ export default function TopBar() {
       {/* ── LEFT GROUP: logo + BPM + KEY — independent of center, never shifts transport.
           Measured intrinsic width (~423px) exceeds this column's 1/3 share at the
           900px documented minimum (~235px content-box thirds) — stretched to the
-          column and given the same internal-horizontal-scroll treatment as the
-          Mixer's channel-strip row (`.mixer-scroll`) rather than letting it spill
-          into the center column, so nothing is hidden/removed, just reachable via
-          scroll at the floor width. No effect at normal window widths, where the
-          column is wide enough that no scrolling occurs. ── */}
-      <div className="mixer-scroll" style={{
+          column and given the same internal-horizontal-scroll behavior as the
+          Mixer's channel-strip row rather than letting it spill into the center
+          column, so nothing is hidden/removed, just reachable via scroll at the
+          floor width. `.topbar-scroll` (not `.mixer-scroll` — see index.css)
+          keeps that scrolling but hides the scrollbar itself: app zoom shrinks
+          the logical viewport the same way a narrow window does, so this can
+          trigger at an ordinary window size and zoom level, where a persistent
+          grey bar for a few px of overflow reads as a glitch, not the Mixer
+          row's genuine many-tracks affordance. No effect at normal window
+          widths/zoom, where the column is wide enough that no overflow occurs
+          at all. ── */}
+      <div className="topbar-scroll" style={{
         display: 'flex', alignItems: 'center', gap: 0, flexShrink: 0,
         justifySelf: 'stretch', minWidth: 0, overflowX: 'auto', overflowY: 'hidden',
       }}>
@@ -499,7 +505,7 @@ export default function TopBar() {
           shows the group's right-anchored end (unchanged from before at
           normal widths), and the overflow that used to spill into the
           center column is now reachable by scrolling left instead. ── */}
-      <div className="app-no-drag mixer-scroll" style={{
+      <div className="app-no-drag topbar-scroll" style={{
         justifySelf: 'stretch', minWidth: 0, overflowX: 'auto', overflowY: 'hidden', direction: 'rtl',
         // ── Top-aligned like its siblings (inherits the grid's own
         // alignItems:'flex-start') — stays flush-right against the real Win

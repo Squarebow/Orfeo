@@ -669,6 +669,19 @@ body {
 .mixer-scroll::-webkit-scrollbar-thumb  { background: var(--border2); border-radius: 2px }
 .mixer-scroll::-webkit-scrollbar-thumb:hover { background: var(--text-dimmest) }
 
+/* ── TopBar's left/right cluster overflow fallback (see TopBar.tsx's own
+   comments) — same "reachable via scroll, nothing hidden" guarantee as
+   .mixer-scroll above, but with the scrollbar itself invisible. That row's
+   floor is the same 900px window-minimum .mixer-scroll's floor is, so app
+   zoom (which shrinks the logical viewport the same way a narrow window
+   does) can cross it at an ordinary window size and zoom level — a visible
+   grey bar for what's normally only a few px of overflow read as a stray
+   rendering glitch, not a real scrollable-content affordance the way the
+   Mixer's own row (many tracks, routinely well past the fold) does. Scroll
+   still works via trackpad/Shift+wheel; only the bar itself is hidden. ──── */
+.topbar-scroll { scrollbar-width: none; }
+.topbar-scroll::-webkit-scrollbar { display: none; }
+
 /* Utility class: apply where a bold weight was previously used for standard
    body/label text, to avoid bleeding on dark backgrounds. Reserve true Bold
    (700) for large headings and amber emphasis numbers only. */
