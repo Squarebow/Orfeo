@@ -72,6 +72,25 @@ export default function App() {
     dropErrorTimer.current = setTimeout(() => setDropError(null), 2500)
   }, [])
 
+  // ── App zoom hint — "Zoom 125%", shown briefly whenever the level changes,
+  // from either the Ctrl +/-/0 shortcuts (main process, before-input-event)
+  // or the Settings → Appearance control. Both funnel through the same
+  // main-process zoom:changed push, so this is the one place that reacts to
+  // either source. Same transient-toast shape as the drop-error message
+  // above, just a shorter 1s window since this is informational, not
+  // something the user needs to read and act on. ───────────────────────────
+  const [zoomHint, setZoomHint] = useState<string | null>(null)
+  const zoomHintTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
+  useEffect(() => {
+    const onZoomChanged = ({ percent, capped }: { percent: number; capped: boolean }) => {
+      if (zoomHintTimer.current) clearTimeout(zoomHintTimer.current)
+      setZoomHint(`Zoom ${percent}%${capped ? ' (max)' : ''}`)
+      zoomHintTimer.current = setTimeout(() => setZoomHint(null), 1000)
+    }
+    window.electronAPI.onZoomChanged(onZoomChanged)
+    return () => window.electronAPI.offZoomChanged(onZoomChanged)
+  }, [])
+
   // ── Parse and load a MIDI file by OS path into the player ───────────────
   // Handles foreign formats (MusicXML, Guitar Pro) by converting via alphaTab.
   // Checks for a valid on-disk cache before converting; sets pendingImportedFile
@@ -527,6 +546,24 @@ export default function App() {
           {dropError}
         </div>
         </Tooltip>
+      )}
+
+      {/* ── Zoom level hint — briefly shown on Ctrl +/-/0 or the Settings →
+          Appearance control, no click-to-dismiss (it clears itself quickly
+          and carries nothing worth pausing to read/dismiss). ─────────────── */}
+      {zoomHint && (
+        <div
+          role="status"
+          style={{
+            position: 'fixed', bottom: 32, left: '50%', transform: 'translateX(-50%)',
+            background: 'var(--bg-panel2)', border: '1px solid var(--drag-handle-dot)',
+            borderRadius: 6, padding: '8px 18px',
+            color: 'var(--text-default)', fontSize: 'var(--text-sm)',
+            pointerEvents: 'none', zIndex: 9900,
+            boxShadow: '0 4px 16px rgba(0,0,0,0.5)',
+          }}>
+          {zoomHint}
+        </div>
       )}
 
       {/* ── Mixer Console — floating modal, toggled via Ctrl+Shift+M or Console drawer icon ── */}

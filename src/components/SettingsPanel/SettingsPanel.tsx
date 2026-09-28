@@ -6,7 +6,7 @@ import {
   ChevronLeft, ChevronDown, ChevronRight, Music2, Piano, Palette, Columns3, Volume2,
   Music, FolderOpen, Folders, RefreshCw, FileMusic, FileCode2, Guitar, BookOpen, Library, Settings, Info,
   Search, X, Undo2, Upload, ToggleLeft, ToggleRight, CloudDownload, ChevronsDownUp, AudioLines,
-  Files, Hand, Repeat, Expand,
+  Files, Hand, Repeat, Expand, ZoomIn, ZoomOut, RotateCcw,
 } from 'lucide-react'
 import { useStore } from '../../store'
 import { t } from '../../utils/i18n'
@@ -324,6 +324,59 @@ function FingerStepper({ value, onChange }: { value: 4 | 5; onChange: (v: 4 | 5)
         onMouseEnter={e => { if (value !== 5) e.currentTarget.style.color = 'var(--text-amber)' }}
         onMouseLeave={e => { e.currentTarget.style.color = value === 5 ? 'var(--state-disabled)' : 'var(--text-inactive)' }}
       ><ChevronRight size={11} /></button>
+    </div>
+  )
+}
+
+// ── ZoomStepper — app zoom control (Settings → Appearance), same compact
+// bordered-pill shape as FingerStepper above. `percent`/`steps`/`max` come
+// from electron/main.ts (the one place that actually owns and persists the
+// zoom level) via SettingsPanel's zoomInfo state — this is purely a
+// display + dispatch component, same division of responsibility as the
+// Ctrl +/-/0 shortcuts it stays in sync with. ──────────────────────────────
+function ZoomStepper({ percent, steps, max, onStep, onReset }: {
+  percent: number; steps: number[]; max: number
+  onStep: (direction: 1 | -1) => void; onReset: () => void
+}) {
+  const atMin = percent <= steps[0]
+  const atMax = percent >= max
+  const chevronStyle = (disabled: boolean): React.CSSProperties => ({
+    background: 'none', border: 'none', padding: 1, display: 'flex', alignItems: 'center',
+    cursor: disabled ? 'default' : 'pointer',
+    color: disabled ? 'var(--state-disabled)' : 'var(--text-inactive)',
+  })
+  return (
+    <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-1)' }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 4, border: '1px solid var(--border2)', borderRadius: 4, padding: '1px 6px' }}>
+        <Tooltip title="Zoom out" oneLine>
+        <button
+          onClick={() => onStep(-1)}
+          disabled={atMin}
+          style={chevronStyle(atMin)}
+          onMouseEnter={e => { if (!atMin) e.currentTarget.style.color = 'var(--text-amber)' }}
+          onMouseLeave={e => { e.currentTarget.style.color = atMin ? 'var(--state-disabled)' : 'var(--text-inactive)' }}
+        ><ZoomOut size={12} strokeWidth={1.5} /></button>
+        </Tooltip>
+        <span style={{ fontSize: 'var(--text-xs)', fontFamily: 'var(--font-mono)', fontWeight: 700, color: 'var(--text-amber)', minWidth: 34, textAlign: 'center' }}>{percent}%</span>
+        <Tooltip title="Zoom in" oneLine>
+        <button
+          onClick={() => onStep(1)}
+          disabled={atMax}
+          style={chevronStyle(atMax)}
+          onMouseEnter={e => { if (!atMax) e.currentTarget.style.color = 'var(--text-amber)' }}
+          onMouseLeave={e => { e.currentTarget.style.color = atMax ? 'var(--state-disabled)' : 'var(--text-inactive)' }}
+        ><ZoomIn size={12} strokeWidth={1.5} /></button>
+        </Tooltip>
+      </div>
+      <Tooltip title="Reset to 100%" oneLine>
+      <button
+        onClick={onReset}
+        disabled={percent === 100}
+        style={chevronStyle(percent === 100)}
+        onMouseEnter={e => { if (percent !== 100) e.currentTarget.style.color = 'var(--text-amber)' }}
+        onMouseLeave={e => { e.currentTarget.style.color = percent === 100 ? 'var(--state-disabled)' : 'var(--text-inactive)' }}
+      ><RotateCcw size={12} strokeWidth={1.5} /></button>
+      </Tooltip>
     </div>
   )
 }
@@ -2057,6 +2110,27 @@ export default function SettingsPanel() {
     return () => clearTimeout(t)
   }, [updateStatus.state])
 
+  // ── App zoom — main-process owned (electron/main.ts), same fetch-on-mount +
+  // live-push pattern as the update status above. steps/max drive which of
+  // the − / + buttons are enabled; percent is the live display value,
+  // pushed here too so the Ctrl +/-/0 shortcuts keep this control in sync
+  // even while Settings is open. ──────────────────────────────────────────
+  const [zoomInfo, setZoomInfo] = useState<{ percent: number; steps: number[]; max: number }>({ percent: 100, steps: [100], max: 200 })
+  useEffect(() => {
+    window.electronAPI.getZoom().then(setZoomInfo).catch(() => {})
+  }, [])
+  useEffect(() => {
+    const handler = ({ percent }: { percent: number; capped: boolean }) =>
+      setZoomInfo((z) => ({ ...z, percent }))
+    window.electronAPI.onZoomChanged(handler)
+    return () => window.electronAPI.offZoomChanged(handler)
+  }, [])
+  const stepZoom = (direction: 1 | -1) => {
+    const idx = zoomInfo.steps.indexOf(zoomInfo.percent)
+    const nextIdx = Math.max(0, Math.min(zoomInfo.steps.length - 1, (idx === -1 ? zoomInfo.steps.indexOf(100) : idx) + direction))
+    void window.electronAPI.setZoom(zoomInfo.steps[nextIdx])
+  }
+
   const settingsPanelOpen = useStore((s) => s.settingsPanelOpen)
   const setSettingsPanelOpen = useStore((s) => s.setSettingsPanelOpen)
   const noteNaming = useStore((s) => s.noteNaming)
@@ -3251,7 +3325,7 @@ export default function SettingsPanel() {
                   )}
                 </CollapsibleSection>
 
-                {/* ── 8. APPEARANCE — no content changes ─────────────────────────── */}
+                {/* ── 8. APPEARANCE ───────────────────────────────────────────────── */}
                 <CollapsibleSection icon={<Palette size={11} />} label="Appearance"
                   collapsed={settingsGroupsCollapsed['appearance']}
                   onToggle={() => setSettingsGroupCollapsed('appearance', !settingsGroupsCollapsed['appearance'])}
@@ -3261,6 +3335,13 @@ export default function SettingsPanel() {
                       <AppBgBtn color="var(--bg-modal-header)" label="Dark" active={appTheme === 'dark'} onClick={() => setAppTheme('dark')} />
                       <AppBgBtn color="var(--bg-warm)" label="Coming soon" active={false} onClick={() => {}} comingSoon />
                     </div>
+                  </OptionRow>
+                  <OptionRow label="Zoom" hint={`Ctrl+/Ctrl-/Ctrl+0${zoomInfo.max < 200 ? ` · capped at ${zoomInfo.max}% for this window size` : ''}`}>
+                    <ZoomStepper
+                      percent={zoomInfo.percent} steps={zoomInfo.steps} max={zoomInfo.max}
+                      onStep={stepZoom}
+                      onReset={() => void window.electronAPI.setZoom(100)}
+                    />
                   </OptionRow>
                 </CollapsibleSection>
 
