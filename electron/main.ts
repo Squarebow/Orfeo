@@ -1,4 +1,4 @@
-import { app, BrowserWindow, ipcMain, dialog, shell } from 'electron'
+import { app, BrowserWindow, ipcMain, dialog, shell, Menu } from 'electron'
 import { autoUpdater } from 'electron-updater'
 import { join, basename, dirname, extname } from 'path'
 import { readFileSync, writeFileSync, existsSync, readdirSync, createWriteStream, statSync } from 'fs'
@@ -116,6 +116,35 @@ function createWindow() {
     },
   })
   mainWin = win
+
+  // ── App zoom — restore persisted level (re-clamped to THIS window's own
+  // current size/cap, in case the window is smaller than when it was last
+  // saved), disable pinch/visual zoom (that's a separate Chromium gesture
+  // path setZoomFactor doesn't touch), and intercept the shortcuts before
+  // Chromium's own accelerator handling sees them. ─────────────────────────
+  win.webContents.setVisualZoomLevelLimits(1, 1)
+  {
+    const saved = loadPrefs().appZoom
+    applyZoom(win, ZOOM_STEPS.includes(saved) ? saved : 100, false)
+  }
+  // ── Shrinking the window below what the current zoom needs is the same
+  // 900×600-floor violation the cap exists to prevent — re-clamp rather
+  // than only checking at the moment of a zoom action. ────────────────────
+  win.on('resize', () => {
+    if (currentZoomPercent > maxAllowedZoomPercent(win)) applyZoom(win, currentZoomPercent)
+  })
+  win.webContents.on('before-input-event', (event, input) => {
+    if (input.type !== 'keyDown') return
+    if (!(input.control || input.meta) || input.shift || input.alt) return
+    if (input.key === '+' || input.key === '=' || input.code === 'NumpadAdd') {
+      event.preventDefault(); stepZoom(win, 1)
+    } else if (input.key === '-' || input.code === 'NumpadSubtract') {
+      event.preventDefault(); stepZoom(win, -1)
+    } else if (input.key === '0' || input.code === 'Numpad0') {
+      event.preventDefault(); applyZoom(win, 100)
+    }
+  })
+
   if (process.env['ELECTRON_RENDERER_URL']) {
     win.loadURL(process.env['ELECTRON_RENDERER_URL'])
   } else {
@@ -148,6 +177,65 @@ function savePrefs(data: Record<string, any>) {
 }
 ipcMain.handle('prefs:get', async () => loadPrefs())
 ipcMain.handle('prefs:set', async (_e, data) => savePrefs(data))
+
+// ── App zoom (Ctrl +/−/0) ────────────────────────────────────────────────
+// Behaves like browser zoom — separate from both Windows display scaling
+// and the piano roll's own note-fall zoom (`zoomLevel` in the renderer
+// store, an unrelated pre-existing feature). Owned entirely here: the
+// keyboard shortcut (via before-input-event, set up in createWindow) and
+// the Settings → Appearance control (via the zoom:set IPC handler below)
+// both funnel through applyZoom, so they can never disagree, and prefs
+// persistence reuses the existing orfeo-prefs.json read/write above rather
+// than round-tripping through the renderer's own store. ───────────────────
+const ZOOM_STEPS = [80, 90, 100, 110, 125, 150, 175, 200]
+let currentZoomPercent = 100
+
+// ── Highest step whose logical viewport (window size ÷ zoom) still fits
+// the window's own documented minimum size — read live via
+// getMinimumSize() rather than duplicating the 900×600 from createWindow's
+// BrowserWindow options, so the two can never drift apart. ────────────────
+function maxAllowedZoomPercent(win: BrowserWindow): number {
+  const [minW, minH] = win.getMinimumSize()
+  const { width, height } = win.getBounds()
+  let max = ZOOM_STEPS[0]
+  for (const step of ZOOM_STEPS) {
+    const logicalW = width  / (step / 100)
+    const logicalH = height / (step / 100)
+    if (logicalW >= minW && logicalH >= minH) max = step
+  }
+  return max
+}
+
+function applyZoom(win: BrowserWindow, requestedPercent: number, persist = true) {
+  const cap = maxAllowedZoomPercent(win)
+  const percent = Math.min(requestedPercent, cap)
+  const capped = percent < requestedPercent
+  currentZoomPercent = percent
+  win.webContents.setZoomFactor(percent / 100)
+  if (persist) savePrefs({ appZoom: percent })
+  // Sent unconditionally, even when the value didn't actually change (e.g.
+  // repeatedly hitting the cap) — the renderer's transient hint needs to
+  // fire either way, per "when the cap is hit, keep the current zoom and
+  // show the hint".
+  win.webContents.send('zoom:changed', { percent, capped })
+  return { percent, capped }
+}
+
+function stepZoom(win: BrowserWindow, direction: 1 | -1) {
+  const cap = maxAllowedZoomPercent(win)
+  const idx = ZOOM_STEPS.indexOf(currentZoomPercent)
+  const nextIdx = Math.max(0, Math.min(ZOOM_STEPS.length - 1, (idx === -1 ? ZOOM_STEPS.indexOf(100) : idx) + direction))
+  applyZoom(win, ZOOM_STEPS[nextIdx])
+}
+
+ipcMain.handle('zoom:get', async () => {
+  if (!mainWin) return { percent: currentZoomPercent, steps: ZOOM_STEPS, max: 200 }
+  return { percent: currentZoomPercent, steps: ZOOM_STEPS, max: maxAllowedZoomPercent(mainWin) }
+})
+ipcMain.handle('zoom:set', async (_e, percent: number) => {
+  if (!mainWin) return null
+  return applyZoom(mainWin, percent)
+})
 
 // ── File info change log — two sources, merged on read.
 //
@@ -1724,6 +1812,15 @@ if (process.env.PORTABLE_EXECUTABLE_DIR) {
 // ── Launch: copy demo files on first run, then open main window ───────────────
 app.whenReady().then(async () => {
   try { await ensureDemoFolder() } catch (e) { console.error('[Orfeo] ensureDemoFolder failed:', e) }
+  // ── No default menu — this app has its own custom title bar and no menu
+  // bar is ever shown, but Electron's built-in default menu (auto-created
+  // when none is set) still registers real keyboard accelerators in the
+  // background, including View → Zoom In/Out/Actual Size on Ctrl+=/Ctrl+-/
+  // Ctrl+0 via Chromium's own zoomLevel. Left alone, that's a second,
+  // uncoordinated zoom mechanism fighting the one built below (no step
+  // list, no cap, no persistence, no DPR coordination with the piano-roll
+  // fix). Nulling it out guarantees there's exactly one zoom path. ────────
+  Menu.setApplicationMenu(null)
   createWindow()
   if (updateMode === 'auto') {
     // Delayed so it doesn't compete with the app's own startup work; silent

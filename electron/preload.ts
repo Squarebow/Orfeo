@@ -1,5 +1,15 @@
 import { contextBridge, ipcRenderer, webUtils } from 'electron'
 
+// ── zoom:changed needs more than one live listener at once — App.tsx (the
+// hint toast) and SettingsPanel.tsx (the live Appearance readout) are both
+// mounted simultaneously. removeAllListeners (the offX pattern every other
+// push-event channel here uses) is only safe when a channel has at most one
+// listener for the app's whole lifetime; with two, either side's cleanup
+// effect re-running (e.g. on a hot-reload update to just one of them) wipes
+// out the OTHER one's listener too. This map lets offZoomChanged remove
+// only the one it was given. ────────────────────────────────────────────
+const zoomListeners = new Map<(data: any) => void, (e: unknown, data: any) => void>()
+
 contextBridge.exposeInMainWorld('electronAPI', {
   // Existing
   openMidiFile:       () => ipcRenderer.invoke('dialog:openMidi'),
@@ -59,4 +69,16 @@ contextBridge.exposeInMainWorld('electronAPI', {
   installUpdate:       () => ipcRenderer.invoke('update:install'),
   onUpdateStatus:      (fn: (data: any) => void) => ipcRenderer.on('update:status', (_e, data) => fn(data)),
   offUpdateStatus:     () => ipcRenderer.removeAllListeners('update:status'),
+  // App zoom (Ctrl +/−/0)
+  getZoom:             () => ipcRenderer.invoke('zoom:get'),
+  setZoom:             (percent: number) => ipcRenderer.invoke('zoom:set', percent),
+  onZoomChanged:       (fn: (data: { percent: number; capped: boolean }) => void) => {
+    const wrapped = (_e: unknown, data: any) => fn(data)
+    zoomListeners.set(fn, wrapped)
+    ipcRenderer.on('zoom:changed', wrapped)
+  },
+  offZoomChanged:      (fn: (data: { percent: number; capped: boolean }) => void) => {
+    const wrapped = zoomListeners.get(fn)
+    if (wrapped) { ipcRenderer.off('zoom:changed', wrapped); zoomListeners.delete(fn) }
+  },
 })

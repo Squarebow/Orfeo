@@ -224,6 +224,11 @@ declare global {
       installUpdate:       () => Promise<void>
       onUpdateStatus:      (fn: (data: UpdateStatus) => void) => void
       offUpdateStatus:     () => void
+      // App zoom (Ctrl +/−/0)
+      getZoom:             () => Promise<{ percent: number; steps: number[]; max: number }>
+      setZoom:             (percent: number) => Promise<{ percent: number; capped: boolean } | null>
+      onZoomChanged:       (fn: (data: { percent: number; capped: boolean }) => void) => void
+      offZoomChanged:      (fn: (data: { percent: number; capped: boolean }) => void) => void
     }
   }
 }
