@@ -819,6 +819,11 @@ the gear icon (top-right); eight collapsible sections.*
   of just the roll and keyboard; `Esc` leaves it. Optionally have the side
   panels close themselves on playback.
 - **Theme** — dark today; a warm light theme is in progress.
+- **Zoom** — `Ctrl` `+` / `Ctrl` `-` / `Ctrl` `0` scale the whole app in fixed
+  steps from 80% to 200%, the same as browser zoom; also available as a
+  −/+/reset control here in Settings. Capped so the window never shrinks
+  below a usable size — on a small window the top step may land under 200%.
+  The level is remembered between sessions.
 - **Check for updates** — and the current version number (Windows installer
   builds auto-check on startup; see
   [INSTALLATION.md](INSTALLATION.md#updating)).
@@ -841,6 +846,7 @@ The essentials — the full reference with every gesture is in
 <tr><td><code>F11</code></td><td>Presentation Mode</td></tr>
 <tr><td><code>Ctrl+O</code></td><td>Open a file</td></tr>
 <tr><td><code>Ctrl+Shift+M</code></td><td>Console Mixer</td></tr>
+<tr><td><code>Ctrl</code> <code>+</code> / <code>-</code> / <code>0</code></td><td>Zoom the app in / out / reset</td></tr>
 <tr><td>Long-press BPM <code>▲</code> / <code>▼</code></td><td>Glide tempo</td></tr>
 <tr><td>Mouse wheel on the roll</td><td>Scrub (<code>Shift</code> = fine)</td></tr>
 <tr><td><code>Alt</code> + drag on the roll</td><td>Loop-region selection</td></tr>

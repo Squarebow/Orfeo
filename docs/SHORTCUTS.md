@@ -8,7 +8,8 @@ combinations, modifiers, and gestures that are not obvious from the UI.
 
 > [!NOTE]
 > On macOS builds, use `Cmd` wherever `Ctrl` is shown. Shortcuts do not fire
-> while a text field is focused.
+> while a text field is focused — except app zoom (`Ctrl` `+` / `Ctrl` `-` /
+> `Ctrl` `0`), which always works, the same as in a browser.
 
 ---
 
@@ -36,6 +37,9 @@ combinations, modifiers, and gestures that are not obvious from the UI.
 | `Ctrl+O` | Open a MIDI file |
 | `Ctrl+Shift+M` | Toggle the Console Mixer |
 | Long-press the BPM `▲` / `▼` | Repeatedly nudge tempo by ±1 while held |
+| `Ctrl` `+` (also `Ctrl` `=` and numpad `+`) | Zoom the whole app in one step (80/90/100/110/125/150/175/200%) |
+| `Ctrl` `-` (also numpad `-`) | Zoom the whole app out one step |
+| `Ctrl` `0` (also numpad `0`) | Reset app zoom to 100% |
 
 ---
 
