@@ -11,6 +11,7 @@ import {
   setMasterCompressor,
   COMPRESSOR_PRESETS,
 } from '../../hooks/useSamplesEngine'
+import { useDevicePixelRatio } from '../../hooks/useDevicePixelRatio'
 
 // ── VU meter constants ────────────────────────────────────────────────────────
 const SEG_H    = 4
@@ -366,16 +367,19 @@ export default function MasterStrip() {
   const vuCanvasH = Math.max(30, sectionH - 12)
   const vuSegs    = Math.max(5, Math.floor(vuCanvasH / SEG_UNIT))
 
-  // ── Resize canvas ─────────────────────────────────────────────────────────
+  // ── Resize canvas — also on device pixel ratio change, see ChannelStrip's
+  // identical fix for why: the draw functions below read a fresh DPR every
+  // frame, so the backing store has to keep up with a live Windows-scaling
+  // change too, not just a layout resize. ────────────────────────────────
+  const dpr = useDevicePixelRatio()
   useLayoutEffect(() => {
     const canvas = vuRef.current
     if (!canvas) return
-    const dpr = window.devicePixelRatio || 1
     canvas.width  = sectionW * dpr
     canvas.height = vuCanvasH * dpr
     canvas.style.width  = sectionW + 'px'
     canvas.style.height = vuCanvasH + 'px'
-  }, [sectionW, vuCanvasH])
+  }, [sectionW, vuCanvasH, dpr])
 
   // ── VU subscription — aggregate pitch-band levels across all non-muted tracks ──
   // Scans every non-muted track's notes at currentTime, maps each sounding note

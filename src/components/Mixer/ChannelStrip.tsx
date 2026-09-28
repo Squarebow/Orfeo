@@ -1,6 +1,7 @@
 import { useState, useRef, useLayoutEffect, useEffect, useCallback } from 'react'
 import { Eye, GripVertical } from 'lucide-react'
 import { useStore } from '../../store'
+import { useDevicePixelRatio } from '../../hooks/useDevicePixelRatio'
 import MixerKnob from './MixerKnob'
 import Tooltip, { TooltipBox } from '../Tooltip'
 import { MarqueeText } from '../MarqueeText'
@@ -212,16 +213,21 @@ export default function ChannelStrip({ trackIndex, locked, isDragging, onDragSta
   const vuCanvasH = Math.max(30, sectionH - 8)
   const vuSegs    = Math.max(5, Math.floor(vuCanvasH / SEG_UNIT))
 
-  // ── Resize canvas when section height changes ──────────────────────────────
+  // ── Resize canvas when section height OR device pixel ratio changes ────────
+  // Without the dpr dependency, a live Windows-scaling change left the
+  // backing store sized for the OLD ratio while drawVU (below) kept reading
+  // a fresh devicePixelRatio every frame — new-ratio coordinates drawn onto
+  // an old-ratio-sized canvas, clipped/mis-scaled until something else
+  // happened to change the panel's layout height. ────────────────────────
+  const dpr = useDevicePixelRatio()
   useLayoutEffect(() => {
     const canvas = vuRef.current
     if (!canvas) return
-    const dpr = window.devicePixelRatio || 1
     canvas.width  = VU_W * dpr
     canvas.height = vuCanvasH * dpr
     canvas.style.width  = VU_W + 'px'
     canvas.style.height = vuCanvasH + 'px'
-  }, [vuCanvasH])
+  }, [vuCanvasH, dpr])
 
   // ── VU subscription — watches currentTime to scan active notes by velocity ─
   // Uses useStore.subscribe (not useStore hook) so velocity updates don't cause
