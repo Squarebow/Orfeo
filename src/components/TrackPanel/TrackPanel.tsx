@@ -7,6 +7,7 @@ import { MarqueeText } from '../MarqueeText'
 import { usePlayback } from '../../hooks/usePlayback'
 import { NES } from '../../utils/noteEditorState'
 import Tooltip from '../Tooltip'
+import PianoKeysIcon from '../PianoKeysIcon'
 
 const GROUP_ORDER = [
   'piano', 'chromatic', 'organ', 'guitar', 'bass',
@@ -767,14 +768,7 @@ function TrackRow({
             title={track.showOnKeyboard ? 'Lit on keyboard' : 'Not lit on keyboard'}
             description={track.showOnKeyboard ? 'Notes light up on keyboard' : "Notes are not lit on keyboard"}
             activeColor="var(--text-amber)">
-            {/* Mini piano icon */}
-            <svg width="13" height="9" viewBox="0 0 13 9" fill="none">
-              <rect x="0.5" y="0.5" width="12" height="8" rx="1" stroke="currentColor" strokeWidth="0.9"/>
-              <rect x="2.5" y="0.5" width="1.3" height="5" rx="0.4" fill="currentColor"/>
-              <rect x="5"   y="0.5" width="1.3" height="5" rx="0.4" fill="currentColor"/>
-              <rect x="7.5" y="0.5" width="1.3" height="5" rx="0.4" fill="currentColor"/>
-              <rect x="10"  y="0.5" width="1.3" height="5" rx="0.4" fill="currentColor"/>
-            </svg>
+            <PianoKeysIcon width={13} height={9} />
           </IBtn>
         </div>
       </div>

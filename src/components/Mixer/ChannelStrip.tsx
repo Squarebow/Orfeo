@@ -3,6 +3,7 @@ import { Eye, GripVertical } from 'lucide-react'
 import { useStore } from '../../store'
 import { useDevicePixelRatio } from '../../hooks/useDevicePixelRatio'
 import MixerKnob from './MixerKnob'
+import PianoKeysIcon from '../PianoKeysIcon'
 import Tooltip, { TooltipBox } from '../Tooltip'
 import { MarqueeText } from '../MarqueeText'
 import {
@@ -455,14 +456,7 @@ export default function ChannelStrip({ trackIndex, locked, isDragging, onDragSta
           description={showOnKeyboard ? 'Notes light up on keyboard' : 'Notes won’t light up on the keyboard'}
           activeColor="var(--text-amber)"
         >
-          {/* Mini piano SVG — vectorEffect non-scaling-stroke preserved at all sizes;
-              one black key fewer, scaled down to match the M/S/Eye icons beside it ── */}
-          <svg width="15" height="11" viewBox="0 0 13 9" fill="none">
-            <rect x="0.5" y="0.5" width="12" height="8" rx="1" stroke="currentColor" strokeWidth="0.9" vectorEffect="non-scaling-stroke"/>
-            <rect x="3" y="0.5" width="1.3" height="5" rx="0.4" fill="currentColor"/>
-            <rect x="6" y="0.5" width="1.3" height="5" rx="0.4" fill="currentColor"/>
-            <rect x="9" y="0.5" width="1.3" height="5" rx="0.4" fill="currentColor"/>
-          </svg>
+          <PianoKeysIcon />
         </IBtn>
       </div>
 

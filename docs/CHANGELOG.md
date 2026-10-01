@@ -1,5 +1,12 @@
 # Changelog
 
+## [Unreleased]
+
+### Fixed
+- **Editing controls in the MIDI Playback Editor (Piano Roll toggle, Keyboard toggle, Merge, Split, color picker, instrument revert) stayed clickable even after you unticked a track to leave it out of the save** — nothing actually happened when you used them, but they didn't look disabled either, which could make it seem like your changes weren't sticking. Only the Include checkbox itself still responds on an excluded track now; everything else dims and stops reacting, matching how the row's own greyed-out look already suggested it should behave.
+- Note Editor: Snap button now uses the Lucide magnet icon (the old custom glyph was drawn about twice as thick as the other toolbar icons).
+- Track Panel and MIDI Playback Editor: the keyboard toggle now uses the same 3-key piano icon as the Console Mixer. All four places share one `PianoKeysIcon` component.
+
 ## [1.1.1] — 28. 9. 2026 — App zoom, piano roll freeze fix
 
 ### New

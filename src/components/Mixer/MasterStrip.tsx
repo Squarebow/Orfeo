@@ -3,6 +3,7 @@ import { Eye, VolumeX, Volume2 } from 'lucide-react'
 import { useStore, DEFAULT_MUTED_GROUPS } from '../../store'
 import MixerKnob from './MixerKnob'
 import CompressorIcon from '../CompressorIcon'
+import PianoKeysIcon from '../PianoKeysIcon'
 import Tooltip, { TooltipBox } from '../Tooltip'
 import {
   setMasterChorus,
@@ -59,18 +60,6 @@ function EyeClosed({ size = 12 }: { size?: number }) {
       <path d="m20 15-1.726-2.05"/>
       <path d="m4 15 1.726-2.05"/>
       <path d="m9 18 .722-3.25"/>
-    </svg>
-  )
-}
-
-// ── Mini piano SVG — identical to ChannelStrip's Kbd button icon ──────────────
-function PianoIcon() {
-  return (
-    <svg width="15" height="11" viewBox="0 0 13 9" fill="none">
-      <rect x="0.5" y="0.5" width="12" height="8" rx="1" stroke="currentColor" strokeWidth="0.9" vectorEffect="non-scaling-stroke"/>
-      <rect x="3" y="0.5" width="1.3" height="5" rx="0.4" fill="currentColor"/>
-      <rect x="6" y="0.5" width="1.3" height="5" rx="0.4" fill="currentColor"/>
-      <rect x="9" y="0.5" width="1.3" height="5" rx="0.4" fill="currentColor"/>
     </svg>
   )
 }
@@ -621,7 +610,7 @@ export default function MasterStrip() {
             description={allOnKeyboard ? 'Stop every track lighting up the on-screen keyboard' : 'Every track lights up the on-screen keyboard'}
             activeColor="var(--text-amber)"
           >
-            <PianoIcon />
+            <PianoKeysIcon />
           </IBtn>
         </div>
         {autoMuteNonKeyboard && (

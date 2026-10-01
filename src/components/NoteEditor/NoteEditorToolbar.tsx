@@ -1,5 +1,5 @@
 import { useEffect, useState, useReducer, useRef, useCallback, useMemo } from 'react'
-import { PenLine, SquareDashed, CircleDashed, Hand, WholeWord, Music4, Save } from 'lucide-react'
+import { PenLine, SquareDashed, CircleDashed, Hand, WholeWord, Music4, Save, Magnet } from 'lucide-react'
 import { useStore } from '../../store'
 import { NES, buildNoteEditSummary, type NETool } from '../../utils/noteEditorState'
 import { confirmDialog } from '../../utils/confirmController'
@@ -13,14 +13,6 @@ import { HAND_ASSIGN_GROUPS } from '../../utils/keyboardGroups'
 import OrfeoMark from '../OrfeoMark'
 
 // ── Toolbar SVG icons ─────────────────────────────────────────────────────────
-const IconSnap = () => (
-  <svg width="13" height="13" viewBox="0 0 13 13" fill="currentColor" aria-hidden="true">
-    <rect x="1.5" y="2" width="2" height="9" rx="1" />
-    <rect x="5.5" y="4" width="2" height="5" rx="1" />
-    <rect x="9.5" y="2" width="2" height="9" rx="1" />
-  </svg>
-)
-
 const IconVelocity = () => (
   <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
     <path d="M22 12h-4l-3 9L9 3l-3 9H2"/>
@@ -556,7 +548,7 @@ export default function NoteEditorToolbar() {
         </button>
 
         <ToolBtn active={snapEnabled} onClick={() => setSnap(!snapEnabled)} onHint={setIconHint} hint={snapEnabled ? 'Snap ON — moving, resizing or adding a note rounds its timing to the grid' : 'Snap OFF — moved/resized/added notes keep their exact dragged timing'}>
-          <IconSnap />
+          <Magnet size={13} />
         </ToolBtn>
 
         <div style={{ position: 'relative' }}>

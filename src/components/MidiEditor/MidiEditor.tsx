@@ -27,6 +27,7 @@ import { computeTempoKeyPayload } from '../../utils/tempoKeySave'
 import { useFocusTrap } from '../../hooks/useFocusTrap'
 import { useClampPositionOnZoom } from '../../hooks/useClampPositionOnZoom'
 import Tooltip from '../Tooltip'
+import PianoKeysIcon from '../PianoKeysIcon'
 
 const MODAL_W = 980
 const MODAL_H = 620
@@ -199,8 +200,8 @@ function baseName(p: string) { return p.split(/[\\/]/).pop() ?? p }
 
 // ─── Instrument Picker ────────────────────────────────────────────────────────
 
-function InstrumentPicker({ program, isDrum, onChange }: {
-  program: number; isDrum: boolean; onChange: (p: number) => void
+function InstrumentPicker({ program, isDrum, onChange, disabled }: {
+  program: number; isDrum: boolean; onChange: (p: number) => void; disabled?: boolean
 }) {
   const [open, setOpen] = useState(false)
   const [expandedFamily, setExpandedFamily] = useState<string | null>(null)
@@ -230,12 +231,12 @@ function InstrumentPicker({ program, isDrum, onChange }: {
 
   return (
     <div ref={ref} style={{ position: 'relative' }}>
-      <button onClick={() => setOpen(o => !o)} style={{
+      <button onClick={() => setOpen(o => !o)} disabled={disabled} style={{
         width: '100%', padding: '4px 8px', borderRadius: 4,
         border: `1px solid ${open ? 'var(--accent-amber-strong)' : 'var(--border2)'}`,
         background: open ? 'var(--accent-amber-subtle)' : 'var(--bg-modal-header)',
         color: 'var(--text-muted)', fontSize: 10,
-        display: 'flex', alignItems: 'center', gap: 'var(--space-1)', cursor: 'pointer', textAlign: 'left',
+        display: 'flex', alignItems: 'center', gap: 'var(--space-1)', cursor: disabled ? 'default' : 'pointer', textAlign: 'left',
       }}>
         <span style={{ flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{currentName}</span>
         <ChevronDown size={10} style={{ flexShrink: 0, color: 'var(--text-inactive)', transform: open ? 'rotate(180deg)' : 'none', transition: 'transform 0.15s' }} />
@@ -568,6 +569,14 @@ function TrackRow({ track, onToggleIncluded, onToggleMerge, onChangeProgram, onU
   const [editValue, setEditValue]     = useState('')
   const inputRef = useRef<HTMLInputElement>(null)
 
+  // ── Every control below except the Include toggle itself edits how the
+  // track will be SAVED — none of that matters for a track that won't be
+  // in the output at all, and leaving them clickable let you e.g. flip an
+  // excluded track's piano-roll/keyboard flags with no visible effect,
+  // confusing enough that the row's own dimmed 0.4 opacity wasn't reading
+  // as "actually disabled." ──────────────────────────────────────────────
+  const rowDisabled = !track.included
+
   const startEdit = () => { setEditValue(track.trackName); setEditingName(true) }
   const commitEdit = () => {
     const trimmed = editValue.trim()
@@ -605,8 +614,8 @@ function TrackRow({ track, onToggleIncluded, onToggleMerge, onChangeProgram, onU
       <div style={{ display: 'flex', alignItems: 'center', gap: 6, minWidth: 0 }}>
         <Tooltip title="Open the color picker" oneLine wrapperStyle={{ flexShrink: 0 }}>
         <div
-          onClick={e => onPickColor(track.index, e.currentTarget.getBoundingClientRect())}
-          style={{ width: 4, height: 32, background: track.color, borderRadius: 2, flexShrink: 0, cursor: 'pointer' }}
+          onClick={rowDisabled ? undefined : e => onPickColor(track.index, e.currentTarget.getBoundingClientRect())}
+          style={{ width: 4, height: 32, background: track.color, borderRadius: 2, flexShrink: 0, cursor: rowDisabled ? 'default' : 'pointer' }}
         />
         </Tooltip>
         <div style={{ minWidth: 0 }}>
@@ -629,10 +638,10 @@ function TrackRow({ track, onToggleIncluded, onToggleMerge, onChangeProgram, onU
             ) : (
               <Tooltip title="Double-click to rename" oneLine wrapperStyle={{ minWidth: 0, overflow: 'hidden' }}>
               <span
-                onDoubleClick={startEdit}
-                onMouseEnter={e => { e.currentTarget.style.color = 'var(--text-amber)' }}
+                onDoubleClick={rowDisabled ? undefined : startEdit}
+                onMouseEnter={e => { if (!rowDisabled) e.currentTarget.style.color = 'var(--text-amber)' }}
                 onMouseLeave={e => { e.currentTarget.style.color = 'var(--text-muted)' }}
-                style={{ fontSize: 'var(--text-sm)', fontWeight: 500, color: 'var(--text-muted)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', cursor: PENCIL_CURSOR, transition: 'color 0.12s' }}
+                style={{ fontSize: 'var(--text-sm)', fontWeight: 500, color: 'var(--text-muted)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', cursor: rowDisabled ? 'default' : PENCIL_CURSOR, transition: 'color 0.12s' }}
               >
                 {track.trackName}
               </span>
@@ -659,8 +668,9 @@ function TrackRow({ track, onToggleIncluded, onToggleMerge, onChangeProgram, onU
                     <Tooltip title={`Back to the original assignment — ${track.gmName}.`} oneLine>
                     <button
                       onClick={() => onChangeProgram(track.program)}
-                      style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-inactive)', padding: '0 2px', display: 'flex', alignItems: 'center', transition: 'color 0.15s' }}
-                      onMouseEnter={e => e.currentTarget.style.color = 'var(--text-amber)'}
+                      disabled={rowDisabled}
+                      style={{ background: 'none', border: 'none', cursor: rowDisabled ? 'default' : 'pointer', color: 'var(--text-inactive)', padding: '0 2px', display: 'flex', alignItems: 'center', transition: 'color 0.15s' }}
+                      onMouseEnter={e => { if (!rowDisabled) e.currentTarget.style.color = 'var(--text-amber)' }}
                       onMouseLeave={e => e.currentTarget.style.color = 'var(--text-inactive)'}
                     >
                       <RotateCcw size={9} />
@@ -677,11 +687,11 @@ function TrackRow({ track, onToggleIncluded, onToggleMerge, onChangeProgram, onU
       {/* ── Col 3: Merge / Unmerge ───────────────────────────────────────────── */}
       {track.isMerged ? (
         <Tooltip title="Splits this merged group back into its separate original tracks." oneLine wrapperStyle={{ justifySelf: 'start' }}>
-        <button onClick={onUnmerge} style={{
+        <button onClick={onUnmerge} disabled={rowDisabled} style={{
           width: 24, height: 24, borderRadius: 4,
           border: '1.5px solid var(--unmerge-border)', background: 'var(--unmerge-bg)',
           color: 'var(--merge-badge-text)', display: 'flex', alignItems: 'center', justifyContent: 'center',
-          cursor: 'pointer', flexShrink: 0,
+          cursor: rowDisabled ? 'default' : 'pointer', flexShrink: 0,
         }}>
           <Undo2 size={11} />
         </button>
@@ -700,15 +710,16 @@ function TrackRow({ track, onToggleIncluded, onToggleMerge, onChangeProgram, onU
         <Tooltip title="Select two or more tracks to merge" oneLine wrapperStyle={{ justifySelf: 'start' }}>
         <button
           onClick={onToggleMerge}
+          disabled={rowDisabled}
           style={{
             width: 24, height: 24, borderRadius: 4,
             border: `1.5px solid ${track.mergeSelected ? 'var(--accent-amber-strong)' : 'var(--border2)'}`,
             background: track.mergeSelected ? 'var(--accent-amber-medium)' : 'transparent',
             color: track.mergeSelected ? 'var(--text-amber)' : 'var(--text-dim-control)',
             display: 'flex', alignItems: 'center', justifyContent: 'center',
-            cursor: 'pointer', flexShrink: 0, transition: 'border-color 0.12s, color 0.12s',
+            cursor: rowDisabled ? 'default' : 'pointer', flexShrink: 0, transition: 'border-color 0.12s, color 0.12s',
           }}
-          onMouseEnter={e => { e.currentTarget.style.borderColor = 'var(--unmerge-border)'; e.currentTarget.style.color = 'var(--merge-badge-text)' }}
+          onMouseEnter={e => { if (rowDisabled) return; e.currentTarget.style.borderColor = 'var(--unmerge-border)'; e.currentTarget.style.color = 'var(--merge-badge-text)' }}
           onMouseLeave={e => {
             e.currentTarget.style.borderColor = track.mergeSelected ? 'var(--accent-amber-strong)' : 'var(--border2)'
             e.currentTarget.style.color = track.mergeSelected ? 'var(--text-amber)' : 'var(--text-dim-control)'
@@ -724,14 +735,15 @@ function TrackRow({ track, onToggleIncluded, onToggleMerge, onChangeProgram, onU
         <Tooltip title="Split into Left/Right Hand tracks" oneLine wrapperStyle={{ justifySelf: 'start' }}>
         <button
           onClick={onSplit}
+          disabled={rowDisabled}
           style={{
             width: 24, height: 24, borderRadius: 4,
             border: '1.5px solid var(--border2)', background: 'transparent',
             color: 'var(--text-dim-control)',
             display: 'flex', alignItems: 'center', justifyContent: 'center',
-            cursor: 'pointer', flexShrink: 0, transition: 'all 0.12s',
+            cursor: rowDisabled ? 'default' : 'pointer', flexShrink: 0, transition: 'all 0.12s',
           }}
-          onMouseEnter={e => { e.currentTarget.style.color = 'var(--text-amber)'; e.currentTarget.style.borderColor = 'var(--accent-amber-strong)' }}
+          onMouseEnter={e => { if (rowDisabled) return; e.currentTarget.style.color = 'var(--text-amber)'; e.currentTarget.style.borderColor = 'var(--accent-amber-strong)' }}
           onMouseLeave={e => { e.currentTarget.style.color = 'var(--text-dim-control)'; e.currentTarget.style.borderColor = 'var(--border2)' }}
         >
           <Split size={11} />
@@ -745,14 +757,15 @@ function TrackRow({ track, onToggleIncluded, onToggleMerge, onChangeProgram, onU
       <Tooltip title="Open color picker" oneLine wrapperStyle={{ justifySelf: 'start' }}>
       <button
         onClick={e => onPickColor(track.index, e.currentTarget.getBoundingClientRect())}
+        disabled={rowDisabled}
         style={{
           width: 24, height: 24, borderRadius: 4,
           border: '1.5px solid var(--border2)', background: 'transparent',
           color: 'var(--text-dim-control)',
           display: 'flex', alignItems: 'center', justifyContent: 'center',
-          cursor: 'pointer', flexShrink: 0, transition: 'all 0.12s',
+          cursor: rowDisabled ? 'default' : 'pointer', flexShrink: 0, transition: 'all 0.12s',
         }}
-        onMouseEnter={e => { e.currentTarget.style.color = track.color; e.currentTarget.style.borderColor = track.color }}
+        onMouseEnter={e => { if (rowDisabled) return; e.currentTarget.style.color = track.color; e.currentTarget.style.borderColor = track.color }}
         onMouseLeave={e => { e.currentTarget.style.color = 'var(--text-dim-control)'; e.currentTarget.style.borderColor = 'var(--border2)' }}
       >
         <SwatchBook size={11} />
@@ -768,12 +781,13 @@ function TrackRow({ track, onToggleIncluded, onToggleMerge, onChangeProgram, onU
       >
       <button
         onClick={onToggleVisible}
+        disabled={rowDisabled}
         style={{
           width: 24, height: 24, borderRadius: 4,
           border: `1.5px solid ${track.visible ? 'var(--border2)' : 'var(--icon-visibility-active)'}`,
           background: 'transparent', color: track.visible ? 'var(--text-dim-control)' : 'var(--icon-visibility-active)',
           display: 'flex', alignItems: 'center', justifyContent: 'center',
-          cursor: 'pointer', flexShrink: 0,
+          cursor: rowDisabled ? 'default' : 'pointer', flexShrink: 0,
         }}
       >
         {track.visible ? <Eye size={12} /> : <EyeOff size={12} />}
@@ -788,22 +802,17 @@ function TrackRow({ track, onToggleIncluded, onToggleMerge, onChangeProgram, onU
       >
       <button
         onClick={onToggleKeyboard}
+        disabled={rowDisabled}
         style={{
           width: 24, height: 24, borderRadius: 4,
           border: `1.5px solid ${track.showOnKeyboard ? 'var(--accent-amber-strong)' : 'var(--border2)'}`,
           background: track.showOnKeyboard ? 'var(--accent-amber-medium)' : 'transparent',
           color: track.showOnKeyboard ? 'var(--text-amber)' : 'var(--text-dim-control)',
           display: 'flex', alignItems: 'center', justifyContent: 'center',
-          cursor: 'pointer', flexShrink: 0,
+          cursor: rowDisabled ? 'default' : 'pointer', flexShrink: 0,
         }}
       >
-        <svg width="13" height="9" viewBox="0 0 13 9" fill="none">
-          <rect x="0.5" y="0.5" width="12" height="8" rx="1" stroke="currentColor" strokeWidth="0.9"/>
-          <rect x="2.5" y="0.5" width="1.3" height="5" rx="0.4" fill="currentColor"/>
-          <rect x="5"   y="0.5" width="1.3" height="5" rx="0.4" fill="currentColor"/>
-          <rect x="7.5" y="0.5" width="1.3" height="5" rx="0.4" fill="currentColor"/>
-          <rect x="10"  y="0.5" width="1.3" height="5" rx="0.4" fill="currentColor"/>
-        </svg>
+        <PianoKeysIcon width={13} height={9} />
       </button>
       </Tooltip>
 
@@ -822,7 +831,7 @@ function TrackRow({ track, onToggleIncluded, onToggleMerge, onChangeProgram, onU
         </div>
         </Tooltip>
       ) : (
-        <InstrumentPicker program={track.newProgram} isDrum={false} onChange={onChangeProgram} />
+        <InstrumentPicker program={track.newProgram} isDrum={false} onChange={onChangeProgram} disabled={rowDisabled} />
       )}
     </div>
   )
@@ -1145,6 +1154,24 @@ export default function MidiEditor() {
   // the user can fix the problem and retry. ──────────────────────────────────
   const performSave = async () => {
     if (includedCount === 0) { setSaveResult({ ok: false, msg: 'Select at least one track.' }); return }
+
+    // ── Warn before an unchecked track actually disappears from the saved
+    // file — easy to reach unnoticed now that a muted/hidden track from the
+    // Tracks panel already lands here unchecked automatically. Cancel is the
+    // last button (safe default on Escape/backdrop click, matching every
+    // other confirm dialog in the app). ─────────────────────────────────────
+    const excludedRows = state.rows.filter(r => !r.included)
+    if (excludedRows.length > 0) {
+      const choice = await confirmDialog({
+        title: 'Delete tracks?',
+        message: `You're about to delete ${excludedRows.length} track${excludedRows.length === 1 ? '' : 's'} in the saved version.`,
+        detail: excludedRows.map(r => r.trackName).join(', '),
+        buttons: ['Delete & Save', 'Cancel'],
+        destructiveIndex: 0,
+      })
+      if (choice !== 0) return
+    }
+
     setSaving(true); setSaveResult(null)
     try {
       const includedTracks: { index: number; newProgram: number; name?: string; color?: string; splitHand?: 'L' | 'R'; visible?: boolean; showOnKeyboard?: boolean }[] = []
