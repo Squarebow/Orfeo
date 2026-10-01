@@ -31,12 +31,14 @@ combinations, modifiers, and gestures that are not obvious from the UI.
 
 | Shortcut | Action |
 |---|---|
-| `Space` | Play / Pause (ignored while the Chord or Scale Explorer is open) |
-| `Escape` | Stop playback. If Presentation Mode, the Chord Explorer, the Scale Explorer, or the Locked-Chord modal is open, that closes first instead — without stopping playback |
+| `Space` | Play / Pause (ignored while the Chord or Scale Explorer is open). During a Tap Tempo session it's a tap instead |
+| `Escape` | Stop playback. During a Tap Tempo session it cancels the session instead. If Presentation Mode, the Chord Explorer, the Scale Explorer, or the Locked-Chord modal is open, that closes first instead — without stopping playback |
 | `F11` | Toggle Presentation Mode |
 | `Ctrl+O` | Open a MIDI file |
 | `Ctrl+Shift+M` | Toggle the Console Mixer |
 | Long-press the BPM `▲` / `▼` | Repeatedly nudge tempo by ±1 while held |
+| Click / right-click the **TAP** pad | Start a Tap Tempo session (then each click is a tap) / reset the song to its own tempo |
+| Any key on a MIDI keyboard | A tap, during a Tap Tempo session |
 | `Ctrl` `+` (also `Ctrl` `=` and numpad `+`) | Zoom the whole app in one step (80/90/100/110/125/150/175/200%) |
 | `Ctrl` `-` (also numpad `-`) | Zoom the whole app out one step |
 | `Ctrl` `0` (also numpad `0`) | Reset app zoom to 100% |

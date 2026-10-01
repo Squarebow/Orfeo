@@ -59,6 +59,7 @@ for example `how-to-use/edit-split-hands.gif`.
   - [The falling-note piano roll](#the-falling-note-piano-roll)
   - [The virtual keyboard](#the-virtual-keyboard)
   - [Transport and tempo](#transport-and-tempo)
+  - [Fix a song's tempo with Tap Tempo](#fix-a-songs-tempo-with-tap-tempo)
   - [Change key](#change-key)
   - [Loop a passage](#loop-a-passage)
   - [Tracks panel](#tracks-panel)
@@ -202,6 +203,52 @@ speed up. It combines freely with [looping](#loop-a-passage) and
 >
 > *Loop the bar, drop to 60%, play it until it's clean, then step the tempo
 > back up 5% at a time with the BPM arrows.*
+
+### Fix a song's tempo with Tap Tempo
+
+Some MIDI files carry the wrong tempo. The music plays fine, but the bar lines,
+the metronome and the BPM readout don't match what you hear: the clicks drift
+off the drums, or the tempo reads double what you feel. Tap Tempo lets you fix
+that by tapping along.
+
+1. Turn on **Settings → Piano Roll → Show Tap Tempo pad**. A red round **TAP**
+   pad appears next to the BPM box.
+2. Put the playhead where the tempo goes wrong: the top of the song, or the
+   bar where the groove kicks in if the intro is fine.
+3. Click **TAP**. If the song is stopped it starts playing about two bars
+   early, so you can hear the pulse before you join in.
+4. Tap on the beat: click the pad, press `Space`, or hit any key on your MIDI
+   keyboard. You don't have to start right away. Wait until you've locked in.
+   **Your first tap counts as beat 1 of a bar.** Tap at least 4 times; 8 or
+   more gives a steadier result. A missed or doubled tap is ignored.
+5. Stop tapping for 2 seconds, or click **Done**. The song keeps playing with
+   the metronome and the bar lines already on your new tempo, so you can
+   listen and check.
+6. If the bar lines landed one beat off, nudge the "1" with **◀** / **▶**.
+   Then choose **Keep**, **Tap again** or **Cancel**. Nothing is saved until
+   you press Keep.
+
+From that point onward, the bar lines, the metronome, the bar counter, the BPM
+readout and the chord display all follow your tempo. Everything before it stays
+as the file had it. **The way the song sounds never changes**, and your MIDI
+file is never modified. Orfeo remembers the fix for that song (even if you
+rename or move the file) and applies it every time you open it.
+
+- **A tempo change partway through a song:** tap again further along. Each tap
+  session adds a new tempo from its own starting point. Tapping inside an
+  earlier fix replaces it from that point on.
+- **Undo it all:** right-click the **TAP** pad → *Reset to the file's own
+  tempo*.
+- **Speed control still works:** the BPM ▲ / ▼ arrows move the tempo you see
+  by one, so on a fixed song you're adjusting the real tempo, not the file's
+  wrong one.
+- `Esc` cancels a tap session at any point.
+
+> 🎯 **Use case — the clicks don't match the groove**
+>
+> *The intro sounds right at the file's tempo, but once the band comes in the
+> metronome drifts. Park the playhead where the groove starts, click TAP, tap
+> along for a couple of bars, listen back, and press Keep.*
 
 ### Change key
 
@@ -556,7 +603,9 @@ it from the icon above the keyboard.
 Clicks along with the beat while a file plays. It reads the **tempo map embedded
 in the MIDI file** and follows every mid-song tempo change, phase-locked to
 wherever you start playback — so it stays in time through a rit. or accel. that
-a flat click track would drift on.
+a flat click track would drift on. If a file's own tempo is wrong, fix it with
+[Tap Tempo](#fix-a-songs-tempo-with-tap-tempo) and the metronome follows your
+corrected beat.
 
 ### Chords Explorer
 

@@ -1,5 +1,13 @@
 # Changelog
 
+## [Unreleased] — Tap Tempo
+
+### New
+- **Tap Tempo: fix songs whose bar lines and metronome don't match the music.** Some MIDI files carry the wrong tempo, so the clicks drift off the drums or the tempo reads double what you hear, even though the song itself plays fine. Turn on *Show Tap Tempo pad* in Settings, put the playhead where things go wrong, click the red **TAP** pad and tap along on the beat (click, `Space`, or any key on your MIDI keyboard). Orfeo works out a steady tempo from your taps, shows it right away so you can listen back with the metronome, and lets you nudge which beat is the "1" before you press Keep. From that point on, the bar lines, metronome, bar counter, BPM readout and chord display all follow your tempo. The song's sound never changes, your MIDI file is never modified, and the fix is remembered for that song, even after renaming or moving it (and when Orfeo saves a new version of it). Tap again later in the song for a mid-song tempo change; right-click the pad to go back to the file's own tempo.
+
+### Changed
+- The BPM ▲ / ▼ arrows now move the tempo you *see* by exactly one. Before, on a song that changes tempo partway through, one click could move the readout by more or less than one.
+
 ## [1.1.2] — 1. 10. 2026 — Metronome/bar-grid time-signature fix
 
 ### Fixed
