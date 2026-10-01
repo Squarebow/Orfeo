@@ -2160,6 +2160,8 @@ export default function SettingsPanel() {
   const setShowBarNumbers = useStore((s) => s.setShowBarNumbers)
   const playbarVisible = useStore((s) => s.playbarVisible)
   const setPlaybarVisible = useStore((s) => s.setPlaybarVisible)
+  const tapTempoPadEnabled = useStore((s) => s.tapTempoPadEnabled)
+  const setTapTempoPadEnabled = useStore((s) => s.setTapTempoPadEnabled)
   const hitEffectsEnabled = useStore((s) => s.hitEffectsEnabled)
   const setHitEffectsEnabled = useStore((s) => s.setHitEffectsEnabled)
   const autoLevelOnLoad = useStore((s) => s.autoLevelOnLoad)
@@ -3199,6 +3201,14 @@ export default function SettingsPanel() {
                     eyeValue={playbarVisible}
                     onEyeChange={setPlaybarVisible}
                     description="When off, notes fall toward the keyboard's actual on-screen position instead on a fixed line."
+                  />
+                  {/* ── Tap Tempo pad — eye-toggle, off by default ─────────── */}
+                  <OptionRow
+                    label={t`Show Tap Tempo pad`}
+                    eyeToggle
+                    eyeValue={tapTempoPadEnabled}
+                    onEyeChange={setTapTempoPadEnabled}
+                    description={t`Adds a red TAP pad next to the tempo, for fixing songs whose bar lines and metronome don't match the music.`}
                   />
                   {/* ── Note Hit Effects — eye-toggle, off by default; pattern picker ──
                        only shown when on. */}

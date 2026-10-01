@@ -763,3 +763,7 @@ textarea:focus-visible,
 @media (prefers-reduced-motion: reduce) {
   .orfeo-marquee-track:hover .orfeo-marquee-text.is-overflowing { animation: none; }
 }
+
+/* Tap Tempo pad — brief pop on each tap (re-triggered via React key) */
+@keyframes orfeo-tap-pulse { from { transform: scale(1.18) } to { transform: scale(1) } }
+.orfeo-tap-pulse { animation: orfeo-tap-pulse 0.12s ease-out }

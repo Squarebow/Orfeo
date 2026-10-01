@@ -1,0 +1,146 @@
+import { useEffect, useRef, useState } from 'react'
+import { useStore } from '../../store'
+import { t } from '../../utils/i18n'
+import Tooltip from '../Tooltip'
+import { ContextMenu, ContextMenuItem } from '../ContextMenu'
+import { confirmDialog } from '../../utils/confirmController'
+import { useTapTempo } from '../../hooks/useTapTempo'
+import {
+  armTapSession, registerTap, finishTapping, shiftPreviewDownbeat,
+  keepTap, tapAgain, cancelTap, resetSongTempo,
+} from '../../utils/tapTempoSession'
+
+// ── Tap Tempo pad — red round TAP button beside the BPM box (Settings →
+// "Show Tap Tempo pad"). Click arms a session; while armed, every click on
+// the pad (or Space / a MIDI key) is a tap — finishing is via Done or a 2 s
+// pause, never a pad click. A small panel under the pad shows the tap count,
+// then the fitted tempo with Keep / Tap again / Cancel and the ◀ 1 ▶
+// downbeat nudge. Right-click → reset the song's correction. ──────────────
+export function TapTempoPad() {
+  useTapTempo()
+  const enabled = useStore((s) => s.tapTempoPadEnabled)
+  const midi = useStore((s) => s.midi)
+  const noteEditorActive = useStore((s) => s.noteEditorActive)
+  const ses = useStore((s) => s.tapSession)
+  const hasCorrection = useStore((s) => !!s.songKey && !!s.tempoCorrections[s.songKey])
+  const [pulse, setPulse] = useState(0)
+  const [menu, setMenu] = useState<{ x: number; y: number } | null>(null)
+  const menuRef = useRef<HTMLDivElement>(null)
+
+  useEffect(() => {
+    if (!menu) return
+    const onDown = (e: MouseEvent) => { if (!menuRef.current?.contains(e.target as Node)) setMenu(null) }
+    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') setMenu(null) }
+    const id = setTimeout(() => {
+      window.addEventListener('mousedown', onDown, true)
+      window.addEventListener('keydown', onKey, true)
+    }, 0)
+    return () => {
+      clearTimeout(id)
+      window.removeEventListener('mousedown', onDown, true)
+      window.removeEventListener('keydown', onKey, true)
+    }
+  }, [menu])
+
+  if (!enabled) return null
+  const disabled = !midi || noteEditorActive
+  const capturing = !!ses && ses.phase !== 'preview'
+
+  const onPadDown = (e: React.MouseEvent) => {
+    if (e.button !== 0 || disabled) return
+    e.preventDefault()
+    if (!ses) armTapSession()
+    else if (capturing) { registerTap(); setPulse(p => p + 1) }
+  }
+
+  const onReset = async () => {
+    setMenu(null)
+    const choice = await confirmDialog({
+      title: t`Reset tempo`,
+      message: t`Go back to this song's own tempo and bar lines?`,
+      detail: t`Your tapped tempo corrections for this song will be removed.`,
+      buttons: [t`Reset`, t`Cancel`],
+    })
+    if (choice === 0) resetSongTempo()
+  }
+
+  const fittedBpm = ses?.segment ? (60 / ses.segment.period).toFixed(1) : null
+  const btn: React.CSSProperties = {
+    background: 'none', border: '1px solid var(--border)', borderRadius: 'var(--radius-sm)',
+    color: 'var(--text-default)', fontSize: 'var(--text-xs)', padding: '2px 8px', cursor: 'pointer',
+  }
+
+  return (
+    <div style={{ position: 'relative', flexShrink: 0 }}>
+      <Tooltip
+        title={t`Tap Tempo`}
+        description={capturing
+          ? t`Tap on the beat — click here, press Space, or hit any key on your MIDI keyboard. Your first tap is beat 1.`
+          : t`Click, then tap along to fix this song's bar lines and metronome from the playhead onward. Right-click to reset.`}
+        placement="bottom"
+      >
+        <button
+          key={pulse}
+          className={`app-no-drag${capturing && pulse > 0 ? ' orfeo-tap-pulse' : ''}`}
+          onMouseDown={onPadDown}
+          onContextMenu={(e) => { e.preventDefault(); if (!disabled) setMenu({ x: e.clientX, y: e.clientY }) }}
+          disabled={disabled}
+          aria-label={t`Tap Tempo`}
+          style={{
+            width: 30, height: 30, borderRadius: '50%', border: 'none',
+            background: 'var(--status-error)', color: '#fff',
+            fontFamily: 'var(--font-mono)', fontSize: 9, fontWeight: 700, letterSpacing: '0.05em',
+            cursor: disabled ? 'default' : 'pointer', opacity: disabled ? 0.4 : 1,
+            boxShadow: ses ? '0 0 0 2px var(--accent-amber-strong)' : 'none',
+          }}
+        >
+          {capturing ? ses!.taps.length : t`TAP`}
+        </button>
+      </Tooltip>
+
+      {ses && (
+        <div
+          className="app-no-drag orfeo-modal-glow"
+          style={{
+            position: 'absolute', top: 'calc(100% + 6px)', left: '50%', transform: 'translateX(-50%)',
+            background: 'var(--bg-tooltip)', border: '1px solid var(--accent-amber-strong)', borderRadius: 'var(--radius-md)',
+            padding: '8px 10px', zIndex: 9400, display: 'flex', flexDirection: 'column', gap: 6, alignItems: 'center',
+            whiteSpace: 'nowrap', fontSize: 'var(--text-xs)', color: 'var(--text-default)',
+          }}
+        >
+          {capturing ? (
+            <>
+              <span>{ses.message ?? (ses.taps.length === 0 ? t`Tap on the beat — first tap is beat 1` : t`Taps: ${ses.taps.length}`)}</span>
+              <div style={{ display: 'flex', gap: 6 }}>
+                <button style={btn} onClick={finishTapping} disabled={ses.taps.length === 0}>{t`Done`}</button>
+                <button style={btn} onClick={cancelTap}>{t`Cancel`}</button>
+              </div>
+            </>
+          ) : (
+            <>
+              <span style={{ fontFamily: 'var(--font-mono)', fontSize: 16, fontWeight: 700, color: 'var(--text-amber)' }}>
+                {fittedBpm} {t`bpm`} · {ses.segment?.beatsPerBar}/{ses.segment?.den}
+              </span>
+              <div style={{ display: 'flex', gap: 4, alignItems: 'center' }}>
+                <button style={btn} onClick={() => shiftPreviewDownbeat(-1)} aria-label={t`Move the 1 earlier`}>◀</button>
+                <span style={{ fontFamily: 'var(--font-mono)' }}>1</span>
+                <button style={btn} onClick={() => shiftPreviewDownbeat(1)} aria-label={t`Move the 1 later`}>▶</button>
+              </div>
+              <div style={{ display: 'flex', gap: 6 }}>
+                <button style={{ ...btn, borderColor: 'var(--accent-amber-strong)', color: 'var(--text-amber)' }} onClick={keepTap}>{t`Keep`}</button>
+                <button style={btn} onClick={tapAgain}>{t`Tap again`}</button>
+                <button style={btn} onClick={cancelTap}>{t`Cancel`}</button>
+              </div>
+            </>
+          )}
+        </div>
+      )}
+
+      {menu && (
+        <ContextMenu ref={menuRef} x={menu.x} y={menu.y} ariaLabel={t`Tap Tempo menu`} className="app-no-drag">
+          <ContextMenuItem onClick={onReset} disabled={!hasCorrection} danger>{t`Reset to the file's own tempo`}</ContextMenuItem>
+        </ContextMenu>
+      )}
+    </div>
+  )
+}

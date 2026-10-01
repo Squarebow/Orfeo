@@ -15,6 +15,7 @@ import MidiIcon from '../MidiIcon'
 import VolumeKnob from '../VolumeKnob'
 import LoopRegionStrip from '../LoopRegionStrip'
 import Tooltip from '../Tooltip'
+import { TapTempoPad } from './TapTempoPad'
 import { ContextMenu, ContextMenuItem } from '../ContextMenu'
 import { confirmDiscardDirtyNoteEdits } from '../../utils/noteEditorState'
 import { confirmDiscardDirtyTempoKey } from '../../utils/tempoKeySave'
@@ -323,6 +324,7 @@ export default function TopBar() {
             <RotateCcw size={9} />
           </button>
         </Tooltip>
+        <TapTempoPad />
       </div>
 
       <VSep />
