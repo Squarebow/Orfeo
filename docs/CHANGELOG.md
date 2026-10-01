@@ -1,6 +1,6 @@
 # Changelog
 
-## [Unreleased]
+## [1.1.2] — 1. 10. 2026 — Metronome/bar-grid time-signature fix
 
 ### Fixed
 - **The click track and the piano roll's bar lines/bar counter could drift off the real "one" on any song that changes time signature partway through** (for example a run of 3/4 bars followed by a 4/4 bar, then back again). Both only ever looked at the very first time signature written into the file and assumed every bar afterward was that same length — so once the song actually switched bar lengths, a four-beat bar got counted as a three-beat bar (or the reverse), and every accent and bar line after that point landed on the wrong beat for the rest of the song. Both now follow every time-signature change in the file, not just the first one, so the click and the bar grid stay locked to the real beat 1 all the way through, on any song that shifts between different bar lengths.
