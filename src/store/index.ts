@@ -1413,8 +1413,11 @@ const RESTORE_DEBOUNCE_MS = 150
 const _unsubCollapse = useStore.subscribe((state) => {
   if (!state.autoCollapseDrawers) { _drawersAutoCollapsed = false; return }
 
-  if (state.midi !== _prevMidiForCollapse) {
-    _prevMidiForCollapse = state.midi
+  // Identity of the loaded FILE, not the midi object — a Tap Tempo grid swap
+  // (setBeatGrid) makes a new midi object for the same file mid-playback
+  const fileId = state.midi ? ((state.midi as any)._raw ?? state.midi) : null
+  if (fileId !== _prevMidiForCollapse) {
+    _prevMidiForCollapse = fileId
     if (_drawersAutoCollapsed) {
       if (_restoreTimer) { clearTimeout(_restoreTimer); _restoreTimer = null }
       _drawersAutoCollapsed = false

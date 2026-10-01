@@ -1,7 +1,6 @@
 import { useEffect } from 'react'
 import { useStore } from '../store'
-import { MIN_TAPS } from '../utils/tapTempoFit'
-import { finishTapping, cancelTap, tappingInterrupted, setTapLatencyProvider } from '../utils/tapTempoSession'
+import { finishTapping, interruptTapping, tappingInterrupted, setTapLatencyProvider, noteClockTick } from '../utils/tapTempoSession'
 import { getOutputLatencySec as getSamplesOutputLatencySec } from './useSamplesEngine'
 import { getOutputLatencySec as getGmOutputLatencySec } from './useAudioEngine'
 
@@ -20,10 +19,11 @@ export function useTapTempo() {
       if (ses?.phase === 'tapping' && performance.now() - ses.lastTapAt > IDLE_FINISH_MS) finishTapping()
     }, 200)
     const unsub = useStore.subscribe((st, prev) => {
+      if (st.currentTime !== prev.currentTime) noteClockTick()
       const ses = st.tapSession
       if (!ses || ses.phase === 'preview' || !prev.tapSession) return
       if (!tappingInterrupted(prev, st)) return
-      if (ses.taps.length >= MIN_TAPS) finishTapping(); else cancelTap()
+      interruptTapping()
     })
     return () => { clearInterval(iv); unsub(); setTapLatencyProvider(() => 0) }
   }, [])

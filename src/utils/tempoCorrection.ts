@@ -21,6 +21,9 @@ export interface FileGrid { beats: number[]; bars: number[]; tempoMap: TempoEven
 const EPS = 1e-6
 const SEAM_FRAC = 0.5
 const MAX_BEATS = 200000
+// Same tempo bounds as the tap fit — anything outside is a corrupt entry
+const MIN_PERIOD = 60 / 400
+const MAX_PERIOD = 60 / 20
 
 export function fileGridOf(midi: ParsedMidi): FileGrid {
   const m = midi as any
@@ -86,7 +89,7 @@ function segmentGrid(_file: FileGrid, seg: TempoSegment, limit: number): SegGrid
 
 function validSeg(s: any): s is TempoSegment {
   return !!s && [s.start, s.anchor, s.period, s.beatsPerBar, s.den].every(v => typeof v === 'number' && Number.isFinite(v))
-    && s.period > 0 && s.beatsPerBar >= 1 && s.den >= 1 && s.start >= 0
+    && s.period >= MIN_PERIOD && s.period <= MAX_PERIOD && s.beatsPerBar >= 1 && s.den >= 1 && s.start >= 0
     && (s.snap === undefined || (!!s.snap && typeof s.snap.ratio === 'number' && s.snap.ratio > 0 && Number.isInteger(s.snap.barShift)))
 }
 
@@ -152,8 +155,10 @@ export function sanitizeCorrections(x: unknown): Record<string, SongTempoCorrect
   const out: Record<string, SongTempoCorrection> = {}
   if (!x || typeof x !== 'object') return out
   for (const [key, v] of Object.entries(x as Record<string, any>)) {
-    if (!v || !Array.isArray(v.segments) || v.segments.length === 0) continue
-    if (!v.segments.every(validSeg)) continue
+    if (!v || !Array.isArray(v.segments) || v.segments.length === 0 || !v.segments.every(validSeg)) {
+      console.warn(`[Orfeo] ignoring invalid tempo correction for ${key}`)
+      continue
+    }
     out[key] = { segments: v.segments.map((s: TempoSegment) => ({ ...s })) }
   }
   return out

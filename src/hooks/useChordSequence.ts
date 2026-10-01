@@ -29,7 +29,10 @@ export function useChordSequence() {
   const setChordFollowTrackIndex = useStore(s => s.setChordFollowTrackIndex)
 
   // "Follow by track" is a per-file choice — clear it on every new file.
-  useEffect(() => { setChordFollowTrackIndex(null) }, [midi, setChordFollowTrackIndex])
+  // Keyed on the file's bytes, not the midi object: a Tap Tempo grid swap
+  // makes a new midi object for the same file and must not reset it.
+  const fileRaw = (midi as any)?._raw
+  useEffect(() => { setChordFollowTrackIndex(null) }, [fileRaw, setChordFollowTrackIndex])
 
   useEffect(() => {
     if (!midi) { setChordSequence([]); return }

@@ -16,6 +16,7 @@ import VolumeKnob from '../VolumeKnob'
 import LoopRegionStrip from '../LoopRegionStrip'
 import Tooltip from '../Tooltip'
 import { TapTempoPad } from './TapTempoPad'
+import { stepDisplayedBpm } from '../../utils/bpmStep'
 import { ContextMenu, ContextMenuItem } from '../ContextMenu'
 import { confirmDiscardDirtyNoteEdits } from '../../utils/noteEditorState'
 import { confirmDiscardDirtyTempoKey } from '../../utils/tempoKeySave'
@@ -301,8 +302,8 @@ export default function TopBar() {
         {/* ±1 steps the DISPLAYED tempo (file tempo at the playhead, incl. any
             tap-tempo correction), not the file's first tempo — see liveBpm. */}
         <div style={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
-          <LongPressArrow onStep={() => { const s = useStore.getState(); setBpm(Math.min(300, s.bpm + s.originalBpm / (currentFileBpm || s.originalBpm))) }} disabled={!midi} title="BPM +1" description="Nudges playback tempo up by one beat per minute."><ChevronUp size={10} /></LongPressArrow>
-          <LongPressArrow onStep={() => { const s = useStore.getState(); setBpm(Math.max(20, s.bpm - s.originalBpm / (currentFileBpm || s.originalBpm))) }} disabled={!midi} title="BPM -1" description="Nudges playback tempo down by one beat per minute."><ChevronDown size={10} /></LongPressArrow>
+          <LongPressArrow onStep={() => { const s = useStore.getState(); setBpm(stepDisplayedBpm(s.bpm, s.originalBpm, currentFileBpm, 1)) }} disabled={!midi} title="BPM +1" description="Nudges playback tempo up by one beat per minute."><ChevronUp size={10} /></LongPressArrow>
+          <LongPressArrow onStep={() => { const s = useStore.getState(); setBpm(stepDisplayedBpm(s.bpm, s.originalBpm, currentFileBpm, -1)) }} disabled={!midi} title="BPM -1" description="Nudges playback tempo down by one beat per minute."><ChevronDown size={10} /></LongPressArrow>
         </div>
         {/* ── Reset — space always reserved so its appearance never shifts the transport controls ── */}
         {/* wrapperStyle carries the same visibility as the button itself — the

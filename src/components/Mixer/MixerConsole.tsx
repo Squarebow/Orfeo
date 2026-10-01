@@ -9,6 +9,8 @@ import { getPianoRollCenterX, getKeyboardHeaderTop } from '../../utils/modalAnch
 import { modalCloseButtonStyle, modalCloseButtonHoverColor, modalCloseButtonIdleColor } from '../../utils/modalCloseButtonStyle'
 import { confirmDialog } from '../../utils/confirmController'
 import { parseMidiBuffer } from '../../utils/midiParser'
+import { songKey } from '../../utils/songIdentity'
+import { carryCorrection } from '../../utils/tempoCorrection'
 import { detectKeyFromTracks, parseKeySignature } from '../../utils/keyDetection'
 import { KEYBOARD_GROUPS } from '../../utils/keyboardGroups'
 import { useFocusTrap } from '../../hooks/useFocusTrap'
@@ -117,6 +119,9 @@ export default function MixerConsole() {
       const bytes  = new Uint8Array(binary.length)
       for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i)
       const parsed = parseMidiBuffer(bytes.buffer, result.fileName, result.filePath)
+      // keep the song's tap-tempo correction on the saved version (timing unchanged)
+      const moved = carryCorrection(useStore.getState().tempoCorrections, useStore.getState().songKey, songKey(bytes.buffer), 1)
+      if (moved) useStore.setState({ tempoCorrections: moved })
       useStore.getState().setMidi(parsed)
       const raw = parsed as any
       useStore.getState().setDetectedKey(

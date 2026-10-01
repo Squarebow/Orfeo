@@ -1,5 +1,6 @@
 import { useEffect, useRef } from 'react'
 import { useStore } from '../store'
+import { resumeIndexAfterGridSwap } from '../utils/metronomeResume'
 
 // ── Metronome hook ───────────────────────────────────────────────────────────
 
@@ -9,6 +10,11 @@ export function useMetronome() {
   // Tracks highest beat index (into the file's _beatTimes grid) already
   // scheduled, to avoid double-firing
   const lastScheduled   = useRef<number>(-1)
+  // Time of that last scheduled beat + the beat array it indexes — a Tap
+  // Tempo grid swap replaces the array mid-playback, so the index is re-
+  // derived from the time (see utils/metronomeResume.ts)
+  const lastScheduledTime = useRef<number>(-Infinity)
+  const beatSrcRef      = useRef<number[] | null>(null)
   // Invariant during playback: audioCtxTime - currentTime / ratio = constant
   const audioOffsetRef  = useRef<number>(0)
   const stopTimer       = useRef<ReturnType<typeof setTimeout> | null>(null)
@@ -48,6 +54,8 @@ export function useMetronome() {
     // While ratio stays constant: ctx.currentTime - currentTime/ratio = constant.
     audioOffsetRef.current = ctx.currentTime - currentTime / ratio
     lastScheduled.current = -1
+    lastScheduledTime.current = -Infinity
+    beatSrcRef.current = null
 
     // 300ms lookahead — enough buffer to absorb PixiJS main-thread jitter
     const LOOKAHEAD = 0.30
@@ -81,6 +89,10 @@ export function useMetronome() {
         if (beatTimes[mid] < target) lo = mid + 1
         else hi = mid
       }
+      if (beatSrcRef.current !== beatTimes) {
+        if (beatSrcRef.current !== null) lastScheduled.current = resumeIndexAfterGridSwap(beatTimes, lastScheduledTime.current)
+        beatSrcRef.current = beatTimes
+      }
       const startIdx = Math.max(lo, lastScheduled.current + 1)
 
       // Schedule every beat whose exact audio time falls within the lookahead window
@@ -90,11 +102,12 @@ export function useMetronome() {
         const beatAudioTime = audioOffsetRef.current + beatTimes[idx] / ratio
         if (beatAudioTime >= now + LOOKAHEAD) break  // past lookahead window — stop
         if (beatAudioTime < now + 0.005) {            // already in the past — skip cleanly
-          lastScheduled.current = Math.max(lastScheduled.current, idx)
+          if (idx > lastScheduled.current) { lastScheduled.current = idx; lastScheduledTime.current = beatTimes[idx] }
           continue
         }
         scheduleClick(ctx, beatAudioTime, barTimeSet.has(beatTimes[idx]))
         lastScheduled.current = idx
+        lastScheduledTime.current = beatTimes[idx]
       }
     }, 25)
   }

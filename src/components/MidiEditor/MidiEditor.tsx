@@ -977,7 +977,9 @@ export default function MidiEditor() {
     const freshRows = buildRows()
     snapshotRows(freshRows)
     setState(s => s ? { ...s, rows: freshRows, filePath, fileName: midi.fileName, outputPath: orfeoName(filePath) } : s)
-  }, [midi])
+    // keyed on the file's bytes: a Tap Tempo grid swap (same file, new midi
+    // object) must not discard unsaved row edits
+  }, [(midi as any)?._raw])
 
   // ── Drag: mousemove / mouseup ─────────────────────────────────────────────────
   const onMouseMove = useCallback((e: MouseEvent) => {

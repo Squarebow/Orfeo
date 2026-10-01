@@ -51,6 +51,17 @@ export function runTapTempoStoreTest(): number {
   S().setMidi(null)
   check(S().tapSession === null && S().songKey === null && S().metronomeEnabled === true, 'unload ends session too')
 
+  // 5. a live grid swap is not "a new file": auto-collapsed drawers stay collapsed
+  S().setMidi(fakeMidi([1, 2, 3]))
+  useStore.setState({ autoCollapseDrawers: true, trackPanelOpen: true, playbackState: 'stopped' } as any)
+  useStore.setState({ playbackState: 'playing' } as any)
+  check(S().trackPanelOpen === false, 'drawer auto-collapsed on play')
+  S().setSongCorrection(S().songKey, { segments: [seg] })
+  check(S().trackPanelOpen === false, 'grid swap does not re-open drawers mid-playback')
+  S().setMidi(fakeMidi([7, 7, 7]))
+  check(S().trackPanelOpen === true, 'a real new file still restores drawers')
+  useStore.setState({ autoCollapseDrawers: false, playbackState: 'stopped' } as any)
+
   console.log(`tapTempo store: ${pass} passed, ${fail} failed`)
   console.groupEnd()
   return fail

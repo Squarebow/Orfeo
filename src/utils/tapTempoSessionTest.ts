@@ -2,7 +2,7 @@ import { useStore } from '../store'
 import type { ParsedMidi } from '../types'
 import {
   armTapSession, registerTap, finishTapping, shiftPreviewDownbeat, keepTap, tapAgain,
-  cancelTap, resetSongTempo, isTapCapturing, setTapLatencyProvider, tappingInterrupted,
+  cancelTap, resetSongTempo, isTapCapturing, setTapLatencyProvider, tappingInterrupted, interruptTapping, noteClockTick,
 } from './tapTempoSession'
 
 function fakeMidi(): ParsedMidi {
@@ -83,6 +83,33 @@ export function runTapTempoSessionTest(): number {
   check(tappingInterrupted(st(10), st(4)) === true, 'loop wrap / seek back')
   check(tappingInterrupted(st(10), st(15)) === true, 'seek forward')
   check(tappingInterrupted(st(10), st(10, 'paused')) === true, 'pause/stop')
+
+  // interruption with >=4 taps that don't fit -> session ends (spec §3.2), not left armed
+  useStore.setState({ currentTime: 30, playbackState: 'playing' } as any)
+  armTapSession()
+  ;[30, 30.2, 31.9, 32.0, 34.5].forEach(tapAt)
+  interruptTapping()
+  check(S().tapSession === null, `failed fit on interrupt cancels, got ${JSON.stringify(S().tapSession?.phase)}`)
+  // interruption with a good fit -> preview
+  armTapSession(); for (let i = 0; i < 5; i++) tapAt(30 + i * 0.6)
+  interruptTapping()
+  check(S().tapSession?.phase === 'preview', 'good fit on interrupt previews')
+  // Tap again puts the metronome back the way the user had it while re-tapping
+  tapAgain()
+  check(S().metronomeEnabled === false && S().tapSession?.phase === 'armed', 'tap again restores metronome')
+  cancelTap()
+
+  // taps between animation frames are extrapolated from the last playhead tick
+  useStore.setState({ currentTime: 50, playbackState: 'playing' } as any)
+  armTapSession()
+  noteClockTick(performance.now() - 12)
+  registerTap()
+  const tt = S().tapSession.taps[0]
+  check(tt > 50.008 && tt < 50.03, `extrapolated tap time, got ${tt}`)
+  noteClockTick(performance.now() - 500) // stale tick: extrapolation capped
+  registerTap()
+  check(S().tapSession.taps[1] <= 50.051, `extrapolation capped, got ${S().tapSession.taps[1]}`)
+  cancelTap()
 
   console.log(`tapTempo session: ${pass} passed, ${fail} failed`)
   console.groupEnd()

@@ -16,12 +16,22 @@ let latencyProvider: () => number = () => 0
 export function setTapLatencyProvider(fn: () => number) { latencyProvider = fn }
 
 const JUMP_FORWARD_SEC = 1.0
-const JUMP_BACK_SEC = 0.05
+// generous: the GM engine's clock handover after a rebuild can step the
+// playhead back a little on a large file
+const JUMP_BACK_SEC = 0.15
+// The playhead only advances once per animation frame; a tap between frames
+// is extrapolated from the last tick, capped so a stalled clock can't run away
+const MAX_EXTRAPOLATE_SEC = 0.05
+let lastClockTick = 0
+export function noteClockTick(at: number = performance.now()) { lastClockTick = at }
 
 function heardTime(): number {
   const s = useStore.getState()
   const ratio = s.originalBpm > 0 ? s.bpm / s.originalBpm : 1
-  return Math.max(0, s.currentTime - latencyProvider() * ratio)
+  const sinceTick = s.playbackState === 'playing' && lastClockTick > 0
+    ? Math.min(MAX_EXTRAPOLATE_SEC, Math.max(0, (performance.now() - lastClockTick) / 1000)) * ratio
+    : 0
+  return Math.max(0, s.currentTime + sinceTick - latencyProvider() * ratio)
 }
 
 function baseCorrection() {
@@ -99,6 +109,16 @@ export function finishTapping() {
   preview(buildSegment(s.midi, ses.start, fit))
 }
 
+// A seek / loop wrap / stop mid-tapping: preview what was tapped before it if
+// that fits, otherwise end the session (spec §3.2) — never leave it armed
+// with a stale start point.
+export function interruptTapping() {
+  const ses = useStore.getState().tapSession
+  if (!ses || ses.phase === 'preview') return
+  if (ses.taps.length >= MIN_TAPS) finishTapping()
+  if (useStore.getState().tapSession?.phase !== 'preview') cancelTap()
+}
+
 export function shiftPreviewDownbeat(dir: 1 | -1) {
   const ses = useStore.getState().tapSession
   if (ses?.phase === 'preview' && ses.segment) preview(shiftDownbeat(ses.segment, dir))
@@ -113,7 +133,10 @@ export function keepTap() {
 }
 
 export function tapAgain() {
+  const ses = useStore.getState().tapSession
   useStore.getState().reapplyCorrection()
+  // the old grid's clicks would fight the music while re-tapping
+  if (ses) useStore.getState().setMetronomeEnabled(ses.prevMetronome)
   update({ phase: 'armed', taps: [], segment: null, message: null, lastTapAt: 0 })
 }
 

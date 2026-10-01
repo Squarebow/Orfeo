@@ -24,7 +24,6 @@ export function TapTempoPad() {
   const noteEditorActive = useStore((s) => s.noteEditorActive)
   const ses = useStore((s) => s.tapSession)
   const hasCorrection = useStore((s) => !!s.songKey && !!s.tempoCorrections[s.songKey])
-  const [pulse, setPulse] = useState(0)
   const [menu, setMenu] = useState<{ x: number; y: number } | null>(null)
   const menuRef = useRef<HTMLDivElement>(null)
   const padWrapRef = useRef<HTMLDivElement>(null)
@@ -58,6 +57,11 @@ export function TapTempoPad() {
     }
   }, [menu])
 
+  // A session must never outlive its pad (Settings toggle off, Note Editor
+  // opened) — Space/MIDI keys would stay captured with no panel on screen
+  const padUsable = enabled && !!midi && !noteEditorActive
+  useEffect(() => { if (!padUsable && sessionOpen) cancelTap() }, [padUsable, sessionOpen])
+
   if (!enabled) return null
   const disabled = !midi || noteEditorActive
   const capturing = !!ses && ses.phase !== 'preview'
@@ -66,7 +70,7 @@ export function TapTempoPad() {
     if (e.button !== 0 || disabled) return
     e.preventDefault()
     if (!ses) armTapSession()
-    else if (capturing) { registerTap(); setPulse(p => p + 1) }
+    else if (capturing) registerTap()
   }
 
   const onReset = async () => {
@@ -96,8 +100,9 @@ export function TapTempoPad() {
         placement="bottom"
       >
         <button
-          key={pulse}
-          className={`app-no-drag${capturing && pulse > 0 ? ' orfeo-tap-pulse' : ''}`}
+          // re-keyed per tap so the pop replays for pad, Space and MIDI taps alike
+          key={ses?.taps.length ?? 0}
+          className={`app-no-drag${capturing && ses!.taps.length > 0 ? ' orfeo-tap-pulse' : ''}`}
           onMouseDown={onPadDown}
           onContextMenu={(e) => { e.preventDefault(); if (!disabled) setMenu({ x: e.clientX, y: e.clientY }) }}
           disabled={disabled}

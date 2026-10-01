@@ -6,6 +6,8 @@ import { confirmDialog } from '../../utils/confirmController'
 import { editableCopyToBuffer } from '../../utils/noteEditorCommands'
 import { buildHandExportHint } from '../../utils/handMetadata'
 import { parseMidiBuffer } from '../../utils/midiParser'
+import { songKey } from '../../utils/songIdentity'
+import { carryCorrection } from '../../utils/tempoCorrection'
 import { detectKeyFromTracks, parseKeySignature } from '../../utils/keyDetection'
 import { getPianoRollAreaRect, getPianoRollCenterX } from '../../utils/modalAnchors'
 import { modalCloseButtonStyle, modalCloseButtonHoverColor, modalCloseButtonIdleColor } from '../../utils/modalCloseButtonStyle'
@@ -170,6 +172,9 @@ export default function NoteEditorToolbar() {
       const arr = new Uint8Array(b.length)
       for (let i = 0; i < b.length; i++) arr[i] = b.charCodeAt(i)
       const parsed = parseMidiBuffer(arr.buffer, result.fileName, result.filePath)
+      // keep the song's tap-tempo correction on the saved version (timing unchanged)
+      const moved = carryCorrection(useStore.getState().tempoCorrections, useStore.getState().songKey, songKey(arr.buffer), 1)
+      if (moved) useStore.setState({ tempoCorrections: moved })
       useStore.getState().setMidi(parsed)
       const raw = parsed as any
       if (raw._keySignature != null) {

@@ -94,6 +94,10 @@ export function runTempoCorrectionTest(): number {
   check(carryCorrection(all, 'Z', 'B', 1) === null && carryCorrection(all, null, 'B', 1) === null, 'nothing to carry')
   check(carryCorrection(all, 'A', 'A', 1) === null, 'same key -> no-op')
 
+  // 11. sanitize rejects tempos outside 20–400 bpm (hand-edited prefs)
+  const tiny = sanitizeCorrections({ a: { segments: [{ ...s1, period: 1e-6 }] }, b: { segments: [{ ...s1, period: 6 }] }, c: { segments: [s1] } })
+  check(Object.keys(tiny).join() === 'c', `bpm bounds enforced, got ${Object.keys(tiny)}`)
+
   console.log(`tempoCorrection: ${pass} passed, ${fail} failed`)
   console.groupEnd()
   return fail
