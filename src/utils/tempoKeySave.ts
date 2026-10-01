@@ -2,6 +2,8 @@ import { useStore } from '../store'
 import { parseMidiBuffer } from './midiParser'
 import { detectKeyFromTracks, parseKeySignature, formatKey } from './keyDetection'
 import { confirmDialog } from './confirmController'
+import { songKey } from './songIdentity'
+import { carryCorrection } from './tempoCorrection'
 
 // ── Shared math — session BPM/transpose vs. the loaded file's own values,
 // used by both the standalone tempoKey:save path (below) and the Playback
@@ -69,6 +71,10 @@ export async function saveTempoKeyChanges(): Promise<boolean> {
       const arr = new Uint8Array(b.length)
       for (let i = 0; i < b.length; i++) arr[i] = b.charCodeAt(i)
       const parsed = parseMidiBuffer(arr.buffer, result.fileName, result.filePath)
+      // Carry this song's tap-tempo correction to the new version; baking a
+      // speed change rescales file time by 1/bpmRatio.
+      const moved = carryCorrection(useStore.getState().tempoCorrections, useStore.getState().songKey, songKey(arr.buffer), 1 / payload.bpmRatio)
+      if (moved) useStore.setState({ tempoCorrections: moved })
       useStore.getState().setMidi(parsed) // resets bpm/originalBpm to the new file's own tempo
       const raw = parsed as any
       if (raw._keySignature != null) {

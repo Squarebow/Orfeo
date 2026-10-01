@@ -138,6 +138,16 @@ export function scaleCorrection(c: SongTempoCorrection, k: number): SongTempoCor
   return { segments: c.segments.map(s => ({ ...s, start: s.start * k, anchor: s.anchor * k, period: s.period * k })) }
 }
 
+// Saving a new version of a song (Tempo/Key save, Playback Editor) changes
+// its bytes, so its songKey changes too — carry the correction across.
+// Baking a speed change rescales file time by 1/bpmRatio (= timeScale).
+export function carryCorrection(
+  all: Record<string, SongTempoCorrection>, fromKey: string | null, toKey: string, timeScale: number,
+): Record<string, SongTempoCorrection> | null {
+  if (!fromKey || fromKey === toKey || !all[fromKey]) return null
+  return { ...all, [toKey]: scaleCorrection(all[fromKey], timeScale) }
+}
+
 export function sanitizeCorrections(x: unknown): Record<string, SongTempoCorrection> {
   const out: Record<string, SongTempoCorrection> = {}
   if (!x || typeof x !== 'object') return out

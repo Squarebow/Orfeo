@@ -24,6 +24,8 @@ import { getHandPreviewStats, getLowConfidencePassages } from '../../utils/handP
 import { withHandSuffix } from '../../utils/handMetadata'
 import { getGMName, getGMGroup } from '../../utils/gmInstruments'
 import { computeTempoKeyPayload } from '../../utils/tempoKeySave'
+import { songKey } from '../../utils/songIdentity'
+import { carryCorrection } from '../../utils/tempoCorrection'
 import { useFocusTrap } from '../../hooks/useFocusTrap'
 import { useClampPositionOnZoom } from '../../hooks/useClampPositionOnZoom'
 import Tooltip from '../Tooltip'
@@ -1010,11 +1012,16 @@ export default function MidiEditor() {
 
 
   // ── Reload file after save/split ─────────────────────────────────────────────
-  const reloadFile = useCallback((base64: string, fileName: string, filePath: string) => {
+  const reloadFile = useCallback((base64: string, fileName: string, filePath: string, timeScale = 1) => {
     const binary = atob(base64)
     const bytes  = new Uint8Array(binary.length)
     for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i)
     const parsed = parseMidiBuffer(bytes.buffer, fileName, filePath)
+    // Carry the song's tap-tempo correction over to the saved version
+    // (timeScale = 1/bpmRatio when a speed change was baked in)
+    const s = useStore.getState()
+    const moved = carryCorrection(s.tempoCorrections, s.songKey, songKey(bytes.buffer), timeScale)
+    if (moved) useStore.setState({ tempoCorrections: moved })
     useStore.getState().setMidi(parsed)
     const raw = parsed as any
     if (raw._keySignature) {
@@ -1209,7 +1216,7 @@ export default function MidiEditor() {
       if (result.ok && result.base64 && result.fileName && result.filePath) {
         setPendingSplitIndex(null)
         setPreSplitRows(null)
-        reloadFile(result.base64, result.fileName, result.filePath)
+        reloadFile(result.base64, result.fileName, result.filePath, 1 / (tempoKeyPayload?.bpmRatio ?? 1))
         useStore.getState().notifyLibrarySaved(result.filePath)
         window.electronAPI.logFileEvent(result.filePath, 'save', saveSummary)
       }

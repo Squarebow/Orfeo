@@ -1,5 +1,5 @@
 import type { ParsedMidi } from '../types'
-import { applyTempoCorrection, buildSegment, upsertSegment, shiftDownbeat, scaleCorrection, sanitizeCorrections } from './tempoCorrection'
+import { applyTempoCorrection, buildSegment, upsertSegment, shiftDownbeat, scaleCorrection, sanitizeCorrections, carryCorrection } from './tempoCorrection'
 
 // Synthetic file: 60 bpm 4/4, 40 s long, beats every 1 s, bars every 4 s.
 function file60(): ParsedMidi {
@@ -86,6 +86,13 @@ export function runTempoCorrectionTest(): number {
   })
   check(Object.keys(clean).join() === 'good', `sanitize keeps only valid, got ${Object.keys(clean)}`)
   check(Object.keys(sanitizeCorrections(null)).length === 0, 'sanitize(null) = {}')
+
+  // 10. carry-over on save: baked 2x speed halves all times
+  const all = { A: { segments: [s2] } }
+  const moved = carryCorrection(all, 'A', 'B', 0.5)
+  check(!!moved && !!moved.A && near(moved.B.segments[0].start, 5), 'carried + scaled, original kept')
+  check(carryCorrection(all, 'Z', 'B', 1) === null && carryCorrection(all, null, 'B', 1) === null, 'nothing to carry')
+  check(carryCorrection(all, 'A', 'A', 1) === null, 'same key -> no-op')
 
   console.log(`tempoCorrection: ${pass} passed, ${fail} failed`)
   console.groupEnd()
