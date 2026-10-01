@@ -40,6 +40,7 @@ import { runTrackChordRoleTest } from './utils/trackChordRoleTest'
 import { runChordSequenceBuilderTest } from './utils/chordSequenceBuilderTest'
 import { NES, confirmDiscardDirtyNoteEdits } from './utils/noteEditorState'
 import { confirmDiscardDirtyTempoKey, saveTempoKeyChanges } from './utils/tempoKeySave'
+import { isTapCapturing, registerTap, cancelTap } from './utils/tapTempoSession'
 
 export default function App() {
   const midi = useStore((s) => s.midi)
@@ -368,11 +369,14 @@ export default function App() {
           break
         case ' ':
           e.preventDefault()
+          // During a Tap Tempo session Space is a tap, not play/pause
+          if (isTapCapturing()) { if (!e.repeat) registerTap(); break }
           if (useStore.getState().chordExplorerOpen || useStore.getState().scaleExplorerOpen) break
           if (playbackState === 'playing') pause()
           else play()
           break
         case 'Escape':
+          if (useStore.getState().tapSession) { cancelTap(); break }
           if (useStore.getState().presentationMode) { useStore.getState().setPresentationMode(false); break }
           // Chord Explorer, Scale Explorer, and the Locked Chord modal all have
           // their own Escape handler (closes the panel without stopping

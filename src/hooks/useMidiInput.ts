@@ -5,6 +5,7 @@
 
 import { useEffect, useRef } from 'react'
 import { useStore } from '../store'
+import { isTapCapturing, registerTap } from '../utils/tapTempoSession'
 
 const HARDWARE_COLOR = 'var(--text-amber)'
 
@@ -44,6 +45,8 @@ function handleMessage(e: MIDIMessageEvent) {
   const note   = data[1]
   const vel    = data.length > 2 ? data[2] : 0
   if (status === 0x90 && vel > 0) {
+    // During a Tap Tempo session a key press is a tap, not a note
+    if (isTapCapturing()) { registerTap(); return }
     pressNote(note, vel)
   } else if (status === 0x80 || (status === 0x90 && vel === 0)) {
     releaseNote(note)

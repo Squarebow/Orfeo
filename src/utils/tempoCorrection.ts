@@ -104,7 +104,9 @@ export function applyTempoCorrection(midi: ParsedMidi, c: SongTempoCorrection | 
     const g = segmentGrid(file, seg, limit)
     if (g.beats.length === 0) return
     const first = g.beats[0]
-    const cut = first - SEAM_FRAC * seg.period
+    // the file grid is kept only BEFORE the start point, and never within
+    // half a beat of the first corrected beat (no near-duplicate at the seam)
+    const cut = Math.min(first - SEAM_FRAC * seg.period, seg.start - EPS)
     beats = beats.filter(t => t < cut)
     bars = bars.filter(t => t < cut)
     tempo = tempo.filter(e => e.time < first - EPS)
