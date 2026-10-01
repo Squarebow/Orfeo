@@ -2,7 +2,7 @@ import { create } from 'zustand'
 import type {
   ParsedMidi, ParsedTrack, PlaybackState, TrackState,
   KeyboardSize, KeyboardMode, NoteNaming, Accidentals, ChordEvent, TranscriptEntry, LibraryFile, HitEffectPattern, SoundfontId,
-  ChordNamingStyle, ChordTrackingMode, ChordFollowSubMode, ChordReadingMode,
+  ChordNamingStyle, ChordTrackingMode, ChordFollowSubMode, ChordReadingMode, TapSession,
 } from '../types'
 import type { DetectedKey } from '../utils/keyDetection'
 import type { ForeignFormat } from '../utils/foreignFormatImport'
@@ -10,6 +10,8 @@ import type { ProgressionVoicing } from '../utils/voiceLeading'
 import { detectKeyFromTracks, parseKeySignature } from '../utils/keyDetection'
 import { isKeyboardInstrument } from '../utils/gmInstruments'
 import { parseMidiBuffer } from '../utils/midiParser'
+import { songKey as computeSongKey } from '../utils/songIdentity'
+import { applyTempoCorrection, sanitizeCorrections, type SongTempoCorrection } from '../utils/tempoCorrection'
 import { velocityDropRatio, suggestCompressorPreset } from '../utils/velocityAnalysis'
 
 // Groups muted when autoMuteNonKeyboard is on — exported so TrackPanel can read them
@@ -178,6 +180,19 @@ interface OrfeoStore {
   // header that bakes them into a new versioned file (see TopBar.tsx). ────
   saveTempoKeyChangesEnabled: boolean
   setSaveTempoKeyChangesEnabled: (v: boolean) => void
+  // ── Tap Tempo — per-song beat-grid corrections (see utils/tempoCorrection.ts).
+  // Keyed by songKey (content hash) so a correction follows the file through
+  // renames/moves. Only the beat layer changes; audio/notes/bpm never do. ──
+  songKey: string | null
+  tempoCorrections: Record<string, SongTempoCorrection>
+  setTempoCorrections: (c: Record<string, SongTempoCorrection>) => void
+  setSongCorrection: (key: string, c: SongTempoCorrection | null) => void
+  reapplyCorrection: () => void
+  setBeatGrid: (midi: ParsedMidi) => void
+  tapTempoPadEnabled: boolean
+  setTapTempoPadEnabled: (v: boolean) => void
+  tapSession: TapSession | null
+  setTapSession: (s: TapSession | null) => void
   noteEditorActive: boolean
   setNoteEditorActive: (v: boolean) => void
   noteEditorToolbarX: number
@@ -463,7 +478,16 @@ export const useStore = create<OrfeoStore>((set, get) => ({
   midi: null,
   barStarts: [],
   setMidi: (midi) => {
-    if (!midi) { set({ midi: null, tracks: [], mixerBaseline: {}, currentTime: 0, playbackState: 'stopped', trackPanelOpen: false, barStarts: [], chordSequence: [], chordPrompterOpen: false, loopStart: null, loopEnd: null, loopRegionActive: false }); return }
+    // ── Tap Tempo: a load/unload ends any live session, restoring the
+    // metronome a preview may have forced on ─────────────────────────────
+    const prevSession = get().tapSession
+    const sessionReset = prevSession ? { tapSession: null, metronomeEnabled: prevSession.prevMetronome } : {}
+    if (!midi) { set({ midi: null, tracks: [], mixerBaseline: {}, currentTime: 0, playbackState: 'stopped', trackPanelOpen: false, barStarts: [], chordSequence: [], chordPrompterOpen: false, loopStart: null, loopEnd: null, loopRegionActive: false, songKey: null, ...sessionReset }); return }
+    // ── …and applies this song's stored beat-grid correction, if any ───────
+    const raw = (midi as any)._raw as ArrayBuffer | undefined
+    const key = raw ? computeSongKey(raw) : null
+    const corr = key ? get().tempoCorrections[key] : undefined
+    if (corr) midi = applyTempoCorrection(midi, corr)
     // ── Apply ORFEO_TRACK_NAME / ORFEO_TRACK_COLOR overrides from header meta ──
     const orfeoNames = (midi as any)._orfeoTrackNames as Record<number, string> | undefined
     const orfeoColors = (midi as any)._orfeoTrackColors as Record<number, string> | undefined
@@ -482,7 +506,9 @@ export const useStore = create<OrfeoStore>((set, get) => ({
       mixerBaseline[ts.index] = { volume: ts.volume, pan: ts.pan, chorus: ts.chorus, reverb: ts.reverb }
     }
     set({
+      ...sessionReset,
       midi,
+      songKey: key,
       tracks: newTracks,
       mixerBaseline,
       currentTime: 0,
@@ -701,6 +727,25 @@ export const useStore = create<OrfeoStore>((set, get) => ({
   setNoteEditorEnabled: (noteEditorEnabled) => set({ noteEditorEnabled }),
   saveTempoKeyChangesEnabled: false,
   setSaveTempoKeyChangesEnabled: (saveTempoKeyChangesEnabled) => set({ saveTempoKeyChangesEnabled }),
+  songKey: null,
+  tempoCorrections: {},
+  setTempoCorrections: (tempoCorrections) => { set({ tempoCorrections }); get().reapplyCorrection() },
+  setSongCorrection: (key, c) => {
+    const next = { ...get().tempoCorrections }
+    if (c && c.segments.length > 0) next[key] = c; else delete next[key]
+    set({ tempoCorrections: next })
+    if (key === get().songKey) get().reapplyCorrection()
+  },
+  reapplyCorrection: () => {
+    const { midi, songKey: key, tempoCorrections } = get()
+    if (!midi || !key) return
+    get().setBeatGrid(applyTempoCorrection(midi, tempoCorrections[key] ?? null))
+  },
+  setBeatGrid: (midi) => set({ midi, barStarts: (midi as any)._barStarts ?? [] }),
+  tapTempoPadEnabled: false,
+  setTapTempoPadEnabled: (tapTempoPadEnabled) => set({ tapTempoPadEnabled }),
+  tapSession: null,
+  setTapSession: (tapSession) => set({ tapSession }),
   noteEditorActive: false,
   setNoteEditorActive: (noteEditorActive) => set(noteEditorActive ? { noteEditorActive } : { noteEditorActive, velocityPanelOpen: false }),
   noteEditorToolbarX: 24,
@@ -1012,6 +1057,8 @@ async function restoreLibraryPrefs() {
     if (typeof prefs.showBarNumbers === 'boolean') store.setShowBarNumbers(prefs.showBarNumbers)
     if (typeof prefs.noteEditorEnabled === 'boolean') store.setNoteEditorEnabled(prefs.noteEditorEnabled)
     if (typeof prefs.saveTempoKeyChangesEnabled === 'boolean') store.setSaveTempoKeyChangesEnabled(prefs.saveTempoKeyChangesEnabled)
+    if (typeof prefs.tapTempoPadEnabled === 'boolean') store.setTapTempoPadEnabled(prefs.tapTempoPadEnabled)
+    if (prefs.tempoCorrections) store.setTempoCorrections(sanitizeCorrections(prefs.tempoCorrections))
     if (typeof prefs.noteEditorToolbarX === 'number' && typeof prefs.noteEditorToolbarY === 'number') store.setNoteEditorToolbarPos(prefs.noteEditorToolbarX, prefs.noteEditorToolbarY)
     if (typeof prefs.chordPrompterEnabled === 'boolean') store.setChordPrompterEnabled(prefs.chordPrompterEnabled)
     if (typeof prefs.chordTranscriptionEnabled === 'boolean') store.setChordTranscriptionEnabled(prefs.chordTranscriptionEnabled)
@@ -1082,6 +1129,8 @@ let _prevAudioEngine: string | null = null
 let _prevShowBarNumbers: boolean | null = null
 let _prevNoteEditorEnabled:    boolean | null = null
 let _prevSaveTempoKeyChangesEnabled: boolean | null = null
+let _prevTapTempoPadEnabled: boolean | null = null
+let _prevTempoCorrections: object | null = null
 let _prevNoteEditorToolbarX:   number  | null = null
 let _prevNoteEditorToolbarY:   number  | null = null
 let _prevChordPrompterEnabled: boolean | null = null
@@ -1135,6 +1184,8 @@ const _unsubPrefs = useStore.subscribe((state) => {
     _prevShowBarNumbers = state.showBarNumbers
     _prevNoteEditorEnabled = state.noteEditorEnabled
     _prevSaveTempoKeyChangesEnabled = state.saveTempoKeyChangesEnabled
+    _prevTapTempoPadEnabled = state.tapTempoPadEnabled
+    _prevTempoCorrections = state.tempoCorrections
     _prevNoteEditorToolbarX = state.noteEditorToolbarX
     _prevNoteEditorToolbarY = state.noteEditorToolbarY
     _prevChordPrompterEnabled = state.chordPrompterEnabled
@@ -1191,6 +1242,8 @@ const _unsubPrefs = useStore.subscribe((state) => {
     state.showBarNumbers !== _prevShowBarNumbers ||
     state.noteEditorEnabled !== _prevNoteEditorEnabled ||
     state.saveTempoKeyChangesEnabled !== _prevSaveTempoKeyChangesEnabled ||
+    state.tapTempoPadEnabled !== _prevTapTempoPadEnabled ||
+    state.tempoCorrections !== _prevTempoCorrections ||
     state.noteEditorToolbarX !== _prevNoteEditorToolbarX ||
     state.noteEditorToolbarY !== _prevNoteEditorToolbarY ||
     state.chordPrompterEnabled !== _prevChordPrompterEnabled ||
@@ -1239,6 +1292,8 @@ const _unsubPrefs = useStore.subscribe((state) => {
     _prevShowBarNumbers = state.showBarNumbers
     _prevNoteEditorEnabled = state.noteEditorEnabled
     _prevSaveTempoKeyChangesEnabled = state.saveTempoKeyChangesEnabled
+    _prevTapTempoPadEnabled = state.tapTempoPadEnabled
+    _prevTempoCorrections = state.tempoCorrections
     _prevNoteEditorToolbarX = state.noteEditorToolbarX
     _prevNoteEditorToolbarY = state.noteEditorToolbarY
     _prevChordPrompterEnabled = state.chordPrompterEnabled
@@ -1293,6 +1348,8 @@ const _unsubPrefs = useStore.subscribe((state) => {
       showBarNumbers: state.showBarNumbers,
       noteEditorEnabled: state.noteEditorEnabled,
       saveTempoKeyChangesEnabled: state.saveTempoKeyChangesEnabled,
+      tapTempoPadEnabled: state.tapTempoPadEnabled,
+      tempoCorrections: state.tempoCorrections,
       noteEditorToolbarX: state.noteEditorToolbarX,
       noteEditorToolbarY: state.noteEditorToolbarY,
       chordPrompterEnabled: state.chordPrompterEnabled,

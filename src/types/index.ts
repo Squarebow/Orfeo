@@ -249,3 +249,15 @@ export type UpdateStatus = {
   reason?: string
   message?: string
 }
+
+// ── Tap Tempo session — see utils/tapTempoSession.ts. Session-only state,
+// never persisted. ──────────────────────────────────────────────────────────
+export interface TapSession {
+  phase: 'armed' | 'tapping' | 'preview'
+  start: number              // song seconds — where the correction will take over
+  taps: number[]             // heard song time of each tap
+  segment: import('../utils/tempoCorrection').TempoSegment | null  // the preview segment
+  prevMetronome: boolean     // metronome on/off before the session, restored at the end
+  message: string | null     // e.g. "Need at least 4 taps"
+  lastTapAt: number          // performance.now() of the last tap (idle-finish timer)
+}

@@ -297,9 +297,11 @@ export default function TopBar() {
             </span>
           </div>
         </Tooltip>
+        {/* ±1 steps the DISPLAYED tempo (file tempo at the playhead, incl. any
+            tap-tempo correction), not the file's first tempo — see liveBpm. */}
         <div style={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
-          <LongPressArrow onStep={() => setBpm(Math.min(300, useStore.getState().bpm + 1))} disabled={!midi} title="BPM +1" description="Nudges playback tempo up by one beat per minute."><ChevronUp size={10} /></LongPressArrow>
-          <LongPressArrow onStep={() => setBpm(Math.max(20, useStore.getState().bpm - 1))} disabled={!midi} title="BPM -1" description="Nudges playback tempo down by one beat per minute."><ChevronDown size={10} /></LongPressArrow>
+          <LongPressArrow onStep={() => { const s = useStore.getState(); setBpm(Math.min(300, s.bpm + s.originalBpm / (currentFileBpm || s.originalBpm))) }} disabled={!midi} title="BPM +1" description="Nudges playback tempo up by one beat per minute."><ChevronUp size={10} /></LongPressArrow>
+          <LongPressArrow onStep={() => { const s = useStore.getState(); setBpm(Math.max(20, s.bpm - s.originalBpm / (currentFileBpm || s.originalBpm))) }} disabled={!midi} title="BPM -1" description="Nudges playback tempo down by one beat per minute."><ChevronDown size={10} /></LongPressArrow>
         </div>
         {/* ── Reset — space always reserved so its appearance never shifts the transport controls ── */}
         {/* wrapperStyle carries the same visibility as the button itself — the
