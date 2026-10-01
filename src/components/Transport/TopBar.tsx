@@ -176,6 +176,16 @@ export default function TopBar() {
   const userRatio = originalBpm > 0 ? bpm / originalBpm : 1
   const liveBpm = midi ? Math.round(currentFileBpm * userRatio) : 0
 
+  // ── Live time signature — reads current signature from _timeSigMap so
+  // songs that change bar length mid-way (e.g. 3/4 → 4/4) update too ──────
+  const rawTimeSigMap = (midi as any)?._timeSigMap as { num: number; den: number; time: number }[] | undefined
+  const currentTimeSig = rawTimeSigMap?.length
+    ? rawTimeSigMap.reduce(
+        (acc: { num: number; den: number }, e: { num: number; den: number; time: number }) => e.time <= currentTime ? e : acc,
+        rawTimeSigMap[0],
+      )
+    : { num: midi?.timeSignatureNumerator ?? 4, den: midi?.timeSignatureDenominator ?? 4 }
+
   // ── Bar counter — uses same precomputed barStarts as PianoRoll ───────────
   const totalBars = barStarts.length
   // Binary search: find last index where barStarts[i] <= currentTime (= current bar index, 0-based)
@@ -550,7 +560,7 @@ export default function TopBar() {
 
         {/* TIME SIGNATURE */}
         <Tooltip
-          title={midi ? `Time signature: ${midi.timeSignatureNumerator ?? 4}/${midi.timeSignatureDenominator ?? 4}` : 'No file loaded'}
+          title={midi ? `Time signature: ${currentTimeSig.num}/${currentTimeSig.den}` : 'No file loaded'}
           description="Number of beats in each bar, and which note value counts as one beat."
           placement="bottom"
         >
@@ -558,11 +568,11 @@ export default function TopBar() {
             {midi ? (
               <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', lineHeight: 1 }}>
                 <span style={{ color: 'var(--text-active)', fontFamily: 'var(--font-mono)', fontSize: 'var(--text-base)', fontWeight: 700 }}>
-                  {midi.timeSignatureNumerator ?? 4}
+                  {currentTimeSig.num}
                 </span>
                 <div style={{ width: 14, height: 1, background: 'var(--topbar-timesig-divider)', margin: '2px 0' }} />
                 <span style={{ color: 'var(--text-active)', fontFamily: 'var(--font-mono)', fontSize: 'var(--text-base)', fontWeight: 700 }}>
-                  {midi.timeSignatureDenominator ?? 4}
+                  {currentTimeSig.den}
                 </span>
               </div>
             ) : (

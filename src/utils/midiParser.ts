@@ -22,6 +22,12 @@ export function parseMidiBuffer(buffer: ArrayBuffer, fileName: string, filePath 
   const timeSig = midi.header.timeSignatures.length > 0
     ? midi.header.timeSignatures[0].timeSignature
     : [4, 4]
+  // Full time-signature map: [{num, den, time}] sorted by time — lets the
+  // TopBar's live time-signature readout track every change in the file,
+  // not just the first (same pattern as tempoMap above for live BPM).
+  const timeSigMap = midi.header.timeSignatures
+    .map((s: any) => ({ num: s.timeSignature[0], den: s.timeSignature[1], time: midi.header.ticksToSeconds(s.ticks) }))
+    .sort((a: any, b: any) => a.time - b.time)
 
   // Extract key signature from MIDI metadata. ORFEO_KEY (see
   // electron/main.ts's tempoKey:save) takes priority over the native
@@ -130,26 +136,11 @@ export function parseMidiBuffer(buffer: ArrayBuffer, fileName: string, filePath 
     }
   }
 
-  // ── Precompute bar start times using full tempo map ─────────────────────────
-  // Single source of truth consumed by PianoRoll and TopBar via the store.
-  const barStarts: number[] = []
-  {
-    const beatsPerBar = timeSig[0]
-    const effectiveTempoMap = tempoMap.length > 0 ? tempoMap : [{ bpm, time: 0 }]
-    let bt = 0, bti = 0
-    while (bt <= duration + 0.5) {
-      barStarts.push(bt)
-      while (bti + 1 < effectiveTempoMap.length && effectiveTempoMap[bti + 1].time <= bt) bti++
-      bt += (60 / effectiveTempoMap[bti].bpm) * beatsPerBar
-    }
-  }
-
   // ── Beat + bar grid honouring the FULL tempo map AND every time-signature
-  // change — the live chord detector windows on this. (`_barStarts` above
-  // uses only timeSignatures[0]; it drives the piano-roll grid and has the
-  // same latent bug, but fixing that is a separate visual change — out of
-  // scope here.) Computed against the live `midi` object so
-  // ticksToSeconds() is exact. ────────────────────────────────────────────
+  // change — single source of truth for PianoRoll/TopBar/LoopRegionStrip's
+  // bar lines (via `barStarts` below) and the live chord detector (which
+  // windows on `_beatTimes` directly). Computed against the live `midi`
+  // object so ticksToSeconds() is exact. ──────────────────────────────────
   const _barTimes: number[] = []
   const _beatTimes: number[] = []
   {
@@ -172,6 +163,7 @@ export function parseMidiBuffer(buffer: ArrayBuffer, fileName: string, filePath 
       tick += beatTick * num
     }
   }
+  const barStarts = _barTimes
 
   // ── Restore Orfeo custom track names from header text meta-events ────────────
   // Format: ORFEO_TRACK_NAME:N:name — type-0x01 text events injected by editor:save.
@@ -269,6 +261,7 @@ export function parseMidiBuffer(buffer: ArrayBuffer, fileName: string, filePath 
     _filePath: filePath,
     _rawMidiTracks: midi.tracks,
     _tempoMap: tempoMap,
+    _timeSigMap: timeSigMap,
     _barStarts: barStarts,
     _barTimes,
     _beatTimes,

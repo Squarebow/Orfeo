@@ -1,59 +1,20 @@
 import { useEffect, useRef } from 'react'
 import { useStore } from '../store'
 
-// ── Beat ↔ time math (exported for TopBar live-BPM display) ─────────────────
-
-// Total beats elapsed from song start to `time` seconds, integrating through tempo map
-export function getElapsedBeats(
-  tempoMap: { bpm: number; time: number }[],
-  time: number,
-): number {
-  if (!tempoMap.length) return time * 2  // 120 BPM fallback
-  let beats = 0
-  for (let i = 0; i < tempoMap.length; i++) {
-    const segStart = tempoMap[i].time
-    const segEnd   = i + 1 < tempoMap.length ? tempoMap[i + 1].time : Infinity
-    const until    = segEnd === Infinity ? time : Math.min(time, segEnd)
-    if (until <= segStart) break
-    beats += (until - segStart) * (tempoMap[i].bpm / 60)
-    if (until < segEnd) break  // time is inside this segment
-  }
-  return beats
-}
-
-// Inverse: song-file seconds at which beat number `targetBeat` falls
-export function getSongTimeForBeat(
-  tempoMap: { bpm: number; time: number }[],
-  targetBeat: number,
-): number {
-  if (!tempoMap.length) return targetBeat / 2  // 120 BPM fallback
-  let beatsAccum = 0
-  for (let i = 0; i < tempoMap.length; i++) {
-    const segStart   = tempoMap[i].time
-    const segEnd     = i + 1 < tempoMap.length ? tempoMap[i + 1].time : Infinity
-    const segDur     = segEnd === Infinity ? Infinity : segEnd - segStart
-    const beatsInSeg = segDur === Infinity ? Infinity : segDur * (tempoMap[i].bpm / 60)
-
-    if (beatsAccum + beatsInSeg > targetBeat) {
-      return segStart + (targetBeat - beatsAccum) / (tempoMap[i].bpm / 60)
-    }
-    beatsAccum += beatsInSeg
-  }
-  // Past all defined segments: extrapolate at last BPM
-  const last = tempoMap[tempoMap.length - 1]
-  return last.time + (targetBeat - beatsAccum) / (last.bpm / 60)
-}
-
 // ── Metronome hook ───────────────────────────────────────────────────────────
 
 export function useMetronome() {
   const ctxRef          = useRef<AudioContext | null>(null)
   const intervalRef     = useRef<ReturnType<typeof setInterval> | null>(null)
-  // Tracks highest beat number already scheduled to avoid double-firing
+  // Tracks highest beat index (into the file's _beatTimes grid) already
+  // scheduled, to avoid double-firing
   const lastScheduled   = useRef<number>(-1)
   // Invariant during playback: audioCtxTime - currentTime / ratio = constant
   const audioOffsetRef  = useRef<number>(0)
   const stopTimer       = useRef<ReturnType<typeof setTimeout> | null>(null)
+  // Bar-start times as a Set for O(1) accent lookup, rebuilt only when the
+  // loaded file's bar grid changes (not every scheduler tick)
+  const barTimeSetRef   = useRef<{ src: number[] | null; set: Set<number> }>({ src: null, set: new Set() })
 
   function getCtx(): AudioContext {
     if (!ctxRef.current || ctxRef.current.state === 'closed') ctxRef.current = new AudioContext()
@@ -95,34 +56,45 @@ export function useMetronome() {
       const { metronomeEnabled, playbackState, currentTime, midi, bpm, originalBpm } = useStore.getState()
       if (!metronomeEnabled || playbackState !== 'playing') { stopScheduler(); return }
 
-      const ctx      = getCtx()
-      const now      = ctx.currentTime
-      const tempoMap = (midi as any)?._tempoMap as { bpm: number; time: number }[] ?? []
-      const ratio    = originalBpm > 0 ? bpm / originalBpm : 1
-      const numerator = midi?.timeSignatureNumerator ?? 4
+      const ctx     = getCtx()
+      const now     = ctx.currentTime
+      const ratio   = originalBpm > 0 ? bpm / originalBpm : 1
+      // Real beat/bar grid for this file — honours every tempo AND every
+      // time-signature change (see midiParser.ts's _beatTimes/_barTimes),
+      // not just the first of each.
+      const beatTimes   = (midi as any)?._beatTimes as number[] | undefined ?? []
+      const barTimesArr = (midi as any)?._barTimes as number[] | undefined ?? []
+      if (beatTimes.length === 0) return
 
-      // Beat count at current song position — exact, integrates through all tempo changes
-      const elapsedBeats = getElapsedBeats(tempoMap, currentTime)
+      if (barTimeSetRef.current.src !== barTimesArr) {
+        barTimeSetRef.current = { src: barTimesArr, set: new Set(barTimesArr) }
+      }
+      const barTimeSet = barTimeSetRef.current.set
 
-      // First beat to schedule: whichever is later — the upcoming beat in the song,
-      // or one past the last already scheduled (prevents double-firing)
-      const startBeat = Math.max(
-        Math.ceil(elapsedBeats - 0.02),  // 0.02-beat grace: catch beat we're right on
-        lastScheduled.current + 1,
-      )
+      // First beat index to schedule: whichever is later — the upcoming beat
+      // in the song, or one past the last already scheduled (prevents
+      // double-firing). Binary search since beatTimes is sorted ascending.
+      let lo = 0, hi = beatTimes.length
+      const target = currentTime - 0.02  // small grace: catch a beat we're right on
+      while (lo < hi) {
+        const mid = (lo + hi) >> 1
+        if (beatTimes[mid] < target) lo = mid + 1
+        else hi = mid
+      }
+      const startIdx = Math.max(lo, lastScheduled.current + 1)
 
       // Schedule every beat whose exact audio time falls within the lookahead window
-      for (let bt = startBeat; ; bt++) {
-        // Exact file time for this beat (integrates tempo map),
-        // converted to wall-clock (÷ ratio), then to AudioContext time (+ offset).
-        const beatAudioTime = audioOffsetRef.current + getSongTimeForBeat(tempoMap, bt) / ratio
+      for (let idx = startIdx; idx < beatTimes.length; idx++) {
+        // Exact file time for this beat, converted to wall-clock (÷ ratio),
+        // then to AudioContext time (+ offset).
+        const beatAudioTime = audioOffsetRef.current + beatTimes[idx] / ratio
         if (beatAudioTime >= now + LOOKAHEAD) break  // past lookahead window — stop
         if (beatAudioTime < now + 0.005) {            // already in the past — skip cleanly
-          lastScheduled.current = Math.max(lastScheduled.current, bt)
+          lastScheduled.current = Math.max(lastScheduled.current, idx)
           continue
         }
-        scheduleClick(ctx, beatAudioTime, bt % numerator === 0)
-        lastScheduled.current = bt
+        scheduleClick(ctx, beatAudioTime, barTimeSet.has(beatTimes[idx]))
+        lastScheduled.current = idx
       }
     }, 25)
   }
