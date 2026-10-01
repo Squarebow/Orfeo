@@ -1,4 +1,5 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useLayoutEffect, useRef, useState } from 'react'
+import { createPortal } from 'react-dom'
 import { useStore } from '../../store'
 import { t } from '../../utils/i18n'
 import Tooltip from '../Tooltip'
@@ -26,6 +27,21 @@ export function TapTempoPad() {
   const [pulse, setPulse] = useState(0)
   const [menu, setMenu] = useState<{ x: number; y: number } | null>(null)
   const menuRef = useRef<HTMLDivElement>(null)
+  const padWrapRef = useRef<HTMLDivElement>(null)
+  // Panel is portalled to <body> with fixed coords — TopBar clips anything
+  // that hangs below it, so an absolutely-positioned child was cut off.
+  const [panelPos, setPanelPos] = useState<{ x: number; y: number } | null>(null)
+  const sessionOpen = !!ses
+  useLayoutEffect(() => {
+    if (!sessionOpen) { setPanelPos(null); return }
+    const place = () => {
+      const r = padWrapRef.current?.getBoundingClientRect()
+      if (r) setPanelPos({ x: r.left + r.width / 2, y: r.bottom + 6 })
+    }
+    place()
+    window.addEventListener('resize', place)
+    return () => window.removeEventListener('resize', place)
+  }, [sessionOpen])
 
   useEffect(() => {
     if (!menu) return
@@ -71,7 +87,7 @@ export function TapTempoPad() {
   }
 
   return (
-    <div style={{ position: 'relative', flexShrink: 0 }}>
+    <div ref={padWrapRef} style={{ position: 'relative', flexShrink: 0 }}>
       <Tooltip
         title={t`Tap Tempo`}
         description={capturing
@@ -98,11 +114,11 @@ export function TapTempoPad() {
         </button>
       </Tooltip>
 
-      {ses && (
+      {ses && panelPos && createPortal(
         <div
           className="app-no-drag orfeo-modal-glow"
           style={{
-            position: 'absolute', top: 'calc(100% + 6px)', left: '50%', transform: 'translateX(-50%)',
+            position: 'fixed', top: panelPos.y, left: panelPos.x, transform: 'translateX(-50%)',
             background: 'var(--bg-tooltip)', border: '1px solid var(--accent-amber-strong)', borderRadius: 'var(--radius-md)',
             padding: '8px 10px', zIndex: 9400, display: 'flex', flexDirection: 'column', gap: 6, alignItems: 'center',
             whiteSpace: 'nowrap', fontSize: 'var(--text-xs)', color: 'var(--text-default)',
@@ -133,7 +149,8 @@ export function TapTempoPad() {
               </div>
             </>
           )}
-        </div>
+        </div>,
+        document.body,
       )}
 
       {menu && (
