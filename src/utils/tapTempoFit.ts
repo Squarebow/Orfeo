@@ -28,7 +28,7 @@ function lsq(pts: Pt[]): { a: number; p: number } {
   return { a: (st - p * sk) / n, p }
 }
 
-export function fitTaps(taps: number[]): TapFit | null {
+export function fitTaps(taps: number[], opts: { minBpm?: number } = {}): TapFit | null {
   if (taps.length < MIN_TAPS) return null
   const t = [...taps].sort((a, b) => a - b)
   const gaps: number[] = []
@@ -52,6 +52,6 @@ export function fitTaps(taps: number[]): TapFit | null {
   if (pts.length < MIN_TAPS) return null
   if (pts[pts.length - 1].k - pts[0].k < MIN_BEAT_SPAN) return null
   const bpm = 60 / fit.p
-  if (!(bpm >= MIN_BPM && bpm <= MAX_BPM)) return null
+  if (!(bpm >= (opts.minBpm ?? MIN_BPM) && bpm <= MAX_BPM)) return null
   return { period: fit.p, anchor: fit.a + pts[0].k * fit.p, accepted: pts.length }
 }

@@ -1,7 +1,7 @@
 import { useStore } from '../store'
 import type { ParsedMidi } from '../types'
 import {
-  armTapSession, registerTap, finishTapping, shiftPreviewDownbeat, keepTap, tapAgain,
+  armTapSession, registerTap, finishTapping, finishFromPad, nudgePreview, shiftPreviewDownbeat, keepTap, tapAgain,
   cancelTap, resetSongTempo, isTapCapturing, setTapLatencyProvider, tappingInterrupted, interruptTapping, noteClockTick,
 } from './tapTempoSession'
 
@@ -11,7 +11,7 @@ function fakeMidi(): ParsedMidi {
     fileName: 't.mid', duration: 40, bpm: 60, timeSignatureNumerator: 4, timeSignatureDenominator: 4,
     tracks: [], noteCount: 0,
     _beatTimes: beats, _barTimes: beats.filter(b => b % 4 === 0), _tempoMap: [{ bpm: 60, time: 0 }],
-    ...({ _barStarts: beats.filter(b => b % 4 === 0), _timeSigMap: [{ num: 4, den: 4, time: 0 }], _raw: new Uint8Array([4, 5, 6]).buffer } as any),
+    ...({ _barStarts: beats.filter(b => b % 4 === 0), _timeSigMap: [{ num: 4, den: 4, time: 0 }], _raw: new Uint8Array([4, 5, 6]).buffer, _filePath: 'C:/x/song.mid' } as any),
   } as ParsedMidi
 }
 
@@ -24,14 +24,17 @@ export function runTapTempoSessionTest(): number {
   const tapAt = (t: number) => { useStore.setState({ currentTime: t } as any); registerTap() }
 
   setTapLatencyProvider(() => 0)
+  const logged: string[] = []
+  ;(globalThis as any).window.electronAPI = { logFileEvent: (_p: string, _t: string, s: string) => { logged.push(s); return Promise.resolve() } }
+  S().setTapTempoMode('beat')
   S().setMidi(fakeMidi())
   S().setMetronomeEnabled(false)
 
-  // arm while stopped at 13 s: starts ~2 bars early (bar at 12 -> run-in bar 4)
+  // arm while stopped at 13 s: plays from exactly where the playhead is
   useStore.setState({ currentTime: 13, playbackState: 'stopped' } as any)
   armTapSession()
   check(S().tapSession?.phase === 'armed' && S().tapSession.start === 13, 'armed with start = playhead')
-  check(S().playbackState === 'playing' && S().currentTime === 4, `run-in two bars early, got ${S().currentTime}`)
+  check(S().playbackState === 'playing' && S().currentTime === 13, `plays from the playhead, got ${S().currentTime}`)
   check(isTapCapturing(), 'capturing while armed')
 
   // too few taps -> message, still armed
@@ -58,17 +61,44 @@ export function runTapTempoSessionTest(): number {
   cancelTap()
   check(S().tapSession === null && S().midi._beatTimes.includes(13) && S().metronomeEnabled === false, 'cancel restores')
 
+  // clicking the pad while tapping finishes AND pauses, showing the result
+  useStore.setState({ currentTime: 14, playbackState: 'playing' } as any)
+  armTapSession()
+  for (let i = 0; i < 6; i++) tapAt(14 + i * 0.65)
+  finishFromPad()
+  check(S().tapSession?.phase === 'preview' && S().playbackState === 'paused', 'pad click: preview + paused')
+  // fine-tune nudges the whole grid by 10 ms steps
+  const a0 = S().tapSession.segment.anchor
+  nudgePreview(0.01); nudgePreview(0.01)
+  check(near(S().tapSession.segment.anchor, a0 + 0.02), 'nudge +20 ms')
+  check(S().midi._barTimes.some((b: number) => near(b, 14.02)), 'nudged grid is live')
+  cancelTap()
+
+  // "only the 1" mode: each tap is a bar -> beat = tap gap / beats per bar
+  S().setTapTempoMode('bar')
+  useStore.setState({ currentTime: 14, playbackState: 'playing' } as any)
+  armTapSession()
+  for (let i = 0; i < 5; i++) tapAt(14 + i * 2.6)
+  finishTapping()
+  check(S().tapSession?.phase === 'preview' && near(S().tapSession.segment.period, 0.65), `bar mode beat = 0.65, got ${S().tapSession?.segment?.period}`)
+  check(S().midi._barTimes.some((b: number) => near(b, 14)) && S().midi._barTimes.some((b: number) => near(b, 16.6)), 'bar mode bars on the taps')
+  cancelTap()
+  S().setTapTempoMode('beat')
+
   // full run + keep -> persisted, metronome restored
+  useStore.setState({ currentTime: 20, playbackState: 'playing' } as any)
   armTapSession()
   for (let i = 0; i < 6; i++) tapAt(20 + i * 0.65)
   finishTapping(); keepTap()
   check(S().tapSession === null && !!S().tempoCorrections[S().songKey], 'keep stores correction')
   check(S().metronomeEnabled === false, 'keep restores metronome')
   check(S().midi._barTimes.some((b: number) => near(b, 20)), 'kept grid live')
+  check(logged.some(l => /92\.3 bpm/.test(l) && /0:20/.test(l)), `keep logged to file history, got ${JSON.stringify(logged)}`)
 
   // reset
   resetSongTempo()
   check(!S().tempoCorrections[S().songKey] && S().midi._beatTimes.includes(20), 'reset restores file grid')
+  check(logged.some(l => /reset/i.test(l)), 'reset logged to file history')
 
   // heard-time latency: playhead minus device delay × speed
   setTapLatencyProvider(() => 0.1)

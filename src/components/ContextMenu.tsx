@@ -1,4 +1,4 @@
-import { forwardRef, useState, type ReactNode } from 'react'
+import { forwardRef, useEffect, useState, type ReactNode, type RefObject } from 'react'
 
 // ── ContextMenu — shared shell for right-click popups (Library's file/folder
 // menus). Previously copy-pasted per call site with a muted `--drag-handle-
@@ -82,6 +82,36 @@ export function ContextMenuItem({ onClick, disabled, danger, title, children }: 
       {children}
     </button>
   )
+}
+
+// ── Dismissal for menus that live in the top bar — clicks on its window-drag
+// area never reach the page at all, so besides outside-click / Esc / focus
+// loss the menu also closes shortly after the pointer leaves it. ─────────
+export function useMenuDismiss(open: boolean, ref: RefObject<HTMLElement | null>, close: () => void) {
+  useEffect(() => {
+    if (!open) return
+    let leaveTimer: ReturnType<typeof setTimeout> | null = null
+    const onDown = (e: PointerEvent) => { if (!ref.current?.contains(e.target as Node)) close() }
+    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') close() }
+    const onMove = (e: PointerEvent) => {
+      if (ref.current?.contains(e.target as Node)) { if (leaveTimer) { clearTimeout(leaveTimer); leaveTimer = null } }
+      else if (!leaveTimer) leaveTimer = setTimeout(close, 900)
+    }
+    const id = setTimeout(() => {
+      window.addEventListener('pointerdown', onDown, true)
+      window.addEventListener('pointermove', onMove, true)
+      window.addEventListener('keydown', onKey, true)
+      window.addEventListener('blur', close)
+    }, 0)
+    return () => {
+      clearTimeout(id); if (leaveTimer) clearTimeout(leaveTimer)
+      window.removeEventListener('pointerdown', onDown, true)
+      window.removeEventListener('pointermove', onMove, true)
+      window.removeEventListener('keydown', onKey, true)
+      window.removeEventListener('blur', close)
+    }
+  // close is expected to be stable in intent; re-binding on identity is harmless
+  }, [open, ref, close])
 }
 
 export function ContextMenuDivider() {

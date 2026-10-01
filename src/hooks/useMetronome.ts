@@ -34,7 +34,8 @@ export function useMetronome() {
     osc.connect(gain)
     gain.connect(ctx.destination)
     osc.frequency.value = accent ? 1400 : 1000
-    gain.gain.setValueAtTime(accent ? 0.9 : 0.6, when)
+    const vol = useStore.getState().metronomeVolume
+    gain.gain.setValueAtTime(Math.max(0.0011, (accent ? 0.9 : 0.6) * vol), when)
     gain.gain.exponentialRampToValueAtTime(0.001, when + 0.04)
     osc.start(when)
     osc.stop(when + 0.05)

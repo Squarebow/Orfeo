@@ -17,7 +17,8 @@ import LoopRegionStrip from '../LoopRegionStrip'
 import Tooltip from '../Tooltip'
 import { TapTempoPad } from './TapTempoPad'
 import { stepDisplayedBpm } from '../../utils/bpmStep'
-import { ContextMenu, ContextMenuItem } from '../ContextMenu'
+import { ContextMenu, ContextMenuItem, useMenuDismiss } from '../ContextMenu'
+import { t } from '../../utils/i18n'
 import { confirmDiscardDirtyNoteEdits } from '../../utils/noteEditorState'
 import { confirmDiscardDirtyTempoKey } from '../../utils/tempoKeySave'
 
@@ -77,6 +78,8 @@ export default function TopBar() {
   const detectedKey = useStore((s) => s.detectedKey)
   const metronomeEnabled = useStore((s) => s.metronomeEnabled)
   const setMetronomeEnabled = useStore((s) => s.setMetronomeEnabled)
+  const [metroMenu, setMetroMenu] = useState<{ x: number; y: number } | null>(null)
+  const closeMetroMenu = useCallback(() => setMetroMenu(null), [])
   const midiDeviceConnected = useStore((s) => s.midiDeviceConnected)
   const midiDeviceName = useStore((s) => s.midiDeviceName)
   const noteNaming = useStore((s) => s.noteNaming)
@@ -597,6 +600,7 @@ export default function TopBar() {
         >
           <button
             onClick={() => setMetronomeEnabled(!metronomeEnabled)}
+            onContextMenu={(e) => { e.preventDefault(); setMetroMenu({ x: e.clientX, y: e.clientY }) }}
             style={{
               flexShrink: 0, display: 'flex', flexDirection: 'column', alignItems: 'center',
               padding: '0 14px', border: 'none', cursor: 'pointer',
@@ -614,6 +618,7 @@ export default function TopBar() {
             </span>
           </button>
         </Tooltip>
+        {metroMenu && <MetronomeVolumeMenu x={metroMenu.x} y={metroMenu.y} onClose={closeMetroMenu} />}
 
         <div style={{ width: 1, height: 'var(--button-height)', background: 'var(--border)', alignSelf: 'flex-end', marginBottom: 12 }} />
 
@@ -636,6 +641,32 @@ export default function TopBar() {
       </div>
       </div>
     </div>
+  )
+}
+
+// ── Metronome right-click — click volume (0–150%), remembered between
+// sessions. Applied to every click the metronome schedules. ──────────────
+function MetronomeVolumeMenu({ x, y, onClose }: { x: number; y: number; onClose: () => void }) {
+  const ref = useRef<HTMLDivElement>(null)
+  const volume = useStore((s) => s.metronomeVolume)
+  const setVolume = useStore((s) => s.setMetronomeVolume)
+  useMenuDismiss(true, ref, onClose)
+  return (
+    <ContextMenu ref={ref} x={x} y={y} minWidth={220} ariaLabel={t`Metronome volume`} className="app-no-drag">
+      <div style={{ padding: '6px 14px 8px', display: 'flex', flexDirection: 'column', gap: 6 }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 10, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.08em' }}>
+          <span>{t`Metronome volume`}</span>
+          <span style={{ fontFamily: 'var(--font-mono)', color: 'var(--text-amber)' }}>{Math.round(volume * 100)}%</span>
+        </div>
+        <input
+          type="range" min={0} max={150} step={5} value={Math.round(volume * 100)}
+          onChange={(e) => setVolume(Number(e.target.value) / 100)}
+          aria-label={t`Metronome volume`}
+          style={{ width: '100%', accentColor: 'var(--text-amber)' }}
+        />
+      </div>
+      <ContextMenuItem onClick={() => setVolume(1)} disabled={volume === 1}>{t`Reset to 100%`}</ContextMenuItem>
+    </ContextMenu>
   )
 }
 

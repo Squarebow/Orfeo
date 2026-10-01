@@ -35,6 +35,8 @@ export function runTapTempoFitTest(): number {
   check(fitTaps(steady(0, 0.5, 3)) === null, '3 taps -> null')
   // tempo out of bounds (10 bpm)
   check(fitTaps(steady(0, 6, 5)) === null, '10 bpm -> null')
+  // a lower floor can be passed for once-per-bar tapping (15 bpm bars)
+  check(fitTaps(steady(0, 4, 5)) === null && !!fitTaps(steady(0, 4, 5), { minBpm: 5 }), 'minBpm option')
   // unsorted input is tolerated
   const f6 = fitTaps([1.3, 0.0, 0.65, 1.95, 2.6])
   check(!!f6 && near(f6.period, 0.65, 1e-9) && near(f6.anchor, 0, 1e-9), 'unsorted input')

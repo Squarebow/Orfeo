@@ -137,6 +137,20 @@ export function shiftDownbeat(seg: TempoSegment, dir: 1 | -1): TempoSegment {
   return { ...seg, anchor: seg.anchor + dir * seg.period }
 }
 
+// Fine-tune: slide the whole grid earlier/later by a few milliseconds
+export function nudgeSegment(seg: TempoSegment, sec: number): TempoSegment {
+  return { ...seg, anchor: seg.anchor + sec }
+}
+
+export function removeSegmentAt(c: SongTempoCorrection, i: number): SongTempoCorrection {
+  return { segments: c.segments.filter((_, j) => j !== i) }
+}
+
+// For the pad's menu: where each tapped tempo starts and what it is
+export function describeCorrection(c: SongTempoCorrection | null | undefined): { start: number; bpm: number }[] {
+  return (c?.segments ?? []).map(s => ({ start: s.start, bpm: 60 / s.period }))
+}
+
 export function scaleCorrection(c: SongTempoCorrection, k: number): SongTempoCorrection {
   return { segments: c.segments.map(s => ({ ...s, start: s.start * k, anchor: s.anchor * k, period: s.period * k })) }
 }

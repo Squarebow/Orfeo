@@ -191,6 +191,11 @@ interface OrfeoStore {
   setBeatGrid: (midi: ParsedMidi) => void
   tapTempoPadEnabled: boolean
   setTapTempoPadEnabled: (v: boolean) => void
+  // 'beat' = tap every beat; 'bar' = tap only the 1 of each bar
+  tapTempoMode: 'beat' | 'bar'
+  setTapTempoMode: (v: 'beat' | 'bar') => void
+  metronomeVolume: number
+  setMetronomeVolume: (v: number) => void
   tapSession: TapSession | null
   setTapSession: (s: TapSession | null) => void
   noteEditorActive: boolean
@@ -744,6 +749,10 @@ export const useStore = create<OrfeoStore>((set, get) => ({
   setBeatGrid: (midi) => set({ midi, barStarts: (midi as any)._barStarts ?? [] }),
   tapTempoPadEnabled: false,
   setTapTempoPadEnabled: (tapTempoPadEnabled) => set({ tapTempoPadEnabled }),
+  tapTempoMode: 'beat',
+  setTapTempoMode: (tapTempoMode) => set({ tapTempoMode }),
+  metronomeVolume: 1,
+  setMetronomeVolume: (v) => set({ metronomeVolume: Math.min(1.5, Math.max(0, v)) }),
   tapSession: null,
   setTapSession: (tapSession) => set({ tapSession }),
   noteEditorActive: false,
@@ -1058,6 +1067,8 @@ async function restoreLibraryPrefs() {
     if (typeof prefs.noteEditorEnabled === 'boolean') store.setNoteEditorEnabled(prefs.noteEditorEnabled)
     if (typeof prefs.saveTempoKeyChangesEnabled === 'boolean') store.setSaveTempoKeyChangesEnabled(prefs.saveTempoKeyChangesEnabled)
     if (typeof prefs.tapTempoPadEnabled === 'boolean') store.setTapTempoPadEnabled(prefs.tapTempoPadEnabled)
+    if (prefs.tapTempoMode === 'beat' || prefs.tapTempoMode === 'bar') store.setTapTempoMode(prefs.tapTempoMode)
+    if (typeof prefs.metronomeVolume === 'number') store.setMetronomeVolume(prefs.metronomeVolume)
     if (prefs.tempoCorrections) store.setTempoCorrections(sanitizeCorrections(prefs.tempoCorrections))
     if (typeof prefs.noteEditorToolbarX === 'number' && typeof prefs.noteEditorToolbarY === 'number') store.setNoteEditorToolbarPos(prefs.noteEditorToolbarX, prefs.noteEditorToolbarY)
     if (typeof prefs.chordPrompterEnabled === 'boolean') store.setChordPrompterEnabled(prefs.chordPrompterEnabled)
@@ -1130,6 +1141,8 @@ let _prevShowBarNumbers: boolean | null = null
 let _prevNoteEditorEnabled:    boolean | null = null
 let _prevSaveTempoKeyChangesEnabled: boolean | null = null
 let _prevTapTempoPadEnabled: boolean | null = null
+let _prevTapTempoMode: string | null = null
+let _prevMetronomeVolume: number | null = null
 let _prevTempoCorrections: object | null = null
 let _prevNoteEditorToolbarX:   number  | null = null
 let _prevNoteEditorToolbarY:   number  | null = null
@@ -1185,6 +1198,8 @@ const _unsubPrefs = useStore.subscribe((state) => {
     _prevNoteEditorEnabled = state.noteEditorEnabled
     _prevSaveTempoKeyChangesEnabled = state.saveTempoKeyChangesEnabled
     _prevTapTempoPadEnabled = state.tapTempoPadEnabled
+    _prevTapTempoMode = state.tapTempoMode
+    _prevMetronomeVolume = state.metronomeVolume
     _prevTempoCorrections = state.tempoCorrections
     _prevNoteEditorToolbarX = state.noteEditorToolbarX
     _prevNoteEditorToolbarY = state.noteEditorToolbarY
@@ -1243,6 +1258,8 @@ const _unsubPrefs = useStore.subscribe((state) => {
     state.noteEditorEnabled !== _prevNoteEditorEnabled ||
     state.saveTempoKeyChangesEnabled !== _prevSaveTempoKeyChangesEnabled ||
     state.tapTempoPadEnabled !== _prevTapTempoPadEnabled ||
+    state.tapTempoMode !== _prevTapTempoMode ||
+    state.metronomeVolume !== _prevMetronomeVolume ||
     state.tempoCorrections !== _prevTempoCorrections ||
     state.noteEditorToolbarX !== _prevNoteEditorToolbarX ||
     state.noteEditorToolbarY !== _prevNoteEditorToolbarY ||
@@ -1293,6 +1310,8 @@ const _unsubPrefs = useStore.subscribe((state) => {
     _prevNoteEditorEnabled = state.noteEditorEnabled
     _prevSaveTempoKeyChangesEnabled = state.saveTempoKeyChangesEnabled
     _prevTapTempoPadEnabled = state.tapTempoPadEnabled
+    _prevTapTempoMode = state.tapTempoMode
+    _prevMetronomeVolume = state.metronomeVolume
     _prevTempoCorrections = state.tempoCorrections
     _prevNoteEditorToolbarX = state.noteEditorToolbarX
     _prevNoteEditorToolbarY = state.noteEditorToolbarY
@@ -1349,6 +1368,8 @@ const _unsubPrefs = useStore.subscribe((state) => {
       noteEditorEnabled: state.noteEditorEnabled,
       saveTempoKeyChangesEnabled: state.saveTempoKeyChangesEnabled,
       tapTempoPadEnabled: state.tapTempoPadEnabled,
+      tapTempoMode: state.tapTempoMode,
+      metronomeVolume: state.metronomeVolume,
       tempoCorrections: state.tempoCorrections,
       noteEditorToolbarX: state.noteEditorToolbarX,
       noteEditorToolbarY: state.noteEditorToolbarY,

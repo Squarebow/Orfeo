@@ -1,7 +1,7 @@
 import { useStore } from '../store'
 import { t } from './i18n'
 import { fitTaps, MIN_TAPS } from './tapTempoFit'
-import { applyTempoCorrection, buildSegment, upsertSegment, shiftDownbeat, lastIndexAtOrBefore, type TempoSegment } from './tempoCorrection'
+import { applyTempoCorrection, buildSegment, upsertSegment, shiftDownbeat, nudgeSegment, fileGridOf, sigAt, type TempoSegment } from './tempoCorrection'
 import type { TapSession, PlaybackState } from '../types'
 
 // ── Tap Tempo session — arm → tap → preview → keep/cancel. Non-React so the
@@ -71,14 +71,9 @@ export function armTapSession() {
   const s = useStore.getState()
   if (!s.midi || !s.songKey || s.noteEditorActive || s.tapSession) return
   const start = s.currentTime
-  if (s.playbackState !== 'playing') {
-    // ~2-bar run-in so the pulse is audible before the first tap
-    const bars = ((s.midi as any)._barTimes as number[] | undefined) ?? []
-    const i = lastIndexAtOrBefore(bars, start)
-    const runIn = i >= 0 ? bars[Math.max(0, i - 2)] : Math.max(0, start - 4)
-    useStore.setState({ currentTime: runIn })
-    useStore.setState({ playbackState: 'playing' })
-  }
+  // Plays from exactly where the playhead is — the user parks it where the
+  // new tempo should start and joins in whenever they've locked in.
+  if (s.playbackState !== 'playing') useStore.setState({ playbackState: 'playing' })
   s.setTapSession({ phase: 'armed', start, taps: [], segment: null, prevMetronome: s.metronomeEnabled, message: null, lastTapAt: 0 })
 }
 
@@ -100,13 +95,41 @@ export function finishTapping() {
   const s = useStore.getState()
   const ses = s.tapSession
   if (!ses || ses.phase === 'preview' || !s.midi) return
-  const fit = fitTaps(ses.taps)
+  // 'bar' mode: every tap is the 1 of a bar, so one tap gap = one bar
+  const perBar = s.tapTempoMode === 'bar'
+  const beatsPerBar = perBar ? Math.max(1, sigAt(fileGridOf(s.midi).timeSigMap, ses.start).num) : 1
+  const fit = fitTaps(ses.taps, perBar ? { minBpm: 20 / beatsPerBar } : {})
   if (!fit) {
     if (ses.taps.length < MIN_TAPS) update({ phase: 'armed', message: t`Need at least 4 taps`, lastTapAt: 0 })
     else update({ phase: 'armed', taps: [], message: t`Couldn't find a steady beat — try again`, lastTapAt: 0 })
     return
   }
-  preview(buildSegment(s.midi, ses.start, fit))
+  preview(buildSegment(s.midi, ses.start, { period: fit.period / beatsPerBar, anchor: fit.anchor }))
+}
+
+// Clicking the pad while tapping = "I'm done": show the result and pause, so
+// the user can read the panel and then press Space to listen back.
+export function finishFromPad() {
+  const ses = useStore.getState().tapSession
+  if (!ses || ses.phase === 'preview') return
+  finishTapping()
+  if (useStore.getState().tapSession?.phase === 'preview') useStore.setState({ playbackState: 'paused' })
+}
+
+export function nudgePreview(sec: number) {
+  const ses = useStore.getState().tapSession
+  if (ses?.phase === 'preview' && ses.segment) preview(nudgeSegment(ses.segment, sec))
+}
+
+export function fmtSongTime(sec: number): string {
+  const m = Math.floor(sec / 60), s = sec - m * 60
+  return `${m}:${s.toFixed(1).padStart(4, '0')}`
+}
+
+// Every saved change shows up in File Info → Orfeo History
+function logTempoEvent(summary: string) {
+  const path = (useStore.getState().midi as any)?._filePath as string | undefined
+  if (path) window.electronAPI?.logFileEvent?.(path, 'tempo', summary)?.catch?.(() => {})
 }
 
 // A seek / loop wrap / stop mid-tapping: preview what was tapped before it if
@@ -129,6 +152,7 @@ export function keepTap() {
   const ses = s.tapSession
   if (ses?.phase !== 'preview' || !ses.segment || !s.songKey) return
   s.setSongCorrection(s.songKey, upsertSegment(baseCorrection(), ses.segment))
+  logTempoEvent(t`Tap Tempo: ${(60 / ses.segment.period).toFixed(1)} bpm from ${fmtSongTime(ses.segment.start)}`)
   end()
 }
 
@@ -148,5 +172,16 @@ export function cancelTap() {
 
 export function resetSongTempo() {
   const s = useStore.getState()
-  if (s.songKey) s.setSongCorrection(s.songKey, null)
+  if (!s.songKey || !s.tempoCorrections[s.songKey]) return
+  s.setSongCorrection(s.songKey, null)
+  logTempoEvent(t`Tap Tempo: reset to the file's own tempo`)
+}
+
+export function removeTappedTempo(index: number) {
+  const s = useStore.getState()
+  const c = baseCorrection()
+  if (!s.songKey || !c || !c.segments[index]) return
+  const seg = c.segments[index]
+  s.setSongCorrection(s.songKey, { segments: c.segments.filter((_, j) => j !== index) })
+  logTempoEvent(t`Tap Tempo: removed ${(60 / seg.period).toFixed(1)} bpm from ${fmtSongTime(seg.start)}`)
 }

@@ -2162,6 +2162,8 @@ export default function SettingsPanel() {
   const setPlaybarVisible = useStore((s) => s.setPlaybarVisible)
   const tapTempoPadEnabled = useStore((s) => s.tapTempoPadEnabled)
   const setTapTempoPadEnabled = useStore((s) => s.setTapTempoPadEnabled)
+  const tapTempoMode = useStore((s) => s.tapTempoMode)
+  const setTapTempoMode = useStore((s) => s.setTapTempoMode)
   const hitEffectsEnabled = useStore((s) => s.hitEffectsEnabled)
   const setHitEffectsEnabled = useStore((s) => s.setHitEffectsEnabled)
   const autoLevelOnLoad = useStore((s) => s.autoLevelOnLoad)
@@ -2685,6 +2687,27 @@ export default function SettingsPanel() {
                       </>
                     }
                   />
+                  {/* ── Tap Tempo — eye-toggle (off by default) + how to count taps ── */}
+                  <OptionRow
+                    label={t`Tap Tempo`}
+                    eyeToggle
+                    eyeValue={tapTempoPadEnabled}
+                    onEyeChange={setTapTempoPadEnabled}
+                    description={t`Adds a red TAP pad next to the tempo, for fixing songs whose bar lines and metronome don't match the music.`}
+                  />
+                  {tapTempoPadEnabled && (
+                    <OptionRow label={t`Tap Tempo counting`} labelSmall>
+                      <div style={{ display: 'flex', gap: 'var(--space-1)' }}>
+                        <OptionBtn active={tapTempoMode === 'beat'} onClick={() => setTapTempoMode('beat')}>{t`Every beat`}</OptionBtn>
+                        <OptionBtn active={tapTempoMode === 'bar'} onClick={() => setTapTempoMode('bar')}>{t`Only the 1`}</OptionBtn>
+                      </div>
+                      <div style={{ fontSize: 'var(--text-xs)', color: 'var(--text-faint)', lineHeight: 1.5, fontFamily: 'var(--font-ui)', marginTop: 6, fontStyle: 'italic' }}>
+                        {tapTempoMode === 'beat'
+                          ? t`Tap 1, 2, 3, 4 — like tapping your foot. Your first tap is the 1.`
+                          : t`Tap only the first beat of each bar. Every tap is a 1.`}
+                      </div>
+                    </OptionRow>
+                  )}
                   {/* ── Left/Right Hand BETA — eye-toggle; sub-controls unchanged ─── */}
                   <OptionRow
                     label="Hand Assignment"
@@ -3201,14 +3224,6 @@ export default function SettingsPanel() {
                     eyeValue={playbarVisible}
                     onEyeChange={setPlaybarVisible}
                     description="When off, notes fall toward the keyboard's actual on-screen position instead on a fixed line."
-                  />
-                  {/* ── Tap Tempo pad — eye-toggle, off by default ─────────── */}
-                  <OptionRow
-                    label={t`Show Tap Tempo pad`}
-                    eyeToggle
-                    eyeValue={tapTempoPadEnabled}
-                    onEyeChange={setTapTempoPadEnabled}
-                    description={t`Adds a red TAP pad next to the tempo, for fixing songs whose bar lines and metronome don't match the music.`}
                   />
                   {/* ── Note Hit Effects — eye-toggle, off by default; pattern picker ──
                        only shown when on. */}

@@ -1,5 +1,5 @@
 import type { ParsedMidi } from '../types'
-import { applyTempoCorrection, buildSegment, upsertSegment, shiftDownbeat, scaleCorrection, sanitizeCorrections, carryCorrection } from './tempoCorrection'
+import { applyTempoCorrection, buildSegment, upsertSegment, shiftDownbeat, scaleCorrection, sanitizeCorrections, carryCorrection, nudgeSegment, removeSegmentAt, describeCorrection } from './tempoCorrection'
 
 // Synthetic file: 60 bpm 4/4, 40 s long, beats every 1 s, bars every 4 s.
 function file60(): ParsedMidi {
@@ -97,6 +97,13 @@ export function runTempoCorrectionTest(): number {
   // 11. sanitize rejects tempos outside 20–400 bpm (hand-edited prefs)
   const tiny = sanitizeCorrections({ a: { segments: [{ ...s1, period: 1e-6 }] }, b: { segments: [{ ...s1, period: 6 }] }, c: { segments: [s1] } })
   check(Object.keys(tiny).join() === 'c', `bpm bounds enforced, got ${Object.keys(tiny)}`)
+
+  // 12. nudge / list / remove (for the pad's menu)
+  check(near(nudgeSegment(s1, -0.01).anchor, 1.29), 'nudge moves anchor')
+  const list = describeCorrection({ segments: [s2, s3] })
+  check(list.length === 2 && list[0].start === 10 && near(list[0].bpm, 60 / 0.65) && near(list[1].bpm, 120), `describe, got ${JSON.stringify(list)}`)
+  const rm = removeSegmentAt({ segments: [s2, s3] }, 0)
+  check(rm.segments.length === 1 && rm.segments[0].start === 25, 'remove one segment')
 
   console.log(`tempoCorrection: ${pass} passed, ${fail} failed`)
   console.groupEnd()
