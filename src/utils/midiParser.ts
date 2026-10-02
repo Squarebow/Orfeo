@@ -1,3 +1,4 @@
+import { buildFileGrid } from './beatGridBuild'
 import { Midi } from '@tonejs/midi'
 import type { ParsedMidi, ParsedTrack, ParsedNote } from '../types'
 import { getGMName, getGMGroup } from './gmInstruments'
@@ -141,28 +142,7 @@ export function parseMidiBuffer(buffer: ArrayBuffer, fileName: string, filePath 
   // bar lines (via `barStarts` below) and the live chord detector (which
   // windows on `_beatTimes` directly). Computed against the live `midi`
   // object so ticksToSeconds() is exact. ──────────────────────────────────
-  const _barTimes: number[] = []
-  const _beatTimes: number[] = []
-  {
-    const ppq = midi.header.ppq
-    const sigList = midi.header.timeSignatures
-    const sigAt = (tick: number): [number, number] => {
-      let cur: [number, number] = sigList[0] ? sigList[0].timeSignature as [number, number] : [4, 4]
-      for (const s of sigList) { if (s.ticks <= tick) cur = s.timeSignature as [number, number]; else break }
-      return cur
-    }
-    const endTick = midi.header.secondsToTicks(duration) + ppq * 4
-    let tick = 0
-    let guard = 0
-    while (tick < endTick && guard++ < 100000) {
-      const [num, den] = sigAt(tick)
-      if (!(num > 0) || !(den > 0)) break
-      _barTimes.push(midi.header.ticksToSeconds(tick))
-      const beatTick = (ppq * 4) / den
-      for (let b = 0; b < num; b++) _beatTimes.push(midi.header.ticksToSeconds(tick + b * beatTick))
-      tick += beatTick * num
-    }
-  }
+  const { barTimes: _barTimes, beatTimes: _beatTimes } = buildFileGrid(midi.header, duration)
   const barStarts = _barTimes
 
   // ── Restore Orfeo custom track names from header text meta-events ────────────
