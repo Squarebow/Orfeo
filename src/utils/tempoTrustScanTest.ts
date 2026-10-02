@@ -48,6 +48,11 @@ export async function runTempoTrustScanTestAsync(): Promise<number> {
   await runTrustScan(['p.mid'], c.deps)
   check(pauses >= 3 && c.reads.includes('p.mid'), 'waits while playing, then continues')
 
+  // a huge file (e.g. a "black MIDI") is never read — recorded as checked
+  const big = fakeDeps({ stat: async (paths) => paths.map(p => ({ path: p, size: p === 'huge.mid' ? 50_000_000 : 1, mtime: 1 })) })
+  await runTrustScan(['huge.mid', 'small.mid'], big.deps)
+  check(!big.reads.includes('huge.mid') && big.entries.includes('huge.mid') && big.reads.includes('small.mid'), 'huge file skipped, queue continues')
+
   console.log(`tempoTrustScan: ${pass} passed, ${fail} failed`)
   console.groupEnd()
   return fail

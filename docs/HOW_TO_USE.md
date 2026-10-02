@@ -404,10 +404,10 @@ can fix.
 
   Choose **Fix with Tap Tempo** to start tapping from the playhead, or **It's
   fine, don't warn me for this song** if it sounds right to you.
-- **In the Library:** affected songs get a small amber dot. Orfeo checks your
-  songs quietly in the background — never while a song is playing — and
-  remembers the result, so each song is only checked once (again if the file
-  changes).
+- **In the Library:** affected songs get a small amber dot. While the Library
+  tab is open, Orfeo checks your songs quietly — never while a song is playing
+  — and remembers the result, so each song is only checked once (again if the
+  file changes). Very large files (over 5 MB) are skipped.
 - **Once you Keep a Tap Tempo** that lines up with the music, the warning goes
   away by itself.
 - **Freely played music** (rubato piano, free-time intros, sparse lead sheets)

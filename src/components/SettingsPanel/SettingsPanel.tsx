@@ -1711,7 +1711,7 @@ function LibraryPanel() {
                     <Undo2 size={11} />
                   </RowIconButton>
                 )}
-                <TempoWarningDot path={loadedFile.path} />
+                <TempoWarningDot path={loadedFile.path} onHoverChange={suppress} />
                 <FavouriteStar
                   starred={starred}
                   title={starred ? 'Remove from favourites' : 'Add to favourites'}
@@ -2009,7 +2009,7 @@ function LibraryPanel() {
                         <Undo2 size={11} />
                       </RowIconButton>
                     )}
-                    <TempoWarningDot path={file.path} />
+                    <TempoWarningDot path={file.path} onHoverChange={suppress} />
                     <FavouriteStar
                       starred={starred}
                       title={starred ? 'Remove from favourites' : 'Add to favourites'}
@@ -2727,7 +2727,7 @@ export default function SettingsPanel() {
                   />
                   {tempoWarningsEnabled && dismissedCount > 0 && (
                     <OptionRow label={t`Dismissed tempo warnings`} labelSmall>
-                      <OptionBtn active={false} onClick={clearTempoWarningDismissals}>{t`Show warnings for ${dismissedCount} dismissed songs again`}</OptionBtn>
+                      <OptionBtn active={false} onClick={clearTempoWarningDismissals}>{dismissedCount === 1 ? t`Show the warning for 1 dismissed song again` : t`Show warnings for ${dismissedCount} dismissed songs again`}</OptionBtn>
                     </OptionRow>
                   )}
                   {/* ── Left/Right Hand BETA — eye-toggle; sub-controls unchanged ─── */}

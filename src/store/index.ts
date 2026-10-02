@@ -738,6 +738,7 @@ export const useStore = create<OrfeoStore>((set, get) => ({
       currentTime: 0, trackPanelOpen: false, settingsPanelOpen: false,
       chordSequence: [], chordPrompterOpen: false,
       loopStart: null, loopEnd: null, loopRegionActive: false,
+      currentTrust: null,
     })
   },
 
@@ -1167,6 +1168,21 @@ const _unsubFav = useStore.subscribe((state) => {
   }, 1000)
 })
 
+// ── Persist tempo-warning results — batched (2 s after the last change), not
+// one full prefs rewrite per Library song while the background scan runs. ──
+let _trustTimer: ReturnType<typeof setTimeout> | null = null
+let _trustSeen: { cache: object; index: object } | null = null
+const _unsubTrust = useStore.subscribe((state) => {
+  if (!_trustSeen) { _trustSeen = { cache: state.tempoTrustCache, index: state.libraryTrustIndex }; return }
+  if (state.tempoTrustCache === _trustSeen.cache && state.libraryTrustIndex === _trustSeen.index) return
+  _trustSeen = { cache: state.tempoTrustCache, index: state.libraryTrustIndex }
+  if (_trustTimer) clearTimeout(_trustTimer)
+  _trustTimer = setTimeout(() => {
+    const s = useStore.getState()
+    window.electronAPI?.setPrefs?.({ tempoTrustCache: s.tempoTrustCache, libraryTrustIndex: s.libraryTrustIndex })?.catch?.(() => {})
+  }, 2000)
+})
+
 // Persist display settings when they change
 // Use null sentinel so we never save on first subscriber fire (which would
 // overwrite the restored value before restoreLibraryPrefs has run)
@@ -1181,8 +1197,6 @@ let _prevTapTempoPadEnabled: boolean | null = null
 let _prevTapTempoMode: string | null = null
 let _prevTempoWarningsEnabled: boolean | null = null
 let _prevTempoWarningDismissed: object | null = null
-let _prevTempoTrustCache: object | null = null
-let _prevLibraryTrustIndex: object | null = null
 let _prevMetronomeVolume: number | null = null
 let _prevTempoCorrections: object | null = null
 let _prevNoteEditorToolbarX:   number  | null = null
@@ -1242,8 +1256,6 @@ const _unsubPrefs = useStore.subscribe((state) => {
     _prevTapTempoMode = state.tapTempoMode
     _prevTempoWarningsEnabled = state.tempoWarningsEnabled
     _prevTempoWarningDismissed = state.tempoWarningDismissed
-    _prevTempoTrustCache = state.tempoTrustCache
-    _prevLibraryTrustIndex = state.libraryTrustIndex
     _prevMetronomeVolume = state.metronomeVolume
     _prevTempoCorrections = state.tempoCorrections
     _prevNoteEditorToolbarX = state.noteEditorToolbarX
@@ -1306,8 +1318,6 @@ const _unsubPrefs = useStore.subscribe((state) => {
     state.tapTempoMode !== _prevTapTempoMode ||
     state.tempoWarningsEnabled !== _prevTempoWarningsEnabled ||
     state.tempoWarningDismissed !== _prevTempoWarningDismissed ||
-    state.tempoTrustCache !== _prevTempoTrustCache ||
-    state.libraryTrustIndex !== _prevLibraryTrustIndex ||
     state.metronomeVolume !== _prevMetronomeVolume ||
     state.tempoCorrections !== _prevTempoCorrections ||
     state.noteEditorToolbarX !== _prevNoteEditorToolbarX ||
@@ -1362,8 +1372,6 @@ const _unsubPrefs = useStore.subscribe((state) => {
     _prevTapTempoMode = state.tapTempoMode
     _prevTempoWarningsEnabled = state.tempoWarningsEnabled
     _prevTempoWarningDismissed = state.tempoWarningDismissed
-    _prevTempoTrustCache = state.tempoTrustCache
-    _prevLibraryTrustIndex = state.libraryTrustIndex
     _prevMetronomeVolume = state.metronomeVolume
     _prevTempoCorrections = state.tempoCorrections
     _prevNoteEditorToolbarX = state.noteEditorToolbarX
@@ -1424,8 +1432,6 @@ const _unsubPrefs = useStore.subscribe((state) => {
       tapTempoMode: state.tapTempoMode,
       tempoWarningsEnabled: state.tempoWarningsEnabled,
       tempoWarningDismissed: state.tempoWarningDismissed,
-      tempoTrustCache: state.tempoTrustCache,
-      libraryTrustIndex: state.libraryTrustIndex,
       metronomeVolume: state.metronomeVolume,
       tempoCorrections: state.tempoCorrections,
       noteEditorToolbarX: state.noteEditorToolbarX,

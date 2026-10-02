@@ -1,7 +1,7 @@
 import { useStore } from '../store'
 import { TRUST_VERSION, type TrustResult } from './tempoTrust'
 
-export function runTempoWarningStoreTest(): number {
+export async function runTempoWarningStoreTest(): Promise<number> {
   console.group('[tempoWarning store] self-check')
   let pass = 0, fail = 0
   const check = (c: boolean, m: string) => { c ? pass++ : (fail++, console.error('FAIL:', m)) }
@@ -26,6 +26,21 @@ export function runTempoWarningStoreTest(): number {
   check(S().currentTrust?.hintBpm === 91, 'current song result')
   S().setMidi(null)
   check(S().currentTrust === null, 'unloading clears the current result')
+
+  // the logo's Reset (resetAll) also clears it -> no light over an empty app
+  S().setCurrentTrust(res)
+  S().resetAll()
+  check(S().currentTrust === null, 'reset clears the current result')
+
+  // library results are saved in batches, not one prefs write per song
+  const saves: any[] = []
+  ;(globalThis as any).window.electronAPI = { setPrefs: (d: any) => { saves.push(d); return Promise.resolve() } }
+  for (let i = 0; i < 20; i++) S().setTrustEntry(`D:/s${i}.mid`, { size: i, mtime: i }, `k${i}`, res)
+  const immediate = saves.filter(d => 'tempoTrustCache' in d).length
+  await new Promise(r => setTimeout(r, 2600))
+  const later = saves.filter(d => 'tempoTrustCache' in d)
+  check(immediate === 0, `no per-song prefs write, got ${immediate}`)
+  check(later.length === 1 && Object.keys(later[0].tempoTrustCache).length >= 20, `one batched write, got ${later.length}`)
 
   console.log(`tempoWarning store: ${pass} passed, ${fail} failed`)
   console.groupEnd()

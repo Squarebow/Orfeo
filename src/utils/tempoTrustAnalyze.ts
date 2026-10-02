@@ -17,8 +17,10 @@ const UNCHECKED: TrustResult = { flagged: false, from: null, throughout: false, 
 function judgeParsed(midi: ParsedMidi): TrustResult {
   const m = midi as any
   const beats: number[] = m._beatTimes ?? []
-  const fileBpm = Math.round(m._tempoMap?.[0]?.bpm ?? midi.bpm ?? 0)
-  return judgeTempo(beats, collectOnsets(midi, 0, midi.duration), midi.duration, fileBpm)
+  // the tempo map in force (a kept Tap Tempo included) at a given time
+  const map: { bpm: number; time: number }[] = m._tempoMap ?? []
+  const bpmAt = (t: number) => { let b = map[0]?.bpm ?? midi.bpm ?? 0; for (const e of map) { if (e.time <= t + 1e-6) b = e.bpm; else break } return b }
+  return judgeTempo(beats, collectOnsets(midi, 0, midi.duration), midi.duration, bpmAt)
 }
 
 export function analyzeParsed(midi: ParsedMidi): TrustResult {

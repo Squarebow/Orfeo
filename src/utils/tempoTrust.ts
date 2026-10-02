@@ -142,6 +142,7 @@ export function judgeWindows(beats: number[], onsets: { t: number; w: number }[]
 // own, or exactly double/half of it, the file's tempo is right and only the
 // beat is offset (octave errors are the classic trap) — no tempo hint then.
 export function hintFromWindows(offW: TrustWindow[], fileBpm: number): { hintBpm: number | null; shifted: boolean } {
+  // fileBpm: the file's tempo where the song starts going off
   const bpms = offW.map(w => w.steadyBpm).filter((b): b is number => !!b)
   if (!bpms.length) return { hintBpm: null, shifted: false }
   let best: number[] = []
@@ -156,7 +157,9 @@ export function hintFromWindows(offW: TrustWindow[], fileBpm: number): { hintBpm
   return { hintBpm: Math.round(speed), shifted: false }
 }
 
-export function judgeTempo(beats: number[], onsets: { t: number; w: number }[], duration: number, fileBpm: number): TrustResult {
+// fileBpm: a number, or the file's tempo at a given time (multi-tempo files —
+// the tempo quoted and checked is the one in force where it goes off)
+export function judgeTempo(beats: number[], onsets: { t: number; w: number }[], duration: number, fileBpm: number | ((t: number) => number)): TrustResult {
   const wins = judgeWindows(beats, onsets, duration)
   const ok = wins.filter(w => w.verdict === 'ok').length
   const offW = wins.filter(w => w.verdict === 'off')
@@ -166,9 +169,10 @@ export function judgeTempo(beats: number[], onsets: { t: number; w: number }[], 
   const hints = offW.map(w => w.steadyBpm!).filter(Boolean)
   const decided = ok + off
   const flagged = off >= MIN_OFF_WINDOWS && off >= decided * 0.5 && off >= wins.length * MIN_OFF_SHARE
-  const { hintBpm, shifted } = flagged ? hintFromWindows(offW, fileBpm) : { hintBpm: null, shifted: false }
+  const bpmHere = Math.round(typeof fileBpm === 'function' ? fileBpm(from ?? 0) : fileBpm)
+  const { hintBpm, shifted } = flagged ? hintFromWindows(offW, bpmHere) : { hintBpm: null, shifted: false }
   return {
     flagged, from: flagged ? from : null, throughout: flagged && from !== null && from < WINDOW,
-    hintBpm, shifted, fileBpm, okWindows: ok, offWindows: off, unclearWindows: unclear,
+    hintBpm, shifted, fileBpm: bpmHere, okWindows: ok, offWindows: off, unclearWindows: unclear,
   }
 }

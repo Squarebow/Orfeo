@@ -334,8 +334,9 @@ export default function TopBar() {
 
       <VSep />
 
-      {/* ── KEY ── */}
-      <div className="app-no-drag" style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '0 var(--space-3)', flexShrink: 0 }}>
+      {/* ── KEY ── (position: relative anchors the tempo-warning badge, which
+          takes no width of its own — this group has no spare room at 1366 px) */}
+      <div className="app-no-drag" style={{ position: 'relative', display: 'flex', alignItems: 'center', gap: 6, padding: '0 var(--space-3)', flexShrink: 0 }}>
         <Tooltip
           title="Key: "
           titleValue={`${displayKey}${transpose !== 0 ? ` (${transpose > 0 ? '+' : ''}${transpose} semitones)` : ''}`}

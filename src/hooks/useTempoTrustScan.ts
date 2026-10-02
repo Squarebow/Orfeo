@@ -39,14 +39,17 @@ export function useTempoTrustScan() {
 }
 
 // ── Open song: judged ~300 ms after it loads or its beat grid changes (a kept
-// Tap Tempo), never during a tap session's live preview. ────────────────
+// Tap Tempo). Never during a tap session (the old verdict is dropped, so the
+// light can't flash back after a Keep) and never while playing (no hitch). ─
 export function useCurrentTempoTrust() {
   const enabled = useStore((s) => s.tempoWarningsEnabled)
   const midi = useStore((s) => s.midi)
   const key = useStore((s) => s.songKey)
   const tapping = useStore((s) => !!s.tapSession)
+  const playing = useStore((s) => s.playbackState === 'playing')
+  useEffect(() => { if (tapping) useStore.getState().setCurrentTrust(null) }, [tapping])
   useEffect(() => {
-    if (!enabled || !midi || !key || tapping) return
+    if (!enabled || !midi || !key || tapping || playing) return
     const id = setTimeout(() => {
       const s = useStore.getState()
       if (s.midi !== midi) return
@@ -55,5 +58,5 @@ export function useCurrentTempoTrust() {
       s.setTrustEntry(null, null, key, r)
     }, 300)
     return () => clearTimeout(id)
-  }, [enabled, midi, key, tapping])
+  }, [enabled, midi, key, tapping, playing])
 }

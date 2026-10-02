@@ -70,6 +70,11 @@ export function runTempoTrustTest(): number {
   check(sh.hintBpm === null && sh.shifted, 'double the file speed = shifted, no hint')
   check(hintFromWindows(fakeWins([92, 130, 61, 75]), 60).hintBpm === null, 'no majority -> no hint')
 
+  // 11. the file's tempo quoted (and used for the shifted check) is the one
+  // in force where it starts going off, not just the first tempo
+  const r11 = judgeTempo(grid(1.0, 120), mixed, 120, (t: number) => (t < 30 ? 120 : 60))
+  check(r11.flagged && r11.fileBpm === 60 && near(r11.hintBpm, 92, 1), `tempo at the off point, got ${JSON.stringify(r11)}`)
+
   console.log(`tempoTrust: ${pass} passed, ${fail} failed`)
   console.groupEnd()
   return fail
