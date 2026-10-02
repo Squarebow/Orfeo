@@ -1,4 +1,4 @@
-import { judgeTempo } from './tempoTrust'
+import { judgeTempo, judgeWindows, hintFromWindows } from './tempoTrust'
 
 type O = { t: number; w: number }
 const grid = (period: number, dur: number, offset = 0) => { const b: number[] = []; for (let t = offset; t <= dur; t += period) b.push(+t.toFixed(6)); return b }
@@ -25,7 +25,7 @@ export function runTempoTrustTest(): number {
 
   // 3. grid shifted by half a beat -> flagged, hint ~= file tempo
   const r3 = judgeTempo(grid(0.5, 120, 0.25), band(0.5, 0, 120), 120, 120)
-  check(r3.flagged && near(r3.hintBpm, 120, 2), `shifted grid flagged, got ${JSON.stringify(r3)}`)
+  check(r3.flagged && r3.hintBpm === null && r3.shifted, `shifted grid: right speed, bars off, got ${JSON.stringify(r3)}`)
 
   // 4. freely played (random onsets) -> never flagged
   let seed = 3
@@ -45,6 +45,30 @@ export function runTempoTrustTest(): number {
 
   // 7. too short to judge -> never flagged
   check(!judgeTempo(grid(1.0, 15), band(0.652, 0, 15), 15, 60).flagged, 'short song not flagged')
+
+  // 8. every played beat also fits half speed — the suggested beat is the
+  // faster one that matches every played beat, in every window
+  const w8 = judgeWindows(grid(1.0, 120), band(0.652, 0, 120), 120).filter(w => w.verdict === 'off')
+  check(w8.length >= 5 && w8.every(w => near(w.steadyBpm, 92, 1)), `faster of equal fits, got ${w8.map(w => w.steadyBpm?.toFixed(1))}`)
+
+  // 9. mostly free-time, with a few stretches that happen to fit a steady
+  // beat the file misses -> not flagged (most of the song has no steady beat)
+  const mostlyFree: O[] = []
+  for (let t = 0; t < 200; t += 0.15 + rnd() * 0.7) mostlyFree.push({ t, w: 0.9 })
+  mostlyFree.push(...band(0.652, 200, 280))
+  for (let t = 280; t < 600; t += 0.15 + rnd() * 0.7) mostlyFree.push({ t, w: 0.9 })
+  mostlyFree.sort((a, b) => a.t - b.t)
+  const r9 = judgeTempo(grid(1.0, 600), mostlyFree, 600, 60)
+  check(!r9.flagged, `mostly free not flagged, got ${JSON.stringify(r9)}`)
+
+  // 10. a few stretches lock onto half/double speed: the speed most
+  // stretches agree on wins; a shift at exactly double the file's speed
+  // means the speed is right, just offset -> no tempo hint
+  const fakeWins = (bpms: number[]) => bpms.map((b, i) => ({ from: i * 20, verdict: 'off' as const, grid: 0.2, steady: 1, steadyBpm: b }))
+  check(hintFromWindows(fakeWins([45.6, 91.3, 90.9, 91.2, 91.3, 90.9, 181.8, 45.5, 91.3, 90.9]), 60).hintBpm === 91, 'majority speed wins')
+  const sh = hintFromWindows(fakeWins([200, 199.8, 200, 200, 200]), 100)
+  check(sh.hintBpm === null && sh.shifted, 'double the file speed = shifted, no hint')
+  check(hintFromWindows(fakeWins([92, 130, 61, 75]), 60).hintBpm === null, 'no majority -> no hint')
 
   console.log(`tempoTrust: ${pass} passed, ${fail} failed`)
   console.groupEnd()

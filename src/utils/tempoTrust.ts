@@ -18,7 +18,10 @@ const G_OK = 0.6           // ...or fits
 const B_STEADY = 0.7       // some steady beat fits this well
 const GAP = 0.3            // and fits this much better than the file's grid
 const MIN_OFF_WINDOWS = 3
-const HINT_AGREE = 0.03    // off-windows' suggested tempos must agree within ±3%
+const MIN_OFF_SHARE = 0.25 // of ALL judged windows — mostly-free songs are never flagged
+const TIE = 0.05           // steady fits this close count as equal; the faster beat wins
+const HINT_AGREE = 0.03    // suggested tempos within ±3% count as the same speed
+const HINT_MAJORITY = 0.6  // that speed must come from at least 60% of the off stretches
 const P_MIN = 0.25, P_MAX = 1.5   // 40–240 bpm
 
 export interface TrustResult {
@@ -26,6 +29,7 @@ export interface TrustResult {
   from: number | null       // song seconds where it starts going off
   throughout: boolean
   hintBpm: number | null     // the steady beat the notes suggest, when the evidence agrees
+  shifted: boolean           // the speed looks right (same / double / half), the beat is just offset
   fileBpm: number
   okWindows: number
   offWindows: number
@@ -102,41 +106,69 @@ function bestSteady(on: number[], onW: { t: number; w: number }[], from: number,
         if (s > cand.share) cand = { share: s, period: p, phase: cand.phase + dp }
       }
     }
-    if (cand.share > best.share) best = { share: cand.share, period: cand.period }
+    // A beat at half speed also lands on every played note, so equal fits
+    // are common — the faster one is the beat that matches every played note
+    if (cand.share > best.share + TIE || (cand.share >= best.share - TIE && cand.period < best.period)) {
+      best = { share: Math.max(cand.share, best.share), period: cand.period }
+    }
   }
   return best
 }
 
-export function judgeTempo(beats: number[], onsets: { t: number; w: number }[], duration: number, fileBpm: number): TrustResult {
+export interface TrustWindow { from: number; verdict: 'ok' | 'off' | 'unclear'; grid: number; steady: number; steadyBpm: number | null }
+
+// Per-window verdicts — exported for the library audit / debugging
+export function judgeWindows(beats: number[], onsets: { t: number; w: number }[], duration: number): TrustWindow[] {
   const strongAll = onsets.filter(o => o.w >= STRONG).sort((a, b) => a.t - b.t)
   const strongT = strongAll.map(o => o.t)
-  let ok = 0, off = 0, unclear = 0
-  let from: number | null = null
-  const hints: number[] = []
+  const out: TrustWindow[] = []
   for (let w0 = 0; w0 + WINDOW <= duration + 1e-9; w0 += WINDOW) {
     const w1 = w0 + WINDOW
     const wb = beats.slice(lowerBound(beats, w0), lowerBound(beats, w1))
     const wo = strongAll.slice(lowerBound(strongT, w0), lowerBound(strongT, w1))
     if (wb.length < MIN_BEATS || wo.length < MIN_ONSETS) continue
     const g = shareOf(strongT, wb)
-    if (g >= G_OK) { ok++; continue }
+    if (g >= G_OK) { out.push({ from: w0, verdict: 'ok', grid: g, steady: 0, steadyBpm: null }); continue }
     const b = g <= G_OFF ? bestSteady(strongT, wo, w0, w1) : { share: 0, period: 0 }
-    if (g <= G_OFF && b.share >= B_STEADY && b.share - g >= GAP) {
-      off++
-      if (from === null) from = w0
-      hints.push(60 / b.period)
-    } else unclear++
+    const isOff = g <= G_OFF && b.share >= B_STEADY && b.share - g >= GAP
+    out.push({ from: w0, verdict: isOff ? 'off' : 'unclear', grid: g, steady: b.share, steadyBpm: b.period ? 60 / b.period : null })
   }
+  return out
+}
+
+// The speed most "off" stretches agree on. A stretch or two locking onto
+// half/double speed is normal (a half-speed beat also lands on every played
+// note), so this is a majority, not unanimity. If that speed is the file's
+// own, or exactly double/half of it, the file's tempo is right and only the
+// beat is offset (octave errors are the classic trap) — no tempo hint then.
+export function hintFromWindows(offW: TrustWindow[], fileBpm: number): { hintBpm: number | null; shifted: boolean } {
+  const bpms = offW.map(w => w.steadyBpm).filter((b): b is number => !!b)
+  if (!bpms.length) return { hintBpm: null, shifted: false }
+  let best: number[] = []
+  for (const c of bpms) {
+    const group = bpms.filter(b => Math.abs(b / c - 1) <= HINT_AGREE)
+    if (group.length > best.length) best = group
+  }
+  if (best.length < bpms.length * HINT_MAJORITY) return { hintBpm: null, shifted: false }
+  const sorted = [...best].sort((x, y) => x - y)
+  const speed = sorted[Math.floor(sorted.length / 2)]
+  if (fileBpm > 0 && [1, 2, 0.5].some(r => Math.abs(speed / (fileBpm * r) - 1) <= HINT_AGREE)) return { hintBpm: null, shifted: true }
+  return { hintBpm: Math.round(speed), shifted: false }
+}
+
+export function judgeTempo(beats: number[], onsets: { t: number; w: number }[], duration: number, fileBpm: number): TrustResult {
+  const wins = judgeWindows(beats, onsets, duration)
+  const ok = wins.filter(w => w.verdict === 'ok').length
+  const offW = wins.filter(w => w.verdict === 'off')
+  const off = offW.length
+  const unclear = wins.length - ok - off
+  const from = offW.length ? offW[0].from : null
+  const hints = offW.map(w => w.steadyBpm!).filter(Boolean)
   const decided = ok + off
-  const flagged = off >= MIN_OFF_WINDOWS && off >= decided * 0.5
-  let hintBpm: number | null = null
-  if (flagged && hints.length) {
-    const s = [...hints].sort((a, b) => a - b)
-    const med = s[Math.floor(s.length / 2)]
-    if (s.every(h => Math.abs(h / med - 1) <= HINT_AGREE)) hintBpm = Math.round(med)
-  }
+  const flagged = off >= MIN_OFF_WINDOWS && off >= decided * 0.5 && off >= wins.length * MIN_OFF_SHARE
+  const { hintBpm, shifted } = flagged ? hintFromWindows(offW, fileBpm) : { hintBpm: null, shifted: false }
   return {
     flagged, from: flagged ? from : null, throughout: flagged && from !== null && from < WINDOW,
-    hintBpm, fileBpm, okWindows: ok, offWindows: off, unclearWindows: unclear,
+    hintBpm, shifted, fileBpm, okWindows: ok, offWindows: off, unclearWindows: unclear,
   }
 }
