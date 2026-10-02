@@ -16,6 +16,7 @@ import VolumeKnob from '../VolumeKnob'
 import LoopRegionStrip from '../LoopRegionStrip'
 import Tooltip from '../Tooltip'
 import { TapTempoPad } from './TapTempoPad'
+import { TempoWarning } from './TempoWarning'
 import { stepDisplayedBpm } from '../../utils/bpmStep'
 import { ContextMenu, ContextMenuItem, useMenuDismiss } from '../ContextMenu'
 import { t } from '../../utils/i18n'
@@ -371,6 +372,7 @@ export default function TopBar() {
             <RotateCcw size={8} />
           </button>
         </Tooltip>
+        <TempoWarning />
       </div>
 
       </div>

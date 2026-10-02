@@ -10,6 +10,8 @@ import {
 } from 'lucide-react'
 import { useStore } from '../../store'
 import { t } from '../../utils/i18n'
+import { TempoWarningDot } from '../Transport/TempoWarning'
+import { useTempoTrustScan } from '../../hooks/useTempoTrustScan'
 import OrfeoMark from '../OrfeoMark'
 import type { NoteNaming, KeyboardSize, Accidentals, TranscriptEntry, LibraryFile, HitEffectPattern, SoundfontId, SoundfontInfo, UpdateStatus, UpdateInfo } from '../../types'
 import type { AppTheme } from '../../store'
@@ -783,6 +785,7 @@ const FILENAME_SPAN_HIDDEN:  React.CSSProperties = { fontSize: 'var(--text-sm)',
 const FOLDER_HEADER_HEIGHT = 30
 
 function LibraryPanel() {
+  useTempoTrustScan()
   const libraryFolder = useStore((s) => s.libraryFolder)
   const libraryFiles = useStore((s) => s.libraryFiles)
   const libraryFavourites = useStore((s) => s.libraryFavourites)
@@ -1708,6 +1711,7 @@ function LibraryPanel() {
                     <Undo2 size={11} />
                   </RowIconButton>
                 )}
+                <TempoWarningDot path={loadedFile.path} />
                 <FavouriteStar
                   starred={starred}
                   title={starred ? 'Remove from favourites' : 'Add to favourites'}
@@ -2005,6 +2009,7 @@ function LibraryPanel() {
                         <Undo2 size={11} />
                       </RowIconButton>
                     )}
+                    <TempoWarningDot path={file.path} />
                     <FavouriteStar
                       starred={starred}
                       title={starred ? 'Remove from favourites' : 'Add to favourites'}
@@ -2163,6 +2168,10 @@ export default function SettingsPanel() {
   const tapTempoPadEnabled = useStore((s) => s.tapTempoPadEnabled)
   const setTapTempoPadEnabled = useStore((s) => s.setTapTempoPadEnabled)
   const tapTempoMode = useStore((s) => s.tapTempoMode)
+  const tempoWarningsEnabled = useStore((s) => s.tempoWarningsEnabled)
+  const setTempoWarningsEnabled = useStore((s) => s.setTempoWarningsEnabled)
+  const dismissedCount = useStore((s) => Object.keys(s.tempoWarningDismissed).length)
+  const clearTempoWarningDismissals = useStore((s) => s.clearTempoWarningDismissals)
   const setTapTempoMode = useStore((s) => s.setTapTempoMode)
   const hitEffectsEnabled = useStore((s) => s.hitEffectsEnabled)
   const setHitEffectsEnabled = useStore((s) => s.setHitEffectsEnabled)
@@ -2706,6 +2715,19 @@ export default function SettingsPanel() {
                           ? t`Tap 1, 2, 3, 4 — like tapping your foot. Your first tap is the 1.`
                           : t`Tap only the first beat of each bar. Every tap is a 1.`}
                       </div>
+                    </OptionRow>
+                  )}
+                  {/* ── Tempo warnings — eye-toggle (off by default) ───────────── */}
+                  <OptionRow
+                    label={t`Tempo warnings`}
+                    eyeToggle
+                    eyeValue={tempoWarningsEnabled}
+                    onEyeChange={setTempoWarningsEnabled}
+                    description={t`Marks songs whose bar lines and metronome don't match the music's steady beat — the ones Tap Tempo can fix. Shown next to Key in the top bar and in the Library.`}
+                  />
+                  {tempoWarningsEnabled && dismissedCount > 0 && (
+                    <OptionRow label={t`Dismissed tempo warnings`} labelSmall>
+                      <OptionBtn active={false} onClick={clearTempoWarningDismissals}>{t`Show warnings for ${dismissedCount} dismissed songs again`}</OptionBtn>
                     </OptionRow>
                   )}
                   {/* ── Left/Right Hand BETA — eye-toggle; sub-controls unchanged ─── */}

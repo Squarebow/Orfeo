@@ -767,3 +767,7 @@ textarea:focus-visible,
 /* Tap Tempo pad — brief pop on each tap (re-triggered via React key) */
 @keyframes orfeo-tap-pulse { from { transform: scale(1.18) } to { transform: scale(1) } }
 .orfeo-tap-pulse { animation: orfeo-tap-pulse 0.12s ease-out }
+
+/* Tempo warning — slow amber pulse (Settings → Tempo warnings) */
+@keyframes orfeo-warn-pulse { 0%, 100% { opacity: 1; transform: scale(1) } 50% { opacity: 0.35; transform: scale(0.75) } }
+.orfeo-warn-pulse { animation: orfeo-warn-pulse 1.6s ease-in-out infinite }
