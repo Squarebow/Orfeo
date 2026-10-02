@@ -20,6 +20,7 @@ feature list see the [README](../README.md).
 - [MIDI parsing and foreign formats](#midi-parsing-and-foreign-formats)
 - [Music theory — tonal.js](#music-theory--tonaljs)
 - [Metadata embedded in the MIDI file](#metadata-embedded-in-the-midi-file)
+- [Tap Tempo — beat-grid corrections](#tap-tempo--beat-grid-corrections)
 - [Hand-assignment engine](#hand-assignment-engine)
 - [Piano-roll hit effects](#piano-roll-hit-effects)
 - [Auto-update](#auto-update)
@@ -274,6 +275,35 @@ because unknown text meta events are preserved by every conformant MIDI parser.
 
 Edited files are saved as **`<name>_ORFEO_v{N}.mid`** (first edit is `v1`) inside
 the library folder's `Orfeo/` subfolder — the original is never modified.
+
+---
+
+## Tap Tempo — beat-grid corrections
+
+Some files carry wrong tempo metadata while their notes are timed correctly.
+Tap Tempo replaces only the **beat layer** of the parsed file — `_beatTimes`,
+`_barTimes`/`_barStarts`, `_tempoMap`, `_timeSigMap` — from a chosen point
+onward. Every consumer (piano-roll bar lines, metronome, bar counter, BPM /
+time-signature readout, chord detector) already reads those fields, so none of
+them needed changes. Note times, audio, and `bpm`/`originalBpm` (the speed
+control's ratio) are never touched.
+
+| Piece | File | Role |
+|---|---|---|
+| Tap fit | `src/utils/tapTempoFit.ts` | Taps → one steady period + the time of beat 1; missed / doubled / stray taps rejected |
+| Snap to notes | `src/utils/tapRefine.ts` | Searches ±2% tempo / ±80 ms phase around the fit for the grid that best matches weighted note onsets (kick, snare, bass heaviest); keeps the taps if the notes don't clearly line up. `matchFileBeat` detects taps sitting on the file's own beats at ×1 / ×2 / ×½ |
+| Grid rewrite | `src/utils/tempoCorrection.ts` | `TempoSegment`s (start, anchor, period, beats per bar) → rewritten beat layer; a segment with `snap` passes the file's own bars / time signatures through and only rescales the tempo number (double-time files) |
+| Session | `src/utils/tapTempoSession.ts`, `src/hooks/useTapTempo.ts` | Arm → tap (Space / MIDI note-on) → result → keep / adjust / cancel; taps stamped in *heard* time (output-latency compensated) |
+| UI | `src/components/Transport/TapTempoPad.tsx` | TAP pad, result panel, right-click list of kept tempos |
+
+Corrections are stored in the app prefs (`tempoCorrections`), keyed by a hash
+of the file's bytes (`src/utils/songIdentity.ts`), so they follow a file
+through renames and moves without modifying it; saving a new `_ORFEO_vN`
+version carries the correction over (rescaled when a speed change is baked
+in). `store.setMidi` applies a song's correction on load; `setBeatGrid` swaps
+the grid live during a preview without restarting playback, and the
+metronome re-maps its scheduling position by time when the beat array changes
+(`src/utils/metronomeResume.ts`).
 
 ---
 

@@ -43,7 +43,11 @@ telemetry; MIDI files are processed entirely on your device.
   the BPM arrows to glide to a target
 - **Change key** — transpose the whole piece by semitones
 - **Loop region** — draw a loop directly on the waterfall and drill any section
-- **Metronome** — follows the file's embedded tempo map through mid-song changes
+- **Metronome** — follows the file's embedded tempo map through mid-song changes;
+  right-click for volume
+- **Tap Tempo** — fix songs whose bar lines and metronome don't match the music:
+  tap along on Space or a MIDI key, and Orfeo lines your beat up with the song's
+  own drums and bass, remembers it for that song, and never touches the file
 - **Tracks panel & Console Mixer** — mute, solo, recolour, show/hide tracks;
   per-channel volume, pan, chorus, reverb with live VU meters (saved into the
   file on close); master Tone and Compressor
