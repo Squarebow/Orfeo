@@ -290,8 +290,9 @@ export default function TopBar() {
 
       <VSep />
 
-      {/* ── BPM ── */}
-      <div className="app-no-drag" style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '0 var(--space-3)', flexShrink: 0 }}>
+      {/* ── BPM ── (tighter gap/padding than the other groups: with the TAP pad
+          the left column must still fit at a 1366 px window) */}
+      <div className="app-no-drag" style={{ display: 'flex', alignItems: 'center', gap: 4, padding: '0 var(--space-2)', flexShrink: 0 }}>
         <Tooltip title={`Tempo: ${liveBpm || '—'} BPM`} description="The song's current playback tempo, scaled by your speed setting." placement="bottom">
           <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
             <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start', gap: 1 }}>
@@ -336,7 +337,7 @@ export default function TopBar() {
 
       {/* ── KEY ── (position: relative anchors the tempo-warning badge, which
           takes no width of its own — this group has no spare room at 1366 px) */}
-      <div className="app-no-drag" style={{ position: 'relative', display: 'flex', alignItems: 'center', gap: 6, padding: '0 var(--space-3)', flexShrink: 0 }}>
+      <div className="app-no-drag" style={{ position: 'relative', display: 'flex', alignItems: 'center', gap: 6, padding: '0 var(--space-2)', flexShrink: 0 }}>
         <Tooltip
           title="Key: "
           titleValue={`${displayKey}${transpose !== 0 ? ` (${transpose > 0 ? '+' : ''}${transpose} semitones)` : ''}`}

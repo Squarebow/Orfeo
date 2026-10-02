@@ -117,9 +117,9 @@ export function TapTempoPad() {
       aria-label={t`Tap Tempo`}
       style={{
         position: 'relative',
-        width: 30, height: 30, borderRadius: '50%', border: 'none',
+        width: 24, height: 24, borderRadius: '50%', border: 'none',
         background: 'var(--status-error)', color: '#fff',
-        fontFamily: 'var(--font-mono)', fontSize: 9, fontWeight: 700, letterSpacing: '0.05em',
+        fontFamily: 'var(--font-mono)', fontSize: 8, fontWeight: 700, letterSpacing: '0.02em',
         cursor: disabled ? 'default' : 'pointer', opacity: disabled ? 0.4 : 1,
         boxShadow: ses ? '0 0 0 2px var(--accent-amber-strong)' : 'none',
       }}
