@@ -60,6 +60,7 @@ for example `how-to-use/edit-split-hands.gif`.
   - [The virtual keyboard](#the-virtual-keyboard)
   - [Transport and tempo](#transport-and-tempo)
   - [Fix a song's tempo with Tap Tempo](#fix-a-songs-tempo-with-tap-tempo)
+  - [Tempo warnings](#tempo-warnings)
   - [Change key](#change-key)
   - [Loop a passage](#loop-a-passage)
   - [Tracks panel](#tracks-panel)
@@ -371,6 +372,13 @@ from that point on — so tap front to back.
 > just that one, or "Reset to the file's own tempo" to remove them all. Every
 > Keep, adjustment and removal is listed in File Info → Orfeo History.*
 
+> 🎯 **Finding the songs that need fixing**
+>
+> *Turn on Settings → Playback & Editing → Tempo warnings. Songs whose bar
+> lines miss their beat get an amber dot in the Library, and a pulsing light
+> next to Key when you open them. Click the light and choose "Fix with Tap
+> Tempo". See [Tempo warnings](#tempo-warnings).*
+
 **Tips for tapping**
 
 - Tap the speed you'd count the song at, not the hi-hat: tapping twice per
@@ -378,6 +386,39 @@ from that point on — so tap front to back.
 - Start on a 1, and only once you've locked in — there's no rush.
 - 8–16 taps beats 4: more taps give a steadier tempo.
 - If the panel's tempo looks wrong, press **Tap again** rather than Keep.
+
+### Tempo warnings
+
+Turn on **Settings → Playback & Editing → Tempo warnings** (off by default) and
+Orfeo points out the songs whose bar lines and metronome don't sit on the
+music's steady beat — the ones [Tap Tempo](#fix-a-songs-tempo-with-tap-tempo)
+can fix.
+
+- **In the top bar:** when the open song is off, a small amber light pulses
+  next to Key/Transpose. Click it to see what's off, in plain words:
+  - *"The bar lines and metronome drift off the music's beat through most of
+    the song. The beat sounds closer to about 91 than the file's 60 — check by
+    ear."* — the file's tempo is wrong.
+  - *"The beat's speed looks right, but the bar lines and metronome clicks sit
+    off the played notes."* — the speed is right but the beat is shifted.
+
+  Choose **Fix with Tap Tempo** to start tapping from the playhead, or **It's
+  fine, don't warn me for this song** if it sounds right to you.
+- **In the Library:** affected songs get a small amber dot. Orfeo checks your
+  songs quietly in the background — never while a song is playing — and
+  remembers the result, so each song is only checked once (again if the file
+  changes).
+- **Once you Keep a Tap Tempo** that lines up with the music, the warning goes
+  away by itself.
+- **Freely played music** (rubato piano, free-time intros, sparse lead sheets)
+  is never flagged — there's no steady beat for Tap Tempo to fix.
+- **What it can't tell:** a song whose bar lines are right but whose tempo
+  number feels doubled (like Golden Brown) isn't flagged — that's about how
+  you hear it, not something measurable in the notes. Tap Tempo still fixes
+  the number.
+
+Dismissed a warning by mistake? Settings → *Show warnings for dismissed songs
+again*.
 
 ### Change key
 

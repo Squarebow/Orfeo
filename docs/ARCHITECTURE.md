@@ -305,6 +305,17 @@ the grid live during a preview without restarting playback, and the
 metronome re-maps its scheduling position by time when the beat array changes
 (`src/utils/metronomeResume.ts`).
 
+**Tempo warnings** (`src/utils/tempoTrust.ts`) reuse the same note-onset
+weighting. Per 20 s window they compare the share of the file's beats that
+land on a strong note against the best steady beat the notes suggest (inter-
+onset histogram candidates, phase + ±2% tempo search). A song is flagged only
+when the file's grid misses **and** a steady beat clearly fits through most of
+the song, which keeps free-time music out. Library songs are checked in the
+background (`src/utils/tempoTrustScan.ts`, `src/hooks/useTempoTrustScan.ts`)
+from a lean parse (`src/utils/tempoTrustAnalyze.ts`) sharing the parser's grid
+builder (`src/utils/beatGridBuild.ts`); results are cached by song key with a
+path → size/mtime index so unchanged files are never re-read.
+
 ---
 
 ## Hand-assignment engine
