@@ -11,9 +11,11 @@ import { describeCorrection } from '../../utils/tempoCorrection'
 import {
   armTapSession, finishFromPad, shiftPreviewDownbeat, nudgePreview,
   keepTap, tapAgain, cancelTap, resetSongTempo, removeTappedTempo, fmtSongTime,
+  editKeptTempo, toggleListenMetronome, setUseFileGrid,
 } from '../../utils/tapTempoSession'
 
 const NUDGE_SEC = 0.01
+const MENU_WIDTH = 250
 
 // Panel buttons never take keyboard focus — a focused button would also be
 // "clicked" by the next Space press (Space is the tap / listen-back key).
@@ -34,6 +36,7 @@ export function TapTempoPad() {
   const midi = useStore((s) => s.midi)
   const noteEditorActive = useStore((s) => s.noteEditorActive)
   const ses = useStore((s) => s.tapSession)
+  const playing = useStore((s) => s.playbackState === 'playing')
   const correction = useStore((s) => (s.songKey ? s.tempoCorrections[s.songKey] : undefined))
   const saved = describeCorrection(correction)
   const [menu, setMenu] = useState<{ x: number; y: number } | null>(null)
@@ -90,11 +93,12 @@ export function TapTempoPad() {
     background: 'none', border: '1px solid var(--border)', borderRadius: 'var(--radius-sm)',
     color: 'var(--text-default)', fontSize: 'var(--text-xs)', padding: '2px 8px', cursor: 'pointer',
   }
-  const rowLabel: React.CSSProperties = { color: 'var(--text-muted)', fontSize: 10, minWidth: 84 }
+  const rowLabel: React.CSSProperties = { color: 'var(--text-muted)', fontSize: 10, minWidth: 70 }
+  const activeBtn: React.CSSProperties = { borderColor: 'var(--accent-amber-strong)', color: 'var(--text-amber)' }
   const hint: React.CSSProperties = { color: 'var(--text-faint)', fontSize: 10, whiteSpace: 'normal', textAlign: 'center', maxWidth: 260, lineHeight: 1.4 }
 
   const savedText = saved.length
-    ? t`Saved for this song: ` + saved.map(x => `${x.bpm.toFixed(1)} bpm from ${fmtSongTime(x.start)}`).join(', ') + '. ' + t`Right-click to view or remove.`
+    ? t`Kept for this song: ` + saved.map(x => `${x.bpm.toFixed(1)} bpm from ${fmtSongTime(x.start)}`).join(', ') + '. ' + t`Right-click to adjust or remove.`
     : ''
 
   const pad = (
@@ -103,7 +107,12 @@ export function TapTempoPad() {
       key={ses?.taps.length ?? 0}
       className={`app-no-drag${capturing && ses!.taps.length > 0 ? ' orfeo-tap-pulse' : ''}`}
       onMouseDown={onPadDown}
-      onContextMenu={(e) => { e.preventDefault(); if (!disabled && !ses) setMenu({ x: e.clientX, y: e.clientY }) }}
+      onContextMenu={(e) => {
+        e.preventDefault()
+        if (disabled || ses) return
+        const r = e.currentTarget.getBoundingClientRect()
+        setMenu({ x: Math.max(8, r.left + r.width / 2 - MENU_WIDTH / 2), y: r.bottom + 6 })
+      }}
       disabled={disabled}
       aria-label={t`Tap Tempo`}
       style={{
@@ -130,6 +139,7 @@ export function TapTempoPad() {
       {/* No tooltip while a session is open — it would cover the panel */}
       {ses ? pad : (
         <Tooltip
+          disabled={!!menu}
           title={t`Tap Tempo`}
           description={(savedText ? savedText + ' ' : '') + (mode === 'bar'
             ? t`Fix this song's bar lines and metronome: click, then tap Space or any MIDI key once per bar, on the 1. Click again when done.`
@@ -168,26 +178,61 @@ export function TapTempoPad() {
               <span style={{ fontFamily: 'var(--font-mono)', fontSize: 16, fontWeight: 700, color: 'var(--text-amber)' }}>
                 {fittedBpm} {t`bpm`} · {seg.beatsPerBar}/{seg.den}
               </span>
-              <span style={hint}>{t`From ${fmtSongTime(seg.start)} onward. Press Space to listen with the metronome.`}</span>
+              <span style={hint}>
+                {t`From ${fmtSongTime(seg.start)} onward. `}
+                {ses.editIndex != null ? t`Adjusting a kept tempo.`
+                  : ses.snapped ? t`Lined up with the song's notes.`
+                  : t`Couldn't line up with the notes here — using your taps as they are.`}
+              </span>
 
               <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
-                <span style={rowLabel}>{t`Bar lines`}</span>
-                <button onMouseDown={keepFocus} style={btn} onClick={() => shiftPreviewDownbeat(-1)}>{t`◀ 1 beat earlier`}</button>
-                <button onMouseDown={keepFocus} style={btn} onClick={() => shiftPreviewDownbeat(1)}>{t`1 beat later ▶`}</button>
+                <button onMouseDown={keepFocus} style={{ ...btn, minWidth: 92 }} onClick={() => useStore.setState({ playbackState: playing ? 'paused' : 'playing' })}>
+                  {playing ? t`❚❚ Pause` : t`▶ Listen`}
+                </button>
+                <button onMouseDown={keepFocus} style={{ ...btn, color: ses.listenMetronome !== false ? 'var(--text-amber)' : 'var(--text-muted)' }} onClick={toggleListenMetronome}>
+                  {ses.listenMetronome !== false ? t`Metronome: on` : t`Metronome: off`}
+                </button>
               </div>
-              <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
-                <span style={rowLabel}>{t`Clicks`}</span>
-                <button onMouseDown={keepFocus} style={btn} onClick={() => nudgePreview(-NUDGE_SEC)}>{t`◀ 10 ms earlier`}</button>
-                <button onMouseDown={keepFocus} style={btn} onClick={() => nudgePreview(NUDGE_SEC)}>{t`10 ms later ▶`}</button>
-              </div>
-              <span style={hint}>{t`Bar lines: use if the 1 landed on the wrong beat. Clicks: use if the metronome is slightly ahead of or behind the music.`}</span>
+
+              {ses.fileMatch != null && (
+                <>
+                  <span style={hint}>
+                    {ses.fileMatch === 2 ? t`Your beat lands exactly on every 2nd beat of the file: its bar lines are right, it just counts twice as fast.`
+                      : ses.fileMatch === 0.5 ? t`Your beat lands exactly between the file's beats: its bar lines are right, it just counts half as fast.`
+                      : t`Your beat matches the file's own beat exactly: its tempo is already right here.`}
+                  </span>
+                  <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
+                    <span style={rowLabel}>{t`Bar lines`}</span>
+                    <button onMouseDown={keepFocus} style={{ ...btn, ...(seg.snap ? activeBtn : {}) }} onClick={() => setUseFileGrid(true)}>{t`Keep the file's`}</button>
+                    <button onMouseDown={keepFocus} style={{ ...btn, ...(!seg.snap ? activeBtn : {}) }} onClick={() => setUseFileGrid(false)}>{t`From my taps`}</button>
+                  </div>
+                </>
+              )}
+
+              {seg.snap ? (
+                <span style={hint}>{t`Only the tempo number changes. The file's bar lines, time signatures and clicks stay exactly as they are.`}</span>
+              ) : (
+                <>
+                  <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
+                    <span style={rowLabel}>{t`Move the 1`}</span>
+                    <button onMouseDown={keepFocus} style={btn} onClick={() => shiftPreviewDownbeat(-1)}>{t`◀ 1 beat earlier`}</button>
+                    <button onMouseDown={keepFocus} style={btn} onClick={() => shiftPreviewDownbeat(1)}>{t`1 beat later ▶`}</button>
+                  </div>
+                  <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
+                    <span style={rowLabel}>{t`Clicks`}</span>
+                    <button onMouseDown={keepFocus} style={btn} onClick={() => nudgePreview(-NUDGE_SEC)}>{t`◀ 10 ms earlier`}</button>
+                    <button onMouseDown={keepFocus} style={btn} onClick={() => nudgePreview(NUDGE_SEC)}>{t`10 ms later ▶`}</button>
+                  </div>
+                  <span style={hint}>{t`Listen first, then adjust while it plays: "Move the 1" if the bar lines start on the wrong beat, "Clicks" if the metronome is a hair ahead of or behind the music.`}</span>
+                </>
+              )}
 
               <div style={{ display: 'flex', gap: 6 }}>
                 <button onMouseDown={keepFocus} style={{ ...btn, borderColor: 'var(--accent-amber-strong)', color: 'var(--text-amber)' }} onClick={keepTap}>{t`Keep for this song`}</button>
                 <button onMouseDown={keepFocus} style={btn} onClick={tapAgain}>{t`Tap again`}</button>
                 <button onMouseDown={keepFocus} style={btn} onClick={cancelTap}>{t`Cancel`}</button>
               </div>
-              <span style={hint}>{t`Kept tempos are remembered by Orfeo every time you open this song. Your MIDI file isn't changed.`}</span>
+              <span style={hint}>{t`Kept tempos are remembered by Orfeo every time you open this song (your MIDI file isn't changed). Right-click TAP later to adjust or remove them.`}</span>
             </>
           )}
         </div>,
@@ -195,15 +240,26 @@ export function TapTempoPad() {
       )}
 
       {menu && (
-        <ContextMenu ref={menuRef} x={menu.x} y={menu.y} minWidth={240} ariaLabel={t`Tap Tempo menu`} className="app-no-drag">
+        <ContextMenu ref={menuRef} x={menu.x} y={menu.y} minWidth={MENU_WIDTH} ariaLabel={t`Tap Tempo menu`} className="app-no-drag">
           <div style={{ padding: '6px 14px 4px', fontSize: 10, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.08em' }}>
             {saved.length ? t`Tapped tempos for this song` : t`No tapped tempos for this song`}
           </div>
           {saved.map((x, i) => (
-            <ContextMenuItem key={i} onClick={() => { removeTappedTempo(i); if (saved.length <= 1) setMenu(null) }} title={t`Remove this tapped tempo`}>
-              <span style={{ fontFamily: 'var(--font-mono)', flex: 1 }}>{x.bpm.toFixed(1)} {t`bpm from`} {fmtSongTime(x.start)}</span>
-              <X size={11} />
-            </ContextMenuItem>
+            <div key={i} style={{ display: 'flex', alignItems: 'center' }}>
+              <div style={{ flex: 1 }}>
+                <ContextMenuItem onClick={() => { setMenu(null); editKeptTempo(i) }} title={t`Open this tempo to listen and adjust it`}>
+                  <span style={{ fontFamily: 'var(--font-mono)', flex: 1 }}>{x.bpm.toFixed(1)} {t`bpm from`} {fmtSongTime(x.start)}</span>
+                  <span style={{ fontSize: 10, color: 'var(--text-muted)' }}>{t`Adjust`}</span>
+                </ContextMenuItem>
+              </div>
+              <button
+                onClick={() => { removeTappedTempo(i); if (saved.length <= 1) setMenu(null) }}
+                title={t`Remove this tapped tempo`} aria-label={t`Remove this tapped tempo`}
+                style={{ background: 'none', border: 'none', color: 'var(--text-muted)', cursor: 'pointer', padding: '6px 12px', display: 'flex' }}
+              >
+                <X size={12} />
+              </button>
+            </div>
           ))}
           <ContextMenuDivider />
           <ContextMenuItem onClick={onReset} disabled={saved.length === 0} danger>{t`Reset to the file's own tempo`}</ContextMenuItem>

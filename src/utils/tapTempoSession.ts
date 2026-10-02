@@ -1,6 +1,7 @@
 import { useStore } from '../store'
 import { t } from './i18n'
 import { fitTaps, MIN_TAPS } from './tapTempoFit'
+import { refineToNotes, matchFileBeat } from './tapRefine'
 import { applyTempoCorrection, buildSegment, upsertSegment, shiftDownbeat, nudgeSegment, fileGridOf, sigAt, type TempoSegment } from './tempoCorrection'
 import type { TapSession, PlaybackState } from '../types'
 
@@ -39,6 +40,15 @@ function baseCorrection() {
   return s.songKey ? s.tempoCorrections[s.songKey] ?? null : null
 }
 
+// A new tap replaces everything from its start onward; adjusting a kept
+// tempo replaces just that one and leaves the ones after it alone.
+function withSegment(seg: TempoSegment, editIndex: number | null | undefined) {
+  const base = baseCorrection()
+  if (editIndex == null || !base?.segments[editIndex]) return upsertSegment(base, seg)
+  const segments = base.segments.map((x, i) => (i === editIndex ? seg : x)).sort((a, b) => a.start - b.start)
+  return { segments }
+}
+
 function update(patch: Partial<TapSession>) {
   const ses = useStore.getState().tapSession
   if (ses) useStore.getState().setTapSession({ ...ses, ...patch })
@@ -74,7 +84,9 @@ export function armTapSession() {
   // Plays from exactly where the playhead is — the user parks it where the
   // new tempo should start and joins in whenever they've locked in.
   if (s.playbackState !== 'playing') useStore.setState({ playbackState: 'playing' })
-  s.setTapSession({ phase: 'armed', start, taps: [], segment: null, prevMetronome: s.metronomeEnabled, message: null, lastTapAt: 0 })
+  s.setTapSession({ phase: 'armed', start, taps: [], segment: null, prevMetronome: s.metronomeEnabled, message: null, lastTapAt: 0, editIndex: null, listenMetronome: true })
+  // the old grid's clicks would only fight the music while finding the beat
+  s.setMetronomeEnabled(false)
 }
 
 export function registerTap() {
@@ -85,10 +97,30 @@ export function registerTap() {
 
 function preview(seg: TempoSegment) {
   const s = useStore.getState()
-  if (!s.midi) return
-  s.setBeatGrid(applyTempoCorrection(s.midi, upsertSegment(baseCorrection(), seg)))
-  s.setMetronomeEnabled(true)
-  update({ phase: 'preview', segment: seg, message: null })
+  const ses = s.tapSession
+  if (!s.midi || !ses) return
+  s.setBeatGrid(applyTempoCorrection(s.midi, withSegment(seg, ses.editIndex)))
+  s.setMetronomeEnabled(ses.listenMetronome !== false)
+  update({ phase: 'preview', segment: seg, message: null, ...(seg.snap ? {} : { freeSegment: seg }) })
+}
+
+// Panel switch: hear the new grid's clicks while listening back, or not
+export function toggleListenMetronome() {
+  const s = useStore.getState()
+  const ses = s.tapSession
+  if (!ses) return
+  const on = ses.listenMetronome === false
+  update({ listenMetronome: on })
+  if (ses.phase === 'preview') s.setMetronomeEnabled(on)
+}
+
+// Re-open a kept tempo in the panel to listen and fine-tune it
+export function editKeptTempo(index: number) {
+  const s = useStore.getState()
+  const seg = baseCorrection()?.segments[index]
+  if (!s.midi || !seg || s.tapSession) return
+  s.setTapSession({ phase: 'preview', start: seg.start, taps: [], segment: seg, prevMetronome: s.metronomeEnabled, message: null, lastTapAt: 0, editIndex: index, listenMetronome: true, snapped: false, fileMatch: seg.snap ? seg.snap.ratio : null, freeSegment: seg.snap ? { ...seg, snap: undefined } : seg })
+  preview(seg)
 }
 
 export function finishTapping() {
@@ -104,7 +136,32 @@ export function finishTapping() {
     else update({ phase: 'armed', taps: [], message: t`Couldn't find a steady beat — try again`, lastTapAt: 0 })
     return
   }
-  preview(buildSegment(s.midi, ses.start, { period: fit.period / beatsPerBar, anchor: fit.anchor }))
+  // Snap onto the song's own notes over the next 30 s (or up to the next
+  // kept tempo when adjusting one), then check whether the result sits
+  // exactly on the file's own beats — if so its bar lines are right and
+  // only its tempo number is off (offered as the default).
+  const later = (baseCorrection()?.segments ?? []).filter(x => x.start > ses.start + 1e-6).map(x => x.start)
+  const to = Math.min(ses.start + 30, s.midi.duration, ses.editIndex != null && later.length ? Math.min(...later) : Infinity)
+  const ref = refineToNotes(s.midi, { period: fit.period / beatsPerBar, anchor: fit.anchor }, ses.start, to)
+  const free = buildSegment(s.midi, ses.start, ref)
+  const fileMatch = matchFileBeat(fileGridOf(s.midi).beats, ref.period, ref.anchor)
+  update({ snapped: ref.snapped, fileMatch, freeSegment: free })
+  preview(fileMatch != null ? fileSegment(free, fileMatch) : free)
+}
+
+function fileSegment(free: TempoSegment, ratio: number): TempoSegment {
+  const s = useStore.getState()
+  const sig = s.midi ? sigAt(fileGridOf(s.midi).timeSigMap, free.start) : { num: free.beatsPerBar, den: free.den }
+  return { ...free, beatsPerBar: sig.num, den: sig.den, snap: { ratio, barShift: 0 } }
+}
+
+// Panel choice when the taps match the file's own beats: keep the file's bar
+// lines (only the tempo number changes) or use the grid built from the taps
+export function setUseFileGrid(on: boolean) {
+  const ses = useStore.getState().tapSession
+  if (ses?.phase !== 'preview' || !ses.freeSegment) return
+  if (on && ses.fileMatch != null) preview(fileSegment(ses.freeSegment, ses.fileMatch))
+  else preview(ses.freeSegment)
 }
 
 // Clicking the pad while tapping = "I'm done": show the result and pause, so
@@ -151,8 +208,8 @@ export function keepTap() {
   const s = useStore.getState()
   const ses = s.tapSession
   if (ses?.phase !== 'preview' || !ses.segment || !s.songKey) return
-  s.setSongCorrection(s.songKey, upsertSegment(baseCorrection(), ses.segment))
-  logTempoEvent(t`Tap Tempo: ${(60 / ses.segment.period).toFixed(1)} bpm from ${fmtSongTime(ses.segment.start)}`)
+  s.setSongCorrection(s.songKey, withSegment(ses.segment, ses.editIndex))
+  logTempoEvent((ses.editIndex != null ? t`Tap Tempo: adjusted to ` : t`Tap Tempo: `) + t`${(60 / ses.segment.period).toFixed(1)} bpm from ${fmtSongTime(ses.segment.start)}`)
   end()
 }
 
@@ -160,8 +217,8 @@ export function tapAgain() {
   const ses = useStore.getState().tapSession
   useStore.getState().reapplyCorrection()
   // the old grid's clicks would fight the music while re-tapping
-  if (ses) useStore.getState().setMetronomeEnabled(ses.prevMetronome)
-  update({ phase: 'armed', taps: [], segment: null, message: null, lastTapAt: 0 })
+  if (ses) useStore.getState().setMetronomeEnabled(false)
+  update({ phase: 'armed', taps: [], segment: null, message: null, lastTapAt: 0, snapped: false, fileMatch: null, freeSegment: null })
 }
 
 export function cancelTap() {

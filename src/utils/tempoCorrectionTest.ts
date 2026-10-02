@@ -105,6 +105,23 @@ export function runTempoCorrectionTest(): number {
   const rm = removeSegmentAt({ segments: [s2, s3] }, 0)
   check(rm.segments.length === 1 && rm.segments[0].start === 25, 'remove one segment')
 
+  // 13. "file's own bar lines" segment: bars/beats/time signatures pass
+  // through untouched, only the tempo number is rescaled (double-time files)
+  const gbBeats: number[] = [], gbBars: number[] = [], gbSigs: any[] = []
+  { let i = 0, bar = 0
+    while (i < 160) { const len = bar % 4 === 3 ? 4 : 3
+      gbBars.push(i * 0.316); if (bar % 4 === 0 || bar % 4 === 3) gbSigs.push({ num: len, den: 4, time: i * 0.316 })
+      for (let k = 0; k < len; k++) gbBeats.push((i + k) * 0.316)
+      i += len; bar++ } }
+  const gb = { ...file60(), duration: 50, _beatTimes: gbBeats, _barTimes: gbBars, _barStarts: gbBars,
+    _tempoMap: [{ bpm: 60 / 0.316, time: 0 }], _timeSigMap: gbSigs } as any as ParsedMidi
+  const fileSeg = { start: 0, anchor: 0, period: 0.632, beatsPerBar: 3, den: 4, snap: { ratio: 2, barShift: 0 } }
+  const rg = g(applyTempoCorrection(gb, { segments: [fileSeg] }))
+  check(JSON.stringify(rg._beatTimes) === JSON.stringify(gbBeats.filter(b => b < 50 + 8 * 0.632)), 'file beats kept')
+  check(JSON.stringify(rg._barTimes) === JSON.stringify(gbBars.filter(b => b < 50 + 8 * 0.632)), 'file bar lines kept (3/4 and 4/4)')
+  check(near(rg._tempoMap[0].bpm, 60 / 0.632, 1e-6), `tempo number halved, got ${rg._tempoMap[0].bpm}`)
+  check(rg._timeSigMap.length === gbSigs.length && rg._timeSigMap[1].num === 4, 'time signature changes kept')
+
   console.log(`tempoCorrection: ${pass} passed, ${fail} failed`)
   console.groupEnd()
   return fail

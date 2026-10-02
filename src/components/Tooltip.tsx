@@ -12,6 +12,9 @@ import { createPortal } from 'react-dom'
 
 export interface TooltipContent {
   title: string
+  // Appended to the heading WITHOUT the uppercase styling — for musical
+  // names whose case carries meaning (Ebm vs EBM, Bb vs BB)
+  titleValue?: string
   description?: string
 }
 
@@ -125,6 +128,7 @@ export function TooltipBox({ anchorRect, content, visible, placement = 'top', on
             color: 'var(--text-amber)', whiteSpace: 'nowrap',
           }}>
             {content.title}
+            {content.titleValue && <span style={{ textTransform: 'none', letterSpacing: '0.02em' }}>{content.titleValue}</span>}
           </div>
           {content.description && (
             <div style={{
@@ -145,8 +149,11 @@ export function TooltipBox({ anchorRect, content, visible, placement = 'top', on
 // and icons): wraps children, shows TooltipBox on hover. For dynamic
 // content (changes per mouse position, or live during a drag), use
 // TooltipBox directly instead — see the Compressor/Volume knobs. ─────────
-export default function Tooltip({ title, description, placement = 'top', oneLine, wrapperStyle, children }: {
+export default function Tooltip({ title, titleValue, description, placement = 'top', oneLine, wrapperStyle, disabled, children }: {
   title: string
+  titleValue?: string
+  // true = never show (e.g. while the anchor's own menu/popup is open)
+  disabled?: boolean
   description?: string
   placement?: Placement
   // See TooltipBox — plain single-tip styling instead of the amber-heading
@@ -199,9 +206,9 @@ export default function Tooltip({ title, description, placement = 'top', oneLine
     >
       {children}
       <TooltipBox
-        anchorRect={hover ? ref.current?.getBoundingClientRect() ?? null : null}
-        content={{ title, description }}
-        visible={hover}
+        anchorRect={hover && !disabled ? ref.current?.getBoundingClientRect() ?? null : null}
+        content={{ title, titleValue, description }}
+        visible={hover && !disabled}
         placement={placement}
         oneLine={oneLine}
       />

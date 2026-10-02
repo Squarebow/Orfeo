@@ -225,25 +225,44 @@ twice per beat gives double the tempo, tapping every other beat gives half.
 
 1. Put the playhead where the tempo goes wrong: the top of the song, or the
    bar where the groove kicks in if the intro is fine.
-2. Click **TAP**. The song plays from exactly where the playhead is.
+2. Click **TAP**. The song plays from exactly where the playhead is. The
+   metronome stays silent while you tap, so it can't throw you off.
 3. Tap with `Space` or any key on your MIDI keyboard. Start on a 1, whenever
    you've locked in — you don't have to start right away. Tap at least 4
    times; 8 or more gives a steadier result. A missed or doubled tap is
    ignored.
 4. Click **TAP** again when you're done. The song pauses and a panel shows the
-   tempo Orfeo measured, e.g. **91.2 bpm · 4/4**.
+   tempo Orfeo measured, e.g. **91.0 bpm · 4/4**.
 
-**Checking it**
+Orfeo then lines your beat up with the song's own notes — mostly the drums
+and bass — so the bar lines and clicks land exactly on the music, not on your
+slightly early or late taps. The panel says *Lined up with the song's notes*
+when it did. In free-time or very sparse passages it keeps your taps as they
+are.
 
-Press `Space` to listen: the metronome comes on and the bar lines already
-follow your tempo.
+**Listening and adjusting**
 
-- **Bar lines ◀ / ▶** — if the 1 landed on the wrong beat, slide the bar lines
+The panel stays open while you listen, so you can hear the result and adjust
+it as it plays:
+
+- **▶ Listen / ❚❚ Pause** (or `Space`) plays and pauses the song.
+- **Metronome: on / off** — hear the new clicks while listening, or not.
+- **Move the 1 ◀ / ▶** — if the bar lines start on the wrong beat, slide them
   one beat earlier or later. The tempo doesn't change.
-- **Clicks ◀ / ▶** — if the metronome sits slightly ahead of or behind the
+- **Clicks ◀ / ▶** — if the metronome sits a hair ahead of or behind the
   music, slide it 10 ms at a time until it locks in.
 
 Then choose **Keep for this song**, **Tap again** or **Cancel**.
+
+**Songs counted at double or half speed** (e.g. Golden Brown, which the file
+counts at 190 while you hear about 95): if your beat lands exactly on every
+second beat of the file — or exactly between its beats — the file's bar lines
+are already right and only its tempo number is off. The panel then offers
+**Bar lines: Keep the file's** (the default) or **From my taps**. Keeping the
+file's leaves its bar lines, time-signature changes and clicks exactly as they
+are and only corrects the tempo number. The same happens when your beat
+matches the file's own beat exactly, which tells you its tempo is already
+right there.
 
 **What "Keep" does**
 
@@ -258,14 +277,18 @@ You can tell a song has a kept tempo by the small amber dot on the **TAP**
 pad. Hovering the pad lists them, and each one is also written to
 **File Info → Orfeo History**.
 
+**Adjusting later:** right-click the **TAP** pad to see every kept tempo for
+the song. Click one to open it again in the panel — listen, move the 1, nudge
+the clicks — and Keep. The **✕** next to it removes just that one; *Reset to
+the file's own tempo* removes them all.
+
 **A tempo change partway through a song** (e.g. a slow intro, then the
 groove): tap the intro from the top and Keep it, then park the playhead where
 the groove starts, tap again and Keep. Each kept tempo runs until the next
-one starts. Tapping inside an earlier one replaces it from that point on.
+one starts. Tapping a new tempo that starts inside an earlier one replaces it
+from that point on — so tap front to back.
 
-**Undo:** right-click the **TAP** pad to see every kept tempo for the song.
-Click one to remove just that one, or choose *Reset to the file's own tempo*
-to remove them all. `Esc` cancels a tap session at any point.
+`Esc` cancels a tap session at any point.
 
 > 🎯 **Use case — the clicks don't match the groove**
 >

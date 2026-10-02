@@ -38,7 +38,7 @@ combinations, modifiers, and gestures that are not obvious from the UI.
 | `Ctrl+Shift+M` | Toggle the Console Mixer |
 | Long-press the BPM `▲` / `▼` | Repeatedly nudge tempo by ±1 while held |
 | Click the **TAP** pad | Start a Tap Tempo session; click again to finish and see the result |
-| Right-click the **TAP** pad | List this song's kept tapped tempos — remove one, or reset to the file's own tempo |
+| Right-click the **TAP** pad | List this song's kept tapped tempos — click one to adjust it, ✕ to remove it, or reset to the file's own tempo |
 | Right-click the metronome | Metronome volume |
 | Any key on a MIDI keyboard | A tap, during a Tap Tempo session |
 | `Ctrl` `+` (also `Ctrl` `=` and numpad `+`) | Zoom the whole app in one step (80/90/100/110/125/150/175/200%) |

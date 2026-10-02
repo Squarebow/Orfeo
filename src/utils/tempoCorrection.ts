@@ -83,8 +83,29 @@ function freeGrid(seg: TempoSegment, limit: number): SegGrid {
   }
 }
 
-function segmentGrid(_file: FileGrid, seg: TempoSegment, limit: number): SegGrid {
-  return freeGrid(seg, limit)
+// "Keep the file's own bar lines": the file's beats, bars and time-signature
+// changes pass through untouched; only the tempo NUMBER is rescaled by the
+// tapped/file beat ratio (a file counted at double speed reads half). Used
+// when the taps land exactly on the file's own beats (see tapRefine.ts's
+// matchFileBeat) — its grid is right, only its tempo label is off.
+function fileGrid(file: FileGrid, seg: TempoSegment, limit: number): SegGrid {
+  const r = seg.snap!.ratio
+  const inRange = (t: number) => t >= seg.start - EPS && t < limit - EPS
+  const beats = file.beats.filter(inRange)
+  const bars = file.bars.filter(inRange)
+  const t0 = beats[0] ?? seg.start
+  let bpm0 = file.tempoMap[0]?.bpm ?? 60 / seg.period
+  for (const e of file.tempoMap) { if (e.time <= t0 + EPS) bpm0 = e.bpm; else break }
+  const tempo: TempoEvent[] = [{ bpm: bpm0 / r, time: t0 }]
+  for (const e of file.tempoMap) if (e.time > t0 + EPS && e.time < limit - EPS) tempo.push({ bpm: e.bpm / r, time: e.time })
+  const sig0 = sigAt(file.timeSigMap, t0)
+  const sigs: TimeSigEvent[] = [{ ...sig0, time: t0 }]
+  for (const e of file.timeSigMap) if (e.time > t0 + EPS && e.time < limit - EPS) sigs.push({ ...e })
+  return { beats, bars, tempo, sigs }
+}
+
+function segmentGrid(file: FileGrid, seg: TempoSegment, limit: number): SegGrid {
+  return seg.snap ? fileGrid(file, seg, limit) : freeGrid(seg, limit)
 }
 
 function validSeg(s: any): s is TempoSegment {

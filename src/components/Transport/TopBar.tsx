@@ -336,7 +336,8 @@ export default function TopBar() {
       {/* ── KEY ── */}
       <div className="app-no-drag" style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '0 var(--space-3)', flexShrink: 0 }}>
         <Tooltip
-          title={`Key: ${displayKey}${transpose !== 0 ? ` (${transpose > 0 ? '+' : ''}${transpose} semitones)` : ''}`}
+          title="Key: "
+          titleValue={`${displayKey}${transpose !== 0 ? ` (${transpose > 0 ? '+' : ''}${transpose} semitones)` : ''}`}
           description="The song's detected key, adjusted by any transpose applied here."
           placement="bottom"
         >
@@ -595,12 +596,13 @@ export default function TopBar() {
         {/* METRONOME */}
         <Tooltip
           title={metronomeEnabled ? 'Metronome on' : 'Metronome off'}
-          description="Clicks along with the beat while a file plays — click to toggle."
+          description={t`Clicks along with the beat while a file plays — click to toggle, right-click for volume.`}
           placement="bottom"
+          disabled={!!metroMenu}
         >
           <button
             onClick={() => setMetronomeEnabled(!metronomeEnabled)}
-            onContextMenu={(e) => { e.preventDefault(); setMetroMenu({ x: e.clientX, y: e.clientY }) }}
+            onContextMenu={(e) => { e.preventDefault(); const r = e.currentTarget.getBoundingClientRect(); setMetroMenu({ x: Math.max(8, r.right - METRO_MENU_WIDTH), y: r.bottom + 6 }) }}
             style={{
               flexShrink: 0, display: 'flex', flexDirection: 'column', alignItems: 'center',
               padding: '0 14px', border: 'none', cursor: 'pointer',
@@ -644,6 +646,8 @@ export default function TopBar() {
   )
 }
 
+const METRO_MENU_WIDTH = 130
+
 // ── Metronome right-click — click volume (0–150%), remembered between
 // sessions. Applied to every click the metronome schedules. ──────────────
 function MetronomeVolumeMenu({ x, y, onClose }: { x: number; y: number; onClose: () => void }) {
@@ -652,10 +656,10 @@ function MetronomeVolumeMenu({ x, y, onClose }: { x: number; y: number; onClose:
   const setVolume = useStore((s) => s.setMetronomeVolume)
   useMenuDismiss(true, ref, onClose)
   return (
-    <ContextMenu ref={ref} x={x} y={y} minWidth={220} ariaLabel={t`Metronome volume`} className="app-no-drag">
-      <div style={{ padding: '6px 14px 8px', display: 'flex', flexDirection: 'column', gap: 6 }}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 10, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.08em' }}>
-          <span>{t`Metronome volume`}</span>
+    <ContextMenu ref={ref} x={x} y={y} minWidth={METRO_MENU_WIDTH} ariaLabel={t`Metronome volume`} className="app-no-drag">
+      <div style={{ width: METRO_MENU_WIDTH, boxSizing: 'border-box', padding: '4px 10px 6px', display: 'flex', flexDirection: 'column', gap: 4 }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', gap: 8, fontSize: 9, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.08em' }}>
+          <span>{t`Volume`}</span>
           <span style={{ fontFamily: 'var(--font-mono)', color: 'var(--text-amber)' }}>{Math.round(volume * 100)}%</span>
         </div>
         <input

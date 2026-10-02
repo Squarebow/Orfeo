@@ -3,6 +3,7 @@ import type { ParsedMidi } from '../types'
 import {
   armTapSession, registerTap, finishTapping, finishFromPad, nudgePreview, shiftPreviewDownbeat, keepTap, tapAgain,
   cancelTap, resetSongTempo, isTapCapturing, setTapLatencyProvider, tappingInterrupted, interruptTapping, noteClockTick,
+  editKeptTempo, toggleListenMetronome, setUseFileGrid,
 } from './tapTempoSession'
 
 function fakeMidi(): ParsedMidi {
@@ -139,6 +140,50 @@ export function runTapTempoSessionTest(): number {
   noteClockTick(performance.now() - 500) // stale tick: extrapolation capped
   registerTap()
   check(S().tapSession.taps[1] <= 50.051, `extrapolation capped, got ${S().tapSession.taps[1]}`)
+  cancelTap()
+
+  // metronome is silent while tapping, on while listening back, switchable
+  S().setMetronomeEnabled(true)
+  useStore.setState({ currentTime: 14, playbackState: 'playing' } as any)
+  armTapSession()
+  check(S().metronomeEnabled === false, 'metronome silent while tapping')
+  for (let i = 0; i < 6; i++) tapAt(14 + i * 0.65)
+  finishFromPad()
+  check(S().metronomeEnabled === true && S().tapSession.listenMetronome === true, 'metronome on for listening back')
+  toggleListenMetronome()
+  check(S().metronomeEnabled === false && S().tapSession.listenMetronome === false, 'listen-metronome switch off')
+  cancelTap()
+  check(S().metronomeEnabled === true, 'metronome back to the user setting after')
+  S().setMetronomeEnabled(false)
+
+  // adjust a KEPT tempo later without losing the ones after it
+  const segA = { start: 0, anchor: 0.5, period: 1.0, beatsPerBar: 4, den: 4 }
+  const segB = { start: 20, anchor: 20, period: 0.65, beatsPerBar: 4, den: 4 }
+  S().setSongCorrection(S().songKey, { segments: [segA, segB] })
+  editKeptTempo(0)
+  check(S().tapSession?.phase === 'preview' && S().tapSession.segment.start === 0 && S().tapSession.editIndex === 0, 'edit opens the kept tempo')
+  check(S().midi._barTimes.some((b: number) => near(b, 20)), 'later kept tempo still live while editing')
+  nudgePreview(0.01)
+  keepTap()
+  const kept = S().tempoCorrections[S().songKey].segments
+  check(kept.length === 2 && near(kept[0].anchor, 0.51) && kept[1].start === 20, `edit replaces in place, got ${JSON.stringify(kept.map((x: any) => [x.start, x.anchor]))}`)
+  editKeptTempo(1); cancelTap()
+  check(S().tempoCorrections[S().songKey].segments.length === 2, 'cancel edit keeps everything')
+  resetSongTempo()
+
+  // taps landing exactly on every 2nd file beat -> offer the file's own bar
+  // lines (default), only the tempo number changes; switchable to taps' grid
+  useStore.setState({ currentTime: 16, playbackState: 'playing' } as any)
+  armTapSession()
+  for (let i = 0; i < 6; i++) tapAt(16 + i * 2)
+  finishFromPad()
+  const fs = S().tapSession
+  check(fs?.fileMatch === 2 && fs.segment?.snap?.ratio === 2, `file-beat match offered, got ${JSON.stringify(fs?.fileMatch)}`)
+  check(S().midi._beatTimes.includes(17) && near(S().midi._tempoMap[S().midi._tempoMap.length - 1].bpm, 30), 'file beats kept, tempo number halved')
+  setUseFileGrid(false)
+  check(!S().tapSession.segment.snap && !S().midi._beatTimes.includes(17), 'switch to the tapped grid')
+  setUseFileGrid(true)
+  check(S().tapSession.segment.snap?.ratio === 2, 'switch back to the file grid')
   cancelTap()
 
   console.log(`tapTempo session: ${pass} passed, ${fail} failed`)

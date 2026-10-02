@@ -259,5 +259,10 @@ export interface TapSession {
   segment: import('../utils/tempoCorrection').TempoSegment | null  // the preview segment
   prevMetronome: boolean     // metronome on/off before the session, restored at the end
   message: string | null     // e.g. "Need at least 4 taps"
-  lastTapAt: number          // performance.now() of the last tap (idle-finish timer)
+  lastTapAt: number          // performance.now() of the last tap
+  editIndex?: number | null  // adjusting an already-kept tempo (index into the song's segments)
+  listenMetronome?: boolean  // metronome on while listening back (panel switch)
+  snapped?: boolean          // grid was lined up with the song's notes
+  fileMatch?: number | null  // taps sit on the file's own beats at this ratio (1, 2, 0.5)
+  freeSegment?: import('../utils/tempoCorrection').TempoSegment | null  // grid from the taps
 }
