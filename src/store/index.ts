@@ -12,6 +12,7 @@ import { isKeyboardInstrument } from '../utils/gmInstruments'
 import { parseMidiBuffer } from '../utils/midiParser'
 import { songKey as computeSongKey } from '../utils/songIdentity'
 import { applyTempoCorrection, sanitizeCorrections, type SongTempoCorrection } from '../utils/tempoCorrection'
+import { TRUST_VERSION, type TrustResult } from '../utils/tempoTrust'
 import { velocityDropRatio, suggestCompressorPreset } from '../utils/velocityAnalysis'
 
 // Groups muted when autoMuteNonKeyboard is on — exported so TrackPanel can read them
@@ -198,6 +199,20 @@ interface OrfeoStore {
   setMetronomeVolume: (v: number) => void
   tapSession: TapSession | null
   setTapSession: (s: TapSession | null) => void
+  // ── Tempo warnings (Settings, off by default) — songs whose bar lines miss
+  // the music's steady beat (see utils/tempoTrust.ts). Results cached by song
+  // key; the Library index maps a path (+ size/mtime) to its song key so
+  // unchanged files are never re-read. ──────────────────────────────────
+  tempoWarningsEnabled: boolean
+  setTempoWarningsEnabled: (v: boolean) => void
+  tempoWarningDismissed: Record<string, true>
+  dismissTempoWarning: (key: string) => void
+  clearTempoWarningDismissals: () => void
+  tempoTrustCache: Record<string, TrustResult & { v: number }>
+  libraryTrustIndex: Record<string, { size: number; mtime: number; songKey: string }>
+  setTrustEntry: (path: string | null, stat: { size: number; mtime: number } | null, key: string, result: TrustResult) => void
+  currentTrust: TrustResult | null
+  setCurrentTrust: (r: TrustResult | null) => void
   noteEditorActive: boolean
   setNoteEditorActive: (v: boolean) => void
   noteEditorToolbarX: number
@@ -487,7 +502,7 @@ export const useStore = create<OrfeoStore>((set, get) => ({
     // metronome a preview may have forced on ─────────────────────────────
     const prevSession = get().tapSession
     const sessionReset = prevSession ? { tapSession: null, metronomeEnabled: prevSession.prevMetronome } : {}
-    if (!midi) { set({ midi: null, tracks: [], mixerBaseline: {}, currentTime: 0, playbackState: 'stopped', trackPanelOpen: false, barStarts: [], chordSequence: [], chordPrompterOpen: false, loopStart: null, loopEnd: null, loopRegionActive: false, songKey: null, ...sessionReset }); return }
+    if (!midi) { set({ midi: null, tracks: [], mixerBaseline: {}, currentTime: 0, playbackState: 'stopped', trackPanelOpen: false, barStarts: [], chordSequence: [], chordPrompterOpen: false, loopStart: null, loopEnd: null, loopRegionActive: false, songKey: null, currentTrust: null, ...sessionReset }); return }
     // ── …and applies this song's stored beat-grid correction, if any ───────
     const raw = (midi as any)._raw as ArrayBuffer | undefined
     const key = raw ? computeSongKey(raw) : null
@@ -514,6 +529,7 @@ export const useStore = create<OrfeoStore>((set, get) => ({
       ...sessionReset,
       midi,
       songKey: key,
+      currentTrust: null,
       tracks: newTracks,
       mixerBaseline,
       currentTime: 0,
@@ -755,6 +771,19 @@ export const useStore = create<OrfeoStore>((set, get) => ({
   setMetronomeVolume: (v) => set({ metronomeVolume: Math.min(1.5, Math.max(0, v)) }),
   tapSession: null,
   setTapSession: (tapSession) => set({ tapSession }),
+  tempoWarningsEnabled: false,
+  setTempoWarningsEnabled: (tempoWarningsEnabled) => set({ tempoWarningsEnabled }),
+  tempoWarningDismissed: {},
+  dismissTempoWarning: (key) => set((s) => ({ tempoWarningDismissed: { ...s.tempoWarningDismissed, [key]: true } })),
+  clearTempoWarningDismissals: () => set({ tempoWarningDismissed: {} }),
+  tempoTrustCache: {},
+  libraryTrustIndex: {},
+  setTrustEntry: (path, stat, key, result) => set((s) => ({
+    tempoTrustCache: { ...s.tempoTrustCache, [key]: { ...result, v: TRUST_VERSION } },
+    ...(path && stat ? { libraryTrustIndex: { ...s.libraryTrustIndex, [path]: { size: stat.size, mtime: stat.mtime, songKey: key } } } : {}),
+  })),
+  currentTrust: null,
+  setCurrentTrust: (currentTrust) => set({ currentTrust }),
   noteEditorActive: false,
   setNoteEditorActive: (noteEditorActive) => set(noteEditorActive ? { noteEditorActive } : { noteEditorActive, velocityPanelOpen: false }),
   noteEditorToolbarX: 24,
@@ -1070,6 +1099,14 @@ async function restoreLibraryPrefs() {
     if (prefs.tapTempoMode === 'beat' || prefs.tapTempoMode === 'bar') store.setTapTempoMode(prefs.tapTempoMode)
     if (typeof prefs.metronomeVolume === 'number') store.setMetronomeVolume(prefs.metronomeVolume)
     if (prefs.tempoCorrections) store.setTempoCorrections(sanitizeCorrections(prefs.tempoCorrections))
+    if (typeof prefs.tempoWarningsEnabled === 'boolean') store.setTempoWarningsEnabled(prefs.tempoWarningsEnabled)
+    {
+      const obj = (x: unknown) => (x && typeof x === 'object' && !Array.isArray(x) ? x as Record<string, any> : {})
+      const dismissed = Object.fromEntries(Object.keys(obj(prefs.tempoWarningDismissed)).map(k => [k, true as const]))
+      const cache = Object.fromEntries(Object.entries(obj(prefs.tempoTrustCache)).filter(([, v]) => v && typeof v.flagged === 'boolean' && typeof v.v === 'number'))
+      const index = Object.fromEntries(Object.entries(obj(prefs.libraryTrustIndex)).filter(([, v]) => v && typeof v.songKey === 'string' && typeof v.size === 'number' && typeof v.mtime === 'number'))
+      useStore.setState({ tempoWarningDismissed: dismissed, tempoTrustCache: cache, libraryTrustIndex: index })
+    }
     if (typeof prefs.noteEditorToolbarX === 'number' && typeof prefs.noteEditorToolbarY === 'number') store.setNoteEditorToolbarPos(prefs.noteEditorToolbarX, prefs.noteEditorToolbarY)
     if (typeof prefs.chordPrompterEnabled === 'boolean') store.setChordPrompterEnabled(prefs.chordPrompterEnabled)
     if (typeof prefs.chordTranscriptionEnabled === 'boolean') store.setChordTranscriptionEnabled(prefs.chordTranscriptionEnabled)
@@ -1142,6 +1179,10 @@ let _prevNoteEditorEnabled:    boolean | null = null
 let _prevSaveTempoKeyChangesEnabled: boolean | null = null
 let _prevTapTempoPadEnabled: boolean | null = null
 let _prevTapTempoMode: string | null = null
+let _prevTempoWarningsEnabled: boolean | null = null
+let _prevTempoWarningDismissed: object | null = null
+let _prevTempoTrustCache: object | null = null
+let _prevLibraryTrustIndex: object | null = null
 let _prevMetronomeVolume: number | null = null
 let _prevTempoCorrections: object | null = null
 let _prevNoteEditorToolbarX:   number  | null = null
@@ -1199,6 +1240,10 @@ const _unsubPrefs = useStore.subscribe((state) => {
     _prevSaveTempoKeyChangesEnabled = state.saveTempoKeyChangesEnabled
     _prevTapTempoPadEnabled = state.tapTempoPadEnabled
     _prevTapTempoMode = state.tapTempoMode
+    _prevTempoWarningsEnabled = state.tempoWarningsEnabled
+    _prevTempoWarningDismissed = state.tempoWarningDismissed
+    _prevTempoTrustCache = state.tempoTrustCache
+    _prevLibraryTrustIndex = state.libraryTrustIndex
     _prevMetronomeVolume = state.metronomeVolume
     _prevTempoCorrections = state.tempoCorrections
     _prevNoteEditorToolbarX = state.noteEditorToolbarX
@@ -1259,6 +1304,10 @@ const _unsubPrefs = useStore.subscribe((state) => {
     state.saveTempoKeyChangesEnabled !== _prevSaveTempoKeyChangesEnabled ||
     state.tapTempoPadEnabled !== _prevTapTempoPadEnabled ||
     state.tapTempoMode !== _prevTapTempoMode ||
+    state.tempoWarningsEnabled !== _prevTempoWarningsEnabled ||
+    state.tempoWarningDismissed !== _prevTempoWarningDismissed ||
+    state.tempoTrustCache !== _prevTempoTrustCache ||
+    state.libraryTrustIndex !== _prevLibraryTrustIndex ||
     state.metronomeVolume !== _prevMetronomeVolume ||
     state.tempoCorrections !== _prevTempoCorrections ||
     state.noteEditorToolbarX !== _prevNoteEditorToolbarX ||
@@ -1311,6 +1360,10 @@ const _unsubPrefs = useStore.subscribe((state) => {
     _prevSaveTempoKeyChangesEnabled = state.saveTempoKeyChangesEnabled
     _prevTapTempoPadEnabled = state.tapTempoPadEnabled
     _prevTapTempoMode = state.tapTempoMode
+    _prevTempoWarningsEnabled = state.tempoWarningsEnabled
+    _prevTempoWarningDismissed = state.tempoWarningDismissed
+    _prevTempoTrustCache = state.tempoTrustCache
+    _prevLibraryTrustIndex = state.libraryTrustIndex
     _prevMetronomeVolume = state.metronomeVolume
     _prevTempoCorrections = state.tempoCorrections
     _prevNoteEditorToolbarX = state.noteEditorToolbarX
@@ -1369,6 +1422,10 @@ const _unsubPrefs = useStore.subscribe((state) => {
       saveTempoKeyChangesEnabled: state.saveTempoKeyChangesEnabled,
       tapTempoPadEnabled: state.tapTempoPadEnabled,
       tapTempoMode: state.tapTempoMode,
+      tempoWarningsEnabled: state.tempoWarningsEnabled,
+      tempoWarningDismissed: state.tempoWarningDismissed,
+      tempoTrustCache: state.tempoTrustCache,
+      libraryTrustIndex: state.libraryTrustIndex,
       metronomeVolume: state.metronomeVolume,
       tempoCorrections: state.tempoCorrections,
       noteEditorToolbarX: state.noteEditorToolbarX,

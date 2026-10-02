@@ -551,6 +551,16 @@ ipcMain.handle('fs:scanMidiFolder', async (_e, folderPath: string) => {
   }
   return scanDir(folderPath).sort((a, b) => a.name.localeCompare(b.name))
 })
+// ── Size + modified time for many files at once (no reads) — lets the
+// tempo-warning Library scan skip files it has already checked. ─────────
+ipcMain.handle('fs:statFiles', async (_e, paths: string[]) => {
+  const out: { path: string; size: number; mtime: number }[] = []
+  for (const p of Array.isArray(paths) ? paths : []) {
+    try { const st = statSync(p); out.push({ path: p, size: st.size, mtime: Math.round(st.mtimeMs) }) } catch {}
+  }
+  return out
+})
+
 ipcMain.handle('fs:loadMidiFromPath', async (_e, filePath: string) => {
   try {
     const fileName = filePath.split(/[\\/]/).pop() ?? filePath

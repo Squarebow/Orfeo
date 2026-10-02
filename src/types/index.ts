@@ -177,6 +177,7 @@ declare global {
       scanMidiFolder:      (path: string) => Promise<LibraryFile[]>
       getDemoFolder:       () => Promise<string | null>
       loadMidiFromPath:    (path: string) => Promise<MidiFileResult | null>
+      statFiles:           (paths: string[]) => Promise<{ path: string; size: number; mtime: number }[]>
       windowMinimize:      () => Promise<void>
       windowMaximize:      () => Promise<void>
       windowClose:         () => Promise<void>
