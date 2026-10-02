@@ -290,12 +290,94 @@ from that point on — so tap front to back.
 
 `Esc` cancels a tap session at any point.
 
-> 🎯 **Use case — the clicks don't match the groove**
+#### Tap Tempo — common situations
+
+> 🎯 **The whole song has the wrong tempo**
 >
-> *The intro sounds right at the file's tempo, but once the band comes in the
-> metronome drifts. Park the playhead where the groove starts, click TAP, tap
-> along on every beat for a few bars, click TAP, listen with Space, nudge the
-> clicks if needed, and press Keep.*
+> *The BPM box says 60, but the song clearly moves at about 92, and the
+> metronome clicks don't match the drums anywhere. Put the playhead at 0:00,
+> click TAP, tap every beat at the speed you feel for a few bars, and click
+> TAP. Check the panel says "Lined up with the song's notes", press
+> ▶ Listen, and Keep. One kept tempo covers the whole song.*
+
+> 🎯 **The intro is right, the groove isn't**
+>
+> *The metronome fits the intro but drifts once the band comes in. Put the
+> playhead on the first beat of the groove, click TAP, tap along, click TAP,
+> listen and Keep. Everything before that point keeps the file's own tempo.*
+
+> 🎯 **A slow intro, then a faster song**
+>
+> *Two separate tap sessions, front to back: first put the playhead at 0:00,
+> tap the intro and Keep; then put it where the faster part starts, tap again
+> and Keep. Each tempo runs until the next one starts. Right-click TAP to see
+> both listed.*
+
+> 🎯 **The tempo reads double (or half) what you hear**
+>
+> *Golden Brown shows 190, but you count it at about 95, even though its bar
+> lines and clicks are perfect. Put the playhead on a bar line, tap the beat
+> you hear, and click TAP. Because your beat lands exactly on every second
+> beat of the file, the panel offers "Bar lines: Keep the file's". Keep that:
+> the bar lines, the 3/4 ↔ 4/4 switches and the clicks stay exactly as they
+> were, and the tempo now reads about 95.*
+
+> 🎯 **The tempo is already right**
+>
+> *If you tap a song whose file tempo is correct, the panel says "Your beat
+> matches the file's own beat exactly". There's nothing to fix — press
+> Cancel.*
+
+> 🎯 **The clicks are a hair early or late**
+>
+> *The tempo is right but the metronome sits slightly ahead of or behind the
+> drums. While it plays, use Clicks ◀ / ▶ (10 ms per click) until it locks in,
+> then Keep. On a tempo you've already kept: right-click TAP, click it, adjust,
+> Keep.*
+
+> 🎯 **The bar lines start on the wrong beat**
+>
+> *The tempo and clicks are right, but every bar line sits on beat 2 (or 4)
+> instead of the 1 — usually because the first tap wasn't on a 1. Use
+> Move the 1 ◀ / ▶ to slide the bar lines one beat at a time; the tempo
+> doesn't change.*
+
+> 🎯 **Counting the 1 only**
+>
+> *If counting every beat feels awkward — slow ballads, or songs where you
+> naturally feel the bar — switch Settings → Playback & Editing → Tap Tempo
+> counting to "Only the 1" and tap just the first beat of each bar. Orfeo
+> works out the beats from the song's time signature.*
+
+> 🎯 **Swing, shuffle and laid-back grooves**
+>
+> *Tap the main beat (where you'd tap your foot), not the swung notes in
+> between. Orfeo lines the beat up with the drums and bass; if the band plays
+> slightly ahead of or behind the beat, the clicks follow the band, which is
+> where you hear it. Fine-tune with Clicks ◀ / ▶ if you'd rather have it
+> somewhere else.*
+
+> 🎯 **Live-played songs that drift, and free-time passages**
+>
+> *Tap Tempo gives one steady tempo per section. If a live-played song speeds
+> up or slows down over time, tap it in sections (each one its own tap session,
+> front to back). In free-time or very sparse passages Orfeo can't line the beat
+> up with the notes and says "using your taps as they are" — your taps are
+> still used, so tap carefully and listen back before you Keep.*
+
+> 🎯 **Changed your mind**
+>
+> *Right-click TAP: click a kept tempo to reopen and adjust it, ✕ to remove
+> just that one, or "Reset to the file's own tempo" to remove them all. Every
+> Keep, adjustment and removal is listed in File Info → Orfeo History.*
+
+**Tips for tapping**
+
+- Tap the speed you'd count the song at, not the hi-hat: tapping twice per
+  beat doubles the tempo, every other beat halves it.
+- Start on a 1, and only once you've locked in — there's no rush.
+- 8–16 taps beats 4: more taps give a steadier tempo.
+- If the panel's tempo looks wrong, press **Tap again** rather than Keep.
 
 ### Change key
 
