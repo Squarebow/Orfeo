@@ -1,5 +1,11 @@
 # Changelog
 
+## [1.3.1] — 3. 10. 2026 — Tooltip and docs polish
+
+### Changed
+- Shorter, clearer tooltips for the TAP pad and the metronome, and the MIDI indicator now reads "NO KEYBOARD" when no keyboard is connected.
+- How to Use and the README now explain that Orfeo needs no internet connection to play, practise or edit, which sound sets come with the installer, and which are optional downloads.
+
 ## [1.3] — 3. 10. 2026 — Count-in
 
 ### New
