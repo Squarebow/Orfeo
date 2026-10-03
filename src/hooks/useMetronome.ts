@@ -2,10 +2,44 @@ import { useEffect, useRef } from 'react'
 import { useStore } from '../store'
 import { resumeIndexAfterGridSwap } from '../utils/metronomeResume'
 
+// ── Shared metronome audio — one AudioContext for the metronome AND the
+// count-in (utils/countInRunner.ts), so a count-in's last click and the
+// song's first metronome click sit on the same clock. ─────────────────────
+let sharedCtx: AudioContext | null = null
+export function metronomeContext(): AudioContext {
+  if (!sharedCtx || sharedCtx.state === 'closed') sharedCtx = new AudioContext()
+  if (sharedCtx.state === 'suspended') sharedCtx.resume()
+  return sharedCtx
+}
+
+// One click at an exact AudioContext time; returns the oscillator so a
+// cancelled count-in can silence clicks already scheduled.
+export function scheduleMetronomeClick(when: number, accent: boolean): OscillatorNode {
+  const ctx  = metronomeContext()
+  const osc  = ctx.createOscillator()
+  const gain = ctx.createGain()
+  osc.connect(gain)
+  gain.connect(ctx.destination)
+  osc.frequency.value = accent ? 1400 : 1000
+  const vol = useStore.getState().metronomeVolume
+  gain.gain.setValueAtTime(Math.max(0.0011, (accent ? 0.9 : 0.6) * vol), when)
+  gain.gain.exponentialRampToValueAtTime(0.001, when + 0.04)
+  osc.start(when)
+  osc.stop(when + 0.05)
+  return osc
+}
+
+// A count-in tells the scheduler exactly which audio time the song starts at,
+// so the first song click lands one beat after the last count-in click
+// instead of wherever the (timer-driven) playback start happened to fire.
+let pendingAnchor: { audioTime: number; songTime: number; setAt: number } | null = null
+export function setMetronomeAnchor(audioTime: number, songTime: number) {
+  pendingAnchor = { audioTime, songTime, setAt: performance.now() }
+}
+
 // ── Metronome hook ───────────────────────────────────────────────────────────
 
 export function useMetronome() {
-  const ctxRef          = useRef<AudioContext | null>(null)
   const intervalRef     = useRef<ReturnType<typeof setInterval> | null>(null)
   // Tracks highest beat index (into the file's _beatTimes grid) already
   // scheduled, to avoid double-firing
@@ -22,24 +56,8 @@ export function useMetronome() {
   // loaded file's bar grid changes (not every scheduler tick)
   const barTimeSetRef   = useRef<{ src: number[] | null; set: Set<number> }>({ src: null, set: new Set() })
 
-  function getCtx(): AudioContext {
-    if (!ctxRef.current || ctxRef.current.state === 'closed') ctxRef.current = new AudioContext()
-    if (ctxRef.current.state === 'suspended') ctxRef.current.resume()
-    return ctxRef.current
-  }
-
-  function scheduleClick(ctx: AudioContext, when: number, accent: boolean) {
-    const osc  = ctx.createOscillator()
-    const gain = ctx.createGain()
-    osc.connect(gain)
-    gain.connect(ctx.destination)
-    osc.frequency.value = accent ? 1400 : 1000
-    const vol = useStore.getState().metronomeVolume
-    gain.gain.setValueAtTime(Math.max(0.0011, (accent ? 0.9 : 0.6) * vol), when)
-    gain.gain.exponentialRampToValueAtTime(0.001, when + 0.04)
-    osc.start(when)
-    osc.stop(when + 0.05)
-  }
+  const getCtx = metronomeContext
+  const scheduleClick = (_ctx: AudioContext, when: number, accent: boolean) => { scheduleMetronomeClick(when, accent) }
 
   function stopScheduler() {
     if (intervalRef.current) { clearInterval(intervalRef.current); intervalRef.current = null }
@@ -54,6 +72,11 @@ export function useMetronome() {
     // Establish audio↔song correspondence.
     // While ratio stays constant: ctx.currentTime - currentTime/ratio = constant.
     audioOffsetRef.current = ctx.currentTime - currentTime / ratio
+    // fresh count-in anchor: the song started at an exact audio time
+    if (pendingAnchor && performance.now() - pendingAnchor.setAt < 2000) {
+      audioOffsetRef.current = pendingAnchor.audioTime - pendingAnchor.songTime / ratio
+    }
+    pendingAnchor = null
     lastScheduled.current = -1
     lastScheduledTime.current = -Infinity
     beatSrcRef.current = null
@@ -125,6 +148,6 @@ export function useMetronome() {
         stopTimer.current = setTimeout(() => { stopScheduler(); stopTimer.current = null }, 80)
       }
     })
-    return () => { unsub(); stopScheduler(); ctxRef.current?.close() }
+    return () => { unsub(); stopScheduler() }
   }, [])
 }
