@@ -16,10 +16,11 @@ import type { TapSession, PlaybackState } from '../types'
 let latencyProvider: () => number = () => 0
 export function setTapLatencyProvider(fn: () => number) { latencyProvider = fn }
 
-const JUMP_FORWARD_SEC = 1.0
-// generous: the GM engine's clock handover after a rebuild can step the
-// playhead back a little on a large file
-const JUMP_BACK_SEC = 0.15
+// Only a real jump (scroll / seek / loop wrap) counts — the audio clock can
+// settle back a few hundred ms right after playback starts, and wheel-scrub
+// blips playback through 'paused' for a few ms; neither is an interruption.
+const JUMP_SEC = 1.0
+const NEAR_ORIGINAL = 0.03
 // The playhead only advances once per animation frame; a tap between frames
 // is extrapolated from the last tick, capped so a stalled clock can't run away
 const MAX_EXTRAPOLATE_SEC = 0.05
@@ -73,8 +74,7 @@ export function tappingInterrupted(
   prev: { currentTime: number; playbackState: PlaybackState | string },
   next: { currentTime: number; playbackState: PlaybackState | string },
 ): boolean {
-  if (next.playbackState !== 'playing' && prev.playbackState === 'playing') return true
-  return next.currentTime < prev.currentTime - JUMP_BACK_SEC || next.currentTime > prev.currentTime + JUMP_FORWARD_SEC
+  return Math.abs(next.currentTime - prev.currentTime) > JUMP_SEC
 }
 
 export function armTapSession() {
@@ -145,7 +145,13 @@ export function finishTapping() {
   const ref = refineToNotes(s.midi, { period: fit.period / beatsPerBar, anchor: fit.anchor }, ses.start, to)
   const free = buildSegment(s.midi, ses.start, ref)
   const fileMatch = matchFileBeat(fileGridOf(s.midi).beats, ref.period, ref.anchor)
-  update({ snapped: ref.snapped, fileMatch, freeSegment: free })
+  // the file's own tempo where the tap starts — same tempo within ±3% means
+  // the file was right all along ("Original is fine")
+  const fileMap = fileGridOf(s.midi).tempoMap
+  let fileBpm = fileMap[0]?.bpm ?? 0
+  for (const e of fileMap) { if (e.time <= ses.start + 1e-6) fileBpm = e.bpm; else break }
+  const nearOriginal = fileMatch === 1 || (fileBpm > 0 && Math.abs((60 / ref.period) / fileBpm - 1) <= NEAR_ORIGINAL)
+  update({ snapped: ref.snapped, fileMatch, freeSegment: free, nearOriginal })
   preview(fileMatch != null ? fileSegment(free, fileMatch) : free)
 }
 
@@ -189,14 +195,18 @@ function logTempoEvent(summary: string) {
   if (path) window.electronAPI?.logFileEvent?.(path, 'tempo', summary)?.catch?.(() => {})
 }
 
-// A seek / loop wrap / stop mid-tapping: preview what was tapped before it if
-// that fits, otherwise end the session (spec §3.2) — never leave it armed
-// with a stale start point.
+// A scroll / seek / loop wrap mid-tapping: taps from two places in the song
+// are never fitted together. With enough taps before the jump, show that
+// result; otherwise stay ready to tap and move the start point to where the
+// playhead now is (scrolling to the right spot is part of getting ready —
+// it must never close the panel).
 export function interruptTapping() {
-  const ses = useStore.getState().tapSession
+  const s = useStore.getState()
+  const ses = s.tapSession
   if (!ses || ses.phase === 'preview') return
   if (ses.taps.length >= MIN_TAPS) finishTapping()
-  if (useStore.getState().tapSession?.phase !== 'preview') cancelTap()
+  if (useStore.getState().tapSession?.phase === 'preview') return
+  update({ phase: 'armed', start: useStore.getState().currentTime, taps: [], message: null, lastTapAt: 0 })
 }
 
 export function shiftPreviewDownbeat(dir: 1 | -1) {
@@ -213,12 +223,27 @@ export function keepTap() {
   end()
 }
 
+// "Original is fine": the file's own tempo is right — keep no correction (or
+// drop the kept one being adjusted) and stop warning about this song.
+export function keepOriginal() {
+  const s = useStore.getState()
+  const ses = s.tapSession
+  if (!ses || !s.songKey) return
+  const base = baseCorrection()
+  if (ses.editIndex != null && base?.segments[ses.editIndex]) {
+    s.setSongCorrection(s.songKey, { segments: base.segments.filter((_, i) => i !== ses.editIndex) })
+  } else s.reapplyCorrection()
+  s.dismissTempoWarning(s.songKey)
+  logTempoEvent(t`Tap Tempo: kept the file's own tempo`)
+  end()
+}
+
 export function tapAgain() {
   const ses = useStore.getState().tapSession
   useStore.getState().reapplyCorrection()
   // the old grid's clicks would fight the music while re-tapping
   if (ses) useStore.getState().setMetronomeEnabled(false)
-  update({ phase: 'armed', taps: [], segment: null, message: null, lastTapAt: 0, snapped: false, fileMatch: null, freeSegment: null })
+  update({ phase: 'armed', taps: [], segment: null, message: null, lastTapAt: 0, snapped: false, fileMatch: null, freeSegment: null, nearOriginal: false })
 }
 
 export function cancelTap() {

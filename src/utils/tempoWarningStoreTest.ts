@@ -1,5 +1,6 @@
 import { useStore } from '../store'
 import { TRUST_VERSION, type TrustResult } from './tempoTrust'
+import { warningVisible } from './tempoWarningRules'
 
 export async function runTempoWarningStoreTest(): Promise<number> {
   console.group('[tempoWarning store] self-check')
@@ -41,6 +42,14 @@ export async function runTempoWarningStoreTest(): Promise<number> {
   const later = saves.filter(d => 'tempoTrustCache' in d)
   check(immediate === 0, `no per-song prefs write, got ${immediate}`)
   check(later.length === 1 && Object.keys(later[0].tempoTrustCache).length >= 20, `one batched write, got ${later.length}`)
+
+  // a song with a kept Tap Tempo, or a dismissed one, never shows a warning
+  const st = (over: any) => ({ tempoWarningsEnabled: true, tempoWarningDismissed: {}, tempoCorrections: {}, tempoTrustCache: { k: { ...res, v: TRUST_VERSION } }, ...over })
+  check(warningVisible(st({}), 'k') === true, 'flagged song warns')
+  check(warningVisible(st({ tempoCorrections: { k: { segments: [] } } }), 'k') === false, 'kept Tap Tempo -> no warning')
+  check(warningVisible(st({ tempoWarningDismissed: { k: true } }), 'k') === false, 'dismissed -> no warning')
+  check(warningVisible(st({ tempoWarningsEnabled: false }), 'k') === false, 'switched off -> no warning')
+  check(warningVisible(st({ tempoTrustCache: { k: { ...res, v: TRUST_VERSION - 1 } } }), 'k') === false, 'old detector result -> no warning')
 
   console.log(`tempoWarning store: ${pass} passed, ${fail} failed`)
   console.groupEnd()

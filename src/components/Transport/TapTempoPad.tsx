@@ -8,10 +8,11 @@ import { ContextMenu, ContextMenuItem, ContextMenuDivider, useMenuDismiss } from
 import { confirmDialog } from '../../utils/confirmController'
 import { useTapTempo } from '../../hooks/useTapTempo'
 import { describeCorrection } from '../../utils/tempoCorrection'
+import { TempoWarning } from './TempoWarning'
 import {
   armTapSession, finishFromPad, shiftPreviewDownbeat, nudgePreview,
   keepTap, tapAgain, cancelTap, resetSongTempo, removeTappedTempo, fmtSongTime,
-  editKeptTempo, toggleListenMetronome, setUseFileGrid,
+  editKeptTempo, toggleListenMetronome, setUseFileGrid, keepOriginal,
 } from '../../utils/tapTempoSession'
 
 const NUDGE_SEC = 0.01
@@ -37,6 +38,8 @@ export function TapTempoPad() {
   const noteEditorActive = useStore((s) => s.noteEditorActive)
   const ses = useStore((s) => s.tapSession)
   const playing = useStore((s) => s.playbackState === 'playing')
+  const warningsOn = useStore((s) => s.tempoWarningsEnabled)
+  const dismissed = useStore((s) => (s.songKey ? !!s.tempoWarningDismissed[s.songKey] : false))
   const correction = useStore((s) => (s.songKey ? s.tempoCorrections[s.songKey] : undefined))
   const saved = describeCorrection(correction)
   const [menu, setMenu] = useState<{ x: number; y: number } | null>(null)
@@ -136,6 +139,7 @@ export function TapTempoPad() {
 
   return (
     <div ref={padWrapRef} style={{ position: 'relative', flexShrink: 0 }}>
+      <TempoWarning anchor="pad" />
       {/* No tooltip while a session is open — it would cover the panel */}
       {ses ? pad : (
         <Tooltip
@@ -229,6 +233,10 @@ export function TapTempoPad() {
 
               <div style={{ display: 'flex', gap: 6 }}>
                 <button onMouseDown={keepFocus} style={{ ...btn, borderColor: 'var(--accent-amber-strong)', color: 'var(--text-amber)' }} onClick={keepTap}>{t`Keep for this song`}</button>
+                {ses.nearOriginal && (
+                  <button onMouseDown={keepFocus} style={btn} onClick={keepOriginal}
+                    title={t`Your tempo matches the file's own: keep the file as it is and don't warn about this song's tempo again`}>{t`Original is fine`}</button>
+                )}
                 <button onMouseDown={keepFocus} style={btn} onClick={tapAgain}>{t`Tap again`}</button>
                 <button onMouseDown={keepFocus} style={btn} onClick={cancelTap}>{t`Cancel`}</button>
               </div>
@@ -262,6 +270,10 @@ export function TapTempoPad() {
             </div>
           ))}
           <ContextMenuDivider />
+          {warningsOn && dismissed && (
+            <ContextMenuItem onClick={() => { const k = useStore.getState().songKey; if (k) useStore.setState((s) => { const next = { ...s.tempoWarningDismissed }; delete next[k]; return { tempoWarningDismissed: next } }); setMenu(null) }}
+              title={t`You chose "don't warn me" for this song — show its tempo warning again`}>{t`Show tempo warning again`}</ContextMenuItem>
+          )}
           <ContextMenuItem onClick={onReset} disabled={saved.length === 0} danger>{t`Reset to the file's own tempo`}</ContextMenuItem>
         </ContextMenu>
       )}

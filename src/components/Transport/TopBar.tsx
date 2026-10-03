@@ -17,6 +17,7 @@ import LoopRegionStrip from '../LoopRegionStrip'
 import Tooltip from '../Tooltip'
 import { TapTempoPad } from './TapTempoPad'
 import { TempoWarning } from './TempoWarning'
+import { useCurrentTempoTrust } from '../../hooks/useTempoTrustScan'
 import { stepDisplayedBpm } from '../../utils/bpmStep'
 import { ContextMenu, ContextMenuItem, useMenuDismiss } from '../ContextMenu'
 import { t } from '../../utils/i18n'
@@ -62,6 +63,7 @@ function useTitlebarOverlayInset(): number {
 }
 
 export default function TopBar() {
+  useCurrentTempoTrust()
   const overlayInset = useTitlebarOverlayInset()
   const midi = useStore((s) => s.midi)
   const playbackState = useStore((s) => s.playbackState)
@@ -374,7 +376,7 @@ export default function TopBar() {
             <RotateCcw size={8} />
           </button>
         </Tooltip>
-        <TempoWarning />
+        <TempoWarning anchor="key" />
       </div>
 
       </div>

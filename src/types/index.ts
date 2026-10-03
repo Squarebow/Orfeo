@@ -266,4 +266,5 @@ export interface TapSession {
   snapped?: boolean          // grid was lined up with the song's notes
   fileMatch?: number | null  // taps sit on the file's own beats at this ratio (1, 2, 0.5)
   freeSegment?: import('../utils/tempoCorrection').TempoSegment | null  // grid from the taps
+  nearOriginal?: boolean     // tapped tempo is within ±3% of the file's own (offer "Original is fine")
 }

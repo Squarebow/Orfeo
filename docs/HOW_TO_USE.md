@@ -227,7 +227,9 @@ twice per beat gives double the tempo, tapping every other beat gives half.
 1. Put the playhead where the tempo goes wrong: the top of the song, or the
    bar where the groove kicks in if the intro is fine.
 2. Click **TAP**. The song plays from exactly where the playhead is. The
-   metronome stays silent while you tap, so it can't throw you off.
+   metronome stays silent while you tap, so it can't throw you off. You can
+   still scroll to a better spot before you start tapping — the start point
+   simply moves to wherever you scroll to.
 3. Tap with `Space` or any key on your MIDI keyboard. Start on a 1, whenever
    you've locked in — you don't have to start right away. Tap at least 4
    times; 8 or more gives a steadier result. A missed or doubled tap is
@@ -253,7 +255,9 @@ it as it plays:
 - **Clicks ◀ / ▶** — if the metronome sits a hair ahead of or behind the
   music, slide it 10 ms at a time until it locks in.
 
-Then choose **Keep for this song**, **Tap again** or **Cancel**.
+Then choose **Keep for this song**, **Tap again** or **Cancel**. When your
+tempo matches the file's own, there's also **Original is fine**: the file
+stays as it is and its tempo warning won't come back.
 
 **Songs counted at double or half speed** (e.g. Golden Brown, which the file
 counts at 190 while you hear about 95): if your beat lands exactly on every
@@ -395,7 +399,8 @@ music's steady beat — the ones [Tap Tempo](#fix-a-songs-tempo-with-tap-tempo)
 can fix.
 
 - **In the top bar:** when the open song is off, a small amber light pulses
-  next to Key/Transpose. Click it to see what's off, in plain words:
+  right under the **TAP** pad (or on the corner of the Key/Transpose box if
+  the TAP pad is switched off). Click it to see what's off, in plain words:
   - *"The bar lines and metronome drift off the music's beat through most of
     the song. The beat sounds closer to about 91 than the file's 60 — check by
     ear."* — the file's tempo is wrong.
@@ -408,8 +413,12 @@ can fix.
   tab is open, Orfeo checks your songs quietly — never while a song is playing
   — and remembers the result, so each song is only checked once (again if the
   file changes). Very large files (over 5 MB) are skipped.
-- **Once you Keep a Tap Tempo** that lines up with the music, the warning goes
-  away by itself.
+- **Once you Keep a Tap Tempo**, the warning goes away — in the top bar and in
+  the Library. Only the small dot on the TAP pad stays, as the sign that the
+  song has a kept tempo.
+- **If the file was right after all** (you tap and get the same tempo as the
+  file), press **Original is fine** in the result panel: nothing is changed and
+  you won't be warned about that song again.
 - **Freely played music** (rubato piano, free-time intros, sparse lead sheets)
   is never flagged — there's no steady beat for Tap Tempo to fix.
 - **What it can't tell:** a song whose bar lines are right but whose tempo
@@ -417,8 +426,9 @@ can fix.
   you hear it, not something measurable in the notes. Tap Tempo still fixes
   the number.
 
-Dismissed a warning by mistake? Settings → *Show warnings for dismissed songs
-again*.
+Dismissed a warning by mistake? Right-click the **TAP** pad → *Show tempo
+warning again* (for that song), or Settings → *Show warnings for dismissed
+songs again* (for all of them).
 
 ### Change key
 

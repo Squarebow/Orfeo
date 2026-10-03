@@ -3,9 +3,15 @@
 ## [Unreleased] — Tempo warnings
 
 ### New
-- **Tempo warnings — find the songs whose bar lines and metronome don't match the music.** Turn on *Tempo warnings* in Settings → Playback & Editing (off by default). Orfeo checks each song for a steady beat that its bar lines miss: affected songs get an amber dot in the Library, and a pulsing light next to Key when you open one. Click the light to see what's off in plain words — for example "the beat sounds closer to about 91 than the file's 60 — check by ear", or "the speed looks right, but the bar lines sit off the played notes" — then fix it with Tap Tempo or dismiss it for that song. Freely played music (rubato piano, free-time intros, sparse lead sheets) is never flagged, and the warning clears by itself once you keep a Tap Tempo that lines up with the music. The Library check runs quietly while the Library tab is open, never while a song is playing, and remembers its results.
+- **Tempo warnings — find the songs whose bar lines and metronome don't match the music.** Turn on *Tempo warnings* in Settings → Playback & Editing (off by default). Orfeo checks each song for a steady beat that its bar lines miss: affected songs get an amber dot in the Library, and a pulsing light under the TAP pad when you open one. Click the light to see what's off in plain words — for example "the beat sounds closer to about 91 than the file's 60 — check by ear", or "the speed looks right, but the bar lines sit off the played notes" — then fix it with Tap Tempo or dismiss it for that song. Freely played music (rubato piano, free-time intros, sparse lead sheets) is never flagged, and the warning clears by itself once you keep a Tap Tempo that lines up with the music. The Library check runs quietly while the Library tab is open, never while a song is playing, and remembers its results.
+
+- **"Original is fine"** — when your tapped tempo matches the file's own, the Tap Tempo panel offers to keep the file as it is and stop warning about that song.
 
 ### Fixed
+- **Scrolling while a Tap Tempo session was waiting for your taps closed it**, and Space went back to pausing the song. Scrolling now just moves the start point to where you scroll to.
+- **On songs that start right on the first beat, the first few Space taps could pause the song** instead of counting as taps. Fixed — tapping works from the very first beat.
+- **After keeping a tapped tempo, the tempo warning stayed on** in the top bar and the Library. It now goes away; only the small dot on the TAP pad remains.
+- **No way to bring back a dismissed tempo warning for one song** — right-click the TAP pad → *Show tempo warning again*.
 - **On windows 1366 px wide or narrower, the TAP pad pushed the Key/Transpose arrows partly out of view.** The pad is a little smaller and the spacing around the tempo and key boxes a little tighter, so everything fits again.
 
 ## [1.2] — 2. 10. 2026 — Tap Tempo

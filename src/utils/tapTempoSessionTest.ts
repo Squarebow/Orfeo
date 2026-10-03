@@ -3,7 +3,7 @@ import type { ParsedMidi } from '../types'
 import {
   armTapSession, registerTap, finishTapping, finishFromPad, nudgePreview, shiftPreviewDownbeat, keepTap, tapAgain,
   cancelTap, resetSongTempo, isTapCapturing, setTapLatencyProvider, tappingInterrupted, interruptTapping, noteClockTick,
-  editKeptTempo, toggleListenMetronome, setUseFileGrid,
+  editKeptTempo, toggleListenMetronome, setUseFileGrid, keepOriginal,
 } from './tapTempoSession'
 
 function fakeMidi(): ParsedMidi {
@@ -113,14 +113,29 @@ export function runTapTempoSessionTest(): number {
   check(tappingInterrupted(st(10), st(10.016)) === false, 'normal frame advance')
   check(tappingInterrupted(st(10), st(4)) === true, 'loop wrap / seek back')
   check(tappingInterrupted(st(10), st(15)) === true, 'seek forward')
-  check(tappingInterrupted(st(10), st(10, 'paused')) === true, 'pause/stop')
+  // a pause blip (wheel scrub) or the audio clock settling at the start of a
+  // song is NOT an interruption — only a real jump of more than a second
+  check(tappingInterrupted(st(10), st(10, 'paused')) === false, 'pause blip is not an interruption')
+  check(tappingInterrupted(st(10), st(9.6)) === false, 'small clock settle back is not an interruption')
 
-  // interruption with >=4 taps that don't fit -> session ends (spec §3.2), not left armed
+  // scrolling to a new place while getting ready keeps the panel open and
+  // moves the start point there (never closes the session)
+  useStore.setState({ currentTime: 30, playbackState: 'playing' } as any)
+  armTapSession()
+  tapAt(30); tapAt(30.6)
+  useStore.setState({ currentTime: 50 } as any)
+  interruptTapping()
+  check(S().tapSession?.phase === 'armed' && S().tapSession.start === 50 && S().tapSession.taps.length === 0, `seek re-arms at the new place, got ${JSON.stringify(S().tapSession && { p: S().tapSession.phase, s: S().tapSession.start, n: S().tapSession.taps.length })}`)
+  cancelTap()
+
+  // interruption with >=4 taps that don't fit -> stays armed at the new place
   useStore.setState({ currentTime: 30, playbackState: 'playing' } as any)
   armTapSession()
   ;[30, 30.2, 31.9, 32.0, 34.5].forEach(tapAt)
+  useStore.setState({ currentTime: 60 } as any)
   interruptTapping()
-  check(S().tapSession === null, `failed fit on interrupt cancels, got ${JSON.stringify(S().tapSession?.phase)}`)
+  check(S().tapSession?.phase === 'armed' && S().tapSession.start === 60, `failed fit on interrupt re-arms, got ${JSON.stringify(S().tapSession?.phase)}`)
+  cancelTap()
   // interruption with a good fit -> preview
   armTapSession(); for (let i = 0; i < 5; i++) tapAt(30 + i * 0.6)
   interruptTapping()
@@ -184,6 +199,22 @@ export function runTapTempoSessionTest(): number {
   check(!S().tapSession.segment.snap && !S().midi._beatTimes.includes(17), 'switch to the tapped grid')
   setUseFileGrid(true)
   check(S().tapSession.segment.snap?.ratio === 2, 'switch back to the file grid')
+  cancelTap()
+
+  // tapped tempo matches the file's own -> "Original is fine": no correction
+  // kept, and the song's tempo warning is dismissed for good
+  useStore.setState({ currentTime: 8, playbackState: 'playing' } as any)
+  armTapSession()
+  for (let i = 0; i < 6; i++) tapAt(8 + i * 1.005)
+  finishFromPad()
+  check(S().tapSession?.nearOriginal === true, `near the file's tempo, got ${S().tapSession?.nearOriginal}`)
+  keepOriginal()
+  check(S().tapSession === null && !S().tempoCorrections[S().songKey] && S().tempoWarningDismissed[S().songKey] === true, 'original kept, warning dismissed')
+  check(logged.some(l => /file's own tempo/i.test(l)), 'logged to file history')
+  S().clearTempoWarningDismissals()
+  // a clearly different tempo is not "near the original"
+  armTapSession(); for (let i = 0; i < 6; i++) tapAt(20 + i * 0.65); finishFromPad()
+  check(S().tapSession?.nearOriginal === false, 'different tempo -> no original option')
   cancelTap()
 
   console.log(`tapTempo session: ${pass} passed, ${fail} failed`)

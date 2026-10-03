@@ -4,12 +4,13 @@ import { useStore } from '../../store'
 import { t } from '../../utils/i18n'
 import Tooltip from '../Tooltip'
 import { useMenuDismiss } from '../ContextMenu'
-import { useCurrentTempoTrust } from '../../hooks/useTempoTrustScan'
+import { warningVisible } from '../../utils/tempoWarningRules'
 import { armTapSession, fmtSongTime } from '../../utils/tapTempoSession'
-import { TRUST_VERSION, type TrustResult } from '../../utils/tempoTrust'
+import type { TrustResult } from '../../utils/tempoTrust'
 
 // ── Tempo warning (Settings → Playback & Editing → Tempo warnings) — a
-// pulsing amber dot beside Key/Transpose when the open song's bar lines and
+// pulsing amber dot (centred under the TAP pad when the pad is on, else on
+// the Key/Transpose box's corner) when the open song's bar lines and
 // metronome miss its steady beat (utils/tempoTrust.ts). Click → what's off,
 // "Fix with Tap Tempo", or "It's fine, don't warn me for this song". ─────
 
@@ -23,16 +24,14 @@ export function warningText(r: TrustResult, tapped = false): string {
     : t`The beat sounds closer to about ${r.hintBpm} than the file's ${r.fileBpm} — check by ear.`)
 }
 
-export function TempoWarning() {
-  useCurrentTempoTrust()
-  const enabled = useStore((s) => s.tempoWarningsEnabled)
+export function TempoWarning({ anchor }: { anchor: 'pad' | 'key' }) {
+  const padOn = useStore((s) => s.tapTempoPadEnabled)
   const trust = useStore((s) => s.currentTrust)
   const key = useStore((s) => s.songKey)
-  const dismissed = useStore((s) => (s.songKey ? !!s.tempoWarningDismissed[s.songKey] : false))
+  const visible = useStore((s) => warningVisible(s, s.songKey))
   const tapping = useStore((s) => !!s.tapSession)
   const hasMidi = useStore((s) => !!s.midi)
   const noteEditorActive = useStore((s) => s.noteEditorActive)
-  const tapped = useStore((s) => (s.songKey ? !!s.tempoCorrections[s.songKey] : false))
   const [panel, setPanel] = useState<{ x: number; y: number } | null>(null)
   const panelRef = useRef<HTMLDivElement>(null)
   // the outside-click that closes the panel also lands on the light — don't
@@ -41,7 +40,8 @@ export function TempoWarning() {
   const close = useCallback(() => { closedAt.current = performance.now(); setPanel(null) }, [])
   useMenuDismiss(!!panel, panelRef, close)
 
-  if (!enabled || !hasMidi || !trust?.flagged || dismissed || tapping || !key) return null
+  if ((anchor === 'pad') !== padOn) return null
+  if (!visible || !hasMidi || !trust?.flagged || tapping || !key) return null
 
   const fix = () => {
     close()
@@ -57,9 +57,14 @@ export function TempoWarning() {
 
   return (
     <>
-      {/* Absolutely positioned on the Key/Transpose box's corner — no layout width */}
+      {/* Absolutely positioned — no layout width (the left top-bar group has no
+          spare room at 1366 px): centred under the TAP circle, or on the
+          Key/Transpose box's corner when the pad is off */}
       <Tooltip title={t`Tempo looks off`} description={t`The bar lines don't match the music's beat. Click for details.`} placement="bottom" disabled={!!panel}
-        wrapperStyle={{ position: 'absolute', top: -4, right: 0, zIndex: 1 }}>
+        wrapperStyle={anchor === 'pad'
+          // the top-bar row clips ~6 px below the circle — a 7 px dot fits there
+          ? { position: 'absolute', top: 'calc(100% - 1px)', left: '50%', transform: 'translateX(-50%)', zIndex: 1 }
+          : { position: 'absolute', top: -4, right: 0, zIndex: 1 }}>
         <button
           className="app-no-drag"
           aria-label={t`Tempo looks off`}
@@ -68,9 +73,9 @@ export function TempoWarning() {
             const r = e.currentTarget.getBoundingClientRect()
             setPanel({ x: r.left + r.width / 2, y: r.bottom + 8 })
           }}
-          style={{ background: 'none', border: 'none', padding: 4, cursor: 'pointer', display: 'flex' }}
+          style={{ background: 'none', border: 'none', padding: anchor === 'pad' ? '0 4px' : 4, cursor: 'pointer', display: 'flex' }}
         >
-          <span className="orfeo-warn-pulse" style={{ width: 9, height: 9, borderRadius: '50%', background: 'var(--text-amber)' }} />
+          <span className="orfeo-warn-pulse" style={{ width: anchor === 'pad' ? 7 : 9, height: anchor === 'pad' ? 7 : 9, borderRadius: '50%', background: 'var(--text-amber)' }} />
         </button>
       </Tooltip>
       {panel && createPortal(
@@ -86,7 +91,7 @@ export function TempoWarning() {
           }}
         >
           <span style={{ fontSize: 9, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.08em', color: 'var(--text-amber)' }}>{t`Tempo looks off`}</span>
-          <span style={{ lineHeight: 1.45 }}>{warningText(trust, tapped)}</span>
+          <span style={{ lineHeight: 1.45 }}>{warningText(trust)}</span>
           <span style={{ color: 'var(--text-faint)', fontSize: 10, lineHeight: 1.4 }}>{t`Tap Tempo fixes this: park the playhead where it goes wrong and tap along. Your MIDI file isn't changed.`}</span>
           <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
             <button onMouseDown={keepFocus} disabled={noteEditorActive} title={noteEditorActive ? t`Close the Note Editor first` : undefined}
@@ -102,13 +107,7 @@ export function TempoWarning() {
 
 // ── Library row mark — same verdict, read from the background scan's cache ──
 export function TempoWarningDot({ path, onHoverChange }: { path: string; onHoverChange?: (hovering: boolean) => void }) {
-  const show = useStore((s) => {
-    if (!s.tempoWarningsEnabled) return false
-    const key = s.libraryTrustIndex[path]?.songKey
-    if (!key || s.tempoWarningDismissed[key]) return false
-    const c = s.tempoTrustCache[key]
-    return !!c?.flagged && c.v === TRUST_VERSION
-  })
+  const show = useStore((s) => warningVisible(s, s.libraryTrustIndex[path]?.songKey))
   if (!show) return null
   return (
     <Tooltip title={t`Tempo looks off`} description={t`Open it and use Tap Tempo to fix its bar lines and metronome.`} placement="right">
