@@ -43,6 +43,7 @@ import { confirmDiscardDirtyTempoKey, saveTempoKeyChanges } from './utils/tempoK
 import { isTapCapturing, registerTap, cancelTap } from './utils/tapTempoSession'
 import { isCountingIn, cancelCountIn } from './utils/countInRunner'
 import { useCountIn } from './hooks/useCountIn'
+import { CountInOverlay } from './components/CountInOverlay'
 
 export default function App() {
   const midi = useStore((s) => s.midi)
@@ -508,6 +509,7 @@ export default function App() {
         <div style={{ display: 'flex', flexDirection: 'column', flex: 1, minWidth: 0, overflow: 'hidden' }}>
           <div data-piano-roll-area style={{ flex: 1, minHeight: 0, position: 'relative', paddingTop: 6 }}>
             {midi ? <PianoRoll /> : <EmptyState />}
+            <CountInOverlay />
           </div>
           {keyboardMode === 'docked' && <Keyboard />}
           {keyboardMode === 'docked' && <KeyboardControls />}

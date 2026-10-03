@@ -791,6 +791,38 @@ corrected beat.
 Right-click the metronome to change its volume (0–150%). The setting is
 remembered between sessions.
 
+#### Count-in
+
+Hear one to four bars of clicks before the music starts, so you can come in
+on time. Turn it on by right-clicking the metronome (**Count-in → ON**, then
+pick **1 · 2 · 3 · 4** bars) or in Settings → Playback & Editing → *Count-in*.
+A small number on the metronome icon shows the count-in is on and how many
+bars it counts.
+
+- Press **Play** (or `Space`): the clicks count at the song's tempo and time
+  signature — your speed setting and any kept Tap Tempo included — with the
+  "1" of each bar accented, and a big **1 · 2 · 3 · 4** counts along over the
+  piano roll. The music comes in exactly on the next beat.
+- **Empty bars at the start are skipped:** the count-in leads straight into
+  the first note, whether the file starts right on it or has silent bars
+  before it.
+- **Upbeats come in on time:** if the song starts on an upbeat (a pickup
+  before the first "1"), the count stops just before it and the pickup
+  plays where it belongs.
+- **Mid-song:** pressing Play after a pause or after scrolling counts into
+  the start of the bar you're in, so you always come back in on a "1".
+- `Space`, `Esc` or the Play button during the count-in cancels it — nothing
+  plays and the playhead stays where it was.
+- The count-in doesn't happen when you scroll, when a loop repeats, or when
+  you start a Tap Tempo session (you need to hear the music to find the
+  beat). Listening back to a tapped tempo (▶ Listen) does count in, at the
+  tapped tempo.
+
+> 🎯 **Use case — come in on the first note**
+>
+> *Right-click the metronome, turn Count-in on, choose 2 bars. Press Space:
+> "1 2 3 4, 1 2 3 4" — and you're playing along with the first note.*
+
 ### Chords Explorer
 
 > **Image ·** `how-to-use/practice-chords-explorer.png` · **1600×1000** · _The Chord Explorer: chord tiles across Common / Power / Extended tiers, an inversion cycler showing a slash chord, the progression player, and the search box._

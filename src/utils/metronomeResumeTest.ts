@@ -1,4 +1,4 @@
-import { resumeIndexAfterGridSwap } from './metronomeResume'
+import { resumeIndexAfterGridSwap, firstClickTime } from './metronomeResume'
 
 export function runMetronomeResumeTest(): number {
   console.group('[metronomeResume] self-check')
@@ -18,6 +18,13 @@ export function runMetronomeResumeTest(): number {
   const fast = Array.from({ length: 400 }, (_, i) => i * 0.25)
   const k = resumeIndexAfterGridSwap(fast, 30.0)
   check(fast[k + 1] > 30.0 && fast[k + 1] < 30.4, `next click right after 30 s, got ${fast[k + 1]}`)
+
+  // starting playback exactly on a beat: that beat is already a few ms in the
+  // past when the scheduler first runs — click it (a hair late), don't drop it
+  check(firstClickTime(10.0, 10.02, true) === 10.025, 'first beat of a run, just passed -> clicked now')
+  check(firstClickTime(10.0, 10.2, true) === null, 'long gone -> skipped')
+  check(firstClickTime(10.0, 10.02, false) === null, 'mid-run past beat -> skipped (no double clicks)')
+  check(firstClickTime(10.5, 10.0, true) === 10.5, 'future beat -> on time')
 
   console.log(`metronomeResume: ${pass} passed, ${fail} failed`)
   console.groupEnd()

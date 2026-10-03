@@ -2169,6 +2169,10 @@ export default function SettingsPanel() {
   const setTapTempoPadEnabled = useStore((s) => s.setTapTempoPadEnabled)
   const tapTempoMode = useStore((s) => s.tapTempoMode)
   const tempoWarningsEnabled = useStore((s) => s.tempoWarningsEnabled)
+  const countInEnabled = useStore((s) => s.countInEnabled)
+  const setCountInEnabled = useStore((s) => s.setCountInEnabled)
+  const countInBars = useStore((s) => s.countInBars)
+  const setCountInBars = useStore((s) => s.setCountInBars)
   const setTempoWarningsEnabled = useStore((s) => s.setTempoWarningsEnabled)
   const dismissedCount = useStore((s) => Object.keys(s.tempoWarningDismissed).length)
   const clearTempoWarningDismissals = useStore((s) => s.clearTempoWarningDismissals)
@@ -2714,6 +2718,22 @@ export default function SettingsPanel() {
                         {tapTempoMode === 'beat'
                           ? t`Tap 1, 2, 3, 4 — like tapping your foot. Your first tap is the 1.`
                           : t`Tap only the first beat of each bar. Every tap is a 1.`}
+                      </div>
+                    </OptionRow>
+                  )}
+                  {/* ── Count-in — eye-toggle (off by default) + bars; also in the
+                      metronome's right-click menu ─────────────────────────── */}
+                  <OptionRow
+                    label={t`Count-in`}
+                    eyeToggle
+                    eyeValue={countInEnabled}
+                    onEyeChange={setCountInEnabled}
+                    description={t`Clicks 1–4 bars at the song's tempo before Play, skipping empty bars at the start, so you come in on time. Also in the metronome's right-click menu.`}
+                  />
+                  {countInEnabled && (
+                    <OptionRow label={t`Count-in bars`} labelSmall>
+                      <div style={{ display: 'flex', gap: 'var(--space-1)' }}>
+                        {[1, 2, 3, 4].map(n => <OptionBtn key={n} active={countInBars === n} onClick={() => setCountInBars(n)}>{String(n)}</OptionBtn>)}
                       </div>
                     </OptionRow>
                   )}

@@ -15,3 +15,16 @@ export function resumeIndexAfterGridSwap(beats: number[], lastScheduledTime: num
   }
   return ans
 }
+
+// ── When to click a beat whose time has (just) come. Starting playback
+// exactly on a beat means that beat is already a few ms in the past by the
+// time the scheduler's first pass runs; the first beat of a run is clicked
+// right away instead of dropped. Later beats in the past are skipped (they
+// were scheduled on an earlier pass). Returns the click time, or null. ───
+const LEAD = 0.005
+const START_GRACE = 0.06
+export function firstClickTime(beatAudioTime: number, now: number, firstOfRun: boolean): number | null {
+  if (beatAudioTime >= now + LEAD) return beatAudioTime
+  if (firstOfRun && beatAudioTime >= now - START_GRACE) return now + LEAD
+  return null
+}

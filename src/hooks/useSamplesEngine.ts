@@ -479,6 +479,7 @@ function buildSamplesPlayer(startSec: number) {
   _epochShowHandLabels = showHandLabels || (noteEditorActive && NES.reassignHandsMode)
   _epochHitEffectScope = hitEffectScope
   _epochStartPerf = performance.now()
+  ;(window as any).__orfeoEngineStartedAt = _epochStartPerf
   _epochStartFileSec = startSec
 
   // Program changes, and each track's starting cursor position — cheap,

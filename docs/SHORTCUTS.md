@@ -31,15 +31,15 @@ combinations, modifiers, and gestures that are not obvious from the UI.
 
 | Shortcut | Action |
 |---|---|
-| `Space` | Play / Pause (ignored while the Chord or Scale Explorer is open). While tapping in a Tap Tempo session it's a tap instead; once the result is showing it plays/pauses as usual so you can listen back |
-| `Escape` | Stop playback. During a Tap Tempo session it cancels the session instead. If Presentation Mode, the Chord Explorer, the Scale Explorer, or the Locked-Chord modal is open, that closes first instead — without stopping playback |
+| `Space` | Play / Pause (ignored while the Chord or Scale Explorer is open). During a count-in it stops the count-in. While tapping in a Tap Tempo session it's a tap instead; once the result is showing it plays/pauses as usual so you can listen back |
+| `Escape` | Stop playback. During a count-in it cancels the count-in; during a Tap Tempo session it cancels the session instead. If Presentation Mode, the Chord Explorer, the Scale Explorer, or the Locked-Chord modal is open, that closes first instead — without stopping playback |
 | `F11` | Toggle Presentation Mode |
 | `Ctrl+O` | Open a MIDI file |
 | `Ctrl+Shift+M` | Toggle the Console Mixer |
 | Long-press the BPM `▲` / `▼` | Repeatedly nudge tempo by ±1 while held |
 | Click the **TAP** pad | Start a Tap Tempo session; click again to finish and see the result |
 | Right-click the **TAP** pad | List this song's kept tapped tempos — click one to adjust it, ✕ to remove it, or reset to the file's own tempo |
-| Right-click the metronome | Metronome volume |
+| Right-click the metronome | Metronome volume, and Count-in on/off with 1–4 bars |
 | Click the pulsing amber light next to Key | Tempo warning details — fix with Tap Tempo, or dismiss for this song (Settings → Tempo warnings) |
 | Any key on a MIDI keyboard | A tap, during a Tap Tempo session |
 | `Ctrl` `+` (also `Ctrl` `=` and numpad `+`) | Zoom the whole app in one step (80/90/100/110/125/150/175/200%) |

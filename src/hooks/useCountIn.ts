@@ -19,6 +19,9 @@ export function useCountIn() {
       setTimer: (fn, ms) => window.setTimeout(fn, ms),
       clearTimer: (t) => window.clearTimeout(t as number),
       anchor: setMetronomeAnchor,
+      engine: () => useStore.getState().audioEngine,
+      engineStartedAt: () => ((window as any).__orfeoEngineStartedAt ?? null) as number | null,
+      prepare: () => { (window as any).__orfeoPrepareStart?.() },
     })
     return () => setCountInDeps(null)
   }, [])

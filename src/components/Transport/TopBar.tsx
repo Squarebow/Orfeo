@@ -20,7 +20,7 @@ import { TempoWarning } from './TempoWarning'
 import { useCurrentTempoTrust } from '../../hooks/useTempoTrustScan'
 import { stepDisplayedBpm } from '../../utils/bpmStep'
 import { isCountingIn, cancelCountIn } from '../../utils/countInRunner'
-import { ContextMenu, ContextMenuItem, useMenuDismiss } from '../ContextMenu'
+import { ContextMenu, ContextMenuItem, ContextMenuDivider, useMenuDismiss } from '../ContextMenu'
 import { t } from '../../utils/i18n'
 import { confirmDiscardDirtyNoteEdits } from '../../utils/noteEditorState'
 import { confirmDiscardDirtyTempoKey } from '../../utils/tempoKeySave'
@@ -83,6 +83,8 @@ export default function TopBar() {
   const metronomeEnabled = useStore((s) => s.metronomeEnabled)
   const setMetronomeEnabled = useStore((s) => s.setMetronomeEnabled)
   const [metroMenu, setMetroMenu] = useState<{ x: number; y: number } | null>(null)
+  const countInEnabled = useStore((s) => s.countInEnabled)
+  const countInBars = useStore((s) => s.countInBars)
   const closeMetroMenu = useCallback(() => setMetroMenu(null), [])
   const midiDeviceConnected = useStore((s) => s.midiDeviceConnected)
   const midiDeviceName = useStore((s) => s.midiDeviceName)
@@ -607,7 +609,9 @@ export default function TopBar() {
         {/* METRONOME */}
         <Tooltip
           title={metronomeEnabled ? 'Metronome on' : 'Metronome off'}
-          description={t`Clicks along with the beat while a file plays — click to toggle, right-click for volume.`}
+          description={countInEnabled
+            ? t`Clicks along with the beat while a file plays — click to toggle. Count-in: ${countInBars} bar(s) before Play. Right-click for volume and count-in.`
+            : t`Clicks along with the beat while a file plays — click to toggle, right-click for volume and count-in.`}
           placement="bottom"
           disabled={!!metroMenu}
         >
@@ -615,6 +619,7 @@ export default function TopBar() {
             onClick={() => setMetronomeEnabled(!metronomeEnabled)}
             onContextMenu={(e) => { e.preventDefault(); const r = e.currentTarget.getBoundingClientRect(); setMetroMenu({ x: Math.max(8, r.right - METRO_MENU_WIDTH), y: r.bottom + 6 }) }}
             style={{
+              position: 'relative',
               flexShrink: 0, display: 'flex', flexDirection: 'column', alignItems: 'center',
               padding: '0 14px', border: 'none', cursor: 'pointer',
               background: 'transparent', color: metronomeEnabled ? 'var(--topbar-metronome-on)' : 'var(--topbar-metronome-off)', transition: 'color 0.15s',
@@ -629,9 +634,17 @@ export default function TopBar() {
             <span style={{ fontSize: 9, fontFamily: 'var(--font-mono)', letterSpacing: '0.08em', lineHeight: 1, marginTop: 6 }}>
               {metronomeEnabled ? 'ON' : 'OFF'}
             </span>
+            {/* count-in badge: how many bars Play will count in */}
+            {countInEnabled && (
+              <span aria-label={t`Count-in ${countInBars} bars`} style={{
+                position: 'absolute', top: -4, right: 6, minWidth: 12, height: 12, borderRadius: 6, padding: '0 3px',
+                background: 'var(--text-amber)', color: 'var(--bg-tooltip)', fontSize: 8, fontWeight: 700,
+                fontFamily: 'var(--font-mono)', lineHeight: '12px', textAlign: 'center',
+              }}>{countInBars}</span>
+            )}
           </button>
         </Tooltip>
-        {metroMenu && <MetronomeVolumeMenu x={metroMenu.x} y={metroMenu.y} onClose={closeMetroMenu} />}
+        {metroMenu && <MetronomeMenu x={metroMenu.x} y={metroMenu.y} onClose={closeMetroMenu} />}
 
         <div style={{ width: 1, height: 'var(--button-height)', background: 'var(--border)', alignSelf: 'flex-end', marginBottom: 12 }} />
 
@@ -657,19 +670,29 @@ export default function TopBar() {
   )
 }
 
-const METRO_MENU_WIDTH = 130
+const METRO_MENU_WIDTH = 150
 
-// ── Metronome right-click — click volume (0–150%), remembered between
-// sessions. Applied to every click the metronome schedules. ──────────────
-function MetronomeVolumeMenu({ x, y, onClose }: { x: number; y: number; onClose: () => void }) {
+// ── Metronome right-click — click volume (0–150%) and count-in (on/off +
+// 1–4 bars), both remembered between sessions. ───────────────────────────
+function MetronomeMenu({ x, y, onClose }: { x: number; y: number; onClose: () => void }) {
   const ref = useRef<HTMLDivElement>(null)
   const volume = useStore((s) => s.metronomeVolume)
   const setVolume = useStore((s) => s.setMetronomeVolume)
+  const countInEnabled = useStore((s) => s.countInEnabled)
+  const setCountInEnabled = useStore((s) => s.setCountInEnabled)
+  const countInBars = useStore((s) => s.countInBars)
+  const setCountInBars = useStore((s) => s.setCountInBars)
   useMenuDismiss(true, ref, onClose)
+  const head: React.CSSProperties = { display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 8, fontSize: 9, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.08em' }
+  const pill = (on: boolean): React.CSSProperties => ({
+    flex: 1, padding: '2px 0', fontSize: 10, fontFamily: 'var(--font-mono)', cursor: 'pointer', borderRadius: 'var(--radius-sm)',
+    background: on ? 'var(--accent-amber-subtle)' : 'none', color: on ? 'var(--text-amber)' : 'var(--text-default)',
+    border: `1px solid ${on ? 'var(--accent-amber-strong)' : 'var(--border)'}`,
+  })
   return (
-    <ContextMenu ref={ref} x={x} y={y} minWidth={METRO_MENU_WIDTH} ariaLabel={t`Metronome volume`} className="app-no-drag">
+    <ContextMenu ref={ref} x={x} y={y} minWidth={METRO_MENU_WIDTH} ariaLabel={t`Metronome options`} className="app-no-drag">
       <div style={{ width: METRO_MENU_WIDTH, boxSizing: 'border-box', padding: '4px 10px 6px', display: 'flex', flexDirection: 'column', gap: 4 }}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', gap: 8, fontSize: 9, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.08em' }}>
+        <div style={head}>
           <span>{t`Volume`}</span>
           <span style={{ fontFamily: 'var(--font-mono)', color: 'var(--text-amber)' }}>{Math.round(volume * 100)}%</span>
         </div>
@@ -681,6 +704,27 @@ function MetronomeVolumeMenu({ x, y, onClose }: { x: number; y: number; onClose:
         />
       </div>
       <ContextMenuItem onClick={() => setVolume(1)} disabled={volume === 1}>{t`Reset to 100%`}</ContextMenuItem>
+      <ContextMenuDivider />
+      <div style={{ width: METRO_MENU_WIDTH, boxSizing: 'border-box', padding: '4px 10px 8px', display: 'flex', flexDirection: 'column', gap: 6 }}>
+        <div style={head}>
+          <span>{t`Count-in`}</span>
+          <button
+            role="switch" aria-checked={countInEnabled} aria-label={t`Count-in`}
+            onClick={() => setCountInEnabled(!countInEnabled)}
+            style={{ background: 'none', border: 'none', padding: 0, cursor: 'pointer', fontSize: 9, fontFamily: 'var(--font-mono)', letterSpacing: '0.08em', color: countInEnabled ? 'var(--text-amber)' : 'var(--text-muted)' }}
+          >{countInEnabled ? t`ON` : t`OFF`}</button>
+        </div>
+        {countInEnabled && (
+          <>
+            <div style={{ display: 'flex', gap: 4 }}>
+              {[1, 2, 3, 4].map(n => (
+                <button key={n} onClick={() => setCountInBars(n)} aria-label={t`${n} bars`} style={pill(countInBars === n)}>{n}</button>
+              ))}
+            </div>
+            <span style={{ fontSize: 9, color: 'var(--text-faint)', lineHeight: 1.3 }}>{t`Bars of clicks before Play`}</span>
+          </>
+        )}
+      </div>
     </ContextMenu>
   )
 }

@@ -227,6 +227,26 @@ function updateMutedChannels() {
   }
 }
 
+// ── Count-in head start: the JZZ synth switching on (~1.2 s on first use) and
+// building the song's player (~0.2 s) both happen BEFORE the first note can
+// sound. A count-in prepares them while it clicks, so when the music is due
+// buildPlayer only has to press play (see utils/countInRunner.ts). The
+// prepared player is used once, and only for the exact same song bytes. ──
+let _prepared: { raw: ArrayBuffer; player: any } | null = null
+function currentRaw(): ArrayBuffer | undefined {
+  return (NES.dirty && NES.editMidi) ? editableCopyToBuffer(NES.editMidi) : (useStore.getState().midi as any)?._raw
+}
+async function prepareStart() {
+  try {
+    await initJZZ()
+    if (!_jzzReady || !_port || !_JZZ || NES.dirty) return
+    const raw = currentRaw()
+    if (!raw || _prepared?.raw === raw) return
+    _prepared = { raw, player: new _JZZ.MIDI.SMF(new Uint8Array(raw)).player() }
+  } catch (e) { console.warn('[Orfeo GM] prepareStart failed:', e) }
+}
+;(window as any).__orfeoPrepareStart = () => { if (useStore.getState().audioEngine === 'gm') void prepareStart() }
+
 function buildPlayer(startSec: number) {
   if (!_jzzReady || !_port) return
   try {
@@ -235,7 +255,7 @@ function buildPlayer(startSec: number) {
     // is gated on NES.dirty, not just NES.editMidi being non-null. Computed
     // inside the try so a re-encode failure logs instead of silently
     // aborting the whole rebuild (previously computed before the try block).
-    const raw = (NES.dirty && NES.editMidi) ? editableCopyToBuffer(NES.editMidi) : (useStore.getState().midi as any)?._raw
+    const raw = currentRaw()
     if (!raw) { console.warn('[Orfeo GM] buildPlayer: no raw bytes available, dirty=', NES.dirty, 'editMidi=', !!NES.editMidi); return }
     destroyPlayer(); clearAllKeys(); clearLightSchedule()
     const { tracks, bpm, originalBpm, detectedKey, hitEffectScope, showHandLabels, handLabelMode, noteEditorActive } = useStore.getState()
@@ -258,8 +278,9 @@ function buildPlayer(startSec: number) {
     // earlier "now" than the audio clock's actual anchor, coupling visual
     // sync to however long SMF construction + the note loop took. Doing audio
     // setup first minimizes that gap instead of leaving it to chance.
-    const smfFile = new _JZZ.MIDI.SMF(new Uint8Array(raw))
-    const player = smfFile.player()
+    const ready = _prepared && _prepared.raw === raw ? _prepared.player : null
+    _prepared = null
+    const player = ready ?? new _JZZ.MIDI.SMF(new Uint8Array(raw)).player()
     player.connect(_port)
     player.filter(function(this: any, msg: any) {
       const status = msg[0] & 0xF0
@@ -279,6 +300,8 @@ function buildPlayer(startSec: number) {
     }
     player.speed(ratio)
     player.play()
+    // when playback really started (the count-in learns this delay)
+    ;(window as any).__orfeoEngineStartedAt = performance.now()
     // Seeking while "playing" (jumpMS below) makes the SMF player run its own
     // sndOff(), which sends MIDI "Reset All Controllers" on every channel —
     // the software synth recomputes each channel's gain from its own internal

@@ -772,3 +772,8 @@ textarea:focus-visible,
 @keyframes orfeo-warn-pulse { 0%, 100% { opacity: 1; transform: scale(1) } 50% { opacity: 0.35; transform: scale(0.75) } }
 .orfeo-warn-pulse { animation: orfeo-warn-pulse 1.6s ease-in-out infinite }
 @media (prefers-reduced-motion: reduce) { .orfeo-warn-pulse { animation: none } }
+
+/* Count-in — each beat number pops in (see CountInOverlay) */
+@keyframes orfeo-countin-pop { from { transform: scale(1.25); opacity: 0.2 } to { transform: scale(1); opacity: 0.85 } }
+.orfeo-countin-pop { animation: orfeo-countin-pop 0.15s ease-out }
+@media (prefers-reduced-motion: reduce) { .orfeo-countin-pop { animation: none } }

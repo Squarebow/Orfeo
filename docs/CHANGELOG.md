@@ -1,5 +1,13 @@
 # Changelog
 
+## [1.3] — 3. 10. 2026 — Count-in
+
+### New
+- **Count-in.** Hear 1–4 bars of clicks before the music starts — right-click the metronome (or Settings → Playback & Editing) to turn it on and pick the number of bars; a small number on the metronome shows it's on. It counts at the song's real tempo and time signature (your speed setting and any kept Tap Tempo included), skips empty bars at the start so it leads straight into the first note, lets an upbeat come in where it belongs, and counts mid-song restarts into the start of the bar. A big 1-2-3-4 counts along over the piano roll; Space, Esc or Play cancels. The sound engine gets ready during the clicks, so the music comes in right on the beat even on the first Play after opening a song — on both sound engines.
+
+### Fixed
+- **When playback started exactly on a beat, the metronome skipped that first click.** It now clicks the first beat too.
+
 ## [1.2.1] — 3. 10. 2026 — Tempo warnings
 
 ### New
