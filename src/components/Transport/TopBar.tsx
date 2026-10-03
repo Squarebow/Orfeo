@@ -610,7 +610,7 @@ export default function TopBar() {
         <Tooltip
           title={metronomeEnabled ? 'Metronome on' : 'Metronome off'}
           description={countInEnabled
-            ? t`Clicks along with the beat while a file plays — click to toggle. Count-in: ${countInBars} bar(s) before Play. Right-click for volume and count-in.`
+            ? t`Click to toggle metronome ON/OFF. Right-click for volume and count-in.`
             : t`Clicks along with the beat while a file plays — click to toggle, right-click for volume and count-in.`}
           placement="bottom"
           disabled={!!metroMenu}
@@ -652,14 +652,14 @@ export default function TopBar() {
         {/* MIDI */}
         <Tooltip
           title={midiDeviceConnected ? `MIDI: ${midiDeviceName}` : 'No MIDI keyboard connected'}
-          description={midiDeviceConnected ? 'MIDI keyboard is connected and ready to play.' : 'Connect an external MIDI keyboard via USB to play along live.'}
+          description={midiDeviceConnected ? 'MIDI keyboard is connected and ready to play.' : 'Connect an external MIDI keyboard via USB.'}
           placement="bottom"
           wrapperStyle={{ flexShrink: 0 }}
         >
           <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start', padding: '0 14px', color: midiDeviceConnected ? 'var(--topbar-midi-on)' : 'var(--topbar-midi-off)' }}>
             <MidiIcon size={24} color={midiDeviceConnected ? 'var(--topbar-midi-on)' : 'var(--topbar-midi-off)'} />
             <span style={{ fontSize: 9, fontFamily: 'var(--font-mono)', letterSpacing: midiDeviceConnected ? '0.08em' : '0.05em', color: midiDeviceConnected ? 'var(--topbar-midi-on)' : 'var(--topbar-midi-off)', lineHeight: 1, marginTop: 6, whiteSpace: 'nowrap' }}>
-              {midiDeviceConnected ? (midiDeviceName?.split(' ')[0] ?? 'MIDI') : 'CONNECT A KEYBOARD'}
+              {midiDeviceConnected ? (midiDeviceName?.split(' ')[0] ?? 'MIDI') : 'NO KEYBOARD'}
             </span>
           </div>
         </Tooltip>

@@ -147,8 +147,8 @@ export function TapTempoPad() {
           disabled={!!menu}
           title={t`Tap Tempo`}
           description={(savedText ? savedText + ' ' : '') + (mode === 'bar'
-            ? t`Fix this song's bar lines and metronome: click, then tap Space or any MIDI key once per bar, on the 1. Click again when done.`
-            : t`Fix this song's bar lines and metronome: click, then tap Space or any MIDI key on every beat. Click again when done.`)}
+            ? t`Fix this song's tempo: click, then tap SPACE on the 1. Click again when done to keep or discard.`
+            : t`Fix this song's tempo: click, then tap SPACE on every beat. Click again when done to keep or discard.`)}
           placement="bottom"
         >
           {pad}
