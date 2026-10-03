@@ -197,6 +197,15 @@ interface OrfeoStore {
   setTapTempoMode: (v: 'beat' | 'bar') => void
   metronomeVolume: number
   setMetronomeVolume: (v: number) => void
+  // ── Count-in (metronome right-click / Settings) — N bars of clicks before
+  // every user-started Play; see utils/countInRunner.ts. countIn is the
+  // session-only state of a count-in in progress (for the on-screen count).
+  countInEnabled: boolean
+  setCountInEnabled: (v: boolean) => void
+  countInBars: number
+  setCountInBars: (n: number) => void
+  countIn: { startPerf: number; clicks: { rel: number; n: number }[]; total: number } | null
+  setCountIn: (c: { startPerf: number; clicks: { rel: number; n: number }[]; total: number } | null) => void
   tapSession: TapSession | null
   setTapSession: (s: TapSession | null) => void
   // ── Tempo warnings (Settings, off by default) — songs whose bar lines miss
@@ -502,7 +511,7 @@ export const useStore = create<OrfeoStore>((set, get) => ({
     // metronome a preview may have forced on ─────────────────────────────
     const prevSession = get().tapSession
     const sessionReset = prevSession ? { tapSession: null, metronomeEnabled: prevSession.prevMetronome } : {}
-    if (!midi) { set({ midi: null, tracks: [], mixerBaseline: {}, currentTime: 0, playbackState: 'stopped', trackPanelOpen: false, barStarts: [], chordSequence: [], chordPrompterOpen: false, loopStart: null, loopEnd: null, loopRegionActive: false, songKey: null, currentTrust: null, ...sessionReset }); return }
+    if (!midi) { set({ midi: null, tracks: [], mixerBaseline: {}, currentTime: 0, playbackState: 'stopped', trackPanelOpen: false, barStarts: [], chordSequence: [], chordPrompterOpen: false, loopStart: null, loopEnd: null, loopRegionActive: false, songKey: null, currentTrust: null, countIn: null, ...sessionReset }); return }
     // ── …and applies this song's stored beat-grid correction, if any ───────
     const raw = (midi as any)._raw as ArrayBuffer | undefined
     const key = raw ? computeSongKey(raw) : null
@@ -530,6 +539,7 @@ export const useStore = create<OrfeoStore>((set, get) => ({
       midi,
       songKey: key,
       currentTrust: null,
+      countIn: null,
       tracks: newTracks,
       mixerBaseline,
       currentTime: 0,
@@ -770,6 +780,12 @@ export const useStore = create<OrfeoStore>((set, get) => ({
   setTapTempoMode: (tapTempoMode) => set({ tapTempoMode }),
   metronomeVolume: 1,
   setMetronomeVolume: (v) => set({ metronomeVolume: Math.min(1.5, Math.max(0, v)) }),
+  countInEnabled: false,
+  setCountInEnabled: (countInEnabled) => set({ countInEnabled }),
+  countInBars: 1,
+  setCountInBars: (n) => set({ countInBars: Math.max(1, Math.min(4, Math.round(n))) }),
+  countIn: null,
+  setCountIn: (countIn) => set({ countIn }),
   tapSession: null,
   setTapSession: (tapSession) => set({ tapSession }),
   tempoWarningsEnabled: false,
@@ -1099,6 +1115,8 @@ async function restoreLibraryPrefs() {
     if (typeof prefs.tapTempoPadEnabled === 'boolean') store.setTapTempoPadEnabled(prefs.tapTempoPadEnabled)
     if (prefs.tapTempoMode === 'beat' || prefs.tapTempoMode === 'bar') store.setTapTempoMode(prefs.tapTempoMode)
     if (typeof prefs.metronomeVolume === 'number') store.setMetronomeVolume(prefs.metronomeVolume)
+    if (typeof prefs.countInEnabled === 'boolean') store.setCountInEnabled(prefs.countInEnabled)
+    if (typeof prefs.countInBars === 'number') store.setCountInBars(prefs.countInBars)
     if (prefs.tempoCorrections) store.setTempoCorrections(sanitizeCorrections(prefs.tempoCorrections))
     if (typeof prefs.tempoWarningsEnabled === 'boolean') store.setTempoWarningsEnabled(prefs.tempoWarningsEnabled)
     {
@@ -1198,6 +1216,8 @@ let _prevTapTempoMode: string | null = null
 let _prevTempoWarningsEnabled: boolean | null = null
 let _prevTempoWarningDismissed: object | null = null
 let _prevMetronomeVolume: number | null = null
+let _prevCountInEnabled: boolean | null = null
+let _prevCountInBars: number | null = null
 let _prevTempoCorrections: object | null = null
 let _prevNoteEditorToolbarX:   number  | null = null
 let _prevNoteEditorToolbarY:   number  | null = null
@@ -1257,6 +1277,8 @@ const _unsubPrefs = useStore.subscribe((state) => {
     _prevTempoWarningsEnabled = state.tempoWarningsEnabled
     _prevTempoWarningDismissed = state.tempoWarningDismissed
     _prevMetronomeVolume = state.metronomeVolume
+    _prevCountInEnabled = state.countInEnabled
+    _prevCountInBars = state.countInBars
     _prevTempoCorrections = state.tempoCorrections
     _prevNoteEditorToolbarX = state.noteEditorToolbarX
     _prevNoteEditorToolbarY = state.noteEditorToolbarY
@@ -1319,6 +1341,8 @@ const _unsubPrefs = useStore.subscribe((state) => {
     state.tempoWarningsEnabled !== _prevTempoWarningsEnabled ||
     state.tempoWarningDismissed !== _prevTempoWarningDismissed ||
     state.metronomeVolume !== _prevMetronomeVolume ||
+    state.countInEnabled !== _prevCountInEnabled ||
+    state.countInBars !== _prevCountInBars ||
     state.tempoCorrections !== _prevTempoCorrections ||
     state.noteEditorToolbarX !== _prevNoteEditorToolbarX ||
     state.noteEditorToolbarY !== _prevNoteEditorToolbarY ||
@@ -1373,6 +1397,8 @@ const _unsubPrefs = useStore.subscribe((state) => {
     _prevTempoWarningsEnabled = state.tempoWarningsEnabled
     _prevTempoWarningDismissed = state.tempoWarningDismissed
     _prevMetronomeVolume = state.metronomeVolume
+    _prevCountInEnabled = state.countInEnabled
+    _prevCountInBars = state.countInBars
     _prevTempoCorrections = state.tempoCorrections
     _prevNoteEditorToolbarX = state.noteEditorToolbarX
     _prevNoteEditorToolbarY = state.noteEditorToolbarY
@@ -1433,6 +1459,8 @@ const _unsubPrefs = useStore.subscribe((state) => {
       tempoWarningsEnabled: state.tempoWarningsEnabled,
       tempoWarningDismissed: state.tempoWarningDismissed,
       metronomeVolume: state.metronomeVolume,
+      countInEnabled: state.countInEnabled,
+      countInBars: state.countInBars,
       tempoCorrections: state.tempoCorrections,
       noteEditorToolbarX: state.noteEditorToolbarX,
       noteEditorToolbarY: state.noteEditorToolbarY,

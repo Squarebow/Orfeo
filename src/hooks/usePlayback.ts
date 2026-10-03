@@ -1,5 +1,6 @@
 import { useEffect, useRef, useCallback } from 'react'
 import { useStore } from '../store'
+import { startCountIn } from '../utils/countInRunner'
 
 export function usePlayback() {
   const rafRef = useRef<number | null>(null)
@@ -100,6 +101,9 @@ export function usePlayback() {
   }, [stopRaf])
 
   const play = useCallback(async () => {
+    // user-started play: count in first when that's switched on (the runner
+    // starts playback itself, exactly one beat after its last click)
+    if (startCountIn()) return
     useStore.setState({ playbackState: 'playing' })
     startRaf()
   }, [startRaf])

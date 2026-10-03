@@ -19,6 +19,7 @@ import { TapTempoPad } from './TapTempoPad'
 import { TempoWarning } from './TempoWarning'
 import { useCurrentTempoTrust } from '../../hooks/useTempoTrustScan'
 import { stepDisplayedBpm } from '../../utils/bpmStep'
+import { isCountingIn, cancelCountIn } from '../../utils/countInRunner'
 import { ContextMenu, ContextMenuItem, useMenuDismiss } from '../ContextMenu'
 import { t } from '../../utils/i18n'
 import { confirmDiscardDirtyNoteEdits } from '../../utils/noteEditorState'
@@ -98,6 +99,7 @@ export default function TopBar() {
   const wasPlayingRef = useRef(false)
 
   const handlePlayPause = useCallback(() => {
+    if (isCountingIn()) { cancelCountIn(); return }
     if (playbackState === 'playing') pause(); else play()
   }, [playbackState, play, pause])
 

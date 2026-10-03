@@ -41,6 +41,8 @@ import { runChordSequenceBuilderTest } from './utils/chordSequenceBuilderTest'
 import { NES, confirmDiscardDirtyNoteEdits } from './utils/noteEditorState'
 import { confirmDiscardDirtyTempoKey, saveTempoKeyChanges } from './utils/tempoKeySave'
 import { isTapCapturing, registerTap, cancelTap } from './utils/tapTempoSession'
+import { isCountingIn, cancelCountIn } from './utils/countInRunner'
+import { useCountIn } from './hooks/useCountIn'
 
 export default function App() {
   const midi = useStore((s) => s.midi)
@@ -53,6 +55,7 @@ export default function App() {
   useAudioEngine()
   useMidiInput()
   useMetronome()
+  useCountIn()
   useChordSequence()
 
   // ── Mixer Console — Ctrl+Shift+M toggles open; also wired to the Console drawer icon ──
@@ -371,11 +374,14 @@ export default function App() {
           e.preventDefault()
           // During a Tap Tempo session Space is a tap, not play/pause
           if (isTapCapturing()) { if (!e.repeat) registerTap(); break }
+          // Space during a count-in stops it (nothing plays)
+          if (isCountingIn()) { cancelCountIn(); break }
           if (useStore.getState().chordExplorerOpen || useStore.getState().scaleExplorerOpen) break
           if (playbackState === 'playing') pause()
           else play()
           break
         case 'Escape':
+          if (isCountingIn()) { cancelCountIn(); break }
           if (useStore.getState().tapSession) { cancelTap(); break }
           if (useStore.getState().presentationMode) { useStore.getState().setPresentationMode(false); break }
           // Chord Explorer, Scale Explorer, and the Locked Chord modal all have

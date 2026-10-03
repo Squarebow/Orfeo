@@ -9,6 +9,7 @@ import { confirmDialog } from '../../utils/confirmController'
 import { useTapTempo } from '../../hooks/useTapTempo'
 import { describeCorrection } from '../../utils/tempoCorrection'
 import { TempoWarning } from './TempoWarning'
+import { startCountIn } from '../../utils/countInRunner'
 import {
   armTapSession, finishFromPad, shiftPreviewDownbeat, nudgePreview,
   keepTap, tapAgain, cancelTap, resetSongTempo, removeTappedTempo, fmtSongTime,
@@ -190,7 +191,7 @@ export function TapTempoPad() {
               </span>
 
               <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
-                <button onMouseDown={keepFocus} style={{ ...btn, minWidth: 92 }} onClick={() => useStore.setState({ playbackState: playing ? 'paused' : 'playing' })}>
+                <button onMouseDown={keepFocus} style={{ ...btn, minWidth: 92 }} onClick={() => { if (playing) useStore.setState({ playbackState: 'paused' }); else if (!startCountIn()) useStore.setState({ playbackState: 'playing' }) }}>
                   {playing ? t`❚❚ Pause` : t`▶ Listen`}
                 </button>
                 <button onMouseDown={keepFocus} style={{ ...btn, color: ses.listenMetronome !== false ? 'var(--text-amber)' : 'var(--text-muted)' }} onClick={toggleListenMetronome}>
