@@ -637,7 +637,8 @@ export default function TopBar() {
             {/* count-in badge: how many bars Play will count in */}
             {countInEnabled && (
               <span aria-label={t`Count-in ${countInBars} bars`} style={{
-                position: 'absolute', top: -4, right: 6, minWidth: 12, height: 12, borderRadius: 6, padding: '0 3px',
+                // inside the button's box: the row clips anything above it
+                position: 'absolute', top: 0, right: 6, minWidth: 12, height: 12, borderRadius: 6, padding: '0 3px',
                 background: 'var(--text-amber)', color: 'var(--bg-tooltip)', fontSize: 8, fontWeight: 700,
                 fontFamily: 'var(--font-mono)', lineHeight: '12px', textAlign: 'center',
               }}>{countInBars}</span>

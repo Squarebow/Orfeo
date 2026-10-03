@@ -2721,6 +2721,19 @@ export default function SettingsPanel() {
                       </div>
                     </OptionRow>
                   )}
+                  {/* ── Tempo warnings — eye-toggle (off by default) ───────────── */}
+                  <OptionRow
+                    label={t`Tempo warnings`}
+                    eyeToggle
+                    eyeValue={tempoWarningsEnabled}
+                    onEyeChange={setTempoWarningsEnabled}
+                    description={t`Marks songs whose bar lines and metronome don't match the music's steady beat — the ones Tap Tempo can fix. Shown next to Key in the top bar and in the Library.`}
+                  />
+                  {tempoWarningsEnabled && dismissedCount > 0 && (
+                    <OptionRow label={t`Dismissed tempo warnings`} labelSmall>
+                      <OptionBtn active={false} onClick={clearTempoWarningDismissals}>{dismissedCount === 1 ? t`Show the warning for 1 dismissed song again` : t`Show warnings for ${dismissedCount} dismissed songs again`}</OptionBtn>
+                    </OptionRow>
+                  )}
                   {/* ── Count-in — eye-toggle (off by default) + bars; also in the
                       metronome's right-click menu ─────────────────────────── */}
                   <OptionRow
@@ -2735,19 +2748,6 @@ export default function SettingsPanel() {
                       <div style={{ display: 'flex', gap: 'var(--space-1)' }}>
                         {[1, 2, 3, 4].map(n => <OptionBtn key={n} active={countInBars === n} onClick={() => setCountInBars(n)}>{String(n)}</OptionBtn>)}
                       </div>
-                    </OptionRow>
-                  )}
-                  {/* ── Tempo warnings — eye-toggle (off by default) ───────────── */}
-                  <OptionRow
-                    label={t`Tempo warnings`}
-                    eyeToggle
-                    eyeValue={tempoWarningsEnabled}
-                    onEyeChange={setTempoWarningsEnabled}
-                    description={t`Marks songs whose bar lines and metronome don't match the music's steady beat — the ones Tap Tempo can fix. Shown next to Key in the top bar and in the Library.`}
-                  />
-                  {tempoWarningsEnabled && dismissedCount > 0 && (
-                    <OptionRow label={t`Dismissed tempo warnings`} labelSmall>
-                      <OptionBtn active={false} onClick={clearTempoWarningDismissals}>{dismissedCount === 1 ? t`Show the warning for 1 dismissed song again` : t`Show warnings for ${dismissedCount} dismissed songs again`}</OptionBtn>
                     </OptionRow>
                   )}
                   {/* ── Left/Right Hand BETA — eye-toggle; sub-controls unchanged ─── */}
