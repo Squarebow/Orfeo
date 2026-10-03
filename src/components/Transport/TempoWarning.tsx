@@ -16,7 +16,8 @@ import type { TrustResult } from '../../utils/tempoTrust'
 
 export function warningText(r: TrustResult, tapped = false): string {
   const where = r.throughout ? t`through most of the song` : t`from ${fmtSongTime(r.from ?? 0)} onward`
-  if (r.shifted) return t`The beat's speed looks right, but the bar lines and metronome clicks sit off the played notes ${where}.`
+  // the notes can't tell "right speed, shifted" from "double/half speed" — say so
+  if (r.shifted) return t`The bar lines and metronome clicks sit off the played notes ${where}. The tempo may be right, or counted at double or half speed — tap along to check.`
   const base = t`The bar lines and metronome drift off the music's beat ${where}.`
   if (!r.hintBpm) return base + ' ' + t`Check by ear.`
   return base + ' ' + (tapped

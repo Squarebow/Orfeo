@@ -6,13 +6,18 @@
 // tempo info" (fixable with Tap Tempo) from music with no steady beat at
 // all (rubato, free time, sparse), which is never flagged. Pure. ─────────
 
-export const TRUST_VERSION = 1
+export const TRUST_VERSION = 2
 
 const WINDOW = 20          // s
 const MIN_BEATS = 8        // grid beats needed to judge a window
 const MIN_ONSETS = 12      // strong notes needed to judge a window
 const STRONG = 0.3         // onset weight that counts as a strong note
 const HIT = 0.03           // s — a beat is "played" when a strong note is this close
+const FEEL = 0.06          // s — the FILE's grid may sit up to this far off the notes AS A
+                           // WHOLE: a band consistently a little ahead of / behind the beat
+                           // is feel, not a wrong grid (a constant shift can't rescue a
+                           // grid at the wrong tempo, unlike a wider hit window)
+const FEEL_STEP = 0.005
 const G_OFF = 0.4          // file grid misses...
 const G_OK = 0.6           // ...or fits
 const B_STEADY = 0.7       // some steady beat fits this well
@@ -42,16 +47,27 @@ function lowerBound(a: number[], x: number): number {
   return lo
 }
 
-function hasNear(on: number[], t: number): boolean {
-  const i = lowerBound(on, t - HIT)
-  return i < on.length && on[i] <= t + HIT
+function hasNear(on: number[], t: number, tol = HIT): boolean {
+  const i = lowerBound(on, t - tol)
+  return i < on.length && on[i] <= t + tol
 }
 
-function shareOf(on: number[], beats: number[]): number {
+function shareOf(on: number[], beats: number[], tol = HIT): number {
   if (!beats.length) return 0
   let h = 0
-  for (const b of beats) if (hasNear(on, b)) h++
+  for (const b of beats) if (hasNear(on, b, tol)) h++
   return h / beats.length
+}
+
+// Best share of the file's beats hit when the whole grid slides by up to ±FEEL
+function feelShare(on: number[], beats: number[]): number {
+  let best = 0
+  for (let d = -FEEL; d <= FEEL + 1e-9; d += FEEL_STEP) {
+    let h = 0
+    for (const b of beats) if (hasNear(on, b + d)) h++
+    if (h > best) best = h
+  }
+  return beats.length ? best / beats.length : 0
 }
 
 function regularShare(on: number[], from: number, to: number, period: number, phase: number): number {
@@ -127,7 +143,7 @@ export function judgeWindows(beats: number[], onsets: { t: number; w: number }[]
     const wb = beats.slice(lowerBound(beats, w0), lowerBound(beats, w1))
     const wo = strongAll.slice(lowerBound(strongT, w0), lowerBound(strongT, w1))
     if (wb.length < MIN_BEATS || wo.length < MIN_ONSETS) continue
-    const g = shareOf(strongT, wb)
+    const g = feelShare(strongT, wb)
     if (g >= G_OK) { out.push({ from: w0, verdict: 'ok', grid: g, steady: 0, steadyBpm: null }); continue }
     const b = g <= G_OFF ? bestSteady(strongT, wo, w0, w1) : { share: 0, period: 0 }
     const isOff = g <= G_OFF && b.share >= B_STEADY && b.share - g >= GAP
@@ -145,15 +161,24 @@ export function hintFromWindows(offW: TrustWindow[], fileBpm: number): { hintBpm
   // fileBpm: the file's tempo where the song starts going off
   const bpms = offW.map(w => w.steadyBpm).filter((b): b is number => !!b)
   if (!bpms.length) return { hintBpm: null, shifted: false }
-  let best: number[] = []
+  const same = (x: number, y: number) => Math.abs(x / y - 1) <= HINT_AGREE
+  const kin = (x: number, y: number) => [1, 2, 0.5].some(r => same(x, y * r))
+  // the largest family of speeds related by ×1/×2/×½ …
+  let family: number[] = []
   for (const c of bpms) {
-    const group = bpms.filter(b => Math.abs(b / c - 1) <= HINT_AGREE)
-    if (group.length > best.length) best = group
+    const f = bpms.filter(b => kin(b, c))
+    if (f.length > family.length) family = f
   }
-  if (best.length < bpms.length * HINT_MAJORITY) return { hintBpm: null, shifted: false }
+  if (family.length < bpms.length * HINT_MAJORITY) return { hintBpm: null, shifted: false }
+  // … and within it, the speed most stretches actually agree on
+  let best: number[] = []
+  for (const c of family) {
+    const g = family.filter(b => same(b, c))
+    if (g.length > best.length) best = g
+  }
   const sorted = [...best].sort((x, y) => x - y)
   const speed = sorted[Math.floor(sorted.length / 2)]
-  if (fileBpm > 0 && [1, 2, 0.5].some(r => Math.abs(speed / (fileBpm * r) - 1) <= HINT_AGREE)) return { hintBpm: null, shifted: true }
+  if (fileBpm > 0 && kin(speed, fileBpm)) return { hintBpm: null, shifted: true }
   return { hintBpm: Math.round(speed), shifted: false }
 }
 

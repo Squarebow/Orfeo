@@ -404,8 +404,9 @@ can fix.
   - *"The bar lines and metronome drift off the music's beat through most of
     the song. The beat sounds closer to about 91 than the file's 60 — check by
     ear."* — the file's tempo is wrong.
-  - *"The beat's speed looks right, but the bar lines and metronome clicks sit
-    off the played notes."* — the speed is right but the beat is shifted.
+  - *"The bar lines and metronome clicks sit off the played notes … the tempo
+    may be right, or counted at double or half speed — tap along to check."*
+    — Tap Tempo tells you which.
 
   Choose **Fix with Tap Tempo** to start tapping from the playhead, or **It's
   fine, don't warn me for this song** if it sounds right to you.

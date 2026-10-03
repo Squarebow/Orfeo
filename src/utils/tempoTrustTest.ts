@@ -75,6 +75,17 @@ export function runTempoTrustTest(): number {
   const r11 = judgeTempo(grid(1.0, 120), mixed, 120, (t: number) => (t < 30 ? 120 : 60))
   check(r11.flagged && r11.fileBpm === 60 && near(r11.hintBpm, 92, 1), `tempo at the off point, got ${JSON.stringify(r11)}`)
 
+  // 12. a band playing a little ahead of (or behind) the beat — feel, not a
+  // wrong grid (Riders on the Storm sits ~30–50 ms ahead) -> not flagged
+  const ahead = band(0.6, 0, 120).map(o => ({ ...o, t: o.t - 0.045 })).filter(o => o.t >= 0)
+  check(!judgeTempo(grid(0.6, 120), ahead, 120, 100).flagged, 'playing 45 ms ahead is not flagged')
+  const behind = band(0.6, 0, 120).map(o => ({ ...o, t: o.t + 0.04 }))
+  check(!judgeTempo(grid(0.6, 120), behind, 120, 100).flagged, 'playing 40 ms behind is not flagged')
+
+  // 13. stretches split between a beat and its half/double: one family; the
+  // hint is the family's most common speed
+  check(hintFromWindows(fakeWins([91, 45.6, 182, 91.2, 45.5, 90.9]), 60).hintBpm === 91, 'octave family -> most common member')
+
   console.log(`tempoTrust: ${pass} passed, ${fail} failed`)
   console.groupEnd()
   return fail
