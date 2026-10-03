@@ -316,6 +316,17 @@ from a lean parse (`src/utils/tempoTrustAnalyze.ts`) sharing the parser's grid
 builder (`src/utils/beatGridBuild.ts`); results are cached by song key with a
 path → size/mtime index so unchanged files are never re-read.
 
+**Count-in** (`src/utils/countIn.ts`, `src/utils/countInRunner.ts`,
+`src/hooks/useCountIn.ts`) plans N bars of clicks on the effective beat grid
+extended backwards (empty lead-in skipped, pickups respected, mid-song starts
+counted into the bar), schedules them on the metronome's shared AudioContext,
+and has the sound engine prepare itself during the clicks (the GM engine
+pre-builds its JZZ player via `__orfeoPrepareStart`). Playback is started
+early by the engine's learned start-up time so the first note lands one beat
+after the last click; the metronome is handed the same audio-clock anchor
+(`setMetronomeAnchor`) so song clicks continue seamlessly. Only user-started
+plays count in (`usePlayback.play`), never scrub blips or loop wraps.
+
 ---
 
 ## Hand-assignment engine

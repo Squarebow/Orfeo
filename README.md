@@ -44,7 +44,9 @@ telemetry; MIDI files are processed entirely on your device.
 - **Change key** — transpose the whole piece by semitones
 - **Loop region** — draw a loop directly on the waterfall and drill any section
 - **Metronome** — follows the file's embedded tempo map through mid-song changes;
-  right-click for volume
+  right-click for volume and count-in
+- **Count-in** — 1–4 bars of clicks before the music starts, at the song's real
+  tempo, leading straight into the first note
 - **Tap Tempo** — fix songs whose bar lines and metronome don't match the music:
   tap along on Space or a MIDI key, and Orfeo lines your beat up with the song's
   own drums and bass, remembers it for that song, and never touches the file
