@@ -63,8 +63,8 @@ export function TempoWarning({ anchor }: { anchor: 'pad' | 'key' }) {
           Key/Transpose box's corner when the pad is off */}
       <Tooltip title={t`Tempo looks off`} description={t`The bar lines don't match the music's beat. Click for details.`} placement="bottom" disabled={!!panel}
         wrapperStyle={anchor === 'pad'
-          // the top-bar row clips ~6 px below the circle — a 7 px dot fits there
-          ? { position: 'absolute', top: 'calc(100% - 1px)', left: '50%', transform: 'translateX(-50%)', zIndex: 1 }
+          // 7 px below the circle (the top-bar row has room for it, see TopBar)
+          ? { position: 'absolute', top: 'calc(100% + 7px)', left: '50%', transform: 'translateX(-50%)', zIndex: 1 }
           : { position: 'absolute', top: -4, right: 0, zIndex: 1 }}>
         <button
           className="app-no-drag"
