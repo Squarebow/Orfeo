@@ -48,6 +48,8 @@ telemetry; MIDI files are processed entirely on your device.
 - **Tap Tempo** — fix songs whose bar lines and metronome don't match the music:
   tap along on Space or a MIDI key, and Orfeo lines your beat up with the song's
   own drums and bass, remembers it for that song, and never touches the file
+- **Tempo warnings** — optional marks in the Library and the top bar for songs
+  whose bar lines and metronome don't match the music's beat
 - **Tracks panel & Console Mixer** — mute, solo, recolour, show/hide tracks;
   per-channel volume, pan, chorus, reverb with live VU meters (saved into the
   file on close); master Tone and Compressor
