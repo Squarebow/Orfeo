@@ -97,6 +97,11 @@ decade is fine — just make sure your graphics drivers are up to date, as
 outdated drivers can cause visual stutter. Less than 500MB of storage space
 is needed.
 
+**No internet connection is needed** to play, practise or edit — both sound
+engines work offline. Orfeo only goes online to download the optional extra
+sound sets (when you ask for them) and, in the installed version, to check
+for updates when it starts.
+
 ---
 
 ## Quick start
@@ -508,12 +513,14 @@ engine is active, and remembers its position between sessions.
 <thead><tr><th>Engine</th><th>Sound</th><th>Setup</th></tr></thead>
 <tbody>
 <tr><td><strong>General MIDI</strong></td><td>Light, synthetic</td><td>Instant, nothing to download</td></tr>
-<tr><td><strong>Samples</strong></td><td>Natural piano, strings, organ, everything</td><td>A real SoundFont engine (<a href="https://github.com/spessasus/spessasynth_lib">SpessaSynth</a>) — <a href="https://www.schristiancollins.com/generaluser.php">GeneralUser GS</a> by default, ~31 MB, downloaded once and cached forever</td></tr>
+<tr><td><strong>Samples</strong></td><td>Natural piano, strings, organ, everything</td><td>A real SoundFont engine (<a href="https://github.com/spessasus/spessasynth_lib">SpessaSynth</a>) — <a href="https://www.schristiancollins.com/generaluser.php">GeneralUser GS</a> by default (~31 MB), included in the installer, works offline</td></tr>
 </tbody>
 </table>
 
-Switch in **Settings → Audio**. Extra soundfont libraries (FluidR3 GM, MuseScore
-General) download on demand, and you can import your own `.sf2` / `.sf3`.
+Switch in **Settings → Audio**. Extra soundfont libraries — FluidR3 GM (~142 MB)
+and MuseScore General (~38 MB) — are not included in the installer: each is
+downloaded once, only when you press its download button, and kept in Orfeo's
+own data folder. You can also import your own `.sf2` / `.sf3` files.
 
 > 💡 **Tip**
 >

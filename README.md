@@ -178,9 +178,19 @@ no account.
 <details>
 <summary><b>Does it need an account or an internet connection?</b></summary>
 
-No. No login, no telemetry. MIDI files are processed entirely on your device.
-The one exception is the optional Samples audio engine's one-time ~31 MB
-soundfont download.
+No account, no login, no telemetry — and no internet connection is needed to
+play, practise or edit. MIDI files are processed entirely on your device, and
+both sound engines work offline: the Samples engine's default sound set
+(GeneralUser GS) ships inside the installer.
+
+Orfeo only goes online when you ask it to, or to check for updates:
+
+- **Extra sound sets** (FluidR3 GM, MuseScore General) are downloaded only
+  when you press their download button in Settings → Audio.
+- **Updates:** the installed version checks GitHub for a new release when it
+  starts; the portable version only shows a link. Offline, this simply
+  doesn't happen.
+- **Links** (How to Use, GitHub) open in your web browser.
 
 </details>
 
