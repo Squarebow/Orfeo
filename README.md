@@ -185,8 +185,10 @@ both sound engines work offline: the Samples engine's default sound set
 
 Orfeo only goes online when you ask it to, or to check for updates:
 
-- **Extra sound sets** (FluidR3 GM, MuseScore General) are downloaded only
-  when you press their download button in Settings → Audio.
+- **Extra sound sets** (FluidR3 GM ~142 MB, MuseScore General ~38 MB) are not
+  in the installer; each is downloaded once, only when you press its download
+  button in Settings → Audio, and kept in `%APPDATA%\Orfeo\soundfonts\`
+  (your own imported `.sf2` / `.sf3` files go there too).
 - **Updates:** the installed version checks GitHub for a new release when it
   starts; the portable version only shows a link. Offline, this simply
   doesn't happen.

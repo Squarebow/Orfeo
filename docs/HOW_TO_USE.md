@@ -517,10 +517,23 @@ engine is active, and remembers its position between sessions.
 </tbody>
 </table>
 
-Switch in **Settings → Audio**. Extra soundfont libraries — FluidR3 GM (~142 MB)
-and MuseScore General (~38 MB) — are not included in the installer: each is
-downloaded once, only when you press its download button, and kept in Orfeo's
-own data folder. You can also import your own `.sf2` / `.sf3` files.
+Switch in **Settings → Audio**.
+
+Where the sounds come from:
+
+- **General MIDI** uses no sound files at all — it's built in.
+- **GeneralUser GS** (~31 MB, `.sf2`), the Samples engine's default sound set,
+  is **included in the installer** — Samples works straight after installing,
+  with no internet.
+- **FluidR3 GM** (~142 MB, `.sf2`) and **MuseScore General** (~38 MB, `.sf3`)
+  are **not** included, to keep the installer small. Each is downloaded once,
+  from its own public download site, only when you press its download button
+  in Settings → Audio.
+- **Your own sound sets:** import any `.sf2` / `.sf3` file and it appears in
+  the same list.
+
+Downloaded and imported sound sets are kept in Orfeo's own data folder,
+`%APPDATA%\Orfeo\soundfonts\`, and stay there until you delete them.
 
 > 💡 **Tip**
 >
