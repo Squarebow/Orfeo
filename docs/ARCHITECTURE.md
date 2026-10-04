@@ -278,6 +278,42 @@ the library folder's `Orfeo/` subfolder — the original is never modified.
 
 ---
 
+## Settings — Setup and the Settings window
+
+Every setting is defined once and drawn in two places: **Setup** (the left
+panel's second tab, the everyday shortlist) and the **Settings window** (a
+portal modal with every setting). Both read and write the same store fields,
+so nothing is duplicated.
+
+```text
+src/components/Settings/
+  catalog.ts        Words only: the 8 groups (name, intro, manual URL), every
+                    setting's name, one-line summary (Setup) and description
+                    (window), search keywords, and QUICK_LAYOUT — which
+                    settings Setup shows, in what order
+  defs/*.tsx        Controls only, one file per group: each setting's control
+                    (switch / buttons), optional at-a-glance line (both places),
+                    follow-up options (window only), rich description
+  SettingCard.tsx   A window card       QuickRow.tsx       A Setup row
+  SettingsWindow.tsx  The window        QuickSettings.tsx  The Setup tab body
+  search.ts         searchSettings(), gridColumns() — pure, unit-tested
+  controls.tsx      Shared pieces (Switch, OptionBtn, steppers, UpdateButton…)
+```
+
+- **Adding a setting:** a catalog entry (same `id`) + a def in its group file
+  (+ an id in `QUICK_LAYOUT` if it belongs in Setup). `catalogTest.ts` checks
+  every catalog entry has a def and vice versa.
+- **Store:** `settingsWindowOpen` / `settingsWindowGroup` (session only),
+  `openSettingsWindow(group?)` (`Ctrl` `,`, Setup's arrows, Open settings) and
+  the saved `samplesIntroduced` flag (first Samples pick opens the window).
+- **Shared hooks** for state both places show: `useSoundfonts` (sound sets,
+  Samples loading), `useUpdateCheck`, `useAppZoom`. The update-status and
+  sound-set-progress IPC channels allow only one listener each, so their
+  services (`useUpdateService`, `useSoundfontService`) are mounted once, in
+  `App.tsx`.
+
+---
+
 ## Tap Tempo — beat-grid corrections
 
 Some files carry wrong tempo metadata while their notes are timed correctly.

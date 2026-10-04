@@ -45,6 +45,7 @@ combinations, modifiers, and gestures that are not obvious from the UI.
 | `Ctrl` `+` (also `Ctrl` `=` and numpad `+`) | Zoom the whole app in one step (80/90/100/110/125/150/175/200%) |
 | `Ctrl` `-` (also numpad `-`) | Zoom the whole app out one step |
 | `Ctrl` `0` (also numpad `0`) | Reset app zoom to 100% |
+| `Ctrl` `,` | Open / close the Settings window |
 
 ---
 

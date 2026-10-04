@@ -2,7 +2,7 @@ import { create } from 'zustand'
 import type {
   ParsedMidi, ParsedTrack, PlaybackState, TrackState,
   KeyboardSize, KeyboardMode, NoteNaming, Accidentals, ChordEvent, TranscriptEntry, LibraryFile, HitEffectPattern, SoundfontId,
-  ChordNamingStyle, ChordTrackingMode, ChordFollowSubMode, ChordReadingMode, TapSession,
+  ChordNamingStyle, ChordTrackingMode, ChordFollowSubMode, ChordReadingMode, TapSession, SettingsGroupId,
 } from '../types'
 import type { DetectedKey } from '../utils/keyDetection'
 import type { ForeignFormat } from '../utils/foreignFormatImport'
@@ -202,6 +202,16 @@ interface OrfeoStore {
   // session-only state of a count-in in progress (for the on-screen count).
   countInEnabled: boolean
   setCountInEnabled: (v: boolean) => void
+  // ── Settings window (session only) — which group it shows; opened from
+  // Quick Settings' gear icons / Open settings button / Ctrl + , ──────────
+  settingsWindowOpen: boolean
+  settingsWindowGroup: SettingsGroupId
+  openSettingsWindow: (group?: SettingsGroupId) => void
+  closeSettingsWindow: () => void
+  // ── Saved: has Samples ever been used? The first time it's chosen from
+  // Quick Settings, the Settings window opens on Audio to show the loading. ─
+  samplesIntroduced: boolean
+  setSamplesIntroduced: (v: boolean) => void
   countInBars: number
   setCountInBars: (n: number) => void
   countIn: { startPerf: number; clicks: { rel: number; n: number }[]; total: number } | null
@@ -782,6 +792,12 @@ export const useStore = create<OrfeoStore>((set, get) => ({
   setMetronomeVolume: (v) => set({ metronomeVolume: Math.min(1.5, Math.max(0, v)) }),
   countInEnabled: false,
   setCountInEnabled: (countInEnabled) => set({ countInEnabled }),
+  settingsWindowOpen: false,
+  settingsWindowGroup: 'audio',
+  openSettingsWindow: (group) => set((s) => ({ settingsWindowOpen: true, settingsWindowGroup: group ?? s.settingsWindowGroup })),
+  closeSettingsWindow: () => set({ settingsWindowOpen: false }),
+  samplesIntroduced: false,
+  setSamplesIntroduced: (samplesIntroduced) => set({ samplesIntroduced }),
   countInBars: 1,
   setCountInBars: (n) => set({ countInBars: Math.max(1, Math.min(4, Math.round(n))) }),
   countIn: null,
@@ -1066,6 +1082,16 @@ export const useStore = create<OrfeoStore>((set, get) => ({
   }),
 }))
 
+// ── Samples "first time" flag on restore — anyone already on Samples has
+// used it, so they never get the first-time Settings window. ─────────────
+export function applySamplesIntroducedPref(
+  prefs: { audioEngine?: unknown; samplesIntroduced?: unknown },
+  store: { setSamplesIntroduced: (v: boolean) => void },
+) {
+  if (typeof prefs.samplesIntroduced === 'boolean') store.setSamplesIntroduced(prefs.samplesIntroduced)
+  if (prefs.audioEngine === 'samples') store.setSamplesIntroduced(true)
+}
+
 // ── Restore persisted library on startup ──────────────────────────────────────
 async function restoreLibraryPrefs() {
   try {
@@ -1109,6 +1135,7 @@ async function restoreLibraryPrefs() {
     if (typeof prefs.masterCompPreset === 'number') store.setMasterCompPreset(prefs.masterCompPreset)
     if (typeof prefs.autoLevelOnLoad === 'boolean') store.setAutoLevelOnLoad(prefs.autoLevelOnLoad)
     if (prefs.audioEngine === 'samples') store.setAudioEngine('samples')
+    applySamplesIntroducedPref(prefs, store)
     if (typeof prefs.showBarNumbers === 'boolean') store.setShowBarNumbers(prefs.showBarNumbers)
     if (typeof prefs.noteEditorEnabled === 'boolean') store.setNoteEditorEnabled(prefs.noteEditorEnabled)
     if (typeof prefs.saveTempoKeyChangesEnabled === 'boolean') store.setSaveTempoKeyChangesEnabled(prefs.saveTempoKeyChangesEnabled)
@@ -1217,6 +1244,7 @@ let _prevTempoWarningsEnabled: boolean | null = null
 let _prevTempoWarningDismissed: object | null = null
 let _prevMetronomeVolume: number | null = null
 let _prevCountInEnabled: boolean | null = null
+let _prevSamplesIntroduced: boolean | null = null
 let _prevCountInBars: number | null = null
 let _prevTempoCorrections: object | null = null
 let _prevNoteEditorToolbarX:   number  | null = null
@@ -1278,6 +1306,7 @@ const _unsubPrefs = useStore.subscribe((state) => {
     _prevTempoWarningDismissed = state.tempoWarningDismissed
     _prevMetronomeVolume = state.metronomeVolume
     _prevCountInEnabled = state.countInEnabled
+    _prevSamplesIntroduced = state.samplesIntroduced
     _prevCountInBars = state.countInBars
     _prevTempoCorrections = state.tempoCorrections
     _prevNoteEditorToolbarX = state.noteEditorToolbarX
@@ -1342,6 +1371,7 @@ const _unsubPrefs = useStore.subscribe((state) => {
     state.tempoWarningDismissed !== _prevTempoWarningDismissed ||
     state.metronomeVolume !== _prevMetronomeVolume ||
     state.countInEnabled !== _prevCountInEnabled ||
+    state.samplesIntroduced !== _prevSamplesIntroduced ||
     state.countInBars !== _prevCountInBars ||
     state.tempoCorrections !== _prevTempoCorrections ||
     state.noteEditorToolbarX !== _prevNoteEditorToolbarX ||
@@ -1398,6 +1428,7 @@ const _unsubPrefs = useStore.subscribe((state) => {
     _prevTempoWarningDismissed = state.tempoWarningDismissed
     _prevMetronomeVolume = state.metronomeVolume
     _prevCountInEnabled = state.countInEnabled
+    _prevSamplesIntroduced = state.samplesIntroduced
     _prevCountInBars = state.countInBars
     _prevTempoCorrections = state.tempoCorrections
     _prevNoteEditorToolbarX = state.noteEditorToolbarX
@@ -1460,6 +1491,7 @@ const _unsubPrefs = useStore.subscribe((state) => {
       tempoWarningDismissed: state.tempoWarningDismissed,
       metronomeVolume: state.metronomeVolume,
       countInEnabled: state.countInEnabled,
+      samplesIntroduced: state.samplesIntroduced,
       countInBars: state.countInBars,
       tempoCorrections: state.tempoCorrections,
       noteEditorToolbarX: state.noteEditorToolbarX,

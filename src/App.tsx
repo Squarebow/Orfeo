@@ -5,6 +5,9 @@ import Keyboard from './components/Keyboard/Keyboard'
 import KeyboardControls from './components/Keyboard/KeyboardControls'
 import TrackPanel from './components/TrackPanel/TrackPanel'
 import SettingsPanel from './components/SettingsPanel/SettingsPanel'
+import SettingsWindow from './components/Settings/SettingsWindow'
+import { useUpdateService } from './hooks/useUpdateCheck'
+import { useSoundfontService } from './hooks/useSoundfonts'
 import EmptyState from './components/EmptyState'
 import { useStore } from './store'
 import FloatingKeyboard from './components/Keyboard/FloatingKeyboard'
@@ -46,6 +49,11 @@ import { useCountIn } from './hooks/useCountIn'
 import { CountInOverlay } from './components/CountInOverlay'
 
 export default function App() {
+  // ── Update status + sound-set progress: one listener each for the app's
+  // whole life (their off* calls remove every listener on the channel), so
+  // they live here, not in the drawer — it unmounts in presentation mode. ──
+  useUpdateService()
+  useSoundfontService()
   const midi = useStore((s) => s.midi)
   const keyboardMode = useStore((s) => s.keyboardMode)
   const appTheme = useStore((s) => s.appTheme)
@@ -363,7 +371,16 @@ export default function App() {
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
+      // Ctrl + , opens/closes Settings from anywhere — even while typing in its search box
+      if (e.ctrlKey && e.key === ',') {
+        e.preventDefault()
+        const s = useStore.getState()
+        if (s.settingsWindowOpen) s.closeSettingsWindow(); else s.openSettingsWindow()
+        return
+      }
       if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) return
+      // Settings window open: only Esc (it closes itself) and Ctrl + , get through
+      if (useStore.getState().settingsWindowOpen && e.key !== 'Escape' && !(e.ctrlKey && e.key === ',')) return
       const { playbackState } = useStore.getState()
       switch (e.key) {
         case 'F11':
@@ -382,6 +399,8 @@ export default function App() {
           else play()
           break
         case 'Escape':
+          // The Settings window closes itself on Escape — never stop the song
+          if (useStore.getState().settingsWindowOpen) break
           if (isCountingIn()) { cancelCountIn(); break }
           if (useStore.getState().tapSession) { cancelTap(); break }
           if (useStore.getState().presentationMode) { useStore.getState().setPresentationMode(false); break }
@@ -531,6 +550,7 @@ export default function App() {
       </div>
 
       {keyboardMode === 'floating' && <FloatingKeyboard />}
+      <SettingsWindow />
       <ChordExplorer />
       <ScaleExplorer />
       <LockedChordModal />

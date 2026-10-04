@@ -64,7 +64,7 @@ telemetry; MIDI files are processed entirely on your device.
 - **Click or drag** to play; drag across keys for glissando
 - **Docked or floating** — a draggable, resizable panel for multi-window setups
 - **Key highlighting** in track colour, with the chord name shown live above
-- **Automated hand assignment** *(beta)* — notes colour-code by which hand plays
+- **Automated hand assignment** — notes colour-code by which hand plays
   them, in Practice (moving split line) or Performance (per-note tags) mode, with
   optional colourblind-friendly L/R badges
 - **Hardware MIDI input** — play along on a real keyboard with true sustain and
@@ -109,6 +109,14 @@ telemetry; MIDI files are processed entirely on your device.
 - **Two engines** — **General MIDI** (instant, no download) or **Samples**
   (SpessaSynth + downloadable SF2/SF3 soundfonts, GeneralUser GS by default) for
   far richer sound
+
+### Settings
+
+- **Setup** — the everyday switches (sound engine, Focus mode, Tap Tempo, note
+  names, key range, zoom…) in the left panel, each with a one-line explanation
+- **Settings window** (`Ctrl` `,`) — every setting in eight groups with full
+  descriptions, a search box, and a link to the matching page of the online
+  manual
 
 Full walkthrough of every feature: **[docs/HOW_TO_USE.md](docs/HOW_TO_USE.md)**.
 

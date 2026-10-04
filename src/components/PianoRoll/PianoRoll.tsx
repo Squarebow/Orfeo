@@ -1799,6 +1799,8 @@ export default function PianoRoll() {
       const onEditKey = (e: KeyboardEvent) => {
         if (!storeRef.current.noteEditorActive) return
         if (e.target instanceof HTMLInputElement) return
+        // never undo/delete notes behind the Settings window
+        if (useStore.getState().settingsWindowOpen) return
 
         if (e.ctrlKey && !e.shiftKey && e.key === 'z') {
           e.preventDefault()

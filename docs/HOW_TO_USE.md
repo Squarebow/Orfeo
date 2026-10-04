@@ -1021,8 +1021,55 @@ soundfonts are left exactly where they are. Full detail:
 
 ## <img src="how-to-use-icons/settings.svg" alt="" height="26" align="middle"> Settings & Extras
 
-*Settings that make Orfeo fit how you already read and teach music. Open with
-the gear icon (top-right); eight collapsible sections.*
+*Settings that make Orfeo fit how you already read and teach music.*
+
+### Setup and the Settings window
+
+Orfeo's settings live in two places: **Setup** for the everyday switches, and
+the **Settings window** for everything.
+
+**Setup** — the second tab of the left panel (next to Library, sliders icon).
+
+- Holds only the switches you reach for while playing: sound engine, demo
+  songs, Focus mode, Tap Tempo, Hand Assignment, Chord Prompter, note names,
+  sharps/flats, chord tracking, key range, octave numbers and note names on
+  the keys, piano-roll zoom, bar lines, the playbar and App Zoom.
+- Each one has a short line underneath saying what it does, plus the same
+  at-a-glance details as before — the output delay, which sound set is
+  loaded, a preview of the note names and of sharps/flats, and what the
+  chosen chord-tracking mode listens to.
+- The groups fold away like before. The small **↗ arrow** on each group's
+  heading opens that same group in the Settings window.
+- The **Open settings** button sits at the top of Setup and stays there while
+  you scroll.
+- The first time you pick **Samples**, the Settings window opens on Audio so
+  you can watch the sounds load (and pick another sound set). After that, the
+  two buttons just switch engines.
+- Picking **Follow** in chord tracking before you've chosen what to follow
+  opens the Settings window on Notation & Chords so you can choose the
+  instrument or group.
+
+**The Settings window** — every setting, written out in full.
+
+- Open it with **Open settings**, any group's **↗ arrow**, or `Ctrl` `,` from
+  anywhere (press it again to close). `Esc` closes it — the music keeps
+  playing — and the `X` or a click outside it does too.
+- Drag it around by its header, like the Mixer.
+- The eight groups are listed down the left; each opens with a sentence on
+  what you set up there, then its settings as cards, three across (two or one
+  on a small window or at a high App Zoom). Options that only matter once a
+  setting is on — Tap Tempo counting, count-in bars, max fingers per hand,
+  the visual-effect pattern and glow, the instrument to follow — appear inside
+  that setting's card when it's on.
+- **Search** — type in the box at the top to find a setting by name or by
+  what it does, across all groups (`Esc` clears the search first).
+- **Open in user manual** — bottom-right of every group, opens the matching
+  page of the online manual at orfeo.cc.
+- At the bottom of the group list: **ORFEO** and the version number (click
+  for the project's GitHub page), and **Check for updates**.
+
+Every "Settings → group → setting" path in this guide points to the Settings
+window; the everyday ones are in Setup too, under the same group.
 
 <details>
 <summary><b>Notation &amp; Chords</b></summary>

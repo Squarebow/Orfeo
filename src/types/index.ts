@@ -268,3 +268,9 @@ export interface TapSession {
   freeSegment?: import('../utils/tempoCorrection').TempoSegment | null  // grid from the taps
   nearOriginal?: boolean     // tapped tempo is within ±3% of the file's own (offer "Original is fine")
 }
+
+// ── Settings window / Quick Settings group ids — same keys the drawer's
+// fold state (settingsGroupsCollapsed) already uses. ─────────────────────
+export type SettingsGroupId =
+  | 'audio' | 'midi-files-library' | 'playback-editing' | 'practice'
+  | 'notation' | 'keyboard' | 'piano-roll' | 'appearance'
