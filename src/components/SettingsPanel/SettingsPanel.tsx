@@ -2152,8 +2152,6 @@ export default function SettingsPanel() {
   const setChordFollowTrackIndex = useStore((s) => s.setChordFollowTrackIndex)
   const chordNamingStyle = useStore((s) => s.chordNamingStyle)
   const setChordNamingStyle = useStore((s) => s.setChordNamingStyle)
-  const chordSensitivity = useStore((s) => s.chordSensitivity)
-  const setChordSensitivity = useStore((s) => s.setChordSensitivity)
   const chordReadingMode = useStore((s) => s.chordReadingMode)
   const setChordReadingMode = useStore((s) => s.setChordReadingMode)
   const chordTracks = useStore((s) => s.tracks)
@@ -2664,13 +2662,15 @@ export default function SettingsPanel() {
                   collapsed={settingsGroupsCollapsed['midi-files-library']}
                   onToggle={() => setSettingsGroupCollapsed('midi-files-library', !settingsGroupsCollapsed['midi-files-library'])}
                 >
-                  {/* ── Demo folder — eye-toggle: Eye=show, EyeOff=hidden ────────── */}
+                  {/* ── Demo folder — eye-toggle: on = shown (default), off = hidden ── */}
                   <OptionRow
-                    label="Hide Demo content"
+                    label={t`Show demo content`}
                     eyeToggle
                     eyeValue={!hideDemoFolder}
                     onEyeChange={(val) => setHideDemoFolder(!val)}
-                    description="Bundled demo songs are hidden from library view. Files are not deleted. Turn OFF to see Demo content."
+                    description={hideDemoFolder
+                      ? t`The demo songs that come with Orfeo are hidden from your Library. Turn on to show them again.`
+                      : t`The demo songs that come with Orfeo are shown in your Library. Turn off to hide them — nothing is deleted.`}
                   />
                   {/* ── Chord Transcription — eye-toggle with BETA badge ──────────── */}
                   <OptionRow
@@ -2750,10 +2750,9 @@ export default function SettingsPanel() {
                       </div>
                     </OptionRow>
                   )}
-                  {/* ── Left/Right Hand BETA — eye-toggle; sub-controls unchanged ─── */}
+                  {/* ── Left/Right Hand — eye-toggle; sub-controls unchanged ─── */}
                   <OptionRow
                     label="Hand Assignment"
-                    badge={<BetaBadge />}
                     eyeToggle
                     eyeValue={showHandLabels}
                     onEyeChange={setShowHandLabels}
@@ -3047,46 +3046,9 @@ export default function SettingsPanel() {
                     )}
                   </OptionRow>
 
-                  {/* ── Chord sensitivity — the single detail knob. Independent of
-                      the tracking mode above (mode = which tracks, this = how
-                      finely the beat is split). Fed straight into
-                      buildChordSequence's `sensitivity`; replaced the old
-                      per-mode presets.
-                      TEMPORARILY DIMMED, not deleted — while the underlying
-                      chord-reading algorithm is still being debugged, a live
-                      slider made it unclear whether a wrong reading came from
-                      the algorithm or from wherever the slider was sitting
-                      (see [[project-orfeo-chord-detection-redesign]] memory).
-                      useChordSequence.ts locks the actual value fed into the
-                      detector at 0.4 regardless of this control. Re-enable by
-                      removing `pointerEvents`/opacity below and the lock in
-                      useChordSequence.ts once the algorithm is approved. ── */}
-                  <OptionRow label={t`Chord sensitivity`}>
-                    <div style={{ opacity: 0.4, pointerEvents: 'none' }}>
-                      <div style={{ fontSize: 'var(--text-xs)', color: 'var(--text-faint)', lineHeight: 1.5, fontFamily: 'var(--font-ui)', marginBottom: 6, fontStyle: 'italic' }}>
-                        {t`How eagerly the detector splits the beat into separate chords. Lower shows the underlying harmony; higher catches passing and embellishing chords.`}
-                      </div>
-                      <div style={{ fontSize: 11, color: 'var(--text-dim-control)', fontFamily: 'var(--font-mono)', marginBottom: 4 }}>
-                        {(chordSensitivity < 0.35 ? t`Sparse` : chordSensitivity < 0.68 ? t`Balanced` : t`Detailed`)}
-                        {' · '}{Math.round(chordSensitivity * 100)}%
-                      </div>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                        <span style={{ fontSize: 9, color: 'var(--text-inactive)', fontFamily: 'var(--font-mono)', flexShrink: 0 }}>{t`Sparse`}</span>
-                        <input
-                          type="range" min={0} max={100} step={5}
-                          value={Math.round(chordSensitivity * 100)}
-                          onChange={e => setChordSensitivity(Number(e.target.value) / 100)}
-                          disabled
-                          className="orfeo-slider-amber"
-                          style={{ flex: 1, '--fill': `${Math.round(chordSensitivity * 100)}%` } as CSSProperties}
-                        />
-                        <span style={{ fontSize: 9, color: 'var(--text-inactive)', fontFamily: 'var(--font-mono)', flexShrink: 0 }}>{t`Detailed`}</span>
-                      </div>
-                    </div>
-                    <div style={{ fontSize: 'var(--text-xs)', color: 'var(--text-inactive)', lineHeight: 1.5, fontFamily: 'var(--font-ui)', marginTop: 6, fontStyle: 'italic' }}>
-                      {t`Off while the chord-reading algorithm itself is still being tuned — reads at a fixed level until that's settled.`}
-                    </div>
-                  </OptionRow>
+                  {/* ── Chord sensitivity slider — hidden until chord tracking is
+                      reworked; the detector reads at a fixed level meanwhile
+                      (useChordSequence.ts). ── */}
 
                   {/* ── Chord reading — Safe (default, unchanged) vs Progressive
                       (opt-in, also trusts a real grab — 3-5 notes struck
@@ -3403,13 +3365,17 @@ export default function SettingsPanel() {
                       <AppBgBtn color="var(--bg-warm)" label="Coming soon" active={false} onClick={() => {}} comingSoon />
                     </div>
                   </OptionRow>
-                  <OptionRow label="Zoom" hint={`Ctrl+/Ctrl-/Ctrl+0${zoomInfo.max < 200 ? ` · capped at ${zoomInfo.max}% for this window size` : ''}`}>
-                    <ZoomStepper
-                      percent={zoomInfo.percent} steps={zoomInfo.steps} max={zoomInfo.max}
-                      onStep={stepZoom}
-                      onReset={() => void window.electronAPI.setZoom(100)}
-                    />
-                  </OptionRow>
+                  <OptionRow
+                    label={t`App Zoom`}
+                    labelRight={
+                      <ZoomStepper
+                        percent={zoomInfo.percent} steps={zoomInfo.steps} max={zoomInfo.max}
+                        onStep={stepZoom}
+                        onReset={() => void window.electronAPI.setZoom(100)}
+                      />
+                    }
+                    hint={t`Makes everything in Orfeo bigger or smaller. Ctrl + / Ctrl − / Ctrl 0 work exactly as in a web browser.` + (zoomInfo.max < 200 ? ' ' + t`Limited to ${zoomInfo.max}% at this window size.` : '')}
+                  />
                 </CollapsibleSection>
 
                 {/* ── About — single row: logo, name, version, credit. No border/margin
@@ -3446,7 +3412,7 @@ export default function SettingsPanel() {
           }}>
             <Tooltip title="Open user manual" oneLine wrapperStyle={{ flex: 1, minWidth: 0 }}>
             <button
-              onClick={() => window.electronAPI.openExternal('https://github.com/Squarebow/Orfeo/blob/main/docs/HOW_TO_USE.md')}
+              onClick={() => window.electronAPI.openExternal('https://orfeo.cc/docs')}
               style={{
                 flex: 1, minWidth: 0, display: 'flex', alignItems: 'center', gap: 7,
                 background: 'transparent', border: 'none', cursor: 'pointer',

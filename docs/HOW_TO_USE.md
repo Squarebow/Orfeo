@@ -718,7 +718,7 @@ with.*
 The chord name above the keyboard tracks what's actually playing — from the file
 or from a [connected keyboard](#play-along-with-a-hardware-keyboard). It reads
 the harmony the way a musician reading a lead sheet would; the three tracking
-modes and the sensitivity slider that shape it are described in full in
+modes that shape it are described in full in
 [How Orfeo reads and voices chords](#how-orfeo-reads-and-voices-chords).
 
 Pause on any chord and **right-click it** to *Show on keyboard* (locks it like
@@ -745,12 +745,6 @@ squeezed tight — but figuration no longer manufactures eight.
 <tr><td><strong>Follow</strong></td><td>One instrument or group that you pick.</td><td>When you already know which part carries the chords. As steady as Auto if you point it at a genuine comping track.</td></tr>
 </tbody>
 </table>
-
-**The Chord sensitivity slider** sits just below the modes, is separate from the
-mode choice, and applies to all three. Slide **left** for the underlying harmony
-in broad strokes — the chords a chart would print. Slide **right** to surface
-passing chords, embellishments and faster movement inside the bar. The default
-sits at a comfortable lead-sheet reading.
 
 > 🎯 **Which mode?**
 >
@@ -976,8 +970,9 @@ in an `Orfeo/` subfolder beside the original.
 
 - Create subfolders and drag files between them right in the library panel.
 - **Hide** individual files from the list without deleting them from disk.
-- Hide the **bundled demo songs** with one Settings toggle (Settings → MIDI
-  Files & Library → *Demo content*) once you have your own library.
+- Hide the **bundled demo songs** once you have your own library: turn off
+  Settings → MIDI Files & Library → *Show demo content*. Nothing is deleted;
+  turn it back on to see them again.
 
 ### Right-click options
 
@@ -1104,7 +1099,7 @@ the gear icon (top-right); eight collapsible sections.*
   of just the roll and keyboard; `Esc` leaves it. Optionally have the side
   panels close themselves on playback.
 - **Theme** — dark today; a warm light theme is in progress.
-- **Zoom** — `Ctrl` `+` / `Ctrl` `-` / `Ctrl` `0` scale the whole app in fixed
+- **App Zoom** — `Ctrl` `+` / `Ctrl` `-` / `Ctrl` `0` scale the whole app in fixed
   steps from 80% to 200%, the same as browser zoom; also available as a
   −/+/reset control here in Settings. Capped so the window never shrinks
   below a usable size — on a small window the top step may land under 200%.
