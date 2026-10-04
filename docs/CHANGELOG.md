@@ -1,5 +1,14 @@
 # Changelog
 
+## [1.3.2] — 4. 10. 2026 — Settings polish
+
+### Changed
+- **Demo content** is now *Show demo content* — on shows the demo songs in the Library, off hides them, and the description below it says which one you're on.
+- **App Zoom** (Settings → Appearance) sits on one line, with the zoom buttons and reset on the right, and explains that `Ctrl` `+` / `Ctrl` `-` / `Ctrl` `0` work exactly as in a web browser.
+- Hand Assignment is no longer marked BETA.
+- The greyed-out Chord sensitivity slider is no longer shown; it comes back with the reworked chord tracking.
+- The User Manual link at the bottom of Settings now opens the online manual at orfeo.cc/docs.
+
 ## [1.3.1] — 3. 10. 2026 — Tooltip and docs polish
 
 ### Changed
