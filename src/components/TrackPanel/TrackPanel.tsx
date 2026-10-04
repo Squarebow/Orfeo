@@ -439,7 +439,7 @@ export default function TrackPanel() {
                 </span>
                 <Tooltip
                   title={allVisible ? 'Hide all tracks' : 'Show all tracks'}
-                  description={allVisible ? 'Hide every track’s notes on the Piano Roll — turn individual ones back on anytime' : 'Show every track’s notes on the Piano Roll again'}
+                  description={allVisible ? 'Hide every track’s notes on the\nPiano Roll — turn individual ones back on anytime' : 'Show every track’s notes on the\nPiano Roll again'}
                 >
                 <button
                   onClick={handleVisibleAll}
@@ -456,7 +456,7 @@ export default function TrackPanel() {
                 {autoMuteNonKeyboard && (
                   <Tooltip
                     title={isCurrentlyFiltered ? 'Piano, Bass & Drums Only' : 'Playing all tracks'}
-                    description={isCurrentlyFiltered ? 'Playing keyboards, bass & drums tracks only. Click to play all tracks.' : 'Click to mute everything except piano, bass & drums — good for practicing'}
+                    description={isCurrentlyFiltered ? 'Playing keyboards, bass & drums tracks only. Click to play all tracks.' : 'Click to mute everything except piano,\nbass & drums — good for practicing'}
                     wrapperStyle={{ marginLeft: 'auto' }}
                   >
                   <button
@@ -808,5 +808,5 @@ function IBtn({ children, onClick, active, title, description, activeColor = 'va
   // oneLine tooltips take a single string — description is the more useful
   // half (what clicking actually does), title alone is just the button's
   // own state name (e.g. "Mute"), so it's the fallback, not the default.
-  return title ? <Tooltip title={description ?? title} oneLine>{button}</Tooltip> : button
+  return title ? <Tooltip title={description ?? title} oneLine muted>{button}</Tooltip> : button
 }

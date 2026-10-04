@@ -52,7 +52,7 @@ function naiveRect(anchor: DOMRect, placement: Placement, w: number, h: number) 
 // the box's real rendered size (text length varies per call site), then a
 // layout effect clamps/flips against the real viewport and reveals it — all
 // before the browser paints, so there's no visible jump.
-export function TooltipBox({ anchorRect, content, visible, placement = 'top', oneLine = false }: {
+export function TooltipBox({ anchorRect, content, visible, placement = 'top', oneLine = false, muted = false }: {
   anchorRect: DOMRect | null
   content: TooltipContent | null
   visible: boolean
@@ -61,6 +61,9 @@ export function TooltipBox({ anchorRect, content, visible, placement = 'top', on
   // heading) instead of the amber-title + muted-description pair — for
   // short, self-explanatory hints that don't need a two-part structure.
   oneLine?: boolean
+  // oneLine only: the dimmed description colour instead of bright text —
+  // for small icon buttons whose tip just says what a click does
+  muted?: boolean
 }) {
   const boxRef = useRef<HTMLDivElement>(null)
   const [pos, setPos] = useState<{ top: number; left: number } | null>(null)
@@ -116,7 +119,7 @@ export function TooltipBox({ anchorRect, content, visible, placement = 'top', on
       className="orfeo-modal-glow"
     >
       {oneLine ? (
-        <div style={{ fontSize: 10, fontFamily: 'var(--font-ui)', fontWeight: 400, lineHeight: 1.4, color: 'var(--text-default)' }}>
+        <div style={{ fontSize: 10, fontFamily: 'var(--font-ui)', fontWeight: 400, lineHeight: 1.4, color: muted ? 'var(--text-muted)' : 'var(--text-default)', whiteSpace: 'pre-line' }}>
           {content.title}
           {content.description && <>{' '}{content.description}</>}
         </div>
@@ -149,7 +152,7 @@ export function TooltipBox({ anchorRect, content, visible, placement = 'top', on
 // and icons): wraps children, shows TooltipBox on hover. For dynamic
 // content (changes per mouse position, or live during a drag), use
 // TooltipBox directly instead — see the Compressor/Volume knobs. ─────────
-export default function Tooltip({ title, titleValue, description, placement = 'top', oneLine, wrapperStyle, disabled, children }: {
+export default function Tooltip({ title, titleValue, description, placement = 'top', oneLine, muted, wrapperStyle, disabled, children }: {
   title: string
   titleValue?: string
   // true = never show (e.g. while the anchor's own menu/popup is open)
@@ -162,6 +165,7 @@ export default function Tooltip({ title, titleValue, description, placement = 't
   // one string either way); `description`, if also passed, renders as a
   // second plain line with no visual distinction from the first.
   oneLine?: boolean
+  muted?: boolean   // oneLine only — dimmed text, see TooltipBox
   // Escape hatch for wrapping a layout-critical child (flex:1, width:'100%',
   // a grid item, etc.) — the wrapper div's own default (inline-flex, no
   // sizing) would otherwise silently swallow those, since the child is no
@@ -211,6 +215,7 @@ export default function Tooltip({ title, titleValue, description, placement = 't
         visible={hover && !disabled}
         placement={placement}
         oneLine={oneLine}
+        muted={muted}
       />
     </div>
   )

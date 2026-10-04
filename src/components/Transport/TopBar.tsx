@@ -278,13 +278,13 @@ export default function TopBar() {
       }}>
       {/* ── LOGO ── */}
       <div className="app-no-drag" style={{ display: 'flex', alignItems: 'center', gap: 10, flexShrink: 0, paddingRight: 'var(--space-3)' }}>
-        <Tooltip title="Reset" description="Closes the file and resets tempo, transpose, and playback to defaults." placement="bottom">
+        <Tooltip title="Reset" description={"Closes the file and resets tempo,\ntranspose, and playback to defaults."} placement="bottom">
           <span onClick={handleReset} className="app-no-drag" style={{ cursor: 'pointer', display: 'flex', flexDirection: 'column', alignItems: 'flex-start', gap: 2 }}>
             <OrfeoLogo />
             <span style={{ color: 'var(--text-inactive)', fontSize: 10, fontFamily: 'var(--font-mono)', whiteSpace: 'nowrap' }}>v{__APP_VERSION__}</span>
           </span>
         </Tooltip>
-        <Tooltip title="Open a file (Ctrl+O)" description="Loads a supported file from disk to start a new session." placement="bottom">
+        <Tooltip title="Open a file (Ctrl+O)" description={"Loads a supported file from\ndisk to start a new session."} placement="bottom">
           <button
             onClick={openFile}
             className="app-no-drag"
@@ -302,7 +302,7 @@ export default function TopBar() {
       {/* ── BPM ── (tighter gap/padding than the other groups: with the TAP pad
           the left column must still fit at a 1366 px window) */}
       <div className="app-no-drag" style={{ display: 'flex', alignItems: 'center', gap: 4, padding: '0 var(--space-2)', flexShrink: 0 }}>
-        <Tooltip title={`Tempo: ${liveBpm || '—'} BPM`} description="The song's current playback tempo, scaled by your speed setting." placement="bottom">
+        <Tooltip title={`Tempo: ${liveBpm || '—'} BPM`} description={"The song's current playback tempo,\nscaled by your speed setting."} placement="bottom">
           <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
             <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start', gap: 1 }}>
               <span style={{ color: 'var(--text-muted)', fontSize: 9, textTransform: 'uppercase', letterSpacing: '0.1em', fontFamily: 'var(--font-mono)', lineHeight: 1 }}>BPM</span>
@@ -316,8 +316,8 @@ export default function TopBar() {
         {/* ±1 steps the DISPLAYED tempo (file tempo at the playhead, incl. any
             tap-tempo correction), not the file's first tempo — see liveBpm. */}
         <div style={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
-          <LongPressArrow onStep={() => { const s = useStore.getState(); setBpm(stepDisplayedBpm(s.bpm, s.originalBpm, currentFileBpm, 1)) }} disabled={!midi} title="BPM +1" description="Nudges playback tempo up by one beat per minute."><ChevronUp size={10} /></LongPressArrow>
-          <LongPressArrow onStep={() => { const s = useStore.getState(); setBpm(stepDisplayedBpm(s.bpm, s.originalBpm, currentFileBpm, -1)) }} disabled={!midi} title="BPM -1" description="Nudges playback tempo down by one beat per minute."><ChevronDown size={10} /></LongPressArrow>
+          <LongPressArrow onStep={() => { const s = useStore.getState(); setBpm(stepDisplayedBpm(s.bpm, s.originalBpm, currentFileBpm, 1)) }} disabled={!midi} title="BPM +1" description={"Nudges playback tempo up\nby one beat per minute."}><ChevronUp size={10} /></LongPressArrow>
+          <LongPressArrow onStep={() => { const s = useStore.getState(); setBpm(stepDisplayedBpm(s.bpm, s.originalBpm, currentFileBpm, -1)) }} disabled={!midi} title="BPM -1" description={"Nudges playback tempo down\nby one beat per minute."}><ChevronDown size={10} /></LongPressArrow>
         </div>
         {/* ── Reset — space always reserved so its appearance never shifts the transport controls ── */}
         {/* wrapperStyle carries the same visibility as the button itself — the
@@ -350,7 +350,7 @@ export default function TopBar() {
         <Tooltip
           title="Key: "
           titleValue={`${displayKey}${transpose !== 0 ? ` (${transpose > 0 ? '+' : ''}${transpose} semitones)` : ''}`}
-          description="The song's detected key, adjusted by any transpose applied here."
+          description={"The song's detected key, adjusted\nby any transpose applied here."}
           placement="bottom"
         >
           <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
@@ -364,8 +364,8 @@ export default function TopBar() {
           </div>
         </Tooltip>
         <div style={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
-          <ArrowBtn onClick={() => handleTranspose(1)} disabled={!midi || transpose >= 12} title="Transpose up" description="Shifts the detected key up by a semitone (max +12)."><ChevronUp size={10} /></ArrowBtn>
-          <ArrowBtn onClick={() => handleTranspose(-1)} disabled={!midi || transpose <= -12} title="Transpose down" description="Shifts the detected key down by a semitone (max −12)."><ChevronDown size={10} /></ArrowBtn>
+          <ArrowBtn onClick={() => handleTranspose(1)} disabled={!midi || transpose >= 12} title="Transpose up" description={"Shifts the detected key up\nby a semitone (max +12)."}><ChevronUp size={10} /></ArrowBtn>
+          <ArrowBtn onClick={() => handleTranspose(-1)} disabled={!midi || transpose <= -12} title="Transpose down" description={"Shifts the detected key down\nby a semitone (max −12)."}><ChevronDown size={10} /></ArrowBtn>
         </div>
         {/* ── Reset — space always reserved so its appearance never shifts the transport controls ── */}
         <Tooltip title="Reset key" description="Clears the transpose, back to the song's originally detected key." placement="bottom"
@@ -558,7 +558,7 @@ export default function TopBar() {
         {/* BAR COUNTER — only when a file is loaded */}
         {midi && (
           <>
-            <Tooltip title={`Bar ${currentBar} of ${totalBars}`} description="Your current position in the song, counted in bars." placement="bottom">
+            <Tooltip title={`Bar ${currentBar} of ${totalBars}`} description={"Your current position in the song,\ncounted in bars."} placement="bottom">
               <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', padding: '0 var(--space-3)' }}>
                 <div style={{
                   background: 'var(--bg-tile)', borderRadius: 4, padding: '2px 6px',
@@ -583,7 +583,7 @@ export default function TopBar() {
         {/* TIME SIGNATURE */}
         <Tooltip
           title={midi ? `Time signature: ${currentTimeSig.num}/${currentTimeSig.den}` : 'No file loaded'}
-          description="Number of beats in each bar, and which note value counts as one beat."
+          description={"Number of beats in each bar,\nand which note value counts as one beat."}
           placement="bottom"
         >
           <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', padding: '0 14px' }}>
@@ -611,7 +611,7 @@ export default function TopBar() {
           title={metronomeEnabled ? 'Metronome on' : 'Metronome off'}
           description={countInEnabled
             ? t`Click to toggle metronome ON/OFF. Right-click for volume and count-in.`
-            : t`Clicks along with the beat while a file plays — click to toggle, right-click for volume and count-in.`}
+            : t`Clicks along with the beat while a file plays.\nClick to toggle, right-click for volume and count-in.`}
           placement="bottom"
           disabled={!!metroMenu}
         >
