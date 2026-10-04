@@ -1,5 +1,20 @@
 # Changelog
 
+## [1.4] — 4. 10. 2026 — Settings window
+
+### New
+- **A full Settings window.** Every setting now has a proper home with room to explain itself: the eight groups are listed down the left, and each group opens with a sentence on what it's for, then its settings as cards — three across, or two or one on a small window or at a high App Zoom — each with its full description written out, no hovering needed. Options that only matter once a setting is on (Tap Tempo counting, count-in bars, max fingers per hand, the visual-effect pattern and glow, the instrument to follow) sit inside that setting's card and appear when it's on. Open it from the **Open settings** button, from any group in Setup, or with **`Ctrl` `,`** from anywhere; `Esc`, the `X` or a click outside closes it, and the music keeps playing. Drag it by its header like the Mixer.
+- **Search settings** — type in the box at the top of the window to find any setting by name or by what it does, across all groups.
+- **Open in user manual** — every group links to its page of the online manual at orfeo.cc.
+- **ORFEO, the version and Check for updates** sit at the bottom of the group list in the window.
+
+### Changed
+- **The left panel's Settings tab is now Setup** (sliders icon) and holds only the everyday switches: sound engine, demo songs, Focus mode, Tap Tempo, Hand Assignment, Chord Prompter, note names, sharps/flats, chord tracking, key range, keyboard labels, piano-roll zoom, bar lines, the playbar and App Zoom. Each has a short line underneath saying what it does, and the at-a-glance details stay (output delay, which sound set is loaded, note-name and sharps/flats previews, what the chord-tracking mode listens to). Everything else is in the Settings window, under the same group names.
+- **Open settings** sits at the top of Setup and stays put while you scroll; a small ↗ arrow on each Setup group opens that group in the Settings window.
+- The first time you pick **Samples** in Setup, the Settings window opens on Audio so you can see the sounds load. Picking **Follow** before choosing what to follow opens it on Notation & Chords so you can choose.
+- **Output delay** now shows its number in amber, and the Settings window explains what it means.
+- **Tooltips in the top bar and the Tracks panel** break into two shorter lines instead of one very wide one, and the tooltips on each track's mute, solo, show-in-roll and keyboard-light buttons use the same quieter text as the rest. The update icon's tooltip now simply says "Check for updates".
+
 ## [1.3.2] — 4. 10. 2026 — Settings polish
 
 ### Changed
