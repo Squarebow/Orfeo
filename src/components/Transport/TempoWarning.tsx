@@ -95,7 +95,7 @@ export function TempoWarning({ anchor }: { anchor: 'pad' | 'key' }) {
           <span style={{ lineHeight: 1.45 }}>{warningText(trust)}</span>
           <span style={{ color: 'var(--text-faint)', fontSize: 10, lineHeight: 1.4 }}>{t`Tap Tempo fixes this: park the playhead where it goes wrong and tap along. Your MIDI file isn't changed.`}</span>
           <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
-            <button onMouseDown={keepFocus} disabled={noteEditorActive} title={noteEditorActive ? t`Close the Note Editor first` : undefined}
+            <button onMouseDown={keepFocus} disabled={noteEditorActive}
               style={{ ...btn, borderColor: 'var(--accent-amber-strong)', color: 'var(--text-amber)', opacity: noteEditorActive ? 0.4 : 1, cursor: noteEditorActive ? 'default' : 'pointer' }} onClick={fix}>{t`Fix with Tap Tempo`}</button>
             <button onMouseDown={keepFocus} style={btn} onClick={() => { useStore.getState().dismissTempoWarning(key); close() }}>{t`It's fine, don't warn me for this song`}</button>
           </div>

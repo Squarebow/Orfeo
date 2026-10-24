@@ -50,11 +50,10 @@ export const ContextMenu = forwardRef<HTMLDivElement, ContextMenuProps>(function
 // mutated DOM style directly, identically, per item). Hover is real React
 // state here instead, and `danger` swaps the hover color to the same red
 // Delete already used, without every caller needing to know that token. ────
-export function ContextMenuItem({ onClick, disabled, danger, title, children }: {
+export function ContextMenuItem({ onClick, disabled, danger, children }: {
   onClick: () => void
   disabled?: boolean
   danger?: boolean
-  title?: string
   children: ReactNode
 }) {
   const [hover, setHover] = useState(false)
@@ -64,7 +63,6 @@ export function ContextMenuItem({ onClick, disabled, danger, title, children }: 
       role="menuitem"
       onClick={onClick}
       disabled={disabled}
-      title={title}
       onMouseEnter={() => setHover(true)}
       onMouseLeave={() => setHover(false)}
       style={{

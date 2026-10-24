@@ -199,7 +199,6 @@ function SoundFontsControl() {
           return (
             <div key={sf.id} style={{ display: 'contents' }}>
               <span
-                title={sf.downloaded ? `Use ${sf.name} for the Studio and Native engines` : `Download ${sf.name} first`}
                 style={{
                   fontSize: 'var(--text-xs)', fontFamily: 'var(--font-ui)',
                   color: isActive ? 'var(--text-amber)' : 'var(--text-inactive)', fontWeight: isActive ? 600 : 400,

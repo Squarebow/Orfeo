@@ -239,11 +239,11 @@ export default function FileInfoModal({ filePath, fileName, onClose, onRenamed }
             flex: 1, minWidth: 0, fontFamily: 'var(--font-mono)', fontSize: 14,
             color: 'var(--text-amber)', letterSpacing: '0.08em', textTransform: 'uppercase',
             overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
-          }} title={currentName}>
+          }}>
             File info
           </span>
           <button
-            data-no-drag onClick={onClose} title="Close"
+            data-no-drag onClick={onClose}
             style={modalCloseButtonStyle}
             onMouseEnter={e => e.currentTarget.style.color = modalCloseButtonHoverColor}
             onMouseLeave={e => e.currentTarget.style.color = modalCloseButtonIdleColor}
@@ -258,7 +258,6 @@ export default function FileInfoModal({ filePath, fileName, onClose, onRenamed }
             <div ref={versionsRef} style={{ position: 'relative', flexShrink: 0 }}>
               <button
                 onClick={() => setVersionsOpen(o => !o)}
-                title="View a different saved version — navigates this popup only, doesn't load the file"
                 style={{
                   display: 'flex', alignItems: 'center', gap: 3, padding: '3px 6px', borderRadius: 4,
                   border: `1px solid ${versionsOpen ? 'var(--accent-amber-strong)' : 'var(--border2)'}`,
@@ -278,7 +277,6 @@ export default function FileInfoModal({ filePath, fileName, onClose, onRenamed }
                     <button
                       key={v.path}
                       onClick={() => openVersion(v)}
-                      title={formatLogTimestamp(v.mtime)}
                       style={{
                         display: 'block', width: '100%', textAlign: 'left', padding: '5px 10px',
                         background: v.path === currentPath ? 'var(--accent-amber-subtle)' : 'transparent',
@@ -330,7 +328,6 @@ export default function FileInfoModal({ filePath, fileName, onClose, onRenamed }
                 />
               ) : (
                 <span
-                  title="Double-click to rename"
                   onDoubleClick={startEditArtist}
                   onMouseEnter={e => { e.currentTarget.style.color = 'var(--text-amber)' }}
                   onMouseLeave={e => { e.currentTarget.style.color = 'var(--text-default)' }}
@@ -364,7 +361,6 @@ export default function FileInfoModal({ filePath, fileName, onClose, onRenamed }
                 />
               ) : (
                 <span
-                  title="Double-click to rename"
                   onDoubleClick={startEditSong}
                   onMouseEnter={e => { e.currentTarget.style.color = 'var(--text-amber)' }}
                   onMouseLeave={e => { e.currentTarget.style.color = 'var(--text-default)' }}
@@ -379,7 +375,6 @@ export default function FileInfoModal({ filePath, fileName, onClose, onRenamed }
               )}
               <button
                 onClick={swapDrafts}
-                title="Swap Artist and Song"
                 style={{
                   flexShrink: 0, background: 'none', border: '1px solid var(--border2)', borderRadius: 4,
                   padding: '3px 5px', display: 'flex', alignItems: 'center',
@@ -404,7 +399,7 @@ export default function FileInfoModal({ filePath, fileName, onClose, onRenamed }
                   flex: 1, minWidth: 0, fontSize: 10, lineHeight: '11px', fontFamily: 'var(--font-mono)',
                   color: row.value === '—' ? 'var(--text-inactive)' : 'var(--text-default)',
                   overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
-                }} title={row.value}>
+                }}>
                   {row.value}
                 </span>
               </div>
@@ -414,7 +409,6 @@ export default function FileInfoModal({ filePath, fileName, onClose, onRenamed }
               <button
                 onClick={handleSaveRename}
                 disabled={!dirty || saving}
-                title={dirty ? 'Save — renames the file on disk' : 'No changes to save'}
                 style={{
                   flex: 1, padding: '6px 0', borderRadius: 'var(--radius-md)',
                   background: dirty ? 'var(--text-amber)' : 'var(--bg-tile)',
@@ -427,7 +421,6 @@ export default function FileInfoModal({ filePath, fileName, onClose, onRenamed }
               </button>
               <button
                 onClick={() => window.electronAPI.showItemInFolder(currentPath)}
-                title="Opens Windows Explorer with this file highlighted"
                 style={{
                   flex: 1, padding: '6px 0', borderRadius: 'var(--radius-md)',
                   background: 'transparent', border: '1px solid var(--border2)', color: 'var(--text-muted)',

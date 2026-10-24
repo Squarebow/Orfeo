@@ -297,7 +297,6 @@ export function HitEffectColorSwatch({ color, onChange }: { color: string | null
               <div
                 key={c}
                 onClick={() => { commitHex(c); onChange(c) }}
-                title={c}
                 style={{
                   height: 22, background: c, borderRadius: 3, cursor: 'pointer', boxSizing: 'border-box',
                   border: `2px solid ${c.toLowerCase() === color?.toLowerCase() ? '#ffffff' : 'transparent'}`,

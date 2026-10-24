@@ -25,6 +25,9 @@
 - **Engine and playing-mode buttons explain themselves.** Pointing at GM, Studio or Native, or at Low latency, Balanced or Stable, shows a one-line hint of what each is best for. You can switch these hints off with the other tooltips.
 - **Long names scroll instead of being cut off** — the sound card and its mode in Audio, and keyboard names in the MIDI Keyboard list. *Only ticked* is now *Select*.
 
+### Fixed
+- **No more plain white hover labels.** Since 1.5.2, pointing at a track, a piano key or some buttons could show a small white label next to Orfeo's own tooltip. They're gone.
+
 ## [1.5.3] — 23. 10. 2026 — Native mode sounds like Studio, clearer Settings
 
 **In short**

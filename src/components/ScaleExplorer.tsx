@@ -1099,10 +1099,7 @@ export default function ScaleExplorer() {
                     style={{ cursor: 'pointer', transition: 'fill 0.15s' }}
                     onClick={() => pickKey(COF_MAJOR_PC[i], 'major', false)}
                     onMouseEnter={e => { if (!isSelOuter) (e.target as SVGPathElement).setAttribute('fill', 'var(--state-hover-bg)') }}
-                    onMouseLeave={e => { if (!isSelOuter) (e.target as SVGPathElement).setAttribute('fill', 'var(--border)') }}
-                  >
-                    <title>Harmonic Major</title>
-                  </path>
+                    onMouseLeave={e => { if (!isSelOuter) (e.target as SVGPathElement).setAttribute('fill', 'var(--border)') }} />
                   {/* Inner ring wedge — minor key */}
                   <path
                     d={wedgePath(CX, CY, R_INNER1, R_INNER2, startDeg, endDeg)}
@@ -1110,10 +1107,7 @@ export default function ScaleExplorer() {
                     style={{ cursor: 'pointer', transition: 'fill 0.15s' }}
                     onClick={() => pickKey(COF_MINOR_PC[i], 'minor', false)}
                     onMouseEnter={e => { if (!isSelInner) (e.target as SVGPathElement).setAttribute('fill', 'var(--state-hover-bg-inner)') }}
-                    onMouseLeave={e => { if (!isSelInner) (e.target as SVGPathElement).setAttribute('fill', 'var(--border-row)') }}
-                  >
-                    <title>Natural Minor</title>
-                  </path>
+                    onMouseLeave={e => { if (!isSelInner) (e.target as SVGPathElement).setAttribute('fill', 'var(--border-row)') }} />
                   <circle cx={CX} cy={CY} r={R_INNER1} fill="var(--bg-circle-center)" stroke="var(--state-hover-bg)" strokeWidth={1} style={{ pointerEvents: 'none' }} />
                   {/* Major key label */}
                   <text x={outerLabel.x} y={outerLabel.y}

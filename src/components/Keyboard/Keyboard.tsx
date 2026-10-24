@@ -950,7 +950,6 @@ export default function Keyboard() {
                 // (2026-08-20) for the real repro. ─────────────────────────
                 onMouseDown={e => { e.preventDefault(); isMouseDown.current = true; handleKeyClick(k.midi) }}
                 onMouseEnter={() => { if (isMouseDown.current) handleKeyClick(k.midi, true) }}
-                title={getNoteLabel(k.midi, noteNaming, accidentals) || undefined}
                 tabIndex={0}
                 role="button"
                 aria-label={`Play ${getNoteLabel(k.midi, noteNaming, accidentals) || 'note'}`}
@@ -1040,7 +1039,6 @@ export default function Keyboard() {
                 // (2026-08-20) for the real repro. ─────────────────────────
                 onMouseDown={e => { e.preventDefault(); isMouseDown.current = true; handleKeyClick(k.midi) }}
                 onMouseEnter={() => { if (isMouseDown.current) handleKeyClick(k.midi, true) }}
-                title={getNoteLabel(k.midi, noteNaming, accidentals) || undefined}
                 tabIndex={0}
                 role="button"
                 aria-label={`Play ${getNoteLabel(k.midi, noteNaming, accidentals) || 'note'}`}

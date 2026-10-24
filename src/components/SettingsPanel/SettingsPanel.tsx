@@ -1030,7 +1030,6 @@ function LibraryPanel() {
           <ContextMenu ref={menuRef} x={contextMenu.x} y={contextMenu.y} ariaLabel="File actions">
             <ContextMenuItem
               onClick={() => { window.electronAPI.showItemInFolder(contextMenu.path); setContextMenu(null) }}
-              title="Opens Windows Explorer with this file highlighted"
             >
               Show in folder
             </ContextMenuItem>
@@ -1041,7 +1040,6 @@ function LibraryPanel() {
                 setFileInfoTarget({ path, name })
                 setContextMenu(null)
               }}
-              title="Tempo, key, artist/song, track count, and copyright — read-only"
             >
               File info
             </ContextMenuItem>
@@ -1051,14 +1049,12 @@ function LibraryPanel() {
             {hiddenLibraryFiles.includes(contextMenu.path) ? (
               <ContextMenuItem
                 onClick={() => { unhideLibraryFile(contextMenu.path); setContextMenu(null) }}
-                title="Restores this file to the normal library list"
               >
                 Unhide
               </ContextMenuItem>
             ) : (
               <ContextMenuItem
                 onClick={() => { hideLibraryFile(contextMenu.path); setContextMenu(null) }}
-                title="Hides this file from the library list — stays on disk, unaffected"
               >
                 Hide from library
               </ContextMenuItem>
@@ -1067,7 +1063,6 @@ function LibraryPanel() {
             {lastFolderOf.has(contextMenu.path) && (
               <ContextMenuItem
                 onClick={() => { const path = contextMenu.path; setContextMenu(null); handleUndoMove(path) }}
-                title="Moves this file back to where it was before its last move (this session only)"
               >
                 Undo move
               </ContextMenuItem>
@@ -1088,7 +1083,6 @@ function LibraryPanel() {
                     const name = await handleCreateFolder()
                     if (name) await moveFilesToFolder(moveSet, name)
                   }}
-                  title="Creates a new folder and moves the selected file(s) into it"
                 >
                   New folder from selection
                 </ContextMenuItem>
@@ -1099,14 +1093,12 @@ function LibraryPanel() {
                       <ContextMenuItem
                         key={folder}
                         onClick={() => { const moveSet = Array.from(selectedPaths.size > 0 ? selectedPaths : [contextMenu.path]); setContextMenu(null); moveFilesToFolder(moveSet, folder) }}
-                        title={`Moves the selected file(s) into "${folder}"`}
                       >
                         {folder}
                       </ContextMenuItem>
                     ))}
                     <ContextMenuItem
                       onClick={() => { const moveSet = Array.from(selectedPaths.size > 0 ? selectedPaths : [contextMenu.path]); setContextMenu(null); moveFilesToFolder(moveSet, null) }}
-                      title="Moves the selected file(s) out of their folder, back to the library root"
                     >
                       Library root
                     </ContextMenuItem>
@@ -1122,21 +1114,18 @@ function LibraryPanel() {
           <ContextMenu ref={folderMenuRef} x={folderContextMenu.x} y={folderContextMenu.y} minWidth={180} ariaLabel="Folder actions">
             <ContextMenuItem
               onClick={() => { const folder = folderContextMenu.folder; setFolderContextMenu(null); if (libraryFolder) window.electronAPI.openFolderInExplorer(`${libraryFolder}/${folder}`) }}
-              title="Opens this folder in File Explorer"
             >
               Show in explorer
             </ContextMenuItem>
             {!isProtectedFolder(folderContextMenu.folder) && (<>
               <ContextMenuItem
                 onClick={() => { setRenamingFolder(folderContextMenu.folder); setRenameDraft(folderContextMenu.folder); setFolderContextMenu(null) }}
-                title="Renames this folder on disk"
               >
                 Rename
               </ContextMenuItem>
               <ContextMenuItem
                 onClick={() => { const folder = folderContextMenu.folder; setFolderContextMenu(null); moveFilesToFolder(Array.from(selectedPaths), folder) }}
                 disabled={selectedPaths.size === 0}
-                title={selectedPaths.size === 0 ? 'Select file(s) first' : `Moves the ${selectedPaths.size} selected file(s) into this folder`}
               >
                 Move {selectedPaths.size || ''} selected files here
               </ContextMenuItem>
@@ -1144,7 +1133,6 @@ function LibraryPanel() {
                 onClick={() => { const folder = folderContextMenu.folder; setFolderContextMenu(null); handleDeleteFolder(folder) }}
                 disabled={!folderIsEmpty(folderContextMenu.folder)}
                 danger
-                title={!folderIsEmpty(folderContextMenu.folder) ? 'Move files out first' : 'Deletes this empty folder from disk'}
               >
                 Delete
               </ContextMenuItem>

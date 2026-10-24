@@ -421,7 +421,6 @@ export default function MixerConsole() {
         >
           <button
             onClick={requestClose}
-            title="Close"
             style={modalCloseButtonStyle}
             onMouseEnter={e => e.currentTarget.style.color = modalCloseButtonHoverColor}
             onMouseLeave={e => e.currentTarget.style.color = modalCloseButtonIdleColor}

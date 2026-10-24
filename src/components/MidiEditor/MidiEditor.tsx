@@ -498,7 +498,6 @@ function ColorPopover({ trackIndex, trackColor, anchor, onApplyColor, onClose }:
           <div
             key={c}
             onClick={() => handlePaletteClick(c)}
-            title={c}
             style={{
               height: 26, background: c, borderRadius: 3, cursor: 'pointer', boxSizing: 'border-box',
               border: `2px solid ${c === trackColor ? 'var(--text-white)' : 'transparent'}`,
