@@ -8,6 +8,7 @@ import Tooltip, { useTooltip } from '../Tooltip'
 import { useUpdateState, pressUpdateButton } from '../../hooks/useUpdateCheck'
 import { useSupportNote, requestStoreReview } from '../../hooks/useSupportNote'
 import { t } from '../../utils/i18n'
+import { simAvailable } from '../../utils/midiSimulator'
 
 // ── Which panel a control is drawn in — Setup (the drawer) or the Settings
 // window — for the few controls that differ between the two. ─────────────
@@ -557,6 +558,17 @@ export function RollZoomStepper() {
         onClick={() => { const i = ZOOM_STEPS.indexOf(zoomLevel); if (i < ZOOM_STEPS.length - 1) setZoomLevel(ZOOM_STEPS[i + 1]) }}
       >+</ZoomStepBtn>
     </div>
+  )
+}
+
+// ── DEV MODE — in the Setup tab's and the Settings window's footers while the
+// test tools are on: dev run, test portable, or Ctrl+Alt+Shift+D ──────────
+export function DevModeBadge({ placement = 'top' }: { placement?: 'left' | 'right' | 'top' | 'bottom' }) {
+  if (!simAvailable) return null
+  return (
+    <Tooltip title="Dev mode" description={"Test tools are on: the dashed \"test builds only\"\npanels in Settings. Ctrl+Alt+Shift+D\nswitches them on and off."} placement={placement}>
+      <span style={{ color: 'var(--text-amber)', fontSize: 9, fontFamily: 'var(--font-mono)', letterSpacing: '0.05em', whiteSpace: 'nowrap', cursor: 'default' }}>DEV MODE</span>
+    </Tooltip>
   )
 }
 

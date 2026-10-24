@@ -52,7 +52,7 @@ export function SupportNote() {
         boxShadow: '0 4px 16px rgba(0,0,0,0.5)', fontFamily: 'var(--font-ui)',
       }}>
       <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1fr) auto', alignItems: 'center', marginBottom: 8 }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 7, color: 'var(--text-amber)', fontFamily: 'var(--font-mono)', fontSize: 'var(--text-sm)' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 7, color: 'var(--text-amber)', fontFamily: 'var(--font-ui)', fontSize: 'var(--text-sm)', fontWeight: 600 }}>
           <Star size={13} strokeWidth={1.5} />
           {t`Enjoying Orfeo?`}
         </div>
@@ -67,8 +67,8 @@ export function SupportNote() {
       </div>
       {store ? (
         <>
-          <div style={{ color: 'var(--text-default)', fontSize: 'var(--text-base)', lineHeight: 1.5 }}>
-            {t`A rating in the Microsoft Store helps other musicians find it. It only takes a moment.`}
+          <div style={{ color: 'var(--text-muted)', fontSize: 'var(--text-sm)', fontWeight: 400, lineHeight: 1.55 }}>
+            {t`Orfeo is here to make your musical journey a little more enjoyable, one note at a time. A rating in the Microsoft Store helps other musicians find it, and it only takes a moment.`}
           </div>
           <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8, marginTop: 14 }}>
             <button style={btn(true)} onClick={() => void requestStoreReview()}>{t`Rate Orfeo`}</button>
@@ -78,8 +78,8 @@ export function SupportNote() {
         </>
       ) : (
         <>
-          <div style={{ color: 'var(--text-default)', fontSize: 'var(--text-base)', lineHeight: 1.5 }}>
-            {t`Orfeo is free and made by one musician. Here's how you can help it grow.`}
+          <div style={{ color: 'var(--text-muted)', fontSize: 'var(--text-sm)', fontWeight: 400, lineHeight: 1.55 }}>
+            {t`Orfeo is here to make your musical journey a little more enjoyable, one note at a time. It's free and made by one musician. Here's how you can help it grow.`}
           </div>
           <div style={{ display: 'grid', gridTemplateColumns: 'auto minmax(0, 1fr) auto', gap: 8, marginTop: 14 }}>
             <button style={btn(true)} onClick={() => visit(REVIEW_URL)}><Star size={13} strokeWidth={1.75} />{t`Review`}</button>

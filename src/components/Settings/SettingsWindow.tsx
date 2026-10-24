@@ -8,7 +8,7 @@ import OrfeoMark from '../OrfeoMark'
 import { GROUPS, SETTINGS, type SettingId } from './catalog'
 import { searchSettings, gridColumns, CARD_GAP } from './search'
 import { SettingCard } from './SettingCard'
-import { UpdateButton, RateButton } from './controls'
+import { UpdateButton, RateButton, DevModeBadge } from './controls'
 import { GROUP_ICONS } from './groupIcons'
 import { TAB_ASIDES } from './defs/midi'
 
@@ -182,7 +182,7 @@ export default function SettingsWindow() {
                   <span style={{ color: 'var(--text-inactive)', fontSize: 10, fontFamily: 'var(--font-mono)', whiteSpace: 'nowrap' }}>v{displayVersion(__APP_VERSION__)}</span>
                 </button>
               </Tooltip>
-              <div style={{ display: 'flex', alignItems: 'center' }}><RateButton placement="top" /><UpdateButton placement="top" showStatus={false} /></div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}><DevModeBadge /><RateButton placement="top" /><UpdateButton placement="top" showStatus={false} /></div>
             </div>
           </nav>
           <div style={{ display: 'grid', gridTemplateRows: 'minmax(0, 1fr) auto', minHeight: 0 }}>
