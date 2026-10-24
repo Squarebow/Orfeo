@@ -97,6 +97,7 @@ export default function TopBar() {
   const noteNaming = useStore((s) => s.noteNaming)
   const accidentals = useStore((s) => s.accidentals)
   const chordExplorerOpen = useStore((s) => s.chordExplorerOpen)
+  const explorerPausesPlayback = useStore((s) => s.explorerPausesPlayback)
   const resetAll = useStore((s) => s.resetAll)
   const barStarts = useStore((s) => s.barStarts)
   const chordSequence = useStore((s) => s.chordSequence)
@@ -434,7 +435,7 @@ export default function TopBar() {
         <div style={{ display: 'flex', alignItems: 'center', gap: 2 }}>
           <TBtn onClick={stop} disabled={!midi} title="Go to start" oneLine><SkipBack size={16} strokeWidth={1.5} /></TBtn>
           <TBtn onClick={() => handleSkip(-1)} disabled={!midi} title={`Rewind ${SKIP_SECS}s`} oneLine><Rewind size={15} strokeWidth={1.5} /></TBtn>
-          <TBtn onClick={handlePlayPause} disabled={!midi || chordExplorerOpen} accent title="Play / Pause (Space)" large oneLine>
+          <TBtn onClick={handlePlayPause} disabled={!midi || (chordExplorerOpen && explorerPausesPlayback)} accent title="Play / Pause (Space)" large oneLine>
             {playbackState === 'playing'
               ? <Pause size={24} fill="currentColor" strokeWidth={0} />
               : <Play size={24} fill="currentColor" strokeWidth={0} />}

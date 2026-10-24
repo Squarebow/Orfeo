@@ -547,7 +547,8 @@ export default function ScaleExplorer() {
       // ── Recompute anchor position every time the modal opens ────────────
       setPos(defaultPos(MODAL_HEIGHT))
       needsAnchorRef.current = true
-      if (useStore.getState().playbackState === 'playing') {
+      // unless switched off: Settings › Playback › Explorers pause playback
+      if (useStore.getState().playbackState === 'playing' && useStore.getState().explorerPausesPlayback) {
         ;(window as any).__orfeoPlayer?.pause?.()
         useStore.getState().setPlaybackState('paused')
       }

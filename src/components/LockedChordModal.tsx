@@ -48,6 +48,9 @@ export default function LockedChordModal() {
   // this modal the same way it already excludes chordExplorerOpen/
   // scaleExplorerOpen — see the field's own comment in store/index.ts. ─────
   useEffect(() => { setLockedChordModalOpen(modalOpen) }, [modalOpen, setLockedChordModalOpen])
+  // An Explorer opening lets go of the locked chord (store setters): close too
+  const explorerOpen = useStore((s) => s.chordExplorerOpen || s.scaleExplorerOpen)
+  useEffect(() => { if (explorerOpen) setModalOpen(false) }, [explorerOpen])
   // ── Position state — bottom edge on the keyboard header, horizontally
   // centered on the piano roll; computed on first actual open (not at app
   // mount, so the layout is settled), then left alone. ───────────────────────

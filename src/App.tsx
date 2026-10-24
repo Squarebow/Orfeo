@@ -398,7 +398,8 @@ export default function App() {
           if (isTapCapturing()) { if (!e.repeat) registerTap(); break }
           // Space during a count-in stops it (nothing plays)
           if (isCountingIn()) { cancelCountIn(); break }
-          if (useStore.getState().chordExplorerOpen || useStore.getState().scaleExplorerOpen) break
+          // An Explorer that paused the song keeps Space for itself
+          if ((useStore.getState().chordExplorerOpen || useStore.getState().scaleExplorerOpen) && useStore.getState().explorerPausesPlayback) break
           if (playbackState === 'playing') pause()
           else play()
           break

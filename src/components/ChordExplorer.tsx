@@ -215,11 +215,11 @@ export default function ChordExplorer() {
     }
   }, [chordExplorerOpen, stopProgression])
 
-  // Pause playback when modal opens
+  // Pause playback when modal opens (unless switched off: Settings › Playback)
   useEffect(() => {
     if (!chordExplorerOpen) return
-    const { playbackState } = useStore.getState()
-    if (playbackState === 'playing') {
+    const { playbackState, explorerPausesPlayback } = useStore.getState()
+    if (playbackState === 'playing' && explorerPausesPlayback) {
       ;(window as any).__orfeoPlayer?.pause?.()
       useStore.setState({ playbackState: 'paused' })
     }

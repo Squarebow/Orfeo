@@ -11,7 +11,7 @@ import { isHomogeneousHandTrack, resolveHandAwareColor } from '../utils/handColo
 import { NES } from '../utils/noteEditorState'
 import { editableCopyToBuffer } from '../utils/noteEditorCommands'
 import { useMidiSettings, latencyOffsetSec, midiPrefsReady } from '../store/midiSettings'
-import { useNativeEngine, nativeLightKey } from '../audio/useNativeEngine'
+import { useNativeEngine, nativeLightKey, nativeLivePiano } from '../audio/useNativeEngine'
 import { nativeCall } from '../audio/nativeClient'
 
 let _jzzReady = false
@@ -489,6 +489,7 @@ export function useAudioEngine() {
       const { audioEngine } = useStore.getState()
       if (audioEngine === 'native') {
         // channel undefined = the live/preview channel (16), as in Samples
+        if (channel === undefined) nativeLivePiano()
         nativeCall('noteFor', channel ?? 15, midiNum, Math.max(1, Math.round(vel * 127)), durMs / 1000)
         if (visual) nativeLightKey(midiNum, color ?? amberHex(), durMs + 100)
         return

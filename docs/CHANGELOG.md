@@ -9,6 +9,7 @@
 
 ### New
 - **"Enjoying Orfeo?"** Every fifth time you open Orfeo, a small note in the corner offers ways to help it grow: a review, the Orfeo community on Reddit, or a coffee on Ko-fi. *Disable for 30 days* pauses it, and Settings › Appearance turns it off.
+- **Explorers pause playback** (Settings › Playback). Opening the Chords or Scales Explorer pauses the song, as before. Switch it off to keep the song playing while you explore. Play and Space then keep working with an Explorer open.
 - **Rate Orfeo** (Microsoft Store version). A star next to *Check for updates* opens the Store's review window right over Orfeo: pick the stars, write a few words, done. In this version the note offers the same, with *Later* and *Don't show again*, and stops for good once you've rated Orfeo.
 
 ### Changed
@@ -24,8 +25,13 @@
   - In *Playing live*, the two part headings are amber so they stand out. A pedal or control that hasn't been touched yet now reads *not detected*.
 - **Engine and playing-mode buttons explain themselves.** Pointing at GM, Studio or Native, or at Low latency, Balanced or Stable, shows a one-line hint of what each is best for. You can switch these hints off with the other tooltips.
 - **Long names scroll instead of being cut off** — the sound card and its mode in Audio, and keyboard names in the MIDI Keyboard list. *Only ticked* is now *Select*.
+- **The song keeps its colours on the keyboard when paused.** Notes lit at a paused playhead (*Reflect on keyboard*, Step Through) now show in their track colours, or left/right hand colours, just as while playing. Amber is only for the tools now: the Explorers and lock-a-chord.
+- **Lock-a-chord is amber**, like the Explorers. The two never show at once: opening an Explorer lets go of a locked chord.
+- **The Explorers have the keyboard to themselves.** With a song paused, the song's notes leave the keyboard while the Chords or Scales Explorer is open and come back the moment it closes.
+- **Step Through tooltips** fit on one line: *Next note or chord (Shift+→ next bar)*.
 
 ### Fixed
+- **Explorers play piano again with the Native engine.** After a song with its own instrument on MIDI channel 16 had played, the Explorers, Lock-a-Chord and your keyboard could keep sounding that instrument (a sax or strings) instead of piano for the rest of the session.
 - **No more plain white hover labels.** Since 1.5.2, pointing at a track, a piano key or some buttons could show a small white label next to Orfeo's own tooltip. They're gone.
 
 ## [1.5.3] — 23. 10. 2026 — Native mode sounds like Studio, clearer Settings

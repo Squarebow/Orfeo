@@ -8,6 +8,7 @@ import { notesSoundingAt } from '../../utils/midiParser'
 import type { SoundingNote } from '../../utils/midiParser'
 import { buildPitchHandIndex, lookupNoteHandAtTime, detectPerformanceBoundary } from '../../utils/handBoundaries'
 import type { Hand } from '../../types'
+import { isHomogeneousHandTrack, resolveHandAwareColor } from '../../utils/handColors'
 import Tooltip, { useTooltip } from '../Tooltip'
 import { ContextMenu, ContextMenuItem } from '../ContextMenu'
 import { outputLatencySec } from '../../audio/engine'
@@ -108,6 +109,10 @@ export default function Keyboard() {
   const reflectCacheRef = useRef<{ key: string; result: SoundingNote[] } | null>(null)
   const reflectSounding = useStore((s) => {
     if (!s.reflectPianoRollOnKeyboard || s.playbackState === 'playing' || !s.midi) return EMPTY_SOUNDING
+    // An Explorer on screen owns the keyboard: the song's notes at the
+    // playhead would mix with its tiles' notes. They come back as it closes
+    // or is minimised.
+    if ((s.chordExplorerOpen && !s.chordExplorerMinimized) || (s.scaleExplorerOpen && !s.scaleExplorerMinimized)) return EMPTY_SOUNDING
     // ── Follows track VISIBILITY (the eye toggle — same field PianoRoll.tsx
     // itself checks to decide whether to draw a track's notes), not "Lit on
     // keyboard" (track.showOnKeyboard). Those are different concepts:
@@ -332,6 +337,8 @@ export default function Keyboard() {
 
   const handleShowChordOnKeyboard = useCallback(() => {
     if (!chordCtxMenu) return
+    // a locked chord and an Explorer never light the keyboard at once
+    if (chordExplorerOpen || scaleExplorerOpen) { setChordCtxMenu(null); return }
     const { realMidi, displayName, inversionCount } = chordCtxMenu
     // ── The real voicing from the file (built in handleChordContextMenu).
     // Clamp to the current keyboard's playable range as a safety net. ──────
@@ -339,14 +346,11 @@ export default function Keyboard() {
     const midiNotes = realMidi.filter(m => m >= min && m <= max)
     if (midiNotes.length > 0) {
       // ── Lock-a-chord is a single detached chord being studied while
-      // paused, not song playback — always pink (--lock-chord-color, a
-      // separate token from the LH/RH hand colors it's borrowed from — see
-      // that token's own comment), never the source-track / LH-RH colors
-      // (which only make sense when multiple tracks light up together
-      // during playback), and never plain amber either — amber is also what
-      // "Reflect piano roll on keyboard" uses, and the two need to read as
-      // different things when a locked chord's notes are also currently
-      // sounding under that setting (see allActiveColors below). ──────────
+      // paused, not song playback — a tool, so amber (--lock-chord-color),
+      // never the source-track / LH-RH colors the song's own notes keep
+      // ("Reflect on keyboard"), so the two read apart on keys they share
+      // (see allActiveColors below). An Explorer uses amber too, so the two
+      // never show at once: opening one lets go of the lock. ─────────────
       const colors = new Map(midiNotes.map(m => [m, 'var(--lock-chord-color)'] as [number, string]))
       // ── Setting lockedKeys is enough — LockedChordModal auto-opens itself
       // via its own effect watching lockedKeys.size, same as Shift+Click. ────
@@ -358,7 +362,7 @@ export default function Keyboard() {
       useStore.getState().setLockedChordNoteCount(new Set(midiNotes.map(m => m % 12)).size)
     }
     setChordCtxMenu(null)
-  }, [chordCtxMenu, keyboardSize, setLockedKeysStore])
+  }, [chordCtxMenu, keyboardSize, setLockedKeysStore, chordExplorerOpen, scaleExplorerOpen])
 
   const handleOpenChordInExplorer = useCallback(() => {
     if (!chordCtxMenu) return
@@ -446,20 +450,34 @@ export default function Keyboard() {
     return merged
   }, [activeKeys, lockedKeys, explorerKeys, reflectKeys])
 
+  // "Reflect on keyboard" — the paused song's notes in their own track (or
+  // left/right hand) colours, exactly as playback lights them: amber belongs
+  // to the tools (Explorers, glissando), so a chord auditioned over a paused
+  // song stays tellable apart from the song's own notes.
+  const midiTracks = useStore((s) => s.midi?.tracks)
+  const trackStates = useStore((s) => s.tracks)
+  const homogeneousTracks = useMemo(
+    () => new Map((midiTracks ?? []).map(t => [t.index, isHomogeneousHandTrack(t.notes)])),
+    [midiTracks])
+  const reflectColors = useMemo(() => {
+    const m = new Map<number, string>()
+    const opts = { showHandLabels, performanceMode: handLabelMode === 'performance' }
+    for (const n of reflectSounding) {
+      const base = trackStates.find(t => t.index === n.trackIndex)?.color ?? 'var(--text-amber)'
+      m.set(n.midi, resolveHandAwareColor(n, base, { ...opts, homogeneousTrack: homogeneousTracks.get(n.trackIndex) ?? false }))
+    }
+    return m
+  }, [reflectSounding, trackStates, homogeneousTracks, showHandLabels, handLabelMode])
+
   const allActiveColors = useMemo(() => {
     const merged = new Map(activeKeyColors)
+    // the song first, then the tools over it: Explorer tiles, then a locked
+    // chord's pink, which stays the visible one on a shared key
+    reflectColors.forEach((c, k) => merged.set(k, c))
     explorerKeyColors.forEach((c, k) => merged.set(k, c))
-    // "Reflect piano roll on keyboard" — flat amber, a live always-on version
-    // of the same paused-study case lock-a-chord covers, so it gets the same
-    // kind of flat, non-per-track color. Applied BEFORE lockedColors below —
-    // when a locked chord's notes are also currently sounding under this
-    // setting, the lock's pink needs to stay the visible one (they're two
-    // different things to be studying at once), not get overwritten back to
-    // amber.
-    reflectKeys.forEach(k => merged.set(k, 'var(--text-amber)'))
     lockedColors.forEach((c, k) => merged.set(k, c))
     return merged
-  }, [activeKeyColors, lockedColors, explorerKeyColors, reflectKeys])
+  }, [activeKeyColors, lockedColors, explorerKeyColors, reflectColors])
 
   const getColor = (midi: number): string | null => {
     if (!allActiveKeys.has(midi)) return null
@@ -539,7 +557,8 @@ export default function Keyboard() {
   // fade timer) instead of the normal timed ring, since any timer duration
   // still overlaps neighboring keys during a fast sweep.
   const handleKeyClick = useCallback((midi: number, isGlissando = false) => {
-    if (shiftHeldRef.current) {
+    // Shift+Click locks a chord — not while an Explorer has the keyboard
+    if (shiftHeldRef.current && !chordExplorerOpen && !scaleExplorerOpen) {
       const next = new Set(lockedKeys)
       const nextColors = new Map(lockedColors)
       if (next.has(midi)) {
@@ -570,7 +589,7 @@ export default function Keyboard() {
         if (playNote) playNote(midi, 0.7, 500)
       }
     }
-  }, [lockedKeys, lockedColors, noteNaming, accidentals, chordNamingStyle, setLockedKeysStore, clearLockedKeys, lightGlissandoKey])
+  }, [lockedKeys, lockedColors, noteNaming, accidentals, chordNamingStyle, setLockedKeysStore, clearLockedKeys, lightGlissandoKey, chordExplorerOpen, scaleExplorerOpen])
 
   const keyContainerRef = useRef<HTMLDivElement>(null)
   const [keyHeight, setKeyHeight] = useState(130)
