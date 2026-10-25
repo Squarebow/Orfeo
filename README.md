@@ -11,7 +11,7 @@ Orfeo is free and always will be. If it helps your playing, you can support it o
 
 [![ko-fi](https://ko-fi.com/img/githubbutton_sm.svg)](https://ko-fi.com/X5T32931V0)
 
-![Orfeo mid-playback: falling notes on the keyboard, keys lit in track colours, the live chord name above](.github/images/orfeo-hero.png)
+![Orfeo mid-playback: falling notes on the keyboard, keys lit in track colours, the live chord name above](.github/images/orfeo-hero.webp)
 
 ---
 
