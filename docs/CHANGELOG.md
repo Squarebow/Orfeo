@@ -5,7 +5,13 @@
      list of 2–4 one-line bullets, then ### New / ### Changed / ### Fixed.
      Newest version at the top. -->
 
-## [Unreleased]
+## [1.5.4] — 25. 10. 2026 — Lots of polish, plus a few new things
+
+**In short**
+- A lot of polish and tweaks under the hood: Settings pages in a clearer order with a new Editing page, steadier colours on the keyboard, and stray hover labels gone.
+- New: the Chords and Scales Explorers have the keyboard to themselves, play piano on every sound engine, and can let the song keep playing (Settings › Playback).
+- New: the song keeps its track colours on the keyboard even when paused, so an auditioned or locked chord (amber) stands out.
+- New: a small "Enjoying Orfeo?" note now and then, and Microsoft Store users can rate Orfeo right in the app.
 
 ### New
 - **"Enjoying Orfeo?"** Every fifth time you open Orfeo, a small note in the corner offers ways to help it grow: a review, the Orfeo community on Reddit, or a coffee on Ko-fi. *Disable for 30 days* pauses it, and Settings › Appearance turns it off.
