@@ -469,7 +469,6 @@ export default function NoteEditorToolbar() {
           e.preventDefault()
           dragState.current = { startX: e.clientX, startY: e.clientY, startPosX: pos.x, startPosY: pos.y }
         }}
-        title="Drag to move"
         style={{ display: 'grid', gridTemplateColumns: '168px 1fr 168px', alignItems: 'center', minHeight: 32, padding: '4px 8px', gap: 6, cursor: 'grab' }}
       >
         <div style={{ display: 'flex', alignItems: 'center', gap: 6, minWidth: 0 }}>

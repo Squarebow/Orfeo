@@ -468,6 +468,12 @@ interface OrfeoStore {
   // Orfeo's own tooltips (hints on hover); live value readouts while dragging stay
   tooltipsEnabled: boolean
   setTooltipsEnabled: (v: boolean) => void
+  // The "Enjoying Orfeo?" note every 5th launch (components/SupportNote.tsx)
+  supportNoteEnabled: boolean
+  setSupportNoteEnabled: (v: boolean) => void
+  // Opening the Chords or Scales Explorer pauses the song (Settings › Playback)
+  explorerPausesPlayback: boolean
+  setExplorerPausesPlayback: (v: boolean) => void
   setAutoCollapseDrawers: (v: boolean) => void
 
   // ── Tracks panel's per-track color line doubles as a mini VU meter during
@@ -705,12 +711,14 @@ export const useStore = create<OrfeoStore>((set, get) => ({
   setColorRootNoteEnabled: (colorRootNoteEnabled) => set({ colorRootNoteEnabled }),
   explorerOctave: 0,
   setExplorerOctave: (explorerOctave) => set({ explorerOctave }),
-  // ── Opening always clears the minimized flag so restore-from-minimize works ──
+  // ── Opening always clears the minimized flag so restore-from-minimize works,
+  // and lets go of a locked chord: both light the keyboard in amber, so they
+  // never show at once (LockedChordModal closes itself too) ──
   setChordExplorerOpen: (chordExplorerOpen) =>
-    set(chordExplorerOpen ? { chordExplorerOpen, chordExplorerMinimized: false } : { chordExplorerOpen }),
+    chordExplorerOpen ? (get().clearLockedKeys(), set({ chordExplorerOpen, chordExplorerMinimized: false })) : set({ chordExplorerOpen }),
   setChordExplorerMinimized: (chordExplorerMinimized) => set({ chordExplorerMinimized }),
   setScaleExplorerOpen: (scaleExplorerOpen) =>
-    set(scaleExplorerOpen ? { scaleExplorerOpen, scaleExplorerMinimized: false } : { scaleExplorerOpen }),
+    scaleExplorerOpen ? (get().clearLockedKeys(), set({ scaleExplorerOpen, scaleExplorerMinimized: false })) : set({ scaleExplorerOpen }),
   setScaleExplorerMinimized: (scaleExplorerMinimized) => set({ scaleExplorerMinimized }),
   setMixerOpen: (mixerOpen) => set({ mixerOpen }),
   midiEditorOpen: false,
@@ -966,6 +974,7 @@ export const useStore = create<OrfeoStore>((set, get) => ({
     'midi-files-library': false,
     'playback-editing': false,
     practice: false,
+    editing: false,
     notation: false,
     keyboard: false,
     'piano-roll': false,
@@ -1023,6 +1032,10 @@ export const useStore = create<OrfeoStore>((set, get) => ({
   setStepThroughEnabled: (stepThroughEnabled) => set({ stepThroughEnabled }),
   tooltipsEnabled: true,
   setTooltipsEnabled: (tooltipsEnabled) => set({ tooltipsEnabled }),
+  supportNoteEnabled: true,
+  setSupportNoteEnabled: (supportNoteEnabled) => set({ supportNoteEnabled }),
+  explorerPausesPlayback: true,
+  setExplorerPausesPlayback: (explorerPausesPlayback) => set({ explorerPausesPlayback }),
   setAutoCollapseDrawers: (autoCollapseDrawers) => set({ autoCollapseDrawers }),
 
   trackVuColorEnabled: true,
@@ -1205,6 +1218,8 @@ async function restoreLibraryPrefs() {
     if (typeof prefs.autoCollapseDrawers === 'boolean') store.setAutoCollapseDrawers(prefs.autoCollapseDrawers)
     if (typeof prefs.stepThroughEnabled === 'boolean') store.setStepThroughEnabled(prefs.stepThroughEnabled)
     if (typeof prefs.tooltipsEnabled === 'boolean') store.setTooltipsEnabled(prefs.tooltipsEnabled)
+    if (typeof prefs.supportNoteEnabled === 'boolean') store.setSupportNoteEnabled(prefs.supportNoteEnabled)
+    if (typeof prefs.explorerPausesPlayback === 'boolean') store.setExplorerPausesPlayback(prefs.explorerPausesPlayback)
     if (typeof prefs.trackVuColorEnabled === 'boolean') store.setTrackVuColorEnabled(prefs.trackVuColorEnabled)
     if (typeof prefs.autoMuteNonKeyboard === 'boolean') store.setAutoMuteNonKeyboard(prefs.autoMuteNonKeyboard)
     if (prefs.settingsGroupsCollapsed && typeof prefs.settingsGroupsCollapsed === 'object' && !Array.isArray(prefs.settingsGroupsCollapsed)) {
@@ -1301,6 +1316,8 @@ let _prevShowNoteNamesOnKeyboard: boolean | null = null
 let _prevAutoCollapseDrawers: boolean | null = null
 let _prevStepThroughEnabled: boolean | null = null
 let _prevTooltipsEnabled: boolean | null = null
+let _prevSupportNoteEnabled: boolean | null = null
+let _prevExplorerPausesPlayback: boolean | null = null
 let _prevTrackVuColorEnabled: boolean | null = null
 let _prevAutoMuteNonKeyboard: boolean | null = null
 let _prevSettingsGroupsCollapsed: string | null = null
@@ -1366,6 +1383,8 @@ const _unsubPrefs = useStore.subscribe((state) => {
     _prevAutoCollapseDrawers = state.autoCollapseDrawers
     _prevStepThroughEnabled = state.stepThroughEnabled
     _prevTooltipsEnabled = state.tooltipsEnabled
+    _prevSupportNoteEnabled = state.supportNoteEnabled
+    _prevExplorerPausesPlayback = state.explorerPausesPlayback
     _prevTrackVuColorEnabled = state.trackVuColorEnabled
     _prevAutoMuteNonKeyboard = state.autoMuteNonKeyboard
     _prevSettingsGroupsCollapsed = JSON.stringify(state.settingsGroupsCollapsed)
@@ -1434,6 +1453,8 @@ const _unsubPrefs = useStore.subscribe((state) => {
     state.autoCollapseDrawers !== _prevAutoCollapseDrawers ||
     state.stepThroughEnabled !== _prevStepThroughEnabled ||
     state.tooltipsEnabled !== _prevTooltipsEnabled ||
+    state.supportNoteEnabled !== _prevSupportNoteEnabled ||
+    state.explorerPausesPlayback !== _prevExplorerPausesPlayback ||
     state.trackVuColorEnabled !== _prevTrackVuColorEnabled ||
     state.autoMuteNonKeyboard !== _prevAutoMuteNonKeyboard ||
     JSON.stringify(state.settingsGroupsCollapsed) !== _prevSettingsGroupsCollapsed ||
@@ -1494,6 +1515,8 @@ const _unsubPrefs = useStore.subscribe((state) => {
     _prevAutoCollapseDrawers = state.autoCollapseDrawers
     _prevStepThroughEnabled = state.stepThroughEnabled
     _prevTooltipsEnabled = state.tooltipsEnabled
+    _prevSupportNoteEnabled = state.supportNoteEnabled
+    _prevExplorerPausesPlayback = state.explorerPausesPlayback
     _prevTrackVuColorEnabled = state.trackVuColorEnabled
     _prevAutoMuteNonKeyboard = state.autoMuteNonKeyboard
     _prevSettingsGroupsCollapsed = JSON.stringify(state.settingsGroupsCollapsed)
@@ -1560,6 +1583,8 @@ const _unsubPrefs = useStore.subscribe((state) => {
       autoCollapseDrawers: state.autoCollapseDrawers,
       stepThroughEnabled: state.stepThroughEnabled,
       tooltipsEnabled: state.tooltipsEnabled,
+      supportNoteEnabled: state.supportNoteEnabled,
+      explorerPausesPlayback: state.explorerPausesPlayback,
       trackVuColorEnabled: state.trackVuColorEnabled,
       autoMuteNonKeyboard: state.autoMuteNonKeyboard,
       settingsGroupsCollapsed: state.settingsGroupsCollapsed,

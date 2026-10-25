@@ -3,6 +3,7 @@ import { KeyboardMusic, Zap, Timer, Speaker, Feather, Copy, Footprints, Stethosc
 import { useStore } from '../../../store'
 import { t } from '../../../utils/i18n'
 import { OptionBtn, Switch, SettingsDropdown, HelpText, GlanceLine, ZoomStepBtn } from '../controls'
+import { MarqueeText } from '../../MarqueeText'
 import { useMidiSettings, MIDI_DEFAULTS, type ControlKind, type LiveResponse, type VelocityCurve } from '../../../store/midiSettings'
 import { rescanMidiDevices, clearStuckNotes, resetMidiInput } from '../../../hooks/useMidiInput'
 import { reopenGmOutput } from '../../../hooks/useAudioEngine'
@@ -90,7 +91,7 @@ function KeyboardsControl() {
     <>
       <div style={{ display: 'flex', gap: 'var(--space-1)' }}>
         <OptionBtn active={listenMode === 'all'} onClick={() => set({ listenMode: 'all' })}>{t`Listen to all`}</OptionBtn>
-        <OptionBtn active={listenMode === 'selected'} onClick={() => set({ listenMode: 'selected' })}>{t`Only ticked`}</OptionBtn>
+        <OptionBtn active={listenMode === 'selected'} onClick={() => set({ listenMode: 'selected' })}>{t`Select`}</OptionBtn>
       </div>
       <div style={{ marginTop: 8, display: 'grid', gap: 2 }}>
         {error && <HelpText>{t`MIDI isn't available: ${error}`}</HelpText>}
@@ -102,9 +103,8 @@ function KeyboardsControl() {
               fontSize: 'var(--text-xs)', fontFamily: 'var(--font-ui)' }}>
               <ActivityLight at={activity[d.key]} connected={d.connected} />
               <span style={{ minWidth: 0, display: 'grid' }}>
-                <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
-                  color: d.connected ? (d.key === active ? 'var(--text-amber)' : 'var(--text-default)') : 'var(--text-muted)', fontWeight: d.key === active ? 600 : 400 }}>
-                  {d.name}
+                <span style={{ display: 'flex', minWidth: 0 }}>
+                  <MarqueeText name={d.name} spanStyle={{ color: d.connected ? (d.key === active ? 'var(--text-amber)' : 'var(--text-default)') : 'var(--text-muted)', fontWeight: d.key === active ? 600 : 400 }} />
                 </span>
                 <span style={{ fontSize: 9, color: 'var(--text-muted)', lineHeight: 1.3 }}>
                   {!d.connected ? t`unplugged` : d.key === active ? t`playing` : listening ? t`ready` : t`not listened to`}
@@ -171,8 +171,10 @@ function SimulatorPanel() {
 }
 
 // ── Live playing response ────────────────────────────────────────────────────
-const RESPONSES: { v: LiveResponse; label: string }[] = [
-  { v: 'low', label: t`Low latency` }, { v: 'balanced', label: t`Balanced` }, { v: 'stable', label: t`Stable` },
+const RESPONSES: { v: LiveResponse; label: string; hint: string }[] = [
+  { v: 'low', label: t`Low latency`, hint: t`Ideal for playing along — the quickest response` },
+  { v: 'balanced', label: t`Balanced`, hint: t`A middle way — your playing blends into the song's sound` },
+  { v: 'stable', label: t`Stable`, hint: t`For older computers whose sound crackles` },
 ]
 
 function LiveResponseControl() {
@@ -181,7 +183,7 @@ function LiveResponseControl() {
   const started = getStartedStable()  // null until the Studio engine has started
   const nativeExclusive = useMidiSettings(s => s.nativeExclusive)
   const autoLow = useMidiSettings(s => s.autoLowLatency)
-  const heading = (s: string) => <div style={{ fontSize: 9, fontWeight: 600, letterSpacing: '0.1em', textTransform: 'uppercase', color: 'var(--text-muted)', marginBottom: 6 }}>{s}</div>
+  const heading = (s: string) => <div style={{ fontSize: 9, fontWeight: 600, letterSpacing: '0.1em', textTransform: 'uppercase', color: 'var(--text-amber)', marginBottom: 6 }}>{s}</div>
   return (
     <div style={{ display: 'grid', rowGap: 14 }}>
       <div style={{ minWidth: 0 }}>
@@ -193,7 +195,7 @@ function LiveResponseControl() {
         {engine === 'samples' && (
           <>
             <div style={{ display: 'flex', gap: 'var(--space-1)' }}>
-              {RESPONSES.map(r => <OptionBtn key={r.v} active={v === r.v} onClick={() => set({ liveResponse: r.v })}>{r.label}</OptionBtn>)}
+              {RESPONSES.map(r => <OptionBtn key={r.v} active={v === r.v} title={r.hint} oneLine onClick={() => set({ liveResponse: r.v })}>{r.label}</OptionBtn>)}
             </div>
             <HelpText>{v === 'low'
               ? t`Your keys skip the song's compressor and limiter, and are heard about 12 ms sooner.`
@@ -350,7 +352,7 @@ function PedalsControl() {
           onChange={v => set({ controls: { ...controls, [k]: v } })}
           note={
             <span style={{ fontSize: 9, color: k === 'sustain' && sustainDown ? 'var(--text-amber)' : 'var(--text-muted)' }}>
-              {k === 'sustain' && sustainDown ? t`· down` : detected[k] ? t`· detected` : t`· not detected yet`}
+              {k === 'sustain' && sustainDown ? t`· down` : detected[k] ? t`· detected` : t`· not detected`}
             </span>
           } />
       ))}

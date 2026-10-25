@@ -78,6 +78,11 @@ contextBridge.exposeInMainWorld('electronAPI', {
   installUpdate:       () => ipcRenderer.invoke('update:install'),
   onUpdateStatus:      (fn: (data: any) => void) => ipcRenderer.on('update:status', (_e, data) => fn(data)),
   offUpdateStatus:     () => ipcRenderer.removeAllListeners('update:status'),
+  // "Enjoying Orfeo?" note + Rate Orfeo (Store build)
+  getSupportNoteInfo: () => ipcRenderer.invoke('note:info'),
+  requestReview:      () => ipcRenderer.invoke('review:request'),
+  neverShowSupportNote: () => ipcRenderer.invoke('note:never'),
+  snoozeSupportNote:  () => ipcRenderer.invoke('note:snooze'),
   // App zoom (Ctrl +/−/0)
   getZoom:             () => ipcRenderer.invoke('zoom:get'),
   setZoom:             (percent: number) => ipcRenderer.invoke('zoom:set', percent),

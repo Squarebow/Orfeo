@@ -25,6 +25,7 @@ import {
 } from './useSamplesEngine'
 import { liveNoteOn as gmNoteOn, liveSend as gmSend, liveReset as gmReset } from './useAudioEngine'
 import { nativeCall } from '../audio/nativeClient'
+import { nativeLivePiano } from '../audio/useNativeEngine'
 
 const HARDWARE_COLOR = 'var(--text-amber)'
 
@@ -84,7 +85,7 @@ function markActivity(key: string, t: number) {
 }
 
 // ── Sound + light for one key ─────────────────────────────────────────────────
-function soundOn(note: number, vel: number) { if (isNative()) nativeLive(0x90, note, vel); else if (isSamples()) samplesNoteOn(note, vel); else gmNoteOn(note, vel) }
+function soundOn(note: number, vel: number) { if (isNative()) { nativeLivePiano(); nativeLive(0x90, note, vel) } else if (isSamples()) samplesNoteOn(note, vel); else gmNoteOn(note, vel) }
 function soundOff(note: number) { if (isNative()) nativeLive(0x80, note); else if (isSamples()) samplesNoteOff(note); else gmSend([0x8F, note, 0]) }
 
 function lightOn(note: number) {

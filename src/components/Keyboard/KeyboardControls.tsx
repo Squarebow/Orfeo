@@ -316,7 +316,7 @@ function StepArrow({ dir, enabled }: { dir: 1 | -1; enabled: boolean }) {
   const [hover, setHover] = useState(false)
   const Icon = dir === 1 ? ArrowRight : ArrowLeft
   return (
-    <Tooltip title={dir === 1 ? t`Step to the next note or chord (→, Shift: next bar)` : t`Step back to the previous note or chord (←, Shift: previous bar)`} oneLine>
+    <Tooltip title={dir === 1 ? t`Next note or chord (Shift+→ next bar)` : t`Previous note or chord (Shift+← previous bar)`} oneLine>
       <button
         type="button"
         aria-label={dir === 1 ? t`Next note or chord` : t`Previous note or chord`}

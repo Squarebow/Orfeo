@@ -21,9 +21,10 @@ function SoundEngineControl() {
   const audioEngine = useStore((s) => s.audioEngine)
   return (
     <div style={{ display: 'flex', gap: 'var(--space-1)' }}>
-      <OptionBtn active={audioEngine === 'gm'} onClick={async () => { if (useStore.getState().audioEngine === 'native') await stopNative(); useStore.getState().setAudioEngine('gm') }}>GM</OptionBtn>
-      <OptionBtn active={audioEngine === 'samples'} onClick={chooseSamplesFromQuick}>{t`Studio`}</OptionBtn>
-      {NATIVE_AVAILABLE && <OptionBtn active={audioEngine === 'native'} onClick={() => useStore.getState().setAudioEngine('native')}>{t`Native`}</OptionBtn>}
+      <OptionBtn active={audioEngine === 'gm'} title={t`Generic — sounds like a 1996 Nokia phone`} oneLine
+        onClick={async () => { if (useStore.getState().audioEngine === 'native') await stopNative(); useStore.getState().setAudioEngine('gm') }}>GM</OptionBtn>
+      <OptionBtn active={audioEngine === 'samples'} title={t`Perfect for listening — real recorded instruments`} oneLine onClick={chooseSamplesFromQuick}>{t`Studio`}</OptionBtn>
+      {NATIVE_AVAILABLE && <OptionBtn active={audioEngine === 'native'} title={t`Ideal for playing along on a connected keyboard`} oneLine onClick={() => useStore.getState().setAudioEngine('native')}>{t`Native`}</OptionBtn>}
     </div>
   )
 }
@@ -48,12 +49,14 @@ function useDefaultOutputName(): string {
 const rowStyle = { display: 'grid', gridTemplateColumns: 'auto minmax(0, 1fr)', columnGap: 10, alignItems: 'baseline', marginTop: 4,
   fontSize: 10, fontFamily: 'var(--font-ui)', lineHeight: 1.4 } as const
 // `marquee`: a long name (a sound card's) that scrolls into view on hover when it doesn't fit
+// `marquee`: the row's text (for content with styling, also pass it as children) —
+// when it doesn't fit, it scrolls into view on hover
 function InfoRow({ label, children, marquee }: { label: string; children?: ReactNode; marquee?: string }) {
   return (
     <div style={rowStyle}>
       <span style={{ color: 'var(--text-muted)' }}>{label}</span>
       {marquee !== undefined
-        ? <div style={{ display: 'flex', minWidth: 0, textAlign: 'right' }}><MarqueeText name={marquee} spanStyle={{ color: 'var(--text-default)' }} /></div>
+        ? <div style={{ display: 'flex', minWidth: 0, textAlign: 'right' }}><MarqueeText name={marquee} spanStyle={{ color: 'var(--text-default)' }}>{children}</MarqueeText></div>
         : <span style={{ color: 'var(--text-default)', textAlign: 'right', minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{children}</span>}
     </div>
   )
@@ -83,7 +86,7 @@ function SoundEngineGlance() {
     return (
       <div style={{ marginTop: 6 }}>
         <InfoRow label={t`Sound card`} marquee={native.deviceName} />
-        <InfoRow label={t`Mode`}>{native.mode === 'exclusive' ? amber(t`Exclusive (low latency)`) : t`Shared`} · {kHz(native.rate)} · {msOf(native.bufferFrames / native.rate)} {t`buffer`}</InfoRow>
+        <InfoRow label={t`Mode`} marquee={`${native.mode} ${native.rate} ${native.bufferFrames}`}>{native.mode === 'exclusive' ? amber(t`Exclusive (low latency)`) : t`Shared`} · {kHz(native.rate)} · {msOf(native.bufferFrames / native.rate)} {t`buffer`}</InfoRow>
         {latency}
         {/* Exclusive asked for, but the card couldn't do it: say why */}
         {wantsExclusive && native.mode === 'shared' && native.fallbackReason && <HelpText>{t`Sharing the sound card instead of Exclusive:`} {native.fallbackReason}.</HelpText>}
@@ -94,7 +97,7 @@ function SoundEngineGlance() {
   return (
     <div style={{ marginTop: 6 }}>
       <InfoRow label={t`Sound card`} marquee={audioEngine === 'gm' && gmExternal ? gmExternal : defaultName || t`Windows' default output`} />
-      <InfoRow label={t`Mode`}>{audioEngine === 'gm' && gmExternal ? t`External instrument` : <>{t`Shared`}{audioEngine === 'samples' && samplesStatus === 'ready' && rate > 0 && <> · {kHz(rate)}{buffer > 0 && <> · {msOf(buffer)} {t`buffer`}</>}</>}</>}</InfoRow>
+      <InfoRow label={t`Mode`} marquee={`${audioEngine} ${gmExternal} ${samplesStatus} ${rate} ${buffer}`}>{audioEngine === 'gm' && gmExternal ? t`External instrument` : <>{t`Shared`}{audioEngine === 'samples' && samplesStatus === 'ready' && rate > 0 && <> · {kHz(rate)}{buffer > 0 && <> · {msOf(buffer)} {t`buffer`}</>}</>}</>}</InfoRow>
       {latency}
     </div>
   )
@@ -196,7 +199,6 @@ function SoundFontsControl() {
           return (
             <div key={sf.id} style={{ display: 'contents' }}>
               <span
-                title={sf.downloaded ? `Use ${sf.name} for the Studio and Native engines` : `Download ${sf.name} first`}
                 style={{
                   fontSize: 'var(--text-xs)', fontFamily: 'var(--font-ui)',
                   color: isActive ? 'var(--text-amber)' : 'var(--text-inactive)', fontWeight: isActive ? 600 : 400,

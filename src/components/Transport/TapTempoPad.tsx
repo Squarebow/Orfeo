@@ -236,7 +236,7 @@ export function TapTempoPad() {
                 <button onMouseDown={keepFocus} style={{ ...btn, borderColor: 'var(--accent-amber-strong)', color: 'var(--text-amber)' }} onClick={keepTap}>{t`Keep for this song`}</button>
                 {ses.nearOriginal && (
                   <button onMouseDown={keepFocus} style={btn} onClick={keepOriginal}
-                    title={t`Your tempo matches the file's own: keep the file as it is and don't warn about this song's tempo again`}>{t`Original is fine`}</button>
+                   >{t`Original is fine`}</button>
                 )}
                 <button onMouseDown={keepFocus} style={btn} onClick={tapAgain}>{t`Tap again`}</button>
                 <button onMouseDown={keepFocus} style={btn} onClick={cancelTap}>{t`Cancel`}</button>
@@ -256,14 +256,14 @@ export function TapTempoPad() {
           {saved.map((x, i) => (
             <div key={i} style={{ display: 'flex', alignItems: 'center' }}>
               <div style={{ flex: 1 }}>
-                <ContextMenuItem onClick={() => { setMenu(null); editKeptTempo(i) }} title={t`Open this tempo to listen and adjust it`}>
+                <ContextMenuItem onClick={() => { setMenu(null); editKeptTempo(i) }}>
                   <span style={{ fontFamily: 'var(--font-mono)', flex: 1 }}>{x.bpm.toFixed(1)} {t`bpm from`} {fmtSongTime(x.start)}</span>
                   <span style={{ fontSize: 10, color: 'var(--text-muted)' }}>{t`Adjust`}</span>
                 </ContextMenuItem>
               </div>
               <button
                 onClick={() => { removeTappedTempo(i); if (saved.length <= 1) setMenu(null) }}
-                title={t`Remove this tapped tempo`} aria-label={t`Remove this tapped tempo`}
+                aria-label={t`Remove this tapped tempo`}
                 style={{ background: 'none', border: 'none', color: 'var(--text-muted)', cursor: 'pointer', padding: '6px 12px', display: 'flex' }}
               >
                 <X size={12} />
@@ -272,8 +272,7 @@ export function TapTempoPad() {
           ))}
           <ContextMenuDivider />
           {warningsOn && dismissed && (
-            <ContextMenuItem onClick={() => { const k = useStore.getState().songKey; if (k) useStore.setState((s) => { const next = { ...s.tempoWarningDismissed }; delete next[k]; return { tempoWarningDismissed: next } }); setMenu(null) }}
-              title={t`You chose "don't warn me" for this song — show its tempo warning again`}>{t`Show tempo warning again`}</ContextMenuItem>
+            <ContextMenuItem onClick={() => { const k = useStore.getState().songKey; if (k) useStore.setState((s) => { const next = { ...s.tempoWarningDismissed }; delete next[k]; return { tempoWarningDismissed: next } }); setMenu(null) }}>{t`Show tempo warning again`}</ContextMenuItem>
           )}
           <ContextMenuItem onClick={onReset} disabled={saved.length === 0} danger>{t`Reset to the file's own tempo`}</ContextMenuItem>
         </ContextMenu>

@@ -1,8 +1,9 @@
 # Orfeo's native code. orfeo-audio = the engine (+ CLI and self-test);
 # orfeo-audio-node = the Node add-on Orfeo's audio process loads.
+# orfeo-review = opens the Microsoft Store's review window (Store build only).
 [workspace]
 resolver = "2"
-members = ["orfeo-audio", "orfeo-audio-node"]
+members = ["orfeo-audio", "orfeo-audio-node", "orfeo-review"]
 
 [profile.release]
 opt-level = 3

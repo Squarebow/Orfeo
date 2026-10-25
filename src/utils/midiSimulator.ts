@@ -143,7 +143,7 @@ try { _unlocked = localStorage.getItem(DEV_TOOLS_KEY) === '1' } catch {}
 export const simAvailable = import.meta.env.DEV || import.meta.env.MODE === 'test-build' || _unlocked
 
 // Hidden switch, any build: Ctrl+Alt+Shift+D turns the dev tools on or off
-// and reloads the window (not in the manual; see docs/ARCHITECTURE.md)
+// and reloads the window (deliberately undocumented: for the developer only)
 if (typeof window !== 'undefined') {
   window.addEventListener('keydown', (e) => {
     if (!(e.ctrlKey && e.altKey && e.shiftKey && e.code === 'KeyD') || e.repeat) return

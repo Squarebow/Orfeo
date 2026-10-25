@@ -1,4 +1,4 @@
-import { AudioLines, Timer, TriangleAlert, ListOrdered, Hand, Repeat, Focus } from 'lucide-react'
+import { AudioLines, Timer, TriangleAlert, ListOrdered, Hand, Repeat, Focus, Pause } from 'lucide-react'
 import { useStore } from '../../../store'
 import { t } from '../../../utils/i18n'
 import { Switch, OptionBtn, FingerStepper, InlineIcon, SubLabel, HelpText } from '../controls'
@@ -114,6 +114,10 @@ export const PLAYBACK_DEFS: SettingDef[] = [
     id: 'loopRegion', icon: Repeat, kind: 'switch',
     Control: () => { const v = useStore(s => s.loopRegionEnabled); return <Switch value={v} onChange={useStore.getState().setLoopRegionEnabled} label="Loop region" /> },
     Description: () => <>Shows a strip to select and loop-play a section. Alt+Click & drag to select. Click <InlineIcon><Repeat size={11} /></InlineIcon> icon to loop.</>,
+  },
+  {
+    id: 'explorerPause', icon: Pause, kind: 'switch',
+    Control: () => { const v = useStore(s => s.explorerPausesPlayback); return <Switch value={v} onChange={useStore.getState().setExplorerPausesPlayback} label={t`Explorers pause playback`} /> },
   },
   {
     id: 'focusMode', icon: Focus, kind: 'switch',

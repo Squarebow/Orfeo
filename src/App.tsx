@@ -48,6 +48,8 @@ import { isCountingIn, cancelCountIn } from './utils/countInRunner'
 import { stepEvents } from './utils/stepThrough'
 import { useCountIn } from './hooks/useCountIn'
 import { CountInOverlay } from './components/CountInOverlay'
+import { useSupportNoteService } from './hooks/useSupportNote'
+import { SupportNote } from './components/SupportNote'
 
 export default function App() {
   // ── Update status + sound-set progress: one listener each for the app's
@@ -55,6 +57,7 @@ export default function App() {
   // they live here, not in the drawer — it unmounts in presentation mode. ──
   useUpdateService()
   useSoundfontService()
+  useSupportNoteService()
   const midi = useStore((s) => s.midi)
   const keyboardMode = useStore((s) => s.keyboardMode)
   const appTheme = useStore((s) => s.appTheme)
@@ -395,7 +398,8 @@ export default function App() {
           if (isTapCapturing()) { if (!e.repeat) registerTap(); break }
           // Space during a count-in stops it (nothing plays)
           if (isCountingIn()) { cancelCountIn(); break }
-          if (useStore.getState().chordExplorerOpen || useStore.getState().scaleExplorerOpen) break
+          // An Explorer that paused the song keeps Space for itself
+          if ((useStore.getState().chordExplorerOpen || useStore.getState().scaleExplorerOpen) && useStore.getState().explorerPausesPlayback) break
           if (playbackState === 'playing') pause()
           else play()
           break
@@ -611,6 +615,8 @@ export default function App() {
           {zoomHint}
         </div>
       )}
+
+      <SupportNote />
 
       {/* ── Mixer Console — floating modal, toggled via Ctrl+Shift+M or Console drawer icon ── */}
       <MixerConsole />

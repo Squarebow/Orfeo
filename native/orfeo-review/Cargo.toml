@@ -1,0 +1,10 @@
+[package]
+name = "orfeo-review"
+version = "0.1.0"
+edition = "2021"
+description = "Opens the Microsoft Store's rate-and-review window over Orfeo (run by electron/main.ts)"
+publish = false
+
+[dependencies]
+windows-future = "0.3"
+windows = { version = "0.62", features = ["Services_Store", "Win32_Foundation", "Win32_System_Com", "Win32_System_Threading", "Win32_UI_Shell", "Win32_UI_WindowsAndMessaging"] }

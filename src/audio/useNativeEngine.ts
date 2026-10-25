@@ -83,6 +83,21 @@ export function nativeMeasuredLatencySec(): number {
   return Math.max(s.reportedLatencyMs, s.bufferFrames * 1000 / s.rate) / 1000
 }
 
+// ── Live keys and previews (the Explorers, Lock-a-Chord, clicked keys) play
+// piano on channel 16 — but a song with its own track there (an alto sax, say)
+// gives that channel its instrument, and the synth keeps it after the song,
+// even once another song is loaded. Put piano back before they play, as the
+// Samples engine does (ensureHwChannel / ensureLiveChannel). ───────────────
+const LIVE_CH = 15
+let _liveChDirty = false
+let _songUsesLiveCh = false
+export function nativeLivePiano() {
+  if (!_liveChDirty) return
+  nativeCall('midi', 0xc0 | LIVE_CH, 0, 0)
+  // the current song can set it again when it plays or jumps
+  _liveChDirty = _songUsesLiveCh
+}
+
 // ── Song → one flat, time-sorted event list for the engine ──────────────────
 function sendSong() {
   const midi = activeMidiData()
@@ -111,8 +126,10 @@ function sendSong() {
   }
   // Each channel's instrument, switching where one of its tracks takes over
   // (a file track that changes instrument is split into one track per instrument)
+  _songUsesLiveCh = false
   for (const [ch, switches] of programTimeline(midi, tracks)) {
     for (const sw of switches) ev.push([sw.time, 1, sw.track, 0xc0 | ch, sw.program, 0])
+    if (ch === LIVE_CH) _songUsesLiveCh = _liveChDirty = true
   }
   // note-offs before pedal and instrument changes before note-ons at the same instant
   ev.sort((a, b) => a[0] - b[0] || a[1] - b[1])

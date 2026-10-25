@@ -529,7 +529,6 @@ export default function TrackPanel() {
                         color: 'var(--text-inactive)',
                         cursor: isPiano ? 'pointer' : (hoveredHandle === handleId ? 'grab' : 'pointer'),
                       }}
-                      title={isPiano ? (collapsed ? 'Expand' : 'Collapse') : (collapsed ? 'Expand (drag to reorder)' : 'Collapse (drag to reorder)')}
                     >
                       {!isPiano && hoveredHandle === handleId
                         ? <GripVertical size={11} />
@@ -634,7 +633,6 @@ function TrackRow({
   const ch = (track as any).channel != null ? (track as any).channel + 1 : track.index + 1
   const prog = track.isDrum ? 'drums' : `prog ${track.program + 1}`
   const noteCount = useStore(s => (s.midi as any)?.tracks?.find((t: any) => t.index === track.index)?.notes?.length ?? 0)
-  const tooltip = `Track ${track.index + 1} · MIDI channel ${ch} · ${prog}`
 
   // ── Color-line VU meter — Settings-gated (Playback & Practice). Same
   // velocity-scan + decay mechanism as the Console Mixer's ChannelStrip VU
@@ -675,7 +673,6 @@ function TrackRow({
 
   return (
     <div
-      title={tooltip}
       onClick={onSoloForEdit}
       onDragOver={onDragOverRow}
       onDrop={onDropRow}
@@ -712,7 +709,6 @@ function TrackRow({
           onMouseEnter={() => onHandleHover?.(true)}
           onMouseLeave={() => onHandleHover?.(false)}
           onClick={e => e.stopPropagation()}
-          title="Drag to reorder"
           style={{
             width: 11, display: 'flex', alignItems: 'center', justifyContent: 'center',
             flexShrink: 0, cursor: isHandleHovered ? 'grab' : 'default',

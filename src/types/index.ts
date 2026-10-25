@@ -239,6 +239,11 @@ declare global {
       installUpdate:       () => Promise<void>
       onUpdateStatus:      (fn: (data: UpdateStatus) => void) => void
       offUpdateStatus:     () => void
+      // "Enjoying Orfeo?" note + Rate Orfeo (Store build)
+      getSupportNoteInfo:  () => Promise<SupportNoteInfo>
+      requestReview:       () => Promise<'succeeded' | 'canceled' | 'network-error' | 'error'>
+      neverShowSupportNote: () => Promise<void>
+      snoozeSupportNote:   () => Promise<void>
       // App zoom (Ctrl +/−/0)
       getZoom:             () => Promise<{ percent: number; steps: number[]; max: number }>
       setZoom:             (percent: number) => Promise<{ percent: number; capped: boolean } | null>
@@ -257,6 +262,11 @@ export type UpdateInfo = {
   mode: 'auto' | 'store' | 'manual'
   downloadUrl: string
 }
+
+// ── "Enjoying Orfeo?" note — decided in electron/main.ts: `store` = the
+// Microsoft Store build (its note and star offer the Store's review window);
+// `prompt` = show the note this launch (every 5th, unless paused or done)
+export type SupportNoteInfo = { store: boolean; prompt: boolean }
 
 export type UpdateStatus = {
   state: 'idle' | 'checking' | 'up-to-date' | 'downloading' | 'ready' | 'error' | 'unavailable'
@@ -287,5 +297,6 @@ export interface TapSession {
 // ── Settings window / Quick Settings group ids — same keys the drawer's
 // fold state (settingsGroupsCollapsed) already uses. ─────────────────────
 export type SettingsGroupId =
-  | 'audio' | 'midi-files-library' | 'playback-editing' | 'practice'
+  // 'playback-editing' is the Playback group (its id kept so saved choices still apply)
+  | 'audio' | 'midi-files-library' | 'playback-editing' | 'practice' | 'editing'
   | 'notation' | 'keyboard' | 'piano-roll' | 'appearance' | 'midi'

@@ -1,6 +1,7 @@
 // Builds Orfeo's native audio engine add-on and puts everything it needs in
 // native/build/ (gitignored), which electron-builder ships as resources/native:
 //   native/build/orfeo_audio.node     the add-on (Rust, native/orfeo-audio-node)
+//   native/build/orfeo-review.exe     opens the Store's review window (native/orfeo-review)
 //   native/build/fluidsynth/*.dll     FluidSynth 2.5.7 (glib build) + its DLLs
 //
 // FluidSynth's glib-free "cpp11" Windows builds crash with 8+ audio groups
@@ -39,10 +40,12 @@ const cargoBin = join(cargoHome, 'bin')
 const env = { ...process.env, Path: `${cargoBin};${process.env.Path ?? process.env.PATH ?? ''}` }
 const cargo = existsSync(join(cargoBin, 'cargo.exe')) ? join(cargoBin, 'cargo.exe') : 'cargo'
 console.log(`[native] cargo build (${debug ? 'debug' : 'release'})`)
-execFileSync(cargo, ['build', '-p', 'orfeo-audio-node', ...(debug ? [] : ['--release'])], { cwd: native, stdio: 'inherit', env })
+execFileSync(cargo, ['build', '-p', 'orfeo-audio-node', '-p', 'orfeo-review', ...(debug ? [] : ['--release'])], { cwd: native, stdio: 'inherit', env })
 mkdirSync(out, { recursive: true })
-copyFileSync(join(native, 'target', debug ? 'debug' : 'release', 'orfeo_audio_node.dll'), join(out, 'orfeo_audio.node'))
-console.log('[native] native/build/orfeo_audio.node')
+const target = join(native, 'target', debug ? 'debug' : 'release')
+copyFileSync(join(target, 'orfeo_audio_node.dll'), join(out, 'orfeo_audio.node'))
+copyFileSync(join(target, 'orfeo-review.exe'), join(out, 'orfeo-review.exe'))
+console.log('[native] native/build/orfeo_audio.node, orfeo-review.exe')
 
 // ── 2. FluidSynth, pinned and verified ─────────────────────────────────────
 const fluidDir = join(out, 'fluidsynth')

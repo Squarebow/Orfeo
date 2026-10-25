@@ -315,18 +315,6 @@ each key press.
   combines these with the synth block (128 samples), the chain delay and the
   measured output into *Key → speaker*. *Save log…* downloads all of it as JSON
   for bug reports.
-- **Simulator (dev tools).** `utils/midiSimulator.ts`, imported first in
-  `main.tsx`, wraps `requestMIDIAccess` so every caller sees real ports plus
-  simulated S88 MK3 / MPK mini Plus / Launchkey MK4 ports. These can be plugged,
-  unplugged and played from *Settings → MIDI Keyboard → Keyboards*, or from
-  `window.__orfeoSimMidi`, through the exact same handler, sound and lights as a
-  real key.
-  On in `npm run dev` and in test portables (`npm run dist:portable` builds in
-  Vite mode `test-build`); off in releases, which GitHub builds in the normal
-  mode. In any build, the hidden **Ctrl+Alt+Shift+D** turns the dev tools on or
-  off and reloads the window (stored in `localStorage` as `orfeo-dev-tools`);
-  while they're on, the top bar shows **DEV MODE** next to the version.
-  Deliberately not in the manual or SHORTCUTS.md.
 
 ---
 

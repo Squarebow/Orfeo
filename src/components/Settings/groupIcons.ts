@@ -1,8 +1,8 @@
-import { Volume2, Files, Music, BookOpen, Music2, Piano, Columns3, Palette, KeyboardMusic, type LucideIcon } from 'lucide-react'
+import { Volume2, Files, Music, BookOpen, Music2, Piano, Columns3, Palette, KeyboardMusic, PenLine, type LucideIcon } from 'lucide-react'
 import type { SettingsGroupId } from '../../types'
 
 // Same icons the drawer's group headings have always used
 export const GROUP_ICONS: Record<SettingsGroupId, LucideIcon> = {
-  'audio': Volume2, 'midi-files-library': Files, 'playback-editing': Music, 'practice': BookOpen,
+  'audio': Volume2, 'midi-files-library': Files, 'playback-editing': Music, 'practice': BookOpen, 'editing': PenLine,
   'notation': Music2, 'keyboard': Piano, 'piano-roll': Columns3, 'appearance': Palette, 'midi': KeyboardMusic,
 }

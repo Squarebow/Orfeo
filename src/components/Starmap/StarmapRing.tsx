@@ -95,10 +95,7 @@ export default function StarmapRing({
             fill={hoverPc === pc ? 'var(--accent-amber-medium)' : 'transparent'}
             style={{ cursor: 'pointer', transition: 'fill 0.15s' }}
             onMouseEnter={() => setHoverPc(pc)} onMouseLeave={() => setHoverPc(h => (h === pc ? null : h))}
-            onClick={() => onPickNote(pc)}
-          >
-            <title>{t`Click to play ${name} ${scaleName}`}</title>
-          </path>
+            onClick={() => onPickNote(pc)} />
         )
       })}
 
@@ -159,10 +156,7 @@ export default function StarmapRing({
             {/* small hit spot on the star — key-name tooltip, same click */}
             <circle cx={star.x} cy={star.y} r={7} fill="transparent" style={{ cursor: 'pointer' }}
               onMouseEnter={() => setHoverPc(pc)} onMouseLeave={() => setHoverPc(h => (h === pc ? null : h))}
-              onClick={() => onPickNote(pc)}
-            >
-              <title>{pc === blueNotePc ? t`${name} — blue note` : keyQuality === 'major' ? t`${name} major` : t`${name} minor`}</title>
-            </circle>
+              onClick={() => onPickNote(pc)} />
           </g>
         )
       })}

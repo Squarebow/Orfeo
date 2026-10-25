@@ -8,7 +8,7 @@ import OrfeoMark from '../OrfeoMark'
 import { GROUPS, SETTINGS, type SettingId } from './catalog'
 import { searchSettings, gridColumns, CARD_GAP } from './search'
 import { SettingCard } from './SettingCard'
-import { UpdateButton } from './controls'
+import { UpdateButton, RateButton, DevModeBadge } from './controls'
 import { GROUP_ICONS } from './groupIcons'
 import { TAB_ASIDES } from './defs/midi'
 
@@ -31,10 +31,28 @@ function CardGrid({ ids, width, layoutCount = ids.length }: { ids: SettingId[]; 
 // Tabbed groups: two independent columns (cards alternate left/right in
 // catalog order), so a short card never stretches to match a tall neighbour;
 // each column's last card grows so both columns end at the same line
-function ColumnCards({ ids, width, stack }: { ids: SettingId[]; width: number; stack?: SettingId[][] }) {
+function ColumnCards({ ids, width, stack, looseFirst }: { ids: SettingId[]; width: number; stack?: SettingId[][]; looseFirst?: boolean }) {
   const cols = stack ? gridColumns(stack.length, width) : gridColumns(2, width)
   // explicit columns when they fit; otherwise the cards flow as usual
   const columns = stack && cols === stack.length ? stack : Array.from({ length: cols }, (_, c) => ids.filter((_, i) => i % cols === c))
+  const column = (col: SettingId[], c: number) => (
+    <div key={c} style={{ display: 'flex', flexDirection: 'column', gap: CARD_GAP, minWidth: 0 }}>
+      {col.map((id, i) => <div key={id} style={{ flex: i === col.length - 1 ? 1 : 'none', display: 'flex', flexDirection: 'column' }}><SettingCard id={id} /></div>)}
+    </div>
+  )
+  // `looseFirst`: the first column grows on its own (a card that opens up its
+  // options), the others keep their height and still end at one line together
+  if (looseFirst && columns.length > 1) {
+    const share = `calc((100% - ${(columns.length - 1) * CARD_GAP}px) / ${columns.length})`
+    return (
+      <div style={{ display: 'grid', gridTemplateColumns: `${share} minmax(0, 1fr)`, gap: CARD_GAP, alignItems: 'start' }}>
+        {column(columns[0], 0)}
+        <div style={{ display: 'grid', gridTemplateColumns: `repeat(${columns.length - 1}, minmax(0, 1fr))`, gap: CARD_GAP, alignItems: 'stretch' }}>
+          {columns.slice(1).map((col, c) => column(col, c + 1))}
+        </div>
+      </div>
+    )
+  }
   return (
     <div style={{ display: 'grid', gridTemplateColumns: `repeat(${cols}, minmax(0, 1fr))`, gap: CARD_GAP, alignItems: 'stretch' }}>
       {columns.map((col, c) => (
@@ -164,17 +182,17 @@ export default function SettingsWindow() {
                   <span style={{ color: 'var(--text-inactive)', fontSize: 10, fontFamily: 'var(--font-mono)', whiteSpace: 'nowrap' }}>v{displayVersion(__APP_VERSION__)}</span>
                 </button>
               </Tooltip>
-              <div style={{ display: 'flex', alignItems: 'center' }}><UpdateButton placement="top" showStatus={false} /></div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}><DevModeBadge /><RateButton placement="top" /><UpdateButton placement="top" showStatus={false} /></div>
             </div>
           </nav>
           <div style={{ display: 'grid', gridTemplateRows: 'minmax(0, 1fr) auto', minHeight: 0 }}>
             <div ref={contentRef} style={{ overflowY: 'auto', padding: '16px 18px' }}>
               {results === null ? (
                 <>
-                  <p style={{ margin: '0 0 16px', fontSize: 'var(--text-lg)', color: 'var(--text-default)', lineHeight: 1.45, fontFamily: 'var(--font-ui)' }}>{g.intro}</p>
+                  <p style={{ margin: '0 0 10px', fontSize: 'var(--text-lg)', color: 'var(--text-default)', lineHeight: 1.45, fontFamily: 'var(--font-ui)' }}>{g.intro}</p>
                   {g.tabs ? (
                     <>
-                      <div role="tablist" aria-label={g.name} style={{ display: 'flex', alignItems: 'center', gap: 4, marginBottom: 14, borderBottom: '1px solid var(--border2)' }}>
+                      <div role="tablist" aria-label={g.name} style={{ display: 'flex', alignItems: 'center', gap: 4, marginBottom: 10, borderBottom: '1px solid var(--border2)' }}>
                         {g.tabs.map((tb, i) => {
                           const on = i === Math.min(tab, g.tabs!.length - 1)
                           return (
@@ -203,7 +221,9 @@ export default function SettingsWindow() {
                       })()}
                     </>
                   ) : (
-                    <CardGrid ids={SETTINGS.filter(s => s.group === g.id).map(s => s.id)} width={width} />
+                    g.stack
+                      ? <ColumnCards ids={SETTINGS.filter(s => s.group === g.id).map(s => s.id)} width={width} stack={g.stack} looseFirst={g.looseFirst} />
+                      : <CardGrid ids={SETTINGS.filter(s => s.group === g.id).map(s => s.id)} width={width} />
                   )}
                 </>
               ) : results.length === 0 ? (

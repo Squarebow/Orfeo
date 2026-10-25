@@ -69,7 +69,7 @@ npm run dev
 | `npm run preview` | Run the last `build` output without packaging | — |
 | `npm run typecheck` | `tsc --noEmit` — type-check only | — |
 | `npm run dist` | `build`, then package for the current platform | `release/` |
-| `npm run dist:portable` | Windows portable `.exe` only (no installer), as a **test build**: keeps the dev-only tools (simulated MIDI keyboard). Releases are built on GitHub without them | `release/` |
+| `npm run dist:portable` | Windows portable `.exe` only (no installer), for a quick local test | `release/` |
 
 <details>
 <summary><b>Cross-platform packaging</b></summary>
@@ -216,6 +216,12 @@ business days).
   started by hand in Partner Center has to be submitted or deleted there first.
 - Without the one-time setup below it stops and says what's missing; the
   `.appx` is in the Release run's `store-package` artifact for a manual upload.
+- **Rate Orfeo** (Store build only): a star beside the update check, plus the
+  "Enjoying Orfeo?" note every 5th launch (other builds get review, Reddit and
+  Ko-fi links there instead), opens the Store's review window. A small helper,
+  `native/orfeo-review` (built by `npm run native:build`), opens it, so a
+  failure there can never close Orfeo. It only works with the Store identity,
+  so the review window can only be tried in the Store build.
 
 One-time setup (Partner Center + GitHub):
 

@@ -25,7 +25,6 @@ import { t } from '../../utils/i18n'
 import { useMidiSettings } from '../../store/midiSettings'
 import { shortName } from '../../utils/midiDeviceNames'
 import { confirmDiscardDirtyNoteEdits } from '../../utils/noteEditorState'
-import { simAvailable } from '../../utils/midiSimulator'
 import { confirmDiscardDirtyTempoKey } from '../../utils/tempoKeySave'
 
 // NOTE: no more `C` shorthand object — every color below is a literal
@@ -97,6 +96,7 @@ export default function TopBar() {
   const noteNaming = useStore((s) => s.noteNaming)
   const accidentals = useStore((s) => s.accidentals)
   const chordExplorerOpen = useStore((s) => s.chordExplorerOpen)
+  const explorerPausesPlayback = useStore((s) => s.explorerPausesPlayback)
   const resetAll = useStore((s) => s.resetAll)
   const barStarts = useStore((s) => s.barStarts)
   const chordSequence = useStore((s) => s.chordSequence)
@@ -291,12 +291,6 @@ export default function TopBar() {
               <span style={{ color: 'var(--text-inactive)', fontSize: 10, fontFamily: 'var(--font-mono)', whiteSpace: 'nowrap' }}>v{__APP_VERSION__}</span>
             </span>
           </Tooltip>
-          {/* dev tools on: dev run, test portable, or Ctrl+Alt+Shift+D */}
-          {simAvailable && (
-            <Tooltip title="Dev mode" description={"Test tools are on: a simulated MIDI keyboard\nin Settings › MIDI Keyboard. Ctrl+Alt+Shift+D\nswitches them on and off."} placement="bottom">
-              <span className="app-no-drag" style={{ color: 'var(--text-amber)', fontSize: 9, fontFamily: 'var(--font-mono)', letterSpacing: '0.05em', whiteSpace: 'nowrap', cursor: 'default' }}>DEV MODE</span>
-            </Tooltip>
-          )}
         </div>
         <Tooltip title="Open a file (Ctrl+O)" description={"Loads a supported file from\ndisk to start a new session."} placement="bottom">
           <button
@@ -434,7 +428,7 @@ export default function TopBar() {
         <div style={{ display: 'flex', alignItems: 'center', gap: 2 }}>
           <TBtn onClick={stop} disabled={!midi} title="Go to start" oneLine><SkipBack size={16} strokeWidth={1.5} /></TBtn>
           <TBtn onClick={() => handleSkip(-1)} disabled={!midi} title={`Rewind ${SKIP_SECS}s`} oneLine><Rewind size={15} strokeWidth={1.5} /></TBtn>
-          <TBtn onClick={handlePlayPause} disabled={!midi || chordExplorerOpen} accent title="Play / Pause (Space)" large oneLine>
+          <TBtn onClick={handlePlayPause} disabled={!midi || (chordExplorerOpen && explorerPausesPlayback)} accent title="Play / Pause (Space)" large oneLine>
             {playbackState === 'playing'
               ? <Pause size={24} fill="currentColor" strokeWidth={0} />
               : <Play size={24} fill="currentColor" strokeWidth={0} />}

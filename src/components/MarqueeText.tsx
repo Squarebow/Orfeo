@@ -1,7 +1,9 @@
-import { useRef, useState, useEffect } from 'react'
+import { useRef, useState, useEffect, type ReactNode } from 'react'
 
-// ── MarqueeText — overflowing text that scrolls left on hover to reveal full content
-export function MarqueeText({ name, spanStyle }: { name: string; spanStyle?: React.CSSProperties }) {
+// ── MarqueeText — overflowing text that scrolls left on hover to reveal full content.
+// `children` (optional) is shown instead of `name`, for styled content; `name`
+// is still what a change of content is detected by.
+export function MarqueeText({ name, spanStyle, children }: { name: string; spanStyle?: React.CSSProperties; children?: ReactNode }) {
   const outerRef = useRef<HTMLDivElement>(null)
   const innerRef = useRef<HTMLSpanElement>(null)
   const [scrollAmt, setScrollAmt] = useState(0)
@@ -42,7 +44,7 @@ export function MarqueeText({ name, spanStyle }: { name: string; spanStyle?: Rea
           ...spanStyle,
         }}
       >
-        {name}
+        {children ?? name}
       </span>
     </div>
   )
