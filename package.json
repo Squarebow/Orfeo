@@ -16,7 +16,8 @@
     "dist": "npm run copyworklet && npm run check:hand-engine && npm run native:build && electron-vite build && electron-builder --win nsis portable appx",
     "dist:portable": "npm run copyworklet && npm run check:hand-engine && npm run native:build && electron-vite build --mode test-build && electron-builder --win portable",
     "release:notes": "node scripts/release-notes.mjs",
-    "native:build": "node scripts/build-native.mjs"
+    "native:build": "node scripts/build-native.mjs",
+    "i18n:extract": "node scripts/i18n-extract.mjs"
   },
   "build": {
     "appId": "com.squarebow.orfeo",
