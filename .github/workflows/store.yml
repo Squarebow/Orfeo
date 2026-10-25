@@ -47,8 +47,17 @@ jobs:
             echo "### Microsoft Store: not sent" >> "$GITHUB_STEP_SUMMARY"
             echo "There is no tag v$VERSION on GitHub. Type the version exactly as released, e.g. 1.5.1." >> "$GITHUB_STEP_SUMMARY"
             exit 1; }
-          # the newest Release run of that commit that kept a Store package
-          for run in $(gh api "repos/$GITHUB_REPOSITORY/actions/workflows/release.yml/runs?head_sha=$sha&per_page=20" --jq '.workflow_runs[].id'); do
+          # The newest Release run of that version that kept a Store package.
+          # A Release run is started on main but builds from the tag, so its
+          # recorded commit is main's, not the tag's: runs of the tag's commit
+          # first, then recent runs whose release notes name this version.
+          runs=$(gh api "repos/$GITHUB_REPOSITORY/actions/workflows/release.yml/runs?head_sha=$sha&per_page=20" --jq '.workflow_runs[].id')
+          for run in $(gh api "repos/$GITHUB_REPOSITORY/actions/workflows/release.yml/runs?status=success&per_page=30" --jq '.workflow_runs[].id'); do
+            rm -rf notes
+            gh run download "$run" -n release-notes -D notes 2>/dev/null || continue
+            grep -qsE "Orfeo $VERSION( |$)" notes/* && runs="$runs $run"
+          done
+          for run in $runs; do
             if gh run download "$run" -n store-package -D store 2>/dev/null; then echo "Package from Release run $run"; break; fi
           done
           ls store/*.appx >/dev/null 2>&1 || {
