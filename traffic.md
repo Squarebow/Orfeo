@@ -1,6 +1,6 @@
 # Orfeo on GitHub: downloads and traffic
 
-**Last updated: 26. 10. 2026 at 09:01** Ljubljana time (CET) · updates daily at about 09:00
+**Last updated: 26. 10. 2026 at 14:36** Ljubljana time (CET) · updates daily at about 09:00
 
 [Squarebow/Orfeo](https://github.com/Squarebow/Orfeo) · ★ 8 stars · 4 forks · 1 watching
 
@@ -10,16 +10,16 @@
 
 | | All time | Last 7 days |
 |---|---:|---:|
-| **Downloads** (installer + portable) | <mark>**553**</mark> | <mark>**355**</mark> |
-| — Installer (`Orfeo-Setup-x.y.z.exe`) | 450 | 299 |
-| — Portable (`Orfeo-x.y.z-portable.exe`) | 103 | 56 |
-| App starts checking for updates (`latest.yml`) | 517 | 326 |
-| Updates installed (`.blockmap`) | 103 | 80 |
+| **Downloads** (installer + portable) | <mark>**564**</mark> | <mark>**366**</mark> |
+| — Installer (`Orfeo-Setup-x.y.z.exe`) | 460 | 309 |
+| — Portable (`Orfeo-x.y.z-portable.exe`) | 104 | 57 |
+| App starts checking for updates (`latest.yml`) | 535 | 344 |
+| Updates installed (`.blockmap`) | 106 | 83 |
 | Repository page views (since 2026-10-03) | 1 237 | 121 |
 | Unique visitors (added up per day) | <mark>349</mark> | <mark>53</mark> |
 | Repository clones | 913 | 499 |
 
-Downloads by others, excluding the developer's own test downloads (about 4): <mark>**≈ 549**</mark>.
+Downloads by others, excluding the developer's own test downloads (about 4): <mark>**≈ 560**</mark>.
 
 *Downloads* count each time a release file was downloaded. *App starts* count installed copies (installer version) checking GitHub for a newer version when Orfeo starts, so they show the app being used, not just downloaded. The portable version does not check automatically.
 
@@ -29,7 +29,7 @@ Highlighted numbers are the ones closest to real people: downloads of the app an
 
 | Release | Published | Installer | Portable | Total downloads | App starts | Updates |
 |---|---|---:|---:|---:|---:|---:|
-| [v1.5.4](https://github.com/Squarebow/Orfeo/releases/tag/v1.5.4) | 2026-10-25 | 43 | 14 | <mark>**57**</mark> | 54 | 17 |
+| [v1.5.4](https://github.com/Squarebow/Orfeo/releases/tag/v1.5.4) | 2026-10-25 | 53 | 15 | <mark>**68**</mark> | 72 | 19 |
 | [v1.5.3](https://github.com/Squarebow/Orfeo/releases/tag/v1.5.3) | 2026-10-23 | 114 | 22 | <mark>**136**</mark> | 111 | 22 |
 | [v1.5.2](https://github.com/Squarebow/Orfeo/releases/tag/v1.5.2) | 2026-10-22 | 39 | 4 | <mark>**43**</mark> | 33 | 15 |
 | [v1.5.1](https://github.com/Squarebow/Orfeo/releases/tag/v1.5.1) | 2026-10-22 | 34 | 5 | <mark>**39**</mark> | 16 | 6 |
@@ -37,8 +37,8 @@ Highlighted numbers are the ones closest to real people: downloads of the app an
 | [v1.4.4](https://github.com/Squarebow/Orfeo/releases/tag/v1.4.4) | 2026-10-15 | 146 | 32 | <mark>**178**</mark> | 219 | 27 |
 | [v1.4.3](https://github.com/Squarebow/Orfeo/releases/tag/v1.4.3) | 2026-10-15 | 6 | 0 | <mark>**6**</mark> | 8 | 4 |
 | [v1.4.2](https://github.com/Squarebow/Orfeo/releases/tag/v1.4.2) | 2026-10-15 | 4 | 2 | <mark>**6**</mark> | 1 | 0 |
-| [v1.4.1](https://github.com/Squarebow/Orfeo/releases/tag/v1.4.1) | 2026-10-11 | 58 | 22 | <mark>**80**</mark> | 68 | 10 |
-| **All releases** | | **450** | **103** | <mark>**553**</mark> | **517** | **103** |
+| [v1.4.1](https://github.com/Squarebow/Orfeo/releases/tag/v1.4.1) | 2026-10-11 | 58 | 22 | <mark>**80**</mark> | 68 | 11 |
+| **All releases** | | **460** | **104** | <mark>**564**</mark> | **535** | **106** |
 
 ## Last 7 days, day by day
 
@@ -50,7 +50,7 @@ Highlighted numbers are the ones closest to real people: downloads of the app an
 | Fri 23 Oct | 66 | 6 | 54 | 16 | <mark>7</mark> | 151 |
 | Sat 24 Oct | 42 | 10 | 35 | 33 | <mark>15</mark> | 63 |
 | Sun 25 Oct | 77 | 12 | 80 | 49 | <mark>16</mark> | 88 |
-| Mon 26 Oct | 42 | 14 | 50 | – | – | – |
+| Mon 26 Oct | 52 | 15 | 68 | – | – | – |
 
 Downloads per day start with the second day of tracking (they are the difference between two daily snapshots); views and clones go back 14 days before tracking started. Today's row is still growing.
 
@@ -58,7 +58,7 @@ Downloads per day start with the second day of tracking (they are the difference
 
 | Week (Mon) | Downloads | — installer | — portable | App starts | Page views |
 |---|---:|---:|---:|---:|---:|
-| 2026-10-26 | 56 | 42 | 14 | 50 | 0 |
+| 2026-10-26 | 67 | 52 | 15 | 68 | 0 |
 | 2026-10-19 | 329 | 282 | 47 | 317 | 162 |
 | 2026-10-12 | 23 | 20 | 3 | 26 | 284 |
 | 2026-10-05 | 0 | 0 | 0 | 0 | 600 |

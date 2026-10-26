@@ -205,7 +205,7 @@ date,tag,published,asset,kind,downloads
 2026-10-25,v1.5.4,2026-10-25,latest.yml,launch,4
 2026-10-26,v1.4.1,2026-10-11,Orfeo-1.4.1-portable.exe,portable,22
 2026-10-26,v1.4.1,2026-10-11,Orfeo-Setup-1.4.1.exe,installer,58
-2026-10-26,v1.4.1,2026-10-11,Orfeo-Setup-1.4.1.exe.blockmap,update,10
+2026-10-26,v1.4.1,2026-10-11,Orfeo-Setup-1.4.1.exe.blockmap,update,11
 2026-10-26,v1.4.1,2026-10-11,latest.yml,launch,68
 2026-10-26,v1.4.2,2026-10-15,Orfeo-1.4.2-portable.exe,portable,2
 2026-10-26,v1.4.2,2026-10-15,Orfeo-Setup-1.4.2.exe,installer,4
@@ -235,7 +235,7 @@ date,tag,published,asset,kind,downloads
 2026-10-26,v1.5.3,2026-10-23,Orfeo-Setup-1.5.3.exe,installer,114
 2026-10-26,v1.5.3,2026-10-23,Orfeo-Setup-1.5.3.exe.blockmap,update,22
 2026-10-26,v1.5.3,2026-10-23,latest.yml,launch,111
-2026-10-26,v1.5.4,2026-10-25,Orfeo-1.5.4-portable.exe,portable,14
-2026-10-26,v1.5.4,2026-10-25,Orfeo-Setup-1.5.4.exe,installer,43
-2026-10-26,v1.5.4,2026-10-25,Orfeo-Setup-1.5.4.exe.blockmap,update,17
-2026-10-26,v1.5.4,2026-10-25,latest.yml,launch,54
+2026-10-26,v1.5.4,2026-10-25,Orfeo-1.5.4-portable.exe,portable,15
+2026-10-26,v1.5.4,2026-10-25,Orfeo-Setup-1.5.4.exe,installer,53
+2026-10-26,v1.5.4,2026-10-25,Orfeo-Setup-1.5.4.exe.blockmap,update,19
+2026-10-26,v1.5.4,2026-10-25,latest.yml,launch,72
