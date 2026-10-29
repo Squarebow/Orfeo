@@ -1,4 +1,4 @@
-import { useState, useMemo, useRef, useEffect, useCallback, type ReactNode } from 'react'
+import { useState, useMemo, useRef, useEffect, useLayoutEffect, useCallback, type ReactNode } from 'react'
 import Fuse from 'fuse.js'
 import { confirmDiscardDirtyNoteEdits } from '../../utils/noteEditorState'
 import { confirmDialog } from '../../utils/confirmController'
@@ -271,7 +271,11 @@ const FILENAME_SPAN_HIDDEN:  React.CSSProperties = { fontSize: 'var(--text-sm)',
 // or 2 header-heights) — or the very top, for a loaded root-group file. ─────
 const FOLDER_HEADER_HEIGHT = 30
 
-function LibraryPanel() {
+// ── Where the file list was scrolled to — module-level so it survives the
+// drawer closing (which unmounts the panel), not just a switch to Setup ────
+let _libraryScrollTop = 0
+
+function LibraryPanel({ hidden = false }: { hidden?: boolean }) {
   useTempoTrustScan()
   const libraryFolder = useStore((s) => s.libraryFolder)
   const libraryFiles = useStore((s) => s.libraryFiles)
@@ -838,8 +842,15 @@ function LibraryPanel() {
   const starredCount = Array.from(libraryFavourites).filter(p => libraryFiles.some(f => f.path === p)).length
   const hasAnyFiles = grouped.some(g => g.files.length > 0)
 
+  // ── Back to where the list was when the panel shows again (Setup → Library,
+  // or the drawer reopening) instead of the top ─────────────────────────────
+  const listRef = useRef<HTMLDivElement>(null)
+  useLayoutEffect(() => {
+    if (!hidden && listRef.current) listRef.current.scrollTop = _libraryScrollTop
+  }, [hidden])
+
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
+    <div style={{ display: hidden ? 'none' : 'flex', flexDirection: 'column', height: '100%' }}>
 
       {/* ── Folder picker row ── */}
       <div style={{ padding: '10px 12px', borderBottom: '1px solid var(--bg-tile)', flexShrink: 0 }}>
@@ -992,11 +1003,12 @@ function LibraryPanel() {
 
       {/* ── File list — also the library drop zone ── */}
       <div
+        ref={listRef}
         style={{ flex: 1, overflowY: 'auto', position: 'relative' }}
         onDragOver={handleDragOver}
         onDragLeave={handleDragLeave}
         onDrop={handleDrop}
-        onScroll={() => setContextMenu(null)}
+        onScroll={e => { if (!hidden) _libraryScrollTop = e.currentTarget.scrollTop; setContextMenu(null) }}
         onClick={() => setSelectedPaths(new Set())}
       >
 
@@ -1687,9 +1699,10 @@ export default function SettingsPanel() {
 
           {/* Panel content */}
           <div style={{ flex: 1, overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
-            {activeTab === 'library' ? (
-              <LibraryPanel />
-            ) : (
+            {/* Library stays mounted behind Setup so its scroll, search and
+                folder state are still there when you switch back */}
+            <LibraryPanel hidden={activeTab !== 'library'} />
+            {activeTab === 'settings' && (
               <div style={{ flex: 1, overflowY: 'auto', padding: '4px 0' }}>
 
                 <QuickSettings />
