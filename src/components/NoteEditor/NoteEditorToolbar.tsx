@@ -343,10 +343,10 @@ export default function NoteEditorToolbar() {
     setNoteNamesDisplay(next)
   }
   const doUndo = () => {
-    if (NES.history.undo()) { NES.needsFlatRebuild = true; NES.onHistoryChange?.() }
+    if (NES.history.undo()) { NES.syncEditedNotes(); NES.needsFlatRebuild = true; NES.onHistoryChange?.() }
   }
   const doRedo = () => {
-    if (NES.history.redo()) { NES.needsFlatRebuild = true; NES.onHistoryChange?.() }
+    if (NES.history.redo()) { NES.syncEditedNotes(); NES.needsFlatRebuild = true; NES.onHistoryChange?.() }
   }
   const doReset = async () => {
     if (NES.dirty) {
@@ -606,14 +606,16 @@ export default function NoteEditorToolbar() {
 
       {/* ── Row 3: dynamic tooltip (left, ~2/3) + Reset/Save (right, ~1/3) ──
           Both columns are fixed-fraction (flex-basis on a fixed-width
-          parent), never resizing the panel itself — long tooltip text wraps
-          within its column (normally 2 lines; a 3rd only grows the row's
-          height, never the panel's width) instead of forcing the toolbar
-          wider or truncating with an ellipsis. ─────────────────────────── */}
+          parent), never resizing the panel itself. The tooltip column is a
+          fixed two lines tall (2 × line-height): one-line icon hints and the
+          two-line tool blurb used to grow and shrink the whole editor as the
+          mouse moved over it. Every hint fits two lines (measured; the
+          longest, Quantize grid, takes exactly two). ─────────────────────── */}
       <div style={{ display: 'flex', alignItems: 'stretch', gap: 8, padding: '6px 8px', borderTop: '1px solid var(--state-hover-bg)' }}>
         <div style={{
           flex: '2 1 0%', minWidth: 0, fontSize: 12, color: 'var(--text-muted)',
           fontStyle: 'italic', lineHeight: 1.4, whiteSpace: 'normal', wordBreak: 'break-word',
+          height: '2.8em', overflow: 'hidden',
         }}>
           {iconHint ? (
             <div>{renderTip(iconHint)}</div>

@@ -19,6 +19,9 @@ export interface NoteCommand {
   apply(): void
   revert(): void
   description: string
+  // Existing notes this command changes — they show the edited outline while
+  // it's applied (NES.syncEditedNotes), and lose it when it's undone
+  touched?: object[]
 }
 
 // ── insertSorted — splice a Note back into a tick-sorted notes array ─────────

@@ -507,6 +507,12 @@ export default function PianoRoll() {
     let roInstance: ResizeObserver
     let dprQuery: MediaQueryList | null = null
     let onDprChangeHandler: (() => void) | null = null
+    // Set by the cleanup. app.init is async: in development React runs this
+    // effect, its cleanup, and the effect again — the first init finishing
+    // after its cleanup used to build a second, invisible piano roll that
+    // drew into the same velocity lane and handled every key a second time
+    let disposed = false
+    let offEditKey: (() => void) | null = null
 
     app.init({
       background: CANVAS_BG_COLOR,
@@ -516,7 +522,7 @@ export default function PianoRoll() {
       resolution:  window.devicePixelRatio || 1,
       autoDensity: true,
     }).then(() => {
-      if (!containerRef.current) { app.destroy(false); return }
+      if (disposed || !containerRef.current) { app.destroy(false); return }
       el.appendChild(app.canvas)
       appRef.current = app
 
@@ -569,6 +575,7 @@ export default function PianoRoll() {
       // selection; drag state tracks which note (if any) is being adjusted. ──
       let velBars: { note: ToneNote; x: number; w: number }[] = []
       let velDragNote:      ToneNote | null = null
+      let velHoverNote:     ToneNote | null = null   // bar under the cursor (brighter + value label)
       let velDragStartY     = 0
       let velDragStartVel   = 0
       // ── Group velocity drag — dragging any bar that's part of a multi-note
@@ -1290,7 +1297,7 @@ export default function PianoRoll() {
         const avg = notes.reduce((sum, n) => sum + n.velocity, 0) / notes.length
         const cmd = cmdSetRangeVelocity(notes, avg)
         cmd.apply()
-        for (const n of notes) NES.editedNotes.add(n)
+        cmd.touched = notes
         history_push(cmd)
       }
 
@@ -1589,7 +1596,6 @@ export default function PianoRoll() {
           if (fDur !== oDur) {
             note.durationTicks = Math.max(1, snapTick(fDur) || fDur)
             const fSnapped = note.durationTicks
-            NES.editedNotes.add(note)
             history_push({ note, track,
               apply()  { note.durationTicks = fSnapped; syncNoteTimes(note) },
               revert() { note.durationTicks = oDur;     syncNoteTimes(note) },
@@ -1610,7 +1616,6 @@ export default function PianoRoll() {
           if (newTick !== oTicks) {
             note.ticks = newTick; note.durationTicks = newDurTick
             syncNoteTimes(note)
-            NES.editedNotes.add(note)
             history_push({ note, track,
               apply()  { note.ticks = newTick;  note.durationTicks = newDurTick;  syncNoteTimes(note); track.notes.sort((a: any, b: any) => a.ticks - b.ticks) },
               revert() { note.ticks = oTicks;   note.durationTicks = oDur;         syncNoteTimes(note); track.notes.sort((a: any, b: any) => a.ticks - b.ticks) },
@@ -1632,7 +1637,6 @@ export default function PianoRoll() {
             note.ticks = timeChanged ? newTick : origTick
             syncNoteTimes(note)
             if (timeChanged) track.notes.sort((a: any, b: any) => a.ticks - b.ticks)
-            NES.editedNotes.add(note)
             history_push({ note, track,
               apply()  {
                 note.ticks = timeChanged  ? newTick  : origTick
@@ -1664,8 +1668,7 @@ export default function PianoRoll() {
           if (anyTimeMoved || anyPitchMoved) {
             snapshot.forEach((s, i) => { s.note.ticks = finalTicks[i]; s.note.midi = finalMidis[i]; syncNoteTimes(s.note) })
             track.notes.sort((a: any, b: any) => a.ticks - b.ticks)
-            snapshot.forEach(s => NES.editedNotes.add(s.note))
-            history_push({ note, track,
+            history_push({ note, track, touched: snapshot.map(s => s.note),
               apply()  {
                 snapshot.forEach((s, i) => { s.note.ticks = finalTicks[i]; s.note.midi = finalMidis[i]; syncNoteTimes(s.note) })
                 track.notes.sort((a: any, b: any) => a.ticks - b.ticks)
@@ -1756,8 +1759,8 @@ export default function PianoRoll() {
         setContextMenu({ x: e.clientX, y: e.clientY, options })
       }
 
-      const doHistoryUndo = () => { if (NES.history.undo()) { NES.needsFlatRebuild = true; NES.onHistoryChange?.() } }
-      const doHistoryRedo = () => { if (NES.history.redo()) { NES.needsFlatRebuild = true; NES.onHistoryChange?.() } }
+      const doHistoryUndo = () => { if (NES.history.undo()) { NES.syncEditedNotes(); NES.needsFlatRebuild = true; NES.onHistoryChange?.() } }
+      const doHistoryRedo = () => { if (NES.history.redo()) { NES.syncEditedNotes(); NES.needsFlatRebuild = true; NES.onHistoryChange?.() } }
 
       // ── assignSelectedHand — sets hand + handSource:'manual' on every
       // selected note, undoable via the normal Ctrl+Z stack (the only way
@@ -1824,8 +1827,11 @@ export default function PianoRoll() {
       }
 
       // ── history_push helper (avoids repeating boilerplate) ────────────────
-      const history_push = (cmd: { apply(): void; revert(): void; description: string; note?: ToneNote; track?: Track }) => {
+      const history_push = (cmd: { apply(): void; revert(): void; description: string; note?: ToneNote; track?: Track; touched?: object[] }) => {
+        // A single-note edit marks its own note; group edits pass touched
+        cmd.touched ??= cmd.note ? [cmd.note] : []
         NES.history.push(cmd)
+        NES.syncEditedNotes()
         NES.dirty            = true
         NES.needsFlatRebuild = true
         NES.onHistoryChange?.()
@@ -1852,7 +1858,6 @@ export default function PianoRoll() {
         const { noteEditorActive, velocityPanelOpen, noteEditorSoloTrackIndex } = storeRef.current
         const visible = noteEditorActive && velocityPanelOpen
         canvas.style.display = visible ? 'block' : 'none'
-        canvas.title = visible ? 'Drag up/down to edit velocity' : ''
         if (!visible) { velBars = []; return }
 
         const W = canvas.width, H = canvas.height
@@ -1961,26 +1966,14 @@ export default function PianoRoll() {
           const y    = trackTop + (trackH - barH)
           const isDragging = note === velDragNote
 
-          ctx.fillStyle = isDragging ? VELOCITY_BAR_HEX_STR : `${VELOCITY_BAR_HEX_STR}bb`
+          // The value isn't printed on the bars (close bars made the numbers
+          // overlap): it's in the hover label, which follows a drag live
+          // A note selected on the roll lights its bar in amber, so in a dense
+          // passage you can see which bar belongs to the note you clicked
+          const isHovered = note === velHoverNote
+          ctx.fillStyle = editSelectedNotes.has(note) ? HAND_AMBER_HEX_STR
+            : isDragging || isHovered ? VELOCITY_BAR_HEX_STR : `${VELOCITY_BAR_HEX_STR}bb`
           ctx.fillRect(x, y, barW, barH)
-
-          // Numeric readout on every bar (dim, small) so the whole track's
-          // values are visible at a glance; the bar being dragged reads
-          // brighter/larger and updates live each frame as it's slid.
-          // Right of the bar, not centered on it — centered text sat behind
-          // the bar's own vertical line and got covered by it.
-          ctx.fillStyle = NOTE_LABEL_COLOR
-          ctx.textAlign = 'left'
-          ctx.textBaseline = 'alphabetic'
-          if (isDragging) {
-            ctx.font = `9px ${FONT_MONO_STR}`
-            ctx.globalAlpha = 1
-          } else {
-            ctx.font = `7px ${FONT_MONO_STR}`
-            ctx.globalAlpha = 0.5
-          }
-          ctx.fillText(String(Math.round(vel * 127)), x + barW + 2, Math.max(10, y + 3))
-          ctx.globalAlpha = 1
 
           velBars.push({ note, x, w: barW })
         }
@@ -2010,16 +2003,21 @@ export default function PianoRoll() {
         canvas.style.cursor = 'grabbing'
         canvas.setPointerCapture(e.pointerId)
       }
+      // ── Hover/drag label — "Velocity 96" next to the cursor (same label the
+      // main roll uses for notes); a group drag shows the grabbed bar's value
+      const velLabel = (n: ToneNote) => `Velocity ${Math.round(Math.max(0, Math.min(1, n.velocity)) * 127)}`
       const onVelPointerMove = (e: PointerEvent) => {
         const canvas = velocityCanvasRef.current
         if (!canvas) return
         if (!velDragNote) {
-          // Not dragging — just update the hover cursor (grab over a bar).
+          // Not dragging — hover cursor (grab over a bar) and the value label
           const r  = canvas.getBoundingClientRect()
           const cx = e.clientX - r.left
-          let hovering = false
-          for (const b of velBars) { if (cx >= b.x && cx <= b.x + b.w) hovering = true }
-          canvas.style.cursor = hovering ? 'grab' : 'default'
+          let hit: ToneNote | null = null
+          for (const b of velBars) { if (cx >= b.x && cx <= b.x + b.w) hit = b.note }
+          canvas.style.cursor = hit ? 'grab' : 'default'
+          if (hit !== velHoverNote) { velHoverNote = hit; dirtyRef.current = true }
+          setEditTooltip(hit ? { x: e.clientX, y: e.clientY, label: velLabel(hit) } : null)
           return
         }
         const trackH = canvas.height - 20 - 6
@@ -2029,6 +2027,12 @@ export default function PianoRoll() {
         } else {
           velDragNote.velocity = Math.max(0, Math.min(1, velDragStartVel + delta))
         }
+        setEditTooltip({ x: e.clientX, y: e.clientY, label: velLabel(velDragNote) })
+      }
+      const onVelPointerLeave = () => {
+        if (velDragNote) return   // pointer capture keeps a drag going outside
+        if (velHoverNote) { velHoverNote = null; dirtyRef.current = true }
+        setEditTooltip(null)
       }
       const onVelPointerUp = (e: PointerEvent) => {
         if (!velDragNote) return
@@ -2045,8 +2049,8 @@ export default function PianoRoll() {
           const finals = new Map([...group.keys()].map(n => [n, n.velocity] as const))
           const changed = [...originals].some(([n, v]) => Math.abs((finals.get(n) ?? v) - v) >= 0.001)
           if (!changed) return
-          for (const n of originals.keys()) NES.editedNotes.add(n)
           history_push({
+            touched: [...originals.keys()],
             description: `Velocity shift on ${originals.size} notes`,
             apply()  { for (const [n, v] of finals) n.velocity = v },
             revert() { for (const [n, v] of originals) n.velocity = v },
@@ -2054,7 +2058,6 @@ export default function PianoRoll() {
           return
         }
         if (Math.abs(finalVel - originalVel) < 0.001) return
-        NES.editedNotes.add(note)
         history_push({
           note,
           description: `Velocity note midi=${note.midi}: ${originalVel.toFixed(2)} → ${finalVel.toFixed(2)}`,
@@ -2101,10 +2104,12 @@ export default function PianoRoll() {
       app.canvas.addEventListener('contextmenu',   onEditContext)
       app.canvas.addEventListener('mouseleave',    onCanvasLeave)
       window.addEventListener('keydown', onEditKey, { capture: true })
+      offEditKey = () => window.removeEventListener('keydown', onEditKey, { capture: true })
       velCanvas.addEventListener('pointerdown',   onVelPointerDown)
       velCanvas.addEventListener('pointermove',   onVelPointerMove)
       velCanvas.addEventListener('pointerup',     onVelPointerUp)
       velCanvas.addEventListener('pointercancel', onVelPointerUp)
+      velCanvas.addEventListener('pointerleave',  onVelPointerLeave)
 
       // ── Initial draw ──────────────────────────────────────────────────────
       const { keyboardSize } = useStore.getState()
@@ -2139,6 +2144,8 @@ export default function PianoRoll() {
     })
 
     return () => {
+      disposed = true
+      offEditKey?.()
       roInstance?.disconnect()
       if (dprQuery && onDprChangeHandler) dprQuery.removeEventListener('change', onDprChangeHandler)
       NES.onResetRequest = null

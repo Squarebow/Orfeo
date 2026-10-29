@@ -17,6 +17,8 @@ export interface NoteEditorHistory {
   // Descriptions of every command currently applied (i.e. not undone) — used
   // to build the File Info changelog summary on save.
   appliedDescriptions(): string[]
+  // Every command currently applied, oldest first
+  applied(): NoteCommand[]
 }
 
 // ── createNoteEditorHistory ───────────────────────────────────────────────────
@@ -72,6 +74,10 @@ export function createNoteEditorHistory(maxSize = 100): NoteEditorHistory {
 
     appliedDescriptions() {
       return stack.slice(0, cursor).map(cmd => cmd.description)
+    },
+
+    applied() {
+      return stack.slice(0, cursor)
     },
   }
 }

@@ -33,7 +33,7 @@ combinations, modifiers, and gestures that are not obvious from the UI.
 |---|---|
 | `Space` | Play / Pause (ignored while the Chord or Scale Explorer is open). During a count-in it stops the count-in. While tapping in a Tap Tempo session it's a tap instead; once the result is showing it plays/pauses as usual so you can listen back |
 | `Escape` | Stop playback. During a count-in it cancels the count-in; during a Tap Tempo session it cancels the session instead. If Presentation Mode, the Chord Explorer, the Scale Explorer, or the Locked-Chord modal is open, that closes first instead — without stopping playback |
-| `→` / `←` | Step to the next / previous played moment: a single note or a whole chord sounds, lights up and the playhead moves there. Notes that start within 30 ms count as one step; muted tracks and drums are skipped. Pressed while playing, it pauses on the next one; `Space` plays on from there. Ignored while a fader or knob has focus |
+| `→` / `←` | Step to the next / previous played moment: a single note or a whole chord sounds, lights up and the playhead moves there. Notes that start within 30 ms count as one step; muted or hidden tracks and drums are skipped. Pressed while playing, it pauses on the next one; `Space` plays on from there. Ignored while a fader or knob has focus |
 | `Shift+→` / `Shift+←` | Step to the first note of the next / previous bar |
 | Click the amber ← / → in the keyboard bar | Same as `←` / `→` (Shift+click: a bar). Step Through can be switched off in Settings → Practice, which hides the arrows and frees the arrow keys |
 | `F11` | Toggle Presentation Mode |

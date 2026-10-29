@@ -25,6 +25,7 @@ feature list see the [README](../README.md).
 - [Tap Tempo — beat-grid corrections](#tap-tempo--beat-grid-corrections)
 - [Hand-assignment engine](#hand-assignment-engine)
 - [Hand colours, track colours and Focus](#hand-colours-track-colours-and-focus)
+- [MIDI Note Editor — edit state](#midi-note-editor--edit-state)
 - [Piano-roll hit effects](#piano-roll-hit-effects)
 - [Auto-update](#auto-update)
 - [Note-naming systems](#note-naming-systems)
@@ -569,7 +570,27 @@ song clears Focus.
 
 **Mute is a double switch.** `setTrackMuted` and `muteGroup` set
 `visible = !muted`; the eye (`visible`) can show a muted track again. Reflect
-on keyboard and the piano roll follow `visible`.
+on keyboard and the piano roll follow `visible`, and so does Step Through
+(`src/utils/stepThrough.ts`): only tracks that are both audible and visible
+make steps, so Focus's hidden bass and drums never land one.
+
+---
+
+## MIDI Note Editor — edit state
+
+Edits run as commands on `NES.history` (`src/utils/noteEditorHistory.ts`).
+A command lists the existing notes it changes in `touched`; the white
+"edited" outline (`NES.editedNotes`) is rebuilt from the commands still
+applied (`NES.syncEditedNotes`) after every push, undo and redo, so undoing an
+edit also clears its mark. The velocity lane shows a note's value in a hover
+label that follows a drag live, and paints the bars of notes selected on the
+roll in amber.
+
+The piano roll's canvas setup in `PianoRoll.tsx` is asynchronous (`app.init`).
+A `disposed` flag set by the effect's cleanup stops a setup that finishes
+after its cleanup — which React's development double-run produces — from
+building a second, invisible roll; the cleanup also removes the window key
+listener.
 
 ---
 

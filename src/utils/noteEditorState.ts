@@ -75,6 +75,15 @@ export const NES = {
   // ── Registered by NoteEditorToolbar — called by SettingsPanel / App close to trigger save ──
   onSaveRequest: null as (() => Promise<boolean>) | null,
 
+  // ── Edited outline = the notes changed by commands still applied — rebuilt
+  // after every push, undo and redo, so undoing an edit also clears its mark ──
+  syncEditedNotes() {
+    this.editedNotes.clear()
+    for (const cmd of this.history.applied()) {
+      for (const n of (cmd.touched ?? []) as ToneNote[]) if (!this.newNotes.has(n)) this.editedNotes.add(n)
+    }
+  },
+
   // ── Reset all ephemeral state — call on edit mode enter/exit and on file load ──────────
   reset() {
     this.history.clear()

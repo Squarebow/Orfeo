@@ -22,12 +22,14 @@ function activeMidi(): any {
   return (NES.dirty && NES.editMidi) ? NES.editMidi : useStore.getState().midi
 }
 
-// ── Steps for the current song + mute/solo state, rebuilt only when either
-// changes. Drums are left out: they'd turn every hi-hat into a step. ───────
+// ── Steps for the current song + mute/solo/eye state, rebuilt only when either
+// changes. Only tracks you both hear and see make steps — a hidden track (the
+// bass and drums under Focus) never lands a step or sounds in one. Drums are
+// left out anyway: they'd turn every hi-hat into a step. ──────────────────
 let _cache: { midi: unknown; sig: string; steps: Step[] } | null = null
 
 function audibleSignature(): string {
-  return useStore.getState().tracks.map(t => (t.muted ? 'm' : t.solo ? 's' : '.')).join('')
+  return useStore.getState().tracks.map(t => (t.muted ? 'm' : t.solo ? 's' : '.') + (t.visible ? 'v' : 'h')).join('')
 }
 
 export function buildSteps(midi: any, tracks: ReturnType<typeof useStore.getState>['tracks']): Step[] {
@@ -36,7 +38,7 @@ export function buildSteps(midi: any, tracks: ReturnType<typeof useStore.getStat
   for (const track of midi?.tracks ?? []) {
     if (track.isDrum) continue
     const ts = tracks.find(t => t.index === track.index)
-    if (!ts || ts.muted || (hasSolo && !ts.solo)) continue
+    if (!ts || ts.muted || !ts.visible || (hasSolo && !ts.solo)) continue
     for (const n of track.notes) {
       all.push({ time: n.time, midi: n.midi, velocity: n.velocity, duration: n.duration, channel: track.channel, color: ts.color ?? amberHex() })
     }
