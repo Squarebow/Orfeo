@@ -1,22 +1,22 @@
 name: Stats
 
-# Once a day at 09:00 Ljubljana time: record release downloads and repository
+# Once a day at 07:00 Ljubljana time: record release downloads and repository
 # traffic on the `stats` branch and rebuild traffic.md. Nothing to click; "Run
 # workflow" on the Actions tab runs it on demand. Does not touch main, dev or
 # releases.
 #
-# GitHub runs schedules in UTC only (09:00 Ljubljana is 07:00 UTC in summer,
-# 08:00 UTC in winter) and often starts them late, sometimes by hours. So it
-# is woken several times from 06:50 UTC on, and the "Time to collect?" step
-# lets through only the first wake-up at or after 09:00 Ljubljana each day.
+# GitHub runs schedules in UTC only (07:00 Ljubljana is 05:00 UTC in summer,
+# 06:00 UTC in winter) and often starts them late, sometimes by hours. So it
+# is woken several times from 04:50 UTC on, and the "Time to collect?" step
+# lets through only the first wake-up at or after 07:00 Ljubljana each day.
 
 on:
   schedule:
-    - cron: '50 6 * * *'
-    - cron: '5,25,45 7 * * *'
-    - cron: '5,25,45 8 * * *'
-    - cron: '5,35 9 * * *'
-    - cron: '5 11,14,18 * * *'   # late fall-backs, in case GitHub skipped the morning
+    - cron: '50 4 * * *'
+    - cron: '5,25,45 5 * * *'
+    - cron: '5,25,45 6 * * *'
+    - cron: '5,35 7 * * *'
+    - cron: '5 9,12,16 * * *'   # late fall-backs, in case GitHub skipped the morning
   workflow_dispatch:
 
 permissions:
@@ -43,14 +43,14 @@ jobs:
             git worktree add --orphan -b stats stats-data
           fi
 
-      - name: Time to collect? (once a day, from 09:00 Ljubljana)
+      - name: Time to collect? (once a day, from 07:00 Ljubljana)
         id: gate
         run: |
           today=$(TZ=Europe/Ljubljana date +%F)
           hhmm=$(TZ=Europe/Ljubljana date +%H%M)
           if [ "${{ github.event_name }}" != "schedule" ]; then echo "go=true" >> "$GITHUB_OUTPUT"; exit 0; fi
-          if [ "$hhmm" -lt 0900 ]; then
-            echo "It's $hhmm in Ljubljana: too early, waiting for 09:00."; echo "go=false" >> "$GITHUB_OUTPUT"; exit 0
+          if [ "$hhmm" -lt 0700 ]; then
+            echo "It's $hhmm in Ljubljana: too early, waiting for 07:00."; echo "go=false" >> "$GITHUB_OUTPUT"; exit 0
           fi
           if git -C stats-data log -20 --format=%s 2>/dev/null | grep -qx "stats: $today (daily)"; then
             echo "Today's daily update is already done."; echo "go=false" >> "$GITHUB_OUTPUT"; exit 0
