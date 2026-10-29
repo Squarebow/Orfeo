@@ -20,9 +20,9 @@ export function QuickRow({ id }: { id: SettingId }) {
   const def = DEFS[id], info = SETTING_BY_ID[id]
   const useVisible = def.useVisible ?? always
   if (!useVisible()) return null
-  const { Control, Glance, NameSuffix, NameRight, QuickExtra } = def
+  const { Control, Glance, NameSuffix, NameRight, QuickExtra, SummaryEnd } = def
   const name = <span style={nameStyle}>{info.name}{NameSuffix && <> <NameSuffix /></>}</span>
-  const summary = <div style={summaryStyle}>{richText(info.summary)}</div>
+  const summary = <div style={summaryStyle}>{richText(info.summary)}{SummaryEnd && <> <SummaryEnd /></>}</div>
   return (
     <SurfaceContext.Provider value="setup">
       <div style={{ padding: '9px 14px', borderBottom: '1px solid var(--border-row)' }}>
@@ -41,7 +41,7 @@ export function QuickRow({ id }: { id: SettingId }) {
             <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1fr) auto', alignItems: 'center', columnGap: 8 }}>
               {name}{NameRight ? <NameRight /> : <span />}
             </div>
-            <div style={{ ...summaryStyle, marginBottom: 7 }}>{richText(info.summary)}</div>
+            <div style={{ ...summaryStyle, marginBottom: 7 }}>{richText(info.summary)}{SummaryEnd && <> <SummaryEnd /></>}</div>
             <Control />
           </>
         )}

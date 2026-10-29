@@ -1,6 +1,7 @@
 import { useState, useRef, useLayoutEffect, useEffect, useCallback } from 'react'
 import { Eye, GripVertical } from 'lucide-react'
 import { useStore } from '../../store'
+import { t } from '../../utils/i18n'
 import { useDevicePixelRatio } from '../../hooks/useDevicePixelRatio'
 import MixerKnob from './MixerKnob'
 import PianoKeysIcon from '../PianoKeysIcon'
@@ -427,9 +428,9 @@ export default function ChannelStrip({ trackIndex, locked, isDragging, onDragSta
         position: 'relative', zIndex: 2,
       }}>
         <IBtn
-          onClick={() => updateTrack(trackIndex, { muted: !muted })}
+          onClick={() => useStore.getState().setTrackMuted(trackIndex, !muted)}
           active={muted} title={muted ? 'Unmute' : 'Mute'}
-          description={muted ? 'Unmute audio' : 'Mute audio'}
+          description={muted ? t`Unmute and show its notes` : t`Mute and hide its notes — the eye can still show them`}
           activeColor="var(--status-error)"
         >
           <span style={{ fontSize: 14, fontWeight: 700, fontFamily: 'var(--font-mono)', lineHeight: 1 }}>M</span>

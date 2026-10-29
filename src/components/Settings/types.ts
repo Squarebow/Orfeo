@@ -24,5 +24,6 @@ export interface SettingDef {
   // the description (which may change with the choice), then the follow-up options
   layout?: 'controlFirst'
   QuickExtra?: ComponentType    // follow-up control shown in Setup only (under the glance)
+  SummaryEnd?: ComponentType    // inline at the end of the Setup summary line (e.g. a link)
   notice?: boolean              // amber-bordered, for an information card
 }

@@ -1,6 +1,7 @@
 import { useState, useRef, useLayoutEffect, useEffect, useCallback, useMemo } from 'react'
 import { Eye, VolumeX, Volume2 } from 'lucide-react'
-import { useStore, DEFAULT_MUTED_GROUPS } from '../../store'
+import { useStore } from '../../store'
+import { t } from '../../utils/i18n'
 import MixerKnob from './MixerKnob'
 import CompressorIcon from '../CompressorIcon'
 import PianoKeysIcon from '../PianoKeysIcon'
@@ -468,8 +469,8 @@ export default function MasterStrip() {
   // ── Global action handlers ─────────────────────────────────────────────────
   const handleMuteAll = useCallback(() => {
     const target = !allMuted
-    tracks.forEach(t => updateTrack(t.index, { muted: target }))
-  }, [allMuted, tracks, updateTrack])
+    tracks.forEach(t => useStore.getState().setTrackMuted(t.index, target))
+  }, [allMuted, tracks])
 
   const handleVisibleAll = useCallback(() => {
     const target = !allVisible
@@ -481,11 +482,8 @@ export default function MasterStrip() {
     tracks.forEach(t => updateTrack(t.index, { showOnKeyboard: target }))
   }, [allOnKeyboard, tracks, updateTrack])
 
-  // ── Mute-filter state — mirrors TrackPanel's isCurrentlyFiltered ──────────
-  const isCurrentlyFiltered = useMemo(() => {
-    const filterable = tracks.filter(t => !t.isDrum && DEFAULT_MUTED_GROUPS.has(t.group ?? ''))
-    return filterable.length > 0 && filterable.every(t => t.muted)
-  }, [tracks])
+  // ── Focus on/off — the store's own flag (Tracks panel uses the same) ──────
+  const isCurrentlyFiltered = useStore(s => s.focusActive)
 
   return (
     <div style={{
@@ -615,8 +613,8 @@ export default function MasterStrip() {
         </div>
         {autoMuteNonKeyboard && (
           <Tooltip
-            title={isCurrentlyFiltered ? 'Piano, bass & drums only' : 'Playing All Tracks'}
-            description={isCurrentlyFiltered ? 'Playing keyboards, bass & drums only. Click to play all tracks.' : 'Click to mute everything except piano, bass & drums — good for practising'}
+            title={isCurrentlyFiltered ? t`Focus on the keys` : t`Playing all tracks`}
+            description={isCurrentlyFiltered ? t`Hearing keys, bass & drums, seeing only the keys. Click to bring back all tracks as they were.` : t`Click to hear only keys, bass & drums and see only the keys — good for practising`}
           >
           <button
             onClick={() => setTrackMuteFilter(!isCurrentlyFiltered)}

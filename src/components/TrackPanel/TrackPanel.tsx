@@ -1,6 +1,7 @@
 import { useMemo, useState, useRef, useEffect } from 'react'
 import { ChevronRight, Eye, Volume2, VolumeX, ChevronDown, AudioLines, ListTree, SlidersVertical, GripVertical, Sparkles } from 'lucide-react'
-import { useStore, DEFAULT_MUTED_GROUPS } from '../../store'
+import { useStore } from '../../store'
+import { t } from '../../utils/i18n'
 import { GM_GROUPS } from '../../utils/gmInstruments'
 import type { TrackState } from '../../types'
 import { MarqueeText } from '../MarqueeText'
@@ -181,11 +182,8 @@ export default function TrackPanel() {
 
   const hasSolo = tracks.some(t => t.solo)
 
-  // ── isCurrentlyFiltered — true when all DEFAULT_MUTED_GROUPS tracks are muted ──
-  const isCurrentlyFiltered = useMemo(() => {
-    const filterable = tracks.filter(t => !t.isDrum && DEFAULT_MUTED_GROUPS.has(t.group ?? ''))
-    return filterable.length > 0 && filterable.every(t => t.muted)
-  }, [tracks])
+  // ── Focus on/off — the store's own flag (the Mixer uses the same) ─────────
+  const isCurrentlyFiltered = useStore((s) => s.focusActive)
 
   // ── Toggle group collapse — adds/removes group key from collapsed set ─────
   const toggleGroupCollapse = (group: string) => {
@@ -455,8 +453,8 @@ export default function TrackPanel() {
                 {/* ── Mute-filter quick toggle — visible only when Selective Tracks Playback is on in Settings ── */}
                 {autoMuteNonKeyboard && (
                   <Tooltip
-                    title={isCurrentlyFiltered ? 'Piano, Bass & Drums Only' : 'Playing all tracks'}
-                    description={isCurrentlyFiltered ? 'Playing keyboards, bass & drums tracks only. Click to play all tracks.' : 'Click to mute everything except piano,\nbass & drums — good for practising'}
+                    title={isCurrentlyFiltered ? t`Focus on the keys` : t`Playing all tracks`}
+                    description={isCurrentlyFiltered ? t`Hearing keys, bass & drums, seeing only the keys.\nClick to bring back all tracks as they were.` : t`Click to hear only keys, bass & drums\nand see only the keys — good for practising`}
                     wrapperStyle={{ marginLeft: 'auto' }}
                   >
                   <button
@@ -558,7 +556,7 @@ export default function TrackPanel() {
                     </span>
                     <Tooltip
                       title={groupMuted ? `Unmute all ${label}` : `Mute all ${label}`}
-                      description={groupMuted ? `Unmute every track in ${label}` : `Mute every track in ${label} at once`}
+                      description={groupMuted ? t`Unmute and show every track in ${label}` : t`Mute and hide every track in ${label} at once`}
                     >
                     <button
                       onClick={() => muteGroup(key, !groupMuted)}
@@ -581,7 +579,7 @@ export default function TrackPanel() {
                         key={track.index}
                         track={track}
                         dimmed={effectivelyMuted}
-                        onMute={() => updateTrack(track.index, { muted: !track.muted })}
+                        onMute={() => useStore.getState().setTrackMuted(track.index, !track.muted)}
                         onSolo={() => updateTrack(track.index, { solo: !track.solo })}
                         onVisible={() => updateTrack(track.index, { visible: !track.visible })}
                         onKeyboard={() => updateTrack(track.index, { showOnKeyboard: !track.showOnKeyboard })}
@@ -744,7 +742,7 @@ function TrackRow({
         <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-1)' }}>
           <IBtn onClick={onMute} active={track.muted}
             title={track.muted ? 'Unmute' : 'Mute'}
-            description={track.muted ? "Unmute audio" : 'Mute audio'}
+            description={track.muted ? t`Unmute and show its notes` : t`Mute and hide its notes — the eye can still show them`}
             activeColor="var(--status-error)">
             <span style={{ fontSize: 'var(--text-xs)', fontWeight: 700, fontFamily: 'var(--font-mono)', lineHeight: 1 }}>M</span>
           </IBtn>

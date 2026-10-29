@@ -7,7 +7,7 @@ import { assignHands } from './handAssignment'
 import { useStore } from '../store'
 import { HAND_ASSIGN_GROUPS } from './keyboardGroups'
 import { SEMITONE_TO_KEY_NAME } from './keyDetection'
-import { TRACK_COLOR_PALETTE, pianoFamilyColor } from './colors'
+import { distinctTrackColor, pianoFamilyColor } from './colors'
 
 export function parseMidiBuffer(buffer: ArrayBuffer, fileName: string, filePath = ''): ParsedMidi {
   // FUTURE: KAR lyric events (meta type 0x05 = lyrics, 0x01 = text) could
@@ -105,7 +105,7 @@ export function parseMidiBuffer(buffer: ArrayBuffer, fileName: string, filePath 
     // collision caused by miscounting a mallet instrument as piano-family.
     const color = HAND_ASSIGN_GROUPS.has(group)
       ? pianoFamilyColor(pianoFamilyIndex++)
-      : TRACK_COLOR_PALETTE[tracks.length % TRACK_COLOR_PALETTE.length]
+      : distinctTrackColor(tracks.map(t => t.color))
 
     const notes: ParsedNote[] = track.notes.map(n => ({
       midi: n.midi,

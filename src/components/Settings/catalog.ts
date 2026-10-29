@@ -28,7 +28,7 @@ export type SettingId =
   | 'displaySystem' | 'accidentals' | 'chordTracking' | 'chordReading' | 'chordNaming'
   | 'keyRange' | 'showOctaves' | 'showNoteNames' | 'reflectPianoRoll' | 'preciseScrubTime' | 'explorerPause'
   | 'rollZoom' | 'barNumbers' | 'playbar' | 'visualEffects'
-  | 'theme' | 'appZoom' | 'tooltips' | 'supportNote' | 'starmap'
+  | 'theme' | 'handColors' | 'appZoom' | 'tooltips' | 'supportNote' | 'starmap'
   | 'midiKeyboards' | 'midiReconnect' | 'liveResponse' | 'latencyOffset' | 'gmOutput' | 'touchResponse' | 'duplicateFilter'
   | 'pedalsControls' | 'delayCheck' | 'midiTools'
 
@@ -99,8 +99,8 @@ export const SETTINGS: SettingInfo[] = [
   { id: 'loopRegion', group: 'playback-editing', name: t`Loop region`, summary: t`A strip for picking a section to loop.`,
     description: t`Shows a strip to select and loop a section. Alt+click and drag to select, then click the loop icon.`,
     keywords: 'loop repeat section' },
-  { id: 'focusMode', group: 'playback-editing', name: t`Focus mode`, summary: t`Hear and see only Keys, Bass & Drums with one click.`,
-    description: t`Adds a Focus on/off switch to the Tracks panel and the Mixer Console, to hear and see all tracks or only Keys, Bass & Drums.`,
+  { id: 'focusMode', group: 'playback-editing', name: t`Focus mode`, summary: t`Hear Keys, Bass & Drums and see only the Keys, with one click.`,
+    description: t`Adds a Focus on/off switch to the Tracks panel and the Mixer Console. Focus on: you hear the keys (pianos, organs, accordions), bass and drums, and only the keys stay on the piano roll and keyboard. Focus off: every track comes back exactly as it was.`,
     keywords: 'focus mute tracks keys bass drums' },
   // ── Practice
   { id: 'stepThrough', group: 'practice', name: t`Step Through`, summary: t`Step through a song note by note with ← and →.`,
@@ -170,6 +170,9 @@ export const SETTINGS: SettingInfo[] = [
   { id: 'theme', group: 'appearance', name: t`Theme`, summary: t`Dark today; a warm light theme is coming.`,
     description: t`Dark today; a warm light theme is in progress.`,
     keywords: 'dark light colours colors' },
+  { id: 'handColors', group: 'appearance', name: t`Hand colours`, summary: t`Pick the colours for your left and right hand.`,
+    description: t`The colours that show which hand plays each note, on the piano roll, the keyboard and the split preview. Pick a ready-made pair or your own. Bright, Sky and Mint stay easy to tell apart with colour blindness.`,
+    keywords: 'hand colours colors left right palette colour blind colorblind color blindness custom pink blue split' },
   { id: 'appZoom', group: 'appearance', name: t`App Zoom`, summary: t`Make everything in Orfeo bigger or smaller.`,
     description: t`Makes everything in Orfeo bigger or smaller. Ctrl + / Ctrl − / Ctrl 0 work exactly as in a web browser. Click reset to go back to 100%.`,
     keywords: 'zoom scale size bigger smaller ctrl' },

@@ -61,7 +61,8 @@ telemetry; MIDI files are processed entirely on your device.
 - **Tracks panel & Console Mixer** — mute, solo, recolour, show/hide tracks;
   per-channel volume, pan, chorus, reverb with live VU meters (saved into the
   file on close); master Tone and Compressor
-- **Focus Mode** — narrow instantly to keys, bass, and drums
+- **Focus Mode** — one click to hear keys, bass and drums but see only the keys;
+  click again and every track comes back as it was
 - **Presentation Mode** (`F11`) — distraction-free view of just the roll and
   keyboard
 
@@ -72,7 +73,8 @@ telemetry; MIDI files are processed entirely on your device.
 - **Key highlighting** in track colour, with the chord name shown live above
 - **Automated hand assignment** — notes colour-code by which hand plays
   them, in Practice (moving split line) or Performance (per-note tags) mode, with
-  optional colourblind-friendly L/R badges
+  optional colourblind-friendly L/R badges, and **hand colours** of your choice
+  (ready-made pairs, colour-blind friendly ones included, or your own)
 - **Hardware MIDI input** — play along on a real keyboard with true sustain and
   multi-device support. A dedicated *MIDI Keyboard* page in Settings lists every
   keyboard by name and sets touch response, pedals and controls, and a double-note

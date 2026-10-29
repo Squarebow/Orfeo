@@ -436,6 +436,12 @@ export default function PianoRoll() {
   useEffect(() => useStore.subscribe((s) => {
     const prev = storeRef.current
     storeRef.current = s
+    // Hand colours (Settings › Appearance): refresh the canvas cache, redraw
+    if (s.handColorLH !== prev.handColorLH || s.handColorRH !== prev.handColorRH) {
+      HAND_LH_COLOR = hexVarToNumber(s.handColorLH, HAND_LH_COLOR)
+      HAND_RH_COLOR = hexVarToNumber(s.handColorRH, HAND_RH_COLOR)
+      dirtyRef.current = true
+    }
     // Mirrors the fields drawFrame() destructures from the store (below), plus
     // currentTime — needed so a paused scrub/seek still redraws even though the
     // ticker's playbackState check alone wouldn't catch it (during actual

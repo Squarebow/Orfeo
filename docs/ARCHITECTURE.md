@@ -24,6 +24,7 @@ feature list see the [README](../README.md).
 - [Metadata embedded in the MIDI file](#metadata-embedded-in-the-midi-file)
 - [Tap Tempo — beat-grid corrections](#tap-tempo--beat-grid-corrections)
 - [Hand-assignment engine](#hand-assignment-engine)
+- [Hand colours, track colours and Focus](#hand-colours-track-colours-and-focus)
 - [Piano-roll hit effects](#piano-roll-hit-effects)
 - [Auto-update](#auto-update)
 - [Note-naming systems](#note-naming-systems)
@@ -534,6 +535,41 @@ split sensitivity.
 > `scripts/check-hand-engine-version.mjs` runs on every `dev` / `build` and
 > fails the build if the constant was not bumped after the algorithm changed —
 > so files carrying stale hand tags can be detected and re-analysed.
+
+---
+
+## Hand colours, track colours and Focus
+
+**Hand colours** (Settings › Appearance, `store.handColorLH` / `handColorRH`,
+persisted). `src/utils/handPalette.ts` holds the defaults, the ready-made pairs
+(`HAND_PRESETS`; all but Orfeo's own checked with a colour-blindness
+simulation) and `applyHandColors`, which overrides `--hand-lh` / `--hand-rh` on
+`:root` so everything drawn with `var()` follows at once. Canvas code reads
+`handHex()` instead: the piano roll refreshes its cached numbers from the store,
+and `hitEffectQueue.ts` drops its resolved-colour cache when
+`handPaletteVersion()` changes. Amber (tools), the Explorers' root accent
+(`--accent-root`) and the compressor knob have their own tokens and never
+follow. A piano or organ track on a hand colour, or on Orfeo's default blue or
+pink (which older saved versions store), switches with the pair: on load
+(`setMidi`) and live (`setHandColors`), via `followedHandColor`.
+
+**Starting track colours** (`src/utils/colors.ts`). The first two piano-family
+tracks take the hand pair, a third amber. Every other track takes
+`distinctTrackColor`: from `AUTO_TRACK_COLORS` (nine tones clear of the default
+hands, amber and each other, minus any too close to the current pair), the one
+farthest from the hands and from the colours already given out. Deterministic
+per song. `TRACK_COLOR_PALETTE` remains the user's picker palette.
+
+**Focus** (Tracks panel / Mixer, `store.setTrackMuteFilter`, `focusActive`).
+`focusRole` (`src/utils/keyboardGroups.ts`) sorts tracks into keys (GM 0–7,
+16–21, 23: pianos, organs, accordions — heard and shown), rhythm (bass and
+drums — heard, hidden) and the rest (muted and hidden). Each track's mute and
+visibility are saved on the way in and restored on the way out; loading a
+song clears Focus.
+
+**Mute is a double switch.** `setTrackMuted` and `muteGroup` set
+`visible = !muted`; the eye (`visible`) can show a muted track again. Reflect
+on keyboard and the piano roll follow `visible`.
 
 ---
 

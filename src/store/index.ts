@@ -14,14 +14,12 @@ import { songKey as computeSongKey } from '../utils/songIdentity'
 import { applyTempoCorrection, sanitizeCorrections, type SongTempoCorrection } from '../utils/tempoCorrection'
 import { TRUST_VERSION, type TrustResult } from '../utils/tempoTrust'
 import { velocityDropRatio, suggestCompressorPreset } from '../utils/velocityAnalysis'
+import { applyHandColors, isHex, handHex, followedHandColor, DEFAULT_HAND_LH, DEFAULT_HAND_RH } from '../utils/handPalette'
+import { HAND_ASSIGN_GROUPS, focusRole } from '../utils/keyboardGroups'
 
-// Groups muted when autoMuteNonKeyboard is on — exported so TrackPanel can read them
-// Unmuted by default: piano, chromatic, organ, bass, drums
-export const DEFAULT_MUTED_GROUPS = new Set([
-  'guitar', 'strings', 'ensemble', 'brass', 'reed', 'pipe',
-  'synth_lead', 'synth_pad', 'synth_fx', 'ethnic',
-  'percussive', 'sfx',
-])
+// ── Focus mode: every track's mute + eye from just before Focus went on, so
+// the second click puts back exactly what you had. Null while Focus is off.
+let _focusSnapshot: Map<number, { muted: boolean; visible: boolean }> | null = null
 
 // Only these groups light up the piano keyboard
 const KEYBOARD_DISPLAY_GROUPS = new Set(['piano', 'chromatic', 'organ'])
@@ -378,8 +376,12 @@ interface OrfeoStore {
 
   autoMuteNonKeyboard: boolean
   setAutoMuteNonKeyboard: (v: boolean) => void
-  // ── Instantly applies or clears the auto-mute filter on currently loaded tracks ──
+  // ── Focus on/off for the loaded song (see focusRole, utils/keyboardGroups.ts) ──
   setTrackMuteFilter: (filtered: boolean) => void
+  focusActive: boolean
+  // Mute is a double switch: muting also hides the track's notes, unmuting
+  // shows them again. The eye can still show a muted track afterwards.
+  setTrackMuted: (index: number, muted: boolean) => void
 
   settingsGroupsCollapsed: Record<string, boolean>
   setSettingsGroupCollapsed: (id: string, collapsed: boolean) => void
@@ -465,6 +467,10 @@ interface OrfeoStore {
   // Step Through: → / ← step note by note, plus arrows in the keyboard footer
   stepThroughEnabled: boolean
   setStepThroughEnabled: (v: boolean) => void
+  // Hand colours (Settings › Appearance) — the left/right hand pair, hex
+  handColorLH: string
+  handColorRH: string
+  setHandColors: (lh: string, rh: string) => void
   // Orfeo's own tooltips (hints on hover); live value readouts while dragging stay
   tooltipsEnabled: boolean
   setTooltipsEnabled: (v: boolean) => void
@@ -560,14 +566,19 @@ export const useStore = create<OrfeoStore>((set, get) => ({
       if (orfeoColors?.[i]) { ts.color = orfeoColors[i]; ts.colorSource = 'custom' }
       if (orfeoVisible?.[i] !== undefined) ts.visible = orfeoVisible[i]
       if (orfeoKeyboard?.[i] !== undefined) ts.showOnKeyboard = orfeoKeyboard[i]
+      // A piano still on Orfeo's default blue/pink (older saved versions store
+      // it) takes the user's hand colours
+      if (HAND_ASSIGN_GROUPS.has(ts.group ?? '')) ts.color = followedHandColor(ts.color, handHex(), handHex()) ?? ts.color
       return ts
     })
     const mixerBaseline: OrfeoStore['mixerBaseline'] = {}
     for (const ts of newTracks) {
       mixerBaseline[ts.index] = { volume: ts.volume, pan: ts.pan, chorus: ts.chorus, reverb: ts.reverb }
     }
+    _focusSnapshot = null
     set({
       ...sessionReset,
+      focusActive: false,
       midi,
       songKey: key,
       currentTrust: null,
@@ -629,7 +640,7 @@ export const useStore = create<OrfeoStore>((set, get) => ({
   updateTrack: (index, patch) =>
     set((s) => ({ tracks: s.tracks.map((t) => (t.index === index ? { ...t, ...patch } : t)) })),
   muteGroup: (group, muted) =>
-    set((s) => ({ tracks: s.tracks.map((t) => t.group === group ? { ...t, muted } : t) })),
+    set((s) => ({ tracks: s.tracks.map((t) => t.group === group ? { ...t, muted, visible: !muted } : t) })),
 
   keyboardSize: 73,
   keyboardMode: 'docked',
@@ -956,13 +967,20 @@ export const useStore = create<OrfeoStore>((set, get) => ({
   // ── Selective playback button visibility — true = show quick-toggle in Track Panel ──
   autoMuteNonKeyboard: true,
   setAutoMuteNonKeyboard: (autoMuteNonKeyboard) => set({ autoMuteNonKeyboard }),
-  // ── setTrackMuteFilter — instant one-shot toggle on currently loaded tracks ─
-  setTrackMuteFilter: (filtered) => set((s) => ({
-    tracks: s.tracks.map(t => ({
-      ...t,
-      muted: filtered ? (!t.isDrum && DEFAULT_MUTED_GROUPS.has(t.group ?? '')) : false,
-    })),
-  })),
+  // ── Focus — on: hear keys, bass & drums, see only the keys; off: every
+  // track's mute and eye exactly as they were before ────────────────────────
+  focusActive: false,
+  setTrackMuteFilter: (filtered) => set((s) => {
+    if (filtered) {
+      if (!s.focusActive) _focusSnapshot = new Map(s.tracks.map(t => [t.index, { muted: t.muted, visible: t.visible }]))
+      return { focusActive: true, tracks: s.tracks.map(t => { const r = focusRole(t); return { ...t, muted: r === 'off', visible: r === 'keys' } }) }
+    }
+    const snap = _focusSnapshot
+    _focusSnapshot = null
+    return { focusActive: false, tracks: s.tracks.map(t => ({ ...t, ...(snap?.get(t.index) ?? { muted: false, visible: true }) })) }
+  }),
+  setTrackMuted: (index, muted) =>
+    set((s) => ({ tracks: s.tracks.map((t) => (t.index === index ? { ...t, muted, visible: !muted } : t)) })),
 
   // ── Settings group collapse state — keyed by group id; true = collapsed.
   // All expanded by default so a fresh install's first Settings open shows
@@ -1030,6 +1048,18 @@ export const useStore = create<OrfeoStore>((set, get) => ({
   autoCollapseDrawers: false,
   stepThroughEnabled: true,
   setStepThroughEnabled: (stepThroughEnabled) => set({ stepThroughEnabled }),
+  handColorLH: DEFAULT_HAND_LH,
+  handColorRH: DEFAULT_HAND_RH,
+  setHandColors: (handColorLH, handColorRH) => {
+    if (!isHex(handColorLH) || !isHex(handColorRH)) return
+    const prev = handHex(), next = { lh: handColorLH, rh: handColorRH }
+    applyHandColors(handColorLH, handColorRH)
+    // Pianos/organs on a hand colour switch with the pair, in the open song too
+    set((s) => ({ handColorLH, handColorRH, tracks: s.tracks.map(t => {
+      const c = HAND_ASSIGN_GROUPS.has(t.group ?? '') ? followedHandColor(t.color, prev, next) : null
+      return c ? { ...t, color: c } : t
+    }) }))
+  },
   tooltipsEnabled: true,
   setTooltipsEnabled: (tooltipsEnabled) => set({ tooltipsEnabled }),
   supportNoteEnabled: true,
@@ -1217,6 +1247,7 @@ async function restoreLibraryPrefs() {
     if (typeof prefs.showNoteNamesOnKeyboard === 'boolean') store.setShowNoteNamesOnKeyboard(prefs.showNoteNamesOnKeyboard)
     if (typeof prefs.autoCollapseDrawers === 'boolean') store.setAutoCollapseDrawers(prefs.autoCollapseDrawers)
     if (typeof prefs.stepThroughEnabled === 'boolean') store.setStepThroughEnabled(prefs.stepThroughEnabled)
+    if (isHex(prefs.handColorLH) && isHex(prefs.handColorRH)) store.setHandColors(prefs.handColorLH, prefs.handColorRH)
     if (typeof prefs.tooltipsEnabled === 'boolean') store.setTooltipsEnabled(prefs.tooltipsEnabled)
     if (typeof prefs.supportNoteEnabled === 'boolean') store.setSupportNoteEnabled(prefs.supportNoteEnabled)
     if (typeof prefs.explorerPausesPlayback === 'boolean') store.setExplorerPausesPlayback(prefs.explorerPausesPlayback)
@@ -1315,6 +1346,7 @@ let _prevStarmapEnabled: boolean | null = null
 let _prevShowNoteNamesOnKeyboard: boolean | null = null
 let _prevAutoCollapseDrawers: boolean | null = null
 let _prevStepThroughEnabled: boolean | null = null
+let _prevHandColors: string | null = null
 let _prevTooltipsEnabled: boolean | null = null
 let _prevSupportNoteEnabled: boolean | null = null
 let _prevExplorerPausesPlayback: boolean | null = null
@@ -1382,6 +1414,7 @@ const _unsubPrefs = useStore.subscribe((state) => {
     _prevShowNoteNamesOnKeyboard = state.showNoteNamesOnKeyboard
     _prevAutoCollapseDrawers = state.autoCollapseDrawers
     _prevStepThroughEnabled = state.stepThroughEnabled
+    _prevHandColors = state.handColorLH + state.handColorRH
     _prevTooltipsEnabled = state.tooltipsEnabled
     _prevSupportNoteEnabled = state.supportNoteEnabled
     _prevExplorerPausesPlayback = state.explorerPausesPlayback
@@ -1452,6 +1485,7 @@ const _unsubPrefs = useStore.subscribe((state) => {
     state.showNoteNamesOnKeyboard !== _prevShowNoteNamesOnKeyboard ||
     state.autoCollapseDrawers !== _prevAutoCollapseDrawers ||
     state.stepThroughEnabled !== _prevStepThroughEnabled ||
+    state.handColorLH + state.handColorRH !== _prevHandColors ||
     state.tooltipsEnabled !== _prevTooltipsEnabled ||
     state.supportNoteEnabled !== _prevSupportNoteEnabled ||
     state.explorerPausesPlayback !== _prevExplorerPausesPlayback ||
@@ -1514,6 +1548,7 @@ const _unsubPrefs = useStore.subscribe((state) => {
     _prevShowNoteNamesOnKeyboard = state.showNoteNamesOnKeyboard
     _prevAutoCollapseDrawers = state.autoCollapseDrawers
     _prevStepThroughEnabled = state.stepThroughEnabled
+    _prevHandColors = state.handColorLH + state.handColorRH
     _prevTooltipsEnabled = state.tooltipsEnabled
     _prevSupportNoteEnabled = state.supportNoteEnabled
     _prevExplorerPausesPlayback = state.explorerPausesPlayback
@@ -1582,6 +1617,8 @@ const _unsubPrefs = useStore.subscribe((state) => {
       showNoteNamesOnKeyboard: state.showNoteNamesOnKeyboard,
       autoCollapseDrawers: state.autoCollapseDrawers,
       stepThroughEnabled: state.stepThroughEnabled,
+      handColorLH: state.handColorLH,
+      handColorRH: state.handColorRH,
       tooltipsEnabled: state.tooltipsEnabled,
       supportNoteEnabled: state.supportNoteEnabled,
       explorerPausesPlayback: state.explorerPausesPlayback,

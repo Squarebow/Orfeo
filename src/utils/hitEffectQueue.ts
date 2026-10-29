@@ -1,4 +1,5 @@
 import { useStore } from '../store'
+import { handPaletteVersion } from './handPalette'
 
 // ── Shared hit-effect trigger queue (Phase 2: Note-Hit Visual Effects) ───────
 // lightKey() (useAudioEngine.ts / useSamplesEngine.ts) is the single existing
@@ -43,9 +44,12 @@ export function amberHex(): string {
 // packaged build. Resolved once here so every caller of pushHitEffect is
 // covered without touching each color source individually.
 const _cssVarHex = new Map<string, string>()
+let _cssVarHexVersion = 0
 function resolveCssColor(color: string): string {
   const m = /^var\((--[\w-]+)\)$/.exec(color)
   if (!m) return color
+  // the user changed their hand colours — --hand-lh/--hand-rh resolve anew
+  if (_cssVarHexVersion !== handPaletteVersion()) { _cssVarHex.clear(); _cssVarHexVersion = handPaletteVersion() }
   const token = m[1]
   let hex = _cssVarHex.get(token)
   if (!hex) {

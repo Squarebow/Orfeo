@@ -10,7 +10,8 @@ import { createPortal } from 'react-dom'
 import { Check, X, Save, FolderOpen, AlertCircle, ChevronDown, ChevronRight, Search, Merge, Split, Undo2, RotateCcw, Piano, Bell, Church, Guitar, Music2, AudioWaveform, Users, Megaphone, Wind, Feather, Cpu, Globe, Drum, Radio, Waves, Sparkles, SwatchBook, Eye, EyeOff, ThumbsUp, ToggleLeft, ToggleRight, AudioLines } from 'lucide-react'
 import { confirmDialog } from '../../utils/confirmController'
 import { PENCIL_CURSOR } from '../../utils/cursors'
-import { TRACK_COLOR_PALETTE, pianoFamilyColor } from '../../utils/colors'
+import { TRACK_COLOR_PALETTE, pianoFamilyColor, distinctTrackColor } from '../../utils/colors'
+import { handHex } from '../../utils/handPalette'
 import { modalCloseButtonStyle, modalCloseButtonHoverColor, modalCloseButtonIdleColor } from '../../utils/modalCloseButtonStyle'
 import OrfeoMark from '../OrfeoMark'
 import { useStore } from '../../store'
@@ -33,12 +34,6 @@ import PianoKeysIcon from '../PianoKeysIcon'
 
 const MODAL_W = 980
 const MODAL_H = 620
-
-// ── Fixed LH/RH hex — same values as --hand-lh/--hand-rh (src/index.css).
-// Literal hex, not the CSS var: this also travels into ORFEO_TRACK_COLOR meta
-// on save, which only accepts hex (see midiParser.ts's restore regex). ──────
-const HAND_LH_HEX = '#6270A5'
-const HAND_RH_HEX = '#CB636C'
 
 // ── Shared footer button widths — Cancel/Save & Reload match each other;
 // OK (post-save) matches Show in folder, the button directly above it. ──────
@@ -1332,8 +1327,11 @@ export default function MidiEditor() {
       // ── Fixed LH/RH colors (same tokens as the piano roll/keyboard split
       // rendering, src/utils/handColors.ts) — not inherited from the source
       // track, which would make both halves look identical. ───────────────
-      const lhRow: EditorTrack = { ...orig, name: 'Left Hand', trackName: lhName, noteCount: lhCount, splitHand: 'L', splitOriginIndex: trackIndex, mergeSelected: false, color: HAND_LH_HEX, colorSource: 'custom' }
-      const rhRow: EditorTrack = { ...orig, index: _mergeIdCounter++, name: 'Right Hand', trackName: rhName, noteCount: rhCount, splitHand: 'R', splitOriginIndex: trackIndex, mergeSelected: false, color: HAND_RH_HEX, colorSource: 'custom' }
+      // The user's hand colours as literal hex (not the CSS var): the colour
+      // travels into ORFEO_TRACK_COLOR meta on save, which only accepts hex
+      // (see midiParser.ts's restore regex)
+      const lhRow: EditorTrack ={ ...orig, name: 'Left Hand', trackName: lhName, noteCount: lhCount, splitHand: 'L', splitOriginIndex: trackIndex, mergeSelected: false, color: handHex().lh, colorSource: 'custom' }
+      const rhRow: EditorTrack = { ...orig, index: _mergeIdCounter++, name: 'Right Hand', trackName: rhName, noteCount: rhCount, splitHand: 'R', splitOriginIndex: trackIndex, mergeSelected: false, color: handHex().rh, colorSource: 'custom' }
       const rows = [...s.rows]
       rows.splice(idx, 1, lhRow, rhRow)
       return { ...s, rows, outputPath: orfeoName(s.filePath) }
@@ -1490,7 +1488,7 @@ export default function MidiEditor() {
               const colorPatch = track.colorSource === 'default'
                 ? (KEYBOARD_GROUPS.has(newGroup)
                     ? { color: pianoFamilyColor(state.rows.filter(r => r.index < track.index && KEYBOARD_GROUPS.has(r.group)).length) }
-                    : { color: TRACK_COLOR_PALETTE[track.index % TRACK_COLOR_PALETTE.length] })
+                    : { color: distinctTrackColor(state.rows.filter(r => r.index !== track.index).map(r => r.color)) })
                 : {}
               update(track.index, {
                 newProgram: p,

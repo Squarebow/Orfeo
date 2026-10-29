@@ -1,6 +1,6 @@
 import { useRef, useState, useEffect, useMemo, useCallback, type CSSProperties } from 'react'
 import { X } from 'lucide-react'
-import { useStore, DEFAULT_MUTED_GROUPS } from '../../store'
+import { useStore } from '../../store'
 import { bringToFront, MODAL_BASE_Z } from '../../utils/modalFocus'
 import ChannelStrip from './ChannelStrip'
 import MasterStrip from './MasterStrip'
@@ -176,10 +176,7 @@ export default function MixerConsole() {
   // customChannelOrder/sortedTracks (the "real" order) alone, so turning
   // Focus mode back off snaps straight back to whatever order was there
   // before. ────────────────────────────────────────────────────────────────
-  const isFocusFiltered = useMemo(() => {
-    const filterable = trackMeta.filter(t => !t.isDrum && DEFAULT_MUTED_GROUPS.has(t.group ?? ''))
-    return filterable.length > 0 && filterable.every(t => t.muted)
-  }, [trackMeta])
+  const isFocusFiltered = useStore(s => s.focusActive)
 
   const displayTracks = useMemo(() => {
     if (!isFocusFiltered) return sortedTracks

@@ -1,3 +1,5 @@
+import { handHex, colorDistance, sameHex } from './handPalette'
+
 // ── Track color palette ───────────────────────────────────────────────────────
 // 10 muted/desaturated colors for comfortable legibility on the dark (#0f0f12)
 // background. Functional/state colors are intentionally kept outside the CSS
@@ -47,12 +49,59 @@ export const PITCH_CLASS_COLORS = [
 // reassignment) so both compute the exact same color for the exact same slot.
 export const PIANO_FAMILY_COLORS = [TRACK_COLOR_PALETTE[2], TRACK_COLOR_PALETTE[7], TRACK_COLOR_PALETTE[0]]
 
-// ── 4th+ piano-family track color — cycles through the rest of the palette
-// instead of repeating the 3rd slot's amber for every track after it. "I
-// don't care what color, just different" — not the same amber, and not
-// colliding with slots 1-3's blue/pink/amber either. ─────────────────────
-const PIANO_EXTRA_COLORS = TRACK_COLOR_PALETTE.filter((_, i) => i !== 0 && i !== 2 && i !== 7)
+// ── Starting colours for every other instrument (and a 4th+ piano). Nine muted
+// tones, each clearly apart (OKLab ≥ 0.087) from the others, from Orfeo's
+// default blue/pink hands and from amber, which stays the tools' colour. The
+// user's picker palette above is separate and unchanged. ─────────────────
+const AUTO_TRACK_COLORS = [
+  '#2dd4bf', // Teal
+  '#5b9bd5', // Sky Blue
+  '#7fae6f', // Sage Green
+  '#a78bfa', // Lavender
+  '#b5c45a', // Lime
+  '#c47bb8', // Orchid
+  '#8f8f6a', // Olive Grey
+  '#e8d77a', // Butter
+  '#d6b8e8', // Lilac
+] as const
+// The deck minus anything too close to the user's current hand pair
+const NEAR_HAND = 0.1
+function autoDeck(): string[] {
+  const { lh, rh } = handHex()
+  const deck = AUTO_TRACK_COLORS.filter(c => colorDistance(c, lh) >= NEAR_HAND && colorDistance(c, rh) >= NEAR_HAND)
+  return deck.length >= 4 ? deck : [...AUTO_TRACK_COLORS]
+}
+
+// ── Every other instrument's starting colour — as different as possible from
+// the hands and from the colours already given out, so no other instrument
+// ever looks like the piano. Same song → same colours (the choice only
+// depends on track order). Once every deck colour is in use, the least-used
+// one comes back, farthest from the last one given out. ────────────────────
+export function distinctTrackColor(used: string[]): string {
+  const { lh, rh } = handHex()
+  const deck = autoDeck()
+  const uses = (c: string) => used.filter(u => sameHex(u, c)).length
+  const fewest = Math.min(...deck.map(uses))
+  const avoid = [lh, rh, ...used]
+  let best: string = deck[0], bestD = -1
+  for (const c of deck) {
+    if (uses(c) !== fewest) continue
+    const d = fewest === 0
+      ? Math.min(...avoid.map(u => colorDistance(c, u)))
+      : colorDistance(c, used[used.length - 1] ?? lh)
+    if (d > bestD) { best = c; bestD = d }
+  }
+  return best
+}
+
+// Slots 1-2 follow the user's hand colours (Settings › Appearance) — a split
+// piano still reads as two hands with a custom pair (the store also recolours
+// an open song's pianos when the pair changes). A 4th+ piano cycles through
+// the starting colours: not amber again, and never near the hands.
 export function pianoFamilyColor(pianoIndex: number): string {
+  if (pianoIndex === 0) return handHex().lh
+  if (pianoIndex === 1) return handHex().rh
   if (pianoIndex < PIANO_FAMILY_COLORS.length) return PIANO_FAMILY_COLORS[pianoIndex]
-  return PIANO_EXTRA_COLORS[(pianoIndex - PIANO_FAMILY_COLORS.length) % PIANO_EXTRA_COLORS.length]
+  const deck = autoDeck()
+  return deck[(pianoIndex - PIANO_FAMILY_COLORS.length) % deck.length]
 }

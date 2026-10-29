@@ -211,6 +211,6 @@ export function inversionOf(rootPc: number, semis: number[], voicing: number[]):
 export function explorerKeyColors(notes: number[], rootPc: number | null, accentRoot: boolean): Map<number, string> {
   return new Map(notes.map(m => [
     m,
-    accentRoot && rootPc !== null && ((m % 12) + 12) % 12 === rootPc ? 'var(--hand-rh)' : 'var(--text-amber)',
+    accentRoot && rootPc !== null && ((m % 12) + 12) % 12 === rootPc ? 'var(--accent-root)' : 'var(--text-amber)',
   ] as const))
 }

@@ -351,7 +351,7 @@ button, input, select, textarea {
   --knob-chorus:     #2dd4bf;
   --knob-reverb:     #a78bfa;
   --knob-tone:       #5ba0c8;
-  --knob-compressor: var(--hand-rh);  /* same pink as the right-hand piano/note coloring */
+  --knob-compressor: #CB636C;  /* Orfeo's default right-hand pink — fixed, doesn't follow the user's hand colours */
 
   /* VU meter levels — unchanged */
   --meter-green:  #7ac040;
@@ -472,8 +472,9 @@ button, input, select, textarea {
 --text-on-amber: #1a1000;       /* Dark text for content sitting on amber/accent backgrounds (e.g. mute-filter pill) */
 
 /* MIDI/Note editors */
---hand-lh: #6270A5;          /* Fixed left-hand color — piano roll, keyboard glow, split-preview timeline. Always this value, never per-track palette, for any hand-tagged note (see docs/LR Hand rework, gitignored) */
---hand-rh: #CB636C;          /* Fixed right-hand color — same scope as --hand-lh */
+--hand-lh: #6270A5;          /* Left-hand color — piano roll, keyboard glow, split-preview timeline. Never per-track palette, for any hand-tagged note (see docs/LR Hand rework, gitignored). Default only: Settings › Appearance › Hand colours overrides it on :root (utils/handPalette.ts) */
+--hand-rh: #CB636C;          /* Right-hand color — same scope and override as --hand-lh */
+--accent-root: #CB636C;      /* Explorers' "Accent Root" key — a tool colour, fixed; same pink as the default right hand but never follows the user's hand colours */
 /* Lock-a-chord on the keyboard: amber, the tools' colour (the Explorers use it too;
    the two never show at once). The song's own notes always keep their track colours. */
 --lock-chord-color: var(--text-amber);

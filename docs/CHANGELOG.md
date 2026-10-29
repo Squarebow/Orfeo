@@ -5,6 +5,19 @@
      list of 2–4 one-line bullets, then ### New / ### Changed / ### Fixed.
      Newest version at the top. -->
 
+## [Unreleased]
+
+### New
+- **Hand colours** (Settings › Appearance). Choose the colours for your left and right hand on the piano roll, the keyboard and the split preview. Pick a ready-made pair (*Bright*, *Sky* and *Mint* stay easy to tell apart with colour blindness) or any two colours of your own. A note warns when the two hands look too alike. *Back to Orfeo's colours* restores the defaults. Piano tracks switch to your hand colours straight away, in the open song too. The Hand Assignment card links straight to it.
+
+### Changed
+- **Focus mode is pure keys.** One click and you hear the keys (pianos, organs, accordions), bass and drums, but only the keys stay on the piano roll and the keyboard. Every other track is muted and hidden. Click again and every track comes back exactly as it was.
+- **Mute also hides.** Muting a track hides its notes on the piano roll and the keyboard too, and unmuting shows them again. Click the eye to see a muted track anyway.
+- **Clearer track colours.** Other instruments never start in the piano's colours any more. Each one gets a colour that stands apart from the hands and from the instruments before it.
+
+### Fixed
+- The Library remembers where you scrolled, your search and your open folders when you switch to Setup and back, or close and reopen the side panel.
+- The Chords Explorer's *next inversion* arrow no longer gets its tip cut off.
 ## [1.5.4] — 25. 10. 2026 — Lots of polish, plus a few new things
 
 **In short**

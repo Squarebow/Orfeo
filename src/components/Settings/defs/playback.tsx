@@ -78,6 +78,17 @@ function HandAssignmentExtra() {
   )
 }
 
+// Link to Settings › Appearance › Hand colours — in the card's description
+// and under the Setup row; opens the Settings window on Appearance
+function HandColoursLink() {
+  return (
+    <button onClick={() => useStore.getState().openSettingsWindow('appearance')}
+      style={{ padding: 0, border: 'none', background: 'none', cursor: 'pointer', font: 'inherit', fontStyle: 'normal', color: 'var(--text-amber)', textDecoration: 'underline', textUnderlineOffset: 2 }}>
+      {t`Set your own hand colours`}
+    </button>
+  )
+}
+
 export const PLAYBACK_DEFS: SettingDef[] = [
   {
     id: 'noteEditor', icon: AudioLines, kind: 'switch',
@@ -108,7 +119,10 @@ export const PLAYBACK_DEFS: SettingDef[] = [
       Automated hand assignment for piano that colors each note by the hand that plays it. A guideline, not a verified transcript!
       <br /><br />
       For a perfectly accurate split use MIDI note editor and click the <InlineIcon><Hand size={11} /></InlineIcon> icon to manually assign notes to left and right hand.
+      <br /><br />
+      <HandColoursLink />
     </>,
+    SummaryEnd: HandColoursLink,
   },
   {
     id: 'loopRegion', icon: Repeat, kind: 'switch',
