@@ -261,7 +261,7 @@ def build_report(repo, info, dl_rows, traffic, traffic_error, own):
     L = []
     L.append(f"# Orfeo on GitHub: downloads and traffic\n")
     zone = "CEST" if NOW.utcoffset() == dt.timedelta(hours=2) else "CET"
-    L.append(f"**Last updated: {NOW.day}. {NOW.month}. {NOW.year} at {NOW:%H:%M}** Ljubljana time ({zone}) · updates daily at about 09:00\n")
+    L.append(f"**Last updated: {NOW.day}. {NOW.month}. {NOW.year} at {NOW:%H:%M}** Ljubljana time ({zone}) · updates daily from 07:00\n")
     L.append(
         f"[{repo}](https://github.com/{repo}) · "
         f"★ {info.get('stargazers_count', 0)} stars · {info.get('forks_count', 0)} forks · "
