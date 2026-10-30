@@ -51,7 +51,7 @@ export async function renderStudioSynth(song: ExportSong, banks: ArrayBuffer[], 
       else if (kind === 0xb0) {
         // the song's volume moves play under the fader (volumeAt)
         const c = song.channels[ch]
-        p.controllerChange(ch, d1, d1 === 7 && c ? cc127(d2 / 127 * c.volume) : d2)
+        p.controllerChange(ch, d1 as any, d1 === 7 && c ? cc127(d2 / 127 * c.volume) : d2)
       }
     }
     const n = Math.min(BLOCK, total - frame)

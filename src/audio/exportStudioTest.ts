@@ -12,7 +12,7 @@ export async function runExportStudioTest(): Promise<number> {
   let pass = 0, fail = 0
   const check = (c: boolean, m: string) => { c ? pass++ : (fail++, console.error('FAIL:', m)) }
 
-  const midi = parseMidiBuffer(file('public/Demo/Scott Joplin - Entertainer.mid'), 'Entertainer.mid', null) as any
+  const midi = parseMidiBuffer(file('public/Demo/Scott Joplin - Entertainer.mid'), 'Entertainer.mid') as any
   const tracks = midi.tracks.map((t: any) => ({ index: t.index, program: t.program, muted: false, solo: false, volume: 1, pan: 0, reverb: 0, chorus: 0 }))
   const song = buildExportSong(midi, tracks, 'original')
   // the first 20 s only, to keep the check quick
