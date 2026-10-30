@@ -4,6 +4,7 @@ import { useStore } from '../../store'
 import { NES, buildNoteEditSummary, type NETool } from '../../utils/noteEditorState'
 import { confirmDialog } from '../../utils/confirmController'
 import { editableCopyToBuffer } from '../../utils/noteEditorCommands'
+import { restoreLeadForSave } from '../../utils/smfLead'
 import { buildHandExportHint } from '../../utils/handMetadata'
 import { parseMidiBuffer } from '../../utils/midiParser'
 import { songKey } from '../../utils/songIdentity'
@@ -142,7 +143,11 @@ export default function NoteEditorToolbar() {
       if (hint.meta) (editMidi.header as any).meta.push(hint.meta)
     })
 
-    const buf    = editableCopyToBuffer(NES.editMidi)
+    // A song opened with its empty bars skipped is saved with them put back:
+    // the switch never changes a song on disk (utils/prepareSong.ts)
+    const open   = useStore.getState().midi
+    const lead   = open?._leadTick ?? 0
+    const buf    = editableCopyToBuffer(lead > 0 && open?._origRaw ? restoreLeadForSave(NES.editMidi, open._origRaw, lead) : NES.editMidi)
     const bytes  = new Uint8Array(buf)
     let binary   = ''
     for (let i = 0; i < bytes.length; i++) binary += String.fromCharCode(bytes[i])
