@@ -51,7 +51,7 @@ export const GROUPS: GroupInfo[] = [
     ] },
   { id: 'midi-files-library', name: t`MIDI Files & Library`, intro: t`Organise your library`, manualUrl: 'https://orfeo.cc/docs/managing-midi-files' },
   { id: 'playback-editing', name: t`Playback`, intro: t`Shape playback`, manualUrl: 'https://orfeo.cc/docs/playing-midi-files',
-    stack: [['tapTempo'], ['tempoWarnings', 'preciseScrubTime', 'explorerPause'], ['countIn', 'skipEmptyBars', 'loopRegion', 'focusMode']] },
+    stack: [['tapTempo', 'loopRegion', 'focusMode'], ['tempoWarnings', 'preciseScrubTime', 'explorerPause'], ['countIn', 'skipEmptyBars']] },
   { id: 'practice', name: t`Practice`, intro: t`Tools for practising`, manualUrl: 'https://orfeo.cc/docs/practicing-with-midi-files' },
   { id: 'editing', name: t`Editing`, intro: t`Edit your songs`, manualUrl: 'https://orfeo.cc/docs/editing-midi-files',
     stack: [['handAssignment'], ['noteEditor'], ['trackVu']], looseFirst: true },

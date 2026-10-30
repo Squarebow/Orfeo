@@ -129,6 +129,11 @@ export const PLAYBACK_DEFS: SettingDef[] = [
   },
   {
     id: 'skipEmptyBars', icon: SkipForward, kind: 'switch', Extra: SkipEmptyBarsExtra,
+    Description: () => <>
+      {t`Songs that begin with silent bars open with the music on bar 1: the piano roll, bar numbers, playback, loops and step-through all start there. Your files are never changed — switch it off to see a song exactly as written. Switching this on switches off Chord Transcription, whose charts number the bars as the file has them.`}
+      <br /><br />
+      {t`Keep drum count-ins keeps one or two bars of plain drum clicks before the music.`}
+    </>,
     Control: () => { const v = useStore(s => s.skipEmptyBars); return <Switch value={v} onChange={x => { useStore.getState().setSkipEmptyBars(x); void applySkipEmptyBarsChange() }} label={t`Skip empty bars at the start`} /> },
   },
   {
