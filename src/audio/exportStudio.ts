@@ -6,7 +6,7 @@
 // fader (setChannelVolume / songVolume.ts), GeneralUser under any extra set.
 import { SpessaSynthProcessor, SoundBankLoader } from 'spessasynth_core'
 import type { ExportSong } from './exportSong'
-import { EXPORT_RATE, TAIL_SEC, type Stereo } from './exportEncode'
+import { EXPORT_RATE, TAIL_SEC, yieldToPage, type Stereo } from './exportEncode'
 import { COMPRESSOR_PRESETS, SAMPLES_BOOST, COMPRESSOR_RELEASE } from '../hooks/useSamplesEngine'
 
 const BLOCK = 128
@@ -67,7 +67,7 @@ export async function renderStudioSynth(song: ExportSong, banks: ArrayBuffer[], 
     if (sinceYield >= YIELD_EVERY) {
       sinceYield = 0
       onProgress?.(Math.min(1, (frame + n) / total))
-      await new Promise(res => setTimeout(res, 0))
+      await yieldToPage()
     }
   }
   onProgress?.(1)
@@ -79,12 +79,13 @@ const dbToGain = (db: number) => Math.pow(10, db / 20)
 /** Synth + the Studio master chain (gain → tone → compressor → safety limiter),
  *  in an OfflineAudioContext with the same node settings as initSamplesEngine */
 export async function renderStudio(song: ExportSong, banks: ArrayBuffer[], onProgress?: (p: number) => void, isCancelled?: () => boolean): Promise<Stereo> {
-  const dry = await renderStudioSynth(song, banks, onProgress, isCancelled)
+  let dry: Stereo | null = await renderStudioSynth(song, banks, onProgress, isCancelled)
   if (!dry.l.length) return dry
   const ctx = new OfflineAudioContext(2, dry.l.length, EXPORT_RATE)
   const buf = ctx.createBuffer(2, dry.l.length, EXPORT_RATE)
   buf.copyToChannel(dry.l as Float32Array<ArrayBuffer>, 0)
   buf.copyToChannel(dry.r as Float32Array<ArrayBuffer>, 1)
+  dry = null   // the synth's copy can go while the master chain renders: a long song is big
   const src = ctx.createBufferSource()
   src.buffer = buf
   const gain = ctx.createGain()
@@ -106,5 +107,5 @@ export async function renderStudio(song: ExportSong, banks: ArrayBuffer[], onPro
   src.connect(gain); gain.connect(tone); tone.connect(makeup); makeup.connect(comp); comp.connect(safety); safety.connect(ctx.destination)
   src.start()
   const out = await ctx.startRendering()
-  return { l: out.getChannelData(0).slice(), r: out.getChannelData(1).slice(), rate: EXPORT_RATE }
+  return { l: out.getChannelData(0), r: out.getChannelData(1), rate: EXPORT_RATE }
 }

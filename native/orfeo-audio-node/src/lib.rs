@@ -211,8 +211,12 @@ impl OfflineRender {
         let (progress, cancel, result) = (Arc::new(AtomicU64::new(0)), Arc::new(AtomicBool::new(false)), Arc::new(Mutex::new(None)));
         let (p, c, r) = (progress.clone(), cancel.clone(), result.clone());
         std::thread::spawn(move || {
-            let out = render_offline(&fluid_dir, &soundfonts, &song, &opts, &mut |x| { p.store(x.to_bits(), Relaxed); !c.load(Relaxed) });
-            *r.lock().unwrap() = Some(out);
+            // a panic in the render must still finish the job (as an error), or
+            // the audio process would wait for it forever
+            let out = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+                render_offline(&fluid_dir, &soundfonts, &song, &opts, &mut |x| { p.store(x.to_bits(), Relaxed); !c.load(Relaxed) })
+            })).unwrap_or_else(|_| Err("the export stopped unexpectedly".into()));
+            *r.lock().unwrap_or_else(|e| e.into_inner()) = Some(out);
         });
         Ok(OfflineRender { progress, cancel, result })
     }
@@ -224,7 +228,7 @@ impl OfflineRender {
     /// null while still rendering; [left, right] when done; throws on failure or cancel
     #[napi]
     pub fn take(&self) -> Result<Option<Vec<Float32Array>>> {
-        match self.result.lock().unwrap().take() {
+        match self.result.lock().unwrap_or_else(|e| e.into_inner()).take() {
             None => Ok(None),
             Some(Ok((l, r))) => Ok(Some(vec![Float32Array::new(l), Float32Array::new(r)])),
             Some(Err(e)) => Err(Error::from_reason(e)),

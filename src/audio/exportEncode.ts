@@ -8,6 +8,21 @@ import { Mp3Encoder } from '@breezystack/lamejs'
 
 export interface Stereo { l: Float32Array; r: Float32Array; rate: number }
 
+// ── A short pause that lets the page (and Studio playback, which times its notes
+// on this thread) take a turn. A message, not a timer: in a hidden or minimised
+// window timers are slowed to once a second or less, which would stall an
+// export the moment you switched to another program.
+const _yieldChannel = typeof MessageChannel !== 'undefined' ? new MessageChannel() : null
+const _yieldQueue: (() => void)[] = []
+if (_yieldChannel) {
+  _yieldChannel.port1.onmessage = () => { _yieldQueue.shift()?.() }
+  ;(_yieldChannel.port1 as any).unref?.()   // never keeps a Node test process alive
+}
+export function yieldToPage(): Promise<void> {
+  if (!_yieldChannel) return new Promise(res => setTimeout(res, 0))
+  return new Promise(res => { _yieldQueue.push(res); _yieldChannel.port2.postMessage(0) })
+}
+
 export const EXPORT_RATE = 44100
 export const TAIL_SEC = 2.0
 const SILENT = 1e-4                         // -80 dBFS
@@ -21,7 +36,8 @@ export function finishAudio(a: Stereo, songDuration: number): Stereo {
   while (first < n && Math.abs(a.l[first]) <= SILENT && Math.abs(a.r[first]) <= SILENT) first++
   const end = Math.min(n, Math.round((songDuration + TAIL_SEC) * a.rate))
   if (first >= end) return { l: new Float32Array(0), r: new Float32Array(0), rate: a.rate }
-  const l = a.l.slice(first, end), r = a.r.slice(first, end)
+  // in place: a window onto the rendered audio, no second copy of a whole song
+  const l = a.l.subarray(first, end), r = a.r.subarray(first, end)
   let peak = 0
   for (let i = 0; i < l.length; i++) peak = Math.max(peak, Math.abs(l[i]), Math.abs(r[i]))
   const g = TARGET_PEAK / peak
@@ -92,6 +108,6 @@ export async function encodeMp3Async(a: Stereo, onProgress?: (p: number) => void
   for (let r = it.next(); ; r = it.next()) {
     if (r.done) { if (r.value.length) onProgress?.(1); return r.value }
     onProgress?.(r.value)
-    await new Promise(res => setTimeout(res, 0))
+    await yieldToPage()
   }
 }

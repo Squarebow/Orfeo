@@ -1,4 +1,4 @@
-import { finishAudio, encodeWav, encodeMp3, encodeMp3Async, type Stereo } from './exportEncode'
+import { finishAudio, encodeWav, encodeMp3, encodeMp3Async, yieldToPage, type Stereo } from './exportEncode'
 
 const RATE = 44100
 function signal(parts: { sec: number; amp: number }[]): Stereo {
@@ -28,6 +28,11 @@ export async function runExportEncodeTest(): Promise<number> {
   check(Math.abs(peak(f) - Math.pow(10, -1 / 20)) <= 1e-4, `peak at -1 dBFS, got ${peak(f)}`)
   const side = (x: Float32Array) => { let p = 0; for (const v of x) p = Math.max(p, Math.abs(v)); return p }
   check(Math.abs(side(f.r) / side(f.l) - 0.5) < 1e-3, 'both sides scaled alike')
+
+  // 1b. No second copy of a whole song: the finished audio is a window onto the rendered one
+  const src = signal([{ sec: 1, amp: 0 }, { sec: 1, amp: 0.5 }, { sec: 5, amp: 0 }])
+  const fin = finishAudio(src, 2)
+  check(fin.l.buffer === src.l.buffer && fin.r.buffer === src.r.buffer, 'finishing works in place (no copy)')
 
   // 2. silence only: nothing left
   check(finishAudio(signal([{ sec: 1, amp: 0 }]), 1).l.length === 0, 'silence → empty')
@@ -75,6 +80,13 @@ export async function runExportEncodeTest(): Promise<number> {
   encodeWav(lf)
   const tWav = performance.now() - t
   check(tFinish + tWav < 200, `finish + WAV of a 4-minute song under 200 ms, took ${Math.round(tFinish)} + ${Math.round(tWav)} ms`)
+
+  // 7. Pauses don't depend on timers (a hidden window slows timers to a crawl)
+  const realTimeout = globalThis.setTimeout
+  ;(globalThis as any).setTimeout = () => 0
+  const outcome = await Promise.race([yieldToPage().then(() => 'ok'), new Promise(r => setImmediate(() => setImmediate(() => setImmediate(() => r('stuck')))))])
+  globalThis.setTimeout = realTimeout
+  check(outcome === 'ok', 'a pause finishes without timers, got ' + outcome)
 
   console.log(`exportEncode: ${pass} passed, ${fail} failed`)
   console.groupEnd()

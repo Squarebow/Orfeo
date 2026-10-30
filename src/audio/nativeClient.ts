@@ -6,6 +6,7 @@
 // song through `onRestart`.
 
 import { create } from 'zustand'
+import { PendingRenders } from './pendingRenders'
 
 export interface NativeStatus {
   position: number
@@ -58,9 +59,9 @@ window.addEventListener('message', (e) => {
 function onHostMessage(e: MessageEvent) {
   const m = e.data
   if (m.t === 'status') { if (useNativeAudio.getState().phase === 'running') useNativeAudio.setState({ status: m.status }) }
-  else if (m.t === 'render-progress') _renders.get(m.id)?.progress?.(m.p)
-  else if (m.t === 'render-done') _renders.get(m.id)?.done(m.cancelled ? null : [m.l, m.r])
-  else if (m.t === 'render-error') _renders.get(m.id)?.fail(new Error(m.message))
+  else if (m.t === 'render-progress') _renderProgress.get(m.id)?.(m.p)
+  else if (m.t === 'render-done') _renders.done(m.id, m.cancelled ? null : [m.l, m.r])
+  else if (m.t === 'render-error') _renders.fail(m.id, m.message)
   else if (m.t === 'stopped') { stoppedWaiters.forEach(w => w()); stoppedWaiters = [] }
   else if (m.t === 'started') {
     useNativeAudio.setState({ phase: 'running', status: m.status, error: null })
@@ -109,8 +110,11 @@ export function stopNative(): Promise<void> {
 
 // ── Export to audio: an offline render in the audio process (exportNative.ts).
 // Works whether or not the live engine runs; null = cancelled.
+// Every export settles: by its result, its error, the audio process going away
+// (onNativeAudioHostExit below) or, once cancelled, after 2 s with no answer.
 let _renderId = 0
-const _renders = new Map<number, { progress?: (p: number) => void; done: (r: Float32Array[] | null) => void; fail: (e: Error) => void }>()
+const _renders = new PendingRenders()
+const _renderProgress = new Map<number, (p: number) => void>()
 
 export async function nativeRenderOffline(
   packed: { job: unknown; times: Float64Array; tracks: Uint16Array; bytes: Uint8Array; trackCount: number; duration: number },
@@ -119,14 +123,14 @@ export async function nativeRenderOffline(
   if (!port && !(await connect())) throw new Error(useNativeAudio.getState().error ?? 'Native sound is unavailable')
   const id = ++_renderId
   const cancelWatch = setInterval(() => { if (isCancelled?.()) port?.postMessage({ t: 'render-cancel', id }) }, 100)
+  if (onProgress) _renderProgress.set(id, onProgress)
   try {
-    return await new Promise<Float32Array[] | null>((done, fail) => {
-      _renders.set(id, { progress: onProgress, done, fail })
-      port!.postMessage({ t: 'render', id, ...packed })
-    })
+    const result = _renders.wait(id, { isCancelled })
+    port!.postMessage({ t: 'render', id, ...packed })
+    return await result
   } finally {
     clearInterval(cancelWatch)
-    _renders.delete(id)
+    _renderProgress.delete(id)
   }
 }
 
@@ -144,6 +148,7 @@ export function onNativeRestart(fn: () => void) { restartListeners.add(fn); retu
 window.electronAPI?.onNativeAudioHostExit?.(async (code) => {
   console.warn('[Orfeo Native] audio process exited', code)
   port = null
+  _renders.failAll('the audio process stopped')
   if (!startOpts || useNativeAudio.getState().phase === 'off') return
   if (await startNative(startOpts)) restartListeners.forEach(fn => fn())
 })

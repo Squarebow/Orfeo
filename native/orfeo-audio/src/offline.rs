@@ -33,7 +33,14 @@ pub struct OfflineOptions {
 
 /// Renders the whole song plus the tail. `progress(0..1)` is called now and
 /// then; returning false cancels (Err("cancelled")).
+/// The longest song an export takes (a few hundred MB of audio at 44.1 kHz)
+const MAX_SECONDS: f64 = 4.0 * 3600.0;
+
 pub fn render_offline(fluid_dir: &Path, soundfonts: &[PathBuf], song: &Song, o: &OfflineOptions, progress: &mut dyn FnMut(f64) -> bool) -> Result<(Vec<f32>, Vec<f32>), String> {
+    let length = song.duration + o.tail_sec;
+    if !length.is_finite() || song.duration < 0.0 || length > MAX_SECONDS || o.sample_rate == 0 {
+        return Err(format!("can't export a song {length:.0} s long"));
+    }
     let rate = o.sample_rate as f32;
     let mut fluid = Fluid::new(fluid_dir, o.sample_rate as f64)?;
     let mut sf_ids = Vec::new();
@@ -167,6 +174,17 @@ mod tests {
         assert!(tail_peak < 1e-3, "rings out by the end, last 0.5 s peak {tail_peak}");
         let (l2, _) = render_offline(&dir, &sf, &one_note(), &opts(), &mut |_| true).expect("render again");
         assert!(l == l2, "two renders are identical");
+    }
+
+    #[test]
+    fn impossible_length_is_an_error_not_a_crash() {
+        let (dir, sf) = paths();
+        for d in [f64::INFINITY, f64::NAN, -1.0, 1.0e9] {
+            let mut s = one_note();
+            s.duration = d;
+            let r = render_offline(&dir, &sf, &s, &opts(), &mut |_| true);
+            assert!(r.is_err(), "duration {d} should be refused");
+        }
     }
 
     #[test]

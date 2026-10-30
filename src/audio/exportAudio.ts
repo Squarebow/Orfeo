@@ -7,9 +7,9 @@
 import { useStore } from '../store'
 import { NES } from '../utils/noteEditorState'
 import { parseMidiBuffer } from '../utils/midiParser'
-import { resolveToMidiBase64, base64ToBytes } from '../utils/foreignFormatImport'
+import { resolveToMidiBase64, base64ToBytes, detectForeignFormat, getCachePath } from '../utils/foreignFormatImport'
 import { buildExportSong, exportFileName, type ExportVersion, type ExportSong } from './exportSong'
-import { finishAudio, encodeWav, encodeMp3Async, type Stereo } from './exportEncode'
+import { finishAudio, encodeWav, encodeMp3Async, yieldToPage, type Stereo } from './exportEncode'
 import { masterKnobs } from './engine'
 import type { SoundfontId, TrackState, ParsedMidi } from '../types'
 
@@ -20,22 +20,30 @@ export interface ExportOptions { songPath: string; songName: string; version: Ex
 
 // One step at a time, with the page getting a turn in between: playback (the
 // Studio engine times its notes on this thread) never waits on a long chunk
-const breathe = () => new Promise(res => setTimeout(res, 0))
+const breathe = yieldToPage
 
 export class ExportError extends Error {
   constructor(public kind: 'unreadable' | 'empty' | 'failed', message: string = kind) { super(message) }
 }
 
-/** The song open in Orfeo right now is this file */
+// Windows paths: either slash, any letter case
+const samePath = (a: string, b: string) => a.replace(/\\/g, '/').toLowerCase() === b.replace(/\\/g, '/').toLowerCase()
+
+/** The song open in Orfeo right now is this file — or, for a Guitar Pro /
+ *  MusicXML file, its converted copy (what Orfeo actually opens) */
 export function isOpenSong(songPath: string): boolean {
-  const midi = useStore.getState().midi as any
-  return !!midi && midi._filePath === songPath
+  const { midi, libraryFolder } = useStore.getState()
+  const open = (midi as any)?._filePath as string | undefined
+  if (!open) return false
+  if (samePath(open, songPath)) return true
+  return !!detectForeignFormat(songPath) && samePath(open, getCachePath(songPath, libraryFolder ?? null))
 }
 
-async function loadSong(songPath: string): Promise<{ midi: ParsedMidi; tracks: TrackState[] }> {
+async function loadSong(songPath: string, version: ExportVersion): Promise<{ midi: ParsedMidi; tracks: TrackState[] }> {
   if (isOpenSong(songPath)) {
     const s = useStore.getState()
-    const midi = (NES.dirty && NES.editMidi ? NES.editMidi : s.midi) as unknown as ParsedMidi
+    // unsaved note edits are part of what you hear, not of the song as written
+    const midi = (version === 'heard' && NES.dirty && NES.editMidi ? NES.editMidi : s.midi) as unknown as ParsedMidi
     return { midi, tracks: s.tracks }
   }
   const r = await window.electronAPI.loadMidiFromPath(songPath)
@@ -52,7 +60,7 @@ async function loadSong(songPath: string): Promise<{ midi: ParsedMidi; tracks: T
 
 /** What would play for this version — for the window's notes (no keys part, nothing to export) */
 export async function previewExport(songPath: string, version: ExportVersion): Promise<ExportSong> {
-  const { midi, tracks } = await loadSong(songPath)
+  const { midi, tracks } = await loadSong(songPath, version)
   return build(midi, tracks, version)
 }
 
@@ -84,7 +92,7 @@ async function studioBanks(soundfont: SoundfontId): Promise<ArrayBuffer[]> {
 /** Exports one song; resolves to the saved file's path, or null when cancelled */
 export async function exportToAudio(o: ExportOptions, onProgress: (stage: ExportStage, p: number) => void, isCancelled: () => boolean): Promise<string | null> {
   if (o.version === 'heard' && !isOpenSong(o.songPath)) throw new ExportError('failed', 'open the song first')
-  const { midi, tracks } = await loadSong(o.songPath)
+  const { midi, tracks } = await loadSong(o.songPath, o.version)
   const song = build(midi, tracks, o.version)
   if (!song.events.some(e => (e.status & 0xf0) === 0x90)) throw new ExportError('empty')
 
