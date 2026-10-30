@@ -1,4 +1,4 @@
-import { useStore } from '../store'
+import { useStore, currentCorrection } from '../store'
 import { t } from './i18n'
 import { fitTaps, MIN_TAPS } from './tapTempoFit'
 import { refineToNotes, matchFileBeat } from './tapRefine'
@@ -37,8 +37,7 @@ function heardTime(): number {
 }
 
 function baseCorrection() {
-  const s = useStore.getState()
-  return s.songKey ? s.tempoCorrections[s.songKey] ?? null : null
+  return currentCorrection(useStore.getState())
 }
 
 // A new tap replaces everything from its start onward; adjusting a kept

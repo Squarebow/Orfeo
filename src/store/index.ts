@@ -11,7 +11,8 @@ import { detectKeyFromTracks, parseKeySignature } from '../utils/keyDetection'
 import { isKeyboardInstrument } from '../utils/gmInstruments'
 import { parseMidiBuffer } from '../utils/midiParser'
 import { songKey as computeSongKey } from '../utils/songIdentity'
-import { applyTempoCorrection, sanitizeCorrections, type SongTempoCorrection } from '../utils/tempoCorrection'
+import { applyTempoCorrection, sanitizeCorrections, shiftCorrection, type SongTempoCorrection } from '../utils/tempoCorrection'
+import { prepareSong } from '../utils/prepareSong'
 import { TRUST_VERSION, type TrustResult } from '../utils/tempoTrust'
 import { velocityDropRatio, suggestCompressorPreset } from '../utils/velocityAnalysis'
 import { applyHandColors, isHex, handHex, followedHandColor, DEFAULT_HAND_LH, DEFAULT_HAND_RH } from '../utils/handPalette'
@@ -202,6 +203,13 @@ interface OrfeoStore {
   // every user-started Play; see utils/countInRunner.ts. countIn is the
   // session-only state of a count-in in progress (for the on-screen count).
   countInEnabled: boolean
+  // ── Skip empty bars at the start (Settings › Playback; utils/prepareSong.ts):
+  // songs open at their first musical bar; keepDrumCountIn keeps one or two
+  // bars of plain drum clicks before it. Applied when a song is loaded.
+  skipEmptyBars: boolean
+  setSkipEmptyBars: (v: boolean) => void
+  keepDrumCountIn: boolean
+  setKeepDrumCountIn: (v: boolean) => void
   setCountInEnabled: (v: boolean) => void
   // ── Settings window (session only) — which group it shows; opened from
   // Quick Settings' gear icons / Open settings button / Ctrl + , ──────────
@@ -553,11 +561,15 @@ export const useStore = create<OrfeoStore>((set, get) => ({
     const prevSession = get().tapSession
     const sessionReset = prevSession ? { tapSession: null, metronomeEnabled: prevSession.prevMetronome } : {}
     if (!midi) { set({ midi: null, tracks: [], mixerBaseline: {}, currentTime: 0, playbackState: 'stopped', trackPanelOpen: false, barStarts: [], chordSequence: [], chordPrompterOpen: false, loopStart: null, loopEnd: null, loopRegionActive: false, songKey: null, currentTrust: null, countIn: null, ...sessionReset }); return }
-    // ── …and applies this song's stored beat-grid correction, if any ───────
-    const raw = (midi as any)._raw as ArrayBuffer | undefined
+    // ── …and applies this song's stored beat-grid correction, if any. The
+    // song is known by the file's own bytes, whether or not its empty bars
+    // are skipped (prepareSong.ts); corrections are kept in the file's own
+    // seconds and shifted to the song's. ─────────────────────────────────
+    const raw = midi._origRaw ?? midi._raw
     const key = raw ? computeSongKey(raw) : null
     const corr = key ? get().tempoCorrections[key] : undefined
-    if (corr) midi = applyTempoCorrection(midi, corr)
+    midi = prepareSong(midi, { skip: get().skipEmptyBars, keepCountIn: get().keepDrumCountIn, correction: corr ?? null })
+    if (corr) midi = applyTempoCorrection(midi, shiftCorrection(corr, -(midi._leadSec ?? 0)))
     // ── Apply ORFEO_TRACK_NAME / ORFEO_TRACK_COLOR overrides from header meta ──
     const orfeoNames = (midi as any)._orfeoTrackNames as Record<number, string> | undefined
     const orfeoColors = (midi as any)._orfeoTrackColors as Record<number, string> | undefined
@@ -815,14 +827,17 @@ export const useStore = create<OrfeoStore>((set, get) => ({
   setTempoCorrections: (tempoCorrections) => { set({ tempoCorrections }); get().reapplyCorrection() },
   setSongCorrection: (key, c) => {
     const next = { ...get().tempoCorrections }
-    if (c && c.segments.length > 0) next[key] = c; else delete next[key]
+    // the open song's correction arrives in song time: stored in the file's own
+    const lead = key === get().songKey ? (get().midi?._leadSec ?? 0) : 0
+    if (c && c.segments.length > 0) next[key] = lead ? shiftCorrection(c, lead) : c; else delete next[key]
     set({ tempoCorrections: next })
     if (key === get().songKey) get().reapplyCorrection()
   },
   reapplyCorrection: () => {
     const { midi, songKey: key, tempoCorrections } = get()
     if (!midi || !key) return
-    get().setBeatGrid(applyTempoCorrection(midi, tempoCorrections[key] ?? null))
+    const c = tempoCorrections[key]
+    get().setBeatGrid(applyTempoCorrection(midi, c ? shiftCorrection(c, -(midi._leadSec ?? 0)) : null))
   },
   setBeatGrid: (midi) => set({ midi, barStarts: (midi as any)._barStarts ?? [] }),
   tapTempoPadEnabled: false,
@@ -833,6 +848,10 @@ export const useStore = create<OrfeoStore>((set, get) => ({
   setMetronomeVolume: (v) => set({ metronomeVolume: Math.min(1.5, Math.max(0, v)) }),
   countInEnabled: false,
   setCountInEnabled: (countInEnabled) => set({ countInEnabled }),
+  skipEmptyBars: false,
+  setSkipEmptyBars: (skipEmptyBars) => set({ skipEmptyBars }),
+  keepDrumCountIn: true,
+  setKeepDrumCountIn: (keepDrumCountIn) => set({ keepDrumCountIn }),
   settingsWindowOpen: false,
   settingsWindowGroup: 'audio',
   openSettingsWindow: (group) => set((s) => ({ settingsWindowOpen: true, settingsWindowGroup: group ?? s.settingsWindowGroup })),
@@ -1219,6 +1238,8 @@ async function restoreLibraryPrefs() {
     if (prefs.tapTempoMode === 'beat' || prefs.tapTempoMode === 'bar') store.setTapTempoMode(prefs.tapTempoMode)
     if (typeof prefs.metronomeVolume === 'number') store.setMetronomeVolume(prefs.metronomeVolume)
     if (typeof prefs.countInEnabled === 'boolean') store.setCountInEnabled(prefs.countInEnabled)
+    if (typeof prefs.skipEmptyBars === 'boolean') store.setSkipEmptyBars(prefs.skipEmptyBars)
+    if (typeof prefs.keepDrumCountIn === 'boolean') store.setKeepDrumCountIn(prefs.keepDrumCountIn)
     if (typeof prefs.countInBars === 'number') store.setCountInBars(prefs.countInBars)
     if (prefs.tempoCorrections) store.setTempoCorrections(sanitizeCorrections(prefs.tempoCorrections))
     if (typeof prefs.tempoWarningsEnabled === 'boolean') store.setTempoWarningsEnabled(prefs.tempoWarningsEnabled)
@@ -1327,6 +1348,8 @@ let _prevTempoWarningsEnabled: boolean | null = null
 let _prevTempoWarningDismissed: object | null = null
 let _prevMetronomeVolume: number | null = null
 let _prevCountInEnabled: boolean | null = null
+let _prevSkipEmptyBars: boolean | null = null
+let _prevKeepDrumCountIn: boolean | null = null
 let _prevSamplesIntroduced: boolean | null = null
 let _prevCountInBars: number | null = null
 let _prevTempoCorrections: object | null = null
@@ -1396,6 +1419,8 @@ const _unsubPrefs = useStore.subscribe((state) => {
     _prevTempoWarningDismissed = state.tempoWarningDismissed
     _prevMetronomeVolume = state.metronomeVolume
     _prevCountInEnabled = state.countInEnabled
+    _prevSkipEmptyBars = state.skipEmptyBars
+    _prevKeepDrumCountIn = state.keepDrumCountIn
     _prevSamplesIntroduced = state.samplesIntroduced
     _prevCountInBars = state.countInBars
     _prevTempoCorrections = state.tempoCorrections
@@ -1468,6 +1493,8 @@ const _unsubPrefs = useStore.subscribe((state) => {
     state.tempoWarningDismissed !== _prevTempoWarningDismissed ||
     state.metronomeVolume !== _prevMetronomeVolume ||
     state.countInEnabled !== _prevCountInEnabled ||
+    state.skipEmptyBars !== _prevSkipEmptyBars ||
+    state.keepDrumCountIn !== _prevKeepDrumCountIn ||
     state.samplesIntroduced !== _prevSamplesIntroduced ||
     state.countInBars !== _prevCountInBars ||
     state.tempoCorrections !== _prevTempoCorrections ||
@@ -1532,6 +1559,8 @@ const _unsubPrefs = useStore.subscribe((state) => {
     _prevTempoWarningDismissed = state.tempoWarningDismissed
     _prevMetronomeVolume = state.metronomeVolume
     _prevCountInEnabled = state.countInEnabled
+    _prevSkipEmptyBars = state.skipEmptyBars
+    _prevKeepDrumCountIn = state.keepDrumCountIn
     _prevSamplesIntroduced = state.samplesIntroduced
     _prevCountInBars = state.countInBars
     _prevTempoCorrections = state.tempoCorrections
@@ -1602,6 +1631,8 @@ const _unsubPrefs = useStore.subscribe((state) => {
       tempoWarningDismissed: state.tempoWarningDismissed,
       metronomeVolume: state.metronomeVolume,
       countInEnabled: state.countInEnabled,
+      skipEmptyBars: state.skipEmptyBars,
+      keepDrumCountIn: state.keepDrumCountIn,
       samplesIntroduced: state.samplesIntroduced,
       countInBars: state.countInBars,
       tempoCorrections: state.tempoCorrections,
@@ -1736,3 +1767,12 @@ if (import.meta.hot) {
 // ── Theme ─────────────────────────────────────────────────────────────────────
 // Exported so PianoRoll and App.tsx can read it without subscribing to full store
 export type AppTheme = 'dark' | 'warm'
+
+/** The open song's Tap Tempo correction in song time (stored in the file's own
+ *  seconds; a song opened with its empty bars skipped runs earlier) */
+export function currentCorrection(s: Pick<OrfeoStore, 'songKey' | 'tempoCorrections' | 'midi'>): SongTempoCorrection | null {
+  const c = s.songKey ? s.tempoCorrections[s.songKey] : undefined
+  if (!c) return null
+  const lead = s.midi?._leadSec ?? 0
+  return lead ? shiftCorrection(c, -lead) : c
+}

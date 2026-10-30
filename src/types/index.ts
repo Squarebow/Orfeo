@@ -96,6 +96,14 @@ export interface ParsedMidi {
   _tempoMap?: TempoEvent[]
   _barTimes?: number[]
   _beatTimes?: number[]
+  // ── The bytes this song plays from (GM streams them as they are)
+  _raw?: ArrayBuffer
+  // ── Skip empty bars at the start (utils/prepareSong.ts): the file's own
+  // bytes (song identity, reloading, saving with the lead-in kept) and where
+  // the song was cut — 0 when it wasn't. Set once a song has been prepared.
+  _origRaw?: ArrayBuffer
+  _leadTick?: number
+  _leadSec?: number
 }
 
 export type PlaybackState = 'stopped' | 'playing' | 'paused'

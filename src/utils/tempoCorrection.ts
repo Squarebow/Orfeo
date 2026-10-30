@@ -176,6 +176,13 @@ export function scaleCorrection(c: SongTempoCorrection, k: number): SongTempoCor
   return { segments: c.segments.map(s => ({ ...s, start: s.start * k, anchor: s.anchor * k, period: s.period * k })) }
 }
 
+// Corrections are stored in the file's own seconds; a song opened with its
+// empty lead-in skipped runs `dt` earlier (prepareSong.ts). A segment that
+// starts inside the skipped bars starts at the new beginning.
+export function shiftCorrection(c: SongTempoCorrection, dt: number): SongTempoCorrection {
+  return { segments: c.segments.map(s => ({ ...s, start: Math.max(0, s.start + dt), anchor: s.anchor + dt })) }
+}
+
 // Saving a new version of a song (Tempo/Key save, Playback Editor) changes
 // its bytes, so its songKey changes too — carry the correction across.
 // Baking a speed change rescales file time by 1/bpmRatio (= timeScale).
