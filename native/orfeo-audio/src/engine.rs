@@ -673,7 +673,7 @@ fn pro_audio_priority() -> Mmcss {
 }
 
 /// Orfeo's pan (-1…1) as CC10, as the Samples engine sends it
-fn pan_cc(pan: f32) -> u8 { ((pan + 1.0) * 63.5).round().clamp(0.0, 127.0) as u8 }
+pub(crate) fn pan_cc(pan: f32) -> u8 { ((pan + 1.0) * 63.5).round().clamp(0.0, 127.0) as u8 }
 
 fn song_uses_channel(tr: &Transport, ch: usize) -> bool { tr.track_channels.iter().any(|m| m & (1 << ch) != 0) }
 

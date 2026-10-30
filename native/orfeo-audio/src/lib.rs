@@ -10,6 +10,7 @@ pub mod dsp;
 pub mod dynamics;
 pub mod engine;
 pub mod fluid;
+pub mod offline;
 pub mod output;
 pub mod reverb;
 pub mod sf2;

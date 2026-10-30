@@ -5,7 +5,9 @@
 use napi::bindgen_prelude::*;
 use napi_derive::napi;
 use orfeo_audio::{Command, Engine, EngineConfig, OutputMode, Song, SongEvent};
-use std::sync::atomic::Ordering::Relaxed;
+use orfeo_audio::offline::{render_offline, OfflineChannel, OfflineOptions};
+use std::sync::atomic::{AtomicBool, AtomicU64, Ordering::Relaxed};
+use std::sync::{Arc, Mutex};
 use std::time::Instant;
 
 #[napi(object)]
@@ -161,5 +163,71 @@ impl NativeEngine {
             live_wait_max_ms: s.live_wait_max_us.swap(0, Relaxed) as f64 / 1000.0,
             live_queued_avg_ms: queued / n / 1000.0,
         })
+    }
+}
+
+// ── Export to audio: a whole song rendered offline on its own thread ─────────
+// Never touches the live engine. The audio process polls progress() and
+// takes the result when done; cancel() stops it within ~0.5 s of audio.
+
+#[napi(object)]
+pub struct OfflineChannelJs { pub volume: f64, pub pan: f64, pub reverb: f64, pub chorus: f64 }
+
+#[napi(object)]
+pub struct OfflineJob {
+    pub fluid_dir: String,
+    pub soundfonts: Vec<String>,
+    pub sample_rate: u32,
+    pub tail_sec: f64,
+    /// 16 entries; null = channel not used
+    pub channels: Vec<Option<OfflineChannelJs>>,
+    pub master_gain: f64,
+    pub tone_db: f64,
+    pub comp_enabled: bool,
+    pub comp_preset: u32,
+}
+
+type Rendered = std::result::Result<(Vec<f32>, Vec<f32>), String>;
+
+#[napi]
+pub struct OfflineRender { progress: Arc<AtomicU64>, cancel: Arc<AtomicBool>, result: Arc<Mutex<Option<Rendered>>> }
+
+#[napi]
+impl OfflineRender {
+    #[napi(constructor)]
+    pub fn new(job: OfflineJob, times: Float64Array, tracks: Uint16Array, bytes: Uint8Array, track_count: u32, duration: f64) -> Result<Self> {
+        let (t, tr, b) = (times.as_ref(), tracks.as_ref(), bytes.as_ref());
+        if tr.len() != t.len() || b.len() != t.len() * 3 { return Err(Error::from_reason("renderOffline: array lengths don't match")) }
+        let events = (0..t.len()).map(|i| SongEvent { time: t[i], track: tr[i], status: b[3 * i], d1: b[3 * i + 1], d2: b[3 * i + 2] }).collect();
+        let song = Song { events, duration, track_count: track_count as u16 };
+        let mut channels = [None; 16];
+        for (i, c) in job.channels.iter().take(16).enumerate() {
+            channels[i] = c.as_ref().map(|c| OfflineChannel { volume: c.volume as f32, pan: c.pan as f32, reverb: c.reverb as f32, chorus: c.chorus as f32 });
+        }
+        let opts = OfflineOptions { sample_rate: job.sample_rate, tail_sec: job.tail_sec, channels, master_gain: job.master_gain as f32,
+            tone_db: job.tone_db as f32, comp_enabled: job.comp_enabled, comp_preset: job.comp_preset as usize };
+        let fluid_dir: std::path::PathBuf = job.fluid_dir.into();
+        let soundfonts: Vec<std::path::PathBuf> = job.soundfonts.into_iter().map(Into::into).collect();
+        let (progress, cancel, result) = (Arc::new(AtomicU64::new(0)), Arc::new(AtomicBool::new(false)), Arc::new(Mutex::new(None)));
+        let (p, c, r) = (progress.clone(), cancel.clone(), result.clone());
+        std::thread::spawn(move || {
+            let out = render_offline(&fluid_dir, &soundfonts, &song, &opts, &mut |x| { p.store(x.to_bits(), Relaxed); !c.load(Relaxed) });
+            *r.lock().unwrap() = Some(out);
+        });
+        Ok(OfflineRender { progress, cancel, result })
+    }
+
+    /// 0..1
+    #[napi] pub fn progress(&self) -> f64 { f64::from_bits(self.progress.load(Relaxed)) }
+    #[napi] pub fn cancel(&self) { self.cancel.store(true, Relaxed) }
+
+    /// null while still rendering; [left, right] when done; throws on failure or cancel
+    #[napi]
+    pub fn take(&self) -> Result<Option<Vec<Float32Array>>> {
+        match self.result.lock().unwrap().take() {
+            None => Ok(None),
+            Some(Ok((l, r))) => Ok(Some(vec![Float32Array::new(l), Float32Array::new(r)])),
+            Some(Err(e)) => Err(Error::from_reason(e)),
+        }
     }
 }

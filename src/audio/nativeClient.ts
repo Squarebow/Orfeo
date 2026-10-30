@@ -58,6 +58,9 @@ window.addEventListener('message', (e) => {
 function onHostMessage(e: MessageEvent) {
   const m = e.data
   if (m.t === 'status') { if (useNativeAudio.getState().phase === 'running') useNativeAudio.setState({ status: m.status }) }
+  else if (m.t === 'render-progress') _renders.get(m.id)?.progress?.(m.p)
+  else if (m.t === 'render-done') _renders.get(m.id)?.done(m.cancelled ? null : [m.l, m.r])
+  else if (m.t === 'render-error') _renders.get(m.id)?.fail(new Error(m.message))
   else if (m.t === 'stopped') { stoppedWaiters.forEach(w => w()); stoppedWaiters = [] }
   else if (m.t === 'started') {
     useNativeAudio.setState({ phase: 'running', status: m.status, error: null })
@@ -102,6 +105,29 @@ export function stopNative(): Promise<void> {
   })
   port.postMessage({ t: 'stop' })
   return done
+}
+
+// ── Export to audio: an offline render in the audio process (exportNative.ts).
+// Works whether or not the live engine runs; null = cancelled.
+let _renderId = 0
+const _renders = new Map<number, { progress?: (p: number) => void; done: (r: Float32Array[] | null) => void; fail: (e: Error) => void }>()
+
+export async function nativeRenderOffline(
+  packed: { job: unknown; times: Float64Array; tracks: Uint16Array; bytes: Uint8Array; trackCount: number; duration: number },
+  onProgress?: (p: number) => void, isCancelled?: () => boolean,
+): Promise<Float32Array[] | null> {
+  if (!port && !(await connect())) throw new Error(useNativeAudio.getState().error ?? 'Native sound is unavailable')
+  const id = ++_renderId
+  const cancelWatch = setInterval(() => { if (isCancelled?.()) port?.postMessage({ t: 'render-cancel', id }) }, 100)
+  try {
+    return await new Promise<Float32Array[] | null>((done, fail) => {
+      _renders.set(id, { progress: onProgress, done, fail })
+      port!.postMessage({ t: 'render', id, ...packed })
+    })
+  } finally {
+    clearInterval(cancelWatch)
+    _renders.delete(id)
+  }
 }
 
 /** One engine call; silently dropped while the engine isn't running */
