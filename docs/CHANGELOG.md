@@ -8,7 +8,7 @@
 ## [Unreleased]
 
 ### New
-- **Export to audio** (Settings › Audio, off until you switch it on). Right-click any song in the Library and choose *Export to audio…* to save it as a file to listen to anywhere. Pick the version: *Original* (the song as written), *Focus* (keys, bass and drums only) or *As I hear it* (your tempo, key, muted parts, Mixer and loop, for the song you have open). Then pick the sound, Studio or Native, with any of your sound sets. The format is MP3 (320 kbps, 44.1 kHz stereo) or WAV (44.1 kHz, 16-bit stereo, CD quality). Every file starts at the first note, rings out for 2 seconds after the last one and is levelled so it never clips. Files go to the *Exports* folder inside your Library's *Orfeo* folder and never overwrite an earlier export. Exporting doesn't interrupt the song that's playing, and *Cancel* stops it at any time.
+- **Export to audio** (Settings › Audio, off until you switch it on). Right-click any song in the Library and choose *Export to audio* to save it as a file to listen to anywhere. Pick the version: *Original* (the song as written), *Focus* (keys, bass and drums only) or *As I hear it* (your tempo, key, muted parts, Mixer and loop, for the song you have open). Then pick the sound, Studio or Native, with any of your sound sets. The format is MP3 (320 kbps, 44.1 kHz stereo) or WAV (44.1 kHz, 16-bit stereo, CD quality). Every file starts at the first note, rings out for 2 seconds after the last one and is levelled so it never clips. Files go to the *Exports* folder inside your Library's *Orfeo* folder and never overwrite an earlier export. A song that's playing pauses while it exports, and *Cancel* stops an export at any time.
 - **Hand colours** (Settings › Appearance). Choose the colours for your left and right hand on the piano roll, the keyboard and the split preview. Pick a ready-made pair (*Bright*, *Sky* and *Mint* stay easy to tell apart with colour blindness) or any two colours of your own. A note warns when the two hands look too alike. *Back to Orfeo's colours* restores the defaults. Piano tracks switch to your hand colours straight away, in the open song too. The Hand Assignment card links straight to it.
 
 ### Changed
@@ -18,6 +18,7 @@
 - **Clearer track colours.** Other instruments never start in the piano's colours any more. Each one gets a colour that stands apart from the hands and from the instruments before it.
 
 ### Fixed
+- Right-click menus near the bottom of the Library open upwards, so they're never cut off.
 - The Library remembers where you scrolled, your search and your open folders when you switch to Setup and back, or close and reopen the side panel.
 - The Chords Explorer's *next inversion* arrow no longer gets its tip cut off.
 - The MIDI Note Editor keeps its size as you move the mouse over it. Before, it grew and shrank as the hint text below the tools changed between one and two lines.

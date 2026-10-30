@@ -1,8 +1,9 @@
 // ── Export to audio window — opened from a Library song's right-click menu ──
 // Version (Original / Focus / As I hear it), sound (Studio / Native + sound
-// set), format (MP3 / WAV), then a progress bar and Show in folder. The work
-// itself is exportToAudio (src/audio/exportAudio.ts).
-import { useEffect, useRef, useState, type CSSProperties, type ReactNode } from 'react'
+// set), format (MP3 / WAV) as radio rows, then a progress bar and Show in
+// folder. Draggable by its title row, like every Orfeo window. The work itself
+// is exportToAudio (src/audio/exportAudio.ts).
+import { useCallback, useEffect, useRef, useState, type CSSProperties, type ReactNode } from 'react'
 import { createPortal } from 'react-dom'
 import { X } from 'lucide-react'
 import { useStore } from '../store'
@@ -18,20 +19,27 @@ import type { ExportVersion } from '../audio/exportSong'
 const NATIVE_AVAILABLE = navigator.userAgent.includes('Windows')
 
 type Phase = { k: 'choose' } | { k: 'working'; stage: ExportStage; p: number } | { k: 'done'; path: string } | { k: 'error'; message: string }
+// What the window says about the chosen version, and whether Export can go ahead
+type Note = { kind: 'nokeys' | 'empty' | 'unreadable'; text: string }
 
-function Choice({ active, disabled, title, children, onClick }: { active: boolean; disabled?: boolean; title: string; children: ReactNode; onClick: () => void }) {
+// ── One radio row: a round marker, the choice, a short line under it; the
+// chosen row is highlighted (amber tint, amber name) ─────────────────────
+function Radio({ name, active, disabled, title, children, onPick }: { name: string; active: boolean; disabled?: boolean; title: string; children: ReactNode; onPick: () => void }) {
   return (
-    <button type="button" onClick={onClick} disabled={disabled} aria-pressed={active}
-      style={{ display: 'block', width: '100%', textAlign: 'left', padding: '7px 10px', borderRadius: 4, cursor: disabled ? 'default' : 'pointer',
-        border: `1px solid ${active ? 'var(--accent-amber-strong)' : 'var(--border2)'}`,
-        background: active ? 'var(--accent-amber-medium)' : 'var(--bg-modal-header)', opacity: disabled ? 0.45 : 1, fontFamily: 'var(--font-ui)' }}>
-      <div style={{ fontSize: 'var(--text-xs)', fontWeight: 600, color: active ? 'var(--text-amber)' : 'var(--text-default)' }}>{title}</div>
-      <div style={{ fontSize: 10, color: 'var(--text-muted)', marginTop: 2, lineHeight: 1.4 }}>{children}</div>
-    </button>
+    <label style={{ display: 'grid', gridTemplateColumns: '14px minmax(0, 1fr)', columnGap: 8, alignItems: 'start', padding: '5px 8px', borderRadius: 4,
+      cursor: disabled ? 'default' : 'pointer', opacity: disabled ? 0.45 : 1,
+      background: active ? 'var(--accent-amber-medium)' : 'transparent', fontFamily: 'var(--font-ui)' }}>
+      <input type="radio" name={name} checked={active} disabled={disabled} onChange={onPick}
+        style={{ margin: '2px 0 0', accentColor: 'var(--text-amber)', cursor: disabled ? 'default' : 'pointer' }} />
+      <span>
+        <span style={{ display: 'block', fontSize: 'var(--text-xs)', fontWeight: 600, color: active ? 'var(--text-amber)' : 'var(--text-default)' }}>{title}</span>
+        <span style={{ display: 'block', fontSize: 10, color: 'var(--text-muted)', lineHeight: 1.4 }}>{children}</span>
+      </span>
+    </label>
   )
 }
 
-const label: CSSProperties = { fontSize: 9, fontWeight: 600, letterSpacing: '0.1em', textTransform: 'uppercase', color: 'var(--text-muted)', margin: '12px 0 6px', fontFamily: 'var(--font-ui)' }
+const label: CSSProperties = { fontSize: 9, fontWeight: 600, letterSpacing: '0.1em', textTransform: 'uppercase', color: 'var(--text-muted)', margin: '12px 0 4px', fontFamily: 'var(--font-ui)' }
 const button = (primary: boolean): CSSProperties => ({
   padding: '6px 14px', borderRadius: 4, cursor: 'pointer', fontSize: 'var(--text-xs)', fontFamily: 'var(--font-ui)', fontWeight: 600,
   border: `1px solid ${primary ? 'var(--accent-amber-strong)' : 'var(--border2)'}`,
@@ -50,10 +58,34 @@ export default function ExportAudioDialog({ path, name, onClose }: { path: strin
   const [soundfont, setSoundfont] = useState(selectedSoundfont)
   const [format, setFormat] = useState<ExportFormat>('mp3')
   const [phase, setPhase] = useState<Phase>({ k: 'choose' })
-  const [note, setNote] = useState<string | null>(null)
+  const [note, setNote] = useState<Note | null>(null)
   const cancelled = useRef(false)
   const panelRef = useRef<HTMLDivElement>(null)
   useFocusTrap(panelRef, true)
+
+  // ── Draggable by the title row — starts centred; once dragged, a fixed position
+  const [pos, setPos] = useState<{ x: number; y: number } | null>(null)
+  const drag = useRef<{ startX: number; startY: number; posX: number; posY: number } | null>(null)
+  const startDrag = (e: React.MouseEvent) => {
+    if ((e.target as HTMLElement).closest('button')) return
+    e.preventDefault()
+    const r = panelRef.current?.getBoundingClientRect()
+    const from = pos ?? { x: r?.left ?? 0, y: r?.top ?? 0 }
+    if (!pos) setPos(from)
+    drag.current = { startX: e.clientX, startY: e.clientY, posX: from.x, posY: from.y }
+  }
+  const onDragMove = useCallback((e: MouseEvent) => {
+    const d = drag.current
+    if (!d) return
+    // the top stays below the window's own title bar (40 px of Windows controls)
+    setPos({ x: d.posX + (e.clientX - d.startX), y: Math.max(44, d.posY + (e.clientY - d.startY)) })
+  }, [])
+  const onDragEnd = useCallback(() => { drag.current = null }, [])
+  useEffect(() => {
+    window.addEventListener('mousemove', onDragMove)
+    window.addEventListener('mouseup', onDragEnd)
+    return () => { window.removeEventListener('mousemove', onDragMove); window.removeEventListener('mouseup', onDragEnd) }
+  }, [onDragMove, onDragEnd])
 
   // What the chosen version holds: no keys part (Focus), or no notes at all
   useEffect(() => {
@@ -61,9 +93,9 @@ export default function ExportAudioDialog({ path, name, onClose }: { path: strin
     setNote(null)
     previewExport(path, version).then(s => {
       if (!live) return
-      if (!s.events.some(e => (e.status & 0xf0) === 0x90)) setNote(t`Nothing to export — the chosen version has no notes.`)
-      else if (version === 'focus' && !s.hasKeys) setNote(t`This song has no keys part — Focus exports bass and drums only.`)
-    }).catch(() => { if (live) setNote(t`Couldn't read this song.`) })
+      if (!s.events.some(e => (e.status & 0xf0) === 0x90)) setNote({ kind: 'empty', text: t`Nothing to export — the chosen version has no notes.` })
+      else if (version === 'focus' && !s.hasKeys) setNote({ kind: 'nokeys', text: t`This song has no keys part — Focus exports bass and drums only.` })
+    }).catch(() => { if (live) setNote({ kind: 'unreadable', text: t`Couldn't read this song.` }) })
     return () => { live = false }
   }, [path, version])
 
@@ -91,17 +123,17 @@ export default function ExportAudioDialog({ path, name, onClose }: { path: strin
   }
 
   const working = phase.k === 'working'
-  const stageText = working ? (phase.stage === 'render' ? t`Playing the song…` : phase.stage === 'encode' ? t`Encoding…` : t`Saving…`) : ''
-  const blocked = !!note && note !== t`This song has no keys part — Focus exports bass and drums only.`
+  const stageText = working ? (phase.stage === 'render' ? t`Exporting…` : phase.stage === 'encode' ? t`Encoding…` : t`Saving…`) : ''
+  const blocked = !!note && note.kind !== 'nokeys'
 
   return createPortal(
     <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.85)', zIndex: 99999, display: 'flex', alignItems: 'center', justifyContent: 'center' }}
       onMouseDown={e => { if (e.target === e.currentTarget && !working) close() }}>
       <div ref={panelRef} role="dialog" aria-modal="true" aria-label={t`Export to audio`} className="orfeo-modal-glow app-no-drag"
-        style={{ background: 'var(--bg-modal)', border: '1px solid var(--border2)', borderRadius: 'var(--radius-lg)', padding: '16px 18px', width: 400,
-          '--_modal-shadow': 'var(--elevation-modal)' } as CSSProperties}
+        style={{ background: 'var(--bg-modal)', border: '1px solid var(--border2)', borderRadius: 'var(--radius-lg)', padding: '16px 18px', width: 380,
+          '--_modal-shadow': 'var(--elevation-modal)', ...(pos ? { position: 'fixed', left: pos.x, top: pos.y } : {}) } as CSSProperties}
         onMouseDown={e => e.stopPropagation()}>
-        <div style={{ display: 'grid', gridTemplateColumns: 'auto minmax(0, 1fr) auto', alignItems: 'center', gap: 6 }}>
+        <div onMouseDown={startDrag} style={{ display: 'grid', gridTemplateColumns: 'auto minmax(0, 1fr) auto', alignItems: 'center', gap: 6, cursor: 'grab' }}>
           <OrfeoMark height={22} />
           <span style={{ fontFamily: 'var(--font-mono)', fontSize: 14, color: 'var(--text-amber)', letterSpacing: '0.08em', textTransform: 'uppercase' }}>{t`Export to audio`}</span>
           <button type="button" onClick={close} aria-label={t`Close`} style={modalCloseButtonStyle}
@@ -111,28 +143,24 @@ export default function ExportAudioDialog({ path, name, onClose }: { path: strin
         <div style={{ fontSize: 'var(--text-xs)', color: 'var(--text-default)', margin: '6px 0 2px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontFamily: 'var(--font-ui)' }}>{name}</div>
 
         <fieldset disabled={working || phase.k === 'done'} style={{ border: 'none', padding: 0, margin: 0 }}>
-          <div style={label}>{t`Version`}</div>
-          <div style={{ display: 'grid', gap: 5 }}>
-            <Choice active={version === 'original'} title={t`Original`} onClick={() => setVersion('original')}>{t`The song as written: every instrument, its own tempo and key.`}</Choice>
-            <Choice active={version === 'focus'} title={t`Focus`} onClick={() => setVersion('focus')}>{t`Keys, bass and drums only.`}</Choice>
-            <Choice active={version === 'heard'} disabled={!open} title={t`As I hear it`} onClick={() => setVersion('heard')}>
-              {open ? t`Everything you've changed: tempo, key, muted parts, Mixer, loop.` : t`Open this song in Orfeo first.`}
-            </Choice>
-          </div>
-          {note && <div style={{ fontSize: 10, color: 'var(--text-amber)', marginTop: 6, fontFamily: 'var(--font-ui)' }}>{note}</div>}
+          <div style={label}>{t`Version to export`}</div>
+          <Radio name="version" active={version === 'original'} title={t`Original`} onPick={() => setVersion('original')}>{t`The song as written: every instrument, its own tempo and key.`}</Radio>
+          <Radio name="version" active={version === 'focus'} title={t`Focus`} onPick={() => setVersion('focus')}>{t`Keys, bass and drums only.`}</Radio>
+          <Radio name="version" active={version === 'heard'} disabled={!open} title={t`As I hear it`} onPick={() => setVersion('heard')}>
+            {open ? t`Everything you've changed: tempo, key, muted parts, Mixer, loop.` : t`Only the song open in Orfeo can be exported as you hear it — open this one first.`}
+          </Radio>
+          {note && <div style={{ fontSize: 10, color: 'var(--text-amber)', margin: '4px 8px 0', fontFamily: 'var(--font-ui)' }}>{note.text}</div>}
 
-          <div style={label}>{t`Sound`}</div>
-          <div style={{ display: 'grid', gridTemplateColumns: NATIVE_AVAILABLE ? 'repeat(2, minmax(0, 1fr))' : 'minmax(0, 1fr)', gap: 5, marginBottom: 6 }}>
-            <Choice active={sound === 'studio'} title={t`Studio`} onClick={() => setSound('studio')}>{t`Real recorded instruments, as Studio plays them.`}</Choice>
-            {NATIVE_AVAILABLE && <Choice active={sound === 'native'} title={t`Native`} onClick={() => setSound('native')}>{t`The same sound sets, as Native plays them.`}</Choice>}
+          <div style={label}>{t`Sound to play it with`}</div>
+          <div style={{ display: 'grid', gridTemplateColumns: NATIVE_AVAILABLE ? 'repeat(2, minmax(0, 1fr))' : 'minmax(0, 1fr)', gap: 2, marginBottom: 6 }}>
+            <Radio name="sound" active={sound === 'studio'} title={t`Studio`} onPick={() => setSound('studio')}>{t`As Studio plays it.`}</Radio>
+            {NATIVE_AVAILABLE && <Radio name="sound" active={sound === 'native'} title={t`Native`} onPick={() => setSound('native')}>{t`As Native plays it.`}</Radio>}
           </div>
           <SettingsDropdown value={soundfont} onChange={setSoundfont} options={sets.map(sf => ({ value: sf.id, label: sf.name }))} />
 
-          <div style={label}>{t`Format`}</div>
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: 5 }}>
-            <Choice active={format === 'mp3'} title={t`MP3`} onClick={() => setFormat('mp3')}>{t`320 kbps, 44.1 kHz stereo. Small files for phone, car and any player.`}</Choice>
-            <Choice active={format === 'wav'} title={t`WAV`} onClick={() => setFormat('wav')}>{t`44.1 kHz, 16-bit stereo, uncompressed (CD quality). For editing in other audio software.`}</Choice>
-          </div>
+          <div style={label}>{t`File format`}</div>
+          <Radio name="format" active={format === 'mp3'} title={t`MP3`} onPick={() => setFormat('mp3')}>{t`320 kbps, 44.1 kHz stereo. Small files for phone, car and any player.`}</Radio>
+          <Radio name="format" active={format === 'wav'} title={t`WAV`} onPick={() => setFormat('wav')}>{t`44.1 kHz, 16-bit stereo, uncompressed (CD quality). For editing in other audio software.`}</Radio>
         </fieldset>
 
         {working && (
@@ -149,7 +177,7 @@ export default function ExportAudioDialog({ path, name, onClose }: { path: strin
         <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8, marginTop: 16 }}>
           {phase.k === 'done' ? (
             <>
-              <button type="button" style={button(false)} onClick={() => void window.electronAPI.showItemInFolder(phase.path)}>{t`Show in folder`}</button>
+              <button type="button" style={button(false)} onClick={() => { void window.electronAPI.showItemInFolder(phase.path); close() }}>{t`Show in folder`}</button>
               <button type="button" style={button(true)} onClick={close}>{t`Close`}</button>
             </>
           ) : working ? (
