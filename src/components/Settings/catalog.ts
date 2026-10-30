@@ -21,7 +21,7 @@ export interface GroupTab {
 export interface GroupInfo { id: SettingsGroupId; name: string; intro: string; manualUrl: string; tabs?: GroupTab[]; stack?: SettingId[][]; looseFirst?: boolean }
 
 export type SettingId =
-  | 'soundEngine' | 'soundFonts' | 'autoLevel'
+  | 'soundEngine' | 'soundFonts' | 'autoLevel' | 'exportAudio'
   | 'showDemo' | 'chordTranscription'
   | 'noteEditor' | 'tapTempo' | 'tempoWarnings' | 'countIn' | 'handAssignment' | 'loopRegion' | 'focusMode'
   | 'stepThrough' | 'chordPrompter' | 'closePanels' | 'handTags' | 'trackVu'
@@ -73,6 +73,9 @@ export const SETTINGS: SettingInfo[] = [
   { id: 'autoLevel', group: 'audio', name: t`Auto-Level on Load`, summary: t`Balances loud and quiet passages automatically.`,
     description: t`Automatically balances loud and quiet passages in a MIDI file using the Compressor's makeup gain.`,
     keywords: 'compressor volume loudness level' },
+  { id: 'exportAudio', group: 'audio', name: t`Export to audio`, summary: t`Save any song as an MP3 or WAV from the Library.`,
+    description: t`Adds Export to audio… to a song's right-click menu in the Library. Choose the version (the song as written, Focus, or as you hear it now), the sound and the format. Files go to the Exports folder inside your Library's Orfeo folder.`,
+    keywords: 'export audio mp3 wav save render bounce file listen' },
   // ── MIDI Files & Library
   { id: 'showDemo', group: 'midi-files-library', name: t`Show demo content`, summary: t`Show the demo songs that come with Orfeo in your Library.`,
     description: t`The demo songs that come with Orfeo appear in your Library. Turn off to hide them — nothing is deleted.`,

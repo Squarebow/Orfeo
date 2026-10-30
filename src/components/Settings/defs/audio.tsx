@@ -1,5 +1,5 @@
 import { useEffect, useState, type ReactNode } from 'react'
-import { Volume2, Library, Gauge, Upload } from 'lucide-react'
+import { Volume2, Library, Gauge, Upload, FileAudio } from 'lucide-react'
 import { useStore } from '../../../store'
 import { t } from '../../../utils/i18n'
 import { OptionBtn, Switch, SettingsDropdown, SoundfontActionLink, HelpText } from '../controls'
@@ -247,5 +247,9 @@ export const AUDIO_DEFS: SettingDef[] = [
   {
     id: 'autoLevel', icon: Gauge, kind: 'switch',
     Control: () => { const v = useStore(s => s.autoLevelOnLoad); return <Switch value={v} onChange={useStore.getState().setAutoLevelOnLoad} label="Auto-Level on Load" /> },
+  },
+  {
+    id: 'exportAudio', icon: FileAudio, kind: 'switch',
+    Control: () => { const v = useStore(s => s.exportAudioEnabled); return <Switch value={v} onChange={useStore.getState().setExportAudioEnabled} label={t`Export to audio`} /> },
   },
 ]

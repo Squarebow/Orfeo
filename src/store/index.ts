@@ -467,6 +467,9 @@ interface OrfeoStore {
   // Step Through: → / ← step note by note, plus arrows in the keyboard footer
   stepThroughEnabled: boolean
   setStepThroughEnabled: (v: boolean) => void
+  // Export to audio (Settings › Audio): adds the Library right-click item; off by default
+  exportAudioEnabled: boolean
+  setExportAudioEnabled: (v: boolean) => void
   // Hand colours (Settings › Appearance) — the left/right hand pair, hex
   handColorLH: string
   handColorRH: string
@@ -1048,6 +1051,8 @@ export const useStore = create<OrfeoStore>((set, get) => ({
   autoCollapseDrawers: false,
   stepThroughEnabled: true,
   setStepThroughEnabled: (stepThroughEnabled) => set({ stepThroughEnabled }),
+  exportAudioEnabled: false,
+  setExportAudioEnabled: (exportAudioEnabled) => set({ exportAudioEnabled }),
   handColorLH: DEFAULT_HAND_LH,
   handColorRH: DEFAULT_HAND_RH,
   setHandColors: (handColorLH, handColorRH) => {
@@ -1247,6 +1252,7 @@ async function restoreLibraryPrefs() {
     if (typeof prefs.showNoteNamesOnKeyboard === 'boolean') store.setShowNoteNamesOnKeyboard(prefs.showNoteNamesOnKeyboard)
     if (typeof prefs.autoCollapseDrawers === 'boolean') store.setAutoCollapseDrawers(prefs.autoCollapseDrawers)
     if (typeof prefs.stepThroughEnabled === 'boolean') store.setStepThroughEnabled(prefs.stepThroughEnabled)
+    if (typeof prefs.exportAudioEnabled === 'boolean') store.setExportAudioEnabled(prefs.exportAudioEnabled)
     if (isHex(prefs.handColorLH) && isHex(prefs.handColorRH)) store.setHandColors(prefs.handColorLH, prefs.handColorRH)
     if (typeof prefs.tooltipsEnabled === 'boolean') store.setTooltipsEnabled(prefs.tooltipsEnabled)
     if (typeof prefs.supportNoteEnabled === 'boolean') store.setSupportNoteEnabled(prefs.supportNoteEnabled)
@@ -1346,6 +1352,7 @@ let _prevStarmapEnabled: boolean | null = null
 let _prevShowNoteNamesOnKeyboard: boolean | null = null
 let _prevAutoCollapseDrawers: boolean | null = null
 let _prevStepThroughEnabled: boolean | null = null
+let _prevExportAudioEnabled: boolean | null = null
 let _prevHandColors: string | null = null
 let _prevTooltipsEnabled: boolean | null = null
 let _prevSupportNoteEnabled: boolean | null = null
@@ -1414,6 +1421,7 @@ const _unsubPrefs = useStore.subscribe((state) => {
     _prevShowNoteNamesOnKeyboard = state.showNoteNamesOnKeyboard
     _prevAutoCollapseDrawers = state.autoCollapseDrawers
     _prevStepThroughEnabled = state.stepThroughEnabled
+    _prevExportAudioEnabled = state.exportAudioEnabled
     _prevHandColors = state.handColorLH + state.handColorRH
     _prevTooltipsEnabled = state.tooltipsEnabled
     _prevSupportNoteEnabled = state.supportNoteEnabled
@@ -1485,6 +1493,7 @@ const _unsubPrefs = useStore.subscribe((state) => {
     state.showNoteNamesOnKeyboard !== _prevShowNoteNamesOnKeyboard ||
     state.autoCollapseDrawers !== _prevAutoCollapseDrawers ||
     state.stepThroughEnabled !== _prevStepThroughEnabled ||
+    state.exportAudioEnabled !== _prevExportAudioEnabled ||
     state.handColorLH + state.handColorRH !== _prevHandColors ||
     state.tooltipsEnabled !== _prevTooltipsEnabled ||
     state.supportNoteEnabled !== _prevSupportNoteEnabled ||
@@ -1548,6 +1557,7 @@ const _unsubPrefs = useStore.subscribe((state) => {
     _prevShowNoteNamesOnKeyboard = state.showNoteNamesOnKeyboard
     _prevAutoCollapseDrawers = state.autoCollapseDrawers
     _prevStepThroughEnabled = state.stepThroughEnabled
+    _prevExportAudioEnabled = state.exportAudioEnabled
     _prevHandColors = state.handColorLH + state.handColorRH
     _prevTooltipsEnabled = state.tooltipsEnabled
     _prevSupportNoteEnabled = state.supportNoteEnabled
@@ -1617,6 +1627,7 @@ const _unsubPrefs = useStore.subscribe((state) => {
       showNoteNamesOnKeyboard: state.showNoteNamesOnKeyboard,
       autoCollapseDrawers: state.autoCollapseDrawers,
       stepThroughEnabled: state.stepThroughEnabled,
+      exportAudioEnabled: state.exportAudioEnabled,
       handColorLH: state.handColorLH,
       handColorRH: state.handColorRH,
       tooltipsEnabled: state.tooltipsEnabled,
