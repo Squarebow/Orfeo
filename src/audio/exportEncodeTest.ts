@@ -1,4 +1,4 @@
-import { finishAudio, encodeWav, encodeMp3, encodeMp3Async, yieldToPage, type Stereo } from './exportEncode'
+import { finishAudio, encodeWav, encodeMp3, yieldToPage, type Stereo } from './exportEncode'
 
 const RATE = 44100
 function signal(parts: { sec: number; amp: number }[]): Stereo {
@@ -48,27 +48,35 @@ export async function runExportEncodeTest(): Promise<number> {
   check(Math.abs(dv.getInt16(44 + 4 * 25, true) / 32767 - one.l[25]) < 1 / 32767 + 1e-6, 'samples written as 16-bit')
 
   // 4. MP3: first frame is MPEG-1 Layer III, 320 kbps, 44.1 kHz
-  const m = encodeMp3(one)
+  const m = await encodeMp3(one)
   const s = m.findIndex((b, i) => b === 0xff && (m[i + 1] & 0xe0) === 0xe0)
   check(s >= 0, 'has an MP3 frame')
   check(s >= 0 && (m[s + 1] & 0x1e) === 0x1a, `MPEG-1 Layer III, got ${m[s + 1]?.toString(16)}`)
   check(s >= 0 && (m[s + 2] >> 4) === 14, `320 kbps (index 14), got ${m[s + 2] >> 4}`)
   check(s >= 0 && ((m[s + 2] >> 2) & 3) === 0, '44.1 kHz')
+  check(s >= 0 && (m[s + 3] >> 6) !== 3, 'stereo, not mono')
   // ~40 kB per second at 320 kbps
   check(m.length > 38000 && m.length < 44000, `size for 1 s at 320 kbps, got ${m.length}`)
   // cancelled straight away: nothing
-  check(encodeMp3(one, undefined, () => true).length === 0, 'cancel → empty')
+  check((await encodeMp3(one, undefined, () => true)).length === 0, 'cancel → empty')
 
-  // 5. The responsive version gives the same file, and yields to the page while it works
+  // 5. Yields to the page while it works; two encodes of the same audio are identical
   const three = signal([{ sec: 3, amp: 0.5 }])
   let ticks = 0
   const timer = setInterval(() => ticks++, 0)
-  const async = await encodeMp3Async(three)
+  const a1 = await encodeMp3(three)
   clearInterval(timer)
-  const sync = encodeMp3(three)
-  check(async.length === sync.length && async.every((b, i) => b === sync[i]), 'async MP3 = sync MP3, byte for byte')
+  const a2 = await encodeMp3(three)
+  check(a1.length === a2.length && a1.every((b, i) => b === a2[i]), 'the same audio gives the same MP3, byte for byte')
   check(ticks > 0, `the page gets turns while encoding (${ticks})`)
-  check((await encodeMp3Async(three, undefined, () => true)).length === 0, 'async cancel → empty')
+
+  // 5b. Fast: a 3½-minute song encodes in a few seconds
+  const song = signal([{ sec: 205, amp: 0.4 }])
+  let t0 = performance.now()
+  const big = await encodeMp3(song)
+  const tEnc = performance.now() - t0
+  check(tEnc < 4000, `205 s of stereo encodes in under 4 s, took ${Math.round(tEnc)} ms`)
+  check(Math.abs(big.length / (205 * 40000) - 1) < 0.05, `size about 320 kbps × 205 s, got ${big.length}`)
 
   // 6. A whole song finishes and writes quickly (the window mustn't stall during an export)
   const long = { l: new Float32Array(44100 * 256), r: new Float32Array(44100 * 256), rate: RATE }

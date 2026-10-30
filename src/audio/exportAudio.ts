@@ -9,7 +9,7 @@ import { NES } from '../utils/noteEditorState'
 import { parseMidiBuffer } from '../utils/midiParser'
 import { resolveToMidiBase64, base64ToBytes, detectForeignFormat, getCachePath } from '../utils/foreignFormatImport'
 import { buildExportSong, exportFileName, type ExportVersion, type ExportSong } from './exportSong'
-import { finishAudio, encodeWav, encodeMp3Async, yieldToPage, type Stereo } from './exportEncode'
+import { finishAudio, encodeWav, encodeMp3, yieldToPage, type Stereo } from './exportEncode'
 import { masterKnobs } from './engine'
 import type { SoundfontId, TrackState, ParsedMidi } from '../types'
 
@@ -135,7 +135,7 @@ async function runExport(o: ExportOptions, onProgress: (stage: ExportStage, p: n
   onProgress('encode', 0)
   await breathe()
   const bytes = o.format === 'mp3'
-    ? await encodeMp3Async(finished, p => onProgress('encode', p), isCancelled)
+    ? await encodeMp3(finished, p => onProgress('encode', p), isCancelled)
     : encodeWav(finished)
   if (isCancelled() || !bytes.length) return null
 

@@ -103,17 +103,17 @@ THE SOFTWARE.
 
 ---
 
-## @breezystack/lamejs (LAME MP3 encoder)
+## wasm-media-encoders (LAME MP3 encoder)
 
-Used to encode MP3 files for Export to audio (320 kbps, 44.1 kHz, stereo).
-A JavaScript port of LAME.
+Used to encode MP3 files for Export to audio (320 kbps, 44.1 kHz, stereo):
+the LAME encoder compiled to WebAssembly.
 
-Repository: https://github.com/shijinyu/lamejs (fork of https://github.com/zhuker/lamejs)  
-LAME: https://lame.sourceforge.io
-
-License: GNU Lesser General Public License v3.0 (LGPL-3.0) —
-[full text](https://www.gnu.org/licenses/lgpl-3.0.html). Orfeo uses the
-library unmodified, as published on npm.
+Repository: https://github.com/arseneyr/wasm-media-encoders — MIT License,
+Copyright (c) 2020-2024 arseneyr  
+LAME 3.100 (the encoder it contains): https://lame.sourceforge.io — GNU
+Library General Public License v2 or later (LGPL-2.0-or-later),
+[full text](https://www.gnu.org/licenses/old-licenses/lgpl-2.0.html). Orfeo
+uses the library unmodified, as published on npm.
 
 ---
 

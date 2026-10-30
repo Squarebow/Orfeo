@@ -626,7 +626,7 @@ behind the `exportAudioEnabled` setting.
   audio thread's mix.
 - **Finishing** — `exportEncode.ts`: from the first sound to 2 s after the
   last note-off, peak-normalised to −1 dBFS. WAV 44.1 kHz/16-bit/stereo PCM;
-  MP3 320 kbps CBR 44.1 kHz stereo (`@breezystack/lamejs`, LGPL-3.0),
+  MP3 320 kbps CBR 44.1 kHz stereo (LAME compiled to WebAssembly, `wasm-media-encoders`),
   encoded a second of audio at a time so the page keeps breathing.
 - **Saving** — IPC `export:save` writes `<library>/Orfeo/Exports/<name>`
   (`exportsDir`, no library → the song's own Orfeo folder) with `wx`, the next

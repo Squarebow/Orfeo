@@ -139,7 +139,6 @@
     }
   },
   "dependencies": {
-    "@breezystack/lamejs": "^1.2.7",
     "@coderline/alphatab": "^1.8.4",
     "@tonejs/midi": "^2.0.28",
     "electron-updater": "^6.8.9",
@@ -158,6 +157,7 @@
     "spessasynth_lib": "^4.3.13",
     "tonal": "^6.4.0",
     "tone": "^15.1.22",
+    "wasm-media-encoders": "^0.7.0",
     "webaudiofont": "^3.0.4",
     "zustand": "^5.0.16"
   },

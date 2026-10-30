@@ -4,7 +4,7 @@
 // level for the file, no clipping). The formats are fixed, no options:
 //   WAV — 44.1 kHz, 16-bit, stereo, uncompressed PCM (CD quality)
 //   MP3 — 320 kbps constant bitrate, 44.1 kHz, stereo, LAME encoder
-import { Mp3Encoder } from '@breezystack/lamejs'
+import { createMp3Encoder } from 'wasm-media-encoders'
 
 export interface Stereo { l: Float32Array; r: Float32Array; rate: number }
 
@@ -28,7 +28,6 @@ export const TAIL_SEC = 2.0
 const SILENT = 1e-4                         // -80 dBFS
 const TARGET_PEAK = Math.pow(10, -1 / 20)   // -1 dBFS
 const MP3_KBPS = 320
-const MP3_BLOCK = 1152
 
 export function finishAudio(a: Stereo, songDuration: number): Stereo {
   const n = a.l.length
@@ -45,7 +44,6 @@ export function finishAudio(a: Stereo, songDuration: number): Stereo {
   return { l, r, rate: a.rate }
 }
 
-const toInt16 = (v: number) => Math.max(-32768, Math.min(32767, Math.round(v * 32767)))
 
 export function encodeWav(a: Stereo): Uint8Array {
   const n = a.l.length
@@ -68,46 +66,26 @@ export function encodeWav(a: Stereo): Uint8Array {
   return out
 }
 
-// The encoder, one second of audio per step: yields the progress so far, then
-// the finished file; empty when cancelled
-function* mp3Steps(a: Stereo, isCancelled?: () => boolean): Generator<number, Uint8Array> {
+/** MP3, 320 kbps CBR, 44.1 kHz stereo — LAME (compiled to WebAssembly, via
+ *  wasm-media-encoders), a second of audio per step with the page getting a
+ *  turn in between; empty when cancelled */
+export async function encodeMp3(a: Stereo, onProgress?: (p: number) => void, isCancelled?: () => boolean): Promise<Uint8Array> {
   if (a.rate !== EXPORT_RATE) throw new Error(`MP3 export expects ${EXPORT_RATE} Hz`)
-  const enc = new Mp3Encoder(2, a.rate, MP3_KBPS)
+  const enc = await createMp3Encoder()
+  enc.configure({ sampleRate: a.rate, channels: 2, bitrate: MP3_KBPS })
   const n = a.l.length
   const chunks: Uint8Array[] = []
-  const L = new Int16Array(MP3_BLOCK), R = new Int16Array(MP3_BLOCK)
-  let sinceStep = 0
-  for (let s = 0; s < n; s += MP3_BLOCK) {
+  for (let s = 0; s < n; s += a.rate) {
     if (isCancelled?.()) return new Uint8Array(0)
-    const m = Math.min(MP3_BLOCK, n - s)
-    for (let i = 0; i < m; i++) { L[i] = toInt16(a.l[s + i]); R[i] = toInt16(a.r[s + i]) }
-    const out = enc.encodeBuffer(m === MP3_BLOCK ? L : L.subarray(0, m), m === MP3_BLOCK ? R : R.subarray(0, m))
-    if (out.length) chunks.push(new Uint8Array(out))
-    sinceStep += m
-    if (sinceStep >= a.rate) { sinceStep = 0; yield Math.min(1, (s + m) / n) }
+    const e = Math.min(n, s + a.rate)
+    // the encoder reuses its output buffer: copy each piece out
+    chunks.push(enc.encode([a.l.subarray(s, e), a.r.subarray(s, e)]).slice())
+    onProgress?.(e / n)
+    await yieldToPage()
   }
-  const tail = enc.flush()
-  if (tail.length) chunks.push(new Uint8Array(tail))
+  chunks.push(enc.finalize().slice())
   const out = new Uint8Array(chunks.reduce((t, c) => t + c.length, 0))
   let o = 0
   for (const c of chunks) { out.set(c, o); o += c.length }
   return out
-}
-
-export function encodeMp3(a: Stereo, onProgress?: (p: number) => void, isCancelled?: () => boolean): Uint8Array {
-  const it = mp3Steps(a, isCancelled)
-  for (let r = it.next(); ; r = it.next()) {
-    if (r.done) { if (r.value.length) onProgress?.(1); return r.value }
-    onProgress?.(r.value)
-  }
-}
-
-/** The same file, letting the page breathe between seconds of audio */
-export async function encodeMp3Async(a: Stereo, onProgress?: (p: number) => void, isCancelled?: () => boolean): Promise<Uint8Array> {
-  const it = mp3Steps(a, isCancelled)
-  for (let r = it.next(); ; r = it.next()) {
-    if (r.done) { if (r.value.length) onProgress?.(1); return r.value }
-    onProgress?.(r.value)
-    await yieldToPage()
-  }
 }
