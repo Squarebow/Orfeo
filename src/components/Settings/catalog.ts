@@ -23,7 +23,7 @@ export interface GroupInfo { id: SettingsGroupId; name: string; intro: string; m
 export type SettingId =
   | 'soundEngine' | 'soundFonts' | 'autoLevel' | 'exportAudio'
   | 'showDemo' | 'chordTranscription'
-  | 'noteEditor' | 'tapTempo' | 'tempoWarnings' | 'countIn' | 'handAssignment' | 'loopRegion' | 'focusMode'
+  | 'noteEditor' | 'tapTempo' | 'tempoWarnings' | 'countIn' | 'skipEmptyBars' | 'handAssignment' | 'loopRegion' | 'focusMode'
   | 'stepThrough' | 'chordPrompter' | 'closePanels' | 'handTags' | 'trackVu'
   | 'displaySystem' | 'accidentals' | 'chordTracking' | 'chordReading' | 'chordNaming'
   | 'keyRange' | 'showOctaves' | 'showNoteNames' | 'reflectPianoRoll' | 'preciseScrubTime' | 'explorerPause'
@@ -51,7 +51,7 @@ export const GROUPS: GroupInfo[] = [
     ] },
   { id: 'midi-files-library', name: t`MIDI Files & Library`, intro: t`Organise your library`, manualUrl: 'https://orfeo.cc/docs/managing-midi-files' },
   { id: 'playback-editing', name: t`Playback`, intro: t`Shape playback`, manualUrl: 'https://orfeo.cc/docs/playing-midi-files',
-    stack: [['tapTempo'], ['tempoWarnings', 'preciseScrubTime', 'explorerPause'], ['countIn', 'loopRegion', 'focusMode']] },
+    stack: [['tapTempo'], ['tempoWarnings', 'preciseScrubTime', 'explorerPause'], ['countIn', 'skipEmptyBars', 'loopRegion', 'focusMode']] },
   { id: 'practice', name: t`Practice`, intro: t`Tools for practising`, manualUrl: 'https://orfeo.cc/docs/practicing-with-midi-files' },
   { id: 'editing', name: t`Editing`, intro: t`Edit your songs`, manualUrl: 'https://orfeo.cc/docs/editing-midi-files',
     stack: [['handAssignment'], ['noteEditor'], ['trackVu']], looseFirst: true },
@@ -93,6 +93,9 @@ export const SETTINGS: SettingInfo[] = [
   { id: 'countIn', group: 'playback-editing', name: t`Count-in`, summary: t`Clicks 1–4 bars before the music starts.`,
     description: t`Clicks 1–4 bars at the song's tempo before Play, skipping empty bars at the start, so you come in on time. Also in the metronome's right-click menu.`,
     keywords: 'count in metronome click bars' },
+  { id: 'skipEmptyBars', group: 'playback-editing', name: t`Skip empty bars at the start`, summary: t`Start every song where the music starts.`,
+    description: t`Songs that begin with silent bars open with the music on bar 1: the piano roll, bar numbers, playback, loops and step-through all start there. Your files are never changed — switch it off to see a song exactly as written. Keep drum count-ins keeps one or two bars of plain drum clicks before the music.`,
+    keywords: 'empty bars silence lead-in intro start trim count-in skip' },
   { id: 'handAssignment', group: 'editing', name: t`Hand Assignment`, summary: t`Colours each piano note by the hand that plays it.`,
     description: t`Automatic hand assignment for piano that colours each note by the hand that plays it — a guideline, not a verified transcript. For an exact split, use the MIDI Note Editor's hand tool to assign notes to the left and right hand yourself.`,
     keywords: 'left right hand fingers split' },
@@ -229,7 +232,7 @@ export type QuickItem = SettingId | { heading: string }
 export const QUICK_LAYOUT: Record<SettingsGroupId, QuickItem[]> = {
   'audio': ['soundEngine'],
   'midi-files-library': ['showDemo'],
-  'playback-editing': ['focusMode', 'tapTempo'],
+  'playback-editing': ['focusMode', 'tapTempo', 'skipEmptyBars'],
   'practice': ['stepThrough', 'chordPrompter'],
   'editing': ['handAssignment'],
   'notation': ['displaySystem', 'accidentals', 'chordTracking'],

@@ -1,8 +1,9 @@
-import { AudioLines, Timer, TriangleAlert, ListOrdered, Hand, Repeat, Focus, Pause } from 'lucide-react'
+import { AudioLines, Timer, TriangleAlert, ListOrdered, Hand, Repeat, Focus, Pause, SkipForward } from 'lucide-react'
 import { useStore } from '../../../store'
 import { t } from '../../../utils/i18n'
 import { Switch, OptionBtn, FingerStepper, InlineIcon, SubLabel, HelpText } from '../controls'
 import type { SettingDef } from '../types'
+import { applySkipEmptyBarsChange } from '../../../utils/reloadOpenSong'
 
 function TapTempoExtra() {
   const on = useStore(s => s.tapTempoPadEnabled)
@@ -51,6 +52,20 @@ function CountInExtra() {
         {[1, 2, 3, 4].map(n => <OptionBtn key={n} active={bars === n} onClick={() => setBars(n)}>{String(n)}</OptionBtn>)}
       </div>
     </>
+  )
+}
+
+// Keep drum count-ins — under the main switch, only while it's on
+function SkipEmptyBarsExtra() {
+  const on = useStore(s => s.skipEmptyBars)
+  const keep = useStore(s => s.keepDrumCountIn)
+  if (!on) return null
+  return (
+    <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1fr) auto', alignItems: 'center', columnGap: 8, minHeight: 22,
+      fontSize: 'var(--text-xs)', fontFamily: 'var(--font-ui)', color: 'var(--text-default)' }}>
+      <span>{t`Keep drum count-ins`}</span>
+      <Switch value={keep} onChange={v => { useStore.getState().setKeepDrumCountIn(v); void applySkipEmptyBarsChange() }} label={t`Keep drum count-ins`} />
+    </div>
   )
 }
 
@@ -111,6 +126,10 @@ export const PLAYBACK_DEFS: SettingDef[] = [
   {
     id: 'countIn', icon: ListOrdered, kind: 'switch', Extra: CountInExtra,
     Control: () => { const v = useStore(s => s.countInEnabled); return <Switch value={v} onChange={useStore.getState().setCountInEnabled} label={t`Count-in`} /> },
+  },
+  {
+    id: 'skipEmptyBars', icon: SkipForward, kind: 'switch', Extra: SkipEmptyBarsExtra,
+    Control: () => { const v = useStore(s => s.skipEmptyBars); return <Switch value={v} onChange={x => { useStore.getState().setSkipEmptyBars(x); void applySkipEmptyBarsChange() }} label={t`Skip empty bars at the start`} /> },
   },
   {
     id: 'handAssignment', icon: Hand, kind: 'switch', Extra: HandAssignmentExtra,

@@ -469,6 +469,38 @@ src/components/Settings/
 
 ---
 
+## Skip empty bars at the start
+
+Settings › Playback (`skipEmptyBars`, with `keepDrumCountIn`). Every song
+handed to the store goes through `prepareSong` (`utils/prepareSong.ts`) in
+`setMidi`, once (it's idempotent):
+
+- `findLeadCut` (`utils/leadCut.ts`) finds the first bar to keep on the song's
+  grid — the Tap Tempo grid when the song has a correction. The music starts
+  in the first bar with notes that isn't a plain drum-click bar; with
+  `keepDrumCountIn` the last one or two click bars before it stay. Whole bars
+  only; nothing happens unless a whole bar would go.
+- `trimSmfLead` (`utils/smfLead.ts`) cuts the song's bytes at that tick:
+  notes before it go, everything else (tempo, metre, key, programs,
+  controllers, names, meta) moves to tick 0. The song is parsed again from
+  those bytes, so GM (which plays `_raw`), Studio, Native, the roll, the bar
+  grid, Count-in, chords and exports all see one shortened song.
+- The file's own bytes stay on the song as `_origRaw`, with `_leadTick` /
+  `_leadSec`. `songKey` is always computed from `_origRaw`, so per-song data
+  matches whether the switch is on or off. Tap Tempo corrections are stored
+  in the file's own seconds: `setMidi`/`reapplyCorrection` shift them by
+  `-_leadSec` (`shiftCorrection`), `setSongCorrection` shifts the open song's
+  back, and readers use `currentCorrection(state)`.
+- Saves keep the lead-in: the main-process saves re-read the file from disk;
+  the Note Editor's save rebuilds the original around the edited notes
+  (`restoreLeadForSave`). Changing either switch with a song open re-reads it
+  from `_origRaw` (`utils/reloadOpenSong.ts`, after the usual unsaved-edits
+  questions). Exports of songs that aren't open go through `prepareSong` too
+  (`exportAudio.ts` `loadSong`). The chord transcript PDF and the chord-audit
+  scripts read files as they are.
+
+---
+
 ## Tap Tempo — beat-grid corrections
 
 Some files carry wrong tempo metadata while their notes are timed correctly.

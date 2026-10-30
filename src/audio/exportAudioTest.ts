@@ -1,6 +1,7 @@
 import { useStore } from '../store'
 import { NES } from '../utils/noteEditorState'
 import { readFileSync } from 'node:fs'
+import { Midi } from '@tonejs/midi'
 import * as EA from './exportAudio'
 const { isOpenSong, previewExport, pauseForExport, isExporting, exportToAudio, ExportError } = EA
 const finishOrExplain = EA.finishOrExplain
@@ -73,6 +74,26 @@ export async function runExportAudioTest(): Promise<number> {
   let kind = ''
   try { finishOrExplain(silent, 1) } catch (e: any) { kind = e?.kind }
   check(kind === 'silent', `silence → "silent", got "${kind}"`)
+
+  // 7. With "Skip empty bars at the start" on, an export starts where the music
+  // starts (three silent 4/4 bars at 100 BPM = 7.2 s); off, as the file has it
+  const lm = new Midi()
+  lm.header.tempos.push({ ticks: 0, bpm: 100 })
+  lm.header.timeSignatures.push({ ticks: 0, timeSignature: [4, 4] })
+  lm.header.update()
+  const lt = lm.addTrack()
+  for (let i = 0; i < 8; i++) lt.addNote({ midi: 60, ticks: 12 * 480 + i * 480, durationTicks: 480, velocity: 0.7 })
+  api.loadMidiFromPath = async () => ({ fileName: 'Lead.mid', base64: Buffer.from(lm.toArray()).toString('base64') })
+  const firstOn = (s: any) => s.events.find((e: any) => (e.status & 0xf0) === 0x90).time
+  const leadPath = 'D:\\Lib\\Lead.mid'
+  useStore.setState({ skipEmptyBars: true, keepDrumCountIn: true })
+  EA.forgetLoadedSong()
+  const on = firstOn(await previewExport(leadPath, 'original'))
+  check(on < 0.05, `switch on: the music starts at once, got ${on}`)
+  useStore.setState({ skipEmptyBars: false })
+  EA.forgetLoadedSong()
+  const offAt = firstOn(await previewExport(leadPath, 'original'))
+  check(Math.abs(offAt - 7.2) < 0.05, `switch off: as the file has it, got ${offAt}`)
 
   console.log(`exportAudio: ${pass} passed, ${fail} failed`)
   console.groupEnd()

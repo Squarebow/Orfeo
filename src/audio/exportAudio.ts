@@ -7,6 +7,8 @@
 import { useStore } from '../store'
 import { NES } from '../utils/noteEditorState'
 import { parseMidiBuffer } from '../utils/midiParser'
+import { prepareSong } from '../utils/prepareSong'
+import { songKey } from '../utils/songIdentity'
 import { resolveToMidiBase64, base64ToBytes, detectForeignFormat, getCachePath } from '../utils/foreignFormatImport'
 import { buildExportSong, exportFileName, type ExportVersion, type ExportSong } from './exportSong'
 import { finishAudio, encodeWav, encodeMp3, yieldToPage, type Stereo } from './exportEncode'
@@ -66,7 +68,10 @@ async function loadSong(songPath: string, version: ExportVersion): Promise<{ mid
   try {
     const resolved = await resolveToMidiBase64(songPath, r.base64, useStore.getState().libraryFolder ?? null)
     const bytes = base64ToBytes(resolved.base64)
-    const midi = parseMidiBuffer(bytes.buffer as ArrayBuffer, r.fileName)
+    // as it would open: empty bars at the start skipped when that's switched on
+    const st = useStore.getState()
+    const buf = bytes.buffer as ArrayBuffer
+    const midi = prepareSong(parseMidiBuffer(buf, r.fileName), { skip: st.skipEmptyBars, keepCountIn: st.keepDrumCountIn, correction: st.tempoCorrections[songKey(buf)] ?? null })
     // a song that isn't open plays as the file has it
     const tracks = midi.tracks.map(t => ({ index: t.index, program: t.program, muted: false, solo: false, volume: 1, pan: 0, reverb: 0, chorus: 0 })) as unknown as TrackState[]
     _loaded = { path: songPath, song: { midi, tracks } }
