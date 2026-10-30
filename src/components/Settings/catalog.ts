@@ -81,7 +81,7 @@ export const SETTINGS: SettingInfo[] = [
     description: t`The demo songs that come with Orfeo appear in your Library. Turn off to hide them — nothing is deleted.`,
     keywords: 'demo songs library hide' },
   { id: 'chordTranscription', group: 'midi-files-library', name: t`Chord Transcription`, summary: t`Make a chord chart PDF from any file in your Library.`,
-    description: t`Adds a transcript icon to every file in your Library — click it to create a chord chart PDF in the ORFEO folder.`,
+    description: t`Adds a transcript icon to every file in your Library — click it to create a chord chart PDF in the ORFEO folder. Charts number the bars as the file has them, so switching this on switches off Skip empty bars at the start.`,
     keywords: 'pdf chart transcript export' },
   // ── Playback & Editing
   { id: 'tapTempo', group: 'playback-editing', name: t`Tap Tempo`, summary: t`A TAP pad for fixing songs whose bar lines don't match the music.`,
@@ -94,7 +94,7 @@ export const SETTINGS: SettingInfo[] = [
     description: t`Clicks 1–4 bars at the song's tempo before Play, skipping empty bars at the start, so you come in on time. Also in the metronome's right-click menu.`,
     keywords: 'count in metronome click bars' },
   { id: 'skipEmptyBars', group: 'playback-editing', name: t`Skip empty bars at the start`, summary: t`Start every song where the music starts.`,
-    description: t`Songs that begin with silent bars open with the music on bar 1: the piano roll, bar numbers, playback, loops and step-through all start there. Your files are never changed — switch it off to see a song exactly as written. Keep drum count-ins keeps one or two bars of plain drum clicks before the music.`,
+    description: t`Songs that begin with silent bars open with the music on bar 1: the piano roll, bar numbers, playback, loops and step-through all start there. Your files are never changed — switch it off to see a song exactly as written. Keep drum count-ins keeps one or two bars of plain drum clicks before the music. Switching this on switches off Chord Transcription, whose charts number the bars as the file has them.`,
     keywords: 'empty bars silence lead-in intro start trim count-in skip' },
   { id: 'handAssignment', group: 'editing', name: t`Hand Assignment`, summary: t`Colours each piano note by the hand that plays it.`,
     description: t`Automatic hand assignment for piano that colours each note by the hand that plays it — a guideline, not a verified transcript. For an exact split, use the MIDI Note Editor's hand tool to assign notes to the left and right hand yourself.`,

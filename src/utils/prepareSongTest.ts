@@ -100,6 +100,18 @@ export function runPrepareSongTest(): number {
   check(eq(useStore.getState().tempoCorrections[onKey], inLead), `stored correction unchanged by an edit with the switch on: ${JSON.stringify(useStore.getState().tempoCorrections[onKey])}`)
   useStore.getState().setMidi(null)
 
+  // Never both on: Chord Transcription's charts number bars as the file has
+  // them, Skip empty bars renumbers from the music — switching one on
+  // switches the other off
+  useStore.setState({ skipEmptyBars: true, chordTranscriptionEnabled: false })
+  useStore.getState().setChordTranscriptionEnabled(true)
+  check(useStore.getState().chordTranscriptionEnabled && !useStore.getState().skipEmptyBars, 'Chord Transcription on → Skip empty bars off')
+  useStore.getState().setSkipEmptyBars(true)
+  check(useStore.getState().skipEmptyBars && !useStore.getState().chordTranscriptionEnabled, 'Skip empty bars on → Chord Transcription off')
+  useStore.getState().setChordTranscriptionEnabled(false)
+  check(useStore.getState().skipEmptyBars, 'switching one off leaves the other alone')
+  useStore.setState({ skipEmptyBars: false })
+
   console.log(`prepareSong: ${pass} passed, ${fail} failed`)
   console.groupEnd()
   return fail

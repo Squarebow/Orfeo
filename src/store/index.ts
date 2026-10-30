@@ -849,7 +849,9 @@ export const useStore = create<OrfeoStore>((set, get) => ({
   countInEnabled: false,
   setCountInEnabled: (countInEnabled) => set({ countInEnabled }),
   skipEmptyBars: false,
-  setSkipEmptyBars: (skipEmptyBars) => set({ skipEmptyBars }),
+  // never on together with Chord Transcription, whose charts number bars as
+  // the file has them (switching one on switches the other off)
+  setSkipEmptyBars: (skipEmptyBars) => set(skipEmptyBars ? { skipEmptyBars, chordTranscriptionEnabled: false } : { skipEmptyBars }),
   keepDrumCountIn: true,
   setKeepDrumCountIn: (keepDrumCountIn) => set({ keepDrumCountIn }),
   settingsWindowOpen: false,
@@ -938,7 +940,7 @@ export const useStore = create<OrfeoStore>((set, get) => ({
 
   // ── Chord Transcription — per-file PDF generation, persisted ─────────────
   chordTranscriptionEnabled: false,
-  setChordTranscriptionEnabled: (chordTranscriptionEnabled) => set({ chordTranscriptionEnabled }),
+  setChordTranscriptionEnabled: (chordTranscriptionEnabled) => set(chordTranscriptionEnabled ? { chordTranscriptionEnabled, skipEmptyBars: false } : { chordTranscriptionEnabled }),
 
   // ── Demo folder visibility — persisted, default visible ───────────────────
   hideDemoFolder: false,

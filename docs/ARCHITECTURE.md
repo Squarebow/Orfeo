@@ -505,6 +505,9 @@ handed to the store goes through `prepareSong` (`utils/prepareSong.ts`) in
   questions). Exports of songs that aren't open go through `prepareSong` too
   (`exportAudio.ts` `loadSong`). The chord transcript PDF and the chord-audit
   scripts read files as they are.
+  The store keeps `skipEmptyBars` and `chordTranscriptionEnabled` from being
+  on together (each setter switches the other off), so chart bar numbers
+  never disagree with the roll.
 
 ---
 
