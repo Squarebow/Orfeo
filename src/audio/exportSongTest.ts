@@ -67,6 +67,13 @@ export function runExportSongTest(): number {
   const at1 = r.events.filter(e => near(e.time, 1) && e.d1 === 60)
   check(at1.length === 2 && (at1[0].status & 0xf0) === 0x80, `off before on at the same time, got ${JSON.stringify(at1)}`)
 
+  // 6b. A part whose song volume moves: the channel multiplier is fader ÷ the song's first value
+  const mv: any = song(); mv.tracks[0].volumeEvents = [{ time: 0, value: 0.5 }, { time: 1, value: 0.25 }]
+  const v = buildExportSong(mv, states(mv, { 0: { volume: 0.4 } }), 'heard', heard())
+  check(near(v.channels[0]!.volume, 0.8) && v.channelTrack[0] === 0, `multiplier 0.4/0.5 = 0.8, got ${v.channels[0]?.volume}`)
+  const cc7 = v.events.filter(e => (e.status & 0xf0) === 0xb0 && e.d1 === 7).map(e => [e.time, e.d2])
+  check(JSON.stringify(cc7) === JSON.stringify([[0, 64], [1, 32]]), `song volume moves kept as written, got ${JSON.stringify(cc7)}`)
+
   // 7. File names
   check(exportFileName('Song', 'focus', 'mp3') === 'Song (Focus).mp3', 'focus file name')
   check(exportFileName('Song', 'heard', 'wav') === 'Song (As I hear it).wav', 'heard file name')

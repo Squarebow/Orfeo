@@ -11,9 +11,12 @@
 import type { ParsedMidi, ParsedTrack, TrackState } from '../types'
 import { focusRole } from '../utils/keyboardGroups'
 import { programTimeline } from './programTimeline'
+import { volumeRatio } from './songVolume'
 
 export type ExportVersion = 'original' | 'focus' | 'heard'
 export interface ExportEvent { time: number; track: number; status: number; d1: number; d2: number }
+// volume = the multiplier both engines put on the channel: the fader, or, when the
+// channel's song volume moves (channelTrack), fader ÷ its first value (songVolume.ts)
 export interface ExportChannel { volume: number; pan: number; reverb: number; chorus: number }
 export interface ExportMaster { gain: number; toneDb: number; comp: { enabled: boolean; preset: number } }
 export interface ExportSong {
@@ -121,6 +124,10 @@ export function buildExportSong(midi: ParsedMidi, tracks: TrackState[], version:
   for (const t of midi.tracks) {
     const ch = t.channel & 0x0f
     if (channelsUsed.has(ch) && t.volumeEvents?.length && channelTrack[ch] === null) channelTrack[ch] = t.index
+  }
+  for (let ch = 0; ch < 16; ch++) {
+    const c = channels[ch], owner = channelTrack[ch] !== null ? midi.tracks.find(t => t.index === channelTrack[ch]) : undefined
+    if (c && owner) channels[ch] = { ...c, volume: volumeRatio(owner, c.volume) }
   }
 
   return {
