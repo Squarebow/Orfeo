@@ -481,16 +481,23 @@ handed to the store goes through `prepareSong` (`utils/prepareSong.ts`) in
   `keepDrumCountIn` the last one or two click bars before it stay. Whole bars
   only; nothing happens unless a whole bar would go.
 - `trimSmfLead` (`utils/smfLead.ts`) cuts the song's bytes at that tick:
-  notes before it go, everything else (tempo, metre, key, programs,
-  controllers, names, meta) moves to tick 0. The song is parsed again from
+  notes before it go; programs, controllers, names and other set-up move to
+  tick 0. Of tempo, metre and key only the one in force at the cut is kept
+  (none if the music sets its own on the cut); text, lyrics, markers and cues
+  in the skipped bars go (those at tick 0 stay). `prepareSong` moves the cut
+  back to a note played up to 5 ms early for the first beat, and never lets a
+  track (e.g. a separate click track) end up empty — the parser numbers only
+  tracks with notes, and the main-process saves map those numbers onto the
+  file read from disk. The song is parsed again from
   those bytes, so GM (which plays `_raw`), Studio, Native, the roll, the bar
   grid, Count-in, chords and exports all see one shortened song.
 - The file's own bytes stay on the song as `_origRaw`, with `_leadTick` /
   `_leadSec`. `songKey` is always computed from `_origRaw`, so per-song data
   matches whether the switch is on or off. Tap Tempo corrections are stored
-  in the file's own seconds: `setMidi`/`reapplyCorrection` shift them by
-  `-_leadSec` (`shiftCorrection`), `setSongCorrection` shifts the open song's
-  back, and readers use `currentCorrection(state)`.
+  in the file's own seconds: `setMidi`/`reapplyCorrection` convert them with
+  `correctionToSong`, `setSongCorrection` converts the open song's back with
+  `correctionToFile` (segments in the skipped bars survive), and readers use
+  `currentCorrection(state)`.
 - Saves keep the lead-in: the main-process saves re-read the file from disk;
   the Note Editor's save rebuilds the original around the edited notes
   (`restoreLeadForSave`). Changing either switch with a song open re-reads it

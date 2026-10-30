@@ -11,7 +11,7 @@ import { detectKeyFromTracks, parseKeySignature } from '../utils/keyDetection'
 import { isKeyboardInstrument } from '../utils/gmInstruments'
 import { parseMidiBuffer } from '../utils/midiParser'
 import { songKey as computeSongKey } from '../utils/songIdentity'
-import { applyTempoCorrection, sanitizeCorrections, shiftCorrection, type SongTempoCorrection } from '../utils/tempoCorrection'
+import { applyTempoCorrection, sanitizeCorrections, correctionToSong, correctionToFile, type SongTempoCorrection } from '../utils/tempoCorrection'
 import { prepareSong } from '../utils/prepareSong'
 import { TRUST_VERSION, type TrustResult } from '../utils/tempoTrust'
 import { velocityDropRatio, suggestCompressorPreset } from '../utils/velocityAnalysis'
@@ -569,7 +569,7 @@ export const useStore = create<OrfeoStore>((set, get) => ({
     const key = raw ? computeSongKey(raw) : null
     const corr = key ? get().tempoCorrections[key] : undefined
     midi = prepareSong(midi, { skip: get().skipEmptyBars, keepCountIn: get().keepDrumCountIn, correction: corr ?? null })
-    if (corr) midi = applyTempoCorrection(midi, shiftCorrection(corr, -(midi._leadSec ?? 0)))
+    if (corr) midi = applyTempoCorrection(midi, correctionToSong(corr, midi._leadSec ?? 0))
     // ── Apply ORFEO_TRACK_NAME / ORFEO_TRACK_COLOR overrides from header meta ──
     const orfeoNames = (midi as any)._orfeoTrackNames as Record<number, string> | undefined
     const orfeoColors = (midi as any)._orfeoTrackColors as Record<number, string> | undefined
@@ -829,7 +829,7 @@ export const useStore = create<OrfeoStore>((set, get) => ({
     const next = { ...get().tempoCorrections }
     // the open song's correction arrives in song time: stored in the file's own
     const lead = key === get().songKey ? (get().midi?._leadSec ?? 0) : 0
-    if (c && c.segments.length > 0) next[key] = lead ? shiftCorrection(c, lead) : c; else delete next[key]
+    if (c && c.segments.length > 0) next[key] = lead ? correctionToFile(c, lead, get().tempoCorrections[key]) : c; else delete next[key]
     set({ tempoCorrections: next })
     if (key === get().songKey) get().reapplyCorrection()
   },
@@ -837,7 +837,7 @@ export const useStore = create<OrfeoStore>((set, get) => ({
     const { midi, songKey: key, tempoCorrections } = get()
     if (!midi || !key) return
     const c = tempoCorrections[key]
-    get().setBeatGrid(applyTempoCorrection(midi, c ? shiftCorrection(c, -(midi._leadSec ?? 0)) : null))
+    get().setBeatGrid(applyTempoCorrection(midi, c ? correctionToSong(c, midi._leadSec ?? 0) : null))
   },
   setBeatGrid: (midi) => set({ midi, barStarts: (midi as any)._barStarts ?? [] }),
   tapTempoPadEnabled: false,
@@ -1774,5 +1774,5 @@ export function currentCorrection(s: Pick<OrfeoStore, 'songKey' | 'tempoCorrecti
   const c = s.songKey ? s.tempoCorrections[s.songKey] : undefined
   if (!c) return null
   const lead = s.midi?._leadSec ?? 0
-  return lead ? shiftCorrection(c, -lead) : c
+  return lead ? correctionToSong(c, lead) : c
 }

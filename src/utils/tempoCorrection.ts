@@ -177,10 +177,35 @@ export function scaleCorrection(c: SongTempoCorrection, k: number): SongTempoCor
 }
 
 // Corrections are stored in the file's own seconds; a song opened with its
-// empty lead-in skipped runs `dt` earlier (prepareSong.ts). A segment that
-// starts inside the skipped bars starts at the new beginning.
-export function shiftCorrection(c: SongTempoCorrection, dt: number): SongTempoCorrection {
-  return { segments: c.segments.map(s => ({ ...s, start: Math.max(0, s.start + dt), anchor: s.anchor + dt })) }
+// empty lead-in skipped (prepareSong.ts) runs `lead` seconds earlier. Of the
+// segments starting inside the skipped bars, the one in force where the song
+// now starts stays, from 0; the others only shape the skipped bars.
+export function correctionToSong(c: SongTempoCorrection, lead: number): SongTempoCorrection {
+  if (!lead) return c
+  const segs = [...c.segments].sort((a, b) => a.start - b.start)
+  const live = segs.filter(s => s.start < lead).at(-1)
+  const out = segs.filter(s => s.start >= lead).map(s => ({ ...s, start: s.start - lead, anchor: s.anchor - lead }))
+  if (live) out.unshift({ ...live, start: 0, anchor: live.anchor - lead })
+  return { segments: out }
+}
+
+// …and back, for storing: `stored` is what's kept now, so the skipped bars'
+// segments survive, and a segment edited from the song's new start begins
+// where its stored one did. Unchanged segments come back exactly as stored.
+export function correctionToFile(c: SongTempoCorrection, lead: number, stored: SongTempoCorrection | null | undefined): SongTempoCorrection {
+  if (!lead) return c
+  const before = [...(stored?.segments ?? [])].filter(s => s.start < lead).sort((a, b) => a.start - b.start)
+  const live = before.at(-1)
+  const near = (a: number, b: number) => Math.abs(a - b) < 1e-6
+  const out = c.segments.map(s => {
+    const f = { ...s, start: s.start + lead, anchor: s.anchor + lead }
+    if (s.start <= EPS && live) f.start = live.start
+    const same = (stored?.segments ?? []).find(o => near(o.start, f.start) && near(o.anchor, f.anchor) && near(o.period, f.period)
+      && o.beatsPerBar === f.beatsPerBar && o.den === f.den && JSON.stringify(o.snap) === JSON.stringify(f.snap))
+    return same ?? f
+  })
+  const startsAtZero = c.segments.some(s => s.start <= EPS)
+  return { segments: [...(startsAtZero ? before.slice(0, -1) : before), ...out].sort((a, b) => a.start - b.start) }
 }
 
 // Saving a new version of a song (Tempo/Key save, Playback Editor) changes

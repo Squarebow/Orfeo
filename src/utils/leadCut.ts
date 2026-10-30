@@ -10,7 +10,7 @@ import type { ParsedMidi } from '../types'
 
 /** GM drum sounds that count as count-in clicks */
 export const CLICK_NOTES: ReadonlySet<number> = new Set([31, 33, 34, 37, 42, 44, 56, 75, 76, 77])
-const EARLY = 0.005        // a note a hair before a bar line belongs to that bar
+export const EARLY = 0.005 // a note a hair before a bar line belongs to that bar
 const TOGETHER = 0.03      // hits this close are one hit
 const ON_BEAT = 0.15       // of a beat: how far off the beat a click may land
 

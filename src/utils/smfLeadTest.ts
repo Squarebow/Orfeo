@@ -64,6 +64,42 @@ export function runSmfLeadTest(): number {
   check(JSON.stringify(back.header.tempos.map(t => [t.ticks, Math.round(t.bpm)])) === JSON.stringify(src.header.tempos.map(t => [t.ticks, Math.round(t.bpm)])), 'tempo map is the original')
   check(back.tracks[drumAt].notes.length === 2, 'drum click in the lead and the beat after both there')
 
+  // The tempo, metre and key in force where the music starts are the song's —
+  // not the lead-in's first ones (review: the key read C for a song in G)
+  {
+    const m = new Midi()
+    m.header.tempos.push({ ticks: 0, bpm: 100 }, { ticks: CUT, bpm: 140 })
+    m.header.timeSignatures.push({ ticks: 0, timeSignature: [3, 4] }, { ticks: CUT, timeSignature: [4, 4] })
+    ;(m.header as any).keySignatures.push({ ticks: 0, key: 'C', scale: 'major' }, { ticks: CUT, key: 'G', scale: 'major' })
+    m.header.update()
+    m.addTrack().addNote({ midi: 67, ticks: CUT, durationTicks: PPQ, velocity: 0.7 })
+    const a = m.toArray()
+    // @tonejs/midi writes key signatures wrongly: set C (0 sharps) and G (1 sharp) by hand
+    const sharps = [0, 1]
+    for (let i = 0; i + 4 < a.length; i++) if (a[i] === 0xff && a[i + 1] === 0x59 && a[i + 2] === 0x02) { a[i + 3] = sharps.shift() ?? 0; a[i + 4] = 0 }
+    const short = new Midi(trimSmfLead(a.buffer.slice(a.byteOffset, a.byteOffset + a.byteLength) as ArrayBuffer, CUT))
+    check(short.header.tempos.length === 1 && Math.round(short.header.tempos[0].bpm) === 140, `one tempo, the music's: ${short.header.tempos.map(t => Math.round(t.bpm))}`)
+    check(short.header.timeSignatures.length === 1 && short.header.timeSignatures[0].timeSignature[0] === 4, 'one metre, the music\'s')
+    check((short.header as any).keySignatures.length === 1 && (short.header as any).keySignatures[0].key === 'G', 'one key, the music\'s')
+  }
+
+  // Markers and lyrics in the skipped bars go; the ones from the music on stay
+  // in place — and a save puts every one back where it was
+  {
+    const m = new Midi()
+    m.header.tempos.push({ ticks: 0, bpm: 120 })
+    ;(m.header as any).meta.push({ type: 'marker', text: 'Intro', ticks: 960 }, { type: 'marker', text: 'Verse', ticks: CUT }, { type: 'marker', text: 'Chorus', ticks: CUT + 1920 })
+    m.header.update()
+    m.addTrack().addNote({ midi: 60, ticks: CUT, durationTicks: PPQ, velocity: 0.7 })
+    const a = m.toArray()
+    const raw = a.buffer.slice(a.byteOffset, a.byteOffset + a.byteLength) as ArrayBuffer
+    const marks = (x: Midi) => ((x.header as any).meta as any[]).filter(e => e.type === 'marker').map(e => e.text + '@' + e.ticks).join(',')
+    const short = new Midi(trimSmfLead(raw, CUT))
+    check(marks(short) === 'Verse@0,Chorus@1920', `markers after the cut: ${marks(short)}`)
+    const back = restoreLeadForSave(midiToEditableCopy(trimSmfLead(raw, CUT)), raw, CUT)
+    check(marks(back) === marks(new Midi(raw)), `markers back in place on save: ${marks(back)}`)
+  }
+
   // A real file (running status, several tracks): cut at bar 3, nothing lost after it
   for (const f of readdirSync('public/Demo').filter(n => /\.mid$/i.test(n))) {
     const r = readFileSync('public/Demo/' + f)

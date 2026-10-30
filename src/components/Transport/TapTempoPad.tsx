@@ -7,7 +7,7 @@ import Tooltip from '../Tooltip'
 import { ContextMenu, ContextMenuItem, ContextMenuDivider, useMenuDismiss } from '../ContextMenu'
 import { confirmDialog } from '../../utils/confirmController'
 import { useTapTempo } from '../../hooks/useTapTempo'
-import { describeCorrection, shiftCorrection } from '../../utils/tempoCorrection'
+import { describeCorrection, correctionToSong } from '../../utils/tempoCorrection'
 import { TempoWarning } from './TempoWarning'
 import { startCountIn } from '../../utils/countInRunner'
 import {
@@ -44,7 +44,7 @@ export function TapTempoPad() {
   // in song time: a song opened with its empty bars skipped runs earlier
   const storedCorrection = useStore((s) => (s.songKey ? s.tempoCorrections[s.songKey] : undefined))
   const lead = useStore((s) => s.midi?._leadSec ?? 0)
-  const correction = storedCorrection && lead ? shiftCorrection(storedCorrection, -lead) : storedCorrection
+  const correction = storedCorrection && lead ? correctionToSong(storedCorrection, lead) : storedCorrection
   const saved = describeCorrection(correction)
   const [menu, setMenu] = useState<{ x: number; y: number } | null>(null)
   const menuRef = useRef<HTMLDivElement>(null)
