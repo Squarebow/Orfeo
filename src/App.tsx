@@ -49,6 +49,7 @@ import { stepEvents } from './utils/stepThrough'
 import { useCountIn } from './hooks/useCountIn'
 import { CountInOverlay } from './components/CountInOverlay'
 import { useSupportNoteService } from './hooks/useSupportNote'
+import { isExporting } from './audio/exportAudio'
 import { SupportNote } from './components/SupportNote'
 
 export default function App() {
@@ -398,6 +399,8 @@ export default function App() {
           if (isTapCapturing()) { if (!e.repeat) registerTap(); break }
           // Space during a count-in stops it (nothing plays)
           if (isCountingIn()) { cancelCountIn(); break }
+          // An export pauses the song and keeps it paused until it finishes
+          if (isExporting()) break
           // An Explorer that paused the song keeps Space for itself
           if ((useStore.getState().chordExplorerOpen || useStore.getState().scaleExplorerOpen) && useStore.getState().explorerPausesPlayback) break
           if (playbackState === 'playing') pause()

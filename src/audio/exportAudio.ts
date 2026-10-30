@@ -22,6 +22,16 @@ export interface ExportOptions { songPath: string; songName: string; version: Ex
 // Studio engine times its notes on this thread) never waits on a long chunk
 const breathe = yieldToPage
 
+// ── An export pauses the song (as an Explorer does) and keeps Space from
+// restarting it until it's done: the export then never shares its time with playback
+let _exporting = 0
+export const isExporting = () => _exporting > 0
+export function pauseForExport(): void {
+  if (useStore.getState().playbackState !== 'playing') return
+  ;(window as any).__orfeoPlayer?.pause?.()
+  useStore.setState({ playbackState: 'paused' })
+}
+
 export class ExportError extends Error {
   constructor(public kind: 'unreadable' | 'empty' | 'failed', message: string = kind) { super(message) }
 }
@@ -91,6 +101,12 @@ async function studioBanks(soundfont: SoundfontId): Promise<ArrayBuffer[]> {
 
 /** Exports one song; resolves to the saved file's path, or null when cancelled */
 export async function exportToAudio(o: ExportOptions, onProgress: (stage: ExportStage, p: number) => void, isCancelled: () => boolean): Promise<string | null> {
+  pauseForExport()
+  _exporting++
+  try { return await runExport(o, onProgress, isCancelled) } finally { _exporting-- }
+}
+
+async function runExport(o: ExportOptions, onProgress: (stage: ExportStage, p: number) => void, isCancelled: () => boolean): Promise<string | null> {
   if (o.version === 'heard' && !isOpenSong(o.songPath)) throw new ExportError('failed', 'open the song first')
   const { midi, tracks } = await loadSong(o.songPath, o.version)
   const song = build(midi, tracks, o.version)

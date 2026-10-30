@@ -1,6 +1,6 @@
 import { useStore } from '../store'
 import { NES } from '../utils/noteEditorState'
-import { isOpenSong, previewExport } from './exportAudio'
+import { isOpenSong, previewExport, pauseForExport, isExporting } from './exportAudio'
 
 // The open song as Orfeo holds it, with an unsaved note edit in the editor
 function song(path: string, pitch: number) {
@@ -34,6 +34,17 @@ export async function runExportAudioTest(): Promise<number> {
   check(isOpenSong('D:\\Lib\\Tabs\\Riff.gp5'), 'an open Guitar Pro song counts as open from its Library entry')
 
   NES.dirty = false; NES.editMidi = null
+
+  // 3. An export pauses the song (the player too, as an Explorer does)
+  let playerPaused = false
+  ;(globalThis as any).window.__orfeoPlayer = { pause: () => { playerPaused = true } }
+  useStore.setState({ playbackState: 'playing' })
+  pauseForExport()
+  check(useStore.getState().playbackState === 'paused' && playerPaused, 'a playing song is paused for the export')
+  playerPaused = false
+  pauseForExport()
+  check(useStore.getState().playbackState === 'paused' && !playerPaused, 'a paused song is left as it is')
+  check(isExporting() === false, 'not exporting outside an export')
   console.log(`exportAudio: ${pass} passed, ${fail} failed`)
   console.groupEnd()
   return fail
