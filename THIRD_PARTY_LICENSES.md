@@ -103,6 +103,20 @@ THE SOFTWARE.
 
 ---
 
+## @breezystack/lamejs (LAME MP3 encoder)
+
+Used to encode MP3 files for Export to audio (320 kbps, 44.1 kHz, stereo).
+A JavaScript port of LAME.
+
+Repository: https://github.com/shijinyu/lamejs (fork of https://github.com/zhuker/lamejs)  
+LAME: https://lame.sourceforge.io
+
+License: GNU Lesser General Public License v3.0 (LGPL-3.0) —
+[full text](https://www.gnu.org/licenses/lgpl-3.0.html). Orfeo uses the
+library unmodified, as published on npm.
+
+---
+
 ## Native audio engine (Windows)
 
 Orfeo's *Native (beta)* sound engine (`native/`) plays sound sets with

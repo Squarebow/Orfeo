@@ -139,6 +139,7 @@
     }
   },
   "dependencies": {
+    "@breezystack/lamejs": "^1.2.7",
     "@coderline/alphatab": "^1.8.4",
     "@tonejs/midi": "^2.0.28",
     "electron-updater": "^6.8.9",
