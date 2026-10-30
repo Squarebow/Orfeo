@@ -3,13 +3,14 @@ import { autoUpdater } from 'electron-updater'
 import { join, basename, dirname, extname } from 'path'
 import { execFile } from 'child_process'
 import { readFileSync, writeFileSync, existsSync, readdirSync, createWriteStream, statSync } from 'fs'
-import { mkdir, access, copyFile, readdir, rename, rmdir } from 'fs/promises'
+import { mkdir, access, copyFile, readdir, rename, rmdir, writeFile } from 'fs/promises'
 import { Midi } from '@tonejs/midi'
 import { Chord, Note } from 'tonal'
 import PDFDocument from 'pdfkit'
 import { assignHands } from '../src/utils/handAssignment'
 import { buildHandExportHint, withHandSuffix, nameHandFromSuffix, parseHandMapMeta, RESTORED_CONFIDENCE } from '../src/utils/handMetadata'
 import { getGMGroup } from '../src/utils/gmInstruments'
+import { exportsDir, nextFreeName } from './exportName'
 import { KEYBOARD_GROUPS } from '../src/utils/keyboardGroups'
 import { nextOrfeoVersion, stripOrfeoSuffix } from '../src/utils/orfeoVersioning'
 import type { Hand } from '../src/types'
@@ -621,6 +622,20 @@ ipcMain.handle('fs:statFiles', async (_e, paths: string[]) => {
     try { const st = statSync(p); out.push({ path: p, size: st.size, mtime: Math.round(st.mtimeMs) }) } catch {}
   }
   return out
+})
+
+// ── Export to audio: writes the finished file to <library>/Orfeo/Exports,
+// never over an existing one (wx: two exports at once can't collide either)
+ipcMain.handle('export:save', async (_e, songPath: string, libraryFolder: string | null, fileName: string, bytes: Uint8Array) => {
+  const dir = exportsDir(libraryFolder, songPath)
+  await mkdir(dir, { recursive: true })
+  for (let tries = 0; tries < 50; tries++) {
+    const name = nextFreeName(new Set(await readdir(dir)), fileName)
+    const path = join(dir, name)
+    try { await writeFile(path, bytes, { flag: 'wx' }); return path }
+    catch (e: any) { if (e?.code !== 'EEXIST') throw e }
+  }
+  throw new Error('no free file name in Exports')
 })
 
 ipcMain.handle('fs:loadMidiFromPath', async (_e, filePath: string) => {
