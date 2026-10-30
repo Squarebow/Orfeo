@@ -611,9 +611,12 @@ drums — heard, hidden) and the rest (muted and hidden). Each track's mute and
 visibility are saved on the way in and restored on the way out; loading a
 song clears Focus.
 
-**Mute is a double switch.** `setTrackMuted` and `muteGroup` set
-`visible = !muted`; the eye (`visible`) can show a muted track again. Reflect
-on keyboard and the piano roll follow `visible`, and so does Step Through
+**Mute and the eye are separate.** Mute (`setTrackMuted`, `muteGroup`) is
+sound only; the eye (`visible`) alone decides what shows — a track can be
+heard but hidden (play along to a melody you don't want on the roll), or
+muted but shown. The piano roll and Reflect on keyboard follow `visible`;
+keys light during playback only for tracks that sound. Step Through follows
+both
 (`src/utils/stepThrough.ts`): only tracks that are both audible and visible
 make steps, so Focus's hidden bass and drums never land one.
 

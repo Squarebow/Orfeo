@@ -632,7 +632,7 @@ export default function PianoRoll() {
           const track    = nonEmptyEditTracks[i]
           const parsedIdx = parsedMidi?.tracks?.[i]?.index ?? i
           const ts = trackMap.get(parsedIdx)
-          if (!ts || !ts.visible || ts.muted) continue   // same gate as drawFrame
+          if (!ts || !ts.visible) continue   // same gate as drawFrame: the eye, not mute
           const color = parseInt((ts.color ?? '#e8a027').replace('#', ''), 16)
 
           for (const note of track.notes) {
@@ -1000,7 +1000,7 @@ export default function PianoRoll() {
           if (note.time + note.duration < visStart) continue
 
           const ts = trackMap.get(note.trackIndex)
-          if (ts && (!ts.visible || ts.muted)) continue
+          if (ts && !ts.visible) continue   // the eye decides what shows; mute is sound only
 
           const idx = (note.midi + transpose) - midiMin
           if (idx < 0 || idx >= totalKeys) continue

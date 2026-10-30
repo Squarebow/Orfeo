@@ -742,7 +742,7 @@ function TrackRow({
         <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-1)' }}>
           <IBtn onClick={onMute} active={track.muted}
             title={track.muted ? 'Unmute' : 'Mute'}
-            description={track.muted ? t`Unmute and show its notes` : t`Mute and hide its notes — the eye can still show them`}
+            description={track.muted ? t`Unmute audio` : t`Mute audio`}
             activeColor="var(--status-error)">
             <span style={{ fontSize: 'var(--text-xs)', fontWeight: 700, fontFamily: 'var(--font-mono)', lineHeight: 1 }}>M</span>
           </IBtn>

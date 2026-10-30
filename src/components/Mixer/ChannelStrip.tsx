@@ -430,7 +430,7 @@ export default function ChannelStrip({ trackIndex, locked, isDragging, onDragSta
         <IBtn
           onClick={() => useStore.getState().setTrackMuted(trackIndex, !muted)}
           active={muted} title={muted ? 'Unmute' : 'Mute'}
-          description={muted ? t`Unmute and show its notes` : t`Mute and hide its notes — the eye can still show them`}
+          description={muted ? t`Unmute audio` : t`Mute audio`}
           activeColor="var(--status-error)"
         >
           <span style={{ fontSize: 14, fontWeight: 700, fontFamily: 'var(--font-mono)', lineHeight: 1 }}>M</span>

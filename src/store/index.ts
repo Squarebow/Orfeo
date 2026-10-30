@@ -387,8 +387,7 @@ interface OrfeoStore {
   // ── Focus on/off for the loaded song (see focusRole, utils/keyboardGroups.ts) ──
   setTrackMuteFilter: (filtered: boolean) => void
   focusActive: boolean
-  // Mute is a double switch: muting also hides the track's notes, unmuting
-  // shows them again. The eye can still show a muted track afterwards.
+  // Mute is sound only; what shows on the roll and keyboard is the eye (visible)
   setTrackMuted: (index: number, muted: boolean) => void
 
   settingsGroupsCollapsed: Record<string, boolean>
@@ -655,7 +654,7 @@ export const useStore = create<OrfeoStore>((set, get) => ({
   updateTrack: (index, patch) =>
     set((s) => ({ tracks: s.tracks.map((t) => (t.index === index ? { ...t, ...patch } : t)) })),
   muteGroup: (group, muted) =>
-    set((s) => ({ tracks: s.tracks.map((t) => t.group === group ? { ...t, muted, visible: !muted } : t) })),
+    set((s) => ({ tracks: s.tracks.map((t) => t.group === group ? { ...t, muted } : t) })),
 
   keyboardSize: 73,
   keyboardMode: 'docked',
@@ -1004,7 +1003,7 @@ export const useStore = create<OrfeoStore>((set, get) => ({
     return { focusActive: false, tracks: s.tracks.map(t => ({ ...t, ...(snap?.get(t.index) ?? { muted: false, visible: true }) })) }
   }),
   setTrackMuted: (index, muted) =>
-    set((s) => ({ tracks: s.tracks.map((t) => (t.index === index ? { ...t, muted, visible: !muted } : t)) })),
+    set((s) => ({ tracks: s.tracks.map((t) => (t.index === index ? { ...t, muted } : t)) })),
 
   // ── Settings group collapse state — keyed by group id; true = collapsed.
   // All expanded by default so a fresh install's first Settings open shows
