@@ -1,77 +1,64 @@
 // ── Export to audio: the Studio sound ───────────────────────────────────────
-// Plays an ExportSong offline through its own Samples synth (spessasynth, the
-// same synth the Studio engine runs — never the live one, so playback is
-// untouched) and then the Studio master chain. Mixing mirrors the live engine:
-// applyTrackMix (CC7/11/10/91/93 per channel), song volume moves under the
-// fader (setChannelVolume / songVolume.ts), GeneralUser under any extra set.
-import { SpessaSynthProcessor, SoundBankLoader } from 'spessasynth_core'
+// The song through the Studio synth (exportStudioSynth.ts) and then the Studio
+// master chain. A song long enough is played in sections side by side, one
+// per processor core (exportStudio.worker.ts), and joined; a short one, a big
+// sound set, or a machine with few cores plays it in one go on this page.
 import type { ExportSong } from './exportSong'
-import { EXPORT_RATE, TAIL_SEC, yieldToPage, type Stereo } from './exportEncode'
+import { EXPORT_RATE, type Stereo } from './exportEncode'
+import { renderStudioSynth, planSections, joinSections } from './exportStudioSynth'
+import StudioWorker from './exportStudio.worker?worker&inline'
 import { COMPRESSOR_PRESETS, SAMPLES_BOOST, COMPRESSOR_RELEASE } from '../hooks/useSamplesEngine'
 
-const BLOCK = 128
-const YIELD_EVERY = EXPORT_RATE / 2   // let the UI breathe every ~0.5 s of audio
+const MAX_SECTIONS = 4
+const MIN_SECTION_SEC = 20            // shorter, and the lead-in each section plays first outweighs the gain
+const SECTIONS_MEMORY = 600e6         // each section loads its own copy of the sound sets
 
-const cc127 = (v: number) => Math.round(Math.max(0, Math.min(1, v)) * 127)
+const EMPTY: Stereo = { l: new Float32Array(0), r: new Float32Array(0), rate: EXPORT_RATE }
 
-/** The synth alone: 44.1 kHz, the song plus the 2 s tail. Empty when cancelled. */
-export async function renderStudioSynth(song: ExportSong, banks: ArrayBuffer[], onProgress?: (p: number) => void, isCancelled?: () => boolean): Promise<Stereo> {
-  const p = new SpessaSynthProcessor(EXPORT_RATE, { effectsEnabled: true, maxBufferSize: BLOCK })
-  // GeneralUser first; an extra sound set on top, as the live engine layers them
-  const ids = banks.map((_, i) => `bank${i}`)
-  banks.forEach((b, i) => p.soundBankManager.addSoundBank(SoundBankLoader.fromArrayBuffer(b), ids[i]))
-  if (ids.length > 1) p.soundBankManager.priorityOrder = [...ids].reverse()
-  await p.processorInitialized
+function sectionCount(song: ExportSong, banks: ArrayBuffer[]): number {
+  if (typeof Worker === 'undefined') return 1
+  const cores = navigator.hardwareConcurrency || 1
+  const bytes = banks.reduce((t, b) => t + b.byteLength, 0)
+  return Math.max(1, Math.min(MAX_SECTIONS, cores - 1, Math.floor(song.duration / MIN_SECTION_SEC), Math.floor(SECTIONS_MEMORY / Math.max(1, bytes))))
+}
 
-  // Starting mix, as applyTrackMix sends it
-  for (let ch = 0; ch < 16; ch++) {
-    const c = song.channels[ch]
-    p.controllerChange(ch, 91, c ? cc127(c.reverb) : 0)
-    p.controllerChange(ch, 93, c ? cc127(c.chorus) : 0)
-    if (!c) continue
-    p.controllerChange(ch, 7, cc127(c.volume))   // a channel with song volume moves gets its first one at time 0
-    p.controllerChange(ch, 10, Math.round(Math.max(0, Math.min(127, (c.pan + 1) * 63.5))))
-  }
-
-  const total = Math.round((song.duration + TAIL_SEC) * EXPORT_RATE)
-  const L = new Float32Array(total), R = new Float32Array(total)
-  const outs = Array.from({ length: 16 }, () => [new Float32Array(BLOCK), new Float32Array(BLOCK)])
-  const eL = new Float32Array(BLOCK), eR = new Float32Array(BLOCK)
-  const ev = song.events
-  let i = 0, sinceYield = 0
-  for (let frame = 0; frame < total; frame += BLOCK) {
-    if (isCancelled?.()) return { l: new Float32Array(0), r: new Float32Array(0), rate: EXPORT_RATE }
-    const t = frame / EXPORT_RATE
-    while (i < ev.length && ev[i].time <= t) {
-      const { status, d1, d2 } = ev[i++]
-      const kind = status & 0xf0, ch = status & 0x0f
-      if (kind === 0x90) p.noteOn(ch, d1, d2)
-      else if (kind === 0x80) p.noteOff(ch, d1)
-      else if (kind === 0xc0) p.programChange(ch, d1)
-      else if (kind === 0xb0) {
-        // the song's volume moves play under the fader (volumeAt)
-        const c = song.channels[ch]
-        p.controllerChange(ch, d1 as any, d1 === 7 && c ? cc127(d2 / 127 * c.volume) : d2)
+/** The synth in sections, side by side; rejects if a section can't be played */
+function renderSections(song: ExportSong, banks: ArrayBuffer[], parts: number, onProgress?: (p: number) => void, isCancelled?: () => boolean): Promise<Stereo> {
+  const sections = planSections(song, parts)
+  const total = sections[sections.length - 1].end
+  const work = sections.map(s => s.end - s.from)
+  const workAll = work.reduce((t, w) => t + w, 0)
+  const progress = new Array(parts).fill(0)
+  const results: Stereo[] = []
+  let left = parts
+  const workers = sections.map(() => new StudioWorker())
+  return new Promise((resolve, reject) => {
+    const stop = () => { clearInterval(watch); for (const w of workers) w.terminate() }
+    const watch = setInterval(() => { if (isCancelled?.()) { stop(); resolve(EMPTY) } }, 100)
+    workers.forEach((w, k) => {
+      w.onmessage = (e: MessageEvent) => {
+        if (typeof e.data.progress === 'number') {
+          progress[k] = e.data.progress
+          onProgress?.(progress.reduce((t, p, j) => t + p * work[j], 0) / workAll)
+          return
+        }
+        results[k] = { l: e.data.l, r: e.data.r, rate: EXPORT_RATE }
+        if (--left === 0) { stop(); onProgress?.(1); resolve(joinSections(results, sections, total)) }
       }
-    }
-    const n = Math.min(BLOCK, total - frame)
-    for (const o of outs) { o[0].fill(0); o[1].fill(0) }
-    eL.fill(0); eR.fill(0)
-    p.processSplit(outs, eL, eR, 0, n)
-    for (let k = 0; k < n; k++) {
-      let l = eL[k], r = eR[k]
-      for (const o of outs) { l += o[0][k]; r += o[1][k] }
-      L[frame + k] = l; R[frame + k] = r
-    }
-    sinceYield += n
-    if (sinceYield >= YIELD_EVERY) {
-      sinceYield = 0
-      onProgress?.(Math.min(1, (frame + n) / total))
-      await yieldToPage()
-    }
+      w.onerror = (e: ErrorEvent) => { stop(); reject(new Error(e.message || 'a section could not be played')) }
+      w.postMessage({ song, banks, section: sections[k] })
+    })
+  })
+}
+
+/** The synth alone: in sections when it helps, else in one go (also if sections fail) */
+async function renderStudioDry(song: ExportSong, banks: ArrayBuffer[], onProgress?: (p: number) => void, isCancelled?: () => boolean): Promise<Stereo> {
+  const parts = sectionCount(song, banks)
+  if (parts > 1) {
+    try { return await renderSections(song, banks, parts, onProgress, isCancelled) }
+    catch (e) { console.warn('[export] sections failed, playing in one go:', e) }
   }
-  onProgress?.(1)
-  return { l: L, r: R, rate: EXPORT_RATE }
+  return renderStudioSynth(song, banks, onProgress, isCancelled)
 }
 
 const dbToGain = (db: number) => Math.pow(10, db / 20)
@@ -79,7 +66,7 @@ const dbToGain = (db: number) => Math.pow(10, db / 20)
 /** Synth + the Studio master chain (gain → tone → compressor → safety limiter),
  *  in an OfflineAudioContext with the same node settings as initSamplesEngine */
 export async function renderStudio(song: ExportSong, banks: ArrayBuffer[], onProgress?: (p: number) => void, isCancelled?: () => boolean): Promise<Stereo> {
-  let dry: Stereo | null = await renderStudioSynth(song, banks, onProgress, isCancelled)
+  let dry: Stereo | null = await renderStudioDry(song, banks, onProgress, isCancelled)
   if (!dry.l.length) return dry
   const ctx = new OfflineAudioContext(2, dry.l.length, EXPORT_RATE)
   const buf = ctx.createBuffer(2, dry.l.length, EXPORT_RATE)
@@ -104,7 +91,13 @@ export async function renderStudio(song: ExportSong, banks: ArrayBuffer[], onPro
   const safety = ctx.createDynamicsCompressor()
   safety.threshold.value = -1; safety.ratio.value = 20; safety.knee.value = 0
   safety.attack.value = 0.001; safety.release.value = 0.05
-  src.connect(gain); gain.connect(tone); tone.connect(makeup); makeup.connect(comp); comp.connect(safety); safety.connect(ctx.destination)
+  // Tone at 0 dB and the compressor off pass the sound through untouched (as the
+  // live engine keeps them wired); here they're left out, which renders faster
+  const chain: AudioNode[] = [src, gain]
+  if (song.master.toneDb !== 0) chain.push(tone)
+  if (preset) chain.push(makeup, comp)
+  chain.push(safety, ctx.destination)
+  for (let k = 1; k < chain.length; k++) chain[k - 1].connect(chain[k])
   src.start()
   const out = await ctx.startRendering()
   return { l: out.getChannelData(0), r: out.getChannelData(1), rate: EXPORT_RATE }

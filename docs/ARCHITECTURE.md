@@ -611,11 +611,21 @@ behind the `exportAudioEnabled` setting.
   multiplier (fader, or fader ÷ the first song CC7 — `volumeRatio`). A future
   keyboard recording only has to arrive as a parsed song.
 - **Studio** — `renderStudio` (`exportStudio.ts`): a fresh
-  `SpessaSynthProcessor` (spessasynth_core, never the live synth) fed the
-  events in 128-frame blocks, mixed as `applyTrackMix` / `setChannelVolume`
+  `SpessaSynthProcessor` (spessasynth_core, never the live synth;
+  `exportStudioSynth.ts`) fed the events in 128-frame blocks (block size
+  shapes the sound — keep it), mixed as `applyTrackMix` / `setChannelVolume`
   do, then the Samples master chain (gain × `SAMPLES_BOOST` → 3 kHz shelf →
-  makeup → compressor preset → safety limiter) in an `OfflineAudioContext`.
-  Imported on demand to keep spessasynth out of the startup bundle.
+  makeup → compressor preset → safety limiter) in an `OfflineAudioContext`;
+  a 0 dB shelf and an off compressor are left out (both are pass-through).
+  A song of 40 s or more is played in up to four sections side by side, one
+  Web Worker each (`exportStudio.worker.ts`, inlined): `planSections` starts
+  each section early enough that every note sounding at its join plays from
+  its own note-on (sustain pedal followed) plus a 4 s lead-in for the
+  reverb, sets the reverb's and chorus's modulation phase to where it would
+  be at that sample, and `joinSections` blends the joins over 50 ms — joins
+  match a one-go render to below −60 dB. If a worker fails it falls back to
+  one go on the page. Imported on demand to keep spessasynth out of the
+  startup bundle.
 - **Native** — `render_offline` (`native/orfeo-audio/src/offline.rs`): a fresh
   FluidSynth through the same parts as the live audio thread (CC7 × strip,
   per-preset reverb/chorus sends, plate reverb, chorus, master gain ×
