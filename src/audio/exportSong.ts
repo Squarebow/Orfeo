@@ -30,7 +30,9 @@ export interface ExportSong {
 }
 export interface HeardState { tempoRatio: number; transpose: number; master: ExportMaster; loop: { start: number; end: number } | null }
 
-const NEUTRAL_MASTER: ExportMaster = { gain: 1, toneDb: 0, comp: { enabled: false, preset: 0 } }
+// Original and Focus play as default playback does: master volume 0.8 (the
+// store's default), flat tone, no compressor
+const NEUTRAL_MASTER: ExportMaster = { gain: 0.8, toneDb: 0, comp: { enabled: false, preset: 0 } }
 const MIN_NOTE = 0.04   // as the engines: a note is never shorter than 40 ms
 
 // The file's own mix for a track (what the Tracks panel starts from, makeTrackState)

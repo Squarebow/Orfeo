@@ -627,7 +627,7 @@ ipcMain.handle('fs:statFiles', async (_e, paths: string[]) => {
 // ── Export to audio: writes the finished file to <library>/Orfeo/Exports,
 // never over an existing one (wx: two exports at once can't collide either)
 ipcMain.handle('export:save', async (_e, songPath: string, libraryFolder: string | null, fileName: string, bytes: Uint8Array) => {
-  const dir = exportsDir(libraryFolder, songPath)
+  const dir = exportsDir(libraryFolder, app.getPath('music'))
   await mkdir(dir, { recursive: true })
   for (let tries = 0; tries < 50; tries++) {
     const name = nextFreeName(new Set(await readdir(dir)), fileName)

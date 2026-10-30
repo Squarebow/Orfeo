@@ -33,7 +33,10 @@ export function pauseForExport(): void {
 }
 
 export class ExportError extends Error {
-  constructor(public kind: 'unreadable' | 'empty' | 'failed', message: string = kind) { super(message) }
+  // unreadable: the file can't be read · empty: no notes · silent: notes, but nothing
+  // audible came out · soundset: the chosen sound set isn't there any more ·
+  // failed: anything else (the message is the technical detail, for the log)
+  constructor(public kind: 'unreadable' | 'empty' | 'silent' | 'soundset' | 'failed', message: string = kind) { super(message) }
 }
 
 // Windows paths: either slash, any letter case
@@ -56,6 +59,8 @@ async function loadSong(songPath: string, version: ExportVersion): Promise<{ mid
     const midi = (version === 'heard' && NES.dirty && NES.editMidi ? NES.editMidi : s.midi) as unknown as ParsedMidi
     return { midi, tracks: s.tracks }
   }
+  // read once per window: switching versions doesn't re-read the file
+  if (_loaded && samePath(_loaded.path, songPath)) return _loaded.song
   const r = await window.electronAPI.loadMidiFromPath(songPath)
   if (!r) throw new ExportError('unreadable')
   try {
@@ -64,9 +69,13 @@ async function loadSong(songPath: string, version: ExportVersion): Promise<{ mid
     const midi = parseMidiBuffer(bytes.buffer as ArrayBuffer, r.fileName)
     // a song that isn't open plays as the file has it
     const tracks = midi.tracks.map(t => ({ index: t.index, program: t.program, muted: false, solo: false, volume: 1, pan: 0, reverb: 0, chorus: 0 })) as unknown as TrackState[]
-    return { midi, tracks }
+    _loaded = { path: songPath, song: { midi, tracks } }
+    return _loaded.song
   } catch { throw new ExportError('unreadable') }
 }
+let _loaded: { path: string; song: { midi: ParsedMidi; tracks: TrackState[] } } | null = null
+/** The window closed: the next one reads the file afresh */
+export function forgetLoadedSong() { _loaded = null }
 
 /** What would play for this version — for the window's notes (no keys part, nothing to export) */
 export async function previewExport(songPath: string, version: ExportVersion): Promise<ExportSong> {
@@ -90,13 +99,22 @@ function build(midi: ParsedMidi, tracks: TrackState[], version: ExportVersion): 
 
 async function studioBanks(soundfont: SoundfontId): Promise<ArrayBuffer[]> {
   const res = await fetch(new URL('./GeneralUser-GS.sf2', location.href).href)
-  if (!res.ok) throw new ExportError('failed', `sound set not found (${res.status})`)
+  if (!res.ok) throw new ExportError('failed', `built-in sound set not found (${res.status})`)
   const banks = [await res.arrayBuffer()]
   if (soundfont !== 'generaluser-gs') {
     const extra = await window.electronAPI.readSoundfont(soundfont)
-    if (extra) banks.push(extra)
+    if (!extra) throw new ExportError('soundset')
+    banks.push(extra)
   }
   return banks
+}
+
+/** The finished audio, or why there is none: the version has notes (checked
+ *  before playing), so an all-silent result means nothing could be heard */
+export function finishOrExplain(dry: Stereo, songDuration: number): Stereo {
+  const finished = finishAudio(dry, songDuration)
+  if (!finished.l.length) throw new ExportError('silent')
+  return finished
 }
 
 /** Exports one song; resolves to the saved file's path, or null when cancelled */
@@ -116,12 +134,16 @@ async function runExport(o: ExportOptions, onProgress: (stage: ExportStage, p: n
   let dry: Stereo
   try {
     if (o.sound === 'native') {
+      const extra = o.soundfont !== 'generaluser-gs'
+      const paths = await window.electronAPI.nativeSoundfontPaths(extra ? o.soundfont : null)
+      // the extra set comes on top of the built-in one: missing = not installed any more
+      if (extra && paths.length < 2) throw new ExportError('soundset')
       const { renderNative } = await import('./exportNative')
-      const paths = await window.electronAPI.nativeSoundfontPaths(o.soundfont === 'generaluser-gs' ? null : o.soundfont)
       dry = await renderNative(song, paths, p => onProgress('render', p), isCancelled)
     } else {
+      const banks = await studioBanks(o.soundfont)
       const { renderStudio } = await import('./exportStudio')
-      dry = await renderStudio(song, await studioBanks(o.soundfont), p => onProgress('render', p), isCancelled)
+      dry = await renderStudio(song, banks, p => onProgress('render', p), isCancelled)
     }
   } catch (e: any) {
     if (e instanceof ExportError) throw e
@@ -130,8 +152,7 @@ async function runExport(o: ExportOptions, onProgress: (stage: ExportStage, p: n
   if (isCancelled() || !dry.l.length) return null
 
   await breathe()
-  const finished = finishAudio(dry, song.duration)
-  if (!finished.l.length) throw new ExportError('empty')
+  const finished = finishOrExplain(dry, song.duration)
   onProgress('encode', 0)
   await breathe()
   const bytes = o.format === 'mp3'

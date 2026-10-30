@@ -1,6 +1,9 @@
 import { useStore } from '../store'
 import { NES } from '../utils/noteEditorState'
-import { isOpenSong, previewExport, pauseForExport, isExporting } from './exportAudio'
+import { readFileSync } from 'node:fs'
+import * as EA from './exportAudio'
+const { isOpenSong, previewExport, pauseForExport, isExporting, exportToAudio, ExportError } = EA
+const finishOrExplain = EA.finishOrExplain
 
 // The open song as Orfeo holds it, with an unsaved note edit in the editor
 function song(path: string, pitch: number) {
@@ -45,6 +48,32 @@ export async function runExportAudioTest(): Promise<number> {
   pauseForExport()
   check(useStore.getState().playbackState === 'paused' && !playerPaused, 'a paused song is left as it is')
   check(isExporting() === false, 'not exporting outside an export')
+  // 4. A song that isn't open is read once per window, not on every version switch
+  const demo = readFileSync('public/Demo/Scott Joplin - Entertainer.mid')
+  let reads = 0
+  const api: any = (globalThis as any).window.electronAPI = {
+    loadMidiFromPath: async () => { reads++; return { fileName: 'Entertainer.mid', base64: demo.toString('base64') } },
+    readSoundfont: async () => null,
+    nativeSoundfontPaths: async () => ['GeneralUser-GS.sf2'],
+  }
+  const other = 'D:\\Lib\\Entertainer.mid'
+  await previewExport(other, 'original'); await previewExport(other, 'focus'); await previewExport(other, 'original')
+  check(reads === 1, `read once for three version switches, read ${reads} times`)
+
+  // 5. A sound set that isn't there any more is reported, not quietly swapped for another
+  ;(globalThis as any).fetch = async () => ({ ok: true, arrayBuffer: async () => new ArrayBuffer(8) })
+  ;(globalThis as any).location = { href: 'http://localhost/' }
+  const kindOf = async (o: any) => { try { await exportToAudio({ songPath: other, songName: 'x', version: 'original', format: 'wav', ...o }, () => {}, () => false); return 'none' } catch (e: any) { return e instanceof ExportError ? e.kind : 'other: ' + e.message } }
+  check(await kindOf({ sound: 'studio', soundfont: 'fluidr3-gm' }) === 'soundset', 'Studio: missing sound set → told, not swapped')
+  check(await kindOf({ sound: 'native', soundfont: 'fluidr3-gm' }) === 'soundset', 'Native: missing sound set → told, not swapped')
+  void api
+
+  // 6. Notes, but nothing audible came out (master volume at zero, every part muted)
+  const silent = { l: new Float32Array(44100), r: new Float32Array(44100), rate: 44100 }
+  let kind = ''
+  try { finishOrExplain(silent, 1) } catch (e: any) { kind = e?.kind }
+  check(kind === 'silent', `silence → "silent", got "${kind}"`)
+
   console.log(`exportAudio: ${pass} passed, ${fail} failed`)
   console.groupEnd()
   return fail

@@ -4,7 +4,6 @@
 // level for the file, no clipping). The formats are fixed, no options:
 //   WAV — 44.1 kHz, 16-bit, stereo, uncompressed PCM (CD quality)
 //   MP3 — 320 kbps constant bitrate, 44.1 kHz, stereo, LAME encoder
-import { createMp3Encoder } from 'wasm-media-encoders'
 
 export interface Stereo { l: Float32Array; r: Float32Array; rate: number }
 
@@ -71,6 +70,8 @@ export function encodeWav(a: Stereo): Uint8Array {
  *  turn in between; empty when cancelled */
 export async function encodeMp3(a: Stereo, onProgress?: (p: number) => void, isCancelled?: () => boolean): Promise<Uint8Array> {
   if (a.rate !== EXPORT_RATE) throw new Error(`MP3 export expects ${EXPORT_RATE} Hz`)
+  // loaded on first use: the encoder never weighs on Orfeo's start-up
+  const { createMp3Encoder } = await import('wasm-media-encoders')
   const enc = await createMp3Encoder()
   enc.configure({ sampleRate: a.rate, channels: 2, bitrate: MP3_KBPS })
   const n = a.l.length

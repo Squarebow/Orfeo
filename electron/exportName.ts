@@ -2,12 +2,12 @@
 // One Exports folder inside the Library's main Orfeo folder; a name already
 // there gets " (2)", " (3)"… (Windows names ignore case), so an export never
 // overwrites another.
-import { basename, dirname, extname, join } from 'path'
+import { extname, join } from 'path'
 
-export function exportsDir(libraryFolder: string | null, songPath: string): string {
-  if (libraryFolder) return join(libraryFolder, 'Orfeo', 'Exports')
-  const dir = dirname(songPath)
-  return basename(dir).toLowerCase() === 'orfeo' ? join(dir, 'Exports') : join(dir, 'Orfeo', 'Exports')
+// With no Library set (the demo songs), the Music folder: somewhere you can find
+// it, never the app's own hidden data folder
+export function exportsDir(libraryFolder: string | null, musicFolder: string): string {
+  return join(libraryFolder ?? musicFolder, 'Orfeo', 'Exports')
 }
 
 export function nextFreeName(existing: Set<string>, fileName: string): string {

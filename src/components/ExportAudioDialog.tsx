@@ -13,7 +13,7 @@ import { useFocusTrap } from '../hooks/useFocusTrap'
 import { modalCloseButtonStyle, modalCloseButtonHoverColor, modalCloseButtonIdleColor } from '../utils/modalCloseButtonStyle'
 import { SettingsDropdown } from './Settings/controls'
 import { useSoundfontState, allSoundfonts } from '../hooks/useSoundfonts'
-import { exportToAudio, previewExport, isOpenSong, ExportError, type ExportSound, type ExportFormat, type ExportStage } from '../audio/exportAudio'
+import { exportToAudio, previewExport, isOpenSong, forgetLoadedSong, ExportError, type ExportSound, type ExportFormat, type ExportStage } from '../audio/exportAudio'
 import type { ExportVersion } from '../audio/exportSong'
 
 const NATIVE_AVAILABLE = navigator.userAgent.includes('Windows')
@@ -99,7 +99,7 @@ export default function ExportAudioDialog({ path, name, onClose }: { path: strin
     return () => { live = false }
   }, [path, version])
 
-  const close = () => { cancelled.current = true; onClose() }
+  const close = () => { cancelled.current = true; forgetLoadedSong(); onClose() }
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') close() }
     window.addEventListener('keydown', onKey)
@@ -115,9 +115,15 @@ export default function ExportAudioDialog({ path, name, onClose }: { path: strin
       if (saved) setPhase({ k: 'done', path: saved })
       else setPhase({ k: 'choose' })
     } catch (e: any) {
-      const message = e instanceof ExportError && e.kind === 'unreadable' ? t`Couldn't read this song.`
-        : e instanceof ExportError && e.kind === 'empty' ? t`Nothing to export — the chosen version has no notes.`
-        : t`Export failed: ${String(e?.message ?? e)}`
+      // words for the musician; the technical detail goes to the log
+      console.error('[Orfeo] export failed:', e)
+      const kind = e instanceof ExportError ? e.kind : 'failed'
+      const message = kind === 'unreadable' ? t`Couldn't read this song.`
+        : kind === 'empty' ? t`Nothing to export — the chosen version has no notes.`
+        : kind === 'silent' ? t`The export came out silent — check the master volume and the muted parts.`
+        : kind === 'soundset' ? t`That sound set isn't installed any more — choose another one.`
+        : sound === 'native' ? t`Something went wrong while exporting. Try again, or choose Studio.`
+        : t`Something went wrong while exporting. Try again, or choose Native.`
       setPhase({ k: 'error', message })
     }
   }
@@ -181,7 +187,8 @@ export default function ExportAudioDialog({ path, name, onClose }: { path: strin
               <button type="button" style={button(true)} onClick={close}>{t`Close`}</button>
             </>
           ) : working ? (
-            <button type="button" style={button(false)} onClick={() => { cancelled.current = true }}>{t`Cancel`}</button>
+            // saving takes a moment and can't be undone halfway: Cancel waits it out
+            <button type="button" style={{ ...button(false), opacity: phase.stage === 'save' ? 0.5 : 1 }} disabled={phase.stage === 'save'} onClick={() => { cancelled.current = true }}>{t`Cancel`}</button>
           ) : (
             <>
               <button type="button" style={button(false)} onClick={close}>{t`Cancel`}</button>

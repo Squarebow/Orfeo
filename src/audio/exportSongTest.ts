@@ -30,7 +30,7 @@ export function runExportSongTest(): number {
   const o = buildExportSong(m, states(m, { 0: { volume: 0.2, muted: true } }), 'original')
   check(ons(o).length === 4, `original keeps all 4 notes, got ${ons(o).length}`)
   check(near(o.channels[0]!.volume, 0.9) && near(o.channels[0]!.pan, -0.5) && near(o.channels[0]!.reverb, 0.3), `original uses the file's mix, got ${JSON.stringify(o.channels[0])}`)
-  check(JSON.stringify(o.master) === JSON.stringify({ gain: 1, toneDb: 0, comp: { enabled: false, preset: 0 } }), `original master is neutral, got ${JSON.stringify(o.master)}`)
+  check(JSON.stringify(o.master) === JSON.stringify({ gain: 0.8, toneDb: 0, comp: { enabled: false, preset: 0 } }), `original master = default playback (volume 0.8, flat, no compressor), got ${JSON.stringify(o.master)}`)
   check(near(o.duration, 1.5), `duration = last note-off (1.5 s), got ${o.duration}`)
 
   // 2. Focus: no guitar; keys and drums stay

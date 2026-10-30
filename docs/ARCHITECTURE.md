@@ -629,7 +629,7 @@ behind the `exportAudioEnabled` setting.
   MP3 320 kbps CBR 44.1 kHz stereo (LAME compiled to WebAssembly, `wasm-media-encoders`),
   encoded a second of audio at a time so the page keeps breathing.
 - **Saving** — IPC `export:save` writes `<library>/Orfeo/Exports/<name>`
-  (`exportsDir`, no library → the song's own Orfeo folder) with `wx`, the next
+  (`exportsDir`; no library → the Music folder, `Orfeo/Exports`) with `wx`, the next
   free `… (2)` name on a clash (`nextFreeName`).
 
 ---
