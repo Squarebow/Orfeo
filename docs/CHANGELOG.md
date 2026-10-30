@@ -8,6 +8,7 @@
 ## [Unreleased]
 
 ### New
+- **Export to audio** (Settings › Audio, off until you switch it on). Right-click any song in the Library and choose *Export to audio…* to save it as a file to listen to anywhere. Pick the version: *Original* (the song as written), *Focus* (keys, bass and drums only) or *As I hear it* (your tempo, key, muted parts, Mixer and loop, for the song you have open). Then pick the sound, Studio or Native, with any of your sound sets. The format is MP3 (320 kbps, 44.1 kHz stereo) or WAV (44.1 kHz, 16-bit stereo, CD quality). Every file starts at the first note, rings out for 2 seconds after the last one and is levelled so it never clips. Files go to the *Exports* folder inside your Library's *Orfeo* folder and never overwrite an earlier export. Exporting doesn't interrupt the song that's playing, and *Cancel* stops it at any time.
 - **Hand colours** (Settings › Appearance). Choose the colours for your left and right hand on the piano roll, the keyboard and the split preview. Pick a ready-made pair (*Bright*, *Sky* and *Mint* stay easy to tell apart with colour blindness) or any two colours of your own. A note warns when the two hands look too alike. *Back to Orfeo's colours* restores the defaults. Piano tracks switch to your hand colours straight away, in the open song too. The Hand Assignment card links straight to it.
 
 ### Changed

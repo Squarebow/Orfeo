@@ -63,6 +63,9 @@ telemetry; MIDI files are processed entirely on your device.
   file on close); master Tone and Compressor
 - **Focus Mode** — one click to hear keys, bass and drums but see only the keys;
   click again and every track comes back as it was
+- **Export to audio** — save any song as MP3 (320 kbps) or WAV (CD quality):
+  as written, keys + bass + drums only, or exactly as you hear it (tempo, key,
+  muted parts, Mixer, loop), with the Studio or Native sound
 - **Presentation Mode** (`F11`) — distraction-free view of just the roll and
   keyboard
 

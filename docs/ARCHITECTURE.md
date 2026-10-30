@@ -26,6 +26,7 @@ feature list see the [README](../README.md).
 - [Hand-assignment engine](#hand-assignment-engine)
 - [Hand colours, track colours and Focus](#hand-colours-track-colours-and-focus)
 - [MIDI Note Editor — edit state](#midi-note-editor--edit-state)
+- [Export to audio](#export-to-audio)
 - [Piano-roll hit effects](#piano-roll-hit-effects)
 - [Auto-update](#auto-update)
 - [Note-naming systems](#note-naming-systems)
@@ -591,6 +592,45 @@ A `disposed` flag set by the effect's cleanup stops a setup that finishes
 after its cleanup — which React's development double-run produces — from
 building a second, invisible roll; the cleanup also removes the window key
 listener.
+
+---
+
+## Export to audio
+
+Library right-click → `ExportAudioDialog` → `exportToAudio` (`src/audio/exportAudio.ts`),
+behind the `exportAudioEnabled` setting.
+
+- **What plays** — `buildExportSong` (`src/audio/exportSong.ts`) turns a parsed
+  song + a version into an `ExportSong`: time-sorted events in seconds (notes,
+  pedal, song CC7/CC11, program switches — the content `sendSong()` sends the
+  live Native engine), each channel's mix and the master settings. *original*
+  = the file as written; *focus* = `focusRole` keys/rhythm tracks; *heard* =
+  mutes/solo, tempo ratio, transpose (drums excluded), panel instruments,
+  Mixer, master volume/tone/compressor (`masterKnobs()` in `engine.ts`), the
+  active loop region. `ExportChannel.volume` is the engines' channel
+  multiplier (fader, or fader ÷ the first song CC7 — `volumeRatio`). A future
+  keyboard recording only has to arrive as a parsed song.
+- **Studio** — `renderStudio` (`exportStudio.ts`): a fresh
+  `SpessaSynthProcessor` (spessasynth_core, never the live synth) fed the
+  events in 128-frame blocks, mixed as `applyTrackMix` / `setChannelVolume`
+  do, then the Samples master chain (gain × `SAMPLES_BOOST` → 3 kHz shelf →
+  makeup → compressor preset → safety limiter) in an `OfflineAudioContext`.
+  Imported on demand to keep spessasynth out of the startup bundle.
+- **Native** — `render_offline` (`native/orfeo-audio/src/offline.rs`): a fresh
+  FluidSynth through the same parts as the live audio thread (CC7 × strip,
+  per-preset reverb/chorus sends, plate reverb, chorus, master gain ×
+  `NATIVE_BOOST` → compressor → safety → tone; no auto-level, clicks or live
+  bus). The add-on's `OfflineRender` runs it on its own thread; the audio host
+  polls `progress()`/`take()` and posts the result (copied — a main-process
+  MessagePort only transfers ports). Keep `offline.rs` in step with the
+  audio thread's mix.
+- **Finishing** — `exportEncode.ts`: from the first sound to 2 s after the
+  last note-off, peak-normalised to −1 dBFS. WAV 44.1 kHz/16-bit/stereo PCM;
+  MP3 320 kbps CBR 44.1 kHz stereo (`@breezystack/lamejs`, LGPL-3.0),
+  encoded a second of audio at a time so the page keeps breathing.
+- **Saving** — IPC `export:save` writes `<library>/Orfeo/Exports/<name>`
+  (`exportsDir`, no library → the song's own Orfeo folder) with `wx`, the next
+  free `… (2)` name on a clash (`nextFreeName`).
 
 ---
 
