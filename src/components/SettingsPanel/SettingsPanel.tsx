@@ -1041,37 +1041,26 @@ function LibraryPanel({ hidden = false }: { hidden?: boolean }) {
         )}
 
         {/* ── Right-click context menu — position:fixed escapes panel overflow ── */}
-        {contextMenu && (
+        {contextMenu && (() => {
+          // Organize actions show unless EVERY selected file is read-only (Demo)
+          const canOrganize = !Array.from(selectedPaths.size > 0 ? selectedPaths : [contextMenu.path]).every(p => isReadOnlyFolder(currentFolderOf(p)))
+          return (
           <ContextMenu ref={menuRef} x={contextMenu.x} y={contextMenu.y} ariaLabel="File actions">
-            <ContextMenuItem
-              onClick={() => { window.electronAPI.showItemInFolder(contextMenu.path); setContextMenu(null) }}
-            >
-              Show in folder
-            </ContextMenuItem>
             <ContextMenuItem
               onClick={() => {
                 const path = contextMenu.path
-                const name = libraryFiles.find(f => f.path === path)?.name ?? path.split(/[\\/]/).pop() ?? path
+                const name = libraryFiles.find(f => f.path === path)?.name ?? path.split(/[\/]/).pop() ?? path
                 setFileInfoTarget({ path, name })
                 setContextMenu(null)
               }}
             >
               File info
             </ContextMenuItem>
-            {exportAudioEnabled && (
-              <ContextMenuItem
-                onClick={() => {
-                  const path = contextMenu.path
-                  const name = libraryFiles.find(f => f.path === path)?.name ?? path.split(/[\\/]/).pop() ?? path
-                  setExportTarget({ path, name: name.replace(/\.(mid|midi|kar)$/i, '') })
-                  setContextMenu(null)
-                }}
-              >
-                {t`Export to audio…`}
-              </ContextMenuItem>
-            )}
-
-            <ContextMenuDivider />
+            <ContextMenuItem
+              onClick={() => { window.electronAPI.showItemInFolder(contextMenu.path); setContextMenu(null) }}
+            >
+              Show in folder
+            </ContextMenuItem>
 
             {hiddenLibraryFiles.includes(contextMenu.path) ? (
               <ContextMenuItem
@@ -1100,41 +1089,55 @@ function LibraryPanel({ hidden = false }: { hidden?: boolean }) {
                 already skips protected-folder files individually (fs:moveLibraryFiles
                 in main.ts), so hiding the whole block for one protected file in an
                 otherwise-movable multi-select blocked the rest for no reason. ────── */}
-            {!Array.from(selectedPaths.size > 0 ? selectedPaths : [contextMenu.path]).every(p => isReadOnlyFolder(currentFolderOf(p))) && (
+            {canOrganize && (
+              <ContextMenuItem
+                onClick={async () => {
+                  const moveSet = Array.from(selectedPaths.size > 0 ? selectedPaths : [contextMenu.path])
+                  setContextMenu(null)
+                  const name = await handleCreateFolder()
+                  if (name) await moveFilesToFolder(moveSet, name)
+                }}
+              >
+                New folder from selection
+              </ContextMenuItem>
+            )}
+
+            {exportAudioEnabled && (
+              <ContextMenuItem
+                onClick={() => {
+                  const path = contextMenu.path
+                  const name = libraryFiles.find(f => f.path === path)?.name ?? path.split(/[\/]/).pop() ?? path
+                  // the song's name without its file extension (.mid, .gp5, .musicxml…)
+                  setExportTarget({ path, name: name.replace(/\.[^.\/]+$/, '') })
+                  setContextMenu(null)
+                }}
+              >
+                {t`Export to audio`}
+              </ContextMenuItem>
+            )}
+
+            {canOrganize && realFolders.length > 0 && (
               <>
                 <ContextMenuDivider />
+                <ContextMenuLabel>Move to folder</ContextMenuLabel>
+                {realFolders.map(folder => (
+                  <ContextMenuItem
+                    key={folder}
+                    onClick={() => { const moveSet = Array.from(selectedPaths.size > 0 ? selectedPaths : [contextMenu.path]); setContextMenu(null); moveFilesToFolder(moveSet, folder) }}
+                  >
+                    {folder}
+                  </ContextMenuItem>
+                ))}
                 <ContextMenuItem
-                  onClick={async () => {
-                    const moveSet = Array.from(selectedPaths.size > 0 ? selectedPaths : [contextMenu.path])
-                    setContextMenu(null)
-                    const name = await handleCreateFolder()
-                    if (name) await moveFilesToFolder(moveSet, name)
-                  }}
+                  onClick={() => { const moveSet = Array.from(selectedPaths.size > 0 ? selectedPaths : [contextMenu.path]); setContextMenu(null); moveFilesToFolder(moveSet, null) }}
                 >
-                  New folder from selection
+                  Library root
                 </ContextMenuItem>
-                {realFolders.length > 0 && (
-                  <>
-                    <ContextMenuLabel>Move to folder</ContextMenuLabel>
-                    {realFolders.map(folder => (
-                      <ContextMenuItem
-                        key={folder}
-                        onClick={() => { const moveSet = Array.from(selectedPaths.size > 0 ? selectedPaths : [contextMenu.path]); setContextMenu(null); moveFilesToFolder(moveSet, folder) }}
-                      >
-                        {folder}
-                      </ContextMenuItem>
-                    ))}
-                    <ContextMenuItem
-                      onClick={() => { const moveSet = Array.from(selectedPaths.size > 0 ? selectedPaths : [contextMenu.path]); setContextMenu(null); moveFilesToFolder(moveSet, null) }}
-                    >
-                      Library root
-                    </ContextMenuItem>
-                  </>
-                )}
               </>
             )}
           </ContextMenu>
-        )}
+          )
+        })()}
 
         {/* ── Folder right-click menu — Rename / Move selection here / Delete ── */}
         {folderContextMenu && (

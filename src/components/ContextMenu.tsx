@@ -1,4 +1,4 @@
-import { forwardRef, useEffect, useState, type ReactNode, type RefObject } from 'react'
+import { forwardRef, useEffect, useLayoutEffect, useRef, useState, type ReactNode, type RefObject } from 'react'
 
 // ── ContextMenu — shared shell for right-click popups (Library's file/folder
 // menus). Previously copy-pasted per call site with a muted `--drag-handle-
@@ -23,17 +23,41 @@ export interface ContextMenuProps {
   className?: string
 }
 
+/** Where a menu opened at (x, y) goes so it's fully on screen: downwards and to
+ *  the right of the click when there's room, otherwise upwards / to the left,
+ *  and never closer than `margin` to the window's edges */
+export function placeMenu(x: number, y: number, w: number, h: number, vw: number, vh: number, margin = 8): { left: number; top: number } {
+  const left = x + w > vw - margin ? x - w : x
+  const top = y + h > vh - margin ? y - h : y
+  return {
+    left: Math.max(margin, Math.min(left, vw - margin - w)),
+    top: Math.max(margin, Math.min(top, vh - margin - h)),
+  }
+}
+
 export const ContextMenu = forwardRef<HTMLDivElement, ContextMenuProps>(function ContextMenu(
   { x, y, minWidth = 160, ariaLabel, children, className }, ref,
 ) {
+  // measured before it's painted: a menu near the bottom of the window opens upwards
+  const own = useRef<HTMLDivElement | null>(null)
+  const [pos, setPos] = useState({ left: x, top: y })
+  useLayoutEffect(() => {
+    const el = own.current
+    if (el) setPos(placeMenu(x, y, el.offsetWidth, el.offsetHeight, window.innerWidth, window.innerHeight))
+  }, [x, y])
+  const setRef = (el: HTMLDivElement | null) => {
+    own.current = el
+    if (typeof ref === 'function') ref(el)
+    else if (ref) ref.current = el
+  }
   return (
     <div
-      ref={ref}
+      ref={setRef}
       role="menu"
       aria-label={ariaLabel}
       className={className ? `orfeo-modal-glow ${className}` : 'orfeo-modal-glow'}
       style={{
-        position: 'fixed', top: y, left: x,
+        position: 'fixed', top: pos.top, left: pos.left,
         background: 'var(--bg-tooltip)', border: '1px solid var(--accent-amber-strong)',
         borderRadius: 'var(--radius-md)',
         zIndex: 9500, minWidth, overflow: 'hidden', padding: '4px 0',
