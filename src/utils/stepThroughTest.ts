@@ -1,7 +1,7 @@
 import { buildSteps } from './stepThrough'
 
-// Steps follow what's on the roll (the eye); mute only decides whether a
-// step's notes sound. A hidden track you hear is accompaniment: no steps.
+// Steps follow what's on the roll: eye on, not muted, and the soloed track
+// when one is. A hidden track you hear is accompaniment: no steps.
 export function runStepThroughTest(): number {
   console.group('[stepThrough] self-check')
   let pass = 0, fail = 0
@@ -13,11 +13,9 @@ export function runStepThroughTest(): number {
   const midi = { tracks: [tr(0, 0, [1]), tr(1, 1, [2]), tr(2, 2, [3]), tr(3, 9, [4], true)] }
 
   const steps = buildSteps(midi, [ts(0), ts(1, { muted: true }), ts(2, { visible: false }), ts(3)])
-  check(steps.map(s => s.time).join() === '1,2', `steps on the shown tracks only, got ${steps.map(s => s.time)}`)
-  check(steps[0]?.notes[0].audible === true, 'a shown, heard track sounds')
-  check(steps[1]?.notes[0].audible === false, 'a shown, muted track lights silently')
+  check(steps.map(s => s.time).join() === '1', `steps only on tracks shown on the roll (eye on, not muted), got ${steps.map(s => s.time)}`)
   const solo = buildSteps(midi, [ts(0, { solo: true }), ts(1), ts(2, { visible: false }), ts(3)])
-  check(solo.map(s => s.notes[0].audible).join() === 'true,false', 'solo silences the others but keeps their steps on show')
+  check(solo.map(s => s.time).join() === '1', 'solo: only the soloed track is heard and shown, so only it makes steps')
 
   console.log(`stepThrough: ${pass} passed, ${fail} failed`)
   console.groupEnd()

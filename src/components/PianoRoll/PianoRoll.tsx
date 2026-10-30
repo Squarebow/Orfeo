@@ -15,6 +15,7 @@ import type { Hand } from '../../types'
 import { HAND_LH_CSS, HAND_RH_CSS } from '../../utils/handColors'
 import { HitEffectsRenderer } from './HitEffects'
 import { drainHitEffects } from '../../utils/hitEffectQueue'
+import { isShown } from '../../utils/trackShown'
 
 const VISIBLE_SECONDS  = 6
 const NOTE_RADIUS      = 3
@@ -619,8 +620,9 @@ export default function PianoRoll() {
 
         const { tracks } = storeRef.current
         const parsedMidi = storeRef.current.midi as any
-        const trackMap = new Map<number, { visible: boolean; muted: boolean; color: string }>()
+        const trackMap = new Map<number, { visible: boolean; muted: boolean; solo: boolean; color: string }>()
         for (const t of tracks) trackMap.set(t.index, t)
+        const hasSolo = tracks.some((t: any) => t.solo)
 
         const visStart  = currentTime - (VISIBLE_SECONDS / (storeRef.current.zoomLevel ?? 1)) * (1 - PLAYHEAD_RATIO)
         const visEnd    = currentTime + (VISIBLE_SECONDS / (storeRef.current.zoomLevel ?? 1)) * PLAYHEAD_RATIO
@@ -632,7 +634,7 @@ export default function PianoRoll() {
           const track    = nonEmptyEditTracks[i]
           const parsedIdx = parsedMidi?.tracks?.[i]?.index ?? i
           const ts = trackMap.get(parsedIdx)
-          if (!ts || !ts.visible) continue   // same gate as drawFrame: the eye, not mute
+          if (!ts || !isShown(ts, hasSolo)) continue   // same gate as drawFrame (trackShown.ts)
           const color = parseInt((ts.color ?? '#e8a027').replace('#', ''), 16)
 
           for (const note of track.notes) {
@@ -989,8 +991,9 @@ export default function PianoRoll() {
 
         barStartsRef.current = storeBars
 
-        const trackMap = new Map<number, { visible: boolean; muted: boolean; color: string }>()
+        const trackMap = new Map<number, { visible: boolean; muted: boolean; solo: boolean; color: string }>()
         for (const t of tracks) trackMap.set(t.index, t)
+        const hasSolo = tracks.some((t: any) => t.solo)
 
         const flat     = flatNotesRef.current
         const startIdx = lowerBound(flat, visStart - visibleSecs)
@@ -1000,7 +1003,7 @@ export default function PianoRoll() {
           if (note.time + note.duration < visStart) continue
 
           const ts = trackMap.get(note.trackIndex)
-          if (ts && !ts.visible) continue   // the eye decides what shows; mute is sound only
+          if (ts && !isShown(ts, hasSolo)) continue   // what shows: eye, mute and solo (trackShown.ts)
 
           const idx = (note.midi + transpose) - midiMin
           if (idx < 0 || idx >= totalKeys) continue

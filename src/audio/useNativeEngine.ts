@@ -15,6 +15,7 @@ import { startNative, stopNative, nativeCall, isNativeRunning, useNativeAudio, o
 import { programTimeline } from './programTimeline'
 import { volumeRatio } from './songVolume'
 import type { ControlEvent, ParsedTrack } from '../types'
+import { isShown } from '../utils/trackShown'
 
 // Brings Native to the Samples engine's loudness at the same master volume.
 // Measured from the speakers at a low master volume, where neither engine's
@@ -259,7 +260,7 @@ function refillVisuals() {
   const latencyMs = nativeOutputLatencySec() * 1000
   for (const t of v.midi.tracks) {
     const ts = v.tracks.find(x => x.index === t.index)
-    if (!ts || !ts.visible) { v.cursors.set(t.index, t.notes.length); continue }   // lights follow the eye, not mute/solo
+    if (!ts || !isShown(ts, v.hasSolo)) { v.cursors.set(t.index, t.notes.length); continue }   // lights follow what the roll shows (trackShown.ts)
     const base = ts.color ?? amberHex()
     let c = v.cursors.get(t.index) ?? t.notes.length
     while (c < t.notes.length && t.notes[c].time < target) {

@@ -15,6 +15,7 @@ import { NES } from '../utils/noteEditorState'
 import { programTimeline, programAt } from '../audio/programTimeline'
 import { volumeAt, expressionAt, valueAt, volumeRatio } from '../audio/songVolume'
 import { useMidiSettings, latencyOffsetSec, midiPrefsReady } from '../store/midiSettings'
+import { isShown } from '../utils/trackShown'
 
 // ── Live edit-buffer awareness — mirrors useAudioEngine.ts's activeMidiData().
 // Gated on NES.dirty, not just NES.editMidi being non-null — the edit buffer
@@ -672,9 +673,7 @@ function buildSamplesPlayer(startSec: number) {
   _programSwitches.sort((a, b) => a.time - b.time)
   for (const track of midiData.tracks) {
     const ts = tracks.find(t => t.index === track.index)
-    // heard (mute/solo) or seen (the eye): a muted track you can see still lights its keys
-    const audible = !ts?.muted && (!_epochHasSolo || !!ts?.solo)
-    if (!ts || (!audible && !ts.visible)) continue
+    if (!ts || ts.muted || (_epochHasSolo && !ts.solo)) continue
     _homogeneousCache.set(track.index, isHomogeneousHandTrack(track.notes))
 
     // ── note.time and startSec are both in the file's OWN timeline (real
@@ -703,7 +702,7 @@ function buildSamplesPlayer(startSec: number) {
         break
       }
       _sustainCursor.set(track.index, sIdx)
-      if (downAtStart && audible) {
+      if (downAtStart) {
         try { ;(_synth as any).controllerChange(track.channel, 64, 127) } catch {}
       }
     } else {
@@ -735,10 +734,9 @@ function refillSchedule() {
 
   for (const track of _epochMidiData.tracks) {
     const ts = _epochTracks.find(t => t.index === track.index)
-    // sound follows mute/solo; the keyboard follows the eye (below) — a muted
-    // track you can see lights silently, a hidden one you hear never lights
-    const audible = !ts?.muted && (!_epochHasSolo || !!ts?.solo)
-    if (!ts || (!audible && !ts.visible)) continue
+    // a track you hear; whether it lights the keyboard is what the roll shows
+    // (trackShown.ts, below) — a hidden track plays along without lighting
+    if (!ts || ts.muted || (_epochHasSolo && !ts.solo)) continue
     const defaultColor = ts.color ?? amberHex()
     const homogeneousTrack = _homogeneousCache.get(track.index) ?? false
     const ch = track.channel
@@ -752,7 +750,7 @@ function refillSchedule() {
       const midiNum = note.midi + _epochTranspose
       const color = resolveHandAwareColor(note, defaultColor, { homogeneousTrack, showHandLabels: _epochShowHandLabels, performanceMode: _epochPerformanceMode })
 
-      if (audible) _schedule.push(setTimeout(() => {
+      _schedule.push(setTimeout(() => {
         if (!_synth) return
         try {
           _synth.noteOn(ch, midiNum, Math.round(note.velocity * 127))
@@ -774,15 +772,13 @@ function refillSchedule() {
       // visible on the piano roll; "all tracks" hit-effect scope likewise
       // still requires visibility. ─────────────────────────────────────────
       const vt = setTimeout(() => {
-        if (ts.showOnKeyboard && ts.visible) lightKey(midiNum, color, Math.min(durMs + 30, 2500))
-        else if (_epochHitEffectScope === 'all' && ts.visible) pushHitEffect(midiNum, color)
+        if (ts.showOnKeyboard && isShown(ts, _epochHasSolo)) lightKey(midiNum, color, Math.min(durMs + 30, 2500))
+        else if (_epochHitEffectScope === 'all' && isShown(ts, _epochHasSolo)) pushHitEffect(midiNum, color)
       }, delay + getOutputLatencySec() * 1000)
       _schedule.push(vt)
     }
     _noteCursor.set(track.index, cursor)
 
-    // pedal and volume only for a track you hear: tracks can share a channel
-    if (!audible) continue
     const sustain = track.sustainEvents
     if (sustain && sustain.length > 0) {
       let sCursor = _sustainCursor.get(track.index) ?? sustain.length

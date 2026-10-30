@@ -13,6 +13,7 @@ import { editableCopyToBuffer } from '../utils/noteEditorCommands'
 import { useMidiSettings, latencyOffsetSec, midiPrefsReady } from '../store/midiSettings'
 import { useNativeEngine, nativeLightKey, nativeLivePiano } from '../audio/useNativeEngine'
 import { nativeCall } from '../audio/nativeClient'
+import { isShown } from '../utils/trackShown'
 
 let _jzzReady = false
 let _jzzInitP: Promise<void> | null = null
@@ -223,8 +224,7 @@ function updateMutedChannels() {
   clearLightSchedule(); clearAllKeys()
   for (const track of midiData.tracks) {
     const ts = tracks.find((t: any) => t.index === track.index)
-    // the keyboard follows the eye, not mute/solo: a muted track you can see
-    // still lights its keys (the sound is filtered by _mutedCh above)
+    // the keyboard lights what the roll shows (trackShown.ts, below)
     if (!ts) continue
     // "Lit on keyboard" only actually lights the keyboard while the track is
     // still visible on the piano roll — a track hidden from the roll but
@@ -234,7 +234,7 @@ function updateMutedChannels() {
     // separately lets non-keyboard tracks still spawn hit effects (purely
     // visual, at the note's key position) without lighting the key itself —
     // also gated on visible, same reasoning.
-    const eligibleForHitEffect = ts.visible && (ts.showOnKeyboard || hitEffectScope === 'all')
+    const eligibleForHitEffect = isShown(ts, hasSolo) && (ts.showOnKeyboard || hitEffectScope === 'all')
     if (!eligibleForHitEffect) continue
     const defaultColor = ts.color ?? amberHex()
     const homogeneousTrack = isHomogeneousHandTrack(track.notes)
@@ -351,8 +351,8 @@ function buildPlayer(startSec: number) {
     for (const track of midiData.tracks) {
       const ts = tracks.find((t: any) => t.index === track.index)
       if (!ts) continue
-      // Same rule as the live-update function above: the eye, not mute/solo.
-      const eligibleForHitEffect = ts.visible && (ts.showOnKeyboard || hitEffectScope === 'all')
+      // Same rule as the live-update function above: what the roll shows.
+      const eligibleForHitEffect = isShown(ts, hasSolo) && (ts.showOnKeyboard || hitEffectScope === 'all')
       if (!eligibleForHitEffect) continue
       const defaultColor = ts.color ?? amberHex()
       const homogeneousTrack = isHomogeneousHandTrack(track.notes)
@@ -487,13 +487,8 @@ export function useAudioEngine() {
     // visual = false skips the timed key-light entirely — used for glissando,
     // which drives the keyboard light itself (instant swap, no fade timer)
     // instead of relying on this note-duration-based ring.
-    // silent = light the key only (a muted track you can see, stepped with ← / →)
-    const playNote = async (midiNum: number, vel = 90, durMs = 500, channel?: number, visual = true, color?: string, silent = false) => {
+    const playNote = async (midiNum: number, vel = 90, durMs = 500, channel?: number, visual = true, color?: string) => {
       const { audioEngine } = useStore.getState()
-      if (silent) {
-        if (visual) (audioEngine === 'native' ? nativeLightKey : lightKey)(midiNum, color ?? amberHex(), durMs + 100)
-        return
-      }
       if (audioEngine === 'native') {
         // channel undefined = the live/preview channel (16), as in Samples
         if (channel === undefined) nativeLivePiano()

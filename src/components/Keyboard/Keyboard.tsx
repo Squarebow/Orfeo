@@ -12,6 +12,7 @@ import { isHomogeneousHandTrack, resolveHandAwareColor } from '../../utils/handC
 import Tooltip, { useTooltip } from '../Tooltip'
 import { ContextMenu, ContextMenuItem } from '../ContextMenu'
 import { outputLatencySec } from '../../audio/engine'
+import { isShown } from '../../utils/trackShown'
 
 const HAND_LH = 'var(--hand-lh)'
 const HAND_RH = 'var(--hand-rh)'
@@ -113,17 +114,17 @@ export default function Keyboard() {
     // playhead would mix with its tiles' notes. They come back as it closes
     // or is minimised.
     if ((s.chordExplorerOpen && !s.chordExplorerMinimized) || (s.scaleExplorerOpen && !s.scaleExplorerMinimized)) return EMPTY_SOUNDING
-    // ── Follows track VISIBILITY (the eye toggle — same field PianoRoll.tsx
-    // itself checks to decide whether to draw a track's notes), not "Lit on
+    // ── Follows what the piano roll shows (trackShown.ts: the eye, mute and
+    // solo — the same rule PianoRoll.tsx draws by), not "Lit on
     // keyboard" (track.showOnKeyboard). Those are different concepts:
     // showOnKeyboard defaults to piano/organ/chromatic-keys tracks only and
     // controls which tracks REAL playback lights on the keyboard; this
     // feature is about what you're currently looking at in the piano roll —
     // isolate a steel-guitar track by hiding the others and this should
-    // reflect it too, with no separate toggle to remember. Mute state is
-    // deliberately ignored (the user's own call: mute/solo are for audio,
-    // this is for notes visibility only). ─────────────────────────────────
-    const litIndices = new Set(s.tracks.filter(t => t.visible).map(t => t.index))
+    // reflect it too, with no separate toggle to remember. A muted or
+    // soloed-out track is off the roll, so it's off here too (the user's
+    // call, 2026-10-30). ──────────────────────────────────────────────────
+    const litIndices = new Set(s.tracks.filter((t, _i, all) => isShown(t, all.some(x => x.solo))).map(t => t.index))
     if (litIndices.size === 0) return EMPTY_SOUNDING
     const key = `${s.midi.fileName}|${s.currentTime.toFixed(4)}|${[...litIndices].join(',')}|${s.detectedKey?.transpose ?? 0}`
     const cached = reflectCacheRef.current
@@ -294,7 +295,7 @@ export default function Keyboard() {
     const st = useStore.getState()
     const loadedMidi = st.midi
     const transpose = st.detectedKey?.transpose ?? 0
-    const litIndices = new Set(st.tracks.filter(t => t.visible).map(t => t.index))
+    const litIndices = new Set(st.tracks.filter((t, _i, all) => isShown(t, all.some(x => x.solo))).map(t => t.index))
     const litTracks = loadedMidi ? loadedMidi.tracks.filter(t => litIndices.has(t.index)) : []
     const sounding = notesSoundingAt(litTracks, st.currentTime, transpose)
     const useLive = sounding.length >= 2
