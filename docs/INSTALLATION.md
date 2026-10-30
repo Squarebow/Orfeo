@@ -100,13 +100,14 @@ travel with it. A portable build never touches `%APPDATA%`.
 **Setup build:** use Windows *Apps & features*, or run the uninstaller from the
 install folder. Orfeo installs per-user, so this runs without an admin prompt.
 
-During uninstall you are asked what to do with your data — a three-way choice:
+Before anything is removed, the uninstaller asks what to do with your data:
 
 | Choice | Effect |
 |---|---|
-| **Yes** | Delete everything: preferences, library-folder link, downloaded soundfonts, demo files, and any edited MIDI files that were saved *without* a library folder set |
-| **No** | Keep your edited MIDI files (moved to a **`Orfeo Edited Files`** folder on your Desktop), delete everything else |
-| **Cancel** | Keep everything, delete nothing |
+| **Delete everything** | Removes Orfeo and all its data: preferences, library-folder link, downloaded soundfonts, demo files, and any edited MIDI files that were saved *without* a library folder set |
+| **Keep my edited files** | Moves your edited MIDI files to an **`Orfeo Edited Files`** folder on your Desktop, then removes Orfeo and everything else |
+| **Remove Orfeo, keep my data** | Removes the app but leaves all your data in place, ready for a reinstall |
+| **Keep everything** | Cancels the uninstall: Orfeo stays installed and nothing is touched |
 
 > [!IMPORTANT]
 > Your **library folder itself** — wherever you pointed Orfeo — is never touched

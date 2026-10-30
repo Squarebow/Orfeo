@@ -1,23 +1,122 @@
 ; Orfeo — custom NSIS uninstaller behavior.
-; Asks the user during uninstall whether to also delete %APPDATA%\Orfeo —
-; saved preferences, the library-folder pointer, cached soundfonts, and the
-; copied Demo/ files. Three-way choice, not just yes/no: a user who never
-; configured a library folder has their edited MIDI files saved inside this
-; same %APPDATA%\Orfeo tree (see electron/main.ts's getOrfeoOutputDir/
-; ensureDemoFolder — no library folder means the fallback Demo/ lives here,
-; and edits get written to Demo/Orfeo/ beside it), so a blanket delete would
-; destroy real user work, not just disposable app state.
+; Asks the user during uninstall what to do with %APPDATA%\Orfeo — saved
+; preferences, the library-folder pointer, cached soundfonts, and the copied
+; Demo/ files. Not just yes/no: a user who never configured a library folder
+; has their edited MIDI files saved inside this same %APPDATA%\Orfeo tree
+; (see electron/main.ts's getOrfeoOutputDir/ensureDemoFolder — no library
+; folder means the fallback Demo/ lives here, and edits get written to
+; Demo/Orfeo/ beside it), so a blanket delete would destroy real user work,
+; not just disposable app state.
 ;
-; This is a direct MessageBox, not a Components-page checkbox — a Section
-; declared /o (optional/unchecked) would need the user to actively tick it
-; on the uninstall Components page (which electron-builder only inserts
-; *because* this macro exists — see installer.nsi's
-; `!ifmacrodef customUnInstallSection` check — and which most users click
-; past without reading). A blocking MessageBox guarantees every user
-; actually sees and answers this. MessageBox can't relabel its own
-; Yes/No/Cancel buttons without an extra plugin, so the choices are spelled
-; out in the prompt text instead.
+; ── The uninstaller's data choice: its own page, shown after the welcome page
+; and BEFORE anything is removed, so "Keep everything" can still stop the
+; uninstall. Four large Windows command-link buttons, each saying exactly
+; what it does underneath — a MessageBox can only offer Yes/No/Cancel, which
+; people misread. A choice acts at once (no separate Next). The cleanup
+; section further down acts on $orfeoChoice once the app files are gone:
+;   1  Delete everything
+;   2  Keep my edited files (moved to the Desktop), delete the rest
+;   3  Remove Orfeo, keep my data   ← focused, so Enter loses nothing
+;   4  Keep everything — the uninstall stops here, nothing touched
+; A silent or auto-update uninstall shows no pages: $orfeoChoice stays empty,
+; which the section treats as 3 (and it skips those runs earlier anyway).
 ;
+; electron-builder includes this file BEFORE installer.nsi pulls in MUI2 and
+; LogicLib, so the page's functions live inside customUnWelcomePage, which
+; it inserts later, among the uninstaller's pages (uninstaller pass only —
+; the build treats warnings as errors, and the installer pass would warn
+; about un.* functions it never uses).
+
+!ifdef BUILD_UNINSTALLER
+  ; installer.nsi adds a "Choose Components" page to the uninstaller whenever
+  ; customUnInstallSection exists; our sections are hidden, so all it ever
+  ; shows is a greyed-out "Uninstall" tick. Skipped: this file comes before
+  ; installer.nsi, so the define applies to that page, the first one inserted.
+  !define MUI_PAGE_CUSTOMFUNCTION_PRE un.orfeoSkipPage
+  Function un.orfeoSkipPage
+    Abort
+  FunctionEnd
+!endif
+
+!ifndef BS_COMMANDLINK
+  !define BS_COMMANDLINK 0x0000000E
+!endif
+!ifndef BCM_SETNOTE
+  !define BCM_SETNOTE 0x00001609
+!endif
+
+; one choice: a command link, its name large, what it does underneath
+; (out here: a macro can't be defined inside another one)
+; (heights: 38u fits a two-line note, 29u one line; all four fill the 140u page)
+!macro orfeoChoiceLink N TOP H TITLE NOTE
+  nsDialogs::CreateControl BUTTON ${WS_VISIBLE}|${WS_CHILD}|${WS_TABSTOP}|${BS_COMMANDLINK} 0 0 ${TOP}u 100% ${H}u "${TITLE}"
+  Pop $orfeoLink${N}
+  SendMessage $orfeoLink${N} ${BCM_SETNOTE} 0 "STR:${NOTE}"
+  ${NSD_OnClick} $orfeoLink${N} un.orfeoChoiceClick
+!macroend
+
+!macro customUnWelcomePage
+  ; no Back on the welcome page: the only page "before" it is the skipped
+  ; Components page, so Back would just close the uninstaller
+  !define MUI_PAGE_CUSTOMFUNCTION_SHOW un.orfeoWelcomeShow
+  !insertmacro MUI_UNPAGE_WELCOME
+  UninstPage custom un.orfeoChoicePage un.orfeoChoiceLeave
+
+  Function un.orfeoWelcomeShow
+    GetDlgItem $0 $HWNDPARENT 3
+    ShowWindow $0 ${SW_HIDE}
+  FunctionEnd
+
+  !include nsDialogs.nsh
+
+  Var orfeoChoice
+  Var orfeoLink1
+  Var orfeoLink2
+  Var orfeoLink3
+  Var orfeoLink4
+
+  Function un.orfeoChoicePage
+    !insertmacro MUI_HEADER_TEXT "What should happen to your Orfeo data?" "Your library folder and the files in it are never touched."
+    nsDialogs::Create 1018
+    Pop $0
+    ${If} $0 == error
+      Abort
+    ${EndIf}
+    !insertmacro orfeoChoiceLink 1 0 38 "Delete everything" "Deletes all Orfeo data, including preferences, library folder link, downloaded soundfonts, demo files and edited MIDI files not stored in a library folder."
+    !insertmacro orfeoChoiceLink 2 39 29 "Keep my edited files" "Moves edited MIDI files to the Desktop, then deletes all other Orfeo data."
+    !insertmacro orfeoChoiceLink 3 69 38 "Remove Orfeo, keep my data" "Removes the app but leaves your preferences, library folder link, soundfonts, demo and edited files in place, ready for a reinstall."
+    !insertmacro orfeoChoiceLink 4 108 29 "Keep everything" "Cancels the uninstall and leaves all files untouched."
+    ; the choices act at once: no Next button on this page
+    GetDlgItem $0 $HWNDPARENT 1
+    ShowWindow $0 ${SW_HIDE}
+    ${NSD_SetFocus} $orfeoLink3
+    nsDialogs::Show
+    GetDlgItem $0 $HWNDPARENT 1
+    ShowWindow $0 ${SW_SHOW}
+  FunctionEnd
+
+  Function un.orfeoChoiceClick
+    Pop $0
+    ${If} $0 == $orfeoLink1
+      StrCpy $orfeoChoice 1
+    ${ElseIf} $0 == $orfeoLink2
+      StrCpy $orfeoChoice 2
+    ${ElseIf} $0 == $orfeoLink4
+      StrCpy $orfeoChoice 4
+    ${Else}
+      StrCpy $orfeoChoice 3
+    ${EndIf}
+    ; on to the next page, as the hidden Next button would
+    SendMessage $HWNDPARENT ${WM_COMMAND} 1 0
+  FunctionEnd
+
+  Function un.orfeoChoiceLeave
+    ${If} $orfeoChoice == 4
+      Quit
+    ${EndIf}
+  FunctionEnd
+!macroend
+
 ; The section name below MUST keep the "un." prefix ("-un.Orfeo Data
 ; Cleanup"), even though it's hidden from the Components page by the
 ; leading "-". NSIS decides install-vs-uninstall purely by that "un."
@@ -33,9 +132,8 @@
 ; from productName ("Orfeo") — same folder electron-builder's built-in
 ; deleteAppDataOnUninstall option would target, just asked interactively
 ; here instead of being an all-or-nothing build-time flag.
-; MessageBox (like RMDir) is only valid inside a Section or Function — the
-; leading "-" makes this a hidden section that always runs automatically,
-; with no Components-page checkbox to fail to select it from (see above).
+; The leading "-" makes this a hidden section that always runs
+; automatically, with no Components-page checkbox to fail to select it from.
 !macro customUnInstallSection
   Section "-un.Orfeo Data Cleanup"
     ; ── Auto-update path: electron-updater runs uninstall.exe with --updated
@@ -64,11 +162,16 @@
     SetShellVarContext current
     StrCpy $R2 "$APPDATA\${APP_FILENAME}"
 
-    MessageBox MB_YESNOCANCEL|MB_ICONQUESTION "Delete your Orfeo settings and data?$\r$\n$\r$\nYES — delete everything: preferences, library-folder link, downloaded soundfonts, demo files, and any edited MIDI files saved without a library folder set.$\r$\n$\r$\nNO — keep your edited MIDI files (moved to a folder on your Desktop), delete everything else.$\r$\n$\r$\nCANCEL — keep everything, delete nothing.$\r$\n$\r$\nYour library folder itself (wherever you pointed Orfeo at) is never touched either way." \
-      IDYES orfeo_delete_all IDCANCEL orfeo_restore_context
+    ; What the choice page asked for (see un.orfeoChoicePage above); 4 never gets
+    ; here (it quits on that page), and 3 or none keeps everything
+    ${If} $orfeoChoice == 1
+      Goto orfeo_delete_all
+    ${ElseIf} $orfeoChoice != 2
+      Goto orfeo_restore_context
+    ${EndIf}
 
-    ; NO — the fallback Demo/ (no library folder configured) is the only
-    ; place inside %APPDATA%\Orfeo user edits can exist — current demo
+    ; Keep my edited files — the fallback Demo/ (no library folder configured)
+    ; is the only place inside %APPDATA%\Orfeo user edits can exist — current demo
     ; content is flat (public/demo has no subfolders), so Demo\Orfeo is the
     ; single fixed depth to check; revisit if demo content ever grows
     ; subfolders (copyDemoFilesRecursive already preserves those).

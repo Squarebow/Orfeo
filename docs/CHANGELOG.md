@@ -15,6 +15,7 @@
 - **Focus mode is pure keys.** One click and you hear the keys (pianos, organs, accordions), bass and drums, but only the keys stay on the piano roll and the keyboard. Every other track is muted and hidden. Click again and every track comes back exactly as it was. Stepping with ← / → follows what you see: a hidden track never makes a step or sounds in one.
 - **Mute also hides.** Muting a track hides its notes on the piano roll and the keyboard too, and unmuting shows them again. Click the eye to see a muted track anyway.
 - **Velocity editor without the clutter.** The numbers no longer sit on every bar, where close notes made them overlap. Point at a bar to see its velocity, and the value follows live as you drag it up or down. Select a note on the piano roll and its bar lights up in amber, so in a busy passage you can see which bar is which.
+- **Clearer choices when uninstalling.** The Yes / No / Cancel box is gone. A page of four clearly named choices takes its place, each saying exactly what it does: *Delete everything*, *Keep my edited files*, *Remove Orfeo, keep my data* (handy before a reinstall) and *Keep everything*, which really cancels the uninstall. All of them leave your Library folder alone. The empty *Choose Components* page is gone too.
 - **Clearer track colours.** Other instruments never start in the piano's colours any more. Each one gets a colour that stands apart from the hands and from the instruments before it.
 
 ### Fixed
