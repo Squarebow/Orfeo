@@ -10,13 +10,13 @@
 ;
 ; ── The uninstaller's data choice: its own page, shown after the welcome page
 ; and BEFORE anything is removed, so "Keep everything" can still stop the
-; uninstall. Four large Windows command-link buttons, each saying exactly
-; what it does underneath — a MessageBox can only offer Yes/No/Cancel, which
-; people misread. A choice acts at once (no separate Next). The cleanup
+; uninstall. Four named choices, each saying exactly what it does underneath
+; — a MessageBox can only offer Yes/No/Cancel, which people misread. The
+; button below reads Uninstall, or Close for "Keep everything". The cleanup
 ; section further down acts on $orfeoChoice once the app files are gone:
 ;   1  Delete everything
 ;   2  Keep my edited files (moved to the Desktop), delete the rest
-;   3  Remove Orfeo, keep my data   ← focused, so Enter loses nothing
+;   3  Remove Orfeo, keep my data   ← preselected: nothing is lost
 ;   4  Keep everything — the uninstall stops here, nothing touched
 ; A silent or auto-update uninstall shows no pages: $orfeoChoice stays empty,
 ; which the section treats as 3 (and it skips those runs earlier anyway).
@@ -38,21 +38,19 @@
   FunctionEnd
 !endif
 
-!ifndef BS_COMMANDLINK
-  !define BS_COMMANDLINK 0x0000000E
-!endif
-!ifndef BCM_SETNOTE
-  !define BCM_SETNOTE 0x00001609
-!endif
-
-; one choice: a command link, its name large, what it does underneath
-; (out here: a macro can't be defined inside another one)
-; (heights: 38u fits a two-line note, 29u one line; all four fill the 140u page)
-!macro orfeoChoiceLink N TOP H TITLE NOTE
-  nsDialogs::CreateControl BUTTON ${WS_VISIBLE}|${WS_CHILD}|${WS_TABSTOP}|${BS_COMMANDLINK} 0 0 ${TOP}u 100% ${H}u "${TITLE}"
-  Pop $orfeoLink${N}
-  SendMessage $orfeoLink${N} ${BCM_SETNOTE} 0 "STR:${NOTE}"
-  ${NSD_OnClick} $orfeoLink${N} un.orfeoChoiceClick
+; one choice: its name by a radio button, what it does underneath in dark
+; grey (black and grey like the rest of the uninstaller; Windows' command-link
+; buttons draw their text in a fixed blue). Defined out here: a macro can't be
+; defined inside another one.
+!macro orfeoChoiceRow N TOP NTOP TITLE NOTE
+  ${NSD_CreateRadioButton} 0 ${TOP}u 100% 12u "${TITLE}"
+  Pop $orfeoRadio${N}
+  SendMessage $orfeoRadio${N} ${WM_SETFONT} $orfeoTitleFont 1
+  ${NSD_OnClick} $orfeoRadio${N} un.orfeoChoiceClick
+  ${NSD_CreateLabel} 13u ${NTOP}u -13u 22u "${NOTE}"
+  Pop $0
+  SendMessage $0 ${WM_SETFONT} $orfeoNoteFont 1
+  SetCtlColors $0 0x5F5F5F transparent
 !macroend
 
 !macro customUnWelcomePage
@@ -70,44 +68,65 @@
   !include nsDialogs.nsh
 
   Var orfeoChoice
-  Var orfeoLink1
-  Var orfeoLink2
-  Var orfeoLink3
-  Var orfeoLink4
+  Var orfeoTitleFont
+  Var orfeoNoteFont
+  Var orfeoRadio1
+  Var orfeoRadio2
+  Var orfeoRadio3
+  Var orfeoRadio4
 
   Function un.orfeoChoicePage
+    ${If} $orfeoChoice == ""
+      StrCpy $orfeoChoice 3
+    ${EndIf}
     !insertmacro MUI_HEADER_TEXT "What should happen to your Orfeo data?" "Your library folder and the files in it are never touched."
     nsDialogs::Create 1018
     Pop $0
     ${If} $0 == error
       Abort
     ${EndIf}
-    !insertmacro orfeoChoiceLink 1 0 38 "Delete everything" "Deletes all Orfeo data, including preferences, library folder link, downloaded soundfonts, demo files and edited MIDI files not stored in a library folder."
-    !insertmacro orfeoChoiceLink 2 39 29 "Keep my edited files" "Moves edited MIDI files to the Desktop, then deletes all other Orfeo data."
-    !insertmacro orfeoChoiceLink 3 69 38 "Remove Orfeo, keep my data" "Removes the app but leaves your preferences, library folder link, soundfonts, demo and edited files in place, ready for a reinstall."
-    !insertmacro orfeoChoiceLink 4 108 29 "Keep everything" "Cancels the uninstall and leaves all files untouched."
-    ; the choices act at once: no Next button on this page
-    GetDlgItem $0 $HWNDPARENT 1
-    ShowWindow $0 ${SW_HIDE}
-    ${NSD_SetFocus} $orfeoLink3
+    CreateFont $orfeoTitleFont "Segoe UI Semibold" 10 600
+    CreateFont $orfeoNoteFont "Segoe UI" 9 400
+    !insertmacro orfeoChoiceRow 1 0 13 "Delete everything" "Deletes all Orfeo data, including preferences, library folder link, downloaded soundfonts, demo files and edited MIDI files not stored in a library folder."
+    !insertmacro orfeoChoiceRow 2 37 50 "Keep my edited files" "Moves edited MIDI files to the Desktop, then deletes all other Orfeo data."
+    !insertmacro orfeoChoiceRow 3 65 78 "Remove Orfeo, keep my data" "Removes the app but leaves your preferences, library folder link, soundfonts, demo and edited files in place, ready for a reinstall."
+    !insertmacro orfeoChoiceRow 4 102 115 "Keep everything" "Cancels the uninstall and leaves all files untouched."
+    ${Select} $orfeoChoice
+      ${Case} 1
+        ${NSD_Check} $orfeoRadio1
+      ${Case} 2
+        ${NSD_Check} $orfeoRadio2
+      ${Case} 4
+        ${NSD_Check} $orfeoRadio4
+      ${CaseElse}
+        ${NSD_Check} $orfeoRadio3
+    ${EndSelect}
+    Call un.orfeoChoiceButton
     nsDialogs::Show
-    GetDlgItem $0 $HWNDPARENT 1
-    ShowWindow $0 ${SW_SHOW}
   FunctionEnd
 
   Function un.orfeoChoiceClick
     Pop $0
-    ${If} $0 == $orfeoLink1
+    ${If} $0 == $orfeoRadio1
       StrCpy $orfeoChoice 1
-    ${ElseIf} $0 == $orfeoLink2
+    ${ElseIf} $0 == $orfeoRadio2
       StrCpy $orfeoChoice 2
-    ${ElseIf} $0 == $orfeoLink4
+    ${ElseIf} $0 == $orfeoRadio4
       StrCpy $orfeoChoice 4
     ${Else}
       StrCpy $orfeoChoice 3
     ${EndIf}
-    ; on to the next page, as the hidden Next button would
-    SendMessage $HWNDPARENT ${WM_COMMAND} 1 0
+    Call un.orfeoChoiceButton
+  FunctionEnd
+
+  ; the button says what will happen: Uninstall, or Close for "Keep everything"
+  Function un.orfeoChoiceButton
+    GetDlgItem $0 $HWNDPARENT 1
+    ${If} $orfeoChoice == 4
+      SendMessage $0 ${WM_SETTEXT} 0 "STR:$(^CloseBtn)"
+    ${Else}
+      SendMessage $0 ${WM_SETTEXT} 0 "STR:$(^UninstallBtn)"
+    ${EndIf}
   FunctionEnd
 
   Function un.orfeoChoiceLeave
