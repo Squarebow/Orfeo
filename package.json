@@ -154,6 +154,7 @@
     "pixi-filters": "^6.1.5",
     "pixi.js": "^8.22.0",
     "soundfont-player": "^0.12.0",
+    "spessasynth_core": "^4.3.22",
     "spessasynth_lib": "^4.3.13",
     "tonal": "^6.4.0",
     "tone": "^15.1.22",

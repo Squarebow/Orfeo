@@ -28,7 +28,7 @@ function activeMidiData(): any {
 
 // ── GeneralUser GS outputs at a lower reference level than jzz-synth-tiny.
 // This constant normalises perceived loudness at equal masterVolume settings.
-const SAMPLES_BOOST = 3.0
+export const SAMPLES_BOOST = 3.0
 
 // ── Master compressor/limiter presets — each position bundles threshold,
 // ratio, attack, AND release together, not just a ratio sweep with threshold
@@ -61,7 +61,7 @@ export const COMPRESSOR_PRESETS: CompPreset[] = [
   { label: 'Firm',    threshold: -18, ratio: 14, attack: 0.003, knee: 3,  makeupDb: 4.5 },
   { label: 'Limiter', threshold: -24, ratio: 20, attack: 0.003, knee: 0,  makeupDb: 6 },
 ]
-const COMPRESSOR_RELEASE = 0.25
+export const COMPRESSOR_RELEASE = 0.25
 const dbToGain = (db: number) => Math.pow(10, db / 20)
 
 // ── Auto-Level (AGC) — static makeup gain (above) only ever applies a flat
