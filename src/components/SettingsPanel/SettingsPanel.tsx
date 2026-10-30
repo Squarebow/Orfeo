@@ -17,6 +17,7 @@ import { detectForeignFormat, resolveAndTrackImport, base64ToBytes, confirmPendi
 import { parseMidiBuffer } from '../../utils/midiParser'
 import { detectKeyFromTracks, parseKeySignature } from '../../utils/keyDetection'
 import FileInfoModal from '../FileInfoModal'
+import ExportAudioDialog from '../ExportAudioDialog'
 import Tooltip, { TooltipBox, useTooltip } from '../Tooltip'
 import { ContextMenu, ContextMenuItem, ContextMenuDivider, ContextMenuLabel } from '../ContextMenu'
 import { UpdateButton, RateButton, DevModeBadge } from '../Settings/controls'
@@ -317,6 +318,8 @@ function LibraryPanel({ hidden = false }: { hidden?: boolean }) {
   // ── Context menu state — file/multi-select menu (path+x+y) or folder menu (folder+x+y) ──
   const [contextMenu, setContextMenu] = useState<{ path: string; x: number; y: number } | null>(null)
   const [fileInfoTarget, setFileInfoTarget] = useState<{ path: string; name: string } | null>(null)
+  const [exportTarget, setExportTarget] = useState<{ path: string; name: string } | null>(null)
+  const exportAudioEnabled = useStore((s) => s.exportAudioEnabled)
   const [folderContextMenu, setFolderContextMenu] = useState<{ folder: string; x: number; y: number } | null>(null)
   const menuRef = useRef<HTMLDivElement>(null)
   const folderMenuRef = useRef<HTMLDivElement>(null)
@@ -1055,6 +1058,18 @@ function LibraryPanel({ hidden = false }: { hidden?: boolean }) {
             >
               File info
             </ContextMenuItem>
+            {exportAudioEnabled && (
+              <ContextMenuItem
+                onClick={() => {
+                  const path = contextMenu.path
+                  const name = libraryFiles.find(f => f.path === path)?.name ?? path.split(/[\\/]/).pop() ?? path
+                  setExportTarget({ path, name: name.replace(/\.(mid|midi|kar)$/i, '') })
+                  setContextMenu(null)
+                }}
+              >
+                {t`Export to audio…`}
+              </ContextMenuItem>
+            )}
 
             <ContextMenuDivider />
 
@@ -1531,6 +1546,7 @@ function LibraryPanel({ hidden = false }: { hidden?: boolean }) {
         )}
       </div>
 
+      {exportTarget && <ExportAudioDialog path={exportTarget.path} name={exportTarget.name} onClose={() => setExportTarget(null)} />}
       {fileInfoTarget && (
         <FileInfoModal
           filePath={fileInfoTarget.path}

@@ -1,4 +1,4 @@
-import { finishAudio, encodeWav, encodeMp3, type Stereo } from './exportEncode'
+import { finishAudio, encodeWav, encodeMp3, encodeMp3Async, type Stereo } from './exportEncode'
 
 const RATE = 44100
 function signal(parts: { sec: number; amp: number }[]): Stereo {
@@ -13,7 +13,7 @@ function signal(parts: { sec: number; amp: number }[]): Stereo {
 }
 const peak = (a: Stereo) => { let p = 0; for (let i = 0; i < a.l.length; i++) p = Math.max(p, Math.abs(a.l[i]), Math.abs(a.r[i])); return p }
 
-export function runExportEncodeTest(): number {
+export async function runExportEncodeTest(): Promise<number> {
   console.group('[exportEncode] self-check')
   let pass = 0, fail = 0
   const check = (c: boolean, m: string) => { c ? pass++ : (fail++, console.error('FAIL:', m)) }
@@ -53,6 +53,28 @@ export function runExportEncodeTest(): number {
   check(m.length > 38000 && m.length < 44000, `size for 1 s at 320 kbps, got ${m.length}`)
   // cancelled straight away: nothing
   check(encodeMp3(one, undefined, () => true).length === 0, 'cancel → empty')
+
+  // 5. The responsive version gives the same file, and yields to the page while it works
+  const three = signal([{ sec: 3, amp: 0.5 }])
+  let ticks = 0
+  const timer = setInterval(() => ticks++, 0)
+  const async = await encodeMp3Async(three)
+  clearInterval(timer)
+  const sync = encodeMp3(three)
+  check(async.length === sync.length && async.every((b, i) => b === sync[i]), 'async MP3 = sync MP3, byte for byte')
+  check(ticks > 0, `the page gets turns while encoding (${ticks})`)
+  check((await encodeMp3Async(three, undefined, () => true)).length === 0, 'async cancel → empty')
+
+  // 6. A whole song finishes and writes quickly (the window mustn't stall during an export)
+  const long = { l: new Float32Array(44100 * 256), r: new Float32Array(44100 * 256), rate: RATE }
+  for (let i = 0; i < long.l.length; i++) { long.l[i] = Math.sin(i / 30) * 0.3; long.r[i] = long.l[i] }
+  let t = performance.now()
+  const lf = finishAudio(long, 254)
+  const tFinish = performance.now() - t
+  t = performance.now()
+  encodeWav(lf)
+  const tWav = performance.now() - t
+  check(tFinish + tWav < 200, `finish + WAV of a 4-minute song under 200 ms, took ${Math.round(tFinish)} + ${Math.round(tWav)} ms`)
 
   console.log(`exportEncode: ${pass} passed, ${fail} failed`)
   console.groupEnd()

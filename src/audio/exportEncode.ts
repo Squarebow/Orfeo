@@ -40,31 +40,58 @@ export function encodeWav(a: Stereo): Uint8Array {
   str(12, 'fmt '); dv.setUint32(16, 16, true); dv.setUint16(20, 1, true); dv.setUint16(22, 2, true)
   dv.setUint32(24, a.rate, true); dv.setUint32(28, a.rate * 4, true); dv.setUint16(32, 4, true); dv.setUint16(34, 16, true)
   str(36, 'data'); dv.setUint32(40, n * 4, true)
-  for (let i = 0, o = 44; i < n; i++, o += 4) { dv.setInt16(o, toInt16(a.l[i]), true); dv.setInt16(o + 2, toInt16(a.r[i]), true) }
+  // samples through a 16-bit view (WAV is little-endian, as every machine Orfeo runs on):
+  // several times faster than per-sample DataView writes, so a song doesn't stall the window
+  // (a typed-array store truncates an in-range value: within one 16-bit step)
+  const pcm = new Int16Array(out.buffer, 44, n * 2)
+  for (let i = 0, o = 0; i < n; i++, o += 2) {
+    const x = a.l[i] * 32767, y = a.r[i] * 32767
+    pcm[o] = x > 32767 ? 32767 : x < -32768 ? -32768 : x
+    pcm[o + 1] = y > 32767 ? 32767 : y < -32768 ? -32768 : y
+  }
   return out
 }
 
-export function encodeMp3(a: Stereo, onProgress?: (p: number) => void, isCancelled?: () => boolean): Uint8Array {
+// The encoder, one second of audio per step: yields the progress so far, then
+// the finished file; empty when cancelled
+function* mp3Steps(a: Stereo, isCancelled?: () => boolean): Generator<number, Uint8Array> {
   if (a.rate !== EXPORT_RATE) throw new Error(`MP3 export expects ${EXPORT_RATE} Hz`)
   const enc = new Mp3Encoder(2, a.rate, MP3_KBPS)
   const n = a.l.length
   const chunks: Uint8Array[] = []
   const L = new Int16Array(MP3_BLOCK), R = new Int16Array(MP3_BLOCK)
-  let sinceProgress = 0
+  let sinceStep = 0
   for (let s = 0; s < n; s += MP3_BLOCK) {
     if (isCancelled?.()) return new Uint8Array(0)
     const m = Math.min(MP3_BLOCK, n - s)
     for (let i = 0; i < m; i++) { L[i] = toInt16(a.l[s + i]); R[i] = toInt16(a.r[s + i]) }
     const out = enc.encodeBuffer(m === MP3_BLOCK ? L : L.subarray(0, m), m === MP3_BLOCK ? R : R.subarray(0, m))
     if (out.length) chunks.push(new Uint8Array(out))
-    sinceProgress += m
-    if (onProgress && sinceProgress >= a.rate) { sinceProgress = 0; onProgress(Math.min(1, (s + m) / n)) }
+    sinceStep += m
+    if (sinceStep >= a.rate) { sinceStep = 0; yield Math.min(1, (s + m) / n) }
   }
   const tail = enc.flush()
   if (tail.length) chunks.push(new Uint8Array(tail))
-  onProgress?.(1)
   const out = new Uint8Array(chunks.reduce((t, c) => t + c.length, 0))
   let o = 0
   for (const c of chunks) { out.set(c, o); o += c.length }
   return out
+}
+
+export function encodeMp3(a: Stereo, onProgress?: (p: number) => void, isCancelled?: () => boolean): Uint8Array {
+  const it = mp3Steps(a, isCancelled)
+  for (let r = it.next(); ; r = it.next()) {
+    if (r.done) { if (r.value.length) onProgress?.(1); return r.value }
+    onProgress?.(r.value)
+  }
+}
+
+/** The same file, letting the page breathe between seconds of audio */
+export async function encodeMp3Async(a: Stereo, onProgress?: (p: number) => void, isCancelled?: () => boolean): Promise<Uint8Array> {
+  const it = mp3Steps(a, isCancelled)
+  for (let r = it.next(); ; r = it.next()) {
+    if (r.done) { if (r.value.length) onProgress?.(1); return r.value }
+    onProgress?.(r.value)
+    await new Promise(res => setTimeout(res, 0))
+  }
 }

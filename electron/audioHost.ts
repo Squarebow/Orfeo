@@ -49,7 +49,8 @@ function startRender(m: any) {
       if (!out) { post({ t: 'render-progress', id: m.id, p: r.progress() }); return }
       clearInterval(poll); renders.delete(m.id)
       const [l, rr] = out as Float32Array[]
-      port?.postMessage({ t: 'render-done', id: m.id, l, r: rr }, [l.buffer as ArrayBuffer, rr.buffer as ArrayBuffer] as any)
+      // copied, not transferred: a main-process MessagePort only transfers ports
+      post({ t: 'render-done', id: m.id, l, r: rr })
     } catch (err: any) {
       clearInterval(poll); renders.delete(m.id)
       const message = String(err?.message ?? err)
