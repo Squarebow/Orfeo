@@ -259,7 +259,7 @@ function refillVisuals() {
   const latencyMs = nativeOutputLatencySec() * 1000
   for (const t of v.midi.tracks) {
     const ts = v.tracks.find(x => x.index === t.index)
-    if (!ts || ts.muted || (v.hasSolo && !ts.solo) || !ts.visible) { v.cursors.set(t.index, t.notes.length); continue }
+    if (!ts || !ts.visible) { v.cursors.set(t.index, t.notes.length); continue }   // lights follow the eye, not mute/solo
     const base = ts.color ?? amberHex()
     let c = v.cursors.get(t.index) ?? t.notes.length
     while (c < t.notes.length && t.notes[c].time < target) {

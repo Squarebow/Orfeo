@@ -1,5 +1,5 @@
 // ── Step through a song one played event at a time (→ / ←) ────────────────────
-// → jumps to the next moment any audible note starts — a single note or a
+// → jumps to the next moment any note on the roll starts — a single note or a
 // whole chord — sounds it, lights it and moves the playhead there; ← goes
 // back one. No tempo, no loop: the player's own pace. Shift + arrow jumps a
 // bar. Built for learning fast solos and transcribing, including MIDI made
@@ -15,7 +15,7 @@ const EPS = 1e-4
 const MIN_MS = 120
 const MAX_MS = 2500
 
-interface StepNote { midi: number; velocity: number; duration: number; channel: number; color: string }
+interface StepNote { midi: number; velocity: number; duration: number; channel: number; color: string; audible: boolean }
 interface Step { time: number; notes: StepNote[] }
 
 function activeMidi(): any {
@@ -23,9 +23,11 @@ function activeMidi(): any {
 }
 
 // ── Steps for the current song + mute/solo/eye state, rebuilt only when either
-// changes. Only tracks you both hear and see make steps — a hidden track (the
-// bass and drums under Focus) never lands a step or sounds in one. Drums are
-// left out anyway: they'd turn every hi-hat into a step. ──────────────────
+// changes. Steps follow what's on the roll (the eye): a hidden track (the bass
+// and drums under Focus, a melody you play along to) never lands a step. Mute
+// and solo only decide whether a step's notes sound — a muted track you can
+// see still lights its keys. Drums are left out anyway: they'd turn every
+// hi-hat into a step. ─────────────────────────────────────────────────────
 let _cache: { midi: unknown; sig: string; steps: Step[] } | null = null
 
 function audibleSignature(): string {
@@ -38,9 +40,10 @@ export function buildSteps(midi: any, tracks: ReturnType<typeof useStore.getStat
   for (const track of midi?.tracks ?? []) {
     if (track.isDrum) continue
     const ts = tracks.find(t => t.index === track.index)
-    if (!ts || ts.muted || !ts.visible || (hasSolo && !ts.solo)) continue
+    if (!ts || !ts.visible) continue
+    const audible = !ts.muted && (!hasSolo || ts.solo)
     for (const n of track.notes) {
-      all.push({ time: n.time, midi: n.midi, velocity: n.velocity, duration: n.duration, channel: track.channel, color: ts.color ?? amberHex() })
+      all.push({ time: n.time, midi: n.midi, velocity: n.velocity, duration: n.duration, channel: track.channel, color: ts.color ?? amberHex(), audible })
     }
   }
   all.sort((a, b) => a.time - b.time)
@@ -116,10 +119,10 @@ export function stepEvents(dir: 1 | -1, byBar = false): boolean {
 
   const ratio = s.bpm / s.originalBpm || 1
   const transpose = s.detectedKey?.transpose ?? 0
-  const play = (window as any).__orfeoPlayNote as ((m: number, v: number, d: number, ch?: number, visual?: boolean, color?: string) => void) | undefined
+  const play = (window as any).__orfeoPlayNote as ((m: number, v: number, d: number, ch?: number, visual?: boolean, color?: string, silent?: boolean) => void) | undefined
   for (const n of step.notes) {
     const durMs = Math.max(MIN_MS, Math.min(MAX_MS, (n.duration / ratio) * 1000))
-    play?.(n.midi + transpose, n.velocity, durMs, n.channel, true, n.color)
+    play?.(n.midi + transpose, n.velocity, durMs, n.channel, true, n.color, !n.audible)
   }
   return true
 }

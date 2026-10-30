@@ -223,7 +223,9 @@ function updateMutedChannels() {
   clearLightSchedule(); clearAllKeys()
   for (const track of midiData.tracks) {
     const ts = tracks.find((t: any) => t.index === track.index)
-    if (!ts || ts.muted || (hasSolo && !ts.solo)) continue
+    // the keyboard follows the eye, not mute/solo: a muted track you can see
+    // still lights its keys (the sound is filtered by _mutedCh above)
+    if (!ts) continue
     // "Lit on keyboard" only actually lights the keyboard while the track is
     // still visible on the piano roll — a track hidden from the roll but
     // still flagged "Lit on keyboard" used to keep lighting the keyboard in
@@ -348,8 +350,8 @@ function buildPlayer(startSec: number) {
 
     for (const track of midiData.tracks) {
       const ts = tracks.find((t: any) => t.index === track.index)
-      if (!ts || ts.muted || (hasSolo && !ts.solo)) continue
-      // Same visible-gated rule as the live-update function above.
+      if (!ts) continue
+      // Same rule as the live-update function above: the eye, not mute/solo.
       const eligibleForHitEffect = ts.visible && (ts.showOnKeyboard || hitEffectScope === 'all')
       if (!eligibleForHitEffect) continue
       const defaultColor = ts.color ?? amberHex()
@@ -485,8 +487,13 @@ export function useAudioEngine() {
     // visual = false skips the timed key-light entirely — used for glissando,
     // which drives the keyboard light itself (instant swap, no fade timer)
     // instead of relying on this note-duration-based ring.
-    const playNote = async (midiNum: number, vel = 90, durMs = 500, channel?: number, visual = true, color?: string) => {
+    // silent = light the key only (a muted track you can see, stepped with ← / →)
+    const playNote = async (midiNum: number, vel = 90, durMs = 500, channel?: number, visual = true, color?: string, silent = false) => {
       const { audioEngine } = useStore.getState()
+      if (silent) {
+        if (visual) (audioEngine === 'native' ? nativeLightKey : lightKey)(midiNum, color ?? amberHex(), durMs + 100)
+        return
+      }
       if (audioEngine === 'native') {
         // channel undefined = the live/preview channel (16), as in Samples
         if (channel === undefined) nativeLivePiano()

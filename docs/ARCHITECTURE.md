@@ -614,11 +614,13 @@ song clears Focus.
 **Mute and the eye are separate.** Mute (`setTrackMuted`, `muteGroup`) is
 sound only; the eye (`visible`) alone decides what shows — a track can be
 heard but hidden (play along to a melody you don't want on the roll), or
-muted but shown. The piano roll and Reflect on keyboard follow `visible`;
-keys light during playback only for tracks that sound. Step Through follows
-both
-(`src/utils/stepThrough.ts`): only tracks that are both audible and visible
-make steps, so Focus's hidden bass and drums never land one.
+muted but shown. Everything the keyboard shows follows `visible` (and
+`showOnKeyboard` for playback lights), never mute/solo: the piano roll,
+Reflect on keyboard, the keys lit during playback in all three engines (a
+muted track you can see lights silently), and Step Through
+(`src/utils/stepThrough.ts`): steps come from shown tracks only, and a
+step's notes from a muted track light without sounding (`__orfeoPlayNote`'s
+`silent`). Focus's hidden bass and drums never land a step.
 
 ---
 

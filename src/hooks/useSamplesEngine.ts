@@ -672,7 +672,9 @@ function buildSamplesPlayer(startSec: number) {
   _programSwitches.sort((a, b) => a.time - b.time)
   for (const track of midiData.tracks) {
     const ts = tracks.find(t => t.index === track.index)
-    if (!ts || ts.muted || (_epochHasSolo && !ts.solo)) continue
+    // heard (mute/solo) or seen (the eye): a muted track you can see still lights its keys
+    const audible = !ts?.muted && (!_epochHasSolo || !!ts?.solo)
+    if (!ts || (!audible && !ts.visible)) continue
     _homogeneousCache.set(track.index, isHomogeneousHandTrack(track.notes))
 
     // ── note.time and startSec are both in the file's OWN timeline (real
@@ -701,7 +703,7 @@ function buildSamplesPlayer(startSec: number) {
         break
       }
       _sustainCursor.set(track.index, sIdx)
-      if (downAtStart) {
+      if (downAtStart && audible) {
         try { ;(_synth as any).controllerChange(track.channel, 64, 127) } catch {}
       }
     } else {
@@ -733,7 +735,10 @@ function refillSchedule() {
 
   for (const track of _epochMidiData.tracks) {
     const ts = _epochTracks.find(t => t.index === track.index)
-    if (!ts || ts.muted || (_epochHasSolo && !ts.solo)) continue
+    // sound follows mute/solo; the keyboard follows the eye (below) — a muted
+    // track you can see lights silently, a hidden one you hear never lights
+    const audible = !ts?.muted && (!_epochHasSolo || !!ts?.solo)
+    if (!ts || (!audible && !ts.visible)) continue
     const defaultColor = ts.color ?? amberHex()
     const homogeneousTrack = _homogeneousCache.get(track.index) ?? false
     const ch = track.channel
@@ -747,7 +752,7 @@ function refillSchedule() {
       const midiNum = note.midi + _epochTranspose
       const color = resolveHandAwareColor(note, defaultColor, { homogeneousTrack, showHandLabels: _epochShowHandLabels, performanceMode: _epochPerformanceMode })
 
-      const t = setTimeout(() => {
+      if (audible) _schedule.push(setTimeout(() => {
         if (!_synth) return
         try {
           _synth.noteOn(ch, midiNum, Math.round(note.velocity * 127))
@@ -756,8 +761,7 @@ function refillSchedule() {
         } catch (e) {
           console.error('[Orfeo Samples] noteOn error:', e)
         }
-      }, delay)
-      _schedule.push(t)
+      }, delay))
 
       // ── Visual feedback (key light / hit effect) fires separately from the
       // note-on above, delayed by the audio device's own output latency —
@@ -777,6 +781,8 @@ function refillSchedule() {
     }
     _noteCursor.set(track.index, cursor)
 
+    // pedal and volume only for a track you hear: tracks can share a channel
+    if (!audible) continue
     const sustain = track.sustainEvents
     if (sustain && sustain.length > 0) {
       let sCursor = _sustainCursor.get(track.index) ?? sustain.length
