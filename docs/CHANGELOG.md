@@ -5,6 +5,11 @@
      list of 2–4 one-line bullets, then ### New / ### Changed / ### Fixed.
      Newest version at the top. -->
 
+## [Unreleased]
+
+### Fixed
+- *Ctrl+Shift+I* (or *F12*) opens the developer tools in the installed app again, for bug reports. It only worked in development builds.
+
 ## [1.6] — 31. 10. 2026 — Export to audio, skip empty bars, your own hand colours
 
 **In short**

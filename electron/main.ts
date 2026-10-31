@@ -137,6 +137,13 @@ function createWindow() {
   })
   win.webContents.on('before-input-event', (event, input) => {
     if (input.type !== 'keyDown') return
+    // ── Developer tools (Ctrl+Shift+I or F12) — the user manual asks for
+    // them in bug reports. Electron's default menu normally provides the
+    // shortcut, but that menu is switched off (Menu.setApplicationMenu(null),
+    // see app.whenReady), so the installed app needs it here. ────────────────
+    if (input.key === 'F12' || ((input.control || input.meta) && input.shift && !input.alt && input.code === 'KeyI')) {
+      event.preventDefault(); win.webContents.toggleDevTools(); return
+    }
     if (!(input.control || input.meta) || input.shift || input.alt) return
     if (input.key === '+' || input.key === '=' || input.code === 'NumpadAdd') {
       event.preventDefault(); stepZoom(win, 1)
