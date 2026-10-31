@@ -5,7 +5,13 @@
      list of 2–4 one-line bullets, then ### New / ### Changed / ### Fixed.
      Newest version at the top. -->
 
-## [Unreleased]
+## [1.6] — 31. 10. 2026 — Export to audio, skip empty bars, your own hand colours
+
+**In short**
+- New: save any song as an MP3 or WAV file: as written, just keys, bass and drums, or exactly as you hear it.
+- New: songs can start right where the music starts, skipping the silent bars at the beginning.
+- New: choose your own left- and right-hand colours. The piano roll and keyboard now always show the same parts (eye, mute and solo work together).
+- Clearer uninstall choices, a tidier velocity editor, and a security update.
 
 ### New
 - **Export to audio** (Settings › Audio, off until you switch it on). Right-click any song in the Library and choose *Export to audio* to save it as a file to listen to anywhere. Pick the version: *Original* (the song as written), *Focus* (keys, bass and drums only) or *As I hear it* (your tempo, key, muted parts, Mixer and loop, for the song you have open). Then pick the sound, Studio or Native, with any of your sound sets. The format is MP3 (320 kbps, 44.1 kHz stereo) or WAV (44.1 kHz, 16-bit stereo, CD quality). Every file starts at the first note, rings out for 2 seconds after the last one and is levelled so it never clips. Files go to the *Exports* folder inside your Library's *Orfeo* folder (or *Music › Orfeo › Exports* if you haven't set a Library) and never overwrite an earlier export. A song that's playing pauses while it exports, and *Cancel* stops an export at any time.
