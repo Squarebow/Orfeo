@@ -65,8 +65,10 @@ const amber = (s: ReactNode) => <span style={{ color: 'var(--text-amber)' }}>{s}
 const kHz = (rate: number) => `${Math.round(rate / 100) / 10} kHz`
 const msOf = (sec: number) => `${Math.round(sec * 1000 * 10) / 10} ms`
 
-// Three rows under the engine buttons, Setup and window: the sound card, how
-// Orfeo uses it, and the delay from "play" to "heard"
+// Four rows under the engine buttons, Setup and window, framed like a small
+// display: the sound card, how Orfeo uses it, the delay from "play" to
+// "heard", and the sound set playing
+const glanceBox = { marginTop: 6, border: '1px solid var(--border)', borderRadius: 6, padding: '2px 8px 6px' } as const
 function SoundEngineGlance() {
   const audioEngine = useStore((s) => s.audioEngine)
   const samplesStatus = useSoundfontState((s) => s.samplesStatus)
@@ -78,16 +80,26 @@ function SoundEngineGlance() {
   const error = useNativeAudio((s) => s.error)
   const wantsExclusive = useMidiSettings((s) => s.nativeExclusive)
   const latency = <InfoRow label={t`Latency`}>{latencySec > 0 ? amber(`${Math.round(latencySec * 1000)} ms`) : '—'}</InfoRow>
+  const selectedSoundfont = useStore((s) => s.selectedSoundfont)
+  const extraSoundfonts = useSoundfontState((s) => s.extra)
+  // GM needs no sound set: its own built-in sounds, or none when it plays an external instrument
+  const soundfontName = audioEngine === 'gm'
+    ? (gmExternal ? '—' : t`Built-in GM`)
+    : allSoundfonts(extraSoundfonts).find(sf => sf.id === selectedSoundfont)?.name ?? selectedSoundfont
+  const soundfont = <InfoRow label={t`Soundfont`} marquee={soundfontName}>{amber(soundfontName)}</InfoRow>
 
   if (audioEngine === 'native') {
     if (phase === 'failed') return <HelpText>{t`Native engine unavailable:`} {error}</HelpText>
     if (phase !== 'running' || !native) return <InfoRow label={t`Sound card`}>{t`starting…`}</InfoRow>
     if (native.mode === 'none') return <InfoRow label={t`Sound card`}>{t`waiting for a sound card…`}</InfoRow>
     return (
-      <div style={{ marginTop: 6 }}>
+      <div>
+        <div style={glanceBox}>
         <InfoRow label={t`Sound card`} marquee={native.deviceName} />
         <InfoRow label={t`Mode`} marquee={`${native.mode} ${native.rate} ${native.bufferFrames}`}>{native.mode === 'exclusive' ? amber(t`Exclusive (low latency)`) : t`Shared`} · {kHz(native.rate)} · {msOf(native.bufferFrames / native.rate)} {t`buffer`}</InfoRow>
         {latency}
+        {soundfont}
+        </div>
         {/* Exclusive asked for, but the card couldn't do it: say why */}
         {wantsExclusive && native.mode === 'shared' && native.fallbackReason && <HelpText>{t`Sharing the sound card instead of Exclusive:`} {native.fallbackReason}.</HelpText>}
       </div>
@@ -95,10 +107,11 @@ function SoundEngineGlance() {
   }
   const rate = getSamplesSampleRate(), buffer = getSamplesBufferSec()
   return (
-    <div style={{ marginTop: 6 }}>
+    <div style={glanceBox}>
       <InfoRow label={t`Sound card`} marquee={audioEngine === 'gm' && gmExternal ? gmExternal : defaultName || t`Windows' default output`} />
       <InfoRow label={t`Mode`} marquee={`${audioEngine} ${gmExternal} ${samplesStatus} ${rate} ${buffer}`}>{audioEngine === 'gm' && gmExternal ? t`External instrument` : <>{t`Shared`}{audioEngine === 'samples' && samplesStatus === 'ready' && rate > 0 && <> · {kHz(rate)}{buffer > 0 && <> · {msOf(buffer)} {t`buffer`}</>}</>}</>}</InfoRow>
       {latency}
+      {soundfont}
     </div>
   )
 }

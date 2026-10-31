@@ -17,6 +17,8 @@
 - **Velocity editor without the clutter.** The numbers no longer sit on every bar, where close notes made them overlap. Point at a bar to see its velocity, and the value follows live as you drag it up or down. Select a note on the piano roll and its bar lights up in amber, so in a busy passage you can see which bar is which.
 - **Clearer choices when uninstalling.** The Yes / No / Cancel box is gone. A page of four clearly named choices takes its place, each saying exactly what it does: *Delete everything*, *Keep my edited files*, *Remove Orfeo, keep my data* (handy before a reinstall) and *Keep everything*, which really cancels the uninstall. All of them leave your Library folder alone. The empty *Choose Components* page is gone too.
 - **Piano roll and keyboard always agree.** The keys lit while playing, Reflect on keyboard and stepping with ← / → show exactly what's on the piano roll. Switch a track's eye off and it keeps playing along as accompaniment without showing anywhere — hear the saxophone melody without its notes on the keys. Mute a track and it's silent and off the roll; solo one and only that track is heard and shown. Mute and solo no longer switch the eye on or off, so the buttons stay separate.
+- **Clearer track colours.** Other instruments never start in the piano's colours any more. Each one gets a colour that stands apart from the hands and from the instruments before it.
+- **Audio at a glance.** The sound engine's details in Setup and Settings › Audio now sit in a small framed display, with a new fourth line: the sound set that's playing (or *Built-in GM*).
 
 ### Fixed
 - Right-click menus near the bottom of the Library open upwards, so they're never cut off.
