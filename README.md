@@ -53,12 +53,15 @@ telemetry; MIDI files are processed entirely on your device.
   right-click for volume and count-in
 - **Count-in** — 1–4 bars of clicks before the music starts, at the song's real
   tempo, leading straight into the first note
+- **Skip empty bars** — songs open where the music starts, with silent lead-in
+  bars left out (a drum count-in can stay); the file itself is never changed
 - **Tap Tempo** — fix songs whose bar lines and metronome don't match the music:
   tap along on Space or a MIDI key, and Orfeo lines your beat up with the song's
   own drums and bass, remembers it for that song, and never touches the file
 - **Tempo warnings** — optional marks in the Library and the top bar for songs
   whose bar lines and metronome don't match the music's beat
-- **Tracks panel & Console Mixer** — mute, solo, recolour, show/hide tracks;
+- **Tracks panel & Console Mixer** — mute, solo, recolour, show/hide tracks
+  (hide a part to hear it as accompaniment without seeing it on the roll or keys);
   per-channel volume, pan, chorus, reverb with live VU meters (saved into the
   file on close); master Tone and Compressor
 - **Focus Mode** — one click to hear keys, bass and drums but see only the keys;
