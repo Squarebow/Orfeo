@@ -141,7 +141,7 @@
   "dependencies": {
     "@coderline/alphatab": "^1.8.4",
     "@tonejs/midi": "^2.0.28",
-    "electron-updater": "^6.8.9",
+    "electron-updater": "^6.8.11",
     "fuse.js": "^7.5.0",
     "gsap": "^3.15.0",
     "jazz-midi-electron": "^2.0.3",
@@ -166,7 +166,7 @@
     "@types/react": "^19.2.18",
     "@types/react-dom": "^19.2.4",
     "@vitejs/plugin-react": "^4.5.2",
-    "electron": "^44.9.3",
+    "electron": "^44.10.0",
     "electron-builder": "^26.15.3",
     "electron-vite": "^3.1.0",
     "lucide-react": "^1.61.0",

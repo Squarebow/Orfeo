@@ -19,6 +19,7 @@
 - **Piano roll and keyboard always agree.** The keys lit while playing, Reflect on keyboard and stepping with ← / → show exactly what's on the piano roll. Switch a track's eye off and it keeps playing along as accompaniment without showing anywhere — hear the saxophone melody without its notes on the keys. Mute a track and it's silent and off the roll; solo one and only that track is heard and shown. Mute and solo no longer switch the eye on or off, so the buttons stay separate.
 - **Clearer track colours.** Other instruments never start in the piano's colours any more. Each one gets a colour that stands apart from the hands and from the instruments before it.
 - **Audio at a glance.** The sound engine's details in Setup and Settings › Audio now sit in a small framed display, with a new fourth line: the sound set that's playing (or *Built-in GM*).
+- **Roomier Playback settings.** Loop region and Focus mode moved to the first column of Settings › Playback, so the whole page fits without scrolling. In the *Skip empty bars* card, *Keep drum count-ins* has a paragraph of its own.
 
 ### Fixed
 - Right-click menus near the bottom of the Library open upwards, so they're never cut off.
@@ -26,6 +27,11 @@
 - The Chords Explorer's *next inversion* arrow no longer gets its tip cut off.
 - The MIDI Note Editor keeps its size as you move the mouse over it. Before, it grew and shrank as the hint text below the tools changed between one and two lines.
 - In the MIDI Note Editor, undoing a change also removes the white outline from the notes it changed. Before, the outline stayed, and right-click couldn't clear it.
+
+### Updated
+- Electron 44.9.3 → 44.10.0 (security fixes)
+- electron-updater 6.8.9 → 6.8.11
+
 ## [1.5.4] — 25. 10. 2026 — Lots of polish, plus a few new things
 
 **In short**
