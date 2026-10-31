@@ -1,6 +1,7 @@
 import { useStore } from '../store'
 
-// Mute is sound only, the eye is sight only: neither switches the other
+// Mute and the eye are separate buttons: neither switches the other (what
+// actually shows is decided from both — trackShown.ts)
 export function runMuteVisibleTest(): number {
   console.group('[mute/visible] self-check')
   let pass = 0, fail = 0
@@ -10,15 +11,15 @@ export function runMuteVisibleTest(): number {
 
   useStore.setState({ tracks: [track(0, 'piano'), track(1, 'reed')] })
   useStore.getState().setTrackMuted(1, true)
-  check(get(1).muted && get(1).visible, 'muting a track leaves its notes on show')
+  check(get(1).muted && get(1).visible, 'muting a track leaves its eye as it was')
   useStore.getState().setTrackMuted(1, false)
-  check(!get(1).muted && get(1).visible, 'unmuting changes nothing on show')
+  check(!get(1).muted && get(1).visible, 'unmuting leaves its eye as it was')
   useStore.setState({ tracks: [track(0, 'piano'), { ...track(1, 'reed'), visible: false }] })
   useStore.getState().setTrackMuted(1, true)
   useStore.getState().setTrackMuted(1, false)
   check(!get(1).visible, 'a hidden track heard again stays hidden (hear the sax, don\'t see it)')
   useStore.getState().muteGroup('piano', true)
-  check(get(0).muted && get(0).visible, 'muting a group leaves its notes on show')
+  check(get(0).muted && get(0).visible, 'muting a group leaves their eyes as they were')
   useStore.setState({ tracks: [] })
 
   console.log(`mute/visible: ${pass} passed, ${fail} failed`)
