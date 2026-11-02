@@ -121,3 +121,11 @@ native/*/target/
 native/target/
 # Built add-on + FluidSynth DLLs for dev runs (scripts/build-native.mjs)
 native/build/
+Plan.md
+.gitignore
+TODO-Done.md
+TODO.md
+
+# plan-and-solve: runtime coordination, never versioned
+.claude-todo-claims.json
+.claude-todo-claims.lock/
