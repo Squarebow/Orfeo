@@ -12,6 +12,8 @@
 
 - **An export that cannot finish says so.** A Studio export plays a long song in sections, one per processor core. If one of those stopped without an answer, the export could sit at the same percentage forever, or end with no file and no word about it. Now the whole song plays through in one pass instead (the bar says *Exporting (single pass)*, which is slower but honest), and if even that produces nothing, you get an error you can read.
 
+- **A stuck or abandoned export no longer sits between you and Play.** An export that had been started kept its "exporting" lock until it finished, even if its render thread went quiet or the window it belonged to was closed — Space did nothing until Orfeo was restarted. A render that stops reporting progress for 90 seconds is now reported as failed, and closing the page stops every render it had started.
+
 ### Changed
 - **A very quiet export is now refused instead of made loud.** An export is levelled so it never clips, and it still is — but never by more than +20 dB. A song that peaks below −54 dBFS (master volume almost down, parts muted) comes back as a clear message rather than as a file that hisses at full level.
 - **"As I hear it" now means the sound you picked.** A note pushed off the keyboard by transposing does in the file exactly what that sound does while playing: *Studio* leaves it out, *Native* moves it to the nearest end. Before, an export always moved it — so a Studio export could play notes you never hear.

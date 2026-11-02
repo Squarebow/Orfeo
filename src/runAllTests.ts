@@ -29,6 +29,8 @@ const SKIP: Record<string, string> = {
   // toolchain (native/build/ is not in the repository). The rules that test checks
   // — packing events, channel mix, tail length — are covered headless elsewhere.
   'src/audio/exportNativeTest.ts': 'needs the built native add-on (npm run native:build, Windows only)',
+  // the audio host process itself (utilityProcess + MessagePort + the add-on) only
+  // runs on Windows; every rule it uses lives in hostRenders.ts, which is tested.
 }
 
 const rel = (path: string) => path.split(sep).join('/')
