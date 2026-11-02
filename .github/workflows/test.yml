@@ -1,0 +1,48 @@
+# Runs the test suite and the type-check on every push and pull request.
+#
+# Deliberately only Node: no Electron binary, no native build.
+#  - `ELECTRON_SKIP_BINARY_DOWNLOAD=1` keeps `npm ci` to the dependencies the
+#    tests actually load; the Electron package itself is still installed.
+#  - `cargo test` is not run here: the Rust crate depends on `wasapi`/`windows`
+#    and does not build on Linux at all (docs/CONTRIBUTING.md → Prerequisites).
+#  - `npm run build` is not run here either: its `check:hand-engine` pre-step
+#    compares a hash that was recorded from a CRLF working tree on Windows, so it
+#    fails on a Linux checkout regardless of the code. Worth fixing separately.
+#
+# A red run here means a rule the tests cover broke; a *skipped* file is listed
+# with its reason in the summary (src/runAllTests.ts → SKIP).
+name: Test
+
+on:
+  push:
+  pull_request:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: test-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  suite:
+    name: npm test + typecheck
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install (no Electron binary)
+        run: npm ci
+        env:
+          ELECTRON_SKIP_BINARY_DOWNLOAD: '1'
+
+      - name: Tests
+        run: npm test
+
+      - name: Type-check
+        run: npm run typecheck
