@@ -8,6 +8,7 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 
 import { HostRenders } from './hostRenders'
+import { ConnectionHolder } from './hostConnection'
 
 type HostInit = { t: 'init'; addon: string; fluidDir: string }
 
@@ -15,10 +16,11 @@ let addonPath = ''
 let fluidDir = ''
 let NativeEngine: any = null
 let engine: any = null
-let port: Electron.MessagePortMain | null = null
+// the one live connection to a renderer page, and the only one that may clean up
+const connection = new ConnectionHolder<Electron.MessagePortMain>()
 let statusTimer: ReturnType<typeof setInterval> | null = null
 
-function post(msg: any) { try { port?.postMessage(msg) } catch {} }
+function post(msg: any) { connection.post(msg) }
 
 function stopEngine() {
   if (statusTimer) { clearInterval(statusTimer); statusTimer = null }
@@ -78,15 +80,15 @@ process.parentPort.on('message', (e) => {
   if (m?.t !== 'init') return
   addonPath = m.addon
   fluidDir = m.fluidDir
-  // A new renderer connection replaces the old one (reload, new window):
-  // its engine goes too, so the new page starts from a clean sound card
-  stopEngine()
-  try { port?.close() } catch {}
-  port = e.ports[0]
-  port.on('message', onMessage)
-  // the page is gone: a render nobody is waiting for still holds a FluidSynth,
-  // a sound set and a few hundred MB of audio until it finishes on its own
-  port.on('close', () => { renders.cancelAll(); stopEngine(); port = null })
-  port.start()
+  // A new renderer connection replaces the old one (reload, new window). What the
+  // old page had running goes at that moment, decided here: the old port's
+  // 'close' event can arrive after the new port is wired, and cleaning up on that
+  // late event used to stop the new page's engine and cancel exports it had just
+  // started. hostConnection.ts holds the rule, hostConnectionTest.ts checks it.
+  connection.replace(e.ports[0], {
+    onMessage: (m) => onMessage(m as Electron.MessageEvent),
+    onReplace: () => { renders.cancelAll(); stopEngine() },
+    onClose: () => { renders.cancelAll(); stopEngine() },
+  })
   post({ t: 'ready' })
 })

@@ -222,7 +222,12 @@ channel set to the wrong instrument for the rest of the session.
   **utility process** (`electron/audioHost.ts`). A crash there restarts the
   sound (`nativeClient.ts` re-starts it and re-sends the song); Orfeo itself
   keeps running. Main only introduces the renderer and the host through a
-  `MessageChannelMain`; commands and ~30 Hz status flow over that port.
+  `MessageChannelMain`; commands and ~30 Hz status flow over that port. One
+  connection is live at a time (`electron/hostConnection.ts`): a reload or a new
+  window posts a new `init`, and the *replacement* is what ends the old page's
+  engine and its running offline renders — a port's `close` event may arrive
+  after the newer port is wired, and cleaning up there would tear down the new
+  connection instead. Every port message goes through `ConnectionHolder.post`.
 - **Engine:** one audio thread owns WASAPI and FluidSynth (2.5.7 *glib* build —
   the glib-free builds crash with ≥ 8 audio groups). It plays the song from a
   flat time-sorted event list, splitting each period at event times, mixes the
