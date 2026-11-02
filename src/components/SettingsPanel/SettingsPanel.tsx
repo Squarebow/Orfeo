@@ -1106,9 +1106,11 @@ function LibraryPanel({ hidden = false }: { hidden?: boolean }) {
               <ContextMenuItem
                 onClick={() => {
                   const path = contextMenu.path
-                  const name = libraryFiles.find(f => f.path === path)?.name ?? path.split(/[\/]/).pop() ?? path
+                  // either separator: a Windows path in one piece would otherwise
+                  // become part of the export's file name
+                  const name = libraryFiles.find(f => f.path === path)?.name ?? path.split(/[\\/]/).pop() ?? path
                   // the song's name without its file extension (.mid, .gp5, .musicxml…)
-                  setExportTarget({ path, name: name.replace(/\.[^.\/]+$/, '') })
+                  setExportTarget({ path, name: name.replace(/\.[^.\\/]+$/, '') })
                   setContextMenu(null)
                 }}
               >

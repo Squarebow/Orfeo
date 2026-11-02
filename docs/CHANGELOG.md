@@ -5,6 +5,11 @@
      list of 2–4 one-line bullets, then ### New / ### Changed / ### Fixed.
      Newest version at the top. -->
 
+## [1.7] — noch offen — Titel folgt am Ende des Zuges
+
+### Fixed
+- **Exported files always stay in the Exports folder.** A song whose name carried a folder path (a song opened from outside the Library, or a name that looked like `..\..\x`) could produce a file somewhere you never clicked, or an error you could not read. And a name Windows keeps for itself — *CON*, *PRN*, *NUL*, *COM1*… — made a file that could not be opened. An export name is now always one plain file name inside `<Library>\Orfeo\Exports`, and a reserved name simply gets an underscore in front of it.
+
 ## [1.6] — 31. 10. 2026 — Export to audio, skip empty bars, your own hand colours
 
 **In short**
