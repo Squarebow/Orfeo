@@ -10,6 +10,8 @@
 ### Fixed
 - **Exported files always stay in the Exports folder.** A song whose name carried a folder path (a song opened from outside the Library, or a name that looked like `..\..\x`) could produce a file somewhere you never clicked, or an error you could not read. And a name Windows keeps for itself — *CON*, *PRN*, *NUL*, *COM1*… — made a file that could not be opened. An export name is now always one plain file name inside `<Library>\Orfeo\Exports`, and a reserved name simply gets an underscore in front of it.
 
+- **An export that cannot finish says so.** A Studio export plays a long song in sections, one per processor core. If one of those stopped without an answer, the export could sit at the same percentage forever, or end with no file and no word about it. Now the whole song plays through in one pass instead (the bar says *Exporting (single pass)*, which is slower but honest), and if even that produces nothing, you get an error you can read.
+
 ## [1.6] — 31. 10. 2026 — Export to audio, skip empty bars, your own hand colours
 
 **In short**

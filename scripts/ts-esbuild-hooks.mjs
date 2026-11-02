@@ -77,20 +77,22 @@ registerHooks({
       const found = firstExisting(entry && !rest ? new URL(entry, pkgBase) : new URL(rest || entry, pkgBase), '')
       if (found) return { url: found.href, shortCircuit: true }
     }
+    const base = context.parentURL
+    const bare = specifier.split('?')[0]
+    const suffix = specifier.includes('?') ? specifier.split('?').slice(1).join('?') : null
+
+    // Vite-suffixed imports (workers, ?raw, …): the file behind them is real, so
+    // answer before Node gets a chance to load the plain source and to be misled
+    // by its exports. Checked first on purpose — `a.ts?x` resolves just fine.
+    if (suffix && base) {
+      const target = firstExisting(base, bare)
+      if (target) return { url: stubUrl('worker'), format: 'module', shortCircuit: true }
+    }
+
     try {
       return nextResolve(specifier, context)
     } catch (err) {
-      if (!context.parentURL) throw err
-      const base = context.parentURL
-      const bare = specifier.split('?')[0]
-      const suffix = specifier.includes('?') ? specifier.split('?').slice(1).join('?') : null
-
-      // Vite-suffixed imports that point at a real file (workers, ?raw, …)
-      if (suffix) {
-        let target
-        try { target = new URL(bare, base) } catch { throw err }
-        if (isFile(target)) return { url: stubUrl('worker'), format: 'module', shortCircuit: true }
-      }
+      if (!base) throw err
       // Extensionless imports inside the TypeScript sources (and inside ESM
       // builds of dependencies, which are written the same way)
       const found = firstExisting(base, bare.startsWith('.') || bare.startsWith('/') ? bare : bare + '/')

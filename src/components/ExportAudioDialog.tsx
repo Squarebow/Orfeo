@@ -13,12 +13,12 @@ import { useFocusTrap } from '../hooks/useFocusTrap'
 import { modalCloseButtonStyle, modalCloseButtonHoverColor, modalCloseButtonIdleColor } from '../utils/modalCloseButtonStyle'
 import { SettingsDropdown } from './Settings/controls'
 import { useSoundfontState, allSoundfonts } from '../hooks/useSoundfonts'
-import { exportToAudio, previewExport, isOpenSong, forgetLoadedSong, ExportError, type ExportSound, type ExportFormat, type ExportStage } from '../audio/exportAudio'
+import { exportToAudio, previewExport, isOpenSong, forgetLoadedSong, ExportError, type ExportSound, type ExportFormat, type ExportStage, type ExportNote } from '../audio/exportAudio'
 import type { ExportVersion } from '../audio/exportSong'
 
 const NATIVE_AVAILABLE = navigator.userAgent.includes('Windows')
 
-type Phase = { k: 'choose' } | { k: 'working'; stage: ExportStage; p: number } | { k: 'done'; path: string } | { k: 'error'; message: string }
+type Phase = { k: 'choose' } | { k: 'working'; stage: ExportStage; p: number; note?: ExportNote } | { k: 'done'; path: string } | { k: 'error'; message: string }
 // What the window says about the chosen version, and whether Export can go ahead
 type Note = { kind: 'nokeys' | 'empty' | 'unreadable'; text: string }
 
@@ -111,7 +111,7 @@ export default function ExportAudioDialog({ path, name, onClose }: { path: strin
     setPhase({ k: 'working', stage: 'render', p: 0 })
     try {
       const saved = await exportToAudio({ songPath: path, songName: name, version, sound, soundfont, format },
-        (stage, p) => setPhase({ k: 'working', stage, p }), () => cancelled.current)
+        (stage, p, note) => setPhase({ k: 'working', stage, p, note }), () => cancelled.current)
       if (saved) setPhase({ k: 'done', path: saved })
       else setPhase({ k: 'choose' })
     } catch (e: any) {
@@ -129,7 +129,11 @@ export default function ExportAudioDialog({ path, name, onClose }: { path: strin
   }
 
   const working = phase.k === 'working'
-  const stageText = working ? (phase.stage === 'render' ? t`Exporting…` : phase.stage === 'encode' ? t`Encoding…` : t`Saving…`) : ''
+  // a render that lost its sections is slower, and saying so beats a bar that
+  // crawls for no visible reason
+  const stageText = working
+    ? (phase.stage === 'render' ? (phase.note === 'single-pass' ? t`Exporting (single pass)…` : t`Exporting…`) : phase.stage === 'encode' ? t`Encoding…` : t`Saving…`)
+    : ''
   const blocked = !!note && note.kind !== 'nokeys'
 
   return createPortal(

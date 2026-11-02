@@ -14,10 +14,14 @@ import { buildExportSong, exportFileName, type ExportVersion, type ExportSong } 
 import { finishAudio, encodeWav, encodeMp3, yieldToPage, type Stereo } from './exportEncode'
 import { masterKnobs } from './engine'
 import type { SoundfontId, TrackState, ParsedMidi } from '../types'
+import type { RenderNotes } from './exportStudio'
 
 export type ExportSound = 'studio' | 'native'
 export type ExportFormat = 'mp3' | 'wav'
 export type ExportStage = 'render' | 'encode' | 'save'
+// a render that could not use its sections: same job, slower, worth saying
+export type ExportNote = 'single-pass'
+type Progress = (stage: ExportStage, p: number, note?: ExportNote) => void
 export interface ExportOptions { songPath: string; songName: string; version: ExportVersion; sound: ExportSound; soundfont: SoundfontId; format: ExportFormat }
 
 // One step at a time, with the page getting a turn in between: playback (the
@@ -114,6 +118,16 @@ async function studioBanks(soundfont: SoundfontId): Promise<ArrayBuffer[]> {
   return banks
 }
 
+/** cancelled, empty and failed are three different answers, and the window has
+ *  to say something different for each. One empty buffer used to cover two of
+ *  them, which is how a broken export could look like a cancelled one. */
+export function renderOutcome(length: number, isCancelled: () => boolean, notes: RenderNotes):
+  { k: 'cancelled' } | { k: 'audio' } | { k: 'failed'; reason: string } {
+  if (isCancelled()) return { k: 'cancelled' }
+  if (length > 0) return { k: 'audio' }
+  return { k: 'failed', reason: notes.sectionsFailedWith ? `the Studio sound gave up: ${notes.sectionsFailedWith}` : 'the sound produced no audio' }
+}
+
 /** The finished audio, or why there is none: the version has notes (checked
  *  before playing), so an all-silent result means nothing could be heard */
 export function finishOrExplain(dry: Stereo, songDuration: number): Stereo {
@@ -123,13 +137,16 @@ export function finishOrExplain(dry: Stereo, songDuration: number): Stereo {
 }
 
 /** Exports one song; resolves to the saved file's path, or null when cancelled */
-export async function exportToAudio(o: ExportOptions, onProgress: (stage: ExportStage, p: number) => void, isCancelled: () => boolean): Promise<string | null> {
+export async function exportToAudio(o: ExportOptions, onProgress: Progress, isCancelled: () => boolean): Promise<string | null> {
   pauseForExport()
   _exporting++
   try { return await runExport(o, onProgress, isCancelled) } finally { _exporting-- }
 }
 
-async function runExport(o: ExportOptions, onProgress: (stage: ExportStage, p: number) => void, isCancelled: () => boolean): Promise<string | null> {
+async function runExport(o: ExportOptions, onProgress: Progress, isCancelled: () => boolean): Promise<string | null> {
+  // what the Studio render wants us to know: did the sections play, and if not, why
+  const notes: RenderNotes = {}
+  const tell = (stage: ExportStage, p: number) => onProgress(stage, p, notes.singlePass ? 'single-pass' : undefined)
   if (o.version === 'heard' && !isOpenSong(o.songPath)) throw new ExportError('failed', 'open the song first')
   const { midi, tracks } = await loadSong(o.songPath, o.version)
   const song = build(midi, tracks, o.version)
@@ -144,30 +161,33 @@ async function runExport(o: ExportOptions, onProgress: (stage: ExportStage, p: n
       // the extra set comes on top of the built-in one: missing = not installed any more
       if (extra && paths.length < 2) throw new ExportError('soundset')
       const { renderNative } = await import('./exportNative')
-      dry = await renderNative(song, paths, p => onProgress('render', p), isCancelled)
+      dry = await renderNative(song, paths, p => tell('render', p), isCancelled)
     } else {
       const banks = await studioBanks(o.soundfont)
       const { renderStudio } = await import('./exportStudio')
-      dry = await renderStudio(song, banks, p => onProgress('render', p), isCancelled)
+      dry = await renderStudio(song, banks, p => tell('render', p), isCancelled, notes)
     }
   } catch (e: any) {
     if (e instanceof ExportError) throw e
     throw new ExportError('failed', String(e?.message ?? e))
   }
-  if (isCancelled() || !dry.l.length) return null
+  const outcome = renderOutcome(dry.l.length, isCancelled, notes)
+  if (outcome.k === 'cancelled') return null
+  if (outcome.k === 'failed') throw new ExportError('failed', outcome.reason)
 
   await breathe()
   const finished = finishOrExplain(dry, song.duration)
-  onProgress('encode', 0)
+  tell('encode', 0)
   await breathe()
   const bytes = o.format === 'mp3'
-    ? await encodeMp3(finished, p => onProgress('encode', p), isCancelled)
+    ? await encodeMp3(finished, p => tell('encode', p), isCancelled)
     : encodeWav(finished)
-  if (isCancelled() || !bytes.length) return null
+  if (isCancelled()) return null
+  if (!bytes.length) throw new ExportError('failed', 'the encoder produced no file')
 
-  onProgress('save', 0)
+  tell('save', 0)
   await breathe()
   const path = await window.electronAPI.saveExport(o.songPath, useStore.getState().libraryFolder ?? null, exportFileName(o.songName, o.version, o.format), bytes)
-  onProgress('save', 1)
+  tell('save', 1)
   return path
 }
