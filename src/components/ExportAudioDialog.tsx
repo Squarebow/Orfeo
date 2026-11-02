@@ -91,13 +91,13 @@ export default function ExportAudioDialog({ path, name, onClose }: { path: strin
   useEffect(() => {
     let live = true
     setNote(null)
-    previewExport(path, version).then(s => {
+    previewExport(path, version, sound).then(s => {
       if (!live) return
       if (!s.events.some(e => (e.status & 0xf0) === 0x90)) setNote({ kind: 'empty', text: t`Nothing to export — the chosen version has no notes.` })
       else if (version === 'focus' && !s.hasKeys) setNote({ kind: 'nokeys', text: t`This song has no keys part — Focus exports bass and drums only.` })
     }).catch(() => { if (live) setNote({ kind: 'unreadable', text: t`Couldn't read this song.` }) })
     return () => { live = false }
-  }, [path, version])
+  }, [path, version, sound])
 
   const close = () => { cancelled.current = true; forgetLoadedSong(); onClose() }
   useEffect(() => {
@@ -121,6 +121,7 @@ export default function ExportAudioDialog({ path, name, onClose }: { path: strin
       const message = kind === 'unreadable' ? t`Couldn't read this song.`
         : kind === 'empty' ? t`Nothing to export — the chosen version has no notes.`
         : kind === 'silent' ? t`The export came out silent — check the master volume and the muted parts.`
+        : kind === 'quiet' ? t`The export was far too quiet to be worth a file — turn the volume up, or unmute some parts, and try again.`
         : kind === 'soundset' ? t`That sound set isn't installed any more — choose another one.`
         : sound === 'native' ? t`Something went wrong while exporting. Try again, or choose Studio.`
         : t`Something went wrong while exporting. Try again, or choose Native.`

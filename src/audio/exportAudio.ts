@@ -11,7 +11,7 @@ import { prepareSong } from '../utils/prepareSong'
 import { songKey } from '../utils/songIdentity'
 import { resolveToMidiBase64, base64ToBytes, detectForeignFormat, getCachePath } from '../utils/foreignFormatImport'
 import { buildExportSong, exportFileName, type ExportVersion, type ExportSong } from './exportSong'
-import { finishAudio, encodeWav, encodeMp3, yieldToPage, type Stereo } from './exportEncode'
+import { finishAudio, encodeWav, encodeMp3, yieldToPage, MIN_USABLE_PEAK, type Finished, type Stereo } from './exportEncode'
 import { masterKnobs } from './engine'
 import type { SoundfontId, TrackState, ParsedMidi } from '../types'
 import type { RenderNotes } from './exportStudio'
@@ -40,9 +40,10 @@ export function pauseForExport(): void {
 
 export class ExportError extends Error {
   // unreadable: the file can't be read · empty: no notes · silent: notes, but nothing
-  // audible came out · soundset: the chosen sound set isn't there any more ·
-  // failed: anything else (the message is the technical detail, for the log)
-  constructor(public kind: 'unreadable' | 'empty' | 'silent' | 'soundset' | 'failed', message: string = kind) { super(message) }
+  // audible came out · quiet: something came out, but so faint that levelling it
+  // would only lift the noise floor · soundset: the chosen sound set isn't there
+  // any more · failed: anything else (the message is the technical detail, for the log)
+  constructor(public kind: 'unreadable' | 'empty' | 'silent' | 'quiet' | 'soundset' | 'failed', message: string = kind) { super(message) }
 }
 
 // Windows paths: either slash, any letter case
@@ -86,14 +87,20 @@ let _loaded: { path: string; song: { midi: ParsedMidi; tracks: TrackState[] } } 
 /** The window closed: the next one reads the file afresh */
 export function forgetLoadedSong() { _loaded = null }
 
-/** What would play for this version — for the window's notes (no keys part, nothing to export) */
-export async function previewExport(songPath: string, version: ExportVersion): Promise<ExportSong> {
+/** What would play for this version — for the window's notes (no keys part, nothing to export).
+ *  The sound matters here too: with a transposed song, "are there any notes at all" can
+ *  differ between the two ways out-of-range notes are handled. */
+export async function previewExport(songPath: string, version: ExportVersion, sound: ExportSound = 'studio'): Promise<ExportSong> {
   const { midi, tracks } = await loadSong(songPath, version)
-  return build(midi, tracks, version)
+  return build(midi, tracks, version, sound)
 }
 
-function build(midi: ParsedMidi, tracks: TrackState[], version: ExportVersion): ExportSong {
-  if (version !== 'heard') return buildExportSong(midi, tracks, version)
+/** Studio drops notes outside the keyboard, Native moves them to the end —
+ *  exactly as each of them plays live, so the file holds what that sound does. */
+const outOfRangeFor = (sound: ExportSound) => (sound === 'native' ? 'clamp' : 'drop')
+
+function build(midi: ParsedMidi, tracks: TrackState[], version: ExportVersion, sound: ExportSound): ExportSong {
+  if (version !== 'heard') return buildExportSong(midi, tracks, version, undefined, outOfRangeFor(sound))
   const s = useStore.getState()
   const k = masterKnobs()
   // the Mixer's master reverb/chorus, once turned, play for every track (as live)
@@ -103,7 +110,7 @@ function build(midi: ParsedMidi, tracks: TrackState[], version: ExportVersion): 
     transpose: s.detectedKey?.transpose ?? 0,
     master: { gain: s.masterVolume, toneDb: k.tone * 12, comp: { enabled: s.masterCompEnabled, preset: s.masterCompPreset } },
     loop: s.loopRegionActive && s.loopStart != null && s.loopEnd != null ? { start: s.loopStart, end: s.loopEnd } : null,
-  })
+  }, outOfRangeFor(sound))
 }
 
 async function studioBanks(soundfont: SoundfontId): Promise<ArrayBuffer[]> {
@@ -129,10 +136,12 @@ export function renderOutcome(length: number, isCancelled: () => boolean, notes:
 }
 
 /** The finished audio, or why there is none: the version has notes (checked
- *  before playing), so an all-silent result means nothing could be heard */
-export function finishOrExplain(dry: Stereo, songDuration: number): Stereo {
+ *  before playing), so a result with nothing in it means nothing could be heard.
+ *  Faint-but-not-nothing is a separate answer: it needs a different sentence. */
+export function finishOrExplain(dry: Stereo, songDuration: number): Finished {
   const finished = finishAudio(dry, songDuration)
   if (!finished.l.length) throw new ExportError('silent')
+  if (finished.peak < MIN_USABLE_PEAK) throw new ExportError('quiet', `the whole file peaks at ${finished.peak.toFixed(6)}`)
   return finished
 }
 
@@ -149,7 +158,7 @@ async function runExport(o: ExportOptions, onProgress: Progress, isCancelled: ()
   const tell = (stage: ExportStage, p: number) => onProgress(stage, p, notes.singlePass ? 'single-pass' : undefined)
   if (o.version === 'heard' && !isOpenSong(o.songPath)) throw new ExportError('failed', 'open the song first')
   const { midi, tracks } = await loadSong(o.songPath, o.version)
-  const song = build(midi, tracks, o.version)
+  const song = build(midi, tracks, o.version, o.sound)
   if (!song.events.some(e => (e.status & 0xf0) === 0x90)) throw new ExportError('empty')
 
   onProgress('render', 0)

@@ -656,6 +656,14 @@ behind the `exportAudioEnabled` setting.
   active loop region. `ExportChannel.volume` is the engines' channel
   multiplier (fader, or fader ÷ the first song CC7 — `volumeRatio`). A future
   keyboard recording only has to arrive as a parsed song.
+  **Notes outside 0–127 differ per sound, and have always done so live**: the
+  Studio synth drops them (spessasynth_core returns for `midiNote > 127 ||
+  midiNote < 0`), the Native engine moves them to the nearest end
+  (`transpose_note`, `native/orfeo-audio/src/engine.rs`). Export follows whichever
+  sound it is about to play with (`OutOfRange`, chosen in `exportAudio.build`),
+  because "as I hear it" promises that sound. One shared rule for both engines is
+  deliberately **not** in v1.7: it changes live playback in a way nothing here can
+  run (the crate needs `wasapi`/`windows`), so it waits for a Windows pass.
 - **Studio** — `renderStudio` (`exportStudio.ts`): a fresh
   `SpessaSynthProcessor` (spessasynth_core, never the live synth;
   `exportStudioSynth.ts`) fed the events in 128-frame blocks (block size
@@ -669,8 +677,15 @@ behind the `exportAudioEnabled` setting.
   its own note-on (sustain pedal followed) plus a 4 s lead-in for the
   reverb, sets the reverb's and chorus's modulation phase to where it would
   be at that sample, and `joinSections` blends the joins over 50 ms — joins
-  match a one-go render to below −60 dB. If a worker fails it falls back to
-  one go on the page. Imported on demand to keep spessasynth out of the
+  match a one-go render to below −60 dB. A worker that fails **or vanishes
+  without answering** (`onclose` with no result — killed under memory pressure)
+  ends the sections and the whole song goes through in one go on the page;
+  `RenderNotes` carries that (`singlePass`, `sectionsFailedWith`) so the dialog
+  can say *Exporting (single pass)* instead of a bar that slows down for no
+  visible reason, and `renderOutcome` (`exportAudio.ts`) keeps three answers
+  apart: cancelled, audio, failed-with-a-reason. The worker constructor sits in
+  `exportStudioWorkerCtor.ts`, the only place Vite's `?worker&inline` syntax
+  appears, so the renderer itself is loadable by `npm test`. Imported on demand to keep spessasynth out of the
   startup bundle.
 - **Native** — `render_offline` (`native/orfeo-audio/src/offline.rs`): a fresh
   FluidSynth through the same parts as the live audio thread (CC7 × strip,
@@ -681,12 +696,22 @@ behind the `exportAudioEnabled` setting.
   MessagePort only transfers ports). Keep `offline.rs` in step with the
   audio thread's mix.
 - **Finishing** — `exportEncode.ts`: from the first sound to 2 s after the
-  last note-off, peak-normalised to −1 dBFS. WAV 44.1 kHz/16-bit/stereo PCM;
+  last note-off, peak-normalised to −1 dBFS but **raised by at most +20 dB**
+  (`MAX_BOOST_DB`), and a whole file peaking below −54 dBFS (`MIN_USABLE_PEAK`)
+  is refused as `ExportError('quiet')` — levelling that up would only raise the
+  noise floor, and the two answers need different sentences in the dialog. WAV 44.1 kHz/16-bit/stereo PCM;
   MP3 320 kbps CBR 44.1 kHz stereo (LAME compiled to WebAssembly, `wasm-media-encoders`),
   encoded a second of audio at a time so the page keeps breathing.
 - **Saving** — IPC `export:save` writes `<library>/Orfeo/Exports/<name>`
   (`exportsDir`; no library → the Music folder, `Orfeo/Exports`) with `wx`, the next
-  free `… (2)` name on a clash (`nextFreeName`).
+  free `… (2)` name on a clash (`nextFreeName`). The name is always one plain file
+  name inside that folder: `safeExportName`/`safeExportPath` (`electron/exportName.ts`)
+  cut either separator away, drop characters Windows refuses, prefix reserved
+  device names (`CON`, `NUL`, `COM1`…), and then check the result is still under
+  `Exports` — that check is not redundant with the cutting, it is what turns any
+  later change there into a loud error. The same file-name habit is missing from
+  the other `fs:` handlers; making it a rule across them is tracked as its own
+  task, not folded into this one.
 
 ---
 

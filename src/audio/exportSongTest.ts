@@ -76,6 +76,25 @@ export function runExportSongTest(): number {
 
   // 7. File names
   check(exportFileName('Song', 'focus', 'mp3') === 'Song (Focus).mp3', 'focus file name')
+  // Notes pushed off the keyboard by transposing: each sound does what it does live
+  const edge = { fileName: 'edge.mid', duration: 2, bpm: 120, timeSignatureNumerator: 4, timeSignatureDenominator: 4, noteCount: 3, tracks: [
+    { index: 0, name: 'High', gmName: 'Acoustic Grand Piano', program: 0, group: 'piano', isDrum: false, color: '#000', channel: 0,
+      notes: [{ midi: 122, time: 0, duration: 0.5, velocity: 0.8 }, { midi: 60, time: 1, duration: 0.5, velocity: 0.8 }] },
+    { index: 1, name: 'Low', gmName: 'Acoustic Grand Piano', program: 0, group: 'piano', isDrum: false, color: '#000', channel: 1,
+      notes: [{ midi: 5, time: 0, duration: 0.5, velocity: 0.8 }] },
+  ] } as any
+  const highUp = buildExportSong(edge, states(edge), 'heard', heard({ transpose: 10 }), 'drop')
+  const highClamped = buildExportSong(edge, states(edge), 'heard', heard({ transpose: 10 }), 'clamp')
+  check(!ons(highUp).some(e => e.d1 === 127), 'Studio (drop): the note beyond C8 is not played at all')
+  check(ons(highUp).some(e => e.d1 === 70), 'Studio (drop): the notes that fit are untouched')
+  check(ons(highClamped).some(e => e.d1 === 127), 'Native (clamp): the same note moves to the top key')
+  check(!ons(buildExportSong(edge, states(edge), 'heard', heard({ transpose: -10 }), 'drop')).some(e => e.track === 1),
+    'Studio (drop): a note below C0 is not played at all')
+  check(ons(buildExportSong(edge, states(edge), 'heard', heard({ transpose: -10 }), 'clamp')).some(e => e.track === 1 && e.d1 === 0),
+    'Native (clamp): a note below C0 moves to the bottom key')
+  const drumEdge = buildExportSong(m, states(m), 'heard', heard({ transpose: 40 }), 'clamp')
+  check(ons(drumEdge).find(e => e.track === 2)!.d1 === 36, 'drums stay on their own key either way')
+
   check(exportFileName('Song', 'heard', 'wav') === 'Song (As I hear it).wav', 'heard file name')
   check(exportFileName('Song', 'original', 'mp3') === 'Song.mp3', 'original file name')
 
