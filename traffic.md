@@ -1,8 +1,8 @@
 # Orfeo on GitHub: downloads and traffic
 
-**Last updated: 2. 11. 2026 at 12:06** Ljubljana time (CET) · updates daily from 07:00
+**Last updated: 2. 11. 2026 at 13:53** Ljubljana time (CET) · updates daily from 07:00
 
-[Squarebow/Orfeo](https://github.com/Squarebow/Orfeo) · ★ 267 stars · 26 forks · 2 watching
+[Squarebow/Orfeo](https://github.com/Squarebow/Orfeo) · ★ 271 stars · 27 forks · 2 watching
 
 > Orfeo is a free, open-source (GPL-3.0) Windows app for learning piano with MIDI files. It is distributed through GitHub Releases, as an installer and a portable version, and through the Microsoft Store (Store installs aren't counted here). Download totals come straight from GitHub's release statistics and cover every release since the first one; traffic is recorded daily from GitHub's traffic API and kept permanently, because GitHub itself keeps only 14 days.
 
@@ -10,16 +10,16 @@
 
 | | All time | Last 7 days |
 |---|---:|---:|
-| **Downloads** (installer + portable) | <mark>**1 338**</mark> | <mark>**744**</mark> |
-| — Installer (`Orfeo-Setup-x.y.z.exe`) | 1 020 | 533 |
-| — Portable (`Orfeo-x.y.z-portable.exe`) | 318 | 211 |
-| App starts checking for updates (`latest.yml`) | 1 135 | 566 |
+| **Downloads** (installer + portable) | <mark>**1 349**</mark> | <mark>**755**</mark> |
+| — Installer (`Orfeo-Setup-x.y.z.exe`) | 1 027 | 540 |
+| — Portable (`Orfeo-x.y.z-portable.exe`) | 322 | 215 |
+| App starts checking for updates (`latest.yml`) | 1 143 | 574 |
 | Updates installed (`.blockmap`) | 196 | 79 |
-| Repository page views (since 2026-10-03) | 1 453 | 184 |
-| Unique visitors (added up per day) | <mark>493</mark> | <mark>126</mark> |
-| Repository clones | 1 307 | 356 |
+| Repository page views (since 2026-10-03) | 2 529 | 1 260 |
+| Unique visitors (added up per day) | <mark>1 150</mark> | <mark>783</mark> |
+| Repository clones | 1 365 | 414 |
 
-Downloads by others, excluding the developer's own test downloads (about 4): <mark>**≈ 1 334**</mark>.
+Downloads by others, excluding the developer's own test downloads (about 4): <mark>**≈ 1 345**</mark>.
 
 *Downloads* count each time a release file was downloaded. *App starts* count installed copies (installer version) checking GitHub for a newer version when Orfeo starts, so they show the app being used, not just downloaded. The portable version does not check automatically.
 
@@ -29,7 +29,7 @@ Highlighted numbers are the ones closest to real people: downloads of the app an
 
 | Release | Published | Installer | Portable | Total downloads | App starts | Updates |
 |---|---|---:|---:|---:|---:|---:|
-| [v1.6.0](https://github.com/Squarebow/Orfeo/releases/tag/v1.6.0) | 2026-10-31 | 273 | 140 | <mark>**413**</mark> | 257 | 28 |
+| [v1.6.0](https://github.com/Squarebow/Orfeo/releases/tag/v1.6.0) | 2026-10-31 | 280 | 144 | <mark>**424**</mark> | 265 | 28 |
 | [v1.5.4](https://github.com/Squarebow/Orfeo/releases/tag/v1.5.4) | 2026-10-25 | 326 | 76 | <mark>**402**</mark> | 407 | 58 |
 | [v1.5.3](https://github.com/Squarebow/Orfeo/releases/tag/v1.5.3) | 2026-10-23 | 117 | 23 | <mark>**140**</mark> | 112 | 29 |
 | [v1.5.2](https://github.com/Squarebow/Orfeo/releases/tag/v1.5.2) | 2026-10-22 | 40 | 5 | <mark>**45**</mark> | 34 | 16 |
@@ -39,7 +39,7 @@ Highlighted numbers are the ones closest to real people: downloads of the app an
 | [v1.4.3](https://github.com/Squarebow/Orfeo/releases/tag/v1.4.3) | 2026-10-15 | 7 | 1 | <mark>**8**</mark> | 9 | 5 |
 | [v1.4.2](https://github.com/Squarebow/Orfeo/releases/tag/v1.4.2) | 2026-10-15 | 5 | 3 | <mark>**8**</mark> | 2 | 1 |
 | [v1.4.1](https://github.com/Squarebow/Orfeo/releases/tag/v1.4.1) | 2026-10-11 | 63 | 26 | <mark>**89**</mark> | 69 | 12 |
-| **All releases** | | **1 020** | **318** | <mark>**1 338**</mark> | **1 135** | **196** |
+| **All releases** | | **1 027** | **322** | <mark>**1 349**</mark> | **1 143** | **196** |
 
 ## Last 7 days, day by day
 
@@ -50,8 +50,8 @@ Highlighted numbers are the ones closest to real people: downloads of the app an
 | Thu 29 Oct | 73 | 12 | 99 | 18 | <mark>11</mark> | 16 |
 | Fri 30 Oct | 8 | 3 | 15 | 21 | <mark>12</mark> | 11 |
 | Sat 31 Oct | 117 | 33 | 167 | 111 | <mark>78</mark> | 43 |
-| Sun 01 Nov | 188 | 106 | 144 | – | – | – |
-| Mon 02 Nov | 51 | 32 | 50 | – | – | – |
+| Sun 01 Nov | 188 | 106 | 144 | 1076 | <mark>657</mark> | 58 |
+| Mon 02 Nov | 58 | 36 | 58 | – | – | – |
 
 Downloads per day start with the second day of tracking (they are the difference between two daily snapshots); views and clones go back 14 days before tracking started. Today's row is still growing.
 
@@ -59,8 +59,8 @@ Downloads per day start with the second day of tracking (they are the difference
 
 | Week (Mon) | Downloads | — installer | — portable | App starts | Page views |
 |---|---:|---:|---:|---:|---:|
-| 2026-11-02 | 83 | 51 | 32 | 50 | 0 |
-| 2026-10-26 | 758 | 561 | 197 | 618 | 216 |
+| 2026-11-02 | 94 | 58 | 36 | 58 | 0 |
+| 2026-10-26 | 758 | 561 | 197 | 618 | 1 292 |
 | 2026-10-19 | 329 | 282 | 47 | 317 | 162 |
 | 2026-10-12 | 23 | 20 | 3 | 26 | 284 |
 | 2026-10-05 | 0 | 0 | 0 | 0 | 600 |
@@ -72,22 +72,22 @@ Downloads before 2026-10-17 (when tracking started) are in the all-time totals a
 
 | Site | Views, last 14 days | Unique visitors, last 14 days | Views, all time (≈) |
 |---|---:|---:|---:|
-| github.com | 11 | <mark>8</mark> | 40 |
+| github.com | 32 | <mark>23</mark> | 43 |
 | chatgpt.com | – | – | 37 |
-| Google | 23 | <mark>18</mark> | 31 |
+| Google | 47 | <mark>38</mark> | 35 |
+| reddit.com | 226 | <mark>197</mark> | 32 |
+| com.reddit.frontpage | 175 | <mark>156</mark> | 25 |
 | Bing | 6 | <mark>4</mark> | 19 |
-| orfeo.cc | 6 | <mark>5</mark> | 11 |
-| search.brave.com | 8 | <mark>4</mark> | 10 |
-| DuckDuckGo | 2 | <mark>2</mark> | 6 |
-| reddit.com | 21 | <mark>20</mark> | 3 |
-| search.naver.com | 2 | <mark>1</mark> | 2 |
+| orfeo.cc | 8 | <mark>7</mark> | 11 |
+| search.brave.com | 10 | <mark>6</mark> | 10 |
+| DuckDuckGo | 3 | <mark>3</mark> | 6 |
 | copilot.microsoft.com | 2 | <mark>2</mark> | 2 |
+| search.naver.com | 2 | <mark>1</mark> | 2 |
 | yandex.com.tr | – | – | 2 |
-| com.reddit.frontpage | 10 | <mark>10</mark> | 1 |
-| ntp.msn.com | – | – | 1 |
 | yandex.ru | – | – | 1 |
-| aocr.org | – | – | 1 |
 | Yahoo | – | – | 1 |
+| ntp.msn.com | – | – | 1 |
+| aocr.org | – | – | 1 |
 
 GitHub only reports referring sites as 14-day totals. All-time adds up non-overlapping 14-day periods recorded since 2026-10-17, plus an estimate for the days since the last full period (≈). Search engines and AI assistants don't pass on what was searched.
 
@@ -95,16 +95,16 @@ GitHub only reports referring sites as 14-day totals. All-time adds up non-overl
 
 | Page | Views | Unique visitors |
 |---|---:|---:|
-| [/](https://github.com/Squarebow/Orfeo) | 245 | <mark>168</mark> |
-| [/releases](https://github.com/Squarebow/Orfeo/releases) | 57 | <mark>43</mark> |
+| [/](https://github.com/Squarebow/Orfeo) | 1 094 | <mark>798</mark> |
+| [/releases](https://github.com/Squarebow/Orfeo/releases) | 73 | <mark>60</mark> |
+| [/blob/main/.github/images/orfeo-hero.webp](https://github.com/Squarebow/Orfeo/blob/main/.github/images/orfeo-hero.webp) | 52 | <mark>51</mark> |
+| [/releases/tag/v1.6.0](https://github.com/Squarebow/Orfeo/releases/tag/v1.6.0) | 43 | <mark>37</mark> |
+| [/blob/main/docs/INSTALLATION.md](https://github.com/Squarebow/Orfeo/blob/main/docs/INSTALLATION.md) | 25 | <mark>20</mark> |
 | [/releases/tag/v1.5.4](https://github.com/Squarebow/Orfeo/releases/tag/v1.5.4) | 18 | <mark>12</mark> |
-| [/releases/tag/v1.4.4](https://github.com/Squarebow/Orfeo/releases/tag/v1.4.4) | 12 | <mark>9</mark> |
-| [/blob/main/docs/INSTALLATION.md](https://github.com/Squarebow/Orfeo/blob/main/docs/INSTALLATION.md) | 9 | <mark>7</mark> |
-| [/blob/main/.github/images/orfeo-hero.webp](https://github.com/Squarebow/Orfeo/blob/main/.github/images/orfeo-hero.webp) | 7 | <mark>7</mark> |
-| [/releases/tag/v1.6.0](https://github.com/Squarebow/Orfeo/releases/tag/v1.6.0) | 6 | <mark>6</mark> |
-| [/blob/main/README.md](https://github.com/Squarebow/Orfeo/blob/main/README.md) | 5 | <mark>5</mark> |
-| [/releases/tag/v1.5.3](https://github.com/Squarebow/Orfeo/releases/tag/v1.5.3) | 5 | <mark>4</mark> |
-| [/pulls](https://github.com/Squarebow/Orfeo/pulls) | 4 | <mark>2</mark> |
+| [/blob/main/docs/CONTRIBUTING.md](https://github.com/Squarebow/Orfeo/blob/main/docs/CONTRIBUTING.md) | 12 | <mark>11</mark> |
+| [/tree/main](https://github.com/Squarebow/Orfeo/tree/main) | 10 | <mark>7</mark> |
+| [/releases/tag/v1.4.4](https://github.com/Squarebow/Orfeo/releases/tag/v1.4.4) | 8 | <mark>6</mark> |
+| [/fork](https://github.com/Squarebow/Orfeo/fork) | 7 | <mark>7</mark> |
 
 ---
 Raw data, one row per day: [data/](https://github.com/Squarebow/Orfeo/tree/stats/data) (downloads.csv, views.csv, clones.csv, referrers_daily.csv, referrers_periods.csv). Collected by [tools/stats/collect.py](https://github.com/Squarebow/Orfeo/blob/main/tools/stats/collect.py).
