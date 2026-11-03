@@ -37,6 +37,9 @@ unsafe impl Send for Fluid {}
 /// FluidSynth renders in 64-sample blocks: an event lands on the next one.
 pub const FLUID_GRAIN: usize = 64;
 
+/// Synths are created one at a time (see `Fluid::new`)
+static CREATING: std::sync::Mutex<()> = std::sync::Mutex::new(());
+
 /// The FluidSynth library file in `dir`, as each system names it
 #[cfg(windows)]
 const LIBRARY: &str = "libfluidsynth-3.dll";
@@ -73,6 +76,13 @@ impl Fluid {
             let new_synth: unsafe extern "C" fn(Ptr) -> Ptr = sym!(b"new_fluid_synth");
             let c = |s: &str| CString::new(s).unwrap();
 
+            // FluidSynth fills its shared tables (interpolation, conversions) on the
+            // first synth a process creates, unguarded: a second synth created at
+            // that moment can start playing before they're filled and sound wrong
+            // (measured: 3 runs in 25 with 12 synths started together — see
+            // tests::concurrent_first_start). The live engine and an export, or two
+            // exports, can start together, so synths are created one at a time.
+            let _one_at_a_time = CREATING.lock().unwrap_or_else(|e| e.into_inner());
             let settings = new_settings();
             if settings.is_null() { return Err("new_fluid_settings failed".into()) }
             setnum(settings, c("synth.sample-rate").as_ptr(), sample_rate);
@@ -178,5 +188,38 @@ impl Fluid {
 impl Drop for Fluid {
     fn drop(&mut self) {
         unsafe { (self.delete_synth)(self.synth); (self.delete_settings)(self.settings); }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::sync::{Arc, Barrier};
+
+    /// Several synths started at the same instant must all sound the same.
+    /// Only meaningful as the first FluidSynth use in its process — run alone:
+    /// `cargo test -p orfeo-audio --lib concurrent_first_start`
+    #[test]
+    fn concurrent_first_start() {
+        let root = Path::new(env!("CARGO_MANIFEST_DIR"));
+        let (dir, sf) = (root.join("../build/fluidsynth"), root.join("../../public/GeneralUser-GS.sf2"));
+        const N: usize = 12;
+        let gate = Arc::new(Barrier::new(N));
+        let runs: Vec<_> = (0..N).map(|_| {
+            let (dir, sf, gate) = (dir.clone(), sf.clone(), gate.clone());
+            std::thread::spawn(move || {
+                gate.wait();
+                let mut f = Fluid::new(&dir, 44_100.0).expect("synth");
+                f.load_soundfont(&sf).expect("sound set");
+                f.midi(0xC0, 0, 0);
+                f.midi(0x90, 60, 100);
+                let (mut l, mut r) = (vec![0f32; 8192], vec![0f32; 8192]);
+                f.render(&mut l, &mut r);
+                l
+            })
+        }).collect();
+        let outs: Vec<Vec<f32>> = runs.into_iter().map(|t| t.join().unwrap()).collect();
+        let differing = outs.iter().filter(|o| **o != outs[0]).count();
+        assert!(differing == 0, "{differing} of {N} synths started together sound different");
     }
 }

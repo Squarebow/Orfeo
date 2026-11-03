@@ -42,9 +42,14 @@ jobs:
       - name: Build the native engine
         run: node scripts/build-native.mjs
 
+      # The synth start-up race (fluid.rs) only shows as the first FluidSynth use
+      # in a process, so it runs alone, a few times, before the whole suite
       - name: Engine tests
         working-directory: native
-        run: cargo test --release -p orfeo-audio
+        shell: bash
+        run: |
+          for i in 1 2 3 4 5; do cargo test --release -p orfeo-audio --lib concurrent_first_start; done
+          cargo test --release -p orfeo-audio
 
   compile:
     name: ${{ matrix.os }} — compiles

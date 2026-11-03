@@ -12,6 +12,7 @@
 - **Orfeo for Linux (experimental).** Every release now has Linux downloads for x64 computers: a `.deb` (Ubuntu, Debian, Mint…), an `.rpm` (Fedora, openSUSE…) and an AppImage. They're checked to start, but not yet tested on real Linux machines with a keyboard — reports welcome. Sound: GM and Studio.
 
 ### Fixed
+- **Native sound, very rarely wrong at start-up.** When two Native sounds started at exactly the same moment — say, an export beginning just as the Native engine started — one of them could play with a slightly wrong sound until restarted. They now start one after the other.
 - **Delay check:** long values no longer run over their labels, and a Bluetooth MIDI keyboard that sends unusable timing no longer shows delays of several seconds — its notes are left out of the figure, with a note saying how many.
 - *Ctrl+Shift+I* (or *F12*) opens the developer tools in the installed app again, for bug reports. It only worked in development builds.
 - **Exported files always stay in the Exports folder.** A song whose name carried a folder path, or characters Windows doesn't allow in a file name, could fail to save with an error you couldn't read. A name Windows keeps for itself — *CON*, *PRN*, *NUL*, *COM1*… — made a file that couldn't be opened. An export name is now always one plain file name inside the *Exports* folder, and a reserved name gets an underscore in front of it.
