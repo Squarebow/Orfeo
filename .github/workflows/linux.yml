@@ -1,0 +1,99 @@
+# Builds the Linux packages (AppImage, .deb, .rpm — x64) and checks that the
+# app actually opens. Used three ways:
+#   • by the Release workflow (release.yml → "2. Build (Linux)"), from the tag;
+#     release.yml then uploads the packages into the draft release;
+#   • by hand: Actions → Linux build → Run workflow (from any branch) — the
+#     packages and a screenshot of the opened app are kept as run artifacts;
+#   • on every pull request, as a check.
+#
+# Read-only and no secrets: it never uploads to a release itself.
+# The Native sound engine is Windows-only for now, so nothing native is built.
+name: Linux build
+
+on:
+  workflow_dispatch:
+  workflow_call:
+    inputs:
+      ref:
+        description: "Tag or branch to build"
+        type: string
+        required: true
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    name: Package + does it open
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: ${{ inputs.ref || github.ref }}
+          persist-credentials: false
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+          cache: npm
+
+      # rpmbuild for the .rpm; Xvfb + xdotool + ImageMagick for the start-up check
+      - name: Install packaging and test tools
+        run: |
+          sudo apt-get update -q
+          sudo apt-get install -y -q rpm xvfb xdotool imagemagick
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Package
+        run: npm run dist:linux -- --publish never
+
+      # Starts the packaged app on an invisible screen and waits for its window.
+      # No sound card or MIDI keyboard here — this proves it starts, not how it
+      # sounds. --no-sandbox only because the unpacked test copy has no
+      # privileged sandbox helper; the installed packages don't need it.
+      - name: Does it open?
+        run: |
+          set -u
+          app=release/linux-unpacked/orfeo
+          test -x "$app" || { echo "::error::$app not found"; ls release; exit 1; }
+          export DISPLAY=:99
+          Xvfb :99 -screen 0 1440x900x24 &
+          sleep 2
+          "$app" --no-sandbox > app.log 2>&1 &
+          pid=$!
+          found=""
+          for i in $(seq 1 60); do
+            if ! kill -0 "$pid" 2>/dev/null; then break; fi
+            if xdotool search --name "Orfeo" > /dev/null 2>&1; then found=yes; break; fi
+            sleep 1
+          done
+          # give the page a few seconds to draw, then keep a picture of it
+          [ -n "$found" ] && sleep 8
+          import -window root opened.png || true
+          alive=no; kill -0 "$pid" 2>/dev/null && alive=yes
+          kill "$pid" 2>/dev/null || true
+          echo "### Linux start-up check" >> "$GITHUB_STEP_SUMMARY"
+          if [ -n "$found" ] && [ "$alive" = yes ]; then
+            echo "Orfeo opened its window and was still running. Screenshot: run artifact **linux-packages** → opened.png" >> "$GITHUB_STEP_SUMMARY"
+          else
+            echo "::error::Orfeo did not open a window (window: ${found:-none}, still running: $alive). Last lines of its log:"
+            tail -40 app.log
+            echo "Orfeo did not open its window — see the step log." >> "$GITHUB_STEP_SUMMARY"
+            exit 1
+          fi
+
+      - uses: actions/upload-artifact@v7
+        if: always()
+        with:
+          name: linux-packages
+          path: |
+            release/*.AppImage
+            release/*.deb
+            release/*.rpm
+            opened.png
+            app.log
+          if-no-files-found: warn

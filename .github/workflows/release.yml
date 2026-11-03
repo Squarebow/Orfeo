@@ -178,9 +178,37 @@ jobs:
           path: release/*.appx
           if-no-files-found: error
 
+  # Linux, alongside Windows and from the same tag: AppImage, .deb and .rpm,
+  # plus a check that the packaged app opens (linux.yml, also runnable by hand).
+  build-linux:
+    name: 2. Build (Linux)
+    needs: check
+    uses: ./.github/workflows/linux.yml
+    with:
+      ref: ${{ needs.check.outputs.tag }}
+
+  # Into the same draft. --clobber: re-running a failed job replaces what it uploaded.
+  upload-linux:
+    name: 2. Upload (Linux)
+    needs: [check, build-linux]
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/download-artifact@v8
+        with:
+          name: linux-packages
+          path: linux
+
+      - name: Upload to the draft release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ needs.check.outputs.tag }}
+        run: gh release upload "$TAG" linux/*.AppImage linux/*.deb linux/*.rpm --clobber --repo "$GITHUB_REPOSITORY"
+
   publish:
     name: 3. Publish
-    needs: [check, build]
+    # Linux too: if it fails, the release stays a draft (fix, then "Re-run failed jobs")
+    needs: [check, build, upload-linux]
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:

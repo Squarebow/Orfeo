@@ -15,7 +15,8 @@ const SRC = join(__dirname, '../src/utils/handAssignment.ts')
 const META = join(__dirname, '../src/utils/handMetadata.ts')
 const HASH_FILE = join(__dirname, '../src/utils/handAssignment.hash.json')
 
-const content = readFileSync(SRC, 'utf8')
+// LF only, so a Windows checkout (CRLF) and a macOS/Linux one hash the same
+const content = readFileSync(SRC, 'utf8').replace(/\r\n/g, '\n')
 const hash = createHash('sha256').update(content).digest('hex')
 
 const metaContent = readFileSync(META, 'utf8')
