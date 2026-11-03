@@ -1967,8 +1967,12 @@ app.whenReady().then(async () => {
   // Ctrl+0 via Chromium's own zoomLevel. Left alone, that's a second,
   // uncoordinated zoom mechanism fighting the one built below (no step
   // list, no cap, no persistence, no DPR coordination with the piano-roll
-  // fix). Nulling it out guarantees there's exactly one zoom path. ────────
-  Menu.setApplicationMenu(null)
+  // fix). Nulling it out guarantees there's exactly one zoom path. macOS
+  // always shows a menu bar, and Quit and copy/paste in text fields live in
+  // it, so there it gets the app, Edit and Window menus — still no View. ──
+  Menu.setApplicationMenu(process.platform === 'darwin'
+    ? Menu.buildFromTemplate([{ role: 'appMenu' }, { role: 'editMenu' }, { role: 'windowMenu' }])
+    : null)
   createWindow()
   if (updateMode === 'auto') {
     // Delayed so it doesn't compete with the app's own startup work; silent
@@ -1976,4 +1980,5 @@ app.whenReady().then(async () => {
     setTimeout(() => { autoUpdater.checkForUpdates().catch(() => {}) }, 5000)
   }
 })
-app.on('window-all-closed', () => { if (process.platform !== 'darwin') app.quit() })
+// One window: closing it quits, on macOS too — nothing would reopen it from the Dock
+app.on('window-all-closed', () => app.quit())
