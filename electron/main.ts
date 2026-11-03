@@ -1814,9 +1814,9 @@ ipcMain.handle('window:setFullScreen', (_e, value: boolean) => {
 })
 
 // ── Auto-update — GitHub Releases as the update feed (see package.json's
-// build.publish). Only Windows gets real auto-update: that's the only
-// platform SquareBow actually builds, signs (nominally), and publishes
-// artifacts for via `npm run dist`. macOS/Linux builds are community-
+// build.publish). Only Windows gets real auto-update. macOS builds come
+// from the same release, but electron-updater can only replace a signed Mac
+// app, and they aren't signed yet. Linux builds are community-
 // contributed unofficial binaries — nobody controls their provenance or
 // update channel, so pointing electron-updater at the official GitHub feed
 // for them would be actively wrong (could offer an "update" that doesn't

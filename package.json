@@ -15,6 +15,7 @@
     "typecheck": "tsc --noEmit",
     "dist": "npm run copyworklet && npm run check:hand-engine && npm run native:build && electron-vite build && electron-builder --win nsis portable appx",
     "dist:portable": "npm run copyworklet && npm run check:hand-engine && npm run native:build && electron-vite build --mode test-build && electron-builder --win portable",
+    "dist:mac": "npm run build && electron-builder --mac -c.mac.identity=-",
     "release:notes": "node scripts/release-notes.mjs",
     "native:build": "node scripts/build-native.mjs",
     "i18n:extract": "node scripts/i18n-extract.mjs"
@@ -134,8 +135,25 @@
       "artifactName": "${productName}-${version}-portable.${ext}"
     },
     "mac": {
-      "target": "dmg",
-      "icon": "public/icon.icns"
+      "category": "public.app-category.music",
+      "icon": "build/icon.icns",
+      "target": [
+        {
+          "target": "dmg",
+          "arch": [
+            "arm64",
+            "x64"
+          ]
+        },
+        {
+          "target": "zip",
+          "arch": [
+            "arm64",
+            "x64"
+          ]
+        }
+      ],
+      "artifactName": "${productName}-${version}-mac-${arch}.${ext}"
     }
   },
   "dependencies": {
