@@ -240,11 +240,13 @@ Orfeo only goes online when you ask it to, or to check for updates:
 <details>
 <summary><b>What platforms does Orfeo run on?</b></summary>
 
-Windows 10/11, with an installer and a portable build, and macOS on Apple
-Silicon and Intel Macs ([INSTALLATION.md → macOS](docs/INSTALLATION.md#macos)).
-Orfeo is built on Electron, so Linux builds are possible and
-community-buildable — see [CONTRIBUTING.md](docs/CONTRIBUTING.md) — there just
-aren't official Linux builds yet.
+Windows 10/11, with an installer and a portable build; macOS on Apple
+Silicon and Intel Macs ([INSTALLATION.md → macOS](docs/INSTALLATION.md#macos));
+and Linux on x64 as AppImage, `.deb` and `.rpm`
+([INSTALLATION.md → Linux](docs/INSTALLATION.md#linux)). The Linux builds are
+**experimental** for now: they're built and start-checked automatically with
+every release, but still waiting for testing on real Linux machines with a MIDI
+keyboard.
 
 </details>
 

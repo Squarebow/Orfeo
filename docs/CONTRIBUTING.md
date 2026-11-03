@@ -125,13 +125,10 @@ npm run dev
 
 | Command | Result |
 |---|---|
-| `npm run dist -- --linux` | Linux build with electron-builder defaults |
 | `npm run dist -- --dir` | Unpacked build for inspection, no installer |
 
-`package.json`'s `build` block defines explicit `win` and `mac` target lists but
-**no `linux` block** — Linux packaging falls back to electron-builder's
-defaults. Add a `linux` block there if you need to pin specific formats
-(AppImage / deb / rpm / …).
+`package.json`'s `build` block defines the `win`, `mac` and `linux` targets;
+`dist:mac` and `dist:linux` build those (each must run on its own system).
 
 </details>
 
@@ -214,8 +211,8 @@ Full rationale for each boundary is in [ARCHITECTURE.md](ARCHITECTURE.md).
 
 ## Releases and auto-update
 
-Orfeo officially builds **Windows** and **macOS** binaries, both from the same
-release pipeline. Only the installed Windows build auto-updates
+Orfeo officially builds **Windows**, **macOS** and **Linux** (experimental)
+binaries, all from the same release pipeline. Only the installed Windows build auto-updates
 (`electron-updater`, in `electron/main.ts`).
 
 <details>
@@ -225,13 +222,9 @@ On macOS, `electron-updater` can only replace an app signed with an Apple
 Developer ID, which the ad-hoc signed Mac builds aren't, so they stay on manual
 updates and the release carries no `latest-mac.yml`.
 
-For Linux there are no official builds. `electron-updater` assumes the app
-checking for updates was built and published through the *same* pipeline as the
-update feed it points at. A community-built Linux binary is not — nobody but the
-person who built it controls how or when it is rebuilt. Pointing its
-auto-updater at Orfeo's official GitHub release feed would be actively wrong: it
-could offer an "update" that does not match how that binary was built, or
-silently never fire.
+On Linux, `electron-updater` could only update the AppImage (not the `.deb` or
+`.rpm`), and the Linux builds are still experimental, so the release carries no
+`latest-linux.yml` for now.
 
 So: **no auto-update on macOS/Linux, for now** — same as the Windows
 **portable** build (no installer for `electron-updater` to act on). Users on
@@ -360,22 +353,18 @@ Developer Program membership. macOS therefore blocks a downloaded copy until
 the person allows it once in *Privacy & Security* (see
 [INSTALLATION.md → macOS](INSTALLATION.md#macos)).
 
-Pull requests to `main` build both Mac apps the same way
+Pull requests build both Mac apps the same way
 (`.github/workflows/macos.yml`), read-only and without any secrets.
 
-<details>
-<summary><b>Contributing a Linux build (community)</b></summary>
+### Linux builds
 
-1. Run `npm run dist -- --linux` locally **on Linux**.
-2. Upload the artifact as an **additional asset on the same GitHub release**,
-   named so it is unmistakably unofficial and unsigned, e.g.
-   `Orfeo-X.Y.Z-Linux-community.AppImage`.
-3. **Do not** upload a `latest-linux.yml` alongside it unless
-   you are committing to maintain a real update feed for that platform going
-   forward. An unmaintained one is worse than none — it tells
-   `electron-updater` an update channel exists when nobody is behind it.
-
-</details>
+`.github/workflows/linux.yml` builds the AppImage, `.deb` and `.rpm` (x64) and
+starts the packaged app on an invisible screen to check that it opens (twice:
+the unpacked app, and the AppImage exactly as a user starts it, sandbox on — a
+blocked AppImage sandbox on newer Ubuntu is reported as a warning). It runs on
+every push to `dev`, on pull requests, and inside the Release workflow, which
+then uploads the packages to the same draft. The packages and screenshots stay
+on each run as the **linux-packages** artifact.
 
 ---
 

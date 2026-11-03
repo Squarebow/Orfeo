@@ -54,39 +54,62 @@ jobs:
       - name: Package
         run: npm run dist:linux -- --publish never
 
+      # The demo songs ship inside the app. Linux file names are case-sensitive,
+      # so a folder name that only matches on Windows/macOS shows up here.
+      - name: Demo songs included?
+        run: |
+          n=$(find release/linux-unpacked/resources/demo -type f 2>/dev/null | wc -l)
+          echo "Demo files in the package: $n"
+          [ "$n" -gt 0 ] || { echo "::error::No demo songs in the Linux package (resources/demo)"; exit 1; }
+
       # Starts the packaged app on an invisible screen and waits for its window.
       # No sound card or MIDI keyboard here — this proves it starts, not how it
-      # sounds. --no-sandbox only because the unpacked test copy has no
-      # privileged sandbox helper; the installed packages don't need it.
+      # sounds. Two starts:
+      #   1. the unpacked app with --no-sandbox (the test copy has no privileged
+      #      sandbox helper) — must pass;
+      #   2. the AppImage exactly as a user starts it, sandbox on. Newer Ubuntu
+      #      (24.04+) can block Electron's sandbox for AppImages; this start
+      #      reports that as a warning rather than failing the release, since the
+      #      .deb/.rpm installers set the sandbox helper up properly.
       - name: Does it open?
         run: |
           set -u
-          app=release/linux-unpacked/orfeo
-          test -x "$app" || { echo "::error::$app not found"; ls release; exit 1; }
           export DISPLAY=:99
           Xvfb :99 -screen 0 1440x900x24 &
           sleep 2
-          "$app" --no-sandbox > app.log 2>&1 &
-          pid=$!
-          found=""
-          for i in $(seq 1 60); do
-            if ! kill -0 "$pid" 2>/dev/null; then break; fi
-            if xdotool search --name "Orfeo" > /dev/null 2>&1; then found=yes; break; fi
-            sleep 1
-          done
-          # give the page a few seconds to draw, then keep a picture of it
-          [ -n "$found" ] && sleep 8
-          import -window root opened.png || true
-          alive=no; kill -0 "$pid" 2>/dev/null && alive=yes
-          kill "$pid" 2>/dev/null || true
+          # try_start <label> <log> <screenshot> <command...> → 0 if a window opened and stayed
+          try_start() {
+            local label=$1 log=$2 shot=$3; shift 3
+            "$@" > "$log" 2>&1 &
+            local pid=$! found=""
+            for i in $(seq 1 60); do
+              kill -0 "$pid" 2>/dev/null || break
+              if xdotool search --name "Orfeo" > /dev/null 2>&1; then found=yes; break; fi
+              sleep 1
+            done
+            [ -n "$found" ] && sleep 8            # let the page draw, then keep a picture
+            import -window root "$shot" || true
+            local alive=no; kill -0 "$pid" 2>/dev/null && alive=yes
+            pkill -f orfeo 2>/dev/null; kill "$pid" 2>/dev/null; sleep 2
+            if [ -n "$found" ] && [ "$alive" = yes ]; then
+              echo "- **$label:** opened its window ✓ ($shot)" >> "$GITHUB_STEP_SUMMARY"; return 0
+            fi
+            echo "- **$label:** did NOT open (window: ${found:-none}, still running: $alive) — log: $log" >> "$GITHUB_STEP_SUMMARY"
+            tail -30 "$log"; return 1
+          }
           echo "### Linux start-up check" >> "$GITHUB_STEP_SUMMARY"
-          if [ -n "$found" ] && [ "$alive" = yes ]; then
-            echo "Orfeo opened its window and was still running. Screenshot: run artifact **linux-packages** → opened.png" >> "$GITHUB_STEP_SUMMARY"
-          else
-            echo "::error::Orfeo did not open a window (window: ${found:-none}, still running: $alive). Last lines of its log:"
-            tail -40 app.log
-            echo "Orfeo did not open its window — see the step log." >> "$GITHUB_STEP_SUMMARY"
-            exit 1
+          echo "Ubuntu $(lsb_release -rs), unprivileged user namespaces restricted: $(sysctl -n kernel.apparmor_restrict_unprivileged_userns 2>/dev/null || echo n/a)" >> "$GITHUB_STEP_SUMMARY"
+
+          app=release/linux-unpacked/orfeo
+          test -x "$app" || { echo "::error::$app not found"; ls release; exit 1; }
+          if ! try_start "Unpacked app" app.log opened.png "$app" --no-sandbox; then
+            echo "::error::Orfeo did not open its window"; exit 1
+          fi
+
+          appimage=$(ls release/*.AppImage | head -1)
+          chmod +x "$appimage"
+          if ! try_start "AppImage, as a user starts it (sandbox on)" appimage.log appimage.png "$appimage" --appimage-extract-and-run; then
+            echo "::warning::The AppImage did not open with the sandbox on (newer Ubuntu can block it). The .deb/.rpm are unaffected — see appimage.log."
           fi
 
       - uses: actions/upload-artifact@v7
@@ -98,5 +121,7 @@ jobs:
             release/*.deb
             release/*.rpm
             opened.png
+            appimage.png
             app.log
+            appimage.log
           if-no-files-found: warn

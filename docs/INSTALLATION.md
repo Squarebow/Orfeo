@@ -168,13 +168,32 @@ move `Orfeo.app` there).
 
 ## Linux
 
-Orfeo does not publish official Linux builds. You can build from source (see
-[CONTRIBUTING.md](CONTRIBUTING.md)); updates are then a manual `git pull` +
-rebuild.
+> [!NOTE]
+> The Linux builds are **experimental**: every release builds them and checks
+> that they start, but they haven't been tested on real Linux machines with a
+> MIDI keyboard yet. Problems and successes are both welcome as
+> [issues](https://github.com/Squarebow/Orfeo/issues).
 
-Community-built Linux binaries may be attached to a release as extra assets —
-clearly marked unofficial and unsigned. See
-[CONTRIBUTING.md → Releases and auto-update](CONTRIBUTING.md#releases-and-auto-update).
+Every release has Linux downloads (x64) on the same
+[Releases](https://github.com/Squarebow/Orfeo/releases) page:
+
+| Your system | Download | Install |
+|---|---|---|
+| **Ubuntu, Debian, Mint, Pop!_OS…** | `Orfeo-<version>-linux-amd64.deb` | open it, or `sudo apt install ./Orfeo-<version>-linux-amd64.deb` |
+| **Fedora, openSUSE…** | `Orfeo-<version>-linux-x86_64.rpm` | open it, or `sudo dnf install ./Orfeo-<version>-linux-x86_64.rpm` |
+| **Any other** (no install) | `Orfeo-<version>-linux-x86_64.AppImage` | make it executable (`chmod +x`), then run it |
+
+Prefer the `.deb` or `.rpm` where you can. On Ubuntu 24.04 and newer, the
+system's security settings can stop AppImages of apps like Orfeo from starting;
+the installers aren't affected.
+
+- **Sound:** GM and Studio. The Native engine is Windows-only for now.
+- **MIDI keyboards:** USB keyboards are picked up like on Windows.
+- **Your data:** `~/.config/Orfeo/`.
+- **Updating:** no auto-update. *Check for updates* opens the download page;
+  install the new version over the old one — your settings stay.
+- **Uninstalling:** remove the `orfeo` package (or delete the AppImage); delete
+  the data folder above too if you want everything gone.
 
 ---
 

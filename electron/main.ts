@@ -61,7 +61,7 @@ async function ensureDemoFolder(): Promise<void> {
   // ── Source path: extraResources lands at resources/demo/ in production ───
   const srcDir = app.isPackaged
     ? join(process.resourcesPath, 'demo')
-    : join(app.getAppPath(), 'public', 'demo')
+    : join(app.getAppPath(), 'public', 'Demo')
 
   await copyDemoFilesRecursive(srcDir, targetDir)
 }

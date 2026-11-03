@@ -70,7 +70,7 @@
         "to": "fonts"
       },
       {
-        "from": "public/demo",
+        "from": "public/Demo",
         "to": "demo"
       },
       {

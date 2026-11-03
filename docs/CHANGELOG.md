@@ -7,7 +7,12 @@
 
 ## [Unreleased]
 
+### New
+- **Orfeo for Mac.** Every release now has downloads for Apple Silicon and Intel Macs, as a disk image or a zip. The first time you open a new version, macOS asks you to allow it once in *System Settings › Privacy & Security*. Mac versions don't update by themselves: *Check for updates* opens the download page. Sound: GM and Studio.
+- **Orfeo for Linux (experimental).** Every release now has Linux downloads for x64 computers: a `.deb` (Ubuntu, Debian, Mint…), an `.rpm` (Fedora, openSUSE…) and an AppImage. They're checked to start, but not yet tested on real Linux machines with a keyboard — reports welcome. Sound: GM and Studio.
+
 ### Fixed
+- **Delay check:** long values no longer run over their labels, and a Bluetooth MIDI keyboard that sends unusable timing no longer shows delays of several seconds — its notes are left out of the figure, with a note saying how many.
 - *Ctrl+Shift+I* (or *F12*) opens the developer tools in the installed app again, for bug reports. It only worked in development builds.
 - **Exported files always stay in the Exports folder.** A song whose name carried a folder path, or characters Windows doesn't allow in a file name, could fail to save with an error you couldn't read. A name Windows keeps for itself — *CON*, *PRN*, *NUL*, *COM1*… — made a file that couldn't be opened. An export name is now always one plain file name inside the *Exports* folder, and a reserved name gets an underscore in front of it.
 - **An export that can't finish says so.** A long Studio export plays the song in sections, one per processor core. When a section failed, the export quietly started over in one slower pass; the bar now says *Exporting (single pass)*. And an export that produced nothing at all used to end as if you had pressed *Cancel* — now you get a message.
