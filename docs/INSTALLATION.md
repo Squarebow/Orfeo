@@ -148,10 +148,11 @@ Open the `.dmg` and drag Orfeo into *Applications* (or unzip the `.zip` and
 move `Orfeo.app` there).
 
 > [!IMPORTANT]
-> Until the Mac builds are signed and notarized by Apple, macOS blocks Orfeo
-> the first time you open it. Choose **Done**, then open *System Settings ›
-> Privacy & Security*, scroll down to *"Orfeo" was blocked*, click **Open
-> Anyway** and confirm. You only do this once per version.
+> The Mac builds are ad-hoc signed but not notarized by Apple, so macOS blocks
+> Orfeo the first time you open a downloaded copy. Choose **Done**, then open
+> *System Settings › Privacy & Security*, scroll down to *"Orfeo" was
+> blocked*, click **Open Anyway** and confirm. You only do this once per
+> version.
 
 - **Sound:** GM and Studio. The Native engine is Windows-only.
 - **MIDI keyboards:** USB keyboards work straight away. A Bluetooth MIDI

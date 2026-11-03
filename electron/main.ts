@@ -1815,10 +1815,10 @@ ipcMain.handle('window:setFullScreen', (_e, value: boolean) => {
 
 // ── Auto-update — GitHub Releases as the update feed (see package.json's
 // build.publish). Only Windows gets real auto-update. macOS builds come
-// from the same release, but electron-updater can only replace a signed Mac
-// app, and they aren't signed yet. Linux builds are community-
-// contributed unofficial binaries — nobody controls their provenance or
-// update channel, so pointing electron-updater at the official GitHub feed
+// from the same release, but electron-updater can only replace a Mac app
+// signed with an Apple Developer ID, and they're only ad-hoc signed.
+// Linux builds are community-contributed unofficial binaries — nobody
+// controls their provenance or update channel, so pointing electron-updater at the official GitHub feed
 // for them would be actively wrong (could offer an "update" that doesn't
 // match how that binary was built, or silently never fire since community
 // builds usually aren't uploaded as electron-updater-recognized artifacts

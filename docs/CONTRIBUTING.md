@@ -132,16 +132,17 @@ release pipeline. Only the installed Windows build auto-updates
 <details>
 <summary><b>Why no auto-update on macOS / Linux</b></summary>
 
-On macOS, `electron-updater` can only replace a signed app, so the Mac builds
-stay on manual updates (and the release carries no `latest-mac.yml`) until
-Apple signing is set up and someone commits to that update feed.
+On macOS, `electron-updater` can only replace an app signed with an Apple
+Developer ID, which the ad-hoc signed Mac builds aren't, so they stay on manual
+updates and the release carries no `latest-mac.yml`.
 
-For Linux there are no official builds. `electron-updater` assumes the app checking for updates was built and published
-through the *same* pipeline as the update feed it points at. A community-built
-macOS or Linux binary is not — nobody but the person who built it controls how
-or when it is rebuilt. Pointing its auto-updater at Orfeo's official GitHub
-release feed would be actively wrong: it could offer an "update" that does not
-match how that binary was built, or silently never fire.
+For Linux there are no official builds. `electron-updater` assumes the app
+checking for updates was built and published through the *same* pipeline as the
+update feed it points at. A community-built Linux binary is not — nobody but the
+person who built it controls how or when it is rebuilt. Pointing its
+auto-updater at Orfeo's official GitHub release feed would be actively wrong: it
+could offer an "update" that does not match how that binary was built, or
+silently never fire.
 
 So: **no auto-update on macOS/Linux, for now** — same as the Windows
 **portable** build (no installer for `electron-updater` to act on). Users on
@@ -261,36 +262,17 @@ The key expires (Partner Center shows the date next to it): add a new key and
 update `AZURE_AD_APPLICATION_SECRET` before it does, or the Microsoft Store
 workflow stops with "Signing in to Partner Center failed".
 
-### macOS signing and notarization
+### macOS builds
 
-Until it is set up, the Release workflow publishes the Mac builds unsigned
-(ad-hoc signed, so macOS lets people open them through *Privacy & Security*, see
-[INSTALLATION.md → macOS](INSTALLATION.md#macos)) and says so in its run
-summary. Signing turns on by itself once `MACOS_CERTIFICATE` is present; if
-any of the other secrets below is missing then, the macOS build stops with an
-error rather than publish an unnotarized app.
+The Mac apps are **ad-hoc signed**: sealed with a signature that needs no
+Apple account, so macOS can check they're intact. They are not signed with an
+Apple Developer ID or notarized by Apple, which would need a paid Apple
+Developer Program membership. macOS therefore blocks a downloaded copy until
+the person allows it once in *Privacy & Security* (see
+[INSTALLATION.md → macOS](INSTALLATION.md#macos)).
 
-The certificate and key must belong to the account that publishes Orfeo
-(an Apple Developer Program membership in the project owner's name), not a
-contributor's own.
-
-1. Apple Developer → *Certificates* → create a **Developer ID Application**
-   certificate; export it with its private key from Keychain Access as a
-   `.p12` with a password.
-2. App Store Connect → *Users and Access › Integrations › App Store Connect
-   API* → **Team Keys** → generate a key with the **Developer** role. Download
-   the `.p8` (only possible once) and note its **Key ID** and the **Issuer ID**.
-3. GitHub → **Settings → Environments** → `macos-release` (the Release
-   workflow creates it on its first run, or create it yourself) → *Deployment
-   branches and tags*: **Selected branches** → `main`. Then its secrets:
-   - `MACOS_CERTIFICATE` — the `.p12`, base64: `base64 -i cert.p12 | pbcopy`
-   - `MACOS_CERTIFICATE_PASSWORD` — the `.p12` password
-   - `APPLE_API_KEY` — the whole text of the `.p8` file
-   - `APPLE_API_KEY_ID`, `APPLE_API_ISSUER` — the Key ID and Issuer ID
-
-Pull requests build macOS too (`.github/workflows/macos.yml`), always unsigned
-and without access to these secrets. The Developer ID certificate lasts five
-years; renew it and replace `MACOS_CERTIFICATE` before it expires.
+Pull requests to `main` build both Mac apps the same way
+(`.github/workflows/macos.yml`), read-only and without any secrets.
 
 <details>
 <summary><b>Contributing a Linux build (community)</b></summary>
