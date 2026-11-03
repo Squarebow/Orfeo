@@ -1,16 +1,19 @@
-# Checks every pull request against two house rules (docs/CONTRIBUTING.md →
-# "Pull request rules"):
+# Looks at every pull request for the two house rules (docs/CONTRIBUTING.md →
+# "Pull request rules"), and says it kindly:
 #
-#   1. It targets `dev`. `main` only ever receives `dev`, at release time.
+#   1. It targets `dev` (`main` only ever receives `dev`, at release time).
+#      A pull request aimed at `main` gets a friendly reminder, not a failure:
+#      changing the base is one click, and it can be done at review time too.
 #   2. Every commit is authored by a person. No AI coding tool appears as a
 #      commit's author or committer, in a `Co-authored-by:` line, or in a
 #      "Generated with …" line — in the commits, the PR title or its description.
+#      This one fails the check, with the way to fix it.
 #
 # `pull_request_target` so it runs on fork pull requests straight away, without
 # waiting for approval. That is safe here because nothing from the pull request
 # is checked out or run: the job only reads the PR's metadata and commit list
 # through the API, and the PR's text is passed as data (env), never as code.
-name: PR rules
+name: Pull request check
 
 on:
   pull_request_target:
@@ -22,7 +25,7 @@ permissions:
 
 jobs:
   rules:
-    name: Target branch and authorship
+    name: Branch and authorship
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:
@@ -40,11 +43,12 @@ jobs:
           set -uo pipefail
           fail=0
           problem() { echo "::error::$1"; echo "- $1" >> "$GITHUB_STEP_SUMMARY"; fail=1; }
-          echo "### PR rules" >> "$GITHUB_STEP_SUMMARY"
+          note() { echo "::notice::$1"; echo "- $1" >> "$GITHUB_STEP_SUMMARY"; }
+          echo "### Thanks for the pull request!" >> "$GITHUB_STEP_SUMMARY"
 
-          # ── 1. Target branch ──────────────────────────────────────────────
+          # ── 1. Target branch: a reminder, never a failure ─────────────────
           if [ "$BASE" = "main" ] && ! { [ "$HEAD_REPO" = "$REPO" ] && [ "$HEAD_REF" = "dev" ]; }; then
-            problem "This pull request targets main. Please change its base branch to dev (Edit, next to the title)."
+            note "Orfeo collects changes on the dev branch first. When you get a moment, switch this pull request's base to dev (Edit, next to the title) - or leave it, and it'll be switched at review."
           fi
 
           # ── 2. Authorship ─────────────────────────────────────────────────
@@ -62,23 +66,23 @@ jobs:
             [ -z "$sha" ] && continue
             who="$an <$ae> / $cn <$ce> / $login"
             if echo "$who" | grep -qiE "$AUTHORS"; then
-              problem "Commit $sha is authored or committed by an AI tool ($an <$ae>). Commits must carry your own name and e-mail."
+              problem "Commit $sha is signed by $an <$ae>. Orfeo's history only carries people's names - using AI tools is fine, but please commit under your own name and e-mail."
             fi
             hits=$(echo "$msg" | base64 -d | grep -iE "$LINES" | grep -iE "$TOOLS" || true)
             if [ -n "$hits" ]; then
-              problem "Commit $sha names an AI tool in its message: $(echo "$hits" | head -1 | tr -d '\r')"
+              problem "Commit $sha credits a tool in its message ($(echo "$hits" | head -1 | tr -d '\r')). Please leave that line out - the commit is yours."
             fi
           done <<< "$commits"
 
           text_hits=$(printf '%s\n%s\n' "$TITLE" "$BODY" | grep -iE "$LINES|claude\.ai/code" | grep -iE "$TOOLS|claude\.ai/code" || true)
           if [ -n "$text_hits" ]; then
-            problem "The pull request title or description credits an AI tool: $(echo "$text_hits" | head -1 | tr -d '\r')"
+            problem "The description credits a tool ($(echo "$text_hits" | head -1 | tr -d '\r')). Please leave that line out - the work is yours."
           fi
 
           if [ "$fail" = 0 ]; then
-            echo "All good: targets dev, every commit authored by a person." >> "$GITHUB_STEP_SUMMARY"
+            echo "Everything's in order - a review will follow." >> "$GITHUB_STEP_SUMMARY"
           else
             echo "" >> "$GITHUB_STEP_SUMMARY"
-            echo "How to fix this: docs/CONTRIBUTING.md → Pull request rules." >> "$GITHUB_STEP_SUMMARY"
+            echo "A quick fix, step by step: docs/CONTRIBUTING.md → Pull request rules. Push the fixed branch and this check runs again by itself." >> "$GITHUB_STEP_SUMMARY"
           fi
           exit $fail
