@@ -108,6 +108,10 @@ jobs:
           pulseaudio --start --exit-idle-time=-1
           pactl load-module module-null-sink sink_name=virtual
           pactl set-default-sink virtual
+          # a null sink that suspends when idle takes ~2 s to wake at every new stream
+          # (seen in the block traces); real sound cards wake at once
+          pactl unload-module module-suspend-on-idle || true
+          pactl list short modules | grep -c suspend || true
           pactl info | grep -i 'default sink'
           echo "FLUID_DIR=$(dirname "$(ldconfig -p | grep -m1 'libfluidsynth.so.3 ' | awk '{print $NF}')")" >> "$GITHUB_ENV"
 
