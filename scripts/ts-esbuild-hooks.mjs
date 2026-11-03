@@ -37,6 +37,9 @@ const STUBS = {
   }`,
 }
 
+// __APP_VERSION__, as electron.vite.config.ts defines it for the app
+const APP_VERSION = JSON.stringify(JSON.parse(readFileSync(join(process.cwd(), 'package.json'), 'utf8')).version)
+
 let stubCount = 0
 const stubUrl = (kind) => `orfeo-test-stub:${kind}:${stubCount++}`
 
@@ -120,6 +123,8 @@ registerHooks({
         // midiSimulator.ts reads it at import time. Test mode = dev mode: the
         // development-only paths are reachable, which is what tests exercise.
         banner: 'if (!import.meta.env) import.meta.env = { DEV: true, MODE: "test-build", PROD: false };',
+        // the same build-time constants electron.vite.config.ts defines
+        define: { __APP_VERSION__: APP_VERSION },
         // JSX in .ts files (Settings defs are .tsx) keeps esbuild's own handling
       })
       return { format: 'module', source: code, shortCircuit: true }
