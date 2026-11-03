@@ -11,11 +11,14 @@ pub mod dynamics;
 pub mod engine;
 pub mod fluid;
 pub mod offline;
+#[cfg(windows)]
 pub mod output;
+pub mod renderer;
 pub mod reverb;
 pub mod sf2;
 pub mod song;
+#[cfg(windows)]
+mod wasapi_driver;
 
-pub use engine::{Command, Engine, EngineConfig, Stats, LIVE_CH};
-pub use output::OutputMode;
+pub use engine::{Command, Engine, EngineConfig, OutputMode, Stats, LIVE_CH};
 pub use song::{Song, SongEvent};

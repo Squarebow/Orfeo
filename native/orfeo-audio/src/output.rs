@@ -5,8 +5,7 @@ use wasapi::*;
 use windows::Win32::Media::Audio::Endpoints::IAudioEndpointVolume;
 use windows::Win32::System::Com::CLSCTX_ALL;
 
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub enum OutputMode { Exclusive, Shared }
+pub use crate::engine::OutputMode;
 
 #[derive(Clone, Copy)]
 pub enum SampleFmt { F32, I32, I24, I16 }

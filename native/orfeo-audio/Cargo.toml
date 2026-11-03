@@ -2,7 +2,7 @@
 name = "orfeo-audio"
 version = "0.1.0"
 edition = "2021"
-description = "Orfeo's native audio engine: FluidSynth + sample-accurate song player + live MIDI + WASAPI exclusive/shared output"
+description = "Orfeo's native audio engine: FluidSynth + sample-accurate song player + live MIDI; WASAPI exclusive/shared output on Windows"
 publish = false
 
 [lib]
@@ -18,8 +18,11 @@ path = "src/bin/orfeo-selftest.rs"
 
 [dependencies]
 libloading = "0.9"
-wasapi = "0.26"
 midir = "0.11"
 midly = "0.5"
 rtrb = "0.4"
+
+# The Windows sound-card driver (wasapi_driver.rs, output.rs): only on Windows
+[target.'cfg(windows)'.dependencies]
+wasapi = "0.26"
 windows = { version = "0.62", features = ["Win32_System_Threading", "Win32_Foundation", "Win32_System_Com", "Win32_Media_Audio", "Win32_Media_Audio_Endpoints"] }

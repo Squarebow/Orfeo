@@ -37,14 +37,35 @@ unsafe impl Send for Fluid {}
 /// FluidSynth renders in 64-sample blocks: an event lands on the next one.
 pub const FLUID_GRAIN: usize = 64;
 
+/// The FluidSynth library file in `dir`, as each system names it
+#[cfg(windows)]
+const LIBRARY: &str = "libfluidsynth-3.dll";
+#[cfg(target_os = "macos")]
+const LIBRARY: &str = "libfluidsynth.3.dylib";
+#[cfg(all(unix, not(target_os = "macos")))]
+const LIBRARY: &str = "libfluidsynth.so.3";
+
+#[cfg(windows)]
+unsafe fn load_library(dir: &Path) -> Result<Library, String> {
+    let dll = dir.join(LIBRARY);
+    // Altered search path: libsndfile (for .sf3) and SDL3 are found next to it
+    Ok(libloading::os::windows::Library::load_with_flags(&dll, libloading::os::windows::LOAD_WITH_ALTERED_SEARCH_PATH)
+        .map_err(|e| format!("cannot load {}: {e}", dll.display()))?
+        .into())
+}
+
+/// macOS/Linux: the library's own dependencies are found through its install
+/// name / rpath (set when the bundled copy is built — see the cross-platform plan)
+#[cfg(not(windows))]
+unsafe fn load_library(dir: &Path) -> Result<Library, String> {
+    let lib = dir.join(LIBRARY);
+    Library::new(&lib).map_err(|e| format!("cannot load {}: {e}", lib.display()))
+}
+
 impl Fluid {
     pub fn new(dir: &Path, sample_rate: f64) -> Result<Self, String> {
         unsafe {
-            let dll = dir.join("libfluidsynth-3.dll");
-            // Altered search path: libsndfile (for .sf3) and SDL3 are found next to it
-            let lib: Library = libloading::os::windows::Library::load_with_flags(&dll, libloading::os::windows::LOAD_WITH_ALTERED_SEARCH_PATH)
-                .map_err(|e| format!("cannot load {}: {e}", dll.display()))?
-                .into();
+            let lib = load_library(dir)?;
             macro_rules! sym { ($n:literal) => { *lib.get($n).map_err(|e| format!("missing {}: {e}", String::from_utf8_lossy($n)))? } }
             let new_settings: unsafe extern "C" fn() -> Ptr = sym!(b"new_fluid_settings");
             let setnum: unsafe extern "C" fn(Ptr, *const c_char, c_double) -> c_int = sym!(b"fluid_settings_setnum");

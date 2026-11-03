@@ -7,7 +7,7 @@
 
 use crate::dsp::HighShelf;
 use crate::dynamics::Compressor;
-use crate::engine::pan_cc;
+use crate::renderer::pan_cc;
 use crate::fluid::Fluid;
 use crate::reverb::{Chorus, Reverb};
 use crate::sf2::{preset_sends, CHORUS_LEVEL, REVERB_LEVEL};

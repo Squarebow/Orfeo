@@ -1,0 +1,75 @@
+# The Native sound engine (Rust, native/): checks on every push to dev and every
+# pull request that touches it.
+#   • Windows: builds the add-on with its pinned FluidSynth (scripts/build-native.mjs)
+#     and runs the engine's tests — including the one proving the live mix equals
+#     the export mix (renderer.rs → live_mix_matches_the_export_mix).
+#   • macOS and Linux: the engine and add-on must compile. There is no sound-card
+#     driver for them yet (docs: the Native cross-platform plan), so nothing runs;
+#     this keeps the shared musician free of Windows-only code from day one.
+# Read-only, no secrets.
+name: Native engine
+
+on:
+  push:
+    branches: [dev]
+    paths: ["native/**", "scripts/build-native.mjs", ".github/workflows/native.yml"]
+  pull_request:
+    paths: ["native/**", "scripts/build-native.mjs", ".github/workflows/native.yml"]
+
+permissions:
+  contents: read
+
+jobs:
+  windows:
+    name: Windows — build + tests
+    runs-on: windows-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: native
+
+      # the add-on + FluidSynth DLLs the tests load (native/build/); the script
+      # needs only Node itself, no npm packages
+      - name: Build the native engine
+        run: node scripts/build-native.mjs
+
+      - name: Engine tests
+        working-directory: native
+        run: cargo test --release -p orfeo-audio
+
+  compile:
+    name: ${{ matrix.os }} — compiles
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest]
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+
+      # midir (MIDI input) needs ALSA's headers on Linux
+      - name: ALSA headers
+        if: runner.os == 'Linux'
+        run: sudo apt-get update -q && sudo apt-get install -y -q libasound2-dev
+
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: native
+
+      - name: Build engine + add-on, compile the tests
+        working-directory: native
+        run: |
+          cargo build --release -p orfeo-audio -p orfeo-audio-node
+          cargo test --release -p orfeo-audio --no-run
