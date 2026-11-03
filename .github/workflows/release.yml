@@ -8,7 +8,10 @@
 # 1. Check   — version, tag, package.json and changelog all agree; builds the notes
 # 2. Build   — on Windows, from the tag: installer, portable, latest.yml → draft release;
 #              the Microsoft Store package (.appx) is kept as a run artifact, not on GitHub
-# 3. Publish — adds the notes and publishes (or keeps it a draft / marks it a pre-release)
+#              On macOS, at the same time: .dmg and .zip for Apple Silicon and Intel →
+#              the same draft (signed and notarized once Apple signing is set up)
+# 3. Publish — adds the notes and publishes (or keeps it a draft / marks it a pre-release),
+#              only if both builds succeeded; otherwise the release stays a draft
 #
 # The Microsoft Store is a separate step afterwards: Actions → Microsoft Store
 # (store.yml) with the same version sends this run's .appx to the Store.
@@ -116,7 +119,7 @@ jobs:
           --draft --verify-tag --title "Orfeo $version" --notes-file release-notes.md
 
   build:
-    name: 2. Build
+    name: 2. Build (Windows)
     needs: check
     runs-on: windows-latest
     timeout-minutes: 45
@@ -173,9 +176,73 @@ jobs:
           path: release/*.appx
           if-no-files-found: error
 
+  build-mac:
+    name: 2. Build (macOS)
+    needs: check
+    runs-on: macos-latest
+    timeout-minutes: 45
+    # Signing secrets live in this environment; restrict it to main
+    # (docs/CONTRIBUTING.md → "macOS signing and notarization")
+    environment: macos-release
+    steps:
+      - name: Get the code of the tagged version
+        uses: actions/checkout@v7
+        with:
+          ref: ${{ needs.check.outputs.tag }}
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      # Both architectures from the one Apple Silicon runner: nothing native to
+      # compile — the Native engine is Windows-only.
+      - name: Build and upload to the draft release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ needs.check.outputs.tag }}
+          MACOS_CERTIFICATE: ${{ secrets.MACOS_CERTIFICATE }}
+          MACOS_CERTIFICATE_PASSWORD: ${{ secrets.MACOS_CERTIFICATE_PASSWORD }}
+          APPLE_API_KEY_P8: ${{ secrets.APPLE_API_KEY }}
+          APPLE_API_KEY_ID: ${{ secrets.APPLE_API_KEY_ID }}
+          APPLE_API_ISSUER: ${{ secrets.APPLE_API_ISSUER }}
+        run: |
+          set -euo pipefail
+          npm run build
+          if [ -n "$MACOS_CERTIFICATE" ]; then
+            for v in MACOS_CERTIFICATE_PASSWORD APPLE_API_KEY_P8 APPLE_API_KEY_ID APPLE_API_ISSUER; do
+              if [ -z "${!v:-}" ]; then
+                echo "::error::MACOS_CERTIFICATE is set but ${v%_P8} is not. Add every macOS signing secret, or none."
+                exit 1
+              fi
+            done
+            # electron-builder signs with the certificate and, with the API key
+            # file in APPLE_API_KEY, notarizes and staples the app
+            export CSC_LINK="$MACOS_CERTIFICATE" CSC_KEY_PASSWORD="$MACOS_CERTIFICATE_PASSWORD"
+            export APPLE_API_KEY="$RUNNER_TEMP/apple-api-key.p8"
+            printf '%s' "$APPLE_API_KEY_P8" > "$APPLE_API_KEY"
+            npx electron-builder --mac --publish never
+            for app in release/mac/Orfeo.app release/mac-arm64/Orfeo.app; do
+              spctl --assess --type execute --verbose=2 "$app"
+            done
+            echo "### macOS: signed and notarized" >> "$GITHUB_STEP_SUMMARY"
+          else
+            npx electron-builder --mac --publish never -c.mac.identity=-
+            for app in release/mac/Orfeo.app release/mac-arm64/Orfeo.app; do
+              codesign --verify --deep --strict "$app"
+            done
+            echo "::warning::Apple signing isn't set up, so the macOS downloads are unsigned: macOS asks people to allow Orfeo in System Settings › Privacy & Security the first time."
+            echo "### macOS: unsigned (Apple signing isn't set up)" >> "$GITHUB_STEP_SUMMARY"
+          fi
+          # --clobber: re-running a failed job replaces what it uploaded before
+          gh release upload "$TAG" release/*.dmg release/*.zip --clobber --repo "$GITHUB_REPOSITORY"
+
   publish:
     name: 3. Publish
-    needs: [check, build]
+    needs: [check, build, build-mac]
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:

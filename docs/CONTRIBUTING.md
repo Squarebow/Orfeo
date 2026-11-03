@@ -68,8 +68,9 @@ npm run dev
 | `npm run build` | Compile main + preload + renderer | `out/` |
 | `npm run preview` | Run the last `build` output without packaging | — |
 | `npm run typecheck` | `tsc --noEmit` — type-check only | — |
-| `npm run dist` | `build`, then package for the current platform | `release/` |
+| `npm run dist` | `build`, then the Windows installer, portable app and Store package | `release/` |
 | `npm run dist:portable` | Windows portable `.exe` only (no installer), for a quick local test | `release/` |
+| `npm run dist:mac` | macOS `.dmg` + `.zip` for Apple Silicon and Intel, ad-hoc signed (must run **on** macOS) | `release/` |
 
 <details>
 <summary><b>Cross-platform packaging</b></summary>
@@ -78,7 +79,6 @@ npm run dev
 
 | Command | Result |
 |---|---|
-| `npm run dist -- --mac` | macOS `.dmg` (must run **on** macOS) |
 | `npm run dist -- --linux` | Linux build with electron-builder defaults |
 | `npm run dist -- --dir` | Unpacked build for inspection, no installer |
 
@@ -102,7 +102,7 @@ src/         Renderer — React UI, PixiJS roll, audio, Web MIDI
   utils/       Pure functions (unit-testable, no React)
   types/       Shared interfaces
 scripts/     Build helpers
-build/       NSIS installer assets
+build/       Installer assets, macOS icon
 docs/        Documentation
 ```
 
@@ -125,21 +125,25 @@ Full rationale for each boundary is in [ARCHITECTURE.md](ARCHITECTURE.md).
 
 ## Releases and auto-update
 
-Orfeo officially builds only **Windows** binaries. That is the only platform
-with a real release pipeline and the only one the in-app auto-update
-(`electron-updater`, in `electron/main.ts`) targets.
+Orfeo officially builds **Windows** and **macOS** binaries, both from the same
+release pipeline. Only the installed Windows build auto-updates
+(`electron-updater`, in `electron/main.ts`).
 
 <details>
-<summary><b>Why no official macOS / Linux builds</b></summary>
+<summary><b>Why no auto-update on macOS / Linux</b></summary>
 
-`electron-updater` assumes the app checking for updates was built and published
+On macOS, `electron-updater` can only replace a signed app, so the Mac builds
+stay on manual updates (and the release carries no `latest-mac.yml`) until
+Apple signing is set up and someone commits to that update feed.
+
+For Linux there are no official builds. `electron-updater` assumes the app checking for updates was built and published
 through the *same* pipeline as the update feed it points at. A community-built
 macOS or Linux binary is not — nobody but the person who built it controls how
 or when it is rebuilt. Pointing its auto-updater at Orfeo's official GitHub
 release feed would be actively wrong: it could offer an "update" that does not
 match how that binary was built, or silently never fire.
 
-So: **no auto-update on macOS/Linux, by design** — same as the Windows
+So: **no auto-update on macOS/Linux, for now** — same as the Windows
 **portable** build (no installer for `electron-updater` to act on). Users on
 any of these get new versions from [orfeo.cc/download](https://orfeo.cc/download),
 which follows every GitHub release. `electron/main.ts` decides this once as `updateMode` (`'auto'`
@@ -172,8 +176,12 @@ it.
 The workflow checks that the tag, `package.json` and the changelog agree,
 builds the installer (`Orfeo-Setup-X.Y.Z.exe`) and the portable app
 (`Orfeo-X.Y.Z-portable.exe`) on Windows from the tag, uploads them with
-`latest.yml` and the blockmap, writes the release notes from the changelog and
-publishes the release as *Latest*. It also builds the Microsoft Store package
+`latest.yml` and the blockmap, and — at the same time, on macOS — builds
+`Orfeo-X.Y.Z-mac-arm64.dmg`/`.zip` (Apple Silicon) and
+`Orfeo-X.Y.Z-mac-x64.dmg`/`.zip` (Intel) into the same draft. Only when both
+builds succeed does it write the release notes from the changelog and publish
+the release as *Latest*; if either fails, the release stays a draft — fix the
+cause and use *Re-run failed jobs* on the run. It also builds the Microsoft Store package
 (`Orfeo-X.Y.Z.appx`, from the same app folder) and keeps it with the run, for
 step 4.
 
@@ -253,16 +261,45 @@ The key expires (Partner Center shows the date next to it): add a new key and
 update `AZURE_AD_APPLICATION_SECRET` before it does, or the Microsoft Store
 workflow stops with "Signing in to Partner Center failed".
 
-<details>
-<summary><b>Contributing a macOS / Linux build (community)</b></summary>
+### macOS signing and notarization
 
-1. Run `npm run dist -- --mac` or `npm run dist -- --linux` locally **on that
-   platform**.
+Until it is set up, the Release workflow publishes the Mac builds unsigned
+(ad-hoc signed, so macOS lets people open them through *Privacy & Security*, see
+[INSTALLATION.md → macOS](INSTALLATION.md#macos)) and says so in its run
+summary. Signing turns on by itself once `MACOS_CERTIFICATE` is present; if
+any of the other secrets below is missing then, the macOS build stops with an
+error rather than publish an unnotarized app.
+
+The certificate and key must belong to the account that publishes Orfeo
+(an Apple Developer Program membership in the project owner's name), not a
+contributor's own.
+
+1. Apple Developer → *Certificates* → create a **Developer ID Application**
+   certificate; export it with its private key from Keychain Access as a
+   `.p12` with a password.
+2. App Store Connect → *Users and Access › Integrations › App Store Connect
+   API* → **Team Keys** → generate a key with the **Developer** role. Download
+   the `.p8` (only possible once) and note its **Key ID** and the **Issuer ID**.
+3. GitHub → **Settings → Environments** → `macos-release` (the Release
+   workflow creates it on its first run, or create it yourself) → *Deployment
+   branches and tags*: **Selected branches** → `main`. Then its secrets:
+   - `MACOS_CERTIFICATE` — the `.p12`, base64: `base64 -i cert.p12 | pbcopy`
+   - `MACOS_CERTIFICATE_PASSWORD` — the `.p12` password
+   - `APPLE_API_KEY` — the whole text of the `.p8` file
+   - `APPLE_API_KEY_ID`, `APPLE_API_ISSUER` — the Key ID and Issuer ID
+
+Pull requests build macOS too (`.github/workflows/macos.yml`), always unsigned
+and without access to these secrets. The Developer ID certificate lasts five
+years; renew it and replace `MACOS_CERTIFICATE` before it expires.
+
+<details>
+<summary><b>Contributing a Linux build (community)</b></summary>
+
+1. Run `npm run dist -- --linux` locally **on Linux**.
 2. Upload the artifact as an **additional asset on the same GitHub release**,
    named so it is unmistakably unofficial and unsigned, e.g.
-   `Orfeo-X.Y.Z-macOS-community.dmg`,
    `Orfeo-X.Y.Z-Linux-community.AppImage`.
-3. **Do not** upload a `latest-mac.yml` / `latest-linux.yml` alongside it unless
+3. **Do not** upload a `latest-linux.yml` alongside it unless
    you are committing to maintain a real update feed for that platform going
    forward. An unmaintained one is worse than none — it tells
    `electron-updater` an update channel exists when nobody is behind it.

@@ -3,7 +3,7 @@
 **From MIDI to mastery.** Turn any MIDI file into an interactive piano-learning
 experience.
 
-[![Version](https://img.shields.io/github/v/release/Squarebow/Orfeo?label=Version&color=blue)](https://github.com/Squarebow/Orfeo/releases/latest) [![License](https://img.shields.io/badge/License-GPLv3-blue)](LICENSE.md) [![Platform](https://img.shields.io/badge/Platform-Windows-lightgrey?logo=windows)](https://github.com/Squarebow/Orfeo/releases)
+[![Version](https://img.shields.io/github/v/release/Squarebow/Orfeo?label=Version&color=blue)](https://github.com/Squarebow/Orfeo/releases/latest) [![License](https://img.shields.io/badge/License-GPLv3-blue)](LICENSE.md) [![Platform](https://img.shields.io/badge/Platform-Windows%20%7C%20macOS-lightgrey)](https://github.com/Squarebow/Orfeo/releases)
 
 📖 **User manual: [orfeo.cc/docs](https://orfeo.cc/docs)**
 
@@ -240,10 +240,11 @@ Orfeo only goes online when you ask it to, or to check for updates:
 <details>
 <summary><b>What platforms does Orfeo run on?</b></summary>
 
-Windows 10/11 today, with an installer and a portable build. Orfeo is built on
-Electron, so macOS and Linux builds are possible and community-buildable — see
-[CONTRIBUTING.md](docs/CONTRIBUTING.md) — there just aren't official builds for
-those platforms yet.
+Windows 10/11, with an installer and a portable build, and macOS on Apple
+Silicon and Intel Macs ([INSTALLATION.md → macOS](docs/INSTALLATION.md#macos)).
+Orfeo is built on Electron, so Linux builds are possible and
+community-buildable — see [CONTRIBUTING.md](docs/CONTRIBUTING.md) — there just
+aren't official Linux builds yet.
 
 </details>
 

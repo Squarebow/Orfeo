@@ -1,6 +1,7 @@
 # Orfeo — Installer vs. Portable
 
-*Orfeo ships two Windows builds from every release. Same app, same features —
+*Orfeo ships two Windows builds from every release (and Mac ones — see
+[macOS](#macos)). Same app, same features —
 they differ only in how they land on your machine and where they keep your
 data.*
 
@@ -18,7 +19,8 @@ data.*
 - [Updating](#updating)
 - [Uninstalling](#uninstalling)
 - [Switching between the two builds](#switching-between-the-two-builds)
-- [macOS and Linux](#macos-and-linux)
+- [macOS](#macos)
+- [Linux](#linux)
 
 ---
 
@@ -132,15 +134,45 @@ so it travels with the file no matter which build opens it.
 
 ---
 
-## macOS and Linux
+## macOS
 
-Orfeo does not currently publish official macOS or Linux builds — the
-auto-update pipeline is Windows-only. You can build from source on those
-platforms (see [CONTRIBUTING.md](CONTRIBUTING.md)); updates are then a manual
-`git pull` + rebuild, same as the portable Windows build.
+Every release also has Mac downloads, on the same
+[Releases](https://github.com/Squarebow/Orfeo/releases) page:
 
-Community-built macOS/Linux binaries may be attached to a release as extra
-assets — clearly marked unofficial and unsigned. See
+| Mac | Disk image | Or the zip |
+|---|---|---|
+| **Apple Silicon** (M1 and newer) | `Orfeo-<version>-mac-arm64.dmg` | `Orfeo-<version>-mac-arm64.zip` |
+| **Intel** | `Orfeo-<version>-mac-x64.dmg` | `Orfeo-<version>-mac-x64.zip` |
+
+Open the `.dmg` and drag Orfeo into *Applications* (or unzip the `.zip` and
+move `Orfeo.app` there).
+
+> [!IMPORTANT]
+> Until the Mac builds are signed and notarized by Apple, macOS blocks Orfeo
+> the first time you open it. Choose **Done**, then open *System Settings ›
+> Privacy & Security*, scroll down to *"Orfeo" was blocked*, click **Open
+> Anyway** and confirm. You only do this once per version.
+
+- **Sound:** GM and Studio. The Native engine is Windows-only.
+- **MIDI keyboards:** USB keyboards work straight away. A Bluetooth MIDI
+  keyboard has to be connected in *Audio MIDI Setup* first (*Window › Show MIDI
+  Studio*, then the Bluetooth button); Orfeo then sees it like a USB one.
+- **Your data:** `~/Library/Application Support/Orfeo/`.
+- **Updating:** no auto-update. *Check for updates* opens the download page;
+  replace `Orfeo.app` with the new one — your settings stay.
+- **Uninstalling:** drag `Orfeo.app` to the Trash; delete the data folder above
+  too if you want everything gone.
+
+---
+
+## Linux
+
+Orfeo does not publish official Linux builds. You can build from source (see
+[CONTRIBUTING.md](CONTRIBUTING.md)); updates are then a manual `git pull` +
+rebuild.
+
+Community-built Linux binaries may be attached to a release as extra assets —
+clearly marked unofficial and unsigned. See
 [CONTRIBUTING.md → Releases and auto-update](CONTRIBUTING.md#releases-and-auto-update).
 
 ---
