@@ -38,6 +38,8 @@ struct Signals {
     rebuild: AtomicBool,
     /// Low latency can't keep up with this block size: try the next one
     step_up: AtomicBool,
+    /// the sound is taken away slower than real time: blocks too small for this sound system
+    slow: AtomicBool,
     shutdown: AtomicBool,
     /// the output mode the caller asked for (0 low latency, 1 normal)
     want_mode: AtomicU32,
@@ -61,12 +63,18 @@ struct Opened {
     fallback_reason: Option<String>,
 }
 
+/// The block size we ask for: a Low latency step, or — once the sound system
+/// proved it can't keep up with ours — whatever it picks itself
+#[derive(Clone, Copy, Default)]
+struct Blocks { step: usize, system: bool }
+
 fn mode_code(m: OutputMode) -> u32 { if m == OutputMode::Exclusive { 0 } else { 1 } }
 fn mode_of(code: u32) -> OutputMode { if code == 0 { OutputMode::Exclusive } else { OutputMode::Shared } }
 
 /// The default output, with the block size for `mode` (clamped to what the
 /// device says it supports)
-fn open(host: &cpal::Host, mode: OutputMode, step: usize) -> Result<Opened, String> {
+fn open(host: &cpal::Host, mode: OutputMode, blocks: Blocks) -> Result<Opened, String> {
+    let step = blocks.step;
     let device = host.default_output_device().ok_or("no output device")?;
     let name = device.description().map(|d| d.name().to_string()).unwrap_or_else(|_| "Default output".into());
     let id = device.id().ok();
@@ -76,8 +84,12 @@ fn open(host: &cpal::Host, mode: OutputMode, step: usize) -> Result<Opened, Stri
         SupportedBufferSize::Range { min, max } => want.clamp(*min, *max),
         SupportedBufferSize::Unknown => want,
     };
-    let config = StreamConfig { channels: supported.channels(), sample_rate: supported.sample_rate(), buffer_size: BufferSize::Fixed(frames) };
-    Ok(Opened { device, id, name, config, format: supported.sample_format(), mode, fallback_reason: None })
+    let buffer_size = if blocks.system { BufferSize::Default } else { BufferSize::Fixed(frames) };
+    let config = StreamConfig { channels: supported.channels(), sample_rate: supported.sample_rate(), buffer_size };
+    let (mode, fallback_reason) = if blocks.system {
+        (OutputMode::Shared, Some("the sound system couldn't keep up with Orfeo's block size, so it now chooses its own".to_string()))
+    } else { (mode, None) };
+    Ok(Opened { device, id, name, config, format: supported.sample_format(), mode, fallback_reason })
 }
 
 #[allow(clippy::too_many_arguments)]
@@ -86,9 +98,9 @@ pub(crate) fn audio_thread(fluid_dir: PathBuf, soundfonts: Vec<PathBuf>, mode: O
     let host = cpal::default_host();
     let sig = Arc::new(Signals::default());
     sig.want_mode.store(mode_code(mode), Relaxed);
-    let mut step = 0usize;
+    let mut blocks = Blocks::default();
 
-    let mut opened = match open(&host, mode, step) { Ok(o) => o, Err(e) => { let _ = ready.send(Err(e)); return } };
+    let mut opened = match open(&host, mode, blocks) { Ok(o) => o, Err(e) => { let _ = ready.send(Err(e)); return } };
     let r = match Renderer::new(fluid_dir, soundfonts, opened.config.sample_rate, stats.clone()) { Ok(r) => r, Err(e) => { let _ = ready.send(Err(e)); return } };
     let musician = Arc::new(Mutex::new(Musician { r, cmds, live }));
     *stats.device_name.lock().unwrap() = opened.name.clone();
@@ -108,14 +120,15 @@ pub(crate) fn audio_thread(fluid_dir: PathBuf, soundfonts: Vec<PathBuf>, mode: O
                 opened.mode = OutputMode::Shared;
                 match build_stream(&opened, musician.clone(), sig.clone(), stats.clone()) {
                     Ok(s) => s,
-                    Err(e) => { retry_later(&host, &stop, &musician, &stats, &mut opened, &sig, step, e); continue 'device }
+                    Err(e) => { retry_later(&host, &stop, &musician, &stats, &mut opened, &sig, blocks, e); continue 'device }
                 }
             }
-            Err(e) => { retry_later(&host, &stop, &musician, &stats, &mut opened, &sig, step, e); continue 'device }
+            Err(e) => { retry_later(&host, &stop, &musician, &stats, &mut opened, &sig, blocks, e); continue 'device }
         };
         // a step-up asked for by the previous stream's last blocks is already
         // answered by this one
         sig.step_up.store(false, Relaxed);
+        sig.slow.store(false, Relaxed);
         if let Err(e) = stream.play() { *stats.error.lock().unwrap() = Some(e.to_string()); }
 
         let frames = match opened.config.buffer_size { BufferSize::Fixed(f) => f, BufferSize::Default => stream.buffer_size().unwrap_or(0) };
@@ -123,7 +136,7 @@ pub(crate) fn audio_thread(fluid_dir: PathBuf, soundfonts: Vec<PathBuf>, mode: O
         stats.rate.store(rate, Relaxed);
         stats.period_frames.store(frames, Relaxed);
         stats.buffer_frames.store(frames, Relaxed);
-        stats.period_step.store(step as u8, Relaxed);
+        stats.period_step.store(blocks.step as u8, Relaxed);
         stats.windows_gain.store(u32::MAX, Relaxed); // the system applies its own volume
         stats.measured_rate.store(0, Relaxed);
         *stats.device_name.lock().unwrap() = opened.name.clone();
@@ -138,7 +151,12 @@ pub(crate) fn audio_thread(fluid_dir: PathBuf, soundfonts: Vec<PathBuf>, mode: O
             if stop.load(Relaxed) || sig.shutdown.load(Relaxed) { break 'device }
             if reopen.swap(false, Relaxed) || sig.rebuild.swap(false, Relaxed) { break }
             if sig.step_up.swap(false, Relaxed) {
-                if opened.mode == OutputMode::Exclusive && step + 1 < LOW_LATENCY_STEPS.len() { step += 1; break }
+                if opened.mode == OutputMode::Exclusive && blocks.step + 1 < LOW_LATENCY_STEPS.len() { blocks.step += 1; break }
+            }
+            // not keeping real time: bigger blocks, and past the biggest, the system's own
+            if sig.slow.swap(false, Relaxed) {
+                if opened.mode == OutputMode::Exclusive && blocks.step + 1 < LOW_LATENCY_STEPS.len() { blocks.step += 1; break }
+                if !blocks.system { blocks.system = true; break }
             }
             // the user picked another default output (headphones plugged in…): follow it
             if last_check.elapsed() >= Duration::from_secs(1) {
@@ -152,29 +170,29 @@ pub(crate) fn audio_thread(fluid_dir: PathBuf, soundfonts: Vec<PathBuf>, mode: O
         drop(stream);
         stats.mode.store(255, Relaxed);
         musician.lock().unwrap().r.all_sounds_off();
-        wait_for_device(&host, &stop, &musician, &stats, &mut opened, &sig, step);
+        wait_for_device(&host, &stop, &musician, &stats, &mut opened, &sig, blocks);
         if stop.load(Relaxed) { break 'device }
     }
 }
 
 /// The stream couldn't be built: say why, give the device a moment, try again
 #[allow(clippy::too_many_arguments)]
-fn retry_later(host: &cpal::Host, stop: &AtomicBool, musician: &Mutex<Musician>, stats: &Stats, opened: &mut Opened, sig: &Signals, step: usize, why: String) {
+fn retry_later(host: &cpal::Host, stop: &AtomicBool, musician: &Mutex<Musician>, stats: &Stats, opened: &mut Opened, sig: &Signals, blocks: Blocks, why: String) {
     *stats.error.lock().unwrap() = Some(why);
     stats.mode.store(255, Relaxed);
     std::thread::sleep(Duration::from_millis(500));
-    wait_for_device(host, stop, musician, stats, opened, sig, step);
+    wait_for_device(host, stop, musician, stats, opened, sig, blocks);
 }
 
 /// Opens the default output again (retrying while there is none), rebuilding
 /// the synth for a new sample rate and restoring the song state
-fn wait_for_device(host: &cpal::Host, stop: &AtomicBool, musician: &Mutex<Musician>, stats: &Stats, opened: &mut Opened, sig: &Signals, step: usize) {
+fn wait_for_device(host: &cpal::Host, stop: &AtomicBool, musician: &Mutex<Musician>, stats: &Stats, opened: &mut Opened, sig: &Signals, blocks: Blocks) {
     let old_rate = opened.config.sample_rate;
     loop {
         // closing Orfeo must never wait for a device that isn't coming back
         if stop.load(Relaxed) || sig.shutdown.load(Relaxed) { return }
         if matches!(musician.lock().unwrap().cmds.peek(), Ok(Command::Shutdown)) { sig.shutdown.store(true, Relaxed); return }
-        match open(host, mode_of(sig.want_mode.load(Relaxed)), step) {
+        match open(host, mode_of(sig.want_mode.load(Relaxed)), blocks) {
             Ok(o) => {
                 let mut m = musician.lock().unwrap();
                 if o.config.sample_rate != old_rate {
@@ -213,6 +231,11 @@ fn build<T: SizedSample + FromSample<f32> + Send + 'static>(o: &Opened, musician
     let mut last_wake: Option<Instant> = None;
     // underruns or late blocks in the last two seconds → a bigger block size
     let mut late_window: (Instant, u32) = (Instant::now(), 0);
+    // frames taken by the sound system vs the clock, over 2 s windows after a
+    // 1 s warm-up: a system that takes our blocks slower than real time (seen
+    // with ALSA's PulseAudio bridge and small blocks) neither crackles nor
+    // reports gaps — the music just runs slow
+    let mut taken: Option<(Instant, u64)> = None;
     let (sig_cb, stats_cb) = (sig.clone(), stats.clone());
 
     let data_cb = move |data: &mut [T], info: &cpal::OutputCallbackInfo| {
@@ -235,6 +258,15 @@ fn build<T: SizedSample + FromSample<f32> + Send + 'static>(o: &Opened, musician
             }
         }
         last_wake = Some(now);
+        if started.elapsed() > Duration::from_secs(1) {
+            let (since, n) = taken.get_or_insert((now, 0));
+            *n += frames as u64;
+            let el = now.duration_since(*since).as_secs_f64();
+            if el >= 2.0 {
+                if (*n as f64) < el * rate * 0.9 { stats_cb.late_wakeups.fetch_add(1, Relaxed); sig_cb.slow.store(true, Relaxed) }
+                taken = Some((now, 0));
+            }
+        }
 
         // ── Commands: the device's own here, the music's to the renderer ──
         let m = &mut *m;
