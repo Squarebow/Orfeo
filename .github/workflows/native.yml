@@ -130,3 +130,15 @@ jobs:
         run: |
           cargo build --release -p orfeo-audio --bin orfeo-selftest
           ./target/release/orfeo-selftest --virtual --fluid "$FLUID_DIR" --sf2 ../public/GeneralUser-GS.sf2 "../public/Demo/Vivaldi 4 stagioni - Estate.mid"
+
+      # Diagnostic only: the same self-test through ALSA's PulseAudio bridge, with
+      # each stream's first blocks traced. Shipped builds don't use this route while
+      # a sound server runs; this shows why, and that ALSA-only systems are handled.
+      - name: Self-test through ALSA (diagnostic)
+        if: runner.os == 'Linux'
+        continue-on-error: true
+        working-directory: native
+        env:
+          ORFEO_AUDIO_HOST: alsa
+          ORFEO_AUDIO_TRACE: "1"
+        run: ./target/release/orfeo-selftest --virtual --fluid "$FLUID_DIR" --sf2 ../public/GeneralUser-GS.sf2 "../public/Demo/Vivaldi 4 stagioni - Estate.mid" 2>&1 | head -150

@@ -1,6 +1,7 @@
 //! macOS and Linux: the audio thread's device side, through CPAL (CoreAudio on
-//! macOS; ALSA on Linux, which reaches PipeWire/PulseAudio through their ALSA
-//! plugins). Windows ships `wasapi_driver.rs` instead; this one also builds on
+//! macOS; on Linux the sound server directly — PulseAudio, or PipeWire through
+//! its PulseAudio side — and ALSA only when no server runs: ALSA's bridges to
+//! the servers took our blocks at a fraction of real time in testing). Windows ships `wasapi_driver.rs` instead; this one also builds on
 //! Windows with the `cpal-driver` feature, for development only.
 //!
 //! The difference from WASAPI: CPAL *calls us* for each block ("fill these
@@ -30,6 +31,16 @@ const LOW_LATENCY_STEPS: [u32; 3] = [128, 256, 512];
 const NORMAL_FRAMES: u32 = 1024;
 /// The renderer's buffers; a callback asking for more is rendered in pieces
 const MAX_BLOCK: usize = 4096;
+
+/// The system's sound host. Testing aid: ORFEO_AUDIO_HOST=alsa forces ALSA on
+/// Linux (the app never sets it).
+fn pick_host() -> cpal::Host {
+    #[cfg(target_os = "linux")]
+    if std::env::var("ORFEO_AUDIO_HOST").as_deref() == Ok("alsa") {
+        if let Ok(h) = cpal::host_from_id(cpal::HostId::Alsa) { return h }
+    }
+    cpal::default_host()
+}
 
 /// What the callback and the error callback tell the supervisor
 #[derive(Default)]
@@ -95,7 +106,8 @@ fn open(host: &cpal::Host, mode: OutputMode, blocks: Blocks) -> Result<Opened, S
 #[allow(clippy::too_many_arguments)]
 pub(crate) fn audio_thread(fluid_dir: PathBuf, soundfonts: Vec<PathBuf>, mode: OutputMode, cmds: rtrb::Consumer<Command>,
     live: Receiver<LiveMsg>, stats: Arc<Stats>, ready: Sender<Result<(), String>>, reopen: Arc<AtomicBool>, stop: Arc<AtomicBool>) {
-    let host = cpal::default_host();
+    let host = pick_host();
+    let host_name = host.id().name();
     let sig = Arc::new(Signals::default());
     sig.want_mode.store(mode_code(mode), Relaxed);
     let mut blocks = Blocks::default();
@@ -141,7 +153,7 @@ pub(crate) fn audio_thread(fluid_dir: PathBuf, soundfonts: Vec<PathBuf>, mode: O
         stats.measured_rate.store(0, Relaxed);
         *stats.device_name.lock().unwrap() = opened.name.clone();
         *stats.fallback_reason.lock().unwrap() = opened.fallback_reason.clone();
-        *stats.format.lock().unwrap() = format!("{rate} Hz · {}", opened.format);
+        *stats.format.lock().unwrap() = format!("{rate} Hz · {} · {host_name}", opened.format);
         *stats.error.lock().unwrap() = None;
 
         // ── Supervise: shutdown, mode changes, device changes, step-ups ──
@@ -237,12 +249,26 @@ fn build<T: SizedSample + FromSample<f32> + Send + 'static>(o: &Opened, musician
     // reports gaps — the music just runs slow
     let mut taken: Option<(Instant, u64)> = None;
     let (sig_cb, stats_cb) = (sig.clone(), stats.clone());
+    // Testing aid: ORFEO_AUDIO_TRACE=1 prints the first blocks of each stream
+    // (stderr; the app never sets it)
+    let trace = std::env::var("ORFEO_AUDIO_TRACE").as_deref() == Ok("1");
+    let mut traced = 0u32;
+    let mut trace_prev: Option<Instant> = None;
 
     let data_cb = move |data: &mut [T], info: &cpal::OutputCallbackInfo| {
         let frames = data.len() / channels.max(1);
         stats_cb.blocks.fetch_add(1, Relaxed);
         stats_cb.block_frames.fetch_add(frames as u64, Relaxed);
-        let Ok(mut m) = musician.try_lock() else { data.fill(T::EQUILIBRIUM); return };
+        let locked = musician.try_lock();
+        if trace && traced < 40 {
+            let t = Instant::now();
+            let gap = trace_prev.map(|p| t.duration_since(p).as_secs_f64() * 1000.0).unwrap_or(0.0);
+            trace_prev = Some(t);
+            traced += 1;
+            eprintln!("[trace] block {traced}: {frames} frames ({} samples, {channels} ch), {gap:.2} ms since the last, musician {}",
+                data.len(), match &locked { Ok(_) => "free".to_string(), Err(e) => format!("NOT taken: {e:?}") });
+        }
+        let Ok(mut m) = locked else { data.fill(T::EQUILIBRIUM); return };
         let now = Instant::now();
         // how far ahead of the speaker this block is: the live-key statistics and the delay check
         let ts = info.timestamp();
