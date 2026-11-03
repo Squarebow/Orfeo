@@ -19,7 +19,12 @@ class FakePort implements PortLike {
     if (this.throwOnClose) throw new Error('already closed')
   }
   start?(): void { this.log.push(`start:${this.name}`) }
-  postMessage(message: unknown): void {
+  // As Electron's MessagePortMain: a second argument that is present must be an
+  // array — postMessage(msg, undefined) throws "transferables must be an array
+  // of MessagePorts" (checked against Electron 44)
+  postMessage(...args: unknown[]): void {
+    const [message] = args
+    if (args.length > 1 && !Array.isArray(args[1])) throw new Error('transferables must be an array of MessagePorts')
     if (this.throwOnPost) throw new Error('port is not writable')
     this.sent.push(message)
     this.log.push(`post:${this.name}`)
@@ -102,6 +107,13 @@ export function runHostConnectionTest(): number {
   // 4. posting is safe in every state
   {
     const t = mk()
+    // a message without ports must really arrive: Electron rejects an explicit
+    // `undefined` for the transfer list, and post() swallowing that left the
+    // Native sound stuck at "starting…" with every status and export message lost
+    const p0 = new FakePort('p0', t.log)
+    t.holder.replace(p0, t.hooksFor('p0'))
+    check(t.holder.post({ t: 'started' }) && p0.sent.length === 1, 'a message without ports arrives')
+    t.holder.current = null
     check(!t.holder.post({ t: 'status' }), 'no connection: post reports it instead of throwing')
     const p1 = new FakePort('p1', t.log)
     p1.throwOnPost = true

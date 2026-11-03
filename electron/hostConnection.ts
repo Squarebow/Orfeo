@@ -51,7 +51,10 @@ export class ConnectionHolder<T extends PortLike> {
     try {
       const target = this.current
       if (!target?.postMessage) return false
-      target.postMessage(message, ports)
+      // Electron's MessagePortMain throws on postMessage(msg, undefined): the
+      // transfer list goes along only when there is one
+      if (ports) target.postMessage(message, ports)
+      else target.postMessage(message)
       return true
     } catch { return false }
   }
