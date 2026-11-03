@@ -32,6 +32,8 @@ jobs:
         run: npm run typecheck
 
       - name: Package
+        env:
+          CSC_FOR_PULL_REQUEST: 'true'
         run: npm run dist:mac -- --publish never
 
       - name: Check the app signatures
