@@ -29,11 +29,12 @@ it targets `dev`, and every commit is authored by you.
 
 ## Pull request rules
 
-An automatic check (`.github/workflows/pr-rules.yml`) runs on every pull request
-and fails it if either rule is broken. A failing pull request isn't reviewed
-until it's fixed.
+Two simple rules keep the history tidy. A small automatic check
+(`.github/workflows/pr-rules.yml`) looks at every pull request: one aimed at
+`main` gets a friendly reminder, and a commit signed by an AI tool gets a red
+mark with the way to fix it. Push the fixed branch and the check runs again.
 
-### 1. Target `dev`, never `main`
+### 1. Target `dev`, not `main`
 
 All work lands on `dev` first. `main` only receives `dev`, when a version is
 released. GitHub suggests `main` by default, so when you open the pull request,
