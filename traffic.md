@@ -1,6 +1,6 @@
 # Orfeo on GitHub: downloads and traffic
 
-**Last updated: 3. 11. 2026 at 15:57** Ljubljana time (CET) · updates daily from 07:00
+**Last updated: 3. 11. 2026 at 15:58** Ljubljana time (CET) · updates daily from 07:00
 
 [Squarebow/Orfeo](https://github.com/Squarebow/Orfeo) · ★ 472 stars · 36 forks · 5 watching
 
@@ -81,15 +81,15 @@ Downloads before 2026-10-17 (when tracking started) are in the all-time totals a
 | orfeo.cc | 8 | <mark>7</mark> | 12 |
 | search.brave.com | 10 | <mark>6</mark> | 11 |
 | DuckDuckGo | 4 | <mark>4</mark> | 7 |
+| yandex.com.tr | – | – | 2 |
 | copilot.microsoft.com | – | – | 2 |
 | search.naver.com | – | – | 2 |
-| yandex.com.tr | – | – | 2 |
-| yandex.ru | – | – | 1 |
-| ntp.msn.com | – | – | 1 |
 | aocr.org | – | – | 1 |
+| ntp.msn.com | – | – | 1 |
 | Yahoo | – | – | 1 |
-| ecosia.org | 2 | <mark>2</mark> | 0 |
+| yandex.ru | – | – | 1 |
 | m.facebook.com | 2 | <mark>2</mark> | 0 |
+| ecosia.org | 2 | <mark>2</mark> | 0 |
 
 GitHub only reports referring sites as 14-day totals. All-time adds up non-overlapping 14-day periods recorded since 2026-10-17, plus an estimate for the days since the last full period (≈). Search engines and AI assistants don't pass on what was searched.
 
