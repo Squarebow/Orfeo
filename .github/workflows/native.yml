@@ -3,9 +3,11 @@
 #   • Windows: builds the add-on with its pinned FluidSynth (scripts/build-native.mjs)
 #     and runs the engine's tests — including the one proving the live mix equals
 #     the export mix (renderer.rs → live_mix_matches_the_export_mix).
-#   • macOS and Linux: the engine and add-on must compile. There is no sound-card
-#     driver for them yet (docs: the Native cross-platform plan), so nothing runs;
-#     this keeps the shared musician free of Windows-only code from day one.
+#   • macOS and Linux: the engine and add-on must compile (CPAL driver), and the
+#     engine's self-test (orfeo-selftest: timing, levels, mute, compressor, preview
+#     notes, count-in, metronome, seek, tempo, Low latency ↔ normal, buffer
+#     step-up) must pass playing a demo song into a virtual sound card — ALSA's
+#     snd-dummy on Linux, BlackHole on macOS — with the system's FluidSynth.
 # Read-only, no secrets.
 name: Native engine
 
@@ -64,10 +66,10 @@ jobs:
         with:
           persist-credentials: false
 
-      # midir (MIDI input) needs ALSA's headers on Linux
-      - name: ALSA headers
+      # midir/CPAL need ALSA's headers on Linux, rtkit real-time priority needs D-Bus's
+      - name: ALSA and D-Bus headers
         if: runner.os == 'Linux'
-        run: sudo apt-get update -q && sudo apt-get install -y -q libasound2-dev
+        run: sudo apt-get update -q && sudo apt-get install -y -q libasound2-dev libdbus-1-dev
 
       - uses: Swatinem/rust-cache@v2
         with:
@@ -78,3 +80,46 @@ jobs:
         run: |
           cargo build --release -p orfeo-audio -p orfeo-audio-node
           cargo test --release -p orfeo-audio --no-run
+
+  plays:
+    name: ${{ matrix.os }} — plays (virtual sound card)
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest]
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+
+      - name: Virtual sound card + FluidSynth (Linux)
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update -q
+          sudo apt-get install -y -q libasound2-dev libdbus-1-dev libfluidsynth3 alsa-utils "linux-modules-extra-$(uname -r)"
+          sudo modprobe snd-dummy
+          sudo chmod a+rw /dev/snd/*
+          aplay -l
+          echo "FLUID_DIR=$(dirname "$(ldconfig -p | grep -m1 'libfluidsynth.so.3 ' | awk '{print $NF}')")" >> "$GITHUB_ENV"
+
+      - name: Virtual sound card + FluidSynth (macOS)
+        if: runner.os == 'macOS'
+        run: |
+          brew install fluidsynth
+          brew install --cask blackhole-2ch
+          sudo killall coreaudiod || true
+          sleep 5
+          system_profiler SPAudioDataType | head -30
+          echo "FLUID_DIR=$(brew --prefix)/lib" >> "$GITHUB_ENV"
+
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: native
+
+      - name: Self-test
+        working-directory: native
+        run: |
+          cargo build --release -p orfeo-audio --bin orfeo-selftest
+          ./target/release/orfeo-selftest --fluid "$FLUID_DIR" --sf2 ../public/GeneralUser-GS.sf2 "../public/Demo/Vivaldi 4 stagioni - Estate.mid"

@@ -11,14 +11,16 @@ pub mod dynamics;
 pub mod engine;
 pub mod fluid;
 pub mod offline;
-#[cfg(windows)]
+#[cfg(all(windows, not(feature = "cpal-driver")))]
 pub mod output;
 pub mod renderer;
 pub mod reverb;
 pub mod sf2;
 pub mod song;
-#[cfg(windows)]
+#[cfg(all(windows, not(feature = "cpal-driver")))]
 mod wasapi_driver;
+#[cfg(any(not(windows), feature = "cpal-driver"))]
+mod cpal_driver;
 
 pub use engine::{Command, Engine, EngineConfig, OutputMode, Stats, LIVE_CH};
 pub use song::{Song, SongEvent};

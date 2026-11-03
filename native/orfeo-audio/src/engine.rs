@@ -144,10 +144,12 @@ impl Engine {
             audio_thread(cfg.fluid_dir, cfg.soundfonts, cfg.mode, cons, live_rx, st, ready_tx, ro, stop)
         }).map_err(|e| e.to_string())?;
         ready_rx.recv().map_err(|_| "audio thread ended during start-up".to_string())??;
-        #[cfg(windows)]
+        // WASAPI needs a watcher thread to follow a new default output; the CPAL
+        // driver's own supervising thread does that
+        #[cfg(all(windows, not(feature = "cpal-driver")))]
         crate::wasapi_driver::spawn_default_device_watcher(reopen, stop_watch.clone());
-        #[cfg(not(windows))]
-        let _ = reopen;
+        #[cfg(any(not(windows), feature = "cpal-driver"))]
+        drop(reopen);
 
         let midi = if cfg.midi_inputs { open_midi_inputs(live_tx, ui_tx) } else { Vec::new() };
         Ok(Engine { commands: Mutex::new(prod), stats, live_out: Mutex::new(ui_rx), _midi: midi, stop_watch, thread: Some(thread) })
@@ -183,14 +185,10 @@ fn open_midi_inputs(tx: Sender<LiveMsg>, ui: Sender<(u8, u8, u8)>) -> Vec<midir:
 }
 
 // ── The audio thread: the system's driver around the shared renderer ────────
-#[cfg(windows)]
+// Windows ships the WASAPI driver (exclusive mode, MMCSS, endpoint volume);
+// macOS and Linux use CPAL. The `cpal-driver` feature builds CPAL on Windows
+// too, for development.
+#[cfg(all(windows, not(feature = "cpal-driver")))]
 use crate::wasapi_driver::audio_thread;
-
-/// No sound-card driver on this system yet (the CPAL driver for macOS and
-/// Linux is the next step): start-up reports that instead of failing later
-#[cfg(not(windows))]
-#[allow(clippy::too_many_arguments)]
-fn audio_thread(_fluid_dir: PathBuf, _soundfonts: Vec<PathBuf>, _mode: OutputMode, _cmds: rtrb::Consumer<Command>,
-    _live: Receiver<LiveMsg>, _stats: Arc<Stats>, ready: Sender<Result<(), String>>, _reopen: Arc<AtomicBool>, _stop: Arc<AtomicBool>) {
-    let _ = ready.send(Err("the native engine has no sound-card driver on this system yet".into()));
-}
+#[cfg(any(not(windows), feature = "cpal-driver"))]
+use crate::cpal_driver::audio_thread;

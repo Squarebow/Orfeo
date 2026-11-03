@@ -22,7 +22,19 @@ midir = "0.11"
 midly = "0.5"
 rtrb = "0.4"
 
-# The Windows sound-card driver (wasapi_driver.rs, output.rs): only on Windows
+[features]
+# Development only: the CPAL driver (macOS/Linux) on Windows too, instead of WASAPI
+cpal-driver = ["dep:cpal"]
+
+# The sound-card drivers. Windows: WASAPI (wasapi_driver.rs, output.rs).
+# macOS/Linux: CPAL (cpal_driver.rs); on Linux with rtkit real-time priority.
+[target.'cfg(target_os = "macos")'.dependencies]
+cpal = "0.18"
+
+[target.'cfg(target_os = "linux")'.dependencies]
+cpal = { version = "0.18", features = ["realtime-dbus"] }
+
 [target.'cfg(windows)'.dependencies]
+cpal = { version = "0.18", optional = true }
 wasapi = "0.26"
 windows = { version = "0.62", features = ["Win32_System_Threading", "Win32_Foundation", "Win32_System_Com", "Win32_Media_Audio", "Win32_Media_Audio_Endpoints"] }
