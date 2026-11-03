@@ -28,7 +28,7 @@ export type SettingId =
   | 'displaySystem' | 'accidentals' | 'chordTracking' | 'chordReading' | 'chordNaming'
   | 'keyRange' | 'showOctaves' | 'showNoteNames' | 'reflectPianoRoll' | 'preciseScrubTime' | 'explorerPause'
   | 'rollZoom' | 'barNumbers' | 'playbar' | 'visualEffects'
-  | 'theme' | 'handColors' | 'appZoom' | 'tooltips' | 'supportNote' | 'starmap'
+  | 'language' | 'theme' | 'handColors' | 'appZoom' | 'tooltips' | 'supportNote' | 'starmap'
   | 'midiKeyboards' | 'midiReconnect' | 'liveResponse' | 'latencyOffset' | 'gmOutput' | 'touchResponse' | 'duplicateFilter'
   | 'pedalsControls' | 'delayCheck' | 'midiTools'
 
@@ -173,6 +173,9 @@ export const SETTINGS: SettingInfo[] = [
     description: t`An animated flourish when notes hit the playbar during playback. Choose which tracks, the colour, the pattern and the glow.`,
     keywords: 'effects bloom glow particles hit' },
   // ── Appearance
+  { id: 'language', group: 'appearance', name: t`Language`, summary: t`English or Traditional Chinese.`,
+    description: t`Choose your language. Orfeo reloads to apply the change.`,
+    keywords: 'language locale i18n chinese traditional english 語言 繁體中文' },
   { id: 'theme', group: 'appearance', name: t`Theme`, summary: t`Dark today; a warm light theme is coming.`,
     description: t`Dark today; a warm light theme is in progress.`,
     keywords: 'dark light colours colors' },
@@ -238,7 +241,7 @@ export const QUICK_LAYOUT: Record<SettingsGroupId, QuickItem[]> = {
   'notation': ['displaySystem', 'accidentals', 'chordTracking'],
   'keyboard': ['keyRange', 'showOctaves', 'showNoteNames'],
   'piano-roll': ['rollZoom', 'barNumbers', 'playbar'],
-  'appearance': ['appZoom', 'tooltips'],
+  'appearance': ['language', 'appZoom', 'tooltips'],
   // Settings window only for now
   'midi': [],
 }

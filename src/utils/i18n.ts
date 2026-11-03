@@ -1,8 +1,28 @@
-// ── i18n placeholder — mirrors ttag's tagged-template `t` API so new strings
-// wrapped now migrate to real ttag later via a one-line import swap, with no
-// call-site changes. Currently a no-op passthrough: no catalog is loaded,
-// so this just returns the interpolated string as-is (same as English source).
-// See docs/I18N_PLAN.md (gitignored) for the full rollout plan.
+import enCatalog from '../i18n/locales/en.json'
+import zhTwCatalog from '../i18n/locales/zh-TW.json'
+
+export type AppLocale = 'en' | 'zh-TW'
+
+const stored = typeof localStorage !== 'undefined'
+  ? localStorage.getItem('orfeo-locale')
+  : null
+export const currentLocale: AppLocale =
+  stored === 'zh-TW' ? 'zh-TW' : 'en'
+
+const catalogs: Record<AppLocale, Record<string, string>> = {
+  'en': enCatalog,
+  'zh-TW': zhTwCatalog,
+}
+const catalog = catalogs[currentLocale]
+
 export function t(strings: TemplateStringsArray, ...values: unknown[]): string {
-  return strings.reduce((acc, str, i) => acc + str + (i < values.length ? String(values[i]) : ''), '')
+  const key = strings.reduce(
+    (acc, str, i) => acc + str + (i < values.length ? `{{v${i}}}` : ''),
+    '',
+  )
+  let result = catalog[key] ?? key
+  for (let i = 0; i < values.length; i++) {
+    result = result.replaceAll(`{{v${i}}}`, String(values[i]))
+  }
+  return result
 }

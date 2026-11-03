@@ -17,6 +17,7 @@ import { TRUST_VERSION, type TrustResult } from '../utils/tempoTrust'
 import { velocityDropRatio, suggestCompressorPreset } from '../utils/velocityAnalysis'
 import { applyHandColors, isHex, handHex, followedHandColor, DEFAULT_HAND_LH, DEFAULT_HAND_RH } from '../utils/handPalette'
 import { HAND_ASSIGN_GROUPS, focusRole } from '../utils/keyboardGroups'
+import { currentLocale, type AppLocale } from '../utils/i18n'
 
 // ── Focus mode: every track's mute + eye from just before Focus went on, so
 // the second click puts back exactly what you had. Null while Focus is off.
@@ -72,6 +73,8 @@ interface OrfeoStore {
   accidentals: Accidentals
   zoomLevel: number
   appTheme: AppTheme
+  locale: AppLocale
+  setLocale: (locale: AppLocale) => void
   showBarNumbers: boolean
   setNoteNaming: (naming: NoteNaming) => void
   setAccidentals: (accidentals: Accidentals) => void
@@ -671,6 +674,12 @@ export const useStore = create<OrfeoStore>((set, get) => ({
   accidentals: 'flat',
   zoomLevel: 1,
   appTheme: 'dark',
+  locale: currentLocale,
+  setLocale: (locale) => {
+    localStorage.setItem('orfeo-locale', locale)
+    window.electronAPI?.setPrefs?.({ locale })
+    window.location.reload()
+  },
   showBarNumbers: true,
   setNoteNaming: (noteNaming) => set({ noteNaming }),
   setAccidentals: (accidentals) => set({ accidentals }),
@@ -1297,6 +1306,7 @@ async function restoreLibraryPrefs() {
     if (prefs.hitEffectScope === 'keyboard' || prefs.hitEffectScope === 'all') store.setHitEffectScope(prefs.hitEffectScope)
     if (typeof prefs.hitEffectColor === 'string' || prefs.hitEffectColor === null) store.setHitEffectColor(prefs.hitEffectColor)
     if (prefs.selectedSoundfont === 'fluidr3-gm' || prefs.selectedSoundfont === 'musescore-general') store.setSelectedSoundfont(prefs.selectedSoundfont)
+    if (prefs.locale === 'zh-TW') localStorage.setItem('orfeo-locale', 'zh-TW')
   } catch (e) {
     console.error('[Orfeo] restoreLibraryPrefs:', e)
   }

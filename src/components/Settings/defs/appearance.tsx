@@ -1,13 +1,27 @@
 import { useEffect, useState } from 'react'
-import { Palette, ZoomIn, RotateCcw, Sparkles, MessageSquare, Heart, Hand } from 'lucide-react'
+import { Languages, Palette, ZoomIn, RotateCcw, Sparkles, MessageSquare, Heart, Hand } from 'lucide-react'
 import { useStore } from '../../../store'
 import { t } from '../../../utils/i18n'
-import { AppBgBtn, ZoomStepper, GlanceLine, InlineIcon, Switch, SubLabel, useSurface } from '../controls'
+import { AppBgBtn, OptionBtn, ZoomStepper, GlanceLine, InlineIcon, Switch, SubLabel, useSurface } from '../controls'
 import { HAND_PRESETS, DEFAULT_HAND_LH, DEFAULT_HAND_RH, handColorWarnings, isHex } from '../../../utils/handPalette'
 import { useAppZoom } from '../../../hooks/useAppZoom'
 import { simAvailable } from '../../../utils/midiSimulator'
 import { previewSupportNote } from '../../../hooks/useSupportNote'
 import type { SettingDef } from '../types'
+
+function LanguageControl() {
+  const locale = useStore(s => s.locale)
+  return (
+    <div style={{ display: 'flex', gap: 'var(--space-1)' }}>
+      <OptionBtn active={locale === 'en'} onClick={() => { if (locale !== 'en') useStore.getState().setLocale('en') }}>
+        English
+      </OptionBtn>
+      <OptionBtn active={locale === 'zh-TW'} onClick={() => { if (locale !== 'zh-TW') useStore.getState().setLocale('zh-TW') }}>
+        繁體中文
+      </OptionBtn>
+    </div>
+  )
+}
 
 function ThemeControl() {
   const appTheme = useStore(s => s.appTheme)
@@ -138,6 +152,7 @@ function SupportNotePreview() {
 }
 
 export const APPEARANCE_DEFS: SettingDef[] = [
+  { id: 'language', icon: Languages, kind: 'choice', Control: LanguageControl },
   { id: 'theme', icon: Palette, kind: 'choice', Control: ThemeControl },
   { id: 'handColors', icon: Hand, kind: 'choice', Control: HandPresets, Extra: HandColorsExtra },
   { id: 'appZoom', icon: ZoomIn, kind: 'inline', Control: AppZoomControl, Glance: AppZoomGlance, glanceQuickOnly: true, Extra: AppZoomCap,
