@@ -15,7 +15,7 @@ import { setLowLatency } from '../../../audio/useNativeEngine'
 import { useMidiSettings } from '../../../store/midiSettings'
 
 // Native engine (beta): Windows only for now
-const NATIVE_AVAILABLE = navigator.userAgent.includes('Windows')
+export const NATIVE_AVAILABLE = navigator.userAgent.includes('Windows')
 
 function SoundEngineControl() {
   const audioEngine = useStore((s) => s.audioEngine)
@@ -29,7 +29,7 @@ function SoundEngineControl() {
   )
 }
 
-// Windows' default output, by name ("Speakers (Realtek(R) Audio)") — what GM and
+// The system's default output, by name ("Speakers (Realtek(R) Audio)") — what GM and
 // Studio play through
 function useDefaultOutputName(): string {
   const [name, setName] = useState('')
@@ -108,7 +108,7 @@ function SoundEngineGlance() {
   const rate = getSamplesSampleRate(), buffer = getSamplesBufferSec()
   return (
     <div style={glanceBox}>
-      <InfoRow label={t`Sound card`} marquee={audioEngine === 'gm' && gmExternal ? gmExternal : defaultName || t`Windows' default output`} />
+      <InfoRow label={t`Sound card`} marquee={audioEngine === 'gm' && gmExternal ? gmExternal : defaultName || t`Default output`} />
       <InfoRow label={t`Mode`} marquee={`${audioEngine} ${gmExternal} ${samplesStatus} ${rate} ${buffer}`}>{audioEngine === 'gm' && gmExternal ? t`External instrument` : <>{t`Shared`}{audioEngine === 'samples' && samplesStatus === 'ready' && rate > 0 && <> · {kHz(rate)}{buffer > 0 && <> · {msOf(buffer)} {t`buffer`}</>}</>}</>}</InfoRow>
       {latency}
       {soundfont}
@@ -121,7 +121,7 @@ function SoundEngineDescription() {
   const audioEngine = useStore((s) => s.audioEngine)
   if (audioEngine === 'gm') return <>{t`The simple synth built into Orfeo: light, always ready, no sound set needed. It sounds basic — good for slow computers, or for playing through an external instrument (MIDI Keyboard › General MIDI sound).`}</>
   if (audioEngine === 'native') return <>{t`The same sound sets as Studio, played by Orfeo's own engine straight to your sound card: the shortest delay from key to sound. Windows only.`}</>
-  return <>{t`Real recorded instruments from a sound set (choose it under Sound Fonts). Plays through Windows' mixer like any other app, with its usual delay.`}</>
+  return <>{t`Real recorded instruments from a sound set (choose it under Sound Fonts). Plays through the system's mixer like any other app, with its usual delay.`}</>
 }
 
 // Native's Low latency mode: Shared (default) or Exclusive. A keyboard plugged in
