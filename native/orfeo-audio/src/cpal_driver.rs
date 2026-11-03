@@ -240,6 +240,8 @@ fn build<T: SizedSample + FromSample<f32> + Send + 'static>(o: &Opened, musician
 
     let data_cb = move |data: &mut [T], info: &cpal::OutputCallbackInfo| {
         let frames = data.len() / channels.max(1);
+        stats_cb.blocks.fetch_add(1, Relaxed);
+        stats_cb.block_frames.fetch_add(frames as u64, Relaxed);
         let Ok(mut m) = musician.try_lock() else { data.fill(T::EQUILIBRIUM); return };
         let now = Instant::now();
         // how far ahead of the speaker this block is: the live-key statistics and the delay check

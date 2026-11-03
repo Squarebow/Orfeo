@@ -101,6 +101,9 @@ pub struct Stats {
     /// How fast the sound card really takes audio (frames per second, measured
     /// over the first seconds of a Low latency stream); 0 = not measured
     pub measured_rate: AtomicU32,
+    /// Blocks the sound card asked for, and their frames in total (diagnostics)
+    pub blocks: AtomicU64,
+    pub block_frames: AtomicU64,
     /// The stream format, e.g. "48000 Hz · 32-bit float"
     pub format: Mutex<String>,
     pub device_name: Mutex<String>,

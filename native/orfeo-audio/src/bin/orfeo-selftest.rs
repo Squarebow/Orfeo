@@ -39,11 +39,22 @@ fn main() {
     let tracks = song.track_count as usize;
     let used: Vec<usize> = (0..16).filter(|&c| song.events.iter().any(|e| (e.status & 0x0F) as usize == c && e.status & 0xF0 == 0x90)).collect();
     println!("Song: {} tracks, channels {:?}, {:.0} s", tracks, used, song.duration);
+    // what the sound card asks for: blocks a second and frames a second vs the rate
+    let pace = |label: &str| {
+        let (b0, f0, w) = (s.blocks.load(Relaxed), s.block_frames.load(Relaxed), Instant::now());
+        sleep(1000);
+        let (b, f, el) = (s.blocks.load(Relaxed) - b0, s.block_frames.load(Relaxed) - f0, w.elapsed().as_secs_f64());
+        println!("    pace {label}: {:.0} blocks/s, {:.0} frames/s ({:.0}% of {} Hz), {:.0} frames per block, period {} frames, mode {}",
+            b as f64 / el, f as f64 / el, 100.0 * f as f64 / el / s.rate.load(Relaxed).max(1) as f64, s.rate.load(Relaxed),
+            if b > 0 { f as f64 / b as f64 } else { 0.0 }, s.period_frames.load(Relaxed), s.mode.load(Relaxed));
+    };
+    pace("idle");
     e.send(Command::LoadSong(Box::new(song)));
     let peaks = || -> (f32, Vec<f32>) { let ch: Vec<f32> = (0..16).map(|c| s.take_channel_peak(c)).collect(); (s.take_master_peak(), ch) };
 
     println!("\n1. Playback timing");
     e.send(Command::Seek(10.0)); e.send(Command::Play);
+    pace("playing");
     sleep(300); let p0 = s.position(); let w0 = Instant::now();
     sleep(3000);
     let adv = s.position() - p0; let wall = w0.elapsed().as_secs_f64();
@@ -127,6 +138,7 @@ fn main() {
     let before = s.reopens.load(Relaxed);
     e.send(Command::SetOutputMode(OutputMode::Shared)); sleep(1500);
     t.check(s.mode.load(Relaxed) == 1 && s.reopens.load(Relaxed) == before + 1, "now shared", format!("mode {} reopens {}", s.mode.load(Relaxed), s.reopens.load(Relaxed)));
+    pace("after switching to normal");
     let p = s.position(); sleep(1000);
     t.check(s.position() - p > 0.9, "music carried on", format!("{:.2} s", s.position() - p));
     e.send(Command::SetOutputMode(OutputMode::Exclusive)); sleep(1500);

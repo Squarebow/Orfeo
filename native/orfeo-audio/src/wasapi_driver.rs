@@ -161,6 +161,8 @@ pub(crate) fn audio_thread(fluid_dir: PathBuf, soundfonts: Vec<PathBuf>, mut mod
                 }
             }
             if avail == 0 { continue }
+            stats.blocks.fetch_add(1, Relaxed);
+            stats.block_frames.fetch_add(avail as u64, Relaxed);
             let r0 = Instant::now();
             os_poll += avail;
             if os_poll >= os_every { os_poll = 0; os_target = out.windows_gain(); }
