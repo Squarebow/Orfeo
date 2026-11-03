@@ -6,8 +6,11 @@
 #   • macOS and Linux: the engine and add-on must compile (CPAL driver), and the
 #     engine's self-test (orfeo-selftest: timing, levels, mute, compressor, preview
 #     notes, count-in, metronome, seek, tempo, Low latency ↔ normal, buffer
-#     step-up) must pass playing a demo song into a virtual sound card — ALSA's
-#     snd-dummy on Linux, BlackHole on macOS — with the system's FluidSynth.
+#     step-up) must pass playing a demo song into a virtual sound card —
+#     PulseAudio's null sink on Linux (reached through ALSA, as desktop Linux
+#     reaches PulseAudio/PipeWire), BlackHole on macOS — with the system's
+#     FluidSynth. These are virtual machines: the self-test's --virtual reports
+#     timing steadiness instead of failing on it; every musical check is strict.
 # Read-only, no secrets.
 name: Native engine
 
@@ -98,10 +101,14 @@ jobs:
         if: runner.os == 'Linux'
         run: |
           sudo apt-get update -q
-          sudo apt-get install -y -q libasound2-dev libdbus-1-dev libfluidsynth3 alsa-utils "linux-modules-extra-$(uname -r)"
-          sudo modprobe snd-dummy
-          sudo chmod a+rw /dev/snd/*
-          aplay -l
+          sudo apt-get install -y -q libasound2-dev libdbus-1-dev libfluidsynth3 alsa-utils pulseaudio pulseaudio-utils libasound2-plugins
+          # ALSA's default device → PulseAudio → a null sink that plays in real time
+          echo 'pcm.!default { type pulse }' | sudo tee /etc/asound.conf
+          echo 'ctl.!default { type pulse }' | sudo tee -a /etc/asound.conf
+          pulseaudio --start --exit-idle-time=-1
+          pactl load-module module-null-sink sink_name=virtual
+          pactl set-default-sink virtual
+          pactl info | grep -i 'default sink'
           echo "FLUID_DIR=$(dirname "$(ldconfig -p | grep -m1 'libfluidsynth.so.3 ' | awk '{print $NF}')")" >> "$GITHUB_ENV"
 
       - name: Virtual sound card + FluidSynth (macOS)
@@ -122,4 +129,4 @@ jobs:
         working-directory: native
         run: |
           cargo build --release -p orfeo-audio --bin orfeo-selftest
-          ./target/release/orfeo-selftest --fluid "$FLUID_DIR" --sf2 ../public/GeneralUser-GS.sf2 "../public/Demo/Vivaldi 4 stagioni - Estate.mid"
+          ./target/release/orfeo-selftest --virtual --fluid "$FLUID_DIR" --sf2 ../public/GeneralUser-GS.sf2 "../public/Demo/Vivaldi 4 stagioni - Estate.mid"

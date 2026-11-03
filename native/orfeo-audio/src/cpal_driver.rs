@@ -91,6 +91,7 @@ pub(crate) fn audio_thread(fluid_dir: PathBuf, soundfonts: Vec<PathBuf>, mode: O
     let mut opened = match open(&host, mode, step) { Ok(o) => o, Err(e) => { let _ = ready.send(Err(e)); return } };
     let r = match Renderer::new(fluid_dir, soundfonts, opened.config.sample_rate, stats.clone()) { Ok(r) => r, Err(e) => { let _ = ready.send(Err(e)); return } };
     let musician = Arc::new(Mutex::new(Musician { r, cmds, live }));
+    *stats.device_name.lock().unwrap() = opened.name.clone();
     let _ = ready.send(Ok(()));
 
     'device: loop {
