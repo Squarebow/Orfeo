@@ -19,9 +19,11 @@ import { nativeMeasuredLatencySec } from '../audio/useNativeEngine'
 interface NoteSample { at: number; inputMs: number | null; handleMs: number; note: number; vel: number; device: string }
 
 const MAX = 500
-// A key that really took a second to arrive couldn't be played at all. Gaps
-// that long are a stamp on another clock — seen seconds off with a Bluetooth
-// MIDI keyboard on macOS that played fine — so they aren't a delay to show
+// A key that really took a second to arrive couldn't be played at all, so a
+// keyboard that sends such a stamp isn't stamping when its keys arrive, and
+// none of its stamps count. Over Bluetooth MIDI on macOS every note carried
+// the same stamp, so "input" just grew with the time played — under a
+// second too, at first.
 const MAX_PLAUSIBLE_INPUT_MS = 1000
 const _samples: NoteSample[] = []
 export const counters = { duplicatesDropped: 0, softIgnored: 0, stuckReleases: 0, disconnects: 0, messages: 0 }
@@ -53,21 +55,22 @@ export function clearDiagnostics() {
 
 export interface TimingStats {
   notes: number
-  implausibleInputs: number  // stamps too far back to be a delay (kept as-is in the log)
+  implausibleInputs: number  // from keyboards with stamps too far back to be a delay (kept as-is in the log)
   lastInputMs: number | null; avgInputMs: number | null; worstInputMs: number | null
   avgHandleMs: number | null; worstHandleMs: number | null
 }
 export function getStats(): TimingStats {
-  const stamped = _samples.map(s => s.inputMs).filter((v): v is number => v !== null)
-  const inp = stamped.filter(v => v <= MAX_PLAUSIBLE_INPUT_MS)
-  const last = _samples.length ? _samples[_samples.length - 1].inputMs : null
+  const stale = new Set(_samples.filter(s => s.inputMs !== null && s.inputMs > MAX_PLAUSIBLE_INPUT_MS).map(s => s.device))
+  const stamped = _samples.filter(s => s.inputMs !== null)
+  const inp = stamped.filter(s => !stale.has(s.device)).map(s => s.inputMs as number)
+  const last = _samples.at(-1)
   const hnd = _samples.map(s => s.handleMs)
   const avg = (a: number[]) => (a.length ? a.reduce((x, y) => x + y, 0) / a.length : null)
   const max = (a: number[]) => (a.length ? Math.max(...a) : null)
   return {
     notes: _samples.length,
     implausibleInputs: stamped.length - inp.length,
-    lastInputMs: last !== null && last <= MAX_PLAUSIBLE_INPUT_MS ? last : null,
+    lastInputMs: last && !stale.has(last.device) ? last.inputMs : null,
     avgInputMs: avg(inp), worstInputMs: max(inp), avgHandleMs: avg(hnd), worstHandleMs: max(hnd),
   }
 }

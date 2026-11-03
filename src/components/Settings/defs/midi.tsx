@@ -398,7 +398,7 @@ function DelayCheckControl() {
       {line(engine === 'samples' ? t`Compressor & limiter` : t`Sound processing`, ms(b.chainMs))}
       {line(shared ? t`Sound output (shared with other apps)` : t`Sound output (system + sound card)`, b.outputMs === null ? t`not measurable` : ms(b.outputMs))}
       {line(t`Key → speaker, about`, total === null ? '—' : ms(total), true)}
-      {st.implausibleInputs > 0 && <HelpText>{t`Notes stamped over a second before Orfeo got them, by the keyboard's own clock (common over Bluetooth): ${st.implausibleInputs}. They're left out of the time a key takes to reach Orfeo; the saved log keeps them.`}</HelpText>}
+      {st.implausibleInputs > 0 && <HelpText>{t`Notes from a keyboard whose time stamps can't be when its keys arrived (one was over a second old; seen with Bluetooth MIDI on macOS): ${st.implausibleInputs}. They're left out of the time a key takes to reach Orfeo; the saved log keeps them.`}</HelpText>}
     </div>
   )
 }
