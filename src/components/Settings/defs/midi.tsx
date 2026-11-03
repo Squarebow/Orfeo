@@ -12,6 +12,7 @@ import { getDelayBreakdown, getStats, counters, exportPerformanceLog, clearDiagn
 import { sim, simAvailable } from '../../../utils/midiSimulator'
 import { confirmDialog } from '../../../utils/confirmController'
 import { useNativeAudio } from '../../../audio/nativeClient'
+import { NATIVE_AVAILABLE } from './audio'
 import type { SettingDef } from '../types'
 
 const set = (p: Parameters<ReturnType<typeof useMidiSettings.getState>['set']>[0]) => useMidiSettings.getState().set(p)
@@ -206,11 +207,13 @@ function LiveResponseControl() {
           </>
         )}
       </div>
-      <div style={{ minWidth: 0 }}>
-        {heading(t`When a keyboard is plugged in`)}
-        <SwitchRow label={t`Auto-switch to Exclusive`} value={autoLow} onChange={x => set({ autoLowLatency: x })} />
-        <HelpText>{t`Recommended when you play along on a keyboard and nothing else on the computer needs sound: plugging a keyboard in switches Native to Exclusive, for the shortest delay; unplugging the last one switches back to Shared. Off: Native stays in the mode you choose.`}</HelpText>
-      </div>
+      {NATIVE_AVAILABLE && (
+        <div style={{ minWidth: 0 }}>
+          {heading(t`When a keyboard is plugged in`)}
+          <SwitchRow label={t`Auto-switch to Exclusive`} value={autoLow} onChange={x => set({ autoLowLatency: x })} />
+          <HelpText>{t`Recommended when you play along on a keyboard and nothing else on the computer needs sound: plugging a keyboard in switches Native to Exclusive, for the shortest delay; unplugging the last one switches back to Shared. Off: Native stays in the mode you choose.`}</HelpText>
+        </div>
+      )}
     </div>
   )
 }
@@ -374,30 +377,35 @@ function DelayCheckControl() {
   const st = getStats()
   const nativeMode = useNativeAudio(s => s.status?.mode)
   const shared = engine === 'native' && nativeMode === 'shared'
+  // Not Row: its label column can shrink to nothing, so a long value ran over
+  // the label. Here the label keeps its longest word and the value wraps.
   const line = (label: string, value: string, strong?: boolean) => (
-    <Row key={label}>
+    <div key={label} style={{ display: 'grid', gridTemplateColumns: 'minmax(min-content, 1fr) auto', alignItems: 'center', columnGap: 8, minHeight: 22,
+      fontSize: 'var(--text-xs)', fontFamily: 'var(--font-ui)' }}>
       <span style={{ color: strong ? 'var(--text-default)' : 'var(--text-inactive)' }}>{label}</span>
-      <span style={{ fontFamily: 'var(--font-mono)', fontSize: 10, color: strong ? 'var(--text-amber)' : 'var(--text-muted)' }}>{value}</span>
-    </Row>
+      <span style={{ fontFamily: 'var(--font-mono)', fontSize: 10, textAlign: 'right', color: strong ? 'var(--text-amber)' : 'var(--text-muted)' }}>{value}</span>
+    </div>
   )
   const total = b.outputMs === null ? null
     : (st.avgInputMs ?? 0) + (st.avgHandleMs ?? 0) + b.synthBlockMs + b.chainMs + b.outputMs
   return (
     <div style={{ display: 'grid', gap: 1 }}>
       {line(t`Notes measured`, st.notes ? String(st.notes) : t`none yet`)}
-      {line(t`Key reaching Orfeo`, st.avgInputMs === null ? '—' : `${ms(st.avgInputMs, 1)} (${t`worst`} ${ms(st.worstInputMs, 1)})`)}
+      {line(t`Key reaching Orfeo`, st.avgInputMs !== null ? `${ms(st.avgInputMs, 1)} (${t`worst`} ${ms(st.worstInputMs, 1)})`
+        : st.implausibleInputs ? t`not measurable` : '—')}
       {line(t`Orfeo handling the key`, st.avgHandleMs === null ? '—' : `${ms(st.avgHandleMs, 1)} (${t`worst`} ${ms(st.worstHandleMs, 1)})`)}
       {line(t`Synth getting its turn`, b.externalOutput ? t`external` : `≤ ${ms(b.synthBlockMs, 1)}`)}
       {line(engine === 'samples' ? t`Compressor & limiter` : t`Sound processing`, ms(b.chainMs))}
-      {line(shared ? t`Sound output (shared with other apps)` : t`Sound output (Windows + sound card)`, b.outputMs === null ? t`not measurable` : ms(b.outputMs))}
+      {line(shared ? t`Sound output (shared with other apps)` : t`Sound output (system + sound card)`, b.outputMs === null ? t`not measurable` : ms(b.outputMs))}
       {line(t`Key → speaker, about`, total === null ? '—' : ms(total), true)}
+      {st.implausibleInputs > 0 && <HelpText>{t`Notes from a keyboard whose time stamps can't be when its keys arrived (one was over a second old; seen with Bluetooth MIDI on macOS): ${st.implausibleInputs}. They're left out of the time a key takes to reach Orfeo; the saved log keeps them.`}</HelpText>}
     </div>
   )
 }
 function DelayCheckExtra() {
   return (
     <>
-      <HelpText>{t`The sound output part is set by Windows and your sound card: wired headphones or a USB audio interface lower it, Bluetooth raises it a lot.`}</HelpText>
+      <HelpText>{t`The sound output part is set by the system and your sound card: wired headphones or a USB audio interface lower it, Bluetooth raises it a lot.`}</HelpText>
       <HelpText>{t`Start over forgets the notes measured so far; the fixed parts of the trip don't change.`}</HelpText>
       <div style={{ marginTop: 8, display: 'grid', gridTemplateColumns: 'minmax(0, 1fr) minmax(0, 1fr)', gap: 6 }}>
         <ActionBtn onClick={exportPerformanceLog} icon={<FileDown size={11} strokeWidth={1.5} />}>{t`Save log…`}</ActionBtn>

@@ -8,7 +8,12 @@
 # 1. Check   — version, tag, package.json and changelog all agree; builds the notes
 # 2. Build   — on Windows, from the tag: installer, portable, latest.yml → draft release;
 #              the Microsoft Store package (.appx) is kept as a run artifact, not on GitHub
-# 3. Publish — adds the notes and publishes (or keeps it a draft / marks it a pre-release)
+#              On macOS, at the same time: .dmg and .zip for Apple Silicon and Intel →
+#              the same draft (ad-hoc signed, not notarized: no Apple account needed)
+#              On Linux, at the same time: AppImage, .deb, .rpm (x64), after a check that
+#              the packaged app opens (linux.yml) → the same draft
+# 3. Publish — adds the notes and publishes (or keeps it a draft / marks it a pre-release),
+#              only if every build succeeded; otherwise the release stays a draft
 #
 # The Microsoft Store is a separate step afterwards: Actions → Microsoft Store
 # (store.yml) with the same version sends this run's .appx to the Store.
@@ -116,16 +121,11 @@ jobs:
           --draft --verify-tag --title "Orfeo $version" --notes-file release-notes.md
 
   build:
-    name: 2. Build
+    name: 2. Build (Windows)
     needs: check
     runs-on: windows-latest
     timeout-minutes: 45
     steps:
-      # The hand-engine check hashes handAssignment.ts with Windows line endings,
-      # exactly as on your PC, so the checkout must use them too.
-      - name: Use Windows line endings
-        run: git config --global core.autocrlf true
-
       - name: Get the code of the tagged version
         uses: actions/checkout@v7
         with:
@@ -178,6 +178,40 @@ jobs:
           path: release/*.appx
           if-no-files-found: error
 
+  build-mac:
+    name: 2. Build (macOS)
+    needs: check
+    runs-on: macos-latest
+    timeout-minutes: 45
+    steps:
+      - name: Get the code of the tagged version
+        uses: actions/checkout@v7
+        with:
+          ref: ${{ needs.check.outputs.tag }}
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      # Both architectures from the one Apple Silicon runner: nothing native to
+      # compile — the Native engine is Windows-only. The codesign check catches
+      # an app macOS would call damaged.
+      - name: Build and upload to the draft release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ needs.check.outputs.tag }}
+        run: |
+          npm run dist:mac -- --publish never
+          for app in release/mac/Orfeo.app release/mac-arm64/Orfeo.app; do
+            codesign --verify --deep --strict "$app"
+          done
+          # --clobber: re-running a failed job replaces what it uploaded before
+          gh release upload "$TAG" release/*.dmg release/*.zip --clobber --repo "$GITHUB_REPOSITORY"
+
   # Linux, alongside Windows and from the same tag: AppImage, .deb and .rpm,
   # plus a check that the packaged app opens (linux.yml, also runnable by hand).
   build-linux:
@@ -207,8 +241,8 @@ jobs:
 
   publish:
     name: 3. Publish
-    # Linux too: if it fails, the release stays a draft (fix, then "Re-run failed jobs")
-    needs: [check, build, upload-linux]
+    # Every platform: if any build fails, the release stays a draft (fix, then "Re-run failed jobs")
+    needs: [check, build, build-mac, upload-linux]
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:

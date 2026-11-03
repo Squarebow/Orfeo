@@ -41,6 +41,7 @@ import { runChordVocabularyTest } from './utils/chordVocabularyTest'
 import { runBeatGridTest } from './utils/beatGridTest'
 import { runTrackChordRoleTest } from './utils/trackChordRoleTest'
 import { runChordSequenceBuilderTest } from './utils/chordSequenceBuilderTest'
+import { runMidiDiagnosticsTest } from './utils/midiDiagnosticsTest'
 import { NES, confirmDiscardDirtyNoteEdits } from './utils/noteEditorState'
 import { confirmDiscardDirtyTempoKey, saveTempoKeyChanges } from './utils/tempoKeySave'
 import { isTapCapturing, registerTap, cancelTap } from './utils/tapTempoSession'
@@ -266,6 +267,7 @@ export default function App() {
       ;(window as any).__orfeoBeatGridTest = runBeatGridTest
       ;(window as any).__orfeoTrackChordRoleTest = runTrackChordRoleTest
       ;(window as any).__orfeoChordSequenceBuilderTest = runChordSequenceBuilderTest
+      ;(window as any).__orfeoMidiDiagnosticsTest = runMidiDiagnosticsTest
     }
   }, [])
 

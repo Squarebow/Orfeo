@@ -113,8 +113,10 @@ npm run dev
 | `npm run preview` | Run the last `build` output without packaging | — |
 | `npm run typecheck` | `tsc --noEmit` — type-check only | — |
 | `npm test` | Runs every `*Test.ts` in `src/` and `electron/`, one file per process | — |
-| `npm run dist` | `build`, then package for the current platform | `release/` |
+| `npm run dist` | `build`, then the Windows installer, portable app and Store package | `release/` |
 | `npm run dist:portable` | Windows portable `.exe` only (no installer), for a quick local test | `release/` |
+| `npm run dist:mac` | macOS `.dmg` + `.zip` for Apple Silicon and Intel, ad-hoc signed (must run **on** macOS) | `release/` |
+| `npm run dist:linux` | Linux AppImage + `.deb` + `.rpm` (x64; must run **on** Linux) | `release/` |
 
 <details>
 <summary><b>Cross-platform packaging</b></summary>
@@ -123,7 +125,6 @@ npm run dev
 
 | Command | Result |
 |---|---|
-| `npm run dist -- --mac` | macOS `.dmg` (must run **on** macOS) |
 | `npm run dist -- --linux` | Linux build with electron-builder defaults |
 | `npm run dist -- --dir` | Unpacked build for inspection, no installer |
 
@@ -190,7 +191,7 @@ src/         Renderer — React UI, PixiJS roll, audio, Web MIDI
   utils/       Pure functions (unit-testable, no React)
   types/       Shared interfaces
 scripts/     Build helpers
-build/       NSIS installer assets
+build/       Installer assets, macOS icon
 docs/        Documentation
 ```
 
@@ -213,21 +214,26 @@ Full rationale for each boundary is in [ARCHITECTURE.md](ARCHITECTURE.md).
 
 ## Releases and auto-update
 
-Orfeo officially builds only **Windows** binaries. That is the only platform
-with a real release pipeline and the only one the in-app auto-update
-(`electron-updater`, in `electron/main.ts`) targets.
+Orfeo officially builds **Windows** and **macOS** binaries, both from the same
+release pipeline. Only the installed Windows build auto-updates
+(`electron-updater`, in `electron/main.ts`).
 
 <details>
-<summary><b>Why no official macOS / Linux builds</b></summary>
+<summary><b>Why no auto-update on macOS / Linux</b></summary>
 
-`electron-updater` assumes the app checking for updates was built and published
-through the *same* pipeline as the update feed it points at. A community-built
-macOS or Linux binary is not — nobody but the person who built it controls how
-or when it is rebuilt. Pointing its auto-updater at Orfeo's official GitHub
-release feed would be actively wrong: it could offer an "update" that does not
-match how that binary was built, or silently never fire.
+On macOS, `electron-updater` can only replace an app signed with an Apple
+Developer ID, which the ad-hoc signed Mac builds aren't, so they stay on manual
+updates and the release carries no `latest-mac.yml`.
 
-So: **no auto-update on macOS/Linux, by design** — same as the Windows
+For Linux there are no official builds. `electron-updater` assumes the app
+checking for updates was built and published through the *same* pipeline as the
+update feed it points at. A community-built Linux binary is not — nobody but the
+person who built it controls how or when it is rebuilt. Pointing its
+auto-updater at Orfeo's official GitHub release feed would be actively wrong: it
+could offer an "update" that does not match how that binary was built, or
+silently never fire.
+
+So: **no auto-update on macOS/Linux, for now** — same as the Windows
 **portable** build (no installer for `electron-updater` to act on). Users on
 any of these get new versions from [orfeo.cc/download](https://orfeo.cc/download),
 which follows every GitHub release. `electron/main.ts` decides this once as `updateMode` (`'auto'`
@@ -260,8 +266,12 @@ it.
 The workflow checks that the tag, `package.json` and the changelog agree,
 builds the installer (`Orfeo-Setup-X.Y.Z.exe`) and the portable app
 (`Orfeo-X.Y.Z-portable.exe`) on Windows from the tag, uploads them with
-`latest.yml` and the blockmap, writes the release notes from the changelog and
-publishes the release as *Latest*. It also builds the Microsoft Store package
+`latest.yml` and the blockmap, and — at the same time, on macOS — builds
+`Orfeo-X.Y.Z-mac-arm64.dmg`/`.zip` (Apple Silicon) and
+`Orfeo-X.Y.Z-mac-x64.dmg`/`.zip` (Intel) into the same draft. Only when both
+builds succeed does it write the release notes from the changelog and publish
+the release as *Latest*; if either fails, the release stays a draft — fix the
+cause and use *Re-run failed jobs* on the run. It also builds the Microsoft Store package
 (`Orfeo-X.Y.Z.appx`, from the same app folder) and keeps it with the run, for
 step 4.
 
@@ -341,16 +351,26 @@ The key expires (Partner Center shows the date next to it): add a new key and
 update `AZURE_AD_APPLICATION_SECRET` before it does, or the Microsoft Store
 workflow stops with "Signing in to Partner Center failed".
 
-<details>
-<summary><b>Contributing a macOS / Linux build (community)</b></summary>
+### macOS builds
 
-1. Run `npm run dist -- --mac` or `npm run dist -- --linux` locally **on that
-   platform**.
+The Mac apps are **ad-hoc signed**: sealed with a signature that needs no
+Apple account, so macOS can check they're intact. They are not signed with an
+Apple Developer ID or notarized by Apple, which would need a paid Apple
+Developer Program membership. macOS therefore blocks a downloaded copy until
+the person allows it once in *Privacy & Security* (see
+[INSTALLATION.md → macOS](INSTALLATION.md#macos)).
+
+Pull requests to `main` build both Mac apps the same way
+(`.github/workflows/macos.yml`), read-only and without any secrets.
+
+<details>
+<summary><b>Contributing a Linux build (community)</b></summary>
+
+1. Run `npm run dist -- --linux` locally **on Linux**.
 2. Upload the artifact as an **additional asset on the same GitHub release**,
    named so it is unmistakably unofficial and unsigned, e.g.
-   `Orfeo-X.Y.Z-macOS-community.dmg`,
    `Orfeo-X.Y.Z-Linux-community.AppImage`.
-3. **Do not** upload a `latest-mac.yml` / `latest-linux.yml` alongside it unless
+3. **Do not** upload a `latest-linux.yml` alongside it unless
    you are committing to maintain a real update feed for that platform going
    forward. An unmaintained one is worse than none — it tells
    `electron-updater` an update channel exists when nobody is behind it.

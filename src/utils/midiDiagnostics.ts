@@ -1,6 +1,6 @@
 // ── MIDI keyboard timing diagnostics + exportable performance log ────────────
 // Per key press, two numbers measured on the real machine:
-//  • input  — Windows/Chromium received the key → Orfeo's handler started
+//  • input  — the system/Chromium received the key → Orfeo's handler started
 //             (the MIDI event's own timestamp vs. performance.now(); this is
 //             where a busy screen redraw would show up)
 //  • handle — handler start → the note was handed to the synth
@@ -19,6 +19,12 @@ import { nativeMeasuredLatencySec } from '../audio/useNativeEngine'
 interface NoteSample { at: number; inputMs: number | null; handleMs: number; note: number; vel: number; device: string }
 
 const MAX = 500
+// A key that really took a second to arrive couldn't be played at all, so a
+// keyboard that sends such a stamp isn't stamping when its keys arrive, and
+// none of its stamps count. Over Bluetooth MIDI on macOS every note carried
+// the same stamp, so "input" just grew with the time played — under a
+// second too, at first.
+const MAX_PLAUSIBLE_INPUT_MS = 1000
 const _samples: NoteSample[] = []
 export const counters = { duplicatesDropped: 0, softIgnored: 0, stuckReleases: 0, disconnects: 0, messages: 0 }
 
@@ -49,17 +55,22 @@ export function clearDiagnostics() {
 
 export interface TimingStats {
   notes: number
+  implausibleInputs: number  // from keyboards with stamps too far back to be a delay (kept as-is in the log)
   lastInputMs: number | null; avgInputMs: number | null; worstInputMs: number | null
   avgHandleMs: number | null; worstHandleMs: number | null
 }
 export function getStats(): TimingStats {
-  const inp = _samples.map(s => s.inputMs).filter((v): v is number => v !== null)
+  const stale = new Set(_samples.filter(s => s.inputMs !== null && s.inputMs > MAX_PLAUSIBLE_INPUT_MS).map(s => s.device))
+  const stamped = _samples.filter(s => s.inputMs !== null)
+  const inp = stamped.filter(s => !stale.has(s.device)).map(s => s.inputMs as number)
+  const last = _samples.at(-1)
   const hnd = _samples.map(s => s.handleMs)
   const avg = (a: number[]) => (a.length ? a.reduce((x, y) => x + y, 0) / a.length : null)
   const max = (a: number[]) => (a.length ? Math.max(...a) : null)
   return {
     notes: _samples.length,
-    lastInputMs: _samples.length ? _samples[_samples.length - 1].inputMs : null,
+    implausibleInputs: stamped.length - inp.length,
+    lastInputMs: last && !stale.has(last.device) ? last.inputMs : null,
     avgInputMs: avg(inp), worstInputMs: max(inp), avgHandleMs: avg(hnd), worstHandleMs: max(hnd),
   }
 }
@@ -69,7 +80,7 @@ export interface DelayBreakdown {
   engine: 'gm' | 'samples' | 'native'
   synthBlockMs: number      // waiting for the synth's next 128-sample block (worst case)
   chainMs: number           // Orfeo's own processing (Samples: 0 on the live path, 12 through the compressors)
-  outputMs: number | null   // the sound card / Windows output; null = can't be measured for this output
+  outputMs: number | null   // the sound card / system output; null = can't be measured for this output
   externalOutput: string    // GM sent to a MIDI device instead of Orfeo's synth
 }
 export function getDelayBreakdown(): DelayBreakdown {

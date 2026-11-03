@@ -1823,12 +1823,13 @@ ipcMain.handle('window:setFullScreen', (_e, value: boolean) => {
 })
 
 // ── Auto-update — GitHub Releases as the update feed (see package.json's
-// build.publish). Only Windows gets real auto-update: that's the only
-// platform SquareBow actually builds, signs (nominally), and publishes
-// artifacts for via `npm run dist`. macOS/Linux builds are community-
-// contributed unofficial binaries — nobody controls their provenance or
-// update channel, so pointing electron-updater at the official GitHub feed
-// for them would be actively wrong (could offer an "update" that doesn't
+// build.publish). Only Windows gets real auto-update. macOS builds come
+// from the same release, but electron-updater can only replace a Mac app
+// signed with an Apple Developer ID, and they're only ad-hoc signed.
+// Linux builds are community-contributed unofficial binaries — nobody
+// controls their provenance or update channel, so pointing
+// electron-updater at the official GitHub feed for them would be actively
+// wrong (could offer an "update" that doesn't
 // match how that binary was built, or silently never fire since community
 // builds usually aren't uploaded as electron-updater-recognized artifacts
 // at all). Portable builds have no installer/uninstaller for
@@ -1976,8 +1977,12 @@ app.whenReady().then(async () => {
   // Ctrl+0 via Chromium's own zoomLevel. Left alone, that's a second,
   // uncoordinated zoom mechanism fighting the one built below (no step
   // list, no cap, no persistence, no DPR coordination with the piano-roll
-  // fix). Nulling it out guarantees there's exactly one zoom path. ────────
-  Menu.setApplicationMenu(null)
+  // fix). Nulling it out guarantees there's exactly one zoom path. macOS
+  // always shows a menu bar, and Quit and copy/paste in text fields live in
+  // it, so there it gets the app, Edit and Window menus — still no View. ──
+  Menu.setApplicationMenu(process.platform === 'darwin'
+    ? Menu.buildFromTemplate([{ role: 'appMenu' }, { role: 'editMenu' }, { role: 'windowMenu' }])
+    : null)
   createWindow()
   if (updateMode === 'auto') {
     // Delayed so it doesn't compete with the app's own startup work; silent
@@ -1985,4 +1990,5 @@ app.whenReady().then(async () => {
     setTimeout(() => { autoUpdater.checkForUpdates().catch(() => {}) }, 5000)
   }
 })
-app.on('window-all-closed', () => { if (process.platform !== 'darwin') app.quit() })
+// One window: closing it quits, on macOS too — nothing would reopen it from the Dock
+app.on('window-all-closed', () => app.quit())
