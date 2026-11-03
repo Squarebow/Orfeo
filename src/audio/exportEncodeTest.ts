@@ -1,4 +1,4 @@
-import { finishAudio, encodeWav, encodeMp3, yieldToPage, type Stereo } from './exportEncode'
+import { finishAudio, encodeWav, encodeMp3, yieldToPage, MIN_USABLE_PEAK, MAX_BOOST_DB, type Stereo } from './exportEncode'
 
 const RATE = 44100
 function signal(parts: { sec: number; amp: number }[]): Stereo {
@@ -36,6 +36,27 @@ export async function runExportEncodeTest(): Promise<number> {
 
   // 2. silence only: nothing left
   check(finishAudio(signal([{ sec: 1, amp: 0 }]), 1).l.length === 0, 'silence → empty')
+
+  // 2b. Levelling has a floor and a ceiling, and both are stated in code
+  // above the silence trim (1e-4) but under the usable floor: kept, raised a
+  // little, and still far from a normal level — which is what the floor is for
+  const quiet = finishAudio(signal([{ sec: 1, amp: 0.0003 }]), 1)
+  check(quiet.peak < MIN_USABLE_PEAK && Math.abs(quiet.peak - 0.0003) < 1e-9,
+    `the peak before the gain is reported (${quiet.peak})`)
+  check(Math.abs(quiet.gainDb - MAX_BOOST_DB) < 1e-9, `a near-silent file is raised by at most ${MAX_BOOST_DB} dB, got ${quiet.gainDb.toFixed(2)}`)
+  check(Math.abs(peak(quiet) - 0.003) < 1e-6, `raised tenfold, still faint (peak ${peak(quiet)}), never at -1 dBFS`)
+
+  const loudEnough = finishAudio(signal([{ sec: 1, amp: 0.03 }]), 1)
+  check(Math.abs(loudEnough.gainDb - MAX_BOOST_DB) < 1e-9 && Math.abs(peak(loudEnough) - 0.3) < 1e-3,
+    `a quiet recording gets its ${MAX_BOOST_DB} dB and no more (peak ${peak(loudEnough)})`)
+
+  const moderate = finishAudio(signal([{ sec: 1, amp: 0.3 }]), 1)
+  check(Math.abs(peak(moderate) - Math.pow(10, -1 / 20)) <= 1e-4 && moderate.gainDb > 9 && moderate.gainDb < MAX_BOOST_DB,
+    `a normal recording still lands at -1 dBFS (${moderate.gainDb.toFixed(2)} dB)`)
+
+  const hot = finishAudio(signal([{ sec: 1, amp: 2 }]), 1)
+  check(Math.abs(peak(hot) - Math.pow(10, -1 / 20)) <= 1e-4 && hot.gainDb < 0,
+    `a file already above the target is lowered, not left alone (${hot.gainDb.toFixed(2)} dB)`)
 
   // 3. WAV: 44-byte header, PCM 16-bit stereo 44.1 kHz, data = samples × 4
   const one = signal([{ sec: 1, amp: 0.5 }])

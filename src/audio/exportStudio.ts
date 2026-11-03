@@ -3,10 +3,13 @@
 // master chain. A song long enough is played in sections side by side, one
 // per processor core (exportStudio.worker.ts), and joined; a short one, a big
 // sound set, or a machine with few cores plays it in one go on this page.
+// A section that cannot be played does not end the export: the whole song then
+// goes through in one go, and the caller is told (RenderNotes) — that pass is
+// slower, and the person watching the bar deserves to know why.
 import type { ExportSong } from './exportSong'
 import { EXPORT_RATE, type Stereo } from './exportEncode'
 import { renderStudioSynth, planSections, joinSections } from './exportStudioSynth'
-import StudioWorker from './exportStudio.worker?worker&inline'
+import StudioWorkerCtor from './exportStudioWorkerCtor'
 import { COMPRESSOR_PRESETS, SAMPLES_BOOST, COMPRESSOR_RELEASE } from '../hooks/useSamplesEngine'
 
 const MAX_SECTIONS = 4
@@ -15,6 +18,30 @@ const SECTIONS_MEMORY = 600e6         // each section loads its own copy of the 
 
 const EMPTY: Stereo = { l: new Float32Array(0), r: new Float32Array(0), rate: EXPORT_RATE }
 
+/** What a Studio render lets the caller know: `singlePass` when the sections
+ *  could not be played and the whole song went through in one go, and
+ *  `sectionsFailedWith` naming that reason — so a failure can be shown instead
+ *  of looking like a cancelled export. */
+export interface RenderNotes { singlePass?: boolean; sectionsFailedWith?: string }
+
+/** A section worker, as far as this file touches it. */
+export interface SectionWorker {
+  postMessage(message: unknown, transfer?: Transferable[]): void
+  terminate(): void
+  onmessage: ((e: MessageEvent) => void) | null
+  onerror: ((e: { message?: string }) => void) | null
+  onclose: (() => void) | null
+}
+
+let _newWorker: () => SectionWorker = () => new StudioWorkerCtor() as unknown as SectionWorker
+
+/** Tests swap the worker here. What is guarded against is a worker that stops
+ *  without an `error` event (killed under memory pressure), and no test can
+ *  provoke real memory pressure. Nothing in the app calls this. */
+export function useSectionWorkersForTests(factory: (() => SectionWorker) | null): void {
+  _newWorker = factory ?? (() => new StudioWorkerCtor() as unknown as SectionWorker)
+}
+
 function sectionCount(song: ExportSong, banks: ArrayBuffer[]): number {
   if (typeof Worker === 'undefined') return 1
   const cores = navigator.hardwareConcurrency || 1
@@ -22,8 +49,8 @@ function sectionCount(song: ExportSong, banks: ArrayBuffer[]): number {
   return Math.max(1, Math.min(MAX_SECTIONS, cores - 1, Math.floor(song.duration / MIN_SECTION_SEC), Math.floor(SECTIONS_MEMORY / Math.max(1, bytes))))
 }
 
-/** The synth in sections, side by side; rejects if a section can't be played */
-function renderSections(song: ExportSong, banks: ArrayBuffer[], parts: number, onProgress?: (p: number) => void, isCancelled?: () => boolean): Promise<Stereo> {
+/** The synth in sections, side by side; rejects when a section cannot be played */
+function renderSections(song: ExportSong, banks: ArrayBuffer[], parts: number, onProgress?: (p: number) => void, isCancelled?: () => boolean, notes?: RenderNotes): Promise<Stereo> {
   const sections = planSections(song, parts)
   const total = sections[sections.length - 1].end
   const work = sections.map(s => s.end - s.from)
@@ -31,32 +58,70 @@ function renderSections(song: ExportSong, banks: ArrayBuffer[], parts: number, o
   const progress = new Array(parts).fill(0)
   const results: Stereo[] = []
   let left = parts
-  const workers = sections.map(() => new StudioWorker())
+  const workers = sections.map(() => _newWorker())
+  // cancel, failure and success all settle this promise; whoever got there
+  // first decides, and nobody after them reports a second answer
+  let settled = false
   return new Promise((resolve, reject) => {
     const stop = () => { clearInterval(watch); for (const w of workers) w.terminate() }
-    const watch = setInterval(() => { if (isCancelled?.()) { stop(); resolve(EMPTY) } }, 100)
+    const watch = setInterval(() => {
+      if (!isCancelled?.() || settled) return
+      settled = true
+      stop()
+      resolve(EMPTY)
+    }, 100)
+    const fail = (why: string) => {
+      if (settled) return
+      settled = true
+      stop()
+      if (notes) notes.sectionsFailedWith = why
+      reject(new Error(why))
+    }
     workers.forEach((w, k) => {
       w.onmessage = (e: MessageEvent) => {
-        if (typeof e.data.progress === 'number') {
+        if (typeof e.data?.progress === 'number') {
           progress[k] = e.data.progress
           onProgress?.(progress.reduce((t, p, j) => t + p * work[j], 0) / workAll)
           return
         }
+        if (settled) return
         results[k] = { l: e.data.l, r: e.data.r, rate: EXPORT_RATE }
-        if (--left === 0) { stop(); onProgress?.(1); resolve(joinSections(results, sections, total)) }
+        if (--left !== 0) return
+        settled = true
+        stop()
+        onProgress?.(1)
+        resolve(joinSections(results, sections, total))
       }
-      w.onerror = (e: ErrorEvent) => { stop(); reject(new Error(e.message || 'a section could not be played')) }
-      w.postMessage({ song, banks, section: sections[k] })
+      w.onerror = (e) => fail(e?.message || 'a section could not be played')
+      // A worker that vanishes with neither a result nor an error would leave the
+      // export waiting on a count that never arrives. Chromium's dedicated workers
+      // don't fire `close`, so this covers other runtimes and the test's fake.
+      w.onclose = () => fail('a section worker stopped without an answer')
     })
+    try {
+      for (let k = 0; k < workers.length; k++) workers[k].postMessage({ song, banks, section: sections[k] })
+    } catch (e: any) {
+      fail(`a section could not be started: ${e?.message ?? e}`)
+    }
   })
 }
 
-/** The synth alone: in sections when it helps, else in one go (also if sections fail) */
-async function renderStudioDry(song: ExportSong, banks: ArrayBuffer[], onProgress?: (p: number) => void, isCancelled?: () => boolean): Promise<Stereo> {
-  const parts = sectionCount(song, banks)
+/** The synth alone: in sections when that helps, in one go otherwise — and in
+ *  one go again when the sections could not be played. `parts` is a test seam:
+ *  no test waits for a 60-second song just to reach the section path. */
+export async function renderDry(song: ExportSong, banks: ArrayBuffer[], onProgress?: (p: number) => void, isCancelled?: () => boolean,
+  notes?: RenderNotes, parts: number = sectionCount(song, banks)): Promise<Stereo> {
   if (parts > 1) {
-    try { return await renderSections(song, banks, parts, onProgress, isCancelled) }
-    catch (e) { console.warn('[export] sections failed, playing in one go:', e) }
+    try {
+      return await renderSections(song, banks, parts, onProgress, isCancelled, notes)
+    } catch (e: any) {
+      if (isCancelled?.()) return EMPTY
+      console.warn('[export] sections could not be played, playing the whole song in one go:', e?.message ?? e)
+      if (notes) notes.singlePass = true
+      // the bar starts over: one pass is a different job, and a bar that jumps
+      // backwards with no word about it reads as a broken export
+      onProgress?.(0)
+    }
   }
   return renderStudioSynth(song, banks, onProgress, isCancelled)
 }
@@ -65,8 +130,8 @@ const dbToGain = (db: number) => Math.pow(10, db / 20)
 
 /** Synth + the Studio master chain (gain → tone → compressor → safety limiter),
  *  in an OfflineAudioContext with the same node settings as initSamplesEngine */
-export async function renderStudio(song: ExportSong, banks: ArrayBuffer[], onProgress?: (p: number) => void, isCancelled?: () => boolean): Promise<Stereo> {
-  let dry: Stereo | null = await renderStudioDry(song, banks, onProgress, isCancelled)
+export async function renderStudio(song: ExportSong, banks: ArrayBuffer[], onProgress?: (p: number) => void, isCancelled?: () => boolean, notes?: RenderNotes): Promise<Stereo> {
+  let dry: Stereo | null = await renderDry(song, banks, onProgress, isCancelled, notes)
   if (!dry.l.length) return dry
   const ctx = new OfflineAudioContext(2, dry.l.length, EXPORT_RATE)
   const buf = ctx.createBuffer(2, dry.l.length, EXPORT_RATE)

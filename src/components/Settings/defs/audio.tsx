@@ -95,10 +95,10 @@ function SoundEngineGlance() {
     return (
       <div>
         <div style={glanceBox}>
-        <InfoRow label={t`Sound card`} marquee={native.deviceName} />
+          <InfoRow label={t`Sound card`} marquee={native.deviceName} />
         <InfoRow label={t`Mode`} marquee={`${native.mode} ${native.rate} ${native.bufferFrames}`}>{native.mode === 'exclusive' ? amber(t`Exclusive (low latency)`) : t`Shared`} · {kHz(native.rate)} · {msOf(native.bufferFrames / native.rate)} {t`buffer`}</InfoRow>
-        {latency}
-        {soundfont}
+          {latency}
+          {soundfont}
         </div>
         {/* Exclusive asked for, but the card couldn't do it: say why */}
         {wantsExclusive && native.mode === 'shared' && native.fallbackReason && <HelpText>{t`Sharing the sound card instead of Exclusive:`} {native.fallbackReason}.</HelpText>}

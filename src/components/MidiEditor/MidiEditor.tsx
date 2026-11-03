@@ -1330,7 +1330,7 @@ export default function MidiEditor() {
       // The user's hand colours as literal hex (not the CSS var): the colour
       // travels into ORFEO_TRACK_COLOR meta on save, which only accepts hex
       // (see midiParser.ts's restore regex)
-      const lhRow: EditorTrack ={ ...orig, name: 'Left Hand', trackName: lhName, noteCount: lhCount, splitHand: 'L', splitOriginIndex: trackIndex, mergeSelected: false, color: handHex().lh, colorSource: 'custom' }
+      const lhRow: EditorTrack = { ...orig, name: 'Left Hand', trackName: lhName, noteCount: lhCount, splitHand: 'L', splitOriginIndex: trackIndex, mergeSelected: false, color: handHex().lh, colorSource: 'custom' }
       const rhRow: EditorTrack = { ...orig, index: _mergeIdCounter++, name: 'Right Hand', trackName: rhName, noteCount: rhCount, splitHand: 'R', splitOriginIndex: trackIndex, mergeSelected: false, color: handHex().rh, colorSource: 'custom' }
       const rows = [...s.rows]
       rows.splice(idx, 1, lhRow, rhRow)

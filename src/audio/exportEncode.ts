@@ -26,21 +26,35 @@ export const EXPORT_RATE = 44100
 export const TAIL_SEC = 2.0
 const SILENT = 1e-4                         // -80 dBFS
 const TARGET_PEAK = Math.pow(10, -1 / 20)   // -1 dBFS
+/** A whole file that peaks below this (−54 dBFS) is not quiet material: it is
+ *  the sound floor of a render with nothing in it. Raising it to a normal level
+ *  would only raise that floor — so it is refused, not amplified. */
+export const MIN_USABLE_PEAK = 0.002
+/** …and even a real recording is never raised further than this. Without a cap
+ *  a near-silent song could be multiplied by thousands, and the "-1 dBFS so it
+ *  never clips" promise would still be kept while the file itself was rubbish. */
+export const MAX_BOOST_DB = 20
 const MP3_KBPS = 320
 
-export function finishAudio(a: Stereo, songDuration: number): Stereo {
+/** `Stereo` plus what the pass decided: `peak` is the loudest sample *before*
+ *  the gain, `gainDb` what was applied (capped at MAX_BOOST_DB). A caller that
+ *  has to explain "nothing to export" and "nothing worth exporting" needs both. */
+export interface Finished extends Stereo { peak: number; gainDb: number }
+
+export function finishAudio(a: Stereo, songDuration: number): Finished {
   const n = a.l.length
   let first = 0
   while (first < n && Math.abs(a.l[first]) <= SILENT && Math.abs(a.r[first]) <= SILENT) first++
   const end = Math.min(n, Math.round((songDuration + TAIL_SEC) * a.rate))
-  if (first >= end) return { l: new Float32Array(0), r: new Float32Array(0), rate: a.rate }
+  if (first >= end) return { l: new Float32Array(0), r: new Float32Array(0), rate: a.rate, peak: 0, gainDb: 0 }
   // in place: a window onto the rendered audio, no second copy of a whole song
   const l = a.l.subarray(first, end), r = a.r.subarray(first, end)
   let peak = 0
   for (let i = 0; i < l.length; i++) peak = Math.max(peak, Math.abs(l[i]), Math.abs(r[i]))
-  const g = TARGET_PEAK / peak
+  const wanted = TARGET_PEAK / peak
+  const g = wanted > 1 ? Math.min(wanted, Math.pow(10, MAX_BOOST_DB / 20)) : wanted
   for (let i = 0; i < l.length; i++) { l[i] *= g; r[i] *= g }
-  return { l, r, rate: a.rate }
+  return { l, r, rate: a.rate, peak, gainDb: 20 * Math.log10(g) }
 }
 
 

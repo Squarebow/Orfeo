@@ -30,7 +30,7 @@ function activeMidi(): any {
 // hi-hat into a step. ─────────────────────────────────────────────────────
 let _cache: { midi: unknown; sig: string; steps: Step[] } | null = null
 
-function audibleSignature(): string {
+function shownSignature(): string {
   return useStore.getState().tracks.map(t => (t.muted ? 'm' : t.solo ? 's' : '.') + (t.visible ? 'v' : 'h')).join('')
 }
 
@@ -57,7 +57,7 @@ export function buildSteps(midi: any, tracks: ReturnType<typeof useStore.getStat
 
 function steps(): Step[] {
   const midi = activeMidi()
-  const sig = audibleSignature()
+  const sig = shownSignature()
   if (!_cache || _cache.midi !== midi || _cache.sig !== sig) {
     _cache = { midi, sig, steps: buildSteps(midi, useStore.getState().tracks) }
   }

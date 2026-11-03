@@ -30,6 +30,15 @@ export interface ExportSong {
 }
 export interface HeardState { tempoRatio: number; transpose: number; master: ExportMaster; loop: { start: number; end: number } | null }
 
+/** A transposed song can push notes past the end of the keyboard, and the two
+ *  sounds then do different things — the live engines do too, and have always
+ *  done differently (see docs/ARCHITECTURE.md): the Studio synth (spessasynth)
+ *  drops the note, the Native engine moves it to the nearest end. Export has to
+ *  pick the same one as the sound it is about to play with, or "as I hear it"
+ *  quietly becomes "as something else would have played it".
+ *  (One shared rule across both engines would change live playback: a separate decision.) */
+export type OutOfRange = 'drop' | 'clamp'
+
 // Original and Focus play as default playback does: master volume 0.8 (the
 // store's default), flat tone, no compressor
 const NEUTRAL_MASTER: ExportMaster = { gain: 0.8, toneDb: 0, comp: { enabled: false, preset: 0 } }
@@ -41,7 +50,7 @@ function fileMix(t: ParsedTrack): ExportChannel {
   return { volume: a._cc7 ?? 1, pan: a._cc10 != null ? (a._cc10 - 0.5) * 2 : 0, reverb: a._cc91 ?? 0, chorus: a._cc93 ?? 0 }
 }
 
-export function buildExportSong(midi: ParsedMidi, tracks: TrackState[], version: ExportVersion, heard?: HeardState): ExportSong {
+export function buildExportSong(midi: ParsedMidi, tracks: TrackState[], version: ExportVersion, heard?: HeardState, outOfRange: OutOfRange = 'drop'): ExportSong {
   const h = version === 'heard' ? heard : undefined
   const anySolo = !!h && tracks.some(t => t.solo)
   const sounds = (t: ParsedTrack): boolean => {
@@ -61,8 +70,14 @@ export function buildExportSong(midi: ParsedMidi, tracks: TrackState[], version:
   for (const t of midi.tracks) {
     const ch = t.channel & 0x0f
     if (sounds(t)) {
+      const drums = ch === 9 || t.isDrum        // drums are never transposed, in either sound
       for (const n of t.notes) {
-        const key = ch === 9 || t.isDrum ? n.midi : Math.max(0, Math.min(127, n.midi + transpose))
+        const wanted = drums ? n.midi : n.midi + transpose
+        let key: number
+        if (wanted < 0 || wanted > 127) {
+          if (outOfRange === 'drop') continue   // no note-on, no note-off: as Studio plays it
+          key = Math.max(0, Math.min(127, wanted))
+        } else key = wanted
         const vel = Math.max(1, Math.min(127, Math.round(n.velocity * 127)))
         raw.push([n.time, 2, t.index, 0x90 | ch, key, vel])
         raw.push([n.time + Math.max(n.duration, MIN_NOTE), 0, t.index, 0x80 | ch, key, 0])

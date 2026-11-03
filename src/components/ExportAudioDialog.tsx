@@ -13,12 +13,12 @@ import { useFocusTrap } from '../hooks/useFocusTrap'
 import { modalCloseButtonStyle, modalCloseButtonHoverColor, modalCloseButtonIdleColor } from '../utils/modalCloseButtonStyle'
 import { SettingsDropdown } from './Settings/controls'
 import { useSoundfontState, allSoundfonts } from '../hooks/useSoundfonts'
-import { exportToAudio, previewExport, isOpenSong, forgetLoadedSong, ExportError, type ExportSound, type ExportFormat, type ExportStage } from '../audio/exportAudio'
+import { exportToAudio, previewExport, isOpenSong, forgetLoadedSong, ExportError, type ExportSound, type ExportFormat, type ExportStage, type ExportNote } from '../audio/exportAudio'
 import type { ExportVersion } from '../audio/exportSong'
 
 const NATIVE_AVAILABLE = navigator.userAgent.includes('Windows')
 
-type Phase = { k: 'choose' } | { k: 'working'; stage: ExportStage; p: number } | { k: 'done'; path: string } | { k: 'error'; message: string }
+type Phase = { k: 'choose' } | { k: 'working'; stage: ExportStage; p: number; note?: ExportNote } | { k: 'done'; path: string } | { k: 'error'; message: string }
 // What the window says about the chosen version, and whether Export can go ahead
 type Note = { kind: 'nokeys' | 'empty' | 'unreadable'; text: string }
 
@@ -91,13 +91,13 @@ export default function ExportAudioDialog({ path, name, onClose }: { path: strin
   useEffect(() => {
     let live = true
     setNote(null)
-    previewExport(path, version).then(s => {
+    previewExport(path, version, sound).then(s => {
       if (!live) return
       if (!s.events.some(e => (e.status & 0xf0) === 0x90)) setNote({ kind: 'empty', text: t`Nothing to export — the chosen version has no notes.` })
       else if (version === 'focus' && !s.hasKeys) setNote({ kind: 'nokeys', text: t`This song has no keys part — Focus exports bass and drums only.` })
     }).catch(() => { if (live) setNote({ kind: 'unreadable', text: t`Couldn't read this song.` }) })
     return () => { live = false }
-  }, [path, version])
+  }, [path, version, sound])
 
   const close = () => { cancelled.current = true; forgetLoadedSong(); onClose() }
   useEffect(() => {
@@ -111,7 +111,7 @@ export default function ExportAudioDialog({ path, name, onClose }: { path: strin
     setPhase({ k: 'working', stage: 'render', p: 0 })
     try {
       const saved = await exportToAudio({ songPath: path, songName: name, version, sound, soundfont, format },
-        (stage, p) => setPhase({ k: 'working', stage, p }), () => cancelled.current)
+        (stage, p, note) => setPhase({ k: 'working', stage, p, note }), () => cancelled.current)
       if (saved) setPhase({ k: 'done', path: saved })
       else setPhase({ k: 'choose' })
     } catch (e: any) {
@@ -121,6 +121,7 @@ export default function ExportAudioDialog({ path, name, onClose }: { path: strin
       const message = kind === 'unreadable' ? t`Couldn't read this song.`
         : kind === 'empty' ? t`Nothing to export — the chosen version has no notes.`
         : kind === 'silent' ? t`The export came out silent — check the master volume and the muted parts.`
+        : kind === 'quiet' ? t`The export was far too quiet to be worth a file — turn the volume up, or unmute some parts, and try again.`
         : kind === 'soundset' ? t`That sound set isn't installed any more — choose another one.`
         : sound === 'native' ? t`Something went wrong while exporting. Try again, or choose Studio.`
         : t`Something went wrong while exporting. Try again, or choose Native.`
@@ -129,7 +130,11 @@ export default function ExportAudioDialog({ path, name, onClose }: { path: strin
   }
 
   const working = phase.k === 'working'
-  const stageText = working ? (phase.stage === 'render' ? t`Exporting…` : phase.stage === 'encode' ? t`Encoding…` : t`Saving…`) : ''
+  // a render that lost its sections is slower, and saying so beats a bar that
+  // crawls for no visible reason
+  const stageText = working
+    ? (phase.stage === 'render' ? (phase.note === 'single-pass' ? t`Exporting (single pass)…` : t`Exporting…`) : phase.stage === 'encode' ? t`Encoding…` : t`Saving…`)
+    : ''
   const blocked = !!note && note.kind !== 'nokeys'
 
   return createPortal(

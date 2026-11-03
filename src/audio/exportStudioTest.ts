@@ -2,6 +2,7 @@ import { readFileSync } from 'node:fs'
 import { parseMidiBuffer } from '../utils/midiParser'
 import { buildExportSong } from './exportSong'
 import { renderStudioSynth, planSections, joinSections } from './exportStudioSynth'
+import { renderDry, useSectionWorkersForTests, type RenderNotes, type SectionWorker } from './exportStudio'
 import { TAIL_SEC, type Stereo } from './exportEncode'
 import { SpessaSynthProcessor, SoundBankLoader } from 'spessasynth_core'
 
@@ -91,6 +92,81 @@ export async function runExportStudioTest(): Promise<number> {
     worstRef = Math.max(worstRef, Math.abs(db(whole) - db(ref)))
   }
   check(worstRef < 0.3, 'level per second matches the first version within 0.3 dB, worst ' + worstRef.toFixed(2) + ' dB')
+
+
+  // ── A section worker that stops without answering must not hang the export ──
+  // Real memory pressure cannot be provoked in a test, so the worker is swapped
+  // for a fake (useSectionWorkersForTests). What the test checks is the part
+  // production depends on: an answer for every section, or one honest fallback.
+  const total2 = planSections(short, 2)[1].end
+  const mkFake = (mode: 'answer' | 'close' | 'error' | 'silence') => {
+    const made: Fake[] = []
+    type Fake = SectionWorker & { terminated?: boolean; __section?: { start: number; end: number } }
+    const factory = () => {
+      const w: Fake = { postMessage: () => {}, terminate: () => { w.terminated = true }, onmessage: null, onerror: null, onclose: null }
+      made.push(w)
+      const send = (data: unknown) => w.onmessage?.({ data } as MessageEvent)
+      queueMicrotask(() => {
+        const section = w.__section
+        if (mode === 'answer' && section) {
+          const n = section.end - section.start + 4410
+          send({ l: new Float32Array(n).fill(0.5), r: new Float32Array(n).fill(-0.5) })
+        } else if (mode === 'close') w.onclose?.()
+        else if (mode === 'error') w.onerror?.({ message: 'section threw' } as any)
+        // 'silence': never answers, never closes — a cancel has to end it
+      })
+      return w
+    }
+    return { factory, made }
+  }
+  const withWorkers = <T>(factory: (() => SectionWorker) | null, body: () => Promise<T>): Promise<T> => {
+    useSectionWorkersForTests(factory)
+    return body().finally(() => useSectionWorkersForTests(null))
+  }
+
+  await withWorkers(null, async () => {
+    // sections that answer: joined audio, no fallback mentioned
+    const notes: RenderNotes = {}
+    const { factory, made } = mkFake('answer')
+    // each fake gets its own section, so it can answer with the right length
+    const one = () => {
+      const w = factory()
+      const post = w.postMessage.bind(w)
+      w.postMessage = (m: any) => { w.__section = m.section; post(m) }
+      return w
+    }
+    const f = withWorkers(one, () => renderDry(short, [bank], undefined, undefined, notes, 2))
+    const joined = await f
+    check(joined.l.length === total2, `sections answer → joined length ${joined.l.length} = ${total2}`)
+    let halves = 0
+    for (let i = 0; i < joined.l.length; i++) if (Math.abs(joined.l[i]) === 0.5) halves++
+    check(halves > joined.l.length * 0.5, `sections answer → the joined audio is made of both parts (${halves})`)
+    check(!notes.singlePass && !notes.sectionsFailedWith, 'answering sections: nothing to report')
+    check(made.length === 2 && made.every(w => w.terminated), 'every section worker is terminated')
+
+    // a worker that closes without an answer: one pass on this thread instead
+    const notes2: RenderNotes = {}
+    const dead = await withWorkers(mkFake('close').factory, () => renderDry(short, [bank], undefined, undefined, notes2, 2))
+    check(dead.l.length > 0 && dead.l.length === total2, `worker gone without an answer → whole-song pass, ${dead.l.length} samples`)
+    check(notes2.singlePass === true && /without an answer/.test(notes2.sectionsFailedWith ?? ''), 'the fallback and its reason are reported')
+
+    // a worker that reports an error: same way out
+    const notes3: RenderNotes = {}
+    const errored = await withWorkers(mkFake('error').factory, () => renderDry(short, [bank], undefined, undefined, notes3, 2))
+    check(errored.l.length === total2 && notes3.singlePass === true, 'worker error → whole-song pass as well')
+
+    // a worker that says nothing at all: only a cancel ends the render, and a
+    // cancelled export is not a failed one
+    const notes4: RenderNotes = {}
+    let cancelled = false
+    const stopped = await withWorkers(mkFake('silence').factory, async () => {
+      const p = renderDry(short, [bank], undefined, () => cancelled, notes4, 2)
+      setTimeout(() => { cancelled = true }, 300)
+      return await p
+    })
+    check(stopped.l.length === 0, `silent workers + cancel → empty, got ${stopped.l.length}`)
+    check(!notes4.singlePass, 'a cancelled export does not claim a fallback')
+  })
 
   console.log(`exportStudio: ${pass} passed, ${fail} failed`)
   console.groupEnd()

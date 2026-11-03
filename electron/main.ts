@@ -10,7 +10,7 @@ import PDFDocument from 'pdfkit'
 import { assignHands } from '../src/utils/handAssignment'
 import { buildHandExportHint, withHandSuffix, nameHandFromSuffix, parseHandMapMeta, RESTORED_CONFIDENCE } from '../src/utils/handMetadata'
 import { getGMGroup } from '../src/utils/gmInstruments'
-import { exportsDir, nextFreeName } from './exportName'
+import { exportsDir, nextFreeName, safeExportBaseName } from './exportName'
 import { KEYBOARD_GROUPS } from '../src/utils/keyboardGroups'
 import { nextOrfeoVersion, stripOrfeoSuffix } from '../src/utils/orfeoVersioning'
 import type { Hand } from '../src/types'
@@ -636,8 +636,10 @@ ipcMain.handle('fs:statFiles', async (_e, paths: string[]) => {
 ipcMain.handle('export:save', async (_e, songPath: string, libraryFolder: string | null, fileName: string, bytes: Uint8Array) => {
   const dir = exportsDir(libraryFolder, app.getPath('music'))
   await mkdir(dir, { recursive: true })
+  // The name arrives from the renderer: one plain name inside dir, never a path.
+  const base = safeExportBaseName(dir, fileName)
   for (let tries = 0; tries < 50; tries++) {
-    const name = nextFreeName(new Set(await readdir(dir)), fileName)
+    const name = nextFreeName(new Set(await readdir(dir)), base)
     const path = join(dir, name)
     try { await writeFile(path, bytes, { flag: 'wx' }); return path }
     catch (e: any) { if (e?.code !== 'EEXIST') throw e }

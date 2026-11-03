@@ -9,6 +9,13 @@
 
 ### Fixed
 - *Ctrl+Shift+I* (or *F12*) opens the developer tools in the installed app again, for bug reports. It only worked in development builds.
+- **Exported files always stay in the Exports folder.** A song whose name carried a folder path, or characters Windows doesn't allow in a file name, could fail to save with an error you couldn't read. A name Windows keeps for itself — *CON*, *PRN*, *NUL*, *COM1*… — made a file that couldn't be opened. An export name is now always one plain file name inside the *Exports* folder, and a reserved name gets an underscore in front of it.
+- **An export that can't finish says so.** A long Studio export plays the song in sections, one per processor core. When a section failed, the export quietly started over in one slower pass; the bar now says *Exporting (single pass)*. And an export that produced nothing at all used to end as if you had pressed *Cancel* — now you get a message.
+- **A stuck or abandoned Native export no longer blocks Play.** An export whose sound engine stopped answering, or whose window was closed mid-way, could leave Space doing nothing until Orfeo was restarted. An export that makes no progress for 90 seconds is now reported as failed, and closing the window stops it.
+
+### Changed
+- **A nearly silent export is refused instead of made loud.** Exports are still levelled so they never clip, but never raised by more than +20 dB. A song that is practically silent (master volume almost down, parts muted) now gets a clear message instead of a file full of hiss at full level.
+- **Transposed notes that fall off the end of the note range** do in the file exactly what the chosen sound does while playing: *Studio* leaves them out, *Native* moves them to the nearest end. Before, an export always moved them.
 
 ## [1.6] — 31. 10. 2026 — Export to audio, skip empty bars, your own hand colours
 

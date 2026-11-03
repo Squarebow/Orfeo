@@ -3,8 +3,7 @@ import { NES } from '../utils/noteEditorState'
 import { readFileSync } from 'node:fs'
 import { Midi } from '@tonejs/midi'
 import * as EA from './exportAudio'
-const { isOpenSong, previewExport, pauseForExport, isExporting, exportToAudio, ExportError } = EA
-const finishOrExplain = EA.finishOrExplain
+const { isOpenSong, previewExport, pauseForExport, isExporting, exportToAudio, renderOutcome, finishOrExplain, ExportError } = EA
 
 // The open song as Orfeo holds it, with an unsaved note edit in the editor
 function song(path: string, pitch: number) {
@@ -49,6 +48,14 @@ export async function runExportAudioTest(): Promise<number> {
   pauseForExport()
   check(useStore.getState().playbackState === 'paused' && !playerPaused, 'a paused song is left as it is')
   check(isExporting() === false, 'not exporting outside an export')
+
+  // a render that came back empty says which of the two it was
+  check(renderOutcome(0, () => true, {}).k === 'cancelled', 'cancel stays a cancel')
+  check(renderOutcome(0, () => false, {}).k === 'failed', 'empty without a cancel is a failure, not silence')
+  const why = renderOutcome(0, () => false, { sectionsFailedWith: 'a section worker stopped without an answer' })
+  check(why.k === 'failed' && why.reason.includes('without an answer'), 'the reason for the failure survives to the window')
+  check(renderOutcome(44100, () => false, {}).k === 'audio', 'audio with content passes')
+
   // 4. A song that isn't open is read once per window, not on every version switch
   const demo = readFileSync('public/Demo/Scott Joplin - Entertainer.mid')
   let reads = 0
@@ -74,6 +81,19 @@ export async function runExportAudioTest(): Promise<number> {
   let kind = ''
   try { finishOrExplain(silent, 1) } catch (e: any) { kind = e?.kind }
   check(kind === 'silent', `silence → "silent", got "${kind}"`)
+
+  // 6b. …and a file that is not silent but far too faint to level up: the window
+  // has to say something different, because the answer is "turn it up", not
+  // "you muted everything"
+  const tone = (amp: number) => {
+    const n = 44100
+    const l = new Float32Array(n), r = new Float32Array(n)
+    for (let i = 0; i < n; i++) { const v = amp * Math.sin(2 * Math.PI * 440 * i / n); l[i] = v; r[i] = v }
+    return { l, r, rate: 44100 }
+  }
+  const finishKind = (dry: any) => { try { finishOrExplain(dry, 1); return 'none' } catch (e: any) { return e instanceof ExportError ? e.kind : 'other' } }
+  check(finishKind(tone(0.0003)) === 'quiet', 'a near-silent render is refused as "quiet", not exported as a boosted hiss')
+  check(finishKind(tone(0.2)) === 'none', 'a normal render clears both checks')
 
   // 7. With "Skip empty bars at the start" on, an export starts where the music
   // starts (three silent 4/4 bars at 100 BPM = 7.2 s); off, as the file has it

@@ -7,16 +7,20 @@
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
 
+import { HostRenders } from './hostRenders'
+import { ConnectionHolder } from './hostConnection'
+
 type HostInit = { t: 'init'; addon: string; fluidDir: string }
 
 let addonPath = ''
 let fluidDir = ''
 let NativeEngine: any = null
 let engine: any = null
-let port: Electron.MessagePortMain | null = null
+// the one live connection to a renderer page, and the only one that may clean up
+const connection = new ConnectionHolder<Electron.MessagePortMain>()
 let statusTimer: ReturnType<typeof setInterval> | null = null
 
-function post(msg: any) { try { port?.postMessage(msg) } catch {} }
+function post(msg: any) { connection.post(msg) }
 
 function stopEngine() {
   if (statusTimer) { clearInterval(statusTimer); statusTimer = null }
@@ -34,36 +38,30 @@ function startEngine(opts: { soundfonts: string[]; exclusive: boolean }) {
 }
 
 // ── Export to audio: offline renders on their own threads (addon OfflineRender),
-// polled here; the live engine and its status keep running meanwhile ───────
-const renders = new Map<number, any>()
+// polled through HostRenders; the live engine and its status keep running
+// meanwhile. All the rules that file enforces — an answer once, a failure with
+// its reason, a cancelled export as a plain answer, a render that stops
+// answering named instead of waited on — are checked headless in hostRendersTest.ts.
+const renders = new HostRenders({
+  post,
+  every: (fn, ms) => setInterval(fn, ms),
+  stopTimer: (handle) => clearInterval(handle),
+})
+
 function startRender(m: any) {
   let r: any
   try {
     const { OfflineRender } = require(addonPath)
     r = new OfflineRender({ ...m.job, fluidDir }, m.times, m.tracks, m.bytes, m.trackCount, m.duration)
   } catch (err: any) { post({ t: 'render-error', id: m.id, message: String(err?.message ?? err) }); return }
-  renders.set(m.id, r)
-  const poll = setInterval(() => {
-    try {
-      const out = r.take()
-      if (!out) { post({ t: 'render-progress', id: m.id, p: r.progress() }); return }
-      clearInterval(poll); renders.delete(m.id)
-      const [l, rr] = out as Float32Array[]
-      // copied, not transferred: a main-process MessagePort only transfers ports
-      post({ t: 'render-done', id: m.id, l, r: rr })
-    } catch (err: any) {
-      clearInterval(poll); renders.delete(m.id)
-      const message = String(err?.message ?? err)
-      post(message === 'cancelled' ? { t: 'render-done', id: m.id, cancelled: true } : { t: 'render-error', id: m.id, message })
-    }
-  }, 100)
+  renders.add(m.id, r)
 }
 
 function onMessage(e: Electron.MessageEvent) {
   const m = e.data
   try {
     if (m.t === 'render') return startRender(m)
-    if (m.t === 'render-cancel') { renders.get(m.id)?.cancel(); return }
+    if (m.t === 'render-cancel') { renders.cancel(m.id); return }
     if (m.t === 'start') return startEngine(m)
     if (m.t === 'stop') { stopEngine(); post({ t: 'stopped' }); return }
     if (m.t === 'call') {
@@ -82,13 +80,15 @@ process.parentPort.on('message', (e) => {
   if (m?.t !== 'init') return
   addonPath = m.addon
   fluidDir = m.fluidDir
-  // A new renderer connection replaces the old one (reload, new window):
-  // its engine goes too, so the new page starts from a clean sound card
-  stopEngine()
-  try { port?.close() } catch {}
-  port = e.ports[0]
-  port.on('message', onMessage)
-  port.on('close', () => { stopEngine(); port = null })
-  port.start()
+  // A new renderer connection replaces the old one (reload, new window). What the
+  // old page had running goes at that moment, decided here: the old port's
+  // 'close' event can arrive after the new port is wired, and cleaning up on that
+  // late event used to stop the new page's engine and cancel exports it had just
+  // started. hostConnection.ts holds the rule, hostConnectionTest.ts checks it.
+  connection.replace(e.ports[0], {
+    onMessage: (m) => onMessage(m as Electron.MessageEvent),
+    onReplace: () => { renders.cancelAll(); stopEngine() },
+    onClose: () => { renders.cancelAll(); stopEngine() },
+  })
   post({ t: 'ready' })
 })

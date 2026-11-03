@@ -16,6 +16,7 @@ approach can be agreed first — it saves everyone a wasted round-trip.
 - [Prerequisites](#prerequisites)
 - [Setup](#setup)
 - [Build commands](#build-commands)
+- [Running the tests](#running-the-tests)
 - [Project layout](#project-layout)
 - [Coding conventions](#coding-conventions)
 - [Releases and auto-update](#releases-and-auto-update)
@@ -68,6 +69,7 @@ npm run dev
 | `npm run build` | Compile main + preload + renderer | `out/` |
 | `npm run preview` | Run the last `build` output without packaging | — |
 | `npm run typecheck` | `tsc --noEmit` — type-check only | — |
+| `npm test` | Runs every `*Test.ts` in `src/` and `electron/`, one file per process | — |
 | `npm run dist` | `build`, then package for the current platform | `release/` |
 | `npm run dist:portable` | Windows portable `.exe` only (no installer), for a quick local test | `release/` |
 
@@ -88,6 +90,49 @@ defaults. Add a `linux` block there if you need to pin specific formats
 (AppImage / deb / rpm / …).
 
 </details>
+
+---
+
+## Running the tests
+
+```bash
+npm test                      # every *Test.ts under src/ and electron/, one process each
+# one file only (the parent uses the same path):
+node --import ./scripts/ts-esbuild-hooks.mjs src/runAllTests.ts --file src/utils/smfLeadTest.ts
+```
+
+Every test file exports one or more `run…Test()` functions returning its **failure
+count** — `0` means all checks passed. `src/runAllTests.ts` discovers every
+`*Test.ts` under `src/` and `electron/`, calls those functions and exits non-zero
+if anything failed, so it works the same on your machine and in CI.
+
+Three rules are deliberate, and each exists because of a specific trap:
+
+- **One child process per file.** Several tests import the store and mutate it, and
+  some leave timers, ports or promises behind. In one process the second file would
+  inherit the first one's state, and a test awaiting an unref'd handle would end the
+  whole run with an "unsettled top-level await" instead of a result.
+- **A file that cannot be loaded counts as a failure**, never as a skip. A broken
+  import is exactly what a test run is for.
+- **Skips are listed with a reason** in the `SKIP` table at the top of
+  `src/runAllTests.ts`. Add an entry only with a reason that a stranger can read;
+  today it is one file: `src/audio/exportNativeTest.ts` needs the add-on from
+  `npm run native:build`, which only exists on Windows.
+
+TypeScript and Vite-only imports are handled by `scripts/ts-esbuild-hooks.mjs`
+(`module.registerHooks` + the `esbuild` already in the tree), so `npm test` needs
+no new dependency and no build step — but it does need **Node 22.15 or newer**;
+older versions stop with that message instead of quietly running half the suite.
+
+To see the suite in a clean environment, Docker is enough (nothing about it is
+required for normal development):
+
+```bash
+docker run --rm -v "$PWD:/w" -w /w node:22 npm test
+```
+
+`npm run typecheck` covers the same files, so run both — the tests say a rule is
+right, the typecheck says the call sites still fit.
 
 ---
 
