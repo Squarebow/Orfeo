@@ -2,15 +2,18 @@
 # app actually opens. Used three ways:
 #   • by the Release workflow (release.yml → "2. Build (Linux)"), from the tag;
 #     release.yml then uploads the packages into the draft release;
-#   • by hand: Actions → Linux build → Run workflow (from any branch) — the
-#     packages and a screenshot of the opened app are kept as run artifacts;
-#   • on every pull request, as a check.
+#   • on every push to dev and every pull request, as a check — so a change that
+#     breaks Linux shows up straight away, not on release day;
+#   • by hand: Actions → Linux build → Run workflow (once this file is on main).
+# The packages and a screenshot of the opened app are kept as run artifacts.
 #
 # Read-only and no secrets: it never uploads to a release itself.
 # The Native sound engine is Windows-only for now, so nothing native is built.
 name: Linux build
 
 on:
+  push:
+    branches: [dev]
   workflow_dispatch:
   workflow_call:
     inputs:
