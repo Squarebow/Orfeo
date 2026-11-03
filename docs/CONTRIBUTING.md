@@ -353,7 +353,7 @@ Developer Program membership. macOS therefore blocks a downloaded copy until
 the person allows it once in *Privacy & Security* (see
 [INSTALLATION.md → macOS](INSTALLATION.md#macos)).
 
-Pull requests build both Mac apps the same way
+Every push to `dev` and every pull request builds both Mac apps the same way
 (`.github/workflows/macos.yml`), read-only and without any secrets.
 
 ### Linux builds

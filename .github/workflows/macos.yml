@@ -1,9 +1,13 @@
-# Checks every pull request still type-checks and packages for macOS (both
-# architectures, ad-hoc signed, as releases are). Read-only and no secrets, so
-# fork pull requests run it as well. Releases build macOS in release.yml.
+# Checks that every push to dev and every pull request still type-checks and
+# packages for macOS (both architectures, ad-hoc signed, as releases are), so a
+# change that breaks the Mac build shows up straight away, not on release day.
+# Read-only and no secrets, so fork pull requests run it as well. Releases build
+# macOS in release.yml.
 name: macOS build
 
 on:
+  push:
+    branches: [dev]
   pull_request:
     branches: [dev, main]
 
