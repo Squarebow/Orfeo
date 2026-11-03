@@ -1,0 +1,84 @@
+# Checks every pull request against two house rules (docs/CONTRIBUTING.md →
+# "Pull request rules"):
+#
+#   1. It targets `dev`. `main` only ever receives `dev`, at release time.
+#   2. Every commit is authored by a person. No AI coding tool appears as a
+#      commit's author or committer, in a `Co-authored-by:` line, or in a
+#      "Generated with …" line — in the commits, the PR title or its description.
+#
+# `pull_request_target` so it runs on fork pull requests straight away, without
+# waiting for approval. That is safe here because nothing from the pull request
+# is checked out or run: the job only reads the PR's metadata and commit list
+# through the API, and the PR's text is passed as data (env), never as code.
+name: PR rules
+
+on:
+  pull_request_target:
+    types: [opened, reopened, synchronize, edited]
+
+permissions:
+  contents: read
+  pull-requests: read
+
+jobs:
+  rules:
+    name: Target branch and authorship
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Check the pull request
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+          PR: ${{ github.event.pull_request.number }}
+          BASE: ${{ github.event.pull_request.base.ref }}
+          HEAD_REF: ${{ github.event.pull_request.head.ref }}
+          HEAD_REPO: ${{ github.event.pull_request.head.repo.full_name }}
+          TITLE: ${{ github.event.pull_request.title }}
+          BODY: ${{ github.event.pull_request.body }}
+        run: |
+          set -uo pipefail
+          fail=0
+          problem() { echo "::error::$1"; echo "- $1" >> "$GITHUB_STEP_SUMMARY"; fail=1; }
+          echo "### PR rules" >> "$GITHUB_STEP_SUMMARY"
+
+          # ── 1. Target branch ──────────────────────────────────────────────
+          if [ "$BASE" = "main" ] && ! { [ "$HEAD_REPO" = "$REPO" ] && [ "$HEAD_REF" = "dev" ]; }; then
+            problem "This pull request targets main. Please change its base branch to dev (Edit, next to the title)."
+          fi
+
+          # ── 2. Authorship ─────────────────────────────────────────────────
+          # Names, logins and e-mail addresses AI coding tools commit under. No bare
+          # first names here ("Claude" is also a person's name): tool identities only.
+          AUTHORS='copilot|anthropic|claude code|openai|chatgpt|gemini-code-assist|cursoragent|cursor agent|devin-ai|aider|codeium|windsurf|tabnine|amazon ?q developer|sweep-ai|coderabbit'
+          # In a Co-authored-by / Generated-with line, the plain tool names count too
+          TOOLS="$AUTHORS|claude|codex|gemini"
+          # A tool named in an authorship line of a commit message or the PR text
+          LINES="^[[:space:]]*(co-authored-by|signed-off-by|generated[- ](with|by)|assisted[- ]by|🤖)"
+
+          commits=$(gh api --paginate "repos/$REPO/pulls/$PR/commits" \
+            --jq '.[] | [.sha[0:7], .commit.author.name, .commit.author.email, .commit.committer.name, .commit.committer.email, (.author.login // ""), (.commit.message | @base64)] | @tsv')
+          while IFS=$'\t' read -r sha an ae cn ce login msg; do
+            [ -z "$sha" ] && continue
+            who="$an <$ae> / $cn <$ce> / $login"
+            if echo "$who" | grep -qiE "$AUTHORS"; then
+              problem "Commit $sha is authored or committed by an AI tool ($an <$ae>). Commits must carry your own name and e-mail."
+            fi
+            hits=$(echo "$msg" | base64 -d | grep -iE "$LINES" | grep -iE "$TOOLS" || true)
+            if [ -n "$hits" ]; then
+              problem "Commit $sha names an AI tool in its message: $(echo "$hits" | head -1 | tr -d '\r')"
+            fi
+          done <<< "$commits"
+
+          text_hits=$(printf '%s\n%s\n' "$TITLE" "$BODY" | grep -iE "$LINES|claude\.ai/code" | grep -iE "$TOOLS|claude\.ai/code" || true)
+          if [ -n "$text_hits" ]; then
+            problem "The pull request title or description credits an AI tool: $(echo "$text_hits" | head -1 | tr -d '\r')"
+          fi
+
+          if [ "$fail" = 0 ]; then
+            echo "All good: targets dev, every commit authored by a person." >> "$GITHUB_STEP_SUMMARY"
+          else
+            echo "" >> "$GITHUB_STEP_SUMMARY"
+            echo "How to fix this: docs/CONTRIBUTING.md → Pull request rules." >> "$GITHUB_STEP_SUMMARY"
+          fi
+          exit $fail
