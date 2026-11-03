@@ -121,11 +121,6 @@ jobs:
     runs-on: windows-latest
     timeout-minutes: 45
     steps:
-      # The hand-engine check hashes handAssignment.ts with Windows line endings,
-      # exactly as on your PC, so the checkout must use them too.
-      - name: Use Windows line endings
-        run: git config --global core.autocrlf true
-
       - name: Get the code of the tagged version
         uses: actions/checkout@v7
         with:
