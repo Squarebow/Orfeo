@@ -87,7 +87,11 @@ async function buildFluid(arch) {
     const build = join(work, `build-${name}-${arch ?? 'native'}`)
     console.log(`[native] building ${name}${arch ? ` (${arch})` : ''}`)
     rmSync(build, { recursive: true, force: true })
-    run('cmake', ['-S', src, '-B', build, ...common, ...SOURCES[name].args])
+    // libsndfile is static, so what it needs has to be named at the end of the link
+    // line: dependants first, as the linker resolves them left to right
+    const codecs = ['FLAC', 'vorbisenc', 'vorbisfile', 'vorbis', 'opus', 'ogg'].map(l => join(prefix, 'lib', `lib${l}.a`)).concat('-lm', '-lpthread').join(' ')
+    const link = name === 'fluidsynth' ? [`-DCMAKE_C_STANDARD_LIBRARIES=${codecs}`, `-DCMAKE_CXX_STANDARD_LIBRARIES=${codecs}`] : []
+    run('cmake', ['-S', src, '-B', build, ...common, ...SOURCES[name].args, ...link])
     run('cmake', ['--build', build, '--parallel'])
     run('cmake', ['--install', build])
   }
