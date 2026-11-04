@@ -160,6 +160,7 @@ jobs:
 
       # a compressed sound set, the one Orfeo offers to download: needs libsndfile's codecs
       - name: Self-test with a compressed sound set (.sf3)
+        if: ${{ !cancelled() }}
         working-directory: native
         run: |
           curl -sSL --fail -o "$RUNNER_TEMP/MuseScore_General.sf3" https://ftp.osuosl.org/pub/musescore/soundfont/MuseScore_General/MuseScore_General.sf3
@@ -167,7 +168,7 @@ jobs:
 
       # ALSA is the route when no sound server runs (ALSA-only systems): same self-test
       - name: Self-test through ALSA
-        if: runner.os == 'Linux'
+        if: ${{ !cancelled() && runner.os == 'Linux' }}
         working-directory: native
         env:
           ORFEO_AUDIO_HOST: alsa

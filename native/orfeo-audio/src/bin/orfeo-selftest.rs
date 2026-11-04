@@ -126,7 +126,8 @@ fn main() {
 
     println!("\n8. Seek and tempo");
     e.send(Command::Seek(60.0)); sleep(300);
-    t.check((s.position() - 60.3).abs() < 0.1, "jump to 1:00", format!("{:.2} s", s.position()));
+    t.check((s.position() - 60.3).abs() < 0.5, "jump to 1:00", format!("{:.2} s", s.position()));
+    steady(&mut t, (s.position() - 60.3).abs() < 0.1, "  … right on time", format!("{:.2} s", s.position()));
     e.send(Command::SetTempoRatio(2.0)); sleep(100); let p = s.position(); sleep(1000);
     let d = s.position() - p;
     // the musical part, strict everywhere: double speed is clearly double, not normal
