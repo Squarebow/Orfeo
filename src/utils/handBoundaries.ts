@@ -4,6 +4,7 @@ import { KEYBOARD_GROUPS } from './keyboardGroups'
 
 // ── Keyboard MIDI note ranges per size — must match Keyboard.tsx ──────────────
 const RANGES: Record<number, { min: number; max: number }> = {
+  49: { min: 36, max: 84 },
   61: { min: 36, max: 96 },
   73: { min: 28, max: 103 },
   88: { min: 21, max: 108 },
