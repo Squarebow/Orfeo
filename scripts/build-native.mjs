@@ -9,6 +9,7 @@
 // checked against its SHA-256. Needs Rust (rustup, MSVC toolchain).
 //
 // usage: node scripts/build-native.mjs [--debug]
+// (On macOS and Linux this hands over to scripts/build-native-unix.mjs.)
 
 import { execFileSync } from 'node:child_process'
 import { createHash } from 'node:crypto'
@@ -27,8 +28,9 @@ const FLUID = {
   sha256: '84a7fd3e3c9795edeb1619e358ac3a4094b728915f9c64a264222782474fcb64',
 }
 
+// macOS and Linux build FluidSynth from source: scripts/build-native-unix.mjs
 if (process.platform !== 'win32') {
-  console.log('[native] the native engine is Windows-only for now — skipping')
+  await import('./build-native-unix.mjs')
   process.exit(0)
 }
 

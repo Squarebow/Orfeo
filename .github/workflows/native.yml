@@ -8,8 +8,9 @@
 #     notes, count-in, metronome, seek, tempo, Low latency ↔ normal, buffer
 #     step-up) must pass playing a demo song into a virtual sound card —
 #     PulseAudio's null sink on Linux (reached through ALSA, as desktop Linux
-#     reaches PulseAudio/PipeWire), BlackHole on macOS — with the system's
-#     FluidSynth. These are virtual machines: the self-test's --virtual reports
+#     reaches PulseAudio/PipeWire), BlackHole on macOS — with the FluidSynth we
+#     build and ship (scripts/build-native-unix.mjs), once with the bundled sound
+#     set and once with a compressed .sf3. These are virtual machines: the self-test's --virtual reports
 #     timing steadiness instead of failing on it; every musical check is strict.
 # Read-only, no secrets.
 name: Native engine
@@ -17,9 +18,9 @@ name: Native engine
 on:
   push:
     branches: [dev]
-    paths: ["native/**", "scripts/build-native.mjs", ".github/workflows/native.yml"]
+    paths: ["native/**", "scripts/build-native*.mjs", ".github/workflows/native.yml"]
   pull_request:
-    paths: ["native/**", "scripts/build-native.mjs", ".github/workflows/native.yml"]
+    paths: ["native/**", "scripts/build-native*.mjs", ".github/workflows/native.yml"]
 
 permissions:
   contents: read
@@ -97,11 +98,11 @@ jobs:
         with:
           persist-credentials: false
 
-      - name: Virtual sound card + FluidSynth (Linux)
+      - name: Virtual sound card (Linux)
         if: runner.os == 'Linux'
         run: |
           sudo apt-get update -q
-          sudo apt-get install -y -q libasound2-dev libdbus-1-dev libfluidsynth3 alsa-utils pulseaudio pulseaudio-utils libasound2-plugins
+          sudo apt-get install -y -q libasound2-dev libdbus-1-dev alsa-utils pulseaudio pulseaudio-utils libasound2-plugins
           # ALSA's default device → PulseAudio → a null sink that plays in real time
           echo 'pcm.!default { type pulse }' | sudo tee /etc/asound.conf
           echo 'ctl.!default { type pulse }' | sudo tee -a /etc/asound.conf
@@ -115,27 +116,54 @@ jobs:
           sleep 1
           pactl list short sink-inputs
           pactl info | grep -i 'default sink'
-          echo "FLUID_DIR=$(dirname "$(ldconfig -p | grep -m1 'libfluidsynth.so.3 ' | awk '{print $NF}')")" >> "$GITHUB_ENV"
 
-      - name: Virtual sound card + FluidSynth (macOS)
+      - name: Virtual sound card (macOS)
         if: runner.os == 'macOS'
         run: |
-          brew install fluidsynth
           brew install --cask blackhole-2ch
           sudo killall coreaudiod || true
           sleep 5
           system_profiler SPAudioDataType | head -30
-          echo "FLUID_DIR=$(brew --prefix)/lib" >> "$GITHUB_ENV"
 
       - uses: Swatinem/rust-cache@v2
         with:
           workspaces: native
 
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+
+      # FluidSynth and its codecs take a few minutes: rebuilt only when the script changes
+      - uses: actions/cache@v6
+        with:
+          path: native/build/fluidsynth
+          key: fluidsynth-${{ runner.os }}-${{ hashFiles('scripts/build-native-unix.mjs') }}
+
+      - name: Build the add-on and FluidSynth, as the packages do
+        run: node scripts/build-native.mjs
+
+      - name: What was built
+        run: |
+          ls -la native/build native/build/fluidsynth
+          if [ "$RUNNER_OS" = macOS ]; then
+            lipo -info native/build/orfeo_audio.node native/build/fluidsynth/libfluidsynth.3.dylib
+            otool -L native/build/fluidsynth/libfluidsynth.3.dylib
+          else
+            ldd native/build/fluidsynth/libfluidsynth.so.3
+          fi
+
       - name: Self-test
         working-directory: native
         run: |
           cargo build --release -p orfeo-audio --bin orfeo-selftest
-          ./target/release/orfeo-selftest --virtual --fluid "$FLUID_DIR" --sf2 ../public/GeneralUser-GS.sf2 "../public/Demo/Vivaldi 4 stagioni - Estate.mid"
+          ./target/release/orfeo-selftest --virtual --fluid build/fluidsynth --sf2 ../public/GeneralUser-GS.sf2 "../public/Demo/Vivaldi 4 stagioni - Estate.mid"
+
+      # a compressed sound set, the one Orfeo offers to download: needs libsndfile's codecs
+      - name: Self-test with a compressed sound set (.sf3)
+        working-directory: native
+        run: |
+          curl -sSL --fail -o "$RUNNER_TEMP/MuseScore_General.sf3" https://ftp.osuosl.org/pub/musescore/soundfont/MuseScore_General/MuseScore_General.sf3
+          ./target/release/orfeo-selftest --virtual --fluid build/fluidsynth --sf2 "$RUNNER_TEMP/MuseScore_General.sf3" "../public/Demo/Vivaldi 4 stagioni - Estate.mid"
 
       # ALSA is the route when no sound server runs (ALSA-only systems): same self-test
       - name: Self-test through ALSA
@@ -143,4 +171,4 @@ jobs:
         working-directory: native
         env:
           ORFEO_AUDIO_HOST: alsa
-        run: ./target/release/orfeo-selftest --virtual --fluid "$FLUID_DIR" --sf2 ../public/GeneralUser-GS.sf2 "../public/Demo/Vivaldi 4 stagioni - Estate.mid"
+        run: ./target/release/orfeo-selftest --virtual --fluid build/fluidsynth --sf2 ../public/GeneralUser-GS.sf2 "../public/Demo/Vivaldi 4 stagioni - Estate.mid"
