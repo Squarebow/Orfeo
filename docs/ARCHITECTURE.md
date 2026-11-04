@@ -395,8 +395,12 @@ the scale rather than stacked from it. Progressions play as written, so a step
 can fall outside the selected scale; a step matching a tile lights that tile.
 Layout: explorer area (circle, tiles, info row) on the left, a settings
 column on the right (`SettingRow`: control left, title + description right).
-The window opens centred with its bottom edge measured onto the keyboard's
-chord header (`defaultPos` + a one-shot layout effect).
+The window opens where it was last dragged (`explorerPositions` in the store,
+saved with the prefs, kept inside the app window by `explorerPosInWindow`), the
+first time centred with its bottom edge measured onto the keyboard's chord
+header (`defaultPos` + a one-shot layout effect). Content changing size moves
+only the bottom edge; `useKeepBottomOnScreen` nudges the panel up just enough if
+that edge would leave the window. Both Explorers work the same way.
 
 Every draggable floating window carries `app-no-drag` on its root: the top
 bar is the window's drag region, and Electron gives that region the click

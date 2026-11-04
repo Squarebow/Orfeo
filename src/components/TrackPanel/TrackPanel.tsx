@@ -642,6 +642,15 @@ function TrackRow({
   const trackVuColorEnabled = useStore(s => s.trackVuColorEnabled)
   const vuFillRef = useRef<HTMLDivElement>(null)
   const vuLevel   = useRef(0)
+  // ── One piano track played by both hands, with Hand Assignment on: a blue and
+  // a pink meter side by side, each following its own hand, so the mode shows at
+  // a glance. A track already split to one hand keeps its single meter. ─────────
+  const showHandLabels = useStore(s => s.showHandLabels)
+  const trackNotes = useStore(s => (s.midi as any)?.tracks?.find((t: any) => t.index === track.index)?.notes)
+  const twoHands = useMemo(() => showHandLabels && !!trackNotes?.some((n: any) => n.hand === 'L') && !!trackNotes?.some((n: any) => n.hand === 'R'),
+    [showHandLabels, trackNotes])
+  const vuFillLhRef = useRef<HTMLDivElement>(null)
+  const vuLevelLh   = useRef(0)
   useEffect(() => {
     if (!trackVuColorEnabled) return
     const unsub = useStore.subscribe(state => {
@@ -651,23 +660,48 @@ function TrackRow({
       if (!tr || tr.muted) return
       const pt = (md as any).tracks?.find((t: any) => t.index === track.index)
       if (!pt) return
-      let maxVel = 0
+      let maxVel = 0, maxVelLh = 0
       for (const note of pt.notes) {
         // Notes are sorted by time — skip once past current window
         if (note.time > currentTime + 0.02) break
-        if (currentTime < note.time + note.duration && note.velocity > maxVel) maxVel = note.velocity
+        if (currentTime >= note.time + note.duration) continue
+        if (twoHands && note.hand === 'L') { if (note.velocity > maxVelLh) maxVelLh = note.velocity }
+        else if (note.velocity > maxVel) maxVel = note.velocity
       }
       if (maxVel > 0) vuLevel.current = maxVel * tr.volume
+      if (maxVelLh > 0) vuLevelLh.current = maxVelLh * tr.volume
     })
     let raf = 0
     const loop = () => {
       vuLevel.current = Math.max(0, vuLevel.current - 0.013)
+      vuLevelLh.current = Math.max(0, vuLevelLh.current - 0.013)
       if (vuFillRef.current) vuFillRef.current.style.transform = `scaleY(${Math.min(1, vuLevel.current)})`
+      if (vuFillLhRef.current) vuFillLhRef.current.style.transform = `scaleY(${Math.min(1, vuLevelLh.current)})`
       raf = requestAnimationFrame(loop)
     }
     raf = requestAnimationFrame(loop)
     return () => { unsub(); cancelAnimationFrame(raf) }
-  }, [trackVuColorEnabled, track.index])
+  }, [trackVuColorEnabled, track.index, twoHands])
+
+  // The colour pill beside the name: a VU meter, or a plain bar with the meters off
+  const pill = (color: string, fillRef: React.RefObject<HTMLDivElement | null>, style?: React.CSSProperties) => trackVuColorEnabled ? (
+    <div style={{
+      width: 3, height: 20, borderRadius: 2, flexShrink: 0,
+      opacity: dimmed ? 0.6 : 1, position: 'relative', overflow: 'hidden', ...style,
+    }}>
+      {/* Dim tint — fills the whole pill so it always reads as this track's color ── */}
+      <div style={{ position: 'absolute', inset: 0, background: color, opacity: 0.18 }} />
+      {/* Floor — bottom 25%, full color, always on regardless of playback state ── */}
+      <div style={{ position: 'absolute', left: 0, right: 0, bottom: 0, height: '25%', background: color }} />
+      {/* VU fill — grows upward from the floor with playback level (transform, not height) ── */}
+      <div ref={fillRef} style={{
+        position: 'absolute', left: 0, right: 0, bottom: '25%', height: '75%',
+        background: color, transform: 'scaleY(0)', transformOrigin: 'bottom',
+      }} />
+    </div>
+  ) : (
+    <div style={{ width: 3, height: 20, background: color, borderRadius: 2, flexShrink: 0, opacity: dimmed ? 0.6 : 1, ...style }} />
+  )
 
   return (
     <div
@@ -715,24 +749,9 @@ function TrackRow({
         >
           <GripVertical size={11} />
         </div>
-        {trackVuColorEnabled ? (
-          <div style={{
-            width: 3, height: 20, borderRadius: 2, flexShrink: 0,
-            opacity: dimmed ? 0.6 : 1, position: 'relative', overflow: 'hidden',
-          }}>
-            {/* Dim tint — fills the whole pill so it always reads as this track's color ── */}
-            <div style={{ position: 'absolute', inset: 0, background: track.color, opacity: 0.18 }} />
-            {/* Floor — bottom 25%, full color, always on regardless of playback state ── */}
-            <div style={{ position: 'absolute', left: 0, right: 0, bottom: 0, height: '25%', background: track.color }} />
-            {/* VU fill — grows upward from the floor with playback level (transform, not height) ── */}
-            <div ref={vuFillRef} style={{
-              position: 'absolute', left: 0, right: 0, bottom: '25%', height: '75%',
-              background: track.color, transform: 'scaleY(0)', transformOrigin: 'bottom',
-            }} />
-          </div>
-        ) : (
-          <div style={{ width: 3, height: 20, background: track.color, borderRadius: 2, flexShrink: 0, opacity: dimmed ? 0.6 : 1 }} />
-        )}
+        {/* Left hand left of right hand; the left pill sits in the row's gap, so names stay put */}
+        {twoHands && pill('var(--hand-lh)', vuFillLhRef, { marginLeft: -5, marginRight: -4 })}
+        {pill(twoHands ? 'var(--hand-rh)' : track.color, vuFillRef)}
         <MarqueeText name={track.trackName ?? track.gmName} spanStyle={{ fontSize: 'var(--text-sm)', fontWeight: 500, color: 'var(--text-muted)' }} />
       </div>
 

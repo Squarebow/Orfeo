@@ -246,6 +246,9 @@ interface OrfeoStore {
   noteEditorToolbarX: number
   noteEditorToolbarY: number
   setNoteEditorToolbarPos: (x: number, y: number) => void
+  // Where the Explorers were last dragged to; null until they are
+  explorerPositions: { chord: { x: number; y: number } | null; scale: { x: number; y: number } | null }
+  setExplorerPosition: (which: 'chord' | 'scale', pos: { x: number; y: number }) => void
   noteEditorSoloTrackIndex: number | null
   preSoloTrackVisibility: boolean[] | null
   soloTrackForEdit: (index: number, opts?: { keepPlayhead?: boolean }) => void
@@ -886,6 +889,8 @@ export const useStore = create<OrfeoStore>((set, get) => ({
   noteEditorToolbarX: 24,
   noteEditorToolbarY: 80,
   setNoteEditorToolbarPos: (noteEditorToolbarX, noteEditorToolbarY) => set({ noteEditorToolbarX, noteEditorToolbarY }),
+  explorerPositions: { chord: null, scale: null },
+  setExplorerPosition: (which, pos) => set(s => ({ explorerPositions: { ...s.explorerPositions, [which]: pos } })),
 
   // ── Note Editor: track solo + first-run walkthrough ───────────────────────
   noteEditorSoloTrackIndex: null,
@@ -1260,6 +1265,10 @@ async function restoreLibraryPrefs() {
       useStore.setState({ tempoWarningDismissed: dismissed, tempoTrustCache: cache, libraryTrustIndex: index })
     }
     if (typeof prefs.noteEditorToolbarX === 'number' && typeof prefs.noteEditorToolbarY === 'number') store.setNoteEditorToolbarPos(prefs.noteEditorToolbarX, prefs.noteEditorToolbarY)
+    for (const which of ['chord', 'scale'] as const) {
+      const p = prefs.explorerPositions?.[which]
+      if (typeof p?.x === 'number' && typeof p?.y === 'number') store.setExplorerPosition(which, { x: p.x, y: p.y })
+    }
     if (typeof prefs.chordPrompterEnabled === 'boolean') store.setChordPrompterEnabled(prefs.chordPrompterEnabled)
     if (typeof prefs.chordTranscriptionEnabled === 'boolean') store.setChordTranscriptionEnabled(prefs.chordTranscriptionEnabled)
     if (typeof prefs.hideDemoFolder === 'boolean') store.setHideDemoFolder(prefs.hideDemoFolder)
@@ -1364,6 +1373,7 @@ let _prevSamplesIntroduced: boolean | null = null
 let _prevCountInBars: number | null = null
 let _prevTempoCorrections: object | null = null
 let _prevNoteEditorToolbarX:   number  | null = null
+let _prevExplorerPositions: unknown = null
 let _prevNoteEditorToolbarY:   number  | null = null
 let _prevChordPrompterEnabled: boolean | null = null
 let _prevChordTranscriptionEnabled: boolean | null = null
@@ -1435,6 +1445,7 @@ const _unsubPrefs = useStore.subscribe((state) => {
     _prevCountInBars = state.countInBars
     _prevTempoCorrections = state.tempoCorrections
     _prevNoteEditorToolbarX = state.noteEditorToolbarX
+    _prevExplorerPositions = state.explorerPositions
     _prevNoteEditorToolbarY = state.noteEditorToolbarY
     _prevChordPrompterEnabled = state.chordPrompterEnabled
     _prevChordTranscriptionEnabled = state.chordTranscriptionEnabled
@@ -1509,6 +1520,7 @@ const _unsubPrefs = useStore.subscribe((state) => {
     state.countInBars !== _prevCountInBars ||
     state.tempoCorrections !== _prevTempoCorrections ||
     state.noteEditorToolbarX !== _prevNoteEditorToolbarX ||
+    state.explorerPositions !== _prevExplorerPositions ||
     state.noteEditorToolbarY !== _prevNoteEditorToolbarY ||
     state.chordPrompterEnabled !== _prevChordPrompterEnabled ||
     state.chordTranscriptionEnabled !== _prevChordTranscriptionEnabled ||
@@ -1575,6 +1587,7 @@ const _unsubPrefs = useStore.subscribe((state) => {
     _prevCountInBars = state.countInBars
     _prevTempoCorrections = state.tempoCorrections
     _prevNoteEditorToolbarX = state.noteEditorToolbarX
+    _prevExplorerPositions = state.explorerPositions
     _prevNoteEditorToolbarY = state.noteEditorToolbarY
     _prevChordPrompterEnabled = state.chordPrompterEnabled
     _prevChordTranscriptionEnabled = state.chordTranscriptionEnabled
@@ -1648,6 +1661,7 @@ const _unsubPrefs = useStore.subscribe((state) => {
       tempoCorrections: state.tempoCorrections,
       noteEditorToolbarX: state.noteEditorToolbarX,
       noteEditorToolbarY: state.noteEditorToolbarY,
+      explorerPositions: state.explorerPositions,
       chordPrompterEnabled: state.chordPrompterEnabled,
       chordTranscriptionEnabled: state.chordTranscriptionEnabled,
       hideDemoFolder: state.hideDemoFolder,

@@ -11,6 +11,15 @@ import { getGenreVoicing, isTritoneSub, TRITONE_SUB_CHORD, type Genre } from './
 import { ALL_CHORDS, resolveChord, type ChordInfo } from './chordVocabulary'
 import { humanizeChord, type ProgressionVoicing, type VoicingRange } from './voiceLeading'
 
+/** A remembered Explorer position, kept inside the app window: it may be smaller
+ *  now than when the Explorer was last moved */
+export function explorerPosInWindow(p: { x: number; y: number }, width: number, height: number, minTop: number) {
+  return {
+    x: Math.min(Math.max(0, p.x), Math.max(0, window.innerWidth - width)),
+    y: Math.min(Math.max(minTop, p.y), Math.max(minTop, window.innerHeight - height)),
+  }
+}
+
 // ── Explorer keyboard range — both explorers play on the 61-key layout ──────
 export const EXPLORER_RANGE: VoicingRange = { min: 36, max: 96 }
 

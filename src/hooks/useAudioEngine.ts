@@ -7,7 +7,8 @@ import { useEffect, useRef } from 'react'
 import { useStore } from '../store'
 import { useSamplesEngine } from './useSamplesEngine'
 import { pushHitEffect, amberHex } from '../utils/hitEffectQueue'
-import { isHomogeneousHandTrack, resolveHandAwareColor } from '../utils/handColors'
+import { isHomogeneousHandTrack } from '../utils/handColors'
+import { liveHandColor } from '../audio/liveHandColor'
 import { NES } from '../utils/noteEditorState'
 import { editableCopyToBuffer } from '../utils/noteEditorCommands'
 import { useMidiSettings, latencyOffsetSec, midiPrefsReady } from '../store/midiSettings'
@@ -205,17 +206,12 @@ function activeMidiData(): any {
 // Repopulates _mutedCh and rebuilds the key-lighting schedule from currentTime.
 // Called on track-state changes during playback so the filter takes effect instantly.
 function updateMutedChannels() {
-  const { tracks, bpm, originalBpm, detectedKey, currentTime, hitEffectScope, showHandLabels, handLabelMode, noteEditorActive } = useStore.getState()
+  const { tracks, bpm, originalBpm, detectedKey, currentTime, hitEffectScope } = useStore.getState()
   const midiData = activeMidiData()
   if (!midiData || !_player) return
   const hasSolo = tracks.some((t: any) => t.solo)
   const transpose = detectedKey?.transpose ?? 0
   const ratio = bpm / originalBpm
-  const performanceMode = handLabelMode === 'performance'
-  // Global Settings toggle stays authoritative here too (see PianoRoll.tsx's
-  // handColoringOn) — the Note Editor's own Hand toggle only adds to it,
-  // never takes coloring away from what the global setting already shows.
-  const effectiveShowHandLabels = showHandLabels || (noteEditorActive && NES.reassignHandsMode)
   _mutedCh.clear()
   for (const tr of midiData.tracks) {
     const ts = tracks.find((t: any) => t.index === tr.index)
@@ -246,13 +242,13 @@ function updateMutedChannels() {
       const delay = (note.time - currentTime) / ratio * 1000
       const durMs = Math.max(note.duration / ratio * 1000, 40)
       const midiNum = note.midi + transpose
-      const color = resolveHandAwareColor(note, defaultColor, { homogeneousTrack, showHandLabels: effectiveShowHandLabels, performanceMode })
       // These timers are purely visual (JZZ's own player drives the actual
       // audio on its own clock) — delayed by the output device's own
       // latency so the key light/chord name line up with what's actually
       // heard, not with when the note was merely scheduled. See
       // getOutputLatencySec() above.
       const t = setTimeout(() => {
+        const color = liveHandColor(note, defaultColor, homogeneousTrack)
         if (ts.showOnKeyboard) lightKey(midiNum, color, Math.min(durMs + 30, 2500))
         else pushHitEffect(midiNum, color)
       }, delay + getOutputLatencySec() * 1000)
@@ -292,9 +288,7 @@ function buildPlayer(startSec: number) {
     const raw = currentRaw()
     if (!raw) { console.warn('[Orfeo GM] buildPlayer: no raw bytes available, dirty=', NES.dirty, 'editMidi=', !!NES.editMidi); return }
     destroyPlayer(); clearAllKeys(); clearLightSchedule()
-    const { tracks, bpm, originalBpm, detectedKey, hitEffectScope, showHandLabels, handLabelMode, noteEditorActive } = useStore.getState()
-    const performanceMode = handLabelMode === 'performance'
-    const effectiveShowHandLabels = showHandLabels || (noteEditorActive && NES.reassignHandsMode)
+    const { tracks, bpm, originalBpm, detectedKey, hitEffectScope } = useStore.getState()
     const transpose = detectedKey?.transpose ?? 0
     const ratio = bpm / originalBpm
     const midiData = activeMidiData()
@@ -362,9 +356,9 @@ function buildPlayer(startSec: number) {
         const delay = (note.time - startSec) / ratio * 1000
         const durMs = Math.max(note.duration / ratio * 1000, 40)
         const midiNum = note.midi + transpose
-        const color = resolveHandAwareColor(note, defaultColor, { homogeneousTrack, showHandLabels: effectiveShowHandLabels, performanceMode })
         // Purely visual, same output-latency compensation as above.
         const t = setTimeout(() => {
+          const color = liveHandColor(note, defaultColor, homogeneousTrack)
           if (ts.showOnKeyboard) lightKey(midiNum, color, Math.min(durMs + 30, 2500))
           else pushHitEffect(midiNum, color)
         }, delay + getOutputLatencySec() * 1000)

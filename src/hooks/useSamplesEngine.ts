@@ -10,7 +10,8 @@ import { useEffect } from 'react'
 import type { WorkletSynthesizer } from 'spessasynth_lib'
 import { useStore } from '../store'
 import { pushHitEffect, amberHex } from '../utils/hitEffectQueue'
-import { isHomogeneousHandTrack, resolveHandAwareColor } from '../utils/handColors'
+import { isHomogeneousHandTrack } from '../utils/handColors'
+import { liveHandColor } from '../audio/liveHandColor'
 import { NES } from '../utils/noteEditorState'
 import { programTimeline, programAt } from '../audio/programTimeline'
 import { volumeAt, expressionAt, valueAt, volumeRatio } from '../audio/songVolume'
@@ -310,8 +311,6 @@ let _epochRatio = 1
 let _epochTranspose = 0
 let _epochHitEffectScope: ReturnType<typeof useStore.getState>['hitEffectScope'] = 'keyboard'
 let _epochHasSolo = false
-let _epochPerformanceMode = false
-let _epochShowHandLabels = false
 let _epochStartPerf = 0     // performance.now() when this scheduling run began
 let _epochStartFileSec = 0  // file-native seconds at that same moment
 // trackIndex -> next index into that track's notes/sustainEvents to consider.
@@ -632,7 +631,7 @@ function buildSamplesPlayer(startSec: number) {
   clearSchedule(); clearAllKeys()
   applyChannelVolumes()
 
-  const { tracks, bpm, originalBpm, detectedKey, hitEffectScope, showHandLabels, handLabelMode, noteEditorActive } = useStore.getState()
+  const { tracks, bpm, originalBpm, detectedKey, hitEffectScope } = useStore.getState()
   const midiData = activeMidiData()
   if (!midiData) return
 
@@ -641,10 +640,6 @@ function buildSamplesPlayer(startSec: number) {
   _epochTranspose = detectedKey?.transpose ?? 0
   _epochRatio = bpm / originalBpm
   _epochHasSolo = tracks.some(t => t.solo)
-  _epochPerformanceMode = handLabelMode === 'performance'
-  // Note Editor's own Hand toggle governs key-light coloring while editing —
-  // same split as the piano roll, see useAudioEngine.ts's identical fix.
-  _epochShowHandLabels = showHandLabels || (noteEditorActive && NES.reassignHandsMode)
   _epochHitEffectScope = hitEffectScope
   _epochStartPerf = performance.now()
   ;(window as any).__orfeoEngineStartedAt = _epochStartPerf
@@ -748,7 +743,6 @@ function refillSchedule() {
       const delay = Math.max(0, (note.time - nowFileSec()) / _epochRatio * 1000)
       const durMs = Math.max(note.duration / _epochRatio * 1000, 40)
       const midiNum = note.midi + _epochTranspose
-      const color = resolveHandAwareColor(note, defaultColor, { homogeneousTrack, showHandLabels: _epochShowHandLabels, performanceMode: _epochPerformanceMode })
 
       _schedule.push(setTimeout(() => {
         if (!_synth) return
@@ -772,6 +766,7 @@ function refillSchedule() {
       // visible on the piano roll; "all tracks" hit-effect scope likewise
       // still requires visibility. ─────────────────────────────────────────
       const vt = setTimeout(() => {
+        const color = liveHandColor(note, defaultColor, homogeneousTrack)
         if (ts.showOnKeyboard && isShown(ts, _epochHasSolo)) lightKey(midiNum, color, Math.min(durMs + 30, 2500))
         else if (_epochHitEffectScope === 'all' && isShown(ts, _epochHasSolo)) pushHitEffect(midiNum, color)
       }, delay + getOutputLatencySec() * 1000)
