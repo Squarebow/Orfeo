@@ -95,6 +95,9 @@ export default function KeyboardControls() {
   const hintRef = useRef<HTMLSpanElement>(null)
   const [hintShift, setHintShift] = useState(0)
   const stepThroughEnabled = useStore(s => s.stepThroughEnabled)
+  const waitForInputEnabled = useStore(s => s.waitForInputEnabled)
+  const handFilter = useStore(s => s.handFilter)
+  const setHandFilter = useStore(s => s.setHandFilter)
   const hasSong = useStore(s => !!s.midi)
   useLayoutEffect(() => {
     const row = rowRef.current, cell = hintCellRef.current
@@ -197,6 +200,28 @@ export default function KeyboardControls() {
           {isDocked ? 'Docked' : 'Floating'}
         </button>
         </Tooltip>}
+
+        {/* ── Hand filter — LH / Both / RH, visible when Wait for Input is on ── */}
+        {waitForInputEnabled && (
+          <>
+            <div style={{ width: 1, height: 14, background: 'var(--border)' }} />
+            <Tooltip title="Hand filter" description="Practice left hand, right hand, or both hands. Requires hand tags on the loaded file." oneLine>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+                {(['lh', 'both', 'rh'] as const).map(v => (
+                  <button key={v} onClick={() => setHandFilter(v)} style={{
+                    padding: '2px 6px', borderRadius: 4, border: 'none', cursor: 'pointer',
+                    background: handFilter === v ? 'var(--text-amber)' : 'transparent',
+                    color: handFilter === v ? 'var(--text-near-black)' : 'var(--text-muted)',
+                    fontFamily: 'var(--font-mono)', fontSize: 10, fontWeight: 700,
+                    transition: 'background 0.12s, color 0.12s',
+                  }}>
+                    {v === 'lh' ? 'L' : v === 'rh' ? 'R' : '◎'}
+                  </button>
+                ))}
+              </div>
+            </Tooltip>
+          </>
+        )}
       </div>
 
       {/* ── Center: shift+click hint — hidden while the practice-mode split

@@ -63,6 +63,10 @@ export default function Keyboard() {
   const lockedColors = useStore((s) => s.lockedColors)
   const waitForInputEnabled = useStore((s) => s.waitForInputEnabled)
   const waitForInputExpected = useStore((s) => s.waitForInputExpected)
+  const wrongFlashKeys = useStore((s) => s.wrongFlashKeys)
+  const durationFeedbackMsg = useStore((s) => s._durationFeedbackMsg)
+  const practiceCorrect = useStore((s) => s.practiceCorrect)
+  const practiceWrong = useStore((s) => s.practiceWrong)
   const setLockedKeysStore = useStore((s) => s.setLockedKeys)
   const clearLockedKeys = useStore((s) => s.clearLockedKeys)
   // ── Explorer chord display — computed name + count from ChordExplorer/ScaleExplorer
@@ -492,6 +496,7 @@ export default function Keyboard() {
   }, [activeKeyColors, lockedColors, explorerKeyColors, reflectColors, waitForInputEnabled, waitForInputExpected])
 
   const getColor = (midi: number): string | null => {
+    if (wrongFlashKeys.has(midi)) return '#ef4444'  // wrong note: red overrides all
     if (!allActiveKeys.has(midi)) return null
     return allActiveColors.get(midi) ?? 'var(--text-amber)'
   }
@@ -758,6 +763,26 @@ export default function Keyboard() {
                 </span>
               )}
             </div>
+
+            {/* ── Practice stats + duration feedback (wait-for-input mode) ───────── */}
+            {waitForInputEnabled && (practiceCorrect + practiceWrong > 0 || durationFeedbackMsg) && (
+              <div style={{ position: 'absolute', right: 72, display: 'flex', alignItems: 'center', gap: 8, pointerEvents: 'none' }}>
+                {durationFeedbackMsg && (
+                  <span style={{ fontFamily: 'var(--font-mono)', fontSize: 10, color: durationFeedbackMsg.includes('good') ? '#22c55e' : 'var(--text-muted)' }}>
+                    {durationFeedbackMsg}
+                  </span>
+                )}
+                {practiceCorrect + practiceWrong > 0 && (
+                  <span style={{ fontFamily: 'var(--font-mono)', fontSize: 10, color: 'var(--text-muted)' }}>
+                    <span style={{ color: '#22c55e' }}>{practiceCorrect}✓</span>
+                    {' '}
+                    <span style={{ color: '#ef4444' }}>{practiceWrong}✗</span>
+                    {' '}
+                    {practiceCorrect + practiceWrong > 0 && `${Math.round(practiceCorrect / (practiceCorrect + practiceWrong) * 100)}%`}
+                  </span>
+                )}
+              </div>
+            )}
 
             {/* ── Right: SCALES trigger ─────────────────────────────────────────── */}
             <div style={{ position: 'absolute', right: 10, display: 'flex', alignItems: 'center', gap: 'var(--space-2)' }}>

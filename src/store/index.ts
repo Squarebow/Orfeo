@@ -482,6 +482,34 @@ interface OrfeoStore {
   setWaitForInputEnabled: (v: boolean) => void
   waitForInputExpected: Set<number>
   _setWaitForInputExpected: (s: Set<number>) => void
+  // Wrong note red flash (feature 1)
+  wrongFlashKeys: Set<number>
+  _setWrongFlashKeys: (s: Set<number>) => void
+  // Hand filter: practice LH or RH only (feature 2)
+  handFilter: 'both' | 'lh' | 'rh'
+  setHandFilter: (v: 'both' | 'lh' | 'rh') => void
+  // Loop until correct: on wrong note, restart from loop start (feature 5)
+  loopUntilCorrect: boolean
+  setLoopUntilCorrect: (v: boolean) => void
+  // Duration feedback (feature 6)
+  durationFeedbackEnabled: boolean
+  setDurationFeedbackEnabled: (v: boolean) => void
+  _durationFeedbackMsg: string
+  _setDurationFeedbackMsg: (msg: string) => void
+  // Speed trainer: auto-increment BPM on success (feature 3)
+  tempoTrainerEnabled: boolean
+  setTempoTrainerEnabled: (v: boolean) => void
+  tempoTrainerStartPct: number
+  setTempoTrainerStartPct: (v: number) => void
+  tempoTrainerStepPct: number
+  setTempoTrainerStepPct: (v: number) => void
+  tempoTrainerCurrentPct: number
+  _setTempoTrainerCurrentPct: (v: number) => void
+  // Accuracy stats (feature 4)
+  practiceCorrect: number
+  practiceWrong: number
+  _recordPracticeHit: (correct: boolean) => void
+  resetPracticeStats: () => void
   // Export to audio (Settings › Audio): adds the Library right-click item; off by default
   exportAudioEnabled: boolean
   setExportAudioEnabled: (v: boolean) => void
@@ -1089,6 +1117,30 @@ export const useStore = create<OrfeoStore>((set, get) => ({
   setWaitForInputEnabled: (waitForInputEnabled) => set({ waitForInputEnabled }),
   waitForInputExpected: new Set<number>(),
   _setWaitForInputExpected: (waitForInputExpected) => set({ waitForInputExpected }),
+  wrongFlashKeys: new Set<number>(),
+  _setWrongFlashKeys: (wrongFlashKeys) => set({ wrongFlashKeys }),
+  handFilter: 'both',
+  setHandFilter: (handFilter) => set({ handFilter }),
+  loopUntilCorrect: false,
+  setLoopUntilCorrect: (loopUntilCorrect) => set({ loopUntilCorrect }),
+  durationFeedbackEnabled: false,
+  setDurationFeedbackEnabled: (durationFeedbackEnabled) => set({ durationFeedbackEnabled }),
+  _durationFeedbackMsg: '',
+  _setDurationFeedbackMsg: (_durationFeedbackMsg) => set({ _durationFeedbackMsg }),
+  tempoTrainerEnabled: false,
+  setTempoTrainerEnabled: (tempoTrainerEnabled) => set({ tempoTrainerEnabled, tempoTrainerCurrentPct: get().tempoTrainerStartPct }),
+  tempoTrainerStartPct: 70,
+  setTempoTrainerStartPct: (tempoTrainerStartPct) => set({ tempoTrainerStartPct }),
+  tempoTrainerStepPct: 5,
+  setTempoTrainerStepPct: (tempoTrainerStepPct) => set({ tempoTrainerStepPct }),
+  tempoTrainerCurrentPct: 70,
+  _setTempoTrainerCurrentPct: (tempoTrainerCurrentPct) => set({ tempoTrainerCurrentPct }),
+  practiceCorrect: 0,
+  practiceWrong: 0,
+  _recordPracticeHit: (correct) => set(s => correct
+    ? { practiceCorrect: s.practiceCorrect + 1 }
+    : { practiceWrong: s.practiceWrong + 1 }),
+  resetPracticeStats: () => set({ practiceCorrect: 0, practiceWrong: 0 }),
   exportAudioEnabled: false,
   setExportAudioEnabled: (exportAudioEnabled) => set({ exportAudioEnabled }),
   handColorLH: DEFAULT_HAND_LH,
@@ -1293,6 +1345,12 @@ async function restoreLibraryPrefs() {
     if (typeof prefs.autoCollapseDrawers === 'boolean') store.setAutoCollapseDrawers(prefs.autoCollapseDrawers)
     if (typeof prefs.stepThroughEnabled === 'boolean') store.setStepThroughEnabled(prefs.stepThroughEnabled)
     if (typeof prefs.waitForInputEnabled === 'boolean') store.setWaitForInputEnabled(prefs.waitForInputEnabled)
+    if (prefs.handFilter === 'lh' || prefs.handFilter === 'rh' || prefs.handFilter === 'both') store.setHandFilter(prefs.handFilter)
+    if (typeof prefs.loopUntilCorrect === 'boolean') store.setLoopUntilCorrect(prefs.loopUntilCorrect)
+    if (typeof prefs.durationFeedbackEnabled === 'boolean') store.setDurationFeedbackEnabled(prefs.durationFeedbackEnabled)
+    if (typeof prefs.tempoTrainerEnabled === 'boolean') store.setTempoTrainerEnabled(prefs.tempoTrainerEnabled)
+    if (typeof prefs.tempoTrainerStartPct === 'number') store.setTempoTrainerStartPct(prefs.tempoTrainerStartPct)
+    if (typeof prefs.tempoTrainerStepPct === 'number') store.setTempoTrainerStepPct(prefs.tempoTrainerStepPct)
     if (typeof prefs.exportAudioEnabled === 'boolean') store.setExportAudioEnabled(prefs.exportAudioEnabled)
     if (isHex(prefs.handColorLH) && isHex(prefs.handColorRH)) store.setHandColors(prefs.handColorLH, prefs.handColorRH)
     if (typeof prefs.tooltipsEnabled === 'boolean') store.setTooltipsEnabled(prefs.tooltipsEnabled)

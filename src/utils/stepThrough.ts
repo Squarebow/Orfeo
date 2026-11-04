@@ -28,13 +28,16 @@ function activeMidi(): any {
 // soloed-out track — the bass and drums under Focus, a melody you play along
 // to — never lands a step. Drums are left out anyway: they'd turn every
 // hi-hat into a step. ─────────────────────────────────────────────────────
-let _cache: { midi: unknown; sig: string; steps: Step[] } | null = null
+let _cache: { midi: unknown; sig: string; handFilter: string; steps: Step[] } | null = null
+
+// Last step's note durations — read by useMidiInput for duration feedback (feature 6)
+export const lastStepDurations = new Map<number, number>()  // midi (transposed) → seconds
 
 function shownSignature(): string {
   return useStore.getState().tracks.map(t => (t.muted ? 'm' : t.solo ? 's' : '.') + (t.visible ? 'v' : 'h')).join('')
 }
 
-export function buildSteps(midi: any, tracks: ReturnType<typeof useStore.getState>['tracks']): Step[] {
+export function buildSteps(midi: any, tracks: ReturnType<typeof useStore.getState>['tracks'], handFilter: 'both' | 'lh' | 'rh' = 'both'): Step[] {
   const hasSolo = tracks.some(t => t.solo)
   const all: (StepNote & { time: number })[] = []
   for (const track of midi?.tracks ?? []) {
@@ -42,6 +45,11 @@ export function buildSteps(midi: any, tracks: ReturnType<typeof useStore.getStat
     const ts = tracks.find(t => t.index === track.index)
     if (!ts || !isShown(ts, hasSolo)) continue
     for (const n of track.notes) {
+      // Hand filter: skip notes assigned to the other hand (only when note has a hand tag)
+      if (handFilter !== 'both' && n.hand) {
+        if (handFilter === 'lh' && n.hand !== 'L') continue
+        if (handFilter === 'rh' && n.hand !== 'R') continue
+      }
       all.push({ time: n.time, midi: n.midi, velocity: n.velocity, duration: n.duration, channel: track.channel, color: ts.color ?? amberHex() })
     }
   }
@@ -58,8 +66,9 @@ export function buildSteps(midi: any, tracks: ReturnType<typeof useStore.getStat
 function steps(): Step[] {
   const midi = activeMidi()
   const sig = shownSignature()
-  if (!_cache || _cache.midi !== midi || _cache.sig !== sig) {
-    _cache = { midi, sig, steps: buildSteps(midi, useStore.getState().tracks) }
+  const handFilter = useStore.getState().handFilter
+  if (!_cache || _cache.midi !== midi || _cache.sig !== sig || _cache.handFilter !== handFilter) {
+    _cache = { midi, sig, handFilter, steps: buildSteps(midi, useStore.getState().tracks, handFilter) }
   }
   return _cache.steps
 }
@@ -124,9 +133,11 @@ export function stepEvents(dir: 1 | -1, byBar = false): boolean {
     play?.(n.midi + transpose, n.velocity, durMs, n.channel, true, n.color)
   }
 
-  // Wait-for-input: populate expected notes so the keyboard shows them in hint color
+  // Wait-for-input: populate expected notes + durations for duration feedback
   if (dir === 1 && useStore.getState().waitForInputEnabled) {
     useStore.getState()._setWaitForInputExpected(new Set(step.notes.map(n => n.midi + transpose)))
+    lastStepDurations.clear()
+    for (const n of step.notes) lastStepDurations.set(n.midi + transpose, n.duration)
   }
 
   return true

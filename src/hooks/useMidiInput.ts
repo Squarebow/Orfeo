@@ -12,7 +12,7 @@
 
 import { useEffect } from 'react'
 import { useStore } from '../store'
-import { stepEvents } from '../utils/stepThrough'
+import { stepEvents, lastStepDurations } from '../utils/stepThrough'
 import { isTapCapturing, registerTap } from '../utils/tapTempoSession'
 import {
   useMidiSettings, midiPrefsReady, shapeVelocity, type ControlKind, type MidiDeviceInfo, type MidiOutputInfo,
@@ -29,6 +29,10 @@ import { nativeCall } from '../audio/nativeClient'
 import { nativeLivePiano } from '../audio/useNativeEngine'
 
 const HARDWARE_COLOR = 'var(--text-amber)'
+const WRONG_COLOR = '#ef4444'
+
+// Duration tracking for practice mode (feature 6)
+const _waitNoteOnTime = new Map<number, number>()  // midi note → performance.now() when pressed
 
 // ── Module state — one MIDI connection for the app's lifetime ────────────────
 let _access: MIDIAccess | null = null
@@ -103,6 +107,17 @@ function lightOff(notes: Iterable<number>) {
   useStore.setState({ activeKeys: nk, activeKeyColors: nc, midiHeldKeys: held })
 }
 
+function flashWrongKey(note: number) {
+  const { wrongFlashKeys } = useStore.getState()
+  const next = new Set(wrongFlashKeys); next.add(note)
+  useStore.setState({ wrongFlashKeys: next })
+  setTimeout(() => {
+    const { wrongFlashKeys: wf } = useStore.getState()
+    const next2 = new Set(wf); next2.delete(note)
+    useStore.setState({ wrongFlashKeys: next2 })
+  }, 350)
+}
+
 function heldBy(key: string): Set<number> {
   let s = _held.get(key)
   if (!s) { s = new Set(); _held.set(key, s) }
@@ -153,15 +168,41 @@ function noteOn(key: string, note: number, raw: number, stamp: number, t0: numbe
   lightOn(note)
   setActive(key)
 
-  // Wait-for-input: check if this note is expected; advance when all hit
+  // ── Wait-for-input practice mode (features 1–6) ─────────────────────────
   const ws = useStore.getState()
   if (ws.waitForInputEnabled && ws.waitForInputExpected.size > 0) {
     if (ws.waitForInputExpected.has(note)) {
+      // ── Correct note ──────────────────────────────────────────────────────
       const remaining = new Set(ws.waitForInputExpected)
       remaining.delete(note)
       ws._setWaitForInputExpected(remaining)
+      ws._recordPracticeHit(true)
+      // Duration feedback: record press time for noteOff comparison (feature 6)
+      if (ws.durationFeedbackEnabled && lastStepDurations.has(note)) {
+        _waitNoteOnTime.set(note, t0)
+      }
       if (remaining.size === 0) {
+        // Speed trainer: increment BPM on success (feature 3)
+        if (ws.tempoTrainerEnabled) {
+          const nextPct = Math.min(100, ws.tempoTrainerCurrentPct + ws.tempoTrainerStepPct)
+          const nextBpm = Math.round(useStore.getState().originalBpm * nextPct / 100)
+          useStore.setState({ tempoTrainerCurrentPct: nextPct })
+          useStore.getState().setBpm(nextBpm)
+        }
         setTimeout(() => stepEvents(1), 180)
+      }
+    } else {
+      // ── Wrong note ───────────────────────────────────────────────────────
+      flashWrongKey(note)                            // feature 1: red flash
+      ws._recordPracticeHit(false)
+      // Duration feedback msg clear
+      ws._setDurationFeedbackMsg('')
+      // Loop until correct: restart from loop start (feature 5)
+      if (ws.loopUntilCorrect) {
+        const target = useStore.getState().loopStart ?? 0
+        useStore.setState({ currentTime: target })
+        ws._setWaitForInputExpected(new Set())
+        setTimeout(() => stepEvents(1), 120)
       }
     }
   }
@@ -175,6 +216,23 @@ function noteOff(key: string, note: number) {
   if (heldElsewhere(key, note)) return
   soundOff(note)
   lightOff([note])
+
+  // Duration feedback (feature 6): compare held time to expected note duration
+  const pressTime = _waitNoteOnTime.get(note)
+  if (pressTime !== undefined) {
+    _waitNoteOnTime.delete(note)
+    const { durationFeedbackEnabled, _setDurationFeedbackMsg } = useStore.getState()
+    if (durationFeedbackEnabled) {
+      const expectedDur = lastStepDurations.get(note) ?? 0
+      if (expectedDur > 0.1) {
+        const actualDur = (performance.now() - pressTime) / 1000
+        const ratio = actualDur / expectedDur
+        const msg = ratio < 0.45 ? '♩ too short' : ratio > 1.9 ? '♩ too long' : '♩ good'
+        _setDurationFeedbackMsg(msg)
+        setTimeout(() => useStore.getState()._setDurationFeedbackMsg(''), 1200)
+      }
+    }
+  }
 }
 
 // ── Pedals, wheels, pressure ─────────────────────────────────────────────────
