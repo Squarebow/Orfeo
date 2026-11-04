@@ -108,9 +108,9 @@ jobs:
           pulseaudio --start --exit-idle-time=-1
           pactl load-module module-null-sink sink_name=virtual
           pactl set-default-sink virtual
-          # Every new stream stalled ~2 s here (block traces, both routes). Suspend-on-idle
-          # was ruled out; the null sink works in blocks of up to 2 s while nothing asks
-          # for low latency, so a silent low-latency stream keeps its blocks small.
+          # Without this every new stream stalls ~2 s: an idle null sink works in blocks of
+          # up to 2 s. A silent low-latency stream keeps them small, as with a real card
+          # (measured: 100% of real time and no gaps, on both routes).
           nohup pacat --playback --raw --latency-msec=5 /dev/zero > /dev/null 2>&1 &
           sleep 1
           pactl list short sink-inputs
@@ -137,22 +137,10 @@ jobs:
           cargo build --release -p orfeo-audio --bin orfeo-selftest
           ./target/release/orfeo-selftest --virtual --fluid "$FLUID_DIR" --sf2 ../public/GeneralUser-GS.sf2 "../public/Demo/Vivaldi 4 stagioni - Estate.mid"
 
-      # Diagnostic only (never fails the run): each stream's first blocks traced, once
-      # through the sound server directly (the shipped route) and once through ALSA's
-      # bridge — the timings the sound system really asked for.
-      - name: Block trace, sound server directly (diagnostic)
-        if: always() && runner.os == 'Linux'
-        continue-on-error: true
-        working-directory: native
-        env:
-          ORFEO_AUDIO_TRACE: "1"
-        run: timeout 120 ./target/release/orfeo-selftest --virtual --fluid "$FLUID_DIR" --sf2 ../public/GeneralUser-GS.sf2 "../public/Demo/Vivaldi 4 stagioni - Estate.mid" 2>&1 | grep -E "trace|pace|Device" | head -150
-
-      - name: Block trace, through ALSA (diagnostic)
-        if: always() && runner.os == 'Linux'
-        continue-on-error: true
+      # ALSA is the route when no sound server runs (ALSA-only systems): same self-test
+      - name: Self-test through ALSA
+        if: runner.os == 'Linux'
         working-directory: native
         env:
           ORFEO_AUDIO_HOST: alsa
-          ORFEO_AUDIO_TRACE: "1"
-        run: timeout 120 ./target/release/orfeo-selftest --virtual --fluid "$FLUID_DIR" --sf2 ../public/GeneralUser-GS.sf2 "../public/Demo/Vivaldi 4 stagioni - Estate.mid" 2>&1 | grep -E "trace|pace|Device" | head -150
+        run: ./target/release/orfeo-selftest --virtual --fluid "$FLUID_DIR" --sf2 ../public/GeneralUser-GS.sf2 "../public/Demo/Vivaldi 4 stagioni - Estate.mid"
