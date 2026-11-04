@@ -108,10 +108,12 @@ jobs:
           pulseaudio --start --exit-idle-time=-1
           pactl load-module module-null-sink sink_name=virtual
           pactl set-default-sink virtual
-          # a null sink that suspends when idle takes ~2 s to wake at every new stream
-          # (seen in the block traces); real sound cards wake at once
-          pactl unload-module module-suspend-on-idle || true
-          pactl list short modules | grep -c suspend || true
+          # Every new stream stalled ~2 s here (block traces, both routes). Suspend-on-idle
+          # was ruled out; the null sink works in blocks of up to 2 s while nothing asks
+          # for low latency, so a silent low-latency stream keeps its blocks small.
+          nohup pacat --playback --raw --latency-msec=5 /dev/zero > /dev/null 2>&1 &
+          sleep 1
+          pactl list short sink-inputs
           pactl info | grep -i 'default sink'
           echo "FLUID_DIR=$(dirname "$(ldconfig -p | grep -m1 'libfluidsynth.so.3 ' | awk '{print $NF}')")" >> "$GITHUB_ENV"
 
