@@ -261,10 +261,12 @@ builds the installer (`Orfeo-Setup-X.Y.Z.exe`) and the portable app
 (`Orfeo-X.Y.Z-portable.exe`) on Windows from the tag, uploads them with
 `latest.yml` and the blockmap, and — at the same time, on macOS — builds
 `Orfeo-X.Y.Z-mac-arm64.dmg`/`.zip` (Apple Silicon) and
-`Orfeo-X.Y.Z-mac-x64.dmg`/`.zip` (Intel) into the same draft. Only when both
-builds succeed does it write the release notes from the changelog and publish
-the release as *Latest*; if either fails, the release stays a draft — fix the
-cause and use *Re-run failed jobs* on the run. It also builds the Microsoft Store package
+`Orfeo-X.Y.Z-mac-x64.dmg`/`.zip` (Intel), and on Linux the AppImage, `.deb` and
+`.rpm`, into the same draft. Windows goes first: once the Windows build is done,
+macOS and Linux get up to 30 minutes, then it writes the release notes from the
+changelog and publishes the release as *Latest*, with or without them. Their
+files join the published release when they finish; if one failed or GitHub had no
+machine for it, the run's summary says so and *Re-run failed jobs* adds them. It also builds the Microsoft Store package
 (`Orfeo-X.Y.Z.appx`, from the same app folder) and keeps it with the run, for
 step 4.
 
