@@ -3,10 +3,11 @@
 //!
 //! A line-for-line port of spessasynth's reverb (spessasynth_core 4.3,
 //! `DattorroReverb` — Jon Dattorro's plate, after khoin's public-domain
-//! DattorroReverbNode) with the settings it plays with in Orfeo: the plate's
-//! own starting values. (spessasynth's GS "Hall 2" preset only arrives with a
-//! GS reset, which Orfeo never sends.) Mono in (the sum of every channel's
-//! reverb send), stereo out.
+//! DattorroReverbNode) with the settings it plays with in Orfeo: spessasynth's
+//! reverb macro 4 (Hall 2), set when a sound set loads. Compare against a
+//! processor WITH a sound set: without one its effects sit at empty values, and
+//! both were once ported from that state by mistake. Mono in (the sum of every
+//! channel's reverb send), stereo out.
 
 struct Delay { buf: Vec<f32>, write: usize, read: usize, mask: usize }
 
@@ -39,7 +40,7 @@ impl Delay {
 pub struct Reverb {
     d: Vec<Delay>,
     taps: [usize; 14],
-    // the plate's starting values in spessasynth
+    // spessasynth's values for reverb macro 4 (time 64, level 64)
     pre_lpf: f32, in_diff1: f32, in_diff2: f32, decay: f32, dec_diff1: f32, dec_diff2: f32,
     damping: f32, exc_rate: f32, exc_depth: f32, gain: f32,
     lp1: f32, lp2: f32, lp3: f32, exc_phase: f32,
@@ -55,10 +56,10 @@ impl Reverb {
             .map(|x: f64| (x * r).round() as usize);
         Reverb {
             d: lengths.iter().map(|&s| Delay::new(s, r)).collect(), taps,
-            pre_lpf: 0.5, in_diff1: 0.75, in_diff2: 0.625, decay: 0.5,
-            dec_diff1: 0.7, dec_diff2: 0.5, damping: 0.005,
-            exc_rate: 0.1 / rate, exc_depth: 0.2 * rate / 1000.0,
-            gain: 1.0,
+            pre_lpf: 0.7, in_diff1: 0.75, in_diff2: 0.625, decay: 1.2 * (0.05 + 0.65 * 64.0 / 127.0),
+            dec_diff1: 0.67, dec_diff2: 0.69, damping: 0.1,
+            exc_rate: 0.5 / rate, exc_depth: 0.7 * rate / 1000.0,
+            gain: 64.0 / 345.0,
             lp1: 0.0, lp2: 0.0, lp3: 0.0, exc_phase: 0.0,
         }
     }
@@ -104,40 +105,105 @@ impl Reverb {
     }
 }
 
-/// The Samples engine's chorus as it plays in Orfeo: spessasynth's chorus at
-/// its starting values (no chorus preset arrives without a GS reset, which
-/// Orfeo never sends) has no depth or rate — the send comes back unmodulated,
-/// one sample late, at half level, the same on both sides.
-pub struct Chorus { last: f32 }
+/// The Studio engine's chorus, a line-for-line port of spessasynth's, at what it
+/// runs with a sound set loaded (chorus macro 2): two delay lines swept in
+/// opposite directions, which is what spreads a sound across left and right.
+pub struct Chorus {
+    l: Vec<f32>, r: Vec<f32>, write: usize, phase: f64,
+    rate_inc: f64, delay: f64, depth: f64, gain: f64, feedback: f64,
+}
 
 impl Chorus {
-    pub fn new() -> Chorus { Chorus { last: 0.0 } }
+    pub fn new(rate: f32) -> Chorus {
+        let sr = rate as f64;
+        let len = sr as usize;
+        Chorus {
+            l: vec![0.0; len], r: vec![0.0; len], write: 0, phase: 0.0,
+            rate_inc: 3.0 * 0.122 / sr,                                // rate 3
+            delay: (80.0 / 127.0 * 0.025 * sr).max(1.0),               // delay 80
+            depth: 19.0 / 127.0 * 0.025 * sr,                          // depth 19
+            gain: 64.0 / 127.0 * 1.3,                                  // level 64
+            feedback: 8.0 * 0.00763,                                   // feedback 8
+        }
+    }
+
+    #[inline]
+    fn tap(buf: &[f32], write: usize, delay: f64) -> f64 {
+        let len = buf.len();
+        let d = delay.clamp(1.0, len as f64);
+        let mut pos = write as f64 - d;
+        if pos < 0.0 { pos += len as f64 }
+        let x0 = pos as usize;
+        let x1 = if x0 + 1 >= len { x0 + 1 - len } else { x0 + 1 };
+        let frac = pos - x0 as f64;
+        buf[x0] as f64 * (1.0 - frac) + buf[x1] as f64 * frac
+    }
+
     /// Adds the chorus of `input` into `l` / `r`
     pub fn process(&mut self, input: &[f32], l: &mut [f32], r: &mut [f32]) {
+        let len = self.l.len();
         for i in 0..input.len() {
-            let out = self.last * 0.5;
-            l[i] += out; r[i] += out;
-            self.last = input[i];
+            let x = input[i] as f64;
+            let lfo = 2.0 * (self.phase - 0.5).abs();
+            let out_l = Self::tap(&self.l, self.write, self.delay + lfo * self.depth);
+            self.l[self.write] = (x + out_l * self.feedback) as f32;
+            let out_r = Self::tap(&self.r, self.write, self.delay + (1.0 - lfo) * self.depth);
+            l[i] += (out_l * self.gain) as f32;
+            r[i] += (out_r * self.gain) as f32;
+            self.r[self.write] = (x + out_r * self.feedback) as f32;
+            self.write += 1;
+            if self.write >= len { self.write = 0 }
+            self.phase += self.rate_inc;
+            if self.phase >= 1.0 { self.phase -= 1.0 }
         }
     }
 }
 
 #[cfg(test)]
 mod tests {
-    use super::Reverb;
-    #[test]
-    fn same_room_as_the_samples_engine() {
-        // an impulse, then a 0.2 s 440 Hz burst at 0.5 s, 3 s at 48 kHz: spessasynth 4.3.22's
-        // plate gives -14.347 dB (energy per sample, both channels)
-        let n = 48000 * 3;
-        let mut input = vec![0f32; n];
+    use super::{Chorus, Reverb};
+
+    /// An impulse, then a 0.2 s 440 Hz burst at 0.5 s, 3 s at 48 kHz
+    fn test_signal() -> Vec<f32> {
+        let mut input = vec![0f32; 48000 * 3];
         input[0] = 1.0;
         for i in 0..9600 { input[24000 + i] = (2.0 * std::f32::consts::PI * 440.0 * i as f32 / 48000.0).sin() * 0.5 }
+        input
+    }
+
+    #[test]
+    fn same_chorus_as_the_studio_engine() {
+        // spessasynth 4.3.22 with a sound set loaded, on test_signal(): left -24.236 dB,
+        // right -24.686 dB, and it really is stereo: the side signal is -29.426 dB
+        let input = test_signal();
+        let n = input.len();
+        let mut ch = Chorus::new(48000.0);
+        let (mut l, mut r) = (vec![0f32; n], vec![0f32; n]);
+        for s in (0..n).step_by(128) { ch.process(&input[s..s + 128], &mut l[s..s + 128], &mut r[s..s + 128]) }
+        let db = |v: &[f32]| 10.0 * (v.iter().map(|x| (*x as f64).powi(2)).sum::<f64>() / n as f64).log10();
+        let side: Vec<f32> = l.iter().zip(&r).map(|(a, b)| (a - b) / 2.0).collect();
+        assert!((db(&l) + 24.236).abs() < 0.01, "left {}", db(&l));
+        assert!((db(&r) + 24.686).abs() < 0.01, "right {}", db(&r));
+        assert!((db(&side) + 29.426).abs() < 0.01, "side {}", db(&side));
+        for (i, want_l, want_r) in [(30000, 0.3119869, 0.2816195), (35000, 0.0085547, 0.0200562)] {
+            assert!((l[i] - want_l).abs() < 1e-4 && (r[i] - want_r).abs() < 1e-4, "sample {i}: {} {}", l[i], r[i]);
+        }
+    }
+
+    #[test]
+    fn same_room_as_the_studio_engine() {
+        // spessasynth 4.3.22 with a sound set loaded, on test_signal(): -29.880 dB
+        // (energy per sample, both channels)
+        let input = test_signal();
+        let n = input.len();
         let mut rv = Reverb::new(48000.0);
         let (mut l, mut r) = (vec![0f32; n], vec![0f32; n]);
         for s in (0..n).step_by(128) { rv.process(&input[s..s + 128], &mut l[s..s + 128], &mut r[s..s + 128]) }
         let e: f64 = l.iter().chain(r.iter()).map(|x| (*x as f64).powi(2)).sum::<f64>() / (2 * n) as f64;
         let db = 10.0 * e.log10();
-        assert!((db + 14.347).abs() < 0.02, "{db}");
+        assert!((db + 29.880).abs() < 0.02, "{db}");
+        for (i, want_l, want_r) in [(30000, 0.0264099, -0.0370339), (60000, 0.0216599, 0.0107456)] {
+            assert!((l[i] - want_l).abs() < 1e-3 && (r[i] - want_r).abs() < 1e-3, "sample {i}: {} {}", l[i], r[i]);
+        }
     }
 }

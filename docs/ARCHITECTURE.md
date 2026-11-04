@@ -239,10 +239,13 @@ channel set to the wrong instrument for the rest of the session.
   from the sound set + CC91/CC93) on the channel's L + R, corrected for mono vs
   stereo samples and pan (`sf2.rs` reads the presets' generators;
   REVERB_LEVEL / CHORUS_LEVEL measured against spessasynth), feeds
-  `reverb.rs`: a sample-exact port of the plate Samples plays (spessasynth's
-  Dattorro at its starting values — Orfeo never sends the GS reset that would
-  load Hall 2), and its chorus at starting values (no depth or rate: the send,
-  one sample late, at half level). Parity is measured,
+  `reverb.rs`: a sample-exact port of what Studio plays once a sound set is
+  loaded (spessasynth's Dattorro on Hall 2, and its stereo chorus on Chorus 3;
+  without a sound set spessasynth's effects are empty, so measure with one).
+  Drums stay out of the chorus. FluidSynth's filter takes 3 dB off every
+  sound's resonance where spessasynth takes 0.3 dB; a channel offset on the
+  filter gives that back (`studio_filter` in `fluid.rs`, reapplied after
+  CC121). Parity is measured,
   not assumed: render the same song through both synths and compare each
   part's level, reverb and chorus (local tool, docs/Tools/engine-parity).
   It runs auto-level → compressor → safety limiter (no look-ahead) → tone on the song bus only, then

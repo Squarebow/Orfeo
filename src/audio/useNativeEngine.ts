@@ -18,12 +18,12 @@ import { volumeRatio } from './songVolume'
 import type { ControlEvent, ParsedTrack } from '../types'
 import { isShown } from '../utils/trackShown'
 
-// Brings Native to the Samples engine's loudness at the same master volume.
+// Brings Native to the Studio engine's loudness at the same master volume.
 // Measured from the speakers at a low master volume, where neither engine's
 // limiter acts (compressor off): matched there, both reach their limiters at
 // the same point, so loud passages keep the same punch. (Matching loudness at
 // a high volume instead hides a hotter engine behind its own limiter.)
-export const NATIVE_BOOST = 1.37
+export const NATIVE_BOOST = 1.69
 
 type Tracks = ReturnType<typeof useStore.getState>['tracks']
 const activeMidiData = (): any => (NES.dirty && NES.editMidi) ? NES.editMidi : useStore.getState().midi

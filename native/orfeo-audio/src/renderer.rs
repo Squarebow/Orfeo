@@ -190,7 +190,7 @@ impl Renderer {
             // the Samples engine's room: every channel's reverb send, summed, into its plate
             plate: Reverb::new(rate as f32),
             plate_in: vec![0f32; n],
-            chorus: Chorus::new(),
+            chorus: Chorus::new(rate as f32),
             chorus_in: vec![0f32; n],
             clicks,
             smooth: 1.0 - (-1.0 / (0.005 * rate as f32)).exp(), // ~5 ms gain ramps
@@ -398,7 +398,8 @@ impl Renderer {
                 .and_then(|(sf, bank, prog)| self.sf_ids.iter().position(|&id| id == sf).and_then(|i| self.own_sends[i].get(&(bank, prog)).copied()))
                 .unwrap_or_default();
             let send = ps.send(ps.reverb, self.sends[ch].0, st.pan, REVERB_LEVEL);
-            let csend = ps.send(ps.chorus, self.sends[ch].1, st.pan, CHORUS_LEVEL);
+            // drums stay out of the chorus, as in spessasynth (its GS drum map sends none)
+            let csend = if ch == 9 { 0.0 } else { ps.send(ps.chorus, self.sends[ch].1, st.pan, CHORUS_LEVEL) };
             let mut peak = 0f32;
             for i in 0..avail {
                 st.gain += (target - st.gain) * d.smooth;

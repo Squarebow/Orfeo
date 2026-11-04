@@ -26,8 +26,8 @@ impl PresetSend {
     /// A channel's send into an effect, as spessasynth makes it: the instrument's own
     /// send + the song's amount (CC91/CC93, which spessasynth takes at 5× the SoundFont
     /// default: 100 % at full), capped at full, on FluidSynth's channel output (L + R).
-    /// `level` is spessasynth's send level against that output, measured: 0.2 into
-    /// the reverb (REVERB_LEVEL), about 6× that into the chorus; `pan` corrects for
+    /// `level` is spessasynth's send level against that output (REVERB_LEVEL,
+    /// CHORUS_LEVEL); `pan` corrects for
     /// FluidSynth's output being after panning: a mono sound moved to one side adds
     /// up to less in L + R (1 instead of √2 fully to one side).
     pub fn send(&self, own: f32, amount: f32, pan: f32, level: f32) -> f32 {
@@ -37,11 +37,11 @@ impl PresetSend {
     }
 }
 
-/// Send levels into the native engine's reverb and chorus that give the Samples
-/// engine's amounts, measured on single notes and whole songs with GeneralUser GS
-/// and FluidR3 (docs/Tools/engine-parity): the chorus gets 15.6 dB more
-pub const REVERB_LEVEL: f32 = 0.2;
-pub const CHORUS_LEVEL: f32 = 0.2 * 6.0;
+/// Send levels into the native engine's reverb and chorus that give the Studio
+/// engine's amounts, measured on single notes with FluidR3 against spessasynth
+/// with a sound set loaded. Equal, as they are in spessasynth.
+pub const REVERB_LEVEL: f32 = 1.0;
+pub const CHORUS_LEVEL: f32 = 1.0;
 
 /// (bank, program) → its send; empty when the file can't be read
 pub fn preset_sends(path: &Path) -> HashMap<(u16, u16), PresetSend> {

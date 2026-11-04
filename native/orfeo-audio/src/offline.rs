@@ -69,7 +69,7 @@ pub fn render_offline(fluid_dir: &Path, soundfonts: &[PathBuf], song: &Song, o: 
     let (mut sl, mut sr) = (vec![0f32; BLOCK], vec![0f32; BLOCK]);
     let (mut plate_in, mut chorus_in) = (vec![0f32; BLOCK], vec![0f32; BLOCK]);
     let mut plate = Reverb::new(rate);
-    let mut chorus = Chorus::new();
+    let mut chorus = Chorus::new(rate);
     let mut comp = Compressor::new(rate);
     comp.set(o.comp_enabled, o.comp_preset);
     let mut safety = Compressor::safety(rate);
@@ -114,7 +114,8 @@ pub fn render_offline(fluid_dir: &Path, soundfonts: &[PathBuf], song: &Song, o: 
                 .and_then(|(sf, bank, prog)| sf_ids.iter().position(|&id| id == sf).and_then(|i| own_sends[i].get(&(bank, prog)).copied()))
                 .unwrap_or_default();
             let send = ps.send(ps.reverb, s.reverb, s.pan, REVERB_LEVEL);
-            let csend = ps.send(ps.chorus, s.chorus, s.pan, CHORUS_LEVEL);
+            // drums stay out of the chorus, as in spessasynth (its GS drum map sends none)
+            let csend = if ch == 9 { 0.0 } else { ps.send(ps.chorus, s.chorus, s.pan, CHORUS_LEVEL) };
             for i in 0..avail {
                 sl[i] += cl[i]; sr[i] += cr[i];
                 let dry = cl[i] + cr[i];

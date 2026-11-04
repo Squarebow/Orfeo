@@ -24,6 +24,7 @@
 - **A stuck or abandoned Native export no longer blocks Play.** An export whose sound engine stopped answering, or whose window was closed mid-way, could leave Space doing nothing until Orfeo was restarted. An export that makes no progress for 90 seconds is now reported as failed, and closing the window stops it.
 
 ### Changed
+- **Native now sounds like Studio.** Native was quieter and duller than Studio, with a smaller room around the sound. It now has the same brightness, the same hall and the same stereo chorus, at the same loudness, so switching between the two no longer changes the mix. Audio files exported with Native sound the same way.
 - **A nearly silent export is refused instead of made loud.** Exports are still levelled so they never clip, but never raised by more than +20 dB. A song that is practically silent (master volume almost down, parts muted) now gets a clear message instead of a file full of hiss at full level.
 - **Transposed notes that fall off the end of the note range** do in the file exactly what the chosen sound does while playing: *Studio* leaves them out, *Native* moves them to the nearest end. Before, an export always moved them.
 

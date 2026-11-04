@@ -25,6 +25,7 @@ pub struct Fluid {
     write_float: unsafe extern "C" fn(Ptr, c_int, Ptr, c_int, c_int, Ptr, c_int, c_int) -> c_int,
     process: unsafe extern "C" fn(Ptr, c_int, c_int, *mut *mut c_float, c_int, *mut *mut c_float) -> c_int,
     set_gain: unsafe extern "C" fn(Ptr, c_float),
+    set_gen: unsafe extern "C" fn(Ptr, c_int, c_int, c_float) -> c_int,
     sfload: unsafe extern "C" fn(Ptr, *const c_char, c_int) -> c_int,
     sfunload: unsafe extern "C" fn(Ptr, c_int, c_int) -> c_int,
     delete_synth: unsafe extern "C" fn(Ptr),
@@ -36,6 +37,16 @@ unsafe impl Send for Fluid {}
 
 /// FluidSynth renders in 64-sample blocks: an event lands on the next one.
 pub const FLUID_GRAIN: usize = 64;
+
+/// SoundFont generator number of the low-pass filter's resonance (`GEN_FILTERQ`)
+const GEN_FILTERQ: c_int = 9;
+/// What the channels add to every sound's filter resonance, in centibels, so a
+/// sound's brightness matches the Studio engine's. A resonance of 0 should give a
+/// flat filter: FluidSynth takes 3.01 dB off for that, spessasynth 3.01 centibels
+/// (0.301 dB), which leaves a small lift around the cutoff. Sounds with a filter
+/// (pianos, strings, brass) measured 1.5-2 dB duller here at 4-12 kHz, unfiltered
+/// ones (hi-hats, cymbals) identical. Measured on FluidR3, single notes, no effects.
+const STUDIO_FILTER_Q_CB: c_float = 27.09;
 
 /// Synths are created one at a time (see `Fluid::new`)
 static CREATING: std::sync::Mutex<()> = std::sync::Mutex::new(());
@@ -105,7 +116,7 @@ impl Fluid {
             let synth = new_synth(settings);
             if synth.is_null() { return Err("new_fluid_synth failed".into()) }
 
-            Ok(Fluid {
+            let mut fluid = Fluid {
                 settings, synth,
                 noteon: sym!(b"fluid_synth_noteon"),
                 noteoff: sym!(b"fluid_synth_noteoff"),
@@ -120,12 +131,15 @@ impl Fluid {
                 write_float: sym!(b"fluid_synth_write_float"),
                 process: sym!(b"fluid_synth_process"),
                 set_gain: sym!(b"fluid_synth_set_gain"),
+                set_gen: sym!(b"fluid_synth_set_gen"),
                 sfload: sym!(b"fluid_synth_sfload"),
                 sfunload: sym!(b"fluid_synth_sfunload"),
                 delete_synth: sym!(b"delete_fluid_synth"),
                 delete_settings: sym!(b"delete_fluid_settings"),
                 _lib: lib,
-            })
+            };
+            for ch in 0..16 { fluid.studio_filter(ch) }
+            Ok(fluid)
         }
     }
 
@@ -145,6 +159,10 @@ impl Fluid {
         (ok && sf > 0).then_some((sf, bank as u16, prog as u16))
     }
 
+    fn studio_filter(&mut self, ch: u8) {
+        unsafe { (self.set_gen)(self.synth, ch as c_int, GEN_FILTERQ, STUDIO_FILTER_Q_CB); }
+    }
+
     /// One raw MIDI channel message
     pub fn midi(&mut self, status: u8, d1: u8, d2: u8) {
         let ch = (status & 0x0F) as c_int;
@@ -153,7 +171,11 @@ impl Fluid {
             match status & 0xF0 {
                 0x90 if d2 > 0 => { (self.noteon)(self.synth, ch, a, b); }
                 0x90 | 0x80 => { (self.noteoff)(self.synth, ch, a); }
-                0xB0 => { (self.cc)(self.synth, ch, a, b); }
+                0xB0 => {
+                    (self.cc)(self.synth, ch, a, b);
+                    // "Reset all controllers" clears a channel's generator offsets too
+                    if d1 == 121 { self.studio_filter(status & 0x0F) }
+                }
                 0xC0 => { (self.program)(self.synth, ch, a); }
                 0xE0 => { (self.bend)(self.synth, ch, a | (b << 7)); }
                 0xD0 => { (self.chan_pressure)(self.synth, ch, a); }
@@ -221,5 +243,23 @@ mod tests {
         let outs: Vec<Vec<f32>> = runs.into_iter().map(|t| t.join().unwrap()).collect();
         let differing = outs.iter().filter(|o| **o != outs[0]).count();
         assert!(differing == 0, "{differing} of {N} synths started together sound different");
+    }
+
+    /// A song's "reset all controllers" must not take the Studio brightness away
+    #[test]
+    fn reset_all_controllers_keeps_the_filter() {
+        let root = Path::new(env!("CARGO_MANIFEST_DIR"));
+        let (dir, sf) = (root.join("../build/fluidsynth"), root.join("../../public/GeneralUser-GS.sf2"));
+        let play = |reset: bool| {
+            let mut f = Fluid::new(&dir, 44_100.0).expect("synth");
+            f.load_soundfont(&sf).expect("sound set");
+            f.midi(0xC0, 0, 0);
+            if reset { f.midi(0xB0, 121, 0); }
+            f.midi(0x90, 72, 100);
+            let (mut l, mut r) = (vec![0f32; 16384], vec![0f32; 16384]);
+            f.render(&mut l, &mut r);
+            l
+        };
+        assert!(play(false) == play(true), "the note sounds different after reset all controllers");
     }
 }
