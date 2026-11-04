@@ -5,6 +5,7 @@ export interface KeyLayout { x: number; width: number }
 // ── RANGES ────────────────────────────────────────────────────────────────────
 // Single source of truth — Keyboard.tsx imports from here so they can't drift.
 export const PIANO_RANGES: Record<number, { min: number; max: number }> = {
+  49: { min: 36, max: 84 },
   61: { min: 36, max: 96 },
   73: { min: 28, max: 103 },
   88: { min: 21, max: 108 },

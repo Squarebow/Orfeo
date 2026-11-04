@@ -128,7 +128,7 @@ export interface TrackState {
   reverb: number
 }
 
-export type KeyboardSize = 61 | 73 | 88
+export type KeyboardSize = 49 | 61 | 73 | 88
 export type KeyboardMode = 'docked' | 'floating'
 export type NoteNaming = 'english' | 'central-european' | 'solfege' | 'hidden'
 export type Accidentals = 'flat' | 'sharp'

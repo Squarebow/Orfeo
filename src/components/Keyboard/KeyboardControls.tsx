@@ -12,7 +12,7 @@ import { getWhiteKeys, noteToLeftPct, computeTaggedBoundaryCurve, interpolateTag
 // there in ~200ms at 60fps.
 const SMOOTHING_FACTOR = 0.15
 
-const SIZES: KeyboardSize[] = [61, 73, 88]
+const SIZES: KeyboardSize[] = [49, 61, 73, 88]
 
 // ── Smooth the raw curve boundary (in keyboard-%) toward its target every
 // frame — a plain per-sample lookup would visibly jump every 0.25s. Null

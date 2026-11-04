@@ -4,7 +4,7 @@ import type { KeyboardSize } from '../../../types'
 import { OptionBtn, Switch } from '../controls'
 import type { SettingDef } from '../types'
 
-const KEYBOARD_SIZES: KeyboardSize[] = [61, 73, 88]
+const KEYBOARD_SIZES: KeyboardSize[] = [49, 61, 73, 88]
 
 function KeyRangeControl() {
   const size = useStore(s => s.keyboardSize)
