@@ -129,7 +129,10 @@ if (existsSync(stamp) && readFileSync(stamp, 'utf8').trim() === FLUID_STAMP) {
   mkdirSync(fluidDir, { recursive: true })
   if (mac) {
     const libs = [await buildFluid('arm64'), await buildFluid('x86_64')]
-    run('lipo', ['-create', ...libs, '-output', join(fluidDir, 'libfluidsynth.3.dylib')])
+    const lib = join(fluidDir, 'libfluidsynth.3.dylib')
+    run('lipo', ['-create', ...libs, '-output', lib])
+    // its recorded name is this machine's build folder otherwise
+    run('install_name_tool', ['-id', '@loader_path/libfluidsynth.3.dylib', lib])
   } else {
     copyFileSync(await buildFluid(null), join(fluidDir, 'libfluidsynth.so.3'))
   }

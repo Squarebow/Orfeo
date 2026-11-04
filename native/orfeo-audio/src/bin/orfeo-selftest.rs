@@ -158,7 +158,8 @@ fn main() {
     for _ in 0..6 { e.send(Command::DebugStall(15)); sleep(120); }
     sleep(1500);
     let step1 = s.period_step.load(Relaxed);
-    t.check(step1 == step0 + 1, "stepped up one buffer size", format!("step {step0} -> {step1}, {} -> {} frames", frames0, s.period_frames.load(Relaxed)));
+    // timing-driven: on a virtual machine its own stalls can restart the 2 s count mid-test
+    steady(&mut t, step1 == step0 + 1, "stepped up one buffer size", format!("step {step0} -> {step1}, {} -> {} frames", frames0, s.period_frames.load(Relaxed)));
     let p = s.position(); sleep(1000);
     let d = s.position() - p;
     t.check(d > 0.7, "and plays on", format!("{d:.3} s in 1 s"));
