@@ -12,6 +12,7 @@
 
 import { useEffect } from 'react'
 import { useStore } from '../store'
+import { stepEvents } from '../utils/stepThrough'
 import { isTapCapturing, registerTap } from '../utils/tapTempoSession'
 import {
   useMidiSettings, midiPrefsReady, shapeVelocity, type ControlKind, type MidiDeviceInfo, type MidiOutputInfo,
@@ -151,6 +152,19 @@ function noteOn(key: string, note: number, raw: number, stamp: number, t0: numbe
   heldBy(key).add(note)
   lightOn(note)
   setActive(key)
+
+  // Wait-for-input: check if this note is expected; advance when all hit
+  const ws = useStore.getState()
+  if (ws.waitForInputEnabled && ws.waitForInputExpected.size > 0) {
+    if (ws.waitForInputExpected.has(note)) {
+      const remaining = new Set(ws.waitForInputExpected)
+      remaining.delete(note)
+      ws._setWaitForInputExpected(remaining)
+      if (remaining.size === 0) {
+        setTimeout(() => stepEvents(1), 180)
+      }
+    }
+  }
 }
 
 function noteOff(key: string, note: number) {

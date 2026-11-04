@@ -123,5 +123,11 @@ export function stepEvents(dir: 1 | -1, byBar = false): boolean {
     const durMs = Math.max(MIN_MS, Math.min(MAX_MS, (n.duration / ratio) * 1000))
     play?.(n.midi + transpose, n.velocity, durMs, n.channel, true, n.color)
   }
+
+  // Wait-for-input: populate expected notes so the keyboard shows them in hint color
+  if (dir === 1 && useStore.getState().waitForInputEnabled) {
+    useStore.getState()._setWaitForInputExpected(new Set(step.notes.map(n => n.midi + transpose)))
+  }
+
   return true
 }

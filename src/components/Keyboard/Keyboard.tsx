@@ -17,6 +17,7 @@ import { isShown } from '../../utils/trackShown'
 const HAND_LH = 'var(--hand-lh)'
 const HAND_RH = 'var(--hand-rh)'
 const GLISSANDO_COLOR = 'var(--text-amber)'
+const WAIT_HINT_COLOR = '#22c55e'
 
 const CHORD_MIN_NOTES = 3
 const CHORD_DEBOUNCE_MS = 320
@@ -60,6 +61,8 @@ export default function Keyboard() {
   const displayedChord = useStore((s) => s.displayedChord)
   const lockedKeys = useStore((s) => s.lockedKeys)
   const lockedColors = useStore((s) => s.lockedColors)
+  const waitForInputEnabled = useStore((s) => s.waitForInputEnabled)
+  const waitForInputExpected = useStore((s) => s.waitForInputExpected)
   const setLockedKeysStore = useStore((s) => s.setLockedKeys)
   const clearLockedKeys = useStore((s) => s.clearLockedKeys)
   // ── Explorer chord display — computed name + count from ChordExplorer/ScaleExplorer
@@ -448,8 +451,9 @@ export default function Keyboard() {
     lockedKeys.forEach(k => merged.add(k))
     explorerKeys.forEach(k => merged.add(k))
     reflectKeys.forEach(k => merged.add(k))
+    if (waitForInputEnabled) waitForInputExpected.forEach(k => merged.add(k))
     return merged
-  }, [activeKeys, lockedKeys, explorerKeys, reflectKeys])
+  }, [activeKeys, lockedKeys, explorerKeys, reflectKeys, waitForInputEnabled, waitForInputExpected])
 
   // "Reflect on keyboard" — the paused song's notes in their own track (or
   // left/right hand) colours, exactly as playback lights them: amber belongs
@@ -477,8 +481,15 @@ export default function Keyboard() {
     reflectColors.forEach((c, k) => merged.set(k, c))
     explorerKeyColors.forEach((c, k) => merged.set(k, c))
     lockedColors.forEach((c, k) => merged.set(k, c))
+    // Wait-for-input: expected but not yet pressed → green hint (lowest priority,
+    // so an active/locked key's real color takes precedence)
+    if (waitForInputEnabled) {
+      for (const k of waitForInputExpected) {
+        if (!merged.has(k)) merged.set(k, WAIT_HINT_COLOR)
+      }
+    }
     return merged
-  }, [activeKeyColors, lockedColors, explorerKeyColors, reflectColors])
+  }, [activeKeyColors, lockedColors, explorerKeyColors, reflectColors, waitForInputEnabled, waitForInputExpected])
 
   const getColor = (midi: number): string | null => {
     if (!allActiveKeys.has(midi)) return null

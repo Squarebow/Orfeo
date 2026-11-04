@@ -477,6 +477,11 @@ interface OrfeoStore {
   // Step Through: → / ← step note by note, plus arrows in the keyboard footer
   stepThroughEnabled: boolean
   setStepThroughEnabled: (v: boolean) => void
+  // Wait for Input: pause at each step, advance only when user plays the correct note(s)
+  waitForInputEnabled: boolean
+  setWaitForInputEnabled: (v: boolean) => void
+  waitForInputExpected: Set<number>
+  _setWaitForInputExpected: (s: Set<number>) => void
   // Export to audio (Settings › Audio): adds the Library right-click item; off by default
   exportAudioEnabled: boolean
   setExportAudioEnabled: (v: boolean) => void
@@ -1080,6 +1085,10 @@ export const useStore = create<OrfeoStore>((set, get) => ({
   autoCollapseDrawers: false,
   stepThroughEnabled: true,
   setStepThroughEnabled: (stepThroughEnabled) => set({ stepThroughEnabled }),
+  waitForInputEnabled: false,
+  setWaitForInputEnabled: (waitForInputEnabled) => set({ waitForInputEnabled }),
+  waitForInputExpected: new Set<number>(),
+  _setWaitForInputExpected: (waitForInputExpected) => set({ waitForInputExpected }),
   exportAudioEnabled: false,
   setExportAudioEnabled: (exportAudioEnabled) => set({ exportAudioEnabled }),
   handColorLH: DEFAULT_HAND_LH,
@@ -1283,6 +1292,7 @@ async function restoreLibraryPrefs() {
     if (typeof prefs.showNoteNamesOnKeyboard === 'boolean') store.setShowNoteNamesOnKeyboard(prefs.showNoteNamesOnKeyboard)
     if (typeof prefs.autoCollapseDrawers === 'boolean') store.setAutoCollapseDrawers(prefs.autoCollapseDrawers)
     if (typeof prefs.stepThroughEnabled === 'boolean') store.setStepThroughEnabled(prefs.stepThroughEnabled)
+    if (typeof prefs.waitForInputEnabled === 'boolean') store.setWaitForInputEnabled(prefs.waitForInputEnabled)
     if (typeof prefs.exportAudioEnabled === 'boolean') store.setExportAudioEnabled(prefs.exportAudioEnabled)
     if (isHex(prefs.handColorLH) && isHex(prefs.handColorRH)) store.setHandColors(prefs.handColorLH, prefs.handColorRH)
     if (typeof prefs.tooltipsEnabled === 'boolean') store.setTooltipsEnabled(prefs.tooltipsEnabled)

@@ -1,4 +1,4 @@
-import { BookOpen, PanelLeftClose, Hand, Activity, Expand, StepForward } from 'lucide-react'
+import { BookOpen, PanelLeftClose, Hand, Activity, Expand, StepForward, Fingerprint } from 'lucide-react'
 import { useStore } from '../../../store'
 import { Switch, InlineIcon } from '../controls'
 import type { SettingDef } from '../types'
@@ -9,6 +9,11 @@ const PrompterIcon = () => (
 )
 
 export const PRACTICE_DEFS: SettingDef[] = [
+  {
+    id: 'waitForInput', icon: Fingerprint, kind: 'switch',
+    Control: () => { const v = useStore(s => s.waitForInputEnabled); return <Switch value={v} onChange={useStore.getState().setWaitForInputEnabled} label="Wait for Input" /> },
+    Description: () => <>Pauses at each step and highlights the note(s) to play in <span style={{ color: '#22c55e' }}>green</span>. Press the correct note(s) to advance. Use together with Step Through (← →).</>,
+  },
   {
     id: 'stepThrough', icon: StepForward, kind: 'switch',
     Control: () => { const v = useStore(s => s.stepThroughEnabled); return <Switch value={v} onChange={useStore.getState().setStepThroughEnabled} label={t`Step Through`} /> },
