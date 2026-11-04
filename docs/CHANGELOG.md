@@ -10,6 +10,7 @@
 ### New
 - **Orfeo for Mac.** Every release now has downloads for Apple Silicon and Intel Macs, as a disk image or a zip. The first time you open a new version, macOS asks you to allow it once in *System Settings › Privacy & Security*. Mac versions don't update by themselves: *Check for updates* opens the download page. Sound: GM and Studio.
 - **Orfeo for Linux (experimental).** Every release now has Linux downloads for x64 computers: a `.deb` (Ubuntu, Debian, Mint…), an `.rpm` (Fedora, openSUSE…) and an AppImage. They're checked to start, but not yet tested on real Linux machines with a keyboard — reports welcome. Sound: GM and Studio.
+- **Song first in the Library.** A new button beside the favorites shows *Artist - Song* files as *Song — Artist*, sorted by song title, and back again with one click. It only changes what you see: your files keep their names. Files that aren't named *Artist - Song* stay as they are.
 
 ### Fixed
 - **Native sound, very rarely wrong at start-up.** When two Native sounds started at exactly the same moment — say, an export beginning just as the Native engine started — one of them could play with a slightly wrong sound until restarted. They now start one after the other.

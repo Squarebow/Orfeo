@@ -5,10 +5,11 @@ import { confirmDialog } from '../../utils/confirmController'
 import {
   ChevronLeft, ChevronDown, ChevronRight,
   FolderOpen, Folders, RefreshCw, FileMusic, FileCode2, Guitar, BookOpen, Library, Settings, Info,
-  Search, X, Undo2, ChevronsDownUp, Settings2,
+  Search, X, Undo2, ChevronsDownUp, Settings2, ArrowLeftRight,
 } from 'lucide-react'
 import { useStore } from '../../store'
 import { t } from '../../utils/i18n'
+import { libraryDisplayName, sortBySong } from '../../utils/libraryNames'
 import { TempoWarningDot } from '../Transport/TempoWarning'
 import { useTempoTrustScan } from '../../hooks/useTempoTrustScan'
 import type { NoteNaming, Accidentals, TranscriptEntry, LibraryFile } from '../../types'
@@ -303,6 +304,8 @@ function LibraryPanel({ hidden = false }: { hidden?: boolean }) {
   const unhideLibraryFile  = useStore((s) => s.unhideLibraryFile)
   const showHiddenLibraryFiles    = useStore((s) => s.showHiddenLibraryFiles)
   const setShowHiddenLibraryFiles = useStore((s) => s.setShowHiddenLibraryFiles)
+  const librarySongFirst          = useStore((s) => s.librarySongFirst)
+  const setLibrarySongFirst       = useStore((s) => s.setLibrarySongFirst)
   const remapLibraryPaths  = useStore((s) => s.remapLibraryPaths)
   const setFavourites      = useStore((s) => s.setFavourites)
   const lastFolderOf       = useStore((s) => s.lastFolderOf)
@@ -745,6 +748,8 @@ function LibraryPanel({ hidden = false }: { hidden?: boolean }) {
     // When revealed, hidden files stay in the list (dimmed at render time) —
     // otherwise they're excluded here so the rest of the render sees a clean list.
     const isExcluded = (f: LibraryFile) => !showHiddenLibraryFiles && hiddenSet.has(f.path)
+    // Search results keep their best-match order; everything else follows the name order
+    const inOrder = (files: LibraryFile[]) => (librarySongFirst ? sortBySong(files) : files)
 
     if (librarySearch.trim()) {
       const matches = libraryFuse.search(librarySearch.trim())
@@ -758,7 +763,7 @@ function LibraryPanel({ hidden = false }: { hidden?: boolean }) {
     // cross-folder view of everything currently favourited. ─────────────────
     if (filter === 'starred') {
       const matches = libraryFiles.filter(f => libraryFavourites.has(f.path) && !isExcluded(f))
-      return [{ folder: null, files: matches }]
+      return [{ folder: null, files: inOrder(matches) }]
     }
 
     // The loaded file additionally gets its own always-visible pinned bar
@@ -807,13 +812,13 @@ function LibraryPanel({ hidden = false }: { hidden?: boolean }) {
         if (b[0].toLowerCase() === 'demo') return 1
         return a[0].localeCompare(b[0])
       })
-      .forEach(([folder, files]) => result.push({ folder, files }))
+      .forEach(([folder, files]) => result.push({ folder, files: inOrder(files) }))
 
     // Root files at the bottom
-    result.push({ folder: null, files: rootFiles })
+    result.push({ folder: null, files: inOrder(rootFiles) })
 
     return result
-  }, [libraryFiles, libraryFavourites, libraryFolder, filter, hiddenLibraryFiles, showHiddenLibraryFiles, librarySearch, libraryFuse, libraryFolderNames])
+  }, [libraryFiles, libraryFavourites, libraryFolder, filter, hiddenLibraryFiles, showHiddenLibraryFiles, librarySearch, libraryFuse, libraryFolderNames, librarySongFirst])
 
   // ── Flat visible file order (collapsed folders excluded) — anchors Shift-range select ──
   const visibleFilePaths = useMemo(
@@ -937,11 +942,12 @@ function LibraryPanel({ hidden = false }: { hidden?: boolean }) {
             {/* Filter tabs */}
             <div style={{ display: 'flex', gap: 'var(--space-1)' }}>
               {(['all', 'starred'] as const).map(f => (
-                <Tooltip key={f} title={f === 'all' ? 'Show all files' : 'Show favorites only'} oneLine wrapperStyle={{ flex: 1 }}>
+                <Tooltip key={f} title={f === 'all' ? 'Show all files' : 'Show favorites only'} oneLine wrapperStyle={f === 'all' ? { flex: 1 } : undefined}>
                 <button
                   onClick={() => setFilter(f)}
                   style={{
-                    flex: 1, padding: '3px 2px', borderRadius: 4, fontSize: 10,
+                    ...(f === 'all' ? { flex: 1, width: '100%', padding: '3px 2px' } : { padding: '3px 6px', whiteSpace: 'nowrap' }),
+                    borderRadius: 4, fontSize: 10,
                     border: filter === f ? '1px solid var(--accent-amber-strong)' : '1px solid var(--border2)',
                     background: filter === f ? 'var(--accent-amber-medium)' : 'transparent',
                     color: filter === f ? 'var(--text-amber)' : 'var(--text-inactive)',
@@ -982,6 +988,23 @@ function LibraryPanel({ hidden = false }: { hidden?: boolean }) {
                 onMouseLeave={e => { if (!showHiddenLibraryFiles) e.currentTarget.style.color = 'var(--text-inactive)' }}
               >
                 <ChevronsDownUp size={10} />
+              </button>
+              </Tooltip>
+              <Tooltip title={librarySongFirst ? t`Show artist first` : t`Show song first`} oneLine>
+              <button
+                onClick={() => setLibrarySongFirst(!librarySongFirst)}
+                style={{
+                  padding: '3px 6px', borderRadius: 4, fontSize: 10,
+                  border: librarySongFirst ? '1px solid var(--accent-amber-strong)' : '1px solid var(--border2)',
+                  background: librarySongFirst ? 'var(--accent-amber-medium)' : 'transparent',
+                  color: librarySongFirst ? 'var(--text-amber)' : 'var(--text-inactive)',
+                  cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  transition: 'all 0.12s',
+                }}
+                onMouseEnter={e => { if (!librarySongFirst) e.currentTarget.style.color = 'var(--text-amber)' }}
+                onMouseLeave={e => { if (!librarySongFirst) e.currentTarget.style.color = 'var(--text-inactive)' }}
+              >
+                <ArrowLeftRight size={10} />
               </button>
               </Tooltip>
             </div>
@@ -1203,7 +1226,7 @@ function LibraryPanel({ hidden = false }: { hidden?: boolean }) {
                   <RowIcon size={11} strokeWidth={1.5} style={{ color: 'var(--text-amber)', flexShrink: 0 }} />
                 )}
                 <div style={{ flex: 1, minWidth: 0, display: 'flex', alignItems: 'baseline', gap: 6 }}>
-                  <MarqueeText name={loadedFile.name.replace(/\.(mid|midi)$/i, '')} spanStyle={FILENAME_SPAN_ACTIVE} />
+                  <MarqueeText name={libraryDisplayName(loadedFile.name, librarySongFirst)} spanStyle={FILENAME_SPAN_ACTIVE} />
                   {loadedFileFolder && (
                     <span style={{ fontSize: 8, color: 'var(--text-inactive)', fontFamily: 'var(--font-mono)', flexShrink: 0 }}>{loadedFileFolder}</span>
                   )}
@@ -1253,7 +1276,7 @@ function LibraryPanel({ hidden = false }: { hidden?: boolean }) {
               <span style={{ flex: 1, fontSize: 'var(--text-sm)', color: 'var(--text-tile-subtext)', fontWeight: 600 }}>Demo</span>
               <span style={{ fontSize: 9, color: 'var(--text-muted)', fontFamily: 'var(--font-mono)' }}>{demoFiles.length}</span>
             </div>
-            {demoFiles.filter((f: { name: string; path: string }) => showHiddenLibraryFiles || !hiddenLibraryFiles.includes(f.path)).map(file => {
+            {(librarySongFirst ? sortBySong(demoFiles) : demoFiles).filter((f: { name: string; path: string }) => showHiddenLibraryFiles || !hiddenLibraryFiles.includes(f.path)).map(file => {
               const isLoaded = !!loadedFilePath &&
                 file.path.replace(/\\/g, '/') === loadedFilePath.replace(/\\/g, '/')
               const isHidden = hiddenLibraryFiles.includes(file.path)
@@ -1280,7 +1303,7 @@ function LibraryPanel({ hidden = false }: { hidden?: boolean }) {
                   ) : (
                     <RowIcon size={11} strokeWidth={1.5} style={{ color: isHidden ? 'var(--text-amber-dimmest)' : isLoaded ? 'var(--text-amber)' : 'var(--text-muted)', flexShrink: 0 }} />
                   )}
-                  <MarqueeText name={file.name.replace(/\.(mid|midi)$/i, '')} spanStyle={isHidden ? FILENAME_SPAN_HIDDEN : isLoaded ? FILENAME_SPAN_ACTIVE : FILENAME_SPAN_DEFAULT} />
+                  <MarqueeText name={libraryDisplayName(file.name, librarySongFirst)} spanStyle={isHidden ? FILENAME_SPAN_HIDDEN : isLoaded ? FILENAME_SPAN_ACTIVE : FILENAME_SPAN_DEFAULT} />
                 </div>
                 )}
                 </RowTooltip>
@@ -1505,7 +1528,7 @@ function LibraryPanel({ hidden = false }: { hidden?: boolean }) {
                     ) : (
                       <RowIcon size={11} strokeWidth={1.5} style={{ color: isHidden ? 'var(--text-amber-dimmest)' : isLoaded || isSelected || isJustSaved ? 'var(--text-amber)' : 'var(--text-muted)', flexShrink: 0 }} />
                     )}
-                    <MarqueeText name={file.name.replace(/\.(mid|midi)$/i, '')} spanStyle={isHidden ? FILENAME_SPAN_HIDDEN : isLoaded || isSelected || isJustSaved ? FILENAME_SPAN_ACTIVE : FILENAME_SPAN_DEFAULT} />
+                    <MarqueeText name={libraryDisplayName(file.name, librarySongFirst)} spanStyle={isHidden ? FILENAME_SPAN_HIDDEN : isLoaded || isSelected || isJustSaved ? FILENAME_SPAN_ACTIVE : FILENAME_SPAN_DEFAULT} />
                     {lastFolderOf.has(file.path) && (
                       <RowIconButton
                         tooltip={`Move back to ${lastFolderOf.get(file.path) ?? 'library root'}`}

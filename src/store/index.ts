@@ -367,6 +367,9 @@ interface OrfeoStore {
   unhideLibraryFile: (path: string) => void
   showHiddenLibraryFiles: boolean
   setShowHiddenLibraryFiles: (v: boolean) => void
+  // Library rows as "Song — Artist", sorted by song. Display only: files keep their names
+  librarySongFirst: boolean
+  setLibrarySongFirst: (v: boolean) => void
   remapLibraryPaths: (pairs: { oldPath: string; newPath: string }[]) => void
   lastFolderOf: Map<string, string | null>
   setLastFolderOf: (map: Map<string, string | null>) => void
@@ -1163,6 +1166,8 @@ export const useStore = create<OrfeoStore>((set, get) => ({
   })),
   showHiddenLibraryFiles: false,
   setShowHiddenLibraryFiles: (showHiddenLibraryFiles) => set({ showHiddenLibraryFiles }),
+  librarySongFirst: false,
+  setLibrarySongFirst: (librarySongFirst) => set({ librarySongFirst }),
   // ── Applies old→new path pairs after a folder move/rename, so a starred or
   // hidden file doesn't silently lose that state when its path changes. ──────
   remapLibraryPaths: (pairs) => set((s) => {
@@ -1210,6 +1215,9 @@ async function restoreLibraryPrefs() {
     }
     if (typeof prefs.showHiddenLibraryFiles === 'boolean') {
       useStore.setState({ showHiddenLibraryFiles: prefs.showHiddenLibraryFiles })
+    }
+    if (typeof prefs.librarySongFirst === 'boolean') {
+      useStore.setState({ librarySongFirst: prefs.librarySongFirst })
     }
     if (prefs.noteNaming) store.setNoteNaming(prefs.noteNaming)
     if (prefs.accidentals) store.setAccidentals(prefs.accidentals)
@@ -1314,6 +1322,7 @@ const _unsubFav = useStore.subscribe((state) => {
       libraryFavourites:      Array.from(state.libraryFavourites),
       hiddenLibraryFiles:     state.hiddenLibraryFiles,
       showHiddenLibraryFiles: state.showHiddenLibraryFiles,
+      librarySongFirst:       state.librarySongFirst,
     }).catch(() => {})
   }, 1000)
 })
