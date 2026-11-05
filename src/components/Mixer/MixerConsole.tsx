@@ -102,7 +102,7 @@ export default function MixerConsole() {
     const filePath = (midi as any)._filePath ?? ''
     const choice = await confirmDialog({
       title: t`Save mixer changes?`,
-      message: t`Volume, pan, reverb, and chorus were changed for ${changed.length} channel(s).`,
+      message: t`Channels with changed volume, pan, reverb or chorus: ${changed.length}.`,
       buttons: [t`Save & Reload`, t`Discard`, t`Cancel`],
     })
     if (choice === 2) return // Cancel — leave mixer open

@@ -42,3 +42,12 @@ const keys = extractMessages()
 fs.mkdirSync(path.dirname(OUT), { recursive: true })
 fs.writeFileSync(OUT, JSON.stringify(Object.fromEntries(keys.map(k => [k, k])), null, 2) + '\n')
 console.log(`${OUT}: ${keys.length} texts`)
+
+// Hints for translators: src/i18n/notes.json, English text -> a few words. Only warns.
+const NOTES = 'src/i18n/notes.json'
+const notes = fs.existsSync(NOTES) ? JSON.parse(fs.readFileSync(NOTES, 'utf8')) : {}
+const known = new Set(keys)
+const stale = Object.keys(notes).filter(k => !known.has(k))
+const unexplained = keys.filter(k => /\{\{v\d+\}\}/.test(k) && !notes[k])
+console.log(`${NOTES}: ${Object.keys(notes).length} hints, ${unexplained.length} placeholder texts without one`)
+for (const k of stale) console.warn(`hint for a text that no longer exists: ${k.slice(0, 70)}`)
