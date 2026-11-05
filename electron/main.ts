@@ -674,6 +674,7 @@ ipcMain.handle('fs:getCachedImport',
 // Writes converted MIDI bytes (base64-encoded) to destPath.
 ipcMain.handle('fs:writeCachedImport',
   async (_e, destPath: string, base64: string): Promise<void> => {
+  await mkdir(dirname(destPath), { recursive: true })
   writeFileSync(destPath, Buffer.from(base64, 'base64'))
   appendFileLogEvent(destPath, { type: 'import', timestamp: Date.now(), summary: 'Imported and converted to MIDI' })
 })

@@ -14,6 +14,7 @@
 - **Two meters for two hands.** With *Hand Assignment* on, a single piano track played by both hands shows a blue and a pink meter side by side in the Tracks panel, each following its own hand.
 
 ### Fixed
+- **Saving an imported song as MIDI works in a new library folder.** Opening a MusicXML, Guitar Pro or Capella file and choosing *Save as MID* could fail if the library had no *Orfeo* folder yet, and the song then didn't open. The folder is now created first.
 - **Hand colours on the keyboard follow the switch straight away.** Turning *Hand Assignment* on or off during playback changed the piano roll at once, but the keyboard kept its old colours until the next pause. New notes now take the current colours in every sound engine; a key already held keeps its colour until it's released.
 - **The Chord and Scales Explorers stay where you put them.** Switching between *Common*, *Power* and *Extended* moved the window up and down. The top edge now stays put and the window grows downward, moving up only if it would otherwise leave the screen. Both Explorers also remember where you dragged them, after closing Orfeo too.
 - **Native sound, very rarely wrong at start-up.** When two Native sounds started at exactly the same moment — say, an export beginning just as the Native engine started — one of them could play with a slightly wrong sound until restarted. They now start one after the other.
