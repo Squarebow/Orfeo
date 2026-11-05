@@ -5,6 +5,7 @@ import type { SoundfontId, SoundfontInfo } from '../types'
 import { initSamplesEngine, loadSelectedSoundfont } from './useSamplesEngine'
 import { measuredOutputLatencySec } from '../audio/engine'
 import { stopNative, useNativeAudio } from '../audio/nativeClient'
+import { t } from '../utils/i18n'
 
 // ── Sound sets + Samples loading — one shared copy for the drawer's Quick
 // Settings and the Settings window (both show the same status). ──────────
@@ -76,7 +77,7 @@ export async function downloadSoundfont(id: SoundfontId) {
   setSf({ error: null })
   setDownload(id, 0)
   const res = await window.electronAPI.downloadSoundfont(id)
-  if (!res.ok) { setDownload(id, 1); setSf({ error: res.error ?? 'Download failed' }); return }
+  if (!res.ok) { setDownload(id, 1); setSf({ error: res.error ?? t`Download failed` }); return }
   refreshSoundfonts()
   await selectSoundfont(id)
 }

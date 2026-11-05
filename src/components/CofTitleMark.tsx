@@ -1,3 +1,4 @@
+import { t } from '../utils/i18n'
 // ── CofTitleMark ─────────────────────────────────────────────────────────────
 // Hand-lettered "Circle of Fifths" title for the centre of the Scales
 // Explorer's circle. Paths from the designer's COF1 artwork; colour comes
@@ -25,7 +26,7 @@ export default function CofTitleMark({ cx, cy, width, fill }: { cx: number; cy: 
     <svg
       x={cx - width / 2} y={cy - height / 2} width={width} height={height}
       viewBox={`0 0 ${VIEW_W} ${VIEW_H}`} fill={fill}
-      style={{ pointerEvents: 'none' }} aria-label="Circle of Fifths" role="img"
+      style={{ pointerEvents: 'none' }} aria-label={t`Circle of Fifths`} role="img"
     >
       {PATHS.map((d, i) => <path key={i} d={d} />)}
     </svg>

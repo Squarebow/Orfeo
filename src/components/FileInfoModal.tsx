@@ -201,7 +201,7 @@ export default function FileInfoModal({ filePath, fileName, onClose, onRenamed, 
           setSongDraft(parsed.song ?? '')
         }
       } catch (e: any) {
-        if (!cancelled) setError(e?.message ?? 'Could not read file')
+        if (!cancelled) setError(e?.message ?? t`Could not read file`)
       }
     })()
     return () => { cancelled = true }
@@ -242,7 +242,7 @@ export default function FileInfoModal({ filePath, fileName, onClose, onRenamed, 
   const handleSaveRename = async () => {
     if (!dirty || saving) return
     const newName = buildRenamedFileName(currentName, artistDraft, songDraft)
-    if (!newName) { setError('Song is required'); return }
+    if (!newName) { setError(t`Song is required`); return }
     if (newName === currentName) return
     setSaving(true)
     try {
@@ -252,7 +252,7 @@ export default function FileInfoModal({ filePath, fileName, onClose, onRenamed, 
         setCurrentPath(result.newPath)
         setCurrentName(newName)
       } else {
-        setError(result.reason === 'exists' ? 'A file with that name already exists' : 'Rename failed')
+        setError(result.reason === 'exists' ? t`A file with that name already exists` : t`Rename failed`)
       }
     } finally {
       setSaving(false)
@@ -273,11 +273,11 @@ export default function FileInfoModal({ filePath, fileName, onClose, onRenamed, 
   // This song's tags, kept by Orfeo (right-click › Tag in the Library)
   const songTags = useStore(s => s.songTags[currentPath])
   const rows: { label: string; value: string; node?: ReactNode }[] = meta ? [
-    { label: 'Key', value: formatKeyOrDash(meta.key, noteNaming, accidentals) },
-    { label: 'BPM', value: String(meta.bpm) },
-    { label: 'Time', value: meta.timeSignature },
-    { label: 'Tracks', value: String(meta.trackCount) },
-    { label: 'Copyright', value: meta.copyright ?? '—' },
+    { label: t`Key`, value: formatKeyOrDash(meta.key, noteNaming, accidentals) },
+    { label: t`BPM`, value: String(meta.bpm) },
+    { label: t`Time`, value: meta.timeSignature },
+    { label: t`Tracks`, value: String(meta.trackCount) },
+    { label: t`Copyright`, value: meta.copyright ?? '—' },
     { label: t`Lyrics`, value: hasLyrics === null ? '—' : hasLyrics ? t`Yes` : t`No` },
     { label: t`Tags`, value: songTags?.length ? songTags.join(', ') : '—',
       node: songTags?.length ? <span style={{ display: 'flex', flexWrap: 'wrap', gap: 4 }}>{songTags.map(tag => <TagPill key={tag} label={tag} />)}</span> : undefined },
@@ -296,7 +296,7 @@ export default function FileInfoModal({ filePath, fileName, onClose, onRenamed, 
         ref={panelRef}
         role="dialog"
         aria-modal="true"
-        aria-label="File info"
+        aria-label={t`File info`}
         className="orfeo-modal-glow app-no-drag"
         style={{
           background: 'var(--bg-modal)', border: '1px solid var(--border2)',
@@ -313,7 +313,7 @@ export default function FileInfoModal({ filePath, fileName, onClose, onRenamed, 
             color: 'var(--text-amber)', letterSpacing: '0.08em', textTransform: 'uppercase',
             overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
           }}>
-            File info
+            {t`File info`}
           </span>
           <button
             data-no-drag onClick={onClose}
@@ -359,7 +359,7 @@ export default function FileInfoModal({ filePath, fileName, onClose, onRenamed, 
                       onMouseEnter={e => { if (v.path !== currentPath) e.currentTarget.style.background = 'var(--bg-tile)' }}
                       onMouseLeave={e => { if (v.path !== currentPath) e.currentTarget.style.background = 'transparent' }}
                     >
-                      {v.version === 0 ? 'Original' : `v${v.version}`}
+                      {v.version === 0 ? t`Original` : `v${v.version}`}
                     </button>
                   ))}
                 </div>
@@ -373,7 +373,7 @@ export default function FileInfoModal({ filePath, fileName, onClose, onRenamed, 
         )}
 
         {!meta && !error && (
-          <div style={{ fontSize: 11, color: 'var(--text-inactive)', padding: '8px 0' }}>Reading file…</div>
+          <div style={{ fontSize: 11, color: 'var(--text-inactive)', padding: '8px 0' }}>{t`Reading file…`}</div>
         )}
 
         {meta && (
@@ -383,7 +383,7 @@ export default function FileInfoModal({ filePath, fileName, onClose, onRenamed, 
                 file rename only happens on Save below, never per keystroke. ── */}
             <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '6px 0', minHeight: 24, boxSizing: 'border-box' }}>
               <span style={{ width: 70, flexShrink: 0, fontSize: 10, lineHeight: '11px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em', color: 'var(--accent-amber-icon-dim)' }}>
-                Artist
+                {t`Artist`}
               </span>
               {editingArtist ? (
                 <input
@@ -416,7 +416,7 @@ export default function FileInfoModal({ filePath, fileName, onClose, onRenamed, 
             </div>
             <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '6px 0', minHeight: 24, boxSizing: 'border-box', borderTop: '1px solid var(--border-row)' }}>
               <span style={{ width: 70, flexShrink: 0, fontSize: 10, lineHeight: '11px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em', color: 'var(--accent-amber-icon-dim)' }}>
-                Song
+                {t`Song`}
               </span>
               {editingSong ? (
                 <input
@@ -490,7 +490,7 @@ export default function FileInfoModal({ filePath, fileName, onClose, onRenamed, 
                   display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6,
                 }}
               >
-                <Save size={13} /> {saving ? 'Saving…' : 'Save changes'}
+                <Save size={13} /> {saving ? t`Saving…` : t`Save changes`}
               </button>
               <button
                 onClick={() => window.electronAPI.showItemInFolder(currentPath)}
@@ -503,7 +503,7 @@ export default function FileInfoModal({ filePath, fileName, onClose, onRenamed, 
                 onMouseEnter={e => { e.currentTarget.style.color = 'var(--text-amber)'; e.currentTarget.style.borderColor = 'var(--accent-amber-strong)' }}
                 onMouseLeave={e => { e.currentTarget.style.color = 'var(--text-muted)'; e.currentTarget.style.borderColor = 'var(--border2)' }}
               >
-                <FolderOpen size={13} /> Show in folder
+                <FolderOpen size={13} /> {t`Show in folder`}
               </button>
             </div>
             <div style={{ display: 'flex', gap: 8, marginTop: 8 }}>
@@ -607,13 +607,13 @@ export default function FileInfoModal({ filePath, fileName, onClose, onRenamed, 
         {meta && (
           <div style={{ marginTop: 12, borderTop: '1px solid var(--border-row)', paddingTop: 10 }}>
             <div style={{ fontSize: 10, fontWeight: 700, color: 'var(--accent-amber-icon-dim)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 6 }}>
-              Orfeo History
+              {t`Orfeo History`}
             </div>
             <div style={{ height: 52, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: 6 }}>
               {log === null ? (
-                <div style={{ fontSize: 10, fontFamily: 'var(--font-mono)', color: 'var(--text-inactive)' }}>Loading…</div>
+                <div style={{ fontSize: 10, fontFamily: 'var(--font-mono)', color: 'var(--text-inactive)' }}>{t`Loading…`}</div>
               ) : log.length === 0 ? (
-                <div style={{ fontSize: 10, fontFamily: 'var(--font-mono)', color: 'var(--text-inactive)' }}>No recorded changes yet.</div>
+                <div style={{ fontSize: 10, fontFamily: 'var(--font-mono)', color: 'var(--text-inactive)' }}>{t`No recorded changes yet.`}</div>
               ) : (
                 [...log].reverse().map((ev, i) => (
                   <div key={i} style={{ display: 'flex', gap: 8, fontSize: 10, fontFamily: 'var(--font-mono)', flexShrink: 0 }}>

@@ -4,6 +4,7 @@
 // chevrons rather than reading as solid triangles at small sizes.
 
 import Tooltip from './Tooltip'
+import { t } from '../utils/i18n'
 
 interface SpeedControlProps {
   value: 'slow' | 'med' | 'fast'
@@ -61,7 +62,7 @@ export default function SpeedControl({ value, onChange, size = DEFAULT_H }: Spee
         const active = value === v
         const Icon   = ICONS[v]
         return (
-          <Tooltip key={v} oneLine title={`Plays back at ${label.toLowerCase()} speed.`}>
+          <Tooltip key={v} oneLine title={t`Plays back at ${label.toLowerCase()} speed.`}>
           <button
             onClick={() => onChange(v)}
             aria-label={label}

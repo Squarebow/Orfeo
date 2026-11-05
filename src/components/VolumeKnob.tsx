@@ -1,6 +1,7 @@
 import { useRef, useState, useEffect, useCallback } from 'react'
 import { useStore } from '../store'
 import { TooltipBox } from './Tooltip'
+import { t } from '../utils/i18n'
 
 // ── Bar geometry — signal-strength style: N vertical bars of ascending
 // height, dot-sized at the left growing to full height at the right. Bars
@@ -89,7 +90,7 @@ export default function VolumeKnob() {
       >
         <TooltipBox
           anchorRect={(hover || isDragging) ? trackRef.current?.getBoundingClientRect() ?? null : null}
-          content={{ title: 'Volume', description: `${pct}%` }}
+          content={{ title: t`Volume`, description: `${pct}%` }}
           placement="left"
           visible={hover || isDragging}
           readout={isDragging}
@@ -110,7 +111,7 @@ export default function VolumeKnob() {
         textTransform: 'uppercase', letterSpacing: '0.1em', lineHeight: 1,
         marginTop: 6, whiteSpace: 'nowrap', pointerEvents: 'none',
       }}>
-        Volume
+        {t`Volume`}
       </span>
     </div>
   )

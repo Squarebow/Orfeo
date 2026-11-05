@@ -294,8 +294,8 @@ export default function App() {
       const fileName = filePath.replace(/\\/g, '/').split('/').pop() ?? filePath
       const label    = fileName.length > 40 ? fileName.slice(0, 37) + '…' : fileName
       const choice   = await confirmDialog({
-        message: `Load "${label}"? This will replace the currently open file.`,
-        buttons: ['Load File', 'Cancel'],
+        message: t`Load "${label}"? This will replace the currently open file.`,
+        buttons: [t`Load File`, t`Cancel`],
       })
       if (choice === 0) await loadDroppedFilePath(filePath)
     } else {
@@ -328,9 +328,9 @@ export default function App() {
       // 1. Note Editor unsaved changes
       if (NES.dirty) {
         const choice = await confirmDialog({
-          title: 'Unsaved Changes',
-          message: 'You have unsaved changes in the Note Editor.',
-          buttons: ['Save', 'Discard', 'Cancel'],
+          title: t`Unsaved Changes`,
+          message: t`You have unsaved changes in the Note Editor.`,
+          buttons: [t`Save`, t`Discard`, t`Cancel`],
         })
         if (choice === 2) return  // Cancel — leave app open
         if (choice === 0) {
@@ -347,9 +347,9 @@ export default function App() {
           (s.bpm !== s.originalBpm || (s.detectedKey?.transpose ?? 0) !== 0)
         if (tempoKeyDirty) {
           const choice = await confirmDialog({
-            title: 'Unsaved Tempo/Key Changes',
-            message: 'You have unsaved tempo/key changes.',
-            buttons: ['Save', 'Discard', 'Cancel'],
+            title: t`Unsaved Tempo/Key Changes`,
+            message: t`You have unsaved tempo/key changes.`,
+            buttons: [t`Save`, t`Discard`, t`Cancel`],
           })
           if (choice === 2) return  // Cancel — leave app open
           if (choice === 0) {
@@ -365,9 +365,9 @@ export default function App() {
         const libraryFolder = (useStore.getState() as any).libraryFolder as string | null ?? null
         const cachePath = getCachePath(pending.sourcePath, libraryFolder)
         const choice = await confirmDialog({
-          message: `Save imported file "${pending.fileName}" as a MIDI file?`,
-          detail: `The original file is never modified.`,
-          buttons: ['Save as MID', "Don't Save", 'Cancel'],
+          message: t`Save imported file "${pending.fileName}" as a MIDI file?`,
+          detail: t`The original file is never modified.`,
+          buttons: [t`Save as MID`, t`Don't Save`, t`Cancel`],
         })
         if (choice === 2) return  // Cancel — leave app open
         if (choice === 0) {
@@ -414,10 +414,10 @@ export default function App() {
     const { noteEditorActive } = useStore.getState()
     if (noteEditorActive && NES.dirty) {
       const choice = await confirmDialog({
-        title: 'Unsaved Changes',
-        message: 'Save note editor changes before entering Presentation Mode?',
-        detail: 'Your edits will be preserved in the file.',
-        buttons: ['Save', 'Discard', 'Cancel'],
+        title: t`Unsaved Changes`,
+        message: t`Save note editor changes before entering Presentation Mode?`,
+        detail: t`Your edits will be preserved in the file.`,
+        buttons: [t`Save`, t`Discard`, t`Cancel`],
       })
       if (choice === 2) return
       if (choice === 0) {
@@ -666,7 +666,7 @@ export default function App() {
           were on the file they dropped rather than this bottom-center toast,
           the explanation could otherwise vanish before it's read. ────────── */}
       {dropError && (
-        <Tooltip title="Dismiss" description="Click anywhere on this message to close it.">
+        <Tooltip title={t`Dismiss`} description={t`Click anywhere on this message to close it.`}>
         <div
           role="alert"
           onClick={() => {

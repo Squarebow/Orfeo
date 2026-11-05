@@ -15,6 +15,7 @@ import { finishAudio, encodeWav, encodeMp3, yieldToPage, MIN_USABLE_PEAK, type F
 import { masterKnobs } from './engine'
 import type { SoundfontId, TrackState, ParsedMidi } from '../types'
 import type { RenderNotes } from './exportStudio'
+import { t } from '../utils/i18n'
 
 export type ExportSound = 'studio' | 'native'
 export type ExportFormat = 'mp3' | 'wav'
@@ -132,7 +133,7 @@ export function renderOutcome(length: number, isCancelled: () => boolean, notes:
   { k: 'cancelled' } | { k: 'audio' } | { k: 'failed'; reason: string } {
   if (isCancelled()) return { k: 'cancelled' }
   if (length > 0) return { k: 'audio' }
-  return { k: 'failed', reason: notes.sectionsFailedWith ? `the Studio sound gave up: ${notes.sectionsFailedWith}` : 'the sound produced no audio' }
+  return { k: 'failed', reason: notes.sectionsFailedWith ? t`the Studio sound gave up: ${notes.sectionsFailedWith}` : t`the sound produced no audio` }
 }
 
 /** The finished audio, or why there is none: the version has notes (checked

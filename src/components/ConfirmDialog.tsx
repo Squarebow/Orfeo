@@ -6,6 +6,7 @@ import { useCallback, useEffect, useRef, useState, type CSSProperties, type Mous
 import { createPortal } from 'react-dom'
 import { subscribeConfirm, type ConfirmState } from '../utils/confirmController'
 import { useFocusTrap } from '../hooks/useFocusTrap'
+import { t } from '../utils/i18n'
 
 // ── ConfirmDialogHost ─────────────────────────────────────────────────────────
 // Always-mounted; renders a modal only when a confirmDialog() call is pending.
@@ -76,7 +77,7 @@ export function ConfirmDialogHost() {
         ref={panelRef}
         role="dialog"
         aria-modal="true"
-        aria-label={state.title || 'Confirm'}
+        aria-label={state.title || t`Confirm`}
         className="orfeo-modal-glow app-no-drag"
         style={{
           cursor: 'grab',
