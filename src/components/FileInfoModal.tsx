@@ -268,7 +268,7 @@ export default function FileInfoModal({ filePath, fileName, onClose, onRenamed, 
     setCurrentName(v.name)
   }
   const currentVersion = versions?.find(v => v.path === currentPath)
-  const currentVersionLabel = currentVersion ? (currentVersion.version === 0 ? 'Original' : `v${currentVersion.version}`) : null
+  const currentVersionLabel = currentVersion ? (currentVersion.version === 0 ? t`Original` : `v${currentVersion.version}`) : null
 
   // This song's tags, kept by Orfeo (right-click › Tag in the Library)
   const songTags = useStore(s => s.songTags[currentPath])
