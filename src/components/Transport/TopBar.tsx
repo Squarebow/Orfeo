@@ -16,6 +16,7 @@ import VolumeKnob from '../VolumeKnob'
 import LoopRegionStrip from '../LoopRegionStrip'
 import Tooltip from '../Tooltip'
 import { TapTempoPad } from './TapTempoPad'
+import { LanguageSwitcher } from './LanguageSwitcher'
 import { TempoWarning } from './TempoWarning'
 import { useCurrentTempoTrust } from '../../hooks/useTempoTrustScan'
 import { stepDisplayedBpm, typedBpm, speedPercent, stepSpeed, typedSpeed } from '../../utils/bpmStep'
@@ -281,9 +282,9 @@ export default function TopBar() {
       <div className="topbar-scroll" style={{
         display: 'flex', alignItems: 'center', gap: 0, flexShrink: 0,
         justifySelf: 'stretch', minWidth: 0, overflowX: 'auto', overflowY: 'hidden',
-        // room below the row for the tempo-warning dot under the TAP pad —
-        // added inside and taken back outside, so nothing moves
-        paddingBottom: 14, marginBottom: -14,
+        // room below the row for the tempo-warning dot under the TAP pad and
+        // the language icon — added inside and taken back outside, so nothing moves
+        paddingBottom: 26, marginBottom: -26,
       }}>
       {/* ── LOGO ── */}
       <div className="app-no-drag" style={{ display: 'flex', alignItems: 'center', gap: 10, flexShrink: 0, paddingRight: 'var(--space-3)' }}>
@@ -298,6 +299,7 @@ export default function TopBar() {
               </span>
             </span>
           </Tooltip>
+          <LanguageSwitcher />
         </div>
         <Tooltip title="Open a file (Ctrl+O)" description={"Loads a supported file from\ndisk to start a new session."} placement="bottom">
           <button

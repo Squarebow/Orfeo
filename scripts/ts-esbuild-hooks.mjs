@@ -122,7 +122,7 @@ registerHooks({
         // Vite gives every module `import.meta.env`; Node does not, and code like
         // midiSimulator.ts reads it at import time. Test mode = dev mode: the
         // development-only paths are reachable, which is what tests exercise.
-        banner: 'if (!import.meta.env) import.meta.env = { DEV: true, MODE: "test-build", PROD: false };',
+        banner: 'if (!import.meta.env) import.meta.env = { DEV: true, MODE: "test-build", PROD: false }; if (!import.meta.glob) import.meta.glob = () => ({});',
         // the same build-time constants electron.vite.config.ts defines
         define: { __APP_VERSION__: APP_VERSION, __NEXT_VERSION__: '""' },
         // JSX in .ts files (Settings defs are .tsx) keeps esbuild's own handling
