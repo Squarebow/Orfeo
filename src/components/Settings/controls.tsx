@@ -48,7 +48,7 @@ export function BetaBadge() {
       opacity: 0.85,
       flexShrink: 0,
     }}>
-      BETA
+      {t`BETA`}
     </span>
   )
 }
@@ -207,7 +207,7 @@ export function ZoomStepper({ percent, steps, max, onStep, onReset, tooltips = t
   return (
     <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-1)' }}>
       <div style={{ display: 'flex', alignItems: 'center', gap: 4, border: '1px solid var(--border2)', borderRadius: 4, padding: '1px 6px' }}>
-        <MaybeTip on={tooltips} title="Zoom out">
+        <MaybeTip on={tooltips} title={t`Zoom out`}>
         <button
           onClick={() => onStep(-1)}
           disabled={atMin}
@@ -217,7 +217,7 @@ export function ZoomStepper({ percent, steps, max, onStep, onReset, tooltips = t
         ><ZoomOut size={12} strokeWidth={1.5} /></button>
         </MaybeTip>
         <span style={{ fontSize: 'var(--text-xs)', fontFamily: 'var(--font-mono)', fontWeight: 700, color: 'var(--text-amber)', minWidth: 34, textAlign: 'center' }}>{percent}%</span>
-        <MaybeTip on={tooltips} title="Zoom in">
+        <MaybeTip on={tooltips} title={t`Zoom in`}>
         <button
           onClick={() => onStep(1)}
           disabled={atMax}
@@ -227,7 +227,7 @@ export function ZoomStepper({ percent, steps, max, onStep, onReset, tooltips = t
         ><ZoomIn size={12} strokeWidth={1.5} /></button>
         </MaybeTip>
       </div>
-      <MaybeTip on={tooltips} title="Reset to 100%">
+      <MaybeTip on={tooltips} title={t`Reset to 100%`}>
       <button
         onClick={onReset}
         disabled={percent === 100}
@@ -267,8 +267,8 @@ export function HitEffectColorSwatch({ color, onChange }: { color: string | null
   return (
     <div ref={ref} style={{ position: 'relative', flexShrink: 0 }}>
       <Tooltip
-        title="Particle color"
-        description="Overrides every track's color for the effect flourish — the falling notes and key glow keep their own track colors."
+        title={t`Particle color`}
+        description={t`Overrides every track's color for the effect flourish — the falling notes and key glow keep their own track colors.`}
       >
       <button
         onClick={() => { setHexInput(color ?? '#e8a027'); setOpen(o => !o) }}
@@ -278,7 +278,7 @@ export function HitEffectColorSwatch({ color, onChange }: { color: string | null
         }}
       >
         <Palette size={13} strokeWidth={1.5} style={{ color: 'var(--text-amber)', flexShrink: 0 }} />
-        <span style={{ fontSize: 'var(--text-xs)', color: 'var(--text-faint)', fontFamily: 'var(--font-ui)', whiteSpace: 'nowrap' }}>Color</span>
+        <span style={{ fontSize: 'var(--text-xs)', color: 'var(--text-faint)', fontFamily: 'var(--font-ui)', whiteSpace: 'nowrap' }}>{t`Color`}</span>
         <span style={{
           width: 14, height: 14, borderRadius: 3, flexShrink: 0,
           background: color ?? 'var(--hand-lh)',
@@ -309,7 +309,7 @@ export function HitEffectColorSwatch({ color, onChange }: { color: string | null
             value={hexInput}
             onChange={e => commitHex(e.target.value)}
             placeholder="#e8a027"
-            aria-label="Hit-effect color, hex value"
+            aria-label={t`Hit-effect color, hex value`}
             style={{
               width: '100%', padding: '4px 6px', borderRadius: 4, border: '1px solid var(--border2)',
               background: 'var(--bg-modal)', color: 'var(--text-default)', fontSize: 'var(--text-xs)',
@@ -605,7 +605,7 @@ export function UpdateButton({ placement = 'left', showStatus = true }: { placem
     <>
       {showStatus && updateInfo.mode === 'auto' && updateStatus.state === 'up-to-date' && (
         <span style={{ fontSize: 9, color: 'var(--text-faint)', fontFamily: 'var(--font-ui)', whiteSpace: 'nowrap' }}>
-          Orfeo is up to date
+          {t`Orfeo is up to date`}
         </span>
       )}
       {showStatus && updateInfo.mode === 'auto' && updateStatus.state === 'ready' && (
@@ -618,10 +618,10 @@ export function UpdateButton({ placement = 'left', showStatus = true }: { placem
           updateStatus.state === 'available'   ? t`Orfeo ${updateStatus.version ?? ''} is out. Click to download` :
           updateInfo.mode === 'manual'         ? t`Check for updates on orfeo.cc` :
           updateInfo.mode === 'store'          ? t`Updates come from the Microsoft Store — click to open Orfeo there` :
-          updateStatus.state === 'checking'    ? 'Checking for updates…' :
-          updateStatus.state === 'downloading' ? `Downloading update${updateStatus.percent ? ` — ${Math.round(updateStatus.percent)}%` : '…'}` :
-          updateStatus.state === 'ready'       ? `Update ${updateStatus.version ?? ''} ready — click to restart and install` :
-          updateStatus.state === 'error'       ? `${(updateStatus.message ?? 'Update check failed').slice(0, 160)} — click to open the download page` :
+          updateStatus.state === 'checking'    ? t`Checking for updates…` :
+          updateStatus.state === 'downloading' ? t`Downloading update${updateStatus.percent ? ` — ${Math.round(updateStatus.percent)}%` : '…'}` :
+          updateStatus.state === 'ready'       ? t`Update ${updateStatus.version ?? ''} ready — click to restart and install` :
+          updateStatus.state === 'error'       ? t`${(updateStatus.message ?? 'Update check failed').slice(0, 160)} — click to open the download page` :
           t`Check for updates`
         }
         oneLine

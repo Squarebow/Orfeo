@@ -103,18 +103,18 @@ function HandAssignmentExtra() {
   if (!on) return null
   return (
     <>
-      <SubLabel>Max Fingers</SubLabel>
+      <SubLabel>{t`Max Fingers`}</SubLabel>
       <div style={{ display: 'flex', alignItems: 'center', gap: 16, flexWrap: 'wrap' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-          <span style={{ fontSize: 10, color: 'var(--text-default)', fontFamily: 'var(--font-ui)', whiteSpace: 'nowrap' }}>Left hand</span>
+          <span style={{ fontSize: 10, color: 'var(--text-default)', fontFamily: 'var(--font-ui)', whiteSpace: 'nowrap' }}>{t`Left hand`}</span>
           <FingerStepper value={lh} onChange={useStore.getState().setLhMaxFingers} />
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-          <span style={{ fontSize: 10, color: 'var(--text-default)', fontFamily: 'var(--font-ui)', whiteSpace: 'nowrap' }}>Right hand</span>
+          <span style={{ fontSize: 10, color: 'var(--text-default)', fontFamily: 'var(--font-ui)', whiteSpace: 'nowrap' }}>{t`Right hand`}</span>
           <FingerStepper value={rh} onChange={useStore.getState().setRhMaxFingers} />
         </div>
       </div>
-      <HelpText>How many notes of a wide chord each hand can take before the rest is absorbed by the other — left counts from the bottom of the chord, right from the top.</HelpText>
+      <HelpText>{t`How many notes of a wide chord each hand can take before the rest is absorbed by the other — left counts from the bottom of the chord, right from the top.`}</HelpText>
     </>
   )
 }
@@ -166,8 +166,8 @@ export const PLAYBACK_DEFS: SettingDef[] = [
   },
   {
     id: 'noteEditor', icon: AudioLines, kind: 'switch',
-    Control: () => { const v = useStore(s => s.noteEditorEnabled); return <Switch value={v} onChange={useStore.getState().setNoteEditorEnabled} label="MIDI Note Editor" /> },
-    Description: () => <>Shows <InlineIcon><AudioLines size={11} /></InlineIcon> icon in the Tracks panel. Enables MIDI note-editing mode directly on the piano roll.</>,
+    Control: () => { const v = useStore(s => s.noteEditorEnabled); return <Switch value={v} onChange={useStore.getState().setNoteEditorEnabled} label={t`MIDI Note Editor`} /> },
+    Description: () => <>{t`Shows`} <InlineIcon><AudioLines size={11} /></InlineIcon> {t`icon in the Tracks panel. Enables MIDI note-editing mode directly on the piano roll.`}</>,
   },
   {
     id: 'tapTempo', icon: Timer, kind: 'switch', Extra: TapTempoExtra,
@@ -197,11 +197,11 @@ export const PLAYBACK_DEFS: SettingDef[] = [
   },
   {
     id: 'handAssignment', icon: Hand, kind: 'switch', Extra: HandAssignmentExtra,
-    Control: () => { const v = useStore(s => s.showHandLabels); return <Switch value={v} onChange={useStore.getState().setShowHandLabels} label="Hand Assignment" /> },
+    Control: () => { const v = useStore(s => s.showHandLabels); return <Switch value={v} onChange={useStore.getState().setShowHandLabels} label={t`Hand Assignment`} /> },
     Description: () => <>
       {t`On a single piano track, Orfeo works out which hand plays each note and colours it to match. Several piano or organ tracks are read together, as one player's two hands. A guideline, not a verified transcript!`}
       <br /><br />
-      For a perfectly accurate split use MIDI note editor and click the <InlineIcon><Hand size={11} /></InlineIcon> icon to manually assign notes to left and right hand.
+      {t`For a perfectly accurate split use MIDI note editor and click the`} <InlineIcon><Hand size={11} /></InlineIcon> {t`icon to manually assign notes to left and right hand.`}
       <br /><br />
       <HandColoursLink />
     </>,
@@ -209,8 +209,8 @@ export const PLAYBACK_DEFS: SettingDef[] = [
   },
   {
     id: 'loopRegion', icon: Repeat, kind: 'switch',
-    Control: () => { const v = useStore(s => s.loopRegionEnabled); return <Switch value={v} onChange={useStore.getState().setLoopRegionEnabled} label="Loop region" /> },
-    Description: () => <>Shows a strip to select and loop-play a section. Alt+Click & drag to select. Click <InlineIcon><Repeat size={11} /></InlineIcon> icon to loop.</>,
+    Control: () => { const v = useStore(s => s.loopRegionEnabled); return <Switch value={v} onChange={useStore.getState().setLoopRegionEnabled} label={t`Loop region`} /> },
+    Description: () => <>{t`Shows a strip to select and loop-play a section. Alt+Click & drag to select. Click`} <InlineIcon><Repeat size={11} /></InlineIcon> {t`icon to loop.`}</>,
   },
   {
     id: 'tempoDisplay', icon: Gauge, kind: 'choice',
@@ -231,6 +231,6 @@ export const PLAYBACK_DEFS: SettingDef[] = [
   },
   {
     id: 'focusMode', icon: Focus, kind: 'switch',
-    Control: () => { const v = useStore(s => s.autoMuteNonKeyboard); return <Switch value={v} onChange={useStore.getState().setAutoMuteNonKeyboard} label="Focus mode" /> },
+    Control: () => { const v = useStore(s => s.autoMuteNonKeyboard); return <Switch value={v} onChange={useStore.getState().setAutoMuteNonKeyboard} label={t`Focus mode`} /> },
   },
 ]

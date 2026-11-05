@@ -15,8 +15,8 @@ function ThemeControl() {
   const appTheme = useStore(s => s.appTheme)
   return (
     <div style={{ display: 'flex', gap: 'var(--space-1)' }}>
-      <AppBgBtn color="var(--bg-modal-header)" label="Dark" active={appTheme === 'dark'} onClick={() => useStore.getState().setAppTheme('dark')} />
-      <AppBgBtn color="var(--bg-warm)" label="Coming soon" active={false} onClick={() => {}} comingSoon />
+      <AppBgBtn color="var(--bg-modal-header)" label={t`Dark`} active={appTheme === 'dark'} onClick={() => useStore.getState().setAppTheme('dark')} />
+      <AppBgBtn color="var(--bg-warm)" label={t`Coming soon`} active={false} onClick={() => {}} comingSoon />
     </div>
   )
 }

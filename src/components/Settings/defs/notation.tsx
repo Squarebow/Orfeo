@@ -20,7 +20,7 @@ export function groupLabel(group: string): string {
 const NOTE_NAMING_OPTIONS: { value: NoteNaming; label: string }[] = [
   { value: 'english', label: 'UK/US' },
   { value: 'central-european', label: 'EU' },
-  { value: 'solfege', label: 'Solfège' },
+  { value: 'solfege', label: t`Solfège` },
 ]
 
 function DisplaySystemControl() {
@@ -45,7 +45,7 @@ function DisplaySystemGlance() {
       {noteNaming === 'english'          && 'C  D  E  F  G  A  B'}
       {noteNaming === 'central-european' && 'C  D  E  F  G  A  H'}
       {noteNaming === 'solfege'          && 'Do Re Mi Fa Sol La Si'}
-      {noteNaming === 'hidden'           && '— labels hidden —'}
+      {noteNaming === 'hidden'           && t`— labels hidden —`}
     </PreviewBox>
   )
 }
@@ -59,7 +59,7 @@ function AccidentalsControl() {
   })
   return (
     <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 20 }}>
-      <span onClick={() => setAccidentals('flat')} style={side(accidentals === 'flat')}><span style={{ fontSize: 'calc(var(--text-xs) * 1.5)' }}>♭</span> Flats</span>
+      <span onClick={() => setAccidentals('flat')} style={side(accidentals === 'flat')}><span style={{ fontSize: 'calc(var(--text-xs) * 1.5)' }}>♭</span> {t`Flats`}</span>
       <button
         onClick={() => setAccidentals(accidentals === 'flat' ? 'sharp' : 'flat')}
         aria-label={t`Sharps or flats`}
@@ -67,7 +67,7 @@ function AccidentalsControl() {
       >
         {accidentals === 'flat' ? <ToggleLeft size={16} strokeWidth={1.5} /> : <ToggleRight size={16} strokeWidth={1.5} />}
       </button>
-      <span onClick={() => setAccidentals('sharp')} style={side(accidentals === 'sharp')}><span style={{ fontSize: 'calc(var(--text-xs) * 1.5)' }}>♯</span> Sharps</span>
+      <span onClick={() => setAccidentals('sharp')} style={side(accidentals === 'sharp')}><span style={{ fontSize: 'calc(var(--text-xs) * 1.5)' }}>♯</span> {t`Sharps`}</span>
     </div>
   )
 }
@@ -87,9 +87,9 @@ function ChordTrackingControl() {
   }
   return (
     <div style={{ display: 'flex', gap: 'var(--space-1)' }}>
-      <OptionBtn active={mode === 'auto'} onClick={() => setMode('auto')}>Auto</OptionBtn>
-      <OptionBtn active={mode === 'harmony'} onClick={() => setMode('harmony')}>Harmony</OptionBtn>
-      <OptionBtn active={mode === 'follow'} onClick={chooseFollow}>Follow</OptionBtn>
+      <OptionBtn active={mode === 'auto'} onClick={() => setMode('auto')}>{t`Auto`}</OptionBtn>
+      <OptionBtn active={mode === 'harmony'} onClick={() => setMode('harmony')}>{t`Harmony`}</OptionBtn>
+      <OptionBtn active={mode === 'follow'} onClick={chooseFollow}>{t`Follow`}</OptionBtn>
     </div>
   )
 }
@@ -97,9 +97,9 @@ function ChordTrackingGlance() {
   const mode = useStore(s => s.chordTrackingMode)
   return (
     <GlanceLine>
-      {mode === 'auto' && 'Follows the chord instruments (piano, keys, guitar, strings), ignoring melody and ornament lines. Best for most songs.'}
-      {mode === 'harmony' && 'Every non-drum track pooled together, including melody. For dense textures where no one instrument holds the chords.'}
-      {mode === 'follow' && 'Scoped to one instrument or group you choose.'}
+      {mode === 'auto' && t`Follows the chord instruments (piano, keys, guitar, strings), ignoring melody and ornament lines. Best for most songs.`}
+      {mode === 'harmony' && t`Every non-drum track pooled together, including melody. For dense textures where no one instrument holds the chords.`}
+      {mode === 'follow' && t`Scoped to one instrument or group you choose.`}
     </GlanceLine>
   )
 }
@@ -117,22 +117,22 @@ function ChordTrackingExtra() {
     <>
       <SubLabel>{t`Follow`}</SubLabel>
       <div style={{ display: 'flex', gap: 'var(--space-1)', marginBottom: 6 }}>
-        <OptionBtn active={subMode === 'group'} onClick={() => setSubMode('group')}>By Group</OptionBtn>
-        <OptionBtn active={subMode === 'track'} onClick={() => setSubMode('track')}>By Track</OptionBtn>
+        <OptionBtn active={subMode === 'group'} onClick={() => setSubMode('group')}>{t`By Group`}</OptionBtn>
+        <OptionBtn active={subMode === 'track'} onClick={() => setSubMode('track')}>{t`By Track`}</OptionBtn>
       </div>
       {subMode === 'group' ? (
         <SettingsDropdown
           value={group ?? ''}
           onChange={(v) => setGroup(v || null)}
-          options={[{ value: '', label: '— choose a group —' }, ...CHORD_FOLLOW_GROUPS.map(g => ({ value: g, label: groupLabel(g) }))]}
+          options={[{ value: '', label: t`— choose a group —` }, ...CHORD_FOLLOW_GROUPS.map(g => ({ value: g, label: groupLabel(g) }))]}
         />
       ) : tracks.length === 0 ? (
-        <div style={{ fontSize: 'var(--text-xs)', color: 'var(--text-inactive)', fontFamily: 'var(--font-ui)', fontStyle: 'italic' }}>No file open</div>
+        <div style={{ fontSize: 'var(--text-xs)', color: 'var(--text-inactive)', fontFamily: 'var(--font-ui)', fontStyle: 'italic' }}>{t`No file open`}</div>
       ) : (
         <SettingsDropdown
           value={trackIndex === null ? '' : String(trackIndex)}
           onChange={(v) => setTrackIndex(v === '' ? null : Number(v))}
-          options={[{ value: '', label: '— choose a track —' }, ...tracks.map(tr => ({ value: String(tr.index), label: tr.trackName }))]}
+          options={[{ value: '', label: t`— choose a track —` }, ...tracks.map(tr => ({ value: String(tr.index), label: tr.trackName }))]}
         />
       )}
     </>
@@ -164,8 +164,8 @@ function ChordNamingControl() {
   const setStyle = useStore(s => s.setChordNamingStyle)
   return (
     <div style={{ display: 'flex', gap: 'var(--space-1)' }}>
-      <OptionBtn active={style === 'abbreviation'} onClick={() => setStyle('abbreviation')}>Abbreviations</OptionBtn>
-      <OptionBtn active={style === 'symbol'} onClick={() => setStyle('symbol')}>Symbols</OptionBtn>
+      <OptionBtn active={style === 'abbreviation'} onClick={() => setStyle('abbreviation')}>{t`Abbreviations`}</OptionBtn>
+      <OptionBtn active={style === 'symbol'} onClick={() => setStyle('symbol')}>{t`Symbols`}</OptionBtn>
     </div>
   )
 }

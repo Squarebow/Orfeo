@@ -935,7 +935,7 @@ function LibraryPanel({ hidden = false }: { hidden?: boolean }) {
               padding: '5px 8px', background: 'var(--bg-row)', borderRadius: 4,
               border: '1px solid var(--border2)', marginBottom: 6,
             }}>
-              <Tooltip title="Change library folder" oneLine wrapperStyle={{ flexShrink: 0 }}>
+              <Tooltip title={t`Change library folder`} oneLine wrapperStyle={{ flexShrink: 0 }}>
               <button
                 onClick={handlePickFolder}
                 style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 0, display: 'flex', flexShrink: 0 }}
@@ -955,14 +955,14 @@ function LibraryPanel({ hidden = false }: { hidden?: boolean }) {
                   type="text"
                   value={librarySearch}
                   onChange={e => setLibrarySearch(e.target.value)}
-                  placeholder="Search your library"
+                  placeholder={t`Search your library`}
                   style={{
                     flex: 1, minWidth: 0, background: 'none', border: 'none', outline: 'none',
                     fontSize: 10, color: 'var(--text-muted)', fontFamily: 'var(--font-mono)',
                   }}
                 />
                 {librarySearch && (
-                  <Tooltip title="Clear search" oneLine>
+                  <Tooltip title={t`Clear search`} oneLine>
                   <button
                     onClick={() => setLibrarySearch('')}
                     style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 0, display: 'flex', color: 'var(--text-inactive)' }}
@@ -972,7 +972,7 @@ function LibraryPanel({ hidden = false }: { hidden?: boolean }) {
                   </Tooltip>
                 )}
               </div>
-              <Tooltip title={libraryNeedsRefresh ? 'A file was saved — click to refresh the library' : 'Refresh library'} oneLine>
+              <Tooltip title={libraryNeedsRefresh ? t`A file was saved — click to refresh the library` : t`Refresh library`} oneLine>
               <button
                 onClick={handleRefresh}
                 className={libraryNeedsRefresh ? 'loop-nudge-blink' : undefined}
@@ -1007,7 +1007,7 @@ function LibraryPanel({ hidden = false }: { hidden?: boolean }) {
             {/* Filter tabs, then the tags row under them */}
             <div style={{ display: 'flex', gap: 'var(--space-1)' }}>
               {(['all', 'starred'] as const).map(f => (
-                <Tooltip key={f} title={f === 'all' ? 'Show all files' : 'Show favorites only'} oneLine wrapperStyle={f === 'all' ? { flex: 1 } : undefined}>
+                <Tooltip key={f} title={f === 'all' ? t`Show all files` : t`Show favorites only`} oneLine wrapperStyle={f === 'all' ? { flex: 1 } : undefined}>
                 <button
                   onClick={() => setFilter(f)}
                   style={{
@@ -1019,11 +1019,11 @@ function LibraryPanel({ hidden = false }: { hidden?: boolean }) {
                     cursor: 'pointer', transition: 'all 0.12s',
                   }}
                 >
-                  {f === 'all' ? `All (${libraryFiles.length})` : `★ ${starredCount}`}
+                  {f === 'all' ? t`All (${libraryFiles.length})` : `★ ${starredCount}`}
                 </button>
                 </Tooltip>
               ))}
-              <Tooltip title="New folder" oneLine>
+              <Tooltip title={t`New folder`} oneLine>
               <button
                 onClick={() => handleCreateFolder()}
                 style={{
@@ -1038,7 +1038,7 @@ function LibraryPanel({ hidden = false }: { hidden?: boolean }) {
                 <Folders size={10} />
               </button>
               </Tooltip>
-              <Tooltip title={showHiddenLibraryFiles ? 'Hide hidden files in library' : 'Reveal hidden files in library'} oneLine>
+              <Tooltip title={showHiddenLibraryFiles ? t`Hide hidden files in library` : t`Reveal hidden files in library`} oneLine>
               <button
                 onClick={() => setShowHiddenLibraryFiles(!showHiddenLibraryFiles)}
                 style={{
@@ -1096,7 +1096,7 @@ function LibraryPanel({ hidden = false }: { hidden?: boolean }) {
             }}
           >
             <FolderOpen size={13} />
-            Set your MIDI folder
+            {t`Set your MIDI folder`}
           </button>
         )}
       </div>
@@ -1142,7 +1142,7 @@ function LibraryPanel({ hidden = false }: { hidden?: boolean }) {
           // Organize actions show unless EVERY selected file is read-only (Demo)
           const canOrganize = !Array.from(selectedPaths.size > 0 ? selectedPaths : [contextMenu.path]).every(p => isReadOnlyFolder(currentFolderOf(p)))
           return (
-          <ContextMenu ref={menuRef} x={contextMenu.x} y={contextMenu.y} ariaLabel="File actions">
+          <ContextMenu ref={menuRef} x={contextMenu.x} y={contextMenu.y} ariaLabel={t`File actions`}>
             <ContextMenuItem
               onClick={() => {
                 const path = contextMenu.path
@@ -1151,24 +1151,24 @@ function LibraryPanel({ hidden = false }: { hidden?: boolean }) {
                 setContextMenu(null)
               }}
             >
-              File info
+              {t`File info`}
             </ContextMenuItem>
             <ContextMenuItem
               onClick={() => { window.electronAPI.showItemInFolder(contextMenu.path); setContextMenu(null) }}
             >
-              Show in folder
+              {t`Show in folder`}
             </ContextMenuItem>
             {hiddenLibraryFiles.includes(contextMenu.path) ? (
               <ContextMenuItem
                 onClick={() => { unhideLibraryFile(contextMenu.path); setContextMenu(null) }}
               >
-                Unhide
+                {t`Unhide`}
               </ContextMenuItem>
             ) : (
               <ContextMenuItem
                 onClick={() => { hideLibraryFile(contextMenu.path); setContextMenu(null) }}
               >
-                Hide from library
+                {t`Hide from library`}
               </ContextMenuItem>
             )}
 
@@ -1176,7 +1176,7 @@ function LibraryPanel({ hidden = false }: { hidden?: boolean }) {
               <ContextMenuItem
                 onClick={() => { const path = contextMenu.path; setContextMenu(null); handleUndoMove(path) }}
               >
-                Undo move
+                {t`Undo move`}
               </ContextMenuItem>
             )}
 
@@ -1194,7 +1194,7 @@ function LibraryPanel({ hidden = false }: { hidden?: boolean }) {
                   if (name) await moveFilesToFolder(moveSet, name)
                 }}
               >
-                New folder from selection
+                {t`New folder from selection`}
               </ContextMenuItem>
             )}
 
@@ -1237,7 +1237,7 @@ function LibraryPanel({ hidden = false }: { hidden?: boolean }) {
             {canOrganize && realFolders.length > 0 && (
               <>
                 <ContextMenuDivider />
-                <ContextMenuLabel>Move to folder</ContextMenuLabel>
+                <ContextMenuLabel>{t`Move to folder`}</ContextMenuLabel>
                 {realFolders.map(folder => (
                   <ContextMenuItem
                     key={folder}
@@ -1249,7 +1249,7 @@ function LibraryPanel({ hidden = false }: { hidden?: boolean }) {
                 <ContextMenuItem
                   onClick={() => { const moveSet = Array.from(selectedPaths.size > 0 ? selectedPaths : [contextMenu.path]); setContextMenu(null); moveFilesToFolder(moveSet, null) }}
                 >
-                  Library root
+                  {t`Library root`}
                 </ContextMenuItem>
               </>
             )}
@@ -1266,11 +1266,11 @@ function LibraryPanel({ hidden = false }: { hidden?: boolean }) {
 
         {/* ── Folder right-click menu — Rename / Move selection here / Delete ── */}
         {folderContextMenu && (
-          <ContextMenu ref={folderMenuRef} x={folderContextMenu.x} y={folderContextMenu.y} minWidth={180} ariaLabel="Folder actions">
+          <ContextMenu ref={folderMenuRef} x={folderContextMenu.x} y={folderContextMenu.y} minWidth={180} ariaLabel={t`Folder actions`}>
             <ContextMenuItem
               onClick={() => { const folder = folderContextMenu.folder; setFolderContextMenu(null); if (libraryFolder) window.electronAPI.openFolderInExplorer(`${libraryFolder}/${folder}`) }}
             >
-              Show in folder
+              {t`Show in folder`}
             </ContextMenuItem>
             {/* every song in the folder (and the folders inside it) joins the queue as
                 songs, in the order shown; hidden songs stay out, and Demo has no entry */}
@@ -1290,20 +1290,20 @@ function LibraryPanel({ hidden = false }: { hidden?: boolean }) {
               <ContextMenuItem
                 onClick={() => { setRenamingFolder(folderContextMenu.folder); setRenameDraft(folderContextMenu.folder); setFolderContextMenu(null) }}
               >
-                Rename
+                {t`Rename`}
               </ContextMenuItem>
               <ContextMenuItem
                 onClick={() => { const folder = folderContextMenu.folder; setFolderContextMenu(null); moveFilesToFolder(Array.from(selectedPaths), folder) }}
                 disabled={selectedPaths.size === 0}
               >
-                Move {selectedPaths.size || ''} selected files here
+                {t`Move ${selectedPaths.size || ''} selected files here`}
               </ContextMenuItem>
               <ContextMenuItem
                 onClick={() => { const folder = folderContextMenu.folder; setFolderContextMenu(null); handleDeleteFolder(folder) }}
                 disabled={!folderIsEmpty(folderContextMenu.folder)}
                 danger
               >
-                Delete
+                {t`Delete`}
               </ContextMenuItem>
             </>)}
           </ContextMenu>
@@ -1323,7 +1323,7 @@ function LibraryPanel({ hidden = false }: { hidden?: boolean }) {
           const fmt = detectForeignFormat(loadedFile.path)
           const RowIcon = fmt === 'musicxml' ? FileCode2 : fmt === 'guitarpro' ? Guitar : FileMusic
           return (
-            <RowTooltip title="Right-click for options" wrapperStyle={{ position: 'sticky', top: 0, zIndex: 5 }}>
+            <RowTooltip title={t`Right-click for options`} wrapperStyle={{ position: 'sticky', top: 0, zIndex: 5 }}>
               {suppress => (
               <div
                 style={{
@@ -1347,7 +1347,7 @@ function LibraryPanel({ hidden = false }: { hidden?: boolean }) {
                 </div>
                 {lastFolderOf.has(loadedFile.path) && (
                   <RowIconButton
-                    tooltip={`Move back to ${lastFolderOf.get(loadedFile.path) ?? 'library root'}`}
+                    tooltip={t`Move back to ${lastFolderOf.get(loadedFile.path) ?? 'library root'}`}
                     onClick={e => { e.stopPropagation(); handleUndoMove(loadedFile!.path) }}
                     onHoverChange={suppress}
                     style={{ padding: '2px 3px' }}
@@ -1358,7 +1358,7 @@ function LibraryPanel({ hidden = false }: { hidden?: boolean }) {
                 <TempoWarningDot path={loadedFile.path} onHoverChange={suppress} />
                 <FavouriteStar
                   starred={starred}
-                  title={starred ? 'Remove from favourites' : 'Add to favourites'}
+                  title={starred ? t`Remove from favourites` : t`Add to favourites`}
                   onClick={e => { e.stopPropagation(); toggleFavourite(loadedFile!.path) }}
                   onHoverChange={suppress}
                   style={{ padding: '2px 3px' }}
@@ -1373,8 +1373,9 @@ function LibraryPanel({ hidden = false }: { hidden?: boolean }) {
         {libraryFolder && !hasAnyFiles && (
           <div style={{ padding: '16px 14px', fontSize: 'var(--text-xs)', color: 'var(--text-muted)', textAlign: 'center' }}>
             {librarySearch.trim()
-              ? `No files matching "${librarySearch.trim()}".`
-              : filter === 'starred' ? 'No starred files yet.\nStar a file with ★' : 'No MIDI files found.'}
+              ? t`No files matching "${librarySearch.trim()}".`
+              : filter === 'starred' ? t`No starred files yet.
+Star a file with ★` : t`No MIDI files found.`}
           </div>
         )}
 
@@ -1397,7 +1398,7 @@ function LibraryPanel({ hidden = false }: { hidden?: boolean }) {
               const fmt = detectForeignFormat(file.path)
               const RowIcon = fmt === 'musicxml' ? FileCode2 : fmt === 'guitarpro' ? Guitar : FileMusic
               return (
-                <RowTooltip key={file.path} title="Right-click for options">
+                <RowTooltip key={file.path} title={t`Right-click for options`}>
                 {suppress => (
                 <div
                   style={{
@@ -1458,7 +1459,7 @@ function LibraryPanel({ hidden = false }: { hidden?: boolean }) {
             {foldersSectionExpanded
               ? <ChevronDown size={11} style={{ color: 'var(--text-amber)', flexShrink: 0 }} />
               : <ChevronRight size={11} style={{ color: 'var(--text-amber)', flexShrink: 0 }} />}
-            <span style={{ flex: 1, fontSize: 'var(--text-sm)', color: 'var(--text-tile-subtext)', fontWeight: 600 }}>Folders</span>
+            <span style={{ flex: 1, fontSize: 'var(--text-sm)', color: 'var(--text-tile-subtext)', fontWeight: 600 }}>{t`Folders`}</span>
           </div>
         )}
 
@@ -1544,14 +1545,14 @@ function LibraryPanel({ hidden = false }: { hidden?: boolean }) {
                   )}
                   {/* ── Live drag feedback — native title tooltips don't reliably show mid-drag ── */}
                   {isProtectedHover && (
-                    <span style={{ fontSize: 9, color: 'var(--status-protected)', flexShrink: 0, whiteSpace: 'nowrap' }}>Can't move to system folder</span>
+                    <span style={{ fontSize: 9, color: 'var(--status-protected)', flexShrink: 0, whiteSpace: 'nowrap' }}>{t`Can't move to system folder`}</span>
                   )}
                   {isDropTarget && (
-                    <span style={{ fontSize: 9, color: 'var(--text-amber)', flexShrink: 0, whiteSpace: 'nowrap' }}>Move to {group.folder}</span>
+                    <span style={{ fontSize: 9, color: 'var(--text-amber)', flexShrink: 0, whiteSpace: 'nowrap' }}>{t`Move to`} {group.folder}</span>
                   )}
                   {!protectedFolder && folderHasUndo && (
                     <RowIconButton
-                      tooltip="Undo all moves into this folder (this session only)"
+                      tooltip={t`Undo all moves into this folder (this session only)`}
                       onClick={e => { e.stopPropagation(); handleUndoFolder(group.folder!, group.files) }}
                       onHoverChange={suppress}
                       style={{ padding: '1px 2px' }}
@@ -1562,7 +1563,7 @@ function LibraryPanel({ hidden = false }: { hidden?: boolean }) {
                   {!protectedFolder && group.files.length > 0 && (
                     <FavouriteStar
                       starred={folderAllStarred}
-                      title={folderAllStarred ? 'Unstar all songs in this folder' : 'Star all songs in this folder'}
+                      title={folderAllStarred ? t`Unstar all songs in this folder` : t`Star all songs in this folder`}
                       onClick={e => { e.stopPropagation(); handleToggleFolderFavourites(group.files) }}
                       onHoverChange={suppress}
                       style={{ padding: '1px 2px' }}
@@ -1622,7 +1623,7 @@ function LibraryPanel({ hidden = false }: { hidden?: boolean }) {
               const nextSelected = isMultiSelected && rowIndex < visibleFilePaths.length - 1 && selectedPaths.has(visibleFilePaths[rowIndex + 1])
               const selectionBorder = '2px solid var(--accent-amber-strong)'
               return (
-                <RowTooltip key={file.path} title="Right-click for options">
+                <RowTooltip key={file.path} title={t`Right-click for options`}>
                   {suppress => (
                   <div
                     draggable={!protectedFolder}
@@ -1658,7 +1659,7 @@ function LibraryPanel({ hidden = false }: { hidden?: boolean }) {
                     <LibrarySongName path={file.path} name={libraryDisplayName(file.name, librarySongFirst)} spanStyle={isHidden ? FILENAME_SPAN_HIDDEN : isLoaded || isSelected || isJustSaved ? FILENAME_SPAN_ACTIVE : FILENAME_SPAN_DEFAULT} />
                     {lastFolderOf.has(file.path) && (
                       <RowIconButton
-                        tooltip={`Move back to ${lastFolderOf.get(file.path) ?? 'library root'}`}
+                        tooltip={t`Move back to ${lastFolderOf.get(file.path) ?? 'library root'}`}
                         onClick={e => { e.stopPropagation(); handleUndoMove(file.path) }}
                         onHoverChange={suppress}
                         style={{ padding: '2px 3px' }}
@@ -1669,7 +1670,7 @@ function LibraryPanel({ hidden = false }: { hidden?: boolean }) {
                     <TempoWarningDot path={file.path} onHoverChange={suppress} />
                     <FavouriteStar
                       starred={starred}
-                      title={starred ? 'Remove from favourites' : 'Add to favourites'}
+                      title={starred ? t`Remove from favourites` : t`Add to favourites`}
                       onClick={e => { e.stopPropagation(); toggleFavourite(file.path) }}
                       onHoverChange={suppress}
                       style={{ padding: '2px 3px' }}
@@ -1696,7 +1697,7 @@ function LibraryPanel({ hidden = false }: { hidden?: boolean }) {
               background: dragOverFolder === '__root__' ? 'var(--accent-amber-subtle)' : 'transparent',
             }}
           >
-            Drop here to move to library root
+            {t`Drop here to move to library root`}
           </div>
         )}
       </div>
@@ -1803,7 +1804,7 @@ export default function SettingsPanel() {
           display: 'flex', flexDirection: 'column', alignItems: 'center',
           height: '100%', paddingTop: 10, paddingBottom: 10,
         }}>
-          <Tooltip title="Open Library" description="Browse and load MIDI files from your library folder.">
+          <Tooltip title={t`Open Library`} description={t`Browse and load MIDI files from your library folder.`}>
           <button
             onClick={() => { setActiveTab('library'); setSettingsPanelOpen(true) }}
             style={{
@@ -1834,7 +1835,7 @@ export default function SettingsPanel() {
           </button>
           </Tooltip>
           <div style={{ flex: 1 }} />
-          <Tooltip title="Coming soon" oneLine>
+          <Tooltip title={t`Coming soon`} oneLine>
           <button
             style={{
               background: 'none', border: 'none', cursor: 'default',
@@ -1852,7 +1853,7 @@ export default function SettingsPanel() {
         <div style={{ display: 'flex', flexDirection: 'column', height: '100%', overflow: 'hidden' }}>
 
           {/* ── Collapse button: chevron only, dynamic tooltip ────────────────── */}
-          <Tooltip title="Close panel" placement="left" oneLine>
+          <Tooltip title={t`Close panel`} placement="left" oneLine>
           <button
             onClick={() => setSettingsPanelOpen(false)}
             style={{
@@ -1873,7 +1874,7 @@ export default function SettingsPanel() {
           {/* ── Tab bar: Library / Settings, left-aligned with content ─────── */}
           <div data-tour="drawer-tabs" style={{ display: 'flex', borderBottom: '1px solid var(--border)', flexShrink: 0 }}>
             {([
-              { id: 'library',  icon: <Library size={16} />,  label: 'Library'  },
+              { id: 'library',  icon: <Library size={16} />,  label: t`Library`  },
               { id: 'settings', icon: <Settings2 size={16} />, label: t`Setup` },
             ] as { id: DrawerTab; icon: React.ReactNode; label: string }[]).map(tab => (
               <button
@@ -1930,7 +1931,7 @@ export default function SettingsPanel() {
             padding: '8px 14px',
             display: 'flex', alignItems: 'center', gap: 6,
           }}>
-            <Tooltip title="Open user manual" oneLine wrapperStyle={{ flex: 1, minWidth: 0 }}>
+            <Tooltip title={t`Open user manual`} oneLine wrapperStyle={{ flex: 1, minWidth: 0 }}>
             <button
               onClick={() => window.electronAPI.openExternal('https://orfeo.cc/docs')}
               style={{
@@ -1943,7 +1944,7 @@ export default function SettingsPanel() {
               onMouseLeave={e => e.currentTarget.style.color = 'var(--text-muted)'}
             >
               <BookOpen size={11} strokeWidth={1.5} />
-              <span style={{ fontSize: 10, fontFamily: 'var(--font-mono)', letterSpacing: '0.02em' }}>User Manual</span>
+              <span style={{ fontSize: 10, fontFamily: 'var(--font-mono)', letterSpacing: '0.02em' }}>{t`User Manual`}</span>
             </button>
             </Tooltip>
             <DevModeBadge />
