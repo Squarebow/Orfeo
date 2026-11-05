@@ -167,4 +167,4 @@ Available on the Piano Roll once Note Editor edit mode is active.
 
 - [ARCHITECTURE.md](ARCHITECTURE.md) — how the app is structured
 - [CONTRIBUTING.md](CONTRIBUTING.md) — building from source
-- [INSTALLATION.md](INSTALLATION.md) — installer vs. portable
+- [INSTALLATION.md](INSTALLATION.md) — downloads for each system, where data lives

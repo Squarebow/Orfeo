@@ -1,12 +1,13 @@
-# Orfeo — Installer vs. Portable
+# Orfeo — Installation
 
-*Orfeo ships two Windows builds from every release (and Mac ones — see
-[macOS](#macos)). Same app, same features —
-they differ only in how they land on your machine and where they keep your
-data.*
+*Every release of Orfeo comes for Windows, [macOS](#macos) and [Linux](#linux)
+(experimental). It's the same app on each system, apart from the Native sound
+engine, which is Windows-only for now. Windows has two builds, Setup and
+Portable, which differ only in how they land on your machine and where they
+keep your data.*
 
 > [!TIP]
-> **Not sure? Use the Setup installer.** It gives you Start Menu integration
+> **On Windows and not sure? Use the Setup installer.** It gives you Start Menu integration
 > and automatic updates with no extra effort. Reach for the portable build only
 > when you need to run Orfeo without installing anything.
 
@@ -14,11 +15,12 @@ data.*
 
 ## Contents
 
-- [At a glance](#at-a-glance)
-- [Where your data lives](#where-your-data-lives)
-- [Updating](#updating)
-- [Uninstalling](#uninstalling)
-- [Switching between the two builds](#switching-between-the-two-builds)
+- **Windows**
+  - [At a glance](#at-a-glance)
+  - [Where your data lives](#where-your-data-lives)
+  - [Updating](#updating)
+  - [Uninstalling](#uninstalling)
+  - [Switching between the two builds](#switching-between-the-two-builds)
 - [macOS](#macos)
 - [Linux](#linux)
 
@@ -188,7 +190,7 @@ system's security settings can stop AppImages of apps like Orfeo from starting;
 the installers aren't affected.
 
 - **Sound:** GM and Studio. The Native engine is Windows-only for now.
-- **MIDI keyboards:** USB keyboards are picked up like on Windows.
+- **MIDI keyboards:** USB keyboards are picked up automatically.
 - **Your data:** `~/.config/Orfeo/`.
 - **Updating:** no auto-update. *Check for updates* opens the download page;
   install the new version over the old one — your settings stay.

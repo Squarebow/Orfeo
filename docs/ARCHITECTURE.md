@@ -793,6 +793,6 @@ into the output. Full command reference and the release procedure are in
 ### Related documents
 
 - [CONTRIBUTING.md](CONTRIBUTING.md) — setup, build commands, release process
-- [INSTALLATION.md](INSTALLATION.md) — installer vs. portable, where data lives
+- [INSTALLATION.md](INSTALLATION.md) — downloads for each system, where data lives
 - [SHORTCUTS.md](SHORTCUTS.md) — every keyboard and mouse gesture
 - [CHANGELOG.md](CHANGELOG.md) — technical release history

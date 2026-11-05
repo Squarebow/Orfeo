@@ -16,7 +16,6 @@ Environment:
   TRAFFIC_TOKEN   fine-grained token with "Administration: Read-only" on the
                   repo; needed for traffic. Optional: without it only
                   downloads are recorded and traffic.md says so.
-  OWN_DOWNLOADS   your own downloads, subtracted in the "by others" line (default 0)
 Usage:
   python tools/stats/collect.py --out <folder of the stats branch>
 Only the Python standard library is used.
@@ -109,16 +108,26 @@ def hi(s):
 # ---------------------------------------------------------------- Downloads
 
 
+# Files that count as downloads of the app, one kind per system or build
+DL_KINDS = ("installer", "portable", "mac", "linux")
+
+
 def asset_kind(name):
     low = name.lower()
+    # Only the Windows installer updates itself: a Mac or Linux .blockmap or .yml
+    # is not an installed copy at work
     if low.endswith(".blockmap"):
-        return "update"  # an installed copy downloading an update
+        return "update" if low.endswith(".exe.blockmap") else "other"  # an installed copy downloading an update
     if low.endswith(".yml") or low.endswith(".yaml"):
-        return "launch"  # an installed copy checking for updates at start
+        return "launch" if low == "latest.yml" else "other"  # an installed copy checking for updates at start
     if low.endswith(".exe") and "portable" in low:
         return "portable"
     if low.endswith(".exe") or low.endswith(".msi"):
         return "installer"
+    if low.endswith(".dmg") or (low.endswith(".zip") and "-mac-" in low):
+        return "mac"
+    if low.endswith((".appimage", ".deb", ".rpm")):
+        return "linux"
     return "other"
 
 
@@ -237,14 +246,14 @@ def sums_by_date(rows):
     return out
 
 
-def build_report(repo, info, dl_rows, traffic, traffic_error, own):
+def build_report(repo, info, dl_rows, traffic, traffic_error):
     by_date = sums_by_date(dl_rows)
     dates = sorted(by_date)
     first_day = dates[0]
     now = by_date[dates[-1]]
-    kinds = ("installer", "portable", "launch", "update")
+    kinds = DL_KINDS + ("launch", "update")
     total = {k: now.get(k, 0) for k in kinds}
-    downloads = total["installer"] + total["portable"]
+    downloads = sum(total[k] for k in DL_KINDS)
 
     def at_or_before(day):
         cands = [x for x in dates if d(x) <= day]
@@ -268,8 +277,8 @@ def build_report(repo, info, dl_rows, traffic, traffic_error, own):
         f"{info.get('subscribers_count', 0)} watching\n"
     )
     L.append(
-        "> Orfeo is a free, open-source (GPL-3.0) Windows app for learning piano with MIDI files. "
-        "It is distributed through GitHub Releases, as an installer and a portable version, and through the Microsoft Store "
+        "> Orfeo is a free, open-source (GPL-3.0) cross-platform app for learning piano with MIDI files. "
+        "It is distributed through GitHub Releases for Windows, macOS and Linux (experimental), and through the Microsoft Store "
         "(Store installs aren't counted here). "
         "Download totals come straight from GitHub's release statistics and cover every release since the first one; "
         "traffic is recorded daily from GitHub's traffic API and kept permanently, because GitHub itself keeps only 14 days.\n"
@@ -279,10 +288,12 @@ def build_report(repo, info, dl_rows, traffic, traffic_error, own):
     L.append("## At a glance\n")
     L.append(f"| | All time | {base_label.capitalize()} |")
     L.append("|---|---:|---:|")
-    dl7 = last7["installer"] + last7["portable"]
-    L.append(f"| **Downloads** (installer + portable) | {hi('**' + fmt(downloads) + '**')} | {hi('**' + fmt(dl7) + '**')} |")
-    L.append(f"| — Installer (`Orfeo-Setup-x.y.z.exe`) | {fmt(total['installer'])} | {fmt(last7['installer'])} |")
-    L.append(f"| — Portable (`Orfeo-x.y.z-portable.exe`) | {fmt(total['portable'])} | {fmt(last7['portable'])} |")
+    dl7 = sum(last7[k] for k in DL_KINDS)
+    L.append(f"| **Downloads** (all systems) | {hi('**' + fmt(downloads) + '**')} | {hi('**' + fmt(dl7) + '**')} |")
+    L.append(f"| — Windows installer (`Orfeo-Setup-x.y.z.exe`) | {fmt(total['installer'])} | {fmt(last7['installer'])} |")
+    L.append(f"| — Windows portable (`Orfeo-x.y.z-portable.exe`) | {fmt(total['portable'])} | {fmt(last7['portable'])} |")
+    L.append(f"| — macOS (`.dmg`, `.zip`) | {fmt(total['mac'])} | {fmt(last7['mac'])} |")
+    L.append(f"| — Linux (`.AppImage`, `.deb`, `.rpm`) | {fmt(total['linux'])} | {fmt(last7['linux'])} |")
     L.append(f"| App starts checking for updates (`latest.yml`) | {fmt(total['launch'])} | {fmt(last7['launch'])} |")
     L.append(f"| Updates installed (`.blockmap`) | {fmt(total['update'])} | {fmt(last7['update'])} |")
     if traffic:
@@ -297,12 +308,10 @@ def build_report(repo, info, dl_rows, traffic, traffic_error, own):
         L.append(f"| Unique visitors (added up per day) | {hi(fmt(u_all))} | {hi(fmt(u7))} |")
         L.append(f"| Repository clones | {fmt(c_all)} | {fmt(c7)} |")
     L.append("")
-    if own:
-        L.append(f"Downloads by others, excluding the developer's own test downloads (about {own}): {hi(f'**≈ {fmt(max(0, downloads - own))}**')}.\n")
     L.append(
-        "*Downloads* count each time a release file was downloaded. *App starts* count installed copies (installer version) "
+        "*Downloads* count each time a release file was downloaded. *App starts* count installed copies (Windows installer version) "
         "checking GitHub for a newer version when Orfeo starts, so they show the app being used, not just downloaded. "
-        "The portable version does not check automatically.\n"
+        "The Windows portable, macOS and Linux versions do not check automatically.\n"
     )
     L.append(
         "Highlighted numbers are the ones closest to real people: downloads of the app and unique visitors. "
@@ -311,12 +320,12 @@ def build_report(repo, info, dl_rows, traffic, traffic_error, own):
 
     # Per release
     L.append("## Downloads per release\n")
-    L.append("| Release | Published | Installer | Portable | Total downloads | App starts | Updates |")
-    L.append("|---|---|---:|---:|---:|---:|---:|")
+    L.append("| Release | Published | Windows installer | Windows portable | macOS | Linux | Total downloads | App starts | Updates |")
+    L.append("|---|---|---:|---:|---:|---:|---:|---:|---:|")
     latest = [r for r in dl_rows if r["date"] == dates[-1]]
     rels = {}
     for r in latest:
-        x = rels.setdefault(r["tag"], {"published": r["published"], "installer": 0, "portable": 0, "launch": 0, "update": 0})
+        x = rels.setdefault(r["tag"], {"published": r["published"], **{k: 0 for k in kinds}})
         if r["kind"] in x:
             x[r["kind"]] += n(r["downloads"])
     def ver(tag):
@@ -325,10 +334,12 @@ def build_report(repo, info, dl_rows, traffic, traffic_error, own):
     for tag, x in sorted(rels.items(), key=lambda kv: (kv[1]["published"], ver(kv[0])), reverse=True):
         L.append(
             f"| [{tag}](https://github.com/{repo}/releases/tag/{tag}) | {x['published']} | {fmt(x['installer'])} | "
-            f"{fmt(x['portable'])} | {hi('**' + fmt(x['installer'] + x['portable']) + '**')} | {fmt(x['launch'])} | {fmt(x['update'])} |"
+            f"{fmt(x['portable'])} | {fmt(x['mac'])} | {fmt(x['linux'])} | "
+            f"{hi('**' + fmt(sum(x[k] for k in DL_KINDS)) + '**')} | {fmt(x['launch'])} | {fmt(x['update'])} |"
         )
     L.append(
-        f"| **All releases** | | **{fmt(total['installer'])}** | **{fmt(total['portable'])}** | {hi('**' + fmt(downloads) + '**')} | "
+        f"| **All releases** | | **{fmt(total['installer'])}** | **{fmt(total['portable'])}** | **{fmt(total['mac'])}** | **{fmt(total['linux'])}** | "
+        f"{hi('**' + fmt(downloads) + '**')} | "
         f"**{fmt(total['launch'])}** | **{fmt(total['update'])}** |\n"
     )
 
@@ -336,8 +347,8 @@ def build_report(repo, info, dl_rows, traffic, traffic_error, own):
     L.append("## Last 7 days, day by day\n")
     views_by_day = {r["date"]: r for r in (traffic["views"] if traffic else [])}
     clones_by_day = {r["date"]: r for r in (traffic["clones"] if traffic else [])}
-    L.append("| Day | Installer | Portable | App starts | Page views | Unique visitors | Clones |")
-    L.append("|---|---:|---:|---:|---:|---:|---:|")
+    L.append("| Day | Windows installer | Windows portable | macOS | Linux | App starts | Page views | Unique visitors | Clones |")
+    L.append("|---|---:|---:|---:|---:|---:|---:|---:|---:|")
     for i in range(6, -1, -1):
         day = TODAY - dt.timedelta(days=i)
         cur = by_date.get(day.isoformat())
@@ -345,13 +356,15 @@ def build_report(repo, info, dl_rows, traffic, traffic_error, own):
         if cur is not None and prev is not None:
             inst = str(cur.get("installer", 0) - prev.get("installer", 0))
             port = str(cur.get("portable", 0) - prev.get("portable", 0))
+            mac = str(cur.get("mac", 0) - prev.get("mac", 0))
+            lin = str(cur.get("linux", 0) - prev.get("linux", 0))
             lau = str(cur.get("launch", 0) - prev.get("launch", 0))
         else:
-            inst = port = lau = "–"
+            inst = port = mac = lin = lau = "–"
         v = views_by_day.get(day.isoformat())
         c = clones_by_day.get(day.isoformat())
         L.append(
-            f"| {day.strftime('%a %d %b')} | {inst} | {port} | {lau} | "
+            f"| {day.strftime('%a %d %b')} | {inst} | {port} | {mac} | {lin} | {lau} | "
             f"{v['count'] if v else '–'} | {hi(v['uniques']) if v else '–'} | {c['count'] if c else '–'} |"
         )
     L.append(
@@ -362,21 +375,28 @@ def build_report(repo, info, dl_rows, traffic, traffic_error, own):
     # Weekly history
     if traffic or len(dates) > 1:
         L.append("## History by week\n")
-        L.append("| Week (Mon) | Downloads | — installer | — portable | App starts | Page views |")
-        L.append("|---|---:|---:|---:|---:|---:|")
+        L.append("| Week (Mon) | Downloads | — Windows installer | — Windows portable | — macOS | — Linux | App starts | Page views |")
+        L.append("|---|---:|---:|---:|---:|---:|---:|---:|")
         weeks = {}
+
+        def empty_week():
+            return {k: 0 for k in DL_KINDS + ("launch", "views")}
+
         for prev_day, day in zip(dates, dates[1:]):
             wk = (d(day) - dt.timedelta(days=d(day).weekday())).isoformat()
-            w = weeks.setdefault(wk, {"installer": 0, "portable": 0, "launch": 0, "views": 0})
-            for k in ("installer", "portable", "launch"):
+            w = weeks.setdefault(wk, empty_week())
+            for k in DL_KINDS + ("launch",):
                 w[k] += by_date[day].get(k, 0) - by_date[prev_day].get(k, 0)
         for r in traffic["views"] if traffic else []:
             wk = (d(r["date"]) - dt.timedelta(days=d(r["date"]).weekday())).isoformat()
-            weeks.setdefault(wk, {"installer": 0, "portable": 0, "launch": 0, "views": 0})["views"] += n(r["count"])
+            weeks.setdefault(wk, empty_week())["views"] += n(r["count"])
         for wk in sorted(weeks, reverse=True):
             w = weeks[wk]
-            dl = w["installer"] + w["portable"]
-            L.append(f"| {wk} | {fmt(dl)} | {fmt(w['installer'])} | {fmt(w['portable'])} | {fmt(w['launch'])} | {fmt(w['views'])} |")
+            dl = sum(w[k] for k in DL_KINDS)
+            L.append(
+                f"| {wk} | {fmt(dl)} | {fmt(w['installer'])} | {fmt(w['portable'])} | {fmt(w['mac'])} | {fmt(w['linux'])} | "
+                f"{fmt(w['launch'])} | {fmt(w['views'])} |"
+            )
         L.append(
             f"\nDownloads before {first_day} (when tracking started) are in the all-time totals above but not in this table.\n"
         )
@@ -428,7 +448,6 @@ def main():
     repo = os.environ.get("REPO", "Squarebow/Orfeo")
     token = os.environ.get("GH_TOKEN", "")
     traffic_token = os.environ.get("TRAFFIC_TOKEN", "")
-    own = n(os.environ.get("OWN_DOWNLOADS", "0"))
     data_dir = os.path.join(args.out, "data")
     os.makedirs(data_dir, exist_ok=True)
 
@@ -445,7 +464,7 @@ def main():
             traffic_error = f"GitHub answered {e.code} ({e.reason}). The TRAFFIC_TOKEN may have expired or lack Administration: Read-only."
             print("Traffic failed:", traffic_error, file=sys.stderr)
 
-    report = build_report(repo, info, dl_rows, traffic, traffic_error, own)
+    report = build_report(repo, info, dl_rows, traffic, traffic_error)
     with open(os.path.join(args.out, "traffic.md"), "w", encoding="utf-8") as f:
         f.write(report)
     print(report)

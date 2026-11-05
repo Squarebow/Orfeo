@@ -396,6 +396,6 @@ on each run as the **linux-packages** artifact.
 ### Related documents
 
 - [ARCHITECTURE.md](ARCHITECTURE.md) — why each choice was made
-- [INSTALLATION.md](INSTALLATION.md) — installer vs. portable
+- [INSTALLATION.md](INSTALLATION.md) — downloads for each system, where data lives
 - [SHORTCUTS.md](SHORTCUTS.md) — keyboard and mouse reference
 - [CHANGELOG.md](CHANGELOG.md) — release history

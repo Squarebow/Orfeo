@@ -3,7 +3,7 @@
 **From MIDI to mastery.** Turn any MIDI file into an interactive piano-learning
 experience.
 
-[![Version](https://img.shields.io/github/v/release/Squarebow/Orfeo?label=Version&color=blue)](https://github.com/Squarebow/Orfeo/releases/latest) [![License](https://img.shields.io/badge/License-GPLv3-blue)](LICENSE.md) [![Platform](https://img.shields.io/badge/Platform-Windows%20%7C%20macOS-lightgrey)](https://github.com/Squarebow/Orfeo/releases)
+[![Version](https://img.shields.io/github/v/release/Squarebow/Orfeo?label=Version&color=blue)](https://github.com/Squarebow/Orfeo/releases/latest) [![License](https://img.shields.io/badge/License-GPLv3-blue)](LICENSE.md) [![Platform](https://img.shields.io/badge/Platform-Windows%20%7C%20macOS%20%7C%20Linux-lightgrey)](https://github.com/Squarebow/Orfeo/releases)
 
 📖 **User manual: [orfeo.cc/docs](https://orfeo.cc/docs)**
 
@@ -15,7 +15,7 @@ Orfeo is free and always will be. If it helps your playing, you can support it o
 
 ---
 
-Orfeo is a free, open-source desktop app that turns MIDI files into an
+Orfeo is a free, open-source, cross-platform desktop app that turns MIDI files into an
 interactive piano lesson: notes fall onto a virtual keyboard in real time, keys
 light up as they play, and you can slow down, loop, transpose, and explore any
 passage at your own pace. Real-time chord detection, hand-coloured keys,
@@ -155,15 +155,20 @@ Grab the latest build from the [Releases](https://github.com/Squarebow/Orfeo/rel
 page:
 
 <table width="100%">
-<colgroup><col width="34%"><col width="66%"></colgroup>
-<thead><tr><th>File</th><th>Use</th></tr></thead>
+<colgroup><col width="14%"><col width="40%"><col width="46%"></colgroup>
+<thead><tr><th>System</th><th>File</th><th>Use</th></tr></thead>
 <tbody>
-<tr><td><code>Orfeo-Setup-&lt;version&gt;.exe</code></td><td>Standard Windows installer — Start Menu shortcut, automatic updates</td></tr>
-<tr><td><code>Orfeo-&lt;version&gt;-portable.exe</code></td><td>Portable — no installation, runs from anywhere, manual updates</td></tr>
+<tr><td>Windows</td><td><code>Orfeo-Setup-&lt;version&gt;.exe</code></td><td>Installer — Start Menu shortcut, automatic updates</td></tr>
+<tr><td>Windows</td><td><code>Orfeo-&lt;version&gt;-portable.exe</code></td><td>Portable — no installation, runs from anywhere, manual updates</td></tr>
+<tr><td>macOS</td><td><code>Orfeo-&lt;version&gt;-mac-arm64.dmg</code></td><td>Apple Silicon (M1 and newer)</td></tr>
+<tr><td>macOS</td><td><code>Orfeo-&lt;version&gt;-mac-x64.dmg</code></td><td>Intel Macs</td></tr>
+<tr><td>Linux (experimental)</td><td><code>Orfeo-&lt;version&gt;-linux-amd64.deb</code></td><td>Ubuntu, Debian, Mint, Pop!_OS…</td></tr>
+<tr><td>Linux (experimental)</td><td><code>Orfeo-&lt;version&gt;-linux-x86_64.rpm</code></td><td>Fedora, openSUSE…</td></tr>
+<tr><td>Linux (experimental)</td><td><code>Orfeo-&lt;version&gt;-linux-x86_64.AppImage</code></td><td>Any other distribution, no installation</td></tr>
 </tbody>
 </table>
 
-Prefer the Store? Orfeo is also in the
+On Windows, Orfeo is also in the
 [Microsoft Store](https://apps.microsoft.com/detail/9NJ9Q01P8JQD), which keeps it
 up to date for you.
 
@@ -181,7 +186,7 @@ live)? See **[docs/INSTALLATION.md](docs/INSTALLATION.md)**.
 <tr><td><a href="https://orfeo.cc/docs">User manual</a></td><td>The complete guide — Play, Edit, Practice, Manage files, Extras (online at orfeo.cc)</td></tr>
 <tr><td><a href="https://orfeo.cc/docs/support/roadmap">Roadmap</a></td><td>What is being built next</td></tr>
 <tr><td><a href="docs/SHORTCUTS.md">Shortcuts</a></td><td>Every keyboard and mouse gesture</td></tr>
-<tr><td><a href="docs/INSTALLATION.md">Installation</a></td><td>Installer vs. portable, updates, where data lives</td></tr>
+<tr><td><a href="docs/INSTALLATION.md">Installation</a></td><td>Downloads for each system, updates, where data lives</td></tr>
 <tr><td><a href="docs/ARCHITECTURE.md">Architecture</a></td><td>How Orfeo is built and why</td></tr>
 <tr><td><a href="docs/CHANGELOG.md">Changelog</a></td><td>Technical release history</td></tr>
 <tr><td><a href="docs/CONTRIBUTING.md">Contributing</a></td><td>Build from source, cut a release</td></tr>
@@ -280,7 +285,7 @@ alternative that filled the gap became expensive and gamified, and hasn't
 meaningfully modernized in years.
 
 Orfeo picks up Rondo's idea, rebuilt from scratch as an actively maintained,
-cross-platform-capable app with one goal: **make the music itself — not the app
+cross-platform app with one goal: **make the music itself — not the app
 around it — the focus.** Free forever, no gamification, real rubato support,
 open source, and a modern interface.
 

@@ -644,7 +644,7 @@ state the exclusion of warranty; and each file should have at least
 the "copyright" line and a pointer to where the full notice is found.
 
 
-Orfeo — a modern piano-learning and MIDI visualization desktop app for Windows
+Orfeo — a modern piano-learning and MIDI visualization cross-platform desktop app
 Copyright (C) 2026 SquareBow
 
 This program is free software: you can redistribute it and/or modify

@@ -63,7 +63,6 @@ jobs:
           GH_TOKEN: ${{ github.token }}
           TRAFFIC_TOKEN: ${{ secrets.TRAFFIC_TOKEN }}
           REPO: ${{ github.repository }}
-          OWN_DOWNLOADS: '4'
         run: python3 tools/stats/collect.py --out stats-data
 
       - name: Save
