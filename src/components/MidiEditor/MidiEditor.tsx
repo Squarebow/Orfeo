@@ -6,6 +6,7 @@
  */
 
 import { useState, useEffect, useRef, useCallback, useMemo, type CSSProperties } from 'react'
+import { t } from '../../utils/i18n'
 import { createPortal } from 'react-dom'
 import { Check, X, Save, FolderOpen, AlertCircle, ChevronDown, ChevronRight, Search, Merge, Split, Undo2, RotateCcw, Piano, Bell, Church, Guitar, Music2, AudioWaveform, Users, Megaphone, Wind, Feather, Cpu, Globe, Drum, Radio, Waves, Sparkles, SwatchBook, Eye, EyeOff, ThumbsUp, ToggleLeft, ToggleRight, AudioLines } from 'lucide-react'
 import { confirmDialog } from '../../utils/confirmController'
@@ -1837,7 +1838,7 @@ export default function MidiEditor() {
           </div>
           {saveResult?.ok && saveResult.filePath ? (
             <Tooltip
-              title="Opens Windows Explorer with this exact saved file highlighted — settles any doubt about where it landed."
+              title={t`Opens the folder with this exact saved file highlighted, so you can see where it landed.`}
               oneLine
               wrapperStyle={{ width: SHOW_IN_FOLDER_W, flexShrink: 0 }}
             >

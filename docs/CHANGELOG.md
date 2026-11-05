@@ -19,6 +19,8 @@
 - **Two meters for two hands.** With *Hand Assignment* on, a single piano track played by both hands shows a blue and a pink meter side by side in the Tracks panel, each following its own hand.
 
 ### Fixed
+- **Downloading two sound sets at once.** Both now show their own progress bar. Before, they shared one bar that jumped between them, and starting the same download twice could end in an error message. Thanks to InAnYan.
+- **No more Windows wording on Mac and Linux.** The tooltips on the library folder path and on the Note Editor's show-in-folder button no longer mention Windows Explorer. Thanks to InAnYan.
 - **Step Through lights the whole chord.** With *Reflect on keyboard* on, notes of a chord that started a moment after the first one could stay dark on the keyboard while you stepped, even though you heard them.
 - **Saving an imported song as MIDI works in a new library folder.** Opening a MusicXML, Guitar Pro or Capella file and choosing *Save as MID* could fail if the library had no *Orfeo* folder yet, and the song then didn't open. The folder is now created first. Thanks to Pat Ng.
 - **Hand colours on the keyboard follow the switch straight away.** Turning *Hand Assignment* on or off during playback changed the piano roll at once, but the keyboard kept its old colours until the next pause. New notes now take the current colours in every sound engine; a key already held keeps its colour until it's released.

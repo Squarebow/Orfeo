@@ -195,8 +195,7 @@ function SoundFontsControl() {
   const audioEngine = useStore((s) => s.audioEngine)
   const selectedSoundfont = useStore((s) => s.selectedSoundfont)
   const extra = useSoundfontState((s) => s.extra)
-  const downloadingId = useSoundfontState((s) => s.downloadingId)
-  const downloadProgress = useSoundfontState((s) => s.downloadProgress)
+  const downloads = useSoundfontState((s) => s.downloads)
   const error = useSoundfontState((s) => s.error)
   const all = allSoundfonts(extra)
   return (
@@ -223,9 +222,9 @@ function SoundFontsControl() {
                 <span style={{ fontSize: 9, color: 'var(--text-muted)', fontFamily: 'var(--font-ui)', textAlign: 'right' }}>bundled</span>
               ) : sf.downloaded ? (
                 <SoundfontActionLink label="remove" color="var(--text-dimmest)" tooltip={sf.custom ? 'Remove imported file' : 'Delete downloaded file'} onClick={() => void deleteSoundfont(sf.id)} />
-              ) : downloadingId === sf.id ? (
+              ) : downloads[sf.id] !== undefined ? (
                 <div style={{ width: 60, height: 3, background: 'var(--border)', borderRadius: 2, overflow: 'hidden' }}>
-                  <div style={{ height: '100%', background: 'var(--text-amber)', borderRadius: 2, width: `${Math.round(downloadProgress * 100)}%`, transition: 'width 0.1s' }} />
+                  <div style={{ height: '100%', background: 'var(--text-amber)', borderRadius: 2, width: `${Math.round(downloads[sf.id] * 100)}%`, transition: 'width 0.1s' }} />
                 </div>
               ) : (
                 <SoundfontActionLink label="download" color="var(--text-amber)" tooltip={`Download ${sf.name} (${sf.sizeMB} MB)`} onClick={() => void downloadSoundfont(sf.id)} />

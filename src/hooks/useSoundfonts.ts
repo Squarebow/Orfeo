@@ -12,14 +12,21 @@ interface SfState {
   samplesStatus: 'idle' | 'loading' | 'ready' | 'error'
   samplesProgress: number
   extra: SoundfontInfo[]
-  downloadingId: SoundfontId | null
-  downloadProgress: number
+  downloads: Record<string, number>  // sound sets downloading now, each with its own progress
   error: string | null
 }
 export const useSoundfontState = create<SfState>(() => ({
-  samplesStatus: 'idle', samplesProgress: 0, extra: [], downloadingId: null, downloadProgress: 0, error: null,
+  samplesStatus: 'idle', samplesProgress: 0, extra: [], downloads: {}, error: null,
 }))
 const setSf = (p: Partial<SfState>) => useSoundfontState.setState(p)
+
+// One sound set's progress, the others untouched; finished ones leave the list
+export function withDownloadProgress(downloads: Record<string, number>, id: string, progress: number): Record<string, number> {
+  const { [id]: _done, ...others } = downloads
+  return progress >= 1 ? others : { ...others, [id]: progress }
+}
+const setDownload = (id: string, progress: number) =>
+  setSf({ downloads: withDownloadProgress(useSoundfontState.getState().downloads, id, progress) })
 
 export const allSoundfonts = (extra: SoundfontInfo[]): SoundfontInfo[] => [
   { id: 'generaluser-gs', name: 'GeneralUser GS', sizeMB: 30.8, downloaded: true },
@@ -66,9 +73,10 @@ export async function selectSoundfont(id: SoundfontId) {
   if (useStore.getState().audioEngine === 'samples') loadSelectedSoundfont(id).catch(() => {})
 }
 export async function downloadSoundfont(id: SoundfontId) {
-  setSf({ error: null, downloadingId: id, downloadProgress: 0 })
+  setSf({ error: null })
+  setDownload(id, 0)
   const res = await window.electronAPI.downloadSoundfont(id)
-  if (!res.ok) { setSf({ error: res.error ?? 'Download failed', downloadingId: null }); return }
+  if (!res.ok) { setDownload(id, 1); setSf({ error: res.error ?? 'Download failed' }); return }
   refreshSoundfonts()
   await selectSoundfont(id)
 }
@@ -91,9 +99,9 @@ export function useSoundfontService() {
   const audioEngine = useStore((s) => s.audioEngine)
   useEffect(() => {
     refreshSoundfonts()
-    window.electronAPI.onSoundfontProgress(({ progress }) => {
-      setSf({ downloadProgress: progress })
-      if (progress >= 1) { setSf({ downloadingId: null }); refreshSoundfonts() }
+    window.electronAPI.onSoundfontProgress(({ id, progress }) => {
+      setDownload(id, progress)
+      if (progress >= 1) refreshSoundfonts()
     })
     return () => window.electronAPI.offSoundfontProgress()
   }, [])

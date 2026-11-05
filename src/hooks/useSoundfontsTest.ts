@@ -1,5 +1,5 @@
 import { useStore } from '../store'
-import { useSoundfontState, startSamples, chooseSamplesFromQuick } from './useSoundfonts'
+import { useSoundfontState, startSamples, chooseSamplesFromQuick, withDownloadProgress } from './useSoundfonts'
 
 export async function runSoundfontsTestAsync(): Promise<number> {
   console.group('[useSoundfonts] self-check')
@@ -20,6 +20,15 @@ export async function runSoundfontsTestAsync(): Promise<number> {
   useStore.setState({ audioEngine: 'gm', settingsWindowOpen: false } as any)
   chooseSamplesFromQuick(); await Promise.resolve()
   check(!S().settingsWindowOpen && S().audioEngine === 'samples', 'later: just switches')
+
+  // two downloads at once: each keeps its own progress, finished ones leave
+  let downloads = withDownloadProgress({}, 'a', 0)
+  downloads = withDownloadProgress(downloads, 'b', 0)
+  downloads = withDownloadProgress(downloads, 'a', 0.5)
+  downloads = withDownloadProgress(downloads, 'b', 0.2)
+  check(downloads.a === 0.5 && downloads.b === 0.2, 'separate progress')
+  downloads = withDownloadProgress(downloads, 'a', 1)
+  check(downloads.a === undefined && downloads.b === 0.2, 'one finishing leaves the other')
 
   console.log(`useSoundfonts: ${pass} passed, ${fail} failed`)
   console.groupEnd()

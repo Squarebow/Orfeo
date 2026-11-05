@@ -938,8 +938,8 @@ function LibraryPanel({ hidden = false }: { hidden?: boolean }) {
               </Tooltip>
             </div>
 
-            {/* Active library path — click opens it in Explorer (shows files; the folder-picker dialog above never does, that's OS-level) */}
-            <Tooltip title="Open in Explorer" oneLine wrapperStyle={{ display: 'block', width: '100%' }}>
+            {/* Active library path — click opens the folder (shows files; the folder-picker dialog above never does, that's OS-level) */}
+            <Tooltip title={t`Open folder`} oneLine wrapperStyle={{ display: 'block', width: '100%' }}>
             <div
               onClick={() => libraryFolder && window.electronAPI.openFolderInExplorer(libraryFolder)}
               style={{

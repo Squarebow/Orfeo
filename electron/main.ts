@@ -534,11 +534,17 @@ function httpsGetFollow(url: string, onResponse: (res: import('http').IncomingMe
   }).on('error', (e: Error) => onResponse({ statusCode: 0, message: e.message } as any))
 }
 
+// One download per sound set: two of the same would share a temporary file, and
+// the second to finish would find it already gone
+const activeSoundfontDownloads = new Map<string, Promise<{ ok: boolean; error?: string }>>()
+
 ipcMain.handle('soundfont:download', (e, id: string) => {
   const entry = SOUNDFONT_CATALOG[id]
   const destPath = soundfontPath(id)
   if (!entry || !destPath) return Promise.resolve({ ok: false, error: 'Unknown soundfont' })
-  return new Promise<{ ok: boolean; error?: string }>((resolve) => {
+  const active = activeSoundfontDownloads.get(id)
+  if (active) return active
+  const download = new Promise<{ ok: boolean; error?: string }>((resolve) => {
     httpsGetFollow(entry.url, (res) => {
       if (!res.statusCode || res.statusCode >= 400) {
         resolve({ ok: false, error: `Download failed: HTTP ${res.statusCode ?? (res as any).message ?? 'unknown'}` })
@@ -555,14 +561,21 @@ ipcMain.handle('soundfont:download', (e, id: string) => {
       res.pipe(file)
       file.on('finish', () => {
         file.close(() => {
-          require('fs').renameSync(tmpPath, destPath)
+          try {
+            require('fs').renameSync(tmpPath, destPath)
+          } catch (err) {
+            resolve({ ok: false, error: (err as Error).message })
+            return
+          }
           e.sender.send('soundfont:progress', { id, progress: 1 })
           resolve({ ok: true })
         })
       })
       file.on('error', (err: Error) => resolve({ ok: false, error: err.message }))
     })
-  })
+  }).finally(() => activeSoundfontDownloads.delete(id))
+  activeSoundfontDownloads.set(id, download)
+  return download
 })
 ipcMain.handle('dialog:openMidi', async () => {
   const result = await dialog.showOpenDialog({
