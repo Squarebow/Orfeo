@@ -7,10 +7,16 @@ import { CATALOGS } from '../i18n/catalogs'
 const LANGUAGE_KEY = 'orfeo-language'
 const ENGLISH = 'en'
 
+// Test builds only: every prepared text comes out bracketed, accented and longer,
+// so plain English left on screen stands out, and so do layouts that can't stretch
+const PSEUDO = 'pseudo'
+const testTools = import.meta.env?.DEV || import.meta.env?.MODE === 'test-build'
+
 export const LANGUAGES = [
   { code: ENGLISH, name: 'English', htmlLang: 'en' },
   { code: 'zh_Hans', name: '简体中文', htmlLang: 'zh-Hans' },
-].filter(l => l.code === ENGLISH || CATALOGS[l.code])
+  ...(testTools ? [{ code: PSEUDO, name: 'Pseudo (test builds only)', htmlLang: 'en' }] : []),
+].filter(l => l.code === ENGLISH || l.code === PSEUDO || CATALOGS[l.code])
 
 function savedLanguage(): string {
   try {
@@ -20,14 +26,26 @@ function savedLanguage(): string {
 }
 
 export const currentLanguage = savedLanguage()
-const catalog = CATALOGS[currentLanguage]
+let language = currentLanguage
+let catalog = CATALOGS[language]
+
+// The main process has no saved language of its own: it's told at start-up and on change
+export function applyLanguage(code: string) {
+  language = code
+  catalog = CATALOGS[code]
+}
+
+const ACCENTS: Record<string, string> = { a: 'á', e: 'é', i: 'í', o: 'ó', u: 'ú', A: 'Á', E: 'É', I: 'Í', O: 'Ó', U: 'Ú' }
+export const pseudo = (text: string): string =>
+  `[${text.replace(/[aeiouAEIOU]/g, v => ACCENTS[v])}${'~'.repeat(Math.ceil(text.length * 0.3))}]`
 
 if (typeof document !== 'undefined' && document.documentElement) {
   document.documentElement.lang = LANGUAGES.find(l => l.code === currentLanguage)?.htmlLang ?? 'en'
 }
 
-export function changeLanguage(code: string) {
+export async function changeLanguage(code: string) {
   localStorage.setItem(LANGUAGE_KEY, code)
+  await window.electronAPI.setLanguage(code)
   location.reload()
 }
 
@@ -40,9 +58,10 @@ export function translated(found: Record<string, string> | undefined, strings: r
 
 // A name that's also data, marked with n() (i18n/mark.ts), translated for showing
 export function tName(name: string): string {
-  return catalog?.[name] || name
+  return language === PSEUDO ? pseudo(name) : catalog?.[name] || name
 }
 
 export function t(strings: TemplateStringsArray, ...values: unknown[]): string {
+  if (language === PSEUDO) return pseudo(translated(undefined, strings, values))
   return translated(catalog, strings, values)
 }

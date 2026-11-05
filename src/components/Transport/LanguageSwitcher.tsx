@@ -24,7 +24,7 @@ export function LanguageSwitcher() {
       detail: t`The song stops, and changes you haven't saved are lost.`,
       buttons: [t`Change language`, t`Cancel`],
     })
-    if (choice === 0) changeLanguage(code)
+    if (choice === 0) void changeLanguage(code)
   }
 
   return (

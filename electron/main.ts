@@ -18,6 +18,7 @@ import { KEYBOARD_GROUPS } from '../src/utils/keyboardGroups'
 import { nextOrfeoVersion, stripOrfeoSuffix } from '../src/utils/orfeoVersioning'
 import { downloadEnding, newerRelease } from '../src/utils/newRelease'
 import type { Hand } from '../src/types'
+import { t, applyLanguage } from '../src/utils/i18n'
 
 // ── Electron defaults app.getName() to package.json's "name" ("orfeo"),
 // not "productName" ("Orfeo") — that name feeds app.getPath('userData'),
@@ -520,7 +521,7 @@ ipcMain.handle('soundfont:read', (_e, id: string) => {
 // the user cancelled the picker. ───────────────────────────────────────────────
 ipcMain.handle('soundfont:import', async () => {
   const result = await openDialog({
-    title: 'Import SoundFont',
+    title: t`Import SoundFont`,
     defaultPath: dialogDir('soundfont'),
     filters: [{ name: 'SoundFont', extensions: ['sf2', 'sf3'] }],
     properties: ['openFile'],
@@ -570,7 +571,7 @@ ipcMain.handle('soundfont:download', (e, id: string) => {
   const download = new Promise<{ ok: boolean; error?: string }>((resolve) => {
     httpsGetFollow(entry.url, (res) => {
       if (!res.statusCode || res.statusCode >= 400) {
-        resolve({ ok: false, error: `Download failed: HTTP ${res.statusCode ?? (res as any).message ?? 'unknown'}` })
+        resolve({ ok: false, error: t`Download failed: HTTP ${res.statusCode ?? (res as any).message ?? 'unknown'}` })
         return
       }
       const total = Number(res.headers?.['content-length'] ?? 0)
@@ -602,10 +603,10 @@ ipcMain.handle('soundfont:download', (e, id: string) => {
 })
 ipcMain.handle('dialog:openMidi', async () => {
   const result = await openDialog({
-    title: 'Open MIDI File',
+    title: t`Open MIDI File`,
     defaultPath: dialogDir('midi'),
     filters: [
-      { name: 'MIDI & Score Files', extensions: ['mid', 'midi', 'kar', 'musicxml', 'xml', 'mxl', 'gp', 'gp3', 'gp4', 'gp5', 'gpx', 'cap'] },
+      { name: t`MIDI & Score Files`, extensions: ['mid', 'midi', 'kar', 'musicxml', 'xml', 'mxl', 'gp', 'gp3', 'gp4', 'gp5', 'gpx', 'cap'] },
     ],
     properties: ['openFile'],
   })
@@ -621,7 +622,7 @@ ipcMain.handle('dialog:openFolder', async () => {
   const result = await openDialog({
     // createDirectory: macOS only offers New Folder when asked; Windows always does.
     // message: a macOS sheet shows no title
-    title: 'Select MIDI Library Folder', message: 'Select MIDI Library Folder', defaultPath: loadPrefs().libraryFolder, properties: ['openDirectory', 'createDirectory'],
+    title: t`Select MIDI Library Folder`, message: t`Select MIDI Library Folder`, defaultPath: loadPrefs().libraryFolder, properties: ['openDirectory', 'createDirectory'],
   })
   if (result.canceled || !result.filePaths[0]) return null
   const folderPath = result.filePaths[0]
@@ -897,7 +898,7 @@ ipcMain.handle('editor:save', async (_e, payload: {
   finalKey?: { semitone: number; isMinor: boolean }
 }) => {
   try {
-    if (!payload.filePath) return { ok: false, message: 'No source file loaded' }
+    if (!payload.filePath) return { ok: false, message: t`No source file loaded` }
     const midi = new Midi(readFileSync(payload.filePath))
 
     // ── Restore any hand tags the file already carries — name-suffix (whole-
@@ -1213,9 +1214,9 @@ ipcMain.handle('editor:save', async (_e, payload: {
 
     // ── Return file data so the renderer can reload inline ────────────────────
     const fileName = outputPath.split(/[\\/]/).pop() ?? outputPath
-    return { ok: true, message: `Saved: ${fileName}`, filePath: outputPath, fileName, base64: outBuf.toString('base64') }
+    return { ok: true, message: t`Saved: ${fileName}`, filePath: outputPath, fileName, base64: outBuf.toString('base64') }
   } catch (e: any) {
-    return { ok: false, message: e?.message ?? 'Save failed' }
+    return { ok: false, message: e?.message ?? t`Save failed` }
   }
 })
 
@@ -1228,7 +1229,7 @@ ipcMain.handle('mixer:save', async (_e, payload: {
   channels: { index: number; volume: number; pan: number; chorus: number; reverb: number }[]
 }) => {
   try {
-    if (!payload.filePath) return { ok: false, message: 'No source file loaded' }
+    if (!payload.filePath) return { ok: false, message: t`No source file loaded` }
     const midi = new Midi(readFileSync(payload.filePath))
 
     const noteTrackIndices: number[] = []
@@ -1265,9 +1266,9 @@ ipcMain.handle('mixer:save', async (_e, payload: {
     writeFileSync(outputPath, outBuf)
 
     const fileName = outputPath.split(/[\\/]/).pop() ?? outputPath
-    return { ok: true, message: `Saved: ${fileName}`, filePath: outputPath, fileName, base64: outBuf.toString('base64') }
+    return { ok: true, message: t`Saved: ${fileName}`, filePath: outputPath, fileName, base64: outBuf.toString('base64') }
   } catch (e: any) {
-    return { ok: false, message: e?.message ?? 'Save failed' }
+    return { ok: false, message: e?.message ?? t`Save failed` }
   }
 })
 
@@ -1284,7 +1285,7 @@ ipcMain.handle('tempoKey:save', async (_e, payload: {
   finalKey?: { semitone: number; isMinor: boolean }
 }) => {
   try {
-    if (!payload.filePath) return { ok: false, message: 'No source file loaded' }
+    if (!payload.filePath) return { ok: false, message: t`No source file loaded` }
     const midi = new Midi(readFileSync(payload.filePath))
 
     if (payload.bpmRatio !== 1) {
@@ -1336,9 +1337,9 @@ ipcMain.handle('tempoKey:save', async (_e, payload: {
     writeFileSync(outputPath, outBuf)
 
     const fileName = outputPath.split(/[\\/]/).pop() ?? outputPath
-    return { ok: true, message: `Saved: ${fileName}`, filePath: outputPath, fileName, base64: outBuf.toString('base64') }
+    return { ok: true, message: t`Saved: ${fileName}`, filePath: outputPath, fileName, base64: outBuf.toString('base64') }
   } catch (e: any) {
-    return { ok: false, message: e?.message ?? 'Save failed' }
+    return { ok: false, message: e?.message ?? t`Save failed` }
   }
 })
 
@@ -1842,7 +1843,7 @@ ipcMain.handle('transcript:generate', async (_e, midiFilePath: string, noteNamin
 // e.g. Downloads, silently writing the file to the wrong place). ────────────
 ipcMain.handle('noteEditor:save', async (_e, payload: { filePath: string; base64: string; summary?: string }) => {
   try {
-    if (!payload.filePath) return { ok: false, message: 'No source file loaded' }
+    if (!payload.filePath) return { ok: false, message: t`No source file loaded` }
     const orfeoDir   = await getOrfeoOutputDir(payload.filePath)
     const rawBase    = basename(payload.filePath).replace(/\.midi?$/i, '')
     const outputPath = nextAvailableOrfeoPath(orfeoDir, rawBase)
@@ -1860,7 +1861,7 @@ ipcMain.handle('noteEditor:save', async (_e, payload: { filePath: string; base64
     const fileName = outputPath.split(/[\\/]/).pop() ?? ''
     return { ok: true, filePath: outputPath, fileName, base64: buf.toString('base64') }
   } catch (e: any) {
-    return { ok: false, message: e?.message ?? 'Save failed' }
+    return { ok: false, message: e?.message ?? t`Save failed` }
   }
 })
 
@@ -1937,10 +1938,10 @@ function sendUpdateStatus(payload: Record<string, unknown>) {
 // a single short sentence so the tooltip stays a tooltip, and treat a
 // missing-release as a soft "couldn't check" rather than a scary error. ────
 function summarizeUpdateError(err: unknown): { state: string; message: string } {
-  const raw = (err instanceof Error ? err.message : String(err ?? '')) || 'Update check failed'
+  const raw = (err instanceof Error ? err.message : String(err ?? '')) || t`Update check failed`
   const firstLine = raw.split('\n')[0].trim()
   if (/unable to find latest version|HttpError:\s*4(0[34]|06)|ENOTFOUND|net::ERR|getaddrinfo/i.test(raw)) {
-    return { state: 'error', message: "Couldn't reach the update server — try again later or check the Releases page." }
+    return { state: 'error', message: t`Couldn't reach the update server — try again later or check the Releases page.` }
   }
   return { state: 'error', message: firstLine.length > 160 ? firstLine.slice(0, 157) + '…' : firstLine }
 }
@@ -1973,6 +1974,10 @@ const RELEASE_CHECK_TIMEOUT_MS = 10_000
 const releaseTest = app.isPackaged ? undefined : process.env.ORFEO_RELEASE_TEST
 
 // Asked by the renderer once it's listening, so a quick answer can't go missing
+// Language for the Open/Save windows and messages from this side of the app. The
+// PDF transcript stays English: its built-in fonts have no other scripts.
+ipcMain.handle('language:set', (_e, code: string) => { savePrefs({ language: code }); applyLanguage(code) })
+
 ipcMain.handle('update:new-version', async (): Promise<string | null> => {
   if (updateMode !== 'manual' || !(app.isPackaged || releaseTest)) return null
   try {
@@ -2100,6 +2105,7 @@ ipcMain.handle('openWith:simulate', (_e, filePath: string) => {
 })
 
 // ── Launch: copy demo files on first run, then open main window ───────────────
+applyLanguage(loadPrefs().language ?? 'en')
 app.whenReady().then(async () => {
   if (!isOnlyCopy) return // the open copy got the song; this one is quitting
   // A first start (no settings file yet) marks both tours as still to show. A copy

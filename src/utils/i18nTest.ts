@@ -1,4 +1,4 @@
-import { t, translated } from './i18n'
+import { pseudo, t, translated } from './i18n'
 
 export function runI18nTest(): number {
   console.group('[i18n] self-check')
@@ -13,6 +13,8 @@ export function runI18nTest(): number {
   check(translated(catalog, parts`Empty`, []) === 'Empty', 'an untranslated text stays English')
   check(translated(undefined, ['', ' bars'], [4]) === '4 bars', 'no language chosen')
   check(t`Plain ${1} text` === 'Plain 1 text', 't works in English')
+
+  check(pseudo('Keep') === '[Kéép~~]', `test language, got ${pseudo('Keep')}`)
 
   console.log(`i18n: ${pass} passed, ${fail} failed`)
   console.groupEnd()

@@ -253,6 +253,7 @@ declare global {
       getUpdateInfo:       () => Promise<UpdateInfo>
       checkForUpdates:     () => Promise<void>
       getNewVersion:       () => Promise<string | null>
+      setLanguage:         (code: string) => Promise<void>
       installUpdate:       () => Promise<void>
       onUpdateStatus:      (fn: (data: UpdateStatus) => void) => void
       offUpdateStatus:     () => void

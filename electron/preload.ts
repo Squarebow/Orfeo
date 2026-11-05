@@ -27,6 +27,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
   // Prefs
   getPrefs:           () => ipcRenderer.invoke('prefs:get'),
   setPrefs:           (data: any) => ipcRenderer.invoke('prefs:set', data),
+  setLanguage:        (code: string) => ipcRenderer.invoke('language:set', code),
   // Library
   openFolder:         () => ipcRenderer.invoke('dialog:openFolder'),
   scanMidiFolder:     (path: string) => ipcRenderer.invoke('fs:scanMidiFolder', path),
