@@ -29,6 +29,8 @@ export function extractMessages() {
           : tpl.head.text + tpl.templateSpans.map((s, i) => `{{v${i}}}` + s.literal.text).join('')
         if (/\p{L}/u.test(key.replace(/\{\{v\d+\}\}/g, ''))) keys.add(key)
       }
+      // n('Natural Minor'): a name that's also data, see src/i18n/mark.ts
+      if (ts.isCallExpression(n) && n.expression.getText(sf) === 'n' && n.arguments.length === 1 && ts.isStringLiteral(n.arguments[0])) keys.add(n.arguments[0].text)
       ts.forEachChild(n, visit)
     }
     visit(sf)

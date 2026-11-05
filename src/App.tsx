@@ -128,9 +128,9 @@ export default function App() {
   const loadRequestIdRef = useRef(0)
   const loadFileIntoPlayer = useCallback(async (filePath: string) => {
     const requestId = ++loadRequestIdRef.current
-    const canDiscard = await confirmDiscardDirtyNoteEdits('Save changes before opening this file?')
+    const canDiscard = await confirmDiscardDirtyNoteEdits(t`Save changes before opening this file?`)
     if (!canDiscard || requestId !== loadRequestIdRef.current) return
-    const canDiscardTempoKey = await confirmDiscardDirtyTempoKey('Save tempo/key changes before opening this file?')
+    const canDiscardTempoKey = await confirmDiscardDirtyTempoKey(t`Save tempo/key changes before opening this file?`)
     if (!canDiscardTempoKey || requestId !== loadRequestIdRef.current) return
     const canLoseChanges = await confirmUnsavedChanges()
     if (!canLoseChanges || requestId !== loadRequestIdRef.current) return

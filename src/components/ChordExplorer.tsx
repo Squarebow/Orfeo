@@ -22,7 +22,7 @@ import {
   PROGRESSION_VOICINGS, PROGRESSION_VOICING_LABEL, PROGRESSION_VOICING_HINT,
 } from '../utils/voiceLeading'
 import {
-  EXPLORER_RANGE, explorerLowRoot, SPEED_MS, VOICING_ICON, ALL_PROGRESSIONS,
+  EXPLORER_RANGE, explorerLowRoot, SPEED_MS, VOICING_ICON, ALL_PROGRESSIONS, progressionLabel, rotationLabel,
   resolveProgressionStep, nextInversionSet, prevInversionSet, ringChord, strikeStep, inversionOf,
   explorerKeyColors, captureStruckShape, restoreStruckShape, EXPLORER_SWITCH_STYLE, type ProgSpeed, type StruckShape,
   explorerPosInWindow, playedLabel,
@@ -43,7 +43,7 @@ const ROOT_MIDIS = [60, 61, 62, 63, 64, 65, 66, 67, 68, 69, 70, 71]
 // ── Genre voicing descriptions — shared by the Style dropdown's trigger
 // tooltip and its two-column list (name left / description right). ─────────
 const GENRE_DESCRIPTIONS: Record<Genre, string> = {
-  classic:   'Plain diatonic triads',
+  classic:   t`Plain diatonic triads`,
   coltrane:  'Adds 9ths and 13ths for sophisticated jazz harmony',
   cinematic: 'Open, clean voicings — add9 and suspended chords',
   roadhouse: 'Dominant 7ths on the I and IV chords — classic blues sound',
@@ -943,7 +943,7 @@ export default function ChordExplorer() {
               onMouseEnter={e => e.currentTarget.style.color = 'var(--text-amber)'}
               onMouseLeave={e => { e.currentTarget.style.color = activeProg ? 'var(--text-amber)' : 'var(--text-muted)' }}
             >
-              {activeProg ? activeProg.name : t`Select`} ▾
+              {activeProg ? progressionLabel(activeProg) : t`Select`} ▾
             </button>
             {activeProg && (
               <Tooltip title={t`Clear progression`} description={t`Stops playback and clears the selected progression`}>
@@ -1365,7 +1365,7 @@ export default function ChordExplorer() {
           {ALL_PROGRESSIONS.map((p, i) => {
             const isRot = !!p.isRotation
             const baseColor = selectedProg === i ? 'var(--text-amber)' : (isRot ? 'var(--text-dim-control)' : 'var(--text-muted)')
-            const rotLabel = isRot ? p.name.replace(p.baseName! + ' ', '') : ''
+            const rotLabel = isRot ? rotationLabel(p) : ''
             return (
               <button
                 key={p.name}
@@ -1384,7 +1384,7 @@ export default function ChordExplorer() {
               >
                 {/* Left column: name — rotations show "↳ (vi start)" short form */}
                 <span style={{ minWidth: 110, flexShrink: 0, whiteSpace: 'nowrap' }}>
-                  {isRot ? `↳ ${rotLabel}` : p.name}
+                  {isRot ? `↳ ${rotLabel}` : progressionLabel(p)}
                 </span>
                 {/* Right column: roman numerals */}
                 <span style={{ fontFamily: 'var(--font-mono)', fontSize: 9, opacity: isRot ? 0.40 : 0.65, whiteSpace: 'nowrap' }}>

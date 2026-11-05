@@ -116,9 +116,9 @@ export default function TopBar() {
   }, [playbackState, play, pause])
 
   const handleReset = useCallback(async () => {
-    const proceed = await confirmDiscardDirtyNoteEdits('Save changes before resetting?')
+    const proceed = await confirmDiscardDirtyNoteEdits(t`Save changes before resetting?`)
     if (!proceed) return
-    const proceedTempoKey = await confirmDiscardDirtyTempoKey('Save tempo/key changes before resetting?')
+    const proceedTempoKey = await confirmDiscardDirtyTempoKey(t`Save tempo/key changes before resetting?`)
     if (proceedTempoKey && await confirmUnsavedChanges()) resetAll()
   }, [resetAll])
 
@@ -181,11 +181,11 @@ export default function TopBar() {
     return Math.max(loopStartBar, pastLastBarStart ? rawBar : rawBar - 1)
   })() : null
   const loopTooltipTitle = loopStart !== null
-    ? (loopRegionActive ? `Looping bars ${loopStartBar}–${loopEndBar}` : `Loop bars ${loopStartBar}–${loopEndBar}`)
-    : 'Loop song or section'
+    ? (loopRegionActive ? t`Looping bars ${loopStartBar}–${loopEndBar}` : t`Loop bars ${loopStartBar}–${loopEndBar}`)
+    : t`Loop song or section`
   const loopTooltipDesc = loopStart !== null
-    ? (loopRegionActive ? 'Click to disable looping.' : 'Click to enable looping.')
-    : 'Click to loop the entire song, or Alt+Click & drag mouse on the piano roll to select a specific region.'
+    ? (loopRegionActive ? t`Click to disable looping.` : t`Click to enable looping.`)
+    : t`Click to loop the entire song, or Alt+Click & drag mouse on the piano roll to select a specific region.`
 
   // ── Live BPM — reads current tempo from _tempoMap so rubato files update ─
   const rawTempoMap = (midi as any)?._tempoMap as { bpm: number; time: number }[] | undefined

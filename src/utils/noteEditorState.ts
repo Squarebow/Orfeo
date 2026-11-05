@@ -19,7 +19,7 @@ export type NETool = 'select' | 'pen' | 'marquee' | 'lasso'
 // NoteEditorToolbar — that's fine, this one is the idle fallback for the
 // context-aware row-3 hint (which changes with tool/hover/selection state),
 // not a duplicate of anything dynamic. ──────────────────────────────────────
-const DEFAULT_HINT = 'Nothing selected'
+const DEFAULT_HINT = t`Nothing selected`
 
 // ── NoteEditorState — module-level singleton bridging NoteEditorToolbar ↔ PianoRoll
 // Both components read/write this object; no prop threading needed.

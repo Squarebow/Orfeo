@@ -38,6 +38,11 @@ export function translated(found: Record<string, string> | undefined, strings: r
   return strings.reduce((acc, str, i) => acc + str + (i < values.length ? String(values[i]) : ''), '')
 }
 
+// A name that's also data, marked with n() (i18n/mark.ts), translated for showing
+export function tName(name: string): string {
+  return catalog?.[name] || name
+}
+
 export function t(strings: TemplateStringsArray, ...values: unknown[]): string {
   return translated(catalog, strings, values)
 }

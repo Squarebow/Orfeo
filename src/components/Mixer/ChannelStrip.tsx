@@ -2,6 +2,7 @@ import { useState, useRef, useLayoutEffect, useEffect, useCallback } from 'react
 import { Eye, GripVertical } from 'lucide-react'
 import { useStore } from '../../store'
 import { t } from '../../utils/i18n'
+import { trackLabel } from '../../utils/trackLabel'
 import { useDevicePixelRatio } from '../../hooks/useDevicePixelRatio'
 import MixerKnob from './MixerKnob'
 import PianoKeysIcon from '../PianoKeysIcon'
@@ -161,7 +162,7 @@ export default function ChannelStrip({ trackIndex, locked, isDragging, onDragSta
   }, [])
 
   // ── Derived display data ──────────────────────────────────────────────────
-  const trackName   = track?.trackName ?? track?.gmName ?? (parsedTrack as any)?.name ?? ''
+  const trackName   = trackLabel(track) ?? (parsedTrack as any)?.name ?? ''
   // Fallback color for tracks with no assigned color — also feeds the Canvas VU-meter
   // fillStyle below, and Canvas 2D can't resolve a var() string, so fallbackColorRef
   // resolves var(--track-color-fallback) from index.css once on mount (see below);
@@ -364,7 +365,7 @@ export default function ChannelStrip({ trackIndex, locked, isDragging, onDragSta
           accentColor="var(--knob-chorus)" size={52}
           disabled={knobsDisabled} label={t`Chorus`} labelOffset={-10}
           title={t`Chorus`} description={t`Thickens the tone`}
-          disabledHint="Switch to the Studio or Native engine to use Chorus."
+          disabledHint={t`Switch to the Studio or Native engine to use Chorus.`}
         />
       </div>
 
@@ -379,7 +380,7 @@ export default function ChannelStrip({ trackIndex, locked, isDragging, onDragSta
           accentColor="var(--knob-reverb)" size={52}
           disabled={knobsDisabled} label={t`Reverb`} labelOffset={-10}
           title={t`Reverb`} description={t`Adds room/space ambience`}
-          disabledHint="Switch to the Studio or Native engine to use Reverb."
+          disabledHint={t`Switch to the Studio or Native engine to use Reverb.`}
         />
       </div>
 
@@ -400,7 +401,7 @@ export default function ChannelStrip({ trackIndex, locked, isDragging, onDragSta
           accentColor="var(--text-amber)" size={52}
           disabled={knobsDisabled} bipolar label={t`Pan`}
           title={t`Pan`} description={t`Left/right position in the stereo field`}
-          disabledHint="Switch to the Studio or Native engine to use Pan."
+          disabledHint={t`Switch to the Studio or Native engine to use Pan.`}
         />
         <span style={{
           fontSize: 9, fontFamily: 'var(--font-mono)', letterSpacing: '0.06em',

@@ -13,6 +13,8 @@ import { humanizeChord, type ProgressionVoicing, type VoicingRange } from './voi
 import { detectChordStructured, inversionForKnownChord, localizeChord, ordinalSuffix } from './chordDetection'
 import { getNoteName } from './noteNames'
 import type { NoteNaming, Accidentals, ChordNamingStyle } from '../types'
+import { n } from '../i18n/mark'
+import { t, tName } from './i18n'
 
 /** A remembered Explorer position, kept inside the app window: it may be smaller
  *  now than when the Explorer was last moved */
@@ -63,26 +65,26 @@ export interface Progression {
 }
 
 export const PROGRESSIONS: Progression[] = [
-  { name: 'Pop',               labels: ['I','V','vi','IV'],                    offsets: [0,7,9,5] },
-  { name: 'Pop/Rock Inv.',     labels: ['vi','IV','I','V'],                    offsets: [9,5,0,7] },
-  { name: 'Energetic Pop',     labels: ['I','IV','vi','V'],                    offsets: [0,5,9,7] },
-  { name: 'Minor Pop',         labels: ['i','VI','III','VII'],                 offsets: [0,8,3,10] },
-  { name: 'Doo-Wop',           labels: ['I','vi','IV','V'],                    offsets: [0,9,5,7] },
-  { name: 'Rock · Blues',      labels: ['I','IV','V'],                         offsets: [0,5,7] },
-  { name: 'Mixolydian Rock',   labels: ['I','bVII','IV'],                      offsets: [0,10,5] },
-  { name: 'Grunge · Modal',    labels: ['I','bIII','IV'],                      offsets: [0,3,5] },
-  { name: 'Minor Blues',       labels: ['i','iv','v'],                         offsets: [0,5,7] },
-  { name: 'Jazz Standard',     labels: ['ii','V','I'],                         offsets: [2,7,0] },
-  { name: 'Minor Jazz',        labels: ['ii°','V','i'],                        offsets: [2,7,0] },
-  { name: 'Andalusian',        labels: ['i','VII','VI','V'],                   offsets: [0,10,8,7] },
-  { name: 'Pachelbel',         labels: ['I','V','vi','iii','IV','I','IV','V'], offsets: [0,7,9,4,5,0,5,7] },
-  { name: 'Circle of Fifths',  labels: ['vi','ii','V','I'],                    offsets: [9,2,7,0] },
-  { name: 'Royal Road',        labels: ['IV','V','iii','vi'],                  offsets: [5,7,4,9] },
-  { name: 'Epic · Heroic',     labels: ['VI','VII','i'],                       offsets: [8,10,0] },
-  { name: 'Sentimental',       labels: ['IV','V','I','vi'],                    offsets: [5,7,0,9] },
-  { name: 'Sad · Hopeful',     labels: ['I','vi','iii','IV'],                  offsets: [0,9,4,5] },
-  { name: 'Plagal Turnaround', labels: ['I','IV','I','V'],                     offsets: [0,5,0,7] },
-  { name: 'Step-Down',         labels: ['i','v','IV','bIII'],                  offsets: [0,7,5,3] },
+  { name: n('Pop'),               labels: ['I','V','vi','IV'],                    offsets: [0,7,9,5] },
+  { name: n('Pop/Rock Inv.'),     labels: ['vi','IV','I','V'],                    offsets: [9,5,0,7] },
+  { name: n('Energetic Pop'),     labels: ['I','IV','vi','V'],                    offsets: [0,5,9,7] },
+  { name: n('Minor Pop'),         labels: ['i','VI','III','VII'],                 offsets: [0,8,3,10] },
+  { name: n('Doo-Wop'),           labels: ['I','vi','IV','V'],                    offsets: [0,9,5,7] },
+  { name: n('Rock · Blues'),      labels: ['I','IV','V'],                         offsets: [0,5,7] },
+  { name: n('Mixolydian Rock'),   labels: ['I','bVII','IV'],                      offsets: [0,10,5] },
+  { name: n('Grunge · Modal'),    labels: ['I','bIII','IV'],                      offsets: [0,3,5] },
+  { name: n('Minor Blues'),       labels: ['i','iv','v'],                         offsets: [0,5,7] },
+  { name: n('Jazz Standard'),     labels: ['ii','V','I'],                         offsets: [2,7,0] },
+  { name: n('Minor Jazz'),        labels: ['ii°','V','i'],                        offsets: [2,7,0] },
+  { name: n('Andalusian'),        labels: ['i','VII','VI','V'],                   offsets: [0,10,8,7] },
+  { name: n('Pachelbel'),         labels: ['I','V','vi','iii','IV','I','IV','V'], offsets: [0,7,9,4,5,0,5,7] },
+  { name: n('Circle of Fifths'),  labels: ['vi','ii','V','I'],                    offsets: [9,2,7,0] },
+  { name: n('Royal Road'),        labels: ['IV','V','iii','vi'],                  offsets: [5,7,4,9] },
+  { name: n('Epic · Heroic'),     labels: ['VI','VII','i'],                       offsets: [8,10,0] },
+  { name: n('Sentimental'),       labels: ['IV','V','I','vi'],                    offsets: [5,7,0,9] },
+  { name: n('Sad · Hopeful'),     labels: ['I','vi','iii','IV'],                  offsets: [0,9,4,5] },
+  { name: n('Plagal Turnaround'), labels: ['I','IV','I','V'],                     offsets: [0,5,0,7] },
+  { name: n('Step-Down'),         labels: ['i','v','IV','bIII'],                  offsets: [0,7,5,3] },
 ]
 
 // ── Pure helper: cyclic shift of a progression by `offset` steps ─────────
@@ -95,6 +97,11 @@ function rotateProgression(base: Progression, offset: number): Progression {
     baseName: base.name,
   }
 }
+
+// ── A progression's name for showing, and a rotation's short form ─────────
+export const rotationLabel = (p: Progression): string => t`(${p.labels[0]} start)`
+export const progressionLabel = (p: Progression): string =>
+  p.isRotation ? `${tName(p.baseName!)} ${rotationLabel(p)}` : tName(p.name)
 
 // ── Flat list of base progressions + their deduplicated rotations ─────────
 // Two skip rules per rotation candidate:

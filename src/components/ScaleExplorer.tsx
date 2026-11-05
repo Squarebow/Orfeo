@@ -19,7 +19,7 @@ import {
   PROGRESSION_VOICINGS, PROGRESSION_VOICING_LABEL, PROGRESSION_VOICING_HINT,
 } from '../utils/voiceLeading'
 import {
-  EXPLORER_RANGE, explorerLowRoot, SPEED_MS, VOICING_ICON, ALL_PROGRESSIONS,
+  EXPLORER_RANGE, explorerLowRoot, SPEED_MS, VOICING_ICON, ALL_PROGRESSIONS, progressionLabel, rotationLabel,
   resolveProgressionStep, nextInversionSet, prevInversionSet, ringChord, strikeStep, inversionOf,
   explorerKeyColors, captureStruckShape, restoreStruckShape, EXPLORER_SWITCH_STYLE, type ProgSpeed, type StruckShape,
   explorerPosInWindow, scalesThatFit, playedLabel,
@@ -30,7 +30,8 @@ import ExplorerOctaveControl from './ExplorerOctaveControl'
 import CofTitleMark from './CofTitleMark'
 import StarmapRing, { type LitChord } from './Starmap/StarmapRing'
 import { STAR_MIN_NOTES, STAR_MAX_NOTES, type RingLayout } from '../utils/starmap'
-import { t } from '../utils/i18n'
+import { t, tName } from '../utils/i18n'
+import { n } from '../i18n/mark'
 
 // ── Modal dimensions — explorer area on the left, settings column on the
 // right. The modal opens centred on the window with its bottom edge just
@@ -70,20 +71,20 @@ interface ScaleDef {
 }
 
 const SCALES: ScaleDef[] = [
-  { name: 'Major',            intervals: [0,2,4,5,7,9,11], romans: ['I','ii','iii','IV','V','vi','vii°'] },
-  { name: 'Natural Minor',    intervals: [0,2,3,5,7,8,10], romans: ['i','ii°','III','iv','v','VI','VII'] },
-  { name: 'Harmonic Minor',   intervals: [0,2,3,5,7,8,11], romans: ['i','ii°','III+','iv','V','VI','vii°'] },
-  { name: 'Melodic Minor',    intervals: [0,2,3,5,7,9,11], romans: ['i','ii','III+','IV','V','vi°','vii°'] },
-  { name: 'Major Pentatonic', intervals: [0,2,4,7,9],       romans: ['I','II','III','V','VI'] },
-  { name: 'Minor Pentatonic', intervals: [0,3,5,7,10],      romans: ['i','III','IV','v','VII'] },
-  { name: 'Major Blues',      intervals: [0,2,3,4,7,9],     romans: ['I7','I6','VI7','I7♯9'], blueNote: 3,
+  { name: n('Major'),            intervals: [0,2,4,5,7,9,11], romans: ['I','ii','iii','IV','V','vi','vii°'] },
+  { name: n('Natural Minor'),    intervals: [0,2,3,5,7,8,10], romans: ['i','ii°','III','iv','v','VI','VII'] },
+  { name: n('Harmonic Minor'),   intervals: [0,2,3,5,7,8,11], romans: ['i','ii°','III+','iv','V','VI','vii°'] },
+  { name: n('Melodic Minor'),    intervals: [0,2,3,5,7,9,11], romans: ['i','ii','III+','IV','V','vi°','vii°'] },
+  { name: n('Major Pentatonic'), intervals: [0,2,4,7,9],       romans: ['I','II','III','V','VI'] },
+  { name: n('Minor Pentatonic'), intervals: [0,3,5,7,10],      romans: ['i','III','IV','v','VII'] },
+  { name: n('Major Blues'),      intervals: [0,2,3,4,7,9],     romans: ['I7','I6','VI7','I7♯9'], blueNote: 3,
     chords: [{ offset: 0, type: '7' }, { offset: 0, type: '6' }, { offset: 9, type: '7' }, { offset: 0, type: '7#9' }] },
-  { name: 'Minor Blues',      intervals: [0,3,5,6,7,10],    romans: ['i7','I7','IV7','V7'], blueNote: 6,
+  { name: n('Minor Blues'),      intervals: [0,3,5,6,7,10],    romans: ['i7','I7','IV7','V7'], blueNote: 6,
     chords: [{ offset: 0, type: 'm7' }, { offset: 0, type: '7' }, { offset: 5, type: '7' }, { offset: 7, type: '7' }] },
-  { name: 'Dorian',           intervals: [0,2,3,5,7,9,10], romans: ['i','ii','III','IV','v','vi°','VII'] },
-  { name: 'Phrygian',         intervals: [0,1,3,5,7,8,10], romans: ['i','II','III','iv','v°','VI','VII'] },
-  { name: 'Lydian',           intervals: [0,2,4,6,7,9,11], romans: ['I','II','iii','#iv°','V','vi','vii'] },
-  { name: 'Mixolydian',       intervals: [0,2,4,5,7,9,10], romans: ['I','ii','iii°','IV','v','vi','VII'] },
+  { name: n('Dorian'),           intervals: [0,2,3,5,7,9,10], romans: ['i','ii','III','IV','v','vi°','VII'] },
+  { name: n('Phrygian'),         intervals: [0,1,3,5,7,8,10], romans: ['i','II','III','iv','v°','VI','VII'] },
+  { name: n('Lydian'),           intervals: [0,2,4,6,7,9,11], romans: ['I','II','iii','#iv°','V','vi','vii'] },
+  { name: n('Mixolydian'),       intervals: [0,2,4,5,7,9,10], romans: ['I','ii','iii°','IV','v','vi','VII'] },
 ]
 
 // ── Minor scale names — used to append 'm' to the Key display ───────────────
@@ -962,7 +963,7 @@ export default function ScaleExplorer() {
       const pc = (selectedRoot + iv) % 12
       return getNoteName(60 + pc, displayNaming, accidentals)
     })
-    return { rootName, scaleName: scale.name, noteNames }
+    return { rootName, scaleName: tName(scale.name), noteNames }
   }, [selectedRoot, scale, displayNaming, accidentals])
 
   // ── Key quality suffix — 'm' for minor-family scales, '' for major-family ───
@@ -1064,7 +1065,7 @@ export default function ScaleExplorer() {
                     }}
                     onMouseEnter={e => { if (!sel) e.currentTarget.style.color = 'var(--text-list-hover)' }}
                     onMouseLeave={e => { if (!sel) e.currentTarget.style.color = 'var(--text-muted)' }}
-                  >{s.name}</button>
+                  >{tName(s.name)}</button>
                 )
               })}
             </div>
@@ -1406,7 +1407,7 @@ export default function ScaleExplorer() {
               const sel = selectedProg === i
               const isRot = !!p.isRotation
               const baseColor = sel ? 'var(--text-amber)' : (isRot ? 'var(--text-dim-control)' : 'var(--text-muted)')
-              const rotLabel = isRot ? p.name.replace(p.baseName! + ' ', '') : ''
+              const rotLabel = isRot ? rotationLabel(p) : ''
               return (
                 <button key={p.name}
                   onClick={() => pickProgression(i)}
@@ -1426,7 +1427,7 @@ export default function ScaleExplorer() {
                   onMouseEnter={e => { if (!sel) e.currentTarget.style.color = 'var(--text-amber)' }}
                   onMouseLeave={e => { if (!sel) e.currentTarget.style.color = baseColor }}
                 >
-                  <span style={{ flexShrink: 0, whiteSpace: 'nowrap' }}>{isRot ? `↳ ${rotLabel}` : p.name}</span>
+                  <span style={{ flexShrink: 0, whiteSpace: 'nowrap' }}>{isRot ? `↳ ${rotLabel}` : progressionLabel(p)}</span>
                   <span style={{
                     flex: 1, minWidth: 0, textAlign: 'right',
                     fontFamily: 'var(--font-mono)', fontSize: 9, opacity: isRot ? 0.45 : 0.65,

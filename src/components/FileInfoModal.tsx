@@ -190,7 +190,7 @@ export default function FileInfoModal({ filePath, fileName, onClose, onRenamed, 
     ;(async () => {
       try {
         const result = await window.electronAPI.loadMidiFromPath(currentPath)
-        if (!result) throw new Error('Could not read file')
+        if (!result) throw new Error(t`Could not read file`)
         const buffer = base64ToBuffer(result.base64)
         const parsed = parseMidiMetadata(buffer, currentName)
         if (!cancelled) {

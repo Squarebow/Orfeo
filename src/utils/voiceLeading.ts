@@ -23,6 +23,7 @@
 // same path.
 
 import { Interval } from 'tonal'
+import { t } from './i18n'
 
 export type ProgressionVoicing = 'roots' | 'climbing' | 'smooth'
 
@@ -35,9 +36,9 @@ export const PROGRESSION_VOICING_LABEL: Record<ProgressionVoicing, string> = {
 }
 
 export const PROGRESSION_VOICING_HINT: Record<ProgressionVoicing, string> = {
-  roots:    'Every chord in root position, each one higher than the last',
-  climbing: 'First chord low, then inversions stepping upward — starts again low after about two octaves',
-  smooth:   'Nearest voicing each step — the fewest notes move, staying under one hand',
+  roots:    t`Every chord in root position, each one higher than the last`,
+  climbing: t`First chord low, then inversions stepping upward — starts again low after about two octaves`,
+  smooth:   t`Nearest voicing each step — the fewest notes move, staying under one hand`,
 }
 
 export interface VoicingRange { min: number; max: number }

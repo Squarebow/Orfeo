@@ -8,12 +8,12 @@ import type { SettingDef } from '../types'
 import { t } from '../../../utils/i18n'
 
 export const HIT_EFFECT_DESCRIPTIONS: Record<HitEffectPattern, string> = {
-  glowBloom: 'Soft radial glow that blooms outward and fades.',
-  rippleRing: 'Expanding concentric rings, like a ripple in water.',
-  particleBurst: 'Small particles spray upward and fall back down with gravity.',
-  smokePlume: 'Soft blurred smoke wisps drift upward, shifting color as they dissipate.',
+  glowBloom: t`Soft radial glow that blooms outward and fades.`,
+  rippleRing: t`Expanding concentric rings, like a ripple in water.`,
+  particleBurst: t`Small particles spray upward and fall back down with gravity.`,
+  smokePlume: t`Soft blurred smoke wisps drift upward, shifting color as they dissipate.`,
   colorAura: 'A soft glowing blob that pulses outward while cycling through colors.',
-  starburstNova: 'Sharp radiating rays with a bright flash — explosive and energetic.',
+  starburstNova: t`Sharp radiating rays with a bright flash — explosive and energetic.`,
   cometTrail: 'A bright streak shoots upward with a fading trail behind it.',
 }
 
@@ -98,7 +98,7 @@ function VisualEffectsExtra() {
         onChange={v => setPattern(v as HitEffectPattern)}
         options={(Object.keys(HIT_EFFECT_DESCRIPTIONS) as HitEffectPattern[]).map(p => ({
           value: p,
-          label: { glowBloom: 'Glow Bloom', rippleRing: 'Ripple Ring', particleBurst: 'Particle Burst', smokePlume: 'Smoke Plume', colorAura: 'Color Aura', starburstNova: 'Starburst Nova', cometTrail: 'Comet Trail' }[p],
+          label: { glowBloom: t`Glow Bloom`, rippleRing: t`Ripple Ring`, particleBurst: t`Particle Burst`, smokePlume: t`Smoke Plume`, colorAura: t`Color Aura`, starburstNova: t`Starburst Nova`, cometTrail: t`Comet Trail` }[p],
           title: HIT_EFFECT_DESCRIPTIONS[p],
         }))}
       />

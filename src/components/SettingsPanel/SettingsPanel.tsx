@@ -80,7 +80,7 @@ function TranscriptIcon({ filePath, noteNaming, accidentals, addTranscriptEntry,
   // while the pointer is over this icon — same pattern as FavouriteStar. ──
   onHoverChange?: (hovering: boolean) => void
 }) {
-  const IDLE_TOOLTIP = 'Click to create a chord transcript PDF in Orfeo folder.'
+  const IDLE_TOOLTIP = t`Click to create a chord transcript PDF in Orfeo folder.`
   const [state, setState] = useState<'idle' | 'loading' | 'success' | 'error'>('idle')
   const [tooltip, setTooltip] = useState(IDLE_TOOLTIP)
   const revertRef = useRef<ReturnType<typeof setTimeout> | null>(null)
@@ -509,7 +509,7 @@ function LibraryPanel({ hidden = false }: { hidden?: boolean }) {
 
   const handleCreateFolder = async (namePrefill?: string) => {
     if (!libraryFolder) return
-    const name = await window.electronAPI.createLibraryFolder(libraryFolder, namePrefill ?? 'New Folder')
+    const name = await window.electronAPI.createLibraryFolder(libraryFolder, namePrefill ?? t`New Folder`)
     await refreshAfterFolderOp()
     setExpandedFolders(prev => new Set(prev).add(name))
     setRenamingFolder(name)
@@ -725,7 +725,7 @@ function LibraryPanel({ hidden = false }: { hidden?: boolean }) {
   const loadRequestIdRef = useRef(0)
   const handleLoadFile = useCallback(async (filePath: string) => {
     const requestId = ++loadRequestIdRef.current
-    const canDiscard = await confirmDiscardDirtyNoteEdits('Save changes before opening this file?')
+    const canDiscard = await confirmDiscardDirtyNoteEdits(t`Save changes before opening this file?`)
     if (!canDiscard || requestId !== loadRequestIdRef.current) return
     const canLoseChanges = await confirmUnsavedChanges()
     if (!canLoseChanges || requestId !== loadRequestIdRef.current) return

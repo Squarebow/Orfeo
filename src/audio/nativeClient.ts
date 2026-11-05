@@ -7,6 +7,7 @@
 
 import { create } from 'zustand'
 import { PendingRenders } from './pendingRenders'
+import { t } from '../utils/i18n'
 
 export interface NativeStatus {
   position: number
@@ -120,7 +121,7 @@ export async function nativeRenderOffline(
   packed: { job: unknown; times: Float64Array; tracks: Uint16Array; bytes: Uint8Array; trackCount: number; duration: number },
   onProgress?: (p: number) => void, isCancelled?: () => boolean,
 ): Promise<Float32Array[] | null> {
-  if (!port && !(await connect())) throw new Error(useNativeAudio.getState().error ?? 'Native sound is unavailable')
+  if (!port && !(await connect())) throw new Error(useNativeAudio.getState().error ?? t`Native sound is unavailable`)
   const id = ++_renderId
   const cancelWatch = setInterval(() => { if (isCancelled?.()) port?.postMessage({ t: 'render-cancel', id }) }, 100)
   if (onProgress) _renderProgress.set(id, onProgress)

@@ -414,9 +414,9 @@ export default function NoteEditorToolbar() {
   // idle blurb when the cursor is outside the roll (NES.defaultHint). ──────
   const toolTooltip: Record<NETool, [string, string]> = {
     select: ['Select — click/shift-click notes, drag to move/resize', 'Drag empty space to pan · Shift+wheel to scrub finely'],
-    pen:    ['Pen — Alt+click empty space to add a note', 'Click a note to mark it for delete'],
-    marquee:['Marquee — drag a box over a cluster to select it', 'Shift+drag adds to the current selection'],
-    lasso:  ['Lasso — drag through notes to select them', 'Shift+drag adds to the current selection'],
+    pen:    [t`Pen — Alt+click empty space to add a note`, t`Click a note to mark it for delete`],
+    marquee:[t`Marquee — drag a box over a cluster to select it`, t`Shift+drag adds to the current selection`],
+    lasso:  [t`Lasso — drag through notes to select them`, t`Shift+drag adds to the current selection`],
   }
   const [tipLine1, tipLine2] = toolTooltip[activeTool]
 
@@ -500,7 +500,7 @@ export default function NoteEditorToolbar() {
             onMouseDown={e => e.stopPropagation()}
             onClick={() => void doClose()}
             style={modalCloseButtonStyle}
-            onMouseEnter={e => { e.currentTarget.style.color = modalCloseButtonHoverColor; setIconHint('Close — exit edit mode') }}
+            onMouseEnter={e => { e.currentTarget.style.color = modalCloseButtonHoverColor; setIconHint(t`Close — exit edit mode`) }}
             onMouseLeave={e => { e.currentTarget.style.color = modalCloseButtonIdleColor; setIconHint(null) }}
           >
             ✕
@@ -540,7 +540,7 @@ export default function NoteEditorToolbar() {
             amber only while the lane is actually open. ────────────────── */}
         <button
           onClick={() => setVelocityPanelOpen(!velocityPanelOpen)}
-          {...hintHandlers(velocityPanelOpen ? 'Velocity lane — hide the velocity editor' : noteEditorSoloTrackIndex !== null ? 'Velocity lane — edit velocity for the soloed track' : 'Velocity lane — solo a track to edit its velocity')}
+          {...hintHandlers(velocityPanelOpen ? t`Velocity lane — hide the velocity editor` : noteEditorSoloTrackIndex !== null ? t`Velocity lane — edit velocity for the soloed track` : t`Velocity lane — solo a track to edit its velocity`)}
           style={{
             ...btnBase,
             width: 28, padding: 0, justifyContent: 'center',
@@ -643,7 +643,7 @@ export default function NoteEditorToolbar() {
               color: 'var(--text-muted)', borderColor: 'var(--border2)', background: 'transparent',
               whiteSpace: 'nowrap', padding: '0 4px', transition: 'all 0.12s',
             }}
-            onMouseEnter={e => { e.currentTarget.style.color = 'var(--text-amber)'; e.currentTarget.style.borderColor = 'var(--accent-amber-strong)'; setIconHint('Reset — discard all edits and restore original') }}
+            onMouseEnter={e => { e.currentTarget.style.color = 'var(--text-amber)'; e.currentTarget.style.borderColor = 'var(--accent-amber-strong)'; setIconHint(t`Reset — discard all edits and restore original`) }}
             onMouseLeave={e => { e.currentTarget.style.color = 'var(--text-muted)'; e.currentTarget.style.borderColor = 'var(--border2)'; setIconHint(null) }}
           >
             {t`Reset`}

@@ -662,14 +662,14 @@ export default function MasterStrip() {
           accentColor="var(--knob-chorus)" size={52}
           disabled={knobsDisabled} label={t`Chorus`} labelOffset={-10}
           title={t`Chorus`} description={t`Thickens the overall mix by layering slightly detuned copies of it`}
-          disabledHint="Switch to the Studio or Native engine to use Chorus."
+          disabledHint={t`Switch to the Studio or Native engine to use Chorus.`}
         />
         <MixerKnob
           value={reverb} onChange={handleReverb}
           accentColor="var(--knob-reverb)" size={52}
           disabled={knobsDisabled} label={t`Reverb`} labelOffset={-10}
           title={t`Reverb`} description={t`Adds room/space ambience to the mix`}
-          disabledHint="Switch to the Studio or Native engine to use Reverb."
+          disabledHint={t`Switch to the Studio or Native engine to use Reverb.`}
         />
       </div>
 
@@ -704,7 +704,7 @@ export default function MasterStrip() {
             accentColor="var(--knob-tone)" size={52}
             disabled={knobsDisabled} bipolar
             title={t`Tone`} description={t`Tilts the overall EQ darker or brighter`}
-            disabledHint="Switch to the Studio or Native engine to use Tone."
+            disabledHint={t`Switch to the Studio or Native engine to use Tone.`}
           />
           <span style={{
             position: 'absolute', top: '100%', left: '50%', transform: 'translateX(-50%)',

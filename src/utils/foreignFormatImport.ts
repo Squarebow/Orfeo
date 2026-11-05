@@ -46,7 +46,7 @@ export async function convertForeignFileToMidiBuffer(
     score = (at as any).importer.ScoreLoader.loadScoreFromBytes(bytes, settings);
   } catch (e: any) {
     throw new Error(
-      `Couldn't read this ${FORMAT_LABEL[format]} file — it may be corrupted or use an unsupported feature. (${e?.message ?? e})`
+      t`Couldn't read this ${FORMAT_LABEL[format]} file — it may be corrupted or use an unsupported feature. (${e?.message ?? e})`
     );
   }
 

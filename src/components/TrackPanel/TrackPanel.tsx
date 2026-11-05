@@ -1,7 +1,8 @@
 import { useMemo, useState, useRef, useEffect } from 'react'
 import { ChevronRight, Eye, Volume2, VolumeX, ChevronDown, AudioLines, ListTree, SlidersVertical, GripVertical, Sparkles } from 'lucide-react'
 import { useStore } from '../../store'
-import { t } from '../../utils/i18n'
+import { t, tName } from '../../utils/i18n'
+import { trackLabel } from '../../utils/trackLabel'
 import { GM_GROUPS } from '../../utils/gmInstruments'
 import type { TrackState } from '../../types'
 import { MarqueeText } from '../MarqueeText'
@@ -141,7 +142,7 @@ export default function TrackPanel() {
         ? [...order.map(idx => groupTracks.find(t => t.index === idx)).filter((t): t is TrackState => !!t),
            ...groupTracks.filter(t => !order.includes(t.index))]
         : groupTracks
-      return { key: g, label: GM_GROUPS[g]?.label ?? g, tracks: orderedTracks }
+      return { key: g, label: GM_GROUPS[g] ? tName(GM_GROUPS[g].label) : g, tracks: orderedTracks }
     })
   }, [tracks, customGroupOrder, customTrackOrder])
 
@@ -548,7 +549,7 @@ on the Piano Roll again`}
                     {collapsed && (
                       <div style={{ display: 'flex', gap: 2 }}>
                         {groupTracks.map(track => (
-                          <Tooltip key={track.index} title={track.trackName ?? track.gmName} description={t`Track's color in the piano roll`}>
+                          <Tooltip key={track.index} title={trackLabel(track) ?? ''} description={t`Track's color in the piano roll`}>
                             <div style={{ width: 7, height: 7, borderRadius: 2, background: track.color, flexShrink: 0 }} />
                           </Tooltip>
                         ))}
@@ -756,7 +757,7 @@ function TrackRow({
         {/* Left hand left of right hand; the left pill sits in the row's gap, so names stay put */}
         {twoHands && pill('var(--hand-lh)', vuFillLhRef, { marginLeft: -5, marginRight: -4 })}
         {pill(twoHands ? 'var(--hand-rh)' : track.color, vuFillRef)}
-        <MarqueeText name={track.trackName ?? track.gmName} spanStyle={{ fontSize: 'var(--text-sm)', fontWeight: 500, color: 'var(--text-muted)' }} />
+        <MarqueeText name={trackLabel(track) ?? ''} spanStyle={{ fontSize: 'var(--text-sm)', fontWeight: 500, color: 'var(--text-muted)' }} />
       </div>
 
       {/* ── Row 2: track number (left) + M/S/V/K controls (right) ─────────── */}

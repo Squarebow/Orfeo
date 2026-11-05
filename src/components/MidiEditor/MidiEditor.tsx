@@ -6,7 +6,8 @@
  */
 
 import { useState, useEffect, useRef, useCallback, useMemo, type CSSProperties } from 'react'
-import { t } from '../../utils/i18n'
+import { t, tName } from '../../utils/i18n'
+import { n } from '../../i18n/mark'
 import { createPortal } from 'react-dom'
 import { Check, X, Save, FolderOpen, AlertCircle, ChevronDown, ChevronRight, Search, Merge, Split, Undo2, RotateCcw, Piano, Bell, Church, Guitar, Music2, AudioWaveform, Users, Megaphone, Wind, Feather, Cpu, Globe, Drum, Radio, Waves, Sparkles, SwatchBook, Eye, EyeOff, ThumbsUp, ToggleLeft, ToggleRight, AudioLines } from 'lucide-react'
 import { confirmDialog } from '../../utils/confirmController'
@@ -70,87 +71,87 @@ const GM_FAMILY_ICONS: Record<string, React.ReactNode> = {
 }
 
 const GM_FAMILIES: { key: string; label: string; programs: { num: number; name: string }[] }[] = [
-  { key: 'piano', label: 'Piano', programs: [
-    {num:0,name:'Acoustic Grand Piano'},{num:1,name:'Bright Acoustic Piano'},
-    {num:2,name:'Electric Grand Piano'},{num:3,name:'Honky-tonk Piano'},
-    {num:4,name:'Electric Piano 1'},{num:5,name:'Electric Piano 2'},
-    {num:6,name:'Harpsichord'},{num:7,name:'Clavinet'},
+  { key: 'piano', label: n('Piano'), programs: [
+    {num:0,name:n('Acoustic Grand Piano')},{num:1,name:n('Bright Acoustic Piano')},
+    {num:2,name:n('Electric Grand Piano')},{num:3,name:n('Honky-tonk Piano')},
+    {num:4,name:n('Electric Piano 1')},{num:5,name:n('Electric Piano 2')},
+    {num:6,name:n('Harpsichord')},{num:7,name:n('Clavinet')},
   ]},
-  { key: 'chromatic', label: 'Chromatic Perc', programs: [
-    {num:8,name:'Celesta'},{num:9,name:'Glockenspiel'},{num:10,name:'Music Box'},
-    {num:11,name:'Vibraphone'},{num:12,name:'Marimba'},{num:13,name:'Xylophone'},
-    {num:14,name:'Tubular Bells'},{num:15,name:'Dulcimer'},
+  { key: 'chromatic', label: n('Chromatic Perc'), programs: [
+    {num:8,name:n('Celesta')},{num:9,name:n('Glockenspiel')},{num:10,name:n('Music Box')},
+    {num:11,name:n('Vibraphone')},{num:12,name:n('Marimba')},{num:13,name:n('Xylophone')},
+    {num:14,name:n('Tubular Bells')},{num:15,name:n('Dulcimer')},
   ]},
-  { key: 'organ', label: 'Organ', programs: [
-    {num:16,name:'Drawbar Organ'},{num:17,name:'Percussive Organ'},{num:18,name:'Rock Organ'},
-    {num:19,name:'Church Organ'},{num:20,name:'Reed Organ'},{num:21,name:'Accordion'},
-    {num:22,name:'Harmonica'},{num:23,name:'Tango Accordion'},
+  { key: 'organ', label: n('Organ'), programs: [
+    {num:16,name:n('Drawbar Organ')},{num:17,name:n('Percussive Organ')},{num:18,name:n('Rock Organ')},
+    {num:19,name:n('Church Organ')},{num:20,name:n('Reed Organ')},{num:21,name:n('Accordion')},
+    {num:22,name:n('Harmonica')},{num:23,name:n('Tango Accordion')},
   ]},
-  { key: 'guitar', label: 'Guitar', programs: [
-    {num:24,name:'Nylon Guitar'},{num:25,name:'Steel Guitar'},{num:26,name:'Jazz Guitar'},
-    {num:27,name:'Clean Guitar'},{num:28,name:'Muted Guitar'},{num:29,name:'Overdriven Guitar'},
-    {num:30,name:'Distortion Guitar'},{num:31,name:'Guitar Harmonics'},
+  { key: 'guitar', label: n('Guitar'), programs: [
+    {num:24,name:n('Nylon Guitar')},{num:25,name:n('Steel Guitar')},{num:26,name:n('Jazz Guitar')},
+    {num:27,name:n('Clean Guitar')},{num:28,name:n('Muted Guitar')},{num:29,name:n('Overdriven Guitar')},
+    {num:30,name:n('Distortion Guitar')},{num:31,name:n('Guitar Harmonics')},
   ]},
-  { key: 'bass', label: 'Bass', programs: [
-    {num:32,name:'Acoustic Bass'},{num:33,name:'Finger Bass'},{num:34,name:'Pick Bass'},
-    {num:35,name:'Fretless Bass'},{num:36,name:'Slap Bass 1'},{num:37,name:'Slap Bass 2'},
-    {num:38,name:'Synth Bass 1'},{num:39,name:'Synth Bass 2'},
+  { key: 'bass', label: n('Bass'), programs: [
+    {num:32,name:n('Acoustic Bass')},{num:33,name:n('Finger Bass')},{num:34,name:n('Pick Bass')},
+    {num:35,name:n('Fretless Bass')},{num:36,name:n('Slap Bass 1')},{num:37,name:n('Slap Bass 2')},
+    {num:38,name:n('Synth Bass 1')},{num:39,name:n('Synth Bass 2')},
   ]},
-  { key: 'strings', label: 'Strings', programs: [
-    {num:40,name:'Violin'},{num:41,name:'Viola'},{num:42,name:'Cello'},{num:43,name:'Contrabass'},
-    {num:44,name:'Tremolo Strings'},{num:45,name:'Pizzicato Strings'},
-    {num:46,name:'Orchestral Harp'},{num:47,name:'Timpani'},
+  { key: 'strings', label: n('Strings'), programs: [
+    {num:40,name:n('Violin')},{num:41,name:n('Viola')},{num:42,name:n('Cello')},{num:43,name:n('Contrabass')},
+    {num:44,name:n('Tremolo Strings')},{num:45,name:n('Pizzicato Strings')},
+    {num:46,name:n('Orchestral Harp')},{num:47,name:n('Timpani')},
   ]},
-  { key: 'ensemble', label: 'Ensemble', programs: [
-    {num:48,name:'String Ensemble 1'},{num:49,name:'String Ensemble 2'},
-    {num:50,name:'Synth Strings 1'},{num:51,name:'Synth Strings 2'},
-    {num:52,name:'Choir Aahs'},{num:53,name:'Voice Oohs'},
-    {num:54,name:'Synth Voice'},{num:55,name:'Orchestra Hit'},
+  { key: 'ensemble', label: n('Ensemble'), programs: [
+    {num:48,name:n('String Ensemble 1')},{num:49,name:n('String Ensemble 2')},
+    {num:50,name:n('Synth Strings 1')},{num:51,name:n('Synth Strings 2')},
+    {num:52,name:n('Choir Aahs')},{num:53,name:n('Voice Oohs')},
+    {num:54,name:n('Synth Voice')},{num:55,name:n('Orchestra Hit')},
   ]},
-  { key: 'brass', label: 'Brass', programs: [
-    {num:56,name:'Trumpet'},{num:57,name:'Trombone'},{num:58,name:'Tuba'},
-    {num:59,name:'Muted Trumpet'},{num:60,name:'French Horn'},{num:61,name:'Brass Section'},
-    {num:62,name:'Synth Brass 1'},{num:63,name:'Synth Brass 2'},
+  { key: 'brass', label: n('Brass'), programs: [
+    {num:56,name:n('Trumpet')},{num:57,name:n('Trombone')},{num:58,name:n('Tuba')},
+    {num:59,name:n('Muted Trumpet')},{num:60,name:n('French Horn')},{num:61,name:n('Brass Section')},
+    {num:62,name:n('Synth Brass 1')},{num:63,name:n('Synth Brass 2')},
   ]},
-  { key: 'reed', label: 'Reed', programs: [
-    {num:64,name:'Soprano Sax'},{num:65,name:'Alto Sax'},{num:66,name:'Tenor Sax'},
-    {num:67,name:'Baritone Sax'},{num:68,name:'Oboe'},{num:69,name:'English Horn'},
-    {num:70,name:'Bassoon'},{num:71,name:'Clarinet'},
+  { key: 'reed', label: n('Reed'), programs: [
+    {num:64,name:n('Soprano Sax')},{num:65,name:n('Alto Sax')},{num:66,name:n('Tenor Sax')},
+    {num:67,name:n('Baritone Sax')},{num:68,name:n('Oboe')},{num:69,name:n('English Horn')},
+    {num:70,name:n('Bassoon')},{num:71,name:n('Clarinet')},
   ]},
-  { key: 'pipe', label: 'Pipe', programs: [
-    {num:72,name:'Piccolo'},{num:73,name:'Flute'},{num:74,name:'Recorder'},
-    {num:75,name:'Pan Flute'},{num:76,name:'Blown Bottle'},{num:77,name:'Shakuhachi'},
-    {num:78,name:'Whistle'},{num:79,name:'Ocarina'},
+  { key: 'pipe', label: n('Pipe'), programs: [
+    {num:72,name:n('Piccolo')},{num:73,name:n('Flute')},{num:74,name:n('Recorder')},
+    {num:75,name:n('Pan Flute')},{num:76,name:n('Blown Bottle')},{num:77,name:n('Shakuhachi')},
+    {num:78,name:n('Whistle')},{num:79,name:n('Ocarina')},
   ]},
-  { key: 'synth_lead', label: 'Synth Lead', programs: [
-    {num:80,name:'Square Lead'},{num:81,name:'Sawtooth Lead'},{num:82,name:'Calliope Lead'},
-    {num:83,name:'Chiff Lead'},{num:84,name:'Charang Lead'},{num:85,name:'Voice Lead'},
-    {num:86,name:'Fifths Lead'},{num:87,name:'Bass+Lead'},
+  { key: 'synth_lead', label: n('Synth Lead'), programs: [
+    {num:80,name:n('Square Lead')},{num:81,name:n('Sawtooth Lead')},{num:82,name:n('Calliope Lead')},
+    {num:83,name:n('Chiff Lead')},{num:84,name:n('Charang Lead')},{num:85,name:n('Voice Lead')},
+    {num:86,name:n('Fifths Lead')},{num:87,name:n('Bass+Lead')},
   ]},
-  { key: 'synth_pad', label: 'Synth Pad', programs: [
-    {num:88,name:'New Age Pad'},{num:89,name:'Warm Pad'},{num:90,name:'Polysynth Pad'},
-    {num:91,name:'Choir Pad'},{num:92,name:'Bowed Pad'},{num:93,name:'Metallic Pad'},
-    {num:94,name:'Halo Pad'},{num:95,name:'Sweep Pad'},
+  { key: 'synth_pad', label: n('Synth Pad'), programs: [
+    {num:88,name:n('New Age Pad')},{num:89,name:n('Warm Pad')},{num:90,name:n('Polysynth Pad')},
+    {num:91,name:n('Choir Pad')},{num:92,name:n('Bowed Pad')},{num:93,name:n('Metallic Pad')},
+    {num:94,name:n('Halo Pad')},{num:95,name:n('Sweep Pad')},
   ]},
-  { key: 'synth_fx', label: 'Synth FX', programs: [
-    {num:96,name:'Rain FX'},{num:97,name:'Soundtrack FX'},{num:98,name:'Crystal FX'},
-    {num:99,name:'Atmosphere FX'},{num:100,name:'Brightness FX'},{num:101,name:'Goblins FX'},
-    {num:102,name:'Echoes FX'},{num:103,name:'Sci-fi FX'},
+  { key: 'synth_fx', label: n('Synth FX'), programs: [
+    {num:96,name:n('Rain FX')},{num:97,name:n('Soundtrack FX')},{num:98,name:n('Crystal FX')},
+    {num:99,name:n('Atmosphere FX')},{num:100,name:n('Brightness FX')},{num:101,name:n('Goblins FX')},
+    {num:102,name:n('Echoes FX')},{num:103,name:n('Sci-fi FX')},
   ]},
-  { key: 'ethnic', label: 'Ethnic', programs: [
-    {num:104,name:'Sitar'},{num:105,name:'Banjo'},{num:106,name:'Shamisen'},
-    {num:107,name:'Koto'},{num:108,name:'Kalimba'},{num:109,name:'Bag Pipe'},
-    {num:110,name:'Fiddle'},{num:111,name:'Shanai'},
+  { key: 'ethnic', label: n('Ethnic'), programs: [
+    {num:104,name:n('Sitar')},{num:105,name:n('Banjo')},{num:106,name:n('Shamisen')},
+    {num:107,name:n('Koto')},{num:108,name:n('Kalimba')},{num:109,name:n('Bag Pipe')},
+    {num:110,name:n('Fiddle')},{num:111,name:n('Shanai')},
   ]},
-  { key: 'percussive', label: 'Percussive', programs: [
-    {num:112,name:'Tinkle Bell'},{num:113,name:'Agogo'},{num:114,name:'Steel Drums'},
-    {num:115,name:'Woodblock'},{num:116,name:'Taiko Drum'},{num:117,name:'Melodic Tom'},
-    {num:118,name:'Synth Drum'},{num:119,name:'Reverse Cymbal'},
+  { key: 'percussive', label: n('Percussive'), programs: [
+    {num:112,name:n('Tinkle Bell')},{num:113,name:n('Agogo')},{num:114,name:n('Steel Drums')},
+    {num:115,name:n('Woodblock')},{num:116,name:n('Taiko Drum')},{num:117,name:n('Melodic Tom')},
+    {num:118,name:n('Synth Drum')},{num:119,name:n('Reverse Cymbal')},
   ]},
-  { key: 'sound_fx', label: 'Sound FX', programs: [
-    {num:120,name:'Guitar Fret Noise'},{num:121,name:'Breath Noise'},{num:122,name:'Seashore'},
-    {num:123,name:'Bird Tweet'},{num:124,name:'Telephone Ring'},{num:125,name:'Helicopter'},
-    {num:126,name:'Applause'},{num:127,name:'Gunshot'},
+  { key: 'sound_fx', label: n('Sound FX'), programs: [
+    {num:120,name:n('Guitar Fret Noise')},{num:121,name:n('Breath Noise')},{num:122,name:n('Seashore')},
+    {num:123,name:n('Bird Tweet')},{num:124,name:n('Telephone Ring')},{num:125,name:n('Helicopter')},
+    {num:126,name:n('Applause')},{num:127,name:n('Gunshot')},
   ]},
 ]
 
@@ -223,10 +224,11 @@ function InstrumentPicker({ program, isDrum, onChange, disabled }: {
     </div>
   )
 
-  const currentName = GM_FAMILIES.flatMap(f => f.programs).find(p => p.num === program)?.name ?? `Program ${program}`
+  const currentName = GM_FAMILIES.flatMap(f => f.programs).find(p => p.num === program)?.name
+  const shownName = currentName ? tName(currentName) : t`Program ${program}`
   const searchLower = search.toLowerCase()
   const filteredFamilies = search
-    ? GM_FAMILIES.map(f => ({ ...f, programs: f.programs.filter(p => p.name.toLowerCase().includes(searchLower)) })).filter(f => f.programs.length > 0)
+    ? GM_FAMILIES.map(f => ({ ...f, programs: f.programs.filter(p => tName(p.name).toLowerCase().includes(searchLower)) })).filter(f => f.programs.length > 0)
     : GM_FAMILIES
 
   return (
@@ -238,7 +240,7 @@ function InstrumentPicker({ program, isDrum, onChange, disabled }: {
         color: 'var(--text-muted)', fontSize: 10,
         display: 'flex', alignItems: 'center', gap: 'var(--space-1)', cursor: disabled ? 'default' : 'pointer', textAlign: 'left',
       }}>
-        <span style={{ flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{currentName}</span>
+        <span style={{ flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{shownName}</span>
         <ChevronDown size={10} style={{ flexShrink: 0, color: 'var(--text-inactive)', transform: open ? 'rotate(180deg)' : 'none', transition: 'transform 0.15s' }} />
       </button>
 
@@ -279,7 +281,7 @@ function InstrumentPicker({ program, isDrum, onChange, disabled }: {
                     onMouseEnter={e => { if (!search) e.currentTarget.style.background = 'var(--accent-amber-subtle)' }}
                     onMouseLeave={e => { if (!search) e.currentTarget.style.background = 'var(--bg-row)' }}>
                     <span style={{ color: 'var(--text-dimmest)', display: 'flex', alignItems: 'center' }}>{GM_FAMILY_ICONS[family.key] ?? <Music2 size={12} />}</span>
-                    <span style={{ flex: 1, fontSize: 10, fontWeight: 700, color: 'var(--text-dimmest)', textTransform: 'uppercase', letterSpacing: '0.08em' }}>{family.label}</span>
+                    <span style={{ flex: 1, fontSize: 10, fontWeight: 700, color: 'var(--text-dimmest)', textTransform: 'uppercase', letterSpacing: '0.08em' }}>{tName(family.label)}</span>
                     {!search && (expanded ? <ChevronDown size={9} style={{ color: 'var(--text-inactive)' }} /> : <ChevronRight size={9} style={{ color: 'var(--text-muted)' }} />)}
                   </div>
                   {expanded && family.programs.map(p => (
@@ -287,7 +289,7 @@ function InstrumentPicker({ program, isDrum, onChange, disabled }: {
                       style={{ padding: '5px 10px 5px 28px', fontSize: 10, color: p.num === program ? 'var(--text-amber)' : 'var(--text-dimmest)', background: p.num === program ? 'var(--accent-amber-subtle)' : 'transparent', cursor: 'pointer', borderLeft: p.num === program ? '2px solid var(--text-amber)' : '2px solid transparent', transition: 'background 0.1s, color 0.1s' }}
                       onMouseEnter={e => { if (p.num !== program) { e.currentTarget.style.background = 'var(--accent-amber-subtle)'; e.currentTarget.style.color = 'var(--text-amber)' } }}
                       onMouseLeave={e => { if (p.num !== program) { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = 'var(--text-dimmest)' } }}>
-                      {p.name}
+                      {tName(p.name)}
                     </div>
                   ))}
                 </div>
@@ -666,7 +668,7 @@ function TrackRow({ track, onToggleIncluded, onToggleMerge, onChangeProgram, onU
                 {!track.isDrum && track.newProgram !== track.program && (
                   <span style={{ display: 'flex', alignItems: 'center', gap: 3 }}>
                     <span style={{ fontSize: 9, color: 'var(--text-amber)', fontFamily: 'var(--font-mono)' }}>{t`✎ reassigned`}</span>
-                    <Tooltip title={t`Back to the original assignment — ${track.gmName}.`} oneLine>
+                    <Tooltip title={t`Back to the original assignment — ${tName(track.gmName)}.`} oneLine>
                     <button
                       onClick={() => onChangeProgram(track.program)}
                       disabled={rowDisabled}
@@ -1182,7 +1184,7 @@ export default function MidiEditor() {
   // v3, ad infinitum. A failed save leaves Cancel/Save & Reload in place so
   // the user can fix the problem and retry. ──────────────────────────────────
   const performSave = async (): Promise<boolean> => {
-    if (includedCount === 0) { setSaveResult({ ok: false, msg: 'Select at least one track.' }); return false }
+    if (includedCount === 0) { setSaveResult({ ok: false, msg: t`Select at least one track.` }); return false }
 
     // ── Warn before an unchecked track actually disappears from the saved
     // file — easy to reach unnoticed now that a muted/hidden track from the
@@ -1245,7 +1247,7 @@ export default function MidiEditor() {
         saved = true
       }
     } catch (e: any) {
-      setSaveResult({ ok: false, msg: e?.message ?? 'Save failed' })
+      setSaveResult({ ok: false, msg: e?.message ?? t`Save failed` })
     }
     setSaving(false)
     return saved
@@ -1367,7 +1369,7 @@ export default function MidiEditor() {
     const rhCount = notes.filter(n => n.hand === 'R').length
     setPendingSplitIndex(null)
     if (lhCount === 0 || rhCount === 0) {
-      setSplitResult({ ok: false, msg: 'Could not find two independent hands in this track' })
+      setSplitResult({ ok: false, msg: t`Could not find two independent hands in this track` })
       return
     }
     setPreSplitRows(state.rows)

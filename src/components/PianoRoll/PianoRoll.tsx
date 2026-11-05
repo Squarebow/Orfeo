@@ -1178,7 +1178,7 @@ export default function PianoRoll() {
             const atStart = canResize && cy >= ef.topY + ef.noteH - RESIZE_ZONE_PX
             if (atEnd || atStart) {
               app.canvas.style.cursor = 'ns-resize'
-              hint = 'Drag to resize'
+              hint = t`Drag to resize`
               setEditTooltip(null)
             } else {
               app.canvas.style.cursor = 'move'
@@ -1210,10 +1210,10 @@ export default function PianoRoll() {
             hint = 'Alt+click to add a note'
           } else if (tool === 'marquee') {
             app.canvas.style.cursor = 'crosshair'
-            hint = 'Drag to select a cluster'
+            hint = t`Drag to select a cluster`
           } else {
             app.canvas.style.cursor = 'crosshair'
-            hint = 'Drag through notes to select them'
+            hint = t`Drag through notes to select them`
           }
           setEditTooltip(null)
         }
@@ -2009,7 +2009,7 @@ export default function PianoRoll() {
       }
       // ── Hover/drag label — "Velocity 96" next to the cursor (same label the
       // main roll uses for notes); a group drag shows the grabbed bar's value
-      const velLabel = (n: ToneNote) => `Velocity ${Math.round(Math.max(0, Math.min(1, n.velocity)) * 127)}`
+      const velLabel = (n: ToneNote) => t`Velocity ${Math.round(Math.max(0, Math.min(1, n.velocity)) * 127)}`
       const onVelPointerMove = (e: PointerEvent) => {
         const canvas = velocityCanvasRef.current
         if (!canvas) return
@@ -2093,7 +2093,7 @@ export default function PianoRoll() {
         if (!storeRef.current.noteEditorActive) return
         setEditTooltip(null)
         const n = editSelectedNotes.size
-        const hint = n > 0 ? `${n} note${n === 1 ? '' : 's'} selected · Right-click for options` : NES.defaultHint
+        const hint = n > 0 ? t`Notes selected: ${n} · Right-click for options` : NES.defaultHint
         if (NES.hoverHint !== hint) {
           NES.hoverHint = hint
           NES.onHintChange?.()
