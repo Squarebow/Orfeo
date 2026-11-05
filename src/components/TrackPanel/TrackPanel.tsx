@@ -634,7 +634,7 @@ function TrackRow({
 }) {
   // Friendly channel/program label
   const ch = (track as any).channel != null ? (track as any).channel + 1 : track.index + 1
-  const prog = track.isDrum ? 'drums' : `prog ${track.program + 1}`
+  const prog = track.isDrum ? t`drums` : t`prog ${track.program + 1}`
   const noteCount = useStore(s => (s.midi as any)?.tracks?.find((t: any) => t.index === track.index)?.notes?.length ?? 0)
 
   // ── Color-line VU meter — Settings-gated (Playback & Practice). Same
@@ -762,7 +762,7 @@ function TrackRow({
 
       {/* ── Row 2: track number (left) + M/S/V/K controls (right) ─────────── */}
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginTop: 3, paddingLeft: 26 }}>
-        <span style={{ fontSize: 10, color: 'var(--text-inactive)', fontFamily: 'var(--font-mono)' }}>track {track.index + 1}</span>
+        <span style={{ fontSize: 10, color: 'var(--text-inactive)', fontFamily: 'var(--font-mono)' }}>{t`track ${track.index + 1}`}</span>
         <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-1)' }}>
           <IBtn onClick={onMute} active={track.muted}
             title={track.muted ? t`Unmute` : t`Mute`}
@@ -793,11 +793,11 @@ function TrackRow({
 
       {/* ── Row 3: MIDI channel + program + note count ────────────────────── */}
       <div style={{ display: 'flex', gap: 6, marginTop: 2, paddingLeft: 26 }}>
-        <span style={{ fontSize: 10, lineHeight: '11px', color: 'var(--text-track-meta)', fontFamily: 'var(--font-mono)' }}>ch {ch}</span>
+        <span style={{ fontSize: 10, lineHeight: '11px', color: 'var(--text-track-meta)', fontFamily: 'var(--font-mono)' }}>{t`ch ${ch}`}</span>
         <span style={{ fontSize: 10, lineHeight: '11px', color: 'var(--text-track-meta)', fontFamily: 'var(--font-mono)' }}>·</span>
         <span style={{ fontSize: 10, lineHeight: '11px', color: 'var(--text-track-meta)', fontFamily: 'var(--font-mono)' }}>{prog}</span>
         <span style={{ fontSize: 10, lineHeight: '11px', color: 'var(--text-track-meta)', fontFamily: 'var(--font-mono)' }}>·</span>
-        <span style={{ fontSize: 10, lineHeight: '11px', color: 'var(--text-track-meta)', fontFamily: 'var(--font-mono)' }}>{noteCount} notes</span>
+        <span style={{ fontSize: 10, lineHeight: '11px', color: 'var(--text-track-meta)', fontFamily: 'var(--font-mono)' }}>{t`${noteCount} notes`}</span>
       </div>
     </div>
   )

@@ -219,15 +219,15 @@ function SoundFontsControl() {
               >• {sf.name}</span>
               <span style={{ fontSize: 9, color: 'var(--text-dimmest)', fontFamily: 'var(--font-ui)', textAlign: 'right' }}>{sf.sizeMB} MB</span>
               {sf.id === 'generaluser-gs' ? (
-                <span style={{ fontSize: 9, color: 'var(--text-muted)', fontFamily: 'var(--font-ui)', textAlign: 'right' }}>bundled</span>
+                <span style={{ fontSize: 9, color: 'var(--text-muted)', fontFamily: 'var(--font-ui)', textAlign: 'right' }}>{t`bundled`}</span>
               ) : sf.downloaded ? (
-                <SoundfontActionLink label="remove" color="var(--text-dimmest)" tooltip={sf.custom ? t`Remove imported file` : t`Delete downloaded file`} onClick={() => void deleteSoundfont(sf.id)} />
+                <SoundfontActionLink label={t`remove`} color="var(--text-dimmest)" tooltip={sf.custom ? t`Remove imported file` : t`Delete downloaded file`} onClick={() => void deleteSoundfont(sf.id)} />
               ) : downloads[sf.id] !== undefined ? (
                 <div style={{ width: 60, height: 3, background: 'var(--border)', borderRadius: 2, overflow: 'hidden' }}>
                   <div style={{ height: '100%', background: 'var(--text-amber)', borderRadius: 2, width: `${Math.round(downloads[sf.id] * 100)}%`, transition: 'width 0.1s' }} />
                 </div>
               ) : (
-                <SoundfontActionLink label="download" color="var(--text-amber)" tooltip={t`Download ${sf.name} (${sf.sizeMB} MB)`} onClick={() => void downloadSoundfont(sf.id)} />
+                <SoundfontActionLink label={t`download`} color="var(--text-amber)" tooltip={t`Download ${sf.name} (${sf.sizeMB} MB)`} onClick={() => void downloadSoundfont(sf.id)} />
               )}
             </div>
           )

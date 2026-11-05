@@ -8,6 +8,7 @@
 import { useState, useEffect, useRef, useCallback, useMemo, type CSSProperties } from 'react'
 import { t, tName } from '../../utils/i18n'
 import { n } from '../../i18n/mark'
+import { trackLabel } from '../../utils/trackLabel'
 import { createPortal } from 'react-dom'
 import { Check, X, Save, FolderOpen, AlertCircle, ChevronDown, ChevronRight, Search, Merge, Split, Undo2, RotateCcw, Piano, Bell, Church, Guitar, Music2, AudioWaveform, Users, Megaphone, Wind, Feather, Cpu, Globe, Drum, Radio, Waves, Sparkles, SwatchBook, Eye, EyeOff, ThumbsUp, ToggleLeft, ToggleRight, AudioLines } from 'lucide-react'
 import { confirmDialog } from '../../utils/confirmController'
@@ -646,7 +647,7 @@ function TrackRow({ track, onToggleIncluded, onToggleMerge, onChangeProgram, onU
                 onMouseLeave={e => { e.currentTarget.style.color = 'var(--text-muted)' }}
                 style={{ fontSize: 'var(--text-sm)', fontWeight: 500, color: 'var(--text-muted)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', cursor: rowDisabled ? 'default' : PENCIL_CURSOR, transition: 'color 0.12s' }}
               >
-                {track.trackName}
+                {trackLabel(track)}
               </span>
               </Tooltip>
             )}
@@ -1839,7 +1840,7 @@ export default function MidiEditor() {
       <div style={{ padding: '6px 14px', borderTop: '1px solid var(--bg-tile)', background: 'var(--bg-modal-header)', display: 'flex', alignItems: 'center', gap: 10, flexShrink: 0 }}>
         <TBtn onClick={() => setState(s => s && ({ ...s, rows: s.rows.map(t => ({ ...t, included: true })) }))}>{t`Select all`}</TBtn>
         <TBtn onClick={() => setState(s => s && ({ ...s, rows: s.rows.map(t => ({ ...t, included: false })) }))}>{t`Clear all`}</TBtn>
-        <span style={{ fontSize: 10, color: 'var(--text-inactive)', fontFamily: 'var(--font-mono)' }}>{includedCount}/{state.rows.length} included</span>
+        <span style={{ fontSize: 10, color: 'var(--text-inactive)', fontFamily: 'var(--font-mono)' }}>{t`${includedCount}/${state.rows.length} included`}</span>
         {/* ── Save Tempo & Key changes — off by default; when on, folds the
             session's BPM/transpose changes into this same Save & Reload
             write instead of needing a separate save (see performSave). A

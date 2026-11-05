@@ -49,9 +49,9 @@ const IconFast = ({ h }: { h: number }) => (
 
 const ICONS = { slow: IconSlow, med: IconMedium, fast: IconFast }
 const SPEEDS: Array<['slow' | 'med' | 'fast', string]> = [
-  ['slow', 'Slow'],
-  ['med',  'Medium'],
-  ['fast', 'Fast'],
+  ['slow', t`Slow`],
+  ['med',  t`Medium`],
+  ['fast', t`Fast`],
 ]
 
 // ── SpeedControl component ────────────────────────────────────────────────────

@@ -909,7 +909,7 @@ export default function ChordExplorer() {
                   oneLine
                   title={n === 'any' ? t`Chords regardless of note count` : n === '6+' ? t`Chords with 6 or more notes` : t`Chords with exactly ${n} notes`}
                 >
-                  <button onClick={() => setNoteFilter(n)} style={{ ...btnBase(noteFilter === n), minWidth: 22 }}>{n}</button>
+                  <button onClick={() => setNoteFilter(n)} style={{ ...btnBase(noteFilter === n), minWidth: 22 }}>{n === 'any' ? t`any` : n}</button>
                 </Tooltip>
               ))}
             </div>

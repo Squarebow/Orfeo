@@ -413,7 +413,7 @@ export default function NoteEditorToolbar() {
   // PianoRoll's updateHoverState reports it, falling back to a per-tool
   // idle blurb when the cursor is outside the roll (NES.defaultHint). ──────
   const toolTooltip: Record<NETool, [string, string]> = {
-    select: ['Select — click/shift-click notes, drag to move/resize', 'Drag empty space to pan · Shift+wheel to scrub finely'],
+    select: [t`Select — click/shift-click notes, drag to move/resize`, t`Drag empty space to pan · Shift+wheel to scrub finely`],
     pen:    [t`Pen — Alt+click empty space to add a note`, t`Click a note to mark it for delete`],
     marquee:[t`Marquee — drag a box over a cluster to select it`, t`Shift+drag adds to the current selection`],
     lasso:  [t`Lasso — drag through notes to select them`, t`Shift+drag adds to the current selection`],
