@@ -1399,7 +1399,7 @@ export default function MidiEditor() {
       rows.splice(idx, 1, lhRow, rhRow)
       return { ...s, rows, outputPath: orfeoName(s.filePath) }
     })
-    setSplitResult({ ok: true, msg: 'Staged — apply with Save & Reload' })
+    setSplitResult({ ok: true, msg: t`Staged — apply with Save & Reload` })
   }
 
   // ── Render ────────────────────────────────────────────────────────────────────

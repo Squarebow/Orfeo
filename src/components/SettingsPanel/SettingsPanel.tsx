@@ -91,14 +91,14 @@ function TranscriptIcon({ filePath, noteNaming, accidentals, addTranscriptEntry,
   const handleClick = async () => {
     if (state === 'loading') return
     setState('loading')
-    setTooltip('Generating…')
+    setTooltip(t`Generating…`)
     if (revertRef.current) clearTimeout(revertRef.current)
     try {
       const result = await window.electronAPI.transcriptGenerate(filePath, noteNaming, accidentals)
       if (result.success && result.path) {
         setState('success')
         const fname = result.path.split(/[\\/]/).pop() ?? result.path
-        setTooltip(`✓ Saved — ${fname}`)
+        setTooltip(t`✓ Saved — ${fname}`)
         const today = new Date()
         addTranscriptEntry({
           midiPath: filePath,
@@ -107,11 +107,11 @@ function TranscriptIcon({ filePath, noteNaming, accidentals, addTranscriptEntry,
         })
       } else {
         setState('error')
-        setTooltip(result.error ?? 'PDF generation failed')
+        setTooltip(result.error ?? t`PDF generation failed`)
       }
     } catch (err: any) {
       setState('error')
-      setTooltip(err?.message ?? 'PDF generation failed')
+      setTooltip(err?.message ?? t`PDF generation failed`)
     }
     revertRef.current = setTimeout(() => {
       setState('idle')
@@ -436,13 +436,13 @@ function LibraryPanel({ hidden = false }: { hidden?: boolean }) {
     if (!file) return
 
     if (!/\.(mid|midi|kar|musicxml|xml|mxl|gp|gp3|gp4|gp5|gpx|cap)$/i.test(file.name)) {
-      showDropError('Unsupported file type. Orfeo accepts .mid, .musicxml, .mxl, .gp/.gp5, .cap, and .kar files.')
+      showDropError(t`Unsupported file type. Orfeo accepts .mid, .musicxml, .mxl, .gp/.gp5, .cap, and .kar files.`)
       return
     }
 
     const currentLibraryFolder = (useStore.getState() as any).libraryFolder as string | null
     if (!currentLibraryFolder) {
-      showDropError('Set a library folder first.')
+      showDropError(t`Set a library folder first.`)
       return
     }
 
@@ -459,7 +459,7 @@ function LibraryPanel({ hidden = false }: { hidden?: boolean }) {
       setLibraryFiles(files)
     } catch (err) {
       console.error('[Orfeo] library sidebar drop failed:', err)
-      showDropError('Could not copy file into library.')
+      showDropError(t`Could not copy file into library.`)
     }
   }
 
@@ -1347,7 +1347,7 @@ function LibraryPanel({ hidden = false }: { hidden?: boolean }) {
                 </div>
                 {lastFolderOf.has(loadedFile.path) && (
                   <RowIconButton
-                    tooltip={t`Move back to ${lastFolderOf.get(loadedFile.path) ?? 'library root'}`}
+                    tooltip={t`Move back to ${lastFolderOf.get(loadedFile.path) ?? t`library root`}`}
                     onClick={e => { e.stopPropagation(); handleUndoMove(loadedFile!.path) }}
                     onHoverChange={suppress}
                     style={{ padding: '2px 3px' }}
@@ -1487,7 +1487,7 @@ Star a file with ★` : t`No MIDI files found.`}
                 // rename/delete/move options") in the amber heading, with no description
                 // row, which overflowed the tooltip's own maxWidth since a heading is
                 // whiteSpace:nowrap by design (meant for short labels, not full sentences).
-                const folderRowTitle = isRenaming || protectedFolder ? undefined : 'Right-click for options'
+                const folderRowTitle = isRenaming || protectedFolder ? undefined : t`Right-click for options`
                 const folderRow = (suppress: (on: boolean) => void) => (
                 <div
                   onClick={e => { e.stopPropagation(); if (!isRenaming) toggleFolder(group.folder!) }}
@@ -1659,7 +1659,7 @@ Star a file with ★` : t`No MIDI files found.`}
                     <LibrarySongName path={file.path} name={libraryDisplayName(file.name, librarySongFirst)} spanStyle={isHidden ? FILENAME_SPAN_HIDDEN : isLoaded || isSelected || isJustSaved ? FILENAME_SPAN_ACTIVE : FILENAME_SPAN_DEFAULT} />
                     {lastFolderOf.has(file.path) && (
                       <RowIconButton
-                        tooltip={t`Move back to ${lastFolderOf.get(file.path) ?? 'library root'}`}
+                        tooltip={t`Move back to ${lastFolderOf.get(file.path) ?? t`library root`}`}
                         onClick={e => { e.stopPropagation(); handleUndoMove(file.path) }}
                         onHoverChange={suppress}
                         style={{ padding: '2px 3px' }}

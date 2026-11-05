@@ -44,14 +44,14 @@ const ROOT_MIDIS = [60, 61, 62, 63, 64, 65, 66, 67, 68, 69, 70, 71]
 // tooltip and its two-column list (name left / description right). ─────────
 const GENRE_DESCRIPTIONS: Record<Genre, string> = {
   classic:   t`Plain diatonic triads`,
-  coltrane:  'Adds 9ths and 13ths for sophisticated jazz harmony',
-  cinematic: 'Open, clean voicings — add9 and suspended chords',
-  roadhouse: 'Dominant 7ths on the I and IV chords — classic blues sound',
+  coltrane:  t`Adds 9ths and 13ths for sophisticated jazz harmony`,
+  cinematic: t`Open, clean voicings — add9 and suspended chords`,
+  roadhouse: t`Dominant 7ths on the I and IV chords — classic blues sound`,
   gospel:    t`Church harmony — 6/9 and maj9 chords, minor 9ths and 11ths, a 13th on V`,
   ipanema:   t`Smooth 9ths and 11ths, and a tritone substitution on V (D♭7♯11 for G7) — bossa nova character`,
-  carnival:  'Bright, festive 7th chords — samba character',
+  carnival:  t`Bright, festive 7th chords — samba character`,
   flamenco:  t`Phrygian fire — a 7♭9 on V and open maj7♯11 chords, flamenco guitar colours`,
-  velvet:    'Deep 11ths and 13ths, mellow and laid-back — neo-soul character',
+  velvet:    t`Deep 11ths and 13ths, mellow and laid-back — neo-soul character`,
 }
 
 // ── Easter egg — the "Rite of Spring" chord (Stravinsky, 1913): an E♭7
@@ -1068,7 +1068,7 @@ export default function ChordExplorer() {
               <span style={{ fontFamily: 'var(--font-ui)', fontSize: 11, color: 'var(--text-default)', userSelect: 'none' }}>
                 {nowPlaying.ordinal}
                 <span style={{ fontSize: 8, verticalAlign: 'super' }}>{ordinalSuffix(Number(nowPlaying.ordinal))}</span>
-                {' inv'}
+                {' '}{t`inv`}
               </span>
             )}
           </div>

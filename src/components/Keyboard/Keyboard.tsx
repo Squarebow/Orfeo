@@ -714,7 +714,7 @@ export default function Keyboard() {
                     <span style={{ fontFamily: 'var(--font-ui)', fontSize: 10, color: 'var(--text-default)', userSelect: 'none' }}>
                       {explorerDisplay.ordinal}
                       <span style={{ fontSize: 7, verticalAlign: 'super' }}>{ordinalSuffix(Number(explorerDisplay.ordinal))}</span>
-                      {' inv'}
+                      {' '}{t`inv`}
                     </span>
                   )}
                 </>

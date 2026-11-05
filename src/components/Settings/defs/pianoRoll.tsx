@@ -12,9 +12,9 @@ export const HIT_EFFECT_DESCRIPTIONS: Record<HitEffectPattern, string> = {
   rippleRing: t`Expanding concentric rings, like a ripple in water.`,
   particleBurst: t`Small particles spray upward and fall back down with gravity.`,
   smokePlume: t`Soft blurred smoke wisps drift upward, shifting color as they dissipate.`,
-  colorAura: 'A soft glowing blob that pulses outward while cycling through colors.',
+  colorAura: t`A soft glowing blob that pulses outward while cycling through colors.`,
   starburstNova: t`Sharp radiating rays with a bright flash — explosive and energetic.`,
-  cometTrail: 'A bright streak shoots upward with a fading trail behind it.',
+  cometTrail: t`A bright streak shoots upward with a fading trail behind it.`,
 }
 
 function RollZoomSuffix() {

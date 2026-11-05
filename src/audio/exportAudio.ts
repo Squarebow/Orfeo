@@ -116,7 +116,7 @@ function build(midi: ParsedMidi, tracks: TrackState[], version: ExportVersion, s
 
 async function studioBanks(soundfont: SoundfontId): Promise<ArrayBuffer[]> {
   const res = await fetch(new URL('./GeneralUser-GS.sf2', location.href).href)
-  if (!res.ok) throw new ExportError('failed', `built-in sound set not found (${res.status})`)
+  if (!res.ok) throw new ExportError('failed', t`built-in sound set not found (${res.status})`)
   const banks = [await res.arrayBuffer()]
   if (soundfont !== 'generaluser-gs') {
     const extra = await window.electronAPI.readSoundfont(soundfont)
@@ -142,7 +142,7 @@ export function renderOutcome(length: number, isCancelled: () => boolean, notes:
 export function finishOrExplain(dry: Stereo, songDuration: number): Finished {
   const finished = finishAudio(dry, songDuration)
   if (!finished.l.length) throw new ExportError('silent')
-  if (finished.peak < MIN_USABLE_PEAK) throw new ExportError('quiet', `the whole file peaks at ${finished.peak.toFixed(6)}`)
+  if (finished.peak < MIN_USABLE_PEAK) throw new ExportError('quiet', t`the whole file peaks at ${finished.peak.toFixed(6)}`)
   return finished
 }
 
@@ -157,7 +157,7 @@ async function runExport(o: ExportOptions, onProgress: Progress, isCancelled: ()
   // what the Studio render wants us to know: did the sections play, and if not, why
   const notes: RenderNotes = {}
   const tell = (stage: ExportStage, p: number) => onProgress(stage, p, notes.singlePass ? 'single-pass' : undefined)
-  if (o.version === 'heard' && !isOpenSong(o.songPath)) throw new ExportError('failed', 'open the song first')
+  if (o.version === 'heard' && !isOpenSong(o.songPath)) throw new ExportError('failed', t`open the song first`)
   const { midi, tracks } = await loadSong(o.songPath, o.version)
   const song = build(midi, tracks, o.version, o.sound)
   if (!song.events.some(e => (e.status & 0xf0) === 0x90)) throw new ExportError('empty')
@@ -193,7 +193,7 @@ async function runExport(o: ExportOptions, onProgress: Progress, isCancelled: ()
     ? await encodeMp3(finished, p => tell('encode', p), isCancelled)
     : encodeWav(finished)
   if (isCancelled()) return null
-  if (!bytes.length) throw new ExportError('failed', 'the encoder produced no file')
+  if (!bytes.length) throw new ExportError('failed', t`the encoder produced no file`)
 
   tell('save', 0)
   await breathe()

@@ -1182,7 +1182,7 @@ export default function PianoRoll() {
               setEditTooltip(null)
             } else {
               app.canvas.style.cursor = 'move'
-              hint = 'Drag to move · Shift+click to add to selection'
+              hint = t`Drag to move · Shift+click to add to selection`
               if (NES.showNoteNamesRef.current && ef.noteH < 14 && clientX !== undefined && clientY !== undefined) {
                 const { noteNaming, accidentals } = storeRef.current
                 const naming = noteNaming === 'hidden' ? 'english' : noteNaming
@@ -1194,17 +1194,17 @@ export default function PianoRoll() {
             }
           } else if (tool === 'pen') {
             app.canvas.style.cursor = PENCIL_CURSOR
-            hint = 'Click to mark for delete · Right-click for options'
+            hint = t`Click to mark for delete · Right-click for options`
             setEditTooltip(null)
           } else {
             app.canvas.style.cursor = 'crosshair'
-            hint = 'Click to select · Right-click for options'
+            hint = t`Click to select · Right-click for options`
             setEditTooltip(null)
           }
         } else {
           if (tool === 'select') {
             app.canvas.style.cursor = 'grab'
-            hint = 'Drag to pan · Shift+wheel to scrub finely'
+            hint = t`Drag to pan · Shift+wheel to scrub finely`
           } else if (tool === 'pen') {
             app.canvas.style.cursor = PENCIL_CURSOR
             hint = 'Alt+click to add a note'

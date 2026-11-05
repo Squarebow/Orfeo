@@ -522,8 +522,8 @@ export default function NoteEditorToolbar() {
         <ToolBtn active={activeTool === 'pen'} onClick={() => setTool('pen')} onHint={setIconHint} hint={t`Pen — Alt+click to add, click a note to mark for delete`}>
           <PenLine size={13} />
         </ToolBtn>
-        <button onClick={doUndo} disabled={!canUndo} {...hintHandlers('Undo — revert the last edit (Ctrl+Z)')} style={iconBtnStyle(!canUndo)}><span style={{ display: 'inline-block', transform: 'rotate(-45deg)' }}>↺</span></button>
-        <button onClick={doRedo} disabled={!canRedo} {...hintHandlers('Redo — reapply the last undone edit (Ctrl+Y)')} style={iconBtnStyle(!canRedo)}><span style={{ display: 'inline-block', transform: 'rotate(45deg)' }}>↻</span></button>
+        <button onClick={doUndo} disabled={!canUndo} {...hintHandlers(t`Undo — revert the last edit (Ctrl+Z)`)} style={iconBtnStyle(!canUndo)}><span style={{ display: 'inline-block', transform: 'rotate(-45deg)' }}>↺</span></button>
+        <button onClick={doRedo} disabled={!canRedo} {...hintHandlers(t`Redo — reapply the last undone edit (Ctrl+Y)`)} style={iconBtnStyle(!canRedo)}><span style={{ display: 'inline-block', transform: 'rotate(45deg)' }}>↻</span></button>
 
         <div style={{ flex: 1 }} />
 
@@ -567,7 +567,7 @@ export default function NoteEditorToolbar() {
             onClick={openQuantize}
             aria-haspopup="listbox"
             aria-expanded={quantizeOpen}
-            {...hintHandlers(`Quantize grid — the grid unit Snap rounds to (currently 1/${quantize}); has no effect while Snap is off`)}
+            {...hintHandlers(t`Quantize grid — the grid unit Snap rounds to (currently 1/${quantize}); has no effect while Snap is off`)}
             style={{ ...btnBase, minWidth: 44, gap: 6, fontFamily: 'var(--font-mono)', fontSize: 10 }}
           >
             <Music4 size={12} color="var(--text-amber)" />
@@ -650,7 +650,7 @@ export default function NoteEditorToolbar() {
           </button>
           <button
             onClick={() => void handleSave()}
-            {...hintHandlers('Save & Reload — save edits as a new versioned copy (_ORFEO_vN)')}
+            {...hintHandlers(t`Save & Reload — save edits as a new versioned copy (_ORFEO_vN)`)}
             style={{
               ...btnBase, flex: 1, justifyContent: 'center', fontSize: 12, fontWeight: 600,
               color: 'var(--text-near-black)', border: 'none', background: 'var(--text-amber)',

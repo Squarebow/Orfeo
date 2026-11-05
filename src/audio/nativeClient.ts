@@ -149,7 +149,7 @@ export function onNativeRestart(fn: () => void) { restartListeners.add(fn); retu
 window.electronAPI?.onNativeAudioHostExit?.(async (code) => {
   console.warn('[Orfeo Native] audio process exited', code)
   port = null
-  _renders.failAll('the audio process stopped')
+  _renders.failAll(t`the audio process stopped`)
   if (!startOpts || useNativeAudio.getState().phase === 'off') return
   if (await startNative(startOpts)) restartListeners.forEach(fn => fn())
 })

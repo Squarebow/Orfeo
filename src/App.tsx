@@ -111,7 +111,7 @@ export default function App() {
   useEffect(() => {
     const onZoomChanged = ({ percent, capped }: { percent: number; capped: boolean }) => {
       if (zoomHintTimer.current) clearTimeout(zoomHintTimer.current)
-      setZoomHint(`Zoom ${percent}%${capped ? ' (max)' : ''}`)
+      setZoomHint(capped ? t`Zoom ${percent}% (max)` : t`Zoom ${percent}%`)
       zoomHintTimer.current = setTimeout(() => setZoomHint(null), 1000)
     }
     window.electronAPI.onZoomChanged(onZoomChanged)
@@ -152,7 +152,7 @@ export default function App() {
       resolvedFilePath = resolved.filePath
       parseName = resolved.fileName
     } catch (e: any) {
-      showDropError(e?.message ?? 'Could not convert this file to MIDI.')
+      showDropError(e?.message ?? t`Could not convert this file to MIDI.`)
       return
     }
     if (requestId !== loadRequestIdRef.current) return
@@ -205,7 +205,7 @@ export default function App() {
       await loadFileIntoPlayer(destPath)
     } catch (err) {
       console.error('[Orfeo] copyMidiToLibrary failed:', err)
-      showDropError('Could not copy file into library.')
+      showDropError(t`Could not copy file into library.`)
     }
   }, [stop, showDropError, loadFileIntoPlayer])
 
@@ -282,7 +282,7 @@ export default function App() {
     if (!file) return
 
     if (!isSupportedFile(file)) {
-      showDropError('Unsupported file type. Orfeo accepts .mid, .musicxml, .mxl, .gp/.gp5, .cap, and .kar files.')
+      showDropError(t`Unsupported file type. Orfeo accepts .mid, .musicxml, .mxl, .gp/.gp5, .cap, and .kar files.`)
       return
     }
 

@@ -105,7 +105,7 @@ export function TapTempoPad() {
   const hint: React.CSSProperties = { color: 'var(--text-faint)', fontSize: 10, whiteSpace: 'normal', textAlign: 'center', maxWidth: 260, lineHeight: 1.4 }
 
   const savedText = saved.length
-    ? t`Kept for this song: ` + saved.map(x => `${x.bpm.toFixed(1)} bpm from ${fmtSongTime(x.start)}`).join(', ') + '. ' + t`Right-click to adjust or remove.`
+    ? t`Kept for this song: ` + saved.map(x => t`${x.bpm.toFixed(1)} bpm from ${fmtSongTime(x.start)}`).join(', ') + '. ' + t`Right-click to adjust or remove.`
     : ''
 
   const pad = (

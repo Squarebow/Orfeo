@@ -74,7 +74,7 @@ export async function convertForeignFileToMidiBuffer(
 
   if (!bytes_out || bytes_out.length === 0) {
     throw new Error(
-      `alphaTab produced an empty MIDI output for this ${FORMAT_LABEL[format]} file.`
+      t`alphaTab produced an empty MIDI output for this ${FORMAT_LABEL[format]} file.`
     );
   }
 
