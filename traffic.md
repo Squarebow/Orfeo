@@ -1,8 +1,8 @@
 # Orfeo on GitHub: downloads and traffic
 
-**Last updated: 5. 11. 2026 at 13:46** Ljubljana time (CET) · updates daily from 07:00
+**Last updated: 5. 11. 2026 at 21:51** Ljubljana time (CET) · updates daily from 07:00
 
-[Squarebow/Orfeo](https://github.com/Squarebow/Orfeo) · ★ 593 stars · 47 forks · 4 watching
+[Squarebow/Orfeo](https://github.com/Squarebow/Orfeo) · ★ 605 stars · 48 forks · 3 watching
 
 > Orfeo is a free, open-source (GPL-3.0) Windows app for learning piano with MIDI files. It is distributed through GitHub Releases, as an installer and a portable version, and through the Microsoft Store (Store installs aren't counted here). Download totals come straight from GitHub's release statistics and cover every release since the first one; traffic is recorded daily from GitHub's traffic API and kept permanently, because GitHub itself keeps only 14 days.
 
@@ -10,16 +10,16 @@
 
 | | All time | Last 7 days |
 |---|---:|---:|
-| **Downloads** (installer + portable) | <mark>**1 953**</mark> | <mark>**1 153**</mark> |
-| — Installer (`Orfeo-Setup-x.y.z.exe`) | 1 379 | 723 |
-| — Portable (`Orfeo-x.y.z-portable.exe`) | 574 | 430 |
-| App starts checking for updates (`latest.yml`) | 1 467 | 708 |
-| Updates installed (`.blockmap`) | 224 | 91 |
+| **Downloads** (installer + portable) | <mark>**1 993**</mark> | <mark>**1 193**</mark> |
+| — Installer (`Orfeo-Setup-x.y.z.exe`) | 1 401 | 745 |
+| — Portable (`Orfeo-x.y.z-portable.exe`) | 592 | 448 |
+| App starts checking for updates (`latest.yml`) | 1 502 | 743 |
+| Updates installed (`.blockmap`) | 227 | 94 |
 | Repository page views (since 2026-10-03) | 4 885 | 3 564 |
 | Unique visitors (added up per day) | <mark>2 541</mark> | <mark>2 138</mark> |
 | Repository clones | 1 800 | 547 |
 
-Downloads by others, excluding the developer's own test downloads (about 4): <mark>**≈ 1 949**</mark>.
+Downloads by others, excluding the developer's own test downloads (about 4): <mark>**≈ 1 989**</mark>.
 
 *Downloads* count each time a release file was downloaded. *App starts* count installed copies (installer version) checking GitHub for a newer version when Orfeo starts, so they show the app being used, not just downloaded. The portable version does not check automatically.
 
@@ -29,17 +29,17 @@ Highlighted numbers are the ones closest to real people: downloads of the app an
 
 | Release | Published | Installer | Portable | Total downloads | App starts | Updates |
 |---|---|---:|---:|---:|---:|---:|
-| [v1.6.0](https://github.com/Squarebow/Orfeo/releases/tag/v1.6.0) | 2026-10-31 | 625 | 392 | <mark>**1 017**</mark> | 589 | 45 |
+| [v1.6.0](https://github.com/Squarebow/Orfeo/releases/tag/v1.6.0) | 2026-10-31 | 647 | 410 | <mark>**1 057**</mark> | 624 | 47 |
 | [v1.5.4](https://github.com/Squarebow/Orfeo/releases/tag/v1.5.4) | 2026-10-25 | 330 | 78 | <mark>**408**</mark> | 407 | 66 |
 | [v1.5.3](https://github.com/Squarebow/Orfeo/releases/tag/v1.5.3) | 2026-10-23 | 118 | 24 | <mark>**142**</mark> | 112 | 30 |
 | [v1.5.2](https://github.com/Squarebow/Orfeo/releases/tag/v1.5.2) | 2026-10-22 | 41 | 6 | <mark>**47**</mark> | 34 | 16 |
 | [v1.5.1](https://github.com/Squarebow/Orfeo/releases/tag/v1.5.1) | 2026-10-22 | 36 | 6 | <mark>**42**</mark> | 17 | 7 |
 | [v1.5.0](https://github.com/Squarebow/Orfeo/releases/tag/v1.5.0) | 2026-10-22 | 7 | 3 | <mark>**10**</mark> | 8 | 3 |
-| [v1.4.4](https://github.com/Squarebow/Orfeo/releases/tag/v1.4.4) | 2026-10-15 | 147 | 35 | <mark>**182**</mark> | 220 | 39 |
+| [v1.4.4](https://github.com/Squarebow/Orfeo/releases/tag/v1.4.4) | 2026-10-15 | 147 | 35 | <mark>**182**</mark> | 220 | 40 |
 | [v1.4.3](https://github.com/Squarebow/Orfeo/releases/tag/v1.4.3) | 2026-10-15 | 7 | 1 | <mark>**8**</mark> | 9 | 5 |
 | [v1.4.2](https://github.com/Squarebow/Orfeo/releases/tag/v1.4.2) | 2026-10-15 | 5 | 3 | <mark>**8**</mark> | 2 | 1 |
 | [v1.4.1](https://github.com/Squarebow/Orfeo/releases/tag/v1.4.1) | 2026-10-11 | 63 | 26 | <mark>**89**</mark> | 69 | 12 |
-| **All releases** | | **1 379** | **574** | <mark>**1 953**</mark> | **1 467** | **224** |
+| **All releases** | | **1 401** | **592** | <mark>**1 993**</mark> | **1 502** | **227** |
 
 ## Last 7 days, day by day
 
@@ -51,7 +51,7 @@ Highlighted numbers are the ones closest to real people: downloads of the app an
 | Mon 02 Nov | 105 | 82 | 99 | 949 | <mark>600</mark> | 104 |
 | Tue 03 Nov | 165 | 108 | 105 | 885 | <mark>498</mark> | 173 |
 | Wed 04 Nov | 65 | 36 | 66 | 522 | <mark>293</mark> | 158 |
-| Thu 05 Nov | 75 | 62 | 112 | – | – | – |
+| Thu 05 Nov | 97 | 80 | 147 | – | – | – |
 
 Downloads per day start with the second day of tracking (they are the difference between two daily snapshots); views and clones go back 14 days before tracking started. Today's row is still growing.
 
@@ -59,7 +59,7 @@ Downloads per day start with the second day of tracking (they are the difference
 
 | Week (Mon) | Downloads | — installer | — portable | App starts | Page views |
 |---|---:|---:|---:|---:|---:|
-| 2026-11-02 | 698 | 410 | 288 | 382 | 2 356 |
+| 2026-11-02 | 738 | 432 | 306 | 417 | 2 356 |
 | 2026-10-26 | 758 | 561 | 197 | 618 | 1 292 |
 | 2026-10-19 | 329 | 282 | 47 | 317 | 162 |
 | 2026-10-12 | 23 | 20 | 3 | 26 | 284 |
@@ -81,15 +81,15 @@ Downloads before 2026-10-17 (when tracking started) are in the all-time totals a
 | orfeo.cc | 12 | <mark>10</mark> | 14 |
 | search.brave.com | 11 | <mark>7</mark> | 13 |
 | DuckDuckGo | 5 | <mark>5</mark> | 8 |
-| search.naver.com | – | – | 2 |
-| copilot.microsoft.com | – | – | 2 |
 | yandex.com.tr | – | – | 2 |
+| copilot.microsoft.com | – | – | 2 |
+| search.naver.com | – | – | 2 |
+| Yahoo | – | – | 1 |
 | ntp.msn.com | – | – | 1 |
-| t.co | 4 | <mark>3</mark> | 1 |
-| aocr.org | – | – | 1 |
 | yandex.ru | – | – | 1 |
 | ecosia.org | 2 | <mark>2</mark> | 1 |
-| Yahoo | – | – | 1 |
+| t.co | 4 | <mark>3</mark> | 1 |
+| aocr.org | – | – | 1 |
 
 GitHub only reports referring sites as 14-day totals. All-time adds up non-overlapping 14-day periods recorded since 2026-10-17, plus an estimate for the days since the last full period (≈). Search engines and AI assistants don't pass on what was searched.
 
