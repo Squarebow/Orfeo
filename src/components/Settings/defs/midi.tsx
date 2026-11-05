@@ -118,7 +118,7 @@ function KeyboardsControl() {
                 </span>
               </span>
               {listenMode === 'selected'
-                ? <input type="checkbox" checked={selected.includes(d.key)} onChange={() => toggle(d.key)} aria-label={t`Listen to ${d.name}`} style={{ accentColor: 'var(--text-amber)', cursor: 'pointer' }} />
+                ? <input type="checkbox" checked={selected.includes(d.key)} onChange={() => toggle(d.key)} aria-label={t`Listen: ${d.name}`} style={{ accentColor: 'var(--text-amber)', cursor: 'pointer' }} />
                 : <span />}
             </div>
           )

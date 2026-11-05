@@ -1739,7 +1739,7 @@ export default function PianoRoll() {
           }
           if (editSelectedNotes.size >= 2) {
             options.push({
-              label: t`Flatten Velocity (${editSelectedNotes.size} notes)`,
+              label: t`Flatten Velocity (selected notes: ${editSelectedNotes.size})`,
               onClick: () => { flattenSelectedVelocity(); setContextMenu(null) },
             })
           }
@@ -1754,7 +1754,7 @@ export default function PianoRoll() {
         // thing a right-click reaches for.
         if (hasSelection) {
           options.push({
-            label: editSelectedNotes.size === 1 ? t`Delete note` : t`Delete ${editSelectedNotes.size} notes`,
+            label: editSelectedNotes.size === 1 ? t`Delete note` : t`Delete selected notes (${editSelectedNotes.size})`,
             destructive: true,
             onClick: () => { deleteSelectedNotes(); setContextMenu(null) },
           })

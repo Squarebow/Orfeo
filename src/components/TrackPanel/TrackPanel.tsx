@@ -560,8 +560,8 @@ on the Piano Roll again`}
                       {groupTracks.length}
                     </span>
                     <Tooltip
-                      title={groupMuted ? t`Unmute all ${label}` : t`Mute all ${label}`}
-                      description={groupMuted ? t`Unmute and show every track in ${label}` : t`Mute and hide every track in ${label} at once`}
+                      title={groupMuted ? t`Unmute all: ${label}` : t`Mute all: ${label}`}
+                      description={groupMuted ? t`Unmute and show every track: ${label}` : t`Mute and hide every track at once: ${label}`}
                     >
                     <button
                       onClick={() => muteGroup(key, !groupMuted)}
@@ -797,7 +797,7 @@ function TrackRow({
         <span style={{ fontSize: 10, lineHeight: '11px', color: 'var(--text-track-meta)', fontFamily: 'var(--font-mono)' }}>·</span>
         <span style={{ fontSize: 10, lineHeight: '11px', color: 'var(--text-track-meta)', fontFamily: 'var(--font-mono)' }}>{prog}</span>
         <span style={{ fontSize: 10, lineHeight: '11px', color: 'var(--text-track-meta)', fontFamily: 'var(--font-mono)' }}>·</span>
-        <span style={{ fontSize: 10, lineHeight: '11px', color: 'var(--text-track-meta)', fontFamily: 'var(--font-mono)' }}>{t`${noteCount} notes`}</span>
+        <span style={{ fontSize: 10, lineHeight: '11px', color: 'var(--text-track-meta)', fontFamily: 'var(--font-mono)' }}>{t`Notes: ${noteCount}`}</span>
       </div>
     </div>
   )

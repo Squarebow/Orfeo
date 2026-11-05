@@ -307,7 +307,7 @@ function NoteCounter() {
   if (!midi) return null
   return (
     <span style={{ color: 'var(--text-inactive)', fontSize: 10, fontFamily: 'var(--font-mono)' }}>
-      {t`${midi.noteCount.toLocaleString()} notes · ${midi.tracks.length} tracks`}
+      {t`Notes: ${midi.noteCount.toLocaleString()} · Tracks: ${midi.tracks.length}`}
     </span>
   )
 }

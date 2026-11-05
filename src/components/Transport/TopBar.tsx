@@ -393,7 +393,7 @@ by one beat per minute.`}><ChevronDown size={10} /></LongPressArrow>
       <div className="app-no-drag" style={{ position: 'relative', display: 'flex', alignItems: 'center', gap: 6, padding: '0 var(--space-2)', flexShrink: 0 }}>
         <Tooltip
           title={t`Key: `}
-          titleValue={`${displayKey}${transpose !== 0 ? t` (${transpose > 0 ? '+' : ''}${transpose} semitones)` : ''}`}
+          titleValue={`${displayKey}${transpose !== 0 ? t` (semitones: ${transpose > 0 ? '+' : ''}${transpose})` : ''}`}
           description={t`The song's detected key, adjusted
 by any transpose applied here.`}
           placement="bottom"
@@ -685,7 +685,7 @@ and which note value counts as one beat.`}
             </span>
             {/* count-in badge: how many bars Play will count in */}
             {countInEnabled && (
-              <span aria-label={t`Count-in ${countInBars} bars`} style={{
+              <span aria-label={t`Count-in bars: ${countInBars}`} style={{
                 // inside the button's box: the row clips anything above it
                 position: 'absolute', top: 0, right: 6, minWidth: 12, height: 12, borderRadius: 6, padding: '0 3px',
                 background: 'var(--text-amber)', color: 'var(--bg-tooltip)', fontSize: 8, fontWeight: 700,
@@ -771,7 +771,7 @@ function MetronomeMenu({ x, y, onClose }: { x: number; y: number; onClose: () =>
           <>
             <div style={{ display: 'flex', gap: 4 }}>
               {[1, 2, 3, 4].map(n => (
-                <button key={n} onClick={() => setCountInBars(n)} aria-label={t`${n} bars`} style={pill(countInBars === n)}>{n}</button>
+                <button key={n} onClick={() => setCountInBars(n)} aria-label={t`Bars: ${n}`} style={pill(countInBars === n)}>{n}</button>
               ))}
             </div>
             <span style={{ fontSize: 9, color: 'var(--text-faint)', lineHeight: 1.3 }}>{t`Bars of clicks before Play`}</span>

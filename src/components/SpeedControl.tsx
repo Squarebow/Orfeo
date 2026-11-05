@@ -62,7 +62,7 @@ export default function SpeedControl({ value, onChange, size = DEFAULT_H }: Spee
         const active = value === v
         const Icon   = ICONS[v]
         return (
-          <Tooltip key={v} oneLine title={t`Plays back at ${label.toLowerCase()} speed.`}>
+          <Tooltip key={v} oneLine title={t`Playback speed: ${label}.`}>
           <button
             onClick={() => onChange(v)}
             aria-label={label}

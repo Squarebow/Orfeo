@@ -188,7 +188,7 @@ export function TapTempoPad() {
               </span>
               <span style={hint}>
                 {seg.map ? null : t`From ${fmtSongTime(seg.start)} onward. `}
-                {seg.map ? t`Bars and tempo from ${ses.copiedFrom ?? t`another version`}. Your song's notes stay exactly as they are.`
+                {seg.map ? t`Bars and tempo copied from: ${ses.copiedFrom ?? t`another version`}. Your song's notes stay exactly as they are.`
                   : ses.insert ? t`Same tempo, new bars. What comes later stays as it is.`
                   : ses.editIndex != null ? t`Adjusting a kept tempo.`
                   : ses.snapped ? t`Lined up with the song's notes.`
@@ -308,8 +308,8 @@ function RepeatHintRow({ seg, buttonStyle, hintStyle }: {
   return (
     <>
       <span style={hintStyle}>
-        {second ? t`The music comes round every ${first.beats} beats in some parts and ${second.beats} in others, which these bars don't fit.`
-          : t`The music comes round every ${first.beats} beats, which these bars don't fit.`}
+        {second ? t`Beats before the music comes round: ${first.beats} in some parts, ${second.beats} in others. These bars don't fit that.`
+          : t`Beats before the music comes round: ${first.beats}. These bars don't fit that.`}
       </span>
       <div style={{ display: 'flex', gap: 6 }}>
         {found.map(hint => {

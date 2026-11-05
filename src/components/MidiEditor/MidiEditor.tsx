@@ -1683,7 +1683,7 @@ export default function MidiEditor() {
                     {/* ── Same tech-info + disclaimer pair as the Split preview
                         below — info only here, no button row. ── */}
                     <div style={{ fontSize: 10, lineHeight: '11px', color: 'var(--text-inactive)', fontFamily: 'var(--font-mono)' }}>
-                      {t`${infoStats.taggedNotes} notes tagged — ${infoStats.leftCount} left, ${infoStats.rightCount} right by hand.`}{' '}
+                      {t`Notes tagged: ${infoStats.taggedNotes} (left hand: ${infoStats.leftCount}, right hand: ${infoStats.rightCount}).`}{' '}
                       {infoStats.confidenceUnknown
                         ? t`Tags restored from a prior split — confidence not re-evaluated.`
                         : infoStats.lowConfidenceCount > 0
@@ -1726,7 +1726,7 @@ export default function MidiEditor() {
                   <div style={{ flex: 1, minWidth: 0 }}>
                     <div style={{ fontSize: 10, color: 'var(--text-dim)' }}>{t`Hand-split preview`} — <span style={{ color: track.color }}>"{trackName}"</span></div>
                     <div style={{ fontSize: 9, color: 'var(--text-inactive)', fontFamily: 'var(--font-mono)', marginTop: 2 }}>
-                      {t`${stats.taggedNotes} notes · ${stats.leftCount} left / ${stats.rightCount} right`}
+                      {t`Notes: ${stats.taggedNotes} · left hand: ${stats.leftCount} · right hand: ${stats.rightCount}`}
                       {stats.confidenceUnknown ? (
                         <span style={{ color: 'var(--text-inactive)' }}> · {t`tags restored from a prior split — confidence not re-evaluated`}</span>
                       ) : stats.lowConfidenceCount > 0 ? (
@@ -1771,7 +1771,7 @@ export default function MidiEditor() {
                     under the new logic. ─────────────────────────────────────── */}
                 <div style={{ display: 'flex', gap: 12 }}>
                   <div style={{ flex: 2, fontSize: 10, lineHeight: '11px', color: 'var(--text-inactive)', fontFamily: 'var(--font-mono)' }}>
-                    {t`${stats.taggedNotes} notes tagged — ${stats.leftCount} left, ${stats.rightCount} right by hand.`}{' '}
+                    {t`Notes tagged: ${stats.taggedNotes} (left hand: ${stats.leftCount}, right hand: ${stats.rightCount}).`}{' '}
                     {stats.confidenceUnknown
                       ? t`Tags restored from a prior split — confidence not re-evaluated.`
                       : stats.lowConfidenceCount > 0

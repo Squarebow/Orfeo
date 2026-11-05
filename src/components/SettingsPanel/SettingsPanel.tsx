@@ -1296,7 +1296,7 @@ function LibraryPanel({ hidden = false }: { hidden?: boolean }) {
                 onClick={() => { const folder = folderContextMenu.folder; setFolderContextMenu(null); moveFilesToFolder(Array.from(selectedPaths), folder) }}
                 disabled={selectedPaths.size === 0}
               >
-                {t`Move ${selectedPaths.size || ''} selected files here`}
+                {t`Move selected files here (${selectedPaths.size})`}
               </ContextMenuItem>
               <ContextMenuItem
                 onClick={() => { const folder = folderContextMenu.folder; setFolderContextMenu(null); handleDeleteFolder(folder) }}
@@ -1347,7 +1347,7 @@ function LibraryPanel({ hidden = false }: { hidden?: boolean }) {
                 </div>
                 {lastFolderOf.has(loadedFile.path) && (
                   <RowIconButton
-                    tooltip={t`Move back to ${lastFolderOf.get(loadedFile.path) ?? t`library root`}`}
+                    tooltip={t`Move back: ${lastFolderOf.get(loadedFile.path) ?? t`library root`}`}
                     onClick={e => { e.stopPropagation(); handleUndoMove(loadedFile!.path) }}
                     onHoverChange={suppress}
                     style={{ padding: '2px 3px' }}
@@ -1659,7 +1659,7 @@ Star a file with ★` : t`No MIDI files found.`}
                     <LibrarySongName path={file.path} name={libraryDisplayName(file.name, librarySongFirst)} spanStyle={isHidden ? FILENAME_SPAN_HIDDEN : isLoaded || isSelected || isJustSaved ? FILENAME_SPAN_ACTIVE : FILENAME_SPAN_DEFAULT} />
                     {lastFolderOf.has(file.path) && (
                       <RowIconButton
-                        tooltip={t`Move back to ${lastFolderOf.get(file.path) ?? t`library root`}`}
+                        tooltip={t`Move back: ${lastFolderOf.get(file.path) ?? t`library root`}`}
                         onClick={e => { e.stopPropagation(); handleUndoMove(file.path) }}
                         onHoverChange={suppress}
                         style={{ padding: '2px 3px' }}

@@ -60,7 +60,7 @@ function TempoWarningsExtra() {
     <>
       <SubLabel>{t`Dismissed tempo warnings`}</SubLabel>
       <OptionBtn active={false} onClick={useStore.getState().clearTempoWarningDismissals}>
-        {dismissedCount === 1 ? t`Show the warning for 1 dismissed song again` : t`Show warnings for ${dismissedCount} dismissed songs again`}
+        {dismissedCount === 1 ? t`Show the warning for 1 dismissed song again` : t`Show dismissed warnings again (${dismissedCount})`}
       </OptionBtn>
     </>
   )
