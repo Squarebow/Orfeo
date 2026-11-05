@@ -312,13 +312,17 @@ export interface SoundingNote {
   trackIndex: number
   hand?: ParsedNote['hand']
 }
+// Notes starting this close after each other are one chord. Step Through groups
+// by it and the playhead reads by it, so a step always lights its whole chord.
+export const CHORD_GRACE_SEC = 0.03
+
 export function notesSoundingAt(tracks: ParsedTrack[], time: number, transpose = 0): SoundingNote[] {
-  const EPS = 0.02   // 20ms grace so a note landing right on the playhead counts
+  const END_EPS = 0.02   // a note ending right on the playhead is over
   const byMidi = new Map<number, SoundingNote>()
   for (const track of tracks) {
     if (track.isDrum) continue
     for (const n of track.notes) {
-      if (n.time - EPS <= time && time < n.time + n.duration - EPS) {
+      if (n.time - time <= CHORD_GRACE_SEC && (time <= n.time || time < n.time + n.duration - END_EPS)) {
         const midi = n.midi + transpose
         if (!byMidi.has(midi)) byMidi.set(midi, { midi, trackIndex: n.trackIndex, hand: n.hand })
       }

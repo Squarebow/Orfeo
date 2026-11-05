@@ -14,9 +14,28 @@ export interface TempoSegment {
   beatsPerBar: number
   den: number
   snap?: { ratio: number; barShift: number }
+  pattern?: number[]   // bar lengths in beats, repeating from the anchor: 3 3 3 4
+  map?: GridMap        // a whole beat layer copied from another version (copyBars.ts)
 }
 export interface SongTempoCorrection { segments: TempoSegment[] }
 export interface FileGrid { beats: number[]; bars: number[]; tempoMap: TempoEvent[]; timeSigMap: TimeSigEvent[] }
+export interface GridMap { beats: number[]; bars: number[]; tempo: TempoEvent[]; sigs: TimeSigEvent[] }
+
+// ── Bar pattern as typed: "3 3 3 4", "3+3+3+4" or "3, 3, 3, 4". One number is
+// a plain bar length. Null if it isn't a pattern. ─────────────────────────
+const MAX_BAR_BEATS = 32
+const MAX_PATTERN = 64
+
+export function parseBarPattern(text: string): number[] | null {
+  const parts = text.trim().split(/[\s,+]+/).filter(Boolean)
+  if (parts.length === 0 || parts.length > MAX_PATTERN) return null
+  const pat = parts.map(Number)
+  return pat.every(n => Number.isInteger(n) && n >= 1 && n <= MAX_BAR_BEATS) ? pat : null
+}
+
+export function formatBarPattern(seg: TempoSegment): string {
+  return (seg.pattern ?? [seg.beatsPerBar]).join(' ')
+}
 
 const EPS = 1e-6
 const SEAM_FRAC = 0.5
@@ -66,20 +85,38 @@ export function buildSegment(midi: ParsedMidi, start: number, fit: { period: num
 interface SegGrid { beats: number[]; bars: number[]; tempo: TempoEvent[]; sigs: TimeSigEvent[] }
 
 function freeGrid(seg: TempoSegment, limit: number): SegGrid {
-  const beats: number[] = [], bars: number[] = []
-  const bpb = Math.max(1, Math.round(seg.beatsPerBar))
+  const beats: number[] = [], bars: number[] = [], sigs: TimeSigEvent[] = []
+  const pattern = seg.pattern?.length ? seg.pattern : [Math.max(1, Math.round(seg.beatsPerBar))]
+  const cycle = pattern.reduce((a, b) => a + b, 0)
+  // For each beat of the cycle, the length of the bar it's in and whether it's the 1
+  const lenAt: number[] = [], isOne: boolean[] = []
+  for (const len of pattern) for (let i = 0; i < len; i++) { lenAt.push(len); isOne.push(i === 0) }
   const kMin = Math.ceil((seg.start - seg.anchor) / seg.period - EPS)
   for (let k = kMin; beats.length < MAX_BEATS; k++) {
     const t = seg.anchor + k * seg.period
     if (t >= limit - EPS) break
+    const pos = ((k % cycle) + cycle) % cycle
     beats.push(t)
-    if (((k % bpb) + bpb) % bpb === 0) bars.push(t)
+    if (isOne[pos]) bars.push(t)
+    // the time signature changes on the 1 of a bar of another length
+    const last = sigs[sigs.length - 1]
+    if (!last || (isOne[pos] && last.num !== lenAt[pos])) sigs.push({ num: lenAt[pos], den: seg.den, time: t })
   }
   const t0 = beats[0] ?? seg.start
   return {
     beats, bars,
     tempo: [{ bpm: 60 / seg.period, time: t0 }],
-    sigs: [{ num: bpb, den: seg.den, time: t0 }],
+    sigs: sigs.length ? sigs : [{ num: pattern[0], den: seg.den, time: t0 }],
+  }
+}
+
+// A beat layer copied from another version, as far as this segment reaches
+function mapGrid(seg: TempoSegment, limit: number): SegGrid {
+  const m = seg.map!
+  const inRange = (t: number) => t >= seg.start - EPS && t < limit - EPS
+  return {
+    beats: m.beats.filter(inRange), bars: m.bars.filter(inRange),
+    tempo: m.tempo.filter(e => inRange(e.time)), sigs: m.sigs.filter(e => inRange(e.time)),
   }
 }
 
@@ -105,13 +142,25 @@ function fileGrid(file: FileGrid, seg: TempoSegment, limit: number): SegGrid {
 }
 
 function segmentGrid(file: FileGrid, seg: TempoSegment, limit: number): SegGrid {
+  if (seg.map) return mapGrid(seg, limit)
   return seg.snap ? fileGrid(file, seg, limit) : freeGrid(seg, limit)
+}
+
+const finiteList = (x: any, ok: (v: any) => boolean) => Array.isArray(x) && x.every(ok)
+const isTime = (v: any) => typeof v === 'number' && Number.isFinite(v)
+
+function validMap(m: any): boolean {
+  return !!m && finiteList(m.beats, isTime) && finiteList(m.bars, isTime) && m.beats.length >= 2
+    && finiteList(m.tempo, (e: any) => !!e && isTime(e.time) && isTime(e.bpm) && e.bpm > 0)
+    && finiteList(m.sigs, (e: any) => !!e && isTime(e.time) && Number.isInteger(e.num) && e.num >= 1 && Number.isInteger(e.den) && e.den >= 1)
 }
 
 function validSeg(s: any): s is TempoSegment {
   return !!s && [s.start, s.anchor, s.period, s.beatsPerBar, s.den].every(v => typeof v === 'number' && Number.isFinite(v))
     && s.period >= MIN_PERIOD && s.period <= MAX_PERIOD && s.beatsPerBar >= 1 && s.den >= 1 && s.start >= 0
     && (s.snap === undefined || (!!s.snap && typeof s.snap.ratio === 'number' && s.snap.ratio > 0 && Number.isInteger(s.snap.barShift)))
+    && (s.pattern === undefined || (finiteList(s.pattern, (n: any) => Number.isInteger(n) && n >= 1 && n <= MAX_BAR_BEATS) && s.pattern.length >= 1 && s.pattern.length <= MAX_PATTERN))
+    && (s.map === undefined || validMap(s.map))
 }
 
 export function applyTempoCorrection(midi: ParsedMidi, c: SongTempoCorrection | null | undefined): ParsedMidi {
@@ -133,8 +182,10 @@ export function applyTempoCorrection(midi: ParsedMidi, c: SongTempoCorrection | 
     const cut = Math.min(first - SEAM_FRAC * seg.period, seg.start - EPS)
     beats = beats.filter(t => t < cut)
     bars = bars.filter(t => t < cut)
-    tempo = tempo.filter(e => e.time < first - EPS)
-    sigs = sigs.filter(e => e.time < first - EPS)
+    // a copied layer brings its own tempo and signature for the bars before its first beat
+    const from = seg.map ? seg.start : first
+    tempo = tempo.filter(e => e.time < from - EPS)
+    sigs = sigs.filter(e => e.time < from - EPS)
     beats.push(...g.beats); bars.push(...g.bars)
     tempo.push(...g.tempo); sigs.push(...g.sigs)
   })
@@ -158,9 +209,22 @@ export function shiftDownbeat(seg: TempoSegment, dir: 1 | -1): TempoSegment {
   return { ...seg, anchor: seg.anchor + dir * seg.period }
 }
 
+// A copied beat layer moved or stretched in time, with its tempo numbers to match
+function retimeMap(m: GridMap, f: (t: number) => number, bpmScale = 1): GridMap {
+  return {
+    beats: m.beats.map(f), bars: m.bars.map(f),
+    tempo: m.tempo.map(e => ({ ...e, time: f(e.time), bpm: e.bpm * bpmScale })),
+    sigs: m.sigs.map(e => ({ ...e, time: f(e.time) })),
+  }
+}
+
+function slid(seg: TempoSegment, sec: number): TempoSegment {
+  return { ...seg, anchor: seg.anchor + sec, ...(seg.map ? { map: retimeMap(seg.map, t => t + sec) } : {}) }
+}
+
 // Fine-tune: slide the whole grid earlier/later by a few milliseconds
 export function nudgeSegment(seg: TempoSegment, sec: number): TempoSegment {
-  return { ...seg, anchor: seg.anchor + sec }
+  return slid(seg, sec)
 }
 
 export function removeSegmentAt(c: SongTempoCorrection, i: number): SongTempoCorrection {
@@ -173,7 +237,12 @@ export function describeCorrection(c: SongTempoCorrection | null | undefined): {
 }
 
 export function scaleCorrection(c: SongTempoCorrection, k: number): SongTempoCorrection {
-  return { segments: c.segments.map(s => ({ ...s, start: s.start * k, anchor: s.anchor * k, period: s.period * k })) }
+  return {
+    segments: c.segments.map(s => ({
+      ...s, start: s.start * k, anchor: s.anchor * k, period: s.period * k,
+      ...(s.map ? { map: retimeMap(s.map, t => t * k, 1 / k) } : {}),
+    })),
+  }
 }
 
 // Corrections are stored in the file's own seconds; a song opened with its
@@ -184,8 +253,8 @@ export function correctionToSong(c: SongTempoCorrection, lead: number): SongTemp
   if (!lead) return c
   const segs = [...c.segments].sort((a, b) => a.start - b.start)
   const live = segs.filter(s => s.start < lead).at(-1)
-  const out = segs.filter(s => s.start >= lead).map(s => ({ ...s, start: s.start - lead, anchor: s.anchor - lead }))
-  if (live) out.unshift({ ...live, start: 0, anchor: live.anchor - lead })
+  const out = segs.filter(s => s.start >= lead).map(s => ({ ...slid(s, -lead), start: s.start - lead }))
+  if (live) out.unshift({ ...slid(live, -lead), start: 0 })
   return { segments: out }
 }
 
@@ -198,10 +267,11 @@ export function correctionToFile(c: SongTempoCorrection, lead: number, stored: S
   const live = before.at(-1)
   const near = (a: number, b: number) => Math.abs(a - b) < 1e-6
   const out = c.segments.map(s => {
-    const f = { ...s, start: s.start + lead, anchor: s.anchor + lead }
+    const f = { ...slid(s, lead), start: s.start + lead }
     if (s.start <= EPS && live) f.start = live.start
     const same = (stored?.segments ?? []).find(o => near(o.start, f.start) && near(o.anchor, f.anchor) && near(o.period, f.period)
-      && o.beatsPerBar === f.beatsPerBar && o.den === f.den && JSON.stringify(o.snap) === JSON.stringify(f.snap))
+      && o.beatsPerBar === f.beatsPerBar && o.den === f.den && JSON.stringify(o.snap) === JSON.stringify(f.snap)
+      && JSON.stringify(o.pattern) === JSON.stringify(f.pattern) && !o.map === !f.map)
     return same ?? f
   })
   const startsAtZero = c.segments.some(s => s.start <= EPS)

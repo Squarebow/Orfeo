@@ -13,6 +13,7 @@ import { getGMGroup } from '../src/utils/gmInstruments'
 import { exportsDir, nextFreeName, safeExportBaseName } from './exportName'
 import { KEYBOARD_GROUPS } from '../src/utils/keyboardGroups'
 import { nextOrfeoVersion, stripOrfeoSuffix } from '../src/utils/orfeoVersioning'
+import { downloadEnding, newerRelease } from '../src/utils/newRelease'
 import type { Hand } from '../src/types'
 
 // ── Electron defaults app.getName() to package.json's "name" ("orfeo"),
@@ -1850,7 +1851,8 @@ ipcMain.handle('window:setFullScreen', (_e, value: boolean) => {
 //   'manual' — portable build, macOS/Linux, and dev: no installer for
 //              electron-updater to act on, so the button just opens the
 //              download page on orfeo.cc (updated with every release).
-//              Nothing is ever downloaded or checked in-process.
+//              Nothing is ever downloaded in-process; one look at GitHub at
+//              launch lights a dot on the button (update:new-version).
 // The renderer asks for this ONCE on mount (update:info) and renders the
 // button's tooltip + click behavior from it — it never has to click and
 // wait to discover which mode it's in. ───────────────────────────────────
@@ -1900,6 +1902,26 @@ ipcMain.handle('update:check', () => {
   if (updateMode === 'manual') { void shell.openExternal(DOWNLOAD_URL); return }
   if (updateMode === 'store') { void shell.openExternal(STORE_PAGE_URL); return }
   autoUpdater.checkForUpdates().catch((err) => sendUpdateStatus(summarizeUpdateError(err)))
+})
+
+// Builds that can't update themselves still hear about a new release: the
+// update button blinks a dot and opens the download page. Silent when offline.
+// ORFEO_RELEASE_TEST=1.0.0 runs the real check in dev, pretending to be that version.
+const LATEST_RELEASE_URL = 'https://api.github.com/repos/Squarebow/Orfeo/releases/latest'
+const RELEASE_CHECK_TIMEOUT_MS = 10_000
+const releaseTest = app.isPackaged ? undefined : process.env.ORFEO_RELEASE_TEST
+
+// Asked by the renderer once it's listening, so a quick answer can't go missing
+ipcMain.handle('update:new-version', async (): Promise<string | null> => {
+  if (updateMode !== 'manual' || !(app.isPackaged || releaseTest)) return null
+  try {
+    const res = await fetch(LATEST_RELEASE_URL, {
+      headers: { Accept: 'application/vnd.github+json', 'User-Agent': 'Orfeo' },
+      signal: AbortSignal.timeout(RELEASE_CHECK_TIMEOUT_MS),
+    })
+    if (!res.ok) return null
+    return newerRelease(releaseTest ?? app.getVersion(), await res.json() as any, downloadEnding(process.platform))
+  } catch { return null } // offline: try again next launch
 })
 
 ipcMain.handle('update:install', () => {

@@ -2,7 +2,11 @@ import { useStore, currentCorrection } from '../store'
 import { t } from './i18n'
 import { fitTaps, MIN_TAPS } from './tapTempoFit'
 import { refineToNotes, matchFileBeat } from './tapRefine'
-import { applyTempoCorrection, buildSegment, upsertSegment, shiftDownbeat, nudgeSegment, fileGridOf, sigAt, type TempoSegment } from './tempoCorrection'
+import { applyTempoCorrection, buildSegment, upsertSegment, shiftDownbeat, nudgeSegment, fileGridOf, sigAt, nearestIndex, parseBarPattern, formatBarPattern, type TempoSegment } from './tempoCorrection'
+import { copiedSegment, matchSongs, SAME_SONG } from './copyBars'
+import { findRepeats, type RepeatHint } from './repeatHint'
+import { parseMidiBuffer } from './midiParser'
+import { songKey as fileKey } from './songIdentity'
 import type { TapSession, PlaybackState } from '../types'
 
 // ── Tap Tempo session — arm → tap → preview → keep/cancel. Non-React so the
@@ -44,6 +48,10 @@ function baseCorrection() {
 // tempo replaces just that one and leaves the ones after it alone.
 function withSegment(seg: TempoSegment, editIndex: number | null | undefined) {
   const base = baseCorrection()
+  if (useStore.getState().tapSession?.insert) {
+    const others = (base?.segments ?? []).filter(x => Math.abs(x.start - seg.start) > 1e-6)
+    return { segments: [...others, seg].sort((a, b) => a.start - b.start) }
+  }
   if (editIndex == null || !base?.segments[editIndex]) return upsertSegment(base, seg)
   const segments = base.segments.map((x, i) => (i === editIndex ? seg : x)).sort((a, b) => a.start - b.start)
   return { segments }
@@ -86,6 +94,101 @@ export function armTapSession() {
   s.setTapSession({ phase: 'armed', start, taps: [], segment: null, prevMetronome: s.metronomeEnabled, message: null, lastTapAt: 0, editIndex: null, listenMetronome: true })
   // the old grid's clicks would only fight the music while finding the beat
   s.setMetronomeEnabled(false)
+}
+
+// File Info's "Rebuild tempo": tap the whole song's tempo from the top. Kept
+// tempos stay until Keep — a tap from the start replaces them all, and Cancel
+// leaves them as they were. A playing song stops first, so the engines see the
+// jump back to the start before they're started again.
+const RESTART_MS = 60
+
+export function rebuildSongTempo() {
+  const s = useStore.getState()
+  if (!s.midi || !s.songKey || s.noteEditorActive || s.tapSession) return
+  if (!s.tapTempoPadEnabled) s.setTapTempoPadEnabled(true)
+  if (s.playbackState === 'playing') {
+    useStore.setState({ currentTime: 0, playbackState: 'paused' })
+    setTimeout(armTapSession, RESTART_MS)
+  } else {
+    useStore.setState({ currentTime: 0 })
+    armTapSession()
+  }
+}
+
+// Panel: the bar lengths from this tempo's start on, as typed. False if the
+// text isn't a pattern.
+export function setBarPattern(text: string): boolean {
+  const ses = useStore.getState().tapSession
+  const pattern = parseBarPattern(text)
+  if (ses?.phase !== 'preview' || !ses.segment || ses.segment.snap || ses.segment.map || !pattern) return false
+  const { pattern: _old, ...seg } = ses.segment
+  preview({ ...seg, beatsPerBar: pattern[0], ...(pattern.length > 1 ? { pattern } : {}) })
+  return true
+}
+
+// Panel hint: does the music from this tempo's start on repeat over a length the
+// bars on screen can't fit? Read on the tapped beat, even while the file's bar
+// lines are chosen, up to the next kept tempo when that one stays.
+export function repeatHintsNow(): RepeatHint[] {
+  const s = useStore.getState()
+  const ses = s.tapSession
+  const seg = ses?.freeSegment ?? ses?.segment
+  if (ses?.phase !== 'preview' || !s.midi || !seg || seg.map) return []
+  const stays = ses.insert || ses.editIndex != null
+  const later = stays ? (baseCorrection()?.segments ?? []).filter(x => x.start > seg.start + 1e-6).map(x => x.start) : []
+  const limit = Math.min(s.midi.duration, ...later)
+  const beats: number[] = []
+  const first = Math.ceil((seg.start - seg.anchor) / seg.period - 1e-6)
+  for (let k = first; seg.anchor + k * seg.period < limit; k++) beats.push(seg.anchor + k * seg.period)
+  const cycle = (seg.pattern ?? [seg.beatsPerBar]).reduce((a, b) => a + b, 0)
+  return findRepeats(s.midi, beats, seg.anchor, cycle)
+}
+
+// The hint's button: bars from the taps, in the suggested lengths
+export function tryRepeatHint(hint: RepeatHint) {
+  setUseFileGrid(false)
+  setBarPattern(hint.pattern.join(' '))
+}
+
+// TAP menu: new bars from the beat under the playhead, same tempo, no tapping.
+// What comes after keeps its own bars, so sections can be set in any order.
+export function changeBarsFromHere() {
+  const s = useStore.getState()
+  const beats = ((s.midi as any)?._beatTimes ?? []) as number[]
+  if (!s.midi || !s.songKey || s.noteEditorActive || s.tapSession || beats.length < 2) return
+  const i = Math.min(nearestIndex(beats, s.currentTime), beats.length - 2)
+  const start = beats[i]
+  const sig = sigAt(((s.midi as any)._timeSigMap ?? []), start)
+  if (!s.tapTempoPadEnabled) s.setTapTempoPadEnabled(true)
+  useStore.setState({ currentTime: start, ...(s.playbackState === 'playing' ? { playbackState: 'paused' as const } : {}) })
+  const seg: TempoSegment = { start, anchor: start, period: beats[i + 1] - start, beatsPerBar: sig.num, den: sig.den }
+  s.setTapSession({ phase: 'preview', start, taps: [], segment: seg, prevMetronome: s.metronomeEnabled, message: null, lastTapAt: 0, editIndex: null, insert: true })
+  preview(seg)
+}
+
+// File Info's "Copy bars": hear another version's bars on this song, then Keep
+// or Cancel. Replaces every kept tempo, like Rebuild tempo.
+export function copyBarsFrom(file: ArrayBuffer, name: string): boolean {
+  const s = useStore.getState()
+  if (!s.midi) return false
+  // the source's own kept tempos count: a song fixed by hand can pass them on
+  const parsed = parseMidiBuffer(file, name, '')
+  const kept = s.tempoCorrections[fileKey(file)]
+  const source = kept ? applyTempoCorrection(parsed, kept) : parsed
+  const match = matchSongs(source, s.midi)
+  const seg = match && match.share >= SAME_SONG ? copiedSegment(source, s.midi, match) : null
+  if (!seg) return false
+  previewCopiedBars(seg, name)
+  return true
+}
+
+function previewCopiedBars(seg: TempoSegment, from: string) {
+  const s = useStore.getState()
+  if (!s.midi || !s.songKey || s.noteEditorActive || s.tapSession) return
+  if (!s.tapTempoPadEnabled) s.setTapTempoPadEnabled(true)
+  useStore.setState({ currentTime: 0, ...(s.playbackState === 'playing' ? { playbackState: 'paused' as const } : {}) })
+  s.setTapSession({ phase: 'preview', start: 0, taps: [], segment: seg, prevMetronome: s.metronomeEnabled, message: null, lastTapAt: 0, editIndex: null, copiedFrom: from })
+  preview(seg)
 }
 
 export function registerTap() {
@@ -218,7 +321,9 @@ export function keepTap() {
   const ses = s.tapSession
   if (ses?.phase !== 'preview' || !ses.segment || !s.songKey) return
   s.setSongCorrection(s.songKey, withSegment(ses.segment, ses.editIndex))
-  logTempoEvent((ses.editIndex != null ? t`Tap Tempo: adjusted to ` : t`Tap Tempo: `) + t`${(60 / ses.segment.period).toFixed(1)} bpm from ${fmtSongTime(ses.segment.start)}`)
+  if (ses.copiedFrom) logTempoEvent(t`Bars copied from ${ses.copiedFrom}`)
+  else if (ses.insert) logTempoEvent(t`Bars changed to ${formatBarPattern(ses.segment)} from ${fmtSongTime(ses.segment.start)}`)
+  else logTempoEvent((ses.editIndex != null ? t`Tap Tempo: adjusted to ` : t`Tap Tempo: `) + t`${(60 / ses.segment.period).toFixed(1)} bpm from ${fmtSongTime(ses.segment.start)}`)
   end()
 }
 

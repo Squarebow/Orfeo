@@ -18,6 +18,7 @@ import { detectForeignFormat, resolveAndTrackImport, base64ToBytes, confirmPendi
 import { parseMidiBuffer } from '../../utils/midiParser'
 import { detectKeyFromTracks, parseKeySignature } from '../../utils/keyDetection'
 import FileInfoModal from '../FileInfoModal'
+import { rebuildSongTempo, copyBarsFrom } from '../../utils/tapTempoSession'
 import ExportAudioDialog from '../ExportAudioDialog'
 import Tooltip, { TooltipBox, useTooltip } from '../Tooltip'
 import { ContextMenu, ContextMenuItem, ContextMenuDivider, ContextMenuLabel } from '../ContextMenu'
@@ -723,6 +724,20 @@ function LibraryPanel({ hidden = false }: { hidden?: boolean }) {
       console.error('Failed to load file:', err)
     }
   }, [])
+
+  // File Info's tempo tools work on the open song: close File Info and open
+  // that one first. False if a save prompt was declined or it wouldn't open.
+  const openForTempo = useCallback(async (path: string): Promise<boolean> => {
+    setFileInfoTarget(null)
+    const same = (p?: string | null) => !!p && p.replace(/\\/g, '/') === path.replace(/\\/g, '/')
+    const loaded = () => same((useStore.getState().midi as any)?._filePath)
+    if (loaded()) return true
+    await handleLoadFile(path)
+    if (!loaded()) return false
+    // the engines pick the new song up after this render
+    await new Promise(r => setTimeout(r, 200))
+    return true
+  }, [handleLoadFile])
 
   // ── Fuzzy search — same Fuse.js convention as ChordExplorer (threshold 0.2,
   // ignoreLocation so a match anywhere in the name counts, not just a prefix).
@@ -1580,6 +1595,10 @@ function LibraryPanel({ hidden = false }: { hidden?: boolean }) {
           filePath={fileInfoTarget.path}
           fileName={fileInfoTarget.name}
           onClose={() => setFileInfoTarget(null)}
+          onRebuildTempo={async (path) => { if (await openForTempo(path)) rebuildSongTempo() }}
+          onCopyBars={async (path, source) => {
+            if (await openForTempo(path)) copyBarsFrom(source.bytes.slice().buffer as ArrayBuffer, source.name)
+          }}
           onRenamed={(oldPath, newPath, newName) => {
             setLibraryFiles(libraryFiles.map(f => f.path === oldPath ? { path: newPath, name: newName } : f))
             remapLibraryPaths([{ oldPath, newPath }])

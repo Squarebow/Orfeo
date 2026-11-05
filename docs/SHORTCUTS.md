@@ -41,6 +41,7 @@ combinations, modifiers, and gestures that are not obvious from the UI.
 | `Ctrl+O` | Open a MIDI file |
 | `Ctrl+Shift+M` | Toggle the Console Mixer |
 | Long-press the BPM `▲` / `▼` | Repeatedly nudge tempo by ±1 while held |
+| Double-click the BPM number | Type a tempo: `Enter` sets it, `Esc` cancels |
 | Click the **TAP** pad | Start a Tap Tempo session; click again to finish and see the result |
 | Right-click the **TAP** pad | List this song's kept tapped tempos — click one to adjust it, ✕ to remove it, or reset to the file's own tempo |
 | Right-click the metronome | Metronome volume, and Count-in on/off with 1–4 bars |

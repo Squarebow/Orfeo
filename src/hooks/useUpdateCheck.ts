@@ -11,6 +11,12 @@ export const useUpdateState = create<{ status: UpdateStatus; info: UpdateInfo }>
 }))
 const setStatus = (status: UpdateStatus) => useUpdateState.setState({ status })
 
+// Test builds: the dot a build that can't update itself gets for a new release
+export function previewNewVersion() {
+  const on = useUpdateState.getState().status.state === 'available'
+  setStatus(on ? { state: 'idle' } : { state: 'available', version: '9.9.9' })
+}
+
 export function pressUpdateButton() {
   const { status, info } = useUpdateState.getState()
   if (info.mode === 'manual' || info.mode === 'store') { void window.electronAPI.checkForUpdates(); return }
@@ -25,6 +31,7 @@ export function useUpdateService() {
   useEffect(() => {
     window.electronAPI.getUpdateInfo().then((info) => useUpdateState.setState({ info })).catch(() => {})
     window.electronAPI.onUpdateStatus(setStatus)
+    window.electronAPI.getNewVersion().then((version) => { if (version) setStatus({ state: 'available', version }) }).catch(() => {})
     return () => window.electronAPI.offUpdateStatus()
   }, [])
   // transient states fade back to the plain icon

@@ -4,14 +4,14 @@
 // back one. No tempo, no loop: the player's own pace. Shift + arrow jumps a
 // bar. Built for learning fast solos and transcribing, including MIDI made
 // from audio, whose "chords" start a few ms apart: notes starting within
-// GROUP_SEC of the first note of a step count as that one step.
+// CHORD_GRACE_SEC of the first note of a step count as that one step.
 
 import { useStore } from '../store'
 import { NES } from './noteEditorState'
 import { amberHex } from './hitEffectQueue'
 import { isShown } from './trackShown'
+import { CHORD_GRACE_SEC } from './midiParser'
 
-const GROUP_SEC = 0.03
 const EPS = 1e-4
 const MIN_MS = 120
 const MAX_MS = 2500
@@ -49,7 +49,7 @@ export function buildSteps(midi: any, tracks: ReturnType<typeof useStore.getStat
   const steps: Step[] = []
   for (const n of all) {
     const last = steps[steps.length - 1]
-    if (last && n.time - last.time <= GROUP_SEC) last.notes.push(n)
+    if (last && n.time - last.time <= CHORD_GRACE_SEC) last.notes.push(n)
     else steps.push({ time: n.time, notes: [n] })
   }
   return steps

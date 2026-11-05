@@ -95,7 +95,7 @@ travel with it. A portable build never touches `%APPDATA%`.
 | Build | How updates work |
 |---|---|
 | **Setup** | Orfeo checks GitHub Releases about 5 seconds after startup. A found update downloads in the background; when it is ready, the update button at the bottom of the left panel changes to *"click to restart and install"*. You can also re-check manually there any time. |
-| **Portable** | No auto-update — even on Windows. Watch the [Releases](https://github.com/Squarebow/Orfeo/releases) page and download the new `Orfeo-<version>-portable.exe` when you want to update. Replace the old file; your settings and library are untouched because they live in `Orfeo-Data\`, not inside the `.exe`. |
+| **Portable** | No auto-update — even on Windows. When a new version is out, a blinking dot appears on the update button at the bottom of the left panel; click it to open the download page and get the new `Orfeo-<version>-portable.exe`. Replace the old file; your settings and library are untouched because they live in `Orfeo-Data\`, not inside the `.exe`. |
 
 ---
 
@@ -161,8 +161,10 @@ move `Orfeo.app` there).
   keyboard has to be connected in *Audio MIDI Setup* first (*Window › Show MIDI
   Studio*, then the Bluetooth button); Orfeo then sees it like a USB one.
 - **Your data:** `~/Library/Application Support/Orfeo/`.
-- **Updating:** no auto-update. *Check for updates* opens the download page;
-  replace `Orfeo.app` with the new one — your settings stay.
+- **Updating:** no auto-update. When a new version is out, a blinking dot
+  appears on the update button at the bottom of the left panel. Click it to open
+  the download page, then replace `Orfeo.app` with the new one — your settings
+  stay.
 - **Uninstalling:** drag `Orfeo.app` to the Trash; delete the data folder above
   too if you want everything gone.
 
@@ -192,8 +194,10 @@ the installers aren't affected.
 - **Sound:** GM and Studio. The Native engine is Windows-only for now.
 - **MIDI keyboards:** USB keyboards are picked up automatically.
 - **Your data:** `~/.config/Orfeo/`.
-- **Updating:** no auto-update. *Check for updates* opens the download page;
-  install the new version over the old one — your settings stay.
+- **Updating:** no auto-update. When a new version is out, a blinking dot
+  appears on the update button at the bottom of the left panel. Click it to open
+  the download page, then install the new version over the old one — your
+  settings stay.
 - **Uninstalling:** remove the `orfeo` package (or delete the AppImage); delete
   the data folder above too if you want everything gone.
 

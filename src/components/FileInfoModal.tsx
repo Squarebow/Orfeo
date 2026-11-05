@@ -5,9 +5,14 @@
 // (inline, staged locally); Save commits one real rename on disk.
 import { useCallback, useEffect, useRef, useState, type CSSProperties } from 'react'
 import { createPortal } from 'react-dom'
-import { X, ArrowLeftRight, ChevronDown, Save, FolderOpen } from 'lucide-react'
+import { X, ArrowLeftRight, ChevronDown, Save, FolderOpen, Timer, Copy } from 'lucide-react'
 import { useStore } from '../store'
 import OrfeoMark from './OrfeoMark'
+import Tooltip from './Tooltip'
+import { t } from '../utils/i18n'
+import { likelySameSong, matchSongs, SAME_SONG } from '../utils/copyBars'
+import { base64ToBytes } from '../utils/foreignFormatImport'
+import { parseMidiBuffer } from '../utils/midiParser'
 import { MarqueeText } from './MarqueeText'
 import { PENCIL_CURSOR } from '../utils/cursors'
 import { parseMidiMetadata, buildRenamedFileName, formatKeyOrDash, type MidiFileMetadata } from '../utils/midiMetadata'
@@ -42,17 +47,74 @@ interface Props {
   fileName: string
   onClose: () => void
   onRenamed: (oldPath: string, newPath: string, newName: string) => void
+  onRebuildTempo: (filePath: string) => void
+  onCopyBars: (filePath: string, source: { bytes: Uint8Array; name: string }) => void
 }
 
-export default function FileInfoModal({ filePath, fileName, onClose, onRenamed }: Props) {
+// A file with the same notes as this one, and what it knows about its bars
+interface OtherVersion { name: string; bytes: Uint8Array; share: number; bars: string }
+
+const readSong = (bytes: Uint8Array, name: string) => parseMidiBuffer(bytes.slice().buffer as ArrayBuffer, name, '')
+
+function describeBars(midi: ReturnType<typeof parseMidiBuffer>): string {
+  const sigs = ((midi as any)._timeSigMap ?? []) as { num: number; den: number }[]
+  const kinds = [...new Set(sigs.map(s => `${s.num}/${s.den}`))]
+  return `${Math.round(midi.bpm)} ${t`bpm`} · ${kinds.join(', ') || '4/4'}`
+}
+
+export default function FileInfoModal({ filePath, fileName, onClose, onRenamed, onRebuildTempo, onCopyBars }: Props) {
   const noteNaming   = useStore((s) => s.noteNaming)
   const accidentals  = useStore((s) => s.accidentals)
+  const noteEditorActive = useStore((s) => s.noteEditorActive)
+
+  // ── Copy bars: other files with this song's notes. null = list closed ──────
+  const [otherVersions, setOtherVersions] = useState<OtherVersion[] | 'checking' | null>(null)
+  const [copyNote, setCopyNote] = useState<string | null>(null)
 
   const [currentPath, setCurrentPath] = useState(filePath)
   const [currentName, setCurrentName] = useState(fileName)
   const [meta, setMeta] = useState<MidiFileMetadata | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [saving, setSaving] = useState(false)
+
+  const thisSong = async () => {
+    const own = await window.electronAPI.loadMidiFromPath(currentPath)
+    return own ? readSong(base64ToBytes(own.base64), currentName) : null
+  }
+
+  const compare = (me: ReturnType<typeof parseMidiBuffer>, bytes: Uint8Array, name: string): OtherVersion | null => {
+    try {
+      const other = readSong(bytes, name)
+      const share = matchSongs(other, me)?.share ?? 0
+      return share >= SAME_SONG ? { name, bytes, share, bars: describeBars(other) } : null
+    } catch { return null }  // not a MIDI file Orfeo can read
+  }
+
+  const findVersions = async () => {
+    setCopyNote(null)
+    setOtherVersions('checking')
+    const found: OtherVersion[] = []
+    try {
+      const me = await thisSong()
+      const named = (useStore.getState() as any).libraryFiles as { path: string; name: string }[]
+      for (const f of named.filter(x => x.path !== currentPath && likelySameSong(currentName, x.name)).slice(0, 24)) {
+        const file = me && await window.electronAPI.loadMidiFromPath(f.path)
+        const v = me && file ? compare(me, base64ToBytes(file.base64), f.name) : null
+        if (v) found.push(v)
+      }
+    } catch (e) { console.error('[Orfeo] comparing versions failed:', e) }
+    setOtherVersions(found.sort((a, b) => b.share - a.share))
+  }
+
+  const chooseVersion = async () => {
+    const picked = await window.electronAPI.openMidiFile()
+    if (!picked) return
+    const me = await thisSong()
+    const v = me ? compare(me, base64ToBytes(picked.base64), picked.fileName) : null
+    if (v) onCopyBars(currentPath, { bytes: v.bytes, name: v.name })
+    else setCopyNote(t`That file doesn't have the same notes as this song, so its bars wouldn't fit.`)
+  }
+
   const [artistDraft, setArtistDraft] = useState('')
   const [songDraft, setSongDraft] = useState('')
   // ── Double-click-to-edit — same pattern as track renaming in the Playback
@@ -433,6 +495,93 @@ export default function FileInfoModal({ filePath, fileName, onClose, onRenamed }
                 <FolderOpen size={13} /> Show in folder
               </button>
             </div>
+            <div style={{ display: 'flex', gap: 8, marginTop: 8 }}>
+            <Tooltip
+              title={t`Rebuild tempo`}
+              description={noteEditorActive
+                ? t`Close the Note Editor first.`
+                : t`For songs with the wrong tempo or bar lines.\nPlays from the start so you can tap the beat.\nNothing changes until you press Keep.`}
+              placement="top"
+              wrapperStyle={{ display: 'block', flex: 1 }}
+            >
+              <button
+                onClick={() => onRebuildTempo(currentPath)}
+                disabled={noteEditorActive}
+                style={{
+                  width: '100%', padding: '6px 0', borderRadius: 'var(--radius-md)',
+                  background: 'transparent', border: '1px solid var(--border2)', color: 'var(--text-muted)',
+                  fontSize: 'var(--text-sm)', fontWeight: 600, cursor: noteEditorActive ? 'default' : 'pointer', transition: 'all 0.12s',
+                  opacity: noteEditorActive ? 0.4 : 1,
+                  display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6,
+                }}
+                onMouseEnter={e => { if (noteEditorActive) return; e.currentTarget.style.color = 'var(--text-amber)'; e.currentTarget.style.borderColor = 'var(--accent-amber-strong)' }}
+                onMouseLeave={e => { e.currentTarget.style.color = 'var(--text-muted)'; e.currentTarget.style.borderColor = 'var(--border2)' }}
+              >
+                <Timer size={13} /> {t`Rebuild tempo`}
+              </button>
+            </Tooltip>
+            <Tooltip
+              title={t`Copy bars`}
+              description={noteEditorActive
+                ? t`Close the Note Editor first.`
+                : t`For a song with a better copy in your Library.\nUses that file's bars and tempo for this one.\nNothing changes until you press Keep.`}
+              placement="top"
+              wrapperStyle={{ display: 'block', flex: 1 }}
+            >
+              <button
+                onClick={() => { if (otherVersions === null) findVersions(); else setOtherVersions(null) }}
+                disabled={noteEditorActive}
+                style={{
+                  width: '100%', padding: '6px 0', borderRadius: 'var(--radius-md)',
+                  background: 'transparent', border: '1px solid var(--border2)', color: 'var(--text-muted)',
+                  fontSize: 'var(--text-sm)', fontWeight: 600, cursor: noteEditorActive ? 'default' : 'pointer', transition: 'all 0.12s',
+                  opacity: noteEditorActive ? 0.4 : 1,
+                  display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6,
+                }}
+                onMouseEnter={e => { if (noteEditorActive) return; e.currentTarget.style.color = 'var(--text-amber)'; e.currentTarget.style.borderColor = 'var(--accent-amber-strong)' }}
+                onMouseLeave={e => { e.currentTarget.style.color = 'var(--text-muted)'; e.currentTarget.style.borderColor = 'var(--border2)' }}
+              >
+                <Copy size={13} /> {t`Copy bars`}
+              </button>
+            </Tooltip>
+            </div>
+
+            {otherVersions !== null && (
+              <div style={{ marginTop: 8, display: 'flex', flexDirection: 'column', gap: 4 }}>
+                {otherVersions === 'checking' ? (
+                  <span style={{ fontSize: 10, fontFamily: 'var(--font-mono)', color: 'var(--text-inactive)' }}>{t`Comparing notes…`}</span>
+                ) : otherVersions.length === 0 ? (
+                  <span style={{ fontSize: 10, fontFamily: 'var(--font-mono)', color: 'var(--text-inactive)' }}>{t`No other version of this song found in your Library.`}</span>
+                ) : (
+                  <div style={{ maxHeight: 96, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: 4 }}>
+                    {otherVersions.map(v => (
+                      <button
+                        key={v.name}
+                        onClick={() => onCopyBars(currentPath, { bytes: v.bytes, name: v.name })}
+                        style={{
+                          display: 'flex', flexDirection: 'column', gap: 2, padding: '4px 8px', textAlign: 'left', flexShrink: 0,
+                          background: 'var(--bg-tile)', border: '1px solid transparent', borderRadius: 'var(--radius-sm)', cursor: 'pointer',
+                        }}
+                        onMouseEnter={e => { e.currentTarget.style.borderColor = 'var(--accent-amber-strong)' }}
+                        onMouseLeave={e => { e.currentTarget.style.borderColor = 'transparent' }}
+                      >
+                        <span style={{ fontSize: 10, color: 'var(--text-default)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', width: '100%' }}>{v.name}</span>
+                        <span style={{ fontSize: 10, fontFamily: 'var(--font-mono)', color: 'var(--text-muted)' }}>{v.bars} · {t`${Math.round(v.share * 100)}% same notes`}</span>
+                      </button>
+                    ))}
+                  </div>
+                )}
+                {copyNote && <span style={{ fontSize: 10, color: 'var(--text-amber)' }}>{copyNote}</span>}
+                {otherVersions !== 'checking' && (
+                  <button
+                    onClick={chooseVersion}
+                    style={{ alignSelf: 'flex-start', background: 'none', border: 'none', padding: 0, cursor: 'pointer', fontSize: 10, color: 'var(--text-amber)' }}
+                  >
+                    {t`Choose another file…`}
+                  </button>
+                )}
+              </div>
+            )}
           </div>
         )}
 

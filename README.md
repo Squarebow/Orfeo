@@ -234,10 +234,11 @@ Orfeo only goes online when you ask it to, or to check for updates:
   in the installer; each is downloaded once, only when you press its download
   button in Settings → Audio, and kept in `%APPDATA%\Orfeo\soundfonts\`
   (your own imported `.sf2` / `.sf3` files go there too).
-- **Updates:** the installed version checks GitHub for a new release when it
-  starts; the portable version only shows a link, and *Check for updates* in the
-  Microsoft Store version opens Orfeo's Store page. Offline, this simply
-  doesn't happen.
+- **Updates:** the Windows installer, portable, Mac and Linux versions check
+  GitHub for a new release when they start. The installer version then updates
+  itself; the others show a dot on the update button that opens the download
+  page. *Check for updates* in the Microsoft Store version opens Orfeo's Store
+  page. Offline, this simply doesn't happen.
 - **Links** (user manual, GitHub) open in your web browser.
 
 </details>

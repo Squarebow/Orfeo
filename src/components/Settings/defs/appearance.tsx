@@ -6,6 +6,7 @@ import { AppBgBtn, ZoomStepper, GlanceLine, InlineIcon, Switch, SubLabel, useSur
 import { HAND_PRESETS, DEFAULT_HAND_LH, DEFAULT_HAND_RH, handColorWarnings, isHex } from '../../../utils/handPalette'
 import { useAppZoom } from '../../../hooks/useAppZoom'
 import { simAvailable } from '../../../utils/midiSimulator'
+import { previewNewVersion } from '../../../hooks/useUpdateCheck'
 import { previewSupportNote } from '../../../hooks/useSupportNote'
 import type { SettingDef } from '../types'
 
@@ -132,6 +133,9 @@ function SupportNotePreview() {
       <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4 }}>
         {btn(t`Show note`, false)}
         {btn(t`Microsoft Store version`, true)}
+        <button onClick={previewNewVersion}
+          style={{ padding: '3px 6px', borderRadius: 4, border: '1px dashed var(--border2)', background: 'transparent', color: 'var(--text-inactive)',
+            fontSize: 10, fontFamily: 'var(--font-ui)', cursor: 'pointer' }}>{t`New version dot`}</button>
       </div>
     </div>
   )

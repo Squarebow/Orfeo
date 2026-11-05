@@ -1,4 +1,4 @@
-import { stepDisplayedBpm } from './bpmStep'
+import { stepDisplayedBpm, typedBpm } from './bpmStep'
 
 export function runBpmStepTest(): number {
   console.group('[bpmStep] self-check')
@@ -18,6 +18,17 @@ export function runBpmStepTest(): number {
   check(bad === 0, `round-trip lands exactly on original, ${bad} misses`)
   // clamps
   check(stepDisplayedBpm(300, 120, 120, 1) === 300 && stepDisplayedBpm(20, 120, 120, -1) === 20, 'clamped 20..300')
+  // typing: the readout shows what was typed, on plain and corrected files
+  check(typedBpm('90', 120, 120) === 90, 'typed 90 on a plain file')
+  const typed = typedBpm('100', 60, 92)!
+  check(Math.abs(92 * (typed / 60) - 100) < 1e-9, `corrected file reads 100, got ${92 * typed / 60}`)
+  check(typedBpm(' 92,5 ', 120, 120) === 92.5 && typedBpm('92.5', 120, 120) === 92.5, 'comma or point, spaces ignored')
+  // the song's own tempo restores it exactly, decimals in the file or not
+  check(typedBpm('120', 120.4, 120.4) === 120.4, 'own tempo snaps to the original')
+  // not a tempo: nothing changes
+  for (const bad of ['', '   ', 'abc', '0', '-5', '1e', '12x']) check(typedBpm(bad, 120, 120) === null, `"${bad}" refused`)
+  // same limits as the arrows
+  check(typedBpm('5', 120, 120) === 20 && typedBpm('999', 120, 120) === 300, 'clamped 20..300')
   console.log(`bpmStep: ${pass} passed, ${fail} failed`)
   console.groupEnd()
   return fail

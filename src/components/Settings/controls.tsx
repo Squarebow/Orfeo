@@ -615,6 +615,7 @@ export function UpdateButton({ placement = 'left', showStatus = true }: { placem
       )}
       <Tooltip
         title={
+          updateStatus.state === 'available'   ? t`Orfeo ${updateStatus.version ?? ''} is out. Click to download` :
           updateInfo.mode === 'manual'         ? t`Check for updates on orfeo.cc` :
           updateInfo.mode === 'store'          ? t`Updates come from the Microsoft Store — click to open Orfeo there` :
           updateStatus.state === 'checking'    ? 'Checking for updates…' :
@@ -641,9 +642,9 @@ export function UpdateButton({ placement = 'left', showStatus = true }: { placem
         onMouseLeave={e => { if (updateStatus.state !== 'ready') e.currentTarget.style.color = 'var(--text-muted)' }}
       >
         <CloudDownload size={13} strokeWidth={1.5} />
-        {(updateStatus.state === 'downloading' || updateStatus.state === 'ready') && (
+        {(updateStatus.state === 'downloading' || updateStatus.state === 'ready' || updateStatus.state === 'available') && (
           <span
-            className={updateStatus.state === 'downloading' ? 'loop-nudge-blink' : undefined}
+            className={updateStatus.state === 'ready' ? undefined : 'loop-nudge-blink'}
             style={{
               position: 'absolute', top: 1, right: 0,
               width: 6, height: 6, borderRadius: '50%',

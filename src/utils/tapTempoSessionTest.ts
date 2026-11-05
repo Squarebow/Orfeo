@@ -3,7 +3,8 @@ import type { ParsedMidi } from '../types'
 import {
   armTapSession, registerTap, finishTapping, finishFromPad, nudgePreview, shiftPreviewDownbeat, keepTap, tapAgain,
   cancelTap, resetSongTempo, isTapCapturing, setTapLatencyProvider, tappingInterrupted, interruptTapping, noteClockTick,
-  editKeptTempo, toggleListenMetronome, setUseFileGrid, keepOriginal,
+  editKeptTempo, toggleListenMetronome, setUseFileGrid, keepOriginal, rebuildSongTempo,
+  setBarPattern, changeBarsFromHere, repeatHintsNow, tryRepeatHint,
 } from './tapTempoSession'
 
 function fakeMidi(): ParsedMidi {
@@ -215,6 +216,126 @@ export function runTapTempoSessionTest(): number {
   // a clearly different tempo is not "near the original"
   armTapSession(); for (let i = 0; i < 6; i++) tapAt(20 + i * 0.65); finishFromPad()
   check(S().tapSession?.nearOriginal === false, 'different tempo -> no original option')
+  cancelTap()
+
+  // ── Rebuild tempo (File Info): the whole song from the top ─────────────────
+  cancelTap()
+  S().setMidi(fakeMidi())
+  resetSongTempo()
+  const keepAt = (from: number) => {
+    useStore.setState({ currentTime: from, playbackState: 'stopped' } as any)
+    armTapSession()
+    for (let i = 0; i < 8; i++) tapAt(from + 1 + i * 0.65)
+    finishTapping()
+    setUseFileGrid(false)
+    keepTap()
+  }
+  keepAt(5); keepAt(20)
+  const keptNow = () => S().tempoCorrections[S().songKey]?.segments ?? []
+  check(keptNow().length === 2, `two kept tempos to start from, got ${keptNow().length}`)
+
+  // from anywhere in the song it starts at the top, with the TAP pad on
+  S().setTapTempoPadEnabled(false)
+  useStore.setState({ currentTime: 13, playbackState: 'stopped' } as any)
+  rebuildSongTempo()
+  check(S().tapSession?.phase === 'armed' && S().tapSession.start === 0, 'rebuild arms from the start of the song')
+  check(S().playbackState === 'playing' && S().currentTime === 0, `rebuild plays from the top, got ${S().currentTime}`)
+  check(S().tapTempoPadEnabled === true, 'rebuild turns the TAP pad on')
+
+  // cancel loses nothing
+  cancelTap()
+  check(keptNow().length === 2, 'cancelled rebuild leaves the kept tempos')
+
+  // a playing song stops first, then starts again from the top
+  const realTimeout = globalThis.setTimeout
+  let later: (() => void) | null = null
+  ;(globalThis as any).setTimeout = (fn: () => void) => { later = fn; return 0 }
+  useStore.setState({ currentTime: 13, playbackState: 'playing' } as any)
+  rebuildSongTempo()
+  ;(globalThis as any).setTimeout = realTimeout
+  check(S().playbackState === 'paused' && S().currentTime === 0 && !S().tapSession, 'playing song stops at the top first')
+  later!()
+  check(S().tapSession?.start === 0 && S().playbackState === 'playing', 'then plays from the top')
+
+  // Keep replaces every kept tempo with the new one
+  for (let i = 0; i < 8; i++) tapAt(1 + i * 0.65)
+  finishTapping()
+  setUseFileGrid(false)
+  keepTap()
+  check(keptNow().length === 1 && near(keptNow()[0].start, 0), `rebuild leaves one tempo from the start, got ${keptNow().length}`)
+
+  // not while the Note Editor is open
+  useStore.setState({ noteEditorActive: true, currentTime: 13, playbackState: 'stopped' } as any)
+  rebuildSongTempo()
+  check(!S().tapSession && S().currentTime === 13, 'no rebuild in the Note Editor')
+  useStore.setState({ noteEditorActive: false } as any)
+
+  // ── Bar pattern: 3 3 3 4 from the taps ─────────────────────────────────────
+  S().setMidi(fakeMidi())
+  resetSongTempo()
+  useStore.setState({ currentTime: 0, playbackState: 'stopped' } as any)
+  armTapSession()
+  for (let i = 0; i < 8; i++) tapAt(1 + i * 0.5)
+  finishTapping()
+  setUseFileGrid(false)
+  check(setBarPattern('3 3 3 4'), 'pattern accepted')
+  check(!setBarPattern('3 x 4') && !setBarPattern('') && !setBarPattern('0'), 'not a pattern')
+  const anchor = S().tapSession.segment.anchor
+  const gaps = S().midi._barTimes.filter((b: number) => b >= anchor - 1e-6).slice(0, 8).map((b: number, i: number, all: number[]) => all[i + 1] - b).slice(0, 7)
+  check(gaps.map((g: number) => Math.round(g / 0.5)).join(' ') === '3 3 3 4 3 3 3', `bars follow the pattern, got ${gaps.map((g: number) => Math.round(g / 0.5))}`)
+  const nums = S().midi._timeSigMap.map((e: any) => e.num).slice(0, 4)
+  // the two beats before the tapped 1 belong to the 4-beat bar before it
+  check(nums.join() === '4,3,4,3', `the time panel follows, got ${nums}`)
+  keepTap()
+  check(keptNow()[0].pattern?.join(' ') === '3 3 3 4', 'pattern is kept')
+  S().reapplyCorrection()
+  check(S().midi._timeSigMap.map((e: any) => e.num).slice(0, 2).join() === '4,3', 'pattern survives reopening')
+
+  // back to one number
+  editKeptTempo(0)
+  check(setBarPattern('4'), 'plain bar length')
+  check(S().tapSession.segment.pattern === undefined && S().tapSession.segment.beatsPerBar === 4, 'pattern cleared')
+  cancelTap()
+
+  // ── Change bars from here: same tempo, later sections stay ─────────────────
+  S().setMidi(fakeMidi())
+  resetSongTempo()
+  keepAt(0)
+  S().setMidi(fakeMidi())
+  useStore.setState({ currentTime: 20.2, playbackState: 'playing' } as any)
+  const before = keptNow().length
+  changeBarsFromHere()
+  const here = S().tapSession
+  check(here?.phase === 'preview' && here.insert === true && S().playbackState === 'paused', 'opens the result, paused')
+  check(S().midi._beatTimes.includes(here.segment.start), 'starts on a beat')
+  setBarPattern('3')
+  keepTap()
+  check(keptNow().length === before + 1, `adds a section, ${keptNow().length}`)
+  check(S().midi._timeSigMap.at(-1).num === 3, 'new bars from there on')
+
+  // adding one before it leaves the later section alone
+  useStore.setState({ currentTime: 10, playbackState: 'paused' } as any)
+  changeBarsFromHere()
+  setBarPattern('5')
+  keepTap()
+  check(keptNow().length === before + 2 && S().midi._timeSigMap.at(-1).num === 3, 'later section stays')
+
+  // ── Repeat hint: suggested from the tapped beat, tried with one click ───────
+  const round = [36, 40, 43, 38, 41, 45, 40, 43, 47, 41, 45, 48, 50]
+  const looping = fakeMidi()
+  looping.duration = 120
+  looping.tracks = [{ index: 0, isDrum: false, notes: Array.from({ length: 230 }, (_, i) => ({ time: i * 0.5, duration: 0.4, midi: round[i % 13] })) }] as any
+  S().setMidi(looping)
+  resetSongTempo()
+  useStore.setState({ currentTime: 0, playbackState: 'stopped' } as any)
+  armTapSession()
+  for (let i = 0; i < 8; i++) tapAt(i * 0.5)
+  finishTapping()
+  const hints = repeatHintsNow()
+  check(hints[0]?.beats === 13, `13 beats found, got ${JSON.stringify(hints)}`)
+  if (hints[0]) tryRepeatHint(hints[0])
+  check(!S().tapSession.segment.snap && S().tapSession.segment.pattern?.reduce((a: number, b: number) => a + b, 0) === 13, 'one click sets the bars')
+  check(repeatHintsNow().length === 0, 'the hint goes once the bars fit')
   cancelTap()
 
   console.log(`tapTempo session: ${pass} passed, ${fail} failed`)

@@ -85,7 +85,7 @@ export const SETTINGS: SettingInfo[] = [
     keywords: 'pdf chart transcript export' },
   // ── Playback & Editing
   { id: 'tapTempo', group: 'playback-editing', name: t`Tap Tempo`, summary: t`A TAP pad for fixing songs whose bar lines don't match the music.`,
-    description: t`Adds a red TAP pad next to the tempo, for fixing songs whose bar lines and metronome don't match the music.`,
+    description: t`Adds a red TAP pad next to the tempo, for fixing songs whose bar lines and metronome don't match the music. To start a whole song over, right-click it in the Library, open File Info and choose Rebuild tempo or Copy bars. For bars that change length, type a pattern like 3 3 3 4 in the result, or right-click TAP and choose Change bars from here.`,
     keywords: 'tap tempo bpm metronome beat' },
   { id: 'tempoWarnings', group: 'playback-editing', name: t`Tempo warnings`, summary: t`Mark songs whose bar lines miss the music's beat.`,
     description: t`Marks songs whose bar lines and metronome don't match the music's steady beat — the ones Tap Tempo can fix. Shown next to Key in the top bar and in the Library.`,

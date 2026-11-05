@@ -9,3 +9,15 @@ export function stepDisplayedBpm(bpm: number, originalBpm: number, currentFileBp
   if (Math.abs(next - originalBpm) <= originalBpm * 1e-9) next = originalBpm
   return next
 }
+
+// ── A typed tempo — the same DISPLAYED tempo the arrows move, so the readout
+// shows what was typed. Returns the new `bpm`, or null if the text isn't a
+// tempo. Typing the song's own tempo at the playhead restores it exactly: no
+// phantom "tempo changed" state from a file tempo with decimals. ────────────
+export function typedBpm(text: string, originalBpm: number, currentFileBpm: number): number | null {
+  const typed = Number(text.trim().replace(',', '.'))
+  if (!text.trim() || !Number.isFinite(typed) || typed <= 0) return null
+  if (currentFileBpm <= 0) return Math.min(300, Math.max(20, typed))
+  if (typed === Math.round(currentFileBpm)) return originalBpm
+  return Math.min(300, Math.max(20, typed * originalBpm / currentFileBpm))
+}

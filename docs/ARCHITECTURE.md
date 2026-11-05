@@ -537,6 +537,8 @@ control's ratio) are never touched.
 |---|---|---|
 | Tap fit | `src/utils/tapTempoFit.ts` | Taps → one steady period + the time of beat 1; missed / doubled / stray taps rejected |
 | Snap to notes | `src/utils/tapRefine.ts` | Searches ±2% tempo / ±80 ms phase around the fit for the grid that best matches weighted note onsets (kick, snare, bass heaviest); keeps the taps if the notes don't clearly line up. `matchFileBeat` detects taps sitting on the file's own beats at ×1 / ×2 / ×½ |
+| Repeat hint | `src/utils/repeatHint.ts` | From the tapped beat, finds music that repeats over a length the bars on screen can't fit and suggests bar lengths in the Tap result |
+| Copy bars | `src/utils/copyBars.ts` | Lines the notes of two versions up into a time map and carries the good file's beat layer across it (`TempoSegment.map`) |
 | Grid rewrite | `src/utils/tempoCorrection.ts` | `TempoSegment`s (start, anchor, period, beats per bar) → rewritten beat layer; a segment with `snap` passes the file's own bars / time signatures through and only rescales the tempo number (double-time files) |
 | Session | `src/utils/tapTempoSession.ts`, `src/hooks/useTapTempo.ts` | Arm → tap (Space / MIDI note-on) → result → keep / adjust / cancel; taps stamped in *heard* time (output-latency compensated) |
 | UI | `src/components/Transport/TapTempoPad.tsx` | TAP pad, result panel, right-click list of kept tempos |

@@ -76,6 +76,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
   // Auto-update (GitHub Releases)
   getUpdateInfo:      () => ipcRenderer.invoke('update:info'),
   checkForUpdates:    () => ipcRenderer.invoke('update:check'),
+  getNewVersion:      () => ipcRenderer.invoke('update:new-version'),
   installUpdate:       () => ipcRenderer.invoke('update:install'),
   onUpdateStatus:      (fn: (data: any) => void) => ipcRenderer.on('update:status', (_e, data) => fn(data)),
   offUpdateStatus:     () => ipcRenderer.removeAllListeners('update:status'),

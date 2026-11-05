@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { X } from 'lucide-react'
 import { useStore } from '../../store'
@@ -7,13 +7,13 @@ import Tooltip from '../Tooltip'
 import { ContextMenu, ContextMenuItem, ContextMenuDivider, useMenuDismiss } from '../ContextMenu'
 import { confirmDialog } from '../../utils/confirmController'
 import { useTapTempo } from '../../hooks/useTapTempo'
-import { describeCorrection, correctionToSong } from '../../utils/tempoCorrection'
+import { describeCorrection, correctionToSong, formatBarPattern, type TempoSegment } from '../../utils/tempoCorrection'
 import { TempoWarning } from './TempoWarning'
 import { startCountIn } from '../../utils/countInRunner'
 import {
   armTapSession, finishFromPad, shiftPreviewDownbeat, nudgePreview,
   keepTap, tapAgain, cancelTap, resetSongTempo, removeTappedTempo, fmtSongTime,
-  editKeptTempo, toggleListenMetronome, setUseFileGrid, keepOriginal,
+  editKeptTempo, toggleListenMetronome, setUseFileGrid, keepOriginal, setBarPattern, changeBarsFromHere, repeatHintsNow, tryRepeatHint,
 } from '../../utils/tapTempoSession'
 
 const NUDGE_SEC = 0.01
@@ -184,11 +184,13 @@ export function TapTempoPad() {
           ) : seg && (
             <>
               <span style={{ fontFamily: 'var(--font-mono)', fontSize: 16, fontWeight: 700, color: 'var(--text-amber)' }}>
-                {fittedBpm} {t`bpm`} · {seg.beatsPerBar}/{seg.den}
+                {seg.map ? t`Copied bars` : <>{fittedBpm} {t`bpm`} · {seg.pattern ? formatBarPattern(seg) : `${seg.beatsPerBar}/${seg.den}`}</>}
               </span>
               <span style={hint}>
-                {t`From ${fmtSongTime(seg.start)} onward. `}
-                {ses.editIndex != null ? t`Adjusting a kept tempo.`
+                {seg.map ? null : t`From ${fmtSongTime(seg.start)} onward. `}
+                {seg.map ? t`Bars and tempo from ${ses.copiedFrom ?? t`another version`}. Your song's notes stay exactly as they are.`
+                  : ses.insert ? t`Same tempo, new bars. What comes later stays as it is.`
+                  : ses.editIndex != null ? t`Adjusting a kept tempo.`
                   : ses.snapped ? t`Lined up with the song's notes.`
                   : t`Couldn't line up with the notes here — using your taps as they are.`}
               </span>
@@ -217,10 +219,19 @@ export function TapTempoPad() {
                 </>
               )}
 
-              {seg.snap ? (
+              {!seg.map && <RepeatHintRow seg={seg} buttonStyle={btn} hintStyle={hint} />}
+
+              {seg.map ? (
+                <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
+                  <span style={rowLabel}>{t`Clicks`}</span>
+                  <button onMouseDown={keepFocus} style={btn} onClick={() => nudgePreview(-NUDGE_SEC)}>{t`◀ 10 ms earlier`}</button>
+                  <button onMouseDown={keepFocus} style={btn} onClick={() => nudgePreview(NUDGE_SEC)}>{t`10 ms later ▶`}</button>
+                </div>
+              ) : seg.snap ? (
                 <span style={hint}>{t`Only the tempo number changes. The file's bar lines, time signatures and clicks stay exactly as they are.`}</span>
               ) : (
                 <>
+                  <BarPatternField seg={seg} labelStyle={rowLabel} hintStyle={hint} />
                   <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
                     <span style={rowLabel}>{t`Move the 1`}</span>
                     <button onMouseDown={keepFocus} style={btn} onClick={() => shiftPreviewDownbeat(-1)}>{t`◀ 1 beat earlier`}</button>
@@ -241,7 +252,7 @@ export function TapTempoPad() {
                   <button onMouseDown={keepFocus} style={btn} onClick={keepOriginal}
                    >{t`Original is fine`}</button>
                 )}
-                <button onMouseDown={keepFocus} style={btn} onClick={tapAgain}>{t`Tap again`}</button>
+                {!seg.map && <button onMouseDown={keepFocus} style={btn} onClick={tapAgain}>{t`Tap again`}</button>}
                 <button onMouseDown={keepFocus} style={btn} onClick={cancelTap}>{t`Cancel`}</button>
               </div>
               <span style={hint}>{t`Kept tempos are remembered by Orfeo every time you open this song (your MIDI file isn't changed). Right-click TAP later to adjust or remove them.`}</span>
@@ -274,6 +285,7 @@ export function TapTempoPad() {
             </div>
           ))}
           <ContextMenuDivider />
+          <ContextMenuItem onClick={() => { setMenu(null); changeBarsFromHere() }} disabled={!midi || noteEditorActive}>{t`Change bars from here`}</ContextMenuItem>
           {warningsOn && dismissed && (
             <ContextMenuItem onClick={() => { const k = useStore.getState().songKey; if (k) useStore.setState((s) => { const next = { ...s.tempoWarningDismissed }; delete next[k]; return { tempoWarningDismissed: next } }); setMenu(null) }}>{t`Show tempo warning again`}</ContextMenuItem>
           )}
@@ -281,5 +293,71 @@ export function TapTempoPad() {
         </ContextMenu>
       )}
     </div>
+  )
+}
+
+// ── A suggestion, shown only when the music repeats over a length the bars
+// can't fit. It may be a riff crossing the bar lines, so it's a button to try. ─
+function RepeatHintRow({ seg, buttonStyle, hintStyle }: {
+  seg: TempoSegment; buttonStyle: React.CSSProperties; hintStyle: React.CSSProperties
+}) {
+  const shown = formatBarPattern(seg)
+  const found = useMemo(repeatHintsNow, [seg.start, seg.period, seg.anchor, shown])
+  if (found.length === 0) return null
+  const [first, second] = found
+  return (
+    <>
+      <span style={hintStyle}>
+        {second ? t`The music comes round every ${first.beats} beats in some parts and ${second.beats} in others, which these bars don't fit.`
+          : t`The music comes round every ${first.beats} beats, which these bars don't fit.`}
+      </span>
+      <div style={{ display: 'flex', gap: 6 }}>
+        {found.map(hint => {
+          const pattern = hint.pattern.join(' ')
+          return <button key={hint.beats} onMouseDown={keepFocus} style={buttonStyle} onClick={() => tryRepeatHint(hint)}>{t`Try ${pattern}`}</button>
+        })}
+      </div>
+    </>
+  )
+}
+
+// ── Bar lengths from this tempo on: one number, or a repeating pattern such as
+// 3 3 3 4. Enter applies it and hands Space back for listening. ──────────────
+function BarPatternField({ seg, labelStyle, hintStyle }: {
+  seg: TempoSegment; labelStyle: React.CSSProperties; hintStyle: React.CSSProperties
+}) {
+  const shown = formatBarPattern(seg)
+  const [draft, setDraft] = useState<string | null>(null)
+  const [bad, setBad] = useState(false)
+  const apply = () => {
+    if (draft === null) return
+    if (setBarPattern(draft)) { setDraft(null); setBad(false) } else setBad(true)
+  }
+  return (
+    <>
+      <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
+        <span style={labelStyle}>{t`Beats in a bar`}</span>
+        <input
+          aria-label={t`Beats in a bar`}
+          value={draft ?? shown}
+          onChange={e => { setDraft(e.currentTarget.value); setBad(false) }}
+          onBlur={apply}
+          onKeyDown={e => {
+            e.stopPropagation()
+            if (e.key === 'Enter') { apply(); e.currentTarget.blur() }
+            else if (e.key === 'Escape') { setDraft(null); setBad(false); e.currentTarget.blur() }
+          }}
+          style={{
+            width: 150, padding: '3px 6px', fontFamily: 'var(--font-mono)', fontSize: 'var(--text-xs)',
+            background: 'var(--bg-tile)', color: 'var(--text-default)', borderRadius: 'var(--radius-sm)', outline: 'none',
+            border: `1px solid ${bad ? 'var(--text-amber)' : 'var(--border)'}`,
+          }}
+        />
+      </div>
+      <span style={hintStyle}>
+        {bad ? t`Use numbers from 1 to 32, like 4 or 3 3 3 4.`
+          : t`One number, or a pattern that repeats, like 3 3 3 4. Press Enter to hear it.`}
+      </span>
+    </>
   )
 }
