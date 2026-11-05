@@ -9,6 +9,7 @@ import OrfeoMark from './OrfeoMark'
 import { getPianoRollCenterX, getKeyboardHeaderTop } from '../utils/modalAnchors'
 import { useFocusTrap } from '../hooks/useFocusTrap'
 import { useClampPositionOnZoom } from '../hooks/useClampPositionOnZoom'
+import { t } from '../utils/i18n'
 
 const MODAL_WIDTH  = 220
 const MODAL_HEIGHT = 100
@@ -143,7 +144,7 @@ export default function LockedChordModal() {
   if (!modalOpen) return null
 
   return (
-    <div ref={panelRef} role="dialog" aria-modal="true" aria-label="Lock-a-Chord" className="orfeo-modal-glow app-no-drag" style={{
+    <div ref={panelRef} role="dialog" aria-modal="true" aria-label={t`Lock-a-Chord`} className="orfeo-modal-glow app-no-drag" style={{
       position: 'fixed',
       left: pos.x,
       top: pos.y,
@@ -175,7 +176,7 @@ export default function LockedChordModal() {
         <OrfeoMark height={16} />
         {/* ── Title in amber to distinguish from other panels ──────────────── */}
         <span style={{ flex: 1, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontSize: 14, fontWeight: 700, color: 'var(--text-amber)', letterSpacing: '0.08em', textTransform: 'uppercase' }}>
-          Lock-a-Chord
+          {t`Lock-a-Chord`}
         </span>
         <button
           onClick={handleClose}
@@ -219,7 +220,7 @@ export default function LockedChordModal() {
           onMouseEnter={e => { e.currentTarget.style.borderColor = 'var(--text-amber)'; e.currentTarget.style.color = 'var(--text-amber)' }}
           onMouseLeave={e => { e.currentTarget.style.borderColor = 'var(--text-inactive)'; e.currentTarget.style.color = 'var(--text-dimmest)' }}
         >
-          <ChevronPlayIcon size={10} /> Play
+          <ChevronPlayIcon size={10} /> {t`Play`}
         </button>
         {/* Next inversion — Play icon normal */}
         <button

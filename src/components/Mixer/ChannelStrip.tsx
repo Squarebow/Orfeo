@@ -335,7 +335,7 @@ export default function ChannelStrip({ trackIndex, locked, isDragging, onDragSta
           />
         </div>
         {!locked && (
-          <Tooltip title="Reorder" description="Drag this strip left/right to change its position in the Mixer">
+          <Tooltip title={t`Reorder`} description={t`Drag this strip left/right to change its position in the Mixer`}>
           <button
             draggable
             onMouseDown={(e) => e.stopPropagation()}
@@ -362,8 +362,8 @@ export default function ChannelStrip({ trackIndex, locked, isDragging, onDragSta
         <MixerKnob
           value={chorus} onChange={handleChorus}
           accentColor="var(--knob-chorus)" size={52}
-          disabled={knobsDisabled} label="Chorus" labelOffset={-10}
-          title="Chorus" description="Thickens the tone"
+          disabled={knobsDisabled} label={t`Chorus`} labelOffset={-10}
+          title={t`Chorus`} description={t`Thickens the tone`}
           disabledHint="Switch to the Studio or Native engine to use Chorus."
         />
       </div>
@@ -377,8 +377,8 @@ export default function ChannelStrip({ trackIndex, locked, isDragging, onDragSta
         <MixerKnob
           value={reverb} onChange={handleReverb}
           accentColor="var(--knob-reverb)" size={52}
-          disabled={knobsDisabled} label="Reverb" labelOffset={-10}
-          title="Reverb" description="Adds room/space ambience"
+          disabled={knobsDisabled} label={t`Reverb`} labelOffset={-10}
+          title={t`Reverb`} description={t`Adds room/space ambience`}
           disabledHint="Switch to the Studio or Native engine to use Reverb."
         />
       </div>
@@ -398,8 +398,8 @@ export default function ChannelStrip({ trackIndex, locked, isDragging, onDragSta
         <MixerKnob
           value={pan} onChange={handlePan}
           accentColor="var(--text-amber)" size={52}
-          disabled={knobsDisabled} bipolar label="Pan"
-          title="Pan" description="Left/right position in the stereo field"
+          disabled={knobsDisabled} bipolar label={t`Pan`}
+          title={t`Pan`} description={t`Left/right position in the stereo field`}
           disabledHint="Switch to the Studio or Native engine to use Pan."
         />
         <span style={{
@@ -429,7 +429,7 @@ export default function ChannelStrip({ trackIndex, locked, isDragging, onDragSta
       }}>
         <IBtn
           onClick={() => useStore.getState().setTrackMuted(trackIndex, !muted)}
-          active={muted} title={muted ? 'Unmute' : 'Mute'}
+          active={muted} title={muted ? t`Unmute` : t`Mute`}
           description={muted ? t`Unmute audio` : t`Mute audio`}
           activeColor="var(--status-error)"
         >
@@ -437,24 +437,24 @@ export default function ChannelStrip({ trackIndex, locked, isDragging, onDragSta
         </IBtn>
         <IBtn
           onClick={() => updateTrack(trackIndex, { solo: !solo })}
-          active={solo} title={solo ? 'Unsolo' : 'Solo'}
-          description={solo ? 'Unsolo track' : 'Solo track'}
+          active={solo} title={solo ? t`Unsolo` : t`Solo`}
+          description={solo ? t`Unsolo track` : t`Solo track`}
           activeColor="var(--text-amber)"
         >
           <span style={{ fontSize: 14, fontWeight: 700, fontFamily: 'var(--font-mono)', lineHeight: 1 }}>S</span>
         </IBtn>
         <IBtn
           onClick={() => updateTrack(trackIndex, { visible: !visible })}
-          active={true} title={visible ? 'Hide in roll' : 'Show in roll'}
-          description={visible ? 'Hide notes on the Piano Roll' : 'Show notes on the Piano Roll'}
+          active={true} title={visible ? t`Hide in roll` : t`Show in roll`}
+          description={visible ? t`Hide notes on the Piano Roll` : t`Show notes on the Piano Roll`}
           activeColor={visible ? 'var(--status-success-text)' : 'var(--status-error-hover)'}
         >
           {visible ? <Eye size={14} /> : <EyeClosed size={14} />}
         </IBtn>
         <IBtn
           onClick={() => updateTrack(trackIndex, { showOnKeyboard: !showOnKeyboard })}
-          active={showOnKeyboard} title={showOnKeyboard ? 'Lit on keyboard' : 'Not lit on keyboard'}
-          description={showOnKeyboard ? 'Notes light up on keyboard' : 'Notes won’t light up on the keyboard'}
+          active={showOnKeyboard} title={showOnKeyboard ? t`Lit on keyboard` : t`Not lit on keyboard`}
+          description={showOnKeyboard ? t`Notes light up on keyboard` : t`Notes won’t light up on the keyboard`}
           activeColor="var(--text-amber)"
         >
           <PianoKeysIcon />
@@ -543,7 +543,7 @@ export default function ChannelStrip({ trackIndex, locked, isDragging, onDragSta
             onMouseDown={handleFaderMouseDown}
             tabIndex={muted ? -1 : 0}
             role="slider"
-            aria-label="Channel volume"
+            aria-label={t`Channel volume`}
             aria-valuemin={0}
             aria-valuemax={1}
             aria-valuenow={volume}
@@ -619,7 +619,7 @@ export default function ChannelStrip({ trackIndex, locked, isDragging, onDragSta
             fontSize: 10, fontFamily: 'var(--font-mono)', letterSpacing: '0.1em',
             textTransform: 'uppercase', color: 'var(--text-dimmest)',
           }}>
-            Vol
+            {t`Vol`}
           </span>
         </div>
       </div>
@@ -637,7 +637,7 @@ export default function ChannelStrip({ trackIndex, locked, isDragging, onDragSta
           overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
           maxWidth: '100%', textAlign: 'center',
         }}>
-          Track {trackIndex + 1}
+          {t`Track`} {trackIndex + 1}
         </span>
       </div>
     </div>

@@ -16,6 +16,7 @@ import { HAND_LH_CSS, HAND_RH_CSS } from '../../utils/handColors'
 import { HitEffectsRenderer } from './HitEffects'
 import { drainHitEffects } from '../../utils/hitEffectQueue'
 import { isShown } from '../../utils/trackShown'
+import { t } from '../../utils/i18n'
 
 const VISIBLE_SECONDS  = 6
 const NOTE_RADIUS      = 3
@@ -379,10 +380,10 @@ function LoopOverlay() {
             textTransform: 'uppercase', letterSpacing: '0.08em',
             color: 'var(--accent-amber-tooltip-text)',
           }}>
-            Loop region set
+            {t`Loop region set`}
           </span>
           <span style={{ fontFamily: 'var(--font-ui)', fontSize: 10, color: 'var(--text-tooltip-secondary)' }}>
-            Drag to reorder, right-click to clear
+            {t`Drag to reorder, right-click to clear`}
           </span>
         </div>
       )}
@@ -1726,34 +1727,34 @@ export default function PianoRoll() {
         if (hasSelection) {
           if (NES.reassignHandsMode) {
             options.push({
-              label: 'Assign to Left Hand',
+              label: t`Assign to Left Hand`,
               swatchColor: 'var(--hand-lh)',
               onClick: () => { assignSelectedHand('L'); setContextMenu(null) },
             })
             options.push({
-              label: 'Assign to Right Hand',
+              label: t`Assign to Right Hand`,
               swatchColor: 'var(--hand-rh)',
               onClick: () => { assignSelectedHand('R'); setContextMenu(null) },
             })
           }
           if (editSelectedNotes.size >= 2) {
             options.push({
-              label: `Flatten Velocity (${editSelectedNotes.size} notes)`,
+              label: t`Flatten Velocity (${editSelectedNotes.size} notes)`,
               onClick: () => { flattenSelectedVelocity(); setContextMenu(null) },
             })
           }
           options.push({
-            label: 'Deselect',
+            label: t`Deselect`,
             onClick: () => { editSelectedNotes.clear(); setContextMenu(null) },
           })
         }
-        options.push({ label: 'Undo', disabled: !NES.history.canUndo, onClick: () => { doHistoryUndo(); setContextMenu(null) } })
-        options.push({ label: 'Redo', disabled: !NES.history.canRedo, onClick: () => { doHistoryRedo(); setContextMenu(null) } })
+        options.push({ label: t`Undo`, disabled: !NES.history.canUndo, onClick: () => { doHistoryUndo(); setContextMenu(null) } })
+        options.push({ label: t`Redo`, disabled: !NES.history.canRedo, onClick: () => { doHistoryRedo(); setContextMenu(null) } })
         // Delete always last — destructive action shouldn't be the first
         // thing a right-click reaches for.
         if (hasSelection) {
           options.push({
-            label: editSelectedNotes.size === 1 ? 'Delete note' : `Delete ${editSelectedNotes.size} notes`,
+            label: editSelectedNotes.size === 1 ? t`Delete note` : t`Delete ${editSelectedNotes.size} notes`,
             destructive: true,
             onClick: () => { deleteSelectedNotes(); setContextMenu(null) },
           })
@@ -1881,7 +1882,7 @@ export default function PianoRoll() {
         ctx.textBaseline = 'alphabetic'
         ctx.save()
         ctx.letterSpacing = '0.1em' as any
-        ctx.fillText('VELOCITY EDITOR', W / 2, HEADER_H / 2 + 4)
+        ctx.fillText(t`VELOCITY EDITOR`, W / 2, HEADER_H / 2 + 4)
         ctx.restore()
 
         if (noteEditorSoloTrackIndex === null) {
@@ -1891,7 +1892,7 @@ export default function PianoRoll() {
           ctx.font = `11px ${FONT_MONO_STR}`
           ctx.textAlign = 'center'
           ctx.textBaseline = 'middle'
-          ctx.fillText('Solo a track to edit its velocity in the Tracks panel on the right', W / 2, H / 2)
+          ctx.fillText(t`Solo a track to edit its velocity in the Tracks panel on the right`, W / 2, H / 2)
           ctx.globalAlpha = 1
           return
         }
@@ -2204,7 +2205,7 @@ export default function PianoRoll() {
       {contextMenu && (
         <div
           role="menu"
-          aria-label="Note actions"
+          aria-label={t`Note actions`}
           onMouseDown={e => e.stopPropagation()}
           style={{
             position: 'fixed',

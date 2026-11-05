@@ -699,7 +699,7 @@ export default function ChordExplorer() {
   const activeProg = selectedProg !== null ? ALL_PROGRESSIONS[selectedProg] : null
 
   return (
-    <div ref={panelRef} role="dialog" aria-modal="true" aria-label="Chords Explorer" className="orfeo-modal-glow app-no-drag" style={{
+    <div ref={panelRef} role="dialog" aria-modal="true" aria-label={t`Chords Explorer`} className="orfeo-modal-glow app-no-drag" style={{
       position: 'fixed',
       left: pos.x,
       top: pos.y,
@@ -741,7 +741,7 @@ export default function ChordExplorer() {
             ><OrfeoMark height={22} /></button>
           </Tooltip>
           <span style={{ fontFamily: 'var(--font-ui)', fontSize: 14, fontWeight: 700, color: 'var(--text-amber)', letterSpacing: '0.14em', textTransform: 'uppercase' }}>
-            Chords Explorer
+            {t`Chords Explorer`}
           </span>
         </div>
         <div
@@ -754,11 +754,11 @@ export default function ChordExplorer() {
               {(['name', 'notes', 'both'] as const).map(scope => (
                 <Tooltip
                   key={scope}
-                  title={scope === 'name' ? 'Search by name' : scope === 'notes' ? 'Search by notes' : 'Search both'}
+                  title={scope === 'name' ? t`Search by name` : scope === 'notes' ? t`Search by notes` : t`Search both`}
                   description={
-                    scope === 'name'  ? 'Matches chord names and types, like m7, maj7, dim…' :
-                    scope === 'notes' ? 'Matches note names in the chord for the selected root' :
-                    'Matches chord names and note names together'
+                    scope === 'name'  ? t`Matches chord names and types, like m7, maj7, dim…` :
+                    scope === 'notes' ? t`Matches note names in the chord for the selected root` :
+                    t`Matches chord names and note names together`
                   }
                 >
                 <button
@@ -774,7 +774,7 @@ export default function ChordExplorer() {
                   onMouseEnter={e => { if (searchScope !== scope) e.currentTarget.style.color = 'var(--text-muted)' }}
                   onMouseLeave={e => { if (searchScope !== scope) e.currentTarget.style.color = 'var(--text-inactive)' }}
                 >
-                  {scope === 'name' ? 'Name' : scope === 'notes' ? 'Notes' : 'Both'}
+                  {scope === 'name' ? t`Name` : scope === 'notes' ? t`Notes` : t`Both`}
                 </button>
                 </Tooltip>
               ))}
@@ -787,7 +787,7 @@ export default function ChordExplorer() {
               type="text"
               value={search}
               onChange={e => setSearch(e.target.value)}
-              placeholder="Search …"
+              placeholder={t`Search …`}
               style={{
                 height: 22, width: 120,
                 background: 'var(--bg-tile)',
@@ -801,8 +801,8 @@ export default function ChordExplorer() {
             />
           )}
           <Tooltip
-            title={isPowerMode ? 'Search unavailable' : searchOpen ? 'Close search' : 'Find a chord'}
-            description={isPowerMode ? 'Switch out of Power mode to search chords' : searchOpen ? 'Hides the chord search bar' : 'Search by chord name or by the notes it contains'}
+            title={isPowerMode ? t`Search unavailable` : searchOpen ? t`Close search` : t`Find a chord`}
+            description={isPowerMode ? t`Switch out of Power mode to search chords` : searchOpen ? t`Hides the chord search bar` : t`Search by chord name or by the notes it contains`}
           >
           <button
             onClick={isPowerMode ? undefined : toggleSearch}
@@ -824,7 +824,7 @@ export default function ChordExplorer() {
 
       {/* ── Root row — label left, 12 pitch-class buttons right ─────────────── */}
       <div style={{ ...ROW, minHeight: 'var(--row-height)' }}>
-        <span style={ROW_LABEL}>Root</span>
+        <span style={ROW_LABEL}>{t`Root`}</span>
         <div style={{ display: 'flex', gap: 'var(--space-1)' }}>
           {rootLabels.map(({ pitchClass, label }) => {
             const isSel = selectedRoot === pitchClass
@@ -853,22 +853,22 @@ export default function ChordExplorer() {
 
       {/* ── Filter row — label left, tier / hand / notes controls right ──────── */}
       <div style={{ ...ROW, minHeight: 'var(--row-height)' }}>
-        <span style={ROW_LABEL}>Filter</span>
+        <span style={ROW_LABEL}>{t`Filter`}</span>
         <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-2)' }}>
           {/* Tier */}
           <div style={{ display: 'flex', background: 'var(--bg-tile)', borderRadius: 'var(--radius-md)', padding: 2, gap: 1 }}>
-            {(['common', 'power', 'extended'] as const).map(t => (
+            {(['common', 'power', 'extended'] as const).map(level => (
               <Tooltip
-                key={t}
-                title={t === 'common' ? 'Common' : t === 'power' ? 'Power' : 'Extended'}
+                key={level}
+                title={level === 'common' ? t`Common` : level === 'power' ? t`Power` : t`Extended`}
                 description={
-                  t === 'common'   ? 'Triads, sevenths, everyday voicings' :
-                  t === 'power'    ? 'Root + fifth, one per pitch class' :
-                                     '9ths, 11ths, 13ths, altered tensions'
+                  level === 'common'   ? t`Triads, sevenths, everyday voicings` :
+                  level === 'power'    ? t`Root + fifth, one per pitch class` :
+                                     t`9ths, 11ths, 13ths, altered tensions`
                 }
               >
-              <button onClick={() => setTier(t)} style={btnBase(tier === t)}>
-                {t === 'common' ? 'Common' : t === 'power' ? 'Power' : 'Extended'}
+              <button onClick={() => setTier(level)} style={btnBase(tier === level)}>
+                {level === 'common' ? t`Common` : level === 'power' ? t`Power` : t`Extended`}
               </button>
               </Tooltip>
             ))}
@@ -878,17 +878,17 @@ export default function ChordExplorer() {
 
           {/* Hand */}
           <div style={{ display: 'flex', alignItems: 'center', gap: 4, opacity: isPowerMode ? 0.35 : 1, pointerEvents: isPowerMode ? 'none' : 'auto', transition: 'opacity 0.15s' }}>
-            <span style={{ fontSize: 11, color: 'var(--text-muted)', fontFamily: 'var(--font-ui)', textTransform: 'uppercase', letterSpacing: '0.08em' }}>Hand</span>
+            <span style={{ fontSize: 11, color: 'var(--text-muted)', fontFamily: 'var(--font-ui)', textTransform: 'uppercase', letterSpacing: '0.08em' }}>{t`Hand`}</span>
             <div style={{ display: 'flex', background: 'var(--bg-tile)', borderRadius: 4, padding: 2, gap: 1 }}>
-              <Tooltip title="All" description="Chords playable with either hand">
-                <button onClick={() => setHandFilter('all')} style={btnBase(handFilter === 'all')}>All</button>
+              <Tooltip title={t`All`} description={t`Chords playable with either hand`}>
+                <button onClick={() => setHandFilter('all')} style={btnBase(handFilter === 'all')}>{t`All`}</button>
               </Tooltip>
-              <Tooltip title="One hand" description="Chords playable with a single hand">
+              <Tooltip title={t`One hand`} description={t`Chords playable with a single hand`}>
                 <button onClick={() => setHandFilter('one')} style={btnBase(handFilter === 'one')}>
                   <span style={{ display: 'inline-flex', transform: 'rotate(-20deg)' }}><Hand size={12} /></span>
                 </button>
               </Tooltip>
-              <Tooltip title="Two hands" description="Chords that need both hands">
+              <Tooltip title={t`Two hands`} description={t`Chords that need both hands`}>
                 <button onClick={() => setHandFilter('two')} style={btnBase(handFilter === 'two')}>
                   <span style={{ display: 'inline-flex', transform: 'rotate(20deg)' }}><Hand size={12} /></span>
                   <span style={{ display: 'inline-flex', transform: 'scaleX(-1) rotate(20deg)' }}><Hand size={12} /></span>
@@ -901,13 +901,13 @@ export default function ChordExplorer() {
 
           {/* Notes */}
           <div style={{ display: 'flex', alignItems: 'center', gap: 4, opacity: isPowerMode ? 0.35 : 1, pointerEvents: isPowerMode ? 'none' : 'auto', transition: 'opacity 0.15s' }}>
-            <span style={{ fontSize: 11, color: 'var(--text-muted)', fontFamily: 'var(--font-ui)', textTransform: 'uppercase', letterSpacing: '0.08em' }}>Notes</span>
+            <span style={{ fontSize: 11, color: 'var(--text-muted)', fontFamily: 'var(--font-ui)', textTransform: 'uppercase', letterSpacing: '0.08em' }}>{t`Notes`}</span>
             <div style={{ display: 'flex', background: 'var(--bg-tile)', borderRadius: 4, padding: 2, gap: 1 }}>
               {(['any', '3', '4', '5', '6+'] as const).map(n => (
                 <Tooltip
                   key={n}
                   oneLine
-                  title={n === 'any' ? 'Chords regardless of note count' : n === '6+' ? 'Chords with 6 or more notes' : `Chords with exactly ${n} notes`}
+                  title={n === 'any' ? t`Chords regardless of note count` : n === '6+' ? t`Chords with 6 or more notes` : t`Chords with exactly ${n} notes`}
                 >
                   <button onClick={() => setNoteFilter(n)} style={{ ...btnBase(noteFilter === n), minWidth: 22 }}>{n}</button>
                 </Tooltip>
@@ -927,7 +927,7 @@ export default function ChordExplorer() {
           {/* Left group: PROGRESSIONS dropdown | STYLE dropdown | INVERSIONS —
               all in sequence, separated by thin dividers. ────────────────── */}
           <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-            <span style={ROW_LABEL}>Progressions</span>
+            <span style={ROW_LABEL}>{t`Progressions`}</span>
             {/* Dropdown trigger */}
             <button
               ref={progTriggerRef}
@@ -943,10 +943,10 @@ export default function ChordExplorer() {
               onMouseEnter={e => e.currentTarget.style.color = 'var(--text-amber)'}
               onMouseLeave={e => { e.currentTarget.style.color = activeProg ? 'var(--text-amber)' : 'var(--text-muted)' }}
             >
-              {activeProg ? activeProg.name : 'Select'} ▾
+              {activeProg ? activeProg.name : t`Select`} ▾
             </button>
             {activeProg && (
-              <Tooltip title="Clear progression" description="Stops playback and clears the selected progression">
+              <Tooltip title={t`Clear progression`} description={t`Stops playback and clears the selected progression`}>
               <button
                 onClick={() => { stopProgression(); setSelectedProg(null) }}
                 style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-inactive)', fontSize: 14, lineHeight: 1, padding: '0 2px', fontFamily: 'var(--font-ui)' }}
@@ -956,7 +956,7 @@ export default function ChordExplorer() {
               </Tooltip>
             )}
             <span style={{ width: 1, height: 14, background: 'var(--state-hover-bg)', margin: '0 16px' }} />
-            <span style={ROW_LABEL}>Style</span>
+            <span style={ROW_LABEL}>{t`Style`}</span>
             <Tooltip oneLine title={GENRE_DESCRIPTIONS[progGenre]}>
             <button
               ref={styleTriggerRef}
@@ -974,7 +974,7 @@ export default function ChordExplorer() {
             </button>
             </Tooltip>
             <span style={{ width: 1, height: 14, background: 'var(--state-hover-bg)', margin: '0 16px' }} />
-            <span style={ROW_LABEL}>Voicing</span>
+            <span style={ROW_LABEL}>{t`Voicing`}</span>
             {PROGRESSION_VOICINGS.map(v => {
               const Icon = VOICING_ICON[v]
               const active = progressionVoicing === v
@@ -1013,7 +1013,7 @@ export default function ChordExplorer() {
                   }}
                 >
                   {progPlaying ? <Square size={12} /> : <ChevronPlayIcon size={12} />}
-                  {progPlaying ? 'STOP' : 'PLAY'}
+                  {progPlaying ? t`STOP` : t`PLAY`}
                 </button>
               )
               // ── Only shown once a pattern's picked — space stays reserved so
@@ -1197,7 +1197,7 @@ export default function ChordExplorer() {
                 gridColumn: '1 / -1', textAlign: 'center',
                 color: 'var(--text-muted)', fontSize: 11, fontFamily: 'var(--font-ui)', padding: '20px 0',
               }}>
-                No results
+                {t`No results`}
               </div>
             )}
           </>
@@ -1216,7 +1216,7 @@ export default function ChordExplorer() {
       }}>
         {/* Show as ♭ ♯ */}
         <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-          <span style={FOOTER_LABEL}>Show as</span>
+          <span style={FOOTER_LABEL}>{t`Show as`}</span>
           {(['flat', 'sharp'] as const).map(a => (
             <button key={a} onClick={() => setAccidentals(a)} style={{
               background: 'none', border: 'none', padding: '0 4px',
@@ -1237,7 +1237,7 @@ export default function ChordExplorer() {
           display: 'flex', alignItems: 'center', gap: 6,
           opacity: isPowerMode ? 0.35 : 1, pointerEvents: isPowerMode ? 'none' : 'auto', transition: 'opacity 0.15s',
         }}>
-          <Tooltip oneLine title="Previous inversion">
+          <Tooltip oneLine title={t`Previous inversion`}>
           <button
             onMouseDown={() => handleInversion('prev')}
             disabled={!selectedKey}
@@ -1247,7 +1247,7 @@ export default function ChordExplorer() {
           ><ChevronPlayIcon size={14} mirrored /></button>
           </Tooltip>
           <span style={FOOTER_LABEL}>{t`Inversion`}</span>
-          <Tooltip oneLine title="Next inversion">
+          <Tooltip oneLine title={t`Next inversion`}>
           <button
             onMouseDown={() => handleInversion('next')}
             disabled={!selectedKey}
@@ -1268,12 +1268,12 @@ export default function ChordExplorer() {
         </div>
 
         {/* Accent Root (same setting as the Scales Explorer's) */}
-        <Tooltip title="Accent Root Note" description="Highlights the chord's true root pitch class in pink, in any octave, instead of blending it.">
+        <Tooltip title={t`Accent Root Note`} description={t`Highlights the chord's true root pitch class in pink, in any octave, instead of blending it.`}>
           <button
             onClick={() => setColorRootNoteEnabled(!colorRootNoteEnabled)}
             style={{ display: 'flex', alignItems: 'center', gap: 6, background: 'none', border: 'none', cursor: 'pointer', padding: 0, flexShrink: 0 }}
           >
-            <span style={{ ...FOOTER_LABEL, whiteSpace: 'nowrap' }}>Accent Root</span>
+            <span style={{ ...FOOTER_LABEL, whiteSpace: 'nowrap' }}>{t`Accent Root`}</span>
             <span style={{ display: 'flex', color: colorRootNoteEnabled ? 'var(--text-amber)' : 'var(--text-inactive)' }}>
               {colorRootNoteEnabled ? <ToggleRight size={16} strokeWidth={1.5} /> : <ToggleLeft size={16} strokeWidth={1.5} />}
             </span>
@@ -1296,13 +1296,13 @@ export default function ChordExplorer() {
           >{t`Clear`}<RotateCcw size={12} /></button>
         </Tooltip>
 
-        <Tooltip oneLine title="Switch to Scales Explorer">
+        <Tooltip oneLine title={t`Switch to Scales Explorer`}>
         <button
           onClick={() => { setChordExplorerOpen(false); setScaleExplorerOpen(true) }}
           style={EXPLORER_SWITCH_STYLE}
           onMouseEnter={e => { e.currentTarget.style.color = 'var(--text-amber)' }}
           onMouseLeave={e => { e.currentTarget.style.color = 'var(--text-inactive)' }}
-        >Scales Explorer <ArrowUpRight size={11} /></button>
+        >{t`Scales Explorer`} <ArrowUpRight size={11} /></button>
         </Tooltip>
       </div>
 
