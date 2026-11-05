@@ -1,7 +1,7 @@
 import { useCallback, useRef, useState } from 'react'
-import { Languages } from 'lucide-react'
+import { ArrowUpRight, Languages } from 'lucide-react'
 import Tooltip from '../Tooltip'
-import { ContextMenu, ContextMenuItem, useMenuDismiss } from '../ContextMenu'
+import { ContextMenu, ContextMenuDivider, ContextMenuItem, useMenuDismiss } from '../ContextMenu'
 import { confirmDialog } from '../../utils/confirmController'
 import { LANGUAGES, changeLanguage, currentLanguage, t } from '../../utils/i18n'
 
@@ -30,7 +30,7 @@ export function LanguageSwitcher() {
   return (
     // Takes no height of its own, so the logo stays where it was. No transform
     // here: it would trap the menu inside the top bar, where it can't be seen.
-    <div style={{ height: 0, marginBottom: -1 }}>
+    <div style={{ height: 0, marginTop: 12, marginBottom: -13 }}>
       <Tooltip disabled={!!menu} title={t`Language (beta)`} description={t`Translations are a work in progress, so some texts stay in English.`} placement="bottom">
         <button
           className="app-no-drag"
@@ -54,6 +54,12 @@ export function LanguageSwitcher() {
               <span style={{ color: l.code === currentLanguage ? 'var(--text-amber)' : undefined }}>{l.name}</span>
             </ContextMenuItem>
           ))}
+          <ContextMenuDivider />
+          {/* opens the translators' page once it's public */}
+          <ContextMenuItem disabled onClick={() => {}}>
+            <span style={{ flex: 1 }}>{t`Translate`}</span>
+            <ArrowUpRight size={13} strokeWidth={1.5} />
+          </ContextMenuItem>
         </ContextMenu>
       )}
     </div>

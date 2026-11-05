@@ -284,7 +284,7 @@ export default function TopBar() {
         justifySelf: 'stretch', minWidth: 0, overflowX: 'auto', overflowY: 'hidden',
         // room below the row for the tempo-warning dot under the TAP pad and
         // the language icon — added inside and taken back outside, so nothing moves
-        paddingBottom: 26, marginBottom: -26,
+        paddingBottom: 38, marginBottom: -38,
       }}>
       {/* ── LOGO ── */}
       <div className="app-no-drag" style={{ display: 'flex', alignItems: 'center', gap: 10, flexShrink: 0, paddingRight: 'var(--space-3)' }}>
