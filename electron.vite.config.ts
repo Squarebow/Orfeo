@@ -7,6 +7,16 @@ import { readFileSync } from 'fs'
 // never drifts from package.json — no manual edit needed on every bump. ────
 const pkg = JSON.parse(readFileSync(resolve(__dirname, 'package.json'), 'utf-8'))
 
+// ── The version being worked towards, shown beside the real one in dev runs:
+// new features waiting in the changelog mean the next minor version, fixes
+// alone the next patch. Display form: 1.7, not 1.7.0. ────────────────────────
+function nextVersion(version: string): string {
+  const [major, minor, patch] = version.split('.').map(Number)
+  const log = readFileSync(resolve(__dirname, 'docs/CHANGELOG.md'), 'utf-8')
+  const unreleased = log.split('## [Unreleased]')[1]?.split(/^## \[/m)[0] ?? ''
+  return /^### New/m.test(unreleased) ? `${major}.${minor + 1}` : `${major}.${minor}.${patch + 1}`
+}
+
 export default defineConfig({
   main: {
     build: {
@@ -35,6 +45,7 @@ export default defineConfig({
     root: '.',
     define: {
       __APP_VERSION__: JSON.stringify(pkg.version),
+      __NEXT_VERSION__: JSON.stringify(nextVersion(pkg.version)),
     },
     plugins: [
       react(),

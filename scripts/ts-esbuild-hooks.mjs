@@ -124,7 +124,7 @@ registerHooks({
         // development-only paths are reachable, which is what tests exercise.
         banner: 'if (!import.meta.env) import.meta.env = { DEV: true, MODE: "test-build", PROD: false };',
         // the same build-time constants electron.vite.config.ts defines
-        define: { __APP_VERSION__: APP_VERSION },
+        define: { __APP_VERSION__: APP_VERSION, __NEXT_VERSION__: '""' },
         // JSX in .ts files (Settings defs are .tsx) keeps esbuild's own handling
       })
       return { format: 'module', source: code, shortCircuit: true }

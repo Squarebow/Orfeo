@@ -288,7 +288,11 @@ export default function TopBar() {
           <Tooltip title="Reset" description={"Closes the file and resets tempo,\ntranspose, and playback to defaults."} placement="bottom">
             <span onClick={handleReset} className="app-no-drag" style={{ cursor: 'pointer', display: 'flex', flexDirection: 'column', alignItems: 'flex-start', gap: 2 }}>
               <OrfeoLogo />
-              <span style={{ color: 'var(--text-inactive)', fontSize: 10, fontFamily: 'var(--font-mono)', whiteSpace: 'nowrap' }}>v{__APP_VERSION__}</span>
+              <span style={{ color: 'var(--text-inactive)', fontSize: 10, fontFamily: 'var(--font-mono)', whiteSpace: 'nowrap' }}>
+                v{__APP_VERSION__}
+                {/* npm run dev only: the version these changes are heading for */}
+                {import.meta.env.DEV && <span style={{ color: 'var(--text-amber)' }}> → v{__NEXT_VERSION__}</span>}
+              </span>
             </span>
           </Tooltip>
         </div>

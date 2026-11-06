@@ -7,3 +7,4 @@ declare module 'jzz-synth-tiny'
 
 // Injected by electron.vite.config.ts's renderer `define`, from package.json.
 declare const __APP_VERSION__: string
+declare const __NEXT_VERSION__: string
