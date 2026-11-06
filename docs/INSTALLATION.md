@@ -139,7 +139,8 @@ so it travels with the file no matter which build opens it.
 ## macOS
 
 Every release also has Mac downloads, on the same
-[Releases](https://github.com/Squarebow/Orfeo/releases) page:
+[Releases](https://github.com/Squarebow/Orfeo/releases) page. Orfeo needs
+**macOS 13 Ventura or newer**.
 
 | Mac | Disk image | Or the zip |
 |---|---|---|
@@ -181,15 +182,49 @@ move `Orfeo.app` there).
 Every release has Linux downloads (x64) on the same
 [Releases](https://github.com/Squarebow/Orfeo/releases) page:
 
-| Your system | Download | Install |
-|---|---|---|
-| **Ubuntu, Debian, Mint, Pop!_OS…** | `Orfeo-<version>-linux-amd64.deb` | open it, or `sudo apt install ./Orfeo-<version>-linux-amd64.deb` |
-| **Fedora, openSUSE…** | `Orfeo-<version>-linux-x86_64.rpm` | open it, or `sudo dnf install ./Orfeo-<version>-linux-x86_64.rpm` |
-| **Any other** (no install) | `Orfeo-<version>-linux-x86_64.AppImage` | make it executable (`chmod +x`), then run it |
+| Your system | Download |
+|---|---|
+| **Ubuntu, Debian, Mint, Pop!_OS…** | `Orfeo-<version>-linux-amd64.deb` |
+| **Fedora, openSUSE…** | `Orfeo-<version>-linux-x86_64.rpm` |
+| **Any other** (no install) | `Orfeo-<version>-linux-x86_64.AppImage` |
+
+You can usually just open the `.deb` or `.rpm`. To install from a terminal, go to
+the folder you downloaded it to and run the lines for your system, changing
+`1.7.0` to the version you have.
+
+Ubuntu, Debian, Mint, Pop!_OS:
+
+```bash
+cd ~/Downloads
+sudo apt install ./Orfeo-1.7.0-linux-amd64.deb
+```
+
+Fedora:
+
+```bash
+cd ~/Downloads
+sudo dnf install ./Orfeo-1.7.0-linux-x86_64.rpm
+```
+
+openSUSE:
+
+```bash
+cd ~/Downloads
+sudo zypper install --allow-unsigned-rpm ./Orfeo-1.7.0-linux-x86_64.rpm
+```
+
+AppImage, on any other system:
+
+```bash
+cd ~/Downloads
+chmod +x Orfeo-1.7.0-linux-x86_64.AppImage
+./Orfeo-1.7.0-linux-x86_64.AppImage
+```
 
 Prefer the `.deb` or `.rpm` where you can. On Ubuntu 24.04 and newer, the
 system's security settings can stop AppImages of apps like Orfeo from starting;
-the installers aren't affected.
+the installers aren't affected. If an AppImage complains about FUSE, add
+`--appimage-extract-and-run` to the last line.
 
 - **Sound:** GM and Studio. The Native engine is Windows-only for now.
 - **MIDI keyboards:** USB keyboards are picked up automatically.
@@ -198,8 +233,9 @@ the installers aren't affected.
   appears on the update button at the bottom of the left panel. Click it to open
   the download page, then install the new version over the old one — your
   settings stay.
-- **Uninstalling:** remove the `orfeo` package (or delete the AppImage); delete
-  the data folder above too if you want everything gone.
+- **Uninstalling:** `sudo apt remove orfeo`, `sudo dnf remove orfeo` or
+  `sudo zypper remove orfeo` (or delete the AppImage); delete the data folder
+  above too if you want everything gone.
 
 ---
 
