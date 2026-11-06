@@ -670,7 +670,7 @@ date,tag,published,asset,kind,downloads
 2026-11-06,v1.7.0,2026-11-06,Orfeo-1.7.0-mac-arm64.zip,mac,3
 2026-11-06,v1.7.0,2026-11-06,Orfeo-1.7.0-mac-x64.dmg,mac,2
 2026-11-06,v1.7.0,2026-11-06,Orfeo-1.7.0-mac-x64.zip,mac,3
-2026-11-06,v1.7.0,2026-11-06,Orfeo-1.7.0-portable.exe,portable,2
-2026-11-06,v1.7.0,2026-11-06,Orfeo-Setup-1.7.0.exe,installer,6
+2026-11-06,v1.7.0,2026-11-06,Orfeo-1.7.0-portable.exe,portable,5
+2026-11-06,v1.7.0,2026-11-06,Orfeo-Setup-1.7.0.exe,installer,15
 2026-11-06,v1.7.0,2026-11-06,Orfeo-Setup-1.7.0.exe.blockmap,update,5
-2026-11-06,v1.7.0,2026-11-06,latest.yml,launch,7
+2026-11-06,v1.7.0,2026-11-06,latest.yml,launch,10
