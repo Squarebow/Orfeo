@@ -46,7 +46,7 @@ telemetry; MIDI files are processed entirely on your device.
 - **Falling-note piano roll** onto a 61 / 73 / 88-key keyboard, colour-coded per
   track, pixel-aligned to each key
 - **Tempo control** — slow down or speed up without changing pitch; long-press
-  the BPM arrows to glide to a target
+  the BPM arrows to glide to a target, or double-click the BPM to type one
 - **Change key** — transpose the whole piece by semitones
 - **Loop region** — draw a loop directly on the waterfall and drill any section
 - **Metronome** — follows the file's embedded tempo map through mid-song changes;
@@ -58,6 +58,12 @@ telemetry; MIDI files are processed entirely on your device.
 - **Tap Tempo** — fix songs whose bar lines and metronome don't match the music:
   tap along on Space or a MIDI key, and Orfeo lines your beat up with the song's
   own drums and bass, remembers it for that song, and never touches the file
+- **Rebuild tempo** — for a song that's wrong from the start, tap it again from
+  the beginning in File Info, or copy the bars and tempo from a better version of
+  the song in your Library
+- **Bars of any length** — type the beats in a bar or a repeating pattern like
+  *3 3 3 4*, change the bars from any point in a song, and get a hint when the
+  music repeats over a length your bars can't fit
 - **Tempo warnings** — optional marks in the Library and the top bar for songs
   whose bar lines and metronome don't match the music's beat
 - **Tracks panel & Console Mixer** — mute, solo, recolour, show/hide tracks
@@ -112,7 +118,8 @@ telemetry; MIDI files are processed entirely on your device.
   the original
 - **Note Editor** — move, resize, add, delete, and re-velocity individual notes
   on the roll, with marquee / lasso / pen tools and full undo/redo
-- **MIDI library** — browse a folder, star favourites, fuzzy-search, auto-refresh
+- **MIDI library** — browse a folder, star favourites, fuzzy-search, auto-refresh,
+  and show *Artist - Song* files song first with one click
 - **Edit history embedded in the file** — travels with the `.mid` anywhere,
   survives reinstalls
 
@@ -127,7 +134,8 @@ telemetry; MIDI files are processed entirely on your device.
 - **Master volume** — a physical-feeling toolbar knob, persists across sessions
 - **Three sound engines** — **GM** (General MIDI: instant, no download),
   **Studio** (SpessaSynth + downloadable SF2/SF3 soundfonts, GeneralUser GS by
-  default) for far richer sound, and **Native** *(beta)*, which plays the same
+  default) for far richer sound, and **Native** *(beta, Windows only for now)*,
+  which plays the same
   soundfonts straight to your sound card so a MIDI keyboard is heard in under
   10 ms. Native mixes songs like Studio and has two modes: **Shared** (other apps
   keep playing) and **Exclusive** (the shortest latency from keyboard to speaker,

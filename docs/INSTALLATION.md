@@ -40,10 +40,10 @@ keep your data.*
 | **Good for** | Everyday use on your own PC | Testing, USB-stick use, locked-down machines, running versions side by side |
 
 <details>
-<summary><b>Example file names (v1.4.0)</b></summary>
+<summary><b>Example file names (v1.7.0)</b></summary>
 
-- `Orfeo-Setup-1.4.0.exe`
-- `Orfeo-1.4.0-portable.exe`
+- `Orfeo-Setup-1.7.0.exe`
+- `Orfeo-1.7.0-portable.exe`
 
 Both are on the [Releases](https://github.com/Squarebow/Orfeo/releases) page.
 

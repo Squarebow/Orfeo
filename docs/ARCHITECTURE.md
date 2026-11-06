@@ -540,6 +540,7 @@ control's ratio) are never touched.
 | Repeat hint | `src/utils/repeatHint.ts` | From the tapped beat, finds music that repeats over a length the bars on screen can't fit and suggests bar lengths in the Tap result |
 | Copy bars | `src/utils/copyBars.ts` | Lines the notes of two versions up into a time map and carries the good file's beat layer across it (`TempoSegment.map`) |
 | Grid rewrite | `src/utils/tempoCorrection.ts` | `TempoSegment`s (start, anchor, period, beats per bar) → rewritten beat layer; a segment with `snap` passes the file's own bars / time signatures through and only rescales the tempo number (double-time files) |
+| Rebuild tempo | `src/components/FileInfoModal.tsx` | Plays the song from the start for tapping; the one tempo tapped then replaces any kept before |
 | Session | `src/utils/tapTempoSession.ts`, `src/hooks/useTapTempo.ts` | Arm → tap (Space / MIDI note-on) → result → keep / adjust / cancel; taps stamped in *heard* time (output-latency compensated) |
 | UI | `src/components/Transport/TapTempoPad.tsx` | TAP pad, result panel, right-click list of kept tempos |
 
@@ -741,18 +742,21 @@ frame. Scope (which tracks spawn effects) and colour are user settings.
 
 ## Auto-update
 
-`electron-updater`, wired in `electron/main.ts`, gated on
-`process.platform === 'win32'` (`supportsAutoUpdate`).
+`electron-updater`, wired in `electron/main.ts`. `updateMode` is decided once:
+`'auto'` for the installed Windows build, `'store'` for the Microsoft Store
+version, and `'manual'` for portable, macOS, Linux and dev.
+
+In `'manual'` mode nothing is downloaded in-process: one look at GitHub at launch
+(`update:new-version`, `src/utils/newRelease.ts`) lights a dot on the update
+button, which opens the download page.
 
 <details>
 <summary><b>Why Windows only</b></summary>
 
-`electron-updater` assumes the running app was built and published through the
-**same** pipeline as the update feed it checks. Community-built macOS/Linux
-binaries are not — pointing their updater at Orfeo's official GitHub release
-feed would either offer an "update" that does not match how the binary was
-built, or silently never fire. On those platforms the Settings "Check for
-updates" button opens the Releases page instead. Full detail in
+On macOS, `electron-updater` can only replace an app signed with an Apple
+Developer ID, which the ad-hoc signed Mac builds aren't. On Linux it could only
+update the AppImage, not the `.deb` or `.rpm`, and those builds are still
+experimental. Full detail in
 [CONTRIBUTING.md → Releases and auto-update](CONTRIBUTING.md#releases-and-auto-update).
 
 </details>
