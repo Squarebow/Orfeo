@@ -63,9 +63,10 @@ export default function KeyboardControls() {
   // and doesn't compete for that space. Re-docking is always allowed. ────────
   const chordExplorerOpen = useStore((s) => s.chordExplorerOpen)
   const scaleExplorerOpen = useStore((s) => s.scaleExplorerOpen)
+  const staffTrainerOpen  = useStore((s) => s.staffTrainerOpen)
   const mixerOpen         = useStore((s) => s.mixerOpen)
   const midiEditorOpen    = useStore((s) => s.midiEditorOpen)
-  const undockBlocked = chordExplorerOpen || scaleExplorerOpen || mixerOpen || midiEditorOpen
+  const undockBlocked = chordExplorerOpen || scaleExplorerOpen || staffTrainerOpen || mixerOpen || midiEditorOpen
 
   // ── Practice mode: moving boundary from stored hand tags, sliding-window
   // averaged (not one static whole-file number) — see computeTaggedBoundaryCurve.

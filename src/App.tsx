@@ -14,6 +14,7 @@ import FloatingKeyboard from './components/Keyboard/FloatingKeyboard'
 import ChordExplorer from './components/ChordExplorer'
 import ScaleExplorer from './components/ScaleExplorer'
 import LockedChordModal from './components/LockedChordModal'
+import StaffTrainer from './components/StaffTrainer'
 import MidiEditor from './components/MidiEditor/MidiEditor'
 import MixerConsole from './components/Mixer/MixerConsole'
 import NoteEditorToolbar from './components/NoteEditor/NoteEditorToolbar'
@@ -432,7 +433,7 @@ export default function App() {
           // playback) — none of them call stopPropagation, and this listener
           // (registered at app mount) fires before theirs, so skip stop() here
           // while any is open or it would fire in addition to the close.
-          if (useStore.getState().chordExplorerOpen || useStore.getState().scaleExplorerOpen || useStore.getState().lockedChordModalOpen) break
+          if (useStore.getState().chordExplorerOpen || useStore.getState().scaleExplorerOpen || useStore.getState().lockedChordModalOpen || useStore.getState().staffTrainerOpen) break
           stop()
           break
         case 'o':
@@ -577,6 +578,7 @@ export default function App() {
       <ChordExplorer />
       <ScaleExplorer />
       <LockedChordModal />
+      <StaffTrainer />
 
       {/* ── Drop error toast — briefly shown for invalid file types. Click-to-
           dismiss alongside the 2.5s auto-clear timeout — if the user's eyes

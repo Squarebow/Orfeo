@@ -147,6 +147,12 @@ interface OrfeoStore {
   scaleExplorerMinimized: boolean
   setScaleExplorerOpen: (open: boolean) => void
   setScaleExplorerMinimized: (v: boolean) => void
+  staffTrainerOpen: boolean
+  staffTrainerMinimized: boolean
+  setStaffTrainerOpen: (open: boolean) => void
+  setStaffTrainerMinimized: (v: boolean) => void
+  lastLivePlayedNote: { midi: number; timestamp: number } | null
+  triggerLiveNote: (midi: number) => void
   // ── Mirrors LockedChordModal's own local `modalOpen` state — exists only
   // so App.tsx's global Escape handler can exclude it the same way it
   // already excludes chordExplorerOpen/scaleExplorerOpen (both listeners
@@ -731,6 +737,10 @@ export const useStore = create<OrfeoStore>((set, get) => ({
   setPendingChordExplorerSeed: (pendingChordExplorerSeed) => set({ pendingChordExplorerSeed }),
   scaleExplorerOpen: false,
   scaleExplorerMinimized: false,
+  staffTrainerOpen: false,
+  staffTrainerMinimized: false,
+  lastLivePlayedNote: null,
+  triggerLiveNote: (midi) => set({ lastLivePlayedNote: { midi, timestamp: Date.now() } }),
   lockedChordModalOpen: false,
   setLockedChordModalOpen: (lockedChordModalOpen) => set({ lockedChordModalOpen }),
   mixerOpen: false,
@@ -751,6 +761,9 @@ export const useStore = create<OrfeoStore>((set, get) => ({
   setScaleExplorerOpen: (scaleExplorerOpen) =>
     scaleExplorerOpen ? (get().clearLockedKeys(), set({ scaleExplorerOpen, scaleExplorerMinimized: false })) : set({ scaleExplorerOpen }),
   setScaleExplorerMinimized: (scaleExplorerMinimized) => set({ scaleExplorerMinimized }),
+  setStaffTrainerOpen: (staffTrainerOpen) =>
+    staffTrainerOpen ? (get().clearLockedKeys(), set({ staffTrainerOpen, staffTrainerMinimized: false })) : set({ staffTrainerOpen }),
+  setStaffTrainerMinimized: (staffTrainerMinimized) => set({ staffTrainerMinimized }),
   setMixerOpen: (mixerOpen) => set({ mixerOpen }),
   midiEditorOpen: false,
   setMidiEditorOpen: (midiEditorOpen) => set({ midiEditorOpen }),
@@ -812,7 +825,7 @@ export const useStore = create<OrfeoStore>((set, get) => ({
       originalLockedChordName: null, lockedInversionCount: 0, lockedChordNoteCount: 0,
       explorerChordDisplay: null,
       displayedChord: null,
-      chordExplorerOpen: false, scaleExplorerOpen: false, playbackState: 'stopped',
+      chordExplorerOpen: false, scaleExplorerOpen: false, staffTrainerOpen: false, playbackState: 'stopped',
       currentTime: 0, trackPanelOpen: false, settingsPanelOpen: false,
       chordSequence: [], chordPrompterOpen: false,
       loopStart: null, loopEnd: null, loopRegionActive: false,
