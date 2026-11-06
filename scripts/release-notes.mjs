@@ -109,7 +109,8 @@ const out = [
     `[Portable](${dl}/Orfeo-${version}-portable.exe) (no install)` +
     // a beta never goes to the Store; a release reaches it after certification
     (version.includes('-') ? '  ' : ` · [Microsoft Store](https://apps.microsoft.com/detail/9NJ9Q01P8JQD) (updates through the Store, usually within a few days)  `),
-  `**Already installed?** Orfeo updates itself the next time it starts. ` +
+  `**Mac and Linux:** choose your file under *Assets* below. These files can join this page a little after the Windows ones. They don't update themselves: a dot on the update button tells you when a new version is out.  `,
+  `**Already installed on Windows?** Orfeo updates itself the next time it starts. ` +
     `Found a problem? [Report a bug](https://orfeo.cc/docs/support/report-a-bug).`,
   '',
   `<details><summary>Full changelog${counts ? `: ${counts}` : ''}</summary>`,

@@ -5,7 +5,13 @@
      list of 2–4 one-line bullets, then ### New / ### Changed / ### Fixed.
      Newest version at the top. -->
 
-## [Unreleased]
+## [1.7] — 6. 11. 2026 — Orfeo for Mac and Linux, rebuild tempo, bars of any length
+
+**In short**
+- New: Orfeo now runs on Mac, and on Linux as an experiment.
+- New: fix a song's tempo and bars yourself: tap to rebuild them, set bars of any length, or copy them from a better version of the song.
+- New: show the Library song first, type a tempo, and see a dot when a new version is out on Mac, Linux and portable copies.
+- Native now sounds like Studio, and audio exports are safer, with clearer messages when something goes wrong.
 
 ### New
 - **Orfeo for Mac.** Every release now has downloads for Apple Silicon and Intel Macs, as a disk image or a zip. The first time you open a new version, macOS asks you to allow it once in *System Settings › Privacy & Security*. Mac versions don't update by themselves: *Check for updates* opens the download page. Sound: GM and Studio. Thanks to raiseCatError.
