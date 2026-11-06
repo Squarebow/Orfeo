@@ -10,6 +10,7 @@
 ### Fixed
 - **Scales Explorer: a chord no longer plays over the scale.** Clicking a key plays its scale note by note; a chord or progression started during that now stops the scale, so you only hear the chord. Thanks to InAnYan.
 - **New Folder on Mac.** The window for choosing your MIDI folder now lets you create one. Thanks to InAnYan.
+- **File and folder windows stay with Orfeo.** Windows for opening and saving files could end up separate from Orfeo, which stayed clickable behind them. They now belong to Orfeo's window, and on a Mac they slide down from it. Thanks to InAnYan.
 - **The Playback Editor follows the Tracks panel.** Unmuting a track while the editor was open left its row dimmed and marked as excluded until you closed and reopened the editor. Mute, the eye and the keyboard icon now reach the editor straight away.
 
 ## [1.7] — 6. 11. 2026 — Orfeo for Mac and Linux, rebuild tempo, bars of any length

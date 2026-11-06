@@ -25,6 +25,13 @@ app.setName('Orfeo')
 
 // ── Module-level window reference — needed by the close handler and IPC send ──────
 let mainWin: BrowserWindow | null = null
+
+// ── File windows belong to Orfeo's window: a sheet on macOS, modal everywhere.
+// Without a parent they float free, and Orfeo stays clickable behind them. ────
+const openDialog = (options: Electron.OpenDialogOptions) =>
+  mainWin ? dialog.showOpenDialog(mainWin, options) : dialog.showOpenDialog(options)
+const saveDialog = (options: Electron.SaveDialogOptions) =>
+  mainWin ? dialog.showSaveDialog(mainWin, options) : dialog.showSaveDialog(options)
 // ── Set by app:confirm-close so the renderer-triggered re-close passes through ──
 let allowClose = false
 
@@ -496,7 +503,7 @@ ipcMain.handle('soundfont:read', (_e, id: string) => {
 // copy pattern as fs:copyMidiToLibrary. Returns the new entry's id, or null if
 // the user cancelled the picker. ───────────────────────────────────────────────
 ipcMain.handle('soundfont:import', async () => {
-  const result = await dialog.showOpenDialog({
+  const result = await openDialog({
     title: 'Import SoundFont',
     defaultPath: dialogDir('soundfont'),
     filters: [{ name: 'SoundFont', extensions: ['sf2', 'sf3'] }],
@@ -578,7 +585,7 @@ ipcMain.handle('soundfont:download', (e, id: string) => {
   return download
 })
 ipcMain.handle('dialog:openMidi', async () => {
-  const result = await dialog.showOpenDialog({
+  const result = await openDialog({
     title: 'Open MIDI File',
     defaultPath: dialogDir('midi'),
     filters: [
@@ -595,9 +602,10 @@ ipcMain.handle('dialog:openMidi', async () => {
 
 // ── Library folder ─────────────────────────────────────────────────────────
 ipcMain.handle('dialog:openFolder', async () => {
-  const result = await dialog.showOpenDialog({
-    // createDirectory: macOS only offers New Folder when asked; Windows always does
-    title: 'Select MIDI Library Folder', defaultPath: loadPrefs().libraryFolder, properties: ['openDirectory', 'createDirectory'],
+  const result = await openDialog({
+    // createDirectory: macOS only offers New Folder when asked; Windows always does.
+    // message: a macOS sheet shows no title
+    title: 'Select MIDI Library Folder', message: 'Select MIDI Library Folder', defaultPath: loadPrefs().libraryFolder, properties: ['openDirectory', 'createDirectory'],
   })
   if (result.canceled || !result.filePaths[0]) return null
   const folderPath = result.filePaths[0]
@@ -859,7 +867,7 @@ ipcMain.handle('fs:moveLibraryFiles', async (
 })
 
 ipcMain.handle('dialog:saveFile', async (_e, opts: { defaultPath: string; filters: any[] }) => {
-  const result = await dialog.showSaveDialog({ defaultPath: opts.defaultPath, filters: opts.filters })
+  const result = await saveDialog({ defaultPath: opts.defaultPath, filters: opts.filters })
   return result.canceled ? null : result.filePath
 })
 
