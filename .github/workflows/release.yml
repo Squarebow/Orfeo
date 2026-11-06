@@ -239,7 +239,8 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
           TAG: ${{ needs.check.outputs.tag }}
-        run: gh release upload "$TAG" linux/*.AppImage linux/*.deb linux/*.rpm --clobber --repo "$GITHUB_REPOSITORY"
+        # release/: the artifact also holds the start-up check's files, so it keeps its folders
+        run: gh release upload "$TAG" linux/release/*.AppImage linux/release/*.deb linux/release/*.rpm --clobber --repo "$GITHUB_REPOSITORY"
 
   publish:
     name: 3. Publish
