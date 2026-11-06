@@ -596,7 +596,8 @@ ipcMain.handle('dialog:openMidi', async () => {
 // ── Library folder ─────────────────────────────────────────────────────────
 ipcMain.handle('dialog:openFolder', async () => {
   const result = await dialog.showOpenDialog({
-    title: 'Select MIDI Library Folder', defaultPath: loadPrefs().libraryFolder, properties: ['openDirectory'],
+    // createDirectory: macOS only offers New Folder when asked; Windows always does
+    title: 'Select MIDI Library Folder', defaultPath: loadPrefs().libraryFolder, properties: ['openDirectory', 'createDirectory'],
   })
   if (result.canceled || !result.filePaths[0]) return null
   const folderPath = result.filePaths[0]

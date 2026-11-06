@@ -29,6 +29,7 @@ import { computeTempoKeyPayload } from '../../utils/tempoKeySave'
 import { songKey } from '../../utils/songIdentity'
 import { carryCorrection } from '../../utils/tempoCorrection'
 import { useFocusTrap } from '../../hooks/useFocusTrap'
+import { followTrackFlags, type TrackFlags } from '../../utils/editorRowFollow'
 import { useClampPositionOnZoom } from '../../hooks/useClampPositionOnZoom'
 import Tooltip from '../Tooltip'
 import PianoKeysIcon from '../PianoKeysIcon'
@@ -975,6 +976,20 @@ export default function MidiEditor() {
     // keyed on the file's bytes: a Tap Tempo grid swap (same file, new midi
     // object) must not discard unsaved row edits
   }, [(midi as any)?._raw])
+
+  // ── Mute, eye and keyboard changed in the Tracks panel while the editor is
+  // open reach their row at once; rows are otherwise only built on open. ──────
+  const flagsBeforeRef = useRef<TrackFlags[]>([])
+  useEffect(() => {
+    const before = flagsBeforeRef.current
+    flagsBeforeRef.current = tracks
+    if (!midiEditorOpen) return
+    setState(s => {
+      if (!s) return s
+      const rows = followTrackFlags(s.rows, before, tracks)
+      return rows === s.rows ? s : { ...s, rows }
+    })
+  }, [tracks])
 
   // ── Drag: mousemove / mouseup ─────────────────────────────────────────────────
   const onMouseMove = useCallback((e: MouseEvent) => {

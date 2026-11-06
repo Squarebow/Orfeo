@@ -98,7 +98,7 @@ function HandAssignmentExtra() {
 function HandColoursLink() {
   return (
     <button onClick={() => useStore.getState().openSettingsWindow('appearance')}
-      style={{ padding: 0, border: 'none', background: 'none', cursor: 'pointer', font: 'inherit', fontStyle: 'normal', color: 'var(--text-amber)', textDecoration: 'underline', textUnderlineOffset: 2 }}>
+      style={{ padding: 0, border: 'none', background: 'none', cursor: 'pointer', font: 'inherit', fontStyle: 'normal', color: 'var(--text-amber)' }}>
       {t`Set your own hand colours`}
     </button>
   )
@@ -140,7 +140,7 @@ export const PLAYBACK_DEFS: SettingDef[] = [
     id: 'handAssignment', icon: Hand, kind: 'switch', Extra: HandAssignmentExtra,
     Control: () => { const v = useStore(s => s.showHandLabels); return <Switch value={v} onChange={useStore.getState().setShowHandLabels} label="Hand Assignment" /> },
     Description: () => <>
-      Automated hand assignment for piano that colors each note by the hand that plays it. A guideline, not a verified transcript!
+      {t`On a single piano track, Orfeo works out which hand plays each note and colours it to match. Several piano or organ tracks are read together, as one player's two hands. A guideline, not a verified transcript!`}
       <br /><br />
       For a perfectly accurate split use MIDI note editor and click the <InlineIcon><Hand size={11} /></InlineIcon> icon to manually assign notes to left and right hand.
       <br /><br />

@@ -529,10 +529,12 @@ export default function ScaleExplorer() {
     setProgStep(0)
   }, [])
 
-  // ── Cancel all scheduled scale-play note timers ───────────────────────────
+  // ── Cancel all scheduled scale-play note timers (any chord that sounds calls
+  // this too, so a chord never plays over the rest of the scale) ───────────────────
   const clearScalePlayTimers = useCallback(() => {
     scalePlayTimersRef.current.forEach(t => clearTimeout(t))
     scalePlayTimersRef.current = []
+    setScalePlayIndex(-1)
   }, [])
 
   // ── Cancel the chords-in-scale auto-sequence ───────────────────────────────
@@ -666,6 +668,7 @@ export default function ScaleExplorer() {
     const isOctave = idx === diatonicChords.length
     const chord = diatonicChords[isOctave ? 0 : idx]
     if (!voicing || !chord) return
+    clearScalePlayTimers()
     const notes = [...voicing].sort((a, b) => a - b)
     setSelectedDegree(isOctave ? null : idx)
     setOctaveTileSelected(isOctave)
@@ -769,6 +772,7 @@ export default function ScaleExplorer() {
     const voicingMode = useStore.getState().progressionVoicing
     const notes = nextVoicing(prevMidi, resolved.rootPc, semis, voicingMode, EXPLORER_RANGE, lowRootRef.current)
 
+    clearScalePlayTimers()
     lightKeys(notes, resolved.rootPc)
     const stepName = getNoteName(resolved.rootPc, displayNaming, accidentals) + formatChordSuffix(resolved.info.suffix, chordNamingStyle)
     setLitChord({ pcs: notes.map(m => m % 12), rootPc: resolved.rootPc, name: stepName })

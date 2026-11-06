@@ -5,6 +5,13 @@
      list of 2–4 one-line bullets, then ### New / ### Changed / ### Fixed.
      Newest version at the top. -->
 
+## [Unreleased]
+
+### Fixed
+- **Scales Explorer: a chord no longer plays over the scale.** Clicking a key plays its scale note by note; a chord or progression started during that now stops the scale, so you only hear the chord. Thanks to InAnYan.
+- **New Folder on Mac.** The window for choosing your MIDI folder now lets you create one. Thanks to InAnYan.
+- **The Playback Editor follows the Tracks panel.** Unmuting a track while the editor was open left its row dimmed and marked as excluded until you closed and reopened the editor. Mute, the eye and the keyboard icon now reach the editor straight away.
+
 ## [1.7] — 6. 11. 2026 — Orfeo for Mac and Linux, rebuild tempo, bars of any length
 
 **In short**
