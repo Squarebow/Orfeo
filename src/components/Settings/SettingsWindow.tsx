@@ -5,6 +5,7 @@ import { useStore } from '../../store'
 import { t } from '../../utils/i18n'
 import Tooltip from '../Tooltip'
 import OrfeoMark from '../OrfeoMark'
+import LicensesLink from '../LicensesLink'
 import { GROUPS, SETTINGS, type SettingId } from './catalog'
 import { searchSettings, gridColumns, CARD_GAP } from './search'
 import { SettingCard } from './SettingCard'
@@ -236,7 +237,8 @@ export default function SettingsWindow() {
               ))}
             </div>
             {results === null && (
-              <div style={{ display: 'flex', justifyContent: 'flex-end', padding: '8px 18px', borderTop: '1px solid var(--border-row)' }}>
+              <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1fr) auto', alignItems: 'center', padding: '8px 18px', borderTop: '1px solid var(--border-row)' }}>
+                <div><LicensesLink /></div>
                 <button onClick={() => window.electronAPI.openExternal(g.manualUrl)}
                   style={{ display: 'flex', alignItems: 'center', gap: 6, background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-muted)', fontSize: 'var(--text-xs)', fontFamily: 'var(--font-ui)' }}
                   onMouseEnter={e => e.currentTarget.style.color = 'var(--text-amber)'}

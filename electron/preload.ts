@@ -31,6 +31,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
   openFolder:         () => ipcRenderer.invoke('dialog:openFolder'),
   scanMidiFolder:     (path: string) => ipcRenderer.invoke('fs:scanMidiFolder', path),
   getDemoFolder:      () => ipcRenderer.invoke('app:getDemoFolder'),
+  readLicenses:       () => ipcRenderer.invoke('app:readLicenses'),
   loadMidiFromPath:   (path: string) => ipcRenderer.invoke('fs:loadMidiFromPath', path),
   saveExport:         (songPath: string, libraryFolder: string | null, fileName: string, bytes: Uint8Array) => ipcRenderer.invoke('export:save', songPath, libraryFolder, fileName, bytes),
   statFiles:          (paths: string[]) => ipcRenderer.invoke('fs:statFiles', paths),

@@ -1,0 +1,23 @@
+Demo songs in Orfeo
+
+All three come from the Mutopia Project (https://www.mutopiaproject.org), unmodified
+apart from the file names.
+
+Mozart - Rondo Alla Turca.mid
+  Sonate Opus KV 331 - Rondo Alla Turca, by W. A. Mozart
+  Prepared by Rune Zedeler and Chris Sawer
+  Mutopia-2015/08/13-108, https://www.mutopiaproject.org/cgibin/piece-info.cgi?id=108
+  Licence: Public Domain
+
+Scott Joplin - The Entertainer.mid
+  The Entertainer, by Scott Joplin
+  Prepared by Chris Sawer
+  Mutopia-2016/11/25-263, https://www.mutopiaproject.org/cgibin/piece-info.cgi?id=263
+  Licence: Public Domain
+
+Vivaldi - Summer (Presto).mid
+  Estate / Summer, Op. 8, No. 2, third movement, by Antonio Vivaldi
+  Prepared by Anonymous
+  Mutopia-2010/02/08-336, https://www.mutopiaproject.org/cgibin/piece-info.cgi?id=336
+  Licence: Creative Commons Attribution-ShareAlike 3.0
+  https://creativecommons.org/licenses/by-sa/3.0/

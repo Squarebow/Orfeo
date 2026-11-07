@@ -610,7 +610,7 @@ export function UpdateButton({ placement = 'left', showStatus = true }: { placem
       )}
       {showStatus && updateInfo.mode === 'auto' && updateStatus.state === 'ready' && (
         <span style={{ fontSize: 9, color: 'var(--text-amber)', fontFamily: 'var(--font-ui)', whiteSpace: 'nowrap' }}>
-          Update ready — click to install
+          {t`Update ready`}
         </span>
       )}
       <Tooltip

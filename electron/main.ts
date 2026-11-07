@@ -377,6 +377,17 @@ ipcMain.handle('app:getDemoFolder', async () => {
   return existsSync(demoPath) ? demoPath : null
 })
 
+// ── Licenses window: the copies that ship with the app (extraResources) ──────
+ipcMain.handle('app:readLicenses', () => {
+  const dir = app.isPackaged ? join(process.resourcesPath, 'licenses') : app.getAppPath()
+  try {
+    return {
+      orfeo: readFileSync(join(dir, 'LICENSE.md'), 'utf-8'),
+      thirdParty: readFileSync(join(dir, 'THIRD_PARTY_LICENSES.md'), 'utf-8'),
+    }
+  } catch { return null }
+})
+
 // ── Open MIDI file ─────────────────────────────────────────────────────────
 ipcMain.handle('shell:openExternal', (_e, url: string) => shell.openExternal(url))
 ipcMain.handle('shell:openFolder', (_e, folderPath: string) => shell.openPath(folderPath))

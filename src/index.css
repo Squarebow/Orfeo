@@ -13,6 +13,22 @@
 @font-face {
   font-family: 'Inter';
   font-style: normal;
+  font-weight: 300;
+  font-display: swap;
+  src: url('./assets/fonts/Inter-Variable-latin.woff2') format('woff2');
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+@font-face {
+  font-family: 'Inter';
+  font-style: normal;
+  font-weight: 300;
+  font-display: swap;
+  src: url('./assets/fonts/Inter-Variable-latin-ext.woff2') format('woff2');
+  unicode-range: U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304, U+0308, U+0329, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C0, U+2113, U+2C60-2C7F, U+A720-A7FF;
+}
+@font-face {
+  font-family: 'Inter';
+  font-style: normal;
   font-weight: 400;
   font-display: swap;
   src: url('./assets/fonts/Inter-Variable-latin.woff2') format('woff2');
@@ -114,17 +130,9 @@
   src: url('./assets/fonts/IBMPlexMono-Bold.woff2') format('woff2');
 }
 
-/* ── UI-font candidates (2026-08-15) — swap --font-ui below to try each
-   one, nothing here needs re-fetching. Delete whichever loses once one's
-   picked (its @font-face blocks + its .woff2 files in src/assets/fonts/).
-   IBM Plex Mono above is staying regardless of which UI font wins. ────────
-   Familjen Grotesk — variable font, Google-hosted (fonts.google.com), same
-   one-file-per-script-range structure as Inter above. Currently active
-   (--font-ui below). Familjen's variable axis only covers 400-700 — no
-   300/Light instance available. Mona Sans below does go down to 300 (its
-   .woff2 rendered a real 300 face when tested, no re-fetch needed), but
-   300 read as too thin for Settings descriptions in practice — not worth
-   switching --font-ui over. */
+/* ── Familjen Grotesk: the app's UI font (--font-ui below). Variable font,
+   same one-file-per-script-range structure as Inter above. Its variable axis
+   only covers 400-700, so there is no 300/Light instance. */
 @font-face {
   font-family: 'Familjen Grotesk';
   font-style: normal;
@@ -187,78 +195,6 @@
   font-weight: 700;
   font-display: swap;
   src: url('./assets/fonts/FamiljenGrotesk-Variable-latin-ext.woff2') format('woff2');
-  unicode-range: U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304, U+0308, U+0329, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C0, U+2113, U+2C60-2C7F, U+A720-A7FF;
-}
-
-/* Mona Sans — GitHub's own typeface (github.com/github/mona-sans, OFL-1.1),
-   Google-hosted here for the same reason Familjen Grotesk is: Google Fonts
-   only distributes OFL/Apache/UFL-licensed faces, so this is the identical
-   OFL file, just already sliced into the one-file-per-script-range variable
-   form the rest of this block uses — no static per-weight files needed.
-   Standard width/optical-size instance (font-stretch:100% in Google's own
-   CSS — not the Condensed/Expanded/Display variants also in that repo). */
-@font-face {
-  font-family: 'Mona Sans';
-  font-style: normal;
-  font-weight: 400;
-  font-display: swap;
-  src: url('./assets/fonts/MonaSans-Variable-latin.woff2') format('woff2');
-  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
-}
-@font-face {
-  font-family: 'Mona Sans';
-  font-style: normal;
-  font-weight: 400;
-  font-display: swap;
-  src: url('./assets/fonts/MonaSans-Variable-latin-ext.woff2') format('woff2');
-  unicode-range: U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304, U+0308, U+0329, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C0, U+2113, U+2C60-2C7F, U+A720-A7FF;
-}
-@font-face {
-  font-family: 'Mona Sans';
-  font-style: normal;
-  font-weight: 500;
-  font-display: swap;
-  src: url('./assets/fonts/MonaSans-Variable-latin.woff2') format('woff2');
-  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
-}
-@font-face {
-  font-family: 'Mona Sans';
-  font-style: normal;
-  font-weight: 500;
-  font-display: swap;
-  src: url('./assets/fonts/MonaSans-Variable-latin-ext.woff2') format('woff2');
-  unicode-range: U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304, U+0308, U+0329, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C0, U+2113, U+2C60-2C7F, U+A720-A7FF;
-}
-@font-face {
-  font-family: 'Mona Sans';
-  font-style: normal;
-  font-weight: 600;
-  font-display: swap;
-  src: url('./assets/fonts/MonaSans-Variable-latin.woff2') format('woff2');
-  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
-}
-@font-face {
-  font-family: 'Mona Sans';
-  font-style: normal;
-  font-weight: 600;
-  font-display: swap;
-  src: url('./assets/fonts/MonaSans-Variable-latin-ext.woff2') format('woff2');
-  unicode-range: U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304, U+0308, U+0329, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C0, U+2113, U+2C60-2C7F, U+A720-A7FF;
-}
-@font-face {
-  font-family: 'Mona Sans';
-  font-style: normal;
-  font-weight: 700;
-  font-display: swap;
-  src: url('./assets/fonts/MonaSans-Variable-latin.woff2') format('woff2');
-  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
-}
-@font-face {
-  font-family: 'Mona Sans';
-  font-style: normal;
-  font-weight: 700;
-  font-display: swap;
-  src: url('./assets/fonts/MonaSans-Variable-latin-ext.woff2') format('woff2');
   unicode-range: U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304, U+0308, U+0329, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C0, U+2113, U+2C60-2C7F, U+A720-A7FF;
 }
 
@@ -292,11 +228,7 @@ button, input, select, textarea {
      these same custom properties at runtime instead of duplicating the
      values as separate JS literals. --font-logo is the ORFEO wordmark's own
      stack (OrfeoLogo.tsx) — deliberately separate so the brand mark can keep
-     its own typographic identity independent of the UI font.
-     --font-ui is mid-trial (2026-08-15): Familjen Grotesk / Mona Sans are
-     both installed (@font-face blocks above) for direct comparison —
-     currently pointed at Familjen Grotesk. Swap the family name here to
-     switch candidates, nothing else needs to change. */
+     its own typographic identity independent of the UI font. */
   --font-ui:   'Familjen Grotesk', sans-serif;
   --font-mono: 'IBM Plex Mono', monospace;
   --font-logo: 'Inter', 'Georgia', serif;

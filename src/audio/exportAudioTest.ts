@@ -57,7 +57,7 @@ export async function runExportAudioTest(): Promise<number> {
   check(renderOutcome(44100, () => false, {}).k === 'audio', 'audio with content passes')
 
   // 4. A song that isn't open is read once per window, not on every version switch
-  const demo = readFileSync('public/Demo/Scott Joplin - Entertainer.mid')
+  const demo = readFileSync('public/Demo/Scott Joplin - The Entertainer.mid')
   let reads = 0
   const api: any = (globalThis as any).window.electronAPI = {
     loadMidiFromPath: async () => { reads++; return { fileName: 'Entertainer.mid', base64: demo.toString('base64') } },

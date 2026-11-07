@@ -7,7 +7,12 @@
 
 ## [Unreleased]
 
+### Changed
+- **Demo songs.** Replaced with freely licensed versions. The credits are in `THIRD_PARTY_LICENSES.md`.
+- **Licenses in the app.** Every download now includes Orfeo's license and the third-party notices. Read them from the *Licenses* link at the bottom of Settings.
+
 ### Fixed
+- **Songs that skip empty bars at the start.** A note repeated exactly where the song now begins could lose its length, along with the repeats after it.
 - **Scales Explorer: a chord no longer plays over the scale.** Clicking a key plays its scale note by note; a chord or progression started during that now stops the scale, so you only hear the chord. Thanks to InAnYan.
 - **New Folder on Mac.** The window for choosing your MIDI folder now lets you create one. Thanks to InAnYan.
 - **File and folder windows stay with Orfeo.** Windows for opening and saving files could end up separate from Orfeo, which stayed clickable behind them. They now belong to Orfeo's window, and on a Mac they slide down from it. Thanks to InAnYan.

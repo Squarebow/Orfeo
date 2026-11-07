@@ -103,7 +103,19 @@ export function trimSmfLead(bytes: ArrayBuffer, cutTick: number): ArrayBuffer {
     if ('other' in c) { for (let i = 0; i < c.other.length; i++) out.push(c.other[i]); continue }
     const body: number[] = []
     let last = 0
+    // a note sounding into the cut loses its start, so its end goes too. Files
+    // that start a repeated note before ending the previous one would otherwise
+    // end the new note at once, and each repeat after it. Per channel and pitch,
+    // oldest first: is this sounding note kept?
+    const sounding = new Map<number, boolean[]>()
     for (const e of c.events) {
+      if (e.note) {
+        const key = (e.data[0] & 0x0f) * 128 + e.data[1]
+        const notes = sounding.get(key) ?? []
+        sounding.set(key, notes)
+        if ((e.data[0] & 0xf0) === 0x90 && e.data[2] > 0) notes.push(e.tick >= cutTick)
+        else if (notes.shift() === false) continue
+      }
       if (e.tick < cutTick && !keepBefore(e)) continue
       const t = Math.max(0, e.tick - cutTick)
       pushVar(body, t - last); last = t

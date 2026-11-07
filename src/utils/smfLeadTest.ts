@@ -100,6 +100,17 @@ export function runSmfLeadTest(): number {
     check(marks(back) === marks(new Midi(raw)), `markers back in place on save: ${marks(back)}`)
   }
 
+  // A note repeated right on the cut, started before the previous one ends
+  {
+    const mid = new Uint8Array([
+      0x4d, 0x54, 0x68, 0x64, 0, 0, 0, 6, 0, 0, 0, 1, 0, 96,
+      0x4d, 0x54, 0x72, 0x6b, 0, 0, 0, 20,
+      0, 0x90, 60, 100, 96, 0x90, 60, 100, 0, 0x80, 60, 64, 96, 0x80, 60, 64, 0, 0xff, 0x2f, 0,
+    ])
+    const notes = new Midi(trimSmfLead(mid.buffer, 96)).tracks[0].notes
+    check(notes.length === 1 && notes[0].ticks === 0 && notes[0].durationTicks === 96, 'a repeated note on the cut keeps its length')
+  }
+
   // A real file (running status, several tracks): cut at bar 3, nothing lost after it
   for (const f of readdirSync('public/Demo').filter(n => /\.mid$/i.test(n))) {
     const r = readFileSync('public/Demo/' + f)

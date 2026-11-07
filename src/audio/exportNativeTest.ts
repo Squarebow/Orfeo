@@ -15,7 +15,7 @@ export async function runExportNativeTest(): Promise<number> {
   let pass = 0, fail = 0
   const check = (c: boolean, m: string) => { c ? pass++ : (fail++, console.error('FAIL:', m)) }
 
-  const midi = parseMidiBuffer(file('public/Demo/Scott Joplin - Entertainer.mid'), 'Entertainer.mid') as any
+  const midi = parseMidiBuffer(file('public/Demo/Scott Joplin - The Entertainer.mid'), 'Entertainer.mid') as any
   const tracks = midi.tracks.map((t: any) => ({ index: t.index, program: t.program, muted: false, solo: false, volume: 1, pan: 0, reverb: 0, chorus: 0 }))
   const full = buildExportSong(midi, tracks, 'original')
   const song = { ...full, events: full.events.filter(e => e.time < 20), duration: 20 }

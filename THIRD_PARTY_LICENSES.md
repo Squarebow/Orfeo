@@ -166,6 +166,34 @@ permissive:
 
 ---
 
+## Fonts
+
+All four fonts are under the SIL Open Font License 1.1. The full text is in
+`public/fonts/OFL.txt` and `src/assets/fonts/OFL.txt`, and it ships with the app.
+
+| Font | Used for | Copyright |
+|---|---|---|
+| [Familjen Grotesk](https://github.com/Familjen-Sthlm/Familjen-Grotesk) | App text | Copyright 2021 The Familjen Grotesk Project Authors |
+| [IBM Plex Mono](https://github.com/IBM/plex) | Numbers, chord names, labels | Copyright © 2017 IBM Corp. with Reserved Font Name "Plex" |
+| [Inter](https://github.com/rsms/inter) | The logo, PDF export | Copyright 2016 The Inter Project Authors |
+| [JetBrains Mono](https://github.com/JetBrains/JetBrainsMono) | PDF export | Copyright 2020 The JetBrains Mono Project Authors |
+
+---
+
+## Demo songs
+
+From the [Mutopia Project](https://www.mutopiaproject.org), unmodified apart from the
+file names. These licenses apply to the demo files only, not to Orfeo's code. The same
+credits ship with the app in `public/Demo/CREDITS.txt`.
+
+| File | Work | Prepared by | License |
+|---|---|---|---|
+| `Mozart - Rondo Alla Turca.mid` | [Sonate Opus KV 331 - Rondo Alla Turca](https://www.mutopiaproject.org/cgibin/piece-info.cgi?id=108), W. A. Mozart | Rune Zedeler and Chris Sawer | Public Domain |
+| `Scott Joplin - The Entertainer.mid` | [The Entertainer](https://www.mutopiaproject.org/cgibin/piece-info.cgi?id=263), Scott Joplin | Chris Sawer | Public Domain |
+| `Vivaldi - Summer (Presto).mid` | [Estate / Summer, Op. 8, No. 2](https://www.mutopiaproject.org/cgibin/piece-info.cgi?id=336), third movement, Antonio Vivaldi | Anonymous | [CC BY-SA 3.0](https://creativecommons.org/licenses/by-sa/3.0/) |
+
+---
+
 ## MIT — [full text](https://opensource.org/license/mit) (100 packages)
 
 <details>

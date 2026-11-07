@@ -74,6 +74,14 @@
         "to": "demo"
       },
       {
+        "from": "LICENSE.md",
+        "to": "licenses/LICENSE.md"
+      },
+      {
+        "from": "THIRD_PARTY_LICENSES.md",
+        "to": "licenses/THIRD_PARTY_LICENSES.md"
+      },
+      {
         "from": "native/build",
         "to": "native",
         "filter": [

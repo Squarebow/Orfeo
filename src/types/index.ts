@@ -194,6 +194,7 @@ declare global {
       openFolder:          () => Promise<string | null>
       scanMidiFolder:      (path: string) => Promise<LibraryFile[]>
       getDemoFolder:       () => Promise<string | null>
+      readLicenses:        () => Promise<{ orfeo: string; thirdParty: string } | null>
       loadMidiFromPath:    (path: string) => Promise<MidiFileResult | null>
       // Export to audio: writes to <library>/Orfeo/Exports, returns the saved path
       saveExport:          (songPath: string, libraryFolder: string | null, fileName: string, bytes: Uint8Array) => Promise<string>
