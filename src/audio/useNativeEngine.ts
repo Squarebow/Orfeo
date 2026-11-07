@@ -17,6 +17,7 @@ import { programTimeline } from './programTimeline'
 import { volumeRatio } from './songVolume'
 import type { ControlEvent, ParsedTrack } from '../types'
 import { isShown } from '../utils/trackShown'
+import { clickBeats } from '../utils/clickBeats'
 
 // Brings Native to the Studio engine's loudness at the same master volume.
 // Measured from the speakers at a low master volume, where neither engine's
@@ -173,7 +174,7 @@ function sendTrackState(tracks: Tracks) {
 // accented on bar starts — the engine clicks them itself, sample-exact
 function sendSongClicks() {
   const m = activeMidiData() as any
-  const beats: number[] = m?._beatTimes ?? []
+  const beats = clickBeats(m)
   const bars = new Set<number>(m?._barTimes ?? [])
   nativeCall('setSongClicks', new Float64Array(beats), Uint8Array.from(beats, b => (bars.has(b) ? 1 : 0)))
 }

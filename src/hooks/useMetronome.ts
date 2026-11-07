@@ -1,6 +1,7 @@
 import { useEffect, useRef } from 'react'
 import { useStore } from '../store'
 import { resumeIndexAfterGridSwap, firstClickTime } from '../utils/metronomeResume'
+import { clickBeats } from '../utils/clickBeats'
 
 // ── Shared metronome audio — one AudioContext for the metronome AND the
 // count-in (utils/countInRunner.ts), so a count-in's last click and the
@@ -97,7 +98,7 @@ export function useMetronome() {
       // Real beat/bar grid for this file — honours every tempo AND every
       // time-signature change (see midiParser.ts's _beatTimes/_barTimes),
       // not just the first of each.
-      const beatTimes   = (midi as any)?._beatTimes as number[] | undefined ?? []
+      const beatTimes   = clickBeats(midi as any)
       const barTimesArr = (midi as any)?._barTimes as number[] | undefined ?? []
       if (beatTimes.length === 0) return
 

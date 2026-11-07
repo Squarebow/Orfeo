@@ -5,6 +5,11 @@
      list of 2–4 one-line bullets, then ### New / ### Changed / ### Fixed.
      Newest version at the top. -->
 
+## [Unreleased]
+
+### Fixed
+- **The metronome in 6/8, 9/8 and 12/8.** It clicked every eighth note, so 12 clicks a bar in 12/8. The metronome and count-in now click the beats you feel: 2, 3 and 4 a bar.
+
 ## [1.7.1] — 7. 11. 2026 — Unsaved changes warning, licenses in the app, fixes
 
 **In short**

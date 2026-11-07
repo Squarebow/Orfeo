@@ -1,6 +1,7 @@
 import { useStore } from '../store'
 import { countInPlan } from './countIn'
 import { isTapCapturing } from './tapTempoSession'
+import { clickBeats } from './clickBeats'
 
 // ── Count-in runner — schedules the count-in clicks on the metronome's audio
 // clock, shows the count, then starts playback so the first note is HEARD
@@ -73,7 +74,7 @@ export function startCountIn(): boolean {
   const m = s.midi as any
   const ratio = s.originalBpm > 0 ? s.bpm / s.originalBpm : 1
   const plan = countInPlan({
-    beats: m._beatTimes ?? [], bars: m._barTimes ?? [],
+    beats: clickBeats(m), bars: m._barTimes ?? [],
     firstNote: firstNoteTime(), playhead: s.currentTime, nBars: s.countInBars, ratio,
   })
   if (!plan || plan.clicks.length === 0) return false
@@ -88,7 +89,7 @@ export function startCountIn(): boolean {
   let clickedSongTime: number | null = null
   // (an engine with its own clock clicks the song's first beat itself)
   if (s.metronomeEnabled && !d.armStart) {
-    const beats: number[] = m._beatTimes ?? [], bars: number[] = m._barTimes ?? []
+    const beats = clickBeats(m), bars: number[] = m._barTimes ?? []
     const first = beats.find(b => b >= plan.startAt - 1e-6)
     if (first !== undefined) {
       clicks.push(d.click(musicAt + (first - plan.startAt) / ratio, bars.some(b => Math.abs(b - first) < 1e-6)))
