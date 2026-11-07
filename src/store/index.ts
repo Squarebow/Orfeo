@@ -17,6 +17,7 @@ import { TRUST_VERSION, type TrustResult } from '../utils/tempoTrust'
 import { velocityDropRatio, suggestCompressorPreset } from '../utils/velocityAnalysis'
 import { applyHandColors, isHex, handHex, followedHandColor, DEFAULT_HAND_LH, DEFAULT_HAND_RH } from '../utils/handPalette'
 import { HAND_ASSIGN_GROUPS, focusRole } from '../utils/keyboardGroups'
+import type { TrackBaseline } from '../utils/unsavedChanges'
 
 // ── Focus mode: every track's mute + eye from just before Focus went on, so
 // the second click puts back exactly what you had. Null while Focus is off.
@@ -155,9 +156,9 @@ interface OrfeoStore {
   setLockedChordModalOpen: (open: boolean) => void
   mixerOpen: boolean
   setMixerOpen: (open: boolean) => void
-  // Snapshot of volume/pan/chorus/reverb as loaded from the file — diffed
-  // against live `tracks` values on mixer close to detect unsaved changes.
-  mixerBaseline: Record<number, { volume: number; pan: number; chorus: number; reverb: number }>
+  // Snapshot of each track as loaded from the file — diffed against live
+  // `tracks` values to detect unsaved changes (Mixer close, closing Orfeo).
+  mixerBaseline: TrackBaseline
   midiEditorOpen: boolean
   setMidiEditorOpen: (open: boolean) => void
   pendingImportedFile: {
@@ -501,7 +502,9 @@ interface OrfeoStore {
   // ── Tracks panel's per-track color line doubles as a mini VU meter during
   // playback when this is on; always shows the plain static color when off. ──
   trackVuColorEnabled: boolean
+  unsavedWarningEnabled: boolean
   setTrackVuColorEnabled: (v: boolean) => void
+  setUnsavedWarningEnabled: (v: boolean) => void
 
   handLabelMode: 'practice' | 'performance'
   setHandLabelMode: (mode: 'practice' | 'performance') => void
@@ -593,7 +596,10 @@ export const useStore = create<OrfeoStore>((set, get) => ({
     })
     const mixerBaseline: OrfeoStore['mixerBaseline'] = {}
     for (const ts of newTracks) {
-      mixerBaseline[ts.index] = { volume: ts.volume, pan: ts.pan, chorus: ts.chorus, reverb: ts.reverb }
+      mixerBaseline[ts.index] = {
+        volume: ts.volume, pan: ts.pan, chorus: ts.chorus, reverb: ts.reverb,
+        muted: ts.muted, visible: ts.visible, showOnKeyboard: ts.showOnKeyboard,
+      }
     }
     _focusSnapshot = null
     set({
@@ -1102,7 +1108,9 @@ export const useStore = create<OrfeoStore>((set, get) => ({
   setAutoCollapseDrawers: (autoCollapseDrawers) => set({ autoCollapseDrawers }),
 
   trackVuColorEnabled: true,
+  unsavedWarningEnabled: true,
   setTrackVuColorEnabled: (trackVuColorEnabled) => set({ trackVuColorEnabled }),
+  setUnsavedWarningEnabled: (unsavedWarningEnabled) => set({ unsavedWarningEnabled }),
 
   // ── Hand label mode — practice (static, tag-based) or performance (per-note, live) ─
   // Practice mode's UI toggle is disabled (see SettingsPanel.tsx) — proves
@@ -1297,6 +1305,7 @@ async function restoreLibraryPrefs() {
     if (typeof prefs.supportNoteEnabled === 'boolean') store.setSupportNoteEnabled(prefs.supportNoteEnabled)
     if (typeof prefs.explorerPausesPlayback === 'boolean') store.setExplorerPausesPlayback(prefs.explorerPausesPlayback)
     if (typeof prefs.trackVuColorEnabled === 'boolean') store.setTrackVuColorEnabled(prefs.trackVuColorEnabled)
+    if (typeof prefs.unsavedWarningEnabled === 'boolean') store.setUnsavedWarningEnabled(prefs.unsavedWarningEnabled)
     if (typeof prefs.autoMuteNonKeyboard === 'boolean') store.setAutoMuteNonKeyboard(prefs.autoMuteNonKeyboard)
     if (prefs.settingsGroupsCollapsed && typeof prefs.settingsGroupsCollapsed === 'object' && !Array.isArray(prefs.settingsGroupsCollapsed)) {
       const defaults = store.settingsGroupsCollapsed
@@ -1401,6 +1410,7 @@ let _prevTooltipsEnabled: boolean | null = null
 let _prevSupportNoteEnabled: boolean | null = null
 let _prevExplorerPausesPlayback: boolean | null = null
 let _prevTrackVuColorEnabled: boolean | null = null
+let _prevUnsavedWarningEnabled: boolean | null = null
 let _prevAutoMuteNonKeyboard: boolean | null = null
 let _prevSettingsGroupsCollapsed: string | null = null
 let _prevNoteEditorWalkthroughSeen: boolean | null = null
@@ -1473,6 +1483,7 @@ const _unsubPrefs = useStore.subscribe((state) => {
     _prevSupportNoteEnabled = state.supportNoteEnabled
     _prevExplorerPausesPlayback = state.explorerPausesPlayback
     _prevTrackVuColorEnabled = state.trackVuColorEnabled
+    _prevUnsavedWarningEnabled = state.unsavedWarningEnabled
     _prevAutoMuteNonKeyboard = state.autoMuteNonKeyboard
     _prevSettingsGroupsCollapsed = JSON.stringify(state.settingsGroupsCollapsed)
     _prevNoteEditorWalkthroughSeen = state.noteEditorWalkthroughSeen
@@ -1548,6 +1559,7 @@ const _unsubPrefs = useStore.subscribe((state) => {
     state.supportNoteEnabled !== _prevSupportNoteEnabled ||
     state.explorerPausesPlayback !== _prevExplorerPausesPlayback ||
     state.trackVuColorEnabled !== _prevTrackVuColorEnabled ||
+    state.unsavedWarningEnabled !== _prevUnsavedWarningEnabled ||
     state.autoMuteNonKeyboard !== _prevAutoMuteNonKeyboard ||
     JSON.stringify(state.settingsGroupsCollapsed) !== _prevSettingsGroupsCollapsed ||
     state.noteEditorWalkthroughSeen !== _prevNoteEditorWalkthroughSeen ||
@@ -1615,6 +1627,7 @@ const _unsubPrefs = useStore.subscribe((state) => {
     _prevSupportNoteEnabled = state.supportNoteEnabled
     _prevExplorerPausesPlayback = state.explorerPausesPlayback
     _prevTrackVuColorEnabled = state.trackVuColorEnabled
+    _prevUnsavedWarningEnabled = state.unsavedWarningEnabled
     _prevAutoMuteNonKeyboard = state.autoMuteNonKeyboard
     _prevSettingsGroupsCollapsed = JSON.stringify(state.settingsGroupsCollapsed)
     _prevNoteEditorWalkthroughSeen = state.noteEditorWalkthroughSeen
@@ -1689,6 +1702,7 @@ const _unsubPrefs = useStore.subscribe((state) => {
       supportNoteEnabled: state.supportNoteEnabled,
       explorerPausesPlayback: state.explorerPausesPlayback,
       trackVuColorEnabled: state.trackVuColorEnabled,
+      unsavedWarningEnabled: state.unsavedWarningEnabled,
       autoMuteNonKeyboard: state.autoMuteNonKeyboard,
       settingsGroupsCollapsed: state.settingsGroupsCollapsed,
       noteEditorWalkthroughSeen: state.noteEditorWalkthroughSeen,

@@ -9,6 +9,8 @@
 
 ### Changed
 - **Demo songs.** Replaced with freely licensed versions. The credits are in `THIRD_PARTY_LICENSES.md`. Thanks to Kevin Lappe.
+- **A warning before changes are lost.** Closing Orfeo, opening or dragging in another song, or closing the Playback Editor with its X now tells you about track, Mixer and Playback Editor changes that aren't saved. You can turn this off in Settings, under Editing.
+- **Popups you can move.** Drag a popup aside to see the song behind it. Their buttons now sit on the left.
 - **Licenses in the app.** Every download now includes Orfeo's license and the third-party notices. Read them from the *Licenses* link at the bottom of Settings. Thanks to Kevin Lappe.
 
 ### Fixed

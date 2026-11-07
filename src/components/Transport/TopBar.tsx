@@ -26,6 +26,7 @@ import { useMidiSettings } from '../../store/midiSettings'
 import { shortName } from '../../utils/midiDeviceNames'
 import { confirmDiscardDirtyNoteEdits } from '../../utils/noteEditorState'
 import { confirmDiscardDirtyTempoKey } from '../../utils/tempoKeySave'
+import { confirmUnsavedChanges } from '../../utils/unsavedPrompt'
 
 // NOTE: no more `C` shorthand object — every color below is a literal
 // `var(--token-name)` string written directly at its point of use, so the
@@ -115,7 +116,7 @@ export default function TopBar() {
     const proceed = await confirmDiscardDirtyNoteEdits('Save changes before resetting?')
     if (!proceed) return
     const proceedTempoKey = await confirmDiscardDirtyTempoKey('Save tempo/key changes before resetting?')
-    if (proceedTempoKey) resetAll()
+    if (proceedTempoKey && await confirmUnsavedChanges()) resetAll()
   }, [resetAll])
 
   const handleScrubStart = useCallback(() => {

@@ -15,6 +15,7 @@ import { detectKeyFromTracks, parseKeySignature } from '../../utils/keyDetection
 import { KEYBOARD_GROUPS } from '../../utils/keyboardGroups'
 import { useFocusTrap } from '../../hooks/useFocusTrap'
 import { useClampPositionOnZoom } from '../../hooks/useClampPositionOnZoom'
+import { acceptMixerValues } from '../../utils/unsavedChanges'
 
 // ── MixerConsole — floating draggable modal ───────────────────────────────────
 // Opened via Ctrl+Shift+M or the Console (SlidersVertical) icon in the TrackPanel.
@@ -104,7 +105,11 @@ export default function MixerConsole() {
       buttons: ['Save & Reload', 'Discard', 'Cancel'],
     })
     if (choice === 2) return // Cancel — leave mixer open
-    if (choice === 1) { setMixerOpen(false); return } // Discard — re-seeded from file next open
+    if (choice === 1) { // Discard — re-seeded from file next open
+      useStore.setState(s => ({ mixerBaseline: acceptMixerValues(s.tracks, s.mixerBaseline) }))
+      setMixerOpen(false)
+      return
+    }
 
     try {
       const result = await window.electronAPI.saveMixerChannels({

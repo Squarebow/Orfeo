@@ -12,6 +12,7 @@ export type ConfirmOptions = {
   detail?: string
   buttons: string[]       // last button = "safe" default (Escape / backdrop click)
   destructiveIndex?: number // index to render with destructive color (e.g. red)
+  startOnSafe?: boolean     // the keyboard starts on the last button, so a stray Enter loses nothing
 }
 
 export type ConfirmState = ConfirmOptions & { resolve: (index: number) => void }

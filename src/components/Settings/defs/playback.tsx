@@ -4,6 +4,30 @@ import { t } from '../../../utils/i18n'
 import { Switch, OptionBtn, FingerStepper, InlineIcon, SubLabel, HelpText } from '../controls'
 import type { SettingDef } from '../types'
 import { applySkipEmptyBarsChange } from '../../../utils/reloadOpenSong'
+import { confirmDialog } from '../../../utils/confirmController'
+import { simAvailable } from '../../../utils/midiSimulator'
+import { unsavedDetail } from '../../../utils/unsavedChanges'
+
+// Test builds: see the closing warning without changing a song and closing Orfeo
+function UnsavedWarningPreview() {
+  if (!simAvailable) return null
+  const show = () => void confirmDialog({
+    title: t`Unsaved changes`,
+    message: t`These changes to the song will be lost when Orfeo closes:`,
+    detail: unsavedDetail({ shown: 2, lights: 1, muted: 1, mixer: 3, playbackEditor: true }),
+    buttons: [t`Close Without Saving`, t`Cancel`],
+    destructiveIndex: 0,
+    startOnSafe: true,
+  })
+  return (
+    <div style={{ marginTop: 12, padding: 8, border: '1px dashed var(--border2)', borderRadius: 4 }}>
+      <div style={{ fontSize: 9, fontWeight: 600, letterSpacing: '0.1em', textTransform: 'uppercase', color: 'var(--text-muted)', marginBottom: 6 }}>{t`Closing warning · test builds only`}</div>
+      <button onClick={show}
+        style={{ padding: '3px 6px', borderRadius: 4, border: '1px dashed var(--border2)', background: 'transparent', color: 'var(--text-default)',
+          fontSize: 10, fontFamily: 'var(--font-ui)', cursor: 'pointer' }}>{t`Show warning`}</button>
+    </div>
+  )
+}
 
 function TapTempoExtra() {
   const on = useStore(s => s.tapTempoPadEnabled)
@@ -105,6 +129,10 @@ function HandColoursLink() {
 }
 
 export const PLAYBACK_DEFS: SettingDef[] = [
+  {
+    id: 'unsavedWarning', icon: TriangleAlert, kind: 'switch', Extra: UnsavedWarningPreview,
+    Control: () => { const v = useStore(s => s.unsavedWarningEnabled); return <Switch value={v} onChange={useStore.getState().setUnsavedWarningEnabled} label={t`Warn about unsaved changes`} /> },
+  },
   {
     id: 'noteEditor', icon: AudioLines, kind: 'switch',
     Control: () => { const v = useStore(s => s.noteEditorEnabled); return <Switch value={v} onChange={useStore.getState().setNoteEditorEnabled} label="MIDI Note Editor" /> },

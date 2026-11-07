@@ -2,7 +2,7 @@
 // Mount <ConfirmDialogHost /> once in App.tsx; it renders nothing when idle.
 // Trigger via confirmDialog() from confirmController.ts (imperative API).
 
-import { useEffect, useRef, useState, type CSSProperties } from 'react'
+import { useCallback, useEffect, useRef, useState, type CSSProperties, type MouseEvent as ReactMouseEvent } from 'react'
 import { createPortal } from 'react-dom'
 import { subscribeConfirm, type ConfirmState } from '../utils/confirmController'
 import { useFocusTrap } from '../hooks/useFocusTrap'
@@ -26,6 +26,36 @@ export function ConfirmDialogHost() {
 
   const panelRef = useRef<HTMLDivElement>(null)
   useFocusTrap(panelRef, !!state)
+  useEffect(() => {
+    if (state?.startOnSafe) [...(panelRef.current?.querySelectorAll('button') ?? [])].at(-1)?.focus()
+  }, [state])
+
+  // ── Draggable anywhere but its buttons, so it can be moved to see the song
+  // behind it — starts centred; once dragged, a fixed position, until the next one
+  const [pos, setPos] = useState<{ x: number; y: number } | null>(null)
+  const drag = useRef<{ startX: number; startY: number; posX: number; posY: number } | null>(null)
+  useEffect(() => { setPos(null) }, [state])
+  const startDrag = (e: ReactMouseEvent) => {
+    e.stopPropagation()
+    if ((e.target as HTMLElement).closest('button')) return
+    e.preventDefault()
+    const r = panelRef.current?.getBoundingClientRect()
+    const from = pos ?? { x: r?.left ?? 0, y: r?.top ?? 0 }
+    if (!pos) setPos(from)
+    drag.current = { startX: e.clientX, startY: e.clientY, posX: from.x, posY: from.y }
+  }
+  const onDragMove = useCallback((e: MouseEvent) => {
+    const d = drag.current
+    if (!d) return
+    // the top stays below the window's own title bar (40 px of Windows controls)
+    setPos({ x: d.posX + (e.clientX - d.startX), y: Math.max(44, d.posY + (e.clientY - d.startY)) })
+  }, [])
+  const onDragEnd = useCallback(() => { drag.current = null }, [])
+  useEffect(() => {
+    window.addEventListener('mousemove', onDragMove)
+    window.addEventListener('mouseup', onDragEnd)
+    return () => { window.removeEventListener('mousemove', onDragMove); window.removeEventListener('mouseup', onDragEnd) }
+  }, [onDragMove, onDragEnd])
 
   if (!state) return null
 
@@ -46,8 +76,10 @@ export function ConfirmDialogHost() {
         role="dialog"
         aria-modal="true"
         aria-label={state.title || 'Confirm'}
-        className="orfeo-modal-glow"
+        className="orfeo-modal-glow app-no-drag"
         style={{
+          cursor: 'grab',
+          ...(pos ? { position: 'fixed', left: pos.x, top: pos.y } : {}),
           background: 'var(--bg-modal)',
           border: '1px solid var(--border2)',
           borderRadius: 'var(--radius-lg)',
@@ -56,7 +88,7 @@ export function ConfirmDialogHost() {
           maxWidth: 460,
           '--_modal-shadow': 'var(--elevation-modal)',
         } as CSSProperties}
-        onMouseDown={(e) => e.stopPropagation()}
+        onMouseDown={startDrag}
       >
         {state.title && (
           <div style={{
@@ -84,7 +116,7 @@ export function ConfirmDialogHost() {
             {state.detail}
           </div>
         )}
-        <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8, marginTop: 20 }}>
+        <div style={{ display: 'flex', justifyContent: 'flex-start', gap: 8, marginTop: 20 }}>
           {state.buttons.map((label, i) => {
             const isPrimary    = i === 0
             const isDestructive = i === state.destructiveIndex

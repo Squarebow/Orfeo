@@ -5,6 +5,7 @@ import { detectKeyFromTracks, parseKeySignature } from '../utils/keyDetection'
 import { resolveAndTrackImport } from '../utils/foreignFormatImport'
 import { confirmDiscardDirtyNoteEdits } from '../utils/noteEditorState'
 import { confirmDiscardDirtyTempoKey } from '../utils/tempoKeySave'
+import { confirmUnsavedChanges } from '../utils/unsavedPrompt'
 
 export function useMidiFile() {
   const setMidi = useStore((s) => s.setMidi)
@@ -19,6 +20,8 @@ export function useMidiFile() {
 
       const result = await window.electronAPI.openMidiFile()
       if (!result) return
+      // after the file is picked: backing out of the picker loses nothing
+      if (!(await confirmUnsavedChanges())) return
 
       const libraryFolder = (useStore.getState() as any).libraryFolder as string | null ?? null
       const resolved = await resolveAndTrackImport(

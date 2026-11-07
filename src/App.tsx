@@ -53,6 +53,8 @@ import { useSupportNoteService } from './hooks/useSupportNote'
 import { isExporting } from './audio/exportAudio'
 import { SupportNote } from './components/SupportNote'
 import { isTextEntry } from './utils/keyTarget'
+import { t } from './utils/i18n'
+import { confirmUnsavedChanges, willWarnAboutChanges } from './utils/unsavedPrompt'
 
 export default function App() {
   // ── Update status + sound-set progress: one listener each for the app's
@@ -125,6 +127,8 @@ export default function App() {
     if (!canDiscard || requestId !== loadRequestIdRef.current) return
     const canDiscardTempoKey = await confirmDiscardDirtyTempoKey('Save tempo/key changes before opening this file?')
     if (!canDiscardTempoKey || requestId !== loadRequestIdRef.current) return
+    const canLoseChanges = await confirmUnsavedChanges()
+    if (!canLoseChanges || requestId !== loadRequestIdRef.current) return
 
     const proceed = await confirmPendingImportBeforeSwitch(filePath)
     if (!proceed || requestId !== loadRequestIdRef.current) return // user cancelled — stay on current file
@@ -243,8 +247,9 @@ export default function App() {
 
     const filePath = window.electronAPI.getPathForFile(file)
 
-    if (useStore.getState().midi !== null) {
-      // A file is already loaded — ask before replacing
+    if (useStore.getState().midi !== null && !willWarnAboutChanges()) {
+      // A file is already loaded — ask before replacing. With unsaved changes the
+      // warning about them is the one question, asked as the song loads
       const fileName = filePath.replace(/\\/g, '/').split('/').pop() ?? filePath
       const label    = fileName.length > 40 ? fileName.slice(0, 37) + '…' : fileName
       const choice   = await confirmDialog({
@@ -328,6 +333,12 @@ export default function App() {
           await (window.electronAPI as any).writeCachedImport(cachePath, pending.midiBase64)
         }
         useStore.getState().setPendingImportedFile(null)
+      }
+
+      // 4. Track, Mixer and Playback Editor changes: a warning for now, no saving from here
+      {
+        const go = await confirmUnsavedChanges(t`These changes to the song will be lost when Orfeo closes:`, t`Close Without Saving`)
+        if (!go) return  // Cancel — leave app open
       }
 
       // Nothing left pending — tell main process it is safe to close
