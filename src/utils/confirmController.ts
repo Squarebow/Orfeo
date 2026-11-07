@@ -26,6 +26,9 @@ export function subscribeConfirm(fn: (state: ConfirmState | null) => void): () =
   return () => listeners.delete(fn)
 }
 
+/** Is a confirm dialog waiting for an answer? */
+export const isConfirmOpen = () => current !== null
+
 function notify() {
   listeners.forEach((fn) => fn(current))
 }

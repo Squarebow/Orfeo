@@ -19,7 +19,7 @@ import MixerConsole from './components/Mixer/MixerConsole'
 import NoteEditorToolbar from './components/NoteEditor/NoteEditorToolbar'
 import { ConfirmDialogHost } from './components/ConfirmDialog'
 import Tooltip from './components/Tooltip'
-import { confirmDialog } from './utils/confirmController'
+import { confirmDialog, isConfirmOpen } from './utils/confirmController'
 import { parseMidiBuffer } from './utils/midiParser'
 import { detectKeyFromTracks, parseKeySignature } from './utils/keyDetection'
 import {
@@ -398,6 +398,9 @@ export default function App() {
         return
       }
       if (isTextEntry(e.target)) return
+      // A popup is asking something: the song stays out of it. Space would also press
+      // its focused button, and it should take a deliberate click or Enter
+      if (isConfirmOpen()) { if (e.key === ' ') e.preventDefault(); return }
       // Settings window open: only Esc (it closes itself) and Ctrl + , get through
       if (useStore.getState().settingsWindowOpen && e.key !== 'Escape' && !(e.ctrlKey && e.key === ',')) return
       const { playbackState } = useStore.getState()
