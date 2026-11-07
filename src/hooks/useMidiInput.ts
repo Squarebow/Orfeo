@@ -151,6 +151,7 @@ function noteOn(key: string, note: number, raw: number, stamp: number, t0: numbe
   heldBy(key).add(note)
   lightOn(note)
   setActive(key)
+  useStore.getState().triggerLiveNote(note)
 }
 
 function noteOff(key: string, note: number) {

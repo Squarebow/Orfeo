@@ -2,6 +2,7 @@ import React, { useMemo, useCallback, useState, useEffect, useRef } from 'react'
 import { useStore } from '../../store'
 import { isBlackKey } from '../../utils/midiParser'
 import { getNoteLabel, getNoteName } from '../../utils/noteNames'
+import { t } from '../../utils/i18n'
 import { detectChord, detectChordWithInversion, inversionForKnownChord, formatInversionDisplay, localizeChord, ordinalSuffix, buildCompactVoicing } from '../../utils/chordDetection'
 import { buildKeyLayoutRatios, PIANO_RANGES as RANGES } from '../../utils/keyLayout'
 import { notesSoundingAt } from '../../utils/midiParser'
@@ -57,6 +58,8 @@ export default function Keyboard() {
   const setChordExplorerOpen = useStore((s) => s.setChordExplorerOpen)
   const scaleExplorerOpen = useStore((s) => s.scaleExplorerOpen)
   const setScaleExplorerOpen = useStore((s) => s.setScaleExplorerOpen)
+  const staffTrainerOpen = useStore((s) => s.staffTrainerOpen)
+  const setStaffTrainerOpen = useStore((s) => s.setStaffTrainerOpen)
   const displayedChord = useStore((s) => s.displayedChord)
   const lockedKeys = useStore((s) => s.lockedKeys)
   const lockedColors = useStore((s) => s.lockedColors)
@@ -589,6 +592,7 @@ export default function Keyboard() {
       } else {
         if (playNote) playNote(midi, 0.7, 500)
       }
+      useStore.getState().triggerLiveNote(midi)
     }
   }, [lockedKeys, lockedColors, noteNaming, accidentals, chordNamingStyle, setLockedKeysStore, clearLockedKeys, lightGlissandoKey, chordExplorerOpen, scaleExplorerOpen])
 
@@ -748,8 +752,31 @@ export default function Keyboard() {
               )}
             </div>
 
-            {/* ── Right: SCALES trigger ─────────────────────────────────────────── */}
+            {/* ── Right: STAFF & SCALES triggers ─────────────────────────────────── */}
             <div style={{ position: 'absolute', right: 10, display: 'flex', alignItems: 'center', gap: 'var(--space-2)' }}>
+              <Tooltip title={t`Staff Trainer`} description={t`Practice finding notes on treble and bass clefs with your keyboard.`}>
+                <span
+                  onClick={() => setStaffTrainerOpen(!staffTrainerOpen)}
+                  role="button"
+                  tabIndex={0}
+                  onKeyDown={activateOnKey(() => setStaffTrainerOpen(!staffTrainerOpen))}
+                  style={{
+                    fontFamily: 'var(--font-ui)',
+                    fontSize: 12,
+                    fontWeight: 700,
+                    color: staffTrainerOpen ? 'var(--text-white)' : 'var(--text-amber)',
+                    letterSpacing: '0.12em',
+                    textTransform: 'uppercase',
+                    cursor: 'pointer',
+                    userSelect: 'none',
+                    opacity: staffTrainerOpen ? 1 : 0.85,
+                    transition: 'color 0.15s, opacity 0.15s',
+                  }}
+                >
+                  {t`Staff`}
+                </span>
+              </Tooltip>
+              <div style={{ width: 1, height: 12, background: 'var(--border)' }} />
               <Tooltip title="Scales Explorer" description="Opens a dedicated view for exploring scales and highlighting their notes on the keyboard.">
                 <span
                   onClick={() => setScaleExplorerOpen(true)}
@@ -917,8 +944,31 @@ export default function Keyboard() {
               })()}
             </div>
 
-            {/* ── Right: SCALES trigger ─────────────────────────────────────────── */}
+            {/* ── Right: STAFF & SCALES triggers ─────────────────────────────────── */}
             <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-2)', flexShrink: 0 }}>
+              <Tooltip title={t`Staff Trainer`} description={t`Practice finding notes on treble and bass clefs with your keyboard.`}>
+                <span
+                  onClick={() => setStaffTrainerOpen(!staffTrainerOpen)}
+                  role="button"
+                  tabIndex={0}
+                  onKeyDown={activateOnKey(() => setStaffTrainerOpen(!staffTrainerOpen))}
+                  style={{
+                    fontFamily: 'var(--font-ui)',
+                    fontSize: 12,
+                    fontWeight: 700,
+                    color: staffTrainerOpen ? 'var(--text-white)' : 'var(--text-amber)',
+                    letterSpacing: '0.12em',
+                    textTransform: 'uppercase',
+                    cursor: 'pointer',
+                    userSelect: 'none',
+                    opacity: staffTrainerOpen ? 1 : 0.85,
+                    transition: 'color 0.15s, opacity 0.15s',
+                  }}
+                >
+                  {t`Staff`}
+                </span>
+              </Tooltip>
+              <div style={{ width: 1, height: 12, background: 'var(--border)' }} />
               <Tooltip title="Scales" description="Opens a dedicated view for exploring scales and highlighting their notes on the keyboard.">
                 <span
                   onClick={() => setScaleExplorerOpen(true)}
