@@ -440,6 +440,7 @@
   "Folders": "Folders",
   "Folds the session's tempo/key changes into the next Save & Reload": "Folds the session's tempo/key changes into the next Save & Reload",
   "Follow": "Follow",
+  "Follow system": "Follow system",
   "Follows the chord instruments (piano, keys, guitar, strings), ignoring melody and ornament lines. Best for most songs.": "Follows the chord instruments (piano, keys, guitar, strings), ignoring melody and ornament lines. Best for most songs.",
   "For a perfectly accurate split use MIDI note editor and click the": "For a perfectly accurate split use MIDI note editor and click the",
   "For a song with a better copy in your Library.\nUses that file's bars and tempo for this one.\nNothing changes until you press Keep.": "For a song with a better copy in your Library.\nUses that file's bars and tempo for this one.\nNothing changes until you press Keep.",

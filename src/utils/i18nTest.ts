@@ -1,4 +1,4 @@
-import { pseudo, t, translated } from './i18n'
+import { languageForLocale, pseudo, resolveLanguage, SYSTEM, t, translated } from './i18n'
 
 export function runI18nTest(): number {
   console.group('[i18n] self-check')
@@ -15,6 +15,14 @@ export function runI18nTest(): number {
   check(t`Plain ${1} text` === 'Plain 1 text', 't works in English')
 
   check(pseudo('Keep') === '[Kéép~~]', `test language, got ${pseudo('Keep')}`)
+
+  const both = [{ code: 'en', htmlLang: 'en' }, { code: 'zh_Hans', htmlLang: 'zh-Hans' }]
+  for (const locale of ['zh-CN', 'zh', 'zh-Hans', 'zh_CN', 'zh-SG']) check(languageForLocale(locale, both) === 'zh_Hans', `${locale} means Simplified`)
+  for (const locale of ['zh-TW', 'zh-HK', 'zh-Hant', 'zh-Hant-TW']) check(languageForLocale(locale, both) === 'en', `${locale} isn't sent to Simplified`)
+  for (const locale of ['en-US', 'sl-SI', 'de', '']) check(languageForLocale(locale, both) === 'en', `${locale || 'no locale'} is English`)
+  check(resolveLanguage(SYSTEM, 'en-US') === 'en', 'Follow system reads the computer')
+  check(resolveLanguage('en', 'zh-CN') === 'en', 'a chosen language beats the computer')
+  check(resolveLanguage('nonsense', 'en-US') === 'en', 'an unknown saved language is English')
 
   console.log(`i18n: ${pass} passed, ${fail} failed`)
   console.groupEnd()

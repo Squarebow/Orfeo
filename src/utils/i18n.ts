@@ -6,6 +6,8 @@ import { CATALOGS } from '../i18n/catalogs'
 // See docs/I18N_PLAN.md (gitignored) for the full rollout plan. ───────────────
 const LANGUAGE_KEY = 'orfeo-language'
 const ENGLISH = 'en'
+// The default choice: whichever language the computer uses, if Orfeo has it
+export const SYSTEM = 'system'
 
 // Test builds only: every prepared text comes out bracketed, accented and longer,
 // so plain English left on screen stands out, and so do layouts that can't stretch
@@ -18,14 +20,29 @@ export const LANGUAGES = [
   ...(testTools ? [{ code: PSEUDO, name: 'Pseudo (test builds only)', htmlLang: 'en' }] : []),
 ].filter(l => l.code === ENGLISH || l.code === PSEUDO || CATALOGS[l.code])
 
-function savedLanguage(): string {
-  try {
-    const code = localStorage.getItem(LANGUAGE_KEY)
-    return code && LANGUAGES.some(l => l.code === code) ? code : ENGLISH
-  } catch { return ENGLISH }
+// Traditional Chinese readers aren't sent to Simplified: they get English until
+// Orfeo has their script, and can still pick Simplified from the menu
+export function languageForLocale(locale: string, languages: readonly { code: string; htmlLang: string }[] = LANGUAGES): string {
+  const tag = locale.toLowerCase().replace(/_/g, '-')
+  if (/^zh\b/.test(tag) && /hant|-tw|-hk|-mo/.test(tag)) return ENGLISH
+  const primary = tag.split('-')[0]
+  return languages.find(l => l.code !== PSEUDO && l.htmlLang.split('-')[0] === primary)?.code ?? ENGLISH
 }
 
-export const currentLanguage = savedLanguage()
+export function resolveLanguage(choice: string, locale: string): string {
+  if (choice === SYSTEM) return languageForLocale(locale)
+  return LANGUAGES.some(l => l.code === choice) ? choice : ENGLISH
+}
+
+function savedChoice(): string {
+  try {
+    const code = localStorage.getItem(LANGUAGE_KEY)
+    return code === SYSTEM || LANGUAGES.some(l => l.code === code) ? code! : SYSTEM
+  } catch { return SYSTEM }
+}
+
+export const currentChoice = savedChoice()
+export const currentLanguage = resolveLanguage(currentChoice, typeof navigator === 'undefined' ? '' : navigator.language)
 let language = currentLanguage
 let catalog = CATALOGS[language]
 

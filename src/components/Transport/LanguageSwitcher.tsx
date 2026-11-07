@@ -3,7 +3,7 @@ import { ArrowUpRight, Languages } from 'lucide-react'
 import Tooltip from '../Tooltip'
 import { ContextMenu, ContextMenuDivider, ContextMenuItem, useMenuDismiss } from '../ContextMenu'
 import { confirmDialog } from '../../utils/confirmController'
-import { LANGUAGES, changeLanguage, currentLanguage, t } from '../../utils/i18n'
+import { LANGUAGES, SYSTEM, changeLanguage, currentChoice, t } from '../../utils/i18n'
 
 const MENU_WIDTH = 150
 
@@ -17,7 +17,7 @@ export function LanguageSwitcher() {
 
   const choose = async (code: string) => {
     setMenu(null)
-    if (code === currentLanguage) return
+    if (code === currentChoice) return
     const choice = await confirmDialog({
       title: t`Change language`,
       message: t`Orfeo reloads to change language.`,
@@ -49,9 +49,9 @@ export function LanguageSwitcher() {
       </Tooltip>
       {menu && (
         <ContextMenu ref={menuRef} x={menu.x} y={menu.y} minWidth={MENU_WIDTH} ariaLabel={t`Language`} className="app-no-drag">
-          {LANGUAGES.map(l => (
+          {[{ code: SYSTEM, name: t`Follow system` }, ...LANGUAGES].map(l => (
             <ContextMenuItem key={l.code} onClick={() => void choose(l.code)}>
-              <span style={{ color: l.code === currentLanguage ? 'var(--text-amber)' : undefined }}>{l.name}</span>
+              <span style={{ color: l.code === currentChoice ? 'var(--text-amber)' : undefined }}>{l.name}</span>
             </ContextMenuItem>
           ))}
           <ContextMenuDivider />

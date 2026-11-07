@@ -229,8 +229,10 @@ button, input, select, textarea {
      values as separate JS literals. --font-logo is the ORFEO wordmark's own
      stack (OrfeoLogo.tsx) — deliberately separate so the brand mark can keep
      its own typographic identity independent of the UI font. */
-  --font-ui:   'Familjen Grotesk', sans-serif;
-  --font-mono: 'IBM Plex Mono', monospace;
+  /* Our fonts have no Chinese: these system fonts fill in, per character */
+  --font-cjk:  'Microsoft YaHei', 'PingFang SC', 'Noto Sans CJK SC', 'Source Han Sans SC';
+  --font-ui:   'Familjen Grotesk', var(--font-cjk), sans-serif;
+  --font-mono: 'IBM Plex Mono', var(--font-cjk), monospace;
   --font-logo: 'Inter', 'Georgia', serif;
 
   /* ── Backgrounds — remapped to new lighter, layered scheme ─────────────── */
