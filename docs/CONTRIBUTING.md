@@ -93,7 +93,8 @@ npm install
 npm run dev
 ```
 
-`npm run dev` launches the Electron app with hot-reloading renderer code.
+`npm run dev` launches the Electron app with hot-reloading renderer code. The
+first run also downloads Electron, because `npm install` no longer does.
 
 > [!NOTE]
 > `dev`, `build`, and `dist` automatically run two pre-steps first:
