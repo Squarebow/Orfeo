@@ -5,7 +5,13 @@
      list of 2–4 one-line bullets, then ### New / ### Changed / ### Fixed.
      Newest version at the top. -->
 
-## [Unreleased]
+## [1.7.1] — 7. 11. 2026 — Unsaved changes warning, licenses in the app, fixes
+
+**In short**
+- Orfeo now warns you before unsaved changes to a song are lost, when you close it or open another song.
+- Licenses are now in the app, and the demo songs are replaced with freely licensed versions.
+- Popups can be moved aside, and Space works straight after using the position bar.
+- Fixes for the Scales Explorer, the Playback Editor and file windows on Mac.
 
 ### Changed
 - **Demo songs.** Replaced with freely licensed versions. The credits are in `THIRD_PARTY_LICENSES.md`. Thanks to Kevin Lappe.
