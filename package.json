@@ -20,7 +20,8 @@
     "dist:mac": "npm run build && electron-builder --mac -c.mac.identity=-",
     "release:notes": "node scripts/release-notes.mjs",
     "native:build": "node scripts/build-native.mjs",
-    "i18n:extract": "node scripts/i18n-extract.mjs"
+    "i18n:extract": "node scripts/i18n-extract.mjs",
+    "licenses": "node scripts/generate-licenses.mjs"
   },
   "build": {
     "appId": "com.squarebow.orfeo",
@@ -194,7 +195,6 @@
     "tonal": "^6.4.0",
     "tone": "^15.1.22",
     "wasm-media-encoders": "^0.7.0",
-    "webaudiofont": "^3.0.4",
     "zustand": "^5.0.16"
   },
   "devDependencies": {

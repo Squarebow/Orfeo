@@ -27,13 +27,15 @@ export function runLicenseMarkdownTest(): number {
   check(inl.some(x => x.kind === 'link' && x.url.startsWith('https://b.org')), 'a bare address is a link')
   check(!parseInline('[bad](javascript:alert(1))').some(x => x.kind === 'link'), 'only web links open')
 
+  check(parseLicenseMarkdown('<!-- a marker -->\nvisible').every(x => x.kind !== 'para' || x.text === 'visible'), 'markers stay hidden')
+
   // The real files: every section read, nothing left as raw table or details text
   const flat = (bs: Block[]): Block[] => bs.flatMap(x => x.kind === 'details' ? [x, ...flat(x.blocks)] : [x])
   for (const f of ['LICENSE.md', 'THIRD_PARTY_LICENSES.md']) {
     const blocks = flat(parseLicenseMarkdown(readFileSync(f, 'utf-8')))
     const paras = blocks.flatMap(x => x.kind === 'para' ? [x.text] : [])
     check(blocks.some(x => x.kind === 'heading'), `${f}: headings`)
-    check(!paras.some(p => p.startsWith('|') || p.includes('<details>') || p.includes('<summary>')), `${f}: no raw markup left`)
+    check(!paras.some(p => p.startsWith('|') || p.includes('<details>') || p.includes('<summary>') || p.includes('<!--')), `${f}: no raw markup left`)
   }
   const third = flat(parseLicenseMarkdown(readFileSync('THIRD_PARTY_LICENSES.md', 'utf-8')))
   check(third.filter(x => x.kind === 'table').length >= 8, 'third-party tables are tables')

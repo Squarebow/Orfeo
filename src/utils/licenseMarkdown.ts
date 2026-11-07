@@ -28,7 +28,7 @@ export function parseLicenseMarkdown(source: string): Block[] {
   for (let i = 0; i < lines.length; i++) {
     const line = lines[i], trimmed = line.trim()
     const heading = /^(#{1,6})\s+(.*)$/.exec(trimmed)
-    if (!trimmed) flush()
+    if (!trimmed || (trimmed.startsWith('<!--') && trimmed.endsWith('-->'))) flush()
     else if (trimmed.startsWith('```')) {
       flush()
       const code: string[] = []

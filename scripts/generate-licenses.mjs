@@ -1,25 +1,38 @@
-// Generates docs/THIRD_PARTY_LICENSES.md.
-// Each license group: heading + link on one line, full text collapsed in a
-// closed-by-default <details> block, then an always-visible table of
-// packages/repos/copyright holders.
+// Keeps THIRD_PARTY_LICENSES.md matched to what Orfeo really ships.
 //
-// Usage:
-//   npx license-checker --production --json --out scripts/license-report.json
-//   node scripts/generate-licenses.mjs
+// npm packages: esbuild traces the app's imports (nothing is written), so a
+// package counts when code from it reaches the app, whatever package.json calls
+// it: React and Lucide are dev dependencies, but they ship. An unused dependency
+// doesn't count. The packages copied beside the app (build.files) and the audio
+// worklet are added to that.
+// Rust crates: cargo's own record of what's compiled into the Windows add-on.
+//
+// Only the parts between the markers are generated; the rest of the file is
+// written by hand. Usage: npm run licenses, or npm run licenses -- --check,
+// which changes nothing and fails if the file is out of date.
 
-import { readFileSync, writeFileSync, existsSync } from 'fs';
-import path from 'path';
+import { execFileSync } from 'node:child_process'
+import { existsSync, readdirSync, readFileSync, writeFileSync } from 'node:fs'
+import { builtinModules } from 'node:module'
+import { join, resolve } from 'node:path'
+import { build } from 'esbuild'
 
-const REPORT_PATH = path.resolve('scripts/license-report.json');
-const OUTPUT_PATH = path.resolve('docs/THIRD_PARTY_LICENSES.md');
+const root = resolve(import.meta.dirname, '..')
+const NOTICES = join(root, 'THIRD_PARTY_LICENSES.md')
+const check = process.argv.includes('--check')
+const pkg = JSON.parse(readFileSync(join(root, 'package.json'), 'utf8'))
 
-const EXCLUDE = new Set(['orfeo@1.0.0']);
-const CUSTOM_HANDLED = new Set(['gsap@3.15.0']); // hand-written section, prepended separately
+// the audio worklet: spessasynth_processor.min.js, copied from spessasynth_lib
+// with spessasynth_core and stb-vorbis already inside it
+const WORKLET = ['spessasynth_lib', 'spessasynth_core', 'stb-vorbis']
+// has its own section by hand: not open source, and its terms need explaining
+const OWN_SECTION = new Set(['gsap'])
+// these license files say more than one license: shown in full
+const SHOW_IN_FULL = ['lucide-react']
+// a short standard text isn't enough for these: the full text comes from a package
+const TEXT_FROM_PACKAGE = new Set(['Apache-2.0', 'MPL-2.0'])
 
-const GROUP_ORDER = [
-  'MIT', 'ISC', 'Apache-2.0', 'BSD-3-Clause', 'BSD-2-Clause', '0BSD',
-  'MPL-2.0', 'BlueOak-1.0.0', '(MIT AND Zlib)', 'Python-2.0',
-];
+const GROUP_ORDER = ['MIT', 'ISC', 'Apache-2.0', 'BSD-3-Clause', 'BSD-2-Clause', '0BSD', 'MPL-2.0', 'BlueOak-1.0.0']
 
 const LICENSE_URL = {
   'MIT': 'https://opensource.org/license/mit',
@@ -30,11 +43,8 @@ const LICENSE_URL = {
   'Apache-2.0': 'https://www.apache.org/licenses/LICENSE-2.0',
   'MPL-2.0': 'https://www.mozilla.org/en-US/MPL/2.0/',
   'BlueOak-1.0.0': 'https://blueoakcouncil.org/license/1.0.0',
-  '(MIT AND Zlib)': 'https://opensource.org/license/mit',
-  'Python-2.0': 'https://www.python.org/download/releases/2.0/license/',
-};
+}
 
-// Short canonical text per group, shown once inside the collapsed accordion.
 const CANONICAL_TEXT = {
   'MIT': `Permission is hereby granted, free of charge, to any person obtaining a copy
 of this software and associated documentation files (the "Software"), to deal
@@ -94,125 +104,162 @@ AND ANY EXPRESS OR IMPLIED WARRANTIES ARE DISCLAIMED. IN NO EVENT SHALL THE
 COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE FOR ANY DAMAGES ARISING IN ANY WAY
 OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH
 DAMAGE.`,
-
-  '(MIT AND Zlib)': `Dual-licensed under MIT and Zlib terms. Both are short permissive
-licenses requiring only that copyright/license notices be retained; neither
-imposes copyleft obligations. See the MIT text above for the MIT half; Zlib
-terms are functionally equivalent.`,
-
-  'BlueOak-1.0.0': `Permission to use, copy, modify, and/or distribute this software for any
-purpose with or without fee is hereby granted.
-
-THE SOFTWARE IS PROVIDED "AS IS" AND WITHOUT WARRANTY OF ANY KIND, TO THE
-EXTENT PERMITTED BY LAW. THE COPYRIGHT HOLDER DISCLAIMS ALL LIABILITY FOR
-HOW THIS SOFTWARE IS USED OR PERFORMS, TO THE EXTENT PERMITTED BY LAW.`,
-
-  'Apache-2.0': `Licensed under the Apache License, Version 2.0 (the "License"); you may
-not use this file except in compliance with the License.
-
-Unless required by applicable law or agreed to in writing, software
-distributed under the License is distributed on an "AS IS" BASIS, WITHOUT
-WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
-License for the specific language governing permissions and limitations
-under the License. (Full ~10KB text at the link above — condensed here
-since its terms are standardized.)`,
-
-  'MPL-2.0': `This Source Code Form is subject to the terms of the Mozilla Public
-License, v. 2.0. If a copy of the MPL was not distributed with this file,
-you can obtain one at the link above.
-
-MPL-2.0 is a file-level (weak) copyleft license — modifications to
-MPL-licensed files must have their source made available under MPL-2.0, but
-the license does not extend to other files in a larger work that simply
-link against or import the MPL-licensed component.`,
-
-  'Python-2.0': `Licensed under the Python Software Foundation License Version 2 — a
-permissive license similar in effect to BSD/MIT (no copyleft obligations).
-(Full PSF license file bundles retained historical license versions for
-older Python releases that don't apply to this dependency; omitted here.)`,
-};
-
-function firstCopyrightLine(text) {
-  const line = text.split('\n').find((l) => /copyright/i.test(l));
-  return line ? line.trim().replace(/^#+\s*/, '') : null;
 }
 
-const report = JSON.parse(readFileSync(REPORT_PATH, 'utf-8'));
-const entries = Object.entries(report).filter(
-  ([pkg]) => !EXCLUDE.has(pkg) && !CUSTOM_HANDLED.has(pkg)
-);
-
-const groups = new Map();
-const flagged = [];
-
-for (const [pkg, info] of entries) {
-  const licenseType = Array.isArray(info.licenses) ? info.licenses.join(' / ') : info.licenses;
-  const needsReview =
-    licenseType.includes('*') ||
-    licenseType.toLowerCase().startsWith('custom') ||
-    licenseType.toLowerCase().includes('gpl');
-  if (needsReview) flagged.push([pkg, licenseType]);
-
-  if (!groups.has(licenseType)) groups.set(licenseType, []);
-  groups.get(licenseType).push([pkg, info]);
+// ── Which npm packages reach the app ─────────────────────────────────────────
+const ASSETS = ['.css', '.woff', '.woff2', '.ttf', '.png', '.jpg', '.svg', '.webp', '.ico', '.sf2', '.wasm', '.mid']
+const dropQuery = {
+  name: 'drop-query',
+  setup(b) {
+    // build syntax. A ?worker import stands for a class; the worker's own file
+    // is traced as an entry point. Anywhere else the file itself is what counts
+    b.onResolve({ filter: /\?worker/ }, args => ({ path: args.path, namespace: 'worker' }))
+    b.onLoad({ filter: /.*/, namespace: 'worker' }, () => ({ contents: 'export default class {}' }))
+    b.onResolve({ filter: /\?/ }, args => b.resolve(args.path.split('?')[0], { kind: args.kind, resolveDir: args.resolveDir }))
+  },
 }
 
-const allKeys = [...groups.keys()];
-const sortedGroupKeys = [
-  ...GROUP_ORDER.filter((k) => allKeys.includes(k)),
-  ...allKeys.filter((k) => !GROUP_ORDER.includes(k)).sort(),
-];
-
-let out = `# Third-Party Licenses
-
-Grouped by license type. Click a license name to jump to its full text
-(collapsed by default); the package table below each is always visible.
-
-Auto-generated by \`scripts/generate-licenses.mjs\`. Do not hand-edit.
-GSAP (proprietary) and GPL-licensed dependencies are documented separately.
-
-`;
-
-if (flagged.length) {
-  out += `> ⚠️ Flagged for manual review:\n`;
-  flagged.forEach(([pkg, lic]) => (out += `> - \`${pkg}\` — ${lic}\n`));
-  out += `\n`;
-}
-
-out += `---\n\n`;
-
-for (const groupKey of sortedGroupKeys) {
-  const pkgs = groups.get(groupKey).sort(([a], [b]) => a.localeCompare(b));
-  const url = LICENSE_URL[groupKey];
-  const text = CANONICAL_TEXT[groupKey];
-
-  // Heading + link on the same line
-  out += `## ${groupKey}${url ? ` — [full text](${url})` : ''} (${pkgs.length} package${pkgs.length === 1 ? '' : 's'})\n\n`;
-
-  // Collapsed-by-default accordion, self-contained with blank lines so it
-  // doesn't bleed into the next block — this is what broke last time.
-  out += `<details>\n<summary>Show license text</summary>\n\n`;
-  out += '```\n' + (text || '[No canonical text on file — see link above.]') + '\n```\n\n';
-  out += `</details>\n\n`;
-
-  // Always-visible table
-  out += `| Package | Repository | Copyright |\n|---|---|---|\n`;
-  for (const [pkg, info] of pkgs) {
-    const repo = info.repository ? info.repository.replace('https://github.com/', '') : '—';
-    let copyright = info.publisher || '—';
-    if (info.licenseFile && existsSync(info.licenseFile)) {
-      const found = firstCopyrightLine(readFileSync(info.licenseFile, 'utf-8'));
-      if (found) copyright = found;
+async function trace(entryPoints, platform) {
+  const result = await build({
+    absWorkingDir: root, entryPoints, platform, bundle: true, write: false, metafile: true,
+    format: 'esm', outdir: 'out-unused', logLevel: 'silent', jsx: 'automatic',
+    external: ['electron', 'pdfkit', ...builtinModules, ...builtinModules.map(m => `node:${m}`)],
+    loader: Object.fromEntries(ASSETS.map(ext => [ext, 'empty'])),
+    plugins: [dropQuery],
+  })
+  const dirs = new Set()
+  for (const output of Object.values(result.metafile.outputs)) {
+    for (const [input, { bytesInOutput }] of Object.entries(output.inputs)) {
+      const m = /^(.*node_modules\/(?:@[^/]+\/)?[^/]+)\//.exec(input)
+      if (m && bytesInOutput > 0) dirs.add(m[1])
     }
-    out += `| \`${pkg}\` | ${repo} | ${copyright} |\n`;
   }
-
-  out += `\n---\n\n`;
+  return dirs
 }
 
-writeFileSync(OUTPUT_PATH, out, 'utf-8');
-console.log(`Wrote ${entries.length} packages across ${sortedGroupKeys.length} groups to ${OUTPUT_PATH}`);
-if (flagged.length) {
-  console.warn(`\nFlagged: ${flagged.length}`);
-  flagged.forEach(([p, l]) => console.warn(`  - ${p} (${l})`));
+function copiedPackages() {
+  const dirs = new Set()
+  for (const pattern of pkg.build.files) {
+    const m = /^node_modules\/([^!*]+?)\/\*\*\/\*$/.exec(pattern)
+    if (!m) continue
+    const dir = `node_modules/${m[1]}`
+    if (existsSync(join(root, dir, 'package.json'))) dirs.add(dir)
+    else if (m[1].startsWith('@')) for (const name of readdirSync(join(root, dir))) dirs.add(`${dir}/${name}`)
+  }
+  return dirs
+}
+
+const licenseFile = dir => {
+  const name = readdirSync(dir).find(f => /^(licen[cs]e|copying)(\.|-|$)/i.test(f))
+  return name ? readFileSync(join(dir, name), 'utf8').replace(/\r\n/g, '\n').trim() : ''
+}
+const cell = s => s.replace(/\|/g, '/').replace(/\s+/g, ' ').trim()
+
+function describe(dir) {
+  const full = join(root, dir)
+  const p = JSON.parse(readFileSync(join(full, 'package.json'), 'utf8'))
+  const text = licenseFile(full)
+  // a few packages leave it out of package.json and only have the license file
+  const raw = p.license ?? p.licenses ?? (/permission is hereby granted, free of charge/i.test(text) ? 'MIT' : undefined)
+  const license = (Array.isArray(raw) ? raw.map(l => l.type ?? l).join(' OR ') : raw?.type ?? raw ?? 'UNKNOWN').replace(/^\((.*)\)$/, '$1')
+  const repoUrl = typeof p.repository === 'string' ? p.repository : p.repository?.url ?? ''
+  const repo = repoUrl.replace(/^git\+/, '').replace(/^github:/, '').replace(/\.git$/, '').replace(/^(https?|ssh|git):\/\/(git@)?github\.com\//, '').replace(/^git@github\.com:/, '')
+  const author = typeof p.author === 'string' ? p.author : p.author?.name ?? ''
+  const copyright = text.split('\n').find(l => /copyright.*(\d{4}|\(c\)|©)/i.test(l) && !/<year>|\[year\]|\{yyyy\}|\[yyyy\]/i.test(l))
+  return { name: p.name, version: p.version, license, repo, text, copyright: copyright?.trim().replace(/^#+\s*/, '') || author || '—' }
+}
+
+async function npmSection() {
+  const dirs = new Set([
+    ...await trace(['src/main.tsx', 'src/audio/exportStudio.worker.ts'], 'browser'),
+    ...await trace(['electron/main.ts', 'electron/audioHost.ts', 'electron/preload.ts'], 'node'),
+    ...copiedPackages(),
+    ...WORKLET.map(name => `node_modules/${name}`),
+  ])
+  const seen = new Map()
+  for (const dir of dirs) {
+    const d = describe(dir)
+    if (!OWN_SECTION.has(d.name)) seen.set(`${d.name}@${d.version}`, d)
+  }
+  const groups = new Map()
+  for (const d of seen.values()) groups.set(d.license, [...(groups.get(d.license) ?? []), d])
+  const keys = [...GROUP_ORDER.filter(k => groups.has(k)), ...[...groups.keys()].filter(k => !GROUP_ORDER.includes(k)).sort()]
+
+  let out = ''
+  for (const key of keys) {
+    const list = groups.get(key).sort((a, b) => a.name.localeCompare(b.name))
+    const fromPackage = TEXT_FROM_PACKAGE.has(key) ? list.find(d => d.text.length > 2000)?.text : undefined
+    const text = fromPackage ?? CANONICAL_TEXT[key]
+    const url = LICENSE_URL[key]
+    out += `## ${key}${url ? ` — [full text](${url})` : ''} (${list.length} package${list.length === 1 ? '' : 's'})\n\n`
+    if (text) out += `<details>\n<summary>Show license text</summary>\n\n\`\`\`\n${text}\n\`\`\`\n\n</details>\n\n`
+    out += '| Package | Repository | Copyright |\n|---|---|---|\n'
+    for (const d of list) out += `| \`${d.name}@${d.version}\` | ${cell(d.repo) || '—'} | ${cell(d.copyright)} |\n`
+    out += '\n---\n\n'
+  }
+  for (const name of SHOW_IN_FULL) {
+    const d = [...seen.values()].find(x => x.name === name)
+    if (d) out += `## ${name}: the full license file\n\n<details>\n<summary>Show license text</summary>\n\n\`\`\`\n${d.text}\n\`\`\`\n\n</details>\n\n---\n\n`
+  }
+  const unknown = [...seen.values()].filter(d => d.license === 'UNKNOWN' || /gpl/i.test(d.license) || d.copyright === '—')
+  return { text: out.trimEnd(), count: seen.size, unknown }
+}
+
+// ── Which Rust crates are compiled into the add-on ───────────────────────────
+function rustSection() {
+  const cargoHome = process.env.CARGO_HOME ?? join(process.env.USERPROFILE ?? process.env.HOME ?? '', '.cargo')
+  const cargo = [join(cargoHome, 'bin', 'cargo.exe'), join(cargoHome, 'bin', 'cargo')].find(existsSync) ?? 'cargo'
+  const raw = execFileSync(cargo, ['metadata', '--format-version', '1', '--filter-platform', 'x86_64-pc-windows-msvc', '--locked'],
+    { cwd: join(root, 'native'), maxBuffer: 1 << 28, encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'] })
+  const meta = JSON.parse(raw)
+  const byId = new Map(meta.packages.map(p => [p.id, p]))
+  const nodes = new Map(meta.resolve.nodes.map(n => [n.id, n]))
+  const start = meta.packages.find(p => p.name === 'orfeo-audio-node')
+  const compiled = new Set()
+  const walk = id => {
+    if (compiled.has(id)) return
+    compiled.add(id)
+    for (const dep of nodes.get(id).deps) {
+      // only what's linked in: not build scripts, tests, or code that only
+      // runs while compiling
+      const linked = dep.dep_kinds.some(k => k.kind === null)
+      const macro = byId.get(dep.pkg).targets.some(t => t.kind.includes('proc-macro'))
+      if (linked && !macro) walk(dep.pkg)
+    }
+  }
+  walk(start.id)
+  const groups = new Map()
+  for (const id of compiled) {
+    const p = byId.get(id)
+    if (!p.source) continue                       // Orfeo's own crates
+    const license = (p.license ?? 'UNKNOWN').replace(/\//g, ' OR ')
+    groups.set(license, [...(groups.get(license) ?? []), `${p.name} ${p.version}`])
+  }
+  let out = '| License | Crates |\n|---|---|\n'
+  for (const key of [...groups.keys()].sort()) out += `| ${key} | ${groups.get(key).sort().map(c => `\`${c}\``).join(', ')} |\n`
+  return out.trimEnd()
+}
+
+function replaceBetween(file, name, body) {
+  const start = `<!-- ${name}:start -->`, end = `<!-- ${name}:end -->`
+  const a = file.indexOf(start), b = file.indexOf(end)
+  if (a < 0 || b < a) throw new Error(`THIRD_PARTY_LICENSES.md has no ${name} markers`)
+  return `${file.slice(0, a + start.length)}\n${body}\n${file.slice(b)}`
+}
+
+const before = readFileSync(NOTICES, 'utf8')
+const crlf = before.includes('\r\n')
+const npm = await npmSection()
+let after = before.replace(/\r\n/g, '\n')
+after = replaceBetween(after, 'npm-packages', npm.text)
+after = replaceBetween(after, 'rust-crates', rustSection())
+if (crlf) after = after.replace(/\n/g, '\r\n')
+
+for (const d of npm.unknown) console.warn(`check by hand: ${d.name}@${d.version} (${d.license}, ${d.copyright})`)
+if (check) {
+  if (after !== before) { console.error('THIRD_PARTY_LICENSES.md is out of date: run npm run licenses'); process.exit(1) }
+  console.log('THIRD_PARTY_LICENSES.md is up to date')
+} else {
+  writeFileSync(NOTICES, after)
+  console.log(`THIRD_PARTY_LICENSES.md: ${npm.count} npm packages, Rust crates updated`)
 }
