@@ -5,7 +5,8 @@
 // it: React and Lucide are dev dependencies, but they ship. An unused dependency
 // doesn't count. The packages copied beside the app (build.files) and the audio
 // worklet are added to that.
-// Rust crates: cargo's own record of what's compiled into the Windows add-on.
+// Rust crates: cargo's own record of what's compiled into the Windows add-on
+// and the Store review helper.
 //
 // Only the parts between the markers are generated; the rest of the file is
 // written by hand. Usage: npm run licenses, or npm run licenses -- --check,
@@ -30,7 +31,7 @@ const OWN_SECTION = new Set(['gsap'])
 // these license files say more than one license: shown in full
 const SHOW_IN_FULL = ['lucide-react']
 // a short standard text isn't enough for these: the full text comes from a package
-const TEXT_FROM_PACKAGE = new Set(['Apache-2.0', 'MPL-2.0'])
+const TEXT_FROM_PACKAGE = new Set(['Apache-2.0', 'MPL-2.0', 'BlueOak-1.0.0'])
 
 const GROUP_ORDER = ['MIT', 'ISC', 'Apache-2.0', 'BSD-3-Clause', 'BSD-2-Clause', '0BSD', 'MPL-2.0', 'BlueOak-1.0.0']
 
@@ -188,7 +189,7 @@ async function npmSection() {
   let out = ''
   for (const key of keys) {
     const list = groups.get(key).sort((a, b) => a.name.localeCompare(b.name))
-    const fromPackage = TEXT_FROM_PACKAGE.has(key) ? list.find(d => d.text.length > 2000)?.text : undefined
+    const fromPackage = TEXT_FROM_PACKAGE.has(key) ? list.map(d => d.text).sort((a, b) => b.length - a.length)[0] || undefined : undefined
     const text = fromPackage ?? CANONICAL_TEXT[key]
     const url = LICENSE_URL[key]
     out += `## ${key}${url ? ` — [full text](${url})` : ''} (${list.length} package${list.length === 1 ? '' : 's'})\n\n`
@@ -214,7 +215,6 @@ function rustSection() {
   const meta = JSON.parse(raw)
   const byId = new Map(meta.packages.map(p => [p.id, p]))
   const nodes = new Map(meta.resolve.nodes.map(n => [n.id, n]))
-  const start = meta.packages.find(p => p.name === 'orfeo-audio-node')
   const compiled = new Set()
   const walk = id => {
     if (compiled.has(id)) return
@@ -227,7 +227,7 @@ function rustSection() {
       if (linked && !macro) walk(dep.pkg)
     }
   }
-  walk(start.id)
+  for (const name of ['orfeo-audio-node', 'orfeo-review']) walk(meta.packages.find(p => p.name === name).id)
   const groups = new Map()
   for (const id of compiled) {
     const p = byId.get(id)

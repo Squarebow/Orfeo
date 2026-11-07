@@ -60,7 +60,7 @@ function Blocks({ blocks }: { blocks: Block[] }) {
         }
         return (
           <table key={i} style={{ width: '100%', margin: '0 0 12px', borderCollapse: 'collapse', fontSize: 11 }}>
-            <thead><tr>{b.head.map((h, j) => <th key={j} style={{ ...cellStyle, color: 'var(--text-muted)', fontSize: 10, fontWeight: 600, letterSpacing: '0.06em', textTransform: 'uppercase' }}><Text text={h} /></th>)}</tr></thead>
+            <thead><tr>{b.head.map((h, j) => <th key={j} style={{ ...cellStyle, whiteSpace: 'nowrap', color: 'var(--text-muted)', fontSize: 10, fontWeight: 600, letterSpacing: '0.06em', textTransform: 'uppercase' }}><Text text={h} /></th>)}</tr></thead>
             <tbody>{b.rows.map((r, j) => <tr key={j}>{r.map((c, k) => <td key={k} style={cellStyle}><Text text={c} /></td>)}</tr>)}</tbody>
           </table>
         )

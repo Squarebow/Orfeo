@@ -12,6 +12,7 @@
 - **Licenses in the app.** Every download now includes Orfeo's license and the third-party notices. Read them from the *Licenses* link at the bottom of Settings. Thanks to Kevin Lappe.
 
 ### Fixed
+- **Rating Orfeo in the Microsoft Store.** The review window now opens inside Orfeo, as intended, instead of sending you to the Store page.
 - **Songs that skip empty bars at the start.** A note repeated exactly where the song now begins could lose its length, along with the repeats after it.
 - **Scales Explorer: a chord no longer plays over the scale.** Clicking a key plays its scale note by note; a chord or progression started during that now stops the scale, so you only hear the chord. Thanks to InAnYan.
 - **New Folder on Mac.** The window for choosing your MIDI folder now lets you create one. Thanks to InAnYan.

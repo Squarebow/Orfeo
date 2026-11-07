@@ -87,6 +87,7 @@
         "to": "native",
         "filter": [
           "orfeo_audio.node",
+          "orfeo-review.exe",
           "fluidsynth/*.dll"
         ]
       }
