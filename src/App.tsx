@@ -52,6 +52,7 @@ import { CountInOverlay } from './components/CountInOverlay'
 import { useSupportNoteService } from './hooks/useSupportNote'
 import { isExporting } from './audio/exportAudio'
 import { SupportNote } from './components/SupportNote'
+import { isTextEntry } from './utils/keyTarget'
 
 export default function App() {
   // ── Update status + sound-set progress: one listener each for the app's
@@ -385,7 +386,7 @@ export default function App() {
         if (s.settingsWindowOpen) s.closeSettingsWindow(); else s.openSettingsWindow()
         return
       }
-      if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) return
+      if (isTextEntry(e.target)) return
       // Settings window open: only Esc (it closes itself) and Ctrl + , get through
       if (useStore.getState().settingsWindowOpen && e.key !== 'Escape' && !(e.ctrlKey && e.key === ',')) return
       const { playbackState } = useStore.getState()
@@ -414,7 +415,7 @@ export default function App() {
           // A focused fader or knob uses the arrows itself (and has already
           // handled this press), so leave those alone.
           if (e.defaultPrevented || e.altKey || e.ctrlKey || e.metaKey) break
-          if ((e.target as HTMLElement | null)?.closest?.('[role="slider"], select, [contenteditable="true"]')) break
+          if ((e.target as HTMLElement | null)?.closest?.('[role="slider"], input[type="range"], select, [contenteditable="true"]')) break
           const s = useStore.getState()
           if (!s.stepThroughEnabled || !s.midi || s.chordExplorerOpen || s.scaleExplorerOpen || s.lockedChordModalOpen || s.tapSession || isCountingIn()) break
           e.preventDefault()
@@ -452,6 +453,19 @@ export default function App() {
     window.addEventListener('keydown', handleKeyDown)
     return () => window.removeEventListener('keydown', handleKeyDown)
   }, [play, pause, stop, openFile, enterPresentationMode])
+
+  // ── Global: a slider lets go of focus when the mouse does ───────────────
+  // Otherwise it keeps the keyboard after a drag, and lights up its amber ring
+  // at the next key press. A click event can't do this: a drag released off the
+  // slider sends its click elsewhere. Reaching a slider with Tab keeps focus.
+  useEffect(() => {
+    const handleMouseUp = () => {
+      const el = document.activeElement
+      if (el instanceof HTMLInputElement && el.type === 'range') el.blur()
+    }
+    document.addEventListener('mouseup', handleMouseUp, true)
+    return () => document.removeEventListener('mouseup', handleMouseUp, true)
+  }, [])
 
   // ── Global: blur non-text controls after a real mouse click ─────────────
   // `:focus-visible` (index.css) is spec-correct, not buggy — but it isn't
