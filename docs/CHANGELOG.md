@@ -5,19 +5,13 @@
      list of 2–4 one-line bullets, then ### New / ### Changed / ### Fixed.
      Newest version at the top. -->
 
-## [Unreleased]
-
-### Fixed
-- **Closing the Playback Editor with unsaved changes.** The warning now offers Save & Reload itself, instead of only telling you about it.
-- **The metronome in 6/8, 9/8 and 12/8.** It clicked every eighth note, so 12 clicks a bar in 12/8. The metronome and count-in now click the beats you feel: 2, 3 and 4 a bar.
-
 ## [1.7.1] — 7. 11. 2026 — Unsaved changes warning, licenses in the app, fixes
 
 **In short**
 - Orfeo now warns you before unsaved changes to a song are lost, when you close it or open another song.
 - Licenses are now in the app, and the demo songs are replaced with freely licensed versions.
 - Popups can be moved aside, and Space works straight after using the position bar.
-- Fixes for the Scales Explorer, the Playback Editor and file windows on Mac.
+- Fixes for the metronome in 6/8, 9/8 and 12/8, the Scales Explorer, the Playback Editor and file windows on Mac.
 
 ### Changed
 - **Demo songs.** Replaced with freely licensed versions. The credits are in `THIRD_PARTY_LICENSES.md`. Thanks to Kevin Lappe.
@@ -26,6 +20,8 @@
 - **Licenses in the app.** Every download now includes Orfeo's license and the third-party notices. Read them from the *Licenses* link at the bottom of Settings. Thanks to Kevin Lappe.
 
 ### Fixed
+- **Closing the Playback Editor with unsaved changes.** The warning now offers Save & Reload itself, instead of only telling you about it.
+- **The metronome in 6/8, 9/8 and 12/8.** It clicked every eighth note, so 12 clicks a bar in 12/8. The metronome and count-in now click the beats you feel: 2, 3 and 4 a bar.
 - **Space after moving the position bar.** Clicking or dragging the position bar left it holding the keyboard, so Space did nothing until you clicked somewhere else, and an amber frame appeared around it. The same went for other sliders.
 - **Rating Orfeo in the Microsoft Store.** The review window now opens inside Orfeo, as intended, instead of sending you to the Store page.
 - **Songs that skip empty bars at the start.** A note repeated exactly where the song now begins could lose its length, along with the repeats after it.
