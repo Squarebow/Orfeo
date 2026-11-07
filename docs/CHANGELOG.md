@@ -8,8 +8,8 @@
 ## [Unreleased]
 
 ### Changed
-- **Demo songs.** Replaced with freely licensed versions. The credits are in `THIRD_PARTY_LICENSES.md`.
-- **Licenses in the app.** Every download now includes Orfeo's license and the third-party notices. Read them from the *Licenses* link at the bottom of Settings.
+- **Demo songs.** Replaced with freely licensed versions. The credits are in `THIRD_PARTY_LICENSES.md`. Thanks to Kevin Lappe.
+- **Licenses in the app.** Every download now includes Orfeo's license and the third-party notices. Read them from the *Licenses* link at the bottom of Settings. Thanks to Kevin Lappe.
 
 ### Fixed
 - **Songs that skip empty bars at the start.** A note repeated exactly where the song now begins could lose its length, along with the repeats after it.

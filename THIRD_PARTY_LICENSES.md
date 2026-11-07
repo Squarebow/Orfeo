@@ -129,6 +129,9 @@ LGPL you may replace any of them with your own build of the same library: Orfeo
 loads whatever is in that folder and doesn't check the files. The Microsoft Store
 copy's folder is read-only, so use a GitHub download for this.
 
+Copies of the exact source code of everything in this section, and of the LAME
+encoder above, are kept at https://github.com/Squarebow/Orfeo-third-party-sources.
+
 | Component | Version | License | Source |
 |---|---|---|---|
 | FluidSynth (`libfluidsynth-3.dll`) | 2.5.7 | LGPL-2.1-or-later | https://github.com/FluidSynth/fluidsynth/releases/tag/v2.5.7 |
