@@ -223,8 +223,11 @@ chmod +x Orfeo-1.7.0-linux-x86_64.AppImage
 
 Prefer the `.deb` or `.rpm` where you can. On Ubuntu 24.04 and newer, the
 system's security settings can stop AppImages of apps like Orfeo from starting;
-the installers aren't affected. If an AppImage complains about FUSE, add
-`--appimage-extract-and-run` to the last line.
+the installers aren't affected. The AppImage needs the system's FUSE 2 library,
+which newer systems leave out. If it complains about FUSE or `libfuse.so.2`,
+install it: `sudo apt install libfuse2t64` (Ubuntu 24.04 and newer),
+`sudo apt install libfuse2` (older Ubuntu and Debian) or `sudo dnf install fuse-libs`
+(Fedora). Or add `--appimage-extract-and-run` to the last line.
 
 - **Sound:** GM and Studio. The Native engine is Windows-only for now.
 - **MIDI keyboards:** USB keyboards are picked up automatically.
