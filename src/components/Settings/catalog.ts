@@ -22,7 +22,7 @@ export interface GroupInfo { id: SettingsGroupId; name: string; intro: string; m
 
 export type SettingId =
   | 'soundEngine' | 'soundFonts' | 'autoLevel' | 'exportAudio'
-  | 'showDemo' | 'chordTranscription'
+  | 'showDemo' | 'chordTranscription' | 'openWith'
   | 'noteEditor' | 'unsavedWarning' | 'tapTempo' | 'tempoWarnings' | 'countIn' | 'skipEmptyBars' | 'handAssignment' | 'loopRegion' | 'focusMode'
   | 'stepThrough' | 'chordPrompter' | 'closePanels' | 'handTags' | 'trackVu'
   | 'displaySystem' | 'accidentals' | 'chordTracking' | 'chordReading' | 'chordNaming'
@@ -83,6 +83,9 @@ export const SETTINGS: SettingInfo[] = [
   { id: 'chordTranscription', group: 'midi-files-library', name: t`Chord Transcription`, summary: t`Make a chord chart PDF from any file in your Library.`,
     description: t`Adds a transcript icon to every file in your Library — click it to create a chord chart PDF in the ORFEO folder. Charts number the bars as the file has them, so switching this on switches off Skip empty bars at the start.`,
     keywords: 'pdf chart transcript export' },
+  { id: 'openWith', group: 'midi-files-library', name: t`Open with Orfeo`, summary: t`Double-click a MIDI file anywhere to open it in Orfeo.`,
+    description: t`To make Orfeo your default MIDI player, right-click a file, choose Open with › Choose another app, pick Orfeo and click Always. Switch on Add to Library on double click to copy the song into your Library, same as when you drop a file onto Orfeo.`,
+    keywords: 'double click default app open with file association explorer finder mid midi kar add copy library' },
   // ── Playback & Editing
   { id: 'tapTempo', group: 'playback-editing', name: t`Tap Tempo`, summary: t`A TAP pad for fixing songs whose bar lines don't match the music.`,
     description: t`Adds a red TAP pad next to the tempo, for fixing songs whose bar lines and metronome don't match the music. To start a whole song over, right-click it in the Library, open File Info and choose Rebuild tempo or Copy bars. For bars that change length, type a pattern like 3 3 3 4 in the result, or right-click TAP and choose Change bars from here.`,

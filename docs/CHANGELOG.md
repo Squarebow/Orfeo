@@ -7,6 +7,13 @@
 
 ## [Unreleased]
 
+### New
+- **Open MIDI files with a double click.** Orfeo now offers itself as the app for .mid, .midi and
+  .kar files on Windows, macOS and Linux. Make it the default once, and a double click opens the
+  song in Orfeo, in the window that's already open if there is one. Settings › MIDI Files &
+  Library › Open with Orfeo explains how for your system, and Add to Library on double click
+  also copies each song into your Library, as dropping a file does.
+
 ### Fixed
 - **Close buttons work wherever a window sits.** On Windows and Linux, a popup over the top
   bar (Settings on a smaller screen, or any window dragged up) only answered clicks in a few

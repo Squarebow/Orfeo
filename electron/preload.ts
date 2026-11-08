@@ -62,6 +62,10 @@ contextBridge.exposeInMainWorld('electronAPI', {
   offSaveBeforeClose:  ()             => ipcRenderer.removeAllListeners('app:save-before-close'),
   // Drag-and-drop file import
   getPathForFile:     (file: File) => webUtils.getPathForFile(file),
+  // Open with Orfeo: a song double-clicked in the system
+  takeOpenWithFile:   () => ipcRenderer.invoke('openWith:take'),
+  onOpenWithFile:     (fn: (filePath: string) => void) => { ipcRenderer.removeAllListeners('app:open-file'); ipcRenderer.on('app:open-file', (_e, filePath) => fn(filePath)) },
+  simulateOpenWith:   (filePath: string) => ipcRenderer.invoke('openWith:simulate', filePath),
   copyMidiToLibrary:  (sourcePath: string, libraryFolder: string) => ipcRenderer.invoke('fs:copyMidiToLibrary', sourcePath, libraryFolder),
   // Foreign format import cache
   getCachedImport:    (sourcePath: string, cachePath: string) => ipcRenderer.invoke('fs:getCachedImport', sourcePath, cachePath),

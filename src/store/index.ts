@@ -335,6 +335,8 @@ interface OrfeoStore {
 
   hideDemoFolder: boolean
   setHideDemoFolder: (v: boolean) => void
+  openWithAddsToLibrary: boolean
+  setOpenWithAddsToLibrary: (v: boolean) => void
 
   // ── Blinks the Library refresh icon after any resave (foreign-import save,
   // MidiEditor save, Note Editor save) — cleared once the user clicks refresh.
@@ -958,6 +960,8 @@ export const useStore = create<OrfeoStore>((set, get) => ({
   // ── Demo folder visibility — persisted, default visible ───────────────────
   hideDemoFolder: false,
   setHideDemoFolder: (hideDemoFolder) => set({ hideDemoFolder }),
+  openWithAddsToLibrary: false,
+  setOpenWithAddsToLibrary: (openWithAddsToLibrary) => set({ openWithAddsToLibrary }),
 
   libraryNeedsRefresh: false,
   setLibraryNeedsRefresh: (libraryNeedsRefresh) => set({ libraryNeedsRefresh }),
@@ -1280,6 +1284,7 @@ async function restoreLibraryPrefs() {
     if (typeof prefs.chordPrompterEnabled === 'boolean') store.setChordPrompterEnabled(prefs.chordPrompterEnabled)
     if (typeof prefs.chordTranscriptionEnabled === 'boolean') store.setChordTranscriptionEnabled(prefs.chordTranscriptionEnabled)
     if (typeof prefs.hideDemoFolder === 'boolean') store.setHideDemoFolder(prefs.hideDemoFolder)
+    if (typeof prefs.openWithAddsToLibrary === 'boolean') store.setOpenWithAddsToLibrary(prefs.openWithAddsToLibrary)
     if (prefs.splitBreakpointType === 'single' || prefs.splitBreakpointType === 'range') store.setSplitBreakpointType(prefs.splitBreakpointType)
     if (typeof prefs.splitBreakpointNote === 'number') store.setSplitBreakpointNote(prefs.splitBreakpointNote)
     if (typeof prefs.splitBreakpointRangeStart === 'number') store.setSplitBreakpointRangeStart(prefs.splitBreakpointRangeStart)
@@ -1327,7 +1332,11 @@ async function restoreLibraryPrefs() {
     console.error('[Orfeo] restoreLibraryPrefs:', e)
   }
 }
-setTimeout(restoreLibraryPrefs, 500)
+// Settles once the saved Library and settings are back, so a file opened at
+// launch (double-clicked in the system) loads with them in place
+export const libraryRestored: Promise<void> = new Promise(done => {
+  setTimeout(() => { void restoreLibraryPrefs().finally(done) }, 500)
+})
 
 // ── Persist library-list state — favourites + hidden exclusions ───────────────
 // Debounced 1 s; gated on libraryFolder so it only fires once a library is set.
@@ -1387,6 +1396,7 @@ let _prevNoteEditorToolbarY:   number  | null = null
 let _prevChordPrompterEnabled: boolean | null = null
 let _prevChordTranscriptionEnabled: boolean | null = null
 let _prevHideDemoFolder: boolean | null = null
+let _prevOpenWithAddsToLibrary: boolean | null = null
 let _prevSplitBreakpointType: string | null = null
 let _prevSplitBreakpointNote: number | null = null
 let _prevSplitBreakpointRangeStart: number | null = null
@@ -1460,6 +1470,7 @@ const _unsubPrefs = useStore.subscribe((state) => {
     _prevChordPrompterEnabled = state.chordPrompterEnabled
     _prevChordTranscriptionEnabled = state.chordTranscriptionEnabled
     _prevHideDemoFolder = state.hideDemoFolder
+    _prevOpenWithAddsToLibrary = state.openWithAddsToLibrary
     _prevSplitBreakpointType = state.splitBreakpointType
     _prevSplitBreakpointNote = state.splitBreakpointNote
     _prevSplitBreakpointRangeStart = state.splitBreakpointRangeStart
@@ -1536,6 +1547,7 @@ const _unsubPrefs = useStore.subscribe((state) => {
     state.chordPrompterEnabled !== _prevChordPrompterEnabled ||
     state.chordTranscriptionEnabled !== _prevChordTranscriptionEnabled ||
     state.hideDemoFolder !== _prevHideDemoFolder ||
+    state.openWithAddsToLibrary !== _prevOpenWithAddsToLibrary ||
     state.splitBreakpointType !== _prevSplitBreakpointType ||
     state.splitBreakpointNote !== _prevSplitBreakpointNote ||
     state.splitBreakpointRangeStart !== _prevSplitBreakpointRangeStart ||
@@ -1604,6 +1616,7 @@ const _unsubPrefs = useStore.subscribe((state) => {
     _prevChordPrompterEnabled = state.chordPrompterEnabled
     _prevChordTranscriptionEnabled = state.chordTranscriptionEnabled
     _prevHideDemoFolder = state.hideDemoFolder
+    _prevOpenWithAddsToLibrary = state.openWithAddsToLibrary
     _prevSplitBreakpointType = state.splitBreakpointType
     _prevSplitBreakpointNote = state.splitBreakpointNote
     _prevSplitBreakpointRangeStart = state.splitBreakpointRangeStart
@@ -1678,6 +1691,7 @@ const _unsubPrefs = useStore.subscribe((state) => {
       chordPrompterEnabled: state.chordPrompterEnabled,
       chordTranscriptionEnabled: state.chordTranscriptionEnabled,
       hideDemoFolder: state.hideDemoFolder,
+      openWithAddsToLibrary: state.openWithAddsToLibrary,
       splitBreakpointType: state.splitBreakpointType,
       splitBreakpointNote: state.splitBreakpointNote,
       splitBreakpointRangeStart: state.splitBreakpointRangeStart,

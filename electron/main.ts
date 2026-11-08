@@ -11,6 +11,7 @@ import { assignHands } from '../src/utils/handAssignment'
 import { buildHandExportHint, withHandSuffix, nameHandFromSuffix, parseHandMapMeta, RESTORED_CONFIDENCE } from '../src/utils/handMetadata'
 import { getGMGroup } from '../src/utils/gmInstruments'
 import { exportsDir, nextFreeName, safeExportBaseName } from './exportName'
+import { fileFromArgs } from './openWith'
 import { KEYBOARD_GROUPS } from '../src/utils/keyboardGroups'
 import { nextOrfeoVersion, stripOrfeoSuffix } from '../src/utils/orfeoVersioning'
 import { downloadEnding, newerRelease } from '../src/utils/newRelease'
@@ -172,6 +173,8 @@ function createWindow() {
     win.maximize()
     win.show()
   })
+  // A reload starts the page over: hold songs until it asks for them again
+  win.webContents.on('did-start-loading', () => { rendererTakesSongs = false })
   // ── Intercept close: delegate all confirm dialogs to the renderer ─────────
   // Prevents the close, tells the renderer to resolve any pending state
   // (Note Editor unsaved edits, pending imported file), then waits for the
@@ -2023,8 +2026,57 @@ if (process.env.PORTABLE_EXECUTABLE_DIR) {
   app.setPath('userData', join(process.env.PORTABLE_EXECUTABLE_DIR, 'Orfeo-Data'))
 }
 
+// ── Open with Orfeo: a song double-clicked in the system ─────────────────────
+// Windows and Linux pass it on the command line; macOS sends open-file, which
+// can arrive before the window exists. One copy of Orfeo runs at a time, so a
+// second double click hands its song to the open window instead of starting
+// another app. The page asks for a song waiting from launch once it is ready
+// (openWith:take); after that, songs go straight to it.
+let pendingSong: string | null = null
+let rendererTakesSongs = false
+function openSong(filePath: string | null) {
+  if (!filePath || !existsSync(filePath)) return
+  if (mainWin && !mainWin.isDestroyed() && rendererTakesSongs) mainWin.webContents.send('app:open-file', filePath)
+  else pendingSong = filePath
+}
+function bringWindowForward() {
+  if (!mainWin || mainWin.isDestroyed()) return
+  if (mainWin.isMinimized()) mainWin.restore()
+  mainWin.focus()
+}
+// The lock lives in the settings folder: a portable copy or a test copy with its own
+// folder runs beside the installed app. npm run dev shares the installed app's folder,
+// so it skips the lock rather than closing itself.
+const isOnlyCopy = !app.isPackaged || app.requestSingleInstanceLock()
+if (!isOnlyCopy) {
+  app.quit()
+} else {
+  app.on('second-instance', (_e, argv, workingDirectory) => {
+    bringWindowForward()
+    openSong(fileFromArgs(argv, workingDirectory))
+  })
+  openSong(fileFromArgs(process.argv, process.cwd()))
+}
+app.on('open-file', (e, filePath) => {
+  e.preventDefault()
+  bringWindowForward()
+  openSong(filePath)
+})
+ipcMain.handle('openWith:take', () => {
+  rendererTakesSongs = true
+  const song = pendingSong
+  pendingSong = null
+  return song
+})
+// Dev mode: open a file exactly as if the system had sent it
+ipcMain.handle('openWith:simulate', (_e, filePath: string) => {
+  bringWindowForward()
+  openSong(filePath)
+})
+
 // ── Launch: copy demo files on first run, then open main window ───────────────
 app.whenReady().then(async () => {
+  if (!isOnlyCopy) return // the open copy got the song; this one is quitting
   try { await ensureDemoFolder() } catch (e) { console.error('[Orfeo] ensureDemoFolder failed:', e) }
   // ── No default menu — this app has its own custom title bar and no menu
   // bar is ever shown, but Electron's built-in default menu (auto-created

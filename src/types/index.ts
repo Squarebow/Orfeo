@@ -240,6 +240,10 @@ declare global {
       offSoundfontProgress: () => void
       // Drag-and-drop file import
       getPathForFile:      (file: File) => string
+      // Open with Orfeo
+      takeOpenWithFile:    () => Promise<string | null>
+      onOpenWithFile:      (fn: (filePath: string) => void) => void
+      simulateOpenWith:    (filePath: string) => Promise<void>
       copyMidiToLibrary:   (sourcePath: string, libraryFolder: string) => Promise<string>
       // Foreign format import cache
       getCachedImport:     (sourcePath: string, cachePath: string) => Promise<string | null>

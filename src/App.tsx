@@ -9,7 +9,7 @@ import SettingsWindow from './components/Settings/SettingsWindow'
 import { useUpdateService } from './hooks/useUpdateCheck'
 import { useSoundfontService } from './hooks/useSoundfonts'
 import EmptyState from './components/EmptyState'
-import { useStore } from './store'
+import { useStore, libraryRestored } from './store'
 import FloatingKeyboard from './components/Keyboard/FloatingKeyboard'
 import ChordExplorer from './components/ChordExplorer'
 import ScaleExplorer from './components/ScaleExplorer'
@@ -203,6 +203,24 @@ export default function App() {
       showDropError('Could not copy file into library.')
     }
   }, [stop, showDropError, loadFileIntoPlayer])
+
+  // ── Open with Orfeo: a song double-clicked in the system ──────────────────
+  // Opens where it lives, or, with "Add to Library on double click" on, is
+  // copied into the Library first exactly as a dropped file is. The double
+  // click was the choice, so no "replace the open file?" question; the unsaved
+  // changes warning still comes first. A song from launch waits until the
+  // saved Library is back, so it opens with the same settings as any other.
+  const openWithRef = useRef<(filePath: string) => void>(() => {})
+  openWithRef.current = (filePath: string) => {
+    if (useStore.getState().openWithAddsToLibrary) { void loadDroppedFilePath(filePath); return }
+    stop(); void loadFileIntoPlayer(filePath)
+  }
+  useEffect(() => {
+    const api = window.electronAPI
+    if (!api?.takeOpenWithFile) return
+    api.onOpenWithFile(filePath => openWithRef.current(filePath))
+    void libraryRestored.then(() => api.takeOpenWithFile()).then(filePath => { if (filePath) openWithRef.current(filePath) })
+  }, [])
 
   // ── Validate that a DataTransfer item is a supported file format ─────────────
   function isSupportedFile(file: File): boolean {

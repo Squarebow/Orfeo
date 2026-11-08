@@ -96,6 +96,19 @@
       "out/renderer/spessasynth_processor.min.js",
       "out/renderer/GeneralUser-GS.sf2"
     ],
+    "fileAssociations": [
+      {
+        "ext": [
+          "mid",
+          "midi",
+          "kar"
+        ],
+        "name": "MIDI file",
+        "description": "MIDI file",
+        "mimeType": "audio/midi",
+        "role": "Viewer"
+      }
+    ],
     "win": {
       "target": [
         {
