@@ -138,7 +138,7 @@ export default function ExportAudioDialog({ path, name, onClose }: { path: strin
   const blocked = !!note && note.kind !== 'nokeys'
 
   return createPortal(
-    <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.85)', zIndex: 99999, display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+    <div className="app-no-drag" style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.85)', zIndex: 99999, display: 'flex', alignItems: 'center', justifyContent: 'center' }}
       onMouseDown={e => { if (e.target === e.currentTarget && !working) close() }}>
       <div ref={panelRef} role="dialog" aria-modal="true" aria-label={t`Export to audio`} className="orfeo-modal-glow app-no-drag"
         style={{ background: 'var(--bg-modal)', border: '1px solid var(--border2)', borderRadius: 'var(--radius-lg)', padding: '16px 18px', width: 380,

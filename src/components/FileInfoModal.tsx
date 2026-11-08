@@ -275,6 +275,7 @@ export default function FileInfoModal({ filePath, fileName, onClose, onRenamed, 
 
   return createPortal(
     <div
+      className="app-no-drag"
       style={{
         position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.85)', zIndex: 99999,
         display: 'flex', alignItems: 'center', justifyContent: 'center',

@@ -244,6 +244,7 @@ function InstrumentPicker({ program, isDrum, onChange, disabled }: {
 
       {open && createPortal(
         <div
+          className="app-no-drag"
           // Portaled out of the anchor's DOM subtree, so the outside-click
           // handler's `ref.current.contains(target)` check (below) would see
           // every click inside this popup as "outside" and close it
@@ -479,6 +480,7 @@ function ColorPopover({ trackIndex, trackColor, anchor, onApplyColor, onClose }:
     <div
       ref={ref}
       data-no-drag
+      className="app-no-drag"
       style={{
         position: 'fixed', zIndex: 60000,
         left, top, width: POP_W,

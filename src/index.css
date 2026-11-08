@@ -658,6 +658,12 @@ body {
 /* Electron window drag regions */
 .app-drag-region { -webkit-app-region: drag; }
 .app-no-drag     { -webkit-app-region: no-drag; }
+/* Anything floating can end up over the top bar (a tall window on a short
+   screen, or dragged up). Windows and Linux still treat the top bar beneath
+   as "move the window", even under a popup, so clicks there get swallowed.
+   Every popup, menu and dialog opts out here, so no new one can forget. */
+.orfeo-modal-glow,
+[role="dialog"], [role="menu"], [role="listbox"] { -webkit-app-region: no-drag; }
 
 /* Remove the default mouse-click focus ring, but keep a visible ring for
    keyboard navigation (focus-visible) — amber accent, app-wide. */

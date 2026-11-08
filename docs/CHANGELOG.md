@@ -5,6 +5,14 @@
      list of 2–4 one-line bullets, then ### New / ### Changed / ### Fixed.
      Newest version at the top. -->
 
+## [Unreleased]
+
+### Fixed
+- **Close buttons work wherever a window sits.** On Windows and Linux, a popup over the top
+  bar (Settings on a smaller screen, or any window dragged up) only answered clicks in a few
+  spots, so its close button often seemed dead. Every popup, menu and dialog now takes clicks
+  everywhere, and the top bar still moves the window when nothing covers it.
+
 ## [1.7.1] — 7. 11. 2026 — Unsaved changes warning, licenses in the app, fixes
 
 **In short**

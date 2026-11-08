@@ -63,6 +63,7 @@ export function ConfirmDialogHost() {
 
   return createPortal(
     <div
+      className="app-no-drag"
       style={{
         position: 'fixed', inset: 0,
         background: 'rgba(0,0,0,0.85)',

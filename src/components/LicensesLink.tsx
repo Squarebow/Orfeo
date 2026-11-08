@@ -119,7 +119,7 @@ function LicensesWindow({ onClose }: { onClose: () => void }) {
   ]
 
   return createPortal(
-    <div onMouseDown={e => { if (e.target === e.currentTarget) onClose() }}
+    <div className="app-no-drag" onMouseDown={e => { if (e.target === e.currentTarget) onClose() }}
       style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.6)', zIndex: 10600, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
       <div ref={panelRef} role="dialog" aria-modal="true" aria-label={t`Licenses`} className="orfeo-modal-glow app-no-drag"
         style={{ width: 'min(760px, 90vw)', height: 'min(640px, 85vh)', display: 'grid', gridTemplateRows: 'auto auto auto minmax(0, 1fr)',
