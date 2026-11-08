@@ -14,6 +14,8 @@ import FloatingKeyboard from './components/Keyboard/FloatingKeyboard'
 import ChordExplorer from './components/ChordExplorer'
 import ScaleExplorer from './components/ScaleExplorer'
 import LockedChordModal from './components/LockedChordModal'
+import QueueEndCard from './components/QueueEndCard'
+import { registerQueueOpener, queueStep } from './utils/queueControl'
 import MidiEditor from './components/MidiEditor/MidiEditor'
 import MixerConsole from './components/Mixer/MixerConsole'
 import NoteEditorToolbar from './components/NoteEditor/NoteEditorToolbar'
@@ -210,6 +212,24 @@ export default function App() {
   // click was the choice, so no "replace the open file?" question; the unsaved
   // changes warning still comes first. A song from launch waits until the
   // saved Library is back, so it opens with the same settings as any other.
+  // ── Practice queue: how a queued song is opened (the usual way, so the unsaved
+  // changes warning still comes first) and started; used by ↓ / ↑, the queue's
+  // buttons and the end-of-song card (utils/queueControl.ts) ──
+  const queueOpenRef = useRef<(path: string, autoplay: boolean) => Promise<void>>(async () => {})
+  queueOpenRef.current = async (path: string, autoplay: boolean) => {
+    stop()
+    await loadFileIntoPlayer(path)
+    const open = (useStore.getState().midi as any)?._filePath as string | undefined
+    const same = !!open && open.replace(/\\/g, '/').toLowerCase() === path.replace(/\\/g, '/').toLowerCase()
+    // a moment for the new song's sound to load before it starts
+    if (autoplay && same) setTimeout(() => { void play() }, 350)
+  }
+  useEffect(() => {
+    registerQueueOpener((path, autoplay) => queueOpenRef.current(path, autoplay))
+    return () => registerQueueOpener(null)
+  }, [])
+  const replaySong = useCallback(() => { stop(); setTimeout(() => { void play() }, 150) }, [stop, play])
+
   const openWithRef = useRef<(filePath: string) => void>(() => {})
   openWithRef.current = (filePath: string) => {
     if (useStore.getState().openWithAddsToLibrary) { void loadDroppedFilePath(filePath); return }
@@ -454,6 +474,18 @@ export default function App() {
           stepEvents(e.key === 'ArrowRight' ? 1 : -1, e.shiftKey)
           break
         }
+        case 'ArrowDown':
+        case 'ArrowUp': {
+          // Alt + ↓ / ↑ go to the next / previous song in the practice queue (Option on a
+          // Mac). With Alt, so plain arrows keep scrolling a list you've clicked into. A
+          // focused fader or knob uses the arrows itself, so leave those alone.
+          if (!e.altKey || e.defaultPrevented || e.ctrlKey || e.metaKey || e.shiftKey) break
+          if ((e.target as HTMLElement | null)?.closest?.('[role="slider"], input[type="range"], select, [contenteditable="true"]')) break
+          const s = useStore.getState()
+          if (s.chordExplorerOpen || s.scaleExplorerOpen || s.lockedChordModalOpen || s.tapSession || isCountingIn()) break
+          if (queueStep(e.key === 'ArrowDown' ? 1 : -1)) e.preventDefault()
+          break
+        }
         case 'Escape':
           // The Settings window closes itself on Escape — never stop the song
           if (useStore.getState().settingsWindowOpen) break
@@ -623,6 +655,7 @@ export default function App() {
       <ChordExplorer />
       <ScaleExplorer />
       <LockedChordModal />
+      <QueueEndCard replay={replaySong} />
 
       {/* ── Drop error toast — briefly shown for invalid file types. Click-to-
           dismiss alongside the 2.5s auto-clear timeout — if the user's eyes

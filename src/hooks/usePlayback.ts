@@ -58,7 +58,7 @@ export function usePlayback() {
                 rafRef.current = requestAnimationFrame(tick)
                 return
               }
-              useStore.setState({ currentTime: duration, playbackState: 'stopped' })
+              useStore.setState({ currentTime: duration, playbackState: 'stopped', songEndedAt: Date.now() }) // played to its end (the queue listens)
               stopRaf(); return
             }
             useStore.setState({ currentTime: secs })
@@ -90,7 +90,7 @@ export function usePlayback() {
           Promise.resolve().then(() => useStore.setState({ playbackState: 'playing' }))
           return
         }
-        useStore.setState({ currentTime: duration, playbackState: 'stopped' })
+        useStore.setState({ currentTime: duration, playbackState: 'stopped', songEndedAt: Date.now() }) // played to its end (the queue listens)
         stopRaf(); return
       }
       useStore.setState({ currentTime: newTime })

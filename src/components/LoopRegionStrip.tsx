@@ -6,7 +6,7 @@
 
 import React, { useEffect, useRef, useState, useCallback, type CSSProperties } from 'react'
 import { createPortal } from 'react-dom'
-import { ChevronUp, ChevronDown, ListOrdered } from 'lucide-react'
+import { ChevronUp, ChevronDown, ArrowDown01 } from 'lucide-react'
 import { useStore } from '../store'
 import Tooltip from './Tooltip'
 
@@ -511,7 +511,7 @@ export default function LoopRegionStrip() {
             onMouseEnter={e => { if (!hasSelection && !popupOpen) e.currentTarget.style.color = 'var(--text-muted)' }}
             onMouseLeave={e => { if (!hasSelection && !popupOpen) e.currentTarget.style.color = 'var(--text-inactive)' }}
           >
-            <ListOrdered size={14} strokeWidth={2} />
+            <ArrowDown01 size={14} strokeWidth={2} />
           </button>
           </Tooltip>
 

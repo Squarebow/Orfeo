@@ -14,6 +14,9 @@ import { libraryDisplayName, sortBySong } from '../../utils/libraryNames'
 import { TempoWarningDot } from '../Transport/TempoWarning'
 import { useTempoTrustScan } from '../../hooks/useTempoTrustScan'
 import { useLyricsScan } from '../../hooks/useLyricsScan'
+import { songHasAllTags } from '../../utils/libraryTags'
+import { TagsRow, TagPicker } from './LibraryTags'
+import { QueueSection, QueuePill } from './QueueSection'
 import type { NoteNaming, Accidentals, TranscriptEntry, LibraryFile } from '../../types'
 import { MarqueeText } from '../MarqueeText'
 import { detectForeignFormat, resolveAndTrackImport, base64ToBytes, confirmPendingImportBeforeSwitch } from '../../utils/foreignFormatImport'
@@ -336,6 +339,20 @@ function LibraryPanel({ hidden = false }: { hidden?: boolean }) {
   const foldersWithUndo    = useStore((s) => s.foldersWithUndo)
   const [loading, setLoading] = useState(false)
   const [filter, setFilter] = useState<'all' | 'starred'>('all')
+  // ── Tags: the pills switched on in the tags row (not remembered, like All / ★),
+  // and the tick list (right-click › Tags…, or the row's ▾) ──
+  const libraryTags = useStore((s) => s.libraryTags)
+  const songTags    = useStore((s) => s.songTags)
+  const [activeTags, setActiveTags] = useState<string[]>([])
+  const [tagPicker, setTagPicker] = useState<{ x: number; y: number; mode: 'song' | 'pin'; paths?: string[] } | null>(null)
+  // a tag that's deleted, renamed or taken out of the row can't stay switched on
+  const pinnedTags = useStore((s) => s.pinnedTags)
+  useEffect(() => { setActiveTags(a => a.filter(tag => libraryTags.includes(tag) && pinnedTags.includes(tag))) }, [libraryTags, pinnedTags])
+  const closeTagPicker = useCallback(() => setTagPicker(null), [])
+  // ── Practice queue: shown in the Folders area's place while its pill is on ──
+  const queueEnabled = useStore((s) => s.queueEnabled)
+  const queueView    = useStore((s) => s.queueView)
+  const showQueue    = queueEnabled && queueView
   const [librarySearch, setLibrarySearch] = useState('')
   // Folders start expanded (not in collapsed set)
   const [expandedFolders, setExpandedFolders] = useState<Set<string>>(new Set())
@@ -767,14 +784,14 @@ function LibraryPanel({ hidden = false }: { hidden?: boolean }) {
   // ignoreLocation so a match anywhere in the name counts, not just a prefix).
   // Searches by filename only — that's what "artist/song name" resolves to,
   // since library entries don't carry separate metadata.
-  const libraryFuse = useMemo(() => new Fuse(libraryFiles, {
-    keys: ['name'],
+  const libraryFuse = useMemo(() => new Fuse(libraryFiles.map(f => ({ ...f, tags: songTags[f.path] ?? [] })), {
+    keys: ['name', 'tags'],
     threshold: 0.2,
     includeScore: true,
     minMatchCharLength: 1,
     ignoreLocation: true,
     useExtendedSearch: false,
-  }), [libraryFiles])
+  }), [libraryFiles, songTags])
 
   // ── Group files — root files first, then one entry per subfolder ─────────
   // Hidden files are filtered here so the rest of the render sees a clean list.
@@ -789,12 +806,20 @@ function LibraryPanel({ hidden = false }: { hidden?: boolean }) {
     const isExcluded = (f: LibraryFile) => !showHiddenLibraryFiles && hiddenSet.has(f.path)
     // Search results keep their best-match order; everything else follows the name order
     const inOrder = (files: LibraryFile[]) => (librarySongFirst ? sortBySong(files) : files)
+    const tagged = (f: LibraryFile) => songHasAllTags(songTags, f.path, activeTags)
 
     if (librarySearch.trim()) {
       const matches = libraryFuse.search(librarySearch.trim())
-        .map(r => r.item)
-        .filter(f => !isExcluded(f))
+        .map(r => ({ name: r.item.name, path: r.item.path }))
+        .filter(f => !isExcluded(f) && tagged(f))
       return [{ folder: null, files: matches }]
+    }
+
+    // ── Tag pills on: a flat list across all folders, like Starred, of the songs
+    // that carry every active tag (combined with ★ when that tab is on) ──
+    if (activeTags.length > 0) {
+      const matches = libraryFiles.filter(f => !isExcluded(f) && tagged(f) && (filter !== 'starred' || libraryFavourites.has(f.path)))
+      return [{ folder: null, files: inOrder(matches) }]
     }
 
     // ── Starred filter — flat list across all folders, not grouped by folder.
@@ -857,7 +882,7 @@ function LibraryPanel({ hidden = false }: { hidden?: boolean }) {
     result.push({ folder: null, files: inOrder(rootFiles) })
 
     return result
-  }, [libraryFiles, libraryFavourites, libraryFolder, filter, hiddenLibraryFiles, showHiddenLibraryFiles, librarySearch, libraryFuse, libraryFolderNames, librarySongFirst])
+  }, [libraryFiles, libraryFavourites, libraryFolder, filter, hiddenLibraryFiles, showHiddenLibraryFiles, librarySearch, libraryFuse, libraryFolderNames, librarySongFirst, songTags, activeTags])
 
   // ── Flat visible file order (collapsed folders excluded) — anchors Shift-range select ──
   const visibleFilePaths = useMemo(
@@ -978,7 +1003,7 @@ function LibraryPanel({ hidden = false }: { hidden?: boolean }) {
             </div>
             </Tooltip>
 
-            {/* Filter tabs */}
+            {/* Filter tabs, then the tags row under them */}
             <div style={{ display: 'flex', gap: 'var(--space-1)' }}>
               {(['all', 'starred'] as const).map(f => (
                 <Tooltip key={f} title={f === 'all' ? 'Show all files' : 'Show favorites only'} oneLine wrapperStyle={f === 'all' ? { flex: 1 } : undefined}>
@@ -1047,6 +1072,14 @@ function LibraryPanel({ hidden = false }: { hidden?: boolean }) {
               </button>
               </Tooltip>
             </div>
+            {/* always there: empty with a hint until tags are chosen with ▾ */}
+            <TagsRow
+              active={activeTags}
+              onToggle={tag => setActiveTags(a => a.includes(tag) ? a.filter(x => x !== tag) : [...a, tag])}
+              onClear={() => setActiveTags([])}
+              onOpenPicker={(x, y) => setTagPicker({ x, y, mode: 'pin' })}
+              lead={queueEnabled ? <QueuePill /> : undefined}
+            />
           </div>
         ) : (
           <button
@@ -1123,6 +1156,24 @@ function LibraryPanel({ hidden = false }: { hidden?: boolean }) {
             >
               Show in folder
             </ContextMenuItem>
+            <ContextMenuItem
+              onClick={() => {
+                // the whole selection when the clicked song is part of it, otherwise just this song
+                const paths = selectedPaths.size > 0 && selectedPaths.has(contextMenu.path) ? Array.from(selectedPaths) : [contextMenu.path]
+                setTagPicker({ x: contextMenu.x, y: contextMenu.y, mode: 'song', paths })
+                setContextMenu(null)
+              }}
+            >
+              {t`Tags…`}
+            </ContextMenuItem>
+            {queueEnabled && (() => {
+              const paths = selectedPaths.size > 0 && selectedPaths.has(contextMenu.path) ? Array.from(selectedPaths) : [contextMenu.path]
+              return (
+                <ContextMenuItem onClick={() => { useStore.getState().queueAdd(paths); setContextMenu(null) }}>
+                  {paths.length > 1 ? t`Add ${paths.length} songs to queue` : t`Add to queue`}
+                </ContextMenuItem>
+              )
+            })()}
 
             {hiddenLibraryFiles.includes(contextMenu.path) ? (
               <ContextMenuItem
@@ -1202,6 +1253,13 @@ function LibraryPanel({ hidden = false }: { hidden?: boolean }) {
           </ContextMenu>
           )
         })()}
+
+        {tagPicker && (
+          <TagPicker
+            x={tagPicker.x} y={tagPicker.y} mode={tagPicker.mode} paths={tagPicker.paths}
+            onClose={closeTagPicker}
+            onManage={() => useStore.getState().openSettingsWindow('midi-files-library')}          />
+        )}
 
         {/* ── Folder right-click menu — Rename / Move selection here / Delete ── */}
         {folderContextMenu && (
@@ -1354,7 +1412,20 @@ function LibraryPanel({ hidden = false }: { hidden?: boolean }) {
         {/* ── "Folders" section — one collapsible row for the whole stack of folder
             groups, so a large library can be collapsed down to just its root files.
             Sticky at the very top; individual folder headers stick right beneath it. ── */}
-        {grouped.some(g => g.folder && !(hideDemoFolder && g.folder.toLowerCase() === 'demo')) && (
+        {showQueue && (
+          <QueueSection
+            openSong={path => { void handleLoadFile(path) }}
+            renderName={(path, current) => (
+              <LibrarySongName path={path} name={libraryDisplayName(path.split(/[\\/]/).pop() ?? path, librarySongFirst)}
+                spanStyle={current ? FILENAME_SPAN_ACTIVE : FILENAME_SPAN_DEFAULT} />
+            )}
+            libraryDrag={draggingPaths}
+            onLibraryDrop={() => setDraggingPaths(null)}
+            openPath={loadedFilePath}
+            stickyTop={pinnedBarOffset}
+          />
+        )}
+        {!showQueue && grouped.some(g => g.folder && !(hideDemoFolder && g.folder.toLowerCase() === 'demo')) && (
           <div
             onClick={() => setFoldersSectionExpanded(v => !v)}
             style={{
@@ -1376,7 +1447,7 @@ function LibraryPanel({ hidden = false }: { hidden?: boolean }) {
 
         {/* ── hideDemoFolder filters the Demo subfolder from display ───────── */}
         {grouped.filter(g => !(hideDemoFolder && g.folder?.toLowerCase() === 'demo')).map((group, gi) => {
-          if (group.folder && !foldersSectionExpanded) return null
+          if (group.folder && (!foldersSectionExpanded || showQueue)) return null
           const protectedFolder = isProtectedFolder(group.folder)
           const isDropTarget = !!group.folder && !protectedFolder && dragOverFolder === group.folder
           return (
@@ -1498,7 +1569,7 @@ function LibraryPanel({ hidden = false }: { hidden?: boolean }) {
             {/* ── Divider between the folders' content and the root library files —
                 only when the Folders section is actually showing folder rows above,
                 so root files don't visually read as trailing off the last folder ── */}
-            {!group.folder && foldersSectionExpanded && group.files.length > 0 &&
+            {!group.folder && !showQueue && foldersSectionExpanded && group.files.length > 0 &&
               grouped.some(g => g.folder && !(hideDemoFolder && g.folder.toLowerCase() === 'demo')) && (
               <div style={{ height: 1, margin: '4px 10px', background: 'var(--text-amber-dimmest)' }} />
             )}

@@ -142,7 +142,10 @@ Available on the Piano Roll once Note Editor edit mode is active.
 | `Ctrl` / `Cmd` + click | Toggle a row in a multi-selection |
 | `Shift` + click | Select a range from the last-clicked row |
 | Drag file(s) | Move them into a folder |
-| Right-click | Context menu — rename, delete, move, show in folder, and more |
+| Right-click | Context menu — rename, delete, move, show in folder, tags, add to queue, and more |
+| Click a tag in the tags row | Show only songs with that tag; several tags show songs that have all of them |
+| `Alt` + `↓` / `Alt` + `↑` (`Option` on a Mac) | Next / previous song in the practice queue (Settings → MIDI Files & Library → Practice queue). Ignored while a fader or knob has focus |
+| Drag songs onto the queue | Add them to the practice queue; drag inside the queue to reorder |
 
 ---
 

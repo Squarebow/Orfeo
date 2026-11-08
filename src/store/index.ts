@@ -19,6 +19,8 @@ import { applyHandColors, isHex, handHex, followedHandColor, DEFAULT_HAND_LH, DE
 import { HAND_ASSIGN_GROUPS, focusRole } from '../utils/keyboardGroups'
 import type { TrackBaseline } from '../utils/unsavedChanges'
 import type { LyricsEntry } from '../utils/lyricsScan'
+import { addTag, renameTag, deleteTag, setSongsTag, remapSongTags, restoreTagState, type TagState } from '../utils/libraryTags'
+import { addToQueue, removeFromQueue, moveInQueue, followOpenSong, remapQueue, restoreQueue, EMPTY_QUEUE, QUEUE_END_ACTIONS, type QueueState, type QueueEndAction } from '../utils/practiceQueue'
 
 // ── Focus mode: every track's mute + eye from just before Focus went on, so
 // the second click puts back exactly what you had. Null while Focus is off.
@@ -344,6 +346,29 @@ interface OrfeoStore {
   lyricsIndex: Record<string, LyricsEntry>
   setLyricsEntries: (entries: ({ path: string } & LyricsEntry)[]) => void
   clearLyricsIndex: () => void
+  // Library tags (Settings › Tags; see utils/libraryTags.ts)
+  libraryTags: string[]
+  songTags: Record<string, string[]>
+  pinnedTags: string[]
+  addLibraryTag: (name: string) => boolean
+  renameLibraryTag: (from: string, to: string) => boolean
+  deleteLibraryTag: (tag: string) => void
+  setSongsTag: (paths: string[], tag: string, on: boolean) => void
+  setPinnedTags: (pinned: string[]) => void
+  // Practice queue (Settings › Practice queue; see utils/practiceQueue.ts)
+  queueEnabled: boolean
+  setQueueEnabled: (v: boolean) => void
+  queue: QueueState
+  setQueue: (q: QueueState) => void
+  queueAdd: (paths: string[]) => void
+  queueRemove: (path: string) => void
+  queueMove: (from: number, to: number) => void
+  queueClear: () => void
+  queueEndAction: QueueEndAction
+  setQueueEndAction: (a: QueueEndAction) => void
+  queueView: boolean          // the Folders area shows the queue instead (session only)
+  setQueueView: (v: boolean) => void
+  songEndedAt: number         // set when a song plays to its end (not on Stop), for the queue
 
   // ── Blinks the Library refresh icon after any resave (foreign-import save,
   // MidiEditor save, Note Editor save) — cleared once the user clicks refresh.
@@ -979,6 +1004,40 @@ export const useStore = create<OrfeoStore>((set, get) => ({
     return { lyricsIndex: next }
   }),
   clearLyricsIndex: () => set({ lyricsIndex: {} }),
+  libraryTags: [],
+  songTags: {},
+  pinnedTags: [],
+  addLibraryTag: (name) => {
+    const s = useStore.getState()
+    const next = addTag({ tags: s.libraryTags, songTags: s.songTags, pinned: s.pinnedTags }, name)
+    if (next) set({ libraryTags: next.tags, pinnedTags: next.pinned })
+    return !!next
+  },
+  renameLibraryTag: (from, to) => {
+    const s = useStore.getState()
+    const next = renameTag({ tags: s.libraryTags, songTags: s.songTags, pinned: s.pinnedTags }, from, to)
+    if (next) set({ libraryTags: next.tags, songTags: next.songTags, pinnedTags: next.pinned })
+    return !!next
+  },
+  deleteLibraryTag: (tag) => set((s) => {
+    const next = deleteTag({ tags: s.libraryTags, songTags: s.songTags, pinned: s.pinnedTags }, tag)
+    return { libraryTags: next.tags, songTags: next.songTags, pinnedTags: next.pinned }
+  }),
+  setSongsTag: (paths, tag, on) => set((s) => ({ songTags: setSongsTag(s.songTags, paths, tag, on) })),
+  setPinnedTags: (pinnedTags) => set({ pinnedTags }),
+  queueEnabled: false,
+  setQueueEnabled: (queueEnabled) => set((s) => ({ queueEnabled, queueView: queueEnabled ? s.queueView : false })),
+  queue: EMPTY_QUEUE,
+  setQueue: (queue) => set({ queue }),
+  queueAdd: (paths) => set((s) => ({ queue: addToQueue(s.queue, paths) })),
+  queueRemove: (path) => set((s) => ({ queue: removeFromQueue(s.queue, path) })),
+  queueMove: (from, to) => set((s) => ({ queue: moveInQueue(s.queue, from, to) })),
+  queueClear: () => set({ queue: EMPTY_QUEUE }),
+  queueEndAction: 'ask',
+  setQueueEndAction: (queueEndAction) => set({ queueEndAction }),
+  queueView: false,
+  setQueueView: (queueView) => set({ queueView }),
+  songEndedAt: 0,
 
   libraryNeedsRefresh: false,
   setLibraryNeedsRefresh: (libraryNeedsRefresh) => set({ libraryNeedsRefresh }),
@@ -1211,7 +1270,7 @@ export const useStore = create<OrfeoStore>((set, get) => ({
       Array.from(s.libraryFavourites, p => map.get(p) ?? p),
     )
     const nextHidden = s.hiddenLibraryFiles.map(p => map.get(p) ?? p)
-    return { libraryFavourites: nextFavourites, hiddenLibraryFiles: nextHidden }
+    return { libraryFavourites: nextFavourites, hiddenLibraryFiles: nextHidden, songTags: remapSongTags(s.songTags, pairs), queue: remapQueue(s.queue, pairs) }
   }),
 }))
 
@@ -1303,6 +1362,13 @@ async function restoreLibraryPrefs() {
     if (typeof prefs.hideDemoFolder === 'boolean') store.setHideDemoFolder(prefs.hideDemoFolder)
     if (typeof prefs.openWithAddsToLibrary === 'boolean') store.setOpenWithAddsToLibrary(prefs.openWithAddsToLibrary)
     if (typeof prefs.showLyricsMark === 'boolean') store.setShowLyricsMark(prefs.showLyricsMark)
+    {
+      const tags: TagState = restoreTagState({ libraryTags: prefs.libraryTags, songTags: prefs.songTags, pinnedTags: prefs.pinnedTags })
+      useStore.setState({ libraryTags: tags.tags, songTags: tags.songTags, pinnedTags: tags.pinned })
+    }
+    if (typeof prefs.queueEnabled === 'boolean') useStore.setState({ queueEnabled: prefs.queueEnabled })
+    if (QUEUE_END_ACTIONS.includes(prefs.queueEndAction)) useStore.setState({ queueEndAction: prefs.queueEndAction })
+    useStore.setState({ queue: restoreQueue({ queuePaths: prefs.queuePaths, queueIndex: prefs.queueIndex }) })
     if (prefs.lyricsIndex && typeof prefs.lyricsIndex === 'object') {
       const index = Object.fromEntries(Object.entries(prefs.lyricsIndex as Record<string, any>).filter(([, v]) =>
         v && typeof v.size === 'number' && typeof v.mtime === 'number' && typeof v.lyrics === 'boolean' && typeof v.v === 'number'))
@@ -1359,6 +1425,42 @@ async function restoreLibraryPrefs() {
 // launch (double-clicked in the system) loads with them in place
 export const libraryRestored: Promise<void> = new Promise(done => {
   setTimeout(() => { void restoreLibraryPrefs().finally(done) }, 500)
+})
+
+// ── Persist Library tags — only after the restore, debounced 1 s ──
+let _tagsTimer: ReturnType<typeof setTimeout> | null = null
+void libraryRestored.then(() => {
+  let seen = useStore.getState()
+  useStore.subscribe((state) => {
+    if (state.libraryTags === seen.libraryTags && state.songTags === seen.songTags && state.pinnedTags === seen.pinnedTags) return
+    seen = state
+    if (_tagsTimer) clearTimeout(_tagsTimer)
+    _tagsTimer = setTimeout(() => {
+      const s = useStore.getState()
+      window.electronAPI?.setPrefs?.({ libraryTags: s.libraryTags, songTags: s.songTags, pinnedTags: s.pinnedTags })?.catch?.(() => {})
+    }, 1000)
+  })
+})
+
+// ── Persist the practice queue — only after the restore, debounced 1 s — and move
+// its position to a queued song whenever one is opened, from wherever ──
+let _queueTimer: ReturnType<typeof setTimeout> | null = null
+void libraryRestored.then(() => {
+  let seen = useStore.getState()
+  useStore.subscribe((state) => {
+    if (state.midi !== seen.midi && state.queue.paths.length) {
+      const followed = followOpenSong(state.queue, (state.midi as any)?._filePath)
+      if (followed !== state.queue) { seen = state; useStore.setState({ queue: followed }); return }
+    }
+    const changed = state.queue !== seen.queue || state.queueEnabled !== seen.queueEnabled || state.queueEndAction !== seen.queueEndAction
+    seen = state
+    if (!changed) return
+    if (_queueTimer) clearTimeout(_queueTimer)
+    _queueTimer = setTimeout(() => {
+      const s = useStore.getState()
+      window.electronAPI?.setPrefs?.({ queueEnabled: s.queueEnabled, queueEndAction: s.queueEndAction, queuePaths: s.queue.paths, queueIndex: s.queue.index })?.catch?.(() => {})
+    }, 1000)
+  })
 })
 
 // ── Persist library-list state — favourites + hidden exclusions ───────────────

@@ -322,7 +322,8 @@ function buildPlayer(startSec: number) {
       this._receive(msg)
     })
     player.onEnd = () => {
-      useStore.setState({ playbackState: 'stopped', currentTime: 0 })
+      // played to its end (the queue listens; a second mark from the clock moments later is ignored there)
+      useStore.setState({ playbackState: 'stopped', currentTime: 0, songEndedAt: Date.now() })
       ;(window as any).__orfeoPlayer = null
       clearAllKeys()
     }

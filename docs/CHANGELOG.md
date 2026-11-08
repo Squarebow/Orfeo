@@ -17,6 +17,23 @@
   small amber microphone beside every song that carries lyrics, .kar and MIDI files
   alike, whatever the file is called. Orfeo checks the Library quietly in the background, never
   while a song plays, and remembers what it found.
+- **Tags for your songs.** Label songs your way (style, difficulty, hands separate) with
+  right-click › Tags…, on one song or a whole selection, and make new tags right there. The row
+  under All / ★ holds the tags you choose with ▾ (a few ready-made ones to start): click one to
+  show only its songs, and several together show the songs that have all of them. The search
+  finds tags too.
+  Settings › MIDI Files & Library › Tags renames and deletes them. Tags are Orfeo's own notes:
+  your files are never renamed or changed.
+- **A practice queue.** Plan a session: Settings › MIDI Files & Library › Practice queue adds a
+  Queue tag at the start of the tags row, which swaps your folders for the queue and back. Add
+  songs with right-click › Add to queue or by dragging them in, drag to reorder, and move
+  through them with Alt + ↓ / ↑ or the queue's buttons. When a queued song ends, Orfeo can ask
+  what's next, play the next song after a short countdown, repeat the song, or wait. The queue
+  is still there the next time you open Orfeo.
+
+### Changed
+- **Settings › MIDI Files & Library** is laid out afresh, and Chord Transcription's description
+  now says what it does: when it's on, a song's file icon makes the chord chart.
 
 ### Fixed
 - **Close buttons work wherever a window sits.** On Windows and Linux, a popup over the top

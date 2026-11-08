@@ -22,7 +22,7 @@ export interface GroupInfo { id: SettingsGroupId; name: string; intro: string; m
 
 export type SettingId =
   | 'soundEngine' | 'soundFonts' | 'autoLevel' | 'exportAudio'
-  | 'showDemo' | 'chordTranscription' | 'openWith' | 'showLyrics'
+  | 'showDemo' | 'chordTranscription' | 'openWith' | 'showLyrics' | 'tags' | 'practiceQueue'
   | 'noteEditor' | 'unsavedWarning' | 'tapTempo' | 'tempoWarnings' | 'countIn' | 'skipEmptyBars' | 'handAssignment' | 'loopRegion' | 'focusMode'
   | 'stepThrough' | 'chordPrompter' | 'closePanels' | 'handTags' | 'trackVu'
   | 'displaySystem' | 'accidentals' | 'chordTracking' | 'chordReading' | 'chordNaming'
@@ -77,18 +77,24 @@ export const SETTINGS: SettingInfo[] = [
     description: t`Adds Export to audio… to a song's right-click menu in the Library. Choose the version (the song as written, Focus, or as you hear it now), the sound and the format. Files go to the Exports folder inside your Library's Orfeo folder.`,
     keywords: 'export audio mp3 wav save render bounce file listen' },
   // ── MIDI Files & Library
+  { id: 'openWith', group: 'midi-files-library', name: t`Open with Orfeo`, summary: t`Double-click a MIDI file anywhere to open it in Orfeo.`,
+    description: t`To make Orfeo your default MIDI player, right-click a file, choose Open with › Choose another app, pick Orfeo and click Always. Switch on Add to Library on double click to copy the song into your Library, same as when you drop a file onto Orfeo.`,
+    keywords: 'double click default app open with file association explorer finder mid midi kar add copy library' },
+  { id: 'tags', group: 'midi-files-library', name: t`Tags`, summary: t`Your own labels for songs, to filter the Library by.`,
+    description: t`Label songs your way (style, difficulty, hands separate) and filter the Library by them. Tag songs by right-clicking them › Tags…. Choose which tags sit in the row under All with ▾, then click one to show only the songs that have it. Tags are Orfeo's own notes: your files are never renamed or changed.`,
+    keywords: 'tags labels style difficulty filter categories genre beginner advanced' },
+  { id: 'showLyrics', group: 'midi-files-library', name: t`Show files with lyrics`, summary: t`Marks songs that carry lyrics with a small microphone.`,
+    description: t`Songs with lyrics inside get a small amber microphone beside their name in the Library, whatever the file is called. Orfeo checks your Library in the background while this is on, and never while a song plays.`,
+    keywords: 'lyrics karaoke kar words sing microphone mic vocal text' },
   { id: 'showDemo', group: 'midi-files-library', name: t`Show demo content`, summary: t`Show the demo songs that come with Orfeo in your Library.`,
     description: t`The demo songs that come with Orfeo appear in your Library. Turn off to hide them — nothing is deleted.`,
     keywords: 'demo songs library hide' },
   { id: 'chordTranscription', group: 'midi-files-library', name: t`Chord Transcription`, summary: t`Make a chord chart PDF from any file in your Library.`,
-    description: t`Adds a transcript icon to every file in your Library — click it to create a chord chart PDF in the ORFEO folder. Charts number the bars as the file has them, so switching this on switches off Skip empty bars at the start.`,
+    description: t`When this is on, clicking a song's file icon in the Library makes a chord chart PDF of it in the ORFEO folder. Charts number the bars as the file has them, so switching this on switches off Skip empty bars at the start.`,
     keywords: 'pdf chart transcript export' },
-  { id: 'openWith', group: 'midi-files-library', name: t`Open with Orfeo`, summary: t`Double-click a MIDI file anywhere to open it in Orfeo.`,
-    description: t`To make Orfeo your default MIDI player, right-click a file, choose Open with › Choose another app, pick Orfeo and click Always. Switch on Add to Library on double click to copy the song into your Library, same as when you drop a file onto Orfeo.`,
-    keywords: 'double click default app open with file association explorer finder mid midi kar add copy library' },
-  { id: 'showLyrics', group: 'midi-files-library', name: t`Show files with lyrics`, summary: t`Marks songs that carry lyrics with a small microphone.`,
-    description: t`Songs with lyrics inside get a small amber microphone after their name in the Library, whatever the file is called. Orfeo checks your Library in the background while this is on, and never while a song plays.`,
-    keywords: 'lyrics karaoke kar words sing microphone mic vocal text' },
+  { id: 'practiceQueue', group: 'midi-files-library', name: t`Practice queue`, summary: t`Plan a session: queue songs and go through them in order.`,
+    description: t`Adds a Queue tag at the start of the tags row. Click it to see the queue in place of your folders, and click it again for the folders. Add songs by right-clicking them › Add to queue, or drag them in; drag to reorder. Alt + ↓ and Alt + ↑ (Option on a Mac) open the next and previous song. The queue is kept when you close Orfeo.`,
+    keywords: 'queue playlist session plan next previous order practice setlist karaoke' },
   // ── Playback & Editing
   { id: 'tapTempo', group: 'playback-editing', name: t`Tap Tempo`, summary: t`A TAP pad for fixing songs whose bar lines don't match the music.`,
     description: t`Adds a red TAP pad next to the tempo, for fixing songs whose bar lines and metronome don't match the music. To start a whole song over, right-click it in the Library, open File Info and choose Rebuild tempo or Copy bars. For bars that change length, type a pattern like 3 3 3 4 in the result, or right-click TAP and choose Change bars from here.`,

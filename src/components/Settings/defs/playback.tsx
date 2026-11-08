@@ -1,4 +1,5 @@
-import { AudioLines, Timer, TriangleAlert, ListOrdered, Hand, Repeat, Focus, Pause, SkipForward } from 'lucide-react'
+import { AudioLines, Timer, TriangleAlert, Hand, Repeat, Focus, Pause, SkipForward } from 'lucide-react'
+import { Numbers } from '../../../utils/extraIcons'
 import { useStore } from '../../../store'
 import { t } from '../../../utils/i18n'
 import { Switch, OptionBtn, FingerStepper, InlineIcon, SubLabel, HelpText } from '../controls'
@@ -152,7 +153,7 @@ export const PLAYBACK_DEFS: SettingDef[] = [
     Control: () => { const v = useStore(s => s.tempoWarningsEnabled); return <Switch value={v} onChange={useStore.getState().setTempoWarningsEnabled} label={t`Tempo warnings`} /> },
   },
   {
-    id: 'countIn', icon: ListOrdered, kind: 'switch', Extra: CountInExtra,
+    id: 'countIn', icon: Numbers, kind: 'switch', Extra: CountInExtra,
     Control: () => { const v = useStore(s => s.countInEnabled); return <Switch value={v} onChange={useStore.getState().setCountInEnabled} label={t`Count-in`} /> },
   },
   {
