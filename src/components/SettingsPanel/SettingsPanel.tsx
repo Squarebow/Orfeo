@@ -17,6 +17,7 @@ import { useLyricsScan } from '../../hooks/useLyricsScan'
 import { songHasAllTags } from '../../utils/libraryTags'
 import { TagsRow, TagPicker } from './LibraryTags'
 import { QueueSection, QueuePill } from './QueueSection'
+import { libraryPanelWidth, LIBRARY_MIN_WIDTH } from '../../utils/libraryWidth'
 import type { NoteNaming, Accidentals, TranscriptEntry, LibraryFile } from '../../types'
 import { MarqueeText } from '../MarqueeText'
 import { detectForeignFormat, resolveAndTrackImport, base64ToBytes, confirmPendingImportBeforeSwitch } from '../../utils/foreignFormatImport'
@@ -1156,25 +1157,6 @@ function LibraryPanel({ hidden = false }: { hidden?: boolean }) {
             >
               Show in folder
             </ContextMenuItem>
-            <ContextMenuItem
-              onClick={() => {
-                // the whole selection when the clicked song is part of it, otherwise just this song
-                const paths = selectedPaths.size > 0 && selectedPaths.has(contextMenu.path) ? Array.from(selectedPaths) : [contextMenu.path]
-                setTagPicker({ x: contextMenu.x, y: contextMenu.y, mode: 'song', paths })
-                setContextMenu(null)
-              }}
-            >
-              {t`Tags…`}
-            </ContextMenuItem>
-            {queueEnabled && (() => {
-              const paths = selectedPaths.size > 0 && selectedPaths.has(contextMenu.path) ? Array.from(selectedPaths) : [contextMenu.path]
-              return (
-                <ContextMenuItem onClick={() => { useStore.getState().queueAdd(paths); setContextMenu(null) }}>
-                  {paths.length > 1 ? t`Add ${paths.length} songs to queue` : t`Add to queue`}
-                </ContextMenuItem>
-              )
-            })()}
-
             {hiddenLibraryFiles.includes(contextMenu.path) ? (
               <ContextMenuItem
                 onClick={() => { unhideLibraryFile(contextMenu.path); setContextMenu(null) }}
@@ -1215,6 +1197,16 @@ function LibraryPanel({ hidden = false }: { hidden?: boolean }) {
               </ContextMenuItem>
             )}
 
+            {/* ── Songs: queue, export, tags ── */}
+            <ContextMenuDivider />
+            {queueEnabled && (() => {
+              const paths = selectedPaths.size > 0 && selectedPaths.has(contextMenu.path) ? Array.from(selectedPaths) : [contextMenu.path]
+              return (
+                <ContextMenuItem onClick={() => { useStore.getState().queueAdd(paths); setContextMenu(null) }}>
+                  {paths.length > 1 ? t`Add ${paths.length} songs to practice queue` : t`Add to practice queue`}
+                </ContextMenuItem>
+              )
+            })()}
             {exportAudioEnabled && (
               <ContextMenuItem
                 onClick={() => {
@@ -1230,6 +1222,16 @@ function LibraryPanel({ hidden = false }: { hidden?: boolean }) {
                 {t`Export to audio`}
               </ContextMenuItem>
             )}
+            <ContextMenuItem
+              onClick={() => {
+                // the whole selection when the clicked song is part of it, otherwise just this song
+                const paths = selectedPaths.size > 0 && selectedPaths.has(contextMenu.path) ? Array.from(selectedPaths) : [contextMenu.path]
+                setTagPicker({ x: contextMenu.x, y: contextMenu.y, mode: 'song', paths })
+                setContextMenu(null)
+              }}
+            >
+              {t`Tag`}
+            </ContextMenuItem>
 
             {canOrganize && realFolders.length > 0 && (
               <>
@@ -1727,16 +1729,51 @@ export default function SettingsPanel() {
     if (!didInit.current) { didInit.current = true; if (!settingsPanelOpen) setSettingsPanelOpen(true) }
   }, [])
 
-
-
+  // ── Width: 260 like the Track panel, folded to 32; the Library tab can be dragged
+  // up to a quarter wider, as far as the window has room (utils/libraryWidth.ts).
+  // Switching to Setup slides back to 260 with the same slide as folding. ──
+  const libraryWidth = useStore((s) => s.libraryWidth)
+  const [windowWidth, setWindowWidth] = useState(() => window.innerWidth)
+  useEffect(() => {
+    const onResize = () => setWindowWidth(window.innerWidth)
+    window.addEventListener('resize', onResize)
+    return () => window.removeEventListener('resize', onResize)
+  }, [])
+  const canWiden = settingsPanelOpen && activeTab === 'library'
+  const panelWidth = !settingsPanelOpen ? 32 : canWiden ? libraryPanelWidth(libraryWidth, windowWidth) : LIBRARY_MIN_WIDTH
+  const [widthDragging, setWidthDragging] = useState(false)
+  const [edgeHover, setEdgeHover] = useState(false)
+  const edgeRef = useRef<HTMLDivElement>(null)
+  // the edge's tooltip points at the piano roll's bottom edge, the top of the chords / scales bar
+  const edgeTipAnchor = (): DOMRect | null => {
+    const edge = edgeRef.current?.getBoundingClientRect()
+    if (!edge) return null
+    const roll = document.querySelector('[data-piano-roll-area]')?.getBoundingClientRect()
+    const y = roll ? roll.bottom : edge.bottom - 40
+    return new DOMRect(edge.right, y - 34, 0, 26)
+  }
+  const startWidthDrag = (e: React.MouseEvent) => {
+    if (e.button !== 0) return
+    e.preventDefault()
+    const sx = e.clientX, start = panelWidth
+    setWidthDragging(true)
+    const onMove = (ev: MouseEvent) => useStore.getState().setLibraryWidth(start + ev.clientX - sx)
+    const onUp = () => {
+      setWidthDragging(false)
+      window.removeEventListener('mousemove', onMove)
+      window.removeEventListener('mouseup', onUp)
+    }
+    window.addEventListener('mousemove', onMove)
+    window.addEventListener('mouseup', onUp)
+  }
 
   return (
     <div style={{
-      // Match TrackPanel width exactly: 260px open, 32px collapsed
-      width: settingsPanelOpen ? 260 : 32,
+      width: panelWidth,
       background: 'var(--bg-modal)',
       borderRight: '1px solid var(--border2)',
-      transition: 'width 0.2s ease',
+      // follows the pointer while dragging; slides otherwise (folding, switching tabs)
+      transition: widthDragging ? 'none' : 'width 0.2s ease',
       overflow: 'hidden',
       display: 'flex',
       flexDirection: 'column',
@@ -1897,6 +1934,29 @@ export default function SettingsPanel() {
           </div>
 
         </div>
+      )}
+      {/* ── Drag the right edge to widen the Library (Library tab only) ── */}
+      {canWiden && (
+        <>
+          {/* A 6px grab zone with nothing drawn: the resize pointer says it all */}
+          <div
+            ref={edgeRef}
+            role="separator" aria-orientation="vertical" aria-label={t`Library width`}
+            onMouseDown={e => { setEdgeHover(false); startWidthDrag(e) }}
+            onDoubleClick={() => useStore.getState().setLibraryWidth(LIBRARY_MIN_WIDTH)}
+            onMouseEnter={() => setEdgeHover(true)}
+            onMouseLeave={() => setEdgeHover(false)}
+            style={{ position: 'absolute', top: 0, right: 0, bottom: 0, width: 6, cursor: 'ew-resize', zIndex: 20 }}
+          />
+          {/* Its tooltip sits just above the chords / scales bar under the piano roll,
+              not halfway down a tall edge */}
+          <TooltipBox
+            anchorRect={edgeHover && !widthDragging ? edgeTipAnchor() : null}
+            content={{ title: t`Drag to widen the Library`, description: t`Double-click to go back to the usual width.` }}
+            visible={edgeHover && !widthDragging}
+            placement="right"
+          />
+        </>
       )}
     </div>
   )

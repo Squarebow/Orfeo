@@ -21,6 +21,7 @@ import type { TrackBaseline } from '../utils/unsavedChanges'
 import type { LyricsEntry } from '../utils/lyricsScan'
 import { addTag, renameTag, deleteTag, setSongsTag, remapSongTags, restoreTagState, type TagState } from '../utils/libraryTags'
 import { addToQueue, removeFromQueue, moveInQueue, followOpenSong, remapQueue, restoreQueue, EMPTY_QUEUE, QUEUE_END_ACTIONS, type QueueState, type QueueEndAction } from '../utils/practiceQueue'
+import { clampLibraryWidth, LIBRARY_MIN_WIDTH } from '../utils/libraryWidth'
 
 // ── Focus mode: every track's mute + eye from just before Focus went on, so
 // the second click puts back exactly what you had. Null while Focus is off.
@@ -369,6 +370,8 @@ interface OrfeoStore {
   queueView: boolean          // the Folders area shows the queue instead (session only)
   setQueueView: (v: boolean) => void
   songEndedAt: number         // set when a song plays to its end (not on Stop), for the queue
+  libraryWidth: number        // the Library tab's chosen width (dragging the panel's edge; utils/libraryWidth.ts)
+  setLibraryWidth: (w: number) => void
 
   // ── Blinks the Library refresh icon after any resave (foreign-import save,
   // MidiEditor save, Note Editor save) — cleared once the user clicks refresh.
@@ -1038,6 +1041,8 @@ export const useStore = create<OrfeoStore>((set, get) => ({
   queueView: false,
   setQueueView: (queueView) => set({ queueView }),
   songEndedAt: 0,
+  libraryWidth: LIBRARY_MIN_WIDTH,
+  setLibraryWidth: (w) => set({ libraryWidth: clampLibraryWidth(w) }),
 
   libraryNeedsRefresh: false,
   setLibraryNeedsRefresh: (libraryNeedsRefresh) => set({ libraryNeedsRefresh }),
@@ -1369,6 +1374,7 @@ async function restoreLibraryPrefs() {
     if (typeof prefs.queueEnabled === 'boolean') useStore.setState({ queueEnabled: prefs.queueEnabled })
     if (QUEUE_END_ACTIONS.includes(prefs.queueEndAction)) useStore.setState({ queueEndAction: prefs.queueEndAction })
     useStore.setState({ queue: restoreQueue({ queuePaths: prefs.queuePaths, queueIndex: prefs.queueIndex }) })
+    if (typeof prefs.libraryWidth === 'number') useStore.setState({ libraryWidth: clampLibraryWidth(prefs.libraryWidth) })
     if (prefs.lyricsIndex && typeof prefs.lyricsIndex === 'object') {
       const index = Object.fromEntries(Object.entries(prefs.lyricsIndex as Record<string, any>).filter(([, v]) =>
         v && typeof v.size === 'number' && typeof v.mtime === 'number' && typeof v.lyrics === 'boolean' && typeof v.v === 'number'))
@@ -1460,6 +1466,18 @@ void libraryRestored.then(() => {
       const s = useStore.getState()
       window.electronAPI?.setPrefs?.({ queueEnabled: s.queueEnabled, queueEndAction: s.queueEndAction, queuePaths: s.queue.paths, queueIndex: s.queue.index })?.catch?.(() => {})
     }, 1000)
+  })
+})
+
+// ── Persist the Library tab's width — after the restore, once a drag has settled ──
+let _widthTimer: ReturnType<typeof setTimeout> | null = null
+void libraryRestored.then(() => {
+  let seen = useStore.getState().libraryWidth
+  useStore.subscribe((state) => {
+    if (state.libraryWidth === seen) return
+    seen = state.libraryWidth
+    if (_widthTimer) clearTimeout(_widthTimer)
+    _widthTimer = setTimeout(() => { window.electronAPI?.setPrefs?.({ libraryWidth: useStore.getState().libraryWidth })?.catch?.(() => {}) }, 600)
   })
 })
 

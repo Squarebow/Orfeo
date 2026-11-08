@@ -32,6 +32,10 @@
   is still there the next time you open Orfeo.
 
 ### Changed
+- **A wider Library, if you like.** Drag the Library's right edge to make it up to a quarter
+  wider, so long song names, tags and the queue have more room. Double-click the edge for the
+  usual width. Setup keeps its width, and in a small window the Library stays as it was so the
+  piano roll never loses space.
 - **Settings › MIDI Files & Library** is laid out afresh, and Chord Transcription's description
   now says what it does: when it's on, a song's file icon makes the chord chart.
 
