@@ -31,7 +31,11 @@ export function runLicenseMarkdownTest(): number {
 
   // The real files: every section read, nothing left as raw table or details text
   const flat = (bs: Block[]): Block[] => bs.flatMap(x => x.kind === 'details' ? [x, ...flat(x.blocks)] : [x])
-  for (const f of ['LICENSE.md', 'THIRD_PARTY_LICENSES.md']) {
+  // Orfeo's own licence is the standard GPL text, plain, so GitHub recognises it; the
+  // GSAP permission that used to sit in it now opens THIRD_PARTY_LICENSES.md
+  const own = readFileSync('LICENSE.md', 'utf-8')
+  check(/^\s*GNU GENERAL PUBLIC LICENSE\s+Version 3, 29 June 2007/.test(own) && !/^#/m.test(own) && !own.includes('GSAP'), 'LICENSE.md: the standard GPL-3.0 text, nothing added')
+  for (const f of ['THIRD_PARTY_LICENSES.md']) {
     const blocks = flat(parseLicenseMarkdown(readFileSync(f, 'utf-8')))
     const paras = blocks.flatMap(x => x.kind === 'para' ? [x.text] : [])
     check(blocks.some(x => x.kind === 'heading'), `${f}: headings`)
@@ -40,6 +44,8 @@ export function runLicenseMarkdownTest(): number {
   const third = flat(parseLicenseMarkdown(readFileSync('THIRD_PARTY_LICENSES.md', 'utf-8')))
   check(third.filter(x => x.kind === 'table').length >= 8, 'third-party tables are tables')
   check(third.some(x => x.kind === 'heading' && x.text === 'Demo songs') && third.some(x => x.kind === 'heading' && x.text === 'Fonts'), 'fonts and demo songs are there')
+  const firstHeading = third.find(x => x.kind === 'heading' && x.level === 2)
+  check(!!firstHeading && firstHeading.kind === 'heading' && firstHeading.text === 'Additional Permission Under GNU GPL Version 3 Section 7', 'the GSAP permission comes first')
 
   console.log(`licenseMarkdown: ${pass} passed, ${fail} failed`)
   console.groupEnd()

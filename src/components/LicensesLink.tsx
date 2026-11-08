@@ -147,7 +147,10 @@ function LicensesWindow({ onClose }: { onClose: () => void }) {
           })}
         </div>
         <div key={tab} tabIndex={0} style={{ padding: '12px 8px 4px 0', overflowY: 'auto', fontSize: 12, lineHeight: 1.6, color: 'var(--text-default)', userSelect: 'text' }}>
-          {texts === null ? t`The license files could not be read. You can find them with the source code.` : <Blocks blocks={blocks} />}
+          {texts === null ? t`The license files could not be read. You can find them with the source code.`
+            // Orfeo's own licence is the standard GPL text, laid out as plain text: shown exactly as written
+            : texts && tab === 'orfeo' ? <pre style={{ ...paragraphFont, margin: 0, whiteSpace: 'pre-wrap', overflowWrap: 'anywhere', fontSize: 12, lineHeight: 1.6 }}>{texts.orfeo.replace(/\r\n/g, '\n').trim()}</pre>
+            : <Blocks blocks={blocks} />}
         </div>
       </div>
     </div>,
