@@ -127,7 +127,7 @@ export default function SettingsWindow() {
   const results = query.trim() ? searchSettings(query) : null
 
   return createPortal(
-    <div onMouseDown={e => { if (e.target === e.currentTarget) close() }}
+    <div className="app-no-drag" onMouseDown={e => { if (e.target === e.currentTarget) close() }}
       style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.6)', zIndex: 10500, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
       <div ref={dialogRef} role="dialog" aria-modal="true" aria-label={t`Settings`} className="orfeo-modal-glow"
         style={{ width: 'min(1000px, calc(100vw - 48px))', height: 'min(640px, calc(100vh - 48px))',

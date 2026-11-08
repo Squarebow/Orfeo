@@ -1304,7 +1304,7 @@ export default function ChordExplorer() {
       {progDropdownOpen && dropdownRect && createPortal(
         <div
           ref={progDropRef}
-          className="amber-scroll"
+          className="amber-scroll app-no-drag"
           style={{
             position: 'fixed',
             top: dropdownRect.top,
@@ -1360,7 +1360,7 @@ export default function ChordExplorer() {
       {styleDropdownOpen && styleDropdownRect && createPortal(
         <div
           ref={styleDropRef}
-          className="amber-scroll"
+          className="amber-scroll app-no-drag"
           style={{
             position: 'fixed',
             top: styleDropdownRect.top,
