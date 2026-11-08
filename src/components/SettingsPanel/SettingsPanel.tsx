@@ -6,13 +6,14 @@ import { confirmDialog } from '../../utils/confirmController'
 import {
   ChevronLeft, ChevronDown, ChevronRight,
   FolderOpen, Folders, RefreshCw, FileMusic, FileCode2, Guitar, BookOpen, Library, Settings, Info,
-  Search, X, Undo2, ChevronsDownUp, Settings2, ArrowLeftRight,
+  Search, X, Undo2, ChevronsDownUp, Settings2, ArrowLeftRight, MicVocal,
 } from 'lucide-react'
 import { useStore } from '../../store'
 import { t } from '../../utils/i18n'
 import { libraryDisplayName, sortBySong } from '../../utils/libraryNames'
 import { TempoWarningDot } from '../Transport/TempoWarning'
 import { useTempoTrustScan } from '../../hooks/useTempoTrustScan'
+import { useLyricsScan } from '../../hooks/useLyricsScan'
 import type { NoteNaming, Accidentals, TranscriptEntry, LibraryFile } from '../../types'
 import { MarqueeText } from '../MarqueeText'
 import { detectForeignFormat, resolveAndTrackImport, base64ToBytes, confirmPendingImportBeforeSwitch } from '../../utils/foreignFormatImport'
@@ -141,6 +142,25 @@ function TranscriptIcon({ filePath, noteNaming, accidentals, addTranscriptEntry,
 const FILENAME_SPAN_STYLE: React.CSSProperties = { fontSize: 'var(--text-sm)', color: 'var(--text-muted)', fontFamily: 'var(--font-ui)' }
 function MarqueeFilename({ name }: { name: string }) {
   return <MarqueeText name={name} spanStyle={FILENAME_SPAN_STYLE} />
+}
+
+// ── A Library row's song name, with the amber lyrics mark when the song carries
+// lyrics (Settings › Show files with lyrics). The mark is pinned at the right end of
+// the name's space, just before the star: a long name scrolls under it on hover
+// while the mark stays put and always shows. It's drawn here, never part of the
+// name, so renaming can't touch it. ───────────────────────────────────────────
+function LibrarySongName({ path, name, spanStyle }: { path: string; name: string; spanStyle: React.CSSProperties }) {
+  const mark = useStore(s => s.showLyricsMark && s.lyricsIndex[path]?.lyrics === true)
+  return (
+    <>
+      <MarqueeText name={name} spanStyle={spanStyle} />
+      {mark && (
+        <span aria-label={t`Has lyrics`} style={{ display: 'inline-flex', alignSelf: 'center', flexShrink: 0, marginLeft: 4, color: 'var(--text-amber)' }}>
+          <MicVocal size={11} strokeWidth={1.75} />
+        </span>
+      )}
+    </>
+  )
 }
 
 
@@ -281,6 +301,7 @@ let _libraryScrollTop = 0
 
 function LibraryPanel({ hidden = false }: { hidden?: boolean }) {
   useTempoTrustScan()
+  useLyricsScan()
   const libraryFolder = useStore((s) => s.libraryFolder)
   const libraryFiles = useStore((s) => s.libraryFiles)
   const libraryFavourites = useStore((s) => s.libraryFavourites)
@@ -1244,7 +1265,7 @@ function LibraryPanel({ hidden = false }: { hidden?: boolean }) {
                   <RowIcon size={11} strokeWidth={1.5} style={{ color: 'var(--text-amber)', flexShrink: 0 }} />
                 )}
                 <div style={{ flex: 1, minWidth: 0, display: 'flex', alignItems: 'baseline', gap: 6 }}>
-                  <MarqueeText name={libraryDisplayName(loadedFile.name, librarySongFirst)} spanStyle={FILENAME_SPAN_ACTIVE} />
+                  <LibrarySongName path={loadedFile.path} name={libraryDisplayName(loadedFile.name, librarySongFirst)} spanStyle={FILENAME_SPAN_ACTIVE} />
                   {loadedFileFolder && (
                     <span style={{ fontSize: 8, color: 'var(--text-inactive)', fontFamily: 'var(--font-mono)', flexShrink: 0 }}>{loadedFileFolder}</span>
                   )}
@@ -1321,7 +1342,7 @@ function LibraryPanel({ hidden = false }: { hidden?: boolean }) {
                   ) : (
                     <RowIcon size={11} strokeWidth={1.5} style={{ color: isHidden ? 'var(--text-amber-dimmest)' : isLoaded ? 'var(--text-amber)' : 'var(--text-muted)', flexShrink: 0 }} />
                   )}
-                  <MarqueeText name={libraryDisplayName(file.name, librarySongFirst)} spanStyle={isHidden ? FILENAME_SPAN_HIDDEN : isLoaded ? FILENAME_SPAN_ACTIVE : FILENAME_SPAN_DEFAULT} />
+                  <LibrarySongName path={file.path} name={libraryDisplayName(file.name, librarySongFirst)} spanStyle={isHidden ? FILENAME_SPAN_HIDDEN : isLoaded ? FILENAME_SPAN_ACTIVE : FILENAME_SPAN_DEFAULT} />
                 </div>
                 )}
                 </RowTooltip>
@@ -1546,7 +1567,7 @@ function LibraryPanel({ hidden = false }: { hidden?: boolean }) {
                     ) : (
                       <RowIcon size={11} strokeWidth={1.5} style={{ color: isHidden ? 'var(--text-amber-dimmest)' : isLoaded || isSelected || isJustSaved ? 'var(--text-amber)' : 'var(--text-muted)', flexShrink: 0 }} />
                     )}
-                    <MarqueeText name={libraryDisplayName(file.name, librarySongFirst)} spanStyle={isHidden ? FILENAME_SPAN_HIDDEN : isLoaded || isSelected || isJustSaved ? FILENAME_SPAN_ACTIVE : FILENAME_SPAN_DEFAULT} />
+                    <LibrarySongName path={file.path} name={libraryDisplayName(file.name, librarySongFirst)} spanStyle={isHidden ? FILENAME_SPAN_HIDDEN : isLoaded || isSelected || isJustSaved ? FILENAME_SPAN_ACTIVE : FILENAME_SPAN_DEFAULT} />
                     {lastFolderOf.has(file.path) && (
                       <RowIconButton
                         tooltip={`Move back to ${lastFolderOf.get(file.path) ?? 'library root'}`}

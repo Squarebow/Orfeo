@@ -13,6 +13,10 @@
   song in Orfeo, in the window that's already open if there is one. Settings › MIDI Files &
   Library › Open with Orfeo explains how for your system, and Add to Library on double click
   also copies each song into your Library, as dropping a file does.
+- **See which songs have lyrics.** Settings › MIDI Files & Library › Show files with lyrics puts a
+  small amber microphone beside every song that carries lyrics, .kar and MIDI files
+  alike, whatever the file is called. Orfeo checks the Library quietly in the background, never
+  while a song plays, and remembers what it found.
 
 ### Fixed
 - **Close buttons work wherever a window sits.** On Windows and Linux, a popup over the top

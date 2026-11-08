@@ -1,4 +1,4 @@
-import { FolderOpen, FileMusic, MousePointerClick } from 'lucide-react'
+import { FolderOpen, FileMusic, MousePointerClick, MicVocal } from 'lucide-react'
 import { useStore } from '../../../store'
 import { applySkipEmptyBarsChange } from '../../../utils/reloadOpenSong'
 import { t } from '../../../utils/i18n'
@@ -27,6 +27,26 @@ function AddToLibraryRow() {
       fontSize: 'var(--text-xs)', fontFamily: 'var(--font-ui)', color: 'var(--text-default)' }}>
       <span style={{ minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{label}</span>
       <Switch value={v} onChange={x => useStore.getState().setOpenWithAddsToLibrary(x)} label={label} />
+    </div>
+  )
+}
+
+// Dev mode: check the whole Library again from scratch, and see what was found
+function LyricsTestPanel() {
+  const found = useStore(s => s.showLyricsMark ? Object.values(s.lyricsIndex).filter(e => e.lyrics).length : null)
+  const checked = useStore(s => Object.keys(s.lyricsIndex).length)
+  if (!simAvailable) return null
+  return (
+    <div style={{ marginTop: 12, padding: 8, border: '1px dashed var(--border2)', borderRadius: 4 }}>
+      <div style={{ fontSize: 9, fontWeight: 600, letterSpacing: '0.1em', textTransform: 'uppercase', color: 'var(--text-muted)', marginBottom: 6 }}>{t`Lyrics · test builds only`}</div>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+        <button onClick={() => useStore.getState().clearLyricsIndex()}
+          style={{ padding: '3px 6px', borderRadius: 4, border: '1px dashed var(--border2)', background: 'transparent', color: 'var(--text-inactive)',
+            fontSize: 10, fontFamily: 'var(--font-ui)', cursor: 'pointer' }}>{t`Check the Library again`}</button>
+        <span style={{ fontSize: 10, fontFamily: 'var(--font-mono)', color: 'var(--text-muted)' }}>
+          {found === null ? t`switched off` : t`${found} with lyrics of ${checked} checked`}
+        </span>
+      </div>
     </div>
   )
 }
@@ -65,4 +85,8 @@ export const LIBRARY_DEFS: SettingDef[] = [
     Control: () => { const v = useStore(s => s.chordTranscriptionEnabled); return <Switch value={v} onChange={x => { const skipped = useStore.getState().skipEmptyBars; useStore.getState().setChordTranscriptionEnabled(x); if (skipped && !useStore.getState().skipEmptyBars) void applySkipEmptyBarsChange() }} label="Chord Transcription" /> },
   },
   { id: 'openWith', icon: MousePointerClick, kind: 'choice', Control: AddToLibraryRow, Description: OpenWithDescription, Extra: OpenWithTestPanel },
+  {
+    id: 'showLyrics', icon: MicVocal, kind: 'switch', Extra: LyricsTestPanel,
+    Control: () => { const v = useStore(s => s.showLyricsMark); return <Switch value={v} onChange={x => useStore.getState().setShowLyricsMark(x)} label={t`Show files with lyrics`} /> },
+  },
 ]

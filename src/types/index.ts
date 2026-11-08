@@ -199,6 +199,7 @@ declare global {
       // Export to audio: writes to <library>/Orfeo/Exports, returns the saved path
       saveExport:          (songPath: string, libraryFolder: string | null, fileName: string, bytes: Uint8Array) => Promise<string>
       statFiles:           (paths: string[]) => Promise<{ path: string; size: number; mtime: number }[]>
+      checkLyrics:         (paths: string[]) => Promise<{ path: string; size: number; mtime: number; lyrics: boolean }[]>
       windowMinimize:      () => Promise<void>
       windowMaximize:      () => Promise<void>
       windowClose:         () => Promise<void>

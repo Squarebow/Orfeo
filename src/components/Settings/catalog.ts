@@ -22,7 +22,7 @@ export interface GroupInfo { id: SettingsGroupId; name: string; intro: string; m
 
 export type SettingId =
   | 'soundEngine' | 'soundFonts' | 'autoLevel' | 'exportAudio'
-  | 'showDemo' | 'chordTranscription' | 'openWith'
+  | 'showDemo' | 'chordTranscription' | 'openWith' | 'showLyrics'
   | 'noteEditor' | 'unsavedWarning' | 'tapTempo' | 'tempoWarnings' | 'countIn' | 'skipEmptyBars' | 'handAssignment' | 'loopRegion' | 'focusMode'
   | 'stepThrough' | 'chordPrompter' | 'closePanels' | 'handTags' | 'trackVu'
   | 'displaySystem' | 'accidentals' | 'chordTracking' | 'chordReading' | 'chordNaming'
@@ -86,6 +86,9 @@ export const SETTINGS: SettingInfo[] = [
   { id: 'openWith', group: 'midi-files-library', name: t`Open with Orfeo`, summary: t`Double-click a MIDI file anywhere to open it in Orfeo.`,
     description: t`To make Orfeo your default MIDI player, right-click a file, choose Open with › Choose another app, pick Orfeo and click Always. Switch on Add to Library on double click to copy the song into your Library, same as when you drop a file onto Orfeo.`,
     keywords: 'double click default app open with file association explorer finder mid midi kar add copy library' },
+  { id: 'showLyrics', group: 'midi-files-library', name: t`Show files with lyrics`, summary: t`Marks songs that carry lyrics with a small microphone.`,
+    description: t`Songs with lyrics inside get a small amber microphone after their name in the Library, whatever the file is called. Orfeo checks your Library in the background while this is on, and never while a song plays.`,
+    keywords: 'lyrics karaoke kar words sing microphone mic vocal text' },
   // ── Playback & Editing
   { id: 'tapTempo', group: 'playback-editing', name: t`Tap Tempo`, summary: t`A TAP pad for fixing songs whose bar lines don't match the music.`,
     description: t`Adds a red TAP pad next to the tempo, for fixing songs whose bar lines and metronome don't match the music. To start a whole song over, right-click it in the Library, open File Info and choose Rebuild tempo or Copy bars. For bars that change length, type a pattern like 3 3 3 4 in the result, or right-click TAP and choose Change bars from here.`,

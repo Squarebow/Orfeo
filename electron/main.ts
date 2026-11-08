@@ -3,7 +3,7 @@ import { autoUpdater } from 'electron-updater'
 import { join, basename, dirname, extname } from 'path'
 import { execFile } from 'child_process'
 import { readFileSync, writeFileSync, existsSync, readdirSync, createWriteStream, statSync } from 'fs'
-import { mkdir, access, copyFile, readdir, rename, rmdir, writeFile } from 'fs/promises'
+import { mkdir, access, copyFile, readdir, rename, rmdir, writeFile, readFile, stat } from 'fs/promises'
 import { Midi } from '@tonejs/midi'
 import { Chord, Note } from 'tonal'
 import PDFDocument from 'pdfkit'
@@ -12,6 +12,7 @@ import { buildHandExportHint, withHandSuffix, nameHandFromSuffix, parseHandMapMe
 import { getGMGroup } from '../src/utils/gmInstruments'
 import { exportsDir, nextFreeName, safeExportBaseName } from './exportName'
 import { fileFromArgs } from './openWith'
+import { fileHasLyrics } from '../src/utils/lyricsCheck'
 import { KEYBOARD_GROUPS } from '../src/utils/keyboardGroups'
 import { nextOrfeoVersion, stripOrfeoSuffix } from '../src/utils/orfeoVersioning'
 import { downloadEnding, newerRelease } from '../src/utils/newRelease'
@@ -664,6 +665,22 @@ ipcMain.handle('fs:statFiles', async (_e, paths: string[]) => {
   const out: { path: string; size: number; mtime: number }[] = []
   for (const p of Array.isArray(paths) ? paths : []) {
     try { const st = statSync(p); out.push({ path: p, size: st.size, mtime: Math.round(st.mtimeMs) }) } catch {}
+  }
+  return out
+})
+
+// ── Lyrics check for the Library's lyrics mark: a handful of songs per call, read
+// here so no file travels to the page. Only MIDI-family files; anything over 5 MB
+// or unreadable counts as no lyrics (and isn't retried until it changes). ──────
+ipcMain.handle('lyrics:check', async (_e, paths: string[]) => {
+  const out: { path: string; size: number; mtime: number; lyrics: boolean }[] = []
+  for (const p of Array.isArray(paths) ? paths.slice(0, 50) : []) {
+    if (typeof p !== 'string' || !/\.(mid|midi|kar)$/i.test(p)) continue
+    try {
+      const st = await stat(p)
+      const lyrics = st.size <= 5_000_000 && fileHasLyrics(await readFile(p))
+      out.push({ path: p, size: st.size, mtime: Math.round(st.mtimeMs), lyrics })
+    } catch {}
   }
   return out
 })

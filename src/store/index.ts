@@ -18,6 +18,7 @@ import { velocityDropRatio, suggestCompressorPreset } from '../utils/velocityAna
 import { applyHandColors, isHex, handHex, followedHandColor, DEFAULT_HAND_LH, DEFAULT_HAND_RH } from '../utils/handPalette'
 import { HAND_ASSIGN_GROUPS, focusRole } from '../utils/keyboardGroups'
 import type { TrackBaseline } from '../utils/unsavedChanges'
+import type { LyricsEntry } from '../utils/lyricsScan'
 
 // ── Focus mode: every track's mute + eye from just before Focus went on, so
 // the second click puts back exactly what you had. Null while Focus is off.
@@ -337,6 +338,12 @@ interface OrfeoStore {
   setHideDemoFolder: (v: boolean) => void
   openWithAddsToLibrary: boolean
   setOpenWithAddsToLibrary: (v: boolean) => void
+  // Library lyrics mark (Settings › Show files with lyrics) and its remembered check results
+  showLyricsMark: boolean
+  setShowLyricsMark: (v: boolean) => void
+  lyricsIndex: Record<string, LyricsEntry>
+  setLyricsEntries: (entries: ({ path: string } & LyricsEntry)[]) => void
+  clearLyricsIndex: () => void
 
   // ── Blinks the Library refresh icon after any resave (foreign-import save,
   // MidiEditor save, Note Editor save) — cleared once the user clicks refresh.
@@ -962,6 +969,16 @@ export const useStore = create<OrfeoStore>((set, get) => ({
   setHideDemoFolder: (hideDemoFolder) => set({ hideDemoFolder }),
   openWithAddsToLibrary: false,
   setOpenWithAddsToLibrary: (openWithAddsToLibrary) => set({ openWithAddsToLibrary }),
+  showLyricsMark: false,
+  setShowLyricsMark: (showLyricsMark) => set({ showLyricsMark }),
+  lyricsIndex: {},
+  setLyricsEntries: (entries) => set((s) => {
+    if (!entries.length) return {}
+    const next = { ...s.lyricsIndex }
+    for (const { path, ...e } of entries) next[path] = e
+    return { lyricsIndex: next }
+  }),
+  clearLyricsIndex: () => set({ lyricsIndex: {} }),
 
   libraryNeedsRefresh: false,
   setLibraryNeedsRefresh: (libraryNeedsRefresh) => set({ libraryNeedsRefresh }),
@@ -1285,6 +1302,12 @@ async function restoreLibraryPrefs() {
     if (typeof prefs.chordTranscriptionEnabled === 'boolean') store.setChordTranscriptionEnabled(prefs.chordTranscriptionEnabled)
     if (typeof prefs.hideDemoFolder === 'boolean') store.setHideDemoFolder(prefs.hideDemoFolder)
     if (typeof prefs.openWithAddsToLibrary === 'boolean') store.setOpenWithAddsToLibrary(prefs.openWithAddsToLibrary)
+    if (typeof prefs.showLyricsMark === 'boolean') store.setShowLyricsMark(prefs.showLyricsMark)
+    if (prefs.lyricsIndex && typeof prefs.lyricsIndex === 'object') {
+      const index = Object.fromEntries(Object.entries(prefs.lyricsIndex as Record<string, any>).filter(([, v]) =>
+        v && typeof v.size === 'number' && typeof v.mtime === 'number' && typeof v.lyrics === 'boolean' && typeof v.v === 'number'))
+      useStore.setState({ lyricsIndex: index as Record<string, LyricsEntry> })
+    }
     if (prefs.splitBreakpointType === 'single' || prefs.splitBreakpointType === 'range') store.setSplitBreakpointType(prefs.splitBreakpointType)
     if (typeof prefs.splitBreakpointNote === 'number') store.setSplitBreakpointNote(prefs.splitBreakpointNote)
     if (typeof prefs.splitBreakpointRangeStart === 'number') store.setSplitBreakpointRangeStart(prefs.splitBreakpointRangeStart)
@@ -1369,6 +1392,19 @@ const _unsubTrust = useStore.subscribe((state) => {
   }, 2000)
 })
 
+// ── Persist lyrics check results — batched the same way, 2 s after the last change ──
+let _lyricsTimer: ReturnType<typeof setTimeout> | null = null
+let _lyricsSeen: object | null = null
+const _unsubLyrics = useStore.subscribe((state) => {
+  if (_lyricsSeen === null) { _lyricsSeen = state.lyricsIndex; return }
+  if (state.lyricsIndex === _lyricsSeen) return
+  _lyricsSeen = state.lyricsIndex
+  if (_lyricsTimer) clearTimeout(_lyricsTimer)
+  _lyricsTimer = setTimeout(() => {
+    window.electronAPI?.setPrefs?.({ lyricsIndex: useStore.getState().lyricsIndex })?.catch?.(() => {})
+  }, 2000)
+})
+
 // Persist display settings when they change
 // Use null sentinel so we never save on first subscriber fire (which would
 // overwrite the restored value before restoreLibraryPrefs has run)
@@ -1397,6 +1433,7 @@ let _prevChordPrompterEnabled: boolean | null = null
 let _prevChordTranscriptionEnabled: boolean | null = null
 let _prevHideDemoFolder: boolean | null = null
 let _prevOpenWithAddsToLibrary: boolean | null = null
+let _prevShowLyricsMark: boolean | null = null
 let _prevSplitBreakpointType: string | null = null
 let _prevSplitBreakpointNote: number | null = null
 let _prevSplitBreakpointRangeStart: number | null = null
@@ -1471,6 +1508,7 @@ const _unsubPrefs = useStore.subscribe((state) => {
     _prevChordTranscriptionEnabled = state.chordTranscriptionEnabled
     _prevHideDemoFolder = state.hideDemoFolder
     _prevOpenWithAddsToLibrary = state.openWithAddsToLibrary
+    _prevShowLyricsMark = state.showLyricsMark
     _prevSplitBreakpointType = state.splitBreakpointType
     _prevSplitBreakpointNote = state.splitBreakpointNote
     _prevSplitBreakpointRangeStart = state.splitBreakpointRangeStart
@@ -1548,6 +1586,7 @@ const _unsubPrefs = useStore.subscribe((state) => {
     state.chordTranscriptionEnabled !== _prevChordTranscriptionEnabled ||
     state.hideDemoFolder !== _prevHideDemoFolder ||
     state.openWithAddsToLibrary !== _prevOpenWithAddsToLibrary ||
+    state.showLyricsMark !== _prevShowLyricsMark ||
     state.splitBreakpointType !== _prevSplitBreakpointType ||
     state.splitBreakpointNote !== _prevSplitBreakpointNote ||
     state.splitBreakpointRangeStart !== _prevSplitBreakpointRangeStart ||
@@ -1617,6 +1656,7 @@ const _unsubPrefs = useStore.subscribe((state) => {
     _prevChordTranscriptionEnabled = state.chordTranscriptionEnabled
     _prevHideDemoFolder = state.hideDemoFolder
     _prevOpenWithAddsToLibrary = state.openWithAddsToLibrary
+    _prevShowLyricsMark = state.showLyricsMark
     _prevSplitBreakpointType = state.splitBreakpointType
     _prevSplitBreakpointNote = state.splitBreakpointNote
     _prevSplitBreakpointRangeStart = state.splitBreakpointRangeStart
@@ -1692,6 +1732,7 @@ const _unsubPrefs = useStore.subscribe((state) => {
       chordTranscriptionEnabled: state.chordTranscriptionEnabled,
       hideDemoFolder: state.hideDemoFolder,
       openWithAddsToLibrary: state.openWithAddsToLibrary,
+      showLyricsMark: state.showLyricsMark,
       splitBreakpointType: state.splitBreakpointType,
       splitBreakpointNote: state.splitBreakpointNote,
       splitBreakpointRangeStart: state.splitBreakpointRangeStart,
