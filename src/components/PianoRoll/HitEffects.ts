@@ -1,7 +1,7 @@
 // GSAP is licensed separately under GreenSock's proprietary "Standard No
 // Charge" license, not GPLv3 — see the "Additional Permission Under GNU GPL
-// Version 3 Section 7" clause in /LICENSE.md, which grants explicit
-// permission to link this file against it.
+// Version 3 Section 7" at the top of /THIRD_PARTY_LICENSES.md, which grants
+// explicit permission to link this file against it.
 import { Container, Graphics, BlurFilter } from 'pixi.js'
 import { AdvancedBloomFilter } from 'pixi-filters'
 import gsap from 'gsap'

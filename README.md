@@ -306,4 +306,4 @@ open source, and a modern interface.
 
 GPL-3.0-or-later © [SquareBow](https://github.com/Squarebow) — see
 [LICENSE.md](LICENSE.md). Bundles GSAP under a separate additional-permission
-grant; see the license file and [THIRD_PARTY_LICENSES.md](THIRD_PARTY_LICENSES.md).
+grant; see the top of [THIRD_PARTY_LICENSES.md](THIRD_PARTY_LICENSES.md).
