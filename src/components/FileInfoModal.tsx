@@ -3,7 +3,7 @@
 // file, not just the loaded one: reads it fresh over IPC rather than
 // touching the app's loaded state. Artist/Song are the only editable fields
 // (inline, staged locally); Save commits one real rename on disk.
-import { useCallback, useEffect, useRef, useState, type CSSProperties } from 'react'
+import { useCallback, useEffect, useRef, useState, type CSSProperties, type ReactNode } from 'react'
 import { createPortal } from 'react-dom'
 import { X, ArrowLeftRight, ChevronDown, Save, FolderOpen, Timer, Copy } from 'lucide-react'
 import { useStore } from '../store'
@@ -18,6 +18,8 @@ import { PENCIL_CURSOR } from '../utils/cursors'
 import { parseMidiMetadata, buildRenamedFileName, formatKeyOrDash, type MidiFileMetadata } from '../utils/midiMetadata'
 import { modalCloseButtonStyle, modalCloseButtonHoverColor, modalCloseButtonIdleColor } from '../utils/modalCloseButtonStyle'
 import { useFocusTrap } from '../hooks/useFocusTrap'
+import { fileHasLyrics } from '../utils/lyricsCheck'
+import { TagPill } from './SettingsPanel/LibraryTags'
 
 interface FileLogEvent { type: string; timestamp: number; summary: string }
 interface FileVersion { name: string; path: string; version: number; mtime: number }
@@ -74,6 +76,7 @@ export default function FileInfoModal({ filePath, fileName, onClose, onRenamed, 
   const [currentPath, setCurrentPath] = useState(filePath)
   const [currentName, setCurrentName] = useState(fileName)
   const [meta, setMeta] = useState<MidiFileMetadata | null>(null)
+  const [hasLyrics, setHasLyrics] = useState<boolean | null>(null)  // null: not a MIDI file
   const [error, setError] = useState<string | null>(null)
   const [saving, setSaving] = useState(false)
 
@@ -192,6 +195,8 @@ export default function FileInfoModal({ filePath, fileName, onClose, onRenamed, 
         const parsed = parseMidiMetadata(buffer, currentName)
         if (!cancelled) {
           setMeta(parsed)
+          // read from the file itself, whatever Settings › Show files with lyrics says
+          setHasLyrics(/\.(mid|midi|kar)$/i.test(currentPath) ? fileHasLyrics(buffer) : null)
           setArtistDraft(parsed.artist ?? '')
           setSongDraft(parsed.song ?? '')
         }
@@ -265,12 +270,17 @@ export default function FileInfoModal({ filePath, fileName, onClose, onRenamed, 
   const currentVersion = versions?.find(v => v.path === currentPath)
   const currentVersionLabel = currentVersion ? (currentVersion.version === 0 ? 'Original' : `v${currentVersion.version}`) : null
 
-  const rows: { label: string; value: string }[] = meta ? [
+  // This song's tags, kept by Orfeo (right-click › Tag in the Library)
+  const songTags = useStore(s => s.songTags[currentPath])
+  const rows: { label: string; value: string; node?: ReactNode }[] = meta ? [
     { label: 'Key', value: formatKeyOrDash(meta.key, noteNaming, accidentals) },
     { label: 'BPM', value: String(meta.bpm) },
     { label: 'Time', value: meta.timeSignature },
     { label: 'Tracks', value: String(meta.trackCount) },
     { label: 'Copyright', value: meta.copyright ?? '—' },
+    { label: t`Lyrics`, value: hasLyrics === null ? '—' : hasLyrics ? t`Yes` : t`No` },
+    { label: t`Tags`, value: songTags?.length ? songTags.join(', ') : '—',
+      node: songTags?.length ? <span style={{ display: 'flex', flexWrap: 'wrap', gap: 4 }}>{songTags.map(tag => <TagPill key={tag} label={tag} />)}</span> : undefined },
   ] : []
 
   return createPortal(
@@ -463,7 +473,7 @@ export default function FileInfoModal({ filePath, fileName, onClose, onRenamed, 
                   color: row.value === '—' ? 'var(--text-inactive)' : 'var(--text-default)',
                   overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
                 }}>
-                  {row.value}
+                  {row.node ?? row.value}
                 </span>
               </div>
             ))}
