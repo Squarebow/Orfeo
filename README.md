@@ -225,7 +225,9 @@ Orfeo's community translations are hosted on
 [Weblate](https://hosted.weblate.org/engage/orfeo/) (the language switcher is
 coming in Orfeo 1.8).
 
-[![Translation status](https://hosted.weblate.org/widget/orfeo/multi-auto.svg)](https://hosted.weblate.org/engage/orfeo/)
+| Deutsch | Français | Español | Português | Polski | 简体中文 |
+|:---:|:---:|:---:|:---:|:---:|:---:|
+| [![Translation status](https://hosted.weblate.org/widget/orfeo/-/de/svg-badge.svg)](https://hosted.weblate.org/engage/orfeo/de/) | [![Translation status](https://hosted.weblate.org/widget/orfeo/-/fr/svg-badge.svg)](https://hosted.weblate.org/engage/orfeo/fr/) | [![Translation status](https://hosted.weblate.org/widget/orfeo/-/es/svg-badge.svg)](https://hosted.weblate.org/engage/orfeo/es/) | [![Translation status](https://hosted.weblate.org/widget/orfeo/-/pt_BR/svg-badge.svg)](https://hosted.weblate.org/engage/orfeo/pt_BR/) | [![Translation status](https://hosted.weblate.org/widget/orfeo/-/pl/svg-badge.svg)](https://hosted.weblate.org/engage/orfeo/pl/) | [![Translation status](https://hosted.weblate.org/widget/orfeo/-/zh_Hans/svg-badge.svg)](https://hosted.weblate.org/engage/orfeo/zh_Hans/) |
 
 ---
 
