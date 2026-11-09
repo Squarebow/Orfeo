@@ -8,6 +8,7 @@ import { useStore } from '../store'
 import { HAND_ASSIGN_GROUPS } from './keyboardGroups'
 import { SEMITONE_TO_KEY_NAME } from './keyDetection'
 import { distinctTrackColor, pianoFamilyColor } from './colors'
+import { drumHoldLength, songEnd } from './drumHold'
 
 export function parseMidiBuffer(buffer: ArrayBuffer, fileName: string, filePath = ''): ParsedMidi {
   // FUTURE: KAR lyric events (meta type 0x05 = lyrics, 0x01 = text) could
@@ -110,7 +111,8 @@ export function parseMidiBuffer(buffer: ArrayBuffer, fileName: string, filePath 
     const notes: ParsedNote[] = track.notes.map(n => ({
       midi: n.midi,
       time: n.time,
-      duration: n.duration,
+      // a drum hit held far past the music no longer stretches the song (drumHold.ts)
+      duration: isDrum ? drumHoldLength(n.duration) : n.duration,
       velocity: n.velocity,
       trackIndex: tracks.length,
     }))
@@ -156,15 +158,9 @@ export function parseMidiBuffer(buffer: ArrayBuffer, fileName: string, filePath 
     tracks.push(parsedTrack)
   })
 
-  let duration = midi.duration
-  if (duration <= 0) {
-    for (const t of tracks) {
-      for (const n of t.notes) {
-        const end = n.time + n.duration
-        if (end > duration) duration = end
-      }
-    }
-  }
+  // the end of the last note, as the file library counts it, but with drum hits
+  // counted at their sounding length (drumHold.ts)
+  const duration = songEnd(tracks)
 
   // ── Beat + bar grid honouring the FULL tempo map AND every time-signature
   // change — single source of truth for PianoRoll/TopBar/LoopRegionStrip's
