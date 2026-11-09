@@ -31,6 +31,7 @@ telemetry; MIDI files are processed entirely on your device.
 - [Download](#download)
 - [Documentation](#documentation)
 - [Building from source](#building-from-source)
+- [Translations](#translations)
 - [FAQ](#faq)
 - [Why Orfeo](#why-orfeo)
 - [License](#license)
@@ -215,6 +216,16 @@ npm run dev
 Requires [Node.js](https://nodejs.org) 20 LTS or newer. Full build and release
 instructions, including macOS/Linux, are in
 [docs/CONTRIBUTING.md](docs/CONTRIBUTING.md).
+
+---
+
+## Translations
+
+Orfeo's community translations are hosted on
+[Weblate](https://hosted.weblate.org/engage/orfeo/) (the language switcher is
+coming in Orfeo 1.8).
+
+[![Translation status](https://hosted.weblate.org/widget/orfeo/multi-auto.svg)](https://hosted.weblate.org/engage/orfeo/)
 
 ---
 
