@@ -39,7 +39,26 @@
 - **Settings › MIDI Files & Library** is laid out afresh, and Chord Transcription's description
   now says what it does: when it's on, a song's file icon makes the chord chart.
 
+## [1.7.2] — 9. 11. 2026 — Songs end with the music, close buttons that work
+
+**In short**
+- A song no longer runs on in silence for minutes after its last note.
+- Close buttons on popups over the top bar work wherever you click them.
+- Clearer install notes for Linux, and Orfeo's license as the standard text.
+
+### Changed
+- **Orfeo's license is the standard GPL text, word for word**, and the Licenses window shows
+  it exactly as written. The extra permission for the animation library Orfeo uses now sits
+  at the top of the list of other people's code that comes with Orfeo.
+- **Linux install notes** now say that the AppImage needs the FUSE 2 library, with the
+  command to install it.
+- **Building Orfeo yourself:** `npm run dev` fetches what it needs on a fresh copy.
+
 ### Fixed
+- **No more minutes of silence after a song ends.** A few MIDI files hold a single drum hit far
+  past the music (a lost release, left from when the file was made), so the song kept running
+  in silence long after its last note. A drum hit now counts only for as long as it can sound,
+  so the song ends with the music, with a few seconds to spare for a last cymbal to ring out.
 - **Close buttons work wherever a window sits.** On Windows and Linux, a popup over the top
   bar (Settings on a smaller screen, or any window dragged up) only answered clicks in a few
   spots, so its close button often seemed dead. Every popup, menu and dialog now takes clicks
