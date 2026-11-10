@@ -7,9 +7,7 @@ experience.
 
 📖 **User manual: [orfeo.cc/docs](https://orfeo.cc/docs)**
 
-Orfeo is free and always will be. If it helps your playing, you can support it on [Ko-fi](https://ko-fi.com/squarebow) or [GitHub Sponsors](https://github.com/sponsors/Squarebow).
-
-[![ko-fi](https://ko-fi.com/img/githubbutton_sm.svg)](https://ko-fi.com/X5T32931V0)
+Orfeo is free. If it helps your playing, you can support it on [Ko-fi](https://ko-fi.com/squarebow) or [GitHub Sponsors](https://github.com/sponsors/Squarebow).
 
 ![Orfeo mid-playback: falling notes on the keyboard, keys lit in track colours, the live chord name above](.github/images/orfeo-hero.webp)
 
