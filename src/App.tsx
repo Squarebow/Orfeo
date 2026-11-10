@@ -15,6 +15,7 @@ import ChordExplorer from './components/ChordExplorer'
 import ScaleExplorer from './components/ScaleExplorer'
 import LockedChordModal from './components/LockedChordModal'
 import QueueEndCard from './components/QueueEndCard'
+import Tour from './components/Onboarding/Tour'
 import { registerQueueOpener, queueStep } from './utils/queueControl'
 import MidiEditor from './components/MidiEditor/MidiEditor'
 import MixerConsole from './components/Mixer/MixerConsole'
@@ -656,6 +657,7 @@ export default function App() {
       <ScaleExplorer />
       <LockedChordModal />
       <QueueEndCard replay={replaySong} />
+      <Tour />
 
       {/* ── Drop error toast — briefly shown for invalid file types. Click-to-
           dismiss alongside the 2.5s auto-clear timeout — if the user's eyes

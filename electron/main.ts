@@ -2094,6 +2094,10 @@ ipcMain.handle('openWith:simulate', (_e, filePath: string) => {
 // ── Launch: copy demo files on first run, then open main window ───────────────
 app.whenReady().then(async () => {
   if (!isOnlyCopy) return // the open copy got the song; this one is quitting
+  // A first start (no settings file yet) marks both tours as still to show. A copy
+  // updated from an earlier version has settings but no mark, and the page counts
+  // that as already seen (src/utils/tours.ts), so existing users never get them.
+  if (!existsSync(getPrefsPath())) savePrefs({ tours: { firstLaunch: false, firstSong: false } })
   try { await ensureDemoFolder() } catch (e) { console.error('[Orfeo] ensureDemoFolder failed:', e) }
   // ── No default menu — this app has its own custom title bar and no menu
   // bar is ever shown, but Electron's built-in default menu (auto-created

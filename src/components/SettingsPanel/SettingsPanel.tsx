@@ -926,7 +926,7 @@ function LibraryPanel({ hidden = false }: { hidden?: boolean }) {
     <div style={{ display: hidden ? 'none' : 'flex', flexDirection: 'column', height: '100%' }}>
 
       {/* ── Folder picker row ── */}
-      <div style={{ padding: '10px 12px', borderBottom: '1px solid var(--bg-tile)', flexShrink: 0 }}>
+      <div data-tour="library-header" style={{ padding: '10px 12px', borderBottom: '1px solid var(--bg-tile)', flexShrink: 0 }}>
         {libraryFolder ? (
           <div>
             {/* Current folder display */}
@@ -1085,6 +1085,7 @@ function LibraryPanel({ hidden = false }: { hidden?: boolean }) {
         ) : (
           <button
             onClick={handlePickFolder}
+            data-tour="library-folder"
             className="loop-nudge-blink"
             style={{
               width: '100%', padding: '8px 0', borderRadius: 'var(--radius-md)',
@@ -1271,6 +1272,20 @@ function LibraryPanel({ hidden = false }: { hidden?: boolean }) {
             >
               Show in folder
             </ContextMenuItem>
+            {/* every song in the folder (and the folders inside it) joins the queue as
+                songs, in the order shown; hidden songs stay out, and Demo has no entry */}
+            {queueEnabled && folderContextMenu.folder.toLowerCase() !== 'demo' && (() => {
+              const hidden = new Set(hiddenLibraryFiles)
+              const songs = (grouped.find(g => g.folder === folderContextMenu.folder)?.files ?? []).filter(f => !hidden.has(f.path)).map(f => f.path)
+              return (
+                <ContextMenuItem
+                  onClick={() => { useStore.getState().queueAdd(songs); setFolderContextMenu(null) }}
+                  disabled={songs.length === 0}
+                >
+                  {t`Add folder to queue`}
+                </ContextMenuItem>
+              )
+            })()}
             {!isProtectedFolder(folderContextMenu.folder) && (<>
               <ContextMenuItem
                 onClick={() => { setRenamingFolder(folderContextMenu.folder); setRenameDraft(folderContextMenu.folder); setFolderContextMenu(null) }}
@@ -1722,7 +1737,9 @@ export default function SettingsPanel() {
   // ── Update check, app zoom, sound sets: shared with the Settings window ──
   const settingsPanelOpen = useStore((s) => s.settingsPanelOpen)
   const setSettingsPanelOpen = useStore((s) => s.setSettingsPanelOpen)
-  const [activeTab, setActiveTab] = useState<DrawerTab>('library')
+  // in the store, so a tour can switch it (utils/tours.ts)
+  const activeTab = useStore((s) => s.drawerTab)
+  const setActiveTab = useStore((s) => s.setDrawerTab)
   const didInit = useRef(false)
   // ── Init — ensures panel is open on first mount ───────────────────────────
   useEffect(() => {
@@ -1854,13 +1871,14 @@ export default function SettingsPanel() {
           </Tooltip>
 
           {/* ── Tab bar: Library / Settings, left-aligned with content ─────── */}
-          <div style={{ display: 'flex', borderBottom: '1px solid var(--border)', flexShrink: 0 }}>
+          <div data-tour="drawer-tabs" style={{ display: 'flex', borderBottom: '1px solid var(--border)', flexShrink: 0 }}>
             {([
               { id: 'library',  icon: <Library size={16} />,  label: 'Library'  },
               { id: 'settings', icon: <Settings2 size={16} />, label: t`Setup` },
             ] as { id: DrawerTab; icon: React.ReactNode; label: string }[]).map(tab => (
               <button
                 key={tab.id}
+                data-tour={`tab-${tab.id}`}
                 onClick={() => setActiveTab(tab.id)}
                 style={{
                   flex: 1, height: 40,

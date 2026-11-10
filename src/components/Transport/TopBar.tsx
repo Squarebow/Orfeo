@@ -300,6 +300,7 @@ export default function TopBar() {
         <Tooltip title="Open a file (Ctrl+O)" description={"Loads a supported file from\ndisk to start a new session."} placement="bottom">
           <button
             onClick={openFile}
+            data-tour="open-file"
             className="app-no-drag"
             style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: 'var(--button-height)', height: 'var(--button-height)', borderRadius: 'var(--radius-md)', background: 'transparent', border: 'none', color: 'var(--text-default)', cursor: 'pointer', flexShrink: 0, transition: 'color 0.12s' }}
             onMouseEnter={e => e.currentTarget.style.color = 'var(--text-amber)'}
@@ -314,7 +315,7 @@ export default function TopBar() {
 
       {/* ── BPM ── (tighter gap/padding than the other groups: with the TAP pad
           the left column must still fit at a 1366 px window) */}
-      <div className="app-no-drag" style={{ display: 'flex', alignItems: 'center', gap: 4, padding: '0 var(--space-2)', flexShrink: 0 }}>
+      <div className="app-no-drag" data-tour="tempo" style={{ display: 'flex', alignItems: 'center', gap: 4, padding: '0 var(--space-2)', flexShrink: 0 }}>
         <Tooltip title={`Tempo: ${liveBpm || '—'} BPM`} description={t`The song's current playback tempo,\nscaled by your speed setting.\nDouble-click to type a tempo.`} placement="bottom">
           <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
             <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start', gap: 1 }}>
@@ -437,7 +438,7 @@ export default function TopBar() {
           </span>
         )}
         {/* Transport */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+        <div data-tour="transport" style={{ display: 'flex', alignItems: 'center', gap: 2 }}>
           <TBtn onClick={stop} disabled={!midi} title="Go to start" oneLine><SkipBack size={16} strokeWidth={1.5} /></TBtn>
           <TBtn onClick={() => handleSkip(-1)} disabled={!midi} title={`Rewind ${SKIP_SECS}s`} oneLine><Rewind size={15} strokeWidth={1.5} /></TBtn>
           <TBtn onClick={handlePlayPause} disabled={!midi || (chordExplorerOpen && explorerPausesPlayback)} accent title="Play / Pause (Space)" large oneLine>
@@ -455,7 +456,7 @@ export default function TopBar() {
               change moves its center point). Absolute positioning removes
               it from flow entirely — buttons never move regardless of
               whether the label is showing. ── */}
-          <div style={{ position: 'relative', display: 'flex' }}>
+          <div data-tour="loop" style={{ position: 'relative', display: 'flex' }}>
             <TBtn
               onClick={() => {
                 const newActive = !loopRegionActive
@@ -678,7 +679,7 @@ export default function TopBar() {
           placement="bottom"
           wrapperStyle={{ flexShrink: 0 }}
         >
-          <button className="app-no-drag" onClick={() => useStore.getState().openSettingsWindow('midi')} aria-label={t`MIDI keyboard settings`}
+          <button className="app-no-drag" data-tour="midi-keyboard" onClick={() => useStore.getState().openSettingsWindow('midi')} aria-label={t`MIDI keyboard settings`}
             style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start', padding: '0 14px', background: 'none', border: 'none', cursor: 'pointer', color: midiDeviceConnected ? 'var(--topbar-midi-on)' : 'var(--topbar-midi-off)' }}>
             <MidiIcon size={24} color={midiDeviceConnected ? 'var(--topbar-midi-on)' : 'var(--topbar-midi-off)'} />
             <span style={{ fontSize: 9, fontFamily: 'var(--font-mono)', letterSpacing: midiDeviceConnected ? '0.08em' : '0.05em', color: midiDeviceConnected ? 'var(--topbar-midi-on)' : 'var(--topbar-midi-off)', lineHeight: 1, marginTop: 6, whiteSpace: 'nowrap' }}>

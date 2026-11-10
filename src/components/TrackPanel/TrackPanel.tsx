@@ -200,6 +200,7 @@ export default function TrackPanel() {
 
   return (
     <div
+      data-tour="tracks-panel"
       style={{
         width: trackPanelOpen ? 260 : 32,
         background: 'var(--bg-modal)',

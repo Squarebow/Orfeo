@@ -28,7 +28,7 @@ export type SettingId =
   | 'displaySystem' | 'accidentals' | 'chordTracking' | 'chordReading' | 'chordNaming'
   | 'keyRange' | 'showOctaves' | 'showNoteNames' | 'reflectPianoRoll' | 'preciseScrubTime' | 'explorerPause'
   | 'rollZoom' | 'barNumbers' | 'playbar' | 'visualEffects'
-  | 'theme' | 'handColors' | 'appZoom' | 'tooltips' | 'supportNote' | 'starmap'
+  | 'theme' | 'handColors' | 'appZoom' | 'tooltips' | 'tours' | 'supportNote' | 'starmap'
   | 'midiKeyboards' | 'midiReconnect' | 'liveResponse' | 'latencyOffset' | 'gmOutput' | 'touchResponse' | 'duplicateFilter'
   | 'pedalsControls' | 'delayCheck' | 'midiTools'
 
@@ -200,6 +200,9 @@ export const SETTINGS: SettingInfo[] = [
   { id: 'tooltips', group: 'appearance', name: t`Tooltips`, summary: t`Hints that pop up when you point at a control.`,
     description: t`The hints that pop up when you point at a button, knob or icon. Turn them off once you know your way around. A knob still shows its value while you turn it.`,
     keywords: 'tooltips hints help hover popup tips' },
+  { id: 'tours', group: 'appearance', name: t`Tours`, summary: t`Two short tours of Orfeo, to show again any time.`,
+    description: t`Two short tours point out where things are. First launch: your songs, opening a song, the sound and your keyboard. First song: the tracks, tempo, looping, chords and the Explorers. Each shows once on a new install; show either one again here.`,
+    keywords: 'tour tours walkthrough onboarding guide introduction help first start getting started tips' },
   { id: 'supportNote', group: 'appearance', name: t`Enjoying Orfeo?`, summary: t`A small note now and then with ways to support Orfeo.`,
     description: t`Every fifth time you open Orfeo, a small note in the corner offers ways to help it grow, such as a review. Turn it off and it never appears.`,
     keywords: 'support review rate rating reddit community sponsor ko-fi donate note reminder enjoying' },

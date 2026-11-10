@@ -22,6 +22,7 @@ import type { LyricsEntry } from '../utils/lyricsScan'
 import { addTag, renameTag, deleteTag, setSongsTag, remapSongTags, restoreTagState, type TagState } from '../utils/libraryTags'
 import { addToQueue, removeFromQueue, moveInQueue, followOpenSong, remapQueue, restoreQueue, EMPTY_QUEUE, QUEUE_END_ACTIONS, type QueueState, type QueueEndAction } from '../utils/practiceQueue'
 import { clampLibraryWidth, LIBRARY_MIN_WIDTH } from '../utils/libraryWidth'
+import { toursFromPrefs, type TourId, type ToursSeen } from '../utils/tours'
 
 // ── Focus mode: every track's mute + eye from just before Focus went on, so
 // the second click puts back exactly what you had. Null while Focus is off.
@@ -130,6 +131,14 @@ interface OrfeoStore {
   setTrackPanelOpen: (open: boolean) => void
   setSettingsOpen: (open: boolean) => void
   setSettingsPanelOpen: (open: boolean) => void
+  // the left panel's tab; in the store so a tour can show Setup or the Library
+  drawerTab: 'library' | 'settings'
+  setDrawerTab: (tab: 'library' | 'settings') => void
+  // the two tours for a new install (utils/tours.ts); which one is running, not saved
+  toursSeen: ToursSeen
+  tourActive: TourId | null
+  startTour: (id: TourId) => void
+  endTour: () => void
 
   chordExplorerOpen: boolean
   chordExplorerMinimized: boolean
@@ -767,6 +776,14 @@ export const useStore = create<OrfeoStore>((set, get) => ({
   setTrackPanelOpen: (trackPanelOpen) => set({ trackPanelOpen }),
   setSettingsOpen: (settingsOpen) => set({ settingsOpen }),
   setSettingsPanelOpen: (settingsPanelOpen) => set({ settingsPanelOpen }),
+  drawerTab: 'library',
+  setDrawerTab: (drawerTab) => set({ drawerTab }),
+  // seen until the saved mark says otherwise, so nothing shows before the settings are back
+  toursSeen: { firstLaunch: true, firstSong: true },
+  tourActive: null,
+  startTour: (tourActive) => set({ tourActive }),
+  // ending a tour, by Done, Skip or Esc, counts it as seen
+  endTour: () => set((s) => (s.tourActive ? { toursSeen: { ...s.toursSeen, [s.tourActive]: true }, tourActive: null } : {})),
 
   chordExplorerOpen: false,
   chordExplorerMinimized: false,
@@ -1368,6 +1385,12 @@ async function restoreLibraryPrefs() {
     if (typeof prefs.openWithAddsToLibrary === 'boolean') store.setOpenWithAddsToLibrary(prefs.openWithAddsToLibrary)
     if (typeof prefs.showLyricsMark === 'boolean') store.setShowLyricsMark(prefs.showLyricsMark)
     {
+      const tours = toursFromPrefs(prefs.tours)
+      useStore.setState({ toursSeen: tours.seen })
+      // an existing user's settings: written down as seen, once
+      if (tours.needsSave) window.electronAPI?.setPrefs?.({ tours: tours.seen })?.catch?.(() => {})
+    }
+    {
       const tags: TagState = restoreTagState({ libraryTags: prefs.libraryTags, songTags: prefs.songTags, pinnedTags: prefs.pinnedTags })
       useStore.setState({ libraryTags: tags.tags, songTags: tags.songTags, pinnedTags: tags.pinned })
     }
@@ -1466,6 +1489,16 @@ void libraryRestored.then(() => {
       const s = useStore.getState()
       window.electronAPI?.setPrefs?.({ queueEnabled: s.queueEnabled, queueEndAction: s.queueEndAction, queuePaths: s.queue.paths, queueIndex: s.queue.index })?.catch?.(() => {})
     }, 1000)
+  })
+})
+
+// ── Persist which tours have been seen — after the restore ──
+void libraryRestored.then(() => {
+  let seen = useStore.getState().toursSeen
+  useStore.subscribe((state) => {
+    if (state.toursSeen === seen) return
+    seen = state.toursSeen
+    window.electronAPI?.setPrefs?.({ tours: seen })?.catch?.(() => {})
   })
 })
 

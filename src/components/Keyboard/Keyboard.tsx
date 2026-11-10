@@ -666,6 +666,7 @@ export default function Keyboard() {
             <div style={{ position: 'absolute', left: 10, display: 'flex', alignItems: 'center', gap: 5 }}>
               <Tooltip title="Chords Explorer" description="Opens a dedicated view for browsing and detecting chords across the full keyboard.">
                 <span
+                  data-tour="explorer-chords"
                   onClick={() => setChordExplorerOpen(true)}
                   role="button"
                   tabIndex={0}
@@ -694,6 +695,7 @@ export default function Keyboard() {
 
             {/* Centre: chord name — priority: explorer > sequence > manual > empty */}
             <div
+              data-tour="chord-name"
               onContextMenu={handleChordContextMenu}
               ref={showChordTooltip && !explorerDisplay ? chordTooltip.ref : undefined}
               onMouseEnter={showChordTooltip && !explorerDisplay ? chordTooltip.onMouseEnter : undefined}
@@ -752,6 +754,7 @@ export default function Keyboard() {
             <div style={{ position: 'absolute', right: 10, display: 'flex', alignItems: 'center', gap: 'var(--space-2)' }}>
               <Tooltip title="Scales Explorer" description="Opens a dedicated view for exploring scales and highlighting their notes on the keyboard.">
                 <span
+                  data-tour="explorer-scales"
                   onClick={() => setScaleExplorerOpen(true)}
                   role="button"
                   tabIndex={0}
@@ -773,6 +776,7 @@ export default function Keyboard() {
             <div style={{ display: 'flex', alignItems: 'center', gap: 5, flexShrink: 0 }}>
               <Tooltip title="Chords" description="Opens a dedicated view for browsing and detecting chords across the full keyboard.">
                 <span
+                  data-tour="explorer-chords"
                   onClick={() => setChordExplorerOpen(true)}
                   role="button"
                   tabIndex={0}
@@ -921,6 +925,7 @@ export default function Keyboard() {
             <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-2)', flexShrink: 0 }}>
               <Tooltip title="Scales" description="Opens a dedicated view for exploring scales and highlighting their notes on the keyboard.">
                 <span
+                  data-tour="explorer-scales"
                   onClick={() => setScaleExplorerOpen(true)}
                   role="button"
                   tabIndex={0}

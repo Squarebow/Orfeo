@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { Palette, ZoomIn, RotateCcw, Sparkles, MessageSquare, Heart, Hand } from 'lucide-react'
+import { Palette, ZoomIn, RotateCcw, Sparkles, MessageSquare, Heart, Hand, Signpost } from 'lucide-react'
 import { useStore } from '../../../store'
 import { t } from '../../../utils/i18n'
 import { AppBgBtn, ZoomStepper, GlanceLine, InlineIcon, Switch, SubLabel, useSurface } from '../controls'
@@ -9,6 +9,7 @@ import { simAvailable } from '../../../utils/midiSimulator'
 import { previewNewVersion } from '../../../hooks/useUpdateCheck'
 import { previewSupportNote } from '../../../hooks/useSupportNote'
 import type { SettingDef } from '../types'
+import type { TourId } from '../../../utils/tours'
 
 function ThemeControl() {
   const appTheme = useStore(s => s.appTheme)
@@ -16,6 +17,31 @@ function ThemeControl() {
     <div style={{ display: 'flex', gap: 'var(--space-1)' }}>
       <AppBgBtn color="var(--bg-modal-header)" label="Dark" active={appTheme === 'dark'} onClick={() => useStore.getState().setAppTheme('dark')} />
       <AppBgBtn color="var(--bg-warm)" label="Coming soon" active={false} onClick={() => {}} comingSoon />
+    </div>
+  )
+}
+
+// Show a tour again: the Settings window closes first, so the tour can point at the app
+function ToursControl() {
+  const songOpen = useStore(s => !!s.midi)
+  const start = (id: TourId) => {
+    const s = useStore.getState()
+    s.closeSettingsWindow()
+    setTimeout(() => useStore.getState().startTour(id), 250)
+  }
+  const btn = (label: string, onClick: () => void, enabled = true, tip?: string) => (
+    <button onClick={enabled ? onClick : undefined} disabled={!enabled} title={tip}
+      style={{ flex: 1, padding: '5px 8px', borderRadius: 4, border: '1px solid var(--border2)', background: 'var(--bg-modal)',
+        color: 'var(--text-inactive)', fontSize: 'var(--text-xs)', fontFamily: 'var(--font-ui)', cursor: enabled ? 'pointer' : 'default', opacity: enabled ? 1 : 0.45 }}
+      onMouseEnter={e => { if (enabled) { e.currentTarget.style.color = 'var(--text-amber)'; e.currentTarget.style.borderColor = 'var(--text-amber)' } }}
+      onMouseLeave={e => { e.currentTarget.style.color = 'var(--text-inactive)'; e.currentTarget.style.borderColor = 'var(--border2)' }}>
+      {label}
+    </button>
+  )
+  return (
+    <div style={{ display: 'flex', gap: 6 }}>
+      {btn(t`First launch`, () => start('firstLaunch'))}
+      {btn(t`First song`, () => start('firstSong'), songOpen, songOpen ? undefined : t`Open a song first`)}
     </div>
   )
 }
@@ -150,6 +176,7 @@ export const APPEARANCE_DEFS: SettingDef[] = [
     id: 'tooltips', icon: MessageSquare, kind: 'switch',
     Control: () => { const v = useStore(s => s.tooltipsEnabled); return <Switch value={v} onChange={useStore.getState().setTooltipsEnabled} label={t`Tooltips`} /> },
   },
+  { id: 'tours', icon: Signpost, kind: 'choice', Control: ToursControl },
   {
     id: 'supportNote', icon: Heart, kind: 'switch', Extra: SupportNotePreview,
     Control: () => { const v = useStore(s => s.supportNoteEnabled); return <Switch value={v} onChange={useStore.getState().setSupportNoteEnabled} label={t`Enjoying Orfeo?`} /> },

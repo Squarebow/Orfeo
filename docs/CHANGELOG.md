@@ -17,7 +17,7 @@
   small amber microphone beside every song that carries lyrics, .kar and MIDI files
   alike, whatever the file is called. Orfeo checks the Library quietly in the background, never
   while a song plays, and remembers what it found.
-- **Tags for your songs.** Label songs your way (style, difficulty, hands separate) with
+- **Tags for your songs.** Label songs your way (style, difficulty, what you're practising) with
   right-click › Tags…, on one song or a whole selection, and make new tags right there. The row
   under All / ★ holds the tags you choose with ▾ (a few ready-made ones to start): click one to
   show only its songs, and several together show the songs that have all of them. The search
@@ -26,10 +26,18 @@
   your files are never renamed or changed.
 - **A practice queue.** Plan a session: Settings › MIDI Files & Library › Practice queue adds a
   Queue tag at the start of the tags row, which swaps your folders for the queue and back. Add
-  songs with right-click › Add to queue or by dragging them in, drag to reorder, and move
+  songs with right-click › Add to queue or by dragging them in, or a whole folder's songs at
+  once with right-click on the folder › Add folder to queue. Drag to reorder, and move
   through them with Alt + ↓ / ↑ or the queue's buttons. When a queued song ends, Orfeo can ask
   what's next, play the next song after a short countdown, repeat the song, or wait. The queue
   is still there the next time you open Orfeo.
+- **Two short tours for new users.** On a first start, Orfeo points out where your songs are,
+  how to open one, the sound engine and the MIDI keyboard. The first time a song opens, a
+  second tour shows the Tracks panel, play and tempo, looping, the chord name and the
+  Explorers. Each step is one small card with Next, Back and ✕ (or Enter, the arrow keys and
+  Esc), and the song never starts behind it. Each tour shows once, only on a new install, so
+  updating from an earlier version changes nothing. Settings › Appearance › Tours shows either
+  one again.
 
 ### Changed
 - **A wider Library, if you like.** Drag the Library's right edge to make it up to a quarter
