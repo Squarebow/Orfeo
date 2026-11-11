@@ -6,6 +6,7 @@ import type { SettingDef } from '../types'
 import { applySkipEmptyBarsChange } from '../../../utils/reloadOpenSong'
 import { confirmDialog } from '../../../utils/confirmController'
 import { simAvailable } from '../../../utils/midiSimulator'
+import { holdNotesForTest } from '../../../hooks/useMidiInput'
 import { unsavedDetail } from '../../../utils/unsavedChanges'
 
 // Test builds: see the closing warning without changing a song and closing Orfeo
@@ -128,6 +129,35 @@ function HandColoursLink() {
   )
 }
 
+// ── Test builds: the Explorers listening to a keyboard, without one. Closes
+// Settings, opens the Explorer and holds five chords one after another, as if
+// played on a keyboard. Saves nothing. ───────────────────
+// C, C/E (1st inversion), Dm7, G7♭9 (only in Extended), C–D♭–D (no chord)
+const HELD_CHORDS = [[48, 60, 64, 67], [52, 55, 60], [50, 62, 65, 69, 72], [43, 59, 62, 65, 68], [60, 61, 62]]
+function tryExplorerListening(which: 'chords' | 'scales') {
+  const s = useStore.getState()
+  s.closeSettingsWindow()
+  if (which === 'chords') s.setChordExplorerOpen(true); else s.setScaleExplorerOpen(true)
+  HELD_CHORDS.forEach((notes, i) => setTimeout(() => holdNotesForTest(notes, 1600), 700 + i * 2200))
+}
+function ExplorersHearPreview() {
+  if (!simAvailable) return null
+  const btn = (label: string, which: 'chords' | 'scales') => (
+    <button onClick={() => tryExplorerListening(which)}
+      style={{ padding: '3px 6px', borderRadius: 4, border: '1px dashed var(--border2)', background: 'transparent', color: 'var(--text-inactive)',
+        fontSize: 10, fontFamily: 'var(--font-ui)', cursor: 'pointer' }}>{label}</button>
+  )
+  return (
+    <div style={{ marginTop: 12, padding: 8, border: '1px dashed var(--border2)', borderRadius: 4 }}>
+      <div style={{ fontSize: 9, fontWeight: 600, letterSpacing: '0.1em', textTransform: 'uppercase', color: 'var(--text-muted)', marginBottom: 6 }}>{t`Explorers hear your keyboard · test builds only`}</div>
+      <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4 }}>
+        {btn(t`Try in Chords Explorer`, 'chords')}
+        {btn(t`Try in Scales Explorer`, 'scales')}
+      </div>
+    </div>
+  )
+}
+
 export const PLAYBACK_DEFS: SettingDef[] = [
   {
     id: 'unsavedWarning', icon: TriangleAlert, kind: 'switch', Extra: UnsavedWarningPreview,
@@ -182,7 +212,7 @@ export const PLAYBACK_DEFS: SettingDef[] = [
     Description: () => <>Shows a strip to select and loop-play a section. Alt+Click & drag to select. Click <InlineIcon><Repeat size={11} /></InlineIcon> icon to loop.</>,
   },
   {
-    id: 'explorerPause', icon: Pause, kind: 'switch',
+    id: 'explorerPause', icon: Pause, kind: 'switch', Extra: ExplorersHearPreview,
     Control: () => { const v = useStore(s => s.explorerPausesPlayback); return <Switch value={v} onChange={useStore.getState().setExplorerPausesPlayback} label={t`Explorers pause playback`} /> },
   },
   {

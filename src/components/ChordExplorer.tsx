@@ -15,7 +15,8 @@ import { getPianoRollCenterX, getKeyboardHeaderTop } from '../utils/modalAnchors
 import { useKeepBottomOnScreen } from '../hooks/useKeepBottomOnScreen'
 import { useClampPositionOnZoom } from '../hooks/useClampPositionOnZoom'
 import { modalCloseButtonStyle, modalCloseButtonHoverColor, modalCloseButtonIdleColor } from '../utils/modalCloseButtonStyle'
-import { buildChordMidi, formatChordSuffix, formatInversionDisplay, ordinalSuffix } from '../utils/chordDetection'
+import { buildChordMidi, formatChordSuffix, formatInversionDisplay, ordinalSuffix, localizeChord } from '../utils/chordDetection'
+import { usePlayedNotes } from '../hooks/usePlayedNotes'
 import {
   nextVoicing, intervalsToSemis, rootPositionFrom,
   PROGRESSION_VOICINGS, PROGRESSION_VOICING_LABEL, PROGRESSION_VOICING_HINT,
@@ -24,7 +25,7 @@ import {
   EXPLORER_RANGE, explorerLowRoot, SPEED_MS, VOICING_ICON, ALL_PROGRESSIONS,
   resolveProgressionStep, nextInversionSet, prevInversionSet, ringChord, strikeStep, inversionOf,
   explorerKeyColors, captureStruckShape, restoreStruckShape, EXPLORER_SWITCH_STYLE, type ProgSpeed, type StruckShape,
-  explorerPosInWindow,
+  explorerPosInWindow, playedLabel,
 } from '../utils/explorerShared'
 import ChevronPlayIcon from './ChevronPlayIcon'
 import ExplorerOctaveControl from './ExplorerOctaveControl'
@@ -486,6 +487,59 @@ export default function ChordExplorer() {
     ringChord(midiNotes)
   }, [stopProgression, lightKeys, rootLabels, chordNamingStyle])
 
+  // ── A chord in its own voicing — from the paused playhead or your keyboard:
+  // its root and tile selected, the keys lit as voiced (folded into the
+  // Explorer keyboard's range), the name shown. Silent: the caller decides
+  // whether it rings. A chord with no tile still gets its name. ─────────────
+  const showVoiced = useCallback((rootPc: number, intervals: string[], voicing: number[], invCount: number, rawName?: string) => {
+    stopProgression()
+    setSelectedRoot(rootPc)
+    setSelectedPowerRoot(null)
+    const intervalsMatch = (c: ChordInfo) => c.intervals.length === intervals.length && c.intervals.every((iv, i) => iv === intervals[i])
+    const match = ALL_CHORDS.find(intervalsMatch) ?? FULL_CHORD_TYPES.find(intervalsMatch)
+    if (match) {
+      // the tile must be on screen: its tier, and any filter or search that would
+      // hide it is lifted (a filter that already shows it stays as it is)
+      setTier(COMMON_CHORDS.some(c => c.key === match.key) ? 'common' : 'extended')
+      const n = match.intervals.length
+      setNoteFilter(f => (f === 'any' || (f === '6+' ? n >= 6 : Number(f) === n) ? f : 'any'))
+      const tile = buildChordMidi(rootPc, match.intervals, 61)
+      const oneHand = tile.length > 0 && Math.max(...tile) - Math.min(...tile) <= 12 && tile.length <= 5
+      setHandFilter(h => (h === 'all' || (h === 'one') === oneHand ? h : 'all'))
+      setSearchOpen(false); setSearch('')
+    }
+    setSelectedKey(match?.key ?? null)
+    const { min, max } = EXPLORER_RANGE
+    const fold = (m: number) => { while (m < min) m += 12; while (m > max) m -= 12; return m }
+    const voiced = Array.from(new Set(voicing.map(fold))).sort((a, b) => a - b)
+    lightKeys(voiced, rootPc)
+    const rootLbl = rootLabels.find(r => r.pitchClass === rootPc)?.label ?? ''
+    const name = match
+      ? `${rootLbl}${formatChordSuffix(match.suffix, chordNamingStyle)}`
+      : (rawName ? localizeChord(rawName, displayNaming, accidentals, chordNamingStyle) ?? rawName : rootLbl)
+    setExplorerChordDisplay({ name, invCount, noteCount: new Set(voiced.map(m => m % 12)).size })
+    return voiced
+  }, [stopProgression, lightKeys, rootLabels, chordNamingStyle, displayNaming, accidentals, setExplorerChordDisplay])
+
+  // ── Your keyboard: hold a chord and the Explorer names and selects it, in
+  // the voicing you played, without sounding it again (shared rule with the
+  // Scales Explorer, utils/explorerShared.ts). Not while a progression plays. ──
+  const played = usePlayedNotes(chordExplorerOpen && !chordExplorerMinimized && !progPlaying)
+  useEffect(() => {
+    if (!played) return
+    if (played.chord) {
+      showVoiced(played.chord.rootPitchClass, played.chord.intervals, played.notes, played.invCount, played.chord.rawRootName)
+      return
+    }
+    // notes that make no chord: no tile, the keys lit, and their names shown instead
+    stopProgression()
+    setSelectedKey(null); setSelectedPowerRoot(null)
+    const { min, max } = EXPLORER_RANGE
+    const fold = (m: number) => { while (m < min) m += 12; while (m > max) m -= 12; return m }
+    lightKeys(Array.from(new Set(played.notes.map(fold))).sort((a, b) => a - b), null)
+    setExplorerChordDisplay({ name: playedLabel(played, noteNaming, accidentals, chordNamingStyle).notes, invCount: 0, noteCount: played.pcs.length })
+  }, [played]) // eslint-disable-line react-hooks/exhaustive-deps
+
   // ── Consume a "open pre-seeded with this chord" signal from the playback
   // chord-display context menu (Keyboard.tsx) — matched by interval-array
   // equality against our own catalog rather than a key string, since the
@@ -515,23 +569,11 @@ export default function ChordExplorer() {
     // canonical root-position octave-4 rebuild — octave-folded into the
     // Explorer keyboard's 61-key range so every note stays visible. ─────────
     if (seed.voicing && seed.voicing.length >= 2) {
-      stopProgression()
-      const { min, max } = EXPLORER_RANGE
-      const fold = (m: number) => { while (m < min) m += 12; while (m > max) m -= 12; return m }
-      const voiced = Array.from(new Set(seed.voicing.map(fold))).sort((a, b) => a - b)
-      setSelectedKey(match.key)
-      lightKeys(voiced, seed.rootPitchClass)
-      const rootLbl = rootLabels.find(r => r.pitchClass === seed.rootPitchClass)?.label ?? ''
-      setExplorerChordDisplay({
-        name: `${rootLbl}${formatChordSuffix(match.suffix, chordNamingStyle)}`,
-        invCount: seed.inversionCount ?? 0,
-        noteCount: new Set(voiced.map(m => m % 12)).size,
-      })
-      ringChord(voiced)
+      ringChord(showVoiced(seed.rootPitchClass, seed.intervals, seed.voicing, seed.inversionCount ?? 0))
     } else {
       playChordAt(match.key, seed.rootPitchClass)
     }
-  }, [chordExplorerOpen, playChordAt, stopProgression, rootLabels, chordNamingStyle, lightKeys, setExplorerChordDisplay])
+  }, [chordExplorerOpen, playChordAt, showVoiced])
 
   // ── Play a power chord (root + P5) for the given pitch class ─────────────
   const playPowerChord = useCallback((pitchClass: number) => {

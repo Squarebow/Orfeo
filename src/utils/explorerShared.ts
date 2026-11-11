@@ -10,6 +10,9 @@ import { Music2, TrendingUp, Spline } from 'lucide-react'
 import { getGenreVoicing, isTritoneSub, TRITONE_SUB_CHORD, type Genre } from './genreVoicing'
 import { ALL_CHORDS, resolveChord, type ChordInfo } from './chordVocabulary'
 import { humanizeChord, type ProgressionVoicing, type VoicingRange } from './voiceLeading'
+import { detectChordStructured, inversionForKnownChord, localizeChord, ordinalSuffix } from './chordDetection'
+import { getNoteName } from './noteNames'
+import type { NoteNaming, Accidentals, ChordNamingStyle } from '../types'
 
 /** A remembered Explorer position, kept inside the app window: it may be smaller
  *  now than when the Explorer was last moved */
@@ -222,4 +225,82 @@ export function explorerKeyColors(notes: number[], rootPc: number | null, accent
     m,
     accentRoot && rootPc !== null && ((m % 12) + 12) % 12 === rootPc ? 'var(--accent-root)' : 'var(--text-amber)',
   ] as const))
+}
+
+// ── Listening to your keyboard ───────────────────────────────────────────────
+// Both Explorers follow what you play on a connected keyboard, by one rule: hold
+// three or more different notes and, a moment after the last one goes down, the
+// Explorers read them. The Chord Explorer names and selects the chord; the
+// Scales Explorer lists the scales those notes fit. Letting keys go changes
+// nothing, so the reading stays on screen after you release. ───────────────────
+export const PLAYED_MIN_NOTES = 3
+export const PLAYED_SETTLE_MS = 120
+
+export interface PlayedNotes {
+  notes: number[]          // the keys held, low to high
+  pcs: number[]            // their pitch classes, each once
+  chord: { rootPitchClass: number; intervals: string[]; rawRootName: string } | null
+  invCount: number         // 0 root position, 1 first inversion…
+}
+
+/** What a set of held keys is, or null for fewer than three different notes */
+export function readPlayedNotes(held: Iterable<number>): PlayedNotes | null {
+  const notes = Array.from(new Set(held)).sort((a, b) => a - b)
+  const pcs = Array.from(new Set(notes.map(m => ((m % 12) + 12) % 12)))
+  if (pcs.length < PLAYED_MIN_NOTES) return null
+  const chord = detectChordStructured(new Set(notes))
+  const inv = chord ? inversionForKnownChord(chord.rootPitchClass, chord.intervals, notes[0]) : null
+  return { notes, pcs, chord, invCount: inv?.ordinal ? Number(inv.ordinal) : 0 }
+}
+
+/** How both Explorers write what you played: the chord as voiced (a slash and the
+ *  bass note when it isn't in root position), the inversion ("1st inv"), and the
+ *  held notes low to high. No chord name when the notes don't make a chord. */
+export function playedLabel(
+  p: PlayedNotes, naming: NoteNaming, accidentals: Accidentals, style: ChordNamingStyle,
+): { chord: string | null; inversion: string; notes: string } {
+  const names: NoteNaming = naming === 'hidden' ? 'english' : naming
+  const notes = p.notes.map(m => getNoteName(m, names, accidentals)).join(' ')
+  const base = p.chord ? localizeChord(p.chord.rawRootName, names, accidentals, style) : null
+  if (!base) return { chord: null, inversion: '', notes }
+  if (p.invCount === 0) return { chord: base, inversion: '', notes }
+  return { chord: `${base}/${getNoteName(p.notes[0], names, accidentals)}`, inversion: `${p.invCount}${ordinalSuffix(p.invCount)} inv`, notes }
+}
+
+/** A fresh reading is due only when a key went down: letting go of keys one by
+ *  one must not re-read the notes still held as a different chord */
+export function keyWentDown(prev: ReadonlySet<number>, next: ReadonlySet<number>): boolean {
+  for (const m of next) if (!prev.has(m)) return true
+  return false
+}
+
+// steps round the circle of fifths between two keys, 0–6
+const fifthsApart = (a: number, b: number) => {
+  const d = (((b - a) % 12) + 12) % 12
+  for (let k = 0; k <= 6; k++) if ((7 * k) % 12 === d || (12 - (7 * k) % 12) % 12 === d) return k
+  return 6
+}
+
+/** The scales the played notes fit, most likely first. Major and natural minor
+ *  keys come first, then keys starting on the chord's root, then the nearest keys
+ *  on the circle of fifths (a minor key counts from its relative major, so C major
+ *  and A minor sit together). Each scale: its intervals and whether it's minor. */
+export function scalesThatFit(
+  pcs: number[], chordRootPc: number | null,
+  scales: { intervals: number[]; minor: boolean }[], limit = 4,
+): { rootPc: number; scaleIdx: number }[] {
+  const ref = chordRootPc ?? pcs[0]
+  const found: { rootPc: number; scaleIdx: number; score: number; dist: number }[] = []
+  scales.forEach((s, scaleIdx) => {
+    for (let rootPc = 0; rootPc < 12; rootPc++) {
+      const inScale = new Set(s.intervals.map(iv => (rootPc + iv) % 12))
+      if (!pcs.every(pc => inScale.has(pc))) continue
+      const main = scaleIdx <= 1 ? 10 : 0                   // Major, Natural Minor
+      const onRoot = rootPc === chordRootPc ? 6 : 0
+      const keyOf = s.minor ? (rootPc + 3) % 12 : rootPc    // the major key with the same signature
+      found.push({ rootPc, scaleIdx, score: main + onRoot, dist: fifthsApart(ref, keyOf) })
+    }
+  })
+  found.sort((a, b) => b.score - a.score || a.dist - b.dist || a.scaleIdx - b.scaleIdx)
+  return found.slice(0, limit).map(({ rootPc, scaleIdx }) => ({ rootPc, scaleIdx }))
 }

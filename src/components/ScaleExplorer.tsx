@@ -22,8 +22,9 @@ import {
   EXPLORER_RANGE, explorerLowRoot, SPEED_MS, VOICING_ICON, ALL_PROGRESSIONS,
   resolveProgressionStep, nextInversionSet, prevInversionSet, ringChord, strikeStep, inversionOf,
   explorerKeyColors, captureStruckShape, restoreStruckShape, EXPLORER_SWITCH_STYLE, type ProgSpeed, type StruckShape,
-  explorerPosInWindow,
+  explorerPosInWindow, scalesThatFit, playedLabel,
 } from '../utils/explorerShared'
+import { usePlayedNotes } from '../hooks/usePlayedNotes'
 import { ALL_CHORDS } from '../utils/chordVocabulary'
 import ExplorerOctaveControl from './ExplorerOctaveControl'
 import CofTitleMark from './CofTitleMark'
@@ -87,6 +88,8 @@ const SCALES: ScaleDef[] = [
 
 // ── Minor scale names — used to append 'm' to the Key display ───────────────
 const MINOR_SCALES = new Set(['Natural Minor', 'Harmonic Minor', 'Melodic Minor', 'Minor Pentatonic', 'Minor Blues', 'Phrygian'])
+// ── The scales as the shared "which scales do these notes fit" reads them ──
+const SCALE_FITS = SCALES.map(sc => ({ intervals: sc.intervals, minor: MINOR_SCALES.has(sc.name) }))
 
 // ── Circle of Fifths position tables ────────────────────────────────────────
 // 12 positions clockwise from top (C)
@@ -451,6 +454,26 @@ export default function ScaleExplorer() {
     return () => clearTimeout(id)
   }, [midiHeldKeys, showStarmap, displayNaming, accidentals, chordNamingStyle])
 
+  // ── Your keyboard: hold three or more notes and the info row names the chord
+  // and lists the scales it fits, most likely first; click one to choose that
+  // key (shared rule with the Chord Explorer, utils/explorerShared.ts). Stays
+  // until you play something else or play a tile. Not while the Explorer plays. ──
+  const played = usePlayedNotes(scaleExplorerOpen && !scaleExplorerMinimized && !progPlaying && !chordSeqPlaying)
+  const [playedShown, setPlayedShown] = useState<typeof played>(null)
+  useEffect(() => {
+    setPlayedShown(played)
+    if (!played) return
+    // the name above the keyboard already carries the bass note ("C/E"): the lit
+    // keys there are the scale's, so they can't tell the inversion themselves
+    const name = playedLabel(played, displayNaming, accidentals, chordNamingStyle).chord
+    if (name) setExplorerChordDisplay({ name, invCount: 0, noteCount: played.pcs.length })
+  }, [played]) // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => { if (infoRowChord) setPlayedShown(null) }, [infoRowChord])
+  const playedFits = useMemo(
+    () => (playedShown ? scalesThatFit(playedShown.pcs, playedShown.chord?.rootPitchClass ?? null, SCALE_FITS) : []),
+    [playedShown],
+  )
+
   // ── Derived root pitch class from CoF selection ───────────────────────────
   const selectedRoot = useMemo(() => {
     if (cofPos === null || cofRing === null) return null
@@ -520,6 +543,16 @@ export default function ScaleExplorer() {
     setInfoRowChord(null); setSelectedDegree(null); clearExplorerChordDisplay()
     playTriggerRef.current += 1; setPlayTrigger(playTriggerRef.current)
   }, [selectedScaleIdx, clearExplorerChordDisplay])
+
+  // ── A scale chosen from what you played: its key on the circle, that scale,
+  // played once, like picking a wedge ──────────────────────────────────────
+  const chooseFit = useCallback((rootPc: number, idx: number) => {
+    const ring: 'major' | 'minor' = MINOR_SCALES.has(SCALES[idx].name) ? 'minor' : 'major'
+    const table = ring === 'major' ? COF_MAJOR_PC : COF_MINOR_PC
+    setCofRing(ring); setCofPos(table.indexOf(rootPc)); setSelectedScaleIdx(idx)
+    setSelectedDegree(null); setOctaveTileSelected(false)
+    playTriggerRef.current += 1; setPlayTrigger(playTriggerRef.current)
+  }, [])
 
   // ── Stop progression and clear its timer ─────────────────────────────────
   const stopProgression = useCallback(() => {
@@ -1264,7 +1297,47 @@ export default function ScaleExplorer() {
         borderTop: '1px solid var(--border)', background: 'var(--bg-modal-header)',
         position: 'relative',
       }}>
-        {selectedRoot === null ? (
+        {playedShown ? (
+          // What you played on your keyboard: its chord, then the scales it fits
+          <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-2)', minWidth: 0, width: '100%' }}>
+            <span style={{ fontFamily: 'var(--font-ui)', fontSize: 11, fontWeight: 700, color: 'var(--text-dimmest)', letterSpacing: '0.10em', textTransform: 'uppercase', userSelect: 'none', flexShrink: 0 }}>
+              {t`You played`}
+            </span>
+            {/* the chord as voiced, its inversion, and the held notes low to high in
+                brackets; notes that make no chord show just the notes */}
+            {(() => {
+              const lbl = playedLabel(playedShown, displayNaming, accidentals, chordNamingStyle)
+              return (
+                <span style={{ display: 'flex', alignItems: 'baseline', gap: 6, whiteSpace: 'nowrap', flexShrink: 0, userSelect: 'none' }}>
+                  <span style={{ fontFamily: 'var(--font-ui)', fontSize: 14, fontWeight: 700, color: 'var(--text-amber)' }}>{lbl.chord ?? lbl.notes}</span>
+                  {lbl.inversion && <span style={{ fontFamily: 'var(--font-ui)', fontSize: 11, color: 'var(--accent-amber-bold)' }}>{lbl.inversion}</span>}
+                  {lbl.chord && <span style={{ fontFamily: 'var(--font-mono)', fontSize: 11, color: 'var(--text-muted)' }}>({lbl.notes})</span>}
+                </span>
+              )
+            })()}
+            <span style={{ fontFamily: 'var(--font-ui)', fontSize: 11, fontWeight: 700, color: 'var(--text-dimmest)', letterSpacing: '0.10em', textTransform: 'uppercase', userSelect: 'none', flexShrink: 0, marginLeft: 'var(--space-2)' }}>
+              {playedFits.length ? t`Fits` : t`Fits none of these scales`}
+            </span>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 4, minWidth: 0, overflow: 'hidden' }}>
+              {playedFits.map(f => {
+                const on = selectedRoot === f.rootPc && selectedScaleIdx === f.scaleIdx
+                return (
+                  <button key={`${f.rootPc}-${f.scaleIdx}`} onClick={() => chooseFit(f.rootPc, f.scaleIdx)}
+                    title={t`Choose this scale`}
+                    style={{
+                      flexShrink: 0, padding: '3px 8px', borderRadius: 4, cursor: 'pointer', whiteSpace: 'nowrap',
+                      fontFamily: 'var(--font-ui)', fontSize: 12, fontWeight: on ? 700 : 500,
+                      border: `1px solid ${on ? 'var(--accent-amber-strong)' : 'var(--border2)'}`,
+                      background: on ? 'var(--accent-amber-medium)' : 'transparent',
+                      color: on ? 'var(--text-amber)' : 'var(--text-default)',
+                    }}>
+                    {getNoteName(60 + f.rootPc, displayNaming, accidentals)} {SCALES[f.scaleIdx].name}
+                  </button>
+                )
+              })}
+            </div>
+          </div>
+        ) : selectedRoot === null ? (
           <span style={{ fontSize: 10, color: 'var(--state-disabled)', fontFamily: 'var(--font-ui)', margin: '0 auto' }}>—</span>
         ) : (
           <>
