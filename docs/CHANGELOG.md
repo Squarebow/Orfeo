@@ -52,6 +52,7 @@
 **In short**
 - Hold a chord on your keyboard and the Chords Explorer names it and picks its tile.
 - The Scales Explorer names it too and shows which scales it belongs to.
+- The Settings window opens larger, with bigger text, and resizes from any edge or corner.
 
 ### Changed
 - **The Chords Explorer follows your keyboard.** With the Explorer open, hold three or more
@@ -62,6 +63,10 @@
 - **The Scales Explorer shows where a chord belongs.** Hold a chord and the row under the chord
   tiles names it, with its inversion and the notes you hold, left to right (C/E 1st inv
   (E G C)), and lists the scales it fits, the likeliest first. Click one to choose that key.
+- **A bigger, resizable Settings window.** It opens larger on a big screen, and everything in
+  it, text, cards and controls, grows with it, so it's much easier to read. Drag any edge to
+  make it wider or taller, or a corner to resize it in proportion; double-click an edge for
+  the size it opened at. It stays clear of the top bar, and remembers its size and place.
 
 ## [1.7.2] — 9. 11. 2026 — Songs end with the music, close buttons that work
 

@@ -474,6 +474,15 @@ src/components/Settings/
 - **Store:** `settingsWindowOpen` / `settingsWindowGroup` (session only),
   `openSettingsWindow(group?)` (`Ctrl` `,`, Setup's arrows, Open settings) and
   the saved `samplesIntroduced` flag (first Samples pick opens the window).
+- **Size and scale:** the window is laid out at its designed 1000 × 640 and
+  scaled as one piece with CSS `zoom` (`frameZoom` = the tighter of width and
+  height against that size, 1–2×), so every card, text and control grows in
+  proportion and the layout never changes. The frame (screen px) is moved by the
+  header and resized by any edge (one side) or corner (keeps proportions);
+  double-clicking an edge resets it. It opens at up to 85 % of the app window, is
+  kept below the 44 px title strip, and is saved as `settingsWindowFrame`.
+  Geometry is pure and tested in `utils/settingsFrame.ts`. Popups opened from
+  it (tooltips, dialogs) are portals outside the zoom: right place, usual size.
 - **Shared hooks** for state both places show: `useSoundfonts` (sound sets,
   Samples loading), `useUpdateCheck`, `useAppZoom`. The update-status and
   sound-set-progress IPC channels allow only one listener each, so their

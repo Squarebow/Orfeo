@@ -12,6 +12,7 @@ import { SettingCard } from './SettingCard'
 import { UpdateButton, RateButton, DevModeBadge } from './controls'
 import { GROUP_ICONS } from './groupIcons'
 import { TAB_ASIDES } from './defs/midi'
+import { fitFrame, defaultFrame, resizeFrame, frameZoom, type Frame, type Edge } from '../../utils/settingsFrame'
 
 // ── Settings window — every setting, by group, with full descriptions.
 // Opened from Quick Settings (gear per group / Open settings) or Ctrl + ,.
@@ -75,29 +76,47 @@ export default function SettingsWindow() {
   useEffect(() => { setTab(0) }, [group, open])
   const contentRef = useRef<HTMLDivElement>(null)
   const dialogRef = useRef<HTMLDivElement>(null)
-  // ── Drag by the header, like the other floating windows — an offset from
-  // the centred spot, reset each time the window opens. ──────────────────
-  const [offset, setOffset] = useState({ x: 0, y: 0 })
-  useEffect(() => { if (open) setOffset({ x: 0, y: 0 }) }, [open])
-  const startDrag = (e: React.MouseEvent) => {
-    if ((e.target as HTMLElement).closest('input, button, label')) return
-    e.preventDefault()
-    const sx = e.clientX, sy = e.clientY, start = offset
-    const r = dialogRef.current?.getBoundingClientRect()
-    const onMove = (ev: MouseEvent) => {
-      let x = start.x + ev.clientX - sx, y = start.y + ev.clientY - sy
-      if (r) {
-        // keep the whole window on screen, and its top clear of the 40px
-        // title-bar strip where Windows draws its own controls
-        x = Math.min(Math.max(x, start.x - r.left), start.x + (window.innerWidth - r.right))
-        y = Math.min(Math.max(y, start.y + (44 - r.top)), start.y + (window.innerHeight - r.bottom))
-      }
-      setOffset({ x, y })
+  // ── Where the window sits and how big it is (utils/settingsFrame.ts). Moved
+  // by the header, resized by any edge or corner; the content scales with it.
+  // Remembered between openings, and kept inside the app window. ──────────
+  const view = () => ({ w: window.innerWidth, h: window.innerHeight })
+  const [frame, setFrame] = useState<Frame>(() => fitFrame(useStore.getState().settingsWindowFrame ?? defaultFrame(view()), view()))
+  const frameRef = useRef(frame)
+  frameRef.current = frame
+  useEffect(() => { if (open) setFrame(fitFrame(useStore.getState().settingsWindowFrame ?? defaultFrame(view()), view())) }, [open])
+  useEffect(() => {
+    if (!open) return
+    const onResize = () => setFrame(f => fitFrame(f, view()))
+    window.addEventListener('resize', onResize)
+    return () => window.removeEventListener('resize', onResize)
+  }, [open])
+  // one drag at a time: follows the mouse, saved when let go
+  const follow = (e: React.MouseEvent, cursor: string, next: (dx: number, dy: number) => Frame) => {
+    e.preventDefault(); e.stopPropagation()
+    const sx = e.clientX, sy = e.clientY
+    const body = document.body.style, prev = { cursor: body.cursor, select: body.userSelect }
+    body.cursor = cursor; body.userSelect = 'none'
+    const onMove = (ev: MouseEvent) => setFrame(next(ev.clientX - sx, ev.clientY - sy))
+    const onUp = () => {
+      window.removeEventListener('mousemove', onMove); window.removeEventListener('mouseup', onUp)
+      body.cursor = prev.cursor; body.userSelect = prev.select
+      useStore.getState().setSettingsWindowFrame(frameRef.current)
     }
-    const onUp = () => { window.removeEventListener('mousemove', onMove); window.removeEventListener('mouseup', onUp) }
     window.addEventListener('mousemove', onMove)
     window.addEventListener('mouseup', onUp)
   }
+  const startDrag = (e: React.MouseEvent) => {
+    if ((e.target as HTMLElement).closest('input, button, label')) return
+    const start = frameRef.current
+    follow(e, 'grabbing', (dx, dy) => fitFrame({ ...start, x: start.x + dx, y: start.y + dy }, view()))
+  }
+  const startResize = (edge: Edge) => (e: React.MouseEvent) => {
+    const start = frameRef.current
+    follow(e, RESIZE_CURSOR[edge], (dx, dy) => resizeFrame(start, edge, dx, dy, view()))
+  }
+  // double-click an edge or corner: back to the size it first opened at
+  const resetFrame = () => { setFrame(defaultFrame(view())); useStore.getState().setSettingsWindowFrame(null) }
+  const zoom = frameZoom(frame)
 
   useLayoutEffect(() => {
     const el = contentRef.current
@@ -128,12 +147,14 @@ export default function SettingsWindow() {
 
   return createPortal(
     <div className="app-no-drag" onMouseDown={e => { if (e.target === e.currentTarget) close() }}
-      style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.6)', zIndex: 10500, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+      style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.6)', zIndex: 10500 }}>
+      {/* the frame, in screen pixels; the window inside is laid out at its
+          designed size and scaled to fill it */}
+      <div style={{ position: 'absolute', left: frame.x, top: frame.y, width: frame.w, height: frame.h }}>
       <div ref={dialogRef} role="dialog" aria-modal="true" aria-label={t`Settings`} className="orfeo-modal-glow"
-        style={{ width: 'min(1000px, calc(100vw - 48px))', height: 'min(640px, calc(100vh - 48px))',
+        style={{ width: frame.w / zoom, height: frame.h / zoom, zoom,
           background: 'var(--bg-modal)', border: '1px solid var(--border2)', borderRadius: 'var(--radius-lg)',
           display: 'grid', gridTemplateRows: 'auto minmax(0, 1fr)', overflow: 'hidden',
-          transform: `translate(${offset.x}px, ${offset.y}px)`,
           '--_modal-shadow': 'var(--elevation-modal)' } as CSSProperties}>
         {/* ── Header (drag handle): mark + title | search | close ── */}
         <div onMouseDown={startDrag} style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1fr) minmax(0, 320px) minmax(0, 1fr)', alignItems: 'center',
@@ -250,7 +271,33 @@ export default function SettingsWindow() {
           </div>
         </div>
       </div>
+      {/* edges and corners to resize by, and a small grip as a hint */}
+      <svg width="10" height="10" viewBox="0 0 10 10" aria-hidden
+        style={{ position: 'absolute', right: 5, bottom: 5, pointerEvents: 'none', color: 'var(--text-dimmest)' }}>
+        <path d="M9 3 3 9M9 7 7 9" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" />
+      </svg>
+      {RESIZE_EDGES.map(edge => (
+        <div key={edge} onMouseDown={startResize(edge)} onDoubleClick={resetFrame} aria-hidden
+          style={{ position: 'absolute', cursor: RESIZE_CURSOR[edge], ...RESIZE_HANDLE[edge] }} />
+      ))}
+      </div>
     </div>,
     document.body,
   )
+}
+
+// ── Resize handles: thin strips along the edges, squares at the corners, half
+// inside and half outside the window's border ───────────────────────────────
+const EDGE = 8, CORNER = 16
+const RESIZE_EDGES: Edge[] = ['n', 's', 'e', 'w', 'ne', 'nw', 'se', 'sw']
+const RESIZE_CURSOR: Record<Edge, string> = { n: 'ns-resize', s: 'ns-resize', e: 'ew-resize', w: 'ew-resize', ne: 'nesw-resize', sw: 'nesw-resize', nw: 'nwse-resize', se: 'nwse-resize' }
+const RESIZE_HANDLE: Record<Edge, CSSProperties> = {
+  n: { top: -EDGE / 2, left: CORNER / 2, right: CORNER / 2, height: EDGE },
+  s: { bottom: -EDGE / 2, left: CORNER / 2, right: CORNER / 2, height: EDGE },
+  e: { right: -EDGE / 2, top: CORNER / 2, bottom: CORNER / 2, width: EDGE },
+  w: { left: -EDGE / 2, top: CORNER / 2, bottom: CORNER / 2, width: EDGE },
+  ne: { top: -CORNER / 2, right: -CORNER / 2, width: CORNER, height: CORNER },
+  nw: { top: -CORNER / 2, left: -CORNER / 2, width: CORNER, height: CORNER },
+  se: { bottom: -CORNER / 2, right: -CORNER / 2, width: CORNER, height: CORNER },
+  sw: { bottom: -CORNER / 2, left: -CORNER / 2, width: CORNER, height: CORNER },
 }

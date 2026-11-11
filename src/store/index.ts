@@ -20,6 +20,7 @@ import { HAND_ASSIGN_GROUPS, focusRole } from '../utils/keyboardGroups'
 import type { TrackBaseline } from '../utils/unsavedChanges'
 import type { LyricsEntry } from '../utils/lyricsScan'
 import { addTag, renameTag, deleteTag, setSongsTag, remapSongTags, restoreTagState, type TagState } from '../utils/libraryTags'
+import { restoreFrame, type Frame } from '../utils/settingsFrame'
 import { addToQueue, removeFromQueue, moveInQueue, followOpenSong, remapQueue, restoreQueue, EMPTY_QUEUE, QUEUE_END_ACTIONS, type QueueState, type QueueEndAction } from '../utils/practiceQueue'
 import { clampLibraryWidth, LIBRARY_MIN_WIDTH } from '../utils/libraryWidth'
 import { toursFromPrefs, type TourId, type ToursSeen } from '../utils/tours'
@@ -263,6 +264,9 @@ interface OrfeoStore {
   // Where the Explorers were last dragged to; null until they are
   explorerPositions: { chord: { x: number; y: number } | null; scale: { x: number; y: number } | null }
   setExplorerPosition: (which: 'chord' | 'scale', pos: { x: number; y: number }) => void
+  // Where the Settings window was last placed and how big (screen px); null until it's moved or resized
+  settingsWindowFrame: Frame | null
+  setSettingsWindowFrame: (f: Frame | null) => void
   noteEditorSoloTrackIndex: number | null
   preSoloTrackVisibility: boolean[] | null
   soloTrackForEdit: (index: number, opts?: { keepPlayhead?: boolean }) => void
@@ -951,6 +955,8 @@ export const useStore = create<OrfeoStore>((set, get) => ({
   setNoteEditorToolbarPos: (noteEditorToolbarX, noteEditorToolbarY) => set({ noteEditorToolbarX, noteEditorToolbarY }),
   explorerPositions: { chord: null, scale: null },
   setExplorerPosition: (which, pos) => set(s => ({ explorerPositions: { ...s.explorerPositions, [which]: pos } })),
+  settingsWindowFrame: null,
+  setSettingsWindowFrame: (settingsWindowFrame) => set({ settingsWindowFrame }),
 
   // ── Note Editor: track solo + first-run walkthrough ───────────────────────
   noteEditorSoloTrackIndex: null,
@@ -1379,6 +1385,7 @@ async function restoreLibraryPrefs() {
       const p = prefs.explorerPositions?.[which]
       if (typeof p?.x === 'number' && typeof p?.y === 'number') store.setExplorerPosition(which, { x: p.x, y: p.y })
     }
+    store.setSettingsWindowFrame(restoreFrame(prefs.settingsWindowFrame))
     if (typeof prefs.chordPrompterEnabled === 'boolean') store.setChordPrompterEnabled(prefs.chordPrompterEnabled)
     if (typeof prefs.chordTranscriptionEnabled === 'boolean') store.setChordTranscriptionEnabled(prefs.chordTranscriptionEnabled)
     if (typeof prefs.hideDemoFolder === 'boolean') store.setHideDemoFolder(prefs.hideDemoFolder)
@@ -1499,6 +1506,18 @@ void libraryRestored.then(() => {
     if (state.toursSeen === seen) return
     seen = state.toursSeen
     window.electronAPI?.setPrefs?.({ tours: seen })?.catch?.(() => {})
+  })
+})
+
+// ── Persist the Settings window's place and size — after the restore, once a drag has settled ──
+let _settingsFrameTimer: ReturnType<typeof setTimeout> | null = null
+void libraryRestored.then(() => {
+  let seen = useStore.getState().settingsWindowFrame
+  useStore.subscribe((state) => {
+    if (state.settingsWindowFrame === seen) return
+    seen = state.settingsWindowFrame
+    if (_settingsFrameTimer) clearTimeout(_settingsFrameTimer)
+    _settingsFrameTimer = setTimeout(() => { window.electronAPI?.setPrefs?.({ settingsWindowFrame: useStore.getState().settingsWindowFrame })?.catch?.(() => {}) }, 600)
   })
 })
 
