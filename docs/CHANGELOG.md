@@ -11,7 +11,7 @@
 - Hold a chord on your keyboard and the Chords Explorer names it and picks its tile.
 - The Scales Explorer names it too and shows which scales it belongs to.
 
-### New
+### Changed
 - **The Chords Explorer follows your keyboard.** With the Explorer open, hold three or more
   notes on a connected keyboard: it names the chord, picks its root and tile, and lights it in
   the shape you played, inversion included, without playing it again. A chord that's only in
