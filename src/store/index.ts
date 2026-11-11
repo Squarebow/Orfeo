@@ -267,6 +267,9 @@ interface OrfeoStore {
   // Where the Settings window was last placed and how big (screen px); null until it's moved or resized
   settingsWindowFrame: Frame | null
   setSettingsWindowFrame: (f: Frame | null) => void
+  // How the top bar shows the tempo: beats per minute, or speed in percent of the song's own
+  tempoDisplay: 'bpm' | 'percent'
+  setTempoDisplay: (v: 'bpm' | 'percent') => void
   noteEditorSoloTrackIndex: number | null
   preSoloTrackVisibility: boolean[] | null
   soloTrackForEdit: (index: number, opts?: { keepPlayhead?: boolean }) => void
@@ -956,6 +959,12 @@ export const useStore = create<OrfeoStore>((set, get) => ({
   explorerPositions: { chord: null, scale: null },
   setExplorerPosition: (which, pos) => set(s => ({ explorerPositions: { ...s.explorerPositions, [which]: pos } })),
   settingsWindowFrame: null,
+  tempoDisplay: 'bpm',
+  // saved as it's set
+  setTempoDisplay: (tempoDisplay) => {
+    set({ tempoDisplay })
+    window.electronAPI?.setPrefs?.({ tempoDisplay })?.catch?.(() => {})
+  },
   setSettingsWindowFrame: (settingsWindowFrame) => set({ settingsWindowFrame }),
 
   // ── Note Editor: track solo + first-run walkthrough ───────────────────────
@@ -1386,6 +1395,7 @@ async function restoreLibraryPrefs() {
       if (typeof p?.x === 'number' && typeof p?.y === 'number') store.setExplorerPosition(which, { x: p.x, y: p.y })
     }
     store.setSettingsWindowFrame(restoreFrame(prefs.settingsWindowFrame))
+    if (prefs.tempoDisplay === 'bpm' || prefs.tempoDisplay === 'percent') useStore.setState({ tempoDisplay: prefs.tempoDisplay })
     if (typeof prefs.chordPrompterEnabled === 'boolean') store.setChordPrompterEnabled(prefs.chordPrompterEnabled)
     if (typeof prefs.chordTranscriptionEnabled === 'boolean') store.setChordTranscriptionEnabled(prefs.chordTranscriptionEnabled)
     if (typeof prefs.hideDemoFolder === 'boolean') store.setHideDemoFolder(prefs.hideDemoFolder)

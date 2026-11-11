@@ -1,4 +1,4 @@
-import { AudioLines, Timer, TriangleAlert, Hand, Repeat, Focus, Pause, SkipForward } from 'lucide-react'
+import { AudioLines, Timer, TriangleAlert, Hand, Repeat, Focus, Pause, SkipForward, Gauge } from 'lucide-react'
 import { Numbers } from '../../../utils/extraIcons'
 import { useStore } from '../../../store'
 import { t } from '../../../utils/i18n'
@@ -211,6 +211,19 @@ export const PLAYBACK_DEFS: SettingDef[] = [
     id: 'loopRegion', icon: Repeat, kind: 'switch',
     Control: () => { const v = useStore(s => s.loopRegionEnabled); return <Switch value={v} onChange={useStore.getState().setLoopRegionEnabled} label="Loop region" /> },
     Description: () => <>Shows a strip to select and loop-play a section. Alt+Click & drag to select. Click <InlineIcon><Repeat size={11} /></InlineIcon> icon to loop.</>,
+  },
+  {
+    id: 'tempoDisplay', icon: Gauge, kind: 'choice',
+    Control: () => {
+      const v = useStore(s => s.tempoDisplay)
+      const set = useStore.getState().setTempoDisplay
+      return (
+        <div style={{ display: 'flex', gap: 'var(--space-1)' }}>
+          <OptionBtn active={v === 'bpm'} onClick={() => set('bpm')}>{t`BPM`}</OptionBtn>
+          <OptionBtn active={v === 'percent'} onClick={() => set('percent')}>{t`Speed %`}</OptionBtn>
+        </div>
+      )
+    },
   },
   {
     id: 'explorerPause', icon: Pause, kind: 'switch',
