@@ -47,7 +47,7 @@
 - **Settings › MIDI Files & Library** is laid out afresh, and Chord Transcription's description
   now says what it does: when it's on, a song's file icon makes the chord chart.
 
-## [1.7.3] — 11. 11. 2026 — The Explorers hear your keyboard
+## [1.7.3] — 11. 11. 2026 — The Explorers hear your keyboard, a bigger Settings window
 
 **In short**
 - Hold a chord on your keyboard and the Chords Explorer names it and picks its tile.
