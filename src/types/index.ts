@@ -319,3 +319,5 @@ export type SettingsGroupId =
   // 'playback-editing' is the Playback group (its id kept so saved choices still apply)
   | 'audio' | 'midi-files-library' | 'playback-editing' | 'practice' | 'editing'
   | 'notation' | 'keyboard' | 'piano-roll' | 'appearance' | 'midi'
+  // dev mode only (simAvailable): every test tool
+  | 'devtools'

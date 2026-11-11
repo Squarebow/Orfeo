@@ -12,11 +12,15 @@ import { SettingCard } from './SettingCard'
 import { UpdateButton, RateButton, DevModeBadge } from './controls'
 import { GROUP_ICONS } from './groupIcons'
 import { TAB_ASIDES } from './defs/midi'
+import { simAvailable } from '../../utils/midiSimulator'
 import { fitFrame, defaultFrame, resizeFrame, frameZoom, type Frame, type Edge } from '../../utils/settingsFrame'
 
 // ── Settings window — every setting, by group, with full descriptions.
 // Opened from Quick Settings (gear per group / Open settings) or Ctrl + ,.
 // Same size for every group; only the content area scrolls. ─────────────
+
+// Dev Tools is listed (and searched) only in dev mode
+const SHOWN_GROUPS = GROUPS.filter(g => g.id !== 'devtools' || simAvailable)
 
 const displayVersion = (v: string) => v.replace(/\.0$/, '')
 
@@ -142,8 +146,8 @@ export default function SettingsWindow() {
 
   if (!open) return null
   const close = () => useStore.getState().closeSettingsWindow()
-  const g = GROUPS.find(x => x.id === group) ?? GROUPS[0]
-  const results = query.trim() ? searchSettings(query) : null
+  const g = SHOWN_GROUPS.find(x => x.id === group) ?? SHOWN_GROUPS[0]
+  const results = query.trim() ? searchSettings(query).filter(r => SHOWN_GROUPS.includes(r.group)) : null
 
   return createPortal(
     <div className="app-no-drag" onMouseDown={e => { if (e.target === e.currentTarget) close() }}
@@ -180,7 +184,7 @@ export default function SettingsWindow() {
         <div style={{ display: 'grid', gridTemplateColumns: '210px minmax(0, 1fr)', minHeight: 0 }}>
           <nav style={{ borderRight: '1px solid var(--border2)', display: 'grid', gridTemplateRows: 'minmax(0, 1fr) auto', minHeight: 0 }}>
             <div style={{ overflowY: 'auto', padding: '6px 0' }}>
-            {GROUPS.map(x => {
+            {SHOWN_GROUPS.map(x => {
               const Icon = GROUP_ICONS[x.id]
               const active = !results && x.id === group
               return (
@@ -260,12 +264,12 @@ export default function SettingsWindow() {
             {results === null && (
               <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1fr) auto', alignItems: 'center', padding: '8px 18px', borderTop: '1px solid var(--border-row)' }}>
                 <div><LicensesLink /></div>
-                <button onClick={() => window.electronAPI.openExternal(g.manualUrl)}
+                {g.id !== 'devtools' && <button onClick={() => window.electronAPI.openExternal(g.manualUrl)}
                   style={{ display: 'flex', alignItems: 'center', gap: 6, background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-muted)', fontSize: 'var(--text-xs)', fontFamily: 'var(--font-ui)' }}
                   onMouseEnter={e => e.currentTarget.style.color = 'var(--text-amber)'}
                   onMouseLeave={e => e.currentTarget.style.color = 'var(--text-muted)'}>
                   {t`Open in user manual`} <BookOpen size={13} strokeWidth={1.5} style={{ color: 'var(--text-amber)' }} />
-                </button>
+                </button>}
               </div>
             )}
           </div>

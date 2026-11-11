@@ -11,7 +11,7 @@ import { holdNotesForTest } from '../../../hooks/useMidiInput'
 import { unsavedDetail } from '../../../utils/unsavedChanges'
 
 // Test builds: see the closing warning without changing a song and closing Orfeo
-function UnsavedWarningPreview() {
+export function UnsavedWarningPreview() {
   if (!simAvailable) return null
   const show = () => void confirmDialog({
     title: t`Unsaved changes`,
@@ -141,7 +141,7 @@ function tryExplorerListening(which: 'chords' | 'scales') {
   if (which === 'chords') s.setChordExplorerOpen(true); else s.setScaleExplorerOpen(true)
   HELD_CHORDS.forEach((notes, i) => setTimeout(() => holdNotesForTest(notes, 1600), 700 + i * 2200))
 }
-function ExplorersHearPreview() {
+export function ExplorersHearPreview() {
   if (!simAvailable) return null
   const btn = (label: string, which: 'chords' | 'scales') => (
     <button onClick={() => tryExplorerListening(which)}
@@ -161,7 +161,7 @@ function ExplorersHearPreview() {
 
 export const PLAYBACK_DEFS: SettingDef[] = [
   {
-    id: 'unsavedWarning', icon: TriangleAlert, kind: 'switch', Extra: UnsavedWarningPreview,
+    id: 'unsavedWarning', icon: TriangleAlert, kind: 'switch',
     Control: () => { const v = useStore(s => s.unsavedWarningEnabled); return <Switch value={v} onChange={useStore.getState().setUnsavedWarningEnabled} label={t`Warn about unsaved changes`} /> },
   },
   {
@@ -213,7 +213,7 @@ export const PLAYBACK_DEFS: SettingDef[] = [
     Description: () => <>Shows a strip to select and loop-play a section. Alt+Click & drag to select. Click <InlineIcon><Repeat size={11} /></InlineIcon> icon to loop.</>,
   },
   {
-    id: 'explorerPause', icon: Pause, kind: 'switch', Extra: ExplorersHearPreview,
+    id: 'explorerPause', icon: Pause, kind: 'switch',
     Control: () => { const v = useStore(s => s.explorerPausesPlayback); return <Switch value={v} onChange={useStore.getState().setExplorerPausesPlayback} label={t`Explorers pause playback`} /> },
   },
   {

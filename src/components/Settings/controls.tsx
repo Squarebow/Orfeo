@@ -566,7 +566,7 @@ export function RollZoomStepper() {
 export function DevModeBadge({ placement = 'top' }: { placement?: 'left' | 'right' | 'top' | 'bottom' }) {
   if (!simAvailable) return null
   return (
-    <Tooltip title="Dev mode" description={"Test tools are on: the dashed \"test builds only\"\npanels in Settings. Ctrl+Alt+Shift+D\nswitches them on and off."} placement={placement}>
+    <Tooltip title="Dev mode" description={"Test tools are on: Settings › Dev Tools.\nCtrl+Alt+Shift+D switches them\non and off."} placement={placement}>
       <span style={{ color: 'var(--text-amber)', fontSize: 9, fontFamily: 'var(--font-mono)', letterSpacing: '0.05em', whiteSpace: 'nowrap', cursor: 'default' }}>DEV MODE</span>
     </Tooltip>
   )

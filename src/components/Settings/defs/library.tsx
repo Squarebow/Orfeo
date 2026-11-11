@@ -132,13 +132,12 @@ function QueueEndChoice() {
         <OptionBtn active={action === 'stop'} onClick={() => set('stop')}>{t`Stop`}</OptionBtn>
       </div>
       <HelpText>{help[action]}</HelpText>
-      <QueueTestPanel />
     </>
   )
 }
 
 // Dev mode: the end of a song happens on its own, so make it happen now
-function QueueTestPanel() {
+export function QueueTestPanel() {
   if (!simAvailable) return null
   return (
     <div style={{ marginTop: 12, padding: 8, border: '1px dashed var(--border2)', borderRadius: 4 }}>
@@ -152,7 +151,7 @@ function QueueTestPanel() {
 }
 
 // Dev mode: check the whole Library again from scratch, and see what was found
-function LyricsTestPanel() {
+export function LyricsTestPanel() {
   const found = useStore(s => s.showLyricsMark ? Object.values(s.lyricsIndex).filter(e => e.lyrics).length : null)
   const checked = useStore(s => Object.keys(s.lyricsIndex).length)
   if (!simAvailable) return null
@@ -172,7 +171,7 @@ function LyricsTestPanel() {
 }
 
 // Dev mode: open a song exactly as a double click in the system would, through the same path
-function OpenWithTestPanel() {
+export function OpenWithTestPanel() {
   if (!simAvailable) return null
   const pick = async () => {
     const file = await window.electronAPI.openMidiFile()
@@ -204,14 +203,14 @@ export const LIBRARY_DEFS: SettingDef[] = [
     id: 'chordTranscription', icon: FileMusic, kind: 'switch', badge: 'beta',
     Control: () => { const v = useStore(s => s.chordTranscriptionEnabled); return <Switch value={v} onChange={x => { const skipped = useStore.getState().skipEmptyBars; useStore.getState().setChordTranscriptionEnabled(x); if (skipped && !useStore.getState().skipEmptyBars) void applySkipEmptyBarsChange() }} label="Chord Transcription" /> },
   },
-  { id: 'openWith', icon: MousePointerClick, kind: 'choice', Control: AddToLibraryRow, Description: OpenWithDescription, Extra: OpenWithTestPanel },
+  { id: 'openWith', icon: MousePointerClick, kind: 'choice', Control: AddToLibraryRow, Description: OpenWithDescription },
   { id: 'tags', icon: Tags, kind: 'choice', Control: TagsManager },
   {
     id: 'practiceQueue', icon: ListOrdered, kind: 'switch', Extra: QueueEndChoice,
     Control: () => { const v = useStore(s => s.queueEnabled); return <Switch value={v} onChange={x => useStore.getState().setQueueEnabled(x)} label={t`Practice queue`} /> },
   },
   {
-    id: 'showLyrics', icon: MicVocal, kind: 'switch', Extra: LyricsTestPanel,
+    id: 'showLyrics', icon: MicVocal, kind: 'switch',
     Control: () => { const v = useStore(s => s.showLyricsMark); return <Switch value={v} onChange={x => useStore.getState().setShowLyricsMark(x)} label={t`Show files with lyrics`} /> },
   },
 ]

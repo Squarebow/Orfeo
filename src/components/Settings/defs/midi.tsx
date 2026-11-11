@@ -122,10 +122,6 @@ function KeyboardsControl() {
   )
 }
 
-function KeyboardsExtra() {
-  return simAvailable ? <SimulatorPanel /> : null
-}
-
 // ── Reconnect automatically ──────────────────────────────────────────────────
 function ReconnectControl() {
   const v = useMidiSettings(s => s.autoReconnect)
@@ -136,7 +132,7 @@ function ReconnectExtra() {
 }
 
 // ── Development builds only: pretend keyboards are plugged in ────────────────
-function SimulatorPanel() {
+export function SimulatorPanel() {
   useMidiSettings(s => s.devices)  // re-render on plug / unplug
   const [target, setTarget] = useState(sim.models[0].key)
   const plugged = sim.isPlugged(target)
@@ -438,7 +434,7 @@ function ToolsControl() {
 }
 
 export const MIDI_DEFS: SettingDef[] = [
-  { id: 'midiKeyboards', icon: KeyboardMusic, kind: 'choice', Control: KeyboardsControl, Extra: KeyboardsExtra },
+  { id: 'midiKeyboards', icon: KeyboardMusic, kind: 'choice', Control: KeyboardsControl },
   { id: 'midiReconnect', icon: Plug, kind: 'switch', Control: ReconnectControl, Extra: ReconnectExtra },
   { id: 'liveResponse', icon: Zap, kind: 'choice', Control: LiveResponseControl, notice: true },
   { id: 'latencyOffset', icon: Timer, kind: 'choice', Control: LatencyOffsetControl, Glance: LatencyOffsetGlance },

@@ -31,6 +31,7 @@ export type SettingId =
   | 'theme' | 'handColors' | 'appZoom' | 'tooltips' | 'tours' | 'supportNote' | 'starmap'
   | 'midiKeyboards' | 'midiReconnect' | 'liveResponse' | 'latencyOffset' | 'gmOutput' | 'touchResponse' | 'duplicateFilter'
   | 'pedalsControls' | 'delayCheck' | 'midiTools'
+  | 'devKeyboard' | 'devExplorers' | 'devClosingWarning' | 'devQueue' | 'devLyrics' | 'devOpenWith' | 'devSupportNote'
 
 export interface SettingInfo {
   id: SettingId
@@ -60,6 +61,8 @@ export const GROUPS: GroupInfo[] = [
   { id: 'piano-roll', name: t`Piano Roll`, intro: t`Tune the falling notes`, manualUrl: 'https://orfeo.cc/docs/playing-midi-files/the-piano-roll',
     stack: [['visualEffects'], ['rollZoom'], ['barNumbers', 'playbar']], looseFirst: true },
   { id: 'appearance', name: t`Appearance`, intro: t`Change the look`, manualUrl: 'https://orfeo.cc/docs/settings/appearance-settings' },
+  // Dev mode only (simAvailable) — its words are plain strings, kept out of the translations
+  { id: 'devtools', name: 'Dev Tools', intro: 'Test tools, dev mode only', manualUrl: 'https://orfeo.cc/docs' },
 ]
 
 export const SETTINGS: SettingInfo[] = [
@@ -240,6 +243,29 @@ export const SETTINGS: SettingInfo[] = [
   { id: 'midiTools', group: 'midi', name: t`Reset & repair`, summary: t`Fix hanging notes or a confused keyboard.`,
     description: t`Clear stuck notes lets go of every key and pedal. Reset MIDI input also reconnects every keyboard. Reset settings puts everything on this page back to how it started.`,
     keywords: 'stuck hanging notes reset panic all notes off reconnect defaults' },
+
+  // ── Dev Tools (dev mode only): plain strings, kept out of the translations
+  { id: 'devKeyboard', group: 'devtools', name: 'Simulated keyboards', summary: 'Plug in a pretend keyboard and play it.',
+    description: 'Plug a simulated USB keyboard in and out, and play chords, runs, pedals, wheels and the awkward cases (a double key, unplugging mid-note) through the same path as a real one.',
+    keywords: 'dev test simulator midi keyboard plug' },
+  { id: 'devExplorers', group: 'devtools', name: 'Explorers hear your keyboard', summary: 'Hold chords into an open Explorer.',
+    description: 'Opens the Chords or Scales Explorer and holds five chords one after another, as if played on a keyboard: root position, an inversion, an Extended-only chord and notes that make no chord.',
+    keywords: 'dev test explorer chord scale listen' },
+  { id: 'devClosingWarning', group: 'devtools', name: 'Closing warning', summary: 'Show the unsaved-changes warning.',
+    description: 'Shows the warning Orfeo gives when it closes with unsaved changes to a song, without changing a song or closing anything.',
+    keywords: 'dev test unsaved changes warning close' },
+  { id: 'devQueue', group: 'devtools', name: 'Practice queue', summary: 'Make the open song end now.',
+    description: 'Acts as if the open song just ended, to see what the queue does next. Works when the open song is the queue\'s current one.',
+    keywords: 'dev test queue song end next' },
+  { id: 'devLyrics', group: 'devtools', name: 'Lyrics marks', summary: 'Check the Library for lyrics again.',
+    description: 'Forgets which songs carry lyrics and checks the whole Library again from scratch, with a count of what was found.',
+    keywords: 'dev test lyrics karaoke check library' },
+  { id: 'devOpenWith', group: 'devtools', name: 'Double click', summary: 'Open a song as the system would.',
+    description: 'Opens a song exactly as a double click on a MIDI file in the system would, through the same path.',
+    keywords: 'dev test open with double click file association' },
+  { id: 'devSupportNote', group: 'devtools', name: 'Support note', summary: 'Show the note and the new-version dot.',
+    description: 'Shows the small note that offers ways to support Orfeo, in its usual and Microsoft Store forms, and the dot on the update button.',
+    keywords: 'dev test support note store update dot' },
 ]
 
 export const SETTING_BY_ID = Object.fromEntries(SETTINGS.map(s => [s.id, s])) as Record<SettingId, SettingInfo>
@@ -259,4 +285,5 @@ export const QUICK_LAYOUT: Record<SettingsGroupId, QuickItem[]> = {
   'appearance': ['appZoom', 'tooltips'],
   // Settings window only for now
   'midi': [],
+  'devtools': [],
 }

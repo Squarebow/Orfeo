@@ -146,7 +146,7 @@ function HandColorsExtra() {
 }
 
 // Test builds: see either version's note now instead of on the 5th launch
-function SupportNotePreview() {
+export function SupportNotePreview() {
   if (!simAvailable) return null
   const btn = (label: string, store: boolean) => (
     <button onClick={() => previewSupportNote(store)}
@@ -178,7 +178,7 @@ export const APPEARANCE_DEFS: SettingDef[] = [
   },
   { id: 'tours', icon: Signpost, kind: 'choice', Control: ToursControl },
   {
-    id: 'supportNote', icon: Heart, kind: 'switch', Extra: SupportNotePreview,
+    id: 'supportNote', icon: Heart, kind: 'switch',
     Control: () => { const v = useStore(s => s.supportNoteEnabled); return <Switch value={v} onChange={useStore.getState().setSupportNoteEnabled} label={t`Enjoying Orfeo?`} /> },
   },
   {
