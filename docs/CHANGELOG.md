@@ -47,6 +47,22 @@
 - **Settings › MIDI Files & Library** is laid out afresh, and Chord Transcription's description
   now says what it does: when it's on, a song's file icon makes the chord chart.
 
+## [1.7.3] — 11. 11. 2026 — The Explorers hear your keyboard
+
+**In short**
+- Hold a chord on your keyboard and the Chords Explorer names it and picks its tile.
+- The Scales Explorer names it too and shows which scales it belongs to.
+
+### New
+- **The Chords Explorer follows your keyboard.** With the Explorer open, hold three or more
+  notes on a connected keyboard: it names the chord, picks its root and tile, and lights it in
+  the shape you played, inversion included, without playing it again. A chord that's only in
+  Extended switches the list there, and a notes or hand filter or a search that would hide it
+  is cleared. Notes that make no chord light up with their names instead.
+- **The Scales Explorer shows where a chord belongs.** Hold a chord and the row under the chord
+  tiles names it, with its inversion and the notes you hold, left to right (C/E 1st inv
+  (E G C)), and lists the scales it fits, the likeliest first. Click one to choose that key.
+
 ## [1.7.2] — 9. 11. 2026 — Songs end with the music, close buttons that work
 
 **In short**

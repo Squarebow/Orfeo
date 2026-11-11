@@ -102,6 +102,13 @@ function lightOff(notes: Iterable<number>) {
   useStore.setState({ activeKeys: nk, activeKeyColors: nc, midiHeldKeys: held })
 }
 
+// ── Test builds: notes held as if played on a keyboard (sound, lights and held
+// keys, exactly as a real key), whichever keyboards are connected or chosen ──
+export function holdNotesForTest(notes: number[], ms: number, vel = 90): void {
+  for (const n of notes) { soundOn(n, vel); lightOn(n) }
+  setTimeout(() => { for (const n of notes) soundOff(n); lightOff(notes) }, ms)
+}
+
 function heldBy(key: string): Set<number> {
   let s = _held.get(key)
   if (!s) { s = new Set(); _held.set(key, s) }
