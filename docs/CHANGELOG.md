@@ -11,6 +11,7 @@
 - Hold a chord on your keyboard and the Chords Explorer names it and picks its tile.
 - The Scales Explorer names it too and shows which scales it belongs to.
 - The Settings window opens larger, with bigger text, and resizes from any edge or corner.
+- The tempo can show as a speed in percent instead of BPM.
 
 ### Changed
 - **The Chords Explorer follows your keyboard.** With the Explorer open, hold three or more
@@ -25,6 +26,10 @@
   it, text, cards and controls, grows with it, so it's much easier to read. Drag any edge to
   make it wider or taller, or a corner to resize it in proportion; double-click an edge for
   the size it opened at. It stays clear of the top bar, and remembers its size and place.
+- **Tempo as a speed in percent.** Settings › Playback › Tempo display shows the tempo at the
+  top as BPM, as before, or as a speed against the song's own tempo: 100 % as written, 50 % at
+  half speed. The arrows step by one percent and you can type a speed, just as with BPM. The
+  number keeps the same room whatever it shows, so nothing beside it moves as it changes.
 
 ## [1.7.2] — 9. 11. 2026 — Songs end with the music, close buttons that work
 

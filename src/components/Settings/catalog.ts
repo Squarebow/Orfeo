@@ -26,7 +26,7 @@ export type SettingId =
   | 'noteEditor' | 'unsavedWarning' | 'tapTempo' | 'tempoWarnings' | 'countIn' | 'skipEmptyBars' | 'handAssignment' | 'loopRegion' | 'focusMode'
   | 'stepThrough' | 'chordPrompter' | 'closePanels' | 'handTags' | 'trackVu'
   | 'displaySystem' | 'accidentals' | 'chordTracking' | 'chordReading' | 'chordNaming'
-  | 'keyRange' | 'showOctaves' | 'showNoteNames' | 'reflectPianoRoll' | 'preciseScrubTime' | 'explorerPause'
+  | 'keyRange' | 'showOctaves' | 'showNoteNames' | 'reflectPianoRoll' | 'preciseScrubTime' | 'explorerPause' | 'tempoDisplay'
   | 'rollZoom' | 'barNumbers' | 'playbar' | 'visualEffects'
   | 'theme' | 'handColors' | 'appZoom' | 'tooltips' | 'supportNote' | 'starmap'
   | 'midiKeyboards' | 'midiReconnect' | 'liveResponse' | 'latencyOffset' | 'gmOutput' | 'touchResponse' | 'duplicateFilter'
@@ -51,7 +51,7 @@ export const GROUPS: GroupInfo[] = [
     ] },
   { id: 'midi-files-library', name: t`MIDI Files & Library`, intro: t`Organise your library`, manualUrl: 'https://orfeo.cc/docs/managing-midi-files' },
   { id: 'playback-editing', name: t`Playback`, intro: t`Shape playback`, manualUrl: 'https://orfeo.cc/docs/playing-midi-files',
-    stack: [['tapTempo', 'loopRegion', 'focusMode'], ['tempoWarnings', 'preciseScrubTime', 'explorerPause'], ['countIn', 'skipEmptyBars']] },
+    stack: [['tapTempo', 'loopRegion', 'focusMode'], ['tempoWarnings', 'preciseScrubTime', 'explorerPause'], ['countIn', 'skipEmptyBars', 'tempoDisplay']] },
   { id: 'practice', name: t`Practice`, intro: t`Tools for practising`, manualUrl: 'https://orfeo.cc/docs/practicing-with-midi-files' },
   { id: 'editing', name: t`Editing`, intro: t`Edit your songs`, manualUrl: 'https://orfeo.cc/docs/editing-midi-files',
     stack: [['handAssignment'], ['noteEditor'], ['trackVu', 'unsavedWarning']], looseFirst: true },
@@ -162,6 +162,9 @@ export const SETTINGS: SettingInfo[] = [
   { id: 'explorerPause', group: 'playback-editing', name: t`Explorers pause playback`, summary: t`Opening the Chords or Scales Explorer pauses the song.`,
     description: t`Opening the Chords Explorer or the Scales Explorer pauses the song, so it doesn't play over the chords you try. Turn it off to keep the song playing while you explore.`,
     keywords: 'pause playback explorer chords scales stop song' },
+  { id: 'tempoDisplay', group: 'playback-editing', name: t`Tempo display`, summary: t`Show the tempo in BPM or as a speed in percent.`,
+    description: t`The tempo at the top shows beats per minute, or the speed against the song's own tempo: 100 % plays it as written, 50 % at half speed. The arrows and typing a value work the same way in both.`,
+    keywords: 'tempo bpm speed percent percentage slow down faster display readout' },
   // ── Piano Roll
   { id: 'rollZoom', group: 'piano-roll', name: t`Zoom`, summary: t`How much of the song the piano roll shows at once.`,
     description: t`How many seconds of music the piano roll shows at once — higher zoom makes the notes bigger.`,

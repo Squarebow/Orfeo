@@ -1,4 +1,4 @@
-import { stepDisplayedBpm, typedBpm } from './bpmStep'
+import { stepDisplayedBpm, typedBpm, speedPercent, stepSpeed, typedSpeed } from './bpmStep'
 
 export function runBpmStepTest(): number {
   console.group('[bpmStep] self-check')
@@ -29,6 +29,15 @@ export function runBpmStepTest(): number {
   for (const bad of ['', '   ', 'abc', '0', '-5', '1e', '12x']) check(typedBpm(bad, 120, 120) === null, `"${bad}" refused`)
   // same limits as the arrows
   check(typedBpm('5', 120, 120) === 20 && typedBpm('999', 120, 120) === 300, 'clamped 20..300')
+  // speed in percent
+  check(speedPercent(120, 120) === 100 && speedPercent(90, 120) === 75 && speedPercent(132, 120) === 110, 'speed shown in whole percent')
+  check(stepSpeed(120, 120, 1) === 121.2 && Math.abs(stepSpeed(120, 120, -1) - 118.8) < 1e-9, 'one percent up or down')
+  check(stepSpeed(stepSpeed(120.4, 120.4, 1), 120.4, -1) === 120.4, 'up then down lands exactly on the song tempo')
+  check(typedSpeed('75', 120) === 90 && typedSpeed(' 75 % ', 120) === 90 && typedSpeed('87,5', 120) === 105, 'typed speed, with or without %, comma or point')
+  check(typedSpeed('100', 120.4) === 120.4, 'typing 100 restores the song tempo exactly')
+  for (const bad of ['', '%', 'abc', '0', '-5']) check(typedSpeed(bad, 120) === null, `"${bad}" refused as a speed`)
+  check(typedSpeed('5', 120) === 20 && typedSpeed('999', 120) === 300, 'speed stays within the tempo limits')
+
   console.log(`bpmStep: ${pass} passed, ${fail} failed`)
   console.groupEnd()
   return fail

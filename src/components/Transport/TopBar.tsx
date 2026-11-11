@@ -18,7 +18,7 @@ import Tooltip from '../Tooltip'
 import { TapTempoPad } from './TapTempoPad'
 import { TempoWarning } from './TempoWarning'
 import { useCurrentTempoTrust } from '../../hooks/useTempoTrustScan'
-import { stepDisplayedBpm, typedBpm } from '../../utils/bpmStep'
+import { stepDisplayedBpm, typedBpm, speedPercent, stepSpeed, typedSpeed } from '../../utils/bpmStep'
 import { isCountingIn, cancelCountIn } from '../../utils/countInRunner'
 import { ContextMenu, ContextMenuItem, ContextMenuDivider, useMenuDismiss } from '../ContextMenu'
 import { t } from '../../utils/i18n'
@@ -75,6 +75,8 @@ export default function TopBar() {
   const showPreciseScrubTime = useStore((s) => s.showPreciseScrubTime)
   const bpm = useStore((s) => s.bpm)
   const originalBpm = useStore((s) => s.originalBpm)
+  // BPM, or speed in percent of the song's own tempo (Settings › Playback › Tempo display)
+  const asPercent = useStore((s) => s.tempoDisplay === 'percent')
   const loopRegionEnabled  = useStore((s) => s.loopRegionEnabled)
   const loopRegionActive   = useStore((s) => s.loopRegionActive)
   const loopStart          = useStore((s) => s.loopStart)
@@ -315,19 +317,26 @@ export default function TopBar() {
       {/* ── BPM ── (tighter gap/padding than the other groups: with the TAP pad
           the left column must still fit at a 1366 px window) */}
       <div className="app-no-drag" style={{ display: 'flex', alignItems: 'center', gap: 4, padding: '0 var(--space-2)', flexShrink: 0 }}>
-        <Tooltip title={`Tempo: ${liveBpm || '—'} BPM`} description={t`The song's current playback tempo,\nscaled by your speed setting.\nDouble-click to type a tempo.`} placement="bottom">
+        <Tooltip
+          title={asPercent ? t`Speed: ${midi ? speedPercent(bpm, originalBpm) : '—'} %` : `Tempo: ${liveBpm || '—'} BPM`}
+          description={asPercent
+            ? t`Playback speed against the song's own tempo:\n100 % plays it as written.\nDouble-click to type a speed.`
+            : t`The song's current playback tempo,\nscaled by your speed setting.\nDouble-click to type a tempo.`}
+          placement="bottom">
           <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
             <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start', gap: 1 }}>
-              <span style={{ color: 'var(--text-muted)', fontSize: 9, textTransform: 'uppercase', letterSpacing: '0.1em', fontFamily: 'var(--font-mono)', lineHeight: 1 }}>BPM</span>
-              <span style={{ color: 'var(--text-muted)', fontSize: 9, textTransform: 'uppercase', letterSpacing: '0.1em', fontFamily: 'var(--font-mono)', lineHeight: 1 }}>TEMPO</span>
+              {/* the unit sits in the label, so the number keeps one width in both modes */}
+              <span style={{ color: 'var(--text-muted)', fontSize: 9, textTransform: 'uppercase', letterSpacing: '0.1em', fontFamily: 'var(--font-mono)', lineHeight: 1 }}>{asPercent ? '%' : 'BPM'}</span>
+              <span style={{ color: 'var(--text-muted)', fontSize: 9, textTransform: 'uppercase', letterSpacing: '0.1em', fontFamily: 'var(--font-mono)', lineHeight: 1 }}>{asPercent ? t`SPEED` : 'TEMPO'}</span>
             </div>
             <BpmValue
-              shown={midi ? String(liveBpm) : '—'}
+              shown={midi ? String(asPercent ? speedPercent(bpm, originalBpm) : liveBpm) : '—'}
+              label={asPercent ? t`Speed in percent` : t`Tempo in BPM`}
               changed={isTempoChanged}
               disabled={!midi}
               onType={(text) => {
                 const s = useStore.getState()
-                const next = typedBpm(text, s.originalBpm, currentFileBpm)
+                const next = asPercent ? typedSpeed(text, s.originalBpm) : typedBpm(text, s.originalBpm, currentFileBpm)
                 if (next !== null) setBpm(next)
               }}
             />
@@ -336,8 +345,10 @@ export default function TopBar() {
         {/* ±1 steps the DISPLAYED tempo (file tempo at the playhead, incl. any
             tap-tempo correction), not the file's first tempo — see liveBpm. */}
         <div style={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
-          <LongPressArrow onStep={() => { const s = useStore.getState(); setBpm(stepDisplayedBpm(s.bpm, s.originalBpm, currentFileBpm, 1)) }} disabled={!midi} title="BPM +1" description={"Nudges playback tempo up\nby one beat per minute."}><ChevronUp size={10} /></LongPressArrow>
-          <LongPressArrow onStep={() => { const s = useStore.getState(); setBpm(stepDisplayedBpm(s.bpm, s.originalBpm, currentFileBpm, -1)) }} disabled={!midi} title="BPM -1" description={"Nudges playback tempo down\nby one beat per minute."}><ChevronDown size={10} /></LongPressArrow>
+          <LongPressArrow onStep={() => { const s = useStore.getState(); setBpm(asPercent ? stepSpeed(s.bpm, s.originalBpm, 1) : stepDisplayedBpm(s.bpm, s.originalBpm, currentFileBpm, 1)) }} disabled={!midi}
+            title={asPercent ? t`Speed +1 %` : 'BPM +1'} description={asPercent ? t`Plays a little faster,\none percent at a time.` : "Nudges playback tempo up\nby one beat per minute."}><ChevronUp size={10} /></LongPressArrow>
+          <LongPressArrow onStep={() => { const s = useStore.getState(); setBpm(asPercent ? stepSpeed(s.bpm, s.originalBpm, -1) : stepDisplayedBpm(s.bpm, s.originalBpm, currentFileBpm, -1)) }} disabled={!midi}
+            title={asPercent ? t`Speed -1 %` : 'BPM -1'} description={asPercent ? t`Plays a little slower,\none percent at a time.` : "Nudges playback tempo down\nby one beat per minute."}><ChevronDown size={10} /></LongPressArrow>
         </div>
         {/* ── Reset — space always reserved so its appearance never shifts the transport controls ── */}
         {/* wrapperStyle carries the same visibility as the button itself — the
@@ -865,25 +876,34 @@ function DebugCopyItem({ idleLabel, logTag, buildText, onDone }: {
 
 // ── The tempo number: double-click to type one, Enter or clicking away sets
 // it, Escape keeps the old one. Same size as the number, so nothing shifts. ──
-function BpmValue({ shown, changed, disabled, onType }: {
-  shown: string; changed: boolean; disabled: boolean; onType: (text: string) => void
+// The number always takes three digits' room (monospace, right-aligned), so
+// 99 → 100, or BPM ↔ %, never moves anything beside it. Typing opens a box over
+// the same spot and size (a longer entry scrolls inside it), so nothing moves then either.
+function BpmValue({ shown, changed, disabled, onType, label }: {
+  shown: string; changed: boolean; disabled: boolean; onType: (text: string) => void; label: string
 }) {
   const [draft, setDraft] = useState<string | null>(null)
   const style: React.CSSProperties = {
     color: changed ? 'var(--text-amber)' : 'var(--text-active)', fontFamily: 'var(--font-mono)',
-    fontSize: 20, fontWeight: 700, minWidth: 36, textAlign: 'right', lineHeight: 1,
+    fontSize: 20, fontWeight: 700, textAlign: 'right', lineHeight: 1, fontVariantNumeric: 'tabular-nums',
   }
+  const slot: React.CSSProperties = { position: 'relative', display: 'inline-block', width: '3ch', height: 20, flexShrink: 0, fontFamily: 'var(--font-mono)', fontSize: 20, fontWeight: 700, lineHeight: 1 }
   if (draft === null) {
-    return <span onDoubleClick={disabled ? undefined : () => setDraft(shown)} style={style}>{shown}</span>
+    return (
+      <span style={slot}>
+        <span onDoubleClick={disabled ? undefined : () => setDraft(shown)} style={{ ...style, position: 'absolute', right: 0, top: 0, whiteSpace: 'nowrap' }}>{shown}</span>
+      </span>
+    )
   }
   const finish = (save: boolean) => {
     if (save) onType(draft)
     setDraft(null)
   }
   return (
+    <span style={slot}>
     <input
       autoFocus
-      aria-label={t`Tempo in BPM`}
+      aria-label={label}
       inputMode="decimal"
       maxLength={5}
       value={draft}
@@ -895,8 +915,9 @@ function BpmValue({ shown, changed, disabled, onType }: {
         if (e.key === 'Enter') finish(true)
         else if (e.key === 'Escape') finish(false)
       }}
-      style={{ ...style, width: `max(36px, ${shown.length}ch)`, height: 20, padding: 0, border: 'none', outline: 'none', background: 'var(--bg-input, transparent)', boxShadow: '0 1px 0 var(--text-amber)' }}
+      style={{ ...style, position: 'absolute', right: 0, top: 0, width: '3ch', height: 20, padding: 0, border: 'none', outline: 'none', background: 'var(--bg-input, var(--bg-deep))', boxShadow: '0 1px 0 var(--text-amber)', zIndex: 1 }}
     />
+    </span>
   )
 }
 
