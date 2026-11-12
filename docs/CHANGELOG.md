@@ -47,13 +47,13 @@
 - **Settings › MIDI Files & Library** is laid out afresh, and Chord Transcription's description
   now says what it does: when it's on, a song's file icon makes the chord chart.
 
-## [1.7.3] — 11. 11. 2026 — The Explorers hear your keyboard, a bigger Settings window
+## [1.7.3] — 12. 11. 2026 — The Explorers hear your keyboard, a bigger Settings window
 
 **In short**
-- Hold a chord on your keyboard and the Chords Explorer names it and picks its tile.
-- The Scales Explorer names it too and shows which scales it belongs to.
+- Hold a chord on your keyboard and both Explorers name it; the Scales Explorer also shows which scales it belongs to.
 - The Settings window opens larger, with bigger text, and resizes from any edge or corner.
 - The tempo can show as a speed in percent instead of BPM.
+- Songs and folders that are shortcuts (symbolic links) now show in the Library.
 
 ### Changed
 - **The Chords Explorer follows your keyboard.** With the Explorer open, hold three or more
