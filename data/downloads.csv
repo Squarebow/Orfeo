@@ -1077,7 +1077,7 @@ date,tag,published,asset,kind,downloads
 2026-11-12,v1.7.1,2026-11-07,Orfeo-1.7.1-mac-x64.zip,mac,3
 2026-11-12,v1.7.1,2026-11-07,Orfeo-1.7.1-portable.exe,portable,131
 2026-11-12,v1.7.1,2026-11-07,Orfeo-Setup-1.7.1.exe,installer,225
-2026-11-12,v1.7.1,2026-11-07,Orfeo-Setup-1.7.1.exe.blockmap,update,79
+2026-11-12,v1.7.1,2026-11-07,Orfeo-Setup-1.7.1.exe.blockmap,update,80
 2026-11-12,v1.7.1,2026-11-07,latest.yml,launch,262
 2026-11-12,v1.7.2,2026-11-09,Orfeo-1.7.2-linux-amd64.deb,linux,23
 2026-11-12,v1.7.2,2026-11-09,Orfeo-1.7.2-linux-x86_64.AppImage,linux,32
@@ -1087,6 +1087,6 @@ date,tag,published,asset,kind,downloads
 2026-11-12,v1.7.2,2026-11-09,Orfeo-1.7.2-mac-x64.dmg,mac,20
 2026-11-12,v1.7.2,2026-11-09,Orfeo-1.7.2-mac-x64.zip,mac,4
 2026-11-12,v1.7.2,2026-11-09,Orfeo-1.7.2-portable.exe,portable,183
-2026-11-12,v1.7.2,2026-11-09,Orfeo-Setup-1.7.2.exe,installer,302
-2026-11-12,v1.7.2,2026-11-09,Orfeo-Setup-1.7.2.exe.blockmap,update,72
-2026-11-12,v1.7.2,2026-11-09,latest.yml,launch,382
+2026-11-12,v1.7.2,2026-11-09,Orfeo-Setup-1.7.2.exe,installer,305
+2026-11-12,v1.7.2,2026-11-09,Orfeo-Setup-1.7.2.exe.blockmap,update,74
+2026-11-12,v1.7.2,2026-11-09,latest.yml,launch,387
