@@ -1,5 +1,6 @@
 import { create } from 'zustand'
 import type { KeyRange } from '../utils/keyboardRange'
+import type { KeyLightSetup } from '../utils/keyLights'
 
 // ── MIDI keyboard settings + live device state ────────────────────────────────
 // Kept apart from the main store: everything here is about the player's own
@@ -36,6 +37,7 @@ export interface MidiPrefs {
   lastDevice: string              // last keyboard actually played
   keyRanges: Record<string, KeyRange> // device key -> its lowest and highest key, as the player pressed them
   rangeAsked: string[]            // keyboards already asked for their range (measured or skipped)
+  keyLights: Record<string, KeyLightSetup> // device key -> how its key lights are driven (missing = utils/keyLights defaultSetup)
 }
 
 export const MIDI_DEFAULTS: MidiPrefs = {
@@ -61,6 +63,7 @@ export const MIDI_DEFAULTS: MidiPrefs = {
   lastDevice: '',
   keyRanges: {},
   rangeAsked: [],
+  keyLights: {},
 }
 
 // The keyboard-range pop-up: which keyboard it's asking about. `test` (Dev
@@ -93,6 +96,7 @@ interface MidiLive {
   rangePrompt: RangePrompt | null
   simRanges: Record<string, KeyRange>  // simulated keyboards: session only, never saved
   simRangeAsked: string[]
+  simKeyLights: Record<string, KeyLightSetup>  // simulated keyboards: session only, never saved
 }
 
 type MidiState = MidiPrefs & MidiLive & {
@@ -115,15 +119,19 @@ export const useMidiSettings = create<MidiState>((set) => ({
   rangePrompt: null,
   simRanges: {},
   simRangeAsked: [],
+  simKeyLights: {},
   set: (p) => set(p),
   // Keeps which keyboards already had their first-connection pop-up, and the
   // ranges measured for them — those describe the keyboards, not a preference
-  resetPrefs: () => set(s => ({ ...MIDI_DEFAULTS, seenDevices: s.seenDevices, lastDevice: s.lastDevice, keyRanges: s.keyRanges, rangeAsked: s.rangeAsked })),
+  resetPrefs: () => set(s => ({ ...MIDI_DEFAULTS, seenDevices: s.seenDevices, lastDevice: s.lastDevice, keyRanges: s.keyRanges, rangeAsked: s.rangeAsked, keyLights: s.keyLights })),
 }))
 
 // Same rule as utils/keyboardRange isKeyRange, kept here so this store loads nothing else
 const validRange = (r: any): r is KeyRange =>
   !!r && Number.isInteger(r.low) && Number.isInteger(r.high) && r.low >= 0 && r.high <= 127 && r.low < r.high
+
+const validLights = (l: any): l is KeyLightSetup =>
+  !!l && ['off', 'notes', 'partykeys'].includes(l.mode) && Number.isInteger(l.channel) && l.channel >= 1 && l.channel <= 16
 
 const PREF_KEYS = Object.keys(MIDI_DEFAULTS) as (keyof MidiPrefs)[]
 const pickPrefs = (s: MidiPrefs): MidiPrefs =>
@@ -141,6 +149,7 @@ export const midiPrefsReady: Promise<void> = (async () => {
         if (v === undefined || typeof v !== typeof d || Array.isArray(d) !== Array.isArray(v)) continue
         ;(merged as any)[k] = k === 'controls' ? { ...MIDI_DEFAULTS.controls, ...v }
           : k === 'keyRanges' ? Object.fromEntries(Object.entries(v).filter(([, r]) => validRange(r)))
+          : k === 'keyLights' ? Object.fromEntries(Object.entries(v).filter(([, l]) => validLights(l)))
           : v
       }
       useMidiSettings.setState(merged)

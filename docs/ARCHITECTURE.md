@@ -305,6 +305,17 @@ each key press.
   `fitKeyboardSize` picks the smallest on-screen size (61 / 73 / 88) holding
   the range, applied once per keyboard played so a size chosen by hand stays.
   Outside practice mode only; practice mode keeps 88 keys.
+- **Key lights.** `hooks/keyLightsOutput.ts` lights the player's own keyboard
+  with the song notes the on-screen keyboard shows (`activeKeys` /
+  `activeKeyColors`, minus the player's own keys), sending only the changes,
+  once per burst of note changes (a microtask, so it keeps going with the
+  window in the background). Per device (`keyLights`, default from
+  `utils/keyLights.ts` `defaultSetup`): *off*, *notes* (note on velocity 1 /
+  note off on one channel) or *partykeys* (its open SysEx LED protocol, per-key
+  RGB). It sends to the output with the input's model name (`outputFor`).
+  Light notes a keyboard echoes back are dropped in `handleMessage`
+  (`utils/keyLightEcho.ts`). MIDI access asks for SysEx, falling back
+  without it.
 - **Note path.** Sound first, display second: the handler calls the engine's
   `liveNoteOn` straight away, then updates `activeKeys` / `midiHeldKeys`. A
   store update runs every subscriber synchronously, and none of that should

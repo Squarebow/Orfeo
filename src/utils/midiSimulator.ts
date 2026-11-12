@@ -15,6 +15,8 @@ export const SIM_MODELS: SimModel[] = [
   { key: 's88', ports: ['KOMPLETE KONTROL S88 MK3 MIDI'], outPorts: ['KOMPLETE KONTROL S88 MK3 MIDI'], manufacturer: 'Native Instruments' },
   { key: 'mpk', ports: ['MPK mini Plus'], outPorts: ['MPK mini Plus'], manufacturer: 'Microsoft' },
   { key: 'launchkey', ports: ['Launchkey MK4 37 MIDI', 'MIDIIN2 (Launchkey MK4 37)'], outPorts: ['Launchkey MK4 37 MIDI'], manufacturer: 'Focusrite A.E. Ltd' },
+  // Lighted keys, driven by its open LED protocol (Settings › MIDI Keyboard › Key lights)
+  { key: 'partykeys', ports: ['PartyKeys 36'], outPorts: ['PartyKeys 36'], manufacturer: 'PartyKeys' },
 ]
 
 type PortState = 'connected' | 'disconnected'

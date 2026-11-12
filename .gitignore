@@ -63,6 +63,8 @@ DESIGN.md
 
 # ── CDP dev-debug helper scripts — local testing tools, not shipped app code ─
 scripts/dev-debug/
+# Recording what Synthesia sends to lighted keyboards (docs/IDEA-lit-keys-synthesia-capture.md)
+scripts/lit-keys-capture/
 .worktrees/
 
 # ── Chord-detection library audit — dev tooling + generated reports ─────────

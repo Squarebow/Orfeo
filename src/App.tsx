@@ -56,6 +56,7 @@ import { useSupportNoteService } from './hooks/useSupportNote'
 import { isExporting } from './audio/exportAudio'
 import { SupportNote } from './components/SupportNote'
 import { KeyboardRangePrompt } from './components/KeyboardRangePrompt'
+import './hooks/keyLightsOutput'  // the song's notes on lighted keyboards
 import { isTextEntry } from './utils/keyTarget'
 import { t } from './utils/i18n'
 import { confirmUnsavedChanges, willWarnAboutChanges } from './utils/unsavedPrompt'

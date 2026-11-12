@@ -31,7 +31,7 @@ export type SettingId =
   | 'theme' | 'handColors' | 'appZoom' | 'tooltips' | 'tours' | 'supportNote' | 'starmap'
   | 'midiKeyboards' | 'midiReconnect' | 'liveResponse' | 'latencyOffset' | 'gmOutput' | 'touchResponse' | 'duplicateFilter'
   | 'pedalsControls' | 'delayCheck' | 'midiTools'
-  | 'devKeyboard' | 'devKeyRange' | 'devExplorers' | 'devClosingWarning' | 'devQueue' | 'devLyrics' | 'devOpenWith' | 'devSupportNote'
+  | 'keyLights' | 'devKeyboard' | 'devKeyRange' | 'devKeyLights' | 'devExplorers' | 'devClosingWarning' | 'devQueue' | 'devLyrics' | 'devOpenWith' | 'devSupportNote'
 
 export interface SettingInfo {
   id: SettingId
@@ -49,6 +49,7 @@ export const GROUPS: GroupInfo[] = [
       { name: t`Keyboards`, ids: ['midiKeyboards', 'midiTools', 'midiReconnect'], columns: 3, aside: 'noKeyboards' },
       { name: t`Sound & Latency`, ids: ['delayCheck', 'liveResponse', 'latencyOffset', 'gmOutput'], stack: [['delayCheck'], ['liveResponse'], ['latencyOffset', 'gmOutput']], aside: 'keyToSpeaker' },
       { name: t`Touch & pedals`, ids: ['touchResponse', 'pedalsControls', 'duplicateFilter'] },
+      { name: t`Key lights`, ids: ['keyLights'] },
     ] },
   { id: 'midi-files-library', name: t`MIDI Files & Library`, intro: t`Organise your library`, manualUrl: 'https://orfeo.cc/docs/managing-midi-files' },
   { id: 'playback-editing', name: t`Playback`, intro: t`Shape playback`, manualUrl: 'https://orfeo.cc/docs/playing-midi-files',
@@ -246,11 +247,17 @@ export const SETTINGS: SettingInfo[] = [
   { id: 'midiTools', group: 'midi', name: t`Reset & repair`, summary: t`Fix hanging notes or a confused keyboard.`,
     description: t`Clear stuck notes lets go of every key and pedal. Reset MIDI input also reconnects every keyboard. Reset settings puts everything on this page back to how it started.`,
     keywords: 'stuck hanging notes reset panic all notes off reconnect defaults' },
+  { id: 'keyLights', group: 'midi', name: t`Key lights`, summary: t`Light the song's notes on a keyboard with lighted keys.`,
+    description: t`While a song plays, a keyboard with lighted keys can show its notes, as the on-screen keyboard does: shown tracks only, never the keys you press yourself. Choose how for each keyboard. Note messages suits most lighted keyboards; PartyKeys keyboards get their own colours.`,
+    keywords: 'key lights led lighted keys light guide yamaha ez casio partykeys roli lumi illuminated' },
 
   // ── Dev Tools (dev mode only): plain strings, kept out of the translations
   { id: 'devKeyboard', group: 'devtools', name: 'Simulated keyboards', summary: 'Plug in a pretend keyboard and play it.',
     description: 'Plug a simulated USB keyboard in and out, and play chords, runs, pedals, wheels and the awkward cases (a double key, unplugging mid-note) through the same path as a real one.',
     keywords: 'dev test simulator midi keyboard plug' },
+  { id: 'devKeyLights', group: 'devtools', name: 'Key lights', summary: 'Light the keys of a simulated keyboard.',
+    description: 'Plug in a simulated keyboard, PartyKeys included, choose how its lights are driven, light a chord or the Try it scale, and see the last messages Orfeo sent it. Session only, nothing saved.',
+    keywords: 'dev test key lights led partykeys sysex lighted keyboard' },
   { id: 'devKeyRange', group: 'devtools', name: 'Keyboard range', summary: 'The lowest-and-highest-key pop-up.',
     description: 'Shows the pop-up that asks a new keyboard for its lowest and highest key, for a pretend keyboard: any key counts, from a real or simulated keyboard or the buttons. Nothing is saved; only the on-screen keyboard size changes, as it would for real.',
     keywords: 'dev test keyboard range keys lowest highest measure size' },

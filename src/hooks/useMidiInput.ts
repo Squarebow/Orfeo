@@ -27,6 +27,7 @@ import { liveNoteOn as gmNoteOn, liveSend as gmSend, liveReset as gmReset } from
 import { nativeCall } from '../audio/nativeClient'
 import { nativeLivePiano } from '../audio/useNativeEngine'
 import { fitKeyboardSize, type KeyRange } from '../utils/keyboardRange'
+import { isLightEcho } from '../utils/keyLightEcho'
 
 const HARDWARE_COLOR = 'var(--text-amber)'
 
@@ -222,6 +223,11 @@ function handleMessage(e: MIDIMessageEvent, portId: string) {
   const key = _portDevice.get(portId)
   const type = status & 0xF0
   const d1 = data[1] ?? 0, d2 = data[2] ?? 0
+  if (key && type === 0x90 && d2 > 0 && isLightEcho(key, d1, d2)) {
+    const id = key + ':' + d1
+    _swallow.set(id, (_swallow.get(id) ?? 0) + 1)  // and its note-off
+    return
+  }
   if (key && _rangeKey && type === 0x90 && d2 > 0) _rangeKey(key, d1)
   if (!key || !isListening(key)) return
   countEvent('messages')
@@ -327,8 +333,16 @@ export function onRangeKey(fn: (deviceKey: string, note: number) => void): () =>
   return () => { if (_rangeKey === fn) _rangeKey = null }
 }
 
-const isSimDevice = (d: MidiDeviceInfo) => d.portIds.length > 0 && d.portIds.every(id => id.startsWith('sim-'))
-const deviceOf = (key: string) => useMidiSettings.getState().devices.find(d => d.key === key)
+export const isSimDevice = (d: MidiDeviceInfo) => d.portIds.length > 0 && d.portIds.every(id => id.startsWith('sim-'))
+export const deviceOf = (key: string) => useMidiSettings.getState().devices.find(d => d.key === key)
+
+// The keyboard's own MIDI output (same model name as its input), for its lights
+export function outputFor(key: string): MIDIOutput | null {
+  if (!_access) return null
+  const all: MIDIOutput[] = []
+  _access.outputs.forEach(o => { if (o.state === 'connected' && cleanPortName(o.name ?? '') === key) all.push(o) })
+  return all.find(o => !/^MIDIOUT\d/i.test(o.name ?? '')) ?? all[0] ?? null
+}
 
 export function rangeOf(key: string): KeyRange | undefined {
   const m = useMidiSettings.getState()
@@ -417,7 +431,8 @@ async function connect(): Promise<void> {
   }
   try {
     await midiPrefsReady
-    const access = await navigator.requestMIDIAccess()
+    // SysEx lets Orfeo light the keys of keyboards that need it (PartyKeys)
+    const access = await navigator.requestMIDIAccess({ sysex: true }).catch(() => navigator.requestMIDIAccess())
     if (_access) _access.onstatechange = null
     _access = access
     useMidiSettings.setState({ accessError: null })
