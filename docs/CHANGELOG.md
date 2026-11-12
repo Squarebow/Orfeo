@@ -47,12 +47,6 @@
 - **Settings › MIDI Files & Library** is laid out afresh, and Chord Transcription's description
   now says what it does: when it's on, a song's file icon makes the chord chart.
 
-### Fixed
-- **Symlinked songs appear in the Library.** A Library folder whose `.mid` files are symbolic
-  links — for example an artist index linking into one flat store — came up empty: only folders
-  of real files loaded. Links are now followed, broken ones are skipped, and a folder linked
-  back into its own tree can no longer hang the scan.
-
 ## [1.7.3] — 11. 11. 2026 — The Explorers hear your keyboard, a bigger Settings window
 
 **In short**
@@ -78,6 +72,14 @@
   top as BPM, as before, or as a speed against the song's own tempo: 100 % as written, 50 % at
   half speed. The arrows step by one percent and you can type a speed, just as with BPM. The
   number keeps the same room whatever it shows, so nothing beside it moves as it changes.
+
+### Fixed
+- **Linked songs and folders show in the Library.** A Library folder whose songs are shortcuts
+  (symbolic links) to files kept elsewhere, for example an index by artist pointing into one
+  big collection, came up empty: only real files loaded. Links to songs and to folders are now
+  followed, a linked folder appears in the folder list, a link whose file is gone is skipped,
+  and a folder linked back into itself no longer keeps the scan going round forever. Thanks to
+  Jon Drews.
 
 ## [1.7.2] — 9. 11. 2026 — Songs end with the music, close buttons that work
 

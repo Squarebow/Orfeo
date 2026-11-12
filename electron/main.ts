@@ -11,7 +11,7 @@ import { assignHands } from '../src/utils/handAssignment'
 import { buildHandExportHint, withHandSuffix, nameHandFromSuffix, parseHandMapMeta, RESTORED_CONFIDENCE } from '../src/utils/handMetadata'
 import { getGMGroup } from '../src/utils/gmInstruments'
 import { exportsDir, nextFreeName, safeExportBaseName } from './exportName'
-import { scanMidiFolder } from './libraryScan'
+import { scanMidiFolder, listFolderNames } from './libraryScan'
 import { fileFromArgs } from './openWith'
 import { fileHasLyrics } from '../src/utils/lyricsCheck'
 import { KEYBOARD_GROUPS } from '../src/utils/keyboardGroups'
@@ -783,13 +783,7 @@ async function uniqueFolderName(libraryFolder: string, baseName: string): Promis
 
 // Real subfolder names at libraryFolder root (one level) — includes empty folders,
 // unlike the file-derived grouping the renderer builds from scanMidiFolder results.
-ipcMain.handle('fs:listLibraryFolders', async (_e, libraryFolder: string) => {
-  try {
-    return readdirSync(libraryFolder, { withFileTypes: true })
-      .filter(e => e.isDirectory())
-      .map(e => e.name)
-  } catch { return [] }
-})
+ipcMain.handle('fs:listLibraryFolders', (_e, libraryFolder: string) => listFolderNames(libraryFolder))
 
 ipcMain.handle('fs:createLibraryFolder', async (_e, libraryFolder: string, name: string) => {
   const baseName = basename(name).trim() || 'New Folder'
