@@ -11,6 +11,7 @@ import { assignHands } from '../src/utils/handAssignment'
 import { buildHandExportHint, withHandSuffix, nameHandFromSuffix, parseHandMapMeta, RESTORED_CONFIDENCE } from '../src/utils/handMetadata'
 import { getGMGroup } from '../src/utils/gmInstruments'
 import { exportsDir, nextFreeName, safeExportBaseName } from './exportName'
+import { scanMidiFolder } from './libraryScan'
 import { fileFromArgs } from './openWith'
 import { fileHasLyrics } from '../src/utils/lyricsCheck'
 import { KEYBOARD_GROUPS } from '../src/utils/keyboardGroups'
@@ -642,23 +643,7 @@ ipcMain.handle('dialog:openFolder', async () => {
   }
   return folderPath
 })
-ipcMain.handle('fs:scanMidiFolder', async (_e, folderPath: string) => {
-  function scanDir(dir: string): { name: string; path: string }[] {
-    try {
-      const results: { name: string; path: string }[] = []
-      const entries = readdirSync(dir, { withFileTypes: true })
-      for (const e of entries) {
-        if (e.isDirectory()) {
-          results.push(...scanDir(join(dir, e.name)))
-        } else if (e.isFile() && /\.(mid|midi|kar|musicxml|xml|mxl|gp|gp3|gp4|gp5|gpx|cap)$/i.test(e.name)) {
-          results.push({ name: e.name, path: join(dir, e.name) })
-        }
-      }
-      return results
-    } catch { return [] }
-  }
-  return scanDir(folderPath).sort((a, b) => a.name.localeCompare(b.name))
-})
+ipcMain.handle('fs:scanMidiFolder', (_e, folderPath: string) => scanMidiFolder(folderPath))
 // ── Size + modified time for many files at once (no reads) — lets the
 // tempo-warning Library scan skip files it has already checked. ─────────
 ipcMain.handle('fs:statFiles', async (_e, paths: string[]) => {
