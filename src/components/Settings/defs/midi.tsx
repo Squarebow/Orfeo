@@ -8,7 +8,7 @@ import { useMidiSettings, MIDI_DEFAULTS, type ControlKind, type LiveResponse, ty
 import { rescanMidiDevices, clearStuckNotes, resetMidiInput, rangeOf, measureKeyboardRange, showRangePromptForTest, pressRangeKeyForTest } from '../../../hooks/useMidiInput'
 import { keyCount, rangeLabel } from '../../../utils/keyboardRange'
 import { lightSetupFor, setLightSetup, tryKeyLights, lightChordForTest } from '../../../hooks/keyLightsOutput'
-import type { KeyLightMode } from '../../../utils/keyLights'
+import { choiceOf, setupForChoice, type KeyLightChoice } from '../../../utils/keyLights'
 import { reopenGmOutput } from '../../../hooks/useAudioEngine'
 import { getStartedStable } from '../../../hooks/useSamplesEngine'
 import { getDelayBreakdown, getStats, counters, exportPerformanceLog, clearDiagnostics } from '../../../utils/midiDiagnostics'
@@ -226,10 +226,15 @@ function KeyLightsControl() {
   const devices = useMidiSettings(s => s.devices)
   useMidiSettings(s => s.keyLights); useMidiSettings(s => s.simKeyLights)
   const connected = devices.filter(d => d.connected)
-  const modes: { value: KeyLightMode; label: string }[] = [
+  const modes: { value: KeyLightChoice; label: string }[] = [
     { value: 'off', label: t`Off` },
-    { value: 'notes', label: t`Note messages` },
+    { value: 'yamaha', label: t`Yamaha (channel 1)` },
+    { value: 'casio', label: t`Casio, Akai (channel 3)` },
+    { value: 'notes', label: t`Note messages, any channel` },
     { value: 'partykeys', label: t`PartyKeys` },
+    { value: 'fingers', label: t`LED strips and iPiano (finger channels)` },
+    { value: 'onesmart', label: t`The ONE Smart Piano` },
+    { value: 'vangoa', label: t`Vangoa` },
   ]
   return (
     <div style={{ display: 'grid', rowGap: 12 }}>
@@ -241,8 +246,8 @@ function KeyLightsControl() {
             <span style={{ display: 'flex', minWidth: 0, fontSize: 'var(--text-xs)', fontFamily: 'var(--font-ui)' }}>
               <MarqueeText name={d.name} spanStyle={{ color: 'var(--text-default)' }} />
             </span>
-            <SettingsDropdown value={setup.mode} options={modes} onChange={(mode) => setLightSetup(d.key, { ...setup, mode })} />
-            {setup.mode === 'notes' && (
+            <SettingsDropdown value={choiceOf(setup)} options={modes} onChange={(c) => setLightSetup(d.key, setupForChoice(c, setup))} />
+            {choiceOf(setup) === 'notes' && (
               <Stepper label={t`Channel`} value={setup.channel} min={1} max={16} step={1} format={v => String(v)}
                 onChange={(channel) => setLightSetup(d.key, { ...setup, channel })} />
             )}
@@ -257,7 +262,12 @@ function KeyLightsControl() {
 function KeyLightsExtra() {
   return (
     <div style={{ marginTop: 10 }}>
-      <HelpText>{t`Yamaha EZ-220: Note messages, channel 1. Yamaha EZ-300: Note messages, on the channel set in its Light Part functions. PartyKeys is recognised by itself. Other lighted keyboards: try Note messages on channel 1, and look in the keyboard's manual for the channel its lights follow.`}</HelpText>
+      <HelpText>{t`Most Yamaha keyboards: Yamaha (channel 1). Most Casio and Akai keyboards: Casio, Akai (channel 3). PartyKeys is recognised by itself. The ONE Smart Piano (and Piano LED Plus), Vangoa and LED strips have choices of their own.`}</HelpText>
+      <HelpText>{t`Not sure? Find the channel like this:`}</HelpText>
+      <HelpText>{t`1. Pick Yamaha (channel 1) and press Try it. Watch the keys: a scale should light up.`}</HelpText>
+      <HelpText>{t`2. Nothing lit? Pick Casio, Akai (channel 3) and press Try it again.`}</HelpText>
+      <HelpText>{t`3. Still dark? Pick Note messages, any channel. Raise the channel by one and press Try it, until the scale lights. There are 16 channels.`}</HelpText>
+      <HelpText>{t`4. Nothing on any channel? Look in the keyboard's manual for “light”, “key light” or “guide”. Some keyboards only follow the computer in a lesson or light mode, which you switch on at the keyboard.`}</HelpText>
       <HelpText>{t`A keyboard with its own speakers may also play the notes it lights, very quietly: turn its volume down.`}</HelpText>
     </div>
   )
@@ -288,8 +298,12 @@ export function KeyLightsTestPanel() {
       <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4, marginBottom: 6 }}>
         {plugged ? btn('Unplug', () => sim.unplug(target)) : btn('Plug in', () => sim.plug(target))}
         {btn('Off', () => setLightSetup(devKey, { mode: 'off', channel: 1 }), plugged, setup?.mode === 'off')}
-        {btn('Notes ch 1', () => setLightSetup(devKey, { mode: 'notes', channel: 1 }), plugged, setup?.mode === 'notes')}
+        {btn('Notes ch 1', () => setLightSetup(devKey, { mode: 'notes', channel: 1 }), plugged, setup?.mode === 'notes' && setup.channel === 1)}
+        {btn('Casio ch 3', () => setLightSetup(devKey, { mode: 'notes', channel: 3, brand: 'casio' }), plugged, setup?.mode === 'notes' && setup.channel === 3)}
         {btn('PartyKeys', () => setLightSetup(devKey, { mode: 'partykeys', channel: 1 }), plugged, setup?.mode === 'partykeys')}
+        {btn('iPiano', () => setLightSetup(devKey, { mode: 'fingers', channel: 1 }), plugged, setup?.mode === 'fingers')}
+        {btn('ONE', () => setLightSetup(devKey, { mode: 'onesmart', channel: 1 }), plugged, setup?.mode === 'onesmart')}
+        {btn('Vangoa', () => setLightSetup(devKey, { mode: 'vangoa', channel: 1 }), plugged, setup?.mode === 'vangoa')}
         {btn('Light C major', () => lightChordForTest([60, 64, 67]), plugged)}
         {btn('Try it', tryKeyLights, plugged)}
       </div>

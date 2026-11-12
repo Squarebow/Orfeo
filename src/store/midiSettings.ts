@@ -131,7 +131,7 @@ const validRange = (r: any): r is KeyRange =>
   !!r && Number.isInteger(r.low) && Number.isInteger(r.high) && r.low >= 0 && r.high <= 127 && r.low < r.high
 
 const validLights = (l: any): l is KeyLightSetup =>
-  !!l && ['off', 'notes', 'partykeys'].includes(l.mode) && Number.isInteger(l.channel) && l.channel >= 1 && l.channel <= 16
+  !!l && ['off', 'notes', 'partykeys', 'fingers', 'onesmart', 'vangoa'].includes(l.mode) && Number.isInteger(l.channel) && l.channel >= 1 && l.channel <= 16
 
 const PREF_KEYS = Object.keys(MIDI_DEFAULTS) as (keyof MidiPrefs)[]
 const pickPrefs = (s: MidiPrefs): MidiPrefs =>

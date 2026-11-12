@@ -1,6 +1,7 @@
 import {
   colourChanges, defaultSetup, isKeyLightSetup, noteLightMessages, parseRgb, partyKeysAllOff, partyKeysColours,
-  partyKeysEnter, partyKeysExit, type Rgb,
+  partyKeysEnter, partyKeysExit, choiceOf, setupForChoice, fingerLightMessages, fingersEnter, oneSmartEnter, oneSmartMessages, vangoaMessages,
+  type LightHand, type Rgb,
 } from './keyLights'
 import { echoKey, isLightEcho, noteLightSent, clearLightEchoes } from './keyLightEcho'
 
@@ -43,6 +44,26 @@ export function runKeyLightsTest(): number {
   const ch = colourChanges(before, now)
   check(ch.get(60) === null && ch.get(62)?.join() === '0,0,255' && ch.get(64)?.join() === '255,0,0' && ch.size === 3, 'colour changes')
   check(colourChanges(now, new Map(now)).size === 0, 'same colours, no change')
+
+  // Finger channels, ONE and Vangoa: against what Synthesia sent for the same keys
+  const fm = fingerLightMessages(new Map(), new Map<number, LightHand>([[65, 'R'], [48, 'L']]))
+  check(fm.map(hex).join() === '9C 41 01,9B 30 01', `finger channels on ${fm.map(hex)}`)
+  const fOff = fingerLightMessages(new Map<number, LightHand>([[65, 'R']]), new Map())
+  check(fOff.map(hex).join() === '80 41 00', 'finger light off on channel 1')
+  check(hex(fingersEnter()) === 'B0 10 07', 'finger channels: both hands, as Synthesia says it')
+  const fMove = fingerLightMessages(new Map<number, LightHand>([[60, 'R']]), new Map<number, LightHand>([[60, 'L']]))
+  check(fMove.map(hex).join() === '80 3C 00,9B 3C 01', 'a key changing hand goes dark, then lights again')
+  check(oneSmartEnter().map(hex).join() === 'F0 00 20 2B 69 00 00 55 79 F7,F0 00 20 2B 69 16 02 00 F7', 'ONE switch-on')
+  const one = oneSmartMessages([65], [74, 10])
+  check(one.map(hex).join() === 'A2 2C 00,A2 35 01', `ONE key from A0, keys below A0 left out ${one.map(hex)}`)
+  const vg = vangoaMessages([65], [74])
+  check(vg.map(hex).join() === 'F0 4D 4C 4E 45 41 00 F7,F0 4D 4C 4E 45 4A 01 F7', `Vangoa ${vg.map(hex)}`)
+  check(isKeyLightSetup({ mode: 'vangoa', channel: 1 }) && isKeyLightSetup({ mode: 'fingers', channel: 1 }), 'new choices saved')
+  const cas = setupForChoice('casio', { mode: 'off', channel: 5 })
+  check(cas.mode === 'notes' && cas.channel === 3 && choiceOf(cas) === 'casio' && isKeyLightSetup(cas), 'Casio is Note messages on channel 3')
+  check(choiceOf(setupForChoice('yamaha', cas)) === 'yamaha' && setupForChoice('yamaha', cas).channel === 1, 'Yamaha is channel 1')
+  check(choiceOf({ mode: 'notes', channel: 1 }) === 'notes', 'plain Note messages on channel 1 stays Note messages')
+  check(setupForChoice('notes', cas).channel === 3 && choiceOf(setupForChoice('notes', cas)) === 'notes', 'any channel keeps the channel it had')
 
   // Echoes: a keyboard sending our light notes back isn't the player
   clearLightEchoes()

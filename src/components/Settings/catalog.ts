@@ -248,8 +248,8 @@ export const SETTINGS: SettingInfo[] = [
     description: t`Clear stuck notes lets go of every key and pedal. Reset MIDI input also reconnects every keyboard. Reset settings puts everything on this page back to how it started.`,
     keywords: 'stuck hanging notes reset panic all notes off reconnect defaults' },
   { id: 'keyLights', group: 'midi', name: t`Key lights`, summary: t`Light the song's notes on a keyboard with lighted keys.`,
-    description: t`While a song plays, a keyboard with lighted keys can show its notes, as the on-screen keyboard does: shown tracks only, never the keys you press yourself. Choose how for each keyboard. Note messages suits most lighted keyboards; PartyKeys keyboards get their own colours.`,
-    keywords: 'key lights led lighted keys light guide yamaha ez casio partykeys roli lumi illuminated' },
+    description: t`While a song plays, a keyboard with lighted keys can show its notes, as the on-screen keyboard does: shown tracks only, never the keys you press yourself. Choose how for each keyboard. Yamaha, Casio and Akai keyboards have ready-made choices, and Note messages takes any channel. PartyKeys, LED strips, The ONE Smart Piano and Vangoa have choices of their own.`,
+    keywords: 'key lights led lighted keys light guide yamaha ez casio partykeys ipiano one smart piano led plus vangoa led strip akai channel roli lumi illuminated' },
 
   // ── Dev Tools (dev mode only): plain strings, kept out of the translations
   { id: 'devKeyboard', group: 'devtools', name: 'Simulated keyboards', summary: 'Plug in a pretend keyboard and play it.',

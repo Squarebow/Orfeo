@@ -11,9 +11,11 @@
 - **Your keyboard's own lights.** A keyboard with lighted keys can now show the song's notes
   as they play, just as the on-screen keyboard does: shown tracks only, never the keys you
   press yourself. Choose how for each keyboard in Settings › MIDI Keyboard › Key lights:
-  *Note messages* on the channel its lights follow (channel 1 for a Yamaha EZ-220; the
-  EZ-300 sets it in its Light Part functions), or *PartyKeys*, recognised by itself, with
-  each note in its track or hand colour. *Try it* lights a scale to check. Orfeo leaves
+  *Yamaha* (channel 1), *Casio, Akai* (channel 3) or *Note messages* on any channel;
+  *PartyKeys*, recognised by itself, with each note in its track or hand colour; or the ways
+  of their own for *LED strips and iPiano*, *The ONE Smart Piano* (and Piano LED Plus) and
+  *Vangoa*. *Try it* lights a scale to check, and the card explains step by step how to find
+  the channel of a keyboard that isn't listed. Orfeo leaves
   every keyboard dark when it closes.
 - **Orfeo learns your keyboard's size.** The first time you plug in a USB keyboard, a small
   window asks you to press its lowest key, then its highest. Orfeo says thank you, closes the

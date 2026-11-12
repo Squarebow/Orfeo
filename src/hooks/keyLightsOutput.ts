@@ -9,8 +9,10 @@ import { useStore } from '../store'
 import { useMidiSettings } from '../store/midiSettings'
 import {
   defaultSetup, noteLightMessages, parseRgb, partyKeysAllOff, partyKeysColours, partyKeysEnter, partyKeysExit,
-  colourChanges, type KeyLightSetup, type Rgb,
+  colourChanges, fingerLightMessages, fingersEnter, oneSmartEnter, oneSmartMessages, vangoaMessages,
+  type KeyLightSetup, type LightHand, type Rgb,
 } from '../utils/keyLights'
+import { HAND_LH_CSS } from '../utils/handColors'
 import { noteLightSent } from '../utils/keyLightEcho'
 import { outputFor, deviceOf, isSimDevice, rangeOf } from './useMidiInput'
 
@@ -66,7 +68,7 @@ function songLit(): Map<number, string> {
 }
 
 // ── Per keyboard: what it's showing, and how ────────────────────────────────
-interface Lit { setup: KeyLightSetup; port: MIDIOutput; notes: Map<number, Rgb>; entered: boolean }
+interface Lit { setup: KeyLightSetup; port: MIDIOutput; notes: Map<number, Rgb>; hands: Map<number, LightHand>; entered: boolean }
 const _lit = new Map<string, Lit>()
 
 function send(key: string, port: MIDIOutput, bytes: number[]) {
@@ -81,8 +83,15 @@ function darken(key: string, l: Lit) {
   } else if (l.setup.mode === 'partykeys' && l.entered) {
     send(key, l.port, partyKeysAllOff())
     send(key, l.port, partyKeysExit())
+  } else if (l.setup.mode === 'fingers') {
+    for (const m of fingerLightMessages(l.hands, new Map())) send(key, l.port, m)
+  } else if (l.setup.mode === 'onesmart') {
+    for (const m of oneSmartMessages(l.notes.keys(), [])) send(key, l.port, m)
+  } else if (l.setup.mode === 'vangoa') {
+    for (const m of vangoaMessages(l.notes.keys(), [])) send(key, l.port, m)
   }
   l.notes.clear()
+  l.hands.clear()
   l.entered = false
 }
 
@@ -102,12 +111,13 @@ function flush() {
     let l = prev
     // A new keyboard, port or way of lighting: start from dark
     if (l && (l.port !== port || l.setup.mode !== setup.mode || l.setup.channel !== setup.channel)) { darken(d.key, l); l = undefined }
-    if (!l) { l = { setup, port, notes: new Map(), entered: false }; _lit.set(d.key, l) }
+    if (!l) { l = { setup, port, notes: new Map(), hands: new Map(), entered: false }; _lit.set(d.key, l) }
 
     // Only the keys this keyboard has, when Orfeo knows them
     const r = rangeOf(d.key)
     const next = new Map<number, Rgb>()
-    for (const [n, c] of want) if (!r || (n >= r.low && n <= r.high)) next.set(n, toRgb(c))
+    const hands = new Map<number, LightHand>()  // left only when the key shows the left-hand colour
+    for (const [n, c] of want) if (!r || (n >= r.low && n <= r.high)) { next.set(n, toRgb(c)); hands.set(n, c === HAND_LH_CSS ? 'L' : 'R') }
 
     if (setup.mode === 'notes') {
       const msgs = noteLightMessages(l.notes.keys(), next.keys(), setup.channel)
@@ -116,8 +126,18 @@ function flush() {
       if (!l.entered) { send(d.key, port, partyKeysEnter()); send(d.key, port, partyKeysAllOff()); l.entered = true }
       const bytes = partyKeysColours(colourChanges(l.notes, next))
       if (bytes) send(d.key, port, bytes)
+    } else if (setup.mode === 'fingers') {
+      if (!l.entered) { send(d.key, port, fingersEnter()); l.entered = true }
+      const msgs = fingerLightMessages(l.hands, hands)
+      if (msgs.length) { noteLightSent(d.key, msgs); for (const m of msgs) send(d.key, port, m) }
+    } else if (setup.mode === 'onesmart') {
+      if (!l.entered) { for (const m of oneSmartEnter()) send(d.key, port, m); l.entered = true }
+      for (const m of oneSmartMessages(l.notes.keys(), next.keys())) send(d.key, port, m)
+    } else if (setup.mode === 'vangoa') {
+      for (const m of vangoaMessages(l.notes.keys(), next.keys())) send(d.key, port, m)
     }
     l.notes = next
+    l.hands = hands
   }
   // Unplugged or gone: forget it (nothing to send to)
   for (const k of [..._lit.keys()]) if (!live.has(k)) _lit.delete(k)
