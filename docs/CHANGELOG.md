@@ -47,6 +47,12 @@
 - **Settings › MIDI Files & Library** is laid out afresh, and Chord Transcription's description
   now says what it does: when it's on, a song's file icon makes the chord chart.
 
+### Fixed
+- **Symlinked songs appear in the Library.** A Library folder whose `.mid` files are symbolic
+  links — for example an artist index linking into one flat store — came up empty: only folders
+  of real files loaded. Links are now followed, broken ones are skipped, and a folder linked
+  back into its own tree can no longer hang the scan.
+
 ## [1.7.3] — 11. 11. 2026 — The Explorers hear your keyboard, a bigger Settings window
 
 **In short**
