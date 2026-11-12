@@ -1,7 +1,7 @@
 import { mkdirSync, writeFileSync, symlinkSync, rmSync } from 'fs'
 import { tmpdir } from 'os'
 import { join } from 'path'
-import { scanMidiFolder } from './libraryScan'
+import { scanMidiFolder, listFolderNames } from './libraryScan'
 
 // A temporary tree with regular files and — where the OS allows it —
 // symlinks. Making symlinks needs a privilege on Windows, so when creation
@@ -23,6 +23,8 @@ export function runLibraryScanTest(): number {
   writeFileSync(join(root, 'real', 'note.txt'), '')
   writeFileSync(join(root, 'outside', 'd.mid'), '')
 
+  mkdirSync(join(root, 'empty'), { recursive: true })
+
   let links = true
   try {
     symlinkSync(join(root, 'real', 'a.mid'), join(root, 'linkfile.mid'))  // linked file
@@ -31,6 +33,10 @@ export function runLibraryScanTest(): number {
     symlinkSync('nowhere', join(root, 'broken.mid'))                       // broken link
     symlinkSync(root, join(root, 'self'))                                  // cycle: link to own root
   } catch { links = false }
+  // A junction needs no privilege on Windows (elsewhere it is an ordinary
+  // directory link), so the linked-folder check below runs on every machine.
+  let junction = true
+  try { symlinkSync(join(root, 'outside'), join(root, 'joined'), 'junction') } catch { junction = false }
 
   try {
     const files = scanMidiFolder(root)
@@ -47,6 +53,15 @@ export function runLibraryScanTest(): number {
     } else {
       check(files.length === 3, `a, b, d without links — got ${files.length}`)
     }
+    if (junction) check(count('d.mid') === 1, 'folder reached through a junction is listed once')
+
+    const folders = listFolderNames(root).sort()
+    check(folders.includes('empty'), 'empty folder listed')
+    check(folders.includes('real') && folders.includes('outside'), 'real folders listed')
+    check(!folders.includes('note.txt') && !folders.includes('broken.mid'), 'files and broken links are not folders')
+    if (junction) check(folders.includes('joined'), 'linked folder listed as a folder')
+    if (links) check(folders.includes('linkdir') && !folders.includes('linkfile.mid'), 'symlinked folder listed, symlinked file not')
+    check(listFolderNames(join(root, 'missing')).length === 0, 'missing Library folder gives no folders')
     check(files.every(f => f.name && f.path.startsWith(root)), 'names and absolute paths only')
   } finally {
     rmSync(root, { recursive: true, force: true })

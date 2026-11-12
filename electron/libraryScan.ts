@@ -44,3 +44,18 @@ export function scanMidiFolder(folderPath: string): LibraryFile[] {
   }
   return scanDir(folderPath).sort((a, b) => a.name.localeCompare(b.name))
 }
+
+// Subfolder names one level below the Library folder, empty ones included.
+// A linked folder counts as a folder, so it shows in the folder list and in
+// "Move to folder" like any other; a broken link is left out.
+export function listFolderNames(folderPath: string): string[] {
+  try {
+    return readdirSync(folderPath, { withFileTypes: true })
+      .filter(e => {
+        if (e.isDirectory()) return true
+        if (!e.isSymbolicLink()) return false
+        try { return statSync(join(folderPath, e.name)).isDirectory() } catch { return false }
+      })
+      .map(e => e.name)
+  } catch { return [] }
+}
