@@ -5,10 +5,12 @@ name: Stats
 # workflow" on the Actions tab runs it on demand. Does not touch main, dev or
 # releases.
 #
-# GitHub runs schedules in UTC only (07:00 Ljubljana is 05:00 UTC in summer,
-# 06:00 UTC in winter) and often starts them late, sometimes by hours. So it
-# is woken several times from 04:50 UTC on, and the "Time to collect?" step
-# lets through only the first wake-up at or after 07:00 Ljubljana each day.
+# The daily start comes from outside: a Cloudflare Worker (Cloudflare's cron
+# triggers are punctual) starts this workflow at 07:00 Ljubljana with
+# daily = true. GitHub's own schedules below stay as a back-up only: on a quiet
+# repository they start hours late or not at all. The "Time to collect?" step
+# lets through the first daily start at or after 07:00 Ljubljana each day,
+# whichever of the two it comes from.
 
 on:
   schedule:
@@ -18,6 +20,11 @@ on:
     - cron: '5,35 7 * * *'
     - cron: '5 9,12,16 * * *'   # late fall-backs, in case GitHub skipped the morning
   workflow_dispatch:
+    inputs:
+      daily:
+        description: "Count this as the daily 07:00 update (the Cloudflare timer sends this; leave off for a manual run)"
+        type: boolean
+        default: false
 
 permissions:
   contents: write
@@ -48,7 +55,7 @@ jobs:
         run: |
           today=$(TZ=Europe/Ljubljana date +%F)
           hhmm=$(TZ=Europe/Ljubljana date +%H%M)
-          if [ "${{ github.event_name }}" != "schedule" ]; then echo "go=true" >> "$GITHUB_OUTPUT"; exit 0; fi
+          if [ "${{ github.event_name }}" != "schedule" ] && [ "${{ inputs.daily }}" != "true" ]; then echo "go=true" >> "$GITHUB_OUTPUT"; exit 0; fi
           if [ "$hhmm" -lt 0700 ]; then
             echo "It's $hhmm in Ljubljana: too early, waiting for 07:00."; echo "go=false" >> "$GITHUB_OUTPUT"; exit 0
           fi
@@ -73,6 +80,6 @@ jobs:
           git config user.name 'github-actions[bot]'
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
           git add -A
-          kind=${{ github.event_name == 'schedule' && 'daily' || 'manual' }}
+          kind=${{ (github.event_name == 'schedule' || inputs.daily) && 'daily' || 'manual' }}
           git diff --cached --quiet || git commit -m "stats: $(TZ=Europe/Ljubljana date +%F) ($kind)"
           git push origin stats
