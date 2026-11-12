@@ -31,6 +31,14 @@
   half speed. The arrows step by one percent and you can type a speed, just as with BPM. The
   number keeps the same room whatever it shows, so nothing beside it moves as it changes.
 
+### Fixed
+- **Linked songs and folders show in the Library.** A Library folder whose songs are shortcuts
+  (symbolic links) to files kept elsewhere, for example an index by artist pointing into one
+  big collection, came up empty: only real files loaded. Links to songs and to folders are now
+  followed, a linked folder appears in the folder list, a link whose file is gone is skipped,
+  and a folder linked back into itself no longer keeps the scan going round forever. Thanks to
+  Jon Drews.
+
 ## [1.7.2] — 9. 11. 2026 — Songs end with the music, close buttons that work
 
 **In short**
