@@ -8,6 +8,12 @@
 ## [Unreleased]
 
 ### New
+- **Orfeo learns your keyboard's size.** The first time you plug in a USB keyboard, a small
+  window asks you to press its lowest key, then its highest. Orfeo says thank you, closes the
+  window by itself and remembers the range for that keyboard, separately for each keyboard you
+  own. The on-screen keyboard then switches to 61, 73 or 88 keys, the smallest that holds every
+  key of the one you're playing; you can still pick another size. Settings › MIDI Keyboard shows
+  each keyboard's range, with *Measure again* if you want to redo it.
 - **Open MIDI files with a double click.** Orfeo now offers itself as the app for .mid, .midi and
   .kar files on Windows, macOS and Linux. Make it the default once, and a double click opens the
   song in Orfeo, in the window that's already open if there is one. Settings › MIDI Files &

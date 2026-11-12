@@ -31,7 +31,7 @@ export type SettingId =
   | 'theme' | 'handColors' | 'appZoom' | 'tooltips' | 'tours' | 'supportNote' | 'starmap'
   | 'midiKeyboards' | 'midiReconnect' | 'liveResponse' | 'latencyOffset' | 'gmOutput' | 'touchResponse' | 'duplicateFilter'
   | 'pedalsControls' | 'delayCheck' | 'midiTools'
-  | 'devKeyboard' | 'devExplorers' | 'devClosingWarning' | 'devQueue' | 'devLyrics' | 'devOpenWith' | 'devSupportNote'
+  | 'devKeyboard' | 'devKeyRange' | 'devExplorers' | 'devClosingWarning' | 'devQueue' | 'devLyrics' | 'devOpenWith' | 'devSupportNote'
 
 export interface SettingInfo {
   id: SettingId
@@ -160,7 +160,7 @@ export const SETTINGS: SettingInfo[] = [
     keywords: 'sharps flats enharmonic black keys' },
   // ── Keyboard
   { id: 'keyRange', group: 'keyboard', name: t`Key range`, summary: t`Number of keys on the on-screen keyboard.`,
-    description: t`Number of keys on the on-screen keyboard: 61, 73 or 88.`,
+    description: t`Number of keys on the on-screen keyboard: 61, 73 or 88. When you play a USB keyboard whose keys Orfeo knows, it switches to the smallest size that holds them; you can still choose another.`,
     keywords: 'keys 61 73 88 size' },
   { id: 'showOctaves', group: 'keyboard', name: t`Show octaves`, summary: t`Octave numbers (C3, C4…) on the keyboard.`,
     description: t`Display octave numbers (e.g. C3, C4, C5) on the on-screen keyboard.`,
@@ -217,8 +217,8 @@ export const SETTINGS: SettingInfo[] = [
     keywords: 'starmap star shape circle scales explorer chord geometry' },
   // ── MIDI Keyboard
   { id: 'midiKeyboards', group: 'midi', name: t`Keyboards`, summary: t`Which connected keyboards Orfeo listens to.`,
-    description: t`Every MIDI keyboard connected by USB, with a light that flashes as you play it. Listen to all of them, or only the ones you tick. The top bar shows the one you're playing.`,
-    keywords: 'midi keyboard usb device controller connect input port' },
+    description: t`Every MIDI keyboard connected by USB, with a light that flashes as you play it. Listen to all of them, or only the ones you tick. The top bar shows the one you're playing. The first time you plug one in, Orfeo asks for its lowest and highest key, so the on-screen keyboard can match it.`,
+    keywords: 'midi keyboard usb device controller connect input port range keys lowest highest 61 73 88 measure' },
   { id: 'midiReconnect', group: 'midi', name: t`Reconnect automatically`, summary: t`Pick a keyboard up again when it's plugged back in.`,
     description: t`A keyboard you unplug and plug back in is picked up again straight away. When off, it waits until you press Rescan.`,
     keywords: 'reconnect rescan unplug plug usb' },
@@ -251,6 +251,9 @@ export const SETTINGS: SettingInfo[] = [
   { id: 'devKeyboard', group: 'devtools', name: 'Simulated keyboards', summary: 'Plug in a pretend keyboard and play it.',
     description: 'Plug a simulated USB keyboard in and out, and play chords, runs, pedals, wheels and the awkward cases (a double key, unplugging mid-note) through the same path as a real one.',
     keywords: 'dev test simulator midi keyboard plug' },
+  { id: 'devKeyRange', group: 'devtools', name: 'Keyboard range', summary: 'The lowest-and-highest-key pop-up.',
+    description: 'Shows the pop-up that asks a new keyboard for its lowest and highest key, for a pretend keyboard: any key counts, from a real or simulated keyboard or the buttons. Nothing is saved; only the on-screen keyboard size changes, as it would for real.',
+    keywords: 'dev test keyboard range keys lowest highest measure size' },
   { id: 'devExplorers', group: 'devtools', name: 'Explorers hear your keyboard', summary: 'Hold chords into an open Explorer.',
     description: 'Opens the Chords or Scales Explorer and holds five chords one after another, as if played on a keyboard: root position, an inversion, an Extended-only chord and notes that make no chord.',
     keywords: 'dev test explorer chord scale listen' },

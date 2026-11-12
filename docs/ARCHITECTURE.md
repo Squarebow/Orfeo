@@ -294,6 +294,17 @@ each key press.
   the device last played; Settings lists them all, with *listen to all / only
   ticked*. The first time a device is ever seen, the Settings window opens on
   *MIDI Keyboard* (once per device, `seenDevices`).
+- **Keyboard range.** MIDI never reports how many keys a keyboard has, so any
+  connected device with no known range is asked once
+  (`components/KeyboardRangePrompt.tsx`): lowest key, then highest. The two
+  presses are read in `handleMessage` before the listen filter, so a keyboard
+  not listened to can still answer. Ranges are kept per device in
+  `keyRanges` (skipped ones in `rangeAsked`); simulated keyboards only for the
+  session. The prompt waits for a running tour, and the first-connection
+  Settings window waits for the prompt. `utils/keyboardRange.ts`
+  `fitKeyboardSize` picks the smallest on-screen size (61 / 73 / 88) holding
+  the range, applied once per keyboard played so a size chosen by hand stays.
+  Outside practice mode only; practice mode keeps 88 keys.
 - **Note path.** Sound first, display second: the handler calls the engine's
   `liveNoteOn` straight away, then updates `activeKeys` / `midiHeldKeys`. A
   store update runs every subscriber synchronously, and none of that should

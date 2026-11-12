@@ -1,6 +1,7 @@
 import { useEffect, useLayoutEffect, useRef, useState } from 'react'
 import { X, ChevronLeft, ChevronRight } from 'lucide-react'
 import { useStore, libraryRestored } from '../../store'
+import { useMidiSettings } from '../../store/midiSettings'
 import { t } from '../../utils/i18n'
 import { placeCard, nextShownStep, type Box, type CardPlace, type TourId } from '../../utils/tours'
 import { tourSteps, type TourStep } from './tourSteps'
@@ -211,20 +212,23 @@ export default function Tour() {
   const seen = useStore(s => s.toursSeen)
   const midi = useStore(s => s.midi)
   const playing = useStore(s => s.playbackState === 'playing')
+  // waits for the Settings window and the keyboard-range pop-up to close
+  const settingsOpen = useStore(s => s.settingsWindowOpen)
+  const ranging = useMidiSettings(s => !!s.rangePrompt)
   const [restored, setRestored] = useState(false)
   useEffect(() => { void libraryRestored.then(() => setRestored(true)) }, [])
 
   useEffect(() => {
-    if (!restored || active) return
+    if (!restored || active || settingsOpen || ranging) return
     const due: TourId | null = !seen.firstLaunch ? 'firstLaunch' : !seen.firstSong && midi && !playing ? 'firstSong' : null
     if (!due) return
     const id = setTimeout(() => {
       const s = useStore.getState()
-      if (s.tourActive || s.settingsWindowOpen || (due === 'firstSong' && (!s.midi || s.playbackState === 'playing'))) return
+      if (s.tourActive || s.settingsWindowOpen || useMidiSettings.getState().rangePrompt || (due === 'firstSong' && (!s.midi || s.playbackState === 'playing'))) return
       s.startTour(due)
     }, due === 'firstLaunch' ? 700 : 1200)
     return () => clearTimeout(id)
-  }, [restored, active, seen, midi, playing])
+  }, [restored, active, seen, midi, playing, settingsOpen, ranging])
 
   // a song playing behind a tour is paused (a replay can start mid-song)
   useEffect(() => {

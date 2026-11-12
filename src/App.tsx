@@ -55,6 +55,7 @@ import { CountInOverlay } from './components/CountInOverlay'
 import { useSupportNoteService } from './hooks/useSupportNote'
 import { isExporting } from './audio/exportAudio'
 import { SupportNote } from './components/SupportNote'
+import { KeyboardRangePrompt } from './components/KeyboardRangePrompt'
 import { isTextEntry } from './utils/keyTarget'
 import { t } from './utils/i18n'
 import { confirmUnsavedChanges, willWarnAboutChanges } from './utils/unsavedPrompt'
@@ -703,6 +704,7 @@ export default function App() {
       )}
 
       <SupportNote />
+      <KeyboardRangePrompt />
 
       {/* ── Mixer Console — floating modal, toggled via Ctrl+Shift+M or Console drawer icon ── */}
       <MixerConsole />

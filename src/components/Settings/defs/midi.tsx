@@ -5,7 +5,8 @@ import { t } from '../../../utils/i18n'
 import { OptionBtn, Switch, SettingsDropdown, HelpText, GlanceLine, ZoomStepBtn } from '../controls'
 import { MarqueeText } from '../../MarqueeText'
 import { useMidiSettings, MIDI_DEFAULTS, type ControlKind, type LiveResponse, type VelocityCurve } from '../../../store/midiSettings'
-import { rescanMidiDevices, clearStuckNotes, resetMidiInput } from '../../../hooks/useMidiInput'
+import { rescanMidiDevices, clearStuckNotes, resetMidiInput, rangeOf, measureKeyboardRange, showRangePromptForTest, pressRangeKeyForTest } from '../../../hooks/useMidiInput'
+import { keyCount, rangeLabel } from '../../../utils/keyboardRange'
 import { reopenGmOutput } from '../../../hooks/useAudioEngine'
 import { getStartedStable } from '../../../hooks/useSamplesEngine'
 import { getDelayBreakdown, getStats, counters, exportPerformanceLog, clearDiagnostics } from '../../../utils/midiDiagnostics'
@@ -107,8 +108,9 @@ function KeyboardsControl() {
                 <span style={{ display: 'flex', minWidth: 0 }}>
                   <MarqueeText name={d.name} spanStyle={{ color: d.connected ? (d.key === active ? 'var(--text-amber)' : 'var(--text-default)') : 'var(--text-muted)', fontWeight: d.key === active ? 600 : 400 }} />
                 </span>
-                <span style={{ fontSize: 9, color: 'var(--text-muted)', lineHeight: 1.3 }}>
-                  {!d.connected ? t`unplugged` : d.key === active ? t`playing` : listening ? t`ready` : t`not listened to`}
+                <span style={{ fontSize: 9, color: 'var(--text-muted)', lineHeight: 1.3, display: 'flex', flexWrap: 'wrap', columnGap: 4 }}>
+                  <span>{!d.connected ? t`unplugged` : d.key === active ? t`playing` : listening ? t`ready` : t`not listened to`}</span>
+                  <KeysNote deviceKey={d.key} connected={d.connected} />
                 </span>
               </span>
               {listenMode === 'selected'
@@ -118,6 +120,29 @@ function KeyboardsControl() {
           )
         })}
       </div>
+    </>
+  )
+}
+
+// "· 61 keys, C2–C7 · Measure again" under a keyboard's name — the range the
+// player showed Orfeo (KeyboardRangePrompt), which sizes the on-screen keyboard
+function KeysNote({ deviceKey, connected }: { deviceKey: string; connected: boolean }) {
+  useMidiSettings(s => s.keyRanges); useMidiSettings(s => s.simRanges); useMidiSettings(s => s.devices)
+  const naming = useStore(s => s.noteNaming)
+  const acc = useStore(s => s.accidentals)
+  const r = rangeOf(deviceKey)
+  const link = (label: string) => (
+    <button onClick={() => measureKeyboardRange(deviceKey)}
+      style={{ background: 'none', border: 'none', padding: 0, cursor: 'pointer', fontSize: 9, fontFamily: 'var(--font-ui)', color: 'var(--text-inactive)', textDecoration: 'underline', textUnderlineOffset: 2 }}
+      onMouseEnter={e => e.currentTarget.style.color = 'var(--text-amber)'}
+      onMouseLeave={e => e.currentTarget.style.color = 'var(--text-inactive)'}>
+      {label}
+    </button>
+  )
+  return (
+    <>
+      {r && <span>· {t`${keyCount(r)} keys, ${rangeLabel(r, naming, acc)}`}</span>}
+      {connected && <span>· {link(r ? t`Measure again` : t`Measure keys`)}</span>}
     </>
   )
 }
@@ -162,6 +187,32 @@ export function SimulatorPanel() {
         {btn(t`Aftertouch`, () => { sim.aftertouch(target, 100); setTimeout(() => sim.aftertouch(target, 0), 600) })}
         {btn(t`Double key`, () => sim.doubleTrigger(target))}
         {btn(t`Unplug mid-note`, () => sim.stuckNote(target))}
+      </div>
+    </div>
+  )
+}
+
+// ── Dev Tools: the keyboard-range pop-up for a pretend keyboard ──────────────
+// Any key counts (a real or simulated keyboard, or the buttons); nothing is
+// saved, only the on-screen keyboard size changes, as it would for real.
+export function KeyRangeTestPanel() {
+  const open = useMidiSettings(s => s.rangePrompt?.test === true)
+  const btn = (label: string, fn: () => void, enabled = true) => (
+    <button key={label} onClick={fn} disabled={!enabled}
+      style={{ padding: '3px 6px', borderRadius: 4, border: '1px dashed var(--border2)', background: 'transparent', color: 'var(--text-inactive)',
+        fontSize: 10, fontFamily: 'var(--font-ui)', cursor: enabled ? 'pointer' : 'default', opacity: enabled ? 1 : 0.4 }}>{label}</button>
+  )
+  return (
+    <div style={{ marginTop: 12, padding: 8, border: '1px dashed var(--border2)', borderRadius: 4 }}>
+      <div style={{ fontSize: 9, fontWeight: 600, letterSpacing: '0.1em', textTransform: 'uppercase', color: 'var(--text-muted)', marginBottom: 6 }}>Keyboard range · saves nothing</div>
+      <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4 }}>
+        {btn('Show the pop-up', showRangePromptForTest, !open)}
+        {btn('Press A0', () => pressRangeKeyForTest(21), open)}
+        {btn('Press E1', () => pressRangeKeyForTest(28), open)}
+        {btn('Press C2', () => pressRangeKeyForTest(36), open)}
+        {btn('Press C7', () => pressRangeKeyForTest(96), open)}
+        {btn('Press G7', () => pressRangeKeyForTest(103), open)}
+        {btn('Press C8', () => pressRangeKeyForTest(108), open)}
       </div>
     </div>
   )

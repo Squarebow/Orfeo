@@ -26,6 +26,7 @@ import {
 import { liveNoteOn as gmNoteOn, liveSend as gmSend, liveReset as gmReset } from './useAudioEngine'
 import { nativeCall } from '../audio/nativeClient'
 import { nativeLivePiano } from '../audio/useNativeEngine'
+import { fitKeyboardSize, type KeyRange } from '../utils/keyboardRange'
 
 const HARDWARE_COLOR = 'var(--text-amber)'
 
@@ -219,11 +220,12 @@ function handleMessage(e: MIDIMessageEvent, portId: string) {
   const status = data[0]
   if (status >= 0xF0) return  // clock / active sensing / sysex: not playing
   const key = _portDevice.get(portId)
+  const type = status & 0xF0
+  const d1 = data[1] ?? 0, d2 = data[2] ?? 0
+  if (key && _rangeKey && type === 0x90 && d2 > 0) _rangeKey(key, d1)
   if (!key || !isListening(key)) return
   countEvent('messages')
   markActivity(key, t0)
-  const type = status & 0xF0
-  const d1 = data[1] ?? 0, d2 = data[2] ?? 0
   if (type === 0x90 && d2 > 0) noteOn(key, d1, d2, e.timeStamp, t0)
   else if (type === 0x80 || type === 0x90) noteOff(key, d1)
   else if (type === 0xB0) control(d1, d2)
@@ -255,6 +257,7 @@ function publishTopBar() {
     ?? connected[0]
   if (pick && m.activeDevice !== pick.key) useMidiSettings.setState({ activeDevice: pick.key })
   useStore.getState().setMidiDevice(!!pick, pick?.name ?? '')
+  if (pick) adaptKeyboardSize(pick.key)
 }
 
 function syncDevices() {
@@ -298,14 +301,113 @@ function syncDevices() {
   firstConnectionPopup()
 }
 
-// ── First time a keyboard is ever connected: open Settings on its page, once
+// ── First time a keyboard is ever connected: open Settings on its page, once.
+// Before that, any keyboard whose keys Orfeo doesn't know yet is asked for
+// its lowest and highest key; Settings opens once that pop-up has closed.
+let _settingsAfterRange = false
 function firstConnectionPopup() {
   const m = useMidiSettings.getState()
   if (!m.prefsLoaded) return
   const fresh = m.devices.filter(d => d.connected && !m.seenDevices.includes(d.key))
-  if (!fresh.length) return
-  useMidiSettings.setState({ seenDevices: [...m.seenDevices, ...fresh.map(d => d.key)] })
-  useStore.getState().openSettingsWindow('midi')
+  if (fresh.length) {
+    useMidiSettings.setState({ seenDevices: [...m.seenDevices, ...fresh.map(d => d.key)] })
+    _settingsAfterRange = true
+  }
+  if (askRangeIfNeeded()) return
+  if (_settingsAfterRange) { _settingsAfterRange = false; useStore.getState().openSettingsWindow('midi') }
+}
+
+// ── Keyboard range: how many keys each keyboard has ─────────────────────────
+// MIDI never says, so the pop-up (components/KeyboardRangePrompt.tsx) asks for
+// the lowest and highest key, once per keyboard, and it's kept in the prefs.
+// A simulated keyboard (dev tools) is remembered for the session only.
+let _rangeKey: ((deviceKey: string, note: number) => void) | null = null
+export function onRangeKey(fn: (deviceKey: string, note: number) => void): () => void {
+  _rangeKey = fn
+  return () => { if (_rangeKey === fn) _rangeKey = null }
+}
+
+const isSimDevice = (d: MidiDeviceInfo) => d.portIds.length > 0 && d.portIds.every(id => id.startsWith('sim-'))
+const deviceOf = (key: string) => useMidiSettings.getState().devices.find(d => d.key === key)
+
+export function rangeOf(key: string): KeyRange | undefined {
+  const m = useMidiSettings.getState()
+  const d = deviceOf(key)
+  return d && isSimDevice(d) ? m.simRanges[key] : m.keyRanges[key]
+}
+
+function askRangeIfNeeded(): boolean {
+  const m = useMidiSettings.getState()
+  if (!m.prefsLoaded) return false
+  if (m.rangePrompt) return true
+  if (useStore.getState().tourActive) return true  // after the tour (see below)
+  const d = m.devices.find(d => d.connected && (isSimDevice(d)
+    ? !m.simRangeAsked.includes(d.key) && !m.simRanges[d.key]
+    : !m.rangeAsked.includes(d.key) && !m.keyRanges[d.key]))
+  if (!d) return false
+  useMidiSettings.setState({ rangePrompt: { key: d.key, name: d.name, sim: isSimDevice(d) } })
+  return true
+}
+
+// A tour on screen goes first; the pop-up (or Settings) follows when it ends
+const _unsubTour = useStore.subscribe((s, prev) => { if (prev.tourActive && !s.tourActive) firstConnectionPopup() })
+
+// Settings › MIDI Keyboard: ask this keyboard again
+export function measureKeyboardRange(key: string): void {
+  const d = deviceOf(key)
+  if (!d?.connected) return
+  useMidiSettings.setState({ rangePrompt: { key: d.key, name: d.name, sim: isSimDevice(d) } })
+}
+
+// Dev Tools: the pop-up for a pretend keyboard — any key counts, nothing saved
+export function showRangePromptForTest(): void {
+  useMidiSettings.setState({ rangePrompt: { key: '__test__', name: 'Test keyboard', test: true } })
+}
+export function pressRangeKeyForTest(note: number): void { _rangeKey?.('__test__', note) }
+
+// Both keys pressed: keep the range and size the on-screen keyboard to it
+export function saveKeyboardRange(range: KeyRange): void {
+  const m = useMidiSettings.getState()
+  const p = m.rangePrompt
+  if (!p) return
+  if (p.sim) useMidiSettings.setState({ simRanges: { ...m.simRanges, [p.key]: range } })
+  else if (!p.test) useMidiSettings.setState({ keyRanges: { ...m.keyRanges, [p.key]: range } })
+  markRangeAsked(p.key, p)
+  if (p.test || deviceOf(p.key)?.connected) setSizeFor(p.key, range)
+}
+
+// The pop-up closes (done, skipped or Esc): a skipped keyboard isn't asked
+// again (Settings can still measure it), then the next one, or Settings
+export function closeRangePrompt(): void {
+  const p = useMidiSettings.getState().rangePrompt
+  if (!p) return
+  markRangeAsked(p.key, p)
+  useMidiSettings.setState({ rangePrompt: null })
+  firstConnectionPopup()
+}
+
+function markRangeAsked(key: string, p: { test?: boolean; sim?: boolean }) {
+  const m = useMidiSettings.getState()
+  if (p.test) return
+  if (p.sim) { if (!m.simRangeAsked.includes(key)) useMidiSettings.setState({ simRangeAsked: [...m.simRangeAsked, key] }) }
+  else if (!m.rangeAsked.includes(key)) useMidiSettings.setState({ rangeAsked: [...m.rangeAsked, key] })
+}
+
+// The on-screen keyboard takes the smallest size that holds the keyboard in
+// use — once per keyboard (and range), so a size picked by hand afterwards
+// stays until another keyboard is played. Outside practice mode only: practice
+// mode keeps 88 keys.
+let _sizedFor = ''
+function adaptKeyboardSize(key: string) {
+  const r = rangeOf(key)
+  if (!r) return
+  if (key + ":" + r.low + "-" + r.high === _sizedFor) return
+  setSizeFor(key, r)
+}
+function setSizeFor(key: string, r: KeyRange) {
+  _sizedFor = key + ":" + r.low + "-" + r.high
+  const size = fitKeyboardSize(r)
+  if (useStore.getState().keyboardSize !== size) useStore.getState().setKeyboardSize(size)
 }
 
 async function connect(): Promise<void> {
@@ -380,4 +482,4 @@ export function useMidiInput() {
   }, [])
 }
 
-if (import.meta.hot) import.meta.hot.dispose(() => { detachAll(); if (_access) _access.onstatechange = null; _unsubListen() })
+if (import.meta.hot) import.meta.hot.dispose(() => { detachAll(); if (_access) _access.onstatechange = null; _unsubListen(); _unsubTour() })
