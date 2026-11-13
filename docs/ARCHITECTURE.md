@@ -362,6 +362,19 @@ each key press.
 `midiParser.ts` also reads Orfeo's own meta events (see next section) so a file
 re-opened in Orfeo restores its key, track names, colours, and edit history.
 
+alphaTab keeps a piano/organ's whole grand staff on one track and one shared
+channel (`playbackInfo` lives once per `Track`, not per `Staff`), and never
+writes a track-name meta event at all — unlike a notation program's own MIDI
+export, which always splits a grand staff into two tracks. Before generation,
+`foreignFormatImport.ts` splits any multi-staff piano/organ track into one
+track per staff, each kept on the track's original channel, and sets the
+output file to SMF Type 1 (`MidiFileFormat.MultiTrack`) — alphaTab defaults to
+Type 0, which would otherwise multiplex same-channel tracks back into one
+indistinguishable stream on write. This restores the shape
+`findStavePairs()` (see "Hand-assignment engine" below) looks for, so an
+imported file's hands come from its staves exactly as a native MIDI export's
+would, instead of falling back to the generic per-track guess.
+
 ---
 
 ## Music theory — tonal.js
