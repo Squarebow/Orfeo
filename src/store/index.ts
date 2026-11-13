@@ -9,6 +9,8 @@ import type { ForeignFormat } from '../utils/foreignFormatImport'
 import type { ProgressionVoicing } from '../utils/voiceLeading'
 import { detectKeyFromTracks, parseKeySignature } from '../utils/keyDetection'
 import { isKeyboardInstrument } from '../utils/gmInstruments'
+import { currentChoice, currentLanguage, SYSTEM } from '../utils/i18n'
+import { checkTranslations } from '../i18n/updates'
 import { parseMidiBuffer } from '../utils/midiParser'
 import { songKey as computeSongKey } from '../utils/songIdentity'
 import { applyTempoCorrection, sanitizeCorrections, correctionToSong, correctionToFile, type SongTempoCorrection } from '../utils/tempoCorrection'
@@ -359,6 +361,12 @@ interface OrfeoStore {
   setOpenWithAddsToLibrary: (v: boolean) => void
   // Library lyrics mark (Settings › Show files with lyrics) and its remembered check results
   showLyricsMark: boolean
+  showLanguageSwitcher: boolean
+  setShowLanguageSwitcher: (v: boolean) => void
+  menuLanguages: string[]
+  setMenuLanguages: (codes: string[]) => void
+  translationUpdates: 'download' | 'wait'
+  setTranslationUpdates: (v: 'download' | 'wait') => void
   setShowLyricsMark: (v: boolean) => void
   lyricsIndex: Record<string, LyricsEntry>
   setLyricsEntries: (entries: ({ path: string } & LyricsEntry)[]) => void
@@ -1031,6 +1039,12 @@ export const useStore = create<OrfeoStore>((set, get) => ({
   setOpenWithAddsToLibrary: (openWithAddsToLibrary) => set({ openWithAddsToLibrary }),
   showLyricsMark: false,
   setShowLyricsMark: (showLyricsMark) => set({ showLyricsMark }),
+  showLanguageSwitcher: true,
+  setShowLanguageSwitcher: (showLanguageSwitcher) => set({ showLanguageSwitcher }),
+  menuLanguages: [],
+  setMenuLanguages: (menuLanguages) => set({ menuLanguages }),
+  translationUpdates: 'download',
+  setTranslationUpdates: (translationUpdates) => set({ translationUpdates }),
   lyricsIndex: {},
   setLyricsEntries: (entries) => set((s) => {
     if (!entries.length) return {}
@@ -1401,6 +1415,9 @@ async function restoreLibraryPrefs() {
     if (typeof prefs.hideDemoFolder === 'boolean') store.setHideDemoFolder(prefs.hideDemoFolder)
     if (typeof prefs.openWithAddsToLibrary === 'boolean') store.setOpenWithAddsToLibrary(prefs.openWithAddsToLibrary)
     if (typeof prefs.showLyricsMark === 'boolean') store.setShowLyricsMark(prefs.showLyricsMark)
+    if (typeof prefs.showLanguageSwitcher === 'boolean') store.setShowLanguageSwitcher(prefs.showLanguageSwitcher)
+    if (Array.isArray(prefs.menuLanguages)) store.setMenuLanguages(prefs.menuLanguages.filter((c: unknown): c is string => typeof c === 'string'))
+    if (prefs.translationUpdates === 'download' || prefs.translationUpdates === 'wait') store.setTranslationUpdates(prefs.translationUpdates)
     {
       const tours = toursFromPrefs(prefs.tours)
       useStore.setState({ toursSeen: tours.seen })
@@ -1463,6 +1480,12 @@ async function restoreLibraryPrefs() {
     if (prefs.hitEffectScope === 'keyboard' || prefs.hitEffectScope === 'all') store.setHitEffectScope(prefs.hitEffectScope)
     if (typeof prefs.hitEffectColor === 'string' || prefs.hitEffectColor === null) store.setHitEffectColor(prefs.hitEffectColor)
     if (prefs.selectedSoundfont === 'fluidr3-gm' || prefs.selectedSoundfont === 'musescore-general') store.setSelectedSoundfont(prefs.selectedSoundfont)
+    // Follow system language with the computer's language now in use: the menu lists it (ticked)
+    if (currentChoice === SYSTEM && currentLanguage !== 'en' && !useStore.getState().menuLanguages.includes(currentLanguage)) {
+      store.setMenuLanguages([...useStore.getState().menuLanguages, currentLanguage])
+    }
+    // New translations are fetched in the background; nothing waits on it
+    void checkTranslations({}).catch(() => {})
   } catch (e) {
     console.error('[Orfeo] restoreLibraryPrefs:', e)
   }
@@ -1616,6 +1639,9 @@ let _prevChordTranscriptionEnabled: boolean | null = null
 let _prevHideDemoFolder: boolean | null = null
 let _prevOpenWithAddsToLibrary: boolean | null = null
 let _prevShowLyricsMark: boolean | null = null
+let _prevShowLanguageSwitcher: boolean | null = null
+let _prevMenuLanguages: string[] | null = null
+let _prevTranslationUpdates: string | null = null
 let _prevSplitBreakpointType: string | null = null
 let _prevSplitBreakpointNote: number | null = null
 let _prevSplitBreakpointRangeStart: number | null = null
@@ -1691,6 +1717,9 @@ const _unsubPrefs = useStore.subscribe((state) => {
     _prevHideDemoFolder = state.hideDemoFolder
     _prevOpenWithAddsToLibrary = state.openWithAddsToLibrary
     _prevShowLyricsMark = state.showLyricsMark
+    _prevShowLanguageSwitcher = state.showLanguageSwitcher
+    _prevMenuLanguages = state.menuLanguages
+    _prevTranslationUpdates = state.translationUpdates
     _prevSplitBreakpointType = state.splitBreakpointType
     _prevSplitBreakpointNote = state.splitBreakpointNote
     _prevSplitBreakpointRangeStart = state.splitBreakpointRangeStart
@@ -1769,6 +1798,9 @@ const _unsubPrefs = useStore.subscribe((state) => {
     state.hideDemoFolder !== _prevHideDemoFolder ||
     state.openWithAddsToLibrary !== _prevOpenWithAddsToLibrary ||
     state.showLyricsMark !== _prevShowLyricsMark ||
+    state.showLanguageSwitcher !== _prevShowLanguageSwitcher ||
+    state.menuLanguages !== _prevMenuLanguages ||
+    state.translationUpdates !== _prevTranslationUpdates ||
     state.splitBreakpointType !== _prevSplitBreakpointType ||
     state.splitBreakpointNote !== _prevSplitBreakpointNote ||
     state.splitBreakpointRangeStart !== _prevSplitBreakpointRangeStart ||
@@ -1839,6 +1871,9 @@ const _unsubPrefs = useStore.subscribe((state) => {
     _prevHideDemoFolder = state.hideDemoFolder
     _prevOpenWithAddsToLibrary = state.openWithAddsToLibrary
     _prevShowLyricsMark = state.showLyricsMark
+    _prevShowLanguageSwitcher = state.showLanguageSwitcher
+    _prevMenuLanguages = state.menuLanguages
+    _prevTranslationUpdates = state.translationUpdates
     _prevSplitBreakpointType = state.splitBreakpointType
     _prevSplitBreakpointNote = state.splitBreakpointNote
     _prevSplitBreakpointRangeStart = state.splitBreakpointRangeStart
@@ -1915,6 +1950,9 @@ const _unsubPrefs = useStore.subscribe((state) => {
       hideDemoFolder: state.hideDemoFolder,
       openWithAddsToLibrary: state.openWithAddsToLibrary,
       showLyricsMark: state.showLyricsMark,
+      showLanguageSwitcher: state.showLanguageSwitcher,
+      menuLanguages: state.menuLanguages,
+      translationUpdates: state.translationUpdates,
       splitBreakpointType: state.splitBreakpointType,
       splitBreakpointNote: state.splitBreakpointNote,
       splitBreakpointRangeStart: state.splitBreakpointRangeStart,
