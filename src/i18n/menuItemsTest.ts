@@ -11,6 +11,8 @@ export function runMenuItemsTest(): number {
   check(!pickChangesLanguage('de', 'de', 'system'), 'language in use does nothing')
   check(pickChangesLanguage('en', 'de', 'system'), 'other language changes')
   check(pickChangesLanguage('de', 'system', 'system'), 'follow system: any pick saves it')
+  check(pickChangesLanguage('en', 'system', 'system'), 'follow system on, pick the language in use: changes')
+  check(!pickChangesLanguage('en', 'en', 'system'), 'follow system off, language in use: nothing')
   console.log(`${pass} passed, ${fail} failed`)
   console.groupEnd()
   return fail

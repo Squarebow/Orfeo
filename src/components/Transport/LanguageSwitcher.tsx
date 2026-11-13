@@ -3,7 +3,7 @@ import { Languages } from 'lucide-react'
 import Tooltip from '../Tooltip'
 import { ContextMenu, ContextMenuDivider, ContextMenuItem, useMenuDismiss } from '../ContextMenu'
 import { confirmDialog } from '../../utils/confirmController'
-import { SYSTEM, changeLanguage, currentChoice, hasWords, t } from '../../utils/i18n'
+import { SYSTEM, changeLanguage, currentChoice, currentLanguage, hasWords, t } from '../../utils/i18n'
 import { languageName } from '../../i18n/languageNames'
 import { menuItems, pickChangesLanguage } from '../../i18n/menuItems'
 import { useStore } from '../../store'
@@ -23,7 +23,7 @@ export function LanguageSwitcher() {
 
   const choose = async (code: string) => {
     setMenu(null)
-    if (code === currentChoice) return
+    if (!pickChangesLanguage(code, currentChoice, SYSTEM)) return
     const choice = await confirmDialog({
       title: t`Change language`,
       message: t`Orfeo reloads to change language.`,
@@ -33,6 +33,7 @@ export function LanguageSwitcher() {
     if (choice === 0) void changeLanguage(code)
   }
 
+  if (!show) return <div style={{ height: 0, marginTop: 12, marginBottom: -13 }} />
   return (
     // Takes no height of its own, so the logo stays where it was. No transform
     // here: it would trap the menu inside the top bar, where it can't be seen.
@@ -57,7 +58,7 @@ export function LanguageSwitcher() {
         <ContextMenu ref={menuRef} x={menu.x} y={menu.y} minWidth={MENU_WIDTH} ariaLabel={t`Language`} className="app-no-drag">
           {menuItems(menuLanguages, c => hasWords(c)).map(code => (
             <ContextMenuItem key={code} onClick={() => void choose(code)}>
-              <span style={{ color: code === currentChoice ? 'var(--text-amber)' : undefined }}>{languageName(code)}</span>
+              <span style={{ color: code === currentLanguage ? 'var(--text-amber)' : undefined }}>{languageName(code)}</span>
             </ContextMenuItem>
           ))}
           <ContextMenuDivider />

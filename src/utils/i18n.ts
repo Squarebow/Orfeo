@@ -97,7 +97,7 @@ export const pseudo = (text: string): string =>
   `[${text.replace(/[aeiouAEIOU]/g, v => ACCENTS[v])}${'~'.repeat(Math.ceil(text.length * 0.3))}]`
 
 if (typeof document !== 'undefined' && document.documentElement) {
-  document.documentElement.lang = currentLanguage.replace(/_/g, '-')
+  document.documentElement.lang = currentLanguage === PSEUDO ? 'en' : currentLanguage.replace(/_/g, '-')
 }
 
 export async function changeLanguage(code: string) {
