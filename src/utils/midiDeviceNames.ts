@@ -27,6 +27,19 @@ export function displayName(model: string, manufacturer?: string | null): string
   return `${m} ${model}`
 }
 
+// Virtual MIDI cables: software ports that only pass notes between apps
+// (loopMIDI, LoopBe, Windows MIDI loopbacks, the Mac IAC bus, Linux "Midi
+// Through"). They list like keyboards but have no keys, so outside dev mode
+// Orfeo doesn't list them as keyboards at all. Ports that can carry a real
+// player (a network keyboard over rtpMIDI, a keyboard remapped through Bome)
+// are deliberately NOT matched. A loopback the player named themselves
+// ("Lights A") can't be told by name and stays listed.
+const VIRTUAL_CABLE = /\b(loop ?midi|loop ?be|loopback|midi ?through|iac (driver|bus)|midi ?yoke|virmidi)\b/i
+
+export function looksVirtual(name: string): boolean {
+  return VIRTUAL_CABLE.test(name ?? '')
+}
+
 // Short label for the top bar under the MIDI icon: the model's first word
 // that isn't the maker ("Launchkey", "MPK", "Komplete")
 export function shortName(model: string): string {

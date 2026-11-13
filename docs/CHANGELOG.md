@@ -72,6 +72,13 @@
   chord symbols no longer takes over the piano's left hand. Notes you moved to the other hand
   yourself keep their hand; everything else is worked out afresh the first time a song opens.
 
+- **Software MIDI cables stay out of the keyboard list.** Ports such as loopMIDI, LoopBe, a
+  Windows MIDI loopback, the Mac IAC bus or Linux's Midi Through only pass notes between apps
+  and have no keys. Settings › MIDI Keyboard no longer lists them, so they never become the
+  keyboard Orfeo follows, never ask for their lowest and highest key and never switch Low
+  latency on. A keyboard you've unplugged can be taken off the list with *Forget*; it comes
+  back by itself the next time you plug it in, with its keys and lights as you set them.
+
 ### Fixed
 - **Saving from the Playback Editor no longer splits a staff between the hands.** A piano
   written on two staves kept its hands only until the next save, which then divided each staff

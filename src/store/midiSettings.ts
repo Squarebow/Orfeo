@@ -76,6 +76,7 @@ export interface MidiDeviceInfo {
   name: string            // what the user sees (maker + model)
   connected: boolean
   portIds: string[]
+  virtual?: boolean       // a software port between apps (loopMIDI…), not a keyboard: listed in dev mode only
 }
 
 export interface MidiOutputInfo { port: string; name: string }

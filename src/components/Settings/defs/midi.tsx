@@ -5,7 +5,7 @@ import { t } from '../../../utils/i18n'
 import { OptionBtn, Switch, SettingsDropdown, HelpText, GlanceLine, ZoomStepBtn } from '../controls'
 import { MarqueeText } from '../../MarqueeText'
 import { useMidiSettings, MIDI_DEFAULTS, type ControlKind, type LiveResponse, type VelocityCurve } from '../../../store/midiSettings'
-import { rescanMidiDevices, clearStuckNotes, resetMidiInput, rangeOf, measureKeyboardRange, showRangePromptForTest, pressRangeKeyForTest } from '../../../hooks/useMidiInput'
+import { rescanMidiDevices, clearStuckNotes, resetMidiInput, rangeOf, measureKeyboardRange, forgetKeyboard, showRangePromptForTest, pressRangeKeyForTest } from '../../../hooks/useMidiInput'
 import { keyCount, rangeLabel } from '../../../utils/keyboardRange'
 import { lightSetupFor, setLightSetup, tryKeyLights, lightChordForTest } from '../../../hooks/keyLightsOutput'
 import { choiceOf, setupForChoice, type KeyLightChoice } from '../../../utils/keyLights'
@@ -112,7 +112,9 @@ function KeyboardsControl() {
                 </span>
                 <span style={{ fontSize: 9, color: 'var(--text-muted)', lineHeight: 1.3, display: 'flex', flexWrap: 'wrap', columnGap: 4 }}>
                   <span>{!d.connected ? t`unplugged` : d.key === active ? t`playing` : listening ? t`ready` : t`not listened to`}</span>
-                  <KeysNote deviceKey={d.key} connected={d.connected} />
+                  {d.virtual && <span>· virtual port</span>}
+                  {!d.virtual && <KeysNote deviceKey={d.key} connected={d.connected} />}
+                  {!d.connected && <span>· <TextLink onClick={() => forgetKeyboard(d.key)}>{t`Forget`}</TextLink></span>}
                 </span>
               </span>
               {listenMode === 'selected'
@@ -126,6 +128,18 @@ function KeyboardsControl() {
   )
 }
 
+// A small underlined action under a keyboard's name
+function TextLink({ onClick, children }: { onClick: () => void; children: ReactNode }) {
+  return (
+    <button onClick={onClick}
+      style={{ background: 'none', border: 'none', padding: 0, cursor: 'pointer', fontSize: 9, fontFamily: 'var(--font-ui)', color: 'var(--text-inactive)', textDecoration: 'underline', textUnderlineOffset: 2 }}
+      onMouseEnter={e => e.currentTarget.style.color = 'var(--text-amber)'}
+      onMouseLeave={e => e.currentTarget.style.color = 'var(--text-inactive)'}>
+      {children}
+    </button>
+  )
+}
+
 // "· 61 keys, C2–C7 · Measure again" under a keyboard's name — the range the
 // player showed Orfeo (KeyboardRangePrompt), which sizes the on-screen keyboard
 function KeysNote({ deviceKey, connected }: { deviceKey: string; connected: boolean }) {
@@ -133,14 +147,7 @@ function KeysNote({ deviceKey, connected }: { deviceKey: string; connected: bool
   const naming = useStore(s => s.noteNaming)
   const acc = useStore(s => s.accidentals)
   const r = rangeOf(deviceKey)
-  const link = (label: string) => (
-    <button onClick={() => measureKeyboardRange(deviceKey)}
-      style={{ background: 'none', border: 'none', padding: 0, cursor: 'pointer', fontSize: 9, fontFamily: 'var(--font-ui)', color: 'var(--text-inactive)', textDecoration: 'underline', textUnderlineOffset: 2 }}
-      onMouseEnter={e => e.currentTarget.style.color = 'var(--text-amber)'}
-      onMouseLeave={e => e.currentTarget.style.color = 'var(--text-inactive)'}>
-      {label}
-    </button>
-  )
+  const link = (label: string) => <TextLink onClick={() => measureKeyboardRange(deviceKey)}>{label}</TextLink>
   return (
     <>
       {r && <span>· {t`${keyCount(r)} keys, ${rangeLabel(r, naming, acc)}`}</span>}
@@ -174,7 +181,7 @@ export function SimulatorPanel() {
       <div style={{ display: 'flex', gap: 'var(--space-1)', marginBottom: 6 }}>
         {sim.models.map(m => (
           <OptionBtn key={m.key} active={target === m.key} onClick={() => setTarget(m.key)}>
-            {m.key === 's88' ? 'S88 MK3' : m.key === 'mpk' ? 'MPK mini' : m.key === 'partykeys' ? 'PartyKeys' : 'Launchkey'}
+            {m.key === 's88' ? 'S88 MK3' : m.key === 'mpk' ? 'MPK mini' : m.key === 'partykeys' ? 'PartyKeys' : m.key === 'loopmidi' ? 'loopMIDI' : 'Launchkey'}
           </OptionBtn>
         ))}
       </div>
@@ -293,7 +300,7 @@ export function KeyLightsTestPanel() {
     <div style={{ marginTop: 12, padding: 8, border: '1px dashed var(--border2)', borderRadius: 4 }}>
       <div style={{ fontSize: 9, fontWeight: 600, letterSpacing: '0.1em', textTransform: 'uppercase', color: 'var(--text-muted)', marginBottom: 6 }}>Key lights · simulated keyboards, session only</div>
       <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4, marginBottom: 6 }}>
-        {sim.models.map(m => btn(m.key === 'partykeys' ? 'PartyKeys' : m.key === 's88' ? 'S88 MK3' : m.key === 'mpk' ? 'MPK mini' : 'Launchkey', () => setTarget(m.key), true, target === m.key))}
+        {sim.models.map(m => btn(m.key === 'partykeys' ? 'PartyKeys' : m.key === 's88' ? 'S88 MK3' : m.key === 'mpk' ? 'MPK mini' : m.key === 'loopmidi' ? 'loopMIDI' : 'Launchkey', () => setTarget(m.key), true, target === m.key))}
       </div>
       <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4, marginBottom: 6 }}>
         {plugged ? btn('Unplug', () => sim.unplug(target)) : btn('Plug in', () => sim.plug(target))}

@@ -17,6 +17,8 @@ export const SIM_MODELS: SimModel[] = [
   { key: 'launchkey', ports: ['Launchkey MK4 37 MIDI', 'MIDIIN2 (Launchkey MK4 37)'], outPorts: ['Launchkey MK4 37 MIDI'], manufacturer: 'Focusrite A.E. Ltd' },
   // Lighted keys, driven by its open LED protocol (Settings › MIDI Keyboard › Key lights)
   { key: 'partykeys', ports: ['PartyKeys 36'], outPorts: ['PartyKeys 36'], manufacturer: 'PartyKeys' },
+  // A virtual cable (no keys): listed in dev mode only, never taken as the keyboard in use
+  { key: 'loopmidi', ports: ['loopMIDI Port'], outPorts: ['loopMIDI Port'], manufacturer: 'Tobias Erichsen' },
 ]
 
 type PortState = 'connected' | 'disconnected'

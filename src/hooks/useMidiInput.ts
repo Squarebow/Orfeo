@@ -16,7 +16,8 @@ import { isTapCapturing, registerTap } from '../utils/tapTempoSession'
 import {
   useMidiSettings, midiPrefsReady, shapeVelocity, type ControlKind, type MidiDeviceInfo, type MidiOutputInfo,
 } from '../store/midiSettings'
-import { cleanPortName, displayName } from '../utils/midiDeviceNames'
+import { cleanPortName, displayName, looksVirtual } from '../utils/midiDeviceNames'
+import { simAvailable } from '../utils/midiSimulator'
 import { recordNote, countEvent } from '../utils/midiDiagnostics'
 import {
   liveNoteOn as samplesNoteOn, liveNoteOff as samplesNoteOff, liveControl as samplesControl,
@@ -43,6 +44,10 @@ const _swallow = new Map<string, number>()              // note-offs to ignore f
 // Keyboards that were unplugged while "Reconnect automatically" was off —
 // not listened to again until Rescan
 const _waitingForRescan = new Set<string>()
+// Unplugged keyboards the player removed from the list (Forget) — back when plugged in again
+const _forgotten = new Set<string>()
+// Keyboards a note was played on this session
+const _played = new Set<string>()
 
 const isSamples = () => useStore.getState().audioEngine === 'samples'
 const isNative = () => useStore.getState().audioEngine === 'native'
@@ -159,6 +164,7 @@ function noteOn(key: string, note: number, raw: number, stamp: number, t0: numbe
   recordNote(stamp, t0, performance.now(), note, vel, key)
   heldBy(key).add(note)
   lightOn(note)
+  _played.add(key)
   setActive(key)
 }
 
@@ -253,10 +259,11 @@ function detachAll() {
 }
 
 // What the top bar shows: the keyboard last played if it's still there,
-// otherwise the first connected one that's listened to
+// otherwise the first connected one that's listened to. A virtual port (dev
+// mode only) counts only once a note has actually come from it.
 function publishTopBar() {
   const m = useMidiSettings.getState()
-  const connected = m.devices.filter(d => d.connected)
+  const connected = m.devices.filter(d => d.connected && (!d.virtual || _played.has(d.key)))
   const pick = connected.find(d => d.key === m.activeDevice)
     ?? connected.find(d => d.key === m.lastDevice)
     ?? connected.find(d => isListening(d.key))
@@ -272,9 +279,14 @@ function syncDevices() {
   const present = new Map<string, MidiDeviceInfo>()
   access.inputs.forEach((input) => {
     const key = cleanPortName(input.name ?? '')
-    _portDevice.set(input.id, key)
     const connected = input.state === 'connected'
-    const d = present.get(key) ?? { key, name: displayName(key, input.manufacturer), connected: false, portIds: [] }
+    // Virtual ports (loopMIDI and the like) have no keys: shown in dev mode only
+    const virtual = looksVirtual(key)
+    if (virtual && !simAvailable) return
+    if (connected) _forgotten.delete(key)
+    else if (_forgotten.has(key)) return
+    _portDevice.set(input.id, key)
+    const d = present.get(key) ?? { key, name: displayName(key, input.manufacturer), connected: false, portIds: [], virtual }
     d.connected ||= connected
     d.portIds.push(input.id)
     present.set(key, d)
@@ -295,6 +307,7 @@ function syncDevices() {
   }
   for (const [key, d] of present) _known.set(key, d)
   for (const [key, d] of _known) if (!present.has(key)) _known.set(key, { ...d, connected: false })
+  for (const key of _forgotten) _known.delete(key)
 
   const outputs: MidiOutputInfo[] = []
   access.outputs.forEach((o) => {
@@ -314,7 +327,7 @@ let _settingsAfterRange = false
 function firstConnectionPopup() {
   const m = useMidiSettings.getState()
   if (!m.prefsLoaded) return
-  const fresh = m.devices.filter(d => d.connected && !m.seenDevices.includes(d.key))
+  const fresh = m.devices.filter(d => d.connected && !d.virtual && !m.seenDevices.includes(d.key))
   if (fresh.length) {
     useMidiSettings.setState({ seenDevices: [...m.seenDevices, ...fresh.map(d => d.key)] })
     _settingsAfterRange = true
@@ -355,7 +368,7 @@ function askRangeIfNeeded(): boolean {
   if (!m.prefsLoaded) return false
   if (m.rangePrompt) return true
   if (useStore.getState().tourActive) return true  // after the tour (see below)
-  const d = m.devices.find(d => d.connected && (isSimDevice(d)
+  const d = m.devices.find(d => d.connected && !d.virtual && (isSimDevice(d)
     ? !m.simRangeAsked.includes(d.key) && !m.simRanges[d.key]
     : !m.rangeAsked.includes(d.key) && !m.keyRanges[d.key]))
   if (!d) return false
@@ -453,6 +466,22 @@ export async function rescanMidiDevices(): Promise<void> {
   detachAll()
   _portDevice.clear()
   await connect()
+}
+
+// Settings › MIDI Keyboard: take an unplugged keyboard off the list. It comes
+// back by itself when it's plugged in again; its measured keys and light
+// settings are kept for that.
+export function forgetKeyboard(key: string): void {
+  if (_known.get(key)?.connected) return
+  _forgotten.add(key)
+  _known.delete(key)
+  _held.delete(key)
+  _played.delete(key)
+  _waitingForRescan.delete(key)
+  const m = useMidiSettings.getState()
+  const { [key]: _gone, ...activity } = m.activity
+  useMidiSettings.setState({ devices: m.devices.filter(d => d.key !== key), activity })
+  publishTopBar()
 }
 
 // Every key up, pedals up, wheels centred — on both engines (the button:

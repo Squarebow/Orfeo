@@ -62,7 +62,7 @@ export const nativeSetMasterPan = (_v: number) => { /* master pan: not in the na
 // can be switched off (MIDI Keyboard › Sound & Latency: autoLowLatency). ──
 let _keyboards = new Set<string>()
 useMidiSettings.subscribe((m) => {
-  const now = new Set(m.devices.filter(d => d.connected).map(d => d.key))
+  const now = new Set(m.devices.filter(d => d.connected && !d.virtual).map(d => d.key))
   const fresh = [...now].some(k => !_keyboards.has(k))
   const allGone = _keyboards.size > 0 && now.size === 0
   _keyboards = now
