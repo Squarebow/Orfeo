@@ -2,21 +2,32 @@
 // Pure rules, no UI text: the Settings page turns the statuses into words.
 
 export const READY_SHARE = 0.8
+// 1.8: machine drafts ("needs editing" on Weblate) count towards readiness and the
+// percentages shown. Set to false to count only texts a person has checked.
+export const COUNT_MACHINE_DRAFTS = true
 
 export interface LangStats { code: string; total: number; translated: number; fuzzy: number; lastChange: string | null } // ISO time
-export interface SnapshotEntry { percent: number; total: number; translated: number; readySince: string | null; lastChange: string | null }
+export interface SnapshotEntry { percent: number; total: number; translated: number; fuzzy?: number; readySince: string | null; lastChange: string | null }
 export type Snapshot = Record<string, SnapshotEntry>
 export interface ReadySources { live: LangStats[] | null; bundled: Snapshot; remote: Snapshot | null; seenReady: string[] }
 
-export function percentOf(s: { total: number; translated: number }): number {
-  return s.total > 0 ? Math.floor((s.translated / s.total) * 100) : 0
+type Counts = { total: number; translated: number; fuzzy?: number }
+const drafts = (s: Counts): number => (COUNT_MACHINE_DRAFTS ? s.fuzzy ?? 0 : 0)
+
+export function percentOf(s: Counts): number {
+  return s.total > 0 ? Math.floor(((s.translated + drafts(s)) / s.total) * 100) : 0
 }
 
-export function isReadyNow(s: { total: number; translated: number }): boolean {
+export function isReadyNow(s: Counts): boolean {
+  return s.total > 0 && (s.translated + drafts(s)) / s.total >= READY_SHARE
+}
+
+// Checked texts only, never drafts: this is what the lasting "was ready" record uses.
+export function isCheckedReady(s: { total: number; translated: number }): boolean {
   return s.total > 0 && s.translated / s.total >= READY_SHARE
 }
 
-interface Chosen { total: number; translated: number; lastChange: string | null }
+interface Chosen { total: number; translated: number; fuzzy?: number; lastChange: string | null }
 
 // Live numbers win, then the remote snapshot, then the bundled one.
 function chosen(code: string, src: ReadySources): Chosen | null {
@@ -59,7 +70,7 @@ export function buildRows(src: ReadySources, have: Record<string, string | null>
     let status: LangStatus
     if (!ready) status = { kind: 'needs', percent: Math.round(READY_SHARE * 100) - percent }
     else if (!has) status = { kind: 'arriving', when: updates === 'download' ? 'nextStart' : 'nextVersion' }
-    else if (!isReadyNow(c)) status = { kind: 'newWords', count: c.total - c.translated }
+    else if (!isReadyNow(c)) status = { kind: 'newWords', count: c.total - c.translated - drafts(c) }
     else status = isNewer(c.lastChange, have[code]) ? { kind: 'newTranslations' } : { kind: 'upToDate' }
     return { code, percent, ready, tickable, status }
   })

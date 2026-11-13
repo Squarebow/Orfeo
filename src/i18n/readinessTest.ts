@@ -1,5 +1,5 @@
 import {
-  READY_SHARE, buildRows, isNewer, isReady, isReadyNow, languagesToDownload, percentOf,
+  COUNT_MACHINE_DRAFTS, READY_SHARE, buildRows, isCheckedReady, isNewer, isReady, isReadyNow, languagesToDownload, percentOf,
   type LangStats, type ReadySources, type Snapshot,
 } from './readiness'
 
@@ -20,6 +20,19 @@ export function runReadinessTest(): number {
   check(percentOf({ total: 0, translated: 0 }) === 0, 'empty is 0 %')
   check(isReadyNow({ total: 100, translated: 80 }), '80 of 100 ready')
   check(!isReadyNow({ total: 100, translated: 79 }), '79 of 100 not ready')
+
+  check(COUNT_MACHINE_DRAFTS, 'machine drafts count in 1.8')
+  check(percentOf({ total: 1418, translated: 51, fuzzy: 1367 }) === 100, 'drafts count towards percent')
+  check(isReadyNow({ total: 1418, translated: 51, fuzzy: 1367 }), 'drafts make a language ready now')
+  check(!isCheckedReady({ total: 1418, translated: 51 }), 'checked-only readiness ignores drafts')
+  check(isCheckedReady({ total: 100, translated: 80 }), 'checked-only 80 of 100 ready')
+  check(percentOf({ total: 1000, translated: 300, fuzzy: 120 }) === 42, '300 + 120 drafts of 1000 is 42 %')
+  check(percentOf({ total: 100, translated: 50 }) === 50, 'missing fuzzy counts as 0')
+  const dr = buildRows(src([{ code: 'fr', total: 1000, translated: 300, fuzzy: 120, lastChange: T1 }, { code: 'ja', total: 200, translated: 100, fuzzy: 48, lastChange: T1 }],
+    { ja: { percent: 90, total: 200, translated: 180, readySince: T1, lastChange: T1 } }), { ja: T1 }, 'download')
+  const frd = dr.find(r => r.code === 'fr')!.status, jad = dr.find(r => r.code === 'ja')!.status
+  check(frd.kind === 'needs' && frd.percent === 38, 'needs follows percent with drafts: 38')
+  check(jad.kind === 'newWords' && jad.count === 52, 'newWords subtracts drafts: 52')
 
   const snapDe: Snapshot = { de: { percent: 90, total: 100, translated: 90, readySince: T1, lastChange: T1 } }
   check(isReady('de', src(null, snapDe)), 'bundled readySince is ready')
