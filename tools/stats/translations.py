@@ -4,7 +4,9 @@ Daily record of which Orfeo translations have ever been ready.
 
 Runs from .github/workflows/stats.yml after the stats collector and writes
 translations.json into the stats branch folder. The release script
-(scripts/i18n-ready.mjs) copies that file into the app. Per language:
+(scripts/i18n-ready.mjs) starts the app's copy from that file, or from Weblate
+when it can't be read, with the same rule: keep merge() here and mergeRecord()
+in src/i18n/releaseWords.ts alike. Per language:
   percent      whole percent, rounded down, of translated + fuzzy over total
                (what users see in 1.8; mirrors COUNT_MACHINE_DRAFTS in
                src/i18n/readiness.ts)

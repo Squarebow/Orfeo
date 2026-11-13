@@ -868,8 +868,12 @@ src/components/Settings/defs/language.tsx   Settings › Language.
 src/components/Transport/LanguageSwitcher.tsx  The menu under the logo.
 tools/stats/translations.py  Daily record on the stats branch (a step of the
                            Stats workflow, run once, on main).
-scripts/i18n-ready.mjs     `npm run i18n:ready`: writes the bundled snapshot
-                           at release.
+scripts/i18n-ready.mjs     `npm run i18n:ready`, at release: refreshes the
+                           bundled language files from Weblate and the bundled
+                           snapshot in the same run (rules in
+                           src/i18n/releaseWords.ts), so the snapshot's age of
+                           each language's words is the age of the words that
+                           ship.
 ```
 
 Two rules matter:
