@@ -1,7 +1,9 @@
 // The languages the menu under the logo lists: English first, then the ticked
 // languages that have words on this computer, in the order they were ticked.
-export function menuItems(menuLanguages: readonly string[], hasWords: (code: string) => boolean): string[] {
+// The language in use is always there (after English if it isn't ticked), so it can be seen and picked again.
+export function menuItems(menuLanguages: readonly string[], hasWords: (code: string) => boolean, inUse = 'en'): string[] {
   const out = ['en']
+  if (inUse !== 'en' && !menuLanguages.includes(inUse) && hasWords(inUse)) out.push(inUse)
   for (const c of menuLanguages) if (c !== 'en' && !out.includes(c) && hasWords(c)) out.push(c)
   return out
 }

@@ -56,7 +56,7 @@ export function LanguageSwitcher() {
       </Tooltip>
       {menu && (
         <ContextMenu ref={menuRef} x={menu.x} y={menu.y} minWidth={MENU_WIDTH} ariaLabel={t`Language`} className="app-no-drag">
-          {menuItems(menuLanguages, c => hasWords(c)).map(code => (
+          {menuItems(menuLanguages, c => hasWords(c), currentLanguage).map(code => (
             <ContextMenuItem key={code} onClick={() => void choose(code)}>
               <span style={{ color: code === currentLanguage ? 'var(--text-amber)' : undefined }}>{languageName(code)}</span>
             </ContextMenuItem>
