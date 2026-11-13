@@ -25,6 +25,9 @@ export type CheckResult = Awaited<ReturnType<Bridge['i18nRefresh']>>
 // Languages saved this session and the version they were saved at, so later checks don't fetch them again
 const savedThisSession: Record<string, string | null> = {}
 
+// Forget what this session saved (the Dev Tools panel does this when its pretend numbers go away)
+export function resetSavedThisSession(): void { for (const k of Object.keys(savedThisSession)) delete savedThisSession[k] }
+
 export async function checkTranslations(opts: { force?: boolean }, deps: Partial<UpdateDeps> = {}): Promise<CheckResult> {
   const bridge = deps.bridge ?? (window.electronAPI as unknown as Bridge)
   const result = await bridge.i18nRefresh(opts.force)

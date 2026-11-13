@@ -5,7 +5,7 @@ import { t } from '../../../utils/i18n'
 import { SYSTEM, changeLanguage, currentChoice, currentLanguage, startup } from '../../../utils/i18n'
 import { confirmDialog } from '../../../utils/confirmController'
 import { buildRows, READY_SHARE, type LangRow, type LangStatus, type ReadySources, type Snapshot } from '../../../i18n/readiness'
-import { checkTranslations, type CheckResult } from '../../../i18n/updates'
+import { checkTranslations, resetSavedThisSession, type CheckResult } from '../../../i18n/updates'
 import { languageName } from '../../../i18n/languageNames'
 import bundledTranslations from '../../../i18n/translations.json'
 import { Switch } from '../controls'
@@ -202,21 +202,22 @@ export function TranslationsTestPanel() {
   const [percents, setPercents] = useState<Record<string, number>>({})
   const [offline, setOffline] = useState(false)
   const [newer, setNewer] = useState(false)
-  const [tempDir, setTempDir] = useState(false)
   const [msg, setMsg] = useState('')
   const dev = window.electronAPI as unknown as { i18nDev: (o: object) => Promise<void> }
+  // closing Settings throws the panel's choices away, so the pretend numbers go too
+  useEffect(() => () => { void dev.i18nDev({}); resetSavedThisSession() }, [])  // eslint-disable-line react-hooks/exhaustive-deps
   const apply = async () => {
     setMsg('Checking...')
     try {
-      await dev.i18nDev({ percents, offline, newer, tempDir })
+      await dev.i18nDev({ percents, offline, newer })
       const r = await checkTranslations({ force: true })
       setLatest({ result: r, failed: false })
       setMsg(r.offline ? 'Done: Weblate counted as not reachable.' : 'Done: the Language page now shows these numbers.')
     } catch { setLatest({ result: latest.result, failed: true }); setMsg('The check failed.') }
   }
   const clear = async () => {
-    setPercents({}); setOffline(false); setNewer(false); setTempDir(false)
-    await dev.i18nDev({})
+    setPercents({}); setOffline(false); setNewer(false)
+    await dev.i18nDev({}); resetSavedThisSession()
     try { setLatest({ result: await checkTranslations({ force: true }), failed: false }); setMsg('Cleared: the real numbers are back.') } catch { setMsg('Cleared. The real check failed.') }
   }
   const tick = (label: string, v: boolean, set: (b: boolean) => void) => <Tick checked={v} label={label} onClick={() => set(!v)} />
@@ -234,10 +235,9 @@ export function TranslationsTestPanel() {
           </div>
         </div>
       ))}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, minmax(0, 1fr))', columnGap: 12 }}>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', columnGap: 12 }}>
         {tick('Pretend offline', offline, setOffline)}
         {tick('Pretend Weblate has newer words', newer, setNewer)}
-        {tick('Download into a temporary folder', tempDir, setTempDir)}
       </div>
       <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
         <button onClick={() => void apply()} style={devBtn}>Apply and check again</button>

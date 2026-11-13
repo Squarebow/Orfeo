@@ -2,7 +2,7 @@ import { mkdtempSync, rmSync, writeFileSync, readFileSync, existsSync } from 'no
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import english from '../src/i18n/locales/en.json'
-import { applyDevOverrides, hasDevOverrides, bootState, download, refresh, rememberReady, weblateFile, WEBLATE_LIST, EVER_READY_URL, type TranslationsDeps } from './translations'
+import { devDownloadDeps, applyDevOverrides, hasDevOverrides, bootState, download, refresh, rememberReady, weblateFile, WEBLATE_LIST, EVER_READY_URL, type TranslationsDeps } from './translations'
 import type { Snapshot } from '../src/i18n/readiness'
 
 const en = english as Record<string, string>
@@ -128,7 +128,7 @@ export async function runTranslationsTest(): Promise<number> {
     const d6 = fresh(), deps6 = mk(d6)
     calls.length = 0
     r = await refresh(deps6, false, { percents: { de: 85 } })
-    check(r.stats?.find(s => s.code === 'de')?.translated === 9 || r.stats?.find(s => s.code === 'de')?.translated === 9, 'pretend percent on live numbers')
+    check(r.stats?.find(s => s.code === 'de')?.translated === 9, 'pretend percent on live numbers')
     check(!existsSync(join(d6, 'stats.json')) && !existsSync(join(d6, 'remote.json')), 'nothing cached while pretending')
     await refresh(deps6, false, { percents: { de: 85 } })
     check(calls.length === 6, 'no hour limit while pretending')
@@ -139,6 +139,10 @@ export async function runTranslationsTest(): Promise<number> {
     check(calls.length === 0 && r.offline && r.stats?.find(s => s.code === 'de')?.translated === 0, 'pretend offline: cache, no network')
     r = await refresh(mk(fresh()), false, { offline: true })
     check(r.offline && r.stats === null, 'pretend offline, no cache')
+
+    const real = mk(fresh())
+    check(devDownloadDeps(real, null) === real && devDownloadDeps(real, {}) === real, 'no overrides: real folder')
+    check(devDownloadDeps(real, { percents: { de: 90 } }).dir === join(tmpdir(), 'orfeo-i18n-test') && devDownloadDeps(real, { newer: true }).dir !== real.dir, 'any override: temp folder')
 
     // rememberReady
     const deps3 = mk(fresh())

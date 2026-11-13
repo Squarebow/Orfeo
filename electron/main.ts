@@ -19,8 +19,7 @@ import { nextOrfeoVersion, stripOrfeoSuffix } from '../src/utils/orfeoVersioning
 import { downloadEnding, newerRelease } from '../src/utils/newRelease'
 import type { Hand } from '../src/types'
 import { t, applyLanguage, chooseStartup, defaultChoice } from '../src/utils/i18n'
-import { tmpdir } from 'node:os'
-import { bootState, refresh, download, rememberReady, hasDevOverrides, type DevOverrides } from './translations'
+import { bootState, refresh, download, rememberReady, hasDevOverrides, devDownloadDeps, type DevOverrides } from './translations'
 import bundledTranslations from '../src/i18n/translations.json'
 import type { Snapshot } from '../src/i18n/readiness'
 
@@ -1993,9 +1992,9 @@ ipcMain.on('i18n:boot', (event) => {
   try { event.returnValue = bootState(translationsDeps(), bundledTranslations as Snapshot) }
   catch (e) { console.error('i18n:boot failed', e); event.returnValue = { seenReady: [], downloaded: {}, stats: null, fetchedAt: null, remote: null } }
 })
-// Dev Tools > Translations: pretend numbers, memory only; downloads go to a temporary folder when asked
+// Dev Tools > Translations: pretend numbers, memory only; downloads go to a temporary folder while any are on
 let devTranslations: DevOverrides | null = null
-const devDeps = () => devTranslations?.tempDir ? { ...translationsDeps(), dir: join(tmpdir(), 'orfeo-i18n-test') } : translationsDeps()
+const devDeps = () => devDownloadDeps(translationsDeps(), devTranslations)
 ipcMain.handle('i18n:dev', (_e, o: DevOverrides) => { devTranslations = hasDevOverrides(o) ? o : null })
 ipcMain.handle('i18n:refresh', (_e, force?: boolean) => refresh(translationsDeps(), !!force, devTranslations))
 ipcMain.handle('i18n:download', (_e, code: string) => download(devDeps(), code))

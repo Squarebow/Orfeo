@@ -6,6 +6,7 @@
 // ("needs editing") wordings. The API said translated 51 + fuzzy 1367 = 1418; the file
 // held 1436 keys, 1429 with a non-empty value. So the plain file is enough.
 import { existsSync, mkdirSync, readFileSync, renameSync, rmSync, writeFileSync } from 'node:fs'
+import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import english from '../src/i18n/locales/en.json'
 import { validateCatalog } from '../src/i18n/validateCatalog'
@@ -37,6 +38,10 @@ export function applyDevOverrides(stats: LangStats[], o: DevOverrides | null | u
     return next
   })
 }
+
+// While any pretend setting is on, downloads never touch the real folder
+export const devDownloadDeps = (deps: TranslationsDeps, o: DevOverrides | null | undefined): TranslationsDeps =>
+  hasDevOverrides(o) ? { ...deps, dir: join(tmpdir(), 'orfeo-i18n-test') } : deps
 
 export interface BootState {
   seenReady: string[]
