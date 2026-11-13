@@ -1,9 +1,12 @@
 import { useCallback, useRef, useState } from 'react'
-import { ArrowUpRight, Languages } from 'lucide-react'
+import { Languages } from 'lucide-react'
 import Tooltip from '../Tooltip'
 import { ContextMenu, ContextMenuDivider, ContextMenuItem, useMenuDismiss } from '../ContextMenu'
 import { confirmDialog } from '../../utils/confirmController'
-import { LANGUAGES, SYSTEM, changeLanguage, currentChoice, t } from '../../utils/i18n'
+import { SYSTEM, changeLanguage, currentChoice, hasWords, t } from '../../utils/i18n'
+import { languageName } from '../../i18n/languageNames'
+import { menuItems, pickChangesLanguage } from '../../i18n/menuItems'
+import { useStore } from '../../store'
 
 const MENU_WIDTH = 150
 
@@ -12,6 +15,9 @@ const MENU_WIDTH = 150
 export function LanguageSwitcher() {
   const [menu, setMenu] = useState<{ x: number; y: number } | null>(null)
   const menuRef = useRef<HTMLDivElement>(null)
+  const show = useStore(s => s.showLanguageSwitcher)
+  const menuLanguages = useStore(s => s.menuLanguages)
+  const openSettingsWindow = useStore(s => s.openSettingsWindow)
   const closeMenu = useCallback(() => setMenu(null), [])
   useMenuDismiss(!!menu, menuRef, closeMenu)
 
@@ -49,16 +55,14 @@ export function LanguageSwitcher() {
       </Tooltip>
       {menu && (
         <ContextMenu ref={menuRef} x={menu.x} y={menu.y} minWidth={MENU_WIDTH} ariaLabel={t`Language`} className="app-no-drag">
-          {[{ code: SYSTEM, name: t`Follow system` }, ...LANGUAGES].map(l => (
-            <ContextMenuItem key={l.code} onClick={() => void choose(l.code)}>
-              <span style={{ color: l.code === currentChoice ? 'var(--text-amber)' : undefined }}>{l.name}</span>
+          {menuItems(menuLanguages, c => hasWords(c)).map(code => (
+            <ContextMenuItem key={code} onClick={() => void choose(code)}>
+              <span style={{ color: code === currentChoice ? 'var(--text-amber)' : undefined }}>{languageName(code)}</span>
             </ContextMenuItem>
           ))}
           <ContextMenuDivider />
-          {/* opens the translators' page once it's public */}
-          <ContextMenuItem disabled onClick={() => {}}>
-            <span style={{ flex: 1 }}>{t`Translate`}</span>
-            <ArrowUpRight size={13} strokeWidth={1.5} />
+          <ContextMenuItem onClick={() => { setMenu(null); openSettingsWindow('language') }}>
+            <span style={{ flex: 1 }}>{t`Help translate Orfeo`}</span>
           </ContextMenuItem>
         </ContextMenu>
       )}

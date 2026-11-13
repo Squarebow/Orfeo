@@ -42,12 +42,6 @@ export const startup: { ready: string[]; have: Record<string, string | null>; bo
   boot,
 }
 
-// Languages the old switcher menu lists (a later menu replaces it)
-export const LANGUAGES = [
-  { code: ENGLISH, name: 'English', htmlLang: 'en' },
-  { code: 'zh_Hans', name: '简体中文', htmlLang: 'zh-Hans' },
-].filter(l => l.code === ENGLISH || hasWords(l.code))
-
 // The codes a computer language could mean, best match first. Traditional Chinese
 // readers aren't sent to Simplified: they get English until Orfeo has their script.
 function codesForLocale(locale: string): string[] {
@@ -103,7 +97,7 @@ export const pseudo = (text: string): string =>
   `[${text.replace(/[aeiouAEIOU]/g, v => ACCENTS[v])}${'~'.repeat(Math.ceil(text.length * 0.3))}]`
 
 if (typeof document !== 'undefined' && document.documentElement) {
-  document.documentElement.lang = LANGUAGES.find(l => l.code === currentLanguage)?.htmlLang ?? 'en'
+  document.documentElement.lang = currentLanguage.replace(/_/g, '-')
 }
 
 export async function changeLanguage(code: string) {
