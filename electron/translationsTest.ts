@@ -25,12 +25,16 @@ export async function runTranslationsTest(): Promise<number> {
     for (const k of keys) goodCatalog[k] = 'T:' + k
     const calls: string[] = []
     const headers: unknown[] = []
+    const signals: unknown[] = []
     let offline = false
-    const fakeFetch = (async (url: string, init?: { headers?: unknown }) => {
+    let emptyList = false
+    const fakeFetch = (async (url: string, init?: { headers?: unknown; signal?: unknown }) => {
       calls.push(url)
       headers.push(init?.headers)
+      signals.push(init?.signal)
       if (offline) throw new Error('offline')
       const ok = (body: unknown) => ({ ok: true, status: 200, json: async () => body }) as Response
+      if (url === WEBLATE_LIST && emptyList) return ok({ next: null, results: [{ language_code: 'en', total: 10, translated: 10, fuzzy: 0, last_change: null }] })
       if (url === WEBLATE_LIST) return ok(page1)
       if (url === 'https://x/page2') return ok(page2)
       if (url === EVER_READY_URL) return ok(remoteSnap)
@@ -48,6 +52,7 @@ export async function runTranslationsTest(): Promise<number> {
     check(r.stats?.length === 2 && r.stats[0].code === 'de' && r.stats[0].fuzzy === 1 && r.stats[0].lastChange === '2026-11-02T00:00:00Z', 'maps fields, no English')
     check(r.remote?.de?.percent === 90 && !r.offline && r.fetchedAt === now, 'remote and fetchedAt')
     check(headers.every(h => JSON.stringify(h) === '{"User-Agent":"Orfeo"}'), 'only User-Agent is sent')
+    check(signals.length > 0 && signals.every(x => x instanceof AbortSignal), 'every request gives up after a while')
     check(existsSync(join(d1, 'stats.json')) && existsSync(join(d1, 'remote.json')), 'cache files written')
     now += 1000; calls.length = 0
     r = await refresh(deps1)
@@ -65,6 +70,18 @@ export async function runTranslationsTest(): Promise<number> {
     r = await refresh(mk(fresh()), true)
     check(r.offline && r.stats === null && r.remote === null && r.fetchedAt === null, 'failure without cache gives null')
     offline = false
+
+    // an answer with no languages but English counts as a failed read: cache kept, offline
+    emptyList = true
+    const cachedBefore = readFileSync(join(d1, 'stats.json'), 'utf8')
+    r = await refresh(deps1, true)
+    check(r.offline && r.stats?.length === 2, 'empty list: cached numbers, offline')
+    check(readFileSync(join(d1, 'stats.json'), 'utf8') === cachedBefore, 'empty list never overwrites the cache')
+    r = await refresh(mk(fresh()), true)
+    check(r.offline && r.stats === null, 'empty list without cache gives null')
+    r = await refresh(mk(fresh()), true, { newer: true })
+    check(r.offline && r.stats === null, 'empty list while pretending: offline too')
+    emptyList = false
 
     // download
     const d2 = fresh(), deps2 = mk(d2)

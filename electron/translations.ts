@@ -16,6 +16,8 @@ export const WEBLATE_LIST = 'https://hosted.weblate.org/api/components/orfeo/app
 export const weblateFile = (code: string) => `https://hosted.weblate.org/api/translations/orfeo/app/${code}/file/`
 export const EVER_READY_URL = 'https://raw.githubusercontent.com/Squarebow/Orfeo/stats/translations.json'
 export const MIN_REFRESH_MS = 3_600_000
+// A request that hangs gives up after this long, so the page never waits forever
+export const REQUEST_TIMEOUT_MS = 15_000
 
 export interface TranslationsDeps { fetch: typeof fetch; dir: string; now: () => number }
 // Dev Tools > Translations: session-only pretend numbers, kept in the main process's memory
@@ -117,7 +119,7 @@ export function bootState(deps: TranslationsDeps, bundled: Snapshot): BootState 
 }
 
 async function getJson(deps: TranslationsDeps, url: string): Promise<unknown> {
-  const res = await deps.fetch(url, { headers: HEADERS })
+  const res = await deps.fetch(url, { headers: HEADERS, signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS) })
   if (!res.ok) throw new Error(`HTTP ${res.status}`)
   return res.json()
 }
@@ -137,6 +139,8 @@ async function fetchStats(deps: TranslationsDeps): Promise<LangStats[]> {
     }
     url = body.next ?? null
   }
+  // an answer with no languages is a failed read: the page would show none
+  if (!out.length) throw new Error('no languages')
   return out
 }
 
