@@ -7,8 +7,8 @@ translations.json into the stats branch folder. The release script
 (scripts/i18n-ready.mjs) starts the app's copy from that file, or from Weblate
 when it can't be read, with the same rule: keep merge() here and mergeRecord()
 in src/i18n/releaseWords.ts alike. Per language:
-  percent      whole percent, rounded down, of translated + fuzzy over total
-               (what users see in 1.8; mirrors COUNT_MACHINE_DRAFTS in
+  percent      whole percent, rounded down, of translated (+ fuzzy if COUNT_MACHINE_DRAFTS) over total
+               (mirrors COUNT_MACHINE_DRAFTS in
                src/i18n/readiness.ts)
   total, translated, fuzzy
   readySince   first day (Ljubljana date) checked texts alone reached 80 %.
@@ -33,9 +33,9 @@ from zoneinfo import ZoneInfo
 
 LIST_URL = "https://hosted.weblate.org/api/components/orfeo/app/translations/"
 READY_SHARE = 0.8
-# Keep equal to COUNT_MACHINE_DRAFTS in src/i18n/readiness.ts: 1.8 shows machine
+# Keep equal to COUNT_MACHINE_DRAFTS in src/i18n/readiness.ts: machine
 # drafts ("needs editing") as part of the percentage. readySince ignores this on purpose.
-COUNT_MACHINE_DRAFTS = True
+COUNT_MACHINE_DRAFTS = False
 
 
 def merge(previous, stats, today):
@@ -124,7 +124,7 @@ def self_test():
     assert r["de"]["readySince"] == "2026-11-02", "kept when language missing from fetch"
     r = merge(r, {"fr": row(100, 0, 85)}, "2026-11-05")
     assert r["fr"]["readySince"] is None, "fuzzy-only 85% gets no readySince"
-    assert r["fr"]["percent"] == 85, "percent counts fuzzy"
+    assert r["fr"]["percent"] == (85 if COUNT_MACHINE_DRAFTS else 0), "percent follows COUNT_MACHINE_DRAFTS"
     assert "de" in r and "fr" in r, "new languages added"
     r = merge(r, {"es": row(0, 0)}, "2026-11-06")
     assert r["es"]["percent"] == 0 and r["es"]["readySince"] is None, "empty component"

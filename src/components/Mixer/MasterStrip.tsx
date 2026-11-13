@@ -149,7 +149,7 @@ function CompressorPresetKnob({ presetIndex, onChange, disabled, interactive }: 
   // the same "switch engines" explanation instead of its own preset info —
   // there's nothing preset-specific to say if you can't select any of them.
   const content = hoverPreset === null ? null
-    : disabled ? { title: t`Compressor`, description: t`Switch to the Studio or Native engine to use the Compressor.` }
+    : disabled ? { title: 'Compressor', description: t`Switch to the Studio or Native engine to use the Compressor.` }
     : hovered ? { title: hovered.label, description: t`${hovered.ratio}:1 ratio, ${hovered.threshold} dB threshold` }
     : null
 
@@ -660,15 +660,15 @@ export default function MasterStrip() {
         <MixerKnob
           value={chorus} onChange={handleChorus}
           accentColor="var(--knob-chorus)" size={52}
-          disabled={knobsDisabled} label={t`Chorus`} labelOffset={-10}
-          title={t`Chorus`} description={t`Thickens the overall mix by layering slightly detuned copies of it`}
+          disabled={knobsDisabled} label={'Chorus'} labelOffset={-10}
+          title={'Chorus'} description={t`Thickens the overall mix by layering slightly detuned copies of it`}
           disabledHint={t`Switch to the Studio or Native engine to use Chorus.`}
         />
         <MixerKnob
           value={reverb} onChange={handleReverb}
           accentColor="var(--knob-reverb)" size={52}
-          disabled={knobsDisabled} label={t`Reverb`} labelOffset={-10}
-          title={t`Reverb`} description={t`Adds room/space ambience to the mix`}
+          disabled={knobsDisabled} label={'Reverb'} labelOffset={-10}
+          title={'Reverb'} description={t`Adds room/space ambience to the mix`}
           disabledHint={t`Switch to the Studio or Native engine to use Reverb.`}
         />
       </div>
@@ -721,7 +721,7 @@ export default function MasterStrip() {
             from the usual dark/amber IBtn pattern since this needs to read
             clearly against the knob's own pink even at a glance. */}
         <Tooltip
-          title={knobsDisabled ? t`Compressor` : masterCompEnabled ? t`Compressor on` : t`Compressor off`}
+          title={knobsDisabled ? 'Compressor' : masterCompEnabled ? t`Compressor on` : t`Compressor off`}
           description={knobsDisabled
             ? t`Switch to the Studio or Native engine to use the Compressor.`
             : t`Automatically pulls down the loudest peaks so playback stays clear of digital clipping, without a blanket volume cut. Click to toggle.`}
@@ -764,7 +764,7 @@ export default function MasterStrip() {
             textTransform: 'uppercase', color: 'var(--text-dimmest)',
             userSelect: 'none', lineHeight: 1, whiteSpace: 'nowrap',
           }}>
-            {t`Compressor`}
+            {'Compressor'}
           </span>
         </div>
       </div>

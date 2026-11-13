@@ -363,8 +363,8 @@ export default function ChannelStrip({ trackIndex, locked, isDragging, onDragSta
         <MixerKnob
           value={chorus} onChange={handleChorus}
           accentColor="var(--knob-chorus)" size={52}
-          disabled={knobsDisabled} label={t`Chorus`} labelOffset={-10}
-          title={t`Chorus`} description={t`Thickens the tone`}
+          disabled={knobsDisabled} label={'Chorus'} labelOffset={-10}
+          title={'Chorus'} description={t`Thickens the tone`}
           disabledHint={t`Switch to the Studio or Native engine to use Chorus.`}
         />
       </div>
@@ -378,8 +378,8 @@ export default function ChannelStrip({ trackIndex, locked, isDragging, onDragSta
         <MixerKnob
           value={reverb} onChange={handleReverb}
           accentColor="var(--knob-reverb)" size={52}
-          disabled={knobsDisabled} label={t`Reverb`} labelOffset={-10}
-          title={t`Reverb`} description={t`Adds room/space ambience`}
+          disabled={knobsDisabled} label={'Reverb'} labelOffset={-10}
+          title={'Reverb'} description={t`Adds room/space ambience`}
           disabledHint={t`Switch to the Studio or Native engine to use Reverb.`}
         />
       </div>

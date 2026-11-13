@@ -882,10 +882,10 @@ Two rules matter:
   `readySince` in the record (or its code in the local seen-ready list), so a
   later dip in the percentage, or being offline, never takes it away. That
   lasting record counts **checked texts only** (`isCheckedReady`).
-- **1.8 counts machine drafts.** `COUNT_MACHINE_DRAFTS = true` makes drafts
-  ("needs editing" on Weblate) count towards the percentage shown and towards
-  the 80 % needed now. Set it to `false` to count only texts a person has
-  checked.
+- **Machine drafts don't count.** `COUNT_MACHINE_DRAFTS = false`: drafts
+  ("needs editing" on Weblate) are suggestions for translators only and never
+  make a language ready. Effect names (Chorus, Reverb, Compressor, Limiter) are
+  plain strings, not `t`, so they stay in English in every language.
 
 ---
 

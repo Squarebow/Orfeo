@@ -21,7 +21,7 @@ export function runReadinessTest(): number {
   check(isReadyNow({ total: 100, translated: 80 }), '80 of 100 ready')
   check(!isReadyNow({ total: 100, translated: 79 }), '79 of 100 not ready')
 
-  check(COUNT_MACHINE_DRAFTS, 'machine drafts count in 1.8')
+  if (COUNT_MACHINE_DRAFTS) {
   check(percentOf({ total: 1418, translated: 51, fuzzy: 1367 }) === 100, 'drafts count towards percent')
   check(isReadyNow({ total: 1418, translated: 51, fuzzy: 1367 }), 'drafts make a language ready now')
   check(!isCheckedReady({ total: 1418, translated: 51 }), 'checked-only readiness ignores drafts')
@@ -33,6 +33,11 @@ export function runReadinessTest(): number {
   const frd = dr.find(r => r.code === 'fr')!.status, jad = dr.find(r => r.code === 'ja')!.status
   check(frd.kind === 'needs' && frd.percent === 38, 'needs follows percent with drafts: 38')
   check(jad.kind === 'newWords' && jad.count === 52, 'newWords subtracts drafts: 52')
+  } else {
+  check(!isReadyNow({ total: 1418, translated: 51, fuzzy: 1367 }), 'machine drafts alone never make a language ready')
+  check(percentOf({ total: 1000, translated: 300, fuzzy: 120 }) === 30, 'drafts are not counted in the percentage')
+  }
+  check(!isCheckedReady({ total: 1418, translated: 51 }), 'checked-only readiness ignores drafts')
 
   const snapDe: Snapshot = { de: { percent: 90, total: 100, translated: 90, readySince: T1, lastChange: T1 } }
   check(isReady('de', src(null, snapDe)), 'bundled readySince is ready')

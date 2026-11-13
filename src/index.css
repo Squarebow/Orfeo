@@ -231,7 +231,10 @@ button, input, select, textarea {
      its own typographic identity independent of the UI font. */
   /* Our fonts have no Chinese: these system fonts fill in, per character */
   --font-cjk:  'Microsoft YaHei', 'PingFang SC', 'Noto Sans CJK SC', 'Source Han Sans SC';
-  --font-ui:   'Familjen Grotesk', var(--font-cjk), sans-serif;
+  /* Familjen Grotesk has no Cyrillic or Greek: those letters fall back to the system
+     sans (Segoe UI / Helvetica Neue / Cantarell) before the CJK font, so Russian
+     doesn't land in Microsoft YaHei */
+  --font-ui:   'Familjen Grotesk', 'Segoe UI', 'Helvetica Neue', Cantarell, var(--font-cjk), sans-serif;
   --font-mono: 'IBM Plex Mono', var(--font-cjk), monospace;
   --font-logo: 'Inter', 'Georgia', serif;
 

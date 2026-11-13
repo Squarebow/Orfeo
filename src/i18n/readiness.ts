@@ -2,9 +2,9 @@
 // Pure rules, no UI text: the Settings page turns the statuses into words.
 
 export const READY_SHARE = 0.8
-// 1.8: machine drafts ("needs editing" on Weblate) count towards readiness and the
-// percentages shown. Set to false to count only texts a person has checked.
-export const COUNT_MACHINE_DRAFTS = true
+// Off (user, 13. 11. 2026): only texts a person has checked count; machine drafts
+// ("needs editing" on Weblate) never make a language ready. True would count them.
+export const COUNT_MACHINE_DRAFTS = false
 
 export interface LangStats { code: string; total: number; translated: number; fuzzy: number; lastChange: string | null } // ISO time
 export interface SnapshotEntry { percent: number; total: number; translated: number; fuzzy?: number; readySince: string | null; lastChange: string | null }

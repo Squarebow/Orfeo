@@ -1,3 +1,4 @@
+import { COUNT_MACHINE_DRAFTS } from './readiness'
 import { mergeRecord, releaseWords, type ReleaseWordsDeps } from './releaseWords'
 import type { Snapshot } from './readiness'
 
@@ -17,7 +18,7 @@ export async function runReleaseWordsTest(): Promise<number> {
   r = mergeRecord(r, {}, '2026-11-05')
   check(r.de.readySince === '2026-11-02', 'kept when missing from the list')
   r = mergeRecord(r, { fr: row(100, 0, 85) }, '2026-11-05')
-  check(r.fr.readySince === null && r.fr.percent === 85, 'drafts count in percent, never in readySince')
+  check(r.fr.readySince === null && r.fr.percent === (COUNT_MACHINE_DRAFTS ? 85 : 0), 'drafts follow COUNT_MACHINE_DRAFTS in percent, never in readySince')
   check(r.fr.total === 100 && r.fr.translated === 0 && r.fr.fuzzy === 85 && r.fr.lastChange === '2026-11-01T10:00:00Z', 'fields as given')
   r = mergeRecord(r, { es: row(0, 0) }, '2026-11-06')
   check(r.es.percent === 0 && r.es.readySince === null, 'empty component')
@@ -57,7 +58,7 @@ export async function runReleaseWordsTest(): Promise<number> {
     const s = out.snapshot!
     check(!!s && Object.keys(s).join() === 'de,sl,zh_Hans', `languages from the list, English left out, got ${s && Object.keys(s).join()}`)
     check(asked.includes(LIST2), 'follows next pages')
-    check(s.de.percent === 100 && s.de.readySince === null && s.de.lastChange === T_DE, 'drafts in percent, no readySince for drafts, lastChange from the same run')
+    check(s.de.percent === (COUNT_MACHINE_DRAFTS ? 100 : s.de.translated * 100 / s.de.total | 0) && s.de.readySince === null && s.de.lastChange === T_DE, 'drafts in percent, no readySince for drafts, lastChange from the same run')
     check(s.zh_Hans.readySince === '2026-11-01', 'a readySince already bundled is kept')
     check(s.zh_Hans.lastChange === T_ZH && s.zh_Hans.translated === 17, 'written language: fresh entry')
     check(Object.keys(written).sort().join() === 'de,zh_Hans', 'files written for languages that pass the check')
@@ -70,7 +71,7 @@ export async function runReleaseWordsTest(): Promise<number> {
     const record: Snapshot = { de: { percent: 50, total: 20, translated: 16, readySince: '2026-11-10', lastChange: T_OLD } }
     const { out } = await run({ [LIST]: list, [LIST2]: list2, [RECORD]: record, [file('de')]: words(20, 'DE'), [file('zh_Hans')]: words(19, 'ZH') })
     const s = out.snapshot!
-    check(s.de.readySince === '2026-11-10' && s.de.lastChange === T_DE && s.de.percent === 100, 'record readySince, fresh counts and lastChange')
+    check(s.de.readySince === '2026-11-10' && s.de.lastChange === T_DE && s.de.percent === (COUNT_MACHINE_DRAFTS ? 100 : s.de.translated * 100 / s.de.total | 0), 'record readySince, fresh counts and lastChange')
     check(s.zh_Hans.readySince === '2026-11-13', 'checked-ready today gets today')
   }
   // a file that fails keeps the language's previous entry

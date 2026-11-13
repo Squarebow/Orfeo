@@ -9,6 +9,7 @@ import { menuItems, pickChangesLanguage } from '../../i18n/menuItems'
 import { useStore } from '../../store'
 
 const MENU_WIDTH = 150
+const WEBLATE_PROJECT = 'https://hosted.weblate.org/projects/orfeo/app/'
 
 // ── Language icon under the logo. Translations are still growing, so it's marked
 // beta; a text with no translation yet simply stays in English. ───────────────
@@ -62,8 +63,17 @@ export function LanguageSwitcher() {
             </ContextMenuItem>
           ))}
           <ContextMenuDivider />
-          <ContextMenuItem onClick={() => { setMenu(null); openSettingsWindow('language') }}>
+          <ContextMenuItem onClick={() => { setMenu(null); void window.electronAPI.openExternal(WEBLATE_PROJECT) }}>
             <span style={{ flex: 1 }}>{t`Help translate Orfeo`}</span>
+            <Tooltip title={t`Open language settings`} placement="bottom">
+              <span role="button" aria-label={t`Open language settings`}
+                onClick={(e) => { e.stopPropagation(); setMenu(null); openSettingsWindow('language') }}
+                style={{ display: 'flex', alignItems: 'center', marginLeft: 10, color: 'var(--text-inactive)', cursor: 'pointer' }}
+                onMouseEnter={e => e.currentTarget.style.color = 'var(--text-amber)'}
+                onMouseLeave={e => e.currentTarget.style.color = 'var(--text-inactive)'}>
+                <Languages size={13} strokeWidth={1.5} />
+              </span>
+            </Tooltip>
           </ContextMenuItem>
         </ContextMenu>
       )}

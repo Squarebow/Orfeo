@@ -10,11 +10,10 @@
 ### New
 - **Orfeo in your language.** The menu under the logo now lists English plus the languages you
   tick in Settings › Language, and *Follow system language* picks the one your computer uses. A
-  language can be chosen once 80 % of it is translated; Settings › Language shows how far each
-  one has come on Weblate and links to it. Ready today: Chinese (Simplified), Spanish, Brazilian
-  Portuguese, German, Russian, French and Polish. For now much of the wording is machine-made
-  and still being checked by people, so if you read one of these languages well, you're very
-  welcome to help on Weblate. New translations can arrive between Orfeo versions (choose
+  language can be chosen once people have translated 80 % of it; Settings › Language shows how
+  far each one has come on Weblate and links to it. Translation is just starting, so for now the
+  menu holds English only: want Orfeo in your language? Start translating it on Weblate, and it
+  appears in the menu as soon as it's ready. New translations can arrive between Orfeo versions (choose
   *Download now*, or *Wait for new version of Orfeo*). Thanks to Jacky Jiang (FreeGoStudio) for the
   groundwork.
 - **Your keyboard's own lights.** A keyboard with lighted keys can now show the song's notes

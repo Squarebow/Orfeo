@@ -62,7 +62,7 @@ export const COMPRESSOR_PRESETS: CompPreset[] = [
   { label: t`Gentle`,  threshold: -6,  ratio: 4,  attack: 0.008, knee: 8,  makeupDb: 1.5 },
   { label: t`Medium`,  threshold: -12, ratio: 8,  attack: 0.005, knee: 6,  makeupDb: 3 },
   { label: t`Firm`,    threshold: -18, ratio: 14, attack: 0.003, knee: 3,  makeupDb: 4.5 },
-  { label: t`Limiter`, threshold: -24, ratio: 20, attack: 0.003, knee: 0,  makeupDb: 6 },
+  { label: 'Limiter', threshold: -24, ratio: 20, attack: 0.003, knee: 0,  makeupDb: 6 },
 ]
 export const COMPRESSOR_RELEASE = 0.25
 const dbToGain = (db: number) => Math.pow(10, db / 20)

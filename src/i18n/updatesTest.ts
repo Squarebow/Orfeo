@@ -1,3 +1,4 @@
+import { COUNT_MACHINE_DRAFTS } from './readiness'
 import { checkTranslations } from './updates'
 import type { LangStats, Snapshot } from './readiness'
 
@@ -55,7 +56,7 @@ export async function runUpdatesTest(): Promise<number> {
     const f = make([s, stat('fr', 100, 85)])
     await checkTranslations({}, { ...mkBase(), bridge: f.bridge, have: {}, menuLanguages: [], updates: 'download' })
     check(f.remembered[0]?.join() === 'fr', 'draft-only language not remembered')
-    check(f.downloads.sort().join() === 'de,fr', 'draft-ready language still downloads')
+    check(f.downloads.sort().join() === (COUNT_MACHINE_DRAFTS ? 'de,fr' : 'fr'), 'a draft-ready language downloads only while drafts count')
   }
   // offline: no live numbers, nothing remembered, no crash
   {
