@@ -1,4 +1,4 @@
-import { menuItems, pickChangesLanguage } from './menuItems'
+import { menuItems, pickChangesLanguage, withLanguageInUse } from './menuItems'
 
 export function runMenuItemsTest(): number {
   console.group('[menuItems] self-check')
@@ -12,6 +12,10 @@ export function runMenuItemsTest(): number {
   check(JSON.stringify(menuItems(['de', 'sl'], has, 'sl')) === '["en","de","sl"]', 'a ticked language in use keeps its place')
   check(JSON.stringify(menuItems(['de'], has, 'en')) === '["en","de"]', 'English in use: nothing added')
   check(JSON.stringify(menuItems([], c => c !== 'pseudo', 'pseudo')) === '["en"]', 'a language in use without words is left out')
+  check(JSON.stringify(withLanguageInUse(['de'], 'sl', has)) === '["de","sl"]', 'the language in use is ticked at start')
+  const same = ['de', 'sl']
+  check(withLanguageInUse(same, 'sl', has) === same && withLanguageInUse(same, 'en', has) === same, 'already ticked, or English: unchanged')
+  check(withLanguageInUse(same, 'ru', has) === same, 'a language in use without words is not ticked')
   check(!pickChangesLanguage('de', 'de', 'system'), 'language in use does nothing')
   check(pickChangesLanguage('en', 'de', 'system'), 'other language changes')
   check(pickChangesLanguage('de', 'system', 'system'), 'follow system: any pick saves it')

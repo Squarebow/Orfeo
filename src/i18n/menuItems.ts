@@ -8,6 +8,12 @@ export function menuItems(menuLanguages: readonly string[], hasWords: (code: str
   return out
 }
 
+// At start, the language in use is ticked if it isn't yet (Follow system, or a choice from before the
+// tick list existed), so Settings shows what the menu shows. Same list back when nothing changes.
+export function withLanguageInUse(menuLanguages: string[], inUse: string, hasWords: (code: string) => boolean): string[] {
+  return inUse === 'en' || menuLanguages.includes(inUse) || !hasWords(inUse) ? menuLanguages : [...menuLanguages, inUse]
+}
+
 // Whether picking a language should ask to reload: the language in use does
 // nothing, unless Follow system is on (then it saves that language explicitly).
 export function pickChangesLanguage(code: string, choice: string, system: string): boolean {

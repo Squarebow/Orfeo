@@ -9,7 +9,8 @@ import type { ForeignFormat } from '../utils/foreignFormatImport'
 import type { ProgressionVoicing } from '../utils/voiceLeading'
 import { detectKeyFromTracks, parseKeySignature } from '../utils/keyDetection'
 import { isKeyboardInstrument } from '../utils/gmInstruments'
-import { currentChoice, currentLanguage, SYSTEM } from '../utils/i18n'
+import { currentLanguage, hasWords } from '../utils/i18n'
+import { withLanguageInUse } from '../i18n/menuItems'
 import { checkTranslations } from '../i18n/updates'
 import { parseMidiBuffer } from '../utils/midiParser'
 import { songKey as computeSongKey } from '../utils/songIdentity'
@@ -1480,10 +1481,10 @@ async function restoreLibraryPrefs() {
     if (prefs.hitEffectScope === 'keyboard' || prefs.hitEffectScope === 'all') store.setHitEffectScope(prefs.hitEffectScope)
     if (typeof prefs.hitEffectColor === 'string' || prefs.hitEffectColor === null) store.setHitEffectColor(prefs.hitEffectColor)
     if (prefs.selectedSoundfont === 'fluidr3-gm' || prefs.selectedSoundfont === 'musescore-general') store.setSelectedSoundfont(prefs.selectedSoundfont)
-    // Follow system language with the computer's language now in use: the menu lists it (ticked)
-    if (currentChoice === SYSTEM && currentLanguage !== 'en' && !useStore.getState().menuLanguages.includes(currentLanguage)) {
-      store.setMenuLanguages([...useStore.getState().menuLanguages, currentLanguage])
-    }
+    // The language in use (Follow system, or chosen before the tick list existed) is ticked, as the menu lists it
+    const menuNow = useStore.getState().menuLanguages
+    const menuWithInUse = withLanguageInUse(menuNow, currentLanguage, c => hasWords(c))
+    if (menuWithInUse !== menuNow) store.setMenuLanguages(menuWithInUse)
     // New translations are fetched in the background; nothing waits on it
     void checkTranslations({}).catch(() => {})
   } catch (e) {

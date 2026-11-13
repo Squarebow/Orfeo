@@ -7,6 +7,7 @@ import { confirmDialog } from '../../../utils/confirmController'
 import { buildRows, READY_SHARE, type LangRow, type LangStatus, type ReadySources, type Snapshot } from '../../../i18n/readiness'
 import { checkTranslations, resetSavedThisSession, type CheckResult } from '../../../i18n/updates'
 import { languageName } from '../../../i18n/languageNames'
+import { shortTime, tickState } from '../../../i18n/languagePage'
 import bundledTranslations from '../../../i18n/translations.json'
 import { Switch } from '../controls'
 import type { SettingDef } from '../types'
@@ -58,8 +59,8 @@ function useRows(): { rows: LangRow[]; fetchedAt: number | null; offline: boolea
   }
 }
 
-const shortTime = (ms: number): string =>
-  `${new Date(ms).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })} ${new Date(ms).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' })}`
+// The html lang is the language in use (pseudo shows as English)
+const pageLocale = (): string => (typeof document !== 'undefined' && document.documentElement?.lang) || 'en-GB'
 
 function statusText(s: LangStatus): string {
   switch (s.kind) {
@@ -125,9 +126,11 @@ function MenuLanguagesControl() {
   return (
     <div style={{ display: 'grid', gridAutoFlow: 'column', gridTemplateRows: `repeat(${Math.ceil(count / 3)}, auto)`, gridAutoColumns: 'minmax(0, 1fr)', columnGap: 16 }}>
       <Tick checked disabled label={languageName('en')} />
-      {rows.map(r => r.tickable
-        ? <Tick key={r.code} checked={ticked.includes(r.code)} label={languageName(r.code)} onClick={() => toggle(r.code)} />
-        : <Tick key={r.code} checked={false} disabled label={`${languageName(r.code)} (${r.percent} %)`} />)}
+      {rows.map(r => {
+        const s = tickState(r, ticked, currentLanguage, c => c in startup.have)
+        return <Tick key={r.code} checked={s.checked} disabled={s.disabled} onClick={() => toggle(r.code)}
+          label={s.percent === null ? languageName(r.code) : `${languageName(r.code)} (${s.percent} %)`} />
+      })}
     </div>
   )
 }
@@ -139,7 +142,7 @@ const headCell: CSSProperties = { fontSize: 9, fontWeight: 600, letterSpacing: '
 function TranslationsControl() {
   useCheckOnOpen()
   const { rows, fetchedAt, offline } = useRows()
-  const when = fetchedAt !== null ? shortTime(fetchedAt) : null
+  const when = fetchedAt !== null ? shortTime(fetchedAt, pageLocale()) : null
   const note = offline
     ? (when ? t`Weblate can't be reached. Numbers from ${when}.` : t`Weblate can't be reached.`)
     : when ? t`Numbers from Weblate, ${when}` : null
