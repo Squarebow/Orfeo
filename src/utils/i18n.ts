@@ -88,7 +88,7 @@ function savedChoice(): string {
 // The computer's language: the one main read, so both sides pick the same; the page's own if main gave none
 export const systemLocale = (b: BootState | null, own: string): string => b?.locale || own
 
-export const currentChoice = savedChoice()
+export let currentChoice = savedChoice()
 const initial = chooseStartup(currentChoice, systemLocale(boot, typeof navigator === 'undefined' ? '' : navigator.language))
 export const currentLanguage = initial.code
 let language = currentLanguage
@@ -108,9 +108,16 @@ if (typeof document !== 'undefined' && document.documentElement) {
   document.documentElement.lang = currentLanguage === PSEUDO ? 'en' : currentLanguage.replace(/_/g, '-')
 }
 
+// Save the choice for the next start and tell the main process, without reloading
+export async function saveChoice(code: string, deps: { storage: Pick<Storage, 'setItem'>; setLanguage: (code: string) => Promise<unknown> } =
+  { storage: localStorage, setLanguage: c => window.electronAPI.setLanguage(c) }) {
+  deps.storage.setItem(LANGUAGE_KEY, code)
+  currentChoice = code
+  await deps.setLanguage(code)
+}
+
 export async function changeLanguage(code: string) {
-  localStorage.setItem(LANGUAGE_KEY, code)
-  await window.electronAPI.setLanguage(code)
+  await saveChoice(code)
   location.reload()
 }
 

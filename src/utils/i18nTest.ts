@@ -1,7 +1,7 @@
-import { defaultChoice, pseudo, resolveLanguage, SYSTEM, t, translated, wordsFor, systemLocale } from './i18n'
+import { defaultChoice, pseudo, resolveLanguage, SYSTEM, t, translated, wordsFor, systemLocale, saveChoice, currentChoice } from './i18n'
 import type { BootState } from '../../electron/translations'
 
-export function runI18nTest(): number {
+export async function runI18nTest(): Promise<number> {
   console.group('[i18n] self-check')
   let pass = 0, fail = 0
   const check = (c: boolean, m: string) => { c ? pass++ : (fail++, console.error('FAIL:', m)) }
@@ -38,6 +38,15 @@ export function runI18nTest(): number {
   check(pick('it', 'en-US') === 'en', 'a chosen language with no words at all is English')
   check(pick('pseudo', 'en-US') === 'pseudo', 'the test language resolves in test builds')
   check(defaultChoice() === 'en', 'nothing saved means English')
+
+  // Saving a choice without reloading (Follow system turned off): same saved choice as a change, no reload
+  const stored: Record<string, string> = {}
+  const told: string[] = []
+  const fakes = { storage: { setItem: (k: string, v: string) => { stored[k] = v } }, setLanguage: async (c: string) => { told.push(c) } }
+  await saveChoice('de', fakes)
+  check(stored['orfeo-language'] === 'de' && told.join() === 'de', 'saved where a language change saves it, and main is told')
+  check(currentChoice === 'de', 'the page knows the new choice without reloading')
+  await saveChoice('en', fakes)
 
   // Downloaded words go on top of the shipped ones: a text reworded since keeps its old translation
   const bootWith = (d: Record<string, string>): BootState => ({ seenReady: [], downloaded: { de: { catalog: d, lastChange: null } }, stats: null, fetchedAt: null, remote: null, locale: '' })

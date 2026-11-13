@@ -2,7 +2,7 @@ import { useEffect, useState, type CSSProperties } from 'react'
 import { Eye, Globe, ListChecks, Languages, CloudDownload } from 'lucide-react'
 import { useStore } from '../../../store'
 import { t } from '../../../utils/i18n'
-import { SYSTEM, changeLanguage, currentChoice, currentLanguage, startup } from '../../../utils/i18n'
+import { SYSTEM, changeLanguage, currentChoice, currentLanguage, saveChoice, startup } from '../../../utils/i18n'
 import { confirmDialog } from '../../../utils/confirmController'
 import { buildRows, READY_SHARE, type LangRow, type LangStatus, type ReadySources, type Snapshot } from '../../../i18n/readiness'
 import { checkTranslations, resetSavedThisSession, type CheckResult } from '../../../i18n/updates'
@@ -85,18 +85,24 @@ function ShowSwitcherControl() {
   return <Switch value={on} onChange={useStore.getState().setShowLanguageSwitcher} label={t`Show language switcher`} />
 }
 
-// ── Follow system language: same reload question as the menu ──
+// ── Follow system language. On: same reload question as the menu. Off: the language
+// in use stays, saved as an explicit choice, so nothing reloads ──
 function FollowSystemControl() {
+  const [following, setFollowing] = useState(currentChoice === SYSTEM)
   const change = async (on: boolean) => {
+    if (!on) {
+      try { await saveChoice(currentLanguage); setFollowing(false) } catch { /* stays on */ }
+      return
+    }
     const choice = await confirmDialog({
       title: t`Change language`,
       message: t`Orfeo reloads to change language.`,
       detail: t`The song stops, and changes you haven't saved are lost.`,
       buttons: [t`Change language`, t`Cancel`],
     })
-    if (choice === 0) void changeLanguage(on ? SYSTEM : currentLanguage)
+    if (choice === 0) void changeLanguage(SYSTEM)
   }
-  return <Switch value={currentChoice === SYSTEM} onChange={on => void change(on)} label={t`Follow system language`} />
+  return <Switch value={following} onChange={on => void change(on)} label={t`Follow system language`} />
 }
 
 // ── Languages in the menu: three columns, filling down then across ──
