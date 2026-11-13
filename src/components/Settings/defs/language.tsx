@@ -46,7 +46,7 @@ function useRows(): { rows: LangRow[]; fetchedAt: number | null; offline: boolea
   const l = useLatest()
   const updates = useStore(s => s.translationUpdates)
   const src: ReadySources = {
-    live: l.result?.stats ?? startup.boot?.stats ?? null,
+    live: l.result?.stats?.length ? l.result.stats : startup.boot?.stats ?? null,
     bundled: bundledTranslations as Snapshot,
     remote: l.result?.remote ?? startup.boot?.remote ?? null,
     seenReady: startup.boot?.seenReady ?? [],

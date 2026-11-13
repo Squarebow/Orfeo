@@ -29,9 +29,12 @@ export function isCheckedReady(s: { total: number; translated: number }): boolea
 
 interface Chosen { total: number; translated: number; fuzzy?: number; lastChange: string | null }
 
+// An empty live list (Weblate answered with no languages) counts as no live numbers
+const liveOf = (src: ReadySources): LangStats[] | null => (src.live?.length ? src.live : null)
+
 // Live numbers win, then the remote snapshot, then the bundled one.
 function chosen(code: string, src: ReadySources): Chosen | null {
-  const l = src.live?.find(x => x.code === code)
+  const l = liveOf(src)?.find(x => x.code === code)
   if (l) return l
   return src.remote?.[code] ?? src.bundled[code] ?? null
 }
@@ -56,7 +59,8 @@ export type LangStatus =
 export interface LangRow { code: string; percent: number; ready: boolean; tickable: boolean; status: LangStatus }
 
 function codesOf(src: ReadySources): string[] {
-  const keys = src.live ? src.live.map(l => l.code) : Object.keys(src.remote ?? src.bundled)
+  const live = liveOf(src)
+  const keys = live ? live.map(l => l.code) : Object.keys(src.remote ?? src.bundled)
   return [...new Set(keys)].filter(c => c !== 'en')
 }
 

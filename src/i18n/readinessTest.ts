@@ -77,6 +77,11 @@ export function runReadinessTest(): number {
   const rr = buildRows(src(null, snapDe, { fr: { percent: 42, total: 100, translated: 42, readySince: null, lastChange: T1 } }), {}, 'download')
   check(rr.length === 1 && rr[0].code === 'fr', 'rows come from remote when there are no live numbers')
   check(buildRows(src(null, snapDe), {}, 'download').length === 1, 'rows from bundled only')
+  const remoteFr: Snapshot = { fr: { percent: 42, total: 100, translated: 42, readySince: null, lastChange: T1 } }
+  const er = buildRows(src([], snapDe, remoteFr), {}, 'download')
+  check(er.length === 1 && er[0].code === 'fr', 'an empty live list counts as no live numbers: rows from remote')
+  check(buildRows(src([], snapDe), {}, 'download').length === 1, 'an empty live list falls back to bundled')
+  check(languagesToDownload(src([], snapDe), {}, []).length === languagesToDownload(src(null, snapDe), {}, []).length, 'empty live list downloads as if offline')
 
   // languagesToDownload
   const dl = languagesToDownload(s, have, ['de', 'it', 'fr'])
