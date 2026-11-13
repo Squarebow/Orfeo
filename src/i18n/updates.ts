@@ -18,8 +18,12 @@ export interface UpdateDeps {
   menuLanguages: string[]
   currentLanguage: string
   updates: 'download' | 'wait'
+  saved: Record<string, string | null>
 }
 export type CheckResult = Awaited<ReturnType<Bridge['i18nRefresh']>>
+
+// Languages saved this session and the version they were saved at, so later checks don't fetch them again
+const savedThisSession: Record<string, string | null> = {}
 
 export async function checkTranslations(opts: { force?: boolean }, deps: Partial<UpdateDeps> = {}): Promise<CheckResult> {
   const bridge = deps.bridge ?? (window.electronAPI as unknown as Bridge)
@@ -29,13 +33,22 @@ export async function checkTranslations(opts: { force?: boolean }, deps: Partial
     const ready = stats.filter(isCheckedReady).map(s => s.code)
     if (ready.length) await bridge.i18nRememberReady(ready)
   }
-  const store = deps.menuLanguages && deps.updates ? null : (await import('../store')).useStore.getState()
-  const updates = deps.updates ?? store!.translationUpdates
+  let store: { translationUpdates: 'download' | 'wait'; menuLanguages: string[] } | null = null
+  if (!(deps.menuLanguages && deps.updates)) {
+    try { store = (await import('../store')).useStore.getState() } catch { /* no store: wait, no menu */ }
+  }
+  const updates = deps.updates ?? store?.translationUpdates ?? 'wait'
   if (updates !== 'download') return result
   const src: ReadySources = { live: stats, bundled: deps.bundled ?? (bundledTranslations as Snapshot), remote, seenReady: deps.seenReady ?? startup.boot?.seenReady ?? [] }
-  const wanted = [...(deps.menuLanguages ?? store!.menuLanguages), deps.currentLanguage ?? inUse]
-  for (const code of languagesToDownload(src, deps.have ?? startup.have, wanted)) {
-    try { await bridge.i18nDownload(code) } catch { /* the next start tries again */ }
+  const wanted = [...(deps.menuLanguages ?? store?.menuLanguages ?? []), deps.currentLanguage ?? inUse]
+  const saved = deps.saved ?? savedThisSession
+  for (const code of languagesToDownload(src, { ...(deps.have ?? startup.have), ...saved }, wanted)) {
+    try {
+      if (await bridge.i18nDownload(code) === 'saved') {
+        const c = stats?.find(x => x.code === code) ?? remote?.[code] ?? src.bundled[code]
+        saved[code] = c?.lastChange ?? null
+      }
+    } catch { /* the next start tries again */ }
   }
   return result
 }

@@ -18,12 +18,12 @@ export async function runUpdatesTest(): Promise<number> {
     }
     return { bridge, downloads, remembered, refreshes }
   }
-  const base = { bundled: {} as Snapshot, seenReady: [] as string[], currentLanguage: 'en' }
+  const mkBase = () => ({ bundled: {} as Snapshot, seenReady: [] as string[], currentLanguage: 'en', saved: {} as Record<string, string | null> })
 
   // download: new ready language with no words is fetched; a not-ready one is not
   {
     const f = make([stat('de', 100, 90), stat('fr', 100, 10)])
-    const r = await checkTranslations({ force: true }, { ...base, bridge: f.bridge, have: {}, menuLanguages: [], updates: 'download' })
+    const r = await checkTranslations({ force: true }, { ...mkBase(), bridge: f.bridge, have: {}, menuLanguages: [], updates: 'download' })
     check(f.downloads.join() === 'de', 'downloads only the ready language')
     check(f.refreshes[0] === true, 'force passed on')
     check(r.stats?.length === 2 && !r.offline, 'returns the refresh result')
@@ -32,7 +32,7 @@ export async function runUpdatesTest(): Promise<number> {
   // wait: never downloads, still remembers
   {
     const f = make([stat('de', 100, 90)])
-    await checkTranslations({}, { ...base, bridge: f.bridge, have: {}, menuLanguages: [], updates: 'wait' })
+    await checkTranslations({}, { ...mkBase(), bridge: f.bridge, have: {}, menuLanguages: [], updates: 'wait' })
     check(f.downloads.length === 0, 'wait never downloads')
     check(f.remembered[0]?.join() === 'de', 'wait still remembers')
   }
@@ -40,35 +40,50 @@ export async function runUpdatesTest(): Promise<number> {
   {
     const f = make([stat('de', 100, 90, '2026-11-10T00:00:00Z'), stat('pl', 100, 90, '2026-11-10T00:00:00Z')])
     const have = { de: '2026-11-01T00:00:00Z', pl: '2026-11-01T00:00:00Z' }
-    await checkTranslations({}, { ...base, bridge: f.bridge, have, menuLanguages: ['de'], updates: 'download' })
+    await checkTranslations({}, { ...mkBase(), bridge: f.bridge, have, menuLanguages: ['de'], updates: 'download' })
     check(f.downloads.join() === 'de', 'only wanted language with newer words is updated')
   }
   // current language counts as wanted
   {
     const f = make([stat('pl', 100, 90, '2026-11-10T00:00:00Z')])
-    await checkTranslations({}, { ...base, bridge: f.bridge, have: { pl: '2026-11-01T00:00:00Z' }, menuLanguages: [], currentLanguage: 'pl', updates: 'download' })
+    await checkTranslations({}, { ...mkBase(), bridge: f.bridge, have: { pl: '2026-11-01T00:00:00Z' }, menuLanguages: [], currentLanguage: 'pl', updates: 'download' })
     check(f.downloads.join() === 'pl', 'language in use is kept up to date')
   }
   // drafts: remembered list is checked-only
   {
     const s = { ...stat('de', 100, 50), fuzzy: 40 }
     const f = make([s, stat('fr', 100, 85)])
-    await checkTranslations({}, { ...base, bridge: f.bridge, have: {}, menuLanguages: [], updates: 'download' })
+    await checkTranslations({}, { ...mkBase(), bridge: f.bridge, have: {}, menuLanguages: [], updates: 'download' })
     check(f.remembered[0]?.join() === 'fr', 'draft-only language not remembered')
     check(f.downloads.sort().join() === 'de,fr', 'draft-ready language still downloads')
   }
   // offline: no live numbers, nothing remembered, no crash
   {
     const f = make(null)
-    const r = await checkTranslations({}, { ...base, bridge: f.bridge, have: {}, menuLanguages: [], updates: 'download' })
+    const r = await checkTranslations({}, { ...mkBase(), bridge: f.bridge, have: {}, menuLanguages: [], updates: 'download' })
     check(r.offline && f.remembered.length === 0 && f.downloads.length === 0, 'offline does nothing')
   }
   // a failing download does not stop the rest
   {
     const f = make([stat('de', 100, 90), stat('fr', 100, 90)])
     const bridge = { ...f.bridge, i18nDownload: async (c: string) => { f.downloads.push(c); if (c === 'de') throw new Error('x'); return 'saved' as const } }
-    await checkTranslations({}, { ...base, bridge, have: {}, menuLanguages: [], updates: 'download' })
+    await checkTranslations({}, { ...mkBase(), bridge, have: {}, menuLanguages: [], updates: 'download' })
     check(f.downloads.length === 2, 'one failure does not stop the others')
+  }
+
+  // saved this session: a second check with the same numbers fetches nothing
+  {
+    const f = make([stat('de', 100, 90)])
+    const d = { ...mkBase(), bridge: f.bridge, have: {}, menuLanguages: [] as string[], updates: 'download' as const, saved: {} as Record<string, string | null> }
+    await checkTranslations({}, d); await checkTranslations({}, d)
+    check(f.downloads.join() === 'de', 'two checks in a row download once')
+  }
+  // no store reachable and nothing injected: does not reject
+  {
+    const f = make([stat('de', 100, 90)])
+    let ok = true
+    try { await checkTranslations({}, { ...mkBase(), bridge: f.bridge, have: {}, saved: {} }) } catch { ok = false }
+    check(ok, 'never rejects')
   }
 
   console.log(`${pass} passed, ${fail} failed`)
