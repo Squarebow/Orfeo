@@ -19,6 +19,9 @@ import { nextOrfeoVersion, stripOrfeoSuffix } from '../src/utils/orfeoVersioning
 import { downloadEnding, newerRelease } from '../src/utils/newRelease'
 import type { Hand } from '../src/types'
 import { t, applyLanguage, resolveLanguage, SYSTEM } from '../src/utils/i18n'
+import { bootState, refresh, download, rememberReady } from './translations'
+import bundledTranslations from '../src/i18n/translations.json'
+import type { Snapshot } from '../src/i18n/readiness'
 
 // ── Electron defaults app.getName() to package.json's "name" ("orfeo"),
 // not "productName" ("Orfeo") — that name feeds app.getPath('userData'),
@@ -1977,6 +1980,12 @@ const releaseTest = app.isPackaged ? undefined : process.env.ORFEO_RELEASE_TEST
 // Language for the Open/Save windows and messages from this side of the app. The
 // PDF transcript stays English: its built-in fonts have no other scripts.
 ipcMain.handle('language:set', (_e, code: string) => { savePrefs({ language: code }); applyLanguage(resolveLanguage(code, app.getLocale())) })
+// Translations: Weblate numbers, language files in userData, start-up snapshot (sync, disk only)
+const translationsDeps = () => ({ fetch, dir: join(app.getPath('userData'), 'translations'), now: Date.now })
+ipcMain.on('i18n:boot', (event) => { event.returnValue = bootState(translationsDeps(), bundledTranslations as Snapshot) })
+ipcMain.handle('i18n:refresh', (_e, force?: boolean) => refresh(translationsDeps(), !!force))
+ipcMain.handle('i18n:download', (_e, code: string) => download(translationsDeps(), code))
+ipcMain.handle('i18n:remember-ready', (_e, codes: string[]) => rememberReady(translationsDeps(), codes))
 
 ipcMain.handle('update:new-version', async (): Promise<string | null> => {
   if (updateMode !== 'manual' || !(app.isPackaged || releaseTest)) return null

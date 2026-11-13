@@ -254,6 +254,11 @@ declare global {
       checkForUpdates:     () => Promise<void>
       getNewVersion:       () => Promise<string | null>
       setLanguage:         (code: string) => Promise<void>
+      // Translations (Settings > Translations)
+      i18nBoot:            () => import('../../electron/translations').BootState
+      i18nRefresh:         (force?: boolean) => Promise<{ stats: import('../i18n/readiness').LangStats[] | null; remote: import('../i18n/readiness').Snapshot | null; fetchedAt: number | null; offline: boolean }>
+      i18nDownload:        (code: string) => Promise<'saved' | 'invalid' | 'failed'>
+      i18nRememberReady:   (codes: string[]) => Promise<void>
       installUpdate:       () => Promise<void>
       onUpdateStatus:      (fn: (data: UpdateStatus) => void) => void
       offUpdateStatus:     () => void
