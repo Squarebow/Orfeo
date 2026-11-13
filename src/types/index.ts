@@ -259,6 +259,7 @@ declare global {
       i18nRefresh:         (force?: boolean) => Promise<{ stats: import('../i18n/readiness').LangStats[] | null; remote: import('../i18n/readiness').Snapshot | null; fetchedAt: number | null; offline: boolean }>
       i18nDownload:        (code: string) => Promise<'saved' | 'invalid' | 'failed'>
       i18nRememberReady:   (codes: string[]) => Promise<void>
+      i18nDev:             (overrides: { percents?: Record<string, number>; offline?: boolean; newer?: boolean; tempDir?: boolean }) => Promise<void>
       installUpdate:       () => Promise<void>
       onUpdateStatus:      (fn: (data: UpdateStatus) => void) => void
       offUpdateStatus:     () => void

@@ -189,6 +189,67 @@ function UpdatesControl() {
   )
 }
 
+// ── Dev Tools › Translations: pretend numbers, session only (nothing saved) ──
+const PRESETS = [0, 42, 79, 80, 100]
+const devBtn: CSSProperties = {
+  background: 'var(--bg-row)', border: '1px solid var(--border2)', borderRadius: 4, padding: '3px 8px', cursor: 'pointer',
+  color: 'var(--text-default)', fontSize: 'var(--text-xs)', fontFamily: 'var(--font-ui)',
+}
+
+export function TranslationsTestPanel() {
+  const l = useLatest()
+  const stats = l.result?.stats ?? startup.boot?.stats ?? null
+  const [percents, setPercents] = useState<Record<string, number>>({})
+  const [offline, setOffline] = useState(false)
+  const [newer, setNewer] = useState(false)
+  const [tempDir, setTempDir] = useState(false)
+  const [msg, setMsg] = useState('')
+  const dev = window.electronAPI as unknown as { i18nDev: (o: object) => Promise<void> }
+  const apply = async () => {
+    setMsg('Checking...')
+    try {
+      await dev.i18nDev({ percents, offline, newer, tempDir })
+      const r = await checkTranslations({ force: true })
+      setLatest({ result: r, failed: false })
+      setMsg(r.offline ? 'Done: Weblate counted as not reachable.' : 'Done: the Language page now shows these numbers.')
+    } catch { setLatest({ result: latest.result, failed: true }); setMsg('The check failed.') }
+  }
+  const clear = async () => {
+    setPercents({}); setOffline(false); setNewer(false); setTempDir(false)
+    await dev.i18nDev({})
+    try { setLatest({ result: await checkTranslations({ force: true }), failed: false }); setMsg('Cleared: the real numbers are back.') } catch { setMsg('Cleared. The real check failed.') }
+  }
+  const tick = (label: string, v: boolean, set: (b: boolean) => void) => <Tick checked={v} label={label} onClick={() => set(!v)} />
+  return (
+    <div style={{ display: 'grid', gap: 10 }}>
+      {stats === null && <div style={{ fontSize: 'var(--text-xs)', color: 'var(--text-faint)' }}>No numbers yet: open Settings › Language once, or press Apply.</div>}
+      {stats?.map(s => (
+        <div key={s.code} style={{ display: 'grid', gridTemplateColumns: 'minmax(90px, 22%) minmax(0, 1fr)', columnGap: 10, alignItems: 'center' }}>
+          <div style={{ fontSize: 'var(--text-xs)', color: 'var(--text-default)', fontFamily: 'var(--font-ui)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{languageName(s.code)}</div>
+          <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap' }}>
+            {PRESETS.map(p => (
+              <button key={p} onClick={() => setPercents(o => { const n = { ...o }; if (n[s.code] === p) delete n[s.code]; else n[s.code] = p; return n })}
+                style={{ ...devBtn, color: percents[s.code] === p ? 'var(--bg-modal)' : 'var(--text-default)', background: percents[s.code] === p ? 'var(--text-amber)' : 'var(--bg-row)' }}>{p} %</button>
+            ))}
+          </div>
+        </div>
+      ))}
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, minmax(0, 1fr))', columnGap: 12 }}>
+        {tick('Pretend offline', offline, setOffline)}
+        {tick('Pretend Weblate has newer words', newer, setNewer)}
+        {tick('Download into a temporary folder', tempDir, setTempDir)}
+      </div>
+      <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+        <button onClick={() => void apply()} style={devBtn}>Apply and check again</button>
+        <button onClick={() => void clear()} style={devBtn}>Clear</button>
+        <button onClick={() => void changeLanguage('pseudo')} style={devBtn}>Pseudo language</button>
+        <button onClick={() => void changeLanguage('en')} style={devBtn}>Back to English</button>
+      </div>
+      {msg && <div style={{ fontSize: 'var(--text-xs)', color: 'var(--text-faint)', fontFamily: 'var(--font-ui)' }}>{msg}</div>}
+    </div>
+  )
+}
+
 // This card has no description of its own: the two rows say it all
 const NoDescription = () => null
 

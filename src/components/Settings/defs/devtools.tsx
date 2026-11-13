@@ -1,8 +1,9 @@
-import { KeyboardMusic, Music2, TriangleAlert, ListOrdered, MicVocal, MousePointerClick, Heart, Ruler, Lightbulb } from 'lucide-react'
+import { KeyboardMusic, Music2, TriangleAlert, ListOrdered, MicVocal, MousePointerClick, Heart, Ruler, Lightbulb, Languages } from 'lucide-react'
 import type { SettingDef } from '../types'
 import { SimulatorPanel, KeyRangeTestPanel, KeyLightsTestPanel } from './midi'
 import { ExplorersHearPreview, UnsavedWarningPreview } from './playback'
 import { QueueTestPanel, LyricsTestPanel, OpenWithTestPanel } from './library'
+import { TranslationsTestPanel } from './language'
 import { SupportNotePreview } from './appearance'
 
 // ── Dev Tools — every "test builds only" tool in one group, shown only in dev
@@ -17,5 +18,6 @@ export const DEVTOOLS_DEFS: SettingDef[] = [
   { id: 'devQueue', icon: ListOrdered, kind: 'choice', Control: QueueTestPanel },
   { id: 'devLyrics', icon: MicVocal, kind: 'choice', Control: LyricsTestPanel },
   { id: 'devOpenWith', icon: MousePointerClick, kind: 'choice', Control: OpenWithTestPanel },
+  { id: 'devTranslations', icon: Languages, kind: 'choice', Control: TranslationsTestPanel },
   { id: 'devSupportNote', icon: Heart, kind: 'choice', Control: SupportNotePreview },
 ]

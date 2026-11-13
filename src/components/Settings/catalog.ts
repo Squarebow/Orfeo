@@ -32,7 +32,7 @@ export type SettingId =
   | 'showLanguageSwitcher' | 'followSystemLanguage' | 'menuLanguages' | 'translations' | 'translationUpdates'
   | 'midiKeyboards' | 'midiReconnect' | 'liveResponse' | 'latencyOffset' | 'gmOutput' | 'touchResponse' | 'duplicateFilter'
   | 'pedalsControls' | 'delayCheck' | 'midiTools'
-  | 'keyLights' | 'devKeyboard' | 'devKeyRange' | 'devKeyLights' | 'devExplorers' | 'devClosingWarning' | 'devQueue' | 'devLyrics' | 'devOpenWith' | 'devSupportNote'
+  | 'keyLights' | 'devKeyboard' | 'devKeyRange' | 'devKeyLights' | 'devExplorers' | 'devClosingWarning' | 'devQueue' | 'devLyrics' | 'devOpenWith' | 'devSupportNote' | 'devTranslations'
 
 export interface SettingInfo {
   id: SettingId
@@ -278,6 +278,9 @@ export const SETTINGS: SettingInfo[] = [
   { id: 'devKeyLights', group: 'devtools', name: 'Key lights', summary: 'Light the keys of a simulated keyboard.',
     description: 'Plug in a simulated keyboard, PartyKeys included, choose how its lights are driven, light a chord or the Try it scale, and see the last messages Orfeo sent it. Session only, nothing saved.',
     keywords: 'dev test key lights led partykeys sysex lighted keyboard' },
+  { id: 'devTranslations', group: 'devtools', name: 'Translations', summary: 'Fake Weblate numbers, offline and new words.',
+    description: 'Pretend a language is at any percentage, that Weblate cannot be reached, or that it has newer words, then check again to see Settings > Language and the menu react. Downloads can go to a temporary folder. Session only, nothing saved.',
+    keywords: 'dev test translations language weblate percent offline download pseudo' },
   { id: 'devKeyRange', group: 'devtools', name: 'Keyboard range', summary: 'The lowest-and-highest-key pop-up.',
     description: 'Shows the pop-up that asks a new keyboard for its lowest and highest key, for a pretend keyboard: any key counts, from a real or simulated keyboard or the buttons. Nothing is saved; only the on-screen keyboard size changes, as it would for real.',
     keywords: 'dev test keyboard range keys lowest highest measure size' },

@@ -17,6 +17,27 @@ export const EVER_READY_URL = 'https://raw.githubusercontent.com/Squarebow/Orfeo
 export const MIN_REFRESH_MS = 3_600_000
 
 export interface TranslationsDeps { fetch: typeof fetch; dir: string; now: () => number }
+// Dev Tools > Translations: session-only pretend numbers, kept in the main process's memory
+export interface DevOverrides { percents?: Record<string, number>; offline?: boolean; newer?: boolean; tempDir?: boolean }
+export const hasDevOverrides = (o: DevOverrides | null | undefined): o is DevOverrides =>
+  !!o && (!!o.offline || !!o.newer || !!o.tempDir || Object.keys(o.percents ?? {}).length > 0)
+
+// The numbers with the pretend ones on top: a chosen percentage (nothing machine-drafted) and/or "changed just now"
+export function applyDevOverrides(stats: LangStats[], o: DevOverrides | null | undefined, now: number): LangStats[] {
+  if (!hasDevOverrides(o)) return stats
+  const when = new Date(now).toISOString()
+  return stats.map(s => {
+    const p = o.percents?.[s.code]
+    const next = { ...s }
+    if (typeof p === 'number' && Number.isFinite(p)) {
+      next.translated = Math.round(s.total * Math.min(100, Math.max(0, p)) / 100)
+      next.fuzzy = 0
+    }
+    if (o.newer) next.lastChange = when
+    return next
+  })
+}
+
 export interface BootState {
   seenReady: string[]
   downloaded: Record<string, { catalog: Record<string, string>; lastChange: string | null }>
@@ -109,8 +130,9 @@ async function fetchStats(deps: TranslationsDeps): Promise<LangStats[]> {
   return out
 }
 
-export async function refresh(deps: TranslationsDeps, force = false):
+export async function refresh(deps: TranslationsDeps, force = false, dev?: DevOverrides | null):
   Promise<{ stats: LangStats[] | null; remote: Snapshot | null; fetchedAt: number | null; offline: boolean }> {
+  if (hasDevOverrides(dev)) return refreshPretending(deps, dev)
   const { dir } = deps
   const cached = readStats(dir)
   const cachedRemote = readRemote(dir)
@@ -130,6 +152,18 @@ export async function refresh(deps: TranslationsDeps, force = false):
   const fetchedAt = deps.now()
   try { writeJson(dir, 'stats.json', { fetchedAt, stats: s.value }) } catch { /* keep going */ }
   return { stats: s.value, remote, fetchedAt, offline: false }
+}
+
+// With Dev Tools overrides on: always ask (no hour limit), write no cache, then lay the pretend numbers on top
+async function refreshPretending(deps: TranslationsDeps, dev: DevOverrides) {
+  const cached = readStats(deps.dir)
+  const cachedRemote = readRemote(deps.dir)
+  const tweak = (l: LangStats[] | null) => (l ? applyDevOverrides(l, dev, deps.now()) : null)
+  if (dev.offline) return { stats: tweak(cached?.stats ?? null), remote: cachedRemote, fetchedAt: cached?.fetchedAt ?? null, offline: true }
+  const [s, r] = await Promise.allSettled([fetchStats(deps), getJson(deps, EVER_READY_URL)])
+  const remote = r.status === 'fulfilled' && r.value && typeof r.value === 'object' && !Array.isArray(r.value) ? r.value as Snapshot : cachedRemote
+  if (s.status === 'rejected') return { stats: tweak(cached?.stats ?? null), remote, fetchedAt: cached?.fetchedAt ?? null, offline: true }
+  return { stats: tweak(s.value), remote, fetchedAt: deps.now(), offline: false }
 }
 
 export async function download(deps: TranslationsDeps, code: string): Promise<'saved' | 'invalid' | 'failed'> {

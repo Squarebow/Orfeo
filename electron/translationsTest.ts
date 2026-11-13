@@ -2,7 +2,7 @@ import { mkdtempSync, rmSync, writeFileSync, readFileSync, existsSync } from 'no
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import english from '../src/i18n/locales/en.json'
-import { bootState, download, refresh, rememberReady, weblateFile, WEBLATE_LIST, EVER_READY_URL, type TranslationsDeps } from './translations'
+import { applyDevOverrides, hasDevOverrides, bootState, download, refresh, rememberReady, weblateFile, WEBLATE_LIST, EVER_READY_URL, type TranslationsDeps } from './translations'
 import type { Snapshot } from '../src/i18n/readiness'
 
 const en = english as Record<string, string>
@@ -110,6 +110,35 @@ export async function runTranslationsTest(): Promise<number> {
     now -= 10_000; calls.length = 0
     await refresh(deps5)
     check(calls.length === 3, 'cache from the future is stale')
+
+    // Dev Tools overrides
+    const base = [
+      { code: 'de', total: 100, translated: 50, fuzzy: 20, lastChange: '2026-11-01T00:00:00Z' },
+      { code: 'fr', total: 10, translated: 9, fuzzy: 0, lastChange: null }]
+    check(applyDevOverrides(base, {}, 0) === base && applyDevOverrides(base, null, 0) === base, 'no overrides: same numbers')
+    check(!hasDevOverrides({}) && !hasDevOverrides({ percents: {} }) && hasDevOverrides({ offline: true }) && hasDevOverrides({ percents: { de: 1 } }), 'hasDevOverrides')
+    const o1 = applyDevOverrides(base, { percents: { de: 80, zz: 5 } }, 0)
+    check(o1[0].translated === 80 && o1[0].fuzzy === 0 && o1[0].total === 100 && o1[1].translated === 9 && o1.length === 2, 'percent sets translated, drops drafts, others untouched')
+    check(applyDevOverrides(base, { percents: { fr: 42 } }, 0)[1].translated === 4, 'rounds')
+    check(applyDevOverrides(base, { percents: { de: 150 } }, 0)[0].translated === 100 && applyDevOverrides(base, { percents: { de: -5 } }, 0)[0].translated === 0, 'clamped to 0-100')
+    const o2 = applyDevOverrides(base, { newer: true }, Date.UTC(2026, 10, 13))
+    check(o2.every(s => s.lastChange === '2026-11-13T00:00:00.000Z') && o2[0].translated === 50, 'newer: changed just now')
+    check(base[0].translated === 50 && base[0].lastChange === '2026-11-01T00:00:00Z', 'input not mutated')
+    // refresh with overrides: no hour limit, no cache written, pretend numbers shown
+    const d6 = fresh(), deps6 = mk(d6)
+    calls.length = 0
+    r = await refresh(deps6, false, { percents: { de: 85 } })
+    check(r.stats?.find(s => s.code === 'de')?.translated === 9 || r.stats?.find(s => s.code === 'de')?.translated === 9, 'pretend percent on live numbers')
+    check(!existsSync(join(d6, 'stats.json')) && !existsSync(join(d6, 'remote.json')), 'nothing cached while pretending')
+    await refresh(deps6, false, { percents: { de: 85 } })
+    check(calls.length === 6, 'no hour limit while pretending')
+    await refresh(deps6)
+    const d7 = fresh(); await refresh(mk(d7))
+    calls.length = 0
+    r = await refresh(mk(d7), false, { offline: true, percents: { de: 0 } })
+    check(calls.length === 0 && r.offline && r.stats?.find(s => s.code === 'de')?.translated === 0, 'pretend offline: cache, no network')
+    r = await refresh(mk(fresh()), false, { offline: true })
+    check(r.offline && r.stats === null, 'pretend offline, no cache')
 
     // rememberReady
     const deps3 = mk(fresh())
