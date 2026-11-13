@@ -1,9 +1,12 @@
-// Release step: bring the bundled words (src/i18n/locales/<code>.json) and the bundled record
-// (src/i18n/translations.json) up to the same moment on Weblate. The rules live in
+// Release step: bring the shipped words (src/i18n/shipped/<code>.json, checked texts only) and
+// the bundled record
+// (src/i18n/translations.json) up to the same moment on Weblate. src/i18n/locales/ belongs to
+// Weblate (with its machine drafts, kept there as suggestions for translators) and is never
+// written here: changing it would make Weblate drop the drafts. The rules live in
 // src/i18n/releaseWords.ts; this file reads the network and writes the files. English is never
 // touched. On any failure the old files stay and the exit code is 0.
 // Run with the TypeScript hooks: node --import ./scripts/ts-esbuild-hooks.mjs scripts/i18n-ready.mjs
-import { existsSync, readFileSync, renameSync, writeFileSync } from 'node:fs'
+import { existsSync, mkdirSync, readFileSync, renameSync, writeFileSync } from 'node:fs'
 import { fileURLToPath } from 'node:url'
 import { releaseWords } from '../src/i18n/releaseWords.ts'
 import { EVER_READY_URL, REQUEST_TIMEOUT_MS, WEBLATE_LIST, isLanguageCode, weblateFile } from '../electron/translations.ts'
@@ -11,6 +14,7 @@ import { EVER_READY_URL, REQUEST_TIMEOUT_MS, WEBLATE_LIST, isLanguageCode, webla
 const here = (p) => fileURLToPath(new URL(p, import.meta.url))
 const RECORD = here('../src/i18n/translations.json')
 const LOCALES = here('../src/i18n/locales/')
+const SHIPPED = here('../src/i18n/shipped/')
 
 const readJson = (path, fallback) => { try { return JSON.parse(readFileSync(path, 'utf8')) } catch { return fallback } }
 const keyCount = (path) => Object.keys(readJson(path, {}) ?? {}).length
@@ -40,7 +44,8 @@ try {
     get, listUrl: WEBLATE_LIST, recordUrl: EVER_READY_URL, fileUrl: weblateFile, english, previous, today,
     isCode: (code) => code !== 'en' && isLanguageCode(code),
     write: (code, catalog) => {
-      const path = `${LOCALES}${code}.json`
+      mkdirSync(SHIPPED, { recursive: true })
+      const path = `${SHIPPED}${code}.json`
       before[code] = existsSync(path) ? keyCount(path) : null
       writeLike(path, catalog)
     },
@@ -50,7 +55,7 @@ try {
     console.log('i18n:ready - kept the old src/i18n/translations.json and language files')
   } else {
     writeLike(RECORD, snapshot)
-    for (const code of written) console.log(`i18n:ready - ${code}.json: ${before[code] ?? 'new'} -> ${keyCount(`${LOCALES}${code}.json`)} texts`)
+    for (const code of written) console.log(`i18n:ready - ${code}.json: ${before[code] ?? 'new'} -> ${keyCount(`${SHIPPED}${code}.json`)} texts`)
     console.log(`i18n:ready - ${Object.keys(snapshot).length} languages in src/i18n/translations.json, ${written.length} language files refreshed`)
   }
 } catch (e) {

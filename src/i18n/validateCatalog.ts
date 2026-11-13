@@ -8,6 +8,9 @@ const placeholders = (s: string): string => (s.match(/\{\{v\d+\}\}/g) ?? []).sor
 export function validateCatalog(
   raw: unknown,
   english: Record<string, string>,
+  // A file with too few known texts is probably the wrong file. 0 for the release's
+  // checked-only words, where a language may have only a few texts checked so far.
+  minShare = MIN_KEPT_SHARE,
 ): { catalog: Record<string, string>; kept: number; dropped: number } | null {
   if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return null
   const entries = Object.entries(raw as Record<string, unknown>)
@@ -27,6 +30,7 @@ export function validateCatalog(
   }
 
   const total = Object.keys(english).length
-  if (total === 0 || kept / total < MIN_KEPT_SHARE) return null
+  if (total === 0 || kept / total < minShare) return null
+  if (kept === 0 && dropped > 0) return null  // every text refused: the wrong file
   return { catalog, kept, dropped }
 }

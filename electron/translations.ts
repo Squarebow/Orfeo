@@ -2,9 +2,10 @@
 // "ever ready" record, language files saved in the user data folder, and the
 // synchronous start-up snapshot the page reads before it draws.
 //
-// Checked by hand 2026-11-13 (zh_Hans): Weblate's /file/ download includes the machine
-// ("needs editing") wordings. The API said translated 51 + fuzzy 1367 = 1418; the file
-// held 1436 keys, 1429 with a non-empty value. So the plain file is enough.
+// Only texts a person has checked reach Orfeo: machine drafts ("needs editing") stay on
+// Weblate as suggestions for translators. The plain /file/ download includes them, so the
+// download asks for translated-or-better only (checked 2026-11-13, zh_Hans: plain file
+// 1,429 texts, filtered 51 = the API's `translated`).
 import { existsSync, mkdirSync, readFileSync, renameSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
@@ -13,7 +14,7 @@ import { validateCatalog } from '../src/i18n/validateCatalog'
 import { isNewer, type LangStats, type Snapshot } from '../src/i18n/readiness'
 
 export const WEBLATE_LIST = 'https://hosted.weblate.org/api/components/orfeo/app/translations/'
-export const weblateFile = (code: string) => `https://hosted.weblate.org/api/translations/orfeo/app/${code}/file/`
+export const weblateFile = (code: string) => `https://hosted.weblate.org/api/translations/orfeo/app/${code}/file/?format=json&q=state:%3E%3Dtranslated`
 export const EVER_READY_URL = 'https://raw.githubusercontent.com/Squarebow/Orfeo/stats/translations.json'
 export const MIN_REFRESH_MS = 3_600_000
 // A request that hangs gives up after this long, so the page never waits forever

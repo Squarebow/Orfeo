@@ -101,7 +101,7 @@ export async function releaseWords(deps: ReleaseWordsDeps): Promise<ReleaseWords
     let ok = false
     if (live?.[code]) {
       try {
-        const v = validateCatalog(await deps.get(deps.fileUrl(code)), deps.english)
+        const v = validateCatalog(await deps.get(deps.fileUrl(code)), deps.english, 0)
         if (v) { deps.write(code, v.catalog); ok = true; written.push(code) }
         else notes.push(`${code}: file refused by the check, old file kept`)
       } catch (e) { notes.push(`${code}: ${(e as Error).message}, old file kept`) }

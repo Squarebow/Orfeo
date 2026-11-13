@@ -61,9 +61,9 @@ export async function runReleaseWordsTest(): Promise<number> {
     check(s.de.percent === (COUNT_MACHINE_DRAFTS ? 100 : s.de.translated * 100 / s.de.total | 0) && s.de.readySince === null && s.de.lastChange === T_DE, 'drafts in percent, no readySince for drafts, lastChange from the same run')
     check(s.zh_Hans.readySince === '2026-11-01', 'a readySince already bundled is kept')
     check(s.zh_Hans.lastChange === T_ZH && s.zh_Hans.translated === 17, 'written language: fresh entry')
-    check(Object.keys(written).sort().join() === 'de,zh_Hans', 'files written for languages that pass the check')
+    check(Object.keys(written).sort().join() === 'de,sl,zh_Hans', 'files written for languages that pass the check, however few texts are checked')
     check(!!written.zh_Hans && !('Gone text' in written.zh_Hans) && !(keys[19] in written.zh_Hans) && Object.keys(written.zh_Hans).length === 19, 'unknown and empty texts left out of the file')
-    check(!('sl' in written) && s.sl.lastChange === null, 'a refused file (too few texts) is not written; no previous entry: no lastChange')
+    check(Object.keys(written.sl ?? {}).length === 1, 'a language with one checked text gets a one-text file')
     check(!asked.includes(file('en')), 'English is never downloaded')
   }
   // with a record on the stats branch: its readySince is used, counts and lastChange from the list
