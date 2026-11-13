@@ -18,7 +18,7 @@ import { KEYBOARD_GROUPS } from '../src/utils/keyboardGroups'
 import { nextOrfeoVersion, stripOrfeoSuffix } from '../src/utils/orfeoVersioning'
 import { downloadEnding, newerRelease } from '../src/utils/newRelease'
 import type { Hand } from '../src/types'
-import { t, applyLanguage, resolveLanguage, SYSTEM } from '../src/utils/i18n'
+import { t, applyLanguage, chooseStartup, defaultChoice } from '../src/utils/i18n'
 import { bootState, refresh, download, rememberReady } from './translations'
 import bundledTranslations from '../src/i18n/translations.json'
 import type { Snapshot } from '../src/i18n/readiness'
@@ -1979,7 +1979,13 @@ const releaseTest = app.isPackaged ? undefined : process.env.ORFEO_RELEASE_TEST
 // Asked by the renderer once it's listening, so a quick answer can't go missing
 // Language for the Open/Save windows and messages from this side of the app. The
 // PDF transcript stays English: its built-in fonts have no other scripts.
-ipcMain.handle('language:set', (_e, code: string) => { savePrefs({ language: code }); applyLanguage(resolveLanguage(code, app.getLocale())) })
+const applyChoice = (choice: string) => {
+  let boot = null
+  try { boot = bootState(translationsDeps(), bundledTranslations as Snapshot) } catch { /* bundled words only */ }
+  const { code, catalog } = chooseStartup(choice, app.getLocale(), boot)
+  applyLanguage(code, catalog)
+}
+ipcMain.handle('language:set', (_e, code: string) => { savePrefs({ language: code }); applyChoice(code) })
 // Translations: Weblate numbers, language files in userData, start-up snapshot (sync, disk only)
 const translationsDeps = () => ({ fetch, dir: join(app.getPath('userData'), 'translations'), now: Date.now })
 ipcMain.on('i18n:boot', (event) => {
@@ -2124,7 +2130,7 @@ app.whenReady().then(async () => {
   // that as already seen (src/utils/tours.ts), so existing users never get them.
   if (!existsSync(getPrefsPath())) savePrefs({ tours: { firstLaunch: false, firstSong: false } })
   // after ready: the computer's language isn't known before it
-  applyLanguage(resolveLanguage(loadPrefs().language ?? SYSTEM, app.getLocale()))
+  applyChoice(loadPrefs().language ?? defaultChoice())
   try { await ensureDemoFolder() } catch (e) { console.error('[Orfeo] ensureDemoFolder failed:', e) }
   // ── No default menu — this app has its own custom title bar and no menu
   // bar is ever shown, but Electron's built-in default menu (auto-created

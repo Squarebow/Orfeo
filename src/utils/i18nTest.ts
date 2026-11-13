@@ -1,4 +1,4 @@
-import { languageForLocale, pseudo, resolveLanguage, SYSTEM, t, translated } from './i18n'
+import { defaultChoice, pseudo, resolveLanguage, SYSTEM, t, translated } from './i18n'
 
 export function runI18nTest(): number {
   console.group('[i18n] self-check')
@@ -16,13 +16,27 @@ export function runI18nTest(): number {
 
   check(pseudo('Keep') === '[Kéép~~]', `test language, got ${pseudo('Keep')}`)
 
-  const both = [{ code: 'en', htmlLang: 'en' }, { code: 'zh_Hans', htmlLang: 'zh-Hans' }]
-  for (const locale of ['zh-CN', 'zh', 'zh-Hans', 'zh_CN', 'zh-SG']) check(languageForLocale(locale, both) === 'zh_Hans', `${locale} means Simplified`)
-  for (const locale of ['zh-TW', 'zh-HK', 'zh-Hant', 'zh-Hant-TW']) check(languageForLocale(locale, both) === 'en', `${locale} isn't sent to Simplified`)
-  for (const locale of ['en-US', 'sl-SI', 'de', '']) check(languageForLocale(locale, both) === 'en', `${locale || 'no locale'} is English`)
-  check(resolveLanguage(SYSTEM, 'en-US') === 'en', 'Follow system reads the computer')
-  check(resolveLanguage('en', 'zh-CN') === 'en', 'a chosen language beats the computer')
-  check(resolveLanguage('nonsense', 'en-US') === 'en', 'an unknown saved language is English')
+  // Which languages Orfeo has words for, and which are ready: injected, as the page and main do
+  const words = new Set(['zh_Hans', 'de', 'fr', 'pt_BR'])
+  const ready = new Set(['zh_Hans', 'de'])
+  const hasWords = (c: string) => words.has(c)
+  const isReady = (c: string) => ready.has(c)
+  const pick = (choice: string, locale: string) => resolveLanguage(choice, locale, isReady, hasWords)
+  for (const locale of ['zh-CN', 'zh', 'zh-Hans', 'zh_CN', 'zh-SG']) check(pick(SYSTEM, locale) === 'zh_Hans', `${locale} means Simplified`)
+  for (const locale of ['zh-TW', 'zh-HK', 'zh-Hant', 'zh-Hant-TW']) check(pick(SYSTEM, locale) === 'en', `${locale} isn't sent to Simplified`)
+  for (const locale of ['en-US', 'sl-SI', '']) check(pick(SYSTEM, locale) === 'en', `${locale || 'no locale'} is English`)
+  check(pick(SYSTEM, 'de-AT') === 'de', 'German computer, German ready')
+  check(pick(SYSTEM, 'fr-FR') === 'en', 'French has words but is not ready: English')
+  check(pick(SYSTEM, 'pt-BR') === 'en', 'Brazilian Portuguese not ready: English')
+  check(resolveLanguage(SYSTEM, 'pt-BR', () => true, hasWords) === 'pt_BR', 'a regional code is found')
+  check(resolveLanguage(SYSTEM, 'it-IT', () => true, hasWords) === 'en', 'ready but no words: English')
+  check(pick('en', 'zh-CN') === 'en', 'a chosen language beats the computer')
+  check(pick('nonsense', 'en-US') === 'en', 'an unknown saved language is English')
+  check(pick('fr', 'en-US') === 'fr', 'a chosen language with words stays even if not ready')
+  check(resolveLanguage('de', 'en-US', () => false, hasWords) === 'de', 'a chosen language is never switched back')
+  check(pick('it', 'en-US') === 'en', 'a chosen language with no words at all is English')
+  check(pick('pseudo', 'en-US') === 'pseudo', 'the test language resolves in test builds')
+  check(defaultChoice() === 'en', 'nothing saved means English')
 
   console.log(`i18n: ${pass} passed, ${fail} failed`)
   console.groupEnd()
