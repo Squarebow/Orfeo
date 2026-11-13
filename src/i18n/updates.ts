@@ -28,7 +28,17 @@ const savedThisSession: Record<string, string | null> = {}
 // Forget what this session saved (the Dev Tools panel does this when its pretend numbers go away)
 export function resetSavedThisSession(): void { for (const k of Object.keys(savedThisSession)) delete savedThisSession[k] }
 
-export async function checkTranslations(opts: { force?: boolean }, deps: Partial<UpdateDeps> = {}): Promise<CheckResult> {
+// The check on its way, if any: a second caller (start-up and the Settings page at once) shares it
+let inFlight: Promise<CheckResult> | null = null
+
+export function checkTranslations(opts: { force?: boolean }, deps: Partial<UpdateDeps> = {}): Promise<CheckResult> {
+  if (inFlight) return inFlight
+  const p = runCheck(opts, deps).finally(() => { if (inFlight === p) inFlight = null })
+  inFlight = p
+  return p
+}
+
+async function runCheck(opts: { force?: boolean }, deps: Partial<UpdateDeps>): Promise<CheckResult> {
   const bridge = deps.bridge ?? (window.electronAPI as unknown as Bridge)
   const result = await bridge.i18nRefresh(opts.force)
   const { stats, remote } = result

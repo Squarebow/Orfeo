@@ -85,6 +85,20 @@ export async function runUpdatesTest(): Promise<number> {
     try { await checkTranslations({}, { ...mkBase(), bridge: f.bridge, have: {}, saved: {} }) } catch { ok = false }
     check(ok, 'never rejects')
   }
+  // a check already on its way: a second one waits for it instead of asking again
+  {
+    const f = make([stat('de', 100, 90)])
+    let release: () => void = () => {}
+    const gate = new Promise<void>(r => { release = r })
+    const bridge = { ...f.bridge, i18nRefresh: async (force?: boolean) => { f.refreshes.push(force); await gate; return { stats: [stat('de', 100, 90)], remote: null, fetchedAt: 1, offline: false } } }
+    const d = { ...mkBase(), bridge, have: {}, menuLanguages: [] as string[], updates: 'wait' as const }
+    const a = checkTranslations({}, d), b = checkTranslations({ force: true }, d)
+    release()
+    const [ra, rb] = await Promise.all([a, b])
+    check(f.refreshes.length === 1 && ra === rb, 'one check at a time')
+    await checkTranslations({}, d)
+    check(f.refreshes.length === 2, 'a new check starts once the last one is done')
+  }
 
   console.log(`${pass} passed, ${fail} failed`)
   console.groupEnd()
