@@ -29,7 +29,12 @@ const boot = readBoot()
 export const hasWords = (code: string, b: BootState | null = boot): boolean => !!CATALOGS[code] || !!b?.downloaded[code]
 export const isLanguageReady = (code: string, b: BootState | null = boot): boolean =>
   isReady(code, { live: b?.stats ?? null, bundled: BUNDLED, remote: b?.remote ?? null, seenReady: b?.seenReady ?? [] })
-const catalogFor = (code: string, b: BootState | null = boot) => b?.downloaded[code]?.catalog ?? CATALOGS[code]
+// The words for a language: downloaded ones on top of the shipped ones, so a text reworded since
+// the download (its old wording gone from Weblate's file) still shows its shipped translation
+export function wordsFor(code: string, b: BootState | null = boot, catalogs: Record<string, Record<string, string>> = CATALOGS): Record<string, string> | undefined {
+  const got = b?.downloaded[code]?.catalog
+  return got ? { ...catalogs[code], ...got } : catalogs[code]
+}
 
 // What start-up knows, for the Settings page and the menu
 function codesWithWords(b: BootState | null): string[] {
@@ -70,7 +75,7 @@ export function resolveLanguage(choice: string, locale: string, ready: (code: st
 // this too, so both sides read the same words
 export function chooseStartup(choice: string, locale: string, b: BootState | null = boot): { code: string; catalog: Record<string, string> | undefined } {
   const code = resolveLanguage(choice, locale, c => isLanguageReady(c, b), c => hasWords(c, b))
-  return { code, catalog: catalogFor(code, b) }
+  return { code, catalog: wordsFor(code, b) }
 }
 
 function savedChoice(): string {

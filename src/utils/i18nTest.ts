@@ -1,4 +1,5 @@
-import { defaultChoice, pseudo, resolveLanguage, SYSTEM, t, translated } from './i18n'
+import { defaultChoice, pseudo, resolveLanguage, SYSTEM, t, translated, wordsFor } from './i18n'
+import type { BootState } from '../../electron/translations'
 
 export function runI18nTest(): number {
   console.group('[i18n] self-check')
@@ -37,6 +38,15 @@ export function runI18nTest(): number {
   check(pick('it', 'en-US') === 'en', 'a chosen language with no words at all is English')
   check(pick('pseudo', 'en-US') === 'pseudo', 'the test language resolves in test builds')
   check(defaultChoice() === 'en', 'nothing saved means English')
+
+  // Downloaded words go on top of the shipped ones: a text reworded since keeps its old translation
+  const bootWith = (d: Record<string, string>): BootState => ({ seenReady: [], downloaded: { de: { catalog: d, lastChange: null } }, stats: null, fetchedAt: null, remote: null })
+  const shipped = { de: { Old: 'Alt', Same: 'Gleich' } }
+  const merged = wordsFor('de', bootWith({ Same: 'Gleich neu', New: 'Neu' }), shipped)
+  check(merged?.Old === 'Alt' && merged?.Same === 'Gleich neu' && merged?.New === 'Neu', 'downloaded words win, shipped ones fill the gaps')
+  check(wordsFor('de', null, shipped)?.Old === 'Alt', 'no download: shipped words')
+  check(wordsFor('it', bootWith({}), shipped) === undefined, 'no words at all: nothing')
+  check(wordsFor('de', { ...bootWith({}), downloaded: { de: { catalog: { New: 'Neu' }, lastChange: null } } }, {})?.New === 'Neu', 'download only: its words')
 
   console.log(`i18n: ${pass} passed, ${fail} failed`)
   console.groupEnd()
