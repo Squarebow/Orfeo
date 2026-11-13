@@ -7,8 +7,8 @@ import { mkdir, access, copyFile, readdir, rename, rmdir, writeFile, readFile, s
 import { Midi } from '@tonejs/midi'
 import { Chord, Note } from 'tonal'
 import PDFDocument from 'pdfkit'
-import { assignHands } from '../src/utils/handAssignment'
-import { buildHandExportHint, withHandSuffix, nameHandFromSuffix, parseHandMapMeta, RESTORED_CONFIDENCE } from '../src/utils/handMetadata'
+import { assignHands, assignHandsByTrack, findStavePairs } from '../src/utils/handAssignment'
+import { buildHandExportHint, withHandSuffix, nameHandFromSuffix, parseHandMapMeta, handsToRestore, RESTORED_CONFIDENCE } from '../src/utils/handMetadata'
 import { getGMGroup } from '../src/utils/gmInstruments'
 import { exportsDir, nextFreeName, safeExportBaseName } from './exportName'
 import { scanMidiFolder, listFolderNames } from './libraryScan'
@@ -922,7 +922,9 @@ ipcMain.handle('editor:save', async (_e, payload: {
       if (!parsed) continue
       const track = midi.tracks[parsed.trackIndex]
       if (!track || parsed.hands.length !== track.notes.length) continue
+      const apply = handsToRestore(parsed) // a stale hint keeps only manual corrections
       track.notes.forEach((note: any, i: number) => {
+        if (!apply[i]) return
         note.hand = parsed.hands[i]
         note.handConfidence = RESTORED_CONFIDENCE
         if (parsed.sources) note.handSource = parsed.sources[i]
@@ -933,8 +935,15 @@ ipcMain.handle('editor:save', async (_e, payload: {
     // 'manual') keeps its tag untouched; assignHands() only ever runs on
     // whatever's left. Returns hands/sources in the same order as `notes`,
     // so callers can zip them back onto whichever note array they came from. ──
+    const isManualNote = (n: any): boolean => n.handSource === 'manual' && !!n.hand
+    // A raw track as the hand engine's pairing reads it: the name written in
+    // the file, its channel and instrument family.
+    const handTrackOf = (rawIdx: number) => {
+      const t = midi.tracks[rawIdx] as any
+      return { name: t.name ?? '', channel: t.channel ?? -1, group: getGMGroup(t.instrument?.number ?? 0, t.channel === 9), notes: t.notes as any[] }
+    }
     const assignHandsRespectingManual = (notes: any[]): { hands: Hand[]; sources: ('computed' | 'manual')[] } => {
-      const isManual = (n: any) => n.handSource === 'manual' && n.hand
+      const isManual = isManualNote
       const computed = notes.filter(n => !isManual(n))
       const { assignments } = assignHands(computed, { rhMaxFingers: payload.rhMaxFingers, lhMaxFingers: payload.lhMaxFingers })
       const handByNote = new Map<any, Hand>()
@@ -1050,6 +1059,15 @@ ipcMain.handle('editor:save', async (_e, payload: {
       if (group.length < 2) continue
       const idxs = group.map(i => noteTrackIndices[i]).filter((i): i is number => i !== undefined && includedSet.has(i))
       if (idxs.length < 2) continue
+      // Merging the two staves of one instrument: the staves already say
+      // which hand plays what, so that's what the merged track keeps. Any
+      // other merge becomes one part, and its hands are worked out as one.
+      const groupTracks = idxs.map(i => handTrackOf(i))
+      const pairs = findStavePairs(groupTracks)
+      const staffHand = new Map<any, Hand>()
+      if (idxs.length === 2 && pairs.length === 1) {
+        for (const a of assignHandsByTrack(groupTracks, { rhMaxFingers: payload.rhMaxFingers, lhMaxFingers: payload.lhMaxFingers }, isManualNote)) staffHand.set(a.note, a.hand)
+      }
       const base = midi.tracks[idxs[0]]
       for (let i = 1; i < idxs.length; i++) {
         base.notes.push(...midi.tracks[idxs[i]].notes)
@@ -1057,6 +1075,11 @@ ipcMain.handle('editor:save', async (_e, payload: {
         includedSet.delete(idxs[i])
       }
 
+      if (staffHand.size > 0) {
+        handsByRawIdx.set(idxs[0], base.notes.map((n: any) => isManualNote(n) ? n.hand : staffHand.get(n)!))
+        sourcesByRawIdx.set(idxs[0], base.notes.map((n: any) => isManualNote(n) ? 'manual' : 'computed'))
+        continue
+      }
       const { hands, sources } = assignHandsRespectingManual(base.notes)
       handsByRawIdx.set(idxs[0], hands)
       sourcesByRawIdx.set(idxs[0], sources)
@@ -1076,16 +1099,22 @@ ipcMain.handle('editor:save', async (_e, payload: {
     // every piano/chromatic/organ track gets the same assignHands() pass and
     // export hint, using the classification midiParser.ts uses on reimport
     // so the two sides agree on what counts as "keyboard-group".
-    for (const rawIdx of includedInOrder) {
-      if (handsByRawIdx.has(rawIdx)) continue
+    // Instrument by instrument, like the parser: two tracks that are one
+    // instrument's staves take their hands from the staves (tagging each
+    // staff on its own split the right hand's staff across both hands).
+    const toTag = includedInOrder.filter(rawIdx => {
+      if (handsByRawIdx.has(rawIdx)) return false
       const track = midi.tracks[rawIdx]
       const isDrum = (track as any).channel === 9
-      if (isDrum || track.notes.length === 0) continue
-      const group = getGMGroup(track.instrument?.number ?? 0, isDrum)
-      if (!KEYBOARD_GROUPS.has(group)) continue
-      const { hands, sources } = assignHandsRespectingManual(track.notes)
-      handsByRawIdx.set(rawIdx, hands)
-      sourcesByRawIdx.set(rawIdx, sources)
+      if (isDrum || track.notes.length === 0) return false
+      return KEYBOARD_GROUPS.has(getGMGroup(track.instrument?.number ?? 0, isDrum))
+    })
+    const tagged = new Map<any, Hand>()
+    for (const a of assignHandsByTrack(toTag.map(handTrackOf), { rhMaxFingers: payload.rhMaxFingers, lhMaxFingers: payload.lhMaxFingers }, isManualNote)) tagged.set(a.note, a.hand)
+    for (const rawIdx of toTag) {
+      const notes = midi.tracks[rawIdx].notes
+      handsByRawIdx.set(rawIdx, notes.map((n: any) => isManualNote(n) ? n.hand : tagged.get(n)!))
+      sourcesByRawIdx.set(rawIdx, notes.map((n: any) => isManualNote(n) ? 'manual' : 'computed'))
     }
 
     // ── Inject ORFEO_TRACK_NAME / ORFEO_TRACK_COLOR text meta-events for each

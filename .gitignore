@@ -69,6 +69,7 @@ scripts/lit-keys-capture/
 
 # ── Chord-detection library audit — dev tooling + generated reports ─────────
 scripts/chord-audit/
+scripts/hand-audit/
 
 # ── Playwright MCP — local browser-testing artifacts, not shipped app code ──
 .playwright-mcp/

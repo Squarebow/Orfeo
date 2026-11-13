@@ -132,7 +132,7 @@ const HAND_MAP_PREFIX = 'ORFEO_HAND_MAP:'
 // fresh — otherwise a file saved before a fix would carry the old, wrong
 // tags forever, since the whole point of the hint is to *skip* recomputing.
 // Cheap to recompute (same single track, no merge), so there's no reason not to.
-export const HAND_ENGINE_VERSION = 9
+export const HAND_ENGINE_VERSION = 10
 
 export interface TextMeta {
   type: 'text'
@@ -150,16 +150,28 @@ export function encodeHandMapMeta(trackIndex: number, hands: Hand[], sources?: (
   return { type: 'text', text: `${HAND_MAP_PREFIX}${HAND_ENGINE_VERSION}:${trackIndex}:${encodeHandRLE(hands)}${sourceSeg}`, ticks: 0 }
 }
 
-export function parseHandMapMeta(text: string): { trackIndex: number; hands: Hand[]; sources?: ('computed' | 'manual')[] } | null {
+// `current` is false for a hint written by an older engine version: its
+// computed tags are stale and must be worked out again, but its manual ones
+// (handSource 'manual') are the user's own corrections and stay — see
+// handsToRestore(). A hint with no version field at all predates handSource
+// too, so nothing in it is kept (null).
+export function parseHandMapMeta(text: string): { trackIndex: number; hands: Hand[]; sources?: ('computed' | 'manual')[]; current: boolean } | null {
   if (!text.startsWith(HAND_MAP_PREFIX)) return null
   const rest = text.slice(HAND_MAP_PREFIX.length)
   const parts = rest.split(':')
   if (parts.length !== 3 && parts.length !== 4) return null // no version field → pre-versioning hint, treat as stale
   const [versionStr, trackIndexStr, rle, sourceRle] = parts
-  if (parseInt(versionStr, 10) !== HAND_ENGINE_VERSION) return null
+  const version = parseInt(versionStr, 10)
   const trackIndex = parseInt(trackIndexStr, 10)
-  if (isNaN(trackIndex)) return null
-  return { trackIndex, hands: decodeHandRLE(rle), sources: sourceRle ? decodeSourceRLE(sourceRle) : undefined }
+  if (isNaN(version) || isNaN(trackIndex)) return null
+  return { trackIndex, hands: decodeHandRLE(rle), sources: sourceRle ? decodeSourceRLE(sourceRle) : undefined, current: version === HAND_ENGINE_VERSION }
+}
+
+// Which notes of a parsed hint to apply: all of them from a current hint,
+// only the manual corrections from a stale one (the rest are left untagged,
+// so the engine works them out fresh).
+export function handsToRestore(parsed: NonNullable<ReturnType<typeof parseHandMapMeta>>): boolean[] {
+  return parsed.hands.map((_, i) => parsed.current || parsed.sources?.[i] === 'manual')
 }
 
 // ── Export: decide which hint a track needs from its notes' hand tags ───────
@@ -219,7 +231,10 @@ export function restoreHandTagsFromHints(
     if (!parsed) continue
     const track = tracks.find(t => t.index === parsed.trackIndex)
     if (!track || parsed.hands.length !== track.notes.length) continue
+    const apply = handsToRestore(parsed)
+    if (!apply.some(Boolean)) continue
     track.notes.forEach((note, i) => {
+      if (!apply[i]) return
       note.hand = parsed.hands[i]
       note.handConfidence = RESTORED_CONFIDENCE
       // Only set when the hint actually carried source data — an older

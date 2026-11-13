@@ -61,6 +61,20 @@
   piano roll never loses space.
 - **Settings › MIDI Files & Library** is laid out afresh, and Chord Transcription's description
   now says what it does: when it's on, a song's file icon makes the chord chart.
+- **Left and right hands, much more accurate.** A piano written on two staves (how MuseScore,
+  Sibelius and Finale export it) now takes its hands straight from the staves: upper staff
+  right hand, lower staff left, note for note. When a piano comes as one track, Orfeo now
+  follows where the hands divide through the song, looking a moment ahead and behind, so
+  wrong notes are less than half as many as before and a whole piece can no longer end up on
+  the wrong hand. A melody that never plays two notes at once stays in one hand. Every
+  keyboard part of a band song gets its own hands, so an organ, a second piano or a track of
+  chord symbols no longer takes over the piano's left hand. Notes you moved to the other hand
+  yourself keep their hand; everything else is worked out afresh the first time a song opens.
+
+### Fixed
+- **Saving from the Playback Editor no longer splits a staff between the hands.** A piano
+  written on two staves kept its hands only until the next save, which then divided each staff
+  between both hands. Merging a piano's two staves into one track now keeps the hands they had.
 
 ## [1.7.3] — 12. 11. 2026 — The Explorers hear your keyboard, a bigger Settings window
 

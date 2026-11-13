@@ -3,7 +3,7 @@ import { Midi } from '@tonejs/midi'
 import type { ParsedMidi, ParsedTrack, ParsedNote } from '../types'
 import { getGMName, getGMGroup } from './gmInstruments'
 import { restoreHandTagsFromHints } from './handMetadata'
-import { assignHands } from './handAssignment'
+import { assignHandsByTrack } from './handAssignment'
 import { useStore } from '../store'
 import { HAND_ASSIGN_GROUPS } from './keyboardGroups'
 import { SEMITONE_TO_KEY_NAME } from './keyDetection'
@@ -59,6 +59,8 @@ export function parseMidiBuffer(buffer: ArrayBuffer, fileName: string, filePath 
   } catch {}
 
   const tracks: ParsedTrack[] = []
+  // each parsed track's name as written in the file ('' when none), for hand pairing
+  const fileTrackNames = new Map<number, string>()
   let pianoFamilyIndex = 0
 
   // ── A channel's mix belongs to the channel, not to one track: MIDI files often
@@ -155,6 +157,7 @@ export function parseMidiBuffer(buffer: ArrayBuffer, fileName: string, filePath 
       expressionEvents: channelEvents(11),
     }
 
+    fileTrackNames.set(parsedTrack.index, track.name ?? '')
     tracks.push(parsedTrack)
   })
 
@@ -240,16 +243,18 @@ export function parseMidiBuffer(buffer: ArrayBuffer, fileName: string, filePath 
   // time this function returns, either restored above or freshly computed
   // here. This is what lets the keyboard's L/R indicator just read the tag
   // instead of inferring it live every frame (see handBoundaries.ts).
-  const kbNotesNeedingAssignment = tracks
-    .filter(t => HAND_ASSIGN_GROUPS.has(t.group) && !t.isDrum)
-    // group stamped per-note (mutates in place, keeps identity) so
-    // tryFastPath() can tell "two halves of one split piano" apart from
-    // "a piano track and an unrelated organ track" — see handAssignment.ts.
-    .flatMap(t => t.notes.map(n => Object.assign(n, { group: t.group })))
-    .filter(n => n.hand === undefined)
-  if (kbNotesNeedingAssignment.length > 0) {
+  // Instrument by instrument, never pooled: a piano's two staves give its
+  // hands directly, every other keyboard track (an organ, a chord-symbol
+  // track) gets its own. Pairing reads the names written in the file, not
+  // the display fallback or Orfeo's own renames.
+  const kbTracks = tracks.filter(t => HAND_ASSIGN_GROUPS.has(t.group) && !t.isDrum)
+  if (kbTracks.some(t => t.notes.some(n => n.hand === undefined))) {
     const { rhMaxFingers, lhMaxFingers } = useStore.getState()
-    const { assignments } = assignHands(kbNotesNeedingAssignment, { rhMaxFingers, lhMaxFingers })
+    const assignments = assignHandsByTrack(
+      kbTracks.map(t => ({ name: fileTrackNames.get(t.index) ?? '', channel: t.channel ?? -1, group: t.group, notes: t.notes })),
+      { rhMaxFingers, lhMaxFingers },
+      n => n.hand !== undefined,
+    )
     for (const a of assignments) { a.note.hand = a.hand; a.note.handConfidence = a.confidence }
   }
 

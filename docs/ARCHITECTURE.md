@@ -611,11 +611,33 @@ plays count in (`usePlayback.play`), never scrub blips or loop wraps.
 
 ## Hand-assignment engine
 
-`src/utils/handAssignment.ts` decides which hand plays each note. It is a
-cost-minimisation model: notes are clustered by onset, harmonic links are
-detected, and the assignment that minimises the total of movement cost, hand-
-switch cost, collision rate, and inversion cost is chosen, then isolated
-one-note flips are cleaned up.
+`src/utils/handAssignment.ts` decides which hand plays each note, one
+keyboard instrument at a time (`assignHandsByTrack`, used by the parser and the
+Playback Editor's save):
+
+- **Staves first.** `findStavePairs` finds the two tracks a notation program
+  writes for one two-staff instrument: named for the hands (RH / LH, treble /
+  bass), or the only two keyboard tracks on one channel, or the only two with
+  one name, and in both of the last two cases clearly apart in register and
+  hardly ever striking the same key together. Upper staff = right hand, lower
+  = left, confidence 1, never second-guessed.
+- **Every other keyboard track is its own instrument** (an organ, a second
+  piano, MuseScore's chord-symbol track) and gets its own hands from
+  `assignHands`. Tracks are never pooled across instruments.
+- **`assignHands(notes)`, one stream:** a stream that is visibly two tracks of
+  one instrument is labelled by average pitch; a single melodic line (two notes
+  sounding together less than 15 % of the time) goes to one hand by register;
+  anything else gets a **moving dividing line**: at each moment the line is
+  pulled toward the gap between the low and high group of the notes 1.5 s
+  either side, register decides when one hand plays alone, and a Viterbi pass
+  balances that pull against how far the line moves, each hand's stretch and
+  finger count, and how often two neighbouring chord notes at that interval
+  belong to different hands. Confidence is the cost margin to the cheapest path
+  that splits the moment's notes differently.
+
+Accuracy is measured with the local hand audit (`scripts/hand-audit/`,
+gitignored: two-staff scores whose staves are the answer). Change the engine
+only against it, across all files, never for one song.
 
 Two presentation modes: **Practice** (a smoothly moving split line) and
 **Performance** (per-note hand tags). Live hardware input has an adjustable
@@ -625,7 +647,9 @@ split sensitivity.
 > The engine has a version constant, `HAND_ENGINE_VERSION`.
 > `scripts/check-hand-engine-version.mjs` runs on every `dev` / `build` and
 > fails the build if the constant was not bumped after the algorithm changed —
-> so files carrying stale hand tags can be detected and re-analysed.
+> so files carrying stale hand tags can be detected and re-analysed. A stale
+> saved hand map keeps the notes the user moved by hand (`handsToRestore`);
+> only the computed ones are worked out again.
 
 ---
 

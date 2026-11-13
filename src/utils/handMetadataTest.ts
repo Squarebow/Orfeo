@@ -7,7 +7,13 @@ import {
 // ── runHandMetadataTest ────────────────────────────────────────────────────
 // Stage 2 self-check for hand-tag export/reimport. Exposed as
 // window.__orfeoHandMetadataTest in development mode (see App.tsx).
-export function runHandMetadataTest(): void {
+let failures = 0
+function check(ok: unknown, message: string): void {
+  if (!ok) { failures++; console.error(`[HandMetadata] FAIL: ${message}`) }
+}
+
+export function runHandMetadataTest(): number {
+  failures = 0
   console.group('[HandMetadata] Stage 2 export/reimport self-check')
 
   testRleRoundTrip()
@@ -18,16 +24,18 @@ export function runHandMetadataTest(): void {
   testReimportWithNoHint()
   testStaleHintIsIgnored()
   testUnversionedHintIsIgnored()
+  testOlderVersionKeepsManualCorrections()
 
   console.groupEnd()
+  return failures
 }
 
 function testRleRoundTrip(): void {
   const hands = ['L', 'L', 'L', 'R', 'R', 'L'] as const
   const rle = encodeHandRLE([...hands])
   const back = decodeHandRLE(rle)
-  console.assert(rle === 'L3R2L1', `unexpected RLE: ${rle}`)
-  console.assert(JSON.stringify(back) === JSON.stringify(hands), 'RLE did not round-trip')
+  check(rle === 'L3R2L1', `unexpected RLE: ${rle}`)
+  check(JSON.stringify(back) === JSON.stringify(hands), 'RLE did not round-trip')
   console.log('RLE round-trip:', rle)
 }
 
@@ -36,8 +44,8 @@ function testRleRoundTrip(): void {
 function testHomogeneousTrackUsesNameSuffix(): void {
   const notes = [{ hand: 'R' as const }, { hand: 'R' as const }, { hand: 'R' as const }]
   const hint = buildHandExportHint(0, 'Piano', notes)
-  console.assert(hint.name === 'Piano RH', `expected name suffix, got ${hint.name}`)
-  console.assert(hint.meta === null, 'homogeneous track should not need a text meta event')
+  check(hint.name === 'Piano RH', `expected name suffix, got ${hint.name}`)
+  check(hint.meta === null, 'homogeneous track should not need a text meta event')
 }
 
 // ── Case: keep-one-track/hand-colored output — mixed hands → RLE text meta,
@@ -45,8 +53,8 @@ function testHomogeneousTrackUsesNameSuffix(): void {
 function testMixedTrackUsesTextMeta(): void {
   const notes = [{ hand: 'L' as const }, { hand: 'R' as const }, { hand: 'R' as const }]
   const hint = buildHandExportHint(2, 'Piano', notes)
-  console.assert(hint.name === 'Piano', 'mixed track name should be untouched')
-  console.assert(hint.meta?.text === `ORFEO_HAND_MAP:${HAND_ENGINE_VERSION}:2:L1R2`, `unexpected meta: ${hint.meta?.text}`)
+  check(hint.name === 'Piano', 'mixed track name should be untouched')
+  check(hint.meta?.text === `ORFEO_HAND_MAP:${HAND_ENGINE_VERSION}:2:L1R2`, `unexpected meta: ${hint.meta?.text}`)
 }
 
 function makeTrack(overrides: Partial<ParsedTrack>): ParsedTrack {
@@ -65,9 +73,9 @@ function testReimportWithNameHint(): void {
     notes: [{ midi: 48, time: 0, duration: 0.5, velocity: 0.8, trackIndex: 0 }],
   })
   const restored = restoreHandTagsFromHints([track], [])
-  console.assert(restored, 'expected name-hint restore to succeed')
-  console.assert(track.notes[0].hand === 'L', 'name-hint did not tag the note')
-  console.assert(track.notes[0].handConfidence === RESTORED_CONFIDENCE, 'name-hint restore should use the restored-confidence sentinel, not a fabricated real score')
+  check(restored, 'expected name-hint restore to succeed')
+  check(track.notes[0].hand === 'L', 'name-hint did not tag the note')
+  check(track.notes[0].handConfidence === RESTORED_CONFIDENCE, 'name-hint restore should use the restored-confidence sentinel, not a fabricated real score')
 }
 
 // ── Reimport scenario 2: file has valid hand tags only via the exported
@@ -83,8 +91,8 @@ function testReimportWithTextMetaHint(): void {
   })
   const meta = [{ text: `ORFEO_HAND_MAP:${HAND_ENGINE_VERSION}:3:R2L1` }]
   const restored = restoreHandTagsFromHints([track], meta)
-  console.assert(restored, 'expected text-meta restore to succeed')
-  console.assert(
+  check(restored, 'expected text-meta restore to succeed')
+  check(
     track.notes.map(n => n.hand).join(',') === 'R,R,L',
     `text-meta hint mis-tagged notes: ${track.notes.map(n => n.hand).join(',')}`,
   )
@@ -100,8 +108,8 @@ function testReimportWithNoHint(): void {
     notes: [{ midi: 60, time: 0, duration: 0.5, velocity: 0.8, trackIndex: 0 }],
   })
   const restored = restoreHandTagsFromHints([track], [])
-  console.assert(!restored, 'expected no restore when neither hint is present')
-  console.assert(track.notes[0].hand === undefined, 'note should stay untagged with no hint')
+  check(!restored, 'expected no restore when neither hint is present')
+  check(track.notes[0].hand === undefined, 'note should stay untagged with no hint')
 }
 
 // ── A text-meta hint whose note count no longer matches the track (file
@@ -117,8 +125,8 @@ function testStaleHintIsIgnored(): void {
   // Hint describes 3 notes; track only has 2 — a note was added/removed since export.
   const meta = [{ text: `ORFEO_HAND_MAP:${HAND_ENGINE_VERSION}:5:L1R1L1` }]
   const restored = restoreHandTagsFromHints([track], meta)
-  console.assert(!restored, 'stale (length-mismatched) hint should be skipped, not applied')
-  console.assert(track.notes.every(n => n.hand === undefined), 'stale hint must not tag notes')
+  check(!restored, 'stale (length-mismatched) hint should be skipped, not applied')
+  check(track.notes.every(n => n.hand === undefined), 'stale hint must not tag notes')
 }
 
 // ── A hint written before HAND_ENGINE_VERSION existed (no version field at
@@ -136,6 +144,28 @@ function testUnversionedHintIsIgnored(): void {
   })
   const meta = [{ text: 'ORFEO_HAND_MAP:6:L1R1' }] // pre-versioning format, lengths would otherwise match
   const restored = restoreHandTagsFromHints([track], meta)
-  console.assert(!restored, 'unversioned hint should be treated as stale, not applied')
-  console.assert(track.notes.every(n => n.hand === undefined), 'unversioned hint must not tag notes')
+  check(!restored, 'unversioned hint should be treated as stale, not applied')
+  check(track.notes.every(n => n.hand === undefined), 'unversioned hint must not tag notes')
+}
+
+// ── A hint written by an older engine version: its computed tags are worked
+// out again (left untagged here), but notes the user moved by hand keep
+// their hand — a version bump must never throw away someone's corrections. ─
+function testOlderVersionKeepsManualCorrections(): void {
+  const track = makeTrack({
+    index: 7,
+    notes: [
+      { midi: 60, time: 0, duration: 0.5, velocity: 0.8, trackIndex: 7 },
+      { midi: 64, time: 0.5, duration: 0.5, velocity: 0.8, trackIndex: 7 },
+      { midi: 67, time: 1, duration: 0.5, velocity: 0.8, trackIndex: 7 },
+    ],
+  })
+  const meta = [{ text: `ORFEO_HAND_MAP:${HAND_ENGINE_VERSION - 1}:7:L1R2:C1M1C1` }]
+  const restored = restoreHandTagsFromHints([track], meta)
+  check(restored, 'an older hint with a manual correction should restore that correction')
+  check(track.notes[1].hand === 'R' && track.notes[1].handSource === 'manual', 'manual correction lost on a version change')
+  check(track.notes[0].hand === undefined && track.notes[2].hand === undefined, 'stale computed tags must be worked out again, not restored')
+
+  const plain = makeTrack({ index: 8, notes: [{ midi: 60, time: 0, duration: 0.5, velocity: 0.8, trackIndex: 8 }] })
+  check(!restoreHandTagsFromHints([plain], [{ text: `ORFEO_HAND_MAP:${HAND_ENGINE_VERSION - 1}:8:L1` }]), 'an older hint with no corrections restores nothing')
 }
