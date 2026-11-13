@@ -324,6 +324,6 @@ export interface TapSession {
 export type SettingsGroupId =
   // 'playback-editing' is the Playback group (its id kept so saved choices still apply)
   | 'audio' | 'midi-files-library' | 'playback-editing' | 'practice' | 'editing'
-  | 'notation' | 'keyboard' | 'piano-roll' | 'appearance' | 'midi'
+  | 'notation' | 'keyboard' | 'piano-roll' | 'appearance' | 'midi' | 'language'
   // dev mode only (simAvailable): every test tool
   | 'devtools'
