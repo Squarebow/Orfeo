@@ -1040,7 +1040,7 @@ export const useStore = create<OrfeoStore>((set, get) => ({
   setOpenWithAddsToLibrary: (openWithAddsToLibrary) => set({ openWithAddsToLibrary }),
   showLyricsMark: false,
   setShowLyricsMark: (showLyricsMark) => set({ showLyricsMark }),
-  showLanguageSwitcher: true,
+  showLanguageSwitcher: false,
   setShowLanguageSwitcher: (showLanguageSwitcher) => set({ showLanguageSwitcher }),
   menuLanguages: [],
   setMenuLanguages: (menuLanguages) => set({ menuLanguages }),

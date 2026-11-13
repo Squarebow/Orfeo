@@ -888,7 +888,7 @@ Two rules matter:
   lasting record counts **checked texts only** (`isCheckedReady`).
 - **Machine drafts don't count.** `COUNT_MACHINE_DRAFTS = false`: drafts
   ("needs editing" on Weblate) are suggestions for translators only and never
-  make a language ready. Effect names (Chorus, Reverb, Compressor, Limiter) are
+  make a language ready. Effect names (Chorus, Reverb, Compressor, Limiter) and Master are
   plain strings, not `t`, so they stay in English in every language.
 
 ---

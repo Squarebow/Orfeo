@@ -8,8 +8,8 @@
 ## [Unreleased]
 
 ### New
-- **Orfeo in your language.** The menu under the logo now lists English plus the languages you
-  tick in Settings › Language, and *Follow system language* picks the one your computer uses. A
+- **Orfeo in your language.** Turn on *Show language switcher* in Settings › Language for a menu
+  under the logo with English plus the languages you tick there, and *Follow system language* picks the one your computer uses. A
   language can be chosen once people have translated 80 % of it; Settings › Language shows how
   far each one has come on Weblate and links to it. Translation is just starting, so for now the
   menu holds English only: want Orfeo in your language? Start translating it on Weblate, and it

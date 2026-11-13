@@ -506,7 +506,7 @@ export default function MasterStrip() {
           fontSize: 12, fontFamily: 'var(--font-mono)', letterSpacing: '0.14em',
           textTransform: 'uppercase', color: 'var(--text-amber)', fontWeight: 700,
         }}>
-          {t`Master`}
+          {'Master'}
         </span>
       </div>
 
