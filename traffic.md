@@ -81,15 +81,15 @@ Downloads before 2026-10-17 (when tracking started) are in the all-time totals a
 | com.reddit.frontpage | 448 | <mark>389</mark> | 416 |
 | Google | 215 | <mark>150</mark> | 228 |
 | github.com | 179 | <mark>116</mark> | 204 |
-| chatgpt.com | – | – | 37 |
 | Bing | 20 | <mark>18</mark> | 37 |
+| chatgpt.com | – | – | 37 |
 | orfeo.cc | 20 | <mark>16</mark> | 29 |
 | search.brave.com | 9 | <mark>5</mark> | 17 |
 | DuckDuckGo | 8 | <mark>6</mark> | 13 |
 | t.co | 13 | <mark>12</mark> | 12 |
 | m.facebook.com | 3 | <mark>3</mark> | 3 |
-| yandex.com.tr | – | – | 2 |
 | copilot.microsoft.com | – | – | 2 |
+| yandex.com.tr | – | – | 2 |
 | search.naver.com | – | – | 2 |
 | Yahoo | – | – | 1 |
 | aocr.org | – | – | 1 |
