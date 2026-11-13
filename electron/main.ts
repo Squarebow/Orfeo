@@ -1982,7 +1982,10 @@ const releaseTest = app.isPackaged ? undefined : process.env.ORFEO_RELEASE_TEST
 ipcMain.handle('language:set', (_e, code: string) => { savePrefs({ language: code }); applyLanguage(resolveLanguage(code, app.getLocale())) })
 // Translations: Weblate numbers, language files in userData, start-up snapshot (sync, disk only)
 const translationsDeps = () => ({ fetch, dir: join(app.getPath('userData'), 'translations'), now: Date.now })
-ipcMain.on('i18n:boot', (event) => { event.returnValue = bootState(translationsDeps(), bundledTranslations as Snapshot) })
+ipcMain.on('i18n:boot', (event) => {
+  try { event.returnValue = bootState(translationsDeps(), bundledTranslations as Snapshot) }
+  catch (e) { console.error('i18n:boot failed', e); event.returnValue = { seenReady: [], downloaded: {}, stats: null, fetchedAt: null, remote: null } }
+})
 ipcMain.handle('i18n:refresh', (_e, force?: boolean) => refresh(translationsDeps(), !!force))
 ipcMain.handle('i18n:download', (_e, code: string) => download(translationsDeps(), code))
 ipcMain.handle('i18n:remember-ready', (_e, codes: string[]) => rememberReady(translationsDeps(), codes))

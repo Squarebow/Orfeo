@@ -25,6 +25,9 @@ export interface BootState {
   remote: Snapshot | null
 }
 
+// Language codes end up in a URL and a file name: only plain ones pass.
+export const isLanguageCode = (code: string): boolean => typeof code === 'string' && /^[A-Za-z]{2,3}(?:[_-][A-Za-z0-9]{2,8})*$/.test(code)
+
 const ENGLISH = english as Record<string, string>
 const HEADERS = { 'User-Agent': 'Orfeo' }
 
@@ -61,6 +64,7 @@ export function bootState(deps: TranslationsDeps, bundled: Snapshot): BootState 
   const downloaded: BootState['downloaded'] = {}
   let changed = false
   for (const [code, lastChange] of Object.entries(record)) {
+    if (!isLanguageCode(code)) { delete record[code]; changed = true; continue }
     // an Orfeo update that brought newer words makes the download obsolete
     const b = bundled[code]
     if (b && !isNewer(lastChange, b.lastChange)) {
@@ -94,7 +98,7 @@ async function fetchStats(deps: TranslationsDeps): Promise<LangStats[]> {
     const body = await getJson(deps, url) as { next?: string | null; results?: Record<string, unknown>[] }
     for (const r of body.results ?? []) {
       const code = String(r.language_code)
-      if (code === 'en') continue
+      if (code === 'en' || !isLanguageCode(code)) continue
       out.push({
         code, total: Number(r.total) || 0, translated: Number(r.translated) || 0, fuzzy: Number(r.fuzzy) || 0,
         lastChange: typeof r.last_change === 'string' ? r.last_change : null,
@@ -110,7 +114,7 @@ export async function refresh(deps: TranslationsDeps, force = false):
   const { dir } = deps
   const cached = readStats(dir)
   const cachedRemote = readRemote(dir)
-  if (!force && cached && deps.now() - cached.fetchedAt < MIN_REFRESH_MS) {
+  if (!force && cached && deps.now() - cached.fetchedAt >= 0 && deps.now() - cached.fetchedAt < MIN_REFRESH_MS) {
     return { stats: cached.stats, remote: cachedRemote, fetchedAt: cached.fetchedAt, offline: false }
   }
   const [s, r] = await Promise.allSettled([fetchStats(deps), getJson(deps, EVER_READY_URL)])
@@ -129,6 +133,7 @@ export async function refresh(deps: TranslationsDeps, force = false):
 }
 
 export async function download(deps: TranslationsDeps, code: string): Promise<'saved' | 'invalid' | 'failed'> {
+  if (!isLanguageCode(code)) return 'failed'
   let raw: unknown
   try { raw = await getJson(deps, weblateFile(code)) } catch { return 'failed' }
   if (!validateCatalog(raw, ENGLISH)) return 'invalid'
@@ -144,7 +149,7 @@ export function rememberReady(deps: TranslationsDeps, codes: string[]): void {
   const have = readJson<string[]>(join(deps.dir, 'seen-ready.json'))
   const set = new Set(Array.isArray(have) ? have : [])
   const before = set.size
-  for (const c of codes) set.add(c)
+  for (const c of codes) if (isLanguageCode(c)) set.add(c)
   if (set.size === before && existsSync(join(deps.dir, 'seen-ready.json'))) return
   try { writeJson(deps.dir, 'seen-ready.json', [...set]) } catch { /* ignore */ }
 }

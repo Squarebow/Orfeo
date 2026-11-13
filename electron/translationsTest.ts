@@ -97,6 +97,20 @@ export async function runTranslationsTest(): Promise<number> {
     const b0 = bootState(mk(fresh()), {})
     check(b0.stats === null && b0.remote === null && b0.fetchedAt === null && b0.seenReady.length === 0, 'empty folder boots empty')
 
+    // unsafe codes
+    const d4 = fresh(), deps4 = mk(d4)
+    check(await download(deps4, '../evil') === 'failed' && !existsSync(join(d4, '..', 'evil.json')) && !calls.some(u => u.includes('evil')), 'bad code refused, nothing written')
+    rememberReady(deps4, ['../x', 'de'])
+    check(bootState(deps4, {}).seenReady.join() === 'de', 'bad code not remembered')
+    page2.results.push({ language_code: '../bad', total: 1, translated: 1, fuzzy: 0, last_change: null })
+    r = await refresh(mk(fresh()), true)
+    check(r.stats?.every(s => s.code !== '../bad') === true && r.stats?.length === 2, 'bad code in Weblate list left out')
+    // clock moved back: a cache from the future counts as stale
+    const deps5 = mk(fresh()); await refresh(deps5)
+    now -= 10_000; calls.length = 0
+    await refresh(deps5)
+    check(calls.length === 3, 'cache from the future is stale')
+
     // rememberReady
     const deps3 = mk(fresh())
     rememberReady(deps3, ['de', 'fr']); rememberReady(deps3, ['de', 'pl'])
