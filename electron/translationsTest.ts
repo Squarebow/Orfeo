@@ -2,7 +2,7 @@ import { mkdtempSync, rmSync, writeFileSync, readFileSync, existsSync } from 'no
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import english from '../src/i18n/locales/en.json'
-import { devDownloadDeps, applyDevOverrides, hasDevOverrides, bootState, download, refresh, rememberReady, weblateFile, WEBLATE_LIST, EVER_READY_URL, type TranslationsDeps } from './translations'
+import { mayRemember, devDownloadDeps, applyDevOverrides, hasDevOverrides, bootState, download, refresh, rememberReady, weblateFile, WEBLATE_LIST, EVER_READY_URL, type TranslationsDeps } from './translations'
 import type { Snapshot } from '../src/i18n/readiness'
 
 const en = english as Record<string, string>
@@ -143,6 +143,17 @@ export async function runTranslationsTest(): Promise<number> {
     const real = mk(fresh())
     check(devDownloadDeps(real, null) === real && devDownloadDeps(real, {}) === real, 'no overrides: real folder')
     check(devDownloadDeps(real, { percents: { de: 90 } }).dir === join(tmpdir(), 'orfeo-i18n-test') && devDownloadDeps(real, { newer: true }).dir !== real.dir, 'any override: temp folder')
+
+    // fake numbers are never remembered, even after the overrides are cleared mid-check
+    const d8 = fresh(), deps8 = mk(d8)
+    await refresh(deps8, true)
+    check(mayRemember(null) && !mayRemember({ newer: true }) && !mayRemember(null, true), 'mayRemember decision')
+    await refresh(deps8, true, { percents: { de: 100 } })
+    check(!mayRemember(null), 'pretend refresh, overrides cleared: still not remembered')
+    if (mayRemember(null)) rememberReady(deps8, ['de'])
+    check(!existsSync(join(d8, 'seen-ready.json')), 'nothing written to seen-ready.json')
+    await refresh(deps8, true)
+    check(mayRemember(null), 'a real refresh allows remembering again')
 
     // rememberReady
     const deps3 = mk(fresh())

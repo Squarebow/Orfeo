@@ -39,6 +39,11 @@ export function applyDevOverrides(stats: LangStats[], o: DevOverrides | null | u
   })
 }
 
+// True while the numbers last handed out were pretend ones: they must never reach seen-ready.json,
+// even if the pretend settings were cleared while that check was still on its way back
+let lastRefreshPretend = false
+export const mayRemember = (o: DevOverrides | null | undefined, lastPretend: boolean = lastRefreshPretend): boolean => !hasDevOverrides(o) && !lastPretend
+
 // While any pretend setting is on, downloads never touch the real folder
 export const devDownloadDeps = (deps: TranslationsDeps, o: DevOverrides | null | undefined): TranslationsDeps =>
   hasDevOverrides(o) ? { ...deps, dir: join(tmpdir(), 'orfeo-i18n-test') } : deps
@@ -137,6 +142,7 @@ async function fetchStats(deps: TranslationsDeps): Promise<LangStats[]> {
 
 export async function refresh(deps: TranslationsDeps, force = false, dev?: DevOverrides | null):
   Promise<{ stats: LangStats[] | null; remote: Snapshot | null; fetchedAt: number | null; offline: boolean }> {
+  lastRefreshPretend = hasDevOverrides(dev)
   if (hasDevOverrides(dev)) return refreshPretending(deps, dev)
   const { dir } = deps
   const cached = readStats(dir)

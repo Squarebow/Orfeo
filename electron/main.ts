@@ -19,7 +19,7 @@ import { nextOrfeoVersion, stripOrfeoSuffix } from '../src/utils/orfeoVersioning
 import { downloadEnding, newerRelease } from '../src/utils/newRelease'
 import type { Hand } from '../src/types'
 import { t, applyLanguage, chooseStartup, defaultChoice } from '../src/utils/i18n'
-import { bootState, refresh, download, rememberReady, hasDevOverrides, devDownloadDeps, type DevOverrides } from './translations'
+import { bootState, refresh, download, rememberReady, hasDevOverrides, devDownloadDeps, mayRemember, type DevOverrides } from './translations'
 import bundledTranslations from '../src/i18n/translations.json'
 import type { Snapshot } from '../src/i18n/readiness'
 
@@ -1998,7 +1998,7 @@ const devDeps = () => devDownloadDeps(translationsDeps(), devTranslations)
 ipcMain.handle('i18n:dev', (_e, o: DevOverrides) => { devTranslations = hasDevOverrides(o) ? o : null })
 ipcMain.handle('i18n:refresh', (_e, force?: boolean) => refresh(translationsDeps(), !!force, devTranslations))
 ipcMain.handle('i18n:download', (_e, code: string) => download(devDeps(), code))
-ipcMain.handle('i18n:remember-ready', (_e, codes: string[]) => { if (!devTranslations) rememberReady(translationsDeps(), codes) })
+ipcMain.handle('i18n:remember-ready', (_e, codes: string[]) => { if (mayRemember(devTranslations)) rememberReady(translationsDeps(), codes) })
 
 ipcMain.handle('update:new-version', async (): Promise<string | null> => {
   if (updateMode !== 'manual' || !(app.isPackaged || releaseTest)) return null
