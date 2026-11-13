@@ -15,7 +15,7 @@
   Portuguese, German, Russian, French and Polish. For now much of the wording is machine-made
   and still being checked by people, so if you read one of these languages well, you're very
   welcome to help on Weblate. New translations can arrive between Orfeo versions (choose
-  *Download now*, or *Wait* for the next update). Thanks to Jacky Jiang (FreeGoStudio) for the
+  *Download now*, or *Wait for new version of Orfeo*). Thanks to Jacky Jiang (FreeGoStudio) for the
   groundwork.
 - **Your keyboard's own lights.** A keyboard with lighted keys can now show the song's notes
   as they play, just as the on-screen keyboard does: shown tracks only, never the keys you
