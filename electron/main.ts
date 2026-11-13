@@ -1981,7 +1981,7 @@ const releaseTest = app.isPackaged ? undefined : process.env.ORFEO_RELEASE_TEST
 // PDF transcript stays English: its built-in fonts have no other scripts.
 const applyChoice = (choice: string) => {
   let boot = null
-  try { boot = bootState(translationsDeps(), bundledTranslations as Snapshot) } catch { /* bundled words only */ }
+  try { boot = bootState(translationsDeps(), bundledTranslations as Snapshot, app.getLocale()) } catch { /* bundled words only */ }
   const { code, catalog } = chooseStartup(choice, app.getLocale(), boot)
   applyLanguage(code, catalog)
 }
@@ -1989,8 +1989,8 @@ ipcMain.handle('language:set', (_e, code: string) => { savePrefs({ language: cod
 // Translations: Weblate numbers, language files in userData, start-up snapshot (sync, disk only)
 const translationsDeps = () => ({ fetch, dir: join(app.getPath('userData'), 'translations'), now: Date.now })
 ipcMain.on('i18n:boot', (event) => {
-  try { event.returnValue = bootState(translationsDeps(), bundledTranslations as Snapshot) }
-  catch (e) { console.error('i18n:boot failed', e); event.returnValue = { seenReady: [], downloaded: {}, stats: null, fetchedAt: null, remote: null } }
+  try { event.returnValue = bootState(translationsDeps(), bundledTranslations as Snapshot, app.getLocale()) }
+  catch (e) { console.error('i18n:boot failed', e); event.returnValue = { seenReady: [], downloaded: {}, stats: null, fetchedAt: null, remote: null, locale: app.getLocale() } }
 })
 // Dev Tools > Translations: pretend numbers, memory only; downloads go to a temporary folder while any are on
 let devTranslations: DevOverrides | null = null

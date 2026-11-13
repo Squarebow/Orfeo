@@ -1,4 +1,4 @@
-import { defaultChoice, pseudo, resolveLanguage, SYSTEM, t, translated, wordsFor } from './i18n'
+import { defaultChoice, pseudo, resolveLanguage, SYSTEM, t, translated, wordsFor, systemLocale } from './i18n'
 import type { BootState } from '../../electron/translations'
 
 export function runI18nTest(): number {
@@ -40,12 +40,15 @@ export function runI18nTest(): number {
   check(defaultChoice() === 'en', 'nothing saved means English')
 
   // Downloaded words go on top of the shipped ones: a text reworded since keeps its old translation
-  const bootWith = (d: Record<string, string>): BootState => ({ seenReady: [], downloaded: { de: { catalog: d, lastChange: null } }, stats: null, fetchedAt: null, remote: null })
+  const bootWith = (d: Record<string, string>): BootState => ({ seenReady: [], downloaded: { de: { catalog: d, lastChange: null } }, stats: null, fetchedAt: null, remote: null, locale: '' })
   const shipped = { de: { Old: 'Alt', Same: 'Gleich' } }
   const merged = wordsFor('de', bootWith({ Same: 'Gleich neu', New: 'Neu' }), shipped)
   check(merged?.Old === 'Alt' && merged?.Same === 'Gleich neu' && merged?.New === 'Neu', 'downloaded words win, shipped ones fill the gaps')
   check(wordsFor('de', null, shipped)?.Old === 'Alt', 'no download: shipped words')
   check(wordsFor('it', bootWith({}), shipped) === undefined, 'no words at all: nothing')
+  // Follow system: the page uses the computer language main read, so both pick the same language
+  check(systemLocale({ ...bootWith({}), locale: 'de-AT' }, 'en-US') === 'de-AT', 'the computer language from main wins')
+  check(systemLocale({ ...bootWith({}), locale: '' }, 'en-US') === 'en-US' && systemLocale(null, 'fr') === 'fr', 'no locale from main: the page uses its own')
   check(wordsFor('de', { ...bootWith({}), downloaded: { de: { catalog: { New: 'Neu' }, lastChange: null } } }, {})?.New === 'Neu', 'download only: its words')
 
   console.log(`i18n: ${pass} passed, ${fail} failed`)

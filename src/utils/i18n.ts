@@ -85,8 +85,11 @@ function savedChoice(): string {
   } catch { return defaultChoice() }
 }
 
+// The computer's language: the one main read, so both sides pick the same; the page's own if main gave none
+export const systemLocale = (b: BootState | null, own: string): string => b?.locale || own
+
 export const currentChoice = savedChoice()
-const initial = chooseStartup(currentChoice, typeof navigator === 'undefined' ? '' : navigator.language)
+const initial = chooseStartup(currentChoice, systemLocale(boot, typeof navigator === 'undefined' ? '' : navigator.language))
 export const currentLanguage = initial.code
 let language = currentLanguage
 let catalog = initial.catalog

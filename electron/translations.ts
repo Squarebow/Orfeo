@@ -56,6 +56,8 @@ export interface BootState {
   stats: LangStats[] | null
   fetchedAt: number | null
   remote: Snapshot | null
+  // The computer's language as main reads it (app.getLocale()), so Follow system picks the same on both sides
+  locale: string
 }
 
 // Language codes end up in a URL and a file name: only plain ones pass.
@@ -89,7 +91,7 @@ const readDownloaded = (dir: string): Record<string, string | null> => {
   return d && typeof d === 'object' && !Array.isArray(d) ? d : {}
 }
 
-export function bootState(deps: TranslationsDeps, bundled: Snapshot): BootState {
+export function bootState(deps: TranslationsDeps, bundled: Snapshot, locale = ''): BootState {
   const { dir } = deps
   const seen = readJson<string[]>(join(dir, 'seen-ready.json'))
   const stats = readStats(dir)
@@ -115,6 +117,7 @@ export function bootState(deps: TranslationsDeps, bundled: Snapshot): BootState 
     stats: stats?.stats ?? null,
     fetchedAt: stats?.fetchedAt ?? null,
     remote: readRemote(dir),
+    locale,
   }
 }
 

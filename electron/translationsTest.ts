@@ -112,6 +112,7 @@ export async function runTranslationsTest(): Promise<number> {
     check(!('de' in b.downloaded) && !existsSync(join(d2, 'de.json')), 'download older than bundled is deleted')
     check(!('de' in JSON.parse(readFileSync(join(d2, 'downloaded.json'), 'utf8'))), 'and forgotten')
     const b0 = bootState(mk(fresh()), {})
+    check(b0.locale === '' && bootState(mk(fresh()), {}, 'sl-SI').locale === 'sl-SI', 'boot carries the computer language main uses')
     check(b0.stats === null && b0.remote === null && b0.fetchedAt === null && b0.seenReady.length === 0, 'empty folder boots empty')
 
     // unsafe codes
