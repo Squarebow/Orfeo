@@ -72,6 +72,11 @@ jobs:
           REPO: ${{ github.repository }}
         run: python3 tools/stats/collect.py --out stats-data
 
+      - name: Translations
+        if: steps.gate.outputs.go == 'true'
+        continue-on-error: true
+        run: python3 tools/stats/translations.py --out stats-data
+
       - name: Save
         if: always() && steps.gate.outputs.go == 'true'
         working-directory: stats-data
