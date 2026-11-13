@@ -18,6 +18,7 @@ export function runHandAssignmentTest(): number {
   testMaxFingersCapEvenSplitBeyondCapacity()
   testFirstNoteAnchorsToCorrectRegister()
   testLeftHandChordStaysTogether()
+  testStrideLeftHand()
   testSingleLineStaysInOneHand()
   testTwoHandsAreNotASingleLine()
   testStavesOnOneChannel()
@@ -101,6 +102,25 @@ function testLeftHandChordStaysTogether(): void {
   const hands = handOf(assignHands(notes).assignments)
   check(notes.filter(x => lhChord.includes(x.midi)).every(x => hands.get(x) === 'L'), 'left-hand chord was split between the hands')
   check(notes.filter(x => melody.includes(x.midi)).every(x => hands.get(x) === 'R'), 'melody left the right hand')
+}
+
+// ── Oom-pah / stride left hand: a low bass note on the beat, a chord up to
+// D4 between the beats, the melody above held across the chord. The whole
+// chord is the left hand's; the melody stays in the right. ─────────────────
+function testStrideLeftHand(): void {
+  const notes: HandInput[] = []
+  const lhChord = [50, 54, 57, 62]
+  // melody an octave or more above the chord top; with the melody only a 5th
+  // above, the chord's top note can still go to the right hand (known limit)
+  const melody = [76, 74, 76, 77, 79, 77, 76, 74]
+  for (let bar = 0; bar < 8; bar++) {
+    notes.push(n(38, bar, 0.5))
+    for (const p of lhChord) notes.push(n(p, bar + 0.5, 0.5))
+    notes.push(n(melody[bar], bar, 0.75))
+  }
+  const hands = handOf(assignHands(notes).assignments)
+  const wrong = notes.filter(x => hands.get(x) !== (melody.includes(x.midi) && x.midi > 62 ? 'R' : 'L'))
+  check(wrong.length === 0, `stride left hand: ${wrong.length} notes on the wrong hand (${wrong.map(x => `${x.midi}@${x.time}`).slice(0, 6).join(' ')})`)
 }
 
 // ── A sung melody played with a piano sound: one hand, never split ──────────

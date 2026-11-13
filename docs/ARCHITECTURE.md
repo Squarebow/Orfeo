@@ -629,7 +629,9 @@ Playback Editor's save):
   sounding together less than 15 % of the time) goes to one hand by register;
   anything else gets a **moving dividing line**: at each moment the line is
   pulled toward the gap between the low and high group of the notes 1.5 s
-  either side, register decides when one hand plays alone, and a Viterbi pass
+  either side (or, for an oom-pah / stride left hand — bass, chord and melody
+  as three groups, the bass and chord taking turns — above the chord),
+  register decides when one hand plays alone, and a Viterbi pass
   balances that pull against how far the line moves, each hand's stretch and
   finger count, and how often two neighbouring chord notes at that interval
   belong to different hands. Confidence is the cost margin to the cheapest path

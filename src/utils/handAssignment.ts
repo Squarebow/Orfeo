@@ -92,6 +92,9 @@ const SINGLE_LINE_MAX_RANGE = 24
 const WINDOW_SEC = 1.5            // notes before and after a moment that set its target line
 const MIN_GROUP_SEPARATION = 9    // semitones between the low and high group's averages to count as two hands
 const REGISTER_SPLIT = 59         // one group alone: average at or above B3 → right hand
+const STRIDE_MAX_SHARED = 0.2     // share of chord moments that may also strike a bass note (0.1–0.35 measure the same)
+const STRIDE_CHORD_MAX = 59       // the middle group's average must sit below this (B3) to be the left hand's chord; 56–58 only trade one piece for another
+const THREE_GROUP_MIN_GAP = 12    // semitones between bass, chord and melody groups' averages (at 6 it fires on ordinary textures and costs more than it fixes; 9 lowers the weakest piece)
 const TARGET_WEIGHT = 1           // per semitone the line sits away from its target
 const MOVE_WEIGHT = 0.6           // per semitone the line moves from one moment to the next
 const SPAN_WEIGHT = 2             // quadratic, per semitone a hand stretches past maxSpanSemitones
@@ -106,9 +109,9 @@ const GAP_SPLIT_CHANCE = [0.38, 0.10, 0.08, 0.07, 0.08, 0.09, 0.23, 0.25, 0.36, 
 const GAP_WEIGHT = 2
 // Tried and left out (no gain on the 40 scores): counting notes still held
 // toward a hand's stretch; a weaker or stronger pull toward the target line.
-// Known gap: an oom-pah / stride left hand (low bass, then a chord up to
-// middle C) under a melody — the widest gap around those moments is between
-// bass and chord, so the chord's top notes can land in the right hand.
+// Oom-pah / stride left hand: see targetLines(). Measured: the intermediate
+// La vie en rose 88.5 % → 94.5 %, all 40 scores 92.0 % → 92.1 %. Still open:
+// with the melody only a 5th above the chord, its top note can go right.
 //
 // Cost margin at which confidence reaches 0.5 (handPreview's low-confidence
 // line). At 5, 13 % of notes are marked and they hold 36 % of the wrong ones:
@@ -369,19 +372,70 @@ function twoGroups(ps: number[]): { line: number; low: number; high: number } | 
   return best
 }
 
+// Best split of sorted pitches into a low, a middle and a high group, over
+// the distinct pitches (at most 88) so a long window stays cheap. Returns the
+// two lines between the groups and the groups' averages.
+function threeGroups(ps: number[]): { line1: number; line2: number; low: number; mid: number; high: number } | null {
+  const u: number[] = [], c: number[] = []
+  for (const p of ps) { if (u.length && u[u.length - 1] === p) c[c.length - 1]++; else { u.push(p); c.push(1) } }
+  const m = u.length
+  if (m < 3) return null
+  const N = [0], S = [0], Q = [0]
+  for (let i = 0; i < m; i++) { N.push(N[i] + c[i]); S.push(S[i] + c[i] * u[i]); Q.push(Q[i] + c[i] * u[i] * u[i]) }
+  const spread = (i: number, j: number) => { const n = N[j] - N[i], s = S[j] - S[i]; return (Q[j] - Q[i]) - s * s / n }
+  const mean = (i: number, j: number) => (S[j] - S[i]) / (N[j] - N[i])
+  let best: { v: number; i: number; j: number } | null = null
+  for (let i = 1; i < m - 1; i++) {
+    const lowSpread = spread(0, i)
+    for (let j = i + 1; j < m; j++) {
+      const v = lowSpread + spread(i, j) + spread(j, m)
+      if (!best || v < best.v) best = { v, i, j }
+    }
+  }
+  if (!best) return null
+  const { i, j } = best
+  return { line1: (u[i - 1] + u[i]) / 2 + 0.5, line2: (u[j - 1] + u[j]) / 2 + 0.5, low: mean(0, i), mid: mean(i, j), high: mean(j, m) }
+}
+
 // Where the line wants to be at each moment, from the notes around it.
+//
+// Two groups (left hand low, right hand high) is the usual picture, and the
+// line goes in the widest gap. An oom-pah or stride left hand — a bass note,
+// then a chord around middle C, the melody above — fools that: the widest gap
+// is bass to chord, and a line there hands the chord to the right hand. What
+// marks a stride is that the bass and the chord take turns, never struck
+// together, so one hand can play both. So when the notes form three clear
+// groups, the middle group sits in the left hand's register, and it is almost
+// never struck together with the low group, the line goes above it.
 function targetLines<T extends HandInput>(clusters: Cluster<T>[], sortedPitchTimes: { t: number; p: number }[]): number[] {
   const target: number[] = []
-  let a = 0, b = 0
+  let a = 0, b = 0, ca = 0, cb = 0
   for (const c of clusters) {
     while (a < sortedPitchTimes.length && sortedPitchTimes[a].t < c.time - WINDOW_SEC) a++
     while (b < sortedPitchTimes.length && sortedPitchTimes[b].t <= c.time + WINDOW_SEC) b++
+    while (ca < clusters.length && clusters[ca].time < c.time - WINDOW_SEC) ca++
+    while (cb < clusters.length && clusters[cb].time <= c.time + WINDOW_SEC) cb++
     const ps: number[] = []
     for (let i = a; i < b; i++) ps.push(sortedPitchTimes[i].p)
     ps.sort((x, y) => x - y)
     const g = twoGroups(ps)
-    if (g && g.high - g.low >= MIN_GROUP_SEPARATION) target.push(g.line)
-    else {
+    if (g && g.high - g.low >= MIN_GROUP_SEPARATION) {
+      const three = THREE_GROUP_MIN_GAP > 0 ? threeGroups(ps) : null
+      let line = g.line
+      if (three && three.mid < STRIDE_CHORD_MAX && three.mid - three.low >= THREE_GROUP_MIN_GAP && three.high - three.mid >= THREE_GROUP_MIN_GAP) {
+        // of the moments that strike a middle note, how many also strike a bass note
+        let withMid = 0, withBoth = 0
+        for (let k = ca; k < cb; k++) {
+          const cp = clusters[k].pitches
+          const hasMid = cp.some(p => p >= three.line1 && p < three.line2)
+          if (!hasMid) continue
+          withMid++
+          if (cp.some(p => p < three.line1)) withBoth++
+        }
+        if (withMid > 0 && withBoth / withMid <= STRIDE_MAX_SHARED) line = three.line2
+      }
+      target.push(line)
+    } else {
       // one hand only: register decides which, the line stays clear of it
       const m = average(ps)
       target.push(m >= REGISTER_SPLIT ? Math.min(ps[0] - 1, REGISTER_SPLIT) : Math.max(ps[ps.length - 1] + 1, REGISTER_SPLIT))

@@ -132,7 +132,7 @@ const HAND_MAP_PREFIX = 'ORFEO_HAND_MAP:'
 // fresh — otherwise a file saved before a fix would carry the old, wrong
 // tags forever, since the whole point of the hint is to *skip* recomputing.
 // Cheap to recompute (same single track, no merge), so there's no reason not to.
-export const HAND_ENGINE_VERSION = 10
+export const HAND_ENGINE_VERSION = 11
 
 export interface TextMeta {
   type: 'text'
