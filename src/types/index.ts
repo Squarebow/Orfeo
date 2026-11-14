@@ -130,7 +130,10 @@ export interface TrackState {
 
 export type KeyboardSize = 61 | 73 | 88
 export type KeyboardMode = 'docked' | 'floating'
-export type NoteNaming = 'english' | 'central-european' | 'solfege' | 'hidden'
+// 'sargam' names single notes on the keyboard and piano roll only (counted from Sa);
+// chord and key names stay Western, so everywhere else it reads as 'english'
+export type NoteNaming = 'english' | 'central-european' | 'solfege' | 'sargam' | 'hidden'
+export type SargamScript = 'latin' | 'devanagari'
 export type Accidentals = 'flat' | 'sharp'
 // ── Chord *type/quality* naming — orthogonal to NoteNaming (which governs
 // root-letter spelling). 'abbreviation' = "Bb(b5)", 'symbol' = "Bb(♭5)". ────

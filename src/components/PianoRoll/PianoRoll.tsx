@@ -9,7 +9,7 @@ import {
   cmdAddNote, cmdRemoveNotes, cmdSetRangeVelocity, midiToEditableCopy, copyHandTagsOntoEditBuffer,
   type ToneNote,
 } from '../../utils/noteEditorCommands'
-import { getNoteLabel } from '../../utils/noteNames'
+import { noteLabelText, resolveSa } from '../../utils/noteNames'
 import { PENCIL_CURSOR } from '../../utils/cursors'
 import type { Hand } from '../../types'
 import { HAND_LH_CSS, HAND_RH_CSS } from '../../utils/handColors'
@@ -1064,7 +1064,8 @@ export default function PianoRoll() {
 
         // ── Note names in edit mode (Canvas2D over the PixiJS canvas) ───────
         if (noteEditorActive && NES.showNoteNamesRef.current && ctx && ov) {
-          const { noteNaming, accidentals } = storeRef.current
+          const { noteNaming, accidentals, sargam, detectedKey } = storeRef.current
+          const sg = { sa: resolveSa(sargam.sa, detectedKey), script: sargam.script }
           ctx.save()
           ctx.font = `9px ${FONT_MONO_STR}`
           ctx.textAlign = 'center'
@@ -1072,7 +1073,7 @@ export default function PianoRoll() {
           ctx.fillStyle = NOTE_LABEL_COLOR
           for (const ef of editFlatNotes) {
             if (ef.noteH < 14) continue
-            const label = getNoteLabel(ef.note.midi, noteNaming, accidentals).replace(/\d+$/, '')
+            const label = noteLabelText(ef.note.midi, noteNaming, accidentals, sg)
             if (!label) continue
             ctx.fillText(label, ef.key.x + ef.key.width / 2, ef.topY + ef.noteH / 2)
           }
@@ -1184,9 +1185,9 @@ export default function PianoRoll() {
               app.canvas.style.cursor = 'move'
               hint = t`Drag to move · Shift+click to add to selection`
               if (NES.showNoteNamesRef.current && ef.noteH < 14 && clientX !== undefined && clientY !== undefined) {
-                const { noteNaming, accidentals } = storeRef.current
+                const { noteNaming, accidentals, sargam, detectedKey } = storeRef.current
                 const naming = noteNaming === 'hidden' ? 'english' : noteNaming
-                const label  = getNoteLabel(ef.note.midi, naming, accidentals).replace(/\d+$/, '')
+                const label  = noteLabelText(ef.note.midi, naming, accidentals, { sa: resolveSa(sargam.sa, detectedKey), script: sargam.script })
                 setEditTooltip({ x: clientX, y: clientY, label })
               } else {
                 setEditTooltip(null)

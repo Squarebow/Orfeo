@@ -2,6 +2,7 @@ import { Languages, Hash, Radar, ScanEye, Type, ToggleLeft, ToggleRight } from '
 import { useStore } from '../../../store'
 import { t } from '../../../utils/i18n'
 import type { NoteNaming } from '../../../types'
+import { getSargamName, resolveSa } from '../../../utils/noteNames'
 import { OptionBtn, SettingsDropdown, EyeClosed, PreviewBox, GlanceLine, SubLabel } from '../controls'
 import type { SettingDef } from '../types'
 import { followNeedsPick } from '../followPick'
@@ -21,6 +22,7 @@ const NOTE_NAMING_OPTIONS: { value: NoteNaming; label: string }[] = [
   { value: 'english', label: 'UK/US' },
   { value: 'central-european', label: 'EU' },
   { value: 'solfege', label: t`Solfège` },
+  { value: 'sargam', label: 'Sargam' },
 ]
 
 function DisplaySystemControl() {
@@ -45,8 +47,36 @@ function DisplaySystemGlance() {
       {noteNaming === 'english'          && 'C  D  E  F  G  A  B'}
       {noteNaming === 'central-european' && 'C  D  E  F  G  A  H'}
       {noteNaming === 'solfege'          && 'Do Re Mi Fa Sol La Si'}
+      {noteNaming === 'sargam'           && <SargamPreview />}
       {noteNaming === 'hidden'           && t`— labels hidden —`}
     </PreviewBox>
+  )
+}
+
+// Sargam: Sa follows the song's key, or sits where the player sets it; Latin or Devanagari.
+// Only single notes on the keyboard and piano roll take Sargam names; chords stay Western.
+const SA_NOTES = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B']
+function SargamPreview() {
+  const script = useStore(s => s.sargam.script)
+  return <>{Array.from({ length: 12 }, (_, i) => getSargamName(i, 0, script)).join('  ')}</>
+}
+function SargamExtra() {
+  const sargam = useStore(s => s.sargam)
+  const setSargam = useStore(s => s.setSargam)
+  const keySa = useStore(s => resolveSa('auto', s.detectedKey))
+  const saValue = sargam.sa === 'auto' ? 'auto' : String(sargam.sa)
+  return (
+    <div style={{ display: 'grid', gridTemplateColumns: 'auto minmax(0, 1fr)', alignItems: 'center', columnGap: 10, rowGap: 8, marginTop: 8 }}>
+      <SubLabel>{t`Sa`}</SubLabel>
+      <SettingsDropdown value={saValue}
+        options={[{ value: 'auto', label: t`Follow the song's key (${SA_NOTES[keySa]})` }, ...SA_NOTES.map((n, i) => ({ value: String(i), label: n }))]}
+        onChange={v => setSargam({ sa: v === 'auto' ? 'auto' : Number(v) })} />
+      <SubLabel>{t`Script`}</SubLabel>
+      <div style={{ display: 'flex', gap: 'var(--space-1)' }}>
+        <OptionBtn active={sargam.script === 'latin'} onClick={() => setSargam({ script: 'latin' })}>Sa Re Ga</OptionBtn>
+        <OptionBtn active={sargam.script === 'devanagari'} onClick={() => setSargam({ script: 'devanagari' })}>सा रे ग</OptionBtn>
+      </div>
+    </div>
   )
 }
 
@@ -175,7 +205,8 @@ function ChordNamingExtra() {
 }
 
 export const NOTATION_DEFS: SettingDef[] = [
-  { id: 'displaySystem', icon: Languages, kind: 'choice', Control: DisplaySystemControl, Glance: DisplaySystemGlance },
+  { id: 'displaySystem', icon: Languages, kind: 'choice', Control: DisplaySystemControl, Glance: DisplaySystemGlance,
+    Extra: () => useStore(s => s.noteNaming) === 'sargam' ? <SargamExtra /> : null },
   { id: 'accidentals', icon: Hash, kind: 'choice', Control: AccidentalsControl, Glance: AccidentalsGlance,
     useVisible: () => useStore(s => s.noteNaming) !== 'hidden' },
   { id: 'chordTracking', icon: Radar, kind: 'choice', Control: ChordTrackingControl, Glance: ChordTrackingGlance, Extra: ChordTrackingExtra },

@@ -1,7 +1,7 @@
 import { create } from 'zustand'
 import type {
   ParsedMidi, ParsedTrack, PlaybackState, TrackState,
-  KeyboardSize, KeyboardMode, NoteNaming, Accidentals, ChordEvent, TranscriptEntry, LibraryFile, HitEffectPattern, SoundfontId,
+  KeyboardSize, KeyboardMode, NoteNaming, SargamScript, Accidentals, ChordEvent, TranscriptEntry, LibraryFile, HitEffectPattern, SoundfontId,
   ChordNamingStyle, ChordTrackingMode, ChordFollowSubMode, ChordReadingMode, TapSession, SettingsGroupId,
 } from '../types'
 import type { DetectedKey } from '../utils/keyDetection'
@@ -84,6 +84,9 @@ interface OrfeoStore {
   appTheme: AppTheme
   showBarNumbers: boolean
   setNoteNaming: (naming: NoteNaming) => void
+  // Sargam: where Sa sits ('auto' = the song's key as heard, or a pitch class 0–11 set by hand) and the script
+  sargam: { sa: 'auto' | number; script: SargamScript }
+  setSargam: (p: Partial<{ sa: 'auto' | number; script: SargamScript }>) => void
   setAccidentals: (accidentals: Accidentals) => void
   setZoomLevel: (zoom: number) => void
   setAppTheme: (theme: AppTheme) => void
@@ -747,6 +750,8 @@ export const useStore = create<OrfeoStore>((set, get) => ({
   appTheme: 'dark',
   showBarNumbers: true,
   setNoteNaming: (noteNaming) => set({ noteNaming }),
+  sargam: { sa: 'auto', script: 'latin' },
+  setSargam: (p) => set(s => ({ sargam: { ...s.sargam, ...p } })),
   setAccidentals: (accidentals) => set({ accidentals }),
   setZoomLevel: (zoomLevel) => set({ zoomLevel }),
   setAppTheme: (appTheme) => set({ appTheme }),
@@ -1365,6 +1370,13 @@ async function restoreLibraryPrefs() {
       useStore.setState({ librarySongFirst: prefs.librarySongFirst })
     }
     if (prefs.noteNaming) store.setNoteNaming(prefs.noteNaming)
+    if (prefs.sargam && typeof prefs.sargam === 'object') {
+      const sa = prefs.sargam.sa, script = prefs.sargam.script
+      store.setSargam({
+        ...(sa === 'auto' || (Number.isInteger(sa) && sa >= 0 && sa <= 11) ? { sa } : {}),
+        ...(script === 'latin' || script === 'devanagari' ? { script } : {}),
+      })
+    }
     if (prefs.accidentals) store.setAccidentals(prefs.accidentals)
     if (prefs.chordTrackingMode === 'auto' || prefs.chordTrackingMode === 'harmony' || prefs.chordTrackingMode === 'follow') {
       store.setChordTrackingMode(prefs.chordTrackingMode)
@@ -1615,6 +1627,7 @@ const _unsubLyrics = useStore.subscribe((state) => {
 // Use null sentinel so we never save on first subscriber fire (which would
 // overwrite the restored value before restoreLibraryPrefs has run)
 let _prevNoteNaming: string | null = null
+let _prevSargam: unknown = null
 let _prevAccidentals: string | null = null
 let _prevMasterVolume: number | null = null
 let _prevAudioEngine: string | null = null
@@ -1693,6 +1706,7 @@ const _unsubPrefs = useStore.subscribe((state) => {
   // Skip the very first fire (app init) — restore handles loading saved values
   if (_prevNoteNaming === null) {
     _prevNoteNaming = state.noteNaming
+    _prevSargam = state.sargam
     _prevAccidentals = state.accidentals
     _prevMasterVolume = state.masterVolume
     _prevAudioEngine = state.audioEngine
@@ -1771,6 +1785,7 @@ const _unsubPrefs = useStore.subscribe((state) => {
   }
   if (
     state.noteNaming !== _prevNoteNaming ||
+    state.sargam !== _prevSargam ||
     state.accidentals !== _prevAccidentals ||
     state.masterVolume !== _prevMasterVolume ||
     state.masterCompEnabled !== _prevMasterCompEnabled ||
@@ -1847,6 +1862,7 @@ const _unsubPrefs = useStore.subscribe((state) => {
     state.progressionVoicing !== _prevProgressionVoicing
   ) {
     _prevNoteNaming = state.noteNaming
+    _prevSargam = state.sargam
     _prevAccidentals = state.accidentals
     _prevMasterVolume = state.masterVolume
     _prevAudioEngine = state.audioEngine
@@ -1923,6 +1939,7 @@ const _unsubPrefs = useStore.subscribe((state) => {
     _prevProgressionVoicing = state.progressionVoicing
     window.electronAPI?.setPrefs?.({
       noteNaming: state.noteNaming,
+      sargam: state.sargam,
       accidentals: state.accidentals,
       masterVolume: state.masterVolume,
       masterCompEnabled: state.masterCompEnabled,

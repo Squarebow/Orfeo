@@ -1,7 +1,7 @@
 import React, { useMemo, useCallback, useState, useEffect, useRef } from 'react'
 import { useStore } from '../../store'
 import { isBlackKey } from '../../utils/midiParser'
-import { getNoteLabel, getNoteName } from '../../utils/noteNames'
+import { getNoteLabel, getNoteName, noteLabelText, resolveSa } from '../../utils/noteNames'
 import { detectChord, detectChordWithInversion, inversionForKnownChord, formatInversionDisplay, localizeChord, ordinalSuffix, buildCompactVoicing } from '../../utils/chordDetection'
 import { buildKeyLayoutRatios, PIANO_RANGES as RANGES } from '../../utils/keyLayout'
 import { notesSoundingAt } from '../../utils/midiParser'
@@ -48,6 +48,8 @@ export default function Keyboard() {
   const activeKeyColors = useStore((s) => s.activeKeyColors)
   const noteNaming              = useStore((s) => s.noteNaming)
   const accidentals             = useStore((s) => s.accidentals)
+  const sargamSa                = useStore((s) => resolveSa(s.sargam.sa, s.detectedKey))
+  const sargamScript            = useStore((s) => s.sargam.script)
   const chordNamingStyle        = useStore((s) => s.chordNamingStyle)
   const showOctaveLabels        = useStore((s) => s.showOctaveLabels)
   const showNoteNamesOnKeyboard = useStore((s) => s.showNoteNamesOnKeyboard)
@@ -958,7 +960,7 @@ export default function Keyboard() {
             const locked = lockedKeys.has(k.midi)
             const isC = k.midi % 12 === 0
             const label = color
-              ? (showNoteNamesOnKeyboard ? (getNoteName(k.midi, noteNaming, accidentals) || null) : null)
+              ? (showNoteNamesOnKeyboard ? (noteLabelText(k.midi, noteNaming, accidentals, { sa: sargamSa, script: sargamScript }) || null) : null)
               : (isC && showOctaveLabels ? getNoteLabel(k.midi, noteNaming, accidentals) : null)
             return (
               <div
@@ -1128,7 +1130,7 @@ export default function Keyboard() {
                     color: 'var(--key-note-name-color)', pointerEvents: 'none',
                     whiteSpace: 'nowrap', textShadow: '0 1px 2px rgba(0,0,0,0.95)',
                   }}>
-                    {getNoteName(k.midi, noteNaming, accidentals)}
+                    {noteLabelText(k.midi, noteNaming, accidentals, { sa: sargamSa, script: sargamScript })}
                   </span>
                 )}
               </div>

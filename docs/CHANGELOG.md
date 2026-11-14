@@ -8,6 +8,11 @@
 ## [Unreleased]
 
 ### New
+- **Sargam note names.** Settings › Chords & Notation › Display system has a fifth choice,
+  Sargam (Sa re Re ga Ga Ma Ma′ Pa dha Dha ni Ni), in Latin letters or Devanagari. The keys
+  and the notes on the piano roll take Sargam names counted from Sa, which follows the song's
+  key or sits where you set it, and stays there from song to song. Chord and key names stay
+  Western.
 - **Orfeo in your language.** Turn on *Show language switcher* in Settings › Language for a menu
   under the logo with English plus the languages you tick there, and *Follow system language* picks the one your computer uses. A
   language can be chosen once people have translated 80 % of it; Settings › Language shows how
