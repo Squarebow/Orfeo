@@ -96,6 +96,12 @@
 - **Saving from the Playback Editor no longer splits a staff between the hands.** A piano
   written on two staves kept its hands only until the next save, which then divided each staff
   between both hands. Merging a piano's two staves into one track now keeps the hands they had.
+- **A piano imported from MusicXML, Guitar Pro or Capella now gets its hands from its staves
+  too.** The conversion to MIDI was merging a grand staff's two staves onto one track and one
+  channel, so none of the staff-based accuracy above ever applied to an imported file — only to
+  a file already saved as `.mid`. Each staff now becomes its own track again, same as a native
+  MIDI export, with its original channel kept in a proper multi-track file instead of being
+  collapsed into one.
 
 ## [1.7.3] — 12. 11. 2026 — The Explorers hear your keyboard, a bigger Settings window
 
