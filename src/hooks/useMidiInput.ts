@@ -29,6 +29,7 @@ import { nativeCall } from '../audio/nativeClient'
 import { nativeLivePiano } from '../audio/useNativeEngine'
 import { fitKeyboardSize, type KeyRange } from '../utils/keyboardRange'
 import { isLightEcho } from '../utils/keyLightEcho'
+import { t } from '../utils/i18n'
 
 const HARDWARE_COLOR = 'var(--text-amber)'
 
@@ -439,7 +440,7 @@ function setSizeFor(key: string, r: KeyRange) {
 
 async function connect(): Promise<void> {
   if (!navigator.requestMIDIAccess) {
-    useMidiSettings.setState({ accessError: 'MIDI is not available in this build.' })
+    useMidiSettings.setState({ accessError: t`MIDI is not available in this build.` })
     return
   }
   try {

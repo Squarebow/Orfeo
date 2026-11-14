@@ -4,6 +4,7 @@
 // chevrons rather than reading as solid triangles at small sizes.
 
 import Tooltip from './Tooltip'
+import { t } from '../utils/i18n'
 
 interface SpeedControlProps {
   value: 'slow' | 'med' | 'fast'
@@ -48,9 +49,9 @@ const IconFast = ({ h }: { h: number }) => (
 
 const ICONS = { slow: IconSlow, med: IconMedium, fast: IconFast }
 const SPEEDS: Array<['slow' | 'med' | 'fast', string]> = [
-  ['slow', 'Slow'],
-  ['med',  'Medium'],
-  ['fast', 'Fast'],
+  ['slow', t`Slow`],
+  ['med',  t`Medium`],
+  ['fast', t`Fast`],
 ]
 
 // ── SpeedControl component ────────────────────────────────────────────────────
@@ -61,7 +62,7 @@ export default function SpeedControl({ value, onChange, size = DEFAULT_H }: Spee
         const active = value === v
         const Icon   = ICONS[v]
         return (
-          <Tooltip key={v} oneLine title={`Plays back at ${label.toLowerCase()} speed.`}>
+          <Tooltip key={v} oneLine title={t`Playback speed: ${label}.`}>
           <button
             onClick={() => onChange(v)}
             aria-label={label}

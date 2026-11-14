@@ -1,3 +1,4 @@
+import { t } from '../utils/i18n'
 // ── FaceTheMusicMark ─────────────────────────────────────────────────────────
 // Hand-lettered "Let's face the music" for the empty start screen. Paths
 // from the designer's Facethemusic-01 artwork; colour via `fill`, size via
@@ -29,7 +30,7 @@ export default function FaceTheMusicMark({ width, fill }: { width: number; fill:
     <svg
       width={width} height={Math.round(width * VIEW_H / VIEW_W)}
       viewBox={`0 0 ${VIEW_W} ${VIEW_H}`} fill={fill}
-      role="img" aria-label="Let's face the music"
+      role="img" aria-label={t`Let's face the music`}
     >
       {PATHS.map((d, i) => <path key={i} d={d} />)}
     </svg>

@@ -19,20 +19,20 @@ export const PRACTICE_DEFS: SettingDef[] = [
   },
   {
     id: 'chordPrompter', icon: BookOpen, kind: 'switch',
-    Control: () => { const v = useStore(s => s.chordPrompterEnabled); return <Switch value={v} onChange={useStore.getState().setChordPrompterEnabled} label="Chord Prompter" /> },
-    Description: () => <>Shows past, current and upcoming chords during playback. Click <InlineIcon><PrompterIcon /></InlineIcon> icon above keyboard to enable it.</>,
+    Control: () => { const v = useStore(s => s.chordPrompterEnabled); return <Switch value={v} onChange={useStore.getState().setChordPrompterEnabled} label={t`Chord Prompter`} /> },
+    Description: () => <>{t`Shows past, current and upcoming chords during playback. Click`} <InlineIcon><PrompterIcon /></InlineIcon> {t`icon above keyboard to enable it.`}</>,
   },
   {
     id: 'closePanels', icon: PanelLeftClose, kind: 'switch',
-    Control: () => { const v = useStore(s => s.autoCollapseDrawers); return <Switch value={v} onChange={useStore.getState().setAutoCollapseDrawers} label="Close panels on playback" /> },
-    Description: () => <>Automatically hide side panels during playback to maximize the piano roll view. For full-screen view click <InlineIcon><Expand size={10} /></InlineIcon> to enter presentation mode.</>,
+    Control: () => { const v = useStore(s => s.autoCollapseDrawers); return <Switch value={v} onChange={useStore.getState().setAutoCollapseDrawers} label={t`Close panels on playback`} /> },
+    Description: () => <>{t`Automatically hide side panels during playback to maximize the piano roll view. For full-screen view click`} <InlineIcon><Expand size={10} /></InlineIcon> {t`to enter presentation mode.`}</>,
   },
   {
     id: 'handTags', icon: Hand, kind: 'switch',
-    Control: () => { const v = useStore(s => s.showHandLetters); return <Switch value={v} onChange={useStore.getState().setShowHandLetters} label="Hand tags" /> },
+    Control: () => { const v = useStore(s => s.showHandLetters); return <Switch value={v} onChange={useStore.getState().setShowHandLetters} label={t`Hand tags`} /> },
   },
   {
     id: 'trackVu', icon: Activity, kind: 'switch',
-    Control: () => { const v = useStore(s => s.trackVuColorEnabled); return <Switch value={v} onChange={useStore.getState().setTrackVuColorEnabled} label="Track color VU meters" /> },
+    Control: () => { const v = useStore(s => s.trackVuColorEnabled); return <Switch value={v} onChange={useStore.getState().setTrackVuColorEnabled} label={t`Track color VU meters`} /> },
   },
 ]

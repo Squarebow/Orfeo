@@ -5,15 +5,16 @@ import type { HitEffectPattern } from '../../../types'
 import Tooltip from '../../Tooltip'
 import { Switch, RollZoomStepper, GlanceLine, SubLabel, HelpText, HitEffectColorSwatch, SettingsDropdown } from '../controls'
 import type { SettingDef } from '../types'
+import { t } from '../../../utils/i18n'
 
 export const HIT_EFFECT_DESCRIPTIONS: Record<HitEffectPattern, string> = {
-  glowBloom: 'Soft radial glow that blooms outward and fades.',
-  rippleRing: 'Expanding concentric rings, like a ripple in water.',
-  particleBurst: 'Small particles spray upward and fall back down with gravity.',
-  smokePlume: 'Soft blurred smoke wisps drift upward, shifting color as they dissipate.',
-  colorAura: 'A soft glowing blob that pulses outward while cycling through colors.',
-  starburstNova: 'Sharp radiating rays with a bright flash — explosive and energetic.',
-  cometTrail: 'A bright streak shoots upward with a fading trail behind it.',
+  glowBloom: t`Soft radial glow that blooms outward and fades.`,
+  rippleRing: t`Expanding concentric rings, like a ripple in water.`,
+  particleBurst: t`Small particles spray upward and fall back down with gravity.`,
+  smokePlume: t`Soft blurred smoke wisps drift upward, shifting color as they dissipate.`,
+  colorAura: t`A soft glowing blob that pulses outward while cycling through colors.`,
+  starburstNova: t`Sharp radiating rays with a bright flash — explosive and energetic.`,
+  cometTrail: t`A bright streak shoots upward with a fading trail behind it.`,
 }
 
 function RollZoomSuffix() {
@@ -22,7 +23,7 @@ function RollZoomSuffix() {
 }
 function RollZoomGlance() {
   const zoomLevel = useStore(s => s.zoomLevel)
-  return <GlanceLine>{`${Math.round(6 / zoomLevel * 10) / 10}s visible · higher = notes appear larger`}</GlanceLine>
+  return <GlanceLine>{t`${Math.round(6 / zoomLevel * 10) / 10}s visible · higher = notes appear larger`}</GlanceLine>
 }
 
 function Slider({ label, value, min, max, step, onChange, digits }: {
@@ -31,7 +32,7 @@ function Slider({ label, value, min, max, step, onChange, digits }: {
   return (
     <>
       <SubLabel>{`${label} — ${value.toFixed(digits)}`}</SubLabel>
-      <Tooltip title="Drag to change" oneLine wrapperStyle={{ display: 'block', width: '100%' }}>
+      <Tooltip title={t`Drag to change`} oneLine wrapperStyle={{ display: 'block', width: '100%' }}>
         <input
           type="range" min={min} max={max} step={step} value={value}
           onChange={e => onChange(Number(e.target.value))}
@@ -58,13 +59,13 @@ function VisualEffectsExtra() {
   const st = useStore.getState()
   return (
     <>
-      <SubLabel>Scope & Color</SubLabel>
+      <SubLabel>{t`Scope & Color`}</SubLabel>
       <div style={{ display: 'flex', gap: 'var(--space-2)', alignItems: 'stretch' }}>
         <Tooltip
-          title={scope === 'keyboard' ? 'Piano tracks only' : 'All tracks'}
+          title={scope === 'keyboard' ? t`Piano tracks only` : t`All tracks`}
           description={scope === 'keyboard'
-            ? 'Effects on keyboard tracks only — click to include every track in the file.'
-            : 'Effects on every track in the file — click to limit to keyboard tracks only.'}
+            ? t`Effects on keyboard tracks only — click to include every track in the file.`
+            : t`Effects on every track in the file — click to limit to keyboard tracks only.`}
           wrapperStyle={{ width: 116, flexShrink: 0 }}
         >
           <button
@@ -75,13 +76,13 @@ function VisualEffectsExtra() {
               ? <ToggleLeft size={16} strokeWidth={1.5} style={{ flexShrink: 0, color: 'var(--text-amber)' }} />
               : <ToggleRight size={16} strokeWidth={1.5} style={{ flexShrink: 0, color: 'var(--text-amber)' }} />}
             <span style={{ color: 'var(--text-faint)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', textAlign: 'left' }}>
-              {scope === 'keyboard' ? 'Piano only' : 'All tracks'}
+              {scope === 'keyboard' ? t`Piano only` : t`All tracks`}
             </span>
           </button>
         </Tooltip>
         <HitEffectColorSwatch color={color} onChange={setColor} />
         {color && (
-          <Tooltip title="Use each track's own color again" wrapperStyle={{ flexShrink: 0 }}>
+          <Tooltip title={t`Use each track's own color again`} wrapperStyle={{ flexShrink: 0 }}>
             <button
               onClick={() => setColor(null)}
               style={{ display: 'flex', alignItems: 'center', color: 'var(--text-dimmest)', background: 'none', border: 'none', cursor: 'pointer', padding: '0 2px', flexShrink: 0 }}
@@ -91,21 +92,21 @@ function VisualEffectsExtra() {
           </Tooltip>
         )}
       </div>
-      <SubLabel>Pattern</SubLabel>
+      <SubLabel>{t`Pattern`}</SubLabel>
       <SettingsDropdown
         value={pattern}
         onChange={v => setPattern(v as HitEffectPattern)}
         options={(Object.keys(HIT_EFFECT_DESCRIPTIONS) as HitEffectPattern[]).map(p => ({
           value: p,
-          label: { glowBloom: 'Glow Bloom', rippleRing: 'Ripple Ring', particleBurst: 'Particle Burst', smokePlume: 'Smoke Plume', colorAura: 'Color Aura', starburstNova: 'Starburst Nova', cometTrail: 'Comet Trail' }[p],
+          label: { glowBloom: t`Glow Bloom`, rippleRing: t`Ripple Ring`, particleBurst: t`Particle Burst`, smokePlume: t`Smoke Plume`, colorAura: t`Color Aura`, starburstNova: t`Starburst Nova`, cometTrail: t`Comet Trail` }[p],
           title: HIT_EFFECT_DESCRIPTIONS[p],
         }))}
       />
       <HelpText>{HIT_EFFECT_DESCRIPTIONS[pattern]}</HelpText>
-      <Slider label="Intensity" value={intensity} min={0} max={4} step={0.1} digits={1} onChange={st.setHitEffectBloomIntensity} />
-      <Slider label="Spread" value={spread} min={0} max={12} step={0.5} digits={1} onChange={st.setHitEffectBloomSpread} />
-      <Slider label="Threshold" value={threshold} min={0} max={1} step={0.05} digits={2} onChange={st.setHitEffectBloomThreshold} />
-      <HelpText>Lower values make more of the effect glow; higher values only bloom the brightest parts.</HelpText>
+      <Slider label={t`Intensity`} value={intensity} min={0} max={4} step={0.1} digits={1} onChange={st.setHitEffectBloomIntensity} />
+      <Slider label={t`Spread`} value={spread} min={0} max={12} step={0.5} digits={1} onChange={st.setHitEffectBloomSpread} />
+      <Slider label={t`Threshold`} value={threshold} min={0} max={1} step={0.05} digits={2} onChange={st.setHitEffectBloomThreshold} />
+      <HelpText>{t`Lower values make more of the effect glow; higher values only bloom the brightest parts.`}</HelpText>
     </>
   )
 }
@@ -114,14 +115,14 @@ export const PIANO_ROLL_DEFS: SettingDef[] = [
   { id: 'rollZoom', icon: ZoomIn, kind: 'choice', Control: RollZoomStepper, Glance: RollZoomGlance, NameSuffix: RollZoomSuffix },
   {
     id: 'barNumbers', icon: Grid3x3, kind: 'switch',
-    Control: () => { const v = useStore(s => s.showBarNumbers); return <Switch value={v} onChange={useStore.getState().setShowBarNumbers} label="Bar numbers & grid lines" /> },
+    Control: () => { const v = useStore(s => s.showBarNumbers); return <Switch value={v} onChange={useStore.getState().setShowBarNumbers} label={t`Bar numbers & grid lines`} /> },
   },
   {
     id: 'playbar', icon: Minus, kind: 'switch',
-    Control: () => { const v = useStore(s => s.playbarVisible); return <Switch value={v} onChange={useStore.getState().setPlaybarVisible} label="Show Playbar" /> },
+    Control: () => { const v = useStore(s => s.playbarVisible); return <Switch value={v} onChange={useStore.getState().setPlaybarVisible} label={t`Show Playbar`} /> },
   },
   {
     id: 'visualEffects', icon: Sparkles, kind: 'switch', Extra: VisualEffectsExtra,
-    Control: () => { const v = useStore(s => s.hitEffectsEnabled); return <Switch value={v} onChange={useStore.getState().setHitEffectsEnabled} label="Visual Effects" /> },
+    Control: () => { const v = useStore(s => s.hitEffectsEnabled); return <Switch value={v} onChange={useStore.getState().setHitEffectsEnabled} label={t`Visual Effects`} /> },
   },
 ]

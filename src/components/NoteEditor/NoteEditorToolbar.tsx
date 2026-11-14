@@ -14,6 +14,7 @@ import { getPianoRollAreaRect, getPianoRollCenterX } from '../../utils/modalAnch
 import { modalCloseButtonStyle, modalCloseButtonHoverColor, modalCloseButtonIdleColor } from '../../utils/modalCloseButtonStyle'
 import { HAND_ASSIGN_GROUPS } from '../../utils/keyboardGroups'
 import OrfeoMark from '../OrfeoMark'
+import { t } from '../../utils/i18n'
 
 // ── Toolbar SVG icons ─────────────────────────────────────────────────────────
 const IconVelocity = () => (
@@ -356,9 +357,9 @@ export default function NoteEditorToolbar() {
   const doReset = async () => {
     if (NES.dirty) {
       const choice = await confirmDialog({
-        title: 'Reset Note Editor',
-        message: 'Discard all changes in this editing session?',
-        buttons: ['Discard', 'Cancel'],
+        title: t`Reset Note Editor`,
+        message: t`Discard all changes in this editing session?`,
+        buttons: [t`Discard`, t`Cancel`],
         destructiveIndex: 0,
       })
       if (choice !== 0) return
@@ -412,10 +413,10 @@ export default function NoteEditorToolbar() {
   // PianoRoll's updateHoverState reports it, falling back to a per-tool
   // idle blurb when the cursor is outside the roll (NES.defaultHint). ──────
   const toolTooltip: Record<NETool, [string, string]> = {
-    select: ['Select — click/shift-click notes, drag to move/resize', 'Drag empty space to pan · Shift+wheel to scrub finely'],
-    pen:    ['Pen — Alt+click empty space to add a note', 'Click a note to mark it for delete'],
-    marquee:['Marquee — drag a box over a cluster to select it', 'Shift+drag adds to the current selection'],
-    lasso:  ['Lasso — drag through notes to select them', 'Shift+drag adds to the current selection'],
+    select: [t`Select — click/shift-click notes, drag to move/resize`, t`Drag empty space to pan · Shift+wheel to scrub finely`],
+    pen:    [t`Pen — Alt+click empty space to add a note`, t`Click a note to mark it for delete`],
+    marquee:[t`Marquee — drag a box over a cluster to select it`, t`Shift+drag adds to the current selection`],
+    lasso:  [t`Lasso — drag through notes to select them`, t`Shift+drag adds to the current selection`],
   }
   const [tipLine1, tipLine2] = toolTooltip[activeTool]
 
@@ -443,7 +444,7 @@ export default function NoteEditorToolbar() {
     <div
       ref={panelRef}
       role="toolbar"
-      aria-label="Note Editor toolbar"
+      aria-label={t`Note Editor toolbar`}
       className="orfeo-modal-glow"
       style={{
         position: 'fixed',
@@ -485,21 +486,21 @@ export default function NoteEditorToolbar() {
             color: 'var(--text-amber)', textTransform: 'uppercase',
             whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
           }}>
-            MIDI NOTE EDITOR
+            {t`MIDI NOTE EDITOR`}
           </span>
         </div>
         <div style={{
           fontSize: 11, color: 'var(--text-muted)', textAlign: 'center',
           whiteSpace: 'normal', lineHeight: 1.3,
         }}>
-          Click a track in the Tracks panel to solo it for editing
+          {t`Click a track in the Tracks panel to solo it for editing`}
         </div>
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: 6 }}>
           <button
             onMouseDown={e => e.stopPropagation()}
             onClick={() => void doClose()}
             style={modalCloseButtonStyle}
-            onMouseEnter={e => { e.currentTarget.style.color = modalCloseButtonHoverColor; setIconHint('Close — exit edit mode') }}
+            onMouseEnter={e => { e.currentTarget.style.color = modalCloseButtonHoverColor; setIconHint(t`Close — exit edit mode`) }}
             onMouseLeave={e => { e.currentTarget.style.color = modalCloseButtonIdleColor; setIconHint(null) }}
           >
             ✕
@@ -511,27 +512,27 @@ export default function NoteEditorToolbar() {
           between them, instead of stacked rows that fought the panel for
           height and made the tooltip row below feel cramped. ─────────────── */}
       <div style={{ display: 'flex', alignItems: 'center', height: 40, padding: '4px 8px', gap: 10, borderTop: '1px solid var(--state-hover-bg)' }}>
-        <span style={rowLabelStyle}>TOOLS</span>
-        <ToolBtn active={activeTool === 'marquee'} onClick={() => setTool('marquee')} onHint={setIconHint} hint="Marquee — drag a box over a cluster to select it">
+        <span style={rowLabelStyle}>{t`TOOLS`}</span>
+        <ToolBtn active={activeTool === 'marquee'} onClick={() => setTool('marquee')} onHint={setIconHint} hint={t`Marquee — drag a box over a cluster to select it`}>
           <SquareDashed size={13} />
         </ToolBtn>
-        <ToolBtn active={activeTool === 'lasso'} onClick={() => setTool('lasso')} onHint={setIconHint} hint="Freehand select — drag through notes to select them">
+        <ToolBtn active={activeTool === 'lasso'} onClick={() => setTool('lasso')} onHint={setIconHint} hint={t`Freehand select — drag through notes to select them`}>
           <CircleDashed size={13} />
         </ToolBtn>
-        <ToolBtn active={activeTool === 'pen'} onClick={() => setTool('pen')} onHint={setIconHint} hint="Pen — Alt+click to add, click a note to mark for delete">
+        <ToolBtn active={activeTool === 'pen'} onClick={() => setTool('pen')} onHint={setIconHint} hint={t`Pen — Alt+click to add, click a note to mark for delete`}>
           <PenLine size={13} />
         </ToolBtn>
-        <button onClick={doUndo} disabled={!canUndo} {...hintHandlers('Undo — revert the last edit (Ctrl+Z)')} style={iconBtnStyle(!canUndo)}><span style={{ display: 'inline-block', transform: 'rotate(-45deg)' }}>↺</span></button>
-        <button onClick={doRedo} disabled={!canRedo} {...hintHandlers('Redo — reapply the last undone edit (Ctrl+Y)')} style={iconBtnStyle(!canRedo)}><span style={{ display: 'inline-block', transform: 'rotate(45deg)' }}>↻</span></button>
+        <button onClick={doUndo} disabled={!canUndo} {...hintHandlers(t`Undo — revert the last edit (Ctrl+Z)`)} style={iconBtnStyle(!canUndo)}><span style={{ display: 'inline-block', transform: 'rotate(-45deg)' }}>↺</span></button>
+        <button onClick={doRedo} disabled={!canRedo} {...hintHandlers(t`Redo — reapply the last undone edit (Ctrl+Y)`)} style={iconBtnStyle(!canRedo)}><span style={{ display: 'inline-block', transform: 'rotate(45deg)' }}>↻</span></button>
 
         <div style={{ flex: 1 }} />
 
-        <span style={rowLabelStyle}>MODES</span>
-        <ToolBtn active={showNoteNames} onClick={toggleNoteNames} onHint={setIconHint} hint="Note names — show pitch labels on notes">
+        <span style={rowLabelStyle}>{t`MODES`}</span>
+        <ToolBtn active={showNoteNames} onClick={toggleNoteNames} onHint={setIconHint} hint={t`Note names — show pitch labels on notes`}>
           <WholeWord size={16} />
         </ToolBtn>
 
-        <ToolBtn active={reassignHands} onClick={toggleReassignHands} onHint={setIconHint} hint="Reassign hands — show LH/RH colors and enable Assign LH/RH">
+        <ToolBtn active={reassignHands} onClick={toggleReassignHands} onHint={setIconHint} hint={t`Reassign hands — show LH/RH colors and enable Assign LH/RH`}>
           <Hand size={13} />
         </ToolBtn>
 
@@ -539,7 +540,7 @@ export default function NoteEditorToolbar() {
             amber only while the lane is actually open. ────────────────── */}
         <button
           onClick={() => setVelocityPanelOpen(!velocityPanelOpen)}
-          {...hintHandlers(velocityPanelOpen ? 'Velocity lane — hide the velocity editor' : noteEditorSoloTrackIndex !== null ? 'Velocity lane — edit velocity for the soloed track' : 'Velocity lane — solo a track to edit its velocity')}
+          {...hintHandlers(velocityPanelOpen ? t`Velocity lane — hide the velocity editor` : noteEditorSoloTrackIndex !== null ? t`Velocity lane — edit velocity for the soloed track` : t`Velocity lane — solo a track to edit its velocity`)}
           style={{
             ...btnBase,
             width: 28, padding: 0, justifyContent: 'center',
@@ -556,7 +557,7 @@ export default function NoteEditorToolbar() {
           <IconVelocity />
         </button>
 
-        <ToolBtn active={snapEnabled} onClick={() => setSnap(!snapEnabled)} onHint={setIconHint} hint={snapEnabled ? 'Snap ON — moving, resizing or adding a note rounds its timing to the grid' : 'Snap OFF — moved/resized/added notes keep their exact dragged timing'}>
+        <ToolBtn active={snapEnabled} onClick={() => setSnap(!snapEnabled)} onHint={setIconHint} hint={snapEnabled ? t`Snap ON — moving, resizing or adding a note rounds its timing to the grid` : t`Snap OFF — moved/resized/added notes keep their exact dragged timing`}>
           <Magnet size={13} />
         </ToolBtn>
 
@@ -566,7 +567,7 @@ export default function NoteEditorToolbar() {
             onClick={openQuantize}
             aria-haspopup="listbox"
             aria-expanded={quantizeOpen}
-            {...hintHandlers(`Quantize grid — the grid unit Snap rounds to (currently 1/${quantize}); has no effect while Snap is off`)}
+            {...hintHandlers(t`Quantize grid — the grid unit Snap rounds to (currently 1/${quantize}); has no effect while Snap is off`)}
             style={{ ...btnBase, minWidth: 44, gap: 6, fontFamily: 'var(--font-mono)', fontSize: 10 }}
           >
             <Music4 size={12} color="var(--text-amber)" />
@@ -575,7 +576,7 @@ export default function NoteEditorToolbar() {
           {quantizeOpen && (
             <div
               role="listbox"
-              aria-label="Quantize grid resolution"
+              aria-label={t`Quantize grid resolution`}
               onMouseDown={e => e.stopPropagation()}
               style={{
                 position: 'fixed',
@@ -642,21 +643,21 @@ export default function NoteEditorToolbar() {
               color: 'var(--text-muted)', borderColor: 'var(--border2)', background: 'transparent',
               whiteSpace: 'nowrap', padding: '0 4px', transition: 'all 0.12s',
             }}
-            onMouseEnter={e => { e.currentTarget.style.color = 'var(--text-amber)'; e.currentTarget.style.borderColor = 'var(--accent-amber-strong)'; setIconHint('Reset — discard all edits and restore original') }}
+            onMouseEnter={e => { e.currentTarget.style.color = 'var(--text-amber)'; e.currentTarget.style.borderColor = 'var(--accent-amber-strong)'; setIconHint(t`Reset — discard all edits and restore original`) }}
             onMouseLeave={e => { e.currentTarget.style.color = 'var(--text-muted)'; e.currentTarget.style.borderColor = 'var(--border2)'; setIconHint(null) }}
           >
-            Reset
+            {t`Reset`}
           </button>
           <button
             onClick={() => void handleSave()}
-            {...hintHandlers('Save & Reload — save edits as a new versioned copy (_ORFEO_vN)')}
+            {...hintHandlers(t`Save & Reload — save edits as a new versioned copy (_ORFEO_vN)`)}
             style={{
               ...btnBase, flex: 1, justifyContent: 'center', fontSize: 12, fontWeight: 600,
               color: 'var(--text-near-black)', border: 'none', background: 'var(--text-amber)',
               whiteSpace: 'nowrap', padding: '0 4px', gap: 5,
             }}
           >
-            <Save size={12} /> Save &amp; Reload
+            <Save size={12} /> {t`Save & Reload`}
           </button>
         </div>
       </div>
@@ -670,25 +671,25 @@ export default function NoteEditorToolbar() {
           background: 'var(--accent-amber-tint-bg)',
         }}>
           <span style={{ fontSize: 11, color: 'var(--text-muted)', flexShrink: 0 }}>
-            Unsaved changes —
+            {t`Unsaved changes —`}
           </span>
           <button
             onClick={() => void doConfirmSaveAndClose()}
             style={{ ...btnBase, borderColor: 'var(--accent-amber-active-border)', color: 'var(--text-amber)', background: 'var(--accent-amber-active-bg)', fontSize: 11 }}
           >
-            Save & Exit
+            {t`Save & Exit`}
           </button>
           <button
             onClick={doConfirmDiscardAndClose}
             style={{ ...btnBase, borderColor: 'var(--status-error-border)', color: 'var(--status-error)', fontSize: 11 }}
           >
-            Discard
+            {t`Discard`}
           </button>
           <button
             onClick={() => setShowCloseConfirm(false)}
             style={{ ...btnBase, fontSize: 11 }}
           >
-            Cancel
+            {t`Cancel`}
           </button>
         </div>
       )}

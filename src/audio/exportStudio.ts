@@ -11,6 +11,7 @@ import { EXPORT_RATE, type Stereo } from './exportEncode'
 import { renderStudioSynth, planSections, joinSections } from './exportStudioSynth'
 import StudioWorkerCtor from './exportStudioWorkerCtor'
 import { COMPRESSOR_PRESETS, SAMPLES_BOOST, COMPRESSOR_RELEASE } from '../hooks/useSamplesEngine'
+import { t } from '../utils/i18n'
 
 const MAX_SECTIONS = 4
 const MIN_SECTION_SEC = 20            // shorter, and the lead-in each section plays first outweighs the gain
@@ -92,16 +93,16 @@ function renderSections(song: ExportSong, banks: ArrayBuffer[], parts: number, o
         onProgress?.(1)
         resolve(joinSections(results, sections, total))
       }
-      w.onerror = (e) => fail(e?.message || 'a section could not be played')
+      w.onerror = (e) => fail(e?.message || t`a section could not be played`)
       // A worker that vanishes with neither a result nor an error would leave the
       // export waiting on a count that never arrives. Chromium's dedicated workers
       // don't fire `close`, so this covers other runtimes and the test's fake.
-      w.onclose = () => fail('a section worker stopped without an answer')
+      w.onclose = () => fail(t`a section worker stopped without an answer`)
     })
     try {
       for (let k = 0; k < workers.length; k++) workers[k].postMessage({ song, banks, section: sections[k] })
     } catch (e: any) {
-      fail(`a section could not be started: ${e?.message ?? e}`)
+      fail(t`a section could not be started: ${e?.message ?? e}`)
     }
   })
 }

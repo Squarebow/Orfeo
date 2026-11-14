@@ -16,6 +16,7 @@ import { KEYBOARD_GROUPS } from '../../utils/keyboardGroups'
 import { useFocusTrap } from '../../hooks/useFocusTrap'
 import { useClampPositionOnZoom } from '../../hooks/useClampPositionOnZoom'
 import { acceptMixerValues } from '../../utils/unsavedChanges'
+import { t } from '../../utils/i18n'
 
 // ── MixerConsole — floating draggable modal ───────────────────────────────────
 // Opened via Ctrl+Shift+M or the Console (SlidersVertical) icon in the TrackPanel.
@@ -100,9 +101,9 @@ export default function MixerConsole() {
 
     const filePath = (midi as any)._filePath ?? ''
     const choice = await confirmDialog({
-      title: 'Save mixer changes?',
-      message: `Volume, pan, reverb, and chorus were changed for ${changed.length} channel(s).`,
-      buttons: ['Save & Reload', 'Discard', 'Cancel'],
+      title: t`Save mixer changes?`,
+      message: t`Channels with changed volume, pan, reverb or chorus: ${changed.length}.`,
+      buttons: [t`Save & Reload`, t`Discard`, t`Cancel`],
     })
     if (choice === 2) return // Cancel — leave mixer open
     if (choice === 1) { // Discard — re-seeded from file next open
@@ -117,7 +118,7 @@ export default function MixerConsole() {
         channels: changed.map(t => ({ index: t.index, volume: t.volume, pan: t.pan, chorus: t.chorus, reverb: t.reverb })),
       })
       if (!result.ok || !result.base64 || !result.fileName || !result.filePath) {
-        await confirmDialog({ title: 'Save failed', message: result.message ?? 'Could not save mixer changes.', buttons: ['OK'] })
+        await confirmDialog({ title: t`Save failed`, message: result.message ?? t`Could not save mixer changes.`, buttons: [t`OK`] })
         return // leave mixer open so the user can retry
       }
       const binary = atob(result.base64)
@@ -135,7 +136,7 @@ export default function MixerConsole() {
       useStore.getState().notifyLibrarySaved(result.filePath)
       setMixerOpen(false)
     } catch (e: any) {
-      await confirmDialog({ title: 'Save failed', message: e?.message ?? 'Could not save mixer changes.', buttons: ['OK'] })
+      await confirmDialog({ title: t`Save failed`, message: e?.message ?? t`Could not save mixer changes.`, buttons: [t`OK`] })
     }
   }, [setMixerOpen])
 
@@ -336,7 +337,7 @@ export default function MixerConsole() {
       ref={modalRef}
       role="dialog"
       aria-modal="true"
-      aria-label="Console Mixer"
+      aria-label={t`Console Mixer`}
       className="orfeo-modal-glow app-no-drag"
       onMouseDown={() => setZIndex(bringToFront())}
       style={{
@@ -386,7 +387,7 @@ export default function MixerConsole() {
           color: 'var(--text-amber)', letterSpacing: '0.14em', textTransform: 'uppercase',
           flexShrink: 0,
         }}>
-          Console Mixer
+          {t`Console Mixer`}
         </span>
 
         {/* ── Permanent description — centered in whatever space is left between
@@ -412,7 +413,7 @@ export default function MixerConsole() {
               ...(headerDescOverflow > 0 ? { '--marquee-distance': `-${headerDescOverflow}px` } as CSSProperties : {}),
             }}
           >
-            Adjust track levels, apply effects and compress overall loudness
+            {t`Adjust track levels, apply effects and compress overall loudness`}
           </span>
         </div>
 
@@ -460,7 +461,7 @@ export default function MixerConsole() {
               color: 'var(--text-dimmest)', fontSize: 12, fontFamily: 'var(--font-mono)',
               letterSpacing: '0.08em', textTransform: 'uppercase',
             }}>
-              No tracks — load a MIDI file
+              {t`No tracks — load a MIDI file`}
             </div>
           ) : (
             displayTracks.map(t => {

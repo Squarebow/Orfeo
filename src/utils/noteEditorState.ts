@@ -3,6 +3,7 @@ import { midiToEditableCopy } from './noteEditorCommands'
 import type { ToneNote } from './noteEditorCommands'
 import { confirmDialog } from './confirmController'
 import { useStore } from '../store'
+import { t } from './i18n'
 
 export type NEQuantize = 4 | 8 | 16 | 32
 
@@ -18,7 +19,7 @@ export type NETool = 'select' | 'pen' | 'marquee' | 'lasso'
 // NoteEditorToolbar — that's fine, this one is the idle fallback for the
 // context-aware row-3 hint (which changes with tool/hover/selection state),
 // not a duplicate of anything dynamic. ──────────────────────────────────────
-const DEFAULT_HINT = 'Nothing selected'
+const DEFAULT_HINT = t`Nothing selected`
 
 // ── NoteEditorState — module-level singleton bridging NoteEditorToolbar ↔ PianoRoll
 // Both components read/write this object; no prop threading needed.
@@ -152,10 +153,10 @@ export function buildNoteEditSummary(descriptions: string[]): string {
 export async function confirmDiscardDirtyNoteEdits(message: string): Promise<boolean> {
   if (NES.dirty) {
     const choice = await confirmDialog({
-      title: 'Unsaved Changes',
+      title: t`Unsaved Changes`,
       message,
-      detail: 'Your note edits will be lost if you discard.',
-      buttons: ['Save', 'Discard', 'Cancel'],
+      detail: t`Your note edits will be lost if you discard.`,
+      buttons: [t`Save`, t`Discard`, t`Cancel`],
     })
     if (choice === 2) return false // Cancel
     if (choice === 0) {            // Save

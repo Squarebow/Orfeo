@@ -29,9 +29,10 @@ export type SettingId =
   | 'keyRange' | 'showOctaves' | 'showNoteNames' | 'reflectPianoRoll' | 'preciseScrubTime' | 'explorerPause' | 'tempoDisplay'
   | 'rollZoom' | 'barNumbers' | 'playbar' | 'visualEffects'
   | 'theme' | 'handColors' | 'appZoom' | 'tooltips' | 'tours' | 'supportNote' | 'starmap'
+  | 'showLanguageSwitcher' | 'followSystemLanguage' | 'menuLanguages' | 'translations' | 'translationUpdates'
   | 'midiKeyboards' | 'midiReconnect' | 'liveResponse' | 'latencyOffset' | 'gmOutput' | 'touchResponse' | 'duplicateFilter'
   | 'pedalsControls' | 'delayCheck' | 'midiTools'
-  | 'keyLights' | 'devKeyboard' | 'devKeyRange' | 'devKeyLights' | 'devExplorers' | 'devClosingWarning' | 'devQueue' | 'devLyrics' | 'devOpenWith' | 'devSupportNote'
+  | 'keyLights' | 'devKeyboard' | 'devKeyRange' | 'devKeyLights' | 'devExplorers' | 'devClosingWarning' | 'devQueue' | 'devLyrics' | 'devOpenWith' | 'devSupportNote' | 'devTranslations'
 
 export interface SettingInfo {
   id: SettingId
@@ -62,6 +63,8 @@ export const GROUPS: GroupInfo[] = [
   { id: 'piano-roll', name: t`Piano Roll`, intro: t`Tune the falling notes`, manualUrl: 'https://orfeo.cc/docs/playing-midi-files/the-piano-roll',
     stack: [['visualEffects'], ['rollZoom'], ['barNumbers', 'playbar']], looseFirst: true },
   { id: 'appearance', name: t`Appearance`, intro: t`Change the look`, manualUrl: 'https://orfeo.cc/docs/settings/appearance-settings' },
+  { id: 'language', name: t`Language`, intro: t`Choose your language`, manualUrl: 'https://orfeo.cc/docs/settings/language',
+    stack: [['showLanguageSwitcher', 'followSystemLanguage', 'menuLanguages', 'translations', 'translationUpdates']] },
   // Dev mode only (simAvailable) — its words are plain strings, kept out of the translations
   { id: 'devtools', name: 'Dev Tools', intro: 'Test tools, dev mode only', manualUrl: 'https://orfeo.cc/docs' },
 ]
@@ -154,8 +157,8 @@ export const SETTINGS: SettingInfo[] = [
     description: t`How chord qualities are written, everywhere a chord name appears: abbreviations (Cm7, Gaug) or symbols (G+, F°7).`,
     keywords: 'symbols abbreviations chord names' },
   { id: 'displaySystem', group: 'notation', name: t`Display system`, summary: t`How note names are written everywhere in Orfeo.`,
-    description: t`Your preferred note-naming system for notation and labels: UK/US (C D E F G A B), EU (C D E F G A H), Solfège (Do Re Mi…), or hide note names.`,
-    keywords: 'note names english german solfege do re mi' },
+    description: t`Your preferred note-naming system for notation and labels: UK/US (C D E F G A B), EU (C D E F G A H), Solfège (Do Re Mi…), Sargam (Sa Re Ga…, on the keyboard and piano roll, with chord names kept Western), or hide note names.`,
+    keywords: 'note names english german solfege do re mi sargam sa re ga hindustani indian devanagari' },
   { id: 'accidentals', group: 'notation', name: t`Accidentals`, summary: t`Spell the black keys as sharps or flats.`,
     description: t`Your preferred spelling for the black keys: sharps (A# D# G#…) or flats (Bb Eb Ab…).`,
     keywords: 'sharps flats enharmonic black keys' },
@@ -251,6 +254,23 @@ export const SETTINGS: SettingInfo[] = [
     description: t`While a song plays, a keyboard with lighted keys can show its notes, as the on-screen keyboard does: shown tracks only, never the keys you press yourself. Choose how for each keyboard. Yamaha, Casio and Akai keyboards have ready-made choices, and Note messages takes any channel. PartyKeys, LED strips, The ONE Smart Piano and Vangoa have choices of their own.`,
     keywords: 'key lights led lighted keys light guide yamaha ez casio partykeys ipiano one smart piano led plus vangoa led strip akai channel roli lumi illuminated' },
 
+  // ── Language
+  { id: 'showLanguageSwitcher', group: 'language', name: t`Show language switcher`, summary: t`Show the language menu under the Orfeo logo.`,
+    description: t`Turn on to show the language menu under the Orfeo logo.`,
+    keywords: 'language languages translate translation translations weblate menu logo switcher' },
+  { id: 'followSystemLanguage', group: 'language', name: t`Follow system language`, summary: t`Use your computer's language.`,
+    description: t`Turn on to use your computer's language. If there's no translation, Orfeo is in English.`,
+    keywords: 'language languages translate translation translations weblate system computer locale automatic' },
+  { id: 'menuLanguages', group: 'language', name: t`Languages in the menu`, summary: t`Choose which languages the menu lists.`,
+    description: t`Tick the languages you want in the menu. Greyed-out languages aren't ready yet.`,
+    keywords: 'language languages translate translation translations weblate menu tick ready' },
+  { id: 'translations', group: 'language', name: t`Translations`, summary: t`How much of each language is translated.`,
+    description: t`Orfeo is translated by its users on Weblate. A language is ready when 80 % of it is translated (the line on each bar). Click a language to help translate it.`,
+    keywords: 'language languages translate translation translations weblate percent progress help volunteer' },
+  { id: 'translationUpdates', group: 'language', name: t`Translation updates`, summary: t`When new translations reach you.`,
+    description: t`Choose when new translations reach you: as soon as they are made, or with the next version of Orfeo.`,
+    keywords: 'language languages translate translation translations weblate update download wait new version' },
+
   // ── Dev Tools (dev mode only): plain strings, kept out of the translations
   { id: 'devKeyboard', group: 'devtools', name: 'Simulated keyboards', summary: 'Plug in a pretend keyboard and play it.',
     description: 'Plug a simulated USB keyboard in and out, and play chords, runs, pedals, wheels and the awkward cases (a double key, unplugging mid-note) through the same path as a real one.',
@@ -258,6 +278,9 @@ export const SETTINGS: SettingInfo[] = [
   { id: 'devKeyLights', group: 'devtools', name: 'Key lights', summary: 'Light the keys of a simulated keyboard.',
     description: 'Plug in a simulated keyboard, PartyKeys included, choose how its lights are driven, light a chord or the Try it scale, and see the last messages Orfeo sent it. Session only, nothing saved.',
     keywords: 'dev test key lights led partykeys sysex lighted keyboard' },
+  { id: 'devTranslations', group: 'devtools', name: 'Translations', summary: 'Fake Weblate numbers, offline and new words.',
+    description: 'Pretend a language is at any percentage, that Weblate cannot be reached, or that it has newer words, then check again to see Settings > Language and the menu react. While any are on, downloads go to a temporary folder. Session only, nothing saved.',
+    keywords: 'dev test translations language weblate percent offline download pseudo' },
   { id: 'devKeyRange', group: 'devtools', name: 'Keyboard range', summary: 'The lowest-and-highest-key pop-up.',
     description: 'Shows the pop-up that asks a new keyboard for its lowest and highest key, for a pretend keyboard: any key counts, from a real or simulated keyboard or the buttons. Nothing is saved; only the on-screen keyboard size changes, as it would for real.',
     keywords: 'dev test keyboard range keys lowest highest measure size' },
@@ -296,6 +319,7 @@ export const QUICK_LAYOUT: Record<SettingsGroupId, QuickItem[]> = {
   'keyboard': ['keyRange', 'showOctaves', 'showNoteNames'],
   'piano-roll': ['rollZoom', 'barNumbers', 'playbar'],
   'appearance': ['appZoom', 'tooltips'],
+  'language': [],
   // Settings window only for now
   'midi': [],
   'devtools': [],

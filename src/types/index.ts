@@ -130,7 +130,10 @@ export interface TrackState {
 
 export type KeyboardSize = 61 | 73 | 88
 export type KeyboardMode = 'docked' | 'floating'
-export type NoteNaming = 'english' | 'central-european' | 'solfege' | 'hidden'
+// 'sargam' names single notes on the keyboard and piano roll only (counted from Sa);
+// chord and key names stay Western, so everywhere else it reads as 'english'
+export type NoteNaming = 'english' | 'central-european' | 'solfege' | 'sargam' | 'hidden'
+export type SargamScript = 'latin' | 'devanagari'
 export type Accidentals = 'flat' | 'sharp'
 // ── Chord *type/quality* naming — orthogonal to NoteNaming (which governs
 // root-letter spelling). 'abbreviation' = "Bb(b5)", 'symbol' = "Bb(♭5)". ────
@@ -253,6 +256,13 @@ declare global {
       getUpdateInfo:       () => Promise<UpdateInfo>
       checkForUpdates:     () => Promise<void>
       getNewVersion:       () => Promise<string | null>
+      setLanguage:         (code: string) => Promise<void>
+      // Translations (Settings > Translations)
+      i18nBoot:            () => import('../../electron/translations').BootState
+      i18nRefresh:         (force?: boolean) => Promise<{ stats: import('../i18n/readiness').LangStats[] | null; remote: import('../i18n/readiness').Snapshot | null; fetchedAt: number | null; offline: boolean }>
+      i18nDownload:        (code: string) => Promise<'saved' | 'invalid' | 'failed'>
+      i18nRememberReady:   (codes: string[]) => Promise<void>
+      i18nDev:             (overrides: { percents?: Record<string, number>; offline?: boolean; newer?: boolean; tempDir?: boolean }) => Promise<void>
       installUpdate:       () => Promise<void>
       onUpdateStatus:      (fn: (data: UpdateStatus) => void) => void
       offUpdateStatus:     () => void
@@ -318,6 +328,6 @@ export interface TapSession {
 export type SettingsGroupId =
   // 'playback-editing' is the Playback group (its id kept so saved choices still apply)
   | 'audio' | 'midi-files-library' | 'playback-editing' | 'practice' | 'editing'
-  | 'notation' | 'keyboard' | 'piano-roll' | 'appearance' | 'midi'
+  | 'notation' | 'keyboard' | 'piano-roll' | 'appearance' | 'midi' | 'language'
   // dev mode only (simAvailable): every test tool
   | 'devtools'

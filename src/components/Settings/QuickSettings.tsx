@@ -42,7 +42,7 @@ export default function QuickSettings() {
       })}
       {/* ── About — unchanged from the old drawer bottom ── */}
       <div style={{ padding: '14px 14px 10px', display: 'flex', alignItems: 'center', gap: 6 }}>
-        <Tooltip title="Open Orfeo on GitHub" oneLine>
+        <Tooltip title={t`Open Orfeo on GitHub`} oneLine>
           <button onClick={() => window.electronAPI.openExternal('https://github.com/Squarebow/Orfeo')}
             style={{ display: 'flex', alignItems: 'center', gap: 6, background: 'none', border: 'none', cursor: 'pointer', padding: 0 }}>
             <OrfeoMark height={16} />

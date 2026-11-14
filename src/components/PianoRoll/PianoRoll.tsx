@@ -9,13 +9,14 @@ import {
   cmdAddNote, cmdRemoveNotes, cmdSetRangeVelocity, midiToEditableCopy, copyHandTagsOntoEditBuffer,
   type ToneNote,
 } from '../../utils/noteEditorCommands'
-import { getNoteLabel } from '../../utils/noteNames'
+import { noteLabelText, resolveSa } from '../../utils/noteNames'
 import { PENCIL_CURSOR } from '../../utils/cursors'
 import type { Hand } from '../../types'
 import { HAND_LH_CSS, HAND_RH_CSS } from '../../utils/handColors'
 import { HitEffectsRenderer } from './HitEffects'
 import { drainHitEffects } from '../../utils/hitEffectQueue'
 import { isShown } from '../../utils/trackShown'
+import { t } from '../../utils/i18n'
 
 const VISIBLE_SECONDS  = 6
 const NOTE_RADIUS      = 3
@@ -379,10 +380,10 @@ function LoopOverlay() {
             textTransform: 'uppercase', letterSpacing: '0.08em',
             color: 'var(--accent-amber-tooltip-text)',
           }}>
-            Loop region set
+            {t`Loop region set`}
           </span>
           <span style={{ fontFamily: 'var(--font-ui)', fontSize: 10, color: 'var(--text-tooltip-secondary)' }}>
-            Drag to reorder, right-click to clear
+            {t`Drag to reorder, right-click to clear`}
           </span>
         </div>
       )}
@@ -1063,7 +1064,8 @@ export default function PianoRoll() {
 
         // ── Note names in edit mode (Canvas2D over the PixiJS canvas) ───────
         if (noteEditorActive && NES.showNoteNamesRef.current && ctx && ov) {
-          const { noteNaming, accidentals } = storeRef.current
+          const { noteNaming, accidentals, sargam, detectedKey } = storeRef.current
+          const sg = { sa: resolveSa(sargam.sa, detectedKey), script: sargam.script }
           ctx.save()
           ctx.font = `9px ${FONT_MONO_STR}`
           ctx.textAlign = 'center'
@@ -1071,7 +1073,7 @@ export default function PianoRoll() {
           ctx.fillStyle = NOTE_LABEL_COLOR
           for (const ef of editFlatNotes) {
             if (ef.noteH < 14) continue
-            const label = getNoteLabel(ef.note.midi, noteNaming, accidentals).replace(/\d+$/, '')
+            const label = noteLabelText(ef.note.midi, noteNaming, accidentals, sg)
             if (!label) continue
             ctx.fillText(label, ef.key.x + ef.key.width / 2, ef.topY + ef.noteH / 2)
           }
@@ -1177,15 +1179,15 @@ export default function PianoRoll() {
             const atStart = canResize && cy >= ef.topY + ef.noteH - RESIZE_ZONE_PX
             if (atEnd || atStart) {
               app.canvas.style.cursor = 'ns-resize'
-              hint = 'Drag to resize'
+              hint = t`Drag to resize`
               setEditTooltip(null)
             } else {
               app.canvas.style.cursor = 'move'
-              hint = 'Drag to move · Shift+click to add to selection'
+              hint = t`Drag to move · Shift+click to add to selection`
               if (NES.showNoteNamesRef.current && ef.noteH < 14 && clientX !== undefined && clientY !== undefined) {
-                const { noteNaming, accidentals } = storeRef.current
+                const { noteNaming, accidentals, sargam, detectedKey } = storeRef.current
                 const naming = noteNaming === 'hidden' ? 'english' : noteNaming
-                const label  = getNoteLabel(ef.note.midi, naming, accidentals).replace(/\d+$/, '')
+                const label  = noteLabelText(ef.note.midi, naming, accidentals, { sa: resolveSa(sargam.sa, detectedKey), script: sargam.script })
                 setEditTooltip({ x: clientX, y: clientY, label })
               } else {
                 setEditTooltip(null)
@@ -1193,26 +1195,26 @@ export default function PianoRoll() {
             }
           } else if (tool === 'pen') {
             app.canvas.style.cursor = PENCIL_CURSOR
-            hint = 'Click to mark for delete · Right-click for options'
+            hint = t`Click to mark for delete · Right-click for options`
             setEditTooltip(null)
           } else {
             app.canvas.style.cursor = 'crosshair'
-            hint = 'Click to select · Right-click for options'
+            hint = t`Click to select · Right-click for options`
             setEditTooltip(null)
           }
         } else {
           if (tool === 'select') {
             app.canvas.style.cursor = 'grab'
-            hint = 'Drag to pan · Shift+wheel to scrub finely'
+            hint = t`Drag to pan · Shift+wheel to scrub finely`
           } else if (tool === 'pen') {
             app.canvas.style.cursor = PENCIL_CURSOR
             hint = 'Alt+click to add a note'
           } else if (tool === 'marquee') {
             app.canvas.style.cursor = 'crosshair'
-            hint = 'Drag to select a cluster'
+            hint = t`Drag to select a cluster`
           } else {
             app.canvas.style.cursor = 'crosshair'
-            hint = 'Drag through notes to select them'
+            hint = t`Drag through notes to select them`
           }
           setEditTooltip(null)
         }
@@ -1726,34 +1728,34 @@ export default function PianoRoll() {
         if (hasSelection) {
           if (NES.reassignHandsMode) {
             options.push({
-              label: 'Assign to Left Hand',
+              label: t`Assign to Left Hand`,
               swatchColor: 'var(--hand-lh)',
               onClick: () => { assignSelectedHand('L'); setContextMenu(null) },
             })
             options.push({
-              label: 'Assign to Right Hand',
+              label: t`Assign to Right Hand`,
               swatchColor: 'var(--hand-rh)',
               onClick: () => { assignSelectedHand('R'); setContextMenu(null) },
             })
           }
           if (editSelectedNotes.size >= 2) {
             options.push({
-              label: `Flatten Velocity (${editSelectedNotes.size} notes)`,
+              label: t`Flatten Velocity (selected notes: ${editSelectedNotes.size})`,
               onClick: () => { flattenSelectedVelocity(); setContextMenu(null) },
             })
           }
           options.push({
-            label: 'Deselect',
+            label: t`Deselect`,
             onClick: () => { editSelectedNotes.clear(); setContextMenu(null) },
           })
         }
-        options.push({ label: 'Undo', disabled: !NES.history.canUndo, onClick: () => { doHistoryUndo(); setContextMenu(null) } })
-        options.push({ label: 'Redo', disabled: !NES.history.canRedo, onClick: () => { doHistoryRedo(); setContextMenu(null) } })
+        options.push({ label: t`Undo`, disabled: !NES.history.canUndo, onClick: () => { doHistoryUndo(); setContextMenu(null) } })
+        options.push({ label: t`Redo`, disabled: !NES.history.canRedo, onClick: () => { doHistoryRedo(); setContextMenu(null) } })
         // Delete always last — destructive action shouldn't be the first
         // thing a right-click reaches for.
         if (hasSelection) {
           options.push({
-            label: editSelectedNotes.size === 1 ? 'Delete note' : `Delete ${editSelectedNotes.size} notes`,
+            label: editSelectedNotes.size === 1 ? t`Delete note` : t`Delete selected notes (${editSelectedNotes.size})`,
             destructive: true,
             onClick: () => { deleteSelectedNotes(); setContextMenu(null) },
           })
@@ -1881,7 +1883,7 @@ export default function PianoRoll() {
         ctx.textBaseline = 'alphabetic'
         ctx.save()
         ctx.letterSpacing = '0.1em' as any
-        ctx.fillText('VELOCITY EDITOR', W / 2, HEADER_H / 2 + 4)
+        ctx.fillText(t`VELOCITY EDITOR`, W / 2, HEADER_H / 2 + 4)
         ctx.restore()
 
         if (noteEditorSoloTrackIndex === null) {
@@ -1891,7 +1893,7 @@ export default function PianoRoll() {
           ctx.font = `11px ${FONT_MONO_STR}`
           ctx.textAlign = 'center'
           ctx.textBaseline = 'middle'
-          ctx.fillText('Solo a track to edit its velocity in the Tracks panel on the right', W / 2, H / 2)
+          ctx.fillText(t`Solo a track to edit its velocity in the Tracks panel on the right`, W / 2, H / 2)
           ctx.globalAlpha = 1
           return
         }
@@ -2008,7 +2010,7 @@ export default function PianoRoll() {
       }
       // ── Hover/drag label — "Velocity 96" next to the cursor (same label the
       // main roll uses for notes); a group drag shows the grabbed bar's value
-      const velLabel = (n: ToneNote) => `Velocity ${Math.round(Math.max(0, Math.min(1, n.velocity)) * 127)}`
+      const velLabel = (n: ToneNote) => t`Velocity ${Math.round(Math.max(0, Math.min(1, n.velocity)) * 127)}`
       const onVelPointerMove = (e: PointerEvent) => {
         const canvas = velocityCanvasRef.current
         if (!canvas) return
@@ -2092,7 +2094,7 @@ export default function PianoRoll() {
         if (!storeRef.current.noteEditorActive) return
         setEditTooltip(null)
         const n = editSelectedNotes.size
-        const hint = n > 0 ? `${n} note${n === 1 ? '' : 's'} selected · Right-click for options` : NES.defaultHint
+        const hint = n > 0 ? t`Notes selected: ${n} · Right-click for options` : NES.defaultHint
         if (NES.hoverHint !== hint) {
           NES.hoverHint = hint
           NES.onHintChange?.()
@@ -2204,7 +2206,7 @@ export default function PianoRoll() {
       {contextMenu && (
         <div
           role="menu"
-          aria-label="Note actions"
+          aria-label={t`Note actions`}
           onMouseDown={e => e.stopPropagation()}
           style={{
             position: 'fixed',

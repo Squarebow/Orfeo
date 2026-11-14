@@ -1,7 +1,7 @@
 import { create } from 'zustand'
 import type {
   ParsedMidi, ParsedTrack, PlaybackState, TrackState,
-  KeyboardSize, KeyboardMode, NoteNaming, Accidentals, ChordEvent, TranscriptEntry, LibraryFile, HitEffectPattern, SoundfontId,
+  KeyboardSize, KeyboardMode, NoteNaming, SargamScript, Accidentals, ChordEvent, TranscriptEntry, LibraryFile, HitEffectPattern, SoundfontId,
   ChordNamingStyle, ChordTrackingMode, ChordFollowSubMode, ChordReadingMode, TapSession, SettingsGroupId,
 } from '../types'
 import type { DetectedKey } from '../utils/keyDetection'
@@ -9,6 +9,9 @@ import type { ForeignFormat } from '../utils/foreignFormatImport'
 import type { ProgressionVoicing } from '../utils/voiceLeading'
 import { detectKeyFromTracks, parseKeySignature } from '../utils/keyDetection'
 import { isKeyboardInstrument } from '../utils/gmInstruments'
+import { currentLanguage, hasWords } from '../utils/i18n'
+import { withLanguageInUse } from '../i18n/menuItems'
+import { checkTranslations } from '../i18n/updates'
 import { parseMidiBuffer } from '../utils/midiParser'
 import { songKey as computeSongKey } from '../utils/songIdentity'
 import { applyTempoCorrection, sanitizeCorrections, correctionToSong, correctionToFile, type SongTempoCorrection } from '../utils/tempoCorrection'
@@ -81,6 +84,9 @@ interface OrfeoStore {
   appTheme: AppTheme
   showBarNumbers: boolean
   setNoteNaming: (naming: NoteNaming) => void
+  // Sargam: where Sa sits ('auto' = the song's key as heard, or a pitch class 0–11 set by hand) and the script
+  sargam: { sa: 'auto' | number; script: SargamScript }
+  setSargam: (p: Partial<{ sa: 'auto' | number; script: SargamScript }>) => void
   setAccidentals: (accidentals: Accidentals) => void
   setZoomLevel: (zoom: number) => void
   setAppTheme: (theme: AppTheme) => void
@@ -359,6 +365,12 @@ interface OrfeoStore {
   setOpenWithAddsToLibrary: (v: boolean) => void
   // Library lyrics mark (Settings › Show files with lyrics) and its remembered check results
   showLyricsMark: boolean
+  showLanguageSwitcher: boolean
+  setShowLanguageSwitcher: (v: boolean) => void
+  menuLanguages: string[]
+  setMenuLanguages: (codes: string[]) => void
+  translationUpdates: 'download' | 'wait'
+  setTranslationUpdates: (v: 'download' | 'wait') => void
   setShowLyricsMark: (v: boolean) => void
   lyricsIndex: Record<string, LyricsEntry>
   setLyricsEntries: (entries: ({ path: string } & LyricsEntry)[]) => void
@@ -738,6 +750,8 @@ export const useStore = create<OrfeoStore>((set, get) => ({
   appTheme: 'dark',
   showBarNumbers: true,
   setNoteNaming: (noteNaming) => set({ noteNaming }),
+  sargam: { sa: 'auto', script: 'latin' },
+  setSargam: (p) => set(s => ({ sargam: { ...s.sargam, ...p } })),
   setAccidentals: (accidentals) => set({ accidentals }),
   setZoomLevel: (zoomLevel) => set({ zoomLevel }),
   setAppTheme: (appTheme) => set({ appTheme }),
@@ -1031,6 +1045,12 @@ export const useStore = create<OrfeoStore>((set, get) => ({
   setOpenWithAddsToLibrary: (openWithAddsToLibrary) => set({ openWithAddsToLibrary }),
   showLyricsMark: false,
   setShowLyricsMark: (showLyricsMark) => set({ showLyricsMark }),
+  showLanguageSwitcher: false,
+  setShowLanguageSwitcher: (showLanguageSwitcher) => set({ showLanguageSwitcher }),
+  menuLanguages: [],
+  setMenuLanguages: (menuLanguages) => set({ menuLanguages }),
+  translationUpdates: 'download',
+  setTranslationUpdates: (translationUpdates) => set({ translationUpdates }),
   lyricsIndex: {},
   setLyricsEntries: (entries) => set((s) => {
     if (!entries.length) return {}
@@ -1350,6 +1370,13 @@ async function restoreLibraryPrefs() {
       useStore.setState({ librarySongFirst: prefs.librarySongFirst })
     }
     if (prefs.noteNaming) store.setNoteNaming(prefs.noteNaming)
+    if (prefs.sargam && typeof prefs.sargam === 'object') {
+      const sa = prefs.sargam.sa, script = prefs.sargam.script
+      store.setSargam({
+        ...(sa === 'auto' || (Number.isInteger(sa) && sa >= 0 && sa <= 11) ? { sa } : {}),
+        ...(script === 'latin' || script === 'devanagari' ? { script } : {}),
+      })
+    }
     if (prefs.accidentals) store.setAccidentals(prefs.accidentals)
     if (prefs.chordTrackingMode === 'auto' || prefs.chordTrackingMode === 'harmony' || prefs.chordTrackingMode === 'follow') {
       store.setChordTrackingMode(prefs.chordTrackingMode)
@@ -1401,6 +1428,9 @@ async function restoreLibraryPrefs() {
     if (typeof prefs.hideDemoFolder === 'boolean') store.setHideDemoFolder(prefs.hideDemoFolder)
     if (typeof prefs.openWithAddsToLibrary === 'boolean') store.setOpenWithAddsToLibrary(prefs.openWithAddsToLibrary)
     if (typeof prefs.showLyricsMark === 'boolean') store.setShowLyricsMark(prefs.showLyricsMark)
+    if (typeof prefs.showLanguageSwitcher === 'boolean') store.setShowLanguageSwitcher(prefs.showLanguageSwitcher)
+    if (Array.isArray(prefs.menuLanguages)) store.setMenuLanguages(prefs.menuLanguages.filter((c: unknown): c is string => typeof c === 'string'))
+    if (prefs.translationUpdates === 'download' || prefs.translationUpdates === 'wait') store.setTranslationUpdates(prefs.translationUpdates)
     {
       const tours = toursFromPrefs(prefs.tours)
       useStore.setState({ toursSeen: tours.seen })
@@ -1463,6 +1493,12 @@ async function restoreLibraryPrefs() {
     if (prefs.hitEffectScope === 'keyboard' || prefs.hitEffectScope === 'all') store.setHitEffectScope(prefs.hitEffectScope)
     if (typeof prefs.hitEffectColor === 'string' || prefs.hitEffectColor === null) store.setHitEffectColor(prefs.hitEffectColor)
     if (prefs.selectedSoundfont === 'fluidr3-gm' || prefs.selectedSoundfont === 'musescore-general') store.setSelectedSoundfont(prefs.selectedSoundfont)
+    // The language in use (Follow system, or chosen before the tick list existed) is ticked, as the menu lists it
+    const menuNow = useStore.getState().menuLanguages
+    const menuWithInUse = withLanguageInUse(menuNow, currentLanguage, c => hasWords(c))
+    if (menuWithInUse !== menuNow) store.setMenuLanguages(menuWithInUse)
+    // New translations are fetched in the background; nothing waits on it
+    void checkTranslations({}).catch(() => {})
   } catch (e) {
     console.error('[Orfeo] restoreLibraryPrefs:', e)
   }
@@ -1591,6 +1627,7 @@ const _unsubLyrics = useStore.subscribe((state) => {
 // Use null sentinel so we never save on first subscriber fire (which would
 // overwrite the restored value before restoreLibraryPrefs has run)
 let _prevNoteNaming: string | null = null
+let _prevSargam: unknown = null
 let _prevAccidentals: string | null = null
 let _prevMasterVolume: number | null = null
 let _prevAudioEngine: string | null = null
@@ -1616,6 +1653,9 @@ let _prevChordTranscriptionEnabled: boolean | null = null
 let _prevHideDemoFolder: boolean | null = null
 let _prevOpenWithAddsToLibrary: boolean | null = null
 let _prevShowLyricsMark: boolean | null = null
+let _prevShowLanguageSwitcher: boolean | null = null
+let _prevMenuLanguages: string[] | null = null
+let _prevTranslationUpdates: string | null = null
 let _prevSplitBreakpointType: string | null = null
 let _prevSplitBreakpointNote: number | null = null
 let _prevSplitBreakpointRangeStart: number | null = null
@@ -1666,6 +1706,7 @@ const _unsubPrefs = useStore.subscribe((state) => {
   // Skip the very first fire (app init) — restore handles loading saved values
   if (_prevNoteNaming === null) {
     _prevNoteNaming = state.noteNaming
+    _prevSargam = state.sargam
     _prevAccidentals = state.accidentals
     _prevMasterVolume = state.masterVolume
     _prevAudioEngine = state.audioEngine
@@ -1691,6 +1732,9 @@ const _unsubPrefs = useStore.subscribe((state) => {
     _prevHideDemoFolder = state.hideDemoFolder
     _prevOpenWithAddsToLibrary = state.openWithAddsToLibrary
     _prevShowLyricsMark = state.showLyricsMark
+    _prevShowLanguageSwitcher = state.showLanguageSwitcher
+    _prevMenuLanguages = state.menuLanguages
+    _prevTranslationUpdates = state.translationUpdates
     _prevSplitBreakpointType = state.splitBreakpointType
     _prevSplitBreakpointNote = state.splitBreakpointNote
     _prevSplitBreakpointRangeStart = state.splitBreakpointRangeStart
@@ -1741,6 +1785,7 @@ const _unsubPrefs = useStore.subscribe((state) => {
   }
   if (
     state.noteNaming !== _prevNoteNaming ||
+    state.sargam !== _prevSargam ||
     state.accidentals !== _prevAccidentals ||
     state.masterVolume !== _prevMasterVolume ||
     state.masterCompEnabled !== _prevMasterCompEnabled ||
@@ -1769,6 +1814,9 @@ const _unsubPrefs = useStore.subscribe((state) => {
     state.hideDemoFolder !== _prevHideDemoFolder ||
     state.openWithAddsToLibrary !== _prevOpenWithAddsToLibrary ||
     state.showLyricsMark !== _prevShowLyricsMark ||
+    state.showLanguageSwitcher !== _prevShowLanguageSwitcher ||
+    state.menuLanguages !== _prevMenuLanguages ||
+    state.translationUpdates !== _prevTranslationUpdates ||
     state.splitBreakpointType !== _prevSplitBreakpointType ||
     state.splitBreakpointNote !== _prevSplitBreakpointNote ||
     state.splitBreakpointRangeStart !== _prevSplitBreakpointRangeStart ||
@@ -1814,6 +1862,7 @@ const _unsubPrefs = useStore.subscribe((state) => {
     state.progressionVoicing !== _prevProgressionVoicing
   ) {
     _prevNoteNaming = state.noteNaming
+    _prevSargam = state.sargam
     _prevAccidentals = state.accidentals
     _prevMasterVolume = state.masterVolume
     _prevAudioEngine = state.audioEngine
@@ -1839,6 +1888,9 @@ const _unsubPrefs = useStore.subscribe((state) => {
     _prevHideDemoFolder = state.hideDemoFolder
     _prevOpenWithAddsToLibrary = state.openWithAddsToLibrary
     _prevShowLyricsMark = state.showLyricsMark
+    _prevShowLanguageSwitcher = state.showLanguageSwitcher
+    _prevMenuLanguages = state.menuLanguages
+    _prevTranslationUpdates = state.translationUpdates
     _prevSplitBreakpointType = state.splitBreakpointType
     _prevSplitBreakpointNote = state.splitBreakpointNote
     _prevSplitBreakpointRangeStart = state.splitBreakpointRangeStart
@@ -1887,6 +1939,7 @@ const _unsubPrefs = useStore.subscribe((state) => {
     _prevProgressionVoicing = state.progressionVoicing
     window.electronAPI?.setPrefs?.({
       noteNaming: state.noteNaming,
+      sargam: state.sargam,
       accidentals: state.accidentals,
       masterVolume: state.masterVolume,
       masterCompEnabled: state.masterCompEnabled,
@@ -1915,6 +1968,9 @@ const _unsubPrefs = useStore.subscribe((state) => {
       hideDemoFolder: state.hideDemoFolder,
       openWithAddsToLibrary: state.openWithAddsToLibrary,
       showLyricsMark: state.showLyricsMark,
+      showLanguageSwitcher: state.showLanguageSwitcher,
+      menuLanguages: state.menuLanguages,
+      translationUpdates: state.translationUpdates,
       splitBreakpointType: state.splitBreakpointType,
       splitBreakpointNote: state.splitBreakpointNote,
       splitBreakpointRangeStart: state.splitBreakpointRangeStart,

@@ -2,6 +2,7 @@ import { buildFileGrid } from './beatGridBuild'
 import { Midi } from '@tonejs/midi'
 import type { ParsedMidi, ParsedTrack, ParsedNote } from '../types'
 import { getGMName, getGMGroup } from './gmInstruments'
+import { n } from '../i18n/mark'
 import { restoreHandTagsFromHints } from './handMetadata'
 import { assignHandsByTrack } from './handAssignment'
 import { useStore } from '../store'
@@ -95,7 +96,7 @@ export function parseMidiBuffer(buffer: ArrayBuffer, fileName: string, filePath 
     if (track.notes.length === 0) return
     const isDrum = track.channel === 9
     const program = isDrum ? -1 : (track.instrument?.number ?? 0)
-    const gmName = isDrum ? 'Standard Drum Kit' : getGMName(program)
+    const gmName = isDrum ? n('Standard Drum Kit') : getGMName(program)
     const group = getGMGroup(program, isDrum)
     // HAND_ASSIGN_GROUPS (piano+organ), not the broader KEYBOARD_GROUPS —
     // a chromatic-percussion track (vibraphone etc, see keyboardGroups.ts)

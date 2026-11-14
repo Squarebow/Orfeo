@@ -27,6 +27,12 @@ contextBridge.exposeInMainWorld('electronAPI', {
   // Prefs
   getPrefs:           () => ipcRenderer.invoke('prefs:get'),
   setPrefs:           (data: any) => ipcRenderer.invoke('prefs:set', data),
+  setLanguage:        (code: string) => ipcRenderer.invoke('language:set', code),
+  i18nBoot:           () => ipcRenderer.sendSync('i18n:boot'),
+  i18nRefresh:        (force?: boolean) => ipcRenderer.invoke('i18n:refresh', force),
+  i18nDownload:       (code: string) => ipcRenderer.invoke('i18n:download', code),
+  i18nRememberReady:  (codes: string[]) => ipcRenderer.invoke('i18n:remember-ready', codes),
+  i18nDev:            (overrides: unknown) => ipcRenderer.invoke('i18n:dev', overrides),
   // Library
   openFolder:         () => ipcRenderer.invoke('dialog:openFolder'),
   scanMidiFolder:     (path: string) => ipcRenderer.invoke('fs:scanMidiFolder', path),

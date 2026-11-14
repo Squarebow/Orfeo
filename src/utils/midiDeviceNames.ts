@@ -1,3 +1,5 @@
+import { t } from './i18n'
+
 // ── Turns raw MIDI port names into the keyboard's own model name ──────────────
 // Windows lists one physical keyboard as several ports with technical names:
 // "MIDIIN2 (Launchkey MK4 37)", "Launchkey MK4 37 MIDI", "2- MPK mini Plus",
@@ -15,7 +17,7 @@ export function cleanPortName(raw: string): string {
   n = n.replace(/\s+(MIDI|Port|DAW|Out|In)(\s*\d+)?$/i, '') // "Device MIDI 1", "Device Port 2"
   n = n.replace(/\s+(MIDI|Port|DAW|Out|In)(\s*\d+)?$/i, '') // a second suffix ("… DAW Port")
   n = n.replace(/\s{2,}/g, ' ').trim()
-  return n || (raw ?? '').trim() || 'MIDI keyboard'
+  return n || (raw ?? '').trim() || t`MIDI keyboard`
 }
 
 // Maker shown in front of the model, unless it's the generic USB driver

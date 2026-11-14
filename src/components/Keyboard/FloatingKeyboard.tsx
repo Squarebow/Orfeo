@@ -13,6 +13,7 @@ import Tooltip from '../Tooltip'
 import { getPianoRollCenterX, getPlaybarY } from '../../utils/modalAnchors'
 import { modalCloseButtonStyle, modalCloseButtonHoverColor, modalCloseButtonIdleColor } from '../../utils/modalCloseButtonStyle'
 import { useClampPositionOnZoom } from '../../hooks/useClampPositionOnZoom'
+import { t } from '../../utils/i18n'
 
 const DEFAULT_W = 860
 const MIN_W = 650
@@ -107,7 +108,7 @@ export default function FloatingKeyboard() {
     <div
       ref={panelRef}
       role="region"
-      aria-label="Floating virtual keyboard"
+      aria-label={t`Floating virtual keyboard`}
       className="orfeo-modal-glow app-no-drag"
       style={{
         position: 'fixed',
@@ -149,11 +150,11 @@ export default function FloatingKeyboard() {
         <div style={{ display: 'flex', alignItems: 'center', gap: 7 }}>
           <OrfeoMark height={22} />
           <span style={{ fontFamily: 'var(--font-ui)', fontSize: 9, fontWeight: 700, color: 'var(--text-amber)', letterSpacing: '0.14em', textTransform: 'uppercase' }}>
-            Keyboard
+            {t`Keyboard`}
           </span>
         </div>
         <div style={{ display: 'flex', gap: 'var(--space-1)' }} data-no-drag="true">
-          <Tooltip title="Dock keyboard" description="Reattaches the keyboard to the bottom of the window.">
+          <Tooltip title={t`Dock keyboard`} description={t`Reattaches the keyboard to the bottom of the window.`}>
           <button
             onClick={() => setKeyboardMode('docked')}
             data-no-drag="true"
@@ -164,7 +165,7 @@ export default function FloatingKeyboard() {
             <Pin size={10} strokeWidth={1.8} />
           </button>
           </Tooltip>
-          <Tooltip title="Close" description="Docks the keyboard back to the bottom of the window.">
+          <Tooltip title={t`Close`} description={t`Docks the keyboard back to the bottom of the window.`}>
           <button
             onClick={() => setKeyboardMode('docked')}
             data-no-drag="true"

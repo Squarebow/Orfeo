@@ -1,4 +1,5 @@
-import type { NoteNaming, Accidentals } from '../types'
+import type { NoteNaming, Accidentals, SargamScript } from '../types'
+import type { DetectedKey } from './keyDetection'
 
 // ── Note name lookup tables ──────────────────────────────────────────────────
 // PC 10 (Bb/A#): always spelled 'Bb' in English — A# is theoretically valid
@@ -24,6 +25,31 @@ export function getNoteName(midi: number, naming: NoteNaming, accidentals: Accid
     case 'solfege':          return useSharp ? SOLFEGE_SHARP[note]    : SOLFEGE_FLAT[note]
     default:                 return useSharp ? ENGLISH_SHARP[note]    : ENGLISH_FLAT[note]
   }
+}
+
+// ── Sargam (Hindustani, Bhatkhande style), counted up from Sa. Komal is lowercase in
+// Latin and underlined (U+0952) in Devanagari; tivra Ma has a mark (′ / U+0951). Sa and
+// Pa never change. Confirmed by the player who asked for it (14. 11. 2026).
+const SARGAM_LATIN = ['Sa', 're', 'Re', 'ga', 'Ga', 'Ma', 'Ma′', 'Pa', 'dha', 'Dha', 'ni', 'Ni']
+const SARGAM_DEVANAGARI = ['सा', 'रे॒', 'रे', 'ग॒', 'ग', 'म', 'म॑', 'प', 'ध॒', 'ध', 'नि॒', 'नि']
+
+/** The Sargam name of a MIDI pitch, with Sa on pitch class `sa` (0 = C) */
+export function getSargamName(midi: number, sa: number, script: SargamScript): string {
+  const step = (((midi - sa) % 12) + 12) % 12
+  return (script === 'devanagari' ? SARGAM_DEVANAGARI : SARGAM_LATIN)[step]
+}
+
+/** Where Sa sits: set by hand (0–11), or the song's key as heard (transpose included); C with no key */
+export function resolveSa(setting: 'auto' | number, key: DetectedKey | null | undefined): number {
+  if (setting !== 'auto') return ((setting % 12) + 12) % 12
+  if (!key) return 0
+  return (((key.semitone + (key.transpose ?? 0)) % 12) + 12) % 12
+}
+
+/** A single note's name for the keyboard and piano roll: Sargam when chosen, else the usual name */
+export function noteLabelText(midi: number, naming: NoteNaming, accidentals: Accidentals, sargam: { sa: number; script: SargamScript }): string {
+  if (naming === 'sargam') return getSargamName(midi, sargam.sa, sargam.script)
+  return getNoteName(midi, naming, accidentals)
 }
 
 /** Returns note name + octave for labels (e.g. "C4", "H3") */

@@ -21,6 +21,7 @@
     "release:notes": "node scripts/release-notes.mjs",
     "native:build": "node scripts/build-native.mjs",
     "i18n:extract": "node scripts/i18n-extract.mjs",
+    "i18n:ready": "node --import ./scripts/ts-esbuild-hooks.mjs scripts/i18n-ready.mjs",
     "licenses": "node scripts/generate-licenses.mjs"
   },
   "build": {

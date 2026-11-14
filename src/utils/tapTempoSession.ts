@@ -291,7 +291,8 @@ export function fmtSongTime(sec: number): string {
   return `${m}:${s.toFixed(1).padStart(4, '0')}`
 }
 
-// Every saved change shows up in File Info → Orfeo History
+// Every saved change shows up in File Info → Orfeo History. These lines are written
+// into the song file, so they stay English: a shared song never mixes languages.
 function logTempoEvent(summary: string) {
   const path = (useStore.getState().midi as any)?._filePath as string | undefined
   if (path) window.electronAPI?.logFileEvent?.(path, 'tempo', summary)?.catch?.(() => {})
@@ -321,9 +322,9 @@ export function keepTap() {
   const ses = s.tapSession
   if (ses?.phase !== 'preview' || !ses.segment || !s.songKey) return
   s.setSongCorrection(s.songKey, withSegment(ses.segment, ses.editIndex))
-  if (ses.copiedFrom) logTempoEvent(t`Bars copied from ${ses.copiedFrom}`)
-  else if (ses.insert) logTempoEvent(t`Bars changed to ${formatBarPattern(ses.segment)} from ${fmtSongTime(ses.segment.start)}`)
-  else logTempoEvent((ses.editIndex != null ? t`Tap Tempo: adjusted to ` : t`Tap Tempo: `) + t`${(60 / ses.segment.period).toFixed(1)} bpm from ${fmtSongTime(ses.segment.start)}`)
+  if (ses.copiedFrom) logTempoEvent(`Bars copied from ${ses.copiedFrom}`)
+  else if (ses.insert) logTempoEvent(`Bars changed to ${formatBarPattern(ses.segment)} from ${fmtSongTime(ses.segment.start)}`)
+  else logTempoEvent((ses.editIndex != null ? 'Tap Tempo: adjusted to ' : 'Tap Tempo: ') + `${(60 / ses.segment.period).toFixed(1)} bpm from ${fmtSongTime(ses.segment.start)}`)
   end()
 }
 
@@ -338,7 +339,7 @@ export function keepOriginal() {
     s.setSongCorrection(s.songKey, { segments: base.segments.filter((_, i) => i !== ses.editIndex) })
   } else s.reapplyCorrection()
   s.dismissTempoWarning(s.songKey)
-  logTempoEvent(t`Tap Tempo: kept the file's own tempo`)
+  logTempoEvent(`Tap Tempo: kept the file's own tempo`)
   end()
 }
 
@@ -360,7 +361,7 @@ export function resetSongTempo() {
   const s = useStore.getState()
   if (!s.songKey || !s.tempoCorrections[s.songKey]) return
   s.setSongCorrection(s.songKey, null)
-  logTempoEvent(t`Tap Tempo: reset to the file's own tempo`)
+  logTempoEvent(`Tap Tempo: reset to the file's own tempo`)
 }
 
 export function removeTappedTempo(index: number) {
@@ -369,5 +370,5 @@ export function removeTappedTempo(index: number) {
   if (!s.songKey || !c || !c.segments[index]) return
   const seg = c.segments[index]
   s.setSongCorrection(s.songKey, { segments: c.segments.filter((_, j) => j !== index) })
-  logTempoEvent(t`Tap Tempo: removed ${(60 / seg.period).toFixed(1)} bpm from ${fmtSongTime(seg.start)}`)
+  logTempoEvent(`Tap Tempo: removed ${(60 / seg.period).toFixed(1)} bpm from ${fmtSongTime(seg.start)}`)
 }

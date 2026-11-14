@@ -1,7 +1,7 @@
 import React, { useMemo, useCallback, useState, useEffect, useRef } from 'react'
 import { useStore } from '../../store'
 import { isBlackKey } from '../../utils/midiParser'
-import { getNoteLabel, getNoteName } from '../../utils/noteNames'
+import { getNoteLabel, getNoteName, noteLabelText, resolveSa } from '../../utils/noteNames'
 import { detectChord, detectChordWithInversion, inversionForKnownChord, formatInversionDisplay, localizeChord, ordinalSuffix, buildCompactVoicing } from '../../utils/chordDetection'
 import { buildKeyLayoutRatios, PIANO_RANGES as RANGES } from '../../utils/keyLayout'
 import { notesSoundingAt } from '../../utils/midiParser'
@@ -13,6 +13,7 @@ import Tooltip, { useTooltip } from '../Tooltip'
 import { ContextMenu, ContextMenuItem } from '../ContextMenu'
 import { outputLatencySec } from '../../audio/engine'
 import { isShown } from '../../utils/trackShown'
+import { t } from '../../utils/i18n'
 
 const HAND_LH = 'var(--hand-lh)'
 const HAND_RH = 'var(--hand-rh)'
@@ -47,6 +48,8 @@ export default function Keyboard() {
   const activeKeyColors = useStore((s) => s.activeKeyColors)
   const noteNaming              = useStore((s) => s.noteNaming)
   const accidentals             = useStore((s) => s.accidentals)
+  const sargamSa                = useStore((s) => resolveSa(s.sargam.sa, s.detectedKey))
+  const sargamScript            = useStore((s) => s.sargam.script)
   const chordNamingStyle        = useStore((s) => s.chordNamingStyle)
   const showOctaveLabels        = useStore((s) => s.showOctaveLabels)
   const showNoteNamesOnKeyboard = useStore((s) => s.showNoteNamesOnKeyboard)
@@ -384,7 +387,7 @@ export default function Keyboard() {
   // usage below), not on the empty "— — —" placeholder. ─────────────────────
   const showChordTooltip = playbackState === 'playing' ? !!heldChordEvent : !!heldChordEvent?.structured
   const chordTooltip = useTooltip<HTMLDivElement>(
-    { title: playbackState === 'playing' ? 'Pause to study the chord' : 'Right-click to see the chord' },
+    { title: playbackState === 'playing' ? t`Pause to study the chord` : t`Right-click to see the chord` },
     { oneLine: true },
   )
 
@@ -664,7 +667,7 @@ export default function Keyboard() {
           <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 'var(--space-2)', padding: '0 var(--space-3)', position: 'relative' }}>
             {/* ── Left: CHORDS trigger + prompter toggle ────────────────────────── */}
             <div style={{ position: 'absolute', left: 10, display: 'flex', alignItems: 'center', gap: 5 }}>
-              <Tooltip title="Chords Explorer" description="Opens a dedicated view for browsing and detecting chords across the full keyboard.">
+              <Tooltip title={t`Chords Explorer`} description={t`Opens a dedicated view for browsing and detecting chords across the full keyboard.`}>
                 <span
                   data-tour="explorer-chords"
                   onClick={() => setChordExplorerOpen(true)}
@@ -673,12 +676,12 @@ export default function Keyboard() {
                   onKeyDown={activateOnKey(() => setChordExplorerOpen(true))}
                   style={{ fontFamily: 'var(--font-ui)', fontSize: 12, fontWeight: 700, color: 'var(--text-amber)', letterSpacing: '0.12em', textTransform: 'uppercase', cursor: 'pointer', userSelect: 'none' }}
                 >
-                  Chords
+                  {t`Chords`}
                 </span>
               </Tooltip>
               {/* ── Prompter toggle — amber when open, dim when closed, faded when no file ─ */}
               {chordPrompterEnabled && (
-                <Tooltip title="Chord Prompter" description="Shows a scrolling past → current → next chord sequence alongside the chord name, synced to playback.">
+                <Tooltip title={t`Chord Prompter`} description={t`Shows a scrolling past → current → next chord sequence alongside the chord name, synced to playback.`}>
                   <div
                     onClick={() => midi && setChordPrompterOpen(!chordPrompterOpen)}
                     role="button"
@@ -713,7 +716,7 @@ export default function Keyboard() {
                     <span style={{ fontFamily: 'var(--font-ui)', fontSize: 10, color: 'var(--text-default)', userSelect: 'none' }}>
                       {explorerDisplay.ordinal}
                       <span style={{ fontSize: 7, verticalAlign: 'super' }}>{ordinalSuffix(Number(explorerDisplay.ordinal))}</span>
-                      {' inv'}
+                      {' '}{t`inv`}
                     </span>
                   )}
                 </>
@@ -752,7 +755,7 @@ export default function Keyboard() {
 
             {/* ── Right: SCALES trigger ─────────────────────────────────────────── */}
             <div style={{ position: 'absolute', right: 10, display: 'flex', alignItems: 'center', gap: 'var(--space-2)' }}>
-              <Tooltip title="Scales Explorer" description="Opens a dedicated view for exploring scales and highlighting their notes on the keyboard.">
+              <Tooltip title={t`Scales Explorer`} description={t`Opens a dedicated view for exploring scales and highlighting their notes on the keyboard.`}>
                 <span
                   data-tour="explorer-scales"
                   onClick={() => setScaleExplorerOpen(true)}
@@ -761,7 +764,7 @@ export default function Keyboard() {
                   onKeyDown={activateOnKey(() => setScaleExplorerOpen(true))}
                   style={{ fontFamily: 'var(--font-ui)', fontSize: 12, fontWeight: 700, color: 'var(--text-amber)', letterSpacing: '0.12em', textTransform: 'uppercase', cursor: 'pointer', userSelect: 'none' }}
                 >
-                  Scales
+                  {t`Scales`}
                 </span>
               </Tooltip>
             </div>
@@ -774,7 +777,7 @@ export default function Keyboard() {
 
             {/* ── Left: CHORDS trigger + prompter toggle ────────────────────── */}
             <div style={{ display: 'flex', alignItems: 'center', gap: 5, flexShrink: 0 }}>
-              <Tooltip title="Chords" description="Opens a dedicated view for browsing and detecting chords across the full keyboard.">
+              <Tooltip title={t`Chords`} description={t`Opens a dedicated view for browsing and detecting chords across the full keyboard.`}>
                 <span
                   data-tour="explorer-chords"
                   onClick={() => setChordExplorerOpen(true)}
@@ -783,11 +786,11 @@ export default function Keyboard() {
                   onKeyDown={activateOnKey(() => setChordExplorerOpen(true))}
                   style={{ fontFamily: 'var(--font-ui)', fontSize: 12, fontWeight: 700, color: 'var(--text-amber)', letterSpacing: '0.12em', textTransform: 'uppercase', cursor: 'pointer', userSelect: 'none' }}
                 >
-                  Chords
+                  {t`Chords`}
                 </span>
               </Tooltip>
               {/* ── Prompter toggle (amber — always active while open) ────────── */}
-              <Tooltip title="Chord Prompter" description="Shows a scrolling past → current → next chord sequence alongside the chord name, synced to playback.">
+              <Tooltip title={t`Chord Prompter`} description={t`Shows a scrolling past → current → next chord sequence alongside the chord name, synced to playback.`}>
                 <div
                   onClick={() => setChordPrompterOpen(!chordPrompterOpen)}
                   role="button"
@@ -812,7 +815,7 @@ export default function Keyboard() {
                   return (
                     <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                       <span style={{ fontSize: 'var(--text-xs)', color: 'var(--text-muted)', fontFamily: 'var(--font-ui)' }}>
-                        {noFile ? 'Open a MIDI file' : noChords ? 'No chords detected' : 'Press play'}
+                        {noFile ? t`Open a MIDI file` : noChords ? t`No chords detected` : t`Press play`}
                       </span>
                     </div>
                   )
@@ -923,7 +926,7 @@ export default function Keyboard() {
 
             {/* ── Right: SCALES trigger ─────────────────────────────────────────── */}
             <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-2)', flexShrink: 0 }}>
-              <Tooltip title="Scales" description="Opens a dedicated view for exploring scales and highlighting their notes on the keyboard.">
+              <Tooltip title={t`Scales`} description={t`Opens a dedicated view for exploring scales and highlighting their notes on the keyboard.`}>
                 <span
                   data-tour="explorer-scales"
                   onClick={() => setScaleExplorerOpen(true)}
@@ -932,7 +935,7 @@ export default function Keyboard() {
                   onKeyDown={activateOnKey(() => setScaleExplorerOpen(true))}
                   style={{ fontFamily: 'var(--font-ui)', fontSize: 12, fontWeight: 700, color: 'var(--text-amber)', letterSpacing: '0.12em', textTransform: 'uppercase', cursor: 'pointer', userSelect: 'none' }}
                 >
-                  Scales
+                  {t`Scales`}
                 </span>
               </Tooltip>
             </div>
@@ -957,7 +960,7 @@ export default function Keyboard() {
             const locked = lockedKeys.has(k.midi)
             const isC = k.midi % 12 === 0
             const label = color
-              ? (showNoteNamesOnKeyboard ? (getNoteName(k.midi, noteNaming, accidentals) || null) : null)
+              ? (showNoteNamesOnKeyboard ? (noteLabelText(k.midi, noteNaming, accidentals, { sa: sargamSa, script: sargamScript }) || null) : null)
               : (isC && showOctaveLabels ? getNoteLabel(k.midi, noteNaming, accidentals) : null)
             return (
               <div
@@ -977,7 +980,7 @@ export default function Keyboard() {
                 onMouseEnter={() => { if (isMouseDown.current) handleKeyClick(k.midi, true) }}
                 tabIndex={0}
                 role="button"
-                aria-label={`Play ${getNoteLabel(k.midi, noteNaming, accidentals) || 'note'}`}
+                aria-label={t`Play ${getNoteLabel(k.midi, noteNaming, accidentals) || 'note'}`}
                 onKeyDown={e => {
                   if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); handleKeyClick(k.midi) }
                 }}
@@ -1066,7 +1069,7 @@ export default function Keyboard() {
                 onMouseEnter={() => { if (isMouseDown.current) handleKeyClick(k.midi, true) }}
                 tabIndex={0}
                 role="button"
-                aria-label={`Play ${getNoteLabel(k.midi, noteNaming, accidentals) || 'note'}`}
+                aria-label={t`Play ${getNoteLabel(k.midi, noteNaming, accidentals) || 'note'}`}
                 onKeyDown={e => {
                   if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); handleKeyClick(k.midi) }
                 }}
@@ -1127,7 +1130,7 @@ export default function Keyboard() {
                     color: 'var(--key-note-name-color)', pointerEvents: 'none',
                     whiteSpace: 'nowrap', textShadow: '0 1px 2px rgba(0,0,0,0.95)',
                   }}>
-                    {getNoteName(k.midi, noteNaming, accidentals)}
+                    {noteLabelText(k.midi, noteNaming, accidentals, { sa: sargamSa, script: sargamScript })}
                   </span>
                 )}
               </div>
@@ -1137,12 +1140,12 @@ export default function Keyboard() {
       </div>
 
       {chordCtxMenu && (
-        <ContextMenu ref={chordCtxMenuRef} x={chordCtxMenu.x} y={chordCtxMenu.y} minWidth={190} ariaLabel="Chord actions">
+        <ContextMenu ref={chordCtxMenuRef} x={chordCtxMenu.x} y={chordCtxMenu.y} minWidth={190} ariaLabel={t`Chord actions`}>
           <ContextMenuItem onClick={handleShowChordOnKeyboard}>
-            Show on keyboard
+            {t`Show on keyboard`}
           </ContextMenuItem>
           <ContextMenuItem onClick={handleOpenChordInExplorer}>
-            Open in Chord Explorer
+            {t`Open in Chord Explorer`}
           </ContextMenuItem>
         </ContextMenu>
       )}

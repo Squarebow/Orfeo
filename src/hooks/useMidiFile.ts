@@ -6,6 +6,7 @@ import { resolveAndTrackImport } from '../utils/foreignFormatImport'
 import { confirmDiscardDirtyNoteEdits } from '../utils/noteEditorState'
 import { confirmDiscardDirtyTempoKey } from '../utils/tempoKeySave'
 import { confirmUnsavedChanges } from '../utils/unsavedPrompt'
+import { t } from '../utils/i18n'
 
 export function useMidiFile() {
   const setMidi = useStore((s) => s.setMidi)
@@ -13,9 +14,9 @@ export function useMidiFile() {
 
   const openFile = useCallback(async () => {
     try {
-      const canDiscard = await confirmDiscardDirtyNoteEdits('Save changes before opening this file?')
+      const canDiscard = await confirmDiscardDirtyNoteEdits(t`Save changes before opening this file?`)
       if (!canDiscard) return
-      const canDiscardTempoKey = await confirmDiscardDirtyTempoKey('Save tempo/key changes before opening this file?')
+      const canDiscardTempoKey = await confirmDiscardDirtyTempoKey(t`Save tempo/key changes before opening this file?`)
       if (!canDiscardTempoKey) return
 
       const result = await window.electronAPI.openMidiFile()

@@ -3,15 +3,15 @@ import { t } from './i18n'
 export type Genre = 'classic' | 'coltrane' | 'cinematic' | 'roadhouse' | 'gospel' | 'ipanema' | 'carnival' | 'flamenco' | 'velvet'
 
 export const GENRE_LABELS: Record<Genre, string> = {
-  classic:   'Classic',
-  coltrane:  'Coltrane',
-  cinematic: 'Cinematic',
-  roadhouse: 'Roadhouse',
+  classic:   t`Classic`,
+  coltrane:  t`Coltrane`,
+  cinematic: t`Cinematic`,
+  roadhouse: t`Roadhouse`,
   gospel:    t`Gospel`,
-  ipanema:   'Ipanema',
-  carnival:  'Carnival',
+  ipanema:   t`Ipanema`,
+  carnival:  t`Carnival`,
   flamenco:  t`Flamenco`,
-  velvet:    'Velvet',
+  velvet:    t`Velvet`,
 }
 
 // ── Strip b/# prefix and ° suffix, classify degree + quality ─────────────

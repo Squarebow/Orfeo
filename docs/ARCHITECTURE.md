@@ -30,6 +30,7 @@ feature list see the [README](../README.md).
 - [Piano-roll hit effects](#piano-roll-hit-effects)
 - [Auto-update](#auto-update)
 - [Note-naming systems](#note-naming-systems)
+- [Translations](#translations)
 - [Build and packaging](#build-and-packaging)
 
 ---
@@ -850,6 +851,58 @@ Explorers:
 The accidentals toggle (♭ / ♯) is a separate setting, also remembered between
 sessions. All name formatting goes through `src/utils/noteNames.ts` — no
 component hardcodes English names.
+
+---
+
+## Translations
+
+A language can be chosen once enough of it is translated on Weblate. The rules,
+the downloading and the screens are separate pieces:
+
+```text
+src/i18n/readiness.ts      The rules: READY_SHARE (80 %), COUNT_MACHINE_DRAFTS,
+                           percentOf / isReadyNow / isReady / isCheckedReady,
+                           the status of each language and which to download.
+src/i18n/updates.ts        checkTranslations: at start-up and whenever Settings ›
+                           Language opens, at most one read an hour; Download
+                           now / Wait.
+src/i18n/validateCatalog.ts  Checks a downloaded catalog before it is used.
+src/i18n/languageNames.ts  Each language's name; menuItems.ts builds the menu list.
+src/i18n/translations.json Bundled snapshot of the record (see below).
+src/utils/i18n.ts          t(); the language is chosen once at start-up from the
+                           saved choice, downloaded words first. "Follow system"
+                           is the saved choice SYSTEM.
+electron/translations.ts   Main process: Weblate API, the record on the stats
+                           branch, downloads into <userData>/translations, and
+                           the start-up snapshot handed to the renderer over
+                           synchronous IPC (so the first paint is already in
+                           the right language).
+src/components/Settings/defs/language.tsx   Settings › Language.
+src/components/Transport/LanguageSwitcher.tsx  The menu under the logo.
+tools/stats/translations.py  Daily record on the stats branch (a step of the
+                           Stats workflow, run once, on main).
+scripts/i18n-ready.mjs     `npm run i18n:ready`, at release: writes the
+                           shipped words (src/i18n/shipped/, checked texts
+                           only, read by src/i18n/catalogs.ts) from Weblate
+                           (src/i18n/locales/ is Weblate's own copy with the
+                           machine drafts, never read by the app or written
+                           here) and the bundled
+                           snapshot in the same run (rules in
+                           src/i18n/releaseWords.ts), so the snapshot's age of
+                           each language's words is the age of the words that
+                           ship.
+```
+
+Two rules matter:
+
+- **Once ready, always ready.** A language that has reached the share keeps its
+  `readySince` in the record (or its code in the local seen-ready list), so a
+  later dip in the percentage, or being offline, never takes it away. That
+  lasting record counts **checked texts only** (`isCheckedReady`).
+- **Machine drafts don't count.** `COUNT_MACHINE_DRAFTS = false`: drafts
+  ("needs editing" on Weblate) are suggestions for translators only and never
+  make a language ready. Effect names (Chorus, Reverb, Compressor, Limiter) and Master are
+  plain strings, not `t`, so they stay in English in every language.
 
 ---
 

@@ -17,6 +17,7 @@ import { programTimeline, programAt } from '../audio/programTimeline'
 import { volumeAt, expressionAt, valueAt, volumeRatio } from '../audio/songVolume'
 import { useMidiSettings, latencyOffsetSec, midiPrefsReady } from '../store/midiSettings'
 import { isShown } from '../utils/trackShown'
+import { t } from '../utils/i18n'
 
 // ── Live edit-buffer awareness — mirrors useAudioEngine.ts's activeMidiData().
 // Gated on NES.dirty, not just NES.editMidi being non-null — the edit buffer
@@ -57,10 +58,10 @@ export const SAMPLES_BOOST = 3.0
 // actually caps that, not just lowering these numbers. ─────────────────────
 interface CompPreset { threshold: number; ratio: number; attack: number; knee: number; makeupDb: number; label: string }
 export const COMPRESSOR_PRESETS: CompPreset[] = [
-  { label: 'Safety',  threshold: -1,  ratio: 2,  attack: 0.010, knee: 10, makeupDb: 0.5 },
-  { label: 'Gentle',  threshold: -6,  ratio: 4,  attack: 0.008, knee: 8,  makeupDb: 1.5 },
-  { label: 'Medium',  threshold: -12, ratio: 8,  attack: 0.005, knee: 6,  makeupDb: 3 },
-  { label: 'Firm',    threshold: -18, ratio: 14, attack: 0.003, knee: 3,  makeupDb: 4.5 },
+  { label: t`Safety`,  threshold: -1,  ratio: 2,  attack: 0.010, knee: 10, makeupDb: 0.5 },
+  { label: t`Gentle`,  threshold: -6,  ratio: 4,  attack: 0.008, knee: 8,  makeupDb: 1.5 },
+  { label: t`Medium`,  threshold: -12, ratio: 8,  attack: 0.005, knee: 6,  makeupDb: 3 },
+  { label: t`Firm`,    threshold: -18, ratio: 14, attack: 0.003, knee: 3,  makeupDb: 4.5 },
   { label: 'Limiter', threshold: -24, ratio: 20, attack: 0.003, knee: 0,  makeupDb: 6 },
 ]
 export const COMPRESSOR_RELEASE = 0.25

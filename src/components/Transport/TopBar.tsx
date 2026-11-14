@@ -16,6 +16,7 @@ import VolumeKnob from '../VolumeKnob'
 import LoopRegionStrip from '../LoopRegionStrip'
 import Tooltip from '../Tooltip'
 import { TapTempoPad } from './TapTempoPad'
+import { LanguageSwitcher } from './LanguageSwitcher'
 import { TempoWarning } from './TempoWarning'
 import { useCurrentTempoTrust } from '../../hooks/useTempoTrustScan'
 import { stepDisplayedBpm, typedBpm, speedPercent, stepSpeed, typedSpeed } from '../../utils/bpmStep'
@@ -115,9 +116,9 @@ export default function TopBar() {
   }, [playbackState, play, pause])
 
   const handleReset = useCallback(async () => {
-    const proceed = await confirmDiscardDirtyNoteEdits('Save changes before resetting?')
+    const proceed = await confirmDiscardDirtyNoteEdits(t`Save changes before resetting?`)
     if (!proceed) return
-    const proceedTempoKey = await confirmDiscardDirtyTempoKey('Save tempo/key changes before resetting?')
+    const proceedTempoKey = await confirmDiscardDirtyTempoKey(t`Save tempo/key changes before resetting?`)
     if (proceedTempoKey && await confirmUnsavedChanges()) resetAll()
   }, [resetAll])
 
@@ -180,11 +181,11 @@ export default function TopBar() {
     return Math.max(loopStartBar, pastLastBarStart ? rawBar : rawBar - 1)
   })() : null
   const loopTooltipTitle = loopStart !== null
-    ? (loopRegionActive ? `Looping bars ${loopStartBar}–${loopEndBar}` : `Loop bars ${loopStartBar}–${loopEndBar}`)
-    : 'Loop song or section'
+    ? (loopRegionActive ? t`Looping bars ${loopStartBar}–${loopEndBar}` : t`Loop bars ${loopStartBar}–${loopEndBar}`)
+    : t`Loop song or section`
   const loopTooltipDesc = loopStart !== null
-    ? (loopRegionActive ? 'Click to disable looping.' : 'Click to enable looping.')
-    : 'Click to loop the entire song, or Alt+Click & drag mouse on the piano roll to select a specific region.'
+    ? (loopRegionActive ? t`Click to disable looping.` : t`Click to enable looping.`)
+    : t`Click to loop the entire song, or Alt+Click & drag mouse on the piano roll to select a specific region.`
 
   // ── Live BPM — reads current tempo from _tempoMap so rubato files update ─
   const rawTempoMap = (midi as any)?._tempoMap as { bpm: number; time: number }[] | undefined
@@ -281,14 +282,15 @@ export default function TopBar() {
       <div className="topbar-scroll" style={{
         display: 'flex', alignItems: 'center', gap: 0, flexShrink: 0,
         justifySelf: 'stretch', minWidth: 0, overflowX: 'auto', overflowY: 'hidden',
-        // room below the row for the tempo-warning dot under the TAP pad —
-        // added inside and taken back outside, so nothing moves
-        paddingBottom: 14, marginBottom: -14,
+        // room below the row for the tempo-warning dot under the TAP pad and
+        // the language icon — added inside and taken back outside, so nothing moves
+        paddingBottom: 38, marginBottom: -38,
       }}>
       {/* ── LOGO ── */}
       <div className="app-no-drag" style={{ display: 'flex', alignItems: 'center', gap: 10, flexShrink: 0, paddingRight: 'var(--space-3)' }}>
         <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start', gap: 1 }}>
-          <Tooltip title="Reset" description={"Closes the file and resets tempo,\ntranspose, and playback to defaults."} placement="bottom">
+          <Tooltip title={t`Reset`} description={t`Closes the file and resets tempo,
+transpose, and playback to defaults.`} placement="bottom">
             <span onClick={handleReset} className="app-no-drag" style={{ cursor: 'pointer', display: 'flex', flexDirection: 'column', alignItems: 'flex-start', gap: 2 }}>
               <OrfeoLogo />
               <span style={{ color: 'var(--text-inactive)', fontSize: 10, fontFamily: 'var(--font-mono)', whiteSpace: 'nowrap' }}>
@@ -298,8 +300,10 @@ export default function TopBar() {
               </span>
             </span>
           </Tooltip>
+          <LanguageSwitcher />
         </div>
-        <Tooltip title="Open a file (Ctrl+O)" description={"Loads a supported file from\ndisk to start a new session."} placement="bottom">
+        <Tooltip title={t`Open a file (Ctrl+O)`} description={t`Loads a supported file from
+disk to start a new session.`} placement="bottom">
           <button
             onClick={openFile}
             data-tour="open-file"
@@ -319,16 +323,20 @@ export default function TopBar() {
           the left column must still fit at a 1366 px window) */}
       <div className="app-no-drag" data-tour="tempo" style={{ display: 'flex', alignItems: 'center', gap: 4, padding: '0 var(--space-2)', flexShrink: 0 }}>
         <Tooltip
-          title={asPercent ? t`Speed: ${midi ? speedPercent(bpm, originalBpm) : '—'} %` : `Tempo: ${liveBpm || '—'} BPM`}
+          title={asPercent ? t`Speed: ${midi ? speedPercent(bpm, originalBpm) : '—'} %` : t`Tempo: ${liveBpm || '—'} BPM`}
           description={asPercent
-            ? t`Playback speed against the song's own tempo:\n100 % plays it as written.\nDouble-click to type a speed.`
-            : t`The song's current playback tempo,\nscaled by your speed setting.\nDouble-click to type a tempo.`}
+            ? t`Playback speed against the song's own tempo:
+100 % plays it as written.
+Double-click to type a speed.`
+            : t`The song's current playback tempo,
+scaled by your speed setting.
+Double-click to type a tempo.`}
           placement="bottom">
           <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
             <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start', gap: 1 }}>
               {/* the unit sits in the label, so the number keeps one width in both modes */}
-              <span style={{ color: 'var(--text-muted)', fontSize: 9, textTransform: 'uppercase', letterSpacing: '0.1em', fontFamily: 'var(--font-mono)', lineHeight: 1 }}>{asPercent ? '%' : 'BPM'}</span>
-              <span style={{ color: 'var(--text-muted)', fontSize: 9, textTransform: 'uppercase', letterSpacing: '0.1em', fontFamily: 'var(--font-mono)', lineHeight: 1 }}>{asPercent ? t`SPEED` : 'TEMPO'}</span>
+              <span style={{ color: 'var(--text-muted)', fontSize: 9, textTransform: 'uppercase', letterSpacing: '0.1em', fontFamily: 'var(--font-mono)', lineHeight: 1 }}>{asPercent ? '%' : t`BPM`}</span>
+              <span style={{ color: 'var(--text-muted)', fontSize: 9, textTransform: 'uppercase', letterSpacing: '0.1em', fontFamily: 'var(--font-mono)', lineHeight: 1 }}>{asPercent ? t`SPEED` : t`TEMPO`}</span>
             </div>
             <BpmValue
               shown={midi ? String(asPercent ? speedPercent(bpm, originalBpm) : liveBpm) : '—'}
@@ -347,9 +355,13 @@ export default function TopBar() {
             tap-tempo correction), not the file's first tempo — see liveBpm. */}
         <div style={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
           <LongPressArrow onStep={() => { const s = useStore.getState(); setBpm(asPercent ? stepSpeed(s.bpm, s.originalBpm, 1) : stepDisplayedBpm(s.bpm, s.originalBpm, currentFileBpm, 1)) }} disabled={!midi}
-            title={asPercent ? t`Speed +1 %` : 'BPM +1'} description={asPercent ? t`Plays a little faster,\none percent at a time.` : "Nudges playback tempo up\nby one beat per minute."}><ChevronUp size={10} /></LongPressArrow>
+            title={asPercent ? t`Speed +1 %` : t`BPM +1`} description={asPercent ? t`Plays a little faster,
+one percent at a time.` : t`Nudges playback tempo up
+by one beat per minute.`}><ChevronUp size={10} /></LongPressArrow>
           <LongPressArrow onStep={() => { const s = useStore.getState(); setBpm(asPercent ? stepSpeed(s.bpm, s.originalBpm, -1) : stepDisplayedBpm(s.bpm, s.originalBpm, currentFileBpm, -1)) }} disabled={!midi}
-            title={asPercent ? t`Speed -1 %` : 'BPM -1'} description={asPercent ? t`Plays a little slower,\none percent at a time.` : "Nudges playback tempo down\nby one beat per minute."}><ChevronDown size={10} /></LongPressArrow>
+            title={asPercent ? t`Speed -1 %` : t`BPM -1`} description={asPercent ? t`Plays a little slower,
+one percent at a time.` : t`Nudges playback tempo down
+by one beat per minute.`}><ChevronDown size={10} /></LongPressArrow>
         </div>
         {/* ── Reset — space always reserved so its appearance never shifts the transport controls ── */}
         {/* wrapperStyle carries the same visibility as the button itself — the
@@ -357,7 +369,7 @@ export default function TopBar() {
             from hit-testing once it's nested inside Tooltip's wrapper div,
             which would otherwise still show the tooltip over reserved-but-
             hidden blank space. */}
-        <Tooltip title="Reset tempo" description="Restores the original BPM" placement="bottom"
+        <Tooltip title={t`Reset tempo`} description={t`Restores the original BPM`} placement="bottom"
           wrapperStyle={{ visibility: isTempoChanged ? 'visible' : 'hidden', flexShrink: 0 }}
         >
           <button
@@ -380,15 +392,16 @@ export default function TopBar() {
           takes no width of its own — this group has no spare room at 1366 px) */}
       <div className="app-no-drag" style={{ position: 'relative', display: 'flex', alignItems: 'center', gap: 6, padding: '0 var(--space-2)', flexShrink: 0 }}>
         <Tooltip
-          title="Key: "
-          titleValue={`${displayKey}${transpose !== 0 ? ` (${transpose > 0 ? '+' : ''}${transpose} semitones)` : ''}`}
-          description={"The song's detected key, adjusted\nby any transpose applied here."}
+          title={t`Key: `}
+          titleValue={`${displayKey}${transpose !== 0 ? t` (semitones: ${transpose > 0 ? '+' : ''}${transpose})` : ''}`}
+          description={t`The song's detected key, adjusted
+by any transpose applied here.`}
           placement="bottom"
         >
           <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
             <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start', gap: 1 }}>
-              <span style={{ color: 'var(--text-muted)', fontSize: 9, textTransform: 'uppercase', letterSpacing: '0.1em', fontFamily: 'var(--font-mono)', lineHeight: 1 }}>KEY</span>
-              <span style={{ color: 'var(--text-muted)', fontSize: 9, textTransform: 'uppercase', letterSpacing: '0.1em', fontFamily: 'var(--font-mono)', lineHeight: 1 }}>TRANSPOSE</span>
+              <span style={{ color: 'var(--text-muted)', fontSize: 9, textTransform: 'uppercase', letterSpacing: '0.1em', fontFamily: 'var(--font-mono)', lineHeight: 1 }}>{t`KEY`}</span>
+              <span style={{ color: 'var(--text-muted)', fontSize: 9, textTransform: 'uppercase', letterSpacing: '0.1em', fontFamily: 'var(--font-mono)', lineHeight: 1 }}>{t`TRANSPOSE`}</span>
             </div>
             <span style={{ color: transpose !== 0 ? 'var(--text-amber)' : 'var(--text-active)', fontFamily: 'var(--font-mono)', fontSize: 20, fontWeight: 700, minWidth: 32, textAlign: 'right', lineHeight: 1 }}>
               {displayKey}
@@ -396,11 +409,13 @@ export default function TopBar() {
           </div>
         </Tooltip>
         <div style={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
-          <ArrowBtn onClick={() => handleTranspose(1)} disabled={!midi || transpose >= 12} title="Transpose up" description={"Shifts the detected key up\nby a semitone (max +12)."}><ChevronUp size={10} /></ArrowBtn>
-          <ArrowBtn onClick={() => handleTranspose(-1)} disabled={!midi || transpose <= -12} title="Transpose down" description={"Shifts the detected key down\nby a semitone (max −12)."}><ChevronDown size={10} /></ArrowBtn>
+          <ArrowBtn onClick={() => handleTranspose(1)} disabled={!midi || transpose >= 12} title={t`Transpose up`} description={t`Shifts the detected key up
+by a semitone (max +12).`}><ChevronUp size={10} /></ArrowBtn>
+          <ArrowBtn onClick={() => handleTranspose(-1)} disabled={!midi || transpose <= -12} title={t`Transpose down`} description={t`Shifts the detected key down
+by a semitone (max −12).`}><ChevronDown size={10} /></ArrowBtn>
         </div>
         {/* ── Reset — space always reserved so its appearance never shifts the transport controls ── */}
-        <Tooltip title="Reset key" description={"Restores the original key"} placement="bottom"
+        <Tooltip title={t`Reset key`} description={t`Restores the original key`} placement="bottom"
           wrapperStyle={{ visibility: transpose !== 0 ? 'visible' : 'hidden', flexShrink: 0 }}
         >
           <button
@@ -445,20 +460,20 @@ export default function TopBar() {
           </span>
         ) : (
           <span style={{ color: 'var(--text-default)', fontSize: 'var(--text-sm)', fontFamily: 'var(--font-ui)', lineHeight: '13px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: 340 }}>
-            No file open
+            {t`No file open`}
           </span>
         )}
         {/* Transport */}
         <div data-tour="transport" style={{ display: 'flex', alignItems: 'center', gap: 2 }}>
-          <TBtn onClick={stop} disabled={!midi} title="Go to start" oneLine><SkipBack size={16} strokeWidth={1.5} /></TBtn>
-          <TBtn onClick={() => handleSkip(-1)} disabled={!midi} title={`Rewind ${SKIP_SECS}s`} oneLine><Rewind size={15} strokeWidth={1.5} /></TBtn>
-          <TBtn onClick={handlePlayPause} disabled={!midi || (chordExplorerOpen && explorerPausesPlayback)} accent title="Play / Pause (Space)" large oneLine>
+          <TBtn onClick={stop} disabled={!midi} title={t`Go to start`} oneLine><SkipBack size={16} strokeWidth={1.5} /></TBtn>
+          <TBtn onClick={() => handleSkip(-1)} disabled={!midi} title={t`Rewind ${SKIP_SECS}s`} oneLine><Rewind size={15} strokeWidth={1.5} /></TBtn>
+          <TBtn onClick={handlePlayPause} disabled={!midi || (chordExplorerOpen && explorerPausesPlayback)} accent title={t`Play / Pause (Space)`} large oneLine>
             {playbackState === 'playing'
               ? <Pause size={24} fill="currentColor" strokeWidth={0} />
               : <Play size={24} fill="currentColor" strokeWidth={0} />}
           </TBtn>
-          <TBtn onClick={() => handleSkip(1)} disabled={!midi} title={`Forward ${SKIP_SECS}s`} oneLine><FastForward size={15} strokeWidth={1.5} /></TBtn>
-          <TBtn onClick={() => midi && seek(midi.duration)} disabled={!midi} title="Go to end" oneLine><SkipForward size={16} strokeWidth={1.5} /></TBtn>
+          <TBtn onClick={() => handleSkip(1)} disabled={!midi} title={t`Forward ${SKIP_SECS}s`} oneLine><FastForward size={15} strokeWidth={1.5} /></TBtn>
+          <TBtn onClick={() => midi && seek(midi.duration)} disabled={!midi} title={t`Go to end`} oneLine><SkipForward size={16} strokeWidth={1.5} /></TBtn>
           {/* position:relative wrapper so the "click to loop" label can be
               position:absolute — it used to sit in normal flex flow as the
               row's last child, so its appearing/disappearing changed the
@@ -485,7 +500,7 @@ export default function TopBar() {
                 whiteSpace: 'nowrap', letterSpacing: '0.04em',
                 opacity: 0.85, pointerEvents: 'none', userSelect: 'none',
               }}>
-                click to loop
+                {t`click to loop`}
               </span>
             )}
           </div>
@@ -523,7 +538,7 @@ export default function TopBar() {
                 {showPreciseScrubTime ? formatTimeMs(currentTime) : formatTime(currentTime)}
               </span>
             </span>
-            <Tooltip title="Scrub position" description="Drag to jump to any point in the song." wrapperStyle={{ flex: 1, maxWidth: 320 }}>
+            <Tooltip title={t`Scrub position`} description={t`Drag to jump to any point in the song.`} wrapperStyle={{ flex: 1, maxWidth: 320 }}>
               <input
                 type="range" min={0} max={duration || 1} step={0.01} value={currentTime}
                 onMouseDown={handleScrubStart} onChange={handleScrubChange} onMouseUp={handleScrubEnd}
@@ -590,7 +605,8 @@ export default function TopBar() {
         {/* BAR COUNTER — only when a file is loaded */}
         {midi && (
           <>
-            <Tooltip title={`Bar ${currentBar} of ${totalBars}`} description={"Position in the song,\ncounted in bars."} placement="bottom">
+            <Tooltip title={t`Bar ${currentBar} of ${totalBars}`} description={t`Position in the song,
+counted in bars.`} placement="bottom">
               <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', padding: '0 var(--space-3)' }}>
                 <div style={{
                   background: 'var(--bg-tile)', borderRadius: 4, padding: '2px 6px',
@@ -604,7 +620,7 @@ export default function TopBar() {
                   </span>
                 </div>
                 <span style={{ color: 'var(--topbar-bar-label)', fontSize: 9, fontFamily: 'var(--font-ui)', textTransform: 'uppercase', letterSpacing: '0.1em', lineHeight: 1, marginTop: 6 }}>
-                  BAR
+                  {t`BAR`}
                 </span>
               </div>
             </Tooltip>
@@ -614,8 +630,9 @@ export default function TopBar() {
 
         {/* TIME SIGNATURE */}
         <Tooltip
-          title={midi ? `Time signature: ${currentTimeSig.num}/${currentTimeSig.den}` : 'No file loaded'}
-          description={"Number of beats in each bar,\nand which note value counts as one beat."}
+          title={midi ? t`Time signature: ${currentTimeSig.num}/${currentTimeSig.den}` : t`No file loaded`}
+          description={t`Number of beats in each bar,
+and which note value counts as one beat.`}
           placement="bottom"
         >
           <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', padding: '0 14px' }}>
@@ -632,7 +649,7 @@ export default function TopBar() {
             ) : (
               <span style={{ color: 'var(--text-muted)', fontFamily: 'var(--font-mono)', fontSize: 20, fontWeight: 700, lineHeight: 1 }}>—</span>
             )}
-            <span style={{ color: 'var(--text-muted)', fontSize: 9, fontFamily: 'var(--font-mono)', textTransform: 'uppercase', letterSpacing: '0.1em', lineHeight: 1, marginTop: 6 }}>TIME</span>
+            <span style={{ color: 'var(--text-muted)', fontSize: 9, fontFamily: 'var(--font-mono)', textTransform: 'uppercase', letterSpacing: '0.1em', lineHeight: 1, marginTop: 6 }}>{t`TIME`}</span>
           </div>
         </Tooltip>
 
@@ -640,7 +657,7 @@ export default function TopBar() {
 
         {/* METRONOME */}
         <Tooltip
-          title={metronomeEnabled ? 'Metronome on' : 'Metronome off'}
+          title={metronomeEnabled ? t`Metronome on` : t`Metronome off`}
           description={countInEnabled
             ? t`Click to toggle metronome ON/OFF. Right-click for volume and count-in.`
             : t`Click to turn it ON, right-click \nfor volume and count-in.`}
@@ -664,11 +681,11 @@ export default function TopBar() {
               <circle cx="20" cy="9" r="2" />
             </svg>
             <span style={{ fontSize: 9, fontFamily: 'var(--font-mono)', letterSpacing: '0.08em', lineHeight: 1, marginTop: 6 }}>
-              {metronomeEnabled ? 'ON' : 'OFF'}
+              {metronomeEnabled ? t`ON` : t`OFF`}
             </span>
             {/* count-in badge: how many bars Play will count in */}
             {countInEnabled && (
-              <span aria-label={t`Count-in ${countInBars} bars`} style={{
+              <span aria-label={t`Count-in bars: ${countInBars}`} style={{
                 // inside the button's box: the row clips anything above it
                 position: 'absolute', top: 0, right: 6, minWidth: 12, height: 12, borderRadius: 6, padding: '0 3px',
                 background: 'var(--text-amber)', color: 'var(--bg-tooltip)', fontSize: 8, fontWeight: 700,
@@ -694,7 +711,7 @@ export default function TopBar() {
             style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start', padding: '0 14px', background: 'none', border: 'none', cursor: 'pointer', color: midiDeviceConnected ? 'var(--topbar-midi-on)' : 'var(--topbar-midi-off)' }}>
             <MidiIcon size={24} color={midiDeviceConnected ? 'var(--topbar-midi-on)' : 'var(--topbar-midi-off)'} />
             <span style={{ fontSize: 9, fontFamily: 'var(--font-mono)', letterSpacing: midiDeviceConnected ? '0.08em' : '0.05em', color: midiDeviceConnected ? 'var(--topbar-midi-on)' : 'var(--topbar-midi-off)', lineHeight: 1, marginTop: 6, whiteSpace: 'nowrap' }}>
-              {midiDeviceConnected ? shortName(midiActiveKey || midiDeviceName) : 'NO KEYBOARD'}
+              {midiDeviceConnected ? shortName(midiActiveKey || midiDeviceName) : t`NO KEYBOARD`}
             </span>
           </button>
         </Tooltip>
@@ -754,7 +771,7 @@ function MetronomeMenu({ x, y, onClose }: { x: number; y: number; onClose: () =>
           <>
             <div style={{ display: 'flex', gap: 4 }}>
               {[1, 2, 3, 4].map(n => (
-                <button key={n} onClick={() => setCountInBars(n)} aria-label={t`${n} bars`} style={pill(countInBars === n)}>{n}</button>
+                <button key={n} onClick={() => setCountInBars(n)} aria-label={t`Bars: ${n}`} style={pill(countInBars === n)}>{n}</button>
               ))}
             </div>
             <span style={{ fontSize: 9, color: 'var(--text-faint)', lineHeight: 1.3 }}>{t`Bars of clicks before Play`}</span>
