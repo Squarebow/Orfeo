@@ -2,7 +2,7 @@ import { AudioLines, Timer, TriangleAlert, Hand, Repeat, Focus, Pause, SkipForwa
 import { Numbers } from '../../../utils/extraIcons'
 import { useStore } from '../../../store'
 import { t } from '../../../utils/i18n'
-import { Switch, OptionBtn, FingerStepper, InlineIcon, SubLabel, HelpText } from '../controls'
+import { Switch, OptionBtn, FingerStepper, InlineIcon, SubLabel, HelpText, ButtonRow } from '../controls'
 import type { SettingDef } from '../types'
 import { applySkipEmptyBarsChange } from '../../../utils/reloadOpenSong'
 import { confirmDialog } from '../../../utils/confirmController'
@@ -39,10 +39,10 @@ function TapTempoExtra() {
   return (
     <>
       <SubLabel>{t`Tap Tempo counting`}</SubLabel>
-      <div style={{ display: 'flex', gap: 'var(--space-1)' }}>
+      <ButtonRow>
         <OptionBtn active={mode === 'beat'} onClick={() => setMode('beat')}>{t`Every beat`}</OptionBtn>
         <OptionBtn active={mode === 'bar'} onClick={() => setMode('bar')}>{t`Only the 1`}</OptionBtn>
-      </div>
+      </ButtonRow>
       <HelpText>
         {mode === 'beat'
           ? t`Tap 1, 2, 3, 4 — like tapping your foot. Your first tap is the 1.`
@@ -59,9 +59,11 @@ function TempoWarningsExtra() {
   return (
     <>
       <SubLabel>{t`Dismissed tempo warnings`}</SubLabel>
-      <OptionBtn active={false} onClick={useStore.getState().clearTempoWarningDismissals}>
-        {dismissedCount === 1 ? t`Show the warning for 1 dismissed song again` : t`Show dismissed warnings again (${dismissedCount})`}
-      </OptionBtn>
+      <ButtonRow>
+        <OptionBtn active={false} onClick={useStore.getState().clearTempoWarningDismissals}>
+          {dismissedCount === 1 ? t`Show the warning for 1 dismissed song again` : t`Show dismissed warnings again (${dismissedCount})`}
+        </OptionBtn>
+      </ButtonRow>
     </>
   )
 }
@@ -74,9 +76,9 @@ function CountInExtra() {
   return (
     <>
       <SubLabel>{t`Count-in bars`}</SubLabel>
-      <div style={{ display: 'flex', gap: 'var(--space-1)' }}>
+      <ButtonRow>
         {[1, 2, 3, 4].map(n => <OptionBtn key={n} active={bars === n} onClick={() => setBars(n)}>{String(n)}</OptionBtn>)}
-      </div>
+      </ButtonRow>
     </>
   )
 }
@@ -114,7 +116,7 @@ function HandAssignmentExtra() {
           <FingerStepper value={rh} onChange={useStore.getState().setRhMaxFingers} />
         </div>
       </div>
-      <HelpText>{t`How many notes of a wide chord each hand can take before the rest is absorbed by the other — left counts from the bottom of the chord, right from the top.`}</HelpText>
+      <HelpText>{t`How many notes of a wide chord each hand can take before the rest goes to the other hand.\nThe left hand counts from the bottom of the chord, the right from the top.`}</HelpText>
     </>
   )
 }
@@ -199,7 +201,7 @@ export const PLAYBACK_DEFS: SettingDef[] = [
     id: 'handAssignment', icon: Hand, kind: 'switch', Extra: HandAssignmentExtra,
     Control: () => { const v = useStore(s => s.showHandLabels); return <Switch value={v} onChange={useStore.getState().setShowHandLabels} label={t`Hand Assignment`} /> },
     Description: () => <>
-      {t`On a single piano track, Orfeo works out which hand plays each note and colours it to match. Several piano or organ tracks are read together, as one player's two hands. A guideline, not a verified transcript!`}
+      {t`On a single piano track, Orfeo works out which hand plays each note and colours it to match. Several piano or organ tracks are read together, as one player's two hands.\nA guideline, not a verified transcript!`}
       <br /><br />
       {t`For a perfectly accurate split use MIDI note editor and click the`} <InlineIcon><Hand size={11} /></InlineIcon> {t`icon to manually assign notes to left and right hand.`}
       <br /><br />
@@ -218,10 +220,10 @@ export const PLAYBACK_DEFS: SettingDef[] = [
       const v = useStore(s => s.tempoDisplay)
       const set = useStore.getState().setTempoDisplay
       return (
-        <div style={{ display: 'flex', gap: 'var(--space-1)' }}>
+        <ButtonRow>
           <OptionBtn active={v === 'bpm'} onClick={() => set('bpm')}>{t`BPM`}</OptionBtn>
           <OptionBtn active={v === 'percent'} onClick={() => set('percent')}>{t`Speed %`}</OptionBtn>
-        </div>
+        </ButtonRow>
       )
     },
   },

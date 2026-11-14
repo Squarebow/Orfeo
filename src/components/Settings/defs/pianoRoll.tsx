@@ -57,8 +57,12 @@ function VisualEffectsExtra() {
   const threshold = useStore(s => s.hitEffectBloomThreshold)
   if (!on) return null
   const st = useStore.getState()
+  // three columns: scope and colour | pattern | sliders; the closing note runs under all three
+  const col = { minWidth: 0 } as const
   return (
     <>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, minmax(0, 1fr))', columnGap: 16, alignItems: 'start' }}>
+      <div style={col}>
       <SubLabel>{t`Scope & Color`}</SubLabel>
       <div style={{ display: 'flex', gap: 'var(--space-2)', alignItems: 'stretch' }}>
         <Tooltip
@@ -92,6 +96,8 @@ function VisualEffectsExtra() {
           </Tooltip>
         )}
       </div>
+      </div>
+      <div style={col}>
       <SubLabel>{t`Pattern`}</SubLabel>
       <SettingsDropdown
         value={pattern}
@@ -103,9 +109,13 @@ function VisualEffectsExtra() {
         }))}
       />
       <HelpText>{HIT_EFFECT_DESCRIPTIONS[pattern]}</HelpText>
+      </div>
+      <div style={col}>
       <Slider label={t`Intensity`} value={intensity} min={0} max={4} step={0.1} digits={1} onChange={st.setHitEffectBloomIntensity} />
       <Slider label={t`Spread`} value={spread} min={0} max={12} step={0.5} digits={1} onChange={st.setHitEffectBloomSpread} />
       <Slider label={t`Threshold`} value={threshold} min={0} max={1} step={0.05} digits={2} onChange={st.setHitEffectBloomThreshold} />
+      </div>
+      </div>
       <HelpText>{t`Lower values make more of the effect glow; higher values only bloom the brightest parts.`}</HelpText>
     </>
   )

@@ -1,7 +1,7 @@
 import { Piano, Binary, CaseSensitive, Lightbulb, Clock } from 'lucide-react'
 import { useStore } from '../../../store'
 import type { KeyboardSize } from '../../../types'
-import { OptionBtn, Switch } from '../controls'
+import { OptionBtn, Switch, ButtonRow } from '../controls'
 import type { SettingDef } from '../types'
 import { t } from '../../../utils/i18n'
 
@@ -11,9 +11,9 @@ function KeyRangeControl() {
   const size = useStore(s => s.keyboardSize)
   const setSize = useStore(s => s.setKeyboardSize)
   return (
-    <div style={{ display: 'flex', gap: 'var(--space-1)' }}>
+    <ButtonRow>
       {KEYBOARD_SIZES.map(n => <OptionBtn key={n} active={size === n} onClick={() => setSize(n)}>{n}</OptionBtn>)}
-    </div>
+    </ButtonRow>
   )
 }
 

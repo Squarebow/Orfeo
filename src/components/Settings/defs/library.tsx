@@ -9,7 +9,7 @@ import Tooltip from '../../Tooltip'
 import { applySkipEmptyBarsChange } from '../../../utils/reloadOpenSong'
 import { t } from '../../../utils/i18n'
 import { simAvailable } from '../../../utils/midiSimulator'
-import { Switch, OptionBtn, SubLabel, HelpText } from '../controls'
+import { Switch, OptionBtn, SubLabel, HelpText, ButtonRow } from '../controls'
 import type { SettingDef } from '../types'
 
 // ── Open with Orfeo: how to make Orfeo the app for MIDI files, in this system's words ──
@@ -20,7 +20,11 @@ function OpenWithDescription() {
     : /Linux/i.test(ua)
       ? t`To make Orfeo your default MIDI player, right-click a file in your file manager, choose Open With, pick Orfeo and set it as the default.`
       : t`To make Orfeo your default MIDI player, right-click a file, choose Open with › Choose another app, pick Orfeo and click Always.`
-  return <>{how}<span style={{ display: 'block', marginTop: 6 }}>{t`Switch on Add to Library on double click to copy the song into your Library, same as when you drop a file onto Orfeo.`}</span></>
+  return <>{how}</>
+}
+// Under the switch row: what the switch does
+function OpenWithExtra() {
+  return <HelpText>{t`Switch on to copy the song into your Library, same as when you drop a file onto Orfeo.`}</HelpText>
 }
 
 // A labelled switch under the name: on its own, a switch beside "Open with Orfeo"
@@ -95,12 +99,12 @@ function TagsManager() {
           </span>
         ))}
       </div>
-      <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 220px) auto', gap: 6, alignItems: 'center' }}>
+      <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 220px) auto', gap: 6, alignItems: 'center', justifyContent: 'start' }}>
         <input value={adding} maxLength={MAX_TAG_LENGTH} placeholder={t`New tag…`} aria-label={t`New tag`}
           onChange={e => { setAdding(e.target.value); setProblem(null) }}
           onKeyDown={e => { if (e.key === 'Enter') add() }} style={field} />
         <button onClick={add} disabled={!adding.trim()}
-          style={{ padding: '3px 8px', borderRadius: 4, border: '1px solid var(--border2)', background: 'transparent', fontSize: 10,
+          style={{ padding: '2px 10px', borderRadius: 4, border: '1px solid var(--accent-amber-strong)', background: 'transparent', fontSize: 10, lineHeight: 1.4,
             color: 'var(--text-inactive)', cursor: adding.trim() ? 'pointer' : 'default', opacity: adding.trim() ? 1 : 0.5, fontFamily: 'var(--font-ui)' }}>
           {t`Add`}
         </button>
@@ -125,12 +129,12 @@ function QueueEndChoice() {
   return (
     <>
       <SubLabel>{t`When a song ends`}</SubLabel>
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: 'var(--space-1)' }}>
+      <ButtonRow>
         <OptionBtn active={action === 'ask'} onClick={() => set('ask')}>{t`Ask`}</OptionBtn>
         <OptionBtn active={action === 'next'} onClick={() => set('next')}>{t`Play the next song`}</OptionBtn>
         <OptionBtn active={action === 'repeat'} onClick={() => set('repeat')}>{t`Repeat this song`}</OptionBtn>
         <OptionBtn active={action === 'stop'} onClick={() => set('stop')}>{t`Stop`}</OptionBtn>
-      </div>
+      </ButtonRow>
       <HelpText>{help[action]}</HelpText>
     </>
   )
@@ -203,7 +207,7 @@ export const LIBRARY_DEFS: SettingDef[] = [
     id: 'chordTranscription', icon: FileMusic, kind: 'switch', badge: 'beta',
     Control: () => { const v = useStore(s => s.chordTranscriptionEnabled); return <Switch value={v} onChange={x => { const skipped = useStore.getState().skipEmptyBars; useStore.getState().setChordTranscriptionEnabled(x); if (skipped && !useStore.getState().skipEmptyBars) void applySkipEmptyBarsChange() }} label={t`Chord Transcription`} /> },
   },
-  { id: 'openWith', icon: MousePointerClick, kind: 'choice', Control: AddToLibraryRow, Description: OpenWithDescription },
+  { id: 'openWith', icon: MousePointerClick, kind: 'choice', Control: AddToLibraryRow, Description: OpenWithDescription, Extra: OpenWithExtra },
   { id: 'tags', icon: Tags, kind: 'choice', Control: TagsManager },
   {
     id: 'practiceQueue', icon: ListOrdered, kind: 'switch', Extra: QueueEndChoice,

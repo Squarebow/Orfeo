@@ -1,8 +1,8 @@
-import { useEffect, useState, type ReactNode } from 'react'
+import { useEffect, useState, type CSSProperties, type ReactNode } from 'react'
 import { Volume2, Library, Gauge, Upload, FileAudio } from 'lucide-react'
 import { useStore } from '../../../store'
 import { t } from '../../../utils/i18n'
-import { OptionBtn, Switch, SettingsDropdown, SoundfontActionLink, HelpText } from '../controls'
+import { OptionBtn, Switch, SettingsDropdown, SoundfontActionLink, HelpText, ButtonRow, useSurface } from '../controls'
 import { getSamplesSampleRate, getSamplesBufferSec } from '../../../hooks/useSamplesEngine'
 import { MarqueeText } from '../../MarqueeText'
 import {
@@ -20,12 +20,12 @@ export const NATIVE_AVAILABLE = navigator.userAgent.includes('Windows')
 function SoundEngineControl() {
   const audioEngine = useStore((s) => s.audioEngine)
   return (
-    <div style={{ display: 'flex', gap: 'var(--space-1)' }}>
+    <ButtonRow vertical>
       <OptionBtn active={audioEngine === 'gm'} title={t`Generic — sounds like a 1996 Nokia phone`} oneLine
         onClick={async () => { if (useStore.getState().audioEngine === 'native') await stopNative(); useStore.getState().setAudioEngine('gm') }}>GM</OptionBtn>
       <OptionBtn active={audioEngine === 'samples'} title={t`Perfect for listening — real recorded instruments`} oneLine onClick={chooseSamplesFromQuick}>{t`Studio`}</OptionBtn>
       {NATIVE_AVAILABLE && <OptionBtn active={audioEngine === 'native'} title={t`Ideal for playing along on a connected keyboard`} oneLine onClick={() => useStore.getState().setAudioEngine('native')}>{t`Native`}</OptionBtn>}
-    </div>
+    </ButtonRow>
   )
 }
 
@@ -69,7 +69,13 @@ const msOf = (sec: number) => `${Math.round(sec * 1000 * 10) / 10} ms`
 // display: the sound card, how Orfeo uses it, the delay from "play" to
 // "heard", and the sound set playing
 const glanceBox = { marginTop: 6, border: '1px solid var(--border)', borderRadius: 6, padding: '2px 8px 6px' } as const
+// Settings window: the middle of three columns, amber-framed, as tall as its neighbours
+const windowBox = { border: '1px solid var(--accent-amber-strong)', borderRadius: 6, padding: '2px 10px 6px', flex: 1 } as const
 function SoundEngineGlance() {
+  const surface = useSurface()
+  return <SoundEngineRows box={surface === 'setup' ? glanceBox : windowBox} />
+}
+function SoundEngineRows({ box }: { box: CSSProperties }) {
   const audioEngine = useStore((s) => s.audioEngine)
   const samplesStatus = useSoundfontState((s) => s.samplesStatus)
   const latencySec = useOutputLatency()
@@ -93,8 +99,8 @@ function SoundEngineGlance() {
     if (phase !== 'running' || !native) return <InfoRow label={t`Sound card`}>{t`starting…`}</InfoRow>
     if (native.mode === 'none') return <InfoRow label={t`Sound card`}>{t`waiting for a sound card…`}</InfoRow>
     return (
-      <div>
-        <div style={glanceBox}>
+      <div style={{ display: 'flex', flexDirection: 'column', flex: 1 }}>
+        <div style={box}>
           <InfoRow label={t`Sound card`} marquee={native.deviceName} />
         <InfoRow label={t`Mode`} marquee={`${native.mode} ${native.rate} ${native.bufferFrames}`}>{native.mode === 'exclusive' ? amber(t`Exclusive (low latency)`) : t`Shared`} · {kHz(native.rate)} · {msOf(native.bufferFrames / native.rate)} {t`buffer`}</InfoRow>
           {latency}
@@ -107,7 +113,7 @@ function SoundEngineGlance() {
   }
   const rate = getSamplesSampleRate(), buffer = getSamplesBufferSec()
   return (
-    <div style={glanceBox}>
+    <div style={box}>
       <InfoRow label={t`Sound card`} marquee={audioEngine === 'gm' && gmExternal ? gmExternal : defaultName || t`Default output`} />
       <InfoRow label={t`Mode`} marquee={`${audioEngine} ${gmExternal} ${samplesStatus} ${rate} ${buffer}`}>{audioEngine === 'gm' && gmExternal ? t`External instrument` : <>{t`Shared`}{audioEngine === 'samples' && samplesStatus === 'ready' && rate > 0 && <> · {kHz(rate)}{buffer > 0 && <> · {msOf(buffer)} {t`buffer`}</>}</>}</>}</InfoRow>
       {latency}
@@ -132,10 +138,10 @@ function LowLatencyButtons() {
   return (
     <>
       <div style={{ marginTop: 12, marginBottom: 7, fontSize: 'var(--text-xs)', color: 'var(--text-default)', fontWeight: 500, letterSpacing: '0.02em', textTransform: 'uppercase' }}>{t`Low latency mode`}</div>
-      <div style={{ display: 'flex', gap: 'var(--space-1)' }}>
+      <ButtonRow>
         <OptionBtn active={!exclusive} onClick={() => setLowLatency(false)}>{t`Shared`}</OptionBtn>
         <OptionBtn active={exclusive} onClick={() => setLowLatency(true)}>{t`Exclusive`}</OptionBtn>
-      </div>
+      </ButtonRow>
     </>
   )
 }
@@ -198,13 +204,16 @@ function SoundFontsControl() {
   const downloads = useSoundfontState((s) => s.downloads)
   const error = useSoundfontState((s) => s.error)
   const all = allSoundfonts(extra)
-  return (
-    <div style={{ opacity: audioEngine !== 'gm' ? 1 : 0.4, pointerEvents: audioEngine !== 'gm' ? 'auto' : 'none', transition: 'opacity 0.15s' }}>
-      <SettingsDropdown
-        value={selectedSoundfont}
-        onChange={(id) => void selectSoundfont(id)}
-        options={all.filter(sf => sf.downloaded).map(sf => ({ value: sf.id, label: `${sf.name} — ${sf.sizeMB} MB` }))}
-      />
+  const surface = useSurface()
+  const dropdown = (
+    <SettingsDropdown
+      value={selectedSoundfont}
+      onChange={(id) => void selectSoundfont(id)}
+      options={all.filter(sf => sf.downloaded).map(sf => ({ value: sf.id, label: `${sf.name} — ${sf.sizeMB} MB` }))}
+    />
+  )
+  const list = (
+    <div>
       <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1fr) auto auto', columnGap: 'var(--space-2)', rowGap: 5, alignItems: 'center' }}>
         {all.map((sf) => {
           const isActive = selectedSoundfont === sf.id
@@ -234,10 +243,15 @@ function SoundFontsControl() {
         })}
       </div>
       {error && <div style={{ fontSize: 9, color: 'var(--status-error)', fontFamily: 'var(--font-ui)', marginTop: 5 }}>{error}</div>}
+    </div>
+  )
+  const importer = (
+    <div style={surface === 'window' ? { display: 'grid', justifyItems: 'end', textAlign: 'right' } : undefined}>
       <button
           onClick={() => void importSoundfont()}
           style={{
-            display: 'flex', alignItems: 'center', gap: 6, margin: '14px 0 8px', padding: '6px 8px', width: '100%',
+            display: 'flex', alignItems: 'center', gap: 6, margin: surface === 'window' ? '0 0 8px' : '14px 0 8px',
+            padding: surface === 'window' ? '6px 14px' : '6px 8px', width: surface === 'window' ? 'auto' : '100%', whiteSpace: 'nowrap',
             borderRadius: 4, border: '1px dashed var(--text-muted)', background: 'transparent',
             color: 'var(--text-default)', fontSize: 'var(--text-xs)', fontFamily: 'var(--font-ui)', cursor: 'pointer', justifyContent: 'center',
           }}
@@ -250,10 +264,16 @@ function SoundFontsControl() {
       <HelpText>{t`Make sure you have the rights to use imported soundfonts.`}</HelpText>
     </div>
   )
+  return (
+    <div style={{ opacity: audioEngine !== 'gm' ? 1 : 0.4, pointerEvents: audioEngine !== 'gm' ? 'auto' : 'none', transition: 'opacity 0.15s',
+      ...(surface === 'window' ? { display: 'grid', gridTemplateColumns: 'repeat(3, minmax(0, 1fr))', columnGap: 16, alignItems: 'start' } : {}) }}>
+      {dropdown}{list}{importer}
+    </div>
+  )
 }
 
 export const AUDIO_DEFS: SettingDef[] = [
-  { id: 'soundEngine', icon: Volume2, kind: 'choice', layout: 'controlFirst', Description: SoundEngineDescription,
+  { id: 'soundEngine', icon: Volume2, kind: 'choice', layout: 'columns', Description: SoundEngineDescription,
     Control: SoundEngineControl, Glance: SoundEngineGlance, Extra: SoundEngineExtra, QuickExtra: SoundEngineQuickExtra },
   { id: 'soundFonts', icon: Library, kind: 'choice', Control: SoundFontsControl },
   {

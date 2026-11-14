@@ -1,4 +1,4 @@
-import { useEffect, useLayoutEffect, useRef, useState, type CSSProperties } from 'react'
+import { useEffect, useRef, useState, type CSSProperties } from 'react'
 import { createPortal } from 'react-dom'
 import { BookOpen, Search, X } from 'lucide-react'
 import { useStore } from '../../store'
@@ -7,7 +7,7 @@ import Tooltip from '../Tooltip'
 import OrfeoMark from '../OrfeoMark'
 import LicensesLink from '../LicensesLink'
 import { GROUPS, SETTINGS, type SettingId } from './catalog'
-import { searchSettings, gridColumns, CARD_GAP } from './search'
+import { searchSettings, CARD_GAP } from './search'
 import { SettingCard } from './SettingCard'
 import { UpdateButton, RateButton, DevModeBadge } from './controls'
 import { GROUP_ICONS } from './groupIcons'
@@ -24,57 +24,25 @@ const SHOWN_GROUPS = GROUPS.filter(g => g.id !== 'devtools' || simAvailable)
 
 const displayVersion = (v: string) => v.replace(/\.0$/, '')
 
-// `layoutCount`: search results always lay out as a full group would (3
-// across), so one match doesn't stretch to the whole width
-function CardGrid({ ids, width, layoutCount = ids.length }: { ids: SettingId[]; width: number; layoutCount?: number }) {
+// Every group, tab and search result: full-width cards, one under another,
+// in the order the catalog gives (a `stack` reads column by column)
+function CardStack({ ids }: { ids: SettingId[] }) {
   return (
-    <div style={{ display: 'grid', gridTemplateColumns: `repeat(${gridColumns(layoutCount, width)}, minmax(0, 1fr))`, gap: CARD_GAP, alignItems: 'stretch' }}>
+    <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1fr)', gap: CARD_GAP }}>
       {ids.map(id => <SettingCard key={id} id={id} />)}
     </div>
   )
 }
-
-// Tabbed groups: two independent columns (cards alternate left/right in
-// catalog order), so a short card never stretches to match a tall neighbour;
-// each column's last card grows so both columns end at the same line
-function ColumnCards({ ids, width, stack, looseFirst }: { ids: SettingId[]; width: number; stack?: SettingId[][]; looseFirst?: boolean }) {
-  const cols = stack ? gridColumns(stack.length, width) : gridColumns(2, width)
-  // explicit columns when they fit; otherwise the cards flow as usual
-  const columns = stack && cols === stack.length ? stack : Array.from({ length: cols }, (_, c) => ids.filter((_, i) => i % cols === c))
-  const column = (col: SettingId[], c: number) => (
-    <div key={c} style={{ display: 'flex', flexDirection: 'column', gap: CARD_GAP, minWidth: 0 }}>
-      {col.map((id, i) => <div key={id} style={{ flex: i === col.length - 1 ? 1 : 'none', display: 'flex', flexDirection: 'column' }}><SettingCard id={id} /></div>)}
-    </div>
-  )
-  // `looseFirst`: the first column grows on its own (a card that opens up its
-  // options), the others keep their height and still end at one line together
-  if (looseFirst && columns.length > 1) {
-    const share = `calc((100% - ${(columns.length - 1) * CARD_GAP}px) / ${columns.length})`
-    return (
-      <div style={{ display: 'grid', gridTemplateColumns: `${share} minmax(0, 1fr)`, gap: CARD_GAP, alignItems: 'start' }}>
-        {column(columns[0], 0)}
-        <div style={{ display: 'grid', gridTemplateColumns: `repeat(${columns.length - 1}, minmax(0, 1fr))`, gap: CARD_GAP, alignItems: 'stretch' }}>
-          {columns.slice(1).map((col, c) => column(col, c + 1))}
-        </div>
-      </div>
-    )
-  }
-  return (
-    <div style={{ display: 'grid', gridTemplateColumns: `repeat(${cols}, minmax(0, 1fr))`, gap: CARD_GAP, alignItems: 'stretch' }}>
-      {columns.map((col, c) => (
-        <div key={c} style={{ display: 'flex', flexDirection: 'column', gap: CARD_GAP, minWidth: 0 }}>
-          {col.map((id, i) => <div key={id} style={{ flex: i === col.length - 1 ? 1 : 'none', display: 'flex', flexDirection: 'column' }}><SettingCard id={id} /></div>)}
-        </div>
-      ))}
-    </div>
-  )
+const inOrder = (ids: SettingId[], stack?: SettingId[][]) => {
+  if (!stack) return ids
+  const flat = stack.flat()
+  return [...flat, ...ids.filter(id => !flat.includes(id))]
 }
 
 export default function SettingsWindow() {
   const open = useStore(s => s.settingsWindowOpen)
   const group = useStore(s => s.settingsWindowGroup)
   const [query, setQuery] = useState('')
-  const [width, setWidth] = useState(0)
   // Tab within a tabbed group — back to the first tab whenever the group changes
   const [tab, setTab] = useState(0)
   useEffect(() => { setTab(0) }, [group, open])
@@ -122,14 +90,6 @@ export default function SettingsWindow() {
   const resetFrame = () => { setFrame(defaultFrame(view())); useStore.getState().setSettingsWindowFrame(null) }
   const zoom = frameZoom(frame)
 
-  useLayoutEffect(() => {
-    const el = contentRef.current
-    if (!open || !el) return
-    // content box width (padding excluded) decides how many cards fit across
-    const ro = new ResizeObserver(([e]) => setWidth(e.contentRect.width))
-    ro.observe(el)
-    return () => ro.disconnect()
-  }, [open])
   useEffect(() => { if (!open) setQuery('') }, [open])
   // Esc: clears an active search first, otherwise closes
   useEffect(() => {
@@ -223,7 +183,7 @@ export default function SettingsWindow() {
                           const on = i === Math.min(tab, g.tabs!.length - 1)
                           return (
                             <button key={tb.name} role="tab" aria-selected={on} onClick={() => setTab(i)}
-                              style={{ padding: '7px 14px', marginBottom: -1, background: 'none', border: 'none', cursor: 'pointer',
+                              style={{ padding: '7px 14px', marginBottom: -1, background: 'none', border: 'none', cursor: 'pointer', whiteSpace: 'nowrap', flexShrink: 0,
                                 borderBottom: `2px solid ${on ? 'var(--text-amber)' : 'transparent'}`,
                                 color: on ? 'var(--text-amber)' : 'var(--text-inactive)',
                                 fontSize: 'var(--text-xs)', fontWeight: 600, letterSpacing: '0.06em', textTransform: 'uppercase', fontFamily: 'var(--font-ui)' }}
@@ -239,17 +199,13 @@ export default function SettingsWindow() {
                         const tb = g.tabs![Math.min(tab, g.tabs!.length - 1)]
                         return (
                           <>
-                            {/* Two across by default: tabbed groups have the busier cards */}
-                            {tb.columns === 3 ? <CardGrid ids={tb.ids} width={width} layoutCount={3} /> : <ColumnCards ids={tb.ids} width={width} stack={tb.stack} />}
-                            {tb.wide?.map(id => <div key={id} style={{ marginTop: CARD_GAP }}><SettingCard id={id} /></div>)}
+                            <CardStack ids={[...inOrder(tb.ids, tb.stack), ...(tb.wide ?? [])]} />
                           </>
                         )
                       })()}
                     </>
                   ) : (
-                    g.stack
-                      ? <ColumnCards ids={SETTINGS.filter(s => s.group === g.id).map(s => s.id)} width={width} stack={g.stack} looseFirst={g.looseFirst} />
-                      : <CardGrid ids={SETTINGS.filter(s => s.group === g.id).map(s => s.id)} width={width} />
+                    <CardStack ids={inOrder(SETTINGS.filter(s => s.group === g.id).map(s => s.id), g.stack)} />
                   )}
                 </>
               ) : results.length === 0 ? (
@@ -257,7 +213,7 @@ export default function SettingsWindow() {
               ) : results.map(r => (
                 <section key={r.group.id} style={{ marginBottom: 18 }}>
                   <div style={{ margin: '0 0 8px', fontSize: 9, fontWeight: 600, letterSpacing: '0.1em', textTransform: 'uppercase', color: 'var(--text-muted)' }}>{r.group.name}</div>
-                  <CardGrid ids={r.settings.map(s => s.id)} width={width} layoutCount={3} />
+                  <CardStack ids={r.settings.map(s => s.id)} />
                 </section>
               ))}
             </div>

@@ -26,7 +26,8 @@ export function QuickRow({ id }: { id: SettingId }) {
   return (
     <SurfaceContext.Provider value="setup">
       <div data-tour={`setting-${id}`} style={{ padding: '9px 14px', borderBottom: '1px solid var(--border-row)' }}>
-        {def.layout === 'controlFirst' ? (
+        {/* the window's columns layout reads as control-first in Setup */}
+        {def.layout === 'controlFirst' || def.layout === 'columns' ? (
           <>
             <div style={{ marginBottom: 7 }}>{name}</div>
             <Control />

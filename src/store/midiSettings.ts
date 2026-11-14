@@ -38,6 +38,7 @@ export interface MidiPrefs {
   keyRanges: Record<string, KeyRange> // device key -> its lowest and highest key, as the player pressed them
   rangeAsked: string[]            // keyboards already asked for their range (measured or skipped)
   keyLights: Record<string, KeyLightSetup> // device key -> how its key lights are driven (missing = utils/keyLights defaultSetup)
+  keyLightsEnabled: boolean       // Settings › MIDI Keyboard › Key lights: off = no keyboard is lit, whatever its setup
 }
 
 export const MIDI_DEFAULTS: MidiPrefs = {
@@ -64,6 +65,7 @@ export const MIDI_DEFAULTS: MidiPrefs = {
   keyRanges: {},
   rangeAsked: [],
   keyLights: {},
+  keyLightsEnabled: false,
 }
 
 // The keyboard-range pop-up: which keyboard it's asking about. `test` (Dev

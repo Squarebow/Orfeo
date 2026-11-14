@@ -23,7 +23,7 @@
   groundwork.
 - **Your keyboard's own lights.** A keyboard with lighted keys can now show the song's notes
   as they play, just as the on-screen keyboard does: shown tracks only, never the keys you
-  press yourself. Choose how for each keyboard in Settings › MIDI Keyboard › Key lights:
+  press yourself. Turn on Settings › MIDI Keyboard › Key lights, then choose how for each keyboard:
   *Yamaha* (channel 1), *Casio, Akai* (channel 3) or *Note messages* on any channel;
   *PartyKeys*, recognised by itself, with each note in its track or hand colour; or the ways
   of their own for *LED strips and iPiano*, *The ONE Smart Piano* (and Piano LED Plus) and

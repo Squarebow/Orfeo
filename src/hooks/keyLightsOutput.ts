@@ -98,13 +98,13 @@ function darken(key: string, l: Lit) {
 function flush() {
   _scheduled = false
   const want = songLit()
-  const devices = useMidiSettings.getState().devices
+  const { devices, keyLightsEnabled } = useMidiSettings.getState()
   const live = new Set<string>()
   for (const d of devices) {
     if (!d.connected) continue
     const setup = lightSetupFor(d.key)
     const prev = _lit.get(d.key)
-    if (setup.mode === 'off') { if (prev) { darken(d.key, prev); _lit.delete(d.key) } continue }
+    if (setup.mode === 'off' || !keyLightsEnabled) { if (prev) { darken(d.key, prev); _lit.delete(d.key) } continue }
     const port = outputFor(d.key)
     if (!port) continue
     live.add(d.key)
@@ -169,7 +169,7 @@ export function lightChordForTest(notes: number[], ms = 1500): void {
 // ── Wiring ───────────────────────────────────────────────────────────────────
 const _unsubSong = useStore.subscribe((s, p) => { if (s.activeKeys !== p.activeKeys || s.activeKeyColors !== p.activeKeyColors) schedule() })
 const _unsubMidi = useMidiSettings.subscribe((s, p) => {
-  if (s.devices !== p.devices || s.keyLights !== p.keyLights || s.simKeyLights !== p.simKeyLights || s.keyRanges !== p.keyRanges) schedule()
+  if (s.devices !== p.devices || s.keyLights !== p.keyLights || s.keyLightsEnabled !== p.keyLightsEnabled || s.simKeyLights !== p.simKeyLights || s.keyRanges !== p.keyRanges) schedule()
 })
 // Closing Orfeo leaves every keyboard dark
 const onUnload = () => { for (const [k, l] of _lit) darken(k, l); _lit.clear() }

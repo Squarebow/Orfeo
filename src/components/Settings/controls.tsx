@@ -110,6 +110,17 @@ export function CollapsibleSection({ icon, label, defaultCollapsed = false, coll
   )
 }
 
+// ── A row of buttons. Settings window: every button as wide as the widest
+// one's words, lined up from the left, the rest of the row left empty.
+// Setup (the narrow drawer): the buttons share the whole row, as before.
+// `vertical` (window only): one under another, all as wide as the widest.
+export function ButtonRow({ children, gap = 'var(--space-1)', vertical }: { children: ReactNode; gap?: string | number; vertical?: boolean }) {
+  const surface = useSurface()
+  if (surface === 'setup') return <div style={{ display: 'flex', gap }}>{children}</div>
+  if (vertical) return <div style={{ display: 'grid', gap, width: 'max-content', maxWidth: '100%' }}>{children}</div>
+  return <div style={{ display: 'grid', gridAutoFlow: 'column', gridAutoColumns: 'minmax(0, 1fr)', gap, width: 'max-content', maxWidth: '100%' }}>{children}</div>
+}
+
 // ── Option button — amber-tinted pill toggle for multi-choice settings rows
 // activeColor: 'accent' (default, amber) | 'error' (red — used for Hide/EyeOff)
 export function OptionBtn({ active, onClick, children, title, oneLine, comingSoon, activeColor = 'accent' }: {
@@ -120,12 +131,13 @@ export function OptionBtn({ active, onClick, children, title, oneLine, comingSoo
   const activeBorder = activeColor === 'error' ? 'var(--status-error)' : 'var(--accent-amber-strong)'
   const activeBg    = activeColor === 'error' ? 'var(--status-error-tint-bg)' : 'var(--accent-amber-medium)'
   const activeText  = activeColor === 'error' ? 'var(--status-error)'    : 'var(--text-amber)'
+  const surface = useSurface()
 
   const btn = (
     <button
       onClick={comingSoon ? undefined : onClick}
       style={{
-        flex: 1, padding: '4px 0', borderRadius: 4,
+        flex: 1, padding: surface === 'window' ? '4px 14px' : '4px 0', borderRadius: 4,
         border: active ? `1px solid ${activeBorder}` : '1px solid var(--border2)',
         background: active ? activeBg : 'var(--bg-modal)',
         color: active ? activeText : 'var(--text-inactive)',
@@ -461,9 +473,10 @@ export function ZoomStepBtn({ onClick, disabled, children }: {
 export function AppBgBtn({ color, label, active, onClick, comingSoon }: {
   color: string; label: string; active: boolean; onClick: () => void; comingSoon?: boolean
 }) {
+  const surface = useSurface()
   return (
     <button onClick={comingSoon ? undefined : onClick} style={{
-      flex: 1, padding: '6px 4px', borderRadius: 4,
+      flex: 1, padding: surface === 'window' ? '6px 14px' : '6px 4px', borderRadius: 4,
       border: active ? '1px solid var(--accent-amber-strong)' : '1px solid var(--border2)',
       background: active ? 'var(--accent-amber-medium)' : 'var(--bg-modal)',
       color: active ? 'var(--text-amber)' : 'var(--text-inactive)',
@@ -501,7 +514,7 @@ export function InlineIcon({ children }: { children: ReactNode }) {
 
 // ── At-a-glance line under a control (mono, dim) — Quick Settings + window
 export function GlanceLine({ children, center }: { children: ReactNode; center?: boolean }) {
-  return <div style={{ marginTop: 5, fontSize: 10, color: 'var(--text-inactive)', fontFamily: 'var(--font-mono)', lineHeight: 1.5, textAlign: center ? 'center' : 'left' }}>{children}</div>
+  return <div style={{ marginTop: 5, fontSize: 10, color: 'var(--text-inactive)', fontFamily: 'var(--font-mono)', lineHeight: 1.5, textAlign: center ? 'center' : 'left', whiteSpace: 'pre-line' }}>{children}</div>
 }
 
 // ── Preview strip (note names, chord spellings) — same look as before
@@ -516,7 +529,7 @@ export function SubLabel({ children }: { children: ReactNode }) {
 
 // ── Italic helper text inside a card's follow-up options
 export function HelpText({ children }: { children: ReactNode }) {
-  return <div style={{ marginTop: 6, fontSize: 'var(--text-xs)', color: 'var(--text-faint)', lineHeight: 1.5, fontFamily: 'var(--font-ui)', fontStyle: 'italic' }}>{children}</div>
+  return <div style={{ marginTop: 6, fontSize: 'var(--text-xs)', color: 'var(--text-faint)', lineHeight: 1.5, fontFamily: 'var(--font-ui)', fontStyle: 'italic', whiteSpace: 'pre-line' }}>{children}</div>
 }
 
 // ── Piano-roll zoom — − / step dots / + (moved from the drawer unchanged)

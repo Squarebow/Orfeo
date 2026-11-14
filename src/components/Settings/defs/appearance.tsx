@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react'
 import { Palette, ZoomIn, RotateCcw, Sparkles, MessageSquare, Heart, Hand, Signpost } from 'lucide-react'
 import { useStore } from '../../../store'
 import { t } from '../../../utils/i18n'
-import { AppBgBtn, ZoomStepper, GlanceLine, InlineIcon, Switch, SubLabel, useSurface } from '../controls'
+import { AppBgBtn, ZoomStepper, GlanceLine, InlineIcon, Switch, SubLabel, useSurface, ButtonRow } from '../controls'
 import { HAND_PRESETS, DEFAULT_HAND_LH, DEFAULT_HAND_RH, handColorWarnings, isHex } from '../../../utils/handPalette'
 import { useAppZoom } from '../../../hooks/useAppZoom'
 import { simAvailable } from '../../../utils/midiSimulator'
@@ -14,10 +14,10 @@ import type { TourId } from '../../../utils/tours'
 function ThemeControl() {
   const appTheme = useStore(s => s.appTheme)
   return (
-    <div style={{ display: 'flex', gap: 'var(--space-1)' }}>
+    <ButtonRow>
       <AppBgBtn color="var(--bg-modal-header)" label={t`Dark`} active={appTheme === 'dark'} onClick={() => useStore.getState().setAppTheme('dark')} />
       <AppBgBtn color="var(--bg-warm)" label={t`Coming soon`} active={false} onClick={() => {}} comingSoon />
-    </div>
+    </ButtonRow>
   )
 }
 
@@ -31,7 +31,7 @@ function ToursControl() {
   }
   const btn = (label: string, onClick: () => void, enabled = true, tip?: string) => (
     <button onClick={enabled ? onClick : undefined} disabled={!enabled} title={tip}
-      style={{ flex: 1, padding: '5px 8px', borderRadius: 4, border: '1px solid var(--border2)', background: 'var(--bg-modal)',
+      style={{ flex: 1, width: '100%', whiteSpace: 'nowrap', padding: '5px 14px', borderRadius: 4, border: '1px solid var(--border2)', background: 'var(--bg-modal)',
         color: 'var(--text-inactive)', fontSize: 'var(--text-xs)', fontFamily: 'var(--font-ui)', cursor: enabled ? 'pointer' : 'default', opacity: enabled ? 1 : 0.45 }}
       onMouseEnter={e => { if (enabled) { e.currentTarget.style.color = 'var(--text-amber)'; e.currentTarget.style.borderColor = 'var(--text-amber)' } }}
       onMouseLeave={e => { e.currentTarget.style.color = 'var(--text-inactive)'; e.currentTarget.style.borderColor = 'var(--border2)' }}>
@@ -39,10 +39,10 @@ function ToursControl() {
     </button>
   )
   return (
-    <div style={{ display: 'flex', gap: 6 }}>
+    <ButtonRow gap={6}>
       {btn(t`First launch`, () => start('firstLaunch'))}
       {btn(t`First song`, () => start('firstSong'), songOpen, songOpen ? undefined : t`Open a song first`)}
-    </div>
+    </ButtonRow>
   )
 }
 
@@ -119,6 +119,18 @@ function HandPicker({ label, value, onPick }: { label: string; value: string; on
   )
 }
 
+// Settings window: ready-made pairs on the left half, your own on the right
+function HandColorsControl() {
+  const surface = useSurface()
+  if (surface === 'setup') return <HandPresets />
+  return (
+    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', columnGap: 16, alignItems: 'start' }}>
+      <div style={{ minWidth: 0 }}><SubLabel>{t`Ready-made pairs`}</SubLabel><HandPresets /></div>
+      <div style={{ minWidth: 0, display: 'flex', flexDirection: 'column' }}><HandColorsExtra /></div>
+    </div>
+  )
+}
+
 function HandColorsExtra() {
   const lh = useStore(s => s.handColorLH), rh = useStore(s => s.handColorRH)
   const set = useStore.getState().setHandColors
@@ -169,7 +181,7 @@ export function SupportNotePreview() {
 
 export const APPEARANCE_DEFS: SettingDef[] = [
   { id: 'theme', icon: Palette, kind: 'choice', Control: ThemeControl },
-  { id: 'handColors', icon: Hand, kind: 'choice', Control: HandPresets, Extra: HandColorsExtra },
+  { id: 'handColors', icon: Hand, kind: 'choice', Control: HandColorsControl },
   { id: 'appZoom', icon: ZoomIn, kind: 'inline', Control: AppZoomControl, Glance: AppZoomGlance, glanceQuickOnly: true, Extra: AppZoomCap,
     Description: () => <>{t`Makes everything in Orfeo bigger or smaller. Ctrl + / Ctrl − / Ctrl 0 work exactly as in a web browser.`} {t`Click`} <InlineIcon><RotateCcw size={10} /></InlineIcon> {t`to reset.`}</> },
   {

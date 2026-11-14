@@ -21,9 +21,24 @@ export function SettingCard({ id }: { id: SettingId }) {
   const { Control, Glance, Extra, Description, NameSuffix, icon: Icon } = def
   const onNameLine = def.kind !== 'choice'
   const controlFirst = def.layout === 'controlFirst'
-  const description = (
-    <div style={{ fontSize: 'var(--text-xs)', color: 'var(--text-faint)', lineHeight: 1.5, fontFamily: 'var(--font-ui)', fontStyle: 'italic', marginTop: controlFirst ? 10 : 0 }}>
-      {Description ? <Description /> : richText(info.description)}
+  const columns = def.layout === 'columns'
+  // A line break written into the words starts a new line; otherwise whole words wrap
+  const descStyle = { fontSize: 'var(--text-xs)', color: 'var(--text-faint)', lineHeight: 1.5, fontFamily: 'var(--font-ui)', fontStyle: 'italic',
+    whiteSpace: 'pre-line', hyphens: 'manual', overflowWrap: 'normal' } as const
+  const descText = Description ? <Description /> : richText(info.description)
+  // Name and switch on the first line. With a switch (or a small control) on the
+  // name line, the description sits in the left column under the name, so its
+  // lines end 10 px before the switch and never run underneath it.
+  const head = (
+    <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1fr) auto', alignItems: 'center', columnGap: 10, rowGap: 6, minHeight: 20 }}>
+      <div id={labelId} style={{ display: 'flex', alignItems: 'center', gap: 7, minWidth: 0,
+        fontSize: 'var(--text-xs)', color: 'var(--text-default)', fontWeight: 500, letterSpacing: '0.02em', textTransform: 'uppercase' }}>
+        <Icon size={13} strokeWidth={1.5} style={{ color: 'var(--text-amber)', flexShrink: 0 }} />
+        <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{info.name}{NameSuffix && <> <NameSuffix /></>}</span>
+        {def.badge === 'beta' && <BetaBadge />}
+      </div>
+      {onNameLine ? <Control /> : <span />}
+      {!controlFirst && !columns && <div style={{ ...descStyle, gridColumn: onNameLine ? '1' : '1 / -1' }}>{descText}</div>}
     </div>
   )
   return (
@@ -32,24 +47,23 @@ export function SettingCard({ id }: { id: SettingId }) {
       background: 'var(--bg-tile)', border: `1px solid ${def.notice ? 'var(--accent-amber-strong)' : 'var(--border2)'}`, borderRadius: 'var(--radius-lg)',
       padding: '12px 14px', minWidth: 0, display: 'flex', flexDirection: 'column', height: '100%', boxSizing: 'border-box',
     }}>
-      <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1fr) auto', alignItems: 'center', columnGap: 8, marginBottom: 6, minHeight: 20 }}>
-        <div id={labelId} style={{ display: 'flex', alignItems: 'center', gap: 7, minWidth: 0,
-          fontSize: 'var(--text-xs)', color: 'var(--text-default)', fontWeight: 500, letterSpacing: '0.02em', textTransform: 'uppercase' }}>
-          <Icon size={13} strokeWidth={1.5} style={{ color: 'var(--text-amber)', flexShrink: 0 }} />
-          <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{info.name}{NameSuffix && <> <NameSuffix /></>}</span>
-          {def.badge === 'beta' && <BetaBadge />}
+      {head}
+      {columns ? (
+        // Three columns of one height: the buttons one under another | the
+        // at-a-glance box | the description
+        <div style={{ marginTop: 10, display: 'grid', gridTemplateColumns: 'auto minmax(0, 1fr) minmax(0, 1fr)', columnGap: 16, alignItems: 'stretch' }}>
+          <div style={{ minWidth: 0 }}><Control /></div>
+          <div style={{ minWidth: 0, display: 'flex', flexDirection: 'column' }}>{Glance && <Glance />}</div>
+          <div style={{ ...descStyle, minWidth: 0 }}>{descText}</div>
         </div>
-        {onNameLine ? <Control /> : null}
-      </div>
-      {controlFirst ? (
+      ) : controlFirst ? (
         <>
           {!onNameLine && <div style={{ marginTop: 4 }}><Control /></div>}
           {Glance && !def.glanceQuickOnly && <Glance />}
-          {description}
+          <div style={{ ...descStyle, marginTop: 10 }}>{descText}</div>
         </>
       ) : (
         <>
-          {description}
           {!onNameLine && <div style={{ marginTop: 10 }}><Control /></div>}
           {Glance && !def.glanceQuickOnly && <Glance />}
         </>
