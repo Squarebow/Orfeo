@@ -6,7 +6,7 @@ export function runLanguageNamesTest(): number {
   const check = (c: boolean, m: string) => { c ? pass++ : (fail++, console.error('FAIL:', m)) }
 
   const table: Record<string, string> = {
-    de: 'Deutsch', es: 'Español', fr: 'Français', pl: 'Polski', pt_BR: 'Português brasileiro',
+    de: 'Deutsch', es: 'Español', fr: 'Français', pl: 'Polski', pt: 'Português',
     ru: 'Русский', sl: 'Slovenščina', zh_Hans: '简体中文', en: 'English',
   }
   for (const [code, name] of Object.entries(table)) check(languageName(code) === name, `${code} is ${name}, got ${languageName(code)}`)

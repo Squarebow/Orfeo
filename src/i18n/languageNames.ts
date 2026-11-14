@@ -6,7 +6,7 @@ const NAMES: Record<string, string> = {
   es: 'Español',
   fr: 'Français',
   pl: 'Polski',
-  pt_BR: 'Português brasileiro',
+  pt: 'Português',
   ru: 'Русский',
   sl: 'Slovenščina',
   zh_Hans: '简体中文',
