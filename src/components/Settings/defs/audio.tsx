@@ -1,8 +1,8 @@
 import { useEffect, useState, type CSSProperties, type ReactNode } from 'react'
-import { Volume2, Library, Gauge, Upload, FileAudio } from 'lucide-react'
+import { Volume2, Library, Gauge, Upload, FileAudio, Check } from 'lucide-react'
 import { useStore } from '../../../store'
 import { t } from '../../../utils/i18n'
-import { OptionBtn, Switch, SettingsDropdown, SoundfontActionLink, HelpText, ButtonRow, useSurface } from '../controls'
+import { OptionBtn, Switch, SoundfontActionLink, HelpText, ButtonRow, useSurface } from '../controls'
 import { getSamplesSampleRate, getSamplesBufferSec } from '../../../hooks/useSamplesEngine'
 import { MarqueeText } from '../../MarqueeText'
 import {
@@ -205,27 +205,35 @@ function SoundFontsControl() {
   const error = useSoundfontState((s) => s.error)
   const all = allSoundfonts(extra)
   const surface = useSurface()
-  const dropdown = (
-    <SettingsDropdown
-      value={selectedSoundfont}
-      onChange={(id) => void selectSoundfont(id)}
-      options={all.filter(sf => sf.downloaded).map(sf => ({ value: sf.id, label: `${sf.name} — ${sf.sizeMB} MB` }))}
-    />
-  )
+  // One list: tick a downloaded sound set to play with it (one at a time); the
+  // ticked one's name gets the amber pill. Not yet downloaded = can't be ticked.
   const list = (
     <div>
-      <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1fr) auto auto', columnGap: 'var(--space-2)', rowGap: 5, alignItems: 'center' }}>
+      <div style={{ display: 'grid', gridTemplateColumns: 'auto minmax(0, 1fr) auto auto', columnGap: 'var(--space-2)', rowGap: 5, alignItems: 'center' }}>
         {all.map((sf) => {
           const isActive = selectedSoundfont === sf.id
+          const pick = () => { if (sf.downloaded && !isActive) void selectSoundfont(sf.id) }
           return (
             <div key={sf.id} style={{ display: 'contents' }}>
-              <span
-                style={{
-                  fontSize: 'var(--text-xs)', fontFamily: 'var(--font-ui)',
-                  color: isActive ? 'var(--text-amber)' : 'var(--text-inactive)', fontWeight: isActive ? 600 : 400,
-                  overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
-                }}
-              >• {sf.name}</span>
+              <button role="checkbox" aria-checked={isActive} aria-label={t`Play with ${sf.name}`} disabled={!sf.downloaded} onClick={pick}
+                style={{ width: 13, height: 13, padding: 0, borderRadius: 3, display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  border: `1px solid ${isActive ? 'var(--accent-amber-strong)' : 'var(--border2)'}`,
+                  background: isActive ? 'var(--accent-amber-medium)' : 'transparent', color: 'var(--text-amber)',
+                  cursor: sf.downloaded ? 'pointer' : 'default', opacity: sf.downloaded ? 1 : 0.4 }}>
+                {isActive && <Check size={10} strokeWidth={2} />}
+              </button>
+              <span style={{ minWidth: 0, display: 'flex' }}>
+                <span onClick={pick}
+                  style={{
+                    minWidth: 0, fontSize: 'var(--text-xs)', fontFamily: 'var(--font-ui)', lineHeight: 1.4,
+                    padding: '1px 6px', borderRadius: 4, border: `1px solid ${isActive ? 'var(--accent-amber-strong)' : 'transparent'}`,
+                    background: isActive ? 'var(--accent-amber-medium)' : 'transparent',
+                    color: isActive ? 'var(--text-amber)' : 'var(--text-inactive)', fontWeight: isActive ? 600 : 400,
+                    cursor: sf.downloaded && !isActive ? 'pointer' : 'default',
+                    overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+                  }}
+                >{sf.name}</span>
+              </span>
               <span style={{ fontSize: 9, color: 'var(--text-dimmest)', fontFamily: 'var(--font-ui)', textAlign: 'right' }}>{sf.sizeMB} MB</span>
               {sf.id === 'generaluser-gs' ? (
                 <span style={{ fontSize: 9, color: 'var(--text-muted)', fontFamily: 'var(--font-ui)', textAlign: 'right' }}>{t`bundled`}</span>
@@ -266,8 +274,8 @@ function SoundFontsControl() {
   )
   return (
     <div style={{ opacity: audioEngine !== 'gm' ? 1 : 0.4, pointerEvents: audioEngine !== 'gm' ? 'auto' : 'none', transition: 'opacity 0.15s',
-      ...(surface === 'window' ? { display: 'grid', gridTemplateColumns: 'repeat(3, minmax(0, 1fr))', columnGap: 16, alignItems: 'start' } : {}) }}>
-      {dropdown}{list}{importer}
+      ...(surface === 'window' ? { display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', columnGap: 16, alignItems: 'start' } : {}) }}>
+      {list}{importer}
     </div>
   )
 }

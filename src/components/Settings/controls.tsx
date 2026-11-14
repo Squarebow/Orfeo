@@ -442,7 +442,8 @@ export function SettingsDropdown<T extends string>({ value, options, onChange, t
               </div>
             )
             return o.title
-              ? <Tooltip key={o.value} title={o.title} wrapperStyle={{ display: 'block', width: '100%' }}>{row}</Tooltip>
+              // the option's own name is the amber heading, its explanation goes under it
+              ? <Tooltip key={o.value} title={o.label} description={o.title} wrapperStyle={{ display: 'block', width: '100%' }}>{row}</Tooltip>
               : row
           })}
         </div>

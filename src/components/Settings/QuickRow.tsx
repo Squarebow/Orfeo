@@ -10,7 +10,7 @@ const nameStyle = {
 }
 const summaryStyle = {
   fontSize: 'var(--text-xs)', color: 'var(--text-faint)', lineHeight: 1.5,
-  fontFamily: 'var(--font-ui)', fontStyle: 'italic' as const, marginTop: 3,
+  fontFamily: 'var(--font-ui)', fontStyle: 'italic' as const, marginTop: 3, whiteSpace: 'pre-line' as const,
 }
 
 // ── One Setup row (the drawer): name + its one-line summary underneath, then

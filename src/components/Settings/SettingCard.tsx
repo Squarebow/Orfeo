@@ -5,9 +5,13 @@ import { BetaBadge, SurfaceContext } from './controls'
 
 const always = () => true
 
-// Catalog text with **bold** words: the stars mark what to emphasise
+// Catalog text with **bold** words and ==amber== signs (like the ← → keys)
 export function richText(text: string): ReactNode {
-  return text.split(/\*\*(.+?)\*\*/g).map((part, i) => (i % 2 ? <b key={i} style={{ fontWeight: 600, color: 'var(--text-default)' }}>{part}</b> : part))
+  return text.split(/(\*\*.+?\*\*|==.+?==)/g).map((part, i) => {
+    if (part.startsWith('**') && part.endsWith('**') && part.length > 4) return <b key={i} style={{ fontWeight: 600, color: 'var(--text-default)' }}>{part.slice(2, -2)}</b>
+    if (part.startsWith('==') && part.endsWith('==') && part.length > 4) return <span key={i} style={{ color: 'var(--text-amber)', fontStyle: 'normal' }}>{part.slice(2, -2)}</span>
+    return part
+  })
 }
 
 // ── One setting in the Settings window: icon + name (switch on the right),
@@ -18,7 +22,7 @@ export function SettingCard({ id }: { id: SettingId }) {
   const visible = useVisible()
   const labelId = useId()
   if (!visible) return null
-  const { Control, Glance, Extra, Description, NameSuffix, icon: Icon } = def
+  const { Control, Glance, Extra, Description, NameSuffix, NameRight, icon: Icon } = def
   const onNameLine = def.kind !== 'choice'
   const controlFirst = def.layout === 'controlFirst'
   const columns = def.layout === 'columns'
@@ -37,7 +41,7 @@ export function SettingCard({ id }: { id: SettingId }) {
         <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{info.name}{NameSuffix && <> <NameSuffix /></>}</span>
         {def.badge === 'beta' && <BetaBadge />}
       </div>
-      {onNameLine ? <Control /> : <span />}
+      {onNameLine ? <Control /> : NameRight ? <NameRight /> : <span />}
       {!controlFirst && !columns && <div style={{ ...descStyle, gridColumn: onNameLine ? '1' : '1 / -1' }}>{descText}</div>}
     </div>
   )

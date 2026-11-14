@@ -99,6 +99,8 @@ function VisualEffectsExtra() {
       </div>
       <div style={col}>
       <SubLabel>{t`Pattern`}</SubLabel>
+      {/* narrower than its column, so the sliders on the right have room to breathe */}
+      <div style={{ width: '82%' }}>
       <SettingsDropdown
         value={pattern}
         onChange={v => setPattern(v as HitEffectPattern)}
@@ -108,6 +110,7 @@ function VisualEffectsExtra() {
           title: HIT_EFFECT_DESCRIPTIONS[p],
         }))}
       />
+      </div>
       <HelpText>{HIT_EFFECT_DESCRIPTIONS[pattern]}</HelpText>
       </div>
       <div style={col}>

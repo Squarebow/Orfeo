@@ -16,7 +16,7 @@ export function runCatalogTest(): number {
   const count = (g: string) => SETTINGS.filter(s => s.group === g).length
   check([4, 11, 6, 9, 6, 4, 5, 3, 4, 6, 5, 10].join() === GROUPS.map(g => count(g.id)).join(), `group sizes ${GROUPS.map(g => count(g.id))}`)
   check(SETTINGS.every(s => s.name && s.summary && s.description), 'name/summary/description on every setting')
-  check(SETTINGS.every(s => !s.summary.includes('\n') && s.summary.length <= 90), 'summaries are one short line')
+  check(SETTINGS.every(s => s.summary.split('\n').length <= 2 && s.summary.length <= 90), 'summaries are short (one line, or two at most)')
 
   // 2b. a tabbed group's tabs hold each of its settings exactly once
   for (const g of GROUPS.filter(g => g.tabs)) {

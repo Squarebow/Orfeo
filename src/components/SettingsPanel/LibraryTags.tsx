@@ -75,8 +75,10 @@ export function TagsRow({ active, onToggle, onClear, onOpenPicker, lead }: {
       : edges.right ? 'linear-gradient(to left, transparent 0, #000 14px)' : undefined
 
   return (
-    <div style={{ marginTop: 'var(--space-1)' }}>
-    <div style={{ display: 'grid', gridTemplateColumns: 'auto minmax(0, 1fr) auto auto', alignItems: 'center', gap: 2 }}>
+    // padded above and below so the tags read as their own strip under All / ★
+    <div style={{ padding: 'var(--space-2) 0' }}>
+    {/* the ▾ always sits at the far right, in line with the buttons above; ✕ appears left of it */}
+    <div style={{ display: 'grid', gridTemplateColumns: active.length > 0 ? 'auto minmax(0, 1fr) auto auto' : 'auto minmax(0, 1fr) auto', alignItems: 'center', gap: 2 }}>
       <div style={{ display: 'flex', marginRight: lead ? 2 : 0 }}>{lead}</div>
       <div
         ref={scroller}
@@ -101,6 +103,15 @@ export function TagsRow({ active, onToggle, onClear, onOpenPicker, lead }: {
             </Tooltip>
           ))}
       </div>
+      {active.length > 0 && (
+        <Tooltip title={t`Clear tag filters`} oneLine>
+          <button aria-label={t`Clear tag filters`} style={iconBtn} onClick={onClear}
+            onMouseEnter={e => { e.currentTarget.style.color = 'var(--text-amber)' }}
+            onMouseLeave={e => { e.currentTarget.style.color = 'var(--text-inactive)' }}>
+            <X size={11} />
+          </button>
+        </Tooltip>
+      )}
       <Tooltip title={t`Choose which tags show here`} oneLine>
         <button aria-label={t`Choose which tags show here`} style={iconBtn}
           onClick={e => { const r = e.currentTarget.getBoundingClientRect(); onOpenPicker(r.left, r.bottom + 4) }}
@@ -109,15 +120,6 @@ export function TagsRow({ active, onToggle, onClear, onOpenPicker, lead }: {
           <ChevronDown size={12} />
         </button>
       </Tooltip>
-      {active.length > 0 ? (
-        <Tooltip title={t`Clear tag filters`} oneLine>
-          <button aria-label={t`Clear tag filters`} style={iconBtn} onClick={onClear}
-            onMouseEnter={e => { e.currentTarget.style.color = 'var(--text-amber)' }}
-            onMouseLeave={e => { e.currentTarget.style.color = 'var(--text-inactive)' }}>
-            <X size={11} />
-          </button>
-        </Tooltip>
-      ) : <span style={{ width: 18 }} />}
     </div>
     <div style={{ marginTop: 2, fontSize: 9, color: 'var(--text-muted)', fontFamily: 'var(--font-ui)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
       {t`Right-click any song to tag it, click a tag to filter`}

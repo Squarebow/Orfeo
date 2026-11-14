@@ -284,10 +284,10 @@ function KeyLightsExtra() {
       </div>
       <div style={{ minWidth: 0, border: '1px solid var(--accent-amber-strong)', borderRadius: 'var(--radius-md)', padding: '8px 12px 10px' }}>
         <div style={{ fontSize: 'var(--text-xs)', color: 'var(--text-amber)', fontWeight: 600, fontFamily: 'var(--font-ui)' }}>{t`Not sure? Find the channel like this:`}</div>
-        <HelpText>{t`1. Pick Yamaha (channel 1) and press Try it.\nWatch the keys: a scale should light up.`}</HelpText>
-        <HelpText>{t`2. Nothing lit? Pick Casio, Akai (channel 3) and press Try it again.`}</HelpText>
-        <HelpText>{t`3. Still dark? Pick Note messages, any channel. Raise the channel by one and press Try it, until the scale lights. There are 16 channels.`}</HelpText>
-        <HelpText>{t`4. Nothing on any channel? Look in the keyboard's manual for “light”, “key light” or “guide”. Some keyboards only follow the computer in a lesson or light mode, which you switch on at the keyboard.`}</HelpText>
+        <HelpText><b style={{ fontWeight: 700, color: 'var(--text-default)', fontStyle: 'normal' }}>1.</b> {t`Pick Yamaha (channel 1) and press Try it.\nWatch the keys: a scale should light up.`}</HelpText>
+        <HelpText><b style={{ fontWeight: 700, color: 'var(--text-default)', fontStyle: 'normal' }}>2.</b> {t`Nothing lit? Pick Casio, Akai (channel 3) and press Try it again.`}</HelpText>
+        <HelpText><b style={{ fontWeight: 700, color: 'var(--text-default)', fontStyle: 'normal' }}>3.</b> {t`Still dark? Pick Note messages, any channel. Raise the channel by one and press Try it, until the scale lights. There are 16 channels.`}</HelpText>
+        <HelpText><b style={{ fontWeight: 700, color: 'var(--text-default)', fontStyle: 'normal' }}>4.</b> {t`Nothing on any channel? Look in the keyboard's manual for “light”, “key light” or “guide”. Some keyboards only follow the computer in a lesson or light mode, which you switch on at the keyboard.`}</HelpText>
         <HelpText>{t`A keyboard with its own speakers may also play the notes it lights, very quietly: turn its volume down.`}</HelpText>
       </div>
     </div>

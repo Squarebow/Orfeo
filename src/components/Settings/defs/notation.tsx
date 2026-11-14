@@ -3,6 +3,8 @@ import { useStore } from '../../../store'
 import { t } from '../../../utils/i18n'
 import type { NoteNaming } from '../../../types'
 import { getSargamName, resolveSa } from '../../../utils/noteNames'
+import { useState } from 'react'
+import Tooltip from '../../Tooltip'
 import { OptionBtn, SettingsDropdown, EyeClosed, PreviewBox, GlanceLine, SubLabel, ButtonRow, useSurface } from '../controls'
 import type { SettingDef } from '../types'
 import { followNeedsPick } from '../followPick'
@@ -33,11 +35,29 @@ function DisplaySystemControl() {
       {NOTE_NAMING_OPTIONS.map(opt => (
         <OptionBtn key={opt.value} active={noteNaming === opt.value} onClick={() => setNoteNaming(opt.value)}>{opt.label}</OptionBtn>
       ))}
-      {/* Hide — red when active (hidden is a meaningful state) */}
-      <OptionBtn active={noteNaming === 'hidden'} onClick={() => setNoteNaming('hidden')} activeColor="error">
-        <EyeClosed size={11} strokeWidth={1.5} />
-      </OptionBtn>
     </ButtonRow>
+  )
+}
+// Hide the note names: a bare eye at the right of the name line, where switches
+// sit. Red while the names are hidden; a second click brings back the names
+// that were shown before.
+let lastShownNaming: NoteNaming = 'english'
+function HideNamesToggle() {
+  const noteNaming = useStore(s => s.noteNaming)
+  const [hover, setHover] = useState(false)
+  const hidden = noteNaming === 'hidden'
+  if (!hidden) lastShownNaming = noteNaming
+  const label = hidden ? t`Show note names` : t`Hide note names`
+  return (
+    <Tooltip title={label} oneLine>
+      <button aria-label={label} aria-pressed={hidden}
+        onClick={() => useStore.getState().setNoteNaming(hidden ? lastShownNaming : 'hidden')}
+        onMouseEnter={() => setHover(true)} onMouseLeave={() => setHover(false)}
+        style={{ display: 'flex', alignItems: 'center', padding: 0, border: 'none', background: 'none', cursor: 'pointer',
+          color: hidden ? 'var(--status-error)' : hover ? 'var(--text-amber)' : 'var(--text-inactive)' }}>
+        <EyeClosed size={14} strokeWidth={1.5} />
+      </button>
+    </Tooltip>
   )
 }
 function DisplaySystemGlance() {
@@ -127,13 +147,12 @@ function ChordTrackingControl() {
 }
 function ChordTrackingGlance() {
   const mode = useStore(s => s.chordTrackingMode)
-  return (
-    <GlanceLine>
-      {mode === 'auto' && t`Follows the chord instruments (piano, keys, guitar, strings), ignoring melody and ornament lines.\nBest for most songs.`}
-      {mode === 'harmony' && t`Every non-drum track pooled together, including melody.\nFor dense textures where no one instrument holds the chords.`}
-      {mode === 'follow' && t`Scoped to one instrument or group you choose.`}
-    </GlanceLine>
-  )
+  // the second sentence starts a new line in the Settings window only; Setup keeps one paragraph
+  const surface = useSurface()
+  const text = mode === 'auto' ? t`Follows the chord instruments (piano, keys, guitar, strings), ignoring melody and ornament lines.\nBest for most songs.`
+    : mode === 'harmony' ? t`Every non-drum track pooled together, including melody.\nFor dense textures where no one instrument holds the chords.`
+      : t`Scoped to one instrument or group you choose.`
+  return <GlanceLine>{surface === 'setup' ? text.replace(/\n/g, ' ') : text}</GlanceLine>
 }
 function ChordTrackingExtra() {
   const mode = useStore(s => s.chordTrackingMode)
@@ -144,11 +163,16 @@ function ChordTrackingExtra() {
   const trackIndex = useStore(s => s.chordFollowTrackIndex)
   const setTrackIndex = useStore(s => s.setChordFollowTrackIndex)
   const tracks = useStore(s => s.tracks)
+  const surface = useSurface()
   if (mode !== 'follow') return null
+  // Settings window: By Group / By Track and the menu share one row; Setup stacks them
   return (
     <>
       <SubLabel>{t`Follow`}</SubLabel>
-      <div style={{ marginBottom: 6 }}>
+      <div style={surface === 'window'
+        ? { display: 'grid', gridTemplateColumns: 'auto minmax(0, 260px)', columnGap: 'var(--space-2)', alignItems: 'center' }
+        : undefined}>
+      <div style={{ marginBottom: surface === 'window' ? 0 : 6 }}>
         <ButtonRow>
           <OptionBtn active={subMode === 'group'} onClick={() => setSubMode('group')}>{t`By Group`}</OptionBtn>
           <OptionBtn active={subMode === 'track'} onClick={() => setSubMode('track')}>{t`By Track`}</OptionBtn>
@@ -169,6 +193,7 @@ function ChordTrackingExtra() {
           options={[{ value: '', label: t`— choose a track —` }, ...tracks.map(tr => ({ value: String(tr.index), label: tr.trackName }))]}
         />
       )}
+      </div>
     </>
   )
 }
@@ -209,7 +234,7 @@ function ChordNamingExtra() {
 }
 
 export const NOTATION_DEFS: SettingDef[] = [
-  { id: 'displaySystem', icon: Languages, kind: 'choice', Control: DisplaySystemControl, Glance: DisplaySystemGlance,
+  { id: 'displaySystem', icon: Languages, kind: 'choice', Control: DisplaySystemControl, Glance: DisplaySystemGlance, NameRight: HideNamesToggle,
     Extra: () => useStore(s => s.noteNaming) === 'sargam' ? <SargamExtra /> : null },
   { id: 'accidentals', icon: Hash, kind: 'choice', Control: AccidentalsControl, Glance: AccidentalsGlance,
     useVisible: () => useStore(s => s.noteNaming) !== 'hidden' },

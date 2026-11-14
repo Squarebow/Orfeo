@@ -17,7 +17,7 @@ export interface SettingDef {
   Extra?: ComponentType         // follow-up options / parameters: window only
   Description?: ComponentType   // richer window description (inline icons); falls back to catalog text
   NameSuffix?: ComponentType    // live value after the name, e.g. "— 100%"
-  NameRight?: ComponentType     // small readout at the right end of the name line — Setup only (choice settings)
+  NameRight?: ComponentType     // small control or readout at the right end of the name line (choice settings)
   useVisible?: () => boolean    // hook; false hides the setting in both places
   badge?: 'beta'
   // 'controlFirst': the control right under the name, then the glance lines, then

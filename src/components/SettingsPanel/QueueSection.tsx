@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState, type CSSProperties, type ReactNode } from 'react'
-import { ListOrdered, ChevronUp, ChevronDown, X } from 'lucide-react'
+import { ListOrdered, ChevronUp, ChevronDown, X, ListX } from 'lucide-react'
 import { useStore } from '../../store'
 import { t } from '../../utils/i18n'
 import { neighbour } from '../../utils/practiceQueue'
@@ -131,10 +131,12 @@ export function QueueSection({ openSong, renderName, libraryDrag, onLibraryDrop,
         {queue.paths.length > 0 && (
           <button onClick={() => useStore.getState().queueClear()}
             style={{ width: '100%', padding: '6px 10px', border: 'none', background: 'none', textAlign: 'left', cursor: 'pointer',
+              display: 'flex', alignItems: 'center', gap: 5,
               fontSize: 10, color: 'var(--text-muted)', fontFamily: 'var(--font-ui)' }}
             onMouseEnter={e => { e.currentTarget.style.color = 'var(--text-amber)' }}
             onMouseLeave={e => { e.currentTarget.style.color = 'var(--text-muted)' }}>
             {t`Clear queue`}
+            <ListX size={11} style={{ color: 'var(--text-amber)', flexShrink: 0 }} />
           </button>
         )}
       </div>
