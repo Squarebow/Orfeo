@@ -96,6 +96,10 @@
 - **Saving from the Playback Editor no longer splits a staff between the hands.** A piano
   written on two staves kept its hands only until the next save, which then divided each staff
   between both hands. Merging a piano's two staves into one track now keeps the hands they had.
+- **A piano opened from MusicXML, Guitar Pro or Capella now gets its hands from its staves too.**
+  Opening the file merged the piano's two staves into one part, so Orfeo had to guess which notes
+  belong to which hand. Each staff now stays its own part, as when the notation program saves a
+  MIDI file itself. Thanks to Rafael Carvalho for finding it and sending the fix.
 
 ## [1.7.3] — 12. 11. 2026 — The Explorers hear your keyboard, a bigger Settings window
 
