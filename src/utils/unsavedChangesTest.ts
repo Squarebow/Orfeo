@@ -27,8 +27,7 @@ export function runUnsavedChangesTest(): number {
 
   const text = unsavedDetail(c)
   check(text.includes('Mixer channels changed: 1') && text.includes('Save & Reload'), 'says what changed and how to keep it')
-  check(text.includes("Mute can't be saved yet"), 'says mute cannot be kept')
-  check(!unsavedDetail({ ...c, muted: 0 }).includes("Mute can't"), 'mute note only when mute changed')
+  check(!text.includes("Mute can't"), 'mute is saved now: no note that it cannot be')
 
   const accepted = acceptMixerValues([track(0, { volume: 0.5, muted: true })], baseline)
   check(!countUnsaved([track(0, { volume: 0.5 })], accepted, false).mixer, 'a discarded Mixer change is not asked about again')

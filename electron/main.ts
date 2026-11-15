@@ -887,8 +887,10 @@ ipcMain.handle('dialog:saveFile', async (_e, opts: { defaultPath: string; filter
 ipcMain.handle('editor:save', async (_e, payload: {
   filePath: string
   outputPath: string
-  includedTracks: { index: number; newProgram: number; name?: string; color?: string; splitHand?: 'L' | 'R'; visible?: boolean; showOnKeyboard?: boolean }[]
+  includedTracks: { index: number; newProgram: number; name?: string; color?: string; splitHand?: 'L' | 'R'; visible?: boolean; showOnKeyboard?: boolean; muted?: boolean }[]
   mergeGroups: number[][]
+  // Mixer values saved in the same version (the save badge's Save all)
+  mixer?: { index: number; volume: number; pan: number; chorus: number; reverb: number }[]
   rhMaxFingers?: number
   lhMaxFingers?: number
   // ── Tempo/Key fold-in — set only when the Playback Editor's "Save Tempo
@@ -966,6 +968,16 @@ ipcMain.handle('editor:save', async (_e, payload: {
 
     const noteTrackIndices: number[] = []
     midi.tracks.forEach((t, i) => { if (t.notes.length > 0) noteTrackIndices.push(i) })
+
+    // Mixer values, written the same way mixer:save does, before any track moves
+    for (const ch of payload.mixer ?? []) {
+      const track = midi.tracks[noteTrackIndices[ch.index]]
+      if (!track) continue
+      for (const [cc, value] of [[7, ch.volume], [10, ch.pan / 2 + 0.5], [91, ch.reverb], [93, ch.chorus]] as const) {
+        ;(track.controlChanges as any)[cc] = []
+        track.addCC({ number: cc, value: Math.max(0, Math.min(1, value)), time: 0 })
+      }
+    }
 
     const handsByRawIdx = new Map<number, Hand[]>()
     const sourcesByRawIdx = new Map<number, ('computed' | 'manual')[]>()
@@ -1132,7 +1144,8 @@ ipcMain.handle('editor:save', async (_e, payload: {
     ;(midi.header as any).meta = existingMeta.filter((m: any) =>
       !(typeof m.text === 'string' && (
         m.text.startsWith('ORFEO_TRACK_NAME:') || m.text.startsWith('ORFEO_TRACK_COLOR:') ||
-        m.text.startsWith('ORFEO_TRACK_VISIBLE:') || m.text.startsWith('ORFEO_TRACK_KEYBOARD:')
+        m.text.startsWith('ORFEO_TRACK_VISIBLE:') || m.text.startsWith('ORFEO_TRACK_KEYBOARD:') ||
+        m.text.startsWith('ORFEO_TRACK_MUTED:')
       ))
     )
     includedInOrder.forEach((rawIdx, outIdx) => {
@@ -1141,6 +1154,8 @@ ipcMain.handle('editor:save', async (_e, payload: {
       if (entry?.color) (midi.header as any).meta.push({ type: 'text', text: `ORFEO_TRACK_COLOR:${outIdx}:${entry.color}`, ticks: 0 })
       if (entry?.visible !== undefined) (midi.header as any).meta.push({ type: 'text', text: `ORFEO_TRACK_VISIBLE:${outIdx}:${entry.visible ? 1 : 0}`, ticks: 0 })
       if (entry?.showOnKeyboard !== undefined) (midi.header as any).meta.push({ type: 'text', text: `ORFEO_TRACK_KEYBOARD:${outIdx}:${entry.showOnKeyboard ? 1 : 0}`, ticks: 0 })
+      // Mute is kept, not a reason to leave a track out (removing = unticking Include)
+      if (entry?.muted !== undefined) (midi.header as any).meta.push({ type: 'text', text: `ORFEO_TRACK_MUTED:${outIdx}:${entry.muted ? 1 : 0}`, ticks: 0 })
     })
 
     // ── Inject hand-assignment export hint for every tagged track ─────────────

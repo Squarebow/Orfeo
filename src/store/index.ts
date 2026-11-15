@@ -568,8 +568,12 @@ interface OrfeoStore {
   // playback when this is on; always shows the plain static color when off. ──
   trackVuColorEnabled: boolean
   unsavedWarningEnabled: boolean
+  // Shown / keyboard lights / mute saved with the song (badge, Save all). Off:
+  // they last for the session only (the Playback Editor still saves its own).
+  saveTrackChangesEnabled: boolean
   setTrackVuColorEnabled: (v: boolean) => void
   setUnsavedWarningEnabled: (v: boolean) => void
+  setSaveTrackChangesEnabled: (v: boolean) => void
 
   handLabelMode: 'practice' | 'performance'
   setHandLabelMode: (mode: 'practice' | 'performance') => void
@@ -625,6 +629,22 @@ function makeTrackState(track: ParsedTrack): TrackState {
   }
 }
 
+/** Mute and eye as the player set them, for saving: Focus mode's own mutes and
+ *  hidden tracks are only for the moment, so its snapshot of before counts. */
+export function playerTrackFlags(t: { index: number; muted: boolean; visible: boolean }): { muted: boolean; visible: boolean } {
+  const s = useStore.getState()
+  const before = s.focusActive ? _focusSnapshot?.get(t.index) : undefined
+  if (before) return before
+  // The Note Editor's hand view hides the other tracks only for the moment;
+  // the eye the player chose is kept aside until it ends
+  if (s.noteEditorSoloTrackIndex !== null && s.preSoloTrackVisibility) {
+    const pos = s.tracks.findIndex(x => x.index === t.index)
+    const v = pos >= 0 ? s.preSoloTrackVisibility[pos] : undefined
+    if (v !== undefined) return { muted: t.muted, visible: v }
+  }
+  return { muted: t.muted, visible: t.visible }
+}
+
 export const useStore = create<OrfeoStore>((set, get) => ({
   midi: null,
   barStarts: [],
@@ -648,12 +668,14 @@ export const useStore = create<OrfeoStore>((set, get) => ({
     const orfeoColors = (midi as any)._orfeoTrackColors as Record<number, string> | undefined
     const orfeoVisible = (midi as any)._orfeoTrackVisible as Record<number, boolean> | undefined
     const orfeoKeyboard = (midi as any)._orfeoTrackKeyboard as Record<number, boolean> | undefined
+    const orfeoMuted = (midi as any)._orfeoTrackMuted as Record<number, boolean> | undefined
     const newTracks = midi.tracks.map((t, i) => {
       const ts = makeTrackState(t)
       if (orfeoNames?.[i]) ts.trackName = orfeoNames[i]
       if (orfeoColors?.[i]) { ts.color = orfeoColors[i]; ts.colorSource = 'custom' }
       if (orfeoVisible?.[i] !== undefined) ts.visible = orfeoVisible[i]
       if (orfeoKeyboard?.[i] !== undefined) ts.showOnKeyboard = orfeoKeyboard[i]
+      if (orfeoMuted?.[i] !== undefined) ts.muted = orfeoMuted[i]
       // A piano still on Orfeo's default blue/pink (older saved versions store
       // it) takes the user's hand colours
       if (HAND_ASSIGN_GROUPS.has(ts.group ?? '')) ts.color = followedHandColor(ts.color, handHex(), handHex()) ?? ts.color
@@ -1246,8 +1268,10 @@ export const useStore = create<OrfeoStore>((set, get) => ({
 
   trackVuColorEnabled: true,
   unsavedWarningEnabled: true,
+  saveTrackChangesEnabled: false,
   setTrackVuColorEnabled: (trackVuColorEnabled) => set({ trackVuColorEnabled }),
   setUnsavedWarningEnabled: (unsavedWarningEnabled) => set({ unsavedWarningEnabled }),
+  setSaveTrackChangesEnabled: (saveTrackChangesEnabled) => set({ saveTrackChangesEnabled }),
 
   // ── Hand label mode — practice (static, tag-based) or performance (per-note, live) ─
   // Practice mode's UI toggle is disabled (see SettingsPanel.tsx) — proves
@@ -1476,6 +1500,7 @@ async function restoreLibraryPrefs() {
     if (typeof prefs.explorerPausesPlayback === 'boolean') store.setExplorerPausesPlayback(prefs.explorerPausesPlayback)
     if (typeof prefs.trackVuColorEnabled === 'boolean') store.setTrackVuColorEnabled(prefs.trackVuColorEnabled)
     if (typeof prefs.unsavedWarningEnabled === 'boolean') store.setUnsavedWarningEnabled(prefs.unsavedWarningEnabled)
+    if (typeof prefs.saveTrackChangesEnabled === 'boolean') store.setSaveTrackChangesEnabled(prefs.saveTrackChangesEnabled)
     if (typeof prefs.autoMuteNonKeyboard === 'boolean') store.setAutoMuteNonKeyboard(prefs.autoMuteNonKeyboard)
     if (prefs.settingsGroupsCollapsed && typeof prefs.settingsGroupsCollapsed === 'object' && !Array.isArray(prefs.settingsGroupsCollapsed)) {
       const defaults = store.settingsGroupsCollapsed
@@ -1680,6 +1705,7 @@ let _prevSupportNoteEnabled: boolean | null = null
 let _prevExplorerPausesPlayback: boolean | null = null
 let _prevTrackVuColorEnabled: boolean | null = null
 let _prevUnsavedWarningEnabled: boolean | null = null
+let _prevSaveTrackChangesEnabled: boolean | null = null
 let _prevAutoMuteNonKeyboard: boolean | null = null
 let _prevSettingsGroupsCollapsed: string | null = null
 let _prevNoteEditorWalkthroughSeen: boolean | null = null
@@ -1759,6 +1785,7 @@ const _unsubPrefs = useStore.subscribe((state) => {
     _prevExplorerPausesPlayback = state.explorerPausesPlayback
     _prevTrackVuColorEnabled = state.trackVuColorEnabled
     _prevUnsavedWarningEnabled = state.unsavedWarningEnabled
+    _prevSaveTrackChangesEnabled = state.saveTrackChangesEnabled
     _prevAutoMuteNonKeyboard = state.autoMuteNonKeyboard
     _prevSettingsGroupsCollapsed = JSON.stringify(state.settingsGroupsCollapsed)
     _prevNoteEditorWalkthroughSeen = state.noteEditorWalkthroughSeen
@@ -1841,6 +1868,7 @@ const _unsubPrefs = useStore.subscribe((state) => {
     state.explorerPausesPlayback !== _prevExplorerPausesPlayback ||
     state.trackVuColorEnabled !== _prevTrackVuColorEnabled ||
     state.unsavedWarningEnabled !== _prevUnsavedWarningEnabled ||
+    state.saveTrackChangesEnabled !== _prevSaveTrackChangesEnabled ||
     state.autoMuteNonKeyboard !== _prevAutoMuteNonKeyboard ||
     JSON.stringify(state.settingsGroupsCollapsed) !== _prevSettingsGroupsCollapsed ||
     state.noteEditorWalkthroughSeen !== _prevNoteEditorWalkthroughSeen ||
@@ -1915,6 +1943,7 @@ const _unsubPrefs = useStore.subscribe((state) => {
     _prevExplorerPausesPlayback = state.explorerPausesPlayback
     _prevTrackVuColorEnabled = state.trackVuColorEnabled
     _prevUnsavedWarningEnabled = state.unsavedWarningEnabled
+    _prevSaveTrackChangesEnabled = state.saveTrackChangesEnabled
     _prevAutoMuteNonKeyboard = state.autoMuteNonKeyboard
     _prevSettingsGroupsCollapsed = JSON.stringify(state.settingsGroupsCollapsed)
     _prevNoteEditorWalkthroughSeen = state.noteEditorWalkthroughSeen
@@ -1996,6 +2025,7 @@ const _unsubPrefs = useStore.subscribe((state) => {
       explorerPausesPlayback: state.explorerPausesPlayback,
       trackVuColorEnabled: state.trackVuColorEnabled,
       unsavedWarningEnabled: state.unsavedWarningEnabled,
+      saveTrackChangesEnabled: state.saveTrackChangesEnabled,
       autoMuteNonKeyboard: state.autoMuteNonKeyboard,
       settingsGroupsCollapsed: state.settingsGroupsCollapsed,
       noteEditorWalkthroughSeen: state.noteEditorWalkthroughSeen,

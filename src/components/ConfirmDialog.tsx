@@ -122,6 +122,7 @@ export function ConfirmDialogHost() {
           {state.buttons.map((label, i) => {
             const isPrimary    = i === 0
             const isDestructive = i === state.destructiveIndex
+            const isSecondary  = i === state.secondaryIndex
             return (
               <button
                 key={i}
@@ -131,10 +132,10 @@ export function ConfirmDialogHost() {
                   borderRadius: 'var(--radius-sm)',
                   fontSize: 'var(--text-sm)',
                   cursor: 'pointer',
-                  border:      isPrimary ? 'none' : '1px solid var(--text-inactive)',
-                  background:  isPrimary ? 'var(--text-amber)' : 'transparent',
-                  color:       isPrimary ? 'var(--bg-modal-header)' : isDestructive ? 'var(--color-input-error)' : 'var(--text-default)',
-                  fontWeight:  isPrimary ? 600 : 400,
+                  border:      isPrimary ? 'none' : isSecondary ? '1px solid var(--text-amber)' : '1px solid var(--text-inactive)',
+                  background:  isPrimary ? 'var(--text-amber)' : isSecondary ? 'var(--bg-modal-header)' : 'transparent',
+                  color:       isPrimary ? 'var(--bg-modal-header)' : isSecondary ? 'var(--text-amber)' : isDestructive ? 'var(--color-input-error)' : 'var(--text-default)',
+                  fontWeight:  isPrimary || isSecondary ? 600 : 400,
                   fontFamily:  'var(--font-ui)',
                 }}
               >

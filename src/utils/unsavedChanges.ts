@@ -41,7 +41,6 @@ export function unsavedDetail(c: UnsavedCounts): string {
   if (c.mixer) lines.push(t`Mixer channels changed: ${c.mixer}`)
   if (c.playbackEditor) lines.push(t`Edits in the Playback Editor`)
   lines.push('', t`To keep them, choose Cancel and use Save & Reload in the Playback Editor or the Mixer. It makes a new version, and your original file stays as it is.`)
-  if (c.muted) lines.push('', t`Mute can't be saved yet. In the Playback Editor, a muted track is left out of the new version.`)
   return lines.join('\n')
 }
 

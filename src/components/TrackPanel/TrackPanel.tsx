@@ -10,6 +10,7 @@ import { usePlayback } from '../../hooks/usePlayback'
 import { NES } from '../../utils/noteEditorState'
 import Tooltip from '../Tooltip'
 import PianoKeysIcon from '../PianoKeysIcon'
+import { saveTrackFlags } from '../../utils/sessionSave'
 
 const GROUP_ORDER = [
   'piano', 'chromatic', 'organ', 'guitar', 'bass',
@@ -613,6 +614,7 @@ on the Piano Roll again`}
               )
             })}
           </div>
+          <UnsavedTracksLine />
           </div>
         </div>
       )}
@@ -636,6 +638,16 @@ function TrackRow({
   const ch = (track as any).channel != null ? (track as any).channel + 1 : track.index + 1
   const prog = track.isDrum ? t`drums` : t`prog ${track.program + 1}`
   const noteCount = useStore(s => (s.midi as any)?.tracks?.find((t: any) => t.index === track.index)?.notes?.length ?? 0)
+  // Amber dot on a button whose state differs from the song file's own (saved
+  // with the save badge or the Playback Editor; otherwise gone next time).
+  // Focus mode and the Note Editor's hand view change them only for the moment.
+  const base = useStore(s => s.mixerBaseline[track.index])
+  const passing = useStore(s => s.focusActive)
+  const sessionOnly = useStore(s => !s.saveTrackChangesEnabled)  // nothing to save, so no dots
+  const handView = useStore(s => s.noteEditorSoloTrackIndex !== null)
+  const muteChanged = !!base && !sessionOnly && !passing && track.muted !== base.muted
+  const eyeChanged = !!base && !sessionOnly && !passing && !handView && track.visible !== base.visible
+  const lightsChanged = !!base && !sessionOnly && track.showOnKeyboard !== base.showOnKeyboard
 
   // ── Color-line VU meter — Settings-gated (Playback & Practice). Same
   // velocity-scan + decay mechanism as the Console Mixer's ChannelStrip VU
@@ -764,7 +776,7 @@ function TrackRow({
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginTop: 3, paddingLeft: 26 }}>
         <span style={{ fontSize: 10, color: 'var(--text-inactive)', fontFamily: 'var(--font-mono)' }}>{t`track ${track.index + 1}`}</span>
         <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-1)' }}>
-          <IBtn onClick={onMute} active={track.muted}
+          <IBtn onClick={onMute} active={track.muted} changed={muteChanged}
             title={track.muted ? t`Unmute` : t`Mute`}
             description={track.muted ? t`Unmute audio` : t`Mute audio`}
             activeColor="var(--status-error)">
@@ -776,13 +788,13 @@ function TrackRow({
             activeColor="var(--text-amber)">
             <span style={{ fontSize: 11, fontWeight: 700, fontFamily: 'var(--font-mono)', lineHeight: 1 }}>S</span>
           </IBtn>
-          <IBtn onClick={onVisible} active={!track.visible}
+          <IBtn onClick={onVisible} active={!track.visible} changed={eyeChanged}
             title={track.visible ? t`Hide in roll` : t`Show in roll`}
             description={track.visible ? t`Hide notes on the Piano Roll` : t`Show notes on the Piano Roll`}
             activeColor="var(--status-error-hover)" inactiveColor="var(--status-success-text)">
             {track.visible ? <Eye size={12} /> : <EyeClosed size={12} />}
           </IBtn>
-          <IBtn onClick={onKeyboard} active={track.showOnKeyboard}
+          <IBtn onClick={onKeyboard} active={track.showOnKeyboard} changed={lightsChanged}
             title={track.showOnKeyboard ? t`Lit on keyboard` : t`Not lit on keyboard`}
             description={track.showOnKeyboard ? t`Notes light up on keyboard` : t`Notes are not lit on keyboard`}
             activeColor="var(--text-amber)">
@@ -804,15 +816,15 @@ function TrackRow({
 }
 
 // ── IBtn — icon button for track controls: color driven by active state ───
-function IBtn({ children, onClick, active, title, description, activeColor = 'var(--text-amber)', inactiveColor = 'var(--text-icon-inactive)' }: {
+function IBtn({ children, onClick, active, changed, title, description, activeColor = 'var(--text-amber)', inactiveColor = 'var(--text-icon-inactive)' }: {
   children: React.ReactNode; onClick: () => void
-  active?: boolean; title?: string; description?: string; activeColor?: string; inactiveColor?: string
+  active?: boolean; changed?: boolean; title?: string; description?: string; activeColor?: string; inactiveColor?: string
 }) {
   const button = (
     <button
       onClick={e => { e.stopPropagation(); onClick() }}
       style={{
-        display: 'flex', alignItems: 'center', justifyContent: 'center',
+        position: 'relative', display: 'flex', alignItems: 'center', justifyContent: 'center',
         width: 22, height: 22, background: 'none', border: 'none', cursor: 'pointer',
         color: active ? activeColor : inactiveColor,
         borderRadius: 4, transition: 'color 0.1s',
@@ -821,10 +833,44 @@ function IBtn({ children, onClick, active, title, description, activeColor = 'va
       onMouseLeave={e => { e.currentTarget.style.color = active ? activeColor : inactiveColor }}
     >
       {children}
+      {changed && <span aria-hidden="true" style={{ position: 'absolute', top: 1, right: 1, width: 5, height: 5, borderRadius: '50%', background: 'var(--text-amber)' }} />}
     </button>
   )
   // oneLine tooltips take a single string — description is the more useful
   // half (what clicking actually does), title alone is just the button's
   // own state name (e.g. "Mute"), so it's the fallback, not the default.
   return title ? <Tooltip title={description ?? title} oneLine muted>{button}</Tooltip> : button
+}
+
+// ── Under the track list, while shown / lights / mute differ from the file ───
+// They're kept only until the song closes; one click saves them as a new version.
+function UnsavedTracksLine() {
+  const count = useStore(s => {
+    if (!s.midi || !s.saveTrackChangesEnabled) return 0
+    const handView = s.noteEditorSoloTrackIndex !== null
+    let n = 0
+    for (const tr of s.tracks) {
+      const b = s.mixerBaseline[tr.index]
+      if (!b) continue
+      // one change per button that differs (mute, eye, keyboard lights)
+      if (tr.showOnKeyboard !== b.showOnKeyboard) n++
+      if (!s.focusActive && tr.muted !== b.muted) n++
+      if (!s.focusActive && !handView && tr.visible !== b.visible) n++
+    }
+    return n
+  })
+  const [saving, setSaving] = useState(false)
+  if (!count) return null
+  return (
+    <div style={{ flexShrink: 0, display: 'grid', gridTemplateColumns: 'auto minmax(0, 1fr)', columnGap: 7, alignItems: 'baseline', padding: '7px 14px 8px', borderTop: '1px solid var(--border)', fontSize: 10, lineHeight: 1.45, color: 'var(--text-muted)', fontFamily: 'var(--font-ui)' }}>
+      <span aria-hidden="true" style={{ width: 5, height: 5, borderRadius: '50%', background: 'var(--text-amber)', alignSelf: 'center' }} />
+      <span>
+        {count === 1 ? t`You've made 1 change.` : t`You've made ${count} changes.`}{' '}
+        <button disabled={saving} onClick={async () => { setSaving(true); try { await saveTrackFlags() } finally { setSaving(false) } }}
+          style={{ background: 'none', border: 'none', padding: 0, cursor: saving ? 'default' : 'pointer', color: 'var(--text-amber)', fontSize: 10, fontFamily: 'var(--font-ui)', textDecoration: 'underline', textUnderlineOffset: 2 }}>
+          {saving ? t`Saving…` : t`Save them`}
+        </button>
+      </span>
+    </div>
+  )
 }

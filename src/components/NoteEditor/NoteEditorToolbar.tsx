@@ -15,6 +15,7 @@ import { modalCloseButtonStyle, modalCloseButtonHoverColor, modalCloseButtonIdle
 import { HAND_ASSIGN_GROUPS } from '../../utils/keyboardGroups'
 import OrfeoMark from '../OrfeoMark'
 import { t } from '../../utils/i18n'
+import { keepUnsavedAround } from '../../utils/sessionSave'
 
 // ── Toolbar SVG icons ─────────────────────────────────────────────────────────
 const IconVelocity = () => (
@@ -112,8 +113,11 @@ export default function NoteEditorToolbar() {
   }, [noteEditorEnabled, noteEditorActive, setNoteEditorActive])
 
   // ── Save handler — shown as a button in the toolbar, also registered on NES ──
-  // Returns true on successful save, false if cancelled or failed.
-  const handleSave = useCallback(async (): Promise<boolean> => {
+  // Returns true on successful save, false if cancelled or failed. The save
+  // reloads the song; keepUnsavedAround puts the player's other unsaved
+  // changes (Mixer, tempo & key, shown / lights / mute) back on top of it.
+  const handleSave = useCallback((): Promise<boolean> => keepUnsavedAround(saveNoteEdits, new Set(['notes'])), [])
+  const saveNoteEdits = async (): Promise<boolean> => {
     const sourcePath = (useStore.getState().midi as any)?._filePath as string | undefined
     if (!sourcePath || !NES.editMidi) return false
 
@@ -213,7 +217,7 @@ export default function NoteEditorToolbar() {
       }, 0)
     }
     return true
-  }, [])
+  }
 
   // ── Register save handler on NES so SettingsPanel and app-close can call it ──
   useEffect(() => {

@@ -2,21 +2,27 @@
 // The open song is read again from the file's own bytes and handed to the
 // store, which prepares it with the new setting (prepareSong.ts) — the same
 // as opening it, unsaved edits asked about first, as for any other load.
+// It's the same song, so the player's other unsaved changes (Mixer, tempo,
+// shown / lights / mute) are put back on top (keepUnsavedAround).
 import { useStore } from '../store'
 import { parseMidiBuffer } from './midiParser'
 import { detectKeyFromTracks, parseKeySignature } from './keyDetection'
 import { confirmDiscardDirtyNoteEdits } from './noteEditorState'
 import { confirmDiscardDirtyTempoKey } from './tempoKeySave'
 import { t } from './i18n'
+import { keepUnsavedAround } from './sessionSave'
 
 export async function reloadOpenSong(): Promise<void> {
   const m = useStore.getState().midi
   const raw = m?._origRaw ?? m?._raw
   if (!m || !raw) return
-  const parsed = parseMidiBuffer(raw, m.fileName, (m as any)._filePath ?? '')
-  useStore.getState().setMidi(parsed)
-  const ks = (parsed as any)._keySignature
-  useStore.getState().setDetectedKey(ks != null ? parseKeySignature(ks.key, ks.scale) : detectKeyFromTracks(parsed.tracks))
+  await keepUnsavedAround(async () => {
+    const parsed = parseMidiBuffer(raw, m.fileName, (m as any)._filePath ?? '')
+    useStore.getState().setMidi(parsed)
+    const ks = (parsed as any)._keySignature
+    useStore.getState().setDetectedKey(ks != null ? parseKeySignature(ks.key, ks.scale) : detectKeyFromTracks(parsed.tracks))
+    return true
+  }, new Set())
 }
 
 /** After either switch changed: apply it to the open song now (asking first

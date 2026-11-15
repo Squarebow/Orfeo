@@ -3,9 +3,7 @@ import { useStore } from '../store'
 import { parseMidiBuffer } from '../utils/midiParser'
 import { detectKeyFromTracks, parseKeySignature } from '../utils/keyDetection'
 import { resolveAndTrackImport } from '../utils/foreignFormatImport'
-import { confirmDiscardDirtyNoteEdits } from '../utils/noteEditorState'
-import { confirmDiscardDirtyTempoKey } from '../utils/tempoKeySave'
-import { confirmUnsavedChanges } from '../utils/unsavedPrompt'
+import { confirmSongAway } from '../utils/unsavedPrompt'
 import { t } from '../utils/i18n'
 
 export function useMidiFile() {
@@ -14,15 +12,10 @@ export function useMidiFile() {
 
   const openFile = useCallback(async () => {
     try {
-      const canDiscard = await confirmDiscardDirtyNoteEdits(t`Save changes before opening this file?`)
-      if (!canDiscard) return
-      const canDiscardTempoKey = await confirmDiscardDirtyTempoKey(t`Save tempo/key changes before opening this file?`)
-      if (!canDiscardTempoKey) return
-
       const result = await window.electronAPI.openMidiFile()
       if (!result) return
       // after the file is picked: backing out of the picker loses nothing
-      if (!(await confirmUnsavedChanges())) return
+      if (!(await confirmSongAway(t`Save your changes before opening this file?`, t`Open Without Saving`, t`Save All & Open`))) return
 
       const libraryFolder = (useStore.getState() as any).libraryFolder as string | null ?? null
       const resolved = await resolveAndTrackImport(

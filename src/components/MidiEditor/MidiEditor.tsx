@@ -18,7 +18,7 @@ import { TRACK_COLOR_PALETTE, pianoFamilyColor, distinctTrackColor } from '../..
 import { handHex } from '../../utils/handPalette'
 import { modalCloseButtonStyle, modalCloseButtonHoverColor, modalCloseButtonIdleColor } from '../../utils/modalCloseButtonStyle'
 import OrfeoMark from '../OrfeoMark'
-import { useStore } from '../../store'
+import { useStore, playerTrackFlags } from '../../store'
 import { parseMidiBuffer } from '../../utils/midiParser'
 import { detectKeyFromTracks, parseKeySignature } from '../../utils/keyDetection'
 import { bringToFront, MODAL_BASE_Z } from '../../utils/modalFocus'
@@ -29,6 +29,7 @@ import { getHandPreviewStats, getLowConfidencePassages } from '../../utils/handP
 import { withHandSuffix } from '../../utils/handMetadata'
 import { getGMName, getGMGroup } from '../../utils/gmInstruments'
 import { computeTempoKeyPayload } from '../../utils/tempoKeySave'
+import { keepUnsavedAround, type UnsavedKind } from '../../utils/sessionSave'
 import { songKey } from '../../utils/songIdentity'
 import { carryCorrection } from '../../utils/tempoCorrection'
 import { useFocusTrap } from '../../hooks/useFocusTrap'
@@ -164,6 +165,7 @@ interface EditorTrack {
   channel: number; noteCount: number
   included: boolean; mergeSelected: boolean; newProgram: number
   visible: boolean; showOnKeyboard: boolean
+  muted: boolean  // from the track list; saved, never a reason to leave the track out
   isMerged?: boolean
   mergedFromIndices?: number[]
   mergedFromNames?: string[]
@@ -928,13 +930,14 @@ export default function MidiEditor() {
       // unlike `_rawMidiTracks` (unfiltered raw array) which landed on the wrong track
       // whenever an earlier raw track had 0 notes, showing a bogus "0 notes" badge.
       const parsedTrack = (midi as any).tracks?.[t.index]
+      const flags = playerTrackFlags(t)
       return {
         index: t.index, name: t.name, gmName: t.gmName, trackName: t.trackName, program: t.program,
         group: t.group ?? '', isDrum: t.isDrum, color: t.color, colorSource: t.colorSource ?? 'default',
         channel: parsedTrack?.channel ?? t.index,
         noteCount: parsedTrack?.notes?.length ?? 0,
-        included: !t.muted, mergeSelected: false, newProgram: t.program,
-        visible: t.visible, showOnKeyboard: t.showOnKeyboard,
+        included: true, mergeSelected: false, newProgram: t.program,
+        visible: flags.visible, showOnKeyboard: t.showOnKeyboard, muted: flags.muted,
       }
     }).sort((a, b) => {
       const aK = KEYBOARD_GROUPS.has(a.group), bK = KEYBOARD_GROUPS.has(b.group)
@@ -1114,7 +1117,7 @@ export default function MidiEditor() {
         gmName: first.gmName, trackName: first.trackName, program: first.program,
         group: first.group, isDrum: first.isDrum, color: first.color, colorSource: first.colorSource, channel: first.channel,
         noteCount: totalNotes, included: true, mergeSelected: false, newProgram: first.newProgram,
-        visible: first.visible, showOnKeyboard: first.showOnKeyboard,
+        visible: first.visible, showOnKeyboard: first.showOnKeyboard, muted: selected.every(t => t.muted),
         isMerged: true, mergedFromIndices: selected.map(t => t.index), mergedFromNames: selected.map(t => t.name),
       }
       const firstIdx = s.rows.findIndex(r => r.index === first.index)
@@ -1152,7 +1155,8 @@ export default function MidiEditor() {
     // covered by the split/merge phrases above, and a split row's fixed
     // hand color would otherwise ALWAYS read as "changed color" vs. the
     // pre-split single track it came from. ──────────────────────────────────
-    let colorChanged = 0, renamed = 0, rollChanged = 0, keyboardChanged = 0, reassigned = 0
+    let colorChanged = 0, renamed = 0, rollChanged = 0, keyboardChanged = 0, reassigned = 0, muteChanged = 0
+    const fileOwn = useStore.getState().mixerBaseline
     for (const r of state.rows) {
       if (r.isMerged || r.splitHand) continue
       const orig = originalRowsRef.current.get(r.index)
@@ -1162,6 +1166,7 @@ export default function MidiEditor() {
       if (r.visible !== orig.visible) rollChanged++
       if (r.showOnKeyboard !== orig.showOnKeyboard) keyboardChanged++
       if (r.newProgram !== orig.program) reassigned++
+      if (fileOwn[r.index] && r.muted !== fileOwn[r.index].muted) muteChanged++
     }
 
     const s = (n: number) => n === 1 ? '' : 's'
@@ -1174,6 +1179,7 @@ export default function MidiEditor() {
     if (renamed > 0) parts.push(`renamed ${renamed} track${s(renamed)}`)
     if (rollChanged > 0) parts.push(`changed roll visibility of ${rollChanged} track${s(rollChanged)}`)
     if (keyboardChanged > 0) parts.push(`changed keyboard lighting of ${keyboardChanged} track${s(keyboardChanged)}`)
+    if (muteChanged > 0) parts.push(`${muteChanged === 1 ? 'muted or unmuted 1 track' : `muted or unmuted ${muteChanged} tracks`}`)
     return parts.join(', ') // '' when nothing changed — caller decides the "Saved" fallback
   }
 
@@ -1188,8 +1194,8 @@ export default function MidiEditor() {
     if (includedCount === 0) { setSaveResult({ ok: false, msg: t`Select at least one track.` }); return false }
 
     // ── Warn before an unchecked track actually disappears from the saved
-    // file — easy to reach unnoticed now that a muted/hidden track from the
-    // Tracks panel already lands here unchecked automatically. Cancel is the
+    // file. Only tracks unticked by hand (a muted track stays in, muted).
+    // Cancel is the
     // last button (safe default on Escape/backdrop click, matching every
     // other confirm dialog in the app). ─────────────────────────────────────
     const excludedRows = state.rows.filter(r => !r.included)
@@ -1204,22 +1210,47 @@ export default function MidiEditor() {
       if (choice !== 0) return false
     }
 
+    // ── The other tools' unsaved changes are kept: the reload after this save
+    // puts the Mixer and tempo & key back on top (keepUnsavedAround). When
+    // tracks are merged, split or deleted they can't be matched up again, so
+    // unsaved Mixer changes go into this version too, after saying so. ────────
+    const layoutChanges = excludedRows.length > 0 || state.rows.some(r => r.isMerged || r.splitHand)
+    const st = useStore.getState()
+    const mixerMoved = st.tracks.filter(tr => {
+      const b = st.mixerBaseline[tr.index]
+      return !!b && (b.volume !== tr.volume || b.pan !== tr.pan || b.chorus !== tr.chorus || b.reverb !== tr.reverb)
+    })
+    if (layoutChanges && mixerMoved.length > 0) {
+      const choice = await confirmDialog({
+        title: t`Mixer changes`,
+        message: mixerMoved.length === 1
+          ? t`Your Mixer changes on 1 track will be saved in this version too.`
+          : t`Your Mixer changes on ${mixerMoved.length} tracks will be saved in this version too.`,
+        detail: t`Merging, splitting or deleting tracks changes the song's tracks, so they can't stay unsaved. To leave them out, undo them in the Mixer first.`,
+        buttons: [t`Save Together`, t`Cancel`],
+      })
+      if (choice !== 0) return false
+    }
+    const mixer = layoutChanges && mixerMoved.length > 0
+      ? mixerMoved.map(tr => ({ index: tr.index, volume: tr.volume, pan: tr.pan, chorus: tr.chorus, reverb: tr.reverb }))
+      : undefined
+
     setSaving(true); setSaveResult(null)
     let saved = false
     try {
-      const includedTracks: { index: number; newProgram: number; name?: string; color?: string; splitHand?: 'L' | 'R'; visible?: boolean; showOnKeyboard?: boolean }[] = []
+      const includedTracks: { index: number; newProgram: number; name?: string; color?: string; splitHand?: 'L' | 'R'; visible?: boolean; showOnKeyboard?: boolean; muted?: boolean }[] = []
       for (const row of state.rows.filter(r => r.included)) {
         if (row.isMerged && row.mergedFromIndices) {
           row.mergedFromIndices.forEach((origIdx, i) => {
             includedTracks.push({
               index: origIdx, newProgram: row.newProgram,
-              ...(i === 0 ? { name: row.trackName, color: row.color, visible: row.visible, showOnKeyboard: row.showOnKeyboard } : {}),
+              ...(i === 0 ? { name: row.trackName, color: row.color, visible: row.visible, showOnKeyboard: row.showOnKeyboard, muted: row.muted } : {}),
             })
           })
         } else if (row.splitHand) {
-          includedTracks.push({ index: row.splitOriginIndex!, newProgram: row.newProgram, name: row.trackName, color: row.color, splitHand: row.splitHand, visible: row.visible, showOnKeyboard: row.showOnKeyboard })
+          includedTracks.push({ index: row.splitOriginIndex!, newProgram: row.newProgram, name: row.trackName, color: row.color, splitHand: row.splitHand, visible: row.visible, showOnKeyboard: row.showOnKeyboard, muted: row.muted })
         } else {
-          includedTracks.push({ index: row.index, newProgram: row.newProgram, name: row.trackName, color: row.color, visible: row.visible, showOnKeyboard: row.showOnKeyboard })
+          includedTracks.push({ index: row.index, newProgram: row.newProgram, name: row.trackName, color: row.color, visible: row.visible, showOnKeyboard: row.showOnKeyboard, muted: row.muted })
         }
       }
       const mergeGroups = buildMergeGroups()
@@ -1230,23 +1261,28 @@ export default function MidiEditor() {
       // tempoKey:save path (see tempoKeySave.ts's computeTempoKeyPayload),
       // baked into this one write instead of a second save. ───────────────
       const tempoKeyPayload = useStore.getState().saveTempoKeyChangesEnabled ? computeTempoKeyPayload() : null
-      const saveSummary = [buildSaveSummary(), tempoKeyPayload?.summary].filter(Boolean).join(', ') || 'Saved'
+      const mixerSummary = mixer ? `Mixer: ${mixer.length} track${mixer.length === 1 ? '' : 's'}` : ''
+      const saveSummary = [buildSaveSummary(), mixerSummary, tempoKeyPayload?.summary].filter(Boolean).join(', ') || 'Saved'
 
       const { rhMaxFingers, lhMaxFingers } = useStore.getState()
-      const result = await window.electronAPI.saveMidiEditor({
-        filePath: state.filePath, outputPath: finalOutput, includedTracks, mergeGroups,
-        rhMaxFingers, lhMaxFingers,
-        bpmRatio: tempoKeyPayload?.bpmRatio, transposeSemitones: tempoKeyPayload?.transposeSemitones, finalKey: tempoKeyPayload?.finalKey,
-      })
-      setSaveResult({ ok: result.ok, msg: result.message, filePath: result.filePath })
-      if (result.ok && result.base64 && result.fileName && result.filePath) {
+      const saves = new Set<UnsavedKind>(['tracks', 'playbackEditor'])
+      if (tempoKeyPayload) saves.add('tempoKey')
+      if (mixer) saves.add('mixer')
+      saved = await keepUnsavedAround(async () => {
+        const result = await window.electronAPI.saveMidiEditor({
+          filePath: state.filePath, outputPath: finalOutput, includedTracks, mergeGroups, mixer,
+          rhMaxFingers, lhMaxFingers,
+          bpmRatio: tempoKeyPayload?.bpmRatio, transposeSemitones: tempoKeyPayload?.transposeSemitones, finalKey: tempoKeyPayload?.finalKey,
+        })
+        setSaveResult({ ok: result.ok, msg: result.message, filePath: result.filePath })
+        if (!(result.ok && result.base64 && result.fileName && result.filePath)) return false
         setPendingSplitIndex(null)
         setPreSplitRows(null)
         reloadFile(result.base64, result.fileName, result.filePath, 1 / (tempoKeyPayload?.bpmRatio ?? 1))
         useStore.getState().notifyLibrarySaved(result.filePath)
         window.electronAPI.logFileEvent(result.filePath, 'save', saveSummary)
-        saved = true
-      }
+        return true
+      }, saves, !layoutChanges)
     } catch (e: any) {
       setSaveResult({ ok: false, msg: e?.message ?? t`Save failed` })
     }
@@ -1256,8 +1292,7 @@ export default function MidiEditor() {
 
   const handleSave = () => performSave()
 
-  // ── Has anything changed since the rows were loaded? A track that was already
-  // muted arrives unchecked, so only a change from that counts. Plain functions,
+  // ── Has anything changed since the rows were loaded? Plain functions,
   // for the reason given at handleOpenInNoteEditor below. ─────────────────────
   const hasStagedEdits = () => state.rows.some(r => {
     if (r.isMerged || r.splitHand) return true

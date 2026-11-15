@@ -17,6 +17,8 @@ export interface TooltipContent {
   // names whose case carries meaning (Ebm vs EBM, Bb vs BB)
   titleValue?: string
   description?: string
+  // Rich text in place of `description` (amber numbers, bold names…), same style
+  body?: ReactNode
 }
 
 type Placement = 'top' | 'bottom' | 'left' | 'right'
@@ -97,7 +99,7 @@ export function TooltipBox({ anchorRect, content, visible, placement = 'top', on
     }
     top = Math.max(MARGIN, Math.min(top, window.innerHeight - h - MARGIN))
     setPos({ top, left })
-  }, [visible, anchorRect, content?.title, content?.description, placement, oneLine])
+  }, [visible, anchorRect, content?.title, content?.description, content?.body, placement, oneLine])
 
   const tooltipsOn = useStore(s => s.tooltipsEnabled)
   if (!visible || !anchorRect || !content || (!tooltipsOn && !readout)) return null
@@ -115,7 +117,7 @@ export function TooltipBox({ anchorRect, content, visible, placement = 'top', on
         borderRadius: 6, padding: '6px 10px',
         // Hard caps — a tooltip must never balloon into a panel, whatever it's
         // handed (e.g. a raw multi-line error). Long words wrap, overflow clips.
-        maxWidth: 260, maxHeight: 160, overflow: 'hidden',
+        maxWidth: 260, maxHeight: content?.body ? 360 : 160, overflow: 'hidden',
         overflowWrap: 'anywhere',
         display: 'flex', flexDirection: 'column', gap: 3,
         pointerEvents: 'none', zIndex: 99999,
@@ -138,12 +140,12 @@ export function TooltipBox({ anchorRect, content, visible, placement = 'top', on
             {content.title}
             {content.titleValue && <span style={{ textTransform: 'none', letterSpacing: '0.02em' }}>{content.titleValue}</span>}
           </div>
-          {content.description && (
+          {(content.body ?? content.description) && (
             <div style={{
               fontSize: 10, fontFamily: 'var(--font-ui)', lineHeight: 1.4,
               color: 'var(--text-muted)', whiteSpace: 'pre-line',
             }}>
-              {content.description}
+              {content.body ?? content.description}
             </div>
           )}
         </>
@@ -157,12 +159,13 @@ export function TooltipBox({ anchorRect, content, visible, placement = 'top', on
 // and icons): wraps children, shows TooltipBox on hover. For dynamic
 // content (changes per mouse position, or live during a drag), use
 // TooltipBox directly instead — see the Compressor/Volume knobs. ─────────
-export default function Tooltip({ title, titleValue, description, placement = 'top', oneLine, muted, wrapperStyle, disabled, children }: {
+export default function Tooltip({ title, titleValue, description, body, placement = 'top', oneLine, muted, wrapperStyle, disabled, children }: {
   title: string
   titleValue?: string
   // true = never show (e.g. while the anchor's own menu/popup is open)
   disabled?: boolean
   description?: string
+  body?: ReactNode   // rich text in place of description, see TooltipContent
   placement?: Placement
   // See TooltipBox — plain single-tip styling instead of the amber-heading
   // two-part layout. In this mode `title` IS the tip text (kept as the same
@@ -216,7 +219,7 @@ export default function Tooltip({ title, titleValue, description, placement = 't
       {children}
       <TooltipBox
         anchorRect={hover && !disabled ? ref.current?.getBoundingClientRect() ?? null : null}
-        content={{ title, titleValue, description }}
+        content={{ title, titleValue, description, body }}
         visible={hover && !disabled}
         placement={placement}
         oneLine={oneLine}

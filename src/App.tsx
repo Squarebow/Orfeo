@@ -45,8 +45,7 @@ import { runBeatGridTest } from './utils/beatGridTest'
 import { runTrackChordRoleTest } from './utils/trackChordRoleTest'
 import { runChordSequenceBuilderTest } from './utils/chordSequenceBuilderTest'
 import { runMidiDiagnosticsTest } from './utils/midiDiagnosticsTest'
-import { NES, confirmDiscardDirtyNoteEdits } from './utils/noteEditorState'
-import { confirmDiscardDirtyTempoKey, saveTempoKeyChanges } from './utils/tempoKeySave'
+import { NES } from './utils/noteEditorState'
 import { isTapCapturing, registerTap, cancelTap } from './utils/tapTempoSession'
 import { isCountingIn, cancelCountIn } from './utils/countInRunner'
 import { stepEvents } from './utils/stepThrough'
@@ -59,7 +58,7 @@ import { KeyboardRangePrompt } from './components/KeyboardRangePrompt'
 import './hooks/keyLightsOutput'  // the song's notes on lighted keyboards
 import { isTextEntry } from './utils/keyTarget'
 import { t } from './utils/i18n'
-import { confirmUnsavedChanges, willWarnAboutChanges } from './utils/unsavedPrompt'
+import { confirmSongAway, willWarnAboutChanges } from './utils/unsavedPrompt'
 
 export default function App() {
   // ── Update status + sound-set progress: one listener each for the app's
@@ -128,12 +127,8 @@ export default function App() {
   const loadRequestIdRef = useRef(0)
   const loadFileIntoPlayer = useCallback(async (filePath: string) => {
     const requestId = ++loadRequestIdRef.current
-    const canDiscard = await confirmDiscardDirtyNoteEdits(t`Save changes before opening this file?`)
-    if (!canDiscard || requestId !== loadRequestIdRef.current) return
-    const canDiscardTempoKey = await confirmDiscardDirtyTempoKey(t`Save tempo/key changes before opening this file?`)
-    if (!canDiscardTempoKey || requestId !== loadRequestIdRef.current) return
-    const canLoseChanges = await confirmUnsavedChanges()
-    if (!canLoseChanges || requestId !== loadRequestIdRef.current) return
+    const canGo = await confirmSongAway(t`Save your changes before opening this file?`, t`Open Without Saving`, t`Save All & Open`)
+    if (!canGo || requestId !== loadRequestIdRef.current) return
 
     const proceed = await confirmPendingImportBeforeSwitch(filePath)
     if (!proceed || requestId !== loadRequestIdRef.current) return // user cancelled — stay on current file
@@ -325,41 +320,10 @@ export default function App() {
   // the app open (user cancelled one of the dialogs).
   useEffect(() => {
     const handler = async () => {
-      // 1. Note Editor unsaved changes
-      if (NES.dirty) {
-        const choice = await confirmDialog({
-          title: t`Unsaved Changes`,
-          message: t`You have unsaved changes in the Note Editor.`,
-          buttons: [t`Save`, t`Discard`, t`Cancel`],
-        })
-        if (choice === 2) return  // Cancel — leave app open
-        if (choice === 0) {
-          const ok = await NES.onSaveRequest?.()
-          if (!ok) return         // save failed or cancelled — leave app open
-        }
-        // Discard (1) or successful save — fall through
-      }
+      // 1. Every change to the song, in one window (the save badge's list)
+      if (!(await confirmSongAway(t`Save your changes before Orfeo closes?`, t`Close Without Saving`, t`Save All & Close`))) return
 
-      // 2. Tempo/Key unsaved changes (only if the Settings toggle is on)
-      {
-        const s = useStore.getState()
-        const tempoKeyDirty = s.saveTempoKeyChangesEnabled && !!s.midi &&
-          (s.bpm !== s.originalBpm || (s.detectedKey?.transpose ?? 0) !== 0)
-        if (tempoKeyDirty) {
-          const choice = await confirmDialog({
-            title: t`Unsaved Tempo/Key Changes`,
-            message: t`You have unsaved tempo/key changes.`,
-            buttons: [t`Save`, t`Discard`, t`Cancel`],
-          })
-          if (choice === 2) return  // Cancel — leave app open
-          if (choice === 0) {
-            const ok = await saveTempoKeyChanges()
-            if (!ok) return
-          }
-        }
-      }
-
-      // 3. Pending imported file (MusicXML/GP converted but not yet saved as .mid)
+      // 2. Pending imported file (MusicXML/GP converted but not yet saved as .mid)
       const pending = useStore.getState().pendingImportedFile
       if (pending) {
         const libraryFolder = (useStore.getState() as any).libraryFolder as string | null ?? null
@@ -374,12 +338,6 @@ export default function App() {
           await (window.electronAPI as any).writeCachedImport(cachePath, pending.midiBase64)
         }
         useStore.getState().setPendingImportedFile(null)
-      }
-
-      // 4. Track, Mixer and Playback Editor changes: a warning for now, no saving from here
-      {
-        const go = await confirmUnsavedChanges(t`These changes to the song will be lost when Orfeo closes:`, t`Close Without Saving`)
-        if (!go) return  // Cancel — leave app open
       }
 
       // Nothing left pending — tell main process it is safe to close

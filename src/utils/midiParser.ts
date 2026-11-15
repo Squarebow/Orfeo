@@ -209,17 +209,20 @@ export function parseMidiBuffer(buffer: ArrayBuffer, fileName: string, filePath 
   }
 
   // ── Restore Orfeo persisted roll-visibility / keyboard-lit flags ────────────
-  // Format: ORFEO_TRACK_VISIBLE:N:0/1 and ORFEO_TRACK_KEYBOARD:N:0/1 — same
+  // Format: ORFEO_TRACK_VISIBLE:N:0/1, ORFEO_TRACK_KEYBOARD:N:0/1 and
+  // ORFEO_TRACK_MUTED:N:0/1 — same
   // convention as ORFEO_TRACK_NAME/COLOR. Only the Playback Editor's Save
   // writes these; the TrackPanel's per-track icons are session-only and never
   // touch the file (see MidiEditor.tsx / electron/main.ts editor:save).
   const orfeoTrackVisible: Record<number, boolean> = {}
   const orfeoTrackKeyboard: Record<number, boolean> = {}
+  const orfeoTrackMuted: Record<number, boolean> = {}
   for (const meta of (midi.header as any).meta ?? []) {
     if (typeof meta.text !== 'string') continue
     for (const [prefix, target] of [
       ['ORFEO_TRACK_VISIBLE:', orfeoTrackVisible],
       ['ORFEO_TRACK_KEYBOARD:', orfeoTrackKeyboard],
+      ['ORFEO_TRACK_MUTED:', orfeoTrackMuted],
     ] as const) {
       if (!meta.text.startsWith(prefix)) continue
       const rest = meta.text.slice(prefix.length)
@@ -280,6 +283,7 @@ export function parseMidiBuffer(buffer: ArrayBuffer, fileName: string, filePath 
     _orfeoTrackColors: Object.keys(orfeoTrackColors).length > 0 ? orfeoTrackColors : undefined,
     _orfeoTrackVisible: Object.keys(orfeoTrackVisible).length > 0 ? orfeoTrackVisible : undefined,
     _orfeoTrackKeyboard: Object.keys(orfeoTrackKeyboard).length > 0 ? orfeoTrackKeyboard : undefined,
+    _orfeoTrackMuted: Object.keys(orfeoTrackMuted).length > 0 ? orfeoTrackMuted : undefined,
     _handTagsRestored: handTagsRestored,
   }
 

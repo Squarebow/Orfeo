@@ -10,6 +10,7 @@ import { ChevronUp, ChevronDown, ArrowDown01 } from 'lucide-react'
 import { useStore } from '../store'
 import Tooltip from './Tooltip'
 import { t } from '../utils/i18n'
+import { SaveBadge } from './Transport/SaveBadge'
 
 const STRIP_H       = 24
 const HANDLE_VIS_W  = 4   // drawn width — thin enough not to hide small selections
@@ -650,6 +651,10 @@ on the waterfall above for precise timing.`}
           document.body,
         )}
         </div>
+        {/* The save badge sits after the bar-range icon and label, so a long
+            "bars 12–34" never runs into it (TopBar places it itself when this
+            strip is off) */}
+        <SaveBadge style={{ marginLeft: 8 }} />
       </div>
     </>
   )

@@ -25,9 +25,8 @@ import { ContextMenu, ContextMenuItem, ContextMenuDivider, useMenuDismiss } from
 import { t } from '../../utils/i18n'
 import { useMidiSettings } from '../../store/midiSettings'
 import { shortName } from '../../utils/midiDeviceNames'
-import { confirmDiscardDirtyNoteEdits } from '../../utils/noteEditorState'
-import { confirmDiscardDirtyTempoKey } from '../../utils/tempoKeySave'
-import { confirmUnsavedChanges } from '../../utils/unsavedPrompt'
+import { confirmSongAway } from '../../utils/unsavedPrompt'
+import { SaveBadge } from './SaveBadge'
 
 // NOTE: no more `C` shorthand object — every color below is a literal
 // `var(--token-name)` string written directly at its point of use, so the
@@ -116,10 +115,7 @@ export default function TopBar() {
   }, [playbackState, play, pause])
 
   const handleReset = useCallback(async () => {
-    const proceed = await confirmDiscardDirtyNoteEdits(t`Save changes before resetting?`)
-    if (!proceed) return
-    const proceedTempoKey = await confirmDiscardDirtyTempoKey(t`Save tempo/key changes before resetting?`)
-    if (proceedTempoKey && await confirmUnsavedChanges()) resetAll()
+    if (await confirmSongAway(t`Save your changes before closing the song?`, t`Close Without Saving`, t`Save All & Close`)) resetAll()
   }, [resetAll])
 
   const handleScrubStart = useCallback(() => {
@@ -551,6 +547,13 @@ by a semitone (max −12).`}><ChevronDown size={10} /></ArrowBtn>
           </div>
           {/* Loop Region Strip — visible only when enabled in Settings */}
           {loopRegionEnabled && <LoopRegionStrip />}
+          {/* SAVE — unsaved changes to the song, right of the song's length.
+              With the loop strip on, it sits there after the bar-range icon. */}
+          {!loopRegionEnabled && (
+            <div style={{ position: 'absolute', left: 'calc(100% + 8px)', top: 0, height: 24, display: 'flex', alignItems: 'center' }}>
+              <SaveBadge />
+            </div>
+          )}
         </div>
       </div>
 

@@ -1,7 +1,6 @@
 import { useState, useMemo, useRef, useEffect, useLayoutEffect, useCallback, type ReactNode } from 'react'
 import Fuse from 'fuse.js'
-import { confirmDiscardDirtyNoteEdits } from '../../utils/noteEditorState'
-import { confirmUnsavedChanges } from '../../utils/unsavedPrompt'
+import { confirmSongAway } from '../../utils/unsavedPrompt'
 import { confirmDialog } from '../../utils/confirmController'
 import {
   ChevronLeft, ChevronDown, ChevronRight,
@@ -725,10 +724,8 @@ function LibraryPanel({ hidden = false }: { hidden?: boolean }) {
   const loadRequestIdRef = useRef(0)
   const handleLoadFile = useCallback(async (filePath: string) => {
     const requestId = ++loadRequestIdRef.current
-    const canDiscard = await confirmDiscardDirtyNoteEdits(t`Save changes before opening this file?`)
-    if (!canDiscard || requestId !== loadRequestIdRef.current) return
-    const canLoseChanges = await confirmUnsavedChanges()
-    if (!canLoseChanges || requestId !== loadRequestIdRef.current) return
+    const canGo = await confirmSongAway(t`Save your changes before opening this file?`, t`Open Without Saving`, t`Save All & Open`)
+    if (!canGo || requestId !== loadRequestIdRef.current) return
     try {
       const proceed = await confirmPendingImportBeforeSwitch(filePath)
       if (!proceed || requestId !== loadRequestIdRef.current) return

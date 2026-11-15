@@ -1,4 +1,4 @@
-import { AudioLines, Timer, TriangleAlert, Hand, Repeat, Focus, Pause, SkipForward, Gauge, ArrowUpRight } from 'lucide-react'
+import { AudioLines, Timer, TriangleAlert, Save, Hand, Repeat, Focus, Pause, SkipForward, Gauge, ArrowUpRight } from 'lucide-react'
 import { Numbers } from '../../../utils/extraIcons'
 import { useStore } from '../../../store'
 import { t } from '../../../utils/i18n'
@@ -172,6 +172,10 @@ export const PLAYBACK_DEFS: SettingDef[] = [
   {
     id: 'unsavedWarning', icon: TriangleAlert, kind: 'switch',
     Control: () => { const v = useStore(s => s.unsavedWarningEnabled); return <Switch value={v} onChange={useStore.getState().setUnsavedWarningEnabled} label={t`Warn about unsaved changes`} /> },
+  },
+  {
+    id: 'saveTrackChanges', icon: Save, kind: 'switch',
+    Control: () => { const v = useStore(s => s.saveTrackChangesEnabled); return <Switch value={v} onChange={useStore.getState().setSaveTrackChangesEnabled} label={t`Save track changes`} /> },
   },
   {
     id: 'noteEditor', icon: AudioLines, kind: 'switch',
