@@ -71,6 +71,9 @@ function songLit(): Map<number, string> {
 interface Lit { setup: KeyLightSetup; port: MIDIOutput; notes: Map<number, Rgb>; hands: Map<number, LightHand>; entered: boolean }
 const _lit = new Map<string, Lit>()
 
+/** What a keyboard's lights show right now, key by key (Dev Tools draws it) */
+export function litKeysOn(key: string): Map<number, Rgb> { return new Map(_lit.get(key)?.notes ?? []) }
+
 function send(key: string, port: MIDIOutput, bytes: number[]) {
   try { port.send(bytes) } catch (e) { console.warn('[Orfeo lights] send failed', key, e) }
 }

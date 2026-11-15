@@ -204,6 +204,7 @@
     ; below skip files and leave the folder behind, the library link is
     ; still gone and the next launch is a clean first run.
     Delete "$R2\orfeo-prefs.json"
+    Delete "$R2\orfeo-prefs.json.bak"
     Delete "$R2\orfeo-file-log.json"
     RMDir /r "$R2"
 

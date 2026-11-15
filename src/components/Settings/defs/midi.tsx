@@ -8,7 +8,9 @@ import { MarqueeText } from '../../MarqueeText'
 import { useMidiSettings, MIDI_DEFAULTS, type ControlKind, type LiveResponse, type VelocityCurve } from '../../../store/midiSettings'
 import { rescanMidiDevices, clearStuckNotes, resetMidiInput, rangeOf, measureKeyboardRange, forgetKeyboard, showRangePromptForTest, pressRangeKeyForTest } from '../../../hooks/useMidiInput'
 import { keyCount, rangeLabel } from '../../../utils/keyboardRange'
-import { lightSetupFor, setLightSetup, tryKeyLights, lightChordForTest } from '../../../hooks/keyLightsOutput'
+import { lightSetupFor, setLightSetup, tryKeyLights, lightChordForTest, litKeysOn } from '../../../hooks/keyLightsOutput'
+import { buildKeyLayoutRatios } from '../../../utils/keyLayout'
+import { isBlackKey } from '../../../utils/midiParser'
 import { choiceOf, setupForChoice, type KeyLightChoice } from '../../../utils/keyLights'
 import { reopenGmOutput } from '../../../hooks/useAudioEngine'
 import { getStartedStable } from '../../../hooks/useSamplesEngine'
@@ -169,10 +171,14 @@ function ReconnectExtra() {
 }
 
 // ── Development builds only: pretend keyboards are plugged in ────────────────
+const SIM_NOTES = ['C', 'C♯', 'D', 'D♯', 'E', 'F', 'F♯', 'G', 'G♯', 'A', 'A♯', 'B']
+const simNoteName = (n: number) => SIM_NOTES[n % 12] + (Math.floor(n / 12) - 1)
+
 export function SimulatorPanel() {
   useMidiSettings(s => s.devices)  // re-render on plug / unplug
   const [target, setTarget] = useState(sim.models[0].key)
   const plugged = sim.isPlugged(target)
+  const { low, high } = sim.models.find(m => m.key === target)!
   const btn = (label: string, fn: () => void) => (
     <button key={label} onClick={fn} disabled={!plugged && label !== t`Plug in`}
       style={{ padding: '3px 6px', borderRadius: 4, border: '1px dashed var(--border2)', background: 'transparent', color: 'var(--text-inactive)',
@@ -190,6 +196,8 @@ export function SimulatorPanel() {
       </div>
       <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4 }}>
         {plugged ? btn(t`Unplug`, () => sim.unplug(target)) : btn(t`Plug in`, () => sim.plug(target))}
+        {low != null && btn(`Lowest key (${simNoteName(low)})`, () => sim.tap(target, low))}
+        {high != null && btn(`Highest key (${simNoteName(high)})`, () => sim.tap(target, high))}
         {btn(t`C major chord`, () => sim.chord(target, [48, 60, 64, 67]))}
         {btn(t`Run`, () => sim.run(target))}
         {btn(t`Pedal down`, () => sim.pedal(target, true))}
@@ -298,6 +306,27 @@ function KeyLightsSwitch() {
   return <Switch value={v} onChange={x => set({ keyLightsEnabled: x })} label={t`Key lights`} />
 }
 
+// ── Dev Tools: the simulated keyboard's keys, lit as the lights messages say ─
+function SimLitKeys({ low, high, lit }: { low: number; high: number; lit: Map<number, [number, number, number]> }) {
+  const layout = buildKeyLayoutRatios(low, high)
+  return (
+    <div aria-hidden="true" style={{ position: 'relative', height: 30, margin: '2px 0 8px', borderRadius: 3, overflow: 'hidden', background: 'var(--key-white-bg)' }}>
+      {layout.map((k, i) => {
+        const n = low + i
+        const black = isBlackKey(n)
+        const c = lit.get(n)
+        return (
+          <div key={n} title={String(n)} style={{
+            position: 'absolute', left: `${k.x * 100}%`, width: `${k.width * 100}%`, top: 0, height: black ? '60%' : '100%', zIndex: black ? 1 : 0,
+            boxSizing: 'border-box', borderRight: black ? 'none' : '1px solid var(--key-white-border)',
+            background: c ? `rgb(${c[0]}, ${c[1]}, ${c[2]})` : black ? 'var(--border-row)' : 'var(--key-white-bg)',
+          }} />
+        )
+      })}
+    </div>
+  )
+}
+
 // ── Dev Tools: key lights on a simulated keyboard, with what was sent ───────
 export function KeyLightsTestPanel() {
   useMidiSettings(s => s.devices); useMidiSettings(s => s.simKeyLights)
@@ -308,6 +337,7 @@ export function KeyLightsTestPanel() {
   const plugged = sim.isPlugged(target)
   const devKey = model.ports[0].replace(/ MIDI$/, '')
   const setup = plugged ? lightSetupFor(devKey) : null
+  const lit = plugged ? litKeysOn(devKey) : new Map()
   const sent = sim.sentTo(target).slice(-5).map(b => b.map(x => x.toString(16).padStart(2, '0').toUpperCase()).join(' '))
   const btn = (label: string, fn: () => void, enabled = true, active = false) => (
     <button key={label} onClick={fn} disabled={!enabled}
@@ -333,6 +363,7 @@ export function KeyLightsTestPanel() {
         {btn('Light C major', () => lightChordForTest([60, 64, 67]), plugged)}
         {btn('Try it', tryKeyLights, plugged)}
       </div>
+      {plugged && <SimLitKeys low={model.low ?? 21} high={model.high ?? 108} lit={lit} />}
       <div style={{ fontFamily: 'var(--font-mono)', fontSize: 9, color: 'var(--text-muted)', lineHeight: 1.5, minHeight: 40, wordBreak: 'break-all' }}>
         {sent.length ? sent.map((s, i) => <div key={i}>{s}</div>) : 'Nothing sent yet.'}
       </div>

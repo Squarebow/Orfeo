@@ -7,16 +7,17 @@
 // plus the simulated ones. Driven from Settings → MIDI Keyboard → Keyboards
 // (dev only) or the console: window.__orfeoSimMidi.
 
-export interface SimModel { key: string; ports: string[]; outPorts: string[]; manufacturer: string }
+// low/high: the lowest and highest key at the keyboard's usual octave (none for a cable)
+export interface SimModel { key: string; ports: string[]; outPorts: string[]; manufacturer: string; low?: number; high?: number }
 
 // Port names as Windows reports them for these real keyboards — including the
 // second "MIDIIN2 (…)" port some have, to exercise the name cleaning
 export const SIM_MODELS: SimModel[] = [
-  { key: 's88', ports: ['KOMPLETE KONTROL S88 MK3 MIDI'], outPorts: ['KOMPLETE KONTROL S88 MK3 MIDI'], manufacturer: 'Native Instruments' },
-  { key: 'mpk', ports: ['MPK mini Plus'], outPorts: ['MPK mini Plus'], manufacturer: 'Microsoft' },
-  { key: 'launchkey', ports: ['Launchkey MK4 37 MIDI', 'MIDIIN2 (Launchkey MK4 37)'], outPorts: ['Launchkey MK4 37 MIDI'], manufacturer: 'Focusrite A.E. Ltd' },
+  { key: 's88', ports: ['KOMPLETE KONTROL S88 MK3 MIDI'], outPorts: ['KOMPLETE KONTROL S88 MK3 MIDI'], manufacturer: 'Native Instruments', low: 21, high: 108 },
+  { key: 'mpk', ports: ['MPK mini Plus'], outPorts: ['MPK mini Plus'], manufacturer: 'Microsoft', low: 48, high: 84 },
+  { key: 'launchkey', ports: ['Launchkey MK4 37 MIDI', 'MIDIIN2 (Launchkey MK4 37)'], outPorts: ['Launchkey MK4 37 MIDI'], manufacturer: 'Focusrite A.E. Ltd', low: 48, high: 84 },
   // Lighted keys, driven by its open LED protocol (Settings › MIDI Keyboard › Key lights)
-  { key: 'partykeys', ports: ['PartyKeys 36'], outPorts: ['PartyKeys 36'], manufacturer: 'PartyKeys' },
+  { key: 'partykeys', ports: ['PartyKeys 36'], outPorts: ['PartyKeys 36'], manufacturer: 'PartyKeys', low: 48, high: 83 },
   // A virtual cable (no keys): listed in dev mode only, never taken as the keyboard in use
   { key: 'loopmidi', ports: ['loopMIDI Port'], outPorts: ['loopMIDI Port'], manufacturer: 'Tobias Erichsen' },
 ]
@@ -105,6 +106,8 @@ export const sim = {
   send(key: string, bytes: number[], port = 0) { _inputs.get(`sim-${key}-in-${port}`)?.deliver(bytes) },
   noteOn(key: string, note: number, vel = 90) { sim.send(key, [0x90, note, vel]) },
   noteOff(key: string, note: number) { sim.send(key, [0x80, note, 0]) },
+  // One key pressed and let go, as a finger would
+  tap(key: string, note: number, vel = 90) { sim.noteOn(key, note, vel); setTimeout(() => sim.noteOff(key, note), 250) },
   // Notes held for `ms`, all struck together
   chord(key: string, notes: number[], vel = 90, ms = 900) {
     notes.forEach(n => sim.noteOn(key, n, vel))

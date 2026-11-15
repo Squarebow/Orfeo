@@ -3,6 +3,7 @@ import { autoUpdater } from 'electron-updater'
 import { join, basename, dirname, extname } from 'path'
 import { execFile } from 'child_process'
 import { readFileSync, writeFileSync, existsSync, readdirSync, createWriteStream, statSync } from 'fs'
+import { readPrefsFile, writePrefsFile } from './prefsFile'
 import { mkdir, access, copyFile, readdir, rename, rmdir, writeFile, readFile, stat } from 'fs/promises'
 import { Midi } from '@tonejs/midi'
 import { Chord, Note } from 'tonal'
@@ -194,12 +195,10 @@ function createWindow() {
 
 // ── Prefs ──────────────────────────────────────────────────────────────────
 function getPrefsPath() { return join(app.getPath('userData'), 'orfeo-prefs.json') }
-function loadPrefs(): Record<string, any> {
-  try { const p = getPrefsPath(); if (existsSync(p)) return JSON.parse(readFileSync(p, 'utf-8')) } catch {}
-  return {}
-}
+// Crash-safe: a spare file swapped in, a backup per run (electron/prefsFile.ts)
+function loadPrefs(): Record<string, any> { return readPrefsFile(getPrefsPath()) }
 function savePrefs(data: Record<string, any>) {
-  try { writeFileSync(getPrefsPath(), JSON.stringify({ ...loadPrefs(), ...data }, null, 2)) } catch {}
+  try { writePrefsFile(getPrefsPath(), { ...loadPrefs(), ...data }) } catch {}
 }
 ipcMain.handle('prefs:get', async () => loadPrefs())
 
