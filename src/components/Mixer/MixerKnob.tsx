@@ -1,5 +1,5 @@
 import { useRef, useState, useEffect, useCallback } from 'react'
-import { TooltipBox } from '../Tooltip'
+import { TooltipBox, useHoverGuard } from '../Tooltip'
 
 // Knob geometry — viewBox stays 52×52; rendered size controlled by `size` prop.
 const CX = 26, CY = 26
@@ -81,6 +81,7 @@ export default function MixerKnob({
   const wrapperRef = useRef<HTMLDivElement>(null)
   const dragging = useRef(false)
   const [hover, setHover] = useState(false)
+  useHoverGuard(wrapperRef, hover, setHover)  // the Mixer closes under the pointer
 
   const norm       = Math.max(0, Math.min(1, bipolar ? (value + 1) / 2 : value))
   const notchAngle = ARC_START + norm * ARC_SWEEP

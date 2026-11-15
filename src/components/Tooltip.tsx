@@ -1,4 +1,4 @@
-import { useRef, useState, useLayoutEffect, type ReactNode } from 'react'
+import { useRef, useState, useEffect, useLayoutEffect, type ReactNode, type RefObject } from 'react'
 import { createPortal } from 'react-dom'
 import { useStore } from '../store'
 
@@ -155,6 +155,35 @@ export function TooltipBox({ anchorRect, content, visible, placement = 'top', on
   )
 }
 
+// ── A shown tooltip that has lost its anchor ────────────────────────────────
+// Hover is tracked with mouseenter/leave, and two things never send a leave:
+// a drag (dragging a Mixer strip to reorder it) and the anchor being hidden
+// under the pointer (the Mixer closes with display:none and stays mounted).
+// The tooltip then stayed up, even over the main window. While one is shown:
+// any drag hides it, the pointer moving off the anchor hides it, and an
+// anchor that's gone or has no size any more hides it.
+export function useHoverGuard(ref: RefObject<HTMLElement | null>, hover: boolean, setHover: (v: boolean) => void) {
+  useEffect(() => {
+    if (!hover) return
+    const off = () => setHover(false)
+    const moved = (e: PointerEvent) => { if (!ref.current?.contains(e.target as Node)) off() }
+    const check = () => {
+      const el = ref.current
+      if (!el || !el.isConnected) return off()
+      const r = el.getBoundingClientRect()
+      if (r.width === 0 && r.height === 0) off()
+    }
+    document.addEventListener('dragstart', off, true)
+    document.addEventListener('pointermove', moved, true)
+    const id = setInterval(check, 250)
+    return () => {
+      document.removeEventListener('dragstart', off, true)
+      document.removeEventListener('pointermove', moved, true)
+      clearInterval(id)
+    }
+  }, [hover, ref, setHover])
+}
+
 // ── Tooltip — convenience wrapper for the common static case (most knobs
 // and icons): wraps children, shows TooltipBox on hover. For dynamic
 // content (changes per mouse position, or live during a drag), use
@@ -209,6 +238,7 @@ export default function Tooltip({ title, titleValue, description, body, placemen
 }) {
   const ref = useRef<HTMLDivElement>(null)
   const [hover, setHover] = useState(false)
+  useHoverGuard(ref, hover, setHover)
   return (
     <div
       ref={ref}
@@ -242,6 +272,7 @@ export function useTooltip<T extends HTMLElement = HTMLElement>(
 ) {
   const ref = useRef<T>(null)
   const [hover, setHover] = useState(false)
+  useHoverGuard(ref, hover, setHover)
   return {
     ref,
     onMouseEnter: () => setHover(true),

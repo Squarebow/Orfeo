@@ -5,7 +5,7 @@ import { t } from '../../utils/i18n'
 import MixerKnob from './MixerKnob'
 import CompressorIcon from '../CompressorIcon'
 import PianoKeysIcon from '../PianoKeysIcon'
-import Tooltip, { TooltipBox } from '../Tooltip'
+import Tooltip, { TooltipBox, useHoverGuard } from '../Tooltip'
 import {
   setMasterChorus,
   setMasterReverb,
@@ -76,6 +76,7 @@ function IBtn({ children, onClick, active, title, description, activeColor = 'va
 }) {
   const ref = useRef<HTMLButtonElement>(null)
   const [hover, setHover] = useState(false)
+  useHoverGuard(ref, hover, setHover)  // the Mixer closes under the pointer
   return (
     <button
       ref={ref}

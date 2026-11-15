@@ -6,7 +6,7 @@ import { trackLabel } from '../../utils/trackLabel'
 import { useDevicePixelRatio } from '../../hooks/useDevicePixelRatio'
 import MixerKnob from './MixerKnob'
 import PianoKeysIcon from '../PianoKeysIcon'
-import Tooltip, { TooltipBox } from '../Tooltip'
+import Tooltip, { TooltipBox, useHoverGuard } from '../Tooltip'
 import { MarqueeText } from '../MarqueeText'
 import {
   setChannelChorus,
@@ -74,6 +74,7 @@ function IBtn({ children, onClick, active, title, description, activeColor = 'va
 }) {
   const ref = useRef<HTMLButtonElement>(null)
   const [hover, setHover] = useState(false)
+  useHoverGuard(ref, hover, setHover)  // the Mixer closes under the pointer
   return (
     <button
       ref={ref}
