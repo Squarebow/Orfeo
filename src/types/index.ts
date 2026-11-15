@@ -104,6 +104,9 @@ export interface ParsedMidi {
   _origRaw?: ArrayBuffer
   _leadTick?: number
   _leadSec?: number
+  // ── The two staves of each keyboard instrument written as two tracks (track
+  // indices, upper first): the chord reading treats each pair as one instrument
+  _stavePairs?: [number, number][]
 }
 
 export type PlaybackState = 'stopped' | 'playing' | 'paused'

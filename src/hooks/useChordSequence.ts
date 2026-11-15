@@ -42,7 +42,7 @@ export function useChordSequence() {
     // The bass line is resolved for every mode — it anchors the chord root
     // and is folded into the detector's chroma. `pickChordTracks` is memoised
     // so calling it here is free even outside Auto.
-    const roles: ChordTrackRoles = pickChordTracks(midi.tracks)
+    const roles: ChordTrackRoles = pickChordTracks(midi.tracks, midi._stavePairs)
     const bass: ParsedTrack | null = roles.bassTrackIndex != null
       ? midi.tracks.find(t => t.index === roles.bassTrackIndex) ?? null
       : null

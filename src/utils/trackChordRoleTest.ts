@@ -1,5 +1,5 @@
 import type { ParsedTrack, ParsedNote } from '../types'
-import { pickChordTracks } from './trackChordRole'
+import { pickChordTracks, stavePairsOf } from './trackChordRole'
 
 function note(midi: number, time: number, duration: number): ParsedNote {
   return { midi, time, duration, velocity: 0.7, trackIndex: 0 }
@@ -45,6 +45,20 @@ export function runTrackChordRoleTest(): void {
   const r4 = pickChordTracks([mono(0, 73, 72, 12)])
   check(r4.chordTrackIndices.length === 1 && r4.chordTrackIndices[0] === 0,
     'melody-only → detector still runs on the melody line ([0], nothing else to use)')
+
+  // A piano on two staves: a right-hand tune and a low left hand. One by one,
+  // the left staff passes for a bass line and its notes lose their chord vote;
+  // as the one instrument it is, both staves are read for the chords.
+  const rh = { ...mono(0, 0, 72, 16), name: 'Piano RH', group: 'piano' }
+  const lh = { ...mono(1, 0, 40, 16), name: 'Piano LH', group: 'piano' }
+  const pairs = stavePairsOf([rh, lh])
+  check(pairs.length === 1 && pairs[0][0] === 0 && pairs[0][1] === 1, 'the two piano staves are found as one instrument, right hand first')
+  const apart = pickChordTracks([rh, lh])
+  check(apart.bassTrackIndex === 1, 'judged one by one, the left staff passes for the bass (the old reading)')
+  const together = pickChordTracks([rh, lh], pairs)
+  check(together.bassTrackIndex === null && together.chordTrackIndices.join() === '0,1', 'as one instrument, both staves are read for the chords')
+  const withBass = pickChordTracks([rh, lh, mono(2, 34, 33, 16)], pairs)
+  check(withBass.bassTrackIndex === 2 && withBass.chordTrackIndices.join() === '0,1', 'a real bass part still anchors the chords')
 
   console.log(`trackChordRole: ${pass} passed, ${fail} failed`)
   console.groupEnd()

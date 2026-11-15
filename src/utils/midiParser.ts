@@ -5,6 +5,7 @@ import { getGMName, getGMGroup } from './gmInstruments'
 import { n } from '../i18n/mark'
 import { restoreHandTagsFromHints } from './handMetadata'
 import { assignHandsByTrack } from './handAssignment'
+import { stavePairsOf } from './trackChordRole'
 import { useStore } from '../store'
 import { HAND_ASSIGN_GROUPS } from './keyboardGroups'
 import { SEMITONE_TO_KEY_NAME } from './keyDetection'
@@ -261,6 +262,9 @@ export function parseMidiBuffer(buffer: ArrayBuffer, fileName: string, filePath 
     )
     for (const a of assignments) { a.note.hand = a.hand; a.note.handConfidence = a.confidence }
   }
+  // The same staves, for the chord reading: a two-staff piano is one
+  // instrument there too (trackChordRole.ts)
+  const stavePairs = stavePairsOf(tracks.map(t => ({ ...t, name: fileTrackNames.get(t.index) ?? '', channel: t.channel ?? -1 })))
 
   const result: any = {
     fileName,
@@ -273,6 +277,7 @@ export function parseMidiBuffer(buffer: ArrayBuffer, fileName: string, filePath 
     _raw: buffer,
     _keySignature: keySignature,
     _filePath: filePath,
+    _stavePairs: stavePairs,
     _rawMidiTracks: midi.tracks,
     _tempoMap: tempoMap,
     _timeSigMap: timeSigMap,
