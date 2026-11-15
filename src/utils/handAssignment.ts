@@ -22,10 +22,12 @@
 //        register decides which. A Viterbi pass picks the line path that best
 //        balances that pull, how far the line moves, and what a hand can reach
 //        (span and finger count).
+//     4. A second look at notes inside a right-hand run (refine()).
 //
-// Measured on 40 two-staff piano scores (staves joined, staves = answer):
-// 90–93 % of notes on the right hand, against 83–84 % for the previous
-// engine — scripts/hand-audit/. Change nothing here without running it.
+// Measured on 74 two-staff piano scores (staves joined, staves = answer):
+// 92.3 % of notes in the right hand (the line alone 92.2 %, the previous
+// engine 83–84 % on the first 40) — scripts/hand-audit/. Change nothing here
+// without running it, and check a change on pieces it wasn't tuned on.
 
 import type { Hand } from '../types'
 export type { Hand }
@@ -546,9 +548,52 @@ function runDividingLine<T extends HandInput>(notes: T[], opts: Required<HandAss
     }
   }
 
+  refine(clusters, results)
+
   // back to the caller's order
   const order = new Map<T, number>()
   notes.forEach((n, i) => order.set(n, i))
   results.sort((a, b) => order.get(a.note)! - order.get(b.note)!)
   return results
+}
+
+// ── A second look, after the line ────────────────────────────────────────────
+// The left hand is holding notes it struck earlier (a held bass, a chord) and
+// the right hand is running a figure around it: a new note between the right
+// hand's notes just before and after (within a 5th, half a second either side)
+// is the right hand's, even when it dips close to the left hand. Piano Man's
+// arpeggio down to middle C over a held F.
+// Measured on 74 scores: 92.16 % → 92.30 %; on the 29 it wasn't tuned on,
+// 91.56 % → 91.74 %; 32 pieces better, 9 a little worse (at most 0.5 points).
+// Tried and dropped: a chord the line cut in two, struck right after a lone
+// bass note, wholly to the left hand (oom-pah). It helped the ragtime pieces
+// it came from (96.6 → 96.8 %) but cost the 29 others 0.1 points.
+const RUN_NEAR_SEC = 0.5      // the right hand's notes just before and after
+const RUN_LEAP = 7            // …within a 5th of the note (5, 9 and 12 measure lower)
+
+function refine<T extends HandInput>(clusters: Cluster<T>[], results: HandAssignedNote<T>[]): void {
+  const hand = new Map<T, HandAssignedNote<T>>()
+  for (const r of results) hand.set(r.note, r)
+  const isL = (n: T) => hand.get(n)!.hand === 'L'
+  const end = (n: T) => n.time + (n.duration ?? 0)
+  const K = clusters.length
+  for (let k = 0; k < K; k++) {
+    const c = clusters[k]
+    for (const n of c.notes) {
+      // only the left hand's top note of the moment
+      if (!isL(n) || c.notes.some(m => m !== n && m.midi > n.midi && isL(m))) continue
+      // the left hand already holds something below it, struck earlier
+      let held = false
+      for (let j = k - 1; j >= 0 && !held && c.time - clusters[j].time < 4; j--) {
+        held = clusters[j].notes.some(m => isL(m) && m.midi < n.midi && end(m) > c.time + 0.03)
+      }
+      if (!held) continue
+      // right-hand notes just before and just after, within a 5th
+      const near = (j: number) => clusters[j].notes.some(m => !isL(m) && Math.abs(m.midi - n.midi) <= RUN_LEAP)
+      let before = false, after = false
+      for (let j = k - 1; j >= 0 && c.time - clusters[j].time <= RUN_NEAR_SEC; j--) if (near(j)) { before = true; break }
+      for (let j = k + 1; j < K && clusters[j].time - c.time <= RUN_NEAR_SEC; j++) if (near(j)) { after = true; break }
+      if (before && after) hand.get(n)!.hand = 'R'
+    }
+  }
 }
