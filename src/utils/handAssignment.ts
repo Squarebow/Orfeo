@@ -22,10 +22,11 @@
 //        register decides which. A Viterbi pass picks the line path that best
 //        balances that pull, how far the line moves, and what a hand can reach
 //        (span and finger count).
-//     4. A second look at notes inside a right-hand run (refine()).
+//     4. A second look at notes inside a right-hand run, and at the tune
+//        dipping toward the left hand (refine()).
 //
 // Measured on 74 two-staff piano scores (staves joined, staves = answer):
-// 92.3 % of notes in the right hand (the line alone 92.2 %, the previous
+// 92.4 % of notes in the right hand (the line alone 92.2 %, the previous
 // engine 83–84 % on the first 40) — scripts/hand-audit/. Change nothing here
 // without running it, and check a change on pieces it wasn't tuned on.
 
@@ -571,7 +572,27 @@ function runDividingLine<T extends HandInput>(notes: T[], opts: Required<HandAss
 const RUN_NEAR_SEC = 0.5      // the right hand's notes just before and after
 const RUN_LEAP = 7            // …within a 5th of the note (5, 9 and 12 measure lower)
 
+// The tune dipping toward the accompaniment (The Entertainer's E above a left-
+// hand chord topped by middle C). The right hand's top notes over a second
+// either side draw the tune's range; the left hand's top note of a moment
+// that falls inside that range is the tune's, when
+//   - the tune goes on just before and just after (0.6 s),
+//   - the left hand is meanwhile busy lower down (a 4th or more below), and
+//   - the note is nearer the tune's last note than the left hand's own last
+//     note (a tie stays left: repeated bass notes, Vivaldi's 16ths).
+// Measured on 74 scores: 92.30 % → 92.41 %, every set up or level, 22 pieces
+// better (Love of My Life, Vivaldi Winter, Pink Panther, The Entertainer up to
+// 0.7 points), 13 a little worse (at most 0.7: La vie en rose intermediate).
+// Without the last two conditions it gained on new pieces but cost Vivaldi's
+// Presto 1.9 points. Still open: most of the tune's notes the line hands left
+// stay there; this catches the clear ones.
+const TUNE_WIN_SEC = 1        // the tune's range: right-hand top notes this far either side
+const TUNE_NEAR_SEC = 0.6     // the tune going on just before and after
+const TUNE_MIN_NOTES = 3      // right-hand moments needed to draw a range
+const TUNE_LH_BELOW = 5       // the left hand busy at least a 4th below
+
 function refine<T extends HandInput>(clusters: Cluster<T>[], results: HandAssignedNote<T>[]): void {
+  // (A) a note inside a right-hand run, (B) the tune dipping: see above
   const hand = new Map<T, HandAssignedNote<T>>()
   for (const r of results) hand.set(r.note, r)
   const isL = (n: T) => hand.get(n)!.hand === 'L'
@@ -594,6 +615,38 @@ function refine<T extends HandInput>(clusters: Cluster<T>[], results: HandAssign
       for (let j = k - 1; j >= 0 && c.time - clusters[j].time <= RUN_NEAR_SEC; j--) if (near(j)) { before = true; break }
       for (let j = k + 1; j < K && clusters[j].time - c.time <= RUN_NEAR_SEC; j++) if (near(j)) { after = true; break }
       if (before && after) hand.get(n)!.hand = 'R'
+    }
+
+    // B — the left hand's top note inside the tune's range
+    for (const n of c.notes) {
+      // the top of its moment, not doubled by another note
+      if (!isL(n) || c.notes.some(m => m !== n && m.midi >= n.midi)) continue
+      const tune: number[] = []
+      let before = false, after = false
+      const look = (j: number, near: boolean) => {
+        const rs = clusters[j].notes.filter(m => !isL(m))
+        if (!rs.length) return false
+        tune.push(Math.max(...rs.map(m => m.midi)))
+        return near
+      }
+      for (let j = k - 1; j >= 0 && c.time - clusters[j].time <= TUNE_WIN_SEC; j--) if (look(j, c.time - clusters[j].time <= TUNE_NEAR_SEC)) before = true
+      for (let j = k + 1; j < K && clusters[j].time - c.time <= TUNE_WIN_SEC; j++) if (look(j, clusters[j].time - c.time <= TUNE_NEAR_SEC)) after = true
+      if (!before || !after || tune.length < TUNE_MIN_NOTES || n.midi < Math.min(...tune)) continue
+      // the left hand busy lower down just before or after
+      const lower = (j: number) => clusters[j].notes.some(m => isL(m) && m.midi < n.midi - TUNE_LH_BELOW)
+      let busy = false
+      for (let j = k - 1; j >= 0 && !busy && c.time - clusters[j].time <= TUNE_NEAR_SEC; j--) busy = lower(j)
+      for (let j = k + 1; j < K && !busy && clusters[j].time - c.time <= TUNE_NEAR_SEC; j++) busy = lower(j)
+      if (!busy) continue
+      // nearer the tune's last note than the left hand's own (a tie stays left)
+      let dL = Infinity, dR = Infinity
+      for (let j = k - 1; j >= 0 && c.time - clusters[j].time <= TUNE_NEAR_SEC && (dL === Infinity || dR === Infinity); j--) {
+        const ls = clusters[j].notes.filter(isL), rs = clusters[j].notes.filter(m => !isL(m))
+        if (dL === Infinity && ls.length) dL = Math.min(...ls.map(m => Math.abs(m.midi - n.midi)))
+        if (dR === Infinity && rs.length) dR = Math.min(...rs.map(m => Math.abs(m.midi - n.midi)))
+      }
+      if (dL < dR + 0.5) continue
+      hand.get(n)!.hand = 'R'
     }
   }
 }
