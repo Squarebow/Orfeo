@@ -29,6 +29,7 @@ import Tooltip, { TooltipBox, useTooltip } from '../Tooltip'
 import { ContextMenu, ContextMenuItem, ContextMenuDivider, ContextMenuLabel } from '../ContextMenu'
 import { UpdateButton, RateButton, DevModeBadge } from '../Settings/controls'
 import QuickSettings from '../Settings/QuickSettings'
+import { createPortal } from 'react-dom'
 
 // ── Spin keyframe for transcript loading animation ────────────────────────────
 if (typeof document !== 'undefined' && !document.getElementById('orfeo-transcript-anim')) {
@@ -1759,6 +1760,10 @@ export default function SettingsPanel() {
   const [widthDragging, setWidthDragging] = useState(false)
   const [edgeHover, setEdgeHover] = useState(false)
   const edgeRef = useRef<HTMLDivElement>(null)
+  const panelRef = useRef<HTMLDivElement>(null)
+  // the edge is placed from the panel's position: draw once more after mount
+  const [, setPanelMounted] = useState(false)
+  useEffect(() => setPanelMounted(true), [])
   // the edge's tooltip points at the piano roll's bottom edge, the top of the chords / scales bar
   const edgeTipAnchor = (): DOMRect | null => {
     const edge = edgeRef.current?.getBoundingClientRect()
@@ -1783,7 +1788,7 @@ export default function SettingsPanel() {
   }
 
   return (
-    <div style={{
+    <div ref={panelRef} style={{
       width: panelWidth,
       background: 'var(--bg-modal)',
       borderRight: '1px solid var(--border2)',
@@ -1954,16 +1959,28 @@ export default function SettingsPanel() {
       {/* ── Drag the right edge to widen the Library (Library tab only) ── */}
       {canWiden && (
         <>
-          {/* A 6px grab zone with nothing drawn: the resize pointer says it all */}
-          <div
-            ref={edgeRef}
-            role="separator" aria-orientation="vertical" aria-label={t`Library width`}
-            onMouseDown={e => { setEdgeHover(false); startWidthDrag(e) }}
-            onDoubleClick={() => useStore.getState().setLibraryWidth(LIBRARY_MIN_WIDTH)}
-            onMouseEnter={() => setEdgeHover(true)}
-            onMouseLeave={() => setEdgeHover(false)}
-            style={{ position: 'absolute', top: 0, right: 0, bottom: 0, width: 6, cursor: 'ew-resize', zIndex: 20 }}
-          />
+          {/* A 6px grab zone with nothing drawn: the resize pointer says it all.
+              It sits on the Library's border and just outside it, never over
+              the list's scroll bar (inside the edge it took the scroll bar's
+              place, so the bar couldn't be dragged). The panel clips what
+              sticks out, so it's drawn over the page, placed by the panel's
+              own position and width. */}
+          {panelRef.current && createPortal(
+            <div
+              ref={edgeRef}
+              className="app-no-drag"
+              role="separator" aria-orientation="vertical" aria-label={t`Library width`}
+              onMouseDown={e => { setEdgeHover(false); startWidthDrag(e) }}
+              onDoubleClick={() => useStore.getState().setLibraryWidth(LIBRARY_MIN_WIDTH)}
+              onMouseEnter={() => setEdgeHover(true)}
+              onMouseLeave={() => setEdgeHover(false)}
+              style={(() => {
+                const r = panelRef.current!.getBoundingClientRect()
+                return { position: 'fixed', top: r.top, bottom: 0, left: r.left + panelWidth - 1, width: 6, cursor: 'ew-resize', zIndex: 20 }
+              })()}
+            />,
+            document.body,
+          )}
           {/* Its tooltip sits just above the chords / scales bar under the piano roll,
               not halfway down a tall edge */}
           <TooltipBox
