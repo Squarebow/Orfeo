@@ -1,5 +1,5 @@
 import type { KeyboardSize, NoteNaming, Accidentals } from '../types'
-import { PIANO_RANGES } from './keyLayout'
+import { PIANO_RANGES, PORTABLE_SIZES, octaveLimits, rangeOf } from './keyLayout'
 import { getNoteLabel } from './noteNames'
 
 // ── A USB keyboard's own range of keys ──────────────────────────────────────
@@ -25,6 +25,22 @@ const SIZES: KeyboardSize[] = [61, 73, 88]
 // keyboard with its octave buttons pressed, for example, may need 73 or 88)
 export function fitKeyboardSize(r: KeyRange): KeyboardSize {
   return SIZES.find(n => PIANO_RANGES[n].min <= r.low && PIANO_RANGES[n].max >= r.high) ?? 88
+}
+
+// With Portable keyboards on, a small keyboard gets its own size, at the octave
+// it is set to (a 25-key keyboard moved up an octave shows C4–C6, not 61 keys)
+export function fitKeyboard(r: KeyRange, portable: boolean): { size: KeyboardSize; octave: number } {
+  if (portable) {
+    for (const n of PORTABLE_SIZES) {
+      const { down, up } = octaveLimits(n)
+      for (let o = 0; Math.abs(o) <= Math.max(-down, up); o = o > 0 ? -o : -o + 1) {
+        if (o < down || o > up) continue
+        const k = rangeOf(n, o)
+        if (k.min <= r.low && k.max >= r.high) return { size: n, octave: o }
+      }
+    }
+  }
+  return { size: fitKeyboardSize(r), octave: 0 }
 }
 
 // "C2–C7" in the player's note names (letters when names are switched off)

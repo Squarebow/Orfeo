@@ -3,7 +3,7 @@ import { Piano, Check } from 'lucide-react'
 import { useStore } from '../store'
 import { useMidiSettings } from '../store/midiSettings'
 import { onRangeKey, saveKeyboardRange, closeRangePrompt } from '../hooks/useMidiInput'
-import { pressKey, keyCount, rangeLabel, fitKeyboardSize, type RangeStep } from '../utils/keyboardRange'
+import { pressKey, keyCount, rangeLabel, fitKeyboard, type RangeStep } from '../utils/keyboardRange'
 import { buildKeyLayoutRatios } from '../utils/keyLayout'
 import { isBlackKey } from '../utils/midiParser'
 import { getNoteLabel } from '../utils/noteNames'
@@ -83,7 +83,7 @@ export function KeyboardRangePrompt() {
         {state.step === 'done' && (
           <>
             {t`${keyCount(state.range)} keys, ${rangeLabel(state.range, naming, acc)}.`}{' '}
-            {t`The on-screen keyboard now shows ${fitKeyboardSize(state.range)} keys.`}
+            {t`The on-screen keyboard now shows ${fitKeyboard(state.range, useStore.getState().portableKeyboards).size} keys.`}
           </>
         )}
       </div>

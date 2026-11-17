@@ -26,6 +26,7 @@ import { addTag, renameTag, deleteTag, setSongsTag, remapSongTags, restoreTagSta
 import { restoreFrame, type Frame } from '../utils/settingsFrame'
 import { addToQueue, removeFromQueue, moveInQueue, followOpenSong, remapQueue, restoreQueue, EMPTY_QUEUE, QUEUE_END_ACTIONS, type QueueState, type QueueEndAction } from '../utils/practiceQueue'
 import { clampLibraryWidth, LIBRARY_MIN_WIDTH } from '../utils/libraryWidth'
+import { PIANO_RANGES, viewOfRange, isPortableSize, clampOctave, type KeyView } from '../utils/keyLayout'
 import { toursFromPrefs, type TourId, type ToursSeen } from '../utils/tours'
 
 // ── Focus mode: every track's mute + eye from just before Focus went on, so
@@ -66,6 +67,18 @@ interface OrfeoStore {
   muteGroup: (group: string, muted: boolean) => void
 
   keyboardSize: KeyboardSize
+  // ── Portable keyboards (25/37/49 keys): offered only while this is on;
+  // their range moves by keyboardOctave (the octave ‹ › buttons). keyView and
+  // keyViewLo/Hi are what the keyboard and piano roll draw right now: during a
+  // size or octave change they glide there (utils/keyView.ts). ──
+  portableKeyboards: boolean
+  setPortableKeyboards: (on: boolean) => void
+  keyboardOctave: number
+  setKeyboardOctave: (octave: number) => void
+  lastStandardSize: KeyboardSize
+  keyView: KeyView
+  keyViewLo: number
+  keyViewHi: number
   keyboardMode: KeyboardMode
   activeKeys: Set<number>
   // ── Keys held down on a hardware MIDI keyboard right now (useMidiInput) —
@@ -278,6 +291,11 @@ interface OrfeoStore {
   setTempoDisplay: (v: 'bpm' | 'percent') => void
   noteEditorSoloTrackIndex: number | null
   preSoloTrackVisibility: boolean[] | null
+  // Checking the hands passage by passage (utils/handCheck.ts): which track,
+  // which passage, and whether its panel is showing. Session only.
+  handCheck: { track: number; index: number; panel: boolean } | null
+  // bumped when "The hands are right" changes the passages
+  handCheckRev: number
   soloTrackForEdit: (index: number, opts?: { keepPlayhead?: boolean }) => void
   unsoloTrackForEdit: () => void
   noteEditorWalkthroughSeen: boolean
@@ -756,12 +774,29 @@ export const useStore = create<OrfeoStore>((set, get) => ({
     set((s) => ({ tracks: s.tracks.map((t) => t.group === group ? { ...t, muted } : t) })),
 
   keyboardSize: 73,
+  portableKeyboards: false,
+  keyboardOctave: 0,
+  lastStandardSize: 73,
+  keyView: viewOfRange(PIANO_RANGES[73].min, PIANO_RANGES[73].max),
+  keyViewLo: PIANO_RANGES[73].min,
+  keyViewHi: PIANO_RANGES[73].max,
   keyboardMode: 'docked',
   activeKeys: new Set(),
   midiHeldKeys: new Set(),
   activeKeyColors: new Map(),
 
-  setKeyboardSize: (keyboardSize) => set({ keyboardSize }),
+  // a new size starts at its own factory octave; a portable size only while
+  // Portable keyboards is on
+  setKeyboardSize: (keyboardSize) => set((s) => {
+    if (isPortableSize(keyboardSize) && !s.portableKeyboards) return {}
+    if (keyboardSize === s.keyboardSize) return {}
+    return { keyboardSize, keyboardOctave: 0, ...(isPortableSize(keyboardSize) ? {} : { lastStandardSize: keyboardSize }) }
+  }),
+  setPortableKeyboards: (portableKeyboards) => set((s) => (
+    !portableKeyboards && isPortableSize(s.keyboardSize)
+      ? { portableKeyboards, keyboardSize: s.lastStandardSize, keyboardOctave: 0 }
+      : { portableKeyboards })),
+  setKeyboardOctave: (octave) => set((s) => ({ keyboardOctave: clampOctave(s.keyboardSize, octave) })),
   setKeyboardMode: (keyboardMode) => set({ keyboardMode }),
   setActiveKeys: (activeKeys) => set({ activeKeys }),
   setActiveKeyColors: (activeKeyColors) => set({ activeKeyColors }),
@@ -1006,6 +1041,8 @@ export const useStore = create<OrfeoStore>((set, get) => ({
   // ── Note Editor: track solo + first-run walkthrough ───────────────────────
   noteEditorSoloTrackIndex: null,
   preSoloTrackVisibility: null,
+  handCheck: null,
+  handCheckRev: 0,
   soloTrackForEdit: (index, opts) => {
     const s = get()
     if (s.noteEditorSoloTrackIndex === index) {
@@ -1501,6 +1538,7 @@ async function restoreLibraryPrefs() {
     if (typeof prefs.trackVuColorEnabled === 'boolean') store.setTrackVuColorEnabled(prefs.trackVuColorEnabled)
     if (typeof prefs.unsavedWarningEnabled === 'boolean') store.setUnsavedWarningEnabled(prefs.unsavedWarningEnabled)
     if (typeof prefs.saveTrackChangesEnabled === 'boolean') store.setSaveTrackChangesEnabled(prefs.saveTrackChangesEnabled)
+    if (typeof prefs.portableKeyboards === 'boolean') store.setPortableKeyboards(prefs.portableKeyboards)
     if (typeof prefs.autoMuteNonKeyboard === 'boolean') store.setAutoMuteNonKeyboard(prefs.autoMuteNonKeyboard)
     if (prefs.settingsGroupsCollapsed && typeof prefs.settingsGroupsCollapsed === 'object' && !Array.isArray(prefs.settingsGroupsCollapsed)) {
       const defaults = store.settingsGroupsCollapsed
@@ -1706,6 +1744,7 @@ let _prevExplorerPausesPlayback: boolean | null = null
 let _prevTrackVuColorEnabled: boolean | null = null
 let _prevUnsavedWarningEnabled: boolean | null = null
 let _prevSaveTrackChangesEnabled: boolean | null = null
+let _prevPortableKeyboards: boolean | null = null
 let _prevAutoMuteNonKeyboard: boolean | null = null
 let _prevSettingsGroupsCollapsed: string | null = null
 let _prevNoteEditorWalkthroughSeen: boolean | null = null
@@ -1786,6 +1825,7 @@ const _unsubPrefs = useStore.subscribe((state) => {
     _prevTrackVuColorEnabled = state.trackVuColorEnabled
     _prevUnsavedWarningEnabled = state.unsavedWarningEnabled
     _prevSaveTrackChangesEnabled = state.saveTrackChangesEnabled
+    _prevPortableKeyboards = state.portableKeyboards
     _prevAutoMuteNonKeyboard = state.autoMuteNonKeyboard
     _prevSettingsGroupsCollapsed = JSON.stringify(state.settingsGroupsCollapsed)
     _prevNoteEditorWalkthroughSeen = state.noteEditorWalkthroughSeen
@@ -1869,6 +1909,7 @@ const _unsubPrefs = useStore.subscribe((state) => {
     state.trackVuColorEnabled !== _prevTrackVuColorEnabled ||
     state.unsavedWarningEnabled !== _prevUnsavedWarningEnabled ||
     state.saveTrackChangesEnabled !== _prevSaveTrackChangesEnabled ||
+    state.portableKeyboards !== _prevPortableKeyboards ||
     state.autoMuteNonKeyboard !== _prevAutoMuteNonKeyboard ||
     JSON.stringify(state.settingsGroupsCollapsed) !== _prevSettingsGroupsCollapsed ||
     state.noteEditorWalkthroughSeen !== _prevNoteEditorWalkthroughSeen ||
@@ -1944,6 +1985,7 @@ const _unsubPrefs = useStore.subscribe((state) => {
     _prevTrackVuColorEnabled = state.trackVuColorEnabled
     _prevUnsavedWarningEnabled = state.unsavedWarningEnabled
     _prevSaveTrackChangesEnabled = state.saveTrackChangesEnabled
+    _prevPortableKeyboards = state.portableKeyboards
     _prevAutoMuteNonKeyboard = state.autoMuteNonKeyboard
     _prevSettingsGroupsCollapsed = JSON.stringify(state.settingsGroupsCollapsed)
     _prevNoteEditorWalkthroughSeen = state.noteEditorWalkthroughSeen
@@ -2026,6 +2068,7 @@ const _unsubPrefs = useStore.subscribe((state) => {
       trackVuColorEnabled: state.trackVuColorEnabled,
       unsavedWarningEnabled: state.unsavedWarningEnabled,
       saveTrackChangesEnabled: state.saveTrackChangesEnabled,
+      portableKeyboards: state.portableKeyboards,
       autoMuteNonKeyboard: state.autoMuteNonKeyboard,
       settingsGroupsCollapsed: state.settingsGroupsCollapsed,
       noteEditorWalkthroughSeen: state.noteEditorWalkthroughSeen,

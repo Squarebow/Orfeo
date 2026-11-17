@@ -107,7 +107,7 @@ export const NES = {
 // noteEditorCommands.ts already writes, rather than duplicating a `kind`
 // field. Batch commands (e.g. "Remove 3 notes") count their own N. ────────
 export function buildNoteEditSummary(descriptions: string[]): string {
-  let added = 0, removed = 0, moved = 0, repitched = 0, resized = 0, velocityChanged = 0, reassigned = 0
+  let added = 0, removed = 0, moved = 0, repitched = 0, resized = 0, velocityChanged = 0, reassigned = 0, confirmed = 0
   for (const d of descriptions) {
     const batchRemove = d.match(/^Remove (\d+) notes?$/)
     const batchVelocity = d.match(/^Set velocity on (\d+) notes/)
@@ -132,6 +132,8 @@ export function buildNoteEditSummary(descriptions: string[]): string {
     else if (d.startsWith('Velocity note')) velocityChanged++
     else if (batchAssign) reassigned += parseInt(batchAssign[1], 10)
     else if (d.startsWith('Assign left hand') || d.startsWith('Assign right hand')) reassigned++
+    // "The hands are right" in the passage check (utils/handCheck.ts)
+    else if (d.startsWith('Confirm hands in a passage')) confirmed++
   }
   const s = (n: number) => n === 1 ? '' : 's'
   const parts: string[] = []
@@ -142,6 +144,7 @@ export function buildNoteEditSummary(descriptions: string[]): string {
   if (resized > 0) parts.push(`resized ${resized} note${s(resized)}`)
   if (velocityChanged > 0) parts.push(`changed velocity on ${velocityChanged} note${s(velocityChanged)}`)
   if (reassigned > 0) parts.push(`reassigned hand on ${reassigned} note${s(reassigned)}`)
+  if (confirmed > 0) parts.push(`confirmed the hands in ${confirmed} passage${s(confirmed)}`)
   return parts.length > 0 ? parts.join(', ') : 'Saved'
 }
 

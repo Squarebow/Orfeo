@@ -131,7 +131,8 @@ export interface TrackState {
   reverb: number
 }
 
-export type KeyboardSize = 61 | 73 | 88
+// 25, 37 and 49 are the portable sizes (Settings › Keyboard › Portable keyboards)
+export type KeyboardSize = 25 | 37 | 49 | 61 | 73 | 88
 export type KeyboardMode = 'docked' | 'floating'
 // 'sargam' names single notes on the keyboard and piano roll only (counted from Sa);
 // chord and key names stay Western, so everywhere else it reads as 'english'

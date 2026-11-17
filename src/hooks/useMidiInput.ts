@@ -27,7 +27,7 @@ import {
 import { liveNoteOn as gmNoteOn, liveSend as gmSend, liveReset as gmReset } from './useAudioEngine'
 import { nativeCall } from '../audio/nativeClient'
 import { nativeLivePiano } from '../audio/useNativeEngine'
-import { fitKeyboardSize, type KeyRange } from '../utils/keyboardRange'
+import { fitKeyboard, type KeyRange } from '../utils/keyboardRange'
 import { isLightEcho } from '../utils/keyLightEcho'
 import { t } from '../utils/i18n'
 
@@ -434,8 +434,10 @@ function adaptKeyboardSize(key: string) {
 }
 function setSizeFor(key: string, r: KeyRange) {
   _sizedFor = key + ":" + r.low + "-" + r.high
-  const size = fitKeyboardSize(r)
-  if (useStore.getState().keyboardSize !== size) useStore.getState().setKeyboardSize(size)
+  const st = useStore.getState()
+  const { size, octave } = fitKeyboard(r, st.portableKeyboards)
+  if (st.keyboardSize !== size) st.setKeyboardSize(size)
+  if (useStore.getState().keyboardOctave !== octave) useStore.getState().setKeyboardOctave(octave)
 }
 
 async function connect(): Promise<void> {

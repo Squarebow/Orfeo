@@ -1,18 +1,22 @@
-import { useMemo, useState, useEffect, useLayoutEffect, useRef, type CSSProperties } from 'react'
+import { useMemo, useState, useEffect, useLayoutEffect, useRef, type CSSProperties, type ReactNode } from 'react'
 import { useStore } from '../../store'
-import { ArrowLeft, ArrowRight } from 'lucide-react'
+import { ArrowLeft, ArrowRight, ChevronLeft, ChevronRight } from 'lucide-react'
 import { stepEvents } from '../../utils/stepThrough'
 import { t } from '../../utils/i18n'
 import Tooltip from '../Tooltip'
 import type { KeyboardSize } from '../../types'
 import { getWhiteKeys, noteToLeftPct, computeTaggedBoundaryCurve, interpolateTaggedCurve, type TaggedBoundarySample } from '../../utils/handBoundaries'
+import { STANDARD_SIZES, PORTABLE_SIZES, isPortableSize, octaveLimits } from '../../utils/keyLayout'
+import { targetRange } from '../../utils/keyView'
+import { getNoteLabel } from '../../utils/noteNames'
 
 // Exponential ease toward the curve's raw target — smooths the line's motion
 // between 0.25s samples instead of visibly stepping. Reaches ~90% of the way
 // there in ~200ms at 60fps.
 const SMOOTHING_FACTOR = 0.15
 
-const SIZES: KeyboardSize[] = [61, 73, 88]
+const SIZES: KeyboardSize[] = [...STANDARD_SIZES]
+const PORTABLE: KeyboardSize[] = [...PORTABLE_SIZES]
 
 // ── Smooth the raw curve boundary (in keyboard-%) toward its target every
 // frame — a plain per-sample lookup would visibly jump every 0.25s. Null
@@ -71,7 +75,9 @@ export default function KeyboardControls() {
   // averaged (not one static whole-file number) — see computeTaggedBoundaryCurve.
   // (Performance mode's indicator lives on the keys themselves — Keyboard.tsx —
   // reading each active note's own tag; nothing to render in this bar for it.)
-  const whiteKeys = useMemo(() => getWhiteKeys(keyboardSize), [keyboardSize])
+  const keyboardOctave = useStore((s) => s.keyboardOctave)
+  const portableKeyboards = useStore((s) => s.portableKeyboards)
+  const whiteKeys = useMemo(() => getWhiteKeys(targetRange({ keyboardSize, keyboardOctave })), [keyboardSize, keyboardOctave])
   const [taggedCurve, setTaggedCurve] = useState<TaggedBoundarySample[]>([])
   useEffect(() => { setTaggedCurve(computeTaggedBoundaryCurve(midi)) }, [midi])
   const rawBoundary = useMemo(() => interpolateTaggedCurve(taggedCurve, currentTime), [taggedCurve, currentTime])
@@ -136,6 +142,12 @@ export default function KeyboardControls() {
     >
       {/* ── Left: key size selector + dock/float toggle ──────────────────────── */}
       <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-3)', justifySelf: 'start', minWidth: 0 }}>
+        {/* ── Portable keyboards (Settings › Keyboard): 25 / 37 / 49 keys first,
+            smallest to largest left to right, with octave buttons for those ── */}
+        {portableKeyboards && <>
+          <PortableSizes size={keyboardSize} onPick={setKeyboardSize} />
+          <div style={{ width: 1, height: 14, background: 'var(--border)' }} />
+        </>}
         <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-1)' }}>
           {SIZES.map((size) => (
             <Tooltip key={size} title={t`Switch to ${size}-key layout`} oneLine>
@@ -298,6 +310,75 @@ F11 to open, Esc to close.`}
       </Tooltip>
       </div>
     </div>
+  )
+}
+
+// ── Portable sizes + octave buttons ──────────────────────────────────────────
+function PortableSizes({ size, onPick }: { size: KeyboardSize; onPick: (n: KeyboardSize) => void }) {
+  const octave = useStore(s => s.keyboardOctave)
+  const naming = useStore(s => s.noteNaming)
+  const acc = useStore(s => s.accidentals)
+  const portable = isPortableSize(size)
+  const { down, up } = octaveLimits(size)
+  const r = targetRange({ keyboardSize: size, keyboardOctave: octave })
+  const names = naming === 'hidden' ? 'english' : naming
+  const shift = (d: number) => useStore.getState().setKeyboardOctave(octave + d)
+  return (
+    <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-1)' }}>
+      {PORTABLE.map(n => (
+        <Tooltip key={n} title={t`Switch to ${n}-key layout`} oneLine>
+          <SizeButton active={size === n} onClick={() => onPick(n)}>{n}</SizeButton>
+        </Tooltip>
+      ))}
+      {/* kept in place (hidden) on 61/73/88, so the sizes beside never shift */}
+      <span aria-hidden={!portable} style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-1)', visibility: portable ? 'visible' : 'hidden' }}>
+        <OctaveButton dir={-1} enabled={portable && octave > down} onClick={() => shift(-1)} />
+        <span style={{ fontFamily: 'var(--font-mono)', fontSize: 10, color: 'var(--text-muted)', whiteSpace: 'nowrap', userSelect: 'none', minWidth: 46, textAlign: 'center' }}>
+          {portable ? `${getNoteLabel(r.min, names, acc)}–${getNoteLabel(r.max, names, acc)}` : ''}
+        </span>
+        <OctaveButton dir={1} enabled={portable && octave < up} onClick={() => shift(1)} />
+      </span>
+    </div>
+  )
+}
+
+function SizeButton({ active, onClick, children }: { active: boolean; onClick: () => void; children: ReactNode }) {
+  return (
+    <button
+      onClick={onClick}
+      style={{
+        padding: '2px var(--space-2)', borderRadius: 4, background: 'transparent', border: 'none',
+        color: active ? 'var(--text-amber)' : 'var(--text-muted)',
+        fontFamily: 'var(--font-mono)', fontSize: 'var(--text-sm)', fontWeight: 600,
+        cursor: 'pointer', transition: 'color 0.15s',
+      }}
+      onMouseEnter={e => { if (!active) e.currentTarget.style.color = 'var(--text-key-hover)' }}
+      onMouseLeave={e => { if (!active) e.currentTarget.style.color = 'var(--text-muted)' }}
+    >
+      {children}
+    </button>
+  )
+}
+
+function OctaveButton({ dir, enabled, onClick }: { dir: 1 | -1; enabled: boolean; onClick: () => void }) {
+  const Icon = dir === 1 ? ChevronRight : ChevronLeft
+  return (
+    <Tooltip title={dir === 1 ? t`Octave up` : t`Octave down`} oneLine>
+      <button
+        type="button"
+        aria-label={dir === 1 ? t`Octave up` : t`Octave down`}
+        disabled={!enabled}
+        onClick={(e) => { onClick(); e.currentTarget.blur() }}
+        style={{
+          display: 'flex', alignItems: 'center', justifyContent: 'center', width: 18, height: 18, padding: 0,
+          background: 'none', border: 'none', borderRadius: 'var(--radius-sm, 3px)',
+          cursor: enabled ? 'pointer' : 'default',
+          color: enabled ? 'var(--text-amber)' : 'var(--state-disabled)',
+        }}
+      >
+        <Icon size={14} strokeWidth={1.8} />
+      </button>
+    </Tooltip>
   )
 }
 

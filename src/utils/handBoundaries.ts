@@ -1,19 +1,11 @@
 import { isBlackKey } from './midiParser'
-import type { ParsedMidi, KeyboardSize, Hand } from '../types'
+import type { ParsedMidi, Hand } from '../types'
 import { KEYBOARD_GROUPS } from './keyboardGroups'
-
-// ── Keyboard MIDI note ranges per size — must match Keyboard.tsx ──────────────
-const RANGES: Record<number, { min: number; max: number }> = {
-  61: { min: 36, max: 96 },
-  73: { min: 28, max: 103 },
-  88: { min: 21, max: 108 },
-}
 // Performance mode hardware fallback: single note has no measurable gap.
 const PERF_MIN_NOTES = 2
 
-// ── Returns only the white keys visible for a given keyboard size ─────────────
-export function getWhiteKeys(keyboardSize: KeyboardSize): { midi: number }[] {
-  const { min, max } = RANGES[keyboardSize]
+// ── Returns only the white keys of the keys the keyboard shows (keyView.ts targetRange) ──
+export function getWhiteKeys({ min, max }: { min: number; max: number }): { midi: number }[] {
   const result: { midi: number }[] = []
   for (let m = min; m <= max; m++) {
     if (!isBlackKey(m)) result.push({ midi: m })

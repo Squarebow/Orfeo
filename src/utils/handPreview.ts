@@ -50,6 +50,39 @@ export function getHandPreviewStats(notes: ParsedNote[]): HandPreviewStats {
   }
 }
 
+// ── About how many notes are likely in the right hand ──────────────────────
+// A guess about the guess, shown as "about 90 %". Fitted on 74 two-staff
+// piano scores (staves joined, scripts/hand-audit): a song's share of right
+// notes from the share of its notes in four confidence bands. Checked on each
+// piece without it: off by 2.7 points on average, within 4 points three times
+// in four, up to 9 points over where a whole passage is confidently wrong —
+// so it's rounded to the nearest 5 and always worded "about … likely".
+// Weights: [base, <0.5, 0.5–0.7, 0.7–0.9, ≥0.9].
+const ESTIMATE_WEIGHTS = [0.7159, 0.0831, 0.0736, 0.2888, 0.2703]
+export function estimateHandAccuracy(notes: Pick<ParsedNote, 'hand' | 'handConfidence'>[]): number | null {
+  const known = notes.filter(n => n.hand !== undefined && hasKnownConfidence(n))
+  if (known.length === 0) return null
+  const share = (lo: number, hi: number) => known.filter(n => n.handConfidence! >= lo && n.handConfidence! < hi).length / known.length
+  const [w0, w1, w2, w3, w4] = ESTIMATE_WEIGHTS
+  const v = w0 + w1 * share(0, 0.5) + w2 * share(0.5, 0.7) + w3 * share(0.7, 0.9) + w4 * share(0.9, 2)
+  // nearest 5, never "100 %" for a guess, never below 75
+  return Math.min(95, Math.max(75, Math.round(v * 20) * 5))
+}
+
+// ── Passages already looked at, this session ────────────────────────────────
+// Jumping to a passage from the Note Editor counts as looking at it; the
+// Playback Editor's timeline then draws it dimmed. Keyed by song + track.
+const seen = new Map<string, Set<number>>()
+export const passageKey = (filePath: string | undefined, trackIndex: number) => `${filePath ?? ''}#${trackIndex}`
+export function markPassageSeen(key: string, start: number): void {
+  const s = seen.get(key) ?? new Set<number>()
+  s.add(Math.round(start * 1000))
+  seen.set(key, s)
+}
+export function isPassageSeen(key: string, start: number): boolean {
+  return seen.get(key)?.has(Math.round(start * 1000)) ?? false
+}
+
 export interface LowConfidencePassage {
   start: number
   end: number

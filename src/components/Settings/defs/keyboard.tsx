@@ -1,4 +1,4 @@
-import { Piano, Binary, CaseSensitive, Lightbulb, Clock } from 'lucide-react'
+import { Piano, Binary, CaseSensitive, Lightbulb, Clock, KeyboardMusic } from 'lucide-react'
 import { useStore } from '../../../store'
 import type { KeyboardSize } from '../../../types'
 import { OptionBtn, Switch, ButtonRow } from '../controls'
@@ -19,6 +19,10 @@ function KeyRangeControl() {
 
 export const KEYBOARD_DEFS: SettingDef[] = [
   { id: 'keyRange', icon: Piano, kind: 'choice', Control: KeyRangeControl },
+  {
+    id: 'portableKeyboards', icon: KeyboardMusic, kind: 'switch',
+    Control: () => { const v = useStore(s => s.portableKeyboards); return <Switch value={v} onChange={useStore.getState().setPortableKeyboards} label={t`Portable keyboards`} /> },
+  },
   {
     id: 'showOctaves', icon: Binary, kind: 'switch',
     Control: () => { const v = useStore(s => s.showOctaveLabels); return <Switch value={v} onChange={useStore.getState().setShowOctaveLabels} label={t`Show octaves`} /> },

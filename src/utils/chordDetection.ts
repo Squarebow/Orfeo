@@ -317,8 +317,12 @@ export function detectChordStructured(
 // (Keyboard.tsx), so "show on keyboard" and "open in Chord Explorer" always
 // render the same voicing for the same chord.
 // ---------------------------------------------------------------------------
-export function buildChordMidi(rootPitchClass: number, intervals: string[], keyboardSize: number): number[] {
-  const { min, max } = PIANO_RANGES[keyboardSize] ?? PIANO_RANGES[73]
+// `keyboard` is a keyboard size (61, 73, 88…) or the exact range of keys it shows
+type KeyboardRangeArg = number | { min: number; max: number }
+const rangeArg = (k: KeyboardRangeArg) => typeof k === 'number' ? (PIANO_RANGES[k] ?? PIANO_RANGES[73]) : k
+
+export function buildChordMidi(rootPitchClass: number, intervals: string[], keyboard: KeyboardRangeArg): number[] {
+  const { min, max } = rangeArg(keyboard)
   let rootMidi = -1
   for (const oct of [4, 3, 5, 2]) {
     const midi = rootPitchClass + (oct + 1) * 12
@@ -344,11 +348,11 @@ export function buildCompactVoicing(
   rootPitchClass: number,
   intervals: string[],
   bassPitchClass: number,
-  keyboardSize: number,
+  keyboard: KeyboardRangeArg,
 ): number[] {
-  const base = buildChordMidi(rootPitchClass, intervals, keyboardSize)
+  const base = buildChordMidi(rootPitchClass, intervals, keyboard)
   if (base.length === 0) return []
-  const { min, max } = PIANO_RANGES[keyboardSize] ?? PIANO_RANGES[73]
+  const { min, max } = rangeArg(keyboard)
   const wantBass = ((bassPitchClass % 12) + 12) % 12
 
   let notes = [...base].sort((a, b) => a - b)

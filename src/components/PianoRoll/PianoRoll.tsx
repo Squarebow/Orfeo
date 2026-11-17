@@ -3,7 +3,8 @@ import { Application, Graphics } from 'pixi.js'
 import type { Track } from '@tonejs/midi'
 import { useStore } from '../../store'
 import { isBlackKey } from '../../utils/midiParser'
-import { buildKeyLayout, PIANO_RANGES as RANGES, type KeyLayout } from '../../utils/keyLayout'
+import { buildKeyLayoutViewPx, type KeyLayout, type KeyView } from '../../utils/keyLayout'
+import { startKeyView, foldRange, foldIntoRange } from '../../utils/keyView'
 import { NES } from '../../utils/noteEditorState'
 import {
   cmdAddNote, cmdRemoveNotes, cmdSetRangeVelocity, midiToEditableCopy, copyHandTagsOntoEditBuffer,
@@ -215,6 +216,7 @@ function LoopOverlay() {
   const zoomLevel          = useStore(s => s.zoomLevel)
   const noteEditorActive   = useStore(s => s.noteEditorActive)
   const midi               = useStore(s => s.midi)
+  const checkingHands      = useStore(s => s.handCheck !== null)
 
   const overlayRef  = useRef<HTMLDivElement>(null)
   const draggingRef = useRef<'start' | 'end' | null>(null)
@@ -324,8 +326,19 @@ function LoopOverlay() {
   // (a hint, so it follows Settings › Appearance › Tooltips; this redraws on every mouse move anyway)
   const showTooltip = !!midi && !noteEditorActive && hasSelection && mousePos !== null && useStore.getState().tooltipsEnabled
 
-  // Edit mode disables loop overlay pointer events to pass them to PixiJS
-  if (noteEditorActive) return null
+  // Edit mode disables loop overlay pointer events to pass them to PixiJS.
+  // While checking hands passage by passage, the passage's loop still shows,
+  // display only, so the notes underneath stay editable.
+  if (noteEditorActive) {
+    if (!checkingHands || !hasSelection || heightPct <= 0) return null
+    return (
+      <div style={{ position: 'absolute', inset: 0, overflow: 'hidden', pointerEvents: 'none' }}>
+        <div style={{ position: 'absolute', left: 0, right: 0, top: `${topPct}%`, height: `${heightPct}%`, background: amberFill }} />
+        <div style={{ position: 'absolute', left: 0, right: 0, top: `${topPct}%`, height: 2, background: amber }} />
+        <div style={{ position: 'absolute', left: 0, right: 0, top: `calc(${botPct}% - 2px)`, height: 2, background: amber }} />
+      </div>
+    )
+  }
 
   return (
     <div
@@ -408,7 +421,9 @@ export default function PianoRoll() {
   // something drawFrame actually reads has changed, instead of unconditionally
   // every tick. Starts true so the first tick performs the initial draw.
   const dirtyRef          = useRef(true)
-  const lastKeySizeRef    = useRef<number>(0)
+  // the key view the grid was last drawn for ("v0/vw/lo/hi"): it glides
+  // between keyboard sizes (utils/keyView.ts), and the grid follows it
+  const lastKeySizeRef    = useRef<string>('')
   const lastMidiRef       = useRef<any>(null)
   const flatNotesRef      = useRef<FlatNote[]>([])
   // ── Tracks whose notes are ALL the same hand — i.e. a genuine "split into
@@ -457,6 +472,8 @@ export default function PianoRoll() {
       s.zoomLevel !== prev.zoomLevel ||
       s.appTheme !== prev.appTheme ||
       s.keyboardSize !== prev.keyboardSize ||
+      s.keyboardOctave !== prev.keyboardOctave ||
+      s.keyView !== prev.keyView ||
       s.showBarNumbers !== prev.showBarNumbers ||
       s.barStarts !== prev.barStarts ||
       s.noteEditorActive !== prev.noteEditorActive ||
@@ -737,9 +754,9 @@ export default function PianoRoll() {
       }
 
       // ── Static grid: black key shading + octave dividers ──────────────────
-      const drawGrid = (W: number, H: number, midiMin: number, midiMax: number) => {
+      const drawGrid = (W: number, H: number, view: KeyView, midiMin: number, midiMax: number) => {
         grid.clear()
-        keyLayoutRef.current = buildKeyLayout(W, midiMin, midiMax)
+        keyLayoutRef.current = buildKeyLayoutViewPx(W, view, midiMin, midiMax)
         const kl = keyLayoutRef.current
 
         for (let m = midiMin; m <= midiMax; m++) {
@@ -787,9 +804,8 @@ export default function PianoRoll() {
         app.renderer.resize(cw, ch, dpr)
         lastSizeW = cw; lastSizeH = ch; lastSizeDpr = dpr
 
-        const { keyboardSize: ks } = storeRef.current
-        const { min: syncMin, max: syncMax } = RANGES[ks] ?? RANGES[88]
-        drawGrid(cw, ch, syncMin, syncMax)
+        const { keyView: syncView, keyViewLo: syncMin, keyViewHi: syncMax } = storeRef.current
+        drawGrid(cw, ch, syncView, syncMin, syncMax)
 
         if (overlayCanvasRef.current) {
           const oc = overlayCanvasRef.current
@@ -838,7 +854,7 @@ export default function PianoRoll() {
           applyResize(cw, ch, dpr)
         }
 
-        const { midi, currentTime, tracks, detectedKey, zoomLevel, appTheme, keyboardSize, showBarNumbers, barStarts: storeBars, noteEditorActive, showHandLabels, playbarVisible, keyboardTopY, hitEffectsEnabled, hitEffectPattern, hitEffectBloomThreshold, hitEffectBloomIntensity, hitEffectBloomSpread, hitEffectColor } = storeRef.current
+        const { midi, currentTime, tracks, detectedKey, zoomLevel, appTheme, keyboardSize, keyboardOctave, keyView, keyViewLo, keyViewHi, showBarNumbers, barStarts: storeBars, noteEditorActive, showHandLabels, playbarVisible, keyboardTopY, hitEffectsEnabled, hitEffectPattern, hitEffectBloomThreshold, hitEffectBloomIntensity, hitEffectBloomSpread, hitEffectColor } = storeRef.current
         const transpose   = (detectedKey as any)?.transpose ?? 0
         const W = app.screen.width, H = app.screen.height
         // ── Hit-line Y position — fixed 80% line by default (unchanged), or the
@@ -855,12 +871,16 @@ export default function PianoRoll() {
           const rect = el.getBoundingClientRect()
           py = Math.max(20, Math.min(H - 4, keyboardTopY - rect.top))
         }
-        const { min: midiMin, max: midiMax } = RANGES[keyboardSize] ?? RANGES[88]
+        const midiMin = keyViewLo, midiMax = keyViewHi
         const totalKeys   = midiMax - midiMin + 1
+        // portable keyboards: notes past the edges move onto them by octaves,
+        // fainter (never in the Note Editor, where a note must sit on its own key)
+        const fold = noteEditorActive ? null : foldRange({ keyboardSize, keyboardOctave })
 
-        if (keyboardSize !== lastKeySizeRef.current) {
-          lastKeySizeRef.current = keyboardSize
-          drawGrid(W, H, midiMin, midiMax)
+        const viewKey = `${keyView.v0}/${keyView.vw}/${midiMin}/${midiMax}`
+        if (viewKey !== lastKeySizeRef.current) {
+          lastKeySizeRef.current = viewKey
+          drawGrid(W, H, keyView, midiMin, midiMax)
         }
 
         // ── Note-hit visual effects (Phase 2) — spawn from the same trigger as
@@ -877,7 +897,8 @@ export default function PianoRoll() {
           // per-track color (and the key glow, a separate render path) untouched.
           const overrideHex = hitEffectColor ? parseInt(hitEffectColor.replace('#', ''), 16) : null
           for (const hit of hits) {
-            const idx = hit.midi - midiMin
+            const hm = fold && (hit.midi < fold.min || hit.midi > fold.max) ? foldIntoRange(hit.midi, fold.min, fold.max) : hit.midi
+            const idx = hm - midiMin
             if (idx < 0 || idx >= totalKeys) continue
             const key = keyLayoutRef.current[idx]
             if (!key) continue
@@ -1006,7 +1027,13 @@ export default function PianoRoll() {
           const ts = trackMap.get(note.trackIndex)
           if (ts && !isShown(ts, hasSolo)) continue   // what shows: eye, mute and solo (trackShown.ts)
 
-          const idx = (note.midi + transpose) - midiMin
+          let shownMidi = note.midi + transpose
+          let folded = false
+          if (fold && (shownMidi < fold.min || shownMidi > fold.max)) {
+            shownMidi = foldIntoRange(shownMidi, fold.min, fold.max)
+            folded = true
+          }
+          const idx = shownMidi - midiMin
           if (idx < 0 || idx >= totalKeys) continue
           const key = keyLayoutRef.current[idx]
           if (!key) continue
@@ -1044,9 +1071,9 @@ export default function PianoRoll() {
 
           const drawW = Math.max(key.width - 2, 1)
           notes.roundRect(key.x + 1, topY, drawW, noteH, NOTE_RADIUS)
-          notes.fill({ color, alpha: 0.9 })
+          notes.fill({ color, alpha: folded ? 0.4 : 0.9 })
           notes.rect(key.x + 1, topY, drawW, 2)
-          notes.fill({ color: NOTE_HIGHLIGHT_COLOR, alpha: 0.25 })
+          notes.fill({ color: NOTE_HIGHLIGHT_COLOR, alpha: folded ? 0.12 : 0.25 })
 
           // ── Non-color hand signal — a thin edge accent (left = LH, right =
           // RH), not a hue, so a colorblind user keeps the hand cue during
@@ -1137,12 +1164,12 @@ export default function PianoRoll() {
       }
 
       const getViewParams = () => {
-        const { currentTime, zoomLevel, keyboardSize, detectedKey } = storeRef.current
+        const { currentTime, zoomLevel, keyViewLo, keyViewHi, detectedKey } = storeRef.current
         const H = app.screen.height
         const py = H * PLAYHEAD_RATIO
         const visibleSecs = VISIBLE_SECONDS / (zoomLevel ?? 1)
         const pps = py / visibleSecs
-        const { min: midiMin, max: midiMax } = RANGES[keyboardSize] ?? RANGES[88]
+        const midiMin = keyViewLo, midiMax = keyViewHi
         const transpose = (detectedKey as any)?.transpose ?? 0
         return { currentTime, py, pps, midiMin, midiMax, transpose }
       }
@@ -2117,8 +2144,11 @@ export default function PianoRoll() {
       velCanvas.addEventListener('pointerleave',  onVelPointerLeave)
 
       // ── Initial draw ──────────────────────────────────────────────────────
-      const { keyboardSize } = useStore.getState()
-      lastKeySizeRef.current = keyboardSize
+      startKeyView()
+      {
+        const { keyView: v, keyViewLo: lo, keyViewHi: hi } = useStore.getState()
+        lastKeySizeRef.current = `${v.v0}/${v.vw}/${lo}/${hi}`
+      }
       applyResize(el.clientWidth || 800, el.clientHeight || 600, window.devicePixelRatio || 1)
       // Redraw every tick during playback or note editing (both need continuous
       // animation — scrolling playhead, drag previews, selection pulse). Otherwise

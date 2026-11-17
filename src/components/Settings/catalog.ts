@@ -26,7 +26,7 @@ export type SettingId =
   | 'noteEditor' | 'unsavedWarning' | 'saveTrackChanges' | 'tapTempo' | 'tempoWarnings' | 'countIn' | 'skipEmptyBars' | 'handAssignment' | 'loopRegion' | 'focusMode'
   | 'stepThrough' | 'chordPrompter' | 'closePanels' | 'handTags' | 'trackVu'
   | 'displaySystem' | 'accidentals' | 'chordTracking' | 'chordReading' | 'chordNaming'
-  | 'keyRange' | 'showOctaves' | 'showNoteNames' | 'reflectPianoRoll' | 'preciseScrubTime' | 'explorerPause' | 'tempoDisplay'
+  | 'keyRange' | 'portableKeyboards' | 'showOctaves' | 'showNoteNames' | 'reflectPianoRoll' | 'preciseScrubTime' | 'explorerPause' | 'tempoDisplay'
   | 'rollZoom' | 'barNumbers' | 'playbar' | 'visualEffects'
   | 'theme' | 'handColors' | 'appZoom' | 'tooltips' | 'tours' | 'supportNote' | 'starmap'
   | 'showLanguageSwitcher' | 'followSystemLanguage' | 'menuLanguages' | 'translations' | 'translationUpdates'
@@ -171,6 +171,10 @@ export const SETTINGS: SettingInfo[] = [
   { id: 'keyRange', group: 'keyboard', name: t`Key range`, summary: t`Number of keys on the on-screen keyboard.`,
     description: t`Number of keys on the on-screen keyboard: 61, 73 or 88. When you play a USB keyboard whose keys Orfeo knows,\nit switches to the smallest size that holds them; you can still choose another.`,
     keywords: 'keys 61 73 88 size' },
+  { id: 'portableKeyboards', group: 'keyboard', name: t`Portable keyboards`, summary: t`Add the 25, 37 and 49-key sizes.`,
+    description: t`Turn on to add the sizes of small studio keyboards, 25, 37 and 49 keys, next to 61, 73 and 88 in the keyboard bar,
+with octave buttons to move them. Notes beyond their edges show fainter on the key with the same name inside.`,
+    keywords: 'portable studio controller small 25 37 49 keys octave mini' },
   { id: 'showOctaves', group: 'keyboard', name: t`Show octaves`, summary: t`Octave numbers (C3, C4…) on the keyboard.`,
     description: t`Display octave numbers (e.g. C3, C4, C5) on the on-screen keyboard.`,
     keywords: 'octave numbers labels' },

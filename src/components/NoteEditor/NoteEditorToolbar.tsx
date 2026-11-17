@@ -16,6 +16,9 @@ import { HAND_ASSIGN_GROUPS } from '../../utils/keyboardGroups'
 import OrfeoMark from '../OrfeoMark'
 import { t } from '../../utils/i18n'
 import { keepUnsavedAround } from '../../utils/sessionSave'
+import { getLowConfidencePassages, estimateHandAccuracy, passageKey, isPassageSeen } from '../../utils/handPreview'
+import { goToPassage } from '../../utils/handCheck'
+import HandCheckPanel from './HandCheckPanel'
 
 // ── Toolbar SVG icons ─────────────────────────────────────────────────────────
 const IconVelocity = () => (
@@ -614,6 +617,10 @@ export default function NoteEditorToolbar() {
         </div>
       </div>
 
+      {/* ── Hands: step through the passages worth a look (Hand mode only) ── */}
+      {reassignHands && <HandPassagesRow onHint={setIconHint} />}
+      <HandCheckPanel />
+
       {/* ── Row 3: dynamic tooltip (left, ~2/3) + Reset/Save (right, ~1/3) ──
           Both columns are fixed-fraction (flex-basis on a fixed-width
           parent), never resizing the panel itself. The tooltip column is a
@@ -754,6 +761,64 @@ function ToolBtn({ active, onClick, hint, onHint, children, wide }: {
     >
       {children}
     </button>
+  )
+}
+
+// ── Passages worth a look ─────────────────────────────────────────────────────
+// The soloed piano's passages where Orfeo was least sure of the hands (the
+// same ones the Playback Editor marks). ‹ › loop the previous / next one with
+// its panel (Play, The hands are right, Fix by hand: utils/handCheck.ts);
+// a passage looped counts as looked at. Hidden when nothing is marked or the
+// hands come from a score's two staves.
+function HandPassagesRow({ onHint }: { onHint: (h: string | null) => void }) {
+  const midi = useStore(s => s.midi)
+  const solo = useStore(s => s.noteEditorSoloTrackIndex)
+  const hc = useStore(s => s.handCheck)
+  const rev = useStore(s => s.handCheckRev)
+  const notes = useMemo(() => midi?.tracks.find(tr => tr.index === solo)?.notes ?? [], [midi, solo])
+  const passages = useMemo(() => getLowConfidencePassages(notes), [notes, rev])
+  const estimate = useMemo(() => estimateHandAccuracy(notes), [notes, rev])
+  const fromScore = !!(midi as any)?._stavePairs?.some((pr: [number, number]) => solo !== null && pr.includes(solo))
+  const key = passageKey((midi as any)?._filePath, solo ?? -1)
+  if (solo === null || fromScore || passages.length === 0) return null
+
+  const checking = hc && hc.track === solo ? hc : null
+  const at = checking ? checking.index : -1
+  const seenCount = passages.filter(ps => isPassageSeen(key, ps.start)).length
+  return (
+    <div style={{ display: 'flex', alignItems: 'center', height: 34, padding: '2px 8px', gap: 10, borderTop: '1px solid var(--state-hover-bg)' }}>
+      <span style={rowLabelStyle}>{t`HANDS`}</span>
+      <span style={{ fontSize: 11, color: 'var(--text-muted)', whiteSpace: 'nowrap' }}>
+        {estimate !== null && <>{t`About ${estimate}% likely right`} · </>}
+        {passages.length === 1 ? t`1 passage worth a look` : t`${passages.length} passages worth a look`}
+      </span>
+      <div style={{ flex: 1 }} />
+      {checking ? (
+        <>
+          <span style={{ fontSize: 11, fontFamily: 'var(--font-mono)', color: 'var(--text-amber)', whiteSpace: 'nowrap' }}>
+            {t`Passage ${at + 1} of ${passages.length}`}
+          </span>
+          <button onClick={() => goToPassage(solo, at - 1)} disabled={at <= 0}
+            onMouseEnter={() => onHint(t`Previous passage — loop the passage before this one`)} onMouseLeave={() => onHint(null)}
+            style={iconBtnStyle(at <= 0)}>‹</button>
+          <button onClick={() => goToPassage(solo, at + 1)} disabled={at >= passages.length - 1}
+            onMouseEnter={() => onHint(t`Next passage — loop the next passage worth a look`)} onMouseLeave={() => onHint(null)}
+            style={iconBtnStyle(at >= passages.length - 1)}>›</button>
+          {!checking.panel && (
+            <button onClick={() => goToPassage(solo, at)}
+              onMouseEnter={() => onHint(t`Show the choices — Play, The hands are right, Fix by hand`)} onMouseLeave={() => onHint(null)}
+              style={{ ...btnBase, color: 'var(--text-amber)' }}>{t`Choices`}</button>
+          )}
+        </>
+      ) : (
+        <button onClick={() => goToPassage(solo, 0)}
+          onMouseEnter={() => onHint(t`Check the passages — loop each one and decide: keep the hands or fix them`)} onMouseLeave={() => onHint(null)}
+          style={{ ...btnBase, color: 'var(--text-amber)', borderColor: 'var(--accent-amber-active-border)' }}>{t`Check the passages`}</button>
+      )}
+      <span style={{ fontSize: 10, fontFamily: 'var(--font-mono)', color: 'var(--text-dimmest)', whiteSpace: 'nowrap', minWidth: 74, textAlign: 'right' }}>
+        {t`${seenCount} looked at`}
+      </span>
+    </div>
   )
 }
 

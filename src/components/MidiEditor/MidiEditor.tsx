@@ -25,7 +25,8 @@ import { bringToFront, MODAL_BASE_Z } from '../../utils/modalFocus'
 import { KEYBOARD_GROUPS, HAND_ASSIGN_GROUPS } from '../../utils/keyboardGroups'
 import { NES } from '../../utils/noteEditorState'
 import { nextOrfeoBaseName } from '../../utils/orfeoVersioning'
-import { getHandPreviewStats, getLowConfidencePassages } from '../../utils/handPreview'
+import { getHandPreviewStats, getLowConfidencePassages, estimateHandAccuracy, passageKey, isPassageSeen } from '../../utils/handPreview'
+import { goToPassage } from '../../utils/handCheck'
 import { withHandSuffix } from '../../utils/handMetadata'
 import { getGMName, getGMGroup } from '../../utils/gmInstruments'
 import { computeTempoKeyPayload } from '../../utils/tempoKeySave'
@@ -1339,7 +1340,8 @@ export default function MidiEditor() {
   // declared here (after both, and after the early return) is recreated
   // fresh every render, so it always closes over already-initialized
   // bindings. ─────────────────────────────────────────────────────────────
-  const handleOpenInNoteEditor = async (trackIndex: number) => {
+  // check: "check the passages" — opens on the first passage, looped, with its choices
+  const handleOpenInNoteEditor = async (trackIndex: number, check = false) => {
     const summary = buildSaveSummary()
     if (summary) {
       const choice = await confirmDialog({
@@ -1373,6 +1375,7 @@ export default function MidiEditor() {
       NES.onReassignHandsModeChange?.()
     }
     useStore.getState().setNoteEditorActive(true)
+    if (check) goToPassage(trackIndex, 0)
     setMidiEditorOpen(false)
   }
 
@@ -1614,6 +1617,12 @@ export default function MidiEditor() {
             const expanded = expandedInfoRows.has(track.index)
             const passages = getLowConfidencePassages(infoNotes)
             const duration = midi?.duration ?? 0
+            // one staff of a two-staff score: its hand is written, not guessed
+            const fromScore = !!(midi as any)?._stavePairs?.some((p: [number, number]) => p.includes(track.index))
+            const estimate = fromScore ? null : estimateHandAccuracy(infoNotes)
+            const pKey = passageKey((midi as any)?._filePath, track.index)
+            const checkPassages = () => { if (noteEditorEnabled && passages.length) handleOpenInNoteEditor(track.index, true) }
+            const passagesLabel = passages.length === 1 ? t`1 passage worth a look` : t`${passages.length} passages worth a look`
             const SLATE = 'var(--hand-lh)'
             const AMBER = 'var(--hand-rh)'
             const LOW_CONF = 'var(--status-low-confidence)'
@@ -1649,16 +1658,17 @@ export default function MidiEditor() {
                     </button>
                     </Tooltip>
                     <span style={{ lineHeight: '11px' }}>
-                      {infoStats.confidenceUnknown ? (
-                        t`Hand split shown is automatic.`
-                      ) : infoStats.lowConfidenceCount > 0 ? (
-                        // Bright red (matches the closed-eye "hidden" icon) so this
-                        // collapsed-row flag reads as an alert at a glance — kept
-                        // distinct from the legend/overlay's muted LOW_CONF red below,
-                        // which is deliberately quieter since it's always-on chrome.
-                        <><span style={{ color: 'var(--status-error-hover)', fontFamily: 'var(--font-ui)' }}>{t`${Math.round(infoStats.lowConfidenceRatio * 100)}% flagged low-confidence`}</span> {t`— for a perfectly accurate split, edit in Note Editor`}</>
+                      {/* About how many notes are likely right (a rounded guess,
+                          see estimateHandAccuracy), then the passages worth a
+                          look — encouraging, never an alarm. */}
+                      {fromScore ? (
+                        t`Hands from the score's two staves.`
+                      ) : infoStats.confidenceUnknown || estimate === null ? (
+                        t`Hands as saved with the song — edit in Note Editor to fine-tune`
+                      ) : passages.length > 0 ? (
+                        <>{t`About ${estimate}% of notes likely in the right hand`} · <button onClick={checkPassages} disabled={!noteEditorEnabled} style={{ background: 'none', border: 'none', padding: 0, cursor: 'pointer', color: 'var(--text-amber)', fontSize: 10, fontFamily: 'var(--font-ui)', textDecoration: 'underline', textUnderlineOffset: 2 }}>{passagesLabel}</button></>
                       ) : (
-                        t`Hand split looks accurate — edit in Note Editor to fine-tune`
+                        t`About ${estimate}% of notes likely in the right hand — edit in Note Editor to fine-tune`
                       )}
                     </span>
                     <Tooltip
@@ -1696,7 +1706,7 @@ export default function MidiEditor() {
                           <rect key={`p${i}`}
                             x={(p.start / duration) * 1000} y={0}
                             width={Math.max(2, ((p.end - p.start) / duration) * 1000)} height={40}
-                            fill={LOW_CONF} opacity={0.28}
+                            fill={LOW_CONF} opacity={isPassageSeen(pKey, p.start) ? 0.1 : 0.28}
                           />
                         ))}
                         {infoNotes.map((n, i) => (
@@ -1711,23 +1721,33 @@ export default function MidiEditor() {
                     <div style={{ display: 'flex', gap: 6, fontSize: 10, lineHeight: '10px', color: 'var(--text-inactive)', fontFamily: 'var(--font-mono)' }}>
                       <span style={{ display: 'flex', alignItems: 'center', gap: 3 }}><span style={{ width: 8, height: 8, borderRadius: 2, background: SLATE, display: 'inline-block' }} />{t`Left hand`}</span>
                       <span style={{ display: 'flex', alignItems: 'center', gap: 3 }}><span style={{ width: 8, height: 8, borderRadius: 2, background: AMBER, display: 'inline-block' }} />{t`Right hand`}</span>
-                      {infoStats.lowConfidenceCount > 0 && (
-                        <span style={{ display: 'flex', alignItems: 'center', gap: 3 }}><span style={{ width: 8, height: 8, borderRadius: 2, background: LOW_CONF, opacity: 0.6, display: 'inline-block' }} />{t`Low-confidence passage`}</span>
+                      {passages.length > 0 && !fromScore && (
+                        <span style={{ display: 'flex', alignItems: 'center', gap: 3 }}><span style={{ width: 8, height: 8, borderRadius: 2, background: LOW_CONF, opacity: 0.6, display: 'inline-block' }} />{t`Worth a look`}</span>
                       )}
                     </div>
                     {/* ── Same tech-info + disclaimer pair as the Split preview
                         below — info only here, no button row. ── */}
                     <div style={{ fontSize: 10, lineHeight: '11px', color: 'var(--text-inactive)', fontFamily: 'var(--font-mono)' }}>
                       {t`Notes tagged: ${infoStats.taggedNotes} (left hand: ${infoStats.leftCount}, right hand: ${infoStats.rightCount}).`}{' '}
-                      {infoStats.confidenceUnknown
-                        ? t`Tags restored from a prior split — confidence not re-evaluated.`
-                        : infoStats.lowConfidenceCount > 0
-                          ? t`${Math.round(infoStats.lowConfidenceRatio * 100)}% fall in a low-confidence passage — check those first.`
-                          : t`No passages flagged — split looks reliable.`}
+                      {fromScore
+                        ? t`Taken from the score's two staves.`
+                        : infoStats.confidenceUnknown || estimate === null
+                          ? t`Hands as saved with the song.`
+                          : passages.length > 0
+                            ? t`About ${estimate}% likely in the right hand. The marked passages are where Orfeo was least sure — check those first.`
+                            : t`About ${estimate}% likely in the right hand, with nothing marked to check.`}
                     </div>
+                    {!fromScore && passages.length > 0 && noteEditorEnabled && (
+                      <div>
+                        <button onClick={checkPassages}
+                          style={{ padding: '5px 12px', borderRadius: 4, border: '1px solid var(--accent-amber-strong)', background: 'var(--accent-amber-subtle)', color: 'var(--text-amber)', fontSize: 'var(--text-xs)', fontFamily: 'var(--font-ui)', cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: 5 }}>
+                          <AudioLines size={11} /> {t`Check the passages in the Note Editor`}
+                        </button>
+                      </div>
+                    )}
                     <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 10, color: 'var(--text-inactive)', fontFamily: 'var(--font-ui)', lineHeight: '12.6px' }}>
                       <AlertCircle size={11} style={{ flexShrink: 0, color: 'var(--text-inactive)' }} />
-                      <span>{t`Hand assignment is automated — a guideline, not a verified transcription. Use your ear, especially on flagged passages.`}</span>
+                      <span>{fromScore ? t`Each staff is played by the hand it's written for.` : t`Hands are Orfeo's guess — a guide, not a transcription. Your ear decides, especially in the marked passages.`}</span>
                     </div>
                   </div>
                 )}
@@ -1745,6 +1765,9 @@ export default function MidiEditor() {
             const stats = getHandPreviewStats(notes)
             const passages = getLowConfidencePassages(notes)
             const duration = midi?.duration ?? 0
+            const estimate = estimateHandAccuracy(notes)
+            const pKey = passageKey((midi as any)?._filePath, track.index)
+            const passagesLabel = passages.length === 1 ? t`1 passage worth a look` : t`${passages.length} passages worth a look`
 
             const SLATE = 'var(--hand-lh)'
             const AMBER = 'var(--hand-rh)'
@@ -1762,12 +1785,10 @@ export default function MidiEditor() {
                     <div style={{ fontSize: 10, color: 'var(--text-dim)' }}>{t`Hand-split preview`} — <span style={{ color: track.color }}>"{trackName}"</span></div>
                     <div style={{ fontSize: 9, color: 'var(--text-inactive)', fontFamily: 'var(--font-mono)', marginTop: 2 }}>
                       {t`Notes: ${stats.taggedNotes} · left hand: ${stats.leftCount} · right hand: ${stats.rightCount}`}
-                      {stats.confidenceUnknown ? (
-                        <span style={{ color: 'var(--text-inactive)' }}> · {t`tags restored from a prior split — confidence not re-evaluated`}</span>
-                      ) : stats.lowConfidenceCount > 0 ? (
-                        <span style={{ color: LOW_CONF }}> · {t`Low-confidence passages flagged: ${passages.length} (${Math.round(stats.lowConfidenceRatio * 100)}% of notes)`}</span>
+                      {stats.confidenceUnknown || estimate === null ? (
+                        <span style={{ color: 'var(--text-inactive)' }}> · {t`hands as saved with the song`}</span>
                       ) : (
-                        <span style={{ color: 'var(--text-inactive)' }}> · {t`no low-confidence passages flagged`}</span>
+                        <span style={{ color: 'var(--text-inactive)' }}> · {t`about ${estimate}% likely right`} · {passages.length > 0 ? passagesLabel : t`nothing marked to check`}</span>
                       )}
                     </div>
                   </div>
@@ -1780,7 +1801,7 @@ export default function MidiEditor() {
                       <rect key={`p${i}`}
                         x={(p.start / duration) * 1000} y={0}
                         width={Math.max(2, ((p.end - p.start) / duration) * 1000)} height={40}
-                        fill={LOW_CONF} opacity={0.28}
+                        fill={LOW_CONF} opacity={isPassageSeen(pKey, p.start) ? 0.1 : 0.28}
                       />
                     ))}
                     {notes.map((n, i) => (
@@ -1795,8 +1816,8 @@ export default function MidiEditor() {
                 <div style={{ display: 'flex', gap: 6, fontSize: 10, lineHeight: '10px', color: 'var(--text-inactive)', fontFamily: 'var(--font-mono)' }}>
                   <span style={{ display: 'flex', alignItems: 'center', gap: 3 }}><span style={{ width: 8, height: 8, borderRadius: 2, background: SLATE, display: 'inline-block' }} />{t`Left hand`}</span>
                   <span style={{ display: 'flex', alignItems: 'center', gap: 3 }}><span style={{ width: 8, height: 8, borderRadius: 2, background: AMBER, display: 'inline-block' }} />{t`Right hand`}</span>
-                  {stats.lowConfidenceCount > 0 && (
-                    <span style={{ display: 'flex', alignItems: 'center', gap: 3 }}><span style={{ width: 8, height: 8, borderRadius: 2, background: LOW_CONF, opacity: 0.6, display: 'inline-block' }} />{t`Low-confidence passage`}</span>
+                  {passages.length > 0 && (
+                    <span style={{ display: 'flex', alignItems: 'center', gap: 3 }}><span style={{ width: 8, height: 8, borderRadius: 2, background: LOW_CONF, opacity: 0.6, display: 'inline-block' }} />{t`Worth a look`}</span>
                   )}
                 </div>
 
@@ -1807,11 +1828,11 @@ export default function MidiEditor() {
                 <div style={{ display: 'flex', gap: 12 }}>
                   <div style={{ flex: 2, fontSize: 10, lineHeight: '11px', color: 'var(--text-inactive)', fontFamily: 'var(--font-mono)' }}>
                     {t`Notes tagged: ${stats.taggedNotes} (left hand: ${stats.leftCount}, right hand: ${stats.rightCount}).`}{' '}
-                    {stats.confidenceUnknown
-                      ? t`Tags restored from a prior split — confidence not re-evaluated.`
-                      : stats.lowConfidenceCount > 0
-                        ? t`${Math.round(stats.lowConfidenceRatio * 100)}% fall in a low-confidence passage — check those first.`
-                        : t`No passages flagged — split looks reliable.`}
+                    {stats.confidenceUnknown || estimate === null
+                      ? t`Hands as saved with the song.`
+                      : passages.length > 0
+                        ? t`About ${estimate}% likely in the right hand. The marked passages are where Orfeo was least sure — check those first.`
+                        : t`About ${estimate}% likely in the right hand, with nothing marked to check.`}
                   </div>
                   <div style={{ flex: 1, display: 'flex', gap: 6 }}>
                     <button
@@ -1842,7 +1863,7 @@ export default function MidiEditor() {
                     heuristics, never ground truth. ── */}
                 <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 10, color: 'var(--text-inactive)', fontFamily: 'var(--font-ui)', lineHeight: '12.6px' }}>
                   <AlertCircle size={11} style={{ flexShrink: 0, color: 'var(--text-inactive)' }} />
-                  <span>{t`Hand assignment is automated — a guideline, not a verified transcription. Use your ear, especially on flagged passages.`}</span>
+                  <span>{t`Hands are Orfeo's guess — a guide, not a transcription. Your ear decides, especially in the marked passages.`}</span>
                 </div>
               </div>
             )
