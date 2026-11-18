@@ -43,7 +43,9 @@ telemetry; MIDI files are processed entirely on your device.
 - **Import** `.mid` / `.midi`, plus MusicXML, Guitar Pro, Capella, and karaoke
   `.kar` (converted automatically)
 - **Falling-note piano roll** onto a 61 / 73 / 88-key keyboard, colour-coded per
-  track, pixel-aligned to each key
+  track, pixel-aligned to each key. Small studio keyboards get their own 25 / 37 /
+  49-key sizes with octave buttons (*Portable keyboards*), and every size change
+  glides smoothly
 - **Tempo control** — slow down or speed up without changing pitch; long-press
   the BPM arrows to glide to a target, or double-click the BPM to type one
 - **Change key** — transpose the whole piece by semitones
@@ -67,8 +69,12 @@ telemetry; MIDI files are processed entirely on your device.
   whose bar lines and metronome don't match the music's beat
 - **Tracks panel & Console Mixer** — mute, solo, recolour, show/hide tracks
   (hide a part to hear it as accompaniment without seeing it on the roll or keys);
-  per-channel volume, pan, chorus, reverb with live VU meters (saved into the
-  file on close); master Tone and Compressor
+  per-channel volume, pan, chorus, reverb with live VU meters; master Tone and
+  Compressor
+- **Edits badge** — counts your unsaved changes next to the song length; hover
+  for the list, click to save them all at once. Tracks panel changes (mute, show
+  and hide, keyboard lights) are for the session, or saved with the song when you
+  turn on *Save track changes*
 - **Focus Mode** — one click to hear keys, bass and drums but see only the keys;
   click again and every track comes back as it was
 - **Export to audio** — save any song as MP3 (320 kbps) or WAV (CD quality):
@@ -85,12 +91,16 @@ telemetry; MIDI files are processed entirely on your device.
 - **Automated hand assignment** — notes colour-code by which hand plays
   them, in Practice (moving split line) or Performance (per-note tags) mode, with
   optional colourblind-friendly L/R badges, and **hand colours** of your choice
-  (ready-made pairs, colour-blind friendly ones included, or your own)
+  (ready-made pairs, colour-blind friendly ones included, or your own). A piano on
+  two staves takes its hands from the staves; otherwise Orfeo works them out and
+  says how sure it is ("about 95% likely right"), then loops the passages it's
+  least sure of so you can keep them or fix them
 - **Hardware MIDI input** — play along on a real keyboard with true sustain and
   multi-device support. A dedicated *MIDI Keyboard* page in Settings lists every
   keyboard by name and sets touch response, pedals and controls, and a double-note
   filter, with a **Delay check** that shows where every millisecond between key and
-  speaker goes
+  speaker goes. Orfeo learns each keyboard's number of keys once (press the lowest
+  and highest key), and a keyboard with lighted keys can show the song's notes
 - **Step Through** — walk through a song one note or chord at a time with `→` and
   `←`, at your own pace
 
@@ -118,7 +128,10 @@ telemetry; MIDI files are processed entirely on your device.
 - **Note Editor** — move, resize, add, delete, and re-velocity individual notes
   on the roll, with marquee / lasso / pen tools and full undo/redo
 - **MIDI library** — browse a folder, star favourites, fuzzy-search, auto-refresh,
-  and show *Artist - Song* files song first with one click
+  and show *Artist - Song* files song first with one click. Tag songs your way, see
+  which have lyrics, plan a session with the **practice queue**, and widen the
+  Library by dragging its edge
+- **Open with Orfeo** — double-click a `.mid`, `.midi` or `.kar` file to open it
 - **Edit history embedded in the file** — travels with the `.mid` anywhere,
   survives reinstalls
 
@@ -148,9 +161,14 @@ telemetry; MIDI files are processed entirely on your device.
 
 - **Setup** — the everyday switches (sound engine, Focus mode, Tap Tempo, note
   names, key range, zoom…) in the left panel, each with a one-line explanation
-- **Settings window** (`Ctrl` `,`) — every setting in nine groups with full
+- **Settings window** (`Ctrl` `,`) — every setting in eleven groups with full
   descriptions, a search box, and a link to the matching page of the online
   manual. Hints can be switched off with the *Tooltips* switch under Appearance
+- **Note names your way** — English, German, Solfège or **Sargam** (in Latin
+  letters or Devanagari), with chord names kept Western
+- **Your language** — a language switcher with the community translations
+  (see [Translations](#translations))
+- **Two short tours** on a first start show where everything is
 
 Full walkthrough of every feature: **[orfeo.cc/docs](https://orfeo.cc/docs)**.
 
@@ -220,12 +238,13 @@ instructions, including macOS/Linux, are in
 ## Translations
 
 Orfeo's community translations are hosted on
-[Weblate](https://hosted.weblate.org/engage/orfeo/) (the language switcher is
-coming in Orfeo 1.8).
+[Weblate](https://hosted.weblate.org/engage/orfeo/). Turn on *Show language
+switcher* in Settings › Language; a language can be chosen there once 80% of it
+is translated.
 
-| Deutsch | Français | Español | Português | Polski | 简体中文 |
-|:---:|:---:|:---:|:---:|:---:|:---:|
-| [![Translation status](https://hosted.weblate.org/widget/orfeo/-/de/svg-badge.svg)](https://hosted.weblate.org/engage/orfeo/de/) | [![Translation status](https://hosted.weblate.org/widget/orfeo/-/fr/svg-badge.svg)](https://hosted.weblate.org/engage/orfeo/fr/) | [![Translation status](https://hosted.weblate.org/widget/orfeo/-/es/svg-badge.svg)](https://hosted.weblate.org/engage/orfeo/es/) | [![Translation status](https://hosted.weblate.org/widget/orfeo/-/pt_BR/svg-badge.svg)](https://hosted.weblate.org/engage/orfeo/pt_BR/) | [![Translation status](https://hosted.weblate.org/widget/orfeo/-/pl/svg-badge.svg)](https://hosted.weblate.org/engage/orfeo/pl/) | [![Translation status](https://hosted.weblate.org/widget/orfeo/-/zh_Hans/svg-badge.svg)](https://hosted.weblate.org/engage/orfeo/zh_Hans/) |
+| Deutsch | Français | Español | Português | Polski | Русский | Slovenščina | 简体中文 |
+|:---:|:---:|:---:|:---:|:---:|:---:|:---:|:---:|
+| [![Translation status](https://hosted.weblate.org/widget/orfeo/-/de/svg-badge.svg)](https://hosted.weblate.org/engage/orfeo/de/) | [![Translation status](https://hosted.weblate.org/widget/orfeo/-/fr/svg-badge.svg)](https://hosted.weblate.org/engage/orfeo/fr/) | [![Translation status](https://hosted.weblate.org/widget/orfeo/-/es/svg-badge.svg)](https://hosted.weblate.org/engage/orfeo/es/) | [![Translation status](https://hosted.weblate.org/widget/orfeo/-/pt/svg-badge.svg)](https://hosted.weblate.org/engage/orfeo/pt/) | [![Translation status](https://hosted.weblate.org/widget/orfeo/-/pl/svg-badge.svg)](https://hosted.weblate.org/engage/orfeo/pl/) | [![Translation status](https://hosted.weblate.org/widget/orfeo/-/ru/svg-badge.svg)](https://hosted.weblate.org/engage/orfeo/ru/) | [![Translation status](https://hosted.weblate.org/widget/orfeo/-/sl/svg-badge.svg)](https://hosted.weblate.org/engage/orfeo/sl/) | [![Translation status](https://hosted.weblate.org/widget/orfeo/-/zh_Hans/svg-badge.svg)](https://hosted.weblate.org/engage/orfeo/zh_Hans/) |
 
 ---
 

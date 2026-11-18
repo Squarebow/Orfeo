@@ -67,6 +67,25 @@
   updating from an earlier version changes nothing. Settings › Appearance › Tours shows either
   one again.
 
+- **Your unsaved edits at a glance.** An EDITS badge next to the song length counts the changes
+  you haven't saved yet. Hover it for the list, grouped by where you made them; click it to save
+  them all at once or let them go. Closing or opening a song with unsaved changes asks once, in one
+  window (*You have unsaved changes*), instead of a separate question from each tool.
+- **Save track changes.** Settings › Editing. By default, what you change in the Tracks panel
+  (showing or hiding tracks, keyboard lights, mute) is for this session only, and the song opens as
+  before next time. Turn it on to save those changes with the song: they count in the Edits badge,
+  and a line under the track list says how many you've made, with a link to save them.
+- **How sure Orfeo is about the hands, and where to look.** When Orfeo works out the hands itself,
+  the Playback Editor and the Note Editor now say how likely they are right ("about 95%") and how
+  many passages are worth a look. *Check the passages* opens the Note Editor on the first one and
+  loops it, with three choices: listen, *The hands are right*, or fix it by hand. Keeping the hands
+  counts as an edit: it can be undone, and once saved the song never marks that passage again.
+- **Portable keyboards.** Settings › Virtual Keyboard › Portable keyboards adds the sizes of small
+  studio keyboards, 25, 37 and 49 keys, to the left of 61, 73 and 88 in the keyboard bar, with
+  octave buttons to move them like on the real thing. Notes beyond their edges show fainter on the
+  key with the same name inside. A small USB keyboard picks its own size when it's on. Every size
+  change, on any keyboard, now glides: the keys and the falling notes scale together.
+
 ### Changed
 - **A wider Library, if you like.** Drag the Library's right edge to make it up to a quarter
   wider, so long song names, tags and the queue have more room. Double-click the edge for the
@@ -84,6 +103,13 @@
   keyboard part of a band song gets its own hands, so an organ, a second piano or a track of
   chord symbols no longer takes over the piano's left hand. Notes you moved to the other hand
   yourself keep their hand; everything else is worked out afresh the first time a song opens.
+  A fast right-hand run over a held left-hand chord keeps its notes in the right hand, and a
+  tune that dips down toward the left hand stays in the right.
+- **Chord names for a piano on two staves.** Its two staves are now read together as one
+  instrument. Before, the lower staff could be taken for a bass line and the upper one for the
+  melody, so the chord was read from the wrong notes.
+- **The Mixer's changes are saved with your other edits** and counted in the Edits badge; the
+  Mixer no longer asks on its own when you close it.
 
 - **Software MIDI cables stay out of the keyboard list.** Ports such as loopMIDI, LoopBe, a
   Windows MIDI loopback, the Mac IAC bus or Linux's Midi Through only pass notes between apps
@@ -93,6 +119,17 @@
   back by itself the next time you plug it in, with its keys and lights as you set them.
 
 ### Fixed
+- **Saving never throws away your other unsaved changes.** Saving notes from the Note Editor, or
+  saving from the Playback Editor, used to reload the song and lose unsaved changes from the Mixer,
+  the Tracks panel or the tempo. They now stay, still unsaved, until you save or discard them.
+  Switching *Skip empty bars* on or off keeps them too.
+- **Orfeo's settings survive a crash.** A power cut or crash while Orfeo saved its settings could
+  leave the settings file empty, and Orfeo started over with your tags, favourites, tapped tempos
+  and keyboards gone. Settings are now written so the file is always whole, with a backup of the
+  last good one.
+- **Tooltips no longer stay on screen** after dragging a Mixer strip or closing the Mixer.
+- **The Library's scroll bar can be dragged again**; it sat right next to the edge that widens the
+  Library, which took over the click.
 - **Saving from the Playback Editor no longer splits a staff between the hands.** A piano
   written on two staves kept its hands only until the next save, which then divided each staff
   between both hands. Merging a piano's two staves into one track now keeps the hands they had.
