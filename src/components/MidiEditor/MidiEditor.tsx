@@ -1726,7 +1726,11 @@ export default function MidiEditor() {
                       )}
                     </div>
                     {/* ── Same tech-info + disclaimer pair as the Split preview
-                        below — info only here, no button row. ── */}
+                        below. With passages to check, the button sits at the
+                        right of the text, which wraps before it (a grid: the
+                        text column takes what's left, so nothing shifts). ── */}
+                    {(() => { const showCheck = !fromScore && passages.length > 0 && noteEditorEnabled; return (
+                    <div style={{ display: 'grid', gridTemplateColumns: showCheck ? 'minmax(0, 1fr) auto' : 'minmax(0, 1fr)', columnGap: 16, alignItems: 'center' }}>
                     <div style={{ fontSize: 10, lineHeight: '11px', color: 'var(--text-inactive)', fontFamily: 'var(--font-mono)' }}>
                       {t`Notes tagged: ${infoStats.taggedNotes} (left hand: ${infoStats.leftCount}, right hand: ${infoStats.rightCount}).`}{' '}
                       {fromScore
@@ -1737,17 +1741,17 @@ export default function MidiEditor() {
                             ? t`About ${estimate}% likely in the right hand. The marked passages are where Orfeo was least sure — check those first.`
                             : t`About ${estimate}% likely in the right hand, with nothing marked to check.`}
                     </div>
-                    {!fromScore && passages.length > 0 && noteEditorEnabled && (
-                      <div>
+                    {showCheck && (
                         <button onClick={checkPassages}
-                          style={{ padding: '5px 12px', borderRadius: 4, border: '1px solid var(--accent-amber-strong)', background: 'var(--accent-amber-subtle)', color: 'var(--text-amber)', fontSize: 'var(--text-xs)', fontFamily: 'var(--font-ui)', cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: 5 }}>
+                          style={{ padding: '5px 12px', borderRadius: 4, border: '1px solid var(--accent-amber-strong)', background: 'var(--accent-amber-subtle)', color: 'var(--text-amber)', fontSize: 'var(--text-xs)', fontFamily: 'var(--font-ui)', cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: 5, whiteSpace: 'nowrap' }}>
                           <AudioLines size={11} /> {t`Check the passages in the Note Editor`}
                         </button>
-                      </div>
                     )}
+                    </div>
+                    ) })()}
                     <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 10, color: 'var(--text-inactive)', fontFamily: 'var(--font-ui)', lineHeight: '12.6px' }}>
                       <AlertCircle size={11} style={{ flexShrink: 0, color: 'var(--text-inactive)' }} />
-                      <span>{fromScore ? t`Each staff is played by the hand it's written for.` : t`Hands are Orfeo's guess — a guide, not a transcription. Your ear decides, especially in the marked passages.`}</span>
+                      <span>{fromScore ? t`Each staff is played by the hand it's written for.` : t`Hands are Orfeo's assessment — a guide, not a transcription. Your ear decides, especially in the marked passages.`}</span>
                     </div>
                   </div>
                 )}
@@ -1863,7 +1867,7 @@ export default function MidiEditor() {
                     heuristics, never ground truth. ── */}
                 <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 10, color: 'var(--text-inactive)', fontFamily: 'var(--font-ui)', lineHeight: '12.6px' }}>
                   <AlertCircle size={11} style={{ flexShrink: 0, color: 'var(--text-inactive)' }} />
-                  <span>{t`Hands are Orfeo's guess — a guide, not a transcription. Your ear decides, especially in the marked passages.`}</span>
+                  <span>{t`Hands are Orfeo's assessment — a guide, not a transcription. Your ear decides, especially in the marked passages.`}</span>
                 </div>
               </div>
             )

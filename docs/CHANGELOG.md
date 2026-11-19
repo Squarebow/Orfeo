@@ -79,7 +79,8 @@
 - **How sure Orfeo is about the hands, and where to look.** When Orfeo works out the hands itself,
   the Playback Editor and the Note Editor now say how likely they are right ("about 95%") and how
   many passages are worth a look. *Check the passages* opens the Note Editor on the first one and
-  loops it, with three choices: listen, *The hands are right*, or fix it by hand. Keeping the hands
+  loops it, with three choices right in the editor's HANDS section: listen, *The hands are right*,
+  or fix it by hand. The Note Editor now always opens with Hand mode on. Keeping the hands
   counts as an edit: it can be undone, and once saved the song never marks that passage again.
 - **Portable keyboards.** Settings › Virtual Keyboard › Portable keyboards adds the sizes of small
   studio keyboards, 25, 37 and 49 keys, to the left of 61, 73 and 88 in the keyboard bar, with

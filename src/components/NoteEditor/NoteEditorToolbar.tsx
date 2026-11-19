@@ -1,5 +1,5 @@
 import { useEffect, useState, useReducer, useRef, useCallback, useMemo } from 'react'
-import { PenLine, SquareDashed, CircleDashed, Hand, WholeWord, Music4, Save, Magnet } from 'lucide-react'
+import { PenLine, SquareDashed, CircleDashed, Hand, WholeWord, Music4, Save, Magnet, Play, Pause, Check } from 'lucide-react'
 import { useStore } from '../../store'
 import { NES, buildNoteEditSummary, type NETool } from '../../utils/noteEditorState'
 import { confirmDialog } from '../../utils/confirmController'
@@ -16,9 +16,8 @@ import { HAND_ASSIGN_GROUPS } from '../../utils/keyboardGroups'
 import OrfeoMark from '../OrfeoMark'
 import { t } from '../../utils/i18n'
 import { keepUnsavedAround } from '../../utils/sessionSave'
-import { getLowConfidencePassages, estimateHandAccuracy, passageKey, isPassageSeen } from '../../utils/handPreview'
-import { goToPassage } from '../../utils/handCheck'
-import HandCheckPanel from './HandCheckPanel'
+import { getLowConfidencePassages, estimateHandAccuracy } from '../../utils/handPreview'
+import { goToPassage, togglePassagePlay, markPassageCorrect, fixPassageByHand } from '../../utils/handCheck'
 
 // ── Toolbar SVG icons ─────────────────────────────────────────────────────────
 const IconVelocity = () => (
@@ -71,6 +70,8 @@ export default function NoteEditorToolbar() {
   // to hovering inside the panel — the piano roll's own hover hints
   // (NES.hoverHint) are untouched. ───────────────────────────────────────
   const [iconHint, setIconHint] = useState<string | null>(null)
+  // the passage-check choices (Play, The hands are right, Fix by hand) show theirs all in amber
+  const [iconHintAmber, setIconHintAmber] = useState(false)
   const quantizeBtnRef = useRef<HTMLButtonElement>(null)
 
   useEffect(() => {
@@ -398,6 +399,23 @@ export default function NoteEditorToolbar() {
   // others while doing it. Turning it back off restores whatever was
   // visible before — the isolation is scoped to Hand mode, not a permanent
   // visibility change. ──────────────────────────────────────────────────
+  // ── Hand mode is on whenever the editor opens: players come here to fix the
+  // piano's hands. It goes to the piano (or organ) track, unless the editor
+  // was opened on another kind of track, which stays as it is. ─────────────
+  useEffect(() => {
+    if (NES.reassignHandsMode) return
+    const eligible = (tr: { group: string; isDrum?: boolean }) => HAND_ASSIGN_GROUPS.has(tr.group) && !tr.isDrum
+    const solo = noteEditorSoloTrackIndex !== null ? tracks.find(tr => tr.index === noteEditorSoloTrackIndex) : undefined
+    if (solo && !eligible(solo)) return
+    const kbTrack = solo ?? tracks.find(eligible)
+    if (!kbTrack) return
+    NES.reassignHandsMode = true
+    setReassignHandsDisplay(true)
+    if (noteEditorSoloTrackIndex !== kbTrack.index) soloTrackForEdit(kbTrack.index, { keepPlayhead: true })
+  // once, as the editor opens
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+
   const toggleReassignHands = () => {
     const next = !NES.reassignHandsMode
     NES.reassignHandsMode = next
@@ -618,8 +636,7 @@ export default function NoteEditorToolbar() {
       </div>
 
       {/* ── Hands: step through the passages worth a look (Hand mode only) ── */}
-      {reassignHands && <HandPassagesRow onHint={setIconHint} />}
-      <HandCheckPanel />
+      {reassignHands && <HandPassagesRow onHint={(h, amber) => { setIconHint(h); setIconHintAmber(!!h && !!amber) }} />}
 
       {/* ── Row 3: dynamic tooltip (left, ~2/3) + Reset/Save (right, ~1/3) ──
           Both columns are fixed-fraction (flex-basis on a fixed-width
@@ -635,7 +652,7 @@ export default function NoteEditorToolbar() {
           height: '2.8em', overflow: 'hidden',
         }}>
           {iconHint ? (
-            <div>{renderTip(iconHint)}</div>
+            iconHintAmber ? <div style={{ color: 'var(--text-amber)' }}>{iconHint}</div> : <div>{renderTip(iconHint)}</div>
           ) : (
             <>
               <div>{renderTip(tipLine1)}</div>
@@ -766,37 +783,62 @@ function ToolBtn({ active, onClick, hint, onHint, children, wide }: {
 
 // ── Passages worth a look ─────────────────────────────────────────────────────
 // The soloed piano's passages where Orfeo was least sure of the hands (the
-// same ones the Playback Editor marks). ‹ › loop the previous / next one with
-// its panel (Play, The hands are right, Fix by hand: utils/handCheck.ts);
-// a passage looped counts as looked at. Hidden when nothing is marked or the
+// same ones the Playback Editor marks). ‹ › loop the previous / next one; while
+// one is looped, a line under the row says what to do and three buttons sit at
+// the right below it (Play, The hands are right, Fix by hand: utils/handCheck.ts).
+// Hidden when nothing is marked or the
 // hands come from a score's two staves.
-function HandPassagesRow({ onHint }: { onHint: (h: string | null) => void }) {
+function HandPassagesRow({ onHint }: { onHint: (h: string | null, amber?: boolean) => void }) {
   const midi = useStore(s => s.midi)
   const solo = useStore(s => s.noteEditorSoloTrackIndex)
   const hc = useStore(s => s.handCheck)
   const rev = useStore(s => s.handCheckRev)
+  const playing = useStore(s => s.playbackState === 'playing')
+  const barStarts = useStore(s => s.barStarts)
   const notes = useMemo(() => midi?.tracks.find(tr => tr.index === solo)?.notes ?? [], [midi, solo])
   const passages = useMemo(() => getLowConfidencePassages(notes), [notes, rev])
   const estimate = useMemo(() => estimateHandAccuracy(notes), [notes, rev])
   const fromScore = !!(midi as any)?._stavePairs?.some((pr: [number, number]) => solo !== null && pr.includes(solo))
-  const key = passageKey((midi as any)?._filePath, solo ?? -1)
   if (solo === null || fromScore || passages.length === 0) return null
 
   const checking = hc && hc.track === solo ? hc : null
   const at = checking ? checking.index : -1
-  const seenCount = passages.filter(ps => isPassageSeen(key, ps.start)).length
+  const p = checking ? passages[at] : undefined
+  const barOf = (time: number) => { let b = 0; for (let i = 0; i < barStarts.length; i++) if (barStarts[i] <= time + 1e-6) b = i; return b + 1 }
+  const bars = p ? (barOf(p.start) === barOf(p.end) ? t`bar ${barOf(p.start)}` : t`bars ${barOf(p.start)}–${barOf(p.end)}`) : ''
+  const choice = (primary: boolean): React.CSSProperties => ({
+    ...btnBase, gap: 5, fontWeight: 600,
+    ...(primary
+      ? { background: 'var(--text-amber)', border: '1px solid var(--text-amber)', color: 'var(--bg-modal-header)' }
+      : { color: 'var(--text-amber)', borderColor: 'var(--accent-amber-active-border)' }),
+  })
   return (
-    <div style={{ display: 'flex', alignItems: 'center', height: 34, padding: '2px 8px', gap: 10, borderTop: '1px solid var(--state-hover-bg)' }}>
-      <span style={rowLabelStyle}>{t`HANDS`}</span>
-      <span style={{ fontSize: 11, color: 'var(--text-muted)', whiteSpace: 'nowrap' }}>
-        {estimate !== null && <>{t`About ${estimate}% likely right`} · </>}
-        {passages.length === 1 ? t`1 passage worth a look` : t`${passages.length} passages worth a look`}
-      </span>
-      <div style={{ flex: 1 }} />
+    // Two columns: on the left the HANDS label with the words under it; on the
+    // right the passage controls at the top and, while checking, the three
+    // choices at the bottom right
+    <div style={{ borderTop: '1px solid var(--state-hover-bg)', display: 'grid', gridTemplateColumns: 'minmax(0, 1fr) auto',
+      columnGap: 16, padding: '8px 8px' }}>
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 6, minWidth: 0 }}>
+      <span style={{ ...rowLabelStyle, lineHeight: '26px' }}>{t`HANDS`}</span>
+      {/* one paragraph: how sure Orfeo is, then (while checking) what to do */}
+      <p style={{ margin: 0, fontSize: 11, color: 'var(--text-muted)', lineHeight: 1.45 }}>
+        {estimate !== null
+          ? (passages.length === 1
+            ? t`The hands are about ${estimate}% likely right, with 1 passage worth a look.`
+            : t`The hands are about ${estimate}% likely right, with ${passages.length} passages worth a look.`)
+          : (passages.length === 1 ? t`1 passage is worth a look.` : t`${passages.length} passages are worth a look.`)}
+        {checking && ' '}
+        {checking && (checking.panel
+          ? t`Orfeo isn't sure about the hands in this one: listen to the loop, then keep them or fix them.`
+          : t`Fix the hands on the piano roll: select notes, right-click and choose Assign to Left Hand or Right Hand, then go on with ›.`)}
+      </p>
+    </div>
+    <div style={{ display: 'flex', flexDirection: 'column', justifyContent: 'space-between', alignItems: 'flex-end', gap: 10 }}>
+    <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
       {checking ? (
         <>
           <span style={{ fontSize: 11, fontFamily: 'var(--font-mono)', color: 'var(--text-amber)', whiteSpace: 'nowrap' }}>
-            {t`Passage ${at + 1} of ${passages.length}`}
+            {t`Passage ${at + 1} of ${passages.length}`} · {bars}
           </span>
           <button onClick={() => goToPassage(solo, at - 1)} disabled={at <= 0}
             onMouseEnter={() => onHint(t`Previous passage — loop the passage before this one`)} onMouseLeave={() => onHint(null)}
@@ -804,20 +846,30 @@ function HandPassagesRow({ onHint }: { onHint: (h: string | null) => void }) {
           <button onClick={() => goToPassage(solo, at + 1)} disabled={at >= passages.length - 1}
             onMouseEnter={() => onHint(t`Next passage — loop the next passage worth a look`)} onMouseLeave={() => onHint(null)}
             style={iconBtnStyle(at >= passages.length - 1)}>›</button>
-          {!checking.panel && (
-            <button onClick={() => goToPassage(solo, at)}
-              onMouseEnter={() => onHint(t`Show the choices — Play, The hands are right, Fix by hand`)} onMouseLeave={() => onHint(null)}
-              style={{ ...btnBase, color: 'var(--text-amber)' }}>{t`Choices`}</button>
-          )}
         </>
       ) : (
         <button onClick={() => goToPassage(solo, 0)}
           onMouseEnter={() => onHint(t`Check the passages — loop each one and decide: keep the hands or fix them`)} onMouseLeave={() => onHint(null)}
           style={{ ...btnBase, color: 'var(--text-amber)', borderColor: 'var(--accent-amber-active-border)' }}>{t`Check the passages`}</button>
       )}
-      <span style={{ fontSize: 10, fontFamily: 'var(--font-mono)', color: 'var(--text-dimmest)', whiteSpace: 'nowrap', minWidth: 74, textAlign: 'right' }}>
-        {t`${seenCount} looked at`}
-      </span>
+    </div>
+    {checking && (
+        <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 6 }}>
+          <button onClick={togglePassagePlay} style={choice(false)}
+            onMouseEnter={() => onHint(t`Play the passage on a loop, or pause it`, true)} onMouseLeave={() => onHint(null)}>
+            {playing ? <Pause size={12} /> : <Play size={12} />} {playing ? t`Pause` : t`Play`}
+          </button>
+          <button onClick={markPassageCorrect} style={choice(true)}
+            onMouseEnter={() => onHint(t`Keep the hands as they are and go to the next passage`, true)} onMouseLeave={() => onHint(null)}>
+            <Check size={12} /> {t`The hands are right`}
+          </button>
+          <button onClick={fixPassageByHand} style={choice(false)}
+            onMouseEnter={() => onHint(t`Stop the loop and fix the hands on the piano roll yourself`, true)} onMouseLeave={() => onHint(null)}>
+            <PenLine size={12} /> {t`Fix by hand`}
+          </button>
+        </div>
+    )}
+    </div>
     </div>
   )
 }

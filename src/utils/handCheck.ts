@@ -1,8 +1,9 @@
 // ── Checking the hands, passage by passage ──────────────────────────────────
 // From the Playback Editor ("passages worth a look") or the Note Editor's
 // HANDS row: each passage where Orfeo was least sure of the hands becomes the
-// loop, highlighted on the piano roll, with a panel offering Play, "The hands
-// are right" and "Fix by hand". Your own loop comes back when checking ends
+// loop, highlighted on the piano roll, and the HANDS section offers Play, "The
+// hands are right" and "Fix by hand" (`panel` false after Fix by hand: the
+// section then says how to fix them). Your own loop comes back when checking ends
 // (the Note Editor closes or the last passage is done).
 import { useStore } from '../store'
 import { getLowConfidencePassages, isLowConfidence, markPassageSeen, passageKey, type LowConfidencePassage } from './handPreview'
@@ -88,7 +89,7 @@ export function markPassageCorrect(): void {
   else goToPassage(hc.track, Math.min(hc.index, passagesOf(hc.track).length - 1))
 }
 
-/** "Fix by hand": stop, hide the panel; the passage stays looped and marked */
+/** "Fix by hand": stop; the passage stays looped and marked, the HANDS section says how to fix it */
 export function fixPassageByHand(): void {
   const s = useStore.getState()
   if (!s.handCheck) return
