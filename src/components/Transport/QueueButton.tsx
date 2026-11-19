@@ -9,6 +9,7 @@ import { getLibraryDragPaths, setLibraryDragPaths } from '../../utils/libraryDra
 import { libraryDisplayName } from '../../utils/libraryNames'
 import { LibrarySongName } from '../SettingsPanel/LibrarySongName'
 import Tooltip from '../Tooltip'
+import { nameStyle } from '../Settings/QuickRow'  // same look as a setting's name in Setup
 
 // ── Practice queue in the top bar (Settings › Practice queue), after the key ──
 // A button showing how many songs are queued; a click drops down the queue:
@@ -204,7 +205,7 @@ function QueuePanel({ panelRef, x, y, onOpenSong }: { panelRef: React.RefObject<
       <div style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '6px 10px', minHeight: 30, boxSizing: 'border-box',
         background: 'var(--bg-row)', borderBottom: '1px solid var(--bg-tile)' }}>
         <ListOrdered size={12} style={{ color: 'var(--text-amber)', flexShrink: 0 }} />
-        <span style={{ flex: 1, fontSize: 'var(--text-sm)', color: 'var(--text-tile-subtext)', fontWeight: 600 }}>{t`Practice queue`}</span>
+        <span style={{ flex: 1, fontFamily: 'var(--font-ui)', ...nameStyle }}>{t`Your practice queue playlist`}</span>
         <Tooltip title={t`Previous song (Alt+↑)`} oneLine>
           <button aria-label={t`Previous song`} disabled={!hasPrev} style={iconBtn(hasPrev)} onClick={() => queueStep(-1)}><ChevronUp size={13} /></button>
         </Tooltip>

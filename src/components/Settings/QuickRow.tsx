@@ -4,7 +4,8 @@ import { SurfaceContext } from './controls'
 import { richText } from './SettingCard'
 
 const always = () => true
-const nameStyle = {
+// a setting's name in Setup (SOUND ENGINE…); also the practice queue's heading
+export const nameStyle = {
   fontSize: 'var(--text-xs)', color: 'var(--text-default)', fontWeight: 500,
   letterSpacing: '0.02em', textTransform: 'uppercase' as const,
 }

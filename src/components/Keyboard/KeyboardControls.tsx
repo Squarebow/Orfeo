@@ -143,12 +143,24 @@ export default function KeyboardControls() {
       {/* ── Left: key size selector + dock/float toggle ──────────────────────── */}
       <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-3)', justifySelf: 'start', minWidth: 0 }}>
         {/* ── Portable keyboards (Settings › Keyboard): 25 / 37 / 49 keys first,
-            smallest to largest left to right, with octave buttons for those ── */}
-        {portableKeyboards && <>
-          <PortableSizes size={keyboardSize} onPick={setKeyboardSize} />
-          <div style={{ width: 1, height: 14, background: 'var(--border)' }} />
-        </>}
+            smallest to largest left to right, then a thin line and 61 / 73 / 88:
+            one row of six evenly spaced sizes. On 25 / 37 / 49 their octave
+            buttons ‹ C3–C5 › show at the far left; on 61 / 73 / 88 they take
+            no room at all (the user's call: no empty gap). ── */}
         <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-1)' }}>
+          {portableKeyboards && <>
+            {isPortableSize(keyboardSize) && (
+              <span style={{ display: 'flex', marginRight: 'var(--space-2)' }}>
+                <OctaveControls size={keyboardSize} />
+              </span>
+            )}
+            {PORTABLE.map(n => (
+              <Tooltip key={n} title={t`Switch to ${n}-key layout`} oneLine>
+                <SizeButton active={keyboardSize === n} onClick={() => setKeyboardSize(n)}>{n}</SizeButton>
+              </Tooltip>
+            ))}
+            <div aria-hidden style={{ width: 1, height: 10, background: 'var(--border)' }} />
+          </>}
           {SIZES.map((size) => (
             <Tooltip key={size} title={t`Switch to ${size}-key layout`} oneLine>
             <button
@@ -313,32 +325,23 @@ F11 to open, Esc to close.`}
   )
 }
 
-// ── Portable sizes + octave buttons ──────────────────────────────────────────
-function PortableSizes({ size, onPick }: { size: KeyboardSize; onPick: (n: KeyboardSize) => void }) {
+// ── Octave buttons for a portable size (25 / 37 / 49): ‹ C3–C5 › ─────────────
+function OctaveControls({ size }: { size: KeyboardSize }) {
   const octave = useStore(s => s.keyboardOctave)
   const naming = useStore(s => s.noteNaming)
   const acc = useStore(s => s.accidentals)
-  const portable = isPortableSize(size)
   const { down, up } = octaveLimits(size)
   const r = targetRange({ keyboardSize: size, keyboardOctave: octave })
   const names = naming === 'hidden' ? 'english' : naming
   const shift = (d: number) => useStore.getState().setKeyboardOctave(octave + d)
   return (
-    <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-1)' }}>
-      {PORTABLE.map(n => (
-        <Tooltip key={n} title={t`Switch to ${n}-key layout`} oneLine>
-          <SizeButton active={size === n} onClick={() => onPick(n)}>{n}</SizeButton>
-        </Tooltip>
-      ))}
-      {/* kept in place (hidden) on 61/73/88, so the sizes beside never shift */}
-      <span aria-hidden={!portable} style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-1)', visibility: portable ? 'visible' : 'hidden' }}>
-        <OctaveButton dir={-1} enabled={portable && octave > down} onClick={() => shift(-1)} />
-        <span style={{ fontFamily: 'var(--font-mono)', fontSize: 10, color: 'var(--text-muted)', whiteSpace: 'nowrap', userSelect: 'none', minWidth: 46, textAlign: 'center' }}>
-          {portable ? `${getNoteLabel(r.min, names, acc)}–${getNoteLabel(r.max, names, acc)}` : ''}
-        </span>
-        <OctaveButton dir={1} enabled={portable && octave < up} onClick={() => shift(1)} />
+    <span style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-1)' }}>
+      <OctaveButton dir={-1} enabled={octave > down} onClick={() => shift(-1)} />
+      <span style={{ fontFamily: 'var(--font-mono)', fontSize: 11, fontWeight: 600, color: 'var(--text-default)', whiteSpace: 'nowrap', userSelect: 'none', minWidth: 50, textAlign: 'center' }}>
+        {`${getNoteLabel(r.min, names, acc)}–${getNoteLabel(r.max, names, acc)}`}
       </span>
-    </div>
+      <OctaveButton dir={1} enabled={octave < up} onClick={() => shift(1)} />
+    </span>
   )
 }
 
@@ -373,7 +376,8 @@ function OctaveButton({ dir, enabled, onClick }: { dir: 1 | -1; enabled: boolean
           display: 'flex', alignItems: 'center', justifyContent: 'center', width: 18, height: 18, padding: 0,
           background: 'none', border: 'none', borderRadius: 'var(--radius-sm, 3px)',
           cursor: enabled ? 'pointer' : 'default',
-          color: enabled ? 'var(--text-amber)' : 'var(--state-disabled)',
+          // the end of the range: still clearly there, just not amber
+          color: enabled ? 'var(--text-amber)' : 'var(--text-muted)', opacity: enabled ? 1 : 0.55,
         }}
       >
         <Icon size={14} strokeWidth={1.8} />
