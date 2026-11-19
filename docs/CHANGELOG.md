@@ -55,8 +55,7 @@
 - **A practice queue.** Plan a session: Settings › MIDI Files & Library › Practice queue adds a
   Practice queue button to the top bar, after the key, showing how many songs are queued. Click
   it to drop down the queue; your Library's folders stay as they are. Add
-  songs with right-click › Add to queue or by dragging them onto the button, or a whole folder's songs at
-  once with right-click on the folder › Add folder to queue. Drag to reorder, and move
+  songs with right-click › Add to practice queue (always there: it switches the queue on by itself) or by dragging them onto the button. Drag to reorder, and move
   through them with Alt + ↓ / ↑ or the queue's buttons. When a queued song ends, Orfeo can ask
   what's next, play the next song after a short countdown, repeat the song, or wait. The queue
   is still there the next time you open Orfeo.

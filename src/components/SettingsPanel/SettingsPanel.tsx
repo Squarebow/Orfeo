@@ -331,8 +331,13 @@ function LibraryPanel({ hidden = false }: { hidden?: boolean }) {
   const pinnedTags = useStore((s) => s.pinnedTags)
   useEffect(() => { setActiveTags(a => a.filter(tag => libraryTags.includes(tag) && pinnedTags.includes(tag))) }, [libraryTags, pinnedTags])
   const closeTagPicker = useCallback(() => setTagPicker(null), [])
-  // ── Practice queue (its list lives in the top bar): right-click › Add to queue ──
-  const queueEnabled = useStore((s) => s.queueEnabled)
+  // ── Practice queue (its list lives in the top bar): right-click › Add to queue
+  // is always offered; using it switches the queue on, so its button shows up ──
+  const addToPracticeQueue = (paths: string[]) => {
+    const s = useStore.getState()
+    if (!s.queueEnabled) s.setQueueEnabled(true)
+    s.queueAdd(paths)
+  }
   const [librarySearch, setLibrarySearch] = useState('')
   // Folders start expanded (not in collapsed set)
   const [expandedFolders, setExpandedFolders] = useState<Set<string>>(new Set())
@@ -1177,10 +1182,10 @@ function LibraryPanel({ hidden = false }: { hidden?: boolean }) {
 
             {/* ── Songs: queue, export, tags ── */}
             <ContextMenuDivider />
-            {queueEnabled && (() => {
+            {(() => {
               const paths = selectedPaths.size > 0 && selectedPaths.has(contextMenu.path) ? Array.from(selectedPaths) : [contextMenu.path]
               return (
-                <ContextMenuItem onClick={() => { useStore.getState().queueAdd(paths); setContextMenu(null) }}>
+                <ContextMenuItem onClick={() => { addToPracticeQueue(paths); setContextMenu(null) }}>
                   {paths.length > 1 ? t`Add ${paths.length} songs to practice queue` : t`Add to practice queue`}
                 </ContextMenuItem>
               )
@@ -1249,20 +1254,6 @@ function LibraryPanel({ hidden = false }: { hidden?: boolean }) {
             >
               {t`Show in folder`}
             </ContextMenuItem>
-            {/* every song in the folder (and the folders inside it) joins the queue as
-                songs, in the order shown; hidden songs stay out, and Demo has no entry */}
-            {queueEnabled && folderContextMenu.folder.toLowerCase() !== 'demo' && (() => {
-              const hidden = new Set(hiddenLibraryFiles)
-              const songs = (grouped.find(g => g.folder === folderContextMenu.folder)?.files ?? []).filter(f => !hidden.has(f.path)).map(f => f.path)
-              return (
-                <ContextMenuItem
-                  onClick={() => { useStore.getState().queueAdd(songs); setFolderContextMenu(null) }}
-                  disabled={songs.length === 0}
-                >
-                  {t`Add folder to queue`}
-                </ContextMenuItem>
-              )
-            })()}
             {!isProtectedFolder(folderContextMenu.folder) && (<>
               <ContextMenuItem
                 onClick={() => { setRenamingFolder(folderContextMenu.folder); setRenameDraft(folderContextMenu.folder); setFolderContextMenu(null) }}

@@ -102,7 +102,7 @@ export const SETTINGS: SettingInfo[] = [
     description: t`When this is on, clicking a song's file icon in the Library makes a chord chart PDF of it in the ORFEO folder. Charts number the bars as the file has them, so switching this on switches off Skip empty bars at the start.`,
     keywords: 'pdf chart transcript export' },
   { id: 'practiceQueue', group: 'midi-files-library', name: t`Practice queue`, summary: t`Plan a session: queue songs and go through them in order.`,
-    description: t`Adds a Practice queue button to the top bar, after the key. Click it to see and edit the queue. Add songs by right-clicking them in the Library › Add to queue, or drag them onto the button; drag to reorder. Alt + ↓ and Alt + ↑ (Option on a Mac) open the next and previous song. The queue is kept when you close Orfeo.`,
+    description: t`Adds a Practice queue button to the top bar, after the key. Click it to see and edit the queue. Add songs by right-clicking them in the Library › Add to practice queue (which also turns this on), or drag them onto the button; drag to reorder. Alt + ↓ and Alt + ↑ (Option on a Mac) open the next and previous song. The queue is kept when you close Orfeo.`,
     keywords: 'queue playlist session plan next previous order practice setlist karaoke' },
   // ── Playback & Editing
   { id: 'tapTempo', group: 'playback-editing', name: t`Tap Tempo`, summary: t`A TAP pad for fixing songs whose bar lines don't match the music.`,
