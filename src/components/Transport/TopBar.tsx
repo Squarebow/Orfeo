@@ -673,6 +673,7 @@ and which note value counts as one beat.`}
           disabled={!!metroMenu}
         >
           <button
+            data-tour="metronome"
             onClick={() => setMetronomeEnabled(!metronomeEnabled)}
             onContextMenu={(e) => { e.preventDefault(); const r = e.currentTarget.getBoundingClientRect(); setMetroMenu({ x: Math.max(8, r.right - METRO_MENU_WIDTH), y: r.bottom + 6 }) }}
             style={{

@@ -1,4 +1,4 @@
-import { toursFromPrefs, placeCard, nextShownStep, CARD_GAP, VIEW_MARGIN } from './tours'
+import { toursFromPrefs, placeCard, placeBetween, nextShownStep, CARD_GAP, VIEW_MARGIN, CORNER_DROP } from './tours'
 
 export function runToursTest(): number {
   console.group('[tours] self-check')
@@ -30,6 +30,12 @@ export function runToursTest(): number {
   check(left.side === 'left' && left.left + card.width === 1140 - CARD_GAP, 'left of the Tracks panel')
   const tiny = placeCard({ left: 0, top: 0, width: 1400, height: 900 }, card, view, 'top')
   check(tiny.left >= VIEW_MARGIN && tiny.top >= VIEW_MARGIN && tiny.top + card.height <= view.height - VIEW_MARGIN, 'a target filling the window: the card still stays on screen')
+
+  // A card between two targets (Chords at the left, Scales at the right)
+  const pair = placeBetween({ left: 10, top: 600, width: 60, height: 20 }, { left: 1000, top: 600, width: 60, height: 20 }, card, view)
+  check(pair.arrow === -1 && Math.abs(pair.left + card.width / 2 - 535) <= 1 && pair.top + card.height === 600 - CORNER_DROP, 'between the two, above them, no pointer')
+  const high = placeBetween({ left: 10, top: 60, width: 60, height: 20 }, { left: 1000, top: 60, width: 60, height: 20 }, card, view)
+  check(high.top === VIEW_MARGIN, 'no room above: it stays on screen')
 
   // Steps whose button isn't there are passed over
   const has = (i: number) => i !== 1

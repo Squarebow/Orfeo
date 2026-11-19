@@ -1,4 +1,4 @@
-// ── The two short tours for a new install (docs: Settings › Appearance › Tours) ──
+// ── The two short tours for a new install (docs: Settings › Appearance › Onboarding tours) ──
 // First launch: Library, Open a song, Sound, MIDI keyboard. First song: Tracks,
 // play and tempo, loop, chords, Explorers. Each shows once, on a new install only.
 //
@@ -58,6 +58,17 @@ export function placeCard(target: Box, card: { width: number; height: number }, 
   left = side === 'right' ? target.left + target.width + CARD_GAP : target.left - CARD_GAP - card.width
   left = clamp(left, VIEW_MARGIN, view.width - VIEW_MARGIN - card.width)
   return { left, top, side, arrow: clamp(cy - top, ARROW_INSET, card.height - ARROW_INSET) }
+}
+
+export const CORNER_DROP = 64 // room under a card between two targets
+
+/** A card between two targets and above them (a pointer near each lower corner, none in the middle). */
+export function placeBetween(a: Box, b: Box, card: { width: number; height: number }, view: { width: number; height: number }): CardPlace {
+  const clamp = (v: number, lo: number, hi: number) => Math.min(Math.max(v, lo), Math.max(lo, hi))
+  const cx = (a.left + a.width / 2 + b.left + b.width / 2) / 2
+  const left = clamp(cx - card.width / 2, VIEW_MARGIN, view.width - VIEW_MARGIN - card.width)
+  const top = clamp(Math.min(a.top, b.top) - CORNER_DROP - card.height, VIEW_MARGIN, view.height - VIEW_MARGIN - card.height)
+  return { left: Math.round(left), top: Math.round(top), side: 'top', arrow: -1 }
 }
 
 /** The next step that has something to point at, going forward or back; null past either end. */

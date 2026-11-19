@@ -242,7 +242,8 @@ export default function TrackPanel() {
             wrapperStyle={{ marginTop: 8 }}
           >
           <button
-            onClick={midi && !midiEditorOpen ? handleOpenEditor : undefined}
+            data-tour="tool-playback-editor"
+              onClick={midi && !midiEditorOpen ? handleOpenEditor : undefined}
             style={{
               background: 'none', border: 'none',
               cursor: !midi || midiEditorOpen ? 'default' : 'pointer',
@@ -264,6 +265,7 @@ export default function TrackPanel() {
               wrapperStyle={{ marginTop: 8 }}
             >
             <button
+              data-tour="tool-note-editor"
               onClick={handleToggleNoteEditor}
               style={{
                 background: 'none', border: 'none', cursor: 'pointer',
@@ -285,7 +287,8 @@ export default function TrackPanel() {
           )}
           <Tooltip title={t`Console Mixer`} description={t`Adjust volume, pan, and effects for every track individually.`} wrapperStyle={{ marginTop: 8 }}>
           <button
-            onClick={() => useStore.getState().setMixerOpen(true)}
+            data-tour="tool-mixer"
+              onClick={() => useStore.getState().setMixerOpen(true)}
             style={{
               background: 'none', border: 'none', cursor: 'pointer',
               color: 'var(--text-dimmest)', padding: 4,
@@ -348,6 +351,7 @@ export default function TrackPanel() {
               wrapperStyle={{ marginTop: 8 }}
             >
             <button
+              data-tour="tool-playback-editor"
               onClick={midi && !midiEditorOpen ? handleOpenEditor : undefined}
               style={{
                 background: 'none', border: 'none',
@@ -370,7 +374,8 @@ export default function TrackPanel() {
                 wrapperStyle={{ marginTop: 8 }}
               >
               <button
-                onClick={handleToggleNoteEditor}
+                data-tour="tool-note-editor"
+              onClick={handleToggleNoteEditor}
                 style={{
                   background: 'none', border: 'none', cursor: 'pointer',
                   color: noteEditorActive ? 'var(--text-amber)' : 'var(--text-dimmest)',
@@ -390,6 +395,7 @@ export default function TrackPanel() {
             <Tooltip title={t`Console Mixer`} description={t`Adjust volume, pan, chorus, and reverb 
 for every track and apply compression.`} wrapperStyle={{ marginTop: 8 }}>
             <button
+              data-tour="tool-mixer"
               onClick={() => useStore.getState().setMixerOpen(true)}
               style={{
                 background: 'none', border: 'none', cursor: 'pointer',

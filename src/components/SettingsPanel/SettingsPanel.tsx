@@ -1379,6 +1379,7 @@ Star a file with ★` : t`No MIDI files found.`}
                   onMouseLeave={e => (e.currentTarget as HTMLElement).style.background = isLoaded ? 'var(--accent-amber-medium)' : 'transparent'}
                   onClick={() => handleLoadFile(file.path)}
                   onContextMenu={e => handleContextMenu(e, file.path)}
+                  data-tour="library-song"
                 >
                   {/* ── Icon doubles as transcript trigger when transcription is on; otherwise shows format-specific icon ── */}
                   {chordTranscriptionEnabled ? (
@@ -1604,6 +1605,7 @@ Star a file with ★` : t`No MIDI files found.`}
                     onMouseLeave={e => { if (!isLoaded && !isMultiSelected && !isJustSaved) (e.currentTarget as HTMLElement).style.background = 'transparent' }}
                     onClick={e => handleRowClick(e, file.path, visibleFilePaths)}
                     onContextMenu={e => handleContextMenu(e, file.path)}
+                    data-tour="library-song"
                   >
                     {/* ── Icon doubles as transcript trigger when transcription is on; otherwise shows format-specific icon ── */}
                     {chordTranscriptionEnabled ? (

@@ -192,15 +192,16 @@ function QueuePanel({ panelRef, x, y, onOpenSong }: { panelRef: React.RefObject<
   }
 
   return (
-    <div ref={panelRef} className="app-no-drag" role="dialog" aria-label={t`Practice queue`}
+    <div ref={panelRef} className="app-no-drag orfeo-modal-glow" role="dialog" aria-label={t`Practice queue`}
       onDragOver={e => { if (accepts()) { e.preventDefault(); if (dragFrom === null) setLibraryOver(true) } }}
       onDragLeave={e => { if (!e.currentTarget.contains(e.relatedTarget as Node)) { setLibraryOver(false); setDropAt(null) } }}
       onDrop={e => { e.preventDefault(); dropOn(queue.paths.length) }}
       style={{
         position: 'fixed', left: x, top: y, width: PANEL_W, zIndex: 1000,
-        background: 'var(--bg-modal)', border: `1px solid ${libraryOver ? 'var(--text-amber)' : 'var(--border)'}`,
-        borderRadius: 'var(--radius-md)', boxShadow: '0 10px 28px rgba(0,0,0,0.55)', overflow: 'hidden',
-      }}>
+        background: 'var(--bg-modal)', border: `1px solid ${libraryOver ? 'var(--text-amber)' : 'var(--accent-amber-strong)'}`,
+        borderRadius: 'var(--radius-md)', overflow: 'hidden',
+        '--_modal-shadow': 'var(--elevation-popover)',
+      } as React.CSSProperties}>
       {/* Header: name, count, previous / next song */}
       <div style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '6px 10px', minHeight: 30, boxSizing: 'border-box',
         background: 'var(--bg-row)', borderBottom: '1px solid var(--bg-tile)' }}>

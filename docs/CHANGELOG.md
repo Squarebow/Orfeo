@@ -59,12 +59,14 @@
   through them with Alt + ↓ / ↑ or the queue's buttons. When a queued song ends, Orfeo can ask
   what's next, play the next song after a short countdown, repeat the song, or wait. The queue
   is still there the next time you open Orfeo.
-- **Two short tours for new users.** On a first start, Orfeo points out where your songs are,
-  how to open one, the sound engine and the MIDI keyboard. The first time a song opens, a
-  second tour shows the Tracks panel, play and tempo, looping, the chord name and the
-  Explorers. Each step is one small card with Next, Back and ✕ (or Enter, the arrow keys and
+- **Two short tours for new users.** Each opens with a welcome card listing the stops ahead.
+  On a first start, Orfeo points out where your songs are, how to open one, what a right-click
+  on a song offers, the sound engine and the MIDI keyboard. The first time a song opens, a
+  second tour ("Create your first lesson") shows the Tracks panel, play, tempo and the
+  metronome with its count-in, looping, the chord name, the two Explorers and the Playback
+  Editor, Note Editor and Mixer. Each step is one small card with Next, Back and ✕ (or Enter, the arrow keys and
   Esc), and the song never starts behind it. Each tour shows once, only on a new install, so
-  updating from an earlier version changes nothing. Settings › Appearance › Tours shows either
+  updating from an earlier version changes nothing. Settings › Appearance › Onboarding tours shows either
   one again.
 
 - **Your unsaved edits at a glance.** An EDITS badge next to the song length counts the changes

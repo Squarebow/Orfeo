@@ -3,7 +3,7 @@ import { X, ChevronLeft, ChevronRight } from 'lucide-react'
 import { useStore, libraryRestored } from '../../store'
 import { useMidiSettings } from '../../store/midiSettings'
 import { t } from '../../utils/i18n'
-import { placeCard, nextShownStep, type Box, type CardPlace, type TourId } from '../../utils/tours'
+import { placeCard, placeBetween, nextShownStep, type Box, type CardPlace, type TourId } from '../../utils/tours'
 import { tourSteps, type TourStep } from './tourSteps'
 
 // ── A short tour: the app dims, the control in question gets an amber ring, and a
@@ -14,7 +14,9 @@ import { tourSteps, type TourStep } from './tourSteps'
 
 const RING_PAD = 6
 const CARD_WIDTH = 300
+const WELCOME_WIDTH = 640 // the welcome card: twice the size, room for the list of stops
 const POINTER = 12 // the card's pointer, a square turned on its corner
+const CORNER_INSET = 18 // a card between two targets: a pointer this far in from each lower corner
 
 const find = (mark: string) => document.querySelector<HTMLElement>(`[data-tour="${mark}"]`)
 const visible = (el: HTMLElement | null): el is HTMLElement => {
@@ -93,7 +95,9 @@ function TourOverlay({ id }: { id: TourId }) {
       return
     }
     if (!boxes.length) return
-    const next = placeCard(boxes[0], { width: card.offsetWidth, height: card.offsetHeight }, { width: window.innerWidth, height: window.innerHeight }, steps[index ?? 0].side)
+    const view = { width: window.innerWidth, height: window.innerHeight }
+    const size = { width: card.offsetWidth, height: card.offsetHeight }
+    const next = steps[index].corners && boxes.length >= 2 ? placeBetween(boxes[0], boxes[1], size, view) : placeCard(boxes[0], { width: card.offsetWidth, height: card.offsetHeight }, { width: window.innerWidth, height: window.innerHeight }, steps[index ?? 0].side)
     setPlace(p => (p && p.left === next.left && p.top === next.top && p.side === next.side && p.arrow === next.arrow ? p : next))
   }, [boxes, index, steps])
 
@@ -165,12 +169,35 @@ function TourOverlay({ id }: { id: TourId }) {
       ))}
       {step && (
         <div ref={cardRef} className="orfeo-modal-glow" onMouseDown={e => e.stopPropagation()}
-          style={{ position: 'absolute', left: place?.left ?? -9999, top: place?.top ?? -9999, width: CARD_WIDTH, maxWidth: 'calc(100vw - 16px)',
-            boxSizing: 'border-box', padding: '12px 14px 10px', background: 'var(--bg-modal)', border: '1px solid var(--accent-amber-strong)',
+          style={{ position: 'absolute', left: place?.left ?? -9999, top: place?.top ?? -9999, width: step.welcome ? WELCOME_WIDTH : CARD_WIDTH, maxWidth: 'calc(100vw - 16px)',
+            boxSizing: 'border-box', padding: step.welcome ? '28px 32px 16px' : '12px 14px 10px', background: 'var(--bg-modal)', border: '1px solid var(--accent-amber-strong)',
             borderRadius: 'var(--radius-md)', fontFamily: 'var(--font-ui)', '--_modal-shadow': 'var(--elevation-popover)' } as React.CSSProperties}>
           {pointerStyle() && <div style={pointerStyle()!} />}
+          {step.corners && place && place.arrow < 0 && [{ left: CORNER_INSET - POINTER / 2 }, { right: CORNER_INSET - POINTER / 2 }].map((at, i) => (
+            <div key={i} style={{ position: 'absolute', bottom: -POINTER / 2 - 1, ...at, width: POINTER, height: POINTER, background: 'var(--bg-modal)',
+              transform: 'rotate(45deg)', borderBottom: '1px solid var(--accent-amber-strong)', borderRight: '1px solid var(--accent-amber-strong)' }} />
+          ))}
           {step.welcome ? (
-            <div style={{ fontSize: 'var(--text-md)', fontWeight: 600, color: 'var(--text-amber)', textAlign: 'center', textTransform: 'uppercase', letterSpacing: '0.06em' }}>{step.title}</div>
+            <>
+              <div style={{ fontSize: 24, fontWeight: 600, color: 'var(--text-amber)', textAlign: 'center', textTransform: 'uppercase', letterSpacing: '0.08em' }}>{step.title}</div>
+              <div style={{ marginTop: 14, fontSize: 'var(--text-lg)', lineHeight: 1.6, color: 'var(--text-default)', textAlign: 'center' }}>{step.text}</div>
+              {/* the stops to come, two to a row */}
+              <div style={{ marginTop: 22, display: 'grid', gridTemplateColumns: 'minmax(0, 1fr) minmax(0, 1fr)', columnGap: 24, rowGap: 14 }}>
+                {steps.filter(s => !s.welcome).map((s, i) => (
+                  <div key={i} style={{ display: 'grid', gridTemplateColumns: 'auto minmax(0, 1fr)', columnGap: 10, alignItems: 'start' }}>
+                    <span style={{ width: 24, height: 24, borderRadius: '50%', background: 'var(--text-amber)', color: 'var(--text-on-amber)',
+                      display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 12, fontWeight: 700, fontFamily: 'var(--font-mono)' }}>{i + 1}</span>
+                    <div>
+                      <div style={{ fontSize: 'var(--text-sm)', fontWeight: 600, color: 'var(--text-amber)', textTransform: 'uppercase', letterSpacing: '0.06em', lineHeight: '24px' }}>{s.title}</div>
+                      {s.teaser && <div style={{ fontSize: 'var(--text-base)', lineHeight: 1.45, color: 'var(--text-muted)' }}>{s.teaser}</div>}
+                    </div>
+                  </div>
+                ))}
+              </div>
+              <div style={{ marginTop: 22, fontSize: 'var(--text-xs)', color: 'var(--text-faint)', textAlign: 'center' }}>
+                {t`Enter or › goes on, Esc skips. You can replay it any time in Settings › Appearance › Onboarding tours.`}
+              </div>
+            </>
           ) : (
             <div style={{ display: 'grid', gridTemplateColumns: 'auto minmax(0, 1fr)', alignItems: 'center', columnGap: 8 }}>
               <span style={{ width: 20, height: 20, borderRadius: '50%', background: 'var(--text-amber)', color: 'var(--text-on-amber)',
@@ -178,7 +205,7 @@ function TourOverlay({ id }: { id: TourId }) {
               <span style={{ fontSize: 'var(--text-sm)', fontWeight: 600, color: 'var(--text-amber)', textTransform: 'uppercase', letterSpacing: '0.06em' }}>{step.title}</span>
             </div>
           )}
-          <div style={{ marginTop: 8, fontSize: 'var(--text-xs)', lineHeight: 1.55, color: 'var(--text-default)', textAlign: step.welcome ? 'center' : undefined }}>{step.text}</div>
+          {!step.welcome && <div style={{ marginTop: 8, fontSize: 'var(--text-xs)', lineHeight: 1.55, color: 'var(--text-default)' }}>{step.text}</div>}
           {/* count · ‹ › in the middle of the card · Esc ✕; equal side columns keep the arrows centred */}
           <div style={{ marginTop: 12, paddingTop: 8, borderTop: '1px solid var(--border)', display: 'grid', gridTemplateColumns: 'minmax(0, 1fr) auto minmax(0, 1fr)', alignItems: 'center' }}>
             <span style={{ fontSize: 'var(--text-xs)', fontFamily: 'var(--font-mono)', color: 'var(--text-faint)' }}>{step.welcome ? '' : `${number}/${numbered}`}</span>
@@ -206,7 +233,7 @@ function TourOverlay({ id }: { id: TourId }) {
 
 // ── When each tour starts on its own: first launch once the settings are back; first
 // song the first time a song has finished opening and isn't playing, after the first
-// tour is done or skipped. A replay (Settings › Appearance › Tours) just calls startTour.
+// tour is done or skipped. A replay (Settings › Appearance › Onboarding tours) just calls startTour.
 export default function Tour() {
   const active = useStore(s => s.tourActive)
   const seen = useStore(s => s.toursSeen)
