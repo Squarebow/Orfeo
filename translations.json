@@ -1,0 +1,66 @@
+{
+  "de": {
+    "percent": 0,
+    "total": 1748,
+    "translated": 1,
+    "fuzzy": 1366,
+    "readySince": null,
+    "lastChange": "2026-11-19T13:45:09.835061+01:00"
+  },
+  "es": {
+    "percent": 0,
+    "total": 1748,
+    "translated": 1,
+    "fuzzy": 1366,
+    "readySince": null,
+    "lastChange": "2026-11-19T13:45:11.385464+01:00"
+  },
+  "fr": {
+    "percent": 0,
+    "total": 1748,
+    "translated": 1,
+    "fuzzy": 1366,
+    "readySince": null,
+    "lastChange": "2026-11-19T13:45:12.869661+01:00"
+  },
+  "pl": {
+    "percent": 0,
+    "total": 1748,
+    "translated": 1,
+    "fuzzy": 1366,
+    "readySince": null,
+    "lastChange": "2026-11-19T13:45:14.407401+01:00"
+  },
+  "pt": {
+    "percent": 0,
+    "total": 1748,
+    "translated": 10,
+    "fuzzy": 1602,
+    "readySince": null,
+    "lastChange": "2026-11-19T13:45:15.561598+01:00"
+  },
+  "ru": {
+    "percent": 0,
+    "total": 1748,
+    "translated": 1,
+    "fuzzy": 1366,
+    "readySince": null,
+    "lastChange": "2026-11-19T13:45:17.288641+01:00"
+  },
+  "sl": {
+    "percent": 2,
+    "total": 1748,
+    "translated": 42,
+    "fuzzy": 0,
+    "readySince": null,
+    "lastChange": "2026-11-19T13:45:19.173050+01:00"
+  },
+  "zh_Hans": {
+    "percent": 2,
+    "total": 1748,
+    "translated": 46,
+    "fuzzy": 1321,
+    "readySince": null,
+    "lastChange": "2026-11-19T13:45:20.357388+01:00"
+  }
+}
