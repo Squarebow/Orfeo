@@ -5,7 +5,13 @@
      list of 2–4 one-line bullets, then ### New / ### Changed / ### Fixed.
      Newest version at the top. -->
 
-## [Unreleased]
+## [1.8] — 19. 11. 2026 — Tags, a practice queue, smarter hands and lighted keys
+
+**In short**
+- Tag your songs, plan a practice queue in the top bar, and see at a glance which songs have lyrics.
+- Left and right hands are far more accurate, and Orfeo tells you how sure it is and which passages to check.
+- Keyboards with lighted keys show the song's notes, Orfeo learns your keyboard's size, and the keyboard bar adds 25, 37 and 49 keys.
+- One EDITS badge for everything unsaved, Sargam note names, double-click to open MIDI files, and Orfeo ready for translation.
 
 ### New
 - **Sargam note names.** Settings › Chords & Notation › Display system has a fifth choice,
@@ -68,7 +74,6 @@
   Esc), and the song never starts behind it. Each tour shows once, only on a new install, so
   updating from an earlier version changes nothing. Settings › Appearance › Onboarding tours shows either
   one again.
-
 - **Your unsaved edits at a glance.** An EDITS badge next to the song length counts the changes
   you haven't saved yet. Hover it for the list, grouped by where you made them; click it to save
   them all at once or let them go. Closing or opening a song with unsaved changes asks once, in one
@@ -91,7 +96,7 @@
 
 ### Changed
 - **A wider Library, if you like.** Drag the Library's right edge to make it up to a quarter
-  wider, so long song names, tags and the queue have more room. Double-click the edge for the
+  wider, so long song names and tags have more room. Double-click the edge for the
   usual width. Setup keeps its width, and in a small window the Library stays as it was so the
   piano roll never loses space.
 - **Settings › MIDI Files & Library** is laid out afresh, and Chord Transcription's description
@@ -113,7 +118,6 @@
   melody, so the chord was read from the wrong notes.
 - **The Mixer's changes are saved with your other edits** and counted in the Edits badge; the
   Mixer no longer asks on its own when you close it.
-
 - **Software MIDI cables stay out of the keyboard list.** Ports such as loopMIDI, LoopBe, a
   Windows MIDI loopback, the Mac IAC bus or Linux's Midi Through only pass notes between apps
   and have no keys. Settings › MIDI Keyboard no longer lists them, so they never become the
@@ -139,7 +143,7 @@
 - **A piano opened from MusicXML, Guitar Pro or Capella now gets its hands from its staves too.**
   Opening the file merged the piano's two staves into one part, so Orfeo had to guess which notes
   belong to which hand. Each staff now stays its own part, as when the notation program saves a
-  MIDI file itself. Thanks to Rafael Carvalho for finding it and sending the fix.
+  MIDI file itself. Thanks to Rafael Carvalho (Shishudy) for finding it and sending the fix.
 
 ## [1.7.3] — 12. 11. 2026 — The Explorers hear your keyboard, a bigger Settings window
 
