@@ -380,6 +380,7 @@ button, input, select, textarea {
 --accent-amber-strong: #e8a02755;  /* ~33% — borders, glows, strong emphasis */
 --accent-amber-medium: #e8a02722;  /* ~13% — selected/active tinted backgrounds */
 --accent-amber-subtle: #e8a02708;  /* ~3%  — very light hover/open-state tints */
+--accent-amber-dim-border: #e8a02738;  /* ~22% — outline of a switched-off Library tag */
 --accent-amber-bold: #e8a02799;    /* ~60% — ScaleExplorer CoF key-signature text + roman-numeral subtext */
 --accent-amber-shadow: #e8a02766;   /* ~40% — Mixer ChannelStrip fader-handle box-shadow tint */
 --accent-amber-tint-bg: #e8a0270f;      /* ~6%  — NoteEditorToolbar close-confirm strip background */

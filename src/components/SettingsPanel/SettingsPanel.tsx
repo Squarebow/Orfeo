@@ -5,7 +5,7 @@ import { confirmDialog } from '../../utils/confirmController'
 import {
   ChevronLeft, ChevronDown, ChevronRight,
   FolderOpen, Folders, RefreshCw, FileMusic, FileCode2, Guitar, BookOpen, Library, Settings, Info,
-  Search, X, Undo2, ChevronsDownUp, Settings2, ArrowLeftRight, MicVocal,
+  Search, X, Undo2, ChevronsDownUp, Settings2, ArrowLeftRight,
 } from 'lucide-react'
 import { useStore } from '../../store'
 import { t } from '../../utils/i18n'
@@ -15,7 +15,8 @@ import { useTempoTrustScan } from '../../hooks/useTempoTrustScan'
 import { useLyricsScan } from '../../hooks/useLyricsScan'
 import { songHasAllTags } from '../../utils/libraryTags'
 import { TagsRow, TagPicker } from './LibraryTags'
-import { QueueSection, QueuePill } from './QueueSection'
+import { LibrarySongName } from './LibrarySongName'
+import { setLibraryDragPaths } from '../../utils/libraryDrag'
 import { libraryPanelWidth, LIBRARY_MIN_WIDTH } from '../../utils/libraryWidth'
 import type { NoteNaming, Accidentals, TranscriptEntry, LibraryFile } from '../../types'
 import { MarqueeText } from '../MarqueeText'
@@ -147,26 +148,6 @@ const FILENAME_SPAN_STYLE: React.CSSProperties = { fontSize: 'var(--text-sm)', c
 function MarqueeFilename({ name }: { name: string }) {
   return <MarqueeText name={name} spanStyle={FILENAME_SPAN_STYLE} />
 }
-
-// ── A Library row's song name, with the amber lyrics mark when the song carries
-// lyrics (Settings › Show files with lyrics). The mark is pinned at the right end of
-// the name's space, just before the star: a long name scrolls under it on hover
-// while the mark stays put and always shows. It's drawn here, never part of the
-// name, so renaming can't touch it. ───────────────────────────────────────────
-function LibrarySongName({ path, name, spanStyle }: { path: string; name: string; spanStyle: React.CSSProperties }) {
-  const mark = useStore(s => s.showLyricsMark && s.lyricsIndex[path]?.lyrics === true)
-  return (
-    <>
-      <MarqueeText name={name} spanStyle={spanStyle} />
-      {mark && (
-        <span aria-label={t`Has lyrics`} style={{ display: 'inline-flex', alignSelf: 'center', flexShrink: 0, marginLeft: 4, color: 'var(--text-amber)' }}>
-          <MicVocal size={11} strokeWidth={1.75} />
-        </span>
-      )}
-    </>
-  )
-}
-
 
 type RowPlacement = 'top' | 'bottom' | 'left' | 'right'
 
@@ -350,10 +331,8 @@ function LibraryPanel({ hidden = false }: { hidden?: boolean }) {
   const pinnedTags = useStore((s) => s.pinnedTags)
   useEffect(() => { setActiveTags(a => a.filter(tag => libraryTags.includes(tag) && pinnedTags.includes(tag))) }, [libraryTags, pinnedTags])
   const closeTagPicker = useCallback(() => setTagPicker(null), [])
-  // ── Practice queue: shown in the Folders area's place while its pill is on ──
+  // ── Practice queue (its list lives in the top bar): right-click › Add to queue ──
   const queueEnabled = useStore((s) => s.queueEnabled)
-  const queueView    = useStore((s) => s.queueView)
-  const showQueue    = queueEnabled && queueView
   const [librarySearch, setLibrarySearch] = useState('')
   // Folders start expanded (not in collapsed set)
   const [expandedFolders, setExpandedFolders] = useState<Set<string>>(new Set())
@@ -675,6 +654,7 @@ function LibraryPanel({ hidden = false }: { hidden?: boolean }) {
     const paths = selectedPaths.has(filePath) ? Array.from(selectedPaths) : [filePath]
     if (!selectedPaths.has(filePath)) { setSelectedPaths(new Set([filePath])); setSelectionAnchor(filePath) }
     setDraggingPaths(paths)
+    setLibraryDragPaths(paths)  // the top bar's practice queue takes them too
     e.dataTransfer.effectAllowed = 'move'
     e.dataTransfer.setData('text/plain', filePath) // OS drag needs a payload even though we read draggingPaths directly
   }
@@ -1077,7 +1057,6 @@ function LibraryPanel({ hidden = false }: { hidden?: boolean }) {
               onToggle={tag => setActiveTags(a => a.includes(tag) ? a.filter(x => x !== tag) : [...a, tag])}
               onClear={() => setActiveTags([])}
               onOpenPicker={(x, y) => setTagPicker({ x, y, mode: 'pin' })}
-              lead={queueEnabled ? <QueuePill /> : undefined}
             />
           </div>
         ) : (
@@ -1428,20 +1407,7 @@ Star a file with ★` : t`No MIDI files found.`}
         {/* ── "Folders" section — one collapsible row for the whole stack of folder
             groups, so a large library can be collapsed down to just its root files.
             Sticky at the very top; individual folder headers stick right beneath it. ── */}
-        {showQueue && (
-          <QueueSection
-            openSong={path => { void handleLoadFile(path) }}
-            renderName={(path, current) => (
-              <LibrarySongName path={path} name={libraryDisplayName(path.split(/[\\/]/).pop() ?? path, librarySongFirst)}
-                spanStyle={current ? FILENAME_SPAN_ACTIVE : FILENAME_SPAN_DEFAULT} />
-            )}
-            libraryDrag={draggingPaths}
-            onLibraryDrop={() => setDraggingPaths(null)}
-            openPath={loadedFilePath}
-            stickyTop={pinnedBarOffset}
-          />
-        )}
-        {!showQueue && grouped.some(g => g.folder && !(hideDemoFolder && g.folder.toLowerCase() === 'demo')) && (
+        {grouped.some(g => g.folder && !(hideDemoFolder && g.folder.toLowerCase() === 'demo')) && (
           <div
             onClick={() => setFoldersSectionExpanded(v => !v)}
             style={{
@@ -1463,7 +1429,7 @@ Star a file with ★` : t`No MIDI files found.`}
 
         {/* ── hideDemoFolder filters the Demo subfolder from display ───────── */}
         {grouped.filter(g => !(hideDemoFolder && g.folder?.toLowerCase() === 'demo')).map((group, gi) => {
-          if (group.folder && (!foldersSectionExpanded || showQueue)) return null
+          if (group.folder && !foldersSectionExpanded) return null
           const protectedFolder = isProtectedFolder(group.folder)
           const isDropTarget = !!group.folder && !protectedFolder && dragOverFolder === group.folder
           return (
@@ -1585,7 +1551,7 @@ Star a file with ★` : t`No MIDI files found.`}
             {/* ── Divider between the folders' content and the root library files —
                 only when the Folders section is actually showing folder rows above,
                 so root files don't visually read as trailing off the last folder ── */}
-            {!group.folder && !showQueue && foldersSectionExpanded && group.files.length > 0 &&
+            {!group.folder && foldersSectionExpanded && group.files.length > 0 &&
               grouped.some(g => g.folder && !(hideDemoFolder && g.folder.toLowerCase() === 'demo')) && (
               <div style={{ height: 1, margin: '4px 10px', background: 'var(--text-amber-dimmest)' }} />
             )}
@@ -1627,7 +1593,7 @@ Star a file with ★` : t`No MIDI files found.`}
                     draggable={!protectedFolder}
                     className={isJustSaved ? 'loop-nudge-blink' : undefined}
                     onDragStart={e => handleFileDragStart(e, file.path)}
-                    onDragEnd={() => setDraggingPaths(null)}
+                    onDragEnd={() => { setDraggingPaths(null); setLibraryDragPaths(null) }}
                     style={{
                       display: 'flex', alignItems: 'center', gap: 6,
                       // Indent subfolder files slightly

@@ -102,7 +102,7 @@ export const SETTINGS: SettingInfo[] = [
     description: t`When this is on, clicking a song's file icon in the Library makes a chord chart PDF of it in the ORFEO folder. Charts number the bars as the file has them, so switching this on switches off Skip empty bars at the start.`,
     keywords: 'pdf chart transcript export' },
   { id: 'practiceQueue', group: 'midi-files-library', name: t`Practice queue`, summary: t`Plan a session: queue songs and go through them in order.`,
-    description: t`Adds a Queue tag at the start of the tags row. Click it to see the queue in place of your folders, and click it again for the folders. Add songs by right-clicking them › Add to queue, or drag them in; drag to reorder. Alt + ↓ and Alt + ↑ (Option on a Mac) open the next and previous song. The queue is kept when you close Orfeo.`,
+    description: t`Adds a Practice queue button to the top bar, after the key. Click it to see and edit the queue. Add songs by right-clicking them in the Library › Add to queue, or drag them onto the button; drag to reorder. Alt + ↓ and Alt + ↑ (Option on a Mac) open the next and previous song. The queue is kept when you close Orfeo.`,
     keywords: 'queue playlist session plan next previous order practice setlist karaoke' },
   // ── Playback & Editing
   { id: 'tapTempo', group: 'playback-editing', name: t`Tap Tempo`, summary: t`A TAP pad for fixing songs whose bar lines don't match the music.`,
@@ -124,7 +124,7 @@ export const SETTINGS: SettingInfo[] = [
     description: t`Asks before you close Orfeo or the Playback Editor, or open another song, with changes that aren't saved, such as tracks shown or hidden, keyboard lights, mute or the Mixer.\n\nSolo isn't included: it only lasts for the session.`,
     keywords: 'save close quit lose lost changes popup reminder' },
   { id: 'saveTrackChanges', group: 'editing', name: t`Save track changes`, summary: t`Saves your Tracks panel changes with the song.`,
-    description: t`By default, the changes you make in the Tracks panel (showing or hiding tracks, keyboard lights, mute) are for this session only: they aren't saved with the song, and it opens as before next time.\n\nTurning it on saves them with the song: they're counted in the Edits badge and saved with your other edits. The Playback Editor always saves what you set there.`,
+    description: t`The changes you make in the Tracks panel (showing or hiding tracks, keyboard lights, mute) are saved with the song: they're counted in the Edits badge and saved with your other edits.\n\nTurn it off to keep them for this session only: they aren't saved with the song, and it opens as before next time. The Playback Editor always saves what you set there.`,
     keywords: 'save track mute eye show hide lights keyboard session remember' },
   { id: 'noteEditor', group: 'editing', name: t`MIDI Note Editor`, summary: t`Edit notes directly on the piano roll.`,
     description: t`Shows the note-editing icon in the Tracks panel, to edit notes directly on the piano roll.`,

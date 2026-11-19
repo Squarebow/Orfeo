@@ -1,4 +1,4 @@
-import { useEffect, useLayoutEffect, useRef, useState, type CSSProperties, type ReactNode } from 'react'
+import { useEffect, useLayoutEffect, useRef, useState, type CSSProperties } from 'react'
 import { ChevronDown, X, Check, Minus, Plus } from 'lucide-react'
 import { useStore } from '../../store'
 import { t } from '../../utils/i18n'
@@ -6,15 +6,16 @@ import { tagCoverage, MAX_TAG_LENGTH } from '../../utils/libraryTags'
 import { ContextMenu, ContextMenuDivider, ContextMenuLabel } from '../ContextMenu'
 import Tooltip from '../Tooltip'
 
-// ── Library tags: one pill style everywhere (dimmed amber, rounded ends; only the
-// text differs), the tags row under All / ★, and the tick list used both to tag
+// ── Library tags: one pill style everywhere (a dimmed amber outline, rounded ends;
+// switched on, a brighter outline and an amber fill), the tags row under All / ★, and the tick list used both to tag
 // songs (right-click › Tags…) and to choose which tags the row shows (▾). ───────
 
 const pillStyle = (on: boolean): CSSProperties => ({
   flexShrink: 0, padding: '1px 8px', borderRadius: 999, fontSize: 10, lineHeight: '15px', whiteSpace: 'nowrap',
   fontFamily: 'var(--font-ui)', cursor: 'pointer', userSelect: 'none',
-  border: `1px solid ${on ? 'var(--accent-amber-strong)' : 'transparent'}`,
-  background: on ? 'var(--accent-amber-medium)' : 'var(--accent-amber-subtle)',
+  // off: the same pill with a dimmer amber outline and no fill
+  border: `1px solid ${on ? 'var(--accent-amber-strong)' : 'var(--accent-amber-dim-border)'}`,
+  background: on ? 'var(--accent-amber-medium)' : 'transparent',
   color: on ? 'var(--text-amber)' : 'var(--text-inactive)',
   transition: 'background 0.12s, color 0.12s, border-color 0.12s',
 })
@@ -31,17 +32,15 @@ const iconBtn: CSSProperties = {
 // ── The tags row: the tags chosen with ▾ (a few ready-made ones at first), each a
 // one-click filter, all off until clicked. Creating a tag never puts it here by
 // itself: a Library can have many tags and only the few in use sit in the row.
-// `lead` is a fixed item at the very left that never scrolls (the Queue pill).
 // When the pills don't all fit, the row scrolls sideways by mouse wheel or by
 // dragging, with a soft fade on the side that has more. It never moves on its own:
 // a pill sliding away under the pointer would be hard to click. A short line under
 // the row always says how tagging works. ─────────────────────────────────────
-export function TagsRow({ active, onToggle, onClear, onOpenPicker, lead }: {
+export function TagsRow({ active, onToggle, onClear, onOpenPicker }: {
   active: string[]
   onToggle: (tag: string) => void
   onClear: () => void
   onOpenPicker: (x: number, y: number) => void
-  lead?: ReactNode
 }) {
   const pinned = useStore(s => s.pinnedTags)
   const scroller = useRef<HTMLDivElement>(null)
@@ -78,8 +77,7 @@ export function TagsRow({ active, onToggle, onClear, onOpenPicker, lead }: {
     // padded above and below so the tags read as their own strip under All / ★
     <div style={{ padding: 'var(--space-2) 0' }}>
     {/* the ▾ always sits at the far right, in line with the buttons above; ✕ appears left of it */}
-    <div style={{ display: 'grid', gridTemplateColumns: active.length > 0 ? 'auto minmax(0, 1fr) auto auto' : 'auto minmax(0, 1fr) auto', alignItems: 'center', gap: 2 }}>
-      <div style={{ display: 'flex', marginRight: lead ? 2 : 0 }}>{lead}</div>
+    <div style={{ display: 'grid', gridTemplateColumns: active.length > 0 ? 'minmax(0, 1fr) auto auto' : 'minmax(0, 1fr) auto', alignItems: 'center', gap: 2 }}>
       <div
         ref={scroller}
         onScroll={measure}

@@ -10,10 +10,10 @@ export interface TagState {
   pinned: string[]                     // the tags chosen (with ▾) to show as filter pills in the tags row
 }
 
-export const DEFAULT_TAGS = ['Classical', 'Pop', 'Jazz', 'Practice']
+export const DEFAULT_TAGS = ['Classical', 'Pop', 'Piano']
 // The ready-made tags sit in the tags row from the start (all switched off), so
 // a new user sees what the row is for
-export const STARTER_ROW = DEFAULT_TAGS.slice(0, 4)
+export const STARTER_ROW = [...DEFAULT_TAGS]
 export const MAX_TAG_LENGTH = 24
 
 export const sameTag = (a: string, b: string) => a.localeCompare(b, undefined, { sensitivity: 'accent' }) === 0

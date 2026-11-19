@@ -47,7 +47,7 @@ export function runLibraryTagsTest(): number {
 
   // Restoring saved tags
   const first = restoreTagState({})
-  check(first.tags.join() === DEFAULT_TAGS.join() && first.pinned.join() === STARTER_ROW.join() && STARTER_ROW.length === 4, 'the very first start gets the ready-made tags, the first four in the row')
+  check(first.tags.join() === DEFAULT_TAGS.join() && first.pinned.join() === STARTER_ROW.join() && STARTER_ROW.length === 3, 'the very first start gets the ready-made tags, all three in the row')
   check(restoreTagState({ libraryTags: ['Jazz'] }).pinned.length === 0, 'an older save without a row choice starts with the row empty')
   check(restoreTagState({ libraryTags: [] }).tags.length === 0, 'a user who deleted every tag keeps none')
   const restored = restoreTagState({ libraryTags: ['Jazz', 'jazz', 5, 'Pop'], songTags: { '/a.mid': ['Jazz', 'Gone'], '/x.mid': [] }, pinnedTags: ['Pop', 'Gone'] })

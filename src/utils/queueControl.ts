@@ -1,5 +1,5 @@
 import { useStore } from '../store'
-import { neighbour } from './practiceQueue'
+import { neighbour, stepAround } from './practiceQueue'
 
 // ── Moving through the practice queue — one way in for the ↓ / ↑ keys, the
 // queue's header buttons and the end-of-song card. App registers how a song is
@@ -17,11 +17,11 @@ export async function openQueueAt(index: number, autoplay: boolean): Promise<voi
   await opener(path, autoplay)
 }
 
-/** Next (+1) or previous (-1) song in the queue; false when there is none that way. */
+/** Next (+1) or previous (-1) song in the queue, going round at either end; false when there's nowhere to go. */
 export function queueStep(dir: 1 | -1, autoplay = useStore.getState().playbackState === 'playing'): boolean {
   const s = useStore.getState()
   if (!s.queueEnabled) return false
-  const i = neighbour(s.queue, dir)
+  const i = stepAround(s.queue, dir)
   if (i === null) return false
   void openQueueAt(i, autoplay)
   return true

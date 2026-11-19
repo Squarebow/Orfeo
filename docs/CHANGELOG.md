@@ -53,8 +53,9 @@
   Settings › MIDI Files & Library › Tags renames and deletes them. Tags are Orfeo's own notes:
   your files are never renamed or changed.
 - **A practice queue.** Plan a session: Settings › MIDI Files & Library › Practice queue adds a
-  Queue tag at the start of the tags row, which swaps your folders for the queue and back. Add
-  songs with right-click › Add to queue or by dragging them in, or a whole folder's songs at
+  Practice queue button to the top bar, after the key, showing how many songs are queued. Click
+  it to drop down the queue; your Library's folders stay as they are. Add
+  songs with right-click › Add to queue or by dragging them onto the button, or a whole folder's songs at
   once with right-click on the folder › Add folder to queue. Drag to reorder, and move
   through them with Alt + ↓ / ↑ or the queue's buttons. When a queued song ends, Orfeo can ask
   what's next, play the next song after a short countdown, repeat the song, or wait. The queue
@@ -71,10 +72,10 @@
   you haven't saved yet. Hover it for the list, grouped by where you made them; click it to save
   them all at once or let them go. Closing or opening a song with unsaved changes asks once, in one
   window (*You have unsaved changes*), instead of a separate question from each tool.
-- **Save track changes.** Settings › Editing. By default, what you change in the Tracks panel
-  (showing or hiding tracks, keyboard lights, mute) is for this session only, and the song opens as
-  before next time. Turn it on to save those changes with the song: they count in the Edits badge,
-  and a line under the track list says how many you've made, with a link to save them.
+- **Save track changes.** Settings › Editing, on from the start. What you change in the Tracks
+  panel (showing or hiding tracks, keyboard lights, mute) is saved with the song: it counts in the
+  Edits badge, and a line under the track list says how many you've made, with a link to save them.
+  Turn it off to keep those changes for this session only, so the song opens as before next time.
 - **How sure Orfeo is about the hands, and where to look.** When Orfeo works out the hands itself,
   the Playback Editor and the Note Editor now say how likely they are right ("about 95%") and how
   many passages are worth a look. *Check the passages* opens the Note Editor on the first one and

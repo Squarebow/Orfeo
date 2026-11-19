@@ -27,6 +27,7 @@ import { useMidiSettings } from '../../store/midiSettings'
 import { shortName } from '../../utils/midiDeviceNames'
 import { confirmSongAway } from '../../utils/unsavedPrompt'
 import { SaveBadge } from './SaveBadge'
+import { QueueButton } from './QueueButton'
 
 // NOTE: no more `C` shorthand object — every color below is a literal
 // `var(--token-name)` string written directly at its point of use, so the
@@ -70,6 +71,7 @@ export default function TopBar() {
   useCurrentTempoTrust()
   const overlayInset = useTitlebarOverlayInset()
   const midi = useStore((s) => s.midi)
+  const queueEnabled = useStore((s) => s.queueEnabled)
   const playbackState = useStore((s) => s.playbackState)
   const currentTime = useStore((s) => s.currentTime)
   const showPreciseScrubTime = useStore((s) => s.showPreciseScrubTime)
@@ -428,6 +430,9 @@ by a semitone (max −12).`}><ChevronDown size={10} /></ArrowBtn>
         </Tooltip>
         <TempoWarning anchor="key" />
       </div>
+
+      {/* ── PRACTICE QUEUE (Settings › Practice queue) — its list drops down from here ── */}
+      {queueEnabled && (<><VSep /><div className="app-no-drag" style={{ padding: '0 var(--space-1)', flexShrink: 0 }}><QueueButton /></div></>)}
 
       </div>
 

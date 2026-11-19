@@ -413,8 +413,6 @@ interface OrfeoStore {
   queueClear: () => void
   queueEndAction: QueueEndAction
   setQueueEndAction: (a: QueueEndAction) => void
-  queueView: boolean          // the Folders area shows the queue instead (session only)
-  setQueueView: (v: boolean) => void
   songEndedAt: number         // set when a song plays to its end (not on Stop), for the queue
   libraryWidth: number        // the Library tab's chosen width (dragging the panel's edge; utils/libraryWidth.ts)
   setLibraryWidth: (w: number) => void
@@ -1140,7 +1138,7 @@ export const useStore = create<OrfeoStore>((set, get) => ({
   setSongsTag: (paths, tag, on) => set((s) => ({ songTags: setSongsTag(s.songTags, paths, tag, on) })),
   setPinnedTags: (pinnedTags) => set({ pinnedTags }),
   queueEnabled: false,
-  setQueueEnabled: (queueEnabled) => set((s) => ({ queueEnabled, queueView: queueEnabled ? s.queueView : false })),
+  setQueueEnabled: (queueEnabled) => set({ queueEnabled }),
   queue: EMPTY_QUEUE,
   setQueue: (queue) => set({ queue }),
   queueAdd: (paths) => set((s) => ({ queue: addToQueue(s.queue, paths) })),
@@ -1149,8 +1147,6 @@ export const useStore = create<OrfeoStore>((set, get) => ({
   queueClear: () => set({ queue: EMPTY_QUEUE }),
   queueEndAction: 'ask',
   setQueueEndAction: (queueEndAction) => set({ queueEndAction }),
-  queueView: false,
-  setQueueView: (queueView) => set({ queueView }),
   songEndedAt: 0,
   libraryWidth: LIBRARY_MIN_WIDTH,
   setLibraryWidth: (w) => set({ libraryWidth: clampLibraryWidth(w) }),
@@ -1305,7 +1301,7 @@ export const useStore = create<OrfeoStore>((set, get) => ({
 
   trackVuColorEnabled: true,
   unsavedWarningEnabled: true,
-  saveTrackChangesEnabled: false,
+  saveTrackChangesEnabled: true,
   setTrackVuColorEnabled: (trackVuColorEnabled) => set({ trackVuColorEnabled }),
   setUnsavedWarningEnabled: (unsavedWarningEnabled) => set({ unsavedWarningEnabled }),
   setSaveTrackChangesEnabled: (saveTrackChangesEnabled) => set({ saveTrackChangesEnabled }),

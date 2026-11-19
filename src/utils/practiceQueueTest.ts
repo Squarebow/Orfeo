@@ -1,5 +1,5 @@
 import {
-  addToQueue, removeFromQueue, moveInQueue, neighbour, followOpenSong, remapQueue, pruneQueue, restoreQueue,
+  addToQueue, removeFromQueue, moveInQueue, neighbour, stepAround, followOpenSong, remapQueue, pruneQueue, restoreQueue,
   EMPTY_QUEUE, type QueueState,
 } from './practiceQueue'
 
@@ -22,6 +22,10 @@ export function runPracticeQueueTest(): number {
   check(neighbour(q(abc.paths, 2), 1) === null, 'after the last song there is no next (no wrap round)')
   check(neighbour(q(abc.paths, 0), -1) === null, 'before the first there is no previous')
   check(neighbour(EMPTY_QUEUE, 1) === null, 'an empty queue has no next')
+  check(stepAround(q(abc.paths, 2), 1) === 0 && stepAround(q(abc.paths, 0), -1) === 2, 'Alt + arrows go round: after the last the first, before the first the last')
+  check(stepAround(q(abc.paths, 1), 1) === 2 && stepAround(q(abc.paths, 1), -1) === 0, 'Alt + arrows in the middle: both ways')
+  check(stepAround(abc, 1) === 0 && stepAround(abc, -1) === 2, 'Alt + arrows before any song: the first, or the last')
+  check(stepAround(q(['/a'], 0), 1) === null && stepAround(EMPTY_QUEUE, -1) === null, 'one song already open, or none: nowhere to go')
 
   // Removing keeps the position sensible
   check(removeFromQueue(q(abc.paths, 2), '/a').index === 1, 'removing an earlier song keeps the position on the same song')

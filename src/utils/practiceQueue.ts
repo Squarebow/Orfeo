@@ -48,6 +48,17 @@ export function neighbour(q: QueueState, dir: 1 | -1): number | null {
   return i >= 0 && i < q.paths.length ? i : null
 }
 
+/** Alt + ↓ / ↑ and the queue's buttons: like neighbour, but going round — after
+ *  the last song comes the first, before the first the last. Null when there's
+ *  nowhere else to go (an empty queue, or one song that's already the current). */
+export function stepAround(q: QueueState, dir: 1 | -1): number | null {
+  const n = q.paths.length
+  if (n === 0) return null
+  if (q.index < 0 || q.index >= n) return dir === 1 ? 0 : n - 1
+  if (n === 1) return null
+  return (q.index + dir + n) % n
+}
+
 /** Opening a queued song from anywhere moves the position to it; other songs leave it alone. */
 export function followOpenSong(q: QueueState, openPath: string | null | undefined): QueueState {
   if (!openPath) return q

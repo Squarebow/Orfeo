@@ -145,7 +145,7 @@ Available on the Piano Roll once Note Editor edit mode is active.
 | Right-click | Context menu — rename, delete, move, show in folder, tags, add to queue, and more |
 | Click a tag in the tags row | Show only songs with that tag; several tags show songs that have all of them |
 | `Alt` + `↓` / `Alt` + `↑` (`Option` on a Mac) | Next / previous song in the practice queue (Settings → MIDI Files & Library → Practice queue). Ignored while a fader or knob has focus |
-| Drag songs onto the queue | Add them to the practice queue; drag inside the queue to reorder |
+| Drag songs onto Practice queue in the top bar | Add them to the practice queue; drag inside its list to reorder |
 
 ---
 
