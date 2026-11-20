@@ -61,7 +61,10 @@ export function runPracticeReadinessTest(): number {
 
   // ── The song rule: two piano tracks, one per hand ──
   const hands = (h: 'L' | 'R') => [note(0, h, 0.95), note(1, h, 0.95)]
-  const T = (index: number, group: string, notes: ParsedNote[], name = '') => ({ index, group, name, notes })
+  // a real piano part: the notes given, then sure notes of the same hand later on,
+  // so every track is long enough to count (MIN_PRACTICE_NOTES)
+  const pad = (ns: ParsedNote[]) => [...ns, ...Array.from({ length: 60 }, (_, i) => ({ ...ns[0], time: 100 + i, handConfidence: 0.95 }))]
+  const T = (index: number, group: string, notes: ParsedNote[], name = '') => ({ index, group, name, notes: pad(notes) })
   check(songPracticeState([T(0, 'piano', hands('L'), 'Piano LH'), T(1, 'piano', hands('R'), 'Piano RH'), T(2, 'bass', hands('L'))]).state === 'ready', 'Piano LH + Piano RH: ready')
   const rd = songPracticeState([T(3, 'piano', hands('R')), T(5, 'piano', hands('L'))])
   check(rd.state === 'ready' && (rd as any).left === 5 && (rd as any).right === 3, 'two tracks, each one hand throughout: ready, hands found')
@@ -76,6 +79,7 @@ export function runPracticeReadinessTest(): number {
   check(songPracticeState([T(0, 'piano', both), T(1, 'piano', both)], { stavePairs: [[1, 0]] }).state === 'ready', "a score's two staves: ready")
   check((songPracticeState([T(0, 'piano', both), T(1, 'piano', both), T(2, 'piano', both)]) as any).reason === 'too-many', 'three pianos: too many')
   check((songPracticeState([T(0, 'organ', both)]) as any).reason === 'no-piano', 'an organ is not the piano part')
+  check((songPracticeState([{ index: 0, group: 'piano', notes: hands('R') }]) as any).reason === 'no-piano', 'a piano of a few notes is part of the band, not a part to practise')
   check(trackHand({ name: 'Left Hand', notes: [] }) === 'L' && trackHand({ trackName: 'Grand RH', notes: [] }) === 'R', 'hands read from the names Orfeo writes')
 
   console.log(`${pass} passed, ${fail} failed`)

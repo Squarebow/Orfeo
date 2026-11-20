@@ -19,6 +19,9 @@ import { simAvailable } from './midiSimulator'
 export const PRACTICE_PREP_VISIBLE = simAvailable
 
 export const MAX_PRACTICE_PIANOS = 2
+// A piano track with fewer notes than this is a touch of colour in the band,
+// not a part to practise (21. 11.: a song with an 11-note piano was "ready")
+export const MIN_PRACTICE_NOTES = 50
 
 /** Piano tracks that count for practice: the piano family (acoustic and
  *  electric pianos), playing and not drums. Organs, pads and the rest are
@@ -62,7 +65,7 @@ export function songPracticeState(
   tracks: { index: number; group?: string; isDrum?: boolean; name?: string; trackName?: string; notes: ParsedNote[] }[],
   { stavePairs = [], options = {} }: { stavePairs?: [number, number][]; options?: HandAssignOptions } = {},
 ): SongPractice {
-  const pianos = tracks.filter(isPracticePiano)
+  const pianos = tracks.filter(t => isPracticePiano(t) && t.notes.length >= MIN_PRACTICE_NOTES)
   if (pianos.length === 0) return { state: 'cant', reason: 'no-piano', pianos: 0 }
   if (pianos.length > MAX_PRACTICE_PIANOS) return { state: 'cant', reason: 'too-many', pianos: pianos.length }
   if (pianos.length === 1) {

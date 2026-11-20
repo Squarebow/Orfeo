@@ -5,7 +5,7 @@ import { usePractice, practiceGate, enterPractice, leavePractice, setBand, setHe
 import { isShown } from '../utils/trackShown'
 
 const notes = (hand: 'L' | 'R', from: number): ParsedNote[] =>
-  Array.from({ length: 8 }, (_, i) => ({ midi: from + i, time: i * 0.5, duration: 0.4, velocity: 0.7, trackIndex: 0, hand, handConfidence: 0.95 } as ParsedNote))
+  Array.from({ length: 60 }, (_, i) => ({ midi: from + (i % 8), time: i * 0.5, duration: 0.4, velocity: 0.7, trackIndex: 0, hand, handConfidence: 0.95 } as ParsedNote))
 const track = (index: number, group: string, over: Partial<TrackState> = {}): TrackState => ({
   index, name: group, gmName: group, trackName: group, program: 0, group, isDrum: false, color: '#888', colorSource: 'default',
   muted: false, solo: false, visible: true, showOnKeyboard: true, volume: 100, pan: 64, chorus: 0, reverb: 0, ...over,

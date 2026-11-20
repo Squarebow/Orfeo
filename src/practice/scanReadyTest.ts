@@ -10,8 +10,9 @@ function song(kind: 'hands' | 'mixed' | 'tune'): ArrayBuffer {
     const t = m.addTrack(); t.name = name; t.channel = ch; t.instrument.number = 0
     for (const [midi, beat] of notes) t.addNote({ midi, ticks: beat * 480, durationTicks: 400 })
   }
-  const left: [number, number][] = [0, 1, 2, 3, 4, 5, 6, 7].map(b => [36 + (b % 4), b])
-  const right: [number, number][] = [0, 1, 2, 3, 4, 5, 6, 7].map(b => [76 + (b % 5), b])
+  const beats = Array.from({ length: 60 }, (_, b) => b)   // long enough to be a part to practise
+  const left: [number, number][] = beats.map(b => [36 + (b % 4), b])
+  const right: [number, number][] = beats.map(b => [76 + (b % 5), b])
   if (kind === 'hands') { add('Piano LH', 0, left); add('Piano RH', 0, right) }
   if (kind === 'mixed') add('Piano', 0, [...left, ...right])
   if (kind === 'tune') add('Piano', 0, right.map(([n, b]) => [n - 10, b]))
