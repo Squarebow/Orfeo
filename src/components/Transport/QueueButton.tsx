@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState, type CSSProperties } from 'react'
 import { createPortal } from 'react-dom'
-import { ListOrdered, ChevronUp, ChevronDown, X, ListX, Settings2 } from 'lucide-react'
+import { ListOrdered, ChevronUp, ChevronDown, X, ListX, Settings2, Sparkles } from 'lucide-react'
 import { useStore } from '../../store'
 import { t } from '../../utils/i18n'
 import { neighbour, stepAround } from '../../utils/practiceQueue'
@@ -10,6 +10,44 @@ import { libraryDisplayName } from '../../utils/libraryNames'
 import { LibrarySongName } from '../SettingsPanel/LibrarySongName'
 import Tooltip from '../Tooltip'
 import { nameStyle } from '../Settings/QuickRow'  // same look as a setting's name in Setup
+import { PRACTICE_PREP_VISIBLE } from '../../utils/practiceReadiness'
+import { useReadyScan, scanForPracticeReady, stopReadyScan } from '../../practice/scanReady'
+
+// ── Scan for practice-ready songs (practice/scanReady.ts): the last row of the
+// queue's drop-down, in playback and in practice mode. Dev mode only until 2.0.
+function ScanReadyRow() {
+  const { running, done, total, added } = useReadyScan()
+  const row: React.CSSProperties = {
+    width: '100%', padding: '7px 10px', border: 'none', borderTop: '1px solid var(--bg-tile)', background: 'none', textAlign: 'left',
+    display: 'flex', alignItems: 'center', gap: 6, fontSize: 10, fontFamily: 'var(--font-ui)', boxSizing: 'border-box',
+  }
+  if (running) {
+    return (
+      <div style={{ ...row, color: 'var(--text-muted)' }}>
+        <Sparkles size={11} style={{ color: 'var(--text-amber)', flexShrink: 0 }} />
+        <span style={{ flex: 1 }}>{t`Looking for songs ready to practise… ${done} of ${total}`}</span>
+        <button onClick={stopReadyScan} style={{ padding: 0, border: 'none', background: 'none', cursor: 'pointer', color: 'var(--text-amber)', fontSize: 10, fontFamily: 'var(--font-ui)', textDecoration: 'underline', textUnderlineOffset: 2 }}>
+          {t`Stop`}
+        </button>
+      </div>
+    )
+  }
+  return (
+    <Tooltip title={t`Scan for practice-ready songs`} description={t`Reads every song in your Library and adds the ones ready to practise to the end of the queue: a piano as a left-hand and a right-hand track, or one hand throughout.`}>
+      <button onClick={() => void scanForPracticeReady()} style={{ ...row, cursor: 'pointer', color: 'var(--text-muted)' }}
+        onMouseEnter={e => { e.currentTarget.style.color = 'var(--text-amber)' }}
+        onMouseLeave={e => { e.currentTarget.style.color = 'var(--text-muted)' }}>
+        <Sparkles size={11} style={{ color: 'var(--text-amber)', flexShrink: 0 }} />
+        <span style={{ flex: 1 }}>{t`Scan for practice-ready songs`}</span>
+        {added !== null && (
+          <span style={{ color: 'var(--text-dim)' }}>
+            {added === 0 ? t`none new found` : added === 1 ? t`1 added` : t`${added} added`}
+          </span>
+        )}
+      </button>
+    </Tooltip>
+  )
+}
 
 // ── Practice queue in the top bar (Settings › Practice queue), after the key ──
 // A button showing how many songs are queued; a click drops down the queue:
@@ -270,6 +308,7 @@ function QueuePanel({ panelRef, x, y, onOpenSong }: { panelRef: React.RefObject<
           <ListX size={11} style={{ color: 'var(--text-amber)', flexShrink: 0 }} />
         </button>
       )}
+      {PRACTICE_PREP_VISIBLE && <ScanReadyRow />}
     </div>
   )
 }
