@@ -1,13 +1,15 @@
 import { create } from 'zustand'
 import { useStore } from '../store'
 import { useMidiSettings } from '../store/midiSettings'
-import { isPracticePiano, trackPracticeState, MAX_PRACTICE_PIANOS, PRACTICE_PREP_VISIBLE } from '../utils/practiceReadiness'
+import { songPracticeState, PRACTICE_PREP_VISIBLE, type SongPractice } from '../utils/practiceReadiness'
 import type { KeyboardSize } from '../types'
 import type { DetectedKey } from '../utils/keyDetection'
+import { NES } from '../utils/noteEditorState'
 
 // ── Practice mode (Orfeo 2.0) ────────────────────────────────────────────────
 // A stripped-down screen for practising the piano part of a song with a USB
-// keyboard: the piano alone (your part silent but shown), the band muted and
+// keyboard: the piano alone, as two tracks, one per hand (the hand you practise
+// silent but shown, the other heard and drawn faded), the band muted and
 // hidden until you bring it in, every control in one narrow top bar. Nothing
 // is edited or saved here; leaving puts every track, size and panel back
 // exactly as it was. Plan: docs/IDEA-practice-mode-build-plan.md (local).
@@ -29,39 +31,43 @@ interface PracticeUi {
   view: PracticeView
   hearMine: boolean         // hear your own part quietly as a guide (Practise)
   ramp: boolean             // Practise: speed up gradually
+  onlyHand: 'L' | 'R' | null  // the song's piano is one hand throughout: always that hand
 }
 
 export const usePractice = create<PracticeUi>(() => ({
-  active: false, way: 'practise', hand: 'R', waitOn: true, level: 1, view: 'roll', hearMine: false, ramp: false,
+  active: false, way: 'practise', hand: 'R', waitOn: true, level: 1, view: 'roll', hearMine: false, ramp: false, onlyHand: null,
 }))
 
 // ── May practice mode open? ──────────────────────────────────────────────────
-export type GateReason = 'off' | 'no-keyboard' | 'no-song' | 'no-piano' | 'too-many' | 'not-ready' | 'editing'
+export type GateReason = 'off' | 'no-keyboard' | 'no-song' | 'editing' | 'no-piano' | 'too-many' | 'prepare'
 
 export function keyboardConnected(): boolean {
   return useMidiSettings.getState().devices.some(d => d.connected && !d.virtual)
 }
 
-export function practiceGate(): { ok: true } | { ok: false; reason: GateReason; passages?: number; pianos?: number } {
+/** The open song against the rule: two piano tracks, one per hand */
+export function currentSongPractice(): SongPractice | null {
+  const s = useStore.getState()
+  if (!s.midi) return null
+  const tracks = s.midi.tracks.map(t => {
+    const ts = s.tracks.find(x => x.index === t.index)
+    return { ...t, group: ts?.group ?? t.group, isDrum: ts?.isDrum ?? t.isDrum, trackName: ts?.trackName }
+  })
+  return songPracticeState(tracks, { stavePairs: (s.midi as any)._stavePairs ?? [], options: { rhMaxFingers: s.rhMaxFingers, lhMaxFingers: s.lhMaxFingers } })
+}
+
+// hands: each piano track the player practises, and its hand (one or two tracks)
+export function practiceGate(): { ok: true; hands: Record<number, 'L' | 'R'>; onlyHand: 'L' | 'R' | null } | { ok: false; reason: GateReason; passages?: number; pianos?: number } {
   const s = useStore.getState()
   if (!PRACTICE_VISIBLE || !s.practiceModeEnabled) return { ok: false, reason: 'off' }
   if (!keyboardConnected()) return { ok: false, reason: 'no-keyboard' }
   if (!s.midi) return { ok: false, reason: 'no-song' }
   if (s.noteEditorActive) return { ok: false, reason: 'editing' }
-  const pianos = s.midi.tracks.filter(t => isPracticePiano(s.tracks.find(x => x.index === t.index) ?? t))
-  if (pianos.length === 0) return { ok: false, reason: 'no-piano' }
-  if (pianos.length > MAX_PRACTICE_PIANOS) return { ok: false, reason: 'too-many', pianos: pianos.length }
-  const { rhMaxFingers, lhMaxFingers } = s
-  const stavePairs: [number, number][] = (s.midi as any)._stavePairs ?? []
-  let passages = 0
-  for (const t of pianos) {
-    const ts = s.tracks.find(x => x.index === t.index)
-    const oneHand = /^(Left|Right) Hand$/.test(ts?.name ?? '') || / (LH|RH)\s*$/i.test(ts?.trackName ?? '')
-    const st = trackPracticeState(t.notes, { fromScore: stavePairs.some(p => p.includes(t.index)), oneHand, options: { rhMaxFingers, lhMaxFingers } })
-    passages += st.passages
-  }
-  if (passages > 0) return { ok: false, reason: 'not-ready', passages }
-  return { ok: true }
+  const st = currentSongPractice()!
+  if (st.state === 'ready') return { ok: true, hands: { [st.left]: 'L', [st.right]: 'R' }, onlyHand: null }
+  if (st.state === 'one-hand') return { ok: true, hands: { [st.track]: st.hand }, onlyHand: st.hand }
+  if (st.state === 'prepare') return { ok: false, reason: 'prepare', passages: st.passages }
+  return { ok: false, reason: st.reason, pianos: st.pianos }
 }
 
 // ── In and out ───────────────────────────────────────────────────────────────
@@ -91,8 +97,9 @@ export function enterPractice(): boolean {
   if (s.presentationMode) s.setPresentationMode(false)
   if (s.keyboardMode !== 'docked') s.setKeyboardMode('docked')
   if (!PRACTICE_SIZES.includes(s.keyboardSize)) useStore.setState({ keyboardSize: 88, keyboardOctave: 0 })
-  useStore.getState().setPracticeTracks(true, usePractice.getState().hearMine)
-  usePractice.setState({ active: true })
+  useStore.getState().setPracticeTracks(true, gate.hands)
+  usePractice.setState({ active: true, onlyHand: gate.onlyHand })
+  applySound()
   applyWayRules()
   return true
 }
@@ -105,7 +112,7 @@ export function leavePractice(): void {
   const s = useStore.getState()
   if (s.playbackState === 'playing') useStore.setState({ playbackState: 'paused' })
   if (s.practiceActive) s.setPracticeTracks(false)
-  usePractice.setState({ active: false })
+  usePractice.setState({ active: false, onlyHand: null })
   const b = before
   before = null
   if (!b) return
@@ -118,10 +125,37 @@ export function leavePractice(): void {
   if (b.focus && useStore.getState().midi) useStore.getState().setTrackMuteFilter(true)
 }
 
+/** Which hand you practise: silent (unless you hear it too). Wait for me
+ *  and Performance are always both hands. */
+export function practisedHand(): PracticeHand {
+  const p = usePractice.getState()
+  if (p.onlyHand) return p.onlyHand
+  return p.way === 'practise' ? p.hand : 'B'
+}
+function applySound(): void {
+  const p = usePractice.getState()
+  if (!p.active) return
+  useStore.getState().setPracticeSound(practisedHand(), p.way === 'practise' && p.hearMine)
+}
+
+/** Fix hands: nothing is edited in practice mode, so leave it and open the
+ *  Note Editor on the piano (both hand tracks), hands showing, at the bars
+ *  you were playing */
+export function fixHandsFromPractice(): void {
+  const pianos = useStore.getState().tracks.filter(tr => tr.practicePart)
+  const first = pianos.find(tr => tr.practiceHand === practisedHand()) ?? pianos.find(tr => tr.practiceHand === 'R') ?? pianos[0]
+  leavePractice()
+  if (!first) return
+  const s = useStore.getState()
+  s.soloTrackForEdit(first.index, { keepPlayhead: true, also: pianos.map(p => p.index) })
+  NES.reassignHandsMode = true
+  NES.onReassignHandsModeChange?.()
+  s.setNoteEditorActive(true)
+}
+
 /** Hear your own part too (Practise): quietly, as a guide */
 export function setHearMine(on: boolean): void {
   usePractice.setState({ hearMine: on })
-  useStore.getState().setPracticeHearMine(on)
 }
 
 /** The band: in (every other track heard) or out (the piano alone) */
@@ -137,7 +171,7 @@ useStore.subscribe((s, prev) => {
   if (s.midi === prev.midi || !usePractice.getState().active) return
   if (!s.midi) { leavePractice(); return }
   const gate = practiceGate()
-  if (gate.ok) useStore.getState().setPracticeTracks(true, usePractice.getState().hearMine)
+  if (gate.ok) { useStore.getState().setPracticeTracks(true, gate.hands); usePractice.setState({ onlyHand: gate.onlyHand }); applySound() }
   else leavePractice()
 })
 useMidiSettings.subscribe((m, prev) => {
@@ -177,4 +211,7 @@ export function applyWayRules(): void {
   if (pct < min || pct > max) setSpeedPercent(pct)
   if (!metronomeAllowed() && useStore.getState().metronomeEnabled) useStore.getState().setMetronomeEnabled(false)
 }
-usePractice.subscribe((p, prev) => { if (p.way !== prev.way || p.level !== prev.level) applyWayRules() })
+usePractice.subscribe((p, prev) => {
+  if (p.way !== prev.way || p.level !== prev.level) applyWayRules()
+  if (p.way !== prev.way || p.hand !== prev.hand || p.hearMine !== prev.hearMine || (p.active && !prev.active)) applySound()
+})

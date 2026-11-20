@@ -1,7 +1,7 @@
 import { useEffect, useState, useReducer, useRef, useCallback, useMemo } from 'react'
-import { PenLine, SquareDashed, CircleDashed, Hand, WholeWord, Music4, Save, Magnet, Play, Pause, Check } from 'lucide-react'
+import { PenLine, SquareDashed, CircleDashed, Hand, WholeWord, Music4, Save, Magnet, Play, Pause, Check, Split } from 'lucide-react'
 import { useStore } from '../../store'
-import { NES, buildNoteEditSummary, type NETool } from '../../utils/noteEditorState'
+import { NES, buildNoteEditSummary, noteEditsChangeMusic, type NETool } from '../../utils/noteEditorState'
 import { confirmDialog } from '../../utils/confirmController'
 import { editableCopyToBuffer } from '../../utils/noteEditorCommands'
 import { restoreLeadForSave } from '../../utils/smfLead'
@@ -18,6 +18,8 @@ import { t } from '../../utils/i18n'
 import { keepUnsavedAround } from '../../utils/sessionSave'
 import { getLowConfidencePassages, estimateHandAccuracy } from '../../utils/handPreview'
 import { goToPassage, togglePassagePlay, markPassageCorrect, fixPassageByHand } from '../../utils/handCheck'
+import { pianoSet, guessAcrossPiano, reshapePianoToHands } from '../../practice/pianoSet'
+import { PRACTICE_PREP_VISIBLE } from '../../utils/practiceReadiness'
 
 // ── Toolbar SVG icons ─────────────────────────────────────────────────────────
 const IconVelocity = () => (
@@ -133,6 +135,14 @@ export default function NoteEditorToolbar() {
     // copyHandTagsOntoEditBuffer) never reach the saved file: editing
     // anything and saving silently discarded whatever hand tags existed.
     const editMidi = NES.editMidi
+    // The piano saved as two tracks, Left Hand and Right Hand, every note on
+    // its hand's track (practice/pianoSet.ts). The first time this splits a
+    // track or turns two parts into the hands, it's a new version.
+    const storeNow = useStore.getState()
+    const pianoIdx = storeNow.noteEditorSoloTracks && storeNow.noteEditorSoloTracks.length > 0
+      ? pianoSet(storeNow.tracks, storeNow.noteEditorSoloTracks[0]).filter(i => storeNow.tracks.find(t => t.index === i && t.group === 'piano'))
+      : []
+    const reshaped = NES.reassignHandsMode && pianoIdx.length > 0 && PRACTICE_PREP_VISIBLE ? reshapePianoToHands(editMidi, pianoIdx) : false
     const keptMeta = ((editMidi.header as any).meta ?? []).filter(
       (m: any) => !(typeof m.text === 'string' && m.text.startsWith('ORFEO_HAND_MAP:'))
     )
@@ -168,7 +178,9 @@ export default function NoteEditorToolbar() {
     // convention as the Playback Editor and Mixer Console saves, no save
     // dialog (a dialog defaulting to a not-yet-created folder can silently
     // fall back to wherever the OS last had one open, e.g. Downloads).
-    const result = await window.electronAPI.saveNoteEditor({ filePath: sourcePath, base64, summary: saveSummary })
+    // only hands assigned or confirmed: saved into the same edit file (orfeoVersioning.ts)
+    const newVersion = reshaped || noteEditsChangeMusic(NES.history.appliedDescriptions())
+    const result = await window.electronAPI.saveNoteEditor({ filePath: sourcePath, base64, summary: saveSummary, newVersion })
     if (!result.ok) return false
 
     NES.dirty = false
@@ -215,8 +227,8 @@ export default function NoteEditorToolbar() {
         const freshTracks = useStore.getState().tracks
         const kbTrack = freshTracks.find(t => HAND_ASSIGN_GROUPS.has(t.group) && !t.isDrum)
         if (kbTrack) {
-          useStore.setState({ noteEditorSoloTrackIndex: null, preSoloTrackVisibility: null })
-          useStore.getState().soloTrackForEdit(kbTrack.index, { keepPlayhead: true })
+          useStore.setState({ noteEditorSoloTrackIndex: null, noteEditorSoloTracks: null, preSoloTrackVisibility: null })
+          useStore.getState().soloTrackForEdit(kbTrack.index, { keepPlayhead: true, also: pianoSet(freshTracks, kbTrack.index) })
         }
       }, 0)
     }
@@ -411,7 +423,10 @@ export default function NoteEditorToolbar() {
     if (!kbTrack) return
     NES.reassignHandsMode = true
     setReassignHandsDisplay(true)
-    if (noteEditorSoloTrackIndex !== kbTrack.index) soloTrackForEdit(kbTrack.index, { keepPlayhead: true })
+    // the piano as one instrument: its one or two tracks together (practice/pianoSet.ts)
+    const set = pianoSet(tracks, kbTrack.index)
+    if (noteEditorSoloTrackIndex !== kbTrack.index || set.length > 1) soloTrackForEdit(kbTrack.index, { keepPlayhead: true, also: set })
+    guessAcrossPiano(set)
   // once, as the editor opens
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
@@ -424,7 +439,11 @@ export default function NoteEditorToolbar() {
       const kbTrack = tracks.find(t => HAND_ASSIGN_GROUPS.has(t.group) && !t.isDrum)
       // keepPlayhead — engaging hand-reassign mode must not move the playhead;
       // the user is paused at a specific bar to correct a note they just heard.
-      if (kbTrack && noteEditorSoloTrackIndex !== kbTrack.index) soloTrackForEdit(kbTrack.index, { keepPlayhead: true })
+      if (kbTrack) {
+        const set = pianoSet(tracks, kbTrack.index)
+        if (noteEditorSoloTrackIndex !== kbTrack.index || set.length > 1) soloTrackForEdit(kbTrack.index, { keepPlayhead: true, also: set })
+        guessAcrossPiano(set)
+      }
     } else {
       unsoloTrackForEdit()
     }
@@ -678,7 +697,7 @@ export default function NoteEditorToolbar() {
           </button>
           <button
             onClick={() => void handleSave()}
-            {...hintHandlers(t`Save & Reload — save edits as a new versioned copy (_ORFEO_vN)`)}
+            {...hintHandlers(t`Save & Reload — changed notes make a new version (_ORFEO_vN); hands alone save into the same copy`)}
             style={{
               ...btnBase, flex: 1, justifyContent: 'center', fontSize: 12, fontWeight: 600,
               color: 'var(--text-near-black)', border: 'none', background: 'var(--text-amber)',
@@ -795,19 +814,35 @@ function HandPassagesRow({ onHint }: { onHint: (h: string | null, amber?: boolea
   const rev = useStore(s => s.handCheckRev)
   const playing = useStore(s => s.playbackState === 'playing')
   const barStarts = useStore(s => s.barStarts)
-  const notes = useMemo(() => midi?.tracks.find(tr => tr.index === solo)?.notes ?? [], [midi, solo])
+  const soloSet = useStore(s => s.noteEditorSoloTracks)
+  // the whole piano: its one or two tracks, in time order
+  const notes = useMemo(() => {
+    const ids = soloSet ?? (solo !== null ? [solo] : [])
+    return ids.flatMap(i => midi?.tracks.find(tr => tr.index === i)?.notes ?? []).sort((a, b) => a.time - b.time)
+  }, [midi, solo, soloSet, rev])
   const passages = useMemo(() => getLowConfidencePassages(notes), [notes, rev])
   const estimate = useMemo(() => estimateHandAccuracy(notes), [notes, rev])
   const fromScore = !!(midi as any)?._stavePairs?.some((pr: [number, number]) => solo !== null && pr.includes(solo))
   // Prepare for practice walked every passage: one step left, saving
   const prepared = useStore(s => s.handCheckDone)
   if (solo !== null && prepared && passages.length === 0) {
+    // Save: the piano becomes a Left Hand and a Right Hand track (practice/pianoSet.ts)
+    const splitAndSave = () => { void NES.onSaveRequest?.() }
     return (
-      <div style={{ borderTop: '1px solid var(--state-hover-bg)', display: 'flex', flexDirection: 'column', gap: 6, padding: '8px 8px' }}>
-        <span style={{ ...rowLabelStyle, lineHeight: '26px' }}>{t`HANDS`}</span>
-        <p style={{ margin: 0, fontSize: 11, color: 'var(--text-amber)', lineHeight: 1.45 }}>
-          {t`Every passage checked. Save the song, and it's ready to practise.`}
-        </p>
+      <div style={{ borderTop: '1px solid var(--state-hover-bg)', display: 'grid', gridTemplateColumns: 'minmax(0, 1fr) auto', columnGap: 16, padding: '8px 8px' }}>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 6, minWidth: 0 }}>
+          <span style={{ ...rowLabelStyle, lineHeight: '26px' }}>{t`HANDS`}</span>
+          <p style={{ margin: 0, fontSize: 11, color: 'var(--text-amber)', lineHeight: 1.45 }}>
+            {t`Every passage checked. Listen right through (each hand alone too), then Split & Save: each hand gets its own track, and the song is ready to practise.`}
+          </p>
+        </div>
+        <div style={{ display: 'flex', alignItems: 'flex-end' }}>
+          <button onClick={splitAndSave}
+            onMouseEnter={() => onHint(t`Save the piano as a Left Hand and a Right Hand track`, true)} onMouseLeave={() => onHint(null)}
+            style={{ ...btnBase, gap: 5, fontWeight: 600, background: 'var(--text-amber)', border: '1px solid var(--text-amber)', color: 'var(--bg-modal-header)' }}>
+            <Split size={12} /> {t`Split & Save`}
+          </button>
+        </div>
       </div>
     )
   }

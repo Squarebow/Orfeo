@@ -146,6 +146,20 @@ export function restoreLeadForSave(edited: Midi, originalRaw: ArrayBuffer, cutTi
     for (const n of e.notes) t.addNote({ midi: n.midi, ticks: n.ticks + cutTick, durationTicks: n.durationTicks, velocity: n.velocity, noteOffVelocity: n.noteOffVelocity })
     t.name = e.name
   })
+  // Tracks added while editing (the piano's right hand, practice/pianoSet.ts):
+  // their notes moved back into place, and the channel's pedal, volume and
+  // expression taken whole from the original track on the same channel, so
+  // the skipped bars' controls come back too
+  for (let i = out.tracks.length; i < edited.tracks.length; i++) {
+    const e = edited.tracks[i]
+    const t = out.addTrack()
+    t.name = e.name
+    t.channel = e.channel
+    t.instrument.number = e.instrument.number
+    const twin = out.tracks.find(o => o !== t && o.channel === e.channel && Object.keys(o.controlChanges).length > 0)
+    if (twin) for (const [k, list] of Object.entries(twin.controlChanges)) for (const c of list as any[]) t.addCC({ number: +k, value: c.value, ticks: c.ticks })
+    for (const n of e.notes) t.addNote({ midi: n.midi, ticks: n.ticks + cutTick, durationTicks: n.durationTicks, velocity: n.velocity, noteOffVelocity: n.noteOffVelocity })
+  }
   // Song words (meta): the original's in the skipped bars, the edited copy's
   // from the cut on, moved back into place. Orfeo's own notes (ORFEO_…) come
   // only from the edited copy — that's where the save just rewrote them — and

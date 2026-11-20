@@ -106,6 +106,12 @@ export const NES = {
 // commands — tallies by the description prefix each cmd* function in
 // noteEditorCommands.ts already writes, rather than duplicating a `kind`
 // field. Batch commands (e.g. "Remove 3 notes") count their own N. ────────
+/** Do these Note Editor edits change the music (a new version), or only
+ *  which hand plays the notes (saved into the same edit file)? */
+export function noteEditsChangeMusic(descriptions: string[]): boolean {
+  return descriptions.some(d => !/^(Assign (left|right) hand|Confirm hands)/i.test(d))
+}
+
 export function buildNoteEditSummary(descriptions: string[]): string {
   let added = 0, removed = 0, moved = 0, repitched = 0, resized = 0, velocityChanged = 0, reassigned = 0, confirmed = 0
   for (const d of descriptions) {

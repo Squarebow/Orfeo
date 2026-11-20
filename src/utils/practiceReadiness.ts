@@ -30,6 +30,58 @@ export function countPracticePianos(rows: { group: string; isDrum?: boolean; inc
 /** A track practice mode treats as (part of) the piano you play */
 export const isPracticePiano = (t: { group?: string; isDrum?: boolean }): boolean => t.group === 'piano' && !t.isDrum
 
+// ── The rule (20. 11.): a song is ready to practise when its piano is two
+// tracks, Left Hand and Right Hand, each holding only its own hand. Then
+// practice mode never asks which hand a note belongs to (the track says it),
+// and hearing the other hand is just muting one track, in every sound engine.
+// A piano part that is one hand throughout (a simple tune) is ready too, for
+// practising that hand.
+//   one track, both hands, or two parts that aren't the hands
+//                          → Prepare for practice: the Note Editor shows the
+//                            piano as one, you check the hands, and saving
+//                            makes the two hand tracks
+//   none, or three or more → can't be practised (decide in the Playback Editor)
+export type SongPractice =
+  | { state: 'ready'; left: number; right: number }
+  | { state: 'one-hand'; track: number; hand: 'L' | 'R' }
+  | { state: 'prepare'; tracks: number[]; passages: number }
+  | { state: 'cant'; reason: 'no-piano' | 'too-many'; pianos: number }
+
+const HAND_NAME: Record<'L' | 'R', RegExp> = { L: /(^Left Hand$|\sLH\s*$)/i, R: /(^Right Hand$|\sRH\s*$)/i }
+
+/** Which hand a whole track is: every note tagged that hand, or named for it
+ *  (Orfeo's split writes "Piano LH" / "Piano RH") */
+export function trackHand(t: { name?: string; trackName?: string; notes: { hand?: 'L' | 'R' }[] }): 'L' | 'R' | null {
+  for (const h of ['L', 'R'] as const) if (HAND_NAME[h].test(t.name ?? '') || HAND_NAME[h].test(t.trackName ?? '')) return h
+  const first = t.notes[0]?.hand
+  if (first && t.notes.every(n => n.hand === first)) return first
+  return null
+}
+
+export function songPracticeState(
+  tracks: { index: number; group?: string; isDrum?: boolean; name?: string; trackName?: string; notes: ParsedNote[] }[],
+  { stavePairs = [], options = {} }: { stavePairs?: [number, number][]; options?: HandAssignOptions } = {},
+): SongPractice {
+  const pianos = tracks.filter(isPracticePiano)
+  if (pianos.length === 0) return { state: 'cant', reason: 'no-piano', pianos: 0 }
+  if (pianos.length > MAX_PRACTICE_PIANOS) return { state: 'cant', reason: 'too-many', pianos: pianos.length }
+  if (pianos.length === 1) {
+    const t = pianos[0]
+    const h = trackHand({ notes: t.notes })
+    if (h) return { state: 'one-hand', track: t.index, hand: h }
+    return { state: 'prepare', tracks: [t.index], passages: trackPracticeState(t.notes, { options }).passages }
+  }
+  const [a, b] = pianos
+  const staves = stavePairs.find(p => p.includes(a.index) && p.includes(b.index))
+  const ha = trackHand(a), hb = trackHand(b)
+  if (ha && hb && ha !== hb) return { state: 'ready', left: ha === 'L' ? a.index : b.index, right: ha === 'R' ? a.index : b.index }
+  // a score's two staves: the upper one is the right hand
+  if (staves) return { state: 'ready', left: staves[1], right: staves[0] }
+  // two parts that aren't the hands: checked as one piano in the Note Editor
+  const both = [...a.notes, ...b.notes].sort((x, y) => x.time - y.time)
+  return { state: 'prepare', tracks: [a.index, b.index], passages: trackPracticeState(both, { options }).passages }
+}
+
 // A saved song comes back with its hands but not with how sure Orfeo was
 // (the file has no room for that), so a passage nobody checked would look
 // settled after any save. Worked out again here, the way the song was first

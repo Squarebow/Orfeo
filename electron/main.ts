@@ -1,6 +1,6 @@
 import { app, BrowserWindow, ipcMain, dialog, shell, Menu, utilityProcess, MessageChannelMain, type UtilityProcess } from 'electron'
 import { autoUpdater } from 'electron-updater'
-import { join, basename, dirname, extname } from 'path'
+import { join, basename, dirname, extname, resolve } from 'path'
 import { execFile } from 'child_process'
 import { readFileSync, writeFileSync, existsSync, readdirSync, createWriteStream, statSync } from 'fs'
 import { readPrefsFile, writePrefsFile } from './prefsFile'
@@ -16,7 +16,7 @@ import { scanMidiFolder, listFolderNames } from './libraryScan'
 import { fileFromArgs } from './openWith'
 import { fileHasLyrics } from '../src/utils/lyricsCheck'
 import { KEYBOARD_GROUPS } from '../src/utils/keyboardGroups'
-import { nextOrfeoVersion, stripOrfeoSuffix } from '../src/utils/orfeoVersioning'
+import { nextOrfeoVersion, stripOrfeoSuffix, isOrfeoVersionBase } from '../src/utils/orfeoVersioning'
 import { downloadEnding, newerRelease } from '../src/utils/newRelease'
 import type { Hand } from '../src/types'
 import { t, applyLanguage, chooseStartup, defaultChoice } from '../src/utils/i18n'
@@ -118,6 +118,19 @@ function nextAvailableOrfeoPath(orfeoDir: string, rawBase: string): string {
   } catch {}
   const version = Math.max(existingMax + 1, nextOrfeoVersion(rawBase))
   return join(orfeoDir, `${strippedBase}_ORFEO_v${version}.mid`)
+}
+
+// ── Where a save lands (see isOrfeoVersionBase, src/utils/orfeoVersioning.ts):
+// a change to the music → the next free _ORFEO_vN; anything else → the same
+// edit file, when the song open is already one of Orfeo's versions. The
+// original is never overwritten. ────────────────────────────────────────────
+async function saveOutputPath(sourcePath: string, newVersion: boolean): Promise<string> {
+  const orfeoDir = await getOrfeoOutputDir(sourcePath)
+  const rawBase  = basename(sourcePath).replace(/\.midi?$/i, '')
+  const same = (a: string) => resolve(a).toLowerCase()   // either slash, any case (resolve also drops a trailing slash)
+  const inOrfeoDir = same(dirname(sourcePath)) === same(orfeoDir)
+  if (!newVersion && inOrfeoDir && isOrfeoVersionBase(rawBase)) return sourcePath
+  return nextAvailableOrfeoPath(orfeoDir, rawBase)
 }
 
 // ── Main window ────────────────────────────────────────────────────────────
@@ -960,14 +973,19 @@ ipcMain.handle('editor:save', async (_e, payload: {
       }
     }
 
-    // ── Resolve output path into Orfeo/ subfolder — always the next _ORFEO_vN,
-    // never overwrites a prior save (see src/utils/orfeoVersioning.ts). ────────
-    const orfeoDir   = await getOrfeoOutputDir(payload.filePath)
-    const rawBase    = basename(payload.filePath).replace(/\.midi?$/i, '')
-    const outputPath = nextAvailableOrfeoPath(orfeoDir, rawBase)
-
     const noteTrackIndices: number[] = []
     midi.tracks.forEach((t, i) => { if (t.notes.length > 0) noteTrackIndices.push(i) })
+
+    // ── Where it lands (saveOutputPath): a track deleted, split or merged, or
+    // tempo / key saved with it, is a new version; instruments, colours,
+    // names, shown / lights / mute and the Mixer save into the same file. ────
+    const keptTracks = new Set(payload.includedTracks.map(it => it.index)).size
+    const changesMusic = keptTracks < noteTrackIndices.length
+      || payload.mergeGroups.length > 0
+      || payload.includedTracks.some(it => it.splitHand)
+      || (payload.bpmRatio !== undefined && payload.bpmRatio !== 1)
+      || !!payload.transposeSemitones
+    const outputPath = await saveOutputPath(payload.filePath, changesMusic)
 
     // Mixer values, written the same way mixer:save does, before any track moves
     for (const ch of payload.mixer ?? []) {
@@ -1275,9 +1293,8 @@ ipcMain.handle('mixer:save', async (_e, payload: {
       }),
     })
 
-    const orfeoDir   = await getOrfeoOutputDir(payload.filePath)
-    const rawBase    = basename(payload.filePath).replace(/\.midi?$/i, '')
-    const outputPath = nextAvailableOrfeoPath(orfeoDir, rawBase)
+    // the Mixer never changes the music: the same edit file (saveOutputPath)
+    const outputPath = await saveOutputPath(payload.filePath, false)
 
     const outBuf = Buffer.from(midi.toArray())
     writeFileSync(outputPath, outBuf)
@@ -1346,9 +1363,8 @@ ipcMain.handle('tempoKey:save', async (_e, payload: {
       text: historyMetaText({ type: 'tempoKey', timestamp: Date.now(), summary: payload.summary }),
     })
 
-    const orfeoDir   = await getOrfeoOutputDir(payload.filePath)
-    const rawBase    = basename(payload.filePath).replace(/\.midi?$/i, '')
-    const outputPath = nextAvailableOrfeoPath(orfeoDir, rawBase)
+    // tempo or key saved into the song: a new version (saveOutputPath)
+    const outputPath = await saveOutputPath(payload.filePath, true)
 
     const outBuf = Buffer.from(midi.toArray())
     writeFileSync(outputPath, outBuf)
@@ -1858,12 +1874,11 @@ ipcMain.handle('transcript:generate', async (_e, midiFilePath: string, noteNamin
 // mixer:save (no save-location dialog — a dialog whose defaultPath folder
 // doesn't exist yet can fall back to wherever the OS last had one open,
 // e.g. Downloads, silently writing the file to the wrong place). ────────────
-ipcMain.handle('noteEditor:save', async (_e, payload: { filePath: string; base64: string; summary?: string }) => {
+ipcMain.handle('noteEditor:save', async (_e, payload: { filePath: string; base64: string; summary?: string; newVersion?: boolean }) => {
   try {
     if (!payload.filePath) return { ok: false, message: t`No source file loaded` }
-    const orfeoDir   = await getOrfeoOutputDir(payload.filePath)
-    const rawBase    = basename(payload.filePath).replace(/\.midi?$/i, '')
-    const outputPath = nextAvailableOrfeoPath(orfeoDir, rawBase)
+    // notes changed: a new version; only hands assigned or confirmed: the same file
+    const outputPath = await saveOutputPath(payload.filePath, payload.newVersion !== false)
 
     // Renderer already serialized the edit buffer to bytes — parse it back
     // just to append the ORFEO_HISTORY meta-event, same convention as every

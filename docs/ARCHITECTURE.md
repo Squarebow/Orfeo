@@ -476,7 +476,13 @@ because unknown text meta events are preserved by every conformant MIDI parser.
 </details>
 
 Edited files are saved as **`<name>_ORFEO_v{N}.mid`** (first edit is `v1`) inside
-the library folder's `Orfeo/` subfolder — the original is never modified.
+the library folder's `Orfeo/` subfolder — the original is never modified. A
+change to the music makes the next version: a track deleted, split or merged;
+notes added, deleted, moved, repitched, resized or made louder or softer; tempo
+or key saved into the song. Anything else (instruments, colours, names, shown /
+lights / mute, the Mixer, which hand plays a note) saves into the same
+`_ORFEO_vN` copy. One place decides: `saveOutputPath` in `electron/main.ts`,
+with the rule in `src/utils/orfeoVersioning.ts`.
 
 ---
 

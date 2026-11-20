@@ -132,6 +132,8 @@ export interface TrackState {
   // Practice mode: the part you play — silent unless you ask to hear it, but
   // always shown (utils/trackShown.ts). Never saved.
   practicePart?: boolean
+  // which hand this piano track is, in practice mode (the song has one track per hand)
+  practiceHand?: 'L' | 'R'
 }
 
 // 25, 37 and 49 are the portable sizes (Settings › Keyboard › Portable keyboards)
@@ -217,7 +219,7 @@ declare global {
       saveFileDialog:      (opts: { defaultPath: string; filters: { name: string; extensions: string[] }[] }) => Promise<string | null>
       saveMidiEditor:      (payload: { filePath: string; outputPath: string; includedTracks: { index: number; newProgram: number; name?: string; color?: string; splitHand?: 'L' | 'R'; visible?: boolean; showOnKeyboard?: boolean; muted?: boolean }[]; mergeGroups: number[][]; mixer?: { index: number; volume: number; pan: number; chorus: number; reverb: number }[]; rhMaxFingers?: number; lhMaxFingers?: number; bpmRatio?: number; transposeSemitones?: number; finalKey?: { semitone: number; isMinor: boolean } }) => Promise<{ ok: boolean; message: string; filePath?: string; fileName?: string; base64?: string }>
       saveMixerChannels:   (payload: { filePath: string; channels: { index: number; volume: number; pan: number; chorus: number; reverb: number }[] }) => Promise<{ ok: boolean; message?: string; filePath?: string; fileName?: string; base64?: string }>
-      saveNoteEditor:      (payload: { filePath: string; base64: string; summary?: string }) => Promise<{ ok: boolean; message?: string; filePath?: string; fileName?: string; base64?: string }>
+      saveNoteEditor:      (payload: { filePath: string; base64: string; summary?: string; newVersion?: boolean }) => Promise<{ ok: boolean; message?: string; filePath?: string; fileName?: string; base64?: string }>
       saveTempoKey:        (payload: { filePath: string; bpmRatio: number; transposeSemitones: number; summary: string; finalKey?: { semitone: number; isMinor: boolean } }) => Promise<{ ok: boolean; message?: string; filePath?: string; fileName?: string; base64?: string }>
       showMessageBox:      (opts: { type?: string; buttons: string[]; defaultId?: number; cancelId?: number; message: string; detail?: string }) => Promise<{ response: number }>
       confirmClose:        () => Promise<void>

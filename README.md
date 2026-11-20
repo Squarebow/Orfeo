@@ -123,8 +123,8 @@ telemetry; MIDI files are processed entirely on your device.
 ### MIDI Editing
 
 - **MIDI Playback Editor** — exclude, rename, recolour, reassign instrument,
-  merge, and split-hands tracks; saves as a new `_ORFEO_vN.mid` without touching
-  the original
+  merge, and split-hands tracks; saves an `_ORFEO_vN.mid` copy without touching
+  the original (a new version when the music changes, the same copy otherwise)
 - **Note Editor** — move, resize, add, delete, and re-velocity individual notes
   on the roll, with marquee / lasso / pen tools and full undo/redo
 - **MIDI library** — browse a folder, star favourites, fuzzy-search, auto-refresh,

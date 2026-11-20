@@ -11,7 +11,7 @@ import Tooltip from '../Tooltip'
 import { QueueButton } from '../Transport/QueueButton'
 import { NES } from '../../utils/noteEditorState'
 import {
-  usePractice, leavePractice, setBand, setHearMine, tempoLimits, metronomeAllowed, speedPercent, setSpeedPercent,
+  usePractice, leavePractice, setBand, setHearMine, tempoLimits, metronomeAllowed, speedPercent, setSpeedPercent, practisedHand, fixHandsFromPractice,
 } from '../../practice/practiceMode'
 
 // ── Practice mode's top bar ──────────────────────────────────────────────────
@@ -78,6 +78,7 @@ export default function PracticeTopBar() {
   const way = usePractice(s => s.way)
   const level = usePractice(s => s.level)
   const hearMine = usePractice(s => s.hearMine)
+  usePractice(s => s.hand)   // the hand rows follow your choice
   const { play, pause, seek, seekAndPlay } = usePlayback()
   const [open, setOpen] = useState<'' | 'tracks' | 'tempo' | 'metro'>('')
   const toggle = (name: typeof open) => setOpen(o => (o === name ? '' : name))
@@ -89,6 +90,9 @@ export default function PracticeTopBar() {
     : { opacity: 1, transition: 'opacity .2s' }
 
   const band = tracks.filter(tr => !tr.practicePart)
+  const hands = tracks.filter(tr => tr.practicePart).sort((a, b) => (a.practiceHand === 'L' ? -1 : 1) - (b.practiceHand === 'L' ? -1 : 1))
+  const practised = practisedHand()
+  const mine = (tr: { practiceHand?: 'L' | 'R' }) => practised === 'B' || tr.practiceHand === practised
   const bandIn = band.some(tr => !tr.muted)
   const pct = speedPercent()
   // the tempo where you are in the song (it may change along the way), at your speed — as in the normal top bar
@@ -110,18 +114,7 @@ export default function PracticeTopBar() {
     const to = hasLoop && loopActive ? loopStart! : 0
     if (playing) seekAndPlay(to); else seek(to)
   }
-  const fixHands = () => {
-    // Nothing is edited in practice mode: leave it, and open the Note Editor
-    // on the piano with the hands showing, at the bars you were playing
-    const piano = useStore.getState().tracks.find(tr => tr.practicePart)
-    leavePractice()
-    if (!piano) return
-    const s = useStore.getState()
-    s.soloTrackForEdit(piano.index, { keepPlayhead: true })
-    NES.reassignHandsMode = true
-    NES.onReassignHandsModeChange?.()
-    s.setNoteEditorActive(true)
-  }
+  const fixHands = fixHandsFromPractice
 
   const levelRule = way === 'wait'
     ? t`Wait for me always uses the song's own tempo: the waiting takes care of your pace.`
@@ -152,11 +145,13 @@ export default function PracticeTopBar() {
           </Tooltip>
           <Pop open={open === 'tracks'} onClose={() => setOpen('')}>
             <div style={{ ...cap, color: 'var(--text-amber)', padding: '2px 8px 4px' }}>{t`Tracks`}</div>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '6px 8px' }}>
-              <span style={{ width: 10, height: 10, borderRadius: 2, flex: 'none', background: 'linear-gradient(90deg, var(--hand-lh) 50%, var(--hand-rh) 50%)' }} />
-              <span style={{ flex: 1, fontSize: 13, color: 'var(--text-active)', whiteSpace: 'nowrap' }}>{t`Piano · your part`}</span>
-              <span style={cap}>{way === 'practise' && hearMine ? t`Heard` : t`Silent, you play it`}</span>
-            </div>
+            {hands.map(tr => (
+              <div key={tr.index} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '6px 8px' }}>
+                <span style={{ width: 10, height: 10, borderRadius: 2, flex: 'none', background: tr.practiceHand === 'L' ? 'var(--hand-lh)' : 'var(--hand-rh)' }} />
+                <span style={{ flex: 1, fontSize: 13, color: 'var(--text-active)', whiteSpace: 'nowrap' }}>{tr.practiceHand === 'L' ? t`Left hand` : t`Right hand`}</span>
+                <span style={cap}>{mine(tr) ? (tr.muted ? t`Silent, you play it` : t`You play it, heard`) : t`Plays along`}</span>
+              </div>
+            ))}
             {way === 'practise' && (
               <button className="app-no-drag" style={rowBtn} onClick={() => setHearMine(!hearMine)}>
                 <span style={{ flex: 1 }}>{t`Hear my part too`}</span><Toggle on={hearMine} />
@@ -262,7 +257,7 @@ export default function PracticeTopBar() {
               {!metroOk && <div style={{ fontSize: 12, color: 'var(--text-dim)' }}>{way === 'wait' ? t`No metronome in Wait for me.` : t`No metronome at this level.`}</div>}
             </Pop>
           </div>
-          <Tooltip title={t`Fix hands`} description={t`A note belongs to the other hand? Leaves practice mode and opens the Note Editor on the piano, at the bars you were playing.`}>
+          <Tooltip title={t`Fix hands`} description={t`A note belongs to the other hand? Leaves practice mode and opens the piano in the Note Editor, both hands, at the bars you were playing.`}>
             <button className="app-no-drag" onClick={fixHands} style={{ ...iconBtn(), color: 'var(--text-amber)' }}><Hand size={15} /> {t`Fix hands`}</button>
           </Tooltip>
           <Tooltip title={t`Exit`} description={t`Leave practice mode. Every track comes back exactly as it was.`}>

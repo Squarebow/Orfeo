@@ -12,6 +12,7 @@
 // - Save all: note edits first (their own save), then mixer, tempo & key and
 //   shown / lights / mute together in one version.
 import { useStore, playerTrackFlags } from '../store'
+import { pianoSet } from '../practice/pianoSet'
 import type { TrackState } from '../types'
 import { NES, buildNoteEditSummary } from './noteEditorState'
 import { computeTempoKeyPayload, saveTempoKeyChanges } from './tempoKeySave'
@@ -163,8 +164,9 @@ export async function keepUnsavedAround(save: () => Promise<boolean>, saves: Set
     setTimeout(() => {
       const st = useStore.getState()
       if (!st.noteEditorActive || st.preSoloTrackVisibility !== handBefore || !st.tracks.some(tr => tr.index === handTrack)) return
-      useStore.setState({ noteEditorSoloTrackIndex: null, preSoloTrackVisibility: null })
-      useStore.getState().soloTrackForEdit(handTrack, { keepPlayhead: true })
+      useStore.setState({ noteEditorSoloTrackIndex: null, noteEditorSoloTracks: null, preSoloTrackVisibility: null })
+      const set = pianoSet(useStore.getState().tracks, handTrack)
+      useStore.getState().soloTrackForEdit(handTrack, { keepPlayhead: true, also: set })
     }, 0)
   }
   return ok

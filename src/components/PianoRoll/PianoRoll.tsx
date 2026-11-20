@@ -17,6 +17,7 @@ import { HAND_LH_CSS, HAND_RH_CSS } from '../../utils/handColors'
 import { HitEffectsRenderer } from './HitEffects'
 import { drainHitEffects } from '../../utils/hitEffectQueue'
 import { isShown } from '../../utils/trackShown'
+import { usePractice, practisedHand as practisedHandOf } from '../../practice/practiceMode'
 import { t } from '../../utils/i18n'
 
 const VISIBLE_SECONDS  = 6
@@ -649,7 +650,7 @@ export default function PianoRoll() {
 
         const { tracks } = storeRef.current
         const parsedMidi = storeRef.current.midi as any
-        const trackMap = new Map<number, { visible: boolean; muted: boolean; solo: boolean; color: string }>()
+        const trackMap = new Map<number, { visible: boolean; muted: boolean; solo: boolean; color: string; practicePart?: boolean; practiceHand?: 'L' | 'R' }>()
         for (const t of tracks) trackMap.set(t.index, t)
         const hasSolo = tracks.some((t: any) => t.solo)
 
@@ -1024,12 +1025,14 @@ export default function PianoRoll() {
 
         barStartsRef.current = storeBars
 
-        const trackMap = new Map<number, { visible: boolean; muted: boolean; solo: boolean; color: string }>()
+        const trackMap = new Map<number, { visible: boolean; muted: boolean; solo: boolean; color: string; practicePart?: boolean; practiceHand?: 'L' | 'R' }>()
         for (const t of tracks) trackMap.set(t.index, t)
         const hasSolo = tracks.some((t: any) => t.solo)
 
         const flat     = flatNotesRef.current
         const startIdx = lowerBound(flat, visStart - visibleSecs)
+        // practice mode, one hand: the other hand's track plays along, drawn faded
+        const practisedHand = usePractice.getState().active ? practisedHandOf() : 'B'
         for (let i = startIdx; i < flat.length; i++) {
           const note = flat[i]
           if (note.time > visEnd) break
@@ -1081,8 +1084,9 @@ export default function PianoRoll() {
           if (noteEditorActive && note.noteRef && NES.newNotes.has(note.noteRef)) continue
 
           const drawW = Math.max(key.width - 2, 1)
+          const otherHand = practisedHand !== 'B' && !!ts?.practiceHand && ts.practiceHand !== practisedHand
           notes.roundRect(key.x + 1, topY, drawW, noteH, NOTE_RADIUS)
-          notes.fill({ color, alpha: folded ? 0.4 : 0.9 })
+          notes.fill({ color, alpha: (folded ? 0.4 : 0.9) * (otherHand ? 0.35 : 1) })
           notes.rect(key.x + 1, topY, drawW, 2)
           notes.fill({ color: NOTE_HIGHLIGHT_COLOR, alpha: folded ? 0.12 : 0.25 })
 

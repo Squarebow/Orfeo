@@ -24,10 +24,12 @@ import { detectKeyFromTracks, parseKeySignature } from '../../utils/keyDetection
 import { bringToFront, MODAL_BASE_Z } from '../../utils/modalFocus'
 import { KEYBOARD_GROUPS, HAND_ASSIGN_GROUPS } from '../../utils/keyboardGroups'
 import { NES } from '../../utils/noteEditorState'
-import { nextOrfeoBaseName } from '../../utils/orfeoVersioning'
+import { nextOrfeoBaseName, isOrfeoVersionBase } from '../../utils/orfeoVersioning'
 import { getHandPreviewStats, getLowConfidencePassages, estimateHandAccuracy, passageKey, isPassageSeen } from '../../utils/handPreview'
-import { goToPassage, startPracticePrep } from '../../utils/handCheck'
-import { PRACTICE_PREP_VISIBLE, MAX_PRACTICE_PIANOS, countPracticePianos, trackPracticeState, rescoreForCheck } from '../../utils/practiceReadiness'
+import { goToPassage, startPracticePrep, passagesOf } from '../../utils/handCheck'
+import { PRACTICE_PREP_VISIBLE, rescoreForCheck } from '../../utils/practiceReadiness'
+import { currentSongPractice } from '../../practice/practiceMode'
+import { pianoSet, guessAcrossPiano } from '../../practice/pianoSet'
 import { withHandSuffix } from '../../utils/handMetadata'
 import { getGMName, getGMGroup } from '../../utils/gmInstruments'
 import { computeTempoKeyPayload } from '../../utils/tempoKeySave'
@@ -1135,6 +1137,17 @@ export default function MidiEditor() {
     setState(s => s ? { ...s, rows, outputPath: orfeoName(s.filePath) } : s)
   }
 
+  // The file this save will write (electron/main.ts saveOutputPath): a new
+  // version when tracks are deleted, split or merged or tempo / key go with
+  // it; otherwise the same Orfeo copy, if the song open is one. (The real
+  // number can be higher when later versions already exist in the folder.)
+  const saveTargetName = (): string => {
+    const base = baseName(state.filePath).replace(/\.midi?$/i, '')
+    const tempoKey = useStore.getState().saveTempoKeyChangesEnabled && !!computeTempoKeyPayload()
+    const newVersion = tempoKey || state.rows.some(r => !r.included || r.isMerged || r.splitHand)
+    return !newVersion && isOrfeoVersionBase(base) ? baseName(state.filePath) : baseName(state.outputPath)
+  }
+
   const mergeCount    = state.rows.filter(t => t.mergeSelected && !t.isMerged).length
   const includedCount = state.rows.filter(t => t.included).length
 
@@ -1309,7 +1322,7 @@ export default function MidiEditor() {
       const choice = await confirmDialog({
         title: t`Unsaved changes`,
         message: t`Your changes here aren't saved yet.`,
-        detail: t`Save & Reload makes a new version with your changes, and your original file stays as it is.`,
+        detail: t`Save & Reload keeps your changes in the song's Orfeo copy (a new version when tracks are deleted, split or merged), and your original file stays as it is.`,
         buttons: [t`Save & Reload`, t`Close Without Saving`, t`Keep Editing`],
         destructiveIndex: 1,
         startOnSafe: true,
@@ -1364,7 +1377,9 @@ export default function MidiEditor() {
         })
       }
     }
-    useStore.getState().soloTrackForEdit(trackIndex)
+    // the piano as one instrument: its one or two tracks together (practice/pianoSet.ts)
+    const set = pianoSet(useStore.getState().tracks, trackIndex)
+    useStore.getState().soloTrackForEdit(trackIndex, { also: set })
     // This icon only ever appears on a hand-split-eligible keyboard track
     // (see splitEligible below), so opening from here should land the
     // editor ready to correct hand tags immediately — not require a
@@ -1377,52 +1392,76 @@ export default function MidiEditor() {
       NES.onReassignHandsModeChange?.()
     }
     if (prepare) {
-      // after any save above, so it reads the song as it is now
+      // after any save above, so it reads the song as it is now: how sure
+      // Orfeo is of each saved hand, and its guess across two piano parts
       const { rhMaxFingers, lhMaxFingers } = useStore.getState()
-      rescoreForCheck(useStore.getState().midi?.tracks.find(t => t.index === trackIndex)?.notes ?? [], { rhMaxFingers, lhMaxFingers })
+      for (const i of set) rescoreForCheck(useStore.getState().midi?.tracks.find(t => t.index === i)?.notes ?? [], { rhMaxFingers, lhMaxFingers })
+      guessAcrossPiano(set)
       startPracticePrep(trackIndex)
     }
     useStore.getState().setNoteEditorActive(true)
-    if (check || prepare) goToPassage(trackIndex, 0)
+    if (check || prepare) {
+      // nothing unsure: straight to "listen through, then Split & Save"
+      if (prepare && passagesOf(trackIndex).length === 0) useStore.setState({ handCheckDone: true })
+      else goToPassage(trackIndex, 0)
+    }
     setMidiEditorOpen(false)
   }
 
-  // ── Ready for practice? (utils/practiceReadiness.ts) — on each piano track:
-  // ready, a button that walks the unsure passages, or why the song can't be
-  // practised. The piano count follows the rows as you edit them. ──────────
-  const pianoCount = countPracticePianos(state.rows)
-  const practiceFor = (trackIndex: number, oneHand: boolean) => {
+  // ── Ready for practice? (utils/practiceReadiness.ts) — the rule: the piano
+  // as two tracks, Left Hand and Right Hand (or one hand throughout, for
+  // one-hand practice). On each piano track: ready, or Prepare for practice
+  // (the Note Editor shows the piano as one; saving makes the hand tracks),
+  // or why it can't be practised. Read from the song as saved, so it hides
+  // while track changes are staged here. ──────────────────────────────────
+  const stagedLayout = state.rows.some(r => r.isMerged || r.splitHand || !r.included || r.newProgram !== r.program)
+  const songPractice = PRACTICE_PREP_VISIBLE && !stagedLayout ? currentSongPractice() : null
+  const practiceFor = (trackIndex: number) => {
+    const st = songPractice
+    if (!st) return null
     const base: CSSProperties = { fontSize: 10, fontFamily: 'var(--font-ui)', whiteSpace: 'nowrap', display: 'inline-flex', alignItems: 'center', gap: 4, flexShrink: 0, lineHeight: '12px' }
-    if (pianoCount > MAX_PRACTICE_PIANOS) {
+    const btn = (enabled: boolean): CSSProperties => ({
+      ...base, padding: '2px 8px', borderRadius: 4, border: '1px solid var(--accent-amber-strong)',
+      background: 'var(--accent-amber-subtle)', color: 'var(--text-amber)',
+      cursor: enabled ? 'pointer' : 'default', opacity: enabled ? 1 : 0.5,
+    })
+    const link: CSSProperties = { background: 'none', border: 'none', padding: 0, cursor: 'pointer', color: 'var(--text-amber)', fontSize: 10, fontFamily: 'var(--font-ui)', textDecoration: 'underline', textUnderlineOffset: 2 }
+    if (st.state === 'cant') {
+      if (st.reason === 'no-piano') return null
       return (
-        <Tooltip title={t`Not ready to practise`} description={t`Practice mode needs one or two piano tracks. This song has ${pianoCount}: merge two of them, or give one another instrument.`}>
-          <span style={{ ...base, color: 'var(--text-inactive)' }}><AlertCircle size={11} /> {t`${pianoCount} piano tracks, too many to practise`}</span>
+        <Tooltip title={t`Not ready to practise`} description={t`Practice mode needs one piano, as a left-hand and a right-hand track. This song has ${st.pianos}: merge them, or give the extra ones another instrument.`}>
+          <span style={{ ...base, color: 'var(--text-inactive)' }}><AlertCircle size={11} /> {t`${st.pianos} piano tracks, too many to practise`}</span>
         </Tooltip>
       )
     }
-    const notes = midi?.tracks.find(tr => tr.index === trackIndex)?.notes ?? []
-    const fromScore = !!(midi as any)?._stavePairs?.some((p: [number, number]) => p.includes(trackIndex))
-    const { rhMaxFingers, lhMaxFingers } = useStore.getState()
-    const st = trackPracticeState(notes, { fromScore, oneHand, options: { rhMaxFingers, lhMaxFingers } })
     if (st.state === 'ready') {
       return (
-        <Tooltip title={t`Ready to practise`} description={t`Orfeo is sure of the hands in this track, or you've checked them.`}>
+        <Tooltip title={t`Ready to practise`} description={t`One track for each hand.`}>
           <span style={{ ...base, color: 'var(--text-dim)' }}><Check size={11} style={{ color: 'var(--status-success)' }} /> {t`Ready to practise`}</span>
         </Tooltip>
       )
     }
-    const label = st.passages === 1 ? t`Prepare for practice · 1 passage` : t`Prepare for practice · ${st.passages} passages`
+    if (st.state === 'one-hand') {
+      return (
+        <span style={{ ...base, color: 'var(--text-dim)' }}>
+          <Tooltip title={t`Ready to practise, one hand`} description={t`The piano part is one hand throughout, so it's practised with that hand.`}>
+            <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}><Check size={11} style={{ color: 'var(--status-success)' }} /> {st.hand === 'L' ? t`Ready · left hand only` : t`Ready · right hand only`}</span>
+          </Tooltip>
+          <Tooltip title={t`Two hands?`} description={t`If some notes are clearly for the other hand, check the hands in the Note Editor; saving then gives each hand its own track.`}>
+            <button onClick={() => { if (noteEditorEnabled) handleOpenInNoteEditor(st.track, false, true) }} disabled={!noteEditorEnabled} style={link}>{t`Two hands? Edit`}</button>
+          </Tooltip>
+        </span>
+      )
+    }
+    // prepare: one track with both hands, or two parts that aren't the hands
+    const label = st.passages === 0 ? t`Prepare for practice`
+      : st.passages === 1 ? t`Prepare for practice · 1 passage` : t`Prepare for practice · ${st.passages} passages`
     return (
       <Tooltip title={t`Prepare for practice`}
         description={noteEditorEnabled
-          ? t`Walks you through the passages where Orfeo isn't sure of the hands. Keep them or fix them, save, and the song is ready to practise.`
+          ? t`Opens the piano in the Note Editor, with the hands in colour. Check the passages where Orfeo isn't sure, fix any note in the wrong hand, listen through, then Split & Save: each hand gets its own track.`
           : t`Turn on MIDI Note Editor in Settings`}>
-        <button onClick={() => { if (noteEditorEnabled) handleOpenInNoteEditor(trackIndex, true, true) }} disabled={!noteEditorEnabled}
-          style={{
-            ...base, padding: '2px 8px', borderRadius: 4, border: '1px solid var(--accent-amber-strong)',
-            background: 'var(--accent-amber-subtle)', color: 'var(--text-amber)',
-            cursor: noteEditorEnabled ? 'pointer' : 'default', opacity: noteEditorEnabled ? 1 : 0.5,
-          }}>
+        <button onClick={() => { if (noteEditorEnabled) handleOpenInNoteEditor(st.tracks[0], st.passages > 0, true) }} disabled={!noteEditorEnabled} style={btn(noteEditorEnabled)}>
           <PianoKeysIcon width={11} height={11} /> {label}
         </button>
       </Tooltip>
@@ -1451,7 +1490,12 @@ export default function MidiEditor() {
 
   const handleSplitConfirm = () => {
     if (pendingSplitIndex === null) return
-    const trackIndex = pendingSplitIndex
+    if (stageSplit(pendingSplitIndex)) setSplitResult({ ok: true, msg: t`Staged — apply with Save & Reload` })
+  }
+
+  // Stage the split of one track into a left-hand and a right-hand track
+  // (nothing on disk until the save). False when it hasn't got two hands.
+  const stageSplit = (trackIndex: number): boolean => {
     const parsedTrack = midi?.tracks.find(t => t.index === trackIndex)
     const notes = parsedTrack?.notes ?? []
     const lhCount = notes.filter(n => n.hand === 'L').length
@@ -1459,7 +1503,7 @@ export default function MidiEditor() {
     setPendingSplitIndex(null)
     if (lhCount === 0 || rhCount === 0) {
       setSplitResult({ ok: false, msg: t`Could not find two independent hands in this track` })
-      return
+      return false
     }
     setPreSplitRows(state.rows)
     setState(s => {
@@ -1487,8 +1531,9 @@ export default function MidiEditor() {
       rows.splice(idx, 1, lhRow, rhRow)
       return { ...s, rows, outputPath: orfeoName(s.filePath) }
     })
-    setSplitResult({ ok: true, msg: t`Staged — apply with Save & Reload` })
+    return true
   }
+
 
   // ── Render ────────────────────────────────────────────────────────────────────
 
@@ -1624,9 +1669,7 @@ export default function MidiEditor() {
         const infoStats = infoNotes.length > 0 ? getHandPreviewStats(infoNotes) : null
         const hasInfoStrip = !!(infoStats && infoStats.taggedNotes > 0)
         // Prepare for practice, on every piano track that plays
-        const practiceEl = PRACTICE_PREP_VISIBLE && track.group === 'piano' && !track.isDrum && track.included
-          ? practiceFor(track.index, !!track.splitHand || track.name === 'Left Hand' || track.name === 'Right Hand' || / (LH|RH)\s*$/i.test(track.trackName ?? ''))
-          : null
+        const practiceEl = track.group === 'piano' && !track.isDrum && track.included ? practiceFor(track.index) : null
         const practiceLine = !!practiceEl && !hasInfoStrip && pendingSplitIndex !== track.index
         return (
         <div key={track.index}>
@@ -2019,7 +2062,7 @@ export default function MidiEditor() {
             color: saveResult?.ok ? 'var(--status-success-text)' : 'var(--text-muted)',
             textOverflow: 'ellipsis', whiteSpace: 'nowrap',
           }}>
-            {saveResult?.ok && saveResult.filePath ? `✓ ${saveResult.filePath}` : baseName(state.outputPath)}
+            {saveResult?.ok && saveResult.filePath ? `✓ ${saveResult.filePath}` : saveTargetName()}
           </div>
           {saveResult?.ok && saveResult.filePath ? (
             <Tooltip
@@ -2072,7 +2115,7 @@ export default function MidiEditor() {
         <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
           <div style={{ flex: 1, display: 'flex', alignItems: 'flex-start', gap: 5, minWidth: 0 }}>
             <AlertCircle size={10} style={{ color: 'var(--text-inactive)', flexShrink: 0, marginTop: 1 }} />
-            <span style={{ fontSize: 10, color: 'var(--text-inactive)', fontFamily: 'var(--font-mono)', lineHeight: '13.5px' }}>{t`Original file is never modified! Saves as a new _ORFEO_vX copy in "Orfeo" folder next to it, auto-loads on save. Only shows up in your Library list if that folder is inside your registered Library Folder. Refresh Library to see it immediately.`}</span>
+            <span style={{ fontSize: 10, color: 'var(--text-inactive)', fontFamily: 'var(--font-mono)', lineHeight: '13.5px' }}>{t`Original file is never modified! Saves into the song's _ORFEO_vX copy in the "Orfeo" folder next to it (a new version when tracks are deleted, split or merged), auto-loads on save. Only shows up in your Library list if that folder is inside your registered Library Folder. Refresh Library to see it immediately.`}</span>
           </div>
           {saveResult?.ok ? (
             <button

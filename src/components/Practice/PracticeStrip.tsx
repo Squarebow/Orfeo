@@ -3,7 +3,7 @@ import { useStore } from '../../store'
 import { detectChord, localizeChord } from '../../utils/chordDetection'
 import { t } from '../../utils/i18n'
 import Tooltip from '../Tooltip'
-import { usePractice, PRACTICE_SIZES, type PracticeWay, type PracticeHand, type PracticeView } from '../../practice/practiceMode'
+import { usePractice, PRACTICE_SIZES, fixHandsFromPractice, type PracticeWay, type PracticeHand, type PracticeView } from '../../practice/practiceMode'
 
 // ── The strip between the piano roll and the keyboard, in practice mode ──────
 // Left: the way of playing and its choices. Centre: the chord YOU play (read
@@ -43,7 +43,7 @@ function YouPlay() {
 export default function PracticeStrip() {
   const playing = useStore(s => s.playbackState === 'playing')
   const keyboardSize = useStore(s => s.keyboardSize)
-  const { way, hand, waitOn, level, view } = usePractice()
+  const { way, hand, waitOn, level, view, onlyHand } = usePractice()
   const set = usePractice.setState
   const fade: CSSProperties = playing
     ? { opacity: 0, pointerEvents: 'none', transition: 'opacity .35s', minWidth: 0 }
@@ -76,17 +76,31 @@ export default function PracticeStrip() {
               </Tooltip>
             ))}
           </div>
+          {onlyHand && (
+            // the song's piano is one hand throughout: always that hand
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+              <span style={cap}>{onlyHand === 'L' ? t`Left hand only` : t`Right hand only`}</span>
+              <Tooltip title={t`Two hands?`} description={t`If some notes are clearly for the other hand, check the hands in the Note Editor; saving then gives each hand its own track.`}>
+                <button onClick={fixHandsFromPractice}
+                  style={{ background: 'none', border: 'none', padding: 0, cursor: 'pointer', color: 'var(--text-amber)', fontSize: 11, fontFamily: 'var(--font-ui)', textDecoration: 'underline', textUnderlineOffset: 2 }}>
+                  {t`Two hands? Edit`}
+                </button>
+              </Tooltip>
+            </div>
+          )}
           {way === 'practise' && (
             <>
-              <div style={segWrap}>
-                {hands.map(([id, label]) => <button key={id} style={seg(hand === id)} onClick={() => set({ hand: id })}>{label}</button>)}
-              </div>
+              {!onlyHand && (
+                <div style={segWrap}>
+                  {hands.map(([id, label]) => <button key={id} style={seg(hand === id)} onClick={() => set({ hand: id })}>{label}</button>)}
+                </div>
+              )}
               <Tooltip title={t`Wait`} description={t`The song waits for your notes. Comes with the next stage, when Orfeo starts listening to your keyboard.`}>
                 <button disabled style={{ ...seg(waitOn, true), display: 'inline-flex', alignItems: 'center', gap: 8 }}>{t`Wait`}</button>
               </Tooltip>
             </>
           )}
-          {way === 'wait' && <span style={cap}>{t`Both hands · song tempo`}</span>}
+          {way === 'wait' && !onlyHand && <span style={cap}>{t`Both hands · song tempo`}</span>}
           {way === 'perform' && (
             <div style={{ display: 'flex', alignItems: 'center', gap: 6, minWidth: 0 }}>
               <span style={cap}>{t`Level`}</span>

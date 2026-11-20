@@ -15,10 +15,8 @@ function reasonText(reason: GateReason, n?: number): string {
     case 'no-song': return t`Open a song to practise.`
     case 'editing': return t`Close the Note Editor first.`
     case 'no-piano': return t`This song has no piano part to practise.`
-    case 'too-many': return t`This song has ${n ?? 3} piano tracks. Practice mode needs one or two: merge two in the Playback Editor, or give one another instrument.`
-    case 'not-ready': return n === 1
-      ? t`Orfeo isn't sure of the hands in 1 passage. Press Prepare for practice on the piano track in the Playback Editor first.`
-      : t`Orfeo isn't sure of the hands in ${n ?? 0} passages. Press Prepare for practice on the piano track in the Playback Editor first.`
+    case 'too-many': return t`This song has ${n ?? 3} piano tracks. Practice mode needs one piano, as a left-hand and a right-hand track: merge them in the Playback Editor, or give the extra ones another instrument.`
+    case 'prepare': return t`The piano needs a track for each hand first. In the Playback Editor, press Prepare for practice on the piano: check the hands, then Split & Save.`
   }
 }
 

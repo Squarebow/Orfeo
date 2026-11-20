@@ -20,7 +20,6 @@ import { TRUST_VERSION, type TrustResult } from '../utils/tempoTrust'
 import { velocityDropRatio, suggestCompressorPreset } from '../utils/velocityAnalysis'
 import { applyHandColors, isHex, handHex, followedHandColor, DEFAULT_HAND_LH, DEFAULT_HAND_RH } from '../utils/handPalette'
 import { HAND_ASSIGN_GROUPS, focusRole } from '../utils/keyboardGroups'
-import { isPracticePiano } from '../utils/practiceReadiness'
 import type { TrackBaseline } from '../utils/unsavedChanges'
 import type { LyricsEntry } from '../utils/lyricsScan'
 import { addTag, renameTag, deleteTag, setSongsTag, remapSongTags, restoreTagState, type TagState } from '../utils/libraryTags'
@@ -305,7 +304,10 @@ interface OrfeoStore {
   handCheckRev: number
   // Prepare for practice walked every passage: "save, and it's ready" shows
   handCheckDone: boolean
-  soloTrackForEdit: (index: number, opts?: { keepPlayhead?: boolean }) => void
+  // `also`: tracks edited together with it (the song's two piano tracks, practice/pianoSet.ts)
+  soloTrackForEdit: (index: number, opts?: { keepPlayhead?: boolean; also?: number[] }) => void
+  // every track the Note Editor is editing (index first, then `also`); null when none
+  noteEditorSoloTracks: number[] | null
   unsoloTrackForEdit: () => void
   noteEditorWalkthroughSeen: boolean
   setNoteEditorWalkthroughSeen: (v: boolean) => void
@@ -487,8 +489,9 @@ interface OrfeoStore {
   // ── Practice mode's tracks: the piano alone, your part silent but shown,
   // the band muted and hidden; off puts every track back (practice/practiceMode.ts)
   practiceActive: boolean
-  setPracticeTracks: (on: boolean, hearMine?: boolean) => void
-  setPracticeHearMine: (on: boolean) => void
+  setPracticeTracks: (on: boolean, hands?: Record<number, 'L' | 'R'>) => void
+  // the hand you practise is silent (unless you hear it too); the other is heard
+  setPracticeSound: (hand: 'L' | 'B' | 'R', hearMine: boolean) => void
   // Mute is sound only; what shows on the roll and keyboard is the eye (visible)
   setTrackMuted: (index: number, muted: boolean) => void
 
@@ -1070,12 +1073,15 @@ export const useStore = create<OrfeoStore>((set, get) => ({
       const restored = s.preSoloTrackVisibility
         ? s.tracks.map((t, i) => ({ ...t, visible: s.preSoloTrackVisibility![i] ?? true }))
         : s.tracks
-      set({ tracks: restored, noteEditorSoloTrackIndex: null, preSoloTrackVisibility: null })
+      set({ tracks: restored, noteEditorSoloTrackIndex: null, noteEditorSoloTracks: null, preSoloTrackVisibility: null })
     } else {
       // ── Solo: snapshot visibility, hide all tracks except target ────────
-      const preSolo   = s.tracks.map(t => t.visible)
-      const soloed    = s.tracks.map(t => ({ ...t, visible: t.index === index }))
-      set({ tracks: soloed, noteEditorSoloTrackIndex: index, preSoloTrackVisibility: preSolo })
+      // (and the tracks edited with it). A track already soloed keeps the
+      // snapshot taken before it, so the player's own eye comes back.
+      const set_      = [index, ...(opts?.also ?? []).filter(i => i !== index)]
+      const preSolo   = s.preSoloTrackVisibility ?? s.tracks.map(t => t.visible)
+      const soloed    = s.tracks.map(t => ({ ...t, visible: set_.includes(t.index) }))
+      set({ tracks: soloed, noteEditorSoloTrackIndex: index, noteEditorSoloTracks: set_, preSoloTrackVisibility: preSolo })
 
       // ── Jump playback to just before this track's first note — otherwise
       // soloing a track whose notes start much later than the current
@@ -1099,8 +1105,9 @@ export const useStore = create<OrfeoStore>((set, get) => ({
     const restored = s.preSoloTrackVisibility
       ? s.tracks.map((t, i) => ({ ...t, visible: s.preSoloTrackVisibility![i] ?? true }))
       : s.tracks
-    set({ tracks: restored, noteEditorSoloTrackIndex: null, preSoloTrackVisibility: null })
+    set({ tracks: restored, noteEditorSoloTrackIndex: null, noteEditorSoloTracks: null, preSoloTrackVisibility: null })
   },
+  noteEditorSoloTracks: null,
   noteEditorWalkthroughSeen: false,
   setNoteEditorWalkthroughSeen: (noteEditorWalkthroughSeen) => set({ noteEditorWalkthroughSeen }),
   velocityPanelOpen: false,
@@ -1233,22 +1240,24 @@ export const useStore = create<OrfeoStore>((set, get) => ({
   setTrackMuted: (index, muted) =>
     set((s) => ({ tracks: s.tracks.map((t) => (t.index === index ? { ...t, muted } : t)) })),
   practiceActive: false,
-  setPracticeTracks: (on, hearMine = false) => set((s) => {
+  setPracticeTracks: (on, hands = {}) => set((s) => {
     if (on) {
       if (!s.practiceActive) _practiceSnapshot = new Map(s.tracks.map(t => [t.index, { muted: t.muted, visible: t.visible, solo: t.solo }]))
-      return { practiceActive: true, tracks: s.tracks.map(t => isPracticePiano(t)
-        ? { ...t, practicePart: true, muted: !hearMine, visible: true, solo: false }
-        : { ...t, practicePart: undefined, muted: true, visible: false, solo: false }) }
+      return { practiceActive: true, tracks: s.tracks.map(t => hands[t.index]
+        ? { ...t, practicePart: true, practiceHand: hands[t.index], muted: true, visible: true, solo: false }
+        : { ...t, practicePart: undefined, practiceHand: undefined, muted: true, visible: false, solo: false }) }
     }
     const snap = _practiceSnapshot
     _practiceSnapshot = null
     return { practiceActive: false, tracks: s.tracks.map(t => {
-      const { practicePart: _p, ...rest } = t
+      const { practicePart: _p, practiceHand: _h, ...rest } = t
       return { ...rest, ...(snap?.get(t.index) ?? {}) }
     }) }
   }),
-  setPracticeHearMine: (on) => set((s) => s.practiceActive
-    ? { tracks: s.tracks.map(t => (t.practicePart ? { ...t, muted: !on } : t)) }
+  setPracticeSound: (hand, hearMine) => set((s) => s.practiceActive
+    ? { tracks: s.tracks.map(t => (t.practicePart
+        ? { ...t, muted: hand === 'B' || t.practiceHand === hand ? !hearMine : false }
+        : t)) }
     : {}),
 
   // ── Settings group collapse state — keyed by group id; true = collapsed.

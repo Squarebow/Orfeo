@@ -122,6 +122,29 @@ export function runSmfLeadTest(): number {
     check(after(short, 0) === after(orig, cut), f + ': every note after the cut, moved back')
   }
 
+  // A track added while editing (the piano split into its two hands) survives
+  // the skipped bars being put back, with its notes in place and the pedal of
+  // the original track on its channel
+  {
+    const src = new Midi()
+    const p = src.addTrack(); p.channel = 0; p.instrument.number = 0; p.name = 'Piano'
+    p.addCC({ number: 64, value: 1, ticks: 0 })
+    p.addNote({ midi: 40, ticks: 1000, durationTicks: 100 }); p.addNote({ midi: 80, ticks: 1100, durationTicks: 100 })
+    const bytes2 = src.toArray()
+    const raw2 = bytes2.buffer.slice(bytes2.byteOffset, bytes2.byteOffset + bytes2.byteLength) as ArrayBuffer
+    const CUT2 = 960
+    const ed = midiToEditableCopy(trimSmfLead(raw2, CUT2))
+    const lh = ed.tracks.find(t => t.notes.length)!
+    const rh = ed.addTrack(); rh.channel = lh.channel; rh.instrument.number = 0; rh.name = 'Piano RH'
+    rh.notes.push(lh.notes.pop()!)
+    lh.name = 'Piano LH'
+    const back = restoreLeadForSave(ed, raw2, CUT2)
+    const named = (n: string) => back.tracks.find(t => t.name === n)
+    check(!!named('Piano RH') && named('Piano RH')!.notes.length === 1 && named('Piano RH')!.notes[0].ticks === 1100, 'an added track is kept, its note back in place')
+    check(named('Piano LH')!.notes.length === 1 && named('Piano LH')!.notes[0].ticks === 1000, 'the original track keeps only its own notes')
+    check((named('Piano RH')!.controlChanges[64]?.length ?? 0) === 1, 'the added track gets the channel\'s pedal')
+  }
+
   console.log(`smfLead: ${pass} passed, ${fail} failed`)
   console.groupEnd()
   return fail

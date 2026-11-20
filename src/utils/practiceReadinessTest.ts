@@ -1,5 +1,5 @@
 import type { ParsedNote } from '../types'
-import { countPracticePianos, trackPracticeState, rescoreForCheck, freshConfidences } from './practiceReadiness'
+import { countPracticePianos, trackPracticeState, rescoreForCheck, freshConfidences, songPracticeState, trackHand } from './practiceReadiness'
 import { RESTORED_CONFIDENCE } from './handMetadata'
 import { assignHands } from './handAssignment'
 
@@ -58,6 +58,25 @@ export function runPracticeReadinessTest(): number {
   const mine = twoHands('R', RESTORED_CONFIDENCE, 'manual')
   rescoreForCheck(mine)
   check(mine.filter(n => n.handSource === 'manual').every(n => n.handConfidence === RESTORED_CONFIDENCE), 'your own notes are left alone')
+
+  // ── The song rule: two piano tracks, one per hand ──
+  const hands = (h: 'L' | 'R') => [note(0, h, 0.95), note(1, h, 0.95)]
+  const T = (index: number, group: string, notes: ParsedNote[], name = '') => ({ index, group, name, notes })
+  check(songPracticeState([T(0, 'piano', hands('L'), 'Piano LH'), T(1, 'piano', hands('R'), 'Piano RH'), T(2, 'bass', hands('L'))]).state === 'ready', 'Piano LH + Piano RH: ready')
+  const rd = songPracticeState([T(3, 'piano', hands('R')), T(5, 'piano', hands('L'))])
+  check(rd.state === 'ready' && (rd as any).left === 5 && (rd as any).right === 3, 'two tracks, each one hand throughout: ready, hands found')
+  check(songPracticeState([T(0, 'piano', [note(0, 'R', 0.9), note(1, 'L', 0.9)])]).state === 'prepare', 'one piano track with both hands: prepare (check, then split)')
+  const prep = songPracticeState([T(0, 'piano', [note(0, 'R', 0.9), note(2, 'L', 0.2), note(3, 'R', 0.95)])])
+  check(prep.state === 'prepare' && (prep as any).passages === 1, 'one piano track: its unsure passages counted')
+  const one = songPracticeState([T(0, 'piano', hands('R'))])
+  check(one.state === 'one-hand' && (one as any).hand === 'R', 'a piano part with one hand only: ready for practising that hand')
+  const both = [note(0, 'R', 0.9), note(1, 'L', 0.9)]
+  const two = songPracticeState([T(0, 'piano', both), T(1, 'piano', [...both])])
+  check(two.state === 'prepare' && (two as any).tracks.length === 2, 'two pianos that are not the hands: prepared together as one piano')
+  check(songPracticeState([T(0, 'piano', both), T(1, 'piano', both)], { stavePairs: [[1, 0]] }).state === 'ready', "a score's two staves: ready")
+  check((songPracticeState([T(0, 'piano', both), T(1, 'piano', both), T(2, 'piano', both)]) as any).reason === 'too-many', 'three pianos: too many')
+  check((songPracticeState([T(0, 'organ', both)]) as any).reason === 'no-piano', 'an organ is not the piano part')
+  check(trackHand({ name: 'Left Hand', notes: [] }) === 'L' && trackHand({ trackName: 'Grand RH', notes: [] }) === 'R', 'hands read from the names Orfeo writes')
 
   console.log(`${pass} passed, ${fail} failed`)
   console.groupEnd()

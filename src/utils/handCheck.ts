@@ -8,6 +8,7 @@
 import { useStore } from '../store'
 import { getLowConfidencePassages, isLowConfidence, markPassageSeen, passageKey, type LowConfidencePassage } from './handPreview'
 import { NES } from './noteEditorState'
+import { pianoSet } from '../practice/pianoSet'
 
 // a little air either side, so the loop doesn't clip the passage's first note
 const PAD_SEC = 0.15
@@ -23,7 +24,12 @@ export function startPracticePrep(track: number): void {
   useStore.setState({ handCheckDone: false })
 }
 
-const notesOf = (track: number) => useStore.getState().midi?.tracks.find(t => t.index === track)?.notes ?? []
+// The tracks checked together: a song's piano is one instrument, whether it
+// comes as one track or two (practice/pianoSet.ts)
+const groupOf = (track: number): number[] => pianoSet(useStore.getState().tracks, track)
+const notesOf = (track: number) => groupOf(track)
+  .flatMap(i => useStore.getState().midi?.tracks.find(t => t.index === i)?.notes ?? [])
+  .sort((a, b) => a.time - b.time)
 export const passagesOf = (track: number): LowConfidencePassage[] => getLowConfidencePassages(notesOf(track))
 const keyOf = (track: number) => passageKey((useStore.getState().midi as any)?._filePath, track)
 
@@ -64,11 +70,14 @@ export function markPassageCorrect(): void {
   if (!p) return
   const inside = (n: { time: number }) => n.time >= p.start - 1e-6 && n.time <= p.end + 1e-6
   const shown = notesOf(hc.track).filter(n => isLowConfidence(n) && inside(n))
-  // the Note Editor's own copy of the same track, which is what gets saved
+  // the Note Editor's own copy of the same tracks, which is what gets saved
   const storeTracks = useStore.getState().midi?.tracks ?? []
-  const pos = storeTracks.findIndex(t => t.index === hc.track)
-  const editTrack = NES.editMidi && pos >= 0 ? NES.editMidi.tracks.filter(t => t.notes.length > 0)[pos] : undefined
-  const edited = (editTrack?.notes ?? []).filter(n => (n as any).hand !== undefined && inside(n)) as any[]
+  const editTracks = NES.editMidi ? NES.editMidi.tracks.filter(t => t.notes.length > 0) : []
+  const edited = groupOf(hc.track).flatMap(i => {
+    const pos = storeTracks.findIndex(t => t.index === i)
+    const editTrack = pos >= 0 ? editTracks[pos] : undefined
+    return (editTrack?.notes ?? []).filter(n => (n as any).hand !== undefined && inside(n)) as any[]
+  })
   const before = {
     shown: shown.map(n => n.handConfidence),
     edited: edited.map(n => ({ c: n.handConfidence, s: n.handSource })),
