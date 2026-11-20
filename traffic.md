@@ -1,6 +1,6 @@
 # Orfeo on GitHub: downloads and traffic
 
-**Last updated: 20. 11. 2026 at 06:59** Ljubljana time (CET) · updates daily from 07:00
+**Last updated: 20. 11. 2026 at 07:00** Ljubljana time (CET) · updates daily from 07:00
 
 [Squarebow/Orfeo](https://github.com/Squarebow/Orfeo) · ★ 757 stars · 60 forks · 4 watching
 
@@ -91,12 +91,12 @@ Downloads before 2026-10-17 (when tracking started) are in the all-time totals a
 | t.co | 4 | <mark>4</mark> | 15 |
 | m.facebook.com | – | – | 3 |
 | copilot.microsoft.com | – | – | 2 |
-| perplexity.ai | 4 | <mark>2</mark> | 2 |
 | yandex.com.tr | – | – | 2 |
 | search.naver.com | – | – | 2 |
-| ntp.msn.com | – | – | 1 |
-| Yahoo | – | – | 1 |
+| perplexity.ai | 4 | <mark>2</mark> | 2 |
 | aocr.org | – | – | 1 |
+| Yahoo | – | – | 1 |
+| ntp.msn.com | – | – | 1 |
 | yandex.ru | – | – | 1 |
 
 GitHub only reports referring sites as 14-day totals. All-time adds up non-overlapping 14-day periods recorded since 2026-10-17, plus an estimate for the days since the last full period (≈). Search engines and AI assistants don't pass on what was searched.
