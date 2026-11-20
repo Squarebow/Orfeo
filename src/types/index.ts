@@ -129,6 +129,9 @@ export interface TrackState {
   pan: number
   chorus: number
   reverb: number
+  // Practice mode: the part you play — silent unless you ask to hear it, but
+  // always shown (utils/trackShown.ts). Never saved.
+  practicePart?: boolean
 }
 
 // 25, 37 and 49 are the portable sizes (Settings › Keyboard › Portable keyboards)

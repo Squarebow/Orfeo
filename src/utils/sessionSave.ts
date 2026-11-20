@@ -92,7 +92,7 @@ export function collectUnsaved(): UnsavedRow[] {
     if (f.muted) parts.push(plural(f.muted, t`1 muted or unmuted`, t`${f.muted} muted or unmuted`))
     rows.push({ kind: 'tracks', label: t`Tracks`, detail: parts.join(' · ') })
   }
-  if (countUnsaved(s.tracks, s.mixerBaseline, s.focusActive).playbackEditor) rows.push({ kind: 'playbackEditor', label: t`Playback Editor`, detail: t`Open, with edits` })
+  if (countUnsaved(s.tracks, s.mixerBaseline, s.focusActive || s.practiceActive).playbackEditor) rows.push({ kind: 'playbackEditor', label: t`Playback Editor`, detail: t`Open, with edits` })
   if (s.pendingImportedFile) rows.push({ kind: 'import', label: t`Imported file`, detail: t`Not saved as MIDI yet` })
   return rows
 }
@@ -210,6 +210,7 @@ export function undoMixer() {
 
 export function undoTrackFlags() {
   const s = useStore.getState()
+  if (s.practiceActive) s.setPracticeTracks(false)  // practice mode puts its own back first
   if (s.focusActive) s.setTrackMuteFilter(false)  // Focus mode puts its own back first
   const now = useStore.getState()
   for (const tr of now.tracks) {

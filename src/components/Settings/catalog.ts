@@ -24,7 +24,7 @@ export type SettingId =
   | 'soundEngine' | 'soundFonts' | 'autoLevel' | 'exportAudio'
   | 'showDemo' | 'chordTranscription' | 'openWith' | 'showLyrics' | 'tags' | 'practiceQueue'
   | 'noteEditor' | 'unsavedWarning' | 'saveTrackChanges' | 'tapTempo' | 'tempoWarnings' | 'countIn' | 'skipEmptyBars' | 'handAssignment' | 'loopRegion' | 'focusMode'
-  | 'stepThrough' | 'chordPrompter' | 'closePanels' | 'handTags' | 'trackVu'
+  | 'practiceMode' | 'stepThrough' | 'chordPrompter' | 'closePanels' | 'handTags' | 'trackVu'
   | 'displaySystem' | 'accidentals' | 'chordTracking' | 'chordReading' | 'chordNaming'
   | 'keyRange' | 'portableKeyboards' | 'showOctaves' | 'showNoteNames' | 'reflectPianoRoll' | 'preciseScrubTime' | 'explorerPause' | 'tempoDisplay'
   | 'rollZoom' | 'barNumbers' | 'playbar' | 'visualEffects'
@@ -136,6 +136,9 @@ export const SETTINGS: SettingInfo[] = [
     description: t`Adds a Focus on/off switch to the Tracks panel and the Mixer Console.\n**Focus on:** you hear the keys (pianos, organs, accordions), bass and drums, and only the keys stay on the piano roll and keyboard.\n**Focus off:** every track comes back exactly as it was.`,
     keywords: 'focus mute tracks keys bass drums' },
   // ── Practice
+  { id: 'practiceMode', group: 'practice', name: t`Practice mode`, summary: t`Practise a song's piano part with your USB keyboard.`,
+    description: t`Turn on to practise the piano part of a song with your USB keyboard, on a screen with nothing else in the way. Open it from the practice icon in the Tracks panel.`,
+    keywords: 'practice practise lesson learn keyboard piano wait play along performance' },
   { id: 'stepThrough', group: 'practice', name: t`Step Through`, summary: t`Step through a song note by note with\n==←== and ==→==.`,
     description: t`Each press of ← or → (or the arrows in the keyboard bar) steps back or forward to the next note or chord, plays it, lights it and moves the playhead there. Shift jumps a whole bar.`,
     keywords: 'step through arrows next previous note chord solo transcribe learn slow' },

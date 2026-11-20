@@ -11,6 +11,7 @@ import { buildPitchHandIndex, lookupNoteHandAtTime, detectPerformanceBoundary } 
 import type { Hand } from '../../types'
 import { isHomogeneousHandTrack, resolveHandAwareColor } from '../../utils/handColors'
 import Tooltip, { useTooltip } from '../Tooltip'
+import { usePractice } from '../../practice/practiceMode'
 import { ContextMenu, ContextMenuItem } from '../ContextMenu'
 import { outputLatencySec } from '../../audio/engine'
 import { isShown } from '../../utils/trackShown'
@@ -150,6 +151,7 @@ export default function Keyboard() {
   const handLabelMode = useStore((s) => s.handLabelMode)
   const performanceSplitSensitivity = useStore((s) => s.performanceSplitSensitivity)
   const presentationMode = useStore((s) => s.presentationMode)
+  const practicing = usePractice((s) => s.active)   // practice mode draws its own strip
   const playbarVisible = useStore((s) => s.playbarVisible)
   const shiftHeldRef = useRef(false)
   // ── Tracks whether the primary mouse button is held, enabling glissando drag ──
@@ -695,7 +697,7 @@ export default function Keyboard() {
     <div style={{ display: 'flex', flexDirection: 'column' }}>
       {/* ── Chord bar — hidden in Presentation Mode; fixed 36px so toggling the
           prompter never shifts the row above it ── */}
-      {!presentationMode && <div data-keyboard-header style={{
+      {!presentationMode && !practicing && <div data-keyboard-header style={{
         height: 36,
         background: 'var(--bg-modal-header)',
         borderTop: '1px solid var(--border)',

@@ -14,7 +14,7 @@ export function runCatalogTest(): number {
   const ids = SETTINGS.map(s => s.id)
   check(new Set(ids).size === ids.length, 'unique setting ids')
   const count = (g: string) => SETTINGS.filter(s => s.group === g).length
-  check([4, 11, 6, 9, 6, 5, 5, 4, 4, 6, 5, 10].join() === GROUPS.map(g => count(g.id)).join(), `group sizes ${GROUPS.map(g => count(g.id))}`)
+  check([4, 11, 6, 9, 7, 5, 5, 4, 4, 6, 5, 10].join() === GROUPS.map(g => count(g.id)).join(), `group sizes ${GROUPS.map(g => count(g.id))}`)
   check(SETTINGS.every(s => s.name && s.summary && s.description), 'name/summary/description on every setting')
   check(SETTINGS.every(s => s.summary.split('\n').length <= 2 && s.summary.length <= 90), 'summaries are short (one line, or two at most)')
 

@@ -9,6 +9,7 @@ import { MarqueeText } from '../MarqueeText'
 import { usePlayback } from '../../hooks/usePlayback'
 import { NES } from '../../utils/noteEditorState'
 import Tooltip from '../Tooltip'
+import PracticeButton from '../Practice/PracticeButton'
 import PianoKeysIcon from '../PianoKeysIcon'
 import { saveTrackFlags } from '../../utils/sessionSave'
 
@@ -304,18 +305,7 @@ export default function TrackPanel() {
           {/* ── Dashed outline + low opacity — a same-shade disabled icon read as
               a normal, clickable nav icon until hovered; this makes "not yet
               shipped" visible at rest, not just on tooltip. ──────────────── */}
-          <Tooltip title={t`A dedicated Practice mode is planned but not built yet.`} oneLine wrapperStyle={{ marginTop: 8 }}>
-          <div
-            style={{
-              color: 'var(--state-disabled)', padding: 3,
-              display: 'flex', alignItems: 'center', justifyContent: 'center',
-              cursor: 'default', opacity: 0.55,
-              border: '1px dashed var(--border2)', borderRadius: 4,
-            }}
-          >
-            <Sparkles size={18} />
-          </div>
-          </Tooltip>
+          <PracticeButton size={18} wrapperStyle={{ marginTop: 8 }} />
         </div>
       )}
 
@@ -410,20 +400,9 @@ for every track and apply compression.`} wrapperStyle={{ marginTop: 8 }}>
             </button>
             </Tooltip>
             {/* ── Dashed outline + low opacity — see collapsed-strip twin above ── */}
-            <Tooltip title={t`Practice mode - coming soon`} oneLine wrapperStyle={{ marginTop: 8 }}>
-            <div
-              style={{
-                color: 'var(--state-disabled)', padding: 3,
-                display: 'flex', alignItems: 'center', justifyContent: 'center',
-                cursor: 'default', opacity: 0.55,
-                border: '1px dashed var(--border2)', borderRadius: 4,
-              }}
-            >
-              {/* strokeWidth compensates for this icon's larger render size (20 vs
-                  siblings' 16), same reason as the AudioLines note-editor instances above. */}
-              <Sparkles size={20} strokeWidth={1.6} />
-            </div>
-            </Tooltip>
+            {/* strokeWidth compensates for this icon's larger render size (20 vs
+                siblings' 16), same reason as the AudioLines note-editor instances above. */}
+            <PracticeButton size={20} strokeWidth={1.6} wrapperStyle={{ marginTop: 8 }} />
           </div>
 
           {/* ── Track content ─────────────────────────────────────────────── */}
@@ -860,8 +839,8 @@ function UnsavedTracksLine() {
       if (!b) continue
       // one change per button that differs (mute, eye, keyboard lights)
       if (tr.showOnKeyboard !== b.showOnKeyboard) n++
-      if (!s.focusActive && tr.muted !== b.muted) n++
-      if (!s.focusActive && !handView && tr.visible !== b.visible) n++
+      if (!s.focusActive && !s.practiceActive && tr.muted !== b.muted) n++
+      if (!s.focusActive && !s.practiceActive && !handView && tr.visible !== b.visible) n++
     }
     return n
   })

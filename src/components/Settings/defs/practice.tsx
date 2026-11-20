@@ -1,14 +1,20 @@
-import { BookOpen, PanelLeftClose, Hand, Activity, Expand, StepForward } from 'lucide-react'
+import { BookOpen, PanelLeftClose, Hand, Activity, Expand, StepForward, Sparkles } from 'lucide-react'
 import { useStore } from '../../../store'
 import { Switch, InlineIcon } from '../controls'
 import type { SettingDef } from '../types'
 import { t } from '../../../utils/i18n'
+import { PRACTICE_VISIBLE } from '../../../practice/practiceMode'
 
 const PrompterIcon = () => (
   <svg xmlns="http://www.w3.org/2000/svg" width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 7V5a2 2 0 0 1 2-2h2"/><path d="M17 3h2a2 2 0 0 1 2 2v2"/><path d="M21 17v2a2 2 0 0 1-2 2h-2"/><path d="M7 21H5a2 2 0 0 1-2-2v-2"/><rect width="10" height="8" x="7" y="8" rx="1"/></svg>
 )
 
 export const PRACTICE_DEFS: SettingDef[] = [
+  {
+    // dev mode and test builds only until 2.0
+    id: 'practiceMode', icon: Sparkles, kind: 'switch', useVisible: () => PRACTICE_VISIBLE,
+    Control: () => { const v = useStore(s => s.practiceModeEnabled); return <Switch value={v} onChange={useStore.getState().setPracticeModeEnabled} label={t`Practice mode`} /> },
+  },
   {
     id: 'stepThrough', icon: StepForward, kind: 'switch',
     Control: () => { const v = useStore(s => s.stepThroughEnabled); return <Switch value={v} onChange={useStore.getState().setStepThroughEnabled} label={t`Step Through`} /> },

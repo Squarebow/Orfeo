@@ -1,5 +1,8 @@
 import { useEffect, useState, useCallback, useRef } from 'react'
 import TopBar from './components/Transport/TopBar'
+import PracticeTopBar from './components/Practice/PracticeTopBar'
+import PracticeStrip from './components/Practice/PracticeStrip'
+import { usePractice } from './practice/practiceMode'
 import PianoRoll from './components/PianoRoll/PianoRoll'
 import Keyboard from './components/Keyboard/Keyboard'
 import KeyboardControls from './components/Keyboard/KeyboardControls'
@@ -71,6 +74,7 @@ export default function App() {
   const keyboardMode = useStore((s) => s.keyboardMode)
   const appTheme = useStore((s) => s.appTheme)
   const presentationMode = useStore((s) => s.presentationMode)
+  const practicing = usePractice((s) => s.active)
   const noteEditorActive = useStore((s) => s.noteEditorActive)
   const { openFile } = useMidiFile()
   const { play, pause, stop } = usePlayback()
@@ -536,7 +540,10 @@ export default function App() {
 
       {/* ── Presentation Mode: TopBar slides in from top on hover ─────────────
           In normal mode TopBar is in-flow; in PM it becomes a fixed overlay. ── */}
-      {presentationMode ? (
+      {practicing ? (
+        // ── Practice mode: its own narrow top bar, nothing else around the roll ──
+        <PracticeTopBar />
+      ) : presentationMode ? (
         <>
           {/* Hover zone — 8px strip at top edge that reveals the header ────── */}
           <div
@@ -586,16 +593,17 @@ export default function App() {
         onDragLeave={handleDragLeave}
         onDrop={handleDrop}
       >
-        {!presentationMode && <SettingsPanel />}
+        {!presentationMode && !practicing && <SettingsPanel />}
         <div style={{ display: 'flex', flexDirection: 'column', flex: 1, minWidth: 0, overflow: 'hidden' }}>
           <div data-piano-roll-area style={{ flex: 1, minHeight: 0, position: 'relative', paddingTop: 6 }}>
             {midi ? <PianoRoll /> : <EmptyState />}
             <CountInOverlay />
           </div>
+          {practicing && <PracticeStrip />}
           {keyboardMode === 'docked' && <Keyboard />}
-          {keyboardMode === 'docked' && <KeyboardControls />}
+          {keyboardMode === 'docked' && !practicing && <KeyboardControls />}
         </div>
-        {!presentationMode && <TrackPanel />}
+        {!presentationMode && !practicing && <TrackPanel />}
 
         {/* ── Drag-over highlight overlay — pointer-events none so it doesn't ─
             block any child interaction; visible only while dragging ── */}

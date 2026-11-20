@@ -20,6 +20,7 @@ import { TRUST_VERSION, type TrustResult } from '../utils/tempoTrust'
 import { velocityDropRatio, suggestCompressorPreset } from '../utils/velocityAnalysis'
 import { applyHandColors, isHex, handHex, followedHandColor, DEFAULT_HAND_LH, DEFAULT_HAND_RH } from '../utils/handPalette'
 import { HAND_ASSIGN_GROUPS, focusRole } from '../utils/keyboardGroups'
+import { isPracticePiano } from '../utils/practiceReadiness'
 import type { TrackBaseline } from '../utils/unsavedChanges'
 import type { LyricsEntry } from '../utils/lyricsScan'
 import { addTag, renameTag, deleteTag, setSongsTag, remapSongTags, restoreTagState, type TagState } from '../utils/libraryTags'
@@ -32,6 +33,9 @@ import { toursFromPrefs, type TourId, type ToursSeen } from '../utils/tours'
 // ── Focus mode: every track's mute + eye from just before Focus went on, so
 // the second click puts back exactly what you had. Null while Focus is off.
 let _focusSnapshot: Map<number, { muted: boolean; visible: boolean }> | null = null
+// ── Practice mode: every track's mute, eye and solo from just before it
+// started, put back exactly when it ends (practice/practiceMode.ts) ──
+let _practiceSnapshot: Map<number, { muted: boolean; visible: boolean; solo: boolean }> | null = null
 
 // Only these groups light up the piano keyboard
 const KEYBOARD_DISPLAY_GROUPS = new Set(['piano', 'chromatic', 'organ'])
@@ -212,6 +216,9 @@ interface OrfeoStore {
   setPresentationMode: (v: boolean) => void
   noteEditorEnabled: boolean
   setNoteEditorEnabled: (v: boolean) => void
+  // Settings › Practice › Practice mode (dev mode only until 2.0)
+  practiceModeEnabled: boolean
+  setPracticeModeEnabled: (v: boolean) => void
   // ── Tempo/Key save — off by default. When on, changing BPM/transpose from
   // the loaded file's own values offers a "Save changes" button in the
   // header that bakes them into a new versioned file (see TopBar.tsx). ────
@@ -477,6 +484,11 @@ interface OrfeoStore {
   // ── Focus on/off for the loaded song (see focusRole, utils/keyboardGroups.ts) ──
   setTrackMuteFilter: (filtered: boolean) => void
   focusActive: boolean
+  // ── Practice mode's tracks: the piano alone, your part silent but shown,
+  // the band muted and hidden; off puts every track back (practice/practiceMode.ts)
+  practiceActive: boolean
+  setPracticeTracks: (on: boolean, hearMine?: boolean) => void
+  setPracticeHearMine: (on: boolean) => void
   // Mute is sound only; what shows on the roll and keyboard is the eye (visible)
   setTrackMuted: (index: number, muted: boolean) => void
 
@@ -651,6 +663,9 @@ function makeTrackState(track: ParsedTrack): TrackState {
  *  hidden tracks are only for the moment, so its snapshot of before counts. */
 export function playerTrackFlags(t: { index: number; muted: boolean; visible: boolean }): { muted: boolean; visible: boolean } {
   const s = useStore.getState()
+  // practice mode's arrangement is only for the session too
+  const practiced = s.practiceActive ? _practiceSnapshot?.get(t.index) : undefined
+  if (practiced) return { muted: practiced.muted, visible: practiced.visible }
   const before = s.focusActive ? _focusSnapshot?.get(t.index) : undefined
   if (before) return before
   // The Note Editor's hand view hides the other tracks only for the moment;
@@ -707,9 +722,11 @@ export const useStore = create<OrfeoStore>((set, get) => ({
       }
     }
     _focusSnapshot = null
+    _practiceSnapshot = null
     set({
       ...sessionReset,
       focusActive: false,
+      practiceActive: false,
       midi,
       songKey: key,
       currentTrust: null,
@@ -963,6 +980,8 @@ export const useStore = create<OrfeoStore>((set, get) => ({
 
   noteEditorEnabled: false,
   setNoteEditorEnabled: (noteEditorEnabled) => set({ noteEditorEnabled }),
+  practiceModeEnabled: false,
+  setPracticeModeEnabled: (practiceModeEnabled) => set({ practiceModeEnabled }),
   saveTempoKeyChangesEnabled: false,
   setSaveTempoKeyChangesEnabled: (saveTempoKeyChangesEnabled) => set({ saveTempoKeyChangesEnabled }),
   songKey: null,
@@ -1213,6 +1232,24 @@ export const useStore = create<OrfeoStore>((set, get) => ({
   }),
   setTrackMuted: (index, muted) =>
     set((s) => ({ tracks: s.tracks.map((t) => (t.index === index ? { ...t, muted } : t)) })),
+  practiceActive: false,
+  setPracticeTracks: (on, hearMine = false) => set((s) => {
+    if (on) {
+      if (!s.practiceActive) _practiceSnapshot = new Map(s.tracks.map(t => [t.index, { muted: t.muted, visible: t.visible, solo: t.solo }]))
+      return { practiceActive: true, tracks: s.tracks.map(t => isPracticePiano(t)
+        ? { ...t, practicePart: true, muted: !hearMine, visible: true, solo: false }
+        : { ...t, practicePart: undefined, muted: true, visible: false, solo: false }) }
+    }
+    const snap = _practiceSnapshot
+    _practiceSnapshot = null
+    return { practiceActive: false, tracks: s.tracks.map(t => {
+      const { practicePart: _p, ...rest } = t
+      return { ...rest, ...(snap?.get(t.index) ?? {}) }
+    }) }
+  }),
+  setPracticeHearMine: (on) => set((s) => s.practiceActive
+    ? { tracks: s.tracks.map(t => (t.practicePart ? { ...t, muted: !on } : t)) }
+    : {}),
 
   // ── Settings group collapse state — keyed by group id; true = collapsed.
   // All expanded by default so a fresh install's first Settings open shows
@@ -1459,6 +1496,7 @@ async function restoreLibraryPrefs() {
     applySamplesIntroducedPref(prefs, store)
     if (typeof prefs.showBarNumbers === 'boolean') store.setShowBarNumbers(prefs.showBarNumbers)
     if (typeof prefs.noteEditorEnabled === 'boolean') store.setNoteEditorEnabled(prefs.noteEditorEnabled)
+    if (typeof prefs.practiceModeEnabled === 'boolean') store.setPracticeModeEnabled(prefs.practiceModeEnabled)
     if (typeof prefs.saveTempoKeyChangesEnabled === 'boolean') store.setSaveTempoKeyChangesEnabled(prefs.saveTempoKeyChangesEnabled)
     if (typeof prefs.tapTempoPadEnabled === 'boolean') store.setTapTempoPadEnabled(prefs.tapTempoPadEnabled)
     if (prefs.tapTempoMode === 'beat' || prefs.tapTempoMode === 'bar') store.setTapTempoMode(prefs.tapTempoMode)
@@ -1695,6 +1733,7 @@ let _prevMasterVolume: number | null = null
 let _prevAudioEngine: string | null = null
 let _prevShowBarNumbers: boolean | null = null
 let _prevNoteEditorEnabled:    boolean | null = null
+let _prevPracticeModeEnabled:  boolean | null = null
 let _prevSaveTempoKeyChangesEnabled: boolean | null = null
 let _prevTapTempoPadEnabled: boolean | null = null
 let _prevTapTempoMode: string | null = null
@@ -1776,6 +1815,7 @@ const _unsubPrefs = useStore.subscribe((state) => {
     _prevAudioEngine = state.audioEngine
     _prevShowBarNumbers = state.showBarNumbers
     _prevNoteEditorEnabled = state.noteEditorEnabled
+    _prevPracticeModeEnabled = state.practiceModeEnabled
     _prevSaveTempoKeyChangesEnabled = state.saveTempoKeyChangesEnabled
     _prevTapTempoPadEnabled = state.tapTempoPadEnabled
     _prevTapTempoMode = state.tapTempoMode
@@ -1860,6 +1900,7 @@ const _unsubPrefs = useStore.subscribe((state) => {
     state.audioEngine !== _prevAudioEngine ||
     state.showBarNumbers !== _prevShowBarNumbers ||
     state.noteEditorEnabled !== _prevNoteEditorEnabled ||
+    state.practiceModeEnabled !== _prevPracticeModeEnabled ||
     state.saveTempoKeyChangesEnabled !== _prevSaveTempoKeyChangesEnabled ||
     state.tapTempoPadEnabled !== _prevTapTempoPadEnabled ||
     state.tapTempoMode !== _prevTapTempoMode ||
@@ -1936,6 +1977,7 @@ const _unsubPrefs = useStore.subscribe((state) => {
     _prevAudioEngine = state.audioEngine
     _prevShowBarNumbers = state.showBarNumbers
     _prevNoteEditorEnabled = state.noteEditorEnabled
+    _prevPracticeModeEnabled = state.practiceModeEnabled
     _prevSaveTempoKeyChangesEnabled = state.saveTempoKeyChangesEnabled
     _prevTapTempoPadEnabled = state.tapTempoPadEnabled
     _prevTapTempoMode = state.tapTempoMode
@@ -2018,6 +2060,7 @@ const _unsubPrefs = useStore.subscribe((state) => {
       audioEngine: state.audioEngine,
       showBarNumbers: state.showBarNumbers,
       noteEditorEnabled: state.noteEditorEnabled,
+      practiceModeEnabled: state.practiceModeEnabled,
       saveTempoKeyChangesEnabled: state.saveTempoKeyChangesEnabled,
       tapTempoPadEnabled: state.tapTempoPadEnabled,
       tapTempoMode: state.tapTempoMode,

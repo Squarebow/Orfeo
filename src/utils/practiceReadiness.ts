@@ -27,6 +27,9 @@ export function countPracticePianos(rows: { group: string; isDrum?: boolean; inc
   return rows.filter(r => r.group === 'piano' && !r.isDrum && r.included !== false).length
 }
 
+/** A track practice mode treats as (part of) the piano you play */
+export const isPracticePiano = (t: { group?: string; isDrum?: boolean }): boolean => t.group === 'piano' && !t.isDrum
+
 // A saved song comes back with its hands but not with how sure Orfeo was
 // (the file has no room for that), so a passage nobody checked would look
 // settled after any save. Worked out again here, the way the song was first
