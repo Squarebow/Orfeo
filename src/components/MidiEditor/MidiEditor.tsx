@@ -24,7 +24,7 @@ import { detectKeyFromTracks, parseKeySignature } from '../../utils/keyDetection
 import { bringToFront, MODAL_BASE_Z } from '../../utils/modalFocus'
 import { KEYBOARD_GROUPS, HAND_ASSIGN_GROUPS } from '../../utils/keyboardGroups'
 import { NES } from '../../utils/noteEditorState'
-import { nextOrfeoBaseName } from '../../utils/orfeoVersioning'
+import { nextOrfeoBaseName, isOrfeoVersionBase } from '../../utils/orfeoVersioning'
 import { getHandPreviewStats, getLowConfidencePassages, estimateHandAccuracy, passageKey, isPassageSeen } from '../../utils/handPreview'
 import { goToPassage } from '../../utils/handCheck'
 import { withHandSuffix } from '../../utils/handMetadata'
@@ -1134,6 +1134,17 @@ export default function MidiEditor() {
     setState(s => s ? { ...s, rows, outputPath: orfeoName(s.filePath) } : s)
   }
 
+  // The file this save will write (electron/main.ts saveOutputPath): a new
+  // version when tracks are deleted, split or merged or tempo / key go with
+  // it; otherwise the same Orfeo copy, if the song open is one. (The real
+  // number can be higher when later versions already exist in the folder.)
+  const saveTargetName = (): string => {
+    const base = baseName(state.filePath).replace(/\.midi?$/i, '')
+    const tempoKey = useStore.getState().saveTempoKeyChangesEnabled && !!computeTempoKeyPayload()
+    const newVersion = tempoKey || state.rows.some(r => !r.included || r.isMerged || r.splitHand)
+    return !newVersion && isOrfeoVersionBase(base) ? baseName(state.filePath) : baseName(state.outputPath)
+  }
+
   const mergeCount    = state.rows.filter(t => t.mergeSelected && !t.isMerged).length
   const includedCount = state.rows.filter(t => t.included).length
 
@@ -1308,7 +1319,7 @@ export default function MidiEditor() {
       const choice = await confirmDialog({
         title: t`Unsaved changes`,
         message: t`Your changes here aren't saved yet.`,
-        detail: t`Save & Reload makes a new version with your changes, and your original file stays as it is.`,
+        detail: t`Save & Reload keeps your changes in the song's Orfeo copy (a new version when tracks are deleted, split or merged), and your original file stays as it is.`,
         buttons: [t`Save & Reload`, t`Close Without Saving`, t`Keep Editing`],
         destructiveIndex: 1,
         startOnSafe: true,
@@ -1956,7 +1967,7 @@ export default function MidiEditor() {
             color: saveResult?.ok ? 'var(--status-success-text)' : 'var(--text-muted)',
             textOverflow: 'ellipsis', whiteSpace: 'nowrap',
           }}>
-            {saveResult?.ok && saveResult.filePath ? `✓ ${saveResult.filePath}` : baseName(state.outputPath)}
+            {saveResult?.ok && saveResult.filePath ? `✓ ${saveResult.filePath}` : saveTargetName()}
           </div>
           {saveResult?.ok && saveResult.filePath ? (
             <Tooltip
@@ -2009,7 +2020,7 @@ export default function MidiEditor() {
         <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
           <div style={{ flex: 1, display: 'flex', alignItems: 'flex-start', gap: 5, minWidth: 0 }}>
             <AlertCircle size={10} style={{ color: 'var(--text-inactive)', flexShrink: 0, marginTop: 1 }} />
-            <span style={{ fontSize: 10, color: 'var(--text-inactive)', fontFamily: 'var(--font-mono)', lineHeight: '13.5px' }}>{t`Original file is never modified! Saves as a new _ORFEO_vX copy in "Orfeo" folder next to it, auto-loads on save. Only shows up in your Library list if that folder is inside your registered Library Folder. Refresh Library to see it immediately.`}</span>
+            <span style={{ fontSize: 10, color: 'var(--text-inactive)', fontFamily: 'var(--font-mono)', lineHeight: '13.5px' }}>{t`Original file is never modified! Saves into the song's _ORFEO_vX copy in the "Orfeo" folder next to it (a new version when tracks are deleted, split or merged), auto-loads on save. Only shows up in your Library list if that folder is inside your registered Library Folder. Refresh Library to see it immediately.`}</span>
           </div>
           {saveResult?.ok ? (
             <button

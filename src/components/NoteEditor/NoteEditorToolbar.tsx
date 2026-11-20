@@ -1,7 +1,7 @@
 import { useEffect, useState, useReducer, useRef, useCallback, useMemo } from 'react'
 import { PenLine, SquareDashed, CircleDashed, Hand, WholeWord, Music4, Save, Magnet, Play, Pause, Check } from 'lucide-react'
 import { useStore } from '../../store'
-import { NES, buildNoteEditSummary, type NETool } from '../../utils/noteEditorState'
+import { NES, buildNoteEditSummary, noteEditsChangeMusic, type NETool } from '../../utils/noteEditorState'
 import { confirmDialog } from '../../utils/confirmController'
 import { editableCopyToBuffer } from '../../utils/noteEditorCommands'
 import { restoreLeadForSave } from '../../utils/smfLead'
@@ -168,7 +168,9 @@ export default function NoteEditorToolbar() {
     // convention as the Playback Editor and Mixer Console saves, no save
     // dialog (a dialog defaulting to a not-yet-created folder can silently
     // fall back to wherever the OS last had one open, e.g. Downloads).
-    const result = await window.electronAPI.saveNoteEditor({ filePath: sourcePath, base64, summary: saveSummary })
+    // only hands assigned or confirmed: saved into the same edit file (orfeoVersioning.ts)
+    const newVersion = noteEditsChangeMusic(NES.history.appliedDescriptions())
+    const result = await window.electronAPI.saveNoteEditor({ filePath: sourcePath, base64, summary: saveSummary, newVersion })
     if (!result.ok) return false
 
     NES.dirty = false
@@ -678,7 +680,7 @@ export default function NoteEditorToolbar() {
           </button>
           <button
             onClick={() => void handleSave()}
-            {...hintHandlers(t`Save & Reload — save edits as a new versioned copy (_ORFEO_vN)`)}
+            {...hintHandlers(t`Save & Reload — changed notes make a new version (_ORFEO_vN); hands alone save into the same copy`)}
             style={{
               ...btnBase, flex: 1, justifyContent: 'center', fontSize: 12, fontWeight: 600,
               color: 'var(--text-near-black)', border: 'none', background: 'var(--text-amber)',

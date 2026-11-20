@@ -118,7 +118,7 @@ function SaveMenu({ x, y, rows, onClose }: { x: number; y: number; rows: Unsaved
       </div>
       <ContextMenuDivider />
       <div style={{ width: MENU_W, boxSizing: 'border-box', padding: '2px 12px 8px', display: 'grid', gridTemplateColumns: 'minmax(0, 1fr) auto', columnGap: 12, alignItems: 'center' }}>
-        <span style={{ fontSize: 10, color: 'var(--text-faint)', lineHeight: 1.4 }}>{t`Every save makes a new version; the original stays as it is.`}</span>
+        <span style={{ fontSize: 10, color: 'var(--text-faint)', lineHeight: 1.4 }}>{t`Changes to the music make a new version, the rest saves into the same Orfeo copy; the original stays as it is.`}</span>
         <button disabled={busy || !savable} onClick={() => run(async () => { if (await saveAll()) onClose() })}
           style={{ padding: '5px 12px', borderRadius: 'var(--radius-sm)', border: '1px solid var(--accent-amber-strong)', background: 'var(--accent-amber-subtle)', color: 'var(--text-amber)', fontSize: 'var(--text-xs)', fontFamily: 'var(--font-ui)', cursor: busy || !savable ? 'default' : 'pointer', opacity: busy || !savable ? 0.5 : 1, whiteSpace: 'nowrap' }}>
           {busy ? t`Saving…` : t`Save all`}

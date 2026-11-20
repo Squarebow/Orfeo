@@ -71,7 +71,8 @@ downloaded for the Samples engine.
 > folder** (Settings → MIDI Files & Library):
 >
 > - `<name>_ORFEO_v1.mid`, `_ORFEO_v2.mid`, … — versioned saves from the
->   Playback Editor, Note Editor, Mixer, and tempo/key changes
+>   Playback Editor, Note Editor, Mixer, and tempo/key changes (a new version
+>   when the music changes; other changes save into the same copy)
 > - `<name>_ORFEO_IMPORTED.mid` — MusicXML / Guitar Pro / Capella / KAR files
 >   converted on import
 >

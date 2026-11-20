@@ -31,3 +31,14 @@ export function nextOrfeoVersion(base: string): number {
 export function nextOrfeoBaseName(base: string): string {
   return `${stripOrfeoSuffix(base)}_ORFEO_v${nextOrfeoVersion(base)}`
 }
+
+// ── When a save makes a new version (since 1.8.x) ─────────────────────────────
+// A change to the music makes the next _ORFEO_vN: a track deleted, split or
+// merged; notes added, deleted, moved, repitched, resized or made louder or
+// softer; tempo or key saved into the song. Everything else (instruments,
+// colours, names, shown / lights / mute, the Mixer, which hand plays a note)
+// saves into the same edit file. The original is never overwritten: its
+// first change of any kind makes a new version (electron/main.ts).
+export function isOrfeoVersionBase(base: string): boolean {
+  return /_ORFEO_v\d+$/i.test(base)
+}
