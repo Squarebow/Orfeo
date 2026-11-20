@@ -33,19 +33,23 @@ function ScanReadyRow() {
     )
   }
   return (
-    <Tooltip title={t`Scan for practice-ready songs`} description={t`Reads every song in your Library and adds the ones ready to practise to the end of the queue: a piano as a left-hand and a right-hand track, or one hand throughout.`}>
-      <button onClick={() => void scanForPracticeReady()} style={{ ...row, cursor: 'pointer', color: 'var(--text-muted)' }}
-        onMouseEnter={e => { e.currentTarget.style.color = 'var(--text-amber)' }}
-        onMouseLeave={e => { e.currentTarget.style.color = 'var(--text-muted)' }}>
-        <Sparkles size={11} style={{ color: 'var(--text-amber)', flexShrink: 0 }} />
-        <span style={{ flex: 1 }}>{t`Scan for practice-ready songs`}</span>
-        {added !== null && (
-          <span style={{ color: 'var(--text-dim)' }}>
-            {added === 0 ? t`none new found` : added === 1 ? t`1 added` : t`${added} added`}
-          </span>
-        )}
-      </button>
-    </Tooltip>
+    <div style={{ ...row, padding: '8px 10px', gap: 10 }}>
+      <Tooltip title={t`Scan for practice-ready songs`} description={t`Reads every song in your Library and adds the ones ready to practise to the end of the queue: a piano as a left-hand and a right-hand track, or one hand throughout.`}>
+        <button onClick={() => void scanForPracticeReady()}
+          style={{
+            display: 'inline-flex', alignItems: 'center', gap: 6, padding: '5px 12px', borderRadius: 'var(--radius-sm)', cursor: 'pointer',
+            border: '1px solid var(--accent-amber-strong)', background: 'var(--accent-amber-subtle)', color: 'var(--text-amber)',
+            fontSize: 'var(--text-xs)', fontFamily: 'var(--font-ui)', fontWeight: 600, whiteSpace: 'nowrap',
+          }}>
+          <Sparkles size={12} /> {t`Scan for practice-ready songs`}
+        </button>
+      </Tooltip>
+      {added !== null && (
+        <span style={{ color: 'var(--text-dim)', fontSize: 10 }}>
+          {added === 0 ? t`none new found` : added === 1 ? t`1 added` : t`${added} added`}
+        </span>
+      )}
+    </div>
   )
 }
 
