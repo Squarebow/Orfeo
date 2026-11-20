@@ -270,7 +270,8 @@ function LoopOverlay() {
     // Right-click anywhere over the overlay clears the loop region
     const onContextMenu = (e: MouseEvent) => {
       const el = overlayRef.current
-      if (!el) return
+      // in the Note Editor, right-click belongs to the notes (Assign to Left Hand…)
+      if (!el || useStore.getState().noteEditorActive) return
       const rect = el.getBoundingClientRect()
       if (e.clientX >= rect.left && e.clientX <= rect.right &&
           e.clientY >= rect.top  && e.clientY <= rect.bottom) {
@@ -327,15 +328,25 @@ function LoopOverlay() {
   const showTooltip = !!midi && !noteEditorActive && hasSelection && mousePos !== null && useStore.getState().tooltipsEnabled
 
   // Edit mode disables loop overlay pointer events to pass them to PixiJS.
-  // While checking hands passage by passage, the passage's loop still shows,
-  // display only, so the notes underneath stay editable.
+  // While checking hands passage by passage, the passage's loop still shows
+  // and the notes inside stay editable; only its two edges take the mouse,
+  // so a passage that is wrong for longer than Orfeo marked can be widened
+  // (or narrowed) by dragging, as in playback.
   if (noteEditorActive) {
     if (!checkingHands || !hasSelection || heightPct <= 0) return null
+    const edge = (which: 'start' | 'end', pct: number) => (
+      <div
+        onMouseDown={e => { e.preventDefault(); e.stopPropagation(); draggingRef.current = which }}
+        style={handleWrap(pct)}
+      >
+        <div style={{ width: '100%', height: 2, background: amber }} />
+      </div>
+    )
     return (
-      <div style={{ position: 'absolute', inset: 0, overflow: 'hidden', pointerEvents: 'none' }}>
+      <div ref={overlayRef} style={{ position: 'absolute', inset: 0, overflow: 'hidden', pointerEvents: 'none' }}>
         <div style={{ position: 'absolute', left: 0, right: 0, top: `${topPct}%`, height: `${heightPct}%`, background: amberFill }} />
-        <div style={{ position: 'absolute', left: 0, right: 0, top: `${topPct}%`, height: 2, background: amber }} />
-        <div style={{ position: 'absolute', left: 0, right: 0, top: `calc(${botPct}% - 2px)`, height: 2, background: amber }} />
+        {edge('end', topPct)}
+        {edge('start', botPct)}
       </div>
     )
   }

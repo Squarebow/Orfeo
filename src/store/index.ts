@@ -296,6 +296,8 @@ interface OrfeoStore {
   handCheck: { track: number; index: number; panel: boolean } | null
   // bumped when "The hands are right" changes the passages
   handCheckRev: number
+  // Prepare for practice walked every passage: "save, and it's ready" shows
+  handCheckDone: boolean
   soloTrackForEdit: (index: number, opts?: { keepPlayhead?: boolean }) => void
   unsoloTrackForEdit: () => void
   noteEditorWalkthroughSeen: boolean
@@ -1041,6 +1043,7 @@ export const useStore = create<OrfeoStore>((set, get) => ({
   preSoloTrackVisibility: null,
   handCheck: null,
   handCheckRev: 0,
+  handCheckDone: false,
   soloTrackForEdit: (index, opts) => {
     const s = get()
     if (s.noteEditorSoloTrackIndex === index) {

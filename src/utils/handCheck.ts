@@ -13,6 +13,15 @@ import { NES } from './noteEditorState'
 const PAD_SEC = 0.15
 
 let savedLoop: { loopStart: number | null; loopEnd: number | null; loopRegionActive: boolean } | null = null
+// The track "Prepare for practice" is checking: when its last passage is
+// done, the panel says to save, and then the song is ready to practise.
+let preparing: number | null = null
+
+/** Prepare for practice: the next check of `track` ends with "save, and it's ready" */
+export function startPracticePrep(track: number): void {
+  preparing = track
+  useStore.setState({ handCheckDone: false })
+}
 
 const notesOf = (track: number) => useStore.getState().midi?.tracks.find(t => t.index === track)?.notes ?? []
 export const passagesOf = (track: number): LowConfidencePassage[] => getLowConfidencePassages(notesOf(track))
@@ -85,7 +94,11 @@ export function markPassageCorrect(): void {
     NES.onHistoryChange?.()
   }
   // the list is one shorter, so the same number is now the next passage
-  if (passagesOf(hc.track).length === 0) endHandCheck()
+  if (passagesOf(hc.track).length === 0) {
+    const prepared = preparing === hc.track
+    endHandCheck()
+    if (prepared) useStore.setState({ handCheckDone: true })
+  }
   else goToPassage(hc.track, Math.min(hc.index, passagesOf(hc.track).length - 1))
 }
 
@@ -99,8 +112,14 @@ export function fixPassageByHand(): void {
 // A new or reloaded song ends the check: its loop was cleared with it, so
 // nothing to put back. Closing the Note Editor ends it with your loop back.
 useStore.subscribe((s, prev) => {
-  if (s.midi !== prev.midi && (s.handCheck || savedLoop)) { savedLoop = null; useStore.setState({ handCheck: null }); return }
-  if (prev.noteEditorActive && !s.noteEditorActive) endHandCheck()
+  if (s.midi !== prev.midi && (s.handCheck || savedLoop || s.handCheckDone || preparing !== null)) {
+    savedLoop = null; preparing = null; useStore.setState({ handCheck: null, handCheckDone: false }); return
+  }
+  if (prev.noteEditorActive && !s.noteEditorActive) {
+    endHandCheck()
+    preparing = null
+    if (s.handCheckDone) useStore.setState({ handCheckDone: false })
+  }
 })
 
 /** Done: your own loop back */
@@ -109,5 +128,6 @@ export function endHandCheck(): void {
   if (!s.handCheck && !savedLoop) return
   const back = savedLoop ?? { loopStart: null, loopEnd: null, loopRegionActive: false }
   savedLoop = null
+  preparing = null
   useStore.setState({ ...back, handCheck: null })
 }

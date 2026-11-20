@@ -26,7 +26,8 @@ import { KEYBOARD_GROUPS, HAND_ASSIGN_GROUPS } from '../../utils/keyboardGroups'
 import { NES } from '../../utils/noteEditorState'
 import { nextOrfeoBaseName } from '../../utils/orfeoVersioning'
 import { getHandPreviewStats, getLowConfidencePassages, estimateHandAccuracy, passageKey, isPassageSeen } from '../../utils/handPreview'
-import { goToPassage } from '../../utils/handCheck'
+import { goToPassage, startPracticePrep } from '../../utils/handCheck'
+import { PRACTICE_PREP_VISIBLE, MAX_PRACTICE_PIANOS, countPracticePianos, trackPracticeState, rescoreForCheck } from '../../utils/practiceReadiness'
 import { withHandSuffix } from '../../utils/handMetadata'
 import { getGMName, getGMGroup } from '../../utils/gmInstruments'
 import { computeTempoKeyPayload } from '../../utils/tempoKeySave'
@@ -1341,7 +1342,8 @@ export default function MidiEditor() {
   // fresh every render, so it always closes over already-initialized
   // bindings. ─────────────────────────────────────────────────────────────
   // check: "check the passages" — opens on the first passage, looped, with its choices
-  const handleOpenInNoteEditor = async (trackIndex: number, check = false) => {
+  // prepare: Prepare for practice — the same check, ending with "save, and it's ready"
+  const handleOpenInNoteEditor = async (trackIndex: number, check = false, prepare = false) => {
     const summary = buildSaveSummary()
     if (summary) {
       const choice = await confirmDialog({
@@ -1374,9 +1376,57 @@ export default function MidiEditor() {
       NES.reassignHandsMode = true
       NES.onReassignHandsModeChange?.()
     }
+    if (prepare) {
+      // after any save above, so it reads the song as it is now
+      const { rhMaxFingers, lhMaxFingers } = useStore.getState()
+      rescoreForCheck(useStore.getState().midi?.tracks.find(t => t.index === trackIndex)?.notes ?? [], { rhMaxFingers, lhMaxFingers })
+      startPracticePrep(trackIndex)
+    }
     useStore.getState().setNoteEditorActive(true)
-    if (check) goToPassage(trackIndex, 0)
+    if (check || prepare) goToPassage(trackIndex, 0)
     setMidiEditorOpen(false)
+  }
+
+  // ── Ready for practice? (utils/practiceReadiness.ts) — on each piano track:
+  // ready, a button that walks the unsure passages, or why the song can't be
+  // practised. The piano count follows the rows as you edit them. ──────────
+  const pianoCount = countPracticePianos(state.rows)
+  const practiceFor = (trackIndex: number, oneHand: boolean) => {
+    const base: CSSProperties = { fontSize: 10, fontFamily: 'var(--font-ui)', whiteSpace: 'nowrap', display: 'inline-flex', alignItems: 'center', gap: 4, flexShrink: 0, lineHeight: '12px' }
+    if (pianoCount > MAX_PRACTICE_PIANOS) {
+      return (
+        <Tooltip title={t`Not ready to practise`} description={t`Practice mode needs one or two piano tracks. This song has ${pianoCount}: merge two of them, or give one another instrument.`}>
+          <span style={{ ...base, color: 'var(--text-inactive)' }}><AlertCircle size={11} /> {t`${pianoCount} piano tracks, too many to practise`}</span>
+        </Tooltip>
+      )
+    }
+    const notes = midi?.tracks.find(tr => tr.index === trackIndex)?.notes ?? []
+    const fromScore = !!(midi as any)?._stavePairs?.some((p: [number, number]) => p.includes(trackIndex))
+    const { rhMaxFingers, lhMaxFingers } = useStore.getState()
+    const st = trackPracticeState(notes, { fromScore, oneHand, options: { rhMaxFingers, lhMaxFingers } })
+    if (st.state === 'ready') {
+      return (
+        <Tooltip title={t`Ready to practise`} description={t`Orfeo is sure of the hands in this track, or you've checked them.`}>
+          <span style={{ ...base, color: 'var(--text-dim)' }}><Check size={11} style={{ color: 'var(--status-success)' }} /> {t`Ready to practise`}</span>
+        </Tooltip>
+      )
+    }
+    const label = st.passages === 1 ? t`Prepare for practice · 1 passage` : t`Prepare for practice · ${st.passages} passages`
+    return (
+      <Tooltip title={t`Prepare for practice`}
+        description={noteEditorEnabled
+          ? t`Walks you through the passages where Orfeo isn't sure of the hands. Keep them or fix them, save, and the song is ready to practise.`
+          : t`Turn on MIDI Note Editor in Settings`}>
+        <button onClick={() => { if (noteEditorEnabled) handleOpenInNoteEditor(trackIndex, true, true) }} disabled={!noteEditorEnabled}
+          style={{
+            ...base, padding: '2px 8px', borderRadius: 4, border: '1px solid var(--accent-amber-strong)',
+            background: 'var(--accent-amber-subtle)', color: 'var(--text-amber)',
+            cursor: noteEditorEnabled ? 'pointer' : 'default', opacity: noteEditorEnabled ? 1 : 0.5,
+          }}>
+          <PianoKeysIcon width={11} height={11} /> {label}
+        </button>
+      </Tooltip>
+    )
   }
 
   // ── Split — two-step: first click arms the preview, second STAGES the split
@@ -1572,6 +1622,12 @@ export default function MidiEditor() {
           ? midi?.tracks.find(t => t.index === track.index)?.notes ?? []
           : []
         const infoStats = infoNotes.length > 0 ? getHandPreviewStats(infoNotes) : null
+        const hasInfoStrip = !!(infoStats && infoStats.taggedNotes > 0)
+        // Prepare for practice, on every piano track that plays
+        const practiceEl = PRACTICE_PREP_VISIBLE && track.group === 'piano' && !track.isDrum && track.included
+          ? practiceFor(track.index, !!track.splitHand || track.name === 'Left Hand' || track.name === 'Right Hand' || / (LH|RH)\s*$/i.test(track.trackName ?? ''))
+          : null
+        const practiceLine = !!practiceEl && !hasInfoStrip && pendingSplitIndex !== track.index
         return (
         <div key={track.index}>
           <TrackRow track={track}
@@ -1611,8 +1667,14 @@ export default function MidiEditor() {
               useStore.getState().updateTrack(track.index, { trackName: newName })
             }}
             onPickColor={openColorPopover}
-            showBottomBorder={!(infoStats && infoStats.taggedNotes > 0) && pendingSplitIndex !== track.index}
+            showBottomBorder={!hasInfoStrip && pendingSplitIndex !== track.index && !practiceLine}
           />
+          {practiceLine && (
+            <div style={{ display: 'grid', gridTemplateColumns: ROW_COLS, gap: 6, padding: '3px 14px 5px 14px', borderBottom: '1px solid var(--border-row)' }}>
+              <div />
+              <div style={{ gridColumn: '2 / -1', minWidth: 0, display: 'flex', alignItems: 'center' }}>{practiceEl}</div>
+            </div>
+          )}
           {infoStats && infoStats.taggedNotes > 0 && (() => {
             const expanded = expandedInfoRows.has(track.index)
             const passages = getLowConfidencePassages(infoNotes)
@@ -1691,6 +1753,7 @@ export default function MidiEditor() {
                         <AudioLines size={11} />
                       </button>
                     </Tooltip>
+                    {practiceEl && <span style={{ marginLeft: 'auto', display: 'flex', flexShrink: 0 }}>{practiceEl}</span>}
                   </div>
                 </div>
 

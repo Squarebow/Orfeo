@@ -799,6 +799,18 @@ function HandPassagesRow({ onHint }: { onHint: (h: string | null, amber?: boolea
   const passages = useMemo(() => getLowConfidencePassages(notes), [notes, rev])
   const estimate = useMemo(() => estimateHandAccuracy(notes), [notes, rev])
   const fromScore = !!(midi as any)?._stavePairs?.some((pr: [number, number]) => solo !== null && pr.includes(solo))
+  // Prepare for practice walked every passage: one step left, saving
+  const prepared = useStore(s => s.handCheckDone)
+  if (solo !== null && prepared && passages.length === 0) {
+    return (
+      <div style={{ borderTop: '1px solid var(--state-hover-bg)', display: 'flex', flexDirection: 'column', gap: 6, padding: '8px 8px' }}>
+        <span style={{ ...rowLabelStyle, lineHeight: '26px' }}>{t`HANDS`}</span>
+        <p style={{ margin: 0, fontSize: 11, color: 'var(--text-amber)', lineHeight: 1.45 }}>
+          {t`Every passage checked. Save the song, and it's ready to practise.`}
+        </p>
+      </div>
+    )
+  }
   if (solo === null || fromScore || passages.length === 0) return null
 
   const checking = hc && hc.track === solo ? hc : null

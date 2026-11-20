@@ -1,5 +1,5 @@
 import { useStore } from '../store'
-import { goToPassage, markPassageCorrect, fixPassageByHand, passagesOf, endHandCheck } from './handCheck'
+import { goToPassage, markPassageCorrect, fixPassageByHand, passagesOf, endHandCheck, startPracticePrep } from './handCheck'
 import type { ParsedMidi, ParsedNote } from '../types'
 import { NES, buildNoteEditSummary } from './noteEditorState'
 
@@ -53,6 +53,24 @@ export function runHandCheckTest(): number {
   NES.history.undo()
   check(notes2[1].handConfidence === 0.2 && (edit[1] as any).handSource !== 'manual' && passagesOf(0).length === 1, 'undo: the passage is marked again')
   NES.reset()
+
+  // Prepare for practice: the last passage done says "save, and it's ready"
+  const prepNotes = () => [note(0, 0.9), note(3, 0.2), note(8, 0.1)]
+  useStore.setState({ midi: { fileName: 'Prep.mid', duration: 10, tracks: [{ index: 0, notes: prepNotes() }], _filePath: 'C:/Songs/Prep.mid' } as unknown as ParsedMidi, handCheck: null, handCheckDone: false })
+  startPracticePrep(0)
+  goToPassage(0, 0)
+  markPassageCorrect()
+  check(!useStore.getState().handCheckDone, 'one passage left: not done yet')
+  markPassageCorrect()
+  s = useStore.getState()
+  check(s.handCheck === null && s.handCheckDone, 'every passage checked: the check ends and says to save')
+  useStore.setState({ noteEditorActive: true })
+  useStore.setState({ noteEditorActive: false })
+  check(!useStore.getState().handCheckDone, 'closing the Note Editor clears the message')
+  // the ordinary check never shows it
+  useStore.setState({ midi: { fileName: 'Plain.mid', duration: 10, tracks: [{ index: 0, notes: prepNotes() }], _filePath: 'C:/Songs/Plain.mid' } as unknown as ParsedMidi, handCheck: null })
+  goToPassage(0, 0); markPassageCorrect(); markPassageCorrect()
+  check(useStore.getState().handCheck === null && !useStore.getState().handCheckDone, 'checking passages without Prepare for practice: no ready message')
 
   endHandCheck()
   console.log(`handCheck: ${pass} passed, ${fail} failed`)
