@@ -1776,11 +1776,11 @@ date,tag,published,asset,kind,downloads
 2026-11-20,v1.8.0,2026-11-19,Orfeo-1.8.0-linux-amd64.deb,linux,5
 2026-11-20,v1.8.0,2026-11-19,Orfeo-1.8.0-linux-x86_64.AppImage,linux,18
 2026-11-20,v1.8.0,2026-11-19,Orfeo-1.8.0-linux-x86_64.rpm,linux,5
-2026-11-20,v1.8.0,2026-11-19,Orfeo-1.8.0-mac-arm64.dmg,mac,16
+2026-11-20,v1.8.0,2026-11-19,Orfeo-1.8.0-mac-arm64.dmg,mac,19
 2026-11-20,v1.8.0,2026-11-19,Orfeo-1.8.0-mac-arm64.zip,mac,3
 2026-11-20,v1.8.0,2026-11-19,Orfeo-1.8.0-mac-x64.dmg,mac,8
 2026-11-20,v1.8.0,2026-11-19,Orfeo-1.8.0-mac-x64.zip,mac,3
 2026-11-20,v1.8.0,2026-11-19,Orfeo-1.8.0-portable.exe,portable,25
-2026-11-20,v1.8.0,2026-11-19,Orfeo-Setup-1.8.0.exe,installer,169
+2026-11-20,v1.8.0,2026-11-19,Orfeo-Setup-1.8.0.exe,installer,173
 2026-11-20,v1.8.0,2026-11-19,Orfeo-Setup-1.8.0.exe.blockmap,update,51
-2026-11-20,v1.8.0,2026-11-19,latest.yml,launch,150
+2026-11-20,v1.8.0,2026-11-19,latest.yml,launch,153
