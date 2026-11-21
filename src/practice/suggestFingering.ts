@@ -99,10 +99,12 @@ function scaleTable(pcs: Set<number>, hand: 'L' | 'R', key?: { tonic: number; mi
 
 /** Notes this close together are one moment (a chord) */
 export const CHORD_SEC = 0.03
+/** A key struck again this soon is a fast repeat (sixteenths at about 110) */
+const FAST_REPEAT = 0.14
 /** A rest or a long note this long frees the hand to move anywhere */
 const LIFT_SEC = 0.35
 
-interface Moment { idx: number[]; pitch: number[]; white: number[]; black: boolean[]; time: number; end: number; fixed: (number | undefined)[]; scale?: number; midi: number[] }
+interface Moment { idx: number[]; pitch: number[]; white: number[]; black: boolean[]; time: number; end: number; fixed: (number | undefined)[]; scale?: number; midi: number[]; ends: number[] }
 
 /** The cost of one finger to the next, `d` semitones apart (mirrored pitch), the
  *  hand still in place; Infinity when it can't be done without lifting */
@@ -182,8 +184,21 @@ function moveCost(a: Moment, sa: number[], b: Moment, sb: number[], scale: numbe
   const pairs: [number, number][] = [[0, 0]]
   if (sa.length > 1 || sb.length > 1) pairs.push([sa.length - 1, sb.length - 1])
   let c = 0
+  const fast = b.time - a.time < FAST_REPEAT
+  // a finger still holding its key can't play another one (a held note under a
+  // moving tune in the same hand: the tune goes to the other fingers)
+  for (let i = 0; i < sa.length; i++) {
+    if (a.ends[i] <= b.time + CHORD_SEC) continue
+    for (let j = 0; j < sb.length; j++) if (sb[j] === sa[i] && b.midi[j] !== a.midi[i]) return Infinity
+  }
   for (const [i, j] of pairs) {
     const d = b.pitch[j] - a.pitch[i]
+    if (d === 0 && sa.length === 1 && sb.length === 1) {
+      // the same key again: at a calm pace the same finger; quickly repeated,
+      // the fingers take turns inwards (3-2-1, 4-3-2-1)
+      c += sa[i] === sb[j] ? (fast ? 1.5 : 0) : fast ? (sb[j] === sa[i] - 1 ? 0.2 : 1) : 2.5
+      continue
+    }
     let pc = pairCost(sa[i], sb[j], d, a.black[i], b.black[j], scale)
     if (sa[i] === sb[j] && d !== 0) pc = lifted ? 3 + Math.abs(d) * 0.1 : Infinity   // same finger, another key: only after lifting the hand
     // staying in position: the fingers as far apart as the keys (C to G in five-finger position: 1 to 5)
@@ -221,7 +236,7 @@ export function suggestFingering(notes: FingerNote[], hand: 'L' | 'R', size: Han
     const keys = [...byKey.values()].sort((a, b) => mirror(notes[a].midi) - mirror(notes[b].midi))
     if (keys.length > 5) { chains.push([]); continue }
     const m: Moment = {
-      idx: keys, midi: keys.map(k => notes[k].midi), pitch: keys.map(k => mirror(notes[k].midi)), white: keys.map(k => whiteAt(notes[k].midi)), black: keys.map(k => isBlack(notes[k].midi)),
+      idx: keys, midi: keys.map(k => notes[k].midi), ends: keys.map(k => notes[k].time + notes[k].dur), pitch: keys.map(k => mirror(notes[k].midi)), white: keys.map(k => whiteAt(notes[k].midi)), black: keys.map(k => isBlack(notes[k].midi)),
       time: notes[keys[0]].time, end: Math.max(...idx.map(k => notes[k].time + notes[k].dur)),
       fixed: keys.map(k => notes[k].finger),
     }

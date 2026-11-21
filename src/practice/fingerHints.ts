@@ -2,6 +2,7 @@ import { create } from 'zustand'
 import { useStore } from '../store'
 import { FINGER_VERSION } from '../utils/fingering'
 import { suggestFingering } from './suggestFingering'
+import { currentSongPractice } from './practiceMode'
 
 // ── Suggested fingering on the song (Settings › Practice › Fingering) ───────
 // Off by default. When on, each hand of the practice part gets a suggested
@@ -27,8 +28,15 @@ export function shownFinger(n: { finger?: number; fingerHint?: number }, hintsOn
 let lastKey = ''
 function update() {
   const s = useStore.getState()
-  const parts = s.tracks.filter(t => t.practicePart && t.practiceHand)
-  const tracks = parts.map(ts => ({ ts, notes: (s.midi?.tracks.find(t => t.index === ts.index)?.notes ?? []) as HNote[] }))
+  // the practice part's hands; outside practice mode, the hand tracks of a song
+  // ready for practice (so the Note Editor can show the suggestions too)
+  let parts = s.tracks.filter(t => t.practicePart && t.practiceHand).map(ts => ({ index: ts.index, hand: ts.practiceHand! }))
+  if (!parts.length && s.fingerHints) {
+    const sp = currentSongPractice()
+    if (sp?.state === 'ready') parts = [{ index: sp.left, hand: 'L' }, { index: sp.right, hand: 'R' }]
+    else if (sp?.state === 'one-hand') parts = [{ index: sp.track, hand: sp.hand }]
+  }
+  const tracks = parts.map(ts => ({ ts: { index: ts.index, practiceHand: ts.hand }, notes: (s.midi?.tracks.find(t => t.index === ts.index)?.notes ?? []) as HNote[] }))
   // transposed, you play other keys (other black keys): fingered as you play it
   const shift = s.detectedKey?.transpose ?? 0
   const songKey = s.detectedKey ? { tonic: (((s.detectedKey.semitone + shift) % 12) + 12) % 12, minor: s.detectedKey.isMinor } : undefined   // for the scale tables

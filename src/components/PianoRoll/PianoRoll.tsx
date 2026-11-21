@@ -1046,7 +1046,8 @@ export default function PianoRoll() {
         // fingering: the numbers on the notes in the Note Editor, where you set
         // them (in practice mode they're on the keyboard: practice/keyFingers.ts)
         const showFingers = noteEditorActive
-        const fingerMarks: { x: number; y: number; f: number }[] = []
+        const fingerMarks: { x: number; y: number; f: number; hint?: boolean }[] = []
+        const hintsOn = useStore.getState().fingerHints
         for (let i = startIdx; i < flat.length; i++) {
           const note = flat[i]
           if (note.time > visEnd) break
@@ -1114,7 +1115,9 @@ export default function PianoRoll() {
             notes.fill({ color: 0xffffff, alpha: 0.55 })
           }
           const finger = (note.noteRef as any)?.finger ?? note.src?.finger
-          if (finger) fingerMarks.push({ x: key.x + 1 + drawW / 2, y: botY - Math.min(8, noteH / 2), f: finger })
+          // Orfeo's suggestion where you haven't set one (Suggested fingering on): grey, in italics
+          const hint = !finger && hintsOn ? ((note.noteRef as any)?.fingerHint ?? (note.src as any)?.fingerHint) : undefined
+          if (finger || hint) fingerMarks.push({ x: key.x + 1 + drawW / 2, y: botY - Math.min(8, noteH / 2), f: finger ?? hint, hint: !finger })
         }
 
         // ── Fingering in the Note Editor: the finger number on each note ──────
@@ -1124,7 +1127,11 @@ export default function PianoRoll() {
             ctx.font = `bold 10px ${FONT_MONO_STR}`
             ctx.textAlign = 'center'; ctx.textBaseline = 'middle'
             ctx.lineWidth = 3; ctx.strokeStyle = 'rgba(0,0,0,0.75)'; ctx.fillStyle = '#ffffff'
-            for (const m of fingerMarks) { ctx.strokeText(String(m.f), m.x, m.y); ctx.fillText(String(m.f), m.x, m.y) }
+            for (const m of fingerMarks) {
+              ctx.font = m.hint ? `italic 10px ${FONT_MONO_STR}` : `bold 10px ${FONT_MONO_STR}`
+              ctx.fillStyle = m.hint ? '#b4b4bc' : '#ffffff'
+              ctx.strokeText(String(m.f), m.x, m.y); ctx.fillText(String(m.f), m.x, m.y)
+            }
             ctx.restore()
           }
         }

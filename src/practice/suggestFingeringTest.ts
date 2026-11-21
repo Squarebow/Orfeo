@@ -66,6 +66,13 @@ export function runSuggestFingeringTest(): number {
   check(fk(up(69, HMIN), 'R', k(9, true)) === '1 2 3 1 2 3 4 1 2 3 1 2 3 4 5', 'A harmonic minor, right hand (across the augmented 2nd)')
   check(fk(up(45, HMIN), 'L', k(9, true)) === '5 4 3 2 1 3 2 1 4 3 2 1 3 2 1', 'A harmonic minor, left hand')
 
+  // repeated notes: calm, one finger; fast, the fingers take turns
+  check(f(seq([60, 60, 60, 60, 62], 0.4), 'R') === '1 1 1 1 2', 'a calm repeat keeps its finger')
+  check(f(seq([64, 64, 64, 64, 64, 64], 0.1), 'R') === '3 2 1 3 2 1', 'a fast repeat: 3-2-1')
+  // a held note under a tune in the same hand: its finger stays on it
+  const held: FingerNote[] = [{ midi: 60, time: 0, dur: 2 }, ...[64, 65, 67, 69].map((m, i) => ({ midi: m, time: i * 0.5, dur: 0.45 }))]
+  check(suggestFingering(held, 'R').join(' ') === '1 2 3 4 5', 'a held C under E-F-G-A: the thumb holds, the tune on 2-3-4-5')
+
   // a hand can't play six notes at once: no suggestion, nothing broken
   check(suggestFingering(chord([48, 52, 55, 60, 64, 67]), 'R').every(x => x === undefined), 'six notes at once: left without numbers')
   // a small hand doesn't stretch a 10th in one go
