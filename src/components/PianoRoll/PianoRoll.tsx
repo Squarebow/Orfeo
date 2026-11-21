@@ -18,6 +18,7 @@ import { HitEffectsRenderer } from './HitEffects'
 import { drainHitEffects } from '../../utils/hitEffectQueue'
 import { isShown } from '../../utils/trackShown'
 import { usePractice, practisedHand as practisedHandOf } from '../../practice/practiceMode'
+import { handPlaces, FINGER_VERSION, type HandPlace } from '../../utils/fingering'
 import { useReview } from '../../practice/reviewState'
 import { reviewMarks, REVIEW_COLORS } from '../../practice/review'
 import { t } from '../../utils/i18n'
@@ -115,7 +116,7 @@ function resolvePianoRollColorsFromCSS() {
 // noteRef — only populated during edit mode's rebuild (see below), so the
 // base fill loop can check editNewNotes.has(ef.noteRef) and skip filling a
 // brand-new, not-yet-saved note (outline-only, drawn by the edit overlay).
-interface FlatNote { midi: number; time: number; duration: number; trackIndex: number; hand?: Hand; noteRef?: ToneNote }
+interface FlatNote { midi: number; time: number; duration: number; trackIndex: number; hand?: Hand; noteRef?: ToneNote; src?: { finger?: number } }
 
 // ── EditFlatNote — actual @tonejs/midi Note references for edit hit-testing ───
 interface EditFlatNote {
@@ -440,6 +441,8 @@ export default function PianoRoll() {
   const lastKeySizeRef    = useRef<string>('')
   const lastMidiRef       = useRef<any>(null)
   const flatNotesRef      = useRef<FlatNote[]>([])
+  // where the hands sit, worked out from the fingering (kept until the notes or fingers change)
+  const handPlacesRef     = useRef<{ flat: FlatNote[] | null; key: string; places: HandPlace[] }>({ flat: null, key: '', places: [] })
   // ── Tracks whose notes are ALL the same hand — i.e. a genuine "split into
   // two tracks" output (Piano LH / Piano RH). These always render in the
   // fixed hand colors regardless of the Left/Right Hand setting; a single
@@ -1019,7 +1022,7 @@ export default function PianoRoll() {
           for (const track of midi.tracks) {
             let allSameHand: Hand | null | undefined = undefined
             for (const note of track.notes) {
-              flat.push({ midi: note.midi, time: note.time, duration: note.duration, trackIndex: track.index, hand: note.hand })
+              flat.push({ midi: note.midi, time: note.time, duration: note.duration, trackIndex: track.index, hand: note.hand, src: note })
               if (allSameHand === null) continue
               if (!note.hand) { allSameHand = null; continue }
               if (allSameHand === undefined) allSameHand = note.hand
@@ -1042,6 +1045,10 @@ export default function PianoRoll() {
         const startIdx = lowerBound(flat, visStart - visibleSecs)
         // practice mode, one hand: the other hand's track plays along, drawn faded
         const practisedHand = usePractice.getState().active ? practisedHandOf() : 'B'
+        // fingering: the numbers on the notes, in the Note Editor and (unless
+        // switched off) in practice mode
+        const showFingers = noteEditorActive || (usePractice.getState().active && storeRef.current.practiceFingering)
+        const fingerMarks: { x: number; y: number; f: number }[] = []
         for (let i = startIdx; i < flat.length; i++) {
           const note = flat[i]
           if (note.time > visEnd) break
@@ -1107,6 +1114,36 @@ export default function PianoRoll() {
             const edgeX = note.hand === 'L' ? key.x + 1 : key.x + 1 + drawW - edgeW
             notes.rect(edgeX, topY, edgeW, noteH)
             notes.fill({ color: 0xffffff, alpha: 0.55 })
+          }
+          const finger = (note.noteRef as any)?.finger ?? note.src?.finger
+          if (showFingers && finger) fingerMarks.push({ x: key.x + 1 + drawW / 2, y: botY - Math.min(8, noteH / 2), f: finger })
+        }
+
+        // ── Fingering: where each hand has to move, a bracket over the five keys
+        // it covers from that note on (in the hand's colour), and the finger
+        // numbers on the notes (utils/fingering.ts) ─────────────────────────
+        if (showFingers) {
+          const key = `${FINGER_VERSION.n}`
+          if (handPlacesRef.current.flat !== flat || handPlacesRef.current.key !== key) {
+            handPlacesRef.current = { flat, key, places: handPlaces(flat.map(n => ({ midi: n.midi, time: n.time, hand: n.hand, finger: (n.noteRef as any)?.finger ?? n.src?.finger }))) }
+          }
+          for (const hp of handPlacesRef.current.places) {
+            if (hp.time < visStart - 1 || hp.time > visEnd + 1) continue
+            const lo = keyLayoutRef.current[hp.low + transpose - midiMin], hi = keyLayoutRef.current[hp.high + transpose - midiMin]
+            if (!lo || !hi) continue
+            const y = Math.round(py - (hp.time - currentTime) * pps) + 3
+            const col = hp.hand === 'L' ? HAND_LH_COLOR : HAND_RH_COLOR
+            notes.rect(lo.x + 1, y, hi.x + hi.width - lo.x - 2, 2); notes.fill({ color: col, alpha: 0.95 })
+            notes.rect(lo.x + 1, y - 5, 2, 7); notes.fill({ color: col, alpha: 0.95 })
+            notes.rect(hi.x + hi.width - 3, y - 5, 2, 7); notes.fill({ color: col, alpha: 0.95 })
+          }
+          if (ctx && fingerMarks.length) {
+            ctx.save()
+            ctx.font = `bold 10px ${FONT_MONO_STR}`
+            ctx.textAlign = 'center'; ctx.textBaseline = 'middle'
+            ctx.lineWidth = 3; ctx.strokeStyle = 'rgba(0,0,0,0.75)'; ctx.fillStyle = '#ffffff'
+            for (const m of fingerMarks) { ctx.strokeText(String(m.f), m.x, m.y); ctx.fillText(String(m.f), m.x, m.y) }
+            ctx.restore()
           }
         }
 
@@ -1832,6 +1869,9 @@ export default function PianoRoll() {
               onClick: () => { assignSelectedHand('R'); setContextMenu(null) },
             })
           }
+          // fingering (keys 1–5 do the same, 0 clears)
+          for (const f of [1, 2, 3, 4, 5]) options.push({ label: t`Finger ${f}`, onClick: () => { setSelectedFinger(f); setContextMenu(null) } })
+          if ([...editSelectedNotes].some(n => (n as any).finger)) options.push({ label: t`No finger`, onClick: () => { setSelectedFinger(undefined); setContextMenu(null) } })
           if (editSelectedNotes.size >= 2) {
             options.push({
               label: t`Flatten Velocity (selected notes: ${editSelectedNotes.size})`,
@@ -1904,6 +1944,26 @@ export default function PianoRoll() {
         NES.onHistoryChange?.()
       }
 
+      // ── setSelectedFinger — fingering on every selected note (1–5, or
+      // none), one undoable step; never a new version (only how it's played) ──
+      const setSelectedFinger = (finger: number | undefined) => {
+        if (editSelectedNotes.size === 0) return
+        const before = [...editSelectedNotes].map(n => ({ note: n, finger: (n as any).finger as number | undefined }))
+        const count = before.length
+        const cmd = {
+          description: finger ? (count === 1 ? `Set finger ${finger}` : `Set finger ${finger} on ${count} notes`) : (count === 1 ? 'Clear fingering' : `Clear fingering on ${count} notes`),
+          apply() { for (const b of before) (b.note as any).finger = finger },
+          revert() { for (const b of before) (b.note as any).finger = b.finger },
+        }
+        cmd.apply()
+        NES.history.push(cmd)
+        NES.dirty            = true
+        NES.needsFlatRebuild = true
+        FINGER_VERSION.n++
+        NES.onHistoryChange?.()
+        dirtyRef.current = true
+      }
+
       // ── onEditKey — Ctrl+Z/Y undo/redo, Delete to remove ─────────────────
       const onEditKey = (e: KeyboardEvent) => {
         if (!storeRef.current.noteEditorActive) return
@@ -1922,6 +1982,10 @@ export default function PianoRoll() {
         } else if ((e.key === 'Delete' || e.key === 'Backspace') && editSelectedNotes.size > 0) {
           e.preventDefault()
           deleteSelectedNotes()
+        } else if (/^[0-5]$/.test(e.key) && !e.ctrlKey && !e.altKey && !e.metaKey && editSelectedNotes.size > 0) {
+          // fingering: 1 the thumb … 5 the little finger, 0 clears
+          e.preventDefault()
+          setSelectedFinger(e.key === '0' ? undefined : Number(e.key))
         }
       }
 

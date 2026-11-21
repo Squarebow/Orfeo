@@ -20,7 +20,7 @@
 // of a whole note, so sixteenths (3) and triplet eighths (4) both fit. Pure: no
 // store, no drawing (draw.ts).
 
-export interface ScoreNote { midi: number; time: number; dur: number; hand: 'L' | 'R' }
+export interface ScoreNote { midi: number; time: number; dur: number; hand: 'L' | 'R'; finger?: number }
 export interface ScoreInput {
   notes: ScoreNote[]           // as they should be played (the key change already added)
   beatTimes: number[]          // every beat of the song, seconds
@@ -45,6 +45,7 @@ export interface ScoreEvent {
   time: number                 // where in the song it starts, seconds
   triplet?: number             // the triplet it belongs to (same number = same bracket)
   ghost?: boolean              // a gap in the second voice: takes time, draws nothing
+  fingers?: (number | undefined)[]   // the player's fingering, one per key (where a note starts, not on a tie)
 }
 export interface ScoreBar {
   n: number                    // 1-based
@@ -139,7 +140,7 @@ export function spell(midi: number, fifths: number): string {
 }
 
 // ── The score ────────────────────────────────────────────────────────────────
-interface Q { s: number; e: number; midi: number }
+interface Q { s: number; e: number; midi: number; finger?: number }
 type VoiceKey = 'R' | 'L' | 'R2' | 'L2'
 
 export function buildScore(inp: ScoreInput): Score {
@@ -200,7 +201,7 @@ export function buildScore(inp: ScoreInput): Score {
     const minLen = 3 * grid
     const qs: Q[] = mine.map(n => {
       const s = Math.min(place(n.time), total - minLen)
-      return { s, e: Math.max(s + (tripletBeats.has(beatKey(s)) ? 4 : minLen), Math.min(place(n.time + n.dur), total)), midi: n.midi }
+      return { s, e: Math.max(s + (tripletBeats.has(beatKey(s)) ? 4 : minLen), Math.min(place(n.time + n.dur), total)), midi: n.midi, finger: n.finger }
     })
 
     // the second voice: a note held on under at least two later notes, all above it
@@ -214,7 +215,8 @@ export function buildScore(inp: ScoreInput): Score {
 
     const write = (voice: Q[], key: VoiceKey, ghostRests: boolean) => {
       const chords = new Map<number, { keys: Set<number>; end: number }>()
-      for (const q of voice) { const c = chords.get(q.s) ?? { keys: new Set<number>(), end: q.s }; c.keys.add(q.midi); c.end = Math.max(c.end, q.e); chords.set(q.s, c) }
+      const fingerAt = new Map<string, number>()   // start:key → finger
+      for (const q of voice) { const c = chords.get(q.s) ?? { keys: new Set<number>(), end: q.s }; c.keys.add(q.midi); c.end = Math.max(c.end, q.e); chords.set(q.s, c); if (q.finger) fingerAt.set(`${q.s}:${q.midi}`, q.finger) }
       const starts = [...chords.keys()].sort((a, b) => a - b)
       const spans: { s: number; e: number; keys: number[] | null }[] = []
       let at = 0
@@ -252,6 +254,7 @@ export function buildScore(inp: ScoreInput): Score {
           parts.forEach((len, j) => {
             const last = j === parts.length - 1 && upto === sp.e
             const ev: ScoreEvent = { pos: p, len, keys: sp.keys, tie: !!sp.keys && !last, time: tickTime(offsets[bi] + p) }
+            if (sp.keys && u === sp.s && j === 0) { const f = sp.keys.map(k => fingerAt.get(`${sp.s}:${k}`)); if (f.some(Boolean)) ev.fingers = f }
             if (trip !== undefined) ev.triplet = trip
             if (!sp.keys && ghostRests) ev.ghost = true
             bar[key]!.push(ev)

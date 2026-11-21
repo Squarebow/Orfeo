@@ -542,6 +542,8 @@ interface OrfeoStore {
   // in the piano roll view. Null outside practice mode: playbarVisible rules.
   practicePlaybar: boolean                 // the switch, kept with the settings
   setPracticePlaybar: (v: boolean) => void
+  practiceFingering: boolean               // finger numbers and hand places on the piano roll in practice mode
+  setPracticeFingering: (v: boolean) => void
   playbarOverride: boolean | null
 
   // ── Note-hit visual effects (Phase 2) — additive layer on top of the
@@ -1315,6 +1317,8 @@ export const useStore = create<OrfeoStore>((set, get) => ({
   setPlaybarVisible: (playbarVisible) => set({ playbarVisible }),
   practicePlaybar: true,
   setPracticePlaybar: (practicePlaybar) => set({ practicePlaybar }),
+  practiceFingering: true,
+  setPracticeFingering: (practiceFingering) => set({ practiceFingering }),
   playbarOverride: null,
   keyboardTopY: null,
   setKeyboardTopY: (keyboardTopY) => set({ keyboardTopY }),
@@ -1532,6 +1536,7 @@ async function restoreLibraryPrefs() {
     if (typeof prefs.practiceSummaryEnabled === 'boolean') store.setPracticeSummaryEnabled(prefs.practiceSummaryEnabled)
     if (prefs.scoreOptions) useStore.setState({ scoreOptions: readScoreOptions(prefs.scoreOptions) })
     if (typeof prefs.practicePlaybar === 'boolean') store.setPracticePlaybar(prefs.practicePlaybar)
+    if (typeof prefs.practiceFingering === 'boolean') store.setPracticeFingering(prefs.practiceFingering)
     if (typeof prefs.saveTempoKeyChangesEnabled === 'boolean') store.setSaveTempoKeyChangesEnabled(prefs.saveTempoKeyChangesEnabled)
     if (typeof prefs.tapTempoPadEnabled === 'boolean') store.setTapTempoPadEnabled(prefs.tapTempoPadEnabled)
     if (prefs.tapTempoMode === 'beat' || prefs.tapTempoMode === 'bar') store.setTapTempoMode(prefs.tapTempoMode)
@@ -1772,6 +1777,7 @@ let _prevPracticeModeEnabled:  boolean | null = null
 let _prevPracticeSummaryEnabled: boolean | null = null
 let _prevScoreOptions: ScoreOptions | null = null
 let _prevPracticePlaybar: boolean | null = null
+let _prevPracticeFingering: boolean | null = null
 let _prevSaveTempoKeyChangesEnabled: boolean | null = null
 let _prevTapTempoPadEnabled: boolean | null = null
 let _prevTapTempoMode: string | null = null
@@ -1857,6 +1863,7 @@ const _unsubPrefs = useStore.subscribe((state) => {
     _prevPracticeSummaryEnabled = state.practiceSummaryEnabled
     _prevScoreOptions = state.scoreOptions
     _prevPracticePlaybar = state.practicePlaybar
+    _prevPracticeFingering = state.practiceFingering
     _prevSaveTempoKeyChangesEnabled = state.saveTempoKeyChangesEnabled
     _prevTapTempoPadEnabled = state.tapTempoPadEnabled
     _prevTapTempoMode = state.tapTempoMode
@@ -1945,6 +1952,7 @@ const _unsubPrefs = useStore.subscribe((state) => {
     state.practiceSummaryEnabled !== _prevPracticeSummaryEnabled ||
     state.scoreOptions !== _prevScoreOptions ||
     state.practicePlaybar !== _prevPracticePlaybar ||
+    state.practiceFingering !== _prevPracticeFingering ||
     state.saveTempoKeyChangesEnabled !== _prevSaveTempoKeyChangesEnabled ||
     state.tapTempoPadEnabled !== _prevTapTempoPadEnabled ||
     state.tapTempoMode !== _prevTapTempoMode ||
@@ -2025,6 +2033,7 @@ const _unsubPrefs = useStore.subscribe((state) => {
     _prevPracticeSummaryEnabled = state.practiceSummaryEnabled
     _prevScoreOptions = state.scoreOptions
     _prevPracticePlaybar = state.practicePlaybar
+    _prevPracticeFingering = state.practiceFingering
     _prevSaveTempoKeyChangesEnabled = state.saveTempoKeyChangesEnabled
     _prevTapTempoPadEnabled = state.tapTempoPadEnabled
     _prevTapTempoMode = state.tapTempoMode
@@ -2111,6 +2120,7 @@ const _unsubPrefs = useStore.subscribe((state) => {
       practiceSummaryEnabled: state.practiceSummaryEnabled,
       scoreOptions: state.scoreOptions,
       practicePlaybar: state.practicePlaybar,
+      practiceFingering: state.practiceFingering,
       saveTempoKeyChangesEnabled: state.saveTempoKeyChangesEnabled,
       tapTempoPadEnabled: state.tapTempoPadEnabled,
       tapTempoMode: state.tapTempoMode,

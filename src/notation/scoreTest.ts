@@ -102,6 +102,14 @@ export function runScoreTest(): number {
     check(!one(sw, { swing: false }).swing, 'swing left as played when switched off')
   }
 
+  // ── fingering: on the note where it starts, not on a tie ──
+  {
+    const s = one([{ ...N(60, 1.5, 1), finger: 3 }, { ...N(64, 1.5, 1), finger: 5 }, N(67, 0, 0.5)])
+    const head = s.bars[0].R.find(e => e.keys?.includes(60))!
+    check(JSON.stringify(head.fingers) === '[3,5]', 'the fingers of the chord, one per key', head.fingers)
+    check(!s.bars[1].R[0].fingers && !s.bars[0].R[0].fingers, 'not on the tied note, nor a note without one')
+  }
+
   // ── the key ──
   check(fifthsOf(7, false) === 1 && fifthsOf(9, true) === 0 && fifthsOf(5, false) === -1 && fifthsOf(2, true) === -1, 'G major one sharp, A minor none, F major and D minor one flat')
   check(keySpecOf(-3) === 'Eb' && keySpecOf(4) === 'E', 'key names for the drawing')

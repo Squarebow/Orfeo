@@ -46,6 +46,9 @@ export interface ParsedNote {
   // Absent has the same meaning as 'computed' for any note that predates
   // this field (old hints, notes assigned before this existed). ────────────
   handSource?: 'computed' | 'manual'
+  // ── Fingering, 1 (thumb) to 5, set by the player in the Note Editor and
+  // kept in the saved file (utils/fingering.ts). Never suggested by Orfeo.
+  finger?: number
 }
 
 export interface SustainEvent {

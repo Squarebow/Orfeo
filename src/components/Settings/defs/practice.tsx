@@ -16,6 +16,7 @@ import { openProgress } from '../../Practice/PracticeProgress'
 import { useSongScore } from '../../Practice/ScoreView'
 import { usePractice } from '../../../practice/practiceMode'
 import { keySpecOf } from '../../../notation/score'
+import { madeUpFingering, FINGER_VERSION } from '../../../utils/fingering'
 
 const PrompterIcon = () => (
   <svg xmlns="http://www.w3.org/2000/svg" width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 7V5a2 2 0 0 1 2-2h2"/><path d="M17 3h2a2 2 0 0 1 2 2v2"/><path d="M21 17v2a2 2 0 0 1-2 2h-2"/><path d="M7 21H5a2 2 0 0 1-2-2v-2"/><rect width="10" height="8" x="7" y="8" rx="1"/></svg>
@@ -153,6 +154,21 @@ export function PracticeHistoryPanel() {
   )
 }
 
+// Dev Tools: fingering on the open song's piano, to look at (only saved if
+// the Note Editor saves the song)
+function setFingers(on: boolean) {
+  const s = useStore.getState()
+  if (!s.midi) return
+  for (const ts of s.tracks) {
+    if (!ts.practicePart || !ts.practiceHand) continue
+    const notes = (s.midi.tracks.find(t => t.index === ts.index)?.notes ?? []) as { midi: number; time: number; hand?: 'L' | 'R'; finger?: number }[]
+    if (on) madeUpFingering(notes.map(n => Object.assign(n, { hand: ts.practiceHand! })))
+    else for (const n of notes) delete n.finger
+  }
+  FINGER_VERSION.n++
+  useStore.setState({ tracks: [...s.tracks] })
+}
+
 export function ScoreTestPanel() {
   const active = usePractice(s => s.active)
   const view = usePractice(s => s.view)
@@ -173,6 +189,8 @@ export function ScoreTestPanel() {
         <OptionBtn active={view === 'split'} onClick={() => usePractice.setState({ view: 'split' })}>Show Split</OptionBtn>
         <OptionBtn active={view === 'roll'} onClick={() => usePractice.setState({ view: 'roll' })}>Show the piano roll</OptionBtn>
         <OptionBtn active={false} onClick={() => useStore.getState().openSettingsWindow('practice', 'score')}>Score settings</OptionBtn>
+        <OptionBtn active={false} onClick={() => setFingers(true)}>Made-up fingering (shown, not saved)</OptionBtn>
+        <OptionBtn active={false} onClick={() => setFingers(false)}>Clear fingering (not saved)</OptionBtn>
       </div>
     </div>
   )
@@ -187,6 +205,10 @@ export const PRACTICE_DEFS: SettingDef[] = [
   {
     id: 'practicePlaybar', icon: Minus, kind: 'switch', useVisible: () => PRACTICE_VISIBLE,
     Control: () => { const v = useStore(s => s.practicePlaybar); return <Switch value={v} onChange={useStore.getState().setPracticePlaybar} label={t`Playbar in practice mode`} /> },
+  },
+  {
+    id: 'practiceFingering', icon: Hand, kind: 'switch', useVisible: () => PRACTICE_VISIBLE,
+    Control: () => { const v = useStore(s => s.practiceFingering); return <Switch value={v} onChange={useStore.getState().setPracticeFingering} label={t`Fingering on the piano roll`} /> },
   },
   {
     id: 'practiceSummary', icon: MessageSquareText, kind: 'switch', useVisible: () => PRACTICE_VISIBLE,

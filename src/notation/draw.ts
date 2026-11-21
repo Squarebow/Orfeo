@@ -1,4 +1,4 @@
-import { Renderer, Stave, StaveNote, GhostNote, Voice, Formatter, Accidental, StaveConnector, Beam, StaveTie, Dot, Tuplet, PedalMarking, Stem, type Note } from 'vexflow/bravura'
+import { Renderer, Stave, StaveNote, GhostNote, Voice, Formatter, Accidental, StaveConnector, Beam, StaveTie, Dot, Tuplet, PedalMarking, Stem, FretHandFinger, Modifier, type Note } from 'vexflow/bravura'
 import type { Score, ScoreBar, ScoreEvent } from './score'
 import { keySpecOf, spell } from './score'
 
@@ -77,7 +77,7 @@ function tie(ties: StaveTie[], a: { ev: ScoreEvent; note: Note }, b: { ev: Score
 export function drawSystem(el: HTMLDivElement, bars: ScoreBar[], opts: {
   width: number; fifths: number; showTime: (bar: ScoreBar, i: number) => boolean
   tieIn: { R: boolean; L: boolean }; pedalIn: boolean; page: PageLayout
-  chords: 'off' | 'main' | 'all'; pedal: boolean
+  chords: 'off' | 'main' | 'all'; pedal: boolean; fingering?: boolean
   ink: string; dim: string; chordInk: string; font: string
   textScale?: number   // how much smaller the page is shown: chord names stay readable
 }): SystemLayout {
@@ -136,6 +136,10 @@ export function drawSystem(el: HTMLDivElement, bars: ScoreBar[], opts: {
           else if (ev.keys) note = new StaveNote({ keys: ev.keys.map(k => spell(k, opts.fifths)), duration: d, dots, clef, ...(stem !== undefined ? { stemDirection: stem } : { autoStem: true }) })
           else note = new StaveNote({ keys: [clef === 'treble' ? (v === 2 ? 'e/4' : 'b/4') : (v === 2 ? 'f/2' : 'd/3')], duration: d + 'r', dots, clef, alignCenter: ev.len === bar.units && bar.units !== 48 })
           if (dots && !ev.ghost) Dot.buildAndAttach([note as StaveNote], { all: true })
+          // the player's fingering: above the right hand's notes, below the left's
+          if (opts.fingering !== false && ev.fingers && !ev.ghost) ev.fingers.forEach((f, k) => {
+            if (f) (note as StaveNote).addModifier(new FretHandFinger(String(f)).setPosition(hand === 'R' ? Modifier.Position.ABOVE : Modifier.Position.BELOW), k)
+          })
           made.push({ hand, voice: v, ev, note })
           return note
         })

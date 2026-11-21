@@ -11,9 +11,10 @@ export interface ScoreOptions {
   swing: boolean          // a swung song written in straight eighths, with a note
   voices: boolean         // a held note under moving ones gets its own voice
   pedal: boolean          // sustain pedal marks under the bass staff
+  fingering: boolean      // the player's finger numbers on the notes
 }
 
-export const DEFAULT_SCORE_OPTIONS: ScoreOptions = { writing: 'auto', chords: 'main', triplets: true, swing: true, voices: true, pedal: true }
+export const DEFAULT_SCORE_OPTIONS: ScoreOptions = { writing: 'auto', chords: 'main', triplets: true, swing: true, voices: true, pedal: true, fingering: true }
 
 /** Saved choices on top of the defaults, anything unknown dropped */
 export function readScoreOptions(raw: unknown): ScoreOptions {
@@ -22,6 +23,6 @@ export function readScoreOptions(raw: unknown): ScoreOptions {
   const r = raw as Record<string, unknown>
   if (r.writing === 'auto' || r.writing === 'full' || r.writing === 'simple') o.writing = r.writing
   if (r.chords === 'off' || r.chords === 'main' || r.chords === 'all') o.chords = r.chords
-  for (const k of ['triplets', 'swing', 'voices', 'pedal'] as const) if (typeof r[k] === 'boolean') o[k] = r[k] as boolean
+  for (const k of ['triplets', 'swing', 'voices', 'pedal', 'fingering'] as const) if (typeof r[k] === 'boolean') o[k] = r[k] as boolean
   return o
 }

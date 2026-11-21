@@ -40,7 +40,7 @@ export function useSongScore(): { score: Score | null; tight: number; simple: bo
     for (const ts of tracks) {
       if (!ts.practicePart || !ts.practiceHand) continue
       const tr = midi.tracks.find(x => x.index === ts.index)
-      for (const n of tr?.notes ?? []) notes.push({ midi: n.midi + shift, time: n.time, dur: n.duration, hand: ts.practiceHand })
+      for (const n of tr?.notes ?? []) notes.push({ midi: n.midi + shift, time: n.time, dur: n.duration, hand: ts.practiceHand, finger: n.finger })
       // the pedal, from whichever piano track carries it
       if (!pedal.length) {
         let down: number | null = null
@@ -87,7 +87,7 @@ function Line({ score, from, to, width, scale, first, page, options, onLayout }:
     try {
       const l = drawSystem(ref.current, bars, {
         width: width / scale, fifths: score.keyFifths, pedalIn: pedalDownAt(score, from), page,
-        chords: options.chords, pedal: options.pedal, textScale: scale,
+        chords: options.chords, pedal: options.pedal, fingering: options.fingering, textScale: scale,
         showTime: (b, i) => (first && i === 0) || (i === 0 ? !!prev && (prev.num !== b.num || prev.den !== b.den) : bars[i - 1].num !== b.num || bars[i - 1].den !== b.den),
         tieIn: { R: !!lastOf('R')?.tie, L: !!lastOf('L')?.tie },
         ink: colours.ink, dim: colours.dim, chordInk: colours.chord, font: getComputedStyle(document.documentElement).getPropertyValue('--font-ui').trim() || 'sans-serif',

@@ -109,7 +109,8 @@ export const NES = {
 /** Do these Note Editor edits change the music (a new version), or only
  *  which hand plays the notes (saved into the same edit file)? */
 export function noteEditsChangeMusic(descriptions: string[]): boolean {
-  return descriptions.some(d => !/^(Assign (left|right) hand|Confirm hands)/i.test(d))
+  // hands and fingering are about how you play it, not the music: no new version
+  return descriptions.some(d => !/^(Assign (left|right) hand|Confirm hands|Set finger|Clear fingering)/i.test(d))
 }
 
 export function buildNoteEditSummary(descriptions: string[]): string {

@@ -220,6 +220,7 @@ export function copyHandTagsOntoEditBuffer(storeMidi: any, editMidi: Midi): void
         ;(note as any).handConfidence = src.handConfidence
         ;(note as any).handSource = src.handSource
       }
+      if (src?.finger) (note as any).finger = src.finger
     })
   })
 }

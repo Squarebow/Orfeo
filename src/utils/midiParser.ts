@@ -4,6 +4,7 @@ import type { ParsedMidi, ParsedTrack, ParsedNote } from '../types'
 import { getGMName, getGMGroup } from './gmInstruments'
 import { n } from '../i18n/mark'
 import { restoreHandTagsFromHints } from './handMetadata'
+import { restoreFingers } from './fingering'
 import { assignHandsByTrack } from './handAssignment'
 import { stavePairsOf } from './trackChordRole'
 import { useStore } from '../store'
@@ -242,6 +243,8 @@ export function parseMidiBuffer(buffer: ArrayBuffer, fileName: string, filePath 
   // assignment engine still needs to run — that happens where the split/
   // color/merge UI actually calls it, not here in the parser.
   const handTagsRestored = restoreHandTagsFromHints(tracks, (midi.header as any).meta ?? [])
+  // the player's fingering, kept in the file like the hands
+  restoreFingers(tracks, (midi.header as any).meta ?? [])
 
   // ── Tag whatever a hint didn't already cover — same engine as split/merge ──
   // Every keyboard-group track's notes end up carrying a `hand` tag by the

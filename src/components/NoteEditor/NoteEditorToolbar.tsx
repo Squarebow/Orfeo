@@ -6,6 +6,7 @@ import { confirmDialog } from '../../utils/confirmController'
 import { editableCopyToBuffer } from '../../utils/noteEditorCommands'
 import { restoreLeadForSave } from '../../utils/smfLead'
 import { buildHandExportHint } from '../../utils/handMetadata'
+import { fingerMeta, isFingerMeta } from '../../utils/fingering'
 import { parseMidiBuffer } from '../../utils/midiParser'
 import { songKey } from '../../utils/songIdentity'
 import { carryCorrection } from '../../utils/tempoCorrection'
@@ -144,7 +145,7 @@ export default function NoteEditorToolbar() {
       : []
     const reshaped = NES.reassignHandsMode && pianoIdx.length > 0 && PRACTICE_PREP_VISIBLE ? reshapePianoToHands(editMidi, pianoIdx) : false
     const keptMeta = ((editMidi.header as any).meta ?? []).filter(
-      (m: any) => !(typeof m.text === 'string' && m.text.startsWith('ORFEO_HAND_MAP:'))
+      (m: any) => !(typeof m.text === 'string' && m.text.startsWith('ORFEO_HAND_MAP:')) && !isFingerMeta(m.text)
     )
     ;(editMidi.header as any).meta = keptMeta
     editMidi.tracks.forEach(track => {
@@ -160,6 +161,11 @@ export default function NoteEditorToolbar() {
       const hint = buildHandExportHint((track as any).index, track.name, track.notes as any)
       track.name = hint.name
       if (hint.meta) (editMidi.header as any).meta.push(hint.meta)
+    })
+    // the fingering, kept in the file the same way (utils/fingering.ts)
+    editMidi.tracks.forEach(track => {
+      const meta = fingerMeta((track as any).index, track.notes as any)
+      if (meta) (editMidi.header as any).meta.push(meta)
     })
 
     // A song opened with its empty bars skipped is saved with them put back:
