@@ -415,7 +415,7 @@ All six fonts are under the SIL Open Font License 1.1. The full text is in
 | [Inter](https://github.com/rsms/inter) | The logo, PDF export | Copyright 2016 The Inter Project Authors |
 | [JetBrains Mono](https://github.com/JetBrains/JetBrainsMono) | PDF export | Copyright 2020 The JetBrains Mono Project Authors |
 | [Bravura](https://github.com/steinbergmedia/bravura) | Music notation (practice mode score), built into VexFlow | Copyright © 2015, Steinberg Media Technologies GmbH |
-| Academico | Text in the notation, built into VexFlow | See the [VexFlow project](https://github.com/vexflow/vexflow) |
+| [Academico](https://www.npmjs.com/package/@vexflow-fonts/academico) | Text in the notation, built into VexFlow | Copyright © 2022, Steinberg Media Technologies GmbH, with Reserved Font Name "Academico" |
 
 ---
 

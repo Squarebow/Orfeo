@@ -163,16 +163,16 @@ export function ScoreTestPanel() {
   return (
     <div style={devBox}>
       <div style={devHead}>The score · practice mode</div>
-      <div>The score shows in practice mode (strip: Score). Built from the two piano tracks: notes on a sixteenth grid, or an eighth grid when the song looks played in by hand (fewer than 85 % of notes on a sixteenth).</div>
+      <div>The score shows in practice mode (strip: Score). Built from the two piano tracks: sixteenths and triplets, or eighths when the song looks played in by hand (fewer than 85 % of notes on the grid); swung songs written straight; held notes under moving ones as a second voice; the sustain pedal. Melody and chords: the top line of the right hand with the chord names, and Orfeo listens to the melody only.</div>
       {!active || !score ? <div style={{ color: 'var(--text-amber)' }}>Go into practice mode on a ready song first.</div> : (
         <div style={{ fontFamily: 'var(--font-mono)' }}>
-          {bars.length} bars · {notes} chords and notes written · key {keySpecOf(score.keyFifths)} · on the sixteenth grid {Math.round(tight * 100)} % · {simple ? 'simplified (eighths)' : 'as written (sixteenths)'} · choice: {mode}
+          {bars.length} bars · {notes} chords and notes written · key {keySpecOf(score.keyFifths)} · on the grid {Math.round(tight * 100)} % · {simple ? 'simplified (eighths)' : 'as written'} · triplets {bars.reduce((a, b) => a + new Set([...b.R, ...b.L].filter(e => e.triplet !== undefined).map(e => e.triplet)).size, 0)} · second voices in {bars.filter(b => b.R2 || b.L2).length} bars · pedal marks {bars.reduce((a, b) => a + (b.pedal?.length ?? 0), 0)} · {score.swing ? 'swung' : 'straight'} · choice: {mode}
         </div>
       )}
       <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4 }}>
         <OptionBtn active={view === 'score'} onClick={() => usePractice.setState({ view: 'score' })}>Show the score</OptionBtn>
         <OptionBtn active={view === 'roll'} onClick={() => usePractice.setState({ view: 'roll' })}>Show the piano roll</OptionBtn>
-        {(['auto', 'full', 'simple'] as const).map(m => <OptionBtn key={m} active={mode === m} onClick={() => useScoreUi.setState({ mode: m })}>{m === 'auto' ? 'Orfeo chooses' : m === 'full' ? 'As written' : 'Simplified'}</OptionBtn>)}
+        {(['auto', 'full', 'simple', 'lead'] as const).map(m => <OptionBtn key={m} active={mode === m} onClick={() => useScoreUi.setState({ mode: m })}>{m === 'auto' ? 'Orfeo chooses' : m === 'full' ? 'As written' : m === 'simple' ? 'Simplified' : 'Melody and chords'}</OptionBtn>)}
       </div>
     </div>
   )
