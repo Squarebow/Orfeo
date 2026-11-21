@@ -1,4 +1,4 @@
-import { prepareLights, practiceLights } from './practiceLights'
+import { prepareLights, practiceLights, chordToPlay } from './practiceLights'
 import type { Expected } from './matcher'
 
 // practiceLights.ts wires itself to the store on import, which is harmless
@@ -44,6 +44,20 @@ export function runPracticeLightsTest(): number {
   check(at(1.2, { playing: false }) === '64', 'paused between notes: the next ones')
   check(at(0, { playing: false, done: i => i <= 1 }) === '64', 'notes out of reach are passed over')
   check(at(3, { playing: false }) === '', 'past the end: nothing')
+
+  // ── the chord to play (the footer) ──
+  {
+    // a held C under E then G: C and G when the G comes (the E has ended)
+    const q = prepareLights([e(48, 1.0, 2.0, 'L'), e(64, 1.0, 0.5), e(67, 1.5, 0.5), e(65, 3.5, 0.5)])
+    const to = (t: number, o: Partial<{ playing: boolean; holdAt: number | null }> = {}) =>
+      chordToPlay(q, t, { playing: true, holdAt: null, ahead: 0.25, ...o }).join()
+    check(to(0, { playing: false }) === '48,64', 'stopped: the first chord')
+    check(to(1.3) === '48,67', 'a moment early: the next step with the held note under it (the E has ended)')
+    check(to(1.1) === '48,64', 'playing: the step now')
+    check(to(2.0, { playing: false, holdAt: 1.5 }) === '48,67', 'waiting: the waited-for step, with what still sounds')
+    check(to(3.4) === '65', 'a note on its own')
+    check(chordToPlay(prepareLights([]), 1, { playing: true, holdAt: null, ahead: 0.25 }).length === 0, 'nothing to play')
+  }
 
   console.log(`${pass} passed, ${fail} failed`)
   console.groupEnd()

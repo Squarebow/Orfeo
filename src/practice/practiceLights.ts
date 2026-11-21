@@ -83,6 +83,46 @@ export function practiceLights(p: Prepared, t: number, o: {
   return out
 }
 
+/** Pure: the notes of your part to play at song time `t`, for naming the chord
+ *  (the footer's TO PLAY): the moment of the next notes to strike (a moment
+ *  early, as the keys light; while the song waits, the waited-for step), and
+ *  every note of yours sounding then, held ones included, so a melody over a
+ *  held chord still names the chord */
+export function chordToPlay(p: Prepared, t: number, o: { playing: boolean; holdAt: number | null; ahead: number }): number[] {
+  const { exp } = p
+  if (!exp.length) return []
+  const firstFrom = (time: number) => {
+    let lo = 0, hi = exp.length
+    while (lo < hi) { const m = (lo + hi) >> 1; if (exp[m].time < time) lo = m + 1; else hi = m }
+    return lo
+  }
+  let at: number
+  if (o.holdAt !== null) at = o.holdAt
+  else if (!o.playing) { const i = firstFrom(t - 1e-6); if (i >= exp.length) return []; at = exp[i].time }
+  else {
+    // the latest step started by now (counting the lead), else the next one
+    const i = firstFrom(t + o.ahead + 1e-6) - 1
+    if (i < 0) at = exp[0].time
+    else at = exp[i].time
+  }
+  const notes = new Set<number>()
+  for (let i = firstFrom(at - p.longest - 0.05); i < exp.length && exp[i].time <= at + CHORD_GRACE_SEC + 1e-9; i++) {
+    const e = exp[i]
+    if (e.time >= at - 1e-9 || e.time + Math.max(e.dur ?? 0, 0.05) > at + 0.02) notes.add(e.midi)
+  }
+  return [...notes].sort((a, b) => a - b)
+}
+
+// ── The chord to play next, for the footer ──────────────────────────────────
+export const useToPlay = create<{ notes: number[] }>(() => ({ notes: [] }))
+let toPlayKey = ''
+function setToPlay(notes: number[]) {
+  const k = notes.join()
+  if (k === toPlayKey) return
+  toPlayKey = k
+  useToPlay.setState({ notes })
+}
+
 // ── The keys the song waits for, pulsing on the on-screen keyboard ──────────
 // While the song waits, the notes it waits for (a chord together) pulse slowly
 // on the on-screen keyboard until you play them; each stops as you play it.
@@ -115,7 +155,8 @@ function update() {
       done: i => m.isDone(i),
     })
     if (!s.practiceFingering) for (const v of next.values()) delete v.finger
-  }
+    setToPlay(chordToPlay(prepared, s.currentTime, { playing: s.playbackState === 'playing', holdAt: w.holding ? w.at : null, ahead: LIGHT_AHEAD_SEC * ratio() }))
+  } else setToPlay([])
   setPulse(next && w.holding ? new Map([...next].map(([k, v]) => [k, v.hand])) : new Map())
   const key = next ? [...next].map(([k, v]) => `${k}${v.hand}${v.finger ?? ''}`).join() : 'none'
   if (key === lastKey) return

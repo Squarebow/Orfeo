@@ -3,6 +3,8 @@ import { Piano, Hand, History, MonitorUp, FoldVertical, Check } from 'lucide-rea
 import { useStore } from '../../store'
 import { useMidiSettings } from '../../store/midiSettings'
 import { detectChord, localizeChord } from '../../utils/chordDetection'
+import { getNoteName } from '../../utils/noteNames'
+import { useToPlay } from '../../practice/practiceLights'
 import { shortName } from '../../utils/midiDeviceNames'
 import { t } from '../../utils/i18n'
 import Tooltip from '../Tooltip'
@@ -14,30 +16,51 @@ import { AMBER, barIcon, featLabel, featValue, toolBtn, BarPop, PopItem, popHead
 
 // ── Practice mode's footer, between the piano roll and the keyboard ──────────
 // Left: how you play (MODE), which hands, and the waiting. Centre: the chord
-// you play, read from the keys you hold. Right: the view, the playbar, and the
+// to play next and the chord in the keys you hold. Right: the view, the playbar, and the
 // keyboard you play on. Each choice opens upwards, all in one panel.
 
-function YouPlay() {
-  const held = useStore(s => s.midiHeldKeys)
+// The name of a set of notes: a chord's name, a single note's name, or nothing
+function useChordName(notes: number[] | Set<number>, settle = 0): string {
   const naming = useStore(s => s.noteNaming)
   const accidentals = useStore(s => s.accidentals)
   const style = useStore(s => s.chordNamingStyle)
   const [name, setName] = useState('')
-  // read a moment after the last key change, so a rolled chord doesn't flicker
+  const key = [...notes].sort((a, b) => a - b).join()
   useEffect(() => {
     const id = setTimeout(() => {
-      const raw = held.size >= 2 ? detectChord(held) : null
-      setName(raw ? (localizeChord(raw, naming === 'sargam' ? 'english' : naming, accidentals, style) ?? raw) : '')
-    }, 40)
+      const list = key ? key.split(',').map(Number) : []
+      const nn = naming === 'sargam' || naming === 'hidden' ? 'english' : naming
+      if (!list.length) { setName(''); return }
+      const raw = list.length >= 2 ? detectChord(new Set(list)) : null
+      setName(raw ? (localizeChord(raw, nn, accidentals, style) ?? raw) : getNoteName(list[0], nn, accidentals))
+    }, settle)
     return () => clearTimeout(id)
-  }, [held, naming, accidentals, style])
+  }, [key, naming, accidentals, style, settle])
+  return name
+}
+
+// The centre of the footer: the chord your part plays next (as the keys light
+// up) beside the chord in the keys you're holding
+function Chords() {
+  const toPlay = useChordName(useToPlay(s => s.notes))
+  // read a moment after the last key change, so a rolled chord doesn't flicker
+  const youPlay = useChordName(useStore(s => s.midiHeldKeys), 40)
+  const name = (v: string, colour: string) => (
+    <span style={{ fontFamily: 'var(--font-ui)', fontSize: 20, fontWeight: 700, color: colour, minWidth: 72, textAlign: 'left', whiteSpace: 'nowrap' }}>{v || '—'}</span>
+  )
   return (
-    <Tooltip title={t`You play`} description={t`The chord in the keys you're holding on your keyboard right now.`} placement="top">
-      <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'center', gap: 12 }}>
-        <span style={{ fontFamily: 'var(--font-ui)', fontSize: 20, fontWeight: 700, color: AMBER, minWidth: 28, textAlign: 'center' }}>{name || '—'}</span>
-        <span style={featValue}>{t`You play`}</span>
-      </div>
-    </Tooltip>
+    <div style={{ justifySelf: 'center', display: 'flex', alignItems: 'center', gap: 28 }}>
+      <Tooltip title={t`To play`} description={t`The chord your part plays next, as its keys light up. While the song waits, the one it waits for.`} placement="top">
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+          <span style={featLabel}>{t`To play:`}</span>{name(toPlay, AMBER)}
+        </div>
+      </Tooltip>
+      <Tooltip title={t`You play`} description={t`The chord in the keys you're holding on your keyboard right now.`} placement="top">
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+          <span style={featLabel}>{t`You play:`}</span>{name(youPlay, 'var(--text-active)')}
+        </div>
+      </Tooltip>
+    </div>
   )
 }
 
@@ -175,7 +198,7 @@ export default function PracticeStrip() {
         {way === 'practise' && ramp && <span style={{ ...featValue, color: 'var(--text-muted)', fontSize: 10 }}>{t`Clean ${streak} of ${RAMP_ROUNDS}`}</span>}
       </div>
 
-      <YouPlay />
+      <Chords />
 
       {/* ── Right: view, playbar, keyboard ── */}
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: 14, minWidth: 0 }}>
