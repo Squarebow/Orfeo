@@ -18,7 +18,6 @@ import { HitEffectsRenderer } from './HitEffects'
 import { drainHitEffects } from '../../utils/hitEffectQueue'
 import { isShown } from '../../utils/trackShown'
 import { usePractice, practisedHand as practisedHandOf } from '../../practice/practiceMode'
-import { handPlaces, FINGER_VERSION, type HandPlace } from '../../utils/fingering'
 import { useReview } from '../../practice/reviewState'
 import { reviewMarks, REVIEW_COLORS } from '../../practice/review'
 import { t } from '../../utils/i18n'
@@ -441,8 +440,6 @@ export default function PianoRoll() {
   const lastKeySizeRef    = useRef<string>('')
   const lastMidiRef       = useRef<any>(null)
   const flatNotesRef      = useRef<FlatNote[]>([])
-  // where the hands sit, worked out from the fingering (kept until the notes or fingers change)
-  const handPlacesRef     = useRef<{ flat: FlatNote[] | null; key: string; places: HandPlace[] }>({ flat: null, key: '', places: [] })
   // ── Tracks whose notes are ALL the same hand — i.e. a genuine "split into
   // two tracks" output (Piano LH / Piano RH). These always render in the
   // fixed hand colors regardless of the Left/Right Hand setting; a single
@@ -497,8 +494,7 @@ export default function PianoRoll() {
       s.showHandLabels !== prev.showHandLabels ||
       s.playbarVisible !== prev.playbarVisible ||
       s.playbarOverride !== prev.playbarOverride ||
-      s.practiceFingering !== prev.practiceFingering ||
-      s.practiceHandMoves !== prev.practiceHandMoves ||
+
       s.keyboardTopY !== prev.keyboardTopY ||
       s.hitEffectsEnabled !== prev.hitEffectsEnabled ||
       s.hitEffectPattern !== prev.hitEffectPattern ||
@@ -1047,11 +1043,9 @@ export default function PianoRoll() {
         const startIdx = lowerBound(flat, visStart - visibleSecs)
         // practice mode, one hand: the other hand's track plays along, drawn faded
         const practisedHand = usePractice.getState().active ? practisedHandOf() : 'B'
-        // fingering: the numbers on the notes, in the Note Editor and (unless
-        // switched off) in practice mode
-        const inPractice = usePractice.getState().active
-        const showFingers = noteEditorActive || (inPractice && storeRef.current.practiceFingering)
-        const showMoves = noteEditorActive || (inPractice && storeRef.current.practiceHandMoves)
+        // fingering: the numbers on the notes in the Note Editor, where you set
+        // them (in practice mode they're on the keyboard: practice/keyFingers.ts)
+        const showFingers = noteEditorActive
         const fingerMarks: { x: number; y: number; f: number }[] = []
         for (let i = startIdx; i < flat.length; i++) {
           const note = flat[i]
@@ -1123,25 +1117,9 @@ export default function PianoRoll() {
           if (finger) fingerMarks.push({ x: key.x + 1 + drawW / 2, y: botY - Math.min(8, noteH / 2), f: finger })
         }
 
-        // ── Fingering: where each hand has to move, a bracket over the five keys
-        // it covers from that note on (in the hand's colour), and the finger
-        // numbers on the notes (utils/fingering.ts) ─────────────────────────
-        if (showFingers || showMoves) {
-          const key = `${FINGER_VERSION.n}`
-          if (handPlacesRef.current.flat !== flat || handPlacesRef.current.key !== key) {
-            handPlacesRef.current = { flat, key, places: handPlaces(flat.map(n => ({ midi: n.midi, time: n.time, hand: n.hand, finger: (n.noteRef as any)?.finger ?? n.src?.finger }))) }
-          }
-          if (showMoves) for (const hp of handPlacesRef.current.places) {
-            if (hp.time < visStart - 1 || hp.time > visEnd + 1) continue
-            const lo = keyLayoutRef.current[hp.low + transpose - midiMin], hi = keyLayoutRef.current[hp.high + transpose - midiMin]
-            if (!lo || !hi) continue
-            const y = Math.round(py - (hp.time - currentTime) * pps) + 3
-            const col = hp.hand === 'L' ? HAND_LH_COLOR : HAND_RH_COLOR
-            notes.rect(lo.x + 1, y, hi.x + hi.width - lo.x - 2, 2); notes.fill({ color: col, alpha: 0.95 })
-            notes.rect(lo.x + 1, y - 5, 2, 7); notes.fill({ color: col, alpha: 0.95 })
-            notes.rect(hi.x + hi.width - 3, y - 5, 2, 7); notes.fill({ color: col, alpha: 0.95 })
-          }
-          if (showFingers && ctx && fingerMarks.length) {
+        // ── Fingering in the Note Editor: the finger number on each note ──────
+        if (showFingers) {
+          if (ctx && fingerMarks.length) {
             ctx.save()
             ctx.font = `bold 10px ${FONT_MONO_STR}`
             ctx.textAlign = 'center'; ctx.textBaseline = 'middle'
@@ -1963,7 +1941,6 @@ export default function PianoRoll() {
         NES.history.push(cmd)
         NES.dirty            = true
         NES.needsFlatRebuild = true
-        FINGER_VERSION.n++
         NES.onHistoryChange?.()
         dirtyRef.current = true
       }

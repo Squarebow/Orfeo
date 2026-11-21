@@ -27,7 +27,7 @@ export type SettingId =
   | 'showDemo' | 'chordTranscription' | 'openWith' | 'showLyrics' | 'tags' | 'practiceQueue'
   | 'noteEditor' | 'unsavedWarning' | 'saveTrackChanges' | 'tapTempo' | 'tempoWarnings' | 'countIn' | 'skipEmptyBars' | 'handAssignment' | 'loopRegion' | 'focusMode'
   | 'scoreWriting' | 'scoreChords' | 'scoreTriplets' | 'scoreSwing' | 'scoreVoices' | 'scorePedal'
-  | 'practiceMode' | 'practiceSummary' | 'practicePlaybar' | 'practiceFingering' | 'fingeringMoves' | 'scoreFingering' | 'stepThrough' | 'chordPrompter' | 'closePanels' | 'handTags' | 'trackVu'
+  | 'practiceMode' | 'practiceSummary' | 'practicePlaybar' | 'practiceFingering' | 'scoreFingering' | 'stepThrough' | 'chordPrompter' | 'closePanels' | 'handTags' | 'trackVu'
   | 'displaySystem' | 'accidentals' | 'chordTracking' | 'chordReading' | 'chordNaming'
   | 'keyRange' | 'portableKeyboards' | 'showOctaves' | 'showNoteNames' | 'reflectPianoRoll' | 'preciseScrubTime' | 'explorerPause' | 'tempoDisplay'
   | 'rollZoom' | 'barNumbers' | 'playbar' | 'visualEffects'
@@ -64,7 +64,7 @@ export const GROUPS: GroupInfo[] = [
     tabs: [
       { key: 'practice-mode', name: t`Practice mode`, ids: ['practiceMode', 'practiceSummary', 'practicePlaybar'], devOnly: true },
       { key: 'score', name: t`Score`, ids: ['scoreWriting', 'scoreChords', 'scoreTriplets', 'scoreSwing', 'scoreVoices', 'scorePedal'], devOnly: true },
-      { key: 'fingering', name: t`Fingering`, ids: ['practiceFingering', 'fingeringMoves', 'scoreFingering'], devOnly: true },
+      { key: 'fingering', name: t`Fingering`, ids: ['practiceFingering', 'scoreFingering'], devOnly: true },
       { key: 'tools', name: t`Practice tools`, ids: ['stepThrough', 'chordPrompter', 'closePanels', 'handTags', 'reflectPianoRoll', 'starmap'] },
     ] },
   { id: 'editing', name: t`Editing`, intro: t`Edit your songs`, manualUrl: 'https://orfeo.cc/docs/editing-midi-files',
@@ -174,12 +174,9 @@ export const SETTINGS: SettingInfo[] = [
   { id: 'practicePlaybar', group: 'practice', name: t`Playbar in practice mode`, summary: t`The line where notes meet the keys, in the piano roll view.`,
     description: t`Turn on to show the playbar in practice mode's piano roll view. Off, the notes fall straight onto the keyboard and the piano roll gets more room. Split never shows it.`,
     keywords: 'practice playbar hit line falling notes keyboard' },
-  { id: 'practiceFingering', group: 'practice', name: t`Finger numbers on the piano roll`, summary: t`Your finger number on each falling note.`,
-    description: t`Turn on to show your fingering on the piano roll in practice mode: the finger number on each note, 1 the thumb. You set it in the Note Editor: select notes and press 1 to 5 (0 clears), or right-click.`,
-    keywords: 'practice fingering fingers numbers thumb piano roll' },
-  { id: 'fingeringMoves', group: 'practice', name: t`Where the hand moves`, summary: t`A bracket over the keys wherever a hand changes position.`,
-    description: t`Turn on to mark, from your fingering, each place a hand has to move: a bracket in the hand's colour over the keys it covers from that note on. A stretch the fingers reach (an octave with 1 and 5) isn't a move.`,
-    keywords: 'practice fingering hand position move shift bracket' },
+  { id: 'practiceFingering', group: 'practice', name: t`Finger numbers on the keyboard`, summary: t`Your finger number on each key as you play it.`,
+    description: t`Turn on to show your fingering on the keyboard in practice mode: a number in a circle at the top of each key the part plays, 1 the thumb (while the song waits, on the keys it waits for). You set it in the Note Editor: select notes and press 1 to 5 (0 clears), or right-click.`,
+    keywords: 'practice fingering fingers numbers thumb keyboard keys' },
   { id: 'scoreFingering', group: 'practice', name: t`Finger numbers on the score`, summary: t`Your finger numbers above and below the notes.`,
     description: t`Turn on to show your fingering on the score: above the right hand's notes, below the left's. You set it in the Note Editor: select notes and press 1 to 5 (0 clears), or right-click.`,
     keywords: 'score fingering fingers numbers' },

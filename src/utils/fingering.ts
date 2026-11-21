@@ -4,8 +4,8 @@
 // Kept in the saved file like the hand marks, so they travel with the song:
 // one `ORFEO_FINGERS:<track>:<runs>` text meta per track (harmless to other
 // programs), the track's notes in order, 0 for a note without one.
-// From the numbers, where each hand sits (the five keys under its fingers)
-// and the notes where it has to move. Pure.
+// From the numbers, where each hand sits and where it moves (handPlaces:
+// not shown for now; kept for an optional view later). Pure.
 
 export type Finger = 1 | 2 | 3 | 4 | 5
 /** Bumped whenever fingers change outside an edit (the piano roll redraws its hand places) */

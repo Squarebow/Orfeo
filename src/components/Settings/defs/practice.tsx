@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { BookOpen, PanelLeftClose, Hand, Activity, Expand, StepForward, Sparkles, MessageSquareText, Minus, MoveHorizontal } from 'lucide-react'
+import { BookOpen, PanelLeftClose, Hand, Activity, Expand, StepForward, Sparkles, MessageSquareText, Minus } from 'lucide-react'
 import { useStore } from '../../../store'
 import { Switch, InlineIcon, OptionBtn } from '../controls'
 import { useDevPractice, pluggedSim, type PianistStyle } from '../../../practice/devPlay'
@@ -208,12 +208,9 @@ export const PRACTICE_DEFS: SettingDef[] = [
   },
   {
     id: 'practiceFingering', icon: Hand, kind: 'switch', useVisible: () => PRACTICE_VISIBLE,
-    Control: () => { const v = useStore(s => s.practiceFingering); return <Switch value={v} onChange={useStore.getState().setPracticeFingering} label={t`Finger numbers on the piano roll`} /> },
+    Control: () => { const v = useStore(s => s.practiceFingering); return <Switch value={v} onChange={useStore.getState().setPracticeFingering} label={t`Finger numbers on the keyboard`} /> },
   },
-  {
-    id: 'fingeringMoves', icon: MoveHorizontal, kind: 'switch', useVisible: () => PRACTICE_VISIBLE,
-    Control: () => { const v = useStore(s => s.practiceHandMoves); return <Switch value={v} onChange={useStore.getState().setPracticeHandMoves} label={t`Where the hand moves`} /> },
-  },
+
   {
     id: 'practiceSummary', icon: MessageSquareText, kind: 'switch', useVisible: () => PRACTICE_VISIBLE,
     Control: () => { const v = useStore(s => s.practiceSummaryEnabled); return <Switch value={v} onChange={useStore.getState().setPracticeSummaryEnabled} label={t`How it went`} /> },

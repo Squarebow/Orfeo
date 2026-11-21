@@ -544,8 +544,6 @@ interface OrfeoStore {
   setPracticePlaybar: (v: boolean) => void
   practiceFingering: boolean               // finger numbers on the piano roll in practice mode
   setPracticeFingering: (v: boolean) => void
-  practiceHandMoves: boolean               // brackets where a hand moves (from the fingering)
-  setPracticeHandMoves: (v: boolean) => void
   playbarOverride: boolean | null
 
   // ── Note-hit visual effects (Phase 2) — additive layer on top of the
@@ -1321,8 +1319,6 @@ export const useStore = create<OrfeoStore>((set, get) => ({
   setPracticePlaybar: (practicePlaybar) => set({ practicePlaybar }),
   practiceFingering: true,
   setPracticeFingering: (practiceFingering) => set({ practiceFingering }),
-  practiceHandMoves: true,
-  setPracticeHandMoves: (practiceHandMoves) => set({ practiceHandMoves }),
   playbarOverride: null,
   keyboardTopY: null,
   setKeyboardTopY: (keyboardTopY) => set({ keyboardTopY }),
@@ -1541,7 +1537,6 @@ async function restoreLibraryPrefs() {
     if (prefs.scoreOptions) useStore.setState({ scoreOptions: readScoreOptions(prefs.scoreOptions) })
     if (typeof prefs.practicePlaybar === 'boolean') store.setPracticePlaybar(prefs.practicePlaybar)
     if (typeof prefs.practiceFingering === 'boolean') store.setPracticeFingering(prefs.practiceFingering)
-    if (typeof prefs.practiceHandMoves === 'boolean') store.setPracticeHandMoves(prefs.practiceHandMoves)
     if (typeof prefs.saveTempoKeyChangesEnabled === 'boolean') store.setSaveTempoKeyChangesEnabled(prefs.saveTempoKeyChangesEnabled)
     if (typeof prefs.tapTempoPadEnabled === 'boolean') store.setTapTempoPadEnabled(prefs.tapTempoPadEnabled)
     if (prefs.tapTempoMode === 'beat' || prefs.tapTempoMode === 'bar') store.setTapTempoMode(prefs.tapTempoMode)
@@ -1783,7 +1778,6 @@ let _prevPracticeSummaryEnabled: boolean | null = null
 let _prevScoreOptions: ScoreOptions | null = null
 let _prevPracticePlaybar: boolean | null = null
 let _prevPracticeFingering: boolean | null = null
-let _prevPracticeHandMoves: boolean | null = null
 let _prevSaveTempoKeyChangesEnabled: boolean | null = null
 let _prevTapTempoPadEnabled: boolean | null = null
 let _prevTapTempoMode: string | null = null
@@ -1870,7 +1864,6 @@ const _unsubPrefs = useStore.subscribe((state) => {
     _prevScoreOptions = state.scoreOptions
     _prevPracticePlaybar = state.practicePlaybar
     _prevPracticeFingering = state.practiceFingering
-    _prevPracticeHandMoves = state.practiceHandMoves
     _prevSaveTempoKeyChangesEnabled = state.saveTempoKeyChangesEnabled
     _prevTapTempoPadEnabled = state.tapTempoPadEnabled
     _prevTapTempoMode = state.tapTempoMode
@@ -1960,7 +1953,6 @@ const _unsubPrefs = useStore.subscribe((state) => {
     state.scoreOptions !== _prevScoreOptions ||
     state.practicePlaybar !== _prevPracticePlaybar ||
     state.practiceFingering !== _prevPracticeFingering ||
-    state.practiceHandMoves !== _prevPracticeHandMoves ||
     state.saveTempoKeyChangesEnabled !== _prevSaveTempoKeyChangesEnabled ||
     state.tapTempoPadEnabled !== _prevTapTempoPadEnabled ||
     state.tapTempoMode !== _prevTapTempoMode ||
@@ -2042,7 +2034,6 @@ const _unsubPrefs = useStore.subscribe((state) => {
     _prevScoreOptions = state.scoreOptions
     _prevPracticePlaybar = state.practicePlaybar
     _prevPracticeFingering = state.practiceFingering
-    _prevPracticeHandMoves = state.practiceHandMoves
     _prevSaveTempoKeyChangesEnabled = state.saveTempoKeyChangesEnabled
     _prevTapTempoPadEnabled = state.tapTempoPadEnabled
     _prevTapTempoMode = state.tapTempoMode
@@ -2130,7 +2121,6 @@ const _unsubPrefs = useStore.subscribe((state) => {
       scoreOptions: state.scoreOptions,
       practicePlaybar: state.practicePlaybar,
       practiceFingering: state.practiceFingering,
-      practiceHandMoves: state.practiceHandMoves,
       saveTempoKeyChangesEnabled: state.saveTempoKeyChangesEnabled,
       tapTempoPadEnabled: state.tapTempoPadEnabled,
       tapTempoMode: state.tapTempoMode,

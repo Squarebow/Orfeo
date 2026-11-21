@@ -16,6 +16,7 @@ import { ContextMenu, ContextMenuItem } from '../ContextMenu'
 import { outputLatencySec } from '../../audio/engine'
 import { isShown } from '../../utils/trackShown'
 import { t } from '../../utils/i18n'
+import { useKeyFingers } from '../../practice/keyFingers'
 import { devClickKey } from '../../practice/devPlay'
 
 const HAND_LH = 'var(--hand-lh)'
@@ -45,6 +46,25 @@ function resolveCurrentIndex(seq: { displayTime: number }[], currentTime: number
   return idx
 }
 
+// ── A finger number on a key (practice mode): a circle at the very top of
+// the key, as contrasting as it gets: black on a white key, white on a black
+// one, with a ring so it stands out on a lit key too ───────────────────────
+function FingerCircle({ finger, black, scale }: { finger: number; black: boolean; scale: number }) {
+  const size = Math.round((black ? 15 : 18) * scale)
+  return (
+    <span style={{
+      position: 'absolute', top: 6, left: '50%', transform: 'translateX(-50%)',
+      width: size, height: size, borderRadius: '50%', zIndex: 3,
+      display: 'flex', alignItems: 'center', justifyContent: 'center',
+      background: black ? '#ffffff' : '#0d0d12', color: black ? '#0d0d12' : '#ffffff',
+      border: `2px solid ${black ? '#0d0d12' : '#ffffff'}`, boxSizing: 'content-box',
+      boxShadow: '0 1px 3px rgba(0,0,0,0.6)',
+      fontFamily: 'var(--font-mono)', fontWeight: 800, fontSize: Math.round(size * 0.68), lineHeight: 1,
+      userSelect: 'none', pointerEvents: 'none',
+    }}>{finger}</span>
+  )
+}
+
 export default function Keyboard() {
   const keyboardSize = useStore((s) => s.keyboardSize)
   const keyboardOctave = useStore((s) => s.keyboardOctave)
@@ -62,6 +82,8 @@ export default function Keyboard() {
   const chordNamingStyle        = useStore((s) => s.chordNamingStyle)
   const showOctaveLabels        = useStore((s) => s.showOctaveLabels)
   const showNoteNamesOnKeyboard = useStore((s) => s.showNoteNamesOnKeyboard)
+  // practice mode: your fingering on the keys (practice/keyFingers.ts)
+  const keyFingers = useKeyFingers((s) => s.fingers)
   const playbackState = useStore((s) => s.playbackState)
   const explorerKeys = useStore((s) => s.explorerKeys)
   const explorerKeyColors = useStore((s) => s.explorerKeyColors)
@@ -1087,6 +1109,7 @@ export default function Keyboard() {
                     {label}
                   </span>
                 )}
+                {keyFingers.has(k.midi) && <FingerCircle finger={keyFingers.get(k.midi)!} black={false} scale={labelScale} />}
               </div>
             )
           })}
@@ -1175,6 +1198,7 @@ export default function Keyboard() {
                     {colorHand}
                   </span>
                 )}
+                {keyFingers.has(k.midi) && <FingerCircle finger={keyFingers.get(k.midi)!} black scale={labelScale} />}
                 {color && showNoteNamesOnKeyboard && noteNaming !== 'hidden' && (
                   <span style={{
                     position: 'absolute', bottom: 3, left: '50%',

@@ -10,6 +10,7 @@ import ScoreView from './components/Practice/ScoreView'
 import './practice/listen'      // Orfeo listens in practice mode
 import './practice/waiting'     // the song waits for your notes
 import './practice/session'     // every take kept, and how it went in words
+import './practice/keyFingers'  // your fingering on the keyboard
 import './practice/devPlay'     // Dev Tools: playing without a keyboard
 import { usePractice } from './practice/practiceMode'
 import PianoRoll from './components/PianoRoll/PianoRoll'
