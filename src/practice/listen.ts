@@ -8,6 +8,7 @@ import { usePractice, practisedHand } from './practiceMode'
 import { Matcher, type Expected, type Outcome, type Summary } from './matcher'
 import type { TakeEnd } from './take'
 import { reviewing } from './reviewState'
+import { shownFinger } from './fingerHints'
 
 // ── Orfeo listens (practice stage 2) ─────────────────────────────────────────
 // While practice mode plays, every key you press is placed in the song (where
@@ -44,7 +45,10 @@ export function expectedNotes(): Expected[] {
     if (!ts.practicePart || !ts.practiceHand) continue
     if (hand !== 'B' && ts.practiceHand !== hand) continue
     const tr = s.midi.tracks.find(t => t.index === ts.index)
-    for (const n of tr?.notes ?? []) out.push({ midi: n.midi + shift, time: n.time, hand: ts.practiceHand, bar: barOf(n.time, s.barStarts) ?? 1, dur: n.duration, ...(n.finger ? { finger: n.finger } : {}) })
+    for (const n of tr?.notes ?? []) {
+      const f = shownFinger(n as { finger?: number; fingerHint?: number })   // your fingering, or a suggestion when they're on (the key lights)
+      out.push({ midi: n.midi + shift, time: n.time, hand: ts.practiceHand, bar: barOf(n.time, s.barStarts) ?? 1, dur: n.duration, ...(f ? { finger: f.finger } : {}) })
+    }
   }
   return out
 }

@@ -221,6 +221,8 @@ export function copyHandTagsOntoEditBuffer(storeMidi: any, editMidi: Midi): void
         ;(note as any).handSource = src.handSource
       }
       if (src?.finger) (note as any).finger = src.finger
+      // Orfeo's suggestion (practice/fingerHints.ts), so you can keep it as your own
+      if ((src as any)?.fingerHint) (note as any).fingerHint = (src as any).fingerHint
     })
   })
 }

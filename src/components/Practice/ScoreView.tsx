@@ -4,7 +4,8 @@ import { useStore } from '../../store'
 import { t } from '../../utils/i18n'
 import { useWaiting } from '../../practice/listen'
 import { usePractice } from '../../practice/practiceMode'
-import { buildScore, onTheGrid, fifthsOf, type Score, type ScoreNote } from '../../notation/score'
+import { buildScore, onTheGrid, fifthsOf, SUGGESTED_FINGER, type Score, type ScoreNote } from '../../notation/score'
+import { shownFinger, useFingerHints } from '../../practice/fingerHints'
 import { drawSystem, pageLayout, type PageLayout, type SystemLayout } from '../../notation/draw'
 import type { ScoreOptions } from '../../notation/scoreOptions'
 
@@ -31,6 +32,8 @@ export function useSongScore(): { score: Score | null; tight: number; simple: bo
   const key = useStore(s => s.detectedKey)
   const chords = useStore(s => s.chordSequence)
   const options = useStore(s => s.scoreOptions)
+  const hints = useFingerHints(s => s.v)          // suggested fingering worked out again
+  const hintsOn = useStore(s => s.fingerHints)
   return useMemo(() => {
     if (!midi) return { score: null, tight: 1, simple: false, options }
     const m = midi as any
@@ -40,7 +43,10 @@ export function useSongScore(): { score: Score | null; tight: number; simple: bo
     for (const ts of tracks) {
       if (!ts.practicePart || !ts.practiceHand) continue
       const tr = midi.tracks.find(x => x.index === ts.index)
-      for (const n of tr?.notes ?? []) notes.push({ midi: n.midi + shift, time: n.time, dur: n.duration, hand: ts.practiceHand, finger: n.finger })
+      for (const n of tr?.notes ?? []) {
+        const f = shownFinger(n as { finger?: number; fingerHint?: number })
+        notes.push({ midi: n.midi + shift, time: n.time, dur: n.duration, hand: ts.practiceHand, finger: f ? f.finger + (f.suggested ? SUGGESTED_FINGER : 0) : undefined })
+      }
       // the pedal, from whichever piano track carries it
       if (!pedal.length) {
         let down: number | null = null
@@ -63,7 +69,7 @@ export function useSongScore(): { score: Score | null; tight: number; simple: bo
       triplets: options.triplets, swing: options.swing, voices: options.voices,
     })
     return { score, tight, simple, options }
-  }, [midi, tracks, key, chords, options])
+  }, [midi, tracks, key, chords, options, hints, hintsOn])
 }
 
 /** Is the pedal down when bar `i` starts? */
@@ -121,7 +127,7 @@ export default function ScoreView() {
     for (let i = 0; i < score.bars.length; i += perLine) out.push([i, Math.min(score.bars.length, i + perLine)])
     return out
   }, [score, perLine])
-  const page = useMemo(() => (score ? pageLayout(score, lines, { chords: options.chords !== 'off', pedal: options.pedal }) : null), [score, lines, options])
+  const page = useMemo(() => (score ? pageLayout(score, lines, { chords: options.chords !== 'off', pedal: options.pedal, fingering: options.fingering }) : null), [score, lines, options])
   const sysH = page?.height ?? 240
   const scale = Math.min(1.25, Math.max(0.45, (size.h - 8) / (LINES * sysH)))
 

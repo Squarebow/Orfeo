@@ -207,6 +207,23 @@ export const PRACTICE_DEFS: SettingDef[] = [
     Control: () => { const v = useStore(s => s.practicePlaybar); return <Switch value={v} onChange={useStore.getState().setPracticePlaybar} label={t`Playbar in practice mode`} /> },
   },
   {
+    id: 'fingerHints', icon: Sparkles, kind: 'switch', useVisible: () => PRACTICE_VISIBLE,
+    Control: () => { const v = useStore(s => s.fingerHints); return <Switch value={v} onChange={useStore.getState().setFingerHints} label={t`Suggested fingering`} /> },
+  },
+  {
+    id: 'handSize', icon: Hand, kind: 'choice', useVisible: () => PRACTICE_VISIBLE,
+    Control: () => {
+      const v = useStore(s => s.handSize)
+      return (
+        <div style={{ display: 'flex', gap: 'var(--space-1)' }}>
+          {([['small', t`Small`], ['medium', t`Medium`], ['large', t`Large`]] as const).map(([k, label]) => (
+            <OptionBtn key={k} active={v === k} onClick={() => useStore.getState().setHandSize(k)}>{label}</OptionBtn>
+          ))}
+        </div>
+      )
+    },
+  },
+  {
     id: 'practiceFingering', icon: Hand, kind: 'switch', useVisible: () => PRACTICE_VISIBLE,
     Control: () => { const v = useStore(s => s.practiceFingering); return <Switch value={v} onChange={useStore.getState().setPracticeFingering} label={t`Finger numbers on the keyboard`} /> },
   },

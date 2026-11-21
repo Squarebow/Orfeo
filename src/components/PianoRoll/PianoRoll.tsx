@@ -1854,6 +1854,7 @@ export default function PianoRoll() {
           // fingering (keys 1–5 do the same, 0 clears)
           for (const f of [1, 2, 3, 4, 5]) options.push({ label: t`Finger ${f}`, onClick: () => { setSelectedFinger(f); setContextMenu(null) } })
           if ([...editSelectedNotes].some(n => (n as any).finger)) options.push({ label: t`No finger`, onClick: () => { setSelectedFinger(undefined); setContextMenu(null) } })
+          if ([...editSelectedNotes].some(n => (n as any).fingerHint && !(n as any).finger)) options.push({ label: t`Keep suggested fingering`, onClick: () => { keepSuggestedFingers(); setContextMenu(null) } })
           if (editSelectedNotes.size >= 2) {
             options.push({
               label: t`Flatten Velocity (selected notes: ${editSelectedNotes.size})`,
@@ -1924,6 +1925,24 @@ export default function PianoRoll() {
         NES.dirty            = true
         NES.needsFlatRebuild = true
         NES.onHistoryChange?.()
+      }
+
+      // ── keepSuggestedFingers — Orfeo's suggested finger becomes yours on every
+      // selected note that has one and no finger of yours; one undoable step ──
+      const keepSuggestedFingers = () => {
+        const take = [...editSelectedNotes].filter(n => (n as any).fingerHint && !(n as any).finger)
+        if (!take.length) return
+        const cmd = {
+          description: take.length === 1 ? 'Keep the suggested finger' : `Keep the suggested fingering on ${take.length} notes`,
+          apply() { for (const n of take) (n as any).finger = (n as any).fingerHint },
+          revert() { for (const n of take) delete (n as any).finger },
+        }
+        cmd.apply()
+        NES.history.push(cmd)
+        NES.dirty            = true
+        NES.needsFlatRebuild = true
+        NES.onHistoryChange?.()
+        dirtyRef.current = true
       }
 
       // ── setSelectedFinger — fingering on every selected note (1–5, or

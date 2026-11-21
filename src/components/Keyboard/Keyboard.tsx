@@ -50,15 +50,17 @@ function resolveCurrentIndex(seq: { displayTime: number }[], currentTime: number
 // ── A finger number on a key (practice mode): a circle at the very top of
 // the key, as contrasting as it gets: black on a white key, white on a black
 // one, with a ring so it stands out on a lit key too ───────────────────────
-function FingerCircle({ finger, black, scale }: { finger: number; black: boolean; scale: number }) {
+// a suggested finger (Orfeo's, not yours) is drawn hollow, with a dashed edge
+function FingerCircle({ finger, black, scale, suggested = false }: { finger: number; black: boolean; scale: number; suggested?: boolean }) {
   const size = Math.round((black ? 15 : 18) * scale)
+  const ink = black ? '#ffffff' : '#0d0d12', paper = black ? '#0d0d12' : '#ffffff'
   return (
     <span style={{
       position: 'absolute', top: 6, left: '50%', transform: 'translateX(-50%)',
       width: size, height: size, borderRadius: '50%', zIndex: 3,
       display: 'flex', alignItems: 'center', justifyContent: 'center',
-      background: black ? '#ffffff' : '#0d0d12', color: black ? '#0d0d12' : '#ffffff',
-      border: `2px solid ${black ? '#0d0d12' : '#ffffff'}`, boxSizing: 'content-box',
+      background: suggested ? paper : ink, color: suggested ? ink : paper,
+      border: suggested ? `2px dashed ${ink}` : `2px solid ${paper}`, boxSizing: 'content-box',
       boxShadow: '0 1px 3px rgba(0,0,0,0.6)',
       fontFamily: 'var(--font-mono)', fontWeight: 800, fontSize: Math.round(size * 0.68), lineHeight: 1,
       userSelect: 'none', pointerEvents: 'none',
@@ -85,6 +87,7 @@ export default function Keyboard() {
   const showNoteNamesOnKeyboard = useStore((s) => s.showNoteNamesOnKeyboard)
   // practice mode: your fingering on the keys (practice/keyFingers.ts)
   const keyFingers = useKeyFingers((s) => s.fingers)
+  const keyFingersSuggested = useKeyFingers((s) => s.suggested)
   // practice mode: the keys the song waits for pulse until you play them
   const waitPulse = useWaitPulse((s) => s.keys)
   const playbackState = useStore((s) => s.playbackState)
@@ -1114,7 +1117,7 @@ export default function Keyboard() {
                   </span>
                 )}
                 {pulse && <WaitPulse hand={pulse} />}
-                {keyFingers.has(k.midi) && <FingerCircle finger={keyFingers.get(k.midi)!} black={false} scale={labelScale} />}
+                {keyFingers.has(k.midi) && <FingerCircle finger={keyFingers.get(k.midi)!} black={false} scale={labelScale} suggested={keyFingersSuggested.has(k.midi)} />}
               </div>
             )
           })}
@@ -1205,7 +1208,7 @@ export default function Keyboard() {
                   </span>
                 )}
                 {pulse && <WaitPulse hand={pulse} />}
-                {keyFingers.has(k.midi) && <FingerCircle finger={keyFingers.get(k.midi)!} black scale={labelScale} />}
+                {keyFingers.has(k.midi) && <FingerCircle finger={keyFingers.get(k.midi)!} black scale={labelScale} suggested={keyFingersSuggested.has(k.midi)} />}
                 {color && showNoteNamesOnKeyboard && noteNaming !== 'hidden' && (
                   <span style={{
                     position: 'absolute', bottom: 3, left: '50%',

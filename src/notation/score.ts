@@ -21,6 +21,8 @@
 // store, no drawing (draw.ts).
 
 export interface ScoreNote { midi: number; time: number; dur: number; hand: 'L' | 'R'; finger?: number }
+/** A suggested finger (Orfeo's, not the player's) travels as its number plus this, so it can be drawn apart */
+export const SUGGESTED_FINGER = 10
 export interface ScoreInput {
   notes: ScoreNote[]           // as they should be played (the key change already added)
   beatTimes: number[]          // every beat of the song, seconds
