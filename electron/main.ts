@@ -40,6 +40,20 @@ const openDialog = (options: Electron.OpenDialogOptions) =>
   mainWin ? dialog.showOpenDialog(mainWin, options) : dialog.showOpenDialog(options)
 const saveDialog = (options: Electron.SaveDialogOptions) =>
   mainWin ? dialog.showSaveDialog(mainWin, options) : dialog.showSaveDialog(options)
+// ── Linux: Wayland with an NVIDIA card draws through XWayland (issue #18) ──
+// On some of these (Fedora 45, KDE Plasma, Wayland, NVIDIA's own driver) the
+// window drew once and then never again: the song played, the screen stayed
+// put, and the next start came up black. Running through XWayland (X11 inside
+// Wayland) draws normally. Only that combination is changed; starting Orfeo
+// with your own --ozone-platform=… (wayland to try native Wayland) wins.
+// Must be set before the app is ready.
+if (process.platform === 'linux') {
+  const wayland = process.env.XDG_SESSION_TYPE === 'wayland' || !!process.env.WAYLAND_DISPLAY
+  const nvidia = existsSync('/proc/driver/nvidia/version')
+  const chosen = app.commandLine.hasSwitch('ozone-platform') || process.argv.some(a => a.startsWith('--ozone-platform'))
+  if (wayland && nvidia && !chosen) app.commandLine.appendSwitch('ozone-platform', 'x11')
+}
+
 // ── Set by app:confirm-close so the renderer-triggered re-close passes through ──
 let allowClose = false
 // ── A close always gets through. The page answers at once (app:close-heard)
