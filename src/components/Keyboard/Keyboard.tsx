@@ -16,6 +16,7 @@ import { ContextMenu, ContextMenuItem } from '../ContextMenu'
 import { outputLatencySec } from '../../audio/engine'
 import { isShown } from '../../utils/trackShown'
 import { t } from '../../utils/i18n'
+import { devClickKey } from '../../practice/devPlay'
 
 const HAND_LH = 'var(--hand-lh)'
 const HAND_RH = 'var(--hand-rh)'
@@ -603,6 +604,8 @@ export default function Keyboard() {
   // fade timer) instead of the normal timed ring, since any timer duration
   // still overlaps neighboring keys during a fast sweep.
   const handleKeyClick = useCallback((midi: number, isGlissando = false) => {
+    // Dev Tools › Play without a keyboard: in practice mode a click is playing
+    if (devClickKey(midi, isGlissando)) return
     // Shift+Click locks a chord — not while an Explorer has the keyboard
     if (shiftHeldRef.current && !chordExplorerOpen && !scaleExplorerOpen) {
       const next = new Set(lockedKeys)

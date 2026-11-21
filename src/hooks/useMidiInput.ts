@@ -117,6 +117,16 @@ export function holdNotesForTest(notes: number[], ms: number, vel = 90): void {
   setTimeout(() => { for (const n of notes) soundOff(n); lightOff(notes) }, ms)
 }
 
+// ── Every key you play, for practice mode to listen to (practice/listen.ts):
+// after the soft-touch and double-key filters, with the moment it arrived ──
+export interface PlayedKey { note: number; vel: number; on: boolean; at: number; device: string }
+const _playedListeners = new Set<(k: PlayedKey) => void>()
+export function onPlayedKey(fn: (k: PlayedKey) => void): () => void {
+  _playedListeners.add(fn)
+  return () => { _playedListeners.delete(fn) }
+}
+function emitPlayed(k: PlayedKey) { for (const fn of _playedListeners) { try { fn(k) } catch (e) { console.error(e) } } }
+
 function heldBy(key: string): Set<number> {
   let s = _held.get(key)
   if (!s) { s = new Set(); _held.set(key, s) }
@@ -167,6 +177,7 @@ function noteOn(key: string, note: number, raw: number, stamp: number, t0: numbe
   lightOn(note)
   _played.add(key)
   setActive(key)
+  emitPlayed({ note, vel, on: true, at: t0, device: key })
 }
 
 function noteOff(key: string, note: number) {
@@ -174,6 +185,7 @@ function noteOff(key: string, note: number) {
   const sw = _swallow.get(id)
   if (sw) { if (sw > 1) _swallow.set(id, sw - 1); else _swallow.delete(id); return }
   heldBy(key).delete(note)
+  emitPlayed({ note, vel: 0, on: false, at: performance.now(), device: key })
   if (heldElsewhere(key, note)) return
   soundOff(note)
   lightOff([note])

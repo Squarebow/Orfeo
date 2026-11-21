@@ -32,7 +32,7 @@ export type SettingId =
   | 'showLanguageSwitcher' | 'followSystemLanguage' | 'menuLanguages' | 'translations' | 'translationUpdates'
   | 'midiKeyboards' | 'midiReconnect' | 'liveResponse' | 'latencyOffset' | 'gmOutput' | 'touchResponse' | 'duplicateFilter'
   | 'pedalsControls' | 'delayCheck' | 'midiTools'
-  | 'keyLights' | 'devKeyboard' | 'devKeyRange' | 'devKeyLights' | 'devExplorers' | 'devClosingWarning' | 'devQueue' | 'devLyrics' | 'devOpenWith' | 'devSupportNote' | 'devTranslations'
+  | 'keyLights' | 'devKeyboard' | 'devKeyRange' | 'devKeyLights' | 'devExplorers' | 'devClosingWarning' | 'devQueue' | 'devLyrics' | 'devOpenWith' | 'devSupportNote' | 'devTranslations' | 'devPracticeKeys' | 'devPianist' | 'devListen'
 
 export interface SettingInfo {
   id: SettingId
@@ -290,6 +290,15 @@ with octave buttons to move them. Notes beyond their edges show fainter on the k
   { id: 'devKeyLights', group: 'devtools', name: 'Key lights', summary: 'Light the keys of a simulated keyboard.',
     description: 'Plug in a simulated keyboard, PartyKeys included, choose how its lights are driven, light a chord or the Try it scale, and see the last messages Orfeo sent it. Session only, nothing saved.',
     keywords: 'dev test key lights led partykeys sysex lighted keyboard' },
+  { id: 'devPracticeKeys', group: 'devtools', name: 'Play without a keyboard', summary: 'Clicks and computer keys play in practice mode.',
+    description: 'In practice mode, clicking the on-screen keys or the computer keyboard plays the simulated keyboard, so Orfeo hears it as your playing. Session only, nothing saved.',
+    keywords: 'dev test practice play computer keys click qwerty' },
+  { id: 'devPianist', group: 'devtools', name: 'Virtual pianist', summary: 'Plays your part in practice mode, well or badly.',
+    description: 'Plays your part on the simulated keyboard while practice mode plays: spot on, early, late, wrong or missed notes, hesitating, rolled chords or the right hand only. Session only, nothing saved.',
+    keywords: 'dev test practice pianist virtual play part' },
+  { id: 'devListen', group: 'devtools', name: 'Orfeo listens', summary: 'Show what Orfeo heard in practice mode.',
+    description: 'A panel in practice mode lists right, missed and extra notes live, per hand, and how early or late, to check what Orfeo heard against what was played. Session only, nothing saved.',
+    keywords: 'dev test practice listen match right missed extra' },
   { id: 'devTranslations', group: 'devtools', name: 'Translations', summary: 'Fake Weblate numbers, offline and new words.',
     description: 'Pretend a language is at any percentage, that Weblate cannot be reached, or that it has newer words, then check again to see Settings > Language and the menu react. While any are on, downloads go to a temporary folder. Session only, nothing saved.',
     keywords: 'dev test translations language weblate percent offline download pseudo' },

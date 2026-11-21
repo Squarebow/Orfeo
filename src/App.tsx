@@ -2,6 +2,9 @@ import { useEffect, useState, useCallback, useRef } from 'react'
 import TopBar from './components/Transport/TopBar'
 import PracticeTopBar from './components/Practice/PracticeTopBar'
 import PracticeStrip from './components/Practice/PracticeStrip'
+import ListenPanel from './components/Practice/ListenPanel'
+import './practice/listen'      // Orfeo listens in practice mode
+import './practice/devPlay'     // Dev Tools: playing without a keyboard
 import { usePractice } from './practice/practiceMode'
 import PianoRoll from './components/PianoRoll/PianoRoll'
 import Keyboard from './components/Keyboard/Keyboard'
@@ -542,7 +545,7 @@ export default function App() {
           In normal mode TopBar is in-flow; in PM it becomes a fixed overlay. ── */}
       {practicing ? (
         // ── Practice mode: its own narrow top bar, nothing else around the roll ──
-        <PracticeTopBar />
+        <><PracticeTopBar /><ListenPanel /></>
       ) : presentationMode ? (
         <>
           {/* Hover zone — 8px strip at top edge that reveals the header ────── */}
