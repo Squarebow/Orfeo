@@ -189,6 +189,7 @@ function pianistTick() {
 if (typeof requestAnimationFrame === 'function' && simAvailable) {
   onSongJump(t => restartPianist(t))
   useDevPractice.subscribe((d, prev) => { if (d.pianist !== prev.pianist) restartPianist(useStore.getState().currentTime) })
+  useStore.subscribe((s, prev) => { if (s.bpm !== prev.bpm) restartPianist(s.currentTime) })
   useStore.subscribe((s, prev) => { if (s.playbackState !== 'playing' && prev.playbackState === 'playing' && !useWaiting.getState().holding) { cancelAll(); restartPianist(s.currentTime) } })
   requestAnimationFrame(pianistTick)
 }

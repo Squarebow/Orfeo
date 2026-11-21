@@ -17,6 +17,7 @@ export function runMatcherTest(): number {
     const late = m.play({ midi: 64, time: 3.15 })
     check(late.kind === 'hit' && (late as any).offset > 0, 'late: right, offset +')
     check(m.summary().hit === 3 && m.summary().missed === 0, 'three right')
+    check(m.summary().hitOffsets.length === 3 && m.summary().spread > 0.05, 'each right note keeps its timing; the spread shows it wandered')
   }
   // a chord in any order
   {

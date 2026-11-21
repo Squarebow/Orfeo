@@ -24,7 +24,7 @@ export type SettingId =
   | 'soundEngine' | 'soundFonts' | 'autoLevel' | 'exportAudio'
   | 'showDemo' | 'chordTranscription' | 'openWith' | 'showLyrics' | 'tags' | 'practiceQueue'
   | 'noteEditor' | 'unsavedWarning' | 'saveTrackChanges' | 'tapTempo' | 'tempoWarnings' | 'countIn' | 'skipEmptyBars' | 'handAssignment' | 'loopRegion' | 'focusMode'
-  | 'practiceMode' | 'stepThrough' | 'chordPrompter' | 'closePanels' | 'handTags' | 'trackVu'
+  | 'practiceMode' | 'practiceSummary' | 'stepThrough' | 'chordPrompter' | 'closePanels' | 'handTags' | 'trackVu'
   | 'displaySystem' | 'accidentals' | 'chordTracking' | 'chordReading' | 'chordNaming'
   | 'keyRange' | 'portableKeyboards' | 'showOctaves' | 'showNoteNames' | 'reflectPianoRoll' | 'preciseScrubTime' | 'explorerPause' | 'tempoDisplay'
   | 'rollZoom' | 'barNumbers' | 'playbar' | 'visualEffects'
@@ -32,7 +32,7 @@ export type SettingId =
   | 'showLanguageSwitcher' | 'followSystemLanguage' | 'menuLanguages' | 'translations' | 'translationUpdates'
   | 'midiKeyboards' | 'midiReconnect' | 'liveResponse' | 'latencyOffset' | 'gmOutput' | 'touchResponse' | 'duplicateFilter'
   | 'pedalsControls' | 'delayCheck' | 'midiTools'
-  | 'keyLights' | 'devKeyboard' | 'devKeyRange' | 'devKeyLights' | 'devExplorers' | 'devClosingWarning' | 'devQueue' | 'devLyrics' | 'devOpenWith' | 'devSupportNote' | 'devTranslations' | 'devPracticeKeys' | 'devPianist' | 'devListen'
+  | 'keyLights' | 'devKeyboard' | 'devKeyRange' | 'devKeyLights' | 'devExplorers' | 'devClosingWarning' | 'devQueue' | 'devLyrics' | 'devOpenWith' | 'devSupportNote' | 'devTranslations' | 'devPracticeKeys' | 'devPianist' | 'devListen' | 'devPracticeHistory'
 
 export interface SettingInfo {
   id: SettingId
@@ -139,6 +139,9 @@ export const SETTINGS: SettingInfo[] = [
   { id: 'practiceMode', group: 'practice', name: t`Practice mode`, summary: t`Practise a song's piano part with your USB keyboard.`,
     description: t`Turn on to practise the piano part of a song with your USB keyboard, on a screen with nothing else in the way. Open it from the practice icon in the Tracks panel.`,
     keywords: 'practice practise lesson learn keyboard piano wait play along performance' },
+  { id: 'practiceSummary', group: 'practice', name: t`How it went`, summary: t`A few words on how it went, after playing in practice mode.`,
+    description: t`Turn on to see a few words on how it went each time you stop in practice mode: what went well, and the bars worth another go. Your practice numbers are kept either way.`,
+    keywords: 'practice summary how it went report feedback progress numbers csv' },
   { id: 'stepThrough', group: 'practice', name: t`Step Through`, summary: t`Step through a song note by note with\n==←== and ==→==.`,
     description: t`Each press of ← or → (or the arrows in the keyboard bar) steps back or forward to the next note or chord, plays it, lights it and moves the playhead there. Shift jumps a whole bar.`,
     keywords: 'step through arrows next previous note chord solo transcribe learn slow' },
@@ -299,6 +302,9 @@ with octave buttons to move them. Notes beyond their edges show fainter on the k
   { id: 'devListen', group: 'devtools', name: 'Orfeo listens', summary: 'Show what Orfeo heard in practice mode.',
     description: 'A panel in practice mode lists right, missed and extra notes live, per hand, and how early or late, to check what Orfeo heard against what was played. Session only, nothing saved.',
     keywords: 'dev test practice listen match right missed extra' },
+  { id: 'devPracticeHistory', group: 'devtools', name: 'How it went', summary: 'The words after playing, and the practice numbers kept per song.',
+    description: 'Shows the words for made-up takes without playing, the numbers kept for the open song, and forgets them. Saves nothing new.',
+    keywords: 'dev test practice summary history words csv forget' },
   { id: 'devTranslations', group: 'devtools', name: 'Translations', summary: 'Fake Weblate numbers, offline and new words.',
     description: 'Pretend a language is at any percentage, that Weblate cannot be reached, or that it has newer words, then check again to see Settings > Language and the menu react. While any are on, downloads go to a temporary folder. Session only, nothing saved.',
     keywords: 'dev test translations language weblate percent offline download pseudo' },

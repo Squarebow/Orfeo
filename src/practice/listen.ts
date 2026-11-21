@@ -6,6 +6,7 @@ import { outputLatencySec } from '../audio/engine'
 import { barOf } from '../utils/debugTimestamp'
 import { usePractice, practisedHand } from './practiceMode'
 import { Matcher, type Expected, type Outcome, type Summary } from './matcher'
+import type { TakeEnd } from './take'
 
 // ── Orfeo listens (practice stage 2) ─────────────────────────────────────────
 // While practice mode plays, every key you press is placed in the song (where
@@ -69,8 +70,17 @@ export function onSongJump(fn: (t: number) => void): () => void { _jumpListeners
 const jumpTo = (t: number) => { for (const fn of _jumpListeners) fn(t) }
 const RECENT = 14
 
+// ── Takes (practice stage 4): each fresh start begins one, each jump, the loop
+// going round, the song's end or leaving ends it; practice/session.ts keeps them ──
+export type TakeEvent = { type: 'start'; at: number } | { type: 'outcome'; o: Outcome } | { type: 'end'; why: TakeEnd }
+const _takeListeners = new Set<(e: TakeEvent) => void>()
+export function onTake(fn: (e: TakeEvent) => void): () => void { _takeListeners.add(fn); return () => { _takeListeners.delete(fn) } }
+const emit = (e: TakeEvent) => { for (const fn of _takeListeners) fn(e) }
+let win = MATCH_WINDOW_SEC
+
 function publish(outs: Outcome[]) {
   if (!matcher) return
+  for (const o of outs) emit({ type: 'outcome', o })
   const recent = outs.length ? [...outs.reverse(), ...useListen.getState().recent].slice(0, RECENT) : useListen.getState().recent
   useListen.setState({ summary: matcher.summary(), recent })
 }
@@ -78,8 +88,9 @@ function publish(outs: Outcome[]) {
 /** A fresh start on your part: what lies before the playhead isn't counted */
 export function rebuildListening(): void {
   const s = useStore.getState()
+  if (matcher) emit({ type: 'end', why: usePractice.getState().active ? 'change' : 'leave' })
   if (!usePractice.getState().active || !s.midi) { matcher = null; useListen.setState({ listening: false, summary: null, recent: [] }); return }
-  const win = MATCH_WINDOW_SEC * ratio()
+  win = MATCH_WINDOW_SEC * ratio()
   matcher = new Matcher(expectedNotes(), win, t => barOf(t, useStore.getState().barStarts) ?? 1)
   const now = s.currentTime
   matcher.skip(e => e.time < now - 1e-6)
@@ -88,6 +99,16 @@ export function rebuildListening(): void {
   anchorTime = lastTime = now; anchorPerf = performance.now()
   useListen.setState({ listening: true, recent: [], summary: matcher.summary() })
   jumpTo(now)
+  emit({ type: 'start', at: now })
+}
+
+/** Play after a pause: a fresh take from where the song is */
+export function freshTake(): void {
+  if (!matcher) return
+  const t = useStore.getState().currentTime
+  matcher.restartAt(t)
+  useListen.setState({ summary: matcher.summary(), recent: [] })
+  emit({ type: 'start', at: t })
 }
 
 // ── Wiring ───────────────────────────────────────────────────────────────────
@@ -104,12 +125,26 @@ useStore.subscribe((s, prev) => {
     const jumped = s.playbackState === 'playing' && prev.playbackState === 'playing'
       ? t < lastTime - 0.05 || t > expectedNow + 0.5
       : t !== lastTime   // paused or stopped: any move is a seek
+    const before = lastTime
     anchorTime = lastTime = t; anchorPerf = performance.now()
     if (jumped) jumpTo(t)
-    if (matcher && jumped) { matcher.restartAt(t); useListen.setState({ summary: matcher.summary(), recent: [] }) }
+    if (matcher && jumped) {
+      // why the take ends: the song's end, the loop going round, or a jump
+      const loopAt = s.loopRegionActive ? (s.loopStart ?? 0) : null
+      const why: TakeEnd = s.playbackState === 'stopped' && !!s.midi && t >= s.midi.duration - 0.01 ? 'end'
+        : loopAt !== null && Math.abs(t - loopAt) < 0.05 && before > t ? 'loop' : 'jump'
+      // played to the end (of the song or the loop): what's behind it is missed
+      if (why !== 'jump') { const missed = matcher.advance(why === 'end' ? t + win : before + win); if (missed.length) publish(missed) }
+      emit({ type: 'end', why })
+      matcher.restartAt(t); useListen.setState({ summary: matcher.summary(), recent: [] })
+      emit({ type: 'start', at: t })
+    }
     if (matcher && s.playbackState === 'playing') { const missed = matcher.advance(heardSongTime()); if (missed.length) publish(missed) }
   }
-  if (s.midi !== prev.midi || s.barStarts !== prev.barStarts || s.bpm !== prev.bpm
+  // another tempo (you, or Speed up gradually): the same take goes on, with the
+  // window stretched to the new tempo
+  if (s.bpm !== prev.bpm && matcher) { win = MATCH_WINDOW_SEC * ratio(); matcher.setWindow(win) }
+  if (s.midi !== prev.midi || s.barStarts !== prev.barStarts
     || (s.detectedKey?.transpose ?? 0) !== (prev.detectedKey?.transpose ?? 0)
     || s.tracks.some((t, i) => t.practiceHand !== prev.tracks[i]?.practiceHand)) {
     if (usePractice.getState().active) rebuildListening()

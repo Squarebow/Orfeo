@@ -4,6 +4,8 @@ import { detectChord, localizeChord } from '../../utils/chordDetection'
 import { t } from '../../utils/i18n'
 import Tooltip from '../Tooltip'
 import { usePractice, PRACTICE_SIZES, fixHandsFromPractice, type PracticeWay, type PracticeHand, type PracticeView } from '../../practice/practiceMode'
+import { useSession } from '../../practice/session'
+import { RAMP_ROUNDS, RAMP_START, RAMP_STEP } from '../../practice/take'
 
 // ── The strip between the piano roll and the keyboard, in practice mode ──────
 // Left: the way of playing and its choices. Centre: the chord YOU play (read
@@ -43,7 +45,8 @@ function YouPlay() {
 export default function PracticeStrip() {
   const playing = useStore(s => s.playbackState === 'playing')
   const keyboardSize = useStore(s => s.keyboardSize)
-  const { way, hand, waitOn, level, view, onlyHand } = usePractice()
+  const { way, hand, waitOn, level, view, onlyHand, ramp } = usePractice()
+  const streak = useSession(s => s.ramp.streak)
   const set = usePractice.setState
   const fade: CSSProperties = playing
     ? { opacity: 0, pointerEvents: 'none', transition: 'opacity .35s', minWidth: 0 }
@@ -99,7 +102,11 @@ export default function PracticeStrip() {
                 <Tooltip title={t`Wait`} description={t`The song plays up to your next notes and waits there until you've played them.`}>
                   <button style={seg(waitOn)} aria-pressed={waitOn} onClick={() => set({ waitOn: !waitOn })}>{t`Wait`}</button>
                 </Tooltip>
+                <Tooltip title={t`Speed up`} description={t`Starts at ${RAMP_START} % of the song's tempo and goes up ${RAMP_STEP} % after every ${RAMP_ROUNDS} clean times round the loop (or through the song), up to the song's own tempo.`}>
+                  <button style={seg(ramp)} aria-pressed={ramp} onClick={() => set({ ramp: !ramp })}>{t`Speed up`}</button>
+                </Tooltip>
               </div>
+              {ramp && <span style={{ ...cap, whiteSpace: 'nowrap' }}>{t`Clean ${streak} of ${RAMP_ROUNDS}`}</span>}
             </>
           )}
           {way === 'wait' && !onlyHand && <span style={cap}>{t`Both hands · song tempo`}</span>}

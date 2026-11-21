@@ -29,6 +29,8 @@ export interface Summary extends Tally {
   perHand: Record<Hand, Tally>
   perBar: Map<number, Tally>
   meanOffset: number        // song seconds over the hits, + late
+  spread: number            // how much the timing wandered: the hits' standard deviation, song seconds
+  hitOffsets: { bar: number; hand: Hand; offset: number }[]   // each right note's timing, in song order
 }
 
 const tally = (): Tally => ({ hit: 0, missed: 0, extra: 0 })
@@ -48,6 +50,9 @@ export class Matcher {
   }
 
   get expected(): readonly Expected[] { return this.exp }
+
+  /** The tempo changed: the same real-time window is a different stretch of the song */
+  setWindow(w: number): void { this.window = w }
 
   /** A key pressed at `p.time` in the song */
   play(p: Played): Outcome {
@@ -106,7 +111,7 @@ export class Matcher {
   isDone(i: number): boolean { return this.state[i] === 'hit' || this.state[i] === 'skip' }
 
   summary(): Summary {
-    const s: Summary = { ...tally(), pending: 0, perHand: { L: tally(), R: tally() }, perBar: new Map(), meanOffset: 0 }
+    const s: Summary = { ...tally(), pending: 0, perHand: { L: tally(), R: tally() }, perBar: new Map(), meanOffset: 0, spread: 0, hitOffsets: [] }
     const bar = (b: number) => { let t = s.perBar.get(b); if (!t) { t = tally(); s.perBar.set(b, t) } return t }
     this.exp.forEach((e, i) => {
       const st = this.state[i]
@@ -115,8 +120,10 @@ export class Matcher {
       s[st]++; s.perHand[e.hand][st]++; bar(e.bar)[st]++
     })
     for (const x of this.extras) { s.extra++; bar(x.bar).extra++ }
-    const offs = this.offsets.filter((o, i): o is number => o !== null && this.state[i] === 'hit')
+    this.exp.forEach((e, i) => { const o = this.offsets[i]; if (o !== null && this.state[i] === 'hit') s.hitOffsets.push({ bar: e.bar, hand: e.hand, offset: o }) })
+    const offs = s.hitOffsets.map(h => h.offset)
     s.meanOffset = offs.length ? offs.reduce((a, b) => a + b, 0) / offs.length : 0
+    s.spread = offs.length > 1 ? Math.sqrt(offs.reduce((a, b) => a + (b - s.meanOffset) ** 2, 0) / offs.length) : 0
     return s
   }
 }
@@ -130,6 +137,7 @@ export class Matcher {
 export class StepWaiter {
   readonly steps: { time: number; idx: number[] }[] = []
   private cur = 0
+  setGrace(g: number): void { this.grace = g }
   constructor(private m: Matcher, private grace: number, chordGrace: number) {
     m.expected.forEach((e, i) => {
       const last = this.steps[this.steps.length - 1]

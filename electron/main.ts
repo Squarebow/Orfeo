@@ -14,6 +14,7 @@ import { getGMGroup } from '../src/utils/gmInstruments'
 import { exportsDir, nextFreeName, safeExportBaseName } from './exportName'
 import { scanMidiFolder, listFolderNames } from './libraryScan'
 import { fileFromArgs } from './openWith'
+import { practiceStore } from './practiceHistory'
 import { fileHasLyrics } from '../src/utils/lyricsCheck'
 import { KEYBOARD_GROUPS } from '../src/utils/keyboardGroups'
 import { nextOrfeoVersion, stripOrfeoSuffix, isOrfeoVersionBase } from '../src/utils/orfeoVersioning'
@@ -323,6 +324,7 @@ function appendFileLogEvent(filePath: string, event: FileLogEvent) {
 // the renderer's remapLibraryPaths (favourites/hidden) already uses.
 function remapFileLog(pairs: { oldPath: string; newPath: string }[]) {
   if (pairs.length === 0) return
+  try { practice().remap(pairs) } catch {}   // practice numbers follow the song too
   const log = loadFileLog()
   let changed = false
   for (const { oldPath, newPath } of pairs) {
@@ -360,6 +362,18 @@ function parseHistoryFromMidi(midi: Midi): FileLogEvent[] {
   }
   return events.sort((a, b) => a.timestamp - b.timestamp)
 }
+
+// ── Practice numbers per song (practice mode): their own files, see practiceHistory.ts ──
+const practice = () => practiceStore(join(app.getPath('userData'), 'practice'))
+ipcMain.handle('practice:load', async (_e, song: string) => { try { return practice().load(song) } catch { return null } })
+ipcMain.handle('practice:save', async (_e, song: string, data: unknown) => { try { practice().save(song, data); return true } catch { return false } })
+ipcMain.handle('practice:forget', async (_e, song: string) => { try { practice().forget(song) } catch {} })
+ipcMain.handle('practice:saveCsv', async (_e, name: string, text: string) => {
+  const result = await saveDialog({ defaultPath: join(app.getPath('documents'), name), filters: [{ name: 'CSV', extensions: ['csv'] }] })
+  if (result.canceled || !result.filePath) return null
+  await writeFile(result.filePath, '\ufeff' + text, 'utf-8')   // the mark tells spreadsheets it's UTF-8
+  return result.filePath
+})
 
 ipcMain.handle('fileinfo:getLog', async (_e, filePath: string) => {
   const sidecar = loadFileLog()[normLogPath(filePath)] ?? []

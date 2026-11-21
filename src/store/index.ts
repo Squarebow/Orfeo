@@ -218,6 +218,8 @@ interface OrfeoStore {
   // Settings › Practice › Practice mode (dev mode only until 2.0)
   practiceModeEnabled: boolean
   setPracticeModeEnabled: (v: boolean) => void
+  practiceSummaryEnabled: boolean          // practice mode: a few words on how it went, after playing
+  setPracticeSummaryEnabled: (v: boolean) => void
   // ── Tempo/Key save — off by default. When on, changing BPM/transpose from
   // the loaded file's own values offers a "Save changes" button in the
   // header that bakes them into a new versioned file (see TopBar.tsx). ────
@@ -985,6 +987,8 @@ export const useStore = create<OrfeoStore>((set, get) => ({
   setNoteEditorEnabled: (noteEditorEnabled) => set({ noteEditorEnabled }),
   practiceModeEnabled: false,
   setPracticeModeEnabled: (practiceModeEnabled) => set({ practiceModeEnabled }),
+  practiceSummaryEnabled: true,
+  setPracticeSummaryEnabled: (practiceSummaryEnabled) => set({ practiceSummaryEnabled }),
   saveTempoKeyChangesEnabled: false,
   setSaveTempoKeyChangesEnabled: (saveTempoKeyChangesEnabled) => set({ saveTempoKeyChangesEnabled }),
   songKey: null,
@@ -1506,6 +1510,7 @@ async function restoreLibraryPrefs() {
     if (typeof prefs.showBarNumbers === 'boolean') store.setShowBarNumbers(prefs.showBarNumbers)
     if (typeof prefs.noteEditorEnabled === 'boolean') store.setNoteEditorEnabled(prefs.noteEditorEnabled)
     if (typeof prefs.practiceModeEnabled === 'boolean') store.setPracticeModeEnabled(prefs.practiceModeEnabled)
+    if (typeof prefs.practiceSummaryEnabled === 'boolean') store.setPracticeSummaryEnabled(prefs.practiceSummaryEnabled)
     if (typeof prefs.saveTempoKeyChangesEnabled === 'boolean') store.setSaveTempoKeyChangesEnabled(prefs.saveTempoKeyChangesEnabled)
     if (typeof prefs.tapTempoPadEnabled === 'boolean') store.setTapTempoPadEnabled(prefs.tapTempoPadEnabled)
     if (prefs.tapTempoMode === 'beat' || prefs.tapTempoMode === 'bar') store.setTapTempoMode(prefs.tapTempoMode)
@@ -1743,6 +1748,7 @@ let _prevAudioEngine: string | null = null
 let _prevShowBarNumbers: boolean | null = null
 let _prevNoteEditorEnabled:    boolean | null = null
 let _prevPracticeModeEnabled:  boolean | null = null
+let _prevPracticeSummaryEnabled: boolean | null = null
 let _prevSaveTempoKeyChangesEnabled: boolean | null = null
 let _prevTapTempoPadEnabled: boolean | null = null
 let _prevTapTempoMode: string | null = null
@@ -1825,6 +1831,7 @@ const _unsubPrefs = useStore.subscribe((state) => {
     _prevShowBarNumbers = state.showBarNumbers
     _prevNoteEditorEnabled = state.noteEditorEnabled
     _prevPracticeModeEnabled = state.practiceModeEnabled
+    _prevPracticeSummaryEnabled = state.practiceSummaryEnabled
     _prevSaveTempoKeyChangesEnabled = state.saveTempoKeyChangesEnabled
     _prevTapTempoPadEnabled = state.tapTempoPadEnabled
     _prevTapTempoMode = state.tapTempoMode
@@ -1910,6 +1917,7 @@ const _unsubPrefs = useStore.subscribe((state) => {
     state.showBarNumbers !== _prevShowBarNumbers ||
     state.noteEditorEnabled !== _prevNoteEditorEnabled ||
     state.practiceModeEnabled !== _prevPracticeModeEnabled ||
+    state.practiceSummaryEnabled !== _prevPracticeSummaryEnabled ||
     state.saveTempoKeyChangesEnabled !== _prevSaveTempoKeyChangesEnabled ||
     state.tapTempoPadEnabled !== _prevTapTempoPadEnabled ||
     state.tapTempoMode !== _prevTapTempoMode ||
@@ -1987,6 +1995,7 @@ const _unsubPrefs = useStore.subscribe((state) => {
     _prevShowBarNumbers = state.showBarNumbers
     _prevNoteEditorEnabled = state.noteEditorEnabled
     _prevPracticeModeEnabled = state.practiceModeEnabled
+    _prevPracticeSummaryEnabled = state.practiceSummaryEnabled
     _prevSaveTempoKeyChangesEnabled = state.saveTempoKeyChangesEnabled
     _prevTapTempoPadEnabled = state.tapTempoPadEnabled
     _prevTapTempoMode = state.tapTempoMode
@@ -2070,6 +2079,7 @@ const _unsubPrefs = useStore.subscribe((state) => {
       showBarNumbers: state.showBarNumbers,
       noteEditorEnabled: state.noteEditorEnabled,
       practiceModeEnabled: state.practiceModeEnabled,
+      practiceSummaryEnabled: state.practiceSummaryEnabled,
       saveTempoKeyChangesEnabled: state.saveTempoKeyChangesEnabled,
       tapTempoPadEnabled: state.tapTempoPadEnabled,
       tapTempoMode: state.tapTempoMode,

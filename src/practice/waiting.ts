@@ -62,6 +62,7 @@ useListen.subscribe(() => {
 })
 
 onSongJump(t => { useWaiting.setState({ holding: false, at: null }); current()?.reset(t) })
+useStore.subscribe((s, prev) => { if (s.bpm !== prev.bpm) waiter?.setGrace((outputLatencySec() + GRACE_SEC) * ratio()) })
 usePractice.subscribe((p, prev) => {
   if (p.way !== prev.way || p.waitOn !== prev.waitOn || p.active !== prev.active) {
     if (!waitingOn()) endHold(false)

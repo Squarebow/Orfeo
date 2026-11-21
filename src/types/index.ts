@@ -236,6 +236,11 @@ declare global {
       deleteLibraryFolder: (libraryFolder: string, name: string) => Promise<{ ok: boolean; reason?: string }>
       renameLibraryFile: (filePath: string, newName: string) => Promise<{ ok: boolean; reason?: string; newPath?: string }>
       getFileLog:  (filePath: string) => Promise<{ type: string; timestamp: number; summary: string }[]>
+      // Practice numbers per song (practice mode), kept in their own files
+      practiceLoad: (song: string) => Promise<unknown | null>
+      practiceSave: (song: string, data: unknown) => Promise<boolean>
+      practiceForget: (song: string) => Promise<void>
+      practiceSaveCsv: (name: string, text: string) => Promise<string | null>
       logFileEvent: (filePath: string, type: string, summary: string) => Promise<void>
       listFileVersions: (filePath: string) => Promise<{ name: string; path: string; version: number; mtime: number }[]>
       moveLibraryFiles:    (filePaths: string[], libraryFolder: string, destFolderName: string | null) => Promise<{ oldPath: string; newPath: string }[]>
