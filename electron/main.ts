@@ -773,6 +773,20 @@ ipcMain.handle('export:saveAs', async (_e, o: { fileName: string; filterName: st
   return result.filePath
 })
 
+// ── A finished take saves by itself (record/blank.ts): Orfeo/Recordings in the
+// Library (the Music folder without one), a free name, then it opens ───────
+ipcMain.handle('record:saveTake', async (_e, o: { fileName: string; libraryFolder: string | null; bytes: Uint8Array; open: boolean }) => {
+  const dir = join(o.libraryFolder ?? app.getPath('music'), 'Orfeo', 'Recordings')
+  await mkdir(dir, { recursive: true })
+  const base = safeExportName(o.fileName)
+  for (let tries = 0; tries < 50; tries++) {
+    const path = join(dir, nextFreeName(new Set(await readdir(dir)), base))
+    try { await writeFile(path, o.bytes, { flag: 'wx' }); if (o.open) openSong(path); return path }
+    catch (e: any) { if (e?.code !== 'EEXIST') throw e }
+  }
+  throw new Error('no free file name in Recordings')
+})
+
 ipcMain.handle('fs:loadMidiFromPath', async (_e, filePath: string) => {
   try {
     const fileName = filePath.split(/[\\/]/).pop() ?? filePath

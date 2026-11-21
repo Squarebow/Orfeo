@@ -2,6 +2,7 @@ import { useEffect, useState, useCallback, useRef } from 'react'
 import TopBar from './components/Transport/TopBar'
 import PracticeTopBar from './components/Practice/PracticeTopBar'
 import PracticeStrip from './components/Practice/PracticeStrip'
+import BlankRecord from './components/Record/BlankRecord'
 import ListenPanel from './components/Practice/ListenPanel'
 import PracticeSummaryCard from './components/Practice/PracticeSummaryCard'
 import PracticeReview from './components/Practice/PracticeReview'
@@ -554,6 +555,8 @@ export default function App() {
 
       {/* ── Presentation Mode: TopBar slides in from top on hover ─────────────
           In normal mode TopBar is in-flow; in PM it becomes a fixed overlay. ── */}
+      {/* recording on a blank page (after 2.0): its setup and the bar while you play */}
+      <BlankRecord />
       {practicing ? (
         // ── Practice mode: its own narrow top bar, nothing else around the roll ──
         <><PracticeTopBar /><ListenPanel /><PracticeSummaryCard /><PracticeReview /><PracticeProgress /></>

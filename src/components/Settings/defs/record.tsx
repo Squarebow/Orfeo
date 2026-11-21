@@ -4,6 +4,7 @@ import { useStore } from '../../../store'
 import { useRecorder, startRecording, stopRecording } from '../../../record/recorder'
 import { recordingToMidi } from '../../../record/recordingToMidi'
 import { runExport, takeBaseName, EXPORT_FORMATS } from '../../../export/exporters'
+import { openBlankSetup, useBlank } from '../../../record/blank'
 
 // ── Dev Tools: recording and exports (after 2.0), plain strings ──────────────
 const devBox: React.CSSProperties = { marginTop: 12, padding: 8, border: '1px dashed var(--border2)', borderRadius: 4, fontSize: 10, color: 'var(--text-muted)', fontFamily: 'var(--font-ui)', display: 'grid', rowGap: 6 }
@@ -28,8 +29,15 @@ export function RecordingTestPanel() {
     setSaved(path ? `Saved: ${path}` : 'Cancelled')
   }
 
+  const blankMsg = useBlank(s => s.message)
   return (
     <div style={devBox}>
+      <div style={devHead}>Blank mode</div>
+      <div>Record on a blank page: time signature, With click or Free, one piano or two hands, count-in, then play. On Stop the take saves itself in Orfeo › Recordings and opens. Closes Settings first.</div>
+      <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4, alignItems: 'center' }}>
+        <OptionBtn active={false} onClick={() => { useStore.getState().closeSettingsWindow(); openBlankSetup() }}>Open Blank mode</OptionBtn>
+        {blankMsg && <span style={{ wordBreak: 'break-all' }}>{blankMsg}</span>}
+      </div>
       <div style={devHead}>Recording · test</div>
       <div>Records every key and pedal from your keyboard (or the simulated one) as you play, then saves it as an ordinary MIDI file. Groundwork only: players get Blank and Overdub later. Nothing is saved unless you press Save.</div>
       <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4, alignItems: 'center' }}>

@@ -1,6 +1,7 @@
 import { Midi } from '@tonejs/midi'
 import { Take } from './recorder'
 import { recordingToMidi } from './recordingToMidi'
+import { beatAt, quarterBpm, barSec } from './click'
 
 export function runRecorderTest(): number {
   console.group('[recorder] self-check')
@@ -55,6 +56,18 @@ export function runRecorderTest(): number {
     check(two.tracks[0].controlChanges[64]?.length === 2 && two.tracks[1].controlChanges[64]?.length === 2, 'the pedal on both hands')
     const trimmed = new Midi(recordingToMidi(rec, { trimStart: true }))
     check(near(trimmed.tracks[0].notes.find(n => n.midi === 48)!.time, 0.5), 'trimmed: half a second before the first note')
+    // bars of 0.4 s: the first note at 1 s is in bar 3 (0.8–1.2), so two whole bars go
+    const barTrim = new Midi(recordingToMidi(rec, { trimStart: true, barSec: 0.4 }))
+    check(near(barTrim.tracks[0].notes.find(n => n.midi === 48)!.time, 0.2), 'trimmed by whole bars: the bars stay where they were')
+  }
+
+  // ── The click ──
+  {
+    const m = { beats: 3, unit: 4 }
+    check(beatAt(0, 120, m, 1).accent && beatAt(0, 120, m, 1).countIn, 'the count-in starts on a bar')
+    check(!beatAt(2, 120, m, 1).accent && beatAt(3, 120, m, 1).accent && !beatAt(3, 120, m, 1).countIn, 'after one bar of 3/4 the take begins, on an accent')
+    check(near(beatAt(3, 120, m, 1).t, 1.5) && near(barSec(120, m), 1.5), 'three beats at 120 take 1.5 s')
+    check(quarterBpm(120, { beats: 6, unit: 8 }) === 60, '6/8 at 120 eighths: 60 quarters a minute in the file')
   }
 
   console.log(`${pass} passed, ${fail} failed`)

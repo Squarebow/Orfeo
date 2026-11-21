@@ -13,6 +13,7 @@ export interface ToMidiOptions {
   splitKey?: number          // MIDI note: below it the left hand, from it up the right
   name?: string              // the song's name in the file
   trimStart?: boolean        // start the file just before the first note (default: as played)
+  barSec?: number            // with trimStart: cut whole bars only, so a take to a click keeps its bars
 }
 
 const LEAD_IN = 0.5          // seconds kept before the first note when trimming
@@ -24,7 +25,9 @@ export function recordingToMidi(rec: Recording, o: ToMidiOptions = {}): Uint8Arr
   if (o.name) midi.header.name = o.name
 
   const firstOn = rec.events.find(e => e.type === 'on')?.t ?? 0
-  const shift = o.trimStart ? Math.max(0, firstOn - LEAD_IN) : 0
+  const shift = !o.trimStart ? 0
+    : o.barSec ? Math.floor((firstOn + 0.05) / o.barSec) * o.barSec   // a note a hair early still counts in its bar
+    : Math.max(0, firstOn - LEAD_IN)
 
   const split = o.splitKey
   const one = split === undefined
