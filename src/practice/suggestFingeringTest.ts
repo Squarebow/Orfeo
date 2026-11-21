@@ -73,6 +73,27 @@ export function runSuggestFingeringTest(): number {
   const held: FingerNote[] = [{ midi: 60, time: 0, dur: 2 }, ...[64, 65, 67, 69].map((m, i) => ({ midi: m, time: i * 0.5, dur: 0.45 }))]
   check(suggestFingering(held, 'R').join(' ') === '1 2 3 4 5', 'a held C under E-F-G-A: the thumb holds, the tune on 2-3-4-5')
 
+  // held over several moves: the finger stays on its key the whole time
+  const heldLong: FingerNote[] = [{ midi: 60, time: 0, dur: 3.5 }, ...[64, 65, 67, 69, 67, 65, 64].map((m, i) => ({ midi: m, time: i * 0.5, dur: 0.45 }))]
+  check(suggestFingering(heldLong, 'R').join(' ') === '1 2 3 4 5 4 3 2', 'a C held under a whole tune: the thumb never leaves it')
+  const heldL: FingerNote[] = [{ midi: 43, time: 0, dur: 3.5 }, ...[48, 50, 52, 50, 48, 47].map((m, i) => ({ midi: m, time: i * 0.5, dur: 0.45 }))]
+  check(suggestFingering(heldL, 'L').join(' ') === '5 3 2 1 2 3 4', 'left hand: 5 holds the G under the tune')
+  // minor keys on black keys, and the melodic minor (one octave)
+  const one = (start: number, steps: number[]) => { const out = [start]; for (const st of steps) out.push(out[out.length - 1] + st); return out }
+  const MEL = [2, 1, 2, 2, 2, 2, 1]
+  for (const [name, start, tonic, r, l] of [
+    ['F♯ minor', 66, 6, '3 4 1 2 3 1 2 3', '4 3 2 1 3 2 1'],
+    ['C♯ minor', 61, 1, '3 4 1 2 3 1 2 3', '3 2 1 4 3 2 1'],
+    ['G♯ minor', 68, 8, '3 4 1 2 3 1 2 3', '3 2 1 3 2 1 4'],
+    ['E♭ minor', 63, 3, '3 1 2 3 4 1 2 3', '2 1 4 3 2 1 3'],
+    ['B♭ minor', 70, 10, '2 1 2 3 1 2 3 4', '2 1 3 2 1 4 3'],
+  ] as const) {
+    const rr = fk(one(start, HMIN), 'R', k(tonic, true)), ll = fk(one(start - 12, HMIN), 'L', k(tonic, true)).split(' ').slice(0, 7).join(' ')
+    check(rr === r, `${name} harmonic, right hand ${r} (${rr})`)
+    check(ll === l, `${name} harmonic, left hand ${l} … (${ll})`)
+  }
+  check(fk(one(69, MEL), 'R', k(9, true)) === '1 2 3 1 2 3 4 5', 'A melodic minor going up (F♯, G♯), right hand')
+
   // a hand can't play six notes at once: no suggestion, nothing broken
   check(suggestFingering(chord([48, 52, 55, 60, 64, 67]), 'R').every(x => x === undefined), 'six notes at once: left without numbers')
   // a small hand doesn't stretch a 10th in one go

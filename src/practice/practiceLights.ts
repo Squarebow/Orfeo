@@ -7,6 +7,7 @@ import { usePractice } from './practiceMode'
 import { currentMatcher, useListen, useWaiting } from './listen'
 import { useReview, reviewing } from './reviewState'
 import type { Expected } from './matcher'
+import { useFingerHints } from './fingerHints'
 
 // ── Lighted keyboards in practice mode (practice stage 7) ────────────────────
 // Outside practice mode a lighted keyboard shows the song's notes as they
@@ -184,6 +185,7 @@ const unsubs = [
   useListen.subscribe(update),      // a key you played (a waited-for key goes dark), a fresh take
   usePractice.subscribe(update),
   useReview.subscribe(update),
+  useFingerHints.subscribe(update), // suggested fingers changed: a keyboard lighting per finger follows
 ]
 setLightSource(source)
 

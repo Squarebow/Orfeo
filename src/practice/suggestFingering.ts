@@ -54,8 +54,7 @@ const isBlack = (midi: number) => BLACK.has(((midi % 12) + 12) % 12)
 // ── The standard scale fingerings (the tables in scale books and exam
 // syllabuses): for each key, the finger on each note of the scale as it goes
 // on over several octaves. A run of scale notes in the song's key follows its
-// table (its first and last notes are left to the search: a scale starts and
-// ends its own way). Minor keys: the harmonic minor, its 6th and 7th either way
+// table (its last note is left to the search: a scale ends its own way). Minor keys: the harmonic minor, its 6th and 7th either way
 // (natural or raised) on the same finger. ────────────────────────────────────
 const SCALES_RH: Record<string, string> = {
   C: 'C1 D2 E3 F1 G2 A3 B4', G: 'G1 A2 B3 C1 D2 E3 F#4', D: 'D1 E2 F#3 G1 A2 B3 C#4',
@@ -65,6 +64,8 @@ const SCALES_RH: Record<string, string> = {
   am: 'A1 B2 C3 D1 E2 F3 F#3 G4 G#4', em: 'E1 F#2 G3 A1 B2 C3 C#3 D4 D#4', dm: 'D1 E2 F3 G1 A2 Bb3 B3 C4 C#4',
   gm: 'G1 A2 Bb3 C1 D2 Eb3 E3 F4 F#4', cm: 'C1 D2 Eb3 F1 G2 Ab3 A3 Bb4 B4', bm: 'B1 C#2 D3 E1 F#2 G3 G#3 A4 A#4',
   fm: 'F1 G2 Ab3 Bb4 C1 Db2 D2 Eb3 E3',
+  'f#m': 'F#3 G#4 A1 B2 C#3 D1 D#1 E2 F2', 'c#m': 'C#3 D#4 E1 F#2 G#3 A1 A#1 B2 C2', 'g#m': 'G#3 A#4 B1 C#2 D#3 E1 F1 F#2 G2',
+  ebm: 'Eb3 F1 Gb2 Ab3 Bb4 Cb1 C1 Db2 D2', bbm: 'Bb4 C1 Db2 Eb3 F1 Gb2 G2 Ab3 A3',
 }
 const SCALES_LH: Record<string, string> = {
   C: 'C1 D4 E3 F2 G1 A3 B2', G: 'G1 A4 B3 C2 D1 E3 F#2', D: 'D1 E4 F#3 G2 A1 B3 C#2',
@@ -74,6 +75,8 @@ const SCALES_LH: Record<string, string> = {
   am: 'A1 B4 C3 D2 E1 F3 F#3 G2 G#2', em: 'E1 F#4 G3 A2 B1 C3 C#3 D2 D#2', dm: 'D1 E4 F3 G2 A1 Bb3 B3 C2 C#2',
   gm: 'G1 A4 Bb3 C2 D1 Eb3 E3 F2 F#2', cm: 'C1 D4 Eb3 F2 G1 Ab3 A3 Bb2 B2', bm: 'B4 C#3 D2 E1 F#4 G3 G#3 A2 A#2',
   fm: 'F1 G4 Ab3 Bb2 C1 Db3 D3 Eb2 E2',
+  'f#m': 'F#4 G#3 A2 B1 C#3 D2 D#2 E1 F1', 'c#m': 'C#3 D#2 E1 F#4 G#3 A2 A#2 B1 C1', 'g#m': 'G#3 A#2 B1 C#3 D#2 E1 F1 F#4 G4',
+  ebm: 'Eb2 F1 Gb4 Ab3 Bb2 Cb1 C1 Db3 D3', bbm: 'Bb2 C1 Db3 Eb2 F1 Gb4 G4 Ab3 A3',
 }
 const PC: Record<string, number> = { C: 0, D: 2, E: 4, F: 5, G: 7, A: 9, B: 11 }
 const pcOf = (name: string) => (PC[name[0]] + (name.includes('#') ? 1 : name.includes('b') ? -1 : 0) + 12) % 12
@@ -214,6 +217,25 @@ function moveCost(a: Moment, sa: number[], b: Moment, sb: number[], scale: numbe
   return c
 }
 
+/** How many moments back a held note is looked for */
+const HELD_LOOKBACK = 16
+
+/** Does `sb` put a finger that's still holding an earlier key (on the path ending
+ *  in state `p` of the previous moment) onto another key? */
+function heldClash(held: [number, number][], p: number, sb: number[], m: Moment, seg: Moment[], S: number[][][], back: number[][]): boolean {
+  // the states along the path, from the previous moment back to the oldest held one
+  let st = p
+  const stateAt = new Map<number, number>([[seg.length - 1, p]])
+  const oldest = Math.min(...held.map(h => h[0]))
+  for (let v = seg.length - 1; v > oldest; v--) { st = back[v][st]; if (st < 0) return false; stateAt.set(v - 1, st) }
+  for (const [u, i] of held) {
+    const f = S[u][stateAt.get(u)!]?.[i]
+    if (f === undefined) continue
+    for (let j = 0; j < sb.length; j++) if (sb[j] === f && m.midi[j] !== seg[u].midi[i]) return true
+  }
+  return false
+}
+
 /** Suggested fingers for one hand's notes (in any order): one per note, or
  *  undefined where none can be given (more than five notes at once). Notes with
  *  a finger already keep it. */
@@ -256,7 +278,12 @@ export function suggestFingering(notes: FingerNote[], hand: 'L' | 'R', size: Han
       }
       if (j - i >= SCALE_RUN) {
         const table = scaleTable(new Set(chain.slice(i, j).map(m => ((m.midi[0] % 12) + 12) % 12)), hand, key)
-        if (table) for (let u = i + 1; u < j - 1; u++) chain[u].scale = table.get(((chain[u].midi[0] % 12) + 12) % 12)
+        if (table) for (let u = i; u < j - 1; u++) {
+          const want = table.get(((chain[u].midi[0] % 12) + 12) % 12)
+          // the first note too, unless the table gives it 4 or 5 (a scale begins on a
+          // lower finger: B♭ major starts on 2, and continues with 4 on B♭)
+          if (u > i || (want !== undefined && want < 4)) chain[u].scale = want
+        }
       }
       i = Math.max(i + 1, j - 1)
     }
@@ -280,8 +307,15 @@ export function suggestFingering(notes: FingerNote[], hand: 'L' | 'R', size: Han
           let best = Infinity, arg = -1
           if (Number.isFinite(own)) {
             const prev = S[S.length - 1], a = seg[seg.length - 1]
+            // notes held from further back (still down when this moment starts):
+            // their fingers, on the path that leads to each candidate, stay on them
+            const held: [number, number][] = []
+            for (let u = seg.length - 2; u >= Math.max(0, seg.length - 1 - HELD_LOOKBACK); u--) {
+              seg[u].ends.forEach((e, i) => { if (e > chain[t].time + CHORD_SEC) held.push([u, i]) })
+            }
             for (let p = 0; p < prev.length; p++) {
               if (!Number.isFinite(cost[p])) continue
+              if (held.length && heldClash(held, p, sb, chain[t], seg, S, back)) continue
               const c = cost[p] + moveCost(a, prev[p], chain[t], sb, scale)
               if (c < best) { best = c; arg = p }
             }
