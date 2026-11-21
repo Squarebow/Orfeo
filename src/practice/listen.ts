@@ -8,8 +8,6 @@ import { usePractice, practisedHand } from './practiceMode'
 import { Matcher, type Expected, type Outcome, type Summary } from './matcher'
 import type { TakeEnd } from './take'
 import { reviewing } from './reviewState'
-import { useScoreUi } from '../notation/scoreMode'
-import { melodyOf } from '../notation/score'
 
 // ── Orfeo listens (practice stage 2) ─────────────────────────────────────────
 // While practice mode plays, every key you press is placed in the song (where
@@ -36,20 +34,9 @@ export function heardSongTime(perf: number = performance.now()): number {
 }
 
 // ── What you're meant to play right now: your hand(s) of the piano ───────────
-// The score as melody and chords (a lead sheet): only the melody is asked
-// for; the chords are the player's own, so keys below the tune don't count
-export const leadSheetOn = () => usePractice.getState().view === 'score' && useScoreUi.getState().mode === 'lead'
-let leadFloor = -1   // keys below this are the player's own chords (lead sheet only)
-
 export function expectedNotes(): Expected[] {
   const s = useStore.getState()
   if (!s.midi) return []
-  if (leadSheetOn()) {
-    const shift = s.detectedKey?.transpose ?? 0
-    const all = s.tracks.filter(ts => ts.practicePart && ts.practiceHand).flatMap(ts =>
-      (s.midi!.tracks.find(t => t.index === ts.index)?.notes ?? []).map(n => ({ midi: n.midi + shift, time: n.time, dur: n.duration, hand: ts.practiceHand! })))
-    return melodyOf(all).map(n => ({ midi: n.midi, time: n.time, hand: 'R' as const, bar: barOf(n.time, s.barStarts) ?? 1, dur: n.dur }))
-  }
   const hand = practisedHand()
   const shift = s.detectedKey?.transpose ?? 0
   const out: Expected[] = []
@@ -106,7 +93,6 @@ export function rebuildListening(): void {
   if (!usePractice.getState().active || !s.midi) { matcher = null; useListen.setState({ listening: false, summary: null, recent: [] }); return }
   win = MATCH_WINDOW_SEC * ratio()
   const exp = expectedNotes()
-  leadFloor = leadSheetOn() && exp.length ? Math.min(...exp.map(e => e.midi)) - 2 : -1
   matcher = new Matcher(exp, win, t => barOf(t, useStore.getState().barStarts) ?? 1)
   const now = s.currentTime
   matcher.skip(e => e.time < now - 1e-6)
@@ -130,7 +116,6 @@ export function freshTake(): void {
 // ── Wiring ───────────────────────────────────────────────────────────────────
 onPlayedKey(k => {
   if (!k.on || !matcher || !takingKeys()) return
-  if (k.note < leadFloor) return   // a lead sheet: the chords under the tune are yours
   publish([matcher.play({ midi: k.note, time: heardSongTime(k.at), vel: k.vel })])
 })
 
@@ -169,9 +154,9 @@ useStore.subscribe((s, prev) => {
 })
 
 usePractice.subscribe((p, prev) => {
-  if (p.active !== prev.active || p.way !== prev.way || p.hand !== prev.hand || p.onlyHand !== prev.onlyHand || p.view !== prev.view) rebuildListening()
+  if (p.active !== prev.active || p.way !== prev.way || p.hand !== prev.hand || p.onlyHand !== prev.onlyHand) rebuildListening()
 })
-useScoreUi.subscribe((m, prev) => { if ((m.mode === 'lead') !== (prev.mode === 'lead') && usePractice.getState().active) rebuildListening() })
+
 
 /** For tests and the Dev Tools: the matcher in use */
 export const currentMatcher = () => matcher

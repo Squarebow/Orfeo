@@ -20,7 +20,8 @@ import { fitFrame, defaultFrame, resizeFrame, frameZoom, type Frame, type Edge }
 // Same size for every group; only the content area scrolls. ─────────────
 
 // Dev Tools is listed (and searched) only in dev mode
-const SHOWN_GROUPS = GROUPS.filter(g => g.id !== 'devtools' || simAvailable)
+// Dev Tools in dev mode only; Score while practice mode is dev mode only (until 2.0)
+const SHOWN_GROUPS = GROUPS.filter(g => (g.id !== 'devtools' && g.id !== 'score') || simAvailable)
 
 const displayVersion = (v: string) => v.replace(/\.0$/, '')
 

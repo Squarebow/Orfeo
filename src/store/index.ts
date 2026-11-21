@@ -1,3 +1,4 @@
+import { DEFAULT_SCORE_OPTIONS, readScoreOptions, type ScoreOptions } from '../notation/scoreOptions'
 import { create } from 'zustand'
 import type {
   ParsedMidi, ParsedTrack, PlaybackState, TrackState,
@@ -219,6 +220,8 @@ interface OrfeoStore {
   practiceModeEnabled: boolean
   setPracticeModeEnabled: (v: boolean) => void
   practiceSummaryEnabled: boolean          // practice mode: a few words on how it went, after playing
+  scoreOptions: ScoreOptions               // practice mode: how the score is written and looks (Settings › Score)
+  setScoreOptions: (patch: Partial<ScoreOptions>) => void
   setPracticeSummaryEnabled: (v: boolean) => void
   // ── Tempo/Key save — off by default. When on, changing BPM/transpose from
   // the loaded file's own values offers a "Save changes" button in the
@@ -988,6 +991,8 @@ export const useStore = create<OrfeoStore>((set, get) => ({
   practiceModeEnabled: false,
   setPracticeModeEnabled: (practiceModeEnabled) => set({ practiceModeEnabled }),
   practiceSummaryEnabled: true,
+  scoreOptions: DEFAULT_SCORE_OPTIONS,
+  setScoreOptions: (patch) => set((s) => ({ scoreOptions: { ...s.scoreOptions, ...patch } })),
   setPracticeSummaryEnabled: (practiceSummaryEnabled) => set({ practiceSummaryEnabled }),
   saveTempoKeyChangesEnabled: false,
   setSaveTempoKeyChangesEnabled: (saveTempoKeyChangesEnabled) => set({ saveTempoKeyChangesEnabled }),
@@ -1511,6 +1516,7 @@ async function restoreLibraryPrefs() {
     if (typeof prefs.noteEditorEnabled === 'boolean') store.setNoteEditorEnabled(prefs.noteEditorEnabled)
     if (typeof prefs.practiceModeEnabled === 'boolean') store.setPracticeModeEnabled(prefs.practiceModeEnabled)
     if (typeof prefs.practiceSummaryEnabled === 'boolean') store.setPracticeSummaryEnabled(prefs.practiceSummaryEnabled)
+    if (prefs.scoreOptions) useStore.setState({ scoreOptions: readScoreOptions(prefs.scoreOptions) })
     if (typeof prefs.saveTempoKeyChangesEnabled === 'boolean') store.setSaveTempoKeyChangesEnabled(prefs.saveTempoKeyChangesEnabled)
     if (typeof prefs.tapTempoPadEnabled === 'boolean') store.setTapTempoPadEnabled(prefs.tapTempoPadEnabled)
     if (prefs.tapTempoMode === 'beat' || prefs.tapTempoMode === 'bar') store.setTapTempoMode(prefs.tapTempoMode)
@@ -1749,6 +1755,7 @@ let _prevShowBarNumbers: boolean | null = null
 let _prevNoteEditorEnabled:    boolean | null = null
 let _prevPracticeModeEnabled:  boolean | null = null
 let _prevPracticeSummaryEnabled: boolean | null = null
+let _prevScoreOptions: ScoreOptions | null = null
 let _prevSaveTempoKeyChangesEnabled: boolean | null = null
 let _prevTapTempoPadEnabled: boolean | null = null
 let _prevTapTempoMode: string | null = null
@@ -1832,6 +1839,7 @@ const _unsubPrefs = useStore.subscribe((state) => {
     _prevNoteEditorEnabled = state.noteEditorEnabled
     _prevPracticeModeEnabled = state.practiceModeEnabled
     _prevPracticeSummaryEnabled = state.practiceSummaryEnabled
+    _prevScoreOptions = state.scoreOptions
     _prevSaveTempoKeyChangesEnabled = state.saveTempoKeyChangesEnabled
     _prevTapTempoPadEnabled = state.tapTempoPadEnabled
     _prevTapTempoMode = state.tapTempoMode
@@ -1918,6 +1926,7 @@ const _unsubPrefs = useStore.subscribe((state) => {
     state.noteEditorEnabled !== _prevNoteEditorEnabled ||
     state.practiceModeEnabled !== _prevPracticeModeEnabled ||
     state.practiceSummaryEnabled !== _prevPracticeSummaryEnabled ||
+    state.scoreOptions !== _prevScoreOptions ||
     state.saveTempoKeyChangesEnabled !== _prevSaveTempoKeyChangesEnabled ||
     state.tapTempoPadEnabled !== _prevTapTempoPadEnabled ||
     state.tapTempoMode !== _prevTapTempoMode ||
@@ -1996,6 +2005,7 @@ const _unsubPrefs = useStore.subscribe((state) => {
     _prevNoteEditorEnabled = state.noteEditorEnabled
     _prevPracticeModeEnabled = state.practiceModeEnabled
     _prevPracticeSummaryEnabled = state.practiceSummaryEnabled
+    _prevScoreOptions = state.scoreOptions
     _prevSaveTempoKeyChangesEnabled = state.saveTempoKeyChangesEnabled
     _prevTapTempoPadEnabled = state.tapTempoPadEnabled
     _prevTapTempoMode = state.tapTempoMode
@@ -2080,6 +2090,7 @@ const _unsubPrefs = useStore.subscribe((state) => {
       noteEditorEnabled: state.noteEditorEnabled,
       practiceModeEnabled: state.practiceModeEnabled,
       practiceSummaryEnabled: state.practiceSummaryEnabled,
+      scoreOptions: state.scoreOptions,
       saveTempoKeyChangesEnabled: state.saveTempoKeyChangesEnabled,
       tapTempoPadEnabled: state.tapTempoPadEnabled,
       tapTempoMode: state.tapTempoMode,

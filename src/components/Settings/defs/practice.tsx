@@ -13,7 +13,7 @@ import type { TakeRecord } from '../../../practice/take'
 import { takesCsv } from '../../../practice/words'
 import { openReview } from '../../../practice/review'
 import { openProgress } from '../../Practice/PracticeProgress'
-import { useSongScore, useScoreUi } from '../../Practice/ScoreView'
+import { useSongScore } from '../../Practice/ScoreView'
 import { usePractice } from '../../../practice/practiceMode'
 import { keySpecOf } from '../../../notation/score'
 
@@ -156,23 +156,22 @@ export function PracticeHistoryPanel() {
 export function ScoreTestPanel() {
   const active = usePractice(s => s.active)
   const view = usePractice(s => s.view)
-  const mode = useScoreUi(s => s.mode)
-  const { score, tight, simple } = useSongScore()
+  const { score, tight, simple, options } = useSongScore()
   const bars = score?.bars ?? []
   const notes = bars.reduce((a, b) => a + b.R.filter(e => e.keys && !e.tie).length + b.L.filter(e => e.keys && !e.tie).length, 0)
   return (
     <div style={devBox}>
       <div style={devHead}>The score · practice mode</div>
-      <div>The score shows in practice mode (strip: Score). Built from the two piano tracks: sixteenths and triplets, or eighths when the song looks played in by hand (fewer than 85 % of notes on the grid); swung songs written straight; held notes under moving ones as a second voice; the sustain pedal. Melody and chords: the top line of the right hand with the chord names, and Orfeo listens to the melody only.</div>
+      <div>The score shows in practice mode (strip: Score). Built from the two piano tracks: sixteenths and triplets, or eighths when the song looks played in by hand (fewer than 85 % of notes on the grid); swung songs written straight; held notes under moving ones as a second voice; the sustain pedal; chord names above the treble staff. Its choices live in Settings › Score.</div>
       {!active || !score ? <div style={{ color: 'var(--text-amber)' }}>Go into practice mode on a ready song first.</div> : (
         <div style={{ fontFamily: 'var(--font-mono)' }}>
-          {bars.length} bars · {notes} chords and notes written · key {keySpecOf(score.keyFifths)} · on the grid {Math.round(tight * 100)} % · {simple ? 'simplified (eighths)' : 'as written'} · triplets {bars.reduce((a, b) => a + new Set([...b.R, ...b.L].filter(e => e.triplet !== undefined).map(e => e.triplet)).size, 0)} · second voices in {bars.filter(b => b.R2 || b.L2).length} bars · pedal marks {bars.reduce((a, b) => a + (b.pedal?.length ?? 0), 0)} · {score.swing ? 'swung' : 'straight'} · choice: {mode}
+          {bars.length} bars · {notes} chords and notes written · key {keySpecOf(score.keyFifths)} · on the grid {Math.round(tight * 100)} % · {simple ? 'simplified (eighths)' : 'as written'} · triplets {bars.reduce((a, b) => a + new Set([...b.R, ...b.L].filter(e => e.triplet !== undefined).map(e => e.triplet)).size, 0)} · second voices in {bars.filter(b => b.R2 || b.L2).length} bars · pedal marks {bars.reduce((a, b) => a + (b.pedal?.length ?? 0), 0)} · chord names {bars.reduce((a, b) => a + (b.chords?.length ?? 0), 0)} · {score.swing ? 'swung' : 'straight'} · choice: {options.writing}
         </div>
       )}
       <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4 }}>
         <OptionBtn active={view === 'score'} onClick={() => usePractice.setState({ view: 'score' })}>Show the score</OptionBtn>
         <OptionBtn active={view === 'roll'} onClick={() => usePractice.setState({ view: 'roll' })}>Show the piano roll</OptionBtn>
-        {(['auto', 'full', 'simple', 'lead'] as const).map(m => <OptionBtn key={m} active={mode === m} onClick={() => useScoreUi.setState({ mode: m })}>{m === 'auto' ? 'Orfeo chooses' : m === 'full' ? 'As written' : m === 'simple' ? 'Simplified' : 'Melody and chords'}</OptionBtn>)}
+        <OptionBtn active={false} onClick={() => useStore.getState().openSettingsWindow('score')}>Score settings</OptionBtn>
       </div>
     </div>
   )

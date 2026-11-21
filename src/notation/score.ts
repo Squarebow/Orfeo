@@ -13,10 +13,12 @@
 // - lengths are written as note values that keep the beats visible, tied
 //   over beats and bar lines;
 // - the right hand on the upper staff, the left on the lower; the sustain
-//   pedal under it.
-// Or, as a lead sheet: the melody (the top line of the right hand) with the
-// chord names above. Positions are in 48ths of a whole note, so sixteenths
-// (3) and triplet eighths (4) both fit. Pure: no store, no drawing (draw.ts).
+//   pedal under it; the chord names above, each with a weight (how long it
+//   lasts, and whether it falls on a strong beat), so a crowded line can keep
+//   only the main harmony.
+// Each of these can be switched off (Settings › Score). Positions are in 48ths
+// of a whole note, so sixteenths (3) and triplet eighths (4) both fit. Pure: no
+// store, no drawing (draw.ts).
 
 export interface ScoreNote { midi: number; time: number; dur: number; hand: 'L' | 'R' }
 export interface ScoreInput {
@@ -28,6 +30,10 @@ export interface ScoreInput {
   keyFifths: number            // the key signature: sharps (+) or flats (−)
   grid?: 1 | 2                 // the finest straight value: 1 sixteenths, 2 eighths
   pedal?: { down: number; up: number }[]   // sustain pedal, seconds
+  chords?: { time: number; name: string }[] // chord names where they change
+  triplets?: boolean           // beats in three as triplets (default yes)
+  swing?: boolean              // a swung song in straight eighths (default yes)
+  voices?: boolean             // held notes under moving ones as a second voice (default yes)
 }
 
 export const TPW = 48          // ticks in a whole note
@@ -48,9 +54,9 @@ export interface ScoreBar {
   R: ScoreEvent[]; L: ScoreEvent[]
   R2?: ScoreEvent[]; L2?: ScoreEvent[]   // a second voice (held notes under moving ones)
   pedal?: { time: number; down: boolean }[]
-  chords?: { pos: number; name: string; time: number }[]   // lead sheet
+  chords?: { pos: number; name: string; time: number; weight: number }[]
 }
-export interface Score { bars: ScoreBar[]; keyFifths: number; grid: 1 | 2; swing: boolean; lead: boolean }
+export interface Score { bars: ScoreBar[]; keyFifths: number; grid: 1 | 2; swing: boolean }
 
 // ── Reading seconds as beats ─────────────────────────────────────────────────
 function beatAt(beats: number[], t: number): number {
@@ -132,36 +138,21 @@ export function spell(midi: number, fifths: number): string {
   return `${name}/${Math.floor(midi / 12) - 1}`
 }
 
-/** The melody: the top note of the right hand at each moment, each lasting
- *  until the next one (notes starting within 30 ms are one moment) */
-export function melodyOf(notes: ScoreNote[]): ScoreNote[] {
-  const rh = notes.filter(n => n.hand === 'R').sort((a, b) => a.time - b.time || b.midi - a.midi)
-  const out: ScoreNote[] = []
-  for (const n of rh) {
-    const last = out[out.length - 1]
-    if (last && n.time - last.time < 0.03) { if (n.midi > last.midi) out[out.length - 1] = { ...n, time: last.time }; continue }
-    out.push({ ...n })
-  }
-  for (let i = 0; i < out.length - 1; i++) out[i].dur = Math.min(out[i].dur, out[i + 1].time - out[i].time)
-  return out
-}
-
 // ── The score ────────────────────────────────────────────────────────────────
 interface Q { s: number; e: number; midi: number }
 type VoiceKey = 'R' | 'L' | 'R2' | 'L2'
 
-export function buildScore(inp: ScoreInput, opts: { lead?: { chords: { time: number; name: string }[] } } = {}): Score {
+export function buildScore(inp: ScoreInput): Score {
   const grid = inp.grid ?? 1
   const beats = inp.beatTimes
-  const lead = !!opts.lead
   const sigAt = (t: number) => { let s = inp.timeSigs[0] ?? { num: 4, den: 4, time: 0 }; for (const x of inp.timeSigs) if (x.time <= t + 1e-6) s = x; return s }
   const bars: ScoreBar[] = inp.barStarts.map((start, i) => {
     const sig = sigAt(start)
     return { n: i + 1, num: sig.num, den: sig.den, units: Math.max(1, Math.round(sig.num * TPW / sig.den)), start, end: inp.barStarts[i + 1] ?? inp.duration, R: [], L: [] }
   })
-  const notes = lead ? melodyOf(inp.notes) : inp.notes
-  const swing = isSwung(notes, beats)
-  if (!bars.length) return { bars, keyFifths: inp.keyFifths, grid, swing, lead }
+  const notes = inp.notes
+  const swing = inp.swing !== false && isSwung(notes, beats)
+  if (!bars.length) return { bars, keyFifths: inp.keyFifths, grid, swing }
 
   const barBeat = bars.map(b => beatAt(beats, b.start))
   const offsets: number[] = []
@@ -187,7 +178,7 @@ export function buildScore(inp: ScoreInput, opts: { lead?: { chords: { time: num
     const byBeat = new Map<string, number[]>()
     for (const n of mine) {
       const b = unswing(beatAt(beats, n.time)), bi = barOfBeat(b)
-      if (bars[bi].den !== 4) continue
+      if (bars[bi].den !== 4 || inp.triplets === false) continue
       const inBar = b - barBeat[bi] + 1e-6
       const k = `${bi}:${Math.floor(inBar)}`
       byBeat.set(k, [...(byBeat.get(k) ?? []), frac(inBar)])
@@ -214,7 +205,7 @@ export function buildScore(inp: ScoreInput, opts: { lead?: { chords: { time: num
 
     // the second voice: a note held on under at least two later notes, all above it
     const lower = new Set<Q>()
-    if (!lead) for (const q of qs) {
+    if (inp.voices !== false) for (const q of qs) {
       if (q.e - q.s < 12) continue
       const inside = qs.filter(o => o !== q && o.s > q.s && o.s < q.e)
       if (new Set(inside.map(o => o.s)).size >= 2 && inside.every(o => o.midi > q.midi)) lower.add(q)
@@ -287,17 +278,21 @@ export function buildScore(inp: ScoreInput, opts: { lead?: { chords: { time: num
       if (bars[bi]) (bars[bi].pedal ??= []).push({ time, down })
     }
   }
-  // chord names, where they change (lead sheet), on the nearest eighth
-  if (opts.lead) {
-    let last = ''
-    for (const c of opts.lead.chords) {
-      if (!c.name || c.name === last) continue
-      last = c.name
-      const b = beatAt(beats, c.time), bi = barOfBeat(b)
-      if (!bars[bi]) continue
-      const pos = Math.max(0, Math.round((b - barBeat[bi]) * beatTicks(bi) / 6) * 6)
-      ;(bars[bi].chords ??= []).push({ pos: Math.min(pos, bars[bi].units - 1), name: c.name, time: c.time })
-    }
+  // chord names where they change, on the nearest eighth; the weight says how
+  // much each one carries: how long it lasts, more on beat 1, some on a beat
+  const changes: { tick: number; name: string; time: number }[] = []
+  for (const c of inp.chords ?? []) {
+    if (!c.name || c.name === changes[changes.length - 1]?.name) continue
+    const b = beatAt(beats, c.time), bi = barOfBeat(b)
+    if (!bars[bi]) continue
+    const pos = Math.min(bars[bi].units - 1, Math.max(0, Math.round((b - barBeat[bi]) * beatTicks(bi) / 6) * 6))
+    changes.push({ tick: offsets[bi] + pos, name: c.name, time: c.time })
   }
-  return { bars, keyFifths: inp.keyFifths, grid, swing, lead }
+  changes.forEach((c, k) => {
+    const bi = barOf(c.tick), pos = c.tick - offsets[bi]
+    const lasts = (changes[k + 1]?.tick ?? total) - c.tick
+    const weight = lasts + (pos === 0 ? 24 : pos % beatTicks(bi) === 0 ? 6 : 0)
+    ;(bars[bi].chords ??= []).push({ pos, name: c.name, time: c.time, weight })
+  })
+  return { bars, keyFifths: inp.keyFifths, grid, swing }
 }

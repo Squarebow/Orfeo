@@ -11,8 +11,9 @@ import { APPEARANCE_DEFS } from './appearance'
 import { MIDI_DEFS } from './midi'
 import { LANGUAGE_DEFS } from './language'
 import { DEVTOOLS_DEFS } from './devtools'
+import { SCORE_DEFS } from './score'
 
 export const DEFS = Object.fromEntries(
-  [...AUDIO_DEFS, ...LIBRARY_DEFS, ...PLAYBACK_DEFS, ...PRACTICE_DEFS, ...NOTATION_DEFS, ...KEYBOARD_DEFS, ...PIANO_ROLL_DEFS, ...APPEARANCE_DEFS, ...MIDI_DEFS, ...LANGUAGE_DEFS, ...DEVTOOLS_DEFS]
+  [...AUDIO_DEFS, ...LIBRARY_DEFS, ...PLAYBACK_DEFS, ...PRACTICE_DEFS, ...NOTATION_DEFS, ...KEYBOARD_DEFS, ...PIANO_ROLL_DEFS, ...APPEARANCE_DEFS, ...MIDI_DEFS, ...LANGUAGE_DEFS, ...DEVTOOLS_DEFS, ...SCORE_DEFS]
     .map(d => [d.id, d]),
 ) as Record<SettingId, SettingDef>

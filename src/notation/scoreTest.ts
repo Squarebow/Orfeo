@@ -1,4 +1,4 @@
-import { buildScore, splitLength, onTheGrid, isSwung, melodyOf, fifthsOf, keySpecOf, spell, type ScoreNote, type ScoreEvent } from './score'
+import { buildScore, splitLength, onTheGrid, isSwung, fifthsOf, keySpecOf, spell, type ScoreNote, type ScoreEvent } from './score'
 
 // 4/4 at 120: a beat every half second. Lengths below are in 48ths of a whole
 // note: 12 a quarter, 6 an eighth, 3 a sixteenth, 4 a triplet eighth.
@@ -30,7 +30,7 @@ export function runScoreTest(): number {
     check(show(s.bars[0].L) === '48:24 r:24', 'left hand: a half note, then a half rest', show(s.bars[0].L))
     check(show(s.bars[1].R) === 'r:48', 'an empty bar: a whole-bar rest')
     check(Math.abs(s.bars[0].R[1].time - 0.5) < 1e-9, 'each note knows where it sounds')
-    check(!s.swing && !s.lead, 'straight, not a lead sheet')
+    check(!s.swing, 'straight')
   }
   // ── played in by hand: a little early or late still lands on the beat ──
   check(show(one([N(60, 0.02, 0.45), N(62, 0.48, 0.5), N(64, 1.03, 0.95)]).bars[0].R).startsWith('60:12 62:12 64:'), 'loose timing rounded to the beat')
@@ -83,14 +83,23 @@ export function runScoreTest(): number {
     check(s.bars[0].pedal?.length === 2 && s.bars[0].pedal[0].down && !s.bars[0].pedal[1].down, 'down and up in bar 1')
     check(s.bars[1].pedal?.length === 2, 'and again in bar 2')
   }
-  // ── a lead sheet: the melody and the chords ──
+  // ── chord names above the score, weighted for when there isn't room ──
   {
-    const m = melodyOf([N(60, 0, 1), N(64, 0.01, 1), N(67, 0.02, 1), N(48, 0, 2, 'L'), N(69, 0.5, 0.5)])
-    check(m.map(n => n.midi).join() === '67,69' && Math.abs(m[0].dur - 0.5) < 1e-9, 'the top note of each moment, until the next one')
-    const s = buildScore({ notes: [N(60, 0, 1), N(67, 0, 1), N(48, 0, 2, 'L'), N(69, 1, 1)], beatTimes: beats, barStarts: [0, 2], timeSigs: sig44, duration: 4, keyFifths: 0 },
-      { lead: { chords: [{ time: 0, name: 'C' }, { time: 0.9, name: 'C' }, { time: 1.02, name: 'Am' }] } })
-    check(s.lead && show(s.bars[0].R) === '67:24 69:24' && show(s.bars[0].L) === 'r:48', 'the melody alone, no left hand', show(s.bars[0].R))
-    check(s.bars[0].chords?.map(c => `${c.name}@${c.pos}`).join() === 'C@0,Am@24', 'chord names where they change', s.bars[0].chords)
+    const s = one([N(60, 0, 2)], { chords: [{ time: 0, name: 'C' }, { time: 0.9, name: 'C' }, { time: 1.02, name: 'Am' }, { time: 1.27, name: 'D7' }, { time: 1.5, name: 'G' }, { time: 2, name: 'C' }] })
+    check(s.bars[0].chords?.map(c => `${c.name}@${c.pos}`).join() === 'C@0,Am@24,D7@30,G@36', 'chord names where they change, a repeat left out', s.bars[0].chords)
+    const w = Object.fromEntries((s.bars[0].chords ?? []).map(c => [c.name, c.weight]))
+    check(w.C > w.Am && w.Am > w.D7 && w.G > w.D7, 'the bar\'s first chord carries most, a passing one least', w)
+    check(s.bars[1].chords?.[0]?.name === 'C', 'the next bar starts with its own chord')
+  }
+  // ── each part can be switched off ──
+  {
+    const third = 0.5 / 3
+    const trip = [N(60, 0, third), N(62, third, third), N(64, 2 * third, third)]
+    check(one(trip, { triplets: false }).bars[0].R.every(e => e.triplet === undefined), 'no triplets when switched off')
+    check(!one([N(48, 0, 2, 'L'), N(55, 0, 0.5, 'L'), N(60, 0.5, 0.5, 'L'), N(64, 1, 0.5, 'L')], { voices: false }).bars[0].L2, 'no second voice when switched off')
+    const sw: ScoreNote[] = []
+    for (let b = 0; b < 12; b++) { sw.push(N(60, b * 0.5, 0.3)); sw.push(N(62, b * 0.5 + 0.5 * 2 / 3, 0.15)) }
+    check(!one(sw, { swing: false }).swing, 'swing left as played when switched off')
   }
 
   // ── the key ──
