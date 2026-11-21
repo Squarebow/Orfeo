@@ -55,6 +55,11 @@ interface ListenState {
 }
 export const useListen = create<ListenState>(() => ({ listening: false, summary: null, recent: [] }))
 
+// The song waiting for your notes (practice/waiting.ts): stopped, but still
+// "playing" as far as you're concerned, so keys still count
+export const useWaiting = create<{ holding: boolean; at: number | null }>(() => ({ holding: false, at: null }))
+const takingKeys = () => useStore.getState().playbackState === 'playing' || useWaiting.getState().holding
+
 let matcher: Matcher | null = null
 
 // Someone else following the song (the virtual pianist) hears of every jump
@@ -87,7 +92,7 @@ export function rebuildListening(): void {
 
 // ── Wiring ───────────────────────────────────────────────────────────────────
 onPlayedKey(k => {
-  if (!k.on || !matcher || useStore.getState().playbackState !== 'playing') return
+  if (!k.on || !matcher || !takingKeys()) return
   publish([matcher.play({ midi: k.note, time: heardSongTime(k.at), vel: k.vel })])
 })
 

@@ -3,7 +3,7 @@ import { useStore } from '../store'
 import { sim, simAvailable } from '../utils/midiSimulator'
 import { isTextEntry } from '../utils/keyTarget'
 import { usePractice } from './practiceMode'
-import { expectedNotes, heardSongTime, onSongJump } from './listen'
+import { expectedNotes, heardSongTime, onSongJump, useWaiting } from './listen'
 import type { Expected } from './matcher'
 
 // ── Dev Tools for practice mode: playing without a USB keyboard ──────────────
@@ -86,7 +86,7 @@ if (typeof window !== 'undefined') {
 }
 
 // ── The virtual pianist ──────────────────────────────────────────────────────
-export interface Press { midi: number; time: number; dur: number }
+export interface Press { midi: number; time: number; dur: number; orig: number }   // orig: the note's own place
 
 /** What the pianist plays for `expected`, in the song's seconds. `r` is the
  *  practice tempo against the song's (real-time amounts are stretched by it).
@@ -113,7 +113,7 @@ export function pianistPlan(expected: Expected[], style: PianistStyle, r = 1): P
       if (style === 'late') t += 0.08 * r
       if (style === 'rolled' && g.length > 1) t += i * 0.035 * r
       const midi = style === 'wrong' && k % 7 === 3 ? n.midi + (k % 2 ? 1 : -1) : n.midi
-      out.push({ midi, time: t, dur: Math.max(0.08 * r, (n.dur ?? 0.3) * 0.9) })
+      out.push({ midi, time: t, dur: Math.max(0.08 * r, (n.dur ?? 0.3) * 0.9), orig: n.time })
     })
     if (style === 'hesitate') late = 0                                   // …then plays on in time
   })
@@ -122,6 +122,7 @@ export function pianistPlan(expected: Expected[], style: PianistStyle, r = 1): P
 
 let plan: Press[] = []
 let next = 0
+const fired = new Set<number>()   // plan entries already played
 const timers = new Set<ReturnType<typeof setTimeout>>()
 const ratio = () => { const s = useStore.getState(); return s.originalBpm > 0 ? s.bpm / s.originalBpm : 1 }
 
@@ -136,18 +137,32 @@ function restartPianist(from: number) {
   cancelAll()
   plan = pianistPlan(expectedNotes(), useDevPractice.getState().pianist, ratio())
   next = 0
+  fired.clear()
   while (next < plan.length && plan[next].time < from - 1e-6) next++
+}
+
+// The pianist's own sense of time: the song's, and while the song waits for
+// it, its own, running on from where the song stopped
+let anchor = { heard: 0, perf: 0 }
+function pianistNow(): number {
+  const r = ratio()
+  if (useWaiting.getState().holding) return anchor.heard + (performance.now() - anchor.perf) / 1000 * r
+  anchor = { heard: heardSongTime(), perf: performance.now() }
+  return anchor.heard
 }
 
 function pianistTick() {
   const s = useStore.getState()
   const key = pluggedSim()
-  if (useDevPractice.getState().pianist !== 'off' && usePractice.getState().active && s.playbackState === 'playing' && key) {
+  const holding = useWaiting.getState().holding
+  if (useDevPractice.getState().pianist !== 'off' && usePractice.getState().active && (s.playbackState === 'playing' || holding) && key) {
     const r = ratio()
-    const now = heardSongTime()
-    while (next < plan.length && plan[next].time <= now + 0.15 * r) {
-      const p = plan[next++]
-      const wait = Math.max(0, (p.time - heardSongTime()) / r * 1000)
+    const now = pianistNow()
+    const heldAt = useWaiting.getState().at
+    const fire = (i: number) => {
+      const p = plan[i]
+      fired.add(i)
+      const wait = Math.max(0, (p.time - pianistNow()) / r * 1000)
       const on = setTimeout(() => {
         timers.delete(on)
         if (sounding.has(p.midi)) sim.noteOff(key, p.midi)   // the same key again: lift it first
@@ -157,12 +172,23 @@ function pianistTick() {
       }, wait)
       timers.add(on)
     }
+    if (holding && heldAt !== null) {
+      // the song waits at a step: only that step's notes come, whenever they're due
+      for (let i = next; i < plan.length && plan[i].time <= now + 0.15 * r; i++) {
+        if (!fired.has(i) && Math.abs(plan[i].orig - heldAt) < 0.05) fire(i)
+      }
+    } else {
+      while (next < plan.length && plan[next].time <= now + 0.15 * r) {
+        if (!fired.has(next)) fire(next)
+        next++
+      }
+    }
   }
   requestAnimationFrame(pianistTick)
 }
 if (typeof requestAnimationFrame === 'function' && simAvailable) {
   onSongJump(t => restartPianist(t))
   useDevPractice.subscribe((d, prev) => { if (d.pianist !== prev.pianist) restartPianist(useStore.getState().currentTime) })
-  useStore.subscribe((s, prev) => { if (s.playbackState !== 'playing' && prev.playbackState === 'playing') { cancelAll(); restartPianist(s.currentTime) } })
+  useStore.subscribe((s, prev) => { if (s.playbackState !== 'playing' && prev.playbackState === 'playing' && !useWaiting.getState().holding) { cancelAll(); restartPianist(s.currentTime) } })
   requestAnimationFrame(pianistTick)
 }

@@ -95,9 +95,11 @@ export default function PracticeStrip() {
                   {hands.map(([id, label]) => <button key={id} style={seg(hand === id)} onClick={() => set({ hand: id })}>{label}</button>)}
                 </div>
               )}
-              <Tooltip title={t`Wait`} description={t`The song waits for your notes. Comes with the next stage, when Orfeo starts listening to your keyboard.`}>
-                <button disabled style={{ ...seg(waitOn, true), display: 'inline-flex', alignItems: 'center', gap: 8 }}>{t`Wait`}</button>
-              </Tooltip>
+              <div style={segWrap}>
+                <Tooltip title={t`Wait`} description={t`The song plays up to your next notes and waits there until you've played them.`}>
+                  <button style={seg(waitOn)} aria-pressed={waitOn} onClick={() => set({ waitOn: !waitOn })}>{t`Wait`}</button>
+                </Tooltip>
+              </div>
             </>
           )}
           {way === 'wait' && !onlyHand && <span style={cap}>{t`Both hands · song tempo`}</span>}

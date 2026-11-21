@@ -102,6 +102,9 @@ export class Matcher {
     return n
   }
 
+  /** Note `i` of `expected` is played, or not asked for in this take */
+  isDone(i: number): boolean { return this.state[i] === 'hit' || this.state[i] === 'skip' }
+
   summary(): Summary {
     const s: Summary = { ...tally(), pending: 0, perHand: { L: tally(), R: tally() }, perBar: new Map(), meanOffset: 0 }
     const bar = (b: number) => { let t = s.perBar.get(b); if (!t) { t = tally(); s.perBar.set(b, t) } return t }
@@ -115,5 +118,38 @@ export class Matcher {
     const offs = this.offsets.filter((o, i): o is number => o !== null && this.state[i] === 'hit')
     s.meanOffset = offs.length ? offs.reduce((a, b) => a + b, 0) / offs.length : 0
     return s
+  }
+}
+
+// ── The waiting (practice stage 3) ───────────────────────────────────────────
+// Your part in steps: notes starting together (within `chordGrace`, as Step
+// Through groups them) are one step. The song may run `grace` past a step's
+// place (you hear the music a little after it's sent); beyond that, a step not
+// yet played holds the song until every one of its notes is down, in any
+// order, one at a time if you like. Wrong notes don't move it on.
+export class StepWaiter {
+  readonly steps: { time: number; idx: number[] }[] = []
+  private cur = 0
+  constructor(private m: Matcher, private grace: number, chordGrace: number) {
+    m.expected.forEach((e, i) => {
+      const last = this.steps[this.steps.length - 1]
+      if (last && e.time - last.time <= chordGrace) last.idx.push(i)
+      else this.steps.push({ time: e.time, idx: [i] })
+    })
+  }
+  private done(k: number) { return this.steps[k].idx.every(i => this.m.isDone(i)) }
+  /** Playing from `time`: the next step is the first at or after it */
+  reset(time: number): void {
+    let lo = 0, hi = this.steps.length
+    while (lo < hi) { const mid = (lo + hi) >> 1; if (this.steps[mid].time < time - 1e-6) lo = mid + 1; else hi = mid }
+    this.cur = lo
+  }
+  /** The song has reached `clock`: the step to wait at, or null to play on */
+  check(clock: number): { time: number; notes: number[] } | null {
+    while (this.cur < this.steps.length && this.steps[this.cur].time + this.grace <= clock) {
+      if (!this.done(this.cur)) return { time: this.steps[this.cur].time, notes: this.steps[this.cur].idx.map(i => this.m.expected[i].midi) }
+      this.cur++
+    }
+    return null
   }
 }

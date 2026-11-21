@@ -1,4 +1,4 @@
-import { Matcher, type Expected } from './matcher'
+import { Matcher, StepWaiter, type Expected } from './matcher'
 
 const E = (midi: number, time: number, hand: 'L' | 'R' = 'R', bar = 1): Expected => ({ midi, time, hand, bar })
 const W = 0.2
@@ -76,6 +76,23 @@ export function runMatcherTest(): number {
     check(m.summary().missed === 1, 'the unreachable note is not counted missed')
     m.restartAt(0)
     check(m.summary().pending === 1, 'and stays out on the next take')
+  }
+
+  // the waiting: a chord holds the song until all its notes are down
+  {
+    const m = new Matcher([E(48, 1, 'L'), E(60, 1.01), E(64, 1.02), E(62, 2)], W)
+    const w = new StepWaiter(m, 0.1, 0.03)
+    check(w.steps.length === 2 && w.steps[0].idx.length === 3, 'notes starting within 30 ms: one step')
+    check(w.check(1.05) === null, 'within the grace: plays on')
+    check(w.check(1.11)?.time === 1, 'past it: waits at the chord')
+    m.play({ midi: 64, time: 1.1 }); m.play({ midi: 61, time: 1.1 })
+    check(w.check(1.11) !== null, 'one note and a wrong one: still waiting')
+    m.play({ midi: 48, time: 1.1 }); m.play({ midi: 60, time: 1.1 })
+    check(w.check(1.11) === null, 'all three down, one at a time: plays on')
+    m.play({ midi: 62, time: 1.95 })
+    check(w.check(2.5) === null, 'played ahead of the song: never waits')
+    w.reset(0); m.restartAt(0)
+    check(w.check(1.2)?.time === 1, 'from the top again: waits at the chord again')
   }
 
   console.log(`${pass} passed, ${fail} failed`)

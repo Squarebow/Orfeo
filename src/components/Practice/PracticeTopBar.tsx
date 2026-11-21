@@ -7,6 +7,8 @@ import { transposeDetectedKey } from '../../utils/keyDetection'
 import { isCountingIn, cancelCountIn } from '../../utils/countInRunner'
 import { useMenuDismiss } from '../ContextMenu'
 import { t } from '../../utils/i18n'
+import { useWaiting } from '../../practice/listen'
+import { endHold } from '../../practice/waiting'
 import Tooltip from '../Tooltip'
 import { QueueButton } from '../Transport/QueueButton'
 import { NES } from '../../utils/noteEditorState'
@@ -83,7 +85,9 @@ export default function PracticeTopBar() {
   const [open, setOpen] = useState<'' | 'tracks' | 'tempo' | 'metro'>('')
   const toggle = (name: typeof open) => setOpen(o => (o === name ? '' : name))
 
-  const playing = playbackState === 'playing'
+  // the song waiting for your notes is still the song playing, to you
+  const holding = useWaiting(s => s.holding)
+  const playing = playbackState === 'playing' || holding
   // while playing, everything but Pause and the time fades away
   const fade: CSSProperties = playing
     ? { opacity: 0, pointerEvents: 'none', transition: 'opacity .35s' }
@@ -108,6 +112,7 @@ export default function PracticeTopBar() {
 
   const playPause = () => {
     if (isCountingIn()) { cancelCountIn(); return }
+    if (holding) { endHold(false); return }
     if (playing) pause(); else play()
   }
   const back = () => {

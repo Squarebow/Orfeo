@@ -4,6 +4,7 @@ import PracticeTopBar from './components/Practice/PracticeTopBar'
 import PracticeStrip from './components/Practice/PracticeStrip'
 import ListenPanel from './components/Practice/ListenPanel'
 import './practice/listen'      // Orfeo listens in practice mode
+import './practice/waiting'     // the song waits for your notes
 import './practice/devPlay'     // Dev Tools: playing without a keyboard
 import { usePractice } from './practice/practiceMode'
 import PianoRoll from './components/PianoRoll/PianoRoll'
