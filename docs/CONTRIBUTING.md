@@ -260,7 +260,9 @@ it.
 The workflow checks that the tag, `package.json` and the changelog agree,
 builds the installer (`Orfeo-Setup-X.Y.Z.exe`) and the portable app
 (`Orfeo-X.Y.Z-portable.exe`) on Windows from the tag, uploads them with
-`latest.yml` and the blockmap, and — at the same time, on macOS — builds
+`latest.yml` and the blockmap, plus `Orfeo-Update-X.Y.Z.exe` (the same installer;
+`latest.yml` points installed copies at it, so in-app updates are counted apart
+from downloads on the stats page), and — at the same time, on macOS — builds
 `Orfeo-X.Y.Z-mac-arm64.dmg`/`.zip` (Apple Silicon) and
 `Orfeo-X.Y.Z-mac-x64.dmg`/`.zip` (Intel), and on Linux the AppImage, `.deb` and
 `.rpm`, into the same draft. Windows goes first: once the Windows build is done,

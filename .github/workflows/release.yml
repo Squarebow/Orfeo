@@ -164,6 +164,30 @@ jobs:
             '-c.nsis.artifactName=Orfeo-Setup-${version}.${ext}' \
             '-c.portable.artifactName=Orfeo-${version}-portable.${ext}'
 
+      # Installed copies download their update from their own copy of the
+      # installer, so GitHub counts in-app updates apart from people
+      # downloading Orfeo-Setup (the stats page, tools/stats/collect.py). The
+      # same file with the same checksum; only latest.yml points at the copy.
+      # Its blockmap goes with it, so the next update can still download only
+      # what changed.
+      - name: Give installed copies their own update file
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          v=$(node -p "require('./package.json').version")
+          cd release
+          cp "Orfeo-Setup-$v.exe" "Orfeo-Update-$v.exe"
+          cp "Orfeo-Setup-$v.exe.blockmap" "Orfeo-Update-$v.exe.blockmap"
+          sed -i "s/Orfeo-Setup-$v\.exe/Orfeo-Update-$v.exe/g" latest.yml
+          cat latest.yml
+          if grep -q "Orfeo-Setup-" latest.yml || ! grep -q "Orfeo-Update-$v.exe" latest.yml; then
+            echo "::error::latest.yml doesn't point at Orfeo-Update-$v.exe"; exit 1
+          fi
+          # --clobber replaces the latest.yml electron-builder uploaded (still a draft: nobody sees the change)
+          gh release upload "v$v" "Orfeo-Update-$v.exe" "Orfeo-Update-$v.exe.blockmap" latest.yml --clobber --repo "$GITHUB_REPOSITORY"
+
       # The Store package is unsigned here — the Store signs it — so it is no
       # use on the GitHub release page; the Microsoft Store workflow (store.yml) picks it up. Built
       # from the app folder step above already made, so it's the same app.
