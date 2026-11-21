@@ -43,6 +43,42 @@ const saveDialog = (options: Electron.SaveDialogOptions) =>
   mainWin ? dialog.showSaveDialog(mainWin, options) : dialog.showSaveDialog(options)
 // ── Set by app:confirm-close so the renderer-triggered re-close passes through ──
 let allowClose = false
+// ── A close always gets through. The page answers at once (app:close-heard)
+// and may then ask about unsaved changes for as long as you need. Without an
+// answer Orfeo would stay running with no way to close it, and the next start
+// would only bring that dead window back (single-instance lock). A page that is
+// only busy can't answer either, and closing it could lose unsaved changes, so
+// after CLOSE_ANSWER_MS Orfeo asks (a system dialog, drawn even when the page
+// isn't): Wait, or Close Orfeo. An answer arriving meanwhile takes the question
+// away and the usual close goes on. A crashed page closes at once. ───────────
+const CLOSE_ANSWER_MS = 5000
+let closePending = false                     // asked the page, no answer yet
+let closeAnswerTimer: ReturnType<typeof setTimeout> | null = null
+let closeQuestion: AbortController | null = null
+let pageGone = false
+function closeRegardless(win: BrowserWindow) {
+  if (closeAnswerTimer) { clearTimeout(closeAnswerTimer); closeAnswerTimer = null }
+  allowClose = true
+  if (!win.isDestroyed()) win.destroy()
+}
+async function askToCloseRegardless(win: BrowserWindow) {
+  closeAnswerTimer = null
+  if (win.isDestroyed() || !closePending || closeQuestion) return
+  closeQuestion = new AbortController()
+  const { response } = await dialog.showMessageBox(win, {
+    type: 'warning', noLink: true, defaultId: 0, cancelId: 0, signal: closeQuestion.signal,
+    buttons: [t`Wait`, t`Close Orfeo`],
+    message: t`Orfeo isn't responding`,
+    detail: t`It may still be busy and answer in a moment. If you close it now, changes you haven't saved are lost.`,
+  })
+  closeQuestion = null
+  if (response === 1 && closePending) closeRegardless(win)
+}
+ipcMain.on('app:close-heard', () => {
+  closePending = false
+  if (closeAnswerTimer) { clearTimeout(closeAnswerTimer); closeAnswerTimer = null }
+  closeQuestion?.abort()   // it answered after all: the usual close goes on
+})
 
 // ── Recursively copies MIDI/notation files from `srcDir` into `destDir`,
 // preserving subfolder structure (so e.g. public/demo/musicxml/ lands at
@@ -203,8 +239,14 @@ function createWindow() {
   win.on('close', (e) => {
     if (allowClose) return // set by app:confirm-close — let it through
     e.preventDefault()
-    win.webContents.send('app:save-before-close')
+    if (pageGone) { closeRegardless(win); return }   // nobody left to ask
+    // asked once is enough: a busy page gets it when it's free again
+    if (!closePending) { closePending = true; win.webContents.send('app:save-before-close') }
+    if (!closeAnswerTimer && !closeQuestion) closeAnswerTimer = setTimeout(() => askToCloseRegardless(win), CLOSE_ANSWER_MS)
   })
+  // a crashed page can't answer; a reloaded one can again
+  win.webContents.on('render-process-gone', () => { pageGone = true })
+  win.webContents.on('did-finish-load', () => { pageGone = false; closePending = false })
 }
 
 // ── Prefs ──────────────────────────────────────────────────────────────────

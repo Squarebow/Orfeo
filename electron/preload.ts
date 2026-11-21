@@ -69,7 +69,9 @@ contextBridge.exposeInMainWorld('electronAPI', {
   showMessageBox:      (opts: any)    => ipcRenderer.invoke('dialog:messageBox', opts),
   confirmClose:        ()             => ipcRenderer.invoke('app:confirm-close'),
   setFullScreen:       (value: boolean) => ipcRenderer.invoke('window:setFullScreen', value),
-  onSaveBeforeClose:   (fn: () => void) => ipcRenderer.on('app:save-before-close', () => fn()),
+  // answers main at once ("heard"), so a close is never mistaken for a stuck page
+  // while an unsaved-changes question is open (electron/main.ts, CLOSE_ANSWER_MS)
+  onSaveBeforeClose:   (fn: () => void) => ipcRenderer.on('app:save-before-close', () => { ipcRenderer.send('app:close-heard'); fn() }),
   offSaveBeforeClose:  ()             => ipcRenderer.removeAllListeners('app:save-before-close'),
   // Drag-and-drop file import
   getPathForFile:     (file: File) => webUtils.getPathForFile(file),

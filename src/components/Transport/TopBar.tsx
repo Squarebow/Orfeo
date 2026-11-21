@@ -322,6 +322,7 @@ disk to start a new session.`} placement="bottom">
           the left column must still fit at a 1366 px window) */}
       <div className="app-no-drag" data-tour="tempo" style={{ display: 'flex', alignItems: 'center', gap: 4, padding: '0 var(--space-2)', flexShrink: 0 }}>
         <Tooltip
+          disabled={!!tempoMenu}   // the BPM / % menu opens right under it
           title={asPercent ? t`Speed: ${midi ? speedPercent(bpm, originalBpm) : '—'} %` : t`Tempo: ${liveBpm || '—'} BPM`}
           description={asPercent
             ? t`Playback speed against the song's own tempo:
