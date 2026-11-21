@@ -120,6 +120,10 @@ export default function PracticeTopBar() {
   let bar = 1
   for (let i = 0; i < barStarts.length; i++) { if (barStarts[i] <= currentTime + 1e-6) bar = i + 1; else break }
   const hasLoop = loopStart !== null && loopEnd !== null && loopEnd > loopStart
+  const sigMap = (midi as any)?._timeSigMap as { num: number; den: number; time: number }[] | undefined
+  const timeSig = sigMap?.length
+    ? sigMap.reduce((acc, e) => (e.time <= currentTime ? e : acc), sigMap[0])
+    : { num: midi?.timeSignatureNumerator ?? 4, den: midi?.timeSignatureDenominator ?? 4 }
 
   const playPause = () => {
     if (isCountingIn()) { cancelCountIn(); return }
@@ -260,7 +264,7 @@ export default function PracticeTopBar() {
           </div>
         </div>
 
-        {/* ── Right: volume, bar, metronome, Fix hands, Exit (icons and values only) ── */}
+        {/* ── Right: volume, bar, time signature, metronome, Fix hands, Exit (icons and values only) ── */}
         <div className="app-no-drag" style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: 6, minWidth: 0 }}>
           <VolumeKnob bare />
           <Tooltip title={t`Bar ${bar} of ${barStarts.length}`} description={t`Position in the song,
@@ -268,6 +272,16 @@ counted in bars.`} placement="bottom">
             <div style={{ background: 'var(--bg-tile)', borderRadius: 4, padding: '4px 7px', display: 'flex', alignItems: 'baseline', margin: '0 8px' }}>
               <span style={{ color: 'var(--topbar-bar-number)', fontFamily: 'var(--font-mono)', fontSize: 'var(--text-sm)', fontWeight: 700, lineHeight: 1, minWidth: '3ch', textAlign: 'right' }}>{bar}</span>
               <span style={{ color: 'var(--topbar-bar-total)', fontFamily: 'var(--font-mono)', fontSize: 'var(--text-sm)', lineHeight: 1 }}>|{barStarts.length}</span>
+            </div>
+          </Tooltip>
+
+          {/* the time signature where you are (it may change along the way), as in the normal top bar */}
+          <Tooltip title={t`Time signature: ${timeSig.num}/${timeSig.den}`} description={t`Number of beats in each bar,
+and which note value counts as one beat.`} placement="bottom">
+            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', lineHeight: 1, padding: '0 6px' }}>
+              <span style={{ color: 'var(--text-active)', fontFamily: 'var(--font-mono)', fontSize: 'var(--text-base)', fontWeight: 700 }}>{timeSig.num}</span>
+              <div style={{ width: 14, height: 1, background: 'var(--topbar-timesig-divider)', margin: '2px 0' }} />
+              <span style={{ color: 'var(--text-active)', fontFamily: 'var(--font-mono)', fontSize: 'var(--text-base)', fontWeight: 700 }}>{timeSig.den}</span>
             </div>
           </Tooltip>
 

@@ -95,6 +95,15 @@ export function useMetronome() {
       const ctx     = getCtx()
       const now     = ctx.currentTime
       const ratio   = originalBpm > 0 ? bpm / originalBpm : 1
+      // The song's place, read from the audio clock, should match the playhead.
+      // If it doesn't (the loop went round, a seek, a tempo change mid-song,
+      // Speed up gradually), line the clicks up with the playhead again; else
+      // they keep the old timing, drift off the beat and then fall silent.
+      if (Math.abs(currentTime - (now - audioOffsetRef.current) * ratio) > 0.25) {
+        audioOffsetRef.current = now - currentTime / ratio
+        lastScheduled.current = -1
+        lastScheduledTime.current = -Infinity
+      }
       // Real beat/bar grid for this file — honours every tempo AND every
       // time-signature change (see midiParser.ts's _beatTimes/_barTimes),
       // not just the first of each.
