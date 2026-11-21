@@ -57,7 +57,9 @@ export default function PracticeTopBar() {
   const barStarts = useStore(s => s.barStarts)
   const bpm = useStore(s => s.bpm)
   const originalBpm = useStore(s => s.originalBpm)
-  const asPercent = useStore(s => s.tempoDisplay === 'percent')
+  // Speed up gradually counts in percent: the tempo shows as a speed while it's on
+  const rampOn = usePractice(s => s.ramp && s.way === 'practise')
+  const asPercent = useStore(s => s.tempoDisplay === 'percent') || rampOn
   const detectedKey = useStore(s => s.detectedKey)
   const noteNaming = useStore(s => s.noteNaming)
   const accidentals = useStore(s => s.accidentals)

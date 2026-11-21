@@ -48,7 +48,8 @@ export async function runTakeTest(): Promise<number> {
     x = rampAfterRound({ speed: 65, streak: 1 }, false); check(x.streak === 0 && x.speed === 65, 'a slip: start counting again, never slower')
     x = rampAfterRound({ speed: 98, streak: 1 }, true); check(x.speed === 100, 'never past the song\'s own tempo')
     r = { speed: 100, streak: 1 }; check(!rampAfterRound(r, true).raised, 'at 100 % it stays')
-    check(cleanTake(take()) && !cleanTake(take({ bars: [[1, 4, 1, 0, 0, 0]] })) && !cleanTake(take({ waits: 1 })), 'clean: nothing missed, at most one stray key, no waiting')
+    check(cleanTake(take()) && !cleanTake(take({ bars: [[1, 4, 1, 0, 0, 0]] })), 'clean: nothing missed, at most one stray key')
+    check(cleanTake(take({ waits: 2, waitSec: 1.2 })) && !cleanTake(take({ waits: 3, waitSec: 1 })) && !cleanTake(take({ waits: 1, waitSec: 3 })), 'a short wait or two is fine; a long one, or many, is not')
   }
 
   // ── rounds of the loop ──

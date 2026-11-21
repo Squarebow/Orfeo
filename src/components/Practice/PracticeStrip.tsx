@@ -123,7 +123,7 @@ export default function PracticeStrip() {
               <>
                 <PopDivider />
                 <PopItem on={ramp} onClick={() => set({ ramp: !ramp })}
-                  hint={t`Starts at ${RAMP_START} % of the song's tempo and goes up ${RAMP_STEP} % after every ${RAMP_ROUNDS} clean times round the loop (or through the song), up to the song's own tempo.`}>
+                  hint={t`Starts at ${RAMP_START} % of the song's tempo and goes up ${RAMP_STEP} % after every ${RAMP_ROUNDS} clean times round the loop (or through the song), up to the song's own tempo. Clean: nothing missed, at most one stray key, and the song never kept waiting. Off again: back to the speed you had.`}>
                   {ramp ? t`Speed up: on` : t`Speed up: off`}
                 </PopItem>
               </>

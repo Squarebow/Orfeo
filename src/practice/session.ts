@@ -37,6 +37,7 @@ let open: Open | null = null
 let stretchFrom = 0            // the first take since Play
 let stretchOpen = false
 let rampedTo: number | null = null
+let speedBeforeRamp: number | null = null   // the speed before Speed up gradually took over
 
 const ratio = () => { const s = useStore.getState(); return s.originalBpm > 0 ? s.bpm / s.originalBpm : 1 }
 const bar = (t: number) => barOf(t, useStore.getState().barStarts) ?? 1
@@ -171,11 +172,19 @@ useWaiting.subscribe((w, prev) => {
 usePractice.subscribe((p, prev) => {
   if (p.active && !prev.active) startSession()
   if (!p.active && prev.active) { session = null; song = null; useSession.setState({ card: null }) }
-  // Speed up gradually switched on: start at 60 % (or slower, if you already are)
-  if (p.active && p.ramp && !prev.ramp && p.way === 'practise') {
+  // Speed up gradually switched on: start at 60 % (or slower, if you already are);
+  // switched off (or another way of playing): back to the speed you had before
+  const rampOn = (q: typeof p) => q.active && q.ramp && q.way === 'practise'
+  if (rampOn(p) && !rampOn(prev)) {
     useSession.setState({ ramp: { streak: 0 } })
+    speedBeforeRamp = speedPercent()
     if (speedPercent() > RAMP_START) setSpeedPercent(RAMP_START)
+  } else if (!rampOn(p) && rampOn(prev) && p.active) {
+    useSession.setState({ ramp: { streak: 0 } })
+    setSpeedPercent(speedBeforeRamp ?? 100)
+    speedBeforeRamp = null
   }
+  if (!p.active) speedBeforeRamp = null
 })
 
 /** Practise the bars worth another go: loop them in Practise */
