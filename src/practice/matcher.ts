@@ -15,6 +15,7 @@ export interface Expected {
   hand: Hand
   bar: number           // 1-based
   dur?: number          // how long it's held, song seconds (the virtual pianist)
+  finger?: number       // your fingering, 1 the thumb (the key lights)
 }
 export interface Played { midi: number; time: number; vel?: number }
 

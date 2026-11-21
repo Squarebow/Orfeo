@@ -304,7 +304,7 @@ with octave buttons to move them. Notes beyond their edges show fainter on the k
     description: t`Clear stuck notes lets go of every key and pedal. Reset MIDI input also reconnects every keyboard. Reset settings puts everything on this page back to how it started.`,
     keywords: 'stuck hanging notes reset panic all notes off reconnect defaults' },
   { id: 'keyLights', group: 'midi', name: t`Key lights`, summary: t`Light the song's notes on a keyboard with lighted keys.`,
-    description: t`Some keyboards, like many Yamaha, Casio and Akai models, PartyKeys and The ONE Smart Piano, have keys that light up. If you have one, turn this on to light the song's notes on it while a song plays, as the on-screen keyboard does: shown tracks only, never the keys you press yourself.`,
+    description: t`Some keyboards, like many Yamaha, Casio and Akai models, PartyKeys and The ONE Smart Piano, have keys that light up. If you have one, turn this on to light the song's notes on it while a song plays, as the on-screen keyboard does: shown tracks only, never the keys you press yourself. In practice mode it lights only the notes you play, a moment before each one, and while the song waits for you, the keys it waits for until you play them.`,
     keywords: 'key lights led lighted keys light guide yamaha ez casio partykeys ipiano one smart piano led plus vangoa led strip akai channel roli lumi illuminated' },
 
   // ── Language

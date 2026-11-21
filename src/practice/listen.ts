@@ -44,7 +44,7 @@ export function expectedNotes(): Expected[] {
     if (!ts.practicePart || !ts.practiceHand) continue
     if (hand !== 'B' && ts.practiceHand !== hand) continue
     const tr = s.midi.tracks.find(t => t.index === ts.index)
-    for (const n of tr?.notes ?? []) out.push({ midi: n.midi + shift, time: n.time, hand: ts.practiceHand, bar: barOf(n.time, s.barStarts) ?? 1, dur: n.duration })
+    for (const n of tr?.notes ?? []) out.push({ midi: n.midi + shift, time: n.time, hand: ts.practiceHand, bar: barOf(n.time, s.barStarts) ?? 1, dur: n.duration, ...(n.finger ? { finger: n.finger } : {}) })
   }
   return out
 }

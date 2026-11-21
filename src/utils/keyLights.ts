@@ -11,8 +11,10 @@
 //   - 'fingers'   Synthesia's "Finger-based channel" (iPiano Model-U): a note-on
 //                 at velocity 1 whose channel is the finger, right hand 7–11
 //                 thumb to little finger, 13 = right hand, finger unknown. The
-//                 light always goes off with a note-off on channel 1. Orfeo has
-//                 no fingering, so it sends the "finger unknown" channel per hand.
+//                 light always goes off with a note-off on channel 1. Orfeo sends
+//                 the right hand's finger when your fingering gives it (practice
+//                 mode); otherwise, and for the left hand (whose finger channels
+//                 weren't recorded), the "finger unknown" channel per hand.
 //   - 'onesmart'  Synthesia's "Proprietary 1" (The ONE Smart Piano, Piano LED
 //                 Plus): two SysEx messages switch the lights on, then
 //                 polyphonic key pressure on channel 3, key counted from A0 = 0,
@@ -121,12 +123,21 @@ export const FINGER_LH_UNKNOWN = 12  // left hand, finger unknown: one left-hand
 // Sent once before the first light. Synthesia sends controller 16 on channel 1,
 // value 5 with the right hand chosen and 7 with both hands; Orfeo lights both.
 export const fingersEnter = (): number[] => [0xB0, 0x10, 0x07]
-// Lit before → lit now, each key with its hand. A key that changes hand goes
-// dark first, then lights on its new channel.
-export function fingerLightMessages(before: Map<number, LightHand>, now: Map<number, LightHand>): number[][] {
+export const FINGER_RH_THUMB = 7     // right hand: thumb 7, then 8, 9, 10, little finger 11
+// The channel (1–16) a key lights on: its hand, and its finger when known
+export function fingerChannel(hand: LightHand, finger?: number): number {
+  if (hand === 'R' && finger && finger >= 1 && finger <= 5) return FINGER_RH_THUMB + finger - 1
+  return hand === 'L' ? FINGER_LH_UNKNOWN : FINGER_RH_UNKNOWN
+}
+// Lit before → lit now, each key with its hand (and finger, when known). A key
+// that changes hand or finger goes dark first, then lights on its new channel.
+export function fingerLightMessages(before: Map<number, LightHand>, now: Map<number, LightHand>,
+  fingersBefore: Map<number, number> = new Map(), fingersNow: Map<number, number> = new Map()): number[][] {
   const out: number[][] = []
-  for (const [n, h] of before) if (now.get(n) !== h) out.push([0x80, n, 0])
-  for (const [n, h] of now) if (before.get(n) !== h) out.push([0x90 | ((h === 'L' ? FINGER_LH_UNKNOWN : FINGER_RH_UNKNOWN) - 1), n, LIGHT_VELOCITY])
+  const chBefore = (n: number) => { const h = before.get(n); return h ? fingerChannel(h, fingersBefore.get(n)) : 0 }
+  const chNow = (n: number) => { const h = now.get(n); return h ? fingerChannel(h, fingersNow.get(n)) : 0 }
+  for (const n of before.keys()) if (chNow(n) !== chBefore(n)) out.push([0x80, n, 0])
+  for (const n of now.keys()) { const c = chNow(n); if (c !== chBefore(n)) out.push([0x90 | (c - 1), n, LIGHT_VELOCITY]) }
   return out
 }
 
