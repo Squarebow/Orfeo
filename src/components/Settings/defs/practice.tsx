@@ -11,6 +11,7 @@ import { currentSession, showCardFor, useSession } from '../../../practice/sessi
 import { loadHistory, forgetHistory, allTakes, type SongHistory } from '../../../practice/history'
 import type { TakeRecord } from '../../../practice/take'
 import { takesCsv } from '../../../practice/words'
+import { openReview } from '../../../practice/review'
 
 const PrompterIcon = () => (
   <svg xmlns="http://www.w3.org/2000/svg" width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 7V5a2 2 0 0 1 2-2h2"/><path d="M17 3h2a2 2 0 0 1 2 2v2"/><path d="M21 17v2a2 2 0 0 1-2 2h-2"/><path d="M7 21H5a2 2 0 0 1-2-2v-2"/><rect width="10" height="8" x="7" y="8" rx="1"/></svg>
@@ -102,6 +103,7 @@ function HistoryNumbers() {
       <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4 }}>
         {last && <OptionBtn active={false} onClick={() => showCardFor(last, { earlier: takes.filter(k => k !== last) })}>Show the words for the last take</OptionBtn>}
         <OptionBtn active={false} onClick={() => { void window.electronAPI?.practiceSaveCsv?.('practice.csv', takesCsv(takes)) }}>Save as CSV</OptionBtn>
+        <OptionBtn active={false} onClick={() => openReview()}>Open the review (last take)</OptionBtn>
         <OptionBtn active={false} onClick={async () => { await forgetHistory(song); setH({ ...(await loadHistory(song)) }) }}>Forget this song's practice</OptionBtn>
       </div>
     </>

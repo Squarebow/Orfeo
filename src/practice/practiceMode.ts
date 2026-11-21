@@ -132,7 +132,7 @@ export function practisedHand(): PracticeHand {
   if (p.onlyHand) return p.onlyHand
   return p.way === 'practise' ? p.hand : 'B'
 }
-function applySound(): void {
+export function applySound(): void {
   const p = usePractice.getState()
   if (!p.active) return
   useStore.getState().setPracticeSound(practisedHand(), p.way === 'practise' && p.hearMine)

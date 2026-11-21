@@ -18,6 +18,8 @@ import { HitEffectsRenderer } from './HitEffects'
 import { drainHitEffects } from '../../utils/hitEffectQueue'
 import { isShown } from '../../utils/trackShown'
 import { usePractice, practisedHand as practisedHandOf } from '../../practice/practiceMode'
+import { useReview } from '../../practice/reviewState'
+import { reviewMarks, REVIEW_COLORS } from '../../practice/review'
 import { t } from '../../utils/i18n'
 
 const VISIBLE_SECONDS  = 6
@@ -501,6 +503,8 @@ export default function PianoRoll() {
       s.playbackState !== prev.playbackState
     ) dirtyRef.current = true
   }), [])
+  // the practice review: its passage and take change what's drawn
+  useEffect(() => useReview.subscribe(() => { dirtyRef.current = true }), [])
 
   // ── Wheel to scrub — disabled in edit mode ───────────────────────────────────
   useEffect(() => {
@@ -578,11 +582,13 @@ export default function PianoRoll() {
       const grid     = new Graphics()
       const barLines = new Graphics()   // bar dividers — behind notes, above key grid
       const notes    = new Graphics()
+      const reviewG  = new Graphics()   // practice review marks — above the notes
       const playhead = new Graphics()
       const editG    = new Graphics()   // edit overlay — must be last (on top)
       app.stage.addChild(grid)
       app.stage.addChild(barLines)
       app.stage.addChild(notes)
+      app.stage.addChild(reviewG)
       app.stage.addChild(playhead)
       const hitEffects = new HitEffectsRenderer(app.stage)   // above playhead, below edit overlay
       hitEffectsRef.current = hitEffects
@@ -982,6 +988,7 @@ export default function PianoRoll() {
         }
 
         notes.clear()
+        reviewG.clear()
 
         const ctx = overlayCtxRef.current
         const ov  = overlayCanvasRef.current
@@ -1098,6 +1105,49 @@ export default function PianoRoll() {
             const edgeX = note.hand === 'L' ? key.x + 1 : key.x + 1 + drawW - edgeW
             notes.rect(edgeX, topY, edgeW, noteH)
             notes.fill({ color: 0xffffff, alpha: 0.55 })
+          }
+        }
+
+        // ── Practice review (stage 5): how each note went, on the music itself.
+        // The passage under review stands out (the rest dimmed); each note gets
+        // a mark of its own shape: ● fine, ○ a little early or late (a line to
+        // where the note is), × missed (its outline), ◆ an extra key. ───────
+        const rv = useReview.getState()
+        if (rv.open && !noteEditorActive) {
+          const yOf = (t: number) => py - (t - currentTime) * pps
+          const pStart = storeBars[rv.from - 1] ?? 0
+          const pEnd = rv.to < storeBars.length ? storeBars[rv.to] : midi.duration
+          const yTop = yOf(pEnd), yBot = yOf(pStart)
+          if (yTop > 0) { reviewG.rect(0, 0, W, yTop); reviewG.fill({ color: 0x000000, alpha: 0.5 }) }
+          if (yBot < H) { reviewG.rect(0, yBot, W, H - yBot); reviewG.fill({ color: 0x000000, alpha: 0.5 }) }
+          const col = (k: keyof typeof REVIEW_COLORS) => parseInt(REVIEW_COLORS[k].slice(1), 16)
+          for (const m of reviewMarks()) {
+            if (Math.max(m.t, m.exp + m.dur) < visStart - 0.5 || Math.min(m.t, m.exp) > visEnd + 0.5) continue
+            let km = m.midi
+            if (fold && (km < fold.min || km > fold.max)) km = foldIntoRange(km, fold.min, fold.max)
+            const key = keyLayoutRef.current[km - midiMin]
+            if (!key) continue
+            const cx = key.x + key.width / 2
+            const r = Math.max(3, Math.min(6, key.width / 2))
+            const y = yOf(m.t)
+            if (m.kind === 'fine') {
+              reviewG.circle(cx, y, r); reviewG.fill({ color: col('fine') })
+              reviewG.circle(cx, y, r); reviewG.stroke({ width: 1, color: 0x101010, alpha: 0.8 })
+            } else if (m.kind === 'early' || m.kind === 'late') {
+              const ye = yOf(m.exp)
+              reviewG.moveTo(cx, ye); reviewG.lineTo(cx, y); reviewG.stroke({ width: 2, color: col(m.kind) })
+              reviewG.circle(cx, y, r); reviewG.fill({ color: 0x101010, alpha: 0.6 })
+              reviewG.circle(cx, y, r); reviewG.stroke({ width: 2, color: col(m.kind) })
+            } else if (m.kind === 'missed') {
+              const top = yOf(m.exp + m.dur)
+              reviewG.rect(key.x + 1, top, Math.max(key.width - 2, 1), Math.max(y - top, 2)); reviewG.stroke({ width: 1.5, color: col('missed'), alpha: 0.9 })
+              reviewG.moveTo(cx - r, y - r); reviewG.lineTo(cx + r, y + r); reviewG.moveTo(cx + r, y - r); reviewG.lineTo(cx - r, y + r)
+              reviewG.stroke({ width: 2, color: col('missed') })
+            } else {
+              const d = r + 1
+              reviewG.moveTo(cx, y - d); reviewG.lineTo(cx + d, y); reviewG.lineTo(cx, y + d); reviewG.lineTo(cx - d, y); reviewG.closePath()
+              reviewG.fill({ color: col('extra') })
+            }
           }
         }
 

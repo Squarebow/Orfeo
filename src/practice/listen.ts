@@ -7,6 +7,7 @@ import { barOf } from '../utils/debugTimestamp'
 import { usePractice, practisedHand } from './practiceMode'
 import { Matcher, type Expected, type Outcome, type Summary } from './matcher'
 import type { TakeEnd } from './take'
+import { reviewing } from './reviewState'
 
 // ── Orfeo listens (practice stage 2) ─────────────────────────────────────────
 // While practice mode plays, every key you press is placed in the song (where
@@ -59,7 +60,7 @@ export const useListen = create<ListenState>(() => ({ listening: false, summary:
 // The song waiting for your notes (practice/waiting.ts): stopped, but still
 // "playing" as far as you're concerned, so keys still count
 export const useWaiting = create<{ holding: boolean; at: number | null }>(() => ({ holding: false, at: null }))
-const takingKeys = () => useStore.getState().playbackState === 'playing' || useWaiting.getState().holding
+const takingKeys = () => !reviewing() && (useStore.getState().playbackState === 'playing' || useWaiting.getState().holding)
 
 let matcher: Matcher | null = null
 

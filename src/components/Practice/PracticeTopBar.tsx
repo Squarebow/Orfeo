@@ -9,6 +9,8 @@ import { useMenuDismiss } from '../ContextMenu'
 import { t } from '../../utils/i18n'
 import { useWaiting } from '../../practice/listen'
 import { endHold } from '../../practice/waiting'
+import { reviewing } from '../../practice/reviewState'
+import { togglePassage } from '../../practice/review'
 import Tooltip from '../Tooltip'
 import { QueueButton } from '../Transport/QueueButton'
 import { NES } from '../../utils/noteEditorState'
@@ -113,6 +115,7 @@ export default function PracticeTopBar() {
   const playPause = () => {
     if (isCountingIn()) { cancelCountIn(); return }
     if (holding) { endHold(false); return }
+    if (reviewing()) { togglePassage(); return }   // the review: its bars go round
     if (playing) pause(); else play()
   }
   const back = () => {

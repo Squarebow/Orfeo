@@ -1,10 +1,12 @@
 import { X } from 'lucide-react'
+import Tooltip from '../Tooltip'
 import { useStore } from '../../store'
 import { t } from '../../utils/i18n'
 import { usePractice } from '../../practice/practiceMode'
 import { useSession, practiseBars, currentSession } from '../../practice/session'
 import { cachedHistory, allTakes } from '../../practice/history'
 import { takesCsv } from '../../practice/words'
+import { openReview, reviewableTakes } from '../../practice/review'
 
 // ── How it went: a few words after you stop (practice stage 4) ───────────────
 // Over the top of the piano roll while the song is stopped; gone when you play
@@ -29,6 +31,7 @@ export default function PracticeSummaryCard() {
     await window.electronAPI?.practiceSaveCsv?.(`${base} - ${t`practice`}.csv`, takesCsv(takes))
   }
   const canSave = !!currentSession().song && !!window.electronAPI?.practiceSaveCsv
+  const canReview = reviewableTakes().length > 0
 
   return (
     <div className="app-no-drag" role="status" style={{
@@ -44,7 +47,7 @@ export default function PracticeSummaryCard() {
       <div style={{ display: 'grid', rowGap: 4, fontSize: 13, lineHeight: 1.45 }}>
         {card.lines.map((l, i) => <p key={i} style={{ margin: 0 }}>{l}</p>)}
       </div>
-      {(f || canSave) && (
+      {(f || canSave || canReview) && (
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, marginTop: 10 }}>
           {f ? (
             <button onClick={goOver} style={{
@@ -52,6 +55,14 @@ export default function PracticeSummaryCard() {
               letterSpacing: '0.06em', textTransform: 'uppercase', background: 'var(--accent-amber-subtle)', border: '1px solid var(--accent-amber-strong)', color: 'var(--text-amber)',
             }}>{f.from === f.to ? t`Practise bar ${f.from}` : t`Practise bars ${f.from}–${f.to}`}</button>
           ) : <span />}
+          {canReview && (
+            <Tooltip title={t`Review`} description={t`See how each note went, on the piano roll, bar by bar.`}>
+            <button onClick={() => openReview(card.take, f?.from)} style={{
+              height: 26, padding: '0 12px', borderRadius: 4, cursor: 'pointer', fontFamily: 'var(--font-ui)', fontSize: 11, fontWeight: 600,
+              letterSpacing: '0.06em', textTransform: 'uppercase', background: 'transparent', border: '1px solid var(--border2)', color: 'var(--text-default)',
+            }}>{t`Review`}</button>
+            </Tooltip>
+          )}
           {canSave && (
             <button onClick={saveCsv} style={{ background: 'none', border: 'none', padding: 0, cursor: 'pointer', fontFamily: 'var(--font-ui)', fontSize: 11, color: 'var(--text-muted)', textDecoration: 'underline', textUnderlineOffset: 2 }}>
               {t`Save the numbers (CSV)`}

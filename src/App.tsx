@@ -4,6 +4,7 @@ import PracticeTopBar from './components/Practice/PracticeTopBar'
 import PracticeStrip from './components/Practice/PracticeStrip'
 import ListenPanel from './components/Practice/ListenPanel'
 import PracticeSummaryCard from './components/Practice/PracticeSummaryCard'
+import PracticeReview from './components/Practice/PracticeReview'
 import './practice/listen'      // Orfeo listens in practice mode
 import './practice/waiting'     // the song waits for your notes
 import './practice/session'     // every take kept, and how it went in words
@@ -548,7 +549,7 @@ export default function App() {
           In normal mode TopBar is in-flow; in PM it becomes a fixed overlay. ── */}
       {practicing ? (
         // ── Practice mode: its own narrow top bar, nothing else around the roll ──
-        <><PracticeTopBar /><ListenPanel /><PracticeSummaryCard /></>
+        <><PracticeTopBar /><ListenPanel /><PracticeSummaryCard /><PracticeReview /></>
       ) : presentationMode ? (
         <>
           {/* Hover zone — 8px strip at top edge that reveals the header ────── */}

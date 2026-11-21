@@ -2,7 +2,9 @@ import { create } from 'zustand'
 import { useStore } from '../store'
 import { barOf } from '../utils/debugTimestamp'
 import { usePractice, practisedHand, metronomeAllowed, speedPercent, setSpeedPercent } from './practiceMode'
-import { onTake, freshTake, currentMatcher, useWaiting } from './listen'
+import { onTake, freshTake, currentMatcher, useWaiting, heardSongTime } from './listen'
+import { onPlayedKey } from '../hooks/useMidiInput'
+import { useReview } from './reviewState'
 import { waitingOn } from './waiting'
 import { buildTake, worthKeeping, cleanTake, rampAfterRound, RAMP_START, type TakeRecord, type TakeEnd, type Hold, type PlayedLog } from './take'
 import { howItWent, type HowItWent } from './words'
@@ -51,6 +53,7 @@ function startSession() {
 }
 
 function openTake(at: number) {
+  sounding.clear()
   open = { from: at, maxTo: at, activeMs: 0, activeSince: isActive() ? performance.now() : null, holds: [], holdStart: null, played: [] }
 }
 
@@ -88,6 +91,7 @@ function closeTake(why: TakeEnd) {
 /** Stopped (not waiting for you): the takes since Play, in words */
 function stretchEnded() {
   stretchOpen = false
+  if (useReview.getState().open) return
   if (!session || !useStore.getState().practiceSummaryEnabled) return
   const takes = session.takes.slice(stretchFrom)
   const subject = [...takes].reverse().find(k => k.end === 'loop') ?? takes[takes.length - 1]
@@ -99,13 +103,26 @@ function stretchEnded() {
 
 // ── Wiring ───────────────────────────────────────────────────────────────────
 onTake(e => {
+  // the review plays passages over: none of that is practice
+  if (useReview.getState().open) { open = null; return }
   if (e.type === 'start') { if (open) closeTake('jump'); openTake(e.at); return }
   if (e.type === 'end') { closeTake(e.why); return }
   if (!open) return
   const o = e.o
   if (o.kind === 'hit') open.played.push([r3(o.played.time), o.played.midi, o.played.vel ?? 0, 0, Math.round(o.offset / ratio() * 1000)])
   else if (o.kind === 'extra') open.played.push([r3(o.played.time), o.played.midi, o.played.vel ?? 0, 1, 0])
-  else open.played.push([r3(o.exp.time), o.exp.midi, 0, 2, 0])
+  else open.played.push([r3(o.exp.time), o.exp.midi, 0, 2, 0, r3(o.exp.dur ?? 0.25)])
+  if (o.kind !== 'missed') sounding.set(o.played.midi, open.played.length - 1)
+})
+// how long each played note was held, for hearing it again in the review
+const sounding = new Map<number, number>()   // key → its entry in open.played
+onPlayedKey(k => {
+  if (k.on || !open) return
+  const i = sounding.get(k.note)
+  if (i === undefined) return
+  sounding.delete(k.note)
+  const e = open.played[i]
+  if (e) e[5] = r3(Math.max(0.05, heardSongTime(k.at) - e[0]))
 })
 
 let stopTimer: ReturnType<typeof setTimeout> | null = null
@@ -115,7 +132,7 @@ function activity() {
     if (isActive() && open.activeSince === null) open.activeSince = now
     if (!isActive() && open.activeSince !== null) { open.activeMs += now - open.activeSince; open.activeSince = null }
   }
-  if (!usePractice.getState().active) return
+  if (!usePractice.getState().active || useReview.getState().open) return
   if (isActive()) {
     if (stopTimer) { clearTimeout(stopTimer); stopTimer = null }
     if (!stretchOpen) {

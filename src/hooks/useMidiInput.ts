@@ -117,6 +117,13 @@ export function holdNotesForTest(notes: number[], ms: number, vel = 90): void {
   setTimeout(() => { for (const n of notes) soundOff(n); lightOff(notes) }, ms)
 }
 
+// ── Practice review: one of your own notes played back (sound and light, as
+// you played it), not heard by the listening ──
+export function playBackNote(note: number, vel: number, ms: number): void {
+  soundOn(note, vel); lightOn(note)
+  setTimeout(() => { soundOff(note); lightOff([note]) }, ms)
+}
+
 // ── Every key you play, for practice mode to listen to (practice/listen.ts):
 // after the soft-touch and double-key filters, with the moment it arrived ──
 export interface PlayedKey { note: number; vel: number; on: boolean; at: number; device: string }

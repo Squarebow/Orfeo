@@ -3,6 +3,7 @@ import { useStore } from '../store'
 import { sim, simAvailable } from '../utils/midiSimulator'
 import { isTextEntry } from '../utils/keyTarget'
 import { usePractice } from './practiceMode'
+import { reviewing } from './reviewState'
 import { expectedNotes, heardSongTime, onSongJump, useWaiting } from './listen'
 import type { Expected } from './matcher'
 
@@ -138,7 +139,8 @@ function restartPianist(from: number) {
   plan = pianistPlan(expectedNotes(), useDevPractice.getState().pianist, ratio())
   next = 0
   fired.clear()
-  while (next < plan.length && plan[next].time < from - 1e-6) next++
+  // from the notes written from here on (a late press of an earlier note isn't this take's)
+  while (next < plan.length && plan[next].orig < from - 1e-6) next++
 }
 
 // The pianist's own sense of time: the song's, and while the song waits for
@@ -155,7 +157,7 @@ function pianistTick() {
   const s = useStore.getState()
   const key = pluggedSim()
   const holding = useWaiting.getState().holding
-  if (useDevPractice.getState().pianist !== 'off' && usePractice.getState().active && (s.playbackState === 'playing' || holding) && key) {
+  if (useDevPractice.getState().pianist !== 'off' && usePractice.getState().active && !reviewing() && (s.playbackState === 'playing' || holding) && key) {
     const r = ratio()
     const now = pianistNow()
     const heldAt = useWaiting.getState().at

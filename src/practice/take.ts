@@ -27,8 +27,8 @@ export interface TakeRecord {
   timing: { mean: number; spread: number; n: number }   // real ms over the right notes, + late
   waits: number; waitSec: number
   // the notes you played (and the ones missed), for the review: kept for the last few sessions only
-  // [song time, key, velocity, 0 right / 1 extra / 2 missed, ms early (−) or late (+)]
-  played?: [number, number, number, 0 | 1 | 2, number][]
+  // [song time, key, velocity, 0 right / 1 extra / 2 missed, ms early (−) or late (+), how long it was held (song s)]
+  played?: [t: number, key: number, vel: number, kind: 0 | 1 | 2, offMs: number, dur?: number][]
 }
 
 export interface Hold { bar: number; sec: number }

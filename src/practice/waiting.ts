@@ -4,6 +4,7 @@ import { CHORD_GRACE_SEC } from '../utils/midiParser'
 import { usePractice } from './practiceMode'
 import { currentMatcher, onSongJump, useListen, useWaiting } from './listen'
 import { StepWaiter, type Matcher } from './matcher'
+import { reviewing } from './reviewState'
 
 // ── The waiting (practice stage 3) ───────────────────────────────────────────
 // Wait for me, or Practise with Wait on: the song plays on, band and all, up
@@ -13,7 +14,7 @@ import { StepWaiter, type Matcher } from './matcher'
 
 export function waitingOn(): boolean {
   const p = usePractice.getState()
-  return p.active && (p.way === 'wait' || (p.way === 'practise' && p.waitOn))
+  return p.active && !reviewing() && (p.way === 'wait' || (p.way === 'practise' && p.waitOn))
 }
 
 // The song may run this far past a step (real seconds): the time the sound
