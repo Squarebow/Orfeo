@@ -1,7 +1,7 @@
 import { useCallback, useRef, useEffect, useState } from 'react'
 import {
   Play, Pause, SkipBack, SkipForward, Repeat,
-  FolderOpen, RotateCcw, ChevronUp, ChevronDown,
+  FolderOpen, RotateCcw, ChevronUp, ChevronDown, Check,
   Rewind, FastForward,
 } from 'lucide-react'
 import { useStore } from '../../store'
@@ -90,6 +90,7 @@ export default function TopBar() {
   const metronomeEnabled = useStore((s) => s.metronomeEnabled)
   const setMetronomeEnabled = useStore((s) => s.setMetronomeEnabled)
   const [metroMenu, setMetroMenu] = useState<{ x: number; y: number } | null>(null)
+  const [tempoMenu, setTempoMenu] = useState<{ x: number; y: number } | null>(null)   // right-click the tempo: BPM or %
   const countInEnabled = useStore((s) => s.countInEnabled)
   const countInBars = useStore((s) => s.countInBars)
   const closeMetroMenu = useCallback(() => setMetroMenu(null), [])
@@ -325,16 +326,19 @@ disk to start a new session.`} placement="bottom">
           description={asPercent
             ? t`Playback speed against the song's own tempo:
 100 % plays it as written.
-Double-click to type a speed.`
+Double-click to type a speed.
+Right-click to show it in BPM.`
             : t`The song's current playback tempo,
 scaled by your speed setting.
-Double-click to type a tempo.`}
+Double-click to type a tempo.
+Right-click to show it as a speed in percent.`}
           placement="bottom">
-          <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}
+            onContextMenu={(e) => { e.preventDefault(); const r = e.currentTarget.getBoundingClientRect(); setTempoMenu({ x: r.left, y: r.bottom + 6 }) }}>
             <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start', gap: 1 }}>
               {/* the unit sits in the label, so the number keeps one width in both modes */}
-              <span style={{ color: 'var(--text-muted)', fontSize: 9, textTransform: 'uppercase', letterSpacing: '0.1em', fontFamily: 'var(--font-mono)', lineHeight: 1 }}>{asPercent ? '%' : t`BPM`}</span>
-              <span style={{ color: 'var(--text-muted)', fontSize: 9, textTransform: 'uppercase', letterSpacing: '0.1em', fontFamily: 'var(--font-mono)', lineHeight: 1 }}>{asPercent ? t`SPEED` : t`TEMPO`}</span>
+              <span style={{ color: 'var(--text-muted)', fontSize: 9, textTransform: 'uppercase', letterSpacing: '0.1em', fontFamily: 'var(--font-mono)', lineHeight: 1 }}>{asPercent ? t`SPEED %` : t`BPM`}</span>
+              <span style={{ color: 'var(--text-muted)', fontSize: 9, textTransform: 'uppercase', letterSpacing: '0.1em', fontFamily: 'var(--font-mono)', lineHeight: 1 }}>{t`TEMPO`}</span>
             </div>
             <BpmValue
               shown={midi ? String(asPercent ? speedPercent(bpm, originalBpm) : liveBpm) : '—'}
@@ -382,6 +386,7 @@ by one beat per minute.`}><ChevronDown size={10} /></LongPressArrow>
           </button>
         </Tooltip>
         <TapTempoPad />
+        {tempoMenu && <TempoDisplayMenu x={tempoMenu.x} y={tempoMenu.y} onClose={() => setTempoMenu(null)} />}
       </div>
 
       <VSep />
@@ -733,6 +738,26 @@ and which note value counts as one beat.`}
 }
 
 const METRO_MENU_WIDTH = 150
+
+// ── Tempo right-click: show the tempo in BPM or as a speed in percent (the
+// same choice as Settings › Playback › Tempo display, remembered). ─────────
+function TempoDisplayMenu({ x, y, onClose }: { x: number; y: number; onClose: () => void }) {
+  const ref = useRef<HTMLDivElement>(null)
+  const display = useStore((s) => s.tempoDisplay)
+  useMenuDismiss(true, ref, onClose)
+  const item = (v: 'bpm' | 'percent', label: string) => (
+    <ContextMenuItem onClick={() => { useStore.getState().setTempoDisplay(v); onClose() }}>
+      <Check size={11} style={{ visibility: display === v ? 'visible' : 'hidden', flexShrink: 0 }} />
+      {label}
+    </ContextMenuItem>
+  )
+  return (
+    <ContextMenu ref={ref} x={x} y={y} minWidth={110} ariaLabel={t`Tempo display`} className="app-no-drag">
+      {item('bpm', t`BPM`)}
+      {item('percent', t`Speed %`)}
+    </ContextMenu>
+  )
+}
 
 // ── Metronome right-click — click volume (0–150%) and count-in (on/off +
 // 1–4 bars), both remembered between sessions. ───────────────────────────
