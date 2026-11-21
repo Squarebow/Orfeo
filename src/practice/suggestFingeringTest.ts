@@ -23,6 +23,17 @@ export function runSuggestFingeringTest(): number {
   // chords in their usual shapes
   check(f(chord([60, 64, 67]), 'R') === '1 3 5' && f(chord([48, 52, 55]), 'L') === '5 3 1', 'a triad: 1-3-5 right, 5-3-1 left')
   check(f(chord([60, 72]), 'R') === '1 5', 'an octave: 1 and 5')
+  // every position, as in the books
+  for (const [name, ms, r, l] of [
+    ['1st inversion', [64, 67, 72], '1 2 5', '5 3 1'],
+    ['2nd inversion', [55, 60, 64], '1 3 5', '5 2 1'],
+    ['a triad with its octave', [60, 64, 67, 72], '1 2 3 5', '5 3 2 1'],
+    ['a dominant 7th', [55, 59, 62, 65], '1 2 3 5', '5 3 2 1'],
+  ] as const) {
+    check(f(chord([...ms]), 'R') === r, `${name}, right hand ${r} (${f(chord([...ms]), 'R')})`)
+    const low = ms.map(m => m - 12)
+    check(f(chord(low), 'L') === l, `${name}, left hand ${l} (${f(chord(low), 'L')})`)
+  }
   check(f(seq([60, 64, 67, 72, 76, 79, 84]), 'R') === '1 2 3 1 2 3 5', 'C arpeggio, right hand')
   check(f(seq([36, 40, 43, 48, 52, 55, 60]), 'L') === '5 3 2 1 3 2 1', 'C arpeggio, left hand')
   check(f(seq([48, 55, 52, 55, 48, 55, 52, 55], 0.15), 'L') === '5 1 3 1 5 1 3 1', 'Alberti bass: 5-1-3-1')
