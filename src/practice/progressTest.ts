@@ -20,7 +20,7 @@ export function runProgressTest(): number {
   const mixed = [take(0), take(0, { hand: 'L' }), take(1, { way: 'wait', hand: 'B', wait: true }), take(2, { way: 'perform', level: 2, hand: 'B' })]
   const kinds = kindsOf(mixed)
   check(kinds.length === 4 && kinds[0].kind.way === 'perform', 'four kinds, the latest first')
-  check(kindName(kindOf(mixed[0])) === 'Practise, right hand' && kindName(kindOf(mixed[2])) === 'Wait for me' && kindName(kindOf(mixed[3])) === 'Performance, level 2', 'named in words')
+  check(kindName(kindOf(mixed[0])) === 'Play along, right hand' && kindName(kindOf(mixed[2])) === 'Wait for me' && kindName(kindOf(mixed[3])) === 'Performance, level 2', 'named in words')
 
   // ── days ──
   const d = daysOf([take(0, { counts: { hit: 6, missed: 4, extra: 0 } }), take(0, { counts: { hit: 14, missed: 6, extra: 0 } }), take(3)])

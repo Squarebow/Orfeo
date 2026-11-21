@@ -17,6 +17,7 @@ import { outputLatencySec } from '../../audio/engine'
 import { isShown } from '../../utils/trackShown'
 import { t } from '../../utils/i18n'
 import { useKeyFingers } from '../../practice/keyFingers'
+import { useWaitPulse } from '../../practice/practiceLights'
 import { devClickKey } from '../../practice/devPlay'
 
 const HAND_LH = 'var(--hand-lh)'
@@ -84,6 +85,8 @@ export default function Keyboard() {
   const showNoteNamesOnKeyboard = useStore((s) => s.showNoteNamesOnKeyboard)
   // practice mode: your fingering on the keys (practice/keyFingers.ts)
   const keyFingers = useKeyFingers((s) => s.fingers)
+  // practice mode: the keys the song waits for pulse until you play them
+  const waitPulse = useWaitPulse((s) => s.keys)
   const playbackState = useStore((s) => s.playbackState)
   const explorerKeys = useStore((s) => s.explorerKeys)
   const explorerKeyColors = useStore((s) => s.explorerKeyColors)
@@ -1028,7 +1031,8 @@ export default function Keyboard() {
           {whiteKeys.map((k, i) => {
             const ratio = keyRatios[k.midi - min]
             if (!ratio || ratio.x >= 1 || ratio.x + ratio.width <= 0) return null
-            const color = getColor(k.midi)
+            const pulse = waitPulse.get(k.midi)
+            const color = pulse ? null : getColor(k.midi)
             const hand = getHardwareHand(k.midi)
             const colorHand = showHandLetters ? getColorHand(color) : null
             const locked = lockedKeys.has(k.midi)
@@ -1109,6 +1113,7 @@ export default function Keyboard() {
                     {label}
                   </span>
                 )}
+                {pulse && <WaitPulse hand={pulse} />}
                 {keyFingers.has(k.midi) && <FingerCircle finger={keyFingers.get(k.midi)!} black={false} scale={labelScale} />}
               </div>
             )
@@ -1123,7 +1128,8 @@ export default function Keyboard() {
             if (!ratio || ratio.x >= 1 || ratio.x + ratio.width <= 0) return null
             const leftPct  = ratio.x * 100
             const widthPct = ratio.width * 100
-            const color = getColor(k.midi)
+            const pulse = waitPulse.get(k.midi)
+            const color = pulse ? null : getColor(k.midi)
             const hand = getHardwareHand(k.midi)
             const colorHand = showHandLetters ? getColorHand(color) : null
             const locked = lockedKeys.has(k.midi)
@@ -1198,6 +1204,7 @@ export default function Keyboard() {
                     {colorHand}
                   </span>
                 )}
+                {pulse && <WaitPulse hand={pulse} />}
                 {keyFingers.has(k.midi) && <FingerCircle finger={keyFingers.get(k.midi)!} black scale={labelScale} />}
                 {color && showNoteNamesOnKeyboard && noteNaming !== 'hidden' && (
                   <span style={{
@@ -1228,4 +1235,13 @@ export default function Keyboard() {
       )}
     </div>
   )
+}
+
+// ── A key the song waits for: its hand's colour, slowly coming and going (all
+// the notes of a chord together), until you play it (practice mode) ─────────
+function WaitPulse({ hand }: { hand: 'L' | 'R' }) {
+  return <span aria-hidden className="orfeo-wait-pulse" style={{
+    position: 'absolute', inset: 0, borderRadius: 'inherit', pointerEvents: 'none',
+    background: hand === 'L' ? 'var(--hand-lh)' : 'var(--hand-rh)',
+  }} />
 }

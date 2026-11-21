@@ -1,4 +1,5 @@
 import { useEffect, type CSSProperties } from 'react'
+import { UNDER_HEADER } from './practiceBar'
 import { ChevronLeft, ChevronRight, Play, Square, X } from 'lucide-react'
 import { useStore } from '../../store'
 import { t, currentLanguage } from '../../utils/i18n'
@@ -42,7 +43,7 @@ function takeLabel(k: TakeRecord): string {
   const hm = d.toLocaleTimeString(currentLanguage, { hour: '2-digit', minute: '2-digit' })
   const today = new Date().toDateString() === d.toDateString()
   const when = today ? t`Today ${hm}` : `${d.toLocaleDateString(currentLanguage, { day: 'numeric', month: 'short' })} ${hm}`
-  const way = k.way === 'wait' ? t`Wait for me` : k.way === 'perform' ? t`Performance` : t`Practise`
+  const way = k.way === 'wait' ? t`Wait for me` : k.way === 'perform' ? t`Performance` : t`Play along`
   const hand = k.hand === 'L' ? t`left hand` : k.hand === 'R' ? t`right hand` : t`both hands`
   return `${when} · ${way} · ${hand} · ${k.speed} %`
 }
@@ -83,7 +84,7 @@ export default function PracticeReview() {
 
   return (
     <div className="app-no-drag" role="region" aria-label={t`Review`} style={{
-      position: 'fixed', top: 52, left: '50%', transform: 'translateX(-50%)', zIndex: 950,
+      position: 'fixed', top: UNDER_HEADER, left: '50%', transform: 'translateX(-50%)', zIndex: 950,
       width: 'min(640px, calc(100vw - 32px))', boxSizing: 'border-box', padding: '10px 12px', borderRadius: 8,
       background: 'var(--bg-modal)', border: '1px solid var(--border2)', boxShadow: '0 8px 28px rgba(0,0,0,.35)',
       fontFamily: 'var(--font-ui)', color: 'var(--text-default)', display: 'grid', rowGap: 8,

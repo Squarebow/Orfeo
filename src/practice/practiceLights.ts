@@ -1,3 +1,4 @@
+import { create } from 'zustand'
 import { useStore } from '../store'
 import { CHORD_GRACE_SEC } from '../utils/midiParser'
 import { HAND_LH_CSS, HAND_RH_CSS } from '../utils/handColors'
@@ -82,6 +83,18 @@ export function practiceLights(p: Prepared, t: number, o: {
   return out
 }
 
+// ── The keys the song waits for, pulsing on the on-screen keyboard ──────────
+// While the song waits, the notes it waits for (a chord together) pulse slowly
+// on the on-screen keyboard until you play them; each stops as you play it.
+export const useWaitPulse = create<{ keys: Map<number, 'L' | 'R'> }>(() => ({ keys: new Map() }))
+let pulseKey = ''
+function setPulse(keys: Map<number, 'L' | 'R'>) {
+  const k = [...keys].join()
+  if (k === pulseKey) return
+  pulseKey = k
+  useWaitPulse.setState({ keys })
+}
+
 // ── Wiring: what the keyboards light while practice mode is on ──────────────
 let prepared: Prepared | null = null
 let lit: Map<number, LitKey> | null = null
@@ -103,6 +116,7 @@ function update() {
     })
     if (!s.practiceFingering) for (const v of next.values()) delete v.finger
   }
+  setPulse(next && w.holding ? new Map([...next].map(([k, v]) => [k, v.hand])) : new Map())
   const key = next ? [...next].map(([k, v]) => `${k}${v.hand}${v.finger ?? ''}`).join() : 'none'
   if (key === lastKey) return
   lastKey = key

@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState, type CSSProperties } from 'react'
 import { createPortal } from 'react-dom'
-import { ListOrdered, ChevronUp, ChevronDown, X, ListX, Settings2, Sparkles } from 'lucide-react'
+import { ListOrdered, ChevronUp, ChevronDown, X, ListX, Settings2, Sparkles, ListMusic } from 'lucide-react'
+import { featLabel, barIcon } from '../Practice/practiceBar'
 import { useStore } from '../../store'
 import { t } from '../../utils/i18n'
 import { neighbour, stepAround } from '../../utils/practiceQueue'
@@ -79,7 +80,8 @@ const iconBtn = (enabled: boolean): CSSProperties => ({
 
 const norm = (p: string | undefined) => (p ?? '').replace(/\\/g, '/').toLowerCase()
 
-export function QueueButton() {
+// `practice`: practice mode's header look (icon + PLAYLIST), same list
+export function QueueButton({ practice = false }: { practice?: boolean } = {}) {
   const count = useStore(s => s.queue.paths.length)
   // the open song is the queue's current one (opened from the queue, or Alt + ↓ / ↑)
   const queued = useStore(s => {
@@ -132,7 +134,7 @@ export function QueueButton() {
   const active = !!open || dragOver
   return (
     <>
-      <Tooltip title={t`Practice queue`} description={t`Create your practice playlist.
+      <Tooltip title={practice ? t`Playlist` : t`Practice queue`} description={practice ? t`Click to open your practice queue.` : t`Create your practice playlist.
 Click to edit.`} placement="bottom" disabled={!!open || queued}>
         <button ref={btnRef} className="app-no-drag" aria-label={t`Practice queue: ${count} songs`} aria-expanded={!!open}
           onMouseEnter={() => { if (queued) showCard() }}
@@ -147,6 +149,12 @@ Click to edit.`} placement="bottom" disabled={!!open || queued}>
             border: dragOver ? '1px dashed var(--text-amber)' : '1px solid transparent', borderRadius: 'var(--radius-md)',
             cursor: 'pointer', flexShrink: 0,
           }}>
+          {practice ? (
+            <span style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+              <ListMusic {...barIcon} />
+              <span style={featLabel}>{t`Playlist`}</span>
+            </span>
+          ) : <>
           <span style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start', gap: 1 }}>
             <span style={{ ...label, color: active ? 'var(--text-amber)' : 'var(--text-muted)' }}>{t`PRACTICE`}</span>
             <span style={{ ...label, color: active ? 'var(--text-amber)' : 'var(--text-muted)' }}>{t`QUEUE`}</span>
@@ -156,6 +164,7 @@ Click to edit.`} placement="bottom" disabled={!!open || queued}>
           </span>
           <ChevronDown size={11} style={{ color: active ? 'var(--text-amber)' : 'var(--text-muted)', flexShrink: 0,
             transform: open ? 'rotate(180deg)' : 'none', transition: 'transform 0.12s' }} />
+          </>}
         </button>
       </Tooltip>
       {card && queued && !open && btnRef.current && createPortal(

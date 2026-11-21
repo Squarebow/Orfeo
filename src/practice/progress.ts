@@ -19,7 +19,7 @@ export function kindName(k: Kind): string {
   if (k.way === 'wait') return t`Wait for me`
   if (k.way === 'perform') return t`Performance, level ${k.level}`
   const hand = k.hand === 'L' ? t`left hand` : k.hand === 'R' ? t`right hand` : t`both hands`
-  return k.wait ? t`Practise, ${hand}, waiting` : t`Practise, ${hand}`
+  return k.wait ? t`Play along, ${hand}, waiting` : t`Play along, ${hand}`
 }
 
 export interface Day {

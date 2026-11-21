@@ -725,3 +725,7 @@ textarea:focus-visible,
 @keyframes orfeo-countin-pop { from { transform: scale(1.25); opacity: 0.2 } to { transform: scale(1); opacity: 0.85 } }
 .orfeo-countin-pop { animation: orfeo-countin-pop 0.15s ease-out }
 @media (prefers-reduced-motion: reduce) { .orfeo-countin-pop { animation: none } }
+/* practice mode: a key the song waits for, slowly coming and going (Keyboard.tsx WaitPulse) */
+@keyframes orfeo-wait-pulse { 0%, 100% { opacity: 0.25 } 50% { opacity: 0.9 } }
+.orfeo-wait-pulse { animation: orfeo-wait-pulse 1.2s ease-in-out infinite }
+@media (prefers-reduced-motion: reduce) { .orfeo-wait-pulse { animation: none; opacity: 0.7 } }

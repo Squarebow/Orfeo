@@ -1,4 +1,5 @@
 import { X } from 'lucide-react'
+import { UNDER_HEADER } from './practiceBar'
 import Tooltip from '../Tooltip'
 import { useStore } from '../../store'
 import { t } from '../../utils/i18n'
@@ -36,7 +37,7 @@ export default function PracticeSummaryCard() {
 
   return (
     <div className="app-no-drag" role="status" style={{
-      position: 'fixed', top: 52, left: '50%', transform: 'translateX(-50%)', zIndex: 950,
+      position: 'fixed', top: UNDER_HEADER, left: '50%', transform: 'translateX(-50%)', zIndex: 950,
       width: 'min(440px, calc(100vw - 32px))', boxSizing: 'border-box', padding: '12px 14px 12px 16px', borderRadius: 8,
       background: 'var(--bg-modal)', border: '1px solid var(--border2)', boxShadow: '0 8px 28px rgba(0,0,0,.35)',
       fontFamily: 'var(--font-ui)', color: 'var(--text-default)',

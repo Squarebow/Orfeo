@@ -125,7 +125,7 @@ export function takesCsv(takes: TakeRecord[]): string {
   const head = [t`Date`, t`Time`, t`Way`, t`Hand`, t`Level`, t`Waits for you`, t`Speed %`, t`From bar`, t`To bar`,
     t`Right`, t`Missed`, t`Extra`, t`Right, left hand`, t`Missed, left hand`, t`Right, right hand`, t`Missed, right hand`,
     t`Average timing (ms, + late)`, t`Timing spread (ms)`, t`Times it waited`, t`Seconds waited`, t`Time over tempo`]
-  const way = (w: string) => (w === 'wait' ? t`Wait for me` : w === 'perform' ? t`Performance` : t`Practise`)
+  const way = (w: string) => (w === 'wait' ? t`Wait for me` : w === 'perform' ? t`Performance` : t`Play along`)
   const hand = (h: string) => (h === 'L' ? t`Left` : h === 'R' ? t`Right` : t`Both`)
   const pad = (n: number) => String(n).padStart(2, '0')
   const rows = takes.map(k => {

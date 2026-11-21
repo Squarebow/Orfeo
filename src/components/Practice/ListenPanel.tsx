@@ -1,4 +1,5 @@
 import { useListen } from '../../practice/listen'
+import { UNDER_HEADER } from './practiceBar'
 import { useDevPractice } from '../../practice/devPlay'
 import { usePractice } from '../../practice/practiceMode'
 import type { Outcome } from '../../practice/matcher'
@@ -31,7 +32,7 @@ export default function ListenPanel() {
   const r = orig > 0 ? bpm / orig : 1
   const avg = summary && summary.hit ? Math.round(summary.meanOffset / r * 1000) : null
   const box: React.CSSProperties = {
-    position: 'fixed', top: 52, right: 12, width: 250, zIndex: 900, padding: 8, borderRadius: 4,
+    position: 'fixed', top: UNDER_HEADER, right: 12, width: 250, zIndex: 900, padding: 8, borderRadius: 4,
     border: '1px dashed var(--border2)', background: 'var(--bg-modal)', fontFamily: 'var(--font-ui)', fontSize: 10, color: 'var(--text-muted)',
     pointerEvents: 'none',
   }

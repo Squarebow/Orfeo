@@ -19,7 +19,8 @@ const TRACK_W   = BAR_COUNT * BAR_W + (BAR_COUNT - 1) * BAR_GAP
 // this is still the same "master volume control in the header" slot, just
 // redrawn to fit the row: first a filled pill, now ascending bars per the
 // requested signal-strength look.)
-export default function VolumeKnob() {
+// `bare`: no VOLUME label under the bars (practice mode's header)
+export default function VolumeKnob({ bare = false }: { bare?: boolean } = {}) {
   const masterVolume    = useStore((s) => s.masterVolume)
   const setMasterVolume = useStore((s) => s.setMasterVolume)
   const draggingRef     = useRef(false)
@@ -106,13 +107,13 @@ export default function VolumeKnob() {
           )
         })}
       </div>
-      <span style={{
+      {!bare && <span style={{
         color: 'var(--text-muted)', fontSize: 9, fontFamily: 'var(--font-mono)',
         textTransform: 'uppercase', letterSpacing: '0.1em', lineHeight: 1,
         marginTop: 6, whiteSpace: 'nowrap', pointerEvents: 'none',
       }}>
         {t`Volume`}
-      </span>
+      </span>}
     </div>
   )
 }

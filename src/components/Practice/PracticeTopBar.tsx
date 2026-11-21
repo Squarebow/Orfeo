@@ -1,68 +1,52 @@
-import { useRef, useState, type CSSProperties, type ReactNode } from 'react'
-import { Play, Pause, SkipBack, Repeat, Minus, Plus, SlidersHorizontal, Volume2, VolumeX, Hand, LogOut, ChevronDown } from 'lucide-react'
+import { useRef, useState, type CSSProperties } from 'react'
+import { Play, Pause, SkipBack, Repeat, SlidersVertical, Volume2, VolumeX, ChevronUp, ChevronDown, WandSparkles, SquareArrowRightExit, Piano, Eye, Drum } from 'lucide-react'
 import { useStore } from '../../store'
 import { usePlayback } from '../../hooks/usePlayback'
 import { formatTime } from '../../utils/midiParser'
-import { transposeDetectedKey } from '../../utils/keyDetection'
+import { formatKey, transposeDetectedKey } from '../../utils/keyDetection'
+import { stepDisplayedBpm, typedBpm, typedSpeed } from '../../utils/bpmStep'
 import { isCountingIn, cancelCountIn } from '../../utils/countInRunner'
-import { useMenuDismiss } from '../ContextMenu'
 import { t } from '../../utils/i18n'
 import { useWaiting } from '../../practice/listen'
 import { endHold } from '../../practice/waiting'
 import { reviewing } from '../../practice/reviewState'
 import { togglePassage } from '../../practice/review'
 import Tooltip from '../Tooltip'
+import OrfeoLogo from '../OrfeoLogo'
+import VolumeKnob from '../VolumeKnob'
 import { QueueButton } from '../Transport/QueueButton'
-import { NES } from '../../utils/noteEditorState'
+import { TBtn, BpmValue, TempoDisplayMenu, MetronomeMenu, METRO_MENU_WIDTH } from '../Transport/TopBar'
+import { AMBER, barIcon, featLabel, featValue, toolBtn, BarPop, PopItem, popHeading, PopDivider, HandMarks } from './practiceBar'
 import {
-  usePractice, leavePractice, setBand, setHearMine, tempoLimits, metronomeAllowed, speedPercent, setSpeedPercent, practisedHand, fixHandsFromPractice,
+  usePractice, leavePractice, setHearMine, tempoLimits, metronomeAllowed, speedPercent, setSpeedPercent, practisedHand,
+  fixHandsFromPractice, setBandPreset, bandPreset, type BandPreset,
 } from '../../practice/practiceMode'
 
-// ── Practice mode's top bar ──────────────────────────────────────────────────
-// Narrow, everything in one place (no side panels): queue, tracks, key and
-// tempo on the left; only the playback you need in the middle; volume, time,
-// metronome, Fix hands and Exit on the right. While the song plays only Pause
-// and the time stay: the rest fades away (and keeps its place, so nothing
-// jumps). The window's own buttons sit in the top-right corner (Windows,
-// Linux) or top-left (macOS), so the bar leaves room for them.
-const isMac = typeof navigator !== 'undefined' && /Mac/i.test(navigator.platform)
-const BAR_H = 40
+// ── Practice mode's header ───────────────────────────────────────────────────
+// Top line: PRACTICE MODE (beside the window's own buttons). Then one row:
+// ORFEO, the playlist, what you hear, key and tempo on the left; the song and
+// its playback in the middle; volume, bar, metronome, Fix hands and Exit on
+// the right. Under it, the song as a line of ticks (one a second, every tenth
+// longer) to move through it. Always there; a little lower while the song
+// plays, as a web page's header does once you scroll.
+const TITLE_H = 40          // the window's buttons' row
+const ROW_H = 74, ROW_H_PLAYING = 56
 
-const iconBtn = (on = false, disabled = false): CSSProperties => ({
-  display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: 6,
-  height: 28, minWidth: 28, padding: '0 6px', border: 'none', borderRadius: 'var(--radius-md)',
-  background: on ? 'var(--bg-panel2)' : 'transparent',
-  color: disabled ? 'var(--state-disabled)' : on ? 'var(--text-amber)' : 'var(--text-default)',
-  cursor: disabled ? 'default' : 'pointer', fontFamily: 'var(--font-ui)', fontSize: 11, fontWeight: 600,
-  letterSpacing: '0.06em', textTransform: 'uppercase', whiteSpace: 'nowrap',
-})
-const cap: CSSProperties = { fontFamily: 'var(--font-ui)', fontSize: 10, fontWeight: 600, letterSpacing: '0.1em', textTransform: 'uppercase', color: 'var(--text-muted)' }
-const val: CSSProperties = { fontFamily: 'var(--font-mono)', fontSize: 12, color: 'var(--text-active)' }
-const popStyle = (align: 'left' | 'right'): CSSProperties => ({
-  position: 'absolute', top: 36, [align]: 0, zIndex: 9500, width: 320, padding: 10, boxSizing: 'border-box',
-  maxHeight: 'calc(100vh - 140px)', overflowY: 'auto',
-  background: 'var(--bg-panel)', border: '1px solid var(--bg-panel2)', borderRadius: 'var(--radius-lg)',
-  boxShadow: '0 12px 32px rgba(0,0,0,.55)', display: 'flex', flexDirection: 'column', gap: 6,
-})
+const bigValue: CSSProperties = { color: 'var(--text-active)', fontFamily: 'var(--font-mono)', fontSize: 20, fontWeight: 700, lineHeight: 1, whiteSpace: 'nowrap' }
 
-function Pop({ open, onClose, align = 'left', children }: { open: boolean; onClose: () => void; align?: 'left' | 'right'; children: ReactNode }) {
-  const ref = useRef<HTMLDivElement>(null)
-  useMenuDismiss(open, ref, onClose)
-  if (!open) return null
-  return <div ref={ref} className="app-no-drag" style={popStyle(align)}>{children}</div>
-}
-
-function Toggle({ on }: { on: boolean }) {
+function Chevrons({ up, down, upOff, downOff, upLabel, downLabel }: {
+  up: () => void; down: () => void; upOff?: boolean; downOff?: boolean; upLabel: string; downLabel: string
+}) {
+  const b = (off?: boolean): CSSProperties => ({
+    display: 'flex', alignItems: 'center', justifyContent: 'center', width: 18, height: 13, padding: 0,
+    border: 'none', background: 'none', color: AMBER, opacity: off ? 0.3 : 1, cursor: off ? 'default' : 'pointer',
+  })
   return (
-    <span aria-hidden style={{ position: 'relative', display: 'inline-block', width: 28, height: 16, borderRadius: 8, flex: 'none', background: on ? 'var(--text-amber)' : 'var(--bg-input)' }}>
-      <span style={{ position: 'absolute', top: 2, left: on ? 14 : 2, width: 12, height: 12, borderRadius: '50%', background: on ? 'var(--text-on-amber)' : 'var(--text-default)', transition: 'left .15s' }} />
+    <span style={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
+      <button className="app-no-drag" aria-label={upLabel} disabled={upOff} onClick={up} style={b(upOff)}><ChevronUp size={13} strokeWidth={2} /></button>
+      <button className="app-no-drag" aria-label={downLabel} disabled={downOff} onClick={down} style={b(downOff)}><ChevronDown size={13} strokeWidth={2} /></button>
     </span>
   )
-}
-
-const rowBtn: CSSProperties = {
-  display: 'flex', alignItems: 'center', gap: 8, width: '100%', padding: '6px 8px', border: 'none', borderRadius: 'var(--radius-md)',
-  background: 'transparent', color: 'var(--text-body)', cursor: 'pointer', textAlign: 'left', fontFamily: 'var(--font-ui)', fontSize: 13,
 }
 
 export default function PracticeTopBar() {
@@ -72,10 +56,14 @@ export default function PracticeTopBar() {
   const currentTime = useStore(s => s.currentTime)
   const barStarts = useStore(s => s.barStarts)
   const bpm = useStore(s => s.bpm)
+  const originalBpm = useStore(s => s.originalBpm)
+  const asPercent = useStore(s => s.tempoDisplay === 'percent')
   const detectedKey = useStore(s => s.detectedKey)
-  const masterVolume = useStore(s => s.masterVolume)
+  const noteNaming = useStore(s => s.noteNaming)
+  const accidentals = useStore(s => s.accidentals)
   const metronomeEnabled = useStore(s => s.metronomeEnabled)
-  const metronomeVolume = useStore(s => s.metronomeVolume)
+  const countInEnabled = useStore(s => s.countInEnabled)
+  const countInBars = useStore(s => s.countInBars)
   const loopStart = useStore(s => s.loopStart)
   const loopEnd = useStore(s => s.loopEnd)
   const loopActive = useStore(s => s.loopRegionActive)
@@ -84,30 +72,49 @@ export default function PracticeTopBar() {
   const hearMine = usePractice(s => s.hearMine)
   usePractice(s => s.hand)   // the hand rows follow your choice
   const { play, pause, seek, seekAndPlay } = usePlayback()
-  const [open, setOpen] = useState<'' | 'tracks' | 'tempo' | 'metro'>('')
-  const toggle = (name: typeof open) => setOpen(o => (o === name ? '' : name))
+  const [open, setOpen] = useState<'' | 'tracks'>('')
+  const [tempoMenu, setTempoMenu] = useState<{ x: number; y: number } | null>(null)
+  const [metroMenu, setMetroMenu] = useState<{ x: number; y: number } | null>(null)
+  const tracksBtn = useRef<HTMLButtonElement>(null)
 
   // the song waiting for your notes is still the song playing, to you
   const holding = useWaiting(s => s.holding)
   const playing = playbackState === 'playing' || holding
-  // while playing, everything but Pause and the time fades away
-  const fade: CSSProperties = playing
-    ? { opacity: 0, pointerEvents: 'none', transition: 'opacity .35s' }
-    : { opacity: 1, transition: 'opacity .2s' }
+  const rowH = playing ? ROW_H_PLAYING : ROW_H
 
   const band = tracks.filter(tr => !tr.practicePart)
   const hands = tracks.filter(tr => tr.practicePart).sort((a, b) => (a.practiceHand === 'L' ? -1 : 1) - (b.practiceHand === 'L' ? -1 : 1))
   const practised = practisedHand()
   const mine = (tr: { practiceHand?: 'L' | 'R' }) => practised === 'B' || tr.practiceHand === practised
-  const bandIn = band.some(tr => !tr.muted)
+  const preset = band.length ? bandPreset(tracks) : 'piano'
+  const presetName: Record<BandPreset, string> = { piano: t`Piano only`, focus: t`Focus`, band: t`Band` }
+
+  // ── Tempo: where you are in the song (it may change along the way), at your speed
   const pct = speedPercent()
-  // the tempo where you are in the song (it may change along the way), at your speed — as in the normal top bar
   const tempoMap = (midi as any)?._tempoMap as { bpm: number; time: number }[] | undefined
   const fileBpm = tempoMap?.length ? tempoMap.reduce((acc, e) => (e.time <= currentTime ? e.bpm : acc), tempoMap[0].bpm) : bpm
-  const liveBpm = Math.round(fileBpm * pct / 100)
+  const liveBpm = Math.round(fileBpm * (originalBpm > 0 ? bpm / originalBpm : 1))
   const lim = tempoLimits()
-  const metroOk = metronomeAllowed()
+  const fixedTempo = lim.min === lim.max
+  const setBpmWithin = (next: number) => {
+    const o = useStore.getState().originalBpm
+    useStore.getState().setBpm(Math.max(o * lim.min / 100, Math.min(o * lim.max / 100, next)))
+  }
+  const stepTempo = (dir: 1 | -1) => {
+    if (asPercent) { setSpeedPercent(pct + dir); return }
+    const s = useStore.getState()
+    setBpmWithin(stepDisplayedBpm(s.bpm, s.originalBpm, fileBpm, dir))
+  }
+  const levelRule = way === 'wait'
+    ? t`Wait for me always plays at the song's own tempo: the waiting takes care of your pace.`
+    : way === 'perform' && level === 3 ? t`Level 3 plays at the song's own tempo.`
+    : way === 'perform' && level === 2 ? t`Level 2: at most 20 % slower than the song.`
+    : t`Any tempo you like. Right-click to show it in BPM or as a speed in percent.`
+
   const transpose = detectedKey?.transpose ?? 0
+  const displayKey = detectedKey ? formatKey(detectedKey, noteNaming, accidentals) : '—'
+  const metroOk = metronomeAllowed()
+
   let bar = 1
   for (let i = 0; i < barStarts.length; i++) { if (barStarts[i] <= currentTime + 1e-6) bar = i + 1; else break }
   const hasLoop = loopStart !== null && loopEnd !== null && loopEnd > loopStart
@@ -122,165 +129,248 @@ export default function PracticeTopBar() {
     const to = hasLoop && loopActive ? loopStart! : 0
     if (playing) seekAndPlay(to); else seek(to)
   }
-  const fixHands = fixHandsFromPractice
-
-  const levelRule = way === 'wait'
-    ? t`Wait for me always uses the song's own tempo: the waiting takes care of your pace.`
-    : way === 'perform' && level === 3 ? t`Level 3 plays at the song's own tempo.`
-    : way === 'perform' && level === 2 ? t`Level 2: at most 20 % slower than the song.`
-    : t`Any tempo you like.`
 
   return (
-    <div className="app-drag-region" style={{
-      height: BAR_H, flexShrink: 0, position: 'relative', zIndex: 20,
-      display: 'grid', gridTemplateColumns: 'repeat(3, minmax(0, 1fr))', alignItems: 'center',
-      padding: isMac ? '0 10px 0 84px' : '0 150px 0 10px', boxSizing: 'border-box',
-      background: 'var(--bg-deep)', borderBottom: '1px solid var(--state-hover-bg)',
-    }}>
-      {/* ── Left: queue, tracks, key, tempo ── */}
-      <div style={{ ...fade, display: 'flex', alignItems: 'center', gap: 4, minWidth: 0 }}>
-        <div className="app-no-drag" style={{ minWidth: 0 }}><QueueButton /></div>
-        <span style={{ ...val, fontFamily: 'var(--font-ui)', fontSize: 13, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: 200 }}>
-          {midi?.fileName.replace(/\.(mid|midi)$/i, '')}
-        </span>
+    <div className="app-drag-region" style={{ flexShrink: 0, position: 'relative', zIndex: 20, background: 'var(--bg-deep)', borderBottom: '1px solid var(--state-hover-bg)' }}>
+      {/* ── The top line, beside the window's own buttons ── */}
+      <div style={{ height: TITLE_H, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+        <span style={{ ...featLabel, fontSize: 11, letterSpacing: '0.24em' }}>{t`Practice mode`}</span>
+      </div>
 
-        <div style={{ position: 'relative' }}>
-          {/* no tooltip while its pop-out is open: it would sit over the pop-out's heading */}
-          <Tooltip title={t`Tracks`} description={t`Bring the band in, or mute any track.`} disabled={open === 'tracks'}>
-            <button className="app-no-drag" onClick={() => toggle('tracks')} style={iconBtn(open === 'tracks')} aria-label={t`Tracks`}>
-              <SlidersHorizontal size={15} /> {bandIn ? t`Band in` : t`Piano only`}
+      <div style={{
+        height: rowH, transition: 'height .3s ease', display: 'grid', gridTemplateColumns: 'repeat(3, minmax(0, 1fr))', alignItems: 'center',
+        padding: '0 20px', boxSizing: 'border-box',
+      }}>
+        {/* ── Left: ORFEO, playlist, what you hear, key, tempo ── */}
+        <div className="topbar-scroll" style={{ display: 'flex', alignItems: 'center', gap: 14, minWidth: 0, overflowX: 'auto', overflowY: 'hidden' }}>
+          <OrfeoLogo scale={playing ? 1.2 : 1.45} />
+          <div className="app-no-drag"><QueueButton practice /></div>
+
+          <Tooltip title={t`What you hear`} description={t`The piano alone, Focus (the bass and drums too), or the whole band. Click to choose, or mute any track.`} placement="bottom" disabled={open === 'tracks'}>
+            <button ref={tracksBtn} className="app-no-drag" onClick={() => setOpen(o => (o === 'tracks' ? '' : 'tracks'))} style={toolBtn()} aria-label={t`What you hear`} aria-expanded={open === 'tracks'}>
+              <SlidersVertical {...barIcon} />
+              <span style={featValue}>{preset ? presetName[preset] : t`Your mix`}</span>
             </button>
           </Tooltip>
-          <Pop open={open === 'tracks'} onClose={() => setOpen('')}>
-            <div style={{ ...cap, color: 'var(--text-amber)', padding: '2px 8px 4px' }}>{t`Tracks`}</div>
-            {hands.map(tr => (
-              <div key={tr.index} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '6px 8px' }}>
-                <span style={{ width: 10, height: 10, borderRadius: 2, flex: 'none', background: tr.practiceHand === 'L' ? 'var(--hand-lh)' : 'var(--hand-rh)' }} />
-                <span style={{ flex: 1, fontSize: 13, color: 'var(--text-active)', whiteSpace: 'nowrap' }}>{tr.practiceHand === 'L' ? t`Left hand` : t`Right hand`}</span>
-                <span style={cap}>{mine(tr) ? (tr.muted ? t`Silent, you play it` : t`You play it, heard`) : t`Plays along`}</span>
-              </div>
-            ))}
-            {way === 'practise' && (
-              <button className="app-no-drag" style={rowBtn} onClick={() => setHearMine(!hearMine)}>
-                <span style={{ flex: 1 }}>{t`Hear my part too`}</span><Toggle on={hearMine} />
-              </button>
-            )}
-            {band.length > 0 ? (
-              <>
-                <button className="app-no-drag" onClick={() => setBand(!bandIn)}
-                  style={{ ...rowBtn, justifyContent: 'center', margin: '4px 0', background: 'var(--bg-panel2)', color: 'var(--text-amber)', fontWeight: 600 }}>
-                  {bandIn ? t`Piano only` : t`Bring the band in`}
-                </button>
-                {band.map(tr => (
-                  <button key={tr.index} className="app-no-drag" style={rowBtn} onClick={() => useStore.getState().setTrackMuted(tr.index, !tr.muted)}
-                    aria-label={tr.muted ? t`Unmute ${tr.trackName}` : t`Mute ${tr.trackName}`}>
-                    <span style={{ width: 10, height: 10, borderRadius: 2, flex: 'none', background: tr.color, opacity: tr.muted ? 0.35 : 1 }} />
-                    <span style={{ flex: 1, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', color: tr.muted ? 'var(--text-muted)' : 'var(--text-active)' }}>{tr.trackName}</span>
-                    {tr.muted ? <VolumeX size={14} color="var(--text-muted)" /> : <Volume2 size={14} color="var(--text-amber)" />}
-                  </button>
+          {open === 'tracks' && (
+            <BarPop anchor={tracksBtn.current} width={290} onClose={() => setOpen('')} label={t`What you hear`}>
+              <div style={popHeading}>{t`What you hear`}</div>
+              <div style={{ display: 'flex', gap: 6, padding: '4px 14px 8px' }}>
+                {([['piano', Piano, t`Piano only`], ['focus', Eye, t`Focus`], ['band', Drum, t`Band`]] as const).map(([id, Icon, name]) => (
+                  <Tooltip key={id} oneLine placement="bottom"
+                    title={id === 'piano' ? t`Just your piano` : id === 'focus' ? t`The piano, bass and drums` : t`Every track`}>
+                    <button className="app-no-drag" disabled={!band.length && id !== 'piano'} onClick={() => setBandPreset(id)}
+                      style={{
+                        display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4, width: 80, padding: '8px 0',
+                        borderRadius: 'var(--radius-md)', cursor: 'pointer',
+                        border: `1px solid ${preset === id ? 'var(--accent-amber-strong)' : 'var(--border)'}`,
+                        background: preset === id ? 'var(--accent-amber-subtle)' : 'none',
+                        opacity: !band.length && id !== 'piano' ? 0.4 : 1,
+                      }}>
+                      <Icon size={18} strokeWidth={1.6} color={AMBER} />
+                      <span style={{ ...featValue, fontSize: 10, color: preset === id ? AMBER : 'var(--text-default)' }}>{name}</span>
+                    </button>
+                  </Tooltip>
                 ))}
-              </>
-            ) : (
-              <div style={{ fontSize: 12, color: 'var(--text-muted)', padding: '4px 8px' }}>{t`Just the piano in this song.`}</div>
-            )}
-          </Pop>
-        </div>
+              </div>
+              <PopDivider />
+              {hands.map(tr => (
+                <div key={tr.index} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '6px 14px' }}>
+                  <HandMarks hand={tr.practiceHand === 'L' ? 'L' : 'R'} />
+                  <span style={{ flex: 1, fontSize: 13, color: 'var(--text-active)', whiteSpace: 'nowrap' }}>{tr.practiceHand === 'L' ? t`Left hand` : t`Right hand`}</span>
+                  <span style={{ fontSize: 11, color: 'var(--text-muted)' }}>{mine(tr) ? (tr.muted ? t`Silent, you play it` : t`You play it, heard`) : t`Plays along`}</span>
+                </div>
+              ))}
+              {way === 'practise' && (
+                <PopItem on={hearMine} onClick={() => setHearMine(!hearMine)} hint={t`Your part quietly, as a guide.`}>
+                  {hearMine ? t`Hear my part too: on` : t`Hear my part too: off`}
+                </PopItem>
+              )}
+              {band.length > 0 && <PopDivider />}
+              {band.map(tr => (
+                <button key={tr.index} className="app-no-drag" onClick={() => useStore.getState().setTrackMuted(tr.index, !tr.muted)}
+                  aria-label={tr.muted ? t`Unmute ${tr.trackName}` : t`Mute ${tr.trackName}`}
+                  style={{ display: 'flex', alignItems: 'center', gap: 8, width: '100%', padding: '6px 14px', border: 'none', background: 'none', cursor: 'pointer', textAlign: 'left' }}>
+                  <span style={{ width: 9, height: 9, borderRadius: 2, flex: 'none', background: tr.color, opacity: tr.muted ? 0.35 : 1 }} />
+                  <span style={{ flex: 1, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontSize: 13, color: tr.muted ? 'var(--text-muted)' : 'var(--text-active)' }}>{tr.trackName}</span>
+                  {tr.muted ? <VolumeX size={14} color="var(--text-muted)" /> : <Volume2 size={14} color={AMBER} />}
+                </button>
+              ))}
+            </BarPop>
+          )}
 
-        <div style={{ display: 'flex', alignItems: 'center', gap: 2, padding: '0 6px' }}>
-          <span style={{ ...cap, marginRight: 4 }}>{t`Key`}</span>
-          <button className="app-no-drag" disabled={!detectedKey || transpose <= -12} aria-label={t`Transpose down`}
-            onClick={() => detectedKey && useStore.setState({ detectedKey: transposeDetectedKey(detectedKey, -1) })}
-            style={{ ...iconBtn(false, !detectedKey || transpose <= -12), minWidth: 22, height: 22, padding: 0 }}><Minus size={12} /></button>
-          <span style={{ ...val, minWidth: 26, textAlign: 'center', color: transpose ? 'var(--text-amber)' : 'var(--text-active)' }}>{transpose > 0 ? `+${transpose}` : transpose}</span>
-          <button className="app-no-drag" disabled={!detectedKey || transpose >= 12} aria-label={t`Transpose up`}
-            onClick={() => detectedKey && useStore.setState({ detectedKey: transposeDetectedKey(detectedKey, 1) })}
-            style={{ ...iconBtn(false, !detectedKey || transpose >= 12), minWidth: 22, height: 22, padding: 0 }}><Plus size={12} /></button>
-        </div>
-
-        <div style={{ position: 'relative', display: 'flex', alignItems: 'center', gap: 2 }}>
-          <span style={{ ...cap, marginRight: 4 }}>{t`Tempo`}</span>
-          <button className="app-no-drag" disabled={pct <= lim.min} aria-label={t`Slower`} onClick={() => setSpeedPercent(pct - 5)}
-            style={{ ...iconBtn(false, pct <= lim.min), minWidth: 22, height: 22, padding: 0 }}><Minus size={12} /></button>
-          <button className="app-no-drag" onClick={() => toggle('tempo')} aria-label={t`Tempo`}
-            style={{ ...iconBtn(open === 'tempo'), flexDirection: 'column', gap: 2, height: 32, padding: '0 4px', textTransform: 'none', letterSpacing: 0 }}>
-            <span style={val}>{pct} %</span>
-            <span style={{ fontFamily: 'var(--font-mono)', fontSize: 9, color: 'var(--text-muted)' }}>{liveBpm} BPM</span>
-          </button>
-          <button className="app-no-drag" disabled={pct >= lim.max} aria-label={t`Faster`} onClick={() => setSpeedPercent(pct + 5)}
-            style={{ ...iconBtn(false, pct >= lim.max), minWidth: 22, height: 22, padding: 0 }}><Plus size={12} /></button>
-          <Pop open={open === 'tempo'} onClose={() => setOpen('')}>
-            <div style={{ ...cap, color: 'var(--text-amber)' }}>{t`Tempo`}</div>
-            <div style={{ fontSize: 13, color: 'var(--text-body)' }}>{t`The song's tempo is ${Math.round(useStore.getState().originalBpm)} BPM; now ${pct} %.`}</div>
-            <div style={{ fontSize: 12, lineHeight: 1.45, color: 'var(--text-dim)' }}>{levelRule}</div>
-          </Pop>
-        </div>
-      </div>
-
-      {/* ── Centre: back, play / pause, loop ── */}
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6 }}>
-        <span style={fade}>
-          <Tooltip title={hasLoop && loopActive ? t`Back to the loop's start` : t`Back to the start`} oneLine>
-            <button className="app-no-drag" onClick={back} style={iconBtn()} aria-label={t`Back`}><SkipBack size={15} /></button>
-          </Tooltip>
-        </span>
-        <button className="app-no-drag" onClick={playPause} aria-label={playing ? t`Pause` : t`Play`}
-          style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: 30, height: 30, borderRadius: '50%', border: 'none', background: 'var(--text-amber)', color: 'var(--text-on-amber)', cursor: 'pointer' }}>
-          {playing ? <Pause size={14} fill="currentColor" /> : <Play size={14} fill="currentColor" style={{ marginLeft: 2 }} />}
-        </button>
-        <span style={fade}>
-          <Tooltip title={t`Loop`} description={hasLoop ? t`Play the loop round after round.` : t`Set a loop first: Alt + drag on the piano roll.`}>
-            <button className="app-no-drag" disabled={!hasLoop} onClick={() => useStore.getState().setLoopRegionActive(!loopActive)}
-              style={iconBtn(hasLoop && loopActive, !hasLoop)} aria-label={t`Loop`}><Repeat size={15} /></button>
-          </Tooltip>
-        </span>
-      </div>
-
-      {/* ── Right: volume, time, metronome, Fix hands, Exit ── */}
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: 4, minWidth: 0 }}>
-        <div style={{ ...fade, display: 'flex', alignItems: 'center', gap: 6, padding: '0 6px' }}>
-          <Volume2 size={15} color="var(--text-muted)" />
-          <input className="app-no-drag" type="range" min={0} max={100} value={Math.round(masterVolume * 100)} aria-label={t`Volume`}
-            onChange={e => useStore.getState().setMasterVolume(Number(e.target.value) / 100)} style={{ width: 70, accentColor: 'var(--text-amber)' }} />
-        </div>
-        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 3, padding: '0 8px', minWidth: 92 }}>
-          <span style={val}>{formatTime(currentTime)} / {formatTime(midi?.duration ?? 0)}</span>
-          <span style={{ ...cap, fontSize: 9 }}>{t`Bar`} <span style={{ color: 'var(--text-amber)', fontFamily: 'var(--font-mono)' }}>{bar}</span> / {Math.max(1, barStarts.length)}</span>
-        </div>
-        <div style={{ ...fade, display: 'flex', alignItems: 'center', gap: 2 }}>
-          <div style={{ position: 'relative', display: 'flex', alignItems: 'center' }}>
-            <Tooltip title={t`Metronome`} description={metroOk ? undefined : way === 'wait' ? t`No metronome in Wait for me: the song waits for you, so there is no beat to keep.` : t`No metronome at this level.`}>
-              <button className="app-no-drag" disabled={!metroOk} onClick={() => useStore.getState().setMetronomeEnabled(!metronomeEnabled)}
-                style={iconBtn(metroOk && metronomeEnabled, !metroOk)} aria-label={t`Metronome`}>
-                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinejoin="round" strokeLinecap="round" aria-hidden><path d="M9 3h6l4 18H5z" /><path d="M12 15l5-8" /></svg>
-              </button>
+          <div className="app-no-drag" style={{ display: 'flex', alignItems: 'center', gap: 8, flexShrink: 0 }}>
+            <Tooltip title={t`Key: `} titleValue={`${displayKey}${transpose !== 0 ? t` (semitones: ${transpose > 0 ? '+' : ''}${transpose})` : ''}`}
+              description={t`The song's key. The arrows move it up or down a semitone.`} placement="bottom">
+              <span style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                <span style={featLabel}>{t`Key`}</span>
+                <span style={{ ...bigValue, color: transpose ? AMBER : 'var(--text-active)' }}>{displayKey}</span>
+              </span>
             </Tooltip>
-            <button className="app-no-drag" onClick={() => toggle('metro')} style={{ ...iconBtn(open === 'metro'), minWidth: 18, padding: '0 2px' }} aria-label={t`Metronome settings`}><ChevronDown size={12} /></button>
-            <Pop open={open === 'metro'} onClose={() => setOpen('')} align="right">
-              <div style={{ ...cap, color: 'var(--text-amber)' }}>{t`Metronome`}</div>
-              <label style={{ display: 'flex', alignItems: 'center', gap: 10, fontSize: 13, color: 'var(--text-body)' }}>
-                {t`Volume`}
-                <input type="range" min={0} max={150} value={Math.round(metronomeVolume * 100)}
-                  onChange={e => useStore.getState().setMetronomeVolume(Number(e.target.value) / 100)} style={{ flex: 1, accentColor: 'var(--text-amber)' }} />
-              </label>
-              {!metroOk && <div style={{ fontSize: 12, color: 'var(--text-dim)' }}>{way === 'wait' ? t`No metronome in Wait for me.` : t`No metronome at this level.`}</div>}
-            </Pop>
+            <Chevrons upLabel={t`Transpose up`} downLabel={t`Transpose down`}
+              upOff={!detectedKey || transpose >= 12} downOff={!detectedKey || transpose <= -12}
+              up={() => detectedKey && useStore.setState({ detectedKey: transposeDetectedKey(detectedKey, 1) })}
+              down={() => detectedKey && useStore.setState({ detectedKey: transposeDetectedKey(detectedKey, -1) })} />
           </div>
-          <Tooltip title={t`Fix hands`} description={t`A note belongs to the other hand? Leaves practice mode and opens the piano in the Note Editor, both hands, at the bars you were playing.`}>
-            <button className="app-no-drag" onClick={fixHands} style={{ ...iconBtn(), color: 'var(--text-amber)' }}><Hand size={15} /> {t`Fix hands`}</button>
+
+          <div className="app-no-drag" style={{ display: 'flex', alignItems: 'center', gap: 8, flexShrink: 0 }}>
+            <Tooltip title={asPercent ? t`Speed: ${pct} %` : t`Tempo: ${liveBpm} BPM`} description={levelRule} placement="bottom" disabled={!!tempoMenu}>
+              <span style={{ display: 'flex', alignItems: 'center', gap: 8 }}
+                onContextMenu={e => { e.preventDefault(); const r = e.currentTarget.getBoundingClientRect(); setTempoMenu({ x: r.left, y: r.bottom + 6 }) }}>
+                <span style={featLabel}>{t`Tempo`}</span>
+                <span style={{ display: 'flex', alignItems: 'baseline', gap: 4 }}>
+                  <BpmValue shown={String(asPercent ? pct : liveBpm)} label={asPercent ? t`Speed in percent` : t`Tempo in BPM`}
+                    changed={pct !== 100} disabled={fixedTempo}
+                    onType={text => {
+                      const s = useStore.getState()
+                      const next = asPercent ? typedSpeed(text, s.originalBpm) : typedBpm(text, s.originalBpm, fileBpm)
+                      if (next !== null) setBpmWithin(next)
+                    }} />
+                  <span style={{ ...featValue, fontSize: 11 }}>{asPercent ? '%' : t`BPM`}</span>
+                </span>
+              </span>
+            </Tooltip>
+            {!fixedTempo && (
+              <Chevrons upLabel={t`Faster`} downLabel={t`Slower`} upOff={pct >= lim.max} downOff={pct <= lim.min}
+                up={() => stepTempo(1)} down={() => stepTempo(-1)} />
+            )}
+            {tempoMenu && <TempoDisplayMenu x={tempoMenu.x} y={tempoMenu.y} onClose={() => setTempoMenu(null)} />}
+          </div>
+        </div>
+
+        {/* ── Centre: the song, and its playback ── */}
+        <div className="app-no-drag" style={{ justifySelf: 'stretch', minWidth: 0, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: playing ? 2 : 5, transition: 'gap .3s' }}>
+          <span style={{ color: 'var(--text-default)', fontSize: 'var(--text-sm)', fontFamily: 'var(--font-ui)', lineHeight: '13px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: '100%' }}>
+            {midi?.fileName.replace(/\.(mid|midi)$/i, '') ?? ''}
+          </span>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+            <TBtn onClick={back} title={hasLoop && loopActive ? t`Back to the loop's start` : t`Go to start`} oneLine><SkipBack size={16} strokeWidth={1.5} /></TBtn>
+            <TBtn onClick={playPause} accent title={t`Play / Pause (Space)`} large={!playing} oneLine>
+              {playing ? <Pause size={playing ? 20 : 24} fill="currentColor" strokeWidth={0} /> : <Play size={24} fill="currentColor" strokeWidth={0} />}
+            </TBtn>
+            <TBtn onClick={() => useStore.getState().setLoopRegionActive(!loopActive)} disabled={!hasLoop} active={hasLoop && loopActive}
+              title={t`Loop`} description={hasLoop ? t`Play the loop round after round.` : t`Set a loop first: Alt + drag on the piano roll.`}>
+              <Repeat size={13} strokeWidth={1.5} />
+            </TBtn>
+            <span style={{ marginLeft: 10, color: 'var(--text-muted)', fontFamily: 'var(--font-mono)', fontSize: 11, whiteSpace: 'nowrap' }}>
+              <span style={{ color: 'var(--text-active)' }}>{formatTime(currentTime)}</span> / {formatTime(midi?.duration ?? 0)}
+            </span>
+          </div>
+        </div>
+
+        {/* ── Right: volume, bar, metronome, Fix hands, Exit (icons and values only) ── */}
+        <div className="app-no-drag" style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: 6, minWidth: 0 }}>
+          <VolumeKnob bare />
+          <Tooltip title={t`Bar ${bar} of ${barStarts.length}`} description={t`Position in the song,
+counted in bars.`} placement="bottom">
+            <div style={{ background: 'var(--bg-tile)', borderRadius: 4, padding: '4px 7px', display: 'flex', alignItems: 'baseline', margin: '0 8px' }}>
+              <span style={{ color: 'var(--topbar-bar-number)', fontFamily: 'var(--font-mono)', fontSize: 'var(--text-sm)', fontWeight: 700, lineHeight: 1, minWidth: '3ch', textAlign: 'right' }}>{bar}</span>
+              <span style={{ color: 'var(--topbar-bar-total)', fontFamily: 'var(--font-mono)', fontSize: 'var(--text-sm)', lineHeight: 1 }}>|{barStarts.length}</span>
+            </div>
           </Tooltip>
-          <Tooltip title={t`Exit`} description={t`Leave practice mode. Every track comes back exactly as it was.`}>
-            <button className="app-no-drag" onClick={leavePractice} style={iconBtn()} aria-label={t`Leave practice mode`}><LogOut size={15} /> {t`Exit`}</button>
+
+          <Tooltip
+            title={!metroOk ? t`Metronome off` : metronomeEnabled ? t`Metronome on` : t`Metronome off`}
+            description={!metroOk
+              ? (way === 'wait' ? t`No metronome in Wait for me: the song waits for you, so there is no beat to keep.` : t`No metronome at this level.`)
+              : countInEnabled ? t`Click to toggle metronome ON/OFF. Right-click for volume and count-in.` : t`Click to turn it ON, right-click \nfor volume and count-in.`}
+            placement="bottom" disabled={!!metroMenu}>
+            <button
+              onClick={() => metroOk && useStore.getState().setMetronomeEnabled(!metronomeEnabled)}
+              onContextMenu={e => { e.preventDefault(); const r = e.currentTarget.getBoundingClientRect(); setMetroMenu({ x: Math.max(8, r.right - METRO_MENU_WIDTH), y: r.bottom + 6 }) }}
+              aria-label={t`Metronome`}
+              style={{
+                position: 'relative', flexShrink: 0, display: 'flex', flexDirection: 'column', alignItems: 'center', padding: '0 10px',
+                border: 'none', background: 'transparent', cursor: metroOk ? 'pointer' : 'default', opacity: metroOk ? 1 : 0.4,
+                color: metroOk && metronomeEnabled ? 'var(--topbar-metronome-on)' : 'var(--topbar-metronome-off)', transition: 'color 0.15s',
+              }}>
+              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M12 11.4V9.1" /><path d="m12 17 6.59-6.59" />
+                <path d="m15.05 5.7-.218-.691a3 3 0 0 0-5.663 0L4.418 19.695A1 1 0 0 0 5.37 21h13.253a1 1 0 0 0 .951-1.31L18.45 16.2" />
+                <circle cx="20" cy="9" r="2" />
+              </svg>
+              <span style={{ fontSize: 9, fontFamily: 'var(--font-mono)', letterSpacing: '0.08em', lineHeight: 1, marginTop: 5 }}>
+                {metroOk && metronomeEnabled ? t`ON` : t`OFF`}
+              </span>
+              {countInEnabled && (
+                <span aria-label={t`Count-in bars: ${countInBars}`} style={{
+                  position: 'absolute', top: -4, right: 2, minWidth: 12, height: 12, borderRadius: 6, padding: '0 3px',
+                  background: AMBER, color: 'var(--bg-tooltip)', fontSize: 8, fontWeight: 700,
+                  fontFamily: 'var(--font-mono)', lineHeight: '12px', textAlign: 'center',
+                }}>{countInBars}</span>
+              )}
+            </button>
+          </Tooltip>
+          {metroMenu && <MetronomeMenu x={metroMenu.x} y={metroMenu.y} onClose={() => setMetroMenu(null)} />}
+
+          <Tooltip title={t`Something's not right?`} description={t`Fix hands in the MIDI Editor: leaves practice mode and opens the piano at the bars you were playing.`} placement="bottom">
+            <button onClick={fixHandsFromPractice} style={toolBtn()} aria-label={t`Fix hands`}><WandSparkles {...barIcon} size={20} /></button>
+          </Tooltip>
+          <Tooltip title={t`Exit practice mode`} oneLine placement="bottom">
+            <button onClick={leavePractice} style={toolBtn()} aria-label={t`Exit practice mode`}><SquareArrowRightExit {...barIcon} size={20} /></button>
           </Tooltip>
         </div>
       </div>
 
-      {/* ── Where you are in the song (and the loop), along the bar's bottom edge ── */}
-      <div aria-hidden style={{ position: 'absolute', left: 0, right: 0, bottom: -1, height: 3, background: 'var(--state-hover-bg)', pointerEvents: 'none' }}>
-        {hasLoop && midi && (
-          <div style={{ position: 'absolute', top: 0, bottom: 0, left: `${(loopStart! / midi.duration) * 100}%`, width: `${((loopEnd! - loopStart!) / midi.duration) * 100}%`, background: 'var(--accent-amber-active-bg)' }} />
-        )}
-        <div style={{ position: 'absolute', top: 0, bottom: 0, left: 0, width: `${midi ? Math.min(100, (currentTime / midi.duration) * 100) : 0}%`, background: 'var(--text-amber)' }} />
-      </div>
+      <SongTicks playing={playing} hasLoop={hasLoop} />
     </div>
+  )
+}
+
+// ── The song as a line of ticks: one a second (every tenth a little longer;
+// a long song, one every five seconds), the part already played bright.
+// Click or drag anywhere on it to move through the song. ────────────────────
+function SongTicks({ playing, hasLoop }: { playing: boolean; hasLoop: boolean }) {
+  const midi = useStore(s => s.midi)
+  const currentTime = useStore(s => s.currentTime)
+  const loopStart = useStore(s => s.loopStart)
+  const loopEnd = useStore(s => s.loopEnd)
+  const { pause, seek, seekAndPlay } = usePlayback()
+  const ref = useRef<HTMLDivElement>(null)
+  const drag = useRef<{ wasPlaying: boolean } | null>(null)
+  const dur = midi?.duration ?? 0
+  if (!dur) return <div style={{ height: 14 }} />
+  const unit = dur > 900 ? 5 : 1   // seconds a tick
+  const step = (unit / dur) * 100
+  const ticks = [
+    `linear-gradient(to right, var(--text-amber) 0 1px, transparent 1px)`,
+    `linear-gradient(to right, var(--text-amber) 0 1px, transparent 1px)`,
+  ].join(',')
+  const tickBg: CSSProperties = {
+    position: 'absolute', inset: 0, backgroundImage: ticks, backgroundRepeat: 'repeat-x',
+    backgroundSize: `${step}% 45%, ${step * 10}% 100%`, backgroundPosition: 'left bottom, left bottom',
+  }
+  const H = playing ? 10 : 14
+  const timeAt = (x: number) => {
+    const r = ref.current!.getBoundingClientRect()
+    return Math.max(0, Math.min(dur, ((x - r.left) / r.width) * dur))
+  }
+  const played = Math.min(100, (currentTime / dur) * 100)
+  return (
+    <Tooltip title={t`The song`} description={t`One tick a second, every tenth a little longer. Click or drag to move through the song.`} placement="bottom" wrapperStyle={{ display: 'block' }}>
+      <div ref={ref} className="app-no-drag" role="slider" aria-label={t`Song position`} aria-valuemin={0} aria-valuemax={Math.round(dur)} aria-valuenow={Math.round(currentTime)}
+        onPointerDown={e => {
+          e.currentTarget.setPointerCapture(e.pointerId)
+          const s = useStore.getState()
+          if (useWaiting.getState().holding) endHold(false)
+          drag.current = { wasPlaying: s.playbackState === 'playing' }
+          if (drag.current.wasPlaying) pause()
+          useStore.setState({ currentTime: timeAt(e.clientX) })
+        }}
+        onPointerMove={e => { if (drag.current) useStore.setState({ currentTime: timeAt(e.clientX) }) }}
+        onPointerUp={e => {
+          if (!drag.current) return
+          const to = timeAt(e.clientX)
+          if (drag.current.wasPlaying) seekAndPlay(to); else seek(to)
+          drag.current = null
+        }}
+        style={{ position: 'relative', height: H, margin: '0 0 4px', cursor: 'pointer', transition: 'height .3s', touchAction: 'none' }}>
+        {hasLoop && (
+          <div style={{ position: 'absolute', top: 0, bottom: 0, left: `${(loopStart! / dur) * 100}%`, width: `${((loopEnd! - loopStart!) / dur) * 100}%`, background: 'var(--accent-amber-subtle)' }} />
+        )}
+        <div style={{ ...tickBg, opacity: 0.45 }} />
+        <div style={{ ...tickBg, clipPath: `inset(0 ${100 - played}% 0 0)` }} />
+      </div>
+    </Tooltip>
   )
 }

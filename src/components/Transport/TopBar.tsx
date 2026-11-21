@@ -48,7 +48,7 @@ const SKIP_SECS = 5
 // non-Windows build).
 const OVERLAY_INSET_FALLBACK = 174
 
-function useTitlebarOverlayInset(): number {
+export function useTitlebarOverlayInset(): number {
   const [inset, setInset] = useState(OVERLAY_INSET_FALLBACK)
 
   useEffect(() => {
@@ -738,11 +738,11 @@ and which note value counts as one beat.`}
   )
 }
 
-const METRO_MENU_WIDTH = 150
+export const METRO_MENU_WIDTH = 150
 
 // ── Tempo right-click: show the tempo in BPM or as a speed in percent (the
 // same choice as Settings › Playback › Tempo display, remembered). ─────────
-function TempoDisplayMenu({ x, y, onClose }: { x: number; y: number; onClose: () => void }) {
+export function TempoDisplayMenu({ x, y, onClose }: { x: number; y: number; onClose: () => void }) {
   const ref = useRef<HTMLDivElement>(null)
   const display = useStore((s) => s.tempoDisplay)
   useMenuDismiss(true, ref, onClose)
@@ -762,7 +762,7 @@ function TempoDisplayMenu({ x, y, onClose }: { x: number; y: number; onClose: ()
 
 // ── Metronome right-click — click volume (0–150%) and count-in (on/off +
 // 1–4 bars), both remembered between sessions. ───────────────────────────
-function MetronomeMenu({ x, y, onClose }: { x: number; y: number; onClose: () => void }) {
+export function MetronomeMenu({ x, y, onClose }: { x: number; y: number; onClose: () => void }) {
   const ref = useRef<HTMLDivElement>(null)
   const volume = useStore((s) => s.metronomeVolume)
   const setVolume = useStore((s) => s.setMetronomeVolume)
@@ -932,7 +932,7 @@ function DebugCopyItem({ idleLabel, logTag, buildText, onDone }: {
 // The number always takes three digits' room (monospace, right-aligned), so
 // 99 → 100, or BPM ↔ %, never moves anything beside it. Typing opens a box over
 // the same spot and size (a longer entry scrolls inside it), so nothing moves then either.
-function BpmValue({ shown, changed, disabled, onType, label }: {
+export function BpmValue({ shown, changed, disabled, onType, label }: {
   shown: string; changed: boolean; disabled: boolean; onType: (text: string) => void; label: string
 }) {
   const [draft, setDraft] = useState<string | null>(null)
@@ -975,7 +975,7 @@ function BpmValue({ shown, changed, disabled, onType, label }: {
 }
 
 // Long-press button: single click = +1, hold = accelerating repeat
-function LongPressArrow({ children, onStep, disabled, title, description }: {
+export function LongPressArrow({ children, onStep, disabled, title, description }: {
   children: React.ReactNode; onStep: () => void; disabled?: boolean; title?: string; description?: string
 }) {
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null)
@@ -1026,7 +1026,7 @@ function LongPressArrow({ children, onStep, disabled, title, description }: {
   return title ? <Tooltip title={title} description={description} placement="bottom">{button}</Tooltip> : button
 }
 
-function ArrowBtn({ children, onClick, disabled, title, description }: {
+export function ArrowBtn({ children, onClick, disabled, title, description }: {
   children: React.ReactNode; onClick?: () => void; disabled?: boolean; title?: string; description?: string
 }) {
   const button = (
@@ -1046,7 +1046,7 @@ function ArrowBtn({ children, onClick, disabled, title, description }: {
   return title ? <Tooltip title={title} description={description} placement="bottom">{button}</Tooltip> : button
 }
 
-function TBtn({ children, onClick, disabled, accent, active, blink, title, description, large, oneLine }: {
+export function TBtn({ children, onClick, disabled, accent, active, blink, title, description, large, oneLine }: {
   children: React.ReactNode; onClick?: () => void; disabled?: boolean
   accent?: boolean; active?: boolean; blink?: boolean; title?: string; description?: string; large?: boolean; oneLine?: boolean
 }) {

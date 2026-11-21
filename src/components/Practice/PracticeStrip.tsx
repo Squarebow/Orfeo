@@ -1,24 +1,21 @@
-import { useEffect, useState, type CSSProperties } from 'react'
+import { useEffect, useRef, useState } from 'react'
+import { Piano, Hand, History, MonitorUp, FoldVertical, Check } from 'lucide-react'
 import { useStore } from '../../store'
+import { useMidiSettings } from '../../store/midiSettings'
 import { detectChord, localizeChord } from '../../utils/chordDetection'
+import { shortName } from '../../utils/midiDeviceNames'
 import { t } from '../../utils/i18n'
 import Tooltip from '../Tooltip'
+import MidiIcon from '../MidiIcon'
 import { usePractice, PRACTICE_SIZES, fixHandsFromPractice, type PracticeWay, type PracticeHand, type PracticeView } from '../../practice/practiceMode'
 import { useSession } from '../../practice/session'
 import { RAMP_ROUNDS, RAMP_START, RAMP_STEP } from '../../practice/take'
+import { AMBER, barIcon, featLabel, featValue, toolBtn, BarPop, PopItem, popHeading, PopDivider, HandMarks } from './practiceBar'
 
-// ── The strip between the piano roll and the keyboard, in practice mode ──────
-// Left: the way of playing and its choices. Centre: the chord YOU play (read
-// from the keys you hold, not the song's chords). Right: the view and the
-// on-screen keyboard's size. While the song plays only the chord stays.
-const segWrap: CSSProperties = { display: 'flex', gap: 2, padding: 2, background: 'var(--bg-tile)', borderRadius: 6 }
-const seg = (active: boolean, disabled = false): CSSProperties => ({
-  height: 24, padding: '0 10px', border: 'none', borderRadius: 4, cursor: disabled ? 'default' : 'pointer',
-  fontFamily: 'var(--font-ui)', fontSize: 11, fontWeight: 600, letterSpacing: '0.06em', textTransform: 'uppercase', whiteSpace: 'nowrap',
-  background: active && !disabled ? 'var(--bg-panel2)' : 'transparent',
-  color: disabled ? 'var(--state-disabled)' : active ? 'var(--text-amber)' : 'var(--text-dim)',
-})
-const cap: CSSProperties = { fontFamily: 'var(--font-ui)', fontSize: 10, fontWeight: 600, letterSpacing: '0.1em', textTransform: 'uppercase', color: 'var(--text-muted)' }
+// ── Practice mode's footer, between the piano roll and the keyboard ──────────
+// Left: how you play (MODE), which hands, and the waiting. Centre: the chord
+// you play, read from the keys you hold. Right: the view, the playbar, and the
+// keyboard you play on. Each choice opens upwards, all in one panel.
 
 function YouPlay() {
   const held = useStore(s => s.midiHeldKeys)
@@ -35,123 +32,212 @@ function YouPlay() {
     return () => clearTimeout(id)
   }, [held, naming, accidentals, style])
   return (
-    <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'center', gap: 10 }}>
-      <span style={{ fontFamily: 'var(--font-ui)', fontSize: 16, fontWeight: 700, color: 'var(--text-amber)', minWidth: 24, textAlign: 'center' }}>{name || '—'}</span>
-      <span style={{ ...cap, fontSize: 9 }}>{t`You play`}</span>
-    </div>
+    <Tooltip title={t`You play`} description={t`The chord in the keys you're holding on your keyboard right now.`} placement="top">
+      <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'center', gap: 12 }}>
+        <span style={{ fontFamily: 'var(--font-ui)', fontSize: 20, fontWeight: 700, color: AMBER, minWidth: 28, textAlign: 'center' }}>{name || '—'}</span>
+        <span style={featValue}>{t`You play`}</span>
+      </div>
+    </Tooltip>
   )
 }
 
 export default function PracticeStrip() {
-  const playing = useStore(s => s.playbackState === 'playing')
   const keyboardSize = useStore(s => s.keyboardSize)
   const playbar = useStore(s => s.practicePlaybar)
   const { way, hand, waitOn, level, view, onlyHand, ramp } = usePractice()
   const streak = useSession(s => s.ramp.streak)
   const set = usePractice.setState
-  const fade: CSSProperties = playing
-    ? { opacity: 0, pointerEvents: 'none', transition: 'opacity .35s', minWidth: 0 }
-    : { opacity: 1, transition: 'opacity .2s', minWidth: 0 }
+  const [open, setOpen] = useState<'' | 'mode' | 'hands' | 'view' | 'midi'>('')
+  const refs = { mode: useRef<HTMLButtonElement>(null), hands: useRef<HTMLButtonElement>(null), view: useRef<HTMLButtonElement>(null), midi: useRef<HTMLButtonElement>(null) }
+  const toggle = (n: typeof open) => setOpen(o => (o === n ? '' : n))
+  const close = () => setOpen('')
 
-  const ways: [PracticeWay, string, string][] = [
-    ['practise', t`Practise`, t`Every tool: one hand or both, waiting on or off, any tempo.`],
-    ['wait', t`Wait for me`, t`Both hands; the song waits for you at the song's own tempo.`],
-    ['perform', t`Performance`, t`Both hands; the song keeps going. Three levels.`],
-  ]
-  const hands: [PracticeHand, string][] = [['L', t`Left`], ['B', t`Both`], ['R', t`Right`]]
+  // ── The three ways of playing ──
+  const ways: Record<PracticeWay, { name: string; tip: string }> = {
+    practise: { name: t`Play along`, tip: t`Play with the song, one hand or both, at any tempo. Turn on Wait to have the song wait for your notes.` },
+    wait: { name: t`Wait for me`, tip: t`Both hands. The song waits for every note at its own tempo, so you can learn it at your own pace.` },
+    perform: { name: t`Performance`, tip: t`Both hands. The song keeps going, as on stage. Three levels, from any tempo with a metronome to the song's own tempo with nothing else.` },
+  }
   const levels: [1 | 2 | 3, string][] = [
     [1, t`Metronome and any tempo`],
-    [2, t`No metronome · at most 20 % slower`],
+    [2, t`No metronome, at most 20 % slower`],
     [3, t`The song's own tempo, nothing else`],
   ]
-  const views: [PracticeView, string, boolean][] = [['roll', t`Piano roll`, true], ['split', t`Split`, true], ['score', t`Score`, true]]
+  // ── Hands: in Play along only; the other two ways are both hands ──
+  const handName: Record<PracticeHand, string> = { L: t`Left`, R: t`Right`, B: t`Both` }
+  const shownHand: PracticeHand = onlyHand ?? (way === 'practise' ? hand : 'B')
+  const handsChoice = way === 'practise' && !onlyHand
+  // ── Views ──
+  const views: Record<PracticeView, { name: string; tip: string }> = {
+    roll: { name: t`Piano roll`, tip: t`The notes fall onto the keyboard.` },
+    split: { name: t`Split`, tip: t`The score above, the piano roll below it, half and half.` },
+    score: { name: t`Score`, tip: t`The notes written out, a page at a time.` },
+  }
+  // ── Keyboards ──
+  const allDevices = useMidiSettings(s => s.devices)
+  const devices = allDevices.filter(d => d.connected)
+  const activeDevice = useMidiSettings(s => s.activeDevice)
+  const listenMode = useMidiSettings(s => s.listenMode)
+  const selected = useMidiSettings(s => s.selectedDevices)
+  const connected = useStore(s => s.midiDeviceConnected)
+  const deviceName = useStore(s => s.midiDeviceName)
+  const playOn = (key: string | null) => {
+    const m = useMidiSettings.getState()
+    if (key === null) m.set({ listenMode: 'all' })
+    else { m.set({ listenMode: 'selected', selectedDevices: [key] }); useMidiSettings.setState({ activeDevice: key }) }
+    close()
+  }
 
   return (
     <div data-practice-strip style={{
-      height: 36, flexShrink: 0, display: 'grid', gridTemplateColumns: 'repeat(3, minmax(0, 1fr))', alignItems: 'center',
-      padding: '0 10px', boxSizing: 'border-box', background: 'var(--bg-modal-header)', borderTop: '1px solid var(--border)',
+      height: 48, flexShrink: 0, display: 'grid', gridTemplateColumns: 'repeat(3, minmax(0, 1fr))', alignItems: 'center',
+      padding: '0 20px', boxSizing: 'border-box', background: 'var(--bg-deep)', borderTop: '1px solid var(--state-hover-bg)',
     }}>
-      <div style={fade}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 10, minWidth: 0 }}>
-          <div style={segWrap}>
-            {ways.map(([id, label, tip]) => (
-              <Tooltip key={id} title={label} description={tip}>
-                <button style={seg(way === id)} onClick={() => set({ way: id })}>{label}</button>
-              </Tooltip>
+      {/* ── Left: mode, hands, wait ── */}
+      <div style={{ display: 'flex', alignItems: 'center', gap: 18, minWidth: 0 }}>
+        <Tooltip title={ways[way].name} description={ways[way].tip + '\n' + t`Click to choose how you play.`} placement="top" disabled={open === 'mode'}>
+          <button ref={refs.mode} onClick={() => toggle('mode')} style={toolBtn()} aria-label={t`Mode`} aria-expanded={open === 'mode'}>
+            <Piano {...barIcon} />
+            <span style={featLabel}>{t`Mode:`}</span>
+            <span style={featValue}>{way === 'perform' ? t`Performance ${level}` : ways[way].name}</span>
+          </button>
+        </Tooltip>
+        {open === 'mode' && (
+          <BarPop anchor={refs.mode.current} up width={320} onClose={close} label={t`Mode`}>
+            <div style={popHeading}>{t`How you play`}</div>
+            {(['practise', 'wait', 'perform'] as PracticeWay[]).map(id => (
+              <PopItem key={id} on={way === id} onClick={() => { set({ way: id }); if (id !== 'perform') close() }} hint={ways[id].tip}>
+                {ways[id].name}
+              </PopItem>
             ))}
-          </div>
-          {onlyHand && (
-            // the song's piano is one hand throughout: always that hand
-            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-              <span style={cap}>{onlyHand === 'L' ? t`Left hand only` : t`Right hand only`}</span>
-              <Tooltip title={t`Two hands?`} description={t`If some notes are clearly for the other hand, check the hands in the Note Editor; saving then gives each hand its own track.`}>
-                <button onClick={fixHandsFromPractice}
-                  style={{ background: 'none', border: 'none', padding: 0, cursor: 'pointer', color: 'var(--text-amber)', fontSize: 11, fontFamily: 'var(--font-ui)', textDecoration: 'underline', textUnderlineOffset: 2 }}>
-                  {t`Two hands? Edit`}
-                </button>
-              </Tooltip>
-            </div>
-          )}
-          {way === 'practise' && (
-            <>
-              {!onlyHand && (
-                <div style={segWrap}>
-                  {hands.map(([id, label]) => <button key={id} style={seg(hand === id)} onClick={() => set({ hand: id })}>{label}</button>)}
-                </div>
-              )}
-              <div style={segWrap}>
-                <Tooltip title={t`Wait`} description={t`The song plays up to your next notes and waits there until you've played them.`}>
-                  <button style={seg(waitOn)} aria-pressed={waitOn} onClick={() => set({ waitOn: !waitOn })}>{t`Wait`}</button>
-                </Tooltip>
-                <Tooltip title={t`Speed up`} description={t`Starts at ${RAMP_START} % of the song's tempo and goes up ${RAMP_STEP} % after every ${RAMP_ROUNDS} clean times round the loop (or through the song), up to the song's own tempo.`}>
-                  <button style={seg(ramp)} aria-pressed={ramp} onClick={() => set({ ramp: !ramp })}>{t`Speed up`}</button>
-                </Tooltip>
-              </div>
-              {ramp && <span style={{ ...cap, whiteSpace: 'nowrap' }}>{t`Clean ${streak} of ${RAMP_ROUNDS}`}</span>}
-            </>
-          )}
-          {way === 'wait' && !onlyHand && <span style={cap}>{t`Both hands · song tempo`}</span>}
-          {way === 'perform' && (
-            <div style={{ display: 'flex', alignItems: 'center', gap: 6, minWidth: 0 }}>
-              <span style={cap}>{t`Level`}</span>
-              <div style={segWrap}>
+            {way === 'perform' && (
+              <>
+                <PopDivider />
+                <div style={popHeading}>{t`Level`}</div>
                 {levels.map(([n, tip]) => (
-                  <Tooltip key={n} title={t`Level ${n}`} description={tip}>
-                    <button style={seg(level === n)} onClick={() => set({ level: n })}>{n}</button>
-                  </Tooltip>
+                  <PopItem key={n} on={level === n} onClick={() => { set({ level: n }); close() }} hint={tip}>{t`Level ${n}`}</PopItem>
                 ))}
-              </div>
-              <span style={{ fontSize: 12, color: 'var(--text-muted)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{levels[level - 1][1]}</span>
-            </div>
-          )}
-        </div>
+              </>
+            )}
+            {way === 'practise' && (
+              <>
+                <PopDivider />
+                <PopItem on={ramp} onClick={() => set({ ramp: !ramp })}
+                  hint={t`Starts at ${RAMP_START} % of the song's tempo and goes up ${RAMP_STEP} % after every ${RAMP_ROUNDS} clean times round the loop (or through the song), up to the song's own tempo.`}>
+                  {ramp ? t`Speed up: on` : t`Speed up: off`}
+                </PopItem>
+              </>
+            )}
+          </BarPop>
+        )}
+
+        <Tooltip title={t`Hands`} placement="top" disabled={open === 'hands'}
+          description={onlyHand ? t`The song's piano is for one hand only.`
+            : handsChoice ? t`Which hand you play; Orfeo plays the other. Click to choose.`
+            : t`${ways[way].name} is always both hands.`}>
+          <button ref={refs.hands} onClick={() => (handsChoice || onlyHand) && toggle('hands')} style={toolBtn(!handsChoice && !onlyHand)} aria-label={t`Hands`} aria-expanded={open === 'hands'}>
+            <Hand {...barIcon} />
+            <span style={featLabel}>{t`Hands:`}</span>
+            <span style={featValue}>{handName[shownHand]}</span>
+            <HandMarks hand={shownHand} />
+          </button>
+        </Tooltip>
+        {open === 'hands' && (
+          <BarPop anchor={refs.hands.current} up width={230} onClose={close} label={t`Hands`}>
+            <div style={popHeading}>{t`Hands`}</div>
+            {onlyHand ? (
+              <>
+                <div style={{ padding: '4px 14px 8px', fontSize: 12, lineHeight: 1.4, color: 'var(--text-muted)' }}>
+                  {onlyHand === 'L' ? t`The song's piano is for the left hand only.` : t`The song's piano is for the right hand only.`}
+                </div>
+                <PopItem onClick={() => { close(); fixHandsFromPractice() }} hint={t`If some notes are clearly for the other hand, check the hands in the MIDI Editor; saving then gives each hand its own track.`}>
+                  {t`Two hands? Edit`}
+                </PopItem>
+              </>
+            ) : (['L', 'R', 'B'] as PracticeHand[]).map(h => (
+              <PopItem key={h} on={hand === h} onClick={() => { set({ hand: h }); close() }}>
+                <HandMarks hand={h} />{h === 'L' ? t`Left hand` : h === 'R' ? t`Right hand` : t`Both hands`}
+              </PopItem>
+            ))}
+          </BarPop>
+        )}
+
+        {way === 'practise' && (
+          <Tooltip title={waitOn ? t`Wait: on` : t`Wait: off`} placement="top"
+            description={t`On, the song stops at your next notes and waits until you've played them. Off, it keeps going.`}>
+            <button onClick={() => set({ waitOn: !waitOn })} style={toolBtn()} aria-pressed={waitOn} aria-label={t`Wait`}>
+              <History {...barIcon} />
+              <span style={featLabel}>{t`Wait:`}</span>
+              <span style={featValue}>{waitOn ? t`On` : t`Off`}</span>
+            </button>
+          </Tooltip>
+        )}
+        {way === 'practise' && ramp && <span style={{ ...featValue, color: 'var(--text-muted)', fontSize: 10 }}>{t`Clean ${streak} of ${RAMP_ROUNDS}`}</span>}
       </div>
 
       <YouPlay />
 
-      <div style={{ ...fade, justifySelf: 'end' }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-          <div style={segWrap}>
-            {views.map(([id, label, ready]) => (
-              <Tooltip key={id} title={label} description={id === 'split' ? t`The score above, the piano roll below it, half and half.` : undefined}>
-                <button disabled={!ready} style={seg(view === id, !ready)} onClick={() => set({ view: id })}>{label}</button>
-              </Tooltip>
+      {/* ── Right: view, playbar, keyboard ── */}
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: 14, minWidth: 0 }}>
+        <Tooltip title={views[view].name} description={views[view].tip + '\n' + t`Click to change the view or the keyboard's size.`} placement="top" disabled={open === 'view'}>
+          <button ref={refs.view} onClick={() => toggle('view')} style={toolBtn()} aria-label={t`View`} aria-expanded={open === 'view'}>
+            <MonitorUp {...barIcon} />
+            <span style={featLabel}>{t`View:`}</span>
+            <span style={featValue}>{views[view].name}</span>
+          </button>
+        </Tooltip>
+        {open === 'view' && (
+          <BarPop anchor={refs.view.current} up align="right" width={250} onClose={close} label={t`View`}>
+            <div style={popHeading}>{t`View`}</div>
+            {(['roll', 'split', 'score'] as PracticeView[]).map(id => (
+              <PopItem key={id} on={view === id} onClick={() => { set({ view: id }); close() }} hint={views[id].tip}>{views[id].name}</PopItem>
             ))}
-          </div>
-          {view === 'roll' && (
-            <Tooltip title={t`Playbar`} description={t`Show the line where the notes meet the keys. Off, the notes fall straight onto the keyboard.`}>
-              <div style={segWrap}><button style={seg(playbar)} aria-pressed={playbar} onClick={() => useStore.getState().setPracticePlaybar(!playbar)}>{t`Playbar`}</button></div>
-            </Tooltip>
-          )}
-          <Tooltip title={t`Keyboard size`} description={t`How many keys the on-screen keyboard shows.`}>
-            <div style={segWrap}>
+            <PopDivider />
+            <div style={popHeading}>{t`Keyboard`}</div>
+            <div style={{ display: 'flex', gap: 6, padding: '4px 14px 10px' }}>
               {PRACTICE_SIZES.map(n => (
-                <button key={n} style={{ ...seg(keyboardSize === n), padding: '0 7px', fontFamily: 'var(--font-mono)', letterSpacing: 0 }}
-                  onClick={() => useStore.getState().setKeyboardSize(n)}>{n}</button>
+                <button key={n} onClick={() => useStore.getState().setKeyboardSize(n)} aria-label={t`${n} keys`}
+                  style={{
+                    flex: 1, padding: '5px 0', fontFamily: 'var(--font-mono)', fontSize: 12, cursor: 'pointer', borderRadius: 'var(--radius-sm)',
+                    background: keyboardSize === n ? 'var(--accent-amber-subtle)' : 'none', color: keyboardSize === n ? AMBER : 'var(--text-default)',
+                    border: `1px solid ${keyboardSize === n ? 'var(--accent-amber-strong)' : 'var(--border)'}`,
+                  }}>{n}</button>
               ))}
             </div>
+          </BarPop>
+        )}
+
+        {view === 'roll' && (
+          <Tooltip title={playbar ? t`Playbar: on` : t`Playbar: off`} placement="top"
+            description={t`The line where the notes meet the keys. Off, the notes fall straight onto the keyboard.`}>
+            <button onClick={() => useStore.getState().setPracticePlaybar(!playbar)} style={{ ...toolBtn(), opacity: playbar ? 1 : 0.45 }} aria-pressed={playbar} aria-label={t`Playbar`}>
+              <FoldVertical {...barIcon} />
+            </button>
           </Tooltip>
-        </div>
+        )}
+
+        <Tooltip title={connected ? deviceName : t`No connected keyboards`} placement="top" disabled={open === 'midi'}
+          description={devices.length > 1 ? t`Click to choose the keyboard you play on.` : t`The keyboard you play on.`}>
+          <button ref={refs.midi} onClick={() => toggle('midi')} style={toolBtn()} aria-label={t`Your keyboard`} aria-expanded={open === 'midi'}>
+            <MidiIcon size={22} color={connected ? AMBER : 'var(--topbar-midi-off)'} />
+          </button>
+        </Tooltip>
+        {open === 'midi' && (
+          <BarPop anchor={refs.midi.current} up align="right" width={260} onClose={close} label={t`Your keyboard`}>
+            <div style={popHeading}>{t`Play on`}</div>
+            {devices.length > 1 && (
+              <PopItem on={listenMode === 'all'} onClick={() => playOn(null)} hint={t`Whichever you play.`}>{t`Every keyboard`}</PopItem>
+            )}
+            {devices.map(d => (
+              <PopItem key={d.key} on={listenMode === 'selected' ? selected.includes(d.key) : devices.length === 1 || d.key === activeDevice} onClick={() => playOn(d.key)}>
+                <Check size={12} style={{ visibility: (listenMode === 'selected' ? selected.includes(d.key) : devices.length === 1) ? 'visible' : 'hidden' }} />
+                {shortName(d.key) || d.name}
+              </PopItem>
+            ))}
+            <PopDivider />
+            <PopItem onClick={() => { close(); useStore.getState().openSettingsWindow('midi') }}>{t`MIDI keyboard settings`}</PopItem>
+          </BarPop>
+        )}
       </div>
     </div>
   )

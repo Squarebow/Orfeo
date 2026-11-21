@@ -5,6 +5,7 @@ import { songPracticeState, PRACTICE_PREP_VISIBLE, type SongPractice } from '../
 import type { KeyboardSize } from '../types'
 import type { DetectedKey } from '../utils/keyDetection'
 import { NES } from '../utils/noteEditorState'
+import { focusRole } from '../utils/keyboardGroups'
 
 // ── Practice mode (Orfeo 2.0) ────────────────────────────────────────────────
 // A stripped-down screen for practising the piano part of a song with a USB
@@ -162,6 +163,23 @@ export function setHearMine(on: boolean): void {
 export function setBand(on: boolean): void {
   const s = useStore.getState()
   useStore.setState({ tracks: s.tracks.map(t => (t.practicePart ? t : { ...t, muted: !on })) })
+}
+
+/** What you hear with your piano: the piano alone, Focus (the bass and drums
+ *  too, as Focus mode outside practice mode), or the whole band */
+export type BandPreset = 'piano' | 'focus' | 'band'
+const focusHeard = (t: { isDrum: boolean; group?: string; program?: number }) => focusRole(t) !== 'off'
+export function setBandPreset(p: BandPreset): void {
+  const s = useStore.getState()
+  useStore.setState({ tracks: s.tracks.map(t => (t.practicePart ? t : { ...t, muted: p === 'piano' ? true : p === 'band' ? false : !focusHeard(t) })) })
+}
+/** The preset the band's mutes match, or null when you've muted tracks your own way */
+export function bandPreset(tracks: { practicePart?: boolean; muted: boolean; isDrum: boolean; group?: string; program?: number }[]): BandPreset | null {
+  const band = tracks.filter(t => !t.practicePart)
+  if (band.every(t => t.muted)) return 'piano'
+  if (band.every(t => !t.muted)) return 'band'
+  if (band.every(t => t.muted === !focusHeard(t))) return 'focus'
+  return null
 }
 
 // ── Keeping the session sound ────────────────────────────────────────────────
