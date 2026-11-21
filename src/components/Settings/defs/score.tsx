@@ -31,6 +31,6 @@ export const SCORE_DEFS: SettingDef[] = [
   { id: 'scoreTriplets', icon: Divide, kind: 'switch', useVisible: () => PRACTICE_VISIBLE, Control: () => <Toggle k="triplets" label={t`Triplets`} /> },
   { id: 'scoreSwing', icon: Music4, kind: 'switch', useVisible: () => PRACTICE_VISIBLE, Control: () => <Toggle k="swing" label={t`Swing written straight`} /> },
   { id: 'scoreVoices', icon: Layers, kind: 'switch', useVisible: () => PRACTICE_VISIBLE, Control: () => <Toggle k="voices" label={t`Held notes as a second voice`} /> },
-  { id: 'scoreFingering', icon: Hand, kind: 'switch', useVisible: () => PRACTICE_VISIBLE, Control: () => <Toggle k="fingering" label={t`Fingering`} /> },
+  { id: 'scoreFingering', icon: Hand, kind: 'switch', useVisible: () => PRACTICE_VISIBLE, Control: () => <Toggle k="fingering" label={t`Finger numbers on the score`} /> },
   { id: 'scorePedal', icon: Footprints, kind: 'switch', useVisible: () => PRACTICE_VISIBLE, Control: () => <Toggle k="pedal" label={t`Pedal marks`} /> },
 ]

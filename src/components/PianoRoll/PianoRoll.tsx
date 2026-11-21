@@ -497,6 +497,8 @@ export default function PianoRoll() {
       s.showHandLabels !== prev.showHandLabels ||
       s.playbarVisible !== prev.playbarVisible ||
       s.playbarOverride !== prev.playbarOverride ||
+      s.practiceFingering !== prev.practiceFingering ||
+      s.practiceHandMoves !== prev.practiceHandMoves ||
       s.keyboardTopY !== prev.keyboardTopY ||
       s.hitEffectsEnabled !== prev.hitEffectsEnabled ||
       s.hitEffectPattern !== prev.hitEffectPattern ||
@@ -1047,7 +1049,9 @@ export default function PianoRoll() {
         const practisedHand = usePractice.getState().active ? practisedHandOf() : 'B'
         // fingering: the numbers on the notes, in the Note Editor and (unless
         // switched off) in practice mode
-        const showFingers = noteEditorActive || (usePractice.getState().active && storeRef.current.practiceFingering)
+        const inPractice = usePractice.getState().active
+        const showFingers = noteEditorActive || (inPractice && storeRef.current.practiceFingering)
+        const showMoves = noteEditorActive || (inPractice && storeRef.current.practiceHandMoves)
         const fingerMarks: { x: number; y: number; f: number }[] = []
         for (let i = startIdx; i < flat.length; i++) {
           const note = flat[i]
@@ -1116,18 +1120,18 @@ export default function PianoRoll() {
             notes.fill({ color: 0xffffff, alpha: 0.55 })
           }
           const finger = (note.noteRef as any)?.finger ?? note.src?.finger
-          if (showFingers && finger) fingerMarks.push({ x: key.x + 1 + drawW / 2, y: botY - Math.min(8, noteH / 2), f: finger })
+          if (finger) fingerMarks.push({ x: key.x + 1 + drawW / 2, y: botY - Math.min(8, noteH / 2), f: finger })
         }
 
         // ── Fingering: where each hand has to move, a bracket over the five keys
         // it covers from that note on (in the hand's colour), and the finger
         // numbers on the notes (utils/fingering.ts) ─────────────────────────
-        if (showFingers) {
+        if (showFingers || showMoves) {
           const key = `${FINGER_VERSION.n}`
           if (handPlacesRef.current.flat !== flat || handPlacesRef.current.key !== key) {
             handPlacesRef.current = { flat, key, places: handPlaces(flat.map(n => ({ midi: n.midi, time: n.time, hand: n.hand, finger: (n.noteRef as any)?.finger ?? n.src?.finger }))) }
           }
-          for (const hp of handPlacesRef.current.places) {
+          if (showMoves) for (const hp of handPlacesRef.current.places) {
             if (hp.time < visStart - 1 || hp.time > visEnd + 1) continue
             const lo = keyLayoutRef.current[hp.low + transpose - midiMin], hi = keyLayoutRef.current[hp.high + transpose - midiMin]
             if (!lo || !hi) continue
@@ -1137,7 +1141,7 @@ export default function PianoRoll() {
             notes.rect(lo.x + 1, y - 5, 2, 7); notes.fill({ color: col, alpha: 0.95 })
             notes.rect(hi.x + hi.width - 3, y - 5, 2, 7); notes.fill({ color: col, alpha: 0.95 })
           }
-          if (ctx && fingerMarks.length) {
+          if (showFingers && ctx && fingerMarks.length) {
             ctx.save()
             ctx.font = `bold 10px ${FONT_MONO_STR}`
             ctx.textAlign = 'center'; ctx.textBaseline = 'middle'

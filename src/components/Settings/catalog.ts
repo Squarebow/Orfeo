@@ -27,7 +27,7 @@ export type SettingId =
   | 'showDemo' | 'chordTranscription' | 'openWith' | 'showLyrics' | 'tags' | 'practiceQueue'
   | 'noteEditor' | 'unsavedWarning' | 'saveTrackChanges' | 'tapTempo' | 'tempoWarnings' | 'countIn' | 'skipEmptyBars' | 'handAssignment' | 'loopRegion' | 'focusMode'
   | 'scoreWriting' | 'scoreChords' | 'scoreTriplets' | 'scoreSwing' | 'scoreVoices' | 'scorePedal'
-  | 'practiceMode' | 'practiceSummary' | 'practicePlaybar' | 'practiceFingering' | 'scoreFingering' | 'stepThrough' | 'chordPrompter' | 'closePanels' | 'handTags' | 'trackVu'
+  | 'practiceMode' | 'practiceSummary' | 'practicePlaybar' | 'practiceFingering' | 'fingeringMoves' | 'scoreFingering' | 'stepThrough' | 'chordPrompter' | 'closePanels' | 'handTags' | 'trackVu'
   | 'displaySystem' | 'accidentals' | 'chordTracking' | 'chordReading' | 'chordNaming'
   | 'keyRange' | 'portableKeyboards' | 'showOctaves' | 'showNoteNames' | 'reflectPianoRoll' | 'preciseScrubTime' | 'explorerPause' | 'tempoDisplay'
   | 'rollZoom' | 'barNumbers' | 'playbar' | 'visualEffects'
@@ -62,8 +62,9 @@ export const GROUPS: GroupInfo[] = [
   { id: 'practice', name: t`Practice`, intro: t`Tools for practising`, manualUrl: 'https://orfeo.cc/docs/practicing-with-midi-files',
     // practice mode and its score: dev mode and test builds until 2.0
     tabs: [
-      { key: 'practice-mode', name: t`Practice mode`, ids: ['practiceMode', 'practiceSummary', 'practicePlaybar', 'practiceFingering'], devOnly: true },
-      { key: 'score', name: t`Score`, ids: ['scoreWriting', 'scoreChords', 'scoreTriplets', 'scoreSwing', 'scoreVoices', 'scorePedal', 'scoreFingering'], devOnly: true },
+      { key: 'practice-mode', name: t`Practice mode`, ids: ['practiceMode', 'practiceSummary', 'practicePlaybar'], devOnly: true },
+      { key: 'score', name: t`Score`, ids: ['scoreWriting', 'scoreChords', 'scoreTriplets', 'scoreSwing', 'scoreVoices', 'scorePedal'], devOnly: true },
+      { key: 'fingering', name: t`Fingering`, ids: ['practiceFingering', 'fingeringMoves', 'scoreFingering'], devOnly: true },
       { key: 'tools', name: t`Practice tools`, ids: ['stepThrough', 'chordPrompter', 'closePanels', 'handTags', 'reflectPianoRoll', 'starmap'] },
     ] },
   { id: 'editing', name: t`Editing`, intro: t`Edit your songs`, manualUrl: 'https://orfeo.cc/docs/editing-midi-files',
@@ -173,11 +174,14 @@ export const SETTINGS: SettingInfo[] = [
   { id: 'practicePlaybar', group: 'practice', name: t`Playbar in practice mode`, summary: t`The line where notes meet the keys, in the piano roll view.`,
     description: t`Turn on to show the playbar in practice mode's piano roll view. Off, the notes fall straight onto the keyboard and the piano roll gets more room. Split never shows it.`,
     keywords: 'practice playbar hit line falling notes keyboard' },
-  { id: 'practiceFingering', group: 'practice', name: t`Fingering on the piano roll`, summary: t`Finger numbers on the notes, and where the hand moves.`,
-    description: t`Turn on to show your fingering in practice mode: the finger number on each note, and a bracket over the keys the hand covers wherever it has to move. You set the fingering in the Note Editor: select notes and press 1 to 5 (0 clears).`,
-    keywords: 'practice fingering fingers numbers hand position thumb' },
-  { id: 'scoreFingering', group: 'practice', name: t`Fingering`, summary: t`Your finger numbers on the score.`,
-    description: t`Turn on to show your fingering on the score: above the right hand's notes, below the left's. You set it in the Note Editor: select notes and press 1 to 5 (0 clears).`,
+  { id: 'practiceFingering', group: 'practice', name: t`Finger numbers on the piano roll`, summary: t`Your finger number on each falling note.`,
+    description: t`Turn on to show your fingering on the piano roll in practice mode: the finger number on each note, 1 the thumb. You set it in the Note Editor: select notes and press 1 to 5 (0 clears), or right-click.`,
+    keywords: 'practice fingering fingers numbers thumb piano roll' },
+  { id: 'fingeringMoves', group: 'practice', name: t`Where the hand moves`, summary: t`A bracket over the keys wherever a hand changes position.`,
+    description: t`Turn on to mark, from your fingering, each place a hand has to move: a bracket in the hand's colour over the keys it covers from that note on. A stretch the fingers reach (an octave with 1 and 5) isn't a move.`,
+    keywords: 'practice fingering hand position move shift bracket' },
+  { id: 'scoreFingering', group: 'practice', name: t`Finger numbers on the score`, summary: t`Your finger numbers above and below the notes.`,
+    description: t`Turn on to show your fingering on the score: above the right hand's notes, below the left's. You set it in the Note Editor: select notes and press 1 to 5 (0 clears), or right-click.`,
     keywords: 'score fingering fingers numbers' },
   { id: 'stepThrough', group: 'practice', name: t`Step Through`, summary: t`Step through a song note by note with\n==←== and ==→==.`,
     description: t`Each press of ← or → (or the arrows in the keyboard bar) steps back or forward to the next note or chord, plays it, lights it and moves the playhead there. Shift jumps a whole bar.`,
