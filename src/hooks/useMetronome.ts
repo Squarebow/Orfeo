@@ -145,7 +145,12 @@ export function useMetronome() {
   }
 
   useEffect(() => {
-    const unsub = useStore.subscribe((state) => {
+    const unsub = useStore.subscribe((state, prev) => {
+      // another tempo mid-play: the clicks carry on from here at the new speed
+      if (intervalRef.current && state.bpm !== prev.bpm && state.playbackState === 'playing') {
+        const r = state.originalBpm > 0 ? state.bpm / state.originalBpm : 1
+        audioOffsetRef.current = getCtx().currentTime - state.currentTime / r
+      }
       // Native engine: it clicks the song's beats itself (useNativeEngine)
       if (state.metronomeEnabled && state.playbackState === 'playing' && state.audioEngine !== 'native') {
         // Cancel any pending stop (e.g. from wheel-scrub pause)

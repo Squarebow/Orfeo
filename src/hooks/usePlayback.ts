@@ -8,6 +8,10 @@ export function usePlayback() {
   // Fallback clock when JZZ player not available yet
   const fallbackStartPerfRef = useRef(0)
   const fallbackStartTimeRef = useRef(0)
+  // the speed the clock runs at; a tempo change while playing (the tempo
+  // arrows, Speed up gradually) re-anchors it, so the piano roll and the
+  // metronome follow the sound instead of keeping the old pace
+  const ratioRef = useRef(1)
 
   const stopRaf = useCallback(() => {
     if (rafRef.current) cancelAnimationFrame(rafRef.current)
@@ -21,7 +25,7 @@ export function usePlayback() {
     const { bpm, originalBpm, currentTime } = useStore.getState()
     fallbackStartPerfRef.current = performance.now()
     fallbackStartTimeRef.current = currentTime
-    const ratio = bpm / originalBpm
+    ratioRef.current = originalBpm > 0 ? bpm / originalBpm : 1
 
     const tick = () => {
       if (!isRunningRef.current) return
@@ -70,7 +74,7 @@ export function usePlayback() {
 
       // Fallback: performance.now() based clock
       const elapsed = (performance.now() - fallbackStartPerfRef.current) / 1000
-      const newTime = fallbackStartTimeRef.current + elapsed * ratio
+      const newTime = fallbackStartTimeRef.current + elapsed * ratioRef.current
       const duration = midi?.duration ?? 0
       const { loopRegionActive, loopStart, loopEnd } = useStore.getState()
 
@@ -160,6 +164,12 @@ export function usePlayback() {
       }
       if (state.playbackState !== 'playing' && prev.playbackState === 'playing') {
         stopRaf()
+      }
+      // another tempo mid-play: carry on from here at the new speed
+      if (state.playbackState === 'playing' && prev.playbackState === 'playing' && state.bpm !== prev.bpm) {
+        fallbackStartPerfRef.current = performance.now()
+        fallbackStartTimeRef.current = state.currentTime
+        ratioRef.current = state.originalBpm > 0 ? state.bpm / state.originalBpm : 1
       }
     })
     return unsub
