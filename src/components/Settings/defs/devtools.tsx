@@ -1,4 +1,5 @@
-import { KeyboardMusic, Music2, TriangleAlert, ListOrdered, MicVocal, MousePointerClick, Heart, Ruler, Lightbulb, Languages, Keyboard, UserRound, Ear, History, Music } from 'lucide-react'
+import { KeyboardMusic, Music2, TriangleAlert, ListOrdered, MicVocal, MousePointerClick, Heart, Ruler, Lightbulb, Languages, Keyboard, UserRound, Ear, History, Music, Disc } from 'lucide-react'
+import { RecordingTestPanel } from './record'
 import { PracticeKeysPanel, PianistPanel, ListenTestPanel, PracticeHistoryPanel, ScoreTestPanel } from './practice'
 import type { SettingDef } from '../types'
 import { SimulatorPanel, KeyRangeTestPanel, KeyLightsTestPanel } from './midi'
@@ -19,6 +20,7 @@ export const DEVTOOLS_DEFS: SettingDef[] = [
   { id: 'devListen', icon: Ear, kind: 'choice', Control: ListenTestPanel },
   { id: 'devPracticeHistory', icon: History, kind: 'choice', Control: PracticeHistoryPanel },
   { id: 'devScore', icon: Music, kind: 'choice', Control: ScoreTestPanel },
+  { id: 'devRecording', icon: Disc, kind: 'choice', Control: RecordingTestPanel },
   { id: 'devExplorers', icon: Music2, kind: 'choice', Control: ExplorersHearPreview },
   { id: 'devClosingWarning', icon: TriangleAlert, kind: 'choice', Control: UnsavedWarningPreview },
   { id: 'devQueue', icon: ListOrdered, kind: 'choice', Control: QueueTestPanel },

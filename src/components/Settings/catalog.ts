@@ -35,7 +35,7 @@ export type SettingId =
   | 'showLanguageSwitcher' | 'followSystemLanguage' | 'menuLanguages' | 'translations' | 'translationUpdates'
   | 'midiKeyboards' | 'midiReconnect' | 'liveResponse' | 'latencyOffset' | 'gmOutput' | 'touchResponse' | 'duplicateFilter'
   | 'pedalsControls' | 'delayCheck' | 'midiTools'
-  | 'keyLights' | 'devKeyboard' | 'devKeyRange' | 'devKeyLights' | 'devExplorers' | 'devClosingWarning' | 'devQueue' | 'devLyrics' | 'devOpenWith' | 'devSupportNote' | 'devTranslations' | 'devPracticeKeys' | 'devPianist' | 'devListen' | 'devPracticeHistory' | 'devScore'
+  | 'keyLights' | 'devKeyboard' | 'devKeyRange' | 'devKeyLights' | 'devExplorers' | 'devClosingWarning' | 'devQueue' | 'devLyrics' | 'devOpenWith' | 'devSupportNote' | 'devTranslations' | 'devPracticeKeys' | 'devPianist' | 'devListen' | 'devPracticeHistory' | 'devScore' | 'devRecording'
 
 export interface SettingInfo {
   id: SettingId
@@ -340,6 +340,9 @@ with octave buttons to move them. Notes beyond their edges show fainter on the k
   { id: 'devListen', group: 'devtools', name: 'Orfeo listens', summary: 'Show what Orfeo heard in practice mode.',
     description: 'A panel in practice mode lists right, missed and extra notes live, per hand, and how early or late, to check what Orfeo heard against what was played. Session only, nothing saved.',
     keywords: 'dev test practice listen match right missed extra' },
+  { id: 'devRecording', group: 'devtools', name: 'Recording', summary: 'Record your playing and save it as a MIDI file.',
+    description: 'Groundwork for recording (after 2.0): records every key and pedal from your keyboard or the simulated one, then saves the take as an ordinary MIDI file, one piano or two hands. Nothing is saved unless you press Save.',
+    keywords: 'dev test record recording take midi export save' },
   { id: 'devPracticeHistory', group: 'devtools', name: 'How it went', summary: 'The words after playing, and the practice numbers kept per song.',
     description: 'Shows the words for made-up takes without playing, the numbers kept for the open song, and forgets them. Saves nothing new.',
     keywords: 'dev test practice summary history words csv forget' },

@@ -44,6 +44,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
   checkLyrics:        (paths: string[]) => ipcRenderer.invoke('lyrics:check', paths),
   // MIDI Editor
   saveFileDialog:     (opts: any) => ipcRenderer.invoke('dialog:saveFile', opts),
+  exportSaveAs:       (o: { fileName: string; filterName: string; ext: string; libraryFolder: string | null; data: Uint8Array | string }) => ipcRenderer.invoke('export:saveAs', o),
   saveMidiEditor:     (payload: any) => ipcRenderer.invoke('editor:save', payload),
   saveMixerChannels:  (payload: any) => ipcRenderer.invoke('mixer:save', payload),
   openExternal:       (url: string) => ipcRenderer.invoke('shell:openExternal', url),

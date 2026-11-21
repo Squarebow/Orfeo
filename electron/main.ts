@@ -11,7 +11,7 @@ import PDFDocument from 'pdfkit'
 import { assignHands, assignHandsByTrack, findStavePairs } from '../src/utils/handAssignment'
 import { buildHandExportHint, withHandSuffix, nameHandFromSuffix, parseHandMapMeta, handsToRestore, RESTORED_CONFIDENCE } from '../src/utils/handMetadata'
 import { getGMGroup } from '../src/utils/gmInstruments'
-import { exportsDir, nextFreeName, safeExportBaseName } from './exportName'
+import { exportsDir, nextFreeName, safeExportBaseName, safeExportName } from './exportName'
 import { scanMidiFolder, listFolderNames } from './libraryScan'
 import { fileFromArgs } from './openWith'
 import { practiceStore } from './practiceHistory'
@@ -756,6 +756,21 @@ ipcMain.handle('export:save', async (_e, songPath: string, libraryFolder: string
     catch (e: any) { if (e?.code !== 'EEXIST') throw e }
   }
   throw new Error('no free file name in Exports')
+})
+
+// ── Export with a save dialog (src/export/exporters.ts): recordings, and later
+// session audio, the numbers as PDF, the score. Opens in the Exports folder
+// with a free name; you choose where it goes. Text gets the UTF-8 mark so
+// spreadsheets read accents right. ─────────────────────────────────────────
+ipcMain.handle('export:saveAs', async (_e, o: { fileName: string; filterName: string; ext: string; libraryFolder: string | null; data: Uint8Array | string }) => {
+  const dir = exportsDir(o.libraryFolder, app.getPath('music'))
+  await mkdir(dir, { recursive: true })
+  const name = nextFreeName(new Set(await readdir(dir)), safeExportName(o.fileName))
+  const result = await saveDialog({ defaultPath: join(dir, name), filters: [{ name: o.filterName, extensions: [o.ext] }] })
+  if (result.canceled || !result.filePath) return null
+  if (typeof o.data === 'string') await writeFile(result.filePath, (o.ext === 'csv' ? String.fromCharCode(0xfeff) : '') + o.data, 'utf-8')
+  else await writeFile(result.filePath, o.data)
+  return result.filePath
 })
 
 ipcMain.handle('fs:loadMidiFromPath', async (_e, filePath: string) => {

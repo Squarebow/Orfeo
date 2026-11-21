@@ -134,6 +134,16 @@ export function onPlayedKey(fn: (k: PlayedKey) => void): () => void {
 }
 function emitPlayed(k: PlayedKey) { for (const fn of _playedListeners) { try { fn(k) } catch (e) { console.error(e) } } }
 
+// ── Every pedal you press (sustain 64, sostenuto 66, soft 67), for recording
+// (record/recorder.ts): whether or not Orfeo passes it on to the sound ──
+export interface PlayedControl { cc: number; value: number; at: number }
+const _controlListeners = new Set<(c: PlayedControl) => void>()
+export function onPlayedControl(fn: (c: PlayedControl) => void): () => void {
+  _controlListeners.add(fn)
+  return () => { _controlListeners.delete(fn) }
+}
+const PEDAL_CCS = new Set([64, 66, 67])
+
 function heldBy(key: string): Set<number> {
   let s = _held.get(key)
   if (!s) { s = new Set(); _held.set(key, s) }
@@ -210,6 +220,7 @@ function control(cc: number, value: number) {
   const kind = CC_KIND[cc]
   if (!kind) return            // other knobs/pads are meant for DAWs — not forwarded
   detect(kind)
+  if (PEDAL_CCS.has(cc)) { const at = performance.now(); for (const fn of _controlListeners) { try { fn({ cc, value, at }) } catch (e) { console.error(e) } } }
   if (kind === 'sustain') {
     const down = value >= 64
     if (useMidiSettings.getState().sustainDown !== down) useMidiSettings.setState({ sustainDown: down })
