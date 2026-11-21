@@ -6,6 +6,7 @@ import ListenPanel from './components/Practice/ListenPanel'
 import PracticeSummaryCard from './components/Practice/PracticeSummaryCard'
 import PracticeReview from './components/Practice/PracticeReview'
 import PracticeProgress from './components/Practice/PracticeProgress'
+import ScoreView from './components/Practice/ScoreView'
 import './practice/listen'      // Orfeo listens in practice mode
 import './practice/waiting'     // the song waits for your notes
 import './practice/session'     // every take kept, and how it went in words
@@ -83,6 +84,7 @@ export default function App() {
   const appTheme = useStore((s) => s.appTheme)
   const presentationMode = useStore((s) => s.presentationMode)
   const practicing = usePractice((s) => s.active)
+  const scoreView = usePractice((s) => s.active && s.view === 'score')
   const noteEditorActive = useStore((s) => s.noteEditorActive)
   const { openFile } = useMidiFile()
   const { play, pause, stop } = usePlayback()
@@ -605,6 +607,7 @@ export default function App() {
         <div style={{ display: 'flex', flexDirection: 'column', flex: 1, minWidth: 0, overflow: 'hidden' }}>
           <div data-piano-roll-area style={{ flex: 1, minHeight: 0, position: 'relative', paddingTop: 6 }}>
             {midi ? <PianoRoll /> : <EmptyState />}
+            {midi && scoreView && <ScoreView />}
             <CountInOverlay />
           </div>
           {practicing && <PracticeStrip />}

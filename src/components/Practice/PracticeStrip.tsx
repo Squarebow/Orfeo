@@ -63,7 +63,7 @@ export default function PracticeStrip() {
     [2, t`No metronome · at most 20 % slower`],
     [3, t`The song's own tempo, nothing else`],
   ]
-  const views: [PracticeView, string, boolean][] = [['roll', t`Piano roll`, true], ['split', t`Split`, false], ['score', t`Score`, false]]
+  const views: [PracticeView, string, boolean][] = [['roll', t`Piano roll`, true], ['split', t`Split`, false], ['score', t`Score`, true]]
 
   return (
     <div data-practice-strip style={{
@@ -132,7 +132,7 @@ export default function PracticeStrip() {
         <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
           <div style={segWrap}>
             {views.map(([id, label, ready]) => (
-              <Tooltip key={id} title={label} description={ready ? undefined : t`The score comes in a later stage.`}>
+              <Tooltip key={id} title={label} description={ready ? undefined : t`Piano roll and score side by side comes in a later stage.`}>
                 <button disabled={!ready} style={seg(view === id, !ready)} onClick={() => set({ view: id })}>{label}</button>
               </Tooltip>
             ))}

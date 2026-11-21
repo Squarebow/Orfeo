@@ -99,6 +99,8 @@ export function openReview(prefer?: TakeRecord | null, startBar?: number): boole
   let idx = takes.length - 1
   if (prefer) { const i = takes.findIndex(k => k.at === prefer.at); if (i >= 0) idx = i }
   useSession.setState({ card: null })
+  // the review is drawn on the piano roll
+  if (usePractice.getState().view !== 'roll') usePractice.setState({ view: 'roll' })
   useReview.setState({ open: true, takes, idx, playing: false })
   showTake(idx, startBar)
   return true

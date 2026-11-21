@@ -32,7 +32,7 @@ export type SettingId =
   | 'showLanguageSwitcher' | 'followSystemLanguage' | 'menuLanguages' | 'translations' | 'translationUpdates'
   | 'midiKeyboards' | 'midiReconnect' | 'liveResponse' | 'latencyOffset' | 'gmOutput' | 'touchResponse' | 'duplicateFilter'
   | 'pedalsControls' | 'delayCheck' | 'midiTools'
-  | 'keyLights' | 'devKeyboard' | 'devKeyRange' | 'devKeyLights' | 'devExplorers' | 'devClosingWarning' | 'devQueue' | 'devLyrics' | 'devOpenWith' | 'devSupportNote' | 'devTranslations' | 'devPracticeKeys' | 'devPianist' | 'devListen' | 'devPracticeHistory'
+  | 'keyLights' | 'devKeyboard' | 'devKeyRange' | 'devKeyLights' | 'devExplorers' | 'devClosingWarning' | 'devQueue' | 'devLyrics' | 'devOpenWith' | 'devSupportNote' | 'devTranslations' | 'devPracticeKeys' | 'devPianist' | 'devListen' | 'devPracticeHistory' | 'devScore'
 
 export interface SettingInfo {
   id: SettingId
@@ -305,6 +305,9 @@ with octave buttons to move them. Notes beyond their edges show fainter on the k
   { id: 'devPracticeHistory', group: 'devtools', name: 'How it went', summary: 'The words after playing, and the practice numbers kept per song.',
     description: 'Shows the words for made-up takes without playing, the numbers kept for the open song, and forgets them. Saves nothing new.',
     keywords: 'dev test practice summary history words csv forget' },
+  { id: 'devScore', group: 'devtools', name: 'The score', summary: 'How the practice score reads the song.',
+    description: 'Shows how the score in practice mode was written from the song (grid, key, simplified or not) and switches between score and piano roll and the ways of writing it. Saves nothing.',
+    keywords: 'dev test practice score notation staff sheet music vexflow' },
   { id: 'devTranslations', group: 'devtools', name: 'Translations', summary: 'Fake Weblate numbers, offline and new words.',
     description: 'Pretend a language is at any percentage, that Weblate cannot be reached, or that it has newer words, then check again to see Settings > Language and the menu react. While any are on, downloads go to a temporary folder. Session only, nothing saved.',
     keywords: 'dev test translations language weblate percent offline download pseudo' },

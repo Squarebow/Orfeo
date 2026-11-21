@@ -13,6 +13,9 @@ import type { TakeRecord } from '../../../practice/take'
 import { takesCsv } from '../../../practice/words'
 import { openReview } from '../../../practice/review'
 import { openProgress } from '../../Practice/PracticeProgress'
+import { useSongScore, useScoreUi } from '../../Practice/ScoreView'
+import { usePractice } from '../../../practice/practiceMode'
+import { keySpecOf } from '../../../notation/score'
 
 const PrompterIcon = () => (
   <svg xmlns="http://www.w3.org/2000/svg" width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 7V5a2 2 0 0 1 2-2h2"/><path d="M17 3h2a2 2 0 0 1 2 2v2"/><path d="M21 17v2a2 2 0 0 1-2 2h-2"/><path d="M7 21H5a2 2 0 0 1-2-2v-2"/><rect width="10" height="8" x="7" y="8" rx="1"/></svg>
@@ -146,6 +149,31 @@ export function PracticeHistoryPanel() {
         ))}
       </div>
       <HistoryNumbers />
+    </div>
+  )
+}
+
+export function ScoreTestPanel() {
+  const active = usePractice(s => s.active)
+  const view = usePractice(s => s.view)
+  const mode = useScoreUi(s => s.mode)
+  const { score, tight, simple } = useSongScore()
+  const bars = score?.bars ?? []
+  const notes = bars.reduce((a, b) => a + b.R.filter(e => e.keys && !e.tie).length + b.L.filter(e => e.keys && !e.tie).length, 0)
+  return (
+    <div style={devBox}>
+      <div style={devHead}>The score · practice mode</div>
+      <div>The score shows in practice mode (strip: Score). Built from the two piano tracks: notes on a sixteenth grid, or an eighth grid when the song looks played in by hand (fewer than 85 % of notes on a sixteenth).</div>
+      {!active || !score ? <div style={{ color: 'var(--text-amber)' }}>Go into practice mode on a ready song first.</div> : (
+        <div style={{ fontFamily: 'var(--font-mono)' }}>
+          {bars.length} bars · {notes} chords and notes written · key {keySpecOf(score.keyFifths)} · on the sixteenth grid {Math.round(tight * 100)} % · {simple ? 'simplified (eighths)' : 'as written (sixteenths)'} · choice: {mode}
+        </div>
+      )}
+      <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4 }}>
+        <OptionBtn active={view === 'score'} onClick={() => usePractice.setState({ view: 'score' })}>Show the score</OptionBtn>
+        <OptionBtn active={view === 'roll'} onClick={() => usePractice.setState({ view: 'roll' })}>Show the piano roll</OptionBtn>
+        {(['auto', 'full', 'simple'] as const).map(m => <OptionBtn key={m} active={mode === m} onClick={() => useScoreUi.setState({ mode: m })}>{m === 'auto' ? 'Orfeo chooses' : m === 'full' ? 'As written' : 'Simplified'}</OptionBtn>)}
+      </div>
     </div>
   )
 }

@@ -405,7 +405,7 @@ Chromium and its components. Their notices ship beside the app, unchanged, as
 
 ## Fonts
 
-All four fonts are under the SIL Open Font License 1.1. The full text is in
+All six fonts are under the SIL Open Font License 1.1. The full text is in
 `public/fonts/OFL.txt` and `src/assets/fonts/OFL.txt`, and it ships with the app.
 
 | Font | Used for | Copyright |
@@ -414,6 +414,8 @@ All four fonts are under the SIL Open Font License 1.1. The full text is in
 | [IBM Plex Mono](https://github.com/IBM/plex) | Numbers, chord names, labels | Copyright © 2017 IBM Corp. with Reserved Font Name "Plex" |
 | [Inter](https://github.com/rsms/inter) | The logo, PDF export | Copyright 2016 The Inter Project Authors |
 | [JetBrains Mono](https://github.com/JetBrains/JetBrainsMono) | PDF export | Copyright 2020 The JetBrains Mono Project Authors |
+| [Bravura](https://github.com/steinbergmedia/bravura) | Music notation (practice mode score), built into VexFlow | Copyright © 2015, Steinberg Media Technologies GmbH |
+| Academico | Text in the notation, built into VexFlow | See the [VexFlow project](https://github.com/vexflow/vexflow) |
 
 ---
 
@@ -432,7 +434,7 @@ credits ship with the app in `public/Demo/CREDITS.txt`.
 ---
 
 <!-- npm-packages:start -->
-## MIT — [full text](https://opensource.org/license/mit) (75 packages)
+## MIT — [full text](https://opensource.org/license/mit) (76 packages)
 
 <details>
 <summary>Show license text</summary>
@@ -534,6 +536,7 @@ THE SOFTWARE.
 | `unicode-properties@1.4.1` | devongovett/unicode-properties | Copyright 2018 |
 | `unicode-trie@2.0.0` | devongovett/unicode-trie | Copyright 2018 |
 | `universalify@2.0.1` | RyanZim/universalify | Copyright (c) 2017, Ryan Zimmerman <opensrc@ryanzim.com> |
+| `vexflow@5.0.0` | vexflow/vexflow | Copyright (c) 2023-present VexFlow contributors (see AUTHORS.md). |
 | `wasm-media-encoders@0.7.0` | arseneyr/wasm-media-encoders | Copyright (c) 2020-2024 arseneyr |
 | `zustand@5.0.16` | pmndrs/zustand | Copyright (c) 2019 Paul Henschel |
 
