@@ -12,6 +12,7 @@ import { loadHistory, forgetHistory, allTakes, type SongHistory } from '../../..
 import type { TakeRecord } from '../../../practice/take'
 import { takesCsv } from '../../../practice/words'
 import { openReview } from '../../../practice/review'
+import { openProgress } from '../../Practice/PracticeProgress'
 
 const PrompterIcon = () => (
   <svg xmlns="http://www.w3.org/2000/svg" width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 7V5a2 2 0 0 1 2-2h2"/><path d="M17 3h2a2 2 0 0 1 2 2v2"/><path d="M21 17v2a2 2 0 0 1-2 2h-2"/><path d="M7 21H5a2 2 0 0 1-2-2v-2"/><rect width="10" height="8" x="7" y="8" rx="1"/></svg>
@@ -88,6 +89,28 @@ function sample(kind: string): { take: TakeRecord; opts: Parameters<typeof showC
   return { take: round(true), opts: { session: [round(false), round(true), round(true)], rampedTo: 70 } }
 }
 
+// Three weeks of made-up practice, getting better (nothing saved): right hand
+// in Practise climbing in speed and accuracy, and Wait for me flowing closer
+// to the tempo, with bars 5–6 tidying up and bar 9 still tricky
+export function madeUpWeeks(): TakeRecord[] {
+  const DAY = 86400000, start = Date.now() - 20 * DAY
+  const out: TakeRecord[] = []
+  const days = [0, 1, 3, 4, 6, 8, 9, 11, 13, 15, 16, 18, 20]
+  days.forEach((d, i) => {
+    const p = i / (days.length - 1)
+    const at = start + d * DAY + 18 * 3600000
+    const right = Math.round(32 * (0.6 + 0.37 * p))
+    const bars: TakeRecord['bars'] = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map(b => [b, 3, b === 5 || b === 6 ? Math.round(3 * (1 - p)) : b === 9 ? 1 : 0, b === 9 ? 1 : 0, 0, 0])
+    out.push({ at, way: 'practise', hand: 'R', level: 1, wait: false, ramp: true, speed: Math.min(100, 60 + 5 * Math.floor(i * 0.8)), from: 0, to: 20, fromBar: 1, toBar: 10, end: 'loop',
+      realSec: 30, overTempo: 1, counts: { hit: right, missed: 32 - right, extra: 1 }, L: { hit: 0, missed: 0, extra: 0 }, R: { hit: right, missed: 32 - right, extra: 1 },
+      bars, timing: { mean: 5, spread: Math.round(95 - 50 * p), n: right }, waits: 0, waitSec: 0 })
+    if (i % 2 === 0) out.push({ at: at + 600000, way: 'wait', hand: 'B', level: 1, wait: true, ramp: false, speed: 100, from: 0, to: 20, fromBar: 1, toBar: 10, end: 'pause',
+      realSec: Math.round(20 / (0.5 + 0.42 * p)), overTempo: 1, counts: { hit: 60, missed: 0, extra: 2 }, L: { hit: 28, missed: 0, extra: 1 }, R: { hit: 32, missed: 0, extra: 1 },
+      bars: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map(b => [b, 6, 0, 0, b === 9 ? 2 : b === 5 ? Math.round(3 * (1 - p)) : 0, 0]), timing: { mean: 0, spread: 0, n: 0 }, waits: 4, waitSec: 6 })
+  })
+  return out
+}
+
 function HistoryNumbers() {
   useSession(s => s.card)
   const { song, session } = currentSession()
@@ -104,6 +127,8 @@ function HistoryNumbers() {
         {last && <OptionBtn active={false} onClick={() => showCardFor(last, { earlier: takes.filter(k => k !== last) })}>Show the words for the last take</OptionBtn>}
         <OptionBtn active={false} onClick={() => { void window.electronAPI?.practiceSaveCsv?.('practice.csv', takesCsv(takes)) }}>Save as CSV</OptionBtn>
         <OptionBtn active={false} onClick={() => openReview()}>Open the review (last take)</OptionBtn>
+        <OptionBtn active={false} onClick={() => openProgress()}>Show progress</OptionBtn>
+        <OptionBtn active={false} onClick={() => openProgress(madeUpWeeks())}>Progress: three made-up weeks</OptionBtn>
         <OptionBtn active={false} onClick={async () => { await forgetHistory(song); setH({ ...(await loadHistory(song)) }) }}>Forget this song's practice</OptionBtn>
       </div>
     </>

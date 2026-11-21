@@ -20,6 +20,8 @@ import { modalCloseButtonStyle, modalCloseButtonHoverColor, modalCloseButtonIdle
 import { useFocusTrap } from '../hooks/useFocusTrap'
 import { fileHasLyrics } from '../utils/lyricsCheck'
 import { TagPill } from './SettingsPanel/LibraryTags'
+import { PracticeProgressSummary } from './Practice/PracticeProgress'
+import { PRACTICE_VISIBLE } from '../practice/practiceMode'
 
 interface FileLogEvent { type: string; timestamp: number; summary: string }
 interface FileVersion { name: string; path: string; version: number; mtime: number }
@@ -595,6 +597,9 @@ export default function FileInfoModal({ filePath, fileName, onClose, onRenamed, 
             )}
           </div>
         )}
+
+        {/* ── Practice mode (2.0, dev mode until then): how the song has come along ── */}
+        {meta && PRACTICE_VISIBLE && <PracticeProgressSummary path={currentPath} />}
 
         {/* ── Orfeo History — real edits (Playback Editor, Note Editor, tempo/
             key, mixer saves) are embedded directly in the .mid file as

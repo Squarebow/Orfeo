@@ -7,6 +7,7 @@ import { useSession, practiseBars, currentSession } from '../../practice/session
 import { cachedHistory, allTakes } from '../../practice/history'
 import { takesCsv } from '../../practice/words'
 import { openReview, reviewableTakes } from '../../practice/review'
+import { openProgress } from './PracticeProgress'
 
 // ── How it went: a few words after you stop (practice stage 4) ───────────────
 // Over the top of the piano roll while the song is stopped; gone when you play
@@ -47,7 +48,7 @@ export default function PracticeSummaryCard() {
       <div style={{ display: 'grid', rowGap: 4, fontSize: 13, lineHeight: 1.45 }}>
         {card.lines.map((l, i) => <p key={i} style={{ margin: 0 }}>{l}</p>)}
       </div>
-      {(f || canSave || canReview) && (
+      {(f || canReview || !!currentSession().song) && (
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, marginTop: 10 }}>
           {f ? (
             <button onClick={goOver} style={{
@@ -63,11 +64,16 @@ export default function PracticeSummaryCard() {
             }}>{t`Review`}</button>
             </Tooltip>
           )}
-          {canSave && (
-            <button onClick={saveCsv} style={{ background: 'none', border: 'none', padding: 0, cursor: 'pointer', fontFamily: 'var(--font-ui)', fontSize: 11, color: 'var(--text-muted)', textDecoration: 'underline', textUnderlineOffset: 2 }}>
-              {t`Save the numbers (CSV)`}
+          <span style={{ display: 'flex', gap: 14, marginLeft: 'auto' }}>
+            <button onClick={() => openProgress()} style={{ background: 'none', border: 'none', padding: 0, cursor: 'pointer', fontFamily: 'var(--font-ui)', fontSize: 11, color: 'var(--text-muted)', textDecoration: 'underline', textUnderlineOffset: 2 }}>
+              {t`Progress`}
             </button>
-          )}
+            {canSave && (
+              <button onClick={saveCsv} style={{ background: 'none', border: 'none', padding: 0, cursor: 'pointer', fontFamily: 'var(--font-ui)', fontSize: 11, color: 'var(--text-muted)', textDecoration: 'underline', textUnderlineOffset: 2 }}>
+                {t`Save the numbers (CSV)`}
+              </button>
+            )}
+          </span>
         </div>
       )}
     </div>

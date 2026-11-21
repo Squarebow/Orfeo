@@ -1,11 +1,12 @@
 import { useEffect, type CSSProperties } from 'react'
 import { ChevronLeft, ChevronRight, Play, Square, X } from 'lucide-react'
 import { useStore } from '../../store'
-import { t } from '../../utils/i18n'
+import { t, currentLanguage } from '../../utils/i18n'
 import Tooltip from '../Tooltip'
 import { useReview, type ReviewUnit, type ReviewHear } from '../../practice/reviewState'
 import { closeReview, stepPassage, setUnit, hearAs, togglePassage, showTake, reviewMarks, countMarks, REVIEW_COLORS, type MarkKind } from '../../practice/review'
 import type { TakeRecord } from '../../practice/take'
+import { openProgress } from './PracticeProgress'
 
 // ── The practice review (stage 5): the bar over the piano roll ───────────────
 // Which bars you're looking at and how they went (a mark of its own shape per
@@ -38,9 +39,9 @@ function Glyph({ kind }: { kind: MarkKind }) {
 
 function takeLabel(k: TakeRecord): string {
   const d = new Date(k.at)
-  const hm = d.toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' })
+  const hm = d.toLocaleTimeString(currentLanguage, { hour: '2-digit', minute: '2-digit' })
   const today = new Date().toDateString() === d.toDateString()
-  const when = today ? t`Today ${hm}` : `${d.toLocaleDateString(undefined, { day: 'numeric', month: 'short' })} ${hm}`
+  const when = today ? t`Today ${hm}` : `${d.toLocaleDateString(currentLanguage, { day: 'numeric', month: 'short' })} ${hm}`
   const way = k.way === 'wait' ? t`Wait for me` : k.way === 'perform' ? t`Performance` : t`Practise`
   const hand = k.hand === 'L' ? t`left hand` : k.hand === 'R' ? t`right hand` : t`both hands`
   return `${when} · ${way} · ${hand} · ${k.speed} %`
@@ -110,7 +111,10 @@ export default function PracticeReview() {
         <div style={segWrap}>
           {hears.map(([h, label, tip]) => <Tooltip key={h} title={label} description={tip}><button style={seg(hear === h)} onClick={() => hearAs(h)}>{label}</button></Tooltip>)}
         </div>
-        <button onClick={closeReview} aria-label={t`Close`} style={{ ...iconBtn, marginLeft: 'auto', color: 'var(--text-muted)' }}><X size={14} /></button>
+        <Tooltip title={t`Progress`} description={t`How this song has come along, day by day.`}>
+          <button onClick={() => openProgress()} style={{ ...seg(false), marginLeft: 'auto', background: 'var(--bg-tile)' }}>{t`Progress`}</button>
+        </Tooltip>
+        <button onClick={closeReview} aria-label={t`Close`} style={{ ...iconBtn, color: 'var(--text-muted)' }}><X size={14} /></button>
       </div>
 
       <div style={{ display: 'flex', alignItems: 'center', gap: 14, flexWrap: 'wrap', fontSize: 12 }}>
