@@ -3,6 +3,7 @@ import { Settings2 } from 'lucide-react'
 import { useStore } from '../../store'
 import { t } from '../../utils/i18n'
 import { useWaiting } from '../../practice/listen'
+import { usePractice } from '../../practice/practiceMode'
 import { buildScore, onTheGrid, fifthsOf, type Score, type ScoreNote } from '../../notation/score'
 import { drawSystem, pageLayout, type PageLayout, type SystemLayout } from '../../notation/draw'
 import type { ScoreOptions } from '../../notation/scoreOptions'
@@ -19,7 +20,6 @@ import type { ScoreOptions } from '../../notation/scoreOptions'
 // Settings › Score; above the music, a note says when the writing is rounded
 // or swung.
 
-const LINES = 3
 // Orfeo's colours on a printed page: its dark ink for the music, a softer
 // grey for staff and bar lines, its amber for where you are
 const PAGE = { paper: '#e8e7e4', ink: '#13131c', dim: '#7c7c86', muted: '#5c5c66', chord: '#13131c', now: '#e8a027', lit: 'rgba(232,160,39,0.24)' }
@@ -87,7 +87,7 @@ function Line({ score, from, to, width, scale, first, page, options, onLayout }:
     try {
       const l = drawSystem(ref.current, bars, {
         width: width / scale, fifths: score.keyFifths, pedalIn: pedalDownAt(score, from), page,
-        chords: options.chords, pedal: options.pedal,
+        chords: options.chords, pedal: options.pedal, textScale: scale,
         showTime: (b, i) => (first && i === 0) || (i === 0 ? !!prev && (prev.num !== b.num || prev.den !== b.den) : bars[i - 1].num !== b.num || bars[i - 1].den !== b.den),
         tieIn: { R: !!lastOf('R')?.tie, L: !!lastOf('L')?.tie },
         ink: colours.ink, dim: colours.dim, chordInk: colours.chord, font: getComputedStyle(document.documentElement).getPropertyValue('--font-ui').trim() || 'sans-serif',
@@ -100,6 +100,8 @@ function Line({ score, from, to, width, scale, first, page, options, onLayout }:
 
 export default function ScoreView() {
   const { score, simple, options } = useSongScore()
+  // three lines on a page of its own, two in Split (half the height)
+  const LINES = usePractice(s => s.view === 'split') ? 2 : 3
   const currentTime = useStore(s => s.currentTime)
   const holdAt = useWaiting(s => (s.holding ? s.at : null))
   const box = useRef<HTMLDivElement>(null)
@@ -133,9 +135,10 @@ export default function ScoreView() {
   }, [score, now])
   const cur = Math.max(0, lines.findIndex(([a, b]) => barIdx >= a && barIdx < b))
   // the page: the line before, this one and the next, each in its own place
-  // (line j always on slot j mod 3), so reaching the bottom line turns the
-  // top one over to the bars after it, and the lines stay where they are
-  const from = Math.max(0, Math.min(cur - 1, lines.length - LINES))
+  // (line j always on slot j mod LINES), so reaching the bottom line turns the
+  // top one over to the bars after it, and the lines stay where they are. Two
+  // lines (Split): this one and the next, the one just played turning over.
+  const from = Math.max(0, Math.min(LINES >= 3 ? cur - 1 : cur, lines.length - LINES))
   const slots = Array.from({ length: LINES }, (_, k) => {
     for (let j = from; j < from + LINES; j++) if (j % LINES === k && j < lines.length) return j
     return null

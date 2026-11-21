@@ -79,6 +79,7 @@ export function drawSystem(el: HTMLDivElement, bars: ScoreBar[], opts: {
   tieIn: { R: boolean; L: boolean }; pedalIn: boolean; page: PageLayout
   chords: 'off' | 'main' | 'all'; pedal: boolean
   ink: string; dim: string; chordInk: string; font: string
+  textScale?: number   // how much smaller the page is shown: chord names stay readable
 }): SystemLayout {
   el.innerHTML = ''
   const { page } = opts
@@ -190,7 +191,7 @@ export function drawSystem(el: HTMLDivElement, bars: ScoreBar[], opts: {
   // keeps the main harmony
   if (chordSpots.length) {
     ctx.save()
-    ctx.setFont(opts.font, 15, 'bold')
+    ctx.setFont(opts.font, Math.round(Math.max(15, 12 / (opts.textScale ?? 1))), 'bold')
     const spots = chordSpots.map(s => ({ ...s, w: ctx.measureText(s.name).width }))
     let crowded = true
     while (crowded) {

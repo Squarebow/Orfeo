@@ -170,6 +170,7 @@ export function ScoreTestPanel() {
       )}
       <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4 }}>
         <OptionBtn active={view === 'score'} onClick={() => usePractice.setState({ view: 'score' })}>Show the score</OptionBtn>
+        <OptionBtn active={view === 'split'} onClick={() => usePractice.setState({ view: 'split' })}>Show Split</OptionBtn>
         <OptionBtn active={view === 'roll'} onClick={() => usePractice.setState({ view: 'roll' })}>Show the piano roll</OptionBtn>
         <OptionBtn active={false} onClick={() => useStore.getState().openSettingsWindow('score')}>Score settings</OptionBtn>
       </div>

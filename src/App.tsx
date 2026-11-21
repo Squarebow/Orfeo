@@ -85,6 +85,8 @@ export default function App() {
   const presentationMode = useStore((s) => s.presentationMode)
   const practicing = usePractice((s) => s.active)
   const scoreView = usePractice((s) => s.active && s.view === 'score')
+  // Split: the score above, the piano roll below it (by the keyboard), half and half
+  const splitView = usePractice((s) => s.active && s.view === 'split')
   const noteEditorActive = useStore((s) => s.noteEditorActive)
   const { openFile } = useMidiFile()
   const { play, pause, stop } = usePlayback()
@@ -605,6 +607,8 @@ export default function App() {
       >
         {!presentationMode && !practicing && <SettingsPanel />}
         <div style={{ display: 'flex', flexDirection: 'column', flex: 1, minWidth: 0, overflow: 'hidden' }}>
+          {/* (always in this place, so the piano roll below never starts again when the view changes) */}
+          {midi && splitView ? <div data-score-area style={{ flex: 1, minHeight: 0, position: 'relative' }}><ScoreView /></div> : null}
           <div data-piano-roll-area style={{ flex: 1, minHeight: 0, position: 'relative', paddingTop: 6 }}>
             {midi ? <PianoRoll /> : <EmptyState />}
             {midi && scoreView && <ScoreView />}
