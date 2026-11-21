@@ -51,12 +51,58 @@ const WHITE_OF = [0, 0, 1, 1, 2, 3, 3, 4, 4, 5, 5, 6]
 const whiteAt = (midi: number) => Math.floor(midi / 12) * 7 + WHITE_OF[((midi % 12) + 12) % 12]
 const isBlack = (midi: number) => BLACK.has(((midi % 12) + 12) % 12)
 
+// ── The standard scale fingerings (the tables in scale books and exam
+// syllabuses): for each key, the finger on each note of the scale as it goes
+// on over several octaves. A run of scale notes in the song's key follows its
+// table (its first and last notes are left to the search: a scale starts and
+// ends its own way). Minor keys: the harmonic minor, its 6th and 7th either way
+// (natural or raised) on the same finger. ────────────────────────────────────
+const SCALES_RH: Record<string, string> = {
+  C: 'C1 D2 E3 F1 G2 A3 B4', G: 'G1 A2 B3 C1 D2 E3 F#4', D: 'D1 E2 F#3 G1 A2 B3 C#4',
+  A: 'A1 B2 C#3 D1 E2 F#3 G#4', E: 'E1 F#2 G#3 A1 B2 C#3 D#4', B: 'B1 C#2 D#3 E1 F#2 G#3 A#4',
+  F: 'F1 G2 A3 Bb4 C1 D2 E3', Bb: 'Bb4 C1 D2 Eb3 F1 G2 A3', Eb: 'Eb3 F1 G2 Ab3 Bb4 C1 D2',
+  Ab: 'Ab3 Bb4 C1 Db2 Eb3 F1 G2', Db: 'Db2 Eb3 F1 Gb2 Ab3 Bb4 C1', 'F#': 'F#2 G#3 A#4 B1 C#2 D#3 F1',
+  am: 'A1 B2 C3 D1 E2 F3 F#3 G4 G#4', em: 'E1 F#2 G3 A1 B2 C3 C#3 D4 D#4', dm: 'D1 E2 F3 G1 A2 Bb3 B3 C4 C#4',
+  gm: 'G1 A2 Bb3 C1 D2 Eb3 E3 F4 F#4', cm: 'C1 D2 Eb3 F1 G2 Ab3 A3 Bb4 B4', bm: 'B1 C#2 D3 E1 F#2 G3 G#3 A4 A#4',
+  fm: 'F1 G2 Ab3 Bb4 C1 Db2 D2 Eb3 E3',
+}
+const SCALES_LH: Record<string, string> = {
+  C: 'C1 D4 E3 F2 G1 A3 B2', G: 'G1 A4 B3 C2 D1 E3 F#2', D: 'D1 E4 F#3 G2 A1 B3 C#2',
+  A: 'A1 B4 C#3 D2 E1 F#3 G#2', E: 'E1 F#4 G#3 A2 B1 C#3 D#2', B: 'B4 C#3 D#2 E1 F#4 G#3 A#2',
+  F: 'F1 G4 A3 Bb2 C1 D3 E2', Bb: 'Bb3 C2 D1 Eb4 F3 G2 A1', Eb: 'Eb3 F2 G1 Ab4 Bb3 C2 D1',
+  Ab: 'Ab3 Bb2 C1 Db4 Eb3 F2 G1', Db: 'Db3 Eb2 F1 Gb4 Ab3 Bb2 C1', 'F#': 'F#4 G#3 A#2 B1 C#3 D#2 F1',
+  am: 'A1 B4 C3 D2 E1 F3 F#3 G2 G#2', em: 'E1 F#4 G3 A2 B1 C3 C#3 D2 D#2', dm: 'D1 E4 F3 G2 A1 Bb3 B3 C2 C#2',
+  gm: 'G1 A4 Bb3 C2 D1 Eb3 E3 F2 F#2', cm: 'C1 D4 Eb3 F2 G1 Ab3 A3 Bb2 B2', bm: 'B4 C#3 D2 E1 F#4 G3 G#3 A2 A#2',
+  fm: 'F1 G4 Ab3 Bb2 C1 Db3 D3 Eb2 E2',
+}
+const PC: Record<string, number> = { C: 0, D: 2, E: 4, F: 5, G: 7, A: 9, B: 11 }
+const pcOf = (name: string) => (PC[name[0]] + (name.includes('#') ? 1 : name.includes('b') ? -1 : 0) + 12) % 12
+const parseScale = (t: string) => new Map(t.split(' ').map(x => [pcOf(x.slice(0, -1)), Number(x.slice(-1))] as [number, number]))
+const TABLES = { R: Object.fromEntries(Object.entries(SCALES_RH).map(([k, v]) => [k, parseScale(v)])), L: Object.fromEntries(Object.entries(SCALES_LH).map(([k, v]) => [k, parseScale(v)])) }
+const TONIC: Record<string, number> = Object.fromEntries(Object.keys(SCALES_RH).map(k => [k, pcOf(k[0].toUpperCase() + k.slice(1).replace('m', ''))]))
+/** How much a finger that matches its scale's table is preferred */
+const SCALE_PULL = 3
+/** The shortest run that counts as a scale */
+const SCALE_RUN = 6
+
+/** The table for a run of these pitch classes: the song's key when it fits,
+ *  else the one major key whose notes hold them all, else none */
+function scaleTable(pcs: Set<number>, hand: 'L' | 'R', key?: { tonic: number; minor: boolean }): Map<number, number> | null {
+  const fits = (name: string) => [...pcs].every(pc => TABLES[hand][name].has(pc))
+  if (key) {
+    const name = Object.keys(TONIC).find(k => TONIC[k] === key.tonic && (k.endsWith('m') === key.minor) && k !== 'm')
+    if (name && fits(name)) return TABLES[hand][name]
+  }
+  const majors = Object.keys(TONIC).filter(k => !k.endsWith('m') && fits(k))
+  return majors.length === 1 ? TABLES[hand][majors[0]] : null
+}
+
 /** Notes this close together are one moment (a chord) */
 export const CHORD_SEC = 0.03
 /** A rest or a long note this long frees the hand to move anywhere */
 const LIFT_SEC = 0.35
 
-interface Moment { idx: number[]; pitch: number[]; white: number[]; black: boolean[]; time: number; end: number; fixed: (number | undefined)[] }
+interface Moment { idx: number[]; pitch: number[]; white: number[]; black: boolean[]; time: number; end: number; fixed: (number | undefined)[]; scale?: number; midi: number[] }
 
 /** The cost of one finger to the next, `d` semitones apart (mirrored pitch), the
  *  hand still in place; Infinity when it can't be done without lifting */
@@ -117,6 +163,7 @@ function shapes(m: Moment): number[][] {
 /** A chord's own cost: the stretch between neighbouring fingers */
 function shapeCost(m: Moment, sh: number[], scale: number): number {
   let c = 0
+  if (m.scale !== undefined && sh[0] === m.scale) c -= SCALE_PULL   // the scale book's finger
   // the usual shapes (1-3-5, 5-3-1): fingers as far apart as the keys, within the hand
   for (let i = 1; i < sh.length; i++) c += 0.6 * Math.abs((sh[i] - sh[i - 1]) - Math.min(4, Math.abs(m.white[i] - m.white[i - 1])))
   for (let i = 0; i < sh.length; i++) c += placeCost(sh[i], m.black[i], null)
@@ -155,7 +202,7 @@ function moveCost(a: Moment, sa: number[], b: Moment, sb: number[], scale: numbe
 /** Suggested fingers for one hand's notes (in any order): one per note, or
  *  undefined where none can be given (more than five notes at once). Notes with
  *  a finger already keep it. */
-export function suggestFingering(notes: FingerNote[], hand: 'L' | 'R', size: HandSize = 'medium'): (number | undefined)[] {
+export function suggestFingering(notes: FingerNote[], hand: 'L' | 'R', size: HandSize = 'medium', key?: { tonic: number; minor: boolean }): (number | undefined)[] {
   const scale = SIZE[size]
   const out: (number | undefined)[] = notes.map(n => n.finger)
   const order = notes.map((_, i) => i).sort((a, b) => notes[a].time - notes[b].time || notes[a].midi - notes[b].midi)
@@ -174,11 +221,30 @@ export function suggestFingering(notes: FingerNote[], hand: 'L' | 'R', size: Han
     const keys = [...byKey.values()].sort((a, b) => mirror(notes[a].midi) - mirror(notes[b].midi))
     if (keys.length > 5) { chains.push([]); continue }
     const m: Moment = {
-      idx: keys, pitch: keys.map(k => mirror(notes[k].midi)), white: keys.map(k => whiteAt(notes[k].midi)), black: keys.map(k => isBlack(notes[k].midi)),
+      idx: keys, midi: keys.map(k => notes[k].midi), pitch: keys.map(k => mirror(notes[k].midi)), white: keys.map(k => whiteAt(notes[k].midi)), black: keys.map(k => isBlack(notes[k].midi)),
       time: notes[keys[0]].time, end: Math.max(...idx.map(k => notes[k].time + notes[k].dur)),
       fixed: keys.map(k => notes[k].finger),
     }
     chains[chains.length - 1].push(m)
+  }
+
+  // scale runs: single notes stepping (a semitone, a tone, a harmonic minor's 3) the same way, long
+  // enough, all in one scale: their inner notes get the table's finger
+  for (const chain of chains) {
+    let i = 0
+    while (i < chain.length) {
+      let j = i + 1, dir = 0
+      while (j < chain.length && chain[j].midi.length === 1 && chain[j - 1].midi.length === 1) {
+        const d = chain[j].midi[0] - chain[j - 1].midi[0]
+        if (Math.abs(d) < 1 || Math.abs(d) > 3 || (dir && Math.sign(d) !== dir)) break   // up to 3: the harmonic minor's step
+        dir = Math.sign(d); j++
+      }
+      if (j - i >= SCALE_RUN) {
+        const table = scaleTable(new Set(chain.slice(i, j).map(m => ((m.midi[0] % 12) + 12) % 12)), hand, key)
+        if (table) for (let u = i + 1; u < j - 1; u++) chain[u].scale = table.get(((chain[u].midi[0] % 12) + 12) % 12)
+      }
+      i = Math.max(i + 1, j - 1)
+    }
   }
 
   for (const chain of chains) {

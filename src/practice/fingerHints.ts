@@ -29,19 +29,22 @@ function update() {
   const s = useStore.getState()
   const parts = s.tracks.filter(t => t.practicePart && t.practiceHand)
   const tracks = parts.map(ts => ({ ts, notes: (s.midi?.tracks.find(t => t.index === ts.index)?.notes ?? []) as HNote[] }))
-  const key = [s.fingerHints, s.handSize, FINGER_VERSION.n, s.midi ? (s.midi as any)._filePath ?? s.midi.fileName : '',
+  // transposed, you play other keys (other black keys): fingered as you play it
+  const shift = s.detectedKey?.transpose ?? 0
+  const songKey = s.detectedKey ? { tonic: (((s.detectedKey.semitone + shift) % 12) + 12) % 12, minor: s.detectedKey.isMinor } : undefined   // for the scale tables
+  const key = [s.fingerHints, s.handSize, FINGER_VERSION.n, songKey ? `${songKey.tonic}${songKey.minor}` : '', shift, s.midi ? (s.midi as any)._filePath ?? s.midi.fileName : '',
     ...tracks.map(x => `${x.ts.index}${x.ts.practiceHand}${x.notes.length}`)].join('|')
   if (key === lastKey) return
   lastKey = key
   for (const { ts, notes } of tracks) {
     if (!s.fingerHints) { for (const n of notes) delete n.fingerHint; continue }
-    const hint = suggestFingering(notes.map(n => ({ midi: n.midi, time: n.time, dur: n.duration, finger: n.finger })), ts.practiceHand!, s.handSize)
+    const hint = suggestFingering(notes.map(n => ({ midi: n.midi + shift, time: n.time, dur: n.duration, finger: n.finger })), ts.practiceHand!, s.handSize, songKey)
     notes.forEach((n, i) => { if (!n.finger && hint[i]) n.fingerHint = hint[i]; else delete n.fingerHint })
   }
   useFingerHints.setState(h => ({ v: h.v + 1 }))
 }
 
 useStore.subscribe((s, prev) => {
-  if (s.fingerHints !== prev.fingerHints || s.handSize !== prev.handSize || s.midi !== prev.midi || s.tracks !== prev.tracks) update()
+  if (s.fingerHints !== prev.fingerHints || s.handSize !== prev.handSize || s.midi !== prev.midi || s.tracks !== prev.tracks || s.detectedKey !== prev.detectedKey) update()
 })
 update()

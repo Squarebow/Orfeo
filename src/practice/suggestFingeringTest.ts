@@ -42,6 +42,19 @@ export function runSuggestFingeringTest(): number {
     const bad = out.some((x, i) => i > 0 && x === out[i - 1] && (ns as FingerNote[])[i].midi !== (ns as FingerNote[])[i - 1].midi)
     check(!bad, `${name}: no finger twice on different keys in a row (${out.join(' ')})`)
   }
+  // the scale books' fingering for other keys (two octaves)
+  const up = (start: number, steps: number[]) => { const out = [start]; for (let o = 0; o < 2; o++) for (const st of steps) out.push(out[out.length - 1] + st); return out }
+  const MAJ = [2, 2, 1, 2, 2, 2, 1], HMIN = [2, 1, 2, 2, 1, 3, 1]
+  const k = (tonic: number, minor = false) => ({ tonic, minor })
+  const fk = (ms: number[], h: 'L' | 'R', key: { tonic: number; minor: boolean }) => suggestFingering(seq(ms), h, 'medium', key).join(' ')
+  check(fk(up(65, MAJ), 'R', k(5)) === '1 2 3 4 1 2 3 1 2 3 4 1 2 3 4', `F major, right hand: 4 on B♭ (${fk(up(65, MAJ), 'R', k(5))})`)
+  check(fk(up(70, MAJ), 'R', k(10)) === '2 1 2 3 1 2 3 4 1 2 3 1 2 3 4', 'B♭ major, right hand')
+  check(fk(up(68, MAJ), 'R', k(8)) === '3 4 1 2 3 1 2 3 4 1 2 3 1 2 3', 'A♭ major, right hand')
+  check(fk(up(53, MAJ), 'L', k(5)) === '5 4 3 2 1 3 2 1 4 3 2 1 3 2 1', 'F major, left hand')
+  check(fk(up(47, MAJ), 'L', k(11)) === '4 3 2 1 4 3 2 1 3 2 1 4 3 2 1', 'B major, left hand: 4 3 2 1 4 3 2 1')
+  check(fk(up(69, HMIN), 'R', k(9, true)) === '1 2 3 1 2 3 4 1 2 3 1 2 3 4 5', 'A harmonic minor, right hand (across the augmented 2nd)')
+  check(fk(up(45, HMIN), 'L', k(9, true)) === '5 4 3 2 1 3 2 1 4 3 2 1 3 2 1', 'A harmonic minor, left hand')
+
   // a hand can't play six notes at once: no suggestion, nothing broken
   check(suggestFingering(chord([48, 52, 55, 60, 64, 67]), 'R').every(x => x === undefined), 'six notes at once: left without numbers')
   // a small hand doesn't stretch a 10th in one go
