@@ -1,4 +1,4 @@
-import { useStore } from '../store'
+import { useStore, playbarOn } from '../store'
 
 // ── useKeyboardHitLine — viewport-space Y of the keyboard's top edge ────────
 // Returns null when the playbar is visible (default — feature off, no
@@ -8,5 +8,5 @@ import { useStore } from '../store'
 // called from inside a ticker callback); this hook exists for any ordinary
 // React-component consumer.
 export function useKeyboardHitLine(): number | null {
-  return useStore((s) => (s.playbarVisible ? null : s.keyboardTopY))
+  return useStore((s) => (playbarOn(s) ? null : s.keyboardTopY))
 }

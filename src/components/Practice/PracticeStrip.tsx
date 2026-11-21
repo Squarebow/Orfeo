@@ -45,6 +45,7 @@ function YouPlay() {
 export default function PracticeStrip() {
   const playing = useStore(s => s.playbackState === 'playing')
   const keyboardSize = useStore(s => s.keyboardSize)
+  const playbar = useStore(s => s.practicePlaybar)
   const { way, hand, waitOn, level, view, onlyHand, ramp } = usePractice()
   const streak = useSession(s => s.ramp.streak)
   const set = usePractice.setState
@@ -137,6 +138,11 @@ export default function PracticeStrip() {
               </Tooltip>
             ))}
           </div>
+          {view === 'roll' && (
+            <Tooltip title={t`Playbar`} description={t`Show the line where the notes meet the keys. Off, the notes fall straight onto the keyboard.`}>
+              <div style={segWrap}><button style={seg(playbar)} aria-pressed={playbar} onClick={() => useStore.getState().setPracticePlaybar(!playbar)}>{t`Playbar`}</button></div>
+            </Tooltip>
+          )}
           <Tooltip title={t`Keyboard size`} description={t`How many keys the on-screen keyboard shows.`}>
             <div style={segWrap}>
               {PRACTICE_SIZES.map(n => (

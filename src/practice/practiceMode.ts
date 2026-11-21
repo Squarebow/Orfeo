@@ -211,7 +211,18 @@ export function applyWayRules(): void {
   if (pct < min || pct > max) setSpeedPercent(pct)
   if (!metronomeAllowed() && useStore.getState().metronomeEnabled) useStore.getState().setMetronomeEnabled(false)
 }
+// ── The playbar in practice mode: never in Split, where the notes fall straight
+// onto the keyboard (more room for both halves); in the piano roll view its own
+// switch (Settings › Practice, and the strip) ──────────────────────────────────
+function applyPlaybar(): void {
+  const p = usePractice.getState(), s = useStore.getState()
+  const want = !p.active ? null : p.view === 'split' ? false : p.view === 'roll' ? s.practicePlaybar : null
+  if (s.playbarOverride !== want) useStore.setState({ playbarOverride: want })
+}
+useStore.subscribe((s, prev) => { if (s.practicePlaybar !== prev.practicePlaybar) applyPlaybar() })
+
 usePractice.subscribe((p, prev) => {
+  if (p.active !== prev.active || p.view !== prev.view) applyPlaybar()
   if (p.way !== prev.way || p.level !== prev.level) applyWayRules()
   if (p.way !== prev.way || p.hand !== prev.hand || p.hearMine !== prev.hearMine || (p.active && !prev.active)) applySound()
 })

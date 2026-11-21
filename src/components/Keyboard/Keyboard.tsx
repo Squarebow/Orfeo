@@ -1,5 +1,5 @@
 import React, { useMemo, useCallback, useState, useEffect, useRef } from 'react'
-import { useStore } from '../../store'
+import { useStore, playbarOn } from '../../store'
 import { isBlackKey } from '../../utils/midiParser'
 import { getNoteLabel, getNoteName, noteLabelText, resolveSa } from '../../utils/noteNames'
 import { detectChord, detectChordWithInversion, inversionForKnownChord, formatInversionDisplay, localizeChord, ordinalSuffix, buildCompactVoicing } from '../../utils/chordDetection'
@@ -153,7 +153,7 @@ export default function Keyboard() {
   const performanceSplitSensitivity = useStore((s) => s.performanceSplitSensitivity)
   const presentationMode = useStore((s) => s.presentationMode)
   const practicing = usePractice((s) => s.active)   // practice mode draws its own strip
-  const playbarVisible = useStore((s) => s.playbarVisible)
+  const playbarVisible = useStore(playbarOn)   // practice mode may decide it for itself
   const shiftHeldRef = useRef(false)
   // ── Tracks whether the primary mouse button is held, enabling glissando drag ──
   const isMouseDown = useRef(false)

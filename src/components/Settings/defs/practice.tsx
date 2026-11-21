@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { BookOpen, PanelLeftClose, Hand, Activity, Expand, StepForward, Sparkles, MessageSquareText } from 'lucide-react'
+import { BookOpen, PanelLeftClose, Hand, Activity, Expand, StepForward, Sparkles, MessageSquareText, Minus } from 'lucide-react'
 import { useStore } from '../../../store'
 import { Switch, InlineIcon, OptionBtn } from '../controls'
 import { useDevPractice, pluggedSim, type PianistStyle } from '../../../practice/devPlay'
@@ -172,7 +172,7 @@ export function ScoreTestPanel() {
         <OptionBtn active={view === 'score'} onClick={() => usePractice.setState({ view: 'score' })}>Show the score</OptionBtn>
         <OptionBtn active={view === 'split'} onClick={() => usePractice.setState({ view: 'split' })}>Show Split</OptionBtn>
         <OptionBtn active={view === 'roll'} onClick={() => usePractice.setState({ view: 'roll' })}>Show the piano roll</OptionBtn>
-        <OptionBtn active={false} onClick={() => useStore.getState().openSettingsWindow('score')}>Score settings</OptionBtn>
+        <OptionBtn active={false} onClick={() => useStore.getState().openSettingsWindow('practice', 'score')}>Score settings</OptionBtn>
       </div>
     </div>
   )
@@ -183,6 +183,10 @@ export const PRACTICE_DEFS: SettingDef[] = [
     // dev mode and test builds only until 2.0
     id: 'practiceMode', icon: Sparkles, kind: 'switch', useVisible: () => PRACTICE_VISIBLE,
     Control: () => { const v = useStore(s => s.practiceModeEnabled); return <Switch value={v} onChange={useStore.getState().setPracticeModeEnabled} label={t`Practice mode`} /> },
+  },
+  {
+    id: 'practicePlaybar', icon: Minus, kind: 'switch', useVisible: () => PRACTICE_VISIBLE,
+    Control: () => { const v = useStore(s => s.practicePlaybar); return <Switch value={v} onChange={useStore.getState().setPracticePlaybar} label={t`Playbar in practice mode`} /> },
   },
   {
     id: 'practiceSummary', icon: MessageSquareText, kind: 'switch', useVisible: () => PRACTICE_VISIBLE,

@@ -169,7 +169,7 @@ export default function ScoreView() {
     <div style={{ position: 'absolute', inset: 0, background: PAGE.paper, display: 'flex', flexDirection: 'column', zIndex: 5 }}>
       <style>{`.score-sheet svg text { fill: ${colours.ink}; } .score-now path, .score-now rect, .score-now text { fill: ${colours.now} !important; stroke: ${colours.now} !important; }`}</style>
       <div style={{ display: 'flex', alignItems: 'center', gap: 14, padding: '6px 14px', minHeight: 30, boxSizing: 'border-box', flexWrap: 'wrap' }}>
-        <button onClick={() => useStore.getState().openSettingsWindow('score')}
+        <button onClick={() => useStore.getState().openSettingsWindow('practice', 'score')}
           style={{ display: 'inline-flex', alignItems: 'center', gap: 6, background: 'none', border: 'none', padding: 0, cursor: 'pointer', fontSize: 11, fontWeight: 600, color: PAGE.ink, fontFamily: 'var(--font-ui)' }}>
           <Settings2 size={13} color={PAGE.now} /> {t`Score settings`}
         </button>

@@ -1,7 +1,7 @@
 import React, { useEffect, useRef, useState } from 'react'
 import { Application, Graphics } from 'pixi.js'
 import type { Track } from '@tonejs/midi'
-import { useStore } from '../../store'
+import { useStore, playbarOn } from '../../store'
 import { isBlackKey } from '../../utils/midiParser'
 import { buildKeyLayoutViewPx, type KeyLayout, type KeyView } from '../../utils/keyLayout'
 import { startKeyView, foldRange, foldIntoRange } from '../../utils/keyView'
@@ -493,6 +493,7 @@ export default function PianoRoll() {
       s.noteEditorActive !== prev.noteEditorActive ||
       s.showHandLabels !== prev.showHandLabels ||
       s.playbarVisible !== prev.playbarVisible ||
+      s.playbarOverride !== prev.playbarOverride ||
       s.keyboardTopY !== prev.keyboardTopY ||
       s.hitEffectsEnabled !== prev.hitEffectsEnabled ||
       s.hitEffectPattern !== prev.hitEffectPattern ||
@@ -872,8 +873,9 @@ export default function PianoRoll() {
           applyResize(cw, ch, dpr)
         }
 
-        const { midi, currentTime, tracks, detectedKey, zoomLevel, appTheme, keyboardSize, keyboardOctave, keyView, keyViewLo, keyViewHi, showBarNumbers, barStarts: storeBars, noteEditorActive, showHandLabels, playbarVisible, keyboardTopY, hitEffectsEnabled, hitEffectPattern, hitEffectBloomThreshold, hitEffectBloomIntensity, hitEffectBloomSpread, hitEffectColor } = storeRef.current
+        const { midi, currentTime, tracks, detectedKey, zoomLevel, appTheme, keyboardSize, keyboardOctave, keyView, keyViewLo, keyViewHi, showBarNumbers, barStarts: storeBars, noteEditorActive, showHandLabels, keyboardTopY, hitEffectsEnabled, hitEffectPattern, hitEffectBloomThreshold, hitEffectBloomIntensity, hitEffectBloomSpread, hitEffectColor } = storeRef.current
         const transpose   = (detectedKey as any)?.transpose ?? 0
+        const playbarVisible = playbarOn(storeRef.current)   // practice mode may decide it for itself
         const W = app.screen.width, H = app.screen.height
         // ── Hit-line Y position — fixed 80% line by default (unchanged), or the
         // live keyboard top edge when the playbar is hidden. `pps` (pixels per

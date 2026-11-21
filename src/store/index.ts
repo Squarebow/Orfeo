@@ -260,7 +260,8 @@ interface OrfeoStore {
   // Quick Settings' gear icons / Open settings button / Ctrl + , ──────────
   settingsWindowOpen: boolean
   settingsWindowGroup: SettingsGroupId
-  openSettingsWindow: (group?: SettingsGroupId) => void
+  settingsWindowTab: string | null          // a tab to open on (its key), if any
+  openSettingsWindow: (group?: SettingsGroupId, tab?: string) => void
   closeSettingsWindow: () => void
   // ── Saved: has Samples ever been used? The first time it's chosen from
   // Quick Settings, the Settings window opens on Audio to show the loading. ─
@@ -536,6 +537,12 @@ interface OrfeoStore {
   // measurement loop runs — zero overhead when the feature is off).
   keyboardTopY: number | null
   setKeyboardTopY: (y: number | null) => void
+  // Practice mode decides the playbar for itself (practice/practiceMode.ts):
+  // never in Split (the notes fall straight onto the keyboard), its own switch
+  // in the piano roll view. Null outside practice mode: playbarVisible rules.
+  practicePlaybar: boolean                 // the switch, kept with the settings
+  setPracticePlaybar: (v: boolean) => void
+  playbarOverride: boolean | null
 
   // ── Note-hit visual effects (Phase 2) — additive layer on top of the
   // existing lightKey() glow; off by default.
@@ -685,6 +692,9 @@ export function playerTrackFlags(t: { index: number; muted: boolean; visible: bo
   }
   return { muted: t.muted, visible: t.visible }
 }
+
+/** Is the playbar shown? Practice mode's own rule, else the setting */
+export const playbarOn = (s: { playbarVisible: boolean; playbarOverride: boolean | null }) => s.playbarOverride ?? s.playbarVisible
 
 export const useStore = create<OrfeoStore>((set, get) => ({
   midi: null,
@@ -1030,7 +1040,8 @@ export const useStore = create<OrfeoStore>((set, get) => ({
   setKeepDrumCountIn: (keepDrumCountIn) => set({ keepDrumCountIn }),
   settingsWindowOpen: false,
   settingsWindowGroup: 'audio',
-  openSettingsWindow: (group) => set((s) => ({ settingsWindowOpen: true, settingsWindowGroup: group ?? s.settingsWindowGroup })),
+  settingsWindowTab: null,
+  openSettingsWindow: (group, tab) => set((s) => ({ settingsWindowOpen: true, settingsWindowGroup: group ?? s.settingsWindowGroup, settingsWindowTab: tab ?? null })),
   closeSettingsWindow: () => set({ settingsWindowOpen: false }),
   samplesIntroduced: false,
   setSamplesIntroduced: (samplesIntroduced) => set({ samplesIntroduced }),
@@ -1302,6 +1313,9 @@ export const useStore = create<OrfeoStore>((set, get) => ({
 
   playbarVisible: true,
   setPlaybarVisible: (playbarVisible) => set({ playbarVisible }),
+  practicePlaybar: true,
+  setPracticePlaybar: (practicePlaybar) => set({ practicePlaybar }),
+  playbarOverride: null,
   keyboardTopY: null,
   setKeyboardTopY: (keyboardTopY) => set({ keyboardTopY }),
 
@@ -1517,6 +1531,7 @@ async function restoreLibraryPrefs() {
     if (typeof prefs.practiceModeEnabled === 'boolean') store.setPracticeModeEnabled(prefs.practiceModeEnabled)
     if (typeof prefs.practiceSummaryEnabled === 'boolean') store.setPracticeSummaryEnabled(prefs.practiceSummaryEnabled)
     if (prefs.scoreOptions) useStore.setState({ scoreOptions: readScoreOptions(prefs.scoreOptions) })
+    if (typeof prefs.practicePlaybar === 'boolean') store.setPracticePlaybar(prefs.practicePlaybar)
     if (typeof prefs.saveTempoKeyChangesEnabled === 'boolean') store.setSaveTempoKeyChangesEnabled(prefs.saveTempoKeyChangesEnabled)
     if (typeof prefs.tapTempoPadEnabled === 'boolean') store.setTapTempoPadEnabled(prefs.tapTempoPadEnabled)
     if (prefs.tapTempoMode === 'beat' || prefs.tapTempoMode === 'bar') store.setTapTempoMode(prefs.tapTempoMode)
@@ -1756,6 +1771,7 @@ let _prevNoteEditorEnabled:    boolean | null = null
 let _prevPracticeModeEnabled:  boolean | null = null
 let _prevPracticeSummaryEnabled: boolean | null = null
 let _prevScoreOptions: ScoreOptions | null = null
+let _prevPracticePlaybar: boolean | null = null
 let _prevSaveTempoKeyChangesEnabled: boolean | null = null
 let _prevTapTempoPadEnabled: boolean | null = null
 let _prevTapTempoMode: string | null = null
@@ -1840,6 +1856,7 @@ const _unsubPrefs = useStore.subscribe((state) => {
     _prevPracticeModeEnabled = state.practiceModeEnabled
     _prevPracticeSummaryEnabled = state.practiceSummaryEnabled
     _prevScoreOptions = state.scoreOptions
+    _prevPracticePlaybar = state.practicePlaybar
     _prevSaveTempoKeyChangesEnabled = state.saveTempoKeyChangesEnabled
     _prevTapTempoPadEnabled = state.tapTempoPadEnabled
     _prevTapTempoMode = state.tapTempoMode
@@ -1927,6 +1944,7 @@ const _unsubPrefs = useStore.subscribe((state) => {
     state.practiceModeEnabled !== _prevPracticeModeEnabled ||
     state.practiceSummaryEnabled !== _prevPracticeSummaryEnabled ||
     state.scoreOptions !== _prevScoreOptions ||
+    state.practicePlaybar !== _prevPracticePlaybar ||
     state.saveTempoKeyChangesEnabled !== _prevSaveTempoKeyChangesEnabled ||
     state.tapTempoPadEnabled !== _prevTapTempoPadEnabled ||
     state.tapTempoMode !== _prevTapTempoMode ||
@@ -2006,6 +2024,7 @@ const _unsubPrefs = useStore.subscribe((state) => {
     _prevPracticeModeEnabled = state.practiceModeEnabled
     _prevPracticeSummaryEnabled = state.practiceSummaryEnabled
     _prevScoreOptions = state.scoreOptions
+    _prevPracticePlaybar = state.practicePlaybar
     _prevSaveTempoKeyChangesEnabled = state.saveTempoKeyChangesEnabled
     _prevTapTempoPadEnabled = state.tapTempoPadEnabled
     _prevTapTempoMode = state.tapTempoMode
@@ -2091,6 +2110,7 @@ const _unsubPrefs = useStore.subscribe((state) => {
       practiceModeEnabled: state.practiceModeEnabled,
       practiceSummaryEnabled: state.practiceSummaryEnabled,
       scoreOptions: state.scoreOptions,
+      practicePlaybar: state.practicePlaybar,
       saveTempoKeyChangesEnabled: state.saveTempoKeyChangesEnabled,
       tapTempoPadEnabled: state.tapTempoPadEnabled,
       tapTempoMode: state.tapTempoMode,

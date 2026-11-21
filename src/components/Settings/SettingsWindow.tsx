@@ -20,8 +20,9 @@ import { fitFrame, defaultFrame, resizeFrame, frameZoom, type Frame, type Edge }
 // Same size for every group; only the content area scrolls. ─────────────
 
 // Dev Tools is listed (and searched) only in dev mode
-// Dev Tools in dev mode only; Score while practice mode is dev mode only (until 2.0)
-const SHOWN_GROUPS = GROUPS.filter(g => (g.id !== 'devtools' && g.id !== 'score') || simAvailable)
+const SHOWN_GROUPS = GROUPS.filter(g => g.id !== 'devtools' || simAvailable)
+// a group's tabs as shown: practice mode's only in dev mode and test builds (until 2.0)
+const shownTabs = (g: (typeof GROUPS)[number]) => g.tabs?.filter(tb => !tb.devOnly || simAvailable)
 
 const displayVersion = (v: string) => v.replace(/\.0$/, '')
 
@@ -46,7 +47,11 @@ export default function SettingsWindow() {
   const [query, setQuery] = useState('')
   // Tab within a tabbed group — back to the first tab whenever the group changes
   const [tab, setTab] = useState(0)
-  useEffect(() => { setTab(0) }, [group, open])
+  const wantTab = useStore(s => s.settingsWindowTab)
+  useEffect(() => {
+    const tabs = shownTabs(SHOWN_GROUPS.find(x => x.id === group) ?? SHOWN_GROUPS[0]) ?? []
+    setTab(Math.max(0, tabs.findIndex(tb => tb.key && tb.key === wantTab)))
+  }, [group, open, wantTab])
   const contentRef = useRef<HTMLDivElement>(null)
   const dialogRef = useRef<HTMLDivElement>(null)
   // ── Where the window sits and how big it is (utils/settingsFrame.ts). Moved
@@ -177,11 +182,11 @@ export default function SettingsWindow() {
               {results === null ? (
                 <>
                   <p style={{ margin: '0 0 10px', fontSize: 'var(--text-lg)', color: 'var(--text-default)', lineHeight: 1.45, fontFamily: 'var(--font-ui)' }}>{g.intro}</p>
-                  {g.tabs ? (
+                  {(() => { const tabs = shownTabs(g); return tabs && tabs.length > 1 ? (
                     <>
                       <div role="tablist" aria-label={g.name} style={{ display: 'flex', alignItems: 'center', gap: 4, marginBottom: 10, borderBottom: '1px solid var(--border2)' }}>
-                        {g.tabs.map((tb, i) => {
-                          const on = i === Math.min(tab, g.tabs!.length - 1)
+                        {tabs.map((tb, i) => {
+                          const on = i === Math.min(tab, tabs.length - 1)
                           return (
                             <button key={tb.name} role="tab" aria-selected={on} onClick={() => setTab(i)}
                               style={{ padding: '7px 14px', marginBottom: -1, background: 'none', border: 'none', cursor: 'pointer', whiteSpace: 'nowrap', flexShrink: 0,
@@ -194,10 +199,10 @@ export default function SettingsWindow() {
                             </button>
                           )
                         })}
-                        {(() => { const Aside = TAB_ASIDES[g.tabs![Math.min(tab, g.tabs!.length - 1)].aside ?? '']; return Aside ? <div style={{ marginLeft: 'auto', paddingBottom: 2 }}><Aside /></div> : null })()}
+                        {(() => { const Aside = TAB_ASIDES[tabs[Math.min(tab, tabs.length - 1)].aside ?? '']; return Aside ? <div style={{ marginLeft: 'auto', paddingBottom: 2 }}><Aside /></div> : null })()}
                       </div>
                       {(() => {
-                        const tb = g.tabs![Math.min(tab, g.tabs!.length - 1)]
+                        const tb = tabs[Math.min(tab, tabs.length - 1)]
                         return (
                           <>
                             <CardStack ids={[...inOrder(tb.ids, tb.stack), ...(tb.wide ?? [])]} />
@@ -205,9 +210,12 @@ export default function SettingsWindow() {
                         )
                       })()}
                     </>
+                  ) : tabs?.length === 1 ? (
+                    // one tab left to show: its cards, no tab bar
+                    <CardStack ids={[...inOrder(tabs[0].ids, tabs[0].stack), ...(tabs[0].wide ?? [])]} />
                   ) : (
                     <CardStack ids={inOrder(SETTINGS.filter(s => s.group === g.id).map(s => s.id), g.stack)} />
-                  )}
+                  ) })()}
                 </>
               ) : results.length === 0 ? (
                 <p style={{ color: 'var(--text-muted)', fontSize: 'var(--text-sm)', fontFamily: 'var(--font-ui)' }}>{t`No settings match “${query.trim()}”.`}</p>

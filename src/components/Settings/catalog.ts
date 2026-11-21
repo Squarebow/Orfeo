@@ -11,6 +11,8 @@ import type { SettingsGroupId } from '../../types'
 export interface GroupTab {
   name: string
   ids: SettingId[]
+  key?: string              // to open the window on this tab (openSettingsWindow(group, key))
+  devOnly?: boolean         // shown in dev mode and test builds only (practice mode until 2.0)
   columns?: 2 | 3           // cards across (default 2); 3 = one row of equal-height cards
   wide?: SettingId[]        // full-width cards under the others
   stack?: SettingId[][]     // explicit columns, top to bottom; every column ends at the same line
@@ -25,7 +27,7 @@ export type SettingId =
   | 'showDemo' | 'chordTranscription' | 'openWith' | 'showLyrics' | 'tags' | 'practiceQueue'
   | 'noteEditor' | 'unsavedWarning' | 'saveTrackChanges' | 'tapTempo' | 'tempoWarnings' | 'countIn' | 'skipEmptyBars' | 'handAssignment' | 'loopRegion' | 'focusMode'
   | 'scoreWriting' | 'scoreChords' | 'scoreTriplets' | 'scoreSwing' | 'scoreVoices' | 'scorePedal'
-  | 'practiceMode' | 'practiceSummary' | 'stepThrough' | 'chordPrompter' | 'closePanels' | 'handTags' | 'trackVu'
+  | 'practiceMode' | 'practiceSummary' | 'practicePlaybar' | 'stepThrough' | 'chordPrompter' | 'closePanels' | 'handTags' | 'trackVu'
   | 'displaySystem' | 'accidentals' | 'chordTracking' | 'chordReading' | 'chordNaming'
   | 'keyRange' | 'portableKeyboards' | 'showOctaves' | 'showNoteNames' | 'reflectPianoRoll' | 'preciseScrubTime' | 'explorerPause' | 'tempoDisplay'
   | 'rollZoom' | 'barNumbers' | 'playbar' | 'visualEffects'
@@ -57,13 +59,16 @@ export const GROUPS: GroupInfo[] = [
     stack: [['tags', 'practiceQueue', 'openWith', 'showDemo', 'chordTranscription', 'showLyrics']] },
   { id: 'playback-editing', name: t`Playback`, intro: t`Shape playback`, manualUrl: 'https://orfeo.cc/docs/playing-midi-files',
     stack: [['countIn', 'skipEmptyBars', 'tempoDisplay', 'focusMode', 'loopRegion', 'tapTempo', 'preciseScrubTime', 'explorerPause', 'tempoWarnings']] },
-  { id: 'practice', name: t`Practice`, intro: t`Tools for practising`, manualUrl: 'https://orfeo.cc/docs/practicing-with-midi-files' },
+  { id: 'practice', name: t`Practice`, intro: t`Tools for practising`, manualUrl: 'https://orfeo.cc/docs/practicing-with-midi-files',
+    // practice mode and its score: dev mode and test builds until 2.0
+    tabs: [
+      { key: 'practice-mode', name: t`Practice mode`, ids: ['practiceMode', 'practiceSummary', 'practicePlaybar'], devOnly: true },
+      { key: 'score', name: t`Score`, ids: ['scoreWriting', 'scoreChords', 'scoreTriplets', 'scoreSwing', 'scoreVoices', 'scorePedal'], devOnly: true },
+      { key: 'tools', name: t`Practice tools`, ids: ['stepThrough', 'chordPrompter', 'closePanels', 'handTags', 'reflectPianoRoll', 'starmap'] },
+    ] },
   { id: 'editing', name: t`Editing`, intro: t`Edit your songs`, manualUrl: 'https://orfeo.cc/docs/editing-midi-files',
     stack: [['handAssignment'], ['saveTrackChanges'], ['noteEditor'], ['trackVu', 'unsavedWarning']], looseFirst: true },
   { id: 'notation', name: t`Chords & Notation`, intro: t`Read chords and notes`, manualUrl: 'https://orfeo.cc/docs/practicing-with-midi-files/how-orfeo-reads-chords' },
-  // practice mode's score (dev mode and test builds until 2.0)
-  { id: 'score', name: t`Score`, intro: t`Write the practice score`, manualUrl: 'https://orfeo.cc/docs/practicing-with-midi-files',
-    stack: [['scoreWriting', 'scoreChords'], ['scoreTriplets', 'scoreSwing', 'scoreVoices', 'scorePedal']] },
   { id: 'keyboard', name: t`Virtual Keyboard`, intro: t`Set up the keyboard`, manualUrl: 'https://orfeo.cc/docs/playing-midi-files/the-virtual-keyboard' },
   { id: 'piano-roll', name: t`Piano Roll`, intro: t`Tune the falling notes`, manualUrl: 'https://orfeo.cc/docs/playing-midi-files/the-piano-roll',
     stack: [['visualEffects'], ['rollZoom'], ['barNumbers', 'playbar']], looseFirst: true },
@@ -146,25 +151,28 @@ export const SETTINGS: SettingInfo[] = [
   { id: 'practiceSummary', group: 'practice', name: t`How it went`, summary: t`A few words on how it went, after playing in practice mode.`,
     description: t`Turn on to see a few words on how it went each time you stop in practice mode: what went well, and the bars worth another go. Your practice numbers are kept either way.`,
     keywords: 'practice summary how it went report feedback progress numbers csv' },
-  // ── Score (practice mode)
-  { id: 'scoreWriting', group: 'score', name: t`How it's written`, summary: t`Every note as written, or rounded to read easily.`,
+  // ── Practice mode's score
+  { id: 'scoreWriting', group: 'practice', name: t`How it's written`, summary: t`Every note as written, or rounded to read easily.`,
     description: t`As written puts every note where it falls, to the sixteenth, with triplets where the music moves in three. Simplified rounds the timing to eighths, easier to read for a song played in by hand. Orfeo chooses picks one for each song.`,
     keywords: 'score notation written simplified rounded timing quantize sixteenth eighth' },
-  { id: 'scoreChords', group: 'score', name: t`Chord names`, summary: t`The chords above the treble staff.`,
+  { id: 'scoreChords', group: 'practice', name: t`Chord names`, summary: t`The chords above the treble staff.`,
     description: t`Shows the chord names on one line above the treble staff. Main chords leaves out the passing ones; when names would crowd, the shorter ones off the beat always give way to the main harmony.`,
     keywords: 'score chords chord names symbols harmony lead sheet' },
-  { id: 'scoreTriplets', group: 'score', name: t`Triplets`, summary: t`Notes falling in three written as triplets.`,
+  { id: 'scoreTriplets', group: 'practice', name: t`Triplets`, summary: t`Notes falling in three written as triplets.`,
     description: t`Turn on to write a beat whose notes fall in three as a triplet. Off, they're rounded to the nearest sixteenth or eighth.`,
     keywords: 'score triplets three tuplet' },
-  { id: 'scoreSwing', group: 'score', name: t`Swing written straight`, summary: t`Swung eighths written as plain eighths.`,
+  { id: 'scoreSwing', group: 'practice', name: t`Swing written straight`, summary: t`Swung eighths written as plain eighths.`,
     description: t`Turn on to write a swung song in plain eighths, the way it's usually printed, with a note above the music. Off, the long-short eighths are written as they're played.`,
     keywords: 'score swing jazz straight eighths shuffle' },
-  { id: 'scoreVoices', group: 'score', name: t`Held notes as a second voice`, summary: t`A note held under moving ones gets its own stems.`,
+  { id: 'scoreVoices', group: 'practice', name: t`Held notes as a second voice`, summary: t`A note held under moving ones gets its own stems.`,
     description: t`Turn on to write a note held under moving notes above it as a second voice, stems down. Off, every hand is one line of chords.`,
     keywords: 'score voices voice held notes stems polyphony' },
-  { id: 'scorePedal', group: 'score', name: t`Pedal marks`, summary: t`The sustain pedal under the bass staff.`,
+  { id: 'scorePedal', group: 'practice', name: t`Pedal marks`, summary: t`The sustain pedal under the bass staff.`,
     description: t`Turn on to show the sustain pedal from the song under the bass staff: Ped. where it starts, a notch at each change.`,
     keywords: 'score pedal sustain ped damper' },
+  { id: 'practicePlaybar', group: 'practice', name: t`Playbar in practice mode`, summary: t`The line where notes meet the keys, in the piano roll view.`,
+    description: t`Turn on to show the playbar in practice mode's piano roll view. Off, the notes fall straight onto the keyboard and the piano roll gets more room. Split never shows it.`,
+    keywords: 'practice playbar hit line falling notes keyboard' },
   { id: 'stepThrough', group: 'practice', name: t`Step Through`, summary: t`Step through a song note by note with\n==←== and ==→==.`,
     description: t`Each press of ← or → (or the arrows in the keyboard bar) steps back or forward to the next note or chord, plays it, lights it and moves the playhead there. Shift jumps a whole bar.`,
     keywords: 'step through arrows next previous note chord solo transcribe learn slow' },
@@ -369,7 +377,6 @@ export const QUICK_LAYOUT: Record<SettingsGroupId, QuickItem[]> = {
   'practice': ['stepThrough', 'chordPrompter'],
   'editing': ['handAssignment'],
   'notation': ['displaySystem', 'accidentals', 'chordTracking'],
-  'score': [],
   'keyboard': ['keyRange', 'showOctaves', 'showNoteNames'],
   'piano-roll': ['rollZoom', 'barNumbers', 'playbar'],
   'appearance': ['appZoom', 'tooltips'],
