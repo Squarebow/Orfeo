@@ -6,12 +6,13 @@ import { useBlank, setBlankSetup, startBlank, stopBlank, BLANK_DEFAULT, type Bla
 
 // ── Recording in practice mode (after 2.0) ───────────────────────────────────
 // The footer's REC button: two ways to record, and the switches for them.
-//   Over the song: press Record and the song plays; what you play is placed in
-//     the song where you heard it (at any tempo, in any key). The take ends
-//     when the song stops or pauses, at its end, when the loop goes round, or
-//     on a jump. Then Keep or Discard: kept, a new version of the song has your
-//     playing in place of its piano part (for your hand, from where you
-//     started to where you stopped; songTake.ts). Your song stays open.
+//   Over the song: you record your own piano part over the arrangement. Press
+//     Record and the song plays from its start (a loop is set aside while you
+//     record); what you play is placed where you heard it (at any tempo, in any
+//     key). The take ends when you stop or pause, at the song's end, or on a
+//     jump. Then Keep or Discard: kept, a new version of the song has your
+//     playing as its piano part, for the hand(s) you played (songTake.ts).
+//     Your song stays open. Recording over a stretch only is Overdub (later).
 //   Blank page: just you (and a click if you like), no song; kept, the take
 //     saves as a new song in Library › Orfeo › Recordings (record/blank.ts).
 // Your choices are remembered (prefs recordChoices).
@@ -83,6 +84,7 @@ export async function stopRecord(keep = true): Promise<void> {
 let take: SongTake | null = null
 let hand: 'L' | 'R' | 'B' = 'B'
 let lastT = 0
+let loopWas: boolean | null = null   // the loop, set aside while you record
 let unsubs: (() => void)[] = []
 
 async function startSongTake(): Promise<void> {
@@ -93,8 +95,16 @@ async function startSongTake(): Promise<void> {
   const { practisedHand } = await import('../practice/practiceMode')
   const { practiceTransport } = await import('../practice/transport')
   hand = practisedHand()
-  take = new SongTake(s.currentTime)
-  lastT = s.currentTime
+  useRecord.setState({ songPhase: 'starting', notes: 0, message: '' })
+  // your part, from the song's start: the loop waits until you're done
+  if (s.playbackState === 'playing') {
+    practiceTransport()?.pause()
+    for (let i = 0; i < 20 && useStore.getState().playbackState === 'playing'; i++) await new Promise(r => setTimeout(r, 50))
+  }
+  loopWas = s.loopRegionActive
+  if (s.loopRegionActive) s.setLoopRegionActive(false)
+  take = new SongTake(0)
+  lastT = 0
   // the song waiting for your notes is still the song playing, to you
   const live = () => useStore.getState().playbackState === 'playing' || useWaiting.getState().holding
   const shift = () => useStore.getState().detectedKey?.transpose ?? 0
@@ -107,30 +117,32 @@ async function startSongTake(): Promise<void> {
       if (k.on) useRecord.setState({ notes: take.noteCount })
     }),
     onPlayedControl(c => { if (take && live()) take.pedal(c.cc, c.value, heardSongTime(c.at)) }),
-    // the loop going round, or a jump: the take is what you played until then
+    // a jump: the take is what you played until then
     onSongJump(() => { if (useRecord.getState().songPhase === 'recording') void finishSongTake(true) }),
     useStore.subscribe((st, prev) => {
       if (st.playbackState === 'playing' && useRecord.getState().songPhase === 'starting') useRecord.setState({ songPhase: 'recording' })
       if (st.playbackState === 'playing') lastT = Math.max(lastT, heardSongTime())
       // stopped or paused (not the song waiting for you): the take ends
-      if (prev.playbackState === 'playing' && st.playbackState !== 'playing') setTimeout(() => { if (take && !live()) void finishSongTake(true) }, 0)
+      if (prev.playbackState === 'playing' && st.playbackState !== 'playing' && useRecord.getState().songPhase === 'recording') setTimeout(() => { if (take && !live()) void finishSongTake(true) }, 0)
     }),
     // Pause while the song waits for you
     useWaiting.subscribe((w, prev) => { if (prev.holding && !w.holding && useStore.getState().playbackState !== 'playing' && take) void finishSongTake(true) }),
   ]
-  useRecord.setState({ songPhase: live() ? 'recording' : 'starting', notes: 0, message: '' })
-  if (!live()) practiceTransport()?.play()
+  useRecord.setState({ songPhase: 'starting', notes: 0, message: '' })
+  practiceTransport()?.playFrom(0)
 }
 
 async function finishSongTake(keep: boolean): Promise<void> {
   if (!take) return
   for (const u of unsubs) u()
   unsubs = []
-  const from = take.from, to = lastT
-  const events = take.stop(to)
+  const end = lastT
+  const events = take.stop(end)
   take = null
   const { practiceTransport } = await import('../practice/transport')
   if (useStore.getState().playbackState === 'playing') practiceTransport()?.pause()
+  if (loopWas) useStore.getState().setLoopRegionActive(true)
+  loopWas = null
   if (!keep || !events.some(e => e.type === 'on')) {
     useRecord.setState({ songPhase: 'idle', message: keep ? t`Nothing was played, so nothing was kept.` : '' })
     return
@@ -142,13 +154,10 @@ async function finishSongTake(keep: boolean): Promise<void> {
   for (const tr of s.tracks) if (tr.practicePart && tr.practiceHand) parts[tr.practiceHand] = tr.index
   const { usePractice } = await import('../practice/practiceMode')
   const played = usePractice.getState().onlyHand ?? hand
-  const { barOf } = await import('../utils/debugTimestamp')
-  const a = barOf(from, s.barStarts) ?? 1, b = Math.max(a, barOf(Math.max(from, to - 0.01), s.barStarts) ?? a)
-  const what = played === 'L' ? t`left hand` : played === 'R' ? t`right hand` : t`piano part`
   useRecord.setState({ songPhase: 'asking' })
-  const kept = await askKeep(a === b
-    ? t`Keep: a new version of the song, with your playing in place of its ${what} in bar ${a}. The song you're practising stays as it is.`
-    : t`Keep: a new version of the song, with your playing in place of its ${what} from bar ${a} to bar ${b}. The song you're practising stays as it is.`)
+  const kept = await askKeep(played === 'L' ? t`Keep: a new version of the song, with your playing as its left hand. The song you're practising stays as it is.`
+    : played === 'R' ? t`Keep: a new version of the song, with your playing as its right hand. The song you're practising stays as it is.`
+    : t`Keep: a new version of the song, with your playing as its piano part. The song you're practising stays as it is.`)
   if (!kept) { useRecord.setState({ songPhase: 'idle', message: t`Your take was thrown away.` }); return }
   useRecord.setState({ songPhase: 'saving' })
   try {
@@ -158,12 +167,12 @@ async function finishSongTake(keep: boolean): Promise<void> {
     const { bytes, replaced } = songTakeToMidi(events, {
       origRaw, playedRaw: m._leadTick ? m._raw : null, leadTick: m._leadTick ?? 0,
       transpose: 0,   // your keys were taken back to the file's key as you played
-      parts, hand: played, splitKey: useBlank.getState().setup.splitKey, from, to,
+      parts, hand: played, splitKey: useBlank.getState().setup.splitKey, end,
     })
     if (!replaced.length) throw new Error(t`None of what you played was for the hand you're practising.`)
     let bin = ''
     for (let i = 0; i < bytes.length; i++) bin += String.fromCharCode(bytes[i])
-    const r = await window.electronAPI.saveNoteEditor({ filePath, base64: btoa(bin), summary: `Recorded over bars ${a}-${b}`, newVersion: true })
+    const r = await window.electronAPI.saveNoteEditor({ filePath, base64: btoa(bin), summary: 'Recorded my piano part', newVersion: true })
     if (!r.ok || !r.filePath) throw new Error(r.message ?? t`Save failed`)
     void useStore.getState().notifyLibrarySaved(r.filePath)
     useRecord.setState({ songPhase: 'idle', lastSaved: r.filePath, message: t`Saved: ${r.fileName ?? r.filePath}` })

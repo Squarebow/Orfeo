@@ -80,7 +80,7 @@ export default function PracticeRecord() {
   useEffect(() => { if (!open) setChoosingSplit(false) }, [open])
 
   const ways: Record<RecordMode, { name: string; tip: string }> = {
-    song: { name: t`Over the song`, tip: t`The song plays and you play along. Keep your take, and a new version of the song has your playing in place of its piano part, where you played.` },
+    song: { name: t`Over the song`, tip: t`Record your own piano part over the song's arrangement. Keep it, and a new version of the song has your playing as its piano part.` },
     blank: { name: t`Blank page`, tip: t`No song: just you, and a click if you like. Keep your take, and it's saved as a new song in Library › Orfeo › Recordings.` },
   }
 
@@ -165,7 +165,7 @@ export default function PracticeRecord() {
               </PopItem>
             ) : (
               <div style={{ padding: '6px 14px 8px', fontFamily: 'var(--font-ui)', fontSize: 12, lineHeight: 1.4, color: 'var(--text-muted)' }}>
-                {hand === 'L' ? t`You're playing the left hand: your take replaces the song's left hand.` : t`You're playing the right hand: your take replaces the song's right hand.`}
+                {hand === 'L' ? t`You're playing the left hand: your take becomes the song's left hand.` : t`You're playing the right hand: your take becomes the song's right hand.`}
               </div>
             )
           ) : (
@@ -194,7 +194,7 @@ export default function PracticeRecord() {
             </button>
             <span style={{ fontFamily: 'var(--font-ui)', fontSize: 11, lineHeight: 1.35, color: 'var(--text-muted)' }}>
               {mode === 'song'
-                ? t`The song plays from where it is. Pause, the song's end or the loop going round ends the take; so does REC. Then: Keep or Discard.`
+                ? t`The song plays from the start. Pause, the song's end or REC ends the take. Then: Keep or Discard.`
                 : t`The song stops while you record. Click REC to stop, then: Keep or Discard.`}
             </span>
             {message && <span style={{ fontFamily: 'var(--font-ui)', fontSize: 11, lineHeight: 1.35, color: 'var(--text-default)', wordBreak: 'break-word' }}>{message}</span>}
