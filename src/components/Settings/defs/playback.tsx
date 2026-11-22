@@ -1,4 +1,4 @@
-import { AudioLines, Timer, TriangleAlert, Save, Hand, Repeat, Focus, Pause, SkipForward, Gauge, ArrowUpRight } from 'lucide-react'
+import { AudioLines, Timer, TriangleAlert, Save, Hand, Repeat, Focus, Pause, SkipForward, Gauge, ArrowUpRight, Eye } from 'lucide-react'
 import { Numbers } from '../../../utils/extraIcons'
 import { useStore } from '../../../store'
 import { t } from '../../../utils/i18n'
@@ -239,6 +239,10 @@ export const PLAYBACK_DEFS: SettingDef[] = [
   {
     id: 'explorerPause', icon: Pause, kind: 'switch',
     Control: () => { const v = useStore(s => s.explorerPausesPlayback); return <Switch value={v} onChange={useStore.getState().setExplorerPausesPlayback} label={t`Explorers pause playback`} /> },
+  },
+  {
+    id: 'mutedOnRoll', icon: Eye, kind: 'switch',
+    Control: () => { const v = useStore(s => s.mutedOnRoll); return <Switch value={v} onChange={useStore.getState().setMutedOnRoll} label={t`Muted tracks stay on the roll`} /> },
   },
   {
     id: 'focusMode', icon: Focus, kind: 'switch',
