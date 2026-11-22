@@ -567,7 +567,7 @@ OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
 |---|---|---|
 | `earcut@3.2.3` | mapbox/earcut | Copyright (c) 2026, Mapbox |
 | `graceful-fs@4.2.11` | isaacs/node-graceful-fs | Copyright (c) 2011-2022 Isaac Z. Schlueter, Ben Noordhuis, and Contributors |
-| `lucide-react@1.61.0` | lucide-icons/lucide | Copyright (c) 2026 Lucide Icons and Contributors |
+| `lucide-react@1.70.0` | lucide-icons/lucide | Copyright (c) 2026 Lucide Icons and Contributors |
 | `semver@7.7.4` | npm/node-semver | Copyright (c) Isaac Z. Schlueter and Contributors |
 
 ---
