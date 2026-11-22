@@ -1,7 +1,15 @@
 import { create } from 'zustand'
 import { useStore } from '../store'
 import { CHORD_GRACE_SEC } from '../utils/midiParser'
-import { HAND_LH_CSS, HAND_RH_CSS } from '../utils/handColors'
+import { HAND_LH_CSS, HAND_RH_CSS, isHomogeneousHandTrack } from '../utils/handColors'
+import { liveHandColor } from '../audio/liveHandColor'
+
+const _homog = new WeakMap<object, boolean>()
+function homogeneous(notes: { hand?: 'L' | 'R' }[]): boolean {
+  let h = _homog.get(notes)
+  if (h === undefined) { h = isHomogeneousHandTrack(notes); _homog.set(notes, h) }
+  return h
+}
 import { setLightSource } from '../hooks/keyLightsOutput'
 import { usePractice } from './practiceMode'
 import { currentMatcher, useListen, useWaiting } from './listen'
@@ -28,7 +36,7 @@ export const LIGHT_AHEAD_SEC = 0.25
 /** A key played again goes dark this long before it lights again */
 export const LIGHT_GAP_SEC = 0.08
 
-export interface LitKey { hand: 'L' | 'R'; finger?: number }
+export interface LitKey { hand: 'L' | 'R'; finger?: number; track?: number; noteHand?: 'L' | 'R' }
 
 interface Prepared { exp: readonly Expected[]; nextSame: number[]; longest: number }
 
@@ -51,7 +59,7 @@ export function practiceLights(p: Prepared, t: number, o: {
 }): Map<number, LitKey> {
   const out = new Map<number, LitKey>()
   const { exp } = p
-  const put = (e: Expected) => out.set(e.midi, e.finger ? { hand: e.hand, finger: e.finger } : { hand: e.hand })
+  const put = (e: Expected) => out.set(e.midi, { hand: e.hand, track: e.track, noteHand: e.noteHand, ...(e.finger ? { finger: e.finger } : {}) })
   const firstFrom = (time: number) => {
     let lo = 0, hi = exp.length
     while (lo < hi) { const m = (lo + hi) >> 1; if (exp[m].time < time) lo = m + 1; else hi = m }
@@ -136,9 +144,10 @@ function songChordAt(t: number): string | null {
 // ── The keys the song waits for, pulsing on the on-screen keyboard ──────────
 // While the song waits, the notes it waits for (a chord together) pulse slowly
 // on the on-screen keyboard until you play them; each stops as you play it.
-export const useWaitPulse = create<{ keys: Map<number, 'L' | 'R'> }>(() => ({ keys: new Map() }))
+// the keys the song waits for, each in its note's colour on the roll
+export const useWaitPulse = create<{ keys: Map<number, string> }>(() => ({ keys: new Map() }))
 let pulseKey = ''
-function setPulse(keys: Map<number, 'L' | 'R'>) {
+function setPulse(keys: Map<number, string>) {
   const k = [...keys].join()
   if (k === pulseKey) return
   pulseKey = k
@@ -169,22 +178,32 @@ function update() {
     const notes = chordToPlay(prepared, s.currentTime, { playing: playingNow, holdAt, ahead: LIGHT_AHEAD_SEC * ratio() })
     setToPlay(notes, songChordAt(holdAt ?? (playingNow ? s.currentTime + LIGHT_AHEAD_SEC * ratio() : s.currentTime)))
   } else setToPlay([])
-  setPulse(next && w.holding ? new Map([...next].map(([k, v]) => [k, v.hand])) : new Map())
-  const key = next ? [...next].map(([k, v]) => `${k}${v.hand}${v.finger ?? ''}`).join() : 'none'
+  setPulse(next && w.holding ? new Map([...next].map(([k, v]) => [k, litColour(v)])) : new Map())
+  const key = next ? [...next].map(([k, v]) => `${k}${v.hand}${v.noteHand ?? ''}${v.track ?? ''}${v.finger ?? ''}`).join() : 'none'
   if (key === lastKey) return
   lastKey = key
   lit = next
   setLightSource(source)
 }
 
+/** A lit key's colour: its note's colour on the piano roll (liveHandColor) */
+export function litColour(v: LitKey): string {
+  const s = useStore.getState()
+  const tr = v.track === undefined ? undefined : s.midi?.tracks.find(t => t.index === v.track)
+  const base = s.tracks.find(t => t.index === v.track)?.color
+  return tr && base ? liveHandColor({ hand: v.noteHand }, base, homogeneous(tr.notes)) : v.hand === 'L' ? HAND_LH_CSS : HAND_RH_CSS
+}
+
 function source() {
   if (!lit) return null
-  const colours = new Map<number, string>(), fingers = new Map<number, number>()
+  // each key in its note's colour on the piano roll (the one rule, liveHandColor)
+  const colours = new Map<number, string>(), fingers = new Map<number, number>(), hands = new Map<number, 'L' | 'R'>()
   for (const [k, v] of lit) {
-    colours.set(k, v.hand === 'L' ? HAND_LH_CSS : HAND_RH_CSS)
+    colours.set(k, litColour(v))
+    hands.set(k, v.hand)
     if (v.finger) fingers.set(k, v.finger)
   }
-  return { colours, fingers }
+  return { colours, fingers, hands }
 }
 
 const unsubs = [

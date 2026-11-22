@@ -16,6 +16,8 @@ export interface Expected {
   bar: number           // 1-based
   dur?: number          // how long it's held, song seconds (the virtual pianist)
   finger?: number       // your fingering, 1 the thumb (the key lights)
+  track?: number        // the track it's in, and the note's own hand: the key lights in the colour
+  noteHand?: Hand       // the piano roll gives the note (liveHandColor)
 }
 export interface Played { midi: number; time: number; vel?: number }
 

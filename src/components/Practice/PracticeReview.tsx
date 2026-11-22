@@ -1,5 +1,5 @@
 import { useEffect, type CSSProperties } from 'react'
-import { UNDER_HEADER } from './practiceBar'
+import { UNDER_HEADER, useDragAnywhere } from './practiceBar'
 import { ChevronLeft, ChevronRight, Play, Square, X } from 'lucide-react'
 import { useStore } from '../../store'
 import { t, currentLanguage } from '../../utils/i18n'
@@ -50,6 +50,7 @@ function takeLabel(k: TakeRecord): string {
 
 export default function PracticeReview() {
   const { open, takes, idx, unit, from, to, hear, playing } = useReview()
+  const { off, dragProps } = useDragAnywhere('review')
   useStore(s => s.barStarts)
 
   useEffect(() => {
@@ -83,8 +84,8 @@ export default function PracticeReview() {
   const atStart = take && from <= take.fromBar, atEnd = take && to >= take.toBar
 
   return (
-    <div className="app-no-drag" role="region" aria-label={t`Review`} style={{
-      position: 'fixed', top: UNDER_HEADER, left: '50%', transform: 'translateX(-50%)', zIndex: 950,
+    <div {...dragProps} className="app-no-drag" role="region" aria-label={t`Review`} style={{
+      position: 'fixed', top: UNDER_HEADER + off.y, left: `calc(50% + ${off.x}px)`, transform: 'translateX(-50%)', zIndex: 950, cursor: 'grab',
       width: 'min(640px, calc(100vw - 32px))', boxSizing: 'border-box', padding: '10px 12px', borderRadius: 8,
       background: 'var(--bg-modal)', border: '1px solid var(--border2)', boxShadow: '0 8px 28px rgba(0,0,0,.35)',
       fontFamily: 'var(--font-ui)', color: 'var(--text-default)', display: 'grid', rowGap: 8,

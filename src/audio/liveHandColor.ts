@@ -10,12 +10,11 @@ import { resolveHandAwareColor } from '../utils/handColors'
 import type { Hand } from '../types'
 
 export function liveHandColor(note: { hand?: Hand }, defaultColor: string, homogeneousTrack: boolean): string {
-  const { showHandLabels, handLabelMode, noteEditorActive } = useStore.getState()
+  const { showHandLabels, noteEditorActive } = useStore.getState()
   return resolveHandAwareColor(note, defaultColor, {
     homogeneousTrack,
     // The Settings toggle stays authoritative; the Note Editor's own Hand toggle
-    // only adds to it (same rule as the roll's handColoringOn in PianoRoll.tsx)
-    showHandLabels: showHandLabels || (noteEditorActive && NES.reassignHandsMode),
-    performanceMode: handLabelMode === 'performance',
+    // only adds to it (the roll's handColoringOn in PianoRoll.tsx, the same test)
+    handColoring: showHandLabels || (noteEditorActive && NES.reassignHandsMode),
   })
 }

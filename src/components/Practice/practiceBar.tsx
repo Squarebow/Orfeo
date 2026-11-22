@@ -1,4 +1,4 @@
-import { useLayoutEffect, useRef, useState, type CSSProperties, type ReactNode } from 'react'
+import { useLayoutEffect, useRef, useState, type CSSProperties, type ReactNode, type PointerEvent as ReactPointerEvent } from 'react'
 import { createPortal } from 'react-dom'
 import { RotateCcw } from 'lucide-react'
 import { useMenuDismiss } from '../ContextMenu'
@@ -118,4 +118,36 @@ export function BarPop({ anchor, up = false, width = 260, align = 'left', onClos
     </div>,
     document.body,
   )
+}
+
+/** A card you can move out of the way: drag it by any spot that isn't a
+ *  control. Where you leave it is kept (by `key`) for as long as Orfeo runs,
+ *  and part of it always stays on screen. Spread `dragProps` on the card and
+ *  add `off` to its place. */
+const _placed = new Map<string, { x: number; y: number }>()
+const NOT_A_HANDLE = 'button, a, input, select, textarea, label, [role="slider"], [data-no-drag]'
+export function useDragAnywhere(key: string) {
+  const [off, setOff] = useState(() => _placed.get(key) ?? { x: 0, y: 0 })
+  const drag = useRef<{ x: number; y: number; ox: number; oy: number; r: DOMRect } | null>(null)
+  const onPointerDown = (e: ReactPointerEvent<HTMLElement>) => {
+    if (e.button !== 0 || (e.target as HTMLElement).closest(NOT_A_HANDLE)) return
+    // the card's own scrollbar scrolls, it doesn't drag
+    const el = e.currentTarget
+    if (e.target === el && (e.nativeEvent.offsetX >= el.clientWidth || e.nativeEvent.offsetY >= el.clientHeight)) return
+    e.preventDefault()   // no text selection while dragging
+    e.currentTarget.setPointerCapture(e.pointerId)
+    drag.current = { x: e.clientX, y: e.clientY, ox: off.x, oy: off.y, r: e.currentTarget.getBoundingClientRect() }
+  }
+  const onPointerMove = (e: ReactPointerEvent<HTMLElement>) => {
+    const d = drag.current
+    if (!d) return
+    const KEEP = 60   // px of the card that stay on screen
+    const dx = Math.max(KEEP - d.r.right, Math.min(window.innerWidth - KEEP - d.r.left, e.clientX - d.x))
+    const dy = Math.max(8 - d.r.top, Math.min(window.innerHeight - 40 - d.r.top, e.clientY - d.y))
+    const next = { x: d.ox + dx, y: d.oy + dy }
+    _placed.set(key, next)
+    setOff(next)
+  }
+  const end = () => { drag.current = null }
+  return { off, dragProps: { onPointerDown, onPointerMove, onPointerUp: end, onPointerCancel: end } }
 }

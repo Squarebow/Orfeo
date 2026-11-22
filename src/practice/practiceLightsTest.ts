@@ -1,4 +1,6 @@
-import { prepareLights, practiceLights, chordToPlay } from './practiceLights'
+import { prepareLights, practiceLights, chordToPlay, litColour } from './practiceLights'
+import { useStore } from '../store'
+import { HAND_LH_CSS, HAND_RH_CSS } from '../utils/handColors'
 import type { Expected } from './matcher'
 
 // practiceLights.ts wires itself to the store on import, which is harmless
@@ -57,6 +59,24 @@ export function runPracticeLightsTest(): number {
     check(to(2.0, { playing: false, holdAt: 1.5 }) === '48,67', 'waiting: the waited-for step, with what still sounds')
     check(to(3.4) === '65', 'a note on its own')
     check(chordToPlay(prepareLights([]), 1, { playing: true, holdAt: null, ahead: 0.25 }).length === 0, 'nothing to play')
+  }
+
+
+  // the lit keys take their note's colour on the piano roll: a split hand track
+  // in its hand's colour, a mixed track in its own colour while hand colours are off
+  {
+    const before = useStore.getState()
+    const n = (hand: 'L' | 'R') => ({ midi: 60, time: 0, duration: 1, velocity: 1, hand })
+    useStore.setState({
+      midi: { ...(before.midi ?? {}), tracks: [{ index: 0, notes: [n('R'), n('R')] }, { index: 1, notes: [n('L'), n('R')] }] } as any,
+      tracks: [{ index: 0, color: '#111111' }, { index: 1, color: '#222222' }] as any,
+      showHandLabels: false, noteEditorActive: false,
+    })
+    check(litColour({ hand: 'R', track: 0, noteHand: 'R' }) === HAND_RH_CSS, 'a right-hand track: the right hand colour, as on the roll')
+    check(litColour({ hand: 'L', track: 1, noteHand: 'L' }) === '#222222', 'a mixed track, hand colours off: the track colour, as on the roll')
+    useStore.setState({ showHandLabels: true })
+    check(litColour({ hand: 'L', track: 1, noteHand: 'L' }) === HAND_LH_CSS, 'a mixed track, hand colours on: the hand colour, as on the roll')
+    useStore.setState({ midi: before.midi, tracks: before.tracks, showHandLabels: before.showHandLabels, noteEditorActive: before.noteEditorActive })
   }
 
   console.log(`${pass} passed, ${fail} failed`)

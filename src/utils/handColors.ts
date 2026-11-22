@@ -1,9 +1,11 @@
 // ── Fixed LH/RH colors — always blue for left hand, pink for right hand,
-// independent of any per-track palette color. See docs/LR Hand rework
-// (gitignored) for the full rationale: a track that's a genuine split
-// output (every note the same hand) always renders in these colors; a
-// single mixed-hand track only does when Left/Right Hand + Performance
-// mode are both active — otherwise it keeps its normal track color. ────────
+// independent of any per-track palette color. ONE rule, the piano roll's:
+// a track that's a genuine split output (every note the same hand) always
+// renders in these colors; a mixed-hand track does while hand colours are on
+// (Settings, or the Note Editor's hand reassigning) — otherwise it keeps its
+// track color. The keys light exactly as the roll draws (the user's rule:
+// keyboard colours always follow the piano roll, every instrument). PianoRoll
+// draws with the same test (numeric colours); everything else calls this. ──
 import type { Hand } from '../types'
 
 export const HAND_LH_CSS = 'var(--hand-lh)'
@@ -23,10 +25,10 @@ export function isHomogeneousHandTrack(notes: { hand?: Hand }[]): boolean {
 export function resolveHandAwareColor(
   note: { hand?: Hand },
   defaultColor: string,
-  opts: { homogeneousTrack: boolean; showHandLabels: boolean; performanceMode: boolean },
+  opts: { homogeneousTrack: boolean; handColoring: boolean },
 ): string {
   if (!note.hand) return defaultColor
-  if (opts.homogeneousTrack || (opts.showHandLabels && opts.performanceMode)) {
+  if (opts.homogeneousTrack || opts.handColoring) {
     return note.hand === 'L' ? HAND_LH_CSS : HAND_RH_CSS
   }
   return defaultColor

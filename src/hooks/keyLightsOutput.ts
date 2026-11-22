@@ -58,7 +58,7 @@ let _test: Map<number, string> | null = null
 
 // Something else to light instead of the song (practice mode: the notes you
 // play next). Returns null to let the song's notes light as usual.
-export interface LightSource { colours: Map<number, string>; fingers?: Map<number, number> }
+export interface LightSource { colours: Map<number, string>; fingers?: Map<number, number>; hands?: Map<number, 'L' | 'R'> }
 let _source: (() => LightSource | null) | null = null
 /** Set (or clear) what lights instead of the song, and light it now */
 export function setLightSource(fn: (() => LightSource | null) | null): void { _source = fn; schedule() }
@@ -111,7 +111,7 @@ function darken(key: string, l: Lit) {
 
 function flush() {
   _scheduled = false
-  const { colours: want, fingers: wantFingers = NO_FINGERS } = songLit()
+  const { colours: want, fingers: wantFingers = NO_FINGERS, hands: wantHands } = songLit()
   const { devices, keyLightsEnabled } = useMidiSettings.getState()
   const live = new Set<string>()
   for (const d of devices) {
@@ -133,7 +133,7 @@ function flush() {
     const hands = new Map<number, LightHand>()  // left only when the key shows the left-hand colour
     const fingers = new Map<number, number>()   // the finger, when your fingering gives it (practice mode)
     for (const [n, c] of want) if (!r || (n >= r.low && n <= r.high)) {
-      next.set(n, toRgb(c)); hands.set(n, c === HAND_LH_CSS ? 'L' : 'R')
+      next.set(n, toRgb(c)); hands.set(n, wantHands?.get(n) ?? (c === HAND_LH_CSS ? 'L' : 'R'))
       const f = wantFingers.get(n); if (f) fingers.set(n, f)
     }
 

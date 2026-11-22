@@ -47,7 +47,7 @@ export function expectedNotes(): Expected[] {
     const tr = s.midi.tracks.find(t => t.index === ts.index)
     for (const n of tr?.notes ?? []) {
       const f = shownFinger(n as { finger?: number; fingerHint?: number })   // your fingering, or a suggestion when they're on (the key lights)
-      out.push({ midi: n.midi + shift, time: n.time, hand: ts.practiceHand, bar: barOf(n.time, s.barStarts) ?? 1, dur: n.duration, ...(f ? { finger: f.finger } : {}) })
+      out.push({ midi: n.midi + shift, time: n.time, hand: ts.practiceHand, bar: barOf(n.time, s.barStarts) ?? 1, dur: n.duration, track: ts.index, noteHand: n.hand, ...(f ? { finger: f.finger } : {}) })
     }
   }
   return out

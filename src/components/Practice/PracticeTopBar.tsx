@@ -1,4 +1,4 @@
-import { useRef, useState, type CSSProperties } from 'react'
+import { useId, useLayoutEffect, useMemo, useRef, useState, type CSSProperties } from 'react'
 import { Play, Pause, SkipBack, Repeat, SlidersVertical, Volume2, VolumeX, ChevronUp, ChevronDown, WandSparkles, SquareArrowRightExit, Piano, Eye, Drum, UserRoundStar } from 'lucide-react'
 import { useStore } from '../../store'
 import { usePlayback } from '../../hooks/usePlayback'
@@ -18,6 +18,7 @@ import { QueueButton } from '../Transport/QueueButton'
 import { TBtn, BpmValue, TempoDisplayMenu, MetronomeMenu, METRO_MENU_WIDTH } from '../Transport/TopBar'
 import { AMBER, barIcon, featLabel, featValue, toolBtn, BarPop, popHeading, PopDivider, HandMarks, Reserve, ResetMark } from './practiceBar'
 import { useSession, toggleCard } from '../../practice/session'
+import { tickPath } from '../../practice/songTicks'
 import {
   usePractice, leavePractice, tempoLimits, metronomeAllowed, speedPercent, setSpeedPercent, practisedHand,
   fixHandsFromPractice, setBandPreset, bandPreset, type BandPreset,
@@ -27,8 +28,8 @@ import {
 // Top line: PRACTICE MODE (beside the window's own buttons). Then one row:
 // ORFEO, the playlist, what you hear, key and tempo on the left; the song and
 // its playback in the middle; volume, bar, metronome, Fix hands and Exit on
-// the right. Under it, the song as a line of ticks (one a second, every tenth
-// longer) to move through it. Always there; a little lower while the song
+// the right. Under it, the song as a line of ticks (one every half second,
+// every tenth taller; amber as far as you've played) to move through it. Always there; a little lower while the song
 // plays, as a web page's header does once you scroll.
 const TITLE_H = 40          // the window's buttons' row
 const ROW_H = 74, ROW_H_PLAYING = 56
@@ -354,8 +355,11 @@ and which note value counts as one beat.`} placement="bottom">
   )
 }
 
-// ── The song as a line of ticks: one a second (every tenth a little longer;
-// a long song, one every five seconds), the part already played bright.
+// ── The song as a line of ticks: one every half second (fewer when the song
+// is long for the width, so they never crowd), every tenth taller. Not played
+// yet: white; played: amber. Each tick sits on a whole pixel, worked out from
+// the bar's real width, so the tall ones never drift into the short ones (a
+// repeating background sized in % rounded each pattern on its own and did).
 // Click or drag anywhere on it to move through the song. ────────────────────
 function SongTicks({ playing, hasLoop }: { playing: boolean; hasLoop: boolean }) {
   const midi = useStore(s => s.midi)
@@ -365,28 +369,32 @@ function SongTicks({ playing, hasLoop }: { playing: boolean; hasLoop: boolean })
   const { pause, seek, seekAndPlay } = usePlayback()
   const ref = useRef<HTMLDivElement>(null)
   const drag = useRef<{ wasPlaying: boolean } | null>(null)
+  const [w, setW] = useState(0)
+  const clipId = useId()
+  useLayoutEffect(() => {
+    const el = ref.current
+    if (!el) return
+    const ro = new ResizeObserver(() => setW(Math.round(el.getBoundingClientRect().width)))
+    ro.observe(el)
+    setW(Math.round(el.getBoundingClientRect().width))
+    return () => ro.disconnect()
+  }, [])
   const dur = midi?.duration ?? 0
-  if (!dur) return <div style={{ height: 14 }} />
-  const unit = dur > 900 ? 5 : 1   // seconds a tick
-  const step = (unit / dur) * 100
-  const ticks = [
-    `linear-gradient(to right, var(--text-amber) 0 1px, transparent 1px)`,
-    `linear-gradient(to right, var(--text-amber) 0 1px, transparent 1px)`,
-  ].join(',')
-  const tickBg: CSSProperties = {
-    position: 'absolute', inset: 0, backgroundImage: ticks, backgroundRepeat: 'repeat-x',
-    backgroundSize: `${step}% 45%, ${step * 10}% 100%`, backgroundPosition: 'left bottom, left bottom',
-  }
+  const { d, unit } = useMemo(() => tickPath(dur, w), [dur, w])
   const H = playing ? 10 : 14
   const timeAt = (x: number) => {
     const r = ref.current!.getBoundingClientRect()
     return Math.max(0, Math.min(dur, ((x - r.left) / r.width) * dur))
   }
-  const played = Math.min(100, (currentTime / dur) * 100)
+  const played = dur ? Math.min(1, currentTime / dur) : 0
+  const tip = unit < 1
+    ? t`One tick every half second, every tenth taller. Amber: what you've played.\nClick or drag to move through the song.`
+    : t`One tick every ${unit} seconds, every tenth taller. Amber: what you've played.\nClick or drag to move through the song.`
   return (
-    <Tooltip title={t`The song`} description={t`One tick a second, every tenth a little longer. Click or drag to move through the song.`} placement="bottom" wrapperStyle={{ display: 'block' }}>
+    <Tooltip title={t`The song`} description={tip} placement="bottom" wrapperStyle={{ display: 'block' }}>
       <div ref={ref} className="app-no-drag" role="slider" aria-label={t`Song position`} aria-valuemin={0} aria-valuemax={Math.round(dur)} aria-valuenow={Math.round(currentTime)}
         onPointerDown={e => {
+          if (!dur) return
           e.currentTarget.setPointerCapture(e.pointerId)
           const s = useStore.getState()
           if (useWaiting.getState().holding) endHold(false)
@@ -401,12 +409,18 @@ function SongTicks({ playing, hasLoop }: { playing: boolean; hasLoop: boolean })
           if (drag.current.wasPlaying) seekAndPlay(to); else seek(to)
           drag.current = null
         }}
-        style={{ position: 'relative', height: H, margin: '0 0 4px', cursor: 'pointer', transition: 'height .3s', touchAction: 'none' }}>
-        {hasLoop && (
+        style={{ position: 'relative', height: dur ? H : 14, margin: '0 0 4px', cursor: dur ? 'pointer' : 'default', transition: 'height .3s', touchAction: 'none' }}>
+        {dur > 0 && hasLoop && (
           <div style={{ position: 'absolute', top: 0, bottom: 0, left: `${(loopStart! / dur) * 100}%`, width: `${((loopEnd! - loopStart!) / dur) * 100}%`, background: 'var(--accent-amber-subtle)' }} />
         )}
-        <div style={{ ...tickBg, opacity: 0.45 }} />
-        <div style={{ ...tickBg, clipPath: `inset(0 ${100 - played}% 0 0)` }} />
+        {dur > 0 && w > 0 && (
+          <svg width={w} height="100%" viewBox={`0 0 ${w} 100`} preserveAspectRatio="none" aria-hidden
+            style={{ position: 'absolute', inset: 0, display: 'block', overflow: 'visible' }}>
+            <defs><clipPath id={clipId}><rect x={0} y={0} width={Math.round(played * w)} height={100} /></clipPath></defs>
+            <path d={d} stroke="var(--text-active)" strokeWidth={1} vectorEffect="non-scaling-stroke" shapeRendering="crispEdges" fill="none" />
+            <path d={d} stroke="var(--text-amber)" strokeWidth={1} vectorEffect="non-scaling-stroke" shapeRendering="crispEdges" fill="none" clipPath={`url(#${clipId})`} />
+          </svg>
+        )}
       </div>
     </Tooltip>
   )

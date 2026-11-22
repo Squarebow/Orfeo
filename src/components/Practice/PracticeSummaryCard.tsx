@@ -1,6 +1,5 @@
-import { useRef, useState } from 'react'
 import { X, GripHorizontal } from 'lucide-react'
-import { UNDER_HEADER } from './practiceBar'
+import { UNDER_HEADER, useDragAnywhere } from './practiceBar'
 import Tooltip from '../Tooltip'
 import { useStore } from '../../store'
 import { t } from '../../utils/i18n'
@@ -22,9 +21,8 @@ export default function PracticeSummaryCard() {
   const cardOpen = useSession(s => s.cardOpen)
   const active = usePractice(s => s.active)
   const playing = useStore(s => s.playbackState === 'playing')
-  // dragged by its top: where it's been moved to (from its place under the header)
-  const [off, setOff] = useState({ x: 0, y: 0 })
-  const drag = useRef<{ x: number; y: number; ox: number; oy: number } | null>(null)
+  // dragged anywhere but its buttons; stays where you put it
+  const { off, dragProps } = useDragAnywhere('how-it-went')
   if (!card || !cardOpen || !active || playing) return null
   const close = () => useSession.setState({ cardOpen: false })
   const f = card.focus
@@ -41,7 +39,7 @@ export default function PracticeSummaryCard() {
   const canReview = reviewableTakes().length > 0
 
   return (
-    <div className="app-no-drag orfeo-modal-glow" role="dialog" aria-label={t`How it went`} style={{
+    <div {...dragProps} className="app-no-drag orfeo-modal-glow" role="dialog" aria-label={t`How it went`} style={{
       position: 'fixed', top: UNDER_HEADER + off.y, left: `calc(50% + ${off.x}px)`, transform: 'translateX(-50%)', zIndex: 950,
       width: 'min(440px, calc(100vw - 32px))', boxSizing: 'border-box', padding: '12px 14px 12px 16px', borderRadius: 'var(--radius-md)',
       background: 'var(--bg-tooltip)', border: '1px solid var(--accent-amber-strong)',
@@ -49,9 +47,6 @@ export default function PracticeSummaryCard() {
       '--_modal-shadow': 'var(--elevation-popover)',
     } as React.CSSProperties}>
       <div
-        onPointerDown={e => { if ((e.target as HTMLElement).closest('button')) return; e.currentTarget.setPointerCapture(e.pointerId); drag.current = { x: e.clientX, y: e.clientY, ox: off.x, oy: off.y } }}
-        onPointerMove={e => { const d = drag.current; if (d) setOff({ x: d.ox + e.clientX - d.x, y: Math.max(-UNDER_HEADER + 8, d.oy + e.clientY - d.y) }) }}
-        onPointerUp={() => { drag.current = null }}
         style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 6, cursor: 'grab', touchAction: 'none' }}>
         <span style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 10, fontWeight: 600, letterSpacing: '0.1em', textTransform: 'uppercase', color: 'var(--text-amber)' }}>
           <GripHorizontal size={12} color="var(--text-muted)" />{t`How it went`}
