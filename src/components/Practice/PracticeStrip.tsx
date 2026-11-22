@@ -73,6 +73,7 @@ Settings › Practice: Every note, for each note of your part.`} placement="top"
 
 export default function PracticeStrip() {
   const playbar = useStore(s => s.practicePlaybar)
+  const fingerHints = useStore(s => s.fingerHints)
   const { way, hand, waitOn, level, view, onlyHand, ramp, hearMine } = usePractice()
   const streak = useSession(s => s.ramp.streak)
   const set = usePractice.setState
@@ -248,6 +249,14 @@ export default function PracticeStrip() {
             {(['roll', 'score', 'split'] as PracticeView[]).map(id => (
               <PopItem key={id} on={view === id} onClick={() => { set({ view: id }); close() }} hint={views[id].tip}>{views[id].name}</PopItem>
             ))}
+            {/* the same switch as Settings › Practice › Fingering */}
+            <PopDivider />
+            <PopItem on={fingerHints} onClick={() => useStore.getState().setFingerHints(!fingerHints)}
+              hint={t`Orfeo's finger numbers where you haven't set your own. A suggestion, not the only right way.`}>
+              <Hand size={14} color={AMBER} />
+              <span style={{ flex: 1 }}>{t`Suggested fingering`}</span>
+              <MiniSwitch on={fingerHints} />
+            </PopItem>
           </BarPop>
         )}
 

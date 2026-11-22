@@ -1,5 +1,5 @@
 import type { ParsedNote } from '../types'
-import { countPracticePianos, trackPracticeState, rescoreForCheck, freshConfidences, songPracticeState, trackHand } from './practiceReadiness'
+import { handsCrossedShare, countPracticePianos, trackPracticeState, rescoreForCheck, freshConfidences, songPracticeState, trackHand } from './practiceReadiness'
 import { RESTORED_CONFIDENCE } from './handMetadata'
 import { assignHands } from './handAssignment'
 
@@ -71,8 +71,20 @@ export function runPracticeReadinessTest(): number {
   check(songPracticeState([T(0, 'piano', [note(0, 'R', 0.9), note(1, 'L', 0.9)])]).state === 'prepare', 'one piano track with both hands: prepare (check, then split)')
   const prep = songPracticeState([T(0, 'piano', [note(0, 'R', 0.9), note(2, 'L', 0.2), note(3, 'R', 0.95)])])
   check(prep.state === 'prepare' && (prep as any).passages === 1, 'one piano track: its unsure passages counted')
-  const one = songPracticeState([T(0, 'piano', hands('R'))])
-  check(one.state === 'one-hand' && (one as any).hand === 'R', 'a piano part with one hand only: ready for practising that hand')
+  // one hand throughout: preparation, unless a person set every note's hand
+  check(songPracticeState([T(0, 'piano', hands('R'))]).state === 'prepare', 'a piano track all in one hand: prepare, not ready')
+  const mine1 = T(0, 'piano', hands('R')); mine1.notes.forEach(n => { n.handSource = 'manual' })
+  const one = songPracticeState([mine1])
+  check(one.state === 'one-hand' && (one as any).hand === 'R', 'one hand throughout, every hand set by you: ready for that hand')
+  // two hand tracks must play like hands: the left one not above the right one
+  const at = (time: number, midi: number, h: 'L' | 'R') => ({ ...note(time, h, 0.95), midi })
+  const lowL = Array.from({ length: 60 }, (_, i) => at(i, 40 + (i % 5), 'L')), highR = Array.from({ length: 60 }, (_, i) => at(i, 72 + (i % 5), 'R'))
+  check(handsCrossedShare(lowL, highR) === 0, 'left low, right high: never crossed')
+  const swapped = Array.from({ length: 60 }, (_, i) => at(i, 84 + (i % 5), 'L'))
+  check(handsCrossedShare(swapped, highR) === 1, 'left above right throughout: crossed every time')
+  const tr = (index: number, notes: ParsedNote[], name: string) => ({ index, group: 'piano', name, notes })
+  check(songPracticeState([tr(0, lowL, 'Piano LH'), tr(1, highR, 'Piano RH')]).state === 'ready', 'two hand tracks that play like hands: ready')
+  check(songPracticeState([tr(0, swapped, 'Piano LH'), tr(1, highR, 'Piano RH')]).state === 'prepare', 'a "left hand" track above the right hand: prepare (two separate parts, not hands)')
   const both = [note(0, 'R', 0.9), note(1, 'L', 0.9)]
   const two = songPracticeState([T(0, 'piano', both), T(1, 'piano', [...both])])
   check(two.state === 'prepare' && (two as any).tracks.length === 2, 'two pianos that are not the hands: prepared together as one piano')

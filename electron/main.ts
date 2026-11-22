@@ -421,6 +421,10 @@ function parseHistoryFromMidi(midi: Midi): FileLogEvent[] {
 
 // ── Practice numbers per song (practice mode): their own files, see practiceHistory.ts ──
 const practice = () => practiceStore(join(app.getPath('userData'), 'practice'))
+// a new version of a song carries on its practice history (practiceHistory.ts carry)
+function carryPracticeHistory(from: string | undefined, to: string): void {
+  if (from) try { practice().carry(from, to) } catch {}
+}
 ipcMain.handle('practice:load', async (_e, song: string) => { try { return practice().load(song) } catch { return null } })
 ipcMain.handle('practice:save', async (_e, song: string, data: unknown) => { try { practice().save(song, data); return true } catch { return false } })
 ipcMain.handle('practice:forget', async (_e, song: string) => { try { practice().forget(song) } catch {} })
@@ -1316,6 +1320,7 @@ ipcMain.handle('editor:save', async (_e, payload: {
 
     const outBuf = Buffer.from(midi.toArray())
     writeFileSync(outputPath, outBuf)
+    carryPracticeHistory(payload.filePath, outputPath)
 
     // ── Return file data so the renderer can reload inline ────────────────────
     const fileName = outputPath.split(/[\\/]/).pop() ?? outputPath
@@ -1368,6 +1373,7 @@ ipcMain.handle('mixer:save', async (_e, payload: {
 
     const outBuf = Buffer.from(midi.toArray())
     writeFileSync(outputPath, outBuf)
+    carryPracticeHistory(payload.filePath, outputPath)
 
     const fileName = outputPath.split(/[\\/]/).pop() ?? outputPath
     return { ok: true, message: t`Saved: ${fileName}`, filePath: outputPath, fileName, base64: outBuf.toString('base64') }
@@ -1438,6 +1444,7 @@ ipcMain.handle('tempoKey:save', async (_e, payload: {
 
     const outBuf = Buffer.from(midi.toArray())
     writeFileSync(outputPath, outBuf)
+    carryPracticeHistory(payload.filePath, outputPath)
 
     const fileName = outputPath.split(/[\\/]/).pop() ?? outputPath
     return { ok: true, message: t`Saved: ${fileName}`, filePath: outputPath, fileName, base64: outBuf.toString('base64') }
@@ -1960,6 +1967,7 @@ ipcMain.handle('noteEditor:save', async (_e, payload: { filePath: string; base64
     })
     const buf = Buffer.from(midi.toArray())
     writeFileSync(outputPath, buf)
+    carryPracticeHistory(payload.filePath, outputPath)
     const fileName = outputPath.split(/[\\/]/).pop() ?? ''
     return { ok: true, filePath: outputPath, fileName, base64: buf.toString('base64') }
   } catch (e: any) {

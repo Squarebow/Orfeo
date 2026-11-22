@@ -24,6 +24,15 @@ export function runPracticeHistoryTest(): number {
     st.remap([{ oldPath: 'C:\\Lib\\Jazz\\a.mid', newPath: 'C:\\Lib\\b.mid' }])
     check((st.load('C:\\Lib\\b.mid') as any)?.sessions?.[0] === 9, 'a song already there keeps its own history')
 
+    // a new version carries on the history; each then keeps its own
+    st.carry('C:/Lib/b.mid', 'C:/Lib/Orfeo/b_ORFEO_v1.mid')
+    check((st.load('C:/Lib/Orfeo/b_ORFEO_v1.mid') as any)?.sessions?.[0] === 9, 'a new version starts with the history so far')
+    st.save('C:/Lib/Orfeo/b_ORFEO_v1.mid', { v: 1, sessions: [9, 10] })
+    check((st.load('C:/Lib/b.mid') as any)?.sessions?.length === 1, 'the earlier version keeps its own history')
+    st.save('C:/Lib/c.mid', { v: 1, sessions: [5] })
+    st.carry('C:/Lib/c.mid', 'C:/Lib/Orfeo/b_ORFEO_v1.mid')
+    check((st.load('C:/Lib/Orfeo/b_ORFEO_v1.mid') as any)?.sessions?.length === 2, 'a version with history of its own keeps it')
+
     st.forget('C:\\Lib\\b.mid')
     check(st.load('C:\\Lib\\b.mid') === null, 'forgotten')
   } finally {

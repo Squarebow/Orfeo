@@ -100,9 +100,12 @@ export function runPracticeModeTest(): number {
   check((practiceGate() as any).reason === 'too-many', 'three pianos: closed')
   useStore.setState({ midi: { fileName: 'One.mid', duration: 10, tracks: [{ index: 0, notes: [...notes('L', 40), ...notes('R', 70)] }] } as unknown as ParsedMidi, tracks: [track(0, 'piano')] })
   check((practiceGate() as any).reason === 'prepare', 'one piano track with both hands: Prepare for practice first')
-  // a piano part that is one hand throughout: practised with that hand, always
+  // a piano part all in one hand: prepared first (22. 11.) …
   useStore.setState({ midi: { fileName: 'Tune.mid', duration: 10, tracks: [{ index: 0, notes: notes('R', 70) }] } as unknown as ParsedMidi, tracks: [track(0, 'piano')] })
-  check(practiceGate().ok && (practiceGate() as any).onlyHand === 'R', 'a right-hand tune: ready, right hand only')
+  check((practiceGate() as any).reason === 'prepare', 'a piano track all in one hand: Prepare for practice first')
+  // … unless you set every note's hand yourself: then practised with that hand, always
+  useStore.setState({ midi: { fileName: 'Tune.mid', duration: 10, tracks: [{ index: 0, notes: notes('R', 70).map(n => ({ ...n, handSource: 'manual' })) }] } as unknown as ParsedMidi, tracks: [track(0, 'piano')] })
+  check(practiceGate().ok && (practiceGate() as any).onlyHand === 'R', 'a right-hand tune you checked: ready, right hand only')
   usePractice.setState({ way: 'practise', hand: 'L' })
   check(enterPractice() && usePractice.getState().onlyHand === 'R', 'enters with the right hand only')
   check(useStore.getState().tracks[0].muted && useStore.getState().tracks[0].practiceHand === 'R', 'the tune is yours: silent, shown')

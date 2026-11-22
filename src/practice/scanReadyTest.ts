@@ -26,7 +26,7 @@ export function runScanReadyTest(): number {
   let pass = 0, fail = 0
   const check = (c: boolean, m: string) => { c ? pass++ : (fail++, console.error('FAIL:', m)) }
   check(isPracticeReady(song('hands'), 'a.mid', 'C:/a.mid'), 'a piano as Left Hand + Right Hand tracks: ready')
-  check(isPracticeReady(song('tune'), 'c.mid', 'C:/c.mid'), 'a one-hand tune: ready')
+  check(!isPracticeReady(song('tune'), 'c.mid', 'C:/c.mid'), 'a piano all in one hand: not added, it needs preparing first')
   check(!isPracticeReady(song('mixed'), 'b.mid', 'C:/b.mid'), 'one piano track with both hands: not ready yet (Prepare for practice)')
   console.log(`${pass} passed, ${fail} failed`)
   console.groupEnd()

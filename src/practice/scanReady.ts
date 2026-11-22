@@ -7,7 +7,7 @@ import { songPracticeState } from '../utils/practiceReadiness'
 // From the practice queue's drop-down (the top bar, in playback and in
 // practice mode): read every song in the Library the way Orfeo reads a song
 // it opens, and add the ones ready to practise to the end of the queue: a
-// piano as two tracks, Left Hand and Right Hand, or one hand throughout.
+// piano as two tracks that play like a left and a right hand (practiceReadiness.ts).
 // One song at a time with a pause between, so Orfeo stays responsive; Stop
 // keeps what was found so far.
 

@@ -33,6 +33,8 @@ import {
 // plays, as a web page's header does once you scroll.
 const TITLE_H = 40          // the window's buttons' row
 const ROW_H = 74, ROW_H_PLAYING = 56
+// the transport's sides, from Play outwards, and the room the left half leaves for Back
+const CENTRE_SIDE = 300, CENTRE_LEFT = 64
 
 const bigValue: CSSProperties = { color: 'var(--text-active)', fontFamily: 'var(--font-mono)', fontSize: 20, fontWeight: 700, lineHeight: 1, whiteSpace: 'nowrap' }
 
@@ -149,12 +151,15 @@ export default function PracticeTopBar() {
         <span style={featLabel}>{t`Practice mode`}</span>
       </div>
 
+      {/* Two halves, left and right; the transport sits over the middle with Play
+          exactly at the window's centre, under PRACTICE MODE (Back to its left,
+          everything else to its right), so the left half has room up to it */}
       <div style={{
-        height: rowH, transition: 'height .3s ease', display: 'grid', gridTemplateColumns: 'repeat(3, minmax(0, 1fr))', alignItems: 'center',
-        padding: '0 20px', boxSizing: 'border-box',
+        height: rowH, transition: 'height .3s ease', display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', alignItems: 'center',
+        padding: '0 20px', boxSizing: 'border-box', position: 'relative',
       }}>
         {/* ── Left: ORFEO, playlist, what you hear, key, tempo ── */}
-        <div className="topbar-scroll" style={{ display: 'flex', alignItems: 'center', gap: 14, minWidth: 0, overflowX: 'auto', overflowY: 'hidden' }}>
+        <div className="topbar-scroll" style={{ display: 'flex', alignItems: 'center', gap: 14, minWidth: 0, overflowX: 'auto', overflowY: 'hidden', marginRight: CENTRE_LEFT }}>
           <OrfeoLogo scale={playing ? 1.2 : 1.45} />
           <div className="app-no-drag"><QueueButton practice /></div>
 
@@ -256,33 +261,42 @@ export default function PracticeTopBar() {
           </div>
         </div>
 
-        {/* ── Centre: the song, and its playback ── */}
-        <div className="app-no-drag" style={{ justifySelf: 'stretch', minWidth: 0, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: playing ? 2 : 5, transition: 'gap .3s' }}>
-          <span style={{ color: 'var(--text-default)', fontSize: 'var(--text-sm)', fontFamily: 'var(--font-ui)', lineHeight: '13px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: '100%' }}>
+        {/* ── Centre: the song, and its playback (Play at the window's centre) ── */}
+        <div className="app-no-drag" style={{
+          position: 'absolute', left: '50%', top: 0, bottom: 0, width: 0, display: 'flex', flexDirection: 'column',
+          justifyContent: 'center', alignItems: 'center', gap: playing ? 2 : 5, transition: 'gap .3s', pointerEvents: 'none',
+        }}>
+          <span style={{ color: 'var(--text-default)', fontSize: 'var(--text-sm)', fontFamily: 'var(--font-ui)', lineHeight: '13px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: 560, pointerEvents: 'auto' }}>
             {midi?.fileName.replace(/\.(mid|midi)$/i, '') ?? ''}
           </span>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 2 }}>
-            <TBtn onClick={back} disabled={!songReady} title={hasLoop && loopActive ? t`Back to the loop's start` : t`Go to start`} oneLine><SkipBack size={16} strokeWidth={1.5} /></TBtn>
-            <TBtn onClick={playPause} disabled={!songReady} accent title={t`Play / Pause (Space)`} large={!playing} oneLine>
-              {playing ? <Pause size={playing ? 20 : 24} fill="currentColor" strokeWidth={0} /> : <Play size={24} fill="currentColor" strokeWidth={0} />}
-            </TBtn>
-            <TBtn onClick={() => useStore.getState().setLoopRegionActive(!loopActive)} disabled={!hasLoop} active={hasLoop && loopActive}
-              title={t`Loop`} description={hasLoop ? t`Play the loop round after round.` : t`Set a loop first: Alt + drag on the piano roll.`}>
-              <Repeat size={13} strokeWidth={1.5} />
-            </TBtn>
-            <span style={{ marginLeft: 10, color: 'var(--text-muted)', fontFamily: 'var(--font-mono)', fontSize: 11, whiteSpace: 'nowrap' }}>
-              <span style={{ color: 'var(--text-active)' }}>{formatTime(currentTime)}</span> / {formatTime(midi?.duration ?? 0)}
-            </span>
-            {/* how it went, when you want it (it never pops up by itself); the icon
-                pulses gently while there are words not read yet */}
-            <Tooltip title={t`How it went`} oneLine={!card} placement="bottom"
-              description={card ? t`A few words on how it went since you last pressed Play. Click to open.` : t`After you've played, a few words on how it went.`}>
-              <button onClick={() => toggleCard()} disabled={!card} aria-pressed={cardOpen} aria-label={t`How it went`}
-                style={{ ...toolBtn(!card), marginLeft: 18, gap: 6, height: 26 }}>
-                <UserRoundStar {...barIcon} size={16} className={cardNew ? 'orfeo-soft-pulse' : undefined} />
-                <span style={{ ...featValue, fontSize: 11 }}>{t`How it went`}</span>
-              </button>
-            </Tooltip>
+          <div style={{ display: 'grid', gridTemplateColumns: `${CENTRE_SIDE}px auto ${CENTRE_SIDE}px`, alignItems: 'center' }}>
+            <div style={{ justifySelf: 'end', display: 'flex', pointerEvents: 'auto' }}>
+              <TBtn onClick={back} disabled={!songReady} title={hasLoop && loopActive ? t`Back to the loop's start` : t`Go to start`} oneLine><SkipBack size={16} strokeWidth={1.5} /></TBtn>
+            </div>
+            <div style={{ pointerEvents: 'auto' }}>
+              <TBtn onClick={playPause} disabled={!songReady} accent title={t`Play / Pause (Space)`} large={!playing} oneLine>
+                {playing ? <Pause size={playing ? 20 : 24} fill="currentColor" strokeWidth={0} /> : <Play size={24} fill="currentColor" strokeWidth={0} />}
+              </TBtn>
+            </div>
+            <div style={{ justifySelf: 'start', display: 'flex', alignItems: 'center', gap: 2, pointerEvents: 'auto' }}>
+              <TBtn onClick={() => useStore.getState().setLoopRegionActive(!loopActive)} disabled={!hasLoop} active={hasLoop && loopActive}
+                title={t`Loop`} description={hasLoop ? t`Play the loop round after round.` : t`Set a loop first: Alt + drag on the piano roll.`}>
+                <Repeat size={13} strokeWidth={1.5} />
+              </TBtn>
+              <span style={{ marginLeft: 10, color: 'var(--text-muted)', fontFamily: 'var(--font-mono)', fontSize: 11, whiteSpace: 'nowrap' }}>
+                <span style={{ color: 'var(--text-active)' }}>{formatTime(currentTime)}</span> / {formatTime(midi?.duration ?? 0)}
+              </span>
+              {/* how it went, when you want it (it never pops up by itself); the icon
+                  pulses gently while there are words not read yet */}
+              <Tooltip title={t`Practice log`} placement="bottom"
+                description={card ? t`A few words on how it went since you last pressed Play,\nclick to open.` : t`after you've played,\na few words on how it went.`}>
+                <button onClick={() => toggleCard()} disabled={!card} aria-pressed={cardOpen} aria-label={t`Practice log`}
+                  style={{ ...toolBtn(!card), marginLeft: 18, gap: 6, height: 26 }}>
+                  <UserRoundStar {...barIcon} size={16} className={cardNew ? 'orfeo-soft-pulse' : undefined} />
+                  <span style={{ ...featValue, fontSize: 11 }}>{t`Practice log`}</span>
+                </button>
+              </Tooltip>
+            </div>
           </div>
         </div>
 
@@ -388,10 +402,10 @@ function SongTicks({ playing, hasLoop }: { playing: boolean; hasLoop: boolean })
   }
   const played = dur ? Math.min(1, currentTime / dur) : 0
   const tip = unit < 1
-    ? t`One tick every half second, every tenth taller. Amber: what you've played.\nClick or drag to move through the song.`
-    : t`One tick every ${unit} seconds, every tenth taller. Amber: what you've played.\nClick or drag to move through the song.`
+    ? t`One tick every half second, every tenth taller.\nClick or drag to move through the song.`
+    : t`One tick every ${unit} seconds, every tenth taller.\nClick or drag to move through the song.`
   return (
-    <Tooltip title={t`The song`} description={tip} placement="bottom" wrapperStyle={{ display: 'block' }}>
+    <Tooltip title={t`Timeline`} description={tip} placement="bottom" wrapperStyle={{ display: 'block' }}>
       <div ref={ref} className="app-no-drag" role="slider" aria-label={t`Song position`} aria-valuemin={0} aria-valuemax={Math.round(dur)} aria-valuenow={Math.round(currentTime)}
         onPointerDown={e => {
           if (!dur) return

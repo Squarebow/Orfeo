@@ -39,7 +39,7 @@ export default function PracticeSummaryCard() {
   const canReview = reviewableTakes().length > 0
 
   return (
-    <div {...dragProps} className="app-no-drag orfeo-modal-glow" role="dialog" aria-label={t`How it went`} style={{
+    <div {...dragProps} className="app-no-drag orfeo-modal-glow" role="dialog" aria-label={t`Practice log`} style={{
       position: 'fixed', top: UNDER_HEADER + off.y, left: `calc(50% + ${off.x}px)`, transform: 'translateX(-50%)', zIndex: 950,
       width: 'min(440px, calc(100vw - 32px))', boxSizing: 'border-box', padding: '12px 14px 12px 16px', borderRadius: 'var(--radius-md)',
       background: 'var(--bg-tooltip)', border: '1px solid var(--accent-amber-strong)',
@@ -49,7 +49,7 @@ export default function PracticeSummaryCard() {
       <div
         style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 6, cursor: 'grab', touchAction: 'none' }}>
         <span style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 10, fontWeight: 600, letterSpacing: '0.1em', textTransform: 'uppercase', color: 'var(--text-amber)' }}>
-          <GripHorizontal size={12} color="var(--text-muted)" />{t`How it went`}
+          <GripHorizontal size={12} color="var(--text-muted)" />{t`Practice log`}
         </span>
         <button onClick={close} aria-label={t`Close`} style={{ background: 'none', border: 'none', padding: 2, cursor: 'pointer', color: 'var(--text-muted)', display: 'flex' }}><X size={14} /></button>
       </div>

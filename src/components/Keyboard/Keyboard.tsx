@@ -51,7 +51,7 @@ function resolveCurrentIndex(seq: { displayTime: number }[], currentTime: number
 // ── A finger number on a key (practice mode): a circle at the very top of
 // the key, as contrasting as it gets: black on a white key, white on a black
 // one, with a ring so it stands out on a lit key too ───────────────────────
-// a suggested finger (Orfeo's, not yours) is drawn hollow, with a dashed edge
+// a suggested finger (Orfeo's, not yours) is drawn the other way round: a light disc, dark number
 function FingerCircle({ finger, black, scale, suggested = false }: { finger: number; black: boolean; scale: number; suggested?: boolean }) {
   const size = Math.round((black ? 15 : 18) * scale)
   const ink = black ? '#ffffff' : '#0d0d12', paper = black ? '#0d0d12' : '#ffffff'
@@ -61,7 +61,7 @@ function FingerCircle({ finger, black, scale, suggested = false }: { finger: num
       width: size, height: size, borderRadius: '50%', zIndex: 3,
       display: 'flex', alignItems: 'center', justifyContent: 'center',
       background: suggested ? paper : ink, color: suggested ? ink : paper,
-      border: suggested ? `2px dashed ${ink}` : `2px solid ${paper}`, boxSizing: 'content-box',
+      border: `2px solid ${paper}`, boxSizing: 'content-box',
       boxShadow: '0 1px 3px rgba(0,0,0,0.6)',
       fontFamily: 'var(--font-mono)', fontWeight: 800, fontSize: Math.round(size * 0.68), lineHeight: 1,
       userSelect: 'none', pointerEvents: 'none',
