@@ -620,6 +620,8 @@ interface OrfeoStore {
   // always; on: a muted track's notes stay on the roll only). TEMPORARY, asked for by players until practice
   // mode (2.0) ships: review whether to keep it at the 2.0 release
   mutedOnRoll: boolean
+  fitToWindow: boolean                     // the whole app shrinks to fit a small window (main.ts FIT_DESIGN), not below 75 %
+  setFitToWindow: (v: boolean) => void
   setMutedOnRoll: (v: boolean) => void
   setAutoCollapseDrawers: (v: boolean) => void
 
@@ -1392,6 +1394,8 @@ export const useStore = create<OrfeoStore>((set, get) => ({
   explorerPausesPlayback: true,
   setExplorerPausesPlayback: (explorerPausesPlayback) => set({ explorerPausesPlayback }),
   mutedOnRoll: false,
+  fitToWindow: true,
+  setFitToWindow: (fitToWindow) => { set({ fitToWindow }); void window.electronAPI?.setFitToWindow?.(fitToWindow) },
   setMutedOnRoll: (mutedOnRoll) => { syncMutedOnRoll(mutedOnRoll); set({ mutedOnRoll }) },
   setAutoCollapseDrawers: (autoCollapseDrawers) => set({ autoCollapseDrawers }),
 
@@ -1636,6 +1640,7 @@ async function restoreLibraryPrefs() {
     if (typeof prefs.supportNoteEnabled === 'boolean') store.setSupportNoteEnabled(prefs.supportNoteEnabled)
     if (typeof prefs.explorerPausesPlayback === 'boolean') store.setExplorerPausesPlayback(prefs.explorerPausesPlayback)
     if (typeof prefs.mutedOnRoll === 'boolean') store.setMutedOnRoll(prefs.mutedOnRoll)
+    if (typeof prefs.fitToWindow === 'boolean') useStore.setState({ fitToWindow: prefs.fitToWindow })   // main read it at start
     if (typeof prefs.trackVuColorEnabled === 'boolean') store.setTrackVuColorEnabled(prefs.trackVuColorEnabled)
     if (typeof prefs.unsavedWarningEnabled === 'boolean') store.setUnsavedWarningEnabled(prefs.unsavedWarningEnabled)
     if (typeof prefs.saveTrackChangesEnabled === 'boolean') store.setSaveTrackChangesEnabled(prefs.saveTrackChangesEnabled)
@@ -1851,6 +1856,7 @@ let _prevTooltipsEnabled: boolean | null = null
 let _prevSupportNoteEnabled: boolean | null = null
 let _prevExplorerPausesPlayback: boolean | null = null
 let _prevMutedOnRoll: boolean | null = null
+let _prevFitToWindow: boolean | null = null
 let _prevTrackVuColorEnabled: boolean | null = null
 let _prevUnsavedWarningEnabled: boolean | null = null
 let _prevSaveTrackChangesEnabled: boolean | null = null
@@ -1941,6 +1947,7 @@ const _unsubPrefs = useStore.subscribe((state) => {
     _prevSupportNoteEnabled = state.supportNoteEnabled
     _prevExplorerPausesPlayback = state.explorerPausesPlayback
     _prevMutedOnRoll = state.mutedOnRoll
+    _prevFitToWindow = state.fitToWindow
     _prevTrackVuColorEnabled = state.trackVuColorEnabled
     _prevUnsavedWarningEnabled = state.unsavedWarningEnabled
     _prevSaveTrackChangesEnabled = state.saveTrackChangesEnabled
@@ -2034,6 +2041,7 @@ const _unsubPrefs = useStore.subscribe((state) => {
     state.supportNoteEnabled !== _prevSupportNoteEnabled ||
     state.explorerPausesPlayback !== _prevExplorerPausesPlayback ||
     state.mutedOnRoll !== _prevMutedOnRoll ||
+    state.fitToWindow !== _prevFitToWindow ||
     state.trackVuColorEnabled !== _prevTrackVuColorEnabled ||
     state.unsavedWarningEnabled !== _prevUnsavedWarningEnabled ||
     state.saveTrackChangesEnabled !== _prevSaveTrackChangesEnabled ||
@@ -2119,6 +2127,7 @@ const _unsubPrefs = useStore.subscribe((state) => {
     _prevSupportNoteEnabled = state.supportNoteEnabled
     _prevExplorerPausesPlayback = state.explorerPausesPlayback
     _prevMutedOnRoll = state.mutedOnRoll
+    _prevFitToWindow = state.fitToWindow
     _prevTrackVuColorEnabled = state.trackVuColorEnabled
     _prevUnsavedWarningEnabled = state.unsavedWarningEnabled
     _prevSaveTrackChangesEnabled = state.saveTrackChangesEnabled
@@ -2211,6 +2220,7 @@ const _unsubPrefs = useStore.subscribe((state) => {
       supportNoteEnabled: state.supportNoteEnabled,
       explorerPausesPlayback: state.explorerPausesPlayback,
       mutedOnRoll: state.mutedOnRoll,
+      fitToWindow: state.fitToWindow,
       trackVuColorEnabled: state.trackVuColorEnabled,
       unsavedWarningEnabled: state.unsavedWarningEnabled,
       saveTrackChangesEnabled: state.saveTrackChangesEnabled,
