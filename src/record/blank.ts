@@ -80,9 +80,15 @@ export async function stopBlank(keep = true): Promise<string | null> {
   }
   useBlank.setState({ phase: 'saving' })
   try {
-    const path = await saveTake(rec, st.setup)
-    useBlank.setState({ phase: 'idle', message: t`Saved and opened: ${path}` })
-    void offerToListen()
+    // in practice mode the song you're practising stays open: Orfeo asks first
+    const { usePractice } = await import('../practice/practiceMode')
+    const inPractice = usePractice.getState().active
+    const path = await saveTake(rec, st.setup, !inPractice)
+    useBlank.setState({ phase: 'idle', message: inPractice ? t`Saved: ${path}` : t`Saved and opened: ${path}` })
+    if (inPractice) {
+      const { offerToOpen } = await import('./recordMode')
+      void offerToOpen(path, t`Your take is saved as a new song.`, t`It's in your Library's Orfeo › Recordings folder.`)
+    } else void offerToListen()
     return path
   } catch (e) {
     useBlank.setState({ phase: 'idle', message: t`The take couldn't be saved: ${String((e as Error)?.message ?? e)}` })
@@ -91,7 +97,7 @@ export async function stopBlank(keep = true): Promise<string | null> {
 }
 
 /** The take as a MIDI file in Orfeo/Recordings, opened like any song */
-export async function saveTake(rec: Recording, s: BlankSetup): Promise<string> {
+export async function saveTake(rec: Recording, s: BlankSetup, open = true): Promise<string> {
   const { useStore } = await import('../store')
   const name = takeBaseName(null, rec.startedAt)
   const bytes = recordingToMidi(rec, {
@@ -100,7 +106,7 @@ export async function saveTake(rec: Recording, s: BlankSetup): Promise<string> {
     barSec: s.withClick ? barSec(s.bpm, s.meter) : undefined,
   })
   const lib = ((useStore.getState() as any).libraryFolder as string | null) ?? null
-  return window.electronAPI.recordSaveTake({ fileName: `${name}.mid`, libraryFolder: lib, bytes, open: true })
+  return window.electronAPI.recordSaveTake({ fileName: `${name}.mid`, libraryFolder: lib, bytes, open })
 }
 
 async function offerToListen(): Promise<void> {

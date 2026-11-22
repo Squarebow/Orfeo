@@ -2,6 +2,7 @@ import { useEffect, useState, type CSSProperties, type ReactNode } from 'react'
 import { Circle, Square, X } from 'lucide-react'
 import { t } from '../../utils/i18n'
 import { useBlank, startBlank, stopBlank, closeBlankSetup, setBlankSetup } from '../../record/blank'
+import { usePractice } from '../../practice/practiceMode'
 import type { Meter } from '../../record/click'
 
 // ── Blank mode on screen (after 2.0): the setup panel, then a small bar while
@@ -113,6 +114,9 @@ function Running() {
 
 export default function BlankRecord() {
   const phase = useBlank(s => s.phase)
+  // practice mode: the footer's REC button has the choices and shows the take
+  const inPractice = usePractice(s => s.active)
+  if (inPractice) return null
   if (phase === 'setup') return <Setup />
   if (phase === 'counting' || phase === 'recording' || phase === 'saving') return <Running />
   return null

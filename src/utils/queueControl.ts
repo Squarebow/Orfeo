@@ -8,6 +8,8 @@ import { neighbour, stepAround } from './practiceQueue'
 type Opener = (path: string, autoplay: boolean) => Promise<void>
 let opener: Opener | null = null
 export function registerQueueOpener(fn: Opener | null) { opener = fn }
+/** Open a song by its path, the usual way (unsaved changes asked about first) */
+export async function openSongPath(path: string, autoplay = false): Promise<void> { if (opener) await opener(path, autoplay) }
 
 export async function openQueueAt(index: number, autoplay: boolean): Promise<void> {
   const path = useStore.getState().queue.paths[index]

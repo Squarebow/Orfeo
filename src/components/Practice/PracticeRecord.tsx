@@ -1,0 +1,200 @@
+import { useEffect, useRef, useState, type CSSProperties, type ReactNode } from 'react'
+import { Circle, Music, FileMusic, Timer, Hand, Keyboard as KeyboardIcon } from 'lucide-react'
+import { useStore } from '../../store'
+import { t } from '../../utils/i18n'
+import { getNoteName } from '../../utils/noteNames'
+import Tooltip from '../Tooltip'
+import { usePractice, practisedHand } from '../../practice/practiceMode'
+import { useBlank, setBlankSetup } from '../../record/blank'
+import { useRecord, setRecordMode, startRecord, stopRecord, type RecordMode } from '../../record/recordMode'
+import type { Meter } from '../../record/click'
+import { AMBER, barIcon, featLabel, featValue, toolBtn, BarPop, PopItem, popHeading, PopDivider, Reserve, MiniSwitch } from './practiceBar'
+
+// ── Practice mode's REC (footer, right, before VIEW) ─────────────────────────
+// Closed: the way of recording chosen (REC: OVER THE SONG). A click opens its
+// choices upwards: the two ways, their switches, and Record. While recording
+// the dot glows red and the button says how far you've got; a click stops and
+// keeps the take. (After 2.0: lives on the record-export branch.)
+
+const RED = 'var(--status-error-hover)'
+const METERS: Meter[] = [{ beats: 2, unit: 4 }, { beats: 3, unit: 4 }, { beats: 4, unit: 4 }, { beats: 6, unit: 8 }]
+
+/** A row of small choices inside the panel (time signature) */
+function Chips({ label, children }: { label: string; children: ReactNode }) {
+  return (
+    <div style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '6px 14px', flexWrap: 'wrap' }}>
+      <span style={{ fontFamily: 'var(--font-ui)', fontSize: 13, color: 'var(--text-default)', minWidth: 52 }}>{label}</span>
+      {children}
+    </div>
+  )
+}
+function Chip({ on, onClick, children }: { on: boolean; onClick: () => void; children: ReactNode }) {
+  return (
+    <button onClick={onClick} aria-pressed={on} style={{
+      padding: '3px 8px', fontFamily: 'var(--font-ui)', fontSize: 12, cursor: 'pointer', borderRadius: 'var(--radius-sm)',
+      background: on ? 'var(--accent-amber-subtle)' : 'none', color: on ? AMBER : 'var(--text-default)',
+      border: `1px solid ${on ? 'var(--accent-amber-strong)' : 'var(--border)'}`,
+    }}>{children}</button>
+  )
+}
+
+export default function PracticeRecord() {
+  const mode = useRecord(s => s.mode)
+  const songPhase = useRecord(s => s.songPhase)
+  const songNotes = useRecord(s => s.notes)
+  const songMessage = useRecord(s => s.message)
+  const blankPhase = useBlank(s => s.phase)
+  const setup = useBlank(s => s.setup)
+  const blankBar = useBlank(s => s.bar)
+  const blankBeat = useBlank(s => s.beat)
+  const blankNotes = useBlank(s => s.notes)
+  const blankMessage = useBlank(s => s.message)
+  usePractice(s => s.hand); usePractice(s => s.way); usePractice(s => s.onlyHand)   // the hand line follows your choice
+  const naming = useStore(s => s.noteNaming)
+  const accidentals = useStore(s => s.accidentals)
+  const [open, setOpen] = useState(false)
+  const [choosingSplit, setChoosingSplit] = useState(false)
+  const ref = useRef<HTMLButtonElement>(null)
+
+  const blankBusy = blankPhase === 'counting' || blankPhase === 'recording' || blankPhase === 'saving'
+  const busy = songPhase !== 'idle' || blankBusy
+  const live = songPhase === 'recording' || blankPhase === 'recording'
+  const saving = songPhase === 'saving' || blankPhase === 'saving'
+  const hand = practisedHand()
+  const twoHandsShown = mode === 'blank' || hand === 'B'
+  const twoHands = setup.hands === 'two'
+  const nn = naming === 'sargam' || naming === 'hidden' ? 'english' : naming
+  const keyName = (n: number) => `${getNoteName(n, nn, accidentals)}${Math.floor(n / 12) - 1}`
+  const message = mode === 'blank' ? blankMessage : songMessage
+
+  // the split key: the next key you press on your keyboard
+  useEffect(() => {
+    if (!choosingSplit) return
+    let off = () => {}
+    void import('../../hooks/useMidiInput').then(m => {
+      off = m.onPlayedKey(k => { if (k.on) { setBlankSetup({ splitKey: k.note }); setChoosingSplit(false) } })
+    })
+    return () => off()
+  }, [choosingSplit])
+  useEffect(() => { if (!open) setChoosingSplit(false) }, [open])
+
+  const ways: Record<RecordMode, { name: string; tip: string }> = {
+    song: { name: t`Over the song`, tip: t`The song plays and you play along. Your take is saved as its own track, in a new version of the song.` },
+    blank: { name: t`Blank page`, tip: t`No song: just you, and a click if you like. Your take is saved as a new song in Library › Orfeo › Recordings.` },
+  }
+
+  // what the button says
+  const value = saving ? t`Saving…`
+    : songPhase === 'starting' ? t`Starting…`
+    : songPhase === 'recording' ? t`${songNotes} notes`
+    : blankPhase === 'counting' ? t`Count-in ${blankBeat}`
+    : blankPhase === 'recording' ? (setup.withClick ? t`Bar ${blankBar}` : t`${blankNotes} notes`)
+    : ways[mode].name
+  const tip = busy
+    ? { title: t`Recording`, description: t`Click to stop and keep your take.` }
+    : { title: ways[mode].name, description: ways[mode].tip + '\n' + t`Click to choose how you record, and to start.` }
+
+  const start = () => { setOpen(false); void startRecord() }
+
+  return (
+    <>
+      <Tooltip title={tip.title} description={tip.description} placement="top" disabled={open}>
+        <button ref={ref} onClick={() => (busy ? !saving && void stopRecord(true) : setOpen(o => !o))}
+          style={toolBtn()} aria-label={busy ? t`Stop recording` : t`Record`} aria-expanded={open}>
+          {busy && !saving
+            ? <Circle {...barIcon} color={RED} fill={live ? RED : 'none'} className={live ? 'orfeo-soft-pulse' : undefined} />
+            : <Circle {...barIcon} />}
+          <span style={featLabel}>{t`Rec:`}</span>
+          <Reserve options={[ways.song.name, ways.blank.name, t`Count-in ${8}`, t`${8888} notes`].map((x, i) => <span key={i} style={featValue}>{x}</span>)}>
+            <span style={featValue}>{value}</span>
+          </Reserve>
+        </button>
+      </Tooltip>
+      {open && (
+        <BarPop anchor={ref.current} up align="right" width={320} onClose={() => setOpen(false)} label={t`Record`}>
+          <div style={popHeading}>{t`Record`}</div>
+          {(['song', 'blank'] as RecordMode[]).map(id => (
+            <PopItem key={id} on={mode === id} onClick={() => setRecordMode(id)} hint={ways[id].tip}>
+              {id === 'song' ? <Music size={14} color={AMBER} /> : <FileMusic size={14} color={AMBER} />}
+              {ways[id].name}
+            </PopItem>
+          ))}
+
+          <PopDivider />
+          <div style={popHeading}>{t`Switches`}</div>
+          {mode === 'blank' && (
+            <>
+              <PopItem on={setup.withClick} onClick={() => setBlankSetup({ withClick: !setup.withClick })}
+                hint={setup.withClick ? t`The bars are exact from the start. The click is heard, never recorded.` : t`Play freely, no click. The tempo and bars are worked out afterwards.`}>
+                <Timer size={14} color={AMBER} />
+                <span style={{ flex: 1 }}>{t`Click`}</span>
+                <MiniSwitch on={setup.withClick} />
+              </PopItem>
+              {setup.withClick && (
+                <>
+                  <PopItem on={setup.countInBars > 0} onClick={() => setBlankSetup({ countInBars: setup.countInBars > 0 ? 0 : 1 })}
+                    hint={t`A bar of clicks before you start.`}>
+                    <Timer size={14} color={AMBER} />
+                    <span style={{ flex: 1 }}>{t`Count-in`}</span>
+                    <MiniSwitch on={setup.countInBars > 0} />
+                  </PopItem>
+                  <Chips label={t`Time`}>
+                    {METERS.map(m => (
+                      <Chip key={`${m.beats}/${m.unit}`} on={setup.meter.beats === m.beats && setup.meter.unit === m.unit} onClick={() => setBlankSetup({ meter: m })}>{`${m.beats}/${m.unit}`}</Chip>
+                    ))}
+                  </Chips>
+                  <Chips label={t`Tempo`}>
+                    <input type="number" min={30} max={240} value={setup.bpm} aria-label={t`Tempo`}
+                      onChange={e => setBlankSetup({ bpm: Math.max(30, Math.min(240, Number(e.target.value) || 90)) })}
+                      style={{ width: 58, padding: '3px 6px', background: 'var(--bg-input)', color: 'var(--text-active)', border: '1px solid var(--border)', borderRadius: 4, fontFamily: 'var(--font-mono)', fontSize: 12 }} />
+                    <span style={{ fontFamily: 'var(--font-ui)', fontSize: 11, color: 'var(--text-muted)' }}>{setup.meter.unit === 8 ? t`eighths a minute` : t`BPM`}</span>
+                  </Chips>
+                </>
+              )}
+            </>
+          )}
+          {twoHandsShown ? (
+            <>
+              <PopItem on={twoHands} onClick={() => setBlankSetup({ hands: twoHands ? 'one' : 'two' })}
+                hint={twoHands ? t`Below the split key the left hand, from it up the right. Each hand can be redone on its own.` : t`Both hands on one track.`}>
+                <Hand size={14} color={AMBER} />
+                <span style={{ flex: 1 }}>{t`A track for each hand`}</span>
+                <MiniSwitch on={twoHands} />
+              </PopItem>
+              {twoHands && (
+                <PopItem on={choosingSplit} onClick={() => setChoosingSplit(c => !c)}
+                  hint={choosingSplit ? t`Press a key on your keyboard…` : t`Click, then press a key on your keyboard.`}>
+                  <KeyboardIcon size={14} color={AMBER} />
+                  <span style={{ flex: 1 }}>{t`Split key`}</span>
+                  <span style={{ ...featValue, color: choosingSplit ? AMBER : 'var(--text-active)' }}>{keyName(setup.splitKey)}</span>
+                </PopItem>
+              )}
+            </>
+          ) : (
+            <div style={{ padding: '6px 14px 8px', fontFamily: 'var(--font-ui)', fontSize: 12, lineHeight: 1.4, color: 'var(--text-muted)' }}>
+              {hand === 'L' ? t`You're playing the left hand: your take goes on a left-hand track.` : t`You're playing the right hand: your take goes on a right-hand track.`}
+            </div>
+          )}
+
+          <PopDivider />
+          <div style={{ padding: '6px 14px 10px', display: 'grid', gap: 6 }}>
+            <button onClick={start} style={startBtn}>
+              <Circle size={11} fill="currentColor" /> {t`Record`}
+            </button>
+            <span style={{ fontFamily: 'var(--font-ui)', fontSize: 11, lineHeight: 1.35, color: 'var(--text-muted)' }}>
+              {mode === 'song'
+                ? t`The song plays from where it is. Pause, the song's end or the loop going round ends the take; so does REC.`
+                : t`The song stops while you record. Click REC to stop; your take is saved.`}
+            </span>
+            {message && <span style={{ fontFamily: 'var(--font-ui)', fontSize: 11, lineHeight: 1.35, color: 'var(--text-default)', wordBreak: 'break-word' }}>{message}</span>}
+          </div>
+        </BarPop>
+      )}
+    </>
+  )
+}
+
+const startBtn: CSSProperties = {
+  display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, padding: '8px 0', borderRadius: 'var(--radius-md)', cursor: 'pointer',
+  background: AMBER, color: 'var(--text-on-amber)', border: 'none', fontFamily: 'var(--font-ui)', fontSize: 12, fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase',
+}

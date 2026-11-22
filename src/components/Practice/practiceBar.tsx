@@ -43,7 +43,7 @@ export function PopItem({ on, onClick, children, hint, disabled }: {
         padding: '8px 14px', border: 'none', textAlign: 'left', cursor: disabled ? 'default' : 'pointer',
         background: hover && !disabled ? 'var(--bg-tile)' : 'none', opacity: disabled ? 0.45 : 1,
       }}>
-      <span style={{ display: 'flex', alignItems: 'center', gap: 8, fontFamily: 'var(--font-ui)', fontSize: 13,
+      <span style={{ display: 'flex', alignItems: 'center', gap: 8, alignSelf: 'stretch', fontFamily: 'var(--font-ui)', fontSize: 13,
         color: on ? AMBER : hover && !disabled ? AMBER : 'var(--text-default)', fontWeight: on ? 600 : 400 }}>
         {children}
       </span>
@@ -150,4 +150,13 @@ export function useDragAnywhere(key: string) {
   }
   const end = () => { drag.current = null }
   return { off, dragProps: { onPointerDown, onPointerMove, onPointerUp: end, onPointerCancel: end } }
+}
+
+/** A small on/off switch inside a choice (Speed up, recording's switches) */
+export function MiniSwitch({ on }: { on: boolean }) {
+  return (
+    <span aria-hidden style={{ position: 'relative', display: 'inline-block', width: 26, height: 14, borderRadius: 7, flex: 'none', background: on ? 'var(--text-amber)' : 'var(--bg-input)' }}>
+      <span style={{ position: 'absolute', top: 2, left: on ? 14 : 2, width: 10, height: 10, borderRadius: '50%', background: on ? 'var(--text-on-amber)' : 'var(--text-default)', transition: 'left .15s' }} />
+    </span>
+  )
 }

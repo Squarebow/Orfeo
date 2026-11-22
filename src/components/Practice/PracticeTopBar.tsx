@@ -1,4 +1,4 @@
-import { useId, useLayoutEffect, useMemo, useRef, useState, type CSSProperties } from 'react'
+import { useEffect, useId, useLayoutEffect, useMemo, useRef, useState, type CSSProperties } from 'react'
 import { Play, Pause, SkipBack, Repeat, SlidersVertical, Volume2, VolumeX, ChevronUp, ChevronDown, WandSparkles, SquareArrowRightExit, Piano, Eye, Drum, UserRoundStar } from 'lucide-react'
 import { useStore } from '../../store'
 import { usePlayback } from '../../hooks/usePlayback'
@@ -19,6 +19,7 @@ import { TBtn, BpmValue, TempoDisplayMenu, MetronomeMenu, METRO_MENU_WIDTH } fro
 import { AMBER, barIcon, featLabel, featValue, toolBtn, BarPop, popHeading, PopDivider, HandMarks, Reserve, ResetMark } from './practiceBar'
 import { useSession, toggleCard } from '../../practice/session'
 import { tickPath } from '../../practice/songTicks'
+import { registerPracticeTransport } from '../../practice/transport'
 import {
   usePractice, leavePractice, tempoLimits, metronomeAllowed, speedPercent, setSpeedPercent, practisedHand,
   fixHandsFromPractice, setBandPreset, bandPreset, type BandPreset,
@@ -81,6 +82,8 @@ export default function PracticeTopBar() {
   const cardOpen = useSession(s => s.cardOpen)
   usePractice(s => s.hand)   // the hand rows follow your choice
   const { play, pause, seek, seekAndPlay } = usePlayback()
+  // recording (the footer's REC) starts and stops the song the same way
+  useEffect(() => { registerPracticeTransport({ play: () => { void play() }, pause }); return () => registerPracticeTransport(null) }, [play, pause])
   const [open, setOpen] = useState<'' | 'tracks'>('')
   const [tempoMenu, setTempoMenu] = useState<{ x: number; y: number } | null>(null)
   const [metroMenu, setMetroMenu] = useState<{ x: number; y: number } | null>(null)

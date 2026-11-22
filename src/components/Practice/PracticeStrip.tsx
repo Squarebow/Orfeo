@@ -12,12 +12,13 @@ import MidiIcon from '../MidiIcon'
 import { usePractice, setHearMine, fixHandsFromPractice, type PracticeWay, type PracticeHand, type PracticeView } from '../../practice/practiceMode'
 import { useSession } from '../../practice/session'
 import { RAMP_ROUNDS, RAMP_START, RAMP_STEP } from '../../practice/take'
-import { AMBER, barIcon, featLabel, featValue, toolBtn, BarPop, PopItem, popHeading, PopDivider, HandMarks, Reserve } from './practiceBar'
+import { AMBER, barIcon, featLabel, featValue, toolBtn, BarPop, PopItem, popHeading, PopDivider, HandMarks, Reserve, MiniSwitch } from './practiceBar'
+import PracticeRecord from './PracticeRecord'
 
 // ── Practice mode's footer, between the piano roll and the keyboard ──────────
 // Left: how you play (MODE), which hands, and the waiting. Centre: the chord
-// to play next and the chord in the keys you hold. Right: the view, the playbar, and the
-// keyboard you play on. Each choice opens upwards, all in one panel.
+// to play next and the chord in the keys you hold. Right: recording (REC), the
+// view, the playbar, and the keyboard you play on. Each choice opens upwards, all in one panel.
 
 // The name of a set of notes: a chord's name, a single note's name, or nothing
 function useChordName(notes: number[] | Set<number>, settle = 0): string {
@@ -236,6 +237,7 @@ export default function PracticeStrip() {
 
       {/* ── Right: view, playbar, keyboard ── */}
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: 14, minWidth: 0 }}>
+        <PracticeRecord />
         <Tooltip title={views[view].name} description={views[view].tip + '\n' + t`Click to change the view.`} placement="top" disabled={open === 'view'}>
           <button ref={refs.view} onClick={() => toggle('view')} style={toolBtn()} aria-label={t`View`} aria-expanded={open === 'view'}>
             <MonitorUp {...barIcon} />
@@ -293,14 +295,5 @@ export default function PracticeStrip() {
         )}
       </div>
     </div>
-  )
-}
-
-// a small on/off switch inside a choice (Speed up)
-function MiniSwitch({ on }: { on: boolean }) {
-  return (
-    <span aria-hidden style={{ position: 'relative', display: 'inline-block', width: 26, height: 14, borderRadius: 7, flex: 'none', background: on ? 'var(--text-amber)' : 'var(--bg-input)' }}>
-      <span style={{ position: 'absolute', top: 2, left: on ? 14 : 2, width: 10, height: 10, borderRadius: '50%', background: on ? 'var(--text-on-amber)' : 'var(--text-default)', transition: 'left .15s' }} />
-    </span>
   )
 }
