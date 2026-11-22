@@ -9,7 +9,8 @@ import { notesSoundingAt } from '../../utils/midiParser'
 import type { SoundingNote } from '../../utils/midiParser'
 import { buildPitchHandIndex, lookupNoteHandAtTime, detectPerformanceBoundary } from '../../utils/handBoundaries'
 import type { Hand } from '../../types'
-import { isHomogeneousHandTrack, resolveHandAwareColor } from '../../utils/handColors'
+import { isHomogeneousHandTrack } from '../../utils/handColors'
+import { liveHandColor } from '../../audio/liveHandColor'
 import Tooltip, { useTooltip } from '../Tooltip'
 import { ContextMenu, ContextMenuItem } from '../ContextMenu'
 import { outputLatencySec } from '../../audio/engine'
@@ -146,6 +147,7 @@ export default function Keyboard() {
   })
   const reflectKeys = useMemo(() => new Set(reflectSounding.map(s => s.midi)), [reflectSounding])
   const showHandLabels = useStore((s) => s.showHandLabels)
+  const noteEditorActiveForColours = useStore((s) => s.noteEditorActive)
   const showHandLetters = useStore((s) => s.showHandLetters)
   const handLabelMode = useStore((s) => s.handLabelMode)
   const performanceSplitSensitivity = useStore((s) => s.performanceSplitSensitivity)
@@ -499,13 +501,13 @@ export default function Keyboard() {
     [midiTracks])
   const reflectColors = useMemo(() => {
     const m = new Map<number, string>()
-    const opts = { showHandLabels, performanceMode: handLabelMode === 'performance' }
+    // the roll's own colour rule (liveHandColor), so a key never differs from its note
     for (const n of reflectSounding) {
       const base = trackStates.find(t => t.index === n.trackIndex)?.color ?? 'var(--text-amber)'
-      m.set(n.midi, resolveHandAwareColor(n, base, { ...opts, homogeneousTrack: homogeneousTracks.get(n.trackIndex) ?? false }))
+      m.set(n.midi, liveHandColor(n, base, homogeneousTracks.get(n.trackIndex) ?? false))
     }
     return m
-  }, [reflectSounding, trackStates, homogeneousTracks, showHandLabels, handLabelMode])
+  }, [reflectSounding, trackStates, homogeneousTracks, showHandLabels, noteEditorActiveForColours])
 
   const allActiveColors = useMemo(() => {
     const merged = new Map(activeKeyColors)
