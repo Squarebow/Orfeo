@@ -7,24 +7,27 @@ import { useBlank, setBlankSetup, startBlank, stopBlank, BLANK_DEFAULT, type Bla
 // ── Recording in practice mode (after 2.0) ───────────────────────────────────
 // The footer's REC button: two ways to record, and the switches for them.
 //   Over the song: press Record and the song plays; what you play is placed in
-//     the song where you heard it (at any tempo, in any key) and saved, as its
-//     own track, in a new version of the song. The song's own piano part for
-//     that hand stays in it, muted. The take ends when the song stops or
-//     pauses, at its end, when the loop goes round, or on a jump.
-//   Blank page: just you (and a click if you like), no song; the take saves
-//     as a new song in Library › Orfeo › Recordings (record/blank.ts).
+//     the song where you heard it (at any tempo, in any key). The take ends
+//     when the song stops or pauses, at its end, when the loop goes round, or
+//     on a jump. Then Keep or Discard: kept, a new version of the song has your
+//     playing in place of its piano part (for your hand, from where you
+//     started to where you stopped; songTake.ts). Your song stays open.
+//   Blank page: just you (and a click if you like), no song; kept, the take
+//     saves as a new song in Library › Orfeo › Recordings (record/blank.ts).
 // Your choices are remembered (prefs recordChoices).
 
 export type RecordMode = 'song' | 'blank'
-export type SongPhase = 'idle' | 'starting' | 'recording' | 'saving'
+export type SongPhase = 'idle' | 'starting' | 'recording' | 'asking' | 'saving'
 
 interface RecordState {
   mode: RecordMode
   songPhase: SongPhase
   notes: number
   message: string
+  lastSaved: string | null   // the take you kept last (its file)
+  asking: boolean            // Keep or Discard? on screen
 }
-export const useRecord = create<RecordState>(() => ({ mode: 'song', songPhase: 'idle', notes: 0, message: '' }))
+export const useRecord = create<RecordState>(() => ({ mode: 'song', songPhase: 'idle', notes: 0, message: '', lastSaved: null, asking: false }))
 
 // ── Your choices, remembered ─────────────────────────────────────────────────
 interface Choices extends BlankSetup { mode: RecordMode }
@@ -123,7 +126,8 @@ async function finishSongTake(keep: boolean): Promise<void> {
   if (!take) return
   for (const u of unsubs) u()
   unsubs = []
-  const events = take.stop(lastT)
+  const from = take.from, to = lastT
+  const events = take.stop(to)
   take = null
   const { practiceTransport } = await import('../practice/transport')
   if (useStore.getState().playbackState === 'playing') practiceTransport()?.pause()
@@ -131,42 +135,56 @@ async function finishSongTake(keep: boolean): Promise<void> {
     useRecord.setState({ songPhase: 'idle', message: keep ? t`Nothing was played, so nothing was kept.` : '' })
     return
   }
+  const s = useStore.getState()
+  const m = s.midi
+  // the song's own piano part, by hand (one piano track for one hand: that hand)
+  const parts: { L?: number; R?: number } = {}
+  for (const tr of s.tracks) if (tr.practicePart && tr.practiceHand) parts[tr.practiceHand] = tr.index
+  const { usePractice } = await import('../practice/practiceMode')
+  const played = usePractice.getState().onlyHand ?? hand
+  const { barOf } = await import('../utils/debugTimestamp')
+  const a = barOf(from, s.barStarts) ?? 1, b = Math.max(a, barOf(Math.max(from, to - 0.01), s.barStarts) ?? a)
+  const what = played === 'L' ? t`left hand` : played === 'R' ? t`right hand` : t`piano part`
+  useRecord.setState({ songPhase: 'asking' })
+  const kept = await askKeep(a === b
+    ? t`Keep: a new version of the song, with your playing in place of its ${what} in bar ${a}. The song you're practising stays as it is.`
+    : t`Keep: a new version of the song, with your playing in place of its ${what} from bar ${a} to bar ${b}. The song you're practising stays as it is.`)
+  if (!kept) { useRecord.setState({ songPhase: 'idle', message: t`Your take was thrown away.` }); return }
   useRecord.setState({ songPhase: 'saving' })
   try {
-    const s = useStore.getState()
-    const m = s.midi
     const filePath = (m as any)?._filePath as string | undefined
     const origRaw = m?._origRaw ?? m?._raw
     if (!m || !filePath || !origRaw) throw new Error(t`The song isn't a file Orfeo can save next to.`)
-    // the song's own piano part for the hand(s) you played
-    const parts = s.tracks.filter(tr => tr.practicePart && (hand === 'B' || tr.practiceHand === hand))
-    const piano = m.tracks.find(tr => tr.index === parts[0]?.index)
-    const setup = useBlank.getState().setup
-    const { bytes } = songTakeToMidi(events, {
+    const { bytes, replaced } = songTakeToMidi(events, {
       origRaw, playedRaw: m._leadTick ? m._raw : null, leadTick: m._leadTick ?? 0,
-      hand, splitKey: setup.hands === 'two' ? setup.splitKey : null, baseName: t`My take`,
-      program: piano?.program && piano.program >= 0 ? piano.program : 0, pianoChannel: piano?.channel,
-      mute: parts.map(p => p.index),
+      transpose: 0,   // your keys were taken back to the file's key as you played
+      parts, hand: played, splitKey: useBlank.getState().setup.splitKey, from, to,
     })
+    if (!replaced.length) throw new Error(t`None of what you played was for the hand you're practising.`)
     let bin = ''
     for (let i = 0; i < bytes.length; i++) bin += String.fromCharCode(bytes[i])
-    const r = await window.electronAPI.saveNoteEditor({ filePath, base64: btoa(bin), summary: 'Recorded a take over the song', newVersion: true })
+    const r = await window.electronAPI.saveNoteEditor({ filePath, base64: btoa(bin), summary: `Recorded over bars ${a}-${b}`, newVersion: true })
     if (!r.ok || !r.filePath) throw new Error(r.message ?? t`Save failed`)
     void useStore.getState().notifyLibrarySaved(r.filePath)
-    useRecord.setState({ songPhase: 'idle', message: t`Saved: ${r.fileName ?? r.filePath}` })
-    void offerToOpen(r.filePath, t`Your take is saved, as its own track in a new version of the song.`,
-      hand === 'B' ? t`The song's own piano part is in it too, muted. The song you're practising stays as it was.`
-        : t`The song's own part for that hand is in it too, muted. The song you're practising stays as it was.`)
+    useRecord.setState({ songPhase: 'idle', lastSaved: r.filePath, message: t`Saved: ${r.fileName ?? r.filePath}` })
   } catch (e) {
     useRecord.setState({ songPhase: 'idle', message: t`The take couldn't be saved: ${String((e as Error)?.message ?? e)}` })
   }
 }
 
-/** After a take in practice mode: open it now (leaving practice mode), or go on practising */
-export async function offerToOpen(path: string, message: string, detail: string): Promise<void> {
+/** After a take: keep it or throw it away. Escape keeps it (a take is never lost by accident). */
+export async function askKeep(detail: string): Promise<boolean> {
   const { confirmDialog } = await import('../utils/confirmController')
-  const choice = await confirmDialog({ message, detail: `${detail}\n${path.split(/[\\/]/).pop()}`, buttons: [t`Open it`, t`Keep practising`] })
-  if (choice !== 0) return
+  useRecord.setState({ asking: true })
+  const choice = await confirmDialog({ message: t`Keep your take?`, detail, buttons: [t`Discard`, t`Keep`], destructiveIndex: 0 })
+  useRecord.setState({ asking: false })
+  return choice === 1
+}
+
+/** The take you kept last: open it (leaving practice mode) */
+export async function openLastTake(): Promise<void> {
+  const path = useRecord.getState().lastSaved
+  if (!path) return
   const { leavePractice } = await import('../practice/practiceMode')
   const { openSongPath } = await import('../utils/queueControl')
   leavePractice()

@@ -1,20 +1,20 @@
 import { useEffect, useRef, useState, type CSSProperties, type ReactNode } from 'react'
-import { Circle, Music, FileMusic, Timer, Hand, Keyboard as KeyboardIcon } from 'lucide-react'
+import { Circle, Music, FileMusic, Timer, Hand, Keyboard as KeyboardIcon, FolderOpen } from 'lucide-react'
 import { useStore } from '../../store'
 import { t } from '../../utils/i18n'
 import { getNoteName } from '../../utils/noteNames'
 import Tooltip from '../Tooltip'
 import { usePractice, practisedHand } from '../../practice/practiceMode'
 import { useBlank, setBlankSetup } from '../../record/blank'
-import { useRecord, setRecordMode, startRecord, stopRecord, type RecordMode } from '../../record/recordMode'
+import { useRecord, setRecordMode, startRecord, stopRecord, openLastTake, type RecordMode } from '../../record/recordMode'
 import type { Meter } from '../../record/click'
 import { AMBER, barIcon, featLabel, featValue, toolBtn, BarPop, PopItem, popHeading, PopDivider, Reserve, MiniSwitch } from './practiceBar'
 
 // ── Practice mode's REC (footer, right, before VIEW) ─────────────────────────
 // Closed: the way of recording chosen (REC: OVER THE SONG). A click opens its
 // choices upwards: the two ways, their switches, and Record. While recording
-// the dot glows red and the button says how far you've got; a click stops and
-// keeps the take. (After 2.0: lives on the record-export branch.)
+// the dot glows red and the button says how far you've got; a click stops,
+// and Orfeo asks Keep or Discard. (After 2.0: lives on the record-export branch.)
 
 const RED = 'var(--status-error-hover)'
 const METERS: Meter[] = [{ beats: 2, unit: 4 }, { beats: 3, unit: 4 }, { beats: 4, unit: 4 }, { beats: 6, unit: 8 }]
@@ -43,6 +43,8 @@ export default function PracticeRecord() {
   const songPhase = useRecord(s => s.songPhase)
   const songNotes = useRecord(s => s.notes)
   const songMessage = useRecord(s => s.message)
+  const lastSaved = useRecord(s => s.lastSaved)
+  const asking = useRecord(s => s.asking)
   const blankPhase = useBlank(s => s.phase)
   const setup = useBlank(s => s.setup)
   const blankBar = useBlank(s => s.bar)
@@ -59,9 +61,8 @@ export default function PracticeRecord() {
   const blankBusy = blankPhase === 'counting' || blankPhase === 'recording' || blankPhase === 'saving'
   const busy = songPhase !== 'idle' || blankBusy
   const live = songPhase === 'recording' || blankPhase === 'recording'
-  const saving = songPhase === 'saving' || blankPhase === 'saving'
-  const hand = practisedHand()
-  const twoHandsShown = mode === 'blank' || hand === 'B'
+  const saving = songPhase === 'saving' || songPhase === 'asking' || blankPhase === 'saving'
+  const hand = usePractice.getState().onlyHand ?? practisedHand()
   const twoHands = setup.hands === 'two'
   const nn = naming === 'sargam' || naming === 'hidden' ? 'english' : naming
   const keyName = (n: number) => `${getNoteName(n, nn, accidentals)}${Math.floor(n / 12) - 1}`
@@ -79,19 +80,20 @@ export default function PracticeRecord() {
   useEffect(() => { if (!open) setChoosingSplit(false) }, [open])
 
   const ways: Record<RecordMode, { name: string; tip: string }> = {
-    song: { name: t`Over the song`, tip: t`The song plays and you play along. Your take is saved as its own track, in a new version of the song.` },
-    blank: { name: t`Blank page`, tip: t`No song: just you, and a click if you like. Your take is saved as a new song in Library › Orfeo › Recordings.` },
+    song: { name: t`Over the song`, tip: t`The song plays and you play along. Keep your take, and a new version of the song has your playing in place of its piano part, where you played.` },
+    blank: { name: t`Blank page`, tip: t`No song: just you, and a click if you like. Keep your take, and it's saved as a new song in Library › Orfeo › Recordings.` },
   }
 
   // what the button says
-  const value = saving ? t`Saving…`
+  const value = asking ? t`Keep?`
+    : saving ? t`Saving…`
     : songPhase === 'starting' ? t`Starting…`
     : songPhase === 'recording' ? t`${songNotes} notes`
     : blankPhase === 'counting' ? t`Count-in ${blankBeat}`
     : blankPhase === 'recording' ? (setup.withClick ? t`Bar ${blankBar}` : t`${blankNotes} notes`)
     : ways[mode].name
   const tip = busy
-    ? { title: t`Recording`, description: t`Click to stop and keep your take.` }
+    ? { title: t`Recording`, description: t`Click to stop. Orfeo then asks whether to keep your take.` }
     : { title: ways[mode].name, description: ways[mode].tip + '\n' + t`Click to choose how you record, and to start.` }
 
   const start = () => { setOpen(false); void startRecord() }
@@ -153,7 +155,20 @@ export default function PracticeRecord() {
               )}
             </>
           )}
-          {twoHandsShown ? (
+          {mode === 'song' ? (
+            hand === 'B' ? (
+              <PopItem on={choosingSplit} onClick={() => setChoosingSplit(c => !c)}
+                hint={choosingSplit ? t`Press a key on your keyboard…` : t`Below it your left hand, from it up your right. Click, then press a key on your keyboard.`}>
+                <KeyboardIcon size={14} color={AMBER} />
+                <span style={{ flex: 1 }}>{t`Split key`}</span>
+                <span style={{ ...featValue, color: choosingSplit ? AMBER : 'var(--text-active)' }}>{keyName(setup.splitKey)}</span>
+              </PopItem>
+            ) : (
+              <div style={{ padding: '6px 14px 8px', fontFamily: 'var(--font-ui)', fontSize: 12, lineHeight: 1.4, color: 'var(--text-muted)' }}>
+                {hand === 'L' ? t`You're playing the left hand: your take replaces the song's left hand.` : t`You're playing the right hand: your take replaces the song's right hand.`}
+              </div>
+            )
+          ) : (
             <>
               <PopItem on={twoHands} onClick={() => setBlankSetup({ hands: twoHands ? 'one' : 'two' })}
                 hint={twoHands ? t`Below the split key the left hand, from it up the right. Each hand can be redone on its own.` : t`Both hands on one track.`}>
@@ -170,10 +185,6 @@ export default function PracticeRecord() {
                 </PopItem>
               )}
             </>
-          ) : (
-            <div style={{ padding: '6px 14px 8px', fontFamily: 'var(--font-ui)', fontSize: 12, lineHeight: 1.4, color: 'var(--text-muted)' }}>
-              {hand === 'L' ? t`You're playing the left hand: your take goes on a left-hand track.` : t`You're playing the right hand: your take goes on a right-hand track.`}
-            </div>
           )}
 
           <PopDivider />
@@ -183,11 +194,20 @@ export default function PracticeRecord() {
             </button>
             <span style={{ fontFamily: 'var(--font-ui)', fontSize: 11, lineHeight: 1.35, color: 'var(--text-muted)' }}>
               {mode === 'song'
-                ? t`The song plays from where it is. Pause, the song's end or the loop going round ends the take; so does REC.`
-                : t`The song stops while you record. Click REC to stop; your take is saved.`}
+                ? t`The song plays from where it is. Pause, the song's end or the loop going round ends the take; so does REC. Then: Keep or Discard.`
+                : t`The song stops while you record. Click REC to stop, then: Keep or Discard.`}
             </span>
             {message && <span style={{ fontFamily: 'var(--font-ui)', fontSize: 11, lineHeight: 1.35, color: 'var(--text-default)', wordBreak: 'break-word' }}>{message}</span>}
           </div>
+          {lastSaved && (
+            <>
+              <PopDivider />
+              <PopItem onClick={() => { setOpen(false); void openLastTake() }} hint={t`Leaves practice mode and opens it, to listen. ${lastSaved.split(/[\\/]/).pop()}`}>
+                <FolderOpen size={14} color={AMBER} />
+                {t`Open your last take`}
+              </PopItem>
+            </>
+          )}
         </BarPop>
       )}
     </>

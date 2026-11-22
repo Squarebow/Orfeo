@@ -78,17 +78,22 @@ export async function stopBlank(keep = true): Promise<string | null> {
     useBlank.setState({ phase: 'idle', message: keep ? t`Nothing was played, so nothing was kept.` : '' })
     return null
   }
+  // in practice mode: keep or throw away first, and the song you're practising stays open
+  const { usePractice } = await import('../practice/practiceMode')
+  const inPractice = usePractice.getState().active
   useBlank.setState({ phase: 'saving' })
+  if (inPractice) {
+    const { askKeep } = await import('./recordMode')
+    if (!(await askKeep(t`Keep: saved as a new song in your Library's Orfeo › Recordings folder.`))) {
+      useBlank.setState({ phase: 'idle', message: t`Your take was thrown away.` })
+      return null
+    }
+  }
   try {
-    // in practice mode the song you're practising stays open: Orfeo asks first
-    const { usePractice } = await import('../practice/practiceMode')
-    const inPractice = usePractice.getState().active
     const path = await saveTake(rec, st.setup, !inPractice)
-    useBlank.setState({ phase: 'idle', message: inPractice ? t`Saved: ${path}` : t`Saved and opened: ${path}` })
-    if (inPractice) {
-      const { offerToOpen } = await import('./recordMode')
-      void offerToOpen(path, t`Your take is saved as a new song.`, t`It's in your Library's Orfeo › Recordings folder.`)
-    } else void offerToListen()
+    useBlank.setState({ phase: 'idle', message: inPractice ? t`Saved: ${path.split(/[\\/]/).pop()}` : t`Saved and opened: ${path}` })
+    if (inPractice) { const { useRecord } = await import('./recordMode'); useRecord.setState({ lastSaved: path }) }
+    else void offerToListen()
     return path
   } catch (e) {
     useBlank.setState({ phase: 'idle', message: t`The take couldn't be saved: ${String((e as Error)?.message ?? e)}` })
