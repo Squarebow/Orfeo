@@ -5,6 +5,20 @@
      list of 2–4 one-line bullets, then ### New / ### Changed / ### Fixed.
      Newest version at the top. -->
 
+## [1.8.2] — 22. 11. 2026 — Minimising the window
+
+**In short**
+- Minimising Orfeo's window no longer shows an error and leaves Orfeo stuck.
+
+### Fixed
+- **Minimising the window showed "A JavaScript error occurred in the main process"** and left Orfeo not
+  responding (new in 1.8.1, from fitting Orfeo to small windows). Minimising, restoring and maximising
+  now work as before.
+
+### Changed
+- **Updated parts:** Electron 44.10.2 (fixes and security updates of the browser engine), GSAP 3.15.1 and
+  the Lucide icons 1.70.
+
 ## [1.8.1] — 22. 11. 2026 — Fixes, and Orfeo fits smaller windows
 
 **In short**
