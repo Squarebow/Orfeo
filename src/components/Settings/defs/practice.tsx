@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { BookOpen, PanelLeftClose, Hand, Activity, Expand, StepForward, Sparkles, MessageSquareText, Minus } from 'lucide-react'
+import { BookOpen, PanelLeftClose, Hand, Activity, Expand, StepForward, Sparkles, MessageSquareText, Minus, Music } from 'lucide-react'
 import { useStore } from '../../../store'
 import { Switch, InlineIcon, OptionBtn } from '../controls'
 import { useDevPractice, pluggedSim, type PianistStyle } from '../../../practice/devPlay'
@@ -206,6 +206,19 @@ export const PRACTICE_DEFS: SettingDef[] = [
       // practice mode plays songs from the practice queue: turning it on turns the queue on too
       if (on && !st.queueEnabled) st.setQueueEnabled(true)
     }} label={t`Practice mode`} /> },
+  },
+  {
+    id: 'toPlayShows', icon: Music, kind: 'choice', useVisible: () => PRACTICE_VISIBLE,
+    Control: () => {
+      const v = useStore(s => s.toPlayShows)
+      return (
+        <div style={{ display: 'flex', gap: 'var(--space-1)' }}>
+          {([['chords', t`Chords`], ['notes', t`Every note`]] as const).map(([k, label]) => (
+            <OptionBtn key={k} active={v === k} onClick={() => useStore.getState().setToPlayShows(k)}>{label}</OptionBtn>
+          ))}
+        </div>
+      )
+    },
   },
   {
     id: 'practicePlaybar', icon: Minus, kind: 'switch', useVisible: () => PRACTICE_VISIBLE,

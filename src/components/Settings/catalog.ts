@@ -27,7 +27,7 @@ export type SettingId =
   | 'showDemo' | 'chordTranscription' | 'openWith' | 'showLyrics' | 'tags' | 'practiceQueue'
   | 'noteEditor' | 'unsavedWarning' | 'saveTrackChanges' | 'tapTempo' | 'tempoWarnings' | 'countIn' | 'skipEmptyBars' | 'handAssignment' | 'loopRegion' | 'focusMode'
   | 'scoreWriting' | 'scoreChords' | 'scoreTriplets' | 'scoreSwing' | 'scoreVoices' | 'scorePedal'
-  | 'practiceMode' | 'practiceSummary' | 'practicePlaybar' | 'practiceFingering' | 'scoreFingering' | 'fingerHints' | 'handSize' | 'stepThrough' | 'chordPrompter' | 'closePanels' | 'handTags' | 'trackVu'
+  | 'practiceMode' | 'practiceSummary' | 'practicePlaybar' | 'practiceFingering' | 'scoreFingering' | 'fingerHints' | 'handSize' | 'toPlayShows' | 'stepThrough' | 'chordPrompter' | 'closePanels' | 'handTags' | 'trackVu'
   | 'displaySystem' | 'accidentals' | 'chordTracking' | 'chordReading' | 'chordNaming'
   | 'keyRange' | 'portableKeyboards' | 'showOctaves' | 'showNoteNames' | 'reflectPianoRoll' | 'preciseScrubTime' | 'explorerPause' | 'mutedOnRoll' | 'tempoDisplay'
   | 'rollZoom' | 'barNumbers' | 'playbar' | 'visualEffects'
@@ -62,7 +62,7 @@ export const GROUPS: GroupInfo[] = [
   { id: 'practice', name: t`Practice`, intro: t`Tools for practising`, manualUrl: 'https://orfeo.cc/docs/practicing-with-midi-files',
     // practice mode and its score: dev mode and test builds until 2.0
     tabs: [
-      { key: 'practice-mode', name: t`Practice mode`, ids: ['practiceMode', 'practiceSummary', 'practicePlaybar'], devOnly: true },
+      { key: 'practice-mode', name: t`Practice mode`, ids: ['practiceMode', 'practiceSummary', 'practicePlaybar', 'toPlayShows'], devOnly: true },
       { key: 'score', name: t`Score`, ids: ['scoreWriting', 'scoreChords', 'scoreTriplets', 'scoreSwing', 'scoreVoices', 'scorePedal'], devOnly: true },
       { key: 'fingering', name: t`Fingering`, ids: ['fingerHints', 'handSize', 'practiceFingering', 'scoreFingering'], devOnly: true },
       { key: 'tools', name: t`Practice tools`, ids: ['stepThrough', 'chordPrompter', 'closePanels', 'handTags', 'reflectPianoRoll', 'starmap'] },
@@ -174,6 +174,9 @@ export const SETTINGS: SettingInfo[] = [
   { id: 'practicePlaybar', group: 'practice', name: t`Playbar in practice mode`, summary: t`The line where notes meet the keys, in the piano roll view.`,
     description: t`Turn on to show the playbar in practice mode's piano roll view. Off, the notes fall straight onto the keyboard and the piano roll gets more room. Split never shows it.`,
     keywords: 'practice playbar hit line falling notes keyboard' },
+  { id: 'toPlayShows', group: 'practice', name: t`To play`, summary: t`The chord to play next: the song's chords, or every note.`,
+    description: t`What TO PLAY shows in practice mode. Chords: the song's chord where your next notes are, as the chord display reads it, steady even in fast passages. Every note: the exact notes of your part, a chord's name or a single note's, changing with every note.`,
+    keywords: 'practice to play chord next notes footer' },
   { id: 'fingerHints', group: 'practice', name: t`Suggested fingering`, summary: t`Finger numbers worked out by Orfeo where you haven't set your own.`,
     description: t`Turn on to have Orfeo suggest a finger for every note you haven't fingered yourself, from the rules piano teachers use (stay in position, the thumb under in scales, the usual chord shapes, the thumb off black keys). 1 is the thumb and 5 the little finger, in both hands.
 It's only a suggestion: it can't know your hand or how the music is phrased, and it may not be the best technique for every passage. A teacher's fingering is better; your own numbers always win. Suggestions show hollow on the keyboard and grey on the score, and aren't saved with the song.`,

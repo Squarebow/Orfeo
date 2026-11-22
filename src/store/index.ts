@@ -547,6 +547,8 @@ interface OrfeoStore {
   fingerHints: boolean                     // suggested fingering where you haven't set your own (practice/fingerHints.ts)
   setFingerHints: (v: boolean) => void
   handSize: 'small' | 'medium' | 'large'   // for suggested fingering: how far the hand reaches
+  toPlayShows: 'chords' | 'notes'          // practice mode's TO PLAY: the song's chords, or every note of your part
+  setToPlayShows: (v: 'chords' | 'notes') => void
   setHandSize: (v: 'small' | 'medium' | 'large') => void
   setPracticeFingering: (v: boolean) => void
   playbarOverride: boolean | null
@@ -1330,6 +1332,8 @@ export const useStore = create<OrfeoStore>((set, get) => ({
   fingerHints: false,
   setFingerHints: (fingerHints) => set({ fingerHints }),
   handSize: 'medium',
+  toPlayShows: 'chords',
+  setToPlayShows: (toPlayShows) => set({ toPlayShows }),
   setHandSize: (handSize) => set({ handSize }),
   playbarOverride: null,
   keyboardTopY: null,
@@ -1553,6 +1557,7 @@ async function restoreLibraryPrefs() {
     if (typeof prefs.practiceFingering === 'boolean') store.setPracticeFingering(prefs.practiceFingering)
     if (typeof prefs.fingerHints === 'boolean') store.setFingerHints(prefs.fingerHints)
     if (prefs.handSize === 'small' || prefs.handSize === 'medium' || prefs.handSize === 'large') store.setHandSize(prefs.handSize)
+    if (prefs.toPlayShows === 'chords' || prefs.toPlayShows === 'notes') store.setToPlayShows(prefs.toPlayShows)
     if (typeof prefs.saveTempoKeyChangesEnabled === 'boolean') store.setSaveTempoKeyChangesEnabled(prefs.saveTempoKeyChangesEnabled)
     if (typeof prefs.tapTempoPadEnabled === 'boolean') store.setTapTempoPadEnabled(prefs.tapTempoPadEnabled)
     if (prefs.tapTempoMode === 'beat' || prefs.tapTempoMode === 'bar') store.setTapTempoMode(prefs.tapTempoMode)
@@ -1797,6 +1802,7 @@ let _prevPracticePlaybar: boolean | null = null
 let _prevPracticeFingering: boolean | null = null
 let _prevFingerHints: boolean | null = null
 let _prevHandSize: string | null = null
+let _prevToPlayShows: string | null = null
 let _prevSaveTempoKeyChangesEnabled: boolean | null = null
 let _prevTapTempoPadEnabled: boolean | null = null
 let _prevTapTempoMode: string | null = null
@@ -1886,6 +1892,7 @@ const _unsubPrefs = useStore.subscribe((state) => {
     _prevPracticeFingering = state.practiceFingering
     _prevFingerHints = state.fingerHints
     _prevHandSize = state.handSize
+    _prevToPlayShows = state.toPlayShows
     _prevSaveTempoKeyChangesEnabled = state.saveTempoKeyChangesEnabled
     _prevTapTempoPadEnabled = state.tapTempoPadEnabled
     _prevTapTempoMode = state.tapTempoMode
@@ -1978,6 +1985,7 @@ const _unsubPrefs = useStore.subscribe((state) => {
     state.practiceFingering !== _prevPracticeFingering ||
     state.fingerHints !== _prevFingerHints ||
     state.handSize !== _prevHandSize ||
+    state.toPlayShows !== _prevToPlayShows ||
     state.saveTempoKeyChangesEnabled !== _prevSaveTempoKeyChangesEnabled ||
     state.tapTempoPadEnabled !== _prevTapTempoPadEnabled ||
     state.tapTempoMode !== _prevTapTempoMode ||
@@ -2062,6 +2070,7 @@ const _unsubPrefs = useStore.subscribe((state) => {
     _prevPracticeFingering = state.practiceFingering
     _prevFingerHints = state.fingerHints
     _prevHandSize = state.handSize
+    _prevToPlayShows = state.toPlayShows
     _prevSaveTempoKeyChangesEnabled = state.saveTempoKeyChangesEnabled
     _prevTapTempoPadEnabled = state.tapTempoPadEnabled
     _prevTapTempoMode = state.tapTempoMode
@@ -2152,6 +2161,7 @@ const _unsubPrefs = useStore.subscribe((state) => {
       practiceFingering: state.practiceFingering,
       fingerHints: state.fingerHints,
       handSize: state.handSize,
+      toPlayShows: state.toPlayShows,
       saveTempoKeyChangesEnabled: state.saveTempoKeyChangesEnabled,
       tapTempoPadEnabled: state.tapTempoPadEnabled,
       tapTempoMode: state.tapTempoMode,

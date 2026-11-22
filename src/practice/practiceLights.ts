@@ -115,13 +115,22 @@ export function chordToPlay(p: Prepared, t: number, o: { playing: boolean; holdA
 }
 
 // ── The chord to play next, for the footer ──────────────────────────────────
-export const useToPlay = create<{ notes: number[] }>(() => ({ notes: [] }))
+// `notes`: your part's notes at that moment; `chord`: the song's chord there, as
+// the chord display reads it (steady through fast runs: what TO PLAY shows by default)
+export const useToPlay = create<{ notes: number[]; chord: string | null }>(() => ({ notes: [], chord: null }))
 let toPlayKey = ''
-function setToPlay(notes: number[]) {
-  const k = notes.join()
+function setToPlay(notes: number[], chord: string | null = null) {
+  const k = notes.join() + '|' + (chord ?? '')
   if (k === toPlayKey) return
   toPlayKey = k
-  useToPlay.setState({ notes })
+  useToPlay.setState({ notes, chord })
+}
+/** The song's chord at song time `t` (the last chord change at or before it) */
+function songChordAt(t: number): string | null {
+  const seq = useStore.getState().chordSequence
+  let lo = 0, hi = seq.length
+  while (lo < hi) { const m = (lo + hi) >> 1; if (seq[m].time <= t + 1e-6) lo = m + 1; else hi = m }
+  return lo > 0 ? seq[lo - 1].name || null : null
 }
 
 // ── The keys the song waits for, pulsing on the on-screen keyboard ──────────
@@ -156,7 +165,9 @@ function update() {
       done: i => m.isDone(i),
     })
     if (!s.practiceFingering) for (const v of next.values()) delete v.finger
-    setToPlay(chordToPlay(prepared, s.currentTime, { playing: s.playbackState === 'playing', holdAt: w.holding ? w.at : null, ahead: LIGHT_AHEAD_SEC * ratio() }))
+    const playingNow = s.playbackState === 'playing', holdAt = w.holding ? w.at : null
+    const notes = chordToPlay(prepared, s.currentTime, { playing: playingNow, holdAt, ahead: LIGHT_AHEAD_SEC * ratio() })
+    setToPlay(notes, songChordAt(holdAt ?? (playingNow ? s.currentTime + LIGHT_AHEAD_SEC * ratio() : s.currentTime)))
   } else setToPlay([])
   setPulse(next && w.holding ? new Map([...next].map(([k, v]) => [k, v.hand])) : new Map())
   const key = next ? [...next].map(([k, v]) => `${k}${v.hand}${v.finger ?? ''}`).join() : 'none'

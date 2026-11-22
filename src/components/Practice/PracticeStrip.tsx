@@ -42,7 +42,12 @@ function useChordName(notes: number[] | Set<number>, settle = 0): string {
 // The centre of the footer: the chord your part plays next (as the keys light
 // up) beside the chord in the keys you're holding
 function Chords() {
-  const toPlay = useChordName(useToPlay(s => s.notes))
+  // the song's chord (steady through fast runs), or every note of your part (Settings › Practice)
+  const shows = useStore(s => s.toPlayShows)
+  const toPlayNotes = useChordName(useToPlay(s => s.notes))
+  const songChord = useToPlay(s => s.chord)
+  const naming = useStore(s => s.noteNaming), accidentals = useStore(s => s.accidentals), style = useStore(s => s.chordNamingStyle)
+  const toPlay = shows === 'notes' ? toPlayNotes : songChord ? (localizeChord(songChord, naming === 'sargam' || naming === 'hidden' ? 'english' : naming, accidentals, style) ?? songChord) : ''
   // read a moment after the last key change, so a rolled chord doesn't flicker
   const youPlay = useChordName(useStore(s => s.midiHeldKeys), 40)
   const name = (v: string, colour: string) => (
@@ -50,7 +55,9 @@ function Chords() {
   )
   return (
     <div style={{ justifySelf: 'center', display: 'flex', alignItems: 'center', gap: 28 }}>
-      <Tooltip title={t`To play`} description={t`The chord your part plays next, as its keys light up. While the song waits, the one it waits for.`} placement="top">
+      <Tooltip title={t`To play`} description={shows === 'notes' ? t`The notes your part plays next, as its keys light up (a chord's name, or a single note's).
+Settings › Practice: Chords, for the song's chords instead.` : t`The song's chord where your next notes are, as the chord display reads it.
+Settings › Practice: Every note, for each note of your part.`} placement="top">
         <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
           <span style={featLabel}>{t`To play:`}</span>{name(toPlay, AMBER)}
         </div>
