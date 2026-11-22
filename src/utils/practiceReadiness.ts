@@ -20,7 +20,9 @@ export const PRACTICE_PREP_VISIBLE = simAvailable
 
 export const MAX_PRACTICE_PIANOS = 2
 // A piano track with fewer notes than this is a touch of colour in the band,
-// not a part to practise (21. 11.: a song with an 11-note piano was "ready")
+// not a part to practise (21. 11.: a song with an 11-note piano was "ready").
+// Only with other instruments playing: a piano piece on its own counts at any
+// length (22. 11.)
 export const MIN_PRACTICE_NOTES = 50
 
 /** Piano tracks that count for practice: the piano family (acoustic and
@@ -37,8 +39,10 @@ export const isPracticePiano = (t: { group?: string; isDrum?: boolean }): boolea
 // tracks, Left Hand and Right Hand, each holding only its own hand. Then
 // practice mode never asks which hand a note belongs to (the track says it),
 // and hearing the other hand is just muting one track, in every sound engine.
-// A piano part that is one hand throughout (a simple tune) is ready too, for
-// practising that hand.
+// A single piano track that is one hand throughout is ready only when nothing
+// in it is left unsure (a person checked it, or Orfeo is sure throughout): a
+// whole piano part read as one hand is a mistake to fix in preparation, not a
+// one-hand tune (22. 11.: a two-handed piano part saved all left hand was ready).
 //   one track, both hands, or two parts that aren't the hands
 //                          → Prepare for practice: the Note Editor shows the
 //                            piano as one, you check the hands, and saving
@@ -65,14 +69,16 @@ export function songPracticeState(
   tracks: { index: number; group?: string; isDrum?: boolean; name?: string; trackName?: string; notes: ParsedNote[] }[],
   { stavePairs = [], options = {} }: { stavePairs?: [number, number][]; options?: HandAssignOptions } = {},
 ): SongPractice {
-  const pianos = tracks.filter(t => isPracticePiano(t) && t.notes.length >= MIN_PRACTICE_NOTES)
+  const others = tracks.some(t => !isPracticePiano(t) && t.notes.length > 0)
+  const pianos = tracks.filter(t => isPracticePiano(t) && t.notes.length > 0 && (!others || t.notes.length >= MIN_PRACTICE_NOTES))
   if (pianos.length === 0) return { state: 'cant', reason: 'no-piano', pianos: 0 }
   if (pianos.length > MAX_PRACTICE_PIANOS) return { state: 'cant', reason: 'too-many', pianos: pianos.length }
   if (pianos.length === 1) {
     const t = pianos[0]
     const h = trackHand({ notes: t.notes })
-    if (h) return { state: 'one-hand', track: t.index, hand: h }
-    return { state: 'prepare', tracks: [t.index], passages: trackPracticeState(t.notes, { options }).passages }
+    const check = trackPracticeState(t.notes, { options })
+    if (h && check.passages === 0) return { state: 'one-hand', track: t.index, hand: h }
+    return { state: 'prepare', tracks: [t.index], passages: check.passages }
   }
   const [a, b] = pianos
   const staves = stavePairs.find(p => p.includes(a.index) && p.includes(b.index))

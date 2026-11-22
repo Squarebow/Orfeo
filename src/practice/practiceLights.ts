@@ -190,7 +190,7 @@ function source() {
 const unsubs = [
   useStore.subscribe((s, prev) => {
     if (s.currentTime !== prev.currentTime || s.playbackState !== prev.playbackState || s.bpm !== prev.bpm
-      || s.practiceFingering !== prev.practiceFingering) update()
+      || s.practiceFingering !== prev.practiceFingering || s.chordSequence !== prev.chordSequence) update()
   }),
   useWaiting.subscribe(update),
   useListen.subscribe(update),      // a key you played (a waited-for key goes dark), a fresh take

@@ -79,7 +79,13 @@ export function runPracticeReadinessTest(): number {
   check(songPracticeState([T(0, 'piano', both), T(1, 'piano', both)], { stavePairs: [[1, 0]] }).state === 'ready', "a score's two staves: ready")
   check((songPracticeState([T(0, 'piano', both), T(1, 'piano', both), T(2, 'piano', both)]) as any).reason === 'too-many', 'three pianos: too many')
   check((songPracticeState([T(0, 'organ', both)]) as any).reason === 'no-piano', 'an organ is not the piano part')
-  check((songPracticeState([{ index: 0, group: 'piano', notes: hands('R') }]) as any).reason === 'no-piano', 'a piano of a few notes is part of the band, not a part to practise')
+  // a few notes of piano: with a band, a touch of colour; on its own, a piece to play
+  check((songPracticeState([{ index: 0, group: 'piano', notes: hands('R') }, T(1, 'bass', hands('L'))]) as any).reason === 'no-piano', 'a piano of a few notes in a band is part of the band, not a part to practise')
+  check(songPracticeState([{ index: 0, group: 'piano', notes: hands('R') }, { index: 1, group: 'piano', notes: hands('L') }]).state === 'ready', 'a short piano piece on its own counts, however short')
+  // one hand throughout, but Orfeo reads both hands in it: prepare, don't call it a one-hand tune
+  const allLeft = [...Array.from({ length: 30 }, (_, i) => ({ ...note(i, 'L', RESTORED_CONFIDENCE), midi: 40 + (i % 8) })),
+    ...Array.from({ length: 30 }, (_, i) => ({ ...note(i + 0.01, 'L', RESTORED_CONFIDENCE), midi: 76 + (i % 8) }))]
+  check(songPracticeState([{ index: 0, group: 'piano', notes: allLeft }]).state === 'prepare', 'a two-handed piano saved all left hand: prepare, not ready')
   check(trackHand({ name: 'Left Hand', notes: [] }) === 'L' && trackHand({ trackName: 'Grand RH', notes: [] }) === 'R', 'hands read from the names Orfeo writes')
 
   console.log(`${pass} passed, ${fail} failed`)

@@ -46,8 +46,8 @@ function Chords() {
   const shows = useStore(s => s.toPlayShows)
   const toPlayNotes = useChordName(useToPlay(s => s.notes))
   const songChord = useToPlay(s => s.chord)
-  const naming = useStore(s => s.noteNaming), accidentals = useStore(s => s.accidentals), style = useStore(s => s.chordNamingStyle)
-  const toPlay = shows === 'notes' ? toPlayNotes : songChord ? (localizeChord(songChord, naming === 'sargam' || naming === 'hidden' ? 'english' : naming, accidentals, style) ?? songChord) : ''
+  // the song's chords come already named the player's way (as the chord display shows them)
+  const toPlay = shows === 'notes' ? toPlayNotes : songChord ?? ''
   // read a moment after the last key change, so a rolled chord doesn't flicker
   const youPlay = useChordName(useStore(s => s.midiHeldKeys), 40)
   const name = (v: string, colour: string) => (

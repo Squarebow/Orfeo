@@ -48,7 +48,7 @@ export default function PracticePickSong() {
           onMouseLeave={e => { e.currentTarget.style.background = 'none' }}>
           <span style={{ fontFamily: 'var(--font-mono)', fontSize: 11, color: 'var(--text-muted)', minWidth: 18, textAlign: 'right' }}>{i + 1}</span>
           <span style={{ flex: 1, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-            {libraryDisplayName(path.split(/[\/]/).pop() ?? path, songFirst)}
+            {libraryDisplayName(path.split(/[\\/]/).pop() ?? path, songFirst)}
           </span>
         </button>
       ))}
