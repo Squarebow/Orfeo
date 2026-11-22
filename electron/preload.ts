@@ -102,6 +102,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
   // App zoom (Ctrl +/−/0)
   getZoom:             () => ipcRenderer.invoke('zoom:get'),
   setZoom:             (percent: number) => ipcRenderer.invoke('zoom:set', percent),
+  setFitToWindow:      (on: boolean) => ipcRenderer.invoke('zoom:fit', on),
   onZoomChanged:       (fn: (data: { percent: number; capped: boolean }) => void) => {
     const wrapped = (_e: unknown, data: any) => fn(data)
     zoomListeners.set(fn, wrapped)

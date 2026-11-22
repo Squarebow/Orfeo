@@ -205,6 +205,7 @@ function createWindow() {
   // Chromium's own accelerator handling sees them. ─────────────────────────
   win.webContents.setVisualZoomLevelLimits(1, 1)
   {
+    fitToWindow = loadPrefs().fitToWindow !== false
     const saved = loadPrefs().appZoom
     applyZoom(win, ZOOM_STEPS.includes(saved) ? saved : 100, false)
   }
@@ -310,8 +311,14 @@ const FIT_DESIGN = { w: 1720, h: 720 }   // the width the top bar needs to show 
 // the window's own buttons (minimise, maximise, close) keep their size while
 // the app shrinks around them, so they're left out of what's scaled
 const CAPTION_BUTTONS_W = 150
+// never smaller than this (text stays readable); a narrower window than that
+// cuts off the top bar's ends, as before. Settings › Appearance › Fit to small
+// windows switches the shrinking off (prefs fitToWindow, on by default).
+const FIT_FLOOR = 0.75
+let fitToWindow = true
 function fitFactorFor(width: number, height: number): number {
-  return Math.min(1, (width - CAPTION_BUTTONS_W) / (FIT_DESIGN.w - CAPTION_BUTTONS_W), height / FIT_DESIGN.h)
+  if (!fitToWindow) return 1
+  return Math.max(FIT_FLOOR, Math.min(1, (width - CAPTION_BUTTONS_W) / (FIT_DESIGN.w - CAPTION_BUTTONS_W), height / FIT_DESIGN.h))
 }
 function fitFactor(win: BrowserWindow): number {
   const [w, h] = win.getContentSize()
@@ -367,6 +374,10 @@ function stepZoom(win: BrowserWindow, direction: 1 | -1) {
 ipcMain.handle('zoom:get', async () => {
   if (!mainWin) return { percent: currentZoomPercent, steps: ZOOM_STEPS, max: 200 }
   return { percent: currentZoomPercent, steps: ZOOM_STEPS, max: maxAllowedZoomPercent(mainWin) }
+})
+ipcMain.handle('zoom:fit', async (_e, on: boolean) => {
+  fitToWindow = on !== false
+  if (mainWin) { appliedFactor = 0; setFactor(mainWin) }
 })
 ipcMain.handle('zoom:set', async (_e, percent: number) => {
   if (!mainWin) return null

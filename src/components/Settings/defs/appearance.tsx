@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { Palette, ZoomIn, RotateCcw, Sparkles, MessageSquare, Heart, Hand, Signpost } from 'lucide-react'
+import { Palette, ZoomIn, RotateCcw, Sparkles, MessageSquare, Heart, Hand, Signpost, Shrink } from 'lucide-react'
 import { useStore } from '../../../store'
 import { t } from '../../../utils/i18n'
 import { AppBgBtn, ZoomStepper, GlanceLine, InlineIcon, Switch, SubLabel, useSurface, ButtonRow } from '../controls'
@@ -184,6 +184,10 @@ export const APPEARANCE_DEFS: SettingDef[] = [
   { id: 'handColors', icon: Hand, kind: 'choice', Control: HandColorsControl },
   { id: 'appZoom', icon: ZoomIn, kind: 'inline', Control: AppZoomControl, Glance: AppZoomGlance, glanceQuickOnly: true, Extra: AppZoomCap,
     Description: () => <>{t`Makes everything in Orfeo bigger or smaller. Ctrl + / Ctrl − / Ctrl 0 work exactly as in a web browser.`} {t`Click`} <InlineIcon><RotateCcw size={10} /></InlineIcon> {t`to reset.`}</> },
+  {
+    id: 'fitToWindow', icon: Shrink, kind: 'switch',
+    Control: () => { const v = useStore(s => s.fitToWindow); return <Switch value={v} onChange={useStore.getState().setFitToWindow} label={t`Fit to small windows`} /> },
+  },
   {
     id: 'tooltips', icon: MessageSquare, kind: 'switch',
     Control: () => { const v = useStore(s => s.tooltipsEnabled); return <Switch value={v} onChange={useStore.getState().setTooltipsEnabled} label={t`Tooltips`} /> },

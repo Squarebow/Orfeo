@@ -28,7 +28,7 @@ export type SettingId =
   | 'displaySystem' | 'accidentals' | 'chordTracking' | 'chordReading' | 'chordNaming'
   | 'keyRange' | 'portableKeyboards' | 'showOctaves' | 'showNoteNames' | 'reflectPianoRoll' | 'preciseScrubTime' | 'explorerPause' | 'mutedOnRoll' | 'tempoDisplay'
   | 'rollZoom' | 'barNumbers' | 'playbar' | 'visualEffects'
-  | 'theme' | 'handColors' | 'appZoom' | 'tooltips' | 'tours' | 'supportNote' | 'starmap'
+  | 'theme' | 'handColors' | 'appZoom' | 'fitToWindow' | 'tooltips' | 'tours' | 'supportNote' | 'starmap'
   | 'showLanguageSwitcher' | 'followSystemLanguage' | 'menuLanguages' | 'translations' | 'translationUpdates'
   | 'midiKeyboards' | 'midiReconnect' | 'liveResponse' | 'latencyOffset' | 'gmOutput' | 'touchResponse' | 'duplicateFilter'
   | 'pedalsControls' | 'delayCheck' | 'midiTools'
@@ -64,7 +64,7 @@ export const GROUPS: GroupInfo[] = [
   { id: 'piano-roll', name: t`Piano Roll`, intro: t`Tune the falling notes`, manualUrl: 'https://orfeo.cc/docs/playing-midi-files/the-piano-roll',
     stack: [['visualEffects'], ['rollZoom'], ['barNumbers', 'playbar']], looseFirst: true },
   { id: 'appearance', name: t`Appearance`, intro: t`Change the look`, manualUrl: 'https://orfeo.cc/docs/settings/appearance-settings',
-    stack: [['handColors', 'tooltips', 'tours', 'appZoom', 'theme']] },
+    stack: [['handColors', 'tooltips', 'tours', 'appZoom', 'fitToWindow', 'theme']] },
   { id: 'language', name: t`Language`, intro: t`Choose your language`, manualUrl: 'https://orfeo.cc/docs/settings/language',
     stack: [['showLanguageSwitcher', 'followSystemLanguage', 'menuLanguages', 'translations', 'translationUpdates']] },
   // Dev mode only (simAvailable) — its words are plain strings, kept out of the translations
@@ -219,6 +219,9 @@ with octave buttons to move them. Notes beyond their edges show fainter on the k
   { id: 'appZoom', group: 'appearance', name: t`App Zoom`, summary: t`Make everything in Orfeo bigger or smaller.`,
     description: t`Makes everything in Orfeo bigger or smaller. Ctrl + / Ctrl − / Ctrl 0 work exactly as in a web browser. Click reset to go back to 100%.`,
     keywords: 'zoom scale size bigger smaller ctrl' },
+  { id: 'fitToWindow', group: 'appearance', name: t`Fit to small windows`, summary: t`Everything shrinks to fit a small window.`,
+    description: t`Turn on to shrink everything in Orfeo to fit a small window, down to 75 %.\nOff, a small window shows everything at full size and cuts off what doesn't fit.`,
+    keywords: 'fit window small screen laptop shrink scale size zoom resize' },
   { id: 'tooltips', group: 'appearance', name: t`Tooltips`, summary: t`Hints that pop up when you point at a control.`,
     description: t`The hints that pop up when you point at a button, knob or icon. Turn them off once you know your way around.\nA knob still shows its value while you turn it.`,
     keywords: 'tooltips hints help hover popup tips' },
