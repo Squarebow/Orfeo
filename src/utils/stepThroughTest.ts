@@ -18,6 +18,17 @@ export function runStepThroughTest(): number {
   const solo = buildSteps(midi, [ts(0, { solo: true }), ts(1), ts(2, { visible: false }), ts(3)])
   check(solo.map(s => s.time).join() === '1', 'solo: only the soloed track is heard and shown, so only it makes steps')
 
+  // a piano in two hand tracks: each step's notes know their hand, so the keys
+  // light in the hand colours the roll shows, not in each track's own colour
+  const hands = { tracks: [
+    { index: 0, channel: 0, isDrum: false, notes: [{ time: 1, midi: 72, velocity: 0.8, duration: 0.5, hand: 'R' }] },
+    { index: 1, channel: 0, isDrum: false, notes: [{ time: 1, midi: 48, velocity: 0.8, duration: 0.5, hand: 'L' }] },
+  ] }
+  const hs = buildSteps(hands, [ts(0), ts(1)])
+  const byMidi = new Map(hs[0].notes.map(n => [n.midi, n]))
+  check(byMidi.get(72)?.hand === 'R' && byMidi.get(48)?.hand === 'L' && !!byMidi.get(72)?.handTrack && !!byMidi.get(48)?.handTrack,
+    'hand tracks: each note keeps its hand for the key colour')
+
   console.log(`stepThrough: ${pass} passed, ${fail} failed`)
   console.groupEnd()
   return fail
