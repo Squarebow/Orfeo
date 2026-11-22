@@ -114,6 +114,32 @@ export function runSongTakeTest(): number {
     check(replaced.join() === 'R' && m.tracks[0].notes.length === 16 && m.tracks[1].notes.length === 1, 'a hand you didn\'t play keeps the song\'s notes')
   }
 
+  // ── Overdub: right hand, punched in at 6 s and out at 8 s ──
+  {
+    const tk = new SongTake(0)
+    tk.key(70, 100, true, 5.0); tk.key(70, 0, false, 5.4)      // the run-up: before the punch-in, not recorded
+    tk.key(74, 100, true, 6.0); tk.key(74, 0, false, 6.4)
+    tk.key(76, 100, true, 7.5); tk.key(76, 0, false, 8.6)      // held over the punch-out: cut there
+    tk.key(79, 100, true, 8.5); tk.key(79, 0, false, 8.9)      // after the punch-out: not recorded
+    const { bytes, replaced } = songTakeToMidi(tk.stop(9), { origRaw: song(), parts: { L: 0, R: 1 }, hand: 'R', splitKey: 60, end: 9, punch: { from: 6, to: 8 } })
+    const m = new Midi(bytes)
+    const rh = m.tracks[1]
+    check(replaced.join() === 'R' && m.tracks.length === 3, 'overdub: the right hand, no track added')
+    check(rh.notes.length === 14 && rh.notes.filter(n => n.time >= 6 && n.time < 8).map(n => n.midi).join() === '74,76', "overdub: between the punch points only your notes, outside them the song's")
+    check(!rh.notes.some(n => n.midi === 70 || n.midi === 79), 'overdub: nothing from the run-up or after the punch-out')
+    check(near(rh.notes.find(n => n.midi === 76)!.duration, 0.5), 'overdub: a key held over the punch-out stops there')
+    check(m.tracks[0].notes.length === 16, 'overdub: the left hand untouched')
+    const meta = metaOf(m)
+    const hm = meta.filter(x => x.startsWith('ORFEO_HAND_MAP:')).map(x => parseHandMapMeta(x)!).find(h => h.trackIndex === 1)
+    const order = rh.notes.map(n => n.midi)
+    check(!!hm && hm.hands.length === 14 && hm.sources?.[order.indexOf(74)] === 'manual' && hm.sources?.[0] !== 'manual', "overdub: your notes set by you, the song's as they were")
+    const fm = meta.find(x => x.startsWith('ORFEO_FINGERS:1:'))
+    const fingers = fm ? fm.split(':').slice(2).join(':') : ''
+    check(fingers.startsWith('1.2.3.4'), `overdub: the song's fingering kept outside the punch ${fingers}`)
+    const ped = (rh.controlChanges[64] ?? []).map(c => [+c.time.toFixed(2), c.value])
+    check(JSON.stringify(ped) === JSON.stringify([[4, 1], [6, 0], [8, 1], [11, 0]]), `overdub: the pedal up between the punch points (none played), back after ${JSON.stringify(ped)}`)
+  }
+
   console.log(`  songTake: ${pass} passed, ${fail} failed`)
   console.groupEnd()
   return fail

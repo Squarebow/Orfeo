@@ -1,18 +1,18 @@
 import { useEffect, useRef, useState, type CSSProperties, type ReactNode } from 'react'
-import { Circle, Square, Music, FileMusic, Timer, Hand, Keyboard as KeyboardIcon, FolderOpen } from 'lucide-react'
+import { Circle, Square, Music, Layers, Repeat, FileMusic, Timer, Hand, Keyboard as KeyboardIcon, FolderOpen } from 'lucide-react'
 import { useStore } from '../../store'
 import { t } from '../../utils/i18n'
 import { getNoteName } from '../../utils/noteNames'
 import Tooltip from '../Tooltip'
 import { usePractice, practisedHand } from '../../practice/practiceMode'
 import { useBlank, setBlankSetup } from '../../record/blank'
-import { useRecord, setRecordMode, startRecord, stopRecord, openLastTake, type RecordMode } from '../../record/recordMode'
+import { useRecord, setRecordMode, setRunUpBars, startRecord, stopRecord, openLastTake, punchRange, barsOf, type RecordMode } from '../../record/recordMode'
 import type { Meter } from '../../record/click'
 import { AMBER, barIcon, featLabel, featValue, toolBtn, BarPop, PopItem, popHeading, PopDivider, Reserve, MiniSwitch } from './practiceBar'
 
 // ── Practice mode's REC (footer, right, before VIEW) ─────────────────────────
 // Closed: the way of recording chosen (REC: OVER THE SONG). A click opens its
-// choices upwards: the two ways, their switches, and Record. While recording
+// choices upwards: the three ways, their switches, and Record. While recording
 // the button is STOP, a red square, as in any recorder, with a red dot while
 // it records and how far you've got. Pause (the header) only pauses the take;
 // Stop ends it, and Orfeo asks Keep or Discard. (After 2.0: lives on the
@@ -48,6 +48,10 @@ export default function PracticeRecord() {
   const lastSaved = useRecord(s => s.lastSaved)
   const asking = useRecord(s => s.asking)
   const countingIn = useStore(s => s.countIn !== null)
+  const runUpBars = useRecord(s => s.runUpBars)
+  const punchNow = useRecord(s => s.punchNow)
+  // Overdub's punch points: the loop (its bars follow it as you change it)
+  useStore(s => s.loopStart); useStore(s => s.loopEnd); useStore(s => s.barStarts)
   const blankPhase = useBlank(s => s.phase)
   const setup = useBlank(s => s.setup)
   const blankBar = useBlank(s => s.bar)
@@ -84,6 +88,7 @@ export default function PracticeRecord() {
 
   const ways: Record<RecordMode, { name: string; tip: string }> = {
     song: { name: t`Over the song`, tip: t`Record your own piano part over the song's arrangement. Keep it, and a new version of the song has your playing as its piano part.` },
+    overdub: { name: t`Overdub`, tip: t`Record over the loop's bars only: punch in where the loop starts, punch out where it ends. Keep it, and your playing replaces the piano part there; the rest of the song stays as it is.` },
     blank: { name: t`Blank page`, tip: t`No song: just you, and a click if you like. Keep your take, and it's saved as a new song in Library › Orfeo › Recordings.` },
   }
 
@@ -93,17 +98,21 @@ export default function PracticeRecord() {
     : countingIn && (songPhase === 'starting' || songPhase === 'paused') ? t`Count-in`
     : songPhase === 'starting' ? t`Starting…`
     : songPhase === 'paused' ? t`Paused`
+    : songPhase === 'recording' && punchNow === 'before' ? t`Run-up`
+    : songPhase === 'recording' && punchNow === 'after' ? t`Punched out`
     : songPhase === 'recording' ? (songNotes === 1 ? t`1 note` : t`${songNotes} notes`)
     : blankPhase === 'counting' ? t`Count-in ${blankBeat}`
     : blankPhase === 'recording' ? (setup.withClick ? t`Bar ${blankBar}` : blankNotes === 1 ? t`1 note` : t`${blankNotes} notes`)
     : ways[mode].name
   const tip = busy
-    ? { title: t`Stop`, description: mode === 'song'
+    ? { title: t`Stop`, description: mode !== 'blank'
         ? t`Stops the recording; Orfeo then asks whether to keep your take.
 Pause only pauses it: Play goes on after a count-in.`
         : t`Stops the recording; Orfeo then asks whether to keep your take.` }
     : { title: ways[mode].name, description: ways[mode].tip + '\n' + t`Click to choose how you record, and to start.` }
 
+  const punch = punchRange()
+  const punchBars = punch ? barsOf(punch) : null
   const start = () => { setOpen(false); void startRecord() }
 
   return (
@@ -117,7 +126,7 @@ Pause only pauses it: Play goes on after a count-in.`
           </Reserve>
           <span aria-hidden className={live ? 'orfeo-soft-pulse' : undefined}
             style={{ width: 8, height: 8, borderRadius: '50%', flexShrink: 0, background: live ? RED : 'var(--text-muted)', visibility: busy && !saving ? 'visible' : 'hidden' }} />
-          <Reserve options={[ways.song.name, ways.blank.name, t`Count-in ${8}`, t`${8888} notes`, t`Paused`, t`Saving…`].map((x, i) => <span key={i} style={featValue}>{x}</span>)}>
+          <Reserve options={[ways.song.name, ways.overdub.name, ways.blank.name, t`Count-in ${8}`, t`${8888} notes`, t`Paused`, t`Saving…`, t`Run-up`, t`Punched out`].map((x, i) => <span key={i} style={featValue}>{x}</span>)}>
             <span style={featValue}>{value}</span>
           </Reserve>
         </button>
@@ -125,9 +134,9 @@ Pause only pauses it: Play goes on after a count-in.`
       {open && (
         <BarPop anchor={ref.current} up align="right" width={320} onClose={() => setOpen(false)} label={t`Record`}>
           <div style={popHeading}>{t`Record`}</div>
-          {(['song', 'blank'] as RecordMode[]).map(id => (
+          {(['song', 'overdub', 'blank'] as RecordMode[]).map(id => (
             <PopItem key={id} on={mode === id} onClick={() => setRecordMode(id)} hint={ways[id].tip}>
-              {id === 'song' ? <Music size={14} color={AMBER} /> : <FileMusic size={14} color={AMBER} />}
+              {id === 'song' ? <Music size={14} color={AMBER} /> : id === 'overdub' ? <Layers size={14} color={AMBER} /> : <FileMusic size={14} color={AMBER} />}
               {ways[id].name}
             </PopItem>
           ))}
@@ -165,7 +174,24 @@ Pause only pauses it: Play goes on after a count-in.`
               )}
             </>
           )}
-          {mode === 'song' ? (
+          {mode === 'overdub' && (
+            <>
+              <div style={{ display: 'flex', alignItems: 'flex-start', gap: 8, padding: '6px 14px 8px', fontFamily: 'var(--font-ui)', fontSize: 12, lineHeight: 1.4 }}>
+                <Repeat size={14} color={AMBER} style={{ flexShrink: 0, marginTop: 1 }} />
+                {punch ? (
+                  <span style={{ color: 'var(--text-default)' }}>
+                    {punchBars!.a === punchBars!.b ? t`Punch in and out: bar ${punchBars!.a}, the loop.` : t`Punch in and out: bars ${punchBars!.a} to ${punchBars!.b}, the loop.`}
+                  </span>
+                ) : (
+                  <span style={{ color: AMBER }}>{t`Set a loop around the bars to record first: Alt + drag on the piano roll.`}</span>
+                )}
+              </div>
+              <Chips label={t`Run-up`}>
+                {([1, 2] as const).map(n => <Chip key={n} on={runUpBars === n} onClick={() => setRunUpBars(n)}>{n === 1 ? t`1 bar` : t`2 bars`}</Chip>)}
+              </Chips>
+            </>
+          )}
+          {mode !== 'blank' ? (
             hand === 'B' ? (
               <PopItem on={choosingSplit} onClick={() => setChoosingSplit(c => !c)}
                 hint={choosingSplit ? t`Press a key on your keyboard…` : t`Below it your left hand, from it up your right. Click, then press a key on your keyboard.`}>
@@ -175,7 +201,9 @@ Pause only pauses it: Play goes on after a count-in.`
               </PopItem>
             ) : (
               <div style={{ padding: '6px 14px 8px', fontFamily: 'var(--font-ui)', fontSize: 12, lineHeight: 1.4, color: 'var(--text-muted)' }}>
-                {hand === 'L' ? t`You're playing the left hand: your take becomes the song's left hand.` : t`You're playing the right hand: your take becomes the song's right hand.`}
+                {mode === 'overdub'
+                  ? (hand === 'L' ? t`You're playing the left hand: your take replaces the song's left hand in the loop.` : t`You're playing the right hand: your take replaces the song's right hand in the loop.`)
+                  : (hand === 'L' ? t`You're playing the left hand: your take becomes the song's left hand.` : t`You're playing the right hand: your take becomes the song's right hand.`)}
               </div>
             )
           ) : (
@@ -199,11 +227,14 @@ Pause only pauses it: Play goes on after a count-in.`
 
           <PopDivider />
           <div style={{ padding: '6px 14px 10px', display: 'grid', gap: 6 }}>
-            <button onClick={start} style={startBtn}>
+            <button onClick={start} disabled={mode === 'overdub' && !punch} style={{ ...startBtn, ...(mode === 'overdub' && !punch ? { opacity: 0.45, cursor: 'default' } : {}) }}>
               <Circle size={11} fill="currentColor" /> {t`Record`}
             </button>
             <span style={{ fontFamily: 'var(--font-ui)', fontSize: 11, lineHeight: 1.35, color: 'var(--text-muted)' }}>
-              {mode === 'song'
+              {mode === 'overdub'
+                ? (runUpBars === 1 ? t`The song starts a bar before the loop, after a count-in.` : t`The song starts two bars before the loop, after a count-in.`) + ' '
+                  + t`Only what you play inside the loop is recorded; the song plays on after it until you Stop. Pause pauses the recording too; Play goes on after a count-in. Then: Keep or Discard.`
+                : mode === 'song'
                 ? t`The song plays from the start, after a count-in. Pause pauses the recording too; Play goes on after a count-in. Stop (the red square, here) or the song's end ends the take. Then: Keep or Discard.`
                 : t`The song stops while you record. Stop (the red square, here) ends the take. Then: Keep or Discard.`}
             </span>

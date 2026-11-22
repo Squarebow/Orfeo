@@ -1,7 +1,7 @@
 import { Midi } from '@tonejs/midi'
-import { encodeHandMapMeta } from '../utils/handMetadata'
+import { encodeHandMapMeta, parseHandMapMeta } from '../utils/handMetadata'
 type Hand = 'L' | 'R'
-import { isFingerMeta } from '../utils/fingering'
+import { decodeFingers, fingerMeta, isFingerMeta } from '../utils/fingering'
 import type { RecEvent } from './recorder'
 
 // ── Recording over the song (practice mode, after 2.0) ───────────────────────
@@ -11,7 +11,9 @@ import type { RecEvent } from './recorder'
 // your own piano part over the arrangement: kept, it replaces the song's piano
 // part for the hand(s) you played, whole, in a new _ORFEO_vN (the same tracks,
 // their sound and place, so the version is still two hands to practise).
-// Recording over a stretch only is Overdub, a mode of its own (later).
+// Overdub (punch): only between the punch-in and punch-out (the loop's
+// bars) is the song's part replaced; outside them it stays, with its hands
+// and fingering.
 // Pure: tests feed it by hand.
 
 /** One take over the song: keys and pedals at their place in the song (seconds) */
@@ -94,12 +96,16 @@ export interface SongTakeOptions {
   splitKey: number
   /** where the take ended (song seconds): keys still down are let go there */
   end: number
+  /** Overdub: the punch-in and punch-out (song seconds). Only there is the
+   *  song's part replaced; your notes are cut at the punch-out. None: the whole part. */
+  punch?: { from: number; to: number }
 }
 
 const PEDALS = [64, 66, 67]
 
-/** The song with your take as its piano part. Returns the new file's bytes
- *  and the hands that were replaced (a hand you didn't play stays the song's). */
+/** The song with your take as its piano part (or, with `punch`, in place of it
+ *  between the punch points). Returns the new file's bytes and the hands that
+ *  were replaced (a hand you didn't play stays the song's). */
 export function songTakeToMidi(events: RecEvent[], o: SongTakeOptions): { bytes: Uint8Array; replaced: Hand[] } {
   const out = new Midi(o.origRaw)
   const played = o.playedRaw ? new Midi(o.playedRaw) : out
@@ -108,48 +114,104 @@ export function songTakeToMidi(events: RecEvent[], o: SongTakeOptions): { bytes:
   const shift = o.transpose ?? 0
   const noteOf = (n: number) => Math.max(0, Math.min(127, n - shift))
   const handOf = (note: number): Hand => (o.hand === 'B' ? (note < o.splitKey ? 'L' : 'R') : o.hand)
+  const p = o.punch
+  const inTick = p ? tickOf(p.from) : 0
+  const outTick = p ? Math.max(tickOf(p.to), inTick + 1) : Infinity
 
-  // your notes and pedals, by hand
+  // your notes and pedals, by hand (with a punch: only what falls between the punch points)
   type N = { midi: number; ticks: number; durationTicks: number; velocity: number }
   const take: Record<Hand, N[]> = { L: [], R: [] }
   const pedals: { cc: number; value: number; ticks: number }[] = []
   const open = new Map<number, { t: number; vel: number }[]>()
   const add = (note: number, a: number, b: number, vel: number) => {
-    const ta = tickOf(a), tb = tickOf(b)
+    const ta = tickOf(a), tb = Math.min(tickOf(b), outTick)
+    if (ta < inTick || ta >= outTick) return
     take[handOf(note)].push({ midi: noteOf(note), ticks: ta, durationTicks: Math.max(1, tb - ta), velocity: vel / 127 })
   }
   for (const e of events) {
     if (e.type === 'on') { const q = open.get(e.note) ?? []; q.push({ t: e.t, vel: e.vel }); open.set(e.note, q) }
     else if (e.type === 'off') { const on = open.get(e.note)?.shift(); if (on) add(e.note, on.t, e.t, on.vel) }
-    else pedals.push({ cc: e.cc, value: e.value / 127, ticks: tickOf(e.t) })
+    else { const tk = tickOf(e.t); if (tk >= inTick && tk < outTick) pedals.push({ cc: e.cc, value: e.value / 127, ticks: tk }) }
   }
   for (const [note, q] of open) for (const on of q) add(note, on.t, Math.max(o.end, on.t + 0.01), on.vel)
 
   // the song's tracks as Orfeo numbers them (tracks with notes)
   const numbered = out.tracks.filter(t => t.notes.length > 0)
+  const meta: any[] = (out.header as any).meta ?? []
+  const metaFor = (prefix: string, i: number) => meta.find(m => typeof m.text === 'string' && m.text.startsWith(prefix)
+    && m.text.slice(prefix.length).split(':')[prefix === 'ORFEO_HAND_MAP:' ? 1 : 0] === String(i))
+
+  // what each kept note of a replaced track carries (its hand, whether you set
+  // it, its finger), found again after writing by place and key
+  const keyOf = (ticks: number, midi: number) => `${ticks}|${midi}`
+  const carry = new Map<number, { own: Hand; hand: Map<string, { hand: Hand; manual: boolean }>; finger: Map<string, number> }>()
   const replaced: Hand[] = []
-  const swapped: { idx: number; hand: Hand }[] = []
+
   for (const h of ['L', 'R'] as Hand[]) {
     const idx = o.parts[h]
     if (idx === undefined || !take[h].length || (o.hand !== 'B' && o.hand !== h)) continue
     const track = numbered[idx]
     if (!track) continue
     replaced.push(h)
-    swapped.push({ idx, hand: h })
-    // your notes and your pedals in place of the song's; the track keeps its name, sound and place
+    const info = { own: h, hand: new Map<string, { hand: Hand; manual: boolean }>(), finger: new Map<string, number>() }
+    const kept: N[] = []
+    if (p) {
+      // outside the punch points the song's notes stay, with their hands and fingers
+      const hm = metaFor('ORFEO_HAND_MAP:', idx)
+      const hands = hm ? parseHandMapMeta(hm.text) : null
+      const fm = metaFor('ORFEO_FINGERS:', idx)
+      const fingers = fm ? decodeFingers(fm.text.slice('ORFEO_FINGERS:'.length).split(':').slice(1).join(':')) : []
+      track.notes.forEach((n, i) => {
+        if (n.ticks >= inTick && n.ticks < outTick) return
+        // a song's note before the punch-in that rings into it stops there
+        const durationTicks = n.ticks < inTick && n.ticks + n.durationTicks > inTick ? inTick - n.ticks : n.durationTicks
+        kept.push({ midi: n.midi, ticks: n.ticks, durationTicks, velocity: n.velocity })
+        const k = keyOf(n.ticks, n.midi)
+        info.hand.set(k, hands && hands.hands.length === track.notes.length ? { hand: hands.hands[i], manual: hands.sources?.[i] === 'manual' } : { hand: h, manual: false })
+        if (fingers.length === track.notes.length && fingers[i]) info.finger.set(k, fingers[i]!)
+      })
+    }
+    // your notes, in your hand: you chose it (the hand, or the split key)
+    for (const n of take[h]) info.hand.set(keyOf(n.ticks, n.midi), { hand: h, manual: true })
     track.notes.length = 0
-    for (const n of take[h]) track.addNote(n)
-    for (const cc of PEDALS) delete track.controlChanges[cc]
-    for (const p of pedals) track.addCC({ number: p.cc, value: p.value, ticks: p.ticks })
+    for (const n of [...kept, ...take[h]]) track.addNote(n)
+
+    // the pedals: yours in place of the song's (with a punch: between the punch
+    // points; going in the pedal starts up, coming out it's where the song had it)
+    for (const cc of PEDALS) {
+      const list = (track.controlChanges[cc] ?? []) as { ticks: number; value: number }[]
+      const mine = pedals.filter(x => x.cc === cc)
+      if (!p) {
+        delete track.controlChanges[cc]
+        for (const x of mine) track.addCC({ number: cc, value: x.value, ticks: x.ticks })
+        continue
+      }
+      if (!list.length && !mine.length) continue
+      const before = list.filter(c => c.ticks < outTick).pop()
+      track.controlChanges[cc] = list.filter(c => c.ticks < inTick || c.ticks >= outTick) as any
+      if (list.some(c => c.ticks < inTick && c.value >= 0.5) || mine.length) track.addCC({ number: cc, value: 0, ticks: inTick })
+      for (const x of mine) track.addCC({ number: cc, value: x.value, ticks: x.ticks })
+      if (before && !list.some(c => c.ticks === outTick)) track.addCC({ number: cc, value: before.value, ticks: outTick })
+      ;(track.controlChanges[cc] as any[]).sort((a, b) => a.ticks - b.ticks)
+    }
+    carry.set(idx, info)
   }
 
-  // the replaced tracks' hands, fingering and a saved mute were the song's: gone with its notes
-  const meta: any[] = (out.header as any).meta ?? []
-  ;(out.header as any).meta = meta.filter(m => !(typeof m.text === 'string' && swapped.some(({ idx: i }) =>
+  // the replaced tracks' hand maps, fingering and a saved mute are written again below
+  ;(out.header as any).meta = meta.filter(m => !(typeof m.text === 'string' && [...carry.keys()].some(i =>
     (m.text.startsWith('ORFEO_HAND_MAP:') && m.text.split(':')[2] === String(i))
     || (isFingerMeta(m.text) && m.text.split(':')[1] === String(i))
     || m.text.startsWith(`ORFEO_TRACK_MUTED:${i}:`))))
-  // every note of yours in your hand: you chose it (the hand, or the split key)
-  for (const { idx, hand } of swapped) (out.header as any).meta.push(encodeHandMapMeta(idx, take[hand].map(() => hand), take[hand].map(() => 'manual')))
-  return { bytes: out.toArray(), replaced }
+
+  // read the written file back: the notes in the order Orfeo will read them
+  const again = new Midi(out.toArray())
+  const numberedAgain = again.tracks.filter(t => t.notes.length > 0)
+  for (const [idx, info] of carry) {
+    const notes = numberedAgain[idx]?.notes ?? []
+    const hands = notes.map(n => info.hand.get(keyOf(n.ticks, n.midi)) ?? { hand: info.own, manual: false })
+    ;(again.header as any).meta.push(encodeHandMapMeta(idx, hands.map(x => x.hand), hands.map(x => (x.manual ? 'manual' : 'computed'))))
+    const fm = fingerMeta(idx, notes.map(n => ({ finger: info.finger.get(keyOf(n.ticks, n.midi)) })))
+    if (fm) (again.header as any).meta.push(fm)
+  }
+  return { bytes: again.toArray(), replaced }
 }
