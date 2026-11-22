@@ -579,7 +579,9 @@ interface OrfeoStore {
   // Opening the Chords or Scales Explorer pauses the song (Settings › Playback)
   explorerPausesPlayback: boolean
   setExplorerPausesPlayback: (v: boolean) => void
-  // Muting a track also takes it off the piano roll (Settings › Playback, off by default: mute and the eye are separate)
+  // Settings › Playback › Muted tracks stay on the roll (off by default: muting takes a track off the roll as
+  // always; on: a muted track's notes stay on the roll only). TEMPORARY, asked for by players until practice
+  // mode (2.0) ships: review whether to keep it at the 2.0 release
   mutedOnRoll: boolean
   setMutedOnRoll: (v: boolean) => void
   setAutoCollapseDrawers: (v: boolean) => void
