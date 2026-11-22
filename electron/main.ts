@@ -213,7 +213,10 @@ function createWindow() {
   // than only checking at the moment of a zoom action. ────────────────────
   win.on('resize', () => {
     if (currentZoomPercent > maxAllowedZoomPercent(win)) applyZoom(win, currentZoomPercent)
+    else setFactor(win)   // the fit follows the window's size (FIT_DESIGN)
   })
+  // a page load starts at Chromium's own zoom for the page: set ours again
+  win.webContents.on('did-finish-load', () => { appliedFactor = 0; setFactor(win) })
   win.webContents.on('before-input-event', (event, input) => {
     if (input.type !== 'keyDown') return
     // ── Developer tools (Ctrl+Shift+I or F12) — the user manual asks for
@@ -295,6 +298,33 @@ ipcMain.handle('prefs:set', async (_e, data) => savePrefs(data))
 const ZOOM_STEPS = [80, 90, 100, 110, 125, 150, 175, 200]
 let currentZoomPercent = 100
 
+// ── Fit to a small window — the whole app is laid out at FIT_DESIGN (in
+// CSS pixels) and scaled down to fill a smaller window, the way the Settings
+// window scales its cards: fonts, icons, bars, keyboard, everything in
+// proportion, down to the window's minimum size, instead of cutting off what
+// doesn't fit (a 1366-pixel laptop clipped the queue button and practice
+// mode's tempo arrows). A window at or above FIT_DESIGN draws at 1:1. The
+// player's own zoom (Ctrl +/−, Settings) multiplies on top and is what's
+// saved and shown; the fit is never saved. ─────────────────────────────────
+const FIT_DESIGN = { w: 1720, h: 720 }   // the width the top bar needs to show everything (its three thirds), measured 22. 11.
+// the window's own buttons (minimise, maximise, close) keep their size while
+// the app shrinks around them, so they're left out of what's scaled
+const CAPTION_BUTTONS_W = 150
+function fitFactorFor(width: number, height: number): number {
+  return Math.min(1, (width - CAPTION_BUTTONS_W) / (FIT_DESIGN.w - CAPTION_BUTTONS_W), height / FIT_DESIGN.h)
+}
+function fitFactor(win: BrowserWindow): number {
+  const [w, h] = win.getContentSize()
+  return fitFactorFor(w, h)
+}
+let appliedFactor = 0
+function setFactor(win: BrowserWindow) {
+  const f = (currentZoomPercent / 100) * fitFactor(win)
+  if (Math.abs(f - appliedFactor) < 0.0005) return
+  appliedFactor = f
+  win.webContents.setZoomFactor(f)
+}
+
 // ── Highest step whose logical viewport (window size ÷ zoom) still fits
 // the window's own documented minimum size — read live via
 // getMinimumSize() rather than duplicating the 900×600 from createWindow's
@@ -304,8 +334,9 @@ function maxAllowedZoomPercent(win: BrowserWindow): number {
   const { width, height } = win.getBounds()
   let max = ZOOM_STEPS[0]
   for (const step of ZOOM_STEPS) {
-    const logicalW = width  / (step / 100)
-    const logicalH = height / (step / 100)
+    const fit = fitFactorFor(width, height)
+    const logicalW = width  / (step / 100 * fit)
+    const logicalH = height / (step / 100 * fit)
     if (logicalW >= minW && logicalH >= minH) max = step
   }
   return max
@@ -316,7 +347,7 @@ function applyZoom(win: BrowserWindow, requestedPercent: number, persist = true)
   const percent = Math.min(requestedPercent, cap)
   const capped = percent < requestedPercent
   currentZoomPercent = percent
-  win.webContents.setZoomFactor(percent / 100)
+  setFactor(win)
   if (persist) savePrefs({ appZoom: percent })
   // Sent unconditionally, even when the value didn't actually change (e.g.
   // repeatedly hitting the cap) — the renderer's transient hint needs to
