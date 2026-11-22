@@ -187,7 +187,9 @@ async function saveOutputPath(sourcePath: string, newVersion: boolean): Promise<
 // ── Main window ────────────────────────────────────────────────────────────
 function createWindow() {
   const win = new BrowserWindow({
-    width: 1400, height: 900, minWidth: 900, minHeight: 600,
+    // smallest: the room a 1920 laptop at 150 % Windows scaling gives (1280 wide,
+    // about 690 tall above the taskbar); 900 × 600 was too small to use (22. 11.)
+    width: 1400, height: 900, minWidth: 1280, minHeight: 680,
     backgroundColor: '#111116',
     show: false,
     titleBarStyle: 'hidden',
@@ -211,7 +213,7 @@ function createWindow() {
     applyZoom(win, ZOOM_STEPS.includes(saved) ? saved : 100, false)
   }
   // ── Shrinking the window below what the current zoom needs is the same
-  // 900×600-floor violation the cap exists to prevent — re-clamp rather
+  // smallest-window-size violation the cap exists to prevent — re-clamp rather
   // than only checking at the moment of a zoom action. ────────────────────
   win.on('resize', () => {
     if (currentZoomPercent > maxAllowedZoomPercent(win)) applyZoom(win, currentZoomPercent)
@@ -313,7 +315,7 @@ const FIT_DESIGN = { w: 1720, h: 720 }   // the width the top bar needs to show 
 // the app shrinks around them, so they're left out of what's scaled
 const CAPTION_BUTTONS_W = 150
 // Only as much as needed so nothing is cut off: about 76 % on a 1366 laptop,
-// 75 % at 1330 wide, about 48 % at the smallest window (900 × 600) — the user's
+// 75 % at 1330 wide, about 72 % at the smallest window (1280 wide) — the user's
 // choice (22. 11.) over a 75 % floor that cut off the top bar's right end in
 // windows narrower than 1330. Settings › Appearance › Fit to small windows
 // switches the shrinking off (prefs fitToWindow, on by default).
@@ -336,7 +338,7 @@ function setFactor(win: BrowserWindow) {
 
 // ── Highest step whose logical viewport (window size ÷ zoom) still fits
 // the window's own documented minimum size — read live via
-// getMinimumSize() rather than duplicating the 900×600 from createWindow's
+// getMinimumSize() rather than duplicating the smallest size from createWindow's
 // BrowserWindow options, so the two can never drift apart. ────────────────
 function maxAllowedZoomPercent(win: BrowserWindow): number {
   const [minW, minH] = win.getMinimumSize()
