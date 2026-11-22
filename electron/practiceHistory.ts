@@ -49,6 +49,21 @@ export function practiceStore(dir: string) {
       writeJson(indexPath, ix)
       try { unlinkSync(join(dir, f)) } catch {}
     },
+    /** A song saved as a new version (_ORFEO_vN): the new one starts with a
+     *  copy of the history so far, so weeks of progress carry on; the earlier
+     *  version keeps its own. A version that already has history keeps it. */
+    carry(from: string, to: string): void {
+      if (norm(from) === norm(to)) return
+      const ix = index()
+      const f = ix[norm(from)]
+      if (!f || ix[norm(to)]) return
+      const data = readJson(join(dir, f))
+      if (data === null) return
+      const g = `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}.json`
+      writeJson(join(dir, g), data)
+      ix[norm(to)] = g
+      writeJson(indexPath, ix)
+    },
     /** Songs renamed or moved in Orfeo: their history goes with them */
     remap(pairs: { oldPath: string; newPath: string }[]): void {
       if (!pairs.length || !existsSync(indexPath)) return

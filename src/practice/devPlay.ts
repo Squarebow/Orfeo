@@ -5,6 +5,8 @@ import { isTextEntry } from '../utils/keyTarget'
 import { usePractice } from './practiceMode'
 import { reviewing } from './reviewState'
 import { expectedNotes, heardSongTime, onSongJump, useWaiting } from './listen'
+import { rangeOf } from '../hooks/useMidiInput'
+import { useMidiSettings } from '../store/midiSettings'
 import type { Expected } from './matcher'
 
 // ── Dev Tools for practice mode: playing without a USB keyboard ──────────────
@@ -136,7 +138,10 @@ function cancelAll() {
 }
 function restartPianist(from: number) {
   cancelAll()
-  plan = pianistPlan(expectedNotes(), useDevPractice.getState().pianist, ratio())
+  // only the keys the keyboard has: a real player can't press one it hasn't got
+  const range = rangeOf(useMidiSettings.getState().activeDevice)
+  const reach = expectedNotes().filter(e => !range || (e.midi >= range.low && e.midi <= range.high))
+  plan = pianistPlan(reach, useDevPractice.getState().pianist, ratio())
   next = 0
   fired.clear()
   // from the notes written from here on (a late press of an earlier note isn't this take's)

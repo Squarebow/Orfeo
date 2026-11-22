@@ -1,6 +1,8 @@
 // ── Fingering (practice stage 10) ────────────────────────────────────────────
 // Finger numbers 1–5 on notes (1 the thumb), set by the player in the Note
-// Editor and never suggested by Orfeo: a wrong suggestion teaches a bad habit.
+// Editor. Orfeo can also suggest fingering (practice/suggestFingering.ts, an
+// optional aid, off by default, clearly marked as a suggestion); the player's
+// own numbers always win and only they are saved.
 // Kept in the saved file like the hand marks, so they travel with the song:
 // one `ORFEO_FINGERS:<track>:<runs>` text meta per track (harmless to other
 // programs), the track's notes in order, 0 for a note without one.

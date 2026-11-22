@@ -15,7 +15,7 @@ import { choiceOf, setupForChoice, type KeyLightChoice } from '../../../utils/ke
 import { reopenGmOutput } from '../../../hooks/useAudioEngine'
 import { getStartedStable } from '../../../hooks/useSamplesEngine'
 import { getDelayBreakdown, getStats, counters, exportPerformanceLog, clearDiagnostics } from '../../../utils/midiDiagnostics'
-import { sim, simAvailable } from '../../../utils/midiSimulator'
+import { sim, simAvailable, autoPlugModel, setAutoPlugModel } from '../../../utils/midiSimulator'
 import { confirmDialog } from '../../../utils/confirmController'
 import { useNativeAudio } from '../../../audio/nativeClient'
 import { NATIVE_AVAILABLE } from './audio'
@@ -174,8 +174,11 @@ function ReconnectExtra() {
 const SIM_NOTES = ['C', 'C♯', 'D', 'D♯', 'E', 'F', 'F♯', 'G', 'G♯', 'A', 'A♯', 'B']
 const simNoteName = (n: number) => SIM_NOTES[n % 12] + (Math.floor(n / 12) - 1)
 
+const simLabel = (key: string) => key === 's88' ? 'S88 MK3' : key === 'mpk' ? 'MPK mini' : key === 'partykeys' ? 'PartyKeys' : key === 'loopmidi' ? 'loopMIDI' : 'Launchkey'
+
 export function SimulatorPanel() {
   useMidiSettings(s => s.devices)  // re-render on plug / unplug
+  const [auto, setAuto] = useState(autoPlugModel)
   const [target, setTarget] = useState(sim.models[0].key)
   const plugged = sim.isPlugged(target)
   const { low, high } = sim.models.find(m => m.key === target)!
@@ -190,8 +193,15 @@ export function SimulatorPanel() {
       <div style={{ display: 'flex', gap: 'var(--space-1)', marginBottom: 6 }}>
         {sim.models.map(m => (
           <OptionBtn key={m.key} active={target === m.key} onClick={() => setTarget(m.key)}>
-            {m.key === 's88' ? 'S88 MK3' : m.key === 'mpk' ? 'MPK mini' : m.key === 'partykeys' ? 'PartyKeys' : m.key === 'loopmidi' ? 'loopMIDI' : 'Launchkey'}
+            {simLabel(m.key)}
           </OptionBtn>
+        ))}
+      </div>
+      <div style={{ display: 'flex', flexWrap: 'wrap', gap: 'var(--space-1)', alignItems: 'center', marginBottom: 6 }}>
+        <span style={{ fontSize: 10, color: 'var(--text-muted)' }}>Plugged in when Orfeo starts:</span>
+        <OptionBtn active={auto === null} onClick={() => { setAutoPlugModel(null); setAuto(null) }}>Off</OptionBtn>
+        {sim.models.filter(m => m.key !== 'loopmidi').map(m => (
+          <OptionBtn key={m.key} active={auto === m.key} onClick={() => { setAutoPlugModel(m.key); setAuto(m.key) }}>{simLabel(m.key)}</OptionBtn>
         ))}
       </div>
       <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4 }}>

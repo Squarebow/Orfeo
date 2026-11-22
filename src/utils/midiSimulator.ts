@@ -1,3 +1,5 @@
+import { useMidiSettings } from '../store/midiSettings'
+import { cleanPortName } from './midiDeviceNames'
 // ── Simulated MIDI keyboards — development builds only ───────────────────────
 // Lets the app be seen and tested exactly as a player with a USB keyboard sees
 // it, without one: plugging/unplugging fires the same connection events, and
@@ -161,6 +163,48 @@ if (typeof window !== 'undefined') {
   })
 }
 
+// ── Plugged in when Orfeo starts (dev mode): one pretend keyboard, already
+// measured, so testing needs no clicks. npm run dev: the S88 unless you chose
+// otherwise; a test build: only once chosen. Settings › Dev Tools ›
+// Simulated keyboards. Remembered on this computer, never in the settings file.
+const AUTO_PLUG_KEY = 'orfeo-dev-autoplug'
+export function autoPlugModel(): string | null {
+  let v: string | null = null
+  try { v = localStorage.getItem(AUTO_PLUG_KEY) } catch {}
+  if (v === 'off') return null
+  if (v && SIM_MODELS.some(m => m.key === v)) return v
+  return import.meta.env.DEV ? 's88' : null
+}
+export function setAutoPlugModel(key: string | null): void {
+  try { localStorage.setItem(AUTO_PLUG_KEY, key ?? 'off') } catch {}
+}
+let _autoPlugged = false
+function autoPlug() {
+  const key = autoPlugModel()
+  if (_autoPlugged || !key) return
+  _autoPlugged = true
+  const m = model(key)
+  // its range is known: no "press your lowest key" window (set before it plugs in)
+  const remember = (devKey: string) => {
+    if (m.low == null || m.high == null) return
+    const ms = useMidiSettings.getState()
+    useMidiSettings.setState({
+      simRanges: { ...ms.simRanges, [devKey]: { low: m.low, high: m.high } },
+      simRangeAsked: ms.simRangeAsked.includes(devKey) ? ms.simRangeAsked : [...ms.simRangeAsked, devKey],
+      rangePrompt: ms.rangePrompt?.key === devKey ? null : ms.rangePrompt,
+    })
+  }
+  remember(cleanPortName(m.ports[0]))
+  sim.plug(key)
+  // and once more under the name the app gave it, in case that differs
+  let tries = 0
+  const known = () => {
+    const d = useMidiSettings.getState().devices.find(x => x.portIds.some(id => id.startsWith(`sim-${key}-`)))
+    if (d) remember(d.key); else if (++tries < 40) setTimeout(known, 50)
+  }
+  known()
+}
+
 if (simAvailable && typeof navigator !== 'undefined' && navigator.requestMIDIAccess && !(window as any).__orfeoSimMidi) {
   const realRequest = navigator.requestMIDIAccess.bind(navigator)
   ;(navigator as any).requestMIDIAccess = async (opts?: MIDIOptions) => {
@@ -168,6 +212,7 @@ if (simAvailable && typeof navigator !== 'undefined' && navigator.requestMIDIAcc
     try { real = await realRequest(opts) } catch {}
     const a = new SimAccess(real)
     _accesses.add(a)
+    setTimeout(autoPlug, 0)   // after the app has started listening
     return a as unknown as MIDIAccess
   }
   ;(window as any).__orfeoSimMidi = sim

@@ -41,6 +41,20 @@ const openDialog = (options: Electron.OpenDialogOptions) =>
   mainWin ? dialog.showOpenDialog(mainWin, options) : dialog.showOpenDialog(options)
 const saveDialog = (options: Electron.SaveDialogOptions) =>
   mainWin ? dialog.showSaveDialog(mainWin, options) : dialog.showSaveDialog(options)
+// ── Linux: Wayland with an NVIDIA card draws through XWayland (issue #18) ──
+// On some of these (Fedora 45, KDE Plasma, Wayland, NVIDIA's own driver) the
+// window drew once and then never again: the song played, the screen stayed
+// put, and the next start came up black. Running through XWayland (X11 inside
+// Wayland) draws normally. Only that combination is changed; starting Orfeo
+// with your own --ozone-platform=… (wayland to try native Wayland) wins.
+// Must be set before the app is ready.
+if (process.platform === 'linux') {
+  const wayland = process.env.XDG_SESSION_TYPE === 'wayland' || !!process.env.WAYLAND_DISPLAY
+  const nvidia = existsSync('/proc/driver/nvidia/version')
+  const chosen = app.commandLine.hasSwitch('ozone-platform') || process.argv.some(a => a.startsWith('--ozone-platform'))
+  if (wayland && nvidia && !chosen) app.commandLine.appendSwitch('ozone-platform', 'x11')
+}
+
 // ── Set by app:confirm-close so the renderer-triggered re-close passes through ──
 let allowClose = false
 // ── A close always gets through. The page answers at once (app:close-heard)
@@ -173,7 +187,9 @@ async function saveOutputPath(sourcePath: string, newVersion: boolean): Promise<
 // ── Main window ────────────────────────────────────────────────────────────
 function createWindow() {
   const win = new BrowserWindow({
-    width: 1400, height: 900, minWidth: 900, minHeight: 600,
+    // smallest: the room a 1920 laptop at 150 % Windows scaling gives (1280 wide,
+    // about 690 tall above the taskbar); 900 × 600 was too small to use (22. 11.)
+    width: 1400, height: 900, minWidth: 1280, minHeight: 680,
     backgroundColor: '#111116',
     show: false,
     titleBarStyle: 'hidden',
@@ -192,15 +208,19 @@ function createWindow() {
   // Chromium's own accelerator handling sees them. ─────────────────────────
   win.webContents.setVisualZoomLevelLimits(1, 1)
   {
+    fitToWindow = loadPrefs().fitToWindow !== false
     const saved = loadPrefs().appZoom
     applyZoom(win, ZOOM_STEPS.includes(saved) ? saved : 100, false)
   }
   // ── Shrinking the window below what the current zoom needs is the same
-  // 900×600-floor violation the cap exists to prevent — re-clamp rather
+  // smallest-window-size violation the cap exists to prevent — re-clamp rather
   // than only checking at the moment of a zoom action. ────────────────────
   win.on('resize', () => {
     if (currentZoomPercent > maxAllowedZoomPercent(win)) applyZoom(win, currentZoomPercent)
+    else setFactor(win)   // the fit follows the window's size (FIT_DESIGN)
   })
+  // a page load starts at Chromium's own zoom for the page: set ours again
+  win.webContents.on('did-finish-load', () => { appliedFactor = 0; setFactor(win) })
   win.webContents.on('before-input-event', (event, input) => {
     if (input.type !== 'keyDown') return
     // ── Developer tools (Ctrl+Shift+I or F12) — the user manual asks for
@@ -282,17 +302,57 @@ ipcMain.handle('prefs:set', async (_e, data) => savePrefs(data))
 const ZOOM_STEPS = [80, 90, 100, 110, 125, 150, 175, 200]
 let currentZoomPercent = 100
 
+// ── Fit to a small window — the whole app is laid out at FIT_DESIGN (in
+// CSS pixels) and scaled down to fill a smaller window, the way the Settings
+// window scales its cards: fonts, icons, bars, keyboard, everything in
+// proportion, down to the window's minimum size, instead of cutting off what
+// doesn't fit (a 1366-pixel laptop clipped the queue button and practice
+// mode's tempo arrows). A window at or above FIT_DESIGN draws at 1:1. The
+// player's own zoom (Ctrl +/−, Settings) multiplies on top and is what's
+// saved and shown; the fit is never saved. ─────────────────────────────────
+const FIT_DESIGN = { w: 1720, h: 720 }   // the width the top bar needs to show everything (its three thirds), measured 22. 11.
+// the window's own buttons (minimise, maximise, close) keep their size while
+// the app shrinks around them, so they're left out of what's scaled
+const CAPTION_BUTTONS_W = 150
+// Only as much as needed so nothing is cut off: about 76 % on a 1366 laptop,
+// 75 % at 1330 wide, about 72 % at the smallest window (1280 wide) — the user's
+// choice (22. 11.) over a 75 % floor that cut off the top bar's right end in
+// windows narrower than 1330. Settings › Appearance › Fit to small windows
+// switches the shrinking off (prefs fitToWindow, on by default).
+let fitToWindow = true
+function fitFactorFor(width: number, height: number): number {
+  if (!fitToWindow || width <= 0 || height <= 0) return 1
+  return Math.min(1, (width - CAPTION_BUTTONS_W) / (FIT_DESIGN.w - CAPTION_BUTTONS_W), height / FIT_DESIGN.h)
+}
+function fitFactor(win: BrowserWindow): number {
+  const [w, h] = win.getContentSize()
+  return fitFactorFor(w, h)
+}
+let appliedFactor = 0
+function setFactor(win: BrowserWindow) {
+  // a minimised window reports its size as 0 × 0: nothing to fit, and a zero or
+  // negative factor makes setZoomFactor throw (an error box from the main process)
+  if (win.isDestroyed() || win.isMinimized()) return
+  const [w, h] = win.getContentSize()
+  if (w <= 0 || h <= 0) return
+  const f = Math.max(0.25, (currentZoomPercent / 100) * fitFactor(win))
+  if (Math.abs(f - appliedFactor) < 0.0005) return
+  appliedFactor = f
+  win.webContents.setZoomFactor(f)
+}
+
 // ── Highest step whose logical viewport (window size ÷ zoom) still fits
 // the window's own documented minimum size — read live via
-// getMinimumSize() rather than duplicating the 900×600 from createWindow's
+// getMinimumSize() rather than duplicating the smallest size from createWindow's
 // BrowserWindow options, so the two can never drift apart. ────────────────
 function maxAllowedZoomPercent(win: BrowserWindow): number {
   const [minW, minH] = win.getMinimumSize()
   const { width, height } = win.getBounds()
   let max = ZOOM_STEPS[0]
   for (const step of ZOOM_STEPS) {
-    const logicalW = width  / (step / 100)
-    const logicalH = height / (step / 100)
+    const fit = fitFactorFor(width, height)
+    const logicalW = width  / (step / 100 * fit)
+    const logicalH = height / (step / 100 * fit)
     if (logicalW >= minW && logicalH >= minH) max = step
   }
   return max
@@ -303,7 +363,7 @@ function applyZoom(win: BrowserWindow, requestedPercent: number, persist = true)
   const percent = Math.min(requestedPercent, cap)
   const capped = percent < requestedPercent
   currentZoomPercent = percent
-  win.webContents.setZoomFactor(percent / 100)
+  setFactor(win)
   if (persist) savePrefs({ appZoom: percent })
   // Sent unconditionally, even when the value didn't actually change (e.g.
   // repeatedly hitting the cap) — the renderer's transient hint needs to
@@ -323,6 +383,10 @@ function stepZoom(win: BrowserWindow, direction: 1 | -1) {
 ipcMain.handle('zoom:get', async () => {
   if (!mainWin) return { percent: currentZoomPercent, steps: ZOOM_STEPS, max: 200 }
   return { percent: currentZoomPercent, steps: ZOOM_STEPS, max: maxAllowedZoomPercent(mainWin) }
+})
+ipcMain.handle('zoom:fit', async (_e, on: boolean) => {
+  fitToWindow = on !== false
+  if (mainWin) { appliedFactor = 0; setFactor(mainWin) }
 })
 ipcMain.handle('zoom:set', async (_e, percent: number) => {
   if (!mainWin) return null
@@ -407,6 +471,10 @@ function parseHistoryFromMidi(midi: Midi): FileLogEvent[] {
 
 // ── Practice numbers per song (practice mode): their own files, see practiceHistory.ts ──
 const practice = () => practiceStore(join(app.getPath('userData'), 'practice'))
+// a new version of a song carries on its practice history (practiceHistory.ts carry)
+function carryPracticeHistory(from: string | undefined, to: string): void {
+  if (from) try { practice().carry(from, to) } catch {}
+}
 ipcMain.handle('practice:load', async (_e, song: string) => { try { return practice().load(song) } catch { return null } })
 ipcMain.handle('practice:save', async (_e, song: string, data: unknown) => { try { practice().save(song, data); return true } catch { return false } })
 ipcMain.handle('practice:forget', async (_e, song: string) => { try { practice().forget(song) } catch {} })
@@ -1331,6 +1399,7 @@ ipcMain.handle('editor:save', async (_e, payload: {
 
     const outBuf = Buffer.from(midi.toArray())
     writeFileSync(outputPath, outBuf)
+    carryPracticeHistory(payload.filePath, outputPath)
 
     // ── Return file data so the renderer can reload inline ────────────────────
     const fileName = outputPath.split(/[\\/]/).pop() ?? outputPath
@@ -1383,6 +1452,7 @@ ipcMain.handle('mixer:save', async (_e, payload: {
 
     const outBuf = Buffer.from(midi.toArray())
     writeFileSync(outputPath, outBuf)
+    carryPracticeHistory(payload.filePath, outputPath)
 
     const fileName = outputPath.split(/[\\/]/).pop() ?? outputPath
     return { ok: true, message: t`Saved: ${fileName}`, filePath: outputPath, fileName, base64: outBuf.toString('base64') }
@@ -1453,6 +1523,7 @@ ipcMain.handle('tempoKey:save', async (_e, payload: {
 
     const outBuf = Buffer.from(midi.toArray())
     writeFileSync(outputPath, outBuf)
+    carryPracticeHistory(payload.filePath, outputPath)
 
     const fileName = outputPath.split(/[\\/]/).pop() ?? outputPath
     return { ok: true, message: t`Saved: ${fileName}`, filePath: outputPath, fileName, base64: outBuf.toString('base64') }
@@ -1975,6 +2046,7 @@ ipcMain.handle('noteEditor:save', async (_e, payload: { filePath: string; base64
     })
     const buf = Buffer.from(midi.toArray())
     writeFileSync(outputPath, buf)
+    carryPracticeHistory(payload.filePath, outputPath)
     const fileName = outputPath.split(/[\\/]/).pop() ?? ''
     return { ok: true, filePath: outputPath, fileName, base64: buf.toString('base64') }
   } catch (e: any) {

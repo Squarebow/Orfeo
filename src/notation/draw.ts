@@ -1,6 +1,6 @@
-import { Renderer, Stave, StaveNote, GhostNote, Voice, Formatter, Accidental, StaveConnector, Beam, StaveTie, Dot, Tuplet, PedalMarking, Stem, FretHandFinger, Modifier, type Note } from 'vexflow/bravura'
+import { Renderer, Stave, StaveNote, GhostNote, Voice, Formatter, Accidental, StaveConnector, Beam, StaveTie, Dot, Tuplet, PedalMarking, Stem, Annotation, type Note } from 'vexflow/bravura'
 import type { Score, ScoreBar, ScoreEvent } from './score'
-import { keySpecOf, spell } from './score'
+import { keySpecOf, spell, SUGGESTED_FINGER } from './score'
 
 // ── Drawing one line of the score (practice stage 8) ─────────────────────────
 // A system: the right hand on a treble staff, the left on a bass staff, braced,
@@ -47,11 +47,17 @@ function reach(bars: ScoreBar[], hand: 'L' | 'R'): { above: number; below: numbe
 
 /** The room every line of the page gets: enough for the furthest notes of
  *  any line (a bit more for stems and beams), the chord names and the pedal */
-export function pageLayout(score: Score, lines: [number, number][], opts: { chords: boolean; pedal: boolean }): PageLayout {
+export function pageLayout(score: Score, lines: [number, number][], opts: { chords: boolean; pedal: boolean; fingering?: boolean; textScale?: number }): PageLayout {
   let aR = 0, bR = 0, aL = 0, bL = 0
   for (const [a, b] of lines) {
     const bars = score.bars.slice(a, b), r = reach(bars, 'R'), l = reach(bars, 'L')
     aR = Math.max(aR, r.above); bR = Math.max(bR, r.below); aL = Math.max(aL, l.above); bL = Math.max(bL, l.below)
+  }
+  // the finger numbers stacked over the right hand's notes and under the left's
+  if (opts.fingering) {
+    const tallest = (hand: 'R' | 'L') => Math.max(0, ...score.bars.flatMap(b => b[hand].map(ev => ev.fingers?.filter(Boolean).length ?? 0)))
+    const line = Math.round(Math.max(11, 10 / (opts.textScale ?? 1))) + 3
+    aR += tallest('R') * line; bL += tallest('L') * line
   }
   const cap = (v: number) => Math.min(150, v)
   const chordRoom = opts.chords ? 22 : 0
@@ -136,10 +142,24 @@ export function drawSystem(el: HTMLDivElement, bars: ScoreBar[], opts: {
           else if (ev.keys) note = new StaveNote({ keys: ev.keys.map(k => spell(k, opts.fifths)), duration: d, dots, clef, ...(stem !== undefined ? { stemDirection: stem } : { autoStem: true }) })
           else note = new StaveNote({ keys: [clef === 'treble' ? (v === 2 ? 'e/4' : 'b/4') : (v === 2 ? 'f/2' : 'd/3')], duration: d + 'r', dots, clef, alignCenter: ev.len === bar.units && bar.units !== 48 })
           if (dots && !ev.ghost) Dot.buildAndAttach([note as StaveNote], { all: true })
-          // the player's fingering: above the right hand's notes, below the left's
-          if (opts.fingering !== false && ev.fingers && !ev.ghost) ev.fingers.forEach((f, k) => {
-            if (f) (note as StaveNote).addModifier(new FretHandFinger(String(f)).setPosition(hand === 'R' ? Modifier.Position.ABOVE : Modifier.Position.BELOW), k)
-          })
+          // the fingering: above the right hand's notes, below the left's, one
+          // number per key (a chord's stack low to high); the player's own in
+          // bold, a suggestion (Orfeo's) lighter, grey and in italics
+          if (opts.fingering !== false && ev.fingers && !ev.ghost) {
+            const size = Math.round(Math.max(11, 10 / (opts.textScale ?? 1)))
+            const order = ev.fingers.map((f, k) => ({ f, k })).filter(x => x.f)
+            // each number stacks further from the note: low to high above the right
+            // hand (the top key's number on top), high to low below the left
+            if (hand === 'L') order.reverse()
+            for (const { f } of order) {
+              const suggested = f! > SUGGESTED_FINGER
+              const mark = new Annotation(String(suggested ? f! - SUGGESTED_FINGER : f))
+                .setVerticalJustification(hand === 'R' ? Annotation.VerticalJustify.TOP : Annotation.VerticalJustify.BOTTOM)
+              mark.setFont(opts.font, size, suggested ? 'normal' : 'bold', suggested ? 'italic' : 'normal')
+              if (suggested) mark.setStyle({ fillStyle: '#5c5c66', strokeStyle: '#5c5c66' })
+              ;(note as StaveNote).addModifier(mark, 0)
+            }
+          }
           made.push({ hand, voice: v, ev, note })
           return note
         })

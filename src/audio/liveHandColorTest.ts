@@ -21,6 +21,12 @@ export function runLiveHandColorTest(): number {
   check(liveHandColor({}, base, false) === base, 'a note with no hand keeps the track colour')
   set(true)
   check(liveHandColor({}, base, false) === base, 'no hand, toggle on: still the track colour')
+  // the roll draws hand colours whenever the toggle is on, whichever hand-label
+  // style is chosen; the keys follow the roll (they once also needed Performance)
+  const mode = useStore.getState().handLabelMode
+  useStore.setState({ handLabelMode: 'practice' })
+  check(liveHandColor({ hand: 'R' }, base, false) === HAND_RH_CSS, 'hand colours on, Practice label style: the hand colour, as on the roll')
+  useStore.setState({ handLabelMode: mode })
   set(before)
 
   console.log(`liveHandColor: ${pass} passed, ${fail} failed`)

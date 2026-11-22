@@ -1,5 +1,5 @@
-import { useRef, useState, type CSSProperties } from 'react'
-import { Play, Pause, SkipBack, Repeat, SlidersVertical, Volume2, VolumeX, ChevronUp, ChevronDown, WandSparkles, SquareArrowRightExit, Piano, Eye, Drum } from 'lucide-react'
+import { useId, useLayoutEffect, useMemo, useRef, useState, type CSSProperties } from 'react'
+import { Play, Pause, SkipBack, Repeat, SlidersVertical, Volume2, VolumeX, ChevronUp, ChevronDown, WandSparkles, SquareArrowRightExit, Piano, Eye, Drum, UserRoundStar } from 'lucide-react'
 import { useStore } from '../../store'
 import { usePlayback } from '../../hooks/usePlayback'
 import { formatTime } from '../../utils/midiParser'
@@ -16,9 +16,11 @@ import OrfeoLogo from '../OrfeoLogo'
 import VolumeKnob from '../VolumeKnob'
 import { QueueButton } from '../Transport/QueueButton'
 import { TBtn, BpmValue, TempoDisplayMenu, MetronomeMenu, METRO_MENU_WIDTH } from '../Transport/TopBar'
-import { AMBER, barIcon, featLabel, featValue, toolBtn, BarPop, PopItem, popHeading, PopDivider, HandMarks } from './practiceBar'
+import { AMBER, barIcon, featLabel, featValue, toolBtn, BarPop, popHeading, PopDivider, HandMarks, Reserve, ResetMark } from './practiceBar'
+import { useSession, toggleCard } from '../../practice/session'
+import { tickPath } from '../../practice/songTicks'
 import {
-  usePractice, leavePractice, setHearMine, tempoLimits, metronomeAllowed, speedPercent, setSpeedPercent, practisedHand,
+  usePractice, leavePractice, tempoLimits, metronomeAllowed, speedPercent, setSpeedPercent, practisedHand,
   fixHandsFromPractice, setBandPreset, bandPreset, type BandPreset,
 } from '../../practice/practiceMode'
 
@@ -26,11 +28,13 @@ import {
 // Top line: PRACTICE MODE (beside the window's own buttons). Then one row:
 // ORFEO, the playlist, what you hear, key and tempo on the left; the song and
 // its playback in the middle; volume, bar, metronome, Fix hands and Exit on
-// the right. Under it, the song as a line of ticks (one a second, every tenth
-// longer) to move through it. Always there; a little lower while the song
+// the right. Under it, the song as a line of ticks (one every half second,
+// every tenth taller; amber as far as you've played) to move through it. Always there; a little lower while the song
 // plays, as a web page's header does once you scroll.
 const TITLE_H = 40          // the window's buttons' row
 const ROW_H = 74, ROW_H_PLAYING = 56
+// the transport's sides, from Play outwards, and the room the left half leaves for Back
+const CENTRE_SIDE = 300, CENTRE_LEFT = 64
 
 const bigValue: CSSProperties = { color: 'var(--text-active)', fontFamily: 'var(--font-mono)', fontSize: 20, fontWeight: 700, lineHeight: 1, whiteSpace: 'nowrap' }
 
@@ -57,7 +61,9 @@ export default function PracticeTopBar() {
   const barStarts = useStore(s => s.barStarts)
   const bpm = useStore(s => s.bpm)
   const originalBpm = useStore(s => s.originalBpm)
-  const asPercent = useStore(s => s.tempoDisplay === 'percent')
+  // Speed up gradually counts in percent: the tempo shows as a speed while it's on
+  const rampOn = usePractice(s => s.ramp && s.way === 'practise')
+  const asPercent = useStore(s => s.tempoDisplay === 'percent') || rampOn
   const detectedKey = useStore(s => s.detectedKey)
   const noteNaming = useStore(s => s.noteNaming)
   const accidentals = useStore(s => s.accidentals)
@@ -69,7 +75,10 @@ export default function PracticeTopBar() {
   const loopActive = useStore(s => s.loopRegionActive)
   const way = usePractice(s => s.way)
   const level = usePractice(s => s.level)
-  const hearMine = usePractice(s => s.hearMine)
+  const songReady = usePractice(s => s.songReady)
+  const card = useSession(s => s.card)
+  const cardNew = useSession(s => s.cardNew)
+  const cardOpen = useSession(s => s.cardOpen)
   usePractice(s => s.hand)   // the hand rows follow your choice
   const { play, pause, seek, seekAndPlay } = usePlayback()
   const [open, setOpen] = useState<'' | 'tracks'>('')
@@ -113,11 +122,16 @@ export default function PracticeTopBar() {
 
   const transpose = detectedKey?.transpose ?? 0
   const displayKey = detectedKey ? formatKey(detectedKey, noteNaming, accidentals) : '—'
+  const keyNames = ['—', ...[0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11].flatMap(semitone => [false, true].map(isMinor => formatKey({ semitone, isMinor, transpose: 0 }, noteNaming, accidentals)))]
   const metroOk = metronomeAllowed()
 
   let bar = 1
   for (let i = 0; i < barStarts.length; i++) { if (barStarts[i] <= currentTime + 1e-6) bar = i + 1; else break }
   const hasLoop = loopStart !== null && loopEnd !== null && loopEnd > loopStart
+  const sigMap = (midi as any)?._timeSigMap as { num: number; den: number; time: number }[] | undefined
+  const timeSig = sigMap?.length
+    ? sigMap.reduce((acc, e) => (e.time <= currentTime ? e : acc), sigMap[0])
+    : { num: midi?.timeSignatureNumerator ?? 4, den: midi?.timeSignatureDenominator ?? 4 }
 
   const playPause = () => {
     if (isCountingIn()) { cancelCountIn(); return }
@@ -134,22 +148,27 @@ export default function PracticeTopBar() {
     <div className="app-drag-region" style={{ flexShrink: 0, position: 'relative', zIndex: 20, background: 'var(--bg-deep)', borderBottom: '1px solid var(--state-hover-bg)' }}>
       {/* ── The top line, beside the window's own buttons ── */}
       <div style={{ height: TITLE_H, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-        <span style={{ ...featLabel, fontSize: 11, letterSpacing: '0.24em' }}>{t`Practice mode`}</span>
+        <span style={featLabel}>{t`Practice mode`}</span>
       </div>
 
+      {/* Two halves, left and right; the transport sits over the middle with Play
+          exactly at the window's centre, under PRACTICE MODE (Back to its left,
+          everything else to its right), so the left half has room up to it */}
       <div style={{
-        height: rowH, transition: 'height .3s ease', display: 'grid', gridTemplateColumns: 'repeat(3, minmax(0, 1fr))', alignItems: 'center',
-        padding: '0 20px', boxSizing: 'border-box',
+        height: rowH, transition: 'height .3s ease', display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', alignItems: 'center',
+        padding: '0 20px', boxSizing: 'border-box', position: 'relative',
       }}>
         {/* ── Left: ORFEO, playlist, what you hear, key, tempo ── */}
-        <div className="topbar-scroll" style={{ display: 'flex', alignItems: 'center', gap: 14, minWidth: 0, overflowX: 'auto', overflowY: 'hidden' }}>
+        <div className="topbar-scroll" style={{ display: 'flex', alignItems: 'center', gap: 14, minWidth: 0, overflowX: 'auto', overflowY: 'hidden', marginRight: CENTRE_LEFT }}>
           <OrfeoLogo scale={playing ? 1.2 : 1.45} />
           <div className="app-no-drag"><QueueButton practice /></div>
 
           <Tooltip title={t`What you hear`} description={t`The piano alone, Focus (the bass and drums too), or the whole band. Click to choose, or mute any track.`} placement="bottom" disabled={open === 'tracks'}>
             <button ref={tracksBtn} className="app-no-drag" onClick={() => setOpen(o => (o === 'tracks' ? '' : 'tracks'))} style={toolBtn()} aria-label={t`What you hear`} aria-expanded={open === 'tracks'}>
               <SlidersVertical {...barIcon} />
-              <span style={featValue}>{preset ? presetName[preset] : t`Your mix`}</span>
+              <Reserve options={[presetName.piano, presetName.focus, presetName.band, t`Your mix`].map((x, i) => <span key={i} style={featValue}>{x}</span>)}>
+                <span style={featValue}>{preset ? presetName[preset] : t`Your mix`}</span>
+              </Reserve>
             </button>
           </Tooltip>
           {open === 'tracks' && (
@@ -178,14 +197,9 @@ export default function PracticeTopBar() {
                 <div key={tr.index} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '6px 14px' }}>
                   <HandMarks hand={tr.practiceHand === 'L' ? 'L' : 'R'} />
                   <span style={{ flex: 1, fontSize: 13, color: 'var(--text-active)', whiteSpace: 'nowrap' }}>{tr.practiceHand === 'L' ? t`Left hand` : t`Right hand`}</span>
-                  <span style={{ fontSize: 11, color: 'var(--text-muted)' }}>{mine(tr) ? (tr.muted ? t`Silent, you play it` : t`You play it, heard`) : t`Plays along`}</span>
+                  <span style={{ fontSize: 11, color: 'var(--text-muted)' }}>{mine(tr) ? (tr.muted ? t`Your part is silent` : t`Your part is heard`) : t`Plays along`}</span>
                 </div>
               ))}
-              {way === 'practise' && (
-                <PopItem on={hearMine} onClick={() => setHearMine(!hearMine)} hint={t`Your part quietly, as a guide.`}>
-                  {hearMine ? t`Hear my part too: on` : t`Hear my part too: off`}
-                </PopItem>
-              )}
               {band.length > 0 && <PopDivider />}
               {band.map(tr => (
                 <button key={tr.index} className="app-no-drag" onClick={() => useStore.getState().setTrackMuted(tr.index, !tr.muted)}
@@ -204,13 +218,17 @@ export default function PracticeTopBar() {
               description={t`The song's key. The arrows move it up or down a semitone.`} placement="bottom">
               <span style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                 <span style={featLabel}>{t`Key`}</span>
-                <span style={{ ...bigValue, color: transpose ? AMBER : 'var(--text-active)' }}>{displayKey}</span>
+                <Reserve options={keyNames.map((k, i) => <span key={i} style={bigValue}>{k}</span>)}>
+                  <span style={{ ...bigValue, color: transpose ? AMBER : 'var(--text-active)' }}>{displayKey}</span>
+                </Reserve>
               </span>
             </Tooltip>
             <Chevrons upLabel={t`Transpose up`} downLabel={t`Transpose down`}
               upOff={!detectedKey || transpose >= 12} downOff={!detectedKey || transpose <= -12}
               up={() => detectedKey && useStore.setState({ detectedKey: transposeDetectedKey(detectedKey, 1) })}
               down={() => detectedKey && useStore.setState({ detectedKey: transposeDetectedKey(detectedKey, -1) })} />
+            <ResetMark shown={transpose !== 0} title={t`Back to the song's own key`}
+              onClick={() => detectedKey && useStore.setState({ detectedKey: { ...detectedKey, transpose: 0 } })} />
           </div>
 
           <div className="app-no-drag" style={{ display: 'flex', alignItems: 'center', gap: 8, flexShrink: 0 }}>
@@ -218,7 +236,7 @@ export default function PracticeTopBar() {
               <span style={{ display: 'flex', alignItems: 'center', gap: 8 }}
                 onContextMenu={e => { e.preventDefault(); const r = e.currentTarget.getBoundingClientRect(); setTempoMenu({ x: r.left, y: r.bottom + 6 }) }}>
                 <span style={featLabel}>{t`Tempo`}</span>
-                <span style={{ display: 'flex', alignItems: 'baseline', gap: 4 }}>
+                <span style={{ display: 'flex', alignItems: 'flex-end', gap: 4 }}>
                   <BpmValue shown={String(asPercent ? pct : liveBpm)} label={asPercent ? t`Speed in percent` : t`Tempo in BPM`}
                     changed={pct !== 100} disabled={fixedTempo}
                     onType={text => {
@@ -226,39 +244,63 @@ export default function PracticeTopBar() {
                       const next = asPercent ? typedSpeed(text, s.originalBpm) : typedBpm(text, s.originalBpm, fileBpm)
                       if (next !== null) setBpmWithin(next)
                     }} />
-                  <span style={{ ...featValue, fontSize: 11 }}>{asPercent ? '%' : t`BPM`}</span>
+                  {/* the unit's foot on the number's foot (the number's box has room below its digits) */}
+                  <Reserve options={['%', t`BPM`].map((x, i) => <span key={i} style={{ ...featValue, fontSize: 11 }}>{x}</span>)}>
+                    <span style={{ ...featValue, fontSize: 11, display: 'inline-block', marginBottom: 2 }}>{asPercent ? '%' : t`BPM`}</span>
+                  </Reserve>
                 </span>
               </span>
             </Tooltip>
-            {!fixedTempo && (
-              <Chevrons upLabel={t`Faster`} downLabel={t`Slower`} upOff={pct >= lim.max} downOff={pct <= lim.min}
+            {/* kept in place (hidden) where the tempo is fixed, so nothing moves */}
+            <span style={{ visibility: fixedTempo ? 'hidden' : 'visible', display: 'flex' }}>
+              <Chevrons upLabel={t`Faster`} downLabel={t`Slower`} upOff={fixedTempo || pct >= lim.max} downOff={fixedTempo || pct <= lim.min}
                 up={() => stepTempo(1)} down={() => stepTempo(-1)} />
-            )}
+            </span>
+            <ResetMark shown={!fixedTempo && pct !== 100} title={t`Back to the song's own tempo`} onClick={() => setSpeedPercent(100)} />
             {tempoMenu && <TempoDisplayMenu x={tempoMenu.x} y={tempoMenu.y} onClose={() => setTempoMenu(null)} />}
           </div>
         </div>
 
-        {/* ── Centre: the song, and its playback ── */}
-        <div className="app-no-drag" style={{ justifySelf: 'stretch', minWidth: 0, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: playing ? 2 : 5, transition: 'gap .3s' }}>
-          <span style={{ color: 'var(--text-default)', fontSize: 'var(--text-sm)', fontFamily: 'var(--font-ui)', lineHeight: '13px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: '100%' }}>
+        {/* ── Centre: the song, and its playback (Play at the window's centre) ── */}
+        <div className="app-no-drag" style={{
+          position: 'absolute', left: '50%', top: 0, bottom: 0, width: 0, display: 'flex', flexDirection: 'column',
+          justifyContent: 'center', alignItems: 'center', gap: playing ? 2 : 5, transition: 'gap .3s', pointerEvents: 'none',
+        }}>
+          <span style={{ color: 'var(--text-default)', fontSize: 'var(--text-sm)', fontFamily: 'var(--font-ui)', lineHeight: '13px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: 560, pointerEvents: 'auto' }}>
             {midi?.fileName.replace(/\.(mid|midi)$/i, '') ?? ''}
           </span>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 2 }}>
-            <TBtn onClick={back} title={hasLoop && loopActive ? t`Back to the loop's start` : t`Go to start`} oneLine><SkipBack size={16} strokeWidth={1.5} /></TBtn>
-            <TBtn onClick={playPause} accent title={t`Play / Pause (Space)`} large={!playing} oneLine>
-              {playing ? <Pause size={playing ? 20 : 24} fill="currentColor" strokeWidth={0} /> : <Play size={24} fill="currentColor" strokeWidth={0} />}
-            </TBtn>
-            <TBtn onClick={() => useStore.getState().setLoopRegionActive(!loopActive)} disabled={!hasLoop} active={hasLoop && loopActive}
-              title={t`Loop`} description={hasLoop ? t`Play the loop round after round.` : t`Set a loop first: Alt + drag on the piano roll.`}>
-              <Repeat size={13} strokeWidth={1.5} />
-            </TBtn>
-            <span style={{ marginLeft: 10, color: 'var(--text-muted)', fontFamily: 'var(--font-mono)', fontSize: 11, whiteSpace: 'nowrap' }}>
-              <span style={{ color: 'var(--text-active)' }}>{formatTime(currentTime)}</span> / {formatTime(midi?.duration ?? 0)}
-            </span>
+          <div style={{ display: 'grid', gridTemplateColumns: `${CENTRE_SIDE}px auto ${CENTRE_SIDE}px`, alignItems: 'center' }}>
+            <div style={{ justifySelf: 'end', display: 'flex', pointerEvents: 'auto' }}>
+              <TBtn onClick={back} disabled={!songReady} title={hasLoop && loopActive ? t`Back to the loop's start` : t`Go to start`} oneLine><SkipBack size={16} strokeWidth={1.5} /></TBtn>
+            </div>
+            <div style={{ pointerEvents: 'auto' }}>
+              <TBtn onClick={playPause} disabled={!songReady} accent title={t`Play / Pause (Space)`} large={!playing} oneLine>
+                {playing ? <Pause size={playing ? 20 : 24} fill="currentColor" strokeWidth={0} /> : <Play size={24} fill="currentColor" strokeWidth={0} />}
+              </TBtn>
+            </div>
+            <div style={{ justifySelf: 'start', display: 'flex', alignItems: 'center', gap: 2, pointerEvents: 'auto' }}>
+              <TBtn onClick={() => useStore.getState().setLoopRegionActive(!loopActive)} disabled={!hasLoop} active={hasLoop && loopActive}
+                title={t`Loop`} description={hasLoop ? t`Play the loop round after round.` : t`Set a loop first: Alt + drag on the piano roll.`}>
+                <Repeat size={13} strokeWidth={1.5} />
+              </TBtn>
+              <span style={{ marginLeft: 10, color: 'var(--text-muted)', fontFamily: 'var(--font-mono)', fontSize: 11, whiteSpace: 'nowrap' }}>
+                <span style={{ color: 'var(--text-active)' }}>{formatTime(currentTime)}</span> / {formatTime(midi?.duration ?? 0)}
+              </span>
+              {/* how it went, when you want it (it never pops up by itself); the icon
+                  pulses gently while there are words not read yet */}
+              <Tooltip title={t`Practice log`} placement="bottom"
+                description={card ? t`A few words on how it went since you last pressed Play,\nclick to open.` : t`after you've played,\na few words on how it went.`}>
+                <button onClick={() => toggleCard()} disabled={!card} aria-pressed={cardOpen} aria-label={t`Practice log`}
+                  style={{ ...toolBtn(!card), marginLeft: 18, gap: 6, height: 26 }}>
+                  <UserRoundStar {...barIcon} size={16} className={cardNew ? 'orfeo-soft-pulse' : undefined} />
+                  <span style={{ ...featValue, fontSize: 11 }}>{t`Practice log`}</span>
+                </button>
+              </Tooltip>
+            </div>
           </div>
         </div>
 
-        {/* ── Right: volume, bar, metronome, Fix hands, Exit (icons and values only) ── */}
+        {/* ── Right: volume, bar, time signature, metronome, Fix hands, Exit (icons and values only) ── */}
         <div className="app-no-drag" style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: 6, minWidth: 0 }}>
           <VolumeKnob bare />
           <Tooltip title={t`Bar ${bar} of ${barStarts.length}`} description={t`Position in the song,
@@ -266,6 +308,16 @@ counted in bars.`} placement="bottom">
             <div style={{ background: 'var(--bg-tile)', borderRadius: 4, padding: '4px 7px', display: 'flex', alignItems: 'baseline', margin: '0 8px' }}>
               <span style={{ color: 'var(--topbar-bar-number)', fontFamily: 'var(--font-mono)', fontSize: 'var(--text-sm)', fontWeight: 700, lineHeight: 1, minWidth: '3ch', textAlign: 'right' }}>{bar}</span>
               <span style={{ color: 'var(--topbar-bar-total)', fontFamily: 'var(--font-mono)', fontSize: 'var(--text-sm)', lineHeight: 1 }}>|{barStarts.length}</span>
+            </div>
+          </Tooltip>
+
+          {/* the time signature where you are (it may change along the way), as in the normal top bar */}
+          <Tooltip title={t`Time signature: ${timeSig.num}/${timeSig.den}`} description={t`Number of beats in each bar,
+and which note value counts as one beat.`} placement="bottom">
+            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', lineHeight: 1, padding: '0 6px' }}>
+              <span style={{ color: 'var(--text-active)', fontFamily: 'var(--font-mono)', fontSize: 'var(--text-base)', fontWeight: 700 }}>{timeSig.num}</span>
+              <div style={{ width: 14, height: 1, background: 'var(--topbar-timesig-divider)', margin: '2px 0' }} />
+              <span style={{ color: 'var(--text-active)', fontFamily: 'var(--font-mono)', fontSize: 'var(--text-base)', fontWeight: 700 }}>{timeSig.den}</span>
             </div>
           </Tooltip>
 
@@ -317,8 +369,11 @@ counted in bars.`} placement="bottom">
   )
 }
 
-// ── The song as a line of ticks: one a second (every tenth a little longer;
-// a long song, one every five seconds), the part already played bright.
+// ── The song as a line of ticks: one every half second (fewer when the song
+// is long for the width, so they never crowd), every tenth taller. Not played
+// yet: white; played: amber. Each tick sits on a whole pixel, worked out from
+// the bar's real width, so the tall ones never drift into the short ones (a
+// repeating background sized in % rounded each pattern on its own and did).
 // Click or drag anywhere on it to move through the song. ────────────────────
 function SongTicks({ playing, hasLoop }: { playing: boolean; hasLoop: boolean }) {
   const midi = useStore(s => s.midi)
@@ -328,28 +383,32 @@ function SongTicks({ playing, hasLoop }: { playing: boolean; hasLoop: boolean })
   const { pause, seek, seekAndPlay } = usePlayback()
   const ref = useRef<HTMLDivElement>(null)
   const drag = useRef<{ wasPlaying: boolean } | null>(null)
+  const [w, setW] = useState(0)
+  const clipId = useId()
+  useLayoutEffect(() => {
+    const el = ref.current
+    if (!el) return
+    const ro = new ResizeObserver(() => setW(Math.round(el.getBoundingClientRect().width)))
+    ro.observe(el)
+    setW(Math.round(el.getBoundingClientRect().width))
+    return () => ro.disconnect()
+  }, [])
   const dur = midi?.duration ?? 0
-  if (!dur) return <div style={{ height: 14 }} />
-  const unit = dur > 900 ? 5 : 1   // seconds a tick
-  const step = (unit / dur) * 100
-  const ticks = [
-    `linear-gradient(to right, var(--text-amber) 0 1px, transparent 1px)`,
-    `linear-gradient(to right, var(--text-amber) 0 1px, transparent 1px)`,
-  ].join(',')
-  const tickBg: CSSProperties = {
-    position: 'absolute', inset: 0, backgroundImage: ticks, backgroundRepeat: 'repeat-x',
-    backgroundSize: `${step}% 45%, ${step * 10}% 100%`, backgroundPosition: 'left bottom, left bottom',
-  }
+  const { d, unit } = useMemo(() => tickPath(dur, w), [dur, w])
   const H = playing ? 10 : 14
   const timeAt = (x: number) => {
     const r = ref.current!.getBoundingClientRect()
     return Math.max(0, Math.min(dur, ((x - r.left) / r.width) * dur))
   }
-  const played = Math.min(100, (currentTime / dur) * 100)
+  const played = dur ? Math.min(1, currentTime / dur) : 0
+  const tip = unit < 1
+    ? t`One tick every half second, every tenth taller.\nClick or drag to move through the song.`
+    : t`One tick every ${unit} seconds, every tenth taller.\nClick or drag to move through the song.`
   return (
-    <Tooltip title={t`The song`} description={t`One tick a second, every tenth a little longer. Click or drag to move through the song.`} placement="bottom" wrapperStyle={{ display: 'block' }}>
+    <Tooltip title={t`Timeline`} description={tip} placement="bottom" wrapperStyle={{ display: 'block' }}>
       <div ref={ref} className="app-no-drag" role="slider" aria-label={t`Song position`} aria-valuemin={0} aria-valuemax={Math.round(dur)} aria-valuenow={Math.round(currentTime)}
         onPointerDown={e => {
+          if (!dur) return
           e.currentTarget.setPointerCapture(e.pointerId)
           const s = useStore.getState()
           if (useWaiting.getState().holding) endHold(false)
@@ -364,12 +423,18 @@ function SongTicks({ playing, hasLoop }: { playing: boolean; hasLoop: boolean })
           if (drag.current.wasPlaying) seekAndPlay(to); else seek(to)
           drag.current = null
         }}
-        style={{ position: 'relative', height: H, margin: '0 0 4px', cursor: 'pointer', transition: 'height .3s', touchAction: 'none' }}>
-        {hasLoop && (
+        style={{ position: 'relative', height: dur ? H : 14, margin: '0 0 4px', cursor: dur ? 'pointer' : 'default', transition: 'height .3s', touchAction: 'none' }}>
+        {dur > 0 && hasLoop && (
           <div style={{ position: 'absolute', top: 0, bottom: 0, left: `${(loopStart! / dur) * 100}%`, width: `${((loopEnd! - loopStart!) / dur) * 100}%`, background: 'var(--accent-amber-subtle)' }} />
         )}
-        <div style={{ ...tickBg, opacity: 0.45 }} />
-        <div style={{ ...tickBg, clipPath: `inset(0 ${100 - played}% 0 0)` }} />
+        {dur > 0 && w > 0 && (
+          <svg width={w} height="100%" viewBox={`0 0 ${w} 100`} preserveAspectRatio="none" aria-hidden
+            style={{ position: 'absolute', inset: 0, display: 'block', overflow: 'visible' }}>
+            <defs><clipPath id={clipId}><rect x={0} y={0} width={Math.round(played * w)} height={100} /></clipPath></defs>
+            <path d={d} stroke="var(--text-active)" strokeWidth={1} vectorEffect="non-scaling-stroke" shapeRendering="crispEdges" fill="none" />
+            <path d={d} stroke="var(--text-amber)" strokeWidth={1} vectorEffect="non-scaling-stroke" shapeRendering="crispEdges" fill="none" clipPath={`url(#${clipId})`} />
+          </svg>
+        )}
       </div>
     </Tooltip>
   )

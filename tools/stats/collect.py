@@ -120,6 +120,11 @@ def asset_kind(name):
         return "update" if low.endswith(".exe.blockmap") else "other"  # an installed copy downloading an update
     if low.endswith(".yml") or low.endswith(".yaml"):
         return "launch" if low == "latest.yml" else "other"  # an installed copy checking for updates at start
+    # From 1.8.1 an installed copy updates itself from its own copy of the
+    # installer (Orfeo-Update-x.y.z.exe), so people's downloads and in-app
+    # updates are counted apart
+    if low.endswith(".exe") and low.startswith("orfeo-update-"):
+        return "appupdate"
     if low.endswith(".exe") and "portable" in low:
         return "portable"
     if low.endswith(".exe") or low.endswith(".msi"):
@@ -251,7 +256,7 @@ def build_report(repo, info, dl_rows, traffic, traffic_error):
     dates = sorted(by_date)
     first_day = dates[0]
     now = by_date[dates[-1]]
-    kinds = DL_KINDS + ("launch", "update")
+    kinds = DL_KINDS + ("appupdate", "launch", "update")
     total = {k: now.get(k, 0) for k in kinds}
     downloads = sum(total[k] for k in DL_KINDS)
 
@@ -294,6 +299,7 @@ def build_report(repo, info, dl_rows, traffic, traffic_error):
     L.append(f"| — Windows portable (`Orfeo-x.y.z-portable.exe`) | {fmt(total['portable'])} | {fmt(last7['portable'])} |")
     L.append(f"| — macOS (`.dmg`, `.zip`) | {fmt(total['mac'])} | {fmt(last7['mac'])} |")
     L.append(f"| — Linux (`.AppImage`, `.deb`, `.rpm`) | {fmt(total['linux'])} | {fmt(last7['linux'])} |")
+    L.append(f"| Installed copies updating in the app (`Orfeo-Update-x.y.z.exe`, from v1.8.1) | {fmt(total['appupdate'])} | {fmt(last7['appupdate'])} |")
     L.append(f"| App starts checking for updates (`latest.yml`) | {fmt(total['launch'])} | {fmt(last7['launch'])} |")
     L.append(f"| Updates installed (`.blockmap`) | {fmt(total['update'])} | {fmt(last7['update'])} |")
     if traffic:
@@ -314,31 +320,40 @@ def build_report(repo, info, dl_rows, traffic, traffic_error):
         "The Windows portable, macOS and Linux versions do not check automatically.\n"
     )
     L.append(
+        "*Updating in the app*: from v1.8.1 an installed copy downloads its update from its own copy of the installer, "
+        "`Orfeo-Update-x.y.z.exe`, so the Windows installer column counts only people downloading it from GitHub. "
+        "Up to v1.8.0 the two can't be told apart: there the Windows installer column also includes copies updating "
+        "themselves (shown as – under Updated in the app).\n"
+    )
+    L.append(
         "Highlighted numbers are the ones closest to real people: downloads of the app and unique visitors. "
         "Page views and clones also count repeat visits, search-engine crawlers and automated tools.\n"
     )
 
     # Per release
     L.append("## Downloads per release\n")
-    L.append("| Release | Published | Windows installer | Windows portable | macOS | Linux | Total downloads | App starts | Updates |")
-    L.append("|---|---|---:|---:|---:|---:|---:|---:|---:|")
+    L.append("| Release | Published | Windows installer | Updated in the app | Windows portable | macOS | Linux | Total downloads | App starts | Updates |")
+    L.append("|---|---|---:|---:|---:|---:|---:|---:|---:|---:|")
     latest = [r for r in dl_rows if r["date"] == dates[-1]]
     rels = {}
+    split = set()  # releases with their own update file (from v1.8.1)
     for r in latest:
         x = rels.setdefault(r["tag"], {"published": r["published"], **{k: 0 for k in kinds}})
         if r["kind"] in x:
             x[r["kind"]] += n(r["downloads"])
+        if r["kind"] == "appupdate":
+            split.add(r["tag"])
     def ver(tag):
         return [int(x) for x in re.findall(r"\d+", tag)]
 
     for tag, x in sorted(rels.items(), key=lambda kv: (kv[1]["published"], ver(kv[0])), reverse=True):
         L.append(
             f"| [{tag}](https://github.com/{repo}/releases/tag/{tag}) | {x['published']} | {fmt(x['installer'])} | "
-            f"{fmt(x['portable'])} | {fmt(x['mac'])} | {fmt(x['linux'])} | "
+            f"{fmt(x['appupdate']) if tag in split else '–'} | {fmt(x['portable'])} | {fmt(x['mac'])} | {fmt(x['linux'])} | "
             f"{hi('**' + fmt(sum(x[k] for k in DL_KINDS)) + '**')} | {fmt(x['launch'])} | {fmt(x['update'])} |"
         )
     L.append(
-        f"| **All releases** | | **{fmt(total['installer'])}** | **{fmt(total['portable'])}** | **{fmt(total['mac'])}** | **{fmt(total['linux'])}** | "
+        f"| **All releases** | | **{fmt(total['installer'])}** | **{fmt(total['appupdate'])}** | **{fmt(total['portable'])}** | **{fmt(total['mac'])}** | **{fmt(total['linux'])}** | "
         f"{hi('**' + fmt(downloads) + '**')} | "
         f"**{fmt(total['launch'])}** | **{fmt(total['update'])}** |\n"
     )

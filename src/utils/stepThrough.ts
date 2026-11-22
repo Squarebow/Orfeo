@@ -11,12 +11,17 @@ import { NES } from './noteEditorState'
 import { amberHex } from './hitEffectQueue'
 import { isShown } from './trackShown'
 import { CHORD_GRACE_SEC } from './midiParser'
+import { isHomogeneousHandTrack } from './handColors'
+import { liveHandColor } from '../audio/liveHandColor'
+import type { Hand } from '../types'
 
 const EPS = 1e-4
 const MIN_MS = 120
 const MAX_MS = 2500
 
-interface StepNote { midi: number; velocity: number; duration: number; channel: number; color: string }
+// color: the track's own; with `hand`, the key lights in the hand's colour where
+// the roll shows it (liveHandColor, the same rule as playback and the roll)
+interface StepNote { midi: number; velocity: number; duration: number; channel: number; color: string; hand?: Hand; handTrack?: boolean }
 interface Step { time: number; notes: StepNote[] }
 
 function activeMidi(): any {
@@ -41,8 +46,9 @@ export function buildSteps(midi: any, tracks: ReturnType<typeof useStore.getStat
     if (track.isDrum) continue
     const ts = tracks.find(t => t.index === track.index)
     if (!ts || !isShown(ts, hasSolo)) continue
+    const handTrack = isHomogeneousHandTrack(track.notes)
     for (const n of track.notes) {
-      all.push({ time: n.time, midi: n.midi, velocity: n.velocity, duration: n.duration, channel: track.channel, color: ts.color ?? amberHex() })
+      all.push({ time: n.time, midi: n.midi, velocity: n.velocity, duration: n.duration, channel: track.channel, color: ts.color ?? amberHex(), hand: n.hand, handTrack })
     }
   }
   all.sort((a, b) => a.time - b.time)
@@ -121,7 +127,7 @@ export function stepEvents(dir: 1 | -1, byBar = false): boolean {
   const play = (window as any).__orfeoPlayNote as ((m: number, v: number, d: number, ch?: number, visual?: boolean, color?: string) => void) | undefined
   for (const n of step.notes) {
     const durMs = Math.max(MIN_MS, Math.min(MAX_MS, (n.duration / ratio) * 1000))
-    play?.(n.midi + transpose, n.velocity, durMs, n.channel, true, n.color)
+    play?.(n.midi + transpose, n.velocity, durMs, n.channel, true, liveHandColor(n, n.color, !!n.handTrack))
   }
   return true
 }

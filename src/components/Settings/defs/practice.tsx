@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { BookOpen, PanelLeftClose, Hand, Activity, Expand, StepForward, Sparkles, MessageSquareText, Minus } from 'lucide-react'
+import { BookOpen, PanelLeftClose, Hand, Activity, Expand, StepForward, Sparkles, MessageSquareText, Minus, Music } from 'lucide-react'
 import { useStore } from '../../../store'
 import { Switch, InlineIcon, OptionBtn } from '../controls'
 import { useDevPractice, pluggedSim, type PianistStyle } from '../../../practice/devPlay'
@@ -200,11 +200,46 @@ export const PRACTICE_DEFS: SettingDef[] = [
   {
     // dev mode and test builds only until 2.0
     id: 'practiceMode', icon: Sparkles, kind: 'switch', useVisible: () => PRACTICE_VISIBLE,
-    Control: () => { const v = useStore(s => s.practiceModeEnabled); return <Switch value={v} onChange={useStore.getState().setPracticeModeEnabled} label={t`Practice mode`} /> },
+    Control: () => { const v = useStore(s => s.practiceModeEnabled); return <Switch value={v} onChange={on => {
+      const st = useStore.getState()
+      st.setPracticeModeEnabled(on)
+      // practice mode plays songs from the practice queue: turning it on turns the queue on too
+      if (on && !st.queueEnabled) st.setQueueEnabled(true)
+    }} label={t`Practice mode`} /> },
+  },
+  {
+    id: 'toPlayShows', icon: Music, kind: 'choice', useVisible: () => PRACTICE_VISIBLE,
+    Control: () => {
+      const v = useStore(s => s.toPlayShows)
+      return (
+        <div style={{ display: 'flex', gap: 'var(--space-1)' }}>
+          {([['chords', t`Chords`], ['notes', t`Every note`]] as const).map(([k, label]) => (
+            <OptionBtn key={k} active={v === k} onClick={() => useStore.getState().setToPlayShows(k)}>{label}</OptionBtn>
+          ))}
+        </div>
+      )
+    },
   },
   {
     id: 'practicePlaybar', icon: Minus, kind: 'switch', useVisible: () => PRACTICE_VISIBLE,
     Control: () => { const v = useStore(s => s.practicePlaybar); return <Switch value={v} onChange={useStore.getState().setPracticePlaybar} label={t`Playbar in practice mode`} /> },
+  },
+  {
+    id: 'fingerHints', icon: Sparkles, kind: 'switch', useVisible: () => PRACTICE_VISIBLE,
+    Control: () => { const v = useStore(s => s.fingerHints); return <Switch value={v} onChange={useStore.getState().setFingerHints} label={t`Suggested fingering`} /> },
+  },
+  {
+    id: 'handSize', icon: Hand, kind: 'choice', useVisible: () => PRACTICE_VISIBLE,
+    Control: () => {
+      const v = useStore(s => s.handSize)
+      return (
+        <div style={{ display: 'flex', gap: 'var(--space-1)' }}>
+          {([['small', t`Small`], ['medium', t`Medium`], ['large', t`Large`]] as const).map(([k, label]) => (
+            <OptionBtn key={k} active={v === k} onClick={() => useStore.getState().setHandSize(k)}>{label}</OptionBtn>
+          ))}
+        </div>
+      )
+    },
   },
   {
     id: 'practiceFingering', icon: Hand, kind: 'switch', useVisible: () => PRACTICE_VISIBLE,

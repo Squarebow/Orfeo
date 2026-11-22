@@ -20,9 +20,15 @@ import { loadHistory, saveSession, cachedHistory, allTakes, type SessionRecord }
 export interface Card extends HowItWent { take: TakeRecord }
 interface SessionUi {
   card: Card | null
+  cardOpen: boolean        // the card is showing (opened from HOW IT WENT in the header; it never pops up by itself)
+  cardNew: boolean         // words not read yet: HOW IT WENT pulses
   ramp: { streak: number } // clean rounds in a row at this speed (Speed up gradually)
 }
-export const useSession = create<SessionUi>(() => ({ card: null, ramp: { streak: 0 } }))
+export const useSession = create<SessionUi>(() => ({ card: null, cardOpen: false, cardNew: false, ramp: { streak: 0 } }))
+/** HOW IT WENT in the header: open or close the card (read: no more pulsing) */
+export function toggleCard(open = !useSession.getState().cardOpen): void {
+  useSession.setState({ cardOpen: open && !!useSession.getState().card, cardNew: false })
+}
 
 interface Open {
   from: number; maxTo: number
@@ -37,6 +43,7 @@ let open: Open | null = null
 let stretchFrom = 0            // the first take since Play
 let stretchOpen = false
 let rampedTo: number | null = null
+let speedBeforeRamp: number | null = null   // the speed before Speed up gradually took over
 
 const ratio = () => { const s = useStore.getState(); return s.originalBpm > 0 ? s.bpm / s.originalBpm : 1 }
 const bar = (t: number) => barOf(t, useStore.getState().barStarts) ?? 1
@@ -48,7 +55,7 @@ function startSession() {
   song = ((s.midi as any)?._filePath as string | undefined) ?? null
   session = { id: Date.now(), notes: currentMatcher()?.expected.length ?? 0, takes: [] }
   stretchFrom = 0; stretchOpen = false; rampedTo = null
-  useSession.setState({ card: null, ramp: { streak: 0 } })
+  useSession.setState({ card: null, cardOpen: false, cardNew: false, ramp: { streak: 0 } })
   if (song) void loadHistory(song)
 }
 
@@ -98,7 +105,7 @@ function stretchEnded() {
   if (!subject) return
   const earlier = [...allTakes(song ? cachedHistory(song) : null, session.id), ...session.takes.slice(0, stretchFrom)]
   const words = howItWent(subject, { earlier, session: session.takes.slice(stretchFrom), rampedTo, metronome: metronomeAllowed() })
-  if (words.lines.length) useSession.setState({ card: { ...words, take: subject } })
+  if (words.lines.length) useSession.setState({ card: { ...words, take: subject }, cardNew: true })
 }
 
 // ── Wiring ───────────────────────────────────────────────────────────────────
@@ -138,7 +145,8 @@ function activity() {
     if (!stretchOpen) {
       stretchOpen = true
       rampedTo = null
-      useSession.setState({ card: null })
+      // playing again: the card closes (the last words stay under HOW IT WENT)
+      if (useSession.getState().cardOpen) useSession.setState({ cardOpen: false })
       if (!open) freshTake()
       stretchFrom = session?.takes.length ?? 0
     }
@@ -170,12 +178,20 @@ useWaiting.subscribe((w, prev) => {
 })
 usePractice.subscribe((p, prev) => {
   if (p.active && !prev.active) startSession()
-  if (!p.active && prev.active) { session = null; song = null; useSession.setState({ card: null }) }
-  // Speed up gradually switched on: start at 60 % (or slower, if you already are)
-  if (p.active && p.ramp && !prev.ramp && p.way === 'practise') {
+  if (!p.active && prev.active) { session = null; song = null; useSession.setState({ card: null, cardOpen: false, cardNew: false }) }
+  // Speed up gradually switched on: start at 60 % (or slower, if you already are);
+  // switched off (or another way of playing): back to the speed you had before
+  const rampOn = (q: typeof p) => q.active && q.ramp && q.way === 'practise'
+  if (rampOn(p) && !rampOn(prev)) {
     useSession.setState({ ramp: { streak: 0 } })
+    speedBeforeRamp = speedPercent()
     if (speedPercent() > RAMP_START) setSpeedPercent(RAMP_START)
+  } else if (!rampOn(p) && rampOn(prev) && p.active) {
+    useSession.setState({ ramp: { streak: 0 } })
+    setSpeedPercent(speedBeforeRamp ?? 100)
+    speedBeforeRamp = null
   }
+  if (!p.active) speedBeforeRamp = null
 })
 
 /** Practise the bars worth another go: loop them in Practise */
@@ -189,7 +205,7 @@ export function practiseBars(from: number, to: number): number | null {
   s.setLoopRegionActive(true)
   const p = usePractice.getState()
   if (p.way !== 'practise') usePractice.setState({ way: 'practise', hand: 'B', waitOn: p.way === 'wait' })
-  useSession.setState({ card: null })
+  useSession.setState({ card: null, cardOpen: false, cardNew: false })
   return start
 }
 
@@ -197,5 +213,5 @@ export function practiseBars(from: number, to: number): number | null {
 export const currentSession = () => ({ song, session })
 /** Dev Tools: show the words for a made-up take */
 export function showCardFor(take: TakeRecord, opts: Parameters<typeof howItWent>[1] = {}) {
-  useSession.setState({ card: { ...howItWent(take, opts), take } })
+  useSession.setState({ card: { ...howItWent(take, opts), take }, cardOpen: true, cardNew: false })
 }

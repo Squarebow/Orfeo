@@ -1,5 +1,6 @@
-import { useLayoutEffect, useRef, useState, type CSSProperties, type ReactNode } from 'react'
+import { useLayoutEffect, useRef, useState, type CSSProperties, type ReactNode, type PointerEvent as ReactPointerEvent } from 'react'
 import { createPortal } from 'react-dom'
+import { RotateCcw } from 'lucide-react'
 import { useMenuDismiss } from '../ContextMenu'
 
 // ── Practice mode's header and footer: one look ──────────────────────────────
@@ -54,6 +55,30 @@ export function PopItem({ on, onClick, children, hint, disabled }: {
 export const popHeading: CSSProperties = { ...featLabel, fontSize: 10, padding: '6px 14px 4px' }
 export function PopDivider() { return <div style={{ height: 1, background: 'var(--border)', margin: '4px 0' }} /> }
 
+/** Room for the widest of `options`, so a changing value never moves what
+ *  comes after it (all of them stacked in one cell, only the current one seen) */
+export function Reserve({ options, children, align = 'start' }: { options: ReactNode[]; children: ReactNode; align?: 'start' | 'end' }) {
+  return (
+    <span style={{ display: 'inline-grid', justifyItems: align, alignItems: 'baseline' }}>
+      {options.map((o, i) => <span key={i} aria-hidden style={{ gridArea: '1 / 1', visibility: 'hidden', whiteSpace: 'nowrap' }}>{o}</span>)}
+      <span style={{ gridArea: '1 / 1', whiteSpace: 'nowrap' }}>{children}</span>
+    </span>
+  )
+}
+
+/** A small reset button that keeps its room when there's nothing to reset */
+export function ResetMark({ shown, onClick, title }: { shown: boolean; onClick: () => void; title: string }) {
+  return (
+    <button onClick={onClick} disabled={!shown} aria-label={title} title={title} className="app-no-drag"
+      style={{
+        visibility: shown ? 'visible' : 'hidden', display: 'flex', alignItems: 'center', color: AMBER, flexShrink: 0,
+        background: 'var(--accent-amber-subtle)', border: '1px solid var(--accent-amber-medium)', borderRadius: 4, padding: '1px 5px', cursor: 'pointer',
+      }}>
+      <RotateCcw size={9} />
+    </button>
+  )
+}
+
 /** Hand colour marks: tiny squares beside a hand's name */
 export function HandMarks({ hand }: { hand: 'L' | 'R' | 'B' }) {
   const sq = (c: string) => <span style={{ width: 9, height: 9, borderRadius: 2, background: c, flexShrink: 0 }} />
@@ -93,4 +118,36 @@ export function BarPop({ anchor, up = false, width = 260, align = 'left', onClos
     </div>,
     document.body,
   )
+}
+
+/** A card you can move out of the way: drag it by any spot that isn't a
+ *  control. Where you leave it is kept (by `key`) for as long as Orfeo runs,
+ *  and part of it always stays on screen. Spread `dragProps` on the card and
+ *  add `off` to its place. */
+const _placed = new Map<string, { x: number; y: number }>()
+const NOT_A_HANDLE = 'button, a, input, select, textarea, label, [role="slider"], [data-no-drag]'
+export function useDragAnywhere(key: string) {
+  const [off, setOff] = useState(() => _placed.get(key) ?? { x: 0, y: 0 })
+  const drag = useRef<{ x: number; y: number; ox: number; oy: number; r: DOMRect } | null>(null)
+  const onPointerDown = (e: ReactPointerEvent<HTMLElement>) => {
+    if (e.button !== 0 || (e.target as HTMLElement).closest(NOT_A_HANDLE)) return
+    // the card's own scrollbar scrolls, it doesn't drag
+    const el = e.currentTarget
+    if (e.target === el && (e.nativeEvent.offsetX >= el.clientWidth || e.nativeEvent.offsetY >= el.clientHeight)) return
+    e.preventDefault()   // no text selection while dragging
+    e.currentTarget.setPointerCapture(e.pointerId)
+    drag.current = { x: e.clientX, y: e.clientY, ox: off.x, oy: off.y, r: e.currentTarget.getBoundingClientRect() }
+  }
+  const onPointerMove = (e: ReactPointerEvent<HTMLElement>) => {
+    const d = drag.current
+    if (!d) return
+    const KEEP = 60   // px of the card that stay on screen
+    const dx = Math.max(KEEP - d.r.right, Math.min(window.innerWidth - KEEP - d.r.left, e.clientX - d.x))
+    const dy = Math.max(8 - d.r.top, Math.min(window.innerHeight - 40 - d.r.top, e.clientY - d.y))
+    const next = { x: d.ox + dx, y: d.oy + dy }
+    _placed.set(key, next)
+    setOff(next)
+  }
+  const end = () => { drag.current = null }
+  return { off, dragProps: { onPointerDown, onPointerMove, onPointerUp: end, onPointerCancel: end } }
 }

@@ -16,7 +16,7 @@ import type { Hand } from '../../types'
 import { HAND_LH_CSS, HAND_RH_CSS } from '../../utils/handColors'
 import { HitEffectsRenderer } from './HitEffects'
 import { drainHitEffects } from '../../utils/hitEffectQueue'
-import { isShown } from '../../utils/trackShown'
+import { isOnRoll } from '../../utils/trackShown'
 import { usePractice, practisedHand as practisedHandOf } from '../../practice/practiceMode'
 import { useReview } from '../../practice/reviewState'
 import { reviewMarks, REVIEW_COLORS } from '../../practice/review'
@@ -482,6 +482,7 @@ export default function PianoRoll() {
       s.midi !== prev.midi ||
       s.currentTime !== prev.currentTime ||
       s.tracks !== prev.tracks ||
+      s.mutedOnRoll !== prev.mutedOnRoll ||
       s.detectedKey !== prev.detectedKey ||
       s.zoomLevel !== prev.zoomLevel ||
       s.appTheme !== prev.appTheme ||
@@ -672,7 +673,7 @@ export default function PianoRoll() {
           const track    = nonEmptyEditTracks[i]
           const parsedIdx = parsedMidi?.tracks?.[i]?.index ?? i
           const ts = trackMap.get(parsedIdx)
-          if (!ts || !isShown(ts, hasSolo)) continue   // same gate as drawFrame (trackShown.ts)
+          if (!ts || !isOnRoll(ts, hasSolo)) continue   // same gate as drawFrame (trackShown.ts)
           const color = parseInt((ts.color ?? '#e8a027').replace('#', ''), 16)
 
           for (const note of track.notes) {
@@ -1046,14 +1047,15 @@ export default function PianoRoll() {
         // fingering: the numbers on the notes in the Note Editor, where you set
         // them (in practice mode they're on the keyboard: practice/keyFingers.ts)
         const showFingers = noteEditorActive
-        const fingerMarks: { x: number; y: number; f: number }[] = []
+        const fingerMarks: { x: number; y: number; f: number; hint?: boolean }[] = []
+        const hintsOn = useStore.getState().fingerHints
         for (let i = startIdx; i < flat.length; i++) {
           const note = flat[i]
           if (note.time > visEnd) break
           if (note.time + note.duration < visStart) continue
 
           const ts = trackMap.get(note.trackIndex)
-          if (ts && !isShown(ts, hasSolo)) continue   // what shows: eye, mute and solo (trackShown.ts)
+          if (ts && !isOnRoll(ts, hasSolo)) continue   // what's on the roll: eye, mute and solo — mute kept on with Muted tracks stay on the roll (trackShown.ts)
 
           let shownMidi = note.midi + transpose
           let folded = false
@@ -1114,7 +1116,9 @@ export default function PianoRoll() {
             notes.fill({ color: 0xffffff, alpha: 0.55 })
           }
           const finger = (note.noteRef as any)?.finger ?? note.src?.finger
-          if (finger) fingerMarks.push({ x: key.x + 1 + drawW / 2, y: botY - Math.min(8, noteH / 2), f: finger })
+          // Orfeo's suggestion where you haven't set one (Suggested fingering on): grey, in italics
+          const hint = !finger && hintsOn ? ((note.noteRef as any)?.fingerHint ?? (note.src as any)?.fingerHint) : undefined
+          if (finger || hint) fingerMarks.push({ x: key.x + 1 + drawW / 2, y: botY - Math.min(8, noteH / 2), f: finger ?? hint, hint: !finger })
         }
 
         // ── Fingering in the Note Editor: the finger number on each note ──────
@@ -1124,7 +1128,11 @@ export default function PianoRoll() {
             ctx.font = `bold 10px ${FONT_MONO_STR}`
             ctx.textAlign = 'center'; ctx.textBaseline = 'middle'
             ctx.lineWidth = 3; ctx.strokeStyle = 'rgba(0,0,0,0.75)'; ctx.fillStyle = '#ffffff'
-            for (const m of fingerMarks) { ctx.strokeText(String(m.f), m.x, m.y); ctx.fillText(String(m.f), m.x, m.y) }
+            for (const m of fingerMarks) {
+              ctx.font = m.hint ? `italic 10px ${FONT_MONO_STR}` : `bold 10px ${FONT_MONO_STR}`
+              ctx.fillStyle = m.hint ? '#b4b4bc' : '#ffffff'
+              ctx.strokeText(String(m.f), m.x, m.y); ctx.fillText(String(m.f), m.x, m.y)
+            }
             ctx.restore()
           }
         }
@@ -1854,6 +1862,7 @@ export default function PianoRoll() {
           // fingering (keys 1–5 do the same, 0 clears)
           for (const f of [1, 2, 3, 4, 5]) options.push({ label: t`Finger ${f}`, onClick: () => { setSelectedFinger(f); setContextMenu(null) } })
           if ([...editSelectedNotes].some(n => (n as any).finger)) options.push({ label: t`No finger`, onClick: () => { setSelectedFinger(undefined); setContextMenu(null) } })
+          if ([...editSelectedNotes].some(n => (n as any).fingerHint && !(n as any).finger)) options.push({ label: t`Keep suggested fingering`, onClick: () => { keepSuggestedFingers(); setContextMenu(null) } })
           if (editSelectedNotes.size >= 2) {
             options.push({
               label: t`Flatten Velocity (selected notes: ${editSelectedNotes.size})`,
@@ -1924,6 +1933,24 @@ export default function PianoRoll() {
         NES.dirty            = true
         NES.needsFlatRebuild = true
         NES.onHistoryChange?.()
+      }
+
+      // ── keepSuggestedFingers — Orfeo's suggested finger becomes yours on every
+      // selected note that has one and no finger of yours; one undoable step ──
+      const keepSuggestedFingers = () => {
+        const take = [...editSelectedNotes].filter(n => (n as any).fingerHint && !(n as any).finger)
+        if (!take.length) return
+        const cmd = {
+          description: take.length === 1 ? 'Keep the suggested finger' : `Keep the suggested fingering on ${take.length} notes`,
+          apply() { for (const n of take) (n as any).finger = (n as any).fingerHint },
+          revert() { for (const n of take) delete (n as any).finger },
+        }
+        cmd.apply()
+        NES.history.push(cmd)
+        NES.dirty            = true
+        NES.needsFlatRebuild = true
+        NES.onHistoryChange?.()
+        dirtyRef.current = true
       }
 
       // ── setSelectedFinger — fingering on every selected note (1–5, or

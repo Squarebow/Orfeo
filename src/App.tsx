@@ -5,6 +5,7 @@ import PracticeStrip from './components/Practice/PracticeStrip'
 import BlankRecord from './components/Record/BlankRecord'
 import ListenPanel from './components/Practice/ListenPanel'
 import PracticeSummaryCard from './components/Practice/PracticeSummaryCard'
+import PracticePickSong from './components/Practice/PracticePickSong'
 import PracticeReview from './components/Practice/PracticeReview'
 import PracticeProgress from './components/Practice/PracticeProgress'
 import ScoreView from './components/Practice/ScoreView'
@@ -559,7 +560,7 @@ export default function App() {
       <BlankRecord />
       {practicing ? (
         // ── Practice mode: its own narrow top bar, nothing else around the roll ──
-        <><PracticeTopBar /><ListenPanel /><PracticeSummaryCard /><PracticeReview /><PracticeProgress /></>
+        <><PracticeTopBar /><PracticePickSong /><ListenPanel /><PracticeSummaryCard /><PracticeReview /><PracticeProgress /></>
       ) : presentationMode ? (
         <>
           {/* Hover zone — 8px strip at top edge that reveals the header ────── */}

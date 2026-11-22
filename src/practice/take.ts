@@ -77,8 +77,12 @@ export function buildTake(x: TakeInput): TakeRecord {
  *  short loop always counts) */
 export const worthKeeping = (t: TakeRecord) => t.counts.hit + t.counts.missed >= (t.end === 'loop' ? 1 : 8)
 
-/** Played through without a slip: what Speed up gradually counts */
-export const cleanTake = (t: TakeRecord) => t.counts.missed === 0 && t.counts.extra <= 1 && t.waits === 0
+/** Played through without a slip: what Speed up gradually counts. With Wait on
+ *  the song can only wait (it never lets a note go missed), so a short wait or
+ *  two is fine: a round only fails when you kept it waiting longer than that */
+export const RAMP_WAITS_OK = 2, RAMP_WAIT_SEC_OK = 1.5
+export const cleanTake = (t: TakeRecord) => t.counts.missed === 0 && t.counts.extra <= 1
+  && t.waits <= RAMP_WAITS_OK && t.waitSec <= RAMP_WAIT_SEC_OK
 
 /** Right notes out of all the notes you were asked for */
 export const rightShare = (c: Tally) => (c.hit + c.missed > 0 ? c.hit / (c.hit + c.missed) : 1)

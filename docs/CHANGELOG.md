@@ -5,6 +5,60 @@
      list of 2–4 one-line bullets, then ### New / ### Changed / ### Fixed.
      Newest version at the top. -->
 
+## [1.8.2] — 22. 11. 2026 — Minimising the window
+
+**In short**
+- Minimising Orfeo's window no longer shows an error and leaves Orfeo stuck.
+
+### Fixed
+- **Minimising the window showed "A JavaScript error occurred in the main process"** and left Orfeo not
+  responding (new in 1.8.1, from fitting Orfeo to small windows). Minimising, restoring and maximising
+  now work as before.
+
+### Changed
+- **Updated parts:** Electron 44.10.2 (fixes and security updates of the browser engine), GSAP 3.15.1 and
+  the Lucide icons 1.70.
+
+## [1.8.1] — 22. 11. 2026 — Fixes, and Orfeo fits smaller windows
+
+**In short**
+- Orfeo now shrinks to fit smaller windows and laptop screens, so nothing in the top bar is cut off.
+- Tempo changes during playback, loops and the metronome stay in step.
+- Fewer extra versions when saving, and a window that stops responding can always be closed.
+- A new switch keeps muted tracks visible on the piano roll.
+
+### New
+- **Fit to small windows.** In a window narrower or shorter than Orfeo's full layout, everything (text,
+  icons, bars, keyboard) now shrinks together just enough to fit, instead of the ends of the top bar
+  being cut off. On a full-HD screen nothing changes. Laptops with Windows display scaling at 125 % or
+  150 % count as smaller windows too, so Orfeo looks a little smaller there but shows everything. App
+  Zoom (Ctrl + / Ctrl −) works on top as before. Turn it off in Settings › Appearance › *Fit to small
+  windows*. The smallest window is now 1280 × 680 (it was 900 × 600, too small to use), and App Zoom
+  goes up to 150 % on a full-HD screen.
+- **Muted tracks stay on the roll.** A new switch in Settings › Playback (off by default): when it's on,
+  muting a track only silences it and its notes stay on the piano roll. The keyboard, step-through and
+  the Mixer still leave muted tracks out.
+
+### Changed
+- **Right-click the tempo** in the top bar to switch between BPM and a speed in percent. In percent the
+  label reads SPEED %.
+
+### Fixed
+- **Saving made a new version too often.** Now only a change to the music makes a new version (deleting,
+  splitting or merging tracks, changing notes, saving a tempo or key change). Instruments, colours,
+  names, mute, the Mixer and hands save into the same Orfeo copy. Your original file is never touched.
+- **A tempo change while the song plays moves everything at once.** Changing the tempo mid-song changed
+  the sound, but the piano roll kept falling at the old pace until you paused, and the metronome drifted.
+- **The metronome stays on the beat** through loops going round, jumps in the song and tempo changes.
+- **Stepping with ← / → lit keys in the wrong colours.** In a piano split into a left-hand and a
+  right-hand track, stepping lit each key in the track's colour instead of the hand colours on the roll.
+  The keys now always match the roll's colours, playing, paused or stepping.
+- **A window that stops responding can always be closed.** If Orfeo doesn't answer within 5 seconds of
+  closing, it asks whether to wait or close it.
+- **Linux: Wayland with an NVIDIA graphics card.** The window drew once and then froze. Orfeo now starts
+  through XWayland on that combination.
+- **The passage loop in the Note Editor's hand check** can be dragged wider or narrower.
+
 ## [1.8] — 19. 11. 2026 — Tags, a practice queue, smarter hands and lighted keys
 
 **In short**

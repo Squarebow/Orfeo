@@ -29,6 +29,7 @@ import { addToQueue, removeFromQueue, moveInQueue, followOpenSong, remapQueue, r
 import { clampLibraryWidth, LIBRARY_MIN_WIDTH } from '../utils/libraryWidth'
 import { PIANO_RANGES, viewOfRange, isPortableSize, clampOctave, type KeyView } from '../utils/keyLayout'
 import { toursFromPrefs, type TourId, type ToursSeen } from '../utils/tours'
+import { syncMutedOnRoll } from '../utils/trackShown'
 
 // ── Focus mode: every track's mute + eye from just before Focus went on, so
 // the second click puts back exactly what you had. Null while Focus is off.
@@ -543,6 +544,12 @@ interface OrfeoStore {
   practicePlaybar: boolean                 // the switch, kept with the settings
   setPracticePlaybar: (v: boolean) => void
   practiceFingering: boolean               // finger numbers on the piano roll in practice mode
+  fingerHints: boolean                     // suggested fingering where you haven't set your own (practice/fingerHints.ts)
+  setFingerHints: (v: boolean) => void
+  handSize: 'small' | 'medium' | 'large'   // for suggested fingering: how far the hand reaches
+  toPlayShows: 'chords' | 'notes'          // practice mode's TO PLAY: the song's chords, or every note of your part
+  setToPlayShows: (v: 'chords' | 'notes') => void
+  setHandSize: (v: 'small' | 'medium' | 'large') => void
   setPracticeFingering: (v: boolean) => void
   playbarOverride: boolean | null
 
@@ -609,6 +616,13 @@ interface OrfeoStore {
   // Opening the Chords or Scales Explorer pauses the song (Settings › Playback)
   explorerPausesPlayback: boolean
   setExplorerPausesPlayback: (v: boolean) => void
+  // Settings › Playback › Muted tracks stay on the roll (off by default: muting takes a track off the roll as
+  // always; on: a muted track's notes stay on the roll only). TEMPORARY, asked for by players until practice
+  // mode (2.0) ships: review whether to keep it at the 2.0 release
+  mutedOnRoll: boolean
+  fitToWindow: boolean                     // the whole app shrinks just enough to fit a small window (main.ts FIT_DESIGN)
+  setFitToWindow: (v: boolean) => void
+  setMutedOnRoll: (v: boolean) => void
   setAutoCollapseDrawers: (v: boolean) => void
 
   // ── Tracks panel's per-track color line doubles as a mini VU meter during
@@ -1319,6 +1333,12 @@ export const useStore = create<OrfeoStore>((set, get) => ({
   setPracticePlaybar: (practicePlaybar) => set({ practicePlaybar }),
   practiceFingering: true,
   setPracticeFingering: (practiceFingering) => set({ practiceFingering }),
+  fingerHints: false,
+  setFingerHints: (fingerHints) => set({ fingerHints }),
+  handSize: 'medium',
+  toPlayShows: 'chords',
+  setToPlayShows: (toPlayShows) => set({ toPlayShows }),
+  setHandSize: (handSize) => set({ handSize }),
   playbarOverride: null,
   keyboardTopY: null,
   setKeyboardTopY: (keyboardTopY) => set({ keyboardTopY }),
@@ -1373,6 +1393,10 @@ export const useStore = create<OrfeoStore>((set, get) => ({
   setSupportNoteEnabled: (supportNoteEnabled) => set({ supportNoteEnabled }),
   explorerPausesPlayback: true,
   setExplorerPausesPlayback: (explorerPausesPlayback) => set({ explorerPausesPlayback }),
+  mutedOnRoll: false,
+  fitToWindow: true,
+  setFitToWindow: (fitToWindow) => { set({ fitToWindow }); void window.electronAPI?.setFitToWindow?.(fitToWindow) },
+  setMutedOnRoll: (mutedOnRoll) => { syncMutedOnRoll(mutedOnRoll); set({ mutedOnRoll }) },
   setAutoCollapseDrawers: (autoCollapseDrawers) => set({ autoCollapseDrawers }),
 
   trackVuColorEnabled: true,
@@ -1537,6 +1561,9 @@ async function restoreLibraryPrefs() {
     if (prefs.scoreOptions) useStore.setState({ scoreOptions: readScoreOptions(prefs.scoreOptions) })
     if (typeof prefs.practicePlaybar === 'boolean') store.setPracticePlaybar(prefs.practicePlaybar)
     if (typeof prefs.practiceFingering === 'boolean') store.setPracticeFingering(prefs.practiceFingering)
+    if (typeof prefs.fingerHints === 'boolean') store.setFingerHints(prefs.fingerHints)
+    if (prefs.handSize === 'small' || prefs.handSize === 'medium' || prefs.handSize === 'large') store.setHandSize(prefs.handSize)
+    if (prefs.toPlayShows === 'chords' || prefs.toPlayShows === 'notes') store.setToPlayShows(prefs.toPlayShows)
     if (typeof prefs.saveTempoKeyChangesEnabled === 'boolean') store.setSaveTempoKeyChangesEnabled(prefs.saveTempoKeyChangesEnabled)
     if (typeof prefs.tapTempoPadEnabled === 'boolean') store.setTapTempoPadEnabled(prefs.tapTempoPadEnabled)
     if (prefs.tapTempoMode === 'beat' || prefs.tapTempoMode === 'bar') store.setTapTempoMode(prefs.tapTempoMode)
@@ -1612,6 +1639,8 @@ async function restoreLibraryPrefs() {
     if (typeof prefs.tooltipsEnabled === 'boolean') store.setTooltipsEnabled(prefs.tooltipsEnabled)
     if (typeof prefs.supportNoteEnabled === 'boolean') store.setSupportNoteEnabled(prefs.supportNoteEnabled)
     if (typeof prefs.explorerPausesPlayback === 'boolean') store.setExplorerPausesPlayback(prefs.explorerPausesPlayback)
+    if (typeof prefs.mutedOnRoll === 'boolean') store.setMutedOnRoll(prefs.mutedOnRoll)
+    if (typeof prefs.fitToWindow === 'boolean') useStore.setState({ fitToWindow: prefs.fitToWindow })   // main read it at start
     if (typeof prefs.trackVuColorEnabled === 'boolean') store.setTrackVuColorEnabled(prefs.trackVuColorEnabled)
     if (typeof prefs.unsavedWarningEnabled === 'boolean') store.setUnsavedWarningEnabled(prefs.unsavedWarningEnabled)
     if (typeof prefs.saveTrackChangesEnabled === 'boolean') store.setSaveTrackChangesEnabled(prefs.saveTrackChangesEnabled)
@@ -1778,6 +1807,9 @@ let _prevPracticeSummaryEnabled: boolean | null = null
 let _prevScoreOptions: ScoreOptions | null = null
 let _prevPracticePlaybar: boolean | null = null
 let _prevPracticeFingering: boolean | null = null
+let _prevFingerHints: boolean | null = null
+let _prevHandSize: string | null = null
+let _prevToPlayShows: string | null = null
 let _prevSaveTempoKeyChangesEnabled: boolean | null = null
 let _prevTapTempoPadEnabled: boolean | null = null
 let _prevTapTempoMode: string | null = null
@@ -1823,6 +1855,8 @@ let _prevHandColors: string | null = null
 let _prevTooltipsEnabled: boolean | null = null
 let _prevSupportNoteEnabled: boolean | null = null
 let _prevExplorerPausesPlayback: boolean | null = null
+let _prevMutedOnRoll: boolean | null = null
+let _prevFitToWindow: boolean | null = null
 let _prevTrackVuColorEnabled: boolean | null = null
 let _prevUnsavedWarningEnabled: boolean | null = null
 let _prevSaveTrackChangesEnabled: boolean | null = null
@@ -1864,6 +1898,9 @@ const _unsubPrefs = useStore.subscribe((state) => {
     _prevScoreOptions = state.scoreOptions
     _prevPracticePlaybar = state.practicePlaybar
     _prevPracticeFingering = state.practiceFingering
+    _prevFingerHints = state.fingerHints
+    _prevHandSize = state.handSize
+    _prevToPlayShows = state.toPlayShows
     _prevSaveTempoKeyChangesEnabled = state.saveTempoKeyChangesEnabled
     _prevTapTempoPadEnabled = state.tapTempoPadEnabled
     _prevTapTempoMode = state.tapTempoMode
@@ -1909,6 +1946,8 @@ const _unsubPrefs = useStore.subscribe((state) => {
     _prevTooltipsEnabled = state.tooltipsEnabled
     _prevSupportNoteEnabled = state.supportNoteEnabled
     _prevExplorerPausesPlayback = state.explorerPausesPlayback
+    _prevMutedOnRoll = state.mutedOnRoll
+    _prevFitToWindow = state.fitToWindow
     _prevTrackVuColorEnabled = state.trackVuColorEnabled
     _prevUnsavedWarningEnabled = state.unsavedWarningEnabled
     _prevSaveTrackChangesEnabled = state.saveTrackChangesEnabled
@@ -1953,6 +1992,9 @@ const _unsubPrefs = useStore.subscribe((state) => {
     state.scoreOptions !== _prevScoreOptions ||
     state.practicePlaybar !== _prevPracticePlaybar ||
     state.practiceFingering !== _prevPracticeFingering ||
+    state.fingerHints !== _prevFingerHints ||
+    state.handSize !== _prevHandSize ||
+    state.toPlayShows !== _prevToPlayShows ||
     state.saveTempoKeyChangesEnabled !== _prevSaveTempoKeyChangesEnabled ||
     state.tapTempoPadEnabled !== _prevTapTempoPadEnabled ||
     state.tapTempoMode !== _prevTapTempoMode ||
@@ -1998,6 +2040,8 @@ const _unsubPrefs = useStore.subscribe((state) => {
     state.tooltipsEnabled !== _prevTooltipsEnabled ||
     state.supportNoteEnabled !== _prevSupportNoteEnabled ||
     state.explorerPausesPlayback !== _prevExplorerPausesPlayback ||
+    state.mutedOnRoll !== _prevMutedOnRoll ||
+    state.fitToWindow !== _prevFitToWindow ||
     state.trackVuColorEnabled !== _prevTrackVuColorEnabled ||
     state.unsavedWarningEnabled !== _prevUnsavedWarningEnabled ||
     state.saveTrackChangesEnabled !== _prevSaveTrackChangesEnabled ||
@@ -2034,6 +2078,9 @@ const _unsubPrefs = useStore.subscribe((state) => {
     _prevScoreOptions = state.scoreOptions
     _prevPracticePlaybar = state.practicePlaybar
     _prevPracticeFingering = state.practiceFingering
+    _prevFingerHints = state.fingerHints
+    _prevHandSize = state.handSize
+    _prevToPlayShows = state.toPlayShows
     _prevSaveTempoKeyChangesEnabled = state.saveTempoKeyChangesEnabled
     _prevTapTempoPadEnabled = state.tapTempoPadEnabled
     _prevTapTempoMode = state.tapTempoMode
@@ -2079,6 +2126,8 @@ const _unsubPrefs = useStore.subscribe((state) => {
     _prevTooltipsEnabled = state.tooltipsEnabled
     _prevSupportNoteEnabled = state.supportNoteEnabled
     _prevExplorerPausesPlayback = state.explorerPausesPlayback
+    _prevMutedOnRoll = state.mutedOnRoll
+    _prevFitToWindow = state.fitToWindow
     _prevTrackVuColorEnabled = state.trackVuColorEnabled
     _prevUnsavedWarningEnabled = state.unsavedWarningEnabled
     _prevSaveTrackChangesEnabled = state.saveTrackChangesEnabled
@@ -2121,6 +2170,9 @@ const _unsubPrefs = useStore.subscribe((state) => {
       scoreOptions: state.scoreOptions,
       practicePlaybar: state.practicePlaybar,
       practiceFingering: state.practiceFingering,
+      fingerHints: state.fingerHints,
+      handSize: state.handSize,
+      toPlayShows: state.toPlayShows,
       saveTempoKeyChangesEnabled: state.saveTempoKeyChangesEnabled,
       tapTempoPadEnabled: state.tapTempoPadEnabled,
       tapTempoMode: state.tapTempoMode,
@@ -2167,6 +2219,8 @@ const _unsubPrefs = useStore.subscribe((state) => {
       tooltipsEnabled: state.tooltipsEnabled,
       supportNoteEnabled: state.supportNoteEnabled,
       explorerPausesPlayback: state.explorerPausesPlayback,
+      mutedOnRoll: state.mutedOnRoll,
+      fitToWindow: state.fitToWindow,
       trackVuColorEnabled: state.trackVuColorEnabled,
       unsavedWarningEnabled: state.unsavedWarningEnabled,
       saveTrackChangesEnabled: state.saveTrackChangesEnabled,

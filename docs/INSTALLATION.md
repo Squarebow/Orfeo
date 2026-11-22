@@ -45,7 +45,9 @@ keep your data.*
 - `Orfeo-Setup-1.7.0.exe`
 - `Orfeo-1.7.0-portable.exe`
 
-Both are on the [Releases](https://github.com/Squarebow/Orfeo/releases) page.
+Both are on the [Releases](https://github.com/Squarebow/Orfeo/releases) page. From v1.8.1 the
+page also lists `Orfeo-Update-<version>.exe`: the same installer, for copies of Orfeo that update
+themselves. You don't need to download it.
 
 </details>
 
