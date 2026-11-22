@@ -620,7 +620,7 @@ interface OrfeoStore {
   // always; on: a muted track's notes stay on the roll only). TEMPORARY, asked for by players until practice
   // mode (2.0) ships: review whether to keep it at the 2.0 release
   mutedOnRoll: boolean
-  fitToWindow: boolean                     // the whole app shrinks to fit a small window (main.ts FIT_DESIGN), not below 75 %
+  fitToWindow: boolean                     // the whole app shrinks just enough to fit a small window (main.ts FIT_DESIGN)
   setFitToWindow: (v: boolean) => void
   setMutedOnRoll: (v: boolean) => void
   setAutoCollapseDrawers: (v: boolean) => void
