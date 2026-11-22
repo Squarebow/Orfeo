@@ -320,7 +320,7 @@ const CAPTION_BUTTONS_W = 150
 // switches the shrinking off (prefs fitToWindow, on by default).
 let fitToWindow = true
 function fitFactorFor(width: number, height: number): number {
-  if (!fitToWindow) return 1
+  if (!fitToWindow || width <= 0 || height <= 0) return 1
   return Math.min(1, (width - CAPTION_BUTTONS_W) / (FIT_DESIGN.w - CAPTION_BUTTONS_W), height / FIT_DESIGN.h)
 }
 function fitFactor(win: BrowserWindow): number {
@@ -329,7 +329,12 @@ function fitFactor(win: BrowserWindow): number {
 }
 let appliedFactor = 0
 function setFactor(win: BrowserWindow) {
-  const f = (currentZoomPercent / 100) * fitFactor(win)
+  // a minimised window reports its size as 0 × 0: nothing to fit, and a zero or
+  // negative factor makes setZoomFactor throw (an error box from the main process)
+  if (win.isDestroyed() || win.isMinimized()) return
+  const [w, h] = win.getContentSize()
+  if (w <= 0 || h <= 0) return
+  const f = Math.max(0.25, (currentZoomPercent / 100) * fitFactor(win))
   if (Math.abs(f - appliedFactor) < 0.0005) return
   appliedFactor = f
   win.webContents.setZoomFactor(f)
