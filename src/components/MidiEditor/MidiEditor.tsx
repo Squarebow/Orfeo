@@ -28,7 +28,9 @@ import { nextOrfeoBaseName, isOrfeoVersionBase } from '../../utils/orfeoVersioni
 import { getHandPreviewStats, getLowConfidencePassages, estimateHandAccuracy, passageKey, isPassageSeen } from '../../utils/handPreview'
 import { goToPassage, startPracticePrep, passagesOf } from '../../utils/handCheck'
 import { PRACTICE_PREP_VISIBLE, rescoreForCheck } from '../../utils/practiceReadiness'
-import { currentSongPractice } from '../../practice/practiceMode'
+import { currentSongPractice, currentSongCheck } from '../../practice/practiceMode'
+import type { Suggestion } from '../../practice/songCheck'
+import LessonCheck from './LessonCheck'
 import { pianoSet, guessAcrossPiano } from '../../practice/pianoSet'
 import { withHandSuffix } from '../../utils/handMetadata'
 import { getGMName, getGMGroup } from '../../utils/gmInstruments'
@@ -1100,6 +1102,16 @@ export default function MidiEditor() {
     return () => ro.disconnect()
   }, [state?.fileName])
 
+  // ── Lesson check (2.0): read from the song as saved, again when it reloads
+  // or a track's instrument changes in the store ─────────────────────────────
+  const trackKinds = tracks.map(t => `${t.index}:${t.group}:${t.isDrum}:${t.trackName}`).join('|')
+  const lessonCheck = useMemo(() => (PRACTICE_PREP_VISIBLE && midiEditorOpen ? currentSongCheck() : null),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [(midi as any)?._raw, trackKinds, midiEditorOpen])
+  // the rows before the check's changes (for Undo), and which suggestions went in
+  const [checkApplied, setCheckApplied] = useState<{ rows: EditorTrack[]; done: boolean[] } | null>(null)
+  useEffect(() => { setCheckApplied(null) }, [midiEditorOpen, (midi as any)?._raw])
+
   // ── Not open and never initialised → nothing to render ───────────────────────
   if (!midiEditorOpen || !state) return null
 
@@ -1129,6 +1141,44 @@ export default function MidiEditor() {
       const newRows  = [...without.slice(0, firstIdx), mergedRow, ...without.slice(firstIdx)]
       return { ...s, rows: newRows, outputPath: orfeoName(s.filePath) }
     })
+  }
+
+  // ── Lesson check: the same edits as the Include and Merge columns ─────────────
+  const applyCheck = (list: Suggestion[]) => {
+    if (!lessonCheck) return
+    const before = checkApplied?.rows ?? state.rows
+    const done = [...(checkApplied?.done ?? lessonCheck.suggestions.map(() => false))]
+    for (const sug of list) {
+      const i = lessonCheck.suggestions.indexOf(sug)
+      if (i >= 0) done[i] = true
+      if (sug.kind === 'leave-out') update(sug.track, { included: false })
+      else if (sug.kind === 'instrument') {
+        const row = state.rows.find(r => r.index === sug.track)
+        update(sug.track, {
+          newProgram: sug.program, group: getGMGroup(sug.program, false),
+          ...(row && row.trackName === row.gmName ? { trackName: getGMName(sug.program), gmName: getGMName(sug.program) } : {}),
+        })
+      } else {
+        setState(st => st && ({ ...st, rows: st.rows.map(r => ({ ...r, mergeSelected: sug.tracks.includes(r.index) && r.included && !r.isMerged && !r.splitHand })) }))
+        handleMerge()
+      }
+    }
+    setCheckApplied({ rows: before, done })
+  }
+  const undoCheck = () => {
+    if (!checkApplied) return
+    setState(st => st && ({ ...st, rows: checkApplied.rows, outputPath: orfeoName(st.filePath) }))
+    setCheckApplied(null)
+  }
+  const rowName = (index: number) => {
+    const r = state.rows.find(x => x.index === index) ?? checkApplied?.rows.find(x => x.index === index)
+    // the name the file gives the track (what the check read), unless renamed here
+    const fileName = ((midi as any)?.tracks?.find((t: { index: number }) => t.index === index)?.name ?? '').trim()
+    const shown = r && r.trackName !== r.gmName ? r.trackName : fileName || r?.trackName || r?.name
+    // the row shows its instrument; the channel ties the two together
+    const label = (shown || String(index + 1)).trim()
+    if (!r) return `“${label}”`
+    return label !== r.trackName ? `“${label}” (${r.trackName}, ch ${r.channel + 1})` : `“${label}” (ch ${r.channel + 1})`
   }
 
   // ── Unmerge: reset rows from current store state (no IPC needed) ──────────────
@@ -1615,6 +1665,12 @@ export default function MidiEditor() {
           <X size={14} />
         </button>
       </div>
+
+      {lessonCheck && lessonCheck.pianos.length + lessonCheck.suggestions.length > 0 && (
+        <LessonCheck check={lessonCheck} name={rowName}
+          applied={checkApplied?.done ?? lessonCheck.suggestions.map(() => false)}
+          onApply={applyCheck} onUndo={undoCheck} />
+      )}
 
       {/* ── Column headers ───────────────────────────────────────────────────── */}
       <div style={{ display: 'grid', gridTemplateColumns: ROW_COLS, alignItems: 'center', padding: `6px ${14 + SCROLLBAR_W}px 6px 14px`, borderBottom: '1px solid var(--bg-tile)', background: 'var(--bg-modal-header)', flexShrink: 0, gap: 6 }}>

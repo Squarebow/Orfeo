@@ -17,7 +17,8 @@ export function reasonText(reason: GateReason | 'no-queue', n?: number): string 
     case 'no-song': return t`Open a song to practise.`
     case 'editing': return t`Close the Note Editor first.`
     case 'no-piano': return t`This song has no piano part to practise.`
-    case 'too-many': return t`This song has ${n ?? 3} piano tracks. Practice mode needs one piano, as a left-hand and a right-hand track: merge them in the Playback Editor, or give the extra ones another instrument.`
+    case 'too-many': return t`This song has ${n ?? 3} piano tracks. Practice mode needs one piano, as a left-hand and a right-hand track: the Playback Editor's lesson check suggests which to merge or leave out.`
+    case 'messy': return t`This file's piano notes are doubled, or repeat faster than a hand can play, all through. The Playback Editor's lesson check shows whether a track can be left out; otherwise try another version of the song.`
     case 'prepare': return t`The piano needs a track for each hand first. In the Playback Editor, press Prepare for practice on the piano: check the hands, then Split & Save.`
   }
 }

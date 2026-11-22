@@ -3,6 +3,7 @@ import { assignHands, type HandAssignOptions } from './handAssignment'
 import { RESTORED_CONFIDENCE } from './handMetadata'
 import { getLowConfidencePassages } from './handPreview'
 import { simAvailable } from './midiSimulator'
+import { handsPlayable, tracksFaults, UNPLAYABLE_MAX, STACKED_MAX, TOO_FAST_MAX } from '../practice/songCheck'
 
 // ── Ready for practice? ──────────────────────────────────────────────────────
 // Practice mode (2.0) only opens a song whose hands are right: one or two
@@ -23,7 +24,8 @@ export const MAX_PRACTICE_PIANOS = 2
 // not a part to practise (21. 11.: a song with an 11-note piano was "ready").
 // Only with other instruments playing: a piano piece on its own counts at any
 // length (22. 11.)
-export const MIN_PRACTICE_NOTES = 50
+export { MIN_PRACTICE_NOTES } from '../practice/songCheck'
+import { MIN_PRACTICE_NOTES } from '../practice/songCheck'
 
 export const HANDS_CROSSED_MAX = 0.05
 const CROSS_BY = 4   // semitones: the left hand's top above the right hand's lowest by more than a major third
@@ -80,9 +82,15 @@ export type SongPractice =
   | { state: 'ready'; left: number; right: number }
   | { state: 'one-hand'; track: number; hand: 'L' | 'R' }
   | { state: 'prepare'; tracks: number[]; passages: number }
-  | { state: 'cant'; reason: 'no-piano' | 'too-many'; pianos: number }
+  | { state: 'cant'; reason: 'no-piano' | 'too-many' | 'messy'; pianos: number }
 
 const HAND_NAME: Record<'L' | 'R', RegExp> = { L: /(^Left Hand$|\sLH\s*$)/i, R: /(^Right Hand$|\sRH\s*$)/i }
+
+/** The hand a track is named for ("Left Hand", "Piano LH"), or null */
+export function nameHand(t: { name?: string; trackName?: string }): 'L' | 'R' | null {
+  for (const h of ['L', 'R'] as const) if (HAND_NAME[h].test(t.name ?? '') || HAND_NAME[h].test(t.trackName ?? '')) return h
+  return null
+}
 
 /** Which hand a whole track is: every note tagged that hand, or named for it
  *  (Orfeo's split writes "Piano LH" / "Piano RH") */
@@ -93,6 +101,35 @@ export function trackHand(t: { name?: string; trackName?: string; notes: { hand?
   return null
 }
 
+/** Two hands, each able to play its own part as written: not crossed, and no
+ *  more than five keys, no stretch past a tenth, no leap too far for its time,
+ *  in all but a few moments (practice/songCheck.ts) */
+export function playLikeHands(left: { midi: number; time: number; duration: number }[], right: { midi: number; time: number; duration: number }[]): boolean {
+  if (handsCrossedShare(left, right) > HANDS_CROSSED_MAX) return false
+  const p = handsPlayable([...left.map(n => ({ ...n, hand: 'L' as const })), ...right.map(n => ({ ...n, hand: 'R' as const }))])
+  return !p.moments || p.bad / p.moments <= UNPLAYABLE_MAX
+}
+
+/** The file's own hands among the piano tracks: a piano's two staves (upper =
+ *  right) or a Left and a Right track, playing like hands, notes not doubled */
+export function ownHandPair<T extends { index: number; name?: string; trackName?: string; notes: ParsedNote[] }>(pianos: T[], stavePairs: [number, number][]): { left: number; right: number } | null {
+  const byIndex = new Map(pianos.map(t => [t.index, t]))
+  const ok = (l: T, r: T) => {
+    const ff = tracksFaults([l, r])
+    return ff.stacked / ff.notes <= STACKED_MAX && ff.tooFast / ff.notes <= TOO_FAST_MAX && playLikeHands(l.notes, r.notes)
+  }
+  for (const [up, low] of stavePairs) {
+    const r = byIndex.get(up), l = byIndex.get(low)
+    if (r && l && ok(l, r)) return { left: l.index, right: r.index }
+  }
+  // beside other keyboard parts, only a name says a track is a hand (one colour
+  // throughout is just as often a whole part Orfeo read as one hand)
+  const handOf = (t: T) => (pianos.length > 2 ? nameHand(t) : trackHand(t))
+  const lefts = pianos.filter(t => handOf(t) === 'L'), rights = pianos.filter(t => handOf(t) === 'R')
+  for (const l of lefts) for (const r of rights) if (ok(l, r)) return { left: l.index, right: r.index }
+  return null
+}
+
 export function songPracticeState(
   tracks: { index: number; group?: string; isDrum?: boolean; name?: string; trackName?: string; notes: ParsedNote[] }[],
   { stavePairs = [], options = {} }: { stavePairs?: [number, number][]; options?: HandAssignOptions } = {},
@@ -100,7 +137,16 @@ export function songPracticeState(
   const others = tracks.some(t => !isPracticePiano(t) && t.notes.length > 0)
   const pianos = tracks.filter(t => isPracticePiano(t) && t.notes.length > 0 && (!others || t.notes.length >= MIN_PRACTICE_NOTES))
   if (pianos.length === 0) return { state: 'cant', reason: 'no-piano', pianos: 0 }
+  // the file's own two hands (a piano's two staves, or a Left and a Right
+  // track) that play like hands: that's the lesson, and any other keyboard
+  // part plays in the band (22. 11.)
+  const own = ownHandPair(pianos, stavePairs)
+  if (own) return { state: 'ready', left: own.left, right: own.right }
   if (pianos.length > MAX_PRACTICE_PIANOS) return { state: 'cant', reason: 'too-many', pianos: pianos.length }
+  // notes no lesson can be made of: the same key struck twice at once, or
+  // re-struck faster than a hand can, all through (practice/songCheck.ts)
+  const ff = tracksFaults(pianos)
+  if (ff.stacked / ff.notes > STACKED_MAX || ff.tooFast / ff.notes > TOO_FAST_MAX) return { state: 'cant', reason: 'messy', pianos: pianos.length }
   if (pianos.length === 1) {
     const t = pianos[0]
     const h = trackHand({ notes: t.notes })
@@ -108,19 +154,8 @@ export function songPracticeState(
     return { state: 'prepare', tracks: [t.index], passages: trackPracticeState(t.notes, { options }).passages }
   }
   const [a, b] = pianos
-  const staves = stavePairs.find(p => p.includes(a.index) && p.includes(b.index))
-  const ha = trackHand(a), hb = trackHand(b)
   const both = [...a.notes, ...b.notes].sort((x, y) => x.time - y.time)
   const check = trackPracticeState(both, { options })
-  const byIndex = (i: number) => (i === a.index ? a : b).notes
-  const playable = (left: number, right: number) => handsCrossedShare(byIndex(left), byIndex(right)) <= HANDS_CROSSED_MAX
-  // a piano's two staves (the upper one the right hand): found from names and
-  // layout, which two separate parts can share, so they must play like hands too
-  if (staves && playable(staves[1], staves[0])) return { state: 'ready', left: staves[1], right: staves[0] }
-  if (ha && hb && ha !== hb) {
-    const left = ha === 'L' ? a.index : b.index, right = ha === 'R' ? a.index : b.index
-    if (playable(left, right)) return { state: 'ready', left, right }
-  }
   // two parts that aren't the hands, or hands that don't hold up: checked as one piano in the Note Editor
   return { state: 'prepare', tracks: [a.index, b.index], passages: check.passages }
 }

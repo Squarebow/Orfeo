@@ -1,11 +1,13 @@
 import { create } from 'zustand'
 import { useStore } from '../store'
 import { useMidiSettings } from '../store/midiSettings'
-import { songPracticeState, PRACTICE_PREP_VISIBLE, type SongPractice } from '../utils/practiceReadiness'
+import { songPracticeState, nameHand, ownHandPair, isPracticePiano, PRACTICE_PREP_VISIBLE, type SongPractice } from '../utils/practiceReadiness'
 import type { KeyboardSize } from '../types'
 import type { DetectedKey } from '../utils/keyDetection'
 import { NES } from '../utils/noteEditorState'
 import { focusRole } from '../utils/keyboardGroups'
+import { assignHands } from '../utils/handAssignment'
+import { checkSong, type SongCheck, type CheckNote } from './songCheck'
 
 // ── Practice mode (Orfeo 2.0) ────────────────────────────────────────────────
 // A stripped-down screen for practising the piano part of a song with a USB
@@ -71,7 +73,7 @@ function applySongDefaults(): void {
 }
 
 // ── May practice mode open? ──────────────────────────────────────────────────
-export type GateReason = 'off' | 'no-keyboard' | 'no-song' | 'editing' | 'no-piano' | 'too-many' | 'prepare'
+export type GateReason = 'off' | 'no-keyboard' | 'no-song' | 'editing' | 'no-piano' | 'too-many' | 'messy' | 'prepare'
 
 export function keyboardConnected(): boolean {
   return useMidiSettings.getState().devices.some(d => d.connected && !d.virtual)
@@ -86,6 +88,29 @@ export function currentSongPractice(): SongPractice | null {
     return { ...t, group: ts?.group ?? t.group, isDrum: ts?.isDrum ?? t.isDrum, trackName: ts?.trackName }
   })
   return songPracticeState(tracks, { stavePairs: (s.midi as any)._stavePairs ?? [], options: { rhMaxFingers: s.rhMaxFingers, lhMaxFingers: s.lhMaxFingers } })
+}
+
+/** The lesson check of the open song (practice/songCheck.ts): what to leave
+ *  out or merge, and what's wrong with the notes themselves */
+export function currentSongCheck(): SongCheck | null {
+  const s = useStore.getState()
+  if (!s.midi) return null
+  const tracks = s.midi.tracks.map(t => {
+    const ts = s.tracks.find(x => x.index === t.index)
+    // the name the file gives the track (a name typed in Orfeo wins)
+    const name = ts?.trackName && ts.trackName !== ts.gmName ? ts.trackName : (t.name || ts?.trackName || '')
+    return { index: t.index, name, group: ts?.group ?? t.group ?? '', isDrum: ts?.isDrum ?? t.isDrum, notes: t.notes }
+  })
+  // the hands as the file has them: a piano's two staves (upper = right), or
+  // tracks named / tagged for one hand
+  const hands = new Map<number, 'L' | 'R'>()
+  for (const [r, l] of ((s.midi as any)._stavePairs ?? []) as [number, number][]) { hands.set(r, 'R'); hands.set(l, 'L') }
+  if (!hands.size) for (const t of tracks) { const h = nameHand({ name: t.name }); if (h) hands.set(t.index, h) }
+  const options = { rhMaxFingers: s.rhMaxFingers, lhMaxFingers: s.lhMaxFingers }
+  const read = (notes: CheckNote[]) => assignHands(notes.map(n => ({ midi: n.midi, time: n.time, duration: n.duration })), options).assignments.map(a => ({ ...a.note, hand: a.hand }))
+  const pianoTracks = s.midi.tracks.filter(t => isPracticePiano({ group: s.tracks.find(x => x.index === t.index)?.group ?? t.group, isDrum: t.isDrum }) && t.notes.length)
+  const own = ownHandPair(pianoTracks, (s.midi as any)._stavePairs ?? [])
+  return checkSong(tracks, { hands: hands.size ? hands : undefined, own, read })
 }
 
 // hands: each piano track the player practises, and its hand (one or two tracks)
