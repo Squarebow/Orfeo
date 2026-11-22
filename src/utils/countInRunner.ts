@@ -61,6 +61,11 @@ let active: { clicks: { stop: () => void }[]; timer: unknown; prevTime: number; 
 
 export function isCountingIn(): boolean { return active !== null }
 
+// Recording over the song counts in every time the song starts or goes on,
+// whatever the Count-in setting says (record/recordMode.ts); the setting itself is never changed
+let forced = false
+export function forceCountIn(on: boolean): void { forced = on }
+
 function firstNoteTime(): number {
   const tracks = useStore.getState().midi?.tracks ?? []
   let first = Infinity
@@ -70,7 +75,7 @@ function firstNoteTime(): number {
 
 export function startCountIn(): boolean {
   const s = useStore.getState()
-  if (!deps || !s.countInEnabled || !s.midi || active || isTapCapturing()) return false
+  if (!deps || !(s.countInEnabled || forced) || !s.midi || active || isTapCapturing()) return false
   const m = s.midi as any
   const ratio = s.originalBpm > 0 ? s.bpm / s.originalBpm : 1
   const plan = countInPlan({

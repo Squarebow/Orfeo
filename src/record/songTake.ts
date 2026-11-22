@@ -46,6 +46,24 @@ export class SongTake {
 
   get noteCount(): number { return this.events.filter(e => e.type === 'on').length }
 
+  /** Going on after a pause: the count-in brings the song back to the start of
+   *  the bar, so what you played from `t` on is played again and replaced.
+   *  A key or pedal still down from before is let go at `t`. */
+  rewindTo(t: number): void {
+    if (this.stopped) return
+    const kept = this.events.filter(e => e.t < t)
+    const down = new Map<number, number>()
+    for (const e of kept) if (e.type === 'on') down.set(e.note, (down.get(e.note) ?? 0) + 1)
+      else if (e.type === 'off') down.set(e.note, Math.max(0, (down.get(e.note) ?? 0) - 1))
+    for (const [note, n] of down) for (let i = 0; i < n; i++) kept.push({ t, type: 'off', note })
+    const ped = new Map<number, number>()
+    for (const e of kept) if (e.type === 'cc') ped.set(e.cc, e.value)
+    for (const [cc, v] of ped) if (v >= 64) kept.push({ t, type: 'cc', cc, value: 0 })
+    this.events = kept
+    this.held.clear()
+    this.pedals = new Map([...ped].map(([cc, v]) => [cc, v >= 64 ? 0 : v]))
+  }
+
   /** End the take at `t` (song seconds): keys and pedals still down are let go there */
   stop(t: number): RecEvent[] {
     if (this.stopped) return this.stopped

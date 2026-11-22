@@ -7,10 +7,12 @@ import { useBlank, setBlankSetup, startBlank, stopBlank, BLANK_DEFAULT, type Bla
 // ── Recording in practice mode (after 2.0) ───────────────────────────────────
 // The footer's REC button: two ways to record, and the switches for them.
 //   Over the song: you record your own piano part over the arrangement. Press
-//     Record and the song plays from its start (a loop is set aside while you
-//     record); what you play is placed where you heard it (at any tempo, in any
-//     key). The take ends when you stop or pause, at the song's end, or on a
-//     jump. Then Keep or Discard: kept, a new version of the song has your
+//     Record and the song plays from its start, after a count-in (a loop is
+//     set aside while you record); what you play is placed where you heard it
+//     (at any tempo, in any key). Pause pauses the song and the recording;
+//     Play goes on after a count-in, from the start of that bar (what you
+//     played from there is played again). Stop (the red square) or the song's end
+//     ends the take. Then Keep or Discard: kept, a new version of the song has your
 //     playing as its piano part, for the hand(s) you played (songTake.ts).
 //     Your song stays open. Recording over a stretch only is Overdub (later).
 //   Blank page: just you (and a click if you like), no song; kept, the take
@@ -18,7 +20,7 @@ import { useBlank, setBlankSetup, startBlank, stopBlank, BLANK_DEFAULT, type Bla
 // Your choices are remembered (prefs recordChoices).
 
 export type RecordMode = 'song' | 'blank'
-export type SongPhase = 'idle' | 'starting' | 'recording' | 'asking' | 'saving'
+export type SongPhase = 'idle' | 'starting' | 'recording' | 'paused' | 'asking' | 'saving'
 
 interface RecordState {
   mode: RecordMode
@@ -77,7 +79,8 @@ export async function startRecord(): Promise<void> {
 export async function stopRecord(keep = true): Promise<void> {
   const b = useBlank.getState().phase
   if (b === 'counting' || b === 'recording') { await stopBlank(keep); return }
-  if (useRecord.getState().songPhase === 'starting' || useRecord.getState().songPhase === 'recording') await finishSongTake(keep)
+  const p = useRecord.getState().songPhase
+  if (p === 'starting' || p === 'recording' || p === 'paused') await finishSongTake(keep)
 }
 
 // ── Over the song ────────────────────────────────────────────────────────────
@@ -91,7 +94,7 @@ async function startSongTake(): Promise<void> {
   const s = useStore.getState()
   if (!s.midi || take) return
   const { onPlayedKey, onPlayedControl } = await import('../hooks/useMidiInput')
-  const { heardSongTime, onSongJump, useWaiting } = await import('../practice/listen')
+  const { heardSongTime, useWaiting } = await import('../practice/listen')
   const { practisedHand } = await import('../practice/practiceMode')
   const { practiceTransport } = await import('../practice/transport')
   hand = practisedHand()
@@ -103,12 +106,16 @@ async function startSongTake(): Promise<void> {
   }
   loopWas = s.loopRegionActive
   if (s.loopRegionActive) s.setLoopRegionActive(false)
+  // a count-in every time the song starts or goes on, while you record
+  const { forceCountIn } = await import('../utils/countInRunner')
+  forceCountIn(true)
   take = new SongTake(0)
   lastT = 0
   // the song waiting for your notes is still the song playing, to you
   const live = () => useStore.getState().playbackState === 'playing' || useWaiting.getState().holding
   const shift = () => useStore.getState().detectedKey?.transpose ?? 0
   unsubs = [
+    // keys only while the song plays (not paused, not counting in); a key let go is always heard
     onPlayedKey(k => {
       if (!take || (k.on && !live())) return
       const at = heardSongTime(k.at)
@@ -117,19 +124,32 @@ async function startSongTake(): Promise<void> {
       if (k.on) useRecord.setState({ notes: take.noteCount })
     }),
     onPlayedControl(c => { if (take && live()) take.pedal(c.cc, c.value, heardSongTime(c.at)) }),
-    // a jump: the take is what you played until then
-    onSongJump(() => { if (useRecord.getState().songPhase === 'recording') void finishSongTake(true) }),
     useStore.subscribe((st, prev) => {
-      if (st.playbackState === 'playing' && useRecord.getState().songPhase === 'starting') useRecord.setState({ songPhase: 'recording' })
-      if (st.playbackState === 'playing') lastT = Math.max(lastT, heardSongTime())
-      // stopped or paused (not the song waiting for you): the take ends
-      if (prev.playbackState === 'playing' && st.playbackState !== 'playing' && useRecord.getState().songPhase === 'recording') setTimeout(() => { if (take && !live()) void finishSongTake(true) }, 0)
+      const phase = useRecord.getState().songPhase
+      if (st.playbackState === 'playing') {
+        lastT = Math.max(lastT, heardSongTime())
+        // going on after a pause, from the start of the bar (the count-in's): played again from there
+        if (phase === 'paused') { take?.rewindTo(st.currentTime); lastT = st.currentTime; useRecord.setState({ notes: take?.noteCount ?? 0 }) }
+        if (phase === 'starting' || phase === 'paused') useRecord.setState({ songPhase: 'recording' })
+      }
+      if (prev.playbackState === 'playing' && st.playbackState !== 'playing' && phase === 'recording') {
+        setTimeout(() => {
+          if (!take || live()) return
+          const now = useStore.getState()
+          // the song's end ends the take; Pause only pauses it
+          const atEnd = now.playbackState === 'stopped' && !!now.midi && now.currentTime >= now.midi.duration - 0.05
+          if (atEnd) void finishSongTake(true)
+          else useRecord.setState({ songPhase: 'paused' })
+        }, 0)
+      }
     }),
-    // Pause while the song waits for you
-    useWaiting.subscribe((w, prev) => { if (prev.holding && !w.holding && useStore.getState().playbackState !== 'playing' && take) void finishSongTake(true) }),
+    // Pause while the song waits for you: paused too
+    useWaiting.subscribe((w, prev) => {
+      if (prev.holding && !w.holding && useStore.getState().playbackState !== 'playing' && take && useRecord.getState().songPhase === 'recording') useRecord.setState({ songPhase: 'paused' })
+    }),
   ]
-  useRecord.setState({ songPhase: 'starting', notes: 0, message: '' })
-  practiceTransport()?.playFrom(0)
+  practiceTransport()?.seek(0)
+  practiceTransport()?.play()
 }
 
 async function finishSongTake(keep: boolean): Promise<void> {
@@ -143,6 +163,8 @@ async function finishSongTake(keep: boolean): Promise<void> {
   if (useStore.getState().playbackState === 'playing') practiceTransport()?.pause()
   if (loopWas) useStore.getState().setLoopRegionActive(true)
   loopWas = null
+  const { forceCountIn } = await import('../utils/countInRunner')
+  forceCountIn(false)
   if (!keep || !events.some(e => e.type === 'on')) {
     useRecord.setState({ songPhase: 'idle', message: keep ? t`Nothing was played, so nothing was kept.` : '' })
     return

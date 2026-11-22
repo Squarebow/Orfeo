@@ -83,7 +83,7 @@ export default function PracticeTopBar() {
   usePractice(s => s.hand)   // the hand rows follow your choice
   const { play, pause, seek, seekAndPlay } = usePlayback()
   // recording (the footer's REC) starts and stops the song the same way
-  useEffect(() => { registerPracticeTransport({ play: () => { void play() }, pause, playFrom: (t: number) => { void seekAndPlay(t) } }); return () => registerPracticeTransport(null) }, [play, pause, seekAndPlay])
+  useEffect(() => { registerPracticeTransport({ play: () => { void play() }, pause, seek }); return () => registerPracticeTransport(null) }, [play, pause, seek])
   const [open, setOpen] = useState<'' | 'tracks'>('')
   const [tempoMenu, setTempoMenu] = useState<{ x: number; y: number } | null>(null)
   const [metroMenu, setMetroMenu] = useState<{ x: number; y: number } | null>(null)

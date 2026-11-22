@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState, type CSSProperties, type ReactNode } from 'react'
-import { Circle, Music, FileMusic, Timer, Hand, Keyboard as KeyboardIcon, FolderOpen } from 'lucide-react'
+import { Circle, Square, Music, FileMusic, Timer, Hand, Keyboard as KeyboardIcon, FolderOpen } from 'lucide-react'
 import { useStore } from '../../store'
 import { t } from '../../utils/i18n'
 import { getNoteName } from '../../utils/noteNames'
@@ -13,8 +13,10 @@ import { AMBER, barIcon, featLabel, featValue, toolBtn, BarPop, PopItem, popHead
 // ── Practice mode's REC (footer, right, before VIEW) ─────────────────────────
 // Closed: the way of recording chosen (REC: OVER THE SONG). A click opens its
 // choices upwards: the two ways, their switches, and Record. While recording
-// the dot glows red and the button says how far you've got; a click stops,
-// and Orfeo asks Keep or Discard. (After 2.0: lives on the record-export branch.)
+// the button is STOP, a red square, as in any recorder, with a red dot while
+// it records and how far you've got. Pause (the header) only pauses the take;
+// Stop ends it, and Orfeo asks Keep or Discard. (After 2.0: lives on the
+// record-export branch.)
 
 const RED = 'var(--status-error-hover)'
 const METERS: Meter[] = [{ beats: 2, unit: 4 }, { beats: 3, unit: 4 }, { beats: 4, unit: 4 }, { beats: 6, unit: 8 }]
@@ -45,6 +47,7 @@ export default function PracticeRecord() {
   const songMessage = useRecord(s => s.message)
   const lastSaved = useRecord(s => s.lastSaved)
   const asking = useRecord(s => s.asking)
+  const countingIn = useStore(s => s.countIn !== null)
   const blankPhase = useBlank(s => s.phase)
   const setup = useBlank(s => s.setup)
   const blankBar = useBlank(s => s.bar)
@@ -87,13 +90,18 @@ export default function PracticeRecord() {
   // what the button says
   const value = asking ? t`Keep?`
     : saving ? t`Saving…`
+    : countingIn && (songPhase === 'starting' || songPhase === 'paused') ? t`Count-in`
     : songPhase === 'starting' ? t`Starting…`
-    : songPhase === 'recording' ? t`${songNotes} notes`
+    : songPhase === 'paused' ? t`Paused`
+    : songPhase === 'recording' ? (songNotes === 1 ? t`1 note` : t`${songNotes} notes`)
     : blankPhase === 'counting' ? t`Count-in ${blankBeat}`
-    : blankPhase === 'recording' ? (setup.withClick ? t`Bar ${blankBar}` : t`${blankNotes} notes`)
+    : blankPhase === 'recording' ? (setup.withClick ? t`Bar ${blankBar}` : blankNotes === 1 ? t`1 note` : t`${blankNotes} notes`)
     : ways[mode].name
   const tip = busy
-    ? { title: t`Recording`, description: t`Click to stop. Orfeo then asks whether to keep your take.` }
+    ? { title: t`Stop`, description: mode === 'song'
+        ? t`Stops the recording; Orfeo then asks whether to keep your take.
+Pause only pauses it: Play goes on after a count-in.`
+        : t`Stops the recording; Orfeo then asks whether to keep your take.` }
     : { title: ways[mode].name, description: ways[mode].tip + '\n' + t`Click to choose how you record, and to start.` }
 
   const start = () => { setOpen(false); void startRecord() }
@@ -103,11 +111,13 @@ export default function PracticeRecord() {
       <Tooltip title={tip.title} description={tip.description} placement="top" disabled={open}>
         <button ref={ref} onClick={() => (busy ? !saving && void stopRecord(true) : setOpen(o => !o))}
           style={toolBtn()} aria-label={busy ? t`Stop recording` : t`Record`} aria-expanded={open}>
-          {busy && !saving
-            ? <Circle {...barIcon} color={RED} fill={live ? RED : 'none'} className={live ? 'orfeo-soft-pulse' : undefined} />
-            : <Circle {...barIcon} />}
-          <span style={featLabel}>{t`Rec:`}</span>
-          <Reserve options={[ways.song.name, ways.blank.name, t`Count-in ${8}`, t`${8888} notes`].map((x, i) => <span key={i} style={featValue}>{x}</span>)}>
+          {busy && !saving ? <Square {...barIcon} color={RED} fill={RED} /> : <Circle {...barIcon} />}
+          <Reserve options={[t`Rec:`, t`Stop`].map((x, i) => <span key={i} style={featLabel}>{x}</span>)}>
+            {busy && !saving ? <span style={{ ...featLabel, color: RED }}>{t`Stop`}</span> : <span style={featLabel}>{t`Rec:`}</span>}
+          </Reserve>
+          <span aria-hidden className={live ? 'orfeo-soft-pulse' : undefined}
+            style={{ width: 8, height: 8, borderRadius: '50%', flexShrink: 0, background: live ? RED : 'var(--text-muted)', visibility: busy && !saving ? 'visible' : 'hidden' }} />
+          <Reserve options={[ways.song.name, ways.blank.name, t`Count-in ${8}`, t`${8888} notes`, t`Paused`, t`Saving…`].map((x, i) => <span key={i} style={featValue}>{x}</span>)}>
             <span style={featValue}>{value}</span>
           </Reserve>
         </button>
@@ -194,8 +204,8 @@ export default function PracticeRecord() {
             </button>
             <span style={{ fontFamily: 'var(--font-ui)', fontSize: 11, lineHeight: 1.35, color: 'var(--text-muted)' }}>
               {mode === 'song'
-                ? t`The song plays from the start. Pause, the song's end or REC ends the take. Then: Keep or Discard.`
-                : t`The song stops while you record. Click REC to stop, then: Keep or Discard.`}
+                ? t`The song plays from the start, after a count-in. Pause pauses the recording too; Play goes on after a count-in. Stop (the red square, here) or the song's end ends the take. Then: Keep or Discard.`
+                : t`The song stops while you record. Stop (the red square, here) ends the take. Then: Keep or Discard.`}
             </span>
             {message && <span style={{ fontFamily: 'var(--font-ui)', fontSize: 11, lineHeight: 1.35, color: 'var(--text-default)', wordBreak: 'break-word' }}>{message}</span>}
           </div>

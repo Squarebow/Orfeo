@@ -48,6 +48,23 @@ export function runSongTakeTest(): number {
     check(ev.filter(e => e.type === 'cc').length === 2, 'the pedal goes up at the end')
   }
 
+  // ── Going on after a pause: from the start of the bar, played again ──
+  {
+    const tk = new SongTake(0)
+    tk.key(60, 90, true, 1); tk.key(60, 0, false, 1.5)   // before the bar line: kept
+    tk.key(62, 90, true, 2.5)                             // held over the bar line at 2 s
+    tk.pedal(64, 127, 1.8)
+    tk.key(64, 90, true, 2.2); tk.key(64, 0, false, 2.4)  // after it: played again
+    tk.rewindTo(2)
+    tk.key(62, 0, false, 2.6)                             // the old key's release: already let go
+    tk.key(65, 90, true, 2.1); tk.key(65, 0, false, 2.3)
+    const ev = tk.stop(3)
+    const ons = ev.filter(e => e.type === 'on').map(e => (e as any).note)
+    check(ons.join() === '60,65', `from the bar line only the new playing ${ons}`)
+    check(ev.some(e => e.type === 'cc' && e.t === 2 && e.value === 0), 'the pedal let go at the bar line')
+    check(ev.filter(e => e.type === 'off').length === 2, 'every key let go once')
+  }
+
   // ── Right hand: your playing becomes the song's right hand, whole ──
   {
     const tk = new SongTake(0)
