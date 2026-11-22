@@ -16,7 +16,7 @@ import type { Hand } from '../../types'
 import { HAND_LH_CSS, HAND_RH_CSS } from '../../utils/handColors'
 import { HitEffectsRenderer } from './HitEffects'
 import { drainHitEffects } from '../../utils/hitEffectQueue'
-import { isShown } from '../../utils/trackShown'
+import { isOnRoll } from '../../utils/trackShown'
 import { t } from '../../utils/i18n'
 
 const VISIBLE_SECONDS  = 6
@@ -479,6 +479,7 @@ export default function PianoRoll() {
       s.midi !== prev.midi ||
       s.currentTime !== prev.currentTime ||
       s.tracks !== prev.tracks ||
+      s.mutedOnRoll !== prev.mutedOnRoll ||
       s.detectedKey !== prev.detectedKey ||
       s.zoomLevel !== prev.zoomLevel ||
       s.appTheme !== prev.appTheme ||
@@ -663,7 +664,7 @@ export default function PianoRoll() {
           const track    = nonEmptyEditTracks[i]
           const parsedIdx = parsedMidi?.tracks?.[i]?.index ?? i
           const ts = trackMap.get(parsedIdx)
-          if (!ts || !isShown(ts, hasSolo)) continue   // same gate as drawFrame (trackShown.ts)
+          if (!ts || !isOnRoll(ts, hasSolo)) continue   // same gate as drawFrame (trackShown.ts)
           const color = parseInt((ts.color ?? '#e8a027').replace('#', ''), 16)
 
           for (const note of track.notes) {
@@ -1036,7 +1037,7 @@ export default function PianoRoll() {
           if (note.time + note.duration < visStart) continue
 
           const ts = trackMap.get(note.trackIndex)
-          if (ts && !isShown(ts, hasSolo)) continue   // what shows: eye, mute and solo (trackShown.ts)
+          if (ts && !isOnRoll(ts, hasSolo)) continue   // what's on the roll: eye, mute and solo — mute kept on with Muted tracks stay on the roll (trackShown.ts)
 
           let shownMidi = note.midi + transpose
           let folded = false

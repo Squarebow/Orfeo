@@ -11,6 +11,7 @@ import { NES } from '../../utils/noteEditorState'
 import Tooltip from '../Tooltip'
 import PianoKeysIcon from '../PianoKeysIcon'
 import { saveTrackFlags } from '../../utils/sessionSave'
+import { isOnRoll } from '../../utils/trackShown'
 
 const GROUP_ORDER = [
   'piano', 'chromatic', 'organ', 'guitar', 'bass',
@@ -183,6 +184,7 @@ export default function TrackPanel() {
   }
 
   const hasSolo = tracks.some(t => t.solo)
+  useStore(s => s.mutedOnRoll)   // the eye stays bright for a muted track kept on the roll (Settings › Playback)
 
   // ── Focus on/off — the store's own flag (the Mixer uses the same) ─────────
   const isCurrentlyFiltered = useStore((s) => s.focusActive)
@@ -591,6 +593,7 @@ on the Piano Roll again`}
                         key={track.index}
                         track={track}
                         dimmed={effectivelyMuted}
+                        hiddenByOthers={track.visible && !isOnRoll(track, hasSolo)}
                         onMute={() => useStore.getState().setTrackMuted(track.index, !track.muted)}
                         onSolo={() => updateTrack(track.index, { solo: !track.solo })}
                         onVisible={() => updateTrack(track.index, { visible: !track.visible })}
@@ -630,10 +633,10 @@ on the Piano Roll again`}
 
 // ── Track row — three-line layout: name (top, full width) / track# + controls (mid) / ch+prog (bottom)
 function TrackRow({
-  track, dimmed, onMute, onSolo, onVisible, onKeyboard, onSoloForEdit, isSoloedForEdit,
+  track, dimmed, hiddenByOthers, onMute, onSolo, onVisible, onKeyboard, onSoloForEdit, isSoloedForEdit,
   isDragging, isHandleHovered, onHandleHover, onDragStart, onDragEnd, onDragOverRow, onDropRow,
 }: {
-  track: TrackState; dimmed: boolean
+  track: TrackState; dimmed: boolean; hiddenByOthers: boolean
   onMute: () => void; onSolo: () => void; onVisible: () => void; onKeyboard: () => void
   onSoloForEdit?: () => void; isSoloedForEdit?: boolean
   isDragging?: boolean; isHandleHovered?: boolean; onHandleHover?: (hovered: boolean) => void
@@ -734,7 +737,7 @@ function TrackRow({
       style={{
         padding: '6px 10px 5px 8px',
         borderBottom: '1px solid var(--border-row)',
-        opacity: isDragging ? 0.4 : dimmed ? 0.45 : 1,
+        opacity: isDragging ? 0.4 : 1,
         transition: 'opacity 0.15s, background 0.1s',
         cursor: onSoloForEdit ? 'pointer' : 'default',
         background: isSoloedForEdit ? 'var(--accent-amber-selected-bg)' : 'transparent',
@@ -744,7 +747,10 @@ function TrackRow({
       onMouseLeave={e => { if (onSoloForEdit && !isSoloedForEdit) (e.currentTarget as HTMLElement).style.background = 'transparent' }}
     >
       {/* ── Row 1: drag handle + color bar + instrument name ──────────────── */}
-      <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+      {/* A silent track fades everything but the eye, which only shows its own
+          state: faded too only when mute or solo keeps the track off the roll
+          (trackShown.ts — "Muted tracks stay on the roll" in Settings › Playback) */}
+      <div style={{ display: 'flex', alignItems: 'center', gap: 6, opacity: dimmed ? 0.45 : 1, transition: 'opacity 0.15s' }}>
         <div
           draggable
           onDragStart={e => {
@@ -780,27 +786,27 @@ function TrackRow({
 
       {/* ── Row 2: track number (left) + M/S/V/K controls (right) ─────────── */}
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginTop: 3, paddingLeft: 26 }}>
-        <span style={{ fontSize: 10, color: 'var(--text-inactive)', fontFamily: 'var(--font-mono)' }}>{t`track ${track.index + 1}`}</span>
+        <span style={{ fontSize: 10, color: 'var(--text-inactive)', fontFamily: 'var(--font-mono)', opacity: dimmed ? 0.45 : 1 }}>{t`track ${track.index + 1}`}</span>
         <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-1)' }}>
-          <IBtn onClick={onMute} active={track.muted} changed={muteChanged}
+          <IBtn onClick={onMute} active={track.muted} changed={muteChanged} faded={dimmed}
             title={track.muted ? t`Unmute` : t`Mute`}
             description={track.muted ? t`Unmute audio` : t`Mute audio`}
             activeColor="var(--status-error)">
             <span style={{ fontSize: 'var(--text-xs)', fontWeight: 700, fontFamily: 'var(--font-mono)', lineHeight: 1 }}>M</span>
           </IBtn>
-          <IBtn onClick={onSolo} active={track.solo}
+          <IBtn onClick={onSolo} active={track.solo} faded={dimmed}
             title={track.solo ? t`Unsolo` : t`Solo`}
             description={track.solo ? t`Unsolo track` : t`Solo track`}
             activeColor="var(--text-amber)">
             <span style={{ fontSize: 11, fontWeight: 700, fontFamily: 'var(--font-mono)', lineHeight: 1 }}>S</span>
           </IBtn>
-          <IBtn onClick={onVisible} active={!track.visible} changed={eyeChanged}
+          <IBtn onClick={onVisible} active={!track.visible} changed={eyeChanged} faded={hiddenByOthers}
             title={track.visible ? t`Hide in roll` : t`Show in roll`}
             description={track.visible ? t`Hide notes on the Piano Roll` : t`Show notes on the Piano Roll`}
             activeColor="var(--status-error-hover)" inactiveColor="var(--status-success-text)">
             {track.visible ? <Eye size={12} /> : <EyeClosed size={12} />}
           </IBtn>
-          <IBtn onClick={onKeyboard} active={track.showOnKeyboard} changed={lightsChanged}
+          <IBtn onClick={onKeyboard} active={track.showOnKeyboard} changed={lightsChanged} faded={dimmed}
             title={track.showOnKeyboard ? t`Lit on keyboard` : t`Not lit on keyboard`}
             description={track.showOnKeyboard ? t`Notes light up on keyboard` : t`Notes are not lit on keyboard`}
             activeColor="var(--text-amber)">
@@ -810,7 +816,7 @@ function TrackRow({
       </div>
 
       {/* ── Row 3: MIDI channel + program + note count ────────────────────── */}
-      <div style={{ display: 'flex', gap: 6, marginTop: 2, paddingLeft: 26 }}>
+      <div style={{ display: 'flex', gap: 6, marginTop: 2, paddingLeft: 26, opacity: dimmed ? 0.45 : 1 }}>
         <span style={{ fontSize: 10, lineHeight: '11px', color: 'var(--text-track-meta)', fontFamily: 'var(--font-mono)' }}>{t`ch ${ch}`}</span>
         <span style={{ fontSize: 10, lineHeight: '11px', color: 'var(--text-track-meta)', fontFamily: 'var(--font-mono)' }}>·</span>
         <span style={{ fontSize: 10, lineHeight: '11px', color: 'var(--text-track-meta)', fontFamily: 'var(--font-mono)' }}>{prog}</span>
@@ -822,9 +828,9 @@ function TrackRow({
 }
 
 // ── IBtn — icon button for track controls: color driven by active state ───
-function IBtn({ children, onClick, active, changed, title, description, activeColor = 'var(--text-amber)', inactiveColor = 'var(--text-icon-inactive)' }: {
+function IBtn({ children, onClick, active, changed, faded, title, description, activeColor = 'var(--text-amber)', inactiveColor = 'var(--text-icon-inactive)' }: {
   children: React.ReactNode; onClick: () => void
-  active?: boolean; changed?: boolean; title?: string; description?: string; activeColor?: string; inactiveColor?: string
+  active?: boolean; changed?: boolean; faded?: boolean; title?: string; description?: string; activeColor?: string; inactiveColor?: string
 }) {
   const button = (
     <button
@@ -833,7 +839,7 @@ function IBtn({ children, onClick, active, changed, title, description, activeCo
         position: 'relative', display: 'flex', alignItems: 'center', justifyContent: 'center',
         width: 22, height: 22, background: 'none', border: 'none', cursor: 'pointer',
         color: active ? activeColor : inactiveColor,
-        borderRadius: 4, transition: 'color 0.1s',
+        borderRadius: 4, transition: 'color 0.1s, opacity 0.15s', opacity: faded ? 0.45 : 1,
       }}
       onMouseEnter={e => { if (!active) e.currentTarget.style.color = 'var(--text-icon-hover)' }}
       onMouseLeave={e => { e.currentTarget.style.color = active ? activeColor : inactiveColor }}

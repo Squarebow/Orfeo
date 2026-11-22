@@ -28,6 +28,7 @@ import { addToQueue, removeFromQueue, moveInQueue, followOpenSong, remapQueue, r
 import { clampLibraryWidth, LIBRARY_MIN_WIDTH } from '../utils/libraryWidth'
 import { PIANO_RANGES, viewOfRange, isPortableSize, clampOctave, type KeyView } from '../utils/keyLayout'
 import { toursFromPrefs, type TourId, type ToursSeen } from '../utils/tours'
+import { syncMutedOnRoll } from '../utils/trackShown'
 
 // ── Focus mode: every track's mute + eye from just before Focus went on, so
 // the second click puts back exactly what you had. Null while Focus is off.
@@ -578,6 +579,9 @@ interface OrfeoStore {
   // Opening the Chords or Scales Explorer pauses the song (Settings › Playback)
   explorerPausesPlayback: boolean
   setExplorerPausesPlayback: (v: boolean) => void
+  // Muting a track also takes it off the piano roll (Settings › Playback, off by default: mute and the eye are separate)
+  mutedOnRoll: boolean
+  setMutedOnRoll: (v: boolean) => void
   setAutoCollapseDrawers: (v: boolean) => void
 
   // ── Tracks panel's per-track color line doubles as a mini VU meter during
@@ -1297,6 +1301,8 @@ export const useStore = create<OrfeoStore>((set, get) => ({
   setSupportNoteEnabled: (supportNoteEnabled) => set({ supportNoteEnabled }),
   explorerPausesPlayback: true,
   setExplorerPausesPlayback: (explorerPausesPlayback) => set({ explorerPausesPlayback }),
+  mutedOnRoll: false,
+  setMutedOnRoll: (mutedOnRoll) => { syncMutedOnRoll(mutedOnRoll); set({ mutedOnRoll }) },
   setAutoCollapseDrawers: (autoCollapseDrawers) => set({ autoCollapseDrawers }),
 
   trackVuColorEnabled: true,
@@ -1531,6 +1537,7 @@ async function restoreLibraryPrefs() {
     if (typeof prefs.tooltipsEnabled === 'boolean') store.setTooltipsEnabled(prefs.tooltipsEnabled)
     if (typeof prefs.supportNoteEnabled === 'boolean') store.setSupportNoteEnabled(prefs.supportNoteEnabled)
     if (typeof prefs.explorerPausesPlayback === 'boolean') store.setExplorerPausesPlayback(prefs.explorerPausesPlayback)
+    if (typeof prefs.mutedOnRoll === 'boolean') store.setMutedOnRoll(prefs.mutedOnRoll)
     if (typeof prefs.trackVuColorEnabled === 'boolean') store.setTrackVuColorEnabled(prefs.trackVuColorEnabled)
     if (typeof prefs.unsavedWarningEnabled === 'boolean') store.setUnsavedWarningEnabled(prefs.unsavedWarningEnabled)
     if (typeof prefs.saveTrackChangesEnabled === 'boolean') store.setSaveTrackChangesEnabled(prefs.saveTrackChangesEnabled)
@@ -1737,6 +1744,7 @@ let _prevHandColors: string | null = null
 let _prevTooltipsEnabled: boolean | null = null
 let _prevSupportNoteEnabled: boolean | null = null
 let _prevExplorerPausesPlayback: boolean | null = null
+let _prevMutedOnRoll: boolean | null = null
 let _prevTrackVuColorEnabled: boolean | null = null
 let _prevUnsavedWarningEnabled: boolean | null = null
 let _prevSaveTrackChangesEnabled: boolean | null = null
@@ -1818,6 +1826,7 @@ const _unsubPrefs = useStore.subscribe((state) => {
     _prevTooltipsEnabled = state.tooltipsEnabled
     _prevSupportNoteEnabled = state.supportNoteEnabled
     _prevExplorerPausesPlayback = state.explorerPausesPlayback
+    _prevMutedOnRoll = state.mutedOnRoll
     _prevTrackVuColorEnabled = state.trackVuColorEnabled
     _prevUnsavedWarningEnabled = state.unsavedWarningEnabled
     _prevSaveTrackChangesEnabled = state.saveTrackChangesEnabled
@@ -1902,6 +1911,7 @@ const _unsubPrefs = useStore.subscribe((state) => {
     state.tooltipsEnabled !== _prevTooltipsEnabled ||
     state.supportNoteEnabled !== _prevSupportNoteEnabled ||
     state.explorerPausesPlayback !== _prevExplorerPausesPlayback ||
+    state.mutedOnRoll !== _prevMutedOnRoll ||
     state.trackVuColorEnabled !== _prevTrackVuColorEnabled ||
     state.unsavedWarningEnabled !== _prevUnsavedWarningEnabled ||
     state.saveTrackChangesEnabled !== _prevSaveTrackChangesEnabled ||
@@ -1978,6 +1988,7 @@ const _unsubPrefs = useStore.subscribe((state) => {
     _prevTooltipsEnabled = state.tooltipsEnabled
     _prevSupportNoteEnabled = state.supportNoteEnabled
     _prevExplorerPausesPlayback = state.explorerPausesPlayback
+    _prevMutedOnRoll = state.mutedOnRoll
     _prevTrackVuColorEnabled = state.trackVuColorEnabled
     _prevUnsavedWarningEnabled = state.unsavedWarningEnabled
     _prevSaveTrackChangesEnabled = state.saveTrackChangesEnabled
@@ -2061,6 +2072,7 @@ const _unsubPrefs = useStore.subscribe((state) => {
       tooltipsEnabled: state.tooltipsEnabled,
       supportNoteEnabled: state.supportNoteEnabled,
       explorerPausesPlayback: state.explorerPausesPlayback,
+      mutedOnRoll: state.mutedOnRoll,
       trackVuColorEnabled: state.trackVuColorEnabled,
       unsavedWarningEnabled: state.unsavedWarningEnabled,
       saveTrackChangesEnabled: state.saveTrackChangesEnabled,

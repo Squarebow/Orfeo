@@ -26,7 +26,7 @@ export type SettingId =
   | 'noteEditor' | 'unsavedWarning' | 'saveTrackChanges' | 'tapTempo' | 'tempoWarnings' | 'countIn' | 'skipEmptyBars' | 'handAssignment' | 'loopRegion' | 'focusMode'
   | 'stepThrough' | 'chordPrompter' | 'closePanels' | 'handTags' | 'trackVu'
   | 'displaySystem' | 'accidentals' | 'chordTracking' | 'chordReading' | 'chordNaming'
-  | 'keyRange' | 'portableKeyboards' | 'showOctaves' | 'showNoteNames' | 'reflectPianoRoll' | 'preciseScrubTime' | 'explorerPause' | 'tempoDisplay'
+  | 'keyRange' | 'portableKeyboards' | 'showOctaves' | 'showNoteNames' | 'reflectPianoRoll' | 'preciseScrubTime' | 'explorerPause' | 'mutedOnRoll' | 'tempoDisplay'
   | 'rollZoom' | 'barNumbers' | 'playbar' | 'visualEffects'
   | 'theme' | 'handColors' | 'appZoom' | 'tooltips' | 'tours' | 'supportNote' | 'starmap'
   | 'showLanguageSwitcher' | 'followSystemLanguage' | 'menuLanguages' | 'translations' | 'translationUpdates'
@@ -55,7 +55,7 @@ export const GROUPS: GroupInfo[] = [
   { id: 'midi-files-library', name: t`MIDI Files & Library`, intro: t`Organise your library`, manualUrl: 'https://orfeo.cc/docs/managing-midi-files',
     stack: [['tags', 'practiceQueue', 'openWith', 'showDemo', 'chordTranscription', 'showLyrics']] },
   { id: 'playback-editing', name: t`Playback`, intro: t`Shape playback`, manualUrl: 'https://orfeo.cc/docs/playing-midi-files',
-    stack: [['countIn', 'skipEmptyBars', 'tempoDisplay', 'focusMode', 'loopRegion', 'tapTempo', 'preciseScrubTime', 'explorerPause', 'tempoWarnings']] },
+    stack: [['countIn', 'skipEmptyBars', 'tempoDisplay', 'focusMode', 'mutedOnRoll', 'loopRegion', 'tapTempo', 'preciseScrubTime', 'explorerPause', 'tempoWarnings']] },
   { id: 'practice', name: t`Practice`, intro: t`Tools for practising`, manualUrl: 'https://orfeo.cc/docs/practicing-with-midi-files' },
   { id: 'editing', name: t`Editing`, intro: t`Edit your songs`, manualUrl: 'https://orfeo.cc/docs/editing-midi-files',
     stack: [['handAssignment'], ['saveTrackChanges'], ['noteEditor'], ['trackVu', 'unsavedWarning']], looseFirst: true },
@@ -190,6 +190,9 @@ with octave buttons to move them. Notes beyond their edges show fainter on the k
   { id: 'explorerPause', group: 'playback-editing', name: t`Explorers pause playback`, summary: t`Opening the Chords or Scales Explorer pauses the song.`,
     description: t`Opening the Chords Explorer or the Scales Explorer pauses the song, so it doesn't play over the chords you try.\nTurn it off to keep the song playing while you explore.`,
     keywords: 'pause playback explorer chords scales stop song' },
+  { id: 'mutedOnRoll', group: 'playback-editing', name: t`Muted tracks stay on the roll`, summary: t`Mute silences a track but keeps its notes on the piano roll.`,
+    description: t`Turn on to keep a muted track's notes on the piano roll.\nOnly the roll changes: the keyboard, step-through and the Mixer still leave muted tracks out.`,
+    keywords: 'mute muted hide eye track piano roll visible silence notes keep stay' },
   { id: 'tempoDisplay', group: 'playback-editing', name: t`Tempo display`, summary: t`Show the tempo in BPM or as a speed in percent.`,
     description: t`The tempo at the top shows beats per minute, or the speed against the song's own tempo: 100 % plays it as written, 50 % at half speed.\nThe arrows and typing a value work the same way in both. Right-clicking the tempo switches it too.`,
     keywords: 'tempo bpm speed percent percentage slow down faster display readout' },
