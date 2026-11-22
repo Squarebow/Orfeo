@@ -220,7 +220,7 @@ with octave buttons to move them. Notes beyond their edges show fainter on the k
     description: t`Makes everything in Orfeo bigger or smaller. Ctrl + / Ctrl − / Ctrl 0 work exactly as in a web browser. Click reset to go back to 100%.`,
     keywords: 'zoom scale size bigger smaller ctrl' },
   { id: 'fitToWindow', group: 'appearance', name: t`Fit to small windows`, summary: t`Everything shrinks to fit a small window.`,
-    description: t`Turn on to shrink everything in Orfeo to fit a small window, down to 75 %.\nOff, a small window shows everything at full size and cuts off what doesn't fit.`,
+    description: t`Turn on to shrink everything in Orfeo just enough to fit a small window.\nOff, a small window shows everything at full size and cuts off what doesn't fit.`,
     keywords: 'fit window small screen laptop shrink scale size zoom resize' },
   { id: 'tooltips', group: 'appearance', name: t`Tooltips`, summary: t`Hints that pop up when you point at a control.`,
     description: t`The hints that pop up when you point at a button, knob or icon. Turn them off once you know your way around.\nA knob still shows its value while you turn it.`,

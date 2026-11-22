@@ -311,14 +311,15 @@ const FIT_DESIGN = { w: 1720, h: 720 }   // the width the top bar needs to show 
 // the window's own buttons (minimise, maximise, close) keep their size while
 // the app shrinks around them, so they're left out of what's scaled
 const CAPTION_BUTTONS_W = 150
-// never smaller than this (text stays readable); a narrower window than that
-// cuts off the top bar's ends, as before. Settings › Appearance › Fit to small
-// windows switches the shrinking off (prefs fitToWindow, on by default).
-const FIT_FLOOR = 0.75
+// Only as much as needed so nothing is cut off: about 76 % on a 1366 laptop,
+// 75 % at 1330 wide, about 48 % at the smallest window (900 × 600) — the user's
+// choice (22. 11.) over a 75 % floor that cut off the top bar's right end in
+// windows narrower than 1330. Settings › Appearance › Fit to small windows
+// switches the shrinking off (prefs fitToWindow, on by default).
 let fitToWindow = true
 function fitFactorFor(width: number, height: number): number {
   if (!fitToWindow) return 1
-  return Math.max(FIT_FLOOR, Math.min(1, (width - CAPTION_BUTTONS_W) / (FIT_DESIGN.w - CAPTION_BUTTONS_W), height / FIT_DESIGN.h))
+  return Math.min(1, (width - CAPTION_BUTTONS_W) / (FIT_DESIGN.w - CAPTION_BUTTONS_W), height / FIT_DESIGN.h)
 }
 function fitFactor(win: BrowserWindow): number {
   const [w, h] = win.getContentSize()
