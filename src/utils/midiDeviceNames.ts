@@ -48,3 +48,19 @@ export function shortName(model: string): string {
   const words = model.split(' ').filter(Boolean)
   return (words[0] ?? 'MIDI').slice(0, 12)
 }
+
+/** Just the model, for tooltips and short lists (the full name, maker and all,
+ *  is in Settings › MIDI Keyboard). From the name without its maker: a series
+ *  written in capitals in front of a model number goes ("KOMPLETE KONTROL S88
+ *  MK3" → "S88 MK3"); names written any other way stay whole ("Launchkey MK4
+ *  37", "MPK mini Plus", "PartyKeys 36"). */
+export function modelName(model: string): string {
+  const words = (model ?? '').split(/\s+/).filter(Boolean)
+  let i = 0
+  const capsSeries = (w: string) => /^[A-Z][A-Z&+-]*$/.test(w) && !/\d/.test(w)
+  while (i < words.length - 1 && capsSeries(words[i])) i++
+  const rest = words.slice(i)
+  // only when what's left is a model (it has a number) and something was dropped
+  if (i > 0 && rest.some(w => /\d/.test(w))) return rest.join(' ')
+  return words.join(' ') || 'MIDI'
+}

@@ -1,5 +1,6 @@
 import { useLayoutEffect, useRef, useState, type CSSProperties, type ReactNode } from 'react'
 import { createPortal } from 'react-dom'
+import { RotateCcw } from 'lucide-react'
 import { useMenuDismiss } from '../ContextMenu'
 
 // ── Practice mode's header and footer: one look ──────────────────────────────
@@ -53,6 +54,30 @@ export function PopItem({ on, onClick, children, hint, disabled }: {
 
 export const popHeading: CSSProperties = { ...featLabel, fontSize: 10, padding: '6px 14px 4px' }
 export function PopDivider() { return <div style={{ height: 1, background: 'var(--border)', margin: '4px 0' }} /> }
+
+/** Room for the widest of `options`, so a changing value never moves what
+ *  comes after it (all of them stacked in one cell, only the current one seen) */
+export function Reserve({ options, children, align = 'start' }: { options: ReactNode[]; children: ReactNode; align?: 'start' | 'end' }) {
+  return (
+    <span style={{ display: 'inline-grid', justifyItems: align, alignItems: 'baseline' }}>
+      {options.map((o, i) => <span key={i} aria-hidden style={{ gridArea: '1 / 1', visibility: 'hidden', whiteSpace: 'nowrap' }}>{o}</span>)}
+      <span style={{ gridArea: '1 / 1', whiteSpace: 'nowrap' }}>{children}</span>
+    </span>
+  )
+}
+
+/** A small reset button that keeps its room when there's nothing to reset */
+export function ResetMark({ shown, onClick, title }: { shown: boolean; onClick: () => void; title: string }) {
+  return (
+    <button onClick={onClick} disabled={!shown} aria-label={title} title={title} className="app-no-drag"
+      style={{
+        visibility: shown ? 'visible' : 'hidden', display: 'flex', alignItems: 'center', color: AMBER, flexShrink: 0,
+        background: 'var(--accent-amber-subtle)', border: '1px solid var(--accent-amber-medium)', borderRadius: 4, padding: '1px 5px', cursor: 'pointer',
+      }}>
+      <RotateCcw size={9} />
+    </button>
+  )
+}
 
 /** Hand colour marks: tiny squares beside a hand's name */
 export function HandMarks({ hand }: { hand: 'L' | 'R' | 'B' }) {

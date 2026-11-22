@@ -1,18 +1,18 @@
 import { useEffect, useRef, useState } from 'react'
-import { Piano, Hand, History, MonitorUp, FoldVertical, Check } from 'lucide-react'
+import { Piano, Hand, History, MonitorUp, FoldVertical, Hourglass, Volume2, VolumeX, Check } from 'lucide-react'
 import { useStore } from '../../store'
 import { useMidiSettings } from '../../store/midiSettings'
 import { detectChord, localizeChord } from '../../utils/chordDetection'
 import { getNoteName } from '../../utils/noteNames'
 import { useToPlay } from '../../practice/practiceLights'
-import { shortName } from '../../utils/midiDeviceNames'
+import { modelName } from '../../utils/midiDeviceNames'
 import { t } from '../../utils/i18n'
 import Tooltip from '../Tooltip'
 import MidiIcon from '../MidiIcon'
-import { usePractice, PRACTICE_SIZES, fixHandsFromPractice, type PracticeWay, type PracticeHand, type PracticeView } from '../../practice/practiceMode'
+import { usePractice, setHearMine, fixHandsFromPractice, type PracticeWay, type PracticeHand, type PracticeView } from '../../practice/practiceMode'
 import { useSession } from '../../practice/session'
 import { RAMP_ROUNDS, RAMP_START, RAMP_STEP } from '../../practice/take'
-import { AMBER, barIcon, featLabel, featValue, toolBtn, BarPop, PopItem, popHeading, PopDivider, HandMarks } from './practiceBar'
+import { AMBER, barIcon, featLabel, featValue, toolBtn, BarPop, PopItem, popHeading, PopDivider, HandMarks, Reserve } from './practiceBar'
 
 // ── Practice mode's footer, between the piano roll and the keyboard ──────────
 // Left: how you play (MODE), which hands, and the waiting. Centre: the chord
@@ -65,9 +65,8 @@ function Chords() {
 }
 
 export default function PracticeStrip() {
-  const keyboardSize = useStore(s => s.keyboardSize)
   const playbar = useStore(s => s.practicePlaybar)
-  const { way, hand, waitOn, level, view, onlyHand, ramp } = usePractice()
+  const { way, hand, waitOn, level, view, onlyHand, ramp, hearMine } = usePractice()
   const streak = useSession(s => s.ramp.streak)
   const set = usePractice.setState
   const [open, setOpen] = useState<'' | 'mode' | 'hands' | 'view' | 'midi'>('')
@@ -122,7 +121,9 @@ export default function PracticeStrip() {
           <button ref={refs.mode} onClick={() => toggle('mode')} style={toolBtn()} aria-label={t`Mode`} aria-expanded={open === 'mode'}>
             <Piano {...barIcon} />
             <span style={featLabel}>{t`Mode:`}</span>
-            <span style={featValue}>{way === 'perform' ? t`Performance ${level}` : ways[way].name}</span>
+            <Reserve options={[ways.practise.name, ways.wait.name, t`Performance ${3}`].map((x, i) => <span key={i} style={featValue}>{x}</span>)}>
+              <span style={featValue}>{way === 'perform' ? t`Performance ${level}` : ways[way].name}</span>
+            </Reserve>
           </button>
         </Tooltip>
         {open === 'mode' && (
@@ -147,7 +148,9 @@ export default function PracticeStrip() {
                 <PopDivider />
                 <PopItem on={ramp} onClick={() => set({ ramp: !ramp })}
                   hint={t`Starts at ${RAMP_START} % of the song's tempo and goes up ${RAMP_STEP} % after every ${RAMP_ROUNDS} clean times round the loop (or through the song), up to the song's own tempo. Clean: nothing missed, at most one stray key, and the song never kept waiting. Off again: back to the speed you had.`}>
-                  {ramp ? t`Speed up: on` : t`Speed up: off`}
+                  <History size={14} color={AMBER} />
+                  <span style={{ flex: 1 }}>{t`Speed up`}</span>
+                  <MiniSwitch on={ramp} />
                 </PopItem>
               </>
             )}
@@ -161,8 +164,10 @@ export default function PracticeStrip() {
           <button ref={refs.hands} onClick={() => (handsChoice || onlyHand) && toggle('hands')} style={toolBtn(!handsChoice && !onlyHand)} aria-label={t`Hands`} aria-expanded={open === 'hands'}>
             <Hand {...barIcon} />
             <span style={featLabel}>{t`Hands:`}</span>
-            <span style={featValue}>{handName[shownHand]}</span>
-            <HandMarks hand={shownHand} />
+            <Reserve options={[handName.L, handName.R, handName.B].map((x, i) => <span key={i} style={featValue}>{x}</span>)}>
+              <span style={featValue}>{handName[shownHand]}</span>
+            </Reserve>
+            <Reserve options={[<HandMarks key="b" hand="B" />]}><HandMarks hand={shownHand} /></Reserve>
           </button>
         </Tooltip>
         {open === 'hands' && (
@@ -186,23 +191,44 @@ export default function PracticeStrip() {
         )}
 
         {way === 'practise' && (
-          <Tooltip title={waitOn ? t`Wait: on` : t`Wait: off`} placement="top"
-            description={t`On, the song stops at your next notes and waits until you've played them. Off, it keeps going.`}>
-            <button onClick={() => set({ waitOn: !waitOn })} style={toolBtn()} aria-pressed={waitOn} aria-label={t`Wait`}>
-              <History {...barIcon} />
-              <span style={featLabel}>{t`Wait:`}</span>
-              <span style={featValue}>{waitOn ? t`On` : t`Off`}</span>
+          <Tooltip title={hearMine ? t`My part: heard` : t`My part: silent`} placement="top"
+            description={hearMine ? t`Your part plays quietly with you, as a guide.\nClick to play it on your own.` : t`Only you play your part.\nClick to hear it quietly with you, as a guide.`}>
+            <button onClick={() => setHearMine(!hearMine)} style={toolBtn()} aria-pressed={hearMine} aria-label={t`My part`}>
+              {hearMine ? <Volume2 {...barIcon} /> : <VolumeX {...barIcon} />}
+              <span style={featLabel}>{t`My part`}</span>
             </button>
           </Tooltip>
         )}
-        {way === 'practise' && ramp && <span style={{ ...featValue, color: 'var(--text-muted)', fontSize: 10 }}>{t`Clean ${streak} of ${RAMP_ROUNDS}`}</span>}
+
+        {way === 'practise' && (
+          <Tooltip title={waitOn ? t`Wait: on` : t`Wait: off`} placement="top"
+            description={t`On, the song stops at your next notes and waits until you've played them. Off, it keeps going.`}>
+            <button onClick={() => set({ waitOn: !waitOn })} style={toolBtn()} aria-pressed={waitOn} aria-label={t`Wait`}>
+              <Hourglass {...barIcon} />
+              <span style={featLabel}>{t`Wait:`}</span>
+              <Reserve options={[t`On`, t`Off`].map((x, i) => <span key={i} style={featValue}>{x}</span>)}>
+                <span style={featValue}>{waitOn ? t`On` : t`Off`}</span>
+              </Reserve>
+            </button>
+          </Tooltip>
+        )}
+        {/* Speed up on: its clean rounds so far */}
+        {way === 'practise' && ramp && (
+          <Tooltip title={t`Speed up`} placement="top"
+            description={t`Clean rounds at this speed: ${streak} of ${RAMP_ROUNDS}. After ${RAMP_ROUNDS}, the speed goes up ${RAMP_STEP} %.`}>
+            <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+              <History {...barIcon} />
+              <span style={featValue}>{t`${streak} of ${RAMP_ROUNDS}`}</span>
+            </span>
+          </Tooltip>
+        )}
       </div>
 
       <Chords />
 
       {/* ── Right: view, playbar, keyboard ── */}
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: 14, minWidth: 0 }}>
-        <Tooltip title={views[view].name} description={views[view].tip + '\n' + t`Click to change the view or the keyboard's size.`} placement="top" disabled={open === 'view'}>
+        <Tooltip title={views[view].name} description={views[view].tip + '\n' + t`Click to change the view.`} placement="top" disabled={open === 'view'}>
           <button ref={refs.view} onClick={() => toggle('view')} style={toolBtn()} aria-label={t`View`} aria-expanded={open === 'view'}>
             <MonitorUp {...barIcon} />
             <span style={featLabel}>{t`View:`}</span>
@@ -212,34 +238,22 @@ export default function PracticeStrip() {
         {open === 'view' && (
           <BarPop anchor={refs.view.current} up align="right" width={250} onClose={close} label={t`View`}>
             <div style={popHeading}>{t`View`}</div>
-            {(['roll', 'split', 'score'] as PracticeView[]).map(id => (
+            {(['roll', 'score', 'split'] as PracticeView[]).map(id => (
               <PopItem key={id} on={view === id} onClick={() => { set({ view: id }); close() }} hint={views[id].tip}>{views[id].name}</PopItem>
             ))}
-            <PopDivider />
-            <div style={popHeading}>{t`Keyboard`}</div>
-            <div style={{ display: 'flex', gap: 6, padding: '4px 14px 10px' }}>
-              {PRACTICE_SIZES.map(n => (
-                <button key={n} onClick={() => useStore.getState().setKeyboardSize(n)} aria-label={t`${n} keys`}
-                  style={{
-                    flex: 1, padding: '5px 0', fontFamily: 'var(--font-mono)', fontSize: 12, cursor: 'pointer', borderRadius: 'var(--radius-sm)',
-                    background: keyboardSize === n ? 'var(--accent-amber-subtle)' : 'none', color: keyboardSize === n ? AMBER : 'var(--text-default)',
-                    border: `1px solid ${keyboardSize === n ? 'var(--accent-amber-strong)' : 'var(--border)'}`,
-                  }}>{n}</button>
-              ))}
-            </div>
           </BarPop>
         )}
 
         {view === 'roll' && (
           <Tooltip title={playbar ? t`Playbar: on` : t`Playbar: off`} placement="top"
-            description={t`The line where the notes meet the keys. Off, the notes fall straight onto the keyboard.`}>
+            description={t`The line where the notes meet the keys.\nOff, the notes fall straight onto the keyboard.`}>
             <button onClick={() => useStore.getState().setPracticePlaybar(!playbar)} style={{ ...toolBtn(), opacity: playbar ? 1 : 0.45 }} aria-pressed={playbar} aria-label={t`Playbar`}>
               <FoldVertical {...barIcon} />
             </button>
           </Tooltip>
         )}
 
-        <Tooltip title={connected ? deviceName : t`No connected keyboards`} placement="top" disabled={open === 'midi'}
+        <Tooltip title={connected ? modelName(activeDevice || deviceName) : t`No connected keyboards`} placement="top" disabled={open === 'midi'}
           description={devices.length > 1 ? t`Click to choose the keyboard you play on.` : t`The keyboard you play on.`}>
           <button ref={refs.midi} onClick={() => toggle('midi')} style={toolBtn()} aria-label={t`Your keyboard`} aria-expanded={open === 'midi'}>
             <MidiIcon size={22} color={connected ? AMBER : 'var(--topbar-midi-off)'} />
@@ -254,7 +268,7 @@ export default function PracticeStrip() {
             {devices.map(d => (
               <PopItem key={d.key} on={listenMode === 'selected' ? selected.includes(d.key) : devices.length === 1 || d.key === activeDevice} onClick={() => playOn(d.key)}>
                 <Check size={12} style={{ visibility: (listenMode === 'selected' ? selected.includes(d.key) : devices.length === 1) ? 'visible' : 'hidden' }} />
-                {shortName(d.key) || d.name}
+                {modelName(d.key) || d.name}
               </PopItem>
             ))}
             <PopDivider />
@@ -263,5 +277,14 @@ export default function PracticeStrip() {
         )}
       </div>
     </div>
+  )
+}
+
+// a small on/off switch inside a choice (Speed up)
+function MiniSwitch({ on }: { on: boolean }) {
+  return (
+    <span aria-hidden style={{ position: 'relative', display: 'inline-block', width: 26, height: 14, borderRadius: 7, flex: 'none', background: on ? 'var(--text-amber)' : 'var(--bg-input)' }}>
+      <span style={{ position: 'absolute', top: 2, left: on ? 14 : 2, width: 10, height: 10, borderRadius: '50%', background: on ? 'var(--text-on-amber)' : 'var(--text-default)', transition: 'left .15s' }} />
+    </span>
   )
 }

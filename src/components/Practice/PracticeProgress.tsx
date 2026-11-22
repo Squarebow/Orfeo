@@ -20,7 +20,7 @@ import type { TakeRecord } from '../../practice/take'
 export const useProgress = create<{ open: boolean; kind: string | null; sample: TakeRecord[] | null }>(() => ({ open: false, kind: null, sample: null }))
 export function openProgress(sample: TakeRecord[] | null = null) {
   if (useReview.getState().open) closeReview()
-  useSession.setState({ card: null })
+  useSession.setState({ cardOpen: false })
   useProgress.setState({ open: true, kind: null, sample })
 }
 export const closeProgress = () => useProgress.setState({ open: false, sample: null })

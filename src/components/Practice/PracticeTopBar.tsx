@@ -1,5 +1,5 @@
 import { useRef, useState, type CSSProperties } from 'react'
-import { Play, Pause, SkipBack, Repeat, SlidersVertical, Volume2, VolumeX, ChevronUp, ChevronDown, WandSparkles, SquareArrowRightExit, Piano, Eye, Drum } from 'lucide-react'
+import { Play, Pause, SkipBack, Repeat, SlidersVertical, Volume2, VolumeX, ChevronUp, ChevronDown, WandSparkles, SquareArrowRightExit, Piano, Eye, Drum, UserRoundStar } from 'lucide-react'
 import { useStore } from '../../store'
 import { usePlayback } from '../../hooks/usePlayback'
 import { formatTime } from '../../utils/midiParser'
@@ -16,9 +16,10 @@ import OrfeoLogo from '../OrfeoLogo'
 import VolumeKnob from '../VolumeKnob'
 import { QueueButton } from '../Transport/QueueButton'
 import { TBtn, BpmValue, TempoDisplayMenu, MetronomeMenu, METRO_MENU_WIDTH } from '../Transport/TopBar'
-import { AMBER, barIcon, featLabel, featValue, toolBtn, BarPop, PopItem, popHeading, PopDivider, HandMarks } from './practiceBar'
+import { AMBER, barIcon, featLabel, featValue, toolBtn, BarPop, popHeading, PopDivider, HandMarks, Reserve, ResetMark } from './practiceBar'
+import { useSession, toggleCard } from '../../practice/session'
 import {
-  usePractice, leavePractice, setHearMine, tempoLimits, metronomeAllowed, speedPercent, setSpeedPercent, practisedHand,
+  usePractice, leavePractice, tempoLimits, metronomeAllowed, speedPercent, setSpeedPercent, practisedHand,
   fixHandsFromPractice, setBandPreset, bandPreset, type BandPreset,
 } from '../../practice/practiceMode'
 
@@ -71,7 +72,10 @@ export default function PracticeTopBar() {
   const loopActive = useStore(s => s.loopRegionActive)
   const way = usePractice(s => s.way)
   const level = usePractice(s => s.level)
-  const hearMine = usePractice(s => s.hearMine)
+  const songReady = usePractice(s => s.songReady)
+  const card = useSession(s => s.card)
+  const cardNew = useSession(s => s.cardNew)
+  const cardOpen = useSession(s => s.cardOpen)
   usePractice(s => s.hand)   // the hand rows follow your choice
   const { play, pause, seek, seekAndPlay } = usePlayback()
   const [open, setOpen] = useState<'' | 'tracks'>('')
@@ -115,6 +119,7 @@ export default function PracticeTopBar() {
 
   const transpose = detectedKey?.transpose ?? 0
   const displayKey = detectedKey ? formatKey(detectedKey, noteNaming, accidentals) : '—'
+  const keyNames = ['—', ...[0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11].flatMap(semitone => [false, true].map(isMinor => formatKey({ semitone, isMinor, transpose: 0 }, noteNaming, accidentals)))]
   const metroOk = metronomeAllowed()
 
   let bar = 1
@@ -140,7 +145,7 @@ export default function PracticeTopBar() {
     <div className="app-drag-region" style={{ flexShrink: 0, position: 'relative', zIndex: 20, background: 'var(--bg-deep)', borderBottom: '1px solid var(--state-hover-bg)' }}>
       {/* ── The top line, beside the window's own buttons ── */}
       <div style={{ height: TITLE_H, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-        <span style={{ ...featLabel, fontSize: 11, letterSpacing: '0.24em' }}>{t`Practice mode`}</span>
+        <span style={featLabel}>{t`Practice mode`}</span>
       </div>
 
       <div style={{
@@ -155,7 +160,9 @@ export default function PracticeTopBar() {
           <Tooltip title={t`What you hear`} description={t`The piano alone, Focus (the bass and drums too), or the whole band. Click to choose, or mute any track.`} placement="bottom" disabled={open === 'tracks'}>
             <button ref={tracksBtn} className="app-no-drag" onClick={() => setOpen(o => (o === 'tracks' ? '' : 'tracks'))} style={toolBtn()} aria-label={t`What you hear`} aria-expanded={open === 'tracks'}>
               <SlidersVertical {...barIcon} />
-              <span style={featValue}>{preset ? presetName[preset] : t`Your mix`}</span>
+              <Reserve options={[presetName.piano, presetName.focus, presetName.band, t`Your mix`].map((x, i) => <span key={i} style={featValue}>{x}</span>)}>
+                <span style={featValue}>{preset ? presetName[preset] : t`Your mix`}</span>
+              </Reserve>
             </button>
           </Tooltip>
           {open === 'tracks' && (
@@ -184,14 +191,9 @@ export default function PracticeTopBar() {
                 <div key={tr.index} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '6px 14px' }}>
                   <HandMarks hand={tr.practiceHand === 'L' ? 'L' : 'R'} />
                   <span style={{ flex: 1, fontSize: 13, color: 'var(--text-active)', whiteSpace: 'nowrap' }}>{tr.practiceHand === 'L' ? t`Left hand` : t`Right hand`}</span>
-                  <span style={{ fontSize: 11, color: 'var(--text-muted)' }}>{mine(tr) ? (tr.muted ? t`Silent, you play it` : t`You play it, heard`) : t`Plays along`}</span>
+                  <span style={{ fontSize: 11, color: 'var(--text-muted)' }}>{mine(tr) ? (tr.muted ? t`Your part is silent` : t`Your part is heard`) : t`Plays along`}</span>
                 </div>
               ))}
-              {way === 'practise' && (
-                <PopItem on={hearMine} onClick={() => setHearMine(!hearMine)} hint={t`Your part quietly, as a guide.`}>
-                  {hearMine ? t`Hear my part too: on` : t`Hear my part too: off`}
-                </PopItem>
-              )}
               {band.length > 0 && <PopDivider />}
               {band.map(tr => (
                 <button key={tr.index} className="app-no-drag" onClick={() => useStore.getState().setTrackMuted(tr.index, !tr.muted)}
@@ -210,13 +212,17 @@ export default function PracticeTopBar() {
               description={t`The song's key. The arrows move it up or down a semitone.`} placement="bottom">
               <span style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                 <span style={featLabel}>{t`Key`}</span>
-                <span style={{ ...bigValue, color: transpose ? AMBER : 'var(--text-active)' }}>{displayKey}</span>
+                <Reserve options={keyNames.map((k, i) => <span key={i} style={bigValue}>{k}</span>)}>
+                  <span style={{ ...bigValue, color: transpose ? AMBER : 'var(--text-active)' }}>{displayKey}</span>
+                </Reserve>
               </span>
             </Tooltip>
             <Chevrons upLabel={t`Transpose up`} downLabel={t`Transpose down`}
               upOff={!detectedKey || transpose >= 12} downOff={!detectedKey || transpose <= -12}
               up={() => detectedKey && useStore.setState({ detectedKey: transposeDetectedKey(detectedKey, 1) })}
               down={() => detectedKey && useStore.setState({ detectedKey: transposeDetectedKey(detectedKey, -1) })} />
+            <ResetMark shown={transpose !== 0} title={t`Back to the song's own key`}
+              onClick={() => detectedKey && useStore.setState({ detectedKey: { ...detectedKey, transpose: 0 } })} />
           </div>
 
           <div className="app-no-drag" style={{ display: 'flex', alignItems: 'center', gap: 8, flexShrink: 0 }}>
@@ -224,7 +230,7 @@ export default function PracticeTopBar() {
               <span style={{ display: 'flex', alignItems: 'center', gap: 8 }}
                 onContextMenu={e => { e.preventDefault(); const r = e.currentTarget.getBoundingClientRect(); setTempoMenu({ x: r.left, y: r.bottom + 6 }) }}>
                 <span style={featLabel}>{t`Tempo`}</span>
-                <span style={{ display: 'flex', alignItems: 'baseline', gap: 4 }}>
+                <span style={{ display: 'flex', alignItems: 'flex-end', gap: 4 }}>
                   <BpmValue shown={String(asPercent ? pct : liveBpm)} label={asPercent ? t`Speed in percent` : t`Tempo in BPM`}
                     changed={pct !== 100} disabled={fixedTempo}
                     onType={text => {
@@ -232,14 +238,19 @@ export default function PracticeTopBar() {
                       const next = asPercent ? typedSpeed(text, s.originalBpm) : typedBpm(text, s.originalBpm, fileBpm)
                       if (next !== null) setBpmWithin(next)
                     }} />
-                  <span style={{ ...featValue, fontSize: 11 }}>{asPercent ? '%' : t`BPM`}</span>
+                  {/* the unit's foot on the number's foot (the number's box has room below its digits) */}
+                  <Reserve options={['%', t`BPM`].map((x, i) => <span key={i} style={{ ...featValue, fontSize: 11 }}>{x}</span>)}>
+                    <span style={{ ...featValue, fontSize: 11, display: 'inline-block', marginBottom: 2 }}>{asPercent ? '%' : t`BPM`}</span>
+                  </Reserve>
                 </span>
               </span>
             </Tooltip>
-            {!fixedTempo && (
-              <Chevrons upLabel={t`Faster`} downLabel={t`Slower`} upOff={pct >= lim.max} downOff={pct <= lim.min}
+            {/* kept in place (hidden) where the tempo is fixed, so nothing moves */}
+            <span style={{ visibility: fixedTempo ? 'hidden' : 'visible', display: 'flex' }}>
+              <Chevrons upLabel={t`Faster`} downLabel={t`Slower`} upOff={fixedTempo || pct >= lim.max} downOff={fixedTempo || pct <= lim.min}
                 up={() => stepTempo(1)} down={() => stepTempo(-1)} />
-            )}
+            </span>
+            <ResetMark shown={!fixedTempo && pct !== 100} title={t`Back to the song's own tempo`} onClick={() => setSpeedPercent(100)} />
             {tempoMenu && <TempoDisplayMenu x={tempoMenu.x} y={tempoMenu.y} onClose={() => setTempoMenu(null)} />}
           </div>
         </div>
@@ -250,8 +261,8 @@ export default function PracticeTopBar() {
             {midi?.fileName.replace(/\.(mid|midi)$/i, '') ?? ''}
           </span>
           <div style={{ display: 'flex', alignItems: 'center', gap: 2 }}>
-            <TBtn onClick={back} title={hasLoop && loopActive ? t`Back to the loop's start` : t`Go to start`} oneLine><SkipBack size={16} strokeWidth={1.5} /></TBtn>
-            <TBtn onClick={playPause} accent title={t`Play / Pause (Space)`} large={!playing} oneLine>
+            <TBtn onClick={back} disabled={!songReady} title={hasLoop && loopActive ? t`Back to the loop's start` : t`Go to start`} oneLine><SkipBack size={16} strokeWidth={1.5} /></TBtn>
+            <TBtn onClick={playPause} disabled={!songReady} accent title={t`Play / Pause (Space)`} large={!playing} oneLine>
               {playing ? <Pause size={playing ? 20 : 24} fill="currentColor" strokeWidth={0} /> : <Play size={24} fill="currentColor" strokeWidth={0} />}
             </TBtn>
             <TBtn onClick={() => useStore.getState().setLoopRegionActive(!loopActive)} disabled={!hasLoop} active={hasLoop && loopActive}
@@ -261,6 +272,16 @@ export default function PracticeTopBar() {
             <span style={{ marginLeft: 10, color: 'var(--text-muted)', fontFamily: 'var(--font-mono)', fontSize: 11, whiteSpace: 'nowrap' }}>
               <span style={{ color: 'var(--text-active)' }}>{formatTime(currentTime)}</span> / {formatTime(midi?.duration ?? 0)}
             </span>
+            {/* how it went, when you want it (it never pops up by itself); the icon
+                pulses gently while there are words not read yet */}
+            <Tooltip title={t`How it went`} oneLine={!card} placement="bottom"
+              description={card ? t`A few words on how it went since you last pressed Play. Click to open.` : t`After you've played, a few words on how it went.`}>
+              <button onClick={() => toggleCard()} disabled={!card} aria-pressed={cardOpen} aria-label={t`How it went`}
+                style={{ ...toolBtn(!card), marginLeft: 18, gap: 6, height: 26 }}>
+                <UserRoundStar {...barIcon} size={16} className={cardNew ? 'orfeo-soft-pulse' : undefined} />
+                <span style={{ ...featValue, fontSize: 11 }}>{t`How it went`}</span>
+              </button>
+            </Tooltip>
           </div>
         </div>
 

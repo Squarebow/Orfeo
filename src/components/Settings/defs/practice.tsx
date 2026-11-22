@@ -200,7 +200,12 @@ export const PRACTICE_DEFS: SettingDef[] = [
   {
     // dev mode and test builds only until 2.0
     id: 'practiceMode', icon: Sparkles, kind: 'switch', useVisible: () => PRACTICE_VISIBLE,
-    Control: () => { const v = useStore(s => s.practiceModeEnabled); return <Switch value={v} onChange={useStore.getState().setPracticeModeEnabled} label={t`Practice mode`} /> },
+    Control: () => { const v = useStore(s => s.practiceModeEnabled); return <Switch value={v} onChange={on => {
+      const st = useStore.getState()
+      st.setPracticeModeEnabled(on)
+      // practice mode plays songs from the practice queue: turning it on turns the queue on too
+      if (on && !st.queueEnabled) st.setQueueEnabled(true)
+    }} label={t`Practice mode`} /> },
   },
   {
     id: 'practicePlaybar', icon: Minus, kind: 'switch', useVisible: () => PRACTICE_VISIBLE,

@@ -1,4 +1,5 @@
-import { X } from 'lucide-react'
+import { useRef, useState } from 'react'
+import { X, GripHorizontal } from 'lucide-react'
 import { UNDER_HEADER } from './practiceBar'
 import Tooltip from '../Tooltip'
 import { useStore } from '../../store'
@@ -11,17 +12,21 @@ import { openReview, reviewableTakes } from '../../practice/review'
 import { openProgress } from './PracticeProgress'
 
 // ── How it went: a few words after you stop (practice stage 4) ───────────────
-// Over the top of the piano roll while the song is stopped; gone when you play
-// again or close it. Never a grade: what went well, one thing worth another
+// Opened from HOW IT WENT in the header (it never pops up by itself), like the
+// other popups, and dragged anywhere by its top; closes when you play again. Never a grade: what went well, one thing worth another
 // go (with a button that loops those bars), and the numbers as a table for
 // anyone who wants them. Switched off in Settings › Practice mode.
 
 export default function PracticeSummaryCard() {
   const card = useSession(s => s.card)
+  const cardOpen = useSession(s => s.cardOpen)
   const active = usePractice(s => s.active)
   const playing = useStore(s => s.playbackState === 'playing')
-  if (!card || !active || playing) return null
-  const close = () => useSession.setState({ card: null })
+  // dragged by its top: where it's been moved to (from its place under the header)
+  const [off, setOff] = useState({ x: 0, y: 0 })
+  const drag = useRef<{ x: number; y: number; ox: number; oy: number } | null>(null)
+  if (!card || !cardOpen || !active || playing) return null
+  const close = () => useSession.setState({ cardOpen: false })
   const f = card.focus
   const goOver = () => { if (!f) return; const at = practiseBars(f.from, f.to); if (at !== null) useStore.setState({ currentTime: at }) }   // stopped: moving the playhead is all a seek is
   const saveCsv = async () => {
@@ -36,14 +41,21 @@ export default function PracticeSummaryCard() {
   const canReview = reviewableTakes().length > 0
 
   return (
-    <div className="app-no-drag" role="status" style={{
-      position: 'fixed', top: UNDER_HEADER, left: '50%', transform: 'translateX(-50%)', zIndex: 950,
-      width: 'min(440px, calc(100vw - 32px))', boxSizing: 'border-box', padding: '12px 14px 12px 16px', borderRadius: 8,
-      background: 'var(--bg-modal)', border: '1px solid var(--border2)', boxShadow: '0 8px 28px rgba(0,0,0,.35)',
+    <div className="app-no-drag orfeo-modal-glow" role="dialog" aria-label={t`How it went`} style={{
+      position: 'fixed', top: UNDER_HEADER + off.y, left: `calc(50% + ${off.x}px)`, transform: 'translateX(-50%)', zIndex: 950,
+      width: 'min(440px, calc(100vw - 32px))', boxSizing: 'border-box', padding: '12px 14px 12px 16px', borderRadius: 'var(--radius-md)',
+      background: 'var(--bg-tooltip)', border: '1px solid var(--accent-amber-strong)',
       fontFamily: 'var(--font-ui)', color: 'var(--text-default)',
-    }}>
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 6 }}>
-        <span style={{ fontSize: 10, fontWeight: 600, letterSpacing: '0.1em', textTransform: 'uppercase', color: 'var(--text-amber)' }}>{t`How it went`}</span>
+      '--_modal-shadow': 'var(--elevation-popover)',
+    } as React.CSSProperties}>
+      <div
+        onPointerDown={e => { if ((e.target as HTMLElement).closest('button')) return; e.currentTarget.setPointerCapture(e.pointerId); drag.current = { x: e.clientX, y: e.clientY, ox: off.x, oy: off.y } }}
+        onPointerMove={e => { const d = drag.current; if (d) setOff({ x: d.ox + e.clientX - d.x, y: Math.max(-UNDER_HEADER + 8, d.oy + e.clientY - d.y) }) }}
+        onPointerUp={() => { drag.current = null }}
+        style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 6, cursor: 'grab', touchAction: 'none' }}>
+        <span style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 10, fontWeight: 600, letterSpacing: '0.1em', textTransform: 'uppercase', color: 'var(--text-amber)' }}>
+          <GripHorizontal size={12} color="var(--text-muted)" />{t`How it went`}
+        </span>
         <button onClick={close} aria-label={t`Close`} style={{ background: 'none', border: 'none', padding: 2, cursor: 'pointer', color: 'var(--text-muted)', display: 'flex' }}><X size={14} /></button>
       </div>
       <div style={{ display: 'grid', rowGap: 4, fontSize: 13, lineHeight: 1.45 }}>

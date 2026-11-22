@@ -1,7 +1,7 @@
 import { useStore, playerTrackFlags } from '../store'
 import { useMidiSettings } from '../store/midiSettings'
 import type { ParsedMidi, ParsedNote, TrackState } from '../types'
-import { usePractice, practiceGate, enterPractice, leavePractice, setBand, setHearMine, speedPercent, setSpeedPercent } from './practiceMode'
+import { usePractice, practiceGate, enterPractice, leavePractice, setBand, setBandPreset, setHearMine, speedPercent, setSpeedPercent } from './practiceMode'
 import { isShown } from '../utils/trackShown'
 
 const notes = (hand: 'L' | 'R', from: number): ParsedNote[] =>
@@ -39,8 +39,15 @@ export function runPracticeModeTest(): number {
   useMidiSettings.setState({ devices: [{ key: 'k', name: 'Keys', connected: true, portIds: ['p'] }] })
 
   // ── In ──
-  usePractice.setState({ way: 'practise', hand: 'R', hearMine: false })
   check(enterPractice() && usePractice.getState().active, 'enters')
+  {
+    // the first time: the whole band, Play along, both hands, your part heard, no waiting
+    const p = usePractice.getState(), band = useStore.getState().tracks.filter(t => !t.practicePart)
+    check(p.way === 'practise' && p.hand === 'B' && p.hearMine && !p.waitOn && band.every(t => !t.muted), 'first time: band, Play along, both hands, your part heard, no waiting')
+  }
+  // from here on, the right hand practised alone, the band out
+  usePractice.setState({ way: 'practise', hand: 'R', hearMine: false })
+  setBandPreset('piano')
   let s = useStore.getState()
   const [left, bass, strings, right] = s.tracks
   check(left.practiceHand === 'L' && right.practiceHand === 'R', 'each hand track knows its hand')

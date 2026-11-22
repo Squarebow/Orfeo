@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState, type CSSProperties } from 'react'
 import { createPortal } from 'react-dom'
 import { ListOrdered, ChevronUp, ChevronDown, X, ListX, Settings2, Sparkles, ListMusic } from 'lucide-react'
-import { featLabel, barIcon } from '../Practice/practiceBar'
+import { featValue, barIcon } from '../Practice/practiceBar'
 import { useStore } from '../../store'
 import { t } from '../../utils/i18n'
 import { neighbour, stepAround } from '../../utils/practiceQueue'
@@ -16,7 +16,7 @@ import { useReadyScan, scanForPracticeReady, stopReadyScan } from '../../practic
 
 // ── Scan for practice-ready songs (practice/scanReady.ts): the last row of the
 // queue's drop-down, in playback and in practice mode. Dev mode only until 2.0.
-function ScanReadyRow() {
+function ScanReadyRow({ onClear }: { onClear?: (() => void) | null }) {
   const { running, done, total, added } = useReadyScan()
   const row: React.CSSProperties = {
     width: '100%', padding: '7px 10px', border: 'none', borderTop: '1px solid var(--bg-tile)', background: 'none', textAlign: 'left',
@@ -50,6 +50,7 @@ function ScanReadyRow() {
           {added === 0 ? t`none new found` : added === 1 ? t`1 added` : t`${added} added`}
         </span>
       )}
+      {onClear && <ClearQueueButton onClick={onClear} style={{ marginLeft: 'auto', width: 'auto', padding: 0, borderTop: 'none' }} />}
     </div>
   )
 }
@@ -152,7 +153,7 @@ Click to edit.`} placement="bottom" disabled={!!open || queued}>
           {practice ? (
             <span style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
               <ListMusic {...barIcon} />
-              <span style={featLabel}>{t`Playlist`}</span>
+              <span style={featValue}>{t`Playlist`}</span>
             </span>
           ) : <>
           <span style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start', gap: 1 }}>
@@ -168,7 +169,7 @@ Click to edit.`} placement="bottom" disabled={!!open || queued}>
         </button>
       </Tooltip>
       {card && queued && !open && btnRef.current && createPortal(
-        <QueuedSongCard anchor={btnRef.current.getBoundingClientRect()} onEnter={showCard} onLeave={leaveCard} onDone={() => setCard(false)} />,
+        <QueuedSongCard anchor={btnRef.current.getBoundingClientRect()} onEnter={showCard} onLeave={leaveCard} onDone={() => setCard(false)} practice={practice} />,
         document.body)}
       {open && createPortal(<QueuePanel panelRef={panelRef} x={open.x} y={open.y} onOpenSong={() => setOpen(null)} />, document.body)}
     </>
@@ -176,7 +177,7 @@ Click to edit.`} placement="bottom" disabled={!!open || queued}>
 }
 
 // ── The card for a song opened from the queue ────────────────────────────────
-function QueuedSongCard({ anchor, onEnter, onLeave, onDone }: { anchor: DOMRect; onEnter: () => void; onLeave: () => void; onDone: () => void }) {
+function QueuedSongCard({ anchor, onEnter, onLeave, onDone, practice = false }: { anchor: DOMRect; onEnter: () => void; onLeave: () => void; onDone: () => void; practice?: boolean }) {
   const queue = useStore(s => s.queue)
   const action = useStore(s => s.queueEndAction)
   const tooltipsOn = useStore(s => s.tooltipsEnabled)
@@ -204,7 +205,7 @@ function QueuedSongCard({ anchor, onEnter, onLeave, onDone }: { anchor: DOMRect;
       </div>
       <div style={{ fontSize: 10, fontFamily: 'var(--font-ui)', lineHeight: 1.4, color: 'var(--text-muted)', display: 'flex', flexDirection: 'column', gap: 4 }}>
         <span>{t`Press Play when you're ready. When this song ends, ${ends[action]}`}</span>
-        <span>{t`Alt + ↓ and Alt + ↑ open the next and previous song, going round at either end.`}</span>
+        {!practice && <span>{t`Alt + ↓ and Alt + ↑ open the next and previous song, going round at either end.`}</span>}
       </div>
       <button onClick={() => { onDone(); useStore.getState().openSettingsWindow('midi-files-library') }}
         style={{ alignSelf: 'flex-start', display: 'flex', alignItems: 'center', gap: 4, padding: 0, border: 'none', background: 'none', cursor: 'pointer',
@@ -310,18 +311,23 @@ function QueuePanel({ panelRef, x, y, onOpenSong }: { panelRef: React.RefObject<
           )
         })}
       </div>
-      {queue.paths.length > 0 && (
-        <button onClick={() => useStore.getState().queueClear()}
-          style={{ width: '100%', padding: '7px 10px', border: 'none', borderTop: '1px solid var(--bg-tile)', background: 'none', textAlign: 'left', cursor: 'pointer',
-            display: 'flex', alignItems: 'center', gap: 5,
-            fontSize: 10, color: 'var(--text-muted)', fontFamily: 'var(--font-ui)' }}
-          onMouseEnter={e => { e.currentTarget.style.color = 'var(--text-amber)' }}
-          onMouseLeave={e => { e.currentTarget.style.color = 'var(--text-muted)' }}>
-          {t`Clear queue`}
-          <ListX size={11} style={{ color: 'var(--text-amber)', flexShrink: 0 }} />
-        </button>
-      )}
-      {PRACTICE_PREP_VISIBLE && <ScanReadyRow />}
+      {/* Clear queue: on the scan row, right, when that row is there */}
+      {queue.paths.length > 0 && !PRACTICE_PREP_VISIBLE && <ClearQueueButton onClick={() => useStore.getState().queueClear()} />}
+      {PRACTICE_PREP_VISIBLE && <ScanReadyRow onClear={queue.paths.length > 0 ? () => useStore.getState().queueClear() : null} />}
     </div>
+  )
+}
+
+function ClearQueueButton({ onClick, style }: { onClick: () => void; style?: CSSProperties }) {
+  return (
+    <button onClick={onClick}
+      style={{ width: '100%', padding: '7px 10px', border: 'none', borderTop: '1px solid var(--bg-tile)', background: 'none', textAlign: 'left', cursor: 'pointer',
+        display: 'flex', alignItems: 'center', gap: 5, flexShrink: 0,
+        fontSize: 10, color: 'var(--text-muted)', fontFamily: 'var(--font-ui)', ...style }}
+      onMouseEnter={e => { e.currentTarget.style.color = 'var(--text-amber)' }}
+      onMouseLeave={e => { e.currentTarget.style.color = 'var(--text-muted)' }}>
+      {t`Clear queue`}
+      <ListX size={11} style={{ color: 'var(--text-amber)', flexShrink: 0 }} />
+    </button>
   )
 }
