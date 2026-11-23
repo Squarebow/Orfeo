@@ -101,7 +101,7 @@ export function currentSongCheck(): SongCheck | null {
     const name = ts?.trackName && ts.trackName !== ts.gmName ? ts.trackName : (t.name || ts?.trackName || '')
     return { index: t.index, name, group: ts?.group ?? t.group ?? '', isDrum: ts?.isDrum ?? t.isDrum, notes: t.notes }
   })
-  return songCheckOf(tracks, (s.midi as any)._stavePairs ?? [], { rhMaxFingers: s.rhMaxFingers, lhMaxFingers: s.lhMaxFingers })
+  return songCheckOf(tracks, (s.midi as any)._stavePairs ?? [], { rhMaxFingers: s.rhMaxFingers, lhMaxFingers: s.lhMaxFingers }, (s.midi as any)._source)
 }
 
 // hands: each piano track the player practises, and its hand (one or two tracks)

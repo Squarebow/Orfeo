@@ -33,6 +33,7 @@ export function problemText(p: Problem): string {
     case 'too-fast': return t`Keys are struck again faster than a hand can on ${pct(p.share)} of the piano's notes.`
     case 'out-of-range': return p.notes === 1 ? t`1 note lies outside the piano's 88 keys.` : t`${p.notes} notes lie outside the piano's 88 keys.`
     case 'unplayable': return t`The two hand tracks ask for what no hand can play (more than five keys, a stretch past a tenth, a leap too fast) in ${pct(p.share)} of their moments. Check the hands in the Note Editor.`
+    case 'guitar-pro': return t`Made from a Guitar Pro file, so its piano part was written out on a guitar's strings: at most six notes at a time, the bass often kept high and the left hand mostly single notes. It plays, but it isn't a piano arrangement; a piano score makes a better lesson.`
   }
 }
 

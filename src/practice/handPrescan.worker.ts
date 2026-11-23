@@ -27,7 +27,7 @@ self.onmessage = (e: MessageEvent<PrescanJob>) => {
     if (share) shared = sharedSong(m, options)
     else {
       songPracticeState(m.tracks, { stavePairs: pairs, options })
-      songCheckOf(m.tracks.map((t: any) => ({ index: t.index, name: t.name ?? '', group: t.group ?? '', isDrum: !!t.isDrum, notes: t.notes })), pairs, options)
+      songCheckOf(m.tracks.map((t: any) => ({ index: t.index, name: t.name ?? '', group: t.group ?? '', isDrum: !!t.isDrum, notes: t.notes })), pairs, options, m._source)
     }
   } catch { ok = false }
   const reply: PrescanReply = { id, ok, readings: takeFreshReadings(), ...(share ? { shared } : {}) }

@@ -63,6 +63,13 @@ export function runSongCheckTest(): number {
     check(c3.problems.some(p => p.kind === 'unplayable'), 'right hand stretching more than an octave and a half all through')
     const c4 = checkSong([tr(0, [...rh(), ...rh()])], { read })
     check(c4.problems.some(p => p.kind === 'stacked'), 'doubled notes reported')
+    // a song made from a Guitar Pro file: a warning, nothing else changes
+    const own = { left: 0, right: 1 }
+    const gp = checkSong([tr(0, lh()), tr(1, rh())], { read, own, source: 'guitarpro' })
+    const plain = checkSong([tr(0, lh()), tr(1, rh())], { read, own })
+    check(gp.problems.some(p => p.kind === 'guitar-pro') && !plain.problems.some(p => p.kind === 'guitar-pro'), 'Guitar Pro files get the warning, others don\'t')
+    check(gp.pianos.join() === plain.pianos.join() && gp.suggestions.length === plain.suggestions.length, 'the warning changes nothing else')
+    check(!checkSong([tr(0, lh()), tr(1, rh())], { read, own, source: 'musicxml' }).problems.length, 'a MusicXML score gets no warning')
   }
 
   // ── Names that say another instrument; the file's own hands ──

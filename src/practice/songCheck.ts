@@ -216,6 +216,10 @@ export type Problem =
   | { kind: 'too-fast'; share: number }
   | { kind: 'out-of-range'; notes: number }
   | { kind: 'unplayable'; share: number; tracks: number[] }
+  /** converted from Guitar Pro: the piano part was written out on a guitar's
+   *  strings (at most six notes at a time, the bass kept in a guitar's range),
+   *  playable but not a piano arrangement: a weaker lesson than a piano score */
+  | { kind: 'guitar-pro' }
 
 export interface SongCheck {
   /** what Orfeo suggests, in the Playback Editor's own terms (leave out, merge) */
@@ -233,9 +237,11 @@ const unplayableShare = (notes: CheckNote[]) => { const p = handsPlayable(notes)
 /** The whole check. `hands` gives each piano track's hand when the file has the
  *  hands apart (two staves, Left/Right tracks); `read` is Orfeo's reading of
  *  hands for notes played as one piano (assignHands). */
-export function checkSong(all: CheckTrack[], o: { hands?: Map<number, 'L' | 'R'>; own?: { left: number; right: number } | null; read: Reader }): SongCheck {
+export function checkSong(all: CheckTrack[], o: { hands?: Map<number, 'L' | 'R'>; own?: { left: number; right: number } | null; read: Reader; source?: string }): SongCheck {
   const suggestions: Suggestion[] = []
   const problems: Problem[] = []
+  // where the file came from (midiParser.ts › _source): a warning, nothing changes
+  if (o.source === 'guitarpro') problems.push({ kind: 'guitar-pro' })
   // the file's own two hands, playing like hands: the lesson; other keyboards are the band
   if (o.own) {
     const pair = all.filter(t => t.index === o.own!.left || t.index === o.own!.right)
