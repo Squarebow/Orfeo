@@ -128,3 +128,4 @@ native/build/
 
 # PIG fingering dataset benchmark (dataset licensed for research use on this machine only; never tracked)
 scripts/pig-bench/
+scripts/hand-model/

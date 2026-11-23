@@ -54,6 +54,10 @@ export interface HandAssignOptions {
   rhMaxFingers?: number
   /** Max notes of a chord the left hand can take. 4 (default) or 5 fingers. */
   lhMaxFingers?: number
+  /** Let the trained hand model read it too, when one is switched in (default
+   *  yes). Off for keyboards that aren't the piano: practice never plays them,
+   *  and the model takes time. */
+  secondReading?: boolean
 }
 
 export interface HandAssignedNote<T extends HandInput> {
@@ -73,6 +77,7 @@ const DEFAULTS: Required<HandAssignOptions> = {
   clusterToleranceSec: 0.02,
   rhMaxFingers: 4,
   lhMaxFingers: 4,
+  secondReading: true,
 }
 
 // ── Fast-path thresholds ──────────────────────────────────────────────────────
@@ -134,8 +139,25 @@ export function assignHands<T extends HandInput>(
   const line = singleLineHand(notes)
   if (line) return { assignments: notes.map(note => ({ note, hand: line, confidence: 1 })), usedFastPath: false }
 
-  return { assignments: runDividingLine(notes, opts), usedFastPath: false }
+  const read = runDividingLine(notes, opts)
+  if (!secondReader || !opts.secondReading) return { assignments: read, usedFastPath: false }
+  // the trained hand model reads the part again, seeing what the line decided
+  const again = secondReader(read.map(a => a.note), read.map(a => ({ hand: a.hand, confidence: a.confidence })))
+  return { assignments: read.map((a, i) => ({ note: a.note, hand: again[i].hand, confidence: again[i].confidence })), usedFastPath: false }
 }
+
+// ── A second reader (the trained hand model, handModelReader.ts) ─────────────
+// When one is set, it reads every part the dividing line reads, and its answer
+// replaces the line's. Staves, the fast path and single lines are not passed
+// to it: there the answer is already certain. Nothing is set by default, so the
+// engine's own tests and audits measure the engine alone.
+export type SecondHandReader = (notes: HandInput[], engine: { hand: Hand; confidence: number }[]) => { hand: Hand; confidence: number }[]
+let secondReader: SecondHandReader | null = null
+let readerTag = ''
+/** `tag` names the reader in the hands saved into files (handMetadata.ts), so
+ *  hands one reader saved are read again by another */
+export function setSecondHandReader(r: SecondHandReader | null, tag = ''): void { secondReader = r; readerTag = r ? tag : '' }
+export const handReaderTag = (): string => readerTag
 
 // Merge manually, not via spread — an options object with an explicit
 // `undefined` (an unset IPC payload field) must not overwrite a default.
@@ -252,7 +274,8 @@ export function assignHandsByTrack<T extends HandInput>(
     // stripped of track/channel so one track is always one stream, never a fast-path pair
     const open = t.notes.filter(n => !keep(n))
     const stream = open.map(n => ({ midi: n.midi, time: n.time, duration: n.duration, src: n }))
-    for (const a of assignHands(stream, options).assignments) out.push({ note: a.note.src, hand: a.hand, confidence: a.confidence })
+    const opts = t.group === 'piano' ? options : { ...options, secondReading: false }
+    for (const a of assignHands(stream, opts).assignments) out.push({ note: a.note.src, hand: a.hand, confidence: a.confidence })
   })
   return out
 }

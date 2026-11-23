@@ -1,4 +1,5 @@
 import type { Hand, ParsedTrack } from '../types'
+import { handReaderTag } from './handAssignment'
 
 // ── Hand-tag persistence: internal sidecar + portable export hint ────────────
 //
@@ -133,6 +134,10 @@ const HAND_MAP_PREFIX = 'ORFEO_HAND_MAP:'
 // tags forever, since the whole point of the hint is to *skip* recomputing.
 // Cheap to recompute (same single track, no merge), so there's no reason not to.
 export const HAND_ENGINE_VERSION = 13
+// …followed by the trained hand model's name when it reads too ("13mrun2"):
+// hands the model saved are read again without it, and the other way round.
+// An older Orfeo reads the number and ignores the rest.
+export const handVersion = (): string => `${HAND_ENGINE_VERSION}${handReaderTag()}`
 
 export interface TextMeta {
   type: 'text'
@@ -147,7 +152,7 @@ export interface TextMeta {
 // an older pre-handSource export. ───────────────────────────────────────────
 export function encodeHandMapMeta(trackIndex: number, hands: Hand[], sources?: ('computed' | 'manual')[]): TextMeta {
   const sourceSeg = sources && sources.some(s => s === 'manual') ? `:${encodeSourceRLE(sources)}` : ''
-  return { type: 'text', text: `${HAND_MAP_PREFIX}${HAND_ENGINE_VERSION}:${trackIndex}:${encodeHandRLE(hands)}${sourceSeg}`, ticks: 0 }
+  return { type: 'text', text: `${HAND_MAP_PREFIX}${handVersion()}:${trackIndex}:${encodeHandRLE(hands)}${sourceSeg}`, ticks: 0 }
 }
 
 // `current` is false for a hint written by an older engine version: its
@@ -164,7 +169,7 @@ export function parseHandMapMeta(text: string): { trackIndex: number; hands: Han
   const version = parseInt(versionStr, 10)
   const trackIndex = parseInt(trackIndexStr, 10)
   if (isNaN(version) || isNaN(trackIndex)) return null
-  return { trackIndex, hands: decodeHandRLE(rle), sources: sourceRle ? decodeSourceRLE(sourceRle) : undefined, current: version === HAND_ENGINE_VERSION }
+  return { trackIndex, hands: decodeHandRLE(rle), sources: sourceRle ? decodeSourceRLE(sourceRle) : undefined, current: versionStr === handVersion() }
 }
 
 // Which notes of a parsed hint to apply: all of them from a current hint,

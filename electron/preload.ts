@@ -79,6 +79,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
   takeOpenWithFile:   () => ipcRenderer.invoke('openWith:take'),
   onOpenWithFile:     (fn: (filePath: string) => void) => { ipcRenderer.removeAllListeners('app:open-file'); ipcRenderer.on('app:open-file', (_e, filePath) => fn(filePath)) },
   simulateOpenWith:   (filePath: string) => ipcRenderer.invoke('openWith:simulate', filePath),
+  setHandModel:       (on: boolean) => ipcRenderer.invoke('hands:model', on),
   copyMidiToLibrary:  (sourcePath: string, libraryFolder: string) => ipcRenderer.invoke('fs:copyMidiToLibrary', sourcePath, libraryFolder),
   // Foreign format import cache
   getCachedImport:    (sourcePath: string, cachePath: string) => ipcRenderer.invoke('fs:getCachedImport', sourcePath, cachePath),

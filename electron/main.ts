@@ -9,6 +9,7 @@ import { Midi } from '@tonejs/midi'
 import { Chord, Note } from 'tonal'
 import PDFDocument from 'pdfkit'
 import { assignHands, assignHandsByTrack, findStavePairs } from '../src/utils/handAssignment'
+import { setHandModelOn } from '../src/utils/handModelReader'
 import { buildHandExportHint, withHandSuffix, nameHandFromSuffix, parseHandMapMeta, handsToRestore, RESTORED_CONFIDENCE } from '../src/utils/handMetadata'
 import { getGMGroup } from '../src/utils/gmInstruments'
 import { exportsDir, nextFreeName, safeExportBaseName } from './exportName'
@@ -2278,6 +2279,10 @@ ipcMain.handle('openWith:take', () => {
   return song
 })
 // Dev mode: open a file exactly as if the system had sent it
+// The trained hand model (dev and test builds): the renderer switches it, and
+// the hands a save works out here follow (handModelReader.ts)
+ipcMain.handle('hands:model', (_e, on: boolean) => { setHandModelOn(!!on) })
+
 ipcMain.handle('openWith:simulate', (_e, filePath: string) => {
   bringWindowForward()
   openSong(filePath)

@@ -17,6 +17,8 @@ import { useSongScore } from '../../Practice/ScoreView'
 import { usePractice } from '../../../practice/practiceMode'
 import { keySpecOf } from '../../../notation/score'
 import { madeUpFingering, FINGER_VERSION } from '../../../utils/fingering'
+import { assignHands, setSecondHandReader } from '../../../utils/handAssignment'
+import { setHandModelOn, handModelOn, shippedHandModel, HAND_MODEL_NAME } from '../../../utils/handModelReader'
 
 const PrompterIcon = () => (
   <svg xmlns="http://www.w3.org/2000/svg" width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 7V5a2 2 0 0 1 2-2h2"/><path d="M17 3h2a2 2 0 0 1 2 2v2"/><path d="M21 17v2a2 2 0 0 1-2 2h-2"/><path d="M7 21H5a2 2 0 0 1-2-2v-2"/><rect width="10" height="8" x="7" y="8" rx="1"/></svg>
@@ -192,6 +194,60 @@ export function ScoreTestPanel() {
         <OptionBtn active={false} onClick={() => setFingers(true)}>Made-up fingering (shown, not saved)</OptionBtn>
         <OptionBtn active={false} onClick={() => setFingers(false)}>Clear fingering (not saved)</OptionBtn>
       </div>
+    </div>
+  )
+}
+
+// Dev mode: which reads the hands of a one-track piano (the trained model or
+// today's engine), and the two compared on the open song. Session only.
+interface HandRow { name: string; notes: number; changed: number; engineSure: number; modelSure: number; ms: number }
+export function HandReadingPanel() {
+  const midi = useStore(s => s.midi)
+  const [on, setOn] = useState(handModelOn())
+  const [rows, setRows] = useState<HandRow[] | null>(null)
+  const pick = (v: boolean) => { setHandModelOn(v); setOn(v) }
+  const reopen = async () => {
+    const path = (midi as any)?._filePath as string | undefined
+    if (path) await window.electronAPI.simulateOpenWith(path)
+  }
+  const compare = () => {
+    if (!midi) return
+    const pianos = midi.tracks.filter(t => t.group === 'piano' && !t.isDrum && t.notes.length)
+    const parts = pianos.map(t => ({ name: t.name || t.gmName, notes: t.notes }))
+    if (pianos.length > 1) parts.push({ name: 'All piano tracks as one', notes: pianos.flatMap(t => t.notes) })
+    const was = handModelOn()
+    setSecondHandReader(null) // the engine alone
+    const out: HandRow[] = []
+    for (const p of parts) {
+      const notes = p.notes.map(n => ({ midi: n.midi, time: n.time, duration: n.duration }))
+      const eng = assignHands(notes).assignments
+      const t0 = performance.now()
+      const m = shippedHandModel().read(notes, eng.map(a => ({ hand: a.hand, confidence: a.confidence })))
+      const ms = performance.now() - t0
+      out.push({ name: p.name, notes: notes.length, ms,
+        changed: m.filter((r, i) => r.hand !== eng[i].hand).length,
+        engineSure: eng.filter(a => a.confidence >= 0.9).length, modelSure: m.filter(r => r.confidence >= 0.9).length })
+    }
+    setHandModelOn(was)
+    setRows(out)
+  }
+  const pc = (a: number, b: number) => `${b ? Math.round(100 * a / b) : 0} %`
+  return (
+    <div style={devBox}>
+      <div style={devHead}>Hand reading · test builds only</div>
+      <div>Which reads the hands of a piano part Orfeo has to guess (one track, two pianos played as one, Prepare for practice). The file's own staves or hand tracks are never re-read. After switching, open the song again: a song already split and saved keeps its hands.</div>
+      <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4 }}>
+        <OptionBtn active={on} onClick={() => pick(true)}>Trained model ({HAND_MODEL_NAME})</OptionBtn>
+        <OptionBtn active={!on} onClick={() => pick(false)}>Today's engine</OptionBtn>
+        <OptionBtn active={false} onClick={() => { void reopen() }}>Open the song again</OptionBtn>
+        <OptionBtn active={false} onClick={compare}>Compare on the open song</OptionBtn>
+      </div>
+      {!midi && <div style={{ color: 'var(--text-amber)' }}>Open a song first.</div>}
+      {rows && (rows.length ? (
+        <div style={{ fontFamily: 'var(--font-mono)', display: 'grid', rowGap: 2 }}>
+          {rows.map((r, i) => <div key={i}>{r.name}: {r.notes} notes · the model moves {r.changed} to the other hand · sure: engine {pc(r.engineSure, r.notes)}, model {pc(r.modelSure, r.notes)} · {Math.round(r.ms)} ms</div>)}
+        </div>
+      ) : <div>No piano tracks in this song.</div>)}
     </div>
   )
 }

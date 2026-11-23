@@ -35,7 +35,7 @@ export type SettingId =
   | 'showLanguageSwitcher' | 'followSystemLanguage' | 'menuLanguages' | 'translations' | 'translationUpdates'
   | 'midiKeyboards' | 'midiReconnect' | 'liveResponse' | 'latencyOffset' | 'gmOutput' | 'touchResponse' | 'duplicateFilter'
   | 'pedalsControls' | 'delayCheck' | 'midiTools'
-  | 'keyLights' | 'devKeyboard' | 'devKeyRange' | 'devKeyLights' | 'devExplorers' | 'devClosingWarning' | 'devQueue' | 'devLyrics' | 'devOpenWith' | 'devSupportNote' | 'devTranslations' | 'devPracticeKeys' | 'devPianist' | 'devListen' | 'devPracticeHistory' | 'devScore'
+  | 'keyLights' | 'devKeyboard' | 'devKeyRange' | 'devKeyLights' | 'devExplorers' | 'devClosingWarning' | 'devQueue' | 'devLyrics' | 'devOpenWith' | 'devSupportNote' | 'devTranslations' | 'devPracticeKeys' | 'devPianist' | 'devListen' | 'devPracticeHistory' | 'devScore' | 'devHands'
 
 export interface SettingInfo {
   id: SettingId
@@ -362,6 +362,9 @@ with octave buttons to move them. Notes beyond their edges show fainter on the k
   { id: 'devScore', group: 'devtools', name: 'The score', summary: 'How the practice score reads the song.',
     description: 'Shows how the score in practice mode was written from the song (grid, key, simplified or not) and switches between score and piano roll and the ways of writing it. Saves nothing.',
     keywords: 'dev test practice score notation staff sheet music vexflow' },
+  { id: 'devHands', group: 'devtools', name: 'Hand reading', summary: "The trained hand model or today's engine, compared on the open song.",
+    description: "Switch which reads the hands of a piano part Orfeo has to guess: the trained hand model (on by default in test builds) or today's engine, and compare the two on the open song: notes moved to the other hand, notes each is sure of, time taken. Session only, nothing saved.",
+    keywords: 'dev test hands hand model neural network engine left right split confidence sure' },
   { id: 'devTranslations', group: 'devtools', name: 'Translations', summary: 'Fake Weblate numbers, offline and new words.',
     description: 'Pretend a language is at any percentage, that Weblate cannot be reached, or that it has newer words, then check again to see Settings > Language and the menu react. While any are on, downloads go to a temporary folder. Session only, nothing saved.',
     keywords: 'dev test translations language weblate percent offline download pseudo' },
