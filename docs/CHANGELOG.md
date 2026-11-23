@@ -5,6 +5,17 @@
      list of 2–4 one-line bullets, then ### New / ### Changed / ### Fixed.
      Newest version at the top. -->
 
+## [1.8.3] — 23. 11. 2026 — Guitar Pro files
+
+### Fixed
+- **Guitar Pro files lost their track names** when Orfeo opened them: every track came in unnamed. The
+  names from the file ("Piano Bass", "Vocals", "Strings 1" …) now stay.
+- **In a Guitar Pro file with many tracks, one instrument could play with another one's sound**: two
+  instruments ended up on the same channel, so a piano part could sound like strings. Every instrument
+  now has a channel of its own.
+- **A piano written in Guitar Pro as two tracks, one per hand** ("Melody" and "Bass", "treble" and
+  "bass", or "Piano" twice) now comes in as one piano with two staves, the upper one the right hand.
+
 ## [1.8.2] — 22. 11. 2026 — Minimising the window
 
 **In short**

@@ -106,6 +106,97 @@ function splitMultiStaffKeyboardTracks(score: any, at: any): void {
   score.tracks = newTracks;
 }
 
+// ── Guitar Pro piano parts: two tracks, one instrument ───────────────────
+// Guitar Pro has no grand staff: a transcriber writes a piano as two tracks
+// of its own, one per hand, and names them so ("Piano Melody" / "Piano Bass",
+// "piano treble" / "piano bass", "Piano (Melody)" / "Piano (Bass)", or
+// "Piano" twice). Two neighbouring keyboard tracks whose names are the same
+// once the hand words are taken out are one piano: they get one channel
+// (arrangeChannels), so Orfeo reads them as a piano's two staves, the upper
+// one the right hand, the way a MIDI export from notation software comes.
+const HAND_WORD = /\b(melody|treble|upper|right|r\.?h\.?|bass|lower|left|l\.?h\.?|hand)\b/gi
+const pairName = (name: string) => name.replace(HAND_WORD, '').replace(/[^a-z0-9]+/gi, ' ').trim().toLowerCase()
+
+// ── Channels the way MIDI has them ───────────────────────────────────────
+// alphaTab numbers channels the way Guitar Pro does: two ports of 16 (a
+// Guitar Pro 3 file with many tracks goes past 15), a pair per track (one for
+// notes, one for bends), drums on 9. A MIDI file only has 16, so channel 20
+// came out as 4 and shared the piano's channel with the strings, which then
+// played the piano part with a string sound. Here every instrument gets a
+// channel of its own (a piano's two staves one between them), drums 9, and
+// its bends go on that same channel: a second channel per track made MIDI
+// readers split each instrument in two, its name left on the empty half.
+function arrangeChannels(score: any, midiFile: any, format: ForeignFormat, at: any): void {
+  const tracks: any[] = score.tracks
+  if (midiFile.tracks.length !== tracks.length) return
+  const isDrums = (i: number) => !!(tracks[i].isPercussion || tracks[i].staves?.[0]?.isPercussion || tracks[i].playbackInfo.primaryChannel === 9)
+  const keyboard = (i: number) => !isDrums(i) && isHandAssignProgram(tracks[i].playbackInfo.program) && tracks[i].staves.length === 1
+  // instruments: a run of tracks that share a channel already (a split grand
+  // staff), or a Guitar Pro piano written as two tracks; every other track alone
+  const groups: number[][] = []
+  for (let i = 0; i < tracks.length; i++) {
+    const g = groups[groups.length - 1]
+    const prev = g?.[g.length - 1]
+    const split = prev !== undefined && keyboard(prev) && keyboard(i) && tracks[prev].playbackInfo.primaryChannel === tracks[i].playbackInfo.primaryChannel
+    const gpPiano = format === 'guitarpro' && prev !== undefined && g.length === 1 && keyboard(prev) && keyboard(i)
+      && pairName(tracks[prev].name ?? '') === pairName(tracks[i].name ?? '')
+    if (split || gpPiano) g.push(i); else groups.push([i])
+  }
+  const free = [0, 1, 2, 3, 4, 5, 6, 7, 8, 10, 11, 12, 13, 14, 15]
+  let next = 0
+  const take = (): number | null => (next < free.length ? free[next++] : null)
+  const channel = new Map<number[], number>()
+  for (const g of groups) channel.set(g, isDrums(g[0]) ? 9 : take() ?? free[channel.size % free.length])
+  for (const g of groups) for (const i of g) {
+    const events: any[] = midiFile.tracks[i].events
+    for (const e of events) if (typeof e.channel === 'number') e.channel = channel.get(g)!
+    // the instrument first: alphaTab sets volume and pan before it, and a MIDI
+    // reader takes the track to be a piano until the instrument comes, so the
+    // track split in two at its very start (the name on an empty half)
+    const pc = events.findIndex(e => e instanceof at.midi.ProgramChangeEvent && e.tick === 0)
+    if (pc > 0) events.unshift(...events.splice(pc, 1))
+  }
+}
+
+// ── Names and the file's origin, written into the MIDI bytes ─────────────
+// alphaTab writes no track names, so a converted file lost every name the
+// score had ("Piano Bass", "Vocals", "Strings 1"). Each track chunk gets its
+// name back, and the first one a mark of where the file came from
+// (ORFEO_SOURCE:guitarpro …), which Orfeo's saves keep and the lesson check
+// reads: a piano part from Guitar Pro was written out on a guitar's strings.
+export const SOURCE_PREFIX = 'ORFEO_SOURCE:'
+function withNamesAndSource(smf: Uint8Array, names: string[], format: ForeignFormat): Uint8Array {
+  // one byte a character, as MIDI readers (and Orfeo's own saves) read text;
+  // a no-break space is a space, anything past Latin-1 a question mark
+  const latin1 = (text: string) => Array.from(text.replace(/ /g, ' '), c => (c.charCodeAt(0) <= 0xff ? c.charCodeAt(0) : 0x3f))
+  const meta = (type: number, text: string) => {
+    const data = latin1(text)
+    const len: number[] = []
+    let v = data.length
+    len.unshift(v & 0x7f)
+    while ((v >>= 7)) len.unshift((v & 0x7f) | 0x80)
+    return [0x00, 0xff, type, ...len, ...data]   // at the chunk's start (delta 0)
+  }
+  const out: number[] = Array.from(smf.subarray(0, 14))
+  let p = 14, k = 0
+  while (p + 8 <= smf.length) {
+    const len = ((smf[p + 4] << 24) | (smf[p + 5] << 16) | (smf[p + 6] << 8) | smf[p + 7]) >>> 0
+    const isTrack = smf[p] === 0x4d && smf[p + 1] === 0x54 && smf[p + 2] === 0x72 && smf[p + 3] === 0x6b
+    const extra: number[] = []
+    if (isTrack) {
+      const name = (names[k] ?? '').trim()
+      if (name) extra.push(...meta(0x03, name))
+      if (k === 0) extra.push(...meta(0x01, `${SOURCE_PREFIX}${format}`))
+      k++
+    }
+    const n = len + extra.length
+    out.push(smf[p], smf[p + 1], smf[p + 2], smf[p + 3], (n >>> 24) & 0xff, (n >>> 16) & 0xff, (n >>> 8) & 0xff, n & 0xff, ...extra)
+    for (let i = p + 8; i < p + 8 + len; i++) out.push(smf[i])
+    p += 8 + len
+  }
+  return Uint8Array.from(out)
+}
+
 // ── Convert foreign bytes → Standard MIDI File ArrayBuffer ───────────────
 // Throws a descriptive Error on failure (caller is responsible for the
 // user-facing error toast).
@@ -161,10 +252,12 @@ export async function convertForeignFileToMidiBuffer(
     );
   }
 
+  arrangeChannels(score, midiFile, format, at);
+
   // Serialise to Standard MIDI File bytes.
   // Confirmed in docs/RESEARCH_alphatab-import.md: correct method is toBinary().
   // toUInt8Array() does NOT exist in alphaTab 1.8.4.
-  const bytes_out: Uint8Array = (midiFile as any).toBinary();
+  const bytes_out: Uint8Array = withNamesAndSource((midiFile as any).toBinary(), score.tracks.map((t: any) => t.name ?? ''), format);
 
   if (!bytes_out || bytes_out.length === 0) {
     throw new Error(

@@ -169,6 +169,39 @@ export async function runForeignFormatImportTest(): Promise<number> {
         'a note ended up on the wrong hand — the two pianos may have been pooled together')
     }
 
+    // ── Case F: names and origin. alphaTab writes no names; the converter puts
+    // each part's name back and marks where the file came from. ──────────────
+    {
+      const midi = new Midi(await convertForeignFileToMidiBuffer(twoPianosFixture(), 'musicxml'))
+      const names = midi.tracks.filter(t => t.notes.length > 0).map(t => t.name)
+      check(names.filter(n => n === 'Piano 1').length === 2 && names.filter(n => n === 'Piano 2').length === 2, `part names kept on every staff, got ${JSON.stringify(names)}`)
+      check((midi.header.meta as any[]).some(m => m.text === 'ORFEO_SOURCE:musicxml'), 'the file says it was converted from MusicXML')
+    }
+
+    // ── Case G: a piano written as two tracks the Guitar Pro way ("Piano
+    // Melody" / "Piano Bass", each its own channel) becomes one piano with two
+    // staves; from MusicXML the same two parts stay two instruments. ─────────
+    {
+      const mel = { id: 'P1', name: 'Piano Melody', channel: 1, program: 0 }
+      const bass = { id: 'P2', name: 'Piano Bass', channel: 2, program: 0 }
+      const xml = scoreXml([mel, bass], [part(mel.id, mel.name, 1, 0, 1, [5]), part(bass.id, bass.name, 2, 0, 1, [3])])
+      const gp = new Midi(await convertForeignFileToMidiBuffer(xml, 'guitarpro')).tracks.filter(t => t.notes.length > 0)
+      check(gp.length === 2 && gp[0].channel === gp[1].channel, 'Guitar Pro: melody and bass tracks share one channel')
+      const a = assignHandsByTrack(toHandTracks(new Midi(await convertForeignFileToMidiBuffer(xml, 'guitarpro'))))
+      check(a.every(x => x.confidence === 1 && x.hand === (x.note.midi > 60 ? 'R' : 'L')), 'Guitar Pro: read as a piano\'s two staves, melody right, bass left')
+      const mx = new Midi(await convertForeignFileToMidiBuffer(xml, 'musicxml')).tracks.filter(t => t.notes.length > 0)
+      check(mx.length === 2 && mx[0].channel !== mx[1].channel, 'MusicXML: two parts keep two channels')
+    }
+
+    // ── Case H: every instrument its own channel, drums apart, never past 15 ──
+    {
+      const parts = Array.from({ length: 8 }, (_, i) => ({ id: `P${i + 1}`, name: `Part ${i + 1}`, channel: 1, program: 40 + i }))
+      const midi = new Midi(await convertForeignFileToMidiBuffer(scoreXml(parts, parts.map(p => part(p.id, p.name, 1, p.program, 1, [5]))), 'musicxml'))
+      const real = midi.tracks.filter(t => t.notes.length > 0)
+      check(real.length === 8 && new Set(real.map(t => t.channel)).size === 8 && real.every(t => t.channel >= 0 && t.channel <= 15 && t.channel !== 9),
+        `8 instruments on 8 channels of their own, got ${JSON.stringify(real.map(t => t.channel))}`)
+    }
+
   } finally {
     g.window = savedWindow
     g.document = savedDocument

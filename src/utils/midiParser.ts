@@ -290,6 +290,9 @@ export function parseMidiBuffer(buffer: ArrayBuffer, fileName: string, filePath 
     _orfeoTrackKeyboard: Object.keys(orfeoTrackKeyboard).length > 0 ? orfeoTrackKeyboard : undefined,
     _orfeoTrackMuted: Object.keys(orfeoTrackMuted).length > 0 ? orfeoTrackMuted : undefined,
     _handTagsRestored: handTagsRestored,
+    // where a converted file came from (foreignFormatImport.ts writes
+    // ORFEO_SOURCE:guitarpro …; saves keep it): 'guitarpro', 'musicxml', 'capella'
+    _source: (((midi.header as any).meta ?? []) as { text?: string }[]).find(m => typeof m.text === 'string' && m.text.startsWith('ORFEO_SOURCE:'))?.text?.slice('ORFEO_SOURCE:'.length),
   }
 
   return result
