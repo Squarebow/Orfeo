@@ -13,7 +13,9 @@ import { SEMITONE_TO_KEY_NAME } from './keyDetection'
 import { distinctTrackColor, pianoFamilyColor } from './colors'
 import { drumHoldLength, songEnd } from './drumHold'
 
-export function parseMidiBuffer(buffer: ArrayBuffer, fileName: string, filePath = ''): ParsedMidi {
+/** `handOptions`: the hand reading's settings (otherwise the player's, from
+ *  the store; the background reader passes them, having no store of its own) */
+export function parseMidiBuffer(buffer: ArrayBuffer, fileName: string, filePath = '', handOptions?: { rhMaxFingers?: number; lhMaxFingers?: number }): ParsedMidi {
   // FUTURE: KAR lyric events (meta type 0x05 = lyrics, 0x01 = text) could
   // be extracted here for a karaoke display overlay. Not in scope currently.
   // @tonejs/midi v2.x handles these silently via the underlying midi-file parser.
@@ -257,7 +259,7 @@ export function parseMidiBuffer(buffer: ArrayBuffer, fileName: string, filePath 
   // the display fallback or Orfeo's own renames.
   const kbTracks = tracks.filter(t => HAND_ASSIGN_GROUPS.has(t.group) && !t.isDrum)
   if (kbTracks.some(t => t.notes.some(n => n.hand === undefined))) {
-    const { rhMaxFingers, lhMaxFingers } = useStore.getState()
+    const { rhMaxFingers, lhMaxFingers } = handOptions ?? useStore.getState()
     const assignments = assignHandsByTrack(
       kbTracks.map(t => ({ name: fileTrackNames.get(t.index) ?? '', channel: t.channel ?? -1, group: t.group, notes: t.notes })),
       { rhMaxFingers, lhMaxFingers },

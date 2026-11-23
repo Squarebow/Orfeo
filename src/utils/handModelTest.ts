@@ -1,6 +1,7 @@
 import { assignHands, setSecondHandReader } from './handAssignment'
 import { setHandModelOn, shippedHandModel, handModelOn } from './handModelReader'
 import { noteFeatures, FEATURES } from './handModelFeatures'
+import { forgetReadings, readingStats, takeFreshReadings, addReadings } from './handReadCache'
 
 export function runHandModelTest(): number {
   console.group('[handModel] self-check')
@@ -37,8 +38,27 @@ export function runHandModelTest(): number {
     setHandModelOn(true)
     const onRead = assignHands(notes).assignments
     const direct = model.read(notes, offRead.map(a => ({ hand: a.hand, confidence: a.confidence })))
-    check(onRead.every((a, i) => a.hand === direct[i].hand && Math.abs(a.confidence - direct[i].confidence) < 1e-9), 'switched on, the engine gives the model\'s reading')
+    check(onRead.every((a, i) => a.hand === direct[i].hand && Math.abs(a.confidence - direct[i].confidence) <= 0.5 / 127 + 1e-9), 'switched on, the engine gives the model\'s reading (kept to 1/127)')
     check(onRead.every((a, i) => a.note === notes[i]), 'in the caller\'s order')
+
+    // readings are remembered: the same notes are read once, and a reading
+    // taken out and brought back (the background reader, the disk) is used
+    forgetReadings()
+    const first = assignHands(notes).assignments
+    const s1 = readingStats()
+    const second = assignHands(notes).assignments
+    const s2 = readingStats()
+    check(s1.misses === 1 && s2.misses === 1 && s2.hits === 1, `the same notes read once (made ${s2.misses}, used ${s2.hits})`)
+    check(second.every((a, i) => a.hand === first[i].hand && a.confidence === first[i].confidence), 'a remembered reading is the reading made')
+    const kept = takeFreshReadings()
+    forgetReadings()
+    addReadings(kept)
+    const third = assignHands(notes).assignments
+    check(readingStats().misses === 0 && third.every((a, i) => a.hand === first[i].hand && a.confidence === first[i].confidence), 'a reading brought back is used, unchanged')
+    const moved = notes.map(n => ({ ...n, time: n.time + 0.25 }))
+    assignHands(moved)
+    check(readingStats().misses === 1, 'other notes are read afresh')
+    forgetReadings()
 
     // certain answers never go through the model
     let asked = 0

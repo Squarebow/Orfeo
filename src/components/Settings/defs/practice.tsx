@@ -19,6 +19,8 @@ import { keySpecOf } from '../../../notation/score'
 import { madeUpFingering, FINGER_VERSION } from '../../../utils/fingering'
 import { assignHands, setSecondHandReader } from '../../../utils/handAssignment'
 import { setHandModelOn, handModelOn, shippedHandModel, HAND_MODEL_NAME } from '../../../utils/handModelReader'
+import { readingStats } from '../../../utils/handReadCache'
+import { useHandPrescan, prescanLibrary, forgetAndRescan } from '../../../practice/handPrescan'
 
 const PrompterIcon = () => (
   <svg xmlns="http://www.w3.org/2000/svg" width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 7V5a2 2 0 0 1 2-2h2"/><path d="M17 3h2a2 2 0 0 1 2 2v2"/><path d="M21 17v2a2 2 0 0 1-2 2h-2"/><path d="M7 21H5a2 2 0 0 1-2-2v-2"/><rect width="10" height="8" x="7" y="8" rx="1"/></svg>
@@ -205,7 +207,9 @@ export function HandReadingPanel() {
   const midi = useStore(s => s.midi)
   const [on, setOn] = useState(handModelOn())
   const [rows, setRows] = useState<HandRow[] | null>(null)
-  const pick = (v: boolean) => { setHandModelOn(v); setOn(v) }
+  const pick = (v: boolean) => { setHandModelOn(v); setOn(v); if (v) void prescanLibrary() }
+  const scan = useHandPrescan()
+  const stats = readingStats()
   const reopen = async () => {
     const path = (midi as any)?._filePath as string | undefined
     if (path) await window.electronAPI.simulateOpenWith(path)
@@ -241,6 +245,17 @@ export function HandReadingPanel() {
         <OptionBtn active={!on} onClick={() => pick(false)}>Today's engine</OptionBtn>
         <OptionBtn active={false} onClick={() => { void reopen() }}>Open the song again</OptionBtn>
         <OptionBtn active={false} onClick={compare}>Compare on the open song</OptionBtn>
+      </div>
+      <div style={{ ...devHead, marginTop: 6 }}>Background reading</div>
+      <div>A few seconds after Orfeo opens, the model reads every song in the Library, one at a time on its own processor core, and pauses while a song plays. Each song is read once (again only when its file, the hand settings or the model change), so songs open on readings already made.</div>
+      <div style={{ fontFamily: 'var(--font-mono)' }}>
+        {scan.running ? `Reading: ${scan.done} / ${scan.total} songs looked at, ${scan.read} read now${scan.current ? ` · ${scan.current}` : ''}`
+          : scan.finished ? `Done: ${scan.total} songs looked at, ${scan.read} read now, in ${scan.seconds} s` : on ? 'Not started yet' : "Off (today's engine needs no reading ahead)"}
+        <br />Readings kept: {stats.kept} · this session: {stats.hits} used, {stats.misses} made on the spot
+      </div>
+      <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4 }}>
+        <OptionBtn active={false} onClick={() => { void prescanLibrary() }}>Read the Library now</OptionBtn>
+        <OptionBtn active={false} onClick={() => { void forgetAndRescan() }}>Forget all readings and read again</OptionBtn>
       </div>
       {!midi && <div style={{ color: 'var(--text-amber)' }}>Open a song first.</div>}
       {rows && (rows.length ? (

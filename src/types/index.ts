@@ -267,6 +267,9 @@ declare global {
       simulateOpenWith:    (filePath: string) => Promise<void>
       /** dev and test builds: the trained hand model reads hands in the main process too (saving) */
       setHandModel:        (on: boolean) => Promise<void>
+      handReadsLoad:       () => Promise<{ readings: [string, string][]; done: string[] }>
+      handReadsAdd:        (readings: [string, string][], done: string[]) => Promise<void>
+      handReadsForget:     () => Promise<void>
       copyMidiToLibrary:   (sourcePath: string, libraryFolder: string) => Promise<string>
       // Foreign format import cache
       getCachedImport:     (sourcePath: string, cachePath: string) => Promise<string | null>

@@ -10,6 +10,7 @@ import { Chord, Note } from 'tonal'
 import PDFDocument from 'pdfkit'
 import { assignHands, assignHandsByTrack, findStavePairs } from '../src/utils/handAssignment'
 import { setHandModelOn } from '../src/utils/handModelReader'
+import { addReadings, allReadings, forgetReadings, type StoredReadings } from '../src/utils/handReadCache'
 import { buildHandExportHint, withHandSuffix, nameHandFromSuffix, parseHandMapMeta, handsToRestore, RESTORED_CONFIDENCE } from '../src/utils/handMetadata'
 import { getGMGroup } from '../src/utils/gmInstruments'
 import { exportsDir, nextFreeName, safeExportBaseName } from './exportName'
@@ -2281,7 +2282,42 @@ ipcMain.handle('openWith:take', () => {
 // Dev mode: open a file exactly as if the system had sent it
 // The trained hand model (dev and test builds): the renderer switches it, and
 // the hands a save works out here follow (handModelReader.ts)
-ipcMain.handle('hands:model', (_e, on: boolean) => { setHandModelOn(!!on) })
+ipcMain.handle('hands:model', (_e, on: boolean) => { setHandModelOn(!!on); if (on) loadHandReads() })
+
+// The model's readings, kept between sessions (practice/handPrescan.ts reads
+// the library ahead in the background). This process keeps them too, so the
+// hands a save works out come from them. One JSON file beside the settings.
+const handReadsPath = () => join(app.getPath('userData'), 'hand-reads.json')
+const HAND_READS_DONE_MAX = 20000
+let handReadsDone: string[] = []
+let handReadsLoaded = false
+let handReadsTimer: ReturnType<typeof setTimeout> | null = null
+function loadHandReads(): void {
+  if (handReadsLoaded) return
+  handReadsLoaded = true
+  try {
+    const f = JSON.parse(readFileSync(handReadsPath(), 'utf-8'))
+    if (f?.version === 1) { addReadings(f.readings ?? []); handReadsDone = f.done ?? [] }
+  } catch { /* none yet, or unreadable: start empty */ }
+}
+function saveHandReadsSoon(): void {
+  if (handReadsTimer) clearTimeout(handReadsTimer)
+  handReadsTimer = setTimeout(() => {
+    handReadsTimer = null
+    void writeFile(handReadsPath(), JSON.stringify({ version: 1, readings: allReadings(), done: handReadsDone.slice(-HAND_READS_DONE_MAX) }), 'utf-8').catch(() => {})
+  }, 2000)
+}
+ipcMain.handle('handReads:load', () => { loadHandReads(); return { readings: allReadings(), done: handReadsDone } })
+ipcMain.handle('handReads:add', (_e, readings: StoredReadings, done: string[]) => {
+  loadHandReads()
+  addReadings(readings)
+  handReadsDone.push(...done)
+  saveHandReadsSoon()
+})
+ipcMain.handle('handReads:forget', async () => {
+  forgetReadings(); handReadsDone = []
+  try { await writeFile(handReadsPath(), JSON.stringify({ version: 1, readings: [], done: [] }), 'utf-8') } catch { /* nothing kept */ }
+})
 
 ipcMain.handle('openWith:simulate', (_e, filePath: string) => {
   bringWindowForward()

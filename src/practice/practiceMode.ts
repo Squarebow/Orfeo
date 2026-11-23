@@ -1,13 +1,13 @@
 import { create } from 'zustand'
 import { useStore } from '../store'
 import { useMidiSettings } from '../store/midiSettings'
-import { songPracticeState, nameHand, ownHandPair, isPracticePiano, PRACTICE_PREP_VISIBLE, type SongPractice } from '../utils/practiceReadiness'
+import { songPracticeState, PRACTICE_PREP_VISIBLE, type SongPractice } from '../utils/practiceReadiness'
 import type { KeyboardSize } from '../types'
 import type { DetectedKey } from '../utils/keyDetection'
 import { NES } from '../utils/noteEditorState'
 import { focusRole } from '../utils/keyboardGroups'
-import { assignHands } from '../utils/handAssignment'
-import { checkSong, type SongCheck, type CheckNote } from './songCheck'
+import type { SongCheck } from './songCheck'
+import { songCheckOf } from './songCheckOf'
 
 // ── Practice mode (Orfeo 2.0) ────────────────────────────────────────────────
 // A stripped-down screen for practising the piano part of a song with a USB
@@ -101,16 +101,7 @@ export function currentSongCheck(): SongCheck | null {
     const name = ts?.trackName && ts.trackName !== ts.gmName ? ts.trackName : (t.name || ts?.trackName || '')
     return { index: t.index, name, group: ts?.group ?? t.group ?? '', isDrum: ts?.isDrum ?? t.isDrum, notes: t.notes }
   })
-  // the hands as the file has them: a piano's two staves (upper = right), or
-  // tracks named / tagged for one hand
-  const hands = new Map<number, 'L' | 'R'>()
-  for (const [r, l] of ((s.midi as any)._stavePairs ?? []) as [number, number][]) { hands.set(r, 'R'); hands.set(l, 'L') }
-  if (!hands.size) for (const t of tracks) { const h = nameHand({ name: t.name }); if (h) hands.set(t.index, h) }
-  const options = { rhMaxFingers: s.rhMaxFingers, lhMaxFingers: s.lhMaxFingers }
-  const read = (notes: CheckNote[]) => assignHands(notes.map(n => ({ midi: n.midi, time: n.time, duration: n.duration })), options).assignments.map(a => ({ ...a.note, hand: a.hand }))
-  const pianoTracks = s.midi.tracks.filter(t => isPracticePiano({ group: s.tracks.find(x => x.index === t.index)?.group ?? t.group, isDrum: t.isDrum }) && t.notes.length)
-  const own = ownHandPair(pianoTracks, (s.midi as any)._stavePairs ?? [])
-  return checkSong(tracks, { hands: hands.size ? hands : undefined, own, read })
+  return songCheckOf(tracks, (s.midi as any)._stavePairs ?? [], { rhMaxFingers: s.rhMaxFingers, lhMaxFingers: s.lhMaxFingers })
 }
 
 // hands: each piano track the player practises, and its hand (one or two tracks)
