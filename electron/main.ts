@@ -487,6 +487,15 @@ ipcMain.handle('practice:saveCsv', async (_e, name: string, text: string) => {
   return result.filePath
 })
 
+// Share my hands for research (practice/shareHands.ts): the compressed file of
+// anonymous numbers, saved where the player chooses (Documents by default)
+ipcMain.handle('hands:saveShare', async (_e, name: string, bytes: Uint8Array) => {
+  const result = await saveDialog({ defaultPath: join(app.getPath('documents'), name), filters: [{ name: 'Orfeo hands', extensions: ['gz'] }] })
+  if (result.canceled || !result.filePath) return null
+  await writeFile(result.filePath, Buffer.from(bytes))
+  return result.filePath
+})
+
 ipcMain.handle('fileinfo:getLog', async (_e, filePath: string) => {
   const sidecar = loadFileLog()[normLogPath(filePath)] ?? []
   let embedded: FileLogEvent[] = []

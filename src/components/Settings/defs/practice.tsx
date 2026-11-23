@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { BookOpen, PanelLeftClose, Hand, Activity, Expand, StepForward, Sparkles, MessageSquareText, Minus, Music } from 'lucide-react'
+import { BookOpen, PanelLeftClose, Hand, Activity, Expand, StepForward, Sparkles, MessageSquareText, Minus, Music, Share2 } from 'lucide-react'
 import { useStore } from '../../../store'
 import { Switch, InlineIcon, OptionBtn } from '../controls'
 import { useDevPractice, pluggedSim, type PianistStyle } from '../../../practice/devPlay'
@@ -21,6 +21,7 @@ import { assignHands, setSecondHandReader } from '../../../utils/handAssignment'
 import { setHandModelOn, handModelOn, shippedHandModel, HAND_MODEL_NAME } from '../../../utils/handModelReader'
 import { readingStats } from '../../../utils/handReadCache'
 import { useHandPrescan, prescanLibrary, forgetAndRescan } from '../../../practice/handPrescan'
+import { useShareHands, shareMyHands, stopSharing } from '../../../practice/shareHands'
 
 const PrompterIcon = () => (
   <svg xmlns="http://www.w3.org/2000/svg" width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 7V5a2 2 0 0 1 2-2h2"/><path d="M17 3h2a2 2 0 0 1 2 2v2"/><path d="M21 17v2a2 2 0 0 1-2 2h-2"/><path d="M7 21H5a2 2 0 0 1-2-2v-2"/><rect width="10" height="8" x="7" y="8" rx="1"/></svg>
@@ -267,6 +268,30 @@ export function HandReadingPanel() {
   )
 }
 
+// ── Share my hands for research: the button, what it found, where it went ──
+function ShareHandsControl() {
+  const s = useShareHands()
+  const found = s.staves + s.named + s.orfeo
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-1)' }}>
+      <div style={{ display: 'flex', gap: 'var(--space-1)' }}>
+        {s.running
+          ? <OptionBtn active={false} onClick={stopSharing}>{t`Stop`}</OptionBtn>
+          : <OptionBtn active={false} onClick={() => { void shareMyHands() }}>{t`Save my hands to share`}</OptionBtn>}
+      </div>
+      {s.running && <div style={{ fontSize: 11, color: 'var(--text-dim)' }}>{t`Looking through your Library: ${s.done} of ${s.total} songs, ${found} with two hands so far.`}</div>}
+      {!s.running && s.savedTo && (
+        <div style={{ fontSize: 11, color: 'var(--text-dim)' }}>
+          {t`${found} songs saved (${s.orfeo} you prepared in Orfeo, ${s.staves} with two staves, ${s.named} with a track for each hand), ${s.sizeKb} KB:`}
+          <div style={{ fontFamily: 'var(--font-mono)', wordBreak: 'break-all', color: 'var(--text-default)' }}>{s.savedTo}</div>
+        </div>
+      )}
+      {!s.running && s.cancelled && <div style={{ fontSize: 11, color: 'var(--text-dim)' }}>{t`Nothing saved.`}</div>}
+      {!s.running && !s.savedTo && !s.cancelled && s.total > 0 && found === 0 && <div style={{ fontSize: 11, color: 'var(--text-dim)' }}>{t`No song in your Library has its piano as two hands yet.`}</div>}
+    </div>
+  )
+}
+
 export const PRACTICE_DEFS: SettingDef[] = [
   {
     // dev mode and test builds only until 2.0
@@ -277,6 +302,9 @@ export const PRACTICE_DEFS: SettingDef[] = [
       // practice mode plays songs from the practice queue: turning it on turns the queue on too
       if (on && !st.queueEnabled) st.setQueueEnabled(true)
     }} label={t`Practice mode`} /> },
+  },
+  {
+    id: 'shareHands', icon: Share2, kind: 'choice', useVisible: () => PRACTICE_VISIBLE, Control: ShareHandsControl,
   },
   {
     id: 'toPlayShows', icon: Music, kind: 'choice', useVisible: () => PRACTICE_VISIBLE,

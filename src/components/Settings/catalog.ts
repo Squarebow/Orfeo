@@ -27,7 +27,7 @@ export type SettingId =
   | 'showDemo' | 'chordTranscription' | 'openWith' | 'showLyrics' | 'tags' | 'practiceQueue'
   | 'noteEditor' | 'unsavedWarning' | 'saveTrackChanges' | 'tapTempo' | 'tempoWarnings' | 'countIn' | 'skipEmptyBars' | 'handAssignment' | 'loopRegion' | 'focusMode'
   | 'scoreWriting' | 'scoreChords' | 'scoreTriplets' | 'scoreSwing' | 'scoreVoices' | 'scorePedal'
-  | 'practiceMode' | 'practiceSummary' | 'practicePlaybar' | 'practiceFingering' | 'scoreFingering' | 'fingerHints' | 'handSize' | 'toPlayShows' | 'stepThrough' | 'chordPrompter' | 'closePanels' | 'handTags' | 'trackVu'
+  | 'practiceMode' | 'practiceSummary' | 'shareHands' | 'practicePlaybar' | 'practiceFingering' | 'scoreFingering' | 'fingerHints' | 'handSize' | 'toPlayShows' | 'stepThrough' | 'chordPrompter' | 'closePanels' | 'handTags' | 'trackVu'
   | 'displaySystem' | 'accidentals' | 'chordTracking' | 'chordReading' | 'chordNaming'
   | 'keyRange' | 'portableKeyboards' | 'showOctaves' | 'showNoteNames' | 'reflectPianoRoll' | 'preciseScrubTime' | 'explorerPause' | 'mutedOnRoll' | 'tempoDisplay'
   | 'rollZoom' | 'barNumbers' | 'playbar' | 'visualEffects'
@@ -62,7 +62,7 @@ export const GROUPS: GroupInfo[] = [
   { id: 'practice', name: t`Practice`, intro: t`Tools for practising`, manualUrl: 'https://orfeo.cc/docs/practicing-with-midi-files',
     // practice mode and its score: dev mode and test builds until 2.0
     tabs: [
-      { key: 'practice-mode', name: t`Practice mode`, ids: ['practiceMode', 'practiceSummary', 'practicePlaybar', 'toPlayShows'], devOnly: true },
+      { key: 'practice-mode', name: t`Practice mode`, ids: ['practiceMode', 'practiceSummary', 'practicePlaybar', 'toPlayShows', 'shareHands'], devOnly: true },
       { key: 'score', name: t`Score`, ids: ['scoreWriting', 'scoreChords', 'scoreTriplets', 'scoreSwing', 'scoreVoices', 'scorePedal'], devOnly: true },
       { key: 'fingering', name: t`Fingering`, ids: ['fingerHints', 'handSize', 'practiceFingering', 'scoreFingering'], devOnly: true },
       { key: 'tools', name: t`Practice tools`, ids: ['stepThrough', 'chordPrompter', 'closePanels', 'handTags', 'reflectPianoRoll', 'starmap'] },
@@ -152,6 +152,9 @@ export const SETTINGS: SettingInfo[] = [
   { id: 'practiceSummary', group: 'practice', name: t`How it went`, summary: t`A few words on how it went, after playing in practice mode.`,
     description: t`Turn on to see a few words on how it went each time you stop in practice mode: what went well, and the bars worth another go. Your practice numbers are kept either way.`,
     keywords: 'practice summary how it went report feedback progress numbers csv' },
+  { id: 'shareHands', group: 'practice', name: t`Share my hands for research`, summary: t`Help Orfeo read the hands better: save your songs' hands as numbers to share.`,
+    description: t`Saves one file with the piano notes of every song in your Library whose piano comes as two hands (two staves, a track for each hand, or a song you prepared in Orfeo), and the hand of each note. Only numbers: no song names, no words, no other instruments. Attach the file where you were asked to share it.`,
+    keywords: 'share hands research data improve hand reading model left right export' },
   // ── Practice mode's score
   { id: 'scoreWriting', group: 'practice', name: t`How it's written`, summary: t`Every note as written, or rounded to read easily.`,
     description: t`As written puts every note where it falls, to the sixteenth, with triplets where the music moves in three. Simplified rounds the timing to eighths, easier to read for a song played in by hand. Orfeo chooses picks one for each song.`,

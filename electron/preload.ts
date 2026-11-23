@@ -83,6 +83,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
   handReadsLoad:      () => ipcRenderer.invoke('handReads:load'),
   handReadsAdd:       (readings: [string, string][], done: string[]) => ipcRenderer.invoke('handReads:add', readings, done),
   handReadsForget:    () => ipcRenderer.invoke('handReads:forget'),
+  saveHandShare:      (name: string, bytes: Uint8Array) => ipcRenderer.invoke('hands:saveShare', name, bytes),
   copyMidiToLibrary:  (sourcePath: string, libraryFolder: string) => ipcRenderer.invoke('fs:copyMidiToLibrary', sourcePath, libraryFolder),
   // Foreign format import cache
   getCachedImport:    (sourcePath: string, cachePath: string) => ipcRenderer.invoke('fs:getCachedImport', sourcePath, cachePath),

@@ -270,6 +270,7 @@ declare global {
       handReadsLoad:       () => Promise<{ readings: [string, string][]; done: string[] }>
       handReadsAdd:        (readings: [string, string][], done: string[]) => Promise<void>
       handReadsForget:     () => Promise<void>
+      saveHandShare:       (name: string, bytes: Uint8Array) => Promise<string | null>
       copyMidiToLibrary:   (sourcePath: string, libraryFolder: string) => Promise<string>
       // Foreign format import cache
       getCachedImport:     (sourcePath: string, cachePath: string) => Promise<string | null>
