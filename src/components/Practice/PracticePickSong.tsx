@@ -3,7 +3,7 @@ import { useStore } from '../../store'
 import { t } from '../../utils/i18n'
 import { libraryDisplayName } from '../../utils/libraryNames'
 import { openQueueAt } from '../../utils/queueControl'
-import { usePractice } from '../../practice/practiceMode'
+import { usePractice, prepareFromPractice } from '../../practice/practiceMode'
 import { reasonText } from './PracticeButton'
 import { AMBER, featLabel, UNDER_HEADER, useDragAnywhere } from './practiceBar'
 
@@ -17,6 +17,7 @@ export default function PracticePickSong() {
   const index = useStore(s => s.queue.index)
   const songFirst = useStore(s => s.librarySongFirst)
   const open = useStore(s => s.midi?.fileName ?? null)
+  const editorOn = useStore(s => s.noteEditorEnabled)
   const { off, dragProps } = useDragAnywhere('pick-a-song')
   if (songReady) return null
   return (
@@ -32,7 +33,20 @@ export default function PracticePickSong() {
       </div>
       {open && notReady && (
         <div style={{ padding: '0 16px 10px', fontSize: 12, lineHeight: 1.45, color: 'var(--text-muted)' }}>
-          {t`${open.replace(/\.(mid|midi)$/i, '')} can't be practised yet.`} {reasonText(notReady)}
+          {t`${open.replace(/\.(mid|midi)$/i, '')} can't be practised yet.`} {notReady === 'prepare'
+            ? t`The piano needs a track for each hand first: check the hands, then Split & Save, and you're back here.`
+            : reasonText(notReady)}
+          {notReady === 'prepare' && (
+            <div style={{ marginTop: 8 }}>
+              <button disabled={!editorOn} onClick={() => { prepareFromPractice() }}
+                title={editorOn ? undefined : t`Turn on MIDI Note Editor in Settings › Editing`}
+                style={{
+                  padding: '4px 12px', borderRadius: 'var(--radius-sm)', fontFamily: 'var(--font-ui)', fontSize: 12, fontWeight: 600,
+                  cursor: editorOn ? 'pointer' : 'default', border: 'none',
+                  background: editorOn ? AMBER : 'var(--bg-tile)', color: editorOn ? 'var(--text-near-black)' : 'var(--text-dim)',
+                }}>{t`Prepare it now`}</button>
+            </div>
+          )}
         </div>
       )}
       {paths.length === 0 && (

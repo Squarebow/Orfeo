@@ -8,6 +8,7 @@ import { NES } from '../utils/noteEditorState'
 import { focusRole } from '../utils/keyboardGroups'
 import type { SongCheck } from './songCheck'
 import { songCheckOf } from './songCheckOf'
+import { rememberPracticePlace, openPrepare } from './editRoundTrip'
 
 // ── Practice mode (Orfeo 2.0) ────────────────────────────────────────────────
 // A stripped-down screen for practising the piano part of a song with a USB
@@ -213,6 +214,8 @@ export function applySound(): void {
 export function fixHandsFromPractice(): void {
   const pianos = useStore.getState().tracks.filter(tr => tr.practicePart)
   const first = pianos.find(tr => tr.practiceHand === practisedHand()) ?? pianos.find(tr => tr.practiceHand === 'R') ?? pianos[0]
+  // the Note Editor's buttons bring you back here, at this bar (editRoundTrip.ts)
+  if (first) rememberPracticePlace('fix')
   leavePractice()
   if (!first) return
   const s = useStore.getState()
@@ -220,6 +223,17 @@ export function fixHandsFromPractice(): void {
   NES.reassignHandsMode = true
   NES.onReassignHandsModeChange?.()
   s.setNoteEditorActive(true)
+}
+
+/** The open song needs preparing (Pick a song card): leave practice mode for
+ *  Prepare for practice in the Note Editor; Split & Save brings you back */
+export function prepareFromPractice(): boolean {
+  const st = currentSongPractice()
+  if (!st || st.state !== 'prepare' || !useStore.getState().noteEditorEnabled) return false
+  rememberPracticePlace('prepare')
+  leavePractice()
+  openPrepare(st.tracks[0])
+  return true
 }
 
 /** Hear your own part too (Practise): quietly, as a guide */

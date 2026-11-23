@@ -1,5 +1,6 @@
 import { useEffect, useState, useReducer, useRef, useCallback, useMemo } from 'react'
-import { PenLine, SquareDashed, CircleDashed, Hand, WholeWord, Music4, Save, Magnet, Play, Pause, Check, Split } from 'lucide-react'
+import { PenLine, SquareDashed, CircleDashed, Hand, WholeWord, Music4, Save, Magnet, Play, Pause, Check, Split, Undo2 } from 'lucide-react'
+import { usePracticeAway, awayFromPractice, backToPractice } from '../../practice/editRoundTrip'
 import { useStore } from '../../store'
 import { NES, buildNoteEditSummary, noteEditsChangeMusic, type NETool } from '../../utils/noteEditorState'
 import { confirmDialog } from '../../utils/confirmController'
@@ -66,6 +67,8 @@ export default function NoteEditorToolbar() {
   const [quantizeOpen,    setQuantizeOpen]  = useState(false)
   const [quantizePos,     setQuantizePos]   = useState({ top: 0, left: 0 })
   const [showCloseConfirm, setShowCloseConfirm] = useState(false)
+  // came here from practice mode: the buttons lead back there (practice/editRoundTrip.ts)
+  const away = usePracticeAway(s => s.away !== null)
   // ── Icon hover hint — replaces native `title` tooltips for every icon in
   // this panel. Hovering an icon shows its description in the row-3
   // tooltip section instead of a browser tooltip popup; moving off it
@@ -253,6 +256,8 @@ export default function NoteEditorToolbar() {
       setShowCloseConfirm(true)
       return
     }
+    // came from practice mode: straight back there, at the bar you left
+    if (awayFromPractice()) { void backToPractice(); return }
     unsoloTrackForEdit()
     setNoteEditorActive(false)
     NES.reset()
@@ -262,6 +267,7 @@ export default function NoteEditorToolbar() {
     setShowCloseConfirm(false)
     const saved = await handleSave()
     if (!saved) return   // user cancelled save dialog — stay in editor
+    if (awayFromPractice()) { void backToPractice(); return }
     unsoloTrackForEdit()
     setNoteEditorActive(false)
     NES.reset()
@@ -269,6 +275,7 @@ export default function NoteEditorToolbar() {
 
   const doConfirmDiscardAndClose = useCallback(() => {
     setShowCloseConfirm(false)
+    if (awayFromPractice()) { void backToPractice(); return }
     unsoloTrackForEdit()
     setNoteEditorActive(false)
     NES.reset()
@@ -701,6 +708,19 @@ export default function NoteEditorToolbar() {
           >
             {t`Reset`}
           </button>
+          {away ? (
+            <button
+              onClick={() => void doClose()}
+              {...hintHandlers(t`Back to practice mode, at the bar you left. With changes, it asks whether to save them first.`)}
+              style={{
+                ...btnBase, flex: 1, justifyContent: 'center', fontSize: 12, fontWeight: 600,
+                color: 'var(--text-near-black)', border: 'none', background: 'var(--text-amber)',
+                whiteSpace: 'nowrap', padding: '0 4px', gap: 5,
+              }}
+            >
+              <Undo2 size={12} /> {t`Back to practice`}
+            </button>
+          ) : (
           <button
             onClick={() => void handleSave()}
             {...hintHandlers(t`Save & Reload — changed notes make a new version (_ORFEO_vN); hands alone save into the same copy`)}
@@ -712,6 +732,7 @@ export default function NoteEditorToolbar() {
           >
             <Save size={12} /> {t`Save & Reload`}
           </button>
+          )}
         </div>
       </div>
 
@@ -730,13 +751,13 @@ export default function NoteEditorToolbar() {
             onClick={() => void doConfirmSaveAndClose()}
             style={{ ...btnBase, borderColor: 'var(--accent-amber-active-border)', color: 'var(--text-amber)', background: 'var(--accent-amber-active-bg)', fontSize: 11 }}
           >
-            {t`Save & Exit`}
+            {away ? t`Save & back to practice` : t`Save & Exit`}
           </button>
           <button
             onClick={doConfirmDiscardAndClose}
             style={{ ...btnBase, borderColor: 'var(--status-error-border)', color: 'var(--status-error)', fontSize: 11 }}
           >
-            {t`Discard`}
+            {away ? t`Discard & back` : t`Discard`}
           </button>
           <button
             onClick={() => setShowCloseConfirm(false)}
@@ -833,13 +854,16 @@ function HandPassagesRow({ onHint }: { onHint: (h: string | null, amber?: boolea
   const prepared = useStore(s => s.handCheckDone)
   if (solo !== null && prepared && passages.length === 0) {
     // Save: the piano becomes a Left Hand and a Right Hand track (practice/pianoSet.ts)
-    const splitAndSave = () => { void NES.onSaveRequest?.() }
+    // came from practice mode: back there at once, the song now ready
+    const splitAndSave = async () => { const ok = await NES.onSaveRequest?.(); if (ok && awayFromPractice()) void backToPractice() }
     return (
       <div style={{ borderTop: '1px solid var(--state-hover-bg)', display: 'grid', gridTemplateColumns: 'minmax(0, 1fr) auto', columnGap: 16, padding: '8px 8px' }}>
         <div style={{ display: 'flex', flexDirection: 'column', gap: 6, minWidth: 0 }}>
           <span style={{ ...rowLabelStyle, lineHeight: '26px' }}>{t`HANDS`}</span>
           <p style={{ margin: 0, fontSize: 11, color: 'var(--text-amber)', lineHeight: 1.45 }}>
-            {t`Every passage checked. Listen right through (each hand alone too), then Split & Save: each hand gets its own track, and the song is ready to practise.`}
+            {awayFromPractice()
+              ? t`Every passage checked. Listen right through (each hand alone too), then Split & Save: each hand gets its own track, and you're back in practice mode.`
+              : t`Every passage checked. Listen right through (each hand alone too), then Split & Save: each hand gets its own track, and the song is ready to practise.`}
           </p>
         </div>
         <div style={{ display: 'flex', alignItems: 'flex-end' }}>
