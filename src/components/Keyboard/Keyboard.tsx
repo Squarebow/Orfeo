@@ -727,7 +727,7 @@ export default function Keyboard() {
   }, [playbarVisible])
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column' }}>
+    <div data-tour="keyboard" style={{ display: 'flex', flexDirection: 'column' }}>
       {/* ── Chord bar — hidden in Presentation Mode; fixed 36px so toggling the
           prompter never shifts the row above it ── */}
       {!presentationMode && !practicing && <div data-keyboard-header style={{

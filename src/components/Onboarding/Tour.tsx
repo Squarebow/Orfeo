@@ -2,6 +2,7 @@ import { useEffect, useLayoutEffect, useRef, useState } from 'react'
 import { X, ChevronLeft, ChevronRight } from 'lucide-react'
 import { useStore, libraryRestored } from '../../store'
 import { useMidiSettings } from '../../store/midiSettings'
+import { usePractice } from '../../practice/practiceMode'
 import { t } from '../../utils/i18n'
 import { placeCard, placeBetween, nextShownStep, type Box, type CardPlace, type TourId } from '../../utils/tours'
 import { tourSteps, type TourStep } from './tourSteps'
@@ -245,17 +246,21 @@ export default function Tour() {
   const [restored, setRestored] = useState(false)
   useEffect(() => { void libraryRestored.then(() => setRestored(true)) }, [])
 
+  // practice mode's own tour, the first time it opens (a new feature: everyone sees it once)
+  const practising = usePractice(s => s.active)
   useEffect(() => {
     if (!restored || active || settingsOpen || ranging) return
-    const due: TourId | null = !seen.firstLaunch ? 'firstLaunch' : !seen.firstSong && midi && !playing ? 'firstSong' : null
+    const due: TourId | null = practising ? (!seen.practice && !playing ? 'practice' : null)
+      : !seen.firstLaunch ? 'firstLaunch' : !seen.firstSong && midi && !playing ? 'firstSong' : null
     if (!due) return
     const id = setTimeout(() => {
       const s = useStore.getState()
-      if (s.tourActive || s.settingsWindowOpen || useMidiSettings.getState().rangePrompt || (due === 'firstSong' && (!s.midi || s.playbackState === 'playing'))) return
+      if (s.tourActive || s.settingsWindowOpen || useMidiSettings.getState().rangePrompt || (due !== 'firstLaunch' && s.playbackState === 'playing') || (due === 'firstSong' && !s.midi)) return
+      if (due === 'practice' && !usePractice.getState().active) return
       s.startTour(due)
     }, due === 'firstLaunch' ? 700 : 1200)
     return () => clearTimeout(id)
-  }, [restored, active, seen, midi, playing, settingsOpen, ranging])
+  }, [restored, active, seen, midi, playing, settingsOpen, ranging, practising])
 
   // a song playing behind a tour is paused (a replay can start mid-song)
   useEffect(() => {

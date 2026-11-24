@@ -169,7 +169,7 @@ export default function PracticeTopBar() {
           <div className="app-no-drag"><QueueButton practice /></div>
 
           <Tooltip title={t`What you hear`} description={t`The piano alone, Focus (the bass and drums too), or the whole band. Click to choose, or mute any track.`} placement="bottom" disabled={open === 'tracks'}>
-            <button ref={tracksBtn} className="app-no-drag" onClick={() => setOpen(o => (o === 'tracks' ? '' : 'tracks'))} style={toolBtn()} aria-label={t`What you hear`} aria-expanded={open === 'tracks'}>
+            <button ref={tracksBtn} data-tour="practice-band" className="app-no-drag" onClick={() => setOpen(o => (o === 'tracks' ? '' : 'tracks'))} style={toolBtn()} aria-label={t`What you hear`} aria-expanded={open === 'tracks'}>
               <SlidersVertical {...barIcon} />
               <Reserve options={[presetName.piano, presetName.focus, presetName.band, t`Your mix`].map((x, i) => <span key={i} style={featValue}>{x}</span>)}>
                 <span style={featValue}>{preset ? presetName[preset] : t`Your mix`}</span>
@@ -230,7 +230,7 @@ export default function PracticeTopBar() {
             </BarPop>
           )}
 
-          <div className="app-no-drag" style={{ display: 'flex', alignItems: 'center', gap: 8, flexShrink: 0 }}>
+          <div data-tour="practice-key" className="app-no-drag" style={{ display: 'flex', alignItems: 'center', gap: 8, flexShrink: 0 }}>
             <Tooltip title={t`Key: `} titleValue={`${displayKey}${transpose !== 0 ? t` (semitones: ${transpose > 0 ? '+' : ''}${transpose})` : ''}`}
               description={t`The song's key. The arrows move it up or down a semitone.`} placement="bottom">
               <span style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
@@ -248,7 +248,7 @@ export default function PracticeTopBar() {
               onClick={() => detectedKey && useStore.setState({ detectedKey: { ...detectedKey, transpose: 0 } })} />
           </div>
 
-          <div className="app-no-drag" style={{ display: 'flex', alignItems: 'center', gap: 8, flexShrink: 0 }}>
+          <div data-tour="practice-tempo" className="app-no-drag" style={{ display: 'flex', alignItems: 'center', gap: 8, flexShrink: 0 }}>
             <Tooltip title={asPercent ? t`Speed: ${pct} %` : t`Tempo: ${liveBpm} BPM`} description={levelRule} placement="bottom" disabled={!!tempoMenu}>
               <span style={{ display: 'flex', alignItems: 'center', gap: 8 }}
                 onContextMenu={e => { e.preventDefault(); const r = e.currentTarget.getBoundingClientRect(); setTempoMenu({ x: r.left, y: r.bottom + 6 }) }}>
@@ -287,14 +287,14 @@ export default function PracticeTopBar() {
             {midi?.fileName.replace(/\.(mid|midi)$/i, '') ?? ''}
             {trial && (
               <Tooltip title={t`Trying it as it is`} description={t`This song isn't a lesson yet: the hands are Orfeo's guess. Click to see why, and what makes it one.`} placement="bottom">
-                <button className="app-no-drag" onClick={() => setTrialCard(true)} style={{
+                <button data-tour="practice-trial" className="app-no-drag" onClick={() => setTrialCard(true)} style={{
                   marginLeft: 10, padding: 0, border: 'none', background: 'none', cursor: 'pointer', fontFamily: 'var(--font-ui)',
                   fontSize: 10, fontWeight: 600, letterSpacing: '0.08em', textTransform: 'uppercase', color: AMBER,
                 }}>{t`Trying it as it is · why?`}</button>
               </Tooltip>
             )}
           </span>
-          <div style={{ display: 'grid', gridTemplateColumns: `${CENTRE_SIDE}px auto ${CENTRE_SIDE}px`, alignItems: 'center' }}>
+          <div data-tour="practice-transport" style={{ display: 'grid', gridTemplateColumns: `${CENTRE_SIDE}px auto ${CENTRE_SIDE}px`, alignItems: 'center' }}>
             <div style={{ justifySelf: 'end', display: 'flex', pointerEvents: 'auto' }}>
               <TBtn onClick={back} disabled={!songReady} title={hasLoop && loopActive ? t`Back to the loop's start` : t`Go to start`} oneLine><SkipBack size={16} strokeWidth={1.5} /></TBtn>
             </div>
@@ -315,7 +315,7 @@ export default function PracticeTopBar() {
                   pulses gently while there are words not read yet */}
               <Tooltip title={t`Practice log`} placement="bottom"
                 description={card ? t`A few words on how it went since you last pressed Play,\nclick to open.` : t`after you've played,\na few words on how it went.`}>
-                <button onClick={() => toggleCard()} disabled={!card} aria-pressed={cardOpen} aria-label={t`Practice log`}
+                <button data-tour="practice-log" onClick={() => toggleCard()} disabled={!card} aria-pressed={cardOpen} aria-label={t`Practice log`}
                   style={{ ...toolBtn(!card), marginLeft: 18, gap: 6, height: 26 }}>
                   <UserRoundStar {...barIcon} size={16} className={cardNew ? 'orfeo-soft-pulse' : undefined} />
                   <span style={{ ...featValue, fontSize: 11 }}>{t`Practice log`}</span>
@@ -381,10 +381,10 @@ and which note value counts as one beat.`} placement="bottom">
           {metroMenu && <MetronomeMenu x={metroMenu.x} y={metroMenu.y} onClose={() => setMetroMenu(null)} />}
 
           <Tooltip title={t`Something's not right?`} description={t`Fix hands in the MIDI Editor: leaves practice mode and opens the piano at the bars you were playing.`} placement="bottom">
-            <button onClick={fixHandsFromPractice} style={toolBtn()} aria-label={t`Fix hands`}><WandSparkles {...barIcon} size={20} /></button>
+            <button data-tour="practice-fix" onClick={fixHandsFromPractice} style={toolBtn()} aria-label={t`Fix hands`}><WandSparkles {...barIcon} size={20} /></button>
           </Tooltip>
           <Tooltip title={t`Exit practice mode`} oneLine placement="bottom">
-            <button onClick={leavePractice} style={toolBtn()} aria-label={t`Exit practice mode`}><SquareArrowRightExit {...barIcon} size={20} /></button>
+            <button data-tour="practice-exit" onClick={leavePractice} style={toolBtn()} aria-label={t`Exit practice mode`}><SquareArrowRightExit {...barIcon} size={20} /></button>
           </Tooltip>
         </div>
       </div>
@@ -431,7 +431,7 @@ function SongTicks({ playing, hasLoop }: { playing: boolean; hasLoop: boolean })
     : t`One tick every ${unit} seconds, every tenth taller.\nClick or drag to move through the song.`
   return (
     <Tooltip title={t`Timeline`} description={tip} placement="bottom" wrapperStyle={{ display: 'block' }}>
-      <div ref={ref} className="app-no-drag" role="slider" aria-label={t`Song position`} aria-valuemin={0} aria-valuemax={Math.round(dur)} aria-valuenow={Math.round(currentTime)}
+      <div ref={ref} data-tour="practice-ticks" className="app-no-drag" role="slider" aria-label={t`Song position`} aria-valuemin={0} aria-valuemax={Math.round(dur)} aria-valuenow={Math.round(currentTime)}
         onPointerDown={e => {
           if (!dur) return
           e.currentTarget.setPointerCapture(e.pointerId)

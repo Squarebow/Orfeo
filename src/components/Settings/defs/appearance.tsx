@@ -10,6 +10,7 @@ import { previewNewVersion } from '../../../hooks/useUpdateCheck'
 import { previewSupportNote } from '../../../hooks/useSupportNote'
 import type { SettingDef } from '../types'
 import type { TourId } from '../../../utils/tours'
+import { PRACTICE_VISIBLE, usePractice } from '../../../practice/practiceMode'
 
 function ThemeControl() {
   const appTheme = useStore(s => s.appTheme)
@@ -24,6 +25,7 @@ function ThemeControl() {
 // Show a tour again: the Settings window closes first, so the tour can point at the app
 function ToursControl() {
   const songOpen = useStore(s => !!s.midi)
+  const practising = usePractice(s => s.active)
   const start = (id: TourId) => {
     const s = useStore.getState()
     s.closeSettingsWindow()
@@ -42,6 +44,7 @@ function ToursControl() {
     <ButtonRow gap={6}>
       {btn(t`First launch`, () => start('firstLaunch'))}
       {btn(t`First song`, () => start('firstSong'), songOpen, songOpen ? undefined : t`Open a song first`)}
+      {PRACTICE_VISIBLE && btn(t`Practice mode`, () => start('practice'), practising, practising ? undefined : t`Open practice mode first`)}
     </ButtonRow>
   )
 }

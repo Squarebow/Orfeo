@@ -1,6 +1,7 @@
 import { useStore } from '../../store'
 import { t } from '../../utils/i18n'
 import type { Side, TourId } from '../../utils/tours'
+import { usePractice } from '../../practice/practiceMode'
 
 // ── The stops of both tours. `targets` are data-tour marks on existing controls;
 // the first one found decides where the card sits, every one found gets a ring.
@@ -53,6 +54,53 @@ export function tourSteps(id: TourId): TourStep[] {
     { title: t`Your keyboard`, side: 'bottom', targets: ['midi-keyboard'],
       teaser: t`Plug in and play along.`,
       text: t`When you plug in your USB keyboard, its name shows here. Click the MIDI icon to open the Keyboard settings.` },
+  ]
+  if (id === 'practice') return [
+    { title: t`Practice mode`, side: 'bottom', targets: [], welcome: true,
+      text: t`Practise a song's piano part with your own keyboard. Orfeo plays the band, lights the keys you play next, waits for you when you want it to, and tells you how it went. A quick look round the screen:` },
+    // only while trying a song that isn't a lesson yet
+    ...(usePractice.getState().trial ? [{ title: t`Trying it as it is`, side: 'bottom' as const, targets: ['practice-trial'],
+      teaser: t`A song that isn't a lesson yet.`,
+      text: t`This song isn't a lesson yet, so you're trying it as it is: both hands, with Orfeo's guess at which hand plays what. Click here to see why, and how to make it a lesson.` }] : []),
+    { title: t`Play`, side: 'bottom', targets: ['practice-transport'],
+      teaser: t`Play, pause and where you are.`,
+      text: t`Play and pause (or Space), back to the start (or to the start of your loop), and the time. While the song plays, everything else fades, so nothing takes your eyes off the music.` },
+    { title: t`Timeline`, side: 'bottom', targets: ['practice-ticks'],
+      teaser: t`The whole song, to jump anywhere.`,
+      text: t`The whole song at a glance: click or drag to jump anywhere. To repeat a passage, hold Alt and drag across the piano roll; the loop shows here too.` },
+    { title: t`What you hear`, side: 'bottom', targets: ['practice-band'],
+      teaser: t`Your piano alone, or with the band.`,
+      text: t`Your piano alone, Focus (with the bass and drums), or the whole band. Mute any track, or show a keyboard in the band (an organ, say) on the piano roll to see its harmony.` },
+    { title: t`Key and tempo`, side: 'bottom', targets: ['practice-key', 'practice-tempo'],
+      teaser: t`Slower to learn, in a key that suits you.`,
+      text: t`Slow the song down while you learn it: use the arrows, or double-click the tempo and type one. The key arrows move the whole song up or down a semitone at a time.` },
+    { title: t`How you play`, side: 'top', targets: ['practice-mode'],
+      teaser: t`Play along, Wait for me, Performance.`,
+      text: t`Play along: the song goes on and you play with it. Wait for me: the song waits until you play the right notes, so you learn at your own pace. Performance: three levels, for when you know it. Speed up starts slow and gets faster each time you play it cleanly.` },
+    { title: t`Hands`, side: 'top', targets: ['practice-hands'],
+      teaser: t`One hand at a time, or both.`,
+      text: t`Practise one hand at a time: Orfeo plays the other hand for you, its notes faded on the piano roll. Or play both together.` },
+    { title: t`My part and Wait`, side: 'top', targets: ['practice-mine', 'practice-wait'],
+      teaser: t`Hear your part as a guide; let the song wait.`,
+      text: t`My part: hear your own part quietly as a guide, or not at all. Wait: in Play along, the song stops at your next notes until you've played them.` },
+    { title: t`To play, you play`, side: 'top', targets: ['practice-chords'],
+      teaser: t`The chord coming up, and the one you hold.`,
+      text: t`To play: the chord your next notes make. You play: the chord in the keys you're holding. Handy when you think in chords.` },
+    { title: t`Your keys`, side: 'top', targets: ['keyboard'],
+      teaser: t`Your next notes light up.`,
+      text: t`The keys you play next light up a moment before they're due, in your hand's colour, with finger numbers where there are some. A keyboard with lights shows the same keys.` },
+    { title: t`View`, side: 'top', targets: ['practice-view'],
+      teaser: t`Piano roll, score, or both.`,
+      text: t`The falling notes of the piano roll, the score, or both at once (Split). Suggested fingering is here too.` },
+    { title: t`Practice log`, side: 'bottom', targets: ['practice-log'],
+      teaser: t`How it went, and your progress.`,
+      text: t`When you stop: a few words on how it went, the bars worth another go (one click loops them), a note-by-note review, and your progress over days and weeks.` },
+    { title: t`Fix hands`, side: 'bottom', targets: ['practice-fix'],
+      teaser: t`A note in the wrong hand? Fix it.`,
+      text: t`A note in the wrong hand? Fix hands opens the Note Editor at the bars you're playing, and Back to practice brings you straight back here.` },
+    { title: t`Exit`, side: 'bottom', targets: ['practice-exit'],
+      teaser: t`Back to the song as it was.`,
+      text: t`Leave practice mode: your tracks, tempo and key are back as they were. Settings › Appearance › Onboarding tours shows this tour again.` },
   ]
   return [
     { title: t`Create your first lesson`, side: 'bottom', targets: [], welcome: true,

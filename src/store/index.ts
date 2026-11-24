@@ -910,7 +910,7 @@ export const useStore = create<OrfeoStore>((set, get) => ({
   drawerTab: 'library',
   setDrawerTab: (drawerTab) => set({ drawerTab }),
   // seen until the saved mark says otherwise, so nothing shows before the settings are back
-  toursSeen: { firstLaunch: true, firstSong: true },
+  toursSeen: { firstLaunch: true, firstSong: true, practice: true },
   tourActive: null,
   startTour: (tourActive) => set({ tourActive }),
   // ending a tour, by Done, Skip or Esc, counts it as seen

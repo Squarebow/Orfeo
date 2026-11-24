@@ -1,21 +1,26 @@
-// ── The two short tours for a new install (docs: Settings › Appearance › Onboarding tours) ──
+// ── The short tours (docs: Settings › Appearance › Onboarding tours) ──
 // First launch: Library, Open a song, Sound, MIDI keyboard. First song: Tracks,
 // play and tempo, loop, chords, Explorers. Each shows once, on a new install only.
+// Practice mode: its screen, stop by stop, the first time anyone opens practice
+// mode (a new feature, so existing users see it too).
 //
 // Who sees them: the main process writes `tours: { firstLaunch: false, firstSong: false }`
 // into a brand-new settings file (electron/main.ts, before anything else is saved).
 // A copy updated from an earlier version already has settings but no `tours`, and
 // counts as having seen both, so existing users never get them by surprise.
 
-export type TourId = 'firstLaunch' | 'firstSong'
+export type TourId = 'firstLaunch' | 'firstSong' | 'practice'
 export type ToursSeen = Record<TourId, boolean>
+/** the two first-start tours (a new install only) */
 export const TOUR_IDS: TourId[] = ['firstLaunch', 'firstSong']
 
-/** The saved mark, or "seen" when there is none (an existing user's settings). */
+/** The saved mark, or "seen" when there is none (an existing user's settings).
+ *  The practice mode tour counts as unseen until it has been shown. */
 export function toursFromPrefs(saved: unknown): { seen: ToursSeen; needsSave: boolean } {
   const o = saved && typeof saved === 'object' && !Array.isArray(saved) ? saved as Record<string, unknown> : null
-  if (o && TOUR_IDS.every(id => typeof o[id] === 'boolean')) return { seen: { firstLaunch: !!o.firstLaunch, firstSong: !!o.firstSong }, needsSave: false }
-  return { seen: { firstLaunch: true, firstSong: true }, needsSave: true }
+  const practice = o?.practice === true
+  if (o && TOUR_IDS.every(id => typeof o[id] === 'boolean')) return { seen: { firstLaunch: !!o.firstLaunch, firstSong: !!o.firstSong, practice }, needsSave: false }
+  return { seen: { firstLaunch: true, firstSong: true, practice }, needsSave: true }
 }
 
 // ── Where the card sits next to what it points at ──────────────────────────

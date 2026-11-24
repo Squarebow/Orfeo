@@ -54,7 +54,7 @@ function Chords() {
     <span style={{ fontFamily: 'var(--font-ui)', fontSize: 20, fontWeight: 700, color: colour, minWidth: 72, textAlign: 'left', whiteSpace: 'nowrap' }}>{v || '—'}</span>
   )
   return (
-    <div style={{ justifySelf: 'center', display: 'flex', alignItems: 'center', gap: 28 }}>
+    <div data-tour="practice-chords" style={{ justifySelf: 'center', display: 'flex', alignItems: 'center', gap: 28 }}>
       <Tooltip title={t`To play`} description={shows === 'notes' ? t`The notes your part plays next, as its keys light up (a chord's name, or a single note's).
 Settings › Practice: Chords, for the song's chords instead.` : t`The song's chord where your next notes are, as the chord display reads it.
 Settings › Practice: Every note, for each note of your part.`} placement="top">
@@ -127,7 +127,7 @@ export default function PracticeStrip() {
       {/* ── Left: mode, hands, wait ── */}
       <div style={{ display: 'flex', alignItems: 'center', gap: 18, minWidth: 0 }}>
         <Tooltip title={ways[way].name} description={ways[way].tip + '\n' + t`Click to choose how you play.`} placement="top" disabled={open === 'mode'}>
-          <button ref={refs.mode} onClick={() => toggle('mode')} style={toolBtn()} aria-label={t`Mode`} aria-expanded={open === 'mode'}>
+          <button ref={refs.mode} data-tour="practice-mode" onClick={() => toggle('mode')} style={toolBtn()} aria-label={t`Mode`} aria-expanded={open === 'mode'}>
             <Piano {...barIcon} />
             <span style={featLabel}>{t`Mode:`}</span>
             <Reserve options={[ways.practise.name, ways.wait.name, t`Performance ${3}`].map((x, i) => <span key={i} style={featValue}>{x}</span>)}>
@@ -172,7 +172,7 @@ export default function PracticeStrip() {
             : onlyHand ? t`The song's piano is for one hand only.`
             : handsChoice ? t`Which hand you play; Orfeo plays the other. Click to choose.`
             : t`${ways[way].name} is always both hands.`}>
-          <button ref={refs.hands} onClick={() => (handsChoice || onlyHand) && toggle('hands')} style={toolBtn(!handsChoice && !onlyHand)} aria-label={t`Hands`} aria-expanded={open === 'hands'}>
+          <button ref={refs.hands} data-tour="practice-hands" onClick={() => (handsChoice || onlyHand) && toggle('hands')} style={toolBtn(!handsChoice && !onlyHand)} aria-label={t`Hands`} aria-expanded={open === 'hands'}>
             <Hand {...barIcon} />
             <span style={featLabel}>{t`Hands:`}</span>
             <Reserve options={[handName.L, handName.R, handName.B].map((x, i) => <span key={i} style={featValue}>{x}</span>)}>
@@ -204,7 +204,7 @@ export default function PracticeStrip() {
         {way === 'practise' && (
           <Tooltip title={hearMine ? t`My part: heard` : t`My part: silent`} placement="top"
             description={hearMine ? t`Your part plays quietly with you, as a guide.\nClick to play it on your own.` : t`Only you play your part.\nClick to hear it quietly with you, as a guide.`}>
-            <button onClick={() => setHearMine(!hearMine)} style={toolBtn()} aria-pressed={hearMine} aria-label={t`My part`}>
+            <button data-tour="practice-mine" onClick={() => setHearMine(!hearMine)} style={toolBtn()} aria-pressed={hearMine} aria-label={t`My part`}>
               {hearMine ? <Volume2 {...barIcon} /> : <VolumeX {...barIcon} />}
               <span style={featLabel}>{t`My part`}</span>
             </button>
@@ -214,7 +214,7 @@ export default function PracticeStrip() {
         {way === 'practise' && (
           <Tooltip title={waitOn ? t`Wait: on` : t`Wait: off`} placement="top"
             description={t`On, the song stops at your next notes and waits until you've played them. Off, it keeps going.`}>
-            <button onClick={() => set({ waitOn: !waitOn })} style={toolBtn()} aria-pressed={waitOn} aria-label={t`Wait`}>
+            <button data-tour="practice-wait" onClick={() => set({ waitOn: !waitOn })} style={toolBtn()} aria-pressed={waitOn} aria-label={t`Wait`}>
               <Hourglass {...barIcon} />
               <span style={featLabel}>{t`Wait:`}</span>
               <Reserve options={[t`On`, t`Off`].map((x, i) => <span key={i} style={featValue}>{x}</span>)}>
@@ -240,7 +240,7 @@ export default function PracticeStrip() {
       {/* ── Right: view, playbar, keyboard ── */}
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: 14, minWidth: 0 }}>
         <Tooltip title={views[view].name} description={views[view].tip + '\n' + t`Click to change the view.`} placement="top" disabled={open === 'view'}>
-          <button ref={refs.view} onClick={() => toggle('view')} style={toolBtn()} aria-label={t`View`} aria-expanded={open === 'view'}>
+          <button ref={refs.view} data-tour="practice-view" onClick={() => toggle('view')} style={toolBtn()} aria-label={t`View`} aria-expanded={open === 'view'}>
             <MonitorUp {...barIcon} />
             <span style={featLabel}>{t`View:`}</span>
             <span style={featValue}>{views[view].name}</span>
@@ -275,7 +275,7 @@ export default function PracticeStrip() {
 
         <Tooltip title={connected ? modelName(activeDevice || deviceName) : t`No connected keyboards`} placement="top" disabled={open === 'midi'}
           description={devices.length > 1 ? t`Click to choose the keyboard you play on.` : t`The keyboard you play on.`}>
-          <button ref={refs.midi} onClick={() => toggle('midi')} style={toolBtn()} aria-label={t`Your keyboard`} aria-expanded={open === 'midi'}>
+          <button ref={refs.midi} data-tour="practice-midi" onClick={() => toggle('midi')} style={toolBtn()} aria-label={t`Your keyboard`} aria-expanded={open === 'midi'}>
             <MidiIcon size={22} color={connected ? AMBER : 'var(--topbar-midi-off)'} />
           </button>
         </Tooltip>
