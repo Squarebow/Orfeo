@@ -675,7 +675,13 @@ function LibraryPanel({ hidden = false }: { hidden?: boolean }) {
   }
 
   // ── Folder picker — opens Electron folder dialog and scans for MIDI files ─
+  // "Set your MIDI folder" blinks to say where to start, until it's clicked, and
+  // never while a tour is showing (its rings blink the same way: a blink left
+  // after closing the tour looked like a step that hadn't closed)
+  const [folderAsked, setFolderAsked] = useState(false)
+  const tourShowing = useStore(s => s.tourActive !== null)
   const handlePickFolder = async () => {
+    setFolderAsked(true)
     try {
       const result = await window.electronAPI.openFolder()
       if (!result) return
@@ -1068,7 +1074,7 @@ function LibraryPanel({ hidden = false }: { hidden?: boolean }) {
           <button
             onClick={handlePickFolder}
             data-tour="library-folder"
-            className="loop-nudge-blink"
+            className={folderAsked || tourShowing ? undefined : 'loop-nudge-blink'}
             style={{
               width: '100%', padding: '8px 0', borderRadius: 'var(--radius-md)',
               border: '1px dashed var(--text-amber)', background: 'transparent',

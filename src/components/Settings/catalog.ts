@@ -68,7 +68,13 @@ export const GROUPS: GroupInfo[] = [
   { id: 'language', name: t`Language`, intro: t`Choose your language`, manualUrl: 'https://orfeo.cc/docs/settings/language',
     stack: [['showLanguageSwitcher', 'followSystemLanguage', 'menuLanguages', 'translations', 'translationUpdates']] },
   // Dev mode only (simAvailable) — its words are plain strings, kept out of the translations
-  { id: 'devtools', name: 'Dev Tools', intro: 'Test tools, dev mode only', manualUrl: 'https://orfeo.cc/docs' },
+  { id: 'devtools', name: 'Dev Tools', intro: 'Test tools, dev mode only', manualUrl: 'https://orfeo.cc/docs',
+    // dev mode only: grouped so a test tool is found by what it tests
+    tabs: [
+      { name: 'MIDI keyboards', ids: ['devKeyboard', 'devKeyRange', 'devKeyLights', 'devExplorers'] },
+      { name: 'Language', ids: ['devTranslations'] },
+      { name: 'Other', ids: ['devClosingWarning', 'devQueue', 'devLyrics', 'devOpenWith', 'devSupportNote'] },
+    ] },
 ]
 
 export const SETTINGS: SettingInfo[] = [
