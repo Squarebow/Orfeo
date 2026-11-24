@@ -1,4 +1,4 @@
-import { useId, useLayoutEffect, useMemo, useRef, useState, type CSSProperties } from 'react'
+import { useEffect, useId, useLayoutEffect, useMemo, useRef, useState, type CSSProperties } from 'react'
 import { Play, Pause, SkipBack, Repeat, SlidersVertical, Volume2, VolumeX, ChevronUp, ChevronDown, WandSparkles, SquareArrowRightExit, Piano, Eye, EyeOff, Drum, UserRoundStar } from 'lucide-react'
 import { useStore } from '../../store'
 import { usePlayback } from '../../hooks/usePlayback'
@@ -90,7 +90,11 @@ export default function PracticeTopBar() {
   // the song waiting for your notes is still the song playing, to you
   const holding = useWaiting(s => s.holding)
   const playing = playbackState === 'playing' || holding
-  const rowH = playing ? ROW_H_PLAYING : ROW_H
+  // the header's size follows the song, but not a pause too short to see: a
+  // jump on the scrub line pauses and plays again at once, and the header grew
+  // and shrank with it (24. 11., the user)
+  const looksPlaying = useSettled(playing, 500)
+  const rowH = looksPlaying ? ROW_H_PLAYING : ROW_H
 
   const band = tracks.filter(tr => !tr.practicePart)
   const hands = tracks.filter(tr => tr.practicePart).sort((a, b) => (a.practiceHand === 'L' ? -1 : 1) - (b.practiceHand === 'L' ? -1 : 1))
@@ -161,7 +165,7 @@ export default function PracticeTopBar() {
       }}>
         {/* ── Left: ORFEO, playlist, what you hear, key, tempo ── */}
         <div className="topbar-scroll" style={{ display: 'flex', alignItems: 'center', gap: 14, minWidth: 0, overflowX: 'auto', overflowY: 'hidden', marginRight: CENTRE_LEFT }}>
-          <OrfeoLogo scale={playing ? 1.2 : 1.45} />
+          <OrfeoLogo scale={looksPlaying ? 1.2 : 1.45} />
           <div className="app-no-drag"><QueueButton practice /></div>
 
           <Tooltip title={t`What you hear`} description={t`The piano alone, Focus (the bass and drums too), or the whole band. Click to choose, or mute any track.`} placement="bottom" disabled={open === 'tracks'}>
@@ -277,7 +281,7 @@ export default function PracticeTopBar() {
         {/* ── Centre: the song, and its playback (Play at the window's centre) ── */}
         <div className="app-no-drag" style={{
           position: 'absolute', left: '50%', top: 0, bottom: 0, width: 0, display: 'flex', flexDirection: 'column',
-          justifyContent: 'center', alignItems: 'center', gap: playing ? 2 : 5, transition: 'gap .3s', pointerEvents: 'none',
+          justifyContent: 'center', alignItems: 'center', gap: looksPlaying ? 2 : 5, transition: 'gap .3s', pointerEvents: 'none',
         }}>
           <span style={{ color: 'var(--text-default)', fontSize: 'var(--text-sm)', fontFamily: 'var(--font-ui)', lineHeight: '13px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: 560, pointerEvents: 'auto' }}>
             {midi?.fileName.replace(/\.(mid|midi)$/i, '') ?? ''}
@@ -287,8 +291,8 @@ export default function PracticeTopBar() {
               <TBtn onClick={back} disabled={!songReady} title={hasLoop && loopActive ? t`Back to the loop's start` : t`Go to start`} oneLine><SkipBack size={16} strokeWidth={1.5} /></TBtn>
             </div>
             <div style={{ pointerEvents: 'auto' }}>
-              <TBtn onClick={playPause} disabled={!songReady} accent title={t`Play / Pause (Space)`} large={!playing} oneLine>
-                {playing ? <Pause size={playing ? 20 : 24} fill="currentColor" strokeWidth={0} /> : <Play size={24} fill="currentColor" strokeWidth={0} />}
+              <TBtn onClick={playPause} disabled={!songReady} accent title={t`Play / Pause (Space)`} large={!looksPlaying} oneLine>
+                {playing ? <Pause size={looksPlaying ? 20 : 24} fill="currentColor" strokeWidth={0} /> : <Play size={24} fill="currentColor" strokeWidth={0} />}
               </TBtn>
             </div>
             <div style={{ justifySelf: 'start', display: 'flex', alignItems: 'center', gap: 2, pointerEvents: 'auto' }}>
@@ -377,7 +381,7 @@ and which note value counts as one beat.`} placement="bottom">
         </div>
       </div>
 
-      <SongTicks playing={playing} hasLoop={hasLoop} />
+      <SongTicks playing={looksPlaying} hasLoop={hasLoop} />
     </div>
   )
 }
@@ -451,4 +455,15 @@ function SongTicks({ playing, hasLoop }: { playing: boolean; hasLoop: boolean })
       </div>
     </Tooltip>
   )
+}
+
+/** `on`, but turning off only once it has stayed off for `ms` (turning on at once) */
+function useSettled(on: boolean, ms: number): boolean {
+  const [settled, setSettled] = useState(on)
+  useEffect(() => {
+    if (on) { setSettled(true); return }
+    const id = setTimeout(() => setSettled(false), ms)
+    return () => clearTimeout(id)
+  }, [on, ms])
+  return on || settled
 }
