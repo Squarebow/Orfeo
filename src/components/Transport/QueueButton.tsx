@@ -12,21 +12,20 @@ import { LibrarySongName } from '../SettingsPanel/LibrarySongName'
 import Tooltip from '../Tooltip'
 import { nameStyle } from '../Settings/QuickRow'  // same look as a setting's name in Setup
 import { PRACTICE_PREP_VISIBLE } from '../../utils/practiceReadiness'
-import { useReadyScan, scanForPracticeReady, stopReadyScan } from '../../practice/scanReady'
-import { useHandPrescan, prescanReadyPaths } from '../../practice/handPrescan'
+import { useReadyScan, scanForPracticeReady, stopReadyScan, readyToAdd } from '../../practice/scanReady'
+import { useHandPrescan } from '../../practice/handPrescan'
 
 // ── Scan for practice-ready songs (practice/scanReady.ts): the last row of the
 // queue's drop-down, in playback and in practice mode. Dev mode only until 2.0.
 function ScanReadyRow({ onClear }: { onClear?: (() => void) | null }) {
-  const { running, done, total, added } = useReadyScan()
+  const { running, done, total, added, versions } = useReadyScan()
   // the background reading has looked at the whole Library: the answer is known, adding is instant
   const bgDone = useHandPrescan(s => !s.running && s.finished !== null)
   const queued = useStore(s => s.queue.paths)
   // how many of them aren't in the queue yet
   const bg = useMemo(() => {
     if (!bgDone) return null
-    const inQueue = new Set(queued.map(p => p.replace(/\\/g, '/').toLowerCase()))
-    return prescanReadyPaths().filter(p => !inQueue.has(p)).length
+    return readyToAdd(queued).add.length
   }, [bgDone, queued, added])
   const row: React.CSSProperties = {
     width: '100%', padding: '7px 10px', border: 'none', borderTop: '1px solid var(--bg-tile)', background: 'none', textAlign: 'left',
@@ -61,6 +60,7 @@ function ScanReadyRow({ onClear }: { onClear?: (() => void) | null }) {
       {added !== null && (
         <span style={{ color: 'var(--text-dim)', fontSize: 10 }}>
           {added === 0 ? t`none new found` : added === 1 ? t`1 added` : t`${added} added`}
+          {versions > 0 && (versions === 1 ? t` · 1 other version of a song left out` : t` · ${versions} other versions of songs left out`)}
         </span>
       )}
       {onClear && <ClearQueueButton onClick={onClear} style={{ marginLeft: 'auto', width: 'auto', padding: 0, borderTop: 'none' }} />}

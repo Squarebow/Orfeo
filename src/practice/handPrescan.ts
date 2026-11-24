@@ -41,14 +41,17 @@ const SAVE_EVERY = 10         // songs between saves to disk
 let worker: Worker | null = null
 // every song read: its key → ready to practise or not (kept on disk as "key|1" /
 // "key|0"; a key from before readiness was kept has no answer and is read again)
-let readDone = new Map<string, boolean>()
+type Answer = { ready: boolean; fp: string }   // fp: the piano part's fingerprint (sameSong.ts)
+let readDone = new Map<string, Answer>()
 // this session: a Library song → ready or not, once its turn has come
-const readyByPath = new Map<string, boolean>()
+const readyByPath = new Map<string, Answer>()
 const norm = (p: string) => p.replace(/\\/g, '/').toLowerCase()
 /** Is the song at `path` ready to practise, as the background reading found? (undefined: not reached yet) */
-export const prescanReady = (path: string): boolean | undefined => readyByPath.get(norm(path))
+export const prescanReady = (path: string): boolean | undefined => readyByPath.get(norm(path))?.ready
+/** The song's piano fingerprint, when the background reading has read it ('' = none) */
+export const prescanFingerprint = (path: string): string | undefined => readyByPath.get(norm(path))?.fp
 /** Every Library song found ready so far (lower case, forward slashes) */
-export const prescanReadyPaths = (): string[] => [...readyByPath].filter(([, r]) => r).map(([p]) => p)
+export const prescanReadyPaths = (): string[] => [...readyByPath].filter(([, r]) => r.ready).map(([p]) => p)
 let loaded = false
 let pending: { readings: StoredReadings; done: string[] } = { readings: [], done: [] }
 let again = false
@@ -77,7 +80,7 @@ async function load(): Promise<void> {
   if (r) {
     addReadings(r.readings ?? [])
     readDone = new Map()
-    for (const d of (r.done ?? []) as string[]) { const m = /^(.*)\|([01])$/.exec(d); if (m) readDone.set(m[1], m[2] === '1') }
+    for (const d of (r.done ?? []) as string[]) { const m = /^(.*?)\|([01])\|(.*)$/.exec(d); if (m) readDone.set(m[1], { ready: m[2] === '1', fp: m[3] }) }
   }
 }
 
@@ -141,12 +144,13 @@ export async function prescanLibrary(): Promise<void> {
           useHandPrescan.setState({ current: f.name })
           const out = await workerJob({ bytes: bytes.buffer as ArrayBuffer, name: r.fileName, path: f.path, options })
           const ready = !!out.ready
-          pending.done.push(`${key}|${ready ? 1 : 0}`); readDone.set(key, ready)
+          const fp = out.fp ?? ''
+          pending.done.push(`${key}|${ready ? 1 : 0}|${fp}`); readDone.set(key, { ready, fp })
           read++
           if (++sinceSave >= SAVE_EVERY) { sinceSave = 0; await save() }
         }
-        readyByPath.set(norm(f.path), readDone.get(key) ?? false)
-        useHandPrescan.setState({ readyCount: [...readyByPath.values()].filter(Boolean).length })
+        readyByPath.set(norm(f.path), readDone.get(key) ?? { ready: false, fp: '' })
+        useHandPrescan.setState({ readyCount: [...readyByPath.values()].filter(a => a.ready).length })
       }
     } catch { /* a song Orfeo can't read: skipped, as when opening it */ }
     // no pause between songs: waiting for the file and for the reader already
