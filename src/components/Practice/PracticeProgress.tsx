@@ -4,7 +4,7 @@ import { create } from 'zustand'
 import { X } from 'lucide-react'
 import { t, currentLanguage } from '../../utils/i18n'
 import { usePractice } from '../../practice/practiceMode'
-import { currentSession, useSession } from '../../practice/session'
+import { currentSession, useSession, leaveLogFor, backToLog } from '../../practice/session'
 import { loadHistory, cachedHistory, allTakes } from '../../practice/history'
 import { useReview } from '../../practice/reviewState'
 import { closeReview } from '../../practice/review'
@@ -20,13 +20,18 @@ import type { TakeRecord } from '../../practice/take'
 export const useProgress = create<{ open: boolean; kind: string | null; sample: TakeRecord[] | null }>(() => ({ open: false, kind: null, sample: null }))
 export function openProgress(sample: TakeRecord[] | null = null) {
   if (useReview.getState().open) closeReview()
-  useSession.setState({ cardOpen: false })
+  leaveLogFor()
   useProgress.setState({ open: true, kind: null, sample })
 }
-export const closeProgress = () => useProgress.setState({ open: false, sample: null })
-usePractice.subscribe((p, prev) => { if (!p.active && prev.active) closeProgress() })
-useReview.subscribe((r, prev) => { if (r.open && !prev.open) closeProgress() })
-useSession.subscribe((s, prev) => { if (s.card && !prev.card) closeProgress() })
+/** Closed by its × (or Esc): back to the card, if it came from there */
+export const closeProgress = (back = true) => {
+  const was = useProgress.getState().open
+  useProgress.setState({ open: false, sample: null })
+  if (was && back) backToLog()
+}
+usePractice.subscribe((p, prev) => { if (!p.active && prev.active) closeProgress(false) })
+useReview.subscribe((r, prev) => { if (r.open && !prev.open) closeProgress(false) })
+useSession.subscribe((s, prev) => { if (s.card && !prev.card && useProgress.getState().open && !s.returnToLog) closeProgress(false) })
 
 const fmtDay = (at: number, long = false) => new Date(at).toLocaleDateString(currentLanguage, long ? { weekday: 'short', day: 'numeric', month: 'short' } : { day: 'numeric', month: 'numeric' })
 
@@ -124,7 +129,7 @@ export default function PracticeProgress() {
     }}>
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
         <span style={{ ...capTitle, color: 'var(--text-amber)' }}>{t`Progress`}{sample ? ' · made up (Dev Tools)' : ''}</span>
-        <button onClick={closeProgress} aria-label={t`Close`} style={{ background: 'none', border: 'none', padding: 2, cursor: 'pointer', color: 'var(--text-muted)', display: 'flex' }}><X size={14} /></button>
+        <button onClick={() => closeProgress()} aria-label={t`Close`} style={{ background: 'none', border: 'none', padding: 2, cursor: 'pointer', color: 'var(--text-muted)', display: 'flex' }}><X size={14} /></button>
       </div>
       {!g ? <div style={{ fontSize: 13 }}>{t`Nothing played on this song in practice mode yet.`}</div> : (
         <>

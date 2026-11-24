@@ -3,7 +3,7 @@ import { playBackNote } from '../hooks/useMidiInput'
 import { usePractice, applySound } from './practiceMode'
 import { useWaiting } from './listen'
 import { endHold } from './waiting'
-import { currentSession, useSession } from './session'
+import { currentSession, leaveLogFor, backToLog } from './session'
 import { cachedHistory, allTakes } from './history'
 import { useReview, type ReviewUnit, type ReviewHear } from './reviewState'
 import type { TakeRecord } from './take'
@@ -98,7 +98,8 @@ export function openReview(prefer?: TakeRecord | null, startBar?: number): boole
   if (!saved) saved = { loopEnabled: s.loopRegionEnabled, loopActive: s.loopRegionActive, loopStart: s.loopStart, loopEnd: s.loopEnd, bpm: s.bpm, time: s.currentTime }
   let idx = takes.length - 1
   if (prefer) { const i = takes.findIndex(k => k.at === prefer.at); if (i >= 0) idx = i }
-  useSession.setState({ card: null })
+  // the card steps aside (and comes back when the review closes)
+  leaveLogFor()
   // the review is drawn on the piano roll (Split keeps it in view)
   if (usePractice.getState().view === 'score') usePractice.setState({ view: 'roll' })
   useReview.setState({ open: true, takes, idx, playing: false })
@@ -120,6 +121,7 @@ export function closeReview(): void {
     if (s.bpm !== b.bpm) s.setBpm(b.bpm)
   }
   applySound()
+  backToLog()
 }
 
 /** Show take `i`: its notes, its tempo, from its first bar (or `startBar`) */

@@ -80,6 +80,8 @@ export default function PracticeTopBar() {
   const card = useSession(s => s.card)
   const cardNew = useSession(s => s.cardNew)
   const cardOpen = useSession(s => s.cardOpen)
+  // dimmed only while the song has nothing in its log yet (never played)
+  const hasLog = useSession(s => s.hasLog)
   usePractice(s => s.hand)   // the hand rows follow your choice
   const { play, pause, seek, seekAndPlay } = usePlayback()
   const [open, setOpen] = useState<'' | 'tracks'>('')
@@ -315,7 +317,7 @@ export default function PracticeTopBar() {
                   pulses gently while there are words not read yet */}
               <Tooltip title={t`Practice log`} placement="bottom"
                 description={card ? t`A few words on how it went since you last pressed Play,\nclick to open.` : t`after you've played,\na few words on how it went.`}>
-                <button data-tour="practice-log" onClick={() => toggleCard()} disabled={!card} aria-pressed={cardOpen} aria-label={t`Practice log`}
+                <button data-tour="practice-log" onClick={() => toggleCard()} disabled={!card && !hasLog} aria-pressed={cardOpen} aria-label={t`Practice log`}
                   style={{ ...toolBtn(!card), marginLeft: 18, gap: 6, height: 26 }}>
                   <UserRoundStar {...barIcon} size={16} className={cardNew ? 'orfeo-soft-pulse' : undefined} />
                   <span style={{ ...featValue, fontSize: 11 }}>{t`Practice log`}</span>

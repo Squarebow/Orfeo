@@ -8,6 +8,7 @@ import { useReview } from './reviewState'
 import { waitingOn } from './waiting'
 import { buildTake, worthKeeping, cleanTake, rampAfterRound, RAMP_START, type TakeRecord, type TakeEnd, type Hold, type PlayedLog } from './take'
 import { howItWent, type HowItWent } from './words'
+import { t, currentLanguage } from '../utils/i18n'
 import { loadHistory, saveSession, cachedHistory, allTakes, type SessionRecord } from './history'
 
 // ── A practice session (practice stage 4) ────────────────────────────────────
@@ -23,11 +24,36 @@ interface SessionUi {
   cardOpen: boolean        // the card is showing (opened from HOW IT WENT in the header; it never pops up by itself)
   cardNew: boolean         // words not read yet: HOW IT WENT pulses
   ramp: { streak: number } // clean rounds in a row at this speed (Speed up gradually)
+  hasLog: boolean          // the song has takes kept (earlier days, or this session): PRACTICE LOG opens
+  returnToLog: boolean     // Review or Progress was opened from the card: closing it brings the card back
 }
-export const useSession = create<SessionUi>(() => ({ card: null, cardOpen: false, cardNew: false, ramp: { streak: 0 } }))
-/** HOW IT WENT in the header: open or close the card (read: no more pulsing) */
+export const useSession = create<SessionUi>(() => ({ card: null, cardOpen: false, cardNew: false, ramp: { streak: 0 }, hasLog: false, returnToLog: false }))
+/** PRACTICE LOG in the header: open or close the card (read: no more pulsing).
+ *  With nothing played yet this session, it opens on the last take kept. */
 export function toggleCard(open = !useSession.getState().cardOpen): void {
+  if (open && !useSession.getState().card) lastTimeCard()
   useSession.setState({ cardOpen: open && !!useSession.getState().card, cardNew: false })
+}
+/** The card for the last take kept for this song (an earlier day) */
+function lastTimeCard(): void {
+  const all = song ? allTakes(cachedHistory(song)) : []
+  if (!all.length) return
+  const sorted = [...all].sort((a, b) => b.at - a.at)
+  const last = sorted[0]
+  const words = howItWent(last, { earlier: sorted.slice(1), session: [last], metronome: metronomeAllowed() })
+  const when = new Date(last.at).toLocaleDateString(currentLanguage, { day: 'numeric', month: 'long' })
+  useSession.setState({ card: { ...words, lines: [t`Last time you played it (${when}):`, ...words.lines], take: last } })
+}
+/** Review or Progress takes the card's place: remember to come back to it */
+export function leaveLogFor(): void {
+  const s = useSession.getState()
+  useSession.setState({ cardOpen: false, returnToLog: s.cardOpen || s.returnToLog })
+}
+/** Review or Progress closed: the card again, if that's where they came from */
+export function backToLog(): void {
+  if (!useSession.getState().returnToLog) return
+  useSession.setState({ returnToLog: false })
+  if (usePractice.getState().active) toggleCard(true)
 }
 
 interface Open {
@@ -55,8 +81,9 @@ function startSession() {
   song = ((s.midi as any)?._filePath as string | undefined) ?? null
   session = { id: Date.now(), notes: currentMatcher()?.expected.length ?? 0, takes: [] }
   stretchFrom = 0; stretchOpen = false; rampedTo = null
-  useSession.setState({ card: null, cardOpen: false, cardNew: false, ramp: { streak: 0 } })
-  if (song) void loadHistory(song)
+  useSession.setState({ card: null, cardOpen: false, cardNew: false, ramp: { streak: 0 }, hasLog: false, returnToLog: false })
+  const forSong = song
+  if (forSong) void loadHistory(forSong).then(h => { if (song === forSong && allTakes(h).length) useSession.setState({ hasLog: true }) })
 }
 
 function openTake(at: number) {
@@ -84,6 +111,7 @@ function closeTake(why: TakeEnd) {
   // trying a song as it is: nothing is kept (the hands are only Orfeo's guess)
   if (usePractice.getState().trial) return
   session.takes.push(k)
+  useSession.setState({ hasLog: true })
   if (song) void saveSession(song, { ...session, takes: [...session.takes] })
   // Speed up gradually: a round of the loop, or the song played to its end
   if (k.ramp && (why === 'loop' || why === 'end')) {
@@ -209,7 +237,8 @@ export function practiseBars(from: number, to: number): number | null {
   s.setLoopRegionActive(true)
   const p = usePractice.getState()
   if (p.way !== 'practise') usePractice.setState({ way: 'practise', hand: 'B', waitOn: p.way === 'wait' })
-  useSession.setState({ card: null, cardOpen: false, cardNew: false })
+  // the card goes out of the way for the playing, and stays in the log
+  useSession.setState({ cardOpen: false, cardNew: false })
   return start
 }
 
