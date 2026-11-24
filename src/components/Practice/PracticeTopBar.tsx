@@ -1,5 +1,5 @@
 import { useId, useLayoutEffect, useMemo, useRef, useState, type CSSProperties } from 'react'
-import { Play, Pause, SkipBack, Repeat, SlidersVertical, Volume2, VolumeX, ChevronUp, ChevronDown, WandSparkles, SquareArrowRightExit, Piano, Eye, Drum, UserRoundStar } from 'lucide-react'
+import { Play, Pause, SkipBack, Repeat, SlidersVertical, Volume2, VolumeX, ChevronUp, ChevronDown, WandSparkles, SquareArrowRightExit, Piano, Eye, EyeOff, Drum, UserRoundStar } from 'lucide-react'
 import { useStore } from '../../store'
 import { usePlayback } from '../../hooks/usePlayback'
 import { formatTime } from '../../utils/midiParser'
@@ -12,6 +12,7 @@ import { endHold } from '../../practice/waiting'
 import { reviewing } from '../../practice/reviewState'
 import { togglePassage } from '../../practice/review'
 import Tooltip from '../Tooltip'
+import { HAND_ASSIGN_GROUPS } from '../../utils/keyboardGroups'
 import OrfeoLogo from '../OrfeoLogo'
 import VolumeKnob from '../VolumeKnob'
 import { QueueButton } from '../Transport/QueueButton'
@@ -202,13 +203,25 @@ export default function PracticeTopBar() {
               ))}
               {band.length > 0 && <PopDivider />}
               {band.map(tr => (
-                <button key={tr.index} className="app-no-drag" onClick={() => useStore.getState().setTrackMuted(tr.index, !tr.muted)}
-                  aria-label={tr.muted ? t`Unmute ${tr.trackName}` : t`Mute ${tr.trackName}`}
-                  style={{ display: 'flex', alignItems: 'center', gap: 8, width: '100%', padding: '6px 14px', border: 'none', background: 'none', cursor: 'pointer', textAlign: 'left' }}>
-                  <span style={{ width: 9, height: 9, borderRadius: 2, flex: 'none', background: tr.color, opacity: tr.muted ? 0.35 : 1 }} />
-                  <span style={{ flex: 1, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontSize: 13, color: tr.muted ? 'var(--text-muted)' : 'var(--text-active)' }}>{tr.trackName}</span>
-                  {tr.muted ? <VolumeX size={14} color="var(--text-muted)" /> : <Volume2 size={14} color={AMBER} />}
-                </button>
+                <div key={tr.index} style={{ display: 'flex', alignItems: 'center', width: '100%', paddingRight: 10, boxSizing: 'border-box' }}>
+                  <button className="app-no-drag" onClick={() => useStore.getState().setTrackMuted(tr.index, !tr.muted)}
+                    aria-label={tr.muted ? t`Unmute ${tr.trackName}` : t`Mute ${tr.trackName}`}
+                    style={{ display: 'flex', alignItems: 'center', gap: 8, flex: 1, minWidth: 0, padding: '6px 4px 6px 14px', border: 'none', background: 'none', cursor: 'pointer', textAlign: 'left' }}>
+                    <span style={{ width: 9, height: 9, borderRadius: 2, flex: 'none', background: tr.color, opacity: tr.muted ? 0.35 : 1 }} />
+                    <span style={{ flex: 1, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontSize: 13, color: tr.muted ? 'var(--text-muted)' : 'var(--text-active)' }}>{tr.trackName}</span>
+                    {tr.muted ? <VolumeX size={14} color="var(--text-muted)" /> : <Volume2 size={14} color={AMBER} />}
+                  </button>
+                  {/* a keyboard in the band: its notes on the piano roll too, for the harmony */}
+                  {!tr.isDrum && HAND_ASSIGN_GROUPS.has(tr.group) ? (
+                    <Tooltip oneLine placement="right" title={tr.practiceOnRoll ? t`Hide from the piano roll` : t`Show on the piano roll`}>
+                      <button className="app-no-drag" onClick={() => useStore.getState().setPracticeOnRoll(tr.index, !tr.practiceOnRoll)}
+                        aria-label={tr.practiceOnRoll ? t`Hide ${tr.trackName} from the piano roll` : t`Show ${tr.trackName} on the piano roll`} aria-pressed={!!tr.practiceOnRoll}
+                        style={{ display: 'flex', alignItems: 'center', padding: 4, border: 'none', background: 'none', cursor: 'pointer' }}>
+                        {tr.practiceOnRoll ? <Eye size={14} color={AMBER} /> : <EyeOff size={14} color="var(--text-muted)" />}
+                      </button>
+                    </Tooltip>
+                  ) : <span style={{ width: 22, flex: 'none' }} />}
+                </div>
               ))}
             </BarPop>
           )}

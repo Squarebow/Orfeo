@@ -497,6 +497,8 @@ interface OrfeoStore {
   // the band muted and hidden; off puts every track back (practice/practiceMode.ts)
   practiceActive: boolean
   setPracticeTracks: (on: boolean, hands?: Record<number, 'L' | 'R'>) => void
+  // practice mode: show a band keyboard's notes on the piano roll (TrackState.practiceOnRoll)
+  setPracticeOnRoll: (index: number, on: boolean) => void
   // the hand you practise is silent (unless you hear it too); the other is heard
   setPracticeSound: (hand: 'L' | 'B' | 'R', hearMine: boolean) => void
   // Mute is sound only; what shows on the roll and keyboard is the eye (visible)
@@ -1276,17 +1278,18 @@ export const useStore = create<OrfeoStore>((set, get) => ({
   setTrackMuted: (index, muted) =>
     set((s) => ({ tracks: s.tracks.map((t) => (t.index === index ? { ...t, muted } : t)) })),
   practiceActive: false,
+  setPracticeOnRoll: (index, on) => set((s) => ({ tracks: s.tracks.map(t => (t.index === index && !t.practicePart ? { ...t, practiceOnRoll: on } : t)) })),
   setPracticeTracks: (on, hands = {}) => set((s) => {
     if (on) {
       if (!s.practiceActive) _practiceSnapshot = new Map(s.tracks.map(t => [t.index, { muted: t.muted, visible: t.visible, solo: t.solo }]))
       return { practiceActive: true, tracks: s.tracks.map(t => hands[t.index]
         ? { ...t, practicePart: true, practiceHand: hands[t.index], muted: true, visible: true, solo: false }
-        : { ...t, practicePart: undefined, practiceHand: undefined, muted: true, visible: false, solo: false }) }
+        : { ...t, practicePart: undefined, practiceHand: undefined, practiceOnRoll: false, muted: true, visible: false, solo: false }) }
     }
     const snap = _practiceSnapshot
     _practiceSnapshot = null
     return { practiceActive: false, tracks: s.tracks.map(t => {
-      const { practicePart: _p, practiceHand: _h, ...rest } = t
+      const { practicePart: _p, practiceHand: _h, practiceOnRoll: _r, ...rest } = t
       return { ...rest, ...(snap?.get(t.index) ?? {}) }
     }) }
   }),

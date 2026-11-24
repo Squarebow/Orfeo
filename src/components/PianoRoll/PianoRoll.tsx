@@ -1036,9 +1036,10 @@ export default function PianoRoll() {
 
         barStartsRef.current = storeBars
 
-        const trackMap = new Map<number, { visible: boolean; muted: boolean; solo: boolean; color: string; practicePart?: boolean; practiceHand?: 'L' | 'R' }>()
+        const trackMap = new Map<number, { visible: boolean; muted: boolean; solo: boolean; color: string; practicePart?: boolean; practiceHand?: 'L' | 'R'; practiceOnRoll?: boolean }>()
         for (const t of tracks) trackMap.set(t.index, t)
         const hasSolo = tracks.some((t: any) => t.solo)
+        const practiceOn = usePractice.getState().active
 
         const flat     = flatNotesRef.current
         const startIdx = lowerBound(flat, visStart - visibleSecs)
@@ -1055,7 +1056,9 @@ export default function PianoRoll() {
           if (note.time + note.duration < visStart) continue
 
           const ts = trackMap.get(note.trackIndex)
-          if (ts && !isOnRoll(ts, hasSolo)) continue   // what's on the roll: eye, mute and solo — mute kept on with Muted tracks stay on the roll (trackShown.ts)
+          // a band keyboard shown for its harmony (practice mode's band panel): faded, its own colour
+          const bandKeys = practiceOn && !!ts?.practiceOnRoll && !ts.practicePart
+          if (ts && !bandKeys && !isOnRoll(ts, hasSolo)) continue   // what's on the roll: eye, mute and solo — mute kept on with Muted tracks stay on the roll (trackShown.ts)
 
           let shownMidi = note.midi + transpose
           let folded = false
@@ -1085,7 +1088,7 @@ export default function PianoRoll() {
           // global toggle off, and gates Assign LH/RH availability); it
           // never takes display away from what was already showing. ───────
           const handColoringOn = showHandLabels || (noteEditorActive && NES.reassignHandsMode)
-          const color = !note.hand
+          const color = !note.hand || bandKeys
             ? trackColorNum
             : (isSplitTrack || handColoringOn)
               ? (note.hand === 'L' ? HAND_LH_COLOR : HAND_RH_COLOR)
@@ -1102,7 +1105,7 @@ export default function PianoRoll() {
           const drawW = Math.max(key.width - 2, 1)
           const otherHand = practisedHand !== 'B' && !!ts?.practiceHand && ts.practiceHand !== practisedHand
           notes.roundRect(key.x + 1, topY, drawW, noteH, NOTE_RADIUS)
-          notes.fill({ color, alpha: (folded ? 0.4 : 0.9) * (otherHand ? 0.35 : 1) })
+          notes.fill({ color, alpha: (folded ? 0.4 : 0.9) * (otherHand ? 0.35 : 1) * (bandKeys ? 0.4 : 1) })
           notes.rect(key.x + 1, topY, drawW, 2)
           notes.fill({ color: NOTE_HIGHLIGHT_COLOR, alpha: folded ? 0.12 : 0.25 })
 

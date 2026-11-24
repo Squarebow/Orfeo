@@ -137,6 +137,10 @@ export interface TrackState {
   practicePart?: boolean
   // which hand this piano track is, in practice mode (the song has one track per hand)
   practiceHand?: 'L' | 'R'
+  // practice mode: a keyboard in the band (organ, harpsichord, another piano)
+  // drawn on the piano roll too, faded in its own colour, so its harmony can be
+  // read; never on the keyboard or the score, never waited for (off by default)
+  practiceOnRoll?: boolean
 }
 
 // 25, 37 and 49 are the portable sizes (Settings › Keyboard › Portable keyboards)
