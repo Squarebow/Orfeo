@@ -13,7 +13,7 @@
     "translated": 1,
     "fuzzy": 1364,
     "readySince": null,
-    "lastChange": "2026-11-20T23:04:25.614081+01:00"
+    "lastChange": "2026-11-23T23:35:22.610866+01:00"
   },
   "fr": {
     "percent": 0,
@@ -56,11 +56,11 @@
     "lastChange": "2026-11-20T23:04:28.930185+01:00"
   },
   "zh_Hans": {
-    "percent": 2,
+    "percent": 0,
     "total": 1748,
-    "translated": 46,
-    "fuzzy": 1319,
+    "translated": 4,
+    "fuzzy": 1744,
     "readySince": null,
-    "lastChange": "2026-11-20T23:04:29.655760+01:00"
+    "lastChange": "2026-11-23T15:16:06.719607+01:00"
   }
 }
