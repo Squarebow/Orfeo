@@ -1,7 +1,7 @@
 import { create } from 'zustand'
 import { useStore } from '../store'
 import { barOf } from '../utils/debugTimestamp'
-import { usePractice, practisedHand, metronomeAllowed, speedPercent, setSpeedPercent } from './practiceMode'
+import { usePractice, practisedHand, metronomeAllowed, speedPercent, setSpeedPercent, setTrialCard } from './practiceMode'
 import { onTake, freshTake, currentMatcher, useWaiting, heardSongTime } from './listen'
 import { onPlayedKey } from '../hooks/useMidiInput'
 import { useReview } from './reviewState'
@@ -81,6 +81,8 @@ function closeTake(why: TakeEnd) {
     meta: { way: p.way, hand: practisedHand(), level: p.level, wait: waitingOn(), ramp: p.way === 'practise' && p.ramp },
   })
   if (!worthKeeping(k)) return
+  // trying a song as it is: nothing is kept (the hands are only Orfeo's guess)
+  if (usePractice.getState().trial) return
   session.takes.push(k)
   if (song) void saveSession(song, { ...session, takes: [...session.takes] })
   // Speed up gradually: a round of the loop, or the song played to its end
@@ -99,6 +101,8 @@ function closeTake(why: TakeEnd) {
 function stretchEnded() {
   stretchOpen = false
   if (useReview.getState().open) return
+  // trying a song as it is: the card says what's missing instead of how it went
+  if (usePractice.getState().trial) { setTrialCard(true); return }
   if (!session || !useStore.getState().practiceSummaryEnabled) return
   const takes = session.takes.slice(stretchFrom)
   const subject = [...takes].reverse().find(k => k.end === 'loop') ?? takes[takes.length - 1]

@@ -22,8 +22,7 @@ import { useSession, toggleCard } from '../../practice/session'
 import { tickPath } from '../../practice/songTicks'
 import {
   usePractice, leavePractice, tempoLimits, metronomeAllowed, speedPercent, setSpeedPercent, practisedHand,
-  fixHandsFromPractice, setBandPreset, bandPreset, type BandPreset,
-} from '../../practice/practiceMode'
+  fixHandsFromPractice, setBandPreset, bandPreset, type BandPreset, setTrialCard } from '../../practice/practiceMode'
 
 // ── Practice mode's header ───────────────────────────────────────────────────
 // Top line: PRACTICE MODE (beside the window's own buttons). Then one row:
@@ -77,6 +76,7 @@ export default function PracticeTopBar() {
   const way = usePractice(s => s.way)
   const level = usePractice(s => s.level)
   const songReady = usePractice(s => s.songReady)
+  const trial = usePractice(s => s.trial)
   const card = useSession(s => s.card)
   const cardNew = useSession(s => s.cardNew)
   const cardOpen = useSession(s => s.cardOpen)
@@ -285,6 +285,14 @@ export default function PracticeTopBar() {
         }}>
           <span style={{ color: 'var(--text-default)', fontSize: 'var(--text-sm)', fontFamily: 'var(--font-ui)', lineHeight: '13px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: 560, pointerEvents: 'auto' }}>
             {midi?.fileName.replace(/\.(mid|midi)$/i, '') ?? ''}
+            {trial && (
+              <Tooltip title={t`Trying it as it is`} description={t`This song isn't a lesson yet: the hands are Orfeo's guess. Click to see why, and what makes it one.`} placement="bottom">
+                <button className="app-no-drag" onClick={() => setTrialCard(true)} style={{
+                  marginLeft: 10, padding: 0, border: 'none', background: 'none', cursor: 'pointer', fontFamily: 'var(--font-ui)',
+                  fontSize: 10, fontWeight: 600, letterSpacing: '0.08em', textTransform: 'uppercase', color: AMBER,
+                }}>{t`Trying it as it is · why?`}</button>
+              </Tooltip>
+            )}
           </span>
           <div style={{ display: 'grid', gridTemplateColumns: `${CENTRE_SIDE}px auto ${CENTRE_SIDE}px`, alignItems: 'center' }}>
             <div style={{ justifySelf: 'end', display: 'flex', pointerEvents: 'auto' }}>

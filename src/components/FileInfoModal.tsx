@@ -21,7 +21,7 @@ import { useFocusTrap } from '../hooks/useFocusTrap'
 import { fileHasLyrics } from '../utils/lyricsCheck'
 import { TagPill } from './SettingsPanel/LibraryTags'
 import { PracticeProgressSummary } from './Practice/PracticeProgress'
-import { PRACTICE_VISIBLE } from '../practice/practiceMode'
+import { PRACTICE_VISIBLE, trySongInPractice, keyboardConnected } from '../practice/practiceMode'
 
 interface FileLogEvent { type: string; timestamp: number; summary: string }
 interface FileVersion { name: string; path: string; version: number; mtime: number }
@@ -70,6 +70,7 @@ export default function FileInfoModal({ filePath, fileName, onClose, onRenamed, 
   const noteNaming   = useStore((s) => s.noteNaming)
   const accidentals  = useStore((s) => s.accidentals)
   const noteEditorActive = useStore((s) => s.noteEditorActive)
+  const practiceOn = useStore((s) => s.practiceModeEnabled)
 
   // ── Copy bars: other files with this song's notes. null = list closed ──────
   const [otherVersions, setOtherVersions] = useState<OtherVersion[] | 'checking' | null>(null)
@@ -600,6 +601,17 @@ export default function FileInfoModal({ filePath, fileName, onClose, onRenamed, 
 
         {/* ── Practice mode (2.0, dev mode until then): how the song has come along ── */}
         {meta && PRACTICE_VISIBLE && <PracticeProgressSummary path={currentPath} />}
+        {meta && PRACTICE_VISIBLE && practiceOn && (
+          <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: 8 }}>
+            <button disabled={!keyboardConnected()} onClick={() => { onClose(); void trySongInPractice(currentPath) }}
+              title={keyboardConnected() ? t`Opens the song in practice mode: a lesson as usual, any other song as it is, with Orfeo's guess at the hands.` : t`Connect a keyboard to practise.`}
+              style={{
+                height: 26, padding: '0 12px', borderRadius: 4, fontFamily: 'var(--font-ui)', fontSize: 11, fontWeight: 600, letterSpacing: '0.06em', textTransform: 'uppercase',
+                cursor: keyboardConnected() ? 'pointer' : 'default', background: 'var(--accent-amber-subtle)', border: '1px solid var(--accent-amber-strong)',
+                color: keyboardConnected() ? 'var(--text-amber)' : 'var(--text-dim)', opacity: keyboardConnected() ? 1 : 0.6,
+              }}>{t`Try it in practice mode`}</button>
+          </div>
+        )}
 
         {/* ── Orfeo History — real edits (Playback Editor, Note Editor, tempo/
             key, mixer saves) are embedded directly in the .mid file as

@@ -3,7 +3,7 @@ import { useStore } from '../../store'
 import { useMidiSettings } from '../../store/midiSettings'
 import { t } from '../../utils/i18n'
 import Tooltip from '../Tooltip'
-import { PRACTICE_VISIBLE, practiceGate, canEnterPractice, enterPractice, type GateReason } from '../../practice/practiceMode'
+import { PRACTICE_VISIBLE, practiceGate, canEnterPractice, enterPractice, tryInPractice, trialHands, type GateReason } from '../../practice/practiceMode'
 
 // ── The way into practice mode, on the Tracks panel's icon rail ──────────────
 // Alive when Practice mode is on in Settings, a USB keyboard is plugged in and
@@ -41,14 +41,17 @@ export default function PracticeButton({ size, strokeWidth, wrapperStyle }: { si
   }
   const can = canEnterPractice()
   const gate = practiceGate()
-  const ready = can.ok
+  // a song that isn't a lesson yet: practice mode opens to try it as it is
+  const tryable = !gate.ok && ['prepare', 'too-many', 'messy', 'no-piano'].includes(gate.reason) && !!trialHands()
+  const ready = can.ok || tryable
   const why = gate.ok ? t`Practise this song's piano part with your keyboard.`
+    : tryable ? `${reasonText(gate.reason, gate.reason === 'too-many' ? gate.pianos : gate.passages)} ${t`Click to try it as it is.`}`
     : can.ok ? t`Practise with your keyboard: pick a song from your practice queue.`
     : reasonText(can.reason, !gate.ok && can.reason === 'too-many' ? gate.pianos : !gate.ok ? gate.passages : undefined)
   return (
     <Tooltip title={t`Practice mode`} description={why} wrapperStyle={wrapperStyle}>
       <button
-        onClick={() => { if (ready) enterPractice() }}
+        onClick={() => { if (gate.ok || (can.ok && !tryable)) enterPractice(); else if (tryable) tryInPractice() }}
         aria-disabled={!ready}
         aria-label={t`Practice mode`}
         style={{

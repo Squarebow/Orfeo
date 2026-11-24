@@ -28,6 +28,7 @@ import { rebuildSongTempo, copyBarsFrom } from '../../utils/tapTempoSession'
 import ExportAudioDialog from '../ExportAudioDialog'
 import Tooltip, { TooltipBox, useTooltip } from '../Tooltip'
 import { ContextMenu, ContextMenuItem, ContextMenuDivider, ContextMenuLabel } from '../ContextMenu'
+import { PRACTICE_VISIBLE, trySongInPractice, keyboardConnected } from '../../practice/practiceMode'
 import { UpdateButton, RateButton, DevModeBadge } from '../Settings/controls'
 import QuickSettings from '../Settings/QuickSettings'
 import { createPortal } from 'react-dom'
@@ -679,6 +680,7 @@ function LibraryPanel({ hidden = false }: { hidden?: boolean }) {
   // never while a tour is showing (its rings blink the same way: a blink left
   // after closing the tour looked like a step that hadn't closed)
   const [folderAsked, setFolderAsked] = useState(false)
+  const practiceOn = useStore(s => s.practiceModeEnabled)
   const tourShowing = useStore(s => s.tourActive !== null)
   const handlePickFolder = async () => {
     setFolderAsked(true)
@@ -1196,6 +1198,12 @@ function LibraryPanel({ hidden = false }: { hidden?: boolean }) {
                 </ContextMenuItem>
               )
             })()}
+            {/* opens the song in practice mode: a lesson as usual, any other song as it is */}
+            {PRACTICE_VISIBLE && practiceOn && (
+              <ContextMenuItem disabled={!keyboardConnected()} onClick={() => { const path = contextMenu.path; setContextMenu(null); void trySongInPractice(path) }}>
+                {keyboardConnected() ? t`Try it in practice mode` : t`Try it in practice mode (connect a keyboard)`}
+              </ContextMenuItem>
+            )}
             {exportAudioEnabled && (
               <ContextMenuItem
                 onClick={() => {

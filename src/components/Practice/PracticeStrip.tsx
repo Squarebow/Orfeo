@@ -74,7 +74,7 @@ Settings › Practice: Every note, for each note of your part.`} placement="top"
 export default function PracticeStrip() {
   const playbar = useStore(s => s.practicePlaybar)
   const fingerHints = useStore(s => s.fingerHints)
-  const { way, hand, waitOn, level, view, onlyHand, ramp, hearMine } = usePractice()
+  const { way, hand, waitOn, level, view, onlyHand, ramp, hearMine, trial } = usePractice()
   const streak = useSession(s => s.ramp.streak)
   const set = usePractice.setState
   const [open, setOpen] = useState<'' | 'mode' | 'hands' | 'view' | 'midi'>('')
@@ -96,7 +96,8 @@ export default function PracticeStrip() {
   // ── Hands: in Play along only; the other two ways are both hands ──
   const handName: Record<PracticeHand, string> = { L: t`Left`, R: t`Right`, B: t`Both` }
   const shownHand: PracticeHand = onlyHand ?? (way === 'practise' ? hand : 'B')
-  const handsChoice = way === 'practise' && !onlyHand
+  // trying a song as it is: both hands only (the hands are Orfeo's guess)
+  const handsChoice = way === 'practise' && !onlyHand && !trial
   // ── Views ──
   const views: Record<PracticeView, { name: string; tip: string }> = {
     roll: { name: t`Piano roll`, tip: t`The notes fall onto the keyboard.` },
@@ -138,7 +139,8 @@ export default function PracticeStrip() {
           <BarPop anchor={refs.mode.current} up width={320} onClose={close} label={t`Mode`}>
             <div style={popHeading}>{t`How you play`}</div>
             {(['practise', 'wait', 'perform'] as PracticeWay[]).map(id => (
-              <PopItem key={id} on={way === id} onClick={() => { set({ way: id }); if (id !== 'perform') close() }} hint={ways[id].tip}>
+              <PopItem key={id} on={way === id} disabled={trial && id === 'perform'} onClick={() => { set({ way: id }); if (id !== 'perform') close() }}
+                hint={trial && id === 'perform' ? t`Performance is for a song that's a lesson: its hands checked and kept as two tracks.` : ways[id].tip}>
                 {ways[id].name}
               </PopItem>
             ))}
@@ -166,7 +168,8 @@ export default function PracticeStrip() {
         )}
 
         <Tooltip title={t`Hands`} placement="top" disabled={open === 'hands'}
-          description={onlyHand ? t`The song's piano is for one hand only.`
+          description={trial ? t`Trying it as it is: both hands, with Orfeo's guess at which hand plays what. A lesson lets you play one hand alone.`
+            : onlyHand ? t`The song's piano is for one hand only.`
             : handsChoice ? t`Which hand you play; Orfeo plays the other. Click to choose.`
             : t`${ways[way].name} is always both hands.`}>
           <button ref={refs.hands} onClick={() => (handsChoice || onlyHand) && toggle('hands')} style={toolBtn(!handsChoice && !onlyHand)} aria-label={t`Hands`} aria-expanded={open === 'hands'}>
@@ -247,7 +250,8 @@ export default function PracticeStrip() {
           <BarPop anchor={refs.view.current} up align="right" width={250} onClose={close} label={t`View`}>
             <div style={popHeading}>{t`View`}</div>
             {(['roll', 'score', 'split'] as PracticeView[]).map(id => (
-              <PopItem key={id} on={view === id} onClick={() => { set({ view: id }); close() }} hint={views[id].tip}>{views[id].name}</PopItem>
+              <PopItem key={id} on={view === id} disabled={trial && id !== 'roll'} onClick={() => { set({ view: id }); close() }}
+                hint={trial && id !== 'roll' ? t`The score needs the hands checked: it shows once the song is a lesson.` : views[id].tip}>{views[id].name}</PopItem>
             ))}
             {/* the same switch as Settings › Practice › Fingering */}
             <PopDivider />

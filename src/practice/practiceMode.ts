@@ -1,13 +1,15 @@
 import { create } from 'zustand'
 import { useStore } from '../store'
 import { useMidiSettings } from '../store/midiSettings'
-import { songPracticeState, PRACTICE_PREP_VISIBLE, type SongPractice } from '../utils/practiceReadiness'
+import { songPracticeState, isPracticePiano, PRACTICE_PREP_VISIBLE, type SongPractice } from '../utils/practiceReadiness'
 import type { KeyboardSize } from '../types'
 import type { DetectedKey } from '../utils/keyDetection'
 import { NES } from '../utils/noteEditorState'
 import { focusRole } from '../utils/keyboardGroups'
 import type { SongCheck } from './songCheck'
 import { songCheckOf } from './songCheckOf'
+import { openSongByPath } from '../utils/queueControl'
+import { HAND_ASSIGN_GROUPS } from '../utils/keyboardGroups'
 import { meterFromDrums, type MeterFix } from '../utils/meterCheck'
 import { rememberPracticePlace, openPrepare } from './editRoundTrip'
 
@@ -39,11 +41,15 @@ interface PracticeUi {
   onlyHand: 'L' | 'R' | null  // the song's piano is one hand throughout: always that hand
   songReady: boolean        // a song ready to practise is open (else: pick one from the playlist)
   notReady: GateReason | null // why the open song can't be practised (shown while picking)
+  // Try it as it is: a song that isn't a lesson yet, played with Orfeo's guess at
+  // the hands: both hands only, no score, nothing kept (trialCard says why)
+  trial: boolean
+  trialCard: boolean        // the card saying what's missing and what to do
 }
 
 export const usePractice = create<PracticeUi>(() => ({
   active: false, way: 'practise', hand: 'B', waitOn: false, level: 1, view: 'roll', hearMine: true, ramp: false, onlyHand: null,
-  songReady: false, notReady: null,
+  songReady: false, notReady: null, trial: false, trialCard: false,
 }))
 
 // ── Your choices, remembered ─────────────────────────────────────────────────
@@ -153,8 +159,8 @@ export function canEnterPractice(): { ok: true } | { ok: false; reason: GateReas
   return { ok: false, reason: !g.ok && g.reason !== 'no-song' ? g.reason : 'no-queue' }
 }
 
-export function enterPractice(): boolean {
-  if (!canEnterPractice().ok) return false
+export function enterPractice(trying = false): boolean {
+  if (!trying && !canEnterPractice().ok) return false
   const gate = practiceGate()
   const s = useStore.getState()
   if (s.playbackState === 'playing') useStore.setState({ playbackState: 'paused' })
@@ -176,11 +182,11 @@ export function enterPractice(): boolean {
   useStore.setState({ keyboardSize: 88, keyboardOctave: 0 })
   if (gate.ok) {
     useStore.getState().setPracticeTracks(true, gate.hands)
-    usePractice.setState({ active: true, onlyHand: gate.onlyHand, songReady: true, notReady: null })
+    usePractice.setState({ active: true, onlyHand: gate.onlyHand, songReady: true, notReady: null, trial: false, trialCard: false })
     applySongDefaults()
   } else {
     // nothing to practise open yet: pick a song from the playlist
-    usePractice.setState({ active: true, onlyHand: null, songReady: false, notReady: gate.reason === 'no-song' ? null : gate.reason })
+    usePractice.setState({ active: true, onlyHand: null, songReady: false, notReady: gate.reason === 'no-song' ? null : gate.reason, trial: false, trialCard: false })
   }
   applySound()
   applyWayRules()
@@ -195,7 +201,8 @@ export function leavePractice(): void {
   const s = useStore.getState()
   if (s.playbackState === 'playing') useStore.setState({ playbackState: 'paused' })
   if (s.practiceActive) s.setPracticeTracks(false)
-  usePractice.setState({ active: false, onlyHand: null, songReady: false, notReady: null })
+  usePractice.setState({ active: false, onlyHand: null, songReady: false, notReady: null, trial: false, trialCard: false })
+  trialPath = null
   const b = before
   before = null
   if (!b) return
@@ -213,6 +220,7 @@ export function leavePractice(): void {
 export function practisedHand(): PracticeHand {
   const p = usePractice.getState()
   if (p.onlyHand) return p.onlyHand
+  if (p.trial) return 'B'   // trying a song as it is: both hands, the hands being a guess
   return p.way === 'practise' ? p.hand : 'B'
 }
 export function applySound(): void {
@@ -249,6 +257,68 @@ export function prepareFromPractice(): boolean {
   return true
 }
 
+// ── Try it as it is ─────────────────────────────────────────────────────────
+// Practice mode isn't only for songs that are lessons already (24. 11., the
+// user: "or no one will ever use it"). A song that isn't one yet can be tried
+// as it is: its piano tracks (all of them; or, with no piano, its keyboard
+// tracks) as the part, each track's hand Orfeo's guess from most of its notes.
+// Both hands only, the piano roll only (no score: the hands aren't checked),
+// Performance not offered, nothing kept for How it went or Progress. When you
+// stop, the trial card says what's missing and how to make it a lesson.
+const songPath = (): string => (((useStore.getState().midi as any)?._filePath as string | undefined) ?? '').replace(/\\/g, '/').toLowerCase()
+let trialPath: string | null = null
+
+/** The tracks a trial plays as your part, and the hand of each (by most of its notes) */
+export function trialHands(): Record<number, 'L' | 'R'> | null {
+  const s = useStore.getState()
+  if (!s.midi) return null
+  const sounding = s.midi.tracks.filter(t => t.notes.length > 0)
+  const groupOf = (i: number) => s.tracks.find(x => x.index === i)
+  let part = sounding.filter(t => { const ts = groupOf(t.index); return isPracticePiano({ group: ts?.group ?? t.group, isDrum: ts?.isDrum ?? t.isDrum, program: ts?.program ?? t.program }) })
+  if (!part.length) part = sounding.filter(t => { const ts = groupOf(t.index); return !(ts?.isDrum ?? t.isDrum) && HAND_ASSIGN_GROUPS.has(ts?.group ?? t.group ?? '') })
+  if (!part.length) return null
+  const hands: Record<number, 'L' | 'R'> = {}
+  for (const t of part) hands[t.index] = t.notes.filter(n => n.hand === 'L').length > t.notes.length / 2 ? 'L' : 'R'
+  return hands
+}
+
+/** In practice mode, with a song that isn't a lesson open: try it as it is */
+export function startTrial(): boolean {
+  const p = usePractice.getState()
+  if (!p.active || p.songReady) return false
+  const hands = trialHands()
+  if (!hands) return false
+  useStore.getState().setPracticeTracks(true, hands)
+  usePractice.setState({
+    songReady: true, trial: true, trialCard: false, onlyHand: null, hand: 'B', view: 'roll',
+    way: p.way === 'perform' ? 'practise' : p.way,
+  })
+  applySound()
+  applyWayRules()
+  return true
+}
+
+/** Try the open song in practice mode (practice icon, Library, File info):
+ *  practice mode opens; a lesson opens as usual, any other song as it is */
+export function tryInPractice(): boolean {
+  if (!usePractice.getState().active) {
+    const s = useStore.getState()
+    if (!PRACTICE_VISIBLE || !s.practiceModeEnabled || !keyboardConnected() || s.noteEditorActive || !s.midi) return false
+    if (!enterPractice(true)) return false
+  }
+  return usePractice.getState().songReady || startTrial()
+}
+
+/** Open a Library song and try it in practice mode */
+export async function trySongInPractice(path: string): Promise<void> {
+  if (songPath() === path.replace(/\\/g, '/').toLowerCase()) { tryInPractice(); return }
+  trialPath = path.replace(/\\/g, '/').toLowerCase()
+  await openSongByPath(path)
+}
+
+/** The trial card (what's missing, what to do), opened when you stop */
+export function setTrialCard(open: boolean): void { usePractice.setState({ trialCard: open && usePractice.getState().trial }) }
+
 /** Hear your own part too (Practise): quietly, as a guide */
 export function setHearMine(on: boolean): void {
   usePractice.setState({ hearMine: on })
@@ -283,17 +353,22 @@ export function bandPreset(tracks: { practicePart?: boolean; muted: boolean; isD
 // defaults); if it isn't, practice mode stays open, saying why, so you can pick
 // another from the playlist. The keyboard unplugged: the song pauses.
 useStore.subscribe((s, prev) => {
-  if (s.midi === prev.midi || !usePractice.getState().active) return
+  if (s.midi === prev.midi) return
+  // a song opened to try in practice mode (Library right-click, File info)
+  const wanted = trialPath && songPath() === trialPath
+  if (wanted) trialPath = null
+  if (!usePractice.getState().active) { if (wanted) tryInPractice(); return }
   const gate = practiceGate()
   if (gate.ok) {
     useStore.getState().setPracticeTracks(true, gate.hands)
-    usePractice.setState({ onlyHand: gate.onlyHand, songReady: true, notReady: null })
+    usePractice.setState({ onlyHand: gate.onlyHand, songReady: true, notReady: null, trial: false, trialCard: false })
     useStore.setState({ keyboardSize: 88, keyboardOctave: 0 })
     applySongDefaults()
     applySound()
   } else {
     if (useStore.getState().practiceActive) useStore.getState().setPracticeTracks(false)
-    usePractice.setState({ songReady: false, onlyHand: null, notReady: gate.reason === 'no-song' ? null : gate.reason })
+    usePractice.setState({ songReady: false, onlyHand: null, notReady: gate.reason === 'no-song' ? null : gate.reason, trial: false, trialCard: false })
+    if (wanted) startTrial()
   }
 })
 // always 88 keys in practice mode, whatever plugs in (Orfeo sizes the on-screen

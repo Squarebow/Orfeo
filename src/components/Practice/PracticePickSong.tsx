@@ -3,7 +3,7 @@ import { useStore } from '../../store'
 import { t } from '../../utils/i18n'
 import { libraryDisplayName } from '../../utils/libraryNames'
 import { openQueueAt } from '../../utils/queueControl'
-import { usePractice, prepareFromPractice } from '../../practice/practiceMode'
+import { usePractice, prepareFromPractice, startTrial, trialHands } from '../../practice/practiceMode'
 import { reasonText } from './PracticeButton'
 import { AMBER, featLabel, UNDER_HEADER, useDragAnywhere } from './practiceBar'
 
@@ -18,6 +18,8 @@ export default function PracticePickSong() {
   const songFirst = useStore(s => s.librarySongFirst)
   const open = useStore(s => s.midi?.fileName ?? null)
   const editorOn = useStore(s => s.noteEditorEnabled)
+  // a song that isn't a lesson can still be tried as it is (its piano or keyboard part)
+  const canTry = !!open && notReady !== null && notReady !== 'no-keyboard' && notReady !== 'off' && notReady !== 'editing' && !!trialHands()
   const { off, dragProps } = useDragAnywhere('pick-a-song')
   if (songReady) return null
   return (
@@ -36,15 +38,23 @@ export default function PracticePickSong() {
           {t`${open.replace(/\.(mid|midi)$/i, '')} can't be practised yet.`} {notReady === 'prepare'
             ? t`The piano needs a track for each hand first: check the hands, then Split & Save, and you're back here.`
             : reasonText(notReady)}
-          {notReady === 'prepare' && (
-            <div style={{ marginTop: 8 }}>
-              <button disabled={!editorOn} onClick={() => { prepareFromPractice() }}
+          {(notReady === 'prepare' || canTry) && (
+            <div style={{ marginTop: 8, display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+              {canTry && (
+                <button onClick={() => { startTrial() }}
+                  title={t`Play it now with Orfeo's guess at the hands: both hands, no score, nothing kept. Afterwards Orfeo says what makes it a lesson.`}
+                  style={{
+                    padding: '4px 12px', borderRadius: 'var(--radius-sm)', fontFamily: 'var(--font-ui)', fontSize: 12, fontWeight: 600, cursor: 'pointer',
+                    border: '1px solid var(--accent-amber-strong)', background: 'var(--accent-amber-subtle)', color: AMBER,
+                  }}>{t`Try it as it is`}</button>
+              )}
+              {notReady === 'prepare' && <button disabled={!editorOn} onClick={() => { prepareFromPractice() }}
                 title={editorOn ? undefined : t`Turn on MIDI Note Editor in Settings › Editing`}
                 style={{
                   padding: '4px 12px', borderRadius: 'var(--radius-sm)', fontFamily: 'var(--font-ui)', fontSize: 12, fontWeight: 600,
                   cursor: editorOn ? 'pointer' : 'default', border: 'none',
                   background: editorOn ? AMBER : 'var(--bg-tile)', color: editorOn ? 'var(--text-near-black)' : 'var(--text-dim)',
-                }}>{t`Prepare it now`}</button>
+                }}>{t`Prepare it now`}</button>}
             </div>
           )}
         </div>
