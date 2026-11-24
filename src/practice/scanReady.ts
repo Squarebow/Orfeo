@@ -2,6 +2,7 @@ import { create } from 'zustand'
 import { useStore } from '../store'
 import { parseMidiBuffer } from '../utils/midiParser'
 import { songPracticeState } from '../utils/practiceReadiness'
+import { prescanReady } from './handPrescan'
 
 // ── Scan for practice-ready songs ────────────────────────────────────────────
 // From the practice queue's drop-down (the top bar, in playback and in
@@ -9,7 +10,9 @@ import { songPracticeState } from '../utils/practiceReadiness'
 // it opens, and add the ones ready to practise to the end of the queue: a
 // piano as two tracks that play like a left and a right hand (practiceReadiness.ts).
 // One song at a time with a pause between, so Orfeo stays responsive; Stop
-// keeps what was found so far.
+// keeps what was found so far. A song the background reading has already
+// reached (handPrescan.ts) isn't read again: its answer is used at once, so
+// after that reading the scan takes a moment.
 
 interface ScanState {
   running: boolean
@@ -42,6 +45,12 @@ export async function scanForPracticeReady(): Promise<void> {
   const found: string[] = []
   for (let i = 0; i < files.length && !stopRequested; i++) {
     const f = files[i]
+    const known = prescanReady(f.path)
+    if (known !== undefined) {
+      if (known) found.push(f.path)
+      if (i % 50 === 49) useReadyScan.setState({ done: i + 1 })
+      continue
+    }
     try {
       const r = await window.electronAPI.loadMidiFromPath(f.path)
       if (r?.base64) {

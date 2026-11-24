@@ -26,8 +26,10 @@ interface PrescanState {
   /** when this round finished (ms), or null */
   finished: number | null
   seconds: number
+  /** songs found ready to practise so far (the queue's Scan adds them at once) */
+  readyCount: number
 }
-export const useHandPrescan = create<PrescanState>(() => ({ running: false, done: 0, total: 0, read: 0, current: '', finished: null, seconds: 0 }))
+export const useHandPrescan = create<PrescanState>(() => ({ running: false, done: 0, total: 0, read: 0, current: '', finished: null, seconds: 0, readyCount: 0 }))
 // dev mode: live tests read the state the app itself uses (an import from
 // outside gets its own copy of this module after a hot update)
 if (import.meta.env?.DEV && typeof window !== 'undefined') (window as any).__handPrescan = { state: () => useHandPrescan.getState(), stats: () => readingStats() }
@@ -36,7 +38,16 @@ const START_AFTER = 6000      // ms after Orfeo opens: the window and the first 
 const SAVE_EVERY = 10         // songs between saves to disk
 
 let worker: Worker | null = null
-let readDone = new Set<string>()
+// every song read: its key → ready to practise or not (kept on disk as "key|1" /
+// "key|0"; a key from before readiness was kept has no answer and is read again)
+let readDone = new Map<string, boolean>()
+// this session: a Library song → ready or not, once its turn has come
+const readyByPath = new Map<string, boolean>()
+const norm = (p: string) => p.replace(/\\/g, '/').toLowerCase()
+/** Is the song at `path` ready to practise, as the background reading found? (undefined: not reached yet) */
+export const prescanReady = (path: string): boolean | undefined => readyByPath.get(norm(path))
+/** Every Library song found ready so far (lower case, forward slashes) */
+export const prescanReadyPaths = (): string[] => [...readyByPath].filter(([, r]) => r).map(([p]) => p)
 let loaded = false
 let pending: { readings: StoredReadings; done: string[] } = { readings: [], done: [] }
 let again = false
@@ -61,7 +72,11 @@ async function load(): Promise<void> {
   if (loaded) return
   loaded = true
   const r = await api()?.handReadsLoad?.()
-  if (r) { addReadings(r.readings ?? []); readDone = new Set(r.done ?? []) }
+  if (r) {
+    addReadings(r.readings ?? [])
+    readDone = new Map()
+    for (const d of (r.done ?? []) as string[]) { const m = /^(.*)\|([01])$/.exec(d); if (m) readDone.set(m[1], m[2] === '1') }
+  }
 }
 
 function getWorker(): Promise<Worker> {
@@ -122,11 +137,14 @@ export async function prescanLibrary(): Promise<void> {
         const key = fileKey(bytes, options)
         if (!readDone.has(key)) {
           useHandPrescan.setState({ current: f.name })
-          await workerJob({ bytes: bytes.buffer as ArrayBuffer, name: r.fileName, path: f.path, options })
-          pending.done.push(key); readDone.add(key)
+          const out = await workerJob({ bytes: bytes.buffer as ArrayBuffer, name: r.fileName, path: f.path, options })
+          const ready = !!out.ready
+          pending.done.push(`${key}|${ready ? 1 : 0}`); readDone.set(key, ready)
           read++
           if (++sinceSave >= SAVE_EVERY) { sinceSave = 0; await save() }
         }
+        readyByPath.set(norm(f.path), readDone.get(key) ?? false)
+        useHandPrescan.setState({ readyCount: [...readyByPath.values()].filter(Boolean).length })
       }
     } catch { /* a song Orfeo can't read: skipped, as when opening it */ }
     // no pause between songs: waiting for the file and for the reader already
@@ -142,7 +160,8 @@ export async function prescanLibrary(): Promise<void> {
 /** Forget every reading (here, in the main process and on disk) and read the library again */
 export async function forgetAndRescan(): Promise<void> {
   forgetReadings()
-  readDone = new Set()
+  readDone = new Map()
+  readyByPath.clear()
   pending = { readings: [], done: [] }
   await api()?.handReadsForget?.()
   void prescanLibrary()

@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, type CSSProperties } from 'react'
+import { useEffect, useMemo, useRef, useState, type CSSProperties } from 'react'
 import { createPortal } from 'react-dom'
 import { ListOrdered, ChevronUp, ChevronDown, X, ListX, Settings2, Sparkles, ListMusic } from 'lucide-react'
 import { featValue, barIcon } from '../Practice/practiceBar'
@@ -13,11 +13,21 @@ import Tooltip from '../Tooltip'
 import { nameStyle } from '../Settings/QuickRow'  // same look as a setting's name in Setup
 import { PRACTICE_PREP_VISIBLE } from '../../utils/practiceReadiness'
 import { useReadyScan, scanForPracticeReady, stopReadyScan } from '../../practice/scanReady'
+import { useHandPrescan, prescanReadyPaths } from '../../practice/handPrescan'
 
 // ── Scan for practice-ready songs (practice/scanReady.ts): the last row of the
 // queue's drop-down, in playback and in practice mode. Dev mode only until 2.0.
 function ScanReadyRow({ onClear }: { onClear?: (() => void) | null }) {
   const { running, done, total, added } = useReadyScan()
+  // the background reading has looked at the whole Library: the answer is known, adding is instant
+  const bgDone = useHandPrescan(s => !s.running && s.finished !== null)
+  const queued = useStore(s => s.queue.paths)
+  // how many of them aren't in the queue yet
+  const bg = useMemo(() => {
+    if (!bgDone) return null
+    const inQueue = new Set(queued.map(p => p.replace(/\\/g, '/').toLowerCase()))
+    return prescanReadyPaths().filter(p => !inQueue.has(p)).length
+  }, [bgDone, queued, added])
   const row: React.CSSProperties = {
     width: '100%', padding: '7px 10px', border: 'none', borderTop: '1px solid var(--bg-tile)', background: 'none', textAlign: 'left',
     display: 'flex', alignItems: 'center', gap: 6, fontSize: 10, fontFamily: 'var(--font-ui)', boxSizing: 'border-box',
@@ -35,14 +45,17 @@ function ScanReadyRow({ onClear }: { onClear?: (() => void) | null }) {
   }
   return (
     <div style={{ ...row, padding: '8px 10px', gap: 10 }}>
-      <Tooltip title={t`Scan for practice-ready songs`} description={t`Reads every song in your Library and adds the ones ready to practise to the end of the queue: a piano as a left-hand and a right-hand track, or one hand throughout.`}>
+      <Tooltip title={bg !== null ? t`Add practice-ready songs` : t`Scan for practice-ready songs`}
+        description={bg !== null
+          ? t`Adds the songs ready to practise to the end of the queue (a piano as a left-hand and a right-hand track, or one hand throughout). Orfeo found them while reading your Library in the background.`
+          : t`Reads every song in your Library and adds the ones ready to practise to the end of the queue: a piano as a left-hand and a right-hand track, or one hand throughout.`}>
         <button onClick={() => void scanForPracticeReady()}
           style={{
             display: 'inline-flex', alignItems: 'center', gap: 6, padding: '5px 12px', borderRadius: 'var(--radius-sm)', cursor: 'pointer',
             border: '1px solid var(--accent-amber-strong)', background: 'var(--accent-amber-subtle)', color: 'var(--text-amber)',
             fontSize: 'var(--text-xs)', fontFamily: 'var(--font-ui)', fontWeight: 600, whiteSpace: 'nowrap',
           }}>
-          <Sparkles size={12} /> {t`Scan for practice-ready songs`}
+          <Sparkles size={12} /> {bg !== null ? t`Add ${bg} practice-ready songs` : t`Scan for practice-ready songs`}
         </button>
       </Tooltip>
       {added !== null && (

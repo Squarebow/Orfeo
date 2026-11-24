@@ -15,21 +15,24 @@ import { sharedSong, type SharedSong } from './handShareRecord'
 installHandModel(true)
 
 export interface PrescanJob { id: number; bytes: ArrayBuffer; name: string; path: string; options: { rhMaxFingers: number; lhMaxFingers: number }; share?: boolean }
-export interface PrescanReply { id: number; ok: boolean; readings: [string, string][]; shared?: SharedSong | null }
+export interface PrescanReply { id: number; ok: boolean; readings: [string, string][]; shared?: SharedSong | null; ready?: boolean }
 
 self.onmessage = (e: MessageEvent<PrescanJob>) => {
   const { id, bytes, name, path, options, share } = e.data
   let ok = true
   let shared: SharedSong | null = null
+  let ready = false
   try {
     const m: any = parseMidiBuffer(bytes, name, path, options)
     const pairs: [number, number][] = m._stavePairs ?? []
     if (share) shared = sharedSong(m, options)
     else {
-      songPracticeState(m.tracks, { stavePairs: pairs, options })
+      const st = songPracticeState(m.tracks, { stavePairs: pairs, options })
+      // ready to practise, as the queue's scan counts it (scanReady.ts)
+      ready = st.state === 'ready' || st.state === 'one-hand'
       songCheckOf(m.tracks.map((t: any) => ({ index: t.index, name: t.name ?? '', group: t.group ?? '', isDrum: !!t.isDrum, notes: t.notes })), pairs, options, m._source)
     }
   } catch { ok = false }
-  const reply: PrescanReply = { id, ok, readings: takeFreshReadings(), ...(share ? { shared } : {}) }
+  const reply: PrescanReply = { id, ok, readings: takeFreshReadings(), ...(share ? { shared } : { ready }) }
   self.postMessage(reply)
 }
