@@ -15,6 +15,9 @@
   now has a channel of its own.
 - **A piano written in Guitar Pro as two tracks, one per hand** ("Melody" and "Bass", "treble" and
   "bass", or "Piano" twice) now comes in as one piano with two staves, the upper one the right hand.
+- **On a first start, "Set your MIDI folder" went on blinking** after the welcome tour was closed and
+  while the folder was being chosen, so it looked like a tour step left open. It now blinks only until
+  it's clicked, and not while a tour is showing.
 
 ## [1.8.2] — 22. 11. 2026 — Minimising the window
 
