@@ -28,6 +28,8 @@ export const NES = {
   snapRef:            { current: true },
   quantizeDivisorRef: { current: 8 as NEQuantize },
   showNoteNamesRef:   { current: false },
+  // finger numbers on the notes (on by default; setting a finger turns them on)
+  showFingersRef:     { current: true },
   history:            createNoteEditorHistory(),
   dirty:              false,
   newNotes:           new Set<ToneNote>(),
@@ -97,6 +99,7 @@ export const NES = {
     this.snapRef.current            = true
     this.quantizeDivisorRef.current = 8
     this.showNoteNamesRef.current   = false
+    this.showFingersRef.current     = true
     this.activeTool                 = 'select'
     this.reassignHandsMode          = false
   },

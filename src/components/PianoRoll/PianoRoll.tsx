@@ -1047,7 +1047,7 @@ export default function PianoRoll() {
         const practisedHand = usePractice.getState().active ? practisedHandOf() : 'B'
         // fingering: the numbers on the notes in the Note Editor, where you set
         // them (in practice mode they're on the keyboard: practice/keyFingers.ts)
-        const showFingers = noteEditorActive
+        const showFingers = noteEditorActive && NES.showFingersRef.current
         const fingerMarks: { x: number; y: number; f: number; hint?: boolean }[] = []
         const hintsOn = useStore.getState().fingerHints
         for (let i = startIdx; i < flat.length; i++) {
@@ -1960,6 +1960,8 @@ export default function PianoRoll() {
       // none), one undoable step; never a new version (only how it's played) ──
       const setSelectedFinger = (finger: number | undefined) => {
         if (editSelectedNotes.size === 0) return
+        // a finger you've just set should be seen
+        if (finger) NES.showFingersRef.current = true
         const before = [...editSelectedNotes].map(n => ({ note: n, finger: (n as any).finger as number | undefined }))
         const count = before.length
         const cmd = {

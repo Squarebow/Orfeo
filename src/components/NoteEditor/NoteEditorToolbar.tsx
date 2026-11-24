@@ -1,5 +1,5 @@
 import { useEffect, useState, useReducer, useRef, useCallback, useMemo } from 'react'
-import { PenLine, SquareDashed, CircleDashed, Hand, WholeWord, Music4, Save, Magnet, Play, Pause, Check, Split, Undo2 } from 'lucide-react'
+import { PenLine, SquareDashed, CircleDashed, Hand, WholeWord, Numbers, Music4, Save, Magnet, Play, Pause, Check, Split, Undo2 } from 'lucide-react'
 import { usePracticeAway, awayFromPractice, backToPractice } from '../../practice/editRoundTrip'
 import { useStore } from '../../store'
 import { NES, buildNoteEditSummary, noteEditsChangeMusic, type NETool } from '../../utils/noteEditorState'
@@ -381,6 +381,11 @@ export default function NoteEditorToolbar() {
     NES.showNoteNamesRef.current = next
     setNoteNamesDisplay(next)
   }
+  // read straight from NES on each render (setting a finger turns it on from the roll)
+  const toggleFingers = () => {
+    NES.showFingersRef.current = !NES.showFingersRef.current
+    forceUpdate()
+  }
   const doUndo = () => {
     if (NES.history.undo()) { NES.syncEditedNotes(); NES.needsFlatRebuild = true; NES.onHistoryChange?.() }
   }
@@ -587,6 +592,10 @@ export default function NoteEditorToolbar() {
         <span style={rowLabelStyle}>{t`MODES`}</span>
         <ToolBtn active={showNoteNames} onClick={toggleNoteNames} onHint={setIconHint} hint={t`Note names — show pitch labels on notes`}>
           <WholeWord size={16} />
+        </ToolBtn>
+
+        <ToolBtn active={NES.showFingersRef.current} onClick={toggleFingers} onHint={setIconHint} hint={t`Finger numbers — show the fingering on notes`}>
+          <Numbers size={15} />
         </ToolBtn>
 
         <ToolBtn active={reassignHands} onClick={toggleReassignHands} onHint={setIconHint} hint={t`Reassign hands — show LH/RH colors and enable Assign LH/RH`}>
