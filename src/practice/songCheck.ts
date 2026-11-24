@@ -11,6 +11,8 @@
 // the whole library and the two-staff test scores (scripts/hand-audit), never
 // set for one song.
 
+import type { MeterFix } from '../utils/meterCheck'
+
 export interface CheckNote { midi: number; time: number; duration: number; hand?: 'L' | 'R' }
 export interface CheckTrack { index: number; name: string; group: string; isDrum: boolean; notes: CheckNote[]; program?: number }
 
@@ -222,6 +224,9 @@ export type Problem =
    *  strings (at most six notes at a time, the bass kept in a guitar's range),
    *  playable but not a piano arrangement: a weaker lesson than a piano score */
   | { kind: 'guitar-pro' }
+  /** the drums play a beat 1½ written beats long: the written meter is wrong,
+   *  so the metronome and the bars run off (utils/meterCheck.ts) */
+  | { kind: 'meter'; fix: MeterFix }
 
 export interface SongCheck {
   /** what Orfeo suggests, in the Playback Editor's own terms (leave out, merge) */
@@ -239,11 +244,12 @@ const unplayableShare = (notes: CheckNote[]) => { const p = handsPlayable(notes)
 /** The whole check. `hands` gives each piano track's hand when the file has the
  *  hands apart (two staves, Left/Right tracks); `read` is Orfeo's reading of
  *  hands for notes played as one piano (assignHands). */
-export function checkSong(all: CheckTrack[], o: { hands?: Map<number, 'L' | 'R'>; own?: { left: number; right: number } | null; read: Reader; source?: string }): SongCheck {
+export function checkSong(all: CheckTrack[], o: { hands?: Map<number, 'L' | 'R'>; own?: { left: number; right: number } | null; read: Reader; source?: string; meter?: MeterFix | null }): SongCheck {
   const suggestions: Suggestion[] = []
   const problems: Problem[] = []
   // where the file came from (midiParser.ts › _source): a warning, nothing changes
   if (o.source === 'guitarpro') problems.push({ kind: 'guitar-pro' })
+  if (o.meter) problems.push({ kind: 'meter', fix: o.meter })
   // the file's own two hands, playing like hands, and no other piano part: the
   // lesson as it is (other piano parts: below, they're suggested to leave out)
   const countsAsPiano = (t: CheckTrack, withOthers: boolean) => isPiano(t) && t.notes.length > 0 && (!withOthers || t.notes.length >= MIN_PRACTICE_NOTES)

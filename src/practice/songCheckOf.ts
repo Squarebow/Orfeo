@@ -7,8 +7,9 @@ import { assignHands, type HandAssignOptions } from '../utils/handAssignment'
 import { nameHand, ownHandPair, isPracticePiano } from '../utils/practiceReadiness'
 import { checkSong, type SongCheck, type CheckNote, type CheckTrack } from './songCheck'
 import type { ParsedNote } from '../types'
+import type { MeterFix } from '../utils/meterCheck'
 
-export function songCheckOf(tracks: (CheckTrack & { notes: ParsedNote[] })[], stavePairs: [number, number][], options: HandAssignOptions, source?: string): SongCheck {
+export function songCheckOf(tracks: (CheckTrack & { notes: ParsedNote[] })[], stavePairs: [number, number][], options: HandAssignOptions, source?: string, meter?: MeterFix | null): SongCheck {
   // the hands as the file has them: a piano's two staves (upper = right), or
   // tracks named / tagged for one hand
   const hands = new Map<number, 'L' | 'R'>()
@@ -17,5 +18,5 @@ export function songCheckOf(tracks: (CheckTrack & { notes: ParsedNote[] })[], st
   const read = (notes: CheckNote[]) => assignHands(notes.map(n => ({ midi: n.midi, time: n.time, duration: n.duration })), options).assignments.map(a => ({ ...a.note, hand: a.hand }))
   const pianoTracks = tracks.filter(t => isPracticePiano(t) && t.notes.length)
   const own = ownHandPair(pianoTracks, stavePairs)
-  return checkSong(tracks, { hands: hands.size ? hands : undefined, own, read, source })
+  return checkSong(tracks, { hands: hands.size ? hands : undefined, own, read, source, meter })
 }

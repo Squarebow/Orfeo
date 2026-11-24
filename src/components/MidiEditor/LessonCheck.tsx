@@ -37,17 +37,20 @@ export function problemText(p: Problem): string {
     case 'too-fast': return t`Keys are struck again faster than a hand can on ${pct(p.share)} of the piano's notes.`
     case 'out-of-range': return p.notes === 1 ? t`1 note lies outside the piano's 88 keys.` : t`${p.notes} notes lie outside the piano's 88 keys.`
     case 'unplayable': return t`The two hand tracks ask for what no hand can play (more than five keys, a stretch past a tenth, a leap too fast) in ${pct(p.share)} of their moments. Check the hands in the Note Editor.`
+    case 'meter': return t`The written beat isn't the one the drums play: the song is written in ${p.fix.num}/${p.fix.den} at ${p.fix.fileBpm} BPM, but the drums say ${p.fix.beatsPerBar} beats a bar at about ${p.fix.bpm} BPM. The metronome and the bars run off until the beat is set.`
     case 'guitar-pro': return t`Made from a Guitar Pro file, so its piano part was written out on a guitar's strings: at most six notes at a time, the bass often kept high and the left hand mostly single notes. It plays, but it isn't a piano arrangement; a piano score makes a better lesson.`
   }
 }
 
-export default function LessonCheck({ check, name, applied, onApply, onUndo }: {
+export default function LessonCheck({ check, name, applied, onApply, onUndo, onFixMeter }: {
   check: SongCheck
   name: (index: number) => string
   /** which suggestions (by place in the list) were applied and wait for Save */
   applied: boolean[]
   onApply: (s: Suggestion[]) => void
   onUndo: () => void
+  /** set the song's beat to the drums' beat (practiceMode.ts › applyMeterFix) */
+  onFixMeter?: (p: Extract<Problem, { kind: 'meter' }>) => void
 }) {
   const [open, setOpen] = useState(true)
   const n = check.suggestions.length + check.problems.length
@@ -74,7 +77,13 @@ export default function LessonCheck({ check, name, applied, onApply, onUndo }: {
               <span style={{ color: 'var(--text-dim)' }}>{t`No copies, no doubled notes, and each hand can play its part.`}</span></div>
           )}
           {check.problems.map((p, i) => (
-            <div key={`p${i}`} style={line}><AlertCircle size={13} style={{ color: 'var(--text-amber)', flexShrink: 0, marginTop: 2 }} /><span>{problemText(p)}</span></div>
+            <div key={`p${i}`} style={{ ...line, alignItems: p.kind === 'meter' ? 'center' : line.alignItems }}><AlertCircle size={13} style={{ color: 'var(--text-amber)', flexShrink: 0, marginTop: p.kind === 'meter' ? 0 : 2 }} /><span style={{ flex: 1, minWidth: 0 }}>{problemText(p)}</span>
+              {p.kind === 'meter' && onFixMeter && (
+                <Tooltip title={t`Use the drums' beat`} description={t`Sets the song's beat to the one the drums play, as Tap Tempo would: the metronome, the bars and the score follow. The file isn't changed; Tap Tempo can change it again.`}>
+                  <button data-no-drag="true" style={btn} onClick={() => onFixMeter(p)}>{t`Use the drums' beat`}</button>
+                </Tooltip>
+              )}
+            </div>
           ))}
           {check.suggestions.map((s, i) => (
             <div key={`s${i}`} style={{ ...line, alignItems: 'center' }}>

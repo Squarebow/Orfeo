@@ -28,7 +28,7 @@ import { nextOrfeoBaseName, isOrfeoVersionBase } from '../../utils/orfeoVersioni
 import { getHandPreviewStats, getLowConfidencePassages, estimateHandAccuracy, passageKey, isPassageSeen } from '../../utils/handPreview'
 import { goToPassage, startPracticePrep, passagesOf } from '../../utils/handCheck'
 import { PRACTICE_PREP_VISIBLE, rescoreForCheck } from '../../utils/practiceReadiness'
-import { currentSongPractice, currentSongCheck } from '../../practice/practiceMode'
+import { currentSongPractice, currentSongCheck, applyMeterFix } from '../../practice/practiceMode'
 import type { Suggestion } from '../../practice/songCheck'
 import LessonCheck from './LessonCheck'
 import { pianoSet, guessAcrossPiano } from '../../practice/pianoSet'
@@ -1105,9 +1105,11 @@ export default function MidiEditor() {
   // ── Lesson check (2.0): read from the song as saved, again when it reloads
   // or a track's instrument changes in the store ─────────────────────────────
   const trackKinds = tracks.map(t => `${t.index}:${t.group}:${t.isDrum}:${t.trackName}`).join('|')
+  // the song's beat as set (Tap Tempo, the meter fix): the check reads it too
+  const beatSet = useStore(s => (s.songKey ? s.tempoCorrections[s.songKey] : undefined))
   const lessonCheck = useMemo(() => (PRACTICE_PREP_VISIBLE && midiEditorOpen ? currentSongCheck() : null),
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [(midi as any)?._raw, trackKinds, midiEditorOpen])
+    [(midi as any)?._raw, trackKinds, midiEditorOpen, beatSet])
   // the rows before the check's changes (for Undo), and which suggestions went in
   const [checkApplied, setCheckApplied] = useState<{ rows: EditorTrack[]; done: boolean[] } | null>(null)
   useEffect(() => { setCheckApplied(null) }, [midiEditorOpen, (midi as any)?._raw])
@@ -1669,7 +1671,7 @@ export default function MidiEditor() {
       {lessonCheck && lessonCheck.pianos.length + lessonCheck.suggestions.length > 0 && (
         <LessonCheck check={lessonCheck} name={rowName}
           applied={checkApplied?.done ?? lessonCheck.suggestions.map(() => false)}
-          onApply={applyCheck} onUndo={undoCheck} />
+          onApply={applyCheck} onUndo={undoCheck} onFixMeter={p => applyMeterFix(p.fix)} />
       )}
 
       {/* ── Column headers ───────────────────────────────────────────────────── */}

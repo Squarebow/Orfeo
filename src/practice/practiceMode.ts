@@ -8,6 +8,7 @@ import { NES } from '../utils/noteEditorState'
 import { focusRole } from '../utils/keyboardGroups'
 import type { SongCheck } from './songCheck'
 import { songCheckOf } from './songCheckOf'
+import { meterFromDrums, type MeterFix } from '../utils/meterCheck'
 import { rememberPracticePlace, openPrepare } from './editRoundTrip'
 
 // ── Practice mode (Orfeo 2.0) ────────────────────────────────────────────────
@@ -102,7 +103,19 @@ export function currentSongCheck(): SongCheck | null {
     const name = ts?.trackName && ts.trackName !== ts.gmName ? ts.trackName : (t.name || ts?.trackName || '')
     return { index: t.index, name, group: ts?.group ?? t.group ?? '', isDrum: ts?.isDrum ?? t.isDrum, notes: t.notes, program: ts?.program ?? t.program }
   })
-  return songCheckOf(tracks, (s.midi as any)._stavePairs ?? [], { rhMaxFingers: s.rhMaxFingers, lhMaxFingers: s.lhMaxFingers }, (s.midi as any)._source)
+  // the written meter against the drums' beat, unless the beat was already set (Tap Tempo, or the fix below)
+  const corrected = !!(s.songKey && s.tempoCorrections[s.songKey]?.segments?.length)
+  const meter = corrected ? null : meterFromDrums(s.midi)
+  return songCheckOf(tracks, (s.midi as any)._stavePairs ?? [], { rhMaxFingers: s.rhMaxFingers, lhMaxFingers: s.lhMaxFingers }, (s.midi as any)._source, meter)
+}
+
+/** The Lesson check's fix for a wrongly written meter: the song's beat set to
+ *  the drums' beat, the way Tap Tempo sets it (kept per song, the file untouched) */
+export function applyMeterFix(fix: MeterFix): void {
+  const s = useStore.getState()
+  if (!s.songKey) return
+  const seg = { start: 0, anchor: fix.anchor, period: fix.period, beatsPerBar: fix.beatsPerBar, den: 4 }
+  s.setTempoCorrections({ ...s.tempoCorrections, [s.songKey]: { segments: [seg] } })
 }
 
 // hands: each piano track the player practises, and its hand (one or two tracks)
