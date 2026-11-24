@@ -12,7 +12,7 @@
 // set for one song.
 
 export interface CheckNote { midi: number; time: number; duration: number; hand?: 'L' | 'R' }
-export interface CheckTrack { index: number; name: string; group: string; isDrum: boolean; notes: CheckNote[] }
+export interface CheckTrack { index: number; name: string; group: string; isDrum: boolean; notes: CheckNote[]; program?: number }
 
 /** notes starting within this of each other are one moment (a chord) */
 export const TOGETHER = 0.03
@@ -31,7 +31,8 @@ export const LEAP = 19
 /** ... in less time than this (seconds) is too fast for a hand */
 export const LEAP_TIME = 0.08
 
-const isPiano = (t: CheckTrack) => t.group === 'piano' && !t.isDrum
+// harpsichord and clavinet aren't piano lessons (practiceReadiness.ts › NOT_A_PIANO_LESSON)
+const isPiano = (t: CheckTrack) => t.group === 'piano' && !t.isDrum && t.program !== 6 && t.program !== 7
 
 /** Notes of `b` that have a note of `a` on the same key (or, with `octaves`,
  *  any octave of it) starting at the same moment, as a share of b's notes */
@@ -113,8 +114,9 @@ export type Suggestion =
   | { kind: 'leave-out'; track: number; why: 'copy'; of: number }
   | { kind: 'leave-out'; track: number; why: 'tune'; of: number }
   | { kind: 'leave-out'; track: number; why: 'too-much' }
+  | { kind: 'leave-out'; track: number; why: 'extra'; of: [number, number] }
   | { kind: 'merge'; tracks: number[] }
-  | { kind: 'instrument'; track: number; program: number; word: string }
+  | { kind: 'instrument'; track: number; program: number; word: string; keys?: 'harpsichord' | 'clavinet' }
 
 /** A piano part shorter than this, with other instruments playing, is a touch
  *  of colour in the band, not a part to practise (21. 11.) */
@@ -242,8 +244,11 @@ export function checkSong(all: CheckTrack[], o: { hands?: Map<number, 'L' | 'R'>
   const problems: Problem[] = []
   // where the file came from (midiParser.ts › _source): a warning, nothing changes
   if (o.source === 'guitarpro') problems.push({ kind: 'guitar-pro' })
-  // the file's own two hands, playing like hands: the lesson; other keyboards are the band
-  if (o.own) {
+  // the file's own two hands, playing like hands, and no other piano part: the
+  // lesson as it is (other piano parts: below, they're suggested to leave out)
+  const countsAsPiano = (t: CheckTrack, withOthers: boolean) => isPiano(t) && t.notes.length > 0 && (!withOthers || t.notes.length >= MIN_PRACTICE_NOTES)
+  const withOthers = all.some(t => !isPiano(t) && !t.isDrum && t.notes.length)
+  if (o.own && all.filter(t => countsAsPiano(t, withOthers)).length <= 2) {
     const pair = all.filter(t => t.index === o.own!.left || t.index === o.own!.right)
     const ff = tracksFaults(pair)
     if (ff.outOfRange) problems.push({ kind: 'out-of-range', notes: ff.outOfRange })
@@ -262,11 +267,30 @@ export function checkSong(all: CheckTrack[], o: { hands?: Map<number, 'L' | 'R'>
   })
   const renamed = new Set(suggestions.map(x => (x as { track: number }).track))
   if (o.hands && renamed.size) o = { ...o, hands: new Map([...o.hands].filter(([i]) => !renamed.has(i))) }
+  // a harpsichord or clavinet: a keyboard, but not a piano lesson as it is. When it
+  // only doubles the piano (same keys or octaves, for the harmony) it's colour in
+  // the band; when it's a part of its own (no piano, or other notes than the
+  // piano's), give it a piano sound: then it can be the lesson, merged with the
+  // piano if there is one (24. 11., the user)
+  const lessonPianos = tracks.filter(t => isPiano(t) && t.notes.length)
+  for (const t of tracks) {
+    if (t.group !== 'piano' || t.isDrum || !t.notes.length || (t.program !== 6 && t.program !== 7)) continue
+    if (others && t.notes.length < MIN_PRACTICE_NOTES) continue
+    const doubles = lessonPianos.some(p => sharedShare(p.notes, t.notes, true) >= 0.8)
+    if (!doubles) suggestions.push({ kind: 'instrument', track: t.index, program: 0, word: 'piano', keys: t.program === 6 ? 'harpsichord' : 'clavinet' })
+  }
   suggestions.push(...findCopies(tracks))
   const out = new Set(suggestions.flatMap(s => (s.kind === 'leave-out' ? [s.track] : [])))
   for (const s of findTunes(tracks, out)) { suggestions.push(s); if (s.kind === 'leave-out') out.add(s.track) }
   let pianos = tracks.filter(t => isPiano(t) && t.notes.length && !out.has(t.index))
   if (!pianos.length) return { suggestions, problems, pianos: [] }
+  // the file's own two hands beside other piano parts: a lesson is exactly the
+  // two hands, so every other piano part is suggested to leave out
+  const own = o.own
+  if (own && pianos.some(t => t.index === own.left) && pianos.some(t => t.index === own.right)) {
+    for (const t of pianos) if (t.index !== own.left && t.index !== own.right) suggestions.push({ kind: 'leave-out', track: t.index, why: 'extra', of: [own.left, own.right] })
+    pianos = pianos.filter(t => t.index === own.left || t.index === own.right)
+  }
 
   // the hands as the file has them, or as Orfeo reads the pianos played as one
   const handsOf = (ps: CheckTrack[]) => {

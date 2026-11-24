@@ -96,7 +96,9 @@ export function BarPop({ anchor, up = false, width = 260, align = 'left', onClos
   onClose: () => void; label: string; children: ReactNode
 }) {
   const ref = useRef<HTMLDivElement>(null)
-  useMenuDismiss(true, ref, onClose)
+  // a panel you work in (mute tracks, pick a mode): it stays open until you
+  // click outside it or press Esc, never just because the mouse wandered off
+  useMenuDismiss(true, ref, onClose, false)
   const [pos, setPos] = useState<CSSProperties>({ visibility: 'hidden' })
   useLayoutEffect(() => {
     const r = anchor?.getBoundingClientRect()

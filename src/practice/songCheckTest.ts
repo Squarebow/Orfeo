@@ -81,7 +81,15 @@ export function runSongCheckTest(): number {
     check(!c2.suggestions.some(s => s.kind === 'instrument'), 'a staff of chords named "Bass" stays the piano')
     check(!checkSong([tr(0, rh(), 'piano', 'Piano RH'), tr(1, lh(), 'piano', 'Piano LH')], { read }).suggestions.length, 'hand tracks keep their piano')
     const c3 = checkSong([tr(0, lh(), 'piano', 'Piano LH'), tr(1, rh(), 'piano', 'Piano RH'), tr(2, rh(), 'piano', 'E.Piano')], { read, own: { left: 0, right: 1 } })
-    check(c3.suggestions.length === 0 && c3.pianos.join() === '0,1', 'the file\'s own two hands are the lesson; another keyboard plays in the band')
+    // a lesson is exactly the two hands (24. 11.): another piano part beside them is suggested to leave out
+    check(c3.suggestions.length === 1 && c3.suggestions[0].kind === 'leave-out' && (c3.suggestions[0] as any).track === 2 && c3.pianos.join() === '0,1',
+      'the file\'s own two hands are the lesson; another piano part beside them: leave it out')
+    // harpsichord and clavinet aren't piano lessons
+    const hs = checkSong([{ ...tr(0, lh(), 'piano', 'Harpsichord'), program: 6 }, { ...tr(1, [...rh(), ...rh().map(n => ({ ...n, time: n.time + 16 }))], 'piano', 'Harpsichord'), program: 6 }, tr(2, rh(), 'strings', 'Violin')], { read })
+    check(hs.pianos.length === 0, 'a harpsichord continuo is no piano part')
+    check(hs.suggestions.filter(x => x.kind === 'instrument' && (x as any).keys === 'harpsichord' && x.program === 0).length === 2, 'a harpsichord part of its own: give it a piano sound (both staves)')
+    const dbl = checkSong([tr(0, lh(), 'piano', 'Piano LH'), tr(1, rh(), 'piano', 'Piano RH'), { ...tr(2, rh().map(n => ({ ...n, midi: n.midi + 12 })), 'piano', 'Harpsichord'), program: 6 }], { read, own: { left: 0, right: 1 } })
+    check(!dbl.suggestions.some(x => x.kind === 'instrument'), 'a harpsichord doubling the piano an octave up stays in the band')
   }
 
   // ── Readiness follows ──

@@ -30,7 +30,7 @@ self.onmessage = (e: MessageEvent<PrescanJob>) => {
       const st = songPracticeState(m.tracks, { stavePairs: pairs, options })
       // ready to practise, as the queue's scan counts it (scanReady.ts)
       ready = st.state === 'ready' || st.state === 'one-hand'
-      songCheckOf(m.tracks.map((t: any) => ({ index: t.index, name: t.name ?? '', group: t.group ?? '', isDrum: !!t.isDrum, notes: t.notes })), pairs, options, m._source)
+      songCheckOf(m.tracks.map((t: any) => ({ index: t.index, name: t.name ?? '', group: t.group ?? '', isDrum: !!t.isDrum, notes: t.notes, program: t.program })), pairs, options, m._source)
     }
   } catch { ok = false }
   const reply: PrescanReply = { id, ok, readings: takeFreshReadings(), ...(share ? { shared } : { ready }) }

@@ -54,7 +54,15 @@ export function countPracticePianos(rows: { group: string; isDrum?: boolean; inc
 }
 
 /** A track practice mode treats as (part of) the piano you play */
-export const isPracticePiano = (t: { group?: string; isDrum?: boolean }): boolean => t.group === 'piano' && !t.isDrum
+// The piano family as MIDI files have it (GM 1–8) also holds the harpsichord
+// and the clavinet: a continuo or a funk riff, never a piano lesson (24. 11.:
+// a Vivaldi file's harpsichord was "ready to practise")
+export const NOT_A_PIANO_LESSON = new Set([6, 7])
+/** Raised with every change to what counts as ready: the background reading's
+ *  kept answers (practice/handPrescan.ts) are then worked out again */
+export const READY_RULES = 2
+export const isPracticePiano = (t: { group?: string; isDrum?: boolean; program?: number }): boolean =>
+  t.group === 'piano' && !t.isDrum && !NOT_A_PIANO_LESSON.has(t.program ?? 0)
 
 // ── The rule (20. 11.): a song is ready to practise when its piano is two
 // tracks, Left Hand and Right Hand, each holding only its own hand. Then
@@ -131,7 +139,7 @@ export function ownHandPair<T extends { index: number; name?: string; trackName?
 }
 
 export function songPracticeState(
-  tracks: { index: number; group?: string; isDrum?: boolean; name?: string; trackName?: string; notes: ParsedNote[] }[],
+  tracks: { index: number; group?: string; isDrum?: boolean; name?: string; trackName?: string; notes: ParsedNote[]; program?: number }[],
   { stavePairs = [], options = {} }: { stavePairs?: [number, number][]; options?: HandAssignOptions } = {},
 ): SongPractice {
   const others = tracks.some(t => !isPracticePiano(t) && t.notes.length > 0)
@@ -140,9 +148,13 @@ export function songPracticeState(
   // the file's own two hands (a piano's two staves, or a Left and a Right
   // track) that play like hands: that's the lesson, and any other keyboard
   // part plays in the band (22. 11.)
+  // a lesson is always exactly the piano's two hands: more piano parts than two
+  // are never ready, even when two of them are the file's own staves or hand
+  // tracks; the Lesson check says what to leave out or merge (24. 11., the user:
+  // "always exactly two piano tracks, never more")
+  if (pianos.length > MAX_PRACTICE_PIANOS) return { state: 'cant', reason: 'too-many', pianos: pianos.length }
   const own = ownHandPair(pianos, stavePairs)
   if (own) return { state: 'ready', left: own.left, right: own.right }
-  if (pianos.length > MAX_PRACTICE_PIANOS) return { state: 'cant', reason: 'too-many', pianos: pianos.length }
   // notes no lesson can be made of: the same key struck twice at once, or
   // re-struck faster than a hand can, all through (practice/songCheck.ts)
   const ff = tracksFaults(pianos)

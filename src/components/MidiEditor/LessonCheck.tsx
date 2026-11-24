@@ -21,9 +21,13 @@ const SOUND: Record<string, () => string> = {
 
 export function suggestionText(s: Suggestion, name: (i: number) => string): string {
   if (s.kind === 'merge') return t`Merge ${s.tracks.map(name).join(', ')} into one piano part, then prepare it for practice.`
+  if (s.kind === 'instrument' && s.keys) return s.keys === 'harpsichord'
+    ? t`Give ${name(s.track)} a piano sound: it's a harpsichord part of its own, not a copy of the piano. As a piano it can become the lesson (merged with the piano part, if there is one).`
+    : t`Give ${name(s.track)} a piano sound: it's a clavinet part of its own, not a copy of the piano. As a piano it can become the lesson (merged with the piano part, if there is one).`
   if (s.kind === 'instrument') return t`Give ${name(s.track)} the sound of ${(SOUND[s.word] ?? (() => s.word))()}: it plays with a piano sound, but its name says it isn't the piano part.`
   if (s.why === 'copy') return t`Leave out ${name(s.track)}: it only copies ${name(s.of)}, so the song sounds the same without it.`
   if (s.why === 'tune') return t`Leave out ${name(s.track)}: it only doubles the tune of ${name(s.of)}.`
+  if (s.why === 'extra') return t`Leave out ${name(s.track)}: the lesson is the two hands, ${name(s.of[1])} and ${name(s.of[0])}; this is another piano part beside them. The song loses it.`
   return t`Leave out ${name(s.track)}: two hands can't play it together with the other piano parts. The song loses this part.`
 }
 

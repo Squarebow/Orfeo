@@ -109,7 +109,9 @@ export function ContextMenuItem({ onClick, disabled, danger, children }: {
 // ── Dismissal for menus that live in the top bar — clicks on its window-drag
 // area never reach the page at all, so besides outside-click / Esc / focus
 // loss the menu also closes shortly after the pointer leaves it. ─────────
-export function useMenuDismiss(open: boolean, ref: RefObject<HTMLElement | null>, close: () => void) {
+/** `onLeave`: also close shortly after the pointer leaves (right-click menus);
+ *  panels you work in (practice mode's) stay until a click outside or Esc */
+export function useMenuDismiss(open: boolean, ref: RefObject<HTMLElement | null>, close: () => void, onLeave = true) {
   useEffect(() => {
     if (!open) return
     let leaveTimer: ReturnType<typeof setTimeout> | null = null
@@ -117,7 +119,7 @@ export function useMenuDismiss(open: boolean, ref: RefObject<HTMLElement | null>
     const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') close() }
     const onMove = (e: PointerEvent) => {
       if (ref.current?.contains(e.target as Node)) { if (leaveTimer) { clearTimeout(leaveTimer); leaveTimer = null } }
-      else if (!leaveTimer) leaveTimer = setTimeout(close, 900)
+      else if (onLeave && !leaveTimer) leaveTimer = setTimeout(close, 900)
     }
     const id = setTimeout(() => {
       window.addEventListener('pointerdown', onDown, true)
@@ -133,7 +135,7 @@ export function useMenuDismiss(open: boolean, ref: RefObject<HTMLElement | null>
       window.removeEventListener('blur', close)
     }
   // close is expected to be stable in intent; re-binding on identity is harmless
-  }, [open, ref, close])
+  }, [open, ref, close, onLeave])
 }
 
 export function ContextMenuDivider() {

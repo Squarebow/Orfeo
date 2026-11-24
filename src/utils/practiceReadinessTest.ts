@@ -69,6 +69,11 @@ export function runPracticeReadinessTest(): number {
   const rd = songPracticeState([T(3, 'piano', hands('R')), T(5, 'piano', hands('L'))])
   check(rd.state === 'ready' && (rd as any).left === 5 && (rd as any).right === 3, 'two tracks, each one hand throughout: ready, hands found')
   check(songPracticeState([T(0, 'piano', [note(0, 'R', 0.9), note(1, 'L', 0.9)])]).state === 'prepare', 'one piano track with both hands: prepare (check, then split)')
+  // a lesson is exactly two piano tracks (24. 11.): named hands beside two more pianos aren't ready
+  const four = songPracticeState([T(0, 'piano', hands('L'), 'Piano LH'), T(1, 'piano', hands('R'), 'Piano RH'), T(2, 'piano', hands('R')), T(3, 'piano', hands('L'))])
+  check(four.state === 'cant' && (four as any).reason === 'too-many', 'four piano tracks, two of them the hands: not ready (Lesson check)')
+  // harpsichord and clavinet aren't piano lessons
+  check(songPracticeState([{ ...T(0, 'piano', hands('L'), 'Harpsichord'), program: 6 }, { ...T(1, 'piano', hands('R'), 'Harpsichord'), program: 6 }]).state === 'cant', 'a harpsichord in two staves: no piano to practise')
   const prep = songPracticeState([T(0, 'piano', [note(0, 'R', 0.9), note(2, 'L', 0.2), note(3, 'R', 0.95)])])
   check(prep.state === 'prepare' && (prep as any).passages === 1, 'one piano track: its unsure passages counted')
   // one hand throughout: preparation, unless a person set every note's hand

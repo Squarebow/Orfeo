@@ -100,7 +100,7 @@ export function currentSongCheck(): SongCheck | null {
     const ts = s.tracks.find(x => x.index === t.index)
     // the name the file gives the track (a name typed in Orfeo wins)
     const name = ts?.trackName && ts.trackName !== ts.gmName ? ts.trackName : (t.name || ts?.trackName || '')
-    return { index: t.index, name, group: ts?.group ?? t.group ?? '', isDrum: ts?.isDrum ?? t.isDrum, notes: t.notes }
+    return { index: t.index, name, group: ts?.group ?? t.group ?? '', isDrum: ts?.isDrum ?? t.isDrum, notes: t.notes, program: ts?.program ?? t.program }
   })
   return songCheckOf(tracks, (s.midi as any)._stavePairs ?? [], { rhMaxFingers: s.rhMaxFingers, lhMaxFingers: s.lhMaxFingers }, (s.midi as any)._source)
 }

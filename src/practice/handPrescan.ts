@@ -12,6 +12,7 @@ import { create } from 'zustand'
 import { useStore } from '../store'
 import { addReadings, takeFreshReadings, forgetReadings, readingStats, type StoredReadings } from '../utils/handReadCache'
 import { HAND_MODEL_NAME, handModelOn } from '../utils/handModelReader'
+import { READY_RULES } from '../utils/practiceReadiness'
 import type { PrescanJob, PrescanReply } from './handPrescan.worker'
 
 interface PrescanState {
@@ -57,7 +58,8 @@ const api = () => (window as any).electronAPI
 function fileKey(bytes: Uint8Array, options: { rhMaxFingers: number; lhMaxFingers: number }): string {
   let h = 0x811c9dc5, g = 0x9e3779b9
   for (let i = 0; i < bytes.length; i++) { h = Math.imul(h ^ bytes[i], 0x01000193); g = Math.imul(g ^ bytes[i], 0x5bd1e995); g ^= g >>> 15 }
-  return `${HAND_MODEL_NAME}:${options.rhMaxFingers}/${options.lhMaxFingers}:${(h >>> 0).toString(36)}.${(g >>> 0).toString(36)}.${bytes.length}`
+  // the rules for "ready" are part of the key: a change to them checks every song again
+  return `${HAND_MODEL_NAME}:r${READY_RULES}:${options.rhMaxFingers}/${options.lhMaxFingers}:${(h >>> 0).toString(36)}.${(g >>> 0).toString(36)}.${bytes.length}`
 }
 
 async function save(): Promise<void> {
