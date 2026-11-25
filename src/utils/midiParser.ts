@@ -262,6 +262,19 @@ export function parseMidiBuffer(buffer: ArrayBuffer, fileName: string, filePath 
     )
     for (const a of assignments) { a.note.hand = a.hand; a.note.handConfidence = a.confidence }
   }
+  // The two hand colours go by the hand each piano track plays, not by track
+  // order: a score usually writes the upper staff first, and it came out in
+  // the left hand's colour with the lower staff in the right's (25. 11., the user)
+  {
+    const [first, second] = kbTracks
+    const lh = pianoFamilyColor(0), rh = pianoFamilyColor(1)
+    if (first && second && first.color === lh && second.color === rh) {
+      const rightShare = (t: ParsedTrack) => t.notes.filter(n => n.hand === 'R').length / Math.max(1, t.notes.length)
+      const avg = (t: ParsedTrack) => t.notes.reduce((a, n) => a + n.midi, 0) / Math.max(1, t.notes.length)
+      const firstIsRight = rightShare(first) !== rightShare(second) ? rightShare(first) > rightShare(second) : avg(first) > avg(second)
+      if (firstIsRight) { first.color = rh; second.color = lh }
+    }
+  }
   // The same staves, for the chord reading: a two-staff piano is one
   // instrument there too (trackChordRole.ts)
   const stavePairs = stavePairsOf(tracks.map(t => ({ ...t, name: fileTrackNames.get(t.index) ?? '', channel: t.channel ?? -1 })))

@@ -15,6 +15,11 @@
   now has a channel of its own.
 - **A piano written in Guitar Pro as two tracks, one per hand** ("Melody" and "Bass", "treble" and
   "bass", or "Piano" twice) now comes in as one piano with two staves, the upper one the right hand.
+- **A piano score exported with its staves named "up" and "down"** (as many free classical scores are)
+  had each staff's hands guessed on its own, so with Hand Assignment on both colours were spread over
+  both staves. The two staves are now read as the two hands.
+- **With Hand Assignment off, a two-track piano showed the upper staff in the left hand's colour** and
+  the lower staff in the right's. The track that plays the right hand now gets the right hand's colour.
 - **On a first start, "Set your MIDI folder" went on blinking** after the welcome tour was closed and
   while the folder was being chosen, so it looked like a tour step left open. It now blinks only until
   it's clicked, and not while a tour is showing.
