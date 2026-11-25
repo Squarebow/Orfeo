@@ -79,9 +79,12 @@ export async function backToPractice(): Promise<void> {
   s.unsoloTrackForEdit()
   s.setNoteEditorActive(false)
   NES.reset()
-  // practice mode, lazily (it imports this module's callers)
-  const { enterPractice } = await import('./practiceMode')
-  enterPractice()
+  // practice mode, lazily (it imports this module's callers). A song that
+  // isn't a lesson yet (preparing not finished) goes on as it is, the way you
+  // were trying it: never the Pick a song card nobody asked for (25. 11., the user)
+  const { enterPractice, startTrial, usePractice } = await import('./practiceMode')
+  if (!enterPractice(true)) return
+  if (!usePractice.getState().songReady) startTrial()
   // another song opened meanwhile: it starts where it starts
   if (!away || away.song !== songStem()) return
   useStore.setState({

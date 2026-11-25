@@ -12,7 +12,10 @@ import type { TakeRecord } from './take'
 
 export interface Kind { way: TakeRecord['way']; hand: TakeRecord['hand']; level: number; wait: boolean }
 const waited = (k: TakeRecord) => k.wait || k.way === 'wait'
-export const kindOf = (k: TakeRecord): Kind => ({ way: k.way, hand: k.way === 'practise' ? k.hand : 'B', level: k.way === 'perform' ? k.level : 0, wait: waited(k) })
+// Wait for me is now Play along with Wait on (25. 11.): its earlier takes count as that
+export const kindOf = (k: TakeRecord): Kind => k.way === 'wait'
+  ? { way: 'practise', hand: 'B', level: 0, wait: true }
+  : ({ way: k.way, hand: k.way === 'practise' ? k.hand : 'B', level: k.way === 'perform' ? k.level : 0, wait: waited(k) })
 export const kindKey = (k: Kind) => `${k.way}|${k.hand}|${k.level}|${k.wait ? 1 : 0}`
 
 export function kindName(k: Kind): string {

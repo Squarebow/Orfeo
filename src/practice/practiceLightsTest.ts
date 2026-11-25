@@ -73,9 +73,9 @@ export function runPracticeLightsTest(): number {
       showHandLabels: false, noteEditorActive: false,
     })
     check(litColour({ hand: 'R', track: 0, noteHand: 'R' }) === HAND_RH_CSS, 'a right-hand track: the right hand colour, as on the roll')
-    check(litColour({ hand: 'L', track: 1, noteHand: 'L' }) === '#222222', 'a mixed track, hand colours off: the track colour, as on the roll')
+    check(litColour({ hand: 'L', track: 1, noteHand: 'R' }) === HAND_LH_CSS, 'a mixed track, hand colours off: the hand practice mode asks for, as on the roll')
     useStore.setState({ showHandLabels: true })
-    check(litColour({ hand: 'L', track: 1, noteHand: 'L' }) === HAND_LH_CSS, 'a mixed track, hand colours on: the hand colour, as on the roll')
+    check(litColour({ hand: 'R', track: 1, noteHand: 'L' }) === HAND_RH_CSS, 'hand colours on: still the hand practice mode asks for')
     useStore.setState({ midi: before.midi, tracks: before.tracks, showHandLabels: before.showHandLabels, noteEditorActive: before.noteEditorActive })
   }
 

@@ -32,7 +32,7 @@ import {
 // every tenth taller; amber as far as you've played) to move through it. Always there; a little lower while the song
 // plays, as a web page's header does once you scroll.
 const TITLE_H = 40          // the window's buttons' row
-const ROW_H = 74, ROW_H_PLAYING = 56
+const ROW_H = 74
 // the transport's sides, from Play outwards, and the room the left half leaves for Back
 const CENTRE_SIDE = 300, CENTRE_LEFT = 64
 
@@ -92,11 +92,9 @@ export default function PracticeTopBar() {
   // the song waiting for your notes is still the song playing, to you
   const holding = useWaiting(s => s.holding)
   const playing = playbackState === 'playing' || holding
-  // the header's size follows the song, but not a pause too short to see: a
-  // jump on the scrub line pauses and plays again at once, and the header grew
-  // and shrank with it (24. 11., the user)
-  const looksPlaying = useSettled(playing, 500)
-  const rowH = looksPlaying ? ROW_H_PLAYING : ROW_H
+  // the header keeps its full size all the time: growing and shrinking with
+  // play and pause was a distraction (25. 11., the user)
+  const rowH = ROW_H
 
   const band = tracks.filter(tr => !tr.practicePart)
   const hands = tracks.filter(tr => tr.practicePart).sort((a, b) => (a.practiceHand === 'L' ? -1 : 1) - (b.practiceHand === 'L' ? -1 : 1))
@@ -167,7 +165,7 @@ export default function PracticeTopBar() {
       }}>
         {/* ── Left: ORFEO, playlist, what you hear, key, tempo ── */}
         <div className="topbar-scroll" style={{ display: 'flex', alignItems: 'center', gap: 14, minWidth: 0, overflowX: 'auto', overflowY: 'hidden', marginRight: CENTRE_LEFT }}>
-          <OrfeoLogo scale={looksPlaying ? 1.2 : 1.45} />
+          <OrfeoLogo scale={1.45} />
           <div className="app-no-drag"><QueueButton practice /></div>
 
           <Tooltip title={t`What you hear`} description={t`The piano alone, Focus (the bass and drums too), or the whole band. Click to choose, or mute any track.`} placement="bottom" disabled={open === 'tracks'}>
@@ -283,7 +281,7 @@ export default function PracticeTopBar() {
         {/* ── Centre: the song, and its playback (Play at the window's centre) ── */}
         <div className="app-no-drag" style={{
           position: 'absolute', left: '50%', top: 0, bottom: 0, width: 0, display: 'flex', flexDirection: 'column',
-          justifyContent: 'center', alignItems: 'center', gap: looksPlaying ? 2 : 5, transition: 'gap .3s', pointerEvents: 'none',
+          justifyContent: 'center', alignItems: 'center', gap: 5, pointerEvents: 'none',
         }}>
           <span style={{ color: 'var(--text-default)', fontSize: 'var(--text-sm)', fontFamily: 'var(--font-ui)', lineHeight: '13px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: 560, pointerEvents: 'auto' }}>
             {midi?.fileName.replace(/\.(mid|midi)$/i, '') ?? ''}
@@ -301,8 +299,8 @@ export default function PracticeTopBar() {
               <TBtn onClick={back} disabled={!songReady} title={hasLoop && loopActive ? t`Back to the loop's start` : t`Go to start`} oneLine><SkipBack size={16} strokeWidth={1.5} /></TBtn>
             </div>
             <div style={{ pointerEvents: 'auto' }}>
-              <TBtn onClick={playPause} disabled={!songReady} accent title={t`Play / Pause (Space)`} large={!looksPlaying} oneLine>
-                {playing ? <Pause size={looksPlaying ? 20 : 24} fill="currentColor" strokeWidth={0} /> : <Play size={24} fill="currentColor" strokeWidth={0} />}
+              <TBtn onClick={playPause} disabled={!songReady} accent title={t`Play / Pause (Space)`} large oneLine>
+                {playing ? <Pause size={24} fill="currentColor" strokeWidth={0} /> : <Play size={24} fill="currentColor" strokeWidth={0} />}
               </TBtn>
             </div>
             <div style={{ justifySelf: 'start', display: 'flex', alignItems: 'center', gap: 2, pointerEvents: 'auto' }}>
@@ -391,7 +389,7 @@ and which note value counts as one beat.`} placement="bottom">
         </div>
       </div>
 
-      <SongTicks playing={looksPlaying} hasLoop={hasLoop} />
+      <SongTicks hasLoop={hasLoop} />
     </div>
   )
 }
@@ -402,7 +400,7 @@ and which note value counts as one beat.`} placement="bottom">
 // the bar's real width, so the tall ones never drift into the short ones (a
 // repeating background sized in % rounded each pattern on its own and did).
 // Click or drag anywhere on it to move through the song. ────────────────────
-function SongTicks({ playing, hasLoop }: { playing: boolean; hasLoop: boolean }) {
+function SongTicks({ hasLoop }: { hasLoop: boolean }) {
   const midi = useStore(s => s.midi)
   const currentTime = useStore(s => s.currentTime)
   const loopStart = useStore(s => s.loopStart)
@@ -422,7 +420,7 @@ function SongTicks({ playing, hasLoop }: { playing: boolean; hasLoop: boolean })
   }, [])
   const dur = midi?.duration ?? 0
   const { d, unit } = useMemo(() => tickPath(dur, w), [dur, w])
-  const H = playing ? 10 : 14
+  const H = 14
   const timeAt = (x: number) => {
     const r = ref.current!.getBoundingClientRect()
     return Math.max(0, Math.min(dur, ((x - r.left) / r.width) * dur))
@@ -467,13 +465,3 @@ function SongTicks({ playing, hasLoop }: { playing: boolean; hasLoop: boolean })
   )
 }
 
-/** `on`, but turning off only once it has stayed off for `ms` (turning on at once) */
-function useSettled(on: boolean, ms: number): boolean {
-  const [settled, setSettled] = useState(on)
-  useEffect(() => {
-    if (on) { setSettled(true); return }
-    const id = setTimeout(() => setSettled(false), ms)
-    return () => clearTimeout(id)
-  }, [on, ms])
-  return on || settled
-}

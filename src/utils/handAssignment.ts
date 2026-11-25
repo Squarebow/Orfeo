@@ -179,9 +179,10 @@ export interface HandTrack<T extends HandInput> {
   notes: T[]
 }
 
-const RIGHT_WORDS = /\b(right|rh|r\.h\.?|treble|upper)\b/i
-const LEFT_WORDS = /\b(left|lh|l\.h\.?|bass|lower)\b/i
-const HAND_WORDS = /\b(right|left|rh|lh|r\.h\.?|l\.h\.?|treble|bass|upper|lower|hand)\b/gi
+// "up" / "down": a notation export's staff names (LilyPond, as on Mutopia)
+const RIGHT_WORDS = /\b(right|rh|r\.h\.?|treble|upper|up)\b/i
+const LEFT_WORDS = /\b(left|lh|l\.h\.?|bass|lower|down)\b/i
+const HAND_WORDS = /\b(right|left|rh|lh|r\.h\.?|l\.h\.?|treble|bass|upper|lower|up|down|hand)\b/gi
 
 /** Two tracks that are the upper and lower staff of one instrument, by index into the input. */
 export interface StavePair { upper: number; lower: number }

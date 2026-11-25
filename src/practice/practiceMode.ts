@@ -64,6 +64,8 @@ let choicesLoaded = false
 void window.electronAPI?.getPrefs?.().then((p: any) => {
   const c = p?.practiceChoices
   if (c && typeof c === 'object') choices = { ...FIRST_CHOICES, ...c }
+  // Wait for me became Play along with Wait on (25. 11., the user: two ways do it all)
+  if ((choices.way as string) === 'wait') choices = { ...choices, way: 'practise', hand: 'B', waitOn: true }
   choicesLoaded = true
 }).catch(() => { choicesLoaded = true })
 function rememberChoices(next: Partial<Choices>): void {

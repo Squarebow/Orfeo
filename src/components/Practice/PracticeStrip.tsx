@@ -84,7 +84,7 @@ export default function PracticeStrip() {
 
   // ── The three ways of playing ──
   const ways: Record<PracticeWay, { name: string; tip: string }> = {
-    practise: { name: t`Play along`, tip: t`Play with the song, one hand or both, at any tempo. Turn on Wait to have the song wait for your notes.` },
+    practise: { name: t`Play along`, tip: t`Play with the song, one hand or both, at any tempo, with or without the metronome. Turn on Wait and the song waits for your notes, so you learn at your own pace.` },
     wait: { name: t`Wait for me`, tip: t`Both hands. The song waits for every note at its own tempo, so you can learn it at your own pace.` },
     perform: { name: t`Performance`, tip: t`Both hands. The song keeps going, as on stage. Three levels, from any tempo with a metronome to the song's own tempo with nothing else.` },
   }
@@ -130,7 +130,7 @@ export default function PracticeStrip() {
           <button ref={refs.mode} data-tour="practice-mode" onClick={() => toggle('mode')} style={toolBtn()} aria-label={t`Mode`} aria-expanded={open === 'mode'}>
             <Piano {...barIcon} />
             <span style={featLabel}>{t`Mode:`}</span>
-            <Reserve options={[ways.practise.name, ways.wait.name, t`Performance ${3}`].map((x, i) => <span key={i} style={featValue}>{x}</span>)}>
+            <Reserve options={[ways.practise.name, t`Performance ${3}`].map((x, i) => <span key={i} style={featValue}>{x}</span>)}>
               <span style={featValue}>{way === 'perform' ? t`Performance ${level}` : ways[way].name}</span>
             </Reserve>
           </button>
@@ -138,10 +138,11 @@ export default function PracticeStrip() {
         {open === 'mode' && (
           <BarPop anchor={refs.mode.current} up width={320} onClose={close} label={t`Mode`}>
             <div style={popHeading}>{t`How you play`}</div>
-            {(['practise', 'wait', 'perform'] as PracticeWay[]).map(id => (
+            {/* two ways: Play along (with Wait, it's what Wait for me was) and Performance */}
+            {(['practise', 'perform'] as PracticeWay[]).map(id => (
               <PopItem key={id} on={way === id} disabled={trial && id === 'perform'} onClick={() => { set({ way: id }); if (id !== 'perform') close() }}
                 hint={trial && id === 'perform' ? t`Performance is for a song that's a lesson: its hands checked and kept as two tracks.` : ways[id].tip}>
-                {ways[id].name}
+                {id === 'practise' ? t`Play along & Wait for me` : ways[id].name}
               </PopItem>
             ))}
             {way === 'perform' && (

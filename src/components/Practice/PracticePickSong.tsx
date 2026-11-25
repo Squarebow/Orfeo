@@ -1,4 +1,5 @@
-import { ListMusic } from 'lucide-react'
+import { useState } from 'react'
+import { ListMusic, X } from 'lucide-react'
 import { useStore } from '../../store'
 import { t } from '../../utils/i18n'
 import { libraryDisplayName } from '../../utils/libraryNames'
@@ -21,7 +22,9 @@ export default function PracticePickSong() {
   // a song that isn't a lesson can still be tried as it is (its piano or keyboard part)
   const canTry = !!open && notReady !== null && notReady !== 'no-keyboard' && notReady !== 'off' && notReady !== 'editing' && !!trialHands()
   const { off, dragProps } = useDragAnywhere('pick-a-song')
-  if (songReady) return null
+  // closed with ×: away until another song opens (the Playlist in the header still picks one)
+  const [closedFor, setClosedFor] = useState<string | null | undefined>(undefined)
+  if (songReady || closedFor === open) return null
   return (
     <div {...dragProps} role="dialog" aria-label={t`Pick a song to practise`} className="orfeo-modal-glow app-no-drag" style={{
       position: 'fixed', top: UNDER_HEADER + 40 + off.y, left: `calc(50% + ${off.x}px)`, transform: 'translateX(-50%)', cursor: 'grab', zIndex: 950, width: 440,
@@ -32,6 +35,7 @@ export default function PracticePickSong() {
       <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '0 16px 8px' }}>
         <ListMusic size={18} strokeWidth={1.6} color={AMBER} />
         <span style={featLabel}>{t`Pick a song to practise`}</span>
+        <button onClick={() => setClosedFor(open)} aria-label={t`Close`} style={{ marginLeft: 'auto', background: 'none', border: 'none', padding: 2, cursor: 'pointer', color: 'var(--text-muted)', display: 'flex' }}><X size={14} /></button>
       </div>
       {open && notReady && (
         <div style={{ padding: '0 16px 10px', fontSize: 12, lineHeight: 1.45, color: 'var(--text-muted)' }}>

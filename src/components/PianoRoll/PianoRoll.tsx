@@ -1088,7 +1088,12 @@ export default function PianoRoll() {
           // global toggle off, and gates Assign LH/RH availability); it
           // never takes display away from what was already showing. ───────
           const handColoringOn = showHandLabels || (noteEditorActive && NES.reassignHandsMode)
-          const color = !note.hand || bandKeys
+          // practice mode: your part in the colour of the hand it asks you to play,
+          // whatever the Hand Assignment switch says (25. 11., the user)
+          const partHand = practiceOn && ts?.practicePart ? ts.practiceHand : undefined
+          const color = partHand && !bandKeys
+            ? (partHand === 'L' ? HAND_LH_COLOR : HAND_RH_COLOR)
+            : !note.hand || bandKeys
             ? trackColorNum
             : (isSplitTrack || handColoringOn)
               ? (note.hand === 'L' ? HAND_LH_COLOR : HAND_RH_COLOR)

@@ -1,15 +1,8 @@
 import { create } from 'zustand'
 import { useStore } from '../store'
 import { CHORD_GRACE_SEC } from '../utils/midiParser'
-import { HAND_LH_CSS, HAND_RH_CSS, isHomogeneousHandTrack } from '../utils/handColors'
-import { liveHandColor } from '../audio/liveHandColor'
+import { HAND_LH_CSS, HAND_RH_CSS } from '../utils/handColors'
 
-const _homog = new WeakMap<object, boolean>()
-function homogeneous(notes: { hand?: 'L' | 'R' }[]): boolean {
-  let h = _homog.get(notes)
-  if (h === undefined) { h = isHomogeneousHandTrack(notes); _homog.set(notes, h) }
-  return h
-}
 import { setLightSource } from '../hooks/keyLightsOutput'
 import { usePractice } from './practiceMode'
 import { currentMatcher, useListen, useWaiting } from './listen'
@@ -186,17 +179,15 @@ function update() {
   setLightSource(source)
 }
 
-/** A lit key's colour: its note's colour on the piano roll (liveHandColor) */
+/** A lit key's colour: its note's colour on the piano roll, the colour of
+ *  the hand that plays it (practice mode's own, never the Hand Assignment switch) */
 export function litColour(v: LitKey): string {
-  const s = useStore.getState()
-  const tr = v.track === undefined ? undefined : s.midi?.tracks.find(t => t.index === v.track)
-  const base = s.tracks.find(t => t.index === v.track)?.color
-  return tr && base ? liveHandColor({ hand: v.noteHand }, base, homogeneous(tr.notes)) : v.hand === 'L' ? HAND_LH_CSS : HAND_RH_CSS
+  return v.hand === 'L' ? HAND_LH_CSS : HAND_RH_CSS
 }
 
 function source() {
   if (!lit) return null
-  // each key in its note's colour on the piano roll (the one rule, liveHandColor)
+  // each key in the colour of the hand that plays it, as on the piano roll
   const colours = new Map<number, string>(), fingers = new Map<number, number>(), hands = new Map<number, 'L' | 'R'>()
   for (const [k, v] of lit) {
     colours.set(k, litColour(v))

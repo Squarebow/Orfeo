@@ -133,7 +133,7 @@ const HAND_MAP_PREFIX = 'ORFEO_HAND_MAP:'
 // fresh — otherwise a file saved before a fix would carry the old, wrong
 // tags forever, since the whole point of the hint is to *skip* recomputing.
 // Cheap to recompute (same single track, no merge), so there's no reason not to.
-export const HAND_ENGINE_VERSION = 13
+export const HAND_ENGINE_VERSION = 14
 // …followed by the trained hand model's name when it reads too ("13mrun2"):
 // hands the model saved are read again without it, and the other way round.
 // An older Orfeo reads the number and ignores the rest.
