@@ -647,15 +647,6 @@ function TrackRow({
   const trackVuColorEnabled = useStore(s => s.trackVuColorEnabled)
   const vuFillRef = useRef<HTMLDivElement>(null)
   const vuLevel   = useRef(0)
-  // ── One piano track played by both hands, with Hand Assignment on: a blue and
-  // a pink meter side by side, each following its own hand, so the mode shows at
-  // a glance. A track already split to one hand keeps its single meter. ─────────
-  const showHandLabels = useStore(s => s.showHandLabels)
-  const trackNotes = useStore(s => (s.midi as any)?.tracks?.find((t: any) => t.index === track.index)?.notes)
-  const twoHands = useMemo(() => showHandLabels && !!trackNotes?.some((n: any) => n.hand === 'L') && !!trackNotes?.some((n: any) => n.hand === 'R'),
-    [showHandLabels, trackNotes])
-  const vuFillLhRef = useRef<HTMLDivElement>(null)
-  const vuLevelLh   = useRef(0)
   useEffect(() => {
     if (!trackVuColorEnabled) return
     const unsub = useStore.subscribe(state => {
@@ -665,28 +656,24 @@ function TrackRow({
       if (!tr || tr.muted) return
       const pt = (md as any).tracks?.find((t: any) => t.index === track.index)
       if (!pt) return
-      let maxVel = 0, maxVelLh = 0
+      let maxVel = 0
       for (const note of pt.notes) {
         // Notes are sorted by time — skip once past current window
         if (note.time > currentTime + 0.02) break
         if (currentTime >= note.time + note.duration) continue
-        if (twoHands && note.hand === 'L') { if (note.velocity > maxVelLh) maxVelLh = note.velocity }
-        else if (note.velocity > maxVel) maxVel = note.velocity
+        if (note.velocity > maxVel) maxVel = note.velocity
       }
       if (maxVel > 0) vuLevel.current = maxVel * tr.volume
-      if (maxVelLh > 0) vuLevelLh.current = maxVelLh * tr.volume
     })
     let raf = 0
     const loop = () => {
       vuLevel.current = Math.max(0, vuLevel.current - 0.013)
-      vuLevelLh.current = Math.max(0, vuLevelLh.current - 0.013)
       if (vuFillRef.current) vuFillRef.current.style.transform = `scaleY(${Math.min(1, vuLevel.current)})`
-      if (vuFillLhRef.current) vuFillLhRef.current.style.transform = `scaleY(${Math.min(1, vuLevelLh.current)})`
       raf = requestAnimationFrame(loop)
     }
     raf = requestAnimationFrame(loop)
     return () => { unsub(); cancelAnimationFrame(raf) }
-  }, [trackVuColorEnabled, track.index, twoHands])
+  }, [trackVuColorEnabled, track.index])
 
   // The colour pill beside the name: a VU meter, or a plain bar with the meters off
   const pill = (color: string, fillRef: React.RefObject<HTMLDivElement | null>, style?: React.CSSProperties) => trackVuColorEnabled ? (
@@ -757,9 +744,7 @@ function TrackRow({
         >
           <GripVertical size={11} />
         </div>
-        {/* Left hand left of right hand; the left pill sits in the row's gap, so names stay put */}
-        {twoHands && pill('var(--hand-lh)', vuFillLhRef, { marginLeft: -5, marginRight: -4 })}
-        {pill(twoHands ? 'var(--hand-rh)' : track.color, vuFillRef)}
+        {pill(track.color, vuFillRef)}
         <MarqueeText name={trackLabel(track) ?? ''} spanStyle={{ fontSize: 'var(--text-sm)', fontWeight: 500, color: 'var(--text-muted)' }} />
       </div>
 

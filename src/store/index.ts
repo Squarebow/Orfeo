@@ -507,8 +507,6 @@ interface OrfeoStore {
   settingsGroupsCollapsed: Record<string, boolean>
   setSettingsGroupCollapsed: (id: string, collapsed: boolean) => void
 
-  showHandLabels: boolean
-  setShowHandLabels: (v: boolean) => void
 
   // ── Reflect piano roll on keyboard (paused/scrubbing only) — a testing aid
   // so chord-hunting doesn't need a manual "Show on keyboard" every time.
@@ -638,19 +636,12 @@ interface OrfeoStore {
   setUnsavedWarningEnabled: (v: boolean) => void
   setSaveTrackChangesEnabled: (v: boolean) => void
 
-  handLabelMode: 'practice' | 'performance'
-  setHandLabelMode: (mode: 'practice' | 'performance') => void
 
   // ── Accessibility — an "L"/"R" letter badge on hand-colored keys, for
-  // colorblind users who can't rely on the blue/pink alone. Independent of
-  // showHandLabels: a genuine split-hand track's keys stay blue/pink even
-  // with Left/Right Hand off (see handColors.ts), so this needs its own
-  // toggle rather than riding on that one. ──────────────────────────────────
+  // colorblind users who can't rely on the blue/pink alone. ────────────────
   showHandLetters: boolean
   setShowHandLetters: (v: boolean) => void
 
-  performanceSplitSensitivity: number
-  setPerformanceSplitSensitivity: (n: number) => void
 
   // ── Max fingers per hand — drives the hand-assignment engine's hard cap on
   // how many notes of a wide chord one hand can take (RH from the top, LH
@@ -1321,8 +1312,6 @@ export const useStore = create<OrfeoStore>((set, get) => ({
   })),
 
   // ── Hand labels — show LEFT/RIGHT HAND labels on the keyboard ────────────
-  showHandLabels: false,
-  setShowHandLabels: (showHandLabels) => set({ showHandLabels }),
 
   reflectPianoRollOnKeyboard: false,
   setReflectPianoRollOnKeyboard: (reflectPianoRollOnKeyboard) => set({ reflectPianoRollOnKeyboard }),
@@ -1409,20 +1398,9 @@ export const useStore = create<OrfeoStore>((set, get) => ({
   setUnsavedWarningEnabled: (unsavedWarningEnabled) => set({ unsavedWarningEnabled }),
   setSaveTrackChangesEnabled: (saveTrackChangesEnabled) => set({ saveTrackChangesEnabled }),
 
-  // ── Hand label mode — practice (static, tag-based) or performance (per-note, live) ─
-  // Practice mode's UI toggle is disabled (see SettingsPanel.tsx) — proves
-  // inconsistent, may return once improved. Always performance until then.
-  handLabelMode: 'performance' as 'practice' | 'performance',
-  setHandLabelMode: (handLabelMode) => set({ handLabelMode }),
-
   showHandLetters: false,
   setShowHandLetters: (showHandLetters) => set({ showHandLetters }),
 
-  // ── Performance split sensitivity — hardware-input fallback only (file notes
-  // read their exact stored tag, no sensitivity involved); semitone gap
-  // threshold, persisted ──────────────────────────────────────────────────────
-  performanceSplitSensitivity: 8,
-  setPerformanceSplitSensitivity: (n) => set({ performanceSplitSensitivity: Math.max(2, Math.min(16, n)) }),
 
   rhMaxFingers: 4 as 4 | 5,
   setRhMaxFingers: (rhMaxFingers) => set({ rhMaxFingers }),
@@ -1622,14 +1600,9 @@ async function restoreLibraryPrefs() {
     if (typeof prefs.splitBreakpointNote === 'number') store.setSplitBreakpointNote(prefs.splitBreakpointNote)
     if (typeof prefs.splitBreakpointRangeStart === 'number') store.setSplitBreakpointRangeStart(prefs.splitBreakpointRangeStart)
     if (typeof prefs.splitBreakpointRangeEnd === 'number') store.setSplitBreakpointRangeEnd(prefs.splitBreakpointRangeEnd)
-    if (typeof prefs.showHandLabels === 'boolean') store.setShowHandLabels(prefs.showHandLabels)
     if (typeof prefs.reflectPianoRollOnKeyboard === 'boolean') store.setReflectPianoRollOnKeyboard(prefs.reflectPianoRollOnKeyboard)
     if (typeof prefs.loopRegionEnabled === 'boolean') store.setLoopRegionEnabled(prefs.loopRegionEnabled)
-    // Only 'performance' is restorable — Practice's UI toggle is disabled,
-    // so a stale saved 'practice' pref must not resurrect it with no way back.
-    if (prefs.handLabelMode === 'performance') store.setHandLabelMode(prefs.handLabelMode)
     if (typeof prefs.showHandLetters === 'boolean') store.setShowHandLetters(prefs.showHandLetters)
-    if (typeof prefs.performanceSplitSensitivity === 'number') store.setPerformanceSplitSensitivity(prefs.performanceSplitSensitivity)
     if (prefs.rhMaxFingers === 4 || prefs.rhMaxFingers === 5) store.setRhMaxFingers(prefs.rhMaxFingers)
     if (prefs.lhMaxFingers === 4 || prefs.lhMaxFingers === 5) store.setLhMaxFingers(prefs.lhMaxFingers)
     if (typeof prefs.showOctaveLabels === 'boolean') store.setShowOctaveLabels(prefs.showOctaveLabels)
@@ -1840,12 +1813,9 @@ let _prevSplitBreakpointType: string | null = null
 let _prevSplitBreakpointNote: number | null = null
 let _prevSplitBreakpointRangeStart: number | null = null
 let _prevSplitBreakpointRangeEnd: number | null = null
-let _prevShowHandLabels: boolean | null = null
 let _prevReflectPianoRollOnKeyboard: boolean | null = null
 let _prevLoopRegionEnabled: boolean | null = null
-let _prevHandLabelMode: string | null = null
 let _prevShowHandLetters: boolean | null = null
-let _prevPerformanceSplitSensitivity: number | null = null
 let _prevRhMaxFingers: number | null = null
 let _prevLhMaxFingers: number | null = null
 let _prevShowOctaveLabels: boolean | null = null
@@ -1931,12 +1901,9 @@ const _unsubPrefs = useStore.subscribe((state) => {
     _prevSplitBreakpointNote = state.splitBreakpointNote
     _prevSplitBreakpointRangeStart = state.splitBreakpointRangeStart
     _prevSplitBreakpointRangeEnd = state.splitBreakpointRangeEnd
-    _prevShowHandLabels = state.showHandLabels
     _prevReflectPianoRollOnKeyboard = state.reflectPianoRollOnKeyboard
     _prevLoopRegionEnabled = state.loopRegionEnabled
-    _prevHandLabelMode = state.handLabelMode
     _prevShowHandLetters = state.showHandLetters
-    _prevPerformanceSplitSensitivity = state.performanceSplitSensitivity
     _prevRhMaxFingers = state.rhMaxFingers
     _prevLhMaxFingers = state.lhMaxFingers
     _prevShowOctaveLabels = state.showOctaveLabels
@@ -2025,12 +1992,9 @@ const _unsubPrefs = useStore.subscribe((state) => {
     state.splitBreakpointNote !== _prevSplitBreakpointNote ||
     state.splitBreakpointRangeStart !== _prevSplitBreakpointRangeStart ||
     state.splitBreakpointRangeEnd !== _prevSplitBreakpointRangeEnd ||
-    state.showHandLabels !== _prevShowHandLabels ||
     state.reflectPianoRollOnKeyboard !== _prevReflectPianoRollOnKeyboard ||
     state.loopRegionEnabled !== _prevLoopRegionEnabled ||
-    state.handLabelMode !== _prevHandLabelMode ||
     state.showHandLetters !== _prevShowHandLetters ||
-    state.performanceSplitSensitivity !== _prevPerformanceSplitSensitivity ||
     state.rhMaxFingers !== _prevRhMaxFingers ||
     state.lhMaxFingers !== _prevLhMaxFingers ||
     state.showOctaveLabels !== _prevShowOctaveLabels ||
@@ -2111,12 +2075,9 @@ const _unsubPrefs = useStore.subscribe((state) => {
     _prevSplitBreakpointNote = state.splitBreakpointNote
     _prevSplitBreakpointRangeStart = state.splitBreakpointRangeStart
     _prevSplitBreakpointRangeEnd = state.splitBreakpointRangeEnd
-    _prevShowHandLabels = state.showHandLabels
     _prevReflectPianoRollOnKeyboard = state.reflectPianoRollOnKeyboard
     _prevLoopRegionEnabled = state.loopRegionEnabled
-    _prevHandLabelMode = state.handLabelMode
     _prevShowHandLetters = state.showHandLetters
-    _prevPerformanceSplitSensitivity = state.performanceSplitSensitivity
     _prevRhMaxFingers = state.rhMaxFingers
     _prevLhMaxFingers = state.lhMaxFingers
     _prevShowOctaveLabels = state.showOctaveLabels
@@ -2203,12 +2164,9 @@ const _unsubPrefs = useStore.subscribe((state) => {
       splitBreakpointNote: state.splitBreakpointNote,
       splitBreakpointRangeStart: state.splitBreakpointRangeStart,
       splitBreakpointRangeEnd: state.splitBreakpointRangeEnd,
-      showHandLabels: state.showHandLabels,
       reflectPianoRollOnKeyboard: state.reflectPianoRollOnKeyboard,
       loopRegionEnabled: state.loopRegionEnabled,
-      handLabelMode: state.handLabelMode,
       showHandLetters: state.showHandLetters,
-      performanceSplitSensitivity: state.performanceSplitSensitivity,
       rhMaxFingers: state.rhMaxFingers,
       lhMaxFingers: state.lhMaxFingers,
       showOctaveLabels: state.showOctaveLabels,

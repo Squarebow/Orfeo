@@ -7,14 +7,16 @@
 import { useStore } from '../store'
 import { NES } from '../utils/noteEditorState'
 import { resolveHandAwareColor } from '../utils/handColors'
+import { handColouredTracks } from '../utils/handColouredTracks'
 import type { Hand } from '../types'
 
-export function liveHandColor(note: { hand?: Hand }, defaultColor: string, homogeneousTrack: boolean): string {
-  const { showHandLabels, noteEditorActive } = useStore.getState()
+export function liveHandColor(note: { hand?: Hand; trackIndex?: number }, defaultColor: string, homogeneousTrack: boolean): string {
+  const { midi, tracks, noteEditorActive } = useStore.getState()
   return resolveHandAwareColor(note, defaultColor, {
     homogeneousTrack,
-    // The Settings toggle stays authoritative; the Note Editor's own Hand toggle
-    // only adds to it (the roll's handColoringOn in PianoRoll.tsx, the same test)
-    handColoring: showHandLabels || (noteEditorActive && NES.reassignHandsMode),
+    // the piano you'd play shows its hands (handColouredTracks.ts); the Note
+    // Editor's own Hand toggle adds the track being edited (the roll's same test)
+    handColoring: (note.trackIndex !== undefined && handColouredTracks(midi, tracks).has(note.trackIndex))
+      || (noteEditorActive && NES.reassignHandsMode),
   })
 }

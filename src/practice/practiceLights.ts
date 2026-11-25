@@ -180,7 +180,7 @@ function update() {
 }
 
 /** A lit key's colour: its note's colour on the piano roll, the colour of
- *  the hand that plays it (practice mode's own, never the Hand Assignment switch) */
+ *  the hand that plays it (practice mode's own) */
 export function litColour(v: LitKey): string {
   return v.hand === 'L' ? HAND_LH_CSS : HAND_RH_CSS
 }

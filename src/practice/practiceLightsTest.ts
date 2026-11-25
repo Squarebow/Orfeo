@@ -63,20 +63,18 @@ export function runPracticeLightsTest(): number {
 
 
   // the lit keys take their note's colour on the piano roll: a split hand track
-  // in its hand's colour, a mixed track in its own colour while hand colours are off
+  // in its hand's colour, a mixed track in the hand practice mode asks for
   {
     const before = useStore.getState()
     const n = (hand: 'L' | 'R') => ({ midi: 60, time: 0, duration: 1, velocity: 1, hand })
     useStore.setState({
       midi: { ...(before.midi ?? {}), tracks: [{ index: 0, notes: [n('R'), n('R')] }, { index: 1, notes: [n('L'), n('R')] }] } as any,
       tracks: [{ index: 0, color: '#111111' }, { index: 1, color: '#222222' }] as any,
-      showHandLabels: false, noteEditorActive: false,
+      noteEditorActive: false,
     })
     check(litColour({ hand: 'R', track: 0, noteHand: 'R' }) === HAND_RH_CSS, 'a right-hand track: the right hand colour, as on the roll')
-    check(litColour({ hand: 'L', track: 1, noteHand: 'R' }) === HAND_LH_CSS, 'a mixed track, hand colours off: the hand practice mode asks for, as on the roll')
-    useStore.setState({ showHandLabels: true })
-    check(litColour({ hand: 'R', track: 1, noteHand: 'L' }) === HAND_RH_CSS, 'hand colours on: still the hand practice mode asks for')
-    useStore.setState({ midi: before.midi, tracks: before.tracks, showHandLabels: before.showHandLabels, noteEditorActive: before.noteEditorActive })
+    check(litColour({ hand: 'L', track: 1, noteHand: 'R' }) === HAND_LH_CSS, 'a mixed track: the hand practice mode asks for, as on the roll')
+    useStore.setState({ midi: before.midi, tracks: before.tracks, noteEditorActive: before.noteEditorActive })
   }
 
   console.log(`${pass} passed, ${fail} failed`)

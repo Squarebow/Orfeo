@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { BookOpen, PanelLeftClose, Hand, Activity, Expand, StepForward, Sparkles, MessageSquareText, Minus, Music, Share2 } from 'lucide-react'
 import { useStore } from '../../../store'
-import { Switch, InlineIcon, OptionBtn } from '../controls'
+import { Switch, InlineIcon, OptionBtn, FingerStepper } from '../controls'
 import { useDevPractice, pluggedSim, type PianistStyle } from '../../../practice/devPlay'
 import { useMidiSettings } from '../../../store/midiSettings'
 import type { SettingDef } from '../types'
@@ -370,6 +370,28 @@ export const PRACTICE_DEFS: SettingDef[] = [
   {
     id: 'handTags', icon: Hand, kind: 'switch',
     Control: () => { const v = useStore(s => s.showHandLetters); return <Switch value={v} onChange={useStore.getState().setShowHandLetters} label={t`Hand tags`} /> },
+  },
+  {
+    // how many notes of a wide chord each hand takes (handAssignment.ts); was
+    // under the Hand Assignment switch, which went on 25. 11.: the piano you'd
+    // play shows its hands by itself (utils/handColouredTracks.ts)
+    id: 'maxFingers', icon: Hand, kind: 'choice',
+    Control: () => {
+      const lh = useStore(s => s.lhMaxFingers)
+      const rh = useStore(s => s.rhMaxFingers)
+      return (
+        <div style={{ display: 'flex', alignItems: 'center', gap: 16, flexWrap: 'wrap' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+            <span style={{ fontSize: 10, color: 'var(--text-default)', fontFamily: 'var(--font-ui)', whiteSpace: 'nowrap' }}>{t`Left hand`}</span>
+            <FingerStepper value={lh} onChange={useStore.getState().setLhMaxFingers} />
+          </div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+            <span style={{ fontSize: 10, color: 'var(--text-default)', fontFamily: 'var(--font-ui)', whiteSpace: 'nowrap' }}>{t`Right hand`}</span>
+            <FingerStepper value={rh} onChange={useStore.getState().setRhMaxFingers} />
+          </div>
+        </div>
+      )
+    },
   },
   {
     id: 'trackVu', icon: Activity, kind: 'switch',

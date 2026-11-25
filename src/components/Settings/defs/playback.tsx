@@ -98,47 +98,6 @@ function SkipEmptyBarsExtra() {
   )
 }
 
-// Max fingers per hand — a real hand-split parameter (handAssignment.ts)
-function HandAssignmentExtra() {
-  const on = useStore(s => s.showHandLabels)
-  const lh = useStore(s => s.lhMaxFingers)
-  const rh = useStore(s => s.rhMaxFingers)
-  if (!on) return null
-  return (
-    <>
-      <SubLabel>{t`Max Fingers`}</SubLabel>
-      <div style={{ display: 'flex', alignItems: 'center', gap: 16, flexWrap: 'wrap' }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-          <span style={{ fontSize: 10, color: 'var(--text-default)', fontFamily: 'var(--font-ui)', whiteSpace: 'nowrap' }}>{t`Left hand`}</span>
-          <FingerStepper value={lh} onChange={useStore.getState().setLhMaxFingers} />
-        </div>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-          <span style={{ fontSize: 10, color: 'var(--text-default)', fontFamily: 'var(--font-ui)', whiteSpace: 'nowrap' }}>{t`Right hand`}</span>
-          <FingerStepper value={rh} onChange={useStore.getState().setRhMaxFingers} />
-        </div>
-      </div>
-      <HelpText>{t`How many notes of a wide chord each hand can take before the rest goes to the other hand. The left hand counts from the bottom of the chord, the right from the top.`}</HelpText>
-    </>
-  )
-}
-
-// Link to Settings › Appearance › Hand colours — in the card's description
-// and under the Setup row; opens the Settings window on Appearance
-function HandColoursLink() {
-  return (
-    <button onClick={() => useStore.getState().openSettingsWindow('appearance')}
-      style={{ padding: 0, border: 'none', background: 'none', cursor: 'pointer', font: 'inherit', fontStyle: 'normal', color: 'var(--text-amber)',
-        display: 'inline-flex', alignItems: 'center', gap: 3 }}>
-      {t`Set your own hand colours`}
-      <ArrowUpRight size={11} strokeWidth={1.75} />
-    </button>
-  )
-}
-// Setup: the link on its own line, an empty line under the summary
-function HandColoursSetupLink() {
-  return <><br /><br /><HandColoursLink /></>
-}
-
 // ── Test builds: the Explorers listening to a keyboard, without one. Closes
 // Settings, opens the Explorer and holds five chords one after another, as if
 // played on a keyboard. Saves nothing. ───────────────────
@@ -205,18 +164,6 @@ export const PLAYBACK_DEFS: SettingDef[] = [
       {t`Songs that begin with silent bars open with the music on bar 1: the piano roll, bar numbers, playback, loops and step-through all start there. Your files are never changed — switch it off to see a song exactly as written. Switching this on switches off Chord Transcription, whose charts number the bars as the file has them.`}
     </>,
     Control: () => { const v = useStore(s => s.skipEmptyBars); return <Switch value={v} onChange={x => { useStore.getState().setSkipEmptyBars(x); void applySkipEmptyBarsChange() }} label={t`Skip empty bars at the start`} /> },
-  },
-  {
-    id: 'handAssignment', icon: Hand, kind: 'switch', Extra: HandAssignmentExtra,
-    Control: () => { const v = useStore(s => s.showHandLabels); return <Switch value={v} onChange={useStore.getState().setShowHandLabels} label={t`Hand Assignment`} /> },
-    Description: () => <>
-      {t`On a single piano track, Orfeo works out which hand plays each note and colours it to match. Several piano or organ tracks are read together, as one player's two hands. A guideline, not a verified transcript!`}
-      <br /><br />
-      {t`For a perfectly accurate split use MIDI note editor and click the`} <InlineIcon><Hand size={11} /></InlineIcon> {t`icon to manually assign notes to left and right hand.`}
-      <br /><br />
-      <HandColoursLink />
-    </>,
-    SummaryEnd: HandColoursSetupLink,
   },
   {
     id: 'loopRegion', icon: Repeat, kind: 'switch',

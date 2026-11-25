@@ -25,7 +25,7 @@ export interface GroupInfo { id: SettingsGroupId; name: string; intro: string; m
 export type SettingId =
   | 'soundEngine' | 'soundFonts' | 'autoLevel' | 'exportAudio'
   | 'showDemo' | 'chordTranscription' | 'openWith' | 'showLyrics' | 'tags' | 'practiceQueue'
-  | 'noteEditor' | 'unsavedWarning' | 'saveTrackChanges' | 'tapTempo' | 'tempoWarnings' | 'countIn' | 'skipEmptyBars' | 'handAssignment' | 'loopRegion' | 'focusMode'
+  | 'noteEditor' | 'unsavedWarning' | 'saveTrackChanges' | 'tapTempo' | 'tempoWarnings' | 'countIn' | 'skipEmptyBars' | 'maxFingers' | 'loopRegion' | 'focusMode'
   | 'scoreWriting' | 'scoreChords' | 'scoreTriplets' | 'scoreSwing' | 'scoreVoices' | 'scorePedal'
   | 'practiceMode' | 'practiceSummary' | 'shareHands' | 'practicePlaybar' | 'practiceFingering' | 'scoreFingering' | 'fingerHints' | 'handSize' | 'toPlayShows' | 'stepThrough' | 'chordPrompter' | 'closePanels' | 'handTags' | 'trackVu'
   | 'displaySystem' | 'accidentals' | 'chordTracking' | 'chordReading' | 'chordNaming'
@@ -65,10 +65,10 @@ export const GROUPS: GroupInfo[] = [
       { key: 'practice-mode', name: t`Practice mode`, ids: ['practiceMode', 'practiceSummary', 'practicePlaybar', 'toPlayShows', 'shareHands'], devOnly: true },
       { key: 'score', name: t`Score`, ids: ['scoreWriting', 'scoreChords', 'scoreTriplets', 'scoreSwing', 'scoreVoices', 'scorePedal'], devOnly: true },
       { key: 'fingering', name: t`Fingering`, ids: ['fingerHints', 'handSize', 'practiceFingering', 'scoreFingering'], devOnly: true },
-      { key: 'tools', name: t`Practice tools`, ids: ['stepThrough', 'chordPrompter', 'closePanels', 'handTags', 'reflectPianoRoll', 'starmap'] },
+      { key: 'tools', name: t`Practice tools`, ids: ['stepThrough', 'chordPrompter', 'closePanels', 'handTags', 'maxFingers', 'reflectPianoRoll', 'starmap'] },
     ] },
   { id: 'editing', name: t`Editing`, intro: t`Edit your songs`, manualUrl: 'https://orfeo.cc/docs/editing-midi-files',
-    stack: [['handAssignment'], ['saveTrackChanges'], ['noteEditor'], ['trackVu', 'unsavedWarning']], looseFirst: true },
+    stack: [['saveTrackChanges'], ['noteEditor'], ['trackVu', 'unsavedWarning']], looseFirst: true },
   { id: 'notation', name: t`Chords & Notation`, intro: t`Read chords and notes`, manualUrl: 'https://orfeo.cc/docs/practicing-with-midi-files/how-orfeo-reads-chords' },
   { id: 'keyboard', name: t`Virtual Keyboard`, intro: t`Set up the keyboard`, manualUrl: 'https://orfeo.cc/docs/playing-midi-files/the-virtual-keyboard' },
   { id: 'piano-roll', name: t`Piano Roll`, intro: t`Tune the falling notes`, manualUrl: 'https://orfeo.cc/docs/playing-midi-files/the-piano-roll',
@@ -134,9 +134,6 @@ export const SETTINGS: SettingInfo[] = [
   { id: 'skipEmptyBars', group: 'playback-editing', name: t`Skip empty bars at the start`, summary: t`Start every song where the music starts.`,
     description: t`Songs that begin with silent bars open with the music on bar 1: the piano roll, bar numbers, playback, loops and step-through all start there. Your files are never changed — switch it off to see a song exactly as written. Keep drum count-ins keeps one or two bars of plain drum clicks before the music. Switching this on switches off Chord Transcription, whose charts number the bars as the file has them.`,
     keywords: 'empty bars silence lead-in intro start trim count-in skip' },
-  { id: 'handAssignment', group: 'editing', name: t`Hand Assignment`, summary: t`On a single piano track, colours each note by the hand that plays it.`,
-    description: t`Turn on to colour each note by the hand that plays it. A piano written on two staves takes its hands straight from them. On a single piano track, Orfeo works out which hand plays each note: a guideline, not a verified transcript. Every other keyboard part, such as an organ, gets its own hands. For an exact split, use the MIDI Note Editor's hand tool to assign notes to the left and right hand yourself.`,
-    keywords: 'left right hand fingers split' },
   { id: 'unsavedWarning', group: 'editing', name: t`Warn about unsaved changes`, summary: t`Asks before changes to a song are lost.`,
     description: t`Asks before you close Orfeo or the Playback Editor, or open another song, with changes that aren't saved, such as tracks shown or hidden, keyboard lights, mute or the Mixer.\n\nSolo isn't included: it only lasts for the session.`,
     keywords: 'save close quit lose lost changes popup reminder' },
@@ -191,6 +188,9 @@ export const SETTINGS: SettingInfo[] = [
     description: t`Turn on to have Orfeo suggest a finger for every note you haven't fingered yourself, from the rules piano teachers use (stay in position, the thumb under in scales, the usual chord shapes, the thumb off black keys). 1 is the thumb and 5 the little finger, in both hands.
 It's only a suggestion: it can't know your hand or how the music is phrased, and it may not be the best technique for every passage. A teacher's fingering is better; your own numbers always win. Suggestions show hollow on the keyboard and grey on the score, and aren't saved with the song.`,
     keywords: 'practice fingering suggested suggest automatic fingers numbers thumb help' },
+  { id: 'maxFingers', group: 'practice', name: t`Max fingers`, summary: t`How many notes of a wide chord each hand takes.`,
+    description: t`How many notes of a wide chord each hand takes when Orfeo works out the hands, before the rest goes to the other hand. The left hand counts from the bottom of the chord, the right from the top.`,
+    keywords: 'left right hand fingers split chord max hand assignment colours' },
   { id: 'handSize', group: 'practice', name: t`Hand size`, summary: t`How far your hand reaches, for suggested fingering.`,
     description: t`How far your hand stretches from thumb to little finger. Small: up to a 7th comfortably, an octave at most. Medium: an octave, a 9th at most. Large: a 9th, a 10th at most. Chords wider than your hand get no suggestion.`,
     keywords: 'hand size span stretch small medium large fingering' },
@@ -411,7 +411,7 @@ export const QUICK_LAYOUT: Record<SettingsGroupId, QuickItem[]> = {
   'midi-files-library': ['showDemo'],
   'playback-editing': ['focusMode', 'tapTempo', 'skipEmptyBars'],
   'practice': ['stepThrough', 'chordPrompter'],
-  'editing': ['handAssignment'],
+  'editing': [],
   'notation': ['displaySystem', 'accidentals', 'chordTracking'],
   'keyboard': ['keyRange', 'showOctaves', 'showNoteNames'],
   'piano-roll': ['rollZoom', 'barNumbers', 'playbar'],

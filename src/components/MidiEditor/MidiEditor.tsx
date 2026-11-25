@@ -865,7 +865,6 @@ export default function MidiEditor() {
     `${t.index}:${t.name}:${t.gmName}:${t.trackName ?? ''}:${t.program}:${t.group ?? ''}:${t.isDrum}:${t.color}:${t.colorSource ?? ''}:${t.muted}:${t.visible}:${t.showOnKeyboard}`
   ).join('|'))
   const tracks           = useMemo(() => useStore.getState().tracks, [trackSignature])
-  const showHandLabels   = useStore((s) => s.showHandLabels)
   const midiEditorOpen   = useStore((s) => s.midiEditorOpen)
   const setMidiEditorOpen = useStore((s) => s.setMidiEditorOpen)
   const saveTempoKeyChangesEnabled = useStore((s) => s.saveTempoKeyChangesEnabled)

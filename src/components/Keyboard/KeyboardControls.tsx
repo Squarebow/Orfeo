@@ -5,49 +5,12 @@ import { stepEvents } from '../../utils/stepThrough'
 import { t } from '../../utils/i18n'
 import Tooltip from '../Tooltip'
 import type { KeyboardSize } from '../../types'
-import { getWhiteKeys, noteToLeftPct, computeTaggedBoundaryCurve, interpolateTaggedCurve, type TaggedBoundarySample } from '../../utils/handBoundaries'
 import { STANDARD_SIZES, PORTABLE_SIZES, isPortableSize, octaveLimits } from '../../utils/keyLayout'
 import { targetRange } from '../../utils/keyView'
 import { getNoteLabel } from '../../utils/noteNames'
 
-// Exponential ease toward the curve's raw target — smooths the line's motion
-// between 0.25s samples instead of visibly stepping. Reaches ~90% of the way
-// there in ~200ms at 60fps.
-const SMOOTHING_FACTOR = 0.15
-
 const SIZES: KeyboardSize[] = [...STANDARD_SIZES]
 const PORTABLE: KeyboardSize[] = [...PORTABLE_SIZES]
-
-// ── Smooth the raw curve boundary (in keyboard-%) toward its target every
-// frame — a plain per-sample lookup would visibly jump every 0.25s. Null
-// target collapses immediately (no phantom glide when the line should just
-// disappear because there's no two-hand texture right now).
-function useSmoothedPct(rawPct: number | null): number | null {
-  const rawRef = useRef(rawPct)
-  rawRef.current = rawPct
-  const displayedRef = useRef<number | null>(null)
-  const rafRef = useRef<number | null>(null)
-  const [smoothed, setSmoothed] = useState<number | null>(null)
-
-  useEffect(() => {
-    function tick() {
-      const raw = rawRef.current
-      if (raw === null) {
-        displayedRef.current = null
-      } else if (displayedRef.current === null) {
-        displayedRef.current = raw
-      } else {
-        displayedRef.current += (raw - displayedRef.current) * SMOOTHING_FACTOR
-      }
-      setSmoothed(displayedRef.current)
-      rafRef.current = requestAnimationFrame(tick)
-    }
-    rafRef.current = requestAnimationFrame(tick)
-    return () => { if (rafRef.current !== null) cancelAnimationFrame(rafRef.current) }
-  }, [])
-
-  return smoothed
-}
 
 // ── Bottom bar: keyboard size selector, dock/float toggle, note counter ───────
 export default function KeyboardControls() {
@@ -57,10 +20,6 @@ export default function KeyboardControls() {
   const setKeyboardMode = useStore((s) => s.setKeyboardMode)
   const presentationMode    = useStore((s) => s.presentationMode)
   const setPresentationMode = useStore((s) => s.setPresentationMode)
-  const showHandLabels          = useStore((s) => s.showHandLabels)
-  const handLabelMode           = useStore((s) => s.handLabelMode)
-  const midi                    = useStore((s) => s.midi)
-  const currentTime             = useStore((s) => s.currentTime)
   // ── Undocking is blocked while any bottom-anchored modal is open (they all
   // share the keyboard-header anchor, so floating the keyboard out from under
   // them would be visually broken) — LockedChordModal is excluded, it's small
@@ -71,25 +30,13 @@ export default function KeyboardControls() {
   const midiEditorOpen    = useStore((s) => s.midiEditorOpen)
   const undockBlocked = chordExplorerOpen || scaleExplorerOpen || mixerOpen || midiEditorOpen
 
-  // ── Practice mode: moving boundary from stored hand tags, sliding-window
-  // averaged (not one static whole-file number) — see computeTaggedBoundaryCurve.
-  // (Performance mode's indicator lives on the keys themselves — Keyboard.tsx —
-  // reading each active note's own tag; nothing to render in this bar for it.)
-  const keyboardOctave = useStore((s) => s.keyboardOctave)
   const portableKeyboards = useStore((s) => s.portableKeyboards)
-  const whiteKeys = useMemo(() => getWhiteKeys(targetRange({ keyboardSize, keyboardOctave })), [keyboardSize, keyboardOctave])
-  const [taggedCurve, setTaggedCurve] = useState<TaggedBoundarySample[]>([])
-  useEffect(() => { setTaggedCurve(computeTaggedBoundaryCurve(midi)) }, [midi])
-  const rawBoundary = useMemo(() => interpolateTaggedCurve(taggedCurve, currentTime), [taggedCurve, currentTime])
-  const rawPct = rawBoundary !== null ? noteToLeftPct(rawBoundary, whiteKeys) : null
-  const smoothedPct = useSmoothedPct(rawPct)
 
   const isDocked = keyboardMode === 'docked'
 
   // ── Practice-mode line and the shift+click hint share the same center
   // spot — moving line wins when it's actually rendering (stored hand
   // tags present), otherwise the hint occupies that space instead. ────────
-  const practiceLineActive = showHandLabels && handLabelMode === 'practice' && !presentationMode && smoothedPct !== null
 
   // ── Shift+click hint sits in the middle of the whole Orfeo window, not of
   // this bar — the bar narrows when a side panel opens, which used to slide
@@ -123,7 +70,7 @@ export default function KeyboardControls() {
     ro.observe(row)
     window.addEventListener('resize', measure)
     return () => { ro.disconnect(); window.removeEventListener('resize', measure) }
-  }, [isDocked, practiceLineActive, presentationMode, stepThroughEnabled])
+  }, [isDocked, presentationMode, stepThroughEnabled])
 
   return (
     <div
@@ -226,7 +173,7 @@ export default function KeyboardControls() {
       {/* ── Center: shift+click hint — hidden while the practice-mode split
           line (below) is actively rendering; the line takes this spot instead. ── */}
       <div ref={hintCellRef} style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', justifySelf: 'center', minWidth: 0 }}>
-        {!practiceLineActive && !presentationMode && (
+        {!presentationMode && (
           <span ref={hintRef} style={{ display: 'inline-flex', alignItems: 'center', gap: 28, transform: `translateX(${hintShift}px)` }}>
             {stepThroughEnabled && <StepArrow dir={-1} enabled={hasSong} />}
             <span style={{ fontSize: 11, color: 'var(--text-faint)', fontFamily: 'var(--font-ui)', userSelect: 'none', whiteSpace: 'nowrap' }}>
@@ -240,39 +187,6 @@ export default function KeyboardControls() {
       {/* ── Right: note counter + Presentation Mode toggle ───────────────────── */}
       <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-3)', justifySelf: 'end', minWidth: 0 }}>
 
-      {/* ── Practice mode: moving split line from stored hand tags ──────────── */}
-      {/* (beta, needs rework — hidden in Presentation Mode) ─────────────────── */}
-      {practiceLineActive && (() => {
-        const AMBER = 'var(--text-amber)'
-        const pct = smoothedPct
-        const lineStyle: CSSProperties = {
-          position: 'absolute', top: 0, bottom: 0, width: 2,
-          background: AMBER,
-          boxShadow: `0 0 8px 2px ${AMBER}88`,
-          pointerEvents: 'none', zIndex: 2,
-        }
-        const labelBase: CSSProperties = {
-          position: 'absolute', top: 0, bottom: 0,
-          display: 'flex', alignItems: 'center',
-          pointerEvents: 'none', zIndex: 2,
-        }
-        const textStyle: CSSProperties = {
-          fontSize: 8, fontWeight: 700, letterSpacing: '0.16em',
-          color: AMBER, fontFamily: 'var(--font-ui)', textTransform: 'uppercase',
-          userSelect: 'none',
-        }
-        return (
-          <>
-            <div style={{ ...lineStyle, left: `${pct}%` }} />
-            <div style={{ ...labelBase, left: 0, width: `${pct}%`, justifyContent: 'flex-end', paddingRight: 6 }}>
-              <span style={textStyle}>{t`Left Hand`}</span>
-            </div>
-            <div style={{ ...labelBase, left: `${pct}%`, right: 0, justifyContent: 'flex-start', paddingLeft: 'var(--space-2)' }}>
-              <span style={textStyle}>{t`Right Hand`}</span>
-            </div>
-          </>
-        )
-      })()}
 
       {/* ── Note counter ───────────────────────────────────────────────────── */}
       {!presentationMode && <NoteCounter />}

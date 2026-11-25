@@ -7,7 +7,6 @@ import { buildKeyLayoutView } from '../../utils/keyLayout'
 import { startKeyView, targetRange, foldRange, foldIntoRange, keyHeightFor, labelScaleFor } from '../../utils/keyView'
 import { notesSoundingAt } from '../../utils/midiParser'
 import type { SoundingNote } from '../../utils/midiParser'
-import { buildPitchHandIndex, lookupNoteHandAtTime, detectPerformanceBoundary } from '../../utils/handBoundaries'
 import type { Hand } from '../../types'
 import { isHomogeneousHandTrack } from '../../utils/handColors'
 import { liveHandColor } from '../../audio/liveHandColor'
@@ -116,10 +115,7 @@ export default function Keyboard() {
   // 900-line component every tick. The only two things that actually need
   // it are (a) the current chord index below, subscribed as an already-
   // derived value so Zustand only re-renders when the RESOLVED index
-  // changes (a handful of times per song, not every tick), and (b)
-  // getHardwareHand()'s per-key hand lookup, which only matters at the
-  // moments activeKeys itself changes (note on/off) — so it reads
-  // currentTime non-reactively via getState() at that point instead. ───────
+  // changes (a handful of times per song, not every tick). ───────
   // ── Chord-name timing follows the same output-latency correction as the
   // keyboard's own key lights (see getOutputLatencySec() in the engine
   // hooks) — only while actually playing, since a scrub/pause isn't tied to
@@ -176,11 +172,8 @@ export default function Keyboard() {
     return result
   })
   const reflectKeys = useMemo(() => new Set(reflectSounding.map(s => s.midi)), [reflectSounding])
-  const showHandLabels = useStore((s) => s.showHandLabels)
   const noteEditorActiveForColours = useStore((s) => s.noteEditorActive)
   const showHandLetters = useStore((s) => s.showHandLetters)
-  const handLabelMode = useStore((s) => s.handLabelMode)
-  const performanceSplitSensitivity = useStore((s) => s.performanceSplitSensitivity)
   const presentationMode = useStore((s) => s.presentationMode)
   const practicing = usePractice((s) => s.active)   // practice mode draws its own strip
   const playbarVisible = useStore(playbarOn)   // practice mode may decide it for itself
@@ -538,7 +531,7 @@ export default function Keyboard() {
       m.set(n.midi, liveHandColor(n, base, homogeneousTracks.get(n.trackIndex) ?? false))
     }
     return m
-  }, [reflectSounding, trackStates, homogeneousTracks, showHandLabels, noteEditorActiveForColours])
+  }, [reflectSounding, trackStates, homogeneousTracks, noteEditorActiveForColours])
 
   const allActiveColors = useMemo(() => {
     const merged = new Map(activeKeyColors)
@@ -562,10 +555,8 @@ export default function Keyboard() {
   }
 
   // ── Non-color hand signal — a key lit in HAND_LH/HAND_RH is a tagged file
-  // note whose hand was, until now, shown by color alone (see comment above
-  // getHardwareHand: the hardware-boundary strip deliberately skips these).
-  // Recover the L/R from the resolved color itself so a colorblind user gets
-  // the same glyph backup the hardware-guess strip already had. ───────────
+  // note whose hand was, until now, shown by color alone. Recover the L/R
+  // from the resolved color itself so a colorblind user gets a glyph too. ───
   const getColorHand = (colorValue: string | null): Hand | null =>
     colorValue === HAND_LH ? 'L' : colorValue === HAND_RH ? 'R' : null
 
@@ -575,29 +566,6 @@ export default function Keyboard() {
   // keys' own activation pattern elsewhere in this file. ───────────────────
   const activateOnKey = (fn: () => void) => (e: React.KeyboardEvent) => {
     if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); fn() }
-  }
-
-  // ── Performance mode: per-note hand strip — hardware MIDI keys only. A file
-  // note's hand tag is already shown via the key's own glow color (see
-  // useAudioEngine.ts/useSamplesEngine.ts resolveHandAwareColor), so this strip
-  // would be redundant there — it exists solely for hardware-played notes,
-  // which have no backing file note (lookupNoteHandAtTime returns null) and so
-  // have no other way to show the live gap-inference hand guess.
-  const pitchHandIndex = useMemo(() => (midi ? buildPitchHandIndex(midi) : null), [midi])
-  const hardwareBoundary = useMemo(() => {
-    if (handLabelMode !== 'performance') return null
-    return detectPerformanceBoundary([...activeKeys].sort((a, b) => a - b), performanceSplitSensitivity)
-  }, [activeKeys, handLabelMode, performanceSplitSensitivity])
-
-  const getHardwareHand = (noteMidi: number): Hand | null => {
-    if (!showHandLabels || handLabelMode !== 'performance' || !allActiveKeys.has(noteMidi)) return null
-    // Non-reactive read — this only matters at the moments activeKeys itself
-    // changes (note on/off), which already re-renders this component; no need
-    // to also subscribe to currentTime's ~60x/sec ticks for it.
-    const tagged = pitchHandIndex ? lookupNoteHandAtTime(pitchHandIndex, noteMidi, useStore.getState().currentTime) : null
-    if (tagged) return null // already shown via the key's glow color — no strip needed
-    if (hardwareBoundary === null) return null
-    return noteMidi < hardwareBoundary ? 'L' : 'R'
   }
 
   // ── Manual chord detection — playback display is now sourced from chordSequence ─
@@ -1038,7 +1006,6 @@ export default function Keyboard() {
             if (!ratio || ratio.x >= 1 || ratio.x + ratio.width <= 0) return null
             const pulse = waitPulse.get(k.midi)
             const color = pulse ? null : getColor(k.midi)
-            const hand = getHardwareHand(k.midi)
             const colorHand = showHandLetters ? getColorHand(color) : null
             const locked = lockedKeys.has(k.midi)
             const isC = k.midi % 12 === 0
@@ -1081,12 +1048,6 @@ export default function Keyboard() {
                   minWidth: 0,
                   }}
               >
-                {hand && (
-                  <span style={{
-                    position: 'absolute', top: 0, left: 0, right: 0, height: 3,
-                    background: hand === 'L' ? HAND_LH : HAND_RH, pointerEvents: 'none',
-                  }} />
-                )}
                 {/* ── Hand letter badge — dark square + white letter, sized as a
                     percentage of THIS key's own rendered width (not a fixed px),
                     so it scales correctly whether the keyboard shows 61, 73, or 88
@@ -1135,7 +1096,6 @@ export default function Keyboard() {
             const widthPct = ratio.width * 100
             const pulse = waitPulse.get(k.midi)
             const color = pulse ? null : getColor(k.midi)
-            const hand = getHardwareHand(k.midi)
             const colorHand = showHandLetters ? getColorHand(color) : null
             const locked = lockedKeys.has(k.midi)
             return (
@@ -1183,13 +1143,6 @@ export default function Keyboard() {
                   zIndex: 2,
                 }}
               >
-                {hand && (
-                  <span style={{
-                    position: 'absolute', top: 0, left: 0, right: 0, height: 3,
-                    background: hand === 'L' ? HAND_LH : HAND_RH, pointerEvents: 'none',
-                    borderRadius: '2px 2px 0 0',
-                  }} />
-                )}
                 {/* ── Hand letter badge — inverted from the white-key version (light
                     square + dark letter, black keys are already dark) so it reads
                     at a glance which key type it's on. Sized off this key's own

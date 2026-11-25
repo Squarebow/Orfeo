@@ -6,6 +6,7 @@
 // from audio, whose "chords" start a few ms apart: notes starting within
 // CHORD_GRACE_SEC of the first note of a step count as that one step.
 
+import { handColouredTracks } from './handColouredTracks'
 import { useStore } from '../store'
 import { NES } from './noteEditorState'
 import { amberHex } from './hitEffectQueue'
@@ -46,7 +47,8 @@ export function buildSteps(midi: any, tracks: ReturnType<typeof useStore.getStat
     if (track.isDrum) continue
     const ts = tracks.find(t => t.index === track.index)
     if (!ts || !isShown(ts, hasSolo)) continue
-    const handTrack = isHomogeneousHandTrack(track.notes)
+    // hand colours: a one-hand track, or the piano you'd play (handColouredTracks.ts)
+    const handTrack = isHomogeneousHandTrack(track.notes) || handColouredTracks(midi, tracks).has(track.index)
     for (const n of track.notes) {
       all.push({ time: n.time, midi: n.midi, velocity: n.velocity, duration: n.duration, channel: track.channel, color: ts.color ?? amberHex(), hand: n.hand, handTrack })
     }

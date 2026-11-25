@@ -1,4 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react'
+import { handColouredTracks } from '../../utils/handColouredTracks'
 import { Application, Graphics } from 'pixi.js'
 import type { Track } from '@tonejs/midi'
 import { useStore, playbarOn } from '../../store'
@@ -492,7 +493,6 @@ export default function PianoRoll() {
       s.showBarNumbers !== prev.showBarNumbers ||
       s.barStarts !== prev.barStarts ||
       s.noteEditorActive !== prev.noteEditorActive ||
-      s.showHandLabels !== prev.showHandLabels ||
       s.playbarVisible !== prev.playbarVisible ||
       s.playbarOverride !== prev.playbarOverride ||
 
@@ -875,7 +875,7 @@ export default function PianoRoll() {
           applyResize(cw, ch, dpr)
         }
 
-        const { midi, currentTime, tracks, detectedKey, zoomLevel, appTheme, keyboardSize, keyboardOctave, keyView, keyViewLo, keyViewHi, showBarNumbers, barStarts: storeBars, noteEditorActive, showHandLabels, keyboardTopY, hitEffectsEnabled, hitEffectPattern, hitEffectBloomThreshold, hitEffectBloomIntensity, hitEffectBloomSpread, hitEffectColor } = storeRef.current
+        const { midi, currentTime, tracks, detectedKey, zoomLevel, appTheme, keyboardSize, keyboardOctave, keyView, keyViewLo, keyViewHi, showBarNumbers, barStarts: storeBars, noteEditorActive, keyboardTopY, hitEffectsEnabled, hitEffectPattern, hitEffectBloomThreshold, hitEffectBloomIntensity, hitEffectBloomSpread, hitEffectColor } = storeRef.current
         const transpose   = (detectedKey as any)?.transpose ?? 0
         const playbarVisible = playbarOn(storeRef.current)   // practice mode may decide it for itself
         const W = app.screen.width, H = app.screen.height
@@ -1040,6 +1040,8 @@ export default function PianoRoll() {
         for (const t of tracks) trackMap.set(t.index, t)
         const hasSolo = tracks.some((t: any) => t.solo)
         const practiceOn = usePractice.getState().active
+        // the tracks whose notes show their hands (the piano you'd play)
+        const handTracks = handColouredTracks(midi, tracks)
 
         const flat     = flatNotesRef.current
         const startIdx = lowerBound(flat, visStart - visibleSecs)
@@ -1081,15 +1083,12 @@ export default function PianoRoll() {
           // notes (no hand tag) keep their normal per-track palette color throughout.
           const isSplitTrack = homogeneousHandTracksRef.current.has(note.trackIndex)
           const trackColorNum = parseInt((ts?.color ?? '#e8a027').replace('#', ''), 16)
-          // Global Settings LH/RH toggle stays authoritative for whether
-          // hand colors SHOW — opening the Note Editor must never itself
-          // change what's on screen. The editor's own Reassign-hands toggle
-          // only ADDS to that (lets you preview hand colors even with the
-          // global toggle off, and gates Assign LH/RH availability); it
-          // never takes display away from what was already showing. ───────
-          const handColoringOn = showHandLabels || (noteEditorActive && NES.reassignHandsMode)
+          // The piano you'd play shows its hands, by itself (handColouredTracks.ts);
+          // the Note Editor's own Reassign-hands toggle only ADDS to that (hand
+          // colours on the track being edited, and Assign LH/RH). ───────
+          const handColoringOn = handTracks.has(note.trackIndex) || (noteEditorActive && NES.reassignHandsMode)
           // practice mode: your part in the colour of the hand it asks you to play,
-          // whatever the Hand Assignment switch says (25. 11., the user)
+          // always (25. 11., the user)
           const partHand = practiceOn && ts?.practicePart ? ts.practiceHand : undefined
           const color = partHand && !bandKeys
             ? (partHand === 'L' ? HAND_LH_COLOR : HAND_RH_COLOR)
@@ -1281,12 +1280,12 @@ export default function PianoRoll() {
       // the DOM Keyboard matches the note's actual on-screen piano-roll
       // color instead of always defaulting to amber. ───────────────────────
       const getNoteColorHex = (note: any, trackIndex: number): string => {
-        const { tracks: stTracks, noteEditorActive: neActive, showHandLabels: shl } = storeRef.current
+        const { tracks: stTracks, noteEditorActive: neActive, midi: md } = storeRef.current
         const ts = stTracks.find((t: any) => t.index === trackIndex)
         const trackColorHex = ts?.color ?? '#e8a027'
         if (!note.hand) return trackColorHex
         const isSplitTrack   = homogeneousHandTracksRef.current.has(trackIndex)
-        const handColoringOn = shl || (neActive && NES.reassignHandsMode)
+        const handColoringOn = handColouredTracks(md, stTracks).has(trackIndex) || (neActive && NES.reassignHandsMode)
         if (isSplitTrack || handColoringOn) return note.hand === 'L' ? HAND_LH_CSS : HAND_RH_CSS
         return trackColorHex
       }
