@@ -60,7 +60,7 @@ export function countPracticePianos(rows: { group: string; isDrum?: boolean; inc
 export const NOT_A_PIANO_LESSON = new Set([6, 7])
 /** Raised with every change to what counts as ready: the background reading's
  *  kept answers (practice/handPrescan.ts) are then worked out again */
-export const READY_RULES = 3
+export const READY_RULES = 4
 export const isPracticePiano = (t: { group?: string; isDrum?: boolean; program?: number }): boolean =>
   t.group === 'piano' && !t.isDrum && !NOT_A_PIANO_LESSON.has(t.program ?? 0)
 
