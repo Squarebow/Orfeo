@@ -1,5 +1,5 @@
 import { useEffect, useId, useLayoutEffect, useMemo, useRef, useState, type CSSProperties } from 'react'
-import { Play, Pause, SkipBack, Repeat, SlidersVertical, Volume2, VolumeX, ChevronUp, ChevronDown, WandSparkles, SquareArrowRightExit, Piano, Eye, EyeOff, Drum, UserRoundStar } from 'lucide-react'
+import { Play, Pause, SkipBack, SlidersVertical, Volume2, VolumeX, ChevronUp, ChevronDown, WandSparkles, SquareArrowRightExit, Piano, Eye, EyeOff, Drum, UserRoundStar } from 'lucide-react'
 import { useStore } from '../../store'
 import { usePlayback } from '../../hooks/usePlayback'
 import { formatTime } from '../../utils/midiParser'
@@ -16,7 +16,7 @@ import { HAND_ASSIGN_GROUPS } from '../../utils/keyboardGroups'
 import OrfeoLogo from '../OrfeoLogo'
 import VolumeKnob from '../VolumeKnob'
 import { QueueButton } from '../Transport/QueueButton'
-import { TBtn, BpmValue, TempoDisplayMenu, MetronomeMenu, METRO_MENU_WIDTH } from '../Transport/TopBar'
+import { TBtn, LoopButton, BpmValue, TempoDisplayMenu, MetronomeMenu, METRO_MENU_WIDTH } from '../Transport/TopBar'
 import { AMBER, barIcon, featLabel, featValue, toolBtn, BarPop, popHeading, PopDivider, HandMarks, Reserve, ResetMark } from './practiceBar'
 import { useSession, toggleCard } from '../../practice/session'
 import { tickPath } from '../../practice/songTicks'
@@ -304,10 +304,7 @@ export default function PracticeTopBar() {
               </TBtn>
             </div>
             <div style={{ justifySelf: 'start', display: 'flex', alignItems: 'center', gap: 2, pointerEvents: 'auto' }}>
-              <TBtn onClick={() => useStore.getState().setLoopRegionActive(!loopActive)} disabled={!hasLoop} active={hasLoop && loopActive}
-                title={t`Loop`} description={hasLoop ? t`Play the loop round after round.` : t`Set a loop first: Alt + drag on the piano roll.`}>
-                <Repeat size={13} strokeWidth={1.5} />
-              </TBtn>
+              <LoopButton hintBelow />
               <span style={{ marginLeft: 10, color: 'var(--text-muted)', fontFamily: 'var(--font-mono)', fontSize: 11, whiteSpace: 'nowrap' }}>
                 <span style={{ color: 'var(--text-active)' }}>{formatTime(currentTime)}</span> / {formatTime(midi?.duration ?? 0)}
               </span>

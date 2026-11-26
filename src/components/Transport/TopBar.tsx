@@ -164,28 +164,6 @@ export default function TopBar() {
   const isTempoChanged = !!midi && bpm !== originalBpm
   const displayKey = detectedKey ? formatKey(detectedKey, noteNaming, accidentals) : '—'
 
-  // ── Nudge: region selected but loop not yet activated (regardless of strip visibility) ──
-  const nudgeLoop = !!midi && loopStart !== null && loopEnd !== null && !loopRegionActive
-
-  // ── Loop button tooltip — context-aware based on region state ─────────────
-  const loopStartBar = loopStart !== null ? (() => {
-    let bar = 1
-    for (let i = 0; i < barStarts.length; i++) { if (barStarts[i] <= loopStart) bar = i + 1 }
-    return bar
-  })() : null
-  const loopEndBar = (loopEnd !== null && loopStartBar !== null) ? (() => {
-    let rawBar = 1
-    for (let i = 0; i < barStarts.length; i++) { if (barStarts[i] <= loopEnd) rawBar = i + 1 }
-    const pastLastBarStart = barStarts.length === 0 || loopEnd > barStarts[barStarts.length - 1] + 0.001
-    return Math.max(loopStartBar, pastLastBarStart ? rawBar : rawBar - 1)
-  })() : null
-  const loopTooltipTitle = loopStart !== null
-    ? (loopRegionActive ? t`Looping bars ${loopStartBar}–${loopEndBar}` : t`Loop bars ${loopStartBar}–${loopEndBar}`)
-    : t`Loop song or section`
-  const loopTooltipDesc = loopStart !== null
-    ? (loopRegionActive ? t`Click to disable looping.` : t`Click to enable looping.`)
-    : t`Click to loop the entire song, or Alt+Click & drag mouse on the piano roll to select a specific region.`
-
   // ── Live BPM — reads current tempo from _tempoMap so rubato files update ─
   const rawTempoMap = (midi as any)?._tempoMap as { bpm: number; time: number }[] | undefined
   const currentFileBpm = rawTempoMap?.length
@@ -481,36 +459,7 @@ by a semitone (max −12).`}><ChevronDown size={10} /></ArrowBtn>
           </TBtn>
           <TBtn onClick={() => handleSkip(1)} disabled={!midi} title={t`Forward ${SKIP_SECS}s`} oneLine><FastForward size={15} strokeWidth={1.5} /></TBtn>
           <TBtn onClick={() => midi && seek(midi.duration)} disabled={!midi} title={t`Go to end`} oneLine><SkipForward size={16} strokeWidth={1.5} /></TBtn>
-          {/* position:relative wrapper so the "click to loop" label can be
-              position:absolute — it used to sit in normal flex flow as the
-              row's last child, so its appearing/disappearing changed the
-              row's total width, which shifted every button's position
-              (the row is horizontally centered as a block, so a width
-              change moves its center point). Absolute positioning removes
-              it from flow entirely — buttons never move regardless of
-              whether the label is showing. ── */}
-          <div data-tour="loop" style={{ position: 'relative', display: 'flex' }}>
-            <TBtn
-              onClick={() => {
-                const newActive = !loopRegionActive
-                setLoopRegionActive(newActive)
-                // Jump to loop start when activating with a selection, without forcing playback
-                if (newActive && loopStart !== null) seek(loopStart)
-              }}
-              disabled={!midi} active={loopRegionActive} blink={nudgeLoop} title={loopTooltipTitle} description={loopTooltipDesc}
-            ><Repeat size={13} strokeWidth={1.5} /></TBtn>
-            {nudgeLoop && (
-              <span style={{
-                position: 'absolute', left: '100%', top: '50%', transform: 'translateY(-50%)',
-                marginLeft: 4,
-                color: 'var(--text-amber)', fontSize: 9, fontFamily: 'var(--font-ui)',
-                whiteSpace: 'nowrap', letterSpacing: '0.04em',
-                opacity: 0.85, pointerEvents: 'none', userSelect: 'none',
-              }}>
-                {t`click to loop`}
-              </span>
-            )}
-          </div>
+          <LoopButton />
         </div>
         {/* Scrub + loop strip — shared column; width: min(100%, 400px) centers both at
             the same visual width as the old scrub content (34+6+320+6+34 = 400px).
@@ -1044,6 +993,79 @@ export function ArrowBtn({ children, onClick, disabled, title, description }: {
     </button>
   )
   return title ? <Tooltip title={title} description={description} placement="bottom">{button}</Tooltip> : button
+}
+
+// ── The loop button: the same in the main header and in practice mode's (the
+// user, 26. 11.: "exactly as in normal playback"). Blinks with "click to loop"
+// once a loop is drawn and not playing yet; switching it on goes to the loop's
+// start; with no loop drawn it loops the whole song. ─────────────────────────
+/** `hintBelow`: "click to loop" under the button (practice mode, where the time sits right beside it) */
+export function LoopButton({ hintBelow = false }: { hintBelow?: boolean }) {
+  const midi = useStore(s => s.midi)
+  const loopRegionActive = useStore(s => s.loopRegionActive)
+  const setLoopRegionActive = useStore(s => s.setLoopRegionActive)
+  const loopStart = useStore(s => s.loopStart)
+  const loopEnd = useStore(s => s.loopEnd)
+  const barStarts = useStore(s => s.barStarts)
+  const { seek } = usePlayback()
+  // ── Nudge: region selected but loop not yet activated (regardless of strip visibility) ──
+  const nudgeLoop = !!midi && loopStart !== null && loopEnd !== null && !loopRegionActive
+
+  // ── Loop button tooltip — context-aware based on region state ─────────────
+  const loopStartBar = loopStart !== null ? (() => {
+    let bar = 1
+    for (let i = 0; i < barStarts.length; i++) { if (barStarts[i] <= loopStart) bar = i + 1 }
+    return bar
+  })() : null
+  const loopEndBar = (loopEnd !== null && loopStartBar !== null) ? (() => {
+    let rawBar = 1
+    for (let i = 0; i < barStarts.length; i++) { if (barStarts[i] <= loopEnd) rawBar = i + 1 }
+    const pastLastBarStart = barStarts.length === 0 || loopEnd > barStarts[barStarts.length - 1] + 0.001
+    return Math.max(loopStartBar, pastLastBarStart ? rawBar : rawBar - 1)
+  })() : null
+  const loopTooltipTitle = loopStart !== null
+    ? (loopRegionActive ? t`Looping bars ${loopStartBar}–${loopEndBar}` : t`Loop bars ${loopStartBar}–${loopEndBar}`)
+    : t`Loop song or section`
+  const loopTooltipDesc = loopStart !== null
+    ? (loopRegionActive ? t`Click to disable looping.` : t`Click to enable looping.`)
+    : t`Click to loop the entire song, or Alt+Click & drag mouse on the piano roll to select a specific region.`
+
+  return (
+    <>
+      {/* position:relative wrapper so the "click to loop" label can be
+          position:absolute — it used to sit in normal flex flow as the
+          row's last child, so its appearing/disappearing changed the
+          row's total width, which shifted every button's position
+          (the row is horizontally centered as a block, so a width
+          change moves its center point). Absolute positioning removes
+          it from flow entirely — buttons never move regardless of
+          whether the label is showing. ── */}
+      <div data-tour="loop" style={{ position: 'relative', display: 'flex' }}>
+        <TBtn
+          onClick={() => {
+            const newActive = !loopRegionActive
+            setLoopRegionActive(newActive)
+            // Jump to loop start when activating with a selection, without forcing playback
+            if (newActive && loopStart !== null) seek(loopStart)
+          }}
+          disabled={!midi} active={loopRegionActive} blink={nudgeLoop} title={loopTooltipTitle} description={loopTooltipDesc}
+        ><Repeat size={13} strokeWidth={1.5} /></TBtn>
+        {nudgeLoop && (
+          <span style={{
+            position: 'absolute',
+            ...(hintBelow
+              ? { left: '50%', top: '100%', transform: 'translateX(-50%)', marginTop: 1 }
+              : { left: '100%', top: '50%', transform: 'translateY(-50%)', marginLeft: 4 }),
+            color: 'var(--text-amber)', fontSize: 9, fontFamily: 'var(--font-ui)',
+            whiteSpace: 'nowrap', letterSpacing: '0.04em',
+            opacity: 0.85, pointerEvents: 'none', userSelect: 'none',
+          }}>
+            {t`click to loop`}
+          </span>
+        )}
+      </div>
+    </>
+  )
 }
 
 export function TBtn({ children, onClick, disabled, accent, active, blink, title, description, large, oneLine }: {
