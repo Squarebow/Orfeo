@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  SignPath artifact configuration "app-files" (project Orfeo).
+  Round 1 of the Windows release (.github/workflows/release.yml): the program files
+  built from this repository, before they are packed into the installer and the
+  portable app. The workflow puts them flat in the artifact, so the paths have no
+  folders. Third-party files (Electron's DLLs, FluidSynth, MIDI add-ons) are not
+  signed: they aren't built from this repository.
+  The copy SignPath uses is the one pasted into the SignPath web app; keep the two the same.
+-->
+<artifact-configuration xmlns="http://signpath.io/artifact-configuration/v1">
+  <zip-file>
+    <pe-file path="Orfeo.exe">
+      <authenticode-sign />
+    </pe-file>
+    <pe-file path="orfeo_audio.node">
+      <authenticode-sign />
+    </pe-file>
+    <pe-file path="orfeo-review.exe">
+      <authenticode-sign />
+    </pe-file>
+  </zip-file>
+</artifact-configuration>

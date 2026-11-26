@@ -6,7 +6,8 @@
 # docs/CONTRIBUTING.md → "Releasing a new version".
 #
 # 1. Check   — version, tag, package.json and changelog all agree; builds the notes
-# 2. Build   — on Windows, from the tag: installer, portable, latest.yml → draft release;
+# 2. Build   — on Windows, from the tag: installer, portable, latest.yml → draft release,
+#              code-signed by SignPath on the way (see the build job);
 #              the Microsoft Store package (.appx) is kept as a run artifact, not on GitHub
 #              On macOS, at the same time: .dmg and .zip for Apple Silicon and Intel →
 #              the same draft (ad-hoc signed, not notarized: no Apple account needed)
@@ -126,7 +127,11 @@ jobs:
     name: 2. Build (Windows)
     needs: check
     runs-on: windows-latest
-    timeout-minutes: 45
+    # signing can wait up to an hour per round for an approval in SignPath
+    timeout-minutes: 180
+    permissions:
+      contents: write
+      actions: read
     steps:
       - name: Get the code of the tagged version
         uses: actions/checkout@v7
@@ -154,15 +159,141 @@ jobs:
       - name: Build the native audio engine
         run: npm run native:build
 
-      - name: Build and upload to a draft release
+      # Windows code signing, by SignPath (free for open source, SignPath Foundation).
+      # Two rounds, because the installer packs the program files inside it:
+      #   1. the program files built from this repository (.signpath/app-files.xml)
+      #   2. the installer and portable app made from those (.signpath/installers.xml)
+      # Each round: upload the files as a run artifact → SignPath signs them → the signed
+      # copies come back. The signing policy is the repository variable
+      # SIGNPATH_SIGNING_POLICY: test-signing (self-signed test certificate) until the
+      # real certificate is in SignPath, then release-signing. The API token of the
+      # SignPath CI user is the secret SIGNPATH_API_TOKEN.
+      - name: Build the app folder
+        shell: bash
+        run: |
+          npm run build
+          npx electron-builder --win --dir --publish never
+
+      - name: Collect the program files to sign
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir sign-app
+          cp release/win-unpacked/Orfeo.exe \
+             release/win-unpacked/resources/native/orfeo_audio.node \
+             release/win-unpacked/resources/native/orfeo-review.exe sign-app/
+
+      - name: Upload the program files for signing
+        id: upload-app
+        uses: actions/upload-artifact@v7
+        with:
+          name: unsigned-app-files
+          path: sign-app/*
+          if-no-files-found: error
+
+      - name: Sign the program files (SignPath)
+        uses: signpath/github-action-submit-signing-request@a2c5b60d9c75f073142b653c354b632eedce097b # v3
+        with:
+          api-token: ${{ secrets.SIGNPATH_API_TOKEN }}
+          organization-id: 28762cda-eb5e-44b5-b89a-3d6d4bd3f654
+          project-slug: Orfeo
+          signing-policy-slug: ${{ vars.SIGNPATH_SIGNING_POLICY || 'test-signing' }}
+          artifact-configuration-slug: app-files
+          github-artifact-id: ${{ steps.upload-app.outputs.artifact-id }}
+          wait-for-completion: true
+          # release-signing waits for a person to approve the request in SignPath
+          wait-for-completion-timeout-in-seconds: 3600
+          output-artifact-directory: signed-app
+
+      - name: Put the signed program files back into the app folder
+        shell: bash
+        run: |
+          set -euo pipefail
+          cp signed-app/Orfeo.exe release/win-unpacked/
+          cp signed-app/orfeo_audio.node signed-app/orfeo-review.exe release/win-unpacked/resources/native/
+
+      - name: Build the installer and portable app from the signed app folder
+        shell: bash
+        run: |
+          npx electron-builder --win nsis portable --prepackaged release/win-unpacked --publish never \
+            '-c.nsis.artifactName=Orfeo-Setup-${version}.${ext}' \
+            '-c.portable.artifactName=Orfeo-${version}-portable.${ext}'
+
+      - name: Collect the installer and portable app to sign
+        shell: bash
+        run: |
+          set -euo pipefail
+          v=$(node -p "require('./package.json').version")
+          mkdir sign-installers
+          cp "release/Orfeo-Setup-$v.exe" sign-installers/Orfeo-Setup.exe
+          cp "release/Orfeo-$v-portable.exe" sign-installers/Orfeo-portable.exe
+
+      - name: Upload the installer and portable app for signing
+        id: upload-installers
+        uses: actions/upload-artifact@v7
+        with:
+          name: unsigned-installers
+          path: sign-installers/*
+          if-no-files-found: error
+
+      - name: Sign the installer and portable app (SignPath)
+        uses: signpath/github-action-submit-signing-request@a2c5b60d9c75f073142b653c354b632eedce097b # v3
+        with:
+          api-token: ${{ secrets.SIGNPATH_API_TOKEN }}
+          organization-id: 28762cda-eb5e-44b5-b89a-3d6d4bd3f654
+          project-slug: Orfeo
+          signing-policy-slug: ${{ vars.SIGNPATH_SIGNING_POLICY || 'test-signing' }}
+          artifact-configuration-slug: installers
+          github-artifact-id: ${{ steps.upload-installers.outputs.artifact-id }}
+          wait-for-completion: true
+          wait-for-completion-timeout-in-seconds: 3600
+          output-artifact-directory: signed-installers
+
+      # Signing changes the installer's bytes, so the checksum and blockmap
+      # electron-builder made are rebuilt from the signed file
+      # (scripts/signed-update-info.mjs); otherwise installed copies would refuse
+      # the update.
+      - name: Put the signed files back and rebuild latest.yml
+        shell: bash
+        run: |
+          set -euo pipefail
+          v=$(node -p "require('./package.json').version")
+          cp signed-installers/Orfeo-Setup.exe "release/Orfeo-Setup-$v.exe"
+          cp signed-installers/Orfeo-portable.exe "release/Orfeo-$v-portable.exe"
+          node scripts/signed-update-info.mjs "release/Orfeo-Setup-$v.exe"
+
+      # Fails the release if any file came back unsigned. A test-certificate
+      # signature isn't trusted by Windows, so this checks there is one, not that
+      # Windows trusts it.
+      - name: Check the signatures
+        shell: pwsh
+        run: |
+          $v = node -p "require('./package.json').version"
+          $files = @(
+            "release/win-unpacked/Orfeo.exe",
+            "release/win-unpacked/resources/native/orfeo_audio.node",
+            "release/win-unpacked/resources/native/orfeo-review.exe",
+            "release/Orfeo-Setup-$v.exe",
+            "release/Orfeo-$v-portable.exe"
+          )
+          $bad = 0
+          foreach ($f in $files) {
+            $sig = Get-AuthenticodeSignature $f
+            "{0}: {1} — {2}" -f $f, $sig.Status, $sig.SignerCertificate.Subject
+            if ($null -eq $sig.SignerCertificate) { $bad++ }
+          }
+          if ($bad) { Write-Error "$bad file(s) are not signed"; exit 1 }
+
+      - name: Upload to the draft release
         shell: bash
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          npm run build
-          npx electron-builder --win nsis portable --publish always \
-            '-c.nsis.artifactName=Orfeo-Setup-${version}.${ext}' \
-            '-c.portable.artifactName=Orfeo-${version}-portable.${ext}'
+          set -euo pipefail
+          v=$(node -p "require('./package.json').version")
+          cd release
+          gh release upload "v$v" "Orfeo-Setup-$v.exe" "Orfeo-Setup-$v.exe.blockmap" \
+            "Orfeo-$v-portable.exe" latest.yml --clobber --repo "$GITHUB_REPOSITORY"
 
       # Installed copies download their update from their own copy of the
       # installer, so GitHub counts in-app updates apart from people
@@ -185,7 +316,7 @@ jobs:
           if grep -q "Orfeo-Setup-" latest.yml || ! grep -q "Orfeo-Update-$v.exe" latest.yml; then
             echo "::error::latest.yml doesn't point at Orfeo-Update-$v.exe"; exit 1
           fi
-          # --clobber replaces the latest.yml electron-builder uploaded (still a draft: nobody sees the change)
+          # --clobber replaces the latest.yml uploaded above (still a draft: nobody sees the change)
           gh release upload "v$v" "Orfeo-Update-$v.exe" "Orfeo-Update-$v.exe.blockmap" latest.yml --clobber --repo "$GITHUB_REPOSITORY"
 
       # The Store package is unsigned here — the Store signs it — so it is no

@@ -273,6 +273,22 @@ machine for it, the run's summary says so and *Re-run failed jobs* adds them. It
 (`Orfeo-X.Y.Z.appx`, from the same app folder) and keeps it with the run, for
 step 4.
 
+#### Windows code signing (SignPath)
+
+The Windows files are code-signed by [SignPath](https://about.signpath.io/)
+through the SignPath Foundation's free open-source program, inside the build job,
+in two rounds: first the program files built from this repository (`Orfeo.exe`,
+`orfeo_audio.node`, `orfeo-review.exe`), then the installer and portable app made
+from them. `latest.yml` and the blockmap are rebuilt from the signed installer
+(`scripts/signed-update-info.mjs`), since signing changes its checksum.
+
+| Where | What |
+|---|---|
+| SignPath → project **Orfeo** → Artifact configurations | `app-files` and `installers`, the contents of `.signpath/app-files.xml` and `.signpath/installers.xml` (keep both copies the same) |
+| SignPath → project **Orfeo** → Trusted build systems | GitHub.com, linked to this repository |
+| GitHub → Settings → Secrets and variables → Actions → **Secrets** | `SIGNPATH_API_TOKEN`: the API token of the SignPath CI user |
+| GitHub → Settings → Secrets and variables → Actions → **Variables** | `SIGNPATH_SIGNING_POLICY`: `test-signing` (self-signed test certificate, the default when unset) or `release-signing` (the real certificate; each request waits for approval in SignPath) |
+
 > [!IMPORTANT]
 > `latest.yml` is what makes auto-update work, and `electron-updater` only sees
 > **published** releases. A release left as a draft, or published without
