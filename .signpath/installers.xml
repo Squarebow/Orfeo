@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  SignPath artifact configuration "installers" (project Orfeo).
+  Round 2 of the Windows release (.github/workflows/release.yml): the installer and
+  the portable app, built from the program files signed in round 1. The workflow
+  gives them these fixed names for signing and puts the version back afterwards.
+  The copy SignPath uses is the one pasted into the SignPath web app; keep the two the same.
+-->
+<artifact-configuration xmlns="http://signpath.io/artifact-configuration/v1">
+  <zip-file>
+    <pe-file path="Orfeo-Setup.exe">
+      <authenticode-sign />
+    </pe-file>
+    <pe-file path="Orfeo-portable.exe">
+      <authenticode-sign />
+    </pe-file>
+  </zip-file>
+</artifact-configuration>
