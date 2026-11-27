@@ -4,7 +4,7 @@
 #   • by the Release workflow (release.yml → "2. Build (Windows)"), from the tag;
 #     release.yml then uploads the files into the draft release;
 #   • by hand, as a signing test that releases nothing:
-#     Actions → Windows build → Run workflow (once this file is on main).
+#     Actions → Windows SignPath build → Run workflow.
 #
 # Signing, in two rounds because the installer packs the program files inside it:
 #   1. the program files built from this repository (.signpath/app-files.xml)
@@ -15,7 +15,7 @@
 # until the real certificate is in SignPath, then release-signing. The API token of
 # the SignPath CI user is the secret SIGNPATH_API_TOKEN. Setup: docs/CONTRIBUTING.md
 # → "Windows code signing".
-name: Windows build
+name: Windows SignPath build
 
 on:
   workflow_dispatch:

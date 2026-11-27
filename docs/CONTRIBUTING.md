@@ -289,7 +289,7 @@ from them. `latest.yml` and the blockmap are rebuilt from the signed installer
 | GitHub → Settings → Secrets and variables → Actions → **Secrets** | `SIGNPATH_API_TOKEN`: the API token of the SignPath CI user |
 | GitHub → Settings → Secrets and variables → Actions → **Variables** | `SIGNPATH_SIGNING_POLICY`: `test-signing` (self-signed test certificate, the default when unset) or `release-signing` (the real certificate; each request waits for approval in SignPath) |
 
-To try signing without releasing anything: GitHub → Actions → **Windows build** →
+To try signing without releasing anything: GitHub → Actions → **Windows SignPath build** →
 **Run workflow**. The signed installer and portable app are kept with the run
 (artifact `windows-release`).
 
